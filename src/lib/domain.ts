@@ -39,7 +39,7 @@ export type Snapshot = {
   historicalAsOf?: string;
   dataRoot?: string;
 };
-export const strategySchema = z
+const maParamsSchema = z
   .object({
     name: z.string().min(1).max(80).default("双均线趋势"),
     fast: z.number().int().min(2).max(120).default(5),
@@ -52,6 +52,30 @@ export const strategySchema = z
     (s) => s.fast < s.slow && s.minChange <= s.maxChange,
     "短均线须小于长均线，涨幅下限须不大于上限",
   );
+const czscParamsSchema = z
+  .object({ config: z.union([z.literal(0), z.literal(1100)]).default(0) })
+  .strict();
+// Flat fields remain a compatibility projection for existing research consumers.
+// Persisted pre-M4 objects stay valid without rewriting records or their baselines.
+export const strategySchema = z.union([
+  z
+    .object({
+      type: z.literal("dual-breakout"),
+      params: z.object({}).strict().default({}),
+    })
+    .transform((s) => ({ ...maParamsSchema.parse({}), name: "双突破", ...s })),
+  z
+    .object({ type: z.literal("ma-cross"), params: maParamsSchema })
+    .transform((s) => ({ ...s.params, ...s })),
+  z
+    .object({ type: z.literal("czsc"), params: czscParamsSchema })
+    .transform((s) => ({
+      ...maParamsSchema.parse({}),
+      name: "缠论买卖点",
+      ...s,
+    })),
+  maParamsSchema.and(z.object({ type: z.undefined().optional() })),
+]);
 export type Strategy = z.infer<typeof strategySchema>;
 export const defaultStrategy: Strategy = {
   name: "双均线趋势",
@@ -165,6 +189,8 @@ export type Channel = Omit<
   "secret" | "signingSecret" | "id"
 > & { id: string; configured: boolean };
 export type Signal = {
+  breakout?: import("../server/breakout").BreakoutResult;
+  czsc?: import("./czsc").CzscSignalDetails;
   monitorRun?: { createdAt: number; revision: string | null };
   tradingStatusEvidence?: SecurityTradingStatus;
   calendarEvidence?: {
@@ -217,7 +243,10 @@ export type Monitor = {
   channels: string[];
   ai: boolean;
   enabled: boolean;
-  states: Record<string, { date: string; matched: boolean }>;
+  states: Record<
+    string,
+    { date: string; matched: boolean; signalKeys?: string[] }
+  >;
   createdAt: number;
   lastCheck?: number;
   error?: string;

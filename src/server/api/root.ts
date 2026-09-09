@@ -1,4 +1,7 @@
 import { newsBudget } from "../news-budget";
+import { analyzeCzsc } from "../czsc";
+import { analyzeBreakout } from "../breakout";
+import { completedBarFilter } from "../screening";
 import { reportSecurityContext } from "../report-security";
 import { screenSortSchema } from "~/lib/screen-sort";
 import { securityProfile } from "../securities";
@@ -308,6 +311,24 @@ export const appRouter = createTRPCRouter({
         input.query,
         input.period,
       );
+    }),
+  breakout: p
+    .input(z.object({ snapshotId: z.string().min(1) }))
+    .query(({ input }) => {
+      const source = get<Snapshot>(input.snapshotId);
+      if (!source || !Array.isArray(source.bars))
+        throw new Error("行情快照不存在");
+      if (source.period !== "day") throw new Error("双突破仅支持日线");
+      const completed = completedBarFilter("day", Date.now());
+      return analyzeBreakout(source.bars.filter((b) => completed(b.date)), 0);
+    }),
+  czsc: p
+    .input(z.object({ snapshotId: z.string().min(1) }))
+    .query(({ input }) => {
+      const source = get<Snapshot>(input.snapshotId);
+      if (!source || !Array.isArray(source.bars))
+        throw new Error("行情快照不存在");
+      return analyzeCzsc(source.bars);
     }),
   snapshot: p
     .input(
@@ -770,6 +791,11 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .mutation(({ input }) => {
+      if (
+        ["czsc", "dual-breakout"].includes(input.strategy.type ?? "") &&
+        input.period !== "day"
+      )
+        throw new Error("缠论/双突破监控仅支持日线");
       for (const id of input.channels)
         if (!get<Channel>(id)) throw new Error("通知渠道不存在");
       const id = input.id ?? `monitor-${randomUUID()}`;

@@ -33,6 +33,8 @@ import { put, get, list, atomic, putChangedBatch } from "./db";
 import { settings } from "./settings";
 import { runWorker, background, recoverJobs, updateJob } from "./jobs";
 import { metrics } from "./quant";
+import { monitorStrategy } from "./monitor-strategy";
+import { analyzeCzscSignal } from "./czsc-signal-analysis";
 import { analyze, snapshotEvidence } from "./research";
 import { enqueue, drain, recoverDeliveries } from "./notifications";
 import { mcpProvider, gatherEvidence } from "./market-data";
@@ -513,6 +515,13 @@ export async function tick() {
       };
       for (const symbol of monitor.symbols) {
         try {
+          if (
+            ["czsc", "dual-breakout"].includes(monitor.strategy.type ?? "") &&
+            monitor.period !== "day"
+          ) {
+            updated.error = "缠论/双突破监控仅支持日线";
+            continue;
+          }
           const source = await snapshot(
             symbol,
             monitor.period,
@@ -526,10 +535,19 @@ export async function tick() {
                 (b.date === local.slice(0, 10) &&
                   local.slice(11, 16) >= "15:05"),
           );
-          const value = metrics(completed, monitor.strategy);
+          const evaluated = await monitorStrategy(
+            completed,
+            monitor.strategy,
+            monitor.states[symbol],
+          );
+          const value = evaluated.value;
           if (!value) continue;
-          const previous = monitor.states[symbol],
-            current = { date: value.date, matched: value.matched };
+          const previous = evaluated.previous,
+            current = {
+              date: value.date,
+              matched: value.matched,
+              ...(evaluated.keys ? { signalKeys: evaluated.keys } : {}),
+            };
           const live = get<Monitor>(monitor.id);
           if (
             !sameMonitorRun(monitor, live) ||
@@ -589,6 +607,8 @@ export async function tick() {
                 expiresAt:
                   checkedAt + (monitor.period === "day" ? 86400000 : 600000),
                 metrics: value,
+                ...(evaluated.details ? { czsc: evaluated.details } : {}),
+                ...(evaluated.breakout ? { breakout: evaluated.breakout } : {}),
                 snapshotId: source.id,
                 source: source.source,
                 calendarEvidence,
@@ -621,16 +641,18 @@ export async function tick() {
               if (!committed) break;
               if (committed.ai)
                 background("research", { signalId: id }, async (_, abort) => {
-                  const report = await analyze(
-                    id,
-                    "简短解读此规则信号，指出风险及观察条件，不把信号当作已执行交易。",
-                    await gatherEvidence(
-                      { ...source, bars: completed },
-                      monitor.strategy,
-                      abort,
-                    ),
-                    abort,
-                  );
+                  const report = signal.czsc
+                    ? await analyzeCzscSignal(signal, abort)
+                    : await analyze(
+                        id,
+                        "简短解读此规则信号，指出风险及观察条件，不把信号当作已执行交易。",
+                        await gatherEvidence(
+                          { ...source, bars: completed },
+                          monitor.strategy,
+                          abort,
+                        ),
+                        abort,
+                      );
                   atomic(() => {
                     const latest = get<Monitor>(monitor.id);
                     if (sameMonitorRun(monitor, latest) && latest.ai)

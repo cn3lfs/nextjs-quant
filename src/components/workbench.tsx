@@ -50,6 +50,7 @@ import { PriceChart } from "./chart";
 import { SecuritySelect } from "./security-select";
 import {
   defaultStrategy,
+  periodSchema,
   type Snapshot,
   type Strategy,
   type Period,
@@ -386,7 +387,11 @@ function StrategyFields({
           type="number"
           value={strategy.fast}
           onChange={(e) =>
-            setStrategy({ ...strategy, fast: Number(e.target.value) })
+            setStrategy({
+              ...strategy,
+              type: undefined,
+              fast: Number(e.target.value),
+            })
           }
         />
       </Field>
@@ -395,7 +400,11 @@ function StrategyFields({
           type="number"
           value={strategy.slow}
           onChange={(e) =>
-            setStrategy({ ...strategy, slow: Number(e.target.value) })
+            setStrategy({
+              ...strategy,
+              type: undefined,
+              slow: Number(e.target.value),
+            })
           }
         />
       </Field>
@@ -404,7 +413,11 @@ function StrategyFields({
           type="number"
           value={strategy.minChange}
           onChange={(e) =>
-            setStrategy({ ...strategy, minChange: Number(e.target.value) })
+            setStrategy({
+              ...strategy,
+              type: undefined,
+              minChange: Number(e.target.value),
+            })
           }
         />
       </Field>
@@ -413,7 +426,11 @@ function StrategyFields({
           type="number"
           value={strategy.maxChange}
           onChange={(e) =>
-            setStrategy({ ...strategy, maxChange: Number(e.target.value) })
+            setStrategy({
+              ...strategy,
+              type: undefined,
+              maxChange: Number(e.target.value),
+            })
           }
         />
       </Field>
@@ -423,7 +440,11 @@ function StrategyFields({
           step="0.1"
           value={strategy.minVolumeRatio}
           onChange={(e) =>
-            setStrategy({ ...strategy, minVolumeRatio: Number(e.target.value) })
+            setStrategy({
+              ...strategy,
+              type: undefined,
+              minVolumeRatio: Number(e.target.value),
+            })
           }
         />
       </Field>
@@ -578,6 +599,9 @@ export function Workbench() {
     },
     onError,
   });
+  const [monitorType, setMonitorType] = useState<
+    "ma-cross" | "czsc" | "dual-breakout"
+  >("ma-cross");
   const [monitorName, setMonitorName] = useState("趋势跟踪"),
     [monitorChannels, setMonitorChannels] = useState<string[]>([]),
     [monitorAi, setMonitorAi] = useState(true),
@@ -830,10 +854,11 @@ export function Workbench() {
                       {verifyIdentity.isPending ? "核验中…" : "核验证券身份"}
                     </Button>
                     <div className="segmented">
-                      {(["day", "5m"] as const).map((p) => (
+                      {periodSchema.options.map((p) => (
                         <button
                           className={period === p ? "selected" : ""}
                           key={p}
+                          disabled={load.isPending}
                           onClick={() => {
                             setPeriod(p);
                             load.mutate({ symbol, period: p });
@@ -928,8 +953,13 @@ export function Workbench() {
                       <b>{last ? fmt(last.amount / 1e8) + " 亿" : "—"}</b>
                     </span>
                   </div>
-                  {loaded ? (
-                    <PriceChart bars={loaded.bars.slice(-180)} />
+                  {loaded && !load.isPending ? (
+                    <PriceChart
+                      key={loaded.id}
+                      bars={loaded.bars}
+                      snapshotId={loaded.id}
+                      period={loaded.period}
+                    />
                   ) : (
                     <Empty>
                       {load.isPending
@@ -1826,9 +1856,27 @@ export function Workbench() {
                       placeholder={watchlist.join(",")}
                     />
                   </Field>
+                  <Field label="监控策略">
+                    <select
+                      aria-label="监控策略"
+                      value={monitorType}
+                      onChange={(e) => {
+                        setMonitorType(
+                          e.target.value as
+                            "ma-cross" | "czsc" | "dual-breakout",
+                        );
+                        if (e.target.value !== "ma-cross") setPeriod("day");
+                      }}
+                    >
+                      <option value="ma-cross">双均线趋势</option>
+                      <option value="czsc">缠论买卖点（确认及以上）</option>
+                      <option value="dual-breakout">双突破（日线）</option>
+                    </select>
+                  </Field>
                   <Field label="周期">
                     <select
-                      value={period}
+                      value={monitorType !== "ma-cross" ? "day" : period}
+                      disabled={monitorType !== "ma-cross"}
                       onChange={(e) => setPeriod(e.target.value as Period)}
                     >
                       <option value="day">日线</option>
@@ -1836,7 +1884,17 @@ export function Workbench() {
                     </select>
                   </Field>
                 </div>
-                <StrategyFields strategy={strategy} setStrategy={setStrategy} />
+                {monitorType === "ma-cross" ? (
+                  <StrategyFields
+                    strategy={strategy}
+                    setStrategy={setStrategy}
+                  />
+                ) : (
+                  <p className="muted">
+                    日线 15:05 后检查一、二、三类买卖点；使用严格笔中枢（配置
+                    0），仅确认及强质量。
+                  </p>
+                )}
                 <Field label="监控数据源">
                   <select
                     value={monitorSource}
@@ -1880,8 +1938,13 @@ export function Workbench() {
                     saveMonitor.mutate({
                       name: monitorName,
                       symbols: symbols() ?? watchlist,
-                      strategy,
-                      period,
+                      strategy:
+                        monitorType === "dual-breakout"
+                          ? { type: "dual-breakout", params: {} }
+                          : monitorType === "czsc"
+                            ? { type: "czsc", params: { config: 0 } }
+                            : strategy,
+                      period: monitorType !== "ma-cross" ? "day" : period,
                       source: monitorSource,
                       channels: monitorChannels,
                       ai: monitorAi,
