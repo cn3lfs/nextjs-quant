@@ -62,3 +62,10 @@ Codex runs under the `workspace-write` sandbox, which has **no network access**.
 
 - Do **not** run `pnpm desktop:smoke` or `pnpm desktop:pack`. A failure there tells you nothing.
 - Stop at `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm desktop:prepare`. The manager runs the desktop tier.
+
+## Never migrate the shared production database from a dev run
+
+Browser, desktop and every dev/test run default to the same data directory `%LOCALAPPDATA%\QuantWorkbench`. A dev run that advances `user_version` there **permanently breaks the packaged exe**, which refuses to start with 「数据库版本高于此应用版本」 by design (`src/server/db/migrations.ts`).
+
+- Any run that can apply migrations — `pnpm dev`, `pnpm start`, Playwright reviews, integration tests — must set `QUANT_DATA_DIR` to an isolated path first.
+- Whenever `migrations.ts` gains an entry, the packaged exe is stale by definition. Repacking is the manager's job; note it in the milestone report.
