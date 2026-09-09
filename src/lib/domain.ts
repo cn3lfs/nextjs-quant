@@ -1,0 +1,295 @@
+import { z } from "zod";
+import type { SecurityTradingStatus } from "./security-trading-status";
+export const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
+export const periodSchema = z.enum(["day", "5m"]);
+export type Period = z.infer<typeof periodSchema>;
+export type Bar = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  amount: number;
+};
+export type Security = {
+  symbol: string;
+  name: string;
+  market: string;
+  bytes: number;
+  modified: number;
+  period: Period;
+};
+export type Coverage = {
+  root: string;
+  counts: Record<string, number>;
+  securities: Security[];
+  scannedAt: number;
+};
+export type Snapshot = {
+  id: string;
+  symbol: string;
+  name?: string;
+  period: Period;
+  source: string;
+  adjustment: "none";
+  createdAt: number;
+  bars: Bar[];
+  hash: string;
+  historicalAsOf?: string;
+  dataRoot?: string;
+};
+export const strategySchema = z
+  .object({
+    name: z.string().min(1).max(80).default("双均线趋势"),
+    fast: z.number().int().min(2).max(120).default(5),
+    slow: z.number().int().min(3).max(250).default(20),
+    minChange: z.number().min(-30).max(30).default(-10),
+    maxChange: z.number().min(-30).max(30).default(10),
+    minVolumeRatio: z.number().min(0).max(20).default(0),
+  })
+  .refine(
+    (s) => s.fast < s.slow && s.minChange <= s.maxChange,
+    "短均线须小于长均线，涨幅下限须不大于上限",
+  );
+export type Strategy = z.infer<typeof strategySchema>;
+export const defaultStrategy: Strategy = {
+  name: "双均线趋势",
+  fast: 5,
+  slow: 20,
+  minChange: -10,
+  maxChange: 10,
+  minVolumeRatio: 0,
+};
+export type Metrics = {
+  close: number;
+  change: number;
+  fast: number;
+  slow: number;
+  volumeRatio: number;
+  matched: boolean;
+  date: string;
+  score: number;
+};
+export type Candidate = {
+  symbol: string;
+  name: string;
+  metrics: Metrics;
+  snapshotId: string;
+};
+export type Job = {
+  ownerPid?: number;
+  id: string;
+  type:
+    | "scan"
+    | "screen"
+    | "online-screen"
+    | "backtest"
+    | "walk-forward"
+    | "research"
+    | "monitor";
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  phase?: string;
+  workProgress?: import("./work-progress").WorkProgress;
+  createdAt: number;
+  updatedAt: number;
+  input: unknown;
+  result?: unknown;
+  error?: string;
+};
+export type Evidence = {
+  id: string;
+  source: string;
+  asOf: string;
+  text: string;
+  envelope?: import("./evidence-envelope").EvidenceEnvelope;
+};
+export const reportSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  supporting: z.array(z.string()),
+  opposing: z.array(z.string()),
+  risks: z.array(z.string()),
+  missing: z.array(z.string()),
+  nextSteps: z.array(z.string()),
+  citations: z.array(z.string()),
+  stages: z
+    .array(
+      z.object({
+        id: z.enum([
+          "market",
+          "fundamentals",
+          "trend",
+          "vcp",
+          "entry-risk",
+          "conclusion",
+        ]),
+        status: z.enum(["supported", "contradicted", "missing"]),
+        summary: z.string().min(1),
+        citations: z.array(z.string()),
+        missing: z.array(z.string()),
+      }),
+    )
+    .optional(),
+});
+export type Report = z.infer<typeof reportSchema> & {
+  id: string;
+  createdAt: number;
+  model: string;
+  promptVersion: string;
+  evidence: Evidence[];
+  tokens: number;
+  contextId: string;
+  skills?: {
+    skillId: string;
+    ruleVersion: string;
+    outputSchema: string;
+    files: { file: string; hash: string }[];
+    prerequisites: string[];
+  }[];
+  batchUsage?: { batchId: string; reports: number; tokens: number };
+};
+export const channelSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1).max(80),
+  type: z.enum(["feishu", "wecom", "telegram", "discord"]),
+  enabled: z.boolean().default(false),
+  target: z.string().max(200).default(""),
+  thread: z.string().max(100).default(""),
+  secret: z.string().max(4096).optional(),
+  signingSecret: z.string().max(500).optional(),
+});
+export type Channel = Omit<
+  z.infer<typeof channelSchema>,
+  "secret" | "signingSecret" | "id"
+> & { id: string; configured: boolean };
+export type Signal = {
+  monitorRun?: { createdAt: number; revision: string | null };
+  tradingStatusEvidence?: SecurityTradingStatus;
+  calendarEvidence?: {
+    source: string;
+    hash: string | null;
+    assessedAt: number;
+  };
+  id: string;
+  monitorId: string;
+  symbol: string;
+  strategy: Strategy;
+  period: Period;
+  date: string;
+  createdAt: number;
+  expiresAt: number;
+  metrics: Metrics;
+  snapshotId: string;
+  source: string;
+};
+export type Delivery = {
+  manualRetry?: boolean;
+  id: string;
+  signalId: string;
+  channelId: string;
+  kind: "signal" | "analysis" | "test";
+  title: string;
+  body: string;
+  status: "pending" | "sending" | "sent" | "failed" | "expired" | "cancelled";
+  attempts: number;
+  nextAt: number;
+  expiresAt: number;
+  createdAt: number;
+  error?: string;
+  remoteId?: string;
+};
+export type Monitor = {
+  revision?: string;
+  tradingStatusChecks?: Record<string, SecurityTradingStatus>;
+  calendarEvidence?: {
+    source: string;
+    hash: string | null;
+    assessedAt: number;
+  };
+  id: string;
+  name: string;
+  symbols: string[];
+  strategy: Strategy;
+  period: Period;
+  source: "local" | "mcp";
+  channels: string[];
+  ai: boolean;
+  enabled: boolean;
+  states: Record<string, { date: string; matched: boolean }>;
+  createdAt: number;
+  lastCheck?: number;
+  error?: string;
+};
+export const settingsSchema = z.object({
+  llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
+  codexModel: z.string().trim().max(100).default(""),
+  claudeModel: z.string().trim().max(100).default(""),
+  tdxRoot: z.string().min(1).default("E:\\new_tdx64"),
+  clsDbPath: z
+    .string()
+    .min(1)
+    .default("E:/pythonPrj/cls_news_collector/cls_news.db"),
+  autoAnalysis: z.boolean().default(true),
+  autoNewsAnalysis: z.boolean().default(false),
+  autoNewsDailyBatches: z.number().int().min(1).max(100).default(8),
+  analysisLimit: z.number().int().min(1).max(10).default(10),
+  fastModel: z.string().default("deepseek-v4-flash"),
+  deepModel: z.string().default("deepseek-v4-pro"),
+  proxy: z.string().default(""),
+  calendar: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
+});
+export type Settings = z.infer<typeof settingsSchema>;
+export type Trade = {
+  date: string;
+  side: "buy" | "sell";
+  price: number;
+  shares: number;
+  fee: number;
+};
+export type Backtest = {
+  signalAdjustment?: import("~/server/cash-adjusted-signals").CashSignalAdjustment;
+  dividends?: {
+    strategy: import("~/server/dividend-ledger").DividendLedgerResult;
+    benchmark: import("~/server/dividend-ledger").DividendLedgerResult;
+  };
+  corporateActions?: import("~/server/backtest-actions").BacktestActions;
+  benchmark?: {
+    version: "buy-hold-1" | "buy-hold-2";
+    label: string;
+    equity: { date: string; value: number }[];
+    trade: Trade | null;
+    totalReturn: number;
+    maxDrawdown: number;
+    excessReturnPoints: number;
+    cash: number;
+    shares: number;
+  };
+  evaluationStart?: number;
+  engineVersion?: string;
+  costs?: import("./backtest-costs").BacktestCosts;
+  dataRange?: {
+    scope: "full" | "window";
+    warmupBars?: number;
+    start: string;
+    end: string;
+    bars: number;
+    selectedSnapshotId: string;
+  };
+  snapshotId: string;
+  strategy: Strategy;
+  equity: { date: string; value: number }[];
+  trades: Trade[];
+  totalReturn: number;
+  maxDrawdown: number;
+  cash: number;
+  shares: number;
+  diagnostics: {
+    entrySignals: number;
+    insufficientCash: number;
+    untradable: number;
+    initial: number;
+  };
+  assumptions: string[];
+};
