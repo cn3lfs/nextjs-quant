@@ -47,6 +47,15 @@ it("a stale strict screen fails without saving snapshots or creating model jobs"
   });
   await vi.waitFor(() => expect(get<Job>(job.id)?.status).toBe("failed"));
   expect(get<Job>(job.id)?.error).toContain("严格当前模式");
+  expect(get<Job>(job.id)?.phase).toBe("核对选股基准日与交易日历");
+  expect(get<Job>(job.id)?.workProgress).toEqual({
+    stage: "核对选股基准日与交易日历",
+    unit: "步骤",
+    processed: 1,
+    total: 1,
+    failed: 1,
+    excluded: 0,
+  });
   expect(get("fixture-snapshot")).toBeUndefined();
   expect(list<Job>("job").filter((j) => j.type === "research")).toHaveLength(0);
   expect(quickResearch).not.toHaveBeenCalled();

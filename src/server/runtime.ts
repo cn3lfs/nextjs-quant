@@ -200,6 +200,11 @@ export function screenJob(
       );
       const workerDone = performance.now();
       if (signal.aborted) throw new Error("已取消");
+      const calendarStage = "核对选股基准日与交易日历";
+      updateJob(job.id, {
+        phase: calendarStage,
+        workProgress: workProgress(calendarStage, "步骤", 0, 1),
+      });
       let calendarReference = await localCalendarReference(
         config.tdxRoot,
         config.calendar,
@@ -222,7 +227,17 @@ export function screenJob(
         Date.now(),
         calendarReference,
       );
-      if (history.requireCurrent) requireCurrentScreen(dataHealth);
+      try {
+        if (history.requireCurrent) requireCurrentScreen(dataHealth);
+      } catch (error) {
+        updateJob(job.id, {
+          workProgress: workProgress(calendarStage, "步骤", 1, 1, 1),
+        });
+        throw error;
+      }
+      updateJob(job.id, {
+        workProgress: workProgress(calendarStage, "步骤", 1, 1),
+      });
       const calendarDone = performance.now();
       const saveBatches = Math.ceil(result.snapshots.length / 50);
       updateJob(job.id, {
