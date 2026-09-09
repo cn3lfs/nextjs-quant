@@ -1,0 +1,255 @@
+{
+  "errCode": 0,
+  "errMsg": "",
+  "costTime": 2,
+  "data": [
+    {
+      "normDay": 20261001,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261002,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261003,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261004,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261005,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261006,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261007,
+      "latesTrdDay": 20260930,
+      "nxtTrdDay": 20261008,
+      "preTrdDay": 20260930,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261008,
+      "latesTrdDay": 20261008,
+      "nxtTrdDay": 20261009,
+      "preTrdDay": 20260930,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261009,
+      "latesTrdDay": 20261009,
+      "nxtTrdDay": 20261012,
+      "preTrdDay": 20261008,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261010,
+      "latesTrdDay": 20261009,
+      "nxtTrdDay": 20261012,
+      "preTrdDay": 20261009,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261011,
+      "latesTrdDay": 20261009,
+      "nxtTrdDay": 20261012,
+      "preTrdDay": 20261009,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261012,
+      "latesTrdDay": 20261012,
+      "nxtTrdDay": 20261013,
+      "preTrdDay": 20261009,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261013,
+      "latesTrdDay": 20261013,
+      "nxtTrdDay": 20261014,
+      "preTrdDay": 20261012,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261014,
+      "latesTrdDay": 20261014,
+      "nxtTrdDay": 20261015,
+      "preTrdDay": 20261013,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261015,
+      "latesTrdDay": 20261015,
+      "nxtTrdDay": 20261016,
+      "preTrdDay": 20261014,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261016,
+      "latesTrdDay": 20261016,
+      "nxtTrdDay": 20261019,
+      "preTrdDay": 20261015,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261017,
+      "latesTrdDay": 20261016,
+      "nxtTrdDay": 20261019,
+      "preTrdDay": 20261016,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261018,
+      "latesTrdDay": 20261016,
+      "nxtTrdDay": 20261019,
+      "preTrdDay": 20261016,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261019,
+      "latesTrdDay": 20261019,
+      "nxtTrdDay": 20261020,
+      "preTrdDay": 20261016,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261020,
+      "latesTrdDay": 20261020,
+      "nxtTrdDay": 20261021,
+      "preTrdDay": 20261019,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261021,
+      "latesTrdDay": 20261021,
+      "nxtTrdDay": 20261022,
+      "preTrdDay": 20261020,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261022,
+      "latesTrdDay": 20261022,
+      "nxtTrdDay": 20261023,
+      "preTrdDay": 20261021,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261023,
+      "latesTrdDay": 20261023,
+      "nxtTrdDay": 20261026,
+      "preTrdDay": 20261022,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261024,
+      "latesTrdDay": 20261023,
+      "nxtTrdDay": 20261026,
+      "preTrdDay": 20261023,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261025,
+      "latesTrdDay": 20261023,
+      "nxtTrdDay": 20261026,
+      "preTrdDay": 20261023,
+      "isTrdDay": 0,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261026,
+      "latesTrdDay": 20261026,
+      "nxtTrdDay": 20261027,
+      "preTrdDay": 20261023,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261027,
+      "latesTrdDay": 20261027,
+      "nxtTrdDay": 20261028,
+      "preTrdDay": 20261026,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261028,
+      "latesTrdDay": 20261028,
+      "nxtTrdDay": 20261029,
+      "preTrdDay": 20261027,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261029,
+      "latesTrdDay": 20261029,
+      "nxtTrdDay": 20261030,
+      "preTrdDay": 20261028,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261030,
+      "latesTrdDay": 20261030,
+      "nxtTrdDay": 20261102,
+      "preTrdDay": 20261029,
+      "isTrdDay": 1,
+      "lhb": 0
+    },
+    {
+      "normDay": 20261031,
+      "latesTrdDay": 20261030,
+      "nxtTrdDay": 20261102,
+      "preTrdDay": 20261030,
+      "isTrdDay": 0,
+      "lhb": 0
+    }
+  ]
+}

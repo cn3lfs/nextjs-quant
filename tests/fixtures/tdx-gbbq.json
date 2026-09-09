@@ -1,0 +1,223 @@
+{
+  "gbbqBase64": "GAAAAGMSJLDzEcmpU8C7GAaGajncvFxVFMPh0gAAAIA/YxIksPMRyamx54bAl/PoHKCuEBuzZkHhRSOQl0VjEiSw8xHJqcqNhf7uXmOKRluEtE5Jhn9AAAAAAGMSJLDzEcmpH/ejVhYN5Cz/6ZYd2JTEZ0WoPAxGYxIksPMRyanPYUcBz5fVSAY6QoZeK3UwQQAAAABjEiSw8xHJqWAWgPdgAmFSGNyNWzWRJEBAAAAAAGMSJLDzEcmp+wyfCzjZWum2SrPKm2rjF0EAAIA/YxIksPMRyam8RanMRt81G6SBgJU7SPqURpR70kZjEiSw8xHJqV+aqaCscry+7MyWkiOOHwdGvRrMRmMSJLDzEcmp2ekBu+dKRu8LaxMQlXelY0bSg+BGYxIksPMRyanEf1jnasxqF2/jzQmWOXCfQAAAgD9jEiSw8xHJqQaW6u0nqKt9U3CfFhIobn9G3GIoR2MSJLDzEcmpOInRO9zZfAwZBNAfaOhTlUAAAAAAYxIksPMRyaly8Of9m/MhITakNqIAP0eSRz0QSkdjEiSw8xHJqUh2IMWKe3i5BjpChl4rdTBBAAAAAGMSJLDzEcmp5OCZhqQ+L7dxyxw6G6wQGUdAEMpHYxIksPMRyantdzWDT6pSFBjcjVs1kSRAQAAAAABjEiSw8xHJqWuQNzWDVfEyiEFgSvk1LtpHLYwXSGMSJLDzEcmpJ1r8iIWl6PQZBNAfaOhTlQAAAAAAYxIksPMRyakT77d3ApINi20jVW8cxVgyAAAAQEBjEiSw8xHJqQ0moVVFxmARP5OXq9zVIdFIjQU+SGMSJLDzEcmpF478LHzI0q/BOvHjrC9P6EiNBT5IYxIksPMRyalpCVcdEZ1vtp8m5DbalIKQAAAAAABjEiSw8xHJqRs9Emi0CNolnybkNtqUgpAAAAAAAA==",
+  "events": {
+    "sz000001": [
+      {
+        "date": "1990-03-01",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.0,
+        "rightsPrice": 3.559999942779541,
+        "bonusRatio": 0.0,
+        "rightsRatio": 0.1
+      },
+      {
+        "date": "1991-04-03",
+        "category": 5,
+        "name": "股本变化",
+        "floatSharesBefore": 0.0,
+        "totalSharesBefore": 0.0,
+        "floatSharesAfter": 26500000.0,
+        "totalSharesAfter": 48500170.8984375
+      },
+      {
+        "date": "1991-05-02",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.3,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.4,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1991-05-02",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 26500000.0,
+        "totalSharesBefore": 48500170.8984375,
+        "floatSharesAfter": 39490722.65625,
+        "totalSharesAfter": 89751640.625
+      },
+      {
+        "date": "1991-08-17",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.0,
+        "rightsPrice": 0.0,
+        "bonusRatio": 1.0,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1992-03-23",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.2,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.5,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1993-05-24",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.3,
+        "rightsPrice": 16.0,
+        "bonusRatio": 0.85,
+        "rightsRatio": 0.1
+      },
+      {
+        "date": "1993-05-24",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 39490722.65625,
+        "totalSharesBefore": 89751640.625,
+        "floatSharesAfter": 188129843.75,
+        "totalSharesAfter": 269417890.625
+      },
+      {
+        "date": "1993-06-30",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 188129843.75,
+        "totalSharesBefore": 269417890.625,
+        "floatSharesAfter": 180043300.78125,
+        "totalSharesAfter": 261253691.40625
+      },
+      {
+        "date": "1994-07-09",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 180043300.78125,
+        "totalSharesBefore": 261253691.40625,
+        "floatSharesAfter": 198047695.3125,
+        "totalSharesAfter": 287379101.5625
+      },
+      {
+        "date": "1994-07-11",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.5,
+        "rightsPrice": 5.0,
+        "bonusRatio": 0.5,
+        "rightsRatio": 0.1
+      },
+      {
+        "date": "1994-07-14",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 198047695.3125,
+        "totalSharesBefore": 287379101.5625,
+        "floatSharesAfter": 297071503.90625,
+        "totalSharesAfter": 431068593.75
+      },
+      {
+        "date": "1995-09-25",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.3,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.2,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1995-09-27",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 297071503.90625,
+        "totalSharesBefore": 431068593.75,
+        "floatSharesAfter": 356485781.25,
+        "totalSharesAfter": 517282382.8125
+      },
+      {
+        "date": "1996-05-27",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.0,
+        "rightsPrice": 0.0,
+        "bonusRatio": 1.0,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1996-05-29",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 356485781.25,
+        "totalSharesBefore": 517282382.8125,
+        "floatSharesAfter": 714422968.75,
+        "totalSharesAfter": 1034565000.0
+      },
+      {
+        "date": "1997-08-25",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.2,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.5,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "1997-08-27",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 714422968.75,
+        "totalSharesBefore": 1034565000.0,
+        "floatSharesAfter": 1071633984.375,
+        "totalSharesAfter": 1551847031.25
+      },
+      {
+        "date": "1999-10-18",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.6,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.0,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "2000-11-06",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.0,
+        "rightsPrice": 8.0,
+        "bonusRatio": 0.0,
+        "rightsRatio": 0.3
+      },
+      {
+        "date": "2000-12-08",
+        "category": 2,
+        "name": "送配股上市",
+        "floatSharesBefore": 1071633984.375,
+        "totalSharesBefore": 1551847031.25,
+        "floatSharesAfter": 1393125000.0,
+        "totalSharesAfter": 1945822031.25
+      },
+      {
+        "date": "2001-10-15",
+        "category": 5,
+        "name": "股本变化",
+        "floatSharesBefore": 1393125000.0,
+        "totalSharesBefore": 1945822031.25,
+        "floatSharesAfter": 1409362031.25,
+        "totalSharesAfter": 1945822031.25
+      },
+      {
+        "date": "2002-07-23",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.15,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.0,
+        "rightsRatio": 0.0
+      },
+      {
+        "date": "2003-09-29",
+        "category": 1,
+        "name": "除权除息",
+        "dividend": 0.15,
+        "rightsPrice": 0.0,
+        "bonusRatio": 0.0,
+        "rightsRatio": 0.0
+      }
+    ]
+  }
+}

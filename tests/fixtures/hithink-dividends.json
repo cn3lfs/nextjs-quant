@@ -1,0 +1,219 @@
+{
+  "fetchedAt": 1788930048664,
+  "raw": {
+    "status_code": 0,
+    "code_count": 1,
+    "row_count": 1,
+    "columns": [
+      {
+        "index_name": "股票代码",
+        "key": "股票代码",
+        "feKey": "股票代码",
+        "type": "STR",
+        "label": "code",
+        "source": "index"
+      },
+      {
+        "index_name": "现金分红总额",
+        "key": "分红金额[20251231]",
+        "feKey": "分红金额[20251231]",
+        "type": "DOUBLE",
+        "unit": "元",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "现金分红总额",
+        "key": "分红金额[20250930]",
+        "feKey": "分红金额[20250930]",
+        "type": "DOUBLE",
+        "unit": "元",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "分红实施公告日",
+        "key": "实施公告日[20251231]",
+        "feKey": "实施公告日[20251231]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "分红实施公告日",
+        "key": "实施公告日[20250930]",
+        "feKey": "实施公告日[20250930]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "股权登记日",
+        "key": "股权登记日[20251231]",
+        "feKey": "股权登记日[20251231]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "股权登记日",
+        "key": "股权登记日[20250930]",
+        "feKey": "股权登记日[20250930]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "除权除息日",
+        "key": "除权除息日[20251231]",
+        "feKey": "除权除息日[20251231]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "除权除息日",
+        "key": "除权除息日[20250930]",
+        "feKey": "除权除息日[20250930]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "派息日",
+        "key": "派息日[20251231]",
+        "feKey": "派息日[20251231]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "派息日",
+        "key": "派息日[20250930]",
+        "feKey": "派息日[20250930]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "红股上市交易日",
+        "key": "红股上市日[20251231]",
+        "feKey": "红股上市日[20251231]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "红股上市交易日",
+        "key": "红股上市日[20250930]",
+        "feKey": "红股上市日[20250930]",
+        "type": "DATE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "每股股利(税前)",
+        "key": "税前每股股利[20251231]",
+        "feKey": "税前每股股利[20251231]",
+        "type": "DOUBLE",
+        "unit": "元",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "每股股利(税前)",
+        "key": "税前每股股利[20250930]",
+        "feKey": "税前每股股利[20250930]",
+        "type": "DOUBLE",
+        "unit": "元",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "每股分红送转",
+        "key": "每股分红送转[20251231]",
+        "feKey": "每股分红送转[20251231]",
+        "type": "DOUBLE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "每股分红送转",
+        "key": "每股分红送转[20250930]",
+        "feKey": "每股分红送转[20250930]",
+        "type": "DOUBLE",
+        "unit": "",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      },
+      {
+        "index_name": "每股转增股本",
+        "key": "每股转增股本[20251231]",
+        "feKey": "每股转增股本[20251231]",
+        "type": "DOUBLE",
+        "unit": "股",
+        "label": "",
+        "timestamp": "20251231",
+        "source": "index"
+      },
+      {
+        "index_name": "每股转增股本",
+        "key": "每股转增股本[20250930]",
+        "feKey": "每股转增股本[20250930]",
+        "type": "DOUBLE",
+        "unit": "股",
+        "label": "",
+        "timestamp": "20250930",
+        "source": "index"
+      }
+    ],
+    "datas": [
+      {
+        "股票代码": "600519.SH",
+        "分红金额[20251231]": 35032574305.19223,
+        "分红金额[20250930]": 30000637540.755,
+        "实施公告日[20251231]": "20260622",
+        "实施公告日[20250930]": "20251211",
+        "股权登记日[20251231]": "20260625",
+        "股权登记日[20250930]": "20251218",
+        "除权除息日[20251231]": "20260626",
+        "除权除息日[20250930]": "20251219",
+        "派息日[20251231]": "20260626",
+        "派息日[20250930]": "20251219",
+        "税前每股股利[20251231]": 28.02423,
+        "税前每股股利[20250930]": 23.957,
+        "每股分红送转[20251231]": 28.02423,
+        "每股分红送转[20250930]": 23.957,
+        "每股转增股本[20251231]": 0,
+        "每股转增股本[20250930]": 0
+      }
+    ]
+  }
+}

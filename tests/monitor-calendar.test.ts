@@ -1,0 +1,67 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({
+  gf: vi.fn(),
+  local: vi.fn(),
+  history: vi.fn(),
+}));
+vi.mock("../src/server/gf-calendar", () => ({ gfCalendarReference: mocks.gf }));
+vi.mock("../src/server/data-health", async (original) => ({
+  ...(await original<typeof import("../src/server/data-health")>()),
+  localCalendarReference: mocks.local,
+}));
+vi.mock("../src/server/market-data", () => ({
+  mcpProvider: { history: mocks.history },
+}));
+import { monitorCalendar } from "../src/server/monitor-calendar";
+import { freshCompleted, transition } from "../src/server/runtime";
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.local.mockResolvedValue({ days: [], source: "local", hash: null });
+  mocks.gf.mockResolvedValue({
+    days: ["2026-09-30", "2026-10-08"],
+    closedDays: ["2026-10-01"],
+    source: "gf",
+    hash: "fixture",
+  });
+});
+it("prefers user overrides, then the declared calendar, without requesting index history", async () => {
+  await monitorCalendar("root", ["2026-10-08"], true, true, 0);
+  expect(mocks.gf).not.toHaveBeenCalled();
+  const calendar = await monitorCalendar("root", [], true, true, 0);
+  expect(calendar.source).toBe("gf");
+  expect(mocks.history).not.toHaveBeenCalled();
+  const now = Date.parse("2026-10-01T16:00:00+08:00");
+  expect(freshCompleted("2026-09-30", "day", now, calendar.days)).toBe(false);
+  expect(freshCompleted("2026-10-01", "day", now, calendar.days)).toBe(false);
+  const fresh = freshCompleted(
+    "2026-10-08",
+    "day",
+    Date.parse("2026-10-08T16:00:00+08:00"),
+    calendar.days,
+  );
+  expect(fresh).toBe(true);
+  const before = { date: "2026-09-30", matched: false },
+    after = { date: "2026-10-08", matched: true };
+  expect(transition(before, after, fresh, true)).toBe(false);
+  expect(transition(before, after, fresh, false)).toBe(true);
+});
+it("keeps fallback provenance and does not apply the Shanghai/Shenzhen calendar to other markets", async () => {
+  mocks.gf.mockRejectedValue(new Error("unavailable"));
+  mocks.history.mockResolvedValue({
+    bars: [
+      { date: "2026-10-08", volume: 1 },
+      { date: "2026-10-09", volume: 0 },
+    ],
+  });
+  const remote = await monitorCalendar("root", [], true, true, 0);
+  expect(remote.days).toEqual(["2026-10-08"]);
+  expect(remote.source).toContain("非完整");
+  mocks.gf.mockClear();
+  expect((await monitorCalendar("root", [], false, false, 0)).source).toContain(
+    "未使用沪深",
+  );
+  expect(mocks.gf).not.toHaveBeenCalled();
+  expect((await monitorCalendar("root", [], false, true, 0)).source).toContain(
+    "广发日历不可用",
+  );
+});

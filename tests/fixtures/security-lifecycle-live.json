@@ -1,0 +1,196 @@
+[
+  {
+    "query": "600519.SH A股 股票代码 股票简称 上市日期 退市日期",
+    "fetchedAt": 1788940592141,
+    "raw": {
+      "status_code": 0,
+      "code_count": 1,
+      "datas": [
+        {
+          "股票代码": "600519.SH",
+          "上市日期": "20010827",
+          "上市地点": "上海"
+        }
+      ],
+      "columns": [
+        {
+          "index_name": "股票代码",
+          "key": "股票代码",
+          "feKey": "股票代码",
+          "type": "STR",
+          "label": "code",
+          "source": "index"
+        },
+        {
+          "index_name": "新股上市日期",
+          "key": "上市日期",
+          "feKey": "上市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "退市@退市日期",
+          "key": "退市日期",
+          "feKey": "退市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "上市地点",
+          "key": "上市地点",
+          "feKey": "上市地点",
+          "type": "STR",
+          "source": "index"
+        }
+      ]
+    }
+  },
+  {
+    "query": "000001.SZ A股 股票代码 股票简称 上市日期 退市日期",
+    "fetchedAt": 1788941009317,
+    "raw": {
+      "status_code": 0,
+      "code_count": 1,
+      "datas": [
+        {
+          "股票代码": "000001.SZ",
+          "上市日期": "19910403",
+          "上市地点": "深圳"
+        }
+      ],
+      "columns": [
+        {
+          "index_name": "股票代码",
+          "key": "股票代码",
+          "feKey": "股票代码",
+          "type": "STR",
+          "label": "code",
+          "source": "index"
+        },
+        {
+          "index_name": "新股上市日期",
+          "key": "上市日期",
+          "feKey": "上市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "退市@退市日期",
+          "key": "退市日期",
+          "feKey": "退市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "上市地点",
+          "key": "上市地点",
+          "feKey": "上市地点",
+          "type": "STR",
+          "source": "index"
+        }
+      ]
+    }
+  },
+  {
+    "query": "920748.BJ A股 股票代码 股票简称 上市日期 退市日期",
+    "fetchedAt": 1788941009997,
+    "raw": {
+      "status_code": 0,
+      "code_count": 1,
+      "datas": [
+        {
+          "股票代码": "920748.BJ",
+          "上市日期": "20230816",
+          "上市地点": "北京"
+        }
+      ],
+      "columns": [
+        {
+          "index_name": "股票代码",
+          "key": "股票代码",
+          "feKey": "股票代码",
+          "type": "STR",
+          "label": "code",
+          "source": "index"
+        },
+        {
+          "index_name": "新股上市日期",
+          "key": "上市日期",
+          "feKey": "上市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "退市@退市日期",
+          "key": "退市日期",
+          "feKey": "退市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "上市地点",
+          "key": "上市地点",
+          "feKey": "上市地点",
+          "type": "STR",
+          "source": "index"
+        }
+      ]
+    }
+  },
+  {
+    "query": "600005.SH A股 股票代码 股票简称 上市日期 退市日期",
+    "fetchedAt": 1788941009328,
+    "raw": {
+      "status_code": 0,
+      "code_count": 0,
+      "datas": [],
+      "columns": [
+        {
+          "index_name": "股票代码",
+          "key": "股票代码",
+          "feKey": "股票代码",
+          "type": "STR",
+          "label": "code",
+          "source": "index"
+        },
+        {
+          "index_name": "新股上市日期",
+          "key": "上市日期",
+          "feKey": "上市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "退市@退市日期",
+          "key": "退市日期",
+          "feKey": "退市日期",
+          "type": "DATE",
+          "unit": "",
+          "label": "",
+          "source": "index"
+        },
+        {
+          "index_name": "上市地点",
+          "key": "上市地点",
+          "feKey": "上市地点",
+          "type": "STR",
+          "source": "index"
+        }
+      ]
+    }
+  }
+]

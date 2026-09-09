@@ -1,0 +1,78 @@
+{
+  "query": "600519.SH 股票代码 交易状态 停牌状态 最新交易日",
+  "raw": {
+    "QTime": 2668,
+    "query": "600519.SH 股票代码 交易状态 停牌状态 最新交易日",
+    "columns": [
+      {
+        "index_name": "股票代码",
+        "key": "股票代码",
+        "feKey": "股票代码",
+        "type": "STR",
+        "label": "code",
+        "source": "index"
+      },
+      {
+        "index_name": "股票简称",
+        "key": "股票简称",
+        "feKey": "股票简称",
+        "type": "STR",
+        "label": "name",
+        "source": "index"
+      },
+      {
+        "index_name": "最新价",
+        "key": "最新价",
+        "feKey": "最新价",
+        "type": "DOUBLE",
+        "unit": "元",
+        "label": "price",
+        "source": "index"
+      },
+      {
+        "index_name": "最新涨跌幅",
+        "key": "最新涨跌幅",
+        "feKey": "最新涨跌幅",
+        "type": "DOUBLE",
+        "unit": "%",
+        "label": "ratio",
+        "source": "index"
+      },
+      {
+        "index_name": "交易状态",
+        "key": "交易状态[20260909]",
+        "feKey": "交易状态[20260909]",
+        "type": "STR",
+        "unit": "",
+        "label": "",
+        "timestamp": "20260909",
+        "source": "index"
+      },
+      {
+        "index_name": "停牌",
+        "key": "停牌[20260909]",
+        "feKey": "停牌[20260909]",
+        "type": "BOOLEAN",
+        "unit": "",
+        "label": "",
+        "timestamp": "20260909",
+        "source": "index"
+      }
+    ],
+    "datas": [
+      {
+        "股票代码": "600519.SH",
+        "股票简称": "贵州茅台",
+        "最新价": "1290.88",
+        "最新涨跌幅": -1.406859,
+        "交易状态[20260909]": "交易",
+        "停牌[20260909]": false
+      }
+    ],
+    "row_count": 1,
+    "code_count": 1,
+    "chunks_info": "[\"600519.sh,股票代码 (1)\",\"600519.sh,交易状态 (1)\",\"600519.sh,停牌状态 (1)\",\"600519.sh,最新交易日 (1)\"]",
+    "status_code": 0
+  },
+  "fetchedAt": 1788941528469
+}
