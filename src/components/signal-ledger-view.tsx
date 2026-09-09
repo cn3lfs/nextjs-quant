@@ -35,13 +35,17 @@ export function SignalLedgerView({
         </p>
         <p>
           停牌或缺数不顺延。含除权，收益不可比；除权状态未知也留空。GBBQ
-          没有完整覆盖证明时不能据其无记录判定无除权。首次到期观察固定，后续修订不改写。
+          可读且最大事件日期覆盖持有区间时，无事件即无除权。首次到期观察固定，后续修订不改写。
         </p>
         <p>
           按策略 ×
           引擎原始信号质量分组；缠论不同配置及质量变化各记一条观察。同组两种方向合并。每个期限的样本数含留空，统计只用非空收益；留空原因可重叠。
         </p>
       </section>
+      <p>
+        最近任务 GBBQ 覆盖期（最大事件日期）：
+        {runs[0]?.actionCoverageEnd ?? "未知／尚未读取"}
+      </p>
       <section className="panel" aria-label="聚合统计">
         <h2>聚合统计</h2>
         {!groups.length ? (
@@ -109,11 +113,16 @@ export function SignalLedgerView({
                   partial: "部分完成",
                   failed: "失败",
                   running: "运行中",
+                  cancelled: "已取消",
                 }[run.status]
               }{" "}
               · 已扫描 {run.scanned}/{run.total} · 信号 {run.signals} ·{" "}
               {(run.elapsedMs / 1000).toFixed(2)} 秒
             </summary>
+            <p>
+              阶段：{run.phase ?? "—"}；GBBQ 最大事件日期：
+              {run.actionCoverageEnd ?? "未知／尚未读取"}
+            </p>
             <p>交易日参考：{run.calendarSource}</p>
             {run.errors.map((e, i) => (
               <p key={i}>
@@ -153,7 +162,8 @@ export function SignalLedgerView({
                   {o?.exitDate ?? "—"} / {o?.exit ?? "—"}
                   <br />
                   交易日：{o?.calendarSource ?? "—"}；除权来源：
-                  {o?.actionSource ?? "—"}
+                  {o?.actionSource ?? "—"}；GBBQ 最大事件日期：
+                  {o?.actionCoverageEnd ?? "未知"}
                 </p>
               );
             })}

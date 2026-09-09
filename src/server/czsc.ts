@@ -90,6 +90,7 @@ export async function closeCzsc() {
 export async function analyzeCzsc(
   bars: readonly Bar[],
   signalDetails = false,
+  project: typeof projectCzsc = projectCzsc,
 ): Promise<CzscResult> {
   if (
     bars.some(
@@ -105,7 +106,8 @@ export async function analyzeCzsc(
     close: bars.map((b) => b.close),
     volume: bars.map((b) => b.volume),
   };
-  const raw = await projectCzsc(
+  // N1 may relay projections from a task thread to the same serial DLL owner.
+  const raw = await project(
     input,
     [0, 1100],
     [

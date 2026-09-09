@@ -3,13 +3,16 @@ import type { LedgerSignal, LedgerRow, Outcome } from "~/lib/signal-ledger";
 
 export type LedgerRun = {
   date: string;
-  status: "running" | "complete" | "partial" | "failed";
+  status: "running" | "complete" | "partial" | "failed" | "cancelled";
   total: number;
   scanned: number;
   signals: number;
   elapsedMs: number;
   errors: { symbol: string; reason: string }[];
   calendarSource: string;
+  actionCoverageEnd?: string | null;
+  phase?: string;
+  cancelRequested?: boolean;
 };
 export class SignalLedgerStore {
   constructor(readonly db: Database.Database) {}
@@ -22,9 +25,19 @@ export class SignalLedgerStore {
   saveRun(run: LedgerRun) {
     this.db
       .prepare(
-        "INSERT INTO signal_ledger_runs VALUES (?,?) ON CONFLICT(date) DO UPDATE SET payload=excluded.payload",
+        `INSERT INTO signal_ledger_runs VALUES (?,?) ON CONFLICT(date) DO UPDATE SET payload=
+        CASE WHEN json_extract(signal_ledger_runs.payload,'$.cancelRequested')=1
+        THEN json_set(excluded.payload,'$.cancelRequested',json('true')) ELSE excluded.payload END`,
       )
       .run(run.date, JSON.stringify(run));
+  }
+  cancel(date: string) {
+    this.db
+      .prepare(
+        `UPDATE signal_ledger_runs SET payload=json_set(payload,'$.cancelRequested',json('true'))
+      WHERE date=? AND json_extract(payload,'$.status')='running'`,
+      )
+      .run(date);
   }
   baseline(symbol: string): { date: string; keys: string[] } | undefined {
     return this.read(

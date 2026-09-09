@@ -9,6 +9,7 @@ import { migrate } from "../src/server/db/migrations";
 import { SignalLedgerStore } from "../src/server/signal-ledger-store";
 import {
   runSignalLedger,
+  localLedgerActions,
   type LedgerDependencies,
 } from "../src/server/signal-ledger-job";
 import { analyzeCzsc, closeCzsc } from "../src/server/czsc";
@@ -86,7 +87,7 @@ const future: Bar[] = nextDays.map((date, i) => ({
 const clear: ActionEvidence = {
   dates: [],
   source: "受控fixture完整事件日历",
-  coverage: { start: day, end: "2025-12-31" },
+  coverageEnd: "2025-12-31",
 };
 const signal: LedgerSignal = {
   id: "fixture",
@@ -185,9 +186,12 @@ it("controlled E2E uses real M3/M5 engines, migrated SQLite, forward fill and th
   expect(html).toContain("非策略业绩");
   expect(html).toContain("10.00%");
   expect(html).toContain("4/5");
+  expect(html).toContain("GBBQ 最大事件日期");
+  expect(html).toContain("2025-12-31");
+  expect(s.runs()[0]?.actionCoverageEnd).toBe("2025-12-31");
 });
 
-it("ex dates including entry/exit and unknown coverage blank returns, never assume absence from GBBQ", () => {
+it("ex dates including entry/exit and unknown coverage blank returns, file coverage bounds absence", () => {
   for (const date of [nextDays[0]!, nextDays[2]!, nextDays[4]!]) {
     const out = ledgerOutcome(
       signal,
@@ -211,7 +215,7 @@ it("ex dates including entry/exit and unknown coverage blank returns, never assu
     future,
     days,
     "fixture",
-    { dates: [], source: "GBBQ无覆盖证明" },
+    { dates: [], source: "GBBQ不可读" },
     nextDays[4]!,
   );
   expect(unknown.returnPct).toBeNull();
@@ -437,4 +441,108 @@ it("migration preserves old tables/records and repeated migrations and settled w
   s.outcome(signal.id, out);
   s.outcome(signal.id, { ...out, returnPct: 999 });
   expect(s.rows()[0]!.outcomes[0]).toEqual(out);
+});
+
+it("readable market-wide GBBQ covers symbols with no events; stale and unavailable files remain unknown", async () => {
+  const event = { date: "2025-03-14", category: 2, name: "送配股上市" };
+  const module = await import("../src/server/tdx-gbbq");
+  const read = vi.spyOn(module, "readGbbq");
+  try {
+    read.mockResolvedValue({
+      path: "fixture/gbbq",
+      modified: 1,
+      events: new Map([["sh600000", [event]]]),
+    });
+    const actions = await localLedgerActions("fixture");
+    const absence = actions(signal.symbol);
+    expect(absence).toMatchObject({ dates: [], coverageEnd: nextDays[4] });
+    const result = ledgerOutcome(
+      signal,
+      5,
+      future,
+      days,
+      "fixture",
+      absence,
+      nextDays[4]!,
+    );
+    expect(result.action).toBe("区间无除权");
+    expect(result.returnPct).toBeCloseTo(10);
+    expect(result.actionCoverageEnd).toBe(nextDays[4]);
+    const stale = ledgerOutcome(
+      signal,
+      10,
+      future,
+      days,
+      "fixture",
+      absence,
+      nextDays[9]!,
+    );
+    expect(stale.action).toBe("除权状态未知");
+    expect(stale.returnPct).toBeNull();
+    read.mockResolvedValue({
+      path: "fixture/gbbq",
+      modified: 1,
+      events: new Map([[signal.symbol, [{ ...event, category: 1 }]]]),
+    });
+    const hit = ledgerOutcome(
+      signal,
+      5,
+      future,
+      days,
+      "fixture",
+      (await localLedgerActions("fixture"))(signal.symbol),
+      nextDays[4]!,
+    );
+    expect(hit).toMatchObject({
+      action: "含除权，收益不可比",
+      returnPct: null,
+    });
+    for (const reason of ["ENOENT", "gbbq 文件不完整"]) {
+      read.mockRejectedValue(new Error(reason));
+      const unknown = ledgerOutcome(
+        signal,
+        5,
+        future,
+        days,
+        "fixture",
+        (await localLedgerActions("fixture"))(signal.symbol),
+        nextDays[4]!,
+      );
+      expect(unknown).toMatchObject({
+        action: "除权状态未知",
+        returnPct: null,
+        actionCoverageEnd: null,
+      });
+    }
+  } finally {
+    read.mockRestore();
+  }
+});
+
+it("progress is persisted during work; cancellation keeps committed rows and prevents automatic restart", async () => {
+  const s = store();
+  const evaluate = vi.fn(async () => emptyCzsc);
+  const deps: LedgerDependencies = {
+    calendar: async () => ({ days, source: "fixture", hash: null }),
+    universe: async () => ["sh600000", "sh600001"],
+    bars: async () => valid.bars,
+    czsc: evaluate,
+    breakout: async () => ({ candidates: [], errors: [] }),
+    actions: async () => () => clear,
+  };
+  const phases: string[] = [];
+  const result = await runSignalLedger(s, deps, clock(day), (progress) => {
+    expect(s.run(day)?.scanned).toBe(progress.scanned);
+    phases.push(progress.phase!);
+    if (progress.scanned === 1) s.cancel(day);
+  });
+  expect(result?.status).toBe("cancelled");
+  expect(phases).toContain("双突破全市场计算");
+  expect(phases).toContain("扫描全市场信号");
+  expect(phases.at(-1)).toBe("已取消");
+  expect(s.baseline("sh600000")?.date).toBe(day);
+  expect(s.baseline("sh600001")).toBeUndefined();
+  const calls = evaluate.mock.calls.length;
+  await runSignalLedger(s, deps, clock(day));
+  expect(evaluate).toHaveBeenCalledTimes(calls);
 });

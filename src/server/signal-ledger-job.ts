@@ -14,8 +14,6 @@ import { readSnapshot, scan } from "./tdx";
 import { readGbbq } from "./tdx-gbbq";
 import { localCalendarReference, type CalendarReference } from "./data-health";
 import { completedBarFilter } from "./screening";
-import { sqlite } from "./db";
-import { settings } from "./settings";
 
 export type LedgerDependencies = {
   calendar: () => Promise<CalendarReference>;
@@ -45,21 +43,33 @@ export function localLedgerDependencies(
     bars: async (symbol) => (await readSnapshot(root, symbol, "day")).bars,
     czsc: (bars) => analyzeCzsc(bars, true),
     breakout: (symbols, now) => breakoutBatch(root, symbols, now),
-    actions: async () => {
-      try {
-        const data = await readGbbq(root);
-        return (symbol) => ({
-          // Category 11/12 are share consolidation events: also not comparable.
-          dates: (data.events.get(symbol) ?? [])
-            .filter((e) => [1, 11, 12].includes(e.category))
-            .map((e) => e.date),
-          source: `${data.path}；mtime=${data.modified}；既有GBBQ解析；无完整覆盖证明`,
-        });
-      } catch {
-        return () => ({ dates: [], source: "本地GBBQ不可用；除权状态未知" });
-      }
-    },
+    actions: () => localLedgerActions(root),
   };
+}
+
+/** File-wide maximum, including share-change categories and other symbols.
+ * No per-symbol event is needed to establish absence within this boundary. */
+export async function localLedgerActions(root: string) {
+  try {
+    const data = await readGbbq(root);
+    let coverageEnd: string | null = null;
+    for (const events of data.events.values())
+      for (const event of events)
+        if (!coverageEnd || event.date > coverageEnd) coverageEnd = event.date;
+    return (symbol: string): ActionEvidence => ({
+      dates: (data.events.get(symbol) ?? [])
+        .filter((e) => [1, 11, 12].includes(e.category))
+        .map((e) => e.date),
+      coverageEnd,
+      source: `${data.path}；mtime=${data.modified}；GBBQ最大事件日期=${coverageEnd ?? "未知（无有效事件）"}`,
+    });
+  } catch {
+    return (): ActionEvidence => ({
+      dates: [],
+      coverageEnd: null,
+      source: "本地GBBQ缺失或不可读；除权状态未知",
+    });
+  }
 }
 
 /** Date comes exclusively from the frozen wall clock. No historical/asOf API. */
@@ -67,6 +77,7 @@ export async function runSignalLedger(
   store: SignalLedgerStore,
   deps: LedgerDependencies,
   now: number,
+  onProgress: (run: LedgerRun) => void = () => {},
 ) {
   const local = new Date(now + 8 * 3600000).toISOString();
   const today = local.slice(0, 10);
@@ -74,7 +85,7 @@ export async function runSignalLedger(
   const previousRun = store.run(today);
   if (
     previousRun &&
-    ["complete", "partial", "failed"].includes(previousRun.status)
+    ["complete", "partial", "failed", "cancelled"].includes(previousRun.status)
   )
     return previousRun;
   const started = performance.now();
@@ -88,15 +99,24 @@ export async function runSignalLedger(
     errors: [],
     calendarSource: "未知",
   };
+  const checkpoint = (phase: string) => {
+    if (store.run(today)?.cancelRequested) throw new Error("ledger-cancelled");
+    run.phase = phase;
+    run.elapsedMs = performance.now() - started;
+    store.saveRun(run);
+    onProgress(structuredClone(run));
+    if (store.run(today)?.cancelRequested) throw new Error("ledger-cancelled");
+  };
   try {
     const calendar = await deps.calendar();
     if (!calendar.days.includes(today)) return;
     run.calendarSource = calendar.source;
-    store.saveRun(run);
+    checkpoint("读取证券池");
     const symbols = [...new Set(await deps.universe())].sort();
     if (!symbols.length) throw new Error("全市场本地A股日线证券池为空");
     run.total = symbols.length;
     const completed = completedBarFilter("day", now);
+    checkpoint("双突破全市场计算");
     const batch = await deps.breakout(symbols, now);
     const candidates = new Map(
       batch.candidates.map((c) => [c.symbol, c.point]),
@@ -109,6 +129,7 @@ export async function runSignalLedger(
       })),
     );
     for (const symbol of symbols) {
+      checkpoint("扫描全市场信号");
       try {
         const baseline = store.baseline(symbol);
         if (baseline?.date === today) {
@@ -128,7 +149,7 @@ export async function runSignalLedger(
           continue;
         }
         if (breakoutErrors.has("*") || breakoutErrors.has(symbol)) continue;
-        // Single existing CZSC worker serializes all FFI requests, including UI/monitor requests.
+        // One request at a time shares the existing serial DLL; decoding stays in this task worker.
         const czsc = await deps.czsc(bars);
         const point = candidates.has(symbol)
           ? analyzeBreakout(bars).latest
@@ -141,13 +162,17 @@ export async function runSignalLedger(
           point,
           baseline,
         );
+        if (store.run(today)?.cancelRequested) break;
         store.record(symbol, today, result.keys, result.signals);
         run.scanned++;
       } catch {
         run.errors.push({ symbol, reason: "行情读取或策略执行失败" });
       }
     }
+    checkpoint("读取除权覆盖期");
     const actions = await deps.actions();
+    run.actionCoverageEnd = actions("").coverageEnd ?? null;
+    checkpoint("回填到期期限");
     const rows = store.rows();
     const pending = new Map<string, typeof rows>();
     for (const row of rows)
@@ -161,6 +186,7 @@ export async function runSignalLedger(
         pending.set(row.symbol, values);
       }
     for (const [symbol, values] of pending) {
+      checkpoint("回填到期期限");
       let bars: Bar[] = [];
       try {
         bars = await deps.bars(symbol);
@@ -185,34 +211,22 @@ export async function runSignalLedger(
           );
         }
     }
+    checkpoint("完成回填");
     run.signals = store.rows().filter((s) => s.observedDate === today).length;
     run.status = run.errors.length ? "partial" : "complete";
   } catch {
-    run.status = "failed";
+    run.status = store.run(today)?.cancelRequested ? "cancelled" : "failed";
     run.errors.push({
       symbol: "*",
-      reason: "台账任务失败；检查本地行情与交易日历",
+      reason:
+        run.status === "cancelled"
+          ? "用户取消；保留已完成记录，当日不自动重跑"
+          : "台账任务失败；检查本地行情与交易日历",
     });
   }
   run.elapsedMs = performance.now() - started;
+  run.phase = run.status === "cancelled" ? "已取消" : "结束";
   store.saveRun(run);
+  onProgress(structuredClone(run));
   return run;
-}
-
-const scope = globalThis as typeof globalThis & {
-  signalLedgerTask?: Promise<unknown>;
-};
-/** Fire independently of subscription monitoring and never enqueue notifications. */
-export function scheduleSignalLedger(now: number) {
-  if (scope.signalLedgerTask) return;
-  const config = settings();
-  scope.signalLedgerTask = runSignalLedger(
-    new SignalLedgerStore(sqlite()),
-    localLedgerDependencies(config.tdxRoot, config.calendar),
-    now,
-  )
-    .catch(() => {})
-    .finally(() => {
-      scope.signalLedgerTask = undefined;
-    });
 }

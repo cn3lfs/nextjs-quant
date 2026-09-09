@@ -21,9 +21,8 @@ export type LedgerSignal = {
 export type ActionEvidence = {
   dates: string[];
   source: string;
-  // Absence is usable only with explicit complete interval coverage. Local
-  // GBBQ has no such guarantee; its adapter deliberately never sets this.
-  coverage?: { start: string; end: string };
+  // GBBQ is the market-wide event library; its latest event bounds coverage.
+  coverageEnd?: string | null;
 };
 export type Outcome = {
   horizon: Horizon;
@@ -37,6 +36,7 @@ export type Outcome = {
   reasons: string[];
   calendarSource: string;
   actionSource: string;
+  actionCoverageEnd?: string | null;
 };
 export type LedgerRow = LedgerSignal & { outcomes: Outcome[] };
 
@@ -65,6 +65,7 @@ export function ledgerOutcome(
     reasons: [],
     calendarSource,
     actionSource: actions.source,
+    actionCoverageEnd: actions.coverageEnd ?? null,
   };
   if (index < 0) {
     out.reasons.push("交易日历缺少信号日");
@@ -95,11 +96,7 @@ export function ledgerOutcome(
   if (actions.dates.some((d) => d >= entryDate! && d <= exitDate)) {
     out.action = "含除权，收益不可比";
     out.reasons.push(out.action);
-  } else if (
-    actions.coverage &&
-    actions.coverage.start <= entryDate! &&
-    actions.coverage.end >= exitDate
-  ) {
+  } else if (actions.coverageEnd && actions.coverageEnd >= exitDate) {
     out.action = "区间无除权";
   } else out.reasons.push(out.action);
   // Price change for BOTH directions. A short observation is not an executable

@@ -55,3 +55,13 @@ await sharp(
 )
   .png()
   .toFile("desktop/icon.png");
+
+await build({
+  entryPoints: ["src/server/signal-ledger-worker.ts"],
+  outfile: "runtime/signal-ledger-worker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["better-sqlite3", "koffi"],
+  target: "node22",
+});
