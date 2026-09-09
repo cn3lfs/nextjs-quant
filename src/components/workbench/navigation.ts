@@ -1,0 +1,33 @@
+import {
+  BookOpen,
+  FlaskConical,
+  LayoutDashboard,
+  Radio,
+  Settings2,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
+
+export type Tab =
+  | "market"
+  | "screen"
+  | "backtest"
+  | "signals"
+  | "reports"
+  | "settings"
+  | "analysis"
+  | "news";
+export const dailyTabs = [
+  { id: "market", label: "行情图表", icon: LayoutDashboard },
+  { id: "screen", label: "条件选股", icon: SlidersHorizontal },
+  { id: "signals", label: "信号与通知", icon: Radio },
+  { id: "settings", label: "数据与连接", icon: Settings2 },
+] as const;
+// Research keeps existing panel groups intact; no panel implementation changes.
+export const researchTabs = [
+  { id: "analysis", label: "证据分析", icon: Sparkles },
+  { id: "reports", label: "研究档案", icon: BookOpen },
+  { id: "backtest", label: "策略实验", icon: FlaskConical },
+  { id: "news", label: "新闻/主题", icon: BookOpen },
+] as const;
+export const tabs = [...dailyTabs, ...researchTabs];

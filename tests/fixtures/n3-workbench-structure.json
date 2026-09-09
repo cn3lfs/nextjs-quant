@@ -1,0 +1,23 @@
+{
+  "provenance": "Pre-N3 workbench.tsx at HEAD; only export/format trivia and explicitly relocated subtrees excluded.",
+  "state": "9501f6e637b0055bff318583bdf452ad68c099b6921c3aec386dedd8cb80b219",
+  "functions": {
+    "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
+    "Empty": "9807530393701ac8f10cacdc370d8ecd8eb3b90600a0bd7b4479434fab049078",
+    "CalendarEvidence": "181cc9bab2f47494a403215a581f1a270e950b2a22fd5035b6d12806882c54ed",
+    "ReportArchive": "5e08b3cf113994f4d19cee01dce18c869fc277e33109472c55b3e4b9023337b5",
+    "ReportCard": "8de9a005f38b7022e056552a8de9babfd5aecd3e1c8f363ecddb6592310ec159",
+    "StrategyFields": "843d4a8f3070611a14d3bc25b809cf62e0e62ec74d0cb473e9f1463d7107db4d",
+    "ResultPager": "cf306043633a5191ba8eac3ced1656558d3a79c1a851168deb7fa7c958dac3d5"
+  },
+  "views": {
+    "market-view.tsx": "b91d636f1e5997b06523bcb883561c27f9b48a6d5a1c8295de5b9e439345c1f2",
+    "screen-view.tsx": "5bcd71aef506d8e2d45eb47d8d22649c482d7e927d6fef546c03fec7dee38b7d",
+    "backtest-view.tsx": "1df28891a8d7dde9208ebd5a1e5e1d21c5efdc964c23746f83a3e55bd8f62ff3",
+    "signals-view.tsx": "8d6c01e98438595def98b32976a13dc0f5f313ba39525c397b5a247b5facc0ba",
+    "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",
+    "evidence-analysis.tsx": "2c7f7cc74bdc0647e085ef5ab7f6051bcca4f5fe36715e8f02b5cce2f0044a81",
+    "task-center.tsx": "540122db77a651ed6646eac70925e13001a18a496de1d6f612c1000da68d96fc"
+  },
+  "connections": "be1077dc5b0cdc8fc2aa3d84c2cb2977c95fec8dd0b4322e75ed68f9466f896b"
+}
