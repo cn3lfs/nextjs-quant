@@ -1,0 +1,24 @@
+{
+  "skillId": "swing-trader",
+  "ruleVersion": "dual-breakout-1",
+  "outputSchema": "dual-breakout-1",
+  "files": [
+    {
+      "file": "SKILL.md",
+      "hash": "63e14d8bc7786b312aa0c21a818e2608ed3e4fa6cbf293031949600194e16d1e"
+    },
+    {
+      "file": "references/trading-system.md",
+      "hash": "99d35dfe20112fbc3ecaffba938e34ad641ff067ce161b16f65dad4658556b30"
+    },
+    {
+      "file": "references/technical-indicators.md",
+      "hash": "da71d77cfdc3f02b400d5feb99cc475a7c31f4913e491c3ee3c254e75703201e"
+    }
+  ],
+  "prerequisites": [
+    "至少61根已完成不复权日线",
+    "突破日前60根结构窗口",
+    "M1指标沿输入全历史递推"
+  ]
+}

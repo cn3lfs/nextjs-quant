@@ -1,0 +1,26 @@
+{
+  "captures": [
+    {
+      "name": "valid",
+      "symbol": "bj920748",
+      "date": "2025-03-07",
+      "status": "2025-03-07 · 多 是 4/5 · 空 否 1/5 · 紫色虚线/箭头 · 关键位按来源标注"
+    },
+    {
+      "name": "false",
+      "symbol": "sh600519",
+      "date": "2025-04-03",
+      "status": "2025-04-03 · 多 否 3/5 · 空 未知 未知 · 紫色虚线/箭头 · 关键位按来源标注"
+    },
+    {
+      "name": "insufficient",
+      "symbol": "sz002084",
+      "date": "2007-02-27",
+      "status": "2007-02-27 · 多 未知 未知 · 空 未知 未知 · 紫色虚线/箭头 · 关键位按来源标注"
+    }
+  ],
+  "errors": [],
+  "externalRequests": 0,
+  "visualReview": "待管理者人工确认",
+  "profile": "C:\\Users\\jm\\AppData\\Local\\Temp\\quant-m5-ui-SSXt5n"
+}

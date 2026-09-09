@@ -1,0 +1,16 @@
+{
+  "root": "E:/new_tdx64",
+  "symbols": 6145,
+  "completed": 6145,
+  "errors": [],
+  "matched": 37,
+  "fullHistoryReads": 37,
+  "coldScreenMs": 5030,
+  "warmScreenMs": 253,
+  "coldBreakoutMs": 3944.0783999999994,
+  "warmBreakoutMs": 104.27329999999893,
+  "ratioCold": 0.7841110139165008,
+  "ratioWarm": 0.4121474308300353,
+  "accepted": true,
+  "note": "same process/root/universe; cold vs cold and manifest-validated warm vs warm; tail only rejects core failures, positive signals use full M1 histories; no LLM/notification"
+}

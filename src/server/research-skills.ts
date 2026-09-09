@@ -41,6 +41,16 @@ const integrations: Record<
   string,
   { scope: string; requirements: string[]; output: string; budget: string }
 > = {
+  "swing-trader": {
+    scope: "M5本地日线确定性双突破；Phase 3–4，无LLM、无外部行情、无自动交易",
+    requirements: [
+      "SKILL.md及trading-system/technical-indicators",
+      "至少61根已完成不复权日线",
+      "M1指标和diagnostic-2已确认极值",
+    ],
+    output: "dual-breakout-1",
+    budget: "仅本地确定性计算；不足结构或指标返回未知",
+  },
   "tmt-crowding": {
     scope:
       "只读本地技能CSV并增量归档上交所融资数据；仅关联已核验申万一级TMT的当前A股日线，行业成交/日频尚未自动更新",
@@ -265,6 +275,32 @@ export type SkillUse = {
   files: { file: string; hash: string }[];
   prerequisites: string[];
 };
+/** M5: provenance only. Reading a method never executes its tools or prompts. */
+export async function breakoutMethod(): Promise<SkillUse> {
+  const skillId = "swing-trader";
+  const files = await Promise.all(
+    [
+      "SKILL.md",
+      "references/trading-system.md",
+      "references/technical-indicators.md",
+    ].map(async (file) => {
+      const text = await readFile(join(root(), skillId, file), "utf8");
+      if (!text.trim()) throw new Error(`双突破方法文件为空：${file}`);
+      return { file, hash: hash(text) };
+    }),
+  );
+  return {
+    skillId,
+    ruleVersion: "dual-breakout-1",
+    outputSchema: "dual-breakout-1",
+    files,
+    prerequisites: [
+      "至少61根已完成不复权日线",
+      "突破日前60根结构窗口",
+      "M1指标沿输入全历史递推",
+    ],
+  };
+}
 export async function researchSkillCatalog() {
   return Promise.all(
     ids.map(async (skillId) => {
@@ -272,21 +308,27 @@ export async function researchSkillCatalog() {
       const files = await Promise.all(
         (
           valuationCatalogFiles[skillId] ??
-          (skillId === "tmt-crowding"
-            ? ["SKILL.md", "scripts/tmt_crowding.py"]
-            : skillId === "volume-price-analysis"
-              ? volumePriceFiles
-              : skillId === "sepa-strategy-analyst"
-                ? sepaFiles
-                : skillId === "canslim-analyst"
-                  ? canslimMethodFiles
-                  : skillId === "chan-theory"
-                    ? chanMethodFiles
-                    : skillId === "wyckoff-trader"
-                      ? wyckoffMethodFiles
-                      : skillId === "news-industry-classifier"
-                        ? ["SKILL.md", "references/sw-industries.md"]
-                        : ["SKILL.md"])
+          (skillId === "swing-trader"
+            ? [
+                "SKILL.md",
+                "references/trading-system.md",
+                "references/technical-indicators.md",
+              ]
+            : skillId === "tmt-crowding"
+              ? ["SKILL.md", "scripts/tmt_crowding.py"]
+              : skillId === "volume-price-analysis"
+                ? volumePriceFiles
+                : skillId === "sepa-strategy-analyst"
+                  ? sepaFiles
+                  : skillId === "canslim-analyst"
+                    ? canslimMethodFiles
+                    : skillId === "chan-theory"
+                      ? chanMethodFiles
+                      : skillId === "wyckoff-trader"
+                        ? wyckoffMethodFiles
+                        : skillId === "news-industry-classifier"
+                          ? ["SKILL.md", "references/sw-industries.md"]
+                          : ["SKILL.md"])
         ).map(async (file) => {
           try {
             const text = await readFile(join(root(), skillId, file), "utf8");
@@ -332,29 +374,31 @@ export async function researchSkillCatalog() {
                   ? "adapter"
                   : "registered",
           ruleVersion:
-            skillId === "tmt-crowding"
-              ? "tmt-crowding-1"
-              : skillId === "gf-windmill"
-                ? "gf-windmill-1"
-                : skillId === "fundamental-analyst"
-                  ? `${valuationMethodVersions.fundamental} / ${valuationMethodVersions.guo}`
-                  : skillId === "value-investing"
-                    ? valuationMethodVersions.value
-                    : skillId === "volume-price-analysis"
-                      ? "vp-app-1"
-                      : skillId === "sepa-strategy-analyst"
-                        ? "sepa-report-2"
-                        : skillId === "canslim-analyst"
-                          ? canslimMethodVersion
-                          : skillId === "chan-theory"
-                            ? chanMethodVersion
-                            : skillId === "wyckoff-trader"
-                              ? wyckoffMethodVersion
-                              : skillId === "news-industry-classifier"
-                                ? "news-classification-1"
-                                : skillId === "news-sector-analyzer"
-                                  ? "news-sector-1"
-                                  : null,
+            skillId === "swing-trader"
+              ? "dual-breakout-1"
+              : skillId === "tmt-crowding"
+                ? "tmt-crowding-1"
+                : skillId === "gf-windmill"
+                  ? "gf-windmill-1"
+                  : skillId === "fundamental-analyst"
+                    ? `${valuationMethodVersions.fundamental} / ${valuationMethodVersions.guo}`
+                    : skillId === "value-investing"
+                      ? valuationMethodVersions.value
+                      : skillId === "volume-price-analysis"
+                        ? "vp-app-1"
+                        : skillId === "sepa-strategy-analyst"
+                          ? "sepa-report-2"
+                          : skillId === "canslim-analyst"
+                            ? canslimMethodVersion
+                            : skillId === "chan-theory"
+                              ? chanMethodVersion
+                              : skillId === "wyckoff-trader"
+                                ? wyckoffMethodVersion
+                                : skillId === "news-industry-classifier"
+                                  ? "news-classification-1"
+                                  : skillId === "news-sector-analyzer"
+                                    ? "news-sector-1"
+                                    : null,
         };
       } catch {
         return {
