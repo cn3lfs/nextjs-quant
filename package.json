@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.41.0",
+    "koffi": "^3.2.1",
     "lightweight-charts": "^5.2.1",
     "lucide-react": "^1.42.0",
     "next": "^16.3.4",

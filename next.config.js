@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const config = {
   output: "standalone",
-  serverExternalPackages: ["better-sqlite3"],
+  serverExternalPackages: ["better-sqlite3", "koffi"],
   outputFileTracingIncludes: { "/*": ["./runtime/**/*"] },
   async headers() {
     return [

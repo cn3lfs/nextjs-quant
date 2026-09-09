@@ -1,5 +1,32 @@
 import { build } from "esbuild";
 import { createRequire } from "node:module";
+import { copyFile, mkdir, cp } from "node:fs/promises";
+import { dirname } from "node:path";
+const czscRequire = createRequire(import.meta.url);
+const koffiRoot = dirname(czscRequire.resolve("koffi"));
+const koffiRequire = createRequire(czscRequire.resolve("koffi"));
+// The worker is an independent Node entrypoint. Carry both the JS loader and
+// its optional native package; Next tracing cannot infer koffi's dynamic load.
+await cp(koffiRoot, "runtime/node_modules/koffi", {
+  recursive: true,
+  dereference: true,
+});
+await cp(
+  dirname(koffiRequire.resolve("@koromix/koffi-win32-x64")),
+  "runtime/node_modules/@koromix/koffi-win32-x64",
+  { recursive: true, dereference: true },
+);
+await mkdir("runtime/czsc", { recursive: true });
+await copyFile("vendor/czsc/CZSC64.dll", "runtime/czsc/CZSC64.dll");
+await build({
+  entryPoints: ["src/server/czsc-worker.ts"],
+  outfile: "runtime/czsc-worker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["koffi"],
+  target: "node22",
+});
 const require = createRequire(import.meta.url),
   sharp = require(
     require.resolve("sharp", { paths: [require.resolve("next/package.json")] }),
