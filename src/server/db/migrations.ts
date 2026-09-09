@@ -18,6 +18,11 @@ const migrations = [
      INSERT INTO record_kind_revisions SELECT kind,1 FROM records WHERE id=NEW.id AND kind<>NEW.kind
      ON CONFLICT(kind) DO UPDATE SET revision=revision+1;
    END;`,
+  `CREATE TABLE signal_ledger (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, observed_date TEXT NOT NULL, payload TEXT NOT NULL);
+   CREATE INDEX signal_ledger_date ON signal_ledger(observed_date,symbol);
+   CREATE TABLE signal_ledger_outcomes (signal_id TEXT NOT NULL REFERENCES signal_ledger(id), horizon INTEGER NOT NULL CHECK(horizon IN (5,10,20)), settled INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(signal_id,horizon));
+   CREATE TABLE signal_ledger_baselines (symbol TEXT PRIMARY KEY, payload TEXT NOT NULL);
+   CREATE TABLE signal_ledger_runs (date TEXT PRIMARY KEY, payload TEXT NOT NULL);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

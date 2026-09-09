@@ -1,4 +1,5 @@
 import { quickResearch } from "./quick-research";
+import { scheduleSignalLedger } from "./signal-ledger-job";
 import { workProgress } from "~/lib/work-progress";
 import { gfCalendarReference } from "./gf-calendar";
 import { monitorCalendar } from "./monitor-calendar";
@@ -480,6 +481,7 @@ export function backtestJob(
 }
 export async function tick() {
   if (!schedulerLeader()) return;
+  scheduleSignalLedger(Date.now());
   scheduleNews();
   if (state.ticking) return;
   state.ticking = true;

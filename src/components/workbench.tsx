@@ -765,6 +765,7 @@ export function Workbench() {
             <strong>{tabs.find((t) => t.id === tab)?.label}</strong>
           </div>
           <div className="top-status">
+            <a href="/signal-ledger">信号台账</a>
             <span className="status-dot" />
             本地服务 <span className="divider" />{" "}
             {status.data?.settings.llmProvider === "deepseek"

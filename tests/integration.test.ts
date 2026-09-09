@@ -151,7 +151,7 @@ describe("HTTP 与数据适配集成", () => {
       const before = db.prepare("SELECT * FROM records").all();
       migrate(db);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
-      expect(db.pragma("user_version", { simple: true })).toBe(3);
+      expect(db.pragma("user_version", { simple: true })).toBe(4);
       db.exec("UPDATE records SET updated_at=18 WHERE id='legacy'");
       expect(db.prepare("SELECT * FROM record_kind_revisions").all()).toEqual([
         { kind: "snapshot", revision: 1 },
