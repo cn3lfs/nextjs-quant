@@ -1,4 +1,5 @@
 import "~/styles/globals.css";
+import { WorkbenchLayout } from "~/components/workbench-layout";
 import type { Metadata } from "next";
 import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <TRPCReactProvider>
+          <WorkbenchLayout>{children}</WorkbenchLayout>
+        </TRPCReactProvider>
       </body>
     </html>
   );

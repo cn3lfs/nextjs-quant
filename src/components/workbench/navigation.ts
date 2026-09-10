@@ -31,3 +31,9 @@ export const researchTabs = [
   { id: "news", label: "新闻/主题", icon: BookOpen },
 ] as const;
 export const tabs = [...dailyTabs, ...researchTabs];
+
+export const routeTabs = [
+  { href: "/signal-ledger", label: "信号台账", icon: BookOpen },
+  { href: "/trade-ledger", label: "持仓与交易日志", icon: BookOpen },
+  { href: "/rps", label: "RPS数据管理", icon: BookOpen },
+] as const;

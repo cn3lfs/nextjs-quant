@@ -96,7 +96,6 @@ export function TradeLedgerPanel({
           <h1>持仓与交易日志</h1>
           <p>本地账本为事实来源。人工录入、离线计算；模拟盘默认关闭。</p>
         </div>
-        <a href="/">返回工作台</a>
       </div>
       <p role="status" aria-live="polite">
         {pending ? "正在处理…" : message}

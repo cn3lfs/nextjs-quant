@@ -27,7 +27,6 @@ export function SignalLedgerView({
           <h1>信号台账与向前复盘</h1>
           <p>非策略业绩。全市场本地 A 股日线，收盘后观察；落库不代表推送。</p>
         </div>
-        <a href="/">返回工作台</a>
       </div>
       <section className="panel" aria-label="统计口径">
         <p>

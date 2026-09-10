@@ -201,3 +201,15 @@ it("detects a changed query option or panel prop in structural evidence", () => 
     fingerprint(altered.statements),
   );
 });
+
+it("T1 names the candidate action explicitly while preserving snapshot navigation", () => {
+  const source = readFileSync(
+    "src/components/workbench/screen-view.tsx",
+    "utf8",
+  );
+  expect(source).toContain("个股研究 <ArrowUpRight size={13} />");
+  expect(source).toContain('setTab("market")');
+  expect(source).toContain("setSymbol(c.symbol)");
+  expect(source).toContain("setPeriod(source.period)");
+  expect(source).toContain("setLoaded(source)");
+});

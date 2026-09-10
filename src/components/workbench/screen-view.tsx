@@ -623,7 +623,7 @@ export function ScreenView({
                               }
                             }}
                           >
-                            研究 <ArrowUpRight size={13} />
+                            个股研究 <ArrowUpRight size={13} />
                           </Button>
                         </>
                       );

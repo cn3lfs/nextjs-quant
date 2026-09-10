@@ -62,39 +62,35 @@ it("R2b rendering evidence detects changed actions", () => {
     ),
   ).not.toBe(baseline[file]);
 });
-it("S1 adds exactly the RPS data-management navigation link", () => {
+it("T1 keeps all three server routes in the shared client navigation", () => {
   const source = readFileSync("src/components/workbench.tsx", "utf8");
-  const ast = ts.createSourceFile(
-    "view.tsx",
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
+  expect(source).toContain("routeTabs.map((item)");
+  expect(source).toContain("href={item.href}");
+  expect(source).toContain("scroll={false}");
+  expect(source).toContain("hidden={!home}");
+  expect(source).toContain("{!home && children}");
+  expect(source).toContain("state.setTab(next)");
+  expect(source).toContain('router.push("/", { scroll: false })');
+  expect(source).not.toContain("<a ");
+  expect(source).not.toContain("RESEARCH /");
+  const navigation = readFileSync(
+    "src/components/workbench/navigation.ts",
+    "utf8",
   );
-  const links: ts.JsxElement[] = [];
-  const visit = (node: ts.Node) => {
-    if (
-      ts.isJsxElement(node) &&
-      node.openingElement.tagName.getText(ast) === "a" &&
-      node.openingElement.attributes.properties.some(
-        (p) =>
-          ts.isJsxAttribute(p) &&
-          p.name.getText(ast) === "href" &&
-          p.initializer &&
-          ts.isStringLiteral(p.initializer) &&
-          p.initializer.text === "/rps",
-      )
-    )
-      links.push(node);
-    ts.forEachChild(node, visit);
-  };
-  visit(ast);
-  expect(links).toHaveLength(1);
-  expect(originalRendering(`const link = (${links[0]!.getText(ast)});`)).toBe(
-    originalRendering(
-      'const link = (<a className="nav-item" href="/rps"><BookOpen size={18} />RPS数据管理</a>);',
-    ),
+  for (const href of ["/signal-ledger", "/trade-ledger", "/rps"])
+    expect(navigation.split(`href: "${href}"`)).toHaveLength(2);
+  expect(readFileSync("src/app/layout.tsx", "utf8")).toContain(
+    "<WorkbenchLayout>{children}</WorkbenchLayout>",
   );
+  expect(readFileSync("src/components/workbench-layout.tsx", "utf8")).toContain(
+    "<Workbench>{children}</Workbench>",
+  );
+  for (const file of [
+    "src/app/rps/page.tsx",
+    "src/components/signal-ledger-view.tsx",
+    "src/components/trade-ledger-panel.tsx",
+  ])
+    expect(readFileSync(file, "utf8")).not.toContain("返回工作台");
 });
 
 it("R2b leaves only the explicitly exempt frozen native button", () => {
