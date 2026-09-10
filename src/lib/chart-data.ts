@@ -132,7 +132,7 @@ export function czscChartMarkers(
 }
 
 export const chartPageSize = 180;
-export type Subchart = "none" | "volume" | "macd" | "kdj" | "rsi";
+export type Subchart = "none" | "volume" | "macd" | "kdj" | "rsi" | "rps";
 
 // Compute against the entire immutable snapshot, never the displayed suffix:
 // revealing history must not move the recursive indicators' starting point.
@@ -233,4 +233,37 @@ export function revealHistory(
     start: next,
     range: { from: range.from + added, to: range.to + added },
   };
+}
+
+export type RpsCurve = {
+  date: string;
+  mode: "backfill" | "forward";
+  periods: number[];
+  values: ({ rps: number } | null)[];
+}[];
+
+// Align persisted observations to daily bars; absent dates and null values break
+// runs. Split provenance too, so backfill never appears to be forward evidence.
+export function rpsChartSegments(
+  bars: readonly Bar[],
+  curve: RpsCurve,
+  period: Period,
+  window: number,
+  start = 0,
+) {
+  if (period !== "day") return [];
+  const byDate = new Map(curve.map((row) => [row.date, row]));
+  return (["backfill", "forward"] as const).flatMap((mode) =>
+    indicatorSegments(
+      bars,
+      bars.map((bar) => {
+        const row = byDate.get(bar.date);
+        return row?.mode === mode
+          ? (row.values[row.periods.indexOf(window)]?.rps ?? null)
+          : null;
+      }),
+      period,
+      start,
+    ).map((data) => ({ mode, data })),
+  );
 }

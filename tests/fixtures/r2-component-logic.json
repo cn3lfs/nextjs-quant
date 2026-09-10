@@ -34,14 +34,14 @@
     "MarketView": "f57a2b5043df8f90fdcfc592ae7f4e308bb8d36565cf3dbba61f0a9022c40ff3"
   },
   "src/components/chart-workspace.tsx": {
-    "ChartWorkspace": "2b4d1ebf4e527aede07debcb98d002b7d53cf97c7d951bad9d5802556e0716e6",
-    "EditableChart": "f432ceabeeb7e25722dd6f4fcc0ad7987e599be86eb72b52b689c45ef151d890"
+    "ChartWorkspace": "13b358e029d322984f8a0f6c2f1a3187b3076707fb28e80a98d1cf30ac8934f6",
+    "EditableChart": "429f1ef810ae15a078aacff3f9ef7a0b93b4811f1257a5a98698c7953893ab4b"
   },
   "src/components/chart.tsx": {
     "LegacyChart": "7c3e8837a8e750c2d82bb0c1ad4b3497acc6b9a6f0497cf681821b79888b5058",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "CzscMarketChart": "e8370e336f882ea2c2e56b85611eb713daf201f01366ba06d04d255430837c27",
-    "MarketChart": "2f802f05df182f5e78790eb1bc11af779096a58e04610d5b92f792fe5d6bdd39"
+    "MarketChart": "c602151f6c012dc56fd6ea9cdbb0e25b39c771af006451dd4e49bed637c24a58"
   },
   "src/components/security-select.tsx": {
     "SecuritySelect": "c2396d098c5ac7ccc2c409e8f0aa04d87a2780f9392e104847b95f14b9b3eaf9",

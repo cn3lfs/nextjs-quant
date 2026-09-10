@@ -1,7 +1,7 @@
 {
   "src/app/signal-ledger/error.tsx": "26709bdbd02b77f86d30e9994b78ca560d22b901154218d51b56d6ef3aa2aba0",
   "src/app/trade-ledger/error.tsx": "3df0932dff8e0b3a9c0218a3f7dc0032ffcc32a24ca7b4244280e0ba99877cde",
-  "src/components/chart-workspace.tsx": "3b0938b0d1c2ae6c8a5c1c8ac8429e46df26abbca56f6fd813d9a046b076307c",
+  "src/components/chart-workspace.tsx": "914aa94b97884f72bb5bf8f4e09beb868133c46d62713bdbe8b7fc63da6f57f4",
   "src/components/formula-screen.tsx": "a24774f00687f5228758dd0d03cb35bacf9b3035ef3d10e185c3573f4ac26b21",
   "src/components/security-select.tsx": "b905a76b75e2b7b2bd3dc87275e7a236f6238215e52b1e6d2228edab3c6eeb52",
   "src/components/signal-ledger-controls.tsx": "7571c0bf6257564d77e8416b5919341644015501c64af793cfaea0ba6803de54",

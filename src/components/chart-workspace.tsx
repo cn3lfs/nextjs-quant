@@ -49,6 +49,11 @@ export function ChartWorkspace({
       refetchOnWindowFocus: false,
     },
   );
+  const rps = api.rpsCurve.useQuery(snapshot.symbol, {
+    enabled: period === "day",
+    retry: false,
+    refetchOnWindowFocus: true,
+  });
   const position = api.chartPosition.useQuery(snapshot.symbol, {
     retry: false,
     refetchOnWindowFocus: true,
@@ -80,6 +85,17 @@ export function ChartWorkspace({
       snapshot={snapshot}
       period={period}
       initial={view.data}
+      rps={period === "day" ? rps.data : undefined}
+      rpsMessage={
+        period !== "day"
+          ? undefined
+          : rps.error
+            ? `RPS读取失败：${rps.error.message}`
+            : rps.isPending
+              ? "RPS读取中…"
+              : undefined
+      }
+      onRpsRetry={() => void rps.refetch()}
       bars={derived ? aggregate.data!.bars : snapshot.bars}
       cost={chartCost(position.data ?? undefined)}
       positionMessage={
@@ -109,6 +125,9 @@ function EditableChart({
   cost,
   positionMessage,
   aggregateMessage,
+  rps,
+  rpsMessage,
+  onRpsRetry,
 }: {
   snapshot: Snapshot;
   period: ChartPeriod;
@@ -117,6 +136,9 @@ function EditableChart({
   cost: number | null;
   positionMessage?: string;
   aggregateMessage?: string;
+  rps?: import("~/lib/chart-data").RpsCurve;
+  rpsMessage?: string;
+  onRpsRetry?: () => void;
 }) {
   const [view, setView] = useState(initial),
     [tool, setTool] = useState<keyof typeof tools>("none"),
@@ -171,6 +193,9 @@ function EditableChart({
     [anchor, tool, view, change],
   );
   const common = {
+    rps,
+    rpsMessage,
+    onRpsRetry,
     bars,
     period,
     view,

@@ -1,4 +1,8 @@
 "use client";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
+import { rpsPeriods } from "~/lib/rps";
+import { rpsChartSegments, type RpsCurve } from "~/lib/chart-data";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
@@ -152,12 +156,21 @@ const colors: Record<IndicatorName, string> = {
   RSI12: "#9b4dcc",
   RSI24: "#287e97",
 };
+const rpsColors: Record<number, string> = {
+  5: "#be5263",
+  10: "#218775",
+  20: "#68788c",
+  50: "#b77900",
+  120: "#9b4dcc",
+  250: "#287e97",
+};
 const subcharts = {
   none: "隐藏副图",
   volume: "成交量",
   macd: "MACD",
   kdj: "KDJ",
   rsi: "RSI",
+  rps: "RPS（日线）",
 } as const;
 const formatValue = (value: number | null | undefined) =>
   value == null ? "—" : value.toFixed(2);
@@ -190,6 +203,9 @@ export function CzscMarketChart({
   drawingTool,
   onAnchor,
   cost,
+  rps,
+  rpsMessage,
+  onRpsRetry,
 }: {
   bars: Bar[];
   period: Period;
@@ -199,6 +215,9 @@ export function CzscMarketChart({
   drawingTool?: Drawing["kind"] | "none";
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
+  rps?: RpsCurve;
+  rpsMessage?: string;
+  onRpsRetry?: () => void;
 }) {
   const result = api.czsc.useQuery(
     { snapshotId },
@@ -221,6 +240,9 @@ export function CzscMarketChart({
       drawingTool={drawingTool}
       onAnchor={onAnchor}
       cost={cost}
+      rps={rps}
+      rpsMessage={rpsMessage}
+      onRpsRetry={onRpsRetry}
       czsc={period === "day" || period === "5m" ? result.data : undefined}
       breakout={period === "day" ? breakout.data : undefined}
       breakoutMessage={
@@ -257,6 +279,9 @@ export function MarketChart({
   drawingTool = "none",
   onAnchor,
   cost,
+  rps,
+  rpsMessage,
+  onRpsRetry,
 }: {
   bars: Bar[];
   period: Period;
@@ -269,6 +294,9 @@ export function MarketChart({
   drawingTool?: Drawing["kind"] | "none";
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
+  rps?: RpsCurve;
+  rpsMessage?: string;
+  onRpsRetry?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const viewport = useRef<{
@@ -302,6 +330,10 @@ export function MarketChart({
     onViewChange && view
       ? onViewChange({ ...view, subchart: value })
       : setLocalSubchart(value);
+  const [localRps, setLocalRps] = useState(defaultChartView.rps);
+  const rpsOptions = view?.rps ?? localRps;
+  const setRpsOptions = (rps: ChartView["rps"]) =>
+    onViewChange && view ? onViewChange({ ...view, rps }) : setLocalRps(rps);
   const parameters = view?.parameters ?? defaultChartView.parameters;
   const [hover, setHover] = useState<{ bars: Bar[]; index: number } | null>(
     null,
@@ -361,7 +393,7 @@ export function MarketChart({
         mode: 0,
       },
       handleScale: {
-        axisPressedMouseMove: { time: true, price: true },
+        axisPressedMouseMove: { time: true, price: subchart !== "rps" },
         mouseWheel: true,
         pinch: true,
       },
@@ -479,13 +511,27 @@ export function MarketChart({
       };
       candles.attachPrimitive(primitive);
     }
-    // A whitespace-only anchor keeps an all-null subchart present during warmup.
+    // The RPS reference anchor has values only to display its threshold;
+    // observations still come exclusively from persisted segmented curves.
+    // Other oscillators use whitespace to retain an empty warmup pane.
     const anchor =
-      subchart === "none"
+      subchart === "none" || (subchart === "rps" && period !== "day")
         ? null
         : chart.addSeries(
             LineSeries,
-            { lastValueVisible: false, priceLineVisible: false },
+            {
+              lastValueVisible: false,
+              priceLineVisible: false,
+              lineVisible: false,
+              crosshairMarkerVisible: false,
+              ...(subchart === "rps"
+                ? {
+                    autoscaleInfoProvider: () => ({
+                      priceRange: { minValue: 0, maxValue: 100 },
+                    }),
+                  }
+                : {}),
+            },
             1,
           );
     const histogram =
@@ -505,6 +551,20 @@ export function MarketChart({
     // A newly created pane inherits the first pane scale settings in LWC 5.
     // Explicitly reset the oscillator pane after it exists.
     anchor?.priceScale().applyOptions({ mode: 0 });
+    if (subchart === "rps" && period === "day" && anchor) {
+      anchor.priceScale().applyOptions({
+        autoScale: true,
+        scaleMargins: { top: 0, bottom: 0 },
+      });
+      anchor.createPriceLine({
+        price: rpsOptions.threshold,
+        color: "#64748b",
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "RPS阈值",
+      });
+    }
     let lines: ISeriesApi<"Line">[] = [];
     const render = () => {
       const visible = bars.slice(start);
@@ -512,7 +572,11 @@ export function MarketChart({
         visible.map((bar) => ({ ...bar, time: chartTime(bar.date, period) })),
       );
       anchor?.setData(
-        visible.map((bar) => ({ time: chartTime(bar.date, period) })),
+        visible.map((bar) =>
+          subchart === "rps"
+            ? { time: chartTime(bar.date, period), value: rpsOptions.threshold }
+            : { time: chartTime(bar.date, period) },
+        ),
       );
       histogram?.setData(
         visible.map((bar, i) => {
@@ -533,6 +597,36 @@ export function MarketChart({
       );
       for (const line of lines) chart.removeSeries(line);
       lines = [];
+      if (subchart === "rps") {
+        for (const window of rpsOptions.periods) {
+          for (const segment of rpsChartSegments(
+            bars,
+            rps ?? [],
+            period,
+            window,
+            start,
+          )) {
+            const line = chart.addSeries(
+              LineSeries,
+              {
+                color: rpsColors[window],
+                lineWidth: 2,
+                lineStyle: segment.mode === "backfill" ? 2 : 0,
+                pointMarkersVisible: segment.data.length === 1,
+                pointMarkersRadius: 3,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                autoscaleInfoProvider: () => ({
+                  priceRange: { minValue: 0, maxValue: 100 },
+                }),
+              },
+              1,
+            );
+            line.setData(segment.data);
+            lines.push(line);
+          }
+        }
+      }
       if (czsc && showCzsc) {
         for (const family of czsc.families) {
           const line = chart.addSeries(LineSeries, {
@@ -671,6 +765,8 @@ export function MarketChart({
     drawingTool,
     onAnchor,
     cost,
+    rps,
+    rpsOptions,
   ]);
 
   return (
@@ -775,6 +871,70 @@ export function MarketChart({
           {periodLabels[period]} · 不复权 · {subcharts[subchart]}
         </span>
       </div>
+      {subchart === "rps" && (
+        <div
+          className="flex flex-wrap items-center gap-3 py-2 text-xs"
+          data-testid="rps-controls"
+        >
+          {period !== "day" ? (
+            <span role="status">RPS仅支持日线，当前周期不可用</span>
+          ) : (
+            <>
+              {rpsPeriods.map((window) => (
+                <label
+                  key={window}
+                  className="flex items-center gap-1"
+                  style={{ color: rpsColors[window] }}
+                >
+                  <Checkbox
+                    checked={rpsOptions.periods.includes(window)}
+                    onCheckedChange={(checked) =>
+                      setRpsOptions({
+                        ...rpsOptions,
+                        periods:
+                          checked === true
+                            ? [...rpsOptions.periods, window]
+                            : rpsOptions.periods.filter((p) => p !== window),
+                      })
+                    }
+                  />
+                  RPS{window}
+                </label>
+              ))}
+              <label className="flex items-center gap-2">
+                参考阈值
+                <Input
+                  aria-label="RPS参考阈值"
+                  className="w-20"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={rpsOptions.threshold}
+                  onChange={(e) => {
+                    const n = e.target.valueAsNumber;
+                    if (Number.isFinite(n) && n >= 0 && n <= 100)
+                      setRpsOptions({ ...rpsOptions, threshold: n });
+                  }}
+                />
+              </label>
+              <span>
+                虚线：回填（生存者偏差） · 实线：向前新增 · 后复权日线排名
+              </span>
+              <span role="status">
+                {rpsMessage ??
+                  (rps?.some((row) => row.values.some((v) => v != null))
+                    ? ""
+                    : "暂无已落库RPS数据")}
+              </span>
+              {rpsMessage?.startsWith("RPS读取失败") && onRpsRetry && (
+                <Button variant="plain" onClick={onRpsRetry}>
+                  重试RPS
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      )}
       <div
         data-testid="chart-legend"
         className="flex min-h-16 flex-wrap content-start gap-x-3 gap-y-1 text-xs"

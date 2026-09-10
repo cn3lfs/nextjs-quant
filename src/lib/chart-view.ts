@@ -53,7 +53,24 @@ export const chartViewSchema = z
     logarithmic: z.boolean(),
     dark: z.boolean(),
     showBoll: z.boolean(),
-    subchart: z.enum(["none", "volume", "macd", "kdj", "rsi"]),
+    subchart: z.enum(["none", "volume", "macd", "kdj", "rsi", "rps"]),
+    rps: z
+      .object({
+        periods: z
+          .array(
+            z.union([
+              z.literal(5),
+              z.literal(10),
+              z.literal(20),
+              z.literal(50),
+              z.literal(120),
+              z.literal(250),
+            ]),
+          )
+          .max(6),
+        threshold: z.number().finite().min(0).max(100),
+      })
+      .default({ periods: [50, 120, 250], threshold: 90 }),
     drawings: z.array(drawingSchema).max(200),
   })
   .strict();
@@ -64,6 +81,7 @@ export const defaultChartView: ChartView = {
   dark: false,
   showBoll: false,
   subchart: "volume",
+  rps: { periods: [50, 120, 250], threshold: 90 },
   drawings: [],
 };
 export const chartKeySchema = z.object({
