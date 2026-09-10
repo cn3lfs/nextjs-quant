@@ -1,4 +1,6 @@
 "use client";
+
+import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 
@@ -55,7 +57,9 @@ export function ChartWorkspace({
     return (
       <div role="alert">
         视图读取失败：{view.error.message}{" "}
-        <button onClick={() => void view.refetch()}>重试读取</button>
+        <Button variant="plain" onClick={() => void view.refetch()}>
+          重试读取
+        </Button>
       </div>
     );
   if (!view.data) return <p>正在读取图表视图…</p>;
@@ -64,7 +68,9 @@ export function ChartWorkspace({
     return (
       <div role="alert">
         聚合失败：{aggregate.error.message}{" "}
-        <button onClick={() => void aggregate.refetch()}>重试聚合</button>
+        <Button variant="plain" onClick={() => void aggregate.refetch()}>
+          重试聚合
+        </Button>
       </div>
     );
   if (derived && !aggregate.data) return <p>正在聚合已完成周期…</p>;
@@ -202,12 +208,13 @@ function EditableChart({
           />{" "}
           暗色主题
         </label>
-        <button
+        <Button
+          variant="plain"
           disabled={save.isPending}
           onClick={() => save.mutate({ symbol: snapshot.symbol, period, view })}
         >
           保存视图
-        </button>
+        </Button>
         <span role="status">
           {save.error
             ? `保存失败：${save.error.message}，可重新保存`
@@ -257,7 +264,9 @@ function EditableChart({
               ))}
             </fieldset>
           ))}
-          <button type="submit">应用参数</button>
+          <Button variant="plain" type="submit">
+            应用参数
+          </Button>
         </form>
       </details>
       <div
@@ -266,7 +275,8 @@ function EditableChart({
         aria-label="画线工具"
       >
         {Object.entries(tools).map(([id, label]) => (
-          <button
+          <Button
+            variant="plain"
             key={id}
             aria-pressed={tool === id}
             onClick={() => {
@@ -275,7 +285,7 @@ function EditableChart({
             }}
           >
             {label}
-          </button>
+          </Button>
         ))}
         <span>
           {tool !== "none"
@@ -368,8 +378,11 @@ function EditableChart({
                 />
               </span>
             ))}
-            <button type="submit">更新图形</button>
-            <button
+            <Button variant="plain" type="submit">
+              更新图形
+            </Button>
+            <Button
+              variant="plain"
               type="button"
               onClick={() =>
                 change({
@@ -379,7 +392,7 @@ function EditableChart({
               }
             >
               删除图形
-            </button>
+            </Button>
           </form>
         ))}
         <datalist id="chart-anchor-dates">

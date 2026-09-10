@@ -1,4 +1,6 @@
 "use client";
+
+import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 
 import { useEffect, useId, useRef, useState } from "react";
@@ -141,7 +143,8 @@ export function SecuritySelect({
             className="security-options"
           >
             {items.map((item, i) => (
-              <button
+              <Button
+                variant="plain"
                 type="button"
                 role="option"
                 id={`${id}-${i}`}
@@ -154,7 +157,7 @@ export function SecuritySelect({
               >
                 <span>{item.name}</span>
                 <small>{item.symbol.toUpperCase()}</small>
-              </button>
+              </Button>
             ))}
           </div>
           {results.isFetching && (

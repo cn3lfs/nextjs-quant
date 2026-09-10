@@ -293,49 +293,6 @@ small {
   font-size: 12px;
   color: var(--muted);
 }
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border-radius: 7px;
-  padding: 9px 15px;
-  font-size: 12px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-.button-primary {
-  background: #287f96;
-  color: white;
-  box-shadow: 0 2px 4px #287f961a;
-}
-.button-primary:hover {
-  background: #216b80;
-}
-.button-outline {
-  background: white;
-  border-color: #dae4ed;
-  color: #526b82;
-}
-.button-outline:hover {
-  background: #eef4f8;
-}
-.button-ghost {
-  background: transparent;
-  color: #47859b;
-}
-.button-ghost:hover {
-  background: #edf5f7;
-}
-.button-danger {
-  background: #fbedef;
-  color: #b64d5c;
-}
-.button-sm {
-  padding: 5px 9px;
-  font-size: 11px;
-}
 .full {
   width: 100%;
 }

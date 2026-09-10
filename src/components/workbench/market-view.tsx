@@ -93,7 +93,8 @@ export function MarketView({
             </Button>
             <div className="segmented">
               {chartPeriodSchema.options.map((p) => (
-                <button
+                <Button
+                  variant="plain"
                   className={displayedPeriod === p ? "selected" : ""}
                   key={p}
                   disabled={load.isPending}
@@ -109,7 +110,7 @@ export function MarketView({
                   }}
                 >
                   {p === "day" ? "日 K" : periodLabels[p]}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -222,7 +223,8 @@ export function MarketView({
         <div className="watchlist">
           {watchlist.map((s) => (
             <div className="watch-item" key={s}>
-              <button
+              <Button
+                variant="plain"
                 onClick={() => {
                   setSymbol(s);
                   load.mutate({ symbol: s, period });
@@ -236,14 +238,15 @@ export function MarketView({
                   <small>{s.toUpperCase()}</small>
                 </span>
                 <ArrowUpRight size={16} />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="plain"
                 className="icon-button"
                 aria-label={`移除 ${s}`}
                 onClick={() => watch.mutate(watchlist.filter((v) => v !== s))}
               >
                 <X size={13} />
-              </button>
+              </Button>
             </div>
           ))}
         </div>

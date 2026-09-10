@@ -1,4 +1,6 @@
 "use client";
+
+import { Button } from "~/components/ui/button";
 import {
   Select,
   SelectTrigger,
@@ -92,7 +94,9 @@ export function FormulaScreen({
       {formulas.error && (
         <p role="alert">
           {formulas.error.message}{" "}
-          <button onClick={() => void formulas.refetch()}>重试读取</button>
+          <Button variant="plain" onClick={() => void formulas.refetch()}>
+            重试读取
+          </Button>
         </p>
       )}
       <label>
@@ -117,7 +121,8 @@ export function FormulaScreen({
         />
       </label>
       <div className="inline-form">
-        <button
+        <Button
+          variant="plain"
           disabled={busy}
           onClick={() => {
             setChecked(null);
@@ -131,8 +136,9 @@ export function FormulaScreen({
           }}
         >
           语法检查与未来函数门禁
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="plain"
           disabled={busy || checked !== key}
           onClick={async () => {
             try {
@@ -146,8 +152,9 @@ export function FormulaScreen({
           }}
         >
           保存公式
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="plain"
           disabled={busy || checked !== key}
           onClick={async () => {
             try {
@@ -160,7 +167,7 @@ export function FormulaScreen({
           }}
         >
           全市场执行公式
-        </button>
+        </Button>
       </div>
       <p role="status" style={{ whiteSpace: "pre-wrap" }}>
         {checked !== null && checked !== key

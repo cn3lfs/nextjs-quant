@@ -51,12 +51,16 @@ export function ReportArchive({
       {history.error && <p role="alert">{history.error.message}</p>}
       {history.data?.items.map((item) => (
         <div key={item.id}>
-          <button className="text-link" onClick={() => setSelected(item.id)}>
+          <Button
+            variant="plain"
+            className="text-link"
+            onClick={() => setSelected(item.id)}
+          >
             {item.securityContext
               ? `${securityDisplayName(item.securityContext.symbol, names, item.securityContext.archivedName)} · ${item.securityContext.symbol} · `
               : ""}
             {item.title} · {stamp(item.createdAt)}
-          </button>
+          </Button>
         </div>
       ))}
       {history.data?.total === 0 && <p>暂无通用研究报告。</p>}

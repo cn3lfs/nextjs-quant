@@ -1,4 +1,6 @@
 "use client";
+
+import { Button } from "~/components/ui/button";
 import { DataTable } from "~/components/ui/data-table";
 
 import { Input } from "~/components/ui/input";
@@ -220,7 +222,9 @@ export function TradeLedgerPanel({
             <p>
               涨跌停上下限按该交易日终端值录入；无普通涨跌幅限制或依据未知时暂不录入，避免套用常规比例。记录只追加，保存后可查原值。
             </p>
-            <button type="submit">仅保存本地交易</button>
+            <Button variant="plain" type="submit">
+              仅保存本地交易
+            </Button>
           </fieldset>
         </form>
       </section>
@@ -360,7 +364,9 @@ export function TradeLedgerPanel({
                   required
                 />
               </label>
-              <button disabled={pending}>更新止损位</button>
+              <Button variant="plain" disabled={pending}>
+                更新止损位
+              </Button>
             </form>
           ))}
       </section>
@@ -414,7 +420,9 @@ export function TradeLedgerPanel({
                   到账依据
                   <Input name="source" maxLength={200} required />
                 </label>
-                <button disabled={pending}>保存可卖依据（只记录一次）</button>
+                <Button variant="plain" disabled={pending}>
+                  保存可卖依据（只记录一次）
+                </Button>
               </form>
             )}
           </details>
@@ -595,31 +603,34 @@ export function TradeLedgerPanel({
             emptyMessage={null}
           />
         </details>
-        <button
+        <Button
+          variant="plain"
           disabled={pending || !enabled}
           onClick={() => run(async () => setMarkets(await readMockMarkets()))}
         >
           查看已保存市场代码（本地）
-        </button>
+        </Button>
         {markets.map((code) => (
           <p key={code}>
             {code}：{mockMarketLabel(code)}
           </p>
         ))}
-        <button
+        <Button
+          variant="plain"
           disabled={pending || !enabled}
           onClick={() => run(async () => setRemoteQuery(await readMockFunds()))}
         >
           查询远程资金
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="plain"
           disabled={pending || !enabled}
           onClick={() =>
             run(async () => setRemoteQuery(await readMockTrades()))
           }
         >
           查询当日成交
-        </button>
+        </Button>
         {remoteQuery !== null && (
           <pre className="overflow-auto">
             {JSON.stringify(remoteQuery, null, 2)}
@@ -629,7 +640,8 @@ export function TradeLedgerPanel({
           当前{enabled ? "已开启" : "关闭"}
           。关闭时不读取远程账户、不发送任何远程请求。开启本身也不开户；所有远程操作需点击。
         </p>
-        <button
+        <Button
+          variant="plain"
           disabled={pending}
           onClick={() =>
             run(async () => {
@@ -643,8 +655,9 @@ export function TradeLedgerPanel({
           }
         >
           {enabled ? "关闭模拟盘" : "开启模拟盘"}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="plain"
           disabled={pending}
           onClick={() =>
             run(async () => {
@@ -653,7 +666,7 @@ export function TradeLedgerPanel({
           }
         >
           查看最近20次脱敏响应（本地）
-        </button>
+        </Button>
         {diagnostics && (
           <div aria-live="polite">
             {diagnostics.length === 0
@@ -677,7 +690,8 @@ export function TradeLedgerPanel({
             <p>
               开户将在第三方建立持久账户，用户名以DPAPI加密保存。服务使用HTTP。委托与本地交易互不自动覆盖。
             </p>
-            <button
+            <Button
+              variant="plain"
               disabled={pending}
               onClick={() =>
                 run(async () => {
@@ -687,8 +701,9 @@ export function TradeLedgerPanel({
               }
             >
               确认创建或使用模拟账户
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
               disabled={pending}
               onClick={() =>
                 run(async () => {
@@ -698,8 +713,9 @@ export function TradeLedgerPanel({
               }
             >
               查询既有账户股东账号（不开户）
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
               disabled={pending}
               onClick={() =>
                 run(async () => {
@@ -709,8 +725,9 @@ export function TradeLedgerPanel({
               }
             >
               查询远程并对账
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="plain"
               disabled={pending}
               onClick={() =>
                 run(async () => {
@@ -720,7 +737,7 @@ export function TradeLedgerPanel({
               }
             >
               用上方输入预览模拟委托
-            </button>
+            </Button>
             {preview && (
               <div role="group" aria-label="确认模拟委托">
                 <p>
@@ -729,7 +746,8 @@ export function TradeLedgerPanel({
                   {preview.input.quantity}股 × {preview.input.price}
                   元；确认后发送远程委托。
                 </p>
-                <button
+                <Button
+                  variant="plain"
                   disabled={pending}
                   onClick={() =>
                     run(async () => {
@@ -740,8 +758,10 @@ export function TradeLedgerPanel({
                   }
                 >
                   确认发送这笔模拟委托
-                </button>
-                <button onClick={() => setPreview(null)}>取消</button>
+                </Button>
+                <Button variant="plain" onClick={() => setPreview(null)}>
+                  取消
+                </Button>
               </div>
             )}
             {diff && (

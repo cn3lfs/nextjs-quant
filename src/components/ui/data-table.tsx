@@ -99,7 +99,8 @@ export function DataTable<T extends object>({
                     }
                   >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <button
+                      <Button
+                        variant="plain"
                         type="button"
                         data-slot="data-table-sort"
                         disabled={busy}
@@ -114,7 +115,7 @@ export function DataTable<T extends object>({
                               ? "↓"
                               : "↕"}
                         </span>
-                      </button>
+                      </Button>
                     ) : (
                       <table.FlexRender header={header} />
                     )}

@@ -1,3 +1,4 @@
+import { Button } from "~/components/ui/button";
 import {
   Check,
   LoaderCircle,
@@ -65,9 +66,13 @@ export function TaskCenter({
           </span>
           <small>{stamp(j.createdAt)}</small>
           {["queued", "running"].includes(j.status) && (
-            <button className="text-link" onClick={() => cancel.mutate(j.id)}>
+            <Button
+              variant="plain"
+              className="text-link"
+              onClick={() => cancel.mutate(j.id)}
+            >
               取消
-            </button>
+            </Button>
           )}
         </div>
       ))}

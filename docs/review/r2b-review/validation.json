@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-10",
+  "baselineCommit": "8ee88dabdea64166127ce41cf8dca2fb425baaea",
+  "typecheck": { "command": "pnpm typecheck", "exitCode": 0 },
+  "test": {
+    "command": "pnpm test",
+    "exitCode": 0,
+    "files": 169,
+    "tests": 1058,
+    "durationSeconds": 111.88,
+    "baselineFiles": 168,
+    "baselineTests": 1055
+  },
+  "build": {
+    "command": "pnpm build",
+    "exitCode": 0,
+    "includesRuntimeBuild": true
+  },
+  "desktopPrepare": { "command": "pnpm desktop:prepare", "exitCode": 0 },
+  "format": { "command": "pnpm format:check", "exitCode": 0 },
+  "diffCheck": { "command": "git diff --check", "exitCode": 0 },
+  "playwright": {
+    "command": "node tests/r2b-browser-review.mjs",
+    "exitCode": 0,
+    "dataDirectory": ".test-data/r2b/browser",
+    "pages": 6,
+    "interactionEvidence": "comparison.json",
+    "browserErrors": 0,
+    "externalBrowserRequests": 0
+  },
+  "databaseAudit": { "channels": 0, "deliveries": 0, "enabledMonitors": 0 },
+  "nativeButtons": {
+    "nonFrozen": 0,
+    "frozen": [
+      {
+        "file": "src/components/backtest-actions.tsx",
+        "line": 26,
+        "count": 1,
+        "reason": "conventions 9.5"
+      }
+    ],
+    "replaced": 40
+  },
+  "cssLines": { "added": 0, "removed": 43 },
+  "visualAcceptance": "B layer pending user review; no visual approval claimed",
+  "desktopSmoke": "not run, manager only",
+  "desktopPack": "not run, manager only",
+  "committed": false,
+  "pushed": false
+}

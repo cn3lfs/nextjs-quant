@@ -41,7 +41,8 @@ export function Workbench() {
         <div className="nav-label">研究空间</div>
         <nav>
           {dailyTabs.map((t) => (
-            <button
+            <Button
+              variant="plain"
               key={t.id}
               onClick={() => setTab(t.id)}
               className={tab === t.id ? "nav-item active" : "nav-item"}
@@ -49,7 +50,7 @@ export function Workbench() {
               <t.icon size={18} />
               {t.label}
               {tab === t.id && <ChevronRight size={14} />}
-            </button>
+            </Button>
           ))}
           <a className="nav-item" href="/signal-ledger">
             <BookOpen size={18} />
@@ -66,7 +67,8 @@ export function Workbench() {
             </summary>
             <nav aria-label="研究">
               {researchTabs.map((t) => (
-                <button
+                <Button
+                  variant="plain"
                   key={t.id}
                   onClick={() => setTab(t.id)}
                   className={tab === t.id ? "nav-item active" : "nav-item"}
@@ -74,7 +76,7 @@ export function Workbench() {
                   <t.icon size={18} />
                   {t.label}
                   {tab === t.id && <ChevronRight size={14} />}
-                </button>
+                </Button>
               ))}
             </nav>
           </details>
@@ -108,13 +110,14 @@ export function Workbench() {
               : status.data?.settings.llmProvider === "claude"
                 ? `Claude Code · ${status.data.localModels.claude ? "已安装" : "未安装"}`
                 : `Codex · ${status.data?.localModels.codex ? "已安装" : "未安装"}`}
-            <button
+            <Button
+              variant="plain"
               className="icon-button"
               aria-label="查看通知"
               onClick={() => setTab("signals")}
             >
               <Bell size={18} />
-            </button>
+            </Button>
           </div>
         </header>
         <div className="page">
@@ -171,9 +174,13 @@ export function Workbench() {
         <div role="status" className="toast">
           <Activity size={17} />
           {toast}
-          <button aria-label="关闭提示" onClick={() => setToast("")}>
+          <Button
+            variant="plain"
+            aria-label="关闭提示"
+            onClick={() => setToast("")}
+          >
             <X size={15} />
-          </button>
+          </Button>
         </div>
       )}
       {status.error && (

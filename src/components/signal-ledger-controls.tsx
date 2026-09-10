@@ -1,4 +1,6 @@
 "use client";
+
+import { Button } from "~/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelLedger } from "~/app/signal-ledger/actions";
@@ -13,7 +15,8 @@ export function SignalLedgerControls({ date }: { date?: string }) {
   return (
     <div>
       {date && (
-        <button
+        <Button
+          variant="plain"
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
@@ -28,7 +31,7 @@ export function SignalLedgerControls({ date }: { date?: string }) {
           }
         >
           取消当日台账任务
-        </button>
+        </Button>
       )}
       <p role="status">{message}</p>
     </div>

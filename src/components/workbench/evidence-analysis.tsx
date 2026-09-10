@@ -95,9 +95,13 @@ export function EvidenceAnalysis({
         <Check size={14} />
         缺少证据时明确标注
       </div>
-      <button className="text-link" onClick={() => setTab("reports")}>
+      <Button
+        variant="plain"
+        className="text-link"
+        onClick={() => setTab("reports")}
+      >
         查看研究档案 <ArrowUpRight size={14} />
-      </button>
+      </Button>
       <CanslimPanel snapshot={loaded ?? undefined} />
       <ChanPanel snapshot={loaded ?? undefined} />
       <WyckoffPanel snapshot={loaded ?? undefined} />
