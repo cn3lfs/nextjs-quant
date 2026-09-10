@@ -83,11 +83,9 @@ try {
   await capture("running-progress", progress);
   evidence.checks.push("执行在 worker 期间展开函数目录，界面可交互");
   await progress.getByText(/规则筛选 · 已完成/).waitFor({ timeout: 300000 });
-  const candidates = page
-    .locator("section.panel")
-    .filter({
-      has: page.getByRole("heading", { name: "候选结果", exact: true }),
-    });
+  const candidates = page.locator("section.panel").filter({
+    has: page.getByRole("heading", { name: "候选结果", exact: true }),
+  });
   await candidates
     .getByText("公式：老鸭头（价量部分，非原公式）", { exact: true })
     .waitFor({ timeout: 30000 });

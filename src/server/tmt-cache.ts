@@ -318,7 +318,11 @@ export async function tmtCandidateEvidence(
         files: documents,
       },
       sources: data.sources,
-      updates: { sourceIds:data.updates.sourceIds, sources:data.updates.sources, revisions:data.updates.revisions },
+      updates: {
+        sourceIds: data.updates.sourceIds,
+        sources: data.updates.sources,
+        revisions: data.updates.revisions,
+      },
       facts: data.facts,
     };
     const dates = [

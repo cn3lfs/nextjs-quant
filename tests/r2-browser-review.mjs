@@ -314,11 +314,9 @@ try {
     );
   }
   if (name === "screen" && phase === "after") {
-    const section = page
-      .locator("section.panel")
-      .filter({
-        has: page.getByRole("heading", { name: "候选结果", exact: true }),
-      });
+    const section = page.locator("section.panel").filter({
+      has: page.getByRole("heading", { name: "候选结果", exact: true }),
+    });
     const table = page.getByRole("table", { name: "候选结果", exact: true });
     const queries = [];
     page.on("request", (request) => {
@@ -364,11 +362,9 @@ try {
       .locator("summary")
       .filter({ hasText: "查看隔离原因" })
       .click();
-    const excluded = section
-      .locator("details")
-      .filter({
-        has: page.locator("summary").filter({ hasText: "查看隔离原因" }),
-      });
+    const excluded = section.locator("details").filter({
+      has: page.locator("summary").filter({ hasText: "查看隔离原因" }),
+    });
     await excluded.getByRole("button", { name: "下一页", exact: true }).click();
     const excludedTable = page.getByRole("table", {
       name: "隔离原因",

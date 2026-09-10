@@ -52,9 +52,7 @@ export function EvidenceAnalysis({
           <Sparkles size={28} />
         </div>
         <h3>多看一层，少猜一步</h3>
-        <p>
-          基于当前行情与计算指标，分析趋势、反向证据和潜在风险。
-        </p>
+        <p>基于当前行情与计算指标，分析趋势、反向证据和潜在风险。</p>
       </div>
       <Field label="研究问题">
         <textarea
@@ -97,10 +95,7 @@ export function EvidenceAnalysis({
         <Check size={14} />
         缺少证据时明确标注
       </div>
-      <button
-        className="text-link"
-        onClick={() => setTab("reports")}
-      >
+      <button className="text-link" onClick={() => setTab("reports")}>
         查看研究档案 <ArrowUpRight size={14} />
       </button>
       <CanslimPanel snapshot={loaded ?? undefined} />

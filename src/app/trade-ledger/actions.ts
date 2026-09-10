@@ -56,8 +56,18 @@ export async function updateStop(symbol: string, stop: number) {
   revalidatePath("/trade-ledger");
 }
 
-export async function readMockDiagnostics() { return mockDiagnostics(); }
-export async function recoverMockAccount() { await refreshMockShareholders(); }
-export async function readMockMarkets() { return mockMarketCodes(); }
-export async function readMockFunds() { return queryMockFunds(); }
-export async function readMockTrades() { return queryMockTrades(); }
+export async function readMockDiagnostics() {
+  return mockDiagnostics();
+}
+export async function recoverMockAccount() {
+  await refreshMockShareholders();
+}
+export async function readMockMarkets() {
+  return mockMarketCodes();
+}
+export async function readMockFunds() {
+  return queryMockFunds();
+}
+export async function readMockTrades() {
+  return queryMockTrades();
+}

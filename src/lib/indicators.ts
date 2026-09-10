@@ -43,29 +43,52 @@ export function ma(bars: readonly Bar[], n = 20): IndicatorValue[] {
  * formula inputs may be zero or negative. M1 null/window/state rules are retained.
  * Sources: tdx-doc 引用函数 MA/EMA/SMA; 统计函数 STD; roadmap §3.1–3.4.
  */
-export function maSeries(values: readonly IndicatorValue[], n: number): IndicatorValue[] {
+export function maSeries(
+  values: readonly IndicatorValue[],
+  n: number,
+): IndicatorValue[] {
   period(n);
   return values.map((_, i) => {
     if (i + 1 < n) return null;
     const window = values.slice(i + 1 - n, i + 1);
-    if (window.some(v => v === null || !Number.isFinite(v))) return null;
+    if (window.some((v) => v === null || !Number.isFinite(v))) return null;
     return finite((window as number[]).reduce((sum, v) => sum + v, 0) / n);
   });
 }
 export function emaSeries(values: readonly IndicatorValue[], n: number) {
   period(n);
-  return smooth(values.map(v => v === null ? null : finite(v)), n + 1, 2);
+  return smooth(
+    values.map((v) => (v === null ? null : finite(v))),
+    n + 1,
+    2,
+  );
 }
-export function smaSeries(values: readonly IndicatorValue[], n: number, m: number) {
-  period(n); period(m);
+export function smaSeries(
+  values: readonly IndicatorValue[],
+  n: number,
+  m: number,
+) {
+  period(n);
+  period(m);
   if (m > n) throw new RangeError("SMA requires M <= N");
-  return smooth(values.map(v => v === null ? null : finite(v)), n, m);
+  return smooth(
+    values.map((v) => (v === null ? null : finite(v))),
+    n,
+    m,
+  );
 }
-export function stdSeries(values: readonly IndicatorValue[], n: number): IndicatorValue[] {
+export function stdSeries(
+  values: readonly IndicatorValue[],
+  n: number,
+): IndicatorValue[] {
   period(n, 2);
   return maSeries(values, n).map((mid, i) => {
     if (mid === null) return null;
-    const variance = values.slice(i + 1 - n, i + 1).reduce<number>((sum, v) => sum + (v! - mid) ** 2, 0) / (n - 1);
+    const variance =
+      values
+        .slice(i + 1 - n, i + 1)
+        .reduce<number>((sum, v) => sum + (v! - mid) ** 2, 0) /
+      (n - 1);
     return finite(Math.sqrt(variance));
   });
 }

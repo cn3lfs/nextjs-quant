@@ -380,9 +380,16 @@ export const appRouter = createTRPCRouter({
       screenJob(input.strategy, input.period, input.symbols, input),
     ),
   formulas: p.query(() => savedFormulas()),
-  saveFormula: p.input(formulaSchema).mutation(({input}) => saveFormula(input)),
-  checkFormula: p.input(formulaSchema).mutation(({input}) => { validateScreenFormula(input); return {ok: true}; }),
-  formulaScreen: p.input(formulaSchema).mutation(({input}) => formulaScreenJob(input)),
+  saveFormula: p
+    .input(formulaSchema)
+    .mutation(({ input }) => saveFormula(input)),
+  checkFormula: p.input(formulaSchema).mutation(({ input }) => {
+    validateScreenFormula(input);
+    return { ok: true };
+  }),
+  formulaScreen: p
+    .input(formulaSchema)
+    .mutation(({ input }) => formulaScreenJob(input)),
   backtest: p
     .input(
       z.object({
@@ -761,7 +768,8 @@ export const appRouter = createTRPCRouter({
   screenExport: p.input(z.string()).query(({ input }) => {
     const job = get<Job>(input);
     if (!job) throw new Error("任务不存在");
-    if ((job.input as {type?: string})?.type === "formula-screen") return exportFormulaScreen(job);
+    if ((job.input as { type?: string })?.type === "formula-screen")
+      return exportFormulaScreen(job);
     return exportScreenResults(job);
   }),
   cancel: p.input(z.string()).mutation(({ input }) => {
@@ -862,4 +870,9 @@ export const appRouter = createTRPCRouter({
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);
 import { formulaSchema, validateScreenFormula } from "~/lib/formula-screen";
-import { savedFormulas, saveFormula, formulaScreenJob, exportFormulaScreen } from "../formula-screen-service";
+import {
+  savedFormulas,
+  saveFormula,
+  formulaScreenJob,
+  exportFormulaScreen,
+} from "../formula-screen-service";

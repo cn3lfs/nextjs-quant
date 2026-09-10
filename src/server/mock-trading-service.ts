@@ -16,7 +16,12 @@ export const mockEnabled = () =>
 const adapter = () =>
   new MockTradingAdapter({
     enabled: mockEnabled,
-    retain: entry => put("mock-diagnostics", "mock-diagnostics", [...mockDiagnostics(), entry].slice(-20)),
+    retain: (entry) =>
+      put(
+        "mock-diagnostics",
+        "mock-diagnostics",
+        [...mockDiagnostics(), entry].slice(-20),
+      ),
     read: () => readSecret<MockAccount>(credentialId),
     save: (a) => saveSecret(credentialId, a),
   });
@@ -84,11 +89,23 @@ export async function confirmMockOrder(id: string) {
   return adapter().order(order.input, true);
 }
 
-export function mockDiagnostics() { return get<MockResponseEvidence[]>("mock-diagnostics") ?? []; }
-export async function refreshMockShareholders() { await adapter().refreshShareholders(); }
+export function mockDiagnostics() {
+  return get<MockResponseEvidence[]>("mock-diagnostics") ?? [];
+}
+export async function refreshMockShareholders() {
+  await adapter().refreshShareholders();
+}
 export async function mockMarketCodes() {
   if (!mockEnabled()) return [];
-  return (await readSecret<MockAccount>(credentialId))?.shareholders?.map(s => s.scdm) ?? [];
+  return (
+    (await readSecret<MockAccount>(credentialId))?.shareholders?.map(
+      (s) => s.scdm,
+    ) ?? []
+  );
 }
-export async function queryMockFunds() { return adapter().funds(); }
-export async function queryMockTrades() { return adapter().todayTrades(); }
+export async function queryMockFunds() {
+  return adapter().funds();
+}
+export async function queryMockTrades() {
+  return adapter().todayTrades();
+}

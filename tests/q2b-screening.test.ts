@@ -5,93 +5,250 @@ import { join } from "node:path";
 import type { Bar, Job, Snapshot } from "../src/lib/domain";
 import { settingsSchema } from "../src/lib/domain";
 import { validateScreenFormula } from "../src/lib/formula-screen";
-vi.mock("../src/server/tdx", () => ({scan: vi.fn(), readSnapshot: vi.fn()}));
-vi.mock("../src/server/jobs", async original => ({...(await original<typeof import("../src/server/jobs")>()), runWorker: vi.fn()}));
+vi.mock("../src/server/tdx", () => ({ scan: vi.fn(), readSnapshot: vi.fn() }));
+vi.mock("../src/server/jobs", async (original) => ({
+  ...(await original<typeof import("../src/server/jobs")>()),
+  runWorker: vi.fn(),
+}));
 import { scan, readSnapshot } from "../src/server/tdx";
 import { screenFormula } from "../src/server/formula-screening";
-import { saveFormula, savedFormulas, formulaScreenJob, exportFormulaScreen } from "../src/server/formula-screen-service";
+import {
+  saveFormula,
+  savedFormulas,
+  formulaScreenJob,
+  exportFormulaScreen,
+} from "../src/server/formula-screen-service";
 import { runWorker, cancelJob } from "../src/server/jobs";
 import { get, list, put, sqlite } from "../src/server/db";
-import { pageScreenResults, type StoredScreenResult } from "../src/server/screen-results";
-process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(),"q2b-screen-"));
-const bars: Bar[] = Array.from({length:30},(_,i) => ({date:`2026-01-${String(i+1).padStart(2,"0")}`,open:i+1,close:i+2,high:i+3,low:i,volume:100,amount:1000}));
-const source: Snapshot = {id:"source",symbol:"sh600519",name:"fixture",period:"day",source:"tdx-local",adjustment:"none",createdAt:0,hash:"original",bars};
-const formula = {name:"测试",source:"选股:C>MA(C,N1);",parameters:{N1:3}};
+import {
+  pageScreenResults,
+  type StoredScreenResult,
+} from "../src/server/screen-results";
+process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "q2b-screen-"));
+const bars: Bar[] = Array.from({ length: 30 }, (_, i) => ({
+  date: `2026-01-${String(i + 1).padStart(2, "0")}`,
+  open: i + 1,
+  close: i + 2,
+  high: i + 3,
+  low: i,
+  volume: 100,
+  amount: 1000,
+}));
+const source: Snapshot = {
+  id: "source",
+  symbol: "sh600519",
+  name: "fixture",
+  period: "day",
+  source: "tdx-local",
+  adjustment: "none",
+  createdAt: 0,
+  hash: "original",
+  bars,
+};
+const formula = {
+  name: "测试",
+  source: "选股:C>MA(C,N1);",
+  parameters: { N1: 3 },
+};
 beforeEach(() => {
-  vi.clearAllMocks(); sqlite().prepare("DELETE FROM records").run();
-  put("settings","settings",settingsSchema.parse({tdxRoot:"fixture",autoAnalysis:false}));
-  vi.mocked(scan).mockResolvedValue({root:"fixture",scannedAt:0,counts:{},securities:[{symbol:"sh600519",name:"fixture",period:"day",market:"sh",bytes:960,modified:0}]});
+  vi.clearAllMocks();
+  sqlite().prepare("DELETE FROM records").run();
+  put(
+    "settings",
+    "settings",
+    settingsSchema.parse({ tdxRoot: "fixture", autoAnalysis: false }),
+  );
+  vi.mocked(scan).mockResolvedValue({
+    root: "fixture",
+    scannedAt: 0,
+    counts: {},
+    securities: [
+      {
+        symbol: "sh600519",
+        name: "fixture",
+        period: "day",
+        market: "sh",
+        bytes: 960,
+        modified: 0,
+      },
+    ],
+  });
   vi.mocked(readSnapshot).mockResolvedValue(structuredClone(source));
 });
 it.each([
-  ["q2b-buffett", "FINANCE", 1, {N1:10,N2:10,N3:10}],
+  ["q2b-buffett", "FINANCE", 1, { N1: 10, N2: 10, N3: 10 }],
   ["q2b-old-duck-original", "FINANCE", 12, {}],
   ["q2b-price-limits", "NAMEINCLUDE", 1, {}],
-])("original real formula %s is rejected end-to-end with name/line before persistence or worker I/O", async (file,name,line,parameters) => {
-  const input = {name:file as string,source:readFileSync(join("tests/fixtures",`${file}.tdx`),"utf8"),parameters};
-  for (const fn of [validateScreenFormula,saveFormula,formulaScreenJob]) expect(() => fn(input)).toThrow(`第${line}行 ${name}`);
-  await expect(screenFormula({type:"formula-screen",root:"fixture",formula:input as typeof formula,now:Date.now()})).rejects.toThrow(`第${line}行 ${name}`);
-  expect(scan).not.toHaveBeenCalled();expect(runWorker).not.toHaveBeenCalled();
-  expect(list<Job>("job")).toEqual([]);expect(savedFormulas()).toEqual([]);
-});
+])(
+  "original real formula %s is rejected end-to-end with name/line before persistence or worker I/O",
+  async (file, name, line, parameters) => {
+    const input = {
+      name: file as string,
+      source: readFileSync(join("tests/fixtures", `${file}.tdx`), "utf8"),
+      parameters,
+    };
+    for (const fn of [validateScreenFormula, saveFormula, formulaScreenJob])
+      expect(() => fn(input)).toThrow(`第${line}行 ${name}`);
+    await expect(
+      screenFormula({
+        type: "formula-screen",
+        root: "fixture",
+        formula: input as typeof formula,
+        now: Date.now(),
+      }),
+    ).rejects.toThrow(`第${line}行 ${name}`);
+    expect(scan).not.toHaveBeenCalled();
+    expect(runWorker).not.toHaveBeenCalled();
+    expect(list<Job>("job")).toEqual([]);
+    expect(savedFormulas()).toEqual([]);
+  },
+);
 it("name and parameter persistence round-trips; editing updates only this formula", () => {
   const saved = saveFormula(formula);
   expect(savedFormulas()).toEqual([saved]);
-  saveFormula({...saved,name:"新名字",parameters:{N1:7}});
+  saveFormula({ ...saved, name: "新名字", parameters: { N1: 7 } });
   expect(savedFormulas()).toHaveLength(1);
-  expect(savedFormulas()[0]).toMatchObject({name:"新名字",parameters:{N1:7},source:formula.source});
-  expect(() => saveFormula({...saved,source:"坏:=REF(C,-N1);C>0;"})).toThrow("REF");
+  expect(savedFormulas()[0]).toMatchObject({
+    name: "新名字",
+    parameters: { N1: 7 },
+    source: formula.source,
+  });
+  expect(() =>
+    saveFormula({ ...saved, source: "坏:=REF(C,-N1);C>0;" }),
+  ).toThrow("REF");
   expect(savedFormulas()[0]!.name).toBe("新名字");
 });
 it("worker selection goes into existing candidate paging and export with immutable formula provenance", async () => {
   const progress = vi.fn();
-  const result = await screenFormula({type:"formula-screen",root:"fixture",formula,now:Date.parse("2026-02-01")},progress);
-  expect(result.candidates.map(c=>c.symbol)).toEqual(["sh600519"]);
-  expect(progress).toHaveBeenLastCalledWith(90,"公式选股",expect.objectContaining({processed:1,total:1}));
+  const result = await screenFormula(
+    {
+      type: "formula-screen",
+      root: "fixture",
+      formula,
+      now: Date.parse("2026-02-01"),
+    },
+    progress,
+  );
+  expect(result.candidates.map((c) => c.symbol)).toEqual(["sh600519"]);
+  expect(progress).toHaveBeenLastCalledWith(
+    90,
+    "公式选股",
+    expect.objectContaining({ processed: 1, total: 1 }),
+  );
   vi.mocked(runWorker).mockResolvedValue(result);
   const job = formulaScreenJob(formula);
   await vi.waitFor(() => expect(get<Job>(job.id)?.status).toBe("completed"));
   const finished = get<Job>(job.id)!;
   expect(get<Snapshot>(result.snapshots[0]!.id)?.bars).toEqual(bars);
-  expect(pageScreenResults(finished.result as StoredScreenResult,{page:0,query:"",excludedPage:0,errorPage:0}).count).toBe(1);
+  expect(
+    pageScreenResults(finished.result as StoredScreenResult, {
+      page: 0,
+      query: "",
+      excludedPage: 0,
+      errorPage: 0,
+    }).count,
+  ).toBe(1);
   expect(exportFormulaScreen(finished).parameters.formula).toEqual(formula);
   expect(list<Job>("job")).toHaveLength(1); // no automatic analysis / notification jobs
 });
 it("appending future bars cannot change the fixed-cutoff candidate or snapshot hash", async () => {
-  const work = {type:"formula-screen" as const,root:"fixture",formula,now:Date.parse("2026-01-30T08:00:00Z")};
+  const work = {
+    type: "formula-screen" as const,
+    root: "fixture",
+    formula,
+    now: Date.parse("2026-01-30T08:00:00Z"),
+  };
   const first = await screenFormula(work);
-  vi.mocked(readSnapshot).mockResolvedValue({...source,hash:"new source bytes",bars:[...bars,{...bars[0]!,date:"2026-02-01",close:999}]});
+  vi.mocked(readSnapshot).mockResolvedValue({
+    ...source,
+    hash: "new source bytes",
+    bars: [...bars, { ...bars[0]!, date: "2026-02-01", close: 999 }],
+  });
   const second = await screenFormula(work);
   expect(second.candidates).toEqual(first.candidates);
   expect(second.snapshots).toEqual(first.snapshots);
   expect(source.bars).toEqual(bars);
 });
 it("cancellation discards late worker results and saves no snapshots", async () => {
-  const result = await screenFormula({type:"formula-screen",root:"fixture",formula,now:Date.now()});
+  const result = await screenFormula({
+    type: "formula-screen",
+    root: "fixture",
+    formula,
+    now: Date.now(),
+  });
   let finish!: (value: typeof result) => void;
-  vi.mocked(runWorker).mockReturnValue(new Promise(resolve => {finish=resolve;}));
+  vi.mocked(runWorker).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
   const job = formulaScreenJob(formula);
-  await vi.waitFor(()=>expect(runWorker).toHaveBeenCalledOnce());
-  cancelJob(job.id);finish(result);
-  await new Promise(resolve=>setTimeout(resolve,30));
+  await vi.waitFor(() => expect(runWorker).toHaveBeenCalledOnce());
+  cancelJob(job.id);
+  finish(result);
+  await new Promise((resolve) => setTimeout(resolve, 30));
   expect(get<Job>(job.id)?.status).toBe("cancelled");
-  expect(get<Job>(job.id)?.result).toBeUndefined();expect(list("snapshot")).toEqual([]);
+  expect(get<Job>(job.id)?.result).toBeUndefined();
+  expect(list("snapshot")).toEqual([]);
 });
 it("runtime function errors fail the whole task with symbol/function/line instead of skipping a stock", async () => {
-  await expect(screenFormula({type:"formula-screen",root:"fixture",formula:{...formula,source:"DMA(C,C/2)>0;"},now:Date.now()})).rejects.toThrow("sh600519：第1行 DMA");
+  await expect(
+    screenFormula({
+      type: "formula-screen",
+      root: "fixture",
+      formula: { ...formula, source: "DMA(C,C/2)>0;" },
+      now: Date.now(),
+    }),
+  ).rejects.toThrow("sh600519：第1行 DMA");
 });
 
 it("final progress includes stale-date exclusions computed after the scan", async () => {
   const coverage = await scan("fixture");
-  vi.mocked(scan).mockResolvedValue({...coverage,securities:[...coverage.securities,{...coverage.securities[0]!,symbol:"sh600000"}]});
-  vi.mocked(readSnapshot).mockImplementation(async (_root,symbol)=>({...source,symbol,bars:symbol === "sh600000" ? bars.slice(0,-1) : bars}));
+  vi.mocked(scan).mockResolvedValue({
+    ...coverage,
+    securities: [
+      ...coverage.securities,
+      { ...coverage.securities[0]!, symbol: "sh600000" },
+    ],
+  });
+  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
+    ...source,
+    symbol,
+    bars: symbol === "sh600000" ? bars.slice(0, -1) : bars,
+  }));
   const progress = vi.fn();
-  const result = await screenFormula({type:"formula-screen",root:"fixture",formula,now:Date.parse("2026-02-01")},progress);
-  expect(result.excluded).toContainEqual(expect.objectContaining({symbol:"sh600000",reason:"行情日期落后于公式选股基准日"}));
-  expect(progress).toHaveBeenLastCalledWith(90,"公式选股",expect.objectContaining({processed:2,total:2,excluded:result.excluded.length}));
+  const result = await screenFormula(
+    {
+      type: "formula-screen",
+      root: "fixture",
+      formula,
+      now: Date.parse("2026-02-01"),
+    },
+    progress,
+  );
+  expect(result.excluded).toContainEqual(
+    expect.objectContaining({
+      symbol: "sh600000",
+      reason: "行情日期落后于公式选股基准日",
+    }),
+  );
+  expect(progress).toHaveBeenLastCalledWith(
+    90,
+    "公式选股",
+    expect.objectContaining({
+      processed: 2,
+      total: 2,
+      excluded: result.excluded.length,
+    }),
+  );
 });
 it("zero/multiple outputs and dead-branch future calls never launch work", () => {
-  for (const text of ["A:=C;", "A:C;B:V;", "X:IF(0,ZIG(C,3),C);", "X:REF(C,-1);"])
-    expect(() => formulaScreenJob({...formula,source:text})).toThrow();
+  for (const text of [
+    "A:=C;",
+    "A:C;B:V;",
+    "X:IF(0,ZIG(C,3),C);",
+    "X:REF(C,-1);",
+  ])
+    expect(() => formulaScreenJob({ ...formula, source: text })).toThrow();
   expect(runWorker).not.toHaveBeenCalled();
 });

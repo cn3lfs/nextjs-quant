@@ -25,14 +25,12 @@ function fixture() {
   };
   const context: VolumeContext = {
     symbol: snapshot.symbol,
-    days: snapshot.bars
-      .slice(-5)
-      .map((b) => ({
-        date: b.date,
-        limitUpContraction: false,
-        marketCrashVolumeDecline: false,
-        evidenceIds: [`status-${b.date}`],
-      })),
+    days: snapshot.bars.slice(-5).map((b) => ({
+      date: b.date,
+      limitUpContraction: false,
+      marketCrashVolumeDecline: false,
+      evidenceIds: [`status-${b.date}`],
+    })),
   };
   return { snapshot, context };
 }

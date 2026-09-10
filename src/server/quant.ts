@@ -11,7 +11,8 @@ const avg = (values: number[]) =>
   values.reduce((a, b) => a + b, 0) / values.length;
 export function metrics(bars: Bar[], strategy: Strategy): Metrics | null {
   // CZSC is a monitor slot, never silently evaluated as moving averages.
-  if (strategy.type === "czsc" || strategy.type === "dual-breakout") return null;
+  if (strategy.type === "czsc" || strategy.type === "dual-breakout")
+    return null;
   if (bars.length < strategy.slow + 1) return null;
   const last = bars.at(-1)!,
     previous = bars.at(-2)!,

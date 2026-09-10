@@ -13,7 +13,7 @@
   "views": {
     "market-view.tsx": "86056ae91f859c70ac61dec300f1d3939a40c7fdc7e8d4947afe01c210fdce90",
     "screen-view.tsx": "a332a7c8e4184b2d42988c40df040e5ec78ea5110a8b28a1b681ff494b1fe30d",
-    "backtest-view.tsx": "1df28891a8d7dde9208ebd5a1e5e1d21c5efdc964c23746f83a3e55bd8f62ff3",
+    "backtest-view.tsx": "c048f075d210702036d4a6e29a335c68cfe23879161545970f77fe4c469a335e",
     "signals-view.tsx": "00fb6558c83047dc704f4ff56f002d80efc6f232e0dbb13b3f37743888bed944",
     "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",
     "evidence-analysis.tsx": "2c7f7cc74bdc0647e085ef5ab7f6051bcca4f5fe36715e8f02b5cce2f0044a81",

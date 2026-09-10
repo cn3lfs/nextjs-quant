@@ -7,7 +7,10 @@ export const formulaSchema = z.object({
   source: z.string().min(1).max(100000),
   parameters: z.record(z.number().finite()).default({}),
 });
-export type SavedFormula = z.infer<typeof formulaSchema> & {id: string; updatedAt: number};
+export type SavedFormula = z.infer<typeof formulaSchema> & {
+  id: string;
+  updatedAt: number;
+};
 export type ScreeningFormula = z.infer<typeof formulaSchema>;
 /** The single output is the selection predicate; intermediates never select.
  * Validation is repeated on save, launch and inside the worker, before I/O.
@@ -16,7 +19,14 @@ export function validateScreenFormula(input: unknown): ScreeningFormula {
   const formula = formulaSchema.parse(input);
   const program = parseFormula(formula.source);
   checkFormula(program, formula.parameters);
-  const outputs = program.filter(s => s.output);
-  if (outputs.length !== 1) throw new FormulaError([{line: outputs[1]?.line ?? 1, kind: "parameter", reason: "选股公式必须恰有一个输出；中间变量请用 :="}]);
+  const outputs = program.filter((s) => s.output);
+  if (outputs.length !== 1)
+    throw new FormulaError([
+      {
+        line: outputs[1]?.line ?? 1,
+        kind: "parameter",
+        reason: "选股公式必须恰有一个输出；中间变量请用 :=",
+      },
+    ]);
   return formula;
 }

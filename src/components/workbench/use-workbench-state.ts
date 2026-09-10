@@ -116,7 +116,11 @@ export function useWorkbenchState() {
     onError,
   });
   const selectFormulaJob = (id: string) => {
-    setScreenId(id); setExcludedPage(0); setErrorPage(0); setScreenPage(0); setScreenQuery("");
+    setScreenId(id);
+    setExcludedPage(0);
+    setErrorPage(0);
+    setScreenPage(0);
+    setScreenQuery("");
     setScreenSort("original");
     void utils.jobs.invalidate();
   };

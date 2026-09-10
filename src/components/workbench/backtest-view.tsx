@@ -70,9 +70,7 @@ export function BacktestView({
                 setBacktestScope(e.target.value as "full" | "window")
               }
             >
-              <option value="full">
-                完整本地历史（截至所选快照末尾）
-              </option>
+              <option value="full">完整本地历史（截至所选快照末尾）</option>
               <option value="window">仅当前快照窗口</option>
             </select>
           </Field>
@@ -171,14 +169,11 @@ export function BacktestView({
           </div>
           <PriceChart equity={bt.equity} />
           <DividendLedgerPanel result={bt} />
-          <BacktestActionsPanel
-            review={bt.corporateActions}
-            base={bt}
-          />
+          <BacktestActionsPanel review={bt.corporateActions} base={bt} />
           {bt.benchmark ? (
             <p className="muted">
-              {bt.benchmark.label}：收益 {fmt(bt.benchmark.totalReturn)}
-              % · 最大回撤 {fmt(bt.benchmark.maxDrawdown)}% · 策略超额
+              {bt.benchmark.label}：收益 {fmt(bt.benchmark.totalReturn)}% ·
+              最大回撤 {fmt(bt.benchmark.maxDrawdown)}% · 策略超额
               {fmt(bt.benchmark.excessReturnPoints)} 个百分点 ·
               {bt.benchmark.trade
                 ? `建仓 ${bt.benchmark.trade.date}，${bt.benchmark.shares} 股`
@@ -189,9 +184,9 @@ export function BacktestView({
           )}
           {bt.diagnostics && (
             <p className="muted">
-              入场条件满足 {bt.diagnostics.entrySignals} 次 ·
-              资金不足以买入一手 {bt.diagnostics.insufficientCash} 次 ·
-              无量或一字 K 线 {bt.diagnostics.untradable} 次
+              入场条件满足 {bt.diagnostics.entrySignals} 次 · 资金不足以买入一手{" "}
+              {bt.diagnostics.insufficientCash} 次 · 无量或一字 K 线{" "}
+              {bt.diagnostics.untradable} 次
             </p>
           )}
           <details open>

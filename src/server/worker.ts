@@ -51,7 +51,10 @@ export type Work =
       };
     };
 async function main(work: Work) {
-  if (work.type === "formula-screen") return screenFormula(work, (progress, phase, workProgress) => parentPort?.postMessage({progress, phase, workProgress}));
+  if (work.type === "formula-screen")
+    return screenFormula(work, (progress, phase, workProgress) =>
+      parentPort?.postMessage({ progress, phase, workProgress }),
+    );
   if (work.type === "walk-forward") {
     const source = work.fullRoot
       ? await fullBacktestSource(work.snapshot, work.fullRoot)

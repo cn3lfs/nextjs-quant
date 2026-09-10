@@ -38,13 +38,11 @@ export function reportHistory(input: z.infer<typeof reportHistoryInput>) {
       title: string;
       contextId: string;
     }[];
-    const items = rows
-      .slice(0, 20)
-      .map(({ contextId, ...row }) => ({
-        ...row,
-        title: taskTextPreview(row.title ?? "", 128),
-        securityContext: reportSecurityContext(contextId),
-      }));
+    const items = rows.slice(0, 20).map(({ contextId, ...row }) => ({
+      ...row,
+      title: taskTextPreview(row.title ?? "", 128),
+      securityContext: reportSecurityContext(contextId),
+    }));
     const last = items.at(-1);
     return {
       items,

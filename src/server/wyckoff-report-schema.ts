@@ -102,7 +102,7 @@ export function wyckoffReportSchema(frames: ReturnType<typeof wyckoffFrames>) {
             path: ["stages", i, "methodFiles"],
             message: `本阶段必须引用不重复的方法文件：${allowed.join(",")}`,
           });
-      // A single market ratio does not complete market context, dual-benchmark RS or P&F.
+        // A single market ratio does not complete market context, dual-benchmark RS or P&F.
         if (
           ["environment", "relativeStrength", "targets"].includes(stage.id) &&
           stage.status !== "missing"
