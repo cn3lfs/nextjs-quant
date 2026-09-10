@@ -22,7 +22,7 @@ per milestone  → build + desktop:prepare + desktop:smoke + Playwright + deskto
 
 Running desktop smoke or Playwright for a single function change is forbidden. The previous 19-hour run spent most of its budget this way.
 
-- Never add files under `output/`. It is frozen (545 files, referenced by 25 docs). Verification is either a persistent case in `tests/`, or it is not written.
+- Never create an `output/` directory for scratch verification. It used to hold 545 one-off scripts and dumps and was deleted on 2026-09-10 along with the A–H era docs that cited them. Verification is either a persistent case in `tests/`, or it is not written.
 - Do not append to `docs/optimization-progress.md`; it is archived. Write to `docs/decisions.md`, recording only decisions, what was dropped and why, and facts that contradicted expectations. Never record "N tests passed / typecheck passed / build passed".
 
 ## Base rules
