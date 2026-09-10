@@ -76,3 +76,11 @@ Land the previous piece of work before starting the next one. A milestone that i
 
 - Manager: verify, then commit, then dispatch the next task. Never dispatch on top of an unreviewed dirty tree.
 - Executor: never commit or push. Report and stop; the manager commits.
+
+## The working tree is shared — check ownership before reverting
+
+The user edits this repository directly while tasks run. An uncommitted change that is outside the current task's scope is **not** evidence that the executor made it.
+
+- Before `git checkout --`, `git restore`, `git stash` or any revert of uncommitted work: check the file's modification time against the last dispatch, and check for other running processes. If ownership is unclear, ask.
+- A revert of someone else's work in progress is irreversible. Losing it costs far more than leaving an unexplained diff in the tree.
+- `src/server/mcp.ts` and its UI copy are currently owned by the user. Do not modify, revert, or include them in commits.
