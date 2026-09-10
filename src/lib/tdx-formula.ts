@@ -6,11 +6,24 @@ import {
   stdSeries,
   type IndicatorValue,
 } from "./indicators";
-import { binary, checkFormula, marketFields, unary } from "./tdx-formula-check";
+import {
+  binary,
+  checkFormula,
+  marketFields,
+  unary,
+  isRpsField,
+  rpsFields,
+} from "./tdx-formula-check";
+import type { RpsValue } from "./rps";
 import { FormulaError, parseFormula, type Expr } from "./tdx-formula-syntax";
 export { FormulaError, parseFormula } from "./tdx-formula-syntax";
 export { futureFunctions } from "./tdx-formula-check";
 type Series = IndicatorValue[];
+export type FormulaRpsPoint = {
+  date: string;
+  periods: readonly number[];
+  values: readonly (RpsValue | null)[];
+};
 const finite = (n: number): IndicatorValue => (Number.isFinite(n) ? n : null);
 
 /** Pure language core. Explicit, ascending, completed, unadjusted input bars.
@@ -21,9 +34,11 @@ export function evaluateFormula(
   source: string,
   bars: readonly Bar[],
   parameters: Readonly<Record<string, number>> = {},
+  rps: readonly FormulaRpsPoint[] = [],
 ) {
   const program = parseFormula(source);
   const params = checkFormula(program, parameters);
+  const rpsByDate = new Map(rps.map((point) => [point.date, point]));
   const variables = new Map<string, Series>();
   const constant = (n: number): Series =>
     Array.from({ length: bars.length }, () => n);
@@ -57,6 +72,16 @@ export function evaluateFormula(
     if (e.kind === "string") throw new Error("Unvalidated string");
     if (e.kind === "number") return constant(e.value);
     if (e.kind === "name") {
+      if (isRpsField(e.name)) {
+        const period = rpsFields[e.name];
+        // Exact date only: missing batches, excluded stocks and insufficient
+        // endpoints stay unknown. Never carry forward or replace with zero.
+        return bars.map((bar) => {
+          const point = rpsByDate.get(bar.date);
+          const value = point?.values[point.periods.indexOf(period)]?.rps;
+          return value == null ? null : finite(value);
+        });
+      }
       const field = Object.hasOwn(marketFields, e.name)
         ? marketFields[e.name]
         : undefined;

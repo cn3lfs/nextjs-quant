@@ -10,6 +10,10 @@ import { workProgress, type WorkProgress } from "~/lib/work-progress";
 import { readSnapshot, scan } from "./tdx";
 import { completedBarFilter, type ScreeningResult } from "./screening";
 import { metrics } from "./quant";
+import { sqlite } from "./db";
+import { RpsStore } from "./rps-store";
+import { usesRpsFields } from "~/lib/tdx-formula-check";
+import { parseFormula } from "~/lib/tdx-formula-syntax";
 
 export type FormulaWork = {
   type: "formula-screen";
@@ -26,6 +30,9 @@ export async function screenFormula(
   progress?: (n: number, phase: string, counts: WorkProgress) => void,
 ): Promise<ScreeningResult> {
   const formula = validateScreenFormula(work.formula);
+  const rps = usesRpsFields(parseFormula(formula.source))
+    ? new RpsStore(sqlite())
+    : undefined;
   const started = performance.now();
   const securities = (await scan(work.root)).securities
     .filter((s) => s.period === "day")
@@ -87,6 +94,7 @@ export async function screenFormula(
           formula.source,
           bars,
           formula.parameters,
+          rps?.curve(security.symbol),
         ).outputs[0]!.values.at(-1);
       } catch (e) {
         if (e instanceof FormulaError)
@@ -97,7 +105,9 @@ export async function screenFormula(
         result.excluded.push({
           symbol: security.symbol,
           date: last.date,
-          reason: "公式输出无效：历史不足或计算定义域为空",
+          reason: rps
+            ? "公式输出无效：RPS缺失、历史不足或计算定义域为空"
+            : "公式输出无效：历史不足或计算定义域为空",
         });
       else if (value !== 0) {
         const detail = metrics(bars, strategy);

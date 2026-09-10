@@ -252,3 +252,26 @@ it("zero/multiple outputs and dead-branch future calls never launch work", () =>
     expect(() => formulaScreenJob({ ...formula, source: text })).toThrow();
   expect(runWorker).not.toHaveBeenCalled();
 });
+
+it("formula screening consumes persisted RPS and distinguishes missing from weak", async () => {
+  const { RpsStore } = await import("../src/server/rps-store");
+  const { rpsDay } = await import("./rps-fixture");
+  const store = new RpsStore(sqlite());
+  const { day, rows } = rpsDay();
+  store.saveDay({ ...day, date: bars.at(-1)!.date }, [
+    { ...rows[9]!, symbol: source.symbol },
+  ]);
+  const work = {
+    type: "formula-screen" as const,
+    root: "fixture",
+    now: Date.parse("2026-02-01T08:00:00Z"),
+    formula: { name: "RPS", source: "RPS50>85;", parameters: {} },
+  };
+  expect((await screenFormula(work)).candidates.map((c) => c.symbol)).toEqual([
+    source.symbol,
+  ]);
+  sqlite().prepare("DELETE FROM rps_values").run();
+  const missing = await screenFormula(work);
+  expect(missing.candidates).toEqual([]);
+  expect(missing.excluded[0]!.reason).toContain("RPS缺失");
+});

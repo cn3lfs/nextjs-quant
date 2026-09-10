@@ -43,6 +43,26 @@ export const futureFunctions = [
   "FINDLOWBARS",
 ] as const;
 const future = new Set<string>(futureFunctions);
+export const rpsFields = {
+  RPS5: 5,
+  RPS10: 10,
+  RPS20: 20,
+  RPS50: 50,
+  RPS120: 120,
+  RPS250: 250,
+} as const;
+export function isRpsField(name: string): name is keyof typeof rpsFields {
+  return Object.hasOwn(rpsFields, name);
+}
+export function usesRpsFields(statements: readonly Statement[]) {
+  function visit(e: Expr): boolean {
+    if (e.kind === "name") return isRpsField(e.name);
+    if (e.kind === "call") return e.args.some(visit);
+    if (e.kind === "binary") return visit(e.left) || visit(e.right);
+    return e.kind === "unary" && visit(e.value);
+  }
+  return statements.some((s) => visit(s.expr));
+}
 export const marketFields: Readonly<
   Record<string, "close" | "open" | "high" | "low" | "volume" | "amount">
 > = {
@@ -211,7 +231,8 @@ export function checkFormula(
     }
     if (e.kind === "name") {
       if (future.has(e.name)) return unknown;
-      if (Object.hasOwn(marketFields, e.name)) return unknown;
+      if (Object.hasOwn(marketFields, e.name) || isRpsField(e.name))
+        return unknown;
       const value = names.get(e.name);
       if (!value) report(e, "parameter", "变量未定义或参数未提供", e.name);
       return value ?? unknown;
@@ -416,6 +437,7 @@ export function checkFormula(
       if (
         names.has(s.name) ||
         Object.hasOwn(marketFields, s.name) ||
+        isRpsField(s.name) ||
         Object.hasOwn(arities, s.name) ||
         future.has(s.name) ||
         /^N\d+$/.test(s.name)
