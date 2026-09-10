@@ -1,0 +1,152 @@
+[
+  {
+    "page": "market",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1918,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 10587360
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1918,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 10587360
+    }
+  },
+  {
+    "page": "screen",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 2146,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 11845920
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 2146,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 11845920
+    }
+  },
+  {
+    "page": "signals",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1660,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 9163200
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1660,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 9163200
+    }
+  },
+  {
+    "page": "connections",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 2749,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 15174480
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 2749,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 15174480
+    }
+  },
+  {
+    "page": "signal-ledger",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1350,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 7452000
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1350,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 7452000
+    }
+  },
+  {
+    "page": "trade-ledger",
+    "computedStylesAndGeometryEqual": true,
+    "changedPixels": 0,
+    "before": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1486,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 8202720
+    },
+    "after": {
+      "format": "raw",
+      "width": 1840,
+      "height": 1486,
+      "channels": 3,
+      "depth": "uchar",
+      "premultiplied": false,
+      "hasAlpha": false,
+      "size": 8202720
+    }
+  }
+]

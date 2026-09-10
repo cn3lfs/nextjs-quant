@@ -1,4 +1,38 @@
 @import "tailwindcss";
+/* R1: opt-in component utilities. Preserve the existing unlayered CSS below.
+   Dark chart canvases are independent of the application palette. */
+@custom-variant dark (&:where(.dark, .dark *));
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  /* --muted remains the legacy text color; shadcn muted is a surface. */
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+@layer base {
+  :where([data-slot]) {
+    border-color: var(--border);
+  }
+}
 :root {
   --background: #f3f6fa;
   --foreground: #24374a;
@@ -6,6 +40,22 @@
   --border: #e1e8ef;
   --muted: #75869a;
   --font-sans: "Segoe UI", "Microsoft YaHei", sans-serif;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --secondary: #eaf0f6;
+  --secondary-foreground: #3b536a;
+  --muted-surface: #f8fafc;
+  --muted-foreground: #63778d;
+  --accent: #e0e9f1;
+  --accent-foreground: #236f85;
+  --destructive: #ae5364;
+  --destructive-foreground: #ffffff;
+  --input: #dce5ee;
+  --ring: #4396b4;
+  --radius: 0.5rem;
 }
 * {
   box-sizing: border-box;
@@ -1095,4 +1145,18 @@ footer {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Only the new shadcn slots opt out of unlayered legacy element rules.
+   revert-layer restores Tailwind's preflight/base/utilities, including state
+   variants. Old elements and the custom .button remain exactly as before. */
+[data-slot]:not(.button),
+input[data-slot],
+textarea[data-slot],
+button[data-slot]:not(.button):focus-visible,
+input[data-slot]:focus-visible,
+textarea[data-slot]:focus-visible,
+input[data-slot]::placeholder,
+textarea[data-slot]::placeholder {
+  all: revert-layer;
 }

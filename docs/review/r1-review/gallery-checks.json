@@ -1,0 +1,9 @@
+{
+  "keyboardControls": true,
+  "dialogFocusReturned": true,
+  "paginationAndSortResponses": true,
+  "emptyLoadingErrorRetry": true,
+  "mobileOverflow": false,
+  "pageErrors": [],
+  "visualAcceptance": "B 层待用户确认"
+}
