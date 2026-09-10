@@ -19,7 +19,7 @@ import {
 import {
   chinaClock,
   minutes,
-  quiet,
+  customQuiet,
   summaryWindow,
   type NotificationDecision,
   type PolicyUnit,
@@ -497,7 +497,7 @@ async function send(channel: Channel, delivery: Delivery) {
     if (
       delivery.kind === "summary"
         ? !summaryWindow(now, days, policy)
-        : quiet(now, days, policy)
+        : customQuiet(now, policy)
     )
       throw new SendError("进入静默时段，等待允许投递窗口", false, 60000);
   }

@@ -23,6 +23,9 @@ const migrations = [
    CREATE TABLE signal_ledger_outcomes (signal_id TEXT NOT NULL REFERENCES signal_ledger(id), horizon INTEGER NOT NULL CHECK(horizon IN (5,10,20)), settled INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(signal_id,horizon));
    CREATE TABLE signal_ledger_baselines (symbol TEXT PRIMARY KEY, payload TEXT NOT NULL);
    CREATE TABLE signal_ledger_runs (date TEXT PRIMARY KEY, payload TEXT NOT NULL);`,
+  `CREATE TABLE trade_ledger (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, trade_date TEXT NOT NULL, payload TEXT NOT NULL);
+   CREATE INDEX trade_ledger_symbol_date ON trade_ledger(symbol,trade_date);
+   CREATE TABLE trade_adjustments (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, payload TEXT NOT NULL);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

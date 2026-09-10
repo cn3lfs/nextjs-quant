@@ -5,7 +5,7 @@ import {
   chinaClock,
   grade,
   notificationPolicySchema,
-  quiet,
+  customQuiet,
   summaryWindow,
   tierLabels,
   withinTradingWindow,
@@ -127,7 +127,9 @@ export class NotificationPolicyStore {
           `同标的同策略同方向 ${policy.dedupTradingDays} 个交易日内已推送`,
         ],
       };
-    if (decision.tier === "immediate" && quiet(now, this.days(), policy))
+    // P2 ruling: daily signals arrive after 15:05. Immediate bypasses only
+    // outside-trading silence, never custom quiet, budget or dedup enforcement.
+    if (decision.tier === "immediate" && customQuiet(now, policy))
       decision = {
         ...decision,
         tier: "summary",
@@ -246,7 +248,7 @@ export class NotificationPolicyStore {
     }
     const isSummary = delivery.kind === "summary";
     if (
-      isSummary ? !summaryWindow(now, days, policy) : quiet(now, days, policy)
+      isSummary ? !summaryWindow(now, days, policy) : customQuiet(now, policy)
     ) {
       if (!isSummary && delivery.attempts === 0) {
         for (const d of decisions)

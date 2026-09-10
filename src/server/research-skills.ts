@@ -275,6 +275,33 @@ export type SkillUse = {
   files: { file: string; hash: string }[];
   prerequisites: string[];
 };
+/** P1 reads contracts only; never executes the skill's trading scripts. */
+export async function tradingLedgerMethods(): Promise<SkillUse[]> {
+  return Promise.all(
+    [
+      { skillId: "astock-market-rules", names: ["SKILL.md"] },
+      {
+        skillId: "mock-trading",
+        names: ["SKILL.md", "references/api-spec.md"],
+      },
+    ].map(async ({ skillId, names }) => ({
+      skillId,
+      ruleVersion: "local-trade-ledger-1",
+      outputSchema: "local-trade-ledger-1",
+      files: await Promise.all(
+        names.map(async (file) => {
+          // User-installed method sources are read at runtime outside the bundle.
+          // Do not trace the repository as a fallback for this external path.
+          const path = join(/* turbopackIgnore: true */ root(), skillId, file);
+          const text = await readFile(/* turbopackIgnore: true */ path, "utf8");
+          if (!text.trim()) throw new Error(`交易规则文件为空：${file}`);
+          return { file, hash: hash(text) };
+        }),
+      ),
+      prerequisites: ["本地人工录入；模拟盘默认关闭；下单需界面确认"],
+    })),
+  );
+}
 /** M5: provenance only. Reading a method never executes its tools or prompts. */
 export async function breakoutMethod(): Promise<SkillUse> {
   const skillId = "swing-trader";
