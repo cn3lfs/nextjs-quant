@@ -11,13 +11,14 @@ export class FormulaError extends Error {
   }
 }
 export type Expr =
+  | { kind: "string"; value: string; line: number }
   | { kind: "number"; value: number; line: number }
   | { kind: "name"; name: string; line: number }
   | { kind: "call"; name: string; args: Expr[]; line: number }
   | { kind: "unary"; op: string; value: Expr; line: number }
   | { kind: "binary"; op: string; left: Expr; right: Expr; line: number };
 export type Statement = { name?: string; output: boolean; expr: Expr; line: number };
-type Token = { text: string; kind: "number" | "name" | "symbol" | "end"; line: number };
+type Token = { text: string; kind: "number" | "name" | "symbol" | "string" | "end"; line: number };
 const fail = (line: number, reason: string): never => { throw new FormulaError([{line, kind: "syntax", reason}]); };
 
 function lex(source: string): Token[] {
@@ -35,6 +36,14 @@ function lex(source: string): Token[] {
     }
     if (c === "#") throw new FormulaError([{line, name: "#", kind: "future", reason: "跨周期引用可能使用未来数据，拒绝执行"}]);
     const rest = source.slice(i);
+    // Tokenize quoted arguments for precise unsupported-function diagnostics.
+    // Strings remain forbidden by the checker; this does not add string execution.
+    if (c === "'" || c === '"') {
+      const start = line; let value = ""; i++;
+      while (i < source.length && source[i] !== c) {if (source[i] === "\n") line++; value += source[i++];}
+      if (i === source.length) fail(start, "字符串缺少结束引号");
+      i++; tokens.push({text:value,kind:"string",line:start}); continue;
+    }
     const number = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/.exec(rest)?.[0];
     if (number) {
       if (!Number.isFinite(Number(number))) fail(line, "数值超出有限范围");
@@ -69,6 +78,7 @@ export function parseFormula(source: string): Statement[] {
     const token = take();
     let left: Expr;
     if (token.kind === "number") left = {kind: "number", value: Number(token.text), line: token.line};
+    else if (token.kind === "string") left = {kind: "string", value: token.text, line: token.line};
     else if (["+", "-", "NOT"].includes(token.text)) left = {kind: "unary", op: token.text, value: expression(6), line: token.line};
     else if (token.text === "(") { left = expression(); expect(")"); }
     else if (token.kind === "name") {

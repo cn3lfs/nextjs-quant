@@ -1,6 +1,5 @@
 import { beforeAll, afterAll, expect, it, vi } from "vitest";
-import { build } from "esbuild";
-import { mkdir, copyFile } from "node:fs/promises";
+import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,19 +27,7 @@ import type { CzscResult } from "../src/lib/czsc";
 const databases: Database.Database[] = [];
 // Own the existing M3 runtime prerequisite so this case also runs independently
 // in a checkout without generated runtime files. No alternative engine/worker.
-beforeAll(async () => {
-  await mkdir("runtime/czsc", { recursive: true });
-  await copyFile("vendor/czsc/CZSC64.dll", "runtime/czsc/CZSC64.dll");
-  await build({
-    entryPoints: ["src/server/czsc-worker.ts"],
-    outfile: "runtime/czsc-worker.cjs",
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    external: ["koffi"],
-    target: "node22",
-  });
-});
+beforeAll(prepareCzscTestRuntime);
 function store() {
   const db = new Database(":memory:");
   databases.push(db);

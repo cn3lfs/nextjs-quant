@@ -2,6 +2,7 @@ import { ArrowUpRight, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { screenSortLabels, type ScreenSort } from "~/lib/screen-sort";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
 import { OnlineScreen } from "../online-screen";
+import { FormulaScreen } from "../formula-screen";
 import { ScreenTaskProgress } from "../screen-task-progress";
 import { Button } from "../ui/button";
 
@@ -53,6 +54,7 @@ export function ScreenView({
     | "jobs"
     | "notify"
     | "screen"
+    | "selectFormulaJob"
     | "interpret"
     | "screenJob"
     | "firstScreenPage"
@@ -119,6 +121,7 @@ export function ScreenView({
   } = state;
   return (
     <>
+      <FormulaScreen onStarted={state.selectFormulaJob} />
       <OnlineScreen
         jobs={jobs.data ?? []}
         query={onlineQuery}
@@ -312,6 +315,7 @@ export function ScreenView({
         )}
         {screenResult ? (
           <>
+            {screenResult.formula && <div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{JSON.stringify(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>}
             <p className="muted">
               选股基准日：
               {screenResult.asOf ?? "旧任务未记录统一基准日"} ·{" "}

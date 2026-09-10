@@ -1,0 +1,106 @@
+{
+  "capturedAt": "2026-09-10T02:37:19.031Z",
+  "root": "E:\\new_tdx64",
+  "dataDirectory": "D:\\github\\nextjs-quant\\.test-data\\q2b\\data",
+  "formula": {
+    "name": "老鸭头（价量部分，非原公式）",
+    "source": "E1:=EMA(C,13);\r\nE2:=EMA(C,55);\r\nA1:=COUNT(E1<REF(E1,1),5)>=3 AND E1>REF(E1,1);\r\nA2:=COUNT(E2>REF(E2,1),13)>=8 AND E2>REF(E2,1);\r\nA3:=LLV((L/E2-1),13)<=0.1;\r\nA4:=COUNT(E1>E2,13)=13;\r\nA5:=COUNT(C>E2,5)=5;\r\nA6:=CROSS(C,E1);\r\nA7:=V>MA(V,5);\r\nYT:=A1 AND A2 AND A3 AND A4 AND A5 AND A6 AND A7;\r\nLYT:=FILTER(YT,10);\r\nLYT;",
+    "parameters": {},
+    "id": "39cb29c6-1bd9-430a-8c91-da683b4970f7",
+    "updatedAt": 1789007719385
+  },
+  "formulaHash": "0f3a3ea0964216076b628621d68c6ee583b43693565731b96305721fb1aaaae4",
+  "originalDisposition": "三条原文均因范围外函数被明确拒绝；本运行仅老鸭头价量部分，非原文等价替代，验收解释待管理者确认",
+  "jobId": "job-fd9ceafa-f56a-42ee-9d7b-7c23e012bbd6",
+  "total": 6145,
+  "asOf": "2026-09-09",
+  "elapsedMs": 110443.3113,
+  "candidateCount": 15,
+  "candidates": [
+    {
+      "symbol": "bj920810",
+      "snapshotId": "snapshot-formula-bj920810-6c5c14cf56b64bb7",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh600403",
+      "snapshotId": "snapshot-formula-sh600403-e88900d4cbb8afb4",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh600489",
+      "snapshotId": "snapshot-formula-sh600489-6b0dca200d9c0200",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh601069",
+      "snapshotId": "snapshot-formula-sh601069-8237cce1968d37cf",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh601101",
+      "snapshotId": "snapshot-formula-sh601101-2490bffb35eeaf27",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh601225",
+      "snapshotId": "snapshot-formula-sh601225-36381578254221ad",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh601666",
+      "snapshotId": "snapshot-formula-sh601666-ec814e039af979cb",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh601918",
+      "snapshotId": "snapshot-formula-sh601918-0648161ba8c1e332",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh688202",
+      "snapshotId": "snapshot-formula-sh688202-6fdc33c83dfd2f7e",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sh688217",
+      "snapshotId": "snapshot-formula-sh688217-df62911c3599b8f8",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sz000925",
+      "snapshotId": "snapshot-formula-sz000925-4f4cf96b86df3379",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sz002485",
+      "snapshotId": "snapshot-formula-sz002485-3e268f66c5347174",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sz300945",
+      "snapshotId": "snapshot-formula-sz300945-6e4cf7c465c8a314",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sz301047",
+      "snapshotId": "snapshot-formula-sz301047-5231b69f6c25083b",
+      "date": "2026-09-09"
+    },
+    {
+      "symbol": "sz301115",
+      "snapshotId": "snapshot-formula-sz301115-b16058229fd8dd36",
+      "date": "2026-09-09"
+    }
+  ],
+  "errorCount": 0,
+  "excludedCount": 606,
+  "errors": [],
+  "baseline": {
+    "elapsedMs": 5936,
+    "wallMs": 5987.815200000012,
+    "total": 6145,
+    "candidateCount": 1820
+  },
+  "cancelledJobId": "job-97a9080a-cfb8-48a2-acdf-e7ef1ef66797"
+}

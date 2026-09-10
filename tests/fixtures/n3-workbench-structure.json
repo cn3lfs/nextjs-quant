@@ -1,6 +1,6 @@
 {
-  "provenance": "Pre-N3 workbench.tsx at HEAD; only export/format trivia and explicitly relocated subtrees excluded.",
-  "state": "9501f6e637b0055bff318583bdf452ad68c099b6921c3aec386dedd8cb80b219",
+  "provenance": "Pre-N3 workbench.tsx at HEAD; only export/format trivia and explicitly relocated subtrees excluded. Q2b state and screen view updated for formula integration; additions verified independently in workbench-refactor.test.ts.",
+  "state": "41f67fdae65904f7346e38996b88376292013080f2bc32ab340c993ea7ea00ff",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
     "Empty": "9807530393701ac8f10cacdc370d8ecd8eb3b90600a0bd7b4479434fab049078",
@@ -12,7 +12,7 @@
   },
   "views": {
     "market-view.tsx": "86056ae91f859c70ac61dec300f1d3939a40c7fdc7e8d4947afe01c210fdce90",
-    "screen-view.tsx": "5bcd71aef506d8e2d45eb47d8d22649c482d7e927d6fef546c03fec7dee38b7d",
+    "screen-view.tsx": "310e4b0b0a951f6aed98aee8d8895847e91ab9c5bc5b439f5002dd8692efbd5e",
     "backtest-view.tsx": "1df28891a8d7dde9208ebd5a1e5e1d21c5efdc964c23746f83a3e55bd8f62ff3",
     "signals-view.tsx": "8d6c01e98438595def98b32976a13dc0f5f313ba39525c397b5a247b5facc0ba",
     "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",

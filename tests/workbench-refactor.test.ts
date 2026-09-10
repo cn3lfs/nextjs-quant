@@ -77,6 +77,68 @@ it("retains the original unconditional state, effects, queries and callbacks", (
   expect(fingerprint(statements.slice(0, -1))).toBe(baseline.state);
 });
 
+it("Q2b wires formula jobs to the existing result selection and preserves exact snapshot disclosure", () => {
+  const statements = functions("use-workbench-state.ts")[0]!.body!.statements;
+  const selection = statements.filter(
+    (s) =>
+      ts.isVariableStatement(s) &&
+      s.declarationList.declarations.some(
+        (d) => d.name.getText() === "selectFormulaJob",
+      ),
+  );
+  expect(selection).toHaveLength(1);
+  const expected = ts.createSourceFile(
+    "expected.ts",
+    `const selectFormulaJob = (id: string) => {
+    setScreenId(id); setExcludedPage(0); setErrorPage(0); setScreenPage(0); setScreenQuery("");
+    setScreenSort("original"); void utils.jobs.invalidate();
+  };`,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  expect(fingerprint(selection)).toBe(fingerprint(expected.statements));
+  const returnedState = statements.at(-1)!.getText();
+  expect(returnedState).toMatch(/\bselectFormulaJob\s*,/);
+  const additions: ts.Node[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isJsxSelfClosingElement(node) &&
+        node.tagName.getText() === "FormulaScreen") ||
+      (ts.isJsxExpression(node) &&
+        node.expression &&
+        ts.isBinaryExpression(node.expression) &&
+        node.expression.left.getText() === "screenResult.formula")
+    )
+      additions.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(returned("screen-view.tsx"));
+  expect(additions).toHaveLength(2);
+  const expectedView = ts.createSourceFile(
+    "expected.tsx",
+    `const v = <>
+    <FormulaScreen onStarted={state.selectFormulaJob} />
+    {screenResult.formula && <div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{JSON.stringify(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>}
+  </>;`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const expectedNodes: ts.Node[] = [];
+  const collect = (n: ts.Node) => {
+    if (
+      ts.isJsxSelfClosingElement(n) ||
+      (ts.isJsxExpression(n) &&
+        n.expression &&
+        ts.isBinaryExpression(n.expression))
+    )
+      expectedNodes.push(n);
+    ts.forEachChild(n, collect);
+  };
+  collect(expectedView);
+  expect(fingerprint(additions)).toBe(fingerprint(expectedNodes));
+});
+
 it("retains existing helper and report implementations", () => {
   for (const file of ["shared.tsx", "reports.tsx", "strategy-fields.tsx"]) {
     for (const fn of functions(file)) {

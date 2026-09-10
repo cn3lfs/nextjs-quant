@@ -7,6 +7,7 @@ import type { PoolContext } from "./pool-context";
 import { securityDisplayName } from "~/lib/security-display";
 import type { ScreenSort } from "~/lib/screen-sort";
 export type StoredScreenResult = {
+  formula?: import("~/lib/formula-screen").ScreeningFormula;
   candidates: Candidate[];
   errors: { symbol: string; error: string }[];
   excluded?: { symbol: string; name?: string; date?: string; reason: string }[];
@@ -64,6 +65,7 @@ export function pageScreenResults(
   // Explicit fields prevent future stored snapshots/evidence from leaking into list responses.
   return {
     sort,
+    formula: result.formula ?? null,
     direction,
     total: result.total,
     asOf: result.asOf,

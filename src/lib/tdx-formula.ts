@@ -1,14 +1,14 @@
 import type { Bar } from "./domain";
 import { emaSeries, maSeries, smaSeries, stdSeries, type IndicatorValue } from "./indicators";
 import { binary, checkFormula, marketFields, unary } from "./tdx-formula-check";
-import { parseFormula, type Expr } from "./tdx-formula-syntax";
+import { FormulaError, parseFormula, type Expr } from "./tdx-formula-syntax";
 export { FormulaError, parseFormula } from "./tdx-formula-syntax";
 export { futureFunctions } from "./tdx-formula-check";
 type Series = IndicatorValue[];
 const finite = (n: number): IndicatorValue => Number.isFinite(n) ? n : null;
 
-/** Q2a pure language core. Explicit, ascending, completed, unadjusted input bars.
- * No I/O, eval, generated JS, persisted formulas or screening integration (Q2b).
+/** Pure language core. Explicit, ascending, completed, unadjusted input bars.
+ * No I/O, eval or generated JS. Q2b worker consumes this exact evaluator.
  * Validation always precedes reading bars, even for an empty input.
  */
 export function evaluateFormula(source: string, bars: readonly Bar[], parameters: Readonly<Record<string, number>> = {}) {
@@ -32,6 +32,7 @@ export function evaluateFormula(source: string, bars: readonly Bar[], parameters
     });
   };
   function evaluate(e: Expr): Series {
+    if (e.kind === "string") throw new Error("Unvalidated string");
     if (e.kind === "number") return constant(e.value);
     if (e.kind === "name") {
       const field = Object.hasOwn(marketFields, e.name) ? marketFields[e.name] : undefined;
@@ -46,9 +47,50 @@ export function evaluateFormula(source: string, bars: readonly Bar[], parameters
     const n = b?.[0] as number;
     switch (e.name) {
       case "MA": return maSeries(a, n);
-      case "EMA": return emaSeries(a, n);
+      case "EMA": case "EXPMA": return emaSeries(a, n);
+      case "MEMA": return smaSeries(a, n, 1);
       case "SMA": return smaSeries(a, n, args[2]![0]!);
       case "STD": return stdSeries(a, n);
+      // tdx-doc 引用函数 WMA/DMA/TMA. Recursive gaps retain state (M1).
+      case "WMA": return windowed(a, n, v => v.reduce((sum, x, i) => sum + x * (i+1), 0) / (n*(n+1)/2));
+      case "DMA": case "TMA": {
+        let previous: IndicatorValue = null;
+        return a.map((x,i) => {
+          const weight = b[i];
+          if (e.name === "DMA" && weight !== null && !(weight! > 0 && weight! < 1))
+            throw new FormulaError([{line: e.line, name: e.name, kind: "parameter", reason: "DMA 要求每根有效 A 满足 0<A<1"}]);
+          if (x === null || weight === null) return previous;
+          const next = previous === null ? x : finite(e.name === "DMA" ? weight!*x + (1-weight!)*previous : weight!*previous + args[2]![i]!*x);
+          if (next !== null) previous = next;
+          return previous;
+        });
+      }
+      case "HHVBARS": case "LLVBARS": return windowed(a, n, v => {
+        // Equal extrema choose the most recent occurrence, never a future tie.
+        const best = v.reduce((x,y) => e.name === "HHVBARS" ? Math.max(x,y) : Math.min(x,y));
+        return v.length-1-v.lastIndexOf(best);
+      });
+      case "BARSCOUNT": {
+        let first: number | null = null;
+        return a.map((x,i) => { if (first === null && x !== null) first = i; return first === null ? null : i-first+1; });
+      }
+      // 统计函数: sample variance shares M1 STD; population uses the same
+      // shared mean and full-window/null contract. N=1 population variance is 0.
+      case "VAR": return map(stdSeries(a, n), x => x*x);
+      case "STDP": case "VARP": case "DEVSQ": case "AVEDEV": case "SLOPE": {
+        const means = maSeries(a, n);
+        return means.map((mid,i) => {
+          if (mid === null) return null;
+          const v = a.slice(i+1-n,i+1) as number[];
+          const sq = v.reduce((sum,x) => sum+(x-mid)**2,0);
+          if (e.name === "STDP") return finite(Math.sqrt(sq/n));
+          if (e.name === "VARP") return finite(sq/n);
+          if (e.name === "DEVSQ") return finite(sq);
+          if (e.name === "AVEDEV") return finite(v.reduce((sum,x) => sum+Math.abs(x-mid),0)/n);
+          const center = (n-1)/2;
+          return finite(v.reduce((sum,x,j) => sum+(j-center)*(x-mid),0)/(n*(n*n-1)/12));
+        });
+      }
       case "REF": return a.map((_, i) => {
         const offset = b[i];
         return offset == null || !Number.isSafeInteger(offset) || offset < 0 || i < offset ? null : a[i - offset]!;
@@ -58,12 +100,42 @@ export function evaluateFormula(source: string, bars: readonly Bar[], parameters
       case "SUM": return windowed(a, n, values => values.reduce((x, y) => x + y, 0));
       case "COUNT": return windowed(a, n, values => values.filter(x => x !== 0).length);
       case "EXIST": return windowed(a, n, values => +values.some(x => x !== 0));
+      case "EVERY": return windowed(a, n, values => +values.every(x => x !== 0));
       case "ABS": return map(a, Math.abs);
       case "NOT": return map(a, x => +(x === 0));
       case "MAX": return zip(a, b, Math.max);
       case "MIN": return zip(a, b, Math.min);
+      // tdx-doc 数学函数. ROUND ties away from zero; MOD signed remainder.
+      // Undefined domains/overflow use null, never a numeric approximation.
+      case "INTPART": return map(a, Math.trunc);
+      case "ROUND": return map(a, x => Math.sign(x)*Math.round(Math.abs(x)));
+      case "CEILING": return map(a, Math.ceil);
+      case "FLOOR": return map(a, Math.floor);
+      case "FRACPART": return map(a, x => x-Math.trunc(x));
+      case "SGN": case "SIGN": return map(a, Math.sign);
+      case "SQRT": return map(a, Math.sqrt);
+      case "LOG": return map(a, Math.log10);
+      case "LN": return map(a, Math.log);
+      case "EXP": return map(a, Math.exp);
+      case "SIN": return map(a, Math.sin);
+      case "COS": return map(a, Math.cos);
+      case "TAN": return map(a, Math.tan);
+      case "ASIN": return map(a, Math.asin);
+      case "ACOS": return map(a, Math.acos);
+      case "ATAN": return map(a, Math.atan);
+      case "POW": return zip(a,b,Math.pow);
+      case "MOD": return zip(a,b,(x,y) => y === 0 ? NaN : x%y);
+      case "BETWEEN": case "RANGE": return a.map((x,i) => {
+        const lo = b[i], hi = args[2]![i];
+        return x == null || lo == null || hi == null ? null : e.name === "BETWEEN" ? +(Math.min(lo,hi)<=x && x<=Math.max(lo,hi)) : +(lo<x && x<hi);
+      });
+      case "VALUEWHEN": {
+        let previous: IndicatorValue = null;
+        return a.map((x,i) => { if (x === null) previous = null; else if (x !== 0) previous = b[i]!; return previous; });
+      }
       case "AND": case "OR": return zip(a, b, (x,y) => binary(e.name, x,y));
-      case "IF": return a.map((x,i) => x === null ? null : x !== 0 ? b[i]! : args[2]![i]!);
+      case "IFN": return a.map((x,i) => x === null ? null : x !== 0 ? args[2]![i]! : b[i]!);
+      case "IF": case "IFF": return a.map((x,i) => x === null ? null : x !== 0 ? b[i]! : args[2]![i]!);
       // Equality on the previous bar belongs to the lower side of an up-cross.
       case "CROSS": return a.map((x,i) => i === 0 || x === null || b[i] === null || a[i-1] === null || b[i-1] === null
         ? null : +(a[i-1]! <= b[i-1]! && x > b[i]!));

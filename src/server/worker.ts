@@ -2,6 +2,7 @@ import { parentPort } from "node:worker_threads";
 import { scan, readSnapshot } from "./tdx";
 import { backtest } from "./quant";
 import { screenLocal } from "./screening";
+import { screenFormula, type FormulaWork } from "./formula-screening";
 import type { PackedScreen } from "./screen-wire";
 import { fullBacktestSource } from "./backtest-source";
 import { readBacktestActions } from "./backtest-actions";
@@ -14,6 +15,7 @@ import type { WalkForwardOptions } from "~/lib/walk-forward";
 import type { BacktestCosts } from "~/lib/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
+  | FormulaWork
   | {
       type: "walk-forward";
       snapshot: Snapshot;
@@ -49,6 +51,7 @@ export type Work =
       };
     };
 async function main(work: Work) {
+  if (work.type === "formula-screen") return screenFormula(work, (progress, phase, workProgress) => parentPort?.postMessage({progress, phase, workProgress}));
   if (work.type === "walk-forward") {
     const source = work.fullRoot
       ? await fullBacktestSource(work.snapshot, work.fullRoot)

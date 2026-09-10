@@ -21,6 +21,13 @@ export const arities: Readonly<Record<string, number>> = {
   REF: 2, MA: 2, EMA: 2, SMA: 3, HHV: 2, LLV: 2, SUM: 2, COUNT: 2,
   CROSS: 2, BARSLAST: 1, FILTER: 2, LAST: 3, EXIST: 2,
   IF: 3, AND: 2, OR: 2, NOT: 1, ABS: 1, MAX: 2, MIN: 2, STD: 2,
+  WMA: 2, DMA: 2, TMA: 3, HHVBARS: 2, LLVBARS: 2, BARSCOUNT: 1,
+  AVEDEV: 2, SLOPE: 2, STDP: 2, VAR: 2, INTPART: 1, ROUND: 1,
+  POW: 2, SQRT: 1, LOG: 1, MOD: 2, SGN: 1, BETWEEN: 3,
+  VALUEWHEN: 2, RANGE: 3, IFF: 3,
+  EVERY: 2, IFN: 3, CEILING: 1, FLOOR: 1, FRACPART: 1, SIGN: 1,
+  EXP: 1, LN: 1, SIN: 1, COS: 1, TAN: 1, ASIN: 1, ACOS: 1, ATAN: 1,
+  MEMA: 2, EXPMA: 2, VARP: 2, DEVSQ: 2,
 };
 export function binary(op: string, a: number, b: number): number {
   switch (op) {
@@ -57,6 +64,7 @@ export function checkFormula(statements: readonly Statement[], parameters: Reado
   }
   const report = (expr: Expr, kind: FormulaIssue["kind"], reason: string, name?: string) => issues.push({line: expr.line, name, kind, reason});
   function visit(e: Expr): Range {
+    if (e.kind === "string") {report(e, "unsupported", "不支持字符串求值"); return unknown;}
     if (e.kind === "number") return exact(e.value);
     if ((e.kind === "name" || e.kind === "call") && future.has(e.name)) {
       report(e, "future", "未来函数或无法保证因果性的形式，拒绝执行", e.name);
@@ -95,17 +103,21 @@ export function checkFormula(statements: readonly Statement[], parameters: Reado
       return {...args[0]!, constant: undefined};
     }
     const periodPositions = e.name === "SMA" || e.name === "LAST" ? [1, 2]
-      : ["MA", "EMA", "HHV", "LLV", "SUM", "COUNT", "FILTER", "EXIST", "STD"].includes(e.name) ? [1] : [];
+      : ["MA", "EMA", "HHV", "LLV", "SUM", "COUNT", "FILTER", "EXIST", "STD", "WMA", "HHVBARS", "LLVBARS", "AVEDEV", "SLOPE", "STDP", "VAR", "EVERY", "MEMA", "EXPMA", "VARP", "DEVSQ"].includes(e.name) ? [1] : [];
     for (const pos of periodPositions) {
       const n = scalar(args[pos]);
-      const minimum = e.name === "STD" ? 2 : ["MA", "EMA", "SMA", "EXIST"].includes(e.name) ? 1 : e.name === "COUNT" ? -Infinity : 0;
+      const minimum = ["STD", "VAR", "SLOPE"].includes(e.name) ? 2 : ["MA", "EMA", "SMA", "EXIST", "WMA", "AVEDEV", "STDP", "EVERY", "MEMA", "EXPMA", "VARP", "DEVSQ"].includes(e.name) ? 1 : e.name === "COUNT" ? -Infinity : 0;
       if (n === undefined || !Number.isSafeInteger(n) || n < minimum)
         report(e, "parameter", `第${pos + 1}参数须为静态整数且 >= ${minimum}`, e.name);
     }
     if (e.name === "SMA" && scalar(args[2])! > scalar(args[1])!) report(e, "parameter", "SMA 要求 M <= N", e.name);
+    if (e.name === "DMA" && scalar(args[1]) !== undefined && !(scalar(args[1])! > 0 && scalar(args[1])! < 1)) report(e, "parameter", "DMA 要求 0<A<1", e.name);
+    if (e.name === "TMA") for (const pos of [1, 2]) {
+      if (scalar(args[pos]) === undefined || scalar(args[pos])! >= 1) report(e, "parameter", "TMA 的 A/B 须为小于1的静态有限数值", e.name);
+    }
     if (e.name === "LAST" && scalar(args[1]) !== 0 && scalar(args[1])! < scalar(args[2])!) report(e, "parameter", "LAST 要求 A >= B（A=0 表示从首个有效值）", e.name);
-    if (["AND", "OR", "NOT", "EXIST", "LAST", "CROSS", "FILTER"].includes(e.name)) return truth;
-    if (e.name === "COUNT" || e.name === "BARSLAST") return {min: 0, max: Infinity, integer: true};
+    if (["AND", "OR", "NOT", "EXIST", "LAST", "CROSS", "FILTER", "EVERY", "BETWEEN", "RANGE"].includes(e.name)) return truth;
+    if (["COUNT", "BARSLAST", "HHVBARS", "LLVBARS", "BARSCOUNT"].includes(e.name)) return {min: 0, max: Infinity, integer: true};
     if (e.name === "IF" && scalar(args[0]) !== undefined && scalar(args[1]) !== undefined && scalar(args[2]) !== undefined) return exact(scalar(args[0]) !== 0 ? scalar(args[1])! : scalar(args[2])!);
     if (e.name === "IF") return {min: Math.min(args[1]!.min, args[2]!.min), max: Math.max(args[1]!.max, args[2]!.max), integer: args[1]!.integer && args[2]!.integer};
     if (e.name === "ABS") {

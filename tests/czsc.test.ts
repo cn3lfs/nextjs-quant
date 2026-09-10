@@ -1,6 +1,5 @@
 import { beforeAll, afterAll, expect, test } from "vitest";
-import { build } from "esbuild";
-import { mkdir, copyFile } from "node:fs/promises";
+import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
 import { projectCzsc, closeCzsc, analyzeCzsc } from "../src/server/czsc";
 import { parseBars } from "../src/server/tdx";
@@ -8,20 +7,14 @@ import { toFloat32 } from "../src/server/czsc-input";
 import { readFileSync } from "node:fs";
 import { decodeCzscCenters } from "../src/server/czsc-structures";
 
-beforeAll(async () => {
-  await mkdir("runtime/czsc", { recursive: true });
-  await copyFile("vendor/czsc/CZSC64.dll", "runtime/czsc/CZSC64.dll");
-  await build({
-    entryPoints: ["src/server/czsc-worker.ts"],
-    outfile: "runtime/czsc-worker.cjs",
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    external: ["koffi"],
-    target: "node22",
-  });
-});
+beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
+
+test("runtime preparation preserves a DLL already loaded by the serial owner", async () => {
+  const before = await projectCzsc(fixture);
+  await prepareCzscTestRuntime();
+  expect(await projectCzsc(fixture)).toEqual(before);
+});
 
 test("concurrent jobs preserve each input's C/V and config projections", async () => {
   const other = {
@@ -40,17 +33,15 @@ test("concurrent jobs preserve each input's C/V and config projections", async (
 
 test("insufficient bars return explicit no-structure without artificial endpoints", async () => {
   for (const length of [0, 1, 2, 3]) {
-    const bars = fixture.date
-      .slice(0, length)
-      .map((date, i) => ({
-        date,
-        open: fixture.close[i]!,
-        high: fixture.high[i]!,
-        low: fixture.low[i]!,
-        close: fixture.close[i]!,
-        volume: fixture.volume[i]!,
-        amount: 0,
-      }));
+    const bars = fixture.date.slice(0, length).map((date, i) => ({
+      date,
+      open: fixture.close[i]!,
+      high: fixture.high[i]!,
+      low: fixture.low[i]!,
+      close: fixture.close[i]!,
+      volume: fixture.volume[i]!,
+      amount: 0,
+    }));
     const result = await analyzeCzsc(bars);
     expect(result.status).toBe("no-structure");
     for (const f of result.families) {

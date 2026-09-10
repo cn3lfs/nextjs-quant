@@ -1,0 +1,225 @@
+{
+  "capturedAt": "2026-09-10T02:58:29.357Z",
+  "calendarBasis": "隔离实操：本地已有日期 + 当日远程已核实成交日期；未改变生产设置",
+  "remote": [
+    {
+      "symbol": "sh601398",
+      "quantity": 100,
+      "sellable": 0,
+      "cost": 8.073
+    }
+  ],
+  "funds": [
+    {
+      "zjye": 200000,
+      "kyje": 199192.74,
+      "dje": 0
+    }
+  ],
+  "fills": [
+    {
+      "zqdm": "601398",
+      "mmlb": "买入",
+      "cjg": 8.07,
+      "cje": 807,
+      "cjsl": 100,
+      "cjsj": "10:23:03",
+      "fee": 0.26
+    }
+  ],
+  "localTrades": [
+    {
+      "id": "b1f06d15-67ac-4c11-8d85-6a2a72a0d760",
+      "symbol": "sh601398",
+      "date": "2026-09-10",
+      "side": "buy",
+      "price": 8.07,
+      "quantity": 100,
+      "lowerLimit": 7.2,
+      "upperLimit": 8.8,
+      "limitSource": "Q0 2026-09-10 实测东方财富 f51=880/f52=720，精度2",
+      "signalId": null,
+      "stop": null,
+      "note": "Q0 已核实同花顺10:23:03成交；远程费用0.26元，本地仍用实验费用，差异显式对账。",
+      "createdAt": 1789009107568,
+      "methods": [
+        {
+          "skillId": "astock-market-rules",
+          "ruleVersion": "local-trade-ledger-1",
+          "outputSchema": "local-trade-ledger-1",
+          "files": [
+            {
+              "file": "SKILL.md",
+              "hash": "de024677fb23f57c9e1723d2aaa57b4acb300382f4999ba01896e1719f627e19"
+            }
+          ],
+          "prerequisites": [
+            "本地人工录入；模拟盘默认关闭；下单需界面确认"
+          ]
+        },
+        {
+          "skillId": "mock-trading",
+          "ruleVersion": "local-trade-ledger-1",
+          "outputSchema": "local-trade-ledger-1",
+          "files": [
+            {
+              "file": "SKILL.md",
+              "hash": "dfb778179fbc11243bfaf500dc702abcaf0a7aec53e22a37144b4fee1f35c3b2"
+            },
+            {
+              "file": "references/api-spec.md",
+              "hash": "23dd71249fc927afdd4fab4229456cc9cd0964b8f6233cc087e537433c01b6b6"
+            }
+          ],
+          "prerequisites": [
+            "本地人工录入；模拟盘默认关闭；下单需界面确认"
+          ]
+        }
+      ],
+      "costs": {
+        "version": "cost-experiment-1",
+        "commissionBps": 3,
+        "minimumCommission": 5,
+        "sellTaxBps": 5,
+        "slippageBps": 5
+      },
+      "fees": {
+        "commission": 5,
+        "tax": 0,
+        "slippage": 0.4035,
+        "total": 5.4035
+      }
+    }
+  ],
+  "localPositions": [
+    {
+      "symbol": "sh601398",
+      "quantity": 100,
+      "sellable": 0,
+      "averageCost": 8.124035,
+      "adjustedCost": 8.124035,
+      "realized": 0,
+      "floating": -12.403499999999923,
+      "quote": {
+        "price": 8,
+        "date": "2026-09-09"
+      },
+      "stop": null,
+      "stopDistancePct": null,
+      "adjustmentStatus": "成本已按 GBBQ 核对",
+      "adjustments": []
+    }
+  ],
+  "reconciliation": [
+    {
+      "symbol": "sh601398",
+      "localQuantity": 100,
+      "remoteQuantity": 100,
+      "quantityDifference": 0,
+      "localSellable": 0,
+      "remoteSellable": 0,
+      "localCost": 8.124035,
+      "remoteCost": 8.073,
+      "costDifference": 0.05103499999999883
+    }
+  ],
+  "sell": "Error: 远程 T+1 可卖数量不足",
+  "diagnostics": [
+    {
+      "path": "/pt_web_qry_stock",
+      "httpStatus": 200,
+      "rawBody": "{\"errorcode\":0,\"errormsg\":\"\",\"result\":[{\"market\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"gpsl\":0,\"kysl\":0,\"djsl\":100,\"gpcb\":\"8.073\",\"jcrq\":\"[REDACTED]\",\"fdyk\":\"-1.26\",\"gpsz\":\"806.00\",\"ykl\":\"-0.16%\",\"gpmrcb\":\"807.2600\",\"xj\":\"8.060\",\"jrzf\":\"0.75\"}],\"list\":[{\"market\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"gpsl\":0,\"kysl\":0,\"djsl\":100,\"gpcb\":\"8.073\",\"jcrq\":\"[REDACTED]\",\"fdyk\":\"-1.26\",\"gpsz\":\"806.00\",\"ykl\":\"-0.16%\",\"gpmrcb\":\"807.2600\",\"xj\":\"8.060\",\"jrzf\":\"0.75\"}]}",
+      "failures": [],
+      "envelope": {
+        "version": "evidence-1",
+        "source": "mock-trading",
+        "symbol": null,
+        "type": "quote-financial",
+        "asOf": null,
+        "publishedAt": null,
+        "fetchedAt": 1789009105471,
+        "currency": null,
+        "unit": {},
+        "adjustment": "not-applicable",
+        "reportPeriod": null,
+        "payloadHash": "24586967e540082f082852e0501ecfb4b1a853e032a03cfecc9f33ecbaae324a",
+        "quality": "validated",
+        "warnings": [
+          "payloadHash 对应脱敏响应文本；抓取时间不是成交时间"
+        ]
+      }
+    },
+    {
+      "path": "/pt_qry_fund_t",
+      "httpStatus": 200,
+      "rawBody": "{\"errorcode\":0,\"errormsg\":\"\",\"result\":{},\"list\":[{\"usrid\":\"[REDACTED]\",\"account\":\"[REDACTED]\",\"hblx\":\"0\",\"zjye\":\"200000.0000\",\"kyje\":\"199192.7400\",\"djje\":\"0.0000\",\"mdate\":\"2026-09-10 10:23:03.852459\",\"rdate\":null}]}",
+      "failures": [],
+      "envelope": {
+        "version": "evidence-1",
+        "source": "mock-trading",
+        "symbol": null,
+        "type": "quote-financial",
+        "asOf": null,
+        "publishedAt": null,
+        "fetchedAt": 1789009105955,
+        "currency": null,
+        "unit": {},
+        "adjustment": "not-applicable",
+        "reportPeriod": null,
+        "payloadHash": "1f4a299cdf6758d360055af5f3134d77b8327bd1bf2e91fda354acf141ec1094",
+        "quality": "validated",
+        "warnings": [
+          "payloadHash 对应脱敏响应文本；抓取时间不是成交时间"
+        ]
+      }
+    },
+    {
+      "path": "/pt_qry_busin_nocache",
+      "httpStatus": 200,
+      "rawBody": "{\"errorcode\":0,\"errormsg\":\"\",\"result\":[{\"num\":1,\"total_rows\":\"0\",\"usrid\":\"[REDACTED]\",\"yhs\":\"0.0000\",\"sxf\":\"0.2400\",\"ghf\":\"0.0200\",\"sxyk\":\"0.0000\",\"gpye\":\"100\",\"name\":\"[REDACTED]\",\"wtrq\":\"[REDACTED]\",\"cjsj\":\"10:23:03\",\"scdm\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"mmlb\":\"\\u4e70\\u5165\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"cjsl\":\"100\",\"cjjg\":\"8.070\",\"cjje\":\"807.00\",\"fee\":\"0.2600\",\"zjfss\":\"807.2600\",\"zjye\":\"199192.74\",\"entrust_no\":\"[REDACTED]\",\"cjbh\":\"[REDACTED]\"}],\"list\":[{\"num\":1,\"total_rows\":\"0\",\"usrid\":\"[REDACTED]\",\"yhs\":\"0.0000\",\"sxf\":\"0.2400\",\"ghf\":\"0.0200\",\"sxyk\":\"0.0000\",\"gpye\":\"100\",\"name\":\"[REDACTED]\",\"wtrq\":\"[REDACTED]\",\"cjsj\":\"10:23:03\",\"scdm\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"mmlb\":\"\\u4e70\\u5165\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"cjsl\":\"100\",\"cjjg\":\"8.070\",\"cjje\":\"807.00\",\"fee\":\"0.2600\",\"zjfss\":\"807.2600\",\"zjye\":\"199192.74\",\"entrust_no\":\"[REDACTED]\",\"cjbh\":\"[REDACTED]\"}]}",
+      "failures": [],
+      "envelope": {
+        "version": "evidence-1",
+        "source": "mock-trading",
+        "symbol": null,
+        "type": "quote-financial",
+        "asOf": null,
+        "publishedAt": null,
+        "fetchedAt": 1789009106441,
+        "currency": null,
+        "unit": {},
+        "adjustment": "not-applicable",
+        "reportPeriod": null,
+        "payloadHash": "cc1c9b34b3be7e23fa5845111d9c79b26ac8774ff0a753d29af854da4a779f38",
+        "quality": "validated",
+        "warnings": [
+          "payloadHash 对应脱敏响应文本；抓取时间不是成交时间"
+        ]
+      }
+    },
+    {
+      "path": "/pt_web_qry_stock",
+      "httpStatus": 200,
+      "rawBody": "{\"errorcode\":0,\"errormsg\":\"\",\"result\":[{\"market\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"gpsl\":0,\"kysl\":0,\"djsl\":100,\"gpcb\":\"8.073\",\"jcrq\":\"[REDACTED]\",\"fdyk\":\"-0.26\",\"gpsz\":\"807.00\",\"ykl\":\"-0.03%\",\"gpmrcb\":\"807.2600\",\"xj\":\"8.070\",\"jrzf\":\"0.88\"}],\"list\":[{\"market\":\"\\u4e0a\\u6d77A\\u80a1\",\"gdzh\":\"[REDACTED]\",\"zqdm\":\"601398\",\"zqmc\":\"\\u5de5\\u5546\\u94f6\\u884c\",\"gpsl\":0,\"kysl\":0,\"djsl\":100,\"gpcb\":\"8.073\",\"jcrq\":\"[REDACTED]\",\"fdyk\":\"-0.26\",\"gpsz\":\"807.00\",\"ykl\":\"-0.03%\",\"gpmrcb\":\"807.2600\",\"xj\":\"8.070\",\"jrzf\":\"0.88\"}]}",
+      "failures": [],
+      "envelope": {
+        "version": "evidence-1",
+        "source": "mock-trading",
+        "symbol": null,
+        "type": "quote-financial",
+        "asOf": null,
+        "publishedAt": null,
+        "fetchedAt": 1789009109355,
+        "currency": null,
+        "unit": {},
+        "adjustment": "not-applicable",
+        "reportPeriod": null,
+        "payloadHash": "2b35032bd64dcd8f63662c8069ee9714a826f92afb3eb648a5ac4f35221f190e",
+        "quality": "validated",
+        "warnings": [
+          "payloadHash 对应脱敏响应文本；抓取时间不是成交时间"
+        ]
+      }
+    }
+  ]
+}

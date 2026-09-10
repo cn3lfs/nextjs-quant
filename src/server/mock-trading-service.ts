@@ -86,3 +86,9 @@ export async function confirmMockOrder(id: string) {
 
 export function mockDiagnostics() { return get<MockResponseEvidence[]>("mock-diagnostics") ?? []; }
 export async function refreshMockShareholders() { await adapter().refreshShareholders(); }
+export async function mockMarketCodes() {
+  if (!mockEnabled()) return [];
+  return (await readSecret<MockAccount>(credentialId))?.shareholders?.map(s => s.scdm) ?? [];
+}
+export async function queryMockFunds() { return adapter().funds(); }
+export async function queryMockTrades() { return adapter().todayTrades(); }

@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import { feeLabel } from "~/lib/trade-ledger";
+import { mockContract, mockMarketLabel } from "~/lib/mock-trading-contract";
 import type { tradeDashboard } from "~/server/trade-ledger-service";
 import type {
   reconcileMock,
@@ -8,6 +9,9 @@ import type {
 } from "~/server/mock-trading-service";
 import {
   readMockDiagnostics,
+  readMockMarkets,
+  readMockFunds,
+  readMockTrades,
   recoverMockAccount,
   saveTrade,
   toggleMock,
@@ -37,6 +41,8 @@ export function TradeLedgerPanel({
     ReturnType<typeof previewMockOrder>
   > | null>(null);
   const [diagnostics, setDiagnostics] = useState<Awaited<ReturnType<typeof readMockDiagnostics>> | null>(null);
+  const [markets, setMarkets] = useState<string[]>([]);
+  const [remoteQuery, setRemoteQuery] = useState<unknown>(null);
   const form = useRef<HTMLFormElement>(null),
     tradeId = useRef<string | null>(null);
   const run = (work: () => Promise<void>) =>
@@ -393,6 +399,12 @@ export function TradeLedgerPanel({
       </section>
       <section className="panel">
         <h2>同花顺模拟盘（可选同步层）</h2>
+        <details><summary>文档契约与实测契约差异</summary><table><thead><tr><th>文档契约</th><th>实测契约</th><th>差异与处理</th></tr></thead><tbody>{mockContract.map(c => <tr key={c.documented}><td>{c.documented}</td><td>{c.observed}</td><td>{c.difference}</td></tr>)}</tbody></table></details>
+        <button disabled={pending || !enabled} onClick={() => run(async () => setMarkets(await readMockMarkets()))}>查看已保存市场代码（本地）</button>
+        {markets.map(code => <p key={code}>{code}：{mockMarketLabel(code)}</p>)}
+        <button disabled={pending || !enabled} onClick={() => run(async () => setRemoteQuery(await readMockFunds()))}>查询远程资金</button>
+        <button disabled={pending || !enabled} onClick={() => run(async () => setRemoteQuery(await readMockTrades()))}>查询当日成交</button>
+        {remoteQuery !== null && <pre className="overflow-auto">{JSON.stringify(remoteQuery, null, 2)}</pre>}
         <p>
           当前{enabled ? "已开启" : "关闭"}
           。关闭时不读取远程账户、不发送任何远程请求。开启本身也不开户；所有远程操作需点击。

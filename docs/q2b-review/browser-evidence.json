@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-09-10T02:55:24.501Z",
+  "checks": [
+    "名称/源码/N1,N2 保存后刷新可恢复",
+    "三条原文明确拒绝；死分支未来函数不能执行",
+    "执行在 worker 期间展开函数目录，界面可交互",
+    "界面编辑→门禁→worker→候选表→导出，真实候选 15"
+  ],
+  "errors": [],
+  "screenshots": [
+    "q2b-buffett.png",
+    "q2b-old-duck-original.png",
+    "q2b-price-limits.png",
+    "future-rejected.png",
+    "editor-ready.png",
+    "running-progress.png",
+    "real-candidates.png"
+  ],
+  "candidateCount": 15,
+  "asOf": "2026-09-09"
+}

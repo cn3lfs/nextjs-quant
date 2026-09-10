@@ -7,6 +7,9 @@ import {
 } from "~/server/trade-ledger-service";
 import {
   mockDiagnostics,
+  mockMarketCodes,
+  queryMockFunds,
+  queryMockTrades,
   refreshMockShareholders,
   setMockEnabled,
   openMockAccount,
@@ -55,3 +58,6 @@ export async function updateStop(symbol: string, stop: number) {
 
 export async function readMockDiagnostics() { return mockDiagnostics(); }
 export async function recoverMockAccount() { await refreshMockShareholders(); }
+export async function readMockMarkets() { return mockMarketCodes(); }
+export async function readMockFunds() { return queryMockFunds(); }
+export async function readMockTrades() { return queryMockTrades(); }
