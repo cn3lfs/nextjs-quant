@@ -1,3 +1,5 @@
+import { evidenceEnvelope } from "./evidence";
+import type { EvidenceEnvelope } from "~/lib/evidence-envelope";
 import { fetch } from "undici";
 import { z } from "zod";
 import {
@@ -27,13 +29,31 @@ const shareholder = z.object({
   gddm: z.string().min(1),
   scdm: z.enum(["1", "2"]),
 });
+export type MockResponseEvidence = {
+  envelope: EvidenceEnvelope; path: string; httpStatus: number | null;
+  rawBody: string | null; failures: { field: string; reason: string }[];
+};
+// Redact identity fields, known credentials even in free text, and unknown long IDs.
+// Preserve empty strings: they are essential evidence for pending shareholders.
+export function redactMockBody(raw: string, secrets: string[]): string {
+  let value = raw;
+  for (const secret of secrets.filter(Boolean).sort((a,b) => b.length-a.length))
+    value = value.split(secret).join("[REDACTED]");
+  value = value.replace(/skill_\d+/gi, "[REDACTED]");
+  value = value.replace(/("(?:usrname|username|usrid|usid|userid|account|gddm|gdzh|gddh|gdh|token|password|authorization|secret|api[_-]?key)"\s*:\s*)("(?:[^"\\]|\\.)+"|\d+)/gi, '$1"[REDACTED]"');
+  return value.replace(/\b[A-Za-z]?\d{7,}\b/g, "[REDACTED]");
+}
 export class MockTradingAdapter {
+  private history: MockResponseEvidence[] = [];
+  diagnostics() { return structuredClone(this.history); }
+
   constructor(
     readonly deps: {
       enabled: () => boolean;
       read: () => Promise<MockAccount | undefined>;
       save: (value: MockAccount) => Promise<void>;
       baseUrl?: string;
+      retain?: (entry: MockResponseEvidence) => void;
     },
   ) {}
   private guard() {
@@ -42,6 +62,7 @@ export class MockTradingAdapter {
   private async request(
     path: string,
     params: Record<string, string>,
+    validate?: (value: Record<string, unknown>) => void,
   ): Promise<Record<string, unknown>> {
     this.guard();
     const url = new URL(path, this.deps.baseUrl ?? mockHost);
@@ -49,6 +70,11 @@ export class MockTradingAdapter {
       datatype: "json",
       ...params,
     }).toString();
+    const identity = await this.deps.read();
+    this.guard();
+    const secrets = [identity?.username, identity?.account, ...(identity?.shareholders?.map(s => s.gddm) ?? []), ...Object.entries(params).filter(([k]) => /usr|usid|name|gddh/.test(k)).map(([,v]) => v)].filter((s): s is string => !!s);
+    let rawBody: string | null = null, httpStatus: number | null = null;
+    const failures: MockResponseEvidence["failures"] = [];
     try {
       const response = await fetch(url, {
         redirect: "error",
@@ -59,23 +85,31 @@ export class MockTradingAdapter {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         },
       });
-      if (!response.ok) {
-        await response.body?.cancel();
-        throw new Error();
+      httpStatus = response.status;
+      const originalBody = await response.text();
+      rawBody = redactMockBody(originalBody, secrets);
+      if (path === "/pt_add_user") rawBody = rawBody.replace(/("errormsg"\s*:\s*)"[^"\n]+"/g, '$1"[REDACTED]"');
+      if (!response.ok) { failures.push({field: "$http", reason: `HTTP ${response.status}`}); throw new Error(); }
+      // Parse the original body only in memory; retained text is already redacted.
+      const value = z.record(z.unknown()).parse(JSON.parse(originalBody));
+      if (![0, "0"].includes(value.errorcode as string | number) && ![0, "0"].includes(value.code as string | number)) {
+        failures.push({field: "errorcode/code", reason: "成功码必须为 0"}); throw new Error();
       }
-      const value = z.record(z.unknown()).parse(await response.json());
-      if (
-        ![0, "0"].includes(value.errorcode as string | number) &&
-        ![0, "0"].includes(value.code as string | number)
-      )
-        throw new Error();
+      validate?.(value);
       return value;
-    } catch {
+    } catch (error) {
+      if (error instanceof z.ZodError) failures.push(...error.issues.map(i => ({field: i.path.join(".") || "$", reason: i.code})));
+      if (!failures.length) failures.push({field: httpStatus === null ? "$transport" : "$json", reason: "请求失败或响应格式无效"});
       // Neither remote error strings nor request URLs may leave this boundary:
       // both can contain the username/account credential. Never retry mutations.
       throw new Error(
-        "模拟盘请求失败或返回不符合契约；操作结果可能未知，请人工核对，勿重复提交",
+        "模拟盘请求失败或返回格式无效、不符合契约；操作结果可能未知，请人工核对，勿重复提交",
       );
+    } finally {
+      const entry: MockResponseEvidence = {path, httpStatus, rawBody, failures,
+        envelope: evidenceEnvelope(rawBody, {source: "mock-trading", symbol: null, type: "quote-financial", asOf: null, publishedAt: null, fetchedAt: Date.now(), currency: null, unit: {}, adjustment: "not-applicable", reportPeriod: null, quality: failures.length ? "unavailable" : "validated", warnings: ["payloadHash 对应脱敏响应文本；抓取时间不是成交时间"]})};
+      this.history = [...this.history, entry].slice(-20);
+      this.deps.retain?.(entry);
     }
   }
   async open() {
@@ -93,22 +127,21 @@ export class MockTradingAdapter {
     const result = await this.request("/pt_add_user", {
       usrname: pending.username,
       yybid: "997376",
-    });
+    }, value => { z.object({errormsg: z.string().regex(/^\d+$/)}).parse(value); });
     const account = z.string().regex(/^\d+$/).safeParse(result.errormsg);
     if (!account.success) throw new Error("开户响应无有效资金账号，请人工核对");
     await this.deps.save({ ...pending, account: account.data });
+    await this.refreshShareholders();
+  }
+  // Explicit read-only recovery; never calls the creation endpoint or retries.
+  async refreshShareholders() {
+    this.guard();
+    const pending = await this.deps.read();
+    if (!pending?.account) throw new Error("无既有资金账号，禁止重复开户");
     const shares = await this.request("/pt_qry_stkaccount_dklc", {
-      usrid: account.data,
-      yybid: "997376",
-    });
-    const parsed = z.array(shareholder).min(1).safeParse(shares.result);
-    if (!parsed.success) throw new Error("股东账号响应不符合契约，请人工核对");
-    await this.deps.save({
-      ...pending,
-      state: "ready",
-      account: account.data,
-      shareholders: parsed.data,
-    });
+      usrid: pending.account, yybid: "997376",
+    }, value => { z.object({result: z.array(shareholder).min(1)}).parse(value); });
+    await this.deps.save({...pending, state: "ready", shareholders: z.array(shareholder).min(1).parse(shares.result)});
   }
   private async account() {
     this.guard();
@@ -128,7 +161,7 @@ export class MockTradingAdapter {
       name: a.account!,
       yybid: "997376",
       type: "1",
-    });
+    }, value => { z.object({data: z.array(z.object({zqdm: z.string().regex(/^\d{6}$/), gpsl: numeric.pipe(z.number().int()), kysl: numeric.pipe(z.number().int()), gpcb: numeric}).refine(p => p.kysl <= p.gpsl))}).parse(value); });
     const parsed = z
       .array(
         z

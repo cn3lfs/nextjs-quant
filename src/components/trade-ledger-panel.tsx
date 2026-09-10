@@ -7,6 +7,8 @@ import type {
   previewMockOrder,
 } from "~/server/mock-trading-service";
 import {
+  readMockDiagnostics,
+  recoverMockAccount,
   saveTrade,
   toggleMock,
   createMockAccount,
@@ -34,6 +36,7 @@ export function TradeLedgerPanel({
   const [preview, setPreview] = useState<Awaited<
     ReturnType<typeof previewMockOrder>
   > | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Awaited<ReturnType<typeof readMockDiagnostics>> | null>(null);
   const form = useRef<HTMLFormElement>(null),
     tradeId = useRef<string | null>(null);
   const run = (work: () => Promise<void>) =>
@@ -409,6 +412,8 @@ export function TradeLedgerPanel({
         >
           {enabled ? "关闭模拟盘" : "开启模拟盘"}
         </button>
+        <button disabled={pending} onClick={() => run(async () => { setDiagnostics(await readMockDiagnostics()); })}>查看最近20次脱敏响应（本地）</button>
+        {diagnostics && <div aria-live="polite">{diagnostics.length === 0 ? "尚无响应记录" : diagnostics.map((entry, i) => <details key={i}><summary>{entry.path} · {new Date(entry.envelope.fetchedAt).toLocaleString()} · HTTP {entry.httpStatus ?? "未收到"}</summary><pre className="overflow-auto">{JSON.stringify(entry, null, 2)}</pre></details>)}</div>}
         {enabled && (
           <>
             <p>
@@ -425,6 +430,7 @@ export function TradeLedgerPanel({
             >
               确认创建或使用模拟账户
             </button>
+            <button disabled={pending} onClick={() => run(async () => { await recoverMockAccount(); setMessage("既有账户股东账号已核验"); })}>查询既有账户股东账号（不开户）</button>
             <button
               disabled={pending}
               onClick={() =>

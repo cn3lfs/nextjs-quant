@@ -36,18 +36,44 @@ function smooth(
 /** MA: docs/roadmap.md §3.1 MA(C,N), §3.2 full windows only. */
 export function ma(bars: readonly Bar[], n = 20): IndicatorValue[] {
   period(n);
-  return bars.map((_, i) => {
+  return maSeries(bars.map(closeOf), n);
+}
+
+/** Shared sequence primitives for formulas and chart wrappers. Unlike prices,
+ * formula inputs may be zero or negative. M1 null/window/state rules are retained.
+ * Sources: tdx-doc 引用函数 MA/EMA/SMA; 统计函数 STD; roadmap §3.1–3.4.
+ */
+export function maSeries(values: readonly IndicatorValue[], n: number): IndicatorValue[] {
+  period(n);
+  return values.map((_, i) => {
     if (i + 1 < n) return null;
-    const values = bars.slice(i + 1 - n, i + 1).map(closeOf);
-    if (values.some((v) => v === null)) return null;
-    return finite((values as number[]).reduce((sum, v) => sum + v, 0) / n);
+    const window = values.slice(i + 1 - n, i + 1);
+    if (window.some(v => v === null || !Number.isFinite(v))) return null;
+    return finite((window as number[]).reduce((sum, v) => sum + v, 0) / n);
+  });
+}
+export function emaSeries(values: readonly IndicatorValue[], n: number) {
+  period(n);
+  return smooth(values.map(v => v === null ? null : finite(v)), n + 1, 2);
+}
+export function smaSeries(values: readonly IndicatorValue[], n: number, m: number) {
+  period(n); period(m);
+  if (m > n) throw new RangeError("SMA requires M <= N");
+  return smooth(values.map(v => v === null ? null : finite(v)), n, m);
+}
+export function stdSeries(values: readonly IndicatorValue[], n: number): IndicatorValue[] {
+  period(n, 2);
+  return maSeries(values, n).map((mid, i) => {
+    if (mid === null) return null;
+    const variance = values.slice(i + 1 - n, i + 1).reduce<number>((sum, v) => sum + (v! - mid) ** 2, 0) / (n - 1);
+    return finite(Math.sqrt(variance));
   });
 }
 
 /** EMA: docs/roadmap.md §3.1 EMA(X,N), seeded by first valid close. */
 export function ema(bars: readonly Bar[], n = 20): IndicatorValue[] {
   period(n);
-  return smooth(bars.map(closeOf), n + 1, 2);
+  return emaSeries(bars.map(closeOf), n);
 }
 
 /** MACD(12,26,9): docs/roadmap.md §3.1; histogram includes the factor 2. */
@@ -167,14 +193,10 @@ export function boll(bars: readonly Bar[], n = 20, multiplier = 2) {
   period(n, 2);
   if (!Number.isFinite(multiplier) || multiplier < 0)
     throw new RangeError("Invalid BOLL multiplier");
+  const std = stdSeries(bars.map(closeOf), n);
   return ma(bars, n).map((mid, i) => {
     if (mid === null) return { mid: null, upper: null, lower: null };
-    const variance =
-      bars
-        .slice(i + 1 - n, i + 1)
-        .reduce((sum, b) => sum + (b.close - mid) ** 2, 0) /
-      (n - 1);
-    const width = multiplier * Math.sqrt(variance);
+    const width = multiplier * std[i]!;
     return { mid, upper: finite(mid + width), lower: finite(mid - width) };
   });
 }

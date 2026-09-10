@@ -166,3 +166,25 @@ it("reconciliation returns explicit differences and does not mutate either side"
   });
   expect(remote).toEqual(copy);
 });
+
+it("retains failed shareholder fields and masked original response without recreating", async () => {
+  enabled = true; account = {...ready, state: "creating"};
+  response = () => ({errorcode: 0, result: [{usrid: ready.account, gddm: "", scdm: "2"}], note: ready.username});
+  await expect(adapter.refreshShareholders()).rejects.toThrow("契约");
+  expect(requests.map(u => u.pathname)).toEqual(["/pt_qry_stkaccount_dklc"]);
+  const entry = adapter.diagnostics()[0]!;
+  expect(entry.failures).toContainEqual({field: "result.0.gddm", reason: "too_small"});
+  expect(entry.rawBody).toContain('"gddm":""');
+  expect(JSON.stringify(entry)).not.toContain(ready.username);
+  expect(entry.rawBody).not.toContain(ready.account!);
+  expect(entry.httpStatus).toBe(200);
+  expect(entry.envelope.payloadHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(account.state).toBe("creating");
+});
+it("keeps only the last twenty request records and returns detached diagnostics", async () => {
+  enabled = true; account = ready;
+  for (let i=0; i<22; i++) await adapter.positions();
+  expect(adapter.diagnostics()).toHaveLength(20);
+  adapter.diagnostics()[0]!.rawBody = "changed";
+  expect(adapter.diagnostics()[0]!.rawBody).not.toBe("changed");
+});

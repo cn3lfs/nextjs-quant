@@ -5,6 +5,7 @@ import {
   MockTradingAdapter,
   reconcilePositions,
   type MockAccount,
+  type MockResponseEvidence,
 } from "./mock-trading";
 import { tradeInputSchema, type TradeInput } from "~/lib/trade-ledger";
 import { tradeContext, tradeDashboard } from "./trade-ledger-service";
@@ -15,6 +16,7 @@ export const mockEnabled = () =>
 const adapter = () =>
   new MockTradingAdapter({
     enabled: mockEnabled,
+    retain: entry => put("mock-diagnostics", "mock-diagnostics", [...mockDiagnostics(), entry].slice(-20)),
     read: () => readSecret<MockAccount>(credentialId),
     save: (a) => saveSecret(credentialId, a),
   });
@@ -81,3 +83,6 @@ export async function confirmMockOrder(id: string) {
     throw new Error("交易日期已变化，请重新预览");
   return adapter().order(order.input, true);
 }
+
+export function mockDiagnostics() { return get<MockResponseEvidence[]>("mock-diagnostics") ?? []; }
+export async function refreshMockShareholders() { await adapter().refreshShareholders(); }

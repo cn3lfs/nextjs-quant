@@ -6,6 +6,8 @@ import {
   recordBonusListing,
 } from "~/server/trade-ledger-service";
 import {
+  mockDiagnostics,
+  refreshMockShareholders,
   setMockEnabled,
   openMockAccount,
   reconcileMock,
@@ -50,3 +52,6 @@ export async function updateStop(symbol: string, stop: number) {
   put("trade-stop", `trade-stop-${symbol}`, { stop });
   revalidatePath("/trade-ledger");
 }
+
+export async function readMockDiagnostics() { return mockDiagnostics(); }
+export async function recoverMockAccount() { await refreshMockShareholders(); }
