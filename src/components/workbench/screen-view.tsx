@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -129,143 +130,191 @@ export function ScreenView({
     draft,
     symbols,
   } = state;
+  const [entry, setEntry] = useState("formula");
+  const entries = [
+    [
+      "formula",
+      "通达信公式选股",
+      "使用通达信公式筛选本地全 A 股已完成日线，采用不复权口径。",
+    ],
+    [
+      "online",
+      "在线自然语言筛选",
+      "查询财务、行业等在线条件，结果不代表本地规则已通过，导入后仍需复核。",
+    ],
+    [
+      "draft",
+      "本地条件草案（双均线）",
+      "将自然语言需求转为双均线条件草案，确认应用后再运行本地筛选。",
+    ],
+    [
+      "local",
+      "本地可复现条件",
+      "按双均线、涨幅与量比规则筛选本地数据，覆盖范围只反映最近扫描索引。",
+    ],
+  ] as const;
   return (
     <>
-      <FormulaScreen onStarted={state.selectFormulaJob} />
-      <OnlineScreen
-        jobs={jobs.data ?? []}
-        query={onlineQuery}
-        setQuery={setOnlineQuery}
-        onImport={(selected) => {
-          setUniverse(selected.join(","));
-          notify(
-            `已将本页 ${selected.length} 只证券填入本地池，请核对周期与规则后运行复核`,
-          );
-        }}
-      />
-      <section className="panel">
-        <div className="panel-title">
-          <Sparkles size={17} />
-          <h3>本地条件草案（双均线）</h3>
-        </div>
-        <div className="inline-form">
-          <Input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            aria-label="自然语言选股条件"
-          />
+      <div className="flex flex-wrap gap-2" role="group" aria-label="选股入口">
+        {entries.map(([id, label]) => (
           <Button
-            onClick={() => interpret.mutate(prompt)}
-            disabled={interpret.isPending}
+            key={id}
+            variant={entry === id ? "default" : "outline"}
+            aria-pressed={entry === id}
+            aria-controls={`screen-entry-${id}`}
+            onClick={() => setEntry(id)}
           >
-            <Sparkles size={15} />
-            生成条件草案
+            {label}
           </Button>
-        </div>
-        {draft && (
-          <div className="notice">
-            <p>{draft.explanation}</p>
-            {draft.unsupported.length > 0 && (
-              <div>
-                <p>本地不支持：{draft.unsupported.join("、")}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setOnlineQuery(prompt);
-                    document
-                      .getElementById("online-screener")
-                      ?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  将原需求填入在线筛选
-                </Button>
-              </div>
-            )}
+        ))}
+      </div>
+      <p className="text-muted-foreground text-sm">
+        {entries.find(([id]) => id === entry)?.[2]}
+      </p>
+      {/* Keep forms mounted so switching preserves drafts, validation and pending submissions. */}
+      <div id="screen-entry-formula" hidden={entry !== "formula"}>
+        <FormulaScreen onStarted={state.selectFormulaJob} />
+      </div>
+      <div id="screen-entry-online" hidden={entry !== "online"}>
+        <OnlineScreen
+          jobs={jobs.data ?? []}
+          query={onlineQuery}
+          setQuery={setOnlineQuery}
+          onImport={(selected) => {
+            setUniverse(selected.join(","));
+            setEntry("local");
+            notify(
+              `已将本页 ${selected.length} 只证券填入本地池，请核对周期与规则后运行复核`,
+            );
+          }}
+        />
+      </div>
+      <div id="screen-entry-draft" hidden={entry !== "draft"}>
+        <section className="panel">
+          <div className="panel-title">
+            <Sparkles size={17} />
+            <h3>本地条件草案（双均线）</h3>
+          </div>
+          <div className="inline-form">
+            <Input
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              aria-label="自然语言选股条件"
+            />
             <Button
-              size="sm"
-              disabled={draft.unsupported.length > 0}
-              onClick={() => {
-                setStrategy(draft.strategy);
-                notify("草案已应用，请核对后运行");
-              }}
+              onClick={() => interpret.mutate(prompt)}
+              disabled={interpret.isPending}
             >
-              确认并应用草案
+              <Sparkles size={15} />
+              生成条件草案
             </Button>
           </div>
-        )}
-      </section>
-      <section className="panel">
-        <div className="panel-title">
-          <SlidersHorizontal size={17} />
-          <h3>本地可复现条件</h3>
-          <span className="tag">双均线趋势</span>
-        </div>
-        <StrategyFields strategy={strategy} setStrategy={setStrategy} />
-        <label className="muted">
-          <Checkbox
-            checked={requireCurrent}
-            disabled={!!historicalDate}
-            onCheckedChange={(checked) => setRequireCurrent(checked === true)}
-          />
-          严格当前模式：时点落后或无法核验时停止，不生成候选分析
-        </label>
-        <div className="form-grid">
-          <Field label="历史研究截止日（留空使用本地最近时点）">
-            <Input
-              type="date"
-              value={historicalDate}
-              onChange={(e) => {
-                setHistoricalDate(e.target.value);
-                if (e.target.value) setRequireCurrent(false);
-              }}
+          {draft && (
+            <div className="notice">
+              <p>{draft.explanation}</p>
+              {draft.unsupported.length > 0 && (
+                <div>
+                  <p>本地不支持：{draft.unsupported.join("、")}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setOnlineQuery(prompt);
+                      setEntry("online");
+                    }}
+                  >
+                    将原需求填入在线筛选
+                  </Button>
+                </div>
+              )}
+              <Button
+                size="sm"
+                disabled={draft.unsupported.length > 0}
+                onClick={() => {
+                  setStrategy(draft.strategy);
+                  setEntry("local");
+                  notify("草案已应用，请核对后运行");
+                }}
+              >
+                确认并应用草案
+              </Button>
+            </div>
+          )}
+        </section>
+      </div>
+      <div id="screen-entry-local" hidden={entry !== "local"}>
+        <section className="panel">
+          <div className="panel-title">
+            <SlidersHorizontal size={17} />
+            <h3>本地可复现条件</h3>
+            <span className="tag">双均线趋势</span>
+          </div>
+          <StrategyFields strategy={strategy} setStrategy={setStrategy} />
+          <label className="muted">
+            <Checkbox
+              checked={requireCurrent}
+              disabled={!!historicalDate}
+              onCheckedChange={(checked) => setRequireCurrent(checked === true)}
             />
-          </Field>
-          {historicalDate && (
-            <Field label="历史证券池来源">
+            严格当前模式：时点落后或无法核验时停止，不生成候选分析
+          </label>
+          <div className="form-grid">
+            <Field label="历史研究截止日（留空使用本地最近时点）">
               <Input
-                value={universeSource}
-                onChange={(e) => setUniverseSource(e.target.value)}
-                placeholder="例如：某日期指数成分股存档；含退市证券的自建名单"
+                type="date"
+                value={historicalDate}
+                onChange={(e) => {
+                  setHistoricalDate(e.target.value);
+                  if (e.target.value) setRequireCurrent(false);
+                }}
               />
             </Field>
+            {historicalDate && (
+              <Field label="历史证券池来源">
+                <Input
+                  value={universeSource}
+                  onChange={(e) => setUniverseSource(e.target.value)}
+                  placeholder="例如：某日期指数成分股存档；含退市证券的自建名单"
+                />
+              </Field>
+            )}
+          </div>
+          {historicalDate && (
+            <p className="muted">
+              历史研究必须填写证券池及来源。按截止日过滤完整历史后计算；分钟历史首次读取可能较慢，可在任务中心取消。当前简称不能证明当时身份，复权及历史事件仍需核验。
+            </p>
           )}
-        </div>
-        {historicalDate && (
+          <div className="inline-form">
+            <Field label="证券池（留空扫描全部本地 A 股；代码以逗号分隔）">
+              <Input
+                value={universe}
+                onChange={(e) => setUniverse(e.target.value)}
+                placeholder="sh600519,sz000001,sz300750"
+              />
+            </Field>
+            <Button
+              onClick={() =>
+                screen.mutate({
+                  strategy,
+                  period,
+                  symbols: symbols(),
+                  asOf: historicalDate || undefined,
+                  requireCurrent,
+                  universeSource: historicalDate ? universeSource : undefined,
+                })
+              }
+              disabled={screen.isPending}
+            >
+              <Play size={15} />
+              运行选股
+            </Button>
+          </div>
           <p className="muted">
-            历史研究必须填写证券池及来源。按截止日过滤完整历史后计算；分钟历史首次读取可能较慢，可在任务中心取消。当前简称不能证明当时身份，复权及历史事件仍需核验。
+            收盘价高于短均线，短均线高于长均线，并满足涨幅与量比条件。采用{" "}
+            {period === "day" ? "日线" : "五分钟线"}，按均线差排序。
           </p>
-        )}
-        <div className="inline-form">
-          <Field label="证券池（留空扫描全部本地 A 股；代码以逗号分隔）">
-            <Input
-              value={universe}
-              onChange={(e) => setUniverse(e.target.value)}
-              placeholder="sh600519,sz000001,sz300750"
-            />
-          </Field>
-          <Button
-            onClick={() =>
-              screen.mutate({
-                strategy,
-                period,
-                symbols: symbols(),
-                asOf: historicalDate || undefined,
-                requireCurrent,
-                universeSource: historicalDate ? universeSource : undefined,
-              })
-            }
-            disabled={screen.isPending}
-          >
-            <Play size={15} />
-            运行选股
-          </Button>
-        </div>
-        <p className="muted">
-          收盘价高于短均线，短均线高于长均线，并满足涨幅与量比条件。采用{" "}
-          {period === "day" ? "日线" : "五分钟线"}，按均线差排序。
-        </p>
-      </section>
+        </section>
+      </div>
       <section className="panel">
         <div className="panel-title">
           <h3>候选结果</h3>

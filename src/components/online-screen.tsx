@@ -58,7 +58,7 @@ export function OnlineScreen({
         <span className="tag">通达信 MCP · A 股</span>
       </div>
       <p>
-        财务、行业等条件可在此查询。服务的条件解释、日期和复权口径需核对；导入代码后，再用下方本地规则复核。
+        财务、行业等条件可在此查询。服务的条件解释、日期和复权口径需核对；导入代码后，再用本地可复现条件复核。
       </p>
       <Textarea
         className="field-sizing-fixed"

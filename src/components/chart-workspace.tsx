@@ -214,7 +214,10 @@ function EditableChart({
         }
       }}
     >
-      <div className="flex flex-wrap items-center gap-3 py-2">
+      <div
+        className="relative flex items-center gap-3 py-2 whitespace-nowrap"
+        data-testid="chart-primary-controls"
+      >
         <label>
           <Checkbox
             checked={view.logarithmic}
@@ -240,86 +243,91 @@ function EditableChart({
         >
           保存视图
         </Button>
-        <span role="status">
-          {save.error
-            ? `保存失败：${save.error.message}，可重新保存`
-            : message || (dirty ? "有未保存更改，请切换前保存" : "")}
-        </span>
-      </div>
-      <details>
-        <summary>指标参数</summary>
-        <p>参数仅影响图表；缠论与双突破标注仍按原策略参数计算。</p>
-        <form
-          key={JSON.stringify(view.parameters)}
-          className="flex flex-wrap gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const data = new FormData(e.currentTarget);
-            const candidate = Object.fromEntries(
-              Object.entries(view.parameters).map(([name, values]) => [
-                name,
-                values.map((_, i) => Number(data.get(`${name}-${i}`))),
-              ]),
-            );
-            const parsed = indicatorParametersSchema.safeParse(candidate);
-            if (!parsed.success) {
-              setMessage("周期须为 1–500 整数，BOLL 周期至少 2、倍数 0–20");
-              return;
-            }
-            change({ ...view, parameters: parsed.data });
-          }}
-        >
-          {Object.entries(view.parameters).map(([name, values]) => (
-            <fieldset key={name}>
-              <legend>{name.toUpperCase()}</legend>
-              {values.map((value, i) => (
-                <label key={i} className="inline-flex flex-col">
-                  {name.toUpperCase()} {i + 1}
-                  <Input
-                    aria-label={`${name.toUpperCase()} 参数 ${i + 1}`}
-                    name={`${name}-${i}`}
-                    type="number"
-                    className="w-20"
-                    min={name === "boll" ? (i === 0 ? 2 : 0) : 1}
-                    max={name === "boll" && i === 1 ? 20 : 500}
-                    step={name === "boll" && i === 1 ? 0.1 : 1}
-                    defaultValue={value}
-                  />
-                </label>
+        <details className="relative" name="chart-tools">
+          <summary className="cursor-pointer">指标参数</summary>
+          <div className="absolute left-0 top-full z-20 max-h-96 w-[min(36rem,70vw)] overflow-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md whitespace-normal">
+            <p>参数仅影响图表；缠论与双突破标注仍按原策略参数计算。</p>
+            <form
+              key={JSON.stringify(view.parameters)}
+              className="flex flex-wrap gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const data = new FormData(e.currentTarget);
+                const candidate = Object.fromEntries(
+                  Object.entries(view.parameters).map(([name, values]) => [
+                    name,
+                    values.map((_, i) => Number(data.get(`${name}-${i}`))),
+                  ]),
+                );
+                const parsed = indicatorParametersSchema.safeParse(candidate);
+                if (!parsed.success) {
+                  setMessage("周期须为 1–500 整数，BOLL 周期至少 2、倍数 0–20");
+                  return;
+                }
+                change({ ...view, parameters: parsed.data });
+              }}
+            >
+              {Object.entries(view.parameters).map(([name, values]) => (
+                <fieldset key={name}>
+                  <legend>{name.toUpperCase()}</legend>
+                  {values.map((value, i) => (
+                    <label key={i} className="inline-flex flex-col">
+                      {name.toUpperCase()} {i + 1}
+                      <Input
+                        aria-label={`${name.toUpperCase()} 参数 ${i + 1}`}
+                        name={`${name}-${i}`}
+                        type="number"
+                        className="w-20"
+                        min={name === "boll" ? (i === 0 ? 2 : 0) : 1}
+                        max={name === "boll" && i === 1 ? 20 : 500}
+                        step={name === "boll" && i === 1 ? 0.1 : 1}
+                        defaultValue={value}
+                      />
+                    </label>
+                  ))}
+                </fieldset>
               ))}
-            </fieldset>
-          ))}
-          <Button variant="plain" type="submit">
-            应用参数
-          </Button>
-        </form>
-      </details>
-      <div
-        className="flex flex-wrap gap-2 py-2"
-        role="toolbar"
-        aria-label="画线工具"
-      >
-        {Object.entries(tools).map(([id, label]) => (
-          <Button
-            variant="plain"
-            key={id}
-            aria-pressed={tool === id}
-            onClick={() => {
-              setTool(id as keyof typeof tools);
-              setAnchor(null);
-            }}
+              <Button variant="plain" type="submit">
+                应用参数
+              </Button>
+            </form>
+          </div>
+        </details>
+        <details className="relative" name="chart-tools">
+          <summary className="cursor-pointer">画线：{tools[tool]}</summary>
+          <div
+            className="absolute right-0 top-full z-20 flex w-80 flex-wrap gap-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md whitespace-normal"
+            role="toolbar"
+            aria-label="画线工具"
           >
-            {label}
-          </Button>
-        ))}
-        <span>
-          {tool !== "none"
-            ? anchor
-              ? "点击第二个端点；Esc 取消"
-              : "点击主图 K 线位置定锚；Esc 取消"
-            : "左右键平移 · 上下键缩放 · 拖拽价格轴缩放"}
-        </span>
+            {Object.entries(tools).map(([id, label]) => (
+              <Button
+                variant="plain"
+                key={id}
+                aria-pressed={tool === id}
+                onClick={() => {
+                  setTool(id as keyof typeof tools);
+                  setAnchor(null);
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+            <span>
+              {tool !== "none"
+                ? anchor
+                  ? "点击第二个端点；Esc 取消"
+                  : "点击主图 K 线位置定锚；Esc 取消"
+                : "左右键平移 · 上下键缩放 · 拖拽价格轴缩放"}
+            </span>
+          </div>
+        </details>
       </div>
+      <span role="status">
+        {save.error
+          ? `保存失败：${save.error.message}，可重新保存`
+          : message || (dirty ? "有未保存更改，请切换前保存" : "")}
+      </span>
       {aggregateMessage && <p role="status">{aggregateMessage}</p>}
       {positionMessage && <p role="status">{positionMessage}</p>}
       {cost != null && (

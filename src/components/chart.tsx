@@ -780,7 +780,10 @@ export function MarketChart({
         padding: 8,
       }}
     >
-      <div className="flex flex-wrap items-center gap-3 py-2 text-sm">
+      <div
+        className="flex items-center gap-3 overflow-x-auto py-2 text-sm whitespace-nowrap"
+        data-testid="chart-secondary-controls"
+      >
         <label>
           <Checkbox
             checked={showBreakout}
@@ -789,7 +792,7 @@ export function MarketChart({
           双突破
         </label>
         {breakout && (
-          <label>
+          <label className="flex shrink-0 items-center gap-1">
             双突破观察日{" "}
             <Select
               value={breakoutDate}
@@ -814,19 +817,6 @@ export function MarketChart({
             </Select>
           </label>
         )}
-        <span data-testid="breakout-status">
-          {breakoutMessage ??
-            (breakout
-              ? (() => {
-                  const p = breakout.points.find(
-                    (p) => p.index === breakoutIndex,
-                  );
-                  return p
-                    ? `${p.date} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
-                    : "无日线数据";
-                })()
-              : "")}
-        </span>
         <label className="flex items-center gap-1">
           <Checkbox
             checked={showBoll}
@@ -834,7 +824,7 @@ export function MarketChart({
           />
           BOLL
         </label>
-        <label>
+        <label className="flex shrink-0 items-center gap-1">
           副图{" "}
           <Select
             value={subchart}
@@ -859,6 +849,85 @@ export function MarketChart({
           />{" "}
           缠论结构
         </label>
+        {subchart === "rps" && (
+          <div
+            className="flex shrink-0 items-center gap-3 text-xs"
+            data-testid="rps-controls"
+          >
+            {period !== "day" ? (
+              <span role="status">RPS仅支持日线，当前周期不可用</span>
+            ) : (
+              <>
+                {rpsPeriods.map((window) => (
+                  <label
+                    key={window}
+                    className="flex items-center gap-1"
+                    style={{ color: rpsColors[window] }}
+                  >
+                    <Checkbox
+                      checked={rpsOptions.periods.includes(window)}
+                      onCheckedChange={(checked) =>
+                        setRpsOptions({
+                          ...rpsOptions,
+                          periods:
+                            checked === true
+                              ? [...rpsOptions.periods, window]
+                              : rpsOptions.periods.filter((p) => p !== window),
+                        })
+                      }
+                    />
+                    RPS{window}
+                  </label>
+                ))}
+                <label className="flex items-center gap-2">
+                  参考阈值
+                  <Input
+                    aria-label="RPS参考阈值"
+                    className="w-20"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={rpsOptions.threshold}
+                    onChange={(e) => {
+                      const n = e.target.valueAsNumber;
+                      if (Number.isFinite(n) && n >= 0 && n <= 100)
+                        setRpsOptions({ ...rpsOptions, threshold: n });
+                    }}
+                  />
+                </label>
+                <span>
+                  虚线：回填（生存者偏差） · 实线：向前新增 · 后复权日线排名
+                </span>
+                <span role="status">
+                  {rpsMessage ??
+                    (rps?.some((row) => row.values.some((v) => v != null))
+                      ? ""
+                      : "暂无已落库RPS数据")}
+                </span>
+                {rpsMessage?.startsWith("RPS读取失败") && onRpsRetry && (
+                  <Button variant="plain" onClick={onRpsRetry}>
+                    重试RPS
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-3 text-sm">
+        <span data-testid="breakout-status">
+          {breakoutMessage ??
+            (breakout
+              ? (() => {
+                  const p = breakout.points.find(
+                    (p) => p.index === breakoutIndex,
+                  );
+                  return p
+                    ? `${p.date} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
+                    : "无日线数据";
+                })()
+              : "")}
+        </span>
         <span data-testid="czsc-status">
           {czscMessage ??
             (czsc?.status === "no-structure"
@@ -871,70 +940,6 @@ export function MarketChart({
           {periodLabels[period]} · 不复权 · {subcharts[subchart]}
         </span>
       </div>
-      {subchart === "rps" && (
-        <div
-          className="flex flex-wrap items-center gap-3 py-2 text-xs"
-          data-testid="rps-controls"
-        >
-          {period !== "day" ? (
-            <span role="status">RPS仅支持日线，当前周期不可用</span>
-          ) : (
-            <>
-              {rpsPeriods.map((window) => (
-                <label
-                  key={window}
-                  className="flex items-center gap-1"
-                  style={{ color: rpsColors[window] }}
-                >
-                  <Checkbox
-                    checked={rpsOptions.periods.includes(window)}
-                    onCheckedChange={(checked) =>
-                      setRpsOptions({
-                        ...rpsOptions,
-                        periods:
-                          checked === true
-                            ? [...rpsOptions.periods, window]
-                            : rpsOptions.periods.filter((p) => p !== window),
-                      })
-                    }
-                  />
-                  RPS{window}
-                </label>
-              ))}
-              <label className="flex items-center gap-2">
-                参考阈值
-                <Input
-                  aria-label="RPS参考阈值"
-                  className="w-20"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={rpsOptions.threshold}
-                  onChange={(e) => {
-                    const n = e.target.valueAsNumber;
-                    if (Number.isFinite(n) && n >= 0 && n <= 100)
-                      setRpsOptions({ ...rpsOptions, threshold: n });
-                  }}
-                />
-              </label>
-              <span>
-                虚线：回填（生存者偏差） · 实线：向前新增 · 后复权日线排名
-              </span>
-              <span role="status">
-                {rpsMessage ??
-                  (rps?.some((row) => row.values.some((v) => v != null))
-                    ? ""
-                    : "暂无已落库RPS数据")}
-              </span>
-              {rpsMessage?.startsWith("RPS读取失败") && onRpsRetry && (
-                <Button variant="plain" onClick={onRpsRetry}>
-                  重试RPS
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      )}
       <div
         data-testid="chart-legend"
         className="flex min-h-16 flex-wrap content-start gap-x-3 gap-y-1 text-xs"
