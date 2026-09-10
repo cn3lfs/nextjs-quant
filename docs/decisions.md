@@ -1,3 +1,5 @@
+> 阅读说明（2026-09-10）：本文件完整保存“为什么这么做、试过什么失败了”，按日期向后读，同题以后续裁定为准；旧状态不代表当前待办。现状见 [入口](README.md)，有效约束见 [invariants](invariants.md)。下文旧 `docs/<核对材料>` 路径均已归到 [review](review/README.md)，原 roadmap §3.1–3.4 已转到 invariants §2；旧 optimization 文档及 output、m2-review/n3-review 已删除，保留其历史文字不代表仍有归档。不要据此恢复材料或重复当年的外部操作。
+
 # 决策日志
 
 取代 `docs/optimization-progress.md`（已冻结归档）。

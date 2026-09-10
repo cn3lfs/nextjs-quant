@@ -2,12 +2,22 @@
 
 Next.js / T3 Stack 全栈 TypeScript 应用。Electron 仅提供窗口、托盘和本机 Node 服务生命周期。
 
+## 项目现状与文档入口
+
+新接手请从 [docs/README.md](docs/README.md) 按半小时阅读顺序进入：范围、模块地图、不可违反的约束、下一阶段、运行手册与人工核对材料均在那里。
+
+2026-09-10：M1–M5 A 层以及 N1/N3、P1/P2、Q1/Q2a/Q2b 已交付。Q0 买入成交与隔离账本对账已完成，卖出仍受 T+1 门禁，完整往返未完成。N2 聚宽验证与 P3 因子分析尚未开始，等待向前样本成熟；目前没有证据证明两策略赚钱。旧研究/回测功能按路线图冻结保留，以下功能介绍不是新的开发清单；其中缠论/双突破的监控仍仅日线。
+
+开发、测试及浏览器核对必须隔离 `QUANT_DATA_DIR`，避免推进共享生产库后使旧 exe 无法启动；新增迁移需管理者重打包。执行者不得安装依赖或运行 desktop:smoke/desktop:pack；下文保留的安装与打包说明供管理者/用户使用。详见 [运行手册](docs/operations.md)。
+
 ## 启动
 
 开发环境：Windows x64、Node.js 22、pnpm 9。
 
 ```powershell
 pnpm install
+# 仅管理者预置依赖；开发运行先指定隔离目录
+$env:QUANT_DATA_DIR = Join-Path $PWD '.test-data\readme-dev'
 pnpm dev
 ```
 
@@ -16,6 +26,7 @@ pnpm dev
 生产网页与桌面：
 
 ```powershell
+$env:QUANT_DATA_DIR = Join-Path $PWD '.test-data\readme-preview'
 pnpm build
 pnpm desktop:prepare
 pnpm start
@@ -104,6 +115,8 @@ CLI 程序不随应用分发，需在本机安装；默认自动查找 PATH、�
 共用数据目录时仅一个存活进程负责监控与推送；该进程退出后其他实例自动接管，并重新建立监控基线，避免同时打开网页版和桌面版造成重复信号。
 
 ```powershell
+# 验证不能使用默认共享生产库
+$env:QUANT_DATA_DIR = Join-Path $PWD '.test-data\readme-check'
 pnpm typecheck
 pnpm test
 pnpm build

@@ -69,3 +69,10 @@ Browser, desktop and every dev/test run default to the same data directory `%LOC
 
 - Any run that can apply migrations — `pnpm dev`, `pnpm start`, Playwright reviews, integration tests — must set `QUANT_DATA_DIR` to an isolated path first.
 - Whenever `migrations.ts` gains an entry, the packaged exe is stale by definition. Repacking is the manager's job; note it in the milestone report.
+
+## Commit before any major change
+
+Land the previous piece of work before starting the next one. A milestone that is verified but uncommitted is one bad command away from being gone, and a large uncommitted tree makes it impossible to tell which change broke what.
+
+- Manager: verify, then commit, then dispatch the next task. Never dispatch on top of an unreviewed dirty tree.
+- Executor: never commit or push. Report and stop; the manager commits.
