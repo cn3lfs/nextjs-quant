@@ -9,7 +9,8 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse } from "smol-toml";
-type Config = { url: string; token?: string };
+/** tokenFile 优先：本机刷新脚本轮换令牌后无需重新导入，token 仅为旧凭证兼容。 */
+type Config = { url: string; token?: string; tokenFile?: string };
 const allowed = new Set([
   "tdx_quotes",
   "tdx_kline",
@@ -36,20 +37,21 @@ export async function importLocalMcp() {
   const url = source.url ?? value("--url");
   if (!url || new URL(url).hostname !== "txmcp.tdx.com.cn")
     throw new Error("本机配置不是已支持的通达信服务地址");
-  let token: string | undefined;
   const tokenFile = value("--token-file");
-  if (tokenFile) {
-    const raw = (await readFile(tokenFile, "utf8")).trim();
-    try {
-      const data = JSON.parse(raw) as Record<string, unknown>;
-      token = String(data.access_token ?? data.token ?? "");
-    } catch {
-      token = raw;
-    }
-  }
-  await saveSecret("mcp", { url, token });
+  // 导入时读一次仅为校验路径可用；实际认证在每次连接时现读，见 readTokenFile。
+  if (tokenFile) await readTokenFile(tokenFile);
+  await saveSecret("mcp", { url, tokenFile });
   await closeMcp();
   return { configured: true };
+}
+async function readTokenFile(file: string) {
+  const raw = (await readFile(file, "utf8")).trim();
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    return String(data.access_token ?? data.token ?? "");
+  } catch {
+    return raw;
+  }
 }
 export async function mcpConfigured() {
   return Boolean(
@@ -63,8 +65,11 @@ async function connectMcp(): Promise<Client> {
   if (!config) throw new Error("请先导入本机通达信 MCP 配置");
   const url = new URL(config.url);
   if (url.protocol !== "https:") throw new Error("MCP 仅允许 HTTPS");
-  const headers: Record<string, string> = config.token
-      ? { Authorization: `Bearer ${config.token}` }
+  const token = config.tokenFile
+      ? await readTokenFile(config.tokenFile)
+      : config.token,
+    headers: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
       : {},
     client = new Client({ name: "quant-workbench", version: "0.1.0" });
   try {

@@ -1,5 +1,5 @@
 {
-  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently.",
+  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged.",
   "state": "41f67fdae65904f7346e38996b88376292013080f2bc32ab340c993ea7ea00ff",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
@@ -12,12 +12,12 @@
   },
   "views": {
     "market-view.tsx": "8559dc0326156cf3eb56856d747cd82163228cbf7deb75d1a20ea2657dbf9676",
-    "screen-view.tsx": "a332a7c8e4184b2d42988c40df040e5ec78ea5110a8b28a1b681ff494b1fe30d",
+    "screen-view.tsx": "43f9dc02ec7824f53b86271cccd16f0689895ee6fdd8d2cfa59b323aadf4e710",
     "backtest-view.tsx": "c048f075d210702036d4a6e29a335c68cfe23879161545970f77fe4c469a335e",
     "signals-view.tsx": "00fb6558c83047dc704f4ff56f002d80efc6f232e0dbb13b3f37743888bed944",
     "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",
     "evidence-analysis.tsx": "998d4c39c9d2f7b4e399e2f84944f16acddf7b1636c873852747c1a0a32a5647",
     "task-center.tsx": "cce75fc23e5d04cf90783e455052be406b326199819f09642e2f4a88a8580116"
   },
-  "connections": "ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02"
+  "connections": "e04b8c3362984ee84046933a3cc8e4fa82df0768aa9e84aab857059ce164c8e1"
 }

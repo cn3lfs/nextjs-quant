@@ -361,8 +361,8 @@ export function Connections({
           <h3>通达信 MCP</h3>
         </div>
         <p>
-          从本机 Codex 配置导入服务地址与认证，使用 Node.js
-          直接连接。认证过期后更新本机配置并重新导入。
+          从本机 Codex 配置导入服务地址与认证文件路径，使用 Node.js
+          直接连接。认证在每次连接时现读该文件，本机刷新后无需重新导入；仅服务地址或文件路径变化时才需再导入一次。
         </p>
         <div className="button-row">
           <Button
