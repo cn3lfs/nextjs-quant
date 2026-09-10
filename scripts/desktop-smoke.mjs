@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
+import { temporaryDirectory } from "./temporary-directory.mjs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url),
-  data = await mkdtemp(join(tmpdir(), "quant-desktop-"));
+  temporary = temporaryDirectory("quant-desktop-"),
+  data = temporary.path;
 // A fresh smoke profile uses the application's default TDX root and symbol.
 // Verify the current source, not a count that becomes stale after a daily download.
 const sourcePath = "E:/new_tdx64/vipdoc/sh/lday/sh600519.day";
@@ -21,11 +22,13 @@ const binary = process.argv.includes("--packaged")
         "release/win-unpacked/GuanlanQuant.exe",
     )
   : require("electron");
-const child = spawn(binary, process.argv.includes("--packaged") ? [] : ["."], {
-  windowsHide: true,
-  stdio: "pipe",
-  env: { ...process.env, QUANT_DESKTOP_SMOKE: "1", QUANT_DATA_DIR: data },
-});
+const child = temporary.track(
+  spawn(binary, process.argv.includes("--packaged") ? [] : ["."], {
+    windowsHide: true,
+    stdio: "pipe",
+    env: { ...process.env, QUANT_DESKTOP_SMOKE: "1", QUANT_DATA_DIR: data },
+  }),
+);
 const timer = setTimeout(() => {
   child.kill();
   console.error("Desktop smoke timed out");

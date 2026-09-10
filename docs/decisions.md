@@ -529,3 +529,11 @@ HEAD 迁移条目 3 条，工作区（N1 进行中）4 条。
 **决策**：Vitest globalSetup 在系统临时目录的 quant-tests 下创建时间戳、PID 与随机后缀组成的运行目录，将 TEMP/TMP/TMPDIR 指向它；teardown 恢复环境并递归删除本次目录，容器为空时一并删除。启动时只回收命名符合本机制且创建时间超过一天的运行目录，保留近期目录、非匹配目录与符号链接；一天作为陈旧阈值，也意味着超过一天的测试运行不受保留保证。每文件 QUANT_DATA_DIR 的既有默认隔离及自行设置优先语义保持不变。
 
 **放弃及原因**：不逐个测试添加清理钩子，避免遗漏既有及未来 mkdtemp 调用；不扫描删除系统 TEMP 根目录的历史 quant-*。不修改独立 Playwright review/Electron 脚本：它们不加载 Vitest 配置，环境重定向只发生在测试进程及其子进程内，独立脚本自身的临时目录生命周期不属于本次修复。
+
+## 2026-09-10 · 独立脚本临时目录生命周期收尾
+
+**决策**：desktop-smoke、m4-ui-review、m5-visual-review 共用 scripts/temporary-directory.mjs，创建目录时同步注册 exit 钩子，正常结束、未捕获异常及显式退出均回收；SIGINT/SIGTERM/SIGHUP 按惯例以 130/143/129 退出并触发同一清理。登记的子进程先尝试终止，再对本次创建且确认位于临时根目录下的目录做有限重试删除。删除失败仅向 stderr 报告保留路径，不抛错、不修改原退出码；smoke 的 stdout JSON 字段及判定逻辑原样保留，dataDirectory 是本次运行路径，不再保证退出后存在。
+
+**放弃及原因**：不扫描或删除历史目录，不增加排查保留开关，不改业务与 review 验收内容。SIGKILL、Windows TerminateProcess 等不可捕获终止不能执行进程内清理，仍可能遗留目录；本次不扩展为守护进程或历史清扫机制。
+
+**与预期不符的事实**：tests 下使用 tmpdir/mkdtemp 的独立 review 脚本实际为 M4、M5 两个；第三个名称命中 screen-reviews.test.ts 是 Vitest 测试，已由 globalSetup 管理，无需重复接入。清理验证使用独立 Node 子进程，不启动 Electron；信号测试在 Windows 中触发信号处理器，不能据此宣称验证了系统强制终止。

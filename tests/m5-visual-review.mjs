@@ -1,3 +1,4 @@
+import { temporaryDirectory } from "../scripts/temporary-directory.mjs";
 /** M5 milestone-only browser capture. Existing chart + real tRPC engine.
  * Isolated profile seeded with immutable historical fixtures. Only the snapshot
  * selection response is redirected to those fixtures; breakout is NOT mocked.
@@ -6,8 +7,8 @@
  */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { put, sqlite } from "../src/server/db/index.ts";
@@ -16,7 +17,8 @@ const require = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 );
 const { chromium } = require("playwright");
-const data = await mkdtemp(join(tmpdir(), "quant-m5-ui-"));
+const temporary = temporaryDirectory("quant-m5-ui-");
+const data = temporary.path;
 process.env.QUANT_DATA_DIR = data;
 put(
   "settings",
@@ -45,16 +47,18 @@ for (const name of ["valid", "false", "insufficient"]) {
 }
 sqlite().close();
 await mkdir("docs/m5-review", { recursive: true });
-const server = spawn(process.execPath, [".next/standalone/server.js"], {
-  windowsHide: true,
-  stdio: ["ignore", "pipe", "pipe"],
-  env: {
-    ...process.env,
-    QUANT_DATA_DIR: data,
-    HOSTNAME: "127.0.0.1",
-    PORT: "3215",
-  },
-});
+const server = temporary.track(
+  spawn(process.execPath, [".next/standalone/server.js"], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      QUANT_DATA_DIR: data,
+      HOSTNAME: "127.0.0.1",
+      PORT: "3215",
+    },
+  }),
+);
 let browser;
 try {
   await new Promise((resolve, reject) => {

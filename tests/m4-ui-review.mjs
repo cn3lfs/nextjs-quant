@@ -1,25 +1,28 @@
+import { temporaryDirectory } from "../scripts/temporary-directory.mjs";
 /** M4 milestone UI check. Fresh profile, no subscriptions, no notification tests. */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 const require = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 );
 const { chromium } = require("playwright");
-const data = await mkdtemp(join(tmpdir(), "quant-m4-ui-"));
-const server = spawn(process.execPath, [".next/standalone/server.js"], {
-  windowsHide: true,
-  stdio: ["ignore", "pipe", "pipe"],
-  env: {
-    ...process.env,
-    QUANT_DATA_DIR: data,
-    HOSTNAME: "127.0.0.1",
-    PORT: "3214",
-  },
-});
+const temporary = temporaryDirectory("quant-m4-ui-");
+const data = temporary.path;
+const server = temporary.track(
+  spawn(process.execPath, [".next/standalone/server.js"], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      QUANT_DATA_DIR: data,
+      HOSTNAME: "127.0.0.1",
+      PORT: "3214",
+    },
+  }),
+);
 let browser;
 try {
   await new Promise((resolve, reject) => {
