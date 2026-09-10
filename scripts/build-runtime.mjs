@@ -2,6 +2,15 @@ import { build } from "esbuild";
 import { createRequire } from "node:module";
 import { copyFile, mkdir, cp } from "node:fs/promises";
 import { dirname } from "node:path";
+await build({
+  entryPoints: ["src/server/rps-worker.ts"],
+  outfile: "runtime/rps-worker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["better-sqlite3"],
+  target: "node22",
+});
 const czscRequire = createRequire(import.meta.url);
 const koffiRoot = dirname(czscRequire.resolve("koffi"));
 const koffiRequire = createRequire(czscRequire.resolve("koffi"));

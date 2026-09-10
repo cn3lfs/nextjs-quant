@@ -1,5 +1,6 @@
 import { quickResearch } from "./quick-research";
 import { scheduleSignalLedger } from "./signal-ledger-client";
+import { scheduleRps } from "./rps-client";
 import { NotificationPolicyStore } from "./notification-policy-store";
 import { workProgress } from "~/lib/work-progress";
 import { gfCalendarReference } from "./gf-calendar";
@@ -483,6 +484,7 @@ export function backtestJob(
 export async function tick() {
   if (!schedulerLeader()) return;
   scheduleSignalLedger(Date.now());
+  scheduleRps(Date.now());
   scheduleNews();
   if (state.ticking) return;
   state.ticking = true;

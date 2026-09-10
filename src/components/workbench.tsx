@@ -60,6 +60,10 @@ export function Workbench() {
             <BookOpen size={18} />
             持仓与交易日志
           </a>
+          <a className="nav-item" href="/rps">
+            <BookOpen size={18} />
+            RPS数据管理
+          </a>
           <details open={researchTabs.some((t) => t.id === tab) || undefined}>
             <summary className="nav-item">
               <FlaskConical size={18} />

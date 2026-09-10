@@ -27,6 +27,10 @@ const migrations = [
    CREATE INDEX trade_ledger_symbol_date ON trade_ledger(symbol,trade_date);
    CREATE TABLE trade_adjustments (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, payload TEXT NOT NULL);`,
   `CREATE TABLE chart_views (symbol TEXT NOT NULL, period TEXT NOT NULL CHECK(period IN ('day','week','month','5m')), payload TEXT NOT NULL, PRIMARY KEY(symbol,period));`,
+  `CREATE TABLE rps_days (date TEXT PRIMARY KEY, payload TEXT NOT NULL);
+   CREATE TABLE rps_values (symbol TEXT NOT NULL, date TEXT NOT NULL, values_blob BLOB NOT NULL, PRIMARY KEY(symbol,date)) WITHOUT ROWID;
+   CREATE INDEX rps_values_date ON rps_values(date,symbol);
+   CREATE TABLE rps_job (singleton INTEGER PRIMARY KEY CHECK(singleton=1), id TEXT NOT NULL, payload TEXT NOT NULL, cancelled INTEGER NOT NULL, lease_until INTEGER NOT NULL);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

@@ -62,6 +62,40 @@ it("R2b rendering evidence detects changed actions", () => {
     ),
   ).not.toBe(baseline[file]);
 });
+it("S1 adds exactly the RPS data-management navigation link", () => {
+  const source = readFileSync("src/components/workbench.tsx", "utf8");
+  const ast = ts.createSourceFile(
+    "view.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const links: ts.JsxElement[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isJsxElement(node) &&
+      node.openingElement.tagName.getText(ast) === "a" &&
+      node.openingElement.attributes.properties.some(
+        (p) =>
+          ts.isJsxAttribute(p) &&
+          p.name.getText(ast) === "href" &&
+          p.initializer &&
+          ts.isStringLiteral(p.initializer) &&
+          p.initializer.text === "/rps",
+      )
+    )
+      links.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  expect(links).toHaveLength(1);
+  expect(originalRendering(`const link = (${links[0]!.getText(ast)});`)).toBe(
+    originalRendering(
+      'const link = (<a className="nav-item" href="/rps"><BookOpen size={18} />RPS数据管理</a>);',
+    ),
+  );
+});
 
 it("R2b leaves only the explicitly exempt frozen native button", () => {
   const files = readdirSync("src", { recursive: true })

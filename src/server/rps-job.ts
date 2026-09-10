@@ -1,0 +1,197 @@
+import { readFile, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import type { Bar } from "~/lib/domain";
+import {
+  rpsPeriods,
+  rpsPolicy,
+  type RpsDay,
+  type RpsProgress,
+  type RpsRequest,
+} from "~/lib/rps";
+import { historicalDateSchema } from "~/lib/historical-screen";
+import { parseBars, readSnapshot, scan } from "./tdx";
+import { readGbbq } from "./tdx-gbbq";
+import type { TdxXdxr } from "./tdx-wire";
+import {
+  calculateRpsDay,
+  prepareRpsSecurity,
+  rpsHash,
+  type RpsSecurity,
+} from "./rps-engine";
+import { RpsStore } from "./rps-store";
+
+export type RpsDependencies = {
+  root: string;
+  calendar: () => Promise<{ days: string[]; source: string }>;
+  universe: () => Promise<{ symbol: string; name: string }[]>;
+  bars: (symbol: string) => Promise<Bar[]>;
+  actions: () => Promise<{ events: Map<string, TdxXdxr[]>; source: string }>;
+};
+export function localRpsDependencies(
+  root: string,
+  overrides: string[],
+): RpsDependencies {
+  return {
+    root: resolve(root),
+    calendar: async () => {
+      if (overrides.length)
+        return {
+          days: overrides.map((d) => historicalDateSchema.parse(d)),
+          source: "用户确认的交易日期",
+        };
+      // 750 retained days plus 250 warmup sessions. Older index records can contain
+      // invalid prices; they are outside this product's date horizon, not silently repaired.
+      const path = join(root, "vipdoc/sh/lday/sh000001.day");
+      const before = await stat(path),
+        bytes = await readFile(path),
+        after = await stat(path);
+      if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
+        throw new Error("RPS参考日历正在更新");
+      if (bytes.length % 32) throw new Error("RPS参考日历记录不完整");
+      return {
+        days: parseBars(
+          bytes.subarray(Math.max(0, bytes.length - 1000 * 32)),
+          "day",
+        ).map((b) => b.date),
+        source: "本地上证指数最近1000根已有交易日期（非完整官方日历）",
+      };
+    },
+    universe: async () =>
+      (await scan(root)).securities
+        .filter((s) => s.period === "day")
+        .map(({ symbol, name }) => ({ symbol, name })),
+    bars: async (symbol) => (await readSnapshot(root, symbol, "day")).bars,
+    actions: async () => {
+      const value = await readGbbq(root);
+      return { events: value.events, source: value.path };
+    },
+  };
+}
+
+export async function runRpsJob(
+  store: RpsStore,
+  deps: RpsDependencies,
+  request: RpsRequest,
+  progress: RpsProgress,
+  now: number,
+  report: (value: RpsProgress) => void = () => {},
+  cancelled: () => boolean = () => false,
+) {
+  const checkpoint = (phase: string) => {
+    if (cancelled()) throw new Error("rps-cancelled");
+    progress.phase = phase;
+    store.checkpoint(progress);
+    report({ ...progress });
+  };
+  try {
+    checkpoint("读取参考日历与预热日期");
+    const local = new Date(now + 8 * 3600000).toISOString(),
+      today = local.slice(0, 10);
+    const calendar = await deps.calendar();
+    const days = calendar.days.filter(
+      (d) => d < today || (d === today && local.slice(11, 16) >= "15:05"),
+    );
+    if (
+      days.some(
+        (d, i) =>
+          !historicalDateSchema.safeParse(d).success ||
+          (i > 0 && d <= days[i - 1]!),
+      )
+    )
+      throw new Error("RPS交易日历无效、重复或倒序");
+    if (request.mode === "forward" && days.at(-1) !== today)
+      throw new Error("向前RPS仅接受今天15:05后且参考日历已确认的交易日");
+    const targets =
+      request.mode === "forward" ? [today] : days.slice(-request.days);
+    if (!targets.length || days.indexOf(targets[0]!) < Math.max(...rpsPeriods))
+      throw new Error("RPS日历不足：回填前需要250个参考交易日");
+    const pending = targets.filter((d) => !store.day(d));
+    progress.totalDays = pending.length;
+    if (pending.length) {
+      checkpoint("读取证券池与GBBQ");
+      const universe = (await deps.universe()).sort((a, b) =>
+        a.symbol.localeCompare(b.symbol),
+      );
+      if (
+        !universe.length ||
+        universe.length > rpsPolicy.maxSymbols ||
+        new Set(universe.map((s) => s.symbol)).size !== universe.length
+      )
+        throw new Error("RPS本地证券池为空、重复或超过10000只上限");
+      const actions = await deps.actions();
+      const actionEntries = [...actions.events].sort(([a], [b]) =>
+        a.localeCompare(b),
+      );
+      const coverage = actionEntries
+        .flatMap(([, events]) => events.map((e) => e.date))
+        .sort()
+        .at(-1);
+      if (!coverage || coverage < pending.at(-1)!)
+        throw new Error("GBBQ事件覆盖不足；禁止降级为不复权RPS");
+      const source: RpsDay["source"] = {
+        root: deps.root,
+        calendar: calendar.source,
+        calendarHash: rpsHash(days),
+        actionsHash: rpsHash({ source: actions.source, events: actionEntries }),
+        actionsCoverage: coverage,
+        universeHash: rpsHash(universe),
+      };
+      progress.total = universe.length;
+      const stocks: RpsSecurity[] = [];
+      const keepFrom =
+        days[days.indexOf(pending[0]!) - Math.max(...rpsPeriods)]!;
+      for (const stock of universe) {
+        checkpoint(`读取后复权行情 ${stock.symbol}`);
+        // Failure is fatal: silently dropping unreadable stocks would change every rank.
+        const bars = (await deps.bars(stock.symbol)).filter(
+          (b) => b.date <= pending.at(-1)!,
+        );
+        stocks.push(
+          prepareRpsSecurity(
+            stock.symbol,
+            stock.name,
+            bars,
+            actions.events.get(stock.symbol) ?? [],
+            keepFrom,
+          ),
+        );
+        progress.scanned++;
+      }
+      for (const date of pending) {
+        checkpoint(`计算并固定 ${date}`);
+        const result = calculateRpsDay(stocks, days, date);
+        if (!result.counts.some((n) => n > 0))
+          throw new Error(`${date}没有可计算的RPS，未发布空排名`);
+        store.saveDay(
+          {
+            date,
+            mode: request.mode,
+            periods: [...rpsPeriods],
+            policy: rpsPolicy,
+            total: universe.length,
+            pool: result.pool,
+            counts: result.counts,
+            excluded: result.excluded,
+            missing: result.missing,
+            inputHash: result.inputHash,
+            source,
+            createdAt: now,
+          },
+          result.rows,
+          () => checkpoint(`提交 ${date}`),
+        );
+        progress.completedDays++;
+      }
+    }
+    checkpoint("完成");
+    progress.status = "complete";
+  } catch (error) {
+    progress.error = error instanceof Error ? error.message : "RPS任务失败";
+    progress.status =
+      progress.error === "rps-cancelled" ? "cancelled" : "failed";
+  }
+  progress.updatedAt = Date.now();
+  store.finish(progress);
+  report({ ...progress });
+  return progress;
+}

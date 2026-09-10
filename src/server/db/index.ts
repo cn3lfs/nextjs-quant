@@ -120,7 +120,10 @@ export function remove(id: string) {
 }
 export function atomic<T>(fn: () => T) {
   try {
-    return sqlite().transaction(fn)();
+    // Background RPS publication can commit between this callback's reads and writes.
+    // Acquire the write reservation first: a deferred WAL snapshot cannot upgrade
+    // after another writer commits, even with busy_timeout configured.
+    return sqlite().transaction(fn).immediate();
   } finally {
     receipts.clear();
   }

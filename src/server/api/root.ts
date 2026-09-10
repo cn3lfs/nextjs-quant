@@ -1,4 +1,7 @@
 import { tradeDashboard } from "../trade-ledger-service";
+import { RpsStore } from "../rps-store";
+import { rpsClient } from "../rps-client";
+import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
 import { chartBars, chartBarsInput } from "../chart-bars";
 import { ChartViewStore } from "../chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart-view";
@@ -153,6 +156,27 @@ const pageSchema = z.object({
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
 
 export const appRouter = createTRPCRouter({
+  rpsStatus: p.query(() => {
+    const store = new RpsStore(chartSqlite());
+    return { progress: store.progress(), latest: store.latest() };
+  }),
+  rpsStart: p
+    .input(rpsRequestSchema)
+    .mutation(({ input }) => ({ id: rpsClient().start(input).id })),
+  rpsCancel: p.mutation(() => {
+    rpsClient().cancel();
+    return { cancelled: true };
+  }),
+  rpsRanking: p.input(rpsQuerySchema).query(({ input }) => {
+    const store = new RpsStore(chartSqlite());
+    return {
+      day: store.day(input.date),
+      rows: store.ranking(input.date, input.period),
+    };
+  }),
+  rpsCurve: p
+    .input(symbolSchema)
+    .query(({ input }) => new RpsStore(chartSqlite()).curve(input)),
   chartPosition: p
     .input(symbolSchema)
     .query(
