@@ -56,6 +56,13 @@ Codex runs under the `workspace-write` sandbox, which has **no network access**.
 - Never attempt to install a dependency. If one is missing, **stop and report** so the manager can provision it.
 - A missing dependency is not a reason to substitute a different library or to reimplement the functionality by hand.
 
+## Browser verification is the manager's job too
+
+Playwright fails to launch under the `workspace-write` sandbox (`EPERM`), the same class of limitation as Electron. It failed in T1 and T2 while working for the manager.
+
+- Do **not** attempt Playwright runs, and do not retry when one fails. Report that visual verification is outstanding and stop.
+- Write the review script if the task calls for one, but leave running it to the manager.
+
 ## Electron desktop smoke is verified by the manager, not the executor
 
 `pnpm desktop:smoke` launches Electron, which needs GPU/display access the `workspace-write` sandbox does not provide. It failed for the executor in M2, M3 and M4 while passing every time for the manager (`exitCode 0`).
