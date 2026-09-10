@@ -2,6 +2,9 @@ import { tradeDashboard } from "../trade-ledger-service";
 import { RpsStore } from "../rps-store";
 import { rpsClient } from "../rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
+import { industryPageSchema } from "~/lib/industry-rps";
+import { industryRpsPage } from "../industry-rps-query";
+import { readIndustryBlocks } from "../industry-blocks";
 import { chartBars, chartBarsInput } from "../chart-bars";
 import { ChartViewStore } from "../chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart-view";
@@ -156,6 +159,59 @@ const pageSchema = z.object({
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
 
 export const appRouter = createTRPCRouter({
+  industryRpsStatus: p.query(() => {
+    const store = new RpsStore(chartSqlite(), "industry");
+    const latest = store.latest();
+    // Full membership evidence stays on disk; status polling returns only summary counts.
+    return {
+      root: settings().industryBlocksRoot,
+      progress: store.progress(),
+      latest: latest
+        ? {
+            date: latest.date,
+            mode: latest.mode,
+            counts: latest.counts,
+            total: latest.total,
+            excluded: latest.industry!.excluded,
+          }
+        : null,
+    };
+  }),
+  industryRpsConfigure: p
+    .input(z.string().trim().max(2048))
+    .mutation(({ input }) => {
+      saveSettings({ ...settings(), industryBlocksRoot: input });
+      return { root: input };
+    }),
+  industryRpsInspect: p.mutation(async () => {
+    const snapshot = await readIndustryBlocks(settings().industryBlocksRoot);
+    const previous = new RpsStore(chartSqlite(), "industry").latest()?.industry
+      ?.snapshot;
+    const old = new Map(previous?.files.map((f) => [f.file, f]));
+    return {
+      count: snapshot.files.length,
+      hash: snapshot.hash,
+      baseline: !!previous,
+      changed: snapshot.files
+        .filter(
+          (f) =>
+            old.has(f.file) &&
+            (old.get(f.file)!.hash !== f.hash ||
+              old.get(f.file)!.mtimeMs !== f.mtimeMs),
+        )
+        .map((f) => f.file),
+      added: snapshot.files.filter((f) => !old.has(f.file)).map((f) => f.file),
+      removed:
+        previous?.files
+          .filter((f) => !snapshot.files.some((n) => n.file === f.file))
+          .map((f) => f.file) ?? [],
+    };
+  }),
+  industryRpsPage: p
+    .input(industryPageSchema)
+    .query(({ input }) =>
+      industryRpsPage(new RpsStore(chartSqlite(), "industry"), input),
+    ),
   rpsStatus: p.query(() => {
     const store = new RpsStore(chartSqlite());
     return { progress: store.progress(), latest: store.latest() };

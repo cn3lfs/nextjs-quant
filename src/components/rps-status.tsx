@@ -29,8 +29,9 @@ export function RpsStatus({
       {progress ? (
         <div role="status">
           <p>
-            任务：{progress.mode === "backfill" ? "回填" : "向前"} /{" "}
-            {progress.status} / {progress.phase}
+            {progress.target === "industry" ? "行业" : "个股"}任务：
+            {progress.mode === "backfill" ? "回填" : "向前"} / {progress.status}{" "}
+            / {progress.phase}
           </p>
           <p>
             读取 {progress.scanned}/{progress.total}；提交{" "}

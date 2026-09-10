@@ -31,6 +31,9 @@ const migrations = [
    CREATE TABLE rps_values (symbol TEXT NOT NULL, date TEXT NOT NULL, values_blob BLOB NOT NULL, PRIMARY KEY(symbol,date)) WITHOUT ROWID;
    CREATE INDEX rps_values_date ON rps_values(date,symbol);
    CREATE TABLE rps_job (singleton INTEGER PRIMARY KEY CHECK(singleton=1), id TEXT NOT NULL, payload TEXT NOT NULL, cancelled INTEGER NOT NULL, lease_until INTEGER NOT NULL);`,
+  `CREATE TABLE industry_rps_days (date TEXT PRIMARY KEY, payload TEXT NOT NULL);
+   CREATE TABLE industry_rps_values (symbol TEXT NOT NULL, date TEXT NOT NULL, values_blob BLOB NOT NULL, PRIMARY KEY(symbol,date)) WITHOUT ROWID;
+   CREATE INDEX industry_rps_values_date ON industry_rps_values(date,symbol);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

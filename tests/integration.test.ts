@@ -151,7 +151,13 @@ describe("HTTP 与数据适配集成", () => {
       const before = db.prepare("SELECT * FROM records").all();
       migrate(db);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
-      expect(db.pragma("user_version", { simple: true })).toBe(7);
+      expect(db.pragma("user_version", { simple: true })).toBe(8);
+      expect(
+        db.prepare("SELECT COUNT(*) AS n FROM industry_rps_days").get(),
+      ).toEqual({ n: 0 });
+      expect(
+        db.prepare("SELECT COUNT(*) AS n FROM industry_rps_values").get(),
+      ).toEqual({ n: 0 });
       expect(
         db.prepare("SELECT COUNT(*) AS n FROM trade_ledger").get(),
       ).toEqual({ n: 0 });

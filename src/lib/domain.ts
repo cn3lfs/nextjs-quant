@@ -259,6 +259,7 @@ export const settingsSchema = z.object({
   llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
   codexModel: z.string().trim().max(100).default(""),
   claudeModel: z.string().trim().max(100).default(""),
+  industryBlocksRoot: z.string().trim().max(2048).default(""),
   tdxRoot: z.string().min(1).default("E:\\new_tdx64"),
   clsDbPath: z
     .string()

@@ -1,4 +1,5 @@
 import { RpsControls } from "~/components/rps-controls";
+import { IndustryRpsControls } from "~/components/industry-rps-controls";
 
 export default function RpsPage() {
   return (
@@ -6,6 +7,7 @@ export default function RpsPage() {
       <a href="/">返回工作台</a>
       <h1 className="text-2xl font-semibold">个股RPS数据管理</h1>
       <RpsControls />
+      <IndustryRpsControls />
     </main>
   );
 }

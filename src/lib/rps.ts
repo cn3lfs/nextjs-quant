@@ -2,6 +2,8 @@ import { z } from "zod";
 import { historicalDateSchema } from "./historical-screen";
 
 export const rpsPeriods = [5, 10, 20, 50, 120, 250] as const;
+export const isRpsMarketSymbol = (symbol: string) =>
+  /^(sh(60|68)\d{4}|sz(00|30)\d{4})$/.test(symbol);
 export const rpsPolicy = {
   version: "rps-1",
   adjustment: "backward",
@@ -16,6 +18,7 @@ export const rpsPolicy = {
     "回填使用当前存活证券及当前名称，存在生存者偏差和历史ST状态偏差；不能视为当时可得证券池。",
 } as const;
 export const rpsRequestSchema = z.object({
+  target: z.enum(["stock", "industry"]).optional(),
   mode: z.enum(["forward", "backfill"]),
   days: z.number().int().min(1).max(250).default(250),
 });
@@ -49,6 +52,7 @@ export const rpsExclusionLabels: Record<RpsExclusion, string> = {
   missingEndpoint: "全部周期收益端点不足",
 };
 export type RpsDay = {
+  industry?: import("./industry-rps").IndustryRpsAudit;
   date: string;
   mode: RpsRequest["mode"];
   periods: number[];
@@ -70,6 +74,7 @@ export type RpsDay = {
   createdAt: number;
 };
 export type RpsProgress = {
+  target?: "stock" | "industry";
   id: string;
   mode: RpsRequest["mode"];
   status: "running" | "complete" | "failed" | "cancelled";

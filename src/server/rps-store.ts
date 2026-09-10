@@ -1,3 +1,4 @@
+import { industryRpsPolicy, industrySnapshotSchema } from "~/lib/industry-rps";
 import type Database from "better-sqlite3";
 import {
   rpsPolicy,
@@ -30,16 +31,27 @@ function decode(symbol: string, bytes: Buffer, day: RpsDay): RpsRow {
   };
 }
 export class RpsStore {
-  constructor(private db: Database.Database) {}
+  private daysTable: "rps_days" | "industry_rps_days";
+  private valuesTable: "rps_values" | "industry_rps_values";
+  constructor(
+    private db: Database.Database,
+    readonly target: "stock" | "industry" = "stock",
+  ) {
+    this.daysTable = target === "industry" ? "industry_rps_days" : "rps_days";
+    this.valuesTable =
+      target === "industry" ? "industry_rps_values" : "rps_values";
+  }
   day(date: string) {
     const row = this.db
-      .prepare("SELECT payload FROM rps_days WHERE date=?")
+      .prepare(`SELECT payload FROM ${this.daysTable} WHERE date=?`)
       .get(date) as { payload: string } | undefined;
     return row ? (JSON.parse(row.payload) as RpsDay) : null;
   }
   latest() {
     const row = this.db
-      .prepare("SELECT payload FROM rps_days ORDER BY date DESC LIMIT 1")
+      .prepare(
+        `SELECT payload FROM ${this.daysTable} ORDER BY date DESC LIMIT 1`,
+      )
       .get() as { payload: string } | undefined;
     return row ? (JSON.parse(row.payload) as RpsDay) : null;
   }
@@ -92,7 +104,14 @@ export class RpsStore {
       .run();
   }
   saveDay(day: RpsDay, rows: RpsRow[], guard: () => void = () => {}) {
-    if (rows.length > rpsPolicy.maxSymbols || day.total > rpsPolicy.maxSymbols)
+    if ((this.target === "industry") !== !!day.industry)
+      throw new Error("RPS结果类型与存储不匹配");
+    if (day.industry) industrySnapshotSchema.parse(day.industry.snapshot);
+    const maximum =
+      this.target === "industry"
+        ? industryRpsPolicy.maxIndustries
+        : rpsPolicy.maxSymbols;
+    if (rows.length > maximum || day.total > maximum)
       throw new Error("RPS证券数超出存储上限");
     if (rows.some((r) => r.values.length !== day.periods.length))
       throw new Error("RPS向量长度不匹配");
@@ -101,19 +120,25 @@ export class RpsStore {
         guard();
         if (this.day(day.date)) return false;
         this.db
-          .prepare("INSERT INTO rps_days VALUES(?,?)")
+          .prepare(`INSERT INTO ${this.daysTable} VALUES(?,?)`)
           .run(day.date, JSON.stringify(day));
-        const insert = this.db.prepare("INSERT INTO rps_values VALUES(?,?,?)");
+        const insert = this.db.prepare(
+          `INSERT INTO ${this.valuesTable} VALUES(?,?,?)`,
+        );
         for (const row of rows) insert.run(row.symbol, day.date, encode(row));
         // Retention and publication are one transaction: cleanup failure rolls both back.
         const obsolete = this.db
           .prepare(
-            "SELECT date FROM rps_days ORDER BY date DESC LIMIT -1 OFFSET ?",
+            `SELECT date FROM ${this.daysTable} ORDER BY date DESC LIMIT -1 OFFSET ?`,
           )
           .all(rpsPolicy.retentionDays) as { date: string }[];
         for (const { date } of obsolete) {
-          this.db.prepare("DELETE FROM rps_values WHERE date=?").run(date);
-          this.db.prepare("DELETE FROM rps_days WHERE date=?").run(date);
+          this.db
+            .prepare(`DELETE FROM ${this.valuesTable} WHERE date=?`)
+            .run(date);
+          this.db
+            .prepare(`DELETE FROM ${this.daysTable} WHERE date=?`)
+            .run(date);
         }
         guard();
         return true;
@@ -127,7 +152,9 @@ export class RpsStore {
     if (index < 0) throw new Error("未存储该RPS周期");
     return (
       this.db
-        .prepare("SELECT symbol,values_blob FROM rps_values WHERE date=?")
+        .prepare(
+          `SELECT symbol,values_blob FROM ${this.valuesTable} WHERE date=?`,
+        )
         .all(date) as { symbol: string; values_blob: Buffer }[]
     )
       .flatMap((r) => {
@@ -139,14 +166,14 @@ export class RpsStore {
   curve(symbol: string) {
     if (
       !this.db
-        .prepare("SELECT 1 FROM rps_values WHERE symbol=? LIMIT 1")
+        .prepare(`SELECT 1 FROM ${this.valuesTable} WHERE symbol=? LIMIT 1`)
         .get(symbol)
     )
       return [];
     return (
       this.db
         .prepare(
-          "SELECT v.values_blob,d.payload FROM rps_days d LEFT JOIN rps_values v ON v.date=d.date AND v.symbol=? ORDER BY d.date",
+          `SELECT v.values_blob,d.payload FROM ${this.daysTable} d LEFT JOIN ${this.valuesTable} v ON v.date=d.date AND v.symbol=? ORDER BY d.date`,
         )
         .all(symbol) as { values_blob: Buffer | null; payload: string }[]
     ).map((r) => {
@@ -157,6 +184,7 @@ export class RpsStore {
         periods: day.periods,
         counts: day.counts,
         policy: day.policy,
+        industry: day.industry,
         pool: day.pool,
         inputHash: day.inputHash,
         values: r.values_blob

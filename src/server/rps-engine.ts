@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
 import {
   rankRps,
+  isRpsMarketSymbol,
   rpsExclusions,
   rpsPeriods,
   rpsPolicy,
@@ -86,7 +87,7 @@ export function rpsPoolExclusion(
   longest: number,
 ): RpsExclusion | null {
   const date = calendar[index]!;
-  if (!/^(sh(60|68)\d{4}|sz(00|30)\d{4})$/.test(stock.symbol)) return "market";
+  if (!isRpsMarketSymbol(stock.symbol)) return "market";
   if (!stock.name || stock.name === stock.symbol) return "nameUnknown";
   if (/^(?:S)?\*?ST/i.test(stock.name.trim())) return "st";
   // First available bar is a conservative age bound, not a claimed official listing date.

@@ -1,3 +1,4 @@
+import { settings } from "./settings";
 import { Worker } from "node:worker_threads";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -16,8 +17,9 @@ export class RpsWorkerClient {
   ) {
     request = rpsRequestSchema.parse(request);
     if (this.worker) throw new Error("RPS任务已在运行");
-    const store = new RpsStore(sqlite());
+    const store = new RpsStore(sqlite(), request.target);
     let progress: RpsProgress = {
+      target: request.target,
       id: randomUUID(),
       mode: request.mode,
       status: "running",
@@ -91,27 +93,35 @@ export class RpsWorkerClient {
 const scope = globalThis as typeof globalThis & {
   rpsClient?: RpsWorkerClient;
   rpsAttempt?: string;
+  industryRpsAttempt?: string;
 };
 export const rpsClient = () => (scope.rpsClient ??= new RpsWorkerClient());
 /** One attempt per wall-clock day; failure/cancellation is retried explicitly from data management. */
 export function scheduleRps(now: number) {
   const local = new Date(now + 8 * 3600000).toISOString(),
     today = local.slice(0, 10);
-  if (local.slice(11, 16) < "15:05" || scope.rpsAttempt === today) return;
-  const store = new RpsStore(sqlite());
-  const progress = store.progress();
+  if (local.slice(11, 16) < "15:05") return;
+  const progress = new RpsStore(sqlite()).progress();
   if (progress?.status === "running") return;
-  scope.rpsAttempt = today;
-  if (
-    store.day(today) ||
-    (progress?.mode === "forward" &&
-      new Date(progress.startedAt + 8 * 3600000).toISOString().slice(0, 10) ===
-        today)
-  )
+  for (const target of ["stock", "industry"] as const) {
+    if (target === "industry" && !settings().industryBlocksRoot) continue;
+    const key = target === "stock" ? "rpsAttempt" : "industryRpsAttempt";
+    if (scope[key] === today) continue;
+    scope[key] = today;
+    if (
+      new RpsStore(sqlite(), target).day(today) ||
+      ((progress?.target ?? "stock") === target &&
+        progress?.mode === "forward" &&
+        new Date(progress.startedAt + 8 * 3600000)
+          .toISOString()
+          .slice(0, 10) === today)
+    )
+      continue;
+    try {
+      rpsClient().start({ target, mode: "forward", days: 1 }, now);
+    } catch {
+      /* Persisted failure remains inspectable; no retry loop. */
+    }
     return;
-  try {
-    rpsClient().start({ mode: "forward", days: 1 }, now);
-  } catch {
-    /* Persisted job remains inspectable; no automatic retry loop. */
   }
 }

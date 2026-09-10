@@ -16,8 +16,12 @@ async function run() {
     const request = rpsRequestSchema.parse(input.request);
     const config = settings();
     const result = await runRpsJob(
-      new RpsStore(sqlite()),
-      localRpsDependencies(config.tdxRoot, config.calendar),
+      new RpsStore(sqlite(), request.target),
+      localRpsDependencies(
+        config.tdxRoot,
+        config.calendar,
+        config.industryBlocksRoot,
+      ),
       request,
       input.progress,
       input.now,

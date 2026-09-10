@@ -1,3 +1,8 @@
+import {
+  aggregateIndustryRps,
+  type IndustrySnapshot,
+} from "~/lib/industry-rps";
+import { readIndustryBlocks } from "./industry-blocks";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Bar } from "~/lib/domain";
@@ -21,6 +26,7 @@ import {
 import { RpsStore } from "./rps-store";
 
 export type RpsDependencies = {
+  industries?: (checkpoint: () => void) => Promise<IndustrySnapshot>;
   root: string;
   calendar: () => Promise<{ days: string[]; source: string }>;
   universe: () => Promise<{ symbol: string; name: string }[]>;
@@ -30,8 +36,10 @@ export type RpsDependencies = {
 export function localRpsDependencies(
   root: string,
   overrides: string[],
+  blocksRoot = "",
 ): RpsDependencies {
   return {
+    industries: (checkpoint) => readIndustryBlocks(blocksRoot, checkpoint),
     root: resolve(root),
     calendar: async () => {
       if (overrides.length)
@@ -84,6 +92,8 @@ export async function runRpsJob(
     report({ ...progress });
   };
   try {
+    if (store.target !== (request.target ?? "stock"))
+      throw new Error("RPS请求与存储类型不匹配");
     checkpoint("读取参考日历与预热日期");
     const local = new Date(now + 8 * 3600000).toISOString(),
       today = local.slice(0, 10);
@@ -108,6 +118,23 @@ export async function runRpsJob(
     const pending = targets.filter((d) => !store.day(d));
     progress.totalDays = pending.length;
     if (pending.length) {
+      const industrySnapshot =
+        request.target === "industry"
+          ? await deps.industries?.(() => checkpoint("读取申万行业成分快照"))
+          : undefined;
+      if (request.target === "industry" && !industrySnapshot)
+        throw new Error("缺少申万行业成分数据源");
+      if (industrySnapshot) {
+        const absent = store
+          .latest()
+          ?.industry?.snapshot.files.filter(
+            (f) => !industrySnapshot.files.some((n) => n.file === f.file),
+          );
+        if (absent?.length)
+          throw new Error(
+            `行业名单文件缺失（相对最近结果）：${absent.map((f) => f.file).join("、")}`,
+          );
+      }
       checkpoint("读取证券池与GBBQ");
       const universe = (await deps.universe()).sort((a, b) =>
         a.symbol.localeCompare(b.symbol),
@@ -159,16 +186,31 @@ export async function runRpsJob(
       }
       for (const date of pending) {
         checkpoint(`计算并固定 ${date}`);
-        const result = calculateRpsDay(stocks, days, date);
-        if (!result.counts.some((n) => n > 0))
+        const stockResult = calculateRpsDay(stocks, days, date);
+        const industryResult = industrySnapshot
+          ? aggregateIndustryRps(industrySnapshot, stockResult)
+          : undefined;
+        const result = industryResult
+          ? {
+              ...stockResult,
+              ...industryResult,
+              inputHash: rpsHash({
+                stock: stockResult.inputHash,
+                snapshot: industrySnapshot!.hash,
+                rows: industryResult.rows,
+              }),
+            }
+          : stockResult;
+        if (!industryResult && !result.counts.some((n) => n > 0))
           throw new Error(`${date}没有可计算的RPS，未发布空排名`);
         store.saveDay(
           {
+            industry: industryResult?.industry,
             date,
             mode: request.mode,
             periods: [...rpsPeriods],
             policy: rpsPolicy,
-            total: universe.length,
+            total: industrySnapshot?.files.length ?? universe.length,
             pool: result.pool,
             counts: result.counts,
             excluded: result.excluded,
