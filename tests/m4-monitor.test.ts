@@ -355,8 +355,10 @@ it("A1/A2: six point types reach real outbox/four formatters, fake delivery only
   );
   const document = `# M4 消息文本快照\n\n受控构造数据，仅供排版目视；不是实际股票信号。四渠道共用以下逐点正文，实际网络投递数为 0。B 层真实飞书测试由用户自行触发，未执行。\n\n${texts.map((body) => `\`\`\`text\n${body}\n\`\`\``).join("\n\n")}\n\n## 待人工核对口径\n\n- 日线 15:05 起观察新确认事件；点位日期可以早于发现它的数据日期。\n- 默认配置 0（严格笔中枢），API 也支持 1100；质量 1 为确认、2 为强质量。\n- 所属中枢按 DLL 候选编号关联；零比值显示未知。失效条件是结构观察条件。\n- 每点一条消息；同一根日线的多个点共用规则信号编号。\n- 本文件只提供文本，不判定用户目视通过。\n`;
   if (process.env.M4_UPDATE_SAMPLES === "1")
-    writeFileSync("docs/m4-message-samples.md", document);
-  expect(readFileSync("docs/m4-message-samples.md", "utf8")).toBe(document);
+    writeFileSync("docs/review/m4-message-samples.md", document);
+  expect(readFileSync("docs/review/m4-message-samples.md", "utf8")).toBe(
+    document,
+  );
 });
 it("accepts strong quality and leaves missing native evidence explicitly unknown", async () => {
   await tick();
