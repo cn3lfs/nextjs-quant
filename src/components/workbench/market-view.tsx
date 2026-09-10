@@ -1,7 +1,12 @@
 import { ArrowUpRight, Database, Plus, X } from "lucide-react";
-import { periodSchema } from "~/lib/domain";
+import { useState } from "react";
+import {
+  chartPeriodSchema,
+  periodLabels,
+  type ChartPeriod,
+} from "~/lib/chart-view";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
-import { PriceChart } from "../chart";
+import { ChartWorkspace } from "../chart-workspace";
 import { SecurityProfilePanel } from "../security-profile";
 import { SecuritySelect } from "../security-select";
 import { Button } from "../ui/button";
@@ -44,6 +49,9 @@ export function MarketView({
     change,
     watchlist,
   } = state;
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
+  const displayedPeriod =
+    period === "5m" ? "5m" : chartPeriod === "5m" ? "day" : chartPeriod;
   return (
     <>
       <div className="market-layout">
@@ -63,17 +71,14 @@ export function MarketView({
                 load.mutate({
                   symbol: next,
                   period,
-                  source:
-                    loaded?.source === "tdx-mcp" ? "mcp" : "local",
+                  source: loaded?.source === "tdx-mcp" ? "mcp" : "local",
                 });
               }}
             />
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                load.mutate({ symbol, period, source: "mcp" })
-              }
+              onClick={() => load.mutate({ symbol, period, source: "mcp" })}
               disabled={load.isPending}
             >
               MCP 最新行情
@@ -87,17 +92,23 @@ export function MarketView({
               {verifyIdentity.isPending ? "核验中…" : "核验证券身份"}
             </Button>
             <div className="segmented">
-              {periodSchema.options.map((p) => (
+              {chartPeriodSchema.options.map((p) => (
                 <button
-                  className={period === p ? "selected" : ""}
+                  className={displayedPeriod === p ? "selected" : ""}
                   key={p}
                   disabled={load.isPending}
                   onClick={() => {
-                    setPeriod(p);
-                    load.mutate({ symbol, period: p });
+                    setChartPeriod(p);
+                    const sourcePeriod = p === "5m" ? "5m" : "day";
+                    setPeriod(sourcePeriod);
+                    if (
+                      loaded?.period !== sourcePeriod ||
+                      loaded.symbol !== symbol
+                    )
+                      load.mutate({ symbol, period: sourcePeriod });
                   }}
                 >
-                  {p === "day" ? "日 K" : "5 分钟"}
+                  {p === "day" ? "日 K" : periodLabels[p]}
                 </button>
               ))}
             </div>
@@ -120,9 +131,7 @@ export function MarketView({
               <p>
                 {identity.reason} · {stamp(identity.checkedAt)}
               </p>
-              <p>
-                身份核验不代表当前正常交易；停复牌与行情时效需另外检查。
-              </p>
+              <p>身份核验不代表当前正常交易；停复牌与行情时效需另外检查。</p>
               <pre>
                 {JSON.stringify(
                   { tencent: identity.tencent, tdx: identity.tdx },
@@ -146,20 +155,12 @@ export function MarketView({
               <h2
                 title={
                   loaded
-                    ? archivedNameHint(
-                        loaded.symbol,
-                        names,
-                        loaded.name,
-                      )
+                    ? archivedNameHint(loaded.symbol, names, loaded.name)
                     : undefined
                 }
               >
                 {loaded
-                  ? securityDisplayName(
-                      loaded.symbol,
-                      names,
-                      loaded.name,
-                    )
+                  ? securityDisplayName(loaded.symbol, names, loaded.name)
                   : "加载行情"}
               </h2>
             </div>
@@ -182,16 +183,14 @@ export function MarketView({
               最低 <b>{fmt(last?.low)}</b>
             </span>
             <span>
-              成交额{" "}
-              <b>{last ? fmt(last.amount / 1e8) + " 亿" : "—"}</b>
+              成交额 <b>{last ? fmt(last.amount / 1e8) + " 亿" : "—"}</b>
             </span>
           </div>
           {loaded && !load.isPending ? (
-            <PriceChart
-              key={loaded.id}
-              bars={loaded.bars}
-              snapshotId={loaded.id}
-              period={loaded.period}
+            <ChartWorkspace
+              key={`${loaded.id}:${displayedPeriod}`}
+              snapshot={loaded}
+              period={displayedPeriod}
             />
           ) : (
             <Empty>
@@ -202,10 +201,8 @@ export function MarketView({
           )}
           <div className="source-line">
             <Database size={13} />
-            {loaded?.source === "tdx-mcp"
-              ? "通达信 MCP"
-              : "通达信本地"}{" "}
-            · {last?.date ?? "—"} · {loaded?.bars.length ?? 0} 条记录
+            {loaded?.source === "tdx-mcp" ? "通达信 MCP" : "通达信本地"} ·{" "}
+            {last?.date ?? "—"} · {loaded?.bars.length ?? 0} 条记录
             <Button
               size="sm"
               variant="ghost"
@@ -216,7 +213,6 @@ export function MarketView({
             </Button>
           </div>
         </section>
-        
       </div>
       <section className="panel">
         <div className="panel-title">
@@ -244,9 +240,7 @@ export function MarketView({
               <button
                 className="icon-button"
                 aria-label={`移除 ${s}`}
-                onClick={() =>
-                  watch.mutate(watchlist.filter((v) => v !== s))
-                }
+                onClick={() => watch.mutate(watchlist.filter((v) => v !== s))}
               >
                 <X size={13} />
               </button>

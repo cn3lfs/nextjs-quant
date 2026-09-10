@@ -20,6 +20,11 @@ type FakeSeries = {
   data: Point[];
   options: Record<string, unknown>;
   setData: (data: Point[]) => void;
+  attachPrimitive: () => void;
+  priceScale: () => {
+    applyOptions: (options: Record<string, unknown>) => void;
+  };
+  createPriceLine: (options: Record<string, unknown>) => void;
 };
 type FakeChart = {
   series: FakeSeries[];
@@ -106,6 +111,17 @@ vi.mock("lightweight-charts", () => ({
           pane,
           options: opts,
           data: [],
+          attachPrimitive() {},
+          priceScale() {
+            return {
+              applyOptions: (options) => {
+                this.options.scale = options;
+              },
+            };
+          },
+          createPriceLine(options) {
+            this.options.costLine = options;
+          },
           setData(data) {
             this.data = data;
           },
@@ -138,7 +154,8 @@ vi.mock("lightweight-charts", () => ({
     return chart;
   },
 }));
-import { PriceChart } from "../src/components/chart";
+import { defaultChartView } from "../src/lib/chart-view";
+import { MarketChart, PriceChart } from "../src/components/chart";
 function render(bars: Bar[], period: Period = "day") {
   h.cursor = 0;
   const element = PriceChart({ bars, period }) as ReactElement<{
@@ -249,4 +266,55 @@ describe("M2 chart event wiring", () => {
     expect(replacement.removed).toBe(true);
     expect(h.charts.at(-1)!.series[0]!.data).toHaveLength(180);
   });
+});
+
+it("Q1 actual chart options, cost line, parameter legend and keyboard handler are wired", () => {
+  const input = bars(90),
+    view = structuredClone(defaultChartView);
+  view.dark = true;
+  view.logarithmic = true;
+  view.parameters.ma[0] = 3;
+  h.cursor = 0;
+  const ui = MarketChart({
+    bars: input,
+    period: "month",
+    view,
+    cost: 50,
+    czscMessage: "缠论结构在周/月线不可用",
+    breakoutMessage: "双突破仅支持日线",
+  });
+  h.effects.splice(0).forEach((e) => e());
+  const chart = h.charts.at(-1)!;
+  expect(chart.options.rightPriceScale).toMatchObject({ mode: 0 });
+  expect(chart.series[0]!.options.scale).toMatchObject({ mode: 1 });
+  expect(chart.series.find((s) => s.pane === 1)!.options.scale).toMatchObject({
+    mode: 0,
+  });
+  expect(chart.options.layout).toMatchObject({
+    background: { color: "#111827" },
+  });
+  expect(chart.options.handleScale).toMatchObject({
+    axisPressedMouseMove: { price: true, time: true },
+  });
+  expect(chart.series[0]!.options.costLine).toMatchObject({
+    price: 50,
+    color: "#cf5562",
+  });
+  expect(
+    text(elements(ui).find((e) => e.props["data-testid"] === "chart-legend")),
+  ).toContain("MA3");
+  expect(text(ui)).toContain("周/月线不可用");
+  const area = elements(ui).find((e) => e.props.role === "application")!;
+  chart.range = { from: 0, to: 100 };
+  const preventDefault = vi.fn();
+  (area.props.onKeyDown as (e: unknown) => void)({
+    key: "ArrowUp",
+    preventDefault,
+  });
+  expect(chart.range).toEqual({ from: 10, to: 90 });
+  expect(preventDefault).toHaveBeenCalledOnce();
+});
+it("Q1 no holding produces no price line", () => {
+  render(bars(90));
+  expect(h.charts.at(-1)!.series[0]!.options.costLine).toBeUndefined();
 });

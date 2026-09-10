@@ -151,7 +151,7 @@ describe("HTTP 与数据适配集成", () => {
       const before = db.prepare("SELECT * FROM records").all();
       migrate(db);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
-      expect(db.pragma("user_version", { simple: true })).toBe(5);
+      expect(db.pragma("user_version", { simple: true })).toBe(6);
       expect(
         db.prepare("SELECT COUNT(*) AS n FROM trade_ledger").get(),
       ).toEqual({ n: 0 });

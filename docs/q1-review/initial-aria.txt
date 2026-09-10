@@ -1,0 +1,51 @@
+- checkbox "对数坐标"
+- text: 对数坐标
+- checkbox "暗色主题"
+- text: 暗色主题
+- button "保存视图"
+- status
+- group: 指标参数
+- toolbar "画线工具":
+  - button "浏览" [pressed]
+  - button "趋势线"
+  - button "水平线"
+  - button "矩形"
+  - button "斐波那契"
+  - text: 左右键平移 · 上下键缩放 · 拖拽价格轴缩放
+- status: 正在读取持仓成本…
+- group:
+  - checkbox "双突破" [checked]
+  - text: 双突破 双突破计算中…
+  - checkbox "BOLL"
+  - text: BOLL 副图
+  - combobox "副图":
+    - option "隐藏副图"
+    - option "成交量" [selected]
+    - option "MACD"
+    - option "KDJ"
+    - option "RSI"
+  - checkbox "缠论结构" [checked]
+  - text: 缠论结构 缠论计算中… 日线 · 不复权 · 成交量 2026-09-09 开 1305.01 高 1309.30 低 1286.68 收 1290.88 量 3222611.00 股 MA5 1309.01 MA10 1303.13 MA20 1305.17 MA60 1276.26
+  - application "行情图：左右平移，上下缩放":
+    - table:
+      - row:
+        - cell
+        - cell
+        - cell
+      - row:
+        - cell
+      - row:
+        - cell
+        - cell:
+          - link "Charting by TradingView":
+            - /url: https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart&utm_source=127.0.0.1/
+            - img
+        - cell
+      - row:
+        - cell
+        - cell
+        - cell
+  - text: 已显示 360 / 6001 根 · 向左滚动加载更多历史
+  - link "TradingView Lightweight Charts™ · © 2026 TradingView, Inc.":
+    - /url: https://www.tradingview.com/
+- group: 已画图形（0）· 编辑端点 / 删除

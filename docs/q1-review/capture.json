@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-09-10T01:44:04.119Z",
+  "source": "本地通达信不复权行情；独立 Q1 数据库；成本线额外受控 fixture 另标",
+  "screenshots": [
+    "01-day-light.png",
+    "02-day-dark-log-drawings.png",
+    "03-week.png",
+    "04-month.png",
+    "05-five-minute.png",
+    "06-controlled-position-cost.png"
+  ],
+  "checks": [
+    "keyboard navigation and native price-axis drag exercised",
+    "four drawing tools created; anchor edited; drawings, all parameters, theme, log, subchart and BOLL saved/reloaded",
+    "cycle isolation and persisted drawing deletion; week/month both explicitly disallow strategy overlays",
+    "empty real local ledger displays no cost line",
+    "controlled P1 position-shaped response renders cost line; fixture cost=1400 quantity=100, not a real trade"
+  ],
+  "errors": [],
+  "visualAgreement": "B 层由用户对比 TradingView，执行者未判定"
+}

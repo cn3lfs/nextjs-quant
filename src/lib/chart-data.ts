@@ -1,4 +1,9 @@
-import type { Bar, Period } from "./domain";
+import {
+  defaultParameters,
+  type IndicatorParameters,
+  type ChartPeriod as Period,
+} from "./chart-view";
+import type { Bar } from "./domain";
 import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "./indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
@@ -131,16 +136,19 @@ export type Subchart = "none" | "volume" | "macd" | "kdj" | "rsi";
 
 // Compute against the entire immutable snapshot, never the displayed suffix:
 // revealing history must not move the recursive indicators' starting point.
-export function chartIndicators(bars: readonly Bar[]) {
-  const m = macd(bars),
-    k = kdj(bars),
-    r = rsi(bars),
-    b = boll(bars);
+export function chartIndicators(
+  bars: readonly Bar[],
+  parameters: IndicatorParameters = defaultParameters,
+) {
+  const m = macd(bars, ...parameters.macd),
+    k = kdj(bars, ...parameters.kdj),
+    r = rsi(bars, parameters.rsi),
+    b = boll(bars, ...parameters.boll);
   return {
-    MA5: ma(bars, 5),
-    MA10: ma(bars, 10),
-    MA20: ma(bars, 20),
-    MA60: ma(bars, 60),
+    MA5: ma(bars, parameters.ma[0]),
+    MA10: ma(bars, parameters.ma[1]),
+    MA20: ma(bars, parameters.ma[2]),
+    MA60: ma(bars, parameters.ma[3]),
     BOLL中: b.map((v) => v.mid),
     BOLL上: b.map((v) => v.upper),
     BOLL下: b.map((v) => v.lower),
@@ -171,7 +179,7 @@ export function enabledIndicators(
 export function chartTime(date: string, period: Period): Time {
   // Intraday timestamps encode exchange wall time on the UTC chart axis so the
   // displayed labels remain Asia/Shanghai, independently of browser timezone.
-  return period === "day"
+  return period !== "5m"
     ? date
     : ((Math.floor(Date.parse(date) / 1000) + 8 * 3600) as UTCTimestamp);
 }

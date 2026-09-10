@@ -1,3 +1,8 @@
+import { tradeDashboard } from "../trade-ledger-service";
+import { chartBars, chartBarsInput } from "../chart-bars";
+import { ChartViewStore } from "../chart-view-store";
+import { chartKeySchema, chartSaveSchema } from "~/lib/chart-view";
+import { sqlite as chartSqlite } from "../db";
 import { newsBudget } from "../news-budget";
 import { analyzeCzsc } from "../czsc";
 import { analyzeBreakout } from "../breakout";
@@ -148,6 +153,20 @@ const pageSchema = z.object({
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
 
 export const appRouter = createTRPCRouter({
+  chartPosition: p
+    .input(symbolSchema)
+    .query(
+      async ({ input }) =>
+        (await tradeDashboard()).positions.find((p) => p.symbol === input) ??
+        null,
+    ),
+  chartBars: p.input(chartBarsInput).query(({ input }) => chartBars(input)),
+  chartView: p
+    .input(chartKeySchema)
+    .query(({ input }) => new ChartViewStore(chartSqlite()).read(input)),
+  saveChartView: p
+    .input(chartSaveSchema)
+    .mutation(({ input }) => new ChartViewStore(chartSqlite()).save(input)),
   /*
    * 通达信 7709 实时行情。这些是公共服务器的即时快照，只供盘中观察：
    * 不要与本地 vipdoc 历史混用生成回测信号，也不代表成交可得性。
@@ -320,7 +339,10 @@ export const appRouter = createTRPCRouter({
         throw new Error("行情快照不存在");
       if (source.period !== "day") throw new Error("双突破仅支持日线");
       const completed = completedBarFilter("day", Date.now());
-      return analyzeBreakout(source.bars.filter((b) => completed(b.date)), 0);
+      return analyzeBreakout(
+        source.bars.filter((b) => completed(b.date)),
+        0,
+      );
     }),
   czsc: p
     .input(z.object({ snapshotId: z.string().min(1) }))

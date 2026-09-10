@@ -1,4 +1,14 @@
 "use client";
+import { attachDrawings } from "~/lib/chart-drawings";
+import {
+  defaultChartView,
+  indicatorLabel,
+  keyboardRange,
+  periodLabels,
+  type ChartPeriod as Period,
+  type ChartView,
+  type Drawing,
+} from "~/lib/chart-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
@@ -13,7 +23,7 @@ import {
   type LogicalRange,
   type ISeriesApi,
 } from "lightweight-charts";
-import type { Bar, Period } from "~/lib/domain";
+import type { Bar } from "~/lib/domain";
 import type { CzscResult } from "~/lib/czsc";
 import type { BreakoutResult } from "~/server/breakout";
 import { breakoutChartData } from "~/lib/chart-data";
@@ -162,18 +172,32 @@ export function PriceChart(props: {
   return <MarketChart bars={props.bars ?? []} period={props.period ?? "day"} />;
 }
 
-function CzscMarketChart({
+export function CzscMarketChart({
   bars,
   period,
   snapshotId,
+  view,
+  onViewChange,
+  drawingTool,
+  onAnchor,
+  cost,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  view?: ChartView;
+  onViewChange?: (view: ChartView) => void;
+  drawingTool?: Drawing["kind"] | "none";
+  onAnchor?: (p: Drawing["a"]) => void;
+  cost?: number | null;
 }) {
   const result = api.czsc.useQuery(
     { snapshotId },
-    { staleTime: Infinity, retry: false },
+    {
+      enabled: period === "day" || period === "5m",
+      staleTime: Infinity,
+      retry: false,
+    },
   );
   const breakout = api.breakout.useQuery(
     { snapshotId },
@@ -183,7 +207,12 @@ function CzscMarketChart({
     <MarketChart
       bars={bars}
       period={period}
-      czsc={result.data}
+      view={view}
+      onViewChange={onViewChange}
+      drawingTool={drawingTool}
+      onAnchor={onAnchor}
+      cost={cost}
+      czsc={period === "day" || period === "5m" ? result.data : undefined}
       breakout={period === "day" ? breakout.data : undefined}
       breakoutMessage={
         period !== "day"
@@ -195,23 +224,30 @@ function CzscMarketChart({
               : undefined
       }
       czscMessage={
-        result.error
-          ? `缠论计算失败：${result.error.message}`
-          : result.isPending
-            ? "缠论计算中…"
-            : undefined
+        period === "week" || period === "month"
+          ? "缠论结构在周/月线不可用"
+          : result.error
+            ? `缠论计算失败：${result.error.message}`
+            : result.isPending
+              ? "缠论计算中…"
+              : undefined
       }
     />
   );
 }
 
-function MarketChart({
+export function MarketChart({
   bars,
   period,
   czsc,
   czscMessage,
   breakout,
   breakoutMessage,
+  view,
+  onViewChange,
+  drawingTool = "none",
+  onAnchor,
+  cost,
 }: {
   bars: Bar[];
   period: Period;
@@ -219,6 +255,11 @@ function MarketChart({
   czscMessage?: string;
   breakout?: BreakoutResult;
   breakoutMessage?: string;
+  view?: ChartView;
+  onViewChange?: (view: ChartView) => void;
+  drawingTool?: Drawing["kind"] | "none";
+  onAnchor?: (p: Drawing["a"]) => void;
+  cost?: number | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const viewport = useRef<{
@@ -228,7 +269,13 @@ function MarketChart({
     asOf: number;
     range: LogicalRange | null;
   } | null>(null);
-  const [showBoll, setShowBoll] = useState(false);
+  const [localBoll, setLocalBoll] = useState(false);
+  const showBoll = view?.showBoll ?? localBoll;
+  const setShowBoll = (value: boolean) =>
+    onViewChange && view
+      ? onViewChange({ ...view, showBoll: value })
+      : setLocalBoll(value);
+  const chartApi = useRef<ReturnType<typeof createChart> | null>(null);
   const [showCzsc, setShowCzsc] = useState(true);
   const [showBreakout, setShowBreakout] = useState(true);
   const [breakoutDate, setBreakoutDate] = useState("");
@@ -240,14 +287,23 @@ function MarketChart({
       ? selectedBreakoutIndex
       : (breakout?.latest?.index ?? bars.length - 1);
   // One selectable, independently scaled pane keeps the price chart readable.
-  const [subchart, setSubchart] = useState<Subchart>("volume");
+  const [localSubchart, setLocalSubchart] = useState<Subchart>("volume");
+  const subchart = view?.subchart ?? localSubchart;
+  const setSubchart = (value: Subchart) =>
+    onViewChange && view
+      ? onViewChange({ ...view, subchart: value })
+      : setLocalSubchart(value);
+  const parameters = view?.parameters ?? defaultChartView.parameters;
   const [hover, setHover] = useState<{ bars: Bar[]; index: number } | null>(
     null,
   );
   const [historyStart, setHistoryStart] = useState(
     initialHistoryStart(bars.length),
   );
-  const values = useMemo(() => chartIndicators(bars), [bars, period]);
+  const values = useMemo(
+    () => chartIndicators(bars, parameters),
+    [bars, period, parameters],
+  );
   const names = useMemo(
     () => enabledIndicators(showBoll, subchart),
     [showBoll, subchart],
@@ -280,15 +336,26 @@ function MarketChart({
     const chart = createChart(ref.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#ffffff" },
-        textColor: "#52677c",
+        background: {
+          type: ColorType.Solid,
+          color: view?.dark ? "#111827" : "#ffffff",
+        },
+        textColor: view?.dark ? "#d1d5db" : "#52677c",
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: "#f0f3f7" },
-        horzLines: { color: "#f0f3f7" },
+        vertLines: { color: view?.dark ? "#263244" : "#f0f3f7" },
+        horzLines: { color: view?.dark ? "#263244" : "#f0f3f7" },
       },
-      rightPriceScale: { borderColor: "#e5ebf2" },
+      rightPriceScale: {
+        borderColor: "#64748b",
+        mode: 0,
+      },
+      handleScale: {
+        axisPressedMouseMove: { time: true, price: true },
+        mouseWheel: true,
+        pinch: true,
+      },
       timeScale: {
         timeVisible: period === "5m",
         secondsVisible: false,
@@ -296,6 +363,7 @@ function MarketChart({
       },
       crosshair: { mode: CrosshairMode.Normal },
     });
+    chartApi.current = chart;
     const candles = chart.addSeries(CandlestickSeries, {
       upColor: "#cf5562",
       downColor: "#28977f",
@@ -303,6 +371,29 @@ function MarketChart({
       wickUpColor: "#cf5562",
       wickDownColor: "#28977f",
     });
+    if (view) {
+      // Log prices only: oscillators can be negative and must retain their linear scale.
+      candles.priceScale().applyOptions({ mode: view.logarithmic ? 1 : 0 });
+      attachDrawings(chart, candles, bars, period, view.drawings);
+    }
+    if (cost != null && cost > 0)
+      candles.createPriceLine({
+        price: cost,
+        color: (bars.at(-1)?.close ?? cost) >= cost ? "#cf5562" : "#28977f",
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "持仓成本",
+      });
+    if (onAnchor && drawingTool !== "none")
+      chart.subscribeClick((event) => {
+        if (!event.point || event.paneIndex !== 0 || event.time === undefined)
+          return;
+        const bar = bars.find((b) => chartTime(b.date, period) === event.time);
+        const price = candles.coordinateToPrice(event.point.y);
+        if (bar && price != null && price > 0)
+          onAnchor({ date: bar.date, price: Math.round(price * 100) / 100 });
+      });
     const markers =
       (czsc && showCzsc) || (breakout && showBreakout)
         ? createSeriesMarkers(candles, [])
@@ -402,6 +493,9 @@ function MarketChart({
             1,
           )
         : null;
+    // A newly created pane inherits the first pane scale settings in LWC 5.
+    // Explicitly reset the oscillator pane after it exists.
+    anchor?.priceScale().applyOptions({ mode: 0 });
     let lines: ISeriesApi<"Line">[] = [];
     const render = () => {
       const visible = bars.slice(start);
@@ -496,17 +590,15 @@ function MarketChart({
     chart.panes()[0]?.setStretchFactor(3);
     chart.panes()[1]?.setStretchFactor(1.4);
     if (bars.length)
-      chart
-        .timeScale()
-        .setVisibleLogicalRange(
-          savedRange ?? {
-            from: 0,
-            to:
-              selectedBreakoutIndex >= 0
-                ? Math.min(180, bars.length - start - 1)
-                : bars.length - start - 1,
-          },
-        );
+      chart.timeScale().setVisibleLogicalRange(
+        savedRange ?? {
+          from: 0,
+          to:
+            selectedBreakoutIndex >= 0
+              ? Math.min(180, bars.length - start - 1)
+              : bars.length - start - 1,
+        },
+      );
     const byTime = new Map(
       bars.map((bar, index) => [chartTime(bar.date, period), index]),
     );
@@ -552,6 +644,7 @@ function MarketChart({
         asOf: breakoutIndex,
         range: chart.timeScale().getVisibleLogicalRange(),
       };
+      chartApi.current = null;
       chart.remove();
     };
   }, [
@@ -565,10 +658,23 @@ function MarketChart({
     breakout,
     showBreakout,
     breakoutIndex,
+    view,
+    drawingTool,
+    onAnchor,
+    cost,
   ]);
 
   return (
-    <div data-testid="market-chart" data-period={period}>
+    <div
+      data-testid="market-chart"
+      data-period={period}
+      data-dark={view?.dark ?? false}
+      style={{
+        background: view?.dark ? "#111827" : undefined,
+        color: view?.dark ? "#e5e7eb" : undefined,
+        padding: 8,
+      }}
+    >
       <div className="flex flex-wrap items-center gap-3 py-2 text-sm">
         <label>
           <input
@@ -652,7 +758,7 @@ function MarketChart({
                 : "")}
         </span>
         <span>
-          {period === "day" ? "日线" : "5分钟"} · 不复权 · {subcharts[subchart]}
+          {periodLabels[period]} · 不复权 · {subcharts[subchart]}
         </span>
       </div>
       <div
@@ -670,7 +776,7 @@ function MarketChart({
             <span>量 {formatValue(legend.bar.volume)} 股</span>
             {legend.indicators.map(({ name, value }) => (
               <span key={name} style={{ color: colors[name] }}>
-                {name} {formatValue(value)}
+                {indicatorLabel(name, parameters)} {formatValue(value)}
               </span>
             ))}
           </>
@@ -680,6 +786,18 @@ function MarketChart({
       </div>
       <div
         ref={ref}
+        tabIndex={0}
+        role="application"
+        aria-label="行情图：左右平移，上下缩放"
+        onKeyDown={(event) => {
+          const range = chartApi.current?.timeScale().getVisibleLogicalRange();
+          if (!range) return;
+          const next = keyboardRange(range, event.key);
+          if (next) {
+            event.preventDefault();
+            chartApi.current?.timeScale().setVisibleLogicalRange(next);
+          }
+        }}
         className="price-chart"
         style={{ height: subchart === "none" ? 400 : 560 }}
       />

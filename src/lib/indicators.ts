@@ -51,15 +51,23 @@ export function ema(bars: readonly Bar[], n = 20): IndicatorValue[] {
 }
 
 /** MACD(12,26,9): docs/roadmap.md §3.1; histogram includes the factor 2. */
-export function macd(bars: readonly Bar[]) {
-  const fast = ema(bars, 12),
-    slow = ema(bars, 26);
+export function macd(
+  bars: readonly Bar[],
+  fastPeriod = 12,
+  slowPeriod = 26,
+  signalPeriod = 9,
+) {
+  period(fastPeriod);
+  period(slowPeriod);
+  period(signalPeriod);
+  const fast = ema(bars, fastPeriod),
+    slow = ema(bars, slowPeriod);
   const dif = bars.map((_, i) =>
     fast[i] === null || slow[i] === null ? null : finite(fast[i]! - slow[i]!),
   );
   const dea = smooth(
     dif.map((v, i) => (closeOf(bars[i]!) === null ? null : v)),
-    10,
+    signalPeriod + 1,
     2,
   );
   return dif.map((v, i) => ({
@@ -72,10 +80,13 @@ export function macd(bars: readonly Bar[]) {
 /** KDJ(9,3,3): docs/roadmap.md §3.1–§3.4. No artificial 50 seed.
  * Invalid H/L/C in a window invalidates RSV; a zero range holds BOTH K and D.
  */
-export function kdj(bars: readonly Bar[]) {
+export function kdj(bars: readonly Bar[], n = 9, kPeriod = 3, dPeriod = 3) {
+  period(n);
+  period(kPeriod);
+  period(dPeriod);
   const rsv = bars.map((bar, i): IndicatorValue => {
-    if (i < 8) return null;
-    const window = bars.slice(i - 8, i + 1);
+    if (i < n - 1) return null;
+    const window = bars.slice(i - n + 1, i + 1);
     if (
       window.some(
         (b) =>
@@ -94,10 +105,10 @@ export function kdj(bars: readonly Bar[]) {
       ? null
       : finite(((bar.close - low) / (high - low)) * 100);
   });
-  const k = smooth(rsv, 3, 1);
+  const k = smooth(rsv, kPeriod, 1);
   const d = smooth(
     k.map((v, i) => (rsv[i] === null ? null : v)),
-    3,
+    dPeriod,
     1,
   );
   return rsv.map((v, i) => ({
@@ -113,7 +124,11 @@ export function kdj(bars: readonly Bar[]) {
  * Flat 0/0 => null; valid zero deltas still update both smoothers. Invalid close
  * invalidates both adjacent deltas (REF means previous bar, not previous valid bar).
  */
-export function rsi(bars: readonly Bar[]) {
+export function rsi(
+  bars: readonly Bar[],
+  periods: readonly [number, number, number] = [6, 12, 24],
+) {
+  periods.forEach((n) => period(n));
   const delta = bars.map((bar, i): IndicatorValue => {
     const current = closeOf(bar),
       previous = i ? closeOf(bars[i - 1]!) : null;
@@ -121,7 +136,7 @@ export function rsi(bars: readonly Bar[]) {
       ? null
       : finite(current - previous);
   });
-  const lines = [6, 12, 24].map((n) => {
+  const lines = periods.map((n) => {
     const up = smooth(
       delta.map((v) => (v === null ? null : Math.max(v, 0))),
       n,
