@@ -1,5 +1,9 @@
 import { aggregateLedger, horizons, type LedgerRow } from "~/lib/signal-ledger";
 import type { LedgerRun } from "~/server/signal-ledger-store";
+import {
+  tierLabels,
+  type NotificationDecision,
+} from "~/lib/notification-policy";
 
 const name = (s: string) => (s === "czsc" ? "缠论" : "双突破");
 const percent = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
@@ -7,9 +11,11 @@ const percent = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
 export function SignalLedgerView({
   rows,
   runs,
+  notifications = [],
 }: {
-  rows: LedgerRow[];
+  rows: (LedgerRow & { notifications?: NotificationDecision[] })[];
   runs: LedgerRun[];
+  notifications?: NotificationDecision[];
 }) {
   const groups = aggregateLedger(rows);
   return (
@@ -132,6 +138,37 @@ export function SignalLedgerView({
           </details>
         ))}
       </section>
+      <section className="panel" aria-label="投递决策明细">
+        <h2>投递决策明细（最近100条，共{notifications.length}条）</h2>
+        <p>
+          此处也展示尚未与全市场台账匹配的监控通知。档位是投递决策，实际发送结果请按投递编号查看「信号与通知」。
+        </p>
+        {!notifications.length && <p>暂无投递决策。</p>}
+        {[...notifications]
+          .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
+          .slice(0, 100)
+          .map((n) => (
+            <details key={n.id}>
+              <summary>
+                {n.date} · {n.symbol} · {name(n.strategy)} ·{" "}
+                {tierLabels[n.tier]}
+              </summary>
+              <p>
+                {n.direction === "long" ? "向上" : "向下"} · 质量 {n.score} ·{" "}
+                {n.reasons.join("；")}
+              </p>
+              <p style={{ overflowWrap: "anywhere" }}>
+                原信号：{n.signalId}；渠道：{n.channelId}；投递：
+                {n.summaryId ?? n.deliveryId ?? "未入队"}
+              </p>
+              <p>
+                决策时配置：日上限{n.policy.dailyLimit}条；去重
+                {n.policy.dedupTradingDays}个交易日；汇总{n.policy.summaryTime}
+                （北京时间）
+              </p>
+            </details>
+          ))}
+      </section>
       <section className="panel" aria-label="台账明细">
         <h2>台账明细（最近 100 条；聚合使用全部记录）</h2>
         {rows.slice(0, 100).map((row) => (
@@ -145,6 +182,17 @@ export function SignalLedgerView({
               {row.source}；不复权
             </p>
             <p>失效条件：{row.invalidation}</p>
+            {(row.notifications ?? []).map((n) => (
+              <p key={n.id} style={{ overflowWrap: "anywhere" }}>
+                推送决策：{tierLabels[n.tier]}；{n.reasons.join("；")}
+                {n.channelId ? `；渠道 ${n.channelId}` : ""}
+                {n.summaryId
+                  ? `；汇总 ${n.summaryId}`
+                  : n.deliveryId
+                    ? `；投递 ${n.deliveryId}`
+                    : ""}
+              </p>
+            ))}
             <p style={{ overflowWrap: "anywhere" }}>结构证据：{row.evidence}</p>
             <p style={{ overflowWrap: "anywhere" }}>
               快照 hash：{row.snapshotHash}；策略版本：{row.strategyVersion}

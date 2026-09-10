@@ -4,6 +4,18 @@ import { get } from "./db";
 export function deliveryCancellationReason(delivery: Delivery): string | null {
   // These are separately initiated user actions, not automatic subscription events.
   if (delivery.kind === "test" || delivery.manualRetry === true) return null;
+  if (delivery.kind === "summary") {
+    if (!delivery.summarySignalIds?.length) return "汇总缺少原信号授权";
+    for (const signalId of delivery.summarySignalIds) {
+      const reason = deliveryCancellationReason({
+        ...delivery,
+        kind: "signal",
+        signalId,
+      });
+      if (reason) return reason;
+    }
+    return null;
+  }
   const signal = get<Signal>(delivery.signalId);
   if (!signal?.monitorRun || typeof signal.monitorId !== "string")
     return "缺少原信号的订阅版本，已取消自动发送";

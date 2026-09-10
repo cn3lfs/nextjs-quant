@@ -181,7 +181,19 @@ beforeEach(() => {
   put(
     "settings",
     "settings",
-    settingsSchema.parse({ autoAnalysis: false, autoNewsAnalysis: false }),
+    // M4 verifies transport/content independently of P2's conservative defaults.
+    // Keep every original assertion using explicitly permissive configurable tiers.
+    settingsSchema.parse({
+      autoAnalysis: false,
+      autoNewsAnalysis: false,
+      notificationPolicy: {
+        czsc: { confirmed: "immediate" },
+        breakout: { middle: "immediate" },
+        quietOutsideTrading: false,
+        dedupTradingDays: 0,
+        dailyLimit: 100,
+      },
+    }),
   );
   const channels = channelTypes.map((type) => {
     const id = `fake-${type}-${crypto.randomUUID()}`;
@@ -259,6 +271,28 @@ it("M5 real dual-breakout calculation reaches the existing four-channel outbox a
   expect(list("delivery")).toHaveLength(4);
   expect(mocks.engine).not.toHaveBeenCalled();
   expect(mocks.background).not.toHaveBeenCalled();
+});
+it("P2 default policy: actual monitor generation keeps the signal, waits for one closing digest and never uses network", async () => {
+  put(
+    "settings",
+    "settings",
+    settingsSchema.parse({ autoAnalysis: false, autoNewsAnalysis: false }),
+  );
+  await signal([3]);
+  expect(list("signal")).toHaveLength(1);
+  expect(list("delivery")).toHaveLength(0);
+  const send = vi.fn(async () => "fake-summary-accepted");
+  await drain(send);
+  expect(send).not.toHaveBeenCalled();
+  vi.setSystemTime(at("15:15"));
+  await drain(send);
+  expect(send).toHaveBeenCalledTimes(4);
+  expect(
+    list<Delivery>("delivery").every(
+      (d) => d.kind === "summary" && d.status === "sent",
+    ),
+  ).toBe(true);
+  expect(list("signal")).toHaveLength(1);
 });
 it("A1/A2: six point types reach real outbox/four formatters, fake delivery only; snapshots are reviewable", async () => {
   await signal([1, 2, 3, -1, -2, -3]);

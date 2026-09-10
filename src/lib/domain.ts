@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { notificationPolicySchema } from "./notification-policy";
 import type { SecurityTradingStatus } from "./security-trading-status";
 export const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
 export const periodSchema = z.enum(["day", "5m"]);
@@ -211,11 +212,13 @@ export type Signal = {
   source: string;
 };
 export type Delivery = {
+  policyDecisionIds?: string[];
+  summarySignalIds?: string[];
   manualRetry?: boolean;
   id: string;
   signalId: string;
   channelId: string;
-  kind: "signal" | "analysis" | "test";
+  kind: "signal" | "analysis" | "test" | "summary";
   title: string;
   body: string;
   status: "pending" | "sending" | "sent" | "failed" | "expired" | "cancelled";
@@ -252,6 +255,7 @@ export type Monitor = {
   error?: string;
 };
 export const settingsSchema = z.object({
+  notificationPolicy: notificationPolicySchema,
   llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
   codexModel: z.string().trim().max(100).default(""),
   claudeModel: z.string().trim().max(100).default(""),

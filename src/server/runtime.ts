@@ -1,5 +1,6 @@
 import { quickResearch } from "./quick-research";
 import { scheduleSignalLedger } from "./signal-ledger-client";
+import { NotificationPolicyStore } from "./notification-policy-store";
 import { workProgress } from "~/lib/work-progress";
 import { gfCalendarReference } from "./gf-calendar";
 import { monitorCalendar } from "./monitor-calendar";
@@ -30,7 +31,7 @@ import type {
   Period,
   Backtest,
 } from "~/lib/domain";
-import { put, get, list, atomic, putChangedBatch } from "./db";
+import { put, get, list, atomic, putChangedBatch, sqlite } from "./db";
 import { settings } from "./settings";
 import { runWorker, background, recoverJobs, updateJob } from "./jobs";
 import { metrics } from "./quant";
@@ -502,6 +503,11 @@ export async function tick() {
       now,
     );
     const calendar = reference.days;
+    new NotificationPolicyStore(sqlite()).calendar(
+      calendar,
+      reference.source,
+      now,
+    );
     const calendarEvidence = {
       source: reference.source,
       hash: reference.hash,

@@ -8,8 +8,12 @@ import baseline from "./fixtures/n3-workbench-structure.json";
 // extraction, not a substitute for browser reachability or existing API tests.
 // Ignore formatting and export modifiers, but retain expressions, JSX props,
 // callbacks, hook order, query options, keys, classes and literal values.
-export function fingerprint(nodes: readonly ts.Node[]) {
+export function fingerprint(
+  nodes: readonly ts.Node[],
+  additions: ReadonlySet<ts.Node> = new Set(),
+) {
   function shape(node: ts.Node): unknown {
+    if (additions.has(node)) return undefined;
     if (node.kind === ts.SyntaxKind.ExportKeyword) return undefined;
     const children: unknown[] = [];
     ts.forEachChild(node, (child) => {
@@ -89,8 +93,33 @@ it("retains every extracted view subtree, including handlers and panel props", (
   }
 });
 
-it("retains connection implementation except the relocated NewsPanel mount", () => {
-  expect(fingerprint(functions("connections.tsx"))).toBe(baseline.connections);
+it("retains connection implementation with the explicitly verified P2 configuration addition", () => {
+  const connection = functions("connections.tsx");
+  const additions: ts.JsxSelfClosingElement[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isJsxSelfClosingElement(node) &&
+      node.tagName.getText() === "NotificationPolicyFields"
+    )
+      additions.push(node);
+    ts.forEachChild(node, visit);
+  };
+  connection.forEach(visit);
+  expect(additions).toHaveLength(1);
+  // P2 owns this new controlled field: it must read the existing settings state
+  // and replace only notificationPolicy so the existing Save action persists it.
+  const expected = ts.createSourceFile(
+    "p2.tsx",
+    `<NotificationPolicyFields value={config.notificationPolicy} onChange={(notificationPolicy) => setConfig({ ...config, notificationPolicy })} />`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const statement = expected.statements[0] as ts.ExpressionStatement;
+  expect(fingerprint(additions)).toBe(fingerprint([statement.expression]));
+  expect(fingerprint(connection, new Set(additions))).toBe(
+    baseline.connections,
+  );
 });
 
 it("detects a changed query option or panel prop in structural evidence", () => {

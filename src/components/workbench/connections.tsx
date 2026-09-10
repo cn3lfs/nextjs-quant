@@ -5,6 +5,7 @@ import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 
 import { Field, stamp } from "./shared";
+import { NotificationPolicyFields } from "../notification-policy-fields";
 
 export function Connections({
   value,
@@ -330,6 +331,12 @@ export function Connections({
             }
           />
         </details>
+        <NotificationPolicyFields
+          value={config.notificationPolicy}
+          onChange={(notificationPolicy) =>
+            setConfig({ ...config, notificationPolicy })
+          }
+        />
         <Button onClick={() => save.mutate(config)} disabled={save.isPending}>
           保存设置
         </Button>

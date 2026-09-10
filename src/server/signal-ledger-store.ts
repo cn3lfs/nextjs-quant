@@ -1,5 +1,7 @@
 import type Database from "better-sqlite3";
 import type { LedgerSignal, LedgerRow, Outcome } from "~/lib/signal-ledger";
+import { NotificationPolicyStore } from "./notification-policy-store";
+import type { NotificationDecision } from "~/lib/notification-policy";
 
 export type LedgerRun = {
   date: string;
@@ -63,6 +65,9 @@ export class SignalLedgerStore {
         )
         .run(symbol, JSON.stringify({ date, keys }));
     })();
+    // Commit every native signal and its baseline before notification metadata.
+    // A policy/configuration failure must never roll back the research ledger.
+    new NotificationPolicyStore(this.db).auditLedger(signals);
   }
   outcome(id: string, out: Outcome) {
     this.db
@@ -73,7 +78,9 @@ export class SignalLedgerStore {
       )
       .run(id, out.horizon, Number(out.settled), JSON.stringify(out));
   }
-  rows(): LedgerRow[] {
+  rows(): (LedgerRow & { notifications: NotificationDecision[] })[] {
+    const policyStore = new NotificationPolicyStore(this.db);
+    const decisions = policyStore.decisions();
     const outcomes = new Map<string, Outcome[]>();
     for (const row of this.db
       .prepare(
@@ -92,7 +99,11 @@ export class SignalLedgerStore {
         .all() as { payload: string }[]
     ).map((r) => {
       const s = JSON.parse(r.payload) as LedgerSignal;
-      return { ...s, outcomes: outcomes.get(s.id) ?? [] };
+      return {
+        ...s,
+        outcomes: outcomes.get(s.id) ?? [],
+        notifications: policyStore.ledgerDecisions(s, decisions),
+      };
     });
   }
   runs(): LedgerRun[] {

@@ -12,6 +12,18 @@ import { get, put, list, sqlite, atomic } from "./db";
 import { deliveryCancellationReason } from "./delivery-authorization";
 import { saveSecret, readSecret } from "./vault";
 import { settings } from "./settings";
+import {
+  NotificationPolicyStore,
+  renderSummary,
+} from "./notification-policy-store";
+import {
+  chinaClock,
+  minutes,
+  quiet,
+  summaryWindow,
+  type NotificationDecision,
+  type PolicyUnit,
+} from "~/lib/notification-policy";
 type Credential = { secret: string; signingSecret?: string };
 export function validateDestination(type: Channel["type"], secret: string) {
   if (type === "telegram") {
@@ -77,10 +89,56 @@ export function renderSignal(signal: Signal) {
   }
   if (signal.czsc) {
     const detail = signal.czsc;
-    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：缠论买卖点 · 日线 · 配置 ${detail.config}\n数据日期：${signal.date}（本日新确认，点位日期见下）\n策略版本：${detail.strategyVersion} · DLL：${detail.dllVersion}\n${detail.points.map((p) => `买卖点：第${["", "一", "二", "三"][Math.abs(p.kind)]}类${p.kind > 0 ? "买" : "卖"}点 · ${p.date}\n信号质量：${p.quality === 2 ? "强质量" : "确认"}\n所属中枢：${p.center ? `ZG ${p.center.ZG.toFixed(2)} / ZD ${p.center.ZD.toFixed(2)}（${p.center.startDate}—${p.center.endDate}）` : "未知（DLL未关联中枢）"}\n背驰依据：${p.divergence}\n失效条件：${p.invalidation}`).join("\n\n")}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
+    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：缠论买卖点 · 日线 · 配置 ${detail.config}\n数据日期：${signal.date}（本日新确认，点位日期见下）\n策略版本：${detail.strategyVersion} · DLL：${detail.dllVersion}\n${detail.points.map((p) => `买卖点：第${["", "一", "二", "三"][Math.abs(p.kind)]}类${p.kind > 0 ? "买" : "卖"}点 · ${p.date}\n信号质量：${p.quality === 2 ? "强质量" : p.quality === 1 ? "确认" : "观察"}\n所属中枢：${p.center ? `ZG ${p.center.ZG.toFixed(2)} / ZD ${p.center.ZD.toFixed(2)}（${p.center.startDate}—${p.center.endDate}）` : "未知（DLL未关联中枢）"}\n背驰依据：${p.divergence}\n失效条件：${p.invalidation}`).join("\n\n")}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
   }
   return `规则信号 · ${securityLabel(signal.symbol)}\n策略：${signal.strategy.name} (${signal.strategy.fast}/${signal.strategy.slow})\n周期：${signal.period} · 数据：${signal.date}\n收盘：${signal.metrics.close.toFixed(2)} · 涨跌：${signal.metrics.change.toFixed(2)}%\n短均线 ${signal.metrics.fast.toFixed(2)} > 长均线 ${signal.metrics.slow.toFixed(2)}，条件由不满足变为满足\n来源：${signal.source ?? "tdx-local"} / 不复权\n信号：${signal.id}\n生成：${new Date(signal.createdAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`;
 }
+function notificationUnits(
+  signal: Signal,
+): { unit: PolicyUnit; signal: Signal }[] {
+  const common = { symbol: signal.symbol, date: signal.date };
+  if (signal.czsc)
+    return signal.czsc.points.map((point) => ({
+      unit: {
+        ...common,
+        strategy: "czsc",
+        endpointDate: point.date,
+        direction: point.kind > 0 ? "long" : "short",
+        score: point.quality,
+        pointKey: `${signal.czsc!.config}:${point.date}:${point.kind}`,
+      },
+      signal: { ...signal, czsc: { ...signal.czsc!, points: [point] } },
+    }));
+  const result = signal.breakout,
+    point = result?.latest;
+  if (point && result)
+    return [point.long, point.short]
+      .filter((side) => side.status === "是")
+      .map((side) => ({
+        unit: {
+          ...common,
+          strategy: "dual-breakout",
+          endpointDate: signal.date,
+          direction: side.direction,
+          score: side.score ?? -1,
+        },
+        signal: {
+          ...signal,
+          breakout: {
+            ...result,
+            latest: {
+              ...point,
+              ...(side.direction === "long"
+                ? { short: { ...point.short, status: "否" as const } }
+                : { long: { ...point.long, status: "否" as const } }),
+            },
+          },
+        },
+      }));
+  // Frozen legacy strategies keep their existing behavior.
+  return [];
+}
+
 export function enqueue(
   signal: Signal,
   channelIds: string[],
@@ -89,16 +147,11 @@ export function enqueue(
 ) {
   for (const channelId of channelIds) {
     const channel = get<Channel>(channelId);
-    if (!channel?.enabled) continue;
-    // One point per message keeps every required field inside all four channel limits.
+    const policyStore = new NotificationPolicyStore(sqlite());
+    const units = notificationUnits(signal);
     const pages =
-      kind === "signal" && signal.czsc
-        ? signal.czsc.points.map((point) =>
-            renderSignal({
-              ...signal,
-              czsc: { ...signal.czsc!, points: [point] },
-            }),
-          )
+      kind === "signal" && units.length
+        ? units.map((u) => renderSignal(u.signal))
         : [
             kind === "signal"
               ? renderSignal(signal)
@@ -107,9 +160,46 @@ export function enqueue(
     for (const [page, body] of pages.entries()) {
       const id = `delivery-${signal.id}-${channelId}-${kind}${page ? `-${page}` : ""}`;
       if (get(id)) continue;
+      const unit = units[page]?.unit ?? units[0]?.unit;
+      const decision = unit
+        ? policyStore.decide(
+            unit,
+            signal.id,
+            channelId,
+            id,
+            body,
+            Date.now(),
+            kind,
+          )
+        : undefined;
+      if (!channel?.enabled) {
+        if (decision)
+          policyStore.update(decision, "ledger", "渠道已停用或删除");
+        continue;
+      }
+      if (decision && kind === "analysis") {
+        const parent = policyStore
+          .decisions()
+          .filter(
+            (d) =>
+              d.signalId === signal.id &&
+              d.channelId === channelId &&
+              d.messageKind !== "analysis",
+          );
+        if (!parent.length || parent.some((d) => d.tier !== "immediate")) {
+          policyStore.update(
+            decision,
+            "ledger",
+            "原信号未立即投递；AI解读保留报告，不追加通知",
+          );
+          continue;
+        }
+      }
+      if (decision && decision.tier !== "immediate") continue;
       put<Delivery>("delivery", id, {
         id,
         signalId: signal.id,
+        ...(decision ? { policyDecisionIds: [decision.id] } : {}),
         channelId,
         kind,
         title: kind === "signal" ? "规则信号" : "AI 解读",
@@ -139,6 +229,157 @@ export function testDelivery(channelId: string) {
     expiresAt: Date.now() + 600000,
     createdAt: Date.now(),
   });
+}
+/** One deterministic outbox message per destination/day, never a new sender. */
+export function flushSummaries(now = Date.now()) {
+  atomic(() => {
+    const store = new NotificationPolicyStore(sqlite());
+    const policy = store.policy(),
+      clock = chinaClock(now);
+    const ready = summaryWindow(now, store.days(), policy);
+    const groups = new Map<string, NotificationDecision[]>();
+    for (const d of store.decisions()) {
+      if (d.tier !== "summary" || d.summaryId || !d.channelId || !d.signalId)
+        continue;
+      if (
+        d.date < clock.date ||
+        (d.date === clock.date &&
+          minutes(clock.time) >= minutes(policy.summaryTime) + 15)
+      ) {
+        store.update(d, "ledger", "错过当日汇总窗口；保留台账，不跨日补推");
+        continue;
+      }
+      if (!ready || d.date !== clock.date) continue;
+      const probe = {
+        signalId: d.signalId,
+        channelId: d.channelId,
+        kind: "signal",
+      } as Delivery;
+      const reason = deliveryCancellationReason(probe);
+      if (reason || !get<Channel>(d.channelId)?.enabled) {
+        store.update(d, "ledger", reason ?? "渠道已停用或删除");
+        continue;
+      }
+      if (d.messageKind === "analysis") {
+        store.update(d, "ledger", "AI解读保留报告，不重复加入规则汇总");
+        continue;
+      }
+      if (store.duplicate(d, d.channelId, now)) {
+        store.update(
+          d,
+          "ledger",
+          `同标的同策略同方向 ${policy.dedupTradingDays} 个交易日内已推送`,
+        );
+        continue;
+      }
+      const items = groups.get(d.channelId) ?? [];
+      items.push(d);
+      groups.set(d.channelId, items);
+    }
+    for (const [channelId, items] of groups) {
+      const id = `delivery-summary-${clock.date}-${channelId}`;
+      const existing = get<Delivery>(id);
+      if (
+        existing &&
+        (existing.attempts > 0 || existing.status !== "pending")
+      ) {
+        for (const d of items)
+          store.update(d, "ledger", "当日汇总已封卷；迟到信号仅记台账");
+        continue;
+      }
+      const prior =
+        existing?.policyDecisionIds
+          ?.map((id) => store.read<NotificationDecision>(id))
+          .filter((d): d is NotificationDecision => !!d) ?? [];
+      const decisions = [...prior, ...items].sort((a, b) =>
+        a.id.localeCompare(b.id),
+      );
+      for (const d of decisions)
+        store.save("notification-decision", d.id, { ...d, summaryId: id });
+      put<Delivery>("delivery", id, {
+        id,
+        signalId: id,
+        channelId,
+        kind: "summary",
+        title: "收盘信号汇总",
+        body: renderSummary(clock.date, decisions),
+        policyDecisionIds: decisions.map((d) => d.id),
+        summarySignalIds: [...new Set(decisions.map((d) => d.signalId!))],
+        status: "pending",
+        attempts: 0,
+        nextAt: now,
+        createdAt: now,
+        expiresAt:
+          Date.parse(`${clock.date}T${policy.summaryTime}:00+08:00`) +
+          15 * 60000,
+      });
+    }
+  });
+}
+function adoptQueuedPolicy(
+  item: Delivery,
+  store: NotificationPolicyStore,
+  now: number,
+) {
+  if (
+    item.policyDecisionIds?.length ||
+    !["signal", "analysis"].includes(item.kind)
+  )
+    return;
+  const signal = get<Signal>(item.signalId);
+  if (!signal) return;
+  let units = notificationUnits(signal);
+  if (!units.length) return;
+  if (signal.czsc) {
+    const base = `delivery-${signal.id}-${item.channelId}-${item.kind}`;
+    const page = item.id === base ? 0 : Number(item.id.slice(base.length + 1));
+    units = units.slice(page, page + 1);
+  }
+  const decisions = units.map(({ unit }, i) =>
+    store.decide(
+      unit,
+      signal.id,
+      item.channelId,
+      `${item.id}:adopt-${i}`,
+      item.body,
+      now,
+      item.kind as "signal" | "analysis",
+    ),
+  );
+  item.policyDecisionIds = decisions.map((d) => d.id);
+  // A pre-P2 breakout message can contain two sides. Never forward a filtered
+  // side in that old combined body; retain eligible units in the single digest.
+  if (decisions.some((d) => d.tier !== "immediate")) {
+    for (const d of decisions)
+      if (d.tier === "immediate")
+        store.update(d, "summary", "旧队列混合档位，合并收盘汇总");
+    store.cancel(item, "旧队列已应用P2分级，转汇总或台账");
+    return false;
+  }
+  return true;
+}
+
+function refreshUnsentSummary(
+  item: Delivery,
+  store: NotificationPolicyStore,
+  now: number,
+) {
+  if (item.kind !== "summary" || item.attempts > 0) return;
+  const eligible: NotificationDecision[] = [];
+  for (const id of item.policyDecisionIds ?? []) {
+    const d = store.read<NotificationDecision>(id);
+    if (!d) continue;
+    const reason = deliveryCancellationReason({
+      ...item,
+      kind: "signal",
+      signalId: d.signalId!,
+    });
+    if (reason) store.update(d, "ledger", reason);
+    else if (d.tier === "summary") eligible.push(d);
+  }
+  item.policyDecisionIds = eligible.map((d) => d.id);
+  item.summarySignalIds = [...new Set(eligible.map((d) => d.signalId!))];
+  item.body = renderSummary(chinaClock(now).date, eligible);
 }
 export function notificationRequest(
   channel: Channel,
@@ -246,6 +487,20 @@ async function send(channel: Channel, delivery: Delivery) {
   if (!currentChannel || (!currentChannel.enabled && delivery.kind !== "test"))
     throw new DeliveryStopped("渠道已停用或删除");
   if (!credential) throw new SendError("凭证不存在", true);
+  // Reading credentials is asynchronous; a quiet boundary may have been crossed
+  // since claim. Delay through the existing retry mechanism before touching HTTP.
+  if (delivery.policyDecisionIds?.length) {
+    const policyStore = new NotificationPolicyStore(sqlite());
+    const now = Date.now(),
+      policy = policyStore.policy(),
+      days = policyStore.days();
+    if (
+      delivery.kind === "summary"
+        ? !summaryWindow(now, days, policy)
+        : quiet(now, days, policy)
+    )
+      throw new SendError("进入静默时段，等待允许投递窗口", false, 60000);
+  }
   const { url, payload } = notificationRequest(channel, credential, delivery),
     proxy = settings().proxy;
   const dispatcher = proxy ? new ProxyAgent(proxy) : undefined;
@@ -285,6 +540,8 @@ export async function drain(sendFn = send, now = Date.now()) {
   if (state.running) return;
   state.running = true;
   try {
+    flushSummaries(now);
+    const policyStore = new NotificationPolicyStore(sqlite());
     const pending = sqlite()
       .prepare(
         "SELECT payload FROM records WHERE kind='delivery' AND json_extract(payload,'$.status')='pending' ORDER BY updated_at ASC LIMIT 500",
@@ -296,12 +553,22 @@ export async function drain(sendFn = send, now = Date.now()) {
         const item = get<Delivery>(queued.id);
         if (!item) return null;
         if (item.status !== "pending") return null;
+        if (adoptQueuedPolicy(item, policyStore, now) === false) return null;
         if (item.expiresAt <= now) {
           put("delivery", item.id, { ...item, status: "expired" });
+          for (const id of item.policyDecisionIds ?? []) {
+            const d = policyStore.read<NotificationDecision>(id);
+            if (d) policyStore.update(d, "ledger", "通知已过期，不补推");
+          }
           return null;
         }
+        refreshUnsentSummary(item, policyStore, now);
         const reason = deliveryCancellationReason(item);
         if (reason) {
+          for (const id of item.policyDecisionIds ?? []) {
+            const d = policyStore.read<NotificationDecision>(id);
+            if (d) policyStore.update(d, "ledger", reason);
+          }
           put("delivery", item.id, {
             ...item,
             status: "cancelled",
@@ -313,6 +580,7 @@ export async function drain(sendFn = send, now = Date.now()) {
         const channel = get<Channel>(item.channelId);
         if (!channel || (!channel.enabled && item.kind !== "test")) return null;
         if (now - (state.lastSent.get(channel.id) ?? 0) < 3000) return null;
+        if (!policyStore.claim(item, now)) return null;
         const current = {
           ...item,
           status: "sending" as const,
