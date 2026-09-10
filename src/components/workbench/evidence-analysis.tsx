@@ -1,3 +1,11 @@
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+import { Textarea } from "~/components/ui/textarea";
 import { ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { CanslimPanel } from "../canslim-panel";
 import { ChanPanel } from "../chan-panel";
@@ -55,22 +63,28 @@ export function EvidenceAnalysis({
         <p>基于当前行情与计算指标，分析趋势、反向证据和潜在风险。</p>
       </div>
       <Field label="研究问题">
-        <textarea
+        <Textarea
+          className="field-sizing-fixed"
           rows={4}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
       </Field>
       <Field label="研究方法">
-        <select
+        <Select
           value={researchMethod}
-          onChange={(e) =>
-            setResearchMethod(e.target.value as "general" | "sepa")
+          onValueChange={(value) =>
+            setResearchMethod(value as "general" | "sepa")
           }
         >
-          <option value="general">通用证据分析</option>
-          <option value="sepa">SEPA 分阶段研究</option>
-        </select>
+          <SelectTrigger aria-label="研究方法" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="general">通用证据分析</SelectItem>
+            <SelectItem value="sepa">SEPA 分阶段研究</SelectItem>
+          </SelectContent>
+        </Select>
       </Field>
       <Button
         className="full"

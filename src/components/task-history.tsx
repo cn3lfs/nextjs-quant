@@ -1,4 +1,12 @@
 "use client";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+import { DataTable } from "~/components/ui/data-table";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { taskStatusLabels, taskTypeLabels } from "~/lib/task-history";
@@ -45,21 +53,25 @@ export function TaskHistory() {
       </p>
       <label>
         任务状态{" "}
-        <select
-          aria-label="历史任务状态"
+        <Select
           value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as Job["status"] | "");
+          onValueChange={(value) => {
+            setStatus(value as Job["status"] | "");
             reset();
           }}
         >
-          <option value="">全部</option>
-          {Object.entries(taskStatusLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger aria-label="历史任务状态">
+            <SelectValue placeholder="全部" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">全部</SelectItem>
+            {Object.entries(taskStatusLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>{" "}
       <Button
         variant="outline"
@@ -78,41 +90,63 @@ export function TaskHistory() {
           <p>
             共 {history.data.total} 条 · 第 {cursors.length} 页
           </p>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>任务</th>
-                  <th>状态</th>
-                  <th>进度 / 阶段</th>
-                  <th>创建时间</th>
-                  <th>详情</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.data.items.map((job) => (
-                  <tr key={job.id}>
-                    <td>{taskTypeLabels[job.type] ?? job.type}</td>
-                    <td>{taskStatusLabels[job.status] ?? job.status}</td>
-                    <td>
-                      {job.progress}% · {job.error || job.phase || "—"}
-                      {(job.phaseTruncated || job.errorTruncated) &&
-                        "（摘要，详情可查看全文）"}
-                    </td>
-                    <td>{new Date(job.createdAt).toLocaleString("zh-CN")}</td>
-                    <td>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setSelected(job.id)}
-                      >
-                        查看任务 {job.id.slice(-8)}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            label="任务历史"
+            data={history.data.items}
+            rowCount={history.data.total}
+            pagination={{ pageIndex: cursors.length - 1, pageSize: 20 }}
+            sorting={[]}
+            onPaginationChange={() => {}}
+            onSortingChange={() => {}}
+            showPagination={false}
+            emptyMessage={null}
+            getRowId={(job) => job.id}
+            columns={[
+              {
+                id: "type",
+                header: "任务",
+                enableSorting: false,
+                cell: ({ row }) =>
+                  taskTypeLabels[row.original.type] ?? row.original.type,
+              },
+              {
+                id: "status",
+                header: "状态",
+                enableSorting: false,
+                cell: ({ row }) =>
+                  taskStatusLabels[row.original.status] ?? row.original.status,
+              },
+              {
+                id: "progress",
+                header: "进度 / 阶段",
+                enableSorting: false,
+                cell: ({ row: { original: job } }) => (
+                  <>
+                    {job.progress}% · {job.error || job.phase || "—"}
+                    {(job.phaseTruncated || job.errorTruncated) &&
+                      "（摘要，详情可查看全文）"}
+                  </>
+                ),
+              },
+              {
+                id: "createdAt",
+                header: "创建时间",
+                enableSorting: false,
+                cell: ({ row }) =>
+                  new Date(row.original.createdAt).toLocaleString("zh-CN"),
+              },
+              {
+                id: "detail",
+                header: "详情",
+                enableSorting: false,
+                cell: ({ row: { original: job } }) => (
+                  <Button variant="ghost" onClick={() => setSelected(job.id)}>
+                    查看任务 {job.id.slice(-8)}
+                  </Button>
+                ),
+              },
+            ]}
+          />
           {history.data.items.length === 0 && <p>没有符合条件的任务</p>}
           <Button
             variant="outline"

@@ -161,7 +161,7 @@ export function Connections({
           <span className="tag">只读接入</span>
         </div>
         <Field label="财联社新闻数据库路径">
-          <input
+          <Input
             value={config.clsDbPath}
             onChange={(e) =>
               setConfig({ ...config, clsDbPath: e.target.value })
@@ -170,11 +170,10 @@ export function Connections({
         </Field>
         <Field label="新闻自动研究">
           <span>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={config.autoNewsAnalysis}
-              onChange={(e) =>
-                setConfig({ ...config, autoNewsAnalysis: e.target.checked })
+              onCheckedChange={(checked) =>
+                setConfig({ ...config, autoNewsAnalysis: checked === true })
               }
             />
             自动分析最近七天新闻（每分钟最多50条，使用当前模型；失败后等待15分钟）
@@ -187,7 +186,7 @@ export function Connections({
           />
         </Field>
         <Field label="自动新闻每日AI批次上限（北京时间）">
-          <input
+          <Input
             type="number"
             min={1}
             max={100}
@@ -238,24 +237,29 @@ export function Connections({
         </p>
         <div className="form-grid">
           <Field label="模型提供方">
-            <select
+            <Select
               value={config.llmProvider}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setConfig({
                   ...config,
-                  llmProvider: e.target.value as Settings["llmProvider"],
+                  llmProvider: value as Settings["llmProvider"],
                 })
               }
             >
-              <option value="codex">Codex（默认 · 本机订阅）</option>
-              <option value="claude">Claude Code（本机订阅）</option>
-              <option value="deepseek">DeepSeek（API）</option>
-            </select>
+              <SelectTrigger aria-label="模型提供方" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="codex">Codex（默认 · 本机订阅）</SelectItem>
+                <SelectItem value="claude">Claude Code（本机订阅）</SelectItem>
+                <SelectItem value="deepseek">DeepSeek（API）</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
           {config.llmProvider === "deepseek" ? (
             <>
               <Field label="轻量模型">
-                <input
+                <Input
                   value={config.fastModel}
                   onChange={(e) =>
                     setConfig({ ...config, fastModel: e.target.value })
@@ -263,7 +267,7 @@ export function Connections({
                 />
               </Field>
               <Field label="深度模型">
-                <input
+                <Input
                   value={config.deepModel}
                   onChange={(e) =>
                     setConfig({ ...config, deepModel: e.target.value })
@@ -276,7 +280,7 @@ export function Connections({
             </>
           ) : (
             <Field label="CLI 模型（留空使用默认模型）">
-              <input
+              <Input
                 value={
                   config.llmProvider === "codex"
                     ? config.codexModel
@@ -295,7 +299,7 @@ export function Connections({
             </Field>
           )}
           <Field label="自动分析候选数（1–10）">
-            <input
+            <Input
               type="number"
               min={1}
               max={10}
@@ -308,11 +312,10 @@ export function Connections({
         </div>
         <div className="check-row">
           <label>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={config.autoAnalysis}
-              onChange={(e) =>
-                setConfig({ ...config, autoAnalysis: e.target.checked })
+              onCheckedChange={(checked) =>
+                setConfig({ ...config, autoAnalysis: checked === true })
               }
             />
             选股和回测完成后自动分析

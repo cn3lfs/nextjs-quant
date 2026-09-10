@@ -1,3 +1,4 @@
+import { Input } from "~/components/ui/input";
 import { type Strategy } from "~/lib/domain";
 
 import { Field } from "./shared";
@@ -12,7 +13,7 @@ export function StrategyFields({
   return (
     <div className="form-grid">
       <Field label="短均线">
-        <input
+        <Input
           type="number"
           value={strategy.fast}
           onChange={(e) =>
@@ -25,7 +26,7 @@ export function StrategyFields({
         />
       </Field>
       <Field label="长均线">
-        <input
+        <Input
           type="number"
           value={strategy.slow}
           onChange={(e) =>
@@ -38,7 +39,7 @@ export function StrategyFields({
         />
       </Field>
       <Field label="最低涨幅 %">
-        <input
+        <Input
           type="number"
           value={strategy.minChange}
           onChange={(e) =>
@@ -51,7 +52,7 @@ export function StrategyFields({
         />
       </Field>
       <Field label="最高涨幅 %">
-        <input
+        <Input
           type="number"
           value={strategy.maxChange}
           onChange={(e) =>
@@ -64,7 +65,7 @@ export function StrategyFields({
         />
       </Field>
       <Field label="最低量比">
-        <input
+        <Input
           type="number"
           step="0.1"
           value={strategy.minVolumeRatio}

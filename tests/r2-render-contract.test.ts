@@ -19,9 +19,9 @@ it("R2 precisely wires the connection components and preserves validation attrib
     "src/components/notification-policy-fields.tsx",
     "utf8",
   );
-  expect(connection.match(/<Input\b/g)).toHaveLength(7);
+  expect(connection.match(/<Input\b/g)).toHaveLength(13);
   expect(connection.match(/<Textarea\b/g)).toHaveLength(2);
-  expect(connection.match(/<Checkbox\b/g)).toHaveLength(1);
+  expect(connection.match(/<Checkbox\b/g)).toHaveLength(3);
   expect(connection).toContain(
     '<SelectTrigger aria-label="平台" className="w-full">',
   );

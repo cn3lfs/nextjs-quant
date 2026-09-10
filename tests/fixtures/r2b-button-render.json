@@ -8,7 +8,7 @@
   "src/components/trade-ledger-panel.tsx": "519f26f7f072a9ce6b5983a1e2ad50c03994d1b9c13c92fc31ab3332411c2970",
   "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
   "src/components/workbench.tsx": "f6705a1e8e2972606776f10e722b5a150598a25ef560e86445135d13501bff76",
-  "src/components/workbench/evidence-analysis.tsx": "5fb896e8e65a79977a3fd1e71053e2c04e7bb18a8610bce9a8a7b4d3e37b3187",
+  "src/components/workbench/evidence-analysis.tsx": "0d64b4f4de9060c3457bfc2f4e7cfab4af24264206c622178d9c89200db769ea",
   "src/components/workbench/market-view.tsx": "54178f2ca32f09bbf0ffae015c2c858adc468528191c2c3a9daafc8fd3ab11a5",
   "src/components/workbench/reports.tsx": "41dff7e92b7ddc7bd36b397ad4994658a18c70d09f085e248ef343b936419d62",
   "src/components/workbench/task-center.tsx": "d8e69b1f492017caa0d912ad3285c60f739bab15fab7f2d2273acd55f3108132"
