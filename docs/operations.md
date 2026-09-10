@@ -62,6 +62,17 @@ node scripts/desktop-smoke.mjs --packaged
 |---|---|---|
 | 用户数据根 | 默认 `%LOCALAPPDATA%\QuantWorkbench`；QUANT_DATA_DIR 可覆盖，见 [db/index.ts](../src/server/db/index.ts) | 浏览器/桌面默认共享，不是临时缓存 |
 | SQLite | 数据根下 `quant.sqlite`，运行时有 `-wal`/`-shm` | 设置、快照、任务、报告、台账等在库内；不要只拷主文件遗漏 WAL |
+
+**要拿一份可用的库副本用于本地验证时**，用 SQLite 自带的备份 API，
+不要 `cp quant.sqlite`：只拷主文件会丢掉 WAL 中的内容，
+得到的库启动时报 `SQLITE_CORRUPT: database disk image is malformed`。
+
+```js
+const db = new Database(src, { readonly: true });
+await db.backup(dest); // 输出的是含 WAL 的一致快照
+```
+
+2026-09-10 管理者按 `cp` 取副本导致服务 500，本节据此补充正确做法。
 | 凭证 | 数据根下 `credentials/*.bin`，见 [vault.ts](../src/server/vault.ts) | Windows DPAPI；包含渠道密钥及模拟身份，不能当普通缓存删；不写日志或提交 |
 | 桌面服务日志 | 数据根下 `server.log`，见 [electron/main.ts](../electron/main.ts) | 默认即 `%LOCALAPPDATA%\QuantWorkbench\server.log`；开发前台看终端输出 |
 | 通达信源 | 配置根下 vipdoc、T0002/hq_cache | 只读，重扫不会下载或修复源行情 |

@@ -14,6 +14,42 @@ import type { Job } from "~/lib/domain";
 import { Button } from "./ui/button";
 import { WorkProgressView } from "./screen-task-progress";
 type Cursor = { createdAt: number; id: string };
+export function TaskErrorDetails({
+  id,
+  summary,
+}: {
+  id: string;
+  summary: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const detail = api.taskState.useQuery(
+    { id },
+    { enabled: open, retry: false },
+  );
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer">
+        <span className="block truncate">{summary}</span>
+        <span>{open ? "收起错误" : "展开完整错误"}</span>
+      </summary>
+      {open && (
+        <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          {detail.isPending && <p role="status">正在读取完整错误…</p>}
+          {detail.error && (
+            <p role="alert">
+              读取失败：{detail.error.message}{" "}
+              <Button variant="plain" onClick={() => void detail.refetch()}>
+                重试读取完整错误
+              </Button>
+            </p>
+          )}
+          {detail.data === null && <p>任务不存在，无法读取完整错误。</p>}
+          {detail.data && <p>{detail.data.error || "此任务未记录错误。"}</p>}
+        </div>
+      )}
+    </details>
+  );
+}
 export function TaskHistory() {
   const [open, setOpen] = useState(false),
     [status, setStatus] = useState<Job["status"] | "">("");

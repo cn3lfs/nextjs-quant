@@ -6,7 +6,7 @@ import {
   TriangleAlert,
   Workflow,
 } from "lucide-react";
-import { TaskHistory } from "../task-history";
+import { TaskErrorDetails, TaskHistory } from "../task-history";
 
 import { stamp } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
@@ -54,17 +54,22 @@ export function TaskCenter({
               }[j.type]
             }
           </strong>
-          <span>
-            {j.error ??
+          <span style={{ minWidth: 0 }}>
+            {j.error ? (
+              <TaskErrorDetails id={j.id} summary={j.error} />
+            ) : (
               {
                 queued: "等待运行",
                 running: `${j.phase ?? "进行中"} · ${j.progress}%`,
                 completed: "已完成",
                 failed: "失败",
                 cancelled: "已取消",
-              }[j.status]}
+              }[j.status]
+            )}
           </span>
-          <small>{stamp(j.createdAt)}</small>
+          <small style={{ display: "block" }}>
+            {taskAge(j.createdAt)} · {stamp(j.createdAt)}
+          </small>
           {["queued", "running"].includes(j.status) && (
             <Button
               variant="plain"
@@ -78,4 +83,20 @@ export function TaskCenter({
       ))}
     </section>
   );
+}
+
+export function taskAge(createdAt: number, now = Date.now()) {
+  // Compare local calendar days, including across DST and midnight.
+  const day = (value: number) => {
+    const date = new Date(value);
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+  const days = Math.round((day(now) - day(createdAt)) / 86_400_000);
+  return days < 0
+    ? "未来日期"
+    : days === 0
+      ? "今天"
+      : days === 1
+        ? "昨天"
+        : `${days} 天前`;
 }

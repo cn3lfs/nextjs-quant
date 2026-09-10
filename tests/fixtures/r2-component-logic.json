@@ -40,7 +40,7 @@
   "src/components/chart.tsx": {
     "LegacyChart": "7c3e8837a8e750c2d82bb0c1ad4b3497acc6b9a6f0497cf681821b79888b5058",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    "CzscMarketChart": "e8370e336f882ea2c2e56b85611eb713daf201f01366ba06d04d255430837c27",
+    "CzscMarketChart": "364225ff17afc5db4fe81f6cd7f4ba017cd17df104cfd5e535201dbdca64780e",
     "MarketChart": "c602151f6c012dc56fd6ea9cdbb0e25b39c771af006451dd4e49bed637c24a58"
   },
   "src/components/security-select.tsx": {

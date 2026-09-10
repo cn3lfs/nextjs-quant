@@ -62,6 +62,8 @@
   "src/components/task-history.tsx": {
     "handlers": [
       "aed5eb3e13adf919ca5727faf4c14a0c9f0b84e31c1143e65eee50b4f402b3da",
+      "b5582fc22b6deb4bfd2541207514b513fa7236106ab96c2ff235b7568b0a0395",
+      "aed5eb3e13adf919ca5727faf4c14a0c9f0b84e31c1143e65eee50b4f402b3da",
       "a7a2db0fefbe3d794634b0ebab77205f7cb91c1f81c6fc9de17a748e0a494c03",
       "ef7de297e1d6a9407531178f5b2d0094d81f54f0a6d207cb87046ca5756ad8d1",
       "6c7aa2cb44385b8ba174de45a43adc08b13a246439015f2dbc172a85b4e05bae",
@@ -70,6 +72,7 @@
       "3e0095c736dee17a38344c583036c06d14651dc05a4a903ee60cd95bf115ef24"
     ],
     "logic": {
+      "TaskErrorDetails": "31822bee9b1997f0bd04cfd4e015ef36c3cf3712eeda35f3734dd4d1e9f5fa62",
       "TaskHistory": "87c0ae31c1cbc1022279b74cc16b5500216ac138a0d14cf5e19437a68991af14",
       "reset": "ae78655ddce80e2345de18f64c8eaf4db1eec449dfeaca2abea44f640fca6f83"
     }

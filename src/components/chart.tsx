@@ -219,17 +219,34 @@ export function CzscMarketChart({
   rpsMessage?: string;
   onRpsRetry?: () => void;
 }) {
+  const [paintedSnapshot, setPaintedSnapshot] = useState("");
+  useEffect(() => {
+    // Let the mounted price chart paint before starting annotation requests.
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setPaintedSnapshot(snapshotId));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [snapshotId]);
+  const annotationsReady = paintedSnapshot === snapshotId;
   const result = api.czsc.useQuery(
     { snapshotId },
     {
-      enabled: period === "day" || period === "5m",
+      enabled: annotationsReady && (period === "day" || period === "5m"),
       staleTime: Infinity,
       retry: false,
     },
   );
   const breakout = api.breakout.useQuery(
     { snapshotId },
-    { enabled: period === "day", staleTime: Infinity, retry: false },
+    {
+      enabled: annotationsReady && period === "day",
+      staleTime: Infinity,
+      retry: false,
+    },
   );
   return (
     <MarketChart
@@ -251,7 +268,7 @@ export function CzscMarketChart({
           : breakout.error
             ? `双突破计算失败：${breakout.error.message}`
             : breakout.isPending
-              ? "双突破计算中…"
+              ? "双突破标注后台加载中，K 线可正常浏览"
               : undefined
       }
       czscMessage={
@@ -260,7 +277,7 @@ export function CzscMarketChart({
           : result.error
             ? `缠论计算失败：${result.error.message}`
             : result.isPending
-              ? "缠论计算中…"
+              ? "缠论标注后台加载中，K 线可正常浏览"
               : undefined
       }
     />
