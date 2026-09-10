@@ -8,6 +8,7 @@
 2. [roadmap.md](roadmap.md)（3 分钟）：看范围、架构决策、冻结清单与升级规则。
 3. [architecture.md](architecture.md)（7 分钟）：按数据流找到模块职责、真实入口和依赖。
 4. [invariants.md](invariants.md)（8 分钟）：先读不可违反的语义及对应测试，尤其未来函数、除权、通知和数据库隔离。
+5. [conventions.md](conventions.md)（5 分钟）：动手前读开发规范——风格、命名、UI 用法、测试与提交要求。
 5. [next-plan.md](next-plan.md)（3 分钟）：只看未开始的 N2/P3 前置与完整规格，别重做已完成阶段。
 6. [operations.md](operations.md)（4 分钟）：选择验证层级，识别目录、构建顺序及常见故障。
 7. [decisions.md](decisions.md)（按当前任务检索 3 分钟）：了解理由、失败试验和后续修正，不需要第一次逐行读完。
@@ -30,6 +31,7 @@
 | [roadmap.md](roadmap.md) | 范围唯一事实源，含完成摘要而非旧验收任务 |
 | [architecture.md](architecture.md) | 模块职责/入口/输入输出/依赖/不变量 |
 | [invariants.md](invariants.md) | 持续有效约束与测试映射，含裁剪抢救的裁定 |
+| [conventions.md](conventions.md) | 开发规范：风格、命名、UI、服务端、测试、注释、提交 |
 | [next-plan.md](next-plan.md) | 未开始的 N2、P3 及明确不做 |
 | [operations.md](operations.md) | 开发、测试、构建、故障与目录维护 |
 | [decisions.md](decisions.md) | 完整历史决策正文，旧结论按后续修订解释 |
