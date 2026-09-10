@@ -1,0 +1,40 @@
+{
+  "controls": [
+    {
+      "tag": "TABLE",
+      "slot": null,
+      "type": null,
+      "label": "策略信号质量期限样本数有效数中位收益胜率盈亏比留空计数留空原因双突破4/5T+510———1等待回填：1双突破4/5T+1010———1等待回填：1双突破4/5T+2010———1等待回填：1",
+      "x": 205,
+      "y": 450.90625,
+      "width": 1430,
+      "height": 165.5,
+      "color": "rgb(36, 55, 74)",
+      "background": "rgba(0, 0, 0, 0)",
+      "border": "0px solid rgb(36, 55, 74)",
+      "padding": "0px",
+      "font": "14px / 23.1px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+      "radius": "0px"
+    },
+    {
+      "tag": "BUTTON",
+      "slot": null,
+      "type": null,
+      "label": "Open Next.js Dev Tools",
+      "x": 22,
+      "y": 1296,
+      "width": 32,
+      "height": 32,
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "border": "0px none rgb(0, 0, 0)",
+      "padding": "0px",
+      "font": "16px / 24px __nextjs-Geist, Geist, -apple-system, \"Source Sans Pro\", sans-serif",
+      "radius": "9999px"
+    }
+  ],
+  "errors": [],
+  "requests": [],
+  "interactions": [],
+  "actualNotificationDeliveries": 0
+}

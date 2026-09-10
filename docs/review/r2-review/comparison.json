@@ -1,0 +1,1255 @@
+[
+  {
+    "page": "connections",
+    "replaced": {
+      "input": 17,
+      "select": 3,
+      "textarea": 2,
+      "table": 0,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 8,
+      "select": 1,
+      "textarea": 0,
+      "table": 0,
+      "button": 0
+    },
+    "before": {
+      "width": 1840,
+      "height": 2749
+    },
+    "after": {
+      "width": 1840,
+      "height": 2719
+    },
+    "changedOverlapPixels": 867349,
+    "extraHeightPixels": 55200,
+    "controls": [
+      {
+        "label": "通达信安装目录",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "聊天渠道出站代理（可选）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "双突破高档最低分（0–5）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "双突破中档最低分（低于高档）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "每渠道每日最多消息数（含1条汇总）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "同标的同策略同方向去重交易日数（0关闭）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "收盘汇总时间（北京时间）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "静默开始",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "静默结束",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "渠道名称",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "机器人 Webhook 地址",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "签名密钥（可选）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "page": "signals",
+    "replaced": {
+      "input": 4,
+      "select": 3,
+      "textarea": 0,
+      "table": 0,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 0,
+      "button": 0
+    },
+    "before": {
+      "width": 1840,
+      "height": 1660
+    },
+    "after": {
+      "width": 1840,
+      "height": 1654
+    },
+    "changedOverlapPixels": 314268,
+    "extraHeightPixels": 11040,
+    "controls": [
+      {
+        "label": "监控名称",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "证券池（留空使用自选）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "page": "trade-ledger",
+    "replaced": {
+      "input": 12,
+      "select": 2,
+      "textarea": 0,
+      "table": 3,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 0,
+      "button": 14
+    },
+    "before": {
+      "width": 1840,
+      "height": 1592
+    },
+    "after": {
+      "width": 1840,
+      "height": 1586
+    },
+    "changedOverlapPixels": 563967,
+    "extraHeightPixels": 11040,
+    "controls": [
+      {
+        "label": "股票代码（如sh600519）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "成交日期",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "成交价格",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "数量（100股整数倍）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "当日跌停价",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "当日涨停价",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "涨跌停依据（终端及日期）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "止损位（可空，可在持仓中更新）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "备注",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "sh600519 当前止损位",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "page": "signal-ledger",
+    "replaced": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 1,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 0,
+      "button": 0
+    },
+    "before": {
+      "width": 1840,
+      "height": 1350
+    },
+    "after": {
+      "width": 1840,
+      "height": 1350
+    },
+    "changedOverlapPixels": 278706,
+    "extraHeightPixels": 0,
+    "controls": []
+  },
+  {
+    "page": "screen",
+    "replaced": {
+      "input": 8,
+      "select": 3,
+      "textarea": 2,
+      "table": 3,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 0,
+      "button": 4
+    },
+    "before": {
+      "width": 1840,
+      "height": 5520
+    },
+    "after": {
+      "width": 1840,
+      "height": 5263
+    },
+    "changedOverlapPixels": 2116784,
+    "extraHeightPixels": 472880,
+    "controls": [
+      {
+        "label": "公式名称",
+        "changed": {
+          "width": {
+            "before": 225,
+            "after": 241
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "公式源码",
+        "changed": {
+          "height": {
+            "before": 235.9375,
+            "after": 218
+          },
+          "font": {
+            "before": "12px / 21.6px monospace",
+            "after": "14px / 20px monospace"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "8px 12px"
+          }
+        }
+      },
+      {
+        "label": "公式参数 JSON",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "在线选股条件",
+        "changed": {
+          "height": {
+            "before": 63.1875,
+            "after": 64
+          },
+          "font": {
+            "before": "12px / 21.6px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "8px 12px"
+          }
+        }
+      },
+      {
+        "label": "自然语言选股条件",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "历史研究截止日（留空使用本地最近时点）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "证券池（留空扫描全部本地 A 股；代码以逗号分隔）",
+        "changed": {
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "筛选候选名称或代码",
+        "changed": {
+          "width": {
+            "before": 24,
+            "after": 788.875
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "page": "market",
+    "replaced": {
+      "input": 9,
+      "select": 2,
+      "textarea": 0,
+      "table": 0,
+      "button": 0
+    },
+    "retainedInListedFiles": {
+      "input": 0,
+      "select": 0,
+      "textarea": 0,
+      "table": 0,
+      "button": 11
+    },
+    "before": {
+      "width": 1840,
+      "height": 2022
+    },
+    "after": {
+      "width": 1840,
+      "height": 2022
+    },
+    "changedOverlapPixels": 53882,
+    "extraHeightPixels": 0,
+    "controls": [
+      {
+        "label": "搜索品种名称或代码",
+        "changed": {
+          "width": {
+            "before": 176.796875,
+            "after": 191.4375
+          },
+          "height": {
+            "before": 34,
+            "after": 36
+          },
+          "font": {
+            "before": "12px Consolas, monospace",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MA 参数 1",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MA 参数 2",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MA 参数 3",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MA 参数 4",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MACD 参数 1",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MACD 参数 2",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "MACD 参数 3",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "KDJ 参数 1",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "KDJ 参数 2",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "KDJ 参数 3",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "RSI 参数 1",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "RSI 参数 2",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "RSI 参数 3",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "BOLL 参数 1",
+        "changed": {
+          "width": {
+            "before": 82,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      },
+      {
+        "label": "BOLL 参数 2",
+        "changed": {
+          "width": {
+            "before": 88,
+            "after": 80
+          },
+          "height": {
+            "before": 39.796875,
+            "after": 36
+          },
+          "font": {
+            "before": "12px / 19.8px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+            "after": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif"
+          },
+          "background": {
+            "before": "rgb(251, 252, 254)",
+            "after": "rgba(0, 0, 0, 0)"
+          },
+          "padding": {
+            "before": "9px 11px",
+            "after": "4px 12px"
+          }
+        }
+      }
+    ]
+  }
+]

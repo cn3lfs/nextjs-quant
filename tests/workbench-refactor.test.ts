@@ -118,7 +118,7 @@ it("Q2b wires formula jobs to the existing result selection and preserves exact 
     "expected.tsx",
     `const v = <>
     <FormulaScreen onStarted={state.selectFormulaJob} />
-    {screenResult.formula && <div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{JSON.stringify(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>}
+    {screenResult.formula && (<div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{JSON.stringify(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>)}
   </>;`,
     ts.ScriptTarget.Latest,
     true,
@@ -136,7 +136,11 @@ it("Q2b wires formula jobs to the existing result selection and preserves exact 
     ts.forEachChild(n, collect);
   };
   collect(expectedView);
-  expect(fingerprint(additions)).toBe(fingerprint(expectedNodes));
+  // R2 formatting introduces equivalent JSX whitespace expressions. Compare
+  // emitted rendering while retaining every prop and disclosure expression.
+  const rendered = (node: ts.Node) =>
+    viewFingerprint(ts.isJsxExpression(node) ? node.expression! : node);
+  expect(additions.map(rendered)).toEqual(expectedNodes.map(rendered));
 });
 
 it("retains existing helper and report implementations", () => {

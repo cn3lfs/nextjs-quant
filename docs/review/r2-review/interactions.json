@@ -1,0 +1,93 @@
+{
+  "pages": {
+    "connections": {
+      "checks": [
+        "目录填写与保存请求参数一致（仅隔离库）",
+        "日历多行输入保持原分词",
+        "自定义静默复选及时间字段禁用联动",
+        "平台切换显示Telegram字段",
+        "渠道复选可开关；未保存渠道、未调用测试通知"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    },
+    "signals": {
+      "checks": [
+        "订阅名称与证券池填写",
+        "策略下拉锁定日线",
+        "本地下拉选择",
+        "AI复选开关",
+        "隔离库保存并暂停无渠道本地订阅，核验提交参数"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    },
+    "trade-ledger": {
+      "checks": [
+        "原生required校验仍阻止空表单",
+        "默认买入及切换买卖的FormData值",
+        "空关联选项可选且提交空字符串",
+        "当前持仓DataTable显示原有记录",
+        "隔离库本地成交提交成功",
+        "契约表折叠开关；模拟盘保持关闭"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    },
+    "signal-ledger": {
+      "checks": [
+        "聚合表期限顺序T+5/T+10/T+20不变",
+        "原页面无排序与分页，未新增",
+        "台账和每日任务明细展开及收起",
+        "已完成任务没有取消按钮，不伪造运行任务"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    },
+    "screen": {
+      "checks": [
+        "123条候选服务端排序，当前页50条",
+        "下一页请求page=1且保留sort=symbol",
+        "排序方向变化回第一页",
+        "搜索请求page=0，精确命中1条",
+        "53条隔离记录第二页3条",
+        "公式未来函数拒绝、有效公式本地保存、切回空选项新公式",
+        "未执行在线查询或全市场公式任务"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    },
+    "market": {
+      "checks": [
+        "BOLL、对数坐标复选开关",
+        "既有图表暗色开关仍只作用于图表，测试后关闭",
+        "MACD/成交量副图切换",
+        "观察日选择并切回空值最新",
+        "MA参数表单提交并核验保存请求",
+        "品种搜索输入与Escape收起；图表canvas保留"
+      ],
+      "browserErrors": [],
+      "blockedBrowserExternalRequests": [],
+      "dialogs": "原页面未使用dialog；保留的details按适用页面验证",
+      "switches": "原页面使用checkbox，未引入新Switch行为"
+    }
+  },
+  "notificationAudit": {
+    "dataDirectory": ".test-data/r2/browser",
+    "configuredChannelRows": 0,
+    "deliveryRows": 0,
+    "deliveryAttempts": 0,
+    "actualNetworkDeliveries": 0,
+    "basis": "隔离库只读查询channel/delivery均无记录；所有订阅提交channels=[]；未调用测试通知或手动重发；受限网络环境"
+  }
+}

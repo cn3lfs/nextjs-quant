@@ -1,0 +1,42 @@
+[
+  {
+    "id": "r2-screen",
+    "version": 1789005600000,
+    "page": 0,
+    "excludedPage": 0,
+    "errorPage": 0,
+    "query": "",
+    "sort": "symbol",
+    "direction": "desc"
+  },
+  {
+    "id": "r2-screen",
+    "version": 1789005600000,
+    "page": 1,
+    "excludedPage": 0,
+    "errorPage": 0,
+    "query": "",
+    "sort": "symbol",
+    "direction": "desc"
+  },
+  {
+    "id": "r2-screen",
+    "version": 1789005600000,
+    "page": 0,
+    "excludedPage": 0,
+    "errorPage": 0,
+    "query": "",
+    "sort": "symbol",
+    "direction": "asc"
+  },
+  {
+    "id": "r2-screen",
+    "version": 1789005600000,
+    "page": 0,
+    "excludedPage": 0,
+    "errorPage": 0,
+    "query": "sh600010",
+    "sort": "symbol",
+    "direction": "asc"
+  }
+]

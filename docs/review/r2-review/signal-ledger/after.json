@@ -1,0 +1,45 @@
+{
+  "controls": [
+    {
+      "tag": "TABLE",
+      "slot": "table",
+      "type": null,
+      "label": "聚合统计",
+      "x": 206,
+      "y": 451.90625,
+      "width": 1428,
+      "height": 150.5,
+      "color": "rgb(36, 55, 74)",
+      "background": "rgba(0, 0, 0, 0)",
+      "border": "0px solid rgb(225, 232, 239)",
+      "padding": "0px",
+      "font": "14px / 20px \"Segoe UI\", \"Microsoft YaHei\", sans-serif",
+      "radius": "0px"
+    },
+    {
+      "tag": "BUTTON",
+      "slot": null,
+      "type": null,
+      "label": "Open Next.js Dev Tools",
+      "x": 22,
+      "y": 1296,
+      "width": 32,
+      "height": 32,
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "border": "0px none rgb(0, 0, 0)",
+      "padding": "0px",
+      "font": "16px / 24px __nextjs-Geist, Geist, -apple-system, \"Source Sans Pro\", sans-serif",
+      "radius": "9999px"
+    }
+  ],
+  "errors": [],
+  "requests": [],
+  "interactions": [
+    "聚合表期限顺序T+5/T+10/T+20不变",
+    "原页面无排序与分页，未新增",
+    "台账和每日任务明细展开及收起",
+    "已完成任务没有取消按钮，不伪造运行任务"
+  ],
+  "actualNotificationDeliveries": 0
+}

@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-10",
+  "baselineCommit": "4725e40",
+  "scope": "R2 only; six everyday pages",
+  "checks": [
+    { "command": "pnpm typecheck", "exitCode": 0 },
+    { "command": "pnpm test", "exitCode": 0, "filesPassed": 168, "testsPassed": 1055, "durationSeconds": 101.64 },
+    { "command": "pnpm exec vitest run tests/workbench-refactor.test.ts tests/r2-render-contract.test.ts", "exitCode": 0, "filesPassed": 2, "testsPassed": 11, "note": "Focused recheck after final textarea class and corresponding structure fingerprint update." },
+    { "command": "pnpm build", "exitCode": 0, "includes": "pnpm runtime:build" },
+    { "command": "pnpm desktop:prepare", "exitCode": 0 },
+    { "command": "git diff --check", "exitCode": 0 }
+  ],
+  "baseline": { "files": 167, "tests": 1049 },
+  "browserEvidence": "interactions.json",
+  "visualEvidence": "README.md and six per-page before/after screenshot pairs",
+  "isolation": {
+    "browserData": ".test-data/r2/browser",
+    "buildData": ".test-data/r2/build",
+    "unitTests": "QUANT_DATA_DIR removed from parent environment; existing test setup creates isolated temporary directories",
+    "productionDatabaseUsed": false
+  },
+  "actualNotificationDeliveries": 0,
+  "notRun": ["desktop:smoke", "desktop:pack", "real notification tests", "remote MCP tool query", "remote mock-trading operations"],
+  "committed": false,
+  "pushed": false,
+  "visualAcceptance": "B layer pending user confirmation"
+}

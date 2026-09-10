@@ -1,4 +1,7 @@
 "use client";
+import { DataTable } from "~/components/ui/data-table";
+import { Textarea } from "~/components/ui/textarea";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import type { Job } from "~/lib/domain";
@@ -57,7 +60,8 @@ export function OnlineScreen({
       <p>
         财务、行业等条件可在此查询。服务的条件解释、日期和复权口径需核对；导入代码后，再用下方本地规则复核。
       </p>
-      <textarea
+      <Textarea
+        className="field-sizing-fixed"
         aria-label="在线选股条件"
         value={query}
         maxLength={2000}
@@ -128,53 +132,82 @@ export function OnlineScreen({
             </Button>
           </div>
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>证券</th>
-                  <th>本地覆盖</th>
-                  {data.columns.map((c) => (
-                    <th key={c.key}>{c.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.rows.map((row) => (
-                  <tr key={row.index}>
-                    <td>
-                      {row.name}
-                      <small>{row.symbol ?? row.identityWarning}</small>
-                    </td>
-                    <td>
-                      {row.symbol ? (
-                        <>
-                          {data.localCoverage.find(
-                            (c) => c.symbol === row.symbol,
-                          )?.day
-                            ? "已索引日线"
-                            : "未索引日线"}{" "}
-                          /{" "}
-                          {data.localCoverage.find(
-                            (c) => c.symbol === row.symbol,
-                          )?.minute
-                            ? "已索引分钟线"
-                            : "未索引分钟线"}
-                        </>
-                      ) : (
-                        "不可导入"
-                      )}
-                    </td>
-                    {data.columns.map((c) => (
-                      <td key={c.key}>
+            <DataTable
+              label="在线筛选结果"
+              data={data.rows}
+              columns={[
+                {
+                  id: "column-0",
+                  header: "证券",
+                  enableSorting: false,
+                  cell: ({ row: tableRow }) => {
+                    const row = tableRow.original;
+                    return (
+                      <>
+                        {row.name}
+                        <small>{row.symbol ?? row.identityWarning}</small>
+                      </>
+                    );
+                  },
+                },
+                {
+                  id: "column-1",
+                  header: "本地覆盖",
+                  enableSorting: false,
+                  cell: ({ row: tableRow }) => {
+                    const row = tableRow.original;
+                    return (
+                      <>
+                        {row.symbol ? (
+                          <>
+                            {data.localCoverage.find(
+                              (c) => c.symbol === row.symbol,
+                            )?.day
+                              ? "已索引日线"
+                              : "未索引日线"}{" "}
+                            /{" "}
+                            {data.localCoverage.find(
+                              (c) => c.symbol === row.symbol,
+                            )?.minute
+                              ? "已索引分钟线"
+                              : "未索引分钟线"}
+                          </>
+                        ) : (
+                          "不可导入"
+                        )}
+                      </>
+                    );
+                  },
+                },
+                ...data.columns.map((c) => ({
+                  id: c.key,
+                  header: c.label,
+                  enableSorting: false,
+                  cell: ({
+                    row: tableRow,
+                  }: {
+                    row: { original: (typeof data.rows)[number] };
+                  }) => {
+                    const row = tableRow.original;
+                    return (
+                      <>
                         {typeof row.values[c.key] === "object"
                           ? JSON.stringify(row.values[c.key])
                           : String(row.values[c.key] ?? "—")}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </>
+                    );
+                  },
+                })),
+              ]}
+              getRowId={(row) => String(row.index)}
+              rowCount={data.total}
+              pagination={{ pageIndex: data.page - 1, pageSize: data.pageSize }}
+              sorting={[]}
+              onPaginationChange={() => {}}
+              onSortingChange={() => {}}
+              showPagination={false}
+              emptyMessage={null}
+            />
           </div>
           <details>
             <summary>查看工具 schema 与源指纹</summary>

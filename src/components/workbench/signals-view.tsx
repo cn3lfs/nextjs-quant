@@ -1,3 +1,12 @@
+import { Input } from "~/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+import { Checkbox } from "~/components/ui/checkbox";
 import { ChevronRight, Plus, Radio, Send } from "lucide-react";
 import { type Period } from "~/lib/domain";
 import { securityDisplayName } from "~/lib/security-display";
@@ -80,51 +89,56 @@ export function SignalsView({
         </div>
         <div className="form-grid">
           <Field label="监控名称">
-            <input
+            <Input
               value={monitorName}
               onChange={(e) => setMonitorName(e.target.value)}
             />
           </Field>
           <Field label="证券池（留空使用自选）">
-            <input
+            <Input
               value={universe}
               onChange={(e) => setUniverse(e.target.value)}
               placeholder={watchlist.join(",")}
             />
           </Field>
           <Field label="监控策略">
-            <select
-              aria-label="监控策略"
+            <Select
               value={monitorType}
-              onChange={(e) => {
+              onValueChange={(selected) => {
                 setMonitorType(
-                  e.target.value as
-                    "ma-cross" | "czsc" | "dual-breakout",
+                  selected as "ma-cross" | "czsc" | "dual-breakout",
                 );
-                if (e.target.value !== "ma-cross") setPeriod("day");
+                if (selected !== "ma-cross") setPeriod("day");
               }}
             >
-              <option value="ma-cross">双均线趋势</option>
-              <option value="czsc">缠论买卖点（确认及以上）</option>
-              <option value="dual-breakout">双突破（日线）</option>
-            </select>
+              <SelectTrigger aria-label="监控策略" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ma-cross">双均线趋势</SelectItem>
+                <SelectItem value="czsc">缠论买卖点（确认及以上）</SelectItem>
+                <SelectItem value="dual-breakout">双突破（日线）</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="周期">
-            <select
+            <Select
               value={monitorType !== "ma-cross" ? "day" : period}
               disabled={monitorType !== "ma-cross"}
-              onChange={(e) => setPeriod(e.target.value as Period)}
+              onValueChange={(selected) => setPeriod(selected as Period)}
             >
-              <option value="day">日线</option>
-              <option value="5m">五分钟线</option>
-            </select>
+              <SelectTrigger aria-label="周期" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">日线</SelectItem>
+                <SelectItem value="5m">五分钟线</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         {monitorType === "ma-cross" ? (
-          <StrategyFields
-            strategy={strategy}
-            setStrategy={setStrategy}
-          />
+          <StrategyFields strategy={strategy} setStrategy={setStrategy} />
         ) : (
           <p className="muted">
             日线 15:05 后检查一、二、三类买卖点；使用严格笔中枢（配置
@@ -132,25 +146,31 @@ export function SignalsView({
           </p>
         )}
         <Field label="监控数据源">
-          <select
+          <Select
             value={monitorSource}
-            onChange={(e) =>
-              setMonitorSource(e.target.value as "local" | "mcp")
+            onValueChange={(selected) =>
+              setMonitorSource(selected as "local" | "mcp")
             }
           >
-            <option value="mcp">通达信 MCP（最新行情）</option>
-            <option value="local">本地通达信文件（需自行更新）</option>
-          </select>
+            <SelectTrigger aria-label="监控数据源" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mcp">通达信 MCP（最新行情）</SelectItem>
+              <SelectItem value="local">
+                本地通达信文件（需自行更新）
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         <div className="check-row">
           {channels.data?.map((c) => (
             <label key={c.id}>
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={monitorChannels.includes(c.id)}
-                onChange={(e) =>
+                onCheckedChange={(checked) =>
                   setMonitorChannels(
-                    e.target.checked
+                    checked === true
                       ? [...monitorChannels, c.id]
                       : monitorChannels.filter((id) => id !== c.id),
                   )
@@ -161,10 +181,9 @@ export function SignalsView({
             </label>
           ))}
           <label>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={monitorAi}
-              onChange={(e) => setMonitorAi(e.target.checked)}
+              onCheckedChange={(checked) => setMonitorAi(checked === true)}
             />
             信号后附加 AI 解读
           </label>
@@ -220,14 +239,9 @@ export function SignalsView({
                       : "等待首次检查")}
                 </p>
                 <CalendarEvidence evidence={m.calendarEvidence} />
-                {Object.values(m.tradingStatusChecks ?? {}).map(
-                  (check) => (
-                    <TradingStatusEvidence
-                      key={check.symbol}
-                      value={check}
-                    />
-                  ),
-                )}
+                {Object.values(m.tradingStatusChecks ?? {}).map((check) => (
+                  <TradingStatusEvidence key={check.symbol} value={check} />
+                ))}
               </div>
               <Button
                 variant="outline"
@@ -264,9 +278,7 @@ export function SignalsView({
                   {s.date} · 收盘 {fmt(s.metrics.close)} · {s.id}
                 </p>
                 <CalendarEvidence evidence={s.calendarEvidence} />
-                <TradingStatusEvidence
-                  value={s.tradingStatusEvidence}
-                />
+                <TradingStatusEvidence value={s.tradingStatusEvidence} />
               </div>
               <span className="tag">规则触发</span>
             </div>
@@ -279,11 +291,7 @@ export function SignalsView({
         <div className="panel-title">
           <Send size={17} />
           <h3>投递历史</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setTab("settings")}
-          >
+          <Button size="sm" variant="ghost" onClick={() => setTab("settings")}>
             管理渠道 <ChevronRight size={13} />
           </Button>
         </div>
@@ -293,8 +301,8 @@ export function SignalsView({
               <div>
                 <strong>
                   {d.title} ·{" "}
-                  {channels.data?.find((c) => c.id === d.channelId)
-                    ?.name ?? d.channelId}
+                  {channels.data?.find((c) => c.id === d.channelId)?.name ??
+                    d.channelId}
                 </strong>
                 <p>
                   {stamp(d.createdAt)} · 尝试 {d.attempts} 次 ·{" "}
@@ -317,9 +325,7 @@ export function SignalsView({
                   }[d.status]
                 }
               </span>
-              {["failed", "expired", "cancelled"].includes(
-                d.status,
-              ) && (
+              {["failed", "expired", "cancelled"].includes(d.status) && (
                 <Button
                   size="sm"
                   variant="outline"

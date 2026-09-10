@@ -1,3 +1,12 @@
+import { Input } from "~/components/ui/input";
+import { Checkbox } from "~/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
 import {
   tierLabels,
   type DeliveryTier,
@@ -18,16 +27,21 @@ export function NotificationPolicyFields({
   ) => (
     <label>
       {label}
-      <select
+      <Select
         value={value}
-        onChange={(e) => change(e.target.value as DeliveryTier)}
+        onValueChange={(selected) => change(selected as DeliveryTier)}
       >
-        {Object.entries(tierLabels).map(([v, text]) => (
-          <option key={v} value={v}>
-            {text}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger aria-label={label} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(tierLabels).map(([v, text]) => (
+            <SelectItem key={v} value={v}>
+              {text}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   );
   return (
@@ -48,7 +62,7 @@ export function NotificationPolicyFields({
         )}
         <label>
           双突破高档最低分（0–5）
-          <input
+          <Input
             type="number"
             min={0}
             max={5}
@@ -63,7 +77,7 @@ export function NotificationPolicyFields({
         </label>
         <label>
           双突破中档最低分（低于高档）
-          <input
+          <Input
             type="number"
             min={0}
             max={5}
@@ -87,7 +101,7 @@ export function NotificationPolicyFields({
         )}
         <label>
           每渠道每日最多消息数（含1条汇总）
-          <input
+          <Input
             type="number"
             min={1}
             max={100}
@@ -99,7 +113,7 @@ export function NotificationPolicyFields({
         </label>
         <label>
           同标的同策略同方向去重交易日数（0关闭）
-          <input
+          <Input
             type="number"
             min={0}
             max={60}
@@ -111,7 +125,7 @@ export function NotificationPolicyFields({
         </label>
         <label>
           收盘汇总时间（北京时间）
-          <input
+          <Input
             type="time"
             min="15:05"
             max="23:30"
@@ -121,27 +135,27 @@ export function NotificationPolicyFields({
         </label>
       </div>
       <label>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={p.quietOutsideTrading}
-          onChange={(e) =>
-            onChange({ ...p, quietOutsideTrading: e.target.checked })
+          onCheckedChange={(checked) =>
+            onChange({ ...p, quietOutsideTrading: checked === true })
           }
         />
         非交易时段静默（交易日09:30–11:30、13:00–15:00以外）
       </label>
       <label>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={p.quietEnabled}
-          onChange={(e) => onChange({ ...p, quietEnabled: e.target.checked })}
+          onCheckedChange={(checked) =>
+            onChange({ ...p, quietEnabled: checked === true })
+          }
         />
         启用自定义静默时段
       </label>
       <div className="form-grid">
         <label>
           静默开始
-          <input
+          <Input
             type="time"
             disabled={!p.quietEnabled}
             value={p.quietStart}
@@ -150,7 +164,7 @@ export function NotificationPolicyFields({
         </label>
         <label>
           静默结束
-          <input
+          <Input
             type="time"
             disabled={!p.quietEnabled}
             value={p.quietEnd}

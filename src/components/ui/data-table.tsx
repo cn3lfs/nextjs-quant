@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import type { ReactNode } from "react";
 
 // State coordination only: no sorted/paginated row-model plugins are registered.
 export const dataTableFeatures = tableFeatures({
@@ -43,7 +44,9 @@ export type DataTableProps<T extends object> = {
   loading?: boolean;
   error?: string;
   onRetry?: () => void;
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
+  /** Existing page toolbars keep ownership of pagination during R2 migration. */
+  showPagination?: boolean;
 };
 
 export function DataTable<T extends object>({
@@ -60,6 +63,7 @@ export function DataTable<T extends object>({
   error,
   onRetry,
   emptyMessage = "暂无数据。",
+  showPagination = true,
 }: DataTableProps<T>) {
   const table = useTable({
     features: dataTableFeatures,
@@ -120,7 +124,8 @@ export function DataTable<T extends object>({
             ))}
           </TableHeader>
           <TableBody>
-            {busy || !data.length ? (
+            {!busy && !data.length && emptyMessage === null ? null : busy ||
+              !data.length ? (
               <TableRow>
                 <TableCell
                   colSpan={table.getAllLeafColumns().length || 1}
@@ -155,32 +160,34 @@ export function DataTable<T extends object>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground" aria-live="polite">
-          共 {rowCount} 条 · 第 {rowCount ? pagination.pageIndex + 1 : 0} /{" "}
-          {table.getPageCount()} 页
-        </span>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || !table.getCanPreviousPage()}
-            onClick={() => table.previousPage()}
-          >
-            上一页
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || !table.getCanNextPage()}
-            onClick={() => table.nextPage()}
-          >
-            下一页
-          </Button>
+      {showPagination && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground" aria-live="polite">
+            共 {rowCount} 条 · 第 {rowCount ? pagination.pageIndex + 1 : 0} /{" "}
+            {table.getPageCount()} 页
+          </span>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || !table.getCanPreviousPage()}
+              onClick={() => table.previousPage()}
+            >
+              上一页
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || !table.getCanNextPage()}
+              onClick={() => table.nextPage()}
+            >
+              下一页
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

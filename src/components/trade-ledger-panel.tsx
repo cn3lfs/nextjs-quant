@@ -1,4 +1,15 @@
 "use client";
+import { DataTable } from "~/components/ui/data-table";
+
+import { Input } from "~/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+
 import { useRef, useState, useTransition } from "react";
 import { feeLabel } from "~/lib/trade-ledger";
 import { mockContract, mockMarketLabel } from "~/lib/mock-trading-contract";
@@ -40,7 +51,9 @@ export function TradeLedgerPanel({
   const [preview, setPreview] = useState<Awaited<
     ReturnType<typeof previewMockOrder>
   > | null>(null);
-  const [diagnostics, setDiagnostics] = useState<Awaited<ReturnType<typeof readMockDiagnostics>> | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Awaited<
+    ReturnType<typeof readMockDiagnostics>
+  > | null>(null);
   const [markets, setMarkets] = useState<string[]>([]);
   const [remoteQuery, setRemoteQuery] = useState<unknown>(null);
   const form = useRef<HTMLFormElement>(null),
@@ -107,11 +120,11 @@ export function TradeLedgerPanel({
             <div className="form-grid">
               <label>
                 股票代码（如sh600519）
-                <input name="symbol" required pattern="(sh|sz|bj)[0-9]{6}" />
+                <Input name="symbol" required pattern="(sh|sz|bj)[0-9]{6}" />
               </label>
               <label>
                 成交日期
-                <input
+                <Input
                   name="date"
                   type="date"
                   required
@@ -121,14 +134,19 @@ export function TradeLedgerPanel({
               </label>
               <label>
                 买卖
-                <select name="side">
-                  <option value="buy">买入</option>
-                  <option value="sell">卖出</option>
-                </select>
+                <Select name="side" defaultValue="buy">
+                  <SelectTrigger aria-label="买卖" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buy">买入</SelectItem>
+                    <SelectItem value="sell">卖出</SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
               <label>
                 成交价格
-                <input
+                <Input
                   name="price"
                   type="number"
                   step="0.01"
@@ -138,7 +156,7 @@ export function TradeLedgerPanel({
               </label>
               <label>
                 数量（100股整数倍）
-                <input
+                <Input
                   name="quantity"
                   type="number"
                   step="100"
@@ -148,7 +166,7 @@ export function TradeLedgerPanel({
               </label>
               <label>
                 当日跌停价
-                <input
+                <Input
                   name="lowerLimit"
                   type="number"
                   step="0.01"
@@ -158,7 +176,7 @@ export function TradeLedgerPanel({
               </label>
               <label>
                 当日涨停价
-                <input
+                <Input
                   name="upperLimit"
                   type="number"
                   step="0.01"
@@ -168,26 +186,35 @@ export function TradeLedgerPanel({
               </label>
               <label>
                 涨跌停依据（终端及日期）
-                <input name="limitSource" required maxLength={200} />
+                <Input name="limitSource" required maxLength={200} />
               </label>
               <label>
                 关联台账信号（可空）
-                <select name="signalId">
-                  <option value="">手动交易，不关联</option>
-                  {data.signals.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.date} · {s.symbol} · {s.strategy} · {s.id.slice(0, 8)}
-                    </option>
-                  ))}
-                </select>
+                <Select name="signalId" defaultValue="">
+                  <SelectTrigger
+                    aria-label="关联台账信号（可空）"
+                    className="w-full"
+                  >
+                    <SelectValue placeholder="手动交易，不关联" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">手动交易，不关联</SelectItem>
+                    {data.signals.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.date} · {s.symbol} · {s.strategy} ·{" "}
+                        {s.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
               <label>
                 止损位（可空，可在持仓中更新）
-                <input name="stop" type="number" min="0.01" step="0.01" />
+                <Input name="stop" type="number" min="0.01" step="0.01" />
               </label>
               <label>
                 备注
-                <input name="note" maxLength={500} />
+                <Input name="note" maxLength={500} />
               </label>
             </div>
             <p>
@@ -205,42 +232,108 @@ export function TradeLedgerPanel({
         </p>
         {!data.positions.length && <p>暂无持仓，请先录入一笔买入。</p>}
         <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                {[
-                  "标的",
-                  "持股",
-                  "T+1可卖",
-                  "核对后成本",
-                  "参考成本",
-                  "本地收盘/日期",
-                  "浮动盈亏",
-                  "止损距离",
-                  "除权状态",
-                ].map((s) => (
-                  <th key={s}>{s}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.positions.map((p) => (
-                <tr key={p.symbol}>
-                  <td>{p.symbol}</td>
-                  <td>{p.quantity}</td>
-                  <td>{p.sellable}</td>
-                  <td>{number(p.adjustedCost)}</td>
-                  <td>{number(p.averageCost)}</td>
-                  <td>
-                    {number(p.quote?.price)} / {p.quote?.date ?? "行情缺失"}
-                  </td>
-                  <td>{number(p.floating)}</td>
-                  <td>{number(p.stopDistancePct)}%</td>
-                  <td>{p.adjustmentStatus}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            label="当前持仓"
+            data={data.positions}
+            columns={[
+              {
+                id: "column-0",
+                header: "标的",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{p.symbol}</>;
+                },
+              },
+              {
+                id: "column-1",
+                header: "持股",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{p.quantity}</>;
+                },
+              },
+              {
+                id: "column-2",
+                header: "T+1可卖",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{p.sellable}</>;
+                },
+              },
+              {
+                id: "column-3",
+                header: "核对后成本",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{number(p.adjustedCost)}</>;
+                },
+              },
+              {
+                id: "column-4",
+                header: "参考成本",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{number(p.averageCost)}</>;
+                },
+              },
+              {
+                id: "column-5",
+                header: "本地收盘/日期",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return (
+                    <>
+                      {number(p.quote?.price)} / {p.quote?.date ?? "行情缺失"}
+                    </>
+                  );
+                },
+              },
+              {
+                id: "column-6",
+                header: "浮动盈亏",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{number(p.floating)}</>;
+                },
+              },
+              {
+                id: "column-7",
+                header: "止损距离",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{number(p.stopDistancePct)}%</>;
+                },
+              },
+              {
+                id: "column-8",
+                header: "除权状态",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const p = row.original;
+                  return <>{p.adjustmentStatus}</>;
+                },
+              },
+            ]}
+            getRowId={(p) => String(p.symbol)}
+            rowCount={data.positions.length}
+            pagination={{
+              pageIndex: 0,
+              pageSize: Math.max(1, data.positions.length),
+            }}
+            sorting={[]}
+            onPaginationChange={() => {}}
+            onSortingChange={() => {}}
+            showPagination={false}
+            emptyMessage={null}
+          />
         </div>
         {data.positions
           .filter((p) => p.quantity > 0)
@@ -258,7 +351,7 @@ export function TradeLedgerPanel({
             >
               <label>
                 {p.symbol} 当前止损位
-                <input
+                <Input
                   name="stop"
                   type="number"
                   step="0.01"
@@ -309,7 +402,7 @@ export function TradeLedgerPanel({
               >
                 <label>
                   账户确认的送转股可卖日期
-                  <input
+                  <Input
                     type="date"
                     name="date"
                     min={a.event.date}
@@ -319,7 +412,7 @@ export function TradeLedgerPanel({
                 </label>
                 <label>
                   到账依据
-                  <input name="source" maxLength={200} required />
+                  <Input name="source" maxLength={200} required />
                 </label>
                 <button disabled={pending}>保存可卖依据（只记录一次）</button>
               </form>
@@ -361,50 +454,177 @@ export function TradeLedgerPanel({
         </p>
         {!data.comparison.length && <p>暂无可比较台账信号。</p>}
         <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                {[
-                  "分组",
-                  "策略/质量",
-                  "期限",
-                  "样本/有效",
-                  "中位收益%",
-                  "胜率%",
-                  "留空",
-                ].map((h) => (
-                  <th key={h}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.comparison.map((c) => (
-                <tr key={`${c.group}-${c.strategy}-${c.quality}-${c.horizon}`}>
-                  <td>{c.group}</td>
-                  <td>
-                    {c.strategy} / {c.quality}
-                  </td>
-                  <td>T+{c.horizon}</td>
-                  <td>
-                    {c.samples}/{c.valid}
-                  </td>
-                  <td>{number(c.median)}</td>
-                  <td>{number(c.winRate)}</td>
-                  <td>{c.blanks}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            label="做过与没做的信号"
+            data={data.comparison}
+            columns={[
+              {
+                id: "column-0",
+                header: "分组",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{c.group}</>;
+                },
+              },
+              {
+                id: "column-1",
+                header: "策略/质量",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return (
+                    <>
+                      {c.strategy} / {c.quality}
+                    </>
+                  );
+                },
+              },
+              {
+                id: "column-2",
+                header: "期限",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>T+{c.horizon}</>;
+                },
+              },
+              {
+                id: "column-3",
+                header: "样本/有效",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return (
+                    <>
+                      {c.samples}/{c.valid}
+                    </>
+                  );
+                },
+              },
+              {
+                id: "column-4",
+                header: "中位收益%",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{number(c.median)}</>;
+                },
+              },
+              {
+                id: "column-5",
+                header: "胜率%",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{number(c.winRate)}</>;
+                },
+              },
+              {
+                id: "column-6",
+                header: "留空",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{c.blanks}</>;
+                },
+              },
+            ]}
+            getRowId={(c) =>
+              String(`${c.group}-${c.strategy}-${c.quality}-${c.horizon}`)
+            }
+            rowCount={data.comparison.length}
+            pagination={{
+              pageIndex: 0,
+              pageSize: Math.max(1, data.comparison.length),
+            }}
+            sorting={[]}
+            onPaginationChange={() => {}}
+            onSortingChange={() => {}}
+            showPagination={false}
+            emptyMessage={null}
+          />
         </div>
       </section>
       <section className="panel">
         <h2>同花顺模拟盘（可选同步层）</h2>
-        <details><summary>文档契约与实测契约差异</summary><table><thead><tr><th>文档契约</th><th>实测契约</th><th>差异与处理</th></tr></thead><tbody>{mockContract.map(c => <tr key={c.documented}><td>{c.documented}</td><td>{c.observed}</td><td>{c.difference}</td></tr>)}</tbody></table></details>
-        <button disabled={pending || !enabled} onClick={() => run(async () => setMarkets(await readMockMarkets()))}>查看已保存市场代码（本地）</button>
-        {markets.map(code => <p key={code}>{code}：{mockMarketLabel(code)}</p>)}
-        <button disabled={pending || !enabled} onClick={() => run(async () => setRemoteQuery(await readMockFunds()))}>查询远程资金</button>
-        <button disabled={pending || !enabled} onClick={() => run(async () => setRemoteQuery(await readMockTrades()))}>查询当日成交</button>
-        {remoteQuery !== null && <pre className="overflow-auto">{JSON.stringify(remoteQuery, null, 2)}</pre>}
+        <details>
+          <summary>文档契约与实测契约差异</summary>
+          <DataTable
+            label="文档契约与实测契约差异"
+            data={[...mockContract]}
+            columns={[
+              {
+                id: "column-0",
+                header: "文档契约",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{c.documented}</>;
+                },
+              },
+              {
+                id: "column-1",
+                header: "实测契约",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{c.observed}</>;
+                },
+              },
+              {
+                id: "column-2",
+                header: "差异与处理",
+                enableSorting: false,
+                cell: ({ row }) => {
+                  const c = row.original;
+                  return <>{c.difference}</>;
+                },
+              },
+            ]}
+            getRowId={(c) => String(c.documented)}
+            rowCount={mockContract.length}
+            pagination={{
+              pageIndex: 0,
+              pageSize: Math.max(1, mockContract.length),
+            }}
+            sorting={[]}
+            onPaginationChange={() => {}}
+            onSortingChange={() => {}}
+            showPagination={false}
+            emptyMessage={null}
+          />
+        </details>
+        <button
+          disabled={pending || !enabled}
+          onClick={() => run(async () => setMarkets(await readMockMarkets()))}
+        >
+          查看已保存市场代码（本地）
+        </button>
+        {markets.map((code) => (
+          <p key={code}>
+            {code}：{mockMarketLabel(code)}
+          </p>
+        ))}
+        <button
+          disabled={pending || !enabled}
+          onClick={() => run(async () => setRemoteQuery(await readMockFunds()))}
+        >
+          查询远程资金
+        </button>
+        <button
+          disabled={pending || !enabled}
+          onClick={() =>
+            run(async () => setRemoteQuery(await readMockTrades()))
+          }
+        >
+          查询当日成交
+        </button>
+        {remoteQuery !== null && (
+          <pre className="overflow-auto">
+            {JSON.stringify(remoteQuery, null, 2)}
+          </pre>
+        )}
         <p>
           当前{enabled ? "已开启" : "关闭"}
           。关闭时不读取远程账户、不发送任何远程请求。开启本身也不开户；所有远程操作需点击。
@@ -424,8 +644,34 @@ export function TradeLedgerPanel({
         >
           {enabled ? "关闭模拟盘" : "开启模拟盘"}
         </button>
-        <button disabled={pending} onClick={() => run(async () => { setDiagnostics(await readMockDiagnostics()); })}>查看最近20次脱敏响应（本地）</button>
-        {diagnostics && <div aria-live="polite">{diagnostics.length === 0 ? "尚无响应记录" : diagnostics.map((entry, i) => <details key={i}><summary>{entry.path} · {new Date(entry.envelope.fetchedAt).toLocaleString()} · HTTP {entry.httpStatus ?? "未收到"}</summary><pre className="overflow-auto">{JSON.stringify(entry, null, 2)}</pre></details>)}</div>}
+        <button
+          disabled={pending}
+          onClick={() =>
+            run(async () => {
+              setDiagnostics(await readMockDiagnostics());
+            })
+          }
+        >
+          查看最近20次脱敏响应（本地）
+        </button>
+        {diagnostics && (
+          <div aria-live="polite">
+            {diagnostics.length === 0
+              ? "尚无响应记录"
+              : diagnostics.map((entry, i) => (
+                  <details key={i}>
+                    <summary>
+                      {entry.path} ·{" "}
+                      {new Date(entry.envelope.fetchedAt).toLocaleString()} ·
+                      HTTP {entry.httpStatus ?? "未收到"}
+                    </summary>
+                    <pre className="overflow-auto">
+                      {JSON.stringify(entry, null, 2)}
+                    </pre>
+                  </details>
+                ))}
+          </div>
+        )}
         {enabled && (
           <>
             <p>
@@ -442,7 +688,17 @@ export function TradeLedgerPanel({
             >
               确认创建或使用模拟账户
             </button>
-            <button disabled={pending} onClick={() => run(async () => { await recoverMockAccount(); setMessage("既有账户股东账号已核验"); })}>查询既有账户股东账号（不开户）</button>
+            <button
+              disabled={pending}
+              onClick={() =>
+                run(async () => {
+                  await recoverMockAccount();
+                  setMessage("既有账户股东账号已核验");
+                })
+              }
+            >
+              查询既有账户股东账号（不开户）
+            </button>
             <button
               disabled={pending}
               onClick={() =>

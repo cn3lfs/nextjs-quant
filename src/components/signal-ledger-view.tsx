@@ -1,3 +1,4 @@
+import { SignalLedgerSummaryTable } from "./signal-ledger-summary-table";
 import { aggregateLedger, horizons, type LedgerRow } from "~/lib/signal-ledger";
 import type { LedgerRun } from "~/server/signal-ledger-store";
 import {
@@ -61,48 +62,7 @@ export function SignalLedgerView({
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table>
-              <thead>
-                <tr>
-                  {[
-                    "策略",
-                    "信号质量",
-                    "期限",
-                    "样本数",
-                    "有效数",
-                    "中位收益",
-                    "胜率",
-                    "盈亏比",
-                    "留空计数",
-                    "留空原因",
-                  ].map((h) => (
-                    <th key={h} scope="col">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((g) => (
-                  <tr key={`${g.strategy}:${g.quality}:${g.horizon}`}>
-                    <td>{name(g.strategy)}</td>
-                    <td>{g.quality}</td>
-                    <td>T+{g.horizon}</td>
-                    <td>{g.samples}</td>
-                    <td>{g.valid}</td>
-                    <td>{percent(g.median)}</td>
-                    <td>{percent(g.winRate)}</td>
-                    <td>{g.payoff?.toFixed(2) ?? "—"}</td>
-                    <td>{g.blanks}</td>
-                    <td>
-                      {Object.entries(g.reasons)
-                        .map(([r, n]) => `${r}：${n}`)
-                        .join("；") || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <SignalLedgerSummaryTable groups={groups} />
           </div>
         )}
       </section>

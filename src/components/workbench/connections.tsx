@@ -1,3 +1,13 @@
+import { Checkbox } from "~/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+import { Textarea } from "~/components/ui/textarea";
+import { Input } from "~/components/ui/input";
 import { Database, Send, Sparkles, Workflow } from "lucide-react";
 import { useState } from "react";
 import { type Channel, type Settings } from "~/lib/domain";
@@ -171,7 +181,7 @@ export function Connections({
           </span>
         </Field>
         <Field label="通达信安装目录">
-          <input
+          <Input
             value={config.tdxRoot}
             onChange={(e) => setConfig({ ...config, tdxRoot: e.target.value })}
           />
@@ -309,7 +319,7 @@ export function Connections({
           </label>
         </div>
         <Field label="聊天渠道出站代理（可选）">
-          <input
+          <Input
             value={config.proxy}
             onChange={(e) => setConfig({ ...config, proxy: e.target.value })}
             placeholder="http://127.0.0.1:7890"
@@ -320,7 +330,8 @@ export function Connections({
           <p>
             默认读取本地上证指数日线中的交易日期。若需覆盖，输入已确认的交易日期，每行一个；空白表示使用默认来源。
           </p>
-          <textarea
+          <Textarea
+            className="field-sizing-fixed"
             rows={4}
             value={config.calendar.join("\n")}
             onChange={(e) =>
@@ -397,15 +408,22 @@ export function Connections({
         {tools.length > 0 && (
           <details>
             <summary>数据工具查询</summary>
-            <select
+            <Select
               value={toolName}
-              onChange={(e) => setToolName(e.target.value)}
+              onValueChange={(selected) => setToolName(selected)}
             >
-              <option value="">选择工具</option>
-              {tools.map((t) => (
-                <option key={t.name}>{t.name}</option>
-              ))}
-            </select>
+              <SelectTrigger aria-label="数据工具" className="w-full">
+                <SelectValue placeholder="选择工具" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">选择工具</SelectItem>
+                {tools.map((t) => (
+                  <SelectItem key={t.name} value={t.name}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <pre>
               {JSON.stringify(
                 tools.find((t) => t.name === toolName)?.schema,
@@ -414,7 +432,8 @@ export function Connections({
               )}
             </pre>
             <Field label="查询参数 JSON">
-              <textarea
+              <Textarea
+                className="field-sizing-fixed"
                 rows={5}
                 value={args}
                 onChange={(e) => setArgs(e.target.value)}
@@ -481,26 +500,31 @@ export function Connections({
         <h4>{editId ? "编辑渠道" : "添加渠道"}</h4>
         <div className="form-grid">
           <Field label="渠道名称">
-            <input
+            <Input
               value={channel.name}
               onChange={(e) => setChannel({ ...channel, name: e.target.value })}
             />
           </Field>
           <Field label="平台">
-            <select
+            <Select
               value={channel.type}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setChannel({
                   ...channel,
-                  type: e.target.value as Channel["type"],
+                  type: value as Channel["type"],
                 })
               }
             >
-              <option value="feishu">飞书群机器人</option>
-              <option value="wecom">企业微信群机器人</option>
-              <option value="telegram">Telegram Bot</option>
-              <option value="discord">Discord Webhook</option>
-            </select>
+              <SelectTrigger aria-label="平台" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="feishu">飞书群机器人</SelectItem>
+                <SelectItem value="wecom">企业微信群机器人</SelectItem>
+                <SelectItem value="telegram">Telegram Bot</SelectItem>
+                <SelectItem value="discord">Discord Webhook</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         <Field
@@ -508,7 +532,7 @@ export function Connections({
             channel.type === "telegram" ? "Bot Token" : "机器人 Webhook 地址"
           }
         >
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             value={channel.secret}
@@ -520,7 +544,7 @@ export function Connections({
         </Field>
         {channel.type === "feishu" && (
           <Field label="签名密钥（可选）">
-            <input
+            <Input
               type="password"
               value={channel.signingSecret}
               onChange={(e) =>
@@ -531,7 +555,7 @@ export function Connections({
         )}
         {channel.type === "telegram" && (
           <Field label="Chat ID（私聊需先联系机器人）">
-            <input
+            <Input
               value={channel.target}
               onChange={(e) =>
                 setChannel({ ...channel, target: e.target.value })
@@ -541,7 +565,7 @@ export function Connections({
         )}
         {["telegram", "discord"].includes(channel.type) && (
           <Field label="话题 / Thread ID（可选）">
-            <input
+            <Input
               value={channel.thread}
               onChange={(e) =>
                 setChannel({ ...channel, thread: e.target.value })
@@ -551,11 +575,10 @@ export function Connections({
         )}
         <div className="check-row">
           <label>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={channel.enabled}
-              onChange={(e) =>
-                setChannel({ ...channel, enabled: e.target.checked })
+              onCheckedChange={(checked) =>
+                setChannel({ ...channel, enabled: checked === true })
               }
             />
             启用此渠道接收订阅信号

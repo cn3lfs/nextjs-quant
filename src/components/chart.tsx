@@ -1,4 +1,13 @@
 "use client";
+import { Checkbox } from "~/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "~/components/ui/select";
+
 import { attachDrawings } from "~/lib/chart-drawings";
 import {
   defaultChartView,
@@ -677,33 +686,36 @@ export function MarketChart({
     >
       <div className="flex flex-wrap items-center gap-3 py-2 text-sm">
         <label>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={showBreakout}
-            onChange={(e) => setShowBreakout(e.target.checked)}
+            onCheckedChange={(checked) => setShowBreakout(checked === true)}
           />{" "}
           双突破
         </label>
         {breakout && (
           <label>
             双突破观察日{" "}
-            <select
-              aria-label="双突破观察日"
+            <Select
               value={breakoutDate}
-              onChange={(e) => setBreakoutDate(e.target.value)}
+              onValueChange={(selected) => setBreakoutDate(selected)}
             >
-              <option value="">最新</option>
-              {breakout.points.map((p) => (
-                <option key={p.date} value={p.date}>
-                  {p.date}
-                  {p.long.status === "是"
-                    ? " ↑"
-                    : p.short.status === "是"
-                      ? " ↓"
-                      : ""}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger aria-label="双突破观察日" className="w-full">
+                <SelectValue placeholder="最新" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">最新</SelectItem>
+                {breakout.points.map((p) => (
+                  <SelectItem key={p.date} value={p.date}>
+                    {p.date}
+                    {p.long.status === "是"
+                      ? " ↑"
+                      : p.short.status === "是"
+                        ? " ↓"
+                        : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         )}
         <span data-testid="breakout-status">
@@ -720,32 +732,34 @@ export function MarketChart({
               : "")}
         </span>
         <label className="flex items-center gap-1">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={showBoll}
-            onChange={(e) => setShowBoll(e.target.checked)}
+            onCheckedChange={(checked) => setShowBoll(checked === true)}
           />
           BOLL
         </label>
         <label>
           副图{" "}
-          <select
-            aria-label="副图"
+          <Select
             value={subchart}
-            onChange={(e) => setSubchart(e.target.value as Subchart)}
+            onValueChange={(selected) => setSubchart(selected as Subchart)}
           >
-            {Object.entries(subcharts).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="副图" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(subcharts).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         <label>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={showCzsc}
-            onChange={(e) => setShowCzsc(e.target.checked)}
+            onCheckedChange={(checked) => setShowCzsc(checked === true)}
           />{" "}
           缠论结构
         </label>

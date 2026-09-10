@@ -208,10 +208,15 @@ describe("M2 chart event wiring", () => {
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);
-    const select = elements(ui).find((e) => e.props["aria-label"] === "副图")!;
-    (select.props.onChange as (event: unknown) => void)({
-      target: { value: "macd" },
-    });
+    const selects = elements(ui).filter(
+      (element) =>
+        typeof element.props.onValueChange === "function" &&
+        elements(element.props.children as ReactNode).some(
+          (child) => child.props["aria-label"] === "副图",
+        ),
+    );
+    expect(selects).toHaveLength(1);
+    (selects[0]!.props.onValueChange as (value: string) => void)("macd");
     render(input);
     for (const i of [0, 19, 89]) {
       h.charts.at(-1)!.crosshair!({ time: input[i]!.date });

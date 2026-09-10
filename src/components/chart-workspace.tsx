@@ -1,4 +1,7 @@
 "use client";
+import { Checkbox } from "~/components/ui/checkbox";
+import { Input } from "~/components/ui/input";
+
 import { useCallback, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { api } from "~/trpc/react";
@@ -182,18 +185,20 @@ function EditableChart({
     >
       <div className="flex flex-wrap items-center gap-3 py-2">
         <label>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={view.logarithmic}
-            onChange={(e) => change({ ...view, logarithmic: e.target.checked })}
+            onCheckedChange={(checked) =>
+              change({ ...view, logarithmic: checked === true })
+            }
           />{" "}
           对数坐标
         </label>
         <label>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={view.dark}
-            onChange={(e) => change({ ...view, dark: e.target.checked })}
+            onCheckedChange={(checked) =>
+              change({ ...view, dark: checked === true })
+            }
           />{" "}
           暗色主题
         </label>
@@ -238,7 +243,7 @@ function EditableChart({
               {values.map((value, i) => (
                 <label key={i} className="inline-flex flex-col">
                   {name.toUpperCase()} {i + 1}
-                  <input
+                  <Input
                     aria-label={`${name.toUpperCase()} 参数 ${i + 1}`}
                     name={`${name}-${i}`}
                     type="number"
@@ -346,13 +351,13 @@ function EditableChart({
             <span>{tools[d.kind]}</span>
             {(["a", "b"] as const).map((k) => (
               <span key={k}>
-                <input
+                <Input
                   aria-label={`${tools[d.kind]} ${k} 日期`}
                   name={`${k}Date`}
                   defaultValue={d[k].date}
                   list="chart-anchor-dates"
                 />
-                <input
+                <Input
                   className="w-24"
                   aria-label={`${tools[d.kind]} ${k} 价格`}
                   name={`${k}Price`}

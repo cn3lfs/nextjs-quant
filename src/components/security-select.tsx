@@ -1,4 +1,6 @@
 "use client";
+import { Input } from "~/components/ui/input";
+
 import { useEffect, useId, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { api } from "~/trpc/react";
@@ -67,7 +69,7 @@ export function SecuritySelect({
     >
       <div className="symbol-search">
         <Search size={16} />
-        <input
+        <Input
           ref={input}
           onClick={() => {
             if (!open) {

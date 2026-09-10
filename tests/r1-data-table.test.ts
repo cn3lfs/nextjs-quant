@@ -31,6 +31,20 @@ const render = (overrides: Partial<DataTableProps<Row>> = {}) =>
   );
 
 describe("R1 server-owned DataTable", () => {
+  it("R2 can retain the existing external pager and empty-state text without changing row order", () => {
+    const markup = render({ showPagination: false, emptyMessage: null });
+    expect(markup).not.toContain("下一页");
+    expect(markup.indexOf("server-first")).toBeLessThan(
+      markup.indexOf("server-second"),
+    );
+    const empty = render({
+      showPagination: false,
+      emptyMessage: null,
+      data: [],
+    });
+    expect(empty).not.toContain("暂无数据");
+    expect(empty).toContain('<tbody data-slot="table-body"');
+  });
   it("preserves server order despite conflicting sorting state and never slices the supplied page again", () => {
     const markup = render();
     expect(markup.indexOf("server-first")).toBeLessThan(
