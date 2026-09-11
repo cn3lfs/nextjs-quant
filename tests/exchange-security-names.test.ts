@@ -21,6 +21,27 @@ it("uses exchange names and distinguishes code changes from delisting", () => {
     successor: "sz302132",
   });
   expect(exchangeNames.get("sh600849")?.status).toBe("code-changed");
+  expect(exchangeNames.get("sz000022")).toMatchObject({
+    name: "深赤湾A",
+    status: "code-changed",
+    successor: "sz001872",
+    date: "2018-12-26",
+  });
+  expect(exchangeNames.get("sz000043")).toMatchObject({
+    name: "中航善达",
+    status: "code-changed",
+    successor: "sz001914",
+  });
+  expect(exchangeNames.get("bj920305")).toMatchObject({
+    name: "云创退",
+    status: "delisted",
+    date: "2026-07-30",
+  });
+  expect(exchangeNames.get("bj920680")).toMatchObject({
+    name: "广道退",
+    status: "delisted",
+    date: "2026-01-05",
+  });
 });
 it("rejects corrupt identities, invalid dates and duplicates", () => {
   for (const entry of [

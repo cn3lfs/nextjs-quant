@@ -68,3 +68,54 @@ exchangeNames.set("sz300114", {
   source: "https://static.cninfo.com.cn/finalpage/2025-02-15/1222544408.PDF",
   fetchedAt: verified.fetchedAt,
 });
+
+// Public notices verified on 2026-09-11. Names belong to the original code;
+// neither successor prices nor current membership are inferred from the mapping.
+for (const [symbol, identity] of [
+  [
+    "sz000022",
+    {
+      name: "深赤湾A",
+      status: "code-changed",
+      date: "2018-12-26",
+      successor: "sz001872",
+      source:
+        "https://static.cninfo.com.cn/finalpage/2018-12-26/1205690369.PDF",
+    },
+  ],
+  [
+    "sz000043",
+    {
+      name: "中航善达",
+      status: "code-changed",
+      date: "2019-12-16",
+      successor: "sz001914",
+      source:
+        "https://www.szse.cn/disclosure/notice/general/t20191211_572534.html",
+    },
+  ],
+  [
+    "bj920305",
+    {
+      name: "云创退",
+      status: "delisted",
+      date: "2026-07-30",
+      source: "https://www.foundersc.com/fzhtml/fxjs/5/A/F/37MDBF7.html",
+    },
+  ],
+  [
+    "bj920680",
+    {
+      name: "广道退",
+      status: "delisted",
+      date: "2026-01-05",
+      source:
+        "https://www.foundersc.com/fzhtml/infoBusinessDyn/1/C/1/5B2DI96.html",
+    },
+  ],
+] satisfies [string, Omit<HistoricalIdentity, "fetchedAt">][]) {
+  exchangeNames.set(symbol, {
+    ...identity,
+    fetchedAt: "2026-09-11T10:00:00.000Z",
+  });
+}
