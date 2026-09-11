@@ -8,11 +8,14 @@ import { marketPoolCatalog, readMarketPool } from "./market-pool-files";
 import { ClsReviewStore } from "./cls-review-store";
 import { clsCandidates } from "./cls-candidates";
 import { buildClsSample } from "./cls-sample";
+import { completedRpsObservation, observationRanking } from "./rps-observation";
 
 export async function fixClsSample(reportId: string) {
   const store = new ClsReviewStore(sqlite());
   const report = store.report(reportId);
   if (!report) throw new Error("报告不存在");
+  if (report.batch && report.batch.phase !== "morning")
+    throw new Error("增量报告不能替换盘前主样本");
   const startedAt = Date.now();
   const date = new Date(startedAt + 8 * 3600000).toISOString().slice(0, 10);
   const existing = store.sample(date);
@@ -31,14 +34,23 @@ export async function fixClsSample(reportId: string) {
   if (!calendar.days.includes(date) || !previousTradingDay)
     throw new Error("尚不能确认当日交易日历");
   const rps = new RpsStore(sqlite());
-  const day = rps.day(previousTradingDay);
+  const observation = completedRpsObservation(
+    config.tdxRoot,
+    previousTradingDay,
+    "close",
+  );
+  const day = observation?.day ?? rps.day(previousTradingDay);
   const directory = await securityDirectory();
   const validRps = day && resolve(day.source.root) === resolve(config.tdxRoot);
   const candidateDependencies = {
     securities: Object.values(directory.entries),
     pool: (category: "industry" | "concept", name: string) =>
       readMarketPool(config.industryBlocksRoot, { category, name }),
-    ranking: validRps ? rps.ranking(previousTradingDay, 50) : [],
+    ranking: validRps
+      ? observation
+        ? observationRanking(observation, 50)
+        : rps.ranking(previousTradingDay, 50)
+      : [],
     rpsDate: previousTradingDay,
     rpsHash: validRps ? day.inputHash : "not-used-explicit-recommendation",
   };

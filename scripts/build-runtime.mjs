@@ -3,6 +3,15 @@ import { createRequire } from "node:module";
 import { copyFile, mkdir, cp } from "node:fs/promises";
 import { dirname } from "node:path";
 await build({
+  entryPoints: ["src/server/workflow-runner.ts"],
+  outfile: "runtime/workflow-runner.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["better-sqlite3", "koffi"],
+  target: "node22",
+});
+await build({
   entryPoints: ["src/server/rps-worker.ts"],
   outfile: "runtime/rps-worker.cjs",
   bundle: true,

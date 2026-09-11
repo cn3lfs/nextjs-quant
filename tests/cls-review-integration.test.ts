@@ -10,7 +10,15 @@ import {
 import { join, resolve } from "node:path";
 import { expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ db: null as unknown, root: "", blocks: "" }));
-vi.mock("../src/server/db", () => ({ sqlite: () => state.db }));
+vi.mock("../src/server/db", () => ({
+  sqlite: () => state.db,
+  get: (id: string) => {
+    const row = (state.db as Database.Database)
+      .prepare("SELECT payload FROM records WHERE id=?")
+      .get(id) as { payload: string } | undefined;
+    return row ? JSON.parse(row.payload) : undefined;
+  },
+}));
 vi.mock("../src/server/settings", () => ({
   settings: () => ({
     tdxRoot: state.root,

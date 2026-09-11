@@ -42,7 +42,7 @@ afterEach(() => {
   state.enabled = true;
 });
 
-it("continues past an invalid old report, selects today's stable report and skips a fixed sample", async () => {
+it("continues past an invalid old report, selects today's completed morning report and skips a fixed sample", async () => {
   const now = Date.parse("2026-09-11T09:00:00+08:00");
   vi.spyOn(Date, "now").mockReturnValue(now);
   state.sample.mockReturnValue(null);
@@ -55,6 +55,7 @@ it("continues past an invalid old report, selects today's stable report and skip
     return {
       sourcePath: path,
       modifiedAt: now - 120000,
+      batch: { phase: "morning", completedAt: now - 1000 },
       report: { reportDate: "2026-09-11", hash: "hash" },
     };
   });

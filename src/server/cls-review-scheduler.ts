@@ -60,7 +60,8 @@ export async function runClsReviewTick() {
           const preview = await previewClsReport(file.path);
           if (
             preview.report.reportDate === date &&
-            now - preview.modifiedAt >= 60000
+            preview.batch?.phase === "morning" &&
+            preview.batch.completedAt <= now
           )
             previews.push(preview);
         } catch (error) {
@@ -81,7 +82,7 @@ export async function runClsReviewTick() {
         message = sample.selected
           ? `已固定 ${sample.selected.symbol}`
           : (sample.reason ?? "无候选");
-      } else message = "尚无当日报告；文件需停止修改至少一分钟";
+      } else message = "尚无带完成标记的当日盘前报告";
     }
   } else if (time >= "09:30" && !store.sample(date)) {
     status = "missed";

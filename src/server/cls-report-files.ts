@@ -1,6 +1,7 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { resolve, join, extname } from "node:path";
 import { parseClsReport } from "./cls-report-parser";
+import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/cls-batch";
 
 export async function clsReportFiles(directory: string) {
   const root = resolve(directory);
@@ -34,12 +35,33 @@ export async function previewClsReport(path: string) {
   )
     throw new Error("报告正在更新，请稍后重新预览");
   const markdown = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  const report = parseClsReport(markdown);
+  let batch: ClsBatchReceipt | undefined;
+  try {
+    batch = clsBatchReceiptSchema.parse(
+      JSON.parse(
+        (await readFile(`${absolute}.ready.json`, "utf8")).replace(
+          /^\uFEFF/,
+          "",
+        ),
+      ),
+    );
+    if (
+      batch.reportHash !== report.hash ||
+      batch.date !== report.reportDate ||
+      batch.completedAt > Date.now()
+    )
+      throw new Error("报告完成标记与内容不匹配");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
   return {
     sourcePath: await realpath(absolute),
     modifiedAt: after.mtimeMs,
     size: bytes.length,
     observedAt: Date.now(),
-    report: parseClsReport(markdown),
+    report,
+    ...(batch ? { batch } : {}),
   };
 }
 export type ClsReportPreview = Awaited<ReturnType<typeof previewClsReport>>;
