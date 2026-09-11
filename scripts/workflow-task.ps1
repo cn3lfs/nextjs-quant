@@ -13,10 +13,21 @@ $slot = 'late'
 if ($Phase -eq 'download') {
     $slot = if ($time -ge '12:00' -and $time -lt '13:00') { 'noon' } else { 'close' }
     $downloader = 'E:\new_tdx64\auto_download\tdx_download.ps1'
-    $downloadArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $downloader)
-    if ($time -lt '20:00') { $downloadArgs += '-MarketOnly' }
-    & powershell.exe @downloadArgs
-    if ($LASTEXITCODE -ne 0) { throw "通达信下载未成功（$LASTEXITCODE），保留上一批排名" }
+    # The external UTF-8 script may have no BOM. Windows PowerShell 5 -File
+    # then decodes Chinese text as ANSI and fails before creating its log.
+    $previousDownloader = $env:QUANT_TDX_DOWNLOADER
+    $previousMarketOnly = $env:QUANT_TDX_MARKET_ONLY
+    $env:QUANT_TDX_DOWNLOADER = $downloader
+    $env:QUANT_TDX_MARKET_ONLY = if ($time -lt '20:00') { '1' } else { '0' }
+    $loader = '$script = [ScriptBlock]::Create([IO.File]::ReadAllText($env:QUANT_TDX_DOWNLOADER, [Text.Encoding]::UTF8)); if ($env:QUANT_TDX_MARKET_ONLY -eq "1") { & $script -MarketOnly } else { & $script }'
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader)))
+        $downloadExit = $LASTEXITCODE
+    } finally {
+        $env:QUANT_TDX_DOWNLOADER = $previousDownloader
+        $env:QUANT_TDX_MARKET_ONLY = $previousMarketOnly
+    }
+    if ($downloadExit -ne 0) { throw "通达信下载未成功（$downloadExit），保留上一批排名" }
     New-Item -ItemType Directory -Path $data -Force | Out-Null
     $receipt = Join-Path $data "download-$date-$slot.json"
     $temporary = "$receipt.tmp"
