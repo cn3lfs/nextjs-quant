@@ -19,7 +19,8 @@ export function RpsStatus({
       <p>{rpsPolicy.description}</p>
       <p>
         周期：{rpsPeriods.join(" / ")}
-        ；每日15:05后批处理，仅存查询数据。保留最近{rpsPolicy.retentionDays}
+        ；每日工作流按午盘、尾盘、收盘更新；收盘等待下载完成。手工历史计算保留最近
+        {rpsPolicy.retentionDays}
         个结果日；更早数据自动删除。取消保留已完整提交日期，重试跳过已有结果。
       </p>
       <p className="text-muted-foreground">

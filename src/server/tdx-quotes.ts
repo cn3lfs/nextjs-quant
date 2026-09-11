@@ -123,8 +123,24 @@ export class TdxSession {
       session.fail(new Error(`行情服务器 ${host} 响应超时`)),
     );
     await new Promise<void>((resolve, reject) => {
-      socket.once("connect", resolve);
-      socket.once("error", reject);
+      const cleanup = () => {
+        socket.off("connect", connected);
+        socket.off("error", failed);
+        socket.off("close", closed);
+      };
+      const connected = () => {
+        cleanup();
+        resolve();
+      };
+      const failed = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+      const closed = () =>
+        failed(new Error(`行情服务器 ${host} 建连中断或超时`));
+      socket.once("connect", connected);
+      socket.once("error", failed);
+      socket.once("close", closed);
       socket.connect(port, host);
     });
     for (const frame of SETUP_FRAMES) await session.exchange(frame);

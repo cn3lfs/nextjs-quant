@@ -1,5 +1,6 @@
 import { readMarketPool } from "../market-pool-files";
 import { requireA500Selection } from "../a500-research";
+import { latestRpsObservation } from "../rps-observation";
 import { tradeDashboard } from "../trade-ledger-service";
 import { indexDirectory } from "../index-directory";
 import { clsReviewConfigSchema } from "~/lib/cls-review-config";
@@ -395,7 +396,11 @@ export const appRouter = createTRPCRouter({
   conceptRpsPage: p
     .input(industryPageSchema)
     .query(({ input }) =>
-      industryRpsPage(new RpsStore(chartSqlite(), "concept"), input),
+      industryRpsPage(
+        new RpsStore(chartSqlite(), "concept"),
+        input,
+        latestRpsObservation(settings().tdxRoot),
+      ),
     ),
   marketPoolCatalog: p
     .input(poolCategorySchema)
@@ -459,8 +464,28 @@ export const appRouter = createTRPCRouter({
   industryRpsPage: p
     .input(industryPageSchema)
     .query(({ input }) =>
-      industryRpsPage(new RpsStore(chartSqlite(), "industry"), input),
+      industryRpsPage(
+        new RpsStore(chartSqlite(), "industry"),
+        input,
+        latestRpsObservation(settings().tdxRoot),
+      ),
     ),
+  workflowStatus: p.query(() => {
+    const rows = chartSqlite()
+      .prepare(
+        "SELECT payload FROM records WHERE kind IN ('workflow-check','cls-analysis-batch') ORDER BY updated_at DESC LIMIT 6",
+      )
+      .all() as { payload: string }[];
+    return rows.map(
+      (row) =>
+        JSON.parse(row.payload) as {
+          phase: string;
+          date: string;
+          status: string;
+          error?: string;
+        },
+    );
+  }),
   rpsStatus: p.query(() => {
     const store = new RpsStore(chartSqlite());
     return { progress: store.progress(), latest: store.latest() };

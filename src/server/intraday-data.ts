@@ -9,20 +9,25 @@ import { RpsStore } from "./rps-store";
 import { readMarketPool } from "./market-pool-files";
 import { readSnapshot } from "./tdx";
 import { barPage } from "./tdx-quotes";
+import { latestRpsObservation, observationRanking } from "./rps-observation";
 
 export async function intradayPool(
   config: IntradayConfig,
   previousTradingDay: string,
+  availableAt = Date.now(),
 ) {
   const app = settings();
   const store = new RpsStore(sqlite());
-  const day = store.day(previousTradingDay);
+  const observation = latestRpsObservation(app.tdxRoot, availableAt);
+  const day = observation?.day ?? store.day(previousTradingDay);
   if (!day || resolve(day.source.root) !== resolve(app.tdxRoot))
     throw new Error("缺少当前数据目录上一交易日的RPS，请先计算");
   const pool = config.pool
     ? await readMarketPool(app.industryBlocksRoot, config.pool)
     : null;
-  const ranking = store.ranking(previousTradingDay, config.rpsPeriod);
+  const ranking = observation
+    ? observationRanking(observation, config.rpsPeriod)
+    : store.ranking(previousTradingDay, config.rpsPeriod);
   const members = pool?.members ?? ranking.map((row) => row.symbol);
   const memberSet = new Set(members);
   const rows = ranking

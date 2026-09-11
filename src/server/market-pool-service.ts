@@ -12,6 +12,7 @@ import { securityDirectory } from "./securities";
 import { readMarketPool } from "./market-pool-files";
 import { RpsStore } from "./rps-store";
 import { exchangeNames } from "./exchange-security-names";
+import { latestRpsObservation, observationRanking } from "./rps-observation";
 
 export async function marketPoolRows(input: unknown) {
   const query = marketPoolQuerySchema.parse(input);
@@ -29,13 +30,28 @@ export async function marketPoolRows(input: unknown) {
       : [],
   );
   const store = new RpsStore(sqlite());
-  const latest = store.latest();
+  const stored = store.latest();
+  const candidate = latestRpsObservation(config.tdxRoot);
+  const observation =
+    candidate &&
+    (!stored ||
+      candidate.date > stored.date ||
+      (candidate.date === stored.date &&
+        candidate.createdAt > stored.createdAt))
+      ? candidate
+      : null;
+  const latest = observation?.day ?? stored;
   const day =
     latest && resolve(latest.source.root) === resolve(config.tdxRoot)
       ? latest
       : null;
   const ranks = new Map(
-    day ? store.ranking(day.date, query.period).map((r) => [r.symbol, r]) : [],
+    day
+      ? (observation
+          ? observationRanking(observation, query.period)
+          : store.ranking(day.date, query.period)
+        ).map((r) => [r.symbol, r])
+      : [],
   );
   const reasons = new Map<string, string>();
   if (day)
@@ -81,6 +97,16 @@ export async function marketPoolRows(input: unknown) {
           mode: day.mode,
           count: day.counts[day.periods.indexOf(query.period)]!,
           inputHash: day.inputHash,
+          observation: observation
+            ? {
+                phase: observation.phase,
+                createdAt: observation.createdAt,
+                baseline: observation.baseline,
+                coverage: observation.coverage,
+                reused: observation.reused.length,
+                missing: observation.missing.length,
+              }
+            : null,
         }
       : null,
     rows: selectMarketPoolRows(rows, query),

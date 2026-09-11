@@ -6,6 +6,9 @@ import { RpsStatus } from "./rps-status";
 
 /** Data container; the display component receives data and remains independently renderable. */
 export function RpsControls() {
+  const workflow = api.workflowStatus.useQuery(undefined, {
+    refetchInterval: 10000,
+  });
   const [message, setMessage] = useState("");
   const query = api.rpsStatus.useQuery(undefined, { refetchInterval: 2000 });
   const onSuccess = () => {
@@ -53,6 +56,25 @@ export function RpsControls() {
           </Button>
         </div>
       )}
+      {workflow.data?.map((row, index) => (
+        <p
+          key={`${row.date}:${row.phase}:${index}`}
+          role={row.status === "failed" ? "alert" : "status"}
+        >
+          {row.date} ·{" "}
+          {(
+            {
+              noon: "午盘",
+              late: "尾盘",
+              close: "收盘",
+              morning: "盘前",
+              evening: "晚间",
+            } as Record<string, string>
+          )[row.phase] ?? row.phase}
+          批次：{row.status}
+          {row.error ? ` · ${row.error}` : ""}
+        </p>
+      ))}
       {query.data && <RpsStatus {...query.data} />}
     </>
   );

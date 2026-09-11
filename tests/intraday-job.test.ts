@@ -73,6 +73,11 @@ it("runs a partial batch, retries only failures, and closes against the captured
       job = new IntradayJob(store, deps);
     const config = intradayConfigSchema.parse({ enabled: true });
     const first = await job.preview(config, "late");
+    expect(pool).toHaveBeenCalledWith(
+      config,
+      previous,
+      Date.parse("2024-03-04T14:40:00+08:00"),
+    );
     expect(first.status).toBe("partial");
     expect(first.results.map((row) => Boolean(row.observationId))).toEqual([
       true,

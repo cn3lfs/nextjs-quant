@@ -294,6 +294,22 @@ export function MarketPoolBrowser({
       )}
       {ready && page.data && (
         <p className="text-sm text-muted-foreground">
+          {page.data.rps?.observation && (
+            <span>
+              {
+                ({ noon: "午盘", late: "尾盘", close: "收盘" } as const)[
+                  page.data.rps.observation.phase
+                ]
+              }
+              批次 ·{" "}
+              {new Date(page.data.rps.observation.createdAt).toLocaleTimeString(
+                "zh-CN",
+                { timeZone: "Asia/Shanghai", hour12: false },
+              )}{" "}
+              · 新价覆盖 {(page.data.rps.observation.coverage * 100).toFixed(1)}
+              % · 沿用旧价 {page.data.rps.observation.reused} 只 ·{" "}
+            </span>
+          )}
           RPS基准日：{page.data.rps?.date ?? "未计算"} · 全沪深排名基数：
           {page.data.rps?.count ?? "—"} ·{" "}
           {page.data.rps?.mode === "backfill"

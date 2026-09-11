@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { rpsRequestSchema, type RpsRequest, type RpsProgress } from "~/lib/rps";
 import { sqlite } from "./db";
 import { RpsStore } from "./rps-store";
+import { scheduleWorkflowRps, workflowEnabled } from "./workflow-scheduler";
 
 export class RpsWorkerClient {
   private worker?: Worker;
@@ -99,6 +100,10 @@ const scope = globalThis as typeof globalThis & {
 export const rpsClient = () => (scope.rpsClient ??= new RpsWorkerClient());
 /** One attempt per wall-clock day; failure/cancellation is retried explicitly from data management. */
 export function scheduleRps(now: number) {
+  if (workflowEnabled()) {
+    scheduleWorkflowRps(now);
+    return;
+  }
   const local = new Date(now + 8 * 3600000).toISOString(),
     today = local.slice(0, 10);
   if (local.slice(11, 16) < "15:05") return;

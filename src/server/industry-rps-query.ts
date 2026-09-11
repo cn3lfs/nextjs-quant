@@ -1,14 +1,33 @@
 import { industryPageSchema } from "~/lib/industry-rps";
 import { RpsStore } from "./rps-store";
+import { observationRanking, type RpsObservation } from "./rps-observation";
 
 /** All ordering and pagination stay server-side, including unranked industries. */
-export function industryRpsPage(store: RpsStore, input: unknown) {
+export function industryRpsPage(
+  store: RpsStore,
+  input: unknown,
+  observation?: RpsObservation | null,
+) {
   const query = industryPageSchema.parse(input);
-  const day = query.date ? store.day(query.date) : store.latest();
+  const stored = query.date ? store.day(query.date) : store.latest();
+  const group =
+    !query.date &&
+    observation &&
+    store.target !== "stock" &&
+    (!stored ||
+      observation.date > stored.date ||
+      (observation.date === stored.date &&
+        observation.createdAt > stored.createdAt))
+      ? observation.groups[store.target]
+      : undefined;
+  const day = group?.day ?? stored;
   if (!day?.industry) return { day: null, rows: [], total: 0 };
   const index = day.periods.indexOf(query.period);
   const ranks = new Map(
-    store.ranking(day.date, query.period).map((r) => [r.symbol, r]),
+    (group
+      ? observationRanking(group, query.period)
+      : store.ranking(day.date, query.period)
+    ).map((r) => [r.symbol, r]),
   );
   const files = new Map(day.industry.snapshot.files.map((f) => [f.name, f]));
   const all = day.industry.members

@@ -38,7 +38,11 @@ export type IntradayDependencies = {
     closedDays?: string[];
     source: string;
   }>;
-  pool(config: IntradayConfig, date: string): ReturnType<typeof intradayPool>;
+  pool(
+    config: IntradayConfig,
+    date: string,
+    availableAt: number,
+  ): ReturnType<typeof intradayPool>;
   history(
     source: IntradayConfig["source"],
     symbol: string,
@@ -131,7 +135,11 @@ export class IntradayJob {
       .immediate();
     if (!run || run.status === "missed") return this.read(id)!;
     try {
-      run.pool ??= await deps.pool(config, run.previousTradingDay);
+      run.pool ??= await deps.pool(
+        config,
+        run.previousTradingDay,
+        Date.parse(window.barCutoff),
+      );
       const poolHash = run.pool.hash;
       this.save(run);
       for (const row of run.pool.rows) {
