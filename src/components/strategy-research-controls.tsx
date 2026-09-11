@@ -194,7 +194,8 @@ export function StrategyResearchControls() {
         <label>
           股票池
           <Select
-            value={spec.pool?.category ?? "all"}
+            disabled
+            value="index"
             onValueChange={(value) =>
               setSpec({
                 ...spec,
@@ -213,12 +214,12 @@ export function StrategyResearchControls() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="index">中证A500</SelectItem>
-              <SelectItem value="industry">行业板块</SelectItem>
-              <SelectItem value="concept">概念板块</SelectItem>
-              <SelectItem value="all">本地沪深全部股票</SelectItem>
             </SelectContent>
           </Select>
         </label>
+        <p className="text-sm text-muted-foreground">
+          研究范围：中证A500。加载后默认全选，可勾选子集；当前成分回溯存在生存者偏差。
+        </p>
         {spec.pool && (
           <label>
             名单名称
@@ -247,7 +248,10 @@ export function StrategyResearchControls() {
                 setLoadedKey(key);
                 setSpec((current) =>
                   JSON.stringify(current.pool) === key
-                    ? { ...current, symbols: undefined }
+                    ? {
+                        ...current,
+                        symbols: data.rows.map((row) => row.symbol),
+                      }
                     : current,
                 );
               } catch (cause) {
@@ -276,13 +280,11 @@ export function StrategyResearchControls() {
                 onClick={() =>
                   setSpec({
                     ...spec,
-                    symbols: members
-                      .filter((row) => row.localDay)
-                      .map((row) => row.symbol),
+                    symbols: members.map((row) => row.symbol),
                   })
                 }
               >
-                选择全部有日线的品种
+                全选A500成分
               </Button>
               <Button
                 type="button"
@@ -301,7 +303,6 @@ export function StrategyResearchControls() {
                     <label key={row.symbol} className="flex items-center gap-2">
                       <Checkbox
                         aria-label={`${row.name} ${row.symbol}`}
-                        disabled={!row.localDay}
                         checked={spec.symbols?.includes(row.symbol) ?? false}
                         onCheckedChange={(checked) =>
                           setSpec({
@@ -316,7 +317,7 @@ export function StrategyResearchControls() {
                         }
                       />
                       {row.name} · {row.symbol.toUpperCase()}
-                      {!row.localDay && "（无日线）"}
+                      {!row.localDay && "（尚未扫描日线，研究时核验）"}
                     </label>
                   ))}
               </div>

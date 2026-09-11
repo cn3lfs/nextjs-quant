@@ -1,3 +1,5 @@
+import { readMarketPool } from "../market-pool-files";
+import { requireA500Selection } from "../a500-research";
 import { tradeDashboard } from "../trade-ledger-service";
 import { indexDirectory } from "../index-directory";
 import { clsReviewConfigSchema } from "~/lib/cls-review-config";
@@ -284,7 +286,12 @@ export const appRouter = createTRPCRouter({
         evidence: researchMarketEvidenceSchema.nullable(),
       }),
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
+      if (!input.spec.pool) throw new Error("请选择A500成分清单");
+      requireA500Selection(
+        input.spec,
+        await readMarketPool(settings().industryBlocksRoot, input.spec.pool),
+      );
       const task = new ResearchStore(chartSqlite()).create(
         input.spec,
         input.evidence,

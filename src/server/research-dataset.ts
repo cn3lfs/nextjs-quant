@@ -15,6 +15,17 @@ export type ResearchDataset = Awaited<
   ReturnType<typeof captureResearchDataset>
 >;
 
+export function parseResearchBenchmark(bytes: Buffer, start: string, end: string): Bar[] {
+  if (bytes.length % 32) throw new Error("研究基准日线记录不完整");
+  // Calendar/benchmark returns need a bounded warmup, not recursive indicator
+  // history. Reject malformed records inside this range, ignore unrelated years.
+  const startDate = Number(start.replaceAll("-", "")), endDate = Number(end.replaceAll("-", ""));
+  let first = 0, last = 0;
+  while (first < bytes.length / 32 && bytes.readUInt32LE(first * 32) < startDate) first++;
+  while (last < bytes.length / 32 && bytes.readUInt32LE(last * 32) <= endDate) last++;
+  return parseBars(bytes.subarray(Math.max(0, first - 250) * 32, last * 32), "day");
+}
+
 export async function captureResearchDataset(
   spec: ResearchSpec,
   cancelled: () => boolean = () => false,
@@ -42,9 +53,7 @@ export async function captureResearchDataset(
     after = await stat(benchmarkPath);
   if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
     throw new Error("研究基准读取期间发生变化");
-  const benchmark = parseBars(bytes, "day").filter(
-    (bar) => bar.date <= spec.end,
-  );
+  const benchmark = parseResearchBenchmark(bytes, spec.start, spec.end);
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
