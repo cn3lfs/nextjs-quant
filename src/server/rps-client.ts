@@ -110,7 +110,12 @@ export function scheduleRps(now: number) {
   const progress = new RpsStore(sqlite()).progress();
   if (progress?.status === "running") return;
   for (const target of ["stock", "industry", "concept"] as const) {
-    if (target !== "stock" && !settings().industryBlocksRoot) continue;
+    if (
+      target !== "stock" &&
+      settings().industryMembershipSource === "blocks" &&
+      !settings().industryBlocksRoot
+    )
+      continue;
     const key =
       target === "stock"
         ? "rpsAttempt"

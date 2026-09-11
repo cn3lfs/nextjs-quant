@@ -6,9 +6,9 @@ export function requireA500Selection(
 ) {
   if (
     spec.pool?.category !== "index" ||
-    spec.pool.name !== "中证A500" ||
+    !["中证A500", "通达信·成分·中证A500"].includes(spec.pool.name) ||
     pool.category !== "index" ||
-    pool.name !== "中证A500"
+    pool.name !== spec.pool.name
   )
     throw new Error("新研究使用中证A500成分清单");
   if (pool.members.length !== 500 || new Set(pool.members).size !== 500)

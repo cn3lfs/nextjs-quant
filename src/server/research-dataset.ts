@@ -1,13 +1,15 @@
-import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readBenchmarkSnapshot } from "./tdx-benchmark";
+import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
 import type { ResearchSpec } from "~/lib/strategy-research";
 import { isRpsMarketSymbol } from "~/lib/rps";
 import { settings } from "./settings";
 import { readMarketPool } from "./market-pool-files";
-import { parseBars, readSnapshot, scan } from "./tdx";
+import { scan } from "./tdx";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
+import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export const researchHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -15,16 +17,7 @@ export type ResearchDataset = Awaited<
   ReturnType<typeof captureResearchDataset>
 >;
 
-export function parseResearchBenchmark(bytes: Buffer, start: string, end: string): Bar[] {
-  if (bytes.length % 32) throw new Error("研究基准日线记录不完整");
-  // Calendar/benchmark returns need a bounded warmup, not recursive indicator
-  // history. Reject malformed records inside this range, ignore unrelated years.
-  const startDate = Number(start.replaceAll("-", "")), endDate = Number(end.replaceAll("-", ""));
-  let first = 0, last = 0;
-  while (first < bytes.length / 32 && bytes.readUInt32LE(first * 32) < startDate) first++;
-  while (last < bytes.length / 32 && bytes.readUInt32LE(last * 32) <= endDate) last++;
-  return parseBars(bytes.subarray(Math.max(0, first - 250) * 32, last * 32), "day");
-}
+export { parseBenchmarkWindow as parseResearchBenchmark } from "./tdx-benchmark";
 
 export async function captureResearchDataset(
   spec: ResearchSpec,
@@ -34,7 +27,7 @@ export async function captureResearchDataset(
   const config = settings(),
     root = resolve(config.tdxRoot);
   const pool = spec.pool
-    ? await readMarketPool(config.industryBlocksRoot, spec.pool)
+    ? await readMarketPool(config.industryBlocksRoot, spec.pool, config.tdxRoot)
     : null;
   const symbols = [
     ...new Set(
@@ -47,13 +40,11 @@ export async function captureResearchDataset(
   ]
     .filter(isRpsMarketSymbol)
     .sort();
-  const benchmarkPath = join(root, "vipdoc/sh/lday/sh000001.day");
-  const before = await stat(benchmarkPath),
-    bytes = await readFile(benchmarkPath),
-    after = await stat(benchmarkPath);
-  if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
-    throw new Error("研究基准读取期间发生变化");
-  const benchmark = parseResearchBenchmark(bytes, spec.start, spec.end);
+  const benchmarkSource = overlayDailyIncrements(
+    await readBenchmarkSnapshot(root, spec.start, spec.end),
+    spec.end,
+  );
+  const benchmark = benchmarkSource.bars;
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
@@ -68,6 +59,8 @@ export async function captureResearchDataset(
     name: string;
     bars: Bar[];
     hash: string;
+    source?: string;
+    sourceVersions?: string[];
     actions: NonNullable<typeof actions>["events"] extends Map<string, infer T>
       ? T
       : never;
@@ -77,12 +70,19 @@ export async function captureResearchDataset(
   for (const [index, symbol] of symbols.entries()) {
     if (cancelled()) throw new Error("研究采集已取消");
     try {
-      const snapshot = await readSnapshot(root, symbol, "day");
+      const snapshot = overlayDailyIncrements(
+        await readLocalDailySnapshot(root, symbol),
+        spec.end,
+      );
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
       const raw = {
         symbol,
         name: snapshot.name ?? symbol,
         bars,
+        source: snapshot.source,
+        ...(snapshot.sourceVersions?.length
+          ? { sourceVersions: snapshot.sourceVersions }
+          : {}),
         actions: (actions?.events.get(symbol) ?? []).filter(
           (event) => event.date <= spec.end,
         ),
@@ -102,7 +102,14 @@ export async function captureResearchDataset(
   }
   const content = {
     version: "research-dataset-1" as const,
-    source: "tdx-local" as const,
+    source:
+      benchmarkSource.source.startsWith("tdx-full-package") ||
+      stocks.some((stock) => stock.source?.startsWith("tdx-full-package"))
+        ? ("mixed-tdx-files-full-package" as const)
+        : benchmarkSource.sourceVersions?.length ||
+            stocks.some((stock) => stock.sourceVersions?.length)
+          ? ("tdx-local+g4day" as const)
+          : ("tdx-local" as const),
     root,
     adjustment: "none" as const,
     membership: {
@@ -111,7 +118,13 @@ export async function captureResearchDataset(
       source: pool,
       warning: "当前成分名单回溯存在生存者偏差，并非历史成分",
     },
-    benchmark: { symbol: "sh000001", bars: benchmark },
+    benchmark: {
+      symbol: "sh000001",
+      bars: benchmark,
+      ...(benchmarkSource.sourceVersions?.length
+        ? { sourceVersions: benchmarkSource.sourceVersions }
+        : {}),
+    },
     calendar,
     stocks,
     excluded,

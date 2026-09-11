@@ -32,6 +32,11 @@ export const industryFileSchema = z.object({
 export const industrySnapshotSchema = z
   .object({
     category: z.literal("concept").optional(),
+    classification: z.enum(["tdx-research-level1", "tdx-concept"]).optional(),
+    sourceHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     root: z.string().min(1).max(2048),
     hash: z.string().regex(/^[a-f0-9]{64}$/),
     files: z

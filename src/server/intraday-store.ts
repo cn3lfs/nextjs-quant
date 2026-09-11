@@ -11,6 +11,7 @@ export type IntradayObservation = Awaited<
   rps: number;
   poolHash: string;
   capturedAt?: number;
+  sourceVersions?: string[];
 };
 export type IntradayClose = {
   snapshot?: Awaited<ReturnType<typeof evaluateIntraday>>["snapshot"];

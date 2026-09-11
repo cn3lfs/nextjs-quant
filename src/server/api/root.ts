@@ -40,7 +40,7 @@ import { rpsClient } from "../rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
 import { industryPageSchema } from "~/lib/industry-rps";
 import { industryRpsPage } from "../industry-rps-query";
-import { readIndustryBlocks } from "../industry-blocks";
+import { readRpsBlockSource } from "../rps-block-source";
 import { chartBars, chartBarsInput } from "../chart-bars";
 import { ChartViewStore } from "../chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart-view";
@@ -291,7 +291,11 @@ export const appRouter = createTRPCRouter({
       if (!input.spec.pool) throw new Error("请选择A500成分清单");
       requireA500Selection(
         input.spec,
-        await readMarketPool(settings().industryBlocksRoot, input.spec.pool),
+        await readMarketPool(
+          settings().industryBlocksRoot,
+          input.spec.pool,
+          settings().tdxRoot,
+        ),
       );
       const task = new ResearchStore(chartSqlite()).create(
         input.spec,
@@ -381,6 +385,10 @@ export const appRouter = createTRPCRouter({
     const latest = store.latest();
     return {
       root: settings().industryBlocksRoot,
+      membershipSource: settings().industryMembershipSource,
+      ready:
+        settings().industryMembershipSource === "tdx" ||
+        !!settings().industryBlocksRoot,
       progress: store.progress(),
       latest: latest
         ? {
@@ -405,7 +413,11 @@ export const appRouter = createTRPCRouter({
   marketPoolCatalog: p
     .input(poolCategorySchema)
     .query(({ input }) =>
-      marketPoolCatalog(settings().industryBlocksRoot, input),
+      marketPoolCatalog(
+        settings().industryBlocksRoot,
+        input,
+        settings().tdxRoot,
+      ),
     ),
   marketPoolPage: p
     .input(marketPoolQuerySchema)
@@ -419,6 +431,10 @@ export const appRouter = createTRPCRouter({
     // Full membership evidence stays on disk; status polling returns only summary counts.
     return {
       root: settings().industryBlocksRoot,
+      membershipSource: settings().industryMembershipSource,
+      ready:
+        settings().industryMembershipSource === "tdx" ||
+        !!settings().industryBlocksRoot,
       progress: store.progress(),
       latest: latest
         ? {
@@ -431,6 +447,12 @@ export const appRouter = createTRPCRouter({
         : null,
     };
   }),
+  industryRpsSourceConfigure: p
+    .input(z.enum(["blocks", "tdx"]))
+    .mutation(({ input }) => {
+      saveSettings({ ...settings(), industryMembershipSource: input });
+      return { source: input };
+    }),
   industryRpsConfigure: p
     .input(z.string().trim().max(2048))
     .mutation(({ input }) => {
@@ -438,7 +460,12 @@ export const appRouter = createTRPCRouter({
       return { root: input };
     }),
   industryRpsInspect: p.mutation(async () => {
-    const snapshot = await readIndustryBlocks(settings().industryBlocksRoot);
+    const config = settings();
+    const snapshot = await readRpsBlockSource({
+      source: config.industryMembershipSource,
+      blocksRoot: config.industryBlocksRoot,
+      tdxRoot: config.tdxRoot,
+    });
     const previous = new RpsStore(chartSqlite(), "industry").latest()?.industry
       ?.snapshot;
     const old = new Map(previous?.files.map((f) => [f.file, f]));

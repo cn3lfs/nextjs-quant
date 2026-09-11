@@ -52,6 +52,9 @@ export function industryRpsPage(
       count: day.counts[index]!,
       hash: day.industry.snapshot.hash,
       root: day.industry.snapshot.root,
+      classification:
+        day.industry.snapshot.classification ??
+        (store.target === "concept" ? "external-concept" : "sw-industry"),
       source: day.source,
     },
     rows: all

@@ -1,7 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
 
-const mocks = vi.hoisted(() => ({ page: vi.fn(), snapshot: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  page: vi.fn(),
+  snapshot: vi.fn(),
+  increments: vi.fn(() => [] as unknown[]),
+}));
+vi.mock("../src/server/tdx-daily-cache", () => ({
+  readDailyIncrementRange: mocks.increments,
+}));
 vi.mock("../src/server/tdx-quotes", () => ({ barPage: mocks.page }));
 vi.mock("../src/server/tdx", () => ({ readSnapshot: mocks.snapshot }));
 vi.mock("../src/server/settings", () => ({
@@ -12,6 +19,30 @@ import { intradayHistory } from "../src/server/intraday-data";
 beforeEach(() => {
   mocks.page.mockReset();
   mocks.snapshot.mockReset();
+  mocks.increments.mockReset().mockReturnValue([]);
+});
+
+it("uses published daily increments with version evidence while retaining minute inputs", async () => {
+  const revised = { ...bars.at(-1)!, close: 12, high: 12 };
+  mocks.increments.mockReturnValue([
+    { snapshot: { id: "increment-version" }, record: { bar: revised } },
+  ]);
+  mocks.snapshot
+    .mockResolvedValueOnce({
+      symbol: "sh600000",
+      source: "tdx-local",
+      period: "day",
+      adjustment: "none",
+      hash: "base",
+      bars,
+      createdAt: 10,
+    })
+    .mockResolvedValueOnce({ bars: [], createdAt: 11 });
+  const history = await intradayHistory("tdx-local", "sh600000");
+  expect(history.daily.at(-1)?.close).toBe(12);
+  expect(history.sourceVersions).toEqual(["increment-version"]);
+  expect(history.minutes).toEqual([]);
+  expect(bars.at(-1)?.close).toBe(10);
 });
 const bars: Bar[] = Array.from({ length: 801 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),

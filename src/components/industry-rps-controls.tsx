@@ -88,6 +88,10 @@ export function IndustryRpsControls() {
     onSuccess,
     onError,
   });
+  const sourceConfigure = api.industryRpsSourceConfigure.useMutation({
+    onSuccess,
+    onError,
+  });
   const inspect = api.industryRpsInspect.useMutation({ onError });
   const start = api.rpsStart.useMutation({ onSuccess, onError });
   const cancel = api.rpsCancel.useMutation({ onSuccess, onError });
@@ -98,12 +102,29 @@ export function IndustryRpsControls() {
     start.isPending ||
     status.isPending ||
     status.isError ||
-    configure.isPending;
+    configure.isPending ||
+    sourceConfigure.isPending;
   return (
     <section className="space-y-4" aria-label="行业RPS数据管理">
       <h2 className="text-xl font-semibold">行业RPS数据管理</h2>
+      <Select
+        value={status.data?.membershipSource ?? "blocks"}
+        disabled={busy}
+        onValueChange={(value) =>
+          sourceConfigure.mutate(value as "blocks" | "tdx")
+        }
+      >
+        <SelectTrigger aria-label="板块RPS成分来源">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="blocks">外部 Blocks：申万行业 / 概念</SelectItem>
+          <SelectItem value="tdx">通达信：研究一级行业 / 概念</SelectItem>
+        </SelectContent>
+      </Select>
+      <p>来源同时用于行业和概念的新批次，已完成的快照保持原来源。</p>
       <label className="block space-y-2">
-        只读Blocks根目录（仅读取其申万行业子目录；留空停用自动行业批处理）
+        外部 Blocks 根目录（选择外部来源时使用）
         <Input
           value={root ?? status.data?.root ?? ""}
           placeholder="D:\wsWDZ\Blocks"
@@ -123,14 +144,14 @@ export function IndustryRpsControls() {
         <Button
           variant="outline"
           disabled={
-            busy || directoryDirty || inspect.isPending || !status.data?.root
+            busy || directoryDirty || inspect.isPending || !status.data?.ready
           }
           onClick={() => inspect.mutate()}
         >
           核对当前文件变化
         </Button>
         <Button
-          disabled={busy || directoryDirty || !status.data?.root}
+          disabled={busy || directoryDirty || !status.data?.ready}
           onClick={() =>
             start.mutate({ target: "industry", mode: "backfill", days: 250 })
           }
@@ -138,7 +159,7 @@ export function IndustryRpsControls() {
           回填行业最近250日
         </Button>
         <Button
-          disabled={busy || directoryDirty || !status.data?.root}
+          disabled={busy || directoryDirty || !status.data?.ready}
           onClick={() =>
             start.mutate({ target: "industry", mode: "forward", days: 1 })
           }
@@ -215,7 +236,11 @@ export function IndustryRpsControls() {
             ? "回填（成分漂移 / 生存者偏差）"
             : "向前新增（当次成分快照）"}{" "}
           · 本周期排名基数 {page.data.day.count}；按RPS降序，未排名行业置后。
-          成分快照来源：{page.data.day.root}；行情来源：
+          分类：
+          {page.data.day.classification === "tdx-research-level1"
+            ? "通达信研究一级行业"
+            : "申万行业"}
+          ；成分快照来源：{page.data.day.root}；行情来源：
           {page.data.day.source.root}；{page.data.day.source.calendar}
           ；GBBQ覆盖至 {page.data.day.source.actionsCoverage}。
         </p>

@@ -87,18 +87,19 @@ export function ConceptRpsControls() {
     start.isPending ||
     status.isPending ||
     status.isError ||
-    !status.data?.root;
+    !status.data?.ready;
   return (
     <section className="space-y-4" aria-label="概念RPS数据管理">
       <h2 className="text-xl font-semibold">概念RPS排名</h2>
       <p>
-        仅读取已配置Blocks根目录下的“概念”名单。以有效成分股后复权涨幅的等权平均对概念分别排名，不混入申万行业排名，也不等于通达信概念指数。重叠成分在不同概念内分别计数。
+        使用上方选择的 Blocks
+        或通达信概念名单。以有效成分股后复权涨幅的等权平均对概念分别排名，不混入申万行业排名，也不等于通达信概念指数。重叠成分在不同概念内分别计数。
       </p>
       <p className="text-sm text-muted-foreground">
-        当前名单不是历史成分；回填有成分漂移和生存者偏差。每日15:05后与个股、行业串行批处理；行情或日历不齐则失败。保留最近750个结果日，清理与写入同事务；取消保留已完成日期，重试补缺。
+        当前名单不是历史成分；回填有成分漂移和生存者偏差。每日按工作流设置与个股、行业串行批处理；行情或日历不齐则失败。保留最近750个结果日，清理与写入同事务；取消保留已完成日期，重试补缺。
       </p>
-      {!status.data?.root && (
-        <p>请先在上方行业数据管理中配置只读Blocks根目录。</p>
+      {!status.data?.ready && (
+        <p>请先在上方选择通达信来源，或配置只读 Blocks 根目录。</p>
       )}
       <div className="flex flex-wrap gap-3">
         <Button

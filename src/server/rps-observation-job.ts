@@ -9,7 +9,6 @@ import { aggregateIndustryRps } from "~/lib/industry-rps";
 import { get, put, sqlite } from "./db";
 import { settings } from "./settings";
 import { securityDirectory } from "./securities";
-import { readSnapshot } from "./tdx";
 import { localRpsDependencies } from "./rps-job";
 import {
   calculateRpsDay,
@@ -17,7 +16,7 @@ import {
   rpsHash,
   type RpsSecurity,
 } from "./rps-engine";
-import { readIndustryBlocks } from "./industry-blocks";
+import { readRpsBlockSource } from "./rps-block-source";
 import { RpsStore } from "./rps-store";
 import { claimWorkflow } from "./workflow-lease";
 import { workflowQuotes, type WorkflowPrice } from "./workflow-quotes";
@@ -143,7 +142,7 @@ export async function runRpsObservation(
       const name = directory.entries[symbol]?.name ?? "名称未核实";
       let bars: Bar[] = [];
       try {
-        bars = (await readSnapshot(config.tdxRoot, symbol, "day")).bars;
+        bars = await deps.bars(symbol);
       } catch {
         /* Keep the catalog member as missing, never hide it. */
       }
@@ -209,15 +208,20 @@ export async function runRpsObservation(
         actionsHash: rpsHash([...actions.events]),
         actionsCoverage: "当前GBBQ快照，盘中估算失败沿用上次后复权价",
         universeHash: rpsHash(symbols),
+        incrementSnapshots: deps.incrementSnapshots?.(),
       },
     };
     const groups: RpsObservation["groups"] = {};
-    if (config.industryBlocksRoot)
+    if (config.industryMembershipSource === "tdx" || config.industryBlocksRoot)
       for (const category of ["industry", "concept"] as const) {
-        const snapshot = await readIndustryBlocks(
-          config.industryBlocksRoot,
-          () => lease.assert(),
+        const snapshot = await readRpsBlockSource(
+          {
+            source: config.industryMembershipSource,
+            blocksRoot: config.industryBlocksRoot,
+            tdxRoot: config.tdxRoot,
+          },
           category,
+          () => lease.assert(),
         );
         const grouped = aggregateIndustryRps(snapshot, result);
         groups[category] = {

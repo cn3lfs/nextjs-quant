@@ -13,14 +13,20 @@ import { readMarketPool } from "./market-pool-files";
 import { RpsStore } from "./rps-store";
 import { exchangeNames } from "./exchange-security-names";
 import { latestRpsObservation, observationRanking } from "./rps-observation";
+import { fullDaySymbols } from "./tdx-full-day-cache";
 
 export async function marketPoolRows(input: unknown) {
   const query = marketPoolQuerySchema.parse(input);
   const config = settings();
   const source = query.pool
-    ? await readMarketPool(config.industryBlocksRoot, query.pool)
+    ? await readMarketPool(
+        config.industryBlocksRoot,
+        query.pool,
+        config.tdxRoot,
+      )
     : null;
   const directory = await securityDirectory();
+  const imported = new Set(fullDaySymbols());
   const coverage = get<Coverage>("coverage");
   const local = new Set(
     coverage && resolve(coverage.root) === resolve(config.tdxRoot)
@@ -68,7 +74,7 @@ export async function marketPoolRows(input: unknown) {
     (symbol) => isRpsMarketSymbol(symbol) && !catalog.has(symbol),
   ).length;
   const members = source?.members ?? [
-    ...new Set([...Object.keys(directory.entries), ...local]),
+    ...new Set([...Object.keys(directory.entries), ...local, ...imported]),
   ];
   const rows: MarketPoolRow[] = members.map((symbol) => ({
     symbol,
@@ -78,6 +84,7 @@ export async function marketPoolRows(input: unknown) {
       "名称未核实",
     identity: exchangeNames.get(symbol) ?? null,
     localDay: local.has(symbol),
+    fullDayCache: imported.has(symbol),
     value: ranks.get(symbol) ?? null,
     reason: ranks.has(symbol)
       ? null

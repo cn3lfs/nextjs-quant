@@ -42,6 +42,7 @@ export type MarketPoolRow = {
     fetchedAt: string;
   } | null;
   localDay: boolean;
+  fullDayCache?: boolean;
   value: RpsValue | null;
   reason: string | null;
 };

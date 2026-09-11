@@ -8,6 +8,8 @@ import {
 } from "~/lib/market-pool";
 import { industryRpsPolicy } from "~/lib/industry-rps";
 import { parseIndustryMembers } from "./industry-blocks";
+import { readTdxLocalBlocks } from "./tdx-local-blocks";
+import { get, put } from "./db";
 
 async function directory(
   root: string,
@@ -21,21 +23,90 @@ async function directory(
   return path;
 }
 
-export async function marketPoolCatalog(root: string, categoryInput: unknown) {
+export async function marketPoolCatalog(
+  root: string,
+  categoryInput: unknown,
+  tdxRoot?: string,
+) {
   const category = poolCategorySchema.parse(categoryInput);
-  const path = await directory(root, category);
-  const files = (await readdir(path, { withFileTypes: true }))
-    .filter((e) => e.isFile() && !e.isSymbolicLink() && /\.txt$/i.test(e.name))
-    .map((e) => e.name.slice(0, -4))
-    .filter((name) => category !== "index" || name === "中证A500")
-    .sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const warnings: string[] = [];
+  let files: string[] = [];
+  try {
+    const path = await directory(root, category);
+    files = (await readdir(path, { withFileTypes: true }))
+      .filter(
+        (e) => e.isFile() && !e.isSymbolicLink() && /\.txt$/i.test(e.name),
+      )
+      .map((e) => e.name.slice(0, -4))
+      .filter((name) => category !== "index" || name === "中证A500")
+      .sort((a, b) => a.localeCompare(b, "zh-CN"));
+  } catch (error) {
+    if (!tdxRoot) throw error;
+    warnings.push(error instanceof Error ? error.message : String(error));
+  }
+  if (tdxRoot) {
+    try {
+      const local = await readTdxLocalBlocks(tdxRoot);
+      files.push(
+        ...local.blocks
+          .filter((row) => row.category === category && row.members.length)
+          .map((row) => row.selectionName),
+      );
+    } catch (error) {
+      warnings.push(
+        `通达信板块资料不可用：${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
   if (files.length > 2000) throw new Error("板块名单超过2000个上限");
-  return { category, names: files };
+  return { category, names: files, warnings };
 }
 
 /** Reuses the tested byte parser. No files or sidecars are ever written to Blocks. */
-export async function readMarketPool(root: string, input: unknown) {
+export async function readMarketPool(
+  root: string,
+  input: unknown,
+  tdxRoot?: string,
+) {
   const pool = poolSelectionSchema.parse(input);
+  if (tdxRoot && pool.name.startsWith("通达信·")) {
+    const snapshot = await readTdxLocalBlocks(tdxRoot);
+    const block = snapshot.blocks.find(
+      (row) =>
+        row.category === pool.category && row.selectionName === pool.name,
+    );
+    if (!block || !block.members.length)
+      throw new Error("通达信板块名单缺失或为空");
+    const hash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          version: 1,
+          root: snapshot.root,
+          sourceHash: snapshot.hash,
+          block,
+        }),
+      )
+      .digest("hex");
+    const id = `market-pool-snapshot-${hash}`;
+    const result = {
+      ...pool,
+      root: snapshot.root,
+      file: "T0002/hq_cache",
+      hash,
+      mtimeMs: Math.max(...snapshot.files.map((file) => file.mtimeMs)),
+      observedAt: snapshot.observedAt,
+      members: block.members,
+      source: "tdx-local-metadata" as const,
+      classification: block.classification,
+      sourceDate: block.sourceDate,
+      files: snapshot.files,
+    };
+    // Content-addressed evidence is immutable; later downloads produce another snapshot.
+    const existing = get<typeof result>(id);
+    if (existing) return existing;
+    put("market-pool-snapshot", id, result);
+    return result;
+  }
   if (pool.category === "index" && pool.name !== "中证A500")
     throw new Error("当前仅接入中证A500指数成分");
   const folder = await directory(root, pool.category);

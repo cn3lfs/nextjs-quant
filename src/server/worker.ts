@@ -1,5 +1,6 @@
 import { parentPort } from "node:worker_threads";
 import { scan, readSnapshot } from "./tdx";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { backtest } from "./quant";
 import { screenLocal } from "./screening";
 import { screenFormula, type FormulaWork } from "./formula-screening";
@@ -83,7 +84,9 @@ async function main(work: Work) {
   }
   if (work.type === "scan") return scan(work.root);
   if (work.type === "snapshot")
-    return readSnapshot(work.root, work.symbol, work.period);
+    return work.period === "day"
+      ? readLocalDailySnapshot(work.root, work.symbol)
+      : readSnapshot(work.root, work.symbol, work.period);
   if (work.type === "backtest") {
     let source = work.fullRoot
       ? await fullBacktestSource(work.snapshot, work.fullRoot)

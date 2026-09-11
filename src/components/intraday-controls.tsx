@@ -196,8 +196,8 @@ export function IntradayControls() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全沪深</SelectItem>
-              <SelectItem value="index">中证A500</SelectItem>
-              <SelectItem value="industry">申万行业</SelectItem>
+              <SelectItem value="index">指数成分</SelectItem>
+              <SelectItem value="industry">行业（申万/通达信）</SelectItem>
               <SelectItem value="concept">概念</SelectItem>
             </SelectContent>
           </Select>
@@ -288,7 +288,9 @@ export function IntradayControls() {
         <div className="rounded border p-3 text-sm">
           <p>
             最近检查：
-            {new Date(status.data.lastCheck.checkedAt).toLocaleString("zh-CN")}{" "}
+            {new Date(status.data.lastCheck.checkedAt).toLocaleString(
+              "zh-CN",
+            )}{" "}
             · {status.data.lastCheck.calendarSource}
           </p>
           {status.data.lastCheck.schedule.slots.map((slot) => (

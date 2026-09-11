@@ -147,7 +147,13 @@ export function MarketPoolBrowser({
               ? `已退市（${row.original.identity.date}）`
               : `历史代码，${row.original.identity.date}起变更为${row.original.identity.successor?.toUpperCase()}`
             : null,
-          row.original.localDay ? "已扫描到日线" : "未扫描到日线",
+          row.original.fullDayCache
+            ? row.original.localDay
+              ? "本地日线及完整包缓存可用"
+              : "完整包缓存日线可用"
+            : row.original.localDay
+              ? "已扫描到日线"
+              : "未扫描到日线",
           row.original.reason,
         ]
           .filter(Boolean)
@@ -182,17 +188,21 @@ export function MarketPoolBrowser({
             <SelectItem value="all">全部沪深</SelectItem>
             {Object.entries(poolCategoryLabels).map(([key, label]) => (
               <SelectItem key={key} value={key}>
-                {key === "index" ? "中证A500" : label}
+                {key === "index"
+                  ? "指数成分"
+                  : key === "industry"
+                    ? "行业（申万/通达信）"
+                    : label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {category !== "all" && category !== "index" && (
+        {category !== "all" && (
           <Select
             value={query.pool?.name ?? ""}
             onValueChange={(name) => change({ pool: { category, name } })}
           >
-            <SelectTrigger aria-label="选择行业或概念">
+            <SelectTrigger aria-label="选择行业、概念或指数成分">
               <SelectValue placeholder="选择板块" />
             </SelectTrigger>
             <SelectContent>
@@ -289,6 +299,12 @@ export function MarketPoolBrowser({
       {category !== "all" && catalog.isPending && (
         <p role="status">读取板块目录…</p>
       )}
+      {category !== "all" &&
+        catalog.data?.warnings.map((warning) => (
+          <p className="notice" key={warning}>
+            {warning}
+          </p>
+        ))}
       {category !== "all" && catalog.data?.names.length === 0 && (
         <p role="status">该分类没有名单，请检查配置的Blocks目录。</p>
       )}
@@ -347,6 +363,16 @@ export function MarketPoolBrowser({
       {page.data?.source && ready && (
         <details className="text-sm text-muted-foreground">
           <summary>成分来源</summary>
+          {"classification" in page.data.source && (
+            <p>
+              分类口径：
+              {page.data.source.classification === "tdx-research"
+                ? "通达信研究行业"
+                : page.data.source.classification === "tdx-concept"
+                  ? "通达信概念"
+                  : "通达信指数成分"}
+            </p>
+          )}
           <p>
             {page.data.source.root} / {page.data.source.file}
           </p>

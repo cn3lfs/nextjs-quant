@@ -51,6 +51,7 @@ const require = createRequire(import.meta.url),
   );
 await build({
   entryPoints: ["src/server/worker.ts"],
+  external: ["better-sqlite3"],
   outfile: "runtime/worker.cjs",
   bundle: true,
   platform: "node",

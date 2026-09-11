@@ -34,7 +34,7 @@ export function IndustryRpsStatus({
       <p>{industryRpsPolicy.periodsNote}</p>
       <p>{rpsPolicy.description}</p>
       <p>
-        仅申万行业。配置Blocks根目录后启用每日15:05后批处理，与个股共用单任务队列。保留最近750个结果日；自动删除更早结果及成分快照。取消保留已提交日期，重试只补缺失日期。
+        按所选分类来源计算，与个股共用单任务队列。每日批次遵循工作流设置。保留最近750个结果日；自动删除更早结果及成分快照。取消保留已提交日期，重试只补缺失日期。
       </p>
       {progress && (
         <p role="status">

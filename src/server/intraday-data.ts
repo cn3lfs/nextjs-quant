@@ -10,6 +10,8 @@ import { readMarketPool } from "./market-pool-files";
 import { readSnapshot } from "./tdx";
 import { barPage } from "./tdx-quotes";
 import { latestRpsObservation, observationRanking } from "./rps-observation";
+import { overlayDailyIncrements } from "./tdx-daily-overlay";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
 
 export async function intradayPool(
   config: IntradayConfig,
@@ -23,7 +25,7 @@ export async function intradayPool(
   if (!day || resolve(day.source.root) !== resolve(app.tdxRoot))
     throw new Error("缺少当前数据目录上一交易日的RPS，请先计算");
   const pool = config.pool
-    ? await readMarketPool(app.industryBlocksRoot, config.pool)
+    ? await readMarketPool(app.industryBlocksRoot, config.pool, app.tdxRoot)
     : null;
   const ranking = observation
     ? observationRanking(observation, config.rpsPeriod)
@@ -80,11 +82,16 @@ export async function intradayHistory(
   if (source === "tdx-local") {
     const root = settings().tdxRoot;
     const [daily, minutes] = await Promise.all([
-      readSnapshot(root, symbol, "day"),
+      readLocalDailySnapshot(root, symbol),
       readSnapshot(root, symbol, "5m"),
     ]);
+    const merged = overlayDailyIncrements(
+      daily,
+      new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
+    );
     return {
-      daily: daily.bars,
+      daily: merged.bars,
+      sourceVersions: merged.sourceVersions,
       minutes: minutes.bars,
       fetchedAt: Math.max(daily.createdAt, minutes.createdAt),
     };

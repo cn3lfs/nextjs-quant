@@ -22,6 +22,7 @@ async function run() {
         config.calendar,
         config.industryBlocksRoot,
         request.target === "concept" ? "concept" : "industry",
+        config.industryMembershipSource,
       ),
       request,
       input.progress,

@@ -69,6 +69,7 @@ export type RpsDay = {
     actionsHash: string;
     actionsCoverage: string;
     universeHash: string;
+    incrementSnapshots?: string[];
   };
   inputHash: string;
   createdAt: number;

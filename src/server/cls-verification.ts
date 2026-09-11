@@ -1,19 +1,25 @@
-import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { settings } from "./settings";
 import { sqlite } from "./db";
 import { ClsReviewStore } from "./cls-review-store";
 import { clsOutcomes } from "./cls-outcomes";
-import { parseBars, readSnapshot } from "./tdx";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
+import { readBenchmarkSnapshot } from "./tdx-benchmark";
 import type { Bar } from "~/lib/domain";
 import { monitorCalendar } from "./monitor-calendar";
+import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export type ClsVerification = {
   version: "cls-verification-1";
   date: string;
   checkedAt: number;
-  source: { root: string; benchmark: string; adjustment: "none" };
+  source: {
+    root: string;
+    benchmark: string;
+    adjustment: "none";
+    incrementSnapshots?: string[];
+  };
   bars: Bar[];
   benchmark: Bar[];
   calendar: string[];
@@ -35,11 +41,15 @@ export async function verifyClsSample(date: string) {
   ];
   let bars: Bar[] = [],
     benchmark: Bar[] = [];
+  const versions = new Set<string>();
   if (sample.selected) {
     try {
-      bars = (
-        await readSnapshot(root, sample.selected.symbol, "day")
-      ).bars.filter((bar) => bar.date >= date && bar.date <= today);
+      const stock = overlayDailyIncrements(
+        await readLocalDailySnapshot(root, sample.selected.symbol),
+        today,
+      );
+      stock.sourceVersions?.forEach((id) => versions.add(id));
+      bars = stock.bars.filter((bar) => bar.date >= date && bar.date <= today);
     } catch (error) {
       warnings.push(
         error instanceof Error ? error.message : "股票行情读取失败",
@@ -47,13 +57,12 @@ export async function verifyClsSample(date: string) {
     }
   }
   try {
-    const path = join(root, "vipdoc/sh/lday/sh000001.day");
-    const before = await stat(path),
-      bytes = await readFile(path),
-      after = await stat(path);
-    if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
-      throw new Error("基准读取期间发生变化");
-    benchmark = parseBars(bytes, "day").filter(
+    const merged = overlayDailyIncrements(
+      await readBenchmarkSnapshot(root, date, today),
+      today,
+    );
+    merged.sourceVersions?.forEach((id) => versions.add(id));
+    benchmark = merged.bars.filter(
       (bar) => bar.date >= date && bar.date <= today,
     );
   } catch (error) {
@@ -72,7 +81,12 @@ export async function verifyClsSample(date: string) {
   const content = {
     version: "cls-verification-1" as const,
     date,
-    source: { root, benchmark: "sh000001", adjustment: "none" as const },
+    source: {
+      root,
+      benchmark: "sh000001",
+      adjustment: "none" as const,
+      ...(versions.size ? { incrementSnapshots: [...versions].sort() } : {}),
+    },
     bars,
     benchmark,
     calendar,

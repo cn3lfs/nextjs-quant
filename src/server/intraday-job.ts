@@ -46,7 +46,12 @@ export type IntradayDependencies = {
   history(
     source: IntradayConfig["source"],
     symbol: string,
-  ): Promise<{ daily: Bar[]; minutes: Bar[]; fetchedAt: number }>;
+  ): Promise<{
+    daily: Bar[];
+    minutes: Bar[];
+    fetchedAt: number;
+    sourceVersions?: string[];
+  }>;
   czsc(bars: readonly Bar[]): Promise<CzscResult>;
 };
 
@@ -187,6 +192,7 @@ export class IntradayJob {
               return this.store.record({
                 ...value,
                 capturedAt: history.fetchedAt,
+                sourceVersions: history.sourceVersions,
                 observedAt: deps.now(),
                 sessionId: id,
                 rpsDate: run.previousTradingDay,

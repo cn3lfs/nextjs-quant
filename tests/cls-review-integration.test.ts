@@ -142,6 +142,46 @@ it("fixes a sector-RPS sample before open and persists matching close evidence w
       basis: "explicit-recommendation",
       rps: null,
     });
+    const incrementId = "cls-increment-fixture";
+    const increment = {
+      id: incrementId,
+      date: "2026-09-11",
+      records: ["sh600000", "sh000001"].map((symbol) => ({
+        symbol,
+        bar: {
+          date: "2026-09-11",
+          open: 10,
+          high: 12,
+          low: 9,
+          close: 12,
+          volume: 10000,
+          amount: 120000,
+        },
+      })),
+    };
+    db.prepare("INSERT INTO records VALUES (?,?,?,?)").run(
+      incrementId,
+      "tdx-daily-snapshot",
+      JSON.stringify(increment),
+      nextMorning,
+    );
+    for (const symbol of ["sh600000", "sh000001"])
+      db.prepare("INSERT INTO records VALUES (?,?,?,?)").run(
+        `tdx-daily-current-${symbol}-2026-09-11`,
+        "tdx-daily-current",
+        JSON.stringify({ snapshotId: incrementId }),
+        nextMorning,
+      );
+    const refreshed = await verifyClsSample(sample.date);
+    expect(refreshed.bars[0]?.close).toBe(12);
+    expect(refreshed.benchmark[0]?.close).toBe(12);
+    expect(refreshed.source.incrementSnapshots).toEqual([incrementId]);
+    expect(refreshed.hash).not.toBe(verification.hash);
+    expect(
+      store
+        .verifications(sample.date)
+        .find((row) => row.hash === verification.hash)?.bars[0]?.close,
+    ).toBe(11);
   } finally {
     clock.mockRestore();
     db.close();

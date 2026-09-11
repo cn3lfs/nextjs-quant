@@ -58,6 +58,30 @@ beforeEach(() => {
 });
 afterEach(() => state.db?.close());
 
+it("includes imported securities without pretending their local day files were scanned", async () => {
+  state
+    .db!.prepare("INSERT INTO records VALUES (?,?,?,?)")
+    .run(
+      "tdx-full-day-current-sh600519",
+      "tdx-full-day-current",
+      JSON.stringify({ snapshotId: "imported" }),
+      1,
+    );
+  const result = await marketPoolRows({ search: "sh600519" });
+  expect(result.rows).toHaveLength(1);
+  expect(result.rows[0]).toMatchObject({
+    symbol: "sh600519",
+    localDay: false,
+    fullDayCache: true,
+  });
+  const unrelatedPool = await marketPoolRows({
+    pool: { category: "index", name: "中证A500" },
+  });
+  expect(unrelatedPool.rows.some((row) => row.symbol === "sh600519")).toBe(
+    false,
+  );
+});
+
 it("paged results concatenate to export ordering without reranking the selected pool", async () => {
   const first = await marketPoolPage({});
   const second = await marketPoolPage({ page: 1 });

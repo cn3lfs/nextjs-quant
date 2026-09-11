@@ -32,7 +32,7 @@ it("daily batch stores six periods, uses completed dates only and preserves exis
   const { store, progress } = setup();
   const result = await runRpsJob(
     store,
-    rpsDeps(),
+    { ...rpsDeps(), incrementSnapshots: () => ["tdx-daily-snapshot-fixture"] },
     { mode: "backfill", days: 3 },
     progress,
     now,
@@ -41,6 +41,9 @@ it("daily batch stores six periods, uses completed dates only and preserves exis
   expect(result.completedDays).toBe(3);
   expect(store.latest()!.counts).toEqual([10, 10, 10, 10, 10, 10]);
   expect(store.latest()!.date).toBe(rpsDate);
+  expect(store.latest()!.source.incrementSnapshots).toEqual([
+    "tdx-daily-snapshot-fixture",
+  ]);
   const next = rpsProgress();
   store.claim(next);
   expect(
@@ -48,6 +51,9 @@ it("daily batch stores six periods, uses completed dates only and preserves exis
       .completedDays,
   ).toBe(0);
   expect(store.latest()!.mode).toBe("backfill");
+  expect(store.latest()!.source.incrementSnapshots).toEqual([
+    "tdx-daily-snapshot-fixture",
+  ]);
 });
 it.each(["missing-gbbq", "stale-gbbq", "broken-bars"])(
   "%s fails closed without raw-price fallback or smaller hidden universe",

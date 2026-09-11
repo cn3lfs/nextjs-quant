@@ -6,10 +6,12 @@ import { chartPeriodSchema, isMinutePeriod } from "~/lib/chart-view";
 import { get, put } from "./db";
 import { settings } from "./settings";
 import { readSnapshot } from "./tdx";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { mcpConfigured } from "./mcp";
 import { aggregateChartBars, chartPeriodEnd } from "./chart-aggregation";
 import { mcpChartHistory, onlinePeriodHistory } from "./chart-history";
 import { localCalendarReference } from "./data-health";
+import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export const chartBarsInput = z.object({
   snapshotId: z.string().min(1),
@@ -28,14 +30,14 @@ export async function chartBars(
     time = wall.slice(11, 16);
   const base = isMinutePeriod(period) ? "5m" : "day";
   const reasons: string[] = [];
-  let resolved: Omit<ChartSnapshot, "id" | "hash"> | undefined;
+  let resolved: Omit<ChartSnapshot, "id"> | undefined;
   try {
     let local: Snapshot;
     try {
       local =
         source.period === base
           ? source
-          : await readSnapshot(
+          : await (base === "day" ? readLocalDailySnapshot : readSnapshot)(
               source.dataRoot ?? settings().tdxRoot,
               source.symbol,
               base,
@@ -54,6 +56,15 @@ export async function chartBars(
       local = { ...minutes, period: "day", bars: daily.bars };
       if (daily.excluded.length)
         reasons.push("5分钟合成日线存在缺口，继续在线补齐");
+    }
+    if (base === "day") {
+      try {
+        local = overlayDailyIncrements(local, today);
+      } catch (error) {
+        reasons.push(
+          `日线增量不可用：${error instanceof Error ? error.message : "读取失败"}`,
+        );
+      }
     }
     const calendar =
       period === "week" || period === "month"
@@ -122,6 +133,7 @@ export async function chartBars(
       JSON.stringify({
         period,
         source: resolved.source,
+        baseVersion: resolved.hash,
         bars,
         formingDates: resolved.formingDates,
       }),

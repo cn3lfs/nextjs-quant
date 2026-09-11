@@ -2,7 +2,7 @@ import {
   aggregateIndustryRps,
   type IndustrySnapshot,
 } from "~/lib/industry-rps";
-import { readIndustryBlocks } from "./industry-blocks";
+import { readRpsBlockSource } from "./rps-block-source";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Bar } from "~/lib/domain";
@@ -14,7 +14,8 @@ import {
   type RpsRequest,
 } from "~/lib/rps";
 import { historicalDateSchema } from "~/lib/historical-screen";
-import { parseBars, readSnapshot, scan } from "./tdx";
+import { parseBars, scan } from "./tdx";
+import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
 import type { TdxXdxr } from "./tdx-wire";
 import {
@@ -24,8 +25,13 @@ import {
   type RpsSecurity,
 } from "./rps-engine";
 import { RpsStore } from "./rps-store";
+import { overlayDailyIncrements } from "./tdx-daily-overlay";
+import { readDailyIncrementRange } from "./tdx-daily-cache";
+import { fullDaySymbols, readFullDaySnapshot } from "./tdx-full-day-cache";
+import { isRpsMarketSymbol } from "~/lib/rps";
 
 export type RpsDependencies = {
+  incrementSnapshots?: () => string[];
   industries?: (checkpoint: () => void) => Promise<IndustrySnapshot>;
   root: string;
   calendar: () => Promise<{ days: string[]; source: string }>;
@@ -38,10 +44,19 @@ export function localRpsDependencies(
   overrides: string[],
   blocksRoot = "",
   category: "industry" | "concept" = "industry",
+  source: "blocks" | "tdx" = "blocks",
 ): RpsDependencies {
+  const versions = new Set<string>();
+  const today = () =>
+    new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
   return {
+    incrementSnapshots: () => [...versions].sort(),
     industries: (checkpoint) =>
-      readIndustryBlocks(blocksRoot, checkpoint, category),
+      readRpsBlockSource(
+        { source, blocksRoot, tdxRoot: root },
+        category,
+        checkpoint,
+      ),
     root: resolve(root),
     calendar: async () => {
       if (overrides.length)
@@ -52,25 +67,73 @@ export function localRpsDependencies(
       // 750 retained days plus 250 warmup sessions. Older index records can contain
       // invalid prices; they are outside this product's date horizon, not silently repaired.
       const path = join(root, "vipdoc/sh/lday/sh000001.day");
-      const before = await stat(path),
-        bytes = await readFile(path),
-        after = await stat(path);
-      if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
-        throw new Error("RPS参考日历正在更新");
-      if (bytes.length % 32) throw new Error("RPS参考日历记录不完整");
-      return {
-        days: parseBars(
+      let days: string[] = [];
+      let localFailure: unknown;
+      try {
+        const before = await stat(path),
+          bytes = await readFile(path),
+          after = await stat(path);
+        if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
+          throw new Error("RPS参考日历正在更新");
+        if (bytes.length % 32) throw new Error("RPS参考日历记录不完整");
+        days = parseBars(
           bytes.subarray(Math.max(0, bytes.length - 1000 * 32)),
           "day",
-        ).map((b) => b.date),
-        source: "本地上证指数最近1000根已有交易日期（非完整官方日历）",
+        ).map((b) => b.date);
+      } catch (error) {
+        localFailure = error;
+      }
+      const cached = readFullDaySnapshot("sh000001");
+      let usedFull = false;
+      if (cached && (!days.length || cached.bars.at(-1)!.date > days.at(-1)!)) {
+        days = cached.bars.slice(-1000).map((bar) => bar.date);
+        for (const version of cached.sourceVersions ?? [])
+          versions.add(version);
+        usedFull = true;
+      }
+      if (!days.length && localFailure) throw localFailure;
+      const increments = days.length
+        ? readDailyIncrementRange("sh000001", days[0]!, today())
+        : [];
+      for (const item of increments) versions.add(item.snapshot.id);
+      return {
+        days: [
+          ...new Set([
+            ...days,
+            ...increments.map((item) => item.record.bar.date),
+          ]),
+        ].sort(),
+        source:
+          `${usedFull ? "完整包缓存" : "本地"}上证指数最近1000根已有交易日期（非完整官方日历）` +
+          (increments.length ? "，含通达信已发布日线增量" : ""),
       };
     },
-    universe: async () =>
-      (await scan(root)).securities
+    universe: async () => {
+      const imported = fullDaySymbols().filter(isRpsMarketSymbol);
+      const local = await scan(root).catch((error: unknown) => {
+        if (!imported.length) throw error;
+        return { securities: [] };
+      });
+      const rows = local.securities
         .filter((s) => s.period === "day")
-        .map(({ symbol, name }) => ({ symbol, name })),
-    bars: async (symbol) => (await readSnapshot(root, symbol, "day")).bars,
+        .map(({ symbol, name }) => ({ symbol, name }));
+      const existing = new Set(rows.map((row) => row.symbol));
+      return [
+        ...rows,
+        ...imported
+          .filter((symbol) => !existing.has(symbol))
+          .map((symbol) => ({ symbol, name: symbol })),
+      ];
+    },
+    bars: async (symbol) => {
+      const snapshot = overlayDailyIncrements(
+        await readLocalDailySnapshot(root, symbol),
+        today(),
+      );
+      for (const version of snapshot.sourceVersions ?? [])
+        versions.add(version);
+      return snapshot.bars;
+    },
     actions: async () => {
       const value = await readGbbq(root);
       return { events: value.events, source: value.path };
@@ -204,6 +267,7 @@ export async function runRpsJob(
         );
         progress.scanned++;
       }
+      source.incrementSnapshots = deps.incrementSnapshots?.();
       for (const date of pending) {
         checkpoint(`计算并固定 ${date}`);
         const stockResult = calculateRpsDay(stocks, days, date);

@@ -45,7 +45,11 @@ export async function fixClsSample(reportId: string) {
   const candidateDependencies = {
     securities: Object.values(directory.entries),
     pool: (category: "industry" | "concept", name: string) =>
-      readMarketPool(config.industryBlocksRoot, { category, name }),
+      readMarketPool(
+        config.industryBlocksRoot,
+        { category, name },
+        config.tdxRoot,
+      ),
     ranking: validRps
       ? observation
         ? observationRanking(observation, 50)
@@ -70,6 +74,7 @@ export async function fixClsSample(reportId: string) {
       const catalog = await marketPoolCatalog(
         config.industryBlocksRoot,
         category,
+        config.tdxRoot,
       );
       pools.push(...catalog.names.map((name) => ({ category, name })));
     }

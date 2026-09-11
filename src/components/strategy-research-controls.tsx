@@ -222,18 +222,23 @@ export function StrategyResearchControls() {
         </p>
         {spec.pool && (
           <label>
-            名单名称
-            <Input
-              required
+            A500名单来源
+            <Select
               value={spec.pool.name}
-              disabled={spec.pool.category === "index"}
-              onChange={(event) =>
-                setSpec({
-                  ...spec,
-                  pool: { ...spec.pool!, name: event.target.value },
-                })
+              onValueChange={(name) =>
+                setSpec({ ...spec, pool: { category: "index", name } })
               }
-            />
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="中证A500">本地 Blocks 名单</SelectItem>
+                <SelectItem value="通达信·成分·中证A500">
+                  通达信客户端名单
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </label>
         )}
         <div className="space-y-3 sm:col-span-3">
