@@ -8,11 +8,13 @@ import type { RpsProgress } from "../src/lib/rps";
 const scope = globalThis as typeof globalThis & {
   rpsAttempt?: string;
   industryRpsAttempt?: string;
+  conceptRpsAttempt?: string;
 };
 const now = Date.parse(`${rpsDate}T15:05:00+08:00`);
 beforeEach(() => {
   delete scope.rpsAttempt;
   delete scope.industryRpsAttempt;
+  delete scope.conceptRpsAttempt;
   sqlite().exec(
     "DELETE FROM rps_job; DELETE FROM rps_values; DELETE FROM rps_days",
   );
@@ -60,7 +62,10 @@ it("after close, stock and configured industry are scheduled serially under one 
     error: "missing file",
   });
   scheduleRps(now);
-  expect(worker).toHaveBeenCalledTimes(2);
+  expect(worker).toHaveBeenCalledTimes(3);
+  expect(worker.mock.calls[2]![0].target).toBe("concept");
+  scheduleRps(now);
+  expect(worker).toHaveBeenCalledTimes(3);
 });
 it("empty configured directory disables automatic industry work without stopping stock RPS", () => {
   put("settings", "settings", { industryBlocksRoot: "" });
@@ -83,5 +88,6 @@ it("an already stored stock day does not suppress industry; persisted industry f
   delete scope.rpsAttempt;
   delete scope.industryRpsAttempt;
   scheduleRps(now);
-  expect(worker).toHaveBeenCalledTimes(1);
+  expect(worker).toHaveBeenCalledTimes(2);
+  expect(worker.mock.calls[1]![0].target).toBe("concept");
 });

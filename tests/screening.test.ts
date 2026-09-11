@@ -196,11 +196,12 @@ it("未变行情跨30秒复用；完成时点、策略和日期变化阻止复�
 });
 it("历史截止日读取尾窗以外的数据，未来记录不进入指标，缺少当前名称不删除历史证券", async () => {
   const root = await fixture(),
-    file = join(root, "vipdoc", "sh", "lday", "sh600003.day");
+    // Use a synthetic identity: sh600003 now resolves through the exchange archive.
+    file = join(root, "vipdoc", "sh", "lday", "sh609999.day");
   await writeFile(file, data(500));
   const input = {
     root,
-    symbols: ["sh600003"],
+    symbols: ["sh609999"],
     period: "day" as const,
     strategy: defaultStrategy,
     asOf: "2025-04-10",

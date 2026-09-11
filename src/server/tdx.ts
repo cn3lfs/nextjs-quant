@@ -5,6 +5,8 @@ import type { Bar, Coverage, Period, Security, Snapshot } from "~/lib/domain";
 import { symbolSchema } from "~/lib/domain";
 import { historicalDateSchema } from "~/lib/historical-screen";
 import type { Stats } from "node:fs";
+import { exchangeNames } from "./exchange-security-names";
+import { commonIndexName, isMarketIndex } from "~/lib/market-indices";
 import { encodeTail, decodeTail } from "./tail-cache-codec";
 const tailCache = new Map<
   string,
@@ -189,7 +191,7 @@ export async function scan(root: string): Promise<Coverage> {
         const info = await stat(join(dir, file));
         securities.push({
           symbol,
-          name: names.get(symbol) ?? symbol,
+          name: names.get(symbol) ?? exchangeNames.get(symbol)?.name ?? symbol,
           market,
           bytes: info.size,
           modified: info.mtimeMs,
@@ -207,8 +209,8 @@ export async function readSnapshot(
   period: Period,
 ): Promise<Snapshot> {
   symbolSchema.parse(symbol);
-  if (!isAStock(symbol))
-    throw new Error("首期仅支持 A 股，其他品种单位尚未验证");
+  if (!isAStock(symbol) && !isMarketIndex(symbol))
+    throw new Error("仅支持A股与沪深指数行情");
   const file = join(
     resolve(root),
     "vipdoc",
@@ -230,7 +232,9 @@ export async function readSnapshot(
     return {
       id: `snapshot-${symbol}-${period}-${hash.slice(0, 16)}`,
       symbol,
-      name: (await securityNames(root, symbol.slice(0, 2))).get(symbol),
+      name:
+        (await securityNames(root, symbol.slice(0, 2))).get(symbol) ??
+        exchangeNames.get(symbol)?.name ?? commonIndexName(symbol),
       period,
       source: "tdx-local",
       dataRoot: resolve(root),
@@ -280,7 +284,9 @@ export async function readTailSnapshot(
       tailCache.delete(cacheKey);
       tailCache.set(cacheKey, cached);
       const result = decodeTail(cached.payload);
-      result.name = (await securityNames(root, symbol.slice(0, 2))).get(symbol);
+      result.name =
+        (await securityNames(root, symbol.slice(0, 2))).get(symbol) ??
+        exchangeNames.get(symbol)?.name;
       return result;
     }
     forgetTail(cacheKey);
@@ -320,7 +326,9 @@ export async function readTailSnapshot(
       const snapshot: Snapshot = {
         id: `snapshot-tail-${symbol}-${period}-${hash.slice(0, 16)}`,
         symbol,
-        name: (await securityNames(root, symbol.slice(0, 2))).get(symbol),
+        name:
+          (await securityNames(root, symbol.slice(0, 2))).get(symbol) ??
+          exchangeNames.get(symbol)?.name,
         period,
         source: "tdx-local",
         dataRoot: resolve(root),

@@ -1,0 +1,15 @@
+{
+  "symbol": "sh000001",
+  "fetchedAt": "2026-09-11T02:58:13.942Z",
+  "bytes": 2,
+  "results": [
+    {
+      "breadth": false,
+      "error": "Error: K 线时间字段越界"
+    },
+    {
+      "breadth": true,
+      "error": "Error: K 线时间字段越界"
+    }
+  ]
+}

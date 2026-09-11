@@ -94,6 +94,7 @@ const scope = globalThis as typeof globalThis & {
   rpsClient?: RpsWorkerClient;
   rpsAttempt?: string;
   industryRpsAttempt?: string;
+  conceptRpsAttempt?: string;
 };
 export const rpsClient = () => (scope.rpsClient ??= new RpsWorkerClient());
 /** One attempt per wall-clock day; failure/cancellation is retried explicitly from data management. */
@@ -103,9 +104,14 @@ export function scheduleRps(now: number) {
   if (local.slice(11, 16) < "15:05") return;
   const progress = new RpsStore(sqlite()).progress();
   if (progress?.status === "running") return;
-  for (const target of ["stock", "industry"] as const) {
-    if (target === "industry" && !settings().industryBlocksRoot) continue;
-    const key = target === "stock" ? "rpsAttempt" : "industryRpsAttempt";
+  for (const target of ["stock", "industry", "concept"] as const) {
+    if (target !== "stock" && !settings().industryBlocksRoot) continue;
+    const key =
+      target === "stock"
+        ? "rpsAttempt"
+        : target === "industry"
+          ? "industryRpsAttempt"
+          : "conceptRpsAttempt";
     if (scope[key] === today) continue;
     scope[key] = today;
     if (

@@ -31,15 +31,19 @@ function decode(symbol: string, bytes: Buffer, day: RpsDay): RpsRow {
   };
 }
 export class RpsStore {
-  private daysTable: "rps_days" | "industry_rps_days";
-  private valuesTable: "rps_values" | "industry_rps_values";
+  private daysTable: "rps_days" | "industry_rps_days" | "concept_rps_days";
+  private valuesTable:
+    "rps_values" | "industry_rps_values" | "concept_rps_values";
   constructor(
     private db: Database.Database,
-    readonly target: "stock" | "industry" = "stock",
+    readonly target: "stock" | "industry" | "concept" = "stock",
   ) {
-    this.daysTable = target === "industry" ? "industry_rps_days" : "rps_days";
-    this.valuesTable =
-      target === "industry" ? "industry_rps_values" : "rps_values";
+    const tables = {
+      stock: ["rps_days", "rps_values"],
+      industry: ["industry_rps_days", "industry_rps_values"],
+      concept: ["concept_rps_days", "concept_rps_values"],
+    } as const;
+    [this.daysTable, this.valuesTable] = tables[target];
   }
   day(date: string) {
     const row = this.db
@@ -104,13 +108,18 @@ export class RpsStore {
       .run();
   }
   saveDay(day: RpsDay, rows: RpsRow[], guard: () => void = () => {}) {
-    if ((this.target === "industry") !== !!day.industry)
+    const resultTarget = day.industry
+      ? (day.industry.snapshot.category ?? "industry")
+      : "stock";
+    if (this.target !== resultTarget)
       throw new Error("RPS结果类型与存储不匹配");
     if (day.industry) industrySnapshotSchema.parse(day.industry.snapshot);
     const maximum =
       this.target === "industry"
         ? industryRpsPolicy.maxIndustries
-        : rpsPolicy.maxSymbols;
+        : this.target === "concept"
+          ? industryRpsPolicy.maxConcepts
+          : rpsPolicy.maxSymbols;
     if (rows.length > maximum || day.total > maximum)
       throw new Error("RPS证券数超出存储上限");
     if (rows.some((r) => r.values.length !== day.periods.length))

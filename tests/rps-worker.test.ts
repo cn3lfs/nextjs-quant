@@ -147,6 +147,33 @@ it("industry uses the real shared worker, cancellation and independent six-perio
   }
 });
 
+it("real concept worker uses its own category and publishes independent six-period ranks", async () => {
+  const blocks = join(directory, "concept-blocks");
+  await mkdir(join(blocks, "概念"), { recursive: true });
+  await writeFile(join(blocks, "概念/低.txt"), "SZ000000\r\nSZ000001\r\n");
+  await writeFile(join(blocks, "概念/高.txt"), "SZ000008\r\nSZ000009\r\n");
+  put("settings", "settings", {
+    tdxRoot: root,
+    calendar,
+    industryBlocksRoot: blocks,
+  });
+  const before = new RpsStore(sqlite(), "industry").latest();
+  const result = await client.start(
+    { target: "concept", mode: "backfill", days: 2 },
+    Date.parse(`${calendar.at(-1)}T15:05:00+08:00`),
+  ).done;
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe("complete");
+  const store = new RpsStore(sqlite(), "concept");
+  expect(store.latest()!.counts).toEqual([2, 2, 2, 2, 2, 2]);
+  expect(store.latest()!.industry!.snapshot.category).toBe("concept");
+  expect(store.ranking(calendar.at(-1)!, 50).map((r) => r.symbol)).toEqual([
+    "高",
+    "低",
+  ]);
+  expect(new RpsStore(sqlite(), "industry").latest()).toEqual(before);
+});
+
 // Opt-in real data evidence; only the test-owned database is written, then removed
 // by afterAll. Existing globalSetup recovers crash leftovers after 24 hours.
 if (

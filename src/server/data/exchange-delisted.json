@@ -1,0 +1,2341 @@
+{
+  "version": 1,
+  "fetchedAt": "2026-09-11T02:53:51.544Z",
+  "sources": {
+    "sse": "https://query.sse.com.cn/commonQuery.do?sqlId=COMMON_SSE_CP_GPJCTPZ_GPLB_GP_L&isPagination=true&STOCK_TYPE=1%2C2%2C8&COMPANY_STATUS=3&type=inParams&pageHelp.pageSize=1000&pageHelp.pageNo=1&pageHelp.beginPage=1&pageHelp.endPage=1",
+    "szse": "https://www.szse.cn/api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1793_ssgs&TABKEY=tab2"
+  },
+  "entries": [
+    {
+      "symbol": "sh600001",
+      "name": "邯郸钢铁",
+      "listingDate": "1998-01-22",
+      "delistingDate": "2009-12-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600002",
+      "name": "齐鲁退市",
+      "listingDate": "1998-04-08",
+      "delistingDate": "2006-04-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600003",
+      "name": "ST东北高",
+      "listingDate": "1999-08-10",
+      "delistingDate": "2010-02-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600005",
+      "name": "武钢股份",
+      "listingDate": "1999-08-03",
+      "delistingDate": "2017-02-14",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600065",
+      "name": "*ST联 谊",
+      "listingDate": "1997-05-23",
+      "delistingDate": "2007-12-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600068",
+      "name": "葛洲坝",
+      "listingDate": "1997-05-26",
+      "delistingDate": "2021-09-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600069",
+      "name": "退市银鸽",
+      "listingDate": "1997-04-30",
+      "delistingDate": "2020-08-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600070",
+      "name": "*ST富润",
+      "listingDate": "1997-06-04",
+      "delistingDate": "2025-04-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600074",
+      "name": "退市保千",
+      "listingDate": "1997-06-23",
+      "delistingDate": "2020-06-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600077",
+      "name": "*ST宋都",
+      "listingDate": "1997-05-20",
+      "delistingDate": "2023-07-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600083",
+      "name": "*ST博信",
+      "listingDate": "1997-06-06",
+      "delistingDate": "2025-03-05",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600086",
+      "name": "退市金钰",
+      "listingDate": "1997-06-06",
+      "delistingDate": "2021-03-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600087",
+      "name": "退市长油",
+      "listingDate": "1997-06-12",
+      "delistingDate": "2014-06-05",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600090",
+      "name": "退市济堂",
+      "listingDate": "1997-06-16",
+      "delistingDate": "2022-07-07",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600091",
+      "name": "退市明科",
+      "listingDate": "1997-07-04",
+      "delistingDate": "2022-06-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600092",
+      "name": "*ST精 密",
+      "listingDate": "1997-06-26",
+      "delistingDate": "2006-11-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600093",
+      "name": "退市易见",
+      "listingDate": "1997-06-26",
+      "delistingDate": "2022-06-23",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600102",
+      "name": "莱钢股份",
+      "listingDate": "1997-08-28",
+      "delistingDate": "2012-02-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600112",
+      "name": "*ST天成",
+      "listingDate": "1997-11-27",
+      "delistingDate": "2024-08-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600122",
+      "name": "*ST宏图",
+      "listingDate": "1998-04-20",
+      "delistingDate": "2023-06-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600139",
+      "name": "*ST西源",
+      "listingDate": "1998-02-25",
+      "delistingDate": "2023-03-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600145",
+      "name": "退市新亿",
+      "listingDate": "1999-09-23",
+      "delistingDate": "2022-04-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600146",
+      "name": "退市环球",
+      "listingDate": "1999-07-07",
+      "delistingDate": "2022-06-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600175",
+      "name": "退市美都",
+      "listingDate": "1999-04-08",
+      "delistingDate": "2020-08-17",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600181",
+      "name": "*ST云 大",
+      "listingDate": "1998-09-28",
+      "delistingDate": "2007-06-01",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600190",
+      "name": "退市锦港",
+      "listingDate": "1999-06-09",
+      "delistingDate": "2025-07-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600193",
+      "name": "退市创兴",
+      "listingDate": "1999-05-27",
+      "delistingDate": "2026-07-06",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600200",
+      "name": "退市苏吴",
+      "listingDate": "1999-04-01",
+      "delistingDate": "2025-12-31",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600205",
+      "name": "S山东铝",
+      "listingDate": "1999-06-30",
+      "delistingDate": "2007-04-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600209",
+      "name": "退市罗顿",
+      "listingDate": "1999-03-25",
+      "delistingDate": "2022-06-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600213",
+      "name": "*ST亚星",
+      "listingDate": "1999-08-31",
+      "delistingDate": "2024-10-17",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600220",
+      "name": "ST阳光",
+      "listingDate": "1999-09-27",
+      "delistingDate": "2024-07-10",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600225",
+      "name": "退市卓朗",
+      "listingDate": "2000-01-27",
+      "delistingDate": "2025-03-06",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600240",
+      "name": "退市华业",
+      "listingDate": "2000-06-28",
+      "delistingDate": "2020-02-06",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600242",
+      "name": "退市中昌",
+      "listingDate": "2000-12-07",
+      "delistingDate": "2023-06-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600247",
+      "name": "*ST成城",
+      "listingDate": "2000-11-23",
+      "delistingDate": "2021-03-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600253",
+      "name": "天方药业",
+      "listingDate": "2000-12-27",
+      "delistingDate": "2013-07-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600260",
+      "name": "*ST凯乐",
+      "listingDate": "2000-07-06",
+      "delistingDate": "2023-02-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600263",
+      "name": "路桥建设",
+      "listingDate": "2000-07-25",
+      "delistingDate": "2012-03-01",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600270",
+      "name": "外运发展",
+      "listingDate": "2000-12-28",
+      "delistingDate": "2018-12-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600275",
+      "name": "退市昌鱼",
+      "listingDate": "2000-08-10",
+      "delistingDate": "2022-06-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600277",
+      "name": "ST亿利",
+      "listingDate": "2000-07-25",
+      "delistingDate": "2024-07-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600286",
+      "name": "*ST国 瓷",
+      "listingDate": "1999-12-09",
+      "delistingDate": "2007-05-31",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600290",
+      "name": "*ST华仪",
+      "listingDate": "2000-11-06",
+      "delistingDate": "2024-01-16",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600291",
+      "name": "退市西水",
+      "listingDate": "2000-07-31",
+      "delistingDate": "2022-06-14",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600296",
+      "name": "S兰铝",
+      "listingDate": "2000-07-19",
+      "delistingDate": "2007-04-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600297",
+      "name": "广汇汽车",
+      "listingDate": "2000-11-16",
+      "delistingDate": "2024-08-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600306",
+      "name": "退市商城",
+      "listingDate": "2000-12-26",
+      "delistingDate": "2024-06-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600311",
+      "name": "*ST荣华",
+      "listingDate": "2001-06-26",
+      "delistingDate": "2023-03-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600317",
+      "name": "营口港",
+      "listingDate": "2002-01-31",
+      "delistingDate": "2021-01-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600321",
+      "name": "正源股份",
+      "listingDate": "2001-05-24",
+      "delistingDate": "2024-06-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600355",
+      "name": "*ST精伦",
+      "listingDate": "2002-06-13",
+      "delistingDate": "2026-04-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600357",
+      "name": "承德钒钛",
+      "listingDate": "2002-09-06",
+      "delistingDate": "2009-12-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600385",
+      "name": "退市金泰",
+      "listingDate": "2001-07-23",
+      "delistingDate": "2022-07-07",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600387",
+      "name": "退市海越",
+      "listingDate": "2004-02-18",
+      "delistingDate": "2025-07-11",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600393",
+      "name": "ST粤泰",
+      "listingDate": "2001-03-19",
+      "delistingDate": "2023-07-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600401",
+      "name": "退市海润",
+      "listingDate": "2003-09-24",
+      "delistingDate": "2019-07-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600421",
+      "name": "退市华嵘",
+      "listingDate": "2004-06-07",
+      "delistingDate": "2026-06-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600432",
+      "name": "退市吉恩",
+      "listingDate": "2003-09-05",
+      "delistingDate": "2018-07-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600462",
+      "name": "退市九有",
+      "listingDate": "2003-09-03",
+      "delistingDate": "2025-07-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600466",
+      "name": "*ST蓝光",
+      "listingDate": "2001-02-12",
+      "delistingDate": "2023-06-06",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600472",
+      "name": "包头铝业",
+      "listingDate": "2005-05-09",
+      "delistingDate": "2007-12-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600485",
+      "name": "*ST信威",
+      "listingDate": "2003-08-07",
+      "delistingDate": "2021-06-01",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600532",
+      "name": "退市未来",
+      "listingDate": "2002-10-31",
+      "delistingDate": "2023-06-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600553",
+      "name": "太行水泥",
+      "listingDate": "2002-08-22",
+      "delistingDate": "2011-02-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600555",
+      "name": "退市海创",
+      "listingDate": "2001-03-28",
+      "delistingDate": "2022-07-14",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600565",
+      "name": "ST迪马",
+      "listingDate": "2002-07-23",
+      "delistingDate": "2024-08-07",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600591",
+      "name": "*ST上航",
+      "listingDate": "2002-10-11",
+      "delistingDate": "2010-01-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600599",
+      "name": "退市熊猫",
+      "listingDate": "2001-08-28",
+      "delistingDate": "2026-06-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600607",
+      "name": "上实医药",
+      "listingDate": "1992-03-27",
+      "delistingDate": "2010-02-12",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600608",
+      "name": "退市沪科",
+      "listingDate": "1992-03-27",
+      "delistingDate": "2026-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600614",
+      "name": "退市鹏起",
+      "listingDate": "1992-08-28",
+      "delistingDate": "2021-07-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600625",
+      "name": "PT水  仙",
+      "listingDate": "1993-01-06",
+      "delistingDate": "2001-04-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600627",
+      "name": "上电股份",
+      "listingDate": "1993-01-18",
+      "delistingDate": "2008-11-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600631",
+      "name": "百联股份",
+      "listingDate": "1993-02-19",
+      "delistingDate": "2011-08-23",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600632",
+      "name": "华联商厦",
+      "listingDate": "1993-02-19",
+      "delistingDate": "2004-11-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600634",
+      "name": "退市富控",
+      "listingDate": "1993-03-04",
+      "delistingDate": "2021-07-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600636",
+      "name": "退市国化",
+      "listingDate": "1993-03-16",
+      "delistingDate": "2026-06-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600646",
+      "name": "ST国  嘉",
+      "listingDate": "1993-05-04",
+      "delistingDate": "2003-09-23",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600647",
+      "name": "退市同达",
+      "listingDate": "1993-05-04",
+      "delistingDate": "2024-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600652",
+      "name": "退市游久",
+      "listingDate": "1990-12-19",
+      "delistingDate": "2022-06-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600656",
+      "name": "退市博元",
+      "listingDate": "1990-12-19",
+      "delistingDate": "2016-05-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600659",
+      "name": "*ST花 雕",
+      "listingDate": "1993-05-28",
+      "delistingDate": "2006-03-23",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600669",
+      "name": "*ST鞍 成",
+      "listingDate": "1993-08-06",
+      "delistingDate": "2004-09-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600670",
+      "name": "*ST斯 达",
+      "listingDate": "1993-08-09",
+      "delistingDate": "2004-09-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600672",
+      "name": "*ST华 圣",
+      "listingDate": "1993-09-17",
+      "delistingDate": "2005-08-05",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600677",
+      "name": "*ST航通",
+      "listingDate": "1993-09-28",
+      "delistingDate": "2021-03-18",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600680",
+      "name": "*ST上普",
+      "listingDate": "1993-10-18",
+      "delistingDate": "2019-05-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600687",
+      "name": "退市刚泰",
+      "listingDate": "1993-11-08",
+      "delistingDate": "2021-03-04",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600695",
+      "name": "退市绿庭",
+      "listingDate": "1993-11-22",
+      "delistingDate": "2022-06-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600696",
+      "name": "退市岩石",
+      "listingDate": "1993-12-06",
+      "delistingDate": "2026-06-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600700",
+      "name": "*ST数 码",
+      "listingDate": "1996-04-30",
+      "delistingDate": "2005-09-20",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600701",
+      "name": "退市工新",
+      "listingDate": "1996-05-28",
+      "delistingDate": "2021-05-06",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600705",
+      "name": "中航产融",
+      "listingDate": "1996-05-16",
+      "delistingDate": "2025-05-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600709",
+      "name": "ST生  态",
+      "listingDate": "1996-06-18",
+      "delistingDate": "2003-05-26",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600723",
+      "name": "首商股份",
+      "listingDate": "1996-07-16",
+      "delistingDate": "2021-10-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600747",
+      "name": "退市大控",
+      "listingDate": "1996-09-16",
+      "delistingDate": "2019-12-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600752",
+      "name": "*ST哈 慈",
+      "listingDate": "1996-09-25",
+      "delistingDate": "2005-09-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600762",
+      "name": "*ST金 荔",
+      "listingDate": "1996-10-25",
+      "delistingDate": "2007-11-20",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600766",
+      "name": "退市园城",
+      "listingDate": "1996-10-28",
+      "delistingDate": "2024-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600767",
+      "name": "退市运盛",
+      "listingDate": "1996-11-15",
+      "delistingDate": "2023-06-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600772",
+      "name": "*ST龙 昌",
+      "listingDate": "1996-11-04",
+      "delistingDate": "2006-11-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600781",
+      "name": "退市辅仁",
+      "listingDate": "1996-12-18",
+      "delistingDate": "2023-06-28",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600786",
+      "name": "东锅退市",
+      "listingDate": "1996-12-27",
+      "delistingDate": "2008-03-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600788",
+      "name": "*ST达 曼",
+      "listingDate": "1996-12-30",
+      "delistingDate": "2005-03-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600799",
+      "name": "*ST龙 科",
+      "listingDate": "1997-04-16",
+      "delistingDate": "2006-01-04",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600804",
+      "name": "退市鹏博",
+      "listingDate": "1994-01-03",
+      "delistingDate": "2025-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600806",
+      "name": "退市昆机",
+      "listingDate": "1994-01-03",
+      "delistingDate": "2018-07-13",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600811",
+      "name": "*ST东方",
+      "listingDate": "1994-01-06",
+      "delistingDate": "2025-04-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600813",
+      "name": "ST鞍一工",
+      "listingDate": "1994-01-14",
+      "delistingDate": "2002-09-16",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600823",
+      "name": "*ST世茂",
+      "listingDate": "1994-02-04",
+      "delistingDate": "2024-06-14",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600832",
+      "name": "东方明珠",
+      "listingDate": "1994-02-24",
+      "delistingDate": "2015-05-20",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600836",
+      "name": "*ST易连",
+      "listingDate": "1994-02-24",
+      "delistingDate": "2024-07-11",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600837",
+      "name": "海通证券",
+      "listingDate": "1994-02-24",
+      "delistingDate": "2025-03-04",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600840",
+      "name": "新湖创业",
+      "listingDate": "1994-03-11",
+      "delistingDate": "2009-08-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600842",
+      "name": "中西药业",
+      "listingDate": "1994-03-11",
+      "delistingDate": "2010-02-12",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600852",
+      "name": "*ST中 川",
+      "listingDate": "1994-04-04",
+      "delistingDate": "2005-09-16",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600856",
+      "name": "退市中天",
+      "listingDate": "1994-04-25",
+      "delistingDate": "2022-06-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600870",
+      "name": "退市厦华",
+      "listingDate": "1995-02-28",
+      "delistingDate": "2022-06-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600878",
+      "name": "*ST北 科",
+      "listingDate": "1995-10-13",
+      "delistingDate": "2004-09-15",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600890",
+      "name": "退市中房",
+      "listingDate": "1996-03-18",
+      "delistingDate": "2022-06-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600891",
+      "name": "退市秋林",
+      "listingDate": "1996-03-25",
+      "delistingDate": "2021-05-12",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600896",
+      "name": "退市海医",
+      "listingDate": "1996-05-03",
+      "delistingDate": "2022-07-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600898",
+      "name": "*ST美讯",
+      "listingDate": "1996-04-18",
+      "delistingDate": "2025-02-10",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600899",
+      "name": "*ST信 联",
+      "listingDate": "1996-04-26",
+      "delistingDate": "2005-09-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600978",
+      "name": "*ST宜生",
+      "listingDate": "2004-08-24",
+      "delistingDate": "2021-03-22",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh600991",
+      "name": "广汽长丰",
+      "listingDate": "2004-06-14",
+      "delistingDate": "2012-03-20",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601028",
+      "name": "玉龙股份",
+      "listingDate": "2011-11-07",
+      "delistingDate": "2025-05-27",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601258",
+      "name": "*ST庞大",
+      "listingDate": "2011-04-28",
+      "delistingDate": "2023-06-30",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601268",
+      "name": "*ST二重",
+      "listingDate": "2010-02-02",
+      "delistingDate": "2015-05-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601299",
+      "name": "中国北车",
+      "listingDate": "2009-12-29",
+      "delistingDate": "2015-05-20",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601558",
+      "name": "退市锐电",
+      "listingDate": "2011-01-13",
+      "delistingDate": "2020-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh601989",
+      "name": "中国重工",
+      "listingDate": "2009-12-16",
+      "delistingDate": "2025-09-05",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603003",
+      "name": "退市龙宇",
+      "listingDate": "2012-08-17",
+      "delistingDate": "2025-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603056",
+      "name": "德邦股份",
+      "listingDate": "2018-01-16",
+      "delistingDate": "2026-03-31",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603133",
+      "name": "退市碳元",
+      "listingDate": "2017-03-20",
+      "delistingDate": "2024-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603157",
+      "name": "退市拉夏",
+      "listingDate": "2017-09-25",
+      "delistingDate": "2022-05-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603388",
+      "name": "*ST元成",
+      "listingDate": "2017-03-24",
+      "delistingDate": "2025-12-05",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603555",
+      "name": "ST贵人",
+      "listingDate": "2014-01-24",
+      "delistingDate": "2024-03-29",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603603",
+      "name": "退市博天",
+      "listingDate": "2017-02-17",
+      "delistingDate": "2024-04-25",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603963",
+      "name": "*ST大药",
+      "listingDate": "2017-09-22",
+      "delistingDate": "2025-03-21",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh603996",
+      "name": "退市中新",
+      "listingDate": "2015-12-22",
+      "delistingDate": "2022-05-24",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh605081",
+      "name": "退市太和",
+      "listingDate": "2021-02-09",
+      "delistingDate": "2026-07-03",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh688086",
+      "name": "退市紫晶",
+      "listingDate": "2020-02-26",
+      "delistingDate": "2023-07-07",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh688287",
+      "name": "退市观典",
+      "listingDate": "2022-05-25",
+      "delistingDate": "2026-06-10",
+      "source": "sse"
+    },
+    {
+      "symbol": "sh688555",
+      "name": "退市泽达",
+      "listingDate": "2020-06-23",
+      "delistingDate": "2023-07-07",
+      "source": "sse"
+    },
+    {
+      "symbol": "sz000003",
+      "name": "PT金田Ａ",
+      "listingDate": "1991-01-14",
+      "delistingDate": "2002-06-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000004",
+      "name": "国华退",
+      "listingDate": "1990-12-01",
+      "delistingDate": "2026-07-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000005",
+      "name": "ST星源",
+      "listingDate": "1990-12-10",
+      "delistingDate": "2024-04-26",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000013",
+      "name": "*ST石化A",
+      "listingDate": "1992-05-06",
+      "delistingDate": "2004-09-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000015",
+      "name": "PT中浩Ａ",
+      "listingDate": "1992-06-25",
+      "delistingDate": "2001-10-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000018",
+      "name": "神城A退",
+      "listingDate": "1992-06-16",
+      "delistingDate": "2020-01-07",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000023",
+      "name": "*ST深天",
+      "listingDate": "1993-04-29",
+      "delistingDate": "2024-09-02",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000024",
+      "name": "招商地产",
+      "listingDate": "1993-06-07",
+      "delistingDate": "2015-12-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000033",
+      "name": "新都退",
+      "listingDate": "1994-01-03",
+      "delistingDate": "2017-07-07",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000038",
+      "name": "大通退",
+      "listingDate": "1994-08-08",
+      "delistingDate": "2023-07-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000040",
+      "name": "*ST旭蓝",
+      "listingDate": "1994-08-08",
+      "delistingDate": "2025-04-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000046",
+      "name": "*ST泛海",
+      "listingDate": "1994-09-12",
+      "delistingDate": "2024-02-07",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000047",
+      "name": "ST&nbsp;中&nbsp;侨",
+      "listingDate": "1994-10-21",
+      "delistingDate": "2003-05-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000150",
+      "name": "*ST宜康",
+      "listingDate": "2000-08-07",
+      "delistingDate": "2023-06-09",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000405",
+      "name": "ST&nbsp;鑫&nbsp;光",
+      "listingDate": "1996-06-20",
+      "delistingDate": "2004-03-19",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000406",
+      "name": "大明退市",
+      "listingDate": "1996-06-28",
+      "delistingDate": "2006-04-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000412",
+      "name": "ST&nbsp;五&nbsp;环",
+      "listingDate": "1996-07-15",
+      "delistingDate": "2003-09-19",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000413",
+      "name": "ST旭电",
+      "listingDate": "1996-09-25",
+      "delistingDate": "2024-10-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000416",
+      "name": "*ST民控",
+      "listingDate": "1996-07-19",
+      "delistingDate": "2024-06-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000418",
+      "name": "小天鹅Ａ",
+      "listingDate": "1997-03-28",
+      "delistingDate": "2019-06-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000502",
+      "name": "绿景退",
+      "listingDate": "1992-11-23",
+      "delistingDate": "2022-06-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000508",
+      "name": "琼民源Ａ",
+      "listingDate": "1993-04-30",
+      "delistingDate": "1999-07-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000511",
+      "name": "烯碳退",
+      "listingDate": "1993-05-18",
+      "delistingDate": "2018-07-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000515",
+      "name": "攀渝钛业",
+      "listingDate": "1993-07-12",
+      "delistingDate": "2009-05-06",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000522",
+      "name": "白云山Ａ",
+      "listingDate": "1993-11-08",
+      "delistingDate": "2013-04-26",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000527",
+      "name": "美的电器",
+      "listingDate": "1993-11-12",
+      "delistingDate": "2013-09-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000535",
+      "name": "*ST&nbsp;猴王",
+      "listingDate": "1993-11-30",
+      "delistingDate": "2005-09-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000540",
+      "name": "*ST中天",
+      "listingDate": "1994-02-02",
+      "delistingDate": "2023-06-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000542",
+      "name": "TCL&nbsp;通讯",
+      "listingDate": "1993-12-01",
+      "delistingDate": "2004-01-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000549",
+      "name": "S&nbsp;湘火炬",
+      "listingDate": "1993-12-20",
+      "delistingDate": "2007-04-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000556",
+      "name": "PT&nbsp;南&nbsp;洋",
+      "listingDate": "1994-05-25",
+      "delistingDate": "2002-06-03",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000562",
+      "name": "宏源证券",
+      "listingDate": "1994-02-02",
+      "delistingDate": "2015-01-26",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000569",
+      "name": "长城股份",
+      "listingDate": "1994-04-25",
+      "delistingDate": "2009-05-06",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000578",
+      "name": "盐湖集团",
+      "listingDate": "1995-03-03",
+      "delistingDate": "2011-03-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000583",
+      "name": "*ST&nbsp;托普",
+      "listingDate": "1995-11-01",
+      "delistingDate": "2007-05-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000584",
+      "name": "工智退",
+      "listingDate": "1995-11-28",
+      "delistingDate": "2025-07-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000585",
+      "name": "东电退",
+      "listingDate": "1995-12-13",
+      "delistingDate": "2022-05-24",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000587",
+      "name": "*ST金洲",
+      "listingDate": "1996-04-25",
+      "delistingDate": "2023-04-03",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000588",
+      "name": "PT粤金曼",
+      "listingDate": "1996-01-23",
+      "delistingDate": "2001-06-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000594",
+      "name": "国恒退",
+      "listingDate": "1996-03-20",
+      "delistingDate": "2015-07-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000602",
+      "name": "金马退市",
+      "listingDate": "1996-08-19",
+      "delistingDate": "2013-08-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000606",
+      "name": "顺利退",
+      "listingDate": "1996-10-04",
+      "delistingDate": "2023-07-06",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000611",
+      "name": "天首退",
+      "listingDate": "1996-10-08",
+      "delistingDate": "2022-06-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000613",
+      "name": "东海A退",
+      "listingDate": "1997-01-28",
+      "delistingDate": "2022-06-29",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000616",
+      "name": "*ST海投",
+      "listingDate": "1996-11-08",
+      "delistingDate": "2023-08-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000618",
+      "name": "吉化退市",
+      "listingDate": "1996-10-15",
+      "delistingDate": "2006-02-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000621",
+      "name": "*ST&nbsp;比特",
+      "listingDate": "1996-11-05",
+      "delistingDate": "2004-09-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000622",
+      "name": "恒立退",
+      "listingDate": "1996-11-07",
+      "delistingDate": "2025-07-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000627",
+      "name": "*ST天茂",
+      "listingDate": "1996-11-12",
+      "delistingDate": "2025-09-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000638",
+      "name": "*ST万方",
+      "listingDate": "1996-11-26",
+      "delistingDate": "2026-06-03",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000653",
+      "name": "ST&nbsp;九&nbsp;州",
+      "listingDate": "1996-11-26",
+      "delistingDate": "2002-09-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000658",
+      "name": "ST&nbsp;海&nbsp;洋",
+      "listingDate": "1996-12-18",
+      "delistingDate": "2002-09-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000660",
+      "name": "*ST&nbsp;南华",
+      "listingDate": "1996-12-09",
+      "delistingDate": "2004-09-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000662",
+      "name": "天夏退",
+      "listingDate": "1996-12-16",
+      "delistingDate": "2021-04-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000666",
+      "name": "经纬纺机",
+      "listingDate": "1996-12-10",
+      "delistingDate": "2023-10-26",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000667",
+      "name": "ST美置",
+      "listingDate": "1996-12-05",
+      "delistingDate": "2023-07-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000671",
+      "name": "ST阳光城",
+      "listingDate": "1996-12-18",
+      "delistingDate": "2023-08-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000673",
+      "name": "当代退",
+      "listingDate": "1997-01-24",
+      "delistingDate": "2022-07-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000675",
+      "name": "ST&nbsp;银&nbsp;山",
+      "listingDate": "1996-12-26",
+      "delistingDate": "2002-08-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000687",
+      "name": "华讯退",
+      "listingDate": "1997-02-21",
+      "delistingDate": "2022-06-17",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000689",
+      "name": "ST&nbsp;宏&nbsp;业",
+      "listingDate": "1996-12-31",
+      "delistingDate": "2002-09-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000693",
+      "name": "华泽退",
+      "listingDate": "1997-02-26",
+      "delistingDate": "2019-07-09",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000699",
+      "name": "*ST&nbsp;佳纸",
+      "listingDate": "1997-03-10",
+      "delistingDate": "2007-04-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000730",
+      "name": "*ST&nbsp;环保",
+      "listingDate": "1997-05-22",
+      "delistingDate": "2004-09-24",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000732",
+      "name": "ST泰禾",
+      "listingDate": "1997-07-04",
+      "delistingDate": "2023-08-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000748",
+      "name": "长城信息",
+      "listingDate": "1997-07-04",
+      "delistingDate": "2017-01-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000760",
+      "name": "斯太退",
+      "listingDate": "1997-06-27",
+      "delistingDate": "2021-07-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000763",
+      "name": "锦化退市",
+      "listingDate": "1997-09-15",
+      "delistingDate": "2006-01-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000765",
+      "name": "*ST&nbsp;华信",
+      "listingDate": "1997-11-03",
+      "delistingDate": "2005-07-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000769",
+      "name": "*ST&nbsp;大菲",
+      "listingDate": "1997-05-30",
+      "delistingDate": "2005-09-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000780",
+      "name": "ST平能",
+      "listingDate": "1997-06-06",
+      "delistingDate": "2022-01-24",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000787",
+      "name": "*ST&nbsp;创智",
+      "listingDate": "1997-06-26",
+      "delistingDate": "2013-02-08",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000805",
+      "name": "*ST炎黄",
+      "listingDate": "1998-05-29",
+      "delistingDate": "2013-03-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000806",
+      "name": "银河退",
+      "listingDate": "1998-04-16",
+      "delistingDate": "2023-07-06",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000817",
+      "name": "辽油退市",
+      "listingDate": "1998-05-28",
+      "delistingDate": "2006-01-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000827",
+      "name": "*ST&nbsp;长兴",
+      "listingDate": "1998-10-16",
+      "delistingDate": "2005-09-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000832",
+      "name": "*ST&nbsp;龙涤",
+      "listingDate": "1998-08-25",
+      "delistingDate": "2006-06-29",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000835",
+      "name": "长动退",
+      "listingDate": "1999-06-25",
+      "delistingDate": "2022-05-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000836",
+      "name": "ST富通",
+      "listingDate": "1997-09-29",
+      "delistingDate": "2024-08-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000851",
+      "name": "*ST高鸿",
+      "listingDate": "1998-06-09",
+      "delistingDate": "2025-11-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000861",
+      "name": "海印股份",
+      "listingDate": "1998-10-28",
+      "delistingDate": "2024-09-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000866",
+      "name": "扬子退市",
+      "listingDate": "1998-05-12",
+      "delistingDate": "2006-04-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000916",
+      "name": "华北高速",
+      "listingDate": "1999-09-27",
+      "delistingDate": "2017-12-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000918",
+      "name": "*ST嘉凯",
+      "listingDate": "1999-07-20",
+      "delistingDate": "2023-07-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000939",
+      "name": "凯迪退",
+      "listingDate": "1999-09-23",
+      "delistingDate": "2020-12-17",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000956",
+      "name": "中原退市",
+      "listingDate": "1999-11-10",
+      "delistingDate": "2006-04-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000961",
+      "name": "ST中南",
+      "listingDate": "2000-03-01",
+      "delistingDate": "2024-07-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000971",
+      "name": "*ST高升",
+      "listingDate": "2000-04-27",
+      "delistingDate": "2024-07-24",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000976",
+      "name": "*ST华铁",
+      "listingDate": "2000-06-01",
+      "delistingDate": "2024-08-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000979",
+      "name": "中弘退",
+      "listingDate": "2000-06-16",
+      "delistingDate": "2018-12-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000982",
+      "name": "中银绒业",
+      "listingDate": "2000-07-06",
+      "delistingDate": "2024-08-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz000996",
+      "name": "中期退",
+      "listingDate": "2000-07-18",
+      "delistingDate": "2024-06-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002002",
+      "name": "ST鸿达",
+      "listingDate": "2004-06-25",
+      "delistingDate": "2024-03-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002013",
+      "name": "中航机电",
+      "listingDate": "2004-07-05",
+      "delistingDate": "2023-03-17",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002018",
+      "name": "华信退",
+      "listingDate": "2004-07-13",
+      "delistingDate": "2019-11-01",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002070",
+      "name": "众和退",
+      "listingDate": "2006-10-12",
+      "delistingDate": "2019-07-09",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002071",
+      "name": "长城退",
+      "listingDate": "2006-10-12",
+      "delistingDate": "2021-05-07",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002087",
+      "name": "新纺退",
+      "listingDate": "2006-11-30",
+      "delistingDate": "2024-06-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002089",
+      "name": "新海退",
+      "listingDate": "2006-11-30",
+      "delistingDate": "2024-04-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002113",
+      "name": "*ST天润",
+      "listingDate": "2007-02-08",
+      "delistingDate": "2023-08-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002118",
+      "name": "*ST紫鑫",
+      "listingDate": "2007-03-02",
+      "delistingDate": "2023-08-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002143",
+      "name": "印纪退",
+      "listingDate": "2007-07-20",
+      "delistingDate": "2019-11-29",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002147",
+      "name": "新光退",
+      "listingDate": "2007-08-08",
+      "delistingDate": "2022-06-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002220",
+      "name": "天宝退",
+      "listingDate": "2008-02-28",
+      "delistingDate": "2020-08-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002231",
+      "name": "*ST奥维",
+      "listingDate": "2008-05-12",
+      "delistingDate": "2026-03-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002260",
+      "name": "德奥退",
+      "listingDate": "2008-07-16",
+      "delistingDate": "2022-06-17",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002280",
+      "name": "ST联络",
+      "listingDate": "2009-08-21",
+      "delistingDate": "2024-08-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002288",
+      "name": "*ST超华",
+      "listingDate": "2009-09-03",
+      "delistingDate": "2024-08-19",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002308",
+      "name": "*ST威创",
+      "listingDate": "2009-11-27",
+      "delistingDate": "2024-09-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002325",
+      "name": "*ST洪涛",
+      "listingDate": "2009-12-22",
+      "delistingDate": "2024-08-15",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002336",
+      "name": "人乐退",
+      "listingDate": "2010-01-13",
+      "delistingDate": "2025-07-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002341",
+      "name": "ST新纶",
+      "listingDate": "2010-01-22",
+      "delistingDate": "2024-08-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002359",
+      "name": "北讯退",
+      "listingDate": "2010-02-10",
+      "delistingDate": "2021-07-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002411",
+      "name": "必康退",
+      "listingDate": "2010-05-25",
+      "delistingDate": "2023-07-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002417",
+      "name": "深南退",
+      "listingDate": "2010-06-01",
+      "delistingDate": "2023-07-10",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002433",
+      "name": "太安退",
+      "listingDate": "2010-06-18",
+      "delistingDate": "2024-07-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002435",
+      "name": "ST长康",
+      "listingDate": "2010-06-18",
+      "delistingDate": "2024-08-15",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002447",
+      "name": "晨鑫退",
+      "listingDate": "2010-07-13",
+      "delistingDate": "2022-06-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002450",
+      "name": "康得退",
+      "listingDate": "2010-07-16",
+      "delistingDate": "2021-05-31",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002464",
+      "name": "众应退",
+      "listingDate": "2010-08-31",
+      "delistingDate": "2022-06-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002473",
+      "name": "圣莱退",
+      "listingDate": "2010-09-10",
+      "delistingDate": "2022-06-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002477",
+      "name": "雏鹰退",
+      "listingDate": "2010-09-15",
+      "delistingDate": "2019-10-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002499",
+      "name": "科林退",
+      "listingDate": "2010-11-09",
+      "delistingDate": "2023-04-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002502",
+      "name": "ST鼎龙",
+      "listingDate": "2010-11-17",
+      "delistingDate": "2024-09-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002503",
+      "name": "*ST搜特",
+      "listingDate": "2010-11-17",
+      "delistingDate": "2023-08-11",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002504",
+      "name": "*ST弘高",
+      "listingDate": "2010-11-18",
+      "delistingDate": "2023-08-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002505",
+      "name": "鹏都农牧",
+      "listingDate": "2010-11-18",
+      "delistingDate": "2024-08-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002509",
+      "name": "天茂退",
+      "listingDate": "2010-11-23",
+      "delistingDate": "2020-07-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002604",
+      "name": "龙力退",
+      "listingDate": "2011-07-28",
+      "delistingDate": "2020-07-15",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002610",
+      "name": "ST爱康",
+      "listingDate": "2011-08-15",
+      "delistingDate": "2024-08-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002618",
+      "name": "丹邦退",
+      "listingDate": "2011-09-20",
+      "delistingDate": "2022-06-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002619",
+      "name": "*ST艾格",
+      "listingDate": "2011-09-29",
+      "delistingDate": "2022-04-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002621",
+      "name": "*ST美吉",
+      "listingDate": "2011-09-29",
+      "delistingDate": "2024-08-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002665",
+      "name": "ST航高",
+      "listingDate": "2012-03-27",
+      "delistingDate": "2024-08-26",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002680",
+      "name": "长生退",
+      "listingDate": "2012-06-05",
+      "delistingDate": "2019-11-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002684",
+      "name": "猛狮退",
+      "listingDate": "2012-06-12",
+      "delistingDate": "2022-06-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002699",
+      "name": "*ST美盛",
+      "listingDate": "2012-09-11",
+      "delistingDate": "2024-06-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002711",
+      "name": "欧浦退",
+      "listingDate": "2014-01-27",
+      "delistingDate": "2021-07-15",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002740",
+      "name": "*ST爱迪",
+      "listingDate": "2015-01-22",
+      "delistingDate": "2024-03-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002750",
+      "name": "龙津退",
+      "listingDate": "2015-03-24",
+      "delistingDate": "2025-06-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002751",
+      "name": "易尚退",
+      "listingDate": "2015-04-24",
+      "delistingDate": "2023-07-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002770",
+      "name": "科迪退",
+      "listingDate": "2015-06-30",
+      "delistingDate": "2022-06-23",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002776",
+      "name": "*ST柏龙",
+      "listingDate": "2015-06-26",
+      "delistingDate": "2024-01-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002781",
+      "name": "奇信退",
+      "listingDate": "2015-12-22",
+      "delistingDate": "2023-07-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002808",
+      "name": "恒久退",
+      "listingDate": "2016-08-12",
+      "delistingDate": "2026-07-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz002898",
+      "name": "赛隆退",
+      "listingDate": "2017-09-12",
+      "delistingDate": "2026-07-17",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300023",
+      "name": "宝德退",
+      "listingDate": "2009-10-30",
+      "delistingDate": "2022-06-29",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300028",
+      "name": "金亚退",
+      "listingDate": "2009-10-30",
+      "delistingDate": "2020-08-03",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300029",
+      "name": "天龙退",
+      "listingDate": "2009-12-25",
+      "delistingDate": "2026-07-10",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300038",
+      "name": "数知退",
+      "listingDate": "2010-01-08",
+      "delistingDate": "2022-06-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300064",
+      "name": "金刚退",
+      "listingDate": "2010-03-26",
+      "delistingDate": "2022-06-27",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300089",
+      "name": "文化退",
+      "listingDate": "2010-06-25",
+      "delistingDate": "2023-07-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300090",
+      "name": "盛运退",
+      "listingDate": "2010-06-25",
+      "delistingDate": "2020-08-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300104",
+      "name": "乐视退",
+      "listingDate": "2010-08-12",
+      "delistingDate": "2020-07-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300108",
+      "name": "*ST吉药",
+      "listingDate": "2010-08-25",
+      "delistingDate": "2025-05-29",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300116",
+      "name": "*ST保力",
+      "listingDate": "2010-09-02",
+      "delistingDate": "2024-07-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300117",
+      "name": "*ST嘉寓",
+      "listingDate": "2010-09-02",
+      "delistingDate": "2025-04-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300156",
+      "name": "神雾退",
+      "listingDate": "2011-01-07",
+      "delistingDate": "2020-08-25",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300178",
+      "name": "腾邦退",
+      "listingDate": "2011-02-15",
+      "delistingDate": "2022-06-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300186",
+      "name": "大华农",
+      "listingDate": "2011-03-08",
+      "delistingDate": "2015-11-02",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300202",
+      "name": "聚龙退",
+      "listingDate": "2011-04-15",
+      "delistingDate": "2022-07-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300208",
+      "name": "中程退",
+      "listingDate": "2011-04-26",
+      "delistingDate": "2025-07-21",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300216",
+      "name": "千山退",
+      "listingDate": "2011-05-11",
+      "delistingDate": "2020-09-16",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300262",
+      "name": "*ST巴安",
+      "listingDate": "2011-09-16",
+      "delistingDate": "2024-08-19",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300273",
+      "name": "和佳退",
+      "listingDate": "2011-10-26",
+      "delistingDate": "2023-07-06",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300280",
+      "name": "紫天退",
+      "listingDate": "2011-12-29",
+      "delistingDate": "2025-10-14",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300282",
+      "name": "三盛退",
+      "listingDate": "2011-12-29",
+      "delistingDate": "2024-07-18",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300297",
+      "name": "蓝盾退",
+      "listingDate": "2012-03-15",
+      "delistingDate": "2023-07-31",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300309",
+      "name": "吉艾退",
+      "listingDate": "2012-04-10",
+      "delistingDate": "2023-05-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300312",
+      "name": "邦讯退",
+      "listingDate": "2012-05-08",
+      "delistingDate": "2022-07-04",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300325",
+      "name": "德威退",
+      "listingDate": "2012-06-01",
+      "delistingDate": "2022-06-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300330",
+      "name": "计通退",
+      "listingDate": "2012-06-19",
+      "delistingDate": "2023-05-24",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300336",
+      "name": "新文退",
+      "listingDate": "2012-07-10",
+      "delistingDate": "2023-07-05",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300344",
+      "name": "立方退",
+      "listingDate": "2012-08-01",
+      "delistingDate": "2026-04-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300356",
+      "name": "光一退",
+      "listingDate": "2012-10-09",
+      "delistingDate": "2023-07-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300362",
+      "name": "天翔退",
+      "listingDate": "2014-01-21",
+      "delistingDate": "2021-08-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300367",
+      "name": "网力退",
+      "listingDate": "2014-01-29",
+      "delistingDate": "2022-06-30",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300372",
+      "name": "欣泰退",
+      "listingDate": "2014-01-27",
+      "delistingDate": "2017-08-28",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300379",
+      "name": "东通退",
+      "listingDate": "2014-01-28",
+      "delistingDate": "2026-01-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300391",
+      "name": "长药退",
+      "listingDate": "2014-08-01",
+      "delistingDate": "2026-04-13",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300392",
+      "name": "腾信退",
+      "listingDate": "2014-09-10",
+      "delistingDate": "2023-07-10",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300431",
+      "name": "暴风退",
+      "listingDate": "2015-03-24",
+      "delistingDate": "2020-11-10",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300495",
+      "name": "*ST美尚",
+      "listingDate": "2015-12-22",
+      "delistingDate": "2024-09-20",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300526",
+      "name": "中潜退",
+      "listingDate": "2016-08-02",
+      "delistingDate": "2023-07-12",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300630",
+      "name": "普利退",
+      "listingDate": "2017-03-28",
+      "delistingDate": "2025-05-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300742",
+      "name": "越博退",
+      "listingDate": "2018-05-08",
+      "delistingDate": "2024-07-22",
+      "source": "szse"
+    },
+    {
+      "symbol": "sz300799",
+      "name": "左江退",
+      "listingDate": "2019-10-29",
+      "delistingDate": "2024-07-29",
+      "source": "szse"
+    }
+  ]
+}

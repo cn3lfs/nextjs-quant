@@ -21,6 +21,7 @@ async function run() {
         config.tdxRoot,
         config.calendar,
         config.industryBlocksRoot,
+        request.target === "concept" ? "concept" : "industry",
       ),
       request,
       input.progress,

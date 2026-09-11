@@ -37,9 +37,11 @@ export function localRpsDependencies(
   root: string,
   overrides: string[],
   blocksRoot = "",
+  category: "industry" | "concept" = "industry",
 ): RpsDependencies {
   return {
-    industries: (checkpoint) => readIndustryBlocks(blocksRoot, checkpoint),
+    industries: (checkpoint) =>
+      readIndustryBlocks(blocksRoot, checkpoint, category),
     root: resolve(root),
     calendar: async () => {
       if (overrides.length)
@@ -119,11 +121,29 @@ export async function runRpsJob(
     progress.totalDays = pending.length;
     if (pending.length) {
       const industrySnapshot =
-        request.target === "industry"
-          ? await deps.industries?.(() => checkpoint("读取申万行业成分快照"))
+        request.target === "industry" || request.target === "concept"
+          ? await deps.industries?.(() =>
+              checkpoint(
+                request.target === "concept"
+                  ? "读取概念成分快照"
+                  : "读取申万行业成分快照",
+              ),
+            )
           : undefined;
-      if (request.target === "industry" && !industrySnapshot)
-        throw new Error("缺少申万行业成分数据源");
+      if (
+        (request.target === "industry" || request.target === "concept") &&
+        !industrySnapshot
+      )
+        throw new Error(
+          request.target === "concept"
+            ? "缺少概念成分数据源"
+            : "缺少申万行业成分数据源",
+        );
+      if (
+        industrySnapshot &&
+        (industrySnapshot.category ?? "industry") !== request.target
+      )
+        throw new Error("板块成分分类与任务不匹配");
       if (industrySnapshot) {
         const absent = store
           .latest()

@@ -18,7 +18,7 @@ export const rpsPolicy = {
     "回填使用当前存活证券及当前名称，存在生存者偏差和历史ST状态偏差；不能视为当时可得证券池。",
 } as const;
 export const rpsRequestSchema = z.object({
-  target: z.enum(["stock", "industry"]).optional(),
+  target: z.enum(["stock", "industry", "concept"]).optional(),
   mode: z.enum(["forward", "backfill"]),
   days: z.number().int().min(1).max(250).default(250),
 });
@@ -74,7 +74,7 @@ export type RpsDay = {
   createdAt: number;
 };
 export type RpsProgress = {
-  target?: "stock" | "industry";
+  target?: "stock" | "industry" | "concept";
   id: string;
   mode: RpsRequest["mode"];
   status: "running" | "complete" | "failed" | "cancelled";

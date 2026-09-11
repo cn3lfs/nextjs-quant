@@ -39,6 +39,9 @@ export type Snapshot = {
   hash: string;
   historicalAsOf?: string;
   dataRoot?: string;
+  sourceUrl?: string;
+  volumeUnit?: string;
+  sourceNote?: string;
 };
 const maParamsSchema = z
   .object({

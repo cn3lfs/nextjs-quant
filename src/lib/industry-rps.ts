@@ -12,6 +12,7 @@ import {
 export const industryRpsPolicy = {
   version: "industry-rps-1",
   maxIndustries: 256,
+  maxConcepts: 1024,
   maxMemberships: 100000,
   maxFileBytes: 128000,
   description:
@@ -30,14 +31,20 @@ export const industryFileSchema = z.object({
 });
 export const industrySnapshotSchema = z
   .object({
+    category: z.literal("concept").optional(),
     root: z.string().min(1).max(2048),
     hash: z.string().regex(/^[a-f0-9]{64}$/),
     files: z
       .array(industryFileSchema)
       .min(1)
-      .max(industryRpsPolicy.maxIndustries),
+      .max(industryRpsPolicy.maxConcepts),
   })
   .superRefine((value, ctx) => {
+    if (!value.category && value.files.length > industryRpsPolicy.maxIndustries)
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "行业名单超过256个上限",
+      });
     if (
       value.files.reduce((n, f) => n + f.members.length, 0) >
       industryRpsPolicy.maxMemberships

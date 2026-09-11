@@ -38,9 +38,15 @@ export function parseIndustryMembers(bytes: Buffer, file: string) {
 export async function readIndustryBlocks(
   root: string,
   checkpoint: () => void = () => {},
+  category: "industry" | "concept" = "industry",
 ) {
   if (!root.trim()) throw new Error("请配置只读Blocks根目录");
-  const directory = resolve(root, "申万行业");
+  const label = category === "concept" ? "概念" : "申万行业";
+  const limit =
+    category === "concept"
+      ? industryRpsPolicy.maxConcepts
+      : industryRpsPolicy.maxIndustries;
+  const directory = resolve(root, label);
   const entries = async () =>
     (await readdir(directory, { withFileTypes: true }))
       .filter((e) => /\.txt$/i.test(e.name))
@@ -48,8 +54,8 @@ export async function readIndustryBlocks(
       .sort();
   try {
     const names = await entries();
-    if (!names.length || names.length > industryRpsPolicy.maxIndustries)
-      throw new Error("行业名单缺失或超过256个上限");
+    if (!names.length || names.length > limit)
+      throw new Error(`${label}名单缺失或超过${limit}个上限`);
     const files = [];
     for (const file of names) {
       checkpoint();
@@ -86,6 +92,7 @@ export async function readIndustryBlocks(
         throw new Error(`${file.file}：读取期间文件变化，请重试`);
     }
     return industrySnapshotSchema.parse({
+      ...(category === "concept" ? { category } : {}),
       root: resolve(root),
       files,
       hash: rpsHash(files),
@@ -94,7 +101,7 @@ export async function readIndustryBlocks(
     if (error instanceof Error && error.message === "rps-cancelled")
       throw error;
     throw new Error(
-      `申万行业名单读取失败（${directory}）：${error instanceof Error ? error.message : "未知错误"}`,
+      `${label}名单读取失败（${directory}）：${error instanceof Error ? error.message : "未知错误"}`,
     );
   }
 }

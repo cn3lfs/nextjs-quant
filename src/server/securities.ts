@@ -4,6 +4,8 @@ import { settings } from "./settings";
 import { securityNames, isAStock } from "./tdx";
 import { storedSecurityLifecycle } from "./security-lifecycle";
 import { storedSecurityTradingStatus } from "./security-trading-status";
+import { exchangeNames } from "./exchange-security-names";
+import type { Coverage } from "~/lib/domain";
 export type SecurityProfile = {
   symbol: string;
   name: string;
@@ -11,13 +13,14 @@ export type SecurityProfile = {
   market: string;
   type: "A股";
   currency: "CNY";
-  nameSource: "tdx-tnf" | "tencent" | "hithink";
+  nameSource: "tdx-tnf" | "tencent" | "hithink" | "exchange";
   tradingStatus: "unknown";
   updatedAt: number;
 };
 type Directory = {
   root: string;
   hash: string;
+  currentSymbols?: string[];
   entries: Record<string, SecurityProfile>;
 };
 const refreshes = new Map<string, Promise<Directory>>();
@@ -37,11 +40,27 @@ export async function securityDirectory(): Promise<Directory> {
       .flatMap((dictionary) => [...dictionary])
       .filter(([symbol]) => isAStock(symbol))
       .sort(([a], [b]) => a.localeCompare(b));
+    const coverage = get<Coverage>("coverage");
+    const historical =
+      coverage?.root === root
+        ? [...new Set(coverage.securities.map((row) => row.symbol))].filter(
+            (symbol) => exchangeNames.has(symbol),
+          )
+        : [];
     const hash = createHash("sha256")
       .update(root)
       .update(JSON.stringify(current))
+      .update(
+        JSON.stringify(
+          historical.map((symbol) => [symbol, exchangeNames.get(symbol)]),
+        ),
+      )
       .digest("hex");
-    if (previous?.root === root && previous.hash === hash) {
+    if (
+      previous?.root === root &&
+      previous.hash === hash &&
+      previous.currentSymbols
+    ) {
       if (settings().tdxRoot === root)
         cached = { at: Date.now(), data: previous };
       return previous;
@@ -66,7 +85,26 @@ export async function securityDirectory(): Promise<Directory> {
         updatedAt: old?.name === name ? old.updatedAt : Date.now(),
       };
     }
-    const directory = { root, hash, entries };
+    const directory = {
+      root,
+      hash,
+      entries,
+      currentSymbols: current.map(([symbol]) => symbol),
+    };
+    for (const symbol of historical) {
+      if (entries[symbol]) continue;
+      entries[symbol] = {
+        symbol,
+        name: exchangeNames.get(symbol)!.name,
+        aliases: [],
+        market: symbol.slice(0, 2),
+        type: "A股",
+        currency: "CNY",
+        nameSource: "exchange",
+        tradingStatus: "unknown",
+        updatedAt: Date.now(),
+      };
+    }
     if (settings().tdxRoot === root) {
       put("security-directory", "security-directory", directory);
       cached = { at: Date.now(), data: directory };
