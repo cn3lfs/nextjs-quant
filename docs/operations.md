@@ -1,6 +1,6 @@
 # 运行与维护手册
 
-先读 [AGENTS.md](../AGENTS.md) 与 [约束](invariants.md)。以下命令在仓库根 PowerShell 执行，适用于已由管理者预置依赖的 Windows x64 / Node 22 / pnpm 9 环境。执行者不得 pnpm add/install；缺依赖报告管理者，不换库或手写替代。
+先读 [AGENTS.md](../AGENTS.md) 与 [约束](invariants.md)。以下命令在仓库根 PowerShell 执行，以 Windows x64 / Node 22 / pnpm 9 为参考，先核对当前版本与权限。依赖优先复用，新增按当前任务需要处理，安装失败报告实际原因。
 
 ## 数据隔离先于启动
 
@@ -15,13 +15,13 @@ pnpm dev
 
 ## 验证分层
 
-| 层级 | 执行者 | 管理者/用户 |
-|---|---|---|
-| 改动级 | `pnpm exec vitest run --changed` + `pnpm typecheck` | 不跑桌面或 Playwright |
-| 子任务级 | `pnpm test` | 仅针对新增失败补查，不循环全套 |
-| 里程碑级 | `pnpm typecheck` → `pnpm test` → `pnpm build` → `pnpm desktop:prepare` | 管理者跑桌面冒烟、隔离 Playwright、打包；用户做 B 层人工核对 |
+| 层级     | 自动检查                                                               | 交互与交付检查                                                         |
+| -------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 改动级   | `pnpm exec vitest run --changed` + `pnpm typecheck`                    | 不跑桌面或 Playwright                                                  |
+| 子任务级 | `pnpm test`                                                            | 仅针对新增失败补查，不循环全套                                         |
+| 里程碑级 | `pnpm typecheck` → `pnpm test` → `pnpm build` → `pnpm desktop:prepare` | 有环境能力时运行受影响桌面/浏览器验证；打包按授权，用户做 B 层人工核对 |
 
-本次纯文档任务只需 typecheck/test；不能因手册列了命令就额外运行桌面层。`pnpm test` 是 vitest run，默认 166 文件/1046 测试为当前交接基线；不通过时记录实际结果，不靠删测试对齐数字。
+纯文档任务检查内容、链接和diff；不因手册列出命令就运行应用全套。测试数量以当前实际输出为准，不靠删测试对齐历史数字。
 
 [vitest.config.ts](../vitest.config.ts) 已挂 [tests/setup-data-dir.ts](../tests/setup-data-dir.ts)，未设变量时每测试文件创建 `quant-test-*` 临时目录；它使用 `??=`，**不会覆盖已有 QUANT_DATA_DIR**。全量测试前查看并清除当前 shell 的继承值，让默认隔离生效：
 
@@ -42,7 +42,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm desktop:prepare
-# 以下由管理者在有显示/GPU权限的环境执行，执行者止步于上面
+# 以下按实际显示/GPU能力及受影响范围验证；打包需明确授权
 pnpm desktop:smoke
 # 按当前里程碑的持久 Playwright 用例核对隔离服务
 # 退出 GuanlanQuant.exe 后：
@@ -54,14 +54,14 @@ node scripts/desktop-smoke.mjs --packaged
 
 `desktop:pack` 的 [pack-desktop.ps1](../scripts/pack-desktop.ps1) 自身再次 build → prepare → electron-builder，暂存于 `release/_next`，成功后替换为唯一 `release/win-unpacked`。这是脚本内部暂存，不是允许保留多版本输出。应用占用时停止打包、保留现有 release；运行检查失败也不能绕过。对外分发前先处理 [第三方许可](../THIRD_PARTY_NOTICES.md)。
 
-新增 migrations.ts 条目就意味着旧打包版落后；管理者负责重打包并验收。禁止修改 user_version 或删库让旧 exe 强行启动。本次文档任务无迁移、无打包。
+新增 migrations.ts 条目就意味着旧打包版落后；获授权后重打包并验收。禁止修改 user_version 或删库让旧 exe 强行启动。本次文档任务无迁移、无打包。
 
 ## 数据、凭证、日志的位置
 
-| 内容 | 位置与依据 | 维护边界 |
-|---|---|---|
-| 用户数据根 | 默认 `%LOCALAPPDATA%\QuantWorkbench`；QUANT_DATA_DIR 可覆盖，见 [db/index.ts](../src/server/db/index.ts) | 浏览器/桌面默认共享，不是临时缓存 |
-| SQLite | 数据根下 `quant.sqlite`，运行时有 `-wal`/`-shm` | 设置、快照、任务、报告、台账等在库内；不要只拷主文件遗漏 WAL |
+| 内容       | 位置与依据                                                                                               | 维护边界                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 用户数据根 | 默认 `%LOCALAPPDATA%\QuantWorkbench`；QUANT_DATA_DIR 可覆盖，见 [db/index.ts](../src/server/db/index.ts) | 浏览器/桌面默认共享，不是临时缓存                            |
+| SQLite     | 数据根下 `quant.sqlite`，运行时有 `-wal`/`-shm`                                                          | 设置、快照、任务、报告、台账等在库内；不要只拷主文件遗漏 WAL |
 
 **要拿一份可用的库副本用于本地验证时**，用 SQLite 自带的备份 API，
 不要 `cp quant.sqlite`：只拷主文件会丢掉 WAL 中的内容，
@@ -86,7 +86,7 @@ await db.backup(dest); // 输出的是含 WAL 的一致快照
 
 ### “服务启动超时”
 
-先查看 `%LOCALAPPDATA%\QuantWorkbench\server.log`（若设隔离变量则看对应目录）。已知常见根因是 `数据库版本高于此应用版本，请使用较新的应用`：开发/测试曾推进共享数据库，而 exe 未重打包。由管理者使用当前代码重打包；不要重置数据库版本或删除账本。若日志不是此错误，按实际堆栈继续定位，不能把所有超时都归因数据库。
+先查看 `%LOCALAPPDATA%\QuantWorkbench\server.log`（若设隔离变量则看对应目录）。已知常见根因是 `数据库版本高于此应用版本，请使用较新的应用`：开发/测试曾推进共享数据库，而 exe 未重打包。获打包授权后使用当前代码重打包；不要重置数据库版本或删除账本。若日志不是此错误，按实际堆栈继续定位，不能把所有超时都归因数据库。
 
 ### 缠论 golden 失败
 
@@ -113,12 +113,12 @@ Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 
 ## 可清理缓存与恢复
 
-| 缓存/产物 | 安全处理条件 | 恢复方式 |
-|---|---|---|
-| tdx 尾窗/TNF、screen-cache、metrics-cache、breakout 单结果等内存缓存 | 退出对应服务；无需删文件 | 重启后重新读取/计算，源数据不变 |
-| `.next/` | 停止 dev/start/桌面，不在构建途中删 | `pnpm build` → `pnpm desktop:prepare` |
-| `runtime/`、`desktop/` 生成产物 | 退出持有 DLL/服务，保留 vendor 与源码 | runtime:build（或 build）→ desktop:prepare |
-| 已确认废弃的 `.test-data/<独立实验>`、临时 `quant-test-*` | 核对绝对路径、确认进程已退出且不含需保留证据/模拟身份；Q0 目录尤其不可一概删除 | 新空目录可重建测试状态，原凭证/成交不会自动恢复 |
+| 缓存/产物                                                            | 安全处理条件                                                                   | 恢复方式                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| tdx 尾窗/TNF、screen-cache、metrics-cache、breakout 单结果等内存缓存 | 退出对应服务；无需删文件                                                       | 重启后重新读取/计算，源数据不变                 |
+| `.next/`                                                             | 停止 dev/start/桌面，不在构建途中删                                            | `pnpm build` → `pnpm desktop:prepare`           |
+| `runtime/`、`desktop/` 生成产物                                      | 退出持有 DLL/服务，保留 vendor 与源码                                          | runtime:build（或 build）→ desktop:prepare      |
+| 已确认废弃的 `.test-data/<独立实验>`、临时 `quant-test-*`            | 核对绝对路径、确认进程已退出且不含需保留证据/模拟身份；Q0 目录尤其不可一概删除 | 新空目录可重建测试状态，原凭证/成交不会自动恢复 |
 
 删除前解析完整目标并确认位于预期目录；只用 PowerShell LiteralPath，勿跨 shell 拼接删除。这里不给批量删数据脚本。SQLite 内的“缓存”可能与不可变证据、报告、台账共库，没有经核实的通用安全清库流程；**不要手工删表、quant.sqlite、WAL 或 credentials**。需要备份时停止全部读写进程后完整保留数据目录，恢复须匹配应用版本及 DPAPI 身份，跨 Windows 身份可恢复性未核实。
 

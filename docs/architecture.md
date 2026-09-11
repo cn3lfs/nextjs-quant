@@ -130,3 +130,10 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 核实边界
 
 本图核对了上述入口、导入关系、schema 与关键分支；没有对冻结模块追加验收。DLL 源码版本依据仓库 vendor 清单与 golden fixture，未重编译外部 C++。第三方线上当前状态、实际生产库版本、最新 exe 是否重打包、用户人工签收均未在本次文档任务中核实。
+
+## E1 股票池与概念排名（2026-09-10）
+
+- 股票池：market-pool-browser.tsx → marketPoolCatalog/marketPoolPage/marketPoolExport → market-pool-files.ts 与 market-pool-service.ts。名单分类为申万行业、概念、中证A500；全沪深来自当前证券主档/本地覆盖。筛选、排序、分页、跨页邻居及导出共用服务端选择逻辑，RPS保持全沪深基数。
+- 概念：rps-client 按stock/industry/concept串行调度，rps-worker向localRpsDependencies传递分类，industry-blocks按分类读取，aggregateIndustryRps复用等权收益与排名。概念快照有category=concept，RpsStore拒绝分类混写，结果落concept_rps_days/concept_rps_values。
+- 页面：/rps 的 ConceptRpsControls 查询独立概念结果；查看成分链接经URL参数进入股票池，客户端schema校验分类与名称。概念排名来源是当前成分快照，不是供应商指数或历史成分；缺值与被剔除数量保留。
+- 生命周期：股票池读取不新增缓存/表，导出Blob下载后回收URL；概念结果沿用750个交易结果日保留与事务清理，新迁移为版本9。开发验证只在隔离目录应用迁移。

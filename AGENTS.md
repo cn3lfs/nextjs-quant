@@ -1,43 +1,39 @@
 # Repository guidance
 
-## Scope control — read `docs/roadmap.md` first
+## 工作范围与决策
 
-`docs/roadmap.md` is the single source of truth for what to build. Read it before any change.
+- 修改前读 `docs/roadmap.md`，当前交付与验收见 `docs/next-plan.md`。用户最新明确授权优先；同步调整计划，不让旧冻结清单阻止已授权开发。
+- 项目处于开发阶段，目标是个人沪深量化工作台：浏览、RPS、双突破/缠论选股、策略样本研究和盘前预测复盘。历史模块可按需求修改，不顺手扩展无关模块。
+- 按可验收的小阶段推进。先核实、复用已有能力；完成当前阶段必要检查后再进入下一阶段。
+- 命名、签名、边界等局部决定自行处理。未授权范围、付费数据、重大架构取舍或不可逆操作先提出具体方案；独立工作继续。
+- 历史验证按计划开发，先明确数据时点、交易规则和指标口径。未经验证的旧回测只能作为规则自检，不能称为可信策略业绩。
+- 性能工作由可复现瓶颈和当前验收需要驱动，不作为无期限独立目标。
 
-- Project is a **minimal personal quant workbench**: chart viewing, two strategies (缠论 / 双突破), signal push. Nothing else.
-- Milestones M1–M5 are **strictly serial**. Do not start the next one before the current one passes its binary acceptance criteria.
-- The freeze list in `docs/roadmap.md` §2 is binding. Frozen modules keep working but receive **zero** investment — no features, no refactors, no optimisation, no added verification. Record bugs there instead of fixing them, unless they block the current milestone.
-- **Do not expand scope.** Anything that looks worth doing but is not in the current milestone goes to the open-questions list in `docs/decisions.md`, unimplemented.
-- Hit a decision the roadmap does not cover? Apply the escalation rule in `docs/roadmap.md` §3.5: stop and report only for scope, architecture, irreversible actions, or licensing. Decide local details (edge cases, signatures, naming) yourself, document the choice in code and in `docs/decisions.md`, and keep going. **Never stall the whole deliverable on one undecided edge case.**
-- Backtesting is out of scope permanently — strategy validation happens on JoinQuant. Existing backtest code is frozen as a self-check tool.
-- Performance work is finished (screening went 40.84s → 165ms). Do not optimise further.
+## 实现与验证
 
-## Verification tiers — do not run the full suite per edit
+- Windows-first；前后端 TypeScript，Electron 负责宿主和 bundled Node 服务。工程约定见 `docs/conventions.md`，正确性约束见 `docs/invariants.md`。
+- 改动级运行相关 Vitest 与 typecheck；子任务运行 `pnpm test`；有意义的应用交付运行 `pnpm build`，涉及 runtime 时重建 worker，桌面交付前运行 `pnpm desktop:prepare`。
+- 纯文档改动检查内容、链接和 diff，不机械运行应用全套测试。浏览器/桌面验证按受影响交互与实际环境能力执行；失败记录具体原因，不反复无效重试。
+- 不假定当前代理有或没有网络、GPU、显示权限。优先复用现有依赖；确需新增说明理由和影响，遵守当前环境权限，不用手写替代品绕过缺失依赖。
+- 持久验证用例放 `tests/`；临时数据隔离并明确清理方式。不重建 `output/` 或一次性验证档案库。
+- `docs/decisions.md` 记录决定、取舍及与预期不符的事实；检查结果放交付说明。
 
-```
-per edit       → vitest run --changed + tsc --noEmit
-per subtask    → pnpm test
-per milestone  → build + desktop:prepare + desktop:smoke + Playwright + desktop:pack
-```
+## 数据、交易与凭证
 
-Running desktop smoke or Playwright for a single function change is forbidden. The previous 19-hour run spent most of its budget this way.
+- 通达信和外部 Blocks 目录只读；新解析器需要固定 fixture 与非法输入测试。
+- 数据来源、时间、证券池、复权模式明确，研究快照可复现，缺失不能补造。
+- 可能打开数据库或应用迁移的开发/验证先设置隔离 `QUANT_DATA_DIR`，不得使用默认生产库。不得删库或降低 user_version 绕过版本检查。
+- 新迁移使旧 exe 落后，交付时说明；打包需明确授权，仅使用 `release/win-unpacked`，应用运行中不替换现有 release。
+- 校验 LLM 结构、证据和版本；不执行生成代码，不自动下单。
+- 通知须有启用订阅；真实测试消息需明确测试请求和目的地。未经授权不外发、不交易。
+- 凭证使用仓库外 Windows DPAPI，不输出 API key、webhook、token 或认证信息。
 
-- Never create an `output/` directory for scratch verification. It used to hold 545 one-off scripts and dumps and was deleted on 2026-09-10 along with the A–H era docs that cited them. Verification is either a persistent case in `tests/`, or it is not written.
-- Do not append to `docs/optimization-progress.md`; it is archived. Write to `docs/decisions.md`, recording only decisions, what was dropped and why, and facts that contradicted expectations. Never record "N tests passed / typecheck passed / build passed".
+## 共享工作区与提交
 
-## Base rules
-
-- Windows-first local quantitative research application, scaffolded with Create T3 App.
-- Frontend and backend use TypeScript. Electron only hosts the window and manages the bundled Node service.
-- Never modify the source data under the configured 通达信 directory. New parsers require binary fixtures and malformed-input tests.
-- Market sources and adjustment modes must remain explicit. Preserve immutable snapshots for research and backtests.
-- LLM output is untrusted structured data. Validate it and its evidence IDs; never execute generated code or route model output to trading APIs.
-- Notifications require enabled subscriptions. Do not send real test messages without an explicit test request and configured destination.
-- Never log API keys, webhook URLs, Bot Tokens or MCP authentication. Secrets use Windows DPAPI outside the repository.
-- Run `pnpm typecheck`, `pnpm test`, and `pnpm build` after meaningful changes. Runtime workers must also be rebuilt with `pnpm runtime:build`.
-- Desktop verification: `pnpm desktop:prepare`, `pnpm desktop:smoke`; packaged smoke accepts `node scripts/desktop-smoke.mjs --packaged`.
-- Build artifacts, databases, screenshots and credentials are ignored. Do not commit or push unless requested.
-- Package with `pnpm desktop:pack`: keep only the latest complete desktop release at `release/win-unpacked`. Never create version-specific output folders. If the app is running, stop packaging and preserve the existing release.
+- 开始前检查 git 状态；保留用户和其他任务的修改，不因无关 diff 回退、暂存或覆盖。
+- 撤销不明来源改动前核对修改时间、进程和归属；仍不清楚则询问。
+- 每阶段保持差异可审查并报告验证。提交、推送、发布各需对应授权；未授权提交不妨碍继续已授权且可隔离的工作。
+- `src/server/mcp.ts` 及其 UI 文案由用户维护，未经明确交接不修改、不回退、不纳入提交。
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -48,46 +44,3 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
-
-## Dependencies are provisioned by the manager
-
-Codex runs under the `workspace-write` sandbox, which has **no network access**. `pnpm add` and `pnpm install` will always fail there.
-
-- Never attempt to install a dependency. If one is missing, **stop and report** so the manager can provision it.
-- A missing dependency is not a reason to substitute a different library or to reimplement the functionality by hand.
-
-## Browser verification is the manager's job too
-
-Playwright fails to launch under the `workspace-write` sandbox (`EPERM`), the same class of limitation as Electron. It failed in T1 and T2 while working for the manager.
-
-- Do **not** attempt Playwright runs, and do not retry when one fails. Report that visual verification is outstanding and stop.
-- Write the review script if the task calls for one, but leave running it to the manager.
-
-## Electron desktop smoke is verified by the manager, not the executor
-
-`pnpm desktop:smoke` launches Electron, which needs GPU/display access the `workspace-write` sandbox does not provide. It failed for the executor in M2, M3 and M4 while passing every time for the manager (`exitCode 0`).
-
-- Do **not** run `pnpm desktop:smoke` or `pnpm desktop:pack`. A failure there tells you nothing.
-- Stop at `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm desktop:prepare`. The manager runs the desktop tier.
-
-## Never migrate the shared production database from a dev run
-
-Browser, desktop and every dev/test run default to the same data directory `%LOCALAPPDATA%\QuantWorkbench`. A dev run that advances `user_version` there **permanently breaks the packaged exe**, which refuses to start with 「数据库版本高于此应用版本」 by design (`src/server/db/migrations.ts`).
-
-- Any run that can apply migrations — `pnpm dev`, `pnpm start`, Playwright reviews, integration tests — must set `QUANT_DATA_DIR` to an isolated path first.
-- Whenever `migrations.ts` gains an entry, the packaged exe is stale by definition. Repacking is the manager's job; note it in the milestone report.
-
-## Commit before any major change
-
-Land the previous piece of work before starting the next one. A milestone that is verified but uncommitted is one bad command away from being gone, and a large uncommitted tree makes it impossible to tell which change broke what.
-
-- Manager: verify, then commit, then dispatch the next task. Never dispatch on top of an unreviewed dirty tree.
-- Executor: never commit or push. Report and stop; the manager commits.
-
-## The working tree is shared — check ownership before reverting
-
-The user edits this repository directly while tasks run. An uncommitted change that is outside the current task's scope is **not** evidence that the executor made it.
-
-- Before `git checkout --`, `git restore`, `git stash` or any revert of uncommitted work: check the file's modification time against the last dispatch, and check for other running processes. If ownership is unclear, ask.
-- A revert of someone else's work in progress is irreversible. Losing it costs far more than leaving an unexplained diff in the tree.
-- `src/server/mcp.ts` and its UI copy are currently owned by the user. Do not modify, revert, or include them in commits.
