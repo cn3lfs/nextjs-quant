@@ -42,6 +42,7 @@ export type Snapshot = {
   sourceUrl?: string;
   volumeUnit?: string;
   sourceNote?: string;
+  sourceVersions?: string[];
 };
 const maParamsSchema = z
   .object({
@@ -263,6 +264,7 @@ export const settingsSchema = z.object({
   codexModel: z.string().trim().max(100).default(""),
   claudeModel: z.string().trim().max(100).default(""),
   industryBlocksRoot: z.string().trim().max(2048).default(""),
+  industryMembershipSource: z.enum(["blocks", "tdx"]).default("blocks"),
   tdxRoot: z.string().min(1).default("E:\\new_tdx64"),
   clsDbPath: z
     .string()
