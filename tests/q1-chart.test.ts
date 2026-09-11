@@ -234,7 +234,7 @@ it("drawing geometry for four tools uses anchors; fib is arithmetic price retrac
     ),
   );
 });
-it("log/theme settings survive validation; keyboard center/zoom and cost/no-position semantics; new-cycle structures unavailable", () => {
+it("log/theme settings survive validation; keyboard center/zoom and cost/no-position semantics; all chart cycles support structures", () => {
   expect(
     chartViewSchema.parse({
       ...defaultChartView,
@@ -262,6 +262,6 @@ it("log/theme settings survive validation; keyboard center/zoom and cost/no-posi
   expect(chartCost(undefined)).toBeNull();
   expect(chartCost({ quantity: 0, adjustedCost: 10 })).toBeNull();
   expect(chartCost({ quantity: 100, adjustedCost: 10 })).toBe(10);
-  for (const p of ["week", "month"] as const)
-    expect(structureAvailability(p)).toEqual({ czsc: false, breakout: false });
+  for (const p of ["day", "week", "month", "5m", "15m", "30m", "60m"] as const)
+    expect(structureAvailability(p)).toEqual({ czsc: true, breakout: true });
 });

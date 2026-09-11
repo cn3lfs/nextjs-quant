@@ -1,4 +1,4 @@
-import { ArrowUpRight, Database, Plus, X } from "lucide-react";
+import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import {
   chartPeriodSchema,
@@ -13,7 +13,7 @@ import { MarketPoolBrowser } from "../market-pool-browser";
 import { isMarketIndex } from "~/lib/market-indices";
 import { Button } from "../ui/button";
 
-import { Empty, fmt, stamp } from "./shared";
+import { Empty, stamp } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
 
 export function MarketView({
@@ -40,30 +40,18 @@ export function MarketView({
     symbol,
     setSymbol,
     period,
-    setPeriod,
     loaded,
     names,
     verifyIdentity,
     identity,
     load,
     watch,
-    last,
-    change,
     watchlist,
   } = state;
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
-  const displayedPeriod =
-    period === "5m" ? "5m" : chartPeriod === "5m" ? "day" : chartPeriod;
+  const displayedPeriod = chartPeriod;
   return (
     <>
-      <MarketPoolBrowser
-        symbol={symbol}
-        disabled={load.isPending}
-        onSelect={(next) => {
-          setSymbol(next);
-          load.mutate({ symbol: next, period, source: "local" });
-        }}
-      />
       <div className="market-layout">
         <section className="panel chart-panel">
           <div className="panel-toolbar">
@@ -118,19 +106,60 @@ export function MarketView({
                   disabled={load.isPending}
                   onClick={() => {
                     setChartPeriod(p);
-                    const sourcePeriod = p === "5m" ? "5m" : "day";
-                    setPeriod(sourcePeriod);
-                    if (
-                      loaded?.period !== sourcePeriod ||
-                      loaded.symbol !== symbol
-                    )
-                      load.mutate({ symbol, period: sourcePeriod });
                   }}
                 >
                   {p === "day" ? "日 K" : periodLabels[p]}
                 </Button>
               ))}
             </div>
+          </div>
+          <div className="quote-heading">
+            <div>
+              <div className="eyebrow">
+                {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
+                <span className="tag">不复权</span>
+                {loaded?.historicalAsOf && (
+                  <span className="tag">
+                    历史快照 · 截至 {loaded.historicalAsOf}
+                  </span>
+                )}
+              </div>
+              <h2
+                title={
+                  loaded
+                    ? archivedNameHint(loaded.symbol, names, loaded.name)
+                    : undefined
+                }
+              >
+                {loaded
+                  ? securityDisplayName(loaded.symbol, names, loaded.name)
+                  : "加载行情"}
+              </h2>
+            </div>
+          </div>
+
+          {loaded && !load.isPending ? (
+            <ChartWorkspace
+              key={`${loaded.id}:${displayedPeriod}`}
+              snapshot={loaded}
+              period={displayedPeriod}
+            />
+          ) : (
+            <Empty>
+              {load.isPending
+                ? "正在读取行情…"
+                : "输入 sh600519 等证券代码加载本地行情"}
+            </Empty>
+          )}
+          <div className="source-line">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => watch.mutate([...watchlist, symbol])}
+            >
+              <Plus size={13} />
+              加入自选
+            </Button>
           </div>
           {isMarketIndex(symbol) ? (
             <p className="text-sm text-muted-foreground">
@@ -166,86 +195,16 @@ export function MarketView({
               </pre>
             </details>
           )}
-          <div className="quote-heading">
-            <div>
-              <div className="eyebrow">
-                {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
-                <span className="tag">不复权</span>
-                {loaded?.historicalAsOf && (
-                  <span className="tag">
-                    历史快照 · 截至 {loaded.historicalAsOf}
-                  </span>
-                )}
-              </div>
-              <h2
-                title={
-                  loaded
-                    ? archivedNameHint(loaded.symbol, names, loaded.name)
-                    : undefined
-                }
-              >
-                {loaded
-                  ? securityDisplayName(loaded.symbol, names, loaded.name)
-                  : "加载行情"}
-              </h2>
-            </div>
-            <div className="quote-price">
-              <strong>{fmt(last?.close)}</strong>
-              <span className={(change ?? 0) >= 0 ? "up" : "down"}>
-                {(change ?? 0) >= 0 ? "+" : ""}
-                {fmt(change)}%
-              </span>
-            </div>
-          </div>
-          <div className="quote-strip">
-            <span>
-              开盘 <b>{fmt(last?.open)}</b>
-            </span>
-            <span>
-              最高 <b>{fmt(last?.high)}</b>
-            </span>
-            <span>
-              最低 <b>{fmt(last?.low)}</b>
-            </span>
-            <span>
-              成交额 <b>{last ? fmt(last.amount / 1e8) + " 亿" : "—"}</b>
-            </span>
-          </div>
-          {loaded && !load.isPending ? (
-            <ChartWorkspace
-              key={`${loaded.id}:${displayedPeriod}`}
-              snapshot={loaded}
-              period={displayedPeriod}
-            />
-          ) : (
-            <Empty>
-              {load.isPending
-                ? "正在读取行情…"
-                : "输入 sh600519 等证券代码加载本地行情"}
-            </Empty>
-          )}
-          <div className="source-line">
-            <Database size={13} />
-            {loaded?.source === "eastmoney-online"
-              ? "东方财富在线 · 不复权"
-              : loaded?.source === "tdx-mcp"
-                ? "通达信 MCP"
-                : "通达信本地"}{" "}
-            · {last?.date ?? "—"} · {loaded?.bars.length ?? 0} 条记录
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => watch.mutate([...watchlist, symbol])}
-            >
-              <Plus size={13} />
-              加入自选
-            </Button>
-          </div>
-          {loaded?.sourceNote && (
-            <p className="text-sm text-muted-foreground">{loaded.sourceNote}</p>
-          )}
         </section>
       </div>
+      <MarketPoolBrowser
+        symbol={symbol}
+        disabled={load.isPending}
+        onSelect={(next) => {
+          setSymbol(next);
+          load.mutate({ symbol: next, period, source: "local" });
+        }}
+      />
       <section className="panel">
         <div className="panel-title">
           <h3>我的自选</h3>

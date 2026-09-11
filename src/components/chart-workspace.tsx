@@ -9,7 +9,6 @@ import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market-indices";
 import { api } from "~/trpc/react";
 import {
-  structureAvailability,
   chartCost,
   chartViewSchema,
   indicatorParametersSchema,
@@ -17,13 +16,7 @@ import {
   type ChartView,
   type Drawing,
 } from "~/lib/chart-view";
-import { CzscMarketChart, MarketChart } from "./chart";
-const exclusionLabels = {
-  unfinished: "周期未完成",
-  "calendar-unknown": "交易日历未知",
-  "missing-days": "缺少交易日行情",
-  "calendar-conflict": "行情与日历冲突",
-};
+import { CzscMarketChart } from "./chart";
 const tools = {
   none: "浏览",
   trend: "趋势线",
@@ -38,16 +31,21 @@ export function ChartWorkspace({
   snapshot: Snapshot;
   period: ChartPeriod;
 }) {
+  const [limit, setLimit] = useState(2000);
+  const requestMore = useCallback(
+    () => setLimit((value) => Math.min(20000, value + 2000)),
+    [],
+  );
   const view = api.chartView.useQuery(
     { symbol: snapshot.symbol, period },
     { retry: false, refetchOnWindowFocus: false },
   );
   const aggregate = api.chartBars.useQuery(
-    { snapshotId: snapshot.id, period: period === "month" ? "month" : "week" },
+    { snapshotId: snapshot.id, period, limit },
     {
-      enabled: period === "week" || period === "month",
       retry: false,
       refetchOnWindowFocus: false,
+      placeholderData: (previous) => previous,
     },
   );
   const rps = api.rpsCurve.useQuery(snapshot.symbol, {
@@ -69,8 +67,7 @@ export function ChartWorkspace({
       </div>
     );
   if (!view.data) return <p>正在读取图表视图…</p>;
-  const derived = period === "week" || period === "month";
-  if (derived && aggregate.error)
+  if (aggregate.error)
     return (
       <div role="alert">
         聚合失败：{aggregate.error.message}{" "}
@@ -79,11 +76,18 @@ export function ChartWorkspace({
         </Button>
       </div>
     );
-  if (derived && !aggregate.data) return <p>正在聚合已完成周期…</p>;
+  if (!aggregate.data) return <p>正在读取目标周期行情…</p>;
   return (
     <EditableChart
       key={`${snapshot.symbol}:${period}`}
-      snapshot={snapshot}
+      snapshot={aggregate.data}
+      onHistoryRequest={
+        !aggregate.isFetching &&
+        !aggregate.data.historyExhausted &&
+        limit < 20000
+          ? requestMore
+          : undefined
+      }
       period={period}
       initial={view.data}
       rps={period === "day" ? rps.data : undefined}
@@ -97,7 +101,7 @@ export function ChartWorkspace({
               : undefined
       }
       onRpsRetry={() => void rps.refetch()}
-      bars={derived ? aggregate.data!.bars : snapshot.bars}
+      bars={aggregate.data.bars}
       cost={chartCost(position.data ?? undefined)}
       positionMessage={
         position.error
@@ -110,15 +114,12 @@ export function ChartWorkspace({
               ? "持仓成本不可用"
               : undefined
       }
-      aggregateMessage={
-        derived
-          ? `仅已完成周期 · 排除 ${aggregate.data!.excluded.length} 个周期（${[...new Set(aggregate.data!.excluded.map((e) => exclusionLabels[e.reason]))].join("、") || "无"}）`
-          : undefined
-      }
+      aggregateMessage={`${aggregate.data.source === "tdx-mcp" ? "通达信 MCP" : aggregate.data.source === "tdx-local" ? "通达信本地" : "东方财富在线"} · ${aggregate.data.bars.length} 根 · ${aggregate.data.bars.at(-1)?.date.replace("T", " ").replace(":00+08:00", "") ?? "无行情"} · ${aggregate.data.formingDates.length ? "末根形成中，结构可能变化" : "已完成周期"}${aggregate.data.sourceNote ? ` · ${aggregate.data.sourceNote}` : ""}`}
     />
   );
 }
 function EditableChart({
+  onHistoryRequest,
   snapshot,
   period,
   initial,
@@ -130,9 +131,10 @@ function EditableChart({
   rpsMessage,
   onRpsRetry,
 }: {
-  snapshot: Snapshot;
+  snapshot: import("~/lib/chart-snapshot").ChartSnapshot;
   period: ChartPeriod;
   initial: ChartView;
+  onHistoryRequest?: () => void;
   bars: Snapshot["bars"];
   cost: number | null;
   positionMessage?: string;
@@ -194,6 +196,8 @@ function EditableChart({
     [anchor, tool, view, change],
   );
   const common = {
+    viewportKey: `${snapshot.symbol}:${period}`,
+    onHistoryRequest,
     volumeUnit:
       snapshot.volumeUnit ?? (isMarketIndex(snapshot.symbol) ? "源单位" : "股"),
     rps,
@@ -346,15 +350,7 @@ function EditableChart({
         disabled={save.isPending}
         style={{ border: 0, padding: 0, minWidth: 0 }}
       >
-        {!structureAvailability(period).czsc ? (
-          <MarketChart
-            {...common}
-            czscMessage="缠论结构在周/月线不可用"
-            breakoutMessage="双突破仅支持日线，周/月线不可用"
-          />
-        ) : (
-          <CzscMarketChart {...common} snapshotId={snapshot.id} />
-        )}
+        <CzscMarketChart {...common} snapshotId={snapshot.id} chartSnapshot />
       </fieldset>
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>

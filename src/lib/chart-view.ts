@@ -1,12 +1,24 @@
 import { z } from "zod";
 import { symbolSchema } from "./domain";
-export const chartPeriodSchema = z.enum(["day", "week", "month", "5m"]);
+export const chartPeriodSchema = z.enum([
+  "day",
+  "week",
+  "month",
+  "5m",
+  "15m",
+  "30m",
+  "60m",
+]);
 export type ChartPeriod = z.infer<typeof chartPeriodSchema>;
+export const isMinutePeriod = (period: ChartPeriod) => period.endsWith("m");
 export const periodLabels = {
   day: "日线",
   week: "周线",
   month: "月线",
   "5m": "5 分钟",
+  "15m": "15 分钟",
+  "30m": "30 分钟",
+  "60m": "60 分钟",
 };
 const n = z.number().int().min(1).max(500);
 export const indicatorParametersSchema = z
@@ -53,7 +65,15 @@ export const chartViewSchema = z
     logarithmic: z.boolean(),
     dark: z.boolean(),
     showBoll: z.boolean(),
-    subchart: z.enum(["none", "volume", "macd", "kdj", "rsi", "rps"]),
+    subchart: z.enum([
+      "none",
+      "volume-macd",
+      "volume",
+      "macd",
+      "kdj",
+      "rsi",
+      "rps",
+    ]),
     rps: z
       .object({
         periods: z
@@ -80,7 +100,7 @@ export const defaultChartView: ChartView = {
   logarithmic: false,
   dark: false,
   showBoll: false,
-  subchart: "volume",
+  subchart: "volume-macd",
   rps: { periods: [50, 120, 250], threshold: 90 },
   drawings: [],
 };
@@ -126,7 +146,7 @@ export function chartCost(
 }
 export function structureAvailability(period: ChartPeriod) {
   return {
-    czsc: period === "day" || period === "5m",
-    breakout: period === "day",
+    czsc: chartPeriodSchema.options.includes(period),
+    breakout: chartPeriodSchema.options.includes(period),
   };
 }

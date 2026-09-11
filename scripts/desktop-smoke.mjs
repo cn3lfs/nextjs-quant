@@ -45,7 +45,20 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
   passed =
     code === 0 &&
     sourceUnchanged &&
-    text.includes(`通达信本地 · ${expectedDate} · ${expectedRecords} 条记录`) &&
+    // Chart source is now resolved independently per period and may load online.
+    // Startup smoke checks the real workbench; seven-period data/structure checks
+    // live in chart-periods-live and the browser acceptance pass.
+    text.includes("贵州茅台") &&
+    [
+      "日 K",
+      "周线",
+      "月线",
+      "5 分钟",
+      "15 分钟",
+      "30 分钟",
+      "60 分钟",
+      "股票池与强势股浏览",
+    ].every((label) => text.includes(label)) &&
     !text.includes("Forbidden") &&
     !text.includes("Cannot find module");
 console.log(

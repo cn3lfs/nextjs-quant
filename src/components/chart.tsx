@@ -1,4 +1,5 @@
 "use client";
+import { rememberChartRange, restoreChartRange } from "~/lib/chart-viewport";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { rpsPeriods } from "~/lib/rps";
@@ -171,6 +172,7 @@ const rpsColors: Record<number, string> = {
   250: "#287e97",
 };
 const subcharts = {
+  "volume-macd": "成交量 + MACD",
   none: "隐藏副图",
   volume: "成交量",
   macd: "MACD",
@@ -205,6 +207,7 @@ export function CzscMarketChart({
   bars,
   period,
   snapshotId,
+  chartSnapshot = false,
   view,
   onViewChange,
   drawingTool,
@@ -213,10 +216,13 @@ export function CzscMarketChart({
   rps,
   rpsMessage,
   onRpsRetry,
+  onHistoryRequest,
+  viewportKey,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  chartSnapshot?: boolean;
   volumeUnit?: string;
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
@@ -226,6 +232,8 @@ export function CzscMarketChart({
   rps?: RpsCurve;
   rpsMessage?: string;
   onRpsRetry?: () => void;
+  onHistoryRequest?: () => void;
+  viewportKey?: string;
 }) {
   const [paintedSnapshot, setPaintedSnapshot] = useState("");
   useEffect(() => {
@@ -241,17 +249,17 @@ export function CzscMarketChart({
   }, [snapshotId]);
   const annotationsReady = paintedSnapshot === snapshotId;
   const result = api.czsc.useQuery(
-    { snapshotId },
+    { snapshotId, chartSnapshot },
     {
-      enabled: annotationsReady && (period === "day" || period === "5m"),
+      enabled: annotationsReady,
       staleTime: Infinity,
       retry: false,
     },
   );
   const breakout = api.breakout.useQuery(
-    { snapshotId },
+    { snapshotId, chartSnapshot },
     {
-      enabled: annotationsReady && period === "day",
+      enabled: annotationsReady,
       staleTime: Infinity,
       retry: false,
     },
@@ -269,25 +277,23 @@ export function CzscMarketChart({
       rps={rps}
       rpsMessage={rpsMessage}
       onRpsRetry={onRpsRetry}
-      czsc={period === "day" || period === "5m" ? result.data : undefined}
-      breakout={period === "day" ? breakout.data : undefined}
+      onHistoryRequest={onHistoryRequest}
+      viewportKey={viewportKey}
+      czsc={result.data}
+      breakout={breakout.data}
       breakoutMessage={
-        period !== "day"
-          ? "双突破仅支持日线"
-          : breakout.error
-            ? `双突破计算失败：${breakout.error.message}`
-            : breakout.isPending
-              ? "双突破标注后台加载中，K 线可正常浏览"
-              : undefined
+        breakout.error
+          ? `双突破计算失败：${breakout.error.message}`
+          : breakout.isPending
+            ? "双突破标注后台加载中，K 线可正常浏览"
+            : undefined
       }
       czscMessage={
-        period === "week" || period === "month"
-          ? "缠论结构在周/月线不可用"
-          : result.error
-            ? `缠论计算失败：${result.error.message}`
-            : result.isPending
-              ? "缠论标注后台加载中，K 线可正常浏览"
-              : undefined
+        result.error
+          ? `缠论计算失败：${result.error.message}`
+          : result.isPending
+            ? "缠论标注后台加载中，K 线可正常浏览"
+            : undefined
       }
     />
   );
@@ -309,6 +315,8 @@ export function MarketChart({
   rps,
   rpsMessage,
   onRpsRetry,
+  onHistoryRequest,
+  viewportKey,
 }: {
   bars: Bar[];
   period: Period;
@@ -325,6 +333,8 @@ export function MarketChart({
   rps?: RpsCurve;
   rpsMessage?: string;
   onRpsRetry?: () => void;
+  onHistoryRequest?: () => void;
+  viewportKey?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const viewport = useRef<{
@@ -351,8 +361,8 @@ export function MarketChart({
     selectedBreakoutIndex >= 0
       ? selectedBreakoutIndex
       : (breakout?.latest?.index ?? bars.length - 1);
-  // One selectable, independently scaled pane keeps the price chart readable.
-  const [localSubchart, setLocalSubchart] = useState<Subchart>("volume");
+  // One chart shares its time scale across independently scaled indicator panes.
+  const [localSubchart, setLocalSubchart] = useState<Subchart>("volume-macd");
   const subchart = view?.subchart ?? localSubchart;
   const setSubchart = (value: Subchart) =>
     onViewChange && view
@@ -387,6 +397,7 @@ export function MarketChart({
   useEffect(() => {
     if (!ref.current) return;
     const saved = viewport.current;
+    const restored = viewportKey ? restoreChartRange(viewportKey, bars) : null;
     let start =
       saved?.bars === bars &&
       saved.period === period &&
@@ -394,13 +405,13 @@ export function MarketChart({
         ? saved.start
         : selectedBreakoutIndex >= 0
           ? Math.max(0, breakoutIndex - 120)
-          : initialHistoryStart(bars.length);
+          : (restored?.start ?? initialHistoryStart(bars.length));
     const savedRange =
       saved?.bars === bars &&
       saved.period === period &&
       saved.asOf === breakoutIndex
         ? saved.range
-        : null;
+        : (restored?.range ?? null);
     setHistoryStart(start);
     const chart = createChart(ref.current, {
       localization: chineseChartLocalization,
@@ -434,7 +445,7 @@ export function MarketChart({
       },
       timeScale: {
         tickMarkFormatter: chineseTickMark,
-        timeVisible: period === "5m",
+        timeVisible: period.endsWith("m"),
         secondsVisible: false,
         borderColor: "#e5ebf2",
       },
@@ -550,6 +561,20 @@ export function MarketChart({
     // The RPS reference anchor has values only to display its threshold;
     // observations still come exclusively from persisted segmented curves.
     // Other oscillators use whitespace to retain an empty warmup pane.
+    const dualPane = subchart === "volume-macd";
+    const oscillatorPane = dualPane ? 2 : 1;
+    const extraVolume = dualPane
+      ? chart.addSeries(
+          HistogramSeries,
+          {
+            priceFormat: { type: "volume" },
+            priceLineVisible: false,
+            title: "成交量",
+          },
+          1,
+        )
+      : null;
+    extraVolume?.priceScale().applyOptions({ mode: 0 });
     const anchor =
       subchart === "none" || (subchart === "rps" && period !== "day")
         ? null
@@ -568,10 +593,10 @@ export function MarketChart({
                   }
                 : {}),
             },
-            1,
+            oscillatorPane,
           );
     const histogram =
-      subchart === "volume" || subchart === "macd"
+      subchart === "volume" || subchart === "macd" || dualPane
         ? chart.addSeries(
             HistogramSeries,
             {
@@ -581,7 +606,7 @@ export function MarketChart({
                   : { type: "price", precision: 2, minMove: 0.01 },
               priceLineVisible: false,
             },
-            1,
+            oscillatorPane,
           )
         : null;
     // A newly created pane inherits the first pane scale settings in LWC 5.
@@ -606,6 +631,13 @@ export function MarketChart({
       const visible = bars.slice(start);
       candles.setData(
         visible.map((bar) => ({ ...bar, time: chartTime(bar.date, period) })),
+      );
+      extraVolume?.setData(
+        visible.map((bar) => ({
+          time: chartTime(bar.date, period),
+          value: bar.volume,
+          color: bar.close >= bar.open ? "#cf5562" : "#28977f",
+        })),
       );
       anchor?.setData(
         visible.map((bar) =>
@@ -678,7 +710,7 @@ export function MarketChart({
       }
       const overlay =
         breakout && showBreakout
-          ? breakoutChartData(breakout, bars, start, breakoutIndex)
+          ? breakoutChartData(breakout, bars, start, breakoutIndex, period)
           : null;
       for (const item of overlay?.lines ?? []) {
         const line = chart.addSeries(LineSeries, {
@@ -700,7 +732,8 @@ export function MarketChart({
       );
       for (const name of names) {
         if (name === "MACD") continue;
-        const pane = name.startsWith("MA") || name.startsWith("BOLL") ? 0 : 1;
+        const pane =
+          name.startsWith("MA") || name.startsWith("BOLL") ? 0 : oscillatorPane;
         for (const segment of indicatorSegments(
           bars,
           values[name],
@@ -726,7 +759,8 @@ export function MarketChart({
     };
     render();
     chart.panes()[0]?.setStretchFactor(3);
-    chart.panes()[1]?.setStretchFactor(1.4);
+    chart.panes()[1]?.setStretchFactor(dualPane ? 1 : 1.4);
+    if (dualPane) chart.panes()[2]?.setStretchFactor(1.2);
     if (bars.length)
       chart.timeScale().setVisibleLogicalRange(
         savedRange ?? {
@@ -759,7 +793,11 @@ export function MarketChart({
     const reveal = (range: LogicalRange | null) => {
       if (!range || updating) return;
       viewport.current = { bars, period, start, range, asOf: breakoutIndex };
-      if (dragging || range.from > 12 || !start || frame) return;
+      if (dragging || range.from > 12 || frame) return;
+      if (!start) {
+        onHistoryRequest?.();
+        return;
+      }
       // Defer setData outside the library's range callback and shift logical
       // indices by the exact prepend count to keep the viewed dates stationary.
       frame = requestAnimationFrame(() => {
@@ -800,6 +838,13 @@ export function MarketChart({
         asOf: breakoutIndex,
         range: chart.timeScale().getVisibleLogicalRange(),
       };
+      if (viewportKey)
+        rememberChartRange(
+          viewportKey,
+          bars,
+          start,
+          chart.timeScale().getVisibleLogicalRange(),
+        );
       chartApi.current = null;
       chart.remove();
     };
@@ -820,6 +865,8 @@ export function MarketChart({
     cost,
     rps,
     rpsOptions,
+    onHistoryRequest,
+    viewportKey,
   ]);
 
   return (
@@ -976,7 +1023,7 @@ export function MarketChart({
                     (p) => p.index === breakoutIndex,
                   );
                   return p
-                    ? `${p.date} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
+                    ? `${p.date.slice(0, 16).replace("T", " ")} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
                     : "无日线数据";
                 })()
               : "")}
@@ -1028,13 +1075,17 @@ export function MarketChart({
           className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums"
           aria-label="所选日期支撑压力与趋势线"
         >
-          {breakoutChartData(breakout, bars, 0, breakoutIndex).lines.map(
-            (line) => (
-              <span key={line.title} style={{ color: line.color }}>
-                {line.title}
-              </span>
-            ),
-          )}
+          {breakoutChartData(
+            breakout,
+            bars,
+            0,
+            breakoutIndex,
+            period,
+          ).lines.map((line) => (
+            <span key={line.title} style={{ color: line.color }}>
+              {line.title}
+            </span>
+          ))}
         </div>
       )}
       <div
@@ -1052,7 +1103,11 @@ export function MarketChart({
           }
         }}
         className="price-chart"
-        style={{ height: subchart === "none" ? 400 : 560, cursor: "grab" }}
+        style={{
+          height:
+            subchart === "none" ? 400 : subchart === "volume-macd" ? 680 : 560,
+          cursor: "grab",
+        }}
       />
       <div className="flex justify-between text-xs text-slate-500">
         <span data-testid="chart-history">

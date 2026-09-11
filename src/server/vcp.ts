@@ -1,8 +1,8 @@
 import type { Snapshot } from "~/lib/domain";
 
-export function vcpFacts(snapshot: Snapshot) {
+export function vcpFacts(snapshot: Snapshot, chartBars = false) {
   const bars = snapshot.bars.slice(-60);
-  if (snapshot.period !== "day" || bars.length < 60)
+  if ((!chartBars && snapshot.period !== "day") || bars.length < 60)
     return {
       version: "vcp-diagnostic-2",
       applicable: false,

@@ -310,9 +310,21 @@ small {
 }
 .market-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+.page:has(.market-layout) {
+  max-width: none;
+}
+.market-layout .panel-toolbar {
+  flex-wrap: wrap;
+}
+.market-layout .panel-toolbar > * {
+  flex-shrink: 0;
+}
+.market-layout .panel-toolbar button {
+  white-space: nowrap;
 }
 .panel {
   background: #fff;
@@ -958,11 +970,6 @@ footer {
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@media (min-width: 1600px) {
-  .market-layout {
-    grid-template-columns: minmax(0, 1fr) 340px;
   }
 }
 @media (max-width: 1150px) {

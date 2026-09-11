@@ -193,6 +193,7 @@ function point(
   bars: readonly Bar[],
   i: number,
   values: ReturnType<typeof prepare>,
+  chartBars = false,
 ): BreakoutPoint {
   const current = bars[i]!,
     previous = bars[i - 1];
@@ -200,16 +201,19 @@ function point(
     prior = bars.slice(start, i);
   // Reuse diagnostic-2 as-is: its window is exactly the 60 completed bars
   // BEFORE the candidate. No second pivot detector and no confirmation backfill.
-  const facts = vcpFacts({
-    id: "breakout",
-    hash: "",
-    createdAt: 0,
-    symbol: "",
-    source: "tdx-local",
-    adjustment: "none",
-    period: "day",
-    bars: [...prior],
-  });
+  const facts = vcpFacts(
+    {
+      id: "breakout",
+      hash: "",
+      createdAt: 0,
+      symbol: "",
+      source: "tdx-local",
+      adjustment: "none",
+      period: "day",
+      bars: [...prior],
+    },
+    chartBars,
+  );
   const ambiguousDates = facts.ambiguousDates ?? [];
   const barrier = ambiguousDates.at(-1);
   const swings: Swing[] = (facts.extrema ?? [])
@@ -221,7 +225,12 @@ function point(
     .slice(0, i + 1)
     .some(
       (b, j) =>
-        !/^\d{4}-\d{2}-\d{2}$/.test(b.date) ||
+        !(
+          chartBars
+            ? /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:00\+08:00)?$/
+            : /^\d{4}-\d{2}-\d{2}$/
+        ).test(b.date) ||
+        !Number.isFinite(Date.parse(b.date)) ||
         (j > 0 && b.date <= bars[j - 1]!.date) ||
         ![b.open, b.high, b.low, b.close, b.volume].every(Number.isFinite) ||
         b.low <= 0 ||
@@ -425,11 +434,12 @@ function point(
 export function analyzeBreakout(
   bars: readonly Bar[],
   from = Math.max(0, bars.length - 1),
+  chartBars = false,
 ): BreakoutResult {
   const values = prepare(bars);
   const points = bars
     .slice(Math.max(0, from))
-    .map((_, n) => point(bars, Math.max(0, from) + n, values));
+    .map((_, n) => point(bars, Math.max(0, from) + n, values, chartBars));
   return {
     version: method.ruleVersion,
     method,

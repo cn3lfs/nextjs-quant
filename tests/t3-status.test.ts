@@ -156,11 +156,11 @@ it("T3 mounts the same usable chart before annotation requests and fills results
   expect(first.type).toBe(MarketChart);
   expect(first.props.bars).toBe(props.bars);
   expect(czsc).toHaveBeenLastCalledWith(
-    { snapshotId: "snapshot-a" },
+    { snapshotId: "snapshot-a", chartSnapshot: false },
     { enabled: false, staleTime: Infinity, retry: false },
   );
   expect(breakout).toHaveBeenLastCalledWith(
-    { snapshotId: "snapshot-a" },
+    { snapshotId: "snapshot-a", chartSnapshot: false },
     { enabled: false, staleTime: Infinity, retry: false },
   );
   const cleanup = effect!();
@@ -175,7 +175,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     "双突破标注后台加载中，K 线可正常浏览",
   );
   expect(czsc).toHaveBeenLastCalledWith(
-    { snapshotId: "snapshot-a" },
+    { snapshotId: "snapshot-a", chartSnapshot: false },
     { enabled: true, staleTime: Infinity, retry: false },
   );
   const structure = { status: "ok" },
@@ -192,9 +192,12 @@ it("T3 mounts the same usable chart before annotation requests and fills results
   expect(czsc.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: false });
   Component({ ...props, period: "5m" });
   expect(czsc.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: true });
-  expect(breakout.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: false });
-  Component({ ...props, period: "week" });
-  expect(czsc.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: false });
+  expect(breakout.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: true });
+  Component({ ...props, period: "week", chartSnapshot: true });
+  expect(czsc.mock.calls.at(-1)?.[1]).toMatchObject({ enabled: true });
+  expect(breakout.mock.calls.at(-1)?.[0]).toMatchObject({
+    chartSnapshot: true,
+  });
   cleanup();
   expect(frames.size).toBe(0);
 });

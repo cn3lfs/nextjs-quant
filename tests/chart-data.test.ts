@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import { boll, kdj, ma, macd, rsi } from "../src/lib/indicators";
+import { chartViewSchema, defaultChartView } from "../src/lib/chart-view";
 import {
   chartIndicators,
   chartLegend,
@@ -27,6 +28,22 @@ export function fixture(length = 420): Bar[] {
 }
 
 describe("M2 chart data contract", () => {
+  it("defaults to volume plus MACD while preserving saved single-pane choices", () => {
+    const view = chartViewSchema.parse(defaultChartView);
+    expect(view.subchart).toBe("volume-macd");
+    expect(enabledIndicators(false, view.subchart)).toEqual([
+      "MA5",
+      "MA10",
+      "MA20",
+      "MA60",
+      "DIF",
+      "DEA",
+      "MACD",
+    ]);
+    expect(
+      chartViewSchema.parse({ ...view, subchart: "volume" }).subchart,
+    ).toBe("volume");
+  });
   it("legend at three bars reads every enabled M1 value without another formula", () => {
     const bars = fixture();
     const values = chartIndicators(bars);

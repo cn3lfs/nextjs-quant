@@ -658,11 +658,21 @@ export const appRouter = createTRPCRouter({
       );
     }),
   breakout: p
-    .input(z.object({ snapshotId: z.string().min(1) }))
+    .input(
+      z.object({
+        snapshotId: z.string().min(1),
+        chartSnapshot: z.boolean().default(false),
+      }),
+    )
     .query(({ input }) => {
       const source = get<Snapshot>(input.snapshotId);
       if (!source || !Array.isArray(source.bars))
         throw new Error("行情快照不存在");
+      if (input.chartSnapshot) {
+        if (!source.id.startsWith("chart-snapshot-"))
+          throw new Error("图表快照不匹配");
+        return analyzeBreakout(source.bars, 0, true);
+      }
       if (source.period !== "day") throw new Error("双突破仅支持日线");
       const completed = completedBarFilter("day", Date.now());
       return analyzeBreakout(
@@ -671,7 +681,12 @@ export const appRouter = createTRPCRouter({
       );
     }),
   czsc: p
-    .input(z.object({ snapshotId: z.string().min(1) }))
+    .input(
+      z.object({
+        snapshotId: z.string().min(1),
+        chartSnapshot: z.boolean().default(false),
+      }),
+    )
     .query(({ input }) => {
       const source = get<Snapshot>(input.snapshotId);
       if (!source || !Array.isArray(source.bars))

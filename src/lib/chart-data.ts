@@ -1,5 +1,6 @@
 import {
   defaultParameters,
+  isMinutePeriod,
   type IndicatorParameters,
   type ChartPeriod as Period,
 } from "./chart-view";
@@ -16,6 +17,7 @@ export function breakoutChartData(
   bars: readonly Bar[],
   start: number,
   asOf = bars.length - 1,
+  period: Period = "day",
 ) {
   const point = result.points.find((p) => p.index === asOf);
   const lines: { title: string; color: string; data: LineData<Time>[] }[] = [];
@@ -30,12 +32,12 @@ export function breakoutChartData(
         color: "#7c3aed",
         data: [
           {
-            time: chartTime(bars[begin]!.date, "day"),
+            time: chartTime(bars[begin]!.date, period),
             value:
               line.anchors[0].price +
               line.slope * (begin - line.anchors[0].index),
           },
-          { time: chartTime(point.date, "day"), value: line.value },
+          { time: chartTime(point.date, period), value: line.value },
         ],
       });
     }
@@ -57,8 +59,8 @@ export function breakoutChartData(
         title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${l.price.toFixed(2)}`,
         color: l.price >= point.close ? "#be5263" : "#218775",
         data: [
-          { time: chartTime(bars[begin]!.date, "day"), value: l.price },
-          { time: chartTime(point.date, "day"), value: l.price },
+          { time: chartTime(bars[begin]!.date, period), value: l.price },
+          { time: chartTime(point.date, period), value: l.price },
         ],
       });
     }
@@ -69,7 +71,7 @@ export function breakoutChartData(
       [p.long, p.short]
         .filter((s) => s.status === "是")
         .map((s) => ({
-          time: chartTime(p.date, "day"),
+          time: chartTime(p.date, period),
           position:
             s.direction === "long"
               ? ("belowBar" as const)
@@ -129,7 +131,8 @@ export function czscChartMarkers(
 }
 
 export const chartPageSize = 180;
-export type Subchart = "none" | "volume" | "macd" | "kdj" | "rsi" | "rps";
+export type Subchart =
+  "none" | "volume-macd" | "volume" | "macd" | "kdj" | "rsi" | "rps";
 
 // Compute against the entire immutable snapshot, never the displayed suffix:
 // revealing history must not move the recursive indicators' starting point.
@@ -168,7 +171,8 @@ export function enabledIndicators(
 ): IndicatorName[] {
   const names: IndicatorName[] = ["MA5", "MA10", "MA20", "MA60"];
   if (showBoll) names.push("BOLL中", "BOLL上", "BOLL下");
-  if (subchart === "macd") names.push("DIF", "DEA", "MACD");
+  if (subchart === "macd" || subchart === "volume-macd")
+    names.push("DIF", "DEA", "MACD");
   if (subchart === "kdj") names.push("K", "D", "J");
   if (subchart === "rsi") names.push("RSI6", "RSI12", "RSI24");
   return names;
@@ -176,7 +180,7 @@ export function enabledIndicators(
 export function chartTime(date: string, period: Period): Time {
   // Intraday timestamps encode exchange wall time on the UTC chart axis so the
   // displayed labels remain Asia/Shanghai, independently of browser timezone.
-  return period !== "5m"
+  return !isMinutePeriod(period)
     ? date
     : ((Math.floor(Date.parse(date) / 1000) + 8 * 3600) as UTCTimestamp);
 }

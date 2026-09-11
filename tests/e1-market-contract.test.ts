@@ -8,10 +8,16 @@ it("verifies E1 selection wiring and rejects changed source, missing selection a
     "utf8",
   );
   expect(() => withoutE1MarketBrowser(source)).not.toThrow();
+  expect(source.indexOf("<ChartWorkspace")).toBeLessThan(
+    source.indexOf("<MarketPoolBrowser"),
+  );
+  const start = source.indexOf("<MarketPoolBrowser");
+  const prefix = source.slice(0, start);
+  const pool = source.slice(start);
   for (const changed of [
-    source.replace('source: "local"', 'source: "mcp"'),
-    source.replace("setSymbol(next);", "setSymbol(symbol);"),
-    source.replace("disabled={load.isPending}", "disabled={false}"),
+    pool.replace('source: "local"', 'source: "mcp"'),
+    pool.replace("setSymbol(next);", "setSymbol(symbol);"),
+    pool.replace("disabled={load.isPending}", "disabled={false}"),
   ])
-    expect(() => withoutE1MarketBrowser(changed)).toThrow("E1");
+    expect(() => withoutE1MarketBrowser(prefix + changed)).toThrow("E1");
 });
