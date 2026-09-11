@@ -226,16 +226,26 @@ it("rejects shadow-only breaks, exact line touches, zero baseline and malformed/
 it("renders confirmed breakthrough markers and source-tagged levels without backdating availability", () => {
   const result = analyzeBreakout(valid.bars, 310),
     overlay = breakoutChartData(result, valid.bars, 315);
+  const horizontal = overlay.lines.filter(
+    (line) => !line.title.includes("趋势线"),
+  );
+  expect(horizontal.length).toBeLessThanOrEqual(2);
+  expect(horizontal.every((line) => /^波段(高|低)点 /.test(line.title))).toBe(
+    true,
+  );
+  expect(horizontal.some((line) => line.title.startsWith("波段低点"))).toBe(
+    true,
+  );
   expect(overlay.markers.at(-1)).toMatchObject({
     time: "2025-03-07",
     shape: "arrowUp",
     text: "双突破↑ 4/5",
   });
-  expect(overlay.lines.some((l) => l.title.includes("swing-high 27.66"))).toBe(
+  expect(overlay.lines.some((l) => l.title.includes("波段高点 27.66"))).toBe(
     true,
   );
   expect(
-    overlay.lines.find((l) => l.title.includes("swing-high 27.66"))!.data[0]!
+    overlay.lines.find((l) => l.title.includes("波段高点 27.66"))!.data[0]!
       .time,
   ).toBe("2025-02-27");
   expect(

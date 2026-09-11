@@ -7,6 +7,7 @@ const sources = {
   "tdx-tnf": "通达信本地 TNF 名称资料",
   tencent: "腾讯身份检索",
   hithink: "问财基础资料",
+  exchange: "沪深交易所历史证券名录",
 };
 const markets: Record<string, string> = { sh: "上海", sz: "深圳", bj: "北京" };
 export function SecurityProfilePanel({ symbol }: { symbol: string }) {

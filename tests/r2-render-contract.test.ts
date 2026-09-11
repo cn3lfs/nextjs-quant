@@ -3,10 +3,19 @@ import { expect, it } from "vitest";
 import baseline from "./fixtures/r2-render-handlers.json";
 import { renderHandlers, componentLogic } from "./r2-contracts";
 import logic from "./fixtures/r2-component-logic.json";
+import { withoutE1MarketBrowser } from "./e1-market-contract";
 
 it("R2 preserves every original form and action handler, including request payloads and page resets", () => {
   for (const [file, handlers] of Object.entries(baseline)) {
-    expect(renderHandlers(readFileSync(file, "utf8")), file).toEqual(handlers);
+    const source = readFileSync(file, "utf8");
+    expect(
+      renderHandlers(
+        file.endsWith("/market-view.tsx")
+          ? withoutE1MarketBrowser(source)
+          : source,
+      ),
+      file,
+    ).toEqual(handlers);
   }
 });
 

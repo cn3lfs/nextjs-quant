@@ -60,7 +60,7 @@ vi.mock("react", async (importOriginal) => {
     ...original,
     useRef: (value: unknown) => {
       const i = h.cursor++;
-      h.slots[i] ??= { current: i === 0 ? {} : value };
+      h.slots[i] ??= { current: i === 0 ? new EventTarget() : value };
       return h.slots[i];
     },
     useState: (value: unknown) => {
@@ -193,6 +193,7 @@ function bars(length: number): Bar[] {
   }));
 }
 beforeEach(() => {
+  vi.stubGlobal("window", new EventTarget());
   h.slots = [];
   h.cursor = 0;
   h.charts = [];
@@ -205,6 +206,22 @@ beforeEach(() => {
   vi.stubGlobal("cancelAnimationFrame", () => {});
 });
 describe("M2 chart event wiring", () => {
+  it("keeps the native drag intact and reveals history only after pointer release", () => {
+    render(bars(601));
+    const chart = h.charts.at(-1)!;
+    const container = (h.slots[0] as { current: EventTarget }).current;
+    expect(chart.options.handleScroll).toMatchObject({
+      pressedMouseMove: true,
+    });
+    container.dispatchEvent(new Event("pointerdown"));
+    chart.timeScale().setVisibleLogicalRange({ from: -10, to: 80 });
+    h.frames.splice(0).forEach((fn) => fn(0));
+    expect(chart.series[0]!.data).toHaveLength(180);
+    window.dispatchEvent(new Event("pointerup"));
+    h.frames.splice(0).forEach((fn) => fn(0));
+    expect(chart.series[0]!.data).toHaveLength(360);
+    expect(chart.range).toEqual({ from: 170, to: 260 });
+  });
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);

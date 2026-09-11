@@ -12,6 +12,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 import { NewsPanel } from "./news-panel";
 import { Button } from "./ui/button";
+import { Menu, MenuItem, MenuGroup } from "./ui/menu";
 
 import { Connections } from "./workbench/connections";
 
@@ -54,57 +55,46 @@ export function Workbench({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <div className="nav-label">我的工作台</div>
-        <nav>
+        <Menu label="我的工作台">
           {dailyTabs.map((t) => (
-            <Button
-              variant="plain"
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={home && tab === t.id ? "nav-item active" : "nav-item"}
-            >
-              <t.icon size={18} />
-              {t.label}
-              {home && tab === t.id && <ChevronRight size={14} />}
-            </Button>
+            <MenuItem key={t.id} active={home && tab === t.id}>
+              <Button
+                variant="plain"
+                type="button"
+                onClick={() => setTab(t.id)}
+              >
+                <t.icon size={18} />
+                {t.label}
+              </Button>
+            </MenuItem>
           ))}
           {routeTabs.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              scroll={false}
-              aria-current={pathname === item.href ? "page" : undefined}
-              className={
-                pathname === item.href ? "nav-item active" : "nav-item"
-              }
-            >
-              <item.icon size={18} />
-              {item.label}
-              {pathname === item.href && <ChevronRight size={14} />}
-            </Link>
+            <MenuItem key={item.href} active={pathname === item.href}>
+              <Link href={item.href} scroll={false}>
+                <item.icon size={18} />
+                {item.label}
+              </Link>
+            </MenuItem>
           ))}
-          <details open={researchTabs.some((t) => t.id === tab) || undefined}>
-            <summary className="nav-item">
-              <FlaskConical size={18} />
-              研究
-            </summary>
-            <nav aria-label="研究">
-              {researchTabs.map((t) => (
+          <MenuGroup
+            label="更多研究工具"
+            icon={<FlaskConical size={18} />}
+            active={home && researchTabs.some((t) => t.id === tab)}
+          >
+            {researchTabs.map((t) => (
+              <MenuItem key={t.id} active={home && tab === t.id}>
                 <Button
                   variant="plain"
-                  key={t.id}
+                  type="button"
                   onClick={() => setTab(t.id)}
-                  className={
-                    home && tab === t.id ? "nav-item active" : "nav-item"
-                  }
                 >
                   <t.icon size={18} />
                   {t.label}
-                  {home && tab === t.id && <ChevronRight size={14} />}
                 </Button>
-              ))}
-            </nav>
-          </details>
-        </nav>
+              </MenuItem>
+            ))}
+          </MenuGroup>
+        </Menu>
         <div className="sidebar-bottom">
           <div className="local-indicator">
             <i /> 本机研究环境

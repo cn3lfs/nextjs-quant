@@ -39,14 +39,11 @@ export function breakoutChartData(
         ],
       });
     }
-    // Show the selected day's key/stop/targets; displaying every historical
-    // level simultaneously obscures price. Each label retains its source.
-    const selected = [point.long, point.short].flatMap((s) => [
-      s.keyLevel,
-      s.risk.stop,
-      s.risk.target1,
-      s.risk.target2,
-    ]);
+    // Keep the latest confirmed swing on each side. Round numbers, moving
+    // averages and secondary targets remain in the strategy report, not on K bars.
+    const selected = (["swing-high", "swing-low"] as const).map((source) =>
+      point.levels.filter((level) => level.source === source).at(-1),
+    );
     const seen = new Set<number>();
     for (const l of selected) {
       if (!l || seen.has(l.price)) continue;
@@ -57,7 +54,7 @@ export function breakoutChartData(
       );
       if (begin >= asOf) continue;
       lines.push({
-        title: `${l.price >= point.close ? "压力" : "支撑"} ${l.source} ${l.price.toFixed(2)}`,
+        title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${l.price.toFixed(2)}`,
         color: l.price >= point.close ? "#be5263" : "#218775",
         data: [
           { time: chartTime(bars[begin]!.date, "day"), value: l.price },

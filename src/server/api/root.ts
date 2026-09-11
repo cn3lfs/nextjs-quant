@@ -1,4 +1,37 @@
 import { tradeDashboard } from "../trade-ledger-service";
+import { indexDirectory } from "../index-directory";
+import { clsReviewConfigSchema } from "~/lib/cls-review-config";
+import {
+  clsReviewConfig,
+  clsReviewLastCheck,
+  saveClsReviewConfig,
+} from "../cls-review-scheduler";
+import { clsFactReviewSchema, clsFactStatistics } from "~/lib/cls-fact-review";
+import { clsReportFiles, previewClsReport } from "../cls-report-files";
+import { ClsReviewStore } from "../cls-review-store";
+import { fixClsSample } from "../cls-review-service";
+import { verifyClsSample } from "../cls-verification";
+import { researchSpecSchema } from "~/lib/strategy-research";
+import { researchMarketEvidenceSchema } from "~/lib/research-market-evidence";
+import { ResearchStore } from "../research-store";
+import {
+  launchResearch,
+  cancelResearch,
+  recoverResearch,
+} from "../research-client";
+import { intradayConfigSchema } from "~/lib/intraday-schedule";
+import {
+  intradayConfig,
+  intradayLastCheck,
+  saveIntradayConfig,
+  intradayDependencies,
+} from "../intraday-service";
+import { intradayWorkerStatus, scheduleIntraday } from "../intraday-client";
+import { IntradayStore } from "../intraday-store";
+import { IntradayJob } from "../intraday-job";
+import { marketPoolQuerySchema, poolCategorySchema } from "~/lib/market-pool";
+import { marketPoolCatalog } from "../market-pool-files";
+import { marketPoolPage, marketPoolRows } from "../market-pool-service";
 import { RpsStore } from "../rps-store";
 import { rpsClient } from "../rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
@@ -159,6 +192,215 @@ const pageSchema = z.object({
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
 
 export const appRouter = createTRPCRouter({
+  clsReviewExportAll: p
+    .input(z.string())
+    .query(({ input }) =>
+      new ClsReviewStore(chartSqlite()).exportReport(input),
+    ),
+  clsReviewRemove: p
+    .input(z.string())
+    .mutation(({ input }) =>
+      new ClsReviewStore(chartSqlite()).removeReport(input),
+    ),
+  clsReviewSummary: p.query(() =>
+    new ClsReviewStore(chartSqlite()).outcomeSummary(),
+  ),
+  clsReviewSchedule: p.query(() => ({
+    config: clsReviewConfig(),
+    lastCheck: clsReviewLastCheck(),
+  })),
+  clsReviewSaveSchedule: p
+    .input(clsReviewConfigSchema)
+    .mutation(({ input }) => saveClsReviewConfig(input)),
+  clsReviewSaveFact: p
+    .input(clsFactReviewSchema)
+    .mutation(({ input }) => new ClsReviewStore(chartSqlite()).saveFact(input)),
+  clsReviewFacts: p.input(z.string()).query(({ input }) => {
+    const rows = new ClsReviewStore(chartSqlite()).facts(input);
+    return { rows, statistics: clsFactStatistics(rows) };
+  }),
+  clsReviewVerify: p
+    .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .mutation(({ input }) => verifyClsSample(input)),
+  clsReviewVerifications: p
+    .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .query(({ input }) =>
+      new ClsReviewStore(chartSqlite()).verifications(input),
+    ),
+  clsReviewFiles: p
+    .input(z.string().min(1).max(2048))
+    .query(({ input }) => clsReportFiles(input)),
+  clsReviewPreview: p
+    .input(z.string().min(1).max(2048))
+    .query(({ input }) => previewClsReport(input)),
+  clsReviewImport: p
+    .input(
+      z.object({
+        path: z.string().min(1).max(2048),
+        hash: z.string().regex(/^[a-f0-9]{64}$/),
+      }),
+    )
+    .mutation(async ({ input }) =>
+      new ClsReviewStore(chartSqlite()).import(
+        await previewClsReport(input.path),
+        input.hash,
+      ),
+    ),
+  clsReviewReports: p
+    .input(z.number().int().min(0).default(0))
+    .query(({ input }) =>
+      new ClsReviewStore(chartSqlite()).reports(input).map((report) => ({
+        ...report,
+        report: {
+          ...report.report,
+          markdown: undefined,
+          sections: report.report.sections.map((section) => ({
+            ...section,
+            text: undefined,
+          })),
+        },
+      })),
+    ),
+  clsReviewExport: p
+    .input(z.string())
+    .query(({ input }) => new ClsReviewStore(chartSqlite()).report(input)),
+  clsReviewFixSample: p
+    .input(z.string())
+    .mutation(({ input }) => fixClsSample(input)),
+  clsReviewSample: p
+    .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .query(({ input }) => new ClsReviewStore(chartSqlite()).sample(input)),
+  strategyResearchTasks: p.query(() => {
+    recoverResearch();
+    return new ResearchStore(chartSqlite()).tasks();
+  }),
+  strategyResearchCreate: p
+    .input(
+      z.object({
+        spec: researchSpecSchema.refine(
+          (spec) => !!spec.symbols?.length,
+          "请先选择研究品种清单",
+        ),
+        evidence: researchMarketEvidenceSchema.nullable(),
+      }),
+    )
+    .mutation(({ input }) => {
+      const task = new ResearchStore(chartSqlite()).create(
+        input.spec,
+        input.evidence,
+      );
+      return launchResearch(task.id);
+    }),
+  strategyResearchRetry: p.input(z.string()).mutation(({ input }) => {
+    const task = new ResearchStore(chartSqlite()).retry(input);
+    return launchResearch(task.id);
+  }),
+  strategyResearchCancel: p
+    .input(z.string())
+    .mutation(({ input }) => cancelResearch(input)),
+  strategyResearchResult: p
+    .input(z.string())
+    .query(({ input }) => new ResearchStore(chartSqlite()).result(input)),
+  strategyResearchExport: p.input(z.string()).query(({ input }) => {
+    const store = new ResearchStore(chartSqlite());
+    return {
+      task: store.task(input),
+      dataset: store.dataset(input),
+      evidence: store.evidence(input),
+      result: store.result(input),
+    };
+  }),
+  strategyResearchRemove: p
+    .input(z.string())
+    .mutation(({ input }) => new ResearchStore(chartSqlite()).remove(input)),
+  intradayStatus: p
+    .input(z.object({ offset: z.number().int().min(0).default(0) }))
+    .query(({ input }) => {
+      const store = new IntradayStore(chartSqlite());
+      const job = new IntradayJob(
+        store,
+        intradayDependencies((bars) => analyzeCzsc(bars, true)),
+      );
+      return {
+        config: intradayConfig(),
+        storage: store.usage(),
+        lastCheck: intradayLastCheck(),
+        worker: intradayWorkerStatus(),
+        runs: job.runs(),
+        rows: store.page(input.offset).map((row) => ({
+          ...row,
+          value: {
+            ...row.value,
+            snapshot: { ...row.value.snapshot, bars: undefined },
+          },
+          attempts: row.attempts.map((attempt) => ({
+            ...attempt,
+            close: { ...attempt.close, snapshot: undefined },
+          })),
+        })),
+      };
+    }),
+  intradayExport: p
+    .input(z.string().regex(/^intraday-preview:[a-f0-9]{64}$/))
+    .query(({ input }) => {
+      const store = new IntradayStore(chartSqlite());
+      const observation = store.observation(input);
+      if (!observation) throw new Error("预选记录不存在");
+      return {
+        schemaVersion: 1,
+        observation,
+        attempts: store.attempts(input),
+        run: get(observation.sessionId),
+      };
+    }),
+  intradaySave: p
+    .input(intradayConfigSchema)
+    .mutation(({ input }) => saveIntradayConfig(input)),
+  intradayRemove: p
+    .input(z.string().regex(/^intraday-preview:[a-f0-9]{64}$/))
+    .mutation(({ input }) => {
+      if (intradayWorkerStatus().running)
+        throw new Error("任务仍在执行，请完成后清理");
+      new IntradayStore(chartSqlite()).remove(input);
+      return { removed: true };
+    }),
+  intradayRun: p.mutation(() => {
+    void scheduleIntraday(Date.now(), true);
+    return intradayWorkerStatus();
+  }),
+  conceptRpsStatus: p.query(() => {
+    const store = new RpsStore(chartSqlite(), "concept");
+    const latest = store.latest();
+    return {
+      root: settings().industryBlocksRoot,
+      progress: store.progress(),
+      latest: latest
+        ? {
+            date: latest.date,
+            mode: latest.mode,
+            total: latest.total,
+            counts: latest.counts,
+            hash: latest.industry!.snapshot.hash,
+          }
+        : null,
+    };
+  }),
+  conceptRpsPage: p
+    .input(industryPageSchema)
+    .query(({ input }) =>
+      industryRpsPage(new RpsStore(chartSqlite(), "concept"), input),
+    ),
+  marketPoolCatalog: p
+    .input(poolCategorySchema)
+    .query(({ input }) =>
+      marketPoolCatalog(settings().industryBlocksRoot, input),
+    ),
+  marketPoolPage: p
+    .input(marketPoolQuerySchema)
+    .query(({ input }) => marketPoolPage(input)),
+  marketPoolExport: p
+    .input(marketPoolQuerySchema)
+    .mutation(({ input }) => marketPoolRows(input)),
   industryRpsStatus: p.query(() => {
     const store = new RpsStore(chartSqlite(), "industry");
     const latest = store.latest();
@@ -393,6 +635,7 @@ export const appRouter = createTRPCRouter({
   verifySecurityTradingStatus: p
     .input(symbolSchema)
     .mutation(({ input }) => verifySecurityTradingStatus(input)),
+  indexDirectory: p.query(() => indexDirectory(settings().tdxRoot)),
   securities: p
     .input(
       z.object({
@@ -403,10 +646,13 @@ export const appRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const directory = await securityDirectory();
       return searchSecurities(
-        (get<Coverage>("coverage")?.securities ?? []).map((item) => ({
-          ...item,
-          name: directory.entries[item.symbol]?.name ?? item.name,
-        })),
+        [
+          ...(get<Coverage>("coverage")?.securities ?? []).map((item) => ({
+            ...item,
+            name: directory.entries[item.symbol]?.name ?? item.name,
+          })),
+          ...(await indexDirectory(settings().tdxRoot, input.period)),
+        ],
         input.query,
         input.period,
       );
@@ -437,7 +683,7 @@ export const appRouter = createTRPCRouter({
       z.object({
         symbol: symbolSchema,
         period: periodSchema,
-        source: z.enum(["local", "mcp"]).default("local"),
+        source: z.enum(["local", "mcp", "online"]).default("local"),
       }),
     )
     .mutation(({ input }) =>

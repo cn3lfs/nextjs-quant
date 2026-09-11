@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { expect, it } from "vitest";
 import baseline from "./fixtures/n3-workbench-structure.json";
+import { withoutE1MarketBrowser } from "./e1-market-contract";
 
 // Characterization of the pre-N3 source: supporting evidence for mechanical
 // extraction, not a substitute for browser reachability or existing API tests.
@@ -51,7 +52,9 @@ export function viewFingerprint(node: ts.Node) {
 function parse(file: string) {
   return ts.createSourceFile(
     file,
-    readFileSync(file, "utf8"),
+    file.endsWith("/market-view.tsx")
+      ? withoutE1MarketBrowser(readFileSync(file, "utf8"))
+      : readFileSync(file, "utf8"),
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,

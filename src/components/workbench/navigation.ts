@@ -33,6 +33,9 @@ export const researchTabs = [
 export const tabs = [...dailyTabs, ...researchTabs];
 
 export const routeTabs = [
+  { href: "/intraday", label: "盘中预选", icon: SlidersHorizontal },
+  { href: "/research", label: "策略研究", icon: FlaskConical },
+  { href: "/cls-review", label: "财联社复盘", icon: BookOpen },
   { href: "/signal-ledger", label: "信号台账", icon: BookOpen },
   { href: "/trade-ledger", label: "持仓与交易日志", icon: BookOpen },
   { href: "/rps", label: "RPS数据管理", icon: BookOpen },

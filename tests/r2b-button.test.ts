@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import ts from "typescript";
 import { expect, it } from "vitest";
 import baseline from "./fixtures/r2b-button-render.json";
+import { withoutE1MarketBrowser } from "./e1-market-contract";
 
 function originalRendering(source: string) {
   // Only the authorized tag/variant substitution is normalized. Event bodies,
@@ -47,8 +48,17 @@ function originalRendering(source: string) {
 }
 
 it("R2b replaces only button tags while preserving every original rendered prop, event and component statement", () => {
-  for (const [file, expected] of Object.entries(baseline))
-    expect(originalRendering(readFileSync(file, "utf8")), file).toBe(expected);
+  for (const [file, expected] of Object.entries(baseline)) {
+    const source = readFileSync(file, "utf8");
+    expect(
+      originalRendering(
+        file.endsWith("/market-view.tsx")
+          ? withoutE1MarketBrowser(source)
+          : source,
+      ),
+      file,
+    ).toBe(expected);
+  }
 });
 
 it("R2b rendering evidence detects changed actions", () => {

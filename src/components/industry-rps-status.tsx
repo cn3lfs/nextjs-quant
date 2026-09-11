@@ -38,7 +38,12 @@ export function IndustryRpsStatus({
       </p>
       {progress && (
         <p role="status">
-          {progress.target === "industry" ? "行业" : "个股"}任务：
+          {progress.target === "industry"
+            ? "行业"
+            : progress.target === "concept"
+              ? "概念"
+              : "个股"}
+          任务：
           {progress.mode === "backfill" ? "回填" : "向前新增"} /{" "}
           {progress.status} / {progress.phase}；读取 {progress.scanned}/
           {progress.total}；提交 {progress.completedDays}/{progress.totalDays}{" "}

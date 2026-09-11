@@ -9,6 +9,8 @@ import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
 import { ChartWorkspace } from "../chart-workspace";
 import { SecurityProfilePanel } from "../security-profile";
 import { SecuritySelect } from "../security-select";
+import { MarketPoolBrowser } from "../market-pool-browser";
+import { isMarketIndex } from "~/lib/market-indices";
 import { Button } from "../ui/button";
 
 import { Empty, fmt, stamp } from "./shared";
@@ -54,6 +56,14 @@ export function MarketView({
     period === "5m" ? "5m" : chartPeriod === "5m" ? "day" : chartPeriod;
   return (
     <>
+      <MarketPoolBrowser
+        symbol={symbol}
+        disabled={load.isPending}
+        onSelect={(next) => {
+          setSymbol(next);
+          load.mutate({ symbol: next, period, source: "local" });
+        }}
+      />
       <div className="market-layout">
         <section className="panel chart-panel">
           <div className="panel-toolbar">
@@ -78,6 +88,14 @@ export function MarketView({
             <Button
               size="sm"
               variant="outline"
+              onClick={() => load.mutate({ symbol, period, source: "online" })}
+              disabled={load.isPending}
+            >
+              在线行情
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => load.mutate({ symbol, period, source: "mcp" })}
               disabled={load.isPending}
             >
@@ -86,7 +104,7 @@ export function MarketView({
             <Button
               size="sm"
               variant="outline"
-              disabled={verifyIdentity.isPending}
+              disabled={verifyIdentity.isPending || isMarketIndex(symbol)}
               onClick={() => verifyIdentity.mutate(symbol)}
             >
               {verifyIdentity.isPending ? "核验中…" : "核验证券身份"}
@@ -114,7 +132,13 @@ export function MarketView({
               ))}
             </div>
           </div>
-          <SecurityProfilePanel key={symbol} symbol={symbol} />
+          {isMarketIndex(symbol) ? (
+            <p className="text-sm text-muted-foreground">
+              指数行情 · 价格单位：点
+            </p>
+          ) : (
+            <SecurityProfilePanel key={symbol} symbol={symbol} />
+          )}
           {identity && (
             <details className="notice">
               <summary>
@@ -196,14 +220,18 @@ export function MarketView({
           ) : (
             <Empty>
               {load.isPending
-                ? "正在读取本地文件…"
+                ? "正在读取行情…"
                 : "输入 sh600519 等证券代码加载本地行情"}
             </Empty>
           )}
           <div className="source-line">
             <Database size={13} />
-            {loaded?.source === "tdx-mcp" ? "通达信 MCP" : "通达信本地"} ·{" "}
-            {last?.date ?? "—"} · {loaded?.bars.length ?? 0} 条记录
+            {loaded?.source === "eastmoney-online"
+              ? "东方财富在线 · 不复权"
+              : loaded?.source === "tdx-mcp"
+                ? "通达信 MCP"
+                : "通达信本地"}{" "}
+            · {last?.date ?? "—"} · {loaded?.bars.length ?? 0} 条记录
             <Button
               size="sm"
               variant="ghost"
@@ -213,6 +241,9 @@ export function MarketView({
               加入自选
             </Button>
           </div>
+          {loaded?.sourceNote && (
+            <p className="text-sm text-muted-foreground">{loaded.sourceNote}</p>
+          )}
         </section>
       </div>
       <section className="panel">

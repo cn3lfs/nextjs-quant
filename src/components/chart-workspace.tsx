@@ -6,6 +6,7 @@ import { Input } from "~/components/ui/input";
 
 import { useCallback, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
+import { isMarketIndex } from "~/lib/market-indices";
 import { api } from "~/trpc/react";
 import {
   structureAvailability,
@@ -193,6 +194,8 @@ function EditableChart({
     [anchor, tool, view, change],
   );
   const common = {
+    volumeUnit:
+      snapshot.volumeUnit ?? (isMarketIndex(snapshot.symbol) ? "源单位" : "股"),
     rps,
     rpsMessage,
     onRpsRetry,

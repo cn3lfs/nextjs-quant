@@ -14,6 +14,10 @@ import {
 
 import { attachDrawings } from "~/lib/chart-drawings";
 import {
+  chineseChartLocalization,
+  chineseTickMark,
+} from "~/lib/chart-localization";
+import {
   defaultChartView,
   indicatorLabel,
   keyboardRange,
@@ -65,6 +69,7 @@ function LegacyChart({
   useEffect(() => {
     if (!ref.current) return;
     const chart = createChart(ref.current, {
+      localization: chineseChartLocalization,
       autoSize: true,
       height: 340,
       layout: {
@@ -79,6 +84,7 @@ function LegacyChart({
       },
       rightPriceScale: { borderColor: "#e5ebf2" },
       timeScale: {
+        tickMarkFormatter: chineseTickMark,
         borderColor: "#e5ebf2",
         timeVisible: Boolean(bars?.[0]?.date.includes("T")),
       },
@@ -195,6 +201,7 @@ export function PriceChart(props: {
 }
 
 export function CzscMarketChart({
+  volumeUnit,
   bars,
   period,
   snapshotId,
@@ -210,6 +217,7 @@ export function CzscMarketChart({
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  volumeUnit?: string;
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
   drawingTool?: Drawing["kind"] | "none";
@@ -250,6 +258,7 @@ export function CzscMarketChart({
   );
   return (
     <MarketChart
+      volumeUnit={volumeUnit}
       bars={bars}
       period={period}
       view={view}
@@ -285,6 +294,7 @@ export function CzscMarketChart({
 }
 
 export function MarketChart({
+  volumeUnit = "股",
   bars,
   period,
   czsc,
@@ -302,6 +312,7 @@ export function MarketChart({
 }: {
   bars: Bar[];
   period: Period;
+  volumeUnit?: string;
   czsc?: CzscResult;
   czscMessage?: string;
   breakout?: BreakoutResult;
@@ -392,6 +403,7 @@ export function MarketChart({
         : null;
     setHistoryStart(start);
     const chart = createChart(ref.current, {
+      localization: chineseChartLocalization,
       autoSize: true,
       layout: {
         background: {
@@ -414,7 +426,14 @@ export function MarketChart({
         mouseWheel: true,
         pinch: true,
       },
+      handleScroll: {
+        pressedMouseMove: true,
+        mouseWheel: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
       timeScale: {
+        tickMarkFormatter: chineseTickMark,
         timeVisible: period === "5m",
         secondsVisible: false,
         borderColor: "#e5ebf2",
@@ -664,11 +683,10 @@ export function MarketChart({
       for (const item of overlay?.lines ?? []) {
         const line = chart.addSeries(LineSeries, {
           color: item.color,
-          title: item.title,
           lineWidth: 2,
           lineStyle: 2,
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
           crosshairMarkerVisible: false,
         });
         line.setData(item.data);
@@ -729,16 +747,25 @@ export function MarketChart({
     });
     let frame = 0;
     let updating = false;
-    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    let dragging = false;
+    const container = ref.current;
+    const beginDrag = () => {
+      dragging = true;
+    };
+    const endDrag = () => {
+      dragging = false;
+      reveal(chart.timeScale().getVisibleLogicalRange());
+    };
+    const reveal = (range: LogicalRange | null) => {
       if (!range || updating) return;
       viewport.current = { bars, period, start, range, asOf: breakoutIndex };
-      if (range.from > 12 || !start || frame) return;
+      if (dragging || range.from > 12 || !start || frame) return;
       // Defer setData outside the library's range callback and shift logical
       // indices by the exact prepend count to keep the viewed dates stationary.
       frame = requestAnimationFrame(() => {
         frame = 0;
         const current = chart.timeScale().getVisibleLogicalRange();
-        if (!current || current.from > 12) return;
+        if (dragging || !current || current.from > 12) return;
         const next = revealHistory(start, current);
         updating = true;
         start = next.start;
@@ -754,8 +781,17 @@ export function MarketChart({
         setHistoryStart(start);
         updating = false;
       });
-    });
+    };
+    // Replacing series during a pressed-mouse gesture resets the library's
+    // scroll anchor. Reveal older bars after release, preserving the viewport.
+    container.addEventListener("pointerdown", beginDrag, true);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(reveal);
     return () => {
+      container.removeEventListener("pointerdown", beginDrag, true);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
       cancelAnimationFrame(frame);
       viewport.current = {
         bars,
@@ -964,12 +1000,18 @@ export function MarketChart({
       >
         {legend ? (
           <>
-            <span>{legend.bar.date}</span>
+            <span>
+              {chineseChartLocalization.timeFormatter(
+                chartTime(legend.bar.date, period),
+              )}
+            </span>
             <span>开 {formatValue(legend.bar.open)}</span>
             <span>高 {formatValue(legend.bar.high)}</span>
             <span>低 {formatValue(legend.bar.low)}</span>
             <span>收 {formatValue(legend.bar.close)}</span>
-            <span>量 {formatValue(legend.bar.volume)} 股</span>
+            <span>
+              量 {formatValue(legend.bar.volume)} {volumeUnit}
+            </span>
             {legend.indicators.map(({ name, value }) => (
               <span key={name} style={{ color: colors[name] }}>
                 {indicatorLabel(name, parameters)} {formatValue(value)}
@@ -980,11 +1022,26 @@ export function MarketChart({
           <span>暂无行情</span>
         )}
       </div>
+      {showBreakout && breakout && (
+        <div
+          data-testid="chart-level-legend"
+          className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums"
+          aria-label="所选日期支撑压力与趋势线"
+        >
+          {breakoutChartData(breakout, bars, 0, breakoutIndex).lines.map(
+            (line) => (
+              <span key={line.title} style={{ color: line.color }}>
+                {line.title}
+              </span>
+            ),
+          )}
+        </div>
+      )}
       <div
         ref={ref}
         tabIndex={0}
         role="application"
-        aria-label="行情图：左右平移，上下缩放"
+        aria-label="行情图：按住鼠标左键拖动，左右键平移，上下键缩放"
         onKeyDown={(event) => {
           const range = chartApi.current?.timeScale().getVisibleLogicalRange();
           if (!range) return;
@@ -995,7 +1052,7 @@ export function MarketChart({
           }
         }}
         className="price-chart"
-        style={{ height: subchart === "none" ? 400 : 560 }}
+        style={{ height: subchart === "none" ? 400 : 560, cursor: "grab" }}
       />
       <div className="flex justify-between text-xs text-slate-500">
         <span data-testid="chart-history">

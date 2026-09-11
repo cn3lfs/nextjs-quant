@@ -29,7 +29,12 @@ export function RpsStatus({
       {progress ? (
         <div role="status">
           <p>
-            {progress.target === "industry" ? "行业" : "个股"}任务：
+            {progress.target === "industry"
+              ? "行业"
+              : progress.target === "concept"
+                ? "概念"
+                : "个股"}
+            任务：
             {progress.mode === "backfill" ? "回填" : "向前"} / {progress.status}{" "}
             / {progress.phase}
           </p>

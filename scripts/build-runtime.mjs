@@ -74,3 +74,23 @@ await build({
   external: ["better-sqlite3", "koffi"],
   target: "node22",
 });
+
+await build({
+  entryPoints: ["src/server/intraday-worker.ts"],
+  outfile: "runtime/intraday-worker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["better-sqlite3", "koffi"],
+  target: "node22",
+});
+
+await build({
+  entryPoints: ["src/server/research-worker.ts"],
+  outfile: "runtime/research-worker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["better-sqlite3", "koffi"],
+  target: "node22",
+});

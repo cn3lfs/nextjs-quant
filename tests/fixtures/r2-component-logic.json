@@ -35,13 +35,13 @@
   },
   "src/components/chart-workspace.tsx": {
     "ChartWorkspace": "13b358e029d322984f8a0f6c2f1a3187b3076707fb28e80a98d1cf30ac8934f6",
-    "EditableChart": "429f1ef810ae15a078aacff3f9ef7a0b93b4811f1257a5a98698c7953893ab4b"
+    "EditableChart": "3a18dee229da85488361c71af1c0ca9d4a4c705b2a0bcbb409129c66792b9910"
   },
   "src/components/chart.tsx": {
-    "LegacyChart": "7c3e8837a8e750c2d82bb0c1ad4b3497acc6b9a6f0497cf681821b79888b5058",
+    "LegacyChart": "bc7c5a84ccea94acf4b1f73c4c4d169bf47f31fb0ac417ddefe7cde0ca671e03",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "CzscMarketChart": "364225ff17afc5db4fe81f6cd7f4ba017cd17df104cfd5e535201dbdca64780e",
-    "MarketChart": "c602151f6c012dc56fd6ea9cdbb0e25b39c771af006451dd4e49bed637c24a58"
+    "MarketChart": "6aba29331a04ac8d7d0d3f5c19099407692f1f04d4055edfe17a8f6a65e24a63"
   },
   "src/components/security-select.tsx": {
     "SecuritySelect": "c2396d098c5ac7ccc2c409e8f0aa04d87a2780f9392e104847b95f14b9b3eaf9",

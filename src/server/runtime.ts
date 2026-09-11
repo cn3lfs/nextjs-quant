@@ -1,6 +1,10 @@
 import { quickResearch } from "./quick-research";
+import { preferredOnlineChart } from "./preferred-online-chart";
+import { isMarketIndex } from "~/lib/market-indices";
 import { scheduleSignalLedger } from "./signal-ledger-client";
 import { scheduleRps } from "./rps-client";
+import { scheduleIntraday } from "./intraday-client";
+import { scheduleClsReview } from "./cls-review-scheduler";
 import { NotificationPolicyStore } from "./notification-policy-store";
 import { workProgress } from "~/lib/work-progress";
 import { gfCalendarReference } from "./gf-calendar";
@@ -127,17 +131,26 @@ export function scanJob() {
 export async function snapshot(
   symbol: string,
   period: Period,
-  source: "local" | "mcp" = "local",
+  source: "local" | "mcp" | "online" = "local",
 ) {
   const result =
-    source === "mcp"
-      ? await mcpProvider.history(symbol, period)
-      : await runWorker<Snapshot>({
-          type: "snapshot",
-          root: settings().tdxRoot,
-          symbol,
-          period,
-        });
+    source === "online"
+      ? await preferredOnlineChart(symbol, period)
+      : source === "mcp"
+        ? await mcpProvider.history(symbol, period)
+        : await runWorker<Snapshot>({
+            type: "snapshot",
+            root: settings().tdxRoot,
+            symbol,
+            period,
+          }).catch(async (error: unknown) => {
+            if (!isMarketIndex(symbol)) throw error;
+            const remote = await preferredOnlineChart(symbol, period);
+            return {
+              ...remote,
+              sourceNote: `本地指数行情不可用，已从在线源读取：${error instanceof Error ? error.message : "读取失败"}${remote.sourceNote ? `；${remote.sourceNote}` : ""}`,
+            };
+          });
   const existing = get<Snapshot>(result.id);
   if (!existing) put("snapshot", result.id, result);
   const profile = (await securityDirectory()).entries[symbol];
@@ -485,6 +498,8 @@ export async function tick() {
   if (!schedulerLeader()) return;
   scheduleSignalLedger(Date.now());
   scheduleRps(Date.now());
+  scheduleIntraday(Date.now());
+  scheduleClsReview();
   scheduleNews();
   if (state.ticking) return;
   state.ticking = true;
