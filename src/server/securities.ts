@@ -6,6 +6,8 @@ import { storedSecurityLifecycle } from "./security-lifecycle";
 import { storedSecurityTradingStatus } from "./security-trading-status";
 import { exchangeNames } from "./exchange-security-names";
 import type { Coverage } from "~/lib/domain";
+import { readInfoharborNames } from "./tdx-local-names";
+import { readTdxCodeChanges } from "./tdx-code-changes";
 export type SecurityProfile = {
   symbol: string;
   name: string;
@@ -13,7 +15,20 @@ export type SecurityProfile = {
   market: string;
   type: "A股";
   currency: "CNY";
-  nameSource: "tdx-tnf" | "tencent" | "hithink" | "exchange";
+  nameSource:
+    | "tdx-tnf"
+    | "tdx-infoharbor"
+    | "tdx-code-map"
+    | "tencent"
+    | "hithink"
+    | "exchange";
+  codeChange?: {
+    targetCode: string;
+    recordedDate: string;
+    note: string;
+    hash: string;
+  };
+  nameConflicts?: { source: "tdx-infoharbor"; name: string; hash: string }[];
   tradingStatus: "unknown";
   updatedAt: number;
 };
@@ -22,6 +37,20 @@ type Directory = {
   hash: string;
   currentSymbols?: string[];
   entries: Record<string, SecurityProfile>;
+  supplement?: {
+    status: "available" | "unavailable";
+    hash: string | null;
+    mtimeMs: number | null;
+    rows: number;
+    ignored: number;
+    error?: string;
+  };
+  missingNames?: string[];
+  codeMapping?: {
+    status: "available" | "unavailable";
+    hash: string | null;
+    error?: string;
+  };
 };
 const refreshes = new Map<string, Promise<Directory>>();
 let cached: { at: number; data: Directory } | undefined;
@@ -33,6 +62,8 @@ export async function securityDirectory(): Promise<Directory> {
   if (inflight) return inflight;
   const refresh = (async () => {
     const previous = get<Directory>("security-directory");
+    const supplement = await readInfoharborNames(root);
+    const codeMapping = await readTdxCodeChanges(root);
     const dictionaries = await Promise.all(
       ["sh", "sz", "bj"].map((market) => securityNames(root, market)),
     );
@@ -48,8 +79,18 @@ export async function securityDirectory(): Promise<Directory> {
           )
         : [];
     const hash = createHash("sha256")
+      .update("directory-v2:")
+      .update(JSON.stringify({ ...codeMapping, changes: undefined }))
       .update(root)
       .update(JSON.stringify(current))
+      .update(JSON.stringify({ ...supplement, names: undefined }))
+      .update(
+        JSON.stringify(
+          coverage?.root === root
+            ? coverage.securities.map((row) => row.symbol).sort()
+            : [],
+        ),
+      )
       .update(
         JSON.stringify(
           historical.map((symbol) => [symbol, exchangeNames.get(symbol)]),
@@ -105,11 +146,90 @@ export async function securityDirectory(): Promise<Directory> {
         updatedAt: Date.now(),
       };
     }
-    if (settings().tdxRoot === root) {
-      put("security-directory", "security-directory", directory);
-      cached = { at: Date.now(), data: directory };
+    // Supplemental names improve discovery but do not establish current listing/trading status.
+    for (const [symbol, name] of Object.entries(supplement.names)) {
+      const old = entries[symbol];
+      if (old && old.nameSource !== "tdx-infoharbor") {
+        entries[symbol] = {
+          ...old,
+          nameConflicts:
+            old.name.normalize("NFKC").replace(/\s/g, "") ===
+            name.normalize("NFKC").replace(/\s/g, "")
+              ? []
+              : [{ source: "tdx-infoharbor", name, hash: supplement.hash! }],
+        };
+      } else {
+        entries[symbol] = {
+          symbol,
+          name,
+          market: symbol.slice(0, 2),
+          type: "A股",
+          currency: "CNY",
+          nameSource: "tdx-infoharbor",
+          tradingStatus: "unknown",
+          updatedAt: old?.name === name ? old.updatedAt : Date.now(),
+          aliases: [
+            ...new Set([
+              ...(old?.aliases ?? []),
+              ...(old && old.name !== name ? [old.name] : []),
+            ]),
+          ],
+        };
+      }
     }
-    return directory;
+    const { names: _names, ...supplementStatus } = supplement;
+    const localSymbols = new Set(
+      coverage?.root === root
+        ? coverage.securities.map((row) => row.symbol)
+        : [],
+    );
+    for (const [symbol, change] of Object.entries(codeMapping.changes)) {
+      if (!localSymbols.has(symbol)) continue;
+      const old = entries[symbol];
+      const evidence = {
+        targetCode: change.targetCode,
+        recordedDate: change.recordedDate,
+        note: change.note,
+        hash: codeMapping.hash!,
+      };
+      if (old && old.nameSource !== "tdx-code-map")
+        entries[symbol] = { ...old, codeChange: evidence };
+      else
+        entries[symbol] = {
+          symbol,
+          name: change.name,
+          aliases: [
+            ...new Set([
+              ...(old?.aliases ?? []),
+              ...(old && old.name !== change.name ? [old.name] : []),
+            ]),
+          ],
+          market: "bj",
+          type: "A股",
+          currency: "CNY",
+          nameSource: "tdx-code-map",
+          tradingStatus: "unknown",
+          updatedAt: old?.name === change.name ? old.updatedAt : Date.now(),
+          codeChange: evidence,
+        };
+    }
+    const { changes: _changes, ...codeMappingStatus } = codeMapping;
+    const enriched: Directory = {
+      ...directory,
+      supplement: supplementStatus,
+      codeMapping: codeMappingStatus,
+      missingNames:
+        coverage?.root === root
+          ? [...new Set(coverage.securities.map((row) => row.symbol))]
+              .filter((symbol) => isAStock(symbol) && !entries[symbol])
+              .sort()
+          : [],
+    };
+    if (settings().tdxRoot === root) {
+      put("security-directory", "security-directory", enriched);
+      cached = { at: Date.now(), data: enriched };
+    }
+    return enriched;
   })();
   refreshes.set(root, refresh);
   try {

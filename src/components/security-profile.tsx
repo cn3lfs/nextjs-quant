@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { TradingStatusEvidence } from "./trading-status-evidence";
 const sources = {
   "tdx-tnf": "通达信本地 TNF 名称资料",
+  "tdx-infoharbor": "通达信本地补充证券名录",
+  "tdx-code-map": "通达信本地历史代码映射",
   tencent: "腾讯身份检索",
   hithink: "问财基础资料",
   exchange: "沪深交易所历史证券名录",
@@ -51,6 +53,19 @@ export function SecurityProfilePanel({ symbol }: { symbol: string }) {
             {profile.currency}
           </p>
           <p>名称来源：{sources[profile.nameSource]}</p>
+          {profile.codeChange && (
+            <p>
+              本地代码映射：{profile.codeChange.targetCode} ·{" "}
+              {profile.codeChange.note} · 资料日期{" "}
+              {profile.codeChange.recordedDate}。历史行情按原代码保留。
+            </p>
+          )}
+          {profile.nameConflicts?.map((conflict) => (
+            <p key={conflict.source}>
+              名称来源存在差异：{sources[conflict.source]}记录为“{conflict.name}
+              ”，待核对。
+            </p>
+          ))}
           <p>
             历史名称/别名：
             {profile.aliases.length ? profile.aliases.join("、") : "暂无记录"}

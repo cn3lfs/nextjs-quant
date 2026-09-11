@@ -219,10 +219,23 @@ export async function readSnapshot(
     `${symbol}.${period === "day" ? "day" : "lc5"}`,
   );
   for (let attempt = 0; attempt < 3; attempt++) {
-    const before = await stat(file),
-      buffer = await readFile(file),
-      after = await stat(file);
-    if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+    const handle = await open(file, "r");
+    let buffer: Buffer;
+    let stable: boolean;
+    try {
+      const before = await handle.stat();
+      buffer = await handle.readFile();
+      const after = await handle.stat();
+      const current = await stat(file);
+      stable = buffer.length === before.size &&
+        tailSignature(before) === tailSignature(after) &&
+        tailSignature(after) === tailSignature(current);
+    } finally {
+      await handle.close();
+    }
+    // A downloader may replace a file while preserving its size and mtime.
+    // Check the opened file identity and the current path before publication.
+    if (!stable) {
       await new Promise((r) => setTimeout(r, 100));
       continue;
     }
