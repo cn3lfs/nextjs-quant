@@ -140,6 +140,8 @@ R13 按[任务书](tasks/r13-review-ui-scale.md)补齐买卖点与归因的服�
 
 ## 6. U 系列：绩效评估与执行质量（2026-09-12 立项）
 
+U1 已实现独立 17 项日收益核及分段 `wbtStats` 追加，旧六项由改动前合成 fixture 精确快照保护；退化量与任务书残留差异见 [decisions](decisions.md)。本批不含 UI、迁移与 U2/U3/U4/U8。
+
 调研 [czscflow](https://github.com/zengbin93/czscflow)（MIT，commit `1c22ebb`）后立项。
 只借鉴口径与信息架构，**不引入依赖**。
 

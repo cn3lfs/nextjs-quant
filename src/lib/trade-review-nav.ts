@@ -1,6 +1,7 @@
 import type { ParsedCashFlow, ParsedFill } from "./delivery-import";
 import type { ReviewValue } from "./trade-review";
 import { researchNavStatistics } from "./strategy-research";
+import { dailyPerformance } from "./daily-performance";
 
 export type NavDiagnostic = { date: string; reason: string };
 
@@ -139,6 +140,7 @@ function statistics(
     end: points.at(-1)!.date,
     tradingDays: points.length - Number(includesOpening),
     returnObservations: returns.length,
+    wbtStats: dailyPerformance({ returns, annualRiskFreeRate: rate }),
     totalReturn: metric(
       stats.totalReturn,
       unavailableReason ?? "无每日收益观察",

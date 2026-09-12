@@ -6,6 +6,7 @@ import {
   type ParsedFill,
 } from "../src/lib/delivery-import";
 import { parseDeliveryTable } from "../src/lib/delivery-table";
+import { dailyPerformance } from "../src/lib/daily-performance";
 import {
   reviewTradeNav,
   type TradeReviewNavInput,
@@ -78,6 +79,38 @@ const curve = (prices: number[], extra: Partial<TradeReviewNavInput> = {}) =>
   });
 
 describe("每日账户净值与风险", () => {
+  it("U1 首日亏损在旧回撤及追加新核中都计入期初本金", () => {
+    // 买入100，当日收盘90：期初100至90亏10%，不能从首日收盘才计算回撤。
+    const result = run({
+      fills: [fill(d(1), "buy", 100)],
+      bars: { sz000001: [{ date: d(1), close: 90 }] },
+      tradingDays: [d(1)],
+    });
+    const segment = result.segments[0]!;
+    expect(segment.maxDrawdown.value).toBeCloseTo(0.1, 14);
+    expect(segment.wbtStats.maxDrawdown).toEqual(segment.maxDrawdown);
+    expect(segment.wbtStats.coverage.availableDays).toBe(1);
+    expect(
+      dailyPerformance({
+        returns: result.days.map((day) => day.dailyReturn.value),
+        basis: "simple",
+      }).maxDrawdown.value,
+    ).toBeCloseTo(0.1, 14);
+  });
+  it("U1 追加指标不改变既有六项的特征化数值", () => {
+    // 修改生产代码前运行既有 R9 curve 合成 fixture 记录；用完全相等冻结旧口径。
+    const snapshot = {
+      totalReturn: 0.08000000000000007,
+      maxDrawdown: 0.09999999999999998,
+      sharpe: 3.4559348284041187,
+      sortino: 9.13636147992859,
+      annualReturn: 641.0893416360549,
+      calmar: 6410.89341636055,
+    };
+    const result = curve([100, 90, 108]).segments[0]!;
+    for (const key of Object.keys(snapshot) as (keyof typeof snapshot)[])
+      expect(result[key]).toEqual({ value: snapshot[key], reason: null });
+  });
   it("R9 有时点估值的持仓出入金不改变任一风险指标或月度收益", () => {
     const baseline = curve([100, 90, 108], { annualRiskFreeRate: 0 });
     const funded = curve([100, 90, 108], {
