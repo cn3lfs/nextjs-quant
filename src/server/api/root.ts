@@ -34,6 +34,11 @@ import { researchSpecSchema } from "~/lib/strategy-research";
 import { researchMarketEvidenceSchema } from "~/lib/research-market-evidence";
 import { ResearchStore } from "../research-store";
 import {
+  periodPageSchema,
+  tradeReviewPeriodPage,
+  researchPeriodPage,
+} from "../period-performance-service";
+import {
   launchResearch,
   cancelResearch,
   recoverResearch,
@@ -272,6 +277,7 @@ async function accountReview(account: string) {
   );
   return {
     snapshot,
+    fullTradingDays: calendar.days,
     calendar: {
       source: calendar.source,
       hash: calendar.hash,
@@ -341,6 +347,31 @@ export const appRouter = createTRPCRouter({
     .input(z.string().min(1).max(128))
     .mutation(({ input }) =>
       new DeliveryStore(chartSqlite()).revokeBatch(input),
+    ),
+  tradeReviewPeriodPerformance: p
+    .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return tradeReviewPeriodPage(
+        review.snapshot,
+        input,
+        review.fullTradingDays,
+      );
+    }),
+  strategyResearchPeriodPerformance: p
+    .input(
+      periodPageSchema.extend({
+        id: z.string().min(1),
+        partition: z.enum(["development", "validation"]),
+      }),
+    )
+    .query(({ input }) =>
+      researchPeriodPage(
+        new ResearchStore(chartSqlite()),
+        input.id,
+        input.partition,
+        input,
+      ),
     ),
   tradeReviewSnapshot: p
     .input(

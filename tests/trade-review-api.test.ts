@@ -85,6 +85,43 @@ const input = {
   account: "合成账户",
   source: "tdx" as const,
 };
+it("U2 tRPC pages the held-symbol matrix and rejects invalid pagination", async () => {
+  const preview = await caller.deliveryPreview(input);
+  await caller.deliveryImport({ ...input, hash: preview.fileHash });
+  const first = await caller.tradeReviewPeriodPerformance({
+    account: input.account,
+    pageSize: 1,
+  });
+  expect(first.periods).toHaveLength(8);
+  expect(first.matrix.rows.length).toBeLessThanOrEqual(1);
+  expect(first.matrix.summary).toHaveLength(12);
+  const beyond = await caller.tradeReviewPeriodPerformance({
+    account: input.account,
+    pageIndex: 999,
+    pageSize: 1,
+  });
+  expect(beyond.matrix.rows).toEqual([]);
+  expect(beyond.matrix.summary).toEqual(first.matrix.summary);
+  await expect(
+    caller.tradeReviewPeriodPerformance({
+      account: input.account,
+      pageSize: 101,
+    }),
+  ).rejects.toThrow();
+  await expect(
+    caller.strategyResearchPeriodPerformance({
+      id: "missing",
+      partition: "validation",
+      pageSize: 0,
+    }),
+  ).rejects.toThrow();
+  await expect(
+    caller.strategyResearchPeriodPerformance({
+      id: "missing",
+      partition: "validation",
+    }),
+  ).rejects.toThrow("尚不可得");
+});
 let temporary = "";
 beforeEach(() => {
   state.db = new Database(":memory:");

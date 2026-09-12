@@ -15,6 +15,7 @@ import {
   type ResearchMarketEvidence,
 } from "~/lib/research-market-evidence";
 import { Button } from "./ui/button";
+import { PeriodPerformanceContainer } from "./period-performance-container";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import {
@@ -109,6 +110,13 @@ export function StrategyResearchControls() {
   const selectedStatus = tasks.data?.find(
     (task) => task.id === selected,
   )?.status;
+  const completedTasks = tasks.data
+    ?.filter((task) => task.status === "complete")
+    .map((task) => task.id)
+    .join(",");
+  useEffect(() => {
+    void utils.strategyResearchPeriodPerformance.invalidate();
+  }, [completedTasks, utils]);
   useEffect(() => {
     if (selected && selectedStatus === "complete")
       void utils.strategyResearchResult.invalidate(selected);
@@ -590,6 +598,10 @@ export function StrategyResearchControls() {
               <h3 className="font-semibold">
                 {part.partition === "development" ? "开发期" : "保留验证期"}
               </h3>
+              <PeriodPerformanceContainer
+                key={`${selected}:${part.partition}`}
+                source={{ id: selected, partition: part.partition }}
+              />
               <p>
                 信号 {part.events} · 待观察 {part.pending} · 数据不足{" "}
                 {part.unavailable}

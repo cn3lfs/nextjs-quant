@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { RouterOutputs } from "~/trpc/react";
 import type { ReviewValue, CostMethod } from "~/lib/trade-review";
 import {
@@ -231,8 +231,10 @@ export function TradeReviewResults({
   drawdownTable,
   drawdownsOpen,
   onDrawdownsOpenChange,
+  periodPerformance,
 }: {
   data: TradeReviewData;
+  periodPerformance?: ReactNode;
   drawdownsOpen: boolean;
   onDrawdownsOpenChange: (open: boolean) => void;
   drawdownTable: Pick<
@@ -438,6 +440,7 @@ export function TradeReviewResults({
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">资金曲线与风险</h3>
         <NavCurve days={nav.days} />
+        {periodPerformance}
         <p>TWR：{metric(nav.twr, true)}</p>
         <ReviewDiagnostics rows={nav.twr.reasons} />
         <p>

@@ -11,6 +11,7 @@ import {
 } from "./trade-review-import";
 import { TradeReviewBatches } from "./trade-review-batches";
 import { TradeReviewResults } from "./trade-review-results";
+import { PeriodPerformanceContainer } from "./period-performance-container";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -120,6 +121,7 @@ export function TradeReviewContainer() {
     await Promise.all([
       utils.deliveryBatches.invalidate(),
       utils.tradeReviewSnapshot.invalidate(),
+      utils.tradeReviewPeriodPerformance.invalidate(),
     ]);
   };
   return (
@@ -272,6 +274,12 @@ export function TradeReviewContainer() {
         )}
         {review.data && !review.error && (
           <TradeReviewResults
+            periodPerformance={
+              <PeriodPerformanceContainer
+                key={`${account}:${method}:${batches.data?.map((b) => b.id).join(",")}`}
+                source={{ account }}
+              />
+            }
             data={review.data}
             drawdownsOpen={drawdownsOpen}
             onDrawdownsOpenChange={(open) => {

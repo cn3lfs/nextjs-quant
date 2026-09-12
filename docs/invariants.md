@@ -18,6 +18,15 @@
 - **测试**：[daily-performance.test.ts](../tests/daily-performance.test.ts) 手算表、退化量、双曲线与年化参数；[trade-review-nav.test.ts](../tests/trade-review-nav.test.ts) 修改前既有 R9 合成 fixture 的六项精确快照及首亏基线。真实账户复验由管理者执行。
 - **违反会怎样**：同名夏普含义改变、缺失被伪装成零风险，或现有复盘数字漂移。
 
+### U2 交易日回溯与矩阵缺失
+
+- **是什么**：分段调用 U1 全部 17 项；A 股回溯由 [period-performance.ts](../src/lib/period-performance.ts) 的 `aSharePeriodTradingDays` 定义为 5/10/20/60/120/250 交易日，日历由调用方提供。`ytd` 从自然年首日对齐日历；不足窗口返回实际起止、交易日数和 `truncated`，有效收益不足 5 日标 `insufficientSample`。czscflow 用自然日，我们用交易日，故同名分段的数值不可与其输出直接比对。
+- **是什么（缺失）**：缺失交易日对齐为 null。分段沿用 U1 剔除 null 并报告 coverage，不冒充完整连续业绩；矩阵窗口含任一 null 则整格 null + reason，不以 0 累计。盈利按严格 > 0（零收益可得但不盈利），各列仅以该列可得标的数作分母，零分母为 null。超长矩阵窗口只计算实际范围并标 truncated。
+- **是什么（自然周期与分页）**：ISO 周按星期四所属年；周/月/季/年胜率按日收益和 > 0，含首尾部分周期，含缺失的周期不进分母。两处矩阵服务端全量排序后分页，汇总独立于页码。研究两期本金独立，不拼接，缺价日及下一日留空；不同日期轴不能跨日或重设本金造收益。
+- **为什么**：自然日、交易日和有效观察数不可互换；缺失会改变盈利比例分母，跨分区拼接会造假收益。
+- **测试**：[period-performance.test.ts](../tests/period-performance.test.ts)、[period-performance-service.test.ts](../tests/period-performance-service.test.ts)、[trade-review-api.test.ts](../tests/trade-review-api.test.ts)。真实账户和浏览器由管理者验收。
+- **违反会怎样**：长假窗口错位、跨年周归属错误、缺数据被当零收益、翻页改变全体汇总。
+
 ## 2. 通达信认定公式与预热
 
 - **是什么**：输入为时间升序、不复权的只读 Bar 数组；输出与输入逐点对齐，不排序、不修改输入、不在中间舍入。MA 默认 20；图表 MA 默认 5/10/20/60；以下是默认口径，参数可调。

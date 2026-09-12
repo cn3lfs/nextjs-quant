@@ -160,13 +160,13 @@ czscflow 的因子分析、收益比对、单品种详情、期货主连四个�
 
 已定口径：**收益复利为主、单利仅作对照**；**滑点基准用当日 VWAP（成交额/成交量）**。
 
-| 批次 | 内容 | 依赖 |
-| --- | --- | --- |
-| [U1](tasks/u1-daily-performance.md) | 统一日收益指标核，17 项单入口，复利/单利双口径 | 无 |
-| [U2](tasks/u2-period-performance.md) | 8 段分段表现 + 12 窗口近 N 天收益矩阵 | U1 |
-| [U3](tasks/u3-drawdown-detail.md) | Top-N 回撤明细表 | U1 |
-| [U4](tasks/u4-execution-quality.md) | 逐笔滑点、执行成本、VWAP 反事实执行损耗 | U1 |
-| [U8](tasks/u8-strategy-admission.md) | 策略准入判定（history / recent 双模式） | U1 |
+| 批次                                 | 内容                                           | 依赖 |
+| ------------------------------------ | ---------------------------------------------- | ---- |
+| [U1](tasks/u1-daily-performance.md)  | 统一日收益指标核，17 项单入口，复利/单利双口径 | 无   |
+| [U2](tasks/u2-period-performance.md) | 8 段分段表现 + 12 窗口近 N 天收益矩阵          | U1   |
+| [U3](tasks/u3-drawdown-detail.md)    | Top-N 回撤明细表                               | U1   |
+| [U4](tasks/u4-execution-quality.md)  | 逐笔滑点、执行成本、VWAP 反事实执行损耗        | U1   |
+| [U8](tasks/u8-strategy-admission.md) | 策略准入判定（history / recent 双模式）        | U1   |
 
 顺序 U1 → U2 / U3（可并行）→ U4 → U8。U1 未合入前其余不开工。
 
@@ -197,3 +197,5 @@ czscflow 的因子分析、收益比对、单品种详情、期货主连四个�
 
 明确不借鉴：Tauri/Rust 与 vben 全家桶、多用户 RBAC、实盘下单与账户托管、
 在线执行策略 Python 代码、czsc 的 0 填充与夏普/卡玛 clamp。
+
+U2 已接入账户与研究结果的 8 段表现、自然周期胜率及 12 窗口矩阵；指标委托 U1，矩阵服务端分页并按列传播缺失。任务书现状差异见 [decisions](decisions.md)，真实账户及浏览器验收由管理者执行。本批不含其他 U 系列、依赖、迁移或打包。
