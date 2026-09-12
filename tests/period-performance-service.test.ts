@@ -180,6 +180,11 @@ function accountPage() {
   });
   snapshot.nav.days = dates.map((date, i): NavDay => ({
     date,
+    positionValues: Object.fromEntries(
+      (i === 4 ? ["sh600000", "sz000001"] : ["sh600000", "sh600001"]).map(
+        (symbol) => [symbol, { value: 50, reason: null }],
+      ),
+    ),
     positions:
       i === 4
         ? { sh600000: 100, sz000001: 100 }

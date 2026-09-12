@@ -11,6 +11,7 @@ import {
 } from "./trade-review-import";
 import { TradeReviewBatches } from "./trade-review-batches";
 import { TradeReviewResults } from "./trade-review-results";
+import { PositionRiskContainer } from "./position-risk-container";
 import { RollingPerformanceContainer } from "./rolling-performance-container";
 import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
@@ -126,6 +127,7 @@ export function TradeReviewContainer() {
       utils.tradeReviewSnapshot.invalidate(),
       utils.tradeReviewPeriodPerformance.invalidate(),
       utils.tradeReviewRollingPerformance.invalidate(),
+      utils.tradeReviewPositionRisk.invalidate(),
       utils.tradeReviewAdmission.invalidate(),
       utils.tradeReviewAdmissionExport.invalidate(),
       utils.tradeReviewExecution.invalidate(),
@@ -290,6 +292,10 @@ export function TradeReviewContainer() {
                 <RollingPerformanceContainer
                   key={`rolling:${account}:${batches.data?.map((b) => b.id).join(",")}`}
                   source={{ account }}
+                />
+                <PositionRiskContainer
+                  key={`position-risk:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+                  account={account}
                 />
                 <StrategyAdmissionContainer
                   key={`admission:${account}:${batches.data?.map((b) => b.id).join(",")}`}

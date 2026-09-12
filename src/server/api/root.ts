@@ -1,4 +1,8 @@
 import {
+  positionRiskPageSchema,
+  pagePositionRisk,
+} from "../position-risk-service";
+import {
   rollingPageSchema,
   tradeReviewRollingPage,
   researchRollingPage,
@@ -431,6 +435,12 @@ export const appRouter = createTRPCRouter({
         input.partition,
         admissionPageSchema.parse(input),
       ).exported;
+    }),
+  tradeReviewPositionRisk: p
+    .input(positionRiskPageSchema.extend({ account: z.string().trim().min(1) }))
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return pagePositionRisk(review.snapshot.nav.days, input);
     }),
   tradeReviewRollingPerformance: p
     .input(rollingPageSchema.extend({ account: z.string().trim().min(1) }))

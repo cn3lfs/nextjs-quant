@@ -133,6 +133,7 @@ it("account adapter forwards TWR nulls and the supplied calendar", () => {
   });
   snapshot.nav.days = [0, 2].map((i) => ({
     date: dates[i]!,
+    positionValues: {},
     positions: {},
     cash: { value: 100, reason: null },
     marketValue: { value: 0, reason: null },

@@ -80,6 +80,27 @@ const curve = (prices: number[], extra: Partial<TradeReviewNavInput> = {}) =>
   });
 
 describe("每日账户净值与风险", () => {
+  it("U11 追加每标的市值前冻结既有合成 fixture 的聚合数值", () => {
+    expect(
+      curve([100, 90, 108]).days.map(({ marketValue, nav }) => ({
+        marketValue,
+        nav,
+      })),
+    ).toEqual([
+      {
+        marketValue: { value: 100, reason: null },
+        nav: { value: 100, reason: null },
+      },
+      {
+        marketValue: { value: 90, reason: null },
+        nav: { value: 90, reason: null },
+      },
+      {
+        marketValue: { value: 108, reason: null },
+        nav: { value: 108, reason: null },
+      },
+    ]);
+  });
   it("U1 首日亏损在旧回撤及追加新核中都计入期初本金", () => {
     // 买入100，当日收盘90：期初100至90亏10%，不能从首日收盘才计算回撤。
     const result = run({

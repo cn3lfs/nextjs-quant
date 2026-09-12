@@ -28,6 +28,7 @@ export type NavDay = {
   date: string;
   cash: ReviewValue;
   positions: Record<string, number>;
+  positionValues: Record<string, ReviewValue>;
   marketValue: ReviewValue;
   reverseRepoPrincipal: ReviewValue;
   nav: ReviewValue;
@@ -488,9 +489,22 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       replay.push({ date, time: e.time, originalOrder: e.order, cash });
     }
     let marketValue: number | null = positionReasons.size ? null : 0;
+    const positionValues: Record<string, ReviewValue> = Object.fromEntries(
+      [...positionReasons].map(([key, reason]) => [key, metric(null, reason)]),
+    );
     const reasons = [...positionReasons.values()];
     for (const [key, quantity] of Object.entries(positions)) {
       const matches = input.bars[key]?.filter((b) => b.date === date);
+      positionValues[key] = metric(
+        !positionReasons.has(key) &&
+          matches?.length === 1 &&
+          Number.isFinite(matches[0]!.close) &&
+          matches[0]!.close > 0
+          ? quantity * matches[0]!.close
+          : null,
+        positionReasons.get(key) ??
+          `${date} ${key} 缺少有效唯一收盘价或市值溢出`,
+      );
       if (
         matches?.length !== 1 ||
         !Number.isFinite(matches[0]!.close) ||
@@ -524,6 +538,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       date,
       cash: metric(cash, "实际资金变动不可得，后续现金未知"),
       positions: { ...positions },
+      positionValues,
       marketValue: metric(marketValue, reasons.join("；") || "市值溢出"),
       reverseRepoPrincipal: metric(
         principal,

@@ -36,6 +36,14 @@
 - **测试**：[rolling-performance.test.ts](../tests/rolling-performance.test.ts)、[rolling-performance-service.test.ts](../tests/rolling-performance-service.test.ts)、[rolling-performance-api.test.ts](../tests/rolling-performance-api.test.ts)、[rolling-performance-chart.test.ts](../tests/rolling-performance-chart.test.ts) 覆盖切窗、门槛、wbt 反例、指标同源、分页、路由与断线。真实账户和浏览器交互尚未人工验收。
 - **违反会怎样**：窗口错位、缺失被伪造成零收益、分页或图表改变历史含义。
 
+### U11 持仓集中度与敞口
+
+- **是什么**：`positionValues` 只追加每标的市值及原因，原 `positions`、`marketValue`、`nav` 路径不变。`herfindahl = Σ(市值/nav)²`，分母总资产含现金稀释；`herfindahlInvested = Σ(市值/持仓市值合计)²`，`effectivePositions` 为后者倒数。未到期逆回购本金进 nav 分母，不进集中度分子与持仓只数。
+- **是什么（缺失）**：任一持仓市值未知，当日五项指标整体 null 并说明原因，不能只计算可得部分；非正/未知总资产亦留空。空仓只数为 0，集中度留空。只数仍表示账本中非零数量记录数，未知股份不据此推断真实只数。摘要仅使用可得日并披露数量，峰值并列取最早日；曲线缺失断线，表格服务端排序分页。
+- **为什么**：现金会稀释总资产口径；只展示它或部分估算会低估已投资部分的集中风险。
+- **测试**：[position-risk.test.ts](../tests/position-risk.test.ts)、[trade-review-nav.test.ts](../tests/trade-review-nav.test.ts)、[position-risk-service.test.ts](../tests/position-risk-service.test.ts)、[position-risk-api.test.ts](../tests/position-risk-api.test.ts)、[position-risk-chart.test.ts](../tests/position-risk-chart.test.ts) 保护手算、逆回购、缺失、原数值、分页及断线。
+- **违反会怎样**：把集中持仓展示成分散、现金或逆回购伪装方向敞口，或令已验收净值漂移。
+
 ### U4 执行质量与反事实
 
 - **是什么**：日 VWAP 只经 [trade-review-vwap.ts](../src/lib/trade-review-vwap.ts) 的 `tradeReviewDayVwap` 计算，R12 价格除数校验与 U4 共用；基准具名为 `dayVwap`，不是委托价。成交量或成交额非正、非有限、缺唯一当日日线时留空并说明，不拿收盘价或原成交价替代。可得的一字板等不主观剔除，按成交额筛选。
