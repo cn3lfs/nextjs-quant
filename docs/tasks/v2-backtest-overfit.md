@@ -25,8 +25,14 @@ PBO 接近 0.5 意味着这套选参流程等于抛硬币——即便某次结�
 
 `combinatoriallySymmetricCv({ returns, splits, metric })`：
 
-输入 `returns: number[][]`（N 个候选 × T 个同期日收益，即 V1 `candidateTrialMatrix`
-的 `returns`，**直接复用，不得重新跑回测**）。
+输入 `returns: (number | null)[][]`（N 个候选 × T 个同期日收益，即 V1
+`candidateTrialMatrix` 的 `returns`，**直接复用，不得重新跑回测**）。
+
+> 类型按 V1 交付事实修正（管理者 2026-09-13）：V1 的 `equityDailyReturns` 对非正分母
+> 与非法净值返回 `null`，矩阵因此允许 `null`。CSCV 的处理规则：**任一候选在某子段内
+> 含 null，则该子段对全部候选整体作废**并计入 `discardedPeriods` 的独立字段
+> `nullPeriods`——只对部分候选作废会让排名建立在不同样本上，那比丢掉整段更糟。
+> 作废后剩余子段数若为奇数则再丢最后一段（S 必须偶数），这一步要有测试。
 
 算法（逐条实现，不许简化）：
 
