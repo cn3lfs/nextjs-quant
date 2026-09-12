@@ -1,4 +1,9 @@
 import {
+  rollingPageSchema,
+  tradeReviewRollingPage,
+  researchRollingPage,
+} from "../rolling-performance-service";
+import {
   threeSegmentSample,
   threeSegmentAdmission,
 } from "../three-segment-sample";
@@ -427,6 +432,31 @@ export const appRouter = createTRPCRouter({
         admissionPageSchema.parse(input),
       ).exported;
     }),
+  tradeReviewRollingPerformance: p
+    .input(rollingPageSchema.extend({ account: z.string().trim().min(1) }))
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return tradeReviewRollingPage(
+        review.snapshot,
+        input,
+        review.fullTradingDays,
+      );
+    }),
+  strategyResearchRollingPerformance: p
+    .input(
+      rollingPageSchema.extend({
+        id: z.string().min(1),
+        partition: z.enum(["development", "validation"]),
+      }),
+    )
+    .query(({ input }) =>
+      researchRollingPage(
+        new ResearchStore(chartSqlite()),
+        input.id,
+        input.partition,
+        input,
+      ),
+    ),
   tradeReviewPeriodPerformance: p
     .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {

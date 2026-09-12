@@ -15,6 +15,7 @@ import {
   type ResearchMarketEvidence,
 } from "~/lib/research-market-evidence";
 import { Button } from "./ui/button";
+import { RollingPerformanceContainer } from "./rolling-performance-container";
 import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { Input } from "./ui/input";
@@ -118,6 +119,7 @@ export function StrategyResearchControls() {
     .join(",");
   useEffect(() => {
     void utils.strategyResearchPeriodPerformance.invalidate();
+    void utils.strategyResearchRollingPerformance.invalidate();
     void utils.strategyResearchAdmission.invalidate();
     void utils.strategyResearchAdmissionExport.invalidate();
   }, [completedTasks, utils]);
@@ -618,6 +620,10 @@ export function StrategyResearchControls() {
               </h3>
               <PeriodPerformanceContainer
                 key={`${selected}:${part.partition}`}
+                source={{ id: selected, partition: part.partition }}
+              />
+              <RollingPerformanceContainer
+                key={`rolling:${selected}:${part.partition}`}
                 source={{ id: selected, partition: part.partition }}
               />
               <StrategyAdmissionContainer

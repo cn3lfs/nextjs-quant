@@ -27,6 +27,15 @@
 - **测试**：[period-performance.test.ts](../tests/period-performance.test.ts)、[period-performance-service.test.ts](../tests/period-performance-service.test.ts)、[trade-review-api.test.ts](../tests/trade-review-api.test.ts)。真实账户和浏览器由管理者验收。
 - **违反会怎样**：长假窗口错位、跨年周归属错误、缺数据被当零收益、翻页改变全体汇总。
 
+### U10 滚动绩效
+
+- **是什么**：沿用上文 U2 交易日回溯口径与 `alignPeriodInput`，默认 60 交易日；第 `minPeriods` 个交易日起每日前进一日（默认等于窗口），允许较小起算日数，`tradingDays` 如实报告实际窗长，不补齐、不外推。全部 17 项与 coverage 只调用 U1。
+- **是什么（缺失）**：null 原样交给 U1 剔除并计观察/可得/null/零收益日数。可得日 / 观察日严格低于 `rollingPerformanceDefaults.minimumCoverage=0.6` 标 `insufficientCoverage`，仍输出指标并展示标记；60% 达标。与 wbt 的差异：它把 NaN 当 0，我们留空；非有限数沿 U1 契约拒绝，不偷偷转零。
+- **是什么（展示）**：完整指标在服务端排序分页，null 排末；曲线仅投影全区间夏普/最大回撤/年化，遇 null 分段断线。账户取日度 TWR，研究按独立分区模拟净值派生，与 U6 三段并存；滚动不驱动 U8 或最优窗口搜索。
+- **为什么**：理由沿用上文 U2 的交易日与有效观察区分及 §5 缺失约束；避免长假错窗、零填充虚构业绩或不满窗伪装完整历史。
+- **测试**：[rolling-performance.test.ts](../tests/rolling-performance.test.ts)、[rolling-performance-service.test.ts](../tests/rolling-performance-service.test.ts)、[rolling-performance-api.test.ts](../tests/rolling-performance-api.test.ts)、[rolling-performance-chart.test.ts](../tests/rolling-performance-chart.test.ts) 覆盖切窗、门槛、wbt 反例、指标同源、分页、路由与断线。真实账户和浏览器交互尚未人工验收。
+- **违反会怎样**：窗口错位、缺失被伪造成零收益、分页或图表改变历史含义。
+
 ### U4 执行质量与反事实
 
 - **是什么**：日 VWAP 只经 [trade-review-vwap.ts](../src/lib/trade-review-vwap.ts) 的 `tradeReviewDayVwap` 计算，R12 价格除数校验与 U4 共用；基准具名为 `dayVwap`，不是委托价。成交量或成交额非正、非有限、缺唯一当日日线时留空并说明，不拿收盘价或原成交价替代。可得的一字板等不主观剔除，按成交额筛选。
