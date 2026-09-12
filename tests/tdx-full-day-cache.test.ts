@@ -36,7 +36,11 @@ it.skipIf(process.platform !== "win32")(
   async () => {
     const [first] = await publishFullDayPackage(file, ["sh600000"], 100);
     expect(first?.bars[0]?.close).toBe(11);
-    await publishFullDayPackage("tests/fixtures/tdx-full-day/with-index.zip", ["sh000001"], 100);
+    await publishFullDayPackage(
+      "tests/fixtures/tdx-full-day/with-index.zip",
+      ["sh000001"],
+      100,
+    );
     const deps = localRpsDependencies("missing-source-root", []);
     expect(await deps.universe()).toContainEqual({
       symbol: "sh600000",

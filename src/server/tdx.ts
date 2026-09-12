@@ -227,7 +227,8 @@ export async function readSnapshot(
       buffer = await handle.readFile();
       const after = await handle.stat();
       const current = await stat(file);
-      stable = buffer.length === before.size &&
+      stable =
+        buffer.length === before.size &&
         tailSignature(before) === tailSignature(after) &&
         tailSignature(after) === tailSignature(current);
     } finally {
@@ -247,7 +248,8 @@ export async function readSnapshot(
       symbol,
       name:
         (await securityNames(root, symbol.slice(0, 2))).get(symbol) ??
-        exchangeNames.get(symbol)?.name ?? commonIndexName(symbol),
+        exchangeNames.get(symbol)?.name ??
+        commonIndexName(symbol),
       period,
       source: "tdx-local",
       dataRoot: resolve(root),

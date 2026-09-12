@@ -16,7 +16,8 @@ vi.mock("../src/server/vault", () => ({
   readSecret: async (id: string) => secrets.get(id),
 }));
 vi.mock("../src/server/mcp-health", () => ({ recordMcpHealth: vi.fn() }));
-const { importLocalMcp, mcpTools, closeMcp } = await import("../src/server/mcp");
+const { importLocalMcp, mcpTools, closeMcp } =
+  await import("../src/server/mcp");
 
 /** Records every Authorization header the transport actually sends. */
 const sent: (string | null)[] = [];
