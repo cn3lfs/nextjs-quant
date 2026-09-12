@@ -1,3 +1,4 @@
+import { keyTrades } from "~/lib/key-trades";
 import {
   positionRiskPageSchema,
   pagePositionRisk,
@@ -512,6 +513,7 @@ export const appRouter = createTRPCRouter({
     .input(
       reviewInputSchema.extend({
         method: z.enum(costMethods).default("movingAverage"),
+        keyTradesN: z.number().int().min(1).max(20).default(3),
         pageIndex: z.number().int().min(0).max(1000000).default(0),
         pageSize: z.number().int().min(1).max(100).default(20),
         pointPageIndex: z.number().int().min(0).max(1000000).default(0),
@@ -635,6 +637,10 @@ export const appRouter = createTRPCRouter({
           (input.pageIndex + 1) * input.pageSize,
         ),
         rowCount: rounds.length,
+        keyTrades: keyTrades(
+          [...selected.closedRounds, ...selected.openPositions],
+          input.keyTradesN,
+        ),
         tradePoints: page(
           tradePoints,
           input.pointPageIndex,

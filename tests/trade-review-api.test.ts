@@ -273,6 +273,28 @@ it("paginates and sorts on the server for both methods without hidden full-round
       sort: "security",
       desc: true,
     });
+    expect(first.keyTrades).toEqual(second.keyTrades);
+    expect(first.keyTrades.n).toBe(3);
+    expect(
+      first.keyTrades.years
+        .flatMap((y) => y.amount.highest)
+        .map((r) => r.security)
+        .sort(),
+    ).toEqual(["sh600036"]);
+    expect(first.keyTrades.openCount).toBe(1);
+    expect(first.keyTrades.missingCount).toBe(0);
+    expect(first.keyTrades.years[0]!.amount.highest[0]).not.toHaveProperty(
+      "realizations",
+    );
+    const limited = await caller.tradeReviewSnapshot({
+      account: input.account,
+      method,
+      keyTradesN: 1,
+    });
+    expect(limited.keyTrades.years[0]!.amount.highest).toHaveLength(1);
+    await expect(
+      caller.tradeReviewSnapshot({ account: input.account, keyTradesN: 21 }),
+    ).rejects.toThrow();
     expect(first.rowCount).toBe(2);
     expect(first.calendar.source).toBe("合成完整交易日历");
     expect(first.calendar.hash).toBe("fixture-calendar");

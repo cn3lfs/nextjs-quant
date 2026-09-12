@@ -11,6 +11,7 @@ import {
 } from "./trade-review-import";
 import { TradeReviewBatches } from "./trade-review-batches";
 import { TradeReviewResults } from "./trade-review-results";
+import { KeyTradesResults } from "./key-trades-results";
 import { PositionRiskContainer } from "./position-risk-container";
 import { RollingPerformanceContainer } from "./rolling-performance-container";
 import { PeriodPerformanceContainer } from "./period-performance-container";
@@ -36,6 +37,7 @@ export function TradeReviewContainer() {
   const [message, setMessage] = useState("");
   const [accountDraft, setAccountDraft] = useState("");
   const [account, setAccount] = useState("");
+  const [keyTradesN, setKeyTradesN] = useState(3);
   const [method, setMethod] = useState<CostMethod>("movingAverage");
   const [monthPagination, setMonthPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -79,6 +81,7 @@ export function TradeReviewContainer() {
     {
       account,
       method,
+      keyTradesN,
       ...pagination,
       pointPageIndex: pointPagination.pageIndex,
       pointPageSize: pointPagination.pageSize,
@@ -285,6 +288,11 @@ export function TradeReviewContainer() {
           <TradeReviewResults
             periodPerformance={
               <>
+                <KeyTradesResults
+                  data={review.data.keyTrades}
+                  onNChange={setKeyTradesN}
+                  loading={review.isFetching}
+                />
                 <PeriodPerformanceContainer
                   key={`${account}:${method}:${batches.data?.map((b) => b.id).join(",")}`}
                   source={{ account }}

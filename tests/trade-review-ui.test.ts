@@ -1,3 +1,4 @@
+import { keyTrades } from "../src/lib/key-trades";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Database from "better-sqlite3";
@@ -54,6 +55,7 @@ it("R7 页面展示连续段TWR与起止日期", () => {
           start: "2026-01-01",
           end: "2026-01-02",
         },
+        keyTrades: keyTrades([]),
         rounds: [],
         rowCount: 0,
         tradePoints: [],
