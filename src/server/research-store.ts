@@ -1,9 +1,27 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { ResearchSpec } from "~/lib/strategy-research";
 import type { ResearchMarketEvidence } from "~/lib/research-market-evidence";
 import type { ResearchDataset } from "./research-dataset";
 import type { runStrategyResearch } from "./research-run";
+
+/** U6b: only date windows are excluded; array order and all other fields remain evidence. */
+export function researchParamsFingerprint(spec: ResearchSpec) {
+  const { start, end, validationStart, ...params } = spec;
+  function canonical(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value !== null && typeof value === "object")
+      return Object.fromEntries(
+        Object.entries(value)
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([key, entry]) => [key, canonical(entry)]),
+      );
+    return value;
+  }
+  return createHash("sha256")
+    .update(JSON.stringify(canonical(params)))
+    .digest("hex");
+}
 
 export type ResearchTask = {
   id: string;
@@ -81,6 +99,24 @@ export class ResearchStore {
         )
         .all() as { payload: string }[]
     ).map((row) => JSON.parse(row.payload) as ResearchTask);
+  }
+  paramsFrozenAt(spec: ResearchSpec): number | null {
+    const fingerprint = researchParamsFingerprint(spec);
+    let earliest: number | null = null;
+    // Scan task evidence without the UI list's LIMIT 100 or loading every payload at once.
+    const rows = this.db
+      .prepare("SELECT payload FROM records WHERE kind='research-task'")
+      .iterate() as Iterable<{ payload: string }>;
+    for (const row of rows) {
+      const task = JSON.parse(row.payload) as ResearchTask;
+      if (!Number.isFinite(task.createdAt)) continue;
+      if (
+        researchParamsFingerprint(task.spec) === fingerprint &&
+        (earliest === null || task.createdAt < earliest)
+      )
+        earliest = task.createdAt;
+    }
+    return earliest;
   }
   update(
     id: string,

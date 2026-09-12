@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dailyPerformance } from "~/lib/daily-performance";
 import type { ResearchEvent } from "~/lib/strategy-research";
 import type { ResearchDataset } from "./research-dataset";
-import type { ResearchResult } from "./research-store";
+import { ResearchStore, type ResearchResult } from "./research-store";
 import {
   researchAdmissionSource,
   exportStrategyAdmission,
@@ -76,6 +76,11 @@ export function threeSegmentSample(
   const evidence =
     versions.length === 1 ? deriveTrackingStart(db, versions[0]!) : null;
   const trackingStart = evidence?.trackingStart ?? null;
+  const paramsFrozenAt = new ResearchStore(db).paramsFrozenAt(result.spec);
+  const paramsFrozenBeforeTracking =
+    paramsFrozenAt === null || trackingStart === null
+      ? null
+      : paramsFrozenAt < Date.parse(`${trackingStart}T00:00:00+08:00`);
   const overlap =
     trackingStart !== null && trackingStart < result.spec.validationStart;
   const reason = overlap
@@ -140,6 +145,8 @@ export function threeSegmentSample(
   );
   return {
     trackingStart,
+    paramsFrozenAt,
+    paramsFrozenBeforeTracking,
     trackingSegmentAvailable: available,
     overlap,
     reason,

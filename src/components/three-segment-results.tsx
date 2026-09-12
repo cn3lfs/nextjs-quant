@@ -2,6 +2,8 @@
 
 import type { RouterOutputs } from "~/trpc/react";
 import {
+  paramsFrozenMessage,
+  trackingSimulationDisclaimer,
   trackingDecayThreshold,
   trackingDecayWarning,
 } from "~/lib/three-segment-sample";
@@ -24,9 +26,17 @@ export function ThreeSegmentResults({
         {data.evidence?.sources.previewDate ?? "无"}。策略版本：
         {data.evidence?.strategyVersion ?? "不可确定"}。
       </p>
+      <p>
+        {paramsFrozenMessage(
+          data.paramsFrozenAt,
+          data.paramsFrozenBeforeTracking,
+        )}
+      </p>
       <p className="text-sm text-muted-foreground">
-        下表按前向观察日期切分原模拟日收益，沿用原资金路径；不是前向成交业绩，不证明持有期、费用、证券池等参数在上线前已冻结。原始两段结果保留在下方。复利，年化因子{" "}
-        {data.segments[0]?.yearlyDays}，wbt 夏普 rf=0。
+        下表按前向观察日期切分原模拟日收益，沿用原资金路径；
+        {trackingSimulationDisclaimer(data.paramsFrozenBeforeTracking)}
+        原始两段结果保留在下方。复利，年化因子 {data.segments[0]?.yearlyDays}
+        ，wbt 夏普 rf=0。
       </p>
       <PerformanceSegmentTable
         rows={data.segments.map((segment) => ({
