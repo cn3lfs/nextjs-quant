@@ -1,4 +1,9 @@
 import { readMarketPool } from "../market-pool-files";
+import {
+  executionPageSchema,
+  pageExecutionQuality,
+  exportExecutionQuality,
+} from "../execution-quality-service";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -370,6 +375,22 @@ export const appRouter = createTRPCRouter({
         new ResearchStore(chartSqlite()),
         input.id,
         input.partition,
+        input,
+      ),
+    ),
+  tradeReviewExecution: p
+    .input(executionPageSchema)
+    .query(async ({ input }) =>
+      pageExecutionQuality(
+        (await accountReview(input.account)).snapshot,
+        input,
+      ),
+    ),
+  tradeReviewExecutionExport: p
+    .input(executionPageSchema)
+    .query(async ({ input }) =>
+      exportExecutionQuality(
+        (await accountReview(input.account)).snapshot,
         input,
       ),
     ),

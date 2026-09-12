@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { Bar } from "~/lib/domain";
+import { reviewExecutionQuality } from "~/lib/execution-quality";
 import { reviewTrades, type TradeReviewInput } from "~/lib/trade-review";
 import { classifyCode } from "~/lib/delivery-import";
 import {
@@ -187,6 +188,15 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
     },
     trades,
     nav,
+    execution: reviewExecutionQuality(
+      {
+        ...input.nav,
+        fills: input.trades.fills,
+        cashFlows: input.trades.cashFlows ?? [],
+        bars: input.trades.bars ?? {},
+      },
+      nav,
+    ),
     projectedCashDays: projected.days.map((d) => ({
       date: d.date,
       cash: d.cash,

@@ -12,6 +12,7 @@ import {
 import { TradeReviewBatches } from "./trade-review-batches";
 import { TradeReviewResults } from "./trade-review-results";
 import { PeriodPerformanceContainer } from "./period-performance-container";
+import { ExecutionQualityContainer } from "./execution-quality-container";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -122,6 +123,7 @@ export function TradeReviewContainer() {
       utils.deliveryBatches.invalidate(),
       utils.tradeReviewSnapshot.invalidate(),
       utils.tradeReviewPeriodPerformance.invalidate(),
+      utils.tradeReviewExecution.invalidate(),
     ]);
   };
   return (
@@ -329,6 +331,12 @@ export function TradeReviewContainer() {
               setPagination((p) => ({ ...p, pageIndex: 0 }));
             }}
             loading={review.isFetching}
+          />
+        )}
+        {review.data && !review.error && (
+          <ExecutionQualityContainer
+            key={`${account}:${batches.data?.map((b) => b.id).join(",")}`}
+            account={account}
           />
         )}
       </section>

@@ -85,6 +85,41 @@ const input = {
   account: "合成账户",
   source: "tdx" as const,
 };
+it("U4 tRPC pages execution details and exports the complete redacted selection", async () => {
+  const preview = await caller.deliveryPreview(input);
+  await caller.deliveryImport({ ...input, hash: preview.fileHash });
+  const first = await caller.tradeReviewExecution({
+    account: input.account,
+    pageSize: 1,
+  });
+  const second = await caller.tradeReviewExecution({
+    account: input.account,
+    pageSize: 1,
+    pageIndex: 1,
+  });
+  expect(first.rows).toHaveLength(1);
+  expect(second.rows).toHaveLength(1);
+  expect(first.rows[0]?.id).not.toBe(second.rows[0]?.id);
+  expect(first.summary).toEqual(second.summary);
+  expect(first.benchmark).toEqual({ kind: "dayVwap" });
+  expect(first.loss.value).toBeNull();
+  expect(first.loss.reason).toContain("缺少可得 VWAP");
+  expect(first).not.toHaveProperty("counterfactual");
+  expect(first).not.toHaveProperty("replayInput");
+  const csv = await caller.tradeReviewExecutionExport({
+    account: input.account,
+    pageSize: 1,
+    pageIndex: 99,
+  });
+  expect(csv.split("\r\n")).toHaveLength(first.rowCount + 1);
+  expect(csv).not.toContain(input.account);
+  await expect(
+    caller.tradeReviewExecution({ account: input.account, pageSize: 101 }),
+  ).rejects.toThrow();
+  await expect(
+    caller.tradeReviewExecution({ account: input.account, minAmount: -1 }),
+  ).rejects.toThrow();
+});
 it("U2 tRPC pages the held-symbol matrix and rejects invalid pagination", async () => {
   const preview = await caller.deliveryPreview(input);
   await caller.deliveryImport({ ...input, hash: preview.fileHash });

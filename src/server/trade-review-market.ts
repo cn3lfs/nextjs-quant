@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import type { Stats } from "node:fs";
 import type { Snapshot } from "~/lib/domain";
 import { classifyCode } from "~/lib/delivery-import";
+import { tradeReviewDayVwap } from "~/lib/trade-review-vwap";
 import { isMarketIndex } from "~/lib/market-indices";
 import { parseBars, readSnapshot } from "./tdx";
 
@@ -36,7 +37,7 @@ function validatePrices(
   for (const bar of snapshot.bars) {
     if (bar.volume <= 0) continue;
     checkedBars++;
-    const average = bar.amount / bar.volume;
+    const average = tradeReviewDayVwap(bar).value ?? 0;
     const deviation =
       average > 0
         ? Math.max(bar.close / average, average / bar.close)
