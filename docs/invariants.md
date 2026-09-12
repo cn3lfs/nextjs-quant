@@ -45,6 +45,14 @@
 - **测试**：[strategy-admission.test.ts](../tests/strategy-admission.test.ts)、[strategy-admission-service.test.ts](../tests/strategy-admission-service.test.ts)。真实账户与浏览器由管理者验收；[合成分布](review/u8-calibration-distribution.json) 不代表账户阈值已标定。
 - **违反会怎样**：边界倒置、退化策略误获准入、默认值冒充账户结论，或用未经核验的样本宣称可信业绩。
 
+### U6 三段样本治理
+
+- 开发段沿用原 development；原 validation 在观察日期达到系统推导起点时才覆盖为 tracking。原始两段判定、资金路径、写入结果及 hash 不改，三段另作只读查询与导出。
+- `trackingStart` 只能来自精确相同策略版本的前向台账 observedDate 与盘中信号所属 observedAt（北京时间日期），两处取更早者；不使用结构端点、研究回测产物、手工日期或版本别名。无前向记录返回 null 和原因，不补 end/今天；早于 validationStart 如实报告重叠，不出第三段指标。
+- 三段日收益从完整原分区净值先生成再切片，17 项全部调用 U1，不重置跟踪首日本金。跟踪日期可得不意味着参数已冻结或存在真实成交，页面必须披露来源限制。
+- U8 history 分别使用开发段、保留验证段，recent 使用跟踪段；无法获得合法跟踪段时标 `trackingSegmentAvailable: false`，并显示「近期窗口是按尾部天数截的，不是真实上线跟踪段」。不拼接两段独立本金，recent 历史比较沿用验证净值前缀。衰减只提示，不驱动操作。
+- 测试：[three-segment-sample.test.ts](../tests/three-segment-sample.test.ts)。字段与版本差异及快照边界处理见 [decisions](decisions.md)。
+
 ## 2. 通达信认定公式与预热
 
 - **是什么**：输入为时间升序、不复权的只读 Bar 数组；输出与输入逐点对齐，不排序、不修改输入、不在中间舍入。MA 默认 20；图表 MA 默认 5/10/20/60；以下是默认口径，参数可调。

@@ -18,6 +18,7 @@ import { Button } from "./ui/button";
 import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { Input } from "./ui/input";
+import { ThreeSegmentResults } from "./three-segment-results";
 import { Checkbox } from "./ui/checkbox";
 import {
   Select,
@@ -130,6 +131,10 @@ export function StrategyResearchControls() {
       tasks.data?.find((task) => task.id === selected)?.status === "running"
         ? 2000
         : false,
+  });
+  const segments = api.strategyResearchSegments.useQuery(selected, {
+    enabled: !!result.data,
+    retry: false,
   });
   const refresh = () => {
     void utils.strategyResearchTasks.invalidate();
@@ -593,6 +598,16 @@ export function StrategyResearchControls() {
               {warning}
             </p>
           ))}
+          {segments.isLoading && <p>正在读取三段样本…</p>}
+          {segments.error && (
+            <p role="alert">
+              {segments.error.message}
+              <Button onClick={() => void segments.refetch()}>
+                重试三段样本
+              </Button>
+            </p>
+          )}
+          {segments.data && <ThreeSegmentResults data={segments.data} />}
           {result.data.partitions.map((part) => (
             <section
               key={part.partition}

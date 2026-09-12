@@ -1,8 +1,11 @@
+import {
+  threeSegmentSample,
+  threeSegmentAdmission,
+} from "../three-segment-sample";
 import { readMarketPool } from "../market-pool-files";
 import {
   admissionPageSchema,
   tradeReviewAdmissionSource,
-  researchAdmissionSource,
   pageStrategyAdmission,
   exportStrategyAdmission,
 } from "../strategy-admission-service";
@@ -396,11 +399,13 @@ export const appRouter = createTRPCRouter({
       const result = store.result(input.id),
         dataset = store.dataset(input.id);
       if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
-      return pageStrategyAdmission(
-        researchAdmissionSource(result, dataset, input.partition),
+      return threeSegmentAdmission(
+        store.db,
+        result,
+        dataset,
+        input.partition,
         input,
-        true,
-      );
+      ).page;
     }),
   strategyResearchAdmissionExport: p
     .input(
@@ -414,11 +419,13 @@ export const appRouter = createTRPCRouter({
       const result = store.result(input.id),
         dataset = store.dataset(input.id);
       if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
-      return exportStrategyAdmission(
-        researchAdmissionSource(result, dataset, input.partition),
-        input.params,
-        true,
-      );
+      return threeSegmentAdmission(
+        store.db,
+        result,
+        dataset,
+        input.partition,
+        admissionPageSchema.parse(input),
+      ).exported;
     }),
   tradeReviewPeriodPerformance: p
     .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
@@ -749,16 +756,29 @@ export const appRouter = createTRPCRouter({
   strategyResearchCancel: p
     .input(z.string())
     .mutation(({ input }) => cancelResearch(input)),
+  strategyResearchSegments: p.input(z.string().min(1)).query(({ input }) => {
+    const store = new ResearchStore(chartSqlite());
+    const result = store.result(input),
+      dataset = store.dataset(input);
+    if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
+    return threeSegmentSample(store.db, result, dataset);
+  }),
   strategyResearchResult: p
     .input(z.string())
     .query(({ input }) => new ResearchStore(chartSqlite()).result(input)),
   strategyResearchExport: p.input(z.string()).query(({ input }) => {
     const store = new ResearchStore(chartSqlite());
+    const result = store.result(input),
+      dataset = store.dataset(input);
     return {
       task: store.task(input),
       dataset: store.dataset(input),
       evidence: store.evidence(input),
-      result: store.result(input),
+      result,
+      threeSegments:
+        result && dataset
+          ? threeSegmentSample(store.db, result, dataset)
+          : null,
     };
   }),
   strategyResearchRemove: p

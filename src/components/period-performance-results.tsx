@@ -19,9 +19,14 @@ import {
 } from "./ui/collapsible";
 
 export type PeriodData = RouterOutputs["tradeReviewPeriodPerformance"];
-type Segment = PeriodData["periods"][number];
+type Segment = Omit<PeriodData["periods"][number], "window"> & {
+  window: keyof typeof labels;
+};
 type MatrixRow = PeriodData["matrix"]["rows"][number];
 const labels = {
+  development: "开发段",
+  validation: "保留验证段",
+  tracking: "系统跟踪段",
   past1w: "过去1周",
   past2w: "过去2周",
   past1m: "过去1月",
@@ -182,15 +187,7 @@ export function PeriodPerformanceResults({
           })}
           （wbt 夏普固定 rf=0）。
         </p>
-        <DataTable
-          label="分段表现"
-          data={data.periods}
-          columns={segmentColumns}
-          rowCount={8}
-          pagination={{ pageIndex: 0, pageSize: 8 }}
-          getRowId={(row) => row.window}
-          {...fixed}
-        />
+        <PerformanceSegmentTable rows={data.periods} />
         <div className="flex flex-wrap gap-4">
           {data.natural.map((row) => (
             <p key={row.period}>
@@ -254,5 +251,19 @@ export function PeriodPerformanceResults({
         </Collapsible>
       </CardContent>
     </Card>
+  );
+}
+
+export function PerformanceSegmentTable({ rows }: { rows: Segment[] }) {
+  return (
+    <DataTable
+      label="分段表现"
+      data={rows}
+      columns={segmentColumns}
+      rowCount={rows.length}
+      pagination={{ pageIndex: 0, pageSize: Math.max(1, rows.length) }}
+      getRowId={(row) => row.window}
+      {...fixed}
+    />
   );
 }

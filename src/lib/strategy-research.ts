@@ -69,7 +69,7 @@ export type ResearchEvent = {
   endpointDate: string;
   key: string;
   strategyVersion: string;
-  partition: "development" | "validation";
+  partition: "development" | "validation" | "tracking";
   evidence: string;
 };
 
