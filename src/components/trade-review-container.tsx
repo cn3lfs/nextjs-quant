@@ -55,7 +55,16 @@ export function TradeReviewContainer() {
   const [attributionSorting, setAttributionSorting] = useState<SortingState>([
     { id: "dimension", desc: false },
   ]);
+  const [drawdownsOpen, setDrawdownsOpen] = useState(false);
+  const [drawdownPagination, setDrawdownPagination] = useState<PaginationState>(
+    { pageIndex: 0, pageSize: 10 },
+  );
+  const [drawdownSorting, setDrawdownSorting] = useState<SortingState>([
+    { id: "drawdown", desc: true },
+  ]);
   const resetDetailPages = () => {
+    setDrawdownsOpen(false);
+    setDrawdownPagination((p) => ({ ...p, pageIndex: 0 }));
     setPointPagination((p) => ({ ...p, pageIndex: 0 }));
     setAttributionPagination((p) => ({ ...p, pageIndex: 0 }));
     setMonthPagination((p) => ({ ...p, pageIndex: 0 }));
@@ -76,6 +85,11 @@ export function TradeReviewContainer() {
       attributionSort: attributionSorting[0]
         ?.id as RouterInputs["tradeReviewSnapshot"]["attributionSort"],
       attributionDesc: attributionSorting[0]?.desc ?? false,
+      drawdownPageIndex: drawdownPagination.pageIndex,
+      drawdownPageSize: drawdownPagination.pageSize,
+      drawdownSort: drawdownSorting[0]
+        ?.id as RouterInputs["tradeReviewSnapshot"]["drawdownSort"],
+      drawdownDesc: drawdownSorting[0]?.desc ?? true,
       monthPageIndex: monthPagination.pageIndex,
       sort: sorting[0]?.id as RouterInputs["tradeReviewSnapshot"]["sort"],
       desc: sorting[0]?.desc ?? false,
@@ -259,6 +273,20 @@ export function TradeReviewContainer() {
         {review.data && !review.error && (
           <TradeReviewResults
             data={review.data}
+            drawdownsOpen={drawdownsOpen}
+            onDrawdownsOpenChange={(open) => {
+              setDrawdownsOpen(open);
+              if (!open) setDrawdownPagination({ pageIndex: 0, pageSize: 10 });
+            }}
+            drawdownTable={{
+              pagination: drawdownPagination,
+              sorting: drawdownSorting,
+              onPaginationChange: setDrawdownPagination,
+              onSortingChange: (value) => {
+                setDrawdownSorting(value);
+                setDrawdownPagination((p) => ({ ...p, pageIndex: 0 }));
+              },
+            }}
             pointTable={{
               pagination: pointPagination,
               sorting: pointSorting,

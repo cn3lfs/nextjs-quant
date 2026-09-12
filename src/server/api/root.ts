@@ -12,6 +12,7 @@ import { DeliveryStore } from "../delivery-store";
 import {
   buildTradeReviewSnapshot,
   exportTradeReview,
+  pageTradeReviewDrawdowns,
 } from "../trade-review-service";
 import { fullLocalCalendarReference } from "../data-health";
 import { requireA500Selection } from "../a500-research";
@@ -357,6 +358,20 @@ export const appRouter = createTRPCRouter({
           .enum(["dimension", "name", "sampleCount", "netProfitTotal"])
           .default("dimension"),
         attributionDesc: z.boolean().default(false),
+        drawdownPageIndex: z.number().int().min(0).max(1000000).default(0),
+        drawdownPageSize: z.number().int().min(1).max(100).default(10),
+        drawdownSort: z
+          .enum([
+            "peakDate",
+            "troughDate",
+            "recoveryDate",
+            "drawdown",
+            "drawdownTradingDays",
+            "recoveryTradingDays",
+            "underwaterTradingDays",
+          ])
+          .default("drawdown"),
+        drawdownDesc: z.boolean().default(true),
         monthPageIndex: z.number().int().min(0).max(10000).default(0),
         sort: z.enum(roundSortFields).default("openingDate"),
         desc: z.boolean().default(false),
@@ -420,6 +435,12 @@ export const appRouter = createTRPCRouter({
           compare(a[input.pointSort], b[input.pointSort], input.pointDesc) ||
           a.fillIndex - b.fillIndex,
       );
+      const drawdownPage = pageTradeReviewDrawdowns(s.nav.segments, {
+        pageIndex: input.drawdownPageIndex,
+        pageSize: input.drawdownPageSize,
+        sort: input.drawdownSort,
+        desc: input.drawdownDesc,
+      });
       const attribution = s.attribution[input.method].groups
         .flatMap((group) =>
           group.items.map(
@@ -456,11 +477,14 @@ export const appRouter = createTRPCRouter({
         pointCount: tradePoints.length,
         nav: {
           ...s.nav,
+          segments: drawdownPage.segments,
           monthlyReturns: s.nav.monthlyReturns.slice(
             input.monthPageIndex * 12,
             (input.monthPageIndex + 1) * 12,
           ),
         },
+        drawdowns: drawdownPage.drawdowns,
+        drawdownCount: drawdownPage.drawdownCount,
         monthCount: s.nav.monthlyReturns.length,
         attribution: page(
           attribution,

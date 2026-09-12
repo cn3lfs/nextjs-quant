@@ -6,6 +6,7 @@ import {
   type ParsedFill,
 } from "../src/lib/delivery-import";
 import { parseDeliveryTable } from "../src/lib/delivery-table";
+import { pageTradeReviewDrawdowns } from "../src/server/trade-review-service";
 import { dailyPerformance } from "../src/lib/daily-performance";
 import {
   reviewTradeNav,
@@ -356,23 +357,99 @@ describe("每日账户净值与风险", () => {
     const result = curve([100, 90, 80, 100, 95, 90]).segments[0]!.drawdowns;
     expect(result).toEqual([
       {
-        peakDate: d(1),
-        troughDate: d(3),
-        recoveryDate: d(4),
-        recovered: true,
-        underwaterTradingDays: 2,
-        drawdown: expect.closeTo(0.2),
-      },
-      {
         peakDate: d(4),
         troughDate: d(6),
         recoveryDate: null,
         recovered: false,
         underwaterTradingDays: 2,
+        drawdownTradingDays: 2,
+        recoveryTradingDays: null,
         drawdown: expect.closeTo(0.1),
+      },
+      {
+        peakDate: d(1),
+        troughDate: d(3),
+        recoveryDate: d(4),
+        recovered: true,
+        underwaterTradingDays: 2,
+        drawdownTradingDays: 2,
+        recoveryTradingDays: 1,
+        drawdown: expect.closeTo(0.2),
       },
     ]);
   });
+  it("U3 交易日位置差、相同谷底与单次持平修复，不按自然日计数", () => {
+    const dates = [
+      "2026-01-02",
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-12",
+    ];
+    const prices = [100, 80, 80, 90, 100, 70, 100];
+    const result = curve(prices, {
+      fills: [fill(dates[0]!, "buy", 100)],
+      tradingDays: dates,
+      bars: {
+        sz000001: prices.map((close, i) => ({ date: dates[i]!, close })),
+      },
+    }).segments[0]!.drawdowns;
+    expect(result).toEqual([
+      {
+        peakDate: dates[4],
+        troughDate: dates[5],
+        recoveryDate: dates[6],
+        recovered: true,
+        underwaterTradingDays: 1,
+        drawdownTradingDays: 1,
+        recoveryTradingDays: 1,
+        drawdown: expect.closeTo(0.3),
+      },
+      {
+        peakDate: dates[0],
+        troughDate: dates[1],
+        recoveryDate: dates[4],
+        recovered: true,
+        underwaterTradingDays: 3,
+        drawdownTradingDays: 1,
+        recoveryTradingDays: 3,
+        drawdown: expect.closeTo(0.2),
+      },
+    ]);
+  });
+  it.each([
+    [100, 90, 80, 100, 95, 90],
+    [100, 69.84, 100, 99],
+    [100, 101, 102],
+    [100, 90, 100, 90, 100],
+  ])("U3 最深段与 U1 wbtStats 及现有 maxDrawdown 一致：%j", (...prices) => {
+    const segment = curve(prices).segments[0]!;
+    const deepest = Math.max(
+      0,
+      ...segment.drawdowns.map((row) => row.drawdown),
+    );
+    expect(deepest).toBe(segment.wbtStats.maxDrawdown.value);
+    expect(deepest).toBe(segment.maxDrawdown.value);
+    // 独立 underwater 谷底：迭代剥离的第一轮即全局最深段。
+    let peak = prices[0]!;
+    const underwater = prices.map((value) => {
+      peak = Math.max(peak, value);
+      return 1 - value / peak;
+    });
+    expect(deepest).toBeCloseTo(Math.max(...underwater), 14);
+  });
+  it("U3 单调上涨零段，超过 Top 10 的全量数据不截断", () => {
+    expect(curve([100, 101, 102]).segments[0]!.drawdowns).toEqual([]);
+    const prices = [100, ...Array.from({ length: 12 }, () => [90, 100]).flat()];
+    const result = curve(prices).segments[0]!.drawdowns;
+    expect(result).toHaveLength(12);
+    expect(result.map((row) => row.peakDate)).toEqual(
+      Array.from({ length: 12 }, (_, i) => d(i * 2 + 1)),
+    );
+  });
+
   it("月度收益包含跨月首日对前月末的收益", () => {
     const dates = ["2026-01-30", "2026-02-02", "2026-02-03"];
     const r = run({
@@ -1010,4 +1087,53 @@ describe("R11 逆回购面值本金", () => {
     );
     expect(r.warnings.join()).toContain("无法确定面值");
   });
+});
+
+it("U3 服务端跨页排序、未修复优先、全量导出与响应剥离", () => {
+  const segment = curve([
+    100,
+    ...Array.from({ length: 11 }, (_, i) => [70 + i, 100]).flat(),
+    99,
+  ]).segments[0]!;
+  const before = structuredClone(segment);
+  const input = {
+    pageIndex: 0,
+    pageSize: 10,
+    sort: "drawdown" as const,
+    desc: true,
+  };
+  const first = pageTradeReviewDrawdowns([segment], input);
+  const second = pageTradeReviewDrawdowns([segment], {
+    ...input,
+    pageIndex: 1,
+  });
+  expect(first.drawdownCount).toBe(12);
+  expect(first.drawdowns).toHaveLength(10);
+  expect(second.drawdowns).toHaveLength(2);
+  expect(
+    [...first.drawdowns, ...second.drawdowns].map((r) => r.peakDate),
+  ).toEqual(segment.drawdowns.map((r) => r.peakDate));
+  expect(first.drawdowns[0]!.recovered).toBe(false);
+  expect(first.segments[0]).not.toHaveProperty("drawdowns");
+  expect(
+    pageTradeReviewDrawdowns([segment], { ...input, pageIndex: 2 }).drawdowns,
+  ).toEqual([]);
+  const ascending = pageTradeReviewDrawdowns([segment], {
+    ...input,
+    desc: false,
+  });
+  expect(ascending.drawdowns[0]!.recovered).toBe(false);
+  expect(ascending.drawdowns[1]!.drawdown).toBeCloseTo(0.2);
+  const dates = pageTradeReviewDrawdowns([segment], {
+    ...input,
+    sort: "peakDate",
+    desc: false,
+  });
+  expect(dates.drawdowns.slice(0, 3).map((r) => r.peakDate)).toEqual([
+    d(23),
+    d(1),
+    d(3),
+  ]);
+  expect(segment).toEqual(before);
+  expect(JSON.parse(JSON.stringify(segment)).drawdowns).toHaveLength(12);
 });

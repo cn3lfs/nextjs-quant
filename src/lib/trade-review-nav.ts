@@ -42,11 +42,16 @@ function drawdowns(points: Point[]) {
     recoveryDate: string | null;
     recovered: boolean;
     underwaterTradingDays: number;
+    drawdownTradingDays: number;
+    recoveryTradingDays: number | null;
     drawdown: number;
   }[] = [];
   let peak = points[0]!;
+  let peakIndex = 0;
+  let troughIndex = 0;
   let active: (typeof result)[number] | null = null;
-  for (const point of points.slice(1)) {
+  for (let index = 1; index < points.length; index++) {
+    const point = points[index]!;
     // Chained floating-point returns can put an exact recovery a few ulps below its peak.
     if (
       point.value >= peak.value ||
@@ -55,10 +60,12 @@ function drawdowns(points: Point[]) {
       if (active) {
         active.recoveryDate = point.date;
         active.recovered = true;
+        active.recoveryTradingDays = index - troughIndex;
         result.push(active);
         active = null;
       }
       peak = point;
+      peakIndex = index;
     } else {
       active ??= {
         peakDate: peak.date,
@@ -66,6 +73,8 @@ function drawdowns(points: Point[]) {
         recoveryDate: null,
         recovered: false,
         underwaterTradingDays: 0,
+        drawdownTradingDays: 0,
+        recoveryTradingDays: null,
         drawdown: 0,
       };
       active.underwaterTradingDays++;
@@ -73,11 +82,18 @@ function drawdowns(points: Point[]) {
       if (depth > active.drawdown) {
         active.drawdown = depth;
         active.troughDate = point.date;
+        troughIndex = index;
+        active.drawdownTradingDays = index - peakIndex;
       }
     }
   }
   if (active) result.push(active);
-  return result;
+  return result.sort(
+    (a, b) =>
+      Number(a.recovered) - Number(b.recovered) ||
+      b.drawdown - a.drawdown ||
+      a.peakDate.localeCompare(b.peakDate),
+  );
 }
 
 function statistics(
@@ -164,6 +180,8 @@ function statistics(
         : null,
       unavailableReason ?? "无每日收益或最大回撤为零",
     ),
+    // U3 §2.3 mentions two U1 baselines; the current core exposes only maxDrawdown.
+    // Keep these same points and opening baseline; do not rebase to the first close.
     drawdowns: drawdowns(points),
     benchmark: {
       totalReturn: metric(

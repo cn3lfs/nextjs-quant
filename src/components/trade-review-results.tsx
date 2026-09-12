@@ -14,6 +14,12 @@ import {
   ReviewDisclosure,
   ReviewDiagnostics,
 } from "./trade-review-diagnostics";
+import { Button } from "./ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 import { Badge } from "./ui/badge";
 
 export type TradeReviewData = RouterOutputs["tradeReviewSnapshot"];
@@ -222,8 +228,17 @@ export function TradeReviewResults({
   onMonthPaginationChange,
   pointTable,
   attributionTable,
+  drawdownTable,
+  drawdownsOpen,
+  onDrawdownsOpenChange,
 }: {
   data: TradeReviewData;
+  drawdownsOpen: boolean;
+  onDrawdownsOpenChange: (open: boolean) => void;
+  drawdownTable: Pick<
+    DataTableProps<TradeReviewData["drawdowns"][number]>,
+    "pagination" | "sorting" | "onPaginationChange" | "onSortingChange"
+  >;
   pointTable: Pick<
     DataTableProps<TradeReviewData["tradePoints"][number]>,
     "pagination" | "sorting" | "onPaginationChange" | "onSortingChange"
@@ -245,6 +260,64 @@ export function TradeReviewResults({
   | "loading"
 >) {
   const nav = data.nav;
+  const drawdownDetails = (
+    <DataTable
+      label="回撤明细"
+      data={data.drawdowns}
+      rowCount={data.drawdownCount}
+      {...drawdownTable}
+      loading={loading}
+      showPagination={drawdownsOpen}
+      getRowId={(row) => row.id}
+      emptyMessage="没有回撤区间。"
+      columns={[
+        {
+          accessorKey: "peakDate",
+          header: "前高日",
+          cell: (c) => (
+            <span
+              title={`连续段 ${c.row.original.segmentStart} — ${c.row.original.segmentEnd}`}
+            >
+              {c.row.original.peakDate}
+            </span>
+          ),
+        },
+        { accessorKey: "troughDate", header: "谷底日" },
+        {
+          accessorKey: "recoveryDate",
+          header: "修复日",
+          cell: (c) => c.row.original.recoveryDate ?? "未修复",
+        },
+        {
+          accessorKey: "drawdown",
+          header: "回撤幅度",
+          cell: (c) =>
+            c.row.original.basis === "compound"
+              ? `${(c.row.original.drawdown * 100).toFixed(2)}%（复利）`
+              : `${c.row.original.drawdown.toFixed(4)}（单利绝对值）`,
+        },
+        { accessorKey: "drawdownTradingDays", header: "下跌交易日" },
+        {
+          accessorKey: "recoveryTradingDays",
+          header: "恢复交易日",
+          cell: (c) => c.row.original.recoveryTradingDays ?? "未修复",
+        },
+        { accessorKey: "underwaterTradingDays", header: "水下交易日" },
+        {
+          id: "status",
+          header: "状态",
+          enableSorting: false,
+          cell: (c) => (
+            <Badge
+              variant={c.row.original.recovered ? "secondary" : "destructive"}
+            >
+              {c.row.original.recovered ? "已修复" : "未修复"}
+            </Badge>
+          ),
+        },
+      ]}
+    />
+  );
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">{data.account} · 交易复盘</h2>
@@ -411,28 +484,27 @@ export function TradeReviewResults({
                   {metric(segment.sharpe)} · Sortino：{metric(segment.sortino)}{" "}
                   · Calmar：{metric(segment.calmar)}
                 </p>
-                <h4 className="font-medium">回撤区间明细</h4>
-                <ReviewDisclosure
-                  label={`回撤区间，共 ${segment.drawdowns.length} 段`}
-                >
-                  {segment.drawdowns.length ? (
-                    segment.drawdowns.map((drawdown, j) => (
-                      <p key={j}>
-                        峰值日 {drawdown.peakDate} · 谷底日{" "}
-                        {drawdown.troughDate} · 恢复日{" "}
-                        {drawdown.recoveryDate ?? "尚未恢复"} · 回撤{" "}
-                        {(drawdown.drawdown * 100).toFixed(2)}% · 水下{" "}
-                        {drawdown.underwaterTradingDays} 个交易日
-                      </p>
-                    ))
-                  ) : (
-                    <p>该连续段没有回撤区间。</p>
-                  )}
-                </ReviewDisclosure>
               </CardContent>
             </Card>
           ))}
         </ReviewDisclosure>
+        <h4 className="font-medium">回撤明细</h4>
+        <p className="text-sm text-muted-foreground">
+          未修复段始终优先；默认按回撤幅度从深到浅，每页 10
+          段。各连续段独立计算，不跨缺口连接；复利为比例，单利为绝对值。
+        </p>
+
+        <Collapsible open={drawdownsOpen} onOpenChange={onDrawdownsOpenChange}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline">
+              共 {data.drawdownCount} 段，{drawdownsOpen ? "收起" : "展开查看"}
+            </Button>
+          </CollapsibleTrigger>
+          {!drawdownsOpen && drawdownDetails}
+          <CollapsibleContent>
+            {drawdownsOpen && drawdownDetails}
+          </CollapsibleContent>
+        </Collapsible>
         <h4 className="font-medium">月度收益表</h4>
         <DataTable
           label="月度收益"

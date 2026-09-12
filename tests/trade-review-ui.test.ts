@@ -60,12 +60,22 @@ it("R7 页面展示连续段TWR与起止日期", () => {
         pointCount: 0,
         attributionCount: 0,
         monthCount: 1,
+        drawdowns: [],
+        drawdownCount: 0,
         attribution: [],
         excludedCashFlows: [],
         feeSources: [],
       },
       method: "movingAverage",
       onMethodChange: () => {},
+      drawdownsOpen: false,
+      onDrawdownsOpenChange: () => {},
+      drawdownTable: {
+        pagination: { pageIndex: 0, pageSize: 10 },
+        sorting: [{ id: "drawdown", desc: true }],
+        onPaginationChange: () => {},
+        onSortingChange: () => {},
+      },
       pointTable: {
         pagination: { pageIndex: 0, pageSize: 10 },
         sorting: [],
@@ -87,6 +97,9 @@ it("R7 页面展示连续段TWR与起止日期", () => {
     }),
   );
   expect(html).toContain("分段 TWR：10.00%");
+  expect(html).toContain('aria-label="回撤明细"');
+  expect(html).toContain("没有回撤区间。");
+  expect(html).toContain("展开查看");
   expect(html).toContain("2026-01-01");
   expect(html).toContain("2026-01-02");
 });

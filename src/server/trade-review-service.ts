@@ -369,3 +369,58 @@ export function exportTradeReview(
 ) {
   return JSON.stringify(snapshot, null, 2);
 }
+
+/** U3: sort the complete set before slicing; never mutate export evidence. */
+export function pageTradeReviewDrawdowns(
+  segments: ReturnType<typeof reviewTradeNav>["segments"],
+  input: {
+    pageIndex: number;
+    pageSize: number;
+    sort:
+      | "peakDate"
+      | "troughDate"
+      | "recoveryDate"
+      | "drawdown"
+      | "drawdownTradingDays"
+      | "recoveryTradingDays"
+      | "underwaterTradingDays";
+    desc: boolean;
+  },
+) {
+  const rows = segments
+    .flatMap((segment, segmentIndex) =>
+      segment.drawdowns.map((row) => ({
+        ...row,
+        basis: segment.wbtStats.basis,
+        segmentStart: segment.start,
+        segmentEnd: segment.end,
+        id: `${segmentIndex}:${row.peakDate}`,
+      })),
+    )
+    .sort((a, b) => {
+      const status = Number(a.recovered) - Number(b.recovered);
+      if (status) return status;
+      const x = a[input.sort],
+        y = b[input.sort];
+      if (x === null || y === null) {
+        if (x !== y) return x === null ? 1 : -1;
+      } else {
+        const order =
+          typeof x === "number" && typeof y === "number"
+            ? x - y
+            : String(x).localeCompare(String(y));
+        if (order) return input.desc ? -order : order;
+      }
+      return a.peakDate.localeCompare(b.peakDate) || a.id.localeCompare(b.id);
+    });
+  return {
+    // U3 §1 says export-only, but the old UI received nested full arrays.
+    // Remove them from the page projection; export retains the source snapshot.
+    segments: segments.map(({ drawdowns: _drawdowns, ...segment }) => segment),
+    drawdowns: rows.slice(
+      input.pageIndex * input.pageSize,
+      (input.pageIndex + 1) * input.pageSize,
+    ),
+    drawdownCount: rows.length,
+  };
+}

@@ -218,6 +218,14 @@ it("paginates and sorts on the server for both methods without hidden full-round
         data: first,
         method,
         onMethodChange: () => {},
+        drawdownsOpen: false,
+        onDrawdownsOpenChange: () => {},
+        drawdownTable: {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [{ id: "drawdown", desc: true }],
+          onPaginationChange: () => {},
+          onSortingChange: () => {},
+        },
         pointTable: {
           pagination: { pageIndex: 0, pageSize: 10 },
           sorting: [],
@@ -338,6 +346,14 @@ it("R13 bounds both table payloads and preserves 2543 fills and dated diagnostic
         onSortingChange: () => {},
         monthPagination: { pageIndex: 0, pageSize: 12 },
         onMonthPaginationChange: () => {},
+        drawdownsOpen: false,
+        onDrawdownsOpenChange: () => {},
+        drawdownTable: {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [{ id: "drawdown", desc: true }],
+          onPaginationChange: () => {},
+          onSortingChange: () => {},
+        },
         pointTable: {
           pagination: { pageIndex: 0, pageSize: 10 },
           sorting: [],
