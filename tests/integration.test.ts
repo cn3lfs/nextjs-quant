@@ -151,7 +151,7 @@ describe("HTTP 与数据适配集成", () => {
       const before = db.prepare("SELECT * FROM records").all();
       migrate(db);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
-      expect(db.pragma("user_version", { simple: true })).toBe(9);
+      expect(db.pragma("user_version", { simple: true })).toBe(10);
       expect(
         db.prepare("SELECT COUNT(*) AS n FROM concept_rps_days").get(),
       ).toEqual({ n: 0 });

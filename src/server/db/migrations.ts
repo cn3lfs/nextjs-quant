@@ -37,6 +37,22 @@ const migrations = [
   `CREATE TABLE concept_rps_days (date TEXT PRIMARY KEY, payload TEXT NOT NULL);
    CREATE TABLE concept_rps_values (symbol TEXT NOT NULL, date TEXT NOT NULL, values_blob BLOB NOT NULL, PRIMARY KEY(symbol,date)) WITHOUT ROWID;
    CREATE INDEX concept_rps_values_date ON concept_rps_values(date,symbol);`,
+  `CREATE TABLE import_batches (
+     id TEXT PRIMARY KEY, account TEXT NOT NULL, source TEXT NOT NULL,
+     file_hash TEXT NOT NULL, file_name TEXT NOT NULL,
+     imported_at INTEGER NOT NULL, payload TEXT NOT NULL);
+   CREATE UNIQUE INDEX import_batches_file ON import_batches(account,file_hash);
+   CREATE TABLE trade_fills (
+     id TEXT PRIMARY KEY, account TEXT NOT NULL, symbol TEXT, code TEXT NOT NULL,
+     trade_date TEXT NOT NULL, batch_id TEXT NOT NULL REFERENCES import_batches(id),
+     payload TEXT NOT NULL);
+   CREATE INDEX trade_fills_account_date ON trade_fills(account,trade_date,code);
+   CREATE INDEX trade_fills_batch ON trade_fills(batch_id);
+   CREATE TABLE cash_flows (
+     id TEXT PRIMARY KEY, account TEXT NOT NULL, flow_date TEXT NOT NULL,
+     batch_id TEXT NOT NULL REFERENCES import_batches(id), payload TEXT NOT NULL);
+   CREATE INDEX cash_flows_account_date ON cash_flows(account,flow_date);
+   CREATE INDEX cash_flows_batch ON cash_flows(batch_id);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;
