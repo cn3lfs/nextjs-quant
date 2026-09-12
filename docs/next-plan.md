@@ -137,3 +137,59 @@ R11 已按[任务书](tasks/r11-repo-principal.md)将逆回购本金改为数量
 R12 已按[任务书](tasks/r12-price-scale.md)修正复盘专用日线价格除数并接入成交额/成交量校验、沪深转债数量单位核对及可重放诊断；不可信标的列入缺行情并停止估值。共享股票解析入口保持不变；真实账户 §4 数值仍待管理者复验。
 
 R13 按[任务书](tasks/r13-review-ui-scale.md)补齐买卖点与归因的服务端排序分页，保留回合分页并在成本口径切换时重置各页。净值不可得原因按日期结构化，展示归并并折叠长列表，完整 JSON 不截断。已实现代码与隔离规模样本；浏览器连接失败，首屏无障碍树千行以内、实际翻页与折叠交互尚未完成浏览器验收。
+
+## 6. U 系列：绩效评估与执行质量（2026-09-12 立项）
+
+调研 [czscflow](https://github.com/zengbin93/czscflow)（MIT，commit `1c22ebb`）后立项。
+只借鉴口径与信息架构，**不引入依赖**。
+
+**口径权威来源是 [wbt](https://github.com/zengbin93/wbt)（MIT，v0.9.1，commit `39bb1e8`）**，
+不是 czsc 也不是 czscflow。链路：`waditu/czsc` 已 Rust 化，
+`daily_performance` / `top_drawdowns` / `WeightBacktest` 全部改为从硬依赖 `wbt` 导入
+（`czsc/__init__.py:24`）；czscflow 用的私有 submodule `rs_czsc` 是同一引擎的另一分发。
+wbt 仓库公开、有完整 Rust 源码和**手算验收表**（`docs/daily_performance_degenerate.md`），
+可直接作为测试 fixture。czsc Python `v0.9.69-a` 的旧实现**已被 wbt 修正两处**
+（新高间隔的 `Counter` 缺陷、回撤基线不含 t=0 本金），不得引用。
+
+czscflow 的因子分析、收益比对、单品种详情、期货主连四个路由均指向
+`views/empty/index.vue`，是空壳，不在借鉴范围。
+
+已定口径：**收益复利为主、单利仅作对照**；**滑点基准用当日 VWAP（成交额/成交量）**。
+
+| 批次 | 内容 | 依赖 |
+| --- | --- | --- |
+| [U1](tasks/u1-daily-performance.md) | 统一日收益指标核，17 项单入口，复利/单利双口径 | 无 |
+| [U2](tasks/u2-period-performance.md) | 8 段分段表现 + 12 窗口近 N 天收益矩阵 | U1 |
+| [U3](tasks/u3-drawdown-detail.md) | Top-N 回撤明细表 | U1 |
+| [U4](tasks/u4-execution-quality.md) | 逐笔滑点、执行成本、VWAP 反事实执行损耗 | U1 |
+| [U8](tasks/u8-strategy-admission.md) | 策略准入判定（history / recent 双模式） | U1 |
+
+顺序 U1 → U2 / U3（可并行）→ U4 → U8。U1 未合入前其余不开工。
+
+待议未排期：**U5** 归因增强（月度热力图、年度统计、收益贡献、相关性矩阵、
+`DataTable` 色阶列）；**U6** 三段样本治理（研究样本内 / 研究样本外 /
+系统跟踪样本外，我们目前只有两段）；**U7** 权重表回测范式
+（策略统一降维成 `(dt, symbol, weight)` 走同一回测器，改造面大，
+先验证与 E3 现有结果等价再谈替换）。
+
+[U8](tasks/u8-strategy-admission.md) 已出任务书，依赖 U1，排在 U4 之后：
+策略准入判定，把「这策略能不能搞」写成可复现判据。
+`history` 模式要求每个完整自然年三选一合格（绝对收益>0 / 波动率归一超额>0 /
+当年超额回撤<阈值），全部通过后再过两道全样本硬门（超额回撤≤阈值、Sharpe>阈值）；
+`recent` 模式要求尾部 N 天三选一，且近期超额回撤严格小于**错开该窗口后**的历史超额回撤。
+本地化三处：纯多头故 long==strategy、判定内部用单利口径以继承 wbt 阈值语义、
+结论继承输入的 `evidenceLevel`。**阈值必须先在本账户标定，未标定前页面不显示结论。**
+
+读 wbt 源码后新增的其余候选，均未排期、未评估：
+
+- **U9 关键交易**（`key_trades.rs`）—— 每年最赚/最亏的交易，
+  按 `(symbol, 开仓时间, 平仓时间)` 聚合去重（LIFO 撮合会产生多条部分成交），
+  盈亏比例按成交量加权。我们 R 系列已有回合配对，接上去成本不高。
+- **U10 滚动绩效**（`rolling_daily_performance.rs`）—— 滚动窗口跑全套指标，
+  看夏普/回撤随时间怎么走，比单一全样本数字诚实得多。
+- **U11 持仓风险**（`position_risk.rs` + `docs/position_risk.md`）——
+  总风险、多空风险、净敞口、单一最大持仓、**赫芬达尔指数**、多空比。
+  赫芬达尔指数直接回答「我是不是把钱全压在一个票上」。
+
+明确不借鉴：Tauri/Rust 与 vben 全家桶、多用户 RBAC、实盘下单与账户托管、
+在线执行策略 Python 代码、czsc 的 0 填充与夏普/卡玛 clamp。
