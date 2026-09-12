@@ -44,6 +44,15 @@
 - **测试**：[position-risk.test.ts](../tests/position-risk.test.ts)、[trade-review-nav.test.ts](../tests/trade-review-nav.test.ts)、[position-risk-service.test.ts](../tests/position-risk-service.test.ts)、[position-risk-api.test.ts](../tests/position-risk-api.test.ts)、[position-risk-chart.test.ts](../tests/position-risk-chart.test.ts) 保护手算、逆回购、缺失、原数值、分页及断线。
 - **违反会怎样**：把集中持仓展示成分散、现金或逆回购伪装方向敞口，或令已验收净值漂移。
 
+### U5 持仓价格收益相关性
+
+- **是什么**：证券集合取 U11 的区间内非零 `positions`，排除逆回购。价格取复盘快照中经 R12 校验的未复权日线，按完整交易日历计算 `close[t]/close[t-1]-1`，不读取 `positionValues`；只统计复盘区间收益，允许区间前一交易日作为首日基价。
+- **是什么（缺失）**：Pearson 逐对使用两边均有收益的日期，返回 `overlapDays`；不足 20 日返回 null 和固定原因。缺价不跨日连接，非正/非有限/重复日期价格不可用；无收益标的整行整列留空，零方差亦留空。对角线只在足够样本且非退化时为 1。平均只含可得无序证券对，不含对角线。
+- **是什么（分页）**：服务端按证券排序分页，默认 10 行、最多 20 行；客户端仅收到当前页行对全部证券的单元格，不传全量 N×N。全体证券对摘要不随页码改变。
+- **为什么**：仓位市值含买卖股数变化；缺价跨日会把多日收益混入日收益，小样本和零方差不能伪装可靠相关性。
+- **测试**：[holdings-correlation.test.ts](../tests/holdings-correlation.test.ts)、[holdings-correlation-api.test.ts](../tests/holdings-correlation-api.test.ts) 保护手算、19/20/21、缺失、数量不变性、逆回购、分页及路由。真实账户与浏览器尚未验收。
+- **违反会怎样**：交易行为被误认为价格联动，缺失或小样本被误读为分散依据。
+
 ### U4 执行质量与反事实
 
 - **是什么**：日 VWAP 只经 [trade-review-vwap.ts](../src/lib/trade-review-vwap.ts) 的 `tradeReviewDayVwap` 计算，R12 价格除数校验与 U4 共用；基准具名为 `dayVwap`，不是委托价。成交量或成交额非正、非有限、缺唯一当日日线时留空并说明，不拿收盘价或原成交价替代。可得的一字板等不主观剔除，按成交额筛选。

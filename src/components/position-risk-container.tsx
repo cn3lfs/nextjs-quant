@@ -1,4 +1,5 @@
 "use client";
+import { HoldingsCorrelationContainer } from "./holdings-correlation-container";
 import { useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
@@ -46,7 +47,9 @@ export function PositionRiskContainer({ account }: { account: string }) {
               },
               loading: query.isFetching,
             }}
-          />
+          >
+            <HoldingsCorrelationContainer account={account} />
+          </PositionRiskResults>
         )
       )}
     </section>

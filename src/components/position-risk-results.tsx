@@ -30,7 +30,9 @@ const columns: DataTableColumn<PositionRiskPoint>[] = [
 export function PositionRiskResults({
   data,
   table,
+  children,
 }: {
+  children?: import("react").ReactNode;
   data: RouterOutputs["tradeReviewPositionRisk"];
   table: Pick<
     DataTableProps<PositionRiskPoint>,
@@ -57,6 +59,7 @@ export function PositionRiskResults({
             : `${(summary.maxSingleWeight * 100).toFixed(2)}%`}
           （{summary.maxSingleWeightDate ?? "无日期"}，并列取最早日）。
         </p>
+        {children}
         <p className="text-sm text-muted-foreground">
           总资产口径赫芬达尔以 nav
           为分母，含现金稀释；持仓口径赫芬达尔以持仓市值合计为分母，等效持仓只数为其倒数。未到期逆回购本金只进总资产，不进方向性持仓分子。任一持仓缺行情时，当日指标全部留空；空仓集中度无定义。摘要仅统计可得日{" "}

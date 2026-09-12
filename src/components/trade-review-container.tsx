@@ -131,6 +131,7 @@ export function TradeReviewContainer() {
       utils.tradeReviewPeriodPerformance.invalidate(),
       utils.tradeReviewRollingPerformance.invalidate(),
       utils.tradeReviewPositionRisk.invalidate(),
+      utils.tradeReviewHoldingsCorrelation.invalidate(),
       utils.tradeReviewAdmission.invalidate(),
       utils.tradeReviewAdmissionExport.invalidate(),
       utils.tradeReviewExecution.invalidate(),

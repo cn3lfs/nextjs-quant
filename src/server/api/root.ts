@@ -1,3 +1,7 @@
+import {
+  holdingsCorrelationPageSchema,
+  pageHoldingsCorrelation,
+} from "../holdings-correlation-service";
 import { keyTrades } from "~/lib/key-trades";
 import {
   positionRiskPageSchema,
@@ -436,6 +440,23 @@ export const appRouter = createTRPCRouter({
         input.partition,
         admissionPageSchema.parse(input),
       ).exported;
+    }),
+  tradeReviewHoldingsCorrelation: p
+    .input(
+      holdingsCorrelationPageSchema.extend({
+        account: z.string().trim().min(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return pageHoldingsCorrelation(
+        {
+          days: review.snapshot.nav.days,
+          tradingDays: review.fullTradingDays,
+          bars: review.snapshot.replayInput.trades.bars ?? {},
+        },
+        input,
+      );
     }),
   tradeReviewPositionRisk: p
     .input(positionRiskPageSchema.extend({ account: z.string().trim().min(1) }))
