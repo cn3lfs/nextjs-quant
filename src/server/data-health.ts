@@ -81,6 +81,95 @@ export async function localCalendarReference(
     return { days: [], source: "交易日期参考不可用", hash: null };
   }
 }
+function calendarCoverage(days: string[]) {
+  return {
+    start: days.length ? days.reduce((a, b) => (a < b ? a : b)) : null,
+    end: days.length ? days.reduce((a, b) => (a > b ? a : b)) : null,
+    count: days.length,
+  };
+}
+export async function fullLocalCalendarReference(
+  root: string,
+  overrides: string[],
+): Promise<
+  CalendarReference & {
+    coverage: { start: string | null; end: string | null; count: number };
+  }
+> {
+  if (overrides.length)
+    return {
+      days: overrides,
+      coverage: calendarCoverage(overrides),
+      source: "用户确认的交易日期",
+      hash: createHash("sha256")
+        .update(JSON.stringify(overrides))
+        .digest("hex"),
+    };
+  try {
+    const path = join(root, "vipdoc", "sh", "lday", "sh000001.day");
+    const handle = await open(path, "r");
+    let bytes: Buffer;
+    try {
+      const before = await handle.stat();
+      if (!before.isFile() || before.size % 32)
+        throw new Error("指数日期记录不完整");
+      const size = before.size;
+      bytes = Buffer.alloc(size);
+      let offset = 0;
+      while (offset < size) {
+        const { bytesRead } = await handle.read(
+          bytes,
+          offset,
+          size - offset,
+          offset,
+        );
+        if (!bytesRead) break;
+        offset += bytesRead;
+      }
+      const after = await handle.stat(),
+        current = await stat(path);
+      const unchanged = (value: typeof before) =>
+        value.dev === before.dev &&
+        value.ino === before.ino &&
+        value.size === before.size &&
+        value.mtimeMs === before.mtimeMs &&
+        value.ctimeMs === before.ctimeMs &&
+        value.birthtimeMs === before.birthtimeMs;
+      if (offset !== size || !unchanged(after) || !unchanged(current))
+        throw new Error("指数日期文件读取期间发生变化");
+    } finally {
+      await handle.close();
+    }
+    const days: string[] = [];
+    // Calendar membership depends only on dates, including early records with invalid OHLC.
+    for (let offset = 0; offset < bytes.length; offset += 32) {
+      const raw = String(bytes.readUInt32LE(offset)).padStart(8, "0");
+      const day = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`;
+      const parsed = new Date(day);
+      if (
+        raw.length !== 8 ||
+        raw.slice(0, 4) === "0000" ||
+        !Number.isFinite(+parsed) ||
+        parsed.toISOString().slice(0, 10) !== day
+      )
+        throw new Error(`指数日期非法：${raw}`);
+      if (days.length && day <= days[days.length - 1]!)
+        throw new Error(`指数日期倒序或重复：${day}`);
+      days.push(day);
+    }
+    return {
+      days,
+      coverage: calendarCoverage(days),
+      source: "本地上证指数全部已有交易日期（非完整官方日历）",
+      hash: createHash("sha256").update(bytes).digest("hex"),
+    };
+  } catch (error) {
+    throw new Error(
+      `完整交易日期参考读取失败：${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
 export function screenDataHealth(
   asOf: string | null,
   period: Period,
