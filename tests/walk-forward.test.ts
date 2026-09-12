@@ -132,3 +132,17 @@ it("候选合法去重，拒绝不足数据、分钟线及越过历史截止", (
     backtest(source.bars, strategy, source.id, 100000, defaultBacktestCosts, 2),
   ).toThrow("预热");
 });
+it("V1 接入前 summary 数值特征化护栏", () => {
+  expect(
+    walkForward(source, strategy, 100000, defaultBacktestCosts, options)
+      .summary,
+  ).toEqual({
+    folds: 7,
+    positiveFolds: 5,
+    averageReturn: 6.544974497455101,
+    medianReturn: 4.566050066345806,
+    worstReturn: -0.21876888198689715,
+    worstDrawdown: 0.3946594912975181,
+    averageBenchmarkReturn: 1.2507214207768094,
+  });
+});

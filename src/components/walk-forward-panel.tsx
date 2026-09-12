@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { WalkForwardExplanation } from "./walk-forward-explanation";
 import { BacktestActionsPanel } from "./backtest-actions";
+import { MultipleTestingPanel } from "./multiple-testing-panel";
 const percent = (value: number) => `${value.toFixed(2)}%`;
 export function WalkForwardPanel({
   snapshot,
@@ -177,6 +178,7 @@ export function WalkForwardPanel({
           {result.id && (
             <WalkForwardExplanation key={result.id} id={result.id} />
           )}
+          <MultipleTestingPanel result={result.multipleTesting} />
           <BacktestActionsPanel review={result.corporateActions} />
           <div className="table-wrap">
             <table>

@@ -238,13 +238,13 @@ U7a 已产出[只读等价性报告](review/u7a-weight-equivalence.md)：受控�
 
 ### 批次与顺序
 
-| 批次 | 内容 | 依赖 |
-| --- | --- | --- |
-| [V1](tasks/v1-deflated-sharpe.md) | 试验计数与紧缩夏普：PSR/DSR 纯函数核 + 候选试验矩阵 + 接入滚动检验 | 无 |
-| [V2](tasks/v2-backtest-overfit.md) | 回测过拟合概率 PBO（CSCV 组合对称交叉验证） | V1 的试验矩阵 |
-| [V3](tasks/v3-signal-information.md) | 信号台账的信息含量：RankIC、评分分层、持有期衰减 | 无（与 V1/V2 无耦合） |
-| [V4](tasks/v4-universe-pit.md) | 证券池时点审计：未上市/已退市/代码变更的可核对数字 | 无 |
-| [V5](tasks/v5-holdout-registry.md) | 留出集与研究使用台账 | V1、V2（"一次试验"的定义由它们确定） |
+| 批次                                 | 内容                                                               | 依赖                                 |
+| ------------------------------------ | ------------------------------------------------------------------ | ------------------------------------ |
+| [V1](tasks/v1-deflated-sharpe.md)    | 试验计数与紧缩夏普：PSR/DSR 纯函数核 + 候选试验矩阵 + 接入滚动检验 | 无                                   |
+| [V2](tasks/v2-backtest-overfit.md)   | 回测过拟合概率 PBO（CSCV 组合对称交叉验证）                        | V1 的试验矩阵                        |
+| [V3](tasks/v3-signal-information.md) | 信号台账的信息含量：RankIC、评分分层、持有期衰减                   | 无（与 V1/V2 无耦合）                |
+| [V4](tasks/v4-universe-pit.md)       | 证券池时点审计：未上市/已退市/代码变更的可核对数字                 | 无                                   |
+| [V5](tasks/v5-holdout-registry.md)   | 留出集与研究使用台账                                               | V1、V2（"一次试验"的定义由它们确定） |
 
 顺序 **V1 → V2 → V3 → V4 → V5**，串行。理由与 U 系列相同：串行的返工成本最低，
 且 V2 直接复用 V1 的矩阵、V5 依赖 V1/V2 对试验的定义。V3 与 V4 之间没有依赖，
@@ -268,3 +268,5 @@ U7a 已产出[只读等价性报告](review/u7a-weight-equivalence.md)：受控�
 → 管理者独立跑 typecheck/test/prettier 并审 diff → 通过则本地提交 → 记入
 [v-series-log](review/v-series-log.md)**。执行者报告任务书有误时逐条核实，
 事实优先于任务书，裁定写进 `decisions.md`。
+
+V1 已实现 PSR/DSR 纯函数、全窗候选矩阵、独立 fold 测试收益拼接与过拟合修正展示；退化类型、实际页面入口和独立试验数局限见 [decisions](decisions.md)。原选参与 summary 保持，管理者独立审查及真实浏览器验收待执行；未进入 V2，无新增依赖、迁移、提交或打包。

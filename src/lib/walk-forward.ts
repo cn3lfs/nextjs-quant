@@ -1,8 +1,10 @@
 import { z } from "zod";
 import type { Backtest, Strategy } from "./domain";
+import type { MultipleTesting } from "./multiple-testing";
 export const walkForwardSchema = z.object({
   trainBars: z.number().int().min(60).max(2500).default(252),
   testBars: z.number().int().min(20).max(500).default(63),
+  yearlyDays: z.number().finite().positive().optional(),
 });
 export type WalkForwardOptions = z.infer<typeof walkForwardSchema>;
 export type WalkForwardResult = {
@@ -26,6 +28,8 @@ export type WalkForwardResult = {
   candidates: Strategy[];
   warmupBars: number;
   unusedTailBars: number;
+  /** 旧档案没有此字段，读取时不补算或伪造。 */
+  multipleTesting?: MultipleTesting;
   folds: {
     trainStart: string;
     trainEnd: string;

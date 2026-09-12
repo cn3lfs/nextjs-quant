@@ -7,6 +7,11 @@ import {
 } from "~/lib/walk-forward";
 import { backtestCostsSchema, type BacktestCosts } from "~/lib/backtest-costs";
 import { backtest } from "./quant";
+import {
+  equityDailyReturns,
+  multipleTesting,
+  sharpeDaily,
+} from "~/lib/multiple-testing";
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export function walkForwardCandidates(base: Strategy): Strategy[] {
@@ -23,6 +28,48 @@ export function walkForwardCandidates(base: Strategy): Strategy[] {
     for (const slow of values(strategy.slow, 3, 250))
       if (fast < slow) result.push({ ...strategy, fast, slow });
   return result;
+}
+
+export function candidateTrialMatrix(
+  source: Snapshot,
+  base: Strategy,
+  initial: number,
+  costInput: BacktestCosts,
+  raw: WalkForwardOptions,
+) {
+  walkForwardSchema.parse(raw);
+  if (
+    source.period !== "day" ||
+    !/^(sh(60|68)|sz(00|30)|bj(43|83|87|88|92))\d{4}$/.test(source.symbol)
+  )
+    throw new Error("滚动检验当前仅支持A股日线研究模拟");
+  if (!Number.isFinite(initial) || initial < 1000 || initial > 1e9)
+    throw new Error("初始资金非法");
+  if (
+    source.historicalAsOf &&
+    source.bars.some((b) => b.date.slice(0, 10) > source.historicalAsOf!)
+  )
+    throw new Error("行情超出历史截止日期");
+  if (source.bars.some((b, i) => i > 0 && b.date <= source.bars[i - 1]!.date))
+    throw new Error("行情日期必须严格递增");
+  const candidates = walkForwardCandidates(base);
+  const warmupBars = Math.max(...candidates.map((s) => s.slow)) + 2;
+  const costs = backtestCostsSchema.parse(costInput);
+  const returns = candidates.map((strategy) =>
+    equityDailyReturns(
+      backtest(source.bars, strategy, source.id, initial, costs, warmupBars)
+        .equity,
+      initial,
+    ),
+  );
+  const statistics = returns.map(sharpeDaily);
+  return {
+    candidates,
+    returns,
+    sharpes: statistics.map((s) => s.value),
+    sharpeReasons: statistics.map((s) => s.reason),
+    dates: source.bars.slice(warmupBars).map((b) => b.date),
+  };
 }
 export function walkForward(
   source: Snapshot,
@@ -114,6 +161,15 @@ export function walkForward(
     onProgress?.(fold + 1, count);
   }
   const returns = folds.map((f) => f.test.totalReturn).sort((a, b) => a - b);
+  const matrix = candidateTrialMatrix(source, base, initial, costs, options);
+  const testing = multipleTesting(
+    folds.flatMap((fold) => equityDailyReturns(fold.test.equity, initial)),
+    matrix.sharpes.map((value, i) => ({
+      value,
+      reason: matrix.sharpeReasons[i]!,
+    })),
+    options.yearlyDays ?? 252,
+  );
   return {
     version: "walk-forward-1",
     symbol: source.symbol,
@@ -127,6 +183,7 @@ export function walkForward(
     unusedTailBars:
       bars.length - warmupBars - options.trainBars - count * options.testBars,
     folds,
+    multipleTesting: testing,
     summary: {
       folds: count,
       positiveFolds: returns.filter((r) => r > 0).length,
@@ -148,6 +205,9 @@ export function walkForward(
       "价格涨幅为同一证券测试首根开盘到末根收盘的变化，未扣费用且不考虑整手或成交约束；另存同资金同成本买入持有模拟，策略超额仅指与该模拟的收益百分点差。两者均非市场指数。",
       "训练样本可能包含前轮测试数据，但每轮选参严格不使用本轮及以后测试行情。人工反复修改参数仍可能对整个历史过拟合。",
       ...folds[0]!.test.assumptions,
+      "Bailey & López de Prado（2014）：试验次数 N = 本次候选数，是实际试验数的下界；人工反复调整参数、更换标的、改窗口的次数不可观测，不计入 N，因此 DSR 是乐观估计，不构成业绩证据。",
+      "V[SR] 由预热后同一完整区间上 N 个候选的日夏普样本方差（ddof=1）估计，包含未满 fold 的尾部；候选高度相关时方差估计可能偏小、DSR 偏乐观。未估计论文所需的有效独立试验数，相关性的总体影响不保证方向。",
+      "PSR/DSR 检验各 fold 测试段日收益按时间顺序的拼接；每段按独立初始资金差分，跨 fold 换参数，不平滑、不跨 fold 复利归一，不是一个连续账户的收益。",
     ],
   };
 }
