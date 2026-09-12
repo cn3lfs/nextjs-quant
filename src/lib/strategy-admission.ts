@@ -265,9 +265,22 @@ export function strategyAdmission(input: StrategyAdmissionInput) {
 }
 export type StrategyAdmission = ReturnType<typeof strategyAdmission>;
 
-/** §4 未有管理者标定决定：没有可由 UI 参数解除的开关。 */
+/** 阈值口径：**行业通行值，未按本账户标定**（2026-09-12 用户决定，见 decisions.md）。
+ *
+ * 默认值没有改动，因为它们本身就是通行值——关键在 `minFullSharpe` 作用于
+ * 波动率归一后的超额序列，那是**信息比率**而非夏普，0.5 正是 Grinold–Kahn
+ * 分级里的「合格」线（0.75 很好、1.0 卓越）。在没有本账户分布的情况下
+ * 调整数字只是假精确。
+ *
+ * 因此结论可以显示，但**必须带出处**：通行口径下的通过不等于
+ * 「这套阈值适合这个账户」，更不等于策略赚钱。证据级别不是真实账户时
+ * 进一步降格为「在该数据前提下」。
+ */
 export function admissionConclusion(
-  _result: Pick<StrategyAdmission, "isGood" | "evidenceLevel">,
+  result: Pick<StrategyAdmission, "isGood" | "evidenceLevel">,
 ) {
-  return "未标定";
+  const verdict = result.isGood ? "通过" : "未通过";
+  return result.evidenceLevel === "真实账户交割单"
+    ? `${verdict}（行业通行口径，未按本账户标定）`
+    : `${verdict}（在该数据前提下；行业通行口径，未按本账户标定）`;
 }

@@ -100,7 +100,7 @@ export function StrategyAdmissionResults({
         </p>
         {h.evidenceLevel !== "真实账户交割单" && (
           <p>
-            即使指标条件满足，也只能称为「在该数据前提下通过」；当前总体结论仍为未标定。
+            输入不是真实账户交割单，结论只在该数据前提下成立，不能当作账户业绩判定。
           </p>
         )}
         <Facts

@@ -136,9 +136,13 @@ export function exportStrategyAdmission(
   }));
   return {
     version: "strategy-admission-export-1" as const,
-    calibrationStatus: "未标定" as const,
+    calibrationStatus: "行业通行口径" as const,
     thresholdSource:
-      "wbt 默认值，未针对本账户标定；自定义参数仅作观察，不代表已标定",
+      "阈值为行业通行值，适用范围 A 股，未按本账户标定（2026-09-12）：" +
+      "minFullSharpe 作用于波动率归一超额序列，实为信息比率，0.5 是 Grinold–Kahn 的合格线（0.75 很好、1.0 卓越）；" +
+      "targetVol 0.20 居主动权益 15–25% 目标波动区间之中；maxAlphaDdThreshold 0.30 取机构常见 20–30% 回撤上限的宽松端；" +
+      "minYearDays 200 约为 A 股年均 243 个交易日的 82%。" +
+      "通行口径下的通过不代表这套阈值适合本账户，更不代表策略赚钱；自定义参数仅作观察。",
     note: source.note,
     inputs,
     results: inputs.map(strategyAdmission),

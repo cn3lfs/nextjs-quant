@@ -186,14 +186,14 @@ it("年度分页在服务端排序，汇总与完整重放导出不随翻页变�
   ).toThrow("无法生成可独立重放");
 });
 
-it("未标定不显示 isGood，可信度同字号，指标条件和参数仍可查看", async () => {
+it("结论带出处，可信度同字号，指标条件和参数仍可查看", async () => {
   const { result, dataset } = await admissionResearchFixture();
   const data = pageStrategyAdmission(
     researchAdmissionSource(result, dataset, "development"),
     admissionPageSchema.parse({}),
     true,
   );
-  // 刻意注入通过结论作为反例：页面仍必须隐藏它。
+  // 结论已按行业通行口径解封，但出处必须始终贴在结论旁，不能只显示「通过」。
   data.history.isGood = true;
   data.recent!.isGood = true;
   const html = renderToStaticMarkup(
@@ -207,26 +207,35 @@ it("未标定不显示 isGood，可信度同字号，指标条件和参数仍可
       },
     }),
   );
-  expect(html).toContain("history：未标定");
-  expect(html).toContain("recent：未标定");
-  expect(html).toContain("wbt 默认值，未针对本账户标定");
-  expect(html).toContain("在该数据前提下通过");
+  // 结论可见，但「未按本账户标定」必须同行贴住，不允许裸露一个「通过」。
+  expect(html).toContain(
+    "history：通过（在该数据前提下；行业通行口径，未按本账户标定）",
+  );
+  expect(html).toContain(
+    "recent：通过（在该数据前提下；行业通行口径，未按本账户标定）",
+  );
+  expect(html).toContain("未按本账户标定");
+  expect(html).toContain("Grinold–Kahn");
+  expect(html).toContain("不能当作账户业绩判定");
   expect(html).toContain("condSharpePassed");
   expect(html).toContain("minYearDays");
   expect(html).not.toContain("isGood");
   expect(html).toMatch(
-    /<p class="text-base font-medium">history：未标定 · 数据可信度：本地模拟未独立核验<\/p>/,
+    /<p class="text-base font-medium">history：通过（在该数据前提下；行业通行口径，未按本账户标定） · 数据可信度：本地模拟未独立核验<\/p>/,
   );
-  for (const isGood of [true, false])
-    expect(
-      admissionConclusion({ isGood, evidenceLevel: "真实账户交割单" }),
-    ).toBe("未标定");
+  // 真实账户去掉「在该数据前提下」，但出处标注一个字都不能少。
+  expect(
+    admissionConclusion({ isGood: true, evidenceLevel: "真实账户交割单" }),
+  ).toBe("通过（行业通行口径，未按本账户标定）");
+  expect(
+    admissionConclusion({ isGood: false, evidenceLevel: "真实账户交割单" }),
+  ).toBe("未通过（行业通行口径，未按本账户标定）");
 });
 
 it("既有合成样本标定分布输出 min/中位数/max，缺失保留原因而非零", async () => {
   const report = await admissionCalibrationDistribution();
   expect(report.scope).toBe("A 股");
-  expect(report.calibrationStatus).toBe("未标定");
+  expect(report.calibrationStatus).toBe("未标定"); // 合成分布报告本身仍未标定，与页面阈值口径无关
   expect(report.inputs).toHaveLength(4);
   expect(report.results.every((r) => r.evidenceLevel === "合成/受控样本")).toBe(
     true,
