@@ -16,6 +16,7 @@ import {
 } from "~/lib/research-market-evidence";
 import { Button } from "./ui/button";
 import { PeriodPerformanceContainer } from "./period-performance-container";
+import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import {
@@ -116,6 +117,8 @@ export function StrategyResearchControls() {
     .join(",");
   useEffect(() => {
     void utils.strategyResearchPeriodPerformance.invalidate();
+    void utils.strategyResearchAdmission.invalidate();
+    void utils.strategyResearchAdmissionExport.invalidate();
   }, [completedTasks, utils]);
   useEffect(() => {
     if (selected && selectedStatus === "complete")
@@ -600,6 +603,10 @@ export function StrategyResearchControls() {
               </h3>
               <PeriodPerformanceContainer
                 key={`${selected}:${part.partition}`}
+                source={{ id: selected, partition: part.partition }}
+              />
+              <StrategyAdmissionContainer
+                key={`admission:${selected}:${part.partition}`}
                 source={{ id: selected, partition: part.partition }}
               />
               <p>

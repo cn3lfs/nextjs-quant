@@ -1,0 +1,503 @@
+{
+  "version": "u8-calibration-distribution-1",
+  "scope": "A 股",
+  "calibrationStatus": "未标定",
+  "thresholdDecision": "未获管理者确认；不自动调整阈值，不解除页面限制",
+  "source": "复用 tests/e3-browser-fixture.ts 与 tests/research-worker.test.ts 的合成双突破样本；tests/fixtures/breakout-valid.json + 同样10日续接；无真实账户数据",
+  "limitation": "仅开发期8日、验证期4日，两期独立，样本不代表市场分布；完整年和剔除252日近期后的历史段均不足。null 不补零，不能据此标定账户阈值。",
+  "datasetHash": "73b684ad144fda80185c0e1a8c85fdc4e711f754d2daa13996a6899e708f280c",
+  "resultHash": "e85646a36e8c4966040a8d07c79de24fef080bb950bdeb816a405f9c24abd19c",
+  "params": {
+    "targetVol": 0.2,
+    "maxDdThreshold": 0.2,
+    "maxAlphaDdThreshold": 0.3,
+    "minFullSharpe": 0.5,
+    "minYearDays": 200,
+    "recentDays": 252,
+    "minHistoryDays": 60,
+    "yearlyDays": 252
+  },
+  "distributions": {
+    "longAnnualVolatility": {
+      "available": 2,
+      "unavailable": 0,
+      "min": 0,
+      "median": 0.0020553694345541587,
+      "max": 0.0041107388691083175,
+      "unavailableReasons": []
+    },
+    "benchAnnualVolatility": {
+      "available": 2,
+      "unavailable": 0,
+      "min": 0.00020464302506128149,
+      "median": 0.15457979419454232,
+      "max": 0.30895494536402335,
+      "unavailableReasons": []
+    },
+    "longScale": {
+      "available": 1,
+      "unavailable": 1,
+      "min": 48.65305395654652,
+      "median": 48.65305395654652,
+      "max": 48.65305395654652,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "benchScale": {
+      "available": 1,
+      "unavailable": 1,
+      "min": 0.647343578735572,
+      "median": 0.647343578735572,
+      "max": 0.647343578735572,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "historyAlphaMaxDrawdown": {
+      "available": 1,
+      "unavailable": 1,
+      "min": 0.04411900961120882,
+      "median": 0.04411900961120882,
+      "max": 0.04411900961120882,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "historyAlphaSharpe": {
+      "available": 1,
+      "unavailable": 1,
+      "min": -1.7407009277833523,
+      "median": -1.7407009277833523,
+      "max": -1.7407009277833523,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "yearlyAbsReturn": {
+      "available": 2,
+      "unavailable": 0,
+      "min": 0,
+      "median": 0.0004184127231370294,
+      "max": 0.0008368254462740587,
+      "unavailableReasons": []
+    },
+    "yearlyAlphaReturn": {
+      "available": 1,
+      "unavailable": 1,
+      "min": -0.016821810180805558,
+      "median": -0.016821810180805558,
+      "max": -0.016821810180805558,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "yearlyAlphaMaxDrawdown": {
+      "available": 1,
+      "unavailable": 1,
+      "min": 0.04411900961120882,
+      "median": 0.04411900961120882,
+      "max": 0.04411900961120882,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "recentAbsReturn": {
+      "available": 2,
+      "unavailable": 0,
+      "min": 0,
+      "median": 0.0004184127231370294,
+      "max": 0.0008368254462740587,
+      "unavailableReasons": []
+    },
+    "recentAlphaReturn": {
+      "available": 1,
+      "unavailable": 1,
+      "min": -0.016821810180805558,
+      "median": -0.016821810180805558,
+      "max": -0.016821810180805558,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "recentAlphaMaxDrawdown": {
+      "available": 1,
+      "unavailable": 1,
+      "min": 0.04411900961120882,
+      "median": 0.04411900961120882,
+      "max": 0.04411900961120882,
+      "unavailableReasons": ["alpha 退化：含 NaN/Inf、波动率不足或数值溢出"]
+    },
+    "historyAlphaMaxDrawdownExclRecent": {
+      "available": 0,
+      "unavailable": 2,
+      "min": null,
+      "median": null,
+      "max": null,
+      "unavailableReasons": ["剔除近期窗口后的历史段为空或不足最少交易日"]
+    }
+  },
+  "inputs": [
+    {
+      "dates": [
+        "2025-03-06",
+        "2025-03-07",
+        "2025-03-10",
+        "2025-03-11",
+        "2025-03-12",
+        "2025-03-13",
+        "2025-03-14",
+        "2025-03-17"
+      ],
+      "strategyDaily": [
+        0, 0, 0.0004622141700001414, 0.0005997227996239474,
+        -0.00022511152335003004, 0, 0, 0
+      ],
+      "benchDaily": [
+        0.005584512285927046, 0.06256941873380217, 0.0034843205574912606,
+        0.003472222222222321, 0.0034602076124568004, 0.0034482758620690834,
+        0.0034364261168384758, 0.0034246575342467
+      ],
+      "evidenceLevel": "合成/受控样本",
+      "mode": "history",
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      }
+    },
+    {
+      "dates": [
+        "2025-03-06",
+        "2025-03-07",
+        "2025-03-10",
+        "2025-03-11",
+        "2025-03-12",
+        "2025-03-13",
+        "2025-03-14",
+        "2025-03-17"
+      ],
+      "strategyDaily": [
+        0, 0, 0.0004622141700001414, 0.0005997227996239474,
+        -0.00022511152335003004, 0, 0, 0
+      ],
+      "benchDaily": [
+        0.005584512285927046, 0.06256941873380217, 0.0034843205574912606,
+        0.003472222222222321, 0.0034602076124568004, 0.0034482758620690834,
+        0.0034364261168384758, 0.0034246575342467
+      ],
+      "evidenceLevel": "合成/受控样本",
+      "mode": "recent",
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      }
+    },
+    {
+      "dates": ["2025-03-18", "2025-03-19", "2025-03-20", "2025-03-21"],
+      "strategyDaily": [0, 0, 0, 0],
+      "benchDaily": [
+        0.0034129692832765013, 0.003401360544217802, 0.003389830508474523,
+        0.0033783783783785104
+      ],
+      "evidenceLevel": "合成/受控样本",
+      "mode": "history",
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      }
+    },
+    {
+      "dates": ["2025-03-18", "2025-03-19", "2025-03-20", "2025-03-21"],
+      "strategyDaily": [0, 0, 0, 0],
+      "benchDaily": [
+        0.0034129692832765013, 0.003401360544217802, 0.003389830508474523,
+        0.0033783783783785104
+      ],
+      "evidenceLevel": "合成/受控样本",
+      "mode": "recent",
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      }
+    }
+  ],
+  "results": [
+    {
+      "version": "strategy-admission-1",
+      "basis": "simple",
+      "annualRiskFreeRate": 0,
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      },
+      "evidenceLevel": "合成/受控样本",
+      "longIsStrategy": true,
+      "alphaDegenerate": false,
+      "longAnnualVolatility": {
+        "value": 0.0041107388691083175,
+        "reason": null
+      },
+      "benchAnnualVolatility": { "value": 0.30895494536402335, "reason": null },
+      "longScale": { "value": 48.65305395654652, "reason": null },
+      "benchScale": { "value": 0.647343578735572, "reason": null },
+      "coverage": {
+        "observedDays": 8,
+        "strategyMissingDays": 0,
+        "longMissingDays": 0,
+        "benchMissingDays": 0
+      },
+      "mode": "history",
+      "yearlyMetrics": [
+        {
+          "year": "2025",
+          "tradingDays": 8,
+          "isCompleteYear": false,
+          "absReturn": { "value": 0.0008368254462740587, "reason": null },
+          "alphaReturn": { "value": -0.016821810180805558, "reason": null },
+          "alphaMaxDrawdown": { "value": 0.04411900961120882, "reason": null },
+          "alphaSharpe": { "value": -1.7407009277833523, "reason": null },
+          "condAbsReturnPassed": true,
+          "condAlphaReturnPassed": false,
+          "condAlphaDrawdownPassed": true,
+          "returnPassed": true,
+          "yearPassed": true
+        }
+      ],
+      "completeYearCount": 0,
+      "historyAlphaMaxDrawdown": {
+        "value": 0.04411900961120882,
+        "reason": null
+      },
+      "historyAlphaSharpe": { "value": -1.7407009277833523, "reason": null },
+      "condYearsPassed": false,
+      "condAlphaDrawdownPassed": true,
+      "condSharpePassed": false,
+      "isGood": false,
+      "reasons": [
+        "no complete year：没有达到交易日数门槛的自然年",
+        "全样本超额 Sharpe 未满足 > 阈值"
+      ]
+    },
+    {
+      "version": "strategy-admission-1",
+      "basis": "simple",
+      "annualRiskFreeRate": 0,
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      },
+      "evidenceLevel": "合成/受控样本",
+      "longIsStrategy": true,
+      "alphaDegenerate": false,
+      "longAnnualVolatility": {
+        "value": 0.0041107388691083175,
+        "reason": null
+      },
+      "benchAnnualVolatility": { "value": 0.30895494536402335, "reason": null },
+      "longScale": { "value": 48.65305395654652, "reason": null },
+      "benchScale": { "value": 0.647343578735572, "reason": null },
+      "coverage": {
+        "observedDays": 8,
+        "strategyMissingDays": 0,
+        "longMissingDays": 0,
+        "benchMissingDays": 0
+      },
+      "mode": "recent",
+      "recentStartDate": "2025-03-06",
+      "recentEndDate": "2025-03-17",
+      "recentActualDays": 8,
+      "recentAbsReturn": { "value": 0.0008368254462740587, "reason": null },
+      "recentAlphaReturn": { "value": -0.016821810180805558, "reason": null },
+      "recentAlphaMaxDrawdown": {
+        "value": 0.04411900961120882,
+        "reason": null
+      },
+      "condAbsReturnPassed": true,
+      "condAlphaReturnPassed": false,
+      "condAlphaDrawdownPassed": true,
+      "historyAlphaMaxDrawdownExclRecent": {
+        "value": null,
+        "reason": "剔除近期窗口后的历史段为空或不足最少交易日"
+      },
+      "historyWindowEmpty": true,
+      "condReturnPassed": true,
+      "condImprovementPassed": false,
+      "isGood": false,
+      "reasons": [
+        "剔除近期窗口后的历史段为空或过短",
+        "近期超额最大回撤未严格小于错开窗口的历史回撤"
+      ]
+    },
+    {
+      "version": "strategy-admission-1",
+      "basis": "simple",
+      "annualRiskFreeRate": 0,
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      },
+      "evidenceLevel": "合成/受控样本",
+      "longIsStrategy": true,
+      "alphaDegenerate": true,
+      "longAnnualVolatility": { "value": 0, "reason": null },
+      "benchAnnualVolatility": {
+        "value": 0.00020464302506128149,
+        "reason": null
+      },
+      "longScale": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "benchScale": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "coverage": {
+        "observedDays": 4,
+        "strategyMissingDays": 0,
+        "longMissingDays": 0,
+        "benchMissingDays": 0
+      },
+      "mode": "history",
+      "yearlyMetrics": [
+        {
+          "year": "2025",
+          "tradingDays": 4,
+          "isCompleteYear": false,
+          "absReturn": { "value": 0, "reason": null },
+          "alphaReturn": {
+            "value": null,
+            "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+          },
+          "alphaMaxDrawdown": {
+            "value": null,
+            "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+          },
+          "alphaSharpe": {
+            "value": null,
+            "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+          },
+          "condAbsReturnPassed": false,
+          "condAlphaReturnPassed": false,
+          "condAlphaDrawdownPassed": false,
+          "returnPassed": false,
+          "yearPassed": false
+        }
+      ],
+      "completeYearCount": 0,
+      "historyAlphaMaxDrawdown": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "historyAlphaSharpe": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "condYearsPassed": false,
+      "condAlphaDrawdownPassed": false,
+      "condSharpePassed": false,
+      "isGood": false,
+      "reasons": [
+        "alpha 退化：含 NaN/Inf、波动率不足或数值溢出",
+        "no complete year：没有达到交易日数门槛的自然年",
+        "全样本超额最大回撤未满足 ≤ 阈值",
+        "全样本超额 Sharpe 未满足 > 阈值"
+      ]
+    },
+    {
+      "version": "strategy-admission-1",
+      "basis": "simple",
+      "annualRiskFreeRate": 0,
+      "params": {
+        "targetVol": 0.2,
+        "maxDdThreshold": 0.2,
+        "maxAlphaDdThreshold": 0.3,
+        "minFullSharpe": 0.5,
+        "minYearDays": 200,
+        "recentDays": 252,
+        "minHistoryDays": 60,
+        "yearlyDays": 252
+      },
+      "evidenceLevel": "合成/受控样本",
+      "longIsStrategy": true,
+      "alphaDegenerate": true,
+      "longAnnualVolatility": { "value": 0, "reason": null },
+      "benchAnnualVolatility": {
+        "value": 0.00020464302506128149,
+        "reason": null
+      },
+      "longScale": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "benchScale": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "coverage": {
+        "observedDays": 4,
+        "strategyMissingDays": 0,
+        "longMissingDays": 0,
+        "benchMissingDays": 0
+      },
+      "mode": "recent",
+      "recentStartDate": "2025-03-18",
+      "recentEndDate": "2025-03-21",
+      "recentActualDays": 4,
+      "recentAbsReturn": { "value": 0, "reason": null },
+      "recentAlphaReturn": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "recentAlphaMaxDrawdown": {
+        "value": null,
+        "reason": "alpha 退化：含 NaN/Inf、波动率不足或数值溢出"
+      },
+      "condAbsReturnPassed": false,
+      "condAlphaReturnPassed": false,
+      "condAlphaDrawdownPassed": false,
+      "historyAlphaMaxDrawdownExclRecent": {
+        "value": null,
+        "reason": "剔除近期窗口后的历史段为空或不足最少交易日"
+      },
+      "historyWindowEmpty": true,
+      "condReturnPassed": false,
+      "condImprovementPassed": false,
+      "isGood": false,
+      "reasons": [
+        "alpha 退化：含 NaN/Inf、波动率不足或数值溢出",
+        "剔除近期窗口后的历史段为空或过短",
+        "近期收益侧三路均未通过",
+        "近期超额最大回撤未严格小于错开窗口的历史回撤"
+      ]
+    }
+  ]
+}

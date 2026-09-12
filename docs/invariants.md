@@ -36,6 +36,15 @@
 - **测试**：[execution-quality.test.ts](../tests/execution-quality.test.ts) 覆盖四方向手算、金额加权、缺失传播、R12 转债、零损耗锚点、非零现金价差、边界不一致、脱敏和分页；真实账户与浏览器验收由管理者执行。
 - **违反会怎样**：虚构均价、价差被余额吞掉、不同收益区间相减或导出账号，产生貌似可信的假损耗。
 
+### U8 策略准入判定
+
+- **是什么**：判定只调用 [daily-performance.ts](../src/lib/daily-performance.ts) 的 `simple` + `annualRiskFreeRate=0`，年化因子走 U1 默认或显式 `yearlyDays` 并回显；展示净值曲线仍用复利。U1 的单利“仅作对照”在 U8 判定中例外，结果 `basis="simple"`，禁止第二份收益、波动率、回撤或夏普实现。
+- **是什么（边界与退化）**：全样本超额回撤 ≤ 阈值、Sharpe > 阈值；逐年/近期第三路回撤严格 < 阈值。归一化 scale 只由全样本计算，recent 历史段严格剔除尾部窗口。long/bench 任一年化波动率 < 1e-12、非有限收益或溢出均令 alpha 退化，所有超额派生值为 `ReviewValue` 空值，不能通过超额条件或总体判定。缺失路径也不能补零；绝对收益缺失的窗口留空，long/bench 缺失时整段超额不可认定。
+- **是什么（证据与用途）**：可选 `longDaily` 默认取策略腿，不实现多空拆分。全部参数和输入随完整 JSON 导出，`evidenceLevel` 原样带出；未有管理者标定决定前，页面总判定固定为“未标定”，只展示分指标与条件。`isGood` 不驱动交易、参数选择或淘汰；输入收益 NaN/Inf 是任务书 §2.1 明确的退化特判，其他非法输入均抛错，JSON 导出拒绝不能无损表达的 NaN/Inf。
+- **为什么**：wbt 阈值在单利收益空间标定，切为复利会改变阈值含义；空值变零会制造零风险，近期重新缩放或重叠窗口会改变“近期更稳”的问题。
+- **测试**：[strategy-admission.test.ts](../tests/strategy-admission.test.ts)、[strategy-admission-service.test.ts](../tests/strategy-admission-service.test.ts)。真实账户与浏览器由管理者验收；[合成分布](review/u8-calibration-distribution.json) 不代表账户阈值已标定。
+- **违反会怎样**：边界倒置、退化策略误获准入、默认值冒充账户结论，或用未经核验的样本宣称可信业绩。
+
 ## 2. 通达信认定公式与预热
 
 - **是什么**：输入为时间升序、不复权的只读 Bar 数组；输出与输入逐点对齐，不排序、不修改输入、不在中间舍入。MA 默认 20；图表 MA 默认 5/10/20/60；以下是默认口径，参数可调。

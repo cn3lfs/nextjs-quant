@@ -12,6 +12,7 @@ import {
 import { TradeReviewBatches } from "./trade-review-batches";
 import { TradeReviewResults } from "./trade-review-results";
 import { PeriodPerformanceContainer } from "./period-performance-container";
+import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { ExecutionQualityContainer } from "./execution-quality-container";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -123,6 +124,8 @@ export function TradeReviewContainer() {
       utils.deliveryBatches.invalidate(),
       utils.tradeReviewSnapshot.invalidate(),
       utils.tradeReviewPeriodPerformance.invalidate(),
+      utils.tradeReviewAdmission.invalidate(),
+      utils.tradeReviewAdmissionExport.invalidate(),
       utils.tradeReviewExecution.invalidate(),
     ]);
   };
@@ -277,10 +280,16 @@ export function TradeReviewContainer() {
         {review.data && !review.error && (
           <TradeReviewResults
             periodPerformance={
-              <PeriodPerformanceContainer
-                key={`${account}:${method}:${batches.data?.map((b) => b.id).join(",")}`}
-                source={{ account }}
-              />
+              <>
+                <PeriodPerformanceContainer
+                  key={`${account}:${method}:${batches.data?.map((b) => b.id).join(",")}`}
+                  source={{ account }}
+                />
+                <StrategyAdmissionContainer
+                  key={`admission:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+                  source={{ account }}
+                />
+              </>
             }
             data={review.data}
             drawdownsOpen={drawdownsOpen}

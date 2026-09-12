@@ -1,5 +1,12 @@
 import { readMarketPool } from "../market-pool-files";
 import {
+  admissionPageSchema,
+  tradeReviewAdmissionSource,
+  researchAdmissionSource,
+  pageStrategyAdmission,
+  exportStrategyAdmission,
+} from "../strategy-admission-service";
+import {
   executionPageSchema,
   pageExecutionQuality,
   exportExecutionQuality,
@@ -353,6 +360,66 @@ export const appRouter = createTRPCRouter({
     .mutation(({ input }) =>
       new DeliveryStore(chartSqlite()).revokeBatch(input),
     ),
+  tradeReviewAdmission: p
+    .input(admissionPageSchema.extend({ account: z.string().trim().min(1) }))
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return pageStrategyAdmission(
+        tradeReviewAdmissionSource(review.snapshot, review.fullTradingDays),
+        input,
+        false,
+      );
+    }),
+  tradeReviewAdmissionExport: p
+    .input(
+      admissionPageSchema
+        .pick({ params: true })
+        .extend({ account: z.string().trim().min(1) }),
+    )
+    .query(async ({ input }) => {
+      const review = await accountReview(input.account);
+      return exportStrategyAdmission(
+        tradeReviewAdmissionSource(review.snapshot, review.fullTradingDays),
+        input.params,
+        false,
+      );
+    }),
+  strategyResearchAdmission: p
+    .input(
+      admissionPageSchema.extend({
+        id: z.string().min(1),
+        partition: z.enum(["development", "validation"]),
+      }),
+    )
+    .query(({ input }) => {
+      const store = new ResearchStore(chartSqlite());
+      const result = store.result(input.id),
+        dataset = store.dataset(input.id);
+      if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
+      return pageStrategyAdmission(
+        researchAdmissionSource(result, dataset, input.partition),
+        input,
+        true,
+      );
+    }),
+  strategyResearchAdmissionExport: p
+    .input(
+      admissionPageSchema.pick({ params: true }).extend({
+        id: z.string().min(1),
+        partition: z.enum(["development", "validation"]),
+      }),
+    )
+    .query(({ input }) => {
+      const store = new ResearchStore(chartSqlite());
+      const result = store.result(input.id),
+        dataset = store.dataset(input.id);
+      if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
+      return exportStrategyAdmission(
+        researchAdmissionSource(result, dataset, input.partition),
+        input.params,
+        true,
+      );
+    }),
   tradeReviewPeriodPerformance: p
     .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
