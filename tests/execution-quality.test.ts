@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -22,6 +23,7 @@ import {
 import { commitDeliveryImport } from "../src/server/delivery-import-service";
 import { migrate } from "../src/server/db/migrations";
 import { ExecutionQualityResults } from "../src/components/execution-quality-results";
+import { readSnapshot } from "../src/server/tdx";
 
 const date = "2026-01-05";
 const bar = (extra: Partial<Bar> = {}): Bar => ({
@@ -288,6 +290,19 @@ it("price differences survive real netAmount and cash anchors; no forked NAV", (
   const result = reviewExecutionQuality(source);
   // Actual 980/1000-1=-2%; VWAP buy/sell cancels -> 0%; loss=-2%.
   expect(result.loss.value).toBeCloseTo(-0.02, 12);
+  expect(result.segments).toEqual([
+    {
+      start: date,
+      end: date,
+      actualTwr: { value: 980 / 1000 - 1, reason: null },
+      counterfactualTwr: { value: 0, reason: null },
+      loss: { value: 980 / 1000 - 1, reason: null },
+    },
+  ]);
+  expect(result.terminalDifference.value).toBeNull();
+  expect(result.fallbackNote).toBeNull();
+  expect(result.counterfactualNonPositiveDays).toBe(0);
+  expect(result.counterfactualWorstNav).toEqual({ value: 1000, date });
   expect(result.counterfactual).toEqual(
     reviewTradeNav(
       input([
@@ -340,7 +355,201 @@ it("different segment boundaries never produce a loss number", () => {
   });
   expect(result.loss.value).toBeNull();
   expect(result.loss.reason).toContain("边界不一致");
+  expect(result.terminalDifference.value).toBe(-10);
+  expect(result.counterfactualNonPositiveDays).toBe(0);
+  expect(result.fallbackNote).not.toContain("反事实净值出现非正值");
 });
+
+it("W11 rejects terminal money for negative and zero NAV without relaxing TWR boundaries", () => {
+  const next = "2026-01-06";
+  // Actual pays 90, VWAP pays 100: with opening 5 and closing mark 90,
+  // actual NAV=5, counterfactual NAV=-5. Next mark 95 makes CF NAV exactly 0.
+  const source = {
+    ...input([fill({ price: 90, amount: 90 })], {
+      sz000001: [bar({ close: 90 }), bar({ date: next, close: 95 })],
+    }),
+    openingCash: 5,
+    tradingDays: [date, next],
+  };
+  const actual = reviewTradeNav(source);
+  const saved = structuredClone(actual);
+  const result = reviewExecutionQuality(source, actual);
+  expect(actual).toEqual(saved);
+  expect(reviewTradeNav(source)).toEqual(saved);
+  expect(result.loss.value).toBeNull();
+  expect(result.segments).toEqual([]);
+  expect(result.terminalDifference.value).toBeNull();
+  expect(result.terminalDifference.reason).toBe(result.fallbackNote);
+  expect(result.counterfactualNonPositiveDays).toBe(2);
+  expect(result.counterfactualWorstNav).toEqual({ value: -5, date });
+  expect(result.fallbackNote).toBe(
+    "反事实净值出现大幅非正值（最低 -5.00 元，日期 2026-01-05），期末差不可信，执行损耗在本账户上无法用当前反事实方法计算",
+  );
+  const missingEnd = reviewExecutionQuality({
+    ...source,
+    bars: { sz000001: [bar({ close: 90 })] },
+  });
+  expect(missingEnd.terminalDifference.value).toBeNull();
+  expect(missingEnd.counterfactualNonPositiveDays).toBe(1);
+  expect(missingEnd.counterfactualWorstNav).toEqual({ value: -5, date });
+  const s = { ...snapshot(), execution: result };
+  const data = pageExecutionQuality(s, { account: s.account, side: "sell" });
+  expect(data.terminalDifference).toEqual(result.terminalDifference);
+  expect(data.counterfactualNonPositiveDays).toBe(2);
+  const table = {
+    pagination: { pageIndex: 0, pageSize: 10 },
+    sorting: [],
+    onPaginationChange: () => {},
+    onSortingChange: () => {},
+  };
+  const html = renderToStaticMarkup(
+    createElement(ExecutionQualityResults, { data, table, groupTable: table }),
+  );
+  expect(html).toContain(result.fallbackNote!);
+  expect(html).toContain("期末总资产差（元");
+  expect(html).toContain("反事实收盘净值非正 2 天");
+  expect(html).not.toContain("只反映成交价格好坏");
+});
+
+it("W11 rejects zero NAV even when both return boundaries match", () => {
+  const result = reviewExecutionQuality({
+    ...input([fill()], { sz000001: [bar({ close: 100 })] }),
+    openingCash: 0,
+  });
+  expect(result.counterfactualNonPositiveDays).toBe(1);
+  expect(result.counterfactualWorstNav).toEqual({ value: 0, date });
+  expect(result.terminalDifference.value).toBeNull();
+  expect(result.terminalDifference.reason).toContain("期末差不可信");
+  expect(result.loss.value).toBeNull();
+  expect(result.segments).toEqual([]);
+});
+
+it.runIf(process.env.W11_REAL_DATA === "1")(
+  "W11 real statement acceptance",
+  async () => {
+    const db = new Database(":memory:");
+    try {
+      migrate(db);
+      for (const [name, scope] of [
+        ["lishi", "all"],
+        ["duizhang", "cashFlowsOnly"],
+      ] as const) {
+        commitDeliveryImport(
+          readFileSync(`.test-data/statements-v2/${name}20-26.xls`),
+          {
+            account: "w11",
+            source: "generic",
+            fileName: `${name}20-26.xls`,
+            scope,
+          },
+          db,
+        );
+      }
+      const root = "E:/new_tdx64";
+      const tradingDays = (await readSnapshot(root, "sh000300", "day")).bars
+        .map((b) => b.date)
+        .filter((d) => d >= "2021-01-25");
+      const s = await buildTradeReviewSnapshot(
+        { account: "w11", tdxRoot: root, tradingDays, openingCash: 0 },
+        db,
+        { flowValuation: "previousClose", dimensions: { rps: {} } },
+      );
+      const e = s.execution;
+      expect(e.missingVwap).toEqual([]);
+      expect(e.terminalDifference.value).toBeNull();
+      expect(e.terminalDifference.reason).toContain("期末差不可信");
+      expect(s.trades.movingAverage.closedRounds).toHaveLength(785);
+      expect(s.trades.movingAverage.statistics.winRate).toBe(399 / 784);
+      expect(s.trades.movingAverage.statistics.payoffRatio).toBeCloseTo(
+        0.8912012172774283,
+        14,
+      );
+      console.log(
+        JSON.stringify({
+          worstDayCashEvidence: (() => {
+            const day = e.counterfactualWorstNav!.date;
+            const actualDay = s.nav.days.find((d) => d.date === day)!;
+            const counterfactualDay = e.counterfactual!.days.find(
+              (d) => d.date === day,
+            )!;
+            const deltas = e.rows
+              .filter((r) => r.tradeDate <= day)
+              .map((r) => ({
+                ratio: r.vwap.value! / r.price.value!,
+                delta:
+                  r.amount.value! *
+                  (r.vwap.value! / r.price.value! - 1) *
+                  (r.kind === "buy" ? -1 : 1),
+              }));
+            return {
+              actualNav: actualDay.nav,
+              counterfactualNav: counterfactualDay.nav,
+              cumulativePriceCashDifference: deltas.reduce(
+                (sum, r) => sum + r.delta,
+                0,
+              ),
+              extremePriceCashDifference: deltas
+                .filter((r) => r.ratio > 50)
+                .reduce((sum, r) => sum + r.delta, 0),
+            };
+          })(),
+          largestPriceCashDifferences: e.rows
+            .filter((r) => r.tradeDate <= e.counterfactualWorstNav!.date)
+            .map((r) => ({
+              date: r.tradeDate,
+              code: r.code,
+              price: r.price.value,
+              vwap: r.vwap.value,
+              delta:
+                r.amount.value! *
+                (r.vwap.value! / r.price.value! - 1) *
+                (r.kind === "buy" ? -1 : 1),
+            }))
+            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+            .slice(0, 5),
+          terminalDifference: e.terminalDifference,
+          counterfactualNonPositiveDays: e.counterfactualNonPositiveDays,
+          counterfactualWorstNav: e.counterfactualWorstNav,
+          averageSlippageBp: e.summary.averageSlippageBp,
+          actualEnd: s.nav.days.at(-1)?.nav,
+          counterfactualEnd: e.counterfactual?.days.at(-1)?.nav,
+          endDate: s.nav.days.at(-1)?.date,
+          actualNonPositiveDays: s.nav.days.filter(
+            (d) => d.nav.value !== null && d.nav.value <= 0,
+          ).length,
+          counterfactualZeroDays: e.counterfactual?.days.filter(
+            (d) => d.nav.value === 0,
+          ).length,
+          counterfactualNegativeDays: e.counterfactual?.days.filter(
+            (d) => d.nav.value !== null && d.nav.value < 0,
+          ).length,
+          returnAvailabilityDifferences: e.counterfactual?.days.filter(
+            (d, i) =>
+              (d.dailyReturn.value !== null) !==
+              (s.nav.days[i]?.dailyReturn.value !== null),
+          ).length,
+          rounds: s.trades.movingAverage.closedRounds.length,
+          statistics: s.trades.movingAverage.statistics,
+        }),
+      );
+      const returnAvailabilityDifferences = e.counterfactual?.days.filter(
+        (d, i) =>
+          (d.dailyReturn.value !== null) !==
+          (s.nav.days[i]?.dailyReturn.value !== null),
+      ).length;
+      expect(e.counterfactualNonPositiveDays).toBe(510);
+      expect(returnAvailabilityDifferences).toBe(333);
+      expect(e.counterfactualNonPositiveDays).not.toBe(
+        returnAvailabilityDifferences,
+      );
+      expect(e.counterfactualWorstNav?.value).toBeCloseTo(-13563818.77, 2);
+      expect(e.counterfactualWorstNav?.date).toBe("2024-10-17");
+    } finally {
+      db.close();
+    }
+  },
+  120000,
+);
 
 it("missing fees and no trades remain unknown instead of fabricated zero totals", () => {
   const result = reviewExecutionQuality(

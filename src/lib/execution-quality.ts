@@ -168,6 +168,10 @@ export function reviewExecutionQuality(
     rows,
     summary: summarizeExecution(rows),
     missingVwap,
+    terminalDifference: metric(null, "未启用期末总资产差口径"),
+    fallbackNote: null as string | null,
+    counterfactualNonPositiveDays: null as number | null,
+    counterfactualWorstNav: null as { value: number; date: string } | null,
   };
   const unavailable = (reason: string) => ({
     ...base,
@@ -225,16 +229,61 @@ export function reviewExecutionQuality(
     openingCash: actual.openingCash,
     flowValuations,
   });
+  // W11: diagnose known closing NAVs, never treat missing NAV as zero.
+  const knownDays = counterfactual.days.filter((d) => d.nav.value !== null);
+  const worst = knownDays.reduce<(typeof knownDays)[number] | null>(
+    (lowest, day) =>
+      lowest === null || day.nav.value! < lowest.nav.value! ? day : lowest,
+    null,
+  );
+  const diagnostics = {
+    counterfactualNonPositiveDays: knownDays.length
+      ? knownDays.filter((d) => d.nav.value! <= 0).length
+      : null,
+    counterfactualWorstNav: worst
+      ? { value: worst.nav.value!, date: worst.date }
+      : null,
+  };
+  if (
+    diagnostics.counterfactualNonPositiveDays &&
+    diagnostics.counterfactualWorstNav
+  ) {
+    const { value, date } = diagnostics.counterfactualWorstNav;
+    const reason = `反事实净值出现大幅非正值（最低 ${value.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元，日期 ${date}），期末差不可信，执行损耗在本账户上无法用当前反事实方法计算`;
+    return {
+      ...unavailable(reason),
+      counterfactual,
+      ...diagnostics,
+      fallbackNote: reason,
+      terminalDifference: metric(null, reason),
+    };
+  }
   const boundaries = (nav: typeof actual) =>
     JSON.stringify({
       segments: nav.segments.map((s) => [s.start, s.end, s.returnObservations]),
       days: nav.days.map((d) => [d.date, d.dailyReturn.value !== null]),
     });
-  if (boundaries(actual) !== boundaries(counterfactual))
+  if (boundaries(actual) !== boundaries(counterfactual)) {
+    const actualEnd = actual.days.at(-1);
+    const otherEnd = counterfactual.days.at(-1);
+    const fallbackNote = `分段 TWR 不可用（实际与 VWAP 反事实的收益分段边界不一致），改用期末总资产差；该口径含复利与路径影响，不是纯执行差异`;
     return {
       ...unavailable("实际与 VWAP 反事实的收益分段边界不一致"),
       counterfactual,
+      ...diagnostics,
+      fallbackNote,
+      terminalDifference: metric(
+        actualEnd &&
+          otherEnd &&
+          actualEnd.date === otherEnd.date &&
+          actualEnd.nav.value !== null &&
+          otherEnd.nav.value !== null
+          ? actualEnd.nav.value - otherEnd.nav.value
+          : null,
+        "共同期末总资产不可得，不能计算期末总资产差",
+      ),
     };
+  }
   const segments = actual.segments.map((s, i) => {
     const other = counterfactual.segments[i]!;
     return {
@@ -252,6 +301,7 @@ export function reviewExecutionQuality(
   });
   return {
     ...base,
+    ...diagnostics,
     counterfactual,
     segments,
     loss: metric(

@@ -84,6 +84,10 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
     benchmark: e.benchmark,
     summary: summarizeExecution(rows),
     loss: e.loss,
+    terminalDifference: e.terminalDifference,
+    fallbackNote: e.fallbackNote,
+    counterfactualNonPositiveDays: e.counterfactualNonPositiveDays,
+    counterfactualWorstNav: e.counterfactualWorstNav,
     // Loss always describes the whole account; detail filters never change replay.
     segments: e.segments,
     rowCount: rows.length,
