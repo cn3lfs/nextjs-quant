@@ -6,11 +6,15 @@ import {
 } from "~/lib/signal-ledger";
 import { analyzeBreakout } from "./breakout";
 import { ledgerSignals } from "./signal-ledger-engine";
+import {
+  bonusAdjustedSignals,
+  type ResearchAdjustmentInput,
+} from "./bonus-adjusted-signals";
 
 export const signalBacktestDisclaimer =
   "回溯研究，信号规则与参数为当前版本，存在事后视角；非前向台账结果，不构成可交易结论";
 
-export type SignalBacktestInput = {
+export type SignalBacktestInput = ResearchAdjustmentInput & {
   symbol: string;
   bars: Bar[];
   start: string;
@@ -24,10 +28,16 @@ export type SignalBacktestInput = {
 /** W7 only projects existing engines; it never opens a ledger store. */
 export function retrospectiveSignals(input: SignalBacktestInput) {
   const bars = input.bars.filter((b) => b.date <= input.completedThrough);
+  // W1 rejects the entire input, including warmup, before selecting dates.
+  const adjusted =
+    input.adjustment === "backward"
+      ? bonusAdjustedSignals(bars, input.corporateActions)
+      : null;
+  const signalBars = adjusted?.bars ?? bars;
   const from = bars.findIndex((b) => b.date >= input.start);
   if (from < 0) return { evaluated: 0, points: [], rows: [] };
   // `from` limits output, preserving full-history recursive indicator seeds.
-  const points = analyzeBreakout(bars, from).points.filter(
+  const points = analyzeBreakout(signalBars, from).points.filter(
     (p) => p.date <= input.end && input.days.includes(p.date),
   );
   const rows = points
