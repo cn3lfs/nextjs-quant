@@ -1,4 +1,6 @@
 "use client";
+import { AdjustmentDisclosure } from "./research-adjustment";
+import type { ResearchAdjustment } from "~/lib/research-adjustment";
 import { ResearchUsageContainer } from "~/components/research-usage-container";
 import { useEffect, useState } from "react";
 import type { Snapshot, Strategy } from "~/lib/domain";
@@ -16,12 +18,14 @@ export function WalkForwardPanel({
   initial,
   costs,
   scope,
+  adjustment = "none",
 }: {
   snapshot?: Snapshot;
   strategy: Strategy;
   initial: number;
   costs: BacktestCosts;
   scope: "full" | "window";
+  adjustment?: ResearchAdjustment;
 }) {
   const [trainBars, setTrain] = useState(252),
     [testBars, setTest] = useState(63),
@@ -104,7 +108,7 @@ export function WalkForwardPanel({
               initial,
               costs,
               scope,
-              options: { trainBars, testBars },
+              options: { trainBars, testBars, adjustment },
             })
           }
         >
@@ -158,6 +162,7 @@ export function WalkForwardPanel({
       </label>
       {result && (
         <>
+          <AdjustmentDisclosure mode={result.options.adjustment} />
           {result.dataRange && (
             <p>
               {result.dataRange.scope === "full" ? "完整本地历史" : "快照窗口"}{" "}
@@ -177,14 +182,19 @@ export function WalkForwardPanel({
             {result.summary.positiveFolds}/{result.summary.folds}轮
           </p>
           <p>
-            各轮独立起始资金，不是连续账户收益。不复权与历史交易规则尚未完整还原，仍为研究模拟。
+            {result.options.adjustment === "backward"
+              ? "各轮独立起始资金，不是连续账户收益；仅送转后复权，历史交易规则尚未完整还原。"
+              : "各轮独立起始资金，不是连续账户收益。不复权与历史交易规则尚未完整还原，仍为研究模拟。"}
           </p>
           {result.id && (
             <WalkForwardExplanation key={result.id} id={result.id} />
           )}
           <ResearchUsageContainer key={result.id} range={result.dataRange} />
           <MultipleTestingPanel result={result.multipleTesting} />
-          <BacktestActionsPanel review={result.corporateActions} />
+          <BacktestActionsPanel
+            review={result.corporateActions}
+            adjustment={result.options.adjustment}
+          />
           <div className="table-wrap">
             <table>
               <thead>

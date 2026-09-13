@@ -290,6 +290,7 @@ export type Trade = {
   fee: number;
 };
 export type Backtest = {
+  adjustment?: import("./research-adjustment").ResearchAdjustment;
   signalAdjustment?: import("~/server/cash-adjusted-signals").CashSignalAdjustment;
   dividends?: {
     strategy: import("~/server/dividend-ledger").DividendLedgerResult;
@@ -326,7 +327,9 @@ export type Backtest = {
   maxDrawdown: number;
   cash: number;
   shares: number;
-  diagnostics: {
+  diagnostics: Partial<
+    import("./research-adjustment").AdjustmentDiagnostics
+  > & {
     entrySignals: number;
     insufficientCash: number;
     untradable: number;

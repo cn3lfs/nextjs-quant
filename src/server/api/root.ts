@@ -1,3 +1,4 @@
+import { researchAdjustmentSchema } from "~/lib/research-adjustment";
 import { researchRangeSchema, researchDateSchema } from "~/lib/research-usage";
 import { researchUsage } from "../research-usage";
 import {
@@ -1341,6 +1342,7 @@ export const appRouter = createTRPCRouter({
         initial: z.number().min(1000).max(1e9),
         scope: z.enum(["full", "window"]).default("full"),
         costs: backtestCostsSchema.default({}),
+        adjustment: researchAdjustmentSchema.optional(),
       }),
     )
     .mutation(({ input }) =>
@@ -1350,6 +1352,7 @@ export const appRouter = createTRPCRouter({
         input.initial,
         input.scope,
         input.costs,
+        input.adjustment,
       ),
     ),
   dividendSchedule: p

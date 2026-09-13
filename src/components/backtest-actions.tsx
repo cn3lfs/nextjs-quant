@@ -6,9 +6,11 @@ import { CashDividendExperiment } from "./cash-dividend-experiment";
 export function BacktestActionsPanel({
   review,
   base,
+  adjustment = base?.adjustment,
 }: {
   review?: BacktestActions;
   base?: Backtest;
+  adjustment?: import("~/lib/research-adjustment").ResearchAdjustment;
 }) {
   const schedule = api.dividendSchedule.useMutation();
   if (!review) return <p className="muted">旧档案未保存公司行动核验。</p>;
@@ -18,7 +20,7 @@ export function BacktestActionsPanel({
         公司行动核验 ·{" "}
         {review.status === "missing"
           ? "来源缺失"
-          : `${review.events.length}项事件（${base?.dividends ? "纯现金实验另列" : "尚未计入收益"}）`}
+          : `${review.events.length}项事件（${adjustment === "backward" ? "仅送转已计入，现金忽略" : base?.dividends ? "纯现金实验另列" : "尚未计入收益"}）`}
       </summary>
       <p>
         {review.symbol} · {review.start} 至 {review.end}
@@ -57,7 +59,7 @@ export function BacktestActionsPanel({
               项。这不证明事件完整或已计入收益。
             </p>
             <p className="muted">对账档案：{schedule.data.reconciliationId}</p>
-            {base && (
+            {base && adjustment !== "backward" && (
               <CashDividendExperiment
                 key={schedule.data.reconciliationId}
                 base={base}
@@ -131,13 +133,17 @@ export function BacktestActionsPanel({
             </div>
           </details>
         )}
-      {review.warnings.map((text) => (
-        <p key={text}>
-          {base?.dividends && text.startsWith("事件尚未计入")
-            ? "来源核验与账务计算分开；本次实际计入的纯现金事件见实验账簿，其他事件未处理。"
-            : text}
-        </p>
-      ))}
+      {review.warnings
+        .filter(
+          (w) => adjustment !== "backward" || !w.startsWith("事件尚未计入"),
+        )
+        .map((text) => (
+          <p key={text}>
+            {base?.dividends && text.startsWith("事件尚未计入")
+              ? "来源核验与账务计算分开；本次实际计入的纯现金事件见实验账簿，其他事件未处理。"
+              : text}
+          </p>
+        ))}
       {review.source && (
         <p className="muted">
           采集：{new Date(review.source.fetchedAt).toLocaleString("zh-CN")} ·

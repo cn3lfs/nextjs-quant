@@ -1,3 +1,5 @@
+import { bonusAdjustedSignals } from "./bonus-adjusted-signals";
+import type { BacktestActions } from "./backtest-actions";
 import { combinatoriallySymmetricCv } from "~/lib/backtest-overfit";
 import { createHash } from "node:crypto";
 import { strategySchema, type Snapshot, type Strategy } from "~/lib/domain";
@@ -37,8 +39,17 @@ export function candidateTrialMatrix(
   initial: number,
   costInput: BacktestCosts,
   raw: WalkForwardOptions,
+  corporateActions?: BacktestActions,
 ) {
-  walkForwardSchema.parse(raw);
+  const options = walkForwardSchema.parse(raw);
+  const research = { adjustment: options.adjustment, corporateActions };
+  if (options.adjustment === "backward") {
+    if (source.adjustment !== "none")
+      throw new Error("送转研究需要不复权日线快照");
+    if (corporateActions && corporateActions.symbol !== source.symbol)
+      throw new Error("公司行动证券不匹配");
+    bonusAdjustedSignals(source.bars, corporateActions);
+  }
   if (
     source.period !== "day" ||
     !/^(sh(60|68)|sz(00|30)|bj(43|83|87|88|92))\d{4}$/.test(source.symbol)
@@ -58,8 +69,16 @@ export function candidateTrialMatrix(
   const costs = backtestCostsSchema.parse(costInput);
   const returns = candidates.map((strategy) =>
     equityDailyReturns(
-      backtest(source.bars, strategy, source.id, initial, costs, warmupBars)
-        .equity,
+      backtest(
+        source.bars,
+        strategy,
+        source.id,
+        initial,
+        costs,
+        warmupBars,
+        undefined,
+        research,
+      ).equity,
       initial,
     ),
   );
@@ -79,6 +98,7 @@ export function walkForward(
   costInput: BacktestCosts,
   raw: WalkForwardOptions,
   onProgress?: (done: number, total: number) => void,
+  corporateActions?: BacktestActions,
 ): WalkForwardResult {
   if (
     source.period !== "day" ||
@@ -92,6 +112,14 @@ export function walkForward(
     candidates = walkForwardCandidates(base);
   const warmupBars = Math.max(...candidates.map((s) => s.slow)) + 2;
   const { bars } = source;
+  const research = { adjustment: options.adjustment, corporateActions };
+  if (options.adjustment === "backward") {
+    if (source.adjustment !== "none")
+      throw new Error("送转研究需要不复权日线快照");
+    if (corporateActions && corporateActions.symbol !== source.symbol)
+      throw new Error("公司行动证券不匹配");
+    bonusAdjustedSignals(bars, corporateActions);
+  }
   if (
     source.historicalAsOf &&
     bars.some((b) => b.date.slice(0, 10) > source.historicalAsOf!)
@@ -121,6 +149,8 @@ export function walkForward(
           initial,
           costs,
           warmupBars,
+          undefined,
+          research,
         );
         return {
           strategy,
@@ -145,6 +175,8 @@ export function walkForward(
       initial,
       costs,
       warmupBars,
+      undefined,
+      research,
     );
     folds.push({
       trainStart: bars[trainStart]!.date,
@@ -162,7 +194,14 @@ export function walkForward(
     onProgress?.(fold + 1, count);
   }
   const returns = folds.map((f) => f.test.totalReturn).sort((a, b) => a - b);
-  const matrix = candidateTrialMatrix(source, base, initial, costs, options);
+  const matrix = candidateTrialMatrix(
+    source,
+    base,
+    initial,
+    costs,
+    options,
+    corporateActions,
+  );
   const testing = multipleTesting(
     folds.flatMap((fold) => equityDailyReturns(fold.test.equity, initial)),
     matrix.sharpes.map((value, i) => ({
@@ -172,6 +211,7 @@ export function walkForward(
     options.yearlyDays ?? 252,
   );
   return {
+    ...(options.adjustment === "backward" ? { corporateActions } : {}),
     version: "walk-forward-1",
     symbol: source.symbol,
     snapshotId: source.id,

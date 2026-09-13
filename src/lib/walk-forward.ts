@@ -1,7 +1,9 @@
+import { researchAdjustmentSchema } from "./research-adjustment";
 import { z } from "zod";
 import type { Backtest, Strategy } from "./domain";
 import type { MultipleTesting } from "./multiple-testing";
 export const walkForwardSchema = z.object({
+  adjustment: researchAdjustmentSchema.optional(),
   trainBars: z.number().int().min(60).max(2500).default(252),
   testBars: z.number().int().min(20).max(500).default(63),
   yearlyDays: z.number().finite().positive().optional(),

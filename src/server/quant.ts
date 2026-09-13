@@ -1,3 +1,12 @@
+import {
+  bonusAdjustmentAssumptions,
+  researchAdjustmentSchema,
+} from "~/lib/research-adjustment";
+import {
+  bonusAdjustedSignals,
+  bonusShares,
+  type ResearchAdjustmentInput,
+} from "./bonus-adjusted-signals";
 import type { Bar, Strategy, Metrics, Backtest, Trade } from "~/lib/domain";
 import type { CashDividendPlan } from "~/lib/cash-dividends";
 import { DividendLedger } from "./dividend-ledger";
@@ -45,7 +54,15 @@ export function backtest(
   costInput: BacktestCosts = defaultBacktestCosts,
   evaluationStart = strategy.slow,
   dividendPlan?: CashDividendPlan,
+  research: ResearchAdjustmentInput = {},
 ): Backtest {
+  const mode = researchAdjustmentSchema.parse(research.adjustment ?? "none");
+  if (mode === "backward" && dividendPlan)
+    throw new Error("送转模式不能与现金分红实验混用");
+  const bonus =
+    mode === "backward"
+      ? bonusAdjustedSignals(bars, research.corporateActions)
+      : undefined;
   const costs = backtestCostsSchema.parse(costInput);
   const commission = costs.commissionBps / 10000,
     tax = costs.sellTaxBps / 10000,
@@ -84,7 +101,7 @@ export function backtest(
       bars[Math.max(0, evaluationStart - strategy.slow - 2)]!.date
   )
     throw new Error("分红复权来源未覆盖指标预热区间");
-  const signalBars = adjusted?.bars ?? bars;
+  const signalBars = bonus?.bars ?? adjusted?.bars ?? bars;
   let cash = initial,
     shares = 0,
     peak = initial,
@@ -99,6 +116,7 @@ export function backtest(
     benchmarkTrade: Trade | null = null;
   const benchmarkEquity: { date: string; value: number }[] = [];
   const diagnostics = {
+    ...(bonus?.diagnostics ?? {}),
     entrySignals: 0,
     insufficientCash: 0,
     untradable: 0,
@@ -111,6 +129,20 @@ export function backtest(
         strategy,
       ),
       tradable = bar.volume > 0 && bar.high > bar.low;
+    for (const ratio of bonus?.changes[i]?.ratios ?? []) {
+      if (shares > 0) {
+        const change = bonusShares(shares, ratio, bar.open);
+        shares = change.shares;
+        cash += change.cash;
+        diagnostics.shareAdjustments!++;
+        if (change.fractional) diagnostics.fractionalShares!++;
+      }
+      if (benchmarkShares > 0) {
+        const change = bonusShares(benchmarkShares, ratio, bar.open);
+        benchmarkShares = change.shares;
+        benchmarkCash += change.cash;
+      }
+    }
     cash += dividendLedger?.beforeOpen(bar.date, shares) ?? 0;
     benchmarkCash +=
       benchmarkLedger?.beforeOpen(bar.date, benchmarkShares) ?? 0;
@@ -192,6 +224,12 @@ export function backtest(
     equity.push({ date: bar.date, value });
   }
   return {
+    ...(bonus
+      ? {
+          adjustment: "backward" as const,
+          corporateActions: research.corporateActions,
+        }
+      : {}),
     ...(adjusted ? { signalAdjustment: adjusted.metadata } : {}),
     ...(dividendLedger && benchmarkLedger
       ? {
@@ -215,11 +253,13 @@ export function backtest(
       shares: benchmarkShares,
     },
     snapshotId,
-    engineVersion: adjusted
-      ? "backtest-5"
-      : dividendPlan
-        ? "backtest-4"
-        : "backtest-3",
+    engineVersion: bonus
+      ? "backtest-6-bonus"
+      : adjusted
+        ? "backtest-5"
+        : dividendPlan
+          ? "backtest-4"
+          : "backtest-3",
     evaluationStart,
     costs,
     strategy,
@@ -231,6 +271,12 @@ export function backtest(
     shares,
     diagnostics,
     assumptions: [
+      ...(bonus
+        ? [
+            ...bonusAdjustmentAssumptions,
+            "诊断除权/忽略/拒绝计数覆盖全部输入（含预热）；股数调整与碎股计数仅策略实际持仓，基准独立按同规则处理。",
+          ]
+        : []),
       ...(dividendPlan
         ? [
             `纯现金分红实验：固定红利税率 ${dividendPlan.taxBps / 100}%，分别按策略和基准登记持仓计算；未到账应收计入净值，不可用于交易。`,
@@ -246,9 +292,11 @@ export function backtest(
       "成交过滤使用整根K线的成交量与高低价，属于事后保守限制，不能证明开盘时已知可成交；尚无逐时点交易状态及排队还原",
       `佣金 ${costs.commissionBps / 100}% 最低 ${costs.minimumCommission} 元；卖出税费 ${costs.sellTaxBps / 100}%；单边滑点 ${costs.slippageBps / 100}%（${costs.version} 固定实验参数，非历史费率还原）`,
       "未单独建模过户费和其他杂费；买入数量预留最低佣金，按整手取整",
-      adjusted
-        ? "单只 A 股、仅纯现金信号调整；未完整还原跨除权事件，不能用于正式收益评价"
-        : "单只 A 股、不复权；跨除权事件不能用于正式收益评价",
+      bonus
+        ? "单只 A 股、仅送转调整；不能用于正式收益评价"
+        : adjusted
+          ? "单只 A 股、仅纯现金信号调整；未完整还原跨除权事件，不能用于正式收益评价"
+          : "单只 A 股、不复权；跨除权事件不能用于正式收益评价",
       "买入持有基准在评估窗口首个可成交且买得起整手的开盘买入，期末持仓估值不虚构卖出；超额为收益率百分点差，非风险调整alpha",
       "未完整建模涨跌停排队、流动性、分红送转与退市；期末持仓按收盘估值",
     ],

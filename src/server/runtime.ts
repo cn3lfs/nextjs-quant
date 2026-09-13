@@ -1,3 +1,7 @@
+import {
+  researchAdjustmentSchema,
+  type ResearchAdjustment,
+} from "~/lib/research-adjustment";
 import { quickResearch } from "./quick-research";
 import { preferredOnlineChart } from "./preferred-online-chart";
 import { isMarketIndex } from "~/lib/market-indices";
@@ -425,7 +429,9 @@ export function backtestJob(
   initial: number,
   scope: "full" | "window" = "full",
   costInput: BacktestCosts = defaultBacktestCosts,
+  adjustment?: ResearchAdjustment,
 ) {
+  researchAdjustmentSchema.optional().parse(adjustment);
   const costs = backtestCostsSchema.parse(costInput);
   const selected = get<Snapshot>(snapshotId);
   if (!selected) throw new Error("数据快照不存在，请先加载行情");
@@ -440,6 +446,7 @@ export function backtestJob(
       initial,
       scope,
       costs,
+      ...(adjustment ? { adjustment } : {}),
       root: selected.dataRoot ?? config.tdxRoot,
     },
     async (job, signal) => {
@@ -453,6 +460,7 @@ export function backtestJob(
       }>(
         {
           type: "backtest",
+          adjustment,
           costs,
           snapshot: selected,
           strategy,

@@ -1,3 +1,9 @@
+import { useState } from "react";
+import {
+  AdjustmentControl,
+  AdjustmentDisclosure,
+} from "../research-adjustment";
+import type { ResearchAdjustment } from "~/lib/research-adjustment";
 import { ResearchUsageContainer } from "~/components/research-usage-container";
 import { FlaskConical, Play, TriangleAlert } from "lucide-react";
 import { BacktestActionsPanel } from "../backtest-actions";
@@ -28,6 +34,7 @@ export function BacktestView({
     | "bt"
   >;
 }) {
+  const [adjustment, setAdjustment] = useState<ResearchAdjustment>("none");
   const {
     loaded,
     strategy,
@@ -52,9 +59,12 @@ export function BacktestView({
         <div className="notice">
           <TriangleAlert size={17} />
           <span>
-            当前为不复权研究模拟。跨除权事件、涨跌停排队与历史费用尚未完整还原，结果不作为正式策略业绩。
+            {adjustment === "backward"
+              ? "仅送转后复权研究模拟：现金分红不入现金，残余除息跳空仍影响信号和净值；不是正式策略业绩。"
+              : "当前为不复权研究模拟。跨除权事件、涨跌停排队与历史费用尚未完整还原，结果不作为正式策略业绩。"}
           </span>
         </div>
+        <AdjustmentControl value={adjustment} onChange={setAdjustment} />
         <StrategyFields strategy={strategy} setStrategy={setStrategy} />
         <div className="inline-form">
           <Field label="初始资金">
@@ -85,6 +95,7 @@ export function BacktestView({
                 initial,
                 scope: backtestScope,
                 costs: backtestCosts,
+                adjustment,
               })
             }
           >
@@ -135,9 +146,15 @@ export function BacktestView({
         initial={initial}
         costs={backtestCosts}
         scope={backtestScope}
+        adjustment={adjustment}
       />
       {bt && (
         <section className="panel">
+          <AdjustmentDisclosure
+            mode={bt.adjustment}
+            diagnostics={bt.diagnostics}
+            cashExperiment={!!bt.signalAdjustment}
+          />
           <p className="muted">
             {bt.costs
               ? `引擎 ${bt.engineVersion} · 成本版本 ${bt.costs.version} · 佣金万分之 ${bt.costs.commissionBps}（最低 ${bt.costs.minimumCommission} 元） · 卖出税费万分之 ${bt.costs.sellTaxBps} · 滑点万分之 ${bt.costs.slippageBps}`
