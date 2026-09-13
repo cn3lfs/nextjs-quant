@@ -231,6 +231,7 @@ export function deflatedSharpe(
 }
 
 export type MultipleTesting = {
+  recordedTrials?: ReviewValue;
   trials: number;
   trialSharpes: (number | null)[];
   trialSharpeReasons: (string | null)[];

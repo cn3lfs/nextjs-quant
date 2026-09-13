@@ -1,3 +1,4 @@
+import { recordResearchUsage } from "./research-usage";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { strategySchema } from "~/lib/domain";
@@ -46,6 +47,7 @@ export async function screenFormula(
     asOf: null,
     elapsedMs: 0,
   };
+  let usageStart: string | null = null;
   const completed = completedBarFilter("day", work.now);
   const observed: { symbol: string; name: string; date: string }[] = [];
   const strategy = strategySchema.parse({});
@@ -80,6 +82,8 @@ export async function screenFormula(
         reason: "没有已完成的日线",
       });
     else {
+      const first = bars[0]!.date;
+      if (usageStart === null || first < usageStart) usageStart = first;
       observed.push({
         symbol: security.symbol,
         name: security.name,
@@ -179,5 +183,19 @@ export async function screenFormula(
     ),
   );
   result.elapsedMs = performance.now() - started;
+  if (usageStart !== null && result.asOf !== null)
+    recordResearchUsage(() => ({
+      kind: "formula-screen",
+      symbols: ["*"],
+      universeSize: securities.length,
+      range: { start: usageStart!, end: result.asOf! },
+      candidateCount: 1,
+      config: {
+        kind: "formula-screen",
+        source: formula.source,
+        parameters: formula.parameters,
+        root: work.root,
+      },
+    }));
   return result;
 }

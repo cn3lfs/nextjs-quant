@@ -1,4 +1,5 @@
 "use client";
+import { ResearchUsageContainer } from "~/components/research-usage-container";
 import { useEffect, useState } from "react";
 import type { Snapshot, Strategy } from "~/lib/domain";
 import type { BacktestCosts } from "~/lib/backtest-costs";
@@ -181,6 +182,7 @@ export function WalkForwardPanel({
           {result.id && (
             <WalkForwardExplanation key={result.id} id={result.id} />
           )}
+          <ResearchUsageContainer key={result.id} range={result.dataRange} />
           <MultipleTestingPanel result={result.multipleTesting} />
           <BacktestActionsPanel review={result.corporateActions} />
           <div className="table-wrap">

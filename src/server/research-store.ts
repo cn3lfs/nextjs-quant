@@ -55,7 +55,7 @@ export class ResearchStore {
         const payload = JSON.stringify(value);
         const usage = this.db
           .prepare(
-            "SELECT COALESCE(SUM(length(CAST(payload AS BLOB))),0) AS bytes FROM records WHERE kind LIKE 'research-%'",
+            "SELECT COALESCE(SUM(length(CAST(payload AS BLOB))),0) AS bytes FROM records WHERE kind LIKE 'research-%' AND kind <> 'research-usage'",
           )
           .get() as { bytes: number };
         if (usage.bytes + Buffer.byteLength(payload) > this.limitBytes)

@@ -130,6 +130,18 @@ it("worker selection goes into existing candidate paging and export with immutab
     progress,
   );
   expect(result.candidates.map((c) => c.symbol)).toEqual(["sh600519"]);
+  const usage = list<import("../src/lib/research-usage").ResearchUsage>(
+    "research-usage",
+    -1,
+  );
+  expect(usage).toHaveLength(1);
+  expect(usage[0]).toMatchObject({
+    kind: "formula-screen",
+    symbols: ["*"],
+    universeSize: 1,
+    candidateCount: 1,
+    range: { start: bars[0]!.date, end: bars.at(-1)!.date },
+  });
   expect(progress).toHaveBeenLastCalledWith(
     90,
     "公式选股",
@@ -274,4 +286,30 @@ it("formula screening consumes persisted RPS and distinguishes missing from weak
   const missing = await screenFormula(work);
   expect(missing.candidates).toEqual([]);
   expect(missing.excluded[0]!.reason).toContain("RPS缺失");
+});
+
+it("V5 formula calculation still returns unchanged results when usage put fails", async () => {
+  const work = {
+    type: "formula-screen" as const,
+    root: "fixture",
+    formula,
+    now: Date.parse("2026-02-01"),
+  };
+  const expected = await screenFormula(work);
+  // A database trigger exercises a real failed KV INSERT, without mocking the formula calculation.
+  sqlite().exec(
+    "CREATE TEMP TRIGGER reject_usage BEFORE INSERT ON records WHEN NEW.kind='research-usage' BEGIN SELECT RAISE(FAIL, 'usage rejected'); END",
+  );
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const actual = await screenFormula(work);
+    expect({ ...actual, elapsedMs: 0 }).toEqual({ ...expected, elapsedMs: 0 });
+    expect(warn).toHaveBeenCalledWith(
+      "研究使用台账写入失败，本次运行可能未记录",
+    );
+    expect(list("research-usage", -1)).toHaveLength(1);
+  } finally {
+    sqlite().exec("DROP TRIGGER reject_usage");
+    warn.mockRestore();
+  }
 });

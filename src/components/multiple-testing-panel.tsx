@@ -58,8 +58,23 @@ export function MultipleTestingPanel({
     <section className="space-y-2 rounded-lg border p-4 text-sm">
       <h4 className="font-medium">过拟合修正</h4>
       <p>
-        记录试验数 N：{trials} · 拼接测试收益观测数：{selected.observations}
+        本次运行内部候选数 N（DSR 使用）：{trials} · 拼接测试收益观测数：
+        {selected.observations}
       </p>
+      <p>
+        该区间历史累计已记录的试验次数（下界，运行时快照）：
+        {result.recordedTrials?.value ?? "不可得"} ·{" "}
+        {result.recordedTrials?.reason ?? "旧档案未记录"}
+      </p>
+      {result.recordedTrials?.value != null &&
+        result.recordedTrials.value > trials && (
+          <p>
+            DSR 按本次候选数计算；该区间历史上已记录{" "}
+            {result.recordedTrials.value}{" "}
+            次试验（下界）。累计值跨标的跨配置，不能直接代入
+            DSR，也不能据此量化额外紧缩。
+          </p>
+        )}
       <p>
         日夏普：{display(selected.sharpeDaily)}（年化：
         {display(selected.sharpeAnnual)}，年化天数 {yearlyDays}）

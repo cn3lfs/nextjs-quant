@@ -1,3 +1,4 @@
+import { recordResearchUsage } from "./research-usage";
 import { parentPort, workerData } from "node:worker_threads";
 import { sqlite } from "./db";
 import { ResearchStore } from "./research-store";
@@ -57,6 +58,25 @@ async function run() {
     );
     if (cancelled()) throw new Error("研究已取消");
     store.finish(task.id, result);
+    recordResearchUsage(() => {
+      const {
+        start,
+        end,
+        validationStart: _validationStart,
+        ...config
+      } = task.spec;
+      return {
+        kind: "sample-research",
+        symbols:
+          !task.spec.symbols && !task.spec.pool
+            ? ["*"]
+            : dataset.membership.symbols,
+        universeSize: dataset.membership.symbols.length,
+        range: { start, end },
+        candidateCount: 1,
+        config: { kind: "sample-research", ...config },
+      };
+    });
   } catch (error) {
     store.update(task.id, {
       status: cancelled() ? "cancelled" : "failed",

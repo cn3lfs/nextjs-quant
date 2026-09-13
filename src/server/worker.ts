@@ -1,3 +1,4 @@
+import { recordResearchUsage } from "./research-usage";
 import { parentPort } from "node:worker_threads";
 import { scan, readSnapshot } from "./tdx";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
@@ -120,6 +121,27 @@ async function main(work: Work) {
       evaluationStart,
       dividendPlan,
     );
+    recordResearchUsage(() => ({
+      kind: "backtest",
+      symbols: [source.symbol],
+      universeSize: 1,
+      range: {
+        start: source.bars[0]!.date.slice(0, 10),
+        end: source.bars.at(-1)!.date.slice(0, 10),
+      },
+      candidateCount: 1,
+      config: {
+        kind: "backtest",
+        symbol: source.symbol,
+        period: source.period,
+        strategy: work.strategy,
+        initial: work.initial,
+        costs: work.costs,
+        cashDividends: dividendPlan
+          ? { taxBps: dividendPlan.taxBps, mode: "cash-dividend" }
+          : null,
+      },
+    }));
     return {
       source,
       result: {

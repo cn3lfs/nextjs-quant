@@ -1,3 +1,4 @@
+import { ResearchUsageContainer } from "~/components/research-usage-container";
 import { useState } from "react";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
@@ -367,6 +368,9 @@ export function ScreenView({
         )}
         {screenResult ? (
           <>
+            {screenResult.formula && (
+              <ResearchUsageContainer key={screenJob?.id} />
+            )}
             {screenResult.formula && (
               <div className="notice">
                 <strong>公式：{screenResult.formula.name}</strong>

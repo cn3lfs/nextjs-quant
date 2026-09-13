@@ -1,3 +1,5 @@
+import { researchRangeSchema, researchDateSchema } from "~/lib/research-usage";
+import { researchUsage } from "../research-usage";
 import {
   holdingsCorrelationPageSchema,
   pageHoldingsCorrelation,
@@ -1211,6 +1213,16 @@ export const appRouter = createTRPCRouter({
       now: Date.now(),
     };
   }),
+  researchUsage: p
+    .input(researchRangeSchema)
+    .query(({ input }) => researchUsage(input)),
+  holdoutSettings: p.query(() => ({ holdoutStart: settings().holdoutStart })),
+  saveHoldoutStart: p
+    .input(researchDateSchema.nullable())
+    .mutation(({ input }) => {
+      saveSettings({ ...settings(), holdoutStart: input });
+      return { holdoutStart: input };
+    }),
   saveSettings: p
     .input(settingsSchema)
     .mutation(({ input }) => saveSettings(input)),

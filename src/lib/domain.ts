@@ -1,3 +1,4 @@
+import { researchDateSchema } from "./research-usage";
 import { z } from "zod";
 import { notificationPolicySchema } from "./notification-policy";
 import type { SecurityTradingStatus } from "./security-trading-status";
@@ -259,6 +260,7 @@ export type Monitor = {
   error?: string;
 };
 export const settingsSchema = z.object({
+  holdoutStart: researchDateSchema.nullable().default(null),
   notificationPolicy: notificationPolicySchema,
   llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
   codexModel: z.string().trim().max(100).default(""),

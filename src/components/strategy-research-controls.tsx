@@ -1,4 +1,5 @@
 "use client";
+import { ResearchUsageContainer } from "~/components/research-usage-container";
 import {
   Table,
   TableHeader,
@@ -593,6 +594,10 @@ export function StrategyResearchControls() {
       {result.data && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">样本结果</h2>
+          <ResearchUsageContainer
+            key={selected}
+            range={{ start: result.data.spec.start, end: result.data.spec.end }}
+          />
           <UniverseAuditContainer
             key={selected}
             source={{ kind: "research", id: selected }}

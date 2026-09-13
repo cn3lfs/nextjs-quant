@@ -1,3 +1,4 @@
+import { ResearchUsageContainer } from "~/components/research-usage-container";
 import { FlaskConical, Play, TriangleAlert } from "lucide-react";
 import { BacktestActionsPanel } from "../backtest-actions";
 import { DividendLedgerPanel } from "../cash-dividend-experiment";
@@ -147,6 +148,10 @@ export function BacktestView({
               ? `${bt.dataRange.scope === "full" ? "完整本地历史" : "快照窗口"} · ${bt.dataRange.bars} 根 · ${bt.dataRange.start} 至 ${bt.dataRange.end}`
               : "旧回测未记录完整数据范围，请结合原快照核验。"}
           </p>
+          <ResearchUsageContainer
+            key={JSON.stringify(bt.dataRange)}
+            range={bt.dataRange}
+          />
           <div className="result-stats">
             <div>
               <span>模拟区间收益</span>

@@ -1,5 +1,5 @@
 {
-  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged.",
+  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged. V5 adds only research usage result containers to backtest and formula results; tests/workbench-refactor.test.ts verifies their exact range and conditional anchors.",
   "state": "41f67fdae65904f7346e38996b88376292013080f2bc32ab340c993ea7ea00ff",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
@@ -12,8 +12,8 @@
   },
   "views": {
     "market-view.tsx": "c05786f021a8731cb58a1ead3413dc4b5844a566c5faf16bdb3881ae4bc55e22",
-    "screen-view.tsx": "44d405b84fcc5913b6ffbc86aa07ac0105ea78c01fb6d8d7f80fe5f12ff86a75",
-    "backtest-view.tsx": "c048f075d210702036d4a6e29a335c68cfe23879161545970f77fe4c469a335e",
+    "screen-view.tsx": "7e74f1af1564abf05de5aa14044e1b8c275172cd7d13c7676d2c9e1a53d53f35",
+    "backtest-view.tsx": "f9929c4a055baf017bf474863c8240243efb0fd0d4dde29ebdb2d2cdaf819db3",
     "signals-view.tsx": "00fb6558c83047dc704f4ff56f002d80efc6f232e0dbb13b3f37743888bed944",
     "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",
     "evidence-analysis.tsx": "998d4c39c9d2f7b4e399e2f84944f16acddf7b1636c873852747c1a0a32a5647",

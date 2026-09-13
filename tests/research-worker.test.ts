@@ -186,6 +186,24 @@ it("executes the bundled research worker and reproduces trades from an immutable
     await run(repeated.id);
     expect(store.result(repeated.id)?.hash).toBe(result.hash);
     expect(store.dataset(repeated.id)).toEqual(dataset);
+    const usageRows = db
+      .prepare("SELECT payload FROM records WHERE kind='research-usage'")
+      .all() as { payload: string }[];
+    const usage = usageRows.map(
+      (row) =>
+        JSON.parse(
+          row.payload,
+        ) as import("../src/lib/research-usage").ResearchUsage,
+    );
+    expect(usage).toHaveLength(2);
+    expect(usage[0]).toMatchObject({
+      kind: "sample-research",
+      universeSize: 1,
+      candidateCount: 1,
+      range: { start: spec.start, end: spec.end },
+    });
+    expect(usage[0]!.id).not.toBe(usage[1]!.id);
+    expect(usage[0]!.configHash).toBe(usage[1]!.configHash);
     const cancelled = store.retry(task.id);
     await run(cancelled.id, true);
     expect(store.task(cancelled.id)?.status).toBe("cancelled");

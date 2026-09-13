@@ -110,7 +110,8 @@ it("Q2b wires formula jobs to the existing result selection and preserves exact 
       (ts.isJsxExpression(node) &&
         node.expression &&
         ts.isBinaryExpression(node.expression) &&
-        node.expression.left.getText() === "screenResult.formula")
+        node.expression.left.getText() === "screenResult.formula" &&
+        !node.expression.right.getText().includes("ResearchUsageContainer"))
     )
       additions.push(node);
     ts.forEachChild(node, visit);
@@ -215,4 +216,23 @@ it("T1 names the candidate action explicitly while preserving snapshot navigatio
   expect(source).toContain("setSymbol(c.symbol)");
   expect(source).toContain("setPeriod(source.period)");
   expect(source).toContain("setLoaded(source)");
+});
+
+it("V5 attaches usage to backtest range and completed formula results", () => {
+  const backtest = readFileSync(
+    "src/components/workbench/backtest-view.tsx",
+    "utf8",
+  );
+  const screen = readFileSync(
+    "src/components/workbench/screen-view.tsx",
+    "utf8",
+  );
+  expect(backtest).toMatch(
+    /<ResearchUsageContainer[\s\S]*?range=\{bt.dataRange\}/,
+  );
+  expect(screen).toMatch(
+    /screenResult.formula &&[\s\S]*?<ResearchUsageContainer[\s\S]*?key=\{screenJob\?\.id\}/,
+  );
+  expect(screen.match(/<ResearchUsageContainer/g)).toHaveLength(1);
+  expect(backtest.match(/<ResearchUsageContainer/g)).toHaveLength(1);
 });
