@@ -406,6 +406,11 @@ export const appRouter = createTRPCRouter({
     new DeliveryStore(chartSqlite()).batches().map(({ payload, ...batch }) => ({
       ...batch,
       statistics: payload.statistics,
+      ...(payload.scope ? { scope: payload.scope } : {}),
+      ...(payload.statementOpeningCash !== undefined
+        ? { statementOpeningCash: payload.statementOpeningCash }
+        : {}),
+      ...(payload.counts ? { counts: payload.counts } : {}),
     })),
   ),
   deliveryRevoke: p

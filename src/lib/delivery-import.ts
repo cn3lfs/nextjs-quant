@@ -500,6 +500,14 @@ export type UnresolvedRow = {
 };
 
 export type DeliveryImport = {
+  statementOpeningCash?: number | null;
+  counts?: {
+    discardedFills: number;
+    excludedInterest: number;
+    rejectedSigns: number;
+    failedFlows: number;
+    unresolved: number;
+  };
   mapping: ColumnMapping;
   fills: ParsedFill[];
   cashFlows: ParsedCashFlow[];
@@ -546,9 +554,34 @@ function occurrenceCounter() {
   };
 }
 
-export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
+export function importDeliveryTable(
+  table: DeliveryTable,
+  options: Pick<ImportOptions, "scope"> = {},
+): DeliveryImport {
   const mapping = mapDeliveryColumns(table.header);
   const { columns } = mapping;
+  const summaryColumn = table.header.findIndex(
+    (h) => normalizeHeader(h) === "摘要",
+  );
+  const operationColumn = table.header.findIndex(
+    (h) => normalizeHeader(h) === "操作",
+  );
+  const statement =
+    summaryColumn >= 0 &&
+    table.header.some((h) => normalizeHeader(h) === "资金余额") &&
+    operationColumn >= 0 &&
+    table.rows.some((row) => cleanCell(row[operationColumn] ?? "") === "其他");
+  if (statement) {
+    columns.summary = summaryColumn;
+    columns.side = operationColumn;
+  }
+  const counts = {
+    discardedFills: 0,
+    excludedInterest: 0,
+    rejectedSigns: 0,
+    failedFlows: 0,
+    unresolved: 0,
+  };
   const diagnostics = [...mapping.warnings];
   const cashOnly =
     columns.price === undefined &&
@@ -573,9 +606,11 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
         .join("、")}`,
     );
   diagnostics.push(
-    cashOnly
-      ? "按纯资金流水形态解析（无价格/数量列，有金额及业务类别列）"
-      : "按成交明细形态解析（有价格及数量列）",
+    statement
+      ? "按对账单形态解析（摘要、资金余额及其他操作）"
+      : cashOnly
+        ? "按纯资金流水形态解析（无价格/数量列，有金额及业务类别列）"
+        : "按成交明细形态解析（有价格及数量列）",
   );
   if (columns.account !== undefined)
     diagnostics.push("已识别账号列，入库前按列脱敏，不保存真实账号");
@@ -598,10 +633,74 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
     return value || null;
   };
 
+  // Preserve source order at equal timestamps, reversing ties with descending
+  // exports. Never use summary wording to choose the posted interest leg.
+  const chronological = (statement ? table.rows : []).map((cells, index) => ({
+    cells,
+    index,
+    date: parseDeliveryDate(at(cells, "tradeDate")),
+    time: parseDeliveryTime(at(cells, "tradeTime")) ?? "00:00:00",
+  }));
+  const dated = chronological.filter((row) => row.date !== null);
+  const descending =
+    dated.length > 1 &&
+    `${dated[0]!.date} ${dated[0]!.time}` >
+      `${dated.at(-1)!.date} ${dated.at(-1)!.time}`;
+  chronological.sort(
+    (a, b) =>
+      `${a.date ?? ""} ${a.time}`.localeCompare(`${b.date ?? ""} ${b.time}`) ||
+      (descending ? b.index - a.index : a.index - b.index),
+  );
+  const previousBalances = new Map<number, number | null>();
+  chronological.forEach((row, i) =>
+    previousBalances.set(
+      row.index,
+      i > 0 ? num(chronological[i - 1]!.cells, "balanceCash") : null,
+    ),
+  );
+  const first = chronological[0];
+  const openingBalance = first ? num(first.cells, "balanceCash") : null;
+  const openingAmount = first ? num(first.cells, "netAmount") : null;
+  const statementOpeningCash =
+    first?.date && openingBalance !== null && openingAmount !== null
+      ? Math.round((openingBalance - openingAmount) * 100) / 100
+      : null;
+
   table.rows.forEach((cells, index) => {
     const rowIndex = index + 1;
     const summary = cleanCell(at(cells, "summary"));
-    const kind = classifyRow(summary, at(cells, "side"), at(cells, "note"));
+    let kind = classifyRow(summary, at(cells, "side"), at(cells, "note"));
+    if (statement) {
+      const operation = cleanCell(at(cells, "side"));
+      if (summary.includes("银行返回码")) {
+        const amount = num(cells, "netAmount");
+        kind =
+          /银行返回码\s*[:：]?\s*000000000000(?!\d)/.test(summary) &&
+          summary.includes("交易成功") &&
+          amount !== null &&
+          amount !== 0
+            ? amount > 0
+              ? "transferIn"
+              : "transferOut"
+            : null;
+      } else if (summary.includes("融券回购购回日")) {
+        kind =
+          operation === "卖出" ? "sell" : operation === "买入" ? "buy" : null;
+      } else if (summary.includes("结息") || summary.includes("利息结转")) {
+        kind = "interest";
+      } else {
+        // Only explicit cash vocabulary may override the operation column.
+        const cashKind = classifyRow(summary, "");
+        kind =
+          cashKind && cashKind !== "buy" && cashKind !== "sell"
+            ? cashKind
+            : operation === "买入"
+              ? "buy"
+              : operation === "卖出"
+                ? "sell"
+                : null;
+      }
+    }
     const date = parseDeliveryDate(at(cells, "tradeDate"));
     if (
       (cashOnly || (kind !== "buy" && kind !== "sell")) &&
@@ -611,6 +710,7 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
         .map((i) => cleanCell(cells[i] ?? ""))
         .join("；");
       if (failedFlowTokens.some((token) => status.includes(token))) {
+        counts.failedFlows++;
         unresolved.push({
           rowIndex,
           reason: `资金流水状态「${status}」为失败/作废，不计入现金流`,
@@ -669,13 +769,40 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
         unresolved.push({ rowIndex, reason: "资金流水缺少发生金额", cells });
         return;
       }
+      if (statement && kind === "interest") {
+        const previous = previousBalances.get(index) ?? null;
+        const balance = num(cells, "balanceCash");
+        if (previous === null || balance === null) {
+          unresolved.push({
+            rowIndex,
+            reason: "利息缺少前一条资金余额或本条余额，无法确证入账",
+            cells,
+          });
+          return;
+        }
+        // Compare at the statement's cent precision, not relative price tolerance.
+        if (
+          Math.round(balance * 100) !==
+          Math.round(previous * 100) + Math.round(raw * 100)
+        ) {
+          counts.excludedInterest++;
+          return;
+        }
+      }
       // Types with an unambiguous direction are forced to the correct sign;
       // 新股申购/配号 keep whatever sign the counter wrote, since the same
       // summary covers both the debit and the later refund.
       const negative = kind === "transferOut" || kind === "fee";
       const positive =
         kind === "transferIn" || kind === "dividend" || kind === "interest";
-      const amount = negative ? -Math.abs(raw) : positive ? Math.abs(raw) : raw;
+      const amount =
+        statement && kind === "interest"
+          ? raw
+          : negative
+            ? -Math.abs(raw)
+            : positive
+              ? Math.abs(raw)
+              : raw;
       const cashKey = [date, kind, amount, text(cells, "code")] as const;
       cashFlows.push({
         quantity: num(cells, "quantity"),
@@ -699,8 +826,26 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
       return;
     }
 
-    const price = num(cells, "price");
     const quantity = num(cells, "quantity");
+    if (
+      statement &&
+      (quantity === null ||
+        quantity === 0 ||
+        Math.sign(quantity) !== (kind === "buy" ? 1 : -1))
+    ) {
+      counts.rejectedSigns++;
+      unresolved.push({
+        rowIndex,
+        reason: "对账单数量缺失、为零或符号与操作不一致（买入须正、卖出须负）",
+        cells,
+      });
+      return;
+    }
+    if (options.scope === "cashFlowsOnly") {
+      counts.discardedFills++;
+      return;
+    }
+    const price = num(cells, "price");
     if (price === null || quantity === null || price <= 0 || quantity === 0) {
       unresolved.push({
         rowIndex,
@@ -861,11 +1006,26 @@ export function importDeliveryTable(table: DeliveryTable): DeliveryImport {
     diagnostics.push(
       `${excluded} 笔成交为非沪深北股票品种，计入资金但不参与个股分析`,
     );
-  return { mapping, fills, cashFlows, unresolved, diagnostics };
+  if (statement || options.scope === "cashFlowsOnly") {
+    counts.unresolved = unresolved.length;
+    diagnostics.push(
+      `范围排除成交 ${counts.discardedFills} 条；余额恒等式排除利息 ${counts.excludedInterest} 条；数量符号拒绝 ${counts.rejectedSigns} 条；失败流水 ${counts.failedFlows} 条；未解析 ${counts.unresolved} 条`,
+    );
+  }
+  return {
+    mapping,
+    fills,
+    cashFlows,
+    unresolved,
+    diagnostics,
+    ...(statement ? { statementOpeningCash } : {}),
+    ...(statement || options.scope === "cashFlowsOnly" ? { counts } : {}),
+  };
 }
 
 export const importOptionsSchema = z.object({
   account: z.string().trim().min(1).max(64),
   source: z.enum(["ths", "eastmoney", "tdx", "generic"]),
+  scope: z.enum(["all", "cashFlowsOnly"]).optional(),
 });
 export type ImportOptions = z.infer<typeof importOptionsSchema>;

@@ -24,6 +24,8 @@ export type ImportResult = {
   cashFlows: number;
   duplicate: number;
   diagnostics?: string[];
+  statementOpeningCash?: number | null;
+  counts?: DeliveryImport["counts"];
 };
 export type ImportRowStatus = {
   id: string;
@@ -35,8 +37,9 @@ export type ImportRowStatus = {
 type Stored<T> = T & { id: string; account: string; batchId: string };
 type BatchPayload = Pick<
   DeliveryImport,
-  "mapping" | "diagnostics" | "unresolved"
+  "mapping" | "diagnostics" | "unresolved" | "statementOpeningCash" | "counts"
 > & {
+  scope?: ImportOptions["scope"];
   rawRows: string[][];
   statistics: {
     fills: number;
@@ -128,16 +131,31 @@ export class DeliveryStore {
   }
 
   commitImport(input: CommitImportInput): ImportResult {
-    const { account, source } = importOptionsSchema.parse(input);
+    const { account, source, scope } = importOptionsSchema.parse(input);
+    if (scope === "cashFlowsOnly" && input.parsed.fills.length)
+      throw new Error("cashFlowsOnly 批次不能包含成交，请按指定范围重新解析");
     return this.db
       .transaction(() => {
         const existing = this.db
           .prepare(
-            "SELECT id FROM import_batches WHERE account=? AND file_hash=?",
+            "SELECT id,payload FROM import_batches WHERE account=? AND file_hash=?",
           )
-          .get(account, input.fileHash) as { id: string } | undefined;
-        if (existing)
+          .get(account, input.fileHash) as
+          { id: string; payload: string } | undefined;
+        const metadata = {
+          ...(input.parsed.statementOpeningCash !== undefined
+            ? { statementOpeningCash: input.parsed.statementOpeningCash }
+            : {}),
+          ...(input.parsed.counts ? { counts: input.parsed.counts } : {}),
+        };
+        if (existing) {
+          const previous = JSON.parse(existing.payload) as BatchPayload;
+          if ((previous.scope ?? "all") !== (scope ?? "all"))
+            throw new Error(
+              "同一文件已按不同 scope 导入；请先核对并撤销原批次，再选择新的导入范围",
+            );
           return {
+            ...metadata,
             batchId: existing.id,
             alreadyImported: true,
             fills: 0,
@@ -145,6 +163,7 @@ export class DeliveryStore {
             duplicate:
               input.parsed.fills.length + input.parsed.cashFlows.length,
           };
+        }
         const rows = this.inspect(account, input.parsed);
         const conflicts = rows.filter((row) => row.status === "conflict");
         if (conflicts.length)
@@ -159,6 +178,8 @@ export class DeliveryStore {
           );
         const batchId = randomUUID();
         const payload: BatchPayload = {
+          ...metadata,
+          ...(scope ? { scope } : {}),
           mapping: input.parsed.mapping,
           diagnostics: input.parsed.diagnostics,
           rawRows: input.rawRows.map((row) =>
@@ -188,6 +209,7 @@ export class DeliveryStore {
             JSON.stringify(payload),
           );
         const result: ImportResult = {
+          ...metadata,
           batchId,
           alreadyImported: false,
           fills: 0,

@@ -16,7 +16,7 @@ const optionsSchema = importOptionsSchema.extend({
 function prepare(bytes: Uint8Array, options: unknown) {
   const validated = optionsSchema.parse(options);
   const table = parseDeliveryTable(bytes);
-  const parsed = importDeliveryTable(table);
+  const parsed = importDeliveryTable(table, validated);
   parsed.unresolved = parsed.unresolved.map((row) => ({
     ...row,
     cells: redactRow(row.cells, parsed.mapping),
@@ -48,6 +48,7 @@ export function previewDeliveryImport(
       unresolved: input.parsed.unresolved.length,
       anomalies: input.parsed.fills.filter((row) => row.anomalies.length)
         .length,
+      ...(input.parsed.counts ? { counts: input.parsed.counts } : {}),
     },
     mapping: input.parsed.mapping,
     unmapped: input.parsed.mapping.unmapped,
