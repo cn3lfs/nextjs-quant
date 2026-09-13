@@ -1,4 +1,5 @@
 import { SignalLedgerSummaryTable } from "./signal-ledger-summary-table";
+import { SignalInformationView } from "./signal-information-view";
 import { aggregateLedger, horizons, type LedgerRow } from "~/lib/signal-ledger";
 import type { LedgerRun } from "~/server/signal-ledger-store";
 import {
@@ -13,10 +14,12 @@ export function SignalLedgerView({
   rows,
   runs,
   notifications = [],
+  informationPage = 1,
 }: {
   rows: (LedgerRow & { notifications?: NotificationDecision[] })[];
   runs: LedgerRun[];
   notifications?: NotificationDecision[];
+  informationPage?: number;
 }) {
   const groups = aggregateLedger(rows);
   return (
@@ -65,6 +68,7 @@ export function SignalLedgerView({
           </div>
         )}
       </section>
+      <SignalInformationView rows={rows} page={informationPage} />
       <section className="panel" aria-label="每日任务">
         <h2>每日任务（最近 30 日）</h2>
         {!runs.length && <p>尚无收盘任务记录。</p>}
