@@ -85,6 +85,8 @@ import { IntradayJob } from "../intraday-job";
 import { marketPoolQuerySchema, poolCategorySchema } from "~/lib/market-pool";
 import { marketPoolCatalog } from "../market-pool-files";
 import { marketPoolPage, marketPoolRows } from "../market-pool-service";
+import { universeAuditQuerySchema } from "~/lib/universe-audit";
+import { universeAuditPage } from "../universe-audit";
 import { RpsStore } from "../rps-store";
 import { rpsClient } from "../rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
@@ -948,6 +950,9 @@ export const appRouter = createTRPCRouter({
   marketPoolPage: p
     .input(marketPoolQuerySchema)
     .query(({ input }) => marketPoolPage(input)),
+  universeAuditPage: p
+    .input(universeAuditQuerySchema)
+    .query(({ input }) => universeAuditPage(input)),
   marketPoolExport: p
     .input(marketPoolQuerySchema)
     .mutation(({ input }) => marketPoolRows(input)),

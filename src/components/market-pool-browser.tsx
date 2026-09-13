@@ -13,6 +13,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
 import { IndexBrowser } from "./index-browser";
+import { UniverseAuditContainer } from "./universe-audit-container";
 import {
   Select,
   SelectContent,
@@ -167,6 +168,12 @@ export function MarketPoolBrowser({
     >
       <IndexBrowser onSelect={onSelect} disabled={disabled} />
       <h3 className="font-semibold">股票池与强势股浏览</h3>
+      {ready && page.data && (
+        <UniverseAuditContainer
+          key={JSON.stringify(query.pool)}
+          source={{ kind: "market", pool: query.pool }}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <Select
           value={category}

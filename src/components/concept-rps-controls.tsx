@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { UniverseAuditContainer } from "./universe-audit-container";
 import { rpsPeriods } from "~/lib/rps";
 import { industryEmptyLabels, industryExclusions } from "~/lib/industry-rps";
 import { industryExclusionLabels } from "./industry-rps-status";
@@ -91,6 +92,17 @@ export function ConceptRpsControls() {
   return (
     <section className="space-y-4" aria-label="概念RPS数据管理">
       <h2 className="text-xl font-semibold">概念RPS排名</h2>
+      {page.data?.day && (
+        <UniverseAuditContainer
+          key={`${page.data.day.date}:${page.data.day.hash}`}
+          source={{
+            kind: "concept",
+            date: page.data.day.date,
+            hash: page.data.day.hash,
+          }}
+          end={page.data.day.date}
+        />
+      )}
       <p>
         使用上方选择的 Blocks
         或通达信概念名单。以有效成分股后复权涨幅的等权平均对概念分别排名，不混入申万行业排名，也不等于通达信概念指数。重叠成分在不同概念内分别计数。

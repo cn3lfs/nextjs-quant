@@ -20,6 +20,7 @@ import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { Input } from "./ui/input";
 import { ThreeSegmentResults } from "./three-segment-results";
+import { UniverseAuditContainer } from "./universe-audit-container";
 import { Checkbox } from "./ui/checkbox";
 import {
   Select,
@@ -592,6 +593,12 @@ export function StrategyResearchControls() {
       {result.data && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">样本结果</h2>
+          <UniverseAuditContainer
+            key={selected}
+            source={{ kind: "research", id: selected }}
+            start={result.data.spec.start}
+            end={result.data.spec.end}
+          />
           <p className="break-all text-xs">
             数据快照：{result.data.datasetHash}
           </p>

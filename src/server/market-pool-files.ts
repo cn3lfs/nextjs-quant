@@ -67,6 +67,7 @@ export async function readMarketPool(
   root: string,
   input: unknown,
   tdxRoot?: string,
+  readOnly = false,
 ) {
   const pool = poolSelectionSchema.parse(input);
   if (tdxRoot && pool.name.startsWith("通达信·")) {
@@ -104,7 +105,7 @@ export async function readMarketPool(
     // Content-addressed evidence is immutable; later downloads produce another snapshot.
     const existing = get<typeof result>(id);
     if (existing) return existing;
-    put("market-pool-snapshot", id, result);
+    if (!readOnly) put("market-pool-snapshot", id, result);
     return result;
   }
   if (pool.category === "index" && pool.name !== "中证A500")
