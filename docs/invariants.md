@@ -271,3 +271,11 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **局限**：同日多笔各复用同一前收，可能产生较大偏差；不保证同日多笔的波动归属。
 - **测试**：[trade-review-nav.test.ts](../tests/trade-review-nav.test.ts) 保护修改前完整输出快照、三日手算、显式优先、缺口、空仓、逆回购与多笔反例；[trade-review-ui.test.ts](../tests/trade-review-ui.test.ts) 保护两种模式的页面说明与重放输入。
 - **违反会怎样**：把近似值当成时点估值、跨缺口补造收益或改变默认模式数值。
+
+## W8 逆回购资金方向
+
+- **是什么**：仅逆回购按实际 netAmount 符号判方向，负为融出、正为购回；null、非有限数及零不猜方向，计入 unknownDirectionCount，逐笔 warnings 说明原因。操作列与资金方向冲突逐笔保留“操作列与资金方向不一致，以资金方向为准”。普通证券仍按 kind。
+- **配平**：逐品种融出数量记正、购回记负；任一品种方向不可判或数量未平，汇总 interestIncome 留空并说明原因；全部配平才汇总净现金。资金占用仍为累计实际负现金绝对值，非峰值。
+- **为什么**：券商成交明细存在卖出标签实际为购回的记录，按标签配平会让已闭环利息永久留空。
+- **测试**：[w8-repo-direction.test.ts](../tests/w8-repo-direction.test.ts) 保护配平、跨品种不抵消、缺失与冲突留痕、普通证券不变；W8_REAL_DATA=1 启用本地真实账单验收及修改前非逆回购完整输出 SHA-256 护栏。
+- **违反会怎样**：利息留空或方向误判，数据源格式变化被静默掩盖。

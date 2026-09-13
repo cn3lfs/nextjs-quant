@@ -22,12 +22,37 @@ export type ReviewFeeSource = {
   source: "netAmount" | "components" | "missing";
   warnings: string[];
 };
+// Cash sign is authoritative for repos; broker operation labels can conflict.
+// See docs/invariants.md, W8.
+function repoDirection(f: ParsedFill) {
+  return f.netAmount === null ||
+    !Number.isFinite(f.netAmount) ||
+    f.netAmount === 0
+    ? null
+    : f.netAmount < 0
+      ? 1
+      : -1;
+}
 function actualFees(f: ParsedFill, fillIndex: number): ReviewFeeSource {
   const warnings: string[] = [];
-  if (f.netAmount !== null && Number.isFinite(f.netAmount)) {
-    // Repo sells lend cash; repo buys receive redemption, unlike securities.
+  const direction = f.instrument === "reverseRepo" ? repoDirection(f) : null;
+  if (f.instrument === "reverseRepo") {
+    if (direction === null)
+      warnings.push(
+        `成交 ${fillIndex}（${f.code}）：逆回购方向不可判，发生金额缺失、非有限或为零`,
+      );
+    else if ((direction === 1) !== (f.kind === "sell"))
+      warnings.push(
+        `成交 ${fillIndex}（${f.code}）：操作列与资金方向不一致，以资金方向为准`,
+      );
+  }
+  if (
+    f.netAmount !== null &&
+    Number.isFinite(f.netAmount) &&
+    (f.instrument !== "reverseRepo" || direction !== null)
+  ) {
     const outflow =
-      f.instrument === "reverseRepo" ? f.kind === "sell" : f.kind === "buy";
+      f.instrument === "reverseRepo" ? direction === 1 : f.kind === "buy";
     const inferred = outflow
       ? Math.abs(f.netAmount) - f.amount
       : f.amount - f.netAmount;
@@ -152,6 +177,8 @@ export function reviewTrades(input: TradeReviewInput) {
   const repos = ordered.filter((x) => x.fill.instrument === "reverseRepo");
   const repoCash = repos.map((x) => x.fill.netAmount);
   const reverseRepo = {
+    unknownDirectionCount: repos.filter((x) => repoDirection(x.fill) === null)
+      .length,
     basis:
       "资金占用为累计实际融出现金（含费用），非峰值；利息为全部购回后的净现金收入",
     fills: repos,
@@ -178,16 +205,17 @@ export function reviewTrades(input: TradeReviewInput) {
         (security) =>
           repos
             .filter((x) => key(x.fill) === security)
+            .some((x) => repoDirection(x.fill) === null) ||
+          repos
+            .filter((x) => key(x.fill) === security)
             .reduce(
-              (s, x) =>
-                s +
-                (x.fill.kind === "sell" ? x.fill.quantity : -x.fill.quantity),
+              (s, x) => s + repoDirection(x.fill)! * x.fill.quantity,
               0,
             ) !== 0,
       )
         ? null
         : sum(repoCash),
-      "逆回购尚未全部购回或缺实际资金发生额",
+      "逆回购尚未全部购回或缺实际资金发生额（含方向不可判）",
     ),
   };
   const results = costMethods.map((costMethod) => {
