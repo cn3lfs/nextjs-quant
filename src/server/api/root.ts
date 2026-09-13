@@ -1,4 +1,11 @@
 import { researchAdjustmentSchema } from "~/lib/research-adjustment";
+import {
+  disciplineRequestSchema,
+  startDiscipline,
+  disciplineStatus,
+  cancelDiscipline,
+  exportDiscipline,
+} from "../discipline-service";
 import { researchRangeSchema, researchDateSchema } from "~/lib/research-usage";
 import { researchUsage } from "../research-usage";
 import {
@@ -323,6 +330,30 @@ async function accountReview(account: string) {
 }
 
 export const appRouter = createTRPCRouter({
+  disciplineStart: p.input(disciplineRequestSchema).mutation(({ input }) => {
+    const store = new DeliveryStore(chartSqlite()),
+      config = settings();
+    const ledger = store.db.transaction(() => ({
+      fills: store.fills(input.account),
+      cashFlows: store.cashFlows(input.account),
+    }))();
+    return startDiscipline(input.account, {
+      ...ledger,
+      openingCash: input.openingCash,
+      stopCosts: input.stopCosts,
+      tdxRoot: config.tdxRoot,
+      calendar: config.calendar,
+    });
+  }),
+  disciplineStatus: p
+    .input(z.string().uuid())
+    .query(({ input }) => disciplineStatus(input)),
+  disciplineCancel: p
+    .input(z.string().uuid())
+    .mutation(({ input }) => cancelDiscipline(input)),
+  disciplineExport: p
+    .input(z.string().uuid())
+    .query(({ input }) => exportDiscipline(input)),
   deliveryFiles: p.input(deliveryPathSchema).query(async ({ input }) => {
     const directory = resolve(input);
     const entries = await readdir(directory, { withFileTypes: true });

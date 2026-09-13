@@ -17,6 +17,7 @@ import { RollingPerformanceContainer } from "./rolling-performance-container";
 import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { ExecutionQualityContainer } from "./execution-quality-container";
+import { DisciplineContainer } from "./discipline-container";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -366,6 +367,12 @@ export function TradeReviewContainer() {
         {review.data && !review.error && (
           <ExecutionQualityContainer
             key={`${account}:${batches.data?.map((b) => b.id).join(",")}`}
+            account={account}
+          />
+        )}
+        {account && (
+          <DisciplineContainer
+            key={`discipline:${account}:${batches.data?.map((b) => b.id).join(",")}`}
             account={account}
           />
         )}

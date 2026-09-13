@@ -16,7 +16,8 @@ export function ResearchUsagePanel({
       <p>
         滚动检验 {summary.byKind["walk-forward"]} · 回测{" "}
         {summary.byKind.backtest} · 公式选股 {summary.byKind["formula-screen"]}{" "}
-        · 样本研究 {summary.byKind["sample-research"]}
+        · 样本研究 {summary.byKind["sample-research"]} · 纪律反事实{" "}
+        {summary.byKind["discipline-counterfactual"]}
       </p>
       <p>
         首末记录时间：

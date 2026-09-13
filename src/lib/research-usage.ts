@@ -17,6 +17,7 @@ export const researchKinds = [
   "backtest",
   "formula-screen",
   "sample-research",
+  "discipline-counterfactual",
 ] as const;
 export const researchUsageSchema = z.object({
   id: z.string().min(1),
