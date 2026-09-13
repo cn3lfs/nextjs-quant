@@ -14,6 +14,14 @@ export type ExecutionRow = {
   kind: ParsedFill["kind"];
   price: ReviewValue;
   vwap: ReviewValue;
+  unitCheck: {
+    rawVwap: number | null;
+    ratio: number | null;
+    factor: number | null;
+    convertedVwap: number | null;
+    convertedBp: number | null;
+    reason: string | null;
+  };
   /** Positive = adverse: buying dearer or selling cheaper than day VWAP. */
   slippageBp: ReviewValue;
   slippageCost: ReviewValue;
@@ -48,6 +56,27 @@ export function executionRows(
       classification.market === "sh"
         ? 10
         : 1;
+    const ratio =
+      vwap.value !== null && Number.isFinite(fill.price) && fill.price > 0
+        ? vwap.value / fill.price
+        : null;
+    // W12 §9: statement price is the reference; close units are irrelevant.
+    // Multiplicative tolerance 1.25 is below sqrt(10); intervals cannot overlap.
+    const identifiedFactor =
+      ratio !== null && Number.isFinite(ratio)
+        ? ([1, 10, 100].find(
+            (candidate) =>
+              ratio >= candidate / 1.25 && ratio <= candidate * 1.25,
+          ) ?? null)
+        : null;
+    const unitCheck: ExecutionRow["unitCheck"] = {
+      rawVwap: vwap.value,
+      ratio: ratio !== null && Number.isFinite(ratio) ? ratio : null,
+      factor: identifiedFactor,
+      convertedVwap: null,
+      convertedBp: null,
+      reason: null,
+    };
     // U4 §3.3 differs from R12: Shanghai bars are yuan/hand, statement price yuan/bond.
     const expected = fill.price * fill.quantity * factor;
     if (
@@ -57,7 +86,16 @@ export function executionRows(
         Math.abs(fill.amount - expected) > Math.max(0.05, expected * 0.005))
     )
       vwap = metric(null, "可转债数量单位无法确认（沿用 R12 成交金额校验）");
-    else if (vwap.value !== null) vwap = metric(vwap.value / factor);
+    else if (vwap.value !== null) {
+      if (identifiedFactor === null) {
+        unitCheck.reason =
+          "日线 VWAP 单位无法识别（成交价比例不在候选倍率容差内）";
+        vwap = metric(null, unitCheck.reason);
+      } else {
+        vwap = metric(vwap.value / identifiedFactor);
+        unitCheck.convertedVwap = vwap.value;
+      }
+    }
     const price = metric(
       fill.price > 0 ? fill.price : null,
       "成交价格非正或无效",
@@ -66,7 +104,7 @@ export function executionRows(
       fill.amount > 0 ? fill.amount : null,
       "成交金额非正或无效",
     );
-    const bp = metric(
+    let bp = metric(
       vwap.value !== null && price.value !== null
         ? ((fill.kind === "buy"
             ? price.value - vwap.value
@@ -76,6 +114,11 @@ export function executionRows(
         : null,
       vwap.reason ?? price.reason ?? undefined,
     );
+    unitCheck.convertedBp = bp.value;
+    if (bp.value !== null && Math.abs(bp.value) > 500) {
+      unitCheck.reason = "换算后滑点绝对值超过 500 BP，排除滑点汇总";
+      bp = metric(null, unitCheck.reason);
+    }
     return [
       {
         id: String(fillIndex),
@@ -86,6 +129,7 @@ export function executionRows(
         kind: fill.kind,
         price,
         vwap,
+        unitCheck,
         slippageBp: bp,
         amount,
         slippageCost: metric(
@@ -106,11 +150,12 @@ export function executionRows(
 }
 
 export function summarizeExecution(rows: readonly ExecutionRow[]) {
-  const sum = (read: (row: ExecutionRow) => ReviewValue) => {
-    const missing = rows.filter((r) => read(r).value === null);
+  const eligible = rows.filter((r) => r.unitCheck.reason === null);
+  const sum = (read: (row: ExecutionRow) => ReviewValue, selected = rows) => {
+    const missing = selected.filter((r) => read(r).value === null);
     return metric(
-      rows.length && !missing.length
-        ? rows.reduce((s, r) => s + read(r).value!, 0)
+      selected.length && !missing.length
+        ? selected.reduce((s, r) => s + read(r).value!, 0)
         : null,
       missing.length
         ? `${missing.length} 笔数据不可得；合计留空`
@@ -118,24 +163,29 @@ export function summarizeExecution(rows: readonly ExecutionRow[]) {
     );
   };
   const amount = sum((r) => r.amount);
-  const slippageCost = sum((r) => r.slippageCost);
+  const slippageAmount = sum((r) => r.amount, eligible);
+  const slippageCost = sum((r) => r.slippageCost, eligible);
   const fees = Object.fromEntries(
     (
       ["commission", "stampTax", "transferFee", "otherFee", "total"] as const
     ).map((key) => [key, sum((r) => r.fees[key])]),
   ) as ExecutionRow["fees"];
   const totalCost = metric(
-    fees.total.value !== null && slippageCost.value !== null
+    eligible.length === rows.length &&
+      fees.total.value !== null &&
+      slippageCost.value !== null
       ? fees.total.value + slippageCost.value
       : null,
-    fees.total.reason ?? slippageCost.reason ?? undefined,
+    eligible.length !== rows.length
+      ? "存在单位异常成交，全体总执行成本留空"
+      : (fees.total.reason ?? slippageCost.reason ?? undefined),
   );
-  const ratio = (v: ReviewValue) =>
+  const ratio = (v: ReviewValue, denominator = amount) =>
     metric(
-      v.value !== null && amount.value !== null && amount.value > 0
-        ? (v.value / amount.value) * 10000
+      v.value !== null && denominator.value !== null && denominator.value > 0
+        ? (v.value / denominator.value) * 10000
         : null,
-      v.reason ?? amount.reason ?? "成交额不可得",
+      v.reason ?? denominator.reason ?? "成交额不可得",
     );
   return {
     count: rows.length,
@@ -143,7 +193,10 @@ export function summarizeExecution(rows: readonly ExecutionRow[]) {
     fees,
     slippageCost,
     totalCost,
-    averageSlippageBp: ratio(slippageCost),
+    slippageCount: eligible.length,
+    slippageAmount,
+    unitMismatchCount: rows.length - eligible.length,
+    averageSlippageBp: ratio(slippageCost, slippageAmount),
     costBp: ratio(totalCost),
   };
 }
@@ -166,6 +219,16 @@ export function reviewExecutionQuality(
   const base = {
     benchmark: { kind: "dayVwap" } as ExecutionBenchmark,
     rows,
+    unitMismatchCount: rows.filter((r) => r.unitCheck.reason !== null).length,
+    unitMismatches: rows
+      .filter((r) => r.unitCheck.reason !== null)
+      .map((r) => ({
+        fillIndex: r.fillIndex,
+        tradeDate: r.tradeDate,
+        code: r.code,
+        price: r.price.value,
+        ...r.unitCheck,
+      })),
     summary: summarizeExecution(rows),
     missingVwap,
     terminalDifference: metric(null, "未启用期末总资产差口径"),

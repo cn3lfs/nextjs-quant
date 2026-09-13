@@ -1,5 +1,7 @@
+import { tradeReviewDayVwap } from "../src/lib/trade-review-vwap";
+import { classifyCode } from "../src/lib/delivery-import";
 import { expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -10,7 +12,6 @@ import {
   summarizeExecution,
   reviewExecutionQuality,
 } from "../src/lib/execution-quality";
-import { tradeReviewDayVwap } from "../src/lib/trade-review-vwap";
 import { reviewTradeNav } from "../src/lib/trade-review-nav";
 import {
   replayTradeReview,
@@ -311,7 +312,9 @@ it("price differences survive real netAmount and cash anchors; no forked NAV", (
       ]),
     ),
   );
-  expect(result.summary.averageSlippageBp.value).toBeCloseTo(1000);
+  expect(result.summary.averageSlippageBp.value).toBeNull();
+  expect(result.unitMismatchCount).toBe(2);
+  expect(result.unitMismatches.map((r) => r.convertedBp)).toEqual([1000, 1000]);
 });
 
 it("translates only supplied pre-flow valuations by the accumulated execution difference", () => {
@@ -424,8 +427,10 @@ it("W11 rejects zero NAV even when both return boundaries match", () => {
   expect(result.segments).toEqual([]);
 });
 
-it.runIf(process.env.W11_REAL_DATA === "1")(
-  "W11 real statement acceptance",
+it.runIf(
+  process.env.W12_REAL_DATA === "1" || process.env.W11_REAL_DATA === "1",
+)(
+  "W12 real statement acceptance (supersedes contaminated W11 measurements)",
   async () => {
     const db = new Database(":memory:");
     try {
@@ -437,7 +442,7 @@ it.runIf(process.env.W11_REAL_DATA === "1")(
         commitDeliveryImport(
           readFileSync(`.test-data/statements-v2/${name}20-26.xls`),
           {
-            account: "w11",
+            account: "w12",
             source: "generic",
             fileName: `${name}20-26.xls`,
             scope,
@@ -450,100 +455,118 @@ it.runIf(process.env.W11_REAL_DATA === "1")(
         .map((b) => b.date)
         .filter((d) => d >= "2021-01-25");
       const s = await buildTradeReviewSnapshot(
-        { account: "w11", tdxRoot: root, tradingDays, openingCash: 0 },
+        { account: "w12", tdxRoot: root, tradingDays, openingCash: 0 },
         db,
         { flowValuation: "previousClose", dimensions: { rps: {} } },
       );
       const e = s.execution;
-      expect(e.missingVwap).toEqual([]);
-      expect(e.terminalDifference.value).toBeNull();
-      expect(e.terminalDifference.reason).toContain("期末差不可信");
       expect(s.trades.movingAverage.closedRounds).toHaveLength(785);
       expect(s.trades.movingAverage.statistics.winRate).toBe(399 / 784);
       expect(s.trades.movingAverage.statistics.payoffRatio).toBeCloseTo(
         0.8912012172774283,
         14,
       );
-      console.log(
-        JSON.stringify({
-          worstDayCashEvidence: (() => {
-            const day = e.counterfactualWorstNav!.date;
-            const actualDay = s.nav.days.find((d) => d.date === day)!;
-            const counterfactualDay = e.counterfactual!.days.find(
-              (d) => d.date === day,
-            )!;
-            const deltas = e.rows
-              .filter((r) => r.tradeDate <= day)
-              .map((r) => ({
-                ratio: r.vwap.value! / r.price.value!,
-                delta:
-                  r.amount.value! *
-                  (r.vwap.value! / r.price.value! - 1) *
-                  (r.kind === "buy" ? -1 : 1),
-              }));
-            return {
-              actualNav: actualDay.nav,
-              counterfactualNav: counterfactualDay.nav,
-              cumulativePriceCashDifference: deltas.reduce(
-                (sum, r) => sum + r.delta,
-                0,
-              ),
-              extremePriceCashDifference: deltas
-                .filter((r) => r.ratio > 50)
-                .reduce((sum, r) => sum + r.delta, 0),
-            };
-          })(),
-          largestPriceCashDifferences: e.rows
-            .filter((r) => r.tradeDate <= e.counterfactualWorstNav!.date)
-            .map((r) => ({
-              date: r.tradeDate,
-              code: r.code,
-              price: r.price.value,
-              vwap: r.vwap.value,
-              delta:
-                r.amount.value! *
-                (r.vwap.value! / r.price.value! - 1) *
-                (r.kind === "buy" ? -1 : 1),
-            }))
-            .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-            .slice(0, 5),
-          terminalDifference: e.terminalDifference,
-          counterfactualNonPositiveDays: e.counterfactualNonPositiveDays,
-          counterfactualWorstNav: e.counterfactualWorstNav,
-          averageSlippageBp: e.summary.averageSlippageBp,
-          actualEnd: s.nav.days.at(-1)?.nav,
-          counterfactualEnd: e.counterfactual?.days.at(-1)?.nav,
-          endDate: s.nav.days.at(-1)?.date,
-          actualNonPositiveDays: s.nav.days.filter(
-            (d) => d.nav.value !== null && d.nav.value <= 0,
-          ).length,
-          counterfactualZeroDays: e.counterfactual?.days.filter(
-            (d) => d.nav.value === 0,
-          ).length,
-          counterfactualNegativeDays: e.counterfactual?.days.filter(
-            (d) => d.nav.value !== null && d.nav.value < 0,
-          ).length,
-          returnAvailabilityDifferences: e.counterfactual?.days.filter(
-            (d, i) =>
-              (d.dailyReturn.value !== null) !==
-              (s.nav.days[i]?.dailyReturn.value !== null),
-          ).length,
-          rounds: s.trades.movingAverage.closedRounds.length,
-          statistics: s.trades.movingAverage.statistics,
-        }),
+      expect(
+        e.rows.filter(
+          (r) =>
+            r.slippageBp.value !== null && Math.abs(r.slippageBp.value) > 500,
+        ),
+      ).toEqual([]);
+      expect(e.unitMismatchCount).toBe(e.unitMismatches.length);
+      const samples = [
+        ["123045", null, 10, 177.1, 175.4110710696259],
+        ["588200", null, 100, 1.408, 1.403596],
+        ["512100", "2026-04-08", 1, 3.132, 3.145676],
+      ] as const;
+      const { readTradeReviewSnapshot } =
+        await import("../src/server/trade-review-market");
+      const shBar = (await readTradeReviewSnapshot(root, "sh113050")).bars.find(
+        (b) => b.date === "2025-07-14",
       );
-      const returnAvailabilityDifferences = e.counterfactual?.days.filter(
-        (d, i) =>
-          (d.dailyReturn.value !== null) !==
-          (s.nav.days[i]?.dailyReturn.value !== null),
-      ).length;
-      expect(e.counterfactualNonPositiveDays).toBe(510);
-      expect(returnAvailabilityDifferences).toBe(333);
-      expect(e.counterfactualNonPositiveDays).not.toBe(
-        returnAvailabilityDifferences,
+      expect(shBar).toBeDefined();
+      const shRow = executionRows(
+        [
+          fill({
+            code: "113050",
+            symbol: "sh113050",
+            tradeDate: "2025-07-14",
+            price: 144.967,
+            amount: 1449.67,
+          }),
+        ],
+        { sh113050: [shBar!] },
+      )[0]!;
+      expect(shRow.unitCheck.factor).toBe(10);
+      expect(shRow.vwap.value).toBeCloseTo(145.4758102, 6);
+      const measured = samples.map(([code, day, factor, close, vwap]) => {
+        const row = e.rows.find(
+          (r) =>
+            r.code === code &&
+            (!day || r.tradeDate === day) &&
+            r.price.value === close,
+        )!;
+        expect(row).toBeDefined();
+        expect(row.unitCheck.factor).toBe(factor);
+        expect(row.unitCheck.ratio).toBeCloseTo(
+          row.unitCheck.rawVwap! / close,
+          10,
+        );
+        expect(row.vwap.value).toBeCloseTo(vwap, 5);
+        return {
+          date: row.tradeDate,
+          code,
+          price: row.price.value,
+          ...row.unitCheck,
+        };
+      });
+      expect(e.loss.value).toBeNull();
+      expect(e.terminalDifference.value).toBeNull();
+      const distribution = (rows: typeof e.rows) =>
+        Object.fromEntries(
+          [1, 10, 100, null].map((factor) => [
+            String(factor),
+            rows.filter((r) => r.unitCheck.factor === factor).length,
+          ]),
+        );
+      const funds = e.rows.filter(
+        (r) => classifyCode(r.code).instrument === "fund",
       );
-      expect(e.counterfactualWorstNav?.value).toBeCloseTo(-13563818.77, 2);
-      expect(e.counterfactualWorstNav?.date).toBe("2024-10-17");
+      const measurements = {
+        samples: [
+          {
+            code: "sh113050",
+            date: "2025-07-14",
+            price: 144.967,
+            ...shRow.unitCheck,
+          },
+          ...measured,
+        ],
+        count: e.rows.length,
+        rounds: s.trades.movingAverage.closedRounds.length,
+        statistics: s.trades.movingAverage.statistics,
+        summary: e.summary,
+        fundSummary: summarizeExecution(funds),
+        nonFundSummary: summarizeExecution(
+          e.rows.filter((r) => classifyCode(r.code).instrument !== "fund"),
+        ),
+        distribution: distribution(e.rows),
+        mismatchDistribution: distribution(
+          e.rows.filter((r) => r.unitCheck.reason !== null),
+        ),
+        unitMismatchCount: e.unitMismatchCount,
+        unitMismatches: e.unitMismatches,
+        missingVwap: e.missingVwap,
+        counterfactualWorstNav: e.counterfactualWorstNav,
+        counterfactualNonPositiveDays: e.counterfactualNonPositiveDays,
+        loss: e.loss,
+        terminalDifference: e.terminalDifference,
+      };
+      console.log("W12_MEASUREMENTS " + JSON.stringify(measurements));
+      if (process.env.W12_REPORT_PATH)
+        writeFileSync(
+          process.env.W12_REPORT_PATH,
+          JSON.stringify(measurements, null, 2),
+        );
     } finally {
       db.close();
     }
@@ -692,3 +715,89 @@ it("UI renders four cards, direction and only the server page", () => {
   expect((html.match(/<tbody/g) ?? []).length).toBe(2);
   expect((html.match(/<tr/g) ?? []).length).toBe(13); // 10 fills + 1 group + 2 headers.
 });
+
+it.each([
+  ["113050", 1449.67, 1454.758102, 144.967, 10, 10],
+  ["123045", 1759.99, 1754.111, 177.1, 10, 1],
+  ["588200", 1.408, 140.3596, 1.408, 100, 1],
+  ["513180", 0.744, 74.1593, 0.744, 100, 1],
+  ["123089", 153.77, 1521.391, 153.77, 10, 1],
+  ["512100", 3.132, 3.145676, 3.132, 1, 1],
+  ["512100", 2.209, 219.94701, 2.209, 100, 1],
+])(
+  "W12 identifies %s independently of close %s",
+  (code, close, raw, price, factor, quantityFactor) => {
+    const row = executionRows(
+      [fill({ code, symbol: code, price, amount: price * quantityFactor })],
+      { [code]: [bar({ close, amount: raw * 100 })] },
+    )[0]!;
+    expect(row.unitCheck.ratio).toBeCloseTo(raw / price, 10);
+    expect(row.unitCheck.factor).toBe(factor);
+    expect(row.vwap.value).toBeCloseTo(raw / factor, 10);
+    expect(Math.abs(row.slippageBp.value!)).toBeLessThan(500);
+  },
+);
+
+it("W12 excludes mismatches from both weighted terms, preserves fees and exports diagnostics", () => {
+  const rows = executionRows(
+    [
+      fill({ price: 101, amount: 101 }),
+      fill({ price: 110, amount: 10000 }),
+      fill({ code: "999999", symbol: "999999" }),
+    ],
+    { sz000001: [bar()], "999999": [bar({ amount: 30000 })] },
+  );
+  const sum = summarizeExecution(rows);
+  expect(sum.unitMismatchCount).toBe(2);
+  expect(sum.slippageCount).toBe(1);
+  expect(sum.slippageAmount.value).toBe(101);
+  expect(sum.averageSlippageBp.value).toBeCloseTo(100, 12);
+  expect(sum.fees.total.value).toBe(0);
+  expect(sum.totalCost.value).toBeNull();
+  expect(rows[1]!.unitCheck.convertedBp).toBe(1000);
+  expect(rows[2]!.vwap.value).toBeNull();
+  expect(rows[2]!.unitCheck.factor).toBeNull();
+  const s = snapshot();
+  s.execution.rows = rows;
+  const csv = exportExecutionQuality(s, { account: s.account });
+  expect(csv).toContain("换算后BP");
+  expect(csv).toContain("单位无法识别");
+});
+
+it.each([
+  0.8,
+  1.25,
+  8,
+  12.5,
+  80,
+  125,
+  3.1622776601683795,
+  0.79,
+  126,
+  NaN,
+  Infinity,
+  0,
+])("W12 ratio boundary %s", (ratio) => {
+  const row = executionRows([fill()], {
+    sz000001: [bar({ amount: ratio * 10000 })],
+  })[0]!;
+  const expected = [0.8, 1.25].includes(ratio)
+    ? 1
+    : [8, 12.5].includes(ratio)
+      ? 10
+      : [80, 125].includes(ratio)
+        ? 100
+        : null;
+  expect(row.unitCheck.factor).toBe(expected);
+});
+
+it.each([0, NaN, 1.408, 140.8, 14080])(
+  "W12 factor does not depend on close %s",
+  (close) => {
+    const row = executionRows([fill({ price: 1.408 })], {
+      sz000001: [bar({ close, amount: 140.3596 * 100 })],
+    })[0]!;
+    expect(row.unitCheck.factor).toBe(100);
+    expect(row.vwap.value).toBeCloseTo(1.403596, 10);
+  },
+);

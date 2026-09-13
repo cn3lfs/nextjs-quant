@@ -142,6 +142,12 @@ export function ExecutionQualityResults({
           : "—"}
         。仅统计可得收盘总资产，缺失日不计入；诊断与期末差始终使用全账户。
       </p>
+      <p className="text-sm text-muted-foreground">
+        单位异常 {data.unitMismatchCount} 笔，已排除滑点汇总及其成交额分母；
+        滑点统计 {data.summary.slippageCount} 笔，成交额{" "}
+        {show(data.summary.slippageAmount)}。
+        全部费用仍保留，存在排除项时全体总执行成本留空。完整单位诊断见逐笔导出。
+      </p>
       <p className="text-sm">
         佣金 {show(data.summary.fees.commission)}；印花税{" "}
         {show(data.summary.fees.stampTax)}；过户费{" "}

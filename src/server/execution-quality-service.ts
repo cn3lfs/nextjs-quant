@@ -83,6 +83,10 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
   return {
     benchmark: e.benchmark,
     summary: summarizeExecution(rows),
+    unitMismatchCount: rows.filter((r) => r.unitCheck.reason !== null).length,
+    unitMismatches: e.unitMismatches.filter((m) =>
+      rows.some((r) => r.fillIndex === m.fillIndex),
+    ),
     loss: e.loss,
     terminalDifference: e.terminalDifference,
     fallbackNote: e.fallbackNote,
@@ -117,6 +121,12 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
     "成交额",
     "不可得原因",
     "基准口径",
+    "原始VWAP",
+    "单位比例",
+    "倍率",
+    "换算后VWAP",
+    "换算后BP",
+    "单位异常原因",
   ];
   // U4 §3.4: R2 redacts on import, not in exportTradeReview. Reuse redactRow
   // again for free text; export an allowlist, never account or raw ledger fields.
@@ -137,6 +147,12 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
         r.amount.value,
         r.slippageBp.reason ?? r.fees.total.reason ?? "",
         "dayVwap",
+        r.unitCheck.rawVwap,
+        r.unitCheck.ratio,
+        r.unitCheck.factor,
+        r.unitCheck.convertedVwap,
+        r.unitCheck.convertedBp,
+        r.unitCheck.reason ?? "",
       ].map((v) => (v === null ? "" : String(v))),
     ),
   ];
