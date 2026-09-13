@@ -149,7 +149,7 @@ import {
 } from "../security-identity";
 import { readClsNews } from "../cls-news";
 import { walkForwardJob, walkForwardInput } from "../walk-forward-job";
-import type { WalkForwardResult } from "~/lib/walk-forward";
+import { walkForwardPage, type WalkForwardResult } from "~/lib/walk-forward";
 import { explainWalkForwardJob } from "../walk-forward-explanation";
 import { newsSectorHistory } from "../news-sector-history";
 import { aggregateNewsDay } from "../news-day";
@@ -1393,6 +1393,12 @@ export const appRouter = createTRPCRouter({
     .mutation(({ input }) => explainWalkForwardJob(input)),
   walkForwardResult: p
     .input(z.string().regex(/^walk-forward-[a-f0-9-]{36}$/))
+    .query(({ input }) => {
+      const result = get<WalkForwardResult>(input);
+      return result ? walkForwardPage(result) : null;
+    }),
+  walkForwardExport: p
+    .input(z.string().regex(/^walk-forward-[a-f0-9-]{36}$/))
     .query(({ input }) => get<WalkForwardResult>(input) ?? null),
   interpret: p
     .input(z.string().min(1).max(2000))
@@ -1635,7 +1641,12 @@ export const appRouter = createTRPCRouter({
     .query(({ input }) => taskState(input.id)),
   job: p
     .input(z.object({ id: z.string(), version: z.number().optional() }))
-    .query(({ input }) => get<Job>(input.id) ?? null),
+    .query(({ input }) => {
+      const job = get<Job>(input.id);
+      return job?.type === "walk-forward" && job.result
+        ? { ...job, result: walkForwardPage(job.result as WalkForwardResult) }
+        : (job ?? null);
+    }),
   jobSummary: p
     .input(
       z.object({ id: z.string(), screenFirstPage: z.boolean().optional() }),

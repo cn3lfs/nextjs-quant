@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { combinatoriallySymmetricCv } from "../src/lib/backtest-overfit";
+import { describe, expect, it, vi } from "vitest";
+import * as quant from "../src/server/quant";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { dailyPerformance } from "../src/lib/daily-performance";
@@ -261,7 +263,11 @@ describe("候选矩阵与滚动接入", () => {
     const combined = wf.folds.flatMap((f) =>
       equityDailyReturns(f.test.equity, 100000),
     );
-    expect(wf.multipleTesting).toEqual(
+    const { overfit, ...v1Testing } = wf.multipleTesting!;
+    expect(overfit).toEqual(
+      combinatoriallySymmetricCv({ returns: matrix.returns }),
+    );
+    expect(v1Testing).toEqual(
       multipleTesting(
         combined,
         matrix.sharpes.map((value, i) => ({
@@ -404,4 +410,25 @@ it("极端正态尾部不截断为零，候选缺失原因为页面原文", () =
     createElement(MultipleTestingPanel, { result }),
   );
   expect(html).toContain("无法判定：候选一：日收益方差为零");
+});
+
+it("V2 只消费 V1 矩阵，不增加 backtest 调用", () => {
+  const spy = vi.spyOn(quant, "backtest");
+  try {
+    const result = walkForward(
+      source,
+      strategy,
+      100000,
+      defaultBacktestCosts,
+      options,
+    );
+    // 既有成本：每 fold 的 N 次训练 + 1 次测试，另加 V1 全窗矩阵 N 次。
+    expect(spy).toHaveBeenCalledTimes(
+      result.folds.length * (result.candidates.length + 1) +
+        result.candidates.length,
+    );
+    expect(result.multipleTesting!.overfit).toHaveProperty("pbo");
+  } finally {
+    spy.mockRestore();
+  }
 });

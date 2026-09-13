@@ -29,7 +29,9 @@ export type WalkForwardResult = {
   warmupBars: number;
   unusedTailBars: number;
   /** 旧档案没有此字段，读取时不补算或伪造。 */
-  multipleTesting?: MultipleTesting;
+  multipleTesting?: MultipleTesting & {
+    overfit?: import("./backtest-overfit").BacktestOverfit;
+  };
   folds: {
     trainStart: string;
     trainEnd: string;
@@ -58,3 +60,20 @@ export type WalkForwardResult = {
   };
   assumptions: string[];
 };
+
+export type WalkForwardPage = Omit<WalkForwardResult, "multipleTesting"> & {
+  multipleTesting?: MultipleTesting & {
+    overfit?: import("./backtest-overfit").BacktestOverfitSummary;
+  };
+};
+
+/** 完整档案保留 λ；普通查询不携带分布，下载时单独取完整档案。 */
+export function walkForwardPage(result: WalkForwardResult): WalkForwardPage {
+  const overfit = result.multipleTesting?.overfit;
+  if (!overfit) return result;
+  const { lambdas: _lambdas, ...summary } = overfit;
+  return {
+    ...result,
+    multipleTesting: { ...result.multipleTesting!, overfit: summary },
+  };
+}

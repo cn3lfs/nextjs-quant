@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { Snapshot, Strategy } from "~/lib/domain";
 import type { BacktestCosts } from "~/lib/backtest-costs";
-import type { WalkForwardResult } from "~/lib/walk-forward";
+import type { WalkForwardPage } from "~/lib/walk-forward";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { WalkForwardExplanation } from "./walk-forward-explanation";
@@ -26,6 +26,9 @@ export function WalkForwardPanel({
     [testBars, setTest] = useState(63),
     [jobId, setJob] = useState(""),
     [archiveId, setArchive] = useState("");
+  const utils = api.useUtils();
+  const [exportError, setExportError] = useState("");
+  const [exporting, setExporting] = useState(false);
   const history = api.walkForwardHistory.useQuery();
   const archived = api.walkForwardResult.useQuery(archiveId, {
     enabled: !!archiveId,
@@ -57,7 +60,7 @@ export function WalkForwardPanel({
   const result = archiveId
     ? archived.data
     : job.data?.status === "completed"
-      ? (job.data.result as WalkForwardResult)
+      ? (job.data.result as WalkForwardPage)
       : undefined;
   return (
     <section className="panel">
@@ -241,26 +244,40 @@ export function WalkForwardPanel({
               {result.candidates.map((s) => `${s.fast}/${s.slow}`).join("、")}
             </p>
           </details>
+          {exportError && <p role="alert">{exportError}</p>}
           <Button
             variant="outline"
-            onClick={() => {
-              const url = URL.createObjectURL(
-                new Blob(
-                  [
-                    JSON.stringify(
-                      { format: "quant-walk-forward-export-1", ...result },
-                      null,
-                      2,
-                    ),
-                  ],
-                  { type: "application/json;charset=utf-8" },
-                ),
-              );
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `滚动检验-${result.symbol}-${result.createdAt}.json`;
-              a.click();
-              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            disabled={exporting || !result.id}
+            onClick={async () => {
+              setExportError("");
+              setExporting(true);
+              try {
+                const full = await utils.walkForwardExport.fetch(result.id!);
+                if (!full) throw new Error("完整滚动检验档案不存在");
+                const url = URL.createObjectURL(
+                  new Blob(
+                    [
+                      JSON.stringify(
+                        { format: "quant-walk-forward-export-1", ...full },
+                        null,
+                        2,
+                      ),
+                    ],
+                    { type: "application/json;charset=utf-8" },
+                  ),
+                );
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `滚动检验-${result.symbol}-${result.createdAt}.json`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              } catch (error) {
+                setExportError(
+                  error instanceof Error ? error.message : "下载失败",
+                );
+              } finally {
+                setExporting(false);
+              }
             }}
           >
             下载完整滚动检验

@@ -1,4 +1,4 @@
-import type { MultipleTesting } from "~/lib/multiple-testing";
+import type { WalkForwardPage } from "~/lib/walk-forward";
 import type { ReviewValue } from "~/lib/trade-review";
 
 const display = (metric: ReviewValue) =>
@@ -6,7 +6,11 @@ const display = (metric: ReviewValue) =>
     ? `无法判定：${metric.reason}`
     : metric.value.toFixed(4);
 
-export function MultipleTestingPanel({ result }: { result?: MultipleTesting }) {
+export function MultipleTestingPanel({
+  result,
+}: {
+  result?: WalkForwardPage["multipleTesting"];
+}) {
   if (!result)
     return (
       <section className="rounded-lg border p-4">
@@ -28,6 +32,16 @@ export function MultipleTestingPanel({ result }: { result?: MultipleTesting }) {
         .map((value) => value.reason),
     ]),
   ];
+  const overfit = result.overfit;
+  const pbo = overfit?.pbo.value;
+  const pboConclusion =
+    pbo === undefined || pbo === null
+      ? `无法判定：${overfit?.pbo.reason ?? "旧档案未记录 PBO"}`
+      : pbo <= 0.2
+        ? `选参规则在样本外基本保持排序（PBO=${(pbo * 100).toFixed(2)}%，仅限当前候选集合）`
+        : pbo < 0.5
+          ? "选参规则部分失效"
+          : "选参规则在样本外不优于随机，训练期第一名不具备预测力";
   const dsr = selected.dsr.value;
   const conclusion =
     reasons.length || dsr === null
@@ -52,6 +66,25 @@ export function MultipleTestingPanel({ result }: { result?: MultipleTesting }) {
         {display(selected.dsr)}
       </p>
       <p>{conclusion}</p>
+      <p>
+        PBO（按日夏普选优）：{pbo == null ? "—" : `${(pbo * 100).toFixed(2)}%`}{" "}
+        · {pboConclusion}
+      </p>
+      {overfit && (
+        <p>
+          性能衰减斜率：{display(overfit.performanceDegradation.slope)} · R²：
+          {display(overfit.performanceDegradation.r2)} · 样本外亏损概率：
+          {overfit.probabilityOfLoss.value === null
+            ? display(overfit.probabilityOfLoss)
+            : `${(overfit.probabilityOfLoss.value * 100).toFixed(2)}%`}
+        </p>
+      )}
+      <p className="text-muted-foreground">
+        依据 Bailey、Borwein、López de Prado 与
+        Zhu（2015）CSCV。以上选参规则指按日夏普选优，仅限当前均线半值/原值/双值候选集合；不同于滚动检验的净收益/回撤/均线排序。换候选集合
+        PBO
+        会变，人工反复试验不可观测；分档是描述性提示，不是预测力的显著性检验，不构成策略有效或业绩证据。
+      </p>
       <p className="text-muted-foreground">
         依据 Bailey & López de Prado（2014）。N
         为实际试验数的下界，未记录的人工调参、更换标的及窗口不计入；DSR
