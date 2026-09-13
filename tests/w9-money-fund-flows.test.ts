@@ -235,10 +235,12 @@ it.runIf(process.env.W9_REAL_DATA === "1")(
         0.8912012172774283,
         14,
       );
-      expect(nav.minimumCash.value).toBeCloseTo(-126036.55, 2);
-      expect(nav.minimumDate).toBe("2024-01-12");
-      expect(baseline.minimumCash.value).toBeCloseTo(-126150.68, 2);
-      expect(baseline.minimumDate).toBe("2024-01-12");
+      // W10 reorders internal repayments; the old-path baseline is retained in
+      // w10-intraday-order.test.ts rather than freezing the repaired cash minimum.
+      expect(nav.minimumCash.value).toBeCloseTo(-9007.25, 2);
+      expect(nav.minimumDate).toBe("2021-08-25");
+      expect(baseline.minimumCash.value).toBeCloseTo(-8876.44, 2);
+      expect(baseline.minimumDate).toBe("2022-06-28");
       expect(statement.counts?.cashManagementUnknownDirection).toBe(0);
       expect(
         input.cashFlows.filter(

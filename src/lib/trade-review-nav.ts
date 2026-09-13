@@ -2,6 +2,10 @@ import type { ParsedCashFlow, ParsedFill } from "./delivery-import";
 import type { ReviewValue } from "./trade-review";
 import { researchNavStatistics } from "./strategy-research";
 import { dailyPerformance } from "./daily-performance";
+import {
+  orderTradeReviewIntraday,
+  tradeReviewCashMovement,
+} from "./trade-review-intraday-order";
 
 export type NavDiagnostic = { date: string; reason: string };
 
@@ -236,7 +240,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
   const statementOrder = input.fills.some(
     (f) => f.balanceCash !== null && Number.isFinite(f.balanceCash),
   );
-  const events = [
+  let events = [
     ...input.fills.map((fill, index) => ({
       date: fill.tradeDate,
       time: fill.tradeTime,
@@ -295,6 +299,17 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       );
   }
   const openingCash = cash;
+  const originalEvents = events;
+  events = orderTradeReviewIntraday(events);
+  const reorderedDates = new Set(
+    events
+      .filter((event, index) => event !== originalEvents[index])
+      .map((event) => event.date),
+  );
+  if (reorderedDates.size)
+    warnings.push(
+      "同日内逆回购与现金管理流入已提前；仅将已知正金额内部回款提前到当日首笔流出之前，其余记录保持原相对顺序，不代表真实成交时序",
+    );
   const positions: Record<string, number> = {};
   const repoPrincipals = new Map<string, number>();
   const repoReasons = new Map<string, string>();
@@ -326,6 +341,22 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
     cash: number | null;
   }[] = [];
   for (const date of calendar) {
+    // Preserve the original addition order at the close, including IEEE-754
+    // rounding. W10 changes the intraday path, never the daily cash sequence.
+    let originalDayClose: number | null = cash;
+    if (reorderedDates.has(date)) {
+      for (const event of originalEvents.filter(
+        (event) => event.date === date,
+      )) {
+        const delta = tradeReviewCashMovement(event);
+        originalDayClose =
+          originalDayClose !== null && delta !== null
+            ? originalDayClose + delta
+            : null;
+        if (originalDayClose !== null && !Number.isFinite(originalDayClose))
+          originalDayClose = null;
+      }
+    }
     let denominator = previousNav;
     let factor = 1;
     let returnReason: string | null =
@@ -348,16 +379,8 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
               ? f.netAmount! < 0
               : f.kind === "sell"
             : f.kind === "buy";
-        let delta = f.netAmount;
-        if (delta === null || !Number.isFinite(delta)) {
-          delta =
-            Number.isFinite(f.amount) &&
-            f.amount >= 0 &&
-            f.fees.total !== null &&
-            Number.isFinite(f.fees.total) &&
-            f.fees.total >= 0
-              ? (out ? -f.amount : f.amount) - f.fees.total
-              : null;
+        const delta = tradeReviewCashMovement(e);
+        if (f.netAmount === null || !Number.isFinite(f.netAmount)) {
           warnings.push(
             `成交 ${e.order}：实际资金发生额缺失，${delta === null ? "费用分项亦不可得" : "退回成交金额±实际费用分项合计"}`,
           );
@@ -487,6 +510,8 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
             ? cash + flow.amount
             : null;
       }
+      if (reorderedDates.has(date) && events[cursor]?.date !== date)
+        cash = originalDayClose;
       if (cash !== null && !Number.isFinite(cash)) cash = null;
       if (cash === null) cashUnknown = true;
       if (cash !== null && cash < minimumCash) {
