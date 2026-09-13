@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import type { ParsedFill } from "../src/lib/delivery-import";
 import {
   buildDisciplineSource,
+  calculateDiscipline,
   type DisciplineSource,
 } from "../src/server/discipline-source";
 import {
@@ -17,6 +18,10 @@ import * as usage from "../src/server/research-usage";
 import { readTradeReviewSnapshot } from "../src/server/trade-review-market";
 import { fullLocalCalendarReference } from "../src/server/data-health";
 import { readGbbq } from "../src/server/tdx-gbbq";
+
+import * as market from "../src/server/trade-review-market";
+import * as calendarSource from "../src/server/data-health";
+import * as gbbqSource from "../src/server/tdx-gbbq";
 
 const mock = vi.hoisted(() => ({
   workers: [] as (EventEmitter & { terminate: ReturnType<typeof vi.fn> })[],
@@ -112,6 +117,36 @@ function dependencies(coverageEnd = "2026-01-06") {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+it("不同账户的合成 fixture 经 calculateDiscipline 自校验并产出全部网格", async () => {
+  const deps = dependencies();
+  vi.spyOn(market, "readTradeReviewSnapshot").mockImplementation(
+    deps.readTradeReviewSnapshot,
+  );
+  vi.spyOn(calendarSource, "fullLocalCalendarReference").mockImplementation(
+    deps.fullLocalCalendarReference,
+  );
+  vi.spyOn(gbbqSource, "readGbbq").mockImplementation(deps.readGbbq);
+  // 300 股：买入 2100，卖出 2400，两笔费用各 3，净利润 294。
+  const synthetic = {
+    ...source,
+    openingCash: 9000,
+    fills: source.fills.map((f) => ({
+      ...f,
+      quantity: 300,
+      price: f.kind === "buy" ? 7 : 8,
+      amount: f.kind === "buy" ? 2100 : 2400,
+      netAmount: f.kind === "buy" ? -2103 : 2397,
+      fees: { ...f.fees, commission: 3, total: 3 },
+    })),
+  };
+  const { result } = await calculateDiscipline(synthetic);
+  expect(result.checks).toEqual({
+    a: { count: 1, netProfit: 294, passed: true },
+    b: { count: 1, netProfit: 294, passed: true },
+  });
+  expect(result.points).toHaveLength(20);
+  expect(result.points.at(-1)!.netProfit).toBe(294);
 });
 it("GBBQ 覆盖不足在读取行情前停止；检查末笔成交而非仅有效回合", async () => {
   const deps = dependencies("2026-01-05");

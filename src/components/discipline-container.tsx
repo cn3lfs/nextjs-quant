@@ -36,8 +36,8 @@ export function DisciplineContainer({ account }: { account: string }) {
         {disciplineNotice}。{disciplineScope}
       </p>
       <p className="text-sm text-muted-foreground">
-        本批核对 W2 的 784/774 回合及两项固定金额。期初现金默认 126,200 元，沿用
-        W2 反推下界，非真实期初资金证明。结果保留 15
+        自校验目标由当前账户数据推导。期初现金默认 126,200 元，沿用 W2
+        反推下界，非真实期初资金证明。结果保留 15
         分钟，重新运行会替换；完整导出含全部网格、逐回合、现金与行情证据。
       </p>
       <Label htmlFor="discipline-opening">实验期初现金（元）</Label>

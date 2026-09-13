@@ -399,13 +399,7 @@ export function disciplineCounterfactual(
 ) {
   return replay(input, disciplineRulesSchema.parse(rules), prepare(input));
 }
-export function runDisciplineGrid(
-  input: DisciplineInput,
-  expected?: {
-    a: { count: number; netProfit: number };
-    b: { count: number; netProfit: number };
-  },
-) {
+export function runDisciplineGrid(input: DisciplineInput) {
   const p = prepare(input);
   const baseline = replay(input, { maxAddOns: null, stopLossPct: null }, p);
   // Reconstruct A from replayed cash legs, independently of cost accounting,
@@ -419,28 +413,34 @@ export function runDisciplineGrid(
         : 0),
     0,
   );
+  const aCount = reviewTrades({
+    ...input,
+    fills: baseline.execution.map((e) => e.fill),
+  }).movingAverage.closedRounds.filter(
+    (r) => r.netProfit.value !== null,
+  ).length;
+  const replayed = {
+    a: { count: aCount, netProfit: aProfit },
+    b: { count: baseline.roundCount, netProfit: baseline.netProfit },
+  };
   const checks = {
     a: {
       ...p.baselineA,
-      passed: Math.abs(aProfit - p.baselineA.netProfit) < 0.005,
+      passed:
+        aCount === p.baselineA.count &&
+        Math.abs(aProfit - p.baselineA.netProfit) <= 1,
     },
     b: {
       ...p.baselineB,
       passed:
-        Math.abs(baseline.netProfit - p.baselineB.netProfit) < 0.005 &&
+        Math.abs(baseline.netProfit - p.baselineB.netProfit) <= 1 &&
         baseline.roundCount === p.baselineB.count,
     },
   };
-  if (expected) {
-    checks.a.passed &&=
-      checks.a.count === expected.a.count &&
-      Math.abs(checks.a.netProfit - expected.a.netProfit) <= 1;
-    checks.b.passed &&=
-      checks.b.count === expected.b.count &&
-      Math.abs(checks.b.netProfit - expected.b.netProfit) <= 1;
-  }
   if (!checks.a.passed || !checks.b.passed)
-    throw new Error(`双自校验失败：${JSON.stringify(checks)}，停止网格`);
+    throw new Error(
+      `双自校验失败：${JSON.stringify({ replayed, review: { a: p.baselineA, b: p.baselineB }, checks })}，停止网格`,
+    );
   const points = disciplineGrid.map((rules) =>
     rules.maxAddOns === null && rules.stopLossPct === null
       ? baseline

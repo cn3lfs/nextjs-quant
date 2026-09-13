@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ParsedFill, ParsedCashFlow } from "../src/lib/delivery-import";
@@ -10,6 +10,7 @@ import {
   disciplineScope,
   type DisciplineInput,
 } from "../src/lib/discipline-counterfactual";
+import * as navSource from "../src/lib/trade-review-nav";
 import { reviewTradeNav } from "../src/lib/trade-review-nav";
 import { DisciplineResults } from "../src/components/discipline-results";
 
@@ -72,26 +73,40 @@ describe("W3 纪律反事实", () => {
     const point = disciplineCounterfactual(source, off);
     expect(point.nav).toEqual(reviewTradeNav(source));
     expect(point.netProfit).toBe(100);
-    const grid = runDisciplineGrid(source, {
-      a: { count: 1, netProfit: 100 },
-      b: { count: 1, netProfit: 100 },
-    });
+    const grid = runDisciplineGrid(source);
     expect(grid.checks).toEqual({
       a: { count: 1, netProfit: 100, passed: true },
       b: { count: 1, netProfit: 100, passed: true },
     });
-    expect(() =>
-      runDisciplineGrid(source, {
-        a: { count: 1, netProfit: 98 },
-        b: { count: 1, netProfit: 100 },
-      }),
-    ).toThrow("自校验失败");
-    expect(() =>
-      runDisciplineGrid(source, {
-        a: { count: 1, netProfit: 100 },
-        b: { count: 2, netProfit: 100 },
-      }),
-    ).toThrow("自校验失败");
+  });
+  it("重放输入丢失卖出时 A 失败，诊断包含两侧实际金额和回合数", () => {
+    const source = input();
+    const nav = reviewTradeNav(source);
+    const spy = vi.spyOn(navSource, "reviewTradeNav").mockReturnValueOnce({
+      ...nav,
+      replay: nav.replay.filter((e) => e.originalOrder !== 1),
+    });
+    try {
+      expect(() => runDisciplineGrid(source)).toThrow(
+        /双自校验失败.*"replayed":\{"a":\{"count":0,"netProfit":-1000\}.*"review":\{"a":\{"count":1,"netProfit":100\}/,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+  it("金额同为零也不能放过 A 回合数不一致", () => {
+    const source = input({ fills: [fill(1, "buy", 10), fill(6, "sell", 10)] });
+    const nav = reviewTradeNav(source);
+    const spy = vi
+      .spyOn(navSource, "reviewTradeNav")
+      .mockReturnValueOnce({ ...nav, replay: [] });
+    try {
+      expect(() => runDisciplineGrid(source)).toThrow(
+        /双自校验失败.*"replayed":\{"a":\{"count":0,"netProfit":0\}.*"review":\{"a":\{"count":1,"netProfit":0\}/,
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
   it("三次买入限制一次加仓：第三笔资金留存，卖出按持仓缩减", () => {
     // 100*10 + 100*8 = 1800; block 100*6; sell 200*9=1800; profit=0.
@@ -280,9 +295,10 @@ describe("W3 纪律反事实", () => {
       ],
       exRightsEvents: [{ security: "sz000001", date: d(3) }],
     });
-    const r = runDisciplineGrid(source, {
-      a: { count: 2, netProfit: -200 },
-      b: { count: 1, netProfit: 100 },
+    const r = runDisciplineGrid(source);
+    expect(r.checks).toEqual({
+      a: { count: 2, netProfit: -200, passed: true },
+      b: { count: 1, netProfit: 100, passed: true },
     });
     expect(r.excludedCrossed).toBe(1);
     expect(r.excludedUnknown).toBe(0);

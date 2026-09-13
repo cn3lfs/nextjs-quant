@@ -114,9 +114,6 @@ export async function calculateDiscipline(
 ) {
   const evidence = await buildDisciplineSource(source, progress);
   progress("计算 20 点网格");
-  const result = runDisciplineGrid(evidence.input, {
-    a: { count: 784, netProfit: -230837.38 },
-    b: { count: 774, netProfit: -197422.44 },
-  });
+  const result = runDisciplineGrid(evidence.input);
   return { result, evidence };
 }
