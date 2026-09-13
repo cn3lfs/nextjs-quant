@@ -48,6 +48,9 @@ export function previewDeliveryImport(
       unresolved: input.parsed.unresolved.length,
       anomalies: input.parsed.fills.filter((row) => row.anomalies.length)
         .length,
+      ...(input.parsed.cashFlowSummary
+        ? { cashFlowSummary: input.parsed.cashFlowSummary }
+        : {}),
       ...(input.parsed.counts ? { counts: input.parsed.counts } : {}),
     },
     mapping: input.parsed.mapping,

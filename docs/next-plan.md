@@ -318,3 +318,5 @@ W3b 已移除账户固定自校验目标，A/B 来自当前输入并核对金额
 W4 已按 [任务书 §6](tasks/w4-flow-valuation.md#6-管理者裁定2026-09-13) 接入可选 previousClose 流前估值，默认 explicit 保持，固定说明随数据和 TWR 页面展示。真实账户中断数量与 TWR 重跑待管理者执行；同日多笔复用前收的偏差见 [decisions](decisions.md)。未新增依赖或迁移，未提交、推送或打包。
 
 W5 已按 [任务书 §6](tasks/w5-statement-import.md#6-管理者裁定2026-09-13回应执行者的停止报告) 开发对账单分支、显式 cashFlowsOnly、符号校验和 statementOpeningCash 批次证据；利息按余额恒等式筛选，成功银行返回码按发生额方向归类。真实账户组合导入、余额残差定位和人工验收交管理者；不改 openingCash，不新增依赖或迁移，不提交或推送。
+
+W5b 已收窄 cashFlowsOnly 的结息/费用分类，按余额识别同批结息对，补真实结构反例与各类源流水汇总；真实样本核验和边界见 [交付说明](review/w5b-classification-delivery-2026-09-13.md)。默认 all 保持旧行为，未知结构保留 unresolved；旧批次清理及账户复盘由管理者处理，未提交、推送或打包。

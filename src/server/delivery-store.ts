@@ -26,6 +26,7 @@ export type ImportResult = {
   diagnostics?: string[];
   statementOpeningCash?: number | null;
   counts?: DeliveryImport["counts"];
+  cashFlowSummary?: DeliveryImport["cashFlowSummary"];
 };
 export type ImportRowStatus = {
   id: string;
@@ -37,7 +38,12 @@ export type ImportRowStatus = {
 type Stored<T> = T & { id: string; account: string; batchId: string };
 type BatchPayload = Pick<
   DeliveryImport,
-  "mapping" | "diagnostics" | "unresolved" | "statementOpeningCash" | "counts"
+  | "mapping"
+  | "diagnostics"
+  | "unresolved"
+  | "statementOpeningCash"
+  | "counts"
+  | "cashFlowSummary"
 > & {
   scope?: ImportOptions["scope"];
   rawRows: string[][];
@@ -143,6 +149,9 @@ export class DeliveryStore {
           .get(account, input.fileHash) as
           { id: string; payload: string } | undefined;
         const metadata = {
+          ...(input.parsed.cashFlowSummary
+            ? { cashFlowSummary: input.parsed.cashFlowSummary }
+            : {}),
           ...(input.parsed.statementOpeningCash !== undefined
             ? { statementOpeningCash: input.parsed.statementOpeningCash }
             : {}),

@@ -316,6 +316,26 @@ export function classifyRow(
   return null;
 }
 
+// W5b: statement business structures are narrower than legacy summary vocabulary.
+function classifyStatementCash(
+  summary: string,
+  operation: string,
+): RowKind | null {
+  if (summary.includes("融券回购购回日"))
+    return operation === "买入" ? "buy" : operation === "卖出" ? "sell" : null;
+  if (/^批量客户结息处理批次[:：]\d+[，,]/.test(summary)) return "interest";
+  if (summary.includes("利息")) return null;
+  if (
+    /^(?:\d+\|)?股息红利扣税(?:[，,]\d+股息红利扣税)?$/.test(summary) ||
+    /^股息红利税差异化处理资金下账(?:\s+证券代码:|$)/.test(summary)
+  )
+    return "fee";
+  const legacy = classifyRow(summary, "");
+  if (legacy === "fee" || legacy === "interest") return null;
+  if (legacy && legacy !== "buy" && legacy !== "sell") return legacy;
+  return operation === "买入" ? "buy" : operation === "卖出" ? "sell" : null;
+}
+
 const digits = (value: string) => value.replace(/\D/g, "");
 
 /** Accepts 20210811, 2021-08-11, 2021/8/11, 2021.08.11 and 2021年8月11日. */
@@ -500,6 +520,12 @@ export type UnresolvedRow = {
 };
 
 export type DeliveryImport = {
+  /** Accepted source rows before deduplication, never the number newly inserted. */
+  cashFlowSummary?: {
+    kind: ParsedCashFlow["kind"];
+    count: number;
+    amount: number;
+  }[];
   statementOpeningCash?: number | null;
   counts?: {
     discardedFills: number;
@@ -658,6 +684,35 @@ export function importDeliveryTable(
       i > 0 ? num(chronological[i - 1]!.cells, "balanceCash") : null,
     ),
   );
+  if (statement && options.scope === "cashFlowsOnly") {
+    // Descending dates do not imply descending equal-time settlement pairs.
+    // Resolve only exact two-leg batches by their balance identity, never wording.
+    const pairs = new Map<string, typeof chronological>();
+    for (const row of chronological) {
+      const batch = /^批量客户结息处理批次[:：](\d+)[，,]/.exec(
+        at(row.cells, "summary"),
+      );
+      if (!batch) continue;
+      const key = JSON.stringify([row.date, row.time, batch[1]]);
+      const group = pairs.get(key) ?? [];
+      group.push(row);
+      pairs.set(key, group);
+    }
+    for (const group of pairs.values()) {
+      if (group.length === 1) continue;
+      for (const row of group) {
+        const peer = group.find((other) => other.index !== row.index);
+        previousBalances.set(
+          row.index,
+          group.length === 2 &&
+            peer &&
+            num(peer.cells, "netAmount") === num(row.cells, "netAmount")
+            ? num(peer.cells, "balanceCash")
+            : null,
+        );
+      }
+    }
+  }
   const first = chronological[0];
   const openingBalance = first ? num(first.cells, "balanceCash") : null;
   const openingAmount = first ? num(first.cells, "netAmount") : null;
@@ -675,7 +730,10 @@ export function importDeliveryTable(
       if (summary.includes("银行返回码")) {
         const amount = num(cells, "netAmount");
         kind =
-          /银行返回码\s*[:：]?\s*000000000000(?!\d)/.test(summary) &&
+          (options.scope === "cashFlowsOnly"
+            ? /银行返回码\s*(?:[:：]\s*|\[)?000000000000(?!\d)/
+            : /银行返回码\s*[:：]?\s*000000000000(?!\d)/
+          ).test(summary) &&
           summary.includes("交易成功") &&
           amount !== null &&
           amount !== 0
@@ -683,6 +741,8 @@ export function importDeliveryTable(
               ? "transferIn"
               : "transferOut"
             : null;
+      } else if (options.scope === "cashFlowsOnly") {
+        kind = classifyStatementCash(summary, operation);
       } else if (summary.includes("融券回购购回日")) {
         kind =
           operation === "卖出" ? "sell" : operation === "买入" ? "buy" : null;
@@ -721,6 +781,15 @@ export function importDeliveryTable(
     }
     if (!date) {
       unresolved.push({ rowIndex, reason: "日期无法解析", cells });
+      return;
+    }
+    // W5b explicitly excludes this business regardless of direction/quantity.
+    if (
+      statement &&
+      options.scope === "cashFlowsOnly" &&
+      summary.includes("融券回购购回日")
+    ) {
+      counts.discardedFills++;
       return;
     }
     // R8: explicit zero amounts contradict a positive-price, positive-quantity
@@ -1012,7 +1081,28 @@ export function importDeliveryTable(
       `范围排除成交 ${counts.discardedFills} 条；余额恒等式排除利息 ${counts.excludedInterest} 条；数量符号拒绝 ${counts.rejectedSigns} 条；失败流水 ${counts.failedFlows} 条；未解析 ${counts.unresolved} 条`,
     );
   }
+  const cashFlowSummary =
+    options.scope === "cashFlowsOnly"
+      ? rowKinds
+          .filter(
+            (kind): kind is ParsedCashFlow["kind"] =>
+              kind !== "buy" && kind !== "sell",
+          )
+          .map((kind) => {
+            const rows = cashFlows.filter((row) => row.kind === kind);
+            return {
+              kind,
+              count: rows.length,
+              amount:
+                rows.reduce(
+                  (sum, row) => sum + Math.round(row.amount * 100),
+                  0,
+                ) / 100,
+            };
+          })
+      : undefined;
   return {
+    ...(cashFlowSummary ? { cashFlowSummary } : {}),
     mapping,
     fills,
     cashFlows,
