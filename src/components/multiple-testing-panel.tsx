@@ -32,7 +32,10 @@ export function MultipleTestingPanel({
         .map((value) => value.reason),
     ]),
   ];
-  const overfit = result.overfit;
+  const stored = result.overfit;
+  const overfit =
+    stored && "bySelectionRule" in stored ? stored.bySelectionRule : undefined;
+  const sharpe = stored && "bySharpe" in stored ? stored.bySharpe : stored;
   const pbo = overfit?.pbo.value;
   const pboConclusion =
     pbo === undefined || pbo === null
@@ -67,8 +70,16 @@ export function MultipleTestingPanel({
       </p>
       <p>{conclusion}</p>
       <p>
-        PBO（按日夏普选优）：{pbo == null ? "—" : `${(pbo * 100).toFixed(2)}%`}{" "}
-        · {pboConclusion}
+        本系统选参规则（净收益→回撤→参数）：PBO ={" "}
+        {pbo == null ? "—" : `${(pbo * 100).toFixed(2)}%`} · {pboConclusion}
+      </p>
+      <p>
+        夏普口径对照：PBO ={" "}
+        {sharpe
+          ? sharpe.pbo.value === null
+            ? display(sharpe.pbo)
+            : `${(sharpe.pbo.value * 100).toFixed(2)}%`
+          : "—"}
       </p>
       {overfit && (
         <p>
@@ -81,7 +92,7 @@ export function MultipleTestingPanel({
       )}
       <p className="text-muted-foreground">
         依据 Bailey、Borwein、López de Prado 与
-        Zhu（2015）CSCV。以上选参规则指按日夏普选优，仅限当前均线半值/原值/双值候选集合；不同于滚动检验的净收益/回撤/均线排序。换候选集合
+        Zhu（2015）CSCV。本系统口径检验净收益→回撤→参数排序，夏普口径检验日夏普选优，两者分列不合成。仅限当前均线半值/原值/双值候选集合；换候选集合
         PBO
         会变，人工反复试验不可观测；分档是描述性提示，不是预测力的显著性检验，不构成策略有效或业绩证据。
       </p>

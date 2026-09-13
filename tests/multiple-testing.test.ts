@@ -264,9 +264,21 @@ describe("候选矩阵与滚动接入", () => {
       equityDailyReturns(f.test.equity, 100000),
     );
     const { overfit, ...v1Testing } = wf.multipleTesting!;
-    expect(overfit).toEqual(
-      combinatoriallySymmetricCv({ returns: matrix.returns }),
-    );
+    // 既有 V1 波动行情 fixture 的两个口径均为0，不把构造差异推广为真实结论。
+    expect(overfit).toMatchObject({
+      bySelectionRule: { pbo: { value: 0 } },
+      bySharpe: { pbo: { value: 0 } },
+    });
+    expect(overfit).toEqual({
+      bySelectionRule: combinatoriallySymmetricCv({
+        returns: matrix.returns,
+        candidates: matrix.candidates,
+      }),
+      bySharpe: combinatoriallySymmetricCv({
+        returns: matrix.returns,
+        metric: "sharpe",
+      }),
+    });
     expect(v1Testing).toEqual(
       multipleTesting(
         combined,
@@ -427,7 +439,9 @@ it("V2 只消费 V1 矩阵，不增加 backtest 调用", () => {
       result.folds.length * (result.candidates.length + 1) +
         result.candidates.length,
     );
-    expect(result.multipleTesting!.overfit).toHaveProperty("pbo");
+    expect(result.multipleTesting!.overfit).toHaveProperty(
+      "bySelectionRule.pbo",
+    );
   } finally {
     spy.mockRestore();
   }

@@ -43,7 +43,13 @@ it("历史和任务响应剥离 λ，按需导出与数据库完整保留；旧�
         { value: 1, reason: null },
         { value: 2, reason: null },
       ]),
-      overfit: combinatoriallySymmetricCv({ returns }),
+      overfit: {
+        bySelectionRule: combinatoriallySymmetricCv({
+          returns,
+          candidates: [defaultStrategy, { ...defaultStrategy, fast: 3 }],
+        }),
+        bySharpe: combinatoriallySymmetricCv({ returns, metric: "sharpe" }),
+      },
     },
   };
   put("walk-forward", id, result);
@@ -63,12 +69,26 @@ it("历史和任务响应剥离 λ，按需导出与数据库完整保留；旧�
   expect(page).toEqual(walkForwardPage(result));
   expect(page!.multipleTesting!.overfit).not.toHaveProperty("lambdas");
   expect((await caller.job({ id: job.id }))!.result).toEqual(page);
-  expect(
-    (await caller.walkForwardExport(id))!.multipleTesting!.overfit!.lambdas,
-  ).toHaveLength(252);
+  const exported = (await caller.walkForwardExport(id))!.multipleTesting!
+    .overfit!;
+  if (!("bySelectionRule" in exported)) throw new Error("缺少双口径");
+  for (const key of ["bySelectionRule", "bySharpe"] as const) {
+    expect(exported[key].lambdas).toHaveLength(252);
+    expect(page!.multipleTesting!.overfit).not.toHaveProperty(`${key}.lambdas`);
+  }
   expect(await caller.walkForwardExport(id)).toEqual(result);
   expect(get<WalkForwardResult>(id)).toEqual(result);
-  expect(result.multipleTesting!.overfit!.lambdas).toHaveLength(252);
+  // V2 老档案保留夏普含义，普通响应仍剥离旧顶层 λ。
+  put("walk-forward", id, {
+    ...result,
+    multipleTesting: { ...result.multipleTesting!, overfit: exported.bySharpe },
+  });
+  expect(
+    (await caller.walkForwardResult(id))!.multipleTesting!.overfit,
+  ).not.toHaveProperty("lambdas");
+  expect(
+    (await caller.walkForwardExport(id))!.multipleTesting!.overfit,
+  ).toEqual(exported.bySharpe);
   const { overfit: _overfit, ...v1 } = result.multipleTesting!;
   put("walk-forward", id, { ...result, multipleTesting: v1 });
   expect(await caller.walkForwardResult(id)).toEqual({

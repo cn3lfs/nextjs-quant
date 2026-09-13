@@ -30,7 +30,9 @@ export type WalkForwardResult = {
   unusedTailBars: number;
   /** 旧档案没有此字段，读取时不补算或伪造。 */
   multipleTesting?: MultipleTesting & {
-    overfit?: import("./backtest-overfit").BacktestOverfit;
+    overfit?:
+      | import("./backtest-overfit").BacktestOverfit
+      | import("./backtest-overfit").BacktestOverfitPair;
   };
   folds: {
     trainStart: string;
@@ -63,7 +65,9 @@ export type WalkForwardResult = {
 
 export type WalkForwardPage = Omit<WalkForwardResult, "multipleTesting"> & {
   multipleTesting?: MultipleTesting & {
-    overfit?: import("./backtest-overfit").BacktestOverfitSummary;
+    overfit?:
+      | import("./backtest-overfit").BacktestOverfitSummary
+      | import("./backtest-overfit").BacktestOverfitPairSummary;
   };
 };
 
@@ -71,7 +75,17 @@ export type WalkForwardPage = Omit<WalkForwardResult, "multipleTesting"> & {
 export function walkForwardPage(result: WalkForwardResult): WalkForwardPage {
   const overfit = result.multipleTesting?.overfit;
   if (!overfit) return result;
-  const { lambdas: _lambdas, ...summary } = overfit;
+  const strip = ({
+    lambdas: _lambdas,
+    ...summary
+  }: import("./backtest-overfit").BacktestOverfit) => summary;
+  const summary =
+    "bySelectionRule" in overfit
+      ? {
+          bySelectionRule: strip(overfit.bySelectionRule),
+          bySharpe: strip(overfit.bySharpe),
+        }
+      : strip(overfit);
   return {
     ...result,
     multipleTesting: { ...result.multipleTesting!, overfit: summary },

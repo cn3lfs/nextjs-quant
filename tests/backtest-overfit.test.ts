@@ -1,14 +1,21 @@
+import { defaultStrategy } from "../src/lib/domain";
+import { backtest } from "../src/server/quant";
+import { equityDailyReturns } from "../src/lib/multiple-testing";
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  combinatoriallySymmetricCv as cv,
+  combinatoriallySymmetricCv,
+  selectionPerformance,
   cscvCombinations,
   performanceDegradation,
 } from "../src/lib/backtest-overfit";
 import { sharpeDaily, multipleTesting } from "../src/lib/multiple-testing";
 import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";
 
+// V2 既有用例显式保留夏普口径：默认改为 selection，不改变原算法预期。
+const cv = (input: Parameters<typeof combinatoriallySymmetricCv>[0]) =>
+  combinatoriallySymmetricCv({ metric: "sharpe", ...input });
 const series = (means: number[]) =>
   means.flatMap((m) =>
     Array.from({ length: 20 }, (_, i) => m + (i % 2 ? 0.01 : -0.01)),
@@ -39,7 +46,7 @@ describe("CSCV 组合与统计", () => {
       );
     }
   });
-  it("每段一致最优，PBO=0；默认直接复用 V1 夏普", () => {
+  it("每段一致最优，PBO=0；显式夏普直接复用 V1 夏普", () => {
     const spy = vi.fn(sharpeDaily);
     const actual = cv({ returns: stable, metric: spy });
     expect(actual).toEqual(cv({ returns: stable }));
@@ -239,13 +246,16 @@ it("页面 PBO 三档与边界、原始原因和 V1 旧档案", () => {
       createElement(MultipleTestingPanel, {
         result: {
           ...result,
-          overfit: { ...overfit, pbo: { value: pbo, reason: null } },
+          overfit: {
+            bySelectionRule: { ...overfit, pbo: { value: pbo, reason: null } },
+            bySharpe: overfit,
+          },
         },
       }),
     );
     expect(html).toContain(label);
     expect(html).toContain("仅限当前");
-    expect(html).toContain("不同于滚动检验");
+    expect(html).toContain("夏普口径对照");
     expect(html).toContain("2015");
     expect(html).toContain("性能衰减斜率");
     expect(html).not.toContain("lambdas");
@@ -258,9 +268,163 @@ it("页面 PBO 三档与边界、原始原因和 V1 旧档案", () => {
       createElement(MultipleTestingPanel, {
         result: {
           ...result,
-          overfit: { ...overfit, pbo: { value: null, reason: "精确缺失原因" } },
+          overfit: {
+            bySelectionRule: {
+              ...overfit,
+              pbo: { value: null, reason: "精确缺失原因" },
+            },
+            bySharpe: overfit,
+          },
         },
       }),
     ),
   ).toContain("无法判定：精确缺失原因");
+});
+
+const candidates = [
+  { ...defaultStrategy, fast: 4, slow: 12 },
+  { ...defaultStrategy, fast: 2, slow: 12 },
+  { ...defaultStrategy, fast: 2, slow: 8 },
+];
+// 每段 20 日，脉冲后用有效零收益补齐；二进制精确收益用于精确并列。
+const pulses = (segments: number[][]) =>
+  segments.flatMap((r) => [...r, ...Array(20 - r.length).fill(0)]);
+
+describe("V2b 实际选参规则", () => {
+  it("收益复用锚点：同一回测日收益复利与 totalReturn 统一单位后相等", () => {
+    const bars = Array.from({ length: 120 }, (_, i) => {
+      const close = 100 + 10 * Math.sin(i / 9) + i * 0.02;
+      return {
+        date: new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10),
+        open: close - 0.2,
+        close,
+        high: close + 1,
+        low: close - 1,
+        volume: 100000,
+        amount: 10000000,
+      };
+    });
+    // 仅固定单测运行引擎建立锚点；生产 CSCV 不增加任何 backtest 调用。
+    const result = backtest(bars, candidates[0]!, "v2b-anchor", 100000);
+    expect(result.trades.length).toBeGreaterThan(0);
+    const score = selectionPerformance(
+      equityDailyReturns(result.equity, 100000),
+    );
+    // quant.ts 存百分数；U1 及 selection 存小数比例，不能直接比。
+    expect(score.totalReturn.value).toBeCloseTo(result.totalReturn / 100, 12);
+    expect(score.maxDrawdown.value).toBeCloseTo(result.maxDrawdown / 100, 12);
+  });
+  it("首日下跌从本金起算回撤，净收益按顺序复利", () => {
+    const score = selectionPerformance([-0.5, 0.5]);
+    // 本金1→0.5→0.75；首日收盘作基线会误报回撤为0。
+    expect(score.totalReturn.value).toBe(-0.25);
+    expect(score.maxDrawdown.value).toBe(0.5);
+  });
+  it("默认 selection；回撤优先于参数，参数依次 fast、slow 且与行对齐", () => {
+    const returns = [
+      pulses([[-0.5, 1], [], [-0.5], [-0.5]]),
+      pulses([[], [], [0.5], [0.5]]),
+      pulses([[], [], [1], [1]]),
+    ];
+    // 首训练净收益全为0，候选0回撤0.5先落后；1/2回撤0，fast相同按slow选2。
+    // 候选0的fast最小；若漏掉回撤排序，会错误选0。
+    const aligned = [{ ...candidates[0]!, fast: 1 }, ...candidates.slice(1)];
+    const input = { returns, candidates: aligned, splits: 4 };
+    const actual = combinatoriallySymmetricCv(input);
+    expect(actual).toEqual(
+      combinatoriallySymmetricCv({ ...input, metric: "selection" }),
+    );
+    expect(actual.lambdas[0]).toBeCloseTo(Math.log(3), 12);
+    const fastFirst = aligned.map((c, i) => ({
+      ...c,
+      fast: i === 1 ? 1 : c.fast,
+    }));
+    expect(
+      combinatoriallySymmetricCv({ ...input, candidates: fastFirst })
+        .lambdas[0],
+    ).toBe(0);
+    // 同时重排行与参数，结果不变；长度错位显式拒绝。无行ID不能检出同长度语义错位。
+    expect(
+      combinatoriallySymmetricCv({
+        ...input,
+        returns: [...returns].reverse(),
+        candidates: [...aligned].reverse(),
+      }),
+    ).toEqual(actual);
+    expect(
+      combinatoriallySymmetricCv({ ...input, candidates: candidates.slice(1) })
+        .pbo.reason,
+    ).toContain("逐行对应");
+    expect(
+      combinatoriallySymmetricCv({ returns, splits: 4 }).pbo.value,
+    ).toBeNull();
+  });
+  it("样本外仅净收益排名，不以回撤或参数拆开并列", () => {
+    const returns = [
+      pulses([[1], [1], [-0.5, 1], []]),
+      pulses([[0.5], [0.5], [], []]),
+      pulses([[], [], [1], [1]]),
+    ];
+    // 训练选0；测试0/1净收益均0但回撤0.5/0，必须平均排名1.5，ω=1.5/4。
+    expect(
+      combinatoriallySymmetricCv({ returns, candidates, splits: 4 }).lambdas[0],
+    ).toBeCloseTo(Math.log(0.375 / 0.625), 12);
+  });
+  it("净收益与夏普选优分开，固定构造的两个 PBO 不相等", () => {
+    // 候选0高均值高波动，候选1低均值低波动；不同子段优势交替。
+    const returns = [
+      [0.03, 0.03, -0.01, -0.01].flatMap((m) =>
+        Array.from({ length: 20 }, (_, i) => m + (i % 2 ? 0.08 : -0.08)),
+      ),
+      [0.002, 0.003, 0.001, 0.004].flatMap((m) =>
+        Array.from({ length: 20 }, (_, i) => m + (i % 2 ? 0.001 : -0.001)),
+      ),
+      series([0.001, -0.002, 0.003, -0.001]),
+    ];
+    const selection = combinatoriallySymmetricCv({
+      returns,
+      candidates,
+      splits: 4,
+    });
+    const sharpe = combinatoriallySymmetricCv({
+      returns,
+      metric: "sharpe",
+      splits: 4,
+    });
+    expect(selection.pbo.value).not.toBeNull();
+    expect(sharpe.pbo.value).not.toBeNull();
+    expect(selection.pbo.value).not.toBe(sharpe.pbo.value);
+    // 6组中净收益选优有2组落至中位数及以下；夏普选优无此组合。
+    expect(selection.pbo.value).toBe(2 / 6);
+    expect(sharpe.pbo.value).toBe(0);
+  });
+  it("selection 非法复利与溢出整份留空，不回退夏普", () => {
+    for (const n of [-1.1, 1e100]) {
+      const result = combinatoriallySymmetricCv({
+        returns: [Array(80).fill(n), Array(80).fill(0)],
+        candidates: candidates.slice(0, 2),
+        splits: 4,
+      });
+      expect(result.pbo.value).toBeNull();
+      expect(result.lambdas).toEqual([]);
+    }
+  });
+  it("旧V2夏普只作对照，不借用其值给实际选参规则下结论", () => {
+    const result = multipleTesting(
+      [-0.01, 0.02, 0.03],
+      [
+        { value: 1, reason: null },
+        { value: 2, reason: null },
+      ],
+    );
+    const html = renderToStaticMarkup(
+      createElement(MultipleTestingPanel, {
+        result: { ...result, overfit: cv({ returns: stable }) },
+      }),
+    );
+    expect(html).toContain("旧档案未记录 PBO");
+    expect(html).toContain("夏普口径对照：PBO = 0.00%");
+    expect(html).not.toContain("基本保持排序");
+    expect(html).not.toContain("不优于随机");
+  });
 });

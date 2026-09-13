@@ -186,7 +186,16 @@ export function walkForward(
     folds,
     multipleTesting: {
       ...testing,
-      overfit: combinatoriallySymmetricCv({ returns: matrix.returns }),
+      overfit: {
+        bySelectionRule: combinatoriallySymmetricCv({
+          returns: matrix.returns,
+          candidates: matrix.candidates,
+        }),
+        bySharpe: combinatoriallySymmetricCv({
+          returns: matrix.returns,
+          metric: "sharpe",
+        }),
+      },
     },
     summary: {
       folds: count,
@@ -208,7 +217,7 @@ export function walkForward(
       "各轮期末持仓按收盘估值；平均收益为独立测试段算术均值，不是连续账户收益或年化收益。",
       "价格涨幅为同一证券测试首根开盘到末根收盘的变化，未扣费用且不考虑整手或成交约束；另存同资金同成本买入持有模拟，策略超额仅指与该模拟的收益百分点差。两者均非市场指数。",
       "训练样本可能包含前轮测试数据，但每轮选参严格不使用本轮及以后测试行情。人工反复修改参数仍可能对整个历史过拟合。",
-      "Bailey、Borwein、López de Prado 与 Zhu（2015）：PBO 按同频夏普选择训练最优者，训练并列取候选小序号、样本外并列取平均排名；不同于滚动检验的净收益/回撤/均线排序，不是对原选参规则的等价验证。",
+      "Bailey、Borwein、López de Prado 与 Zhu（2015）：PBO 分列本系统选参规则（复利净收益降序、含本金回撤升序、fast/slow 升序）与日夏普对照；样本外分别只按净收益与夏普排名，并列取平均排名。",
       "PBO 仅限当前均线半值/原值/双值候选集合；换集合结果会变，未记录的人工试验不可观测。矩阵复用全窗连续模拟日收益，子段不重置持仓，不代表独立重跑或策略有效，不构成业绩证据。",
       ...folds[0]!.test.assumptions,
       "Bailey & López de Prado（2014）：试验次数 N = 本次候选数，是实际试验数的下界；人工反复调整参数、更换标的、改窗口的次数不可观测，不计入 N，因此 DSR 是乐观估计，不构成业绩证据。",

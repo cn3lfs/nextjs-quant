@@ -1,3 +1,5 @@
+import { dailyPerformance } from "./daily-performance";
+import type { Strategy } from "./domain";
 import { sharpeDaily } from "./multiple-testing";
 import type { ReviewValue } from "./trade-review";
 
@@ -25,6 +27,20 @@ export type BacktestOverfit = {
   lambdas: number[];
 };
 export type BacktestOverfitSummary = Omit<BacktestOverfit, "lambdas">;
+export type BacktestOverfitPair = {
+  bySelectionRule: BacktestOverfit;
+  bySharpe: BacktestOverfit;
+};
+export type BacktestOverfitPairSummary = {
+  bySelectionRule: BacktestOverfitSummary;
+  bySharpe: BacktestOverfitSummary;
+};
+
+/** V2b：复用 U1 的复利净收益与含本金回撤，均为小数比例。 */
+export function selectionPerformance(returns: readonly (number | null)[]) {
+  const { totalReturn, maxDrawdown } = dailyPerformance({ returns });
+  return { totalReturn, maxDrawdown };
+}
 
 /** 含截距 OLS；常数因变量的 R² 无定义，不能填成 1。 */
 export function performanceDegradation(
@@ -84,11 +100,16 @@ export function* cscvCombinations(
 export function combinatoriallySymmetricCv({
   returns,
   splits = 10,
-  metric = sharpeDaily,
+  metric = "selection",
+  candidates,
 }: {
   returns: readonly (readonly (number | null)[])[];
   splits?: number;
-  metric?: (returns: readonly (number | null)[]) => ReviewValue;
+  metric?:
+    | "selection"
+    | "sharpe"
+    | ((returns: readonly (number | null)[]) => ReviewValue);
+  candidates?: readonly Strategy[];
 }): BacktestOverfit {
   const result: BacktestOverfit = {
     splits: 0,
@@ -122,6 +143,17 @@ export function combinatoriallySymmetricCv({
   if (returns.length < 2) return unavailable("候选不足，无法排名");
   if (!Number.isSafeInteger(splits) || splits < 4 || splits % 2)
     return unavailable("子段数必须是不小于 4 的偶数");
+  if (
+    metric === "selection" &&
+    (!candidates ||
+      candidates.length !== returns.length ||
+      candidates.some(
+        (c) => !Number.isFinite(c.fast) || !Number.isFinite(c.slow),
+      ))
+  )
+    return unavailable(
+      "候选参数必须与收益矩阵逐行对应且长度一致，fast/slow 必须有限",
+    );
   const length = returns[0]!.length;
   if (returns.some((row) => row.length !== length))
     return unavailable("候选日收益长度不一致，无法同期排名");
@@ -147,28 +179,42 @@ export function combinatoriallySymmetricCv({
   let losses = 0;
   for (const combination of cscvCombinations(periods.length)) {
     const evaluate = (indices: number[]) =>
-      returns.map((row) =>
-        metric(
-          indices.flatMap((i) => {
-            const start = periods[i]! * size;
-            return row.slice(start, start + size);
-          }),
-        ),
-      );
+      returns.map((row) => {
+        const sample = indices.flatMap((i) => {
+          const start = periods[i]! * size;
+          return row.slice(start, start + size);
+        });
+        if (metric === "selection") {
+          const { totalReturn, maxDrawdown } = selectionPerformance(sample);
+          return { score: totalReturn, drawdown: maxDrawdown };
+        }
+        return {
+          score: (metric === "sharpe" ? sharpeDaily : metric)(sample),
+          drawdown: value(0),
+        };
+      });
     const train = evaluate(combination.train),
       test = evaluate(combination.test);
-    const invalid = [...train, ...test].find(
-      (m) => m.value === null || !Number.isFinite(m.value),
-    );
+    const invalid = [...train, ...test]
+      .flatMap((m) => [m.score, m.drawdown])
+      .find((m) => m.value === null || !Number.isFinite(m.value));
     if (invalid)
       return unavailable(invalid.reason ?? "候选绩效非有限，无法排名");
-    const training = train.map((m) => m.value!),
-      testing = test.map((m) => m.value!);
-    if (training.every((n) => n === training[0]))
+    const training = train.map((m) => m.score.value!),
+      testing = test.map((m) => m.score.value!);
+    const compare = (a: number, b: number) =>
+      training[b]! - training[a]! ||
+      (metric === "selection"
+        ? train[a]!.drawdown.value! - train[b]!.drawdown.value! ||
+          candidates![a]!.fast - candidates![b]!.fast ||
+          candidates![a]!.slow - candidates![b]!.slow
+        : 0);
+    // V2b：主指标相同仍可按回撤/参数区分；完整排序也相同才整份留空。
+    if (training.every((_, i) => compare(i, 0) === 0))
       return unavailable("训练集无法区分候选");
     let best = 0;
     for (let i = 1; i < training.length; i++)
-      if (training[i]! > training[best]!) best = i;
+      if (compare(i, best) < 0) best = i;
     const selected = testing[best]!;
     const less = testing.filter((n) => n < selected).length;
     const equal = testing.filter((n) => n === selected).length;
