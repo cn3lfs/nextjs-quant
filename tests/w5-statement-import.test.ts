@@ -268,8 +268,17 @@ describe("W5b real-shaped adversarial summaries", () => {
     expect(
       result.cashFlows.filter((r) => r.kind === "fee").map((r) => r.amount),
     ).toEqual([-1]);
-    expect(result.counts).toMatchObject({ discardedFills: 2, unresolved: 4 });
-    expect(result.unresolved.map((r) => r.rowIndex)).toEqual([11, 12, 13, 14]);
+    expect(result.counts).toMatchObject({ discardedFills: 2, unresolved: 3 });
+    expect(result.unresolved.map((r) => r.rowIndex)).toEqual([11, 12, 14]);
+    expect(
+      result.cashFlows.filter((r) => r.kind === "cashManagement"),
+    ).toMatchObject([
+      {
+        rowIndex: 13,
+        amount: -22000,
+        warnings: ["操作列与资金方向不一致，以资金方向为准"],
+      },
+    ]);
     expect(
       result.cashFlows.some((r) => r.summary.includes("融券回购购回日")),
     ).toBe(false);

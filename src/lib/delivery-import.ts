@@ -222,6 +222,7 @@ export const rowKinds = [
   "interest",
   "fee",
   "subscription",
+  "cashManagement",
   "neutral",
 ] as const;
 export type RowKind = (typeof rowKinds)[number];
@@ -316,11 +317,17 @@ export function classifyRow(
   return null;
 }
 
+// Accept only complete counter structures, not a generic subscription keyword.
+// W9: the posted amount, never the embedded amount or operation, owns direction.
+const cashManagementSummary =
+  /^(?:\d+)?\[(\d{6})\](?:申购|赎回|申购扣款\[-?\d+(?:\.\d+)?\]元[，,]8214申购扣款|赎回返款\[-?\d+(?:\.\d+)?\]元[，,]8216赎回返款)$/;
+
 // W5b: statement business structures are narrower than legacy summary vocabulary.
 function classifyStatementCash(
   summary: string,
   operation: string,
 ): RowKind | null {
+  if (cashManagementSummary.test(summary)) return "cashManagement";
   if (summary.includes("融券回购购回日"))
     return operation === "买入" ? "buy" : operation === "卖出" ? "sell" : null;
   if (/^批量客户结息处理批次[:：]\d+[，,]/.test(summary)) return "interest";
@@ -495,6 +502,8 @@ export type ParsedFill = {
 };
 
 export type ParsedCashFlow = {
+  /** Older imports may omit per-row direction evidence. */
+  warnings?: string[];
   /** Raw quantity evidence; older imports may omit it. Not a confirmed share delta. */
   quantity?: number | null;
   kind: Exclude<RowKind, "buy" | "sell">;
@@ -528,6 +537,8 @@ export type DeliveryImport = {
   }[];
   statementOpeningCash?: number | null;
   counts?: {
+    /** Absent in legacy imports or when no cash-management row was encountered. */
+    cashManagementUnknownDirection?: number;
     discardedFills: number;
     excludedInterest: number;
     rejectedSigns: number;
@@ -601,7 +612,7 @@ export function importDeliveryTable(
     columns.summary = summaryColumn;
     columns.side = operationColumn;
   }
-  const counts = {
+  const counts: NonNullable<DeliveryImport["counts"]> = {
     discardedFills: 0,
     excludedInterest: 0,
     rejectedSigns: 0,
@@ -831,6 +842,36 @@ export function importDeliveryTable(
       return;
     }
     if (kind !== "buy" && kind !== "sell") {
+      const warnings: string[] = [];
+      if (kind === "cashManagement") {
+        counts.cashManagementUnknownDirection ??= 0;
+        const posted = num(cells, "netAmount");
+        if (posted === null || !Number.isFinite(posted) || posted === 0) {
+          counts.cashManagementUnknownDirection++;
+          const reason =
+            "现金管理方向不可判：发生金额缺失、非有限数或为零，不使用成交金额或操作列补造";
+          unresolved.push({ rowIndex, reason, cells });
+          diagnostics.push(`原始行 ${rowIndex} ${reason}`);
+          return;
+        }
+        const code = text(cells, "code");
+        if (code && code !== cashManagementSummary.exec(summary)![1]) {
+          unresolved.push({
+            rowIndex,
+            reason: "现金管理摘要代码与证券代码不一致",
+            cells,
+          });
+          return;
+        }
+        const operationKind = classifyRow("", at(cells, "side"));
+        if (
+          (operationKind === "sell" && posted < 0) ||
+          (operationKind === "buy" && posted > 0)
+        ) {
+          warnings.push("操作列与资金方向不一致，以资金方向为准");
+          diagnostics.push(`原始行 ${rowIndex} 现金管理：${warnings[0]}`);
+        }
+      }
       // Cash side. The signed 发生金额 is authoritative; direction words only
       // decide the sign when the column carries an unsigned value.
       const raw = num(cells, "netAmount") ?? num(cells, "amount");
@@ -874,6 +915,7 @@ export function importDeliveryTable(
               : raw;
       const cashKey = [date, kind, amount, text(cells, "code")] as const;
       cashFlows.push({
+        ...(kind === "cashManagement" ? { warnings } : {}),
         quantity: num(cells, "quantity"),
         kind,
         rowIndex,
@@ -1086,7 +1128,10 @@ export function importDeliveryTable(
       ? rowKinds
           .filter(
             (kind): kind is ParsedCashFlow["kind"] =>
-              kind !== "buy" && kind !== "sell",
+              kind !== "buy" &&
+              kind !== "sell" &&
+              (kind !== "cashManagement" ||
+                counts.cashManagementUnknownDirection !== undefined),
           )
           .map((kind) => {
             const rows = cashFlows.filter((row) => row.kind === kind);
