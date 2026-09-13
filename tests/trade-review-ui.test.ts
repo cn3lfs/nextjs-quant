@@ -16,95 +16,106 @@ import {
 } from "../src/components/trade-review-results";
 import { replayTradeReview } from "../src/server/trade-review-service";
 const dbs: Database.Database[] = [];
-it("R7 页面展示连续段TWR与起止日期", () => {
-  const data = replayTradeReview({
-    version: 1,
-    account: "合成账户",
-    trades: {
-      fills: [],
-      cashFlows: [
-        {
-          kind: "interest",
-          rowIndex: 1,
-          flowDate: "2026-01-02",
-          flowTime: "10:00:00",
-          code: null,
-          name: null,
-          amount: 10,
-          balanceCash: null,
-          summary: "利息",
-          fingerprintSource: "fixture",
+it.each(["explicit", "previousClose"] as const)(
+  "R7/W4 页面展示连续段TWR、起止日期与 %s 模式说明",
+  (flowValuation) => {
+    const data = replayTradeReview({
+      version: 1,
+      account: "合成账户",
+      trades: {
+        fills: [],
+        cashFlows: [
+          {
+            kind: "interest",
+            rowIndex: 1,
+            flowDate: "2026-01-02",
+            flowTime: "10:00:00",
+            code: null,
+            name: null,
+            amount: 10,
+            balanceCash: null,
+            summary: "利息",
+            fingerprintSource: "fixture",
+          },
+        ],
+      },
+      nav: {
+        flowValuation,
+        openingCash: 100,
+        tradingDays: ["2026-01-01", "2026-01-02"],
+      },
+      dimensions: {},
+      batches: [],
+      sources: [],
+      warnings: [],
+      rpsPeriod: 250,
+    });
+    const html = renderToStaticMarkup(
+      createElement(TradeReviewResults, {
+        data: {
+          ...data,
+          calendar: {
+            source: "合成",
+            hash: "fixture",
+            coverage: { start: "2026-01-01", end: "2026-01-02", count: 2 },
+            start: "2026-01-01",
+            end: "2026-01-02",
+          },
+          keyTrades: keyTrades([]),
+          rounds: [],
+          rowCount: 0,
+          tradePoints: [],
+          pointCount: 0,
+          attributionCount: 0,
+          monthCount: 1,
+          drawdowns: [],
+          drawdownCount: 0,
+          attribution: [],
+          excludedCashFlows: [],
+          feeSources: [],
         },
-      ],
-    },
-    nav: { openingCash: 100, tradingDays: ["2026-01-01", "2026-01-02"] },
-    dimensions: {},
-    batches: [],
-    sources: [],
-    warnings: [],
-    rpsPeriod: 250,
-  });
-  const html = renderToStaticMarkup(
-    createElement(TradeReviewResults, {
-      data: {
-        ...data,
-        calendar: {
-          source: "合成",
-          hash: "fixture",
-          coverage: { start: "2026-01-01", end: "2026-01-02", count: 2 },
-          start: "2026-01-01",
-          end: "2026-01-02",
+        method: "movingAverage",
+        onMethodChange: () => {},
+        drawdownsOpen: false,
+        onDrawdownsOpenChange: () => {},
+        drawdownTable: {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [{ id: "drawdown", desc: true }],
+          onPaginationChange: () => {},
+          onSortingChange: () => {},
         },
-        keyTrades: keyTrades([]),
-        rounds: [],
-        rowCount: 0,
-        tradePoints: [],
-        pointCount: 0,
-        attributionCount: 0,
-        monthCount: 1,
-        drawdowns: [],
-        drawdownCount: 0,
-        attribution: [],
-        excludedCashFlows: [],
-        feeSources: [],
-      },
-      method: "movingAverage",
-      onMethodChange: () => {},
-      drawdownsOpen: false,
-      onDrawdownsOpenChange: () => {},
-      drawdownTable: {
-        pagination: { pageIndex: 0, pageSize: 10 },
-        sorting: [{ id: "drawdown", desc: true }],
-        onPaginationChange: () => {},
-        onSortingChange: () => {},
-      },
-      pointTable: {
-        pagination: { pageIndex: 0, pageSize: 10 },
+        pointTable: {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [],
+          onPaginationChange: () => {},
+          onSortingChange: () => {},
+        },
+        attributionTable: {
+          pagination: { pageIndex: 0, pageSize: 10 },
+          sorting: [],
+          onPaginationChange: () => {},
+          onSortingChange: () => {},
+        },
+        pagination: { pageIndex: 0, pageSize: 20 },
         sorting: [],
+        monthPagination: { pageIndex: 0, pageSize: 12 },
         onPaginationChange: () => {},
         onSortingChange: () => {},
-      },
-      attributionTable: {
-        pagination: { pageIndex: 0, pageSize: 10 },
-        sorting: [],
-        onPaginationChange: () => {},
-        onSortingChange: () => {},
-      },
-      pagination: { pageIndex: 0, pageSize: 20 },
-      sorting: [],
-      monthPagination: { pageIndex: 0, pageSize: 12 },
-      onPaginationChange: () => {},
-      onSortingChange: () => {},
-      onMonthPaginationChange: () => {},
-    }),
-  );
-  expect(html).toContain("分段 TWR：10.00%");
-  expect(html).toContain('aria-label="回撤明细"');
-  expect(html).toContain("没有回撤区间。");
-  expect(html).toContain("展开查看");
-  expect(html).toContain("2026-01-01");
-  expect(html).toContain("2026-01-02");
-});
+        onMonthPaginationChange: () => {},
+      }),
+    );
+    expect(html).toContain("分段 TWR：10.00%");
+    const note =
+      "缺失的出入金前估值以前一交易日收盘估值替代；单笔出入金时，当日市场波动计入出入金后一期；不是精确时点估值。";
+    expect(html.includes(note)).toBe(flowValuation === "previousClose");
+    expect(data.replayInput.nav.flowValuation).toBe(flowValuation);
+    expect(html).toContain('aria-label="回撤明细"');
+    expect(html).toContain("没有回撤区间。");
+    expect(html).toContain("展开查看");
+    expect(html).toContain("2026-01-01");
+    expect(html).toContain("2026-01-02");
+  },
+);
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));
 const options = {
   account: "合成账户",

@@ -55,6 +55,7 @@ export type TradeReviewDependencies = {
   subscriptions?: TradeReviewInput["subscriptions"];
   exRightsEvents?: TradeReviewInput["exRightsEvents"];
   flowValuations?: TradeReviewNavInput["flowValuations"];
+  flowValuation?: TradeReviewNavInput["flowValuation"];
 };
 
 /** Replay uses exported evidence only, never a live database or clock. */
@@ -364,6 +365,7 @@ export async function buildTradeReviewSnapshot(
       annualRiskFreeRate: o.annualRiskFreeRate,
       benchmark,
       flowValuations: dependencies.flowValuations,
+      flowValuation: dependencies.flowValuation,
     },
     dimensions,
     batches: ledger.batches,

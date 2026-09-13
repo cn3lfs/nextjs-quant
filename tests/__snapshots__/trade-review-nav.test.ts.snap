@@ -1,0 +1,1260 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`W4 出入金估值模式 > 冻结既有 fixture 默认模式的完整输出 1`] = `
+[
+  {
+    "basis": {
+      "annualRiskFreeRate": 0.02,
+      "annualization": 252,
+      "benchmark": "基准比较使用匹配日期的首日收盘至末日收盘，不含账户首日期初至收盘收益；超额=该区间账户TWR-基准收益；相对回撤来自(账户财富指数/基准财富指数)",
+      "calmar": "(Π(1+日度TWR)^(252/日收益数)-1) / 剔除资金流累计收益曲线的最大回撤",
+      "monthly": "月度与全期TWR均连乘对应日度收益；任一天不可得则整月留空并列出日期及原因；收盘净值可得不等于盘中流前估值可得",
+      "returns": "日度TWR = Π(每次流前净值/上一流后净值) × 收盘净值/最后流后净值 - 1；首个分母为上一日收盘（首日期初现金）；无外部流水时为收盘/期初-1。无证券持仓时用重放现金加已知逆回购本金估值，证券持仓必须提供逐笔流前账户估值，缺失按日期和流水编号留空；期初或流后分母非正留空；分红、利息、费用为内部收益",
+      "reverseRepo": "逆回购本金按面值计价：数量 × 面值（204 前缀为 1000 元，131 前缀为 100 元，未知前缀无法确定面值并留空），不使用成交金额计算本金；未到期本金计入资产，不计持仓市值、不使用行情报价；不计应计利息，利息在回款日确认为收益（回款净额减数量 × 面值），融出费用为当期成本；本金异常后留空，不以后续融出抵消缺失记录",
+      "risk": "全部分段指标使用同一日度TWR连乘曲线，起点归一为1；包含可得的首日收益，缺失日仅作后续段收盘基点，不跨缺口；非正净值日指标留空；收益为小数",
+      "sortino": "日超额收益均值 / sqrt(sum(min(日收益-日无风险利率,0)^2)/全部日收益数) × sqrt(252)",
+      "underwater": "严格低于前峰的收盘交易日数，不含恢复日",
+    },
+    "days": [
+      {
+        "cash": {
+          "reason": null,
+          "value": 0,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-01",
+        "marketValue": {
+          "reason": null,
+          "value": 100,
+        },
+        "nav": {
+          "reason": null,
+          "value": 100,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 100,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 0,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": -0.09999999999999998,
+        },
+        "date": "2026-01-02",
+        "marketValue": {
+          "reason": null,
+          "value": 90,
+        },
+        "nav": {
+          "reason": null,
+          "value": 90,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 90,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 0,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0.19999999999999996,
+        },
+        "date": "2026-01-03",
+        "marketValue": {
+          "reason": null,
+          "value": 108,
+        },
+        "nav": {
+          "reason": null,
+          "value": 108,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 108,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+    ],
+    "inferredOpeningCash": null,
+    "lowestKnownCash": {
+      "date": "2026-01-01",
+      "value": 0,
+    },
+    "minimumCash": {
+      "reason": null,
+      "value": 0,
+    },
+    "minimumDate": "2026-01-01",
+    "missingTimeCount": 0,
+    "monthlyReturns": [
+      {
+        "month": "2026-01",
+        "return": {
+          "reason": null,
+          "reasons": [],
+          "value": 0.08000000000000007,
+        },
+        "tradingDays": 3,
+      },
+    ],
+    "openingCash": 100,
+    "replay": [
+      {
+        "cash": 0,
+        "date": "2026-01-01",
+        "originalOrder": 0,
+        "time": "10:00:00",
+      },
+    ],
+    "segments": [
+      {
+        "annualReturn": {
+          "reason": null,
+          "value": 641.0893416360549,
+        },
+        "benchmark": {
+          "excessReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "relativeDrawdown": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+        },
+        "calmar": {
+          "reason": null,
+          "value": 6410.89341636055,
+        },
+        "drawdowns": [
+          {
+            "drawdown": 0.09999999999999998,
+            "drawdownTradingDays": 1,
+            "peakDate": "2026-01-01",
+            "recovered": true,
+            "recoveryDate": "2026-01-03",
+            "recoveryTradingDays": 1,
+            "troughDate": "2026-01-02",
+            "underwaterTradingDays": 1,
+          },
+        ],
+        "end": "2026-01-03",
+        "maxDrawdown": {
+          "reason": null,
+          "value": 0.09999999999999998,
+        },
+        "returnObservations": 3,
+        "sharpe": {
+          "reason": null,
+          "value": 3.4559348284041187,
+        },
+        "sortino": {
+          "reason": null,
+          "value": 9.13636147992859,
+        },
+        "start": "2026-01-01",
+        "totalReturn": {
+          "reason": null,
+          "value": 0.08000000000000007,
+        },
+        "tradingDays": 3,
+        "wbtStats": {
+          "annualReturn": {
+            "reason": null,
+            "value": 641.0893416360549,
+          },
+          "annualRiskFreeRate": 0.02,
+          "annualVolatility": {
+            "reason": null,
+            "value": 1.9798989873223327,
+          },
+          "basis": "compound",
+          "breakEvenPoint": {
+            "reason": null,
+            "value": 1,
+          },
+          "calmar": {
+            "reason": null,
+            "value": 6410.89341636055,
+          },
+          "coverage": {
+            "availableDays": 3,
+            "nullDays": 0,
+            "observedDays": 3,
+            "zeroReturnDays": 1,
+          },
+          "dailyEdge": {
+            "reason": null,
+            "value": 0.33333333333333326,
+          },
+          "dailyPayoffRatio": {
+            "reason": null,
+            "value": 1,
+          },
+          "dailyWinRate": {
+            "reason": null,
+            "value": 0.6666666666666666,
+          },
+          "downsideVolatility": {
+            "reason": null,
+            "value": 0,
+          },
+          "drawdownRisk": {
+            "reason": null,
+            "value": 0.050507627227610534,
+          },
+          "lengthAdjustedAverageDrawdown": {
+            "reason": null,
+            "value": 0.0007936507936507937,
+          },
+          "maxDrawdown": {
+            "reason": null,
+            "value": 0.09999999999999998,
+          },
+          "newHighInterval": {
+            "reason": null,
+            "value": 1,
+          },
+          "newHighRatio": {
+            "reason": null,
+            "value": 0.6666666666666666,
+          },
+          "nonzeroCoverage": {
+            "reason": null,
+            "value": 0.6666666666666666,
+          },
+          "regressionAnnualReturn": {
+            "reason": null,
+            "value": 10.080000000000009,
+          },
+          "sharpeWbt": {
+            "reason": null,
+            "value": 4.242640687119286,
+          },
+          "totalReturn": {
+            "reason": null,
+            "value": 0.08000000000000007,
+          },
+          "yearlyDays": 252,
+        },
+      },
+    ],
+    "skippedIntervals": [],
+    "twr": {
+      "reason": null,
+      "reasons": [],
+      "value": 0.08000000000000007,
+    },
+    "usedReturnObservations": 3,
+    "usedTradingDays": 3,
+    "warnings": [],
+  },
+  {
+    "basis": {
+      "annualRiskFreeRate": 0.02,
+      "annualization": 252,
+      "benchmark": "基准比较使用匹配日期的首日收盘至末日收盘，不含账户首日期初至收盘收益；超额=该区间账户TWR-基准收益；相对回撤来自(账户财富指数/基准财富指数)",
+      "calmar": "(Π(1+日度TWR)^(252/日收益数)-1) / 剔除资金流累计收益曲线的最大回撤",
+      "monthly": "月度与全期TWR均连乘对应日度收益；任一天不可得则整月留空并列出日期及原因；收盘净值可得不等于盘中流前估值可得",
+      "returns": "日度TWR = Π(每次流前净值/上一流后净值) × 收盘净值/最后流后净值 - 1；首个分母为上一日收盘（首日期初现金）；无外部流水时为收盘/期初-1。无证券持仓时用重放现金加已知逆回购本金估值，证券持仓必须提供逐笔流前账户估值，缺失按日期和流水编号留空；期初或流后分母非正留空；分红、利息、费用为内部收益",
+      "reverseRepo": "逆回购本金按面值计价：数量 × 面值（204 前缀为 1000 元，131 前缀为 100 元，未知前缀无法确定面值并留空），不使用成交金额计算本金；未到期本金计入资产，不计持仓市值、不使用行情报价；不计应计利息，利息在回款日确认为收益（回款净额减数量 × 面值），融出费用为当期成本；本金异常后留空，不以后续融出抵消缺失记录",
+      "risk": "全部分段指标使用同一日度TWR连乘曲线，起点归一为1；包含可得的首日收益，缺失日仅作后续段收盘基点，不跨缺口；非正净值日指标留空；收益为小数",
+      "sortino": "日超额收益均值 / sqrt(sum(min(日收益-日无风险利率,0)^2)/全部日收益数) × sqrt(252)",
+      "underwater": "严格低于前峰的收盘交易日数，不含恢复日",
+    },
+    "days": [
+      {
+        "cash": {
+          "reason": null,
+          "value": 0,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-01",
+        "marketValue": {
+          "reason": null,
+          "value": 100,
+        },
+        "nav": {
+          "reason": null,
+          "value": 100,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 100,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 1000,
+        },
+        "dailyReturn": {
+          "reason": "2026-01-02 资金流水 0 缺少出入金前账户估值",
+          "value": null,
+        },
+        "date": "2026-01-02",
+        "marketValue": {
+          "reason": null,
+          "value": 110,
+        },
+        "nav": {
+          "reason": null,
+          "value": 1110,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 110,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 1000,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-03",
+        "marketValue": {
+          "reason": null,
+          "value": 110,
+        },
+        "nav": {
+          "reason": null,
+          "value": 1110,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 110,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+    ],
+    "inferredOpeningCash": null,
+    "lowestKnownCash": {
+      "date": "2026-01-01",
+      "value": 0,
+    },
+    "minimumCash": {
+      "reason": null,
+      "value": 0,
+    },
+    "minimumDate": "2026-01-01",
+    "missingTimeCount": 0,
+    "monthlyReturns": [
+      {
+        "month": "2026-01",
+        "return": {
+          "reason": "共 1 条收益中断原因",
+          "reasons": [
+            {
+              "date": "2026-01-02",
+              "reason": "2026-01-02 资金流水 0 缺少出入金前账户估值",
+            },
+          ],
+          "value": null,
+        },
+        "tradingDays": 3,
+      },
+    ],
+    "openingCash": 100,
+    "replay": [
+      {
+        "cash": 0,
+        "date": "2026-01-01",
+        "originalOrder": 0,
+        "time": "10:00:00",
+      },
+      {
+        "cash": 1000,
+        "date": "2026-01-02",
+        "originalOrder": 1,
+        "time": "09:00:00",
+      },
+    ],
+    "segments": [
+      {
+        "annualReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "benchmark": {
+          "excessReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "relativeDrawdown": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+        },
+        "calmar": {
+          "reason": "无每日收益或最大回撤为零",
+          "value": null,
+        },
+        "drawdowns": [],
+        "end": "2026-01-01",
+        "maxDrawdown": {
+          "reason": null,
+          "value": 0,
+        },
+        "returnObservations": 1,
+        "sharpe": {
+          "reason": "不足两个每日收益或收益标准差为零",
+          "value": null,
+        },
+        "sortino": {
+          "reason": null,
+          "value": -15.874507866387544,
+        },
+        "start": "2026-01-01",
+        "totalReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "tradingDays": 1,
+        "wbtStats": {
+          "annualReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "annualRiskFreeRate": 0.02,
+          "annualVolatility": {
+            "reason": null,
+            "value": 0,
+          },
+          "basis": "compound",
+          "breakEvenPoint": {
+            "reason": null,
+            "value": 1,
+          },
+          "calmar": {
+            "reason": "最大回撤为零，卡玛无定义",
+            "value": null,
+          },
+          "coverage": {
+            "availableDays": 1,
+            "nullDays": 0,
+            "observedDays": 1,
+            "zeroReturnDays": 1,
+          },
+          "dailyEdge": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyPayoffRatio": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyWinRate": {
+            "reason": null,
+            "value": 1,
+          },
+          "downsideVolatility": {
+            "reason": "无亏损日，下行波动率不可估",
+            "value": null,
+          },
+          "drawdownRisk": {
+            "reason": "年化波动率为零，回撤风险无定义",
+            "value": null,
+          },
+          "lengthAdjustedAverageDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "maxDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighInterval": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighRatio": {
+            "reason": null,
+            "value": 1,
+          },
+          "nonzeroCoverage": {
+            "reason": null,
+            "value": 0,
+          },
+          "regressionAnnualReturn": {
+            "reason": "不足两个可得日收益，回归斜率无定义",
+            "value": null,
+          },
+          "sharpeWbt": {
+            "reason": "收益标准差为零，夏普无定义",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "yearlyDays": 252,
+        },
+      },
+      {
+        "annualReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "benchmark": {
+          "excessReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "relativeDrawdown": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+        },
+        "calmar": {
+          "reason": "无每日收益或最大回撤为零",
+          "value": null,
+        },
+        "drawdowns": [],
+        "end": "2026-01-03",
+        "maxDrawdown": {
+          "reason": null,
+          "value": 0,
+        },
+        "returnObservations": 1,
+        "sharpe": {
+          "reason": "不足两个每日收益或收益标准差为零",
+          "value": null,
+        },
+        "sortino": {
+          "reason": null,
+          "value": -15.874507866387544,
+        },
+        "start": "2026-01-02",
+        "totalReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "tradingDays": 2,
+        "wbtStats": {
+          "annualReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "annualRiskFreeRate": 0.02,
+          "annualVolatility": {
+            "reason": null,
+            "value": 0,
+          },
+          "basis": "compound",
+          "breakEvenPoint": {
+            "reason": null,
+            "value": 1,
+          },
+          "calmar": {
+            "reason": "最大回撤为零，卡玛无定义",
+            "value": null,
+          },
+          "coverage": {
+            "availableDays": 1,
+            "nullDays": 0,
+            "observedDays": 1,
+            "zeroReturnDays": 1,
+          },
+          "dailyEdge": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyPayoffRatio": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyWinRate": {
+            "reason": null,
+            "value": 1,
+          },
+          "downsideVolatility": {
+            "reason": "无亏损日，下行波动率不可估",
+            "value": null,
+          },
+          "drawdownRisk": {
+            "reason": "年化波动率为零，回撤风险无定义",
+            "value": null,
+          },
+          "lengthAdjustedAverageDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "maxDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighInterval": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighRatio": {
+            "reason": null,
+            "value": 1,
+          },
+          "nonzeroCoverage": {
+            "reason": null,
+            "value": 0,
+          },
+          "regressionAnnualReturn": {
+            "reason": "不足两个可得日收益，回归斜率无定义",
+            "value": null,
+          },
+          "sharpeWbt": {
+            "reason": "收益标准差为零，夏普无定义",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "yearlyDays": 252,
+        },
+      },
+    ],
+    "skippedIntervals": [
+      {
+        "end": "2026-01-02",
+        "reason": "2026-01-02 资金流水 0 缺少出入金前账户估值",
+        "start": "2026-01-02",
+      },
+    ],
+    "twr": {
+      "reason": "共 1 条收益中断原因",
+      "reasons": [
+        {
+          "date": "2026-01-02",
+          "reason": "2026-01-02 资金流水 0 缺少出入金前账户估值",
+        },
+      ],
+      "value": null,
+    },
+    "usedReturnObservations": 2,
+    "usedTradingDays": 3,
+    "warnings": [],
+  },
+  {
+    "basis": {
+      "annualRiskFreeRate": 0.02,
+      "annualization": 252,
+      "benchmark": "基准比较使用匹配日期的首日收盘至末日收盘，不含账户首日期初至收盘收益；超额=该区间账户TWR-基准收益；相对回撤来自(账户财富指数/基准财富指数)",
+      "calmar": "(Π(1+日度TWR)^(252/日收益数)-1) / 剔除资金流累计收益曲线的最大回撤",
+      "monthly": "月度与全期TWR均连乘对应日度收益；任一天不可得则整月留空并列出日期及原因；收盘净值可得不等于盘中流前估值可得",
+      "returns": "日度TWR = Π(每次流前净值/上一流后净值) × 收盘净值/最后流后净值 - 1；首个分母为上一日收盘（首日期初现金）；无外部流水时为收盘/期初-1。无证券持仓时用重放现金加已知逆回购本金估值，证券持仓必须提供逐笔流前账户估值，缺失按日期和流水编号留空；期初或流后分母非正留空；分红、利息、费用为内部收益",
+      "reverseRepo": "逆回购本金按面值计价：数量 × 面值（204 前缀为 1000 元，131 前缀为 100 元，未知前缀无法确定面值并留空），不使用成交金额计算本金；未到期本金计入资产，不计持仓市值、不使用行情报价；不计应计利息，利息在回款日确认为收益（回款净额减数量 × 面值），融出费用为当期成本；本金异常后留空，不以后续融出抵消缺失记录",
+      "risk": "全部分段指标使用同一日度TWR连乘曲线，起点归一为1；包含可得的首日收益，缺失日仅作后续段收盘基点，不跨缺口；非正净值日指标留空；收益为小数",
+      "sortino": "日超额收益均值 / sqrt(sum(min(日收益-日无风险利率,0)^2)/全部日收益数) × sqrt(252)",
+      "underwater": "严格低于前峰的收盘交易日数，不含恢复日",
+    },
+    "days": [
+      {
+        "cash": {
+          "reason": null,
+          "value": 0,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-01",
+        "marketValue": {
+          "reason": null,
+          "value": 100,
+        },
+        "nav": {
+          "reason": null,
+          "value": 100,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 100,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 1000,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0.10000000000000009,
+        },
+        "date": "2026-01-02",
+        "marketValue": {
+          "reason": null,
+          "value": 110,
+        },
+        "nav": {
+          "reason": null,
+          "value": 1110,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 110,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 1000,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-03",
+        "marketValue": {
+          "reason": null,
+          "value": 110,
+        },
+        "nav": {
+          "reason": null,
+          "value": 1110,
+        },
+        "positionValues": {
+          "sz000001": {
+            "reason": null,
+            "value": 110,
+          },
+        },
+        "positions": {
+          "sz000001": 1,
+        },
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+    ],
+    "inferredOpeningCash": null,
+    "lowestKnownCash": {
+      "date": "2026-01-01",
+      "value": 0,
+    },
+    "minimumCash": {
+      "reason": null,
+      "value": 0,
+    },
+    "minimumDate": "2026-01-01",
+    "missingTimeCount": 0,
+    "monthlyReturns": [
+      {
+        "month": "2026-01",
+        "return": {
+          "reason": null,
+          "reasons": [],
+          "value": 0.10000000000000009,
+        },
+        "tradingDays": 3,
+      },
+    ],
+    "openingCash": 100,
+    "replay": [
+      {
+        "cash": 0,
+        "date": "2026-01-01",
+        "originalOrder": 0,
+        "time": "10:00:00",
+      },
+      {
+        "cash": 1000,
+        "date": "2026-01-02",
+        "originalOrder": 1,
+        "time": "09:00:00",
+      },
+    ],
+    "segments": [
+      {
+        "annualReturn": {
+          "reason": null,
+          "value": 2998.0627541746007,
+        },
+        "benchmark": {
+          "excessReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "relativeDrawdown": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+        },
+        "calmar": {
+          "reason": "无每日收益或最大回撤为零",
+          "value": null,
+        },
+        "drawdowns": [],
+        "end": "2026-01-03",
+        "maxDrawdown": {
+          "reason": null,
+          "value": 0,
+        },
+        "returnObservations": 3,
+        "sharpe": {
+          "reason": null,
+          "value": 9.143544103203975,
+        },
+        "sortino": {
+          "reason": null,
+          "value": 8227.354854721072,
+        },
+        "start": "2026-01-01",
+        "totalReturn": {
+          "reason": null,
+          "value": 0.10000000000000009,
+        },
+        "tradingDays": 3,
+        "wbtStats": {
+          "annualReturn": {
+            "reason": null,
+            "value": 2998.0627541746007,
+          },
+          "annualRiskFreeRate": 0.02,
+          "annualVolatility": {
+            "reason": null,
+            "value": 0.7483314773547891,
+          },
+          "basis": "compound",
+          "breakEvenPoint": {
+            "reason": null,
+            "value": 1,
+          },
+          "calmar": {
+            "reason": "最大回撤为零，卡玛无定义",
+            "value": null,
+          },
+          "coverage": {
+            "availableDays": 3,
+            "nullDays": 0,
+            "observedDays": 3,
+            "zeroReturnDays": 2,
+          },
+          "dailyEdge": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyPayoffRatio": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyWinRate": {
+            "reason": null,
+            "value": 1,
+          },
+          "downsideVolatility": {
+            "reason": "无亏损日，下行波动率不可估",
+            "value": null,
+          },
+          "drawdownRisk": {
+            "reason": null,
+            "value": 0,
+          },
+          "lengthAdjustedAverageDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "maxDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighInterval": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighRatio": {
+            "reason": null,
+            "value": 1,
+          },
+          "nonzeroCoverage": {
+            "reason": null,
+            "value": 0.3333333333333333,
+          },
+          "regressionAnnualReturn": {
+            "reason": null,
+            "value": 12.600000000000012,
+          },
+          "sharpeWbt": {
+            "reason": null,
+            "value": 11.224972160321823,
+          },
+          "totalReturn": {
+            "reason": null,
+            "value": 0.10000000000000009,
+          },
+          "yearlyDays": 252,
+        },
+      },
+    ],
+    "skippedIntervals": [],
+    "twr": {
+      "reason": null,
+      "reasons": [],
+      "value": 0.10000000000000009,
+    },
+    "usedReturnObservations": 3,
+    "usedTradingDays": 3,
+    "warnings": [],
+  },
+  {
+    "basis": {
+      "annualRiskFreeRate": 0.02,
+      "annualization": 252,
+      "benchmark": "基准比较使用匹配日期的首日收盘至末日收盘，不含账户首日期初至收盘收益；超额=该区间账户TWR-基准收益；相对回撤来自(账户财富指数/基准财富指数)",
+      "calmar": "(Π(1+日度TWR)^(252/日收益数)-1) / 剔除资金流累计收益曲线的最大回撤",
+      "monthly": "月度与全期TWR均连乘对应日度收益；任一天不可得则整月留空并列出日期及原因；收盘净值可得不等于盘中流前估值可得",
+      "returns": "日度TWR = Π(每次流前净值/上一流后净值) × 收盘净值/最后流后净值 - 1；首个分母为上一日收盘（首日期初现金）；无外部流水时为收盘/期初-1。无证券持仓时用重放现金加已知逆回购本金估值，证券持仓必须提供逐笔流前账户估值，缺失按日期和流水编号留空；期初或流后分母非正留空；分红、利息、费用为内部收益",
+      "reverseRepo": "逆回购本金按面值计价：数量 × 面值（204 前缀为 1000 元，131 前缀为 100 元，未知前缀无法确定面值并留空），不使用成交金额计算本金；未到期本金计入资产，不计持仓市值、不使用行情报价；不计应计利息，利息在回款日确认为收益（回款净额减数量 × 面值），融出费用为当期成本；本金异常后留空，不以后续融出抵消缺失记录",
+      "risk": "全部分段指标使用同一日度TWR连乘曲线，起点归一为1；包含可得的首日收益，缺失日仅作后续段收盘基点，不跨缺口；非正净值日指标留空；收益为小数",
+      "sortino": "日超额收益均值 / sqrt(sum(min(日收益-日无风险利率,0)^2)/全部日收益数) × sqrt(252)",
+      "underwater": "严格低于前峰的收盘交易日数，不含恢复日",
+    },
+    "days": [
+      {
+        "cash": {
+          "reason": null,
+          "value": 100,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-01",
+        "marketValue": {
+          "reason": null,
+          "value": 0,
+        },
+        "nav": {
+          "reason": null,
+          "value": 100,
+        },
+        "positionValues": {},
+        "positions": {},
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 200,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-02",
+        "marketValue": {
+          "reason": null,
+          "value": 0,
+        },
+        "nav": {
+          "reason": null,
+          "value": 200,
+        },
+        "positionValues": {},
+        "positions": {},
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+      {
+        "cash": {
+          "reason": null,
+          "value": 200,
+        },
+        "dailyReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "date": "2026-01-03",
+        "marketValue": {
+          "reason": null,
+          "value": 0,
+        },
+        "nav": {
+          "reason": null,
+          "value": 200,
+        },
+        "positionValues": {},
+        "positions": {},
+        "reverseRepoPrincipal": {
+          "reason": null,
+          "value": 0,
+        },
+      },
+    ],
+    "inferredOpeningCash": null,
+    "lowestKnownCash": {
+      "date": "2026-01-01",
+      "value": 100,
+    },
+    "minimumCash": {
+      "reason": null,
+      "value": 100,
+    },
+    "minimumDate": "2026-01-01",
+    "missingTimeCount": 0,
+    "monthlyReturns": [
+      {
+        "month": "2026-01",
+        "return": {
+          "reason": null,
+          "reasons": [],
+          "value": 0,
+        },
+        "tradingDays": 3,
+      },
+    ],
+    "openingCash": 100,
+    "replay": [
+      {
+        "cash": 200,
+        "date": "2026-01-02",
+        "originalOrder": 0,
+        "time": "09:00:00",
+      },
+    ],
+    "segments": [
+      {
+        "annualReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "benchmark": {
+          "excessReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "relativeDrawdown": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": "未提供基准",
+            "value": null,
+          },
+        },
+        "calmar": {
+          "reason": "无每日收益或最大回撤为零",
+          "value": null,
+        },
+        "drawdowns": [],
+        "end": "2026-01-03",
+        "maxDrawdown": {
+          "reason": null,
+          "value": 0,
+        },
+        "returnObservations": 3,
+        "sharpe": {
+          "reason": "不足两个每日收益或收益标准差为零",
+          "value": null,
+        },
+        "sortino": {
+          "reason": null,
+          "value": -15.874507866387544,
+        },
+        "start": "2026-01-01",
+        "totalReturn": {
+          "reason": null,
+          "value": 0,
+        },
+        "tradingDays": 3,
+        "wbtStats": {
+          "annualReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "annualRiskFreeRate": 0.02,
+          "annualVolatility": {
+            "reason": null,
+            "value": 0,
+          },
+          "basis": "compound",
+          "breakEvenPoint": {
+            "reason": null,
+            "value": 1,
+          },
+          "calmar": {
+            "reason": "最大回撤为零，卡玛无定义",
+            "value": null,
+          },
+          "coverage": {
+            "availableDays": 3,
+            "nullDays": 0,
+            "observedDays": 3,
+            "zeroReturnDays": 3,
+          },
+          "dailyEdge": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyPayoffRatio": {
+            "reason": "无亏损日，盈亏比不可估",
+            "value": null,
+          },
+          "dailyWinRate": {
+            "reason": null,
+            "value": 1,
+          },
+          "downsideVolatility": {
+            "reason": "无亏损日，下行波动率不可估",
+            "value": null,
+          },
+          "drawdownRisk": {
+            "reason": "年化波动率为零，回撤风险无定义",
+            "value": null,
+          },
+          "lengthAdjustedAverageDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "maxDrawdown": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighInterval": {
+            "reason": null,
+            "value": 0,
+          },
+          "newHighRatio": {
+            "reason": null,
+            "value": 1,
+          },
+          "nonzeroCoverage": {
+            "reason": null,
+            "value": 0,
+          },
+          "regressionAnnualReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "sharpeWbt": {
+            "reason": "收益标准差为零，夏普无定义",
+            "value": null,
+          },
+          "totalReturn": {
+            "reason": null,
+            "value": 0,
+          },
+          "yearlyDays": 252,
+        },
+      },
+    ],
+    "skippedIntervals": [],
+    "twr": {
+      "reason": null,
+      "reasons": [],
+      "value": 0,
+    },
+    "usedReturnObservations": 3,
+    "usedTradingDays": 3,
+    "warnings": [],
+  },
+]
+`;

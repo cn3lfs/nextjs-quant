@@ -17,8 +17,10 @@ export type TradeReviewNavInput = {
   annualRiskFreeRate?: number;
   benchmark?: readonly Close[];
   /** Exact whole-account NAV immediately BEFORE each external flow, by input index.
-   * Required with holdings: a daily close cannot establish an intraday valuation. */
+   * Required with holdings in explicit mode; a daily close is only a proxy. */
   flowValuations?: Readonly<Record<number, number>>;
+  /** Missing held-account pre-flow values may use the immediately preceding close. */
+  flowValuation?: "explicit" | "previousClose";
 };
 const metric = (value: number | null, reason: string): ReviewValue =>
   value !== null && Number.isFinite(value)
@@ -214,6 +216,7 @@ function statistics(
  * Missing NAV or an unobservable flow valuation breaks continuity (invariants §2).
  */
 export function reviewTradeNav(input: TradeReviewNavInput) {
+  const flowValuation = input.flowValuation ?? "explicit";
   const rate = input.annualRiskFreeRate ?? 0.02;
   if (!Number.isFinite(rate) || rate <= -1) throw new Error("无风险利率无效");
   const calendar = [...new Set(input.tradingDays)].sort();
@@ -457,7 +460,12 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
               ? cash === null
                 ? null
                 : cash + repoPrincipal()!
-              : (input.flowValuations?.[e.flowIndex] ?? null);
+              : (input.flowValuations?.[e.flowIndex] ??
+                // W4 §6: use the previous calendar entry, never opening cash or
+                // an earlier valid close. Every flow on this day shares this proxy.
+                (flowValuation === "previousClose"
+                  ? (days.at(-1)?.nav.value ?? null)
+                  : null));
           if (before === null || !Number.isFinite(before))
             returnReason = `${date} 资金流水 ${e.flowIndex} 缺少出入金前账户估值`;
           else if (denominator !== null && denominator > 0 && before > 0)
@@ -648,6 +656,11 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
     };
   };
   return {
+    flowValuation,
+    flowValuationNote:
+      flowValuation === "previousClose"
+        ? "缺失的出入金前估值以前一交易日收盘估值替代；单笔出入金时，当日市场波动计入出入金后一期；不是精确时点估值。"
+        : null,
     days,
     openingCash,
     inferredOpeningCash,
@@ -682,6 +695,9 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       annualization: 252,
       annualRiskFreeRate: rate,
       returns:
+        (flowValuation === "previousClose"
+          ? "previousClose 模式：下述必须提供估值的缺失项仅以前一交易日收盘账户总估值补足，首日或前值不可得仍留空；同日多笔各复用同一前收，可能造成较大偏差。"
+          : "") +
         "日度TWR = Π(每次流前净值/上一流后净值) × 收盘净值/最后流后净值 - 1；首个分母为上一日收盘（首日期初现金）；无外部流水时为收盘/期初-1。无证券持仓时用重放现金加已知逆回购本金估值，证券持仓必须提供逐笔流前账户估值，缺失按日期和流水编号留空；期初或流后分母非正留空；分红、利息、费用为内部收益",
       risk: "全部分段指标使用同一日度TWR连乘曲线，起点归一为1；包含可得的首日收益，缺失日仅作后续段收盘基点，不跨缺口；非正净值日指标留空；收益为小数",
       monthly:

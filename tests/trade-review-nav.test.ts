@@ -1158,3 +1158,138 @@ it("U3 服务端跨页排序、未修复优先、全量导出与响应剥离", (
   expect(segment).toEqual(before);
   expect(JSON.parse(JSON.stringify(segment)).drawdowns).toHaveLength(12);
 });
+
+describe("W4 出入金估值模式", () => {
+  it("冻结既有 fixture 默认模式的完整输出", () => {
+    const cases = [
+      curve([100, 90, 108]),
+      curve([100, 110, 110], { cashFlows: [flow(d(2), 1000)] }),
+      curve([100, 110, 110], {
+        cashFlows: [flow(d(2), 1000)],
+        flowValuations: { 0: 110 },
+      }),
+      run({ cashFlows: [flow(d(2), 100)] }),
+    ];
+    // Frozen before W4 implementation; exclude only the two new metadata fields.
+    expect(
+      cases.map(({ flowValuation, flowValuationNote, ...legacy }) => {
+        expect(flowValuation).toBe("explicit");
+        expect(flowValuationNote).toBeNull();
+        return legacy;
+      }),
+    ).toMatchSnapshot();
+    expect(
+      curve([100, 110, 110], {
+        cashFlows: [flow(d(2), 1000)],
+        flowValuation: "explicit",
+      }),
+    ).toEqual(cases[1]);
+  });
+});
+
+describe("W4 previousClose", () => {
+  const sample = (extra: Partial<TradeReviewNavInput> = {}) =>
+    curve([100, 110, 121], {
+      cashFlows: [flow(d(2), 100)],
+      flowValuation: "previousClose",
+      ...extra,
+    });
+  it("三交易日手算：前收100作before，当日波动在流后", () => {
+    const r = sample();
+    expect(r.days.map((day) => day.nav.value)).toEqual([100, 210, 221]);
+    // before=100: (100/100)*(210/(100+100))-1 = 5%; next day 221/210-1.
+    expect(r.days[1]!.dailyReturn.value).toBeCloseTo(0.05);
+    expect(r.twr.value).toBeCloseTo(221 / 200 - 1);
+    expect(r).toEqual(sample({ flowValuations: { 0: 100 } }));
+    expect(r.flowValuation).toBe("previousClose");
+    expect(r.flowValuationNote).toBe(
+      "缺失的出入金前估值以前一交易日收盘估值替代；单笔出入金时，当日市场波动计入出入金后一期；不是精确时点估值。",
+    );
+  });
+  it("调用方110优先，非法显式值不能被补成有效值", () => {
+    expect(
+      sample({ flowValuations: { 0: 110 } }).days[1]!.dailyReturn.value,
+    ).toBeCloseTo(0.1);
+    for (const value of [NaN, Infinity, 0, -1])
+      expect(
+        sample({ flowValuations: { 0: value } }).days[1]!.dailyReturn.value,
+      ).toBeNull();
+  });
+  it("前日缺行情不向更早追溯，首日也不以期初现金替代", () => {
+    const r = sample({
+      bars: {
+        sz000001: [
+          { date: d(1), close: 100 },
+          { date: d(3), close: 121 },
+        ],
+      },
+      cashFlows: [flow(d(3), 100)],
+    });
+    expect(r.days.map((day) => day.nav.value)).toEqual([100, null, 221]);
+    expect(r.days[2]!.dailyReturn.value).toBeNull();
+    expect(r.days[2]!.dailyReturn.reason).toContain("缺少出入金前账户估值");
+    const first = sample({
+      cashFlows: [flow(d(1), 100, { flowTime: "11:00:00" })],
+    });
+    expect(first.days[0]!.dailyReturn.value).toBeNull();
+    expect(first.days[0]!.dailyReturn.reason).toContain("缺少出入金前账户估值");
+  });
+  it("前收包含现金、证券市值和逆回购本金", () => {
+    const r = sample({
+      openingCash: 1300,
+      fills: [
+        fill(d(1), "buy", 100),
+        fill(d(1), "sell", 1, 1, {
+          instrument: "reverseRepo",
+          code: "204001",
+          netAmount: -1000,
+        }),
+      ],
+    });
+    expect(r.days[0]!.cash.value).toBe(200);
+    expect(r.days[0]!.reverseRepoPrincipal.value).toBe(1000);
+    expect(r.days[0]!.nav.value).toBe(1300);
+    // before=200+100+1000=1300; 1410/(1300+100)-1.
+    expect(r.days[1]!.dailyReturn.value).toBeCloseTo(1410 / 1400 - 1);
+  });
+  it("空仓仍用事件时现金加本金，不使用显式值或前收", () => {
+    const extra = {
+      cashFlows: [
+        flow(d(2), 10, { kind: "interest", flowTime: "08:00:00" }),
+        flow(d(2), 100),
+      ],
+      flowValuations: { 1: 999 },
+    };
+    const explicit = run(extra);
+    const proxy = run({ ...extra, flowValuation: "previousClose" });
+    expect(proxy.days).toEqual(explicit.days);
+    expect(proxy.twr.value).toBeCloseTo(0.1);
+  });
+  it.each(["explicit", "previousClose"] as const)(
+    "%s 不绕过逆回购未知本金",
+    (flowValuation) => {
+      const r = sample({
+        flowValuation,
+        flowValuations: { 0: 100 },
+        fills: [
+          fill(d(1), "buy", 100),
+          fill(d(2), "sell", 1, 1, {
+            instrument: "reverseRepo",
+            code: "999999",
+            netAmount: -1,
+            tradeTime: "08:00:00",
+          }),
+        ],
+      });
+      expect(r.days[1]!.nav.value).toBeNull();
+      expect(r.days[1]!.dailyReturn.value).toBeNull();
+      expect(r.days[1]!.dailyReturn.reason).toContain("缺少出入金前账户估值");
+    },
+  );
+  it("同日多笔各用同一前收，不声称具有单笔波动归属", () => {
+    const r = sample({ cashFlows: [flow(d(2), 100), flow(d(2), 100)] });
+    // (100/100)*(100/200)*(310/200)-1 = -22.5%; known proxy limitation.
+    expect(r.days[1]!.dailyReturn.value).toBeCloseTo(-0.225);
+    expect(r.flowValuationNote).toContain("单笔出入金时");
+  });
+});

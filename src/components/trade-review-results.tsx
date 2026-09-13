@@ -442,6 +442,7 @@ export function TradeReviewResults({
         <NavCurve days={nav.days} />
         {periodPerformance}
         <p>TWR：{metric(nav.twr, true)}</p>
+        {nav.flowValuationNote && <p role="note">{nav.flowValuationNote}</p>}
         <ReviewDiagnostics rows={nav.twr.reasons} />
         <p>
           实际使用的交易日数：{nav.usedTradingDays}；每日收益观察数：
