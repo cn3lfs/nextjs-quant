@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { redactRow, mapDeliveryColumns } from "~/lib/delivery-import";
-import { summarizeExecution, type ExecutionRow } from "~/lib/execution-quality";
+import {
+  summarizeExecution,
+  executionDiagnosticCategories,
+  executionDiagnosticLabels,
+  type ExecutionRow,
+} from "~/lib/execution-quality";
 import type { replayTradeReview } from "./trade-review-service";
 
 export const executionSortFields = [
@@ -22,6 +27,7 @@ export const executionPageSchema = z.object({
   search: z.string().trim().max(100).default(""),
   side: z.enum(["all", "buy", "sell"]).default("all"),
   adverseOnly: z.boolean().default(false),
+  diagnostic: z.enum(["all", ...executionDiagnosticCategories]).default("all"),
   start: z
     .string()
     .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
@@ -42,6 +48,8 @@ function selectedRows(snapshot: Snapshot, input: Options) {
       (r) =>
         (!input.search || `${r.code} ${r.name ?? ""}`.includes(input.search)) &&
         (input.side === "all" || r.kind === input.side) &&
+        (input.diagnostic === "all" ||
+          r.diagnostic.category === input.diagnostic) &&
         (!input.adverseOnly ||
           (r.slippageBp.value !== null && r.slippageBp.value > 5)) &&
         (!input.start || r.tradeDate >= input.start) &&
@@ -115,8 +123,8 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
     "方向",
     "成交价",
     "当日VWAP",
-    "不利滑点BP（正=不利）",
-    "滑点成本",
+    "日均价偏差BP（正=不利）",
+    "偏差金额折算（BP乘成交额）",
     "总费用",
     "成交额",
     "不可得原因",
@@ -126,7 +134,10 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
     "倍率",
     "换算后VWAP",
     "换算后BP",
-    "单位异常原因",
+    "排除或不可得原因",
+    "诊断类别",
+    "诊断说明",
+    "口径说明",
   ];
   // U4 §3.4: R2 redacts on import, not in exportTradeReview. Reuse redactRow
   // again for free text; export an allowlist, never account or raw ledger fields.
@@ -153,6 +164,9 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
         r.unitCheck.convertedVwap,
         r.unitCheck.convertedBp,
         r.unitCheck.reason ?? "",
+        r.diagnostic.category,
+        executionDiagnosticLabels[r.diagnostic.category],
+        "全天VWAP事后描述；500BP阈值排除不证明单位错误；非实际节省费用",
       ].map((v) => (v === null ? "" : String(v))),
     ),
   ];

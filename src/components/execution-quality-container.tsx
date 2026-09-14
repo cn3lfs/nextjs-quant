@@ -8,6 +8,10 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  executionDiagnosticCategories,
+  executionDiagnosticLabels,
+} from "~/lib/execution-quality";
 
 export function ExecutionQualityContainer({ account }: { account: string }) {
   const utils = api.useUtils();
@@ -26,6 +30,7 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
     search: "",
     side: "all" as "all" | "buy" | "sell",
     adverseOnly: false,
+    diagnostic: "all" as RouterInputs["tradeReviewExecution"]["diagnostic"],
     start: "",
     end: "",
     minAmount: 0,
@@ -95,7 +100,7 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
           aria-pressed={filters.adverseOnly}
           onClick={() => change({ adverseOnly: !filters.adverseOnly })}
         >
-          不利滑点 &gt; 5 BP
+          日均价不利偏差 &gt; 5 BP
         </Button>
         <Button
           variant="outline"
@@ -134,6 +139,21 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
           {exporting ? "正在导出…" : "导出 CSV"}
         </Button>
       </div>
+      <Tabs
+        value={filters.diagnostic}
+        onValueChange={(diagnostic) =>
+          change({ diagnostic: diagnostic as typeof filters.diagnostic })
+        }
+      >
+        <TabsList aria-label="偏差诊断筛选" className="h-auto flex-wrap">
+          <TabsTrigger value="all">全部诊断</TabsTrigger>
+          {executionDiagnosticCategories.map((category) => (
+            <TabsTrigger key={category} value={category}>
+              {executionDiagnosticLabels[category]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       <Tabs
         value={filters.side}
         onValueChange={(side) => change({ side: side as typeof filters.side })}

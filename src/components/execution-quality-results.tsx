@@ -1,7 +1,11 @@
 "use client";
 
 import type { RouterOutputs } from "~/trpc/react";
-import type { ExecutionRow } from "~/lib/execution-quality";
+import {
+  executionDiagnosticCategories,
+  executionDiagnosticLabels,
+  type ExecutionRow,
+} from "~/lib/execution-quality";
 import type { ReviewValue } from "~/lib/trade-review";
 import {
   DataTable,
@@ -35,8 +39,8 @@ const columns: DataTableColumn<ExecutionRow>[] = [
     [
       ["price", "成交价"],
       ["vwap", "当日 VWAP"],
-      ["slippageBp", "不利滑点 BP"],
-      ["slippageCost", "滑点成本"],
+      ["slippageBp", "日均价不利偏差 BP"],
+      ["slippageCost", "偏差金额折算"],
       ["amount", "成交额"],
     ] as const
   ).map(([key, header]) => ({
@@ -45,6 +49,13 @@ const columns: DataTableColumn<ExecutionRow>[] = [
     cell: ({ row }: { row: { original: ExecutionRow } }) =>
       show(row.original[key]),
   })),
+  {
+    id: "diagnostic",
+    header: "诊断",
+    enableSorting: false,
+    cell: ({ row }) =>
+      executionDiagnosticLabels[row.original.diagnostic.category],
+  },
   {
     id: "fees",
     header: "总费用",
@@ -62,13 +73,17 @@ const groupColumns: DataTableColumn<Group>[] = [
       ({ buy: "买入", sell: "卖出" })[row.original.id] ?? row.original.id,
   },
   { accessorKey: "count", header: "笔数", enableSorting: false },
+  { accessorKey: "validBpCount", header: "有效偏差笔数", enableSorting: false },
+  { accessorKey: "weightedCount", header: "可加权笔数", enableSorting: false },
   ...(
     [
       ["amount", "成交额"],
-      ["slippageCost", "滑点成本"],
-      ["averageSlippageBp", "成交额加权不利滑点 BP"],
-      ["totalCost", "总执行成本"],
-      ["costBp", "成本占成交额 BP"],
+      ["weightedAmount", "可加权成交额"],
+      ["slippageCost", "偏差金额折算"],
+      ["arithmeticMeanBp", "笔数平均偏差 BP"],
+      ["averageSlippageBp", "成交额加权偏差 BP"],
+      ["totalCost", "费用与偏差折算合计"],
+      ["costBp", "合计占成交额 BP"],
     ] as const
   ).map(([key, header]) => ({
     accessorKey: key,
@@ -102,22 +117,23 @@ export function ExecutionQualityResults({
   groupTable: TableState<Group>;
 }) {
   const cards = [
-    ["总执行成本", show(data.summary.totalCost)],
-    ["总滑点成本", show(data.summary.slippageCost)],
-    ["平均不利滑点（BP，成交额加权）", show(data.summary.averageSlippageBp)],
+    ["费用与偏差折算合计", show(data.summary.totalCost)],
+    ["偏差金额折算（元）", show(data.summary.slippageCost)],
+    ["日均价偏差（BP，成交额加权）", show(data.summary.averageSlippageBp)],
     data.fallbackNote
       ? [
-          "期末总资产差（元，实际 − VWAP 反事实）",
+          "全账户期末总资产差（元，实际 − VWAP 反事实）",
           show(data.terminalDifference),
         ]
-      : ["执行损耗（实际 TWR − VWAP TWR）", show(data.loss, true)],
+      : ["全账户反事实差（实际 TWR − VWAP TWR）", show(data.loss, true)],
   ];
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        基准：当日 VWAP（{data.benchmark.kind}）。不利滑点正 = 不利（买贵了 /
+        基准：当日 VWAP（{data.benchmark.kind}）。日均价偏差正 = 不利（买贵了 /
         卖便宜了），负 =
-        有利。逆回购不参与执行质量统计；可转债均价已对齐交割单价格单位。
+        有利。全天均价包含成交之后的信息，仅作事后描述，不能证明真实执行优势。
+        逆回购不参与；倍率按成交价识别，数量单位无法确认时留空。
       </p>
       <div className="grid gap-3 md:grid-cols-4">
         {cards.map(([label, value]) => (
@@ -132,7 +148,7 @@ export function ExecutionQualityResults({
       </div>
       <p className="text-sm text-muted-foreground">
         {data.fallbackNote ??
-          "实际净值与『同样标的同样数量按当日均价成交』的净值之差，只反映成交价格好坏，不含选股优劣。损耗负值表示实际表现较差；执行损耗始终使用全账户，其他成本与分组随筛选变化。"}
+          "反事实假设同样标的、同样数量按全天均价成交，不代表可实现的执行结果；负值表示实际结果较低。反事实始终使用全账户，描述性偏差、费用与分组随筛选变化。"}
       </p>
       <p className="text-sm text-muted-foreground">
         反事实收盘净值非正 {data.counterfactualNonPositiveDays ?? "—"} 天；
@@ -143,17 +159,34 @@ export function ExecutionQualityResults({
         。仅统计可得收盘总资产，缺失日不计入；诊断与期末差始终使用全账户。
       </p>
       <p className="text-sm text-muted-foreground">
-        单位异常 {data.unitMismatchCount} 笔，已排除滑点汇总及其成交额分母；
-        滑点统计 {data.summary.slippageCount} 笔，成交额{" "}
-        {show(data.summary.slippageAmount)}。
-        全部费用仍保留，存在排除项时全体总执行成本留空。完整单位诊断见逐笔导出。
+        笔数平均偏差 {show(data.summary.arithmeticMeanBp)} BP；有效偏差{" "}
+        {data.summary.validBpCount} / {data.summary.count} 笔（覆盖{" "}
+        {show(data.summary.countCoverage, true)}）。 可加权{" "}
+        {data.summary.weightedCount} 笔，成交额{" "}
+        {show(data.summary.weightedAmount)}，金额覆盖{" "}
+        {show(data.summary.amountCoverage, true)}； 排除{" "}
+        {data.summary.excludedCount} 笔，成交额{" "}
+        {show(data.summary.excludedAmount)}。
+        任一所需金额缺失时严格加权结果仍留空，不以部分数据冒充完整汇总。
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {executionDiagnosticCategories
+          .filter((category) => category !== "valid")
+          .map(
+            (category) =>
+              `${executionDiagnosticLabels[category]} ${data.summary.diagnosticCounts[category]} 笔`,
+          )
+          .join("；")}
+        。 超过 500 BP
+        只表示排除描述性汇总，未证明单位错误，仍沿用既有全账户反事实规则。
+        偏差金额折算 = BP × 成交额 / 10000，不是实际节省费用；费用独立保留。
       </p>
       <p className="text-sm">
         佣金 {show(data.summary.fees.commission)}；印花税{" "}
         {show(data.summary.fees.stampTax)}；过户费{" "}
         {show(data.summary.fees.transferFee)}；杂费{" "}
         {show(data.summary.fees.otherFee)}；总费用{" "}
-        {show(data.summary.fees.total)}；成本占成交额{" "}
+        {show(data.summary.fees.total)}；费用与偏差折算合计占成交额{" "}
         {show(data.summary.costBp)} BP。
       </p>
       {data.loss.value === null && data.segments.length > 0 && (

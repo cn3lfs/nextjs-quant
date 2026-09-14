@@ -2,6 +2,7 @@ import { tradeReviewDayVwap } from "../src/lib/trade-review-vwap";
 import { classifyCode } from "../src/lib/delivery-import";
 import { expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,6 +12,7 @@ import {
   executionRows,
   summarizeExecution,
   reviewExecutionQuality,
+  auditExecutionRows,
 } from "../src/lib/execution-quality";
 import { reviewTradeNav } from "../src/lib/trade-review-nav";
 import {
@@ -435,12 +437,17 @@ it.runIf(
     const db = new Database(":memory:");
     try {
       migrate(db);
+      const sourceHashes: Record<string, string> = {};
       for (const [name, scope] of [
         ["lishi", "all"],
         ["duizhang", "cashFlowsOnly"],
       ] as const) {
+        const bytes = readFileSync(`.test-data/statements-v2/${name}20-26.xls`);
+        sourceHashes[`${name}20-26.xls`] = createHash("sha256")
+          .update(bytes)
+          .digest("hex");
         commitDeliveryImport(
-          readFileSync(`.test-data/statements-v2/${name}20-26.xls`),
+          bytes,
           {
             account: "w12",
             source: "generic",
@@ -532,6 +539,13 @@ it.runIf(
         (r) => classifyCode(r.code).instrument === "fund",
       );
       const measurements = {
+        inputEvidence: {
+          sourceHashes,
+          openingCash: 0,
+          flowValuation: "previousClose",
+          algorithmVersion: "w12-section9-v1",
+          generatedAt: new Date().toISOString(),
+        },
         samples: [
           {
             code: "sh113050",
@@ -555,13 +569,23 @@ it.runIf(
         ),
         unitMismatchCount: e.unitMismatchCount,
         unitMismatches: e.unitMismatches,
+        audit: auditExecutionRows(e.rows),
         missingVwap: e.missingVwap,
         counterfactualWorstNav: e.counterfactualWorstNav,
         counterfactualNonPositiveDays: e.counterfactualNonPositiveDays,
         loss: e.loss,
         terminalDifference: e.terminalDifference,
       };
-      console.log("W12_MEASUREMENTS " + JSON.stringify(measurements));
+      // Keep per-fill evidence in the explicitly requested local report only.
+      console.log(
+        "W12_MEASUREMENTS " +
+          JSON.stringify({
+            count: measurements.count,
+            rounds: measurements.rounds,
+            unitMismatchCount: measurements.unitMismatchCount,
+            diagnosticCounts: e.summary.diagnosticCounts,
+          }),
+      );
       if (process.env.W12_REPORT_PATH)
         writeFileSync(
           process.env.W12_REPORT_PATH,
@@ -789,6 +813,106 @@ it.each([
         ? 100
         : null;
   expect(row.unitCheck.factor).toBe(expected);
+});
+
+it("P0-B distinguishes unavailable evidence from threshold exclusion and keeps both mean denominators explicit", () => {
+  const rows = executionRows(
+    [
+      fill({ price: 101, amount: 101 }),
+      fill({ price: 100, amount: 10000 }),
+      fill({ price: 110, amount: 110 }),
+      fill({ code: "000002", symbol: "sz000002", amount: 200 }),
+      fill({ code: "000003", symbol: "sz000003", amount: 300 }),
+      fill({ code: "123045", symbol: "sz123045", amount: 1 }),
+      fill({ price: 0 }),
+    ],
+    {
+      sz000001: [bar()],
+      sz000003: [bar({ amount: 30000 })],
+      sz123045: [bar()],
+    },
+  );
+  expect(rows.map((row) => row.diagnostic.category)).toEqual([
+    "valid",
+    "valid",
+    "thresholdExceeded",
+    "benchmarkUnavailable",
+    "unitUnidentified",
+    "quantityUnverified",
+    "priceInvalid",
+  ]);
+  const summary = summarizeExecution(rows);
+  expect(summary.arithmeticMeanBp.value).toBe(50);
+  expect(summary.validBpCount).toBe(2);
+  expect(summary.weightedCount).toBe(2);
+  expect(summary.weightedAmount.value).toBe(10101);
+  expect(summary.excludedCount).toBe(5);
+  expect(summary.excludedAmount.value).toBe(711);
+  expect(summary.countCoverage.value).toBe(2 / 7);
+  expect(summary.amountCoverage.value).toBe(10101 / 10812);
+  // Existing strict aggregate still refuses a number when a required BP is missing.
+  expect(summary.averageSlippageBp.value).toBeNull();
+  const audit = auditExecutionRows(rows);
+  expect(audit).toHaveLength(5);
+  expect(audit[0]).toMatchObject({
+    rootCause: "unresolved",
+    factor: 1,
+    convertedBp: 1000,
+  });
+  expect(JSON.stringify(audit)).not.toContain("private-account");
+});
+
+it("P0-B separates missing amount from valid BP and never invents coverage on empty input", () => {
+  const rows = executionRows(
+    [fill({ price: 101, amount: 0 }), fill()],
+    input().bars,
+  );
+  const summary = summarizeExecution(rows);
+  expect(summary.arithmeticMeanBp.value).toBe(50);
+  expect(summary.validBpCount).toBe(2);
+  expect(summary.weightedCount).toBe(1);
+  expect(summary.countCoverage.value).toBe(1);
+  expect(summary.amountCoverage.value).toBeNull();
+  expect(summary.averageSlippageBp.value).toBeNull();
+  expect(summary.excludedAmount.value).toBeNull();
+  expect(summarizeExecution([]).countCoverage.value).toBeNull();
+  expect(summarizeExecution([]).arithmeticMeanBp.value).toBeNull();
+});
+
+it("P0-B keeps the 500 BP policy boundary and does not remove threshold rows from counterfactual input", () => {
+  const reviewed = reviewExecutionQuality(
+    input([fill({ price: 105 }), fill({ price: 105.01 })]),
+  );
+  expect(reviewed.rows.map((row) => row.diagnostic.category)).toEqual([
+    "valid",
+    "thresholdExceeded",
+  ]);
+  expect(reviewed.rows[0]!.slippageBp.value).toBe(500);
+  expect(reviewed.rows[1]!.slippageBp.value).toBeNull();
+  expect(reviewed.rows[1]!.vwap.value).toBe(100);
+  expect(reviewed.counterfactual).not.toBeNull();
+  expect(reviewed.missingVwap).toEqual([]);
+});
+
+it("P0-B diagnostic filters share pagination, group and export scope without changing the account replay", () => {
+  const s = snapshot([fill(), fill({ price: 110 }), fill({ price: 111 })]);
+  const query = {
+    account: s.account,
+    diagnostic: "thresholdExceeded",
+    pageSize: 1,
+    pageIndex: 1,
+  };
+  const page = pageExecutionQuality(s, query);
+  expect(page.rowCount).toBe(2);
+  expect(page.rows).toHaveLength(1);
+  expect(page.summary.count).toBe(2);
+  expect(page.summary.diagnosticCounts.thresholdExceeded).toBe(2);
+  expect(page.groups[0]!.count).toBe(2);
+  expect(page.loss).toEqual(s.execution.loss);
+  const csv = exportExecutionQuality(s, query);
+  expect(csv.split("\r\n")).toHaveLength(3);
+  expect(csv).toContain("thresholdExceeded");
+  expect(csv).toContain("非实际节省费用");
 });
 
 it.each([0, NaN, 1.408, 140.8, 14080])(

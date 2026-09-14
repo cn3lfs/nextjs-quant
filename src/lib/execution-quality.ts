@@ -5,6 +5,27 @@ import { reviewTradeNav, type TradeReviewNavInput } from "./trade-review-nav";
 import { tradeReviewDayVwap } from "./trade-review-vwap";
 
 export type ExecutionBenchmark = { kind: "dayVwap" };
+export const executionDiagnosticCategories = [
+  "valid",
+  "benchmarkUnavailable",
+  "quantityUnverified",
+  "unitUnidentified",
+  "thresholdExceeded",
+  "priceInvalid",
+] as const;
+export type ExecutionDiagnosticCategory =
+  (typeof executionDiagnosticCategories)[number];
+export const executionDiagnosticLabels: Record<
+  ExecutionDiagnosticCategory,
+  string
+> = {
+  valid: "偏差可计算",
+  benchmarkUnavailable: "日均价不可得",
+  quantityUnverified: "数量单位未确认",
+  unitUnidentified: "倍率无法识别",
+  thresholdExceeded: "偏差超过 500 BP（待核实）",
+  priceInvalid: "成交价无效",
+};
 export type ExecutionRow = {
   id: string;
   fillIndex: number;
@@ -26,6 +47,7 @@ export type ExecutionRow = {
   slippageBp: ReviewValue;
   slippageCost: ReviewValue;
   amount: ReviewValue;
+  diagnostic: { category: ExecutionDiagnosticCategory; reason: string | null };
   fees: { [K in keyof ParsedFill["fees"]]: ReviewValue };
 };
 const metric = (value: number | null, reason = "数据不可得"): ReviewValue =>
@@ -119,6 +141,19 @@ export function executionRows(
       unitCheck.reason = "换算后滑点绝对值超过 500 BP，排除滑点汇总";
       bp = metric(null, unitCheck.reason);
     }
+    // Classification describes observed availability, not the cause of a large deviation.
+    const category: ExecutionDiagnosticCategory =
+      price.value === null
+        ? "priceInvalid"
+        : vwap.reason?.startsWith("可转债数量单位")
+          ? "quantityUnverified"
+          : unitCheck.factor === null && unitCheck.rawVwap !== null
+            ? "unitUnidentified"
+            : vwap.value === null
+              ? "benchmarkUnavailable"
+              : bp.value === null
+                ? "thresholdExceeded"
+                : "valid";
     return [
       {
         id: String(fillIndex),
@@ -132,6 +167,7 @@ export function executionRows(
         unitCheck,
         slippageBp: bp,
         amount,
+        diagnostic: { category, reason: bp.reason },
         slippageCost: metric(
           bp.value !== null && amount.value !== null
             ? (bp.value / 10000) * amount.value
@@ -150,6 +186,11 @@ export function executionRows(
 }
 
 export function summarizeExecution(rows: readonly ExecutionRow[]) {
+  const validBp = rows.filter((r) => r.slippageBp.value !== null);
+  const weighted = validBp.filter((r) => r.amount.value !== null);
+  const excluded = rows.filter(
+    (r) => r.slippageBp.value === null || r.amount.value === null,
+  );
   const eligible = rows.filter((r) => r.unitCheck.reason === null);
   const sum = (read: (row: ExecutionRow) => ReviewValue, selected = rows) => {
     const missing = selected.filter((r) => read(r).value === null);
@@ -177,7 +218,7 @@ export function summarizeExecution(rows: readonly ExecutionRow[]) {
       ? fees.total.value + slippageCost.value
       : null,
     eligible.length !== rows.length
-      ? "存在单位异常成交，全体总执行成本留空"
+      ? "存在排除项，费用与偏差折算的全体合计留空"
       : (fees.total.reason ?? slippageCost.reason ?? undefined),
   );
   const ratio = (v: ReviewValue, denominator = amount) =>
@@ -187,6 +228,9 @@ export function summarizeExecution(rows: readonly ExecutionRow[]) {
         : null,
       v.reason ?? denominator.reason ?? "成交额不可得",
     );
+  const weightedAmount = sum((r) => r.amount, weighted);
+  const fraction = (n: number, d: number) =>
+    metric(d > 0 ? n / d : null, "无成交，覆盖率不可得");
   return {
     count: rows.length,
     amount,
@@ -198,7 +242,55 @@ export function summarizeExecution(rows: readonly ExecutionRow[]) {
     unitMismatchCount: rows.length - eligible.length,
     averageSlippageBp: ratio(slippageCost, slippageAmount),
     costBp: ratio(totalCost),
+    arithmeticMeanBp: metric(
+      validBp.length
+        ? validBp.reduce((s, r) => s + r.slippageBp.value!, 0) / validBp.length
+        : null,
+      "无可计算偏差",
+    ),
+    validBpCount: validBp.length,
+    weightedCount: weighted.length,
+    weightedAmount,
+    excludedCount: excluded.length,
+    excludedAmount: excluded.length
+      ? sum((r) => r.amount, excluded)
+      : metric(0),
+    countCoverage: fraction(validBp.length, rows.length),
+    amountCoverage: metric(
+      amount.value !== null &&
+        amount.value > 0 &&
+        (weightedAmount.value !== null || weighted.length === 0)
+        ? (weightedAmount.value ?? 0) / amount.value
+        : null,
+      "完整成交额或加权成交额不可得",
+    ),
+    diagnosticCounts: Object.fromEntries(
+      executionDiagnosticCategories.map((category) => [
+        category,
+        rows.filter((r) => r.diagnostic.category === category).length,
+      ]),
+    ) as Record<ExecutionDiagnosticCategory, number>,
   };
+}
+
+/** Local audit evidence only. A threshold exceedance is never a proven unit error. */
+export function auditExecutionRows(rows: readonly ExecutionRow[]) {
+  return rows
+    .filter((row) => row.diagnostic.category !== "valid")
+    .map((row) => ({
+      fillIndex: row.fillIndex,
+      tradeDate: row.tradeDate,
+      code: row.code,
+      side: row.kind,
+      price: row.price.value,
+      amount: row.amount.value,
+      ...row.unitCheck,
+      diagnostic: row.diagnostic,
+      rootCause: "unresolved" as const,
+      evidence:
+        "仅有成交与日线量额的算法诊断，尚无独立单位或日内成交证据；不能将超阈值判为单位错误",
+      algorithmVersion: "w12-section9-v1" as const,
+    }));
 }
 
 export function reviewExecutionQuality(
