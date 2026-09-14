@@ -40,5 +40,12 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "generated", "runtime", "desktop", "release"]
+  "exclude": [
+    "node_modules",
+    "generated",
+    "runtime",
+    "desktop",
+    "release",
+    "packages/*/dist"
+  ]
 }

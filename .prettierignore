@@ -2,3 +2,4 @@
 # ths-statement.html feeds fingerprintSource assertions, and reflowed JSON
 # would break the file-hash provenance R2/R2c record.
 tests/fixtures/
+packages/tstdx/tests/fixtures/

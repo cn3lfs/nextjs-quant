@@ -10,16 +10,18 @@
     "dev": "pnpm runtime:build && next dev --hostname 127.0.0.1",
     "preview": "pnpm build && pnpm desktop:prepare && pnpm start",
     "start": "node scripts/start.mjs",
-    "typecheck": "tsc --noEmit",
-    "runtime:build": "node scripts/build-runtime.mjs",
-    "test": "vitest run",
+    "typecheck": "pnpm tstdx:build && tsc --noEmit",
+    "runtime:build": "pnpm tstdx:build && node scripts/build-runtime.mjs",
+    "test": "pnpm tstdx:build && vitest run",
     "check": "pnpm typecheck && pnpm test",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:dev": "pnpm build && pnpm desktop:prepare && electron .",
     "desktop:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-desktop.ps1",
-    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml",
+    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml packages/tstdx/src packages/tstdx/tests packages/tstdx/*.ts packages/tstdx/*.json",
     "desktop:smoke": "node scripts/desktop-smoke.mjs",
-    "smoke:data": "tsx scripts/smoke.ts"
+    "smoke:data": "tsx scripts/smoke.ts",
+    "tstdx:build": "pnpm --dir packages/tstdx build",
+    "tstdx:test": "pnpm --dir packages/tstdx test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -47,7 +49,8 @@
     "superjson": "^2.2.1",
     "tailwind-merge": "^3.6.0",
     "undici": "^7.29.1",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "tstdx": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.15",
