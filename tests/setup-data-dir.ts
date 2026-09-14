@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,4 +9,8 @@ import { join } from "node:path";
 // could not open. Isolate every test file by default instead of relying on
 // each one to remember. Tests that set QUANT_DATA_DIR themselves still win,
 // because their module body runs after this setup file.
-process.env.QUANT_DATA_DIR ??= mkdtempSync(join(tmpdir(), "quant-test-"));
+// An explicitly supplied directory is a safe parent, not a shared test database.
+// Otherwise separate files contaminate one another's persistent cache/schedules.
+const testDataParent = process.env.QUANT_DATA_DIR ?? tmpdir();
+mkdirSync(testDataParent, { recursive: true });
+process.env.QUANT_DATA_DIR = mkdtempSync(join(testDataParent, "quant-test-"));
