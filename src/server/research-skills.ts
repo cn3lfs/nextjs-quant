@@ -42,6 +42,18 @@ const integrations: Record<
   string,
   { scope: string; requirements: string[]; output: string; budget: string }
 > = {
+  "mx-ds-mcp-skill": {
+    scope:
+      "东方财富MCP独立自然语言查询，11类工具按场景显式路由；保留原表，不接入图表或量化计算",
+    requirements: [
+      "SKILL.md",
+      "Codex本地mx-ds-mcp配置与有效授权",
+      "单一品种或场景、明确标的/范围与时间",
+    ],
+    output: "mx-data-1：来源表格、提示与请求指纹",
+    budget:
+      "每次手动提交1次请求、最多500个标的、65秒总预算；不自动重试，不后台轮询",
+  },
   "swing-trader": {
     scope: "M5本地日线确定性双突破；Phase 3–4，无LLM、无外部行情、无自动交易",
     requirements: [
@@ -439,7 +451,9 @@ export async function researchSkillCatalog() {
                                     ? "news-classification-1"
                                     : skillId === "news-sector-analyzer"
                                       ? "news-sector-1"
-                                      : null,
+                                      : skillId === "mx-ds-mcp-skill"
+                                        ? "mx-data-1"
+                                        : null,
         };
       } catch {
         return {

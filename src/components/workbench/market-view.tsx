@@ -1,4 +1,5 @@
 import { MarketSourceSelect } from "../market-source-select";
+import { MxDataQuery } from "../mx-data-query";
 import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import {
@@ -57,6 +58,7 @@ export function MarketView({
   const displayedPeriod = chartPeriod;
   return (
     <>
+      <MxDataQuery />
       <div className="market-layout">
         <section className="panel chart-panel">
           <div className="panel-toolbar">

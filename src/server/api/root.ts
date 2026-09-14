@@ -1,4 +1,6 @@
 import { marketSourceSchema } from "~/lib/market-source";
+import { mxQuerySchema } from "~/lib/mx-data";
+import { mxDataStatus, queryMxData } from "../mx-data";
 import { researchAdjustmentSchema } from "~/lib/research-adjustment";
 import {
   disciplineRequestSchema,
@@ -358,6 +360,10 @@ async function accountReview(account: string) {
 }
 
 export const appRouter = createTRPCRouter({
+  mxDataStatus: p.query(() => mxDataStatus()),
+  mxDataQuery: p
+    .input(mxQuerySchema)
+    .mutation(({ input, signal }) => queryMxData(input, signal)),
   disciplineStart: p.input(disciplineRequestSchema).mutation(({ input }) => {
     const store = new DeliveryStore(chartSqlite()),
       config = settings();
