@@ -34,7 +34,7 @@ export const researchUsageSchema = z.object({
 export type ResearchUsage = z.infer<typeof researchUsageSchema>;
 export type ResearchRange = z.infer<typeof researchRangeSchema>;
 export const researchUsageReason =
-  "已记录的试验次数（下界）：台账建立之前的运行没有记录；应用外的思考与筛选不可观测；失败、取消及台账写入失败可能漏记。跨标的跨配置累计值不能代入 DSR。";
+  "已记录的试验次数（下界）：台账建立之前的运行没有记录；应用外的思考与筛选不可观测；失败、取消见独立运行审计，不计入成功候选数；台账写入失败可能漏记。跨标的跨配置累计值不能代入 DSR。";
 
 export function summarizeResearchUsage(
   records: readonly ResearchUsage[],

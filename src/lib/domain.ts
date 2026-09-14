@@ -109,6 +109,8 @@ export type Candidate = {
 };
 export type Job = {
   ownerPid?: number;
+  attemptId?: string;
+  auditIncomplete?: boolean;
   id: string;
   type:
     | "scan"

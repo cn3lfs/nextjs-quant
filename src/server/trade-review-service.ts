@@ -5,6 +5,10 @@ import { reviewExecutionQuality } from "~/lib/execution-quality";
 import { reviewTrades, type TradeReviewInput } from "~/lib/trade-review";
 import { classifyCode } from "~/lib/delivery-import";
 import {
+  extractStatementCashEvidence,
+  reconcileCashDays,
+} from "~/lib/cash-reconciliation";
+import {
   reviewTradeNav,
   type TradeReviewNavInput,
 } from "~/lib/trade-review-nav";
@@ -215,6 +219,14 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
       reason: "无柜台资金余额可核对",
     },
     cashResiduals: residuals,
+    cashReconciliation: reconcileCashDays({
+      evidence: extractStatementCashEvidence(input.batches),
+      projectedDays: projected.days.map((day) => ({
+        date: day.date,
+        cash: day.cash.value,
+      })),
+      openingCash: nav.openingCash,
+    }),
     missingMarketData,
     priceDiagnostics: input.priceDiagnostics ?? {},
     pendingRows,

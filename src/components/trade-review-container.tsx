@@ -17,6 +17,7 @@ import { RollingPerformanceContainer } from "./rolling-performance-container";
 import { PeriodPerformanceContainer } from "./period-performance-container";
 import { StrategyAdmissionContainer } from "./strategy-admission-container";
 import { ExecutionQualityContainer } from "./execution-quality-container";
+import { CashReconciliationContainer } from "./cash-reconciliation-container";
 import { DisciplineContainer } from "./discipline-container";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -136,6 +137,7 @@ export function TradeReviewContainer() {
       utils.tradeReviewAdmission.invalidate(),
       utils.tradeReviewAdmissionExport.invalidate(),
       utils.tradeReviewExecution.invalidate(),
+      utils.tradeReviewCashReconciliation.invalidate(),
     ]);
   };
   return (
@@ -362,6 +364,12 @@ export function TradeReviewContainer() {
               setPagination((p) => ({ ...p, pageIndex: 0 }));
             }}
             loading={review.isFetching}
+          />
+        )}
+        {review.data && !review.error && (
+          <CashReconciliationContainer
+            key={`cash:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+            account={account}
           />
         )}
         {review.data && !review.error && (

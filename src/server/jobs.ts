@@ -8,6 +8,8 @@ import { workProgressSchema, type WorkProgress } from "~/lib/work-progress";
 import { processAlive } from "./lease";
 import { PrioritySlots } from "./priority-slots";
 import { unpackScreen, type PackedScreen } from "./screen-wire";
+import { ResearchAttempts, bestEffortAudit } from "./research-governance";
+import { researchRangeSchema } from "~/lib/research-usage";
 const scope = globalThis as typeof globalThis & {
   quantJobs?: {
     workers: Map<string, Worker>;
@@ -34,7 +36,8 @@ function watchCancellation() {
       ...state.computeControllers,
     ]) {
       try {
-        if (get<Job>(id)?.status === "cancelled") {
+        if (readJob(id)?.status === "cancelled") {
+          updateJob(id, {});
           controller.abort();
           void workers.get(id)?.terminate();
         }
@@ -55,9 +58,45 @@ function stopCancellationWatchIfIdle() {
     state.cancellationTimer = undefined;
   }
 }
+export function readJob(id: string): Job | undefined {
+  const row = sqlite()
+    .prepare("SELECT payload FROM records WHERE id=? AND kind='job'")
+    .get(id) as { payload: string } | undefined;
+  return row ? (JSON.parse(row.payload) as Job) : undefined;
+}
 export function newJob(type: Job["type"], input: unknown): Job {
   const id = `job-${randomUUID()}`,
     now = Date.now();
+  const value = input as {
+    type?: string;
+    start?: string;
+    end?: string;
+    snapshotId?: string;
+  };
+  const kind =
+    type === "backtest" || type === "walk-forward"
+      ? type
+      : type === "screen" && value?.type === "formula-screen"
+        ? "formula-screen"
+        : null;
+  const snapshot = value?.snapshotId
+    ? get<{ bars: { date: string }[]; symbol: string }>(value.snapshotId)
+    : null;
+  const range = researchRangeSchema.safeParse({
+    start: value?.start ?? snapshot?.bars[0]?.date.slice(0, 10),
+    end: value?.end ?? snapshot?.bars.at(-1)?.date.slice(0, 10),
+  });
+  const attempt = kind
+    ? bestEffortAudit(() =>
+        new ResearchAttempts(sqlite()).begin({
+          taskId: id,
+          kind,
+          config: input,
+          requestedRange: range.success ? range.data : null,
+          symbols: snapshot ? [snapshot.symbol] : [],
+        }),
+      )
+    : null;
   return put("job", id, {
     ownerPid: process.pid,
     id,
@@ -68,15 +107,40 @@ export function newJob(type: Job["type"], input: unknown): Job {
     createdAt: now,
     updatedAt: now,
     input,
+    ...(kind ? { attemptId: attempt?.id, auditIncomplete: !attempt } : {}),
   });
 }
 export function updateJob(id: string, patch: Partial<Job>) {
   return sqlite()
     .transaction(() => {
-      const job = get<Job>(id);
+      const job = readJob(id);
       if (!job) return;
-      if (["cancelled", "completed", "failed"].includes(job.status)) return job;
-      return put("job", id, { ...job, ...patch, updatedAt: Date.now() });
+      if (["cancelled", "completed", "failed"].includes(job.status)) {
+        if (job.attemptId)
+          bestEffortAudit(() =>
+            new ResearchAttempts(sqlite()).update(job.attemptId!, {
+              state:
+                job.status === "completed"
+                  ? "succeeded"
+                  : (job.status as "cancelled" | "failed"),
+              error: job.error ?? null,
+            }),
+          );
+        return job;
+      }
+      const next = { ...job, ...patch, updatedAt: Date.now() };
+      if (job.attemptId && patch.status) {
+        const audited = bestEffortAudit(() =>
+          new ResearchAttempts(sqlite()).update(job.attemptId!, {
+            state: patch.status === "completed" ? "succeeded" : patch.status,
+            error: patch.error ?? null,
+            resultId: patch.status === "completed" ? id : null,
+          }),
+        );
+        if (!audited) next.auditIncomplete = true;
+        if (audited?.auditIncomplete) next.auditIncomplete = true;
+      }
+      return put("job", id, next);
     })
     .immediate();
 }
@@ -89,6 +153,7 @@ export function cancelJob(id: string) {
   }
 }
 export function recoverJobs() {
+  bestEffortAudit(() => new ResearchAttempts(sqlite()).recover(processAlive));
   for (const job of list<Job>("job", 10000))
     if (
       ["running", "queued"].includes(job.status) &&
@@ -108,7 +173,7 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
     state.computeControllers.set(jobId, controller);
     watchCancellation();
     updateJob(jobId, { phase: "等待计算资源" });
-    if (get<Job>(jobId)?.status === "cancelled") controller.abort();
+    if (readJob(jobId)?.status === "cancelled") controller.abort();
   }
   let release: (() => void) | undefined;
   let worker: Worker | undefined;
@@ -120,7 +185,7 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       work.type === "snapshot" ? 1 : 0,
       controller.signal,
     );
-    if (jobId && get<Job>(jobId)?.status === "cancelled")
+    if (jobId && readJob(jobId)?.status === "cancelled")
       throw new Error("任务已取消");
     worker = state.idle.pop();
     if (!worker) {
@@ -215,7 +280,10 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       current.once("exit", onExit);
       try {
         postedAt = performance.now();
-        current.postMessage(work);
+        current.postMessage({
+          ...work,
+          ...(jobId ? { attemptId: readJob(jobId)?.attemptId } : {}),
+        });
       } catch (error) {
         onError(error as Error);
       }
@@ -246,7 +314,7 @@ export function background(
               .update(JSON.stringify([type, canonical(dedupe)]))
               .digest("hex")}`;
             const previous = get<{ jobId: string }>(key);
-            const existing = previous && get<Job>(previous.jobId);
+            const existing = previous && readJob(previous.jobId);
             if (
               existing &&
               ["queued", "running"].includes(existing.status) &&
@@ -273,10 +341,7 @@ export function background(
       )
         return;
       const result = await fn(job, controller.signal);
-      if (
-        !controller.signal.aborted &&
-        get<Job>(job.id)?.status !== "cancelled"
-      )
+      if (!controller.signal.aborted && readJob(job.id)?.status !== "cancelled")
         updateJob(job.id, {
           status: "completed",
           progress: 100,
@@ -285,7 +350,7 @@ export function background(
         });
     })
     .catch((error) => {
-      if (get<Job>(job.id)?.status !== "cancelled")
+      if (readJob(job.id)?.status !== "cancelled")
         updateJob(job.id, {
           status: "failed",
           error: error instanceof Error ? error.message : "任务失败",

@@ -33,6 +33,8 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
     const rows = sqlite()
       .prepare(
         `SELECT json_object(${taskStateFields},
+      'attemptId', json_extract(payload, '$.attemptId'),
+      'auditIncomplete', json_extract(payload, '$.auditIncomplete'),
       'phase', substr(json_extract(payload, '$.phase'), 1, 128),
       'error', substr(json_extract(payload, '$.error'), 1, 128),
       'phaseTruncated', length(json_extract(payload, '$.phase')) > 128,
@@ -42,7 +44,9 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
       )
       .all(...args) as { payload: string }[];
     const items = rows.slice(0, 20).map((row) => {
-      const value = JSON.parse(row.payload) as TaskState & {
+      const { attemptId, auditIncomplete, ...value } = JSON.parse(
+        row.payload,
+      ) as TaskState & {
         phaseTruncated: number;
         errorTruncated: number;
       };
@@ -50,6 +54,10 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
         error = taskTextPreview(value.error ?? null);
       return {
         ...value,
+        ...(attemptId != null ? { attemptId } : {}),
+        ...(auditIncomplete != null
+          ? { auditIncomplete: Boolean(auditIncomplete) }
+          : {}),
         phase,
         error,
         phaseTruncated:
@@ -79,16 +87,22 @@ export function taskState(id: string): TaskState | null {
   const row = sqlite()
     .prepare(
       `SELECT json_object(${taskStateFields},
+    'attemptId', json_extract(payload, '$.attemptId'),
+    'auditIncomplete', json_extract(payload, '$.auditIncomplete'),
     'phase', json_extract(payload, '$.phase'), 'error', json_extract(payload, '$.error'),
     'workProgress', json_extract(payload, '$.workProgress')
     ) AS payload FROM records WHERE kind = 'job' AND id = ?`,
     )
     .get(id) as { payload: string } | undefined;
   if (!row) return null;
-  const value = JSON.parse(row.payload);
+  const { attemptId, auditIncomplete, ...value } = JSON.parse(row.payload);
   const counts = workProgressSchema.safeParse(value.workProgress);
   return {
     ...value,
+    ...(attemptId != null ? { attemptId } : {}),
+    ...(auditIncomplete != null
+      ? { auditIncomplete: Boolean(auditIncomplete) }
+      : {}),
     workProgress: counts.success ? counts.data : undefined,
     phase: value.phase ?? undefined,
     error: value.error ?? undefined,

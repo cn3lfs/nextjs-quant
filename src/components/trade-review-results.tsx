@@ -111,9 +111,12 @@ export function TradeReviewCaveats({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-lg font-semibold">
-          未解释资金残差：{metric(data.unexplainedCashResidual)} 元
+          未解释资金残差（逐事件检查）：{metric(data.unexplainedCashResidual)}{" "}
+          元
         </p>
-        <p>残差独立展示，不自动平账，不生成补造流水。</p>
+        <p>
+          残差独立展示，不自动平账，不生成补造流水。逐事件检查可能受日内顺序影响，日末账目请查看下方现金逐日对账。
+        </p>
         <p>
           openingUnknown：中签建仓等证据不足的回合，开仓成本与收益留空；不按零成本计算利润。
         </p>

@@ -5,6 +5,7 @@ import type { ResearchRange } from "~/lib/research-usage";
 import { ResearchUsagePanel } from "./research-usage-panel";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { ResearchAttemptsContainer } from "./research-attempts-container";
 
 export function ResearchUsageContainer({ range }: { range?: ResearchRange }) {
   const query = api.researchUsage.useQuery(
@@ -75,6 +76,7 @@ export function ResearchUsageContainer({ range }: { range?: ResearchRange }) {
       )}
       {save.error && <p role="alert">保存失败：{save.error.message}</p>}
       {save.isSuccess && <p role="status">留出集设置已保存</p>}
+      <ResearchAttemptsContainer />
     </section>
   );
 }

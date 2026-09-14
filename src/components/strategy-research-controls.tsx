@@ -84,6 +84,10 @@ function ResearchTable({
 
 export function StrategyResearchControls() {
   const utils = api.useUtils();
+  const [mode, setMode] = useState<"exploration" | "final-validation">(
+    "exploration",
+  );
+  const [revealConfirm, setRevealConfirm] = useState(false);
   const [spec, setSpec] = useState<ResearchSpec>(() =>
     researchSpecSchema.parse({
       strategy: "dual-breakout",
@@ -115,6 +119,22 @@ export function StrategyResearchControls() {
   const selectedStatus = tasks.data?.find(
     (task) => task.id === selected,
   )?.status;
+  const governance = api.strategyResearchGovernance.useQuery(selected, {
+    enabled: !!selected,
+    refetchInterval: 2000,
+    retry: false,
+  });
+  const reveal = api.strategyResearchReveal.useMutation({
+    onSuccess: async () => {
+      setRevealConfirm(false);
+      await Promise.all([
+        utils.strategyResearchGovernance.invalidate(selected),
+        utils.strategyResearchTasks.invalidate(),
+        utils.strategyResearchResult.invalidate(selected),
+      ]);
+    },
+  });
+  useEffect(() => setRevealConfirm(false), [selected]);
   const completedTasks = tasks.data
     ?.filter((task) => task.status === "complete")
     .map((task) => task.id)
@@ -208,9 +228,31 @@ export function StrategyResearchControls() {
             return;
           }
           setError(null);
-          create.mutate({ spec: parsed.data, evidence });
+          create.mutate({ spec: parsed.data, evidence, mode });
         }}
       >
+        <label>
+          研究模式
+          <Select
+            value={mode}
+            onValueChange={(value) => setMode(value as typeof mode)}
+          >
+            <SelectTrigger aria-label="研究模式">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="exploration">普通探索</SelectItem>
+              <SelectItem value="final-validation">
+                最终验证（先冻结，后揭示）
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+        {mode === "final-validation" && (
+          <p className="text-sm text-muted-foreground sm:col-span-2">
+            提交即确认当前规则；采集完成并冻结完整输入后才计算。结果和快照导出需显式揭示，已使用区间不会恢复为未使用。开发期调参请先使用普通探索。
+          </p>
+        )}
         <label>
           股票池
           <Select
@@ -506,7 +548,7 @@ export function StrategyResearchControls() {
           type="submit"
           disabled={!listReady || !!active || create.isPending}
         >
-          开始研究
+          {mode === "final-validation" ? "冻结并运行最终验证" : "开始研究"}
         </Button>
       </form>
       {[
@@ -543,6 +585,11 @@ export function StrategyResearchControls() {
                 {task.total ? `${task.completed}/${task.total}` : ""}{" "}
                 {task.error}
               </p>
+              {task.auditIncomplete && (
+                <p role="alert" className="text-sm text-destructive">
+                  研究审计不完整：运行可继续，但不能据此声称试验已完整记账。
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
@@ -591,13 +638,75 @@ export function StrategyResearchControls() {
         </div>
       )}
       {selected && result.isLoading && <p>正在读取结果…</p>}
+      {selected && governance.isLoading && (
+        <p role="status">正在读取验证治理状态…</p>
+      )}
+      {governance.error && (
+        <p role="alert">
+          {governance.error.message}{" "}
+          <Button onClick={() => void governance.refetch()}>
+            重试治理状态
+          </Button>
+        </p>
+      )}
+      {governance.data && (
+        <section
+          className="space-y-2 rounded-lg border p-4"
+          aria-label="验证治理"
+        >
+          <h3 className="font-medium">验证治理</h3>
+          <p>
+            {governance.data.mode === "final-validation"
+              ? "最终验证"
+              : "普通探索"}{" "}
+            ·{" "}
+            {governance.data.revealedAt
+              ? "已显式揭示"
+              : governance.data.mode === "final-validation"
+                ? "尚未揭示"
+                : "结果按原方式可见"}
+          </p>
+          {governance.data.freezeId && (
+            <p className="break-all text-xs">
+              冻结版本：{governance.data.freezeId}
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground">
+            {governance.data.warning}
+          </p>
+          {governance.data.possibleContamination && (
+            <p role="status">
+              该验证区间存在其他研究使用记录，可能已污染；冻结和揭示不能消除历史使用。
+            </p>
+          )}
+          {governance.data.mode === "final-validation" &&
+            !governance.data.resultVisible &&
+            selectedStatus === "complete" && (
+              <>
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={revealConfirm}
+                    onCheckedChange={(value) =>
+                      setRevealConfirm(value === true)
+                    }
+                  />
+                  我确认揭示结果，并保留不可撤销的使用记录
+                </label>
+                <Button
+                  disabled={!revealConfirm || reveal.isPending}
+                  onClick={() => reveal.mutate(selected)}
+                >
+                  揭示最终验证结果
+                </Button>
+              </>
+            )}
+          {reveal.error && <p role="alert">揭示失败：{reveal.error.message}</p>}
+        </section>
+      )}
+      <ResearchUsageContainer />
       {result.data && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">样本结果</h2>
-          <ResearchUsageContainer
-            key={selected}
-            range={{ start: result.data.spec.start, end: result.data.spec.end }}
-          />
           <UniverseAuditContainer
             key={selected}
             source={{ kind: "research", id: selected }}

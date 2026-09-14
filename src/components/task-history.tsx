@@ -161,6 +161,11 @@ export function TaskHistory() {
                     {job.progress}% · {job.error || job.phase || "—"}
                     {(job.phaseTruncated || job.errorTruncated) &&
                       "（摘要，详情可查看全文）"}
+                    {job.auditIncomplete && (
+                      <p role="alert">
+                        审计记录未完整保存，不能按完整研究记录使用。
+                      </p>
+                    )}
                   </>
                 ),
               },
@@ -220,6 +225,14 @@ export function TaskHistory() {
                 {taskStatusLabels[detail.data.status]} · {detail.data.progress}%
               </p>
               <p>阶段：{detail.data.phase || "未记录"}</p>
+              {detail.data.auditIncomplete && (
+                <p role="alert">
+                  审计记录未完整保存，不能按完整研究记录使用；请在研究使用台账核对本次尝试。
+                </p>
+              )}
+              {detail.data.attemptId && (
+                <p>研究尝试：{detail.data.attemptId}</p>
+              )}
               <WorkProgressView counts={detail.data.workProgress} />
               <p>
                 创建于 {new Date(detail.data.createdAt).toLocaleString("zh-CN")}{" "}

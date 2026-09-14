@@ -55,6 +55,8 @@ export async function universeAuditPage(input: unknown) {
   ];
   if (query.source.kind === "research") {
     const store = new ResearchStore(sqlite());
+    if (!store.isResultVisible(query.source.id))
+      throw new Error("最终验证尚未揭示，不能读取冻结名单审计");
     const task = store.task(query.source.id),
       dataset = store.dataset(query.source.id);
     if (!task || !dataset) throw new Error("研究任务或冻结名单快照不存在");

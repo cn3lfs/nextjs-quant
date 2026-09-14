@@ -52,21 +52,24 @@ export function walkForwardJob(input: z.infer<typeof walkForwardInput>) {
       id: `walk-forward-${job.id.slice(4)}`,
       createdAt: Date.now(),
     };
-    const usage = recordResearchUsage(() => ({
-      kind: "walk-forward",
-      symbols: [source.symbol],
-      universeSize: 1,
-      range: record.dataRange,
-      candidateCount: result.candidates.length,
-      config: {
+    const usage = recordResearchUsage(
+      () => ({
         kind: "walk-forward",
-        symbol: source.symbol,
-        strategy: input.strategy,
-        initial: input.initial,
-        costs: input.costs,
-        options: input.options,
-      },
-    }));
+        symbols: [source.symbol],
+        universeSize: 1,
+        range: record.dataRange,
+        candidateCount: result.candidates.length,
+        config: {
+          kind: "walk-forward",
+          symbol: source.symbol,
+          strategy: input.strategy,
+          initial: input.initial,
+          costs: input.costs,
+          options: input.options,
+        },
+      }),
+      job.attemptId,
+    );
     if (record.multipleTesting)
       record.multipleTesting.recordedTrials = recordedResearchTrials(
         record.dataRange,

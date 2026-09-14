@@ -125,6 +125,11 @@ export function DisciplineContainer({ account }: { account: string }) {
         )}
       </div>
       {busy && <p role="status">{state.data?.phase ?? "准备数据"}…</p>}
+      {state.data?.auditIncomplete && (
+        <p role="alert">
+          本次纪律研究的审计记录未完整保存，不能按完整研究记录使用；请在研究使用台账核对本次尝试。
+        </p>
+      )}
       {(error || state.error) && (
         <p role="alert">{error || state.error?.message}。可重新运行。</p>
       )}

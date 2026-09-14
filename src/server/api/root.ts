@@ -8,6 +8,8 @@ import {
 } from "../discipline-service";
 import { researchRangeSchema, researchDateSchema } from "~/lib/research-usage";
 import { researchUsage } from "../research-usage";
+import { researchAttemptsQuerySchema } from "~/lib/research-governance";
+import { ResearchAttempts } from "../research-governance";
 import {
   holdingsCorrelationPageSchema,
   pageHoldingsCorrelation,
@@ -43,6 +45,10 @@ import { basename, extname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { importOptionsSchema } from "~/lib/delivery-import";
 import { costMethods, type ReviewRound } from "~/lib/trade-review";
+import {
+  cashReconciliationPage,
+  cashReconciliationPageSchema,
+} from "~/lib/cash-reconciliation";
 import {
   previewDeliveryImport,
   commitDeliveryImport,
@@ -217,7 +223,7 @@ import {
   startRuntime,
   tick,
 } from "../runtime";
-import { background, cancelJob, updateJob } from "../jobs";
+import { background, cancelJob, updateJob, readJob } from "../jobs";
 import {
   analyze,
   interpret,
@@ -281,6 +287,22 @@ async function deliveryBytes(path: string) {
   if (![".xls", ".txt", ".csv"].includes(extname(path).toLowerCase()))
     throw new Error("仅支持 .xls / .txt / .csv 交割单文件");
   return readFile(path);
+}
+
+/** Record IDs are global across kinds. A TypeScript generic cannot restrict a
+ * database read; every user-selected ID must stay in its endpoint's domain. */
+function recordOfKind<T>(kind: string, id: string): T | undefined {
+  const row = chartSqlite()
+    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
+    .get(kind, id) as { payload: string } | undefined;
+  return row ? (JSON.parse(row.payload) as T) : undefined;
+}
+
+function storedSnapshot(id: string) {
+  return (
+    recordOfKind<Snapshot>("snapshot", id) ??
+    recordOfKind<Snapshot>("chart-snapshot", id)
+  );
 }
 
 async function accountReview(account: string) {
@@ -451,6 +473,10 @@ export const appRouter = createTRPCRouter({
     )
     .query(({ input }) => {
       const store = new ResearchStore(chartSqlite());
+      if (!store.isResultVisible(input.id))
+        throw new Error(
+          store.task(input.id) ? "最终验证尚未揭示" : "研究结果尚不可得",
+        );
       const result = store.result(input.id),
         dataset = store.dataset(input.id);
       if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
@@ -471,6 +497,10 @@ export const appRouter = createTRPCRouter({
     )
     .query(({ input }) => {
       const store = new ResearchStore(chartSqlite());
+      if (!store.isResultVisible(input.id))
+        throw new Error(
+          store.task(input.id) ? "最终验证尚未揭示" : "研究结果尚不可得",
+        );
       const result = store.result(input.id),
         dataset = store.dataset(input.id);
       if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
@@ -522,14 +552,14 @@ export const appRouter = createTRPCRouter({
         partition: z.enum(["development", "validation"]),
       }),
     )
-    .query(({ input }) =>
-      researchRollingPage(
-        new ResearchStore(chartSqlite()),
-        input.id,
-        input.partition,
-        input,
-      ),
-    ),
+    .query(({ input }) => {
+      const store = new ResearchStore(chartSqlite());
+      if (!store.isResultVisible(input.id))
+        throw new Error(
+          store.task(input.id) ? "最终验证尚未揭示" : "研究结果尚不可得",
+        );
+      return researchRollingPage(store, input.id, input.partition, input);
+    }),
   tradeReviewPeriodPerformance: p
     .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
@@ -547,14 +577,14 @@ export const appRouter = createTRPCRouter({
         partition: z.enum(["development", "validation"]),
       }),
     )
-    .query(({ input }) =>
-      researchPeriodPage(
-        new ResearchStore(chartSqlite()),
-        input.id,
-        input.partition,
-        input,
-      ),
-    ),
+    .query(({ input }) => {
+      const store = new ResearchStore(chartSqlite());
+      if (!store.isResultVisible(input.id))
+        throw new Error(
+          store.task(input.id) ? "最终验证尚未揭示" : "研究结果尚不可得",
+        );
+      return researchPeriodPage(store, input.id, input.partition, input);
+    }),
   tradeReviewExecution: p
     .input(executionPageSchema)
     .query(async ({ input }) =>
@@ -562,6 +592,24 @@ export const appRouter = createTRPCRouter({
         (await accountReview(input.account)).snapshot,
         input,
       ),
+    ),
+  tradeReviewCashReconciliation: p
+    .input(
+      cashReconciliationPageSchema.extend({
+        account: z.string().trim().min(1),
+      }),
+    )
+    .query(async ({ input }) =>
+      cashReconciliationPage(
+        (await accountReview(input.account)).snapshot.cashReconciliation,
+        input,
+      ),
+    ),
+  tradeReviewCashReconciliationExport: p
+    .input(z.object({ account: z.string().trim().min(1) }))
+    .query(
+      async ({ input }) =>
+        (await accountReview(input.account)).snapshot.cashReconciliation,
     ),
   tradeReviewExecutionExport: p
     .input(executionPageSchema)
@@ -829,7 +877,8 @@ export const appRouter = createTRPCRouter({
     .query(({ input }) => new ClsReviewStore(chartSqlite()).sample(input)),
   strategyResearchTasks: p.query(() => {
     recoverResearch();
-    return new ResearchStore(chartSqlite()).tasks();
+    const store = new ResearchStore(chartSqlite());
+    return store.tasks().map((task) => store.projectTask(task));
   }),
   strategyResearchCreate: p
     .input(
@@ -839,6 +888,9 @@ export const appRouter = createTRPCRouter({
           "请先选择研究品种清单",
         ),
         evidence: researchMarketEvidenceSchema.nullable(),
+        mode: z
+          .enum(["exploration", "final-validation"])
+          .default("exploration"),
       }),
     )
     .mutation(async ({ input }) => {
@@ -854,28 +906,46 @@ export const appRouter = createTRPCRouter({
       const task = new ResearchStore(chartSqlite()).create(
         input.spec,
         input.evidence,
+        input.mode,
       );
-      return launchResearch(task.id);
+      return new ResearchStore(chartSqlite()).projectTask(
+        launchResearch(task.id),
+      );
     }),
   strategyResearchRetry: p.input(z.string()).mutation(({ input }) => {
     const task = new ResearchStore(chartSqlite()).retry(input);
-    return launchResearch(task.id);
+    return new ResearchStore(chartSqlite()).projectTask(
+      launchResearch(task.id),
+    );
   }),
   strategyResearchCancel: p
     .input(z.string())
     .mutation(({ input }) => cancelResearch(input)),
   strategyResearchSegments: p.input(z.string().min(1)).query(({ input }) => {
     const store = new ResearchStore(chartSqlite());
+    if (!store.isResultVisible(input))
+      throw new Error(
+        store.task(input) ? "最终验证尚未揭示" : "研究结果尚不可得",
+      );
     const result = store.result(input),
       dataset = store.dataset(input);
     if (!result || !dataset) throw new Error("研究结果或冻结快照尚不可得");
     return threeSegmentSample(store.db, result, dataset);
   }),
-  strategyResearchResult: p
-    .input(z.string())
-    .query(({ input }) => new ResearchStore(chartSqlite()).result(input)),
+  strategyResearchResult: p.input(z.string()).query(({ input }) => {
+    const store = new ResearchStore(chartSqlite());
+    return store.isResultVisible(input) ? store.result(input) : null;
+  }),
+  strategyResearchGovernance: p
+    .input(z.string().min(1))
+    .query(({ input }) => new ResearchStore(chartSqlite()).governance(input)),
+  strategyResearchReveal: p
+    .input(z.string().min(1))
+    .mutation(({ input }) => new ResearchStore(chartSqlite()).reveal(input)),
   strategyResearchExport: p.input(z.string()).query(({ input }) => {
     const store = new ResearchStore(chartSqlite());
+    if (!store.isResultVisible(input))
+      throw new Error("最终验证尚未揭示，不能导出快照或结果");
     const result = store.result(input),
       dataset = store.dataset(input);
     return {
@@ -929,7 +999,7 @@ export const appRouter = createTRPCRouter({
         schemaVersion: 1,
         observation,
         attempts: store.attempts(input),
-        run: get(observation.sessionId),
+        run: recordOfKind("intraday-run", observation.sessionId),
       };
     }),
   intradaySave: p
@@ -1180,22 +1250,41 @@ export const appRouter = createTRPCRouter({
   tdxFinance: p.input(symbolSchema).query(({ input }) => finance(input)),
   fundamentalAnalyze: p
     .input(fundamentalResearchInput)
-    .mutation(({ input }) => fundamentalResearchJob(input)),
+    .mutation(({ input }) => {
+      if (
+        !storedSnapshot(input.snapshotId) ||
+        !recordOfKind("financial-quality", input.financeId) ||
+        (input.scenarioId &&
+          !recordOfKind("valuation-scenario", input.scenarioId))
+      )
+        throw new Error("基本面分析所需快照、财务档案或估值方案不存在");
+      return fundamentalResearchJob(input);
+    }),
   fundamentalHistory: p.query(() => researchHistory("fundamental-report")),
   fundamentalReport: p
     .input(z.string().regex(/^fundamental-report-[a-f0-9]{64}$/))
-    .query(({ input }) => get<FundamentalReport>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<FundamentalReport>("fundamental-report", input) ?? null,
+    ),
   financialQualityCreate: p
     .input(symbolSchema)
     .mutation(({ input }) => financialQualityJob(input)),
   financialQualityHistory: p.query(() => financialQualityHistory()),
   financialQualityReport: p
     .input(z.string().regex(/^financial-quality-[a-f0-9]{64}$/))
-    .query(({ input }) => get<FinancialQualityArchive>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<FinancialQualityArchive>("financial-quality", input) ??
+        null,
+    ),
   financialGrowthReport: p
     .input(z.string().regex(/^financial-quality-[a-f0-9]{64}$/))
     .query(({ input }) => {
-      const archive = get<FinancialQualityArchive>(input);
+      const archive = recordOfKind<FinancialQualityArchive>(
+        "financial-quality",
+        input,
+      );
       return archive ? financialGrowth(archive) : null;
     }),
   valuationSave: p
@@ -1204,7 +1293,10 @@ export const appRouter = createTRPCRouter({
   valuationHistory: p.query(() => valuationScenarioHistory()),
   valuationReport: p
     .input(z.string().regex(/^valuation-scenario-[a-f0-9]{64}$/))
-    .query(({ input }) => get<ValuationScenario>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<ValuationScenario>("valuation-scenario", input) ?? null,
+    ),
   wyckoffAnalyze: p
     .input(
       z.object({
@@ -1212,13 +1304,20 @@ export const appRouter = createTRPCRouter({
         question: z.string().trim().min(1).max(2000),
       }),
     )
-    .mutation(({ input }) => wyckoffJob(input.snapshotId, input.question)),
+    .mutation(({ input }) => {
+      if (!storedSnapshot(input.snapshotId))
+        throw new Error("请先加载行情快照");
+      return wyckoffJob(input.snapshotId, input.question);
+    }),
   wyckoffHistory: p.query(() => researchHistory("wyckoff-report")),
   wyckoffReport: p
     .input(z.string().regex(/^wyckoff-report-[a-f0-9]{64}$/))
-    .query(({ input }) => get<WyckoffReport>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<WyckoffReport>("wyckoff-report", input) ?? null,
+    ),
   savedSnapshot: p.input(z.string().min(1)).query(({ input }) => {
-    const source = get<Snapshot>(input);
+    const source = storedSnapshot(input);
     if (!source?.bars || !source.symbol)
       throw new Error("候选原始快照不存在，请重新运行选股");
     return source;
@@ -1253,6 +1352,9 @@ export const appRouter = createTRPCRouter({
   researchUsage: p
     .input(researchRangeSchema)
     .query(({ input }) => researchUsage(input)),
+  researchAttempts: p
+    .input(researchAttemptsQuerySchema)
+    .query(({ input }) => new ResearchAttempts(chartSqlite()).page(input)),
   holdoutSettings: p.query(() => ({ holdoutStart: settings().holdoutStart })),
   saveHoldoutStart: p
     .input(researchDateSchema.nullable())
@@ -1304,7 +1406,7 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .query(({ input }) => {
-      const source = get<Snapshot>(input.snapshotId);
+      const source = storedSnapshot(input.snapshotId);
       if (!source || !Array.isArray(source.bars))
         throw new Error("行情快照不存在");
       if (input.chartSnapshot) {
@@ -1327,7 +1429,7 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .query(({ input }) => {
-      const source = get<Snapshot>(input.snapshotId);
+      const source = storedSnapshot(input.snapshotId);
       if (!source || !Array.isArray(source.bars))
         throw new Error("行情快照不存在");
       return analyzeCzsc(source.bars);
@@ -1381,16 +1483,18 @@ export const appRouter = createTRPCRouter({
         adjustment: researchAdjustmentSchema.optional(),
       }),
     )
-    .mutation(({ input }) =>
-      backtestJob(
+    .mutation(({ input }) => {
+      if (!storedSnapshot(input.snapshotId))
+        throw new Error("请先加载行情快照");
+      return backtestJob(
         input.snapshotId,
         input.strategy,
         input.initial,
         input.scope,
         input.costs,
         input.adjustment,
-      ),
-    ),
+      );
+    }),
   dividendSchedule: p
     .input(
       z.object({
@@ -1430,12 +1534,14 @@ export const appRouter = createTRPCRouter({
         source: record.source,
       };
     }),
-  cashDividendSimulation: p
-    .input(cashDividendInput)
-    .mutation(({ input }) => cashDividendJob(input)),
-  walkForward: p
-    .input(walkForwardInput)
-    .mutation(({ input }) => walkForwardJob(input)),
+  cashDividendSimulation: p.input(cashDividendInput).mutation(({ input }) => {
+    if (!storedSnapshot(input.snapshotId)) throw new Error("请先加载行情快照");
+    return cashDividendJob(input);
+  }),
+  walkForward: p.input(walkForwardInput).mutation(({ input }) => {
+    if (!storedSnapshot(input.snapshotId)) throw new Error("请先加载行情快照");
+    return walkForwardJob(input);
+  }),
   walkForwardHistory: p.query(() =>
     list<WalkForwardResult>("walk-forward", 20).map((r) => ({
       id: r.id!,
@@ -1450,12 +1556,15 @@ export const appRouter = createTRPCRouter({
   walkForwardResult: p
     .input(z.string().regex(/^walk-forward-[a-f0-9-]{36}$/))
     .query(({ input }) => {
-      const result = get<WalkForwardResult>(input);
+      const result = recordOfKind<WalkForwardResult>("walk-forward", input);
       return result ? walkForwardPage(result) : null;
     }),
   walkForwardExport: p
     .input(z.string().regex(/^walk-forward-[a-f0-9-]{36}$/))
-    .query(({ input }) => get<WalkForwardResult>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<WalkForwardResult>("walk-forward", input) ?? null,
+    ),
   interpret: p
     .input(z.string().min(1).max(2000))
     .mutation(({ input }) =>
@@ -1473,7 +1582,7 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .mutation(({ input }) => {
-      const source = get<Snapshot>(input.snapshotId);
+      const source = storedSnapshot(input.snapshotId);
       if (!source) throw new Error("请先加载行情");
       return background(
         "research",
@@ -1503,7 +1612,7 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .mutation(({ input }) => {
-      const source = get<Snapshot>(input.snapshotId);
+      const source = storedSnapshot(input.snapshotId);
       if (!source) throw new Error("请先加载研究行情");
       const now = Date.now(),
         window = chanWindow(source, now),
@@ -1539,11 +1648,13 @@ export const appRouter = createTRPCRouter({
   chanHistory: p.query(() => researchHistory("chan-report")),
   chanReport: p
     .input(z.string().regex(/^chan-report-[a-f0-9]{64}$/))
-    .query(({ input }) => get<ChanReport>(input) ?? null),
+    .query(
+      ({ input }) => recordOfKind<ChanReport>("chan-report", input) ?? null,
+    ),
   canslimAnalyze: p
     .input(z.object({ snapshotId: z.string() }))
     .mutation(({ input }) => {
-      const source = get<Snapshot>(input.snapshotId);
+      const source = storedSnapshot(input.snapshotId);
       if (!source || source.period !== "day" || source.historicalAsOf)
         throw new Error(
           "请先加载当前研究的个股日线；CANSLIM暂不支持分钟或历史时点研究",
@@ -1566,7 +1677,10 @@ export const appRouter = createTRPCRouter({
   canslimHistory: p.query(() => researchHistory("canslim-report")),
   canslimReport: p
     .input(z.string().regex(/^canslim-report-[a-f0-9]{64}$/))
-    .query(({ input }) => get<CanslimResearchReport>(input) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<CanslimResearchReport>("canslim-report", input) ?? null,
+    ),
   newsAnalyses: p.query(() => {
     const seen = new Set<string>();
     return list<NewsAnalysis>("news-analysis", 50)
@@ -1591,7 +1705,7 @@ export const appRouter = createTRPCRouter({
   newsAnalysis: p
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .query(({ input }) => {
-      const record = get<NewsAnalysis>(input);
+      const record = recordOfKind<NewsAnalysis>("news-analysis", input);
       return record ? newsAnalysisView(record) : null;
     }),
   newsSectorReports: p
@@ -1664,7 +1778,11 @@ export const appRouter = createTRPCRouter({
     .mutation(({ input }) => verifySecurityIdentity(input)),
   identityRecord: p
     .input(symbolSchema)
-    .query(({ input }) => get<IdentityCheck>(`identity-${input}`) ?? null),
+    .query(
+      ({ input }) =>
+        recordOfKind<IdentityCheck>("security-identity", `identity-${input}`) ??
+        null,
+    ),
   researchSkills: p.query(() => researchSkillCatalog()),
   rsSourceExport: p
     .input(z.object({ reportId: z.string(), evidenceId: z.string() }))
@@ -1680,7 +1798,7 @@ export const appRouter = createTRPCRouter({
   onlineScreenResult: p
     .input(z.object({ id: z.string(), version: z.number().optional() }))
     .query(({ input }) => {
-      const job = get<Job>(input.id);
+      const job = readJob(input.id);
       return job?.type === "online-screen" && job.status === "completed"
         ? (job.result as OnlineScreenResult)
         : null;
@@ -1698,7 +1816,7 @@ export const appRouter = createTRPCRouter({
   job: p
     .input(z.object({ id: z.string(), version: z.number().optional() }))
     .query(({ input }) => {
-      const job = get<Job>(input.id);
+      const job = readJob(input.id);
       return job?.type === "walk-forward" && job.result
         ? { ...job, result: walkForwardPage(job.result as WalkForwardResult) }
         : (job ?? null);
@@ -1708,7 +1826,7 @@ export const appRouter = createTRPCRouter({
       z.object({ id: z.string(), screenFirstPage: z.boolean().optional() }),
     )
     .query(({ input }) => {
-      const job = get<Job>(input.id);
+      const job = readJob(input.id);
       if (!job) return null;
       const { input: _input, result: _result, ...summary } = job;
       return {
@@ -1744,7 +1862,7 @@ export const appRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input }) => {
-      const job = get<Job>(input.id);
+      const job = readJob(input.id);
       if (job?.type !== "screen" || !job.result) return null;
       return {
         jobId: job.id,
@@ -1759,7 +1877,7 @@ export const appRouter = createTRPCRouter({
     .input(screenReviewsInput)
     .query(({ input }) => screenReviews(input)),
   screenExport: p.input(z.string()).query(({ input }) => {
-    const job = get<Job>(input);
+    const job = readJob(input);
     if (!job) throw new Error("任务不存在");
     if ((job.input as { type?: string })?.type === "formula-screen")
       return exportFormulaScreen(job);
@@ -1786,7 +1904,7 @@ export const appRouter = createTRPCRouter({
   testChannel: p.input(z.string()).mutation(({ input }) => testDelivery(input)),
   deliveries: p.query(() => list<Delivery>("delivery", 200)),
   retryDelivery: p.input(z.string()).mutation(({ input }) => {
-    const d = get<Delivery>(input);
+    const d = recordOfKind<Delivery>("delivery", input);
     if (!d) throw new Error("投递不存在");
     const id = `manual-${randomUUID()}`;
     return put("delivery", id, {
@@ -1825,7 +1943,15 @@ export const appRouter = createTRPCRouter({
       )
         throw new Error("缠论/双突破监控仅支持日线");
       for (const id of input.channels)
-        if (!get<Channel>(id)) throw new Error("通知渠道不存在");
+        if (!recordOfKind<Channel>("channel", id))
+          throw new Error("通知渠道不存在");
+      if (
+        input.id &&
+        chartSqlite()
+          .prepare("SELECT id FROM records WHERE id=? AND kind<>'monitor'")
+          .get(input.id)
+      )
+        throw new Error("不能覆盖其他类型记录");
       const id = input.id ?? `monitor-${randomUUID()}`;
       return put<Monitor>("monitor", id, {
         ...input,
@@ -1838,7 +1964,7 @@ export const appRouter = createTRPCRouter({
   toggleMonitor: p
     .input(z.object({ id: z.string(), enabled: z.boolean() }))
     .mutation(({ input }) => {
-      const m = get<Monitor>(input.id);
+      const m = recordOfKind<Monitor>("monitor", input.id);
       if (!m) throw new Error("监控不存在");
       return put("monitor", m.id, {
         ...m,

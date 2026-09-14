@@ -24,6 +24,8 @@ export type TaskState = Pick<
   | "createdAt"
   | "updatedAt"
   | "workProgress"
+  | "attemptId"
+  | "auditIncomplete"
 >;
 export const taskTypeLabels: Record<Job["type"], string> = {
   scan: "数据扫描",

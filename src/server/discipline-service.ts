@@ -8,6 +8,9 @@ import type {
   DisciplineSource,
 } from "./discipline-source";
 import { recordResearchUsage, usageConfigHash } from "./research-usage";
+import { ResearchAttempts, bestEffortAudit } from "./research-governance";
+import { sqlite } from "./db";
+import { processAlive } from "./lease";
 
 export const disciplineRequestSchema = z.object({
   account: z.string().trim().min(1),
@@ -29,6 +32,8 @@ type Job = {
   payload?: Payload;
   usageRecorded: boolean | null;
   timer?: ReturnType<typeof setTimeout>;
+  attemptId?: string;
+  auditIncomplete?: boolean;
 };
 const scope = globalThis as typeof globalThis & { disciplineJob?: Job };
 // One volatile result, replaced on the next run or discarded after 15 minutes.
@@ -36,24 +41,77 @@ const scope = globalThis as typeof globalThis & { disciplineJob?: Job };
 export function startDiscipline(account: string, source: DisciplineSource) {
   if (scope.disciplineJob?.status === "running")
     throw new Error("已有纪律反事实任务正在运行");
-  const worker = new Worker(
-    resolve(/* turbopackIgnore: true */ "runtime/discipline-worker.cjs"),
-    { workerData: source },
+  const id = randomUUID();
+  bestEffortAudit(() => new ResearchAttempts(sqlite()).recover(processAlive));
+  const dates = [
+    ...source.fills.map((fill) => fill.tradeDate),
+    ...source.cashFlows.map((flow) => flow.flowDate),
+  ].sort();
+  const attempt = bestEffortAudit(() =>
+    new ResearchAttempts(sqlite()).begin({
+      taskId: id,
+      kind: "discipline-counterfactual",
+      config: source,
+      requestedRange: dates.length
+        ? { start: dates[0]!, end: dates.at(-1)! }
+        : null,
+      symbols: [
+        ...new Set(source.fills.map((fill) => fill.symbol ?? fill.code)),
+      ],
+    }),
   );
+  let worker: Worker;
+  try {
+    worker = new Worker(
+      resolve(/* turbopackIgnore: true */ "runtime/discipline-worker.cjs"),
+      { workerData: source },
+    );
+  } catch (error) {
+    if (attempt)
+      bestEffortAudit(() =>
+        new ResearchAttempts(sqlite()).update(attempt.id, {
+          state: "failed",
+          error: "纪律反事实 worker 启动失败",
+        }),
+      );
+    throw error;
+  }
   if (scope.disciplineJob?.timer) clearTimeout(scope.disciplineJob.timer);
   const job: Job = {
-    id: randomUUID(),
+    id,
     account,
     status: "running",
     phase: "启动",
     error: null,
     worker,
     usageRecorded: null,
+    attemptId: attempt?.id,
+    auditIncomplete: !attempt,
   };
+  if (
+    attempt &&
+    !bestEffortAudit(() =>
+      new ResearchAttempts(sqlite()).update(attempt.id, { state: "running" }),
+    )
+  )
+    job.auditIncomplete = true;
   scope.disciplineJob = job;
   const finish = (status: Job["status"], error: string | null = null) => {
+    if (job.status !== "running") return;
     job.status = status;
     job.error = error;
+    if (
+      job.attemptId &&
+      !bestEffortAudit(() =>
+        new ResearchAttempts(sqlite()).update(job.attemptId!, {
+          state: status === "complete" ? "succeeded" : status,
+          error,
+          resultId: status === "complete" ? job.id : null,
+          auditIncomplete: job.auditIncomplete || job.usageRecorded === false,
+        }),
+      )
+    )
+      job.auditIncomplete = true;
     if (job.timer) clearTimeout(job.timer);
     void worker.terminate();
     job.worker = undefined;
@@ -81,27 +139,30 @@ export function startDiscipline(account: string, source: DisciplineSource) {
         job.payload = message.value;
         const { result, evidence } = message.value;
         job.usageRecorded =
-          recordResearchUsage(() => ({
-            kind: "discipline-counterfactual",
-            symbols: [
-              ...new Set(
-                source.fills
-                  .filter((f) => f.instrument !== "reverseRepo")
-                  .map((f) => f.symbol ?? f.code),
-              ),
-            ],
-            universeSize: null,
-            range: {
-              start: evidence.input.tradingDays[0]!,
-              end: evidence.input.tradingDays.at(-1)!,
-            },
-            candidateCount: 20,
-            config: {
-              version: result.version,
-              rules: result.points.map((p) => p.rules),
-              inputHash: usageConfigHash(evidence.input),
-            },
-          })) !== null;
+          recordResearchUsage(
+            () => ({
+              kind: "discipline-counterfactual",
+              symbols: [
+                ...new Set(
+                  source.fills
+                    .filter((f) => f.instrument !== "reverseRepo")
+                    .map((f) => f.symbol ?? f.code),
+                ),
+              ],
+              universeSize: null,
+              range: {
+                start: evidence.input.tradingDays[0]!,
+                end: evidence.input.tradingDays.at(-1)!,
+              },
+              candidateCount: 20,
+              config: {
+                version: result.version,
+                rules: result.points.map((p) => p.rules),
+                inputHash: usageConfigHash(evidence.input),
+              },
+            }),
+            job.attemptId,
+          ) !== null;
         finish("complete");
       } else if (message.type === "failed")
         finish("failed", message.error ?? "计算失败");
@@ -130,6 +191,10 @@ export function disciplineStatus(id: string) {
     phase: job.phase,
     error: job.error,
     usageRecorded: job.usageRecorded,
+    ...(job.attemptId ? { attemptId: job.attemptId } : {}),
+    ...(job.auditIncomplete || job.usageRecorded === false
+      ? { auditIncomplete: true }
+      : {}),
     warnings: job.payload?.evidence.warnings ?? [],
     result: result
       ? {
@@ -150,6 +215,12 @@ export function disciplineStatus(id: string) {
 export function cancelDiscipline(id: string) {
   const job = find(id);
   if (job.status === "running") {
+    if (job.attemptId)
+      bestEffortAudit(() =>
+        new ResearchAttempts(sqlite()).update(job.attemptId!, {
+          state: "cancelled",
+        }),
+      );
     job.status = "cancelled";
     if (job.timer) clearTimeout(job.timer);
     void job.worker?.terminate();

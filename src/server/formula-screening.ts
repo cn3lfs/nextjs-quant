@@ -17,6 +17,7 @@ import { usesRpsFields } from "~/lib/tdx-formula-check";
 import { parseFormula } from "~/lib/tdx-formula-syntax";
 
 export type FormulaWork = {
+  attemptId?: string;
   type: "formula-screen";
   root: string;
   formula: ScreeningFormula;
@@ -184,18 +185,21 @@ export async function screenFormula(
   );
   result.elapsedMs = performance.now() - started;
   if (usageStart !== null && result.asOf !== null)
-    recordResearchUsage(() => ({
-      kind: "formula-screen",
-      symbols: ["*"],
-      universeSize: securities.length,
-      range: { start: usageStart!, end: result.asOf! },
-      candidateCount: 1,
-      config: {
+    recordResearchUsage(
+      () => ({
         kind: "formula-screen",
-        source: formula.source,
-        parameters: formula.parameters,
-        root: work.root,
-      },
-    }));
+        symbols: ["*"],
+        universeSize: securities.length,
+        range: { start: usageStart!, end: result.asOf! },
+        candidateCount: 1,
+        config: {
+          kind: "formula-screen",
+          source: formula.source,
+          parameters: formula.parameters,
+          root: work.root,
+        },
+      }),
+      work.attemptId,
+    );
   return result;
 }

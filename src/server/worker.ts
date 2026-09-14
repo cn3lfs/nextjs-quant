@@ -54,7 +54,7 @@ export type Work =
         review: ReturnType<typeof reconcileDividends>;
       };
     };
-async function main(work: Work) {
+async function main(work: Work & { attemptId?: string }) {
   if (work.type === "formula-screen")
     return screenFormula(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),
@@ -137,28 +137,31 @@ async function main(work: Work) {
       dividendPlan,
       { adjustment: work.adjustment, corporateActions },
     );
-    recordResearchUsage(() => ({
-      kind: "backtest",
-      symbols: [source.symbol],
-      universeSize: 1,
-      range: {
-        start: source.bars[0]!.date.slice(0, 10),
-        end: source.bars.at(-1)!.date.slice(0, 10),
-      },
-      candidateCount: 1,
-      config: {
+    recordResearchUsage(
+      () => ({
         kind: "backtest",
-        symbol: source.symbol,
-        period: source.period,
-        strategy: work.strategy,
-        initial: work.initial,
-        costs: work.costs,
-        ...(work.adjustment ? { adjustment: work.adjustment } : {}),
-        cashDividends: dividendPlan
-          ? { taxBps: dividendPlan.taxBps, mode: "cash-dividend" }
-          : null,
-      },
-    }));
+        symbols: [source.symbol],
+        universeSize: 1,
+        range: {
+          start: source.bars[0]!.date.slice(0, 10),
+          end: source.bars.at(-1)!.date.slice(0, 10),
+        },
+        candidateCount: 1,
+        config: {
+          kind: "backtest",
+          symbol: source.symbol,
+          period: source.period,
+          strategy: work.strategy,
+          initial: work.initial,
+          costs: work.costs,
+          ...(work.adjustment ? { adjustment: work.adjustment } : {}),
+          cashDividends: dividendPlan
+            ? { taxBps: dividendPlan.taxBps, mode: "cash-dividend" }
+            : null,
+        },
+      }),
+      work.attemptId,
+    );
     return {
       source,
       result: {

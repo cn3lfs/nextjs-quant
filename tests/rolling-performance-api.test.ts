@@ -39,6 +39,9 @@ vi.mock("../src/server/trade-review-service", async (original) => ({
 }));
 vi.mock("../src/server/research-store", () => ({
   ResearchStore: class {
+    isResultVisible() {
+      return true;
+    }
     result() {
       return {
         spec: {
