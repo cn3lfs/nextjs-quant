@@ -18,9 +18,9 @@ Copy-Item -LiteralPath $downloader -Destination (Join-Path $backup 'tdx_download
 $late = Get-ScheduledTask -TaskName 'Quant_RPS_Late' -ErrorAction SilentlyContinue
 if ($late) { Export-ScheduledTask -TaskName $late.TaskName | Set-Content -LiteralPath (Join-Path $backup 'Quant_RPS_Late.xml') -Encoding Unicode }
 $collector = Get-ScheduledTask -TaskName 'CLS_News_Collector'
-$analysis = Get-ScheduledTask -TaskName 'ClaudeCLS-DailyNewsAnalysis'
+$analysis = Get-ScheduledTask -TaskName 'QuantWorkbench-CLS-Morning'
 Export-ScheduledTask -TaskName $collector.TaskName | Set-Content -LiteralPath (Join-Path $backup 'CLS_News_Collector.xml') -Encoding Unicode
-Export-ScheduledTask -TaskName $analysis.TaskName | Set-Content -LiteralPath (Join-Path $backup 'ClaudeCLS-DailyNewsAnalysis.xml') -Encoding Unicode
+Export-ScheduledTask -TaskName $analysis.TaskName | Set-Content -LiteralPath (Join-Path $backup 'QuantWorkbench-CLS-Morning.xml') -Encoding Unicode
 $collectorPath = 'E:\pythonPrj\cls_news_collector\collector.py'
 Copy-Item -LiteralPath $collectorPath -Destination (Join-Path $backup 'collector.py')
 $collectorCode = Get-Content -LiteralPath $collectorPath -Raw -Encoding UTF8

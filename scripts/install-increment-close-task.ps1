@@ -15,7 +15,7 @@ $plan = [ordered]@{
     retryMinutes = 15
     maximumRetries = 1
     retainedDownloadTimes = @($remainingTriggers | ForEach-Object { ([datetime]$_.StartBoundary).ToString('HH:mm') })
-    unchanged = @('Quant_RPS_Late', 'CLS_News_Collector', 'ClaudeCLS-DailyNewsAnalysis')
+    unchanged = @('Quant_RPS_Late', 'CLS_News_Collector', 'QuantWorkbench-CLS-Morning')
     apply = [bool]$Apply
 }
 $plan | ConvertTo-Json -Depth 4
