@@ -36,7 +36,8 @@ it("uses the actual fundamental, Guo and value method dependencies and rejects m
   }
   const catalog = await researchSkillCatalog();
   for (const [id, modes] of [
-    ["fundamental-analyst", ["fundamental", "guo"]],
+    ["fundamental-analyst", ["fundamental"]],
+    ["guo-yongqing-valuation", ["guo"]],
     ["value-investing", ["value"]],
   ] as const) {
     const entry = catalog.find((s) => s.skillId === id)!;
@@ -59,16 +60,16 @@ it("uses the actual fundamental, Guo and value method dependencies and rejects m
   }
   const missing = join(
     root,
-    "fundamental-analyst/references/guo-yongqing-method.md",
+    "guo-yongqing-valuation/references/balance-sheet-restructure.md",
   );
   await unlink(missing);
   expect(
     (await researchSkillCatalog()).find(
-      (s) => s.skillId === "fundamental-analyst",
+      (s) => s.skillId === "guo-yongqing-valuation",
     ),
   ).toMatchObject({
     status: "incomplete",
-    missingFiles: ["references/guo-yongqing-method.md"],
+    missingFiles: ["references/balance-sheet-restructure.md"],
   });
   await expect(valuationMethod("guo")).rejects.toThrow();
   const philosophy = join(root, "value-investing/references/philosophy.md");
@@ -214,6 +215,7 @@ it("distinguishes installed instructions from implemented partial adapters", asy
   }
   const catalog = await researchSkillCatalog();
   expect(catalog).toHaveLength(54);
+  expect(catalog.some((s) => s.skillId === "tdx-finance-skill")).toBe(false);
   expect(
     catalog.find((s) => s.skillId === "hithink-finance-query"),
   ).toMatchObject({

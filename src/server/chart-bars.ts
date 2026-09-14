@@ -1,3 +1,4 @@
+import { freeChartHistory } from "./free-chart-sources";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
@@ -11,13 +12,7 @@ import { get, put } from "./db";
 import { settings } from "./settings";
 import { readSnapshot } from "./tdx";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
-import { mcpConfigured } from "./mcp";
 import { aggregateChartBars, chartPeriodEnd } from "./chart-aggregation";
-import {
-  mcpChartHistory,
-  mcpLatestBars,
-  onlinePeriodHistory,
-} from "./chart-history";
 import { localCalendarReference } from "./data-health";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 import { mergeOnlineDailyTail } from "./chart-online-delta";
@@ -30,22 +25,12 @@ function deltaSince(date: string) {
     .toISOString()
     .slice(0, 10);
 }
-/** 在线日线尾段：固定取日线（周/月由本地合成），MCP 优先、未配置或失败退东方财富；
- * 两侧都是不复权口径。 */
-async function onlineDailyTail(symbol: string, since: string) {
-  try {
-    if (!(await mcpConfigured())) throw new Error("通达信 MCP 尚未配置");
-    return {
-      bars: await mcpLatestBars(symbol, "day", deltaWindow),
-      source: "通达信 MCP",
-    };
-  } catch (error) {
-    const remote = await onlinePeriodHistory(symbol, "day", deltaWindow, since);
-    return {
-      bars: remote.bars.slice(-deltaWindow),
-      source: `东方财富在线（MCP不可用：${error instanceof Error ? error.message : "读取失败"}）`,
-    };
-  }
+/** Online tails remain unadjusted; cross-source units are checked by the merger. */
+async function onlineDailyTail(symbol: string, _since: string) {
+  const remote = await freeChartHistory(symbol, "day", deltaWindow);
+  if (remote.source === "tencent/westock-data")
+    throw new Error("腾讯成交量单位未核验，不能拼接本地尾段");
+  return { bars: remote.bars, source: remote.source };
 }
 
 export const chartBarsInput = z.object({
@@ -67,10 +52,15 @@ export async function chartBars(
   const reasons: string[] = [];
   let resolved: Omit<ChartSnapshot, "id"> | undefined;
   try {
+    if (
+      source.requestedSource &&
+      !["local", "auto"].includes(source.requestedSource)
+    )
+      throw new Error("使用手动指定的数据源");
     let local: Snapshot;
     try {
       local =
-        source.period === base
+        source.source === "tdx-local" && source.period === base
           ? source
           : await (base === "day" ? readLocalDailySnapshot : readSnapshot)(
               source.dataRoot ?? settings().tdxRoot,
@@ -117,6 +107,7 @@ export async function chartBars(
       ? now - chartPeriodEnd(dayTail.date, "day")
       : Infinity;
     if (
+      source.requestedSource !== "local" &&
       dayTail &&
       series.bars.length >= input.limit &&
       baseAge <= 4 * 86400000 &&
@@ -165,22 +156,22 @@ export async function chartBars(
         age > 300000);
     resolved = { ...series, ...aggregated, period, historyExhausted: true };
     if (deficient || aggregated.excluded.length)
-      reasons.push("本地目标周期历史不足、缺口或时效需在线补齐");
+      reasons.push("本地目标周期历史不足、存在缺口或可能过期");
   } catch (error) {
     reasons.push(error instanceof Error ? error.message : "本地行情不可用");
   }
-  if (!resolved || reasons.length) {
+  if (source.requestedSource === "local" && !resolved)
+    throw new Error(reasons.join("；"));
+  if (resolved && source.requestedSource === "local")
+    resolved.sourceNote = reasons.join("；");
+  if (source.requestedSource !== "local" && (!resolved || reasons.length)) {
     try {
-      let remote;
-      try {
-        if (!(await mcpConfigured())) throw new Error("通达信 MCP 尚未配置");
-        remote = await mcpChartHistory(source.symbol, period, input.limit);
-      } catch (error) {
-        reasons.push(
-          `MCP：${error instanceof Error ? error.message : "读取失败"}`,
-        );
-        remote = await onlinePeriodHistory(source.symbol, period, input.limit);
-      }
+      const remote = await freeChartHistory(
+        source.symbol,
+        period,
+        input.limit,
+        source.requestedSource ?? "auto",
+      );
       resolved = {
         ...source,
         ...remote,
@@ -190,7 +181,12 @@ export async function chartBars(
         formingDates: remote.bars
           .filter((b) => chartPeriodEnd(b.date, period) > now)
           .map((b) => b.date),
-        sourceNote: reasons.join("；"),
+        sourceNote: [
+          ...reasons.filter((r) => r !== "使用手动指定的数据源"),
+          remote.sourceNote,
+        ]
+          .filter(Boolean)
+          .join("；"),
       };
     } catch (error) {
       if (!resolved?.bars.length) throw error;

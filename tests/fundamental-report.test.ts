@@ -656,7 +656,7 @@ it("archives canonical IDs after the structured provider validates a short-refer
     undefined,
     "codex:default",
   );
-  expect(report.promptVersion).toBe("fundamental-review-prompt-2");
+  expect(report.promptVersion).toBe("fundamental-review-prompt-3");
   expect(report.result.stages[0]!.citations).toEqual([dossier.finance.id]);
   expect(report.dossier).toEqual(dossier);
   expect(fundamentalReportSchema(dossier, method).parse(report.result)).toEqual(

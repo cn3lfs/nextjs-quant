@@ -13,7 +13,6 @@ import {
 import { ArrowUpRight, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { screenSortLabels, type ScreenSort } from "~/lib/screen-sort";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
-import { OnlineScreen } from "../online-screen";
 import { FormulaScreen } from "../formula-screen";
 import { ScreenTaskProgress } from "../screen-task-progress";
 import { Button } from "../ui/button";
@@ -139,11 +138,6 @@ export function ScreenView({
       "使用通达信公式筛选本地全 A 股已完成日线，采用不复权口径。",
     ],
     [
-      "online",
-      "在线自然语言筛选",
-      "查询财务、行业等在线条件，结果不代表本地规则已通过，导入后仍需复核。",
-    ],
-    [
       "draft",
       "本地条件草案（双均线）",
       "将自然语言需求转为双均线条件草案，确认应用后再运行本地筛选。",
@@ -176,20 +170,6 @@ export function ScreenView({
       <div id="screen-entry-formula" hidden={entry !== "formula"}>
         <FormulaScreen onStarted={state.selectFormulaJob} />
       </div>
-      <div id="screen-entry-online" hidden={entry !== "online"}>
-        <OnlineScreen
-          jobs={jobs.data ?? []}
-          query={onlineQuery}
-          setQuery={setOnlineQuery}
-          onImport={(selected) => {
-            setUniverse(selected.join(","));
-            setEntry("local");
-            notify(
-              `已将本页 ${selected.length} 只证券填入本地池，请核对周期与规则后运行复核`,
-            );
-          }}
-        />
-      </div>
       <div id="screen-entry-draft" hidden={entry !== "draft"}>
         <section className="panel">
           <div className="panel-title">
@@ -216,16 +196,6 @@ export function ScreenView({
               {draft.unsupported.length > 0 && (
                 <div>
                   <p>本地不支持：{draft.unsupported.join("、")}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setOnlineQuery(prompt);
-                      setEntry("online");
-                    }}
-                  >
-                    将原需求填入在线筛选
-                  </Button>
                 </div>
               )}
               <Button

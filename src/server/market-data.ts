@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Bar, Period, Snapshot, Evidence, Strategy } from "~/lib/domain";
 import { symbolSchema } from "~/lib/domain";
-import { queryMcp, mcpConfigured } from "./mcp";
+import { queryMcp, mcpConfigured } from "./tdx-mcp-disabled";
 import { get, put } from "./db";
 import { snapshotEvidence } from "./research";
 import { remoteResearchEvidence } from "./evidence";

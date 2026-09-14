@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { TdxSession } from "./tdx-quotes";
 import { buildQuotesRequest, parseQuotes } from "./tdx-wire";
-import { queryMcp } from "./mcp";
 export type WorkflowPrice = {
   symbol: string;
   price: number;
@@ -175,38 +174,11 @@ export async function workflowQuotes(
             ))
               prices.set(price.symbol, price);
           } catch {
-            /* Only missing rows fall through to MCP. */
+            /* Missing rows remain unavailable; never invent prices. */
           }
         }
       },
     ),
-  );
-  const missing = symbols.filter((symbol) => !prices.has(symbol));
-  let cursor = 0;
-  const deadline = Date.now() + 90 * 1000;
-  await Promise.all(
-    Array.from({ length: Math.min(6, missing.length) }, async () => {
-      while (cursor < missing.length && Date.now() < deadline) {
-        checkpoint();
-        const symbol = missing[cursor++]!;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            const raw = await queryMcp("tdx_quotes", {
-              code: symbol.slice(2),
-              setcode: symbol.startsWith("sh") ? "1" : "0",
-              hasCwInfo: "0",
-            });
-            prices.set(
-              symbol,
-              parseWorkflowQuote(raw, symbol, date, Date.now()),
-            );
-            break;
-          } catch {
-            /* Retain this symbol in the denominator; the caller flags reused prices. */
-          }
-        }
-      }
-    }),
   );
   return prices;
 }

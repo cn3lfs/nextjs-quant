@@ -1,3 +1,4 @@
+import { marketSourceSchema, type MarketSource } from "./market-source";
 import { researchDateSchema } from "./research-usage";
 import { z } from "zod";
 import { notificationPolicySchema } from "./notification-policy";
@@ -44,6 +45,7 @@ export type Snapshot = {
   volumeUnit?: string;
   sourceNote?: string;
   sourceVersions?: string[];
+  requestedSource?: MarketSource;
 };
 const maParamsSchema = z
   .object({
@@ -249,7 +251,7 @@ export type Monitor = {
   symbols: string[];
   strategy: Strategy;
   period: Period;
-  source: "local" | "mcp";
+  source: MarketSource | "mcp";
   channels: string[];
   ai: boolean;
   enabled: boolean;
@@ -262,6 +264,7 @@ export type Monitor = {
   error?: string;
 };
 export const settingsSchema = z.object({
+  marketDataSource: marketSourceSchema.default("auto"),
   holdoutStart: researchDateSchema.nullable().default(null),
   notificationPolicy: notificationPolicySchema,
   llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),

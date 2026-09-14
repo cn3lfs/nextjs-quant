@@ -151,7 +151,7 @@ export class NotificationPolicyStore {
         (m) =>
           m.enabled &&
           m.period === "day" &&
-          m.source !== "mcp" &&
+          (m.source === "local" || m.source === "auto") &&
           m.strategy.type === unit.strategy &&
           m.symbols.includes(unit.symbol),
       );

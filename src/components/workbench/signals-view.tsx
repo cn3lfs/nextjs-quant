@@ -1,3 +1,5 @@
+import { MarketSourceSelect } from "../market-source-select";
+import { marketSourceLabels } from "~/lib/market-source";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -146,22 +148,10 @@ export function SignalsView({
           </p>
         )}
         <Field label="监控数据源">
-          <Select
+          <MarketSourceSelect
             value={monitorSource}
-            onValueChange={(selected) =>
-              setMonitorSource(selected as "local" | "mcp")
-            }
-          >
-            <SelectTrigger aria-label="监控数据源" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mcp">通达信 MCP（最新行情）</SelectItem>
-              <SelectItem value="local">
-                本地通达信文件（需自行更新）
-              </SelectItem>
-            </SelectContent>
-          </Select>
+            onChange={setMonitorSource}
+          />
         </Field>
         <div className="check-row">
           {channels.data?.map((c) => (
@@ -211,7 +201,7 @@ export function SignalsView({
           启用监控
         </Button>
         <p className="muted">
-          首次建立基线，不发送历史信号。需要本交易日已完成行情；MCP
+          首次建立基线，不发送历史信号。需要本交易日已完成行情；免费在线源
           监控自动查询，本地模式需通达信更新文件。新信号还需通过同花顺问财当日交易状态核验，未知或停牌时暂停该证券信号。点击窗口右上角
           × 会退出应用并停止监控，电脑休眠时也会停止监控。
         </p>
@@ -232,7 +222,11 @@ export function SignalsView({
                         `${securityDisplayName(s, names)} (${s.toUpperCase()})`,
                     )
                     .join("、")}{" "}
-                  · {m.period} · {m.source === "mcp" ? "MCP" : "本地"} ·{" "}
+                  · {m.period} ·{" "}
+                  {m.source === "mcp"
+                    ? "已停用（请重建监控）"
+                    : marketSourceLabels[m.source]}{" "}
+                  ·{" "}
                   {m.error ??
                     (m.lastCheck
                       ? `检查于 ${stamp(m.lastCheck)}`

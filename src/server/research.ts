@@ -54,7 +54,13 @@ export function snapshotEvidence(
         publishedAt: null,
         fetchedAt: snapshot.createdAt,
         currency: "CNY",
-        unit: { price: "元", volume: "股", amount: "元" },
+        unit: {
+          price: "元",
+          volume:
+            snapshot.volumeUnit ??
+            (snapshot.source === "tdx-local" ? "股" : "源单位未独立核验"),
+          amount: "元",
+        },
         adjustment: snapshot.adjustment,
         reportPeriod: null,
         quality: "partial",

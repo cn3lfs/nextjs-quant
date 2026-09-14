@@ -1,4 +1,4 @@
-import { queryMcp, mcpConfigured } from "./mcp";
+import { queryMcp, mcpConfigured } from "./tdx-mcp-disabled";
 import { searchTencentIdentity } from "./tencent-identity";
 import { get, put } from "./db";
 import { mergeVerifiedSecurityName } from "./securities";
@@ -86,7 +86,7 @@ export async function verifySecurityIdentity(
       const tencent = await searchTencentIdentity(symbol);
       let tdx: ReturnType<typeof checkTdxIdentity> = {
         status: "unavailable",
-        reason: "通达信 MCP 未配置",
+        reason: "通达信交叉核验暂时停用",
       };
       if (await mcpConfigured()) {
         try {

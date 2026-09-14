@@ -7,7 +7,7 @@ const screen = readFileSync("src/components/workbench/screen-view.tsx", "utf8");
 const workspace = readFileSync("src/components/chart-workspace.tsx", "utf8");
 const chart = readFileSync("src/components/chart.tsx", "utf8");
 
-it("T2 keeps all four forms mounted and hides exactly the inactive entries", () => {
+it("T2 keeps the three available forms mounted and hides exactly the inactive entries", () => {
   const ast = ts.createSourceFile(
     "screen.tsx",
     screen,
@@ -42,7 +42,7 @@ it("T2 keeps all four forms mounted and hides exactly the inactive entries", () 
     ts.forEachChild(node, visit);
   };
   visit(ast);
-  expect(panels).toEqual(["formula", "online", "draft", "local"]);
+  expect(panels).toEqual(["formula", "draft", "local"]);
   expect(screen).toContain("aria-pressed={entry === id}");
   expect(screen).toContain("aria-controls={`screen-entry-${id}`}");
   expect(screen).toContain("onClick={() => setEntry(id)}");
@@ -51,22 +51,20 @@ it("T2 keeps all four forms mounted and hides exactly the inactive entries", () 
   );
 });
 
-it("T2 retains import and draft actions while opening the destination form", () => {
-  const expected = renderHandlers(`<><OnlineScreen onImport={(selected) => {
-    setUniverse(selected.join(",")); setEntry("local");
-    notify(\`已将本页 \${selected.length} 只证券填入本地池，请核对周期与规则后运行复核\`);
-  }} /><Button onClick={() => { setOnlineQuery(prompt); setEntry("online"); }} />
-  <Button onClick={() => { setStrategy(draft.strategy); setEntry("local"); notify("草案已应用，请核对后运行"); }} />
+it("T2 removes suspended online actions and retains draft actions while opening the destination form", () => {
+  expect(screen).not.toContain('setEntry("online")');
+  expect(screen).not.toContain("<OnlineScreen");
+  const expected =
+    renderHandlers(`<>  <Button onClick={() => { setStrategy(draft.strategy); setEntry("local"); notify("草案已应用，请核对后运行"); }} />
   <Button onClick={() => screen.mutate({ strategy, period, symbols: symbols(), asOf: historicalDate || undefined, requireCurrent, universeSource: historicalDate ? universeSource : undefined })} /></>`);
   const actual = renderHandlers(screen);
   for (const hash of expected)
     expect(actual.filter((value) => value === hash)).toHaveLength(1);
 });
 
-it("T2 describes the four entry boundaries without implying online or current coverage guarantees", () => {
+it("T2 describes the remaining entry boundaries without implying online or current coverage guarantees", () => {
   for (const text of [
     "使用通达信公式筛选本地全 A 股已完成日线，采用不复权口径。",
-    "查询财务、行业等在线条件，结果不代表本地规则已通过，导入后仍需复核。",
     "将自然语言需求转为双均线条件草案，确认应用后再运行本地筛选。",
     "按双均线、涨幅与量比规则筛选本地数据，覆盖范围只反映最近扫描索引。",
   ])

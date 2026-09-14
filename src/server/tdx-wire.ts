@@ -436,6 +436,10 @@ export function parseBars(
   const category = KLINE[kline],
     minute = isMinuteKline(category),
     count = body.readUInt16LE(0);
+  if (count > 0 && body.length === 2)
+    throw new Error(
+      "通达信服务器未返回 K 线正文（只有数量字段），请换服务器或数据源",
+    );
   let pos = 2,
     base = 0;
   const bars: TdxBar[] = [];

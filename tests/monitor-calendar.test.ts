@@ -13,8 +13,8 @@ vi.mock("../src/server/data-health", async (original) => ({
   ...(await original<typeof import("../src/server/data-health")>()),
   localCalendarReference: mocks.local,
 }));
-vi.mock("../src/server/market-data", () => ({
-  mcpProvider: { history: mocks.history },
+vi.mock("../src/server/preferred-online-chart", () => ({
+  preferredOnlineChart: mocks.history,
 }));
 import { monitorCalendar } from "../src/server/monitor-calendar";
 import { freshCompleted, transition } from "../src/server/runtime";

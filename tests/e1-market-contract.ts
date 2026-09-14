@@ -2,7 +2,7 @@ import ts from "typescript";
 
 const expected = `<MarketPoolBrowser symbol={symbol} disabled={load.isPending} onSelect={(next) => {
   setSymbol(next);
-  load.mutate({ symbol: next, period, source: "local" });
+  load.mutate({ symbol: next, period, source: marketSource });
 }} />`;
 function emitted(source: string) {
   return ts.transpileModule(`const view = (${source});`, {
@@ -36,7 +36,7 @@ export function withoutE1MarketBrowser(source: string) {
     emitted(nodes[0]!.getText(ast)) !== emitted(expected)
   )
     throw new Error(
-      "E1股票池选择必须传递当前周期、本地来源、忙碌状态并同步所选代码",
+      "E1股票池选择必须传递当前周期、所选来源、忙碌状态并同步所选代码",
     );
   const node = nodes[0]!;
   return source.slice(0, node.getStart(ast)) + source.slice(node.end);

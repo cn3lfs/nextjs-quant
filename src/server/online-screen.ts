@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { mcpTools, queryMcp } from "./mcp";
+import { mcpTools, queryMcp } from "./tdx-mcp-disabled";
 import { background } from "./jobs";
 import { get } from "./db";
 import type { Coverage } from "~/lib/domain";

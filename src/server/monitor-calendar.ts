@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { gfCalendarReference } from "./gf-calendar";
 import { localCalendarReference, type CalendarReference } from "./data-health";
-import { mcpProvider } from "./market-data";
+import { preferredOnlineChart } from "./preferred-online-chart";
 // g4day 暂停：import { readDailyIncrementRange } from "./tdx-daily-cache";
 export async function monitorCalendar(
   root: string,
@@ -20,12 +20,12 @@ export async function monitorCalendar(
   }
   if (remote) {
     try {
-      const days = (await mcpProvider.history("sh000001", "day")).bars
+      const days = (await preferredOnlineChart("sh000001", "day")).bars
         .filter((b) => b.volume > 0)
         .map((b) => b.date);
       return {
         days,
-        source: "通达信 MCP 上证指数已有日期（非完整交易日历）",
+        source: "免费在线源上证指数已有日期（非完整交易日历）",
         hash: createHash("sha256").update(JSON.stringify(days)).digest("hex"),
       };
     } catch {

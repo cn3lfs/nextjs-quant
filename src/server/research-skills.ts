@@ -11,6 +11,7 @@ import {
   valuationMethodVersions,
 } from "./valuation-method";
 import type { Snapshot } from "~/lib/domain";
+const activeIds = ids.filter((id) => id !== "tdx-finance-skill");
 const root = () =>
   process.env.QUANT_SKILLS_DIR ?? join(homedir(), ".agent-skills", "skills");
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -27,12 +28,12 @@ const sepaFiles = [
   "references/entry-exit-rules.md",
 ];
 const valuationCatalogFiles: Record<string, readonly string[]> = {
-  "fundamental-analyst": [
-    ...new Set([
-      ...valuationMethodFiles.fundamental,
-      ...valuationMethodFiles.guo,
-    ]),
-  ].map((file) => file.slice("fundamental-analyst/".length)),
+  "fundamental-analyst": valuationMethodFiles.fundamental.map((file) =>
+    file.slice("fundamental-analyst/".length),
+  ),
+  "guo-yongqing-valuation": valuationMethodFiles.guo.map((file) =>
+    file.slice("guo-yongqing-valuation/".length),
+  ),
   "value-investing": valuationMethodFiles.value.map((file) =>
     file.slice("value-investing/".length),
   ),
@@ -77,15 +78,25 @@ const integrations: Record<
   },
   "fundamental-analyst": {
     scope:
-      "基本面五阶段与郭永清七步骤独立资料复核；财务质量、增长、收入口径与人工估值情景，不提供完整评分或自动交易信号",
+      "标准基本面五阶段独立资料复核；财务质量、增长、收入口径与人工估值情景，不提供完整评分或自动交易信号",
     requirements: [
-      "两条方法路径共五个文件",
+      "标准基本面方法与三个参考文件",
       "同一A股已归档连续年度财务与当前不复权日线",
       "财务口径、排雷与重构缺项必须披露；估值参数取显式人工场景",
     ],
-    output: "fundamentalReportSchema：基本面五阶段 / 郭永清七步骤",
+    output: "fundamentalReportSchema：基本面五阶段",
     budget:
       "背景最多两路并发、30分钟缓存；每报告1次模型请求及最多1次结构修复，同资料/方法/问题/提示版本/模型复用",
+  },
+  "guo-yongqing-valuation": {
+    scope:
+      "郭永清七步骤独立资料复核；保全性支出、股权资本成本与现金流五状态，不混用标准DCF-WACC",
+    requirements: [
+      "独立SKILL.md与四个参考文件",
+      "排雷、重构、行业开关与现金流缺项必须披露",
+    ],
+    output: "fundamentalReportSchema：郭永清七步骤",
+    budget: "同方法与证据版本复用；每报告1次模型请求及最多1次结构修复",
   },
   "value-investing": {
     scope:
@@ -249,7 +260,7 @@ const integrations: Record<
       "每批最多25条新新闻，跨范围按原文/规则/模型复用已完成分类；最多40批，每批最多1次修复",
   },
   "westock-data": {
-    scope: "证券身份查询及交叉核验",
+    scope: "证券身份、历史K线及行业/指数资料；不执行全市场自然语言筛选",
     requirements: ["本地查询脚本", "证券代码及交易所精确匹配"],
     output: "证券身份核验记录",
     budget: "每请求超时 15 秒",
@@ -330,7 +341,7 @@ export async function breakoutMethod(): Promise<SkillUse> {
 }
 export async function researchSkillCatalog() {
   return Promise.all(
-    ids.map(async (skillId) => {
+    activeIds.map(async (skillId) => {
       const integration = integrations[skillId];
       const files = await Promise.all(
         (
@@ -395,6 +406,7 @@ export async function researchSkillCatalog() {
                   skillId === "chan-theory" ||
                   skillId === "wyckoff-trader" ||
                   skillId === "fundamental-analyst" ||
+                  skillId === "guo-yongqing-valuation" ||
                   skillId === "value-investing"
                 ? "staged-research"
                 : integration
@@ -408,24 +420,26 @@ export async function researchSkillCatalog() {
                 : skillId === "gf-windmill"
                   ? "gf-windmill-1"
                   : skillId === "fundamental-analyst"
-                    ? `${valuationMethodVersions.fundamental} / ${valuationMethodVersions.guo}`
-                    : skillId === "value-investing"
-                      ? valuationMethodVersions.value
-                      : skillId === "volume-price-analysis"
-                        ? "vp-app-1"
-                        : skillId === "sepa-strategy-analyst"
-                          ? "sepa-report-2"
-                          : skillId === "canslim-analyst"
-                            ? canslimMethodVersion
-                            : skillId === "chan-theory"
-                              ? chanMethodVersion
-                              : skillId === "wyckoff-trader"
-                                ? wyckoffMethodVersion
-                                : skillId === "news-industry-classifier"
-                                  ? "news-classification-1"
-                                  : skillId === "news-sector-analyzer"
-                                    ? "news-sector-1"
-                                    : null,
+                    ? valuationMethodVersions.fundamental
+                    : skillId === "guo-yongqing-valuation"
+                      ? valuationMethodVersions.guo
+                      : skillId === "value-investing"
+                        ? valuationMethodVersions.value
+                        : skillId === "volume-price-analysis"
+                          ? "vp-app-1"
+                          : skillId === "sepa-strategy-analyst"
+                            ? "sepa-report-2"
+                            : skillId === "canslim-analyst"
+                              ? canslimMethodVersion
+                              : skillId === "chan-theory"
+                                ? chanMethodVersion
+                                : skillId === "wyckoff-trader"
+                                  ? wyckoffMethodVersion
+                                  : skillId === "news-industry-classifier"
+                                    ? "news-classification-1"
+                                    : skillId === "news-sector-analyzer"
+                                      ? "news-sector-1"
+                                      : null,
         };
       } catch {
         return {
@@ -515,7 +529,9 @@ export function volumePriceFacts(snapshot: Snapshot) {
   const narrow = last && Math.abs(last.close / last.open - 1) <= 0.01;
   return {
     ruleVersion: "vp-app-1",
-    volumeUnit: "股",
+    volumeUnit:
+      snapshot.volumeUnit ??
+      (snapshot.source === "tdx-local" ? "股" : "源单位未独立核验"),
     amountUnit: "元",
     adjustment: snapshot.adjustment,
     bars: bars.length,

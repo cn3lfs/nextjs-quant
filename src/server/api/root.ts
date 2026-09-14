@@ -1,3 +1,4 @@
+import { marketSourceSchema } from "~/lib/market-source";
 import { researchAdjustmentSchema } from "~/lib/research-adjustment";
 import {
   disciplineRequestSchema,
@@ -231,7 +232,12 @@ import {
   researchModel,
 } from "../research";
 import { saveChannel, testDelivery } from "../notifications";
-import { importLocalMcp, mcpTools, queryMcp, mcpConfigured } from "../mcp";
+import {
+  importLocalMcp,
+  mcpTools,
+  queryMcp,
+  mcpConfigured,
+} from "../tdx-mcp-disabled";
 import { gatherEvidence } from "../market-data";
 import { searchSecurities } from "../security-search";
 import { securityNames } from "../tdx";
@@ -1439,7 +1445,7 @@ export const appRouter = createTRPCRouter({
       z.object({
         symbol: symbolSchema,
         period: periodSchema,
-        source: z.enum(["local", "mcp", "online"]).default("local"),
+        source: z.union([marketSourceSchema, z.literal("online")]).optional(),
       }),
     )
     .mutation(({ input }) =>
@@ -1930,7 +1936,7 @@ export const appRouter = createTRPCRouter({
         symbols: z.array(symbolSchema).min(1).max(20),
         strategy: strategySchema,
         period: periodSchema,
-        source: z.enum(["local", "mcp"]).default("local"),
+        source: marketSourceSchema.default("local"),
         channels: z.array(z.string()).max(20),
         ai: z.boolean(),
         enabled: z.boolean(),

@@ -4,8 +4,7 @@ import { put } from "../src/server/db";
 import { saveSettings, settings } from "../src/server/settings";
 import { chartBars } from "../src/server/chart-bars";
 import { mergeOnlineDailyTail } from "../src/server/chart-online-delta";
-import * as chartHistory from "../src/server/chart-history";
-import * as mcp from "../src/server/mcp";
+import * as freeSources from "../src/server/free-chart-sources";
 afterEach(() => vi.restoreAllMocks());
 
 /** 交易日（周一至周五）倒推，避免周末混进本地或日历。 */
@@ -157,16 +156,18 @@ function putLocal(symbol: string) {
   return source;
 }
 function sessionClock() {
-  vi.spyOn(mcp, "mcpConfigured").mockResolvedValue(true);
   return vi.spyOn(Date, "now").mockReturnValue(session);
 }
 
 it("uses one small online request for the daily chart instead of reloading history", async () => {
   const source = putLocal("sh600005");
-  const latest = vi
-    .spyOn(chartHistory, "mcpLatestBars")
-    .mockResolvedValue(tail(today));
-  const history = vi.spyOn(chartHistory, "mcpChartHistory");
+  const latest = vi.spyOn(freeSources, "freeChartHistory").mockResolvedValue({
+    bars: tail(today),
+    source: "eastmoney-online",
+    volumeUnit: "手",
+    historyExhausted: true,
+    sourceNote: "",
+  });
   const now = sessionClock();
   try {
     const chart = await chartBars({
@@ -176,7 +177,7 @@ it("uses one small online request for the daily chart instead of reloading histo
     });
     expect(latest).toHaveBeenCalledTimes(1);
     expect(latest.mock.calls[0]?.[2]).toBe(20);
-    expect(history).not.toHaveBeenCalled();
+    expect(latest.mock.calls.every((call) => call[2] === 20)).toBe(true);
     expect(chart.bars.at(-1)).toEqual(bar(today, 9.5, 1200));
     expect(chart.formingDates).toEqual([today]);
     expect(chart.source).toBe("tdx-local");
@@ -191,10 +192,13 @@ it("uses one small online request for the daily chart instead of reloading histo
 
 it("keeps the local series when the online tail has no newer period", async () => {
   const source = putLocal("sh600006");
-  const latest = vi
-    .spyOn(chartHistory, "mcpLatestBars")
-    .mockResolvedValue(tail());
-  const history = vi.spyOn(chartHistory, "mcpChartHistory");
+  const latest = vi.spyOn(freeSources, "freeChartHistory").mockResolvedValue({
+    bars: tail(),
+    source: "eastmoney-online",
+    volumeUnit: "手",
+    historyExhausted: true,
+    sourceNote: "",
+  });
   const now = sessionClock();
   try {
     const chart = await chartBars({
@@ -203,7 +207,7 @@ it("keeps the local series when the online tail has no newer period", async () =
       limit: 100,
     });
     expect(latest).toHaveBeenCalledTimes(1);
-    expect(history).not.toHaveBeenCalled();
+    expect(latest.mock.calls.every((call) => call[2] === 20)).toBe(true);
     // 返回按 limit 截断，末根仍是本地最后一根。
     expect(chart.bars).toEqual(localBars.slice(-100));
     expect(chart.sourceNote).toBeUndefined();
@@ -215,10 +219,13 @@ it("keeps the local series when the online tail has no newer period", async () =
 it("builds the weekly chart from local days plus the same one-off delta", async () => {
   const source = putLocal("sh600007");
   saveSettings({ ...settings(), calendar: [...localDays, today] });
-  const latest = vi
-    .spyOn(chartHistory, "mcpLatestBars")
-    .mockResolvedValue(tail(today));
-  const history = vi.spyOn(chartHistory, "mcpChartHistory");
+  const latest = vi.spyOn(freeSources, "freeChartHistory").mockResolvedValue({
+    bars: tail(today),
+    source: "eastmoney-online",
+    volumeUnit: "手",
+    historyExhausted: true,
+    sourceNote: "",
+  });
   const now = sessionClock();
   try {
     const chart = await chartBars({
@@ -227,7 +234,7 @@ it("builds the weekly chart from local days plus the same one-off delta", async 
       limit: 100,
     });
     expect(latest).toHaveBeenCalledTimes(1);
-    expect(history).not.toHaveBeenCalled();
+    expect(latest.mock.calls.every((call) => call[2] === 20)).toBe(true);
     expect(chart.excluded).toEqual([]);
     expect(chart.bars.at(-1)!.date).toBe(today);
     expect(chart.formingDates).toEqual([today]);
@@ -240,11 +247,12 @@ it("still reloads online history when the local series is too short", async () =
   const short = localBars.slice(-10);
   const source = localSnapshot("sh600008", short);
   put("snapshot", source.id, source);
-  const latest = vi.spyOn(chartHistory, "mcpLatestBars");
-  const history = vi.spyOn(chartHistory, "mcpChartHistory").mockResolvedValue({
+  const latest = vi.spyOn(freeSources, "freeChartHistory");
+  const history = vi.spyOn(freeSources, "freeChartHistory").mockResolvedValue({
     bars: short,
     historyExhausted: true,
-    source: "tdx-mcp",
+    source: "eastmoney-online",
+    sourceNote: "",
     volumeUnit: "源单位",
   });
   const now = sessionClock();
@@ -255,7 +263,7 @@ it("still reloads online history when the local series is too short", async () =
       limit: 100,
     });
     expect(history).toHaveBeenCalledTimes(1);
-    expect(latest).not.toHaveBeenCalled();
+    expect(history.mock.calls[0]?.[2]).toBe(100);
     expect(chart.bars).toEqual(short);
   } finally {
     now.mockRestore();

@@ -24,7 +24,6 @@ import {
   completedRpsObservation,
   type RpsObservation,
 } from "./rps-observation";
-import { mcpLatestBars } from "./chart-history";
 
 export function estimateRpsSecurity(
   symbol: string,
@@ -106,15 +105,9 @@ export async function runRpsObservation(
       if (reference.days.at(-1) !== date)
         throw new Error("下载数据尚未包含今日收盘，保留上一批排名");
     } else {
-      let confirmed = false;
-      try {
-        confirmed =
-          (await mcpLatestBars("sh000001", "day", 1)).at(-1)?.date === date;
-      } catch {
-        /* An unavailable MCP cannot block a verified dated Tencent quote. */
-      }
-      if (!confirmed)
-        confirmed = (await workflowQuotes(["sh000001"], date)).has("sh000001");
+      const confirmed = (await workflowQuotes(["sh000001"], date)).has(
+        "sh000001",
+      );
       if (!confirmed) throw new Error("当前交易日未由在线指数确认");
     }
     const calendar = [...historyDays, date];

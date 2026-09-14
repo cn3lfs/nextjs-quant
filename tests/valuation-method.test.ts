@@ -33,7 +33,10 @@ it("loads each independent path completely with source hashes", async () => {
   }
   const before = await valuationMethod("guo");
   await writeFile(
-    join(root, "fundamental-analyst/references/guo-yongqing-method.md"),
+    join(
+      root,
+      "guo-yongqing-valuation/references/balance-sheet-restructure.md",
+    ),
     "修订",
   );
   const after = await valuationMethod("guo");

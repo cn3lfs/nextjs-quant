@@ -1,3 +1,4 @@
+import { type MarketSource } from "~/lib/market-source";
 import {
   researchAdjustmentSchema,
   type ResearchAdjustment,
@@ -48,7 +49,7 @@ import { monitorStrategy } from "./monitor-strategy";
 import { analyzeCzscSignal } from "./czsc-signal-analysis";
 import { analyze, snapshotEvidence } from "./research";
 import { enqueue, drain, recoverDeliveries } from "./notifications";
-import { mcpProvider, gatherEvidence } from "./market-data";
+import { gatherEvidence } from "./market-data";
 import { acquireScheduler } from "./lease";
 import type { ScreeningResult } from "./screening";
 import { securityDirectory } from "./securities";
@@ -135,26 +136,32 @@ export function scanJob() {
 export async function snapshot(
   symbol: string,
   period: Period,
-  source: "local" | "mcp" | "online" = "local",
+  source: MarketSource | "mcp" | "online" = settings().marketDataSource,
 ) {
-  const result =
-    source === "online"
-      ? await preferredOnlineChart(symbol, period)
-      : source === "mcp"
-        ? await mcpProvider.history(symbol, period)
-        : await runWorker<Snapshot>({
-            type: "snapshot",
-            root: settings().tdxRoot,
-            symbol,
-            period,
-          }).catch(async (error: unknown) => {
-            if (!isMarketIndex(symbol)) throw error;
-            const remote = await preferredOnlineChart(symbol, period);
-            return {
-              ...remote,
-              sourceNote: `本地指数行情不可用，已从在线源读取：${error instanceof Error ? error.message : "读取失败"}${remote.sourceNote ? `；${remote.sourceNote}` : ""}`,
-            };
-          });
+  if (source === "mcp")
+    throw new Error("原 MCP 监控已停用，请重新选择免费数据源");
+  const selected = source === "online" ? "auto" : source;
+  let result: Snapshot;
+  if (selected === "local" || selected === "auto") {
+    try {
+      result = await runWorker<Snapshot>({
+        type: "snapshot",
+        root: settings().tdxRoot,
+        symbol,
+        period,
+      });
+    } catch (error) {
+      if (selected === "local") throw error;
+      result = await preferredOnlineChart(symbol, period);
+      result.sourceNote = `本地源不可用，已换在线源；${result.sourceNote ?? ""}`;
+    }
+  } else result = await preferredOnlineChart(symbol, period, selected);
+  // Selection belongs to this request, not to a previously cached snapshot.
+  result = {
+    ...result,
+    requestedSource: selected,
+    id: `${result.id}-${selected}`,
+  };
   const existing = get<Snapshot>(result.id);
   if (!existing) put("snapshot", result.id, result);
   const profile = (await securityDirectory()).entries[symbol];
@@ -521,7 +528,7 @@ export async function tick() {
     const reference = await monitorCalendar(
       config.tdxRoot,
       config.calendar,
-      monitors.some((m) => m.source === "mcp"),
+      monitors.some((m) => m.source !== "local" && m.source !== "mcp"),
       monitors.every((m) =>
         m.symbols.every((symbol) => /^(sh|sz)/.test(symbol)),
       ),

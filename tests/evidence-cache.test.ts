@@ -1,3 +1,4 @@
+// Legacy adapter behavior remains testable behind a mocked restoration boundary.
 import { beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,12 +15,12 @@ vi.mock("../src/server/hithink-finance", () => ({
     envelope: { version: "evidence-1" },
   })),
 }));
-vi.mock("../src/server/mcp", () => ({
+vi.mock("../src/server/tdx-mcp-disabled", () => ({
   mcpConfigured: async () => true,
   queryMcp: vi.fn(async () => ({ data: "fixture" })),
 }));
 import { gatherEvidence } from "../src/server/market-data";
-import { queryMcp } from "../src/server/mcp";
+import { queryMcp } from "../src/server/tdx-mcp-disabled";
 import { queryFinance } from "../src/server/hithink-finance";
 import { put, sqlite } from "../src/server/db";
 import { contextEvidence } from "../src/server/hithink-context";

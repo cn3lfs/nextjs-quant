@@ -231,9 +231,12 @@ export class TdxSession {
 export function createQuotesPool(hosts?: readonly string[], port = PORT) {
   return new ConnectionPool(async () => {
     const failures: string[] = [];
+    const deadline = Date.now() + 15000;
     for (const host of hosts ?? configuredHosts())
       try {
-        return await TdxSession.connect(host, port);
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        return await TdxSession.connect(host, port, Math.min(3000, remaining));
       } catch (error) {
         failures.push(
           `${host}: ${error instanceof Error ? error.message : "连接失败"}`,

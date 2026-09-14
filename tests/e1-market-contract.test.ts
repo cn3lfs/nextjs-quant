@@ -15,7 +15,7 @@ it("verifies E1 selection wiring and rejects changed source, missing selection a
   const prefix = source.slice(0, start);
   const pool = source.slice(start);
   for (const changed of [
-    pool.replace('source: "local"', 'source: "mcp"'),
+    pool.replace("source: marketSource", 'source: "mcp"'),
     pool.replace("setSymbol(next);", "setSymbol(symbol);"),
     pool.replace("disabled={load.isPending}", "disabled={false}"),
   ])

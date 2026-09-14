@@ -1,5 +1,6 @@
 "use client";
 
+import { marketSourceLabel } from "~/lib/market-source";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
@@ -114,7 +115,7 @@ export function ChartWorkspace({
               ? "持仓成本不可用"
               : undefined
       }
-      aggregateMessage={`${aggregate.data.source === "tdx-mcp" ? "通达信 MCP" : aggregate.data.source === "tdx-local" ? "通达信本地" : "东方财富在线"} · ${aggregate.data.bars.length} 根 · ${aggregate.data.bars.at(-1)?.date.replace("T", " ").replace(":00+08:00", "") ?? "无行情"} · ${aggregate.data.formingDates.length ? "末根形成中，结构可能变化" : "已完成周期"}${aggregate.data.sourceNote ? ` · ${aggregate.data.sourceNote}` : ""}`}
+      aggregateMessage={`${marketSourceLabel(aggregate.data.source)} · ${aggregate.data.bars.length} 根 · ${aggregate.data.bars.at(-1)?.date.replace("T", " ").replace(":00+08:00", "") ?? "无行情"} · ${aggregate.data.formingDates.length ? "末根形成中，结构可能变化" : "已完成周期"}${aggregate.data.sourceNote ? ` · ${aggregate.data.sourceNote}` : ""}`}
     />
   );
 }

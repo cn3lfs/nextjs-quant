@@ -1,3 +1,4 @@
+// Legacy adapter behavior remains testable behind a mocked restoration boundary.
 import { expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
@@ -8,7 +9,7 @@ vi.mock("../src/server/tencent-identity", async (original) => ({
   ...(await original<typeof import("../src/server/tencent-identity")>()),
   searchTencentIdentity: mocks.tencent,
 }));
-vi.mock("../src/server/mcp", () => ({
+vi.mock("../src/server/tdx-mcp-disabled", () => ({
   mcpConfigured: async () => true,
   queryMcp: mocks.tdx,
 }));
@@ -149,4 +150,45 @@ it("confirmed names populate missing master entries and cached identity applies 
   await verifySecurityIdentity("sh600088");
   expect(storedSecurityName("sh600088")).toBe("Verified");
   expect(mocks.tencent).toHaveBeenCalledTimes(1);
+});
+
+it("accepts observed westock ChiNext identity only for matching ChiNext codes", () => {
+  const table =
+    "| code | name | type |\n| --- | --- | --- |\n| sz300750 | 宁德时代 | GP-A-CYB |";
+  expect(parseTencentIdentity(table, "sz300750").name).toBe("宁德时代");
+  expect(() =>
+    parseTencentIdentity(table.replace("sz300750", "sh600000"), "sh600000"),
+  ).toThrow();
+  expect(() =>
+    parseTencentIdentity(table.replace("GP-A-CYB", "ETF"), "sz300750"),
+  ).toThrow();
+});
+
+it.each([
+  ["sh600000", "浦发银行", "GP-A"],
+  ["sz000001", "平安银行", "GP-A"],
+  ["sz300750", "宁德时代", "GP-A-CYB"],
+  ["sh688981", "中芯国际", "GP-A-KCB"],
+  ["bj920002", "万达轴承", "GP"],
+])(
+  "parses captured westock identity for %s with market-specific types",
+  (symbol, name, type) => {
+    const table = `| code | name | type |\n| --- | --- | --- |\n| ${symbol} | ${name} | ${type} |`;
+    expect(parseTencentIdentity(table, symbol).name).toBe(name);
+    expect(() =>
+      parseTencentIdentity(table.replace(type, "ETF"), symbol),
+    ).toThrow();
+    expect(() =>
+      parseTencentIdentity(table + `\n| ${symbol} | 重复 | ${type} |`, symbol),
+    ).toThrow();
+  },
+);
+it("does not classify generic GP or STAR types as Shanghai main-board A stock", () => {
+  for (const type of ["GP", "GP-A-KCB"])
+    expect(() =>
+      parseTencentIdentity(
+        `| code | name | type |\n| --- | --- | --- |\n| sh600000 | 浦发银行 | ${type} |`,
+        "sh600000",
+      ),
+    ).toThrow();
 });

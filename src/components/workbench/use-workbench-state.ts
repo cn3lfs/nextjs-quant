@@ -1,3 +1,4 @@
+import { type MarketSource } from "~/lib/market-source";
 import { useEffect, useState } from "react";
 import { defaultBacktestCosts } from "~/lib/backtest-costs";
 import {
@@ -15,6 +16,7 @@ import type { Tab } from "./navigation";
 export function useWorkbenchState() {
   const [tab, setTab] = useState<Tab>("market"),
     [symbol, setSymbol] = useState("sh600519"),
+    [marketSource, setMarketSource] = useState<MarketSource>("auto"),
     [period, setPeriod] = useState<Period>("day"),
     [loaded, setLoaded] = useState<Snapshot | null>(null),
     [strategy, setStrategy] = useState<Strategy>(defaultStrategy),
@@ -87,6 +89,7 @@ export function useWorkbenchState() {
   const load = api.snapshot.useMutation({
     onSuccess: (s) => {
       setLoaded(s);
+      if (s.requestedSource) setMarketSource(s.requestedSource);
       setSymbol(s.symbol);
     },
     onError,
@@ -175,7 +178,7 @@ export function useWorkbenchState() {
   const [monitorName, setMonitorName] = useState("趋势跟踪"),
     [monitorChannels, setMonitorChannels] = useState<string[]>([]),
     [monitorAi, setMonitorAi] = useState(true),
-    [monitorSource, setMonitorSource] = useState<"local" | "mcp">("mcp");
+    [monitorSource, setMonitorSource] = useState<MarketSource>("local");
   useEffect(() => {
     load.mutate({ symbol: "sh600519", period: "day" });
   }, []);
@@ -291,6 +294,8 @@ export function useWorkbenchState() {
     universe.trim() ? universe.split(/[\s,，]+/).filter(Boolean) : undefined;
 
   return {
+    marketSource,
+    setMarketSource,
     setTab,
     loaded,
     strategy,

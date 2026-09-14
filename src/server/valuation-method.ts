@@ -11,9 +11,11 @@ export const valuationMethodFiles = {
     "fundamental-analyst/references/data-queries.md",
   ],
   guo: [
-    "fundamental-analyst/SKILL.md",
-    "fundamental-analyst/references/guo-yongqing-method.md",
-    "fundamental-analyst/references/data-queries.md",
+    "guo-yongqing-valuation/SKILL.md",
+    "guo-yongqing-valuation/references/balance-sheet-restructure.md",
+    "guo-yongqing-valuation/references/fcf-valuation.md",
+    "guo-yongqing-valuation/references/industry-switches.md",
+    "guo-yongqing-valuation/references/data-queries.md",
   ],
   value: [
     "value-investing/SKILL.md",
@@ -23,7 +25,7 @@ export const valuationMethodFiles = {
 export type ValuationMethod = keyof typeof valuationMethodFiles;
 export const valuationMethodVersions = {
   fundamental: "fundamental-research-1",
-  guo: "guo-research-1",
+  guo: "guo-research-2",
   value: "value-research-1",
 } as const;
 

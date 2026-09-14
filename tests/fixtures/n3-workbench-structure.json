@@ -1,6 +1,6 @@
 {
-  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged. V5 adds only research usage result containers to backtest and formula results; tests/workbench-refactor.test.ts verifies their exact range and conditional anchors.",
-  "state": "41f67fdae65904f7346e38996b88376292013080f2bc32ab340c993ea7ea00ff",
+  "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged. V5 adds only research usage result containers to backtest and formula results; tests/workbench-refactor.test.ts verifies their exact range and conditional anchors. Free-source switch (2026-09-14): MCP panel and online screening removed, four-source selection and saved default added; market-source-selection.test.ts verifies source isolation and suspended MCP zero network calls. Only affected component fingerprints refreshed.",
+  "state": "59339627c267d9e35abd74d50f11708b23275b877f7d7b5ca53a545585ab9ff5",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
     "Empty": "9807530393701ac8f10cacdc370d8ecd8eb3b90600a0bd7b4479434fab049078",
@@ -11,13 +11,13 @@
     "ResultPager": "cf306043633a5191ba8eac3ced1656558d3a79c1a851168deb7fa7c958dac3d5"
   },
   "views": {
-    "market-view.tsx": "9c3b1c4cdf9957f4c4c76b277dd008363ae8f066ab97443c3a00893454c7d684",
-    "screen-view.tsx": "7e74f1af1564abf05de5aa14044e1b8c275172cd7d13c7676d2c9e1a53d53f35",
+    "market-view.tsx": "2141a80c59b816ac6fa441be21d9b0ce82ccb3adda526d8cc7b372a479c889ac",
+    "screen-view.tsx": "6886735c2cc0b939b7cc68c36362fe62a7d622a80807f7f99d5dc9019a2ff411",
     "backtest-view.tsx": "d036b6aad6a09a5123e7a2a976dba8c91cc7735c631785104d3679f716a722e4",
-    "signals-view.tsx": "00fb6558c83047dc704f4ff56f002d80efc6f232e0dbb13b3f37743888bed944",
+    "signals-view.tsx": "78d615bd749a2c5922497b992c71a6a4abf162d7f666bd2ae72667387a2553ad",
     "research-archive.tsx": "854efe1990098f43ebb394359e2f29d7bef0ecdf04c929130bd1a3ccde320ca6",
     "evidence-analysis.tsx": "998d4c39c9d2f7b4e399e2f84944f16acddf7b1636c873852747c1a0a32a5647",
     "task-center.tsx": "8729749a67438b015d49a19462e6e0495b2a0881a51892d4d335671039e3a64d"
   },
-  "connections": "e04b8c3362984ee84046933a3cc8e4fa82df0768aa9e84aab857059ce164c8e1"
+  "connections": "823f9cac64b6b2186db9df04e1a740314c2697f1da45801ad4a2907ccbe65779"
 }

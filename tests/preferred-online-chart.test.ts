@@ -1,42 +1,84 @@
 import { expect, it, vi, beforeEach } from "vitest";
 import { preferredOnlineChart } from "../src/server/preferred-online-chart";
 const deps = vi.hoisted(() => ({
-  configured: vi.fn(),
-  mcp: vi.fn(),
-  fallback: vi.fn(),
+  eastmoney: vi.fn(),
+  page: vi.fn(),
+  tencent: vi.fn(),
 }));
-vi.mock("../src/server/mcp", () => ({ mcpConfigured: deps.configured }));
-vi.mock("../src/server/market-data", () => ({
-  mcpProvider: { history: deps.mcp },
+vi.mock("../src/server/chart-history", () => ({
+  onlinePeriodHistory: deps.eastmoney,
 }));
-vi.mock("../src/server/online-chart-data", () => ({
-  onlineChartSnapshot: deps.fallback,
+vi.mock("../src/server/tdx-quotes", () => ({
+  barPage: deps.page,
+  indexBarPage: deps.page,
 }));
+vi.mock("../src/server/westock-data", () => ({
+  westockScriptPath: () => "fixture-westock.js",
+  query: deps.tencent,
+}));
+const bar = {
+  date: "2026-09-14",
+  open: 10,
+  close: 11,
+  high: 12,
+  low: 9,
+  volume: 100,
+  amount: 1000,
+};
 beforeEach(() => {
   vi.resetAllMocks();
-  deps.configured.mockResolvedValue(true);
-});
-it("uses existing application MCP without requesting Eastmoney when successful", async () => {
-  const snapshot = { source: "tdx-mcp", bars: [{ date: "2026-09-10" }] };
-  deps.mcp.mockResolvedValue(snapshot);
-  expect(await preferredOnlineChart("sh000001", "day")).toBe(snapshot);
-  expect(deps.mcp).toHaveBeenCalledWith("sh000001", "day");
-  expect(deps.fallback).not.toHaveBeenCalled();
-});
-it("discloses fallback and never combines bars after MCP failure", async () => {
-  deps.mcp.mockRejectedValue(new Error("unavailable"));
-  deps.fallback.mockResolvedValue({ source: "eastmoney-online", bars: [1] });
-  expect(await preferredOnlineChart("sh000001", "day")).toEqual({
+  deps.eastmoney.mockResolvedValue({
     source: "eastmoney-online",
-    bars: [1],
-    sourceNote: expect.stringContaining("通达信 MCP 行情读取失败"),
+    bars: [bar],
+    historyExhausted: true,
+    volumeUnit: "手",
   });
 });
-it("preserves offline configuration and surfaces total source failure", async () => {
-  deps.configured.mockResolvedValue(false);
-  deps.fallback.mockRejectedValue(new Error("offline"));
-  await expect(preferredOnlineChart("sh000001", "day")).rejects.toThrow(
-    "offline",
+it("prefers the currently verified Eastmoney source without calling other providers", async () => {
+  const result = await preferredOnlineChart("sh600000", "day");
+  expect(result.source).toBe("eastmoney-online");
+  expect(result.requestedSource).toBe("auto");
+  expect(result.bars).toEqual([bar]);
+  expect(deps.page).not.toHaveBeenCalled();
+  expect(deps.tencent).not.toHaveBeenCalled();
+});
+it("falls back to pytdx after both HTTP providers fail and discloses failures", async () => {
+  deps.eastmoney.mockRejectedValue(new Error("offline"));
+  deps.tencent.mockRejectedValue(new Error("Tencent unavailable"));
+  deps.page.mockResolvedValue([bar]);
+  const result = await preferredOnlineChart("sh600000", "day");
+  expect(result.source).toBe("tdx-7709");
+  expect(result.sourceNote).toContain("东方财富：offline");
+  expect(result.bars).toEqual([bar]);
+  expect(deps.tencent).toHaveBeenCalledTimes(1);
+});
+it("uses Tencent after Eastmoney fails without requesting pytdx", async () => {
+  deps.eastmoney.mockRejectedValue(new Error("offline"));
+  deps.page.mockRejectedValue(new Error("bad packet"));
+  deps.tencent.mockResolvedValue([{ ...bar, last: bar.close }]);
+  const result = await preferredOnlineChart("sh600000", "day");
+  expect(result.source).toBe("tencent/westock-data");
+  expect(result.sourceNote).toContain("offline");
+  expect(deps.page).not.toHaveBeenCalled();
+  expect(result.sourceNote).toContain("延迟");
+  expect(result.bars).toEqual([bar]);
+});
+it("manual source failure does not silently fall back", async () => {
+  deps.page.mockRejectedValue(new Error("offline"));
+  await expect(
+    preferredOnlineChart("sh600000", "day", "pytdx"),
+  ).rejects.toThrow("offline");
+  expect(deps.eastmoney).not.toHaveBeenCalled();
+  expect(deps.tencent).not.toHaveBeenCalled();
+});
+it("reports total failure including a successful CLI exit with service error", async () => {
+  deps.eastmoney.mockRejectedValue(new Error("offline"));
+  deps.page.mockRejectedValue(new Error("bad packet"));
+  deps.tencent.mockResolvedValue({
+    success: false,
+    error: { code: "SKILL_006_2" },
+  });
+  await expect(preferredOnlineChart("sh600000", "day")).rejects.toThrow(
+    "所有免费在线源不可用",
   );
-  expect(deps.mcp).not.toHaveBeenCalled();
 });

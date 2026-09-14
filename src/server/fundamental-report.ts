@@ -18,7 +18,7 @@ import { get, put } from "./db";
 import { background, updateJob } from "./jobs";
 import { sharedRead } from "./shared-read";
 import { fundamentalPrompt } from "./fundamental-prompt";
-const promptVersion = "fundamental-review-prompt-2";
+const promptVersion = "fundamental-review-prompt-3";
 type Method = Awaited<ReturnType<typeof valuationMethod>>;
 export function fundamentalCitationRules(
   dossier: FundamentalDossier,
@@ -54,7 +54,12 @@ export function fundamentalCitationRules(
     methodIds: method.files
       .filter((file) =>
         dossier.mode === "guo"
-          ? file.file.endsWith("guo-yongqing-method.md")
+          ? file.file.startsWith("guo-yongqing-valuation/") &&
+            (file.file.endsWith("SKILL.md") ||
+              (id === "balanceReconstruction" &&
+                file.file.endsWith("balance-sheet-restructure.md")) ||
+              (["valuation", "conclusion"].includes(id) &&
+                /(?:fcf-valuation|industry-switches)\.md$/.test(file.file)))
           : dossier.mode === "value"
             ? true
             : id === "quality"

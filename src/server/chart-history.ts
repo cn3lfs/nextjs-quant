@@ -1,7 +1,7 @@
 import type { Bar } from "~/lib/domain";
 import { isMinutePeriod, type ChartPeriod } from "~/lib/chart-view";
 import { normalizeMcpBars } from "./market-data";
-import { queryMcp } from "./mcp";
+import { queryMcp } from "./tdx-mcp-disabled";
 import { parseOnlineChart } from "./online-chart-data";
 
 const codes = {

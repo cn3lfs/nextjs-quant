@@ -1,3 +1,4 @@
+import { MarketSourceSelect } from "../market-source-select";
 import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import {
@@ -21,6 +22,8 @@ export function MarketView({
 }: {
   state: Pick<
     WorkbenchState,
+    | "marketSource"
+    | "setMarketSource"
     | "symbol"
     | "setSymbol"
     | "period"
@@ -37,6 +40,8 @@ export function MarketView({
   >;
 }) {
   const {
+    marketSource,
+    setMarketSource,
     symbol,
     setSymbol,
     period,
@@ -69,25 +74,27 @@ export function MarketView({
                 load.mutate({
                   symbol: next,
                   period,
-                  source: loaded?.source === "tdx-mcp" ? "mcp" : "local",
+                  source: marketSource,
                 });
+              }}
+            />
+            <MarketSourceSelect
+              value={marketSource}
+              disabled={load.isPending}
+              onChange={(source) => {
+                setMarketSource(source);
+                load.mutate({ symbol, period, source });
               }}
             />
             <Button
               size="sm"
               variant="outline"
-              onClick={() => load.mutate({ symbol, period, source: "online" })}
               disabled={load.isPending}
+              onClick={() =>
+                load.mutate({ symbol, period, source: marketSource })
+              }
             >
-              在线行情
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => load.mutate({ symbol, period, source: "mcp" })}
-              disabled={load.isPending}
-            >
-              MCP 最新行情
+              刷新行情
             </Button>
             <Button
               size="sm"
@@ -137,7 +144,19 @@ export function MarketView({
             </div>
           </div>
 
-          {loaded && !load.isPending ? (
+          {load.error && !load.isPending ? (
+            <div role="alert" className="p-5 text-sm">
+              所选数据源读取失败：{load.error.message}
+              <Button
+                variant="outline"
+                onClick={() =>
+                  load.mutate({ symbol, period, source: marketSource })
+                }
+              >
+                重试
+              </Button>
+            </div>
+          ) : loaded && !load.isPending ? (
             <ChartWorkspace
               key={`${loaded.id}:${displayedPeriod}`}
               snapshot={loaded}
@@ -196,12 +215,15 @@ export function MarketView({
           )}
         </section>
       </div>
+      <p className="text-sm text-muted-foreground">
+        自动模式按本地、东方财富、腾讯、tstdx顺序补齐；手动选择不跨源回退。RPS与历史研究仍使用本地数据。
+      </p>
       <MarketPoolBrowser
         symbol={symbol}
         disabled={load.isPending}
         onSelect={(next) => {
           setSymbol(next);
-          load.mutate({ symbol: next, period, source: "local" });
+          load.mutate({ symbol: next, period, source: marketSource });
         }}
       />
       <section className="panel">
@@ -216,7 +238,7 @@ export function MarketView({
                 variant="plain"
                 onClick={() => {
                   setSymbol(s);
-                  load.mutate({ symbol: s, period });
+                  load.mutate({ symbol: s, period, source: marketSource });
                 }}
               >
                 <span className="stock-avatar">
