@@ -3,6 +3,14 @@ import { createRequire } from "node:module";
 import { copyFile, mkdir, cp } from "node:fs/promises";
 import { dirname } from "node:path";
 await build({
+  entryPoints: ["src/server/westock-preload.ts"],
+  outfile: "runtime/westock-preload.mjs",
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node22",
+});
+await build({
   entryPoints: ["src/server/discipline-worker.ts"],
   outfile: "runtime/discipline-worker.cjs",
   bundle: true,

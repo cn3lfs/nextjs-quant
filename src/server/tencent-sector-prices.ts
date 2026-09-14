@@ -1,4 +1,9 @@
-import { spawn } from "node:child_process";
+import {
+  westockSearch,
+  westockKlines,
+  requireWestockRows,
+  WESTOCK_ADAPTER_VERSION,
+} from "./westock-adapter";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -23,60 +28,6 @@ export function sectorIdentity(raw: unknown, industry: string) {
     symbol: matches[0]!.code,
     classification: matches[0]!.分类,
   };
-}
-export async function query(
-  script: string,
-  args: string[],
-  signal?: AbortSignal,
-): Promise<unknown> {
-  signal?.throwIfAborted();
-  const env = { ...process.env };
-  for (const key of Object.keys(env))
-    if (/(API_KEY|TOKEN|SECRET|PASSWORD)/i.test(key)) delete env[key];
-  const text = await new Promise<string>((resolve, reject) => {
-    const child = spawn(
-      /* turbopackIgnore: true */ process.execPath,
-      [script, ...args, "--raw"],
-      {
-        env,
-        windowsHide: true,
-        shell: false,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    let output = "",
-      error: Error | undefined;
-    const stop = (message: string) => {
-      error ??= new Error(message);
-      child.kill();
-    };
-    const abort = () => stop("行业价格查询已取消");
-    const timer = setTimeout(() => stop("腾讯行业数据查询超时"), 20000);
-    signal?.addEventListener("abort", abort, { once: true });
-    if (signal?.aborted) abort();
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      output += chunk;
-      if (output.length > 2 * 1024 * 1024) stop("腾讯响应超出限制");
-    });
-    child.stderr.resume();
-    child.on("error", () => {
-      error ??= new Error("腾讯查询工具无法启动");
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", abort);
-      if (error) reject(error);
-      else if (code !== 0) reject(new Error("腾讯行业数据查询失败"));
-      else resolve(output);
-    });
-  });
-  signal?.throwIfAborted();
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    throw new Error("腾讯未返回合法JSON数据");
-  }
 }
 export type SectorPriceData = Awaited<ReturnType<typeof fetchSectorPrices>>;
 export async function fetchSectorPrices(
@@ -104,6 +55,7 @@ export async function fetchSectorPrices(
   );
   const scriptHash = createHash("sha256")
     .update(await readFile(script))
+    .update(WESTOCK_ADAPTER_VERSION)
     .digest("hex");
   const mappings: ReturnType<typeof sectorIdentity>[] = [],
     failures: { industry: string; reason: string }[] = [];
@@ -116,9 +68,8 @@ export async function fetchSectorPrices(
         try {
           mappings.push(
             sectorIdentity(
-              await query(
-                script,
-                ["search", industry, "--type", "sector", "--limit", "100"],
+              await westockSearch(
+                { keyword: industry, type: "sector", limit: 100 },
                 signal,
               ),
               industry,
@@ -146,21 +97,16 @@ export async function fetchSectorPrices(
   let raw: unknown = [],
     metrics: ReturnType<typeof sectorPriceMetrics> | null = null;
   if (mappings.length) {
-    raw = await query(
-      script,
-      [
-        "kline",
-        [...mappings.map((m) => m.symbol), "sh000001"].join(","),
-        "--period",
-        "day",
-        "--end",
-        end,
-        "--limit",
-        "32",
-        "--fq",
-        "bfq",
-      ],
-      signal,
+    raw = requireWestockRows(
+      await westockKlines(
+        {
+          symbols: [...mappings.map((m) => m.symbol), "sh000001"],
+          period: "day",
+          end,
+          limit: 32,
+        },
+        signal,
+      ),
     );
     metrics = sectorPriceMetrics(
       raw,

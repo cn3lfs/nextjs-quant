@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { query } from "./tencent-sector-prices";
+import {
+  westockKlines,
+  requireWestockRows,
+  WESTOCK_ADAPTER_VERSION,
+} from "./westock-adapter";
 import { completedBar } from "./screening";
 import { canslimMarket } from "./canslim-market";
 import { evidenceEnvelope } from "./evidence";
@@ -121,23 +125,19 @@ export function gatherCanslimMarket(cutoff: number, signal?: AbortSignal) {
       );
       const scriptHash = createHash("sha256")
         .update(await readFile(script))
+        .update(WESTOCK_ADAPTER_VERSION)
         .digest("hex");
       // Batch output includes symbol; single-symbol CLI output does not.
-      const raw = await query(
-        script,
-        [
-          "kline",
-          "sh000300,sh000001",
-          "--period",
-          "day",
-          "--end",
-          new Date(cutoff + 8 * 3600000).toISOString().slice(0, 10),
-          "--limit",
-          "260",
-          "--fq",
-          "bfq",
-        ],
-        upstream,
+      const raw = requireWestockRows(
+        await westockKlines(
+          {
+            symbols: ["sh000300", "sh000001"],
+            period: "day",
+            end: new Date(cutoff + 8 * 3600000).toISOString().slice(0, 10),
+            limit: 260,
+          },
+          upstream,
+        ),
       );
       upstream.throwIfAborted();
       return { ...parseCanslimMarket(raw, cutoff, Date.now()), scriptHash };
