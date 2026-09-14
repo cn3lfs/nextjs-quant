@@ -2,15 +2,21 @@
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
+import { usePanelVisible } from "./workbench/keep-alive";
 import { RpsStatus } from "./rps-status";
 
 /** Data container; the display component receives data and remains independently renderable. */
 export function RpsControls() {
+  const visible = usePanelVisible();
   const workflow = api.workflowStatus.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 10000,
   });
   const [message, setMessage] = useState("");
-  const query = api.rpsStatus.useQuery(undefined, { refetchInterval: 2000 });
+  const query = api.rpsStatus.useQuery(undefined, {
+    enabled: visible,
+    refetchInterval: 2000,
+  });
   const onSuccess = () => {
     setMessage("请求已处理");
     void query.refetch();

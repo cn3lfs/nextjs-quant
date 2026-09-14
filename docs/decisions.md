@@ -1493,3 +1493,17 @@ W9 补充建议同时提前普通证券卖出，与 W10 的明确边界冲突；
 ### 同一证券的历史行情单位发生变化
 
 512100 在 2025-04-08 需除以 100，在 2026-04-08 已同量级。任何未来 amount / volume 计算都应逐 bar 校验单位，不得按品种固定推断。trade-review-market.ts 的 median <= 5 是整段价格标度证据，中位数会掩盖少数单位异常，并不验证每笔 VWAP；本批不改该阈值。完整实测及异常明细见 [交付说明](review/w12-vwap-units-delivery-2026-09-14.md)。
+
+## UX1：左侧 tab 保活缓存与图表页纵向压缩
+
+切换 tab 时面板被卸载重建，图表要重建 lightweight-charts 实例并重新取数，表单草稿、分页和滚动位置也会丢失。本轮按「首次显示后保留挂载、隐藏时暂停轮询」的方式缓存：`workbench/keep-alive.tsx` 的 `PanelCache` 惰性挂载每个面板并保持 `hidden`，面板每次渲染都用当前 props 重建元素，因此隐藏面板仍能收到最新状态；`usePanelVisible()` 在隐藏面板内为 false，`market-pool-browser`、`rps-controls`、`industry-rps-controls`、`concept-rps-controls`、`intraday-controls`、`cls-review-controls` 的轮询据此停表，避免缓存把轮询变成常驻开销。
+
+未用 React `<Activity>`：它在隐藏时执行 effect 清理，图表 effect 的清理会 `chart.remove()`，重挂载即等于重载图表，与本轮目标相反；缓存面板保持 `display:none` 即可保留 canvas，实测缩放与标注在切换前后截图逐像素一致。
+
+路由 `children` 无法这样缓存：App Router 传下来的 slot 元素跨导航是同一对象（实测 `prev === next` 恒为 true），保留引用仍会渲染成当前页面。因此把 `/intraday`、`/rps`、`/research`、`/cls-review` 四个纯客户端面板的正文提到 `components/route-panels.tsx`，页面与工作台面板共用同一实现，工作台对这四个路径直接渲染缓存面板并跳过 `children`。`/signal-ledger` 与 `/trade-ledger` 的页面按请求取服务端数据，缓存它们会改变取数路径，本轮不纳入，仍走框架导航。
+
+代价是这四个面板从路由级代码分割进入工作台外壳：构建后 `/` 与 `/rps` 的脚本清单相同，多出 66 KB 未压缩的分块。本机桌面应用从 localhost 加载，未为此引入 `next/dynamic` 的加载态与首屏抖动；若日后成为瓶颈再改。
+
+布局按「同一行能放下就不换行」压缩：页头标题、说明与操作合成一行（`.page-heading` 内层改基线同行），行情标题与代码标签合成一行，`details` 的全局 `margin: 14px 0` 在图表工具栏内用 `!my-0` 抵消（两行控制条因此从 64px 降到 36px），图例最小高度 64px→32px，画布高度改为 `clamp(320/440/540px, 100dvh - 660px, 1200px)`，即填满窗口剩余高度并保留短窗口下的主图下限。1600×1000 下画布顶部由 636px 提到约 456px，成交量+MACD 三区全部可见；1920×1400 下画布 740px，面板底边不再越过视口。
+
+结构指纹按既有规则单独精确更新：`tests/fixtures/r2b-button-render.json` 的 chart-workspace/workbench/market-view/chart 四项、`tests/fixtures/n3-workbench-structure.json` 的 market-view 一项；其余 16 项用同一复算脚本得到原值，确认改动未外溢。新增 `tests/keep-alive.test.ts` 覆盖挂载顺序、首屏只挂载当前面板与隐藏面板上下文。浏览器实测：tab 与路由往返后图表 canvas 保留、受控输入草稿保留，切换前后截图哈希一致。

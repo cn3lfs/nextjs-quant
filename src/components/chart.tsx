@@ -1184,7 +1184,7 @@ export function MarketChart({
       </div>
       <div
         data-testid="chart-legend"
-        className="flex min-h-16 flex-wrap content-start gap-x-3 gap-y-1 text-xs"
+        className="flex min-h-8 flex-wrap content-start gap-x-3 gap-y-1 text-xs"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {legend ? (
@@ -1246,8 +1246,13 @@ export function MarketChart({
         }}
         className="price-chart"
         style={{
-          height:
-            subchart === "none" ? 400 : subchart === "volume-macd" ? 680 : 560,
+          // Fill the window below the toolbar instead of a fixed height, so the
+          // chart is fully visible on a laptop screen and grows on a large one.
+          // 660px is the application chrome above and below the canvas; the
+          // clamp keeps the main pane usable on short windows.
+          height: `clamp(${
+            subchart === "none" ? 320 : subchart === "volume-macd" ? 540 : 440
+          }px, calc(100dvh - 660px), 1200px)`,
           cursor: "grab",
         }}
       />

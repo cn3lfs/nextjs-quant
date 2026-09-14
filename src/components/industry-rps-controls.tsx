@@ -10,6 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
+import { usePanelVisible } from "./workbench/keep-alive";
 import {
   Select,
   SelectContent,
@@ -71,12 +72,14 @@ export function IndustryRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(20);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const visible = usePanelVisible();
   const status = api.industryRpsStatus.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 2000,
   });
   const page = api.industryRpsPage.useQuery(
     { date: date || undefined, period, page: pagination.pageIndex },
-    { refetchInterval: 4000 },
+    { enabled: visible, refetchInterval: 4000 },
   );
   const onError = (error: { message: string }) => setMessage(error.message);
   const onSuccess = () => {

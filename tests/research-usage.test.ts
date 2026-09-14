@@ -276,10 +276,14 @@ it("real walk-forward job succeeds on put failure; m never changes DSR or prior 
   expect(html).toContain("不能直接代入 DSR");
 });
 it("holdout display carries lower-bound reason and observation-only limitation", () => {
-  const page = readFileSync("src/app/research/page.tsx", "utf8");
-  expect(page.indexOf("<ResearchUsageContainer />")).toBeGreaterThan(0);
-  expect(page.indexOf("<ResearchUsageContainer />")).toBeLessThan(
-    page.indexOf("<StrategyResearchControls />"),
+  // The panel body is shared by the route and the workbench panel cache.
+  const panel = readFileSync("src/components/route-panels.tsx", "utf8");
+  expect(panel.indexOf("<ResearchUsageContainer />")).toBeGreaterThan(0);
+  expect(panel.indexOf("<ResearchUsageContainer />")).toBeLessThan(
+    panel.indexOf("<StrategyResearchControls />"),
+  );
+  expect(readFileSync("src/app/research/page.tsx", "utf8")).toContain(
+    "<ResearchPanel />",
   );
   const html = renderToStaticMarkup(
     createElement(ResearchUsagePanel, {

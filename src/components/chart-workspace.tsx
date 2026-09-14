@@ -222,7 +222,7 @@ function EditableChart({
       }}
     >
       <div
-        className="relative flex items-center gap-3 py-2 whitespace-nowrap"
+        className="relative flex items-center gap-3 py-1 whitespace-nowrap"
         data-testid="chart-primary-controls"
       >
         <label>
@@ -250,7 +250,7 @@ function EditableChart({
         >
           保存视图
         </Button>
-        <details className="relative" name="chart-tools">
+        <details className="relative !my-0" name="chart-tools">
           <summary className="cursor-pointer">指标参数</summary>
           <div className="absolute left-0 top-full z-20 max-h-96 w-[min(36rem,70vw)] overflow-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md whitespace-normal">
             <p>参数仅影响图表；缠论与双突破标注仍按原策略参数计算。</p>
@@ -300,7 +300,7 @@ function EditableChart({
             </form>
           </div>
         </details>
-        <details className="relative" name="chart-tools">
+        <details className="relative !my-0" name="chart-tools">
           <summary className="cursor-pointer">画线：{tools[tool]}</summary>
           <div
             className="absolute right-0 top-full z-20 flex w-80 flex-wrap gap-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md whitespace-normal"
@@ -330,15 +330,23 @@ function EditableChart({
           </div>
         </details>
       </div>
-      <span role="status">
+      <span role="status" className="text-xs">
         {save.error
           ? `保存失败：${save.error.message}，可重新保存`
           : message || (dirty ? "有未保存更改，请切换前保存" : "")}
       </span>
-      {aggregateMessage && <p role="status">{aggregateMessage}</p>}
-      {positionMessage && <p role="status">{positionMessage}</p>}
+      {aggregateMessage && (
+        <p role="status" className="!my-0 text-xs">
+          {aggregateMessage}
+        </p>
+      )}
+      {positionMessage && (
+        <p role="status" className="!my-0 text-xs">
+          {positionMessage}
+        </p>
+      )}
       {cost != null && (
-        <p data-testid="position-cost">
+        <p data-testid="position-cost" className="!my-0 text-xs">
           持仓成本 {cost.toFixed(2)} ·{" "}
           {(bars.at(-1)?.close ?? cost) >= cost
             ? "图中收盘价高于或等于成本（红）"

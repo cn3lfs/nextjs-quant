@@ -78,17 +78,28 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
   expect(source).toContain("href={item.href}");
   expect(source).toContain("scroll={false}");
   expect(source).toContain("hidden={!home}");
-  expect(source).toContain("{!home && children}");
   expect(source).toContain("state.setTab(next)");
   expect(source).toContain('router.push("/", { scroll: false })');
   expect(source).not.toContain("<a ");
   expect(source).not.toContain("RESEARCH /");
+  // Visited tab and route panels stay mounted; only cached routes skip the
+  // framework children so a panel never renders twice.
+  expect(source).toContain("<PanelCache");
+  expect(source).toContain("active={home ? tab : pathname}");
+  expect(source).toContain("{!(pathname in routePanels) && children}");
   const navigation = readFileSync(
     "src/components/workbench/navigation.ts",
     "utf8",
   );
   for (const href of ["/signal-ledger", "/trade-ledger", "/rps"])
     expect(navigation.split(`href: "${href}"`)).toHaveLength(2);
+  const panels = readFileSync("src/components/route-panels.tsx", "utf8");
+  for (const href of ["/intraday", "/rps", "/research", "/cls-review"])
+    expect(panels).toContain(`"${href}":`);
+  // The two ledger routes fetch server data per request; caching them would
+  // change that data path, so they must stay out of the panel cache.
+  for (const href of ["/signal-ledger", "/trade-ledger"])
+    expect(panels).not.toContain(`"${href}":`);
   expect(readFileSync("src/app/layout.tsx", "utf8")).toContain(
     "<WorkbenchLayout>{children}</WorkbenchLayout>",
   );

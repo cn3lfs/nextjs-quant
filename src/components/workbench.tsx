@@ -11,6 +11,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 import { NewsPanel } from "./news-panel";
+import { routePanels } from "./route-panels";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuGroup } from "./ui/menu";
 
@@ -26,6 +27,7 @@ import {
   tabs,
 } from "./workbench/navigation";
 import { ResearchArchive } from "./workbench/research-archive";
+import { PanelCache } from "./workbench/keep-alive";
 import { ScreenView } from "./workbench/screen-view";
 import { SignalsView } from "./workbench/signals-view";
 import { TaskCenter } from "./workbench/task-center";
@@ -167,23 +169,37 @@ export function Workbench({ children }: { children?: ReactNode }) {
                 扫描本地数据
               </Button>
             </div>
-            {tab === "market" && <MarketView state={state} />}
-            {tab === "screen" && <ScreenView state={state} />}
-            {tab === "backtest" && <BacktestView state={state} />}
-            {tab === "signals" && <SignalsView state={state} />}
-            {tab === "reports" && <ResearchArchive state={state} />}
-            {tab === "analysis" && <EvidenceAnalysis state={state} />}
-            {tab === "news" && <NewsPanel />}
-            {tab === "settings" && status.data && (
-              <Connections
-                value={status.data.settings}
-                channels={channels.data ?? []}
-                coverage={status.data.coverage}
-                notify={notify}
-              />
-            )}
           </div>
-          {!home && children}
+          {/* Visited panels stay mounted and hidden: charts, drafts, filters and
+              scroll positions survive every tab and route switch. */}
+          <PanelCache
+            active={home ? tab : pathname}
+            panels={{
+              market: <MarketView state={state} />,
+              screen: <ScreenView state={state} />,
+              backtest: <BacktestView state={state} />,
+              signals: <SignalsView state={state} />,
+              reports: <ResearchArchive state={state} />,
+              analysis: <EvidenceAnalysis state={state} />,
+              news: <NewsPanel />,
+              settings: status.data && (
+                <Connections
+                  value={status.data.settings}
+                  channels={channels.data ?? []}
+                  coverage={status.data.coverage}
+                  notify={notify}
+                />
+              ),
+              ...Object.fromEntries(
+                Object.entries(routePanels).map(([href, Panel]) => [
+                  href,
+                  <Panel key={href} />,
+                ]),
+              ),
+            }}
+          />
+          {/* Ledger routes fetch server data per request and keep framework navigation. */}
+          {!(pathname in routePanels) && children}
           <TaskCenter state={state} />
         </div>
         <footer>

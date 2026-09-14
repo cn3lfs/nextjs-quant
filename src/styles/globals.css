@@ -268,10 +268,18 @@ small {
 }
 .page-heading {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 28px;
-  gap: 15px;
+  margin-bottom: 14px;
+  gap: 4px 14px;
+}
+/* Title, description and status share one line so the panel keeps the height. */
+.page-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
 }
 .eyebrow {
   font:
@@ -284,10 +292,9 @@ small {
   gap: 7px;
 }
 .page-heading h1 {
-  font-size: 27px;
-  letter-spacing: 1px;
+  font-size: 21px;
+  letter-spacing: 0.5px;
   font-weight: 650;
-  margin: 6px 0;
 }
 .page-heading p {
   font-size: 12px;
@@ -429,17 +436,6 @@ small {
   background: #fff;
   color: #317d93;
   box-shadow: 0 1px 3px #273c5415;
-}
-.quote-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 24px 14px;
-}
-.quote-heading h2 {
-  font-size: 22px;
-  font-weight: 600;
-  margin-top: 7px;
 }
 .quote-price {
   display: flex;
@@ -1041,7 +1037,7 @@ footer {
     align-items: start;
   }
   .page-heading h1 {
-    font-size: 22px;
+    font-size: 19px;
   }
   .page-heading > .button {
     font-size: 0;
@@ -1053,9 +1049,6 @@ footer {
   .quote-strip {
     gap: 12px;
     padding-inline: 15px;
-  }
-  .quote-heading {
-    padding: 18px 15px;
   }
   .quote-price strong {
     font-size: 25px;

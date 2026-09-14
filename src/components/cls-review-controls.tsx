@@ -5,6 +5,7 @@ import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
+import { usePanelVisible } from "./workbench/keep-alive";
 import {
   Select,
   SelectTrigger,
@@ -30,11 +31,14 @@ const directions: Record<string, string> = {
   unknown: "待核对",
 };
 export function ClsReviewControls() {
+  const visible = usePanelVisible();
   const utils = api.useUtils();
   const summary = api.clsReviewSummary.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 15000,
   });
   const schedule = api.clsReviewSchedule.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 10000,
   });
   const [scheduleDraft, setScheduleDraft] = useState<{

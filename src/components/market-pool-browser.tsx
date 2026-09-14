@@ -12,6 +12,7 @@ import { rpsPeriods } from "~/lib/rps";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
+import { usePanelVisible } from "./workbench/keep-alive";
 import { IndexBrowser } from "./index-browser";
 import { UniverseAuditContainer } from "./universe-audit-container";
 import {
@@ -31,6 +32,7 @@ export function MarketPoolBrowser({
   disabled: boolean;
   onSelect: (symbol: string) => void;
 }) {
+  const visible = usePanelVisible();
   const [category, setCategory] = useState<
     "all" | keyof typeof poolCategoryLabels
   >("all");
@@ -45,6 +47,7 @@ export function MarketPoolBrowser({
   const [message, setMessage] = useState("");
   const utils = api.useUtils();
   const rpsStatus = api.rpsStatus.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 2000,
   });
   const rpsStart = api.rpsStart.useMutation({

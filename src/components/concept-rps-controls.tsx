@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { UniverseAuditContainer } from "./universe-audit-container";
+import { usePanelVisible } from "./workbench/keep-alive";
 import { rpsPeriods } from "~/lib/rps";
 import { industryEmptyLabels, industryExclusions } from "~/lib/industry-rps";
 import { industryExclusionLabels } from "./industry-rps-status";
@@ -66,12 +67,14 @@ export function ConceptRpsControls() {
   const [period, setPeriod] = useState(50);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [message, setMessage] = useState("");
+  const visible = usePanelVisible();
   const status = api.conceptRpsStatus.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: 3000,
   });
   const page = api.conceptRpsPage.useQuery(
     { date: date || undefined, period, page: pagination.pageIndex },
-    { refetchInterval: 5000 },
+    { enabled: visible, refetchInterval: 5000 },
   );
   const onError = (e: { message: string }) => setMessage(e.message);
   const start = api.rpsStart.useMutation({

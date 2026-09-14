@@ -113,28 +113,27 @@ export function MarketView({
               ))}
             </div>
           </div>
-          <div className="quote-heading">
-            <div>
-              <div className="eyebrow">
-                {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
-                <span className="tag">不复权</span>
-                {loaded?.historicalAsOf && (
-                  <span className="tag">
-                    历史快照 · 截至 {loaded.historicalAsOf}
-                  </span>
-                )}
-              </div>
-              <h2
-                title={
-                  loaded
-                    ? archivedNameHint(loaded.symbol, names, loaded.name)
-                    : undefined
-                }
-              >
-                {loaded
-                  ? securityDisplayName(loaded.symbol, names, loaded.name)
-                  : "加载行情"}
-              </h2>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 pt-3 pb-1">
+            <h2
+              className="text-lg font-semibold"
+              title={
+                loaded
+                  ? archivedNameHint(loaded.symbol, names, loaded.name)
+                  : undefined
+              }
+            >
+              {loaded
+                ? securityDisplayName(loaded.symbol, names, loaded.name)
+                : "加载行情"}
+            </h2>
+            <div className="eyebrow">
+              {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
+              <span className="tag">不复权</span>
+              {loaded?.historicalAsOf && (
+                <span className="tag">
+                  历史快照 · 截至 {loaded.historicalAsOf}
+                </span>
+              )}
             </div>
           </div>
 

@@ -8,6 +8,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
+import { usePanelVisible } from "./workbench/keep-alive";
 import {
   Select,
   SelectTrigger,
@@ -32,6 +33,7 @@ const labels: Record<string, string> = {
   disabled: "未启用",
 };
 export function IntradayControls() {
+  const visible = usePanelVisible();
   const utils = api.useUtils();
   const [exportError, setExportError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export function IntradayControls() {
   const [saved, setSaved] = useState(false);
   const status = api.intradayStatus.useQuery(
     { offset },
-    { refetchInterval: 5000 },
+    { enabled: visible, refetchInterval: 5000 },
   );
   const save = api.intradaySave.useMutation({
     onSuccess: () => {

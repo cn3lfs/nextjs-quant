@@ -76,8 +76,11 @@ it("T2 describes the four entry boundaries without implying online or current co
 it("T2 groups chart controls into two nonwrapping rows and retains parameter and drawing actions", () => {
   expect(workspace).toContain('data-testid="chart-primary-controls"');
   expect(workspace).toContain(
-    'className="relative flex items-center gap-3 py-2 whitespace-nowrap"',
+    'className="relative flex items-center gap-3 py-1 whitespace-nowrap"',
   );
+  // Both control rows cancel the global `details` margin, which otherwise makes
+  // the primary row 64px tall for two 20px summaries.
+  expect(workspace.match(/className="relative !my-0"/g)).toHaveLength(2);
   expect(workspace.match(/name="chart-tools"/g)).toHaveLength(2);
   expect(workspace).toContain("指标参数</summary>");
   expect(workspace).toContain("画线：{tools[tool]}</summary>");
