@@ -5,7 +5,8 @@ import { expect, it } from "vitest";
 import { publishDailyIncrement } from "../src/server/tdx-daily-cache";
 import { localRpsDependencies } from "../src/server/rps-job";
 
-it("uses published increments for RPS bars and reference dates while retaining source evidence", async () => {
+// g4day 暂停（见 docs/decisions.md WF3）：RPS 依赖不再叠加增量，解冻时去掉 .skip。
+it.skip("uses published increments for RPS bars and reference dates while retaining source evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "rps-increment-source-"));
   const directory = join(root, "vipdoc", "sh", "lday");
   await mkdir(directory, { recursive: true });

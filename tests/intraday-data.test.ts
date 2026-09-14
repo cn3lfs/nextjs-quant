@@ -22,7 +22,8 @@ beforeEach(() => {
   mocks.increments.mockReset().mockReturnValue([]);
 });
 
-it("uses published daily increments with version evidence while retaining minute inputs", async () => {
+// g4day 暂停（见 docs/decisions.md WF3）：盘中历史不再叠加增量，解冻时去掉 .skip。
+it.skip("uses published daily increments with version evidence while retaining minute inputs", async () => {
   const revised = { ...bars.at(-1)!, close: 12, high: 12 };
   mocks.increments.mockReturnValue([
     { snapshot: { id: "increment-version" }, record: { bar: revised } },

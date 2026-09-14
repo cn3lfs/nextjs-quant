@@ -6,7 +6,15 @@ import {
 import { parseWorkflowQuote } from "../src/server/workflow-quotes";
 import { claimWorkflow } from "../src/server/workflow-lease";
 import { latestRpsObservation } from "../src/server/rps-observation";
+import { requiresDownloadReceipt } from "../src/server/workflow-scheduler";
 import { put } from "../src/server/db";
+it("waits for a download receipt only for the close batch", () => {
+  // Noon and late estimate today's bar from online quotes, so a redundant noon
+  // download must not be able to block them.
+  expect(requiresDownloadReceipt("close")).toBe(true);
+  expect(requiresDownloadReceipt("noon")).toBe(false);
+  expect(requiresDownloadReceipt("late")).toBe(false);
+});
 it("requires 90 percent new prices without rounding the threshold", () => {
   expect(coverageAllowsPublication(899, 1000)).toBe(false);
   expect(coverageAllowsPublication(900, 1000)).toBe(true);

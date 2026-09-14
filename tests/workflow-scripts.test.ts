@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   readFileSync,
+  readdirSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -51,6 +52,124 @@ it.skipIf(process.platform !== "win32")(
         expect(result.status).toBe(7);
         expect(result.stdout.trim()).toBe(enabled === "1" ? "True" : "False");
       }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+it.skipIf(process.platform !== "win32")(
+  "noon observes without the downloader and without a receipt",
+  () => {
+    const root = mkdtempSync(resolve(tmpdir(), "quant-noon-wrapper-"));
+    const data = resolve(root, "isolated-data");
+    try {
+      mkdirSync(resolve(root, "node-runtime"));
+      mkdirSync(resolve(root, "runtime"));
+      copyFileSync(process.execPath, resolve(root, "node-runtime/node.exe"));
+      const downloader = resolve(root, "bait-download.ps1");
+      // The bait fails the wrapper, so a zero exit proves the noon batch never
+      // reached it.
+      writeFileSync(
+        downloader,
+        "Write-Output 'noon must not download'\nexit 9\n",
+      );
+      writeFileSync(
+        resolve(root, "runtime/workflow-runner.cjs"),
+        `console.log(JSON.stringify({data:process.env.QUANT_DATA_DIR,cwd:process.cwd(),args:process.argv.slice(2)}));`,
+      );
+      const noon = spawnSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve("scripts/workflow-task.ps1"),
+          "-Phase",
+          "noon",
+          "-ServerDirectory",
+          root,
+          "-DataDirectory",
+          data,
+          "-DownloaderPath",
+          downloader,
+        ],
+        { encoding: "utf8", windowsHide: true, timeout: 20000 },
+      );
+      expect(noon.status).toBe(0);
+      expect(JSON.parse(noon.stdout)).toEqual({
+        data,
+        cwd: root,
+        args: ["--phase", "noon"],
+      });
+      // No download, no receipt file, and no download success to imply one.
+      expect(existsSync(data)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+it.skipIf(process.platform !== "win32")(
+  "the download phase downloads once, writes the close receipt and then observes close",
+  () => {
+    const root = mkdtempSync(resolve(tmpdir(), "quant-close-download-"));
+    const data = resolve(root, "isolated-data");
+    const marker = resolve(root, "downloader-ran.txt");
+    try {
+      mkdirSync(resolve(root, "node-runtime"));
+      mkdirSync(resolve(root, "runtime"));
+      copyFileSync(process.execPath, resolve(root, "node-runtime/node.exe"));
+      const downloader = resolve(root, "stub-download.ps1");
+      // Write no stdout: the wrapper's own stdout carries the runner report.
+      writeFileSync(
+        downloader,
+        `param([switch]$MarketOnly)\n@('marketOnly=' + $MarketOnly.IsPresent) | Set-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Encoding UTF8\n`,
+      );
+      writeFileSync(
+        resolve(root, "runtime/workflow-runner.cjs"),
+        `console.log(JSON.stringify({data:process.env.QUANT_DATA_DIR,cwd:process.cwd(),args:process.argv.slice(2)}));`,
+      );
+      const close = spawnSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve("scripts/workflow-task.ps1"),
+          "-Phase",
+          "download",
+          "-ServerDirectory",
+          root,
+          "-DataDirectory",
+          data,
+          "-DownloaderPath",
+          downloader,
+        ],
+        { encoding: "utf8", windowsHide: true, timeout: 20000 },
+      );
+      expect(close.status).toBe(0);
+      // 16:00 keeps the market-only package; financial packages stay out.
+      expect(readFileSync(marker, "utf8")).toContain("marketOnly=True");
+      const receipts = readdirSync(data).filter((name) =>
+        /^download-\d{4}-\d{2}-\d{2}-close\.json$/.test(name),
+      );
+      expect(receipts).toHaveLength(1);
+      expect(
+        JSON.parse(
+          readFileSync(resolve(data, receipts[0]!), "utf8").replace(
+            /^\uFEFF/,
+            "",
+          ),
+        ),
+      ).toMatchObject({ phase: "close", exitCode: 0 });
+      expect(JSON.parse(close.stdout)).toEqual({
+        data,
+        cwd: root,
+        args: ["--phase", "close"],
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -25,8 +25,9 @@ import {
   type RpsSecurity,
 } from "./rps-engine";
 import { RpsStore } from "./rps-store";
-import { overlayDailyIncrements } from "./tdx-daily-overlay";
-import { readDailyIncrementRange } from "./tdx-daily-cache";
+// g4day 暂停（见 docs/decisions.md WF3）：
+// import { overlayDailyIncrements } from "./tdx-daily-overlay";
+// import { readDailyIncrementRange } from "./tdx-daily-cache";
 import { fullDaySymbols, readFullDaySnapshot } from "./tdx-full-day-cache";
 import { isRpsMarketSymbol } from "~/lib/rps";
 
@@ -47,8 +48,9 @@ export function localRpsDependencies(
   source: "blocks" | "tdx" = "blocks",
 ): RpsDependencies {
   const versions = new Set<string>();
-  const today = () =>
-    new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  // g4day 暂停：增量路径停用后这两处不再需要当日；解冻时恢复。
+  // const today = () =>
+  //   new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
   return {
     incrementSnapshots: () => [...versions].sort(),
     industries: (checkpoint) =>
@@ -92,20 +94,14 @@ export function localRpsDependencies(
         usedFull = true;
       }
       if (!days.length && localFailure) throw localFailure;
-      const increments = days.length
-        ? readDailyIncrementRange("sh000001", days[0]!, today())
-        : [];
-      for (const item of increments) versions.add(item.snapshot.id);
+      // g4day 暂停（见 docs/decisions.md WF3）：参考日历只取本地与完整包缓存已有日期。
+      // const increments = days.length
+      //   ? readDailyIncrementRange("sh000001", days[0]!, today())
+      //   : [];
+      // for (const item of increments) versions.add(item.snapshot.id);
       return {
-        days: [
-          ...new Set([
-            ...days,
-            ...increments.map((item) => item.record.bar.date),
-          ]),
-        ].sort(),
-        source:
-          `${usedFull ? "完整包缓存" : "本地"}上证指数最近1000根已有交易日期（非完整官方日历）` +
-          (increments.length ? "，含通达信已发布日线增量" : ""),
+        days: [...new Set(days)].sort(),
+        source: `${usedFull ? "完整包缓存" : "本地"}上证指数最近1000根已有交易日期（非完整官方日历）`,
       };
     },
     universe: async () => {
@@ -126,12 +122,8 @@ export function localRpsDependencies(
       ];
     },
     bars: async (symbol) => {
-      const snapshot = overlayDailyIncrements(
-        await readLocalDailySnapshot(root, symbol),
-        today(),
-      );
-      for (const version of snapshot.sourceVersions ?? [])
-        versions.add(version);
+      // g4day 暂停（见 docs/decisions.md WF3）：只读本地日线，不叠加通达信增量。
+      const snapshot = await readLocalDailySnapshot(root, symbol);
       return snapshot.bars;
     },
     actions: async () => {

@@ -24,7 +24,7 @@ import {
   completedRpsObservation,
   type RpsObservation,
 } from "./rps-observation";
-import { mcpChartHistory } from "./chart-history";
+import { mcpLatestBars } from "./chart-history";
 
 export function estimateRpsSecurity(
   symbol: string,
@@ -109,8 +109,7 @@ export async function runRpsObservation(
       let confirmed = false;
       try {
         confirmed =
-          (await mcpChartHistory("sh000001", "day", 100)).bars.at(-1)?.date ===
-          date;
+          (await mcpLatestBars("sh000001", "day", 1)).at(-1)?.date === date;
       } catch {
         /* An unavailable MCP cannot block a verified dated Tencent quote. */
       }

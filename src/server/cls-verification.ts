@@ -8,7 +8,7 @@ import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readBenchmarkSnapshot } from "./tdx-benchmark";
 import type { Bar } from "~/lib/domain";
 import { monitorCalendar } from "./monitor-calendar";
-import { overlayDailyIncrements } from "./tdx-daily-overlay";
+// g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export type ClsVerification = {
   version: "cls-verification-1";
@@ -44,10 +44,8 @@ export async function verifyClsSample(date: string) {
   const versions = new Set<string>();
   if (sample.selected) {
     try {
-      const stock = overlayDailyIncrements(
-        await readLocalDailySnapshot(root, sample.selected.symbol),
-        today,
-      );
+      // g4day 暂停（见 docs/decisions.md WF3）：直接读本地日线，不叠加通达信增量。
+      const stock = await readLocalDailySnapshot(root, sample.selected.symbol);
       stock.sourceVersions?.forEach((id) => versions.add(id));
       bars = stock.bars.filter((bar) => bar.date >= date && bar.date <= today);
     } catch (error) {
@@ -57,10 +55,8 @@ export async function verifyClsSample(date: string) {
     }
   }
   try {
-    const merged = overlayDailyIncrements(
-      await readBenchmarkSnapshot(root, date, today),
-      today,
-    );
+    // g4day 暂停：基准同样只读本地/完整包缓存快照。
+    const merged = await readBenchmarkSnapshot(root, date, today);
     merged.sourceVersions?.forEach((id) => versions.add(id));
     benchmark = merged.bars.filter(
       (bar) => bar.date >= date && bar.date <= today,

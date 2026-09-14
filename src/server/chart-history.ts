@@ -86,10 +86,36 @@ export async function mcpChartHistory(
     volumeUnit: "源单位",
   };
 }
+/** 只取最近 count 根：盘中补当日增量时用一次请求，不重取整段历史。 */
+export async function mcpLatestBars(
+  symbol: string,
+  period: ChartPeriod,
+  count: number,
+  query = queryMcp,
+) {
+  if (!Number.isInteger(count) || count < 1 || count > 1000)
+    throw new Error("MCP 尾段 K 线数量必须在 1..1000");
+  const raw = await query("tdx_kline", {
+    code: symbol.slice(2),
+    setcode: symbol.startsWith("sh") ? "1" : "0",
+    period: codes[period],
+    wantNum: String(count),
+    startxh: "0",
+    tqFlag: "0",
+  });
+  const bars = normalizeChartMcpPage(raw, period).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  if (!bars.length) throw new Error("MCP 未返回目标周期行情");
+  return bars;
+}
+/** `beg` 限定起始日期：东方财富的 `lmt` 不生效，实测 lmt=12 仍返回全部历史，
+ * 只补尾部时必须用日期截断，否则响应和重叠校验都落到全history上。 */
 export async function onlinePeriodHistory(
   symbol: string,
   period: ChartPeriod,
   limit: number,
+  beg = "0",
 ) {
   const klt = {
     day: "101",
@@ -107,7 +133,7 @@ export async function onlinePeriodHistory(
     fields2: "f51,f52,f53,f54,f55,f56,f57",
     klt,
     fqt: "0",
-    beg: "0",
+    beg: beg.replaceAll("-", ""),
     end: "20500101",
     lmt: String(limit),
   }).toString();

@@ -117,11 +117,10 @@ export function aggregateChartBars(
       ) {
         const weekday = new Date(day).getUTCDay();
         if (weekday === 0 || weekday === 6) continue;
-        if (
-          opening.has(day)
-            ? !present.has(day) || closed.has(day)
-            : !closed.has(day)
-        )
+        // 只有能证明当天开市、而本品种缺这一根时才算缺口。日历只保留最近约 400 个
+        // 交易日且不含休市名单：不在日历里的工作日一律视为休市/无交易日，否则每个
+        // 节假日都会把整块周/月行情判成不完整，本地周/月线永远无法使用。
+        if (opening.has(day) && (!present.has(day) || closed.has(day)))
           complete = false;
       }
     }

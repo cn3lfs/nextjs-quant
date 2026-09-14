@@ -12,27 +12,28 @@ export const workflowEnabled = () =>
   get<{ enabled: boolean }>("workflow-config")?.enabled === true;
 const receipt = z.object({
   date: z.string(),
-  phase: z.enum(["noon", "close"]),
+  phase: z.literal("close"),
   completedAt: z.number(),
   exitCode: z.literal(0),
 });
-export async function downloadReady(date: string, phase: "noon" | "close") {
+// Only the close phase reads the daily files a download produces; noon and late
+// estimate today's bar from online quotes. A redundant noon download therefore
+// must never gate those observations.
+export const requiresDownloadReceipt = (phase: RpsObservation["phase"]) =>
+  phase === "close";
+export async function downloadReady(date: string) {
   try {
     const parsed = receipt.parse(
       JSON.parse(
         (
           await readFile(
-            join(dataDirectory(), `download-${date}-${phase}.json`),
+            join(dataDirectory(), `download-${date}-close.json`),
             "utf8",
           )
         ).replace(/^\uFEFF/, ""),
       ),
     );
-    return (
-      parsed.date === date &&
-      parsed.phase === phase &&
-      parsed.completedAt <= Date.now()
-    );
+    return parsed.date === date && parsed.completedAt <= Date.now();
   } catch {
     return false;
   }
@@ -63,7 +64,7 @@ export function scheduleWorkflowRps(now: number) {
     return;
   scope.workflowAttempt = now;
   scope.workflowTick = (async () => {
-    if (phase !== "late" && !(await downloadReady(date, phase))) return;
+    if (requiresDownloadReceipt(phase) && !(await downloadReady(date))) return;
     await runRpsObservation(phase, now);
   })()
     .catch(() => {

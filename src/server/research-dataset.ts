@@ -9,7 +9,7 @@ import { readMarketPool } from "./market-pool-files";
 import { scan } from "./tdx";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
-import { overlayDailyIncrements } from "./tdx-daily-overlay";
+// g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export const researchHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -40,8 +40,10 @@ export async function captureResearchDataset(
   ]
     .filter(isRpsMarketSymbol)
     .sort();
-  const benchmarkSource = overlayDailyIncrements(
-    await readBenchmarkSnapshot(root, spec.start, spec.end),
+  // g4day 暂停（见 docs/decisions.md WF3）：基准只读本地/完整包缓存快照。
+  const benchmarkSource = await readBenchmarkSnapshot(
+    root,
+    spec.start,
     spec.end,
   );
   const benchmark = benchmarkSource.bars;
@@ -70,10 +72,8 @@ export async function captureResearchDataset(
   for (const [index, symbol] of symbols.entries()) {
     if (cancelled()) throw new Error("研究采集已取消");
     try {
-      const snapshot = overlayDailyIncrements(
-        await readLocalDailySnapshot(root, symbol),
-        spec.end,
-      );
+      // g4day 暂停：研究数据集只读本地日线，不叠加通达信增量。
+      const snapshot = await readLocalDailySnapshot(root, symbol);
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
       const raw = {
         symbol,

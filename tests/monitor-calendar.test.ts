@@ -52,7 +52,8 @@ it("prefers user overrides, then the declared calendar, without requesting index
   expect(transition(before, after, fresh, false)).toBe(true);
 });
 
-it("extends local fallback with observed index increments and preserves version evidence", async () => {
+// g4day 暂停（见 docs/decisions.md WF3）：日历不再并入增量日期，解冻时去掉 .skip。
+it.skip("extends local fallback with observed index increments and preserves version evidence", async () => {
   const now = Date.parse("2026-09-11T16:00:00+08:00");
   mocks.gf.mockRejectedValue(new Error("unavailable"));
   mocks.local.mockResolvedValue({

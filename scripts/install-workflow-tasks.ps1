@@ -6,7 +6,7 @@ $task = Get-ScheduledTask -TaskName 'TDX_DailyDownload'
 $downloader = 'E:\new_tdx64\auto_download\tdx_download.ps1'
 $original = Get-Content -LiteralPath $downloader -Raw -Encoding UTF8
 if (!$Apply) {
-    Write-Output 'TDX_DailyDownload: 工作日12:00、15:30、20:00；Quant_RPS_Late: 工作日14:40。前两批只下载行情，20:00保留财务更新。'
+    Write-Output 'TDX_DailyDownload: 工作日16:00下载日线并计算收盘RPS（全量包收盘后才更新）；Quant_RPS_Noon: 工作日12:00只做午盘观察、不下载；Quant_RPS_Late: 工作日14:40。'
     Write-Output '使用 -Apply 备份后应用；仅在新桌面包验证完成后执行。'
     exit 0
 }
@@ -17,6 +17,8 @@ Export-ScheduledTask -TaskName $task.TaskName | Set-Content -LiteralPath (Join-P
 Copy-Item -LiteralPath $downloader -Destination (Join-Path $backup 'tdx_download.ps1')
 $late = Get-ScheduledTask -TaskName 'Quant_RPS_Late' -ErrorAction SilentlyContinue
 if ($late) { Export-ScheduledTask -TaskName $late.TaskName | Set-Content -LiteralPath (Join-Path $backup 'Quant_RPS_Late.xml') -Encoding Unicode }
+$noon = Get-ScheduledTask -TaskName 'Quant_RPS_Noon' -ErrorAction SilentlyContinue
+if ($noon) { Export-ScheduledTask -TaskName $noon.TaskName | Set-Content -LiteralPath (Join-Path $backup 'Quant_RPS_Noon.xml') -Encoding Unicode }
 $collector = Get-ScheduledTask -TaskName 'CLS_News_Collector'
 $analysis = Get-ScheduledTask -TaskName 'QuantWorkbench-CLS-Morning'
 Export-ScheduledTask -TaskName $collector.TaskName | Set-Content -LiteralPath (Join-Path $backup 'CLS_News_Collector.xml') -Encoding Unicode
@@ -34,14 +36,18 @@ if ($original -notmatch '\[switch\]\$MarketOnly') {
     Set-Content -LiteralPath $downloader -Value $updated -Encoding UTF8
 }
 $days = @('Monday','Tuesday','Wednesday','Thursday','Friday')
-$triggers = @('12:00','15:30','20:00') | ForEach-Object { New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_ }
+# 日线全量包收盘后才发布，因此只保留 16:00 下载；12:00 只做午盘观察。
+$closeTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '16:00'
 $wrapper = Join-Path $PSScriptRoot 'workflow-task.ps1'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase download" -WorkingDirectory $repo
-Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger $triggers -ErrorAction Stop | Out-Null
+Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger @($closeTrigger) -ErrorAction Stop | Out-Null
 $lateAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase late" -WorkingDirectory $repo
 $lateTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '14:40'
 $lateSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
 Register-ScheduledTask -TaskName 'Quant_RPS_Late' -Action $lateAction -Trigger $lateTrigger -Settings $lateSettings -Principal $task.Principal -Force -ErrorAction Stop | Out-Null
+$noonAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase noon" -WorkingDirectory $repo
+$noonTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '12:00'
+Register-ScheduledTask -TaskName 'Quant_RPS_Noon' -Action $noonAction -Trigger $noonTrigger -Settings $lateSettings -Principal $task.Principal -Force -ErrorAction Stop | Out-Null
 Write-Output "任务已更新；备份：$backup"
 # A failed first-page fetch used to return [] and exit 0; do not mark that as a completed collection.
 if (!$collectorCode.Contains('CLS first-page fetch returned no data')) {

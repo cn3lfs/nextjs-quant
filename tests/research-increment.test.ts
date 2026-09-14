@@ -9,7 +9,8 @@ import { researchSpecSchema } from "../src/lib/strategy-research";
 import { captureResearchDataset } from "../src/server/research-dataset";
 import { publishDailyIncrement } from "../src/server/tdx-daily-cache";
 
-it("freezes captured increments and benchmark dates while new research sees a later revision", async () => {
+// g4day 暂停（见 docs/decisions.md WF3）：研究数据集不再叠加增量，解冻时去掉 .skip。
+it.skip("freezes captured increments and benchmark dates while new research sees a later revision", async () => {
   const root = await mkdtemp(join(tmpdir(), "research-increment-"));
   const directory = join(root, "vipdoc", "sh", "lday");
   await mkdir(directory, { recursive: true });

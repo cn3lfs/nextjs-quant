@@ -10,7 +10,7 @@ import { readMarketPool } from "./market-pool-files";
 import { readSnapshot } from "./tdx";
 import { barPage } from "./tdx-quotes";
 import { latestRpsObservation, observationRanking } from "./rps-observation";
-import { overlayDailyIncrements } from "./tdx-daily-overlay";
+// g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 
 export async function intradayPool(
@@ -85,10 +85,8 @@ export async function intradayHistory(
       readLocalDailySnapshot(root, symbol),
       readSnapshot(root, symbol, "5m"),
     ]);
-    const merged = overlayDailyIncrements(
-      daily,
-      new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
-    );
+    // g4day 暂停（见 docs/decisions.md WF3）：只读本地日线，不叠加通达信增量。
+    const merged = daily;
     return {
       daily: merged.bars,
       sourceVersions: merged.sourceVersions,

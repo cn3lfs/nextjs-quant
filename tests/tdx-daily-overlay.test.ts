@@ -1,12 +1,17 @@
 import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { publishDailyIncrement } from "../src/server/tdx-daily-cache";
+import {
+  publishDailyIncrement,
+  readDailyIncrement,
+} from "../src/server/tdx-daily-cache";
 import { overlayDailyIncrements } from "../src/server/tdx-daily-overlay";
 import { put } from "../src/server/db";
 import { chartBars } from "../src/server/chart-bars";
 
-it("uses the increment in the actual daily chart response and binds the chart version", async () => {
+// g4day 暂停（见 docs/decisions.md WF3）：图表链路不再叠加已发布的增量，函数本身保持可用。
+// 解冻时把断言改回 `tdx-local+g4day` 与 close 11。
+it("keeps the published increment out of the daily chart response while g4day is suspended", async () => {
   const now = vi
     .spyOn(Date, "now")
     .mockReturnValue(Date.parse("2026-09-11T08:00:00+08:00"));
@@ -46,8 +51,11 @@ it("uses the increment in the actual daily chart response and binds the chart ve
       period: "day",
       limit: 100,
     });
-    expect(chart.source).toBe("tdx-local+g4day");
-    expect(chart.bars.at(-1)!.close).toBe(11);
+    // 增量仍然发布并可按符号读取，只是消费侧（图表）暂停应用它。
+    expect(readDailyIncrement(source.symbol, "2026-09-10")).not.toBeNull();
+    expect(chart.source).toBe("tdx-local");
+    expect(chart.bars.at(-1)!.close).toBe(10);
+    expect(chart.bars.at(-1)!.date).toBe("2026-09-10");
     expect(chart.bars).toHaveLength(100);
     expect(source.bars.at(-1)!.close).toBe(10);
   } finally {
