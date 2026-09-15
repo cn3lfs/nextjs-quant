@@ -2,7 +2,7 @@
 
 按用户授权，在独立包 `packages/tstdx` 中补齐此前三库对照表的行情 TCP 能力。现有 9 个数据方法保留，新增 26 个数据查询/封装，共 35 个；另有连接、测速、心跳和纯计算工具。量化终端继续引用 workspace 包，新增能力可直接 `import { createTdxClient } from "tstdx"` 使用。
 
-参照版本：[xmtdx 0.2.1](https://pypi.org/project/xmtdx/) 与 [rustdx-complete 1.11.0](https://crates.io/crates/rustdx-complete)。这不是 Python/Rust 方法名逐字兼容层；JavaScript 统一 Promise，不额外制造阻塞式同步客户端。范围沿用此前 TCP 对照，不包含指标库、日历、缓存、CLI 东方财富下载或 vipdoc 解析。
+参照版本：[xmtdx 0.2.1](https://pypi.org/project/xmtdx/) 与 [rustdx-complete 1.11.0](https://crates.io/crates/rustdx-complete)。这不是 Python/Rust 方法名逐字兼容层；JavaScript 统一 Promise，不额外制造阻塞式同步客户端。范围沿用此前 TCP 对照，不包含指标库、日历、缓存、CLI 东方财富下载或 vipdoc 解析；另提供独立的历史财务包 Buffer 解析，不读本地路径。
 
 ## 对应关系
 
@@ -30,6 +30,8 @@
 | get_company_info_content     | companyInfoContent                              |
 | get_block_info               | blockInfo                                       |
 | get_report_file              | reportFile                                      |
+| mootdx `Affair.files`        | `parseFinancialFileList`                        |
+| mootdx `Affair.parse`        | `parseFinancialReport`                          |
 
 Rust 的 `stocks / bars_range / index_bars_range / k / bars_batch / k_batch / k_adjusted / f10 / BlockInfoMeta / BlockInfoChunk / block` 分别对应 `stocks / barsRange / indexBarsRange / k / barsBatch / kBatch / kAdjusted / f10 / blockMeta / fileChunk / blockMembers`。`industryMap` 和 `transactionsAll` 供完整下载与资金流封装使用。
 

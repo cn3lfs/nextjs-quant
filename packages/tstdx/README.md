@@ -1,6 +1,6 @@
 # tstdx
 
-独立的 TypeScript / Node.js 通达信 7709 TCP 行情客户端。仅依赖 `iconv-lite` 编码 F10 的 GBK 中文文件名，不依赖 Next.js、SQLite、量化终端或 vipdoc。本地文件解析不属于本包。
+独立的 TypeScript / Node.js 通达信 7709 TCP 行情客户端。仅依赖 `iconv-lite` 编码 F10 的 GBK 中文文件名，不依赖 Next.js、SQLite 或量化终端。本包不直接读取本地目录，但提供纯 Buffer 的通达信历史财务包解析。
 
 要求 Node.js 22 或更新版本。当前为本地独立包，`private: true` 防止误发布；尚未发布到 npm。
 
@@ -83,6 +83,8 @@ try {
 | `startHeartbeat / stopHeartbeat`        | `(intervalMs=60000, onError?)` / `()`；保活启停；close 自动停止                                                    |
 
 模块级 `pingAll(hosts?, {port?, timeoutMs?, parallel?})` 返回节点握手状态、耗时与错误；`probeHosts` 额外执行证券数量、报价和日 K 线业务探测，区分握手成功但行情正文不可用的节点。`fromBestHost({requireMarketData: true})` 才会按这组业务探测筛选节点，默认行为仍只按握手测速。纯函数 `adjustBars / computePriceLimits / classifyFundFlow / marketStatistics` 可以脱离 TCP 单独使用。
+
+`parseFinancialFileList(bytes)` 解析 `tdxfin/gpcw.txt` 清单，`parseFinancialReport(bytes, filename?)` 解析 `gpcw*.dat` 或只含一个 DAT 的 ZIP。报告返回来源文件名（若调用方提供）和 SHA-256，以及报告日期、证券代码、原始字段数组和索引标记；字段位置及单位必须由调用方按对应报告版本核验，不能直接当作已核验的财务事实。解析器只处理内存中的字节，不负责下载、落盘或接入研究档案。
 
 ### 数据口径与失败行为
 
