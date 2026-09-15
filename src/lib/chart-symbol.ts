@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { isPriceScaleThreeFund } from "./security-classification";
 export const chartPricePrecision = (symbol: string): 2 | 3 =>
-  /^(sh(?:51|56|58)|sz(?:15|16))\d{4}$/.test(symbol) ? 3 : 2;
+  isPriceScaleThreeFund(symbol) ? 3 : 2;
 /** 仅用于图表；交易、研究证券池和身份核验仍使用 domain.symbolSchema。 */
 export const chartSymbolSchema = z
   .string()

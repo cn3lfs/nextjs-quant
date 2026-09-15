@@ -82,7 +82,7 @@ try {
 | `heartbeat / reconnect / retry`         | `()` / `()` / `(operation, attempts=2)`；协议探活、重连、有界重试                                                  |
 | `startHeartbeat / stopHeartbeat`        | `(intervalMs=60000, onError?)` / `()`；保活启停；close 自动停止                                                    |
 
-模块级 `pingAll(hosts?, {port?, timeoutMs?, parallel?})` 返回节点握手状态、耗时与错误；`fromBestHost(options?)` 按测速建立客户端。纯函数 `adjustBars / computePriceLimits / classifyFundFlow / marketStatistics` 可以脱离 TCP 单独使用。
+模块级 `pingAll(hosts?, {port?, timeoutMs?, parallel?})` 返回节点握手状态、耗时与错误；`probeHosts` 额外执行证券数量、报价和日 K 线业务探测，区分握手成功但行情正文不可用的节点。`fromBestHost({requireMarketData: true})` 才会按这组业务探测筛选节点，默认行为仍只按握手测速。纯函数 `adjustBars / computePriceLimits / classifyFundFlow / marketStatistics` 可以脱离 TCP 单独使用。
 
 ### 数据口径与失败行为
 

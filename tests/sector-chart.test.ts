@@ -7,7 +7,16 @@ import {
 import { symbolSchema } from "../src/lib/domain";
 import { chartKeySchema } from "../src/lib/chart-view";
 it("沪深基金图表保留三位价格，股票和指数保留两位", () => {
-  for (const symbol of ["sh510300", "sh588000", "sz159915", "sz161725"])
+  for (const symbol of [
+    "sh500001",
+    "sh510300",
+    "sh520500",
+    "sh530000",
+    "sh560000",
+    "sh588000",
+    "sz159915",
+    "sz161725",
+  ])
     expect(chartPricePrecision(symbol)).toBe(3);
   for (const symbol of ["sh600000", "sz300750", "sh000001", "pt01801081"])
     expect(chartPricePrecision(symbol)).toBe(2);

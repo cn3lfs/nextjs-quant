@@ -1,13 +1,15 @@
 import { createServer, type Server, type Socket } from "node:net";
 import { deflateSync } from "node:zlib";
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PORT,
   TDX_HOSTS,
   TdxSession,
   createQuotesPool,
   createTdxClient,
+  fromBestHost,
+  probeHosts,
 } from "../src/index";
 import {
   FRAME_HEADER_SIZE,
@@ -346,6 +348,98 @@ describe("新增连接控制", () => {
       await new Promise((resolve) => setTimeout(resolve, 160));
       expect(errors).toBe(1);
       expect(server.requests).toHaveLength(count);
+    } finally {
+      await client.close();
+    }
+  });
+});
+
+describe("业务节点探测", () => {
+  it("区分握手失败、业务正文失败、空 K 线和完整可用节点", async () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL("./fixtures/handshake-market-response.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const closed: ReturnType<typeof vi.fn>[] = [];
+    const connect = async (host: string) => {
+      if (host === "bad") throw new Error("连接拒绝");
+      const close = vi.fn(async () => {});
+      closed.push(close);
+      return {
+        close,
+        request: vi.fn(async (request: Buffer) => {
+          const command = request.readUInt16LE(10);
+          if (host === "empty") {
+            if (command === 0x044e) return Buffer.from([0, 0]);
+            if (command === 0x052d) return Buffer.from([0, 0]);
+            return Buffer.from([0, 0, 0, 0]);
+          }
+          if (command === 0x044e) return Buffer.from([1, 0]);
+          if (command === 0x052d) return Buffer.from(fixture.bars, "hex");
+          if (command === 0x053e) return Buffer.from(fixture.quotes, "hex");
+          throw new Error(`未知探测请求：${command.toString(16)}`);
+        }),
+      };
+    };
+    const result = await probeHosts(["bad", "empty", "good"], {
+      timeoutMs: 100,
+      parallel: 2,
+      sampleSymbol: "sz300750",
+      connect,
+    });
+    expect(
+      result.map((row) => [
+        row.handshake.status,
+        row.securityCount.status,
+        row.quotes.status,
+        row.bars.status,
+        row.usable,
+      ]),
+    ).toEqual([
+      ["error", "not-run", "not-run", "not-run", false],
+      ["ok", "empty", "error", "empty", false],
+      ["ok", "ok", "ok", "ok", true],
+    ]);
+    expect(result[0]?.handshake.error).toContain("连接拒绝");
+    expect(closed).toHaveLength(2);
+    closed.forEach((close) => expect(close).toHaveBeenCalledOnce());
+  });
+  it("拒绝把 ETF 当作默认探测样本，避免精度猜测", async () => {
+    await expect(probeHosts([], { sampleSymbol: "sh510300" })).rejects.toThrow(
+      "股票或指数",
+    );
+  });
+  it("fromBestHost 可选择通过业务探测的节点并保持客户端配置", async () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL("./fixtures/handshake-market-response.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const server = await fakeServer({
+      reply: (request) => {
+        if (SETUP_FRAMES.some((setup) => setup.equals(request)))
+          return frame(Buffer.from([0, 0]));
+        const command = request.readUInt16LE(10);
+        if (command === 0x044e) return frame(Buffer.from([1, 0]));
+        if (command === 0x052d) return frame(Buffer.from(fixture.bars, "hex"));
+        if (command === 0x053e)
+          return frame(Buffer.from(fixture.quotes, "hex"));
+        return frame(Buffer.from([0, 0]));
+      },
+    });
+    const client = await fromBestHost({
+      hosts: ["127.0.0.1"],
+      port: server.port,
+      timeoutMs: 100,
+      requireMarketData: true,
+      sampleSymbol: "sz300750",
+    });
+    try {
+      expect(await client.securityCount("sz")).toBe(1);
+      expect(server.connections).toHaveLength(2);
     } finally {
       await client.close();
     }

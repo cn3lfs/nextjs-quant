@@ -557,6 +557,143 @@ export function createTdxClient(options: TdxClientOptions = {}) {
 }
 export type TdxClient = ReturnType<typeof createTdxClient>;
 
+export type TdxProbeStatus = "ok" | "empty" | "error" | "not-run";
+export type TdxProbeCheck = {
+  status: TdxProbeStatus;
+  elapsedMs: number;
+  error?: string;
+};
+export type TdxHostProbe = {
+  host: string;
+  elapsedMs: number;
+  handshake: TdxProbeCheck;
+  securityCount: TdxProbeCheck;
+  quotes: TdxProbeCheck;
+  bars: TdxProbeCheck;
+  usable: boolean;
+};
+export type TdxProbeSession = Pick<TdxSession, "request" | "close">;
+export type TdxProbeConnector = (
+  host: string,
+  port: number,
+  timeoutMs: number,
+) => Promise<TdxProbeSession>;
+export type TdxProbeOptions = {
+  port?: number;
+  timeoutMs?: number;
+  parallel?: number;
+  sampleSymbol?: string;
+  connect?: TdxProbeConnector;
+};
+
+const probeNotRun = (): TdxProbeCheck => ({
+  status: "not-run",
+  elapsedMs: 0,
+});
+const probeError = (begin: number, error: unknown): TdxProbeCheck => ({
+  status: "error",
+  elapsedMs: performance.now() - begin,
+  error: error instanceof Error ? error.message : String(error),
+});
+async function probeRequest<T>(
+  run: () => Promise<T>,
+  hasRows: (value: T) => boolean,
+): Promise<TdxProbeCheck> {
+  const begin = performance.now();
+  try {
+    const value = await run();
+    return {
+      status: hasRows(value) ? "ok" : "empty",
+      elapsedMs: performance.now() - begin,
+    };
+  } catch (error) {
+    return probeError(begin, error);
+  }
+}
+
+/**
+ * 按节点执行一次最小业务探测。pingAll 仍只表示握手成功；这里才验证
+ * 证券目录、报价和 K 线正文，专门识别“能连接但不提供有效行情”的节点。
+ * 探测不写配置、不轮询，调用者可按需保存结果或选择节点。
+ */
+export async function probeHosts(
+  hosts: readonly string[] = TDX_HOSTS,
+  options: TdxProbeOptions = {},
+): Promise<TdxHostProbe[]> {
+  const parallel = uint(options.parallel ?? 4, "parallel", 16, 1);
+  const timeout = uint(options.timeoutMs ?? 3000, "timeoutMs", 60000, 1);
+  const sample = options.sampleSymbol ?? "sh600000";
+  if (!isAStock(sample) && !isIndexSymbol(sample))
+    throw new Error("节点探测样本必须是已知的股票或指数");
+  const market = sample.slice(0, 2) as TdxMarket;
+  const connect =
+    options.connect ??
+    ((host, port, timeoutMs) => TdxSession.connect(host, port, timeoutMs));
+  const results: TdxHostProbe[] = new Array(hosts.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(parallel, hosts.length) }, async () => {
+      while (next < hosts.length) {
+        const index = next++,
+          host = hosts[index]!,
+          started = performance.now();
+        let session: TdxProbeSession | undefined;
+        let handshake: TdxProbeCheck = probeNotRun();
+        let securityCount: TdxProbeCheck = probeNotRun();
+        let quotes: TdxProbeCheck = probeNotRun();
+        let bars: TdxProbeCheck = probeNotRun();
+        try {
+          session = await connect(host, options.port ?? PORT, timeout);
+          handshake = { status: "ok", elapsedMs: performance.now() - started };
+          securityCount = await probeRequest(
+            async () =>
+              parseSecurityCount(
+                await session!.request(buildSecurityCountRequest(market)),
+              ),
+            (count) => count > 0,
+          );
+          quotes = await probeRequest(
+            async () =>
+              parseQuotes(
+                await session!.request(buildQuotesRequest([sample])),
+                [sample],
+                new Map([[sample, 2]]),
+              ),
+            (rows) => rows.length > 0,
+          );
+          bars = await probeRequest(
+            async () =>
+              parseBars(
+                await session!.request(buildBarsRequest(sample, "day", 0, 1)),
+                "day",
+                isIndexSymbol(sample),
+              ),
+            (rows) => rows.length > 0,
+          );
+        } catch (error) {
+          handshake = probeError(started, error);
+        } finally {
+          await session?.close().catch(() => {});
+        }
+        results[index] = {
+          host,
+          elapsedMs: performance.now() - started,
+          handshake,
+          securityCount,
+          quotes,
+          bars,
+          usable:
+            handshake.status === "ok" &&
+            securityCount.status === "ok" &&
+            quotes.status === "ok" &&
+            bars.status === "ok",
+        };
+      }
+    }),
+  );
+  return results;
+}
+
 export async function pingAll(
   hosts: readonly string[] = TDX_HOSTS,
   options: { port?: number; timeoutMs?: number; parallel?: number } = {},
@@ -607,13 +744,47 @@ export async function pingAll(
   );
 }
 export async function fromBestHost(
-  options: Omit<TdxClientOptions, "hosts"> & { hosts?: readonly string[] } = {},
+  options: Omit<TdxClientOptions, "hosts"> & {
+    hosts?: readonly string[];
+    parallel?: number;
+    sampleSymbol?: string;
+    requireMarketData?: boolean;
+  } = {},
 ) {
+  if (options.requireMarketData) {
+    const ranked = await probeHosts(options.hosts, options),
+      hosts = ranked
+        .filter((r) => r.usable)
+        .sort((a, b) => a.elapsedMs - b.elapsedMs)
+        .map((r) => r.host);
+    if (!hosts.length)
+      throw new Error(
+        `没有通过行情业务探测的节点：${ranked
+          .map(
+            (r) =>
+              `${r.host}: ${r.bars.error ?? r.quotes.error ?? r.securityCount.error ?? r.handshake.error ?? "未通过"}`,
+          )
+          .join("；")}`,
+      );
+    const {
+      parallel: _,
+      sampleSymbol: ___,
+      requireMarketData: __,
+      ...clientOptions
+    } = options;
+    return createTdxClient({ ...clientOptions, hosts });
+  }
   const ranked = await pingAll(options.hosts, options),
     hosts = ranked.filter((r) => r.connected).map((r) => r.host);
   if (!hosts.length)
     throw new Error(
       `没有可连接的行情节点：${ranked.map((r) => r.error).join("；")}`,
     );
-  return createTdxClient({ ...options, hosts });
+  const {
+    parallel: _,
+    sampleSymbol: ___,
+    requireMarketData: __,
+    ...clientOptions
+  } = options;
+  return createTdxClient({ ...clientOptions, hosts });
 }

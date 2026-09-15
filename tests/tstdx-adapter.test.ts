@@ -81,7 +81,16 @@ it("板块代码隔离，未知调整能力不发请求", async () => {
   ]);
   expect(make).not.toHaveBeenCalled();
   expect(() => requireTstdxRows(r)).toThrow("ptBK0475");
-  expect(tstdxAssetKind("sz159915")).toBe("etf");
+  for (const symbol of [
+    "sh500001",
+    "sh520500",
+    "sh530000",
+    "sh560000",
+    "sh588000",
+    "sz159915",
+    "sz161725",
+  ])
+    expect(tstdxAssetKind(symbol)).toBe("etf");
 });
 it("拒绝非法参数、日期、重复证券及未来区间", async () => {
   const make = vi.fn(() => fake());

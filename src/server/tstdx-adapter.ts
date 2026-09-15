@@ -13,6 +13,7 @@ import {
 } from "~/lib/chart-view";
 import type { Bar } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market-indices";
+import { isPriceScaleThreeFund } from "~/lib/security-classification";
 import { configuredHosts } from "./tdx-quotes";
 
 export const TSTDX_ADAPTER_VERSION = "tstdx-adapter-2";
@@ -85,7 +86,7 @@ export function tstdxAssetKind(symbol: string) {
   if (symbol.startsWith("pt")) return "foreign-sector";
   if (/^sh88\d{4}$/.test(symbol)) return "sector";
   if (isMarketIndex(symbol) || isIndexSymbol(symbol)) return "index";
-  if (/^(sh5[1268]|sz15)\d{4}$/.test(symbol)) return "etf";
+  if (isPriceScaleThreeFund(symbol)) return "etf";
   return isAStock(symbol) ? "stock" : "security";
 }
 function checkedBars(raw: unknown, period: ChartPeriod, count: number): Bar[] {

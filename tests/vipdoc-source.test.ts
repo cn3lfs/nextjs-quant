@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import samples from "./fixtures/vipdoc-source-samples.json";
-import { readTailSnapshot, parseBars } from "../src/server/tdx";
+import { isLocalFund, readTailSnapshot, parseBars } from "../src/server/tdx";
 import { readVipdocChart as readSnapshot } from "../src/server/vipdoc-adapter";
 
 it("本地 ETF 日线按三位精度读取，分钟浮点价格不缩放，研究证券池不扩展", async () => {
@@ -67,4 +67,19 @@ it("精度不可猜测，重复日期仍拒绝", () => {
   expect(() => parseBars(Buffer.concat([row, row]), "day", 2026, 3)).toThrow(
     "重复",
   );
+});
+it("本地通达信三位精度基金覆盖已观察的上海代码族", () => {
+  for (const symbol of [
+    "sh500001",
+    "sh510300",
+    "sh520500",
+    "sh530000",
+    "sh560000",
+    "sh588000",
+    "sz159915",
+    "sz161725",
+  ])
+    expect(isLocalFund(symbol)).toBe(true);
+  expect(isLocalFund("sh540000")).toBe(false);
+  expect(isLocalFund("sh590000")).toBe(false);
 });

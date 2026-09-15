@@ -7,6 +7,7 @@ import { historicalDateSchema } from "~/lib/historical-screen";
 import type { Stats } from "node:fs";
 import { exchangeNames } from "./exchange-security-names";
 import { commonIndexName, isMarketIndex } from "~/lib/market-indices";
+import { isPriceScaleThreeFund } from "~/lib/security-classification";
 import { encodeTail, decodeTail } from "./tail-cache-codec";
 const tailCache = new Map<
   string,
@@ -95,8 +96,7 @@ export function isAStock(symbol: string) {
     symbol,
   );
 }
-export const isLocalFund = (symbol: string) =>
-  /^(sh(?:51|56|58)|sz(?:15|16))\d{4}$/.test(symbol);
+export const isLocalFund = isPriceScaleThreeFund;
 export function parseBars(
   buffer: Buffer,
   period: Period,
