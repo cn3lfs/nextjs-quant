@@ -1,5 +1,7 @@
 # tstdx 数据源验收（2026-09-14）
 
+2026-09-15 更新：第三条握手末字节修复后，43 个客户端主站日 K/五档恢复，应用十个日 K 样本通过；见[握手修复与对照证据](tstdx-handshake-fix.md)。下文早期失败结果保留其时点。
+
 后续完整公开 API 对比和独立包交付见[三库报告](tstdx-library-comparison.md)。下文保留前两轮时点结果。
 
 本轮仅测试项目自有TypeScript通达信TCP实现（tdx-quotes.ts / tdx-wire.ts），不测试或改写vipdoc本地文件，不调用付费MCP，不切换其他提供商冒充成功。

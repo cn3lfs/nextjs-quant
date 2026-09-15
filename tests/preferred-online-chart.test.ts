@@ -9,8 +9,17 @@ vi.mock("../src/server/chart-history", () => ({
   onlinePeriodHistory: deps.eastmoney,
 }));
 vi.mock("../src/server/tdx-quotes", () => ({
+  configuredHosts: () => ["127.0.0.1"],
   barPage: deps.page,
   indexBarPage: deps.page,
+}));
+vi.mock("tstdx", async (original) => ({
+  ...(await original<typeof import("tstdx")>()),
+  createTdxClient: () => ({
+    barPage: deps.page,
+    indexBarPage: deps.page,
+    close: async () => {},
+  }),
 }));
 vi.mock("../src/server/westock-data", () => ({
   westockScriptPath: () => "fixture-westock.js",

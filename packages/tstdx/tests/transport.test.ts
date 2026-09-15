@@ -1,5 +1,6 @@
 import { createServer, type Server, type Socket } from "node:net";
 import { deflateSync } from "node:zlib";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PORT,
@@ -8,7 +9,14 @@ import {
   createQuotesPool,
   createTdxClient,
 } from "../src/index";
-import { FRAME_HEADER_SIZE, SETUP_FRAMES } from "../src/wire";
+import {
+  FRAME_HEADER_SIZE,
+  SETUP_FRAMES,
+  buildBarsRequest,
+  buildQuotesRequest,
+  parseBars,
+  parseQuotes,
+} from "../src/wire";
 
 /**
  * 用一个假的行情服务器驱动连接层：握手时序、分片重组、请求串行化、
@@ -67,6 +75,70 @@ afterEach(async () => {
 });
 
 describe("握手", () => {
+  it("0FDB 末字节为 05 才能通过行情验活，握手应答本身不代表成功", async () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL("./fixtures/handshake-market-response.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    let enabled = false;
+    const server = await fakeServer({
+      chunks: 3,
+      reply: (request) => {
+        const command = request.readUInt16LE(10);
+        if (command === 0x0fdb) {
+          enabled = request.length === 42 && request[41] === 5;
+          return frame(Buffer.from([0, 0]));
+        }
+        if (command === 0x052d)
+          return frame(
+            enabled
+              ? Buffer.from(fixture.bars, "hex")
+              : Buffer.from("2003", "hex"),
+            enabled,
+          );
+        if (command === 0x053e)
+          return frame(
+            enabled
+              ? Buffer.from(fixture.quotes, "hex")
+              : Buffer.from("01000000", "hex"),
+          );
+        return frame(Buffer.from([0, 0]));
+      },
+    });
+    const session = await TdxSession.connect("127.0.0.1", server.port);
+    try {
+      const bars = parseBars(
+        await session.request(buildBarsRequest("sz300750", "day", 0, 3)),
+        "day",
+      );
+      expect(bars).toHaveLength(3);
+      expect(bars.at(-1)).toMatchObject({ date: "2026-09-14", close: 337.11 });
+      const quotes = parseQuotes(
+        await session.request(buildQuotesRequest(["sz300750"])),
+        ["sz300750"],
+      );
+      expect(quotes[0]).toMatchObject({ symbol: "sz300750", price: 337.11 });
+      expect(quotes[0]!.bids).toHaveLength(5);
+      expect(quotes[0]!.asks).toHaveLength(5);
+      const legacy = Buffer.from(SETUP_FRAMES[2]);
+      legacy[41] = 2;
+      await session.request(legacy);
+      const emptyBars = await session.request(
+        buildBarsRequest("sz300750", "day", 0, 3),
+      );
+      expect(() => parseBars(emptyBars, "day")).toThrow("未返回 K 线正文");
+      const emptyQuotes = await session.request(
+        buildQuotesRequest(["sz300750"]),
+      );
+      expect(() => parseQuotes(emptyQuotes, ["sz300750"])).toThrow(
+        "返回数量与请求不符",
+      );
+    } finally {
+      await session.close();
+    }
+  });
   it("连接后按序发出三条握手帧并读走各自的响应", async () => {
     const server = await fakeServer(),
       session = await TdxSession.connect("127.0.0.1", server.port);

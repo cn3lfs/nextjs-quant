@@ -1,14 +1,8 @@
 import { createHash } from "node:crypto";
-import {
-  symbolSchema,
-  type Bar,
-  type Period,
-  type Snapshot,
-} from "~/lib/domain";
+import { type Period, type Snapshot } from "~/lib/domain";
 import { type ChartPeriod } from "~/lib/chart-view";
 import { type MarketSource, marketSourceLabels } from "~/lib/market-source";
-import { isMarketIndex } from "~/lib/market-indices";
-import { barPage, indexBarPage } from "./tdx-quotes";
+import { tstdxKlines } from "./tstdx-adapter";
 import { onlinePeriodHistory } from "./chart-history";
 import { westockKlines } from "./westock-adapter";
 
@@ -35,33 +29,15 @@ export async function pytdxChartHistory(
   period: ChartPeriod,
   limit: number,
 ) {
-  symbolSchema.parse(symbol);
-  const read = isMarketIndex(symbol) ? indexBarPage : barPage;
-  const collected = new Map<string, Bar>();
-  let historyExhausted = false;
-  for (let offset = 0; offset < limit; offset += 800) {
-    const count = Math.min(800, limit - offset);
-    const page = await read(symbol, period, offset, count);
-    const size = collected.size;
-    for (const bar of page) {
-      const previous = collected.get(bar.date);
-      if (previous && JSON.stringify(previous) !== JSON.stringify(bar))
-        throw new Error("tstdx 分页重叠行情发生变化，请刷新");
-      collected.set(bar.date, bar);
-    }
-    if (page.length < count || collected.size === size) {
-      historyExhausted = true;
-      break;
-    }
-  }
-  if (!collected.size) throw new Error("tstdx 未返回行情");
+  const result = await tstdxKlines({ symbols: [symbol], period, limit });
+  const item = result.items[0]!;
+  if (item.status !== "ok") throw new Error(item.message);
   return {
-    bars: [...collected.values()]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-limit),
-    source: "tdx-7709",
-    volumeUnit: "源单位",
-    historyExhausted,
+    bars: item.bars,
+    source: result.source,
+    volumeUnit: result.volumeUnit,
+    historyExhausted: item.historyExhausted,
+    sourceNote: `${result.version}；${result.warnings.join("；")}`,
   };
 }
 export type OnlineSource = Exclude<MarketSource, "local">;
