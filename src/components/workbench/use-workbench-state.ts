@@ -8,6 +8,7 @@ import {
   type Snapshot,
   type Strategy,
 } from "~/lib/domain";
+import { readChartSymbolParam } from "~/lib/chart-symbol";
 import { type ScreenSort } from "~/lib/screen-sort";
 import { api } from "~/trpc/react";
 import type { Tab } from "./navigation";
@@ -164,7 +165,11 @@ export function useWorkbenchState() {
     [monitorAi, setMonitorAi] = useState(true),
     [monitorSource, setMonitorSource] = useState<MarketSource>("local");
   useEffect(() => {
-    load.mutate({ symbol: "sh600519", period: "day" });
+    // `/?symbol=` deep link from the RPS page and other tables; the parameter is
+    // validated, so an unknown value simply falls back to the default security.
+    const requested = readChartSymbolParam(window.location.search);
+    if (requested) setSymbol(requested);
+    load.mutate({ symbol: requested ?? "sh600519", period: "day" });
   }, []);
   useEffect(() => {
     if (jobs.data?.some((j) => j.type === "scan" && j.status === "completed"))

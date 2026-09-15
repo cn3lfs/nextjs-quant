@@ -20,7 +20,6 @@ export function PoolMembersLink({
       title={`查看 ${name} 的成分股`}
     >
       {name}
-      <span className="ml-1 text-xs text-muted-foreground">查看成分股</span>
     </a>
   );
 }

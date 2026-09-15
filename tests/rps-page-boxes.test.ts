@@ -10,6 +10,8 @@ import {
   type RpsLogEntry,
 } from "../src/lib/rps-log";
 import { poolMembersHref } from "../src/lib/market-pool";
+import { chartSymbolHref, readChartSymbolParam } from "../src/lib/chart-symbol";
+import { ChartSymbolLink } from "../src/components/chart-symbol-link";
 import { RpsRunStatus } from "../src/components/rps-run-status";
 import { RpsWorkflowLog } from "../src/components/rps-workflow-log";
 import { PoolMembersLink } from "../src/components/pool-members-link";
@@ -178,6 +180,31 @@ describe("板块成分股入口", () => {
     );
     expect(html).toContain("poolCategory=industry");
     expect(html).toContain(encodeURIComponent("通达信·半导体"));
-    expect(html).toContain("查看成分股");
+    // 可见内容只有板块名；跳转意图放在 title 提示里，不占表格宽度。
+    expect(html).toContain('title="查看 通达信·半导体 的成分股"');
+    expect(html).toMatch(/>通达信·半导体<\/a>/);
+  });
+});
+
+describe("个股K线入口", () => {
+  it("个股链接指向行情图表页深链，代码大写展示", () => {
+    expect(chartSymbolHref("sh600519")).toBe("/?symbol=sh600519");
+    const html = renderToStaticMarkup(
+      createElement(ChartSymbolLink, {
+        symbol: "sh600519",
+        name: "贵州茅台",
+      }),
+    );
+    expect(html).toContain('href="/?symbol=sh600519"');
+    expect(html).toContain("贵州茅台 · SH600519");
+    expect(html).toContain('title="查看 贵州茅台 的K线"');
+  });
+
+  it("深链参数经校验后使用，非法值回落到默认证券", () => {
+    expect(readChartSymbolParam("?symbol=SH600519")).toBe("sh600519");
+    expect(readChartSymbolParam("?symbol=emBK0475")).toBe("emBK0475");
+    expect(readChartSymbolParam("?poolCategory=concept")).toBeNull();
+    expect(readChartSymbolParam("?symbol=../../etc/passwd")).toBeNull();
+    expect(readChartSymbolParam("?symbol=")).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { usePanelVisible } from "./workbench/keep-alive";
 import { RpsStatus } from "./rps-status";
+import { StockRpsRanking } from "./stock-rps-ranking";
 
 /** Data container; the display component receives data and remains independently renderable. */
 export function RpsControls() {
@@ -59,6 +60,7 @@ export function RpsControls() {
         </div>
       )}
       {query.data && <RpsStatus latest={query.data.latest} />}
+      <StockRpsRanking />
     </section>
   );
 }
