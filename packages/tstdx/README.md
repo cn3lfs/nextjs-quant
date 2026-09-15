@@ -1,122 +1,59 @@
 # tstdx
 
-独立的 TypeScript / Node.js 通达信 7709 TCP 行情客户端。仅依赖 `iconv-lite` 编码 F10 的 GBK 中文文件名，不依赖 Next.js、SQLite 或量化终端。本包不直接读取本地目录，但提供纯 Buffer 的通达信历史财务包解析。
+纯 TypeScript / Node.js 实现的通达信 7709 行情协议客户端。把通达信客户端使用的 TCP 二进制协议翻译成 Promise 接口，可在 Node 服务、脚本或 Electron 主进程里直接调用。
 
-要求 Node.js 22 或更新版本。当前为本地独立包，`private: true` 防止误发布；尚未发布到 npm。
+不依赖 Next.js、SQLite 或任何量化终端；运行依赖只有 `iconv-lite`（用于 F10 的 GBK 编解码）。另提供纯 Buffer 的通达信本地财务包解析，本包自身不读取磁盘路径。
 
-2026-09-15 字段契约：客户端股票/指数使用两位价格精度，ETF 等其他证券先读取本源证券目录的 decimalPoint；目录缓存仅在客户端存活期间复用，首次请求可能增加目录查询。低层 wire 解码器保留默认两位参数，直接调用时须传正确精度。指数五档为空；quoteTime 可为 null，quoteTimeRaw 保留原始编码，未知编码不能据此判断行情新鲜。分时、K 线与报价的量额不保证同一单位，指数分时字段尤其不能当成股数。
-
-## 使用
+要求 Node.js >= 22，ESM only。当前 `private: true` 防止误发布，尚未发布到 npm。
 
 ```ts
-import { createTdxClient, type TdxMinute } from "tstdx";
+import { createTdxClient } from "tstdx";
 
-const client = createTdxClient({ hosts: ["180.153.18.170"], port: 7709 });
+const client = createTdxClient();
 try {
-  const points: TdxMinute[] = await client.historyMinutes("sz300750", 20260914);
-  console.log(points.length, points.at(-1));
+  const [quote] = await client.securityQuotes(["sh600519"]);
+  console.log(quote.price, quote.bids[0]);
 } finally {
   await client.close();
 }
 ```
 
-每个 client 独立管理连接，建立连接时依次尝试节点；同连接请求串行执行。`hosts` 也可传 `() => string[]`，在重新建连时读取最新节点。默认内置节点，不自动读取环境变量或数据库；持久设置由使用方负责。
+## 文档
 
-默认端口 7709，池化建连单节点超时最多 3 秒，总建连预算 15 秒。关闭 client 后仍可再次使用并重新建连。坏包会废弃连接，下一次请求从下一节点开始。`requestRetries` 默认 0，可设 1—3 开启同次请求的有限重试；`timeoutMs` 与 `connectBudgetMs` 可配置。批量任务使用独立连接并保留指定节点。
+完整文档在 [`docs/`](./docs/index.md)：
 
-## 数据接口
+| 文档                                 | 内容                                             |
+| ------------------------------------ | ------------------------------------------------ |
+| [项目概述](./docs/index.md)          | 特点、运行环境、安装、文档导航                   |
+| [快速上手](./docs/quick.md)          | 各类数据的最短可运行示例                         |
+| [安装与开发](./docs/setup.md)        | 构建、测试、实网验收、包结构                     |
+| [客户端与连接](./docs/api/client.md) | `createTdxClient` 选项、生命周期、节点测速与探测 |
+| [标准行情接口](./docs/api/quotes.md) | 五档、K 线、分时、逐笔、除权除息、财务快照       |
+| [扩展接口](./docs/api/extras.md)     | 证券列表、F10、板块、区间与复权、批量、资金流    |
+| [本地财务包](./docs/api/affair.md)   | `gpcw*.dat` / `gpcw.txt` 解析与字段核验方法      |
+| [字段与单位](./docs/api/fields.md)   | 每个字段的单位与**已核验程度**                   |
+| [底层编解码](./docs/api/wire.md)     | `tstdx/wire` 的请求构造与响应解析                |
+| [实网边界](./docs/limits.md)         | 哪些接口在公网节点上实测可用                     |
+| [常见问题](./docs/faq.md)            | 连不上、返回空、单位对不上时怎么排查             |
 
-证券格式为 `sh` / `sz` / `bj` 加六位数字；日期参数是整数 `YYYYMMDD`。
+## 设计原则
 
-| 方法                     | 参数                               | 返回                         |
-| ------------------------ | ---------------------------------- | ---------------------------- |
-| `securityQuotes`         | `symbols: string[]`                | 五档报价数组，超过 80 只分批 |
-| `barPage`                | `symbol, period, start, count=800` | 股票 K 线                    |
-| `indexBarPage`           | `symbol, period, start, count=800` | 指数 K 线，含涨跌家数        |
-| `minutes`                | `symbol`                           | 当日分时价格/量序列          |
-| `historyMinutes`         | `symbol, date`                     | 指定日期分时价格/量序列      |
-| `transactionPage`        | `symbol, start, count=800`         | 当日成交页                   |
-| `historyTransactionPage` | `symbol, date, start, count=800`   | 历史成交页                   |
-| `xdxr`                   | `symbol`                           | 除权除息、股本事件           |
-| `finance`                | `symbol`                           | 最新财务快照                 |
-| `close`                  | 无                                 | 释放该客户端连接             |
+- **口径显式**：价格精度、金额单位、复权锚点、涨跌停规则都写明依据。没核验过的字段一律标注，不悄悄换算。
+- **失败可见**：坏包、截断、分页重复、数量不符一律抛错，不返回空数组冒充"没有数据"。
+- **边界清楚**："实现了接口"和"公网当前可用"分开记录，见[实网边界](./docs/limits.md)。
 
-`period` 支持 `1m / 5m / 15m / 30m / 60m / day / week / month / quarter / year`，另有协议别名 `1m-alt`（8）与 `day-alt`（9）。`start=0` 从最新页开始；缺失数据不填造，不自动复权。分时不是 OHLC K 线，不可用它冒充日线或分钟蜡烛图。
+## 先读这两条
 
-底层入口包括 `TdxSession`、`createQuotesPool` 和 `tstdx/wire` 编解码函数；结果类型从 `tstdx` 导出。协议字段与单位来自兼容实现，仍需按业务口径验收。
+1. **财务金额单位是元**（协议原值为千元，包内已 ×1000）。早期版本按万元换算会**放大 10 倍**，升级后要重算缓存。
+2. **`pingAll` 只能证明握手可用**，证明不了行情正文可用。需要数据时用 `probeHosts` 或 `fromBestHost({ requireMarketData: true })`。
 
-## 当前实网边界（2026-09-14）
-
-- 三个节点上历史分时、当日分时、历史成交、除权、财务有数据。
-- 历史分时与 xmtdx、rustdx-complete 的价格和量逐点一致。
-- K 线与五档失败，当日成交盘后为空；实现了方法不代表公网可用。
-- 宁德时代当日/历史分时在午休交界处有两个点不同，Rust 直接接口同样如此；不混合两种序列。
-- `finance` 的换算倍率已于 2026-09-15 与本地通达信专业财务包 `gpcw*.dat` 交叉核对（sh600519 / sz000002 / sz300750 / sz000001）：**金额字段单位是千元，×1000 得元**，20 个金额字段全部吻合到 float32 精度；此前按万元 ×10000 会整体放大 10 倍。总股本与流通股本是万股，×10000 得股。股本结构子项（国家股、发起人股、法人股、B 股、H 股、职工股）语义已被复用或错位——sh600519 的法人股大于总股本、sz000002 的发起人股为负、职工股槽位的值实际等于每股收益——一律保留协议原值不换算，调用方不得当作股本使用。
-- `updatedDate` 是快照更新日，不是报告期（实测 20260815 / 20260828 / 20260829 / 20260914 均非季末），据此年化没有依据；需要报告期必须另行确定。非空返回不代表财务质量已通过。历史成交方向出现 5、8 等值，保留原值。
-- 证券列表、F10、板块文件、资金流、全市场统计和区间/复权封装已实现。沪深完整列表、F10、三类板块和行业文件实网有数据；北交所列表超时，资金流与复权依赖的报价/K 线仍失败。
-
-## 扩展 API
-
-所有查询均返回 Promise。市场参数是 `"sh" | "sz" | "bj"`，分页偏移从 0 开始。
-
-| 方法                                    | 参数与结果                                                                                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `securityCount / securityList / stocks` | `(market)`、`(market, start=0)`、`(market)`；数量、单页、完整列表                                                  |
-| `allStocks`                             | `({withIndustry?: boolean})`；沪深 A 股，可附行业代码；北交所另查 `stocks("bj")`                                   |
-| `companyInfoCategories`                 | `(symbol)`；F10 栏目及文件、起点、字节数                                                                           |
-| `companyInfoContent`                    | `(symbol, filename, start, length)`；完整 GBK 解码文本                                                             |
-| `f10`                                   | `(symbol)`；全部栏目与内容                                                                                         |
-| `blockMeta / fileChunk`                 | `(filename)`、`(filename, start, length=30000)`；文件元信息/原始 Buffer                                            |
-| `reportFile`                            | `(filename, maxBytes?)`；完整 Buffer，默认最大 8 MiB                                                               |
-| `blockInfo / blockMembers`              | `(filename="block_gn.dat")`；分组板块/扁平成分，支持 gn、zs、fg                                                    |
-| `industryMap`                           | `()`；按完整证券代码索引的 Map                                                                                     |
-| `bars`                                  | `(symbol, period, start=0, count=800)`；自动选择股票/指数协议                                                      |
-| `barsRange / indexBarsRange`            | `(symbol, period, begin, end, options?)`；闭区间、去重排序、完整分页                                               |
-| `k`                                     | `(symbol, begin, end)`；日线区间                                                                                   |
-| `barsBatch / kBatch`                    | `(symbols, period, begin, end, parallel=4)` / `(symbols, begin, end, parallel=4)`；保留顺序及逐项 data/empty/error |
-| `kAdjusted`                             | `(symbol, "qfq"或"hfq", begin, end)`；附复权因子，原始量额保持                                                     |
-| `marketStat`                            | `()`；上涨/下跌/平盘/总数及未分类余数                                                                              |
-| `priceLimits`                           | `(symbol, preClose, options?)`；涨跌停参考价；缺上市天数时查询 K 线确认                                            |
-| `transactionsAll`                       | `(symbol, date?)`；完整当日/历史逐笔                                                                               |
-| `fundFlow`                              | `(symbol, lotSize=100)`；逐笔分类资金流并验证成交量覆盖                                                            |
-| `historyFundFlowPage / historyFundFlow` | `(symbol, start=0, count=3)`；category 22 原始查询/带逐笔回退的查询                                                |
-| `heartbeat / reconnect / retry`         | `()` / `()` / `(operation, attempts=2)`；协议探活、重连、有界重试                                                  |
-| `startHeartbeat / stopHeartbeat`        | `(intervalMs=60000, onError?)` / `()`；保活启停；close 自动停止                                                    |
-
-模块级 `pingAll(hosts?, {port?, timeoutMs?, parallel?})` 返回节点握手状态、耗时与错误；`probeHosts` 额外执行证券数量、报价和日 K 线业务探测，区分握手成功但行情正文不可用的节点。`fromBestHost({requireMarketData: true})` 才会按这组业务探测筛选节点，默认行为仍只按握手测速。纯函数 `adjustBars / computePriceLimits / classifyFundFlow / marketStatistics` 可以脱离 TCP 单独使用。
-
-`parseFinancialFileList(bytes)` 解析 `tdxfin/gpcw.txt` 清单，`parseFinancialReport(bytes, filename?)` 解析 `gpcw*.dat` 或只含一个 DAT 的 ZIP。报告返回来源文件名（若调用方提供）和 SHA-256，以及报告日期、证券代码、原始字段数组和索引标记；字段位置及单位必须由调用方按对应报告版本核验，不能直接当作已核验的财务事实。解析器只处理内存中的字节，不负责下载、落盘或接入研究档案。
-
-### 数据口径与失败行为
-
-- 复权只使用查询截止日之前的历史与除权事件：前复权锚定返回历史的末日，后复权锚定首日；不是随未来除权自动改写的最新口径。现金分红、送转、配股按每股字段计算，跨停牌多事件依次处理；这与终端策略的简化复权独立，未替换策略算法。
-- 涨跌停是本地规则参考值，非交易所下发价格。规则表覆盖 2023-04-10 起的常规 A 股板块和首次上市窗口，主板 ST 2026-07-06 前后分别 5%/10%；更早日期返回 unsupported。默认日期为上海当前日期，历史查询应明确 `ruleDate`、当日名称、上市交易天数。重新上市、退市整理等特殊状态未建模。规则变更需维护本包，不能直接当完整历史交易规则引擎。
-- 资金流为成交大小与方向分类，主力阈值严格大于 100 万/20 万/4 万元；股票默认一手 100 股。方向 2 单列中性，其他未知方向单列，缺量/空成交不伪造完整资金流。历史回退保留 source 和 fallbackReason。
-- 全列表、F10、文件和成交有边界/完整性检查；坏包、提前截断、重复分页或 MD5 不符抛错。逐笔仅有分钟级时间，分页边界遇到无法区分的相同记录也抛错，不擅自去重。
-- 默认列表只承诺沪深 A 股。股票、全市场证券、板块数量与扁平成分条数是不同口径。
-
-## 独立开发
-
-把本目录单独复制为项目即可开发：
+## 开发
 
 ```powershell
 pnpm install
-pnpm build
-pnpm test
+pnpm build      # 产出 dist/*.js 与 dist/*.d.ts，不提交
+pnpm test       # 离线测试，不访问公网
 pnpm typecheck
 ```
 
-构建产物为 `dist/*.js` 和 `dist/*.d.ts`，不提交生成产物。离线测试只使用固定样本及本地假 TCP 服务器，不访问公网，也不需要量化终端数据库。`tests/probes/` 是显式执行的三库实网比较工具，见该目录说明。
-
-本仓库通过 pnpm workspace 的 `tstdx: workspace:*` 引入。量化终端的节点数据库与环境变量优先级保留在 `src/server/tdx-quotes.ts`，由其传入 `hosts` 函数。
-
-导出包可执行 `pnpm pack --pack-destination <临时目录>`，使用方通过本地 tarball 安装；发布注册表需另行授权。
-
-显式全接口实网验收（固定样本日期 2026-09-14；上游空回包会使可用性断言失败）：
-
-```powershell
-$env:TSTDX_LIVE = '1'
-$env:TSTDX_LIVE_HOSTS = '180.153.18.170,124.71.187.122,115.238.56.198'
-$env:TSTDX_LIVE_REPORT = Join-Path $env:TEMP 'tstdx-live.json'
-pnpm exec vitest run --config vitest.config.ts tests/full-live.test.ts
-```
+本仓库通过 pnpm workspace 的 `tstdx: workspace:*` 引入；节点来源与环境变量优先级保留在宿主应用的 `src/server/tdx-quotes.ts`，通过 `hosts` 函数传入。
