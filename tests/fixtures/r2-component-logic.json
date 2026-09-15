@@ -31,11 +31,11 @@
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
-    "MarketView": "1e1491e21bccf716f44cf6fa0ac51453279683f98a98eb1a3634cbb2a28e73bf"
+    "MarketView": "a507ed133e823d72fe05815854d9086b07da8a9ba0f37961a87f873689dc8fbf"
   },
   "src/components/chart-workspace.tsx": {
-    "ChartWorkspace": "17e84ba381c3ce72b3138f812413308a652f1a91ad7545b18af3caa4936618c7",
-    "EditableChart": "15247bab951f795babe20a0352bf72f61d8b500793564e4b32ceb0f8b528c1bf"
+    "ChartWorkspace": "0d7206b730afc3668fd54794dad700dc15e2383ea60e5606fe0822f5ebfb4914",
+    "EditableChart": "dff79e25359ec1e2c3296193b7ec4688a72851c0c20b894a698cd65616709971"
   },
   "src/components/chart.tsx": {
     "LegacyChart": "bc7c5a84ccea94acf4b1f73c4c4d169bf47f31fb0ac417ddefe7cde0ca671e03",
@@ -43,7 +43,7 @@
     "PositionRiskChart": "d20469cc0142d79df2284fe2a3eadfaa3179bc1f7be9ee470fd2a0c8894c797e",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "CzscMarketChart": "730a3ac012adb9b412fd58bfb00e4b8c2f0c84b043221a8b8a3201c72914bc7a",
-    "MarketChart": "6c22fc36d0537e804eeb3a8b328773fcb2adda353dad059f9125304b66e7b419"
+    "MarketChart": "498cad486d750f2d9dcee2f137747c03bd2d86e75357d288c37ee38597ebe1cf"
   },
   "src/components/security-select.tsx": {
     "SecuritySelect": "8c83e31baea3c230c5cbbeeb988c91026ce84e88763d929da197200d8ce1d936",

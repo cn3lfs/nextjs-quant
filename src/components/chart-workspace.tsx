@@ -1,6 +1,9 @@
 "use client";
 
-import { marketSourceLabel } from "~/lib/market-source";
+import {
+  chartAdjustmentLabels,
+  type ChartAdjustment,
+} from "~/lib/chart-adjustment";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
@@ -29,9 +32,11 @@ const tools = {
 export function ChartWorkspace({
   snapshot,
   period,
+  adjustment,
 }: {
   snapshot: Snapshot;
   period: ChartPeriod;
+  adjustment: ChartAdjustment;
 }) {
   const [limit, setLimit] = useState(2000);
   const requestMore = useCallback(
@@ -43,7 +48,7 @@ export function ChartWorkspace({
     { retry: false, refetchOnWindowFocus: false },
   );
   const aggregate = api.chartBars.useQuery(
-    { snapshotId: snapshot.id, period, limit },
+    { snapshotId: snapshot.id, period, limit, adjustment },
     {
       retry: false,
       refetchOnWindowFocus: false,
@@ -56,7 +61,7 @@ export function ChartWorkspace({
     refetchOnWindowFocus: true,
   });
   const position = api.chartPosition.useQuery(snapshot.symbol, {
-    enabled: !isSectorChartSymbol(snapshot.symbol),
+    enabled: adjustment === "none" && !isSectorChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
@@ -82,7 +87,7 @@ export function ChartWorkspace({
   if (!aggregate.data) return <p>正在读取目标周期行情…</p>;
   return (
     <EditableChart
-      key={`${snapshot.symbol}:${period}`}
+      key={`${snapshot.symbol}:${period}:${adjustment}`}
       snapshot={aggregate.data}
       onHistoryRequest={
         !aggregate.isFetching &&
@@ -92,6 +97,7 @@ export function ChartWorkspace({
           : undefined
       }
       period={period}
+      adjustment={adjustment}
       initial={view.data}
       rps={period === "day" ? rps.data : undefined}
       rpsMessage={
@@ -105,19 +111,23 @@ export function ChartWorkspace({
       }
       onRpsRetry={() => void rps.refetch()}
       bars={aggregate.data.bars}
-      cost={chartCost(position.data ?? undefined)}
-      positionMessage={
-        position.error
-          ? `持仓读取失败：${position.error.message}`
-          : position.isLoading
-            ? "正在读取持仓成本…"
-            : position.data &&
-                position.data.quantity > 0 &&
-                position.data.adjustedCost == null
-              ? "持仓成本不可用"
-              : undefined
+      cost={
+        adjustment === "none" ? chartCost(position.data ?? undefined) : null
       }
-      aggregateMessage={`${marketSourceLabel(aggregate.data.source)} · ${aggregate.data.bars.length} 根 · ${aggregate.data.bars.at(-1)?.date.replace("T", " ").replace(":00+08:00", "") ?? "无行情"} · ${aggregate.data.formingDates.length ? "末根形成中，结构可能变化" : "已完成周期"}${aggregate.data.sourceNote ? ` · ${aggregate.data.sourceNote}` : ""}`}
+      positionMessage={
+        adjustment === "none"
+          ? position.error
+            ? `持仓读取失败：${position.error.message}`
+            : position.isLoading
+              ? "正在读取持仓成本…"
+              : position.data &&
+                  position.data.quantity > 0 &&
+                  position.data.adjustedCost == null
+                ? "持仓成本不可用"
+                : undefined
+          : undefined
+      }
+      aggregateErrors={aggregate.data.sourceErrors}
     />
   );
 }
@@ -125,23 +135,25 @@ function EditableChart({
   onHistoryRequest,
   snapshot,
   period,
+  adjustment,
   initial,
   bars,
   cost,
   positionMessage,
-  aggregateMessage,
+  aggregateErrors,
   rps,
   rpsMessage,
   onRpsRetry,
 }: {
   snapshot: import("~/lib/chart-snapshot").ChartSnapshot;
   period: ChartPeriod;
+  adjustment: ChartAdjustment;
   initial: ChartView;
   onHistoryRequest?: () => void;
   bars: Snapshot["bars"];
   cost: number | null;
   positionMessage?: string;
-  aggregateMessage?: string;
+  aggregateErrors?: string[];
   rps?: import("~/lib/chart-data").RpsCurve;
   rpsMessage?: string;
   onRpsRetry?: () => void;
@@ -214,6 +226,7 @@ function EditableChart({
     drawingTool: tool,
     onAnchor,
     cost,
+    adjustment,
   };
   return (
     <div
@@ -339,11 +352,11 @@ function EditableChart({
           ? `保存失败：${save.error.message}，可重新保存`
           : message || (dirty ? "有未保存更改，请切换前保存" : "")}
       </span>
-      {aggregateMessage && (
-        <p role="status" className="!my-0 text-xs">
-          {aggregateMessage}
+      {aggregateErrors?.map((error) => (
+        <p key={error} role="alert" className="!my-0 text-xs">
+          数据源错误：{error}
         </p>
-      )}
+      ))}
       {positionMessage && (
         <p role="status" className="!my-0 text-xs">
           {positionMessage}
@@ -355,7 +368,7 @@ function EditableChart({
           {(bars.at(-1)?.close ?? cost) >= cost
             ? "图中收盘价高于或等于成本（红）"
             : "图中收盘价低于成本（绿）"}{" "}
-          · P1 移动加权成本 · 不复权
+          · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
       )}
       <fieldset

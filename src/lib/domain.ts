@@ -44,6 +44,7 @@ export type Snapshot = {
   sourceUrl?: string;
   volumeUnit?: string;
   sourceNote?: string;
+  sourceErrors?: string[];
   sourceVersions?: string[];
   requestedSource?: MarketSource;
 };

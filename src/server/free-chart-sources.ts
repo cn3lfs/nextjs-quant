@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { type Period, type Snapshot } from "~/lib/domain";
+import { type Bar, type Period, type Snapshot } from "~/lib/domain";
 import { type ChartPeriod } from "~/lib/chart-view";
 import { type MarketSource, marketSourceLabels } from "~/lib/market-source";
 import { tstdxKlines } from "./tstdx-adapter";
@@ -7,11 +7,19 @@ import { onlinePeriodHistory } from "./chart-history";
 import { westockKlines } from "./westock-adapter";
 
 export { parseWestockBars as parseTencentChart } from "./westock-bars";
+export type FreeChartHistoryResult = {
+  bars: Bar[];
+  source: string;
+  volumeUnit?: string;
+  historyExhausted: boolean;
+  sourceNote?: string;
+  sourceErrors?: string[];
+};
 export async function tencentChartHistory(
   symbol: string,
   period: ChartPeriod,
   limit: number,
-) {
+): Promise<FreeChartHistoryResult> {
   const result = await westockKlines({ symbols: [symbol], period, limit });
   const item = result.items[0]!;
   if (item.status !== "ok") throw new Error(item.message);
@@ -28,7 +36,7 @@ export async function pytdxChartHistory(
   symbol: string,
   period: ChartPeriod,
   limit: number,
-) {
+): Promise<FreeChartHistoryResult> {
   const result = await tstdxKlines({ symbols: [symbol], period, limit });
   const item = result.items[0]!;
   if (item.status !== "ok") throw new Error(item.message);
@@ -46,7 +54,7 @@ export async function freeChartHistory(
   period: ChartPeriod,
   limit: number,
   source: OnlineSource = "auto",
-) {
+): Promise<FreeChartHistoryResult> {
   const order =
     source === "auto" ? (["pytdx", "eastmoney", "tencent"] as const) : [source];
   const failures: string[] = [];
@@ -66,6 +74,7 @@ export async function freeChartHistory(
         ]
           .filter(Boolean)
           .join("；"),
+        sourceErrors: failures,
       };
     } catch (error) {
       failures.push(

@@ -4,6 +4,11 @@ import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
 import type { ChartSnapshot } from "~/lib/chart-snapshot";
 import {
+  chartAdjustmentLabels,
+  chartAdjustmentSchema,
+  type ChartAdjustment,
+} from "~/lib/chart-adjustment";
+import {
   chartPeriodSchema,
   isMinutePeriod,
   type ChartPeriod,
@@ -15,6 +20,7 @@ import { aggregateChartBars, chartPeriodEnd } from "./chart-aggregation";
 import { localCalendarReference } from "./data-health";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 import { mergeOnlineDailyTail } from "./chart-online-delta";
+import { adjustmentFactors, applyAdjustmentByDate, readGbbq } from "./tdx-gbbq";
 
 /** 补齐本地尾部之后所需的在线根数：长假缺口最多约 11 个交易日，另需至少 2 根与本地重叠。 */
 const deltaWindow = 20;
@@ -32,23 +38,70 @@ async function onlineDailyTail(symbol: string, _since: string) {
   return { bars: remote.bars, source: remote.source };
 }
 
+/**
+ * Chart data remains raw until its final source is known. Adjustments use the
+ * local GBBQ event file and a full local daily series when available, so a
+ * bounded online/minute response cannot silently reset its cumulative factor.
+ */
+async function adjustChartSeries<
+  T extends {
+    symbol: string;
+    period: ChartPeriod;
+    source: string;
+    bars: Snapshot["bars"];
+  },
+>(series: T, mode: ChartAdjustment, root: string): Promise<T> {
+  if (mode === "none") return series;
+  let reference = { bars: series.bars };
+  if (series.period !== "day" || series.source !== "tdx-local") {
+    try {
+      reference = await readVipdocChart(root, series.symbol, "day");
+    } catch (error) {
+      if (series.period !== "day")
+        throw new Error(
+          `${chartAdjustmentLabels[mode]}需要本地完整日线作为复权基准：${error instanceof Error ? error.message : "本地日线不可用"}`,
+        );
+    }
+  }
+  let corporateActions: Awaited<ReturnType<typeof readGbbq>>;
+  try {
+    corporateActions = await readGbbq(root);
+  } catch (error) {
+    throw new Error(
+      `${chartAdjustmentLabels[mode]}需要本地 GBBQ 分红信息：${error instanceof Error ? error.message : "读取失败"}`,
+    );
+  }
+  const factors = adjustmentFactors(
+    reference.bars,
+    corporateActions.events.get(series.symbol) ?? [],
+  );
+  return {
+    ...series,
+    bars: applyAdjustmentByDate(series.bars, factors, mode),
+  } as T;
+}
+
 export const chartBarsInput = z.object({
   snapshotId: z.string().min(1),
   period: chartPeriodSchema,
   limit: z.number().int().min(100).max(20000).default(2000),
+  adjustment: chartAdjustmentSchema.default("none"),
 });
 export async function chartBars(
-  input: z.infer<typeof chartBarsInput>,
+  input: z.input<typeof chartBarsInput>,
 ): Promise<ChartSnapshot> {
-  const source = get<Snapshot>(input.snapshotId);
+  const parsed = chartBarsInput.parse(input);
+  const source = get<Snapshot>(parsed.snapshotId);
   if (!source) throw new Error("行情快照不存在");
   const now = Date.now(),
-    period = input.period;
+    period = parsed.period,
+    { limit, adjustment } = parsed;
   const wall = new Date(now + 8 * 3600000).toISOString();
   const today = wall.slice(0, 10),
     time = wall.slice(11, 16);
   const base = isMinutePeriod(period) ? "5m" : "day";
   const reasons: string[] = [];
+  const errors: string[] = [];
   let resolved: Omit<ChartSnapshot, "id"> | undefined;
   try {
     if (
@@ -78,8 +131,11 @@ export async function chartBars(
             );
       const daily = aggregateChartBars(minutes.bars, "5m", "day", now);
       local = { ...minutes, period: "day", bars: daily.bars };
-      if (daily.excluded.length)
-        reasons.push("5分钟合成日线存在缺口，继续在线补齐");
+      if (daily.excluded.length) {
+        const message = "5分钟合成日线存在缺口，继续在线补齐";
+        reasons.push(message);
+        errors.push(message);
+      }
     }
     // g4day 暂停（见 docs/decisions.md WF3）：全量包替换的准确率更高，叠加增量暂时停用。
     // if (base === "day") {
@@ -108,7 +164,7 @@ export async function chartBars(
     if (
       source.requestedSource !== "local" &&
       dayTail &&
-      series.bars.length >= input.limit &&
+      series.bars.length >= limit &&
       baseAge <= 4 * 86400000 &&
       time >= "09:30" &&
       dayTail.date.slice(0, 10) !== today
@@ -128,8 +184,14 @@ export async function chartBars(
         reasons.push(
           `当日增量不可用：${error instanceof Error ? error.message : "读取失败"}`,
         );
+        errors.push(reasons.at(-1)!);
       }
     }
+    series = await adjustChartSeries(
+      series,
+      adjustment,
+      source.dataRoot ?? settings().tdxRoot,
+    );
     const aggregated = aggregateChartBars(
       series.bars,
       base,
@@ -143,8 +205,8 @@ export async function chartBars(
     // 日线图与分钟合成仍按目标周期根数判断。
     const depthEnough =
       base === "day" && period !== "day"
-        ? series.bars.length >= input.limit
-        : aggregated.bars.length >= input.limit;
+        ? series.bars.length >= limit
+        : aggregated.bars.length >= limit;
     const deficient =
       !latest ||
       !depthEnough ||
@@ -154,30 +216,46 @@ export async function chartBars(
           (time >= "13:00" && time < "15:00")) &&
         age > 300000);
     resolved = { ...series, ...aggregated, period, historyExhausted: true };
-    if (deficient || aggregated.excluded.length)
-      reasons.push("本地目标周期历史不足、存在缺口或可能过期");
+    if (deficient || aggregated.excluded.length) {
+      const message = "本地目标周期历史不足、存在缺口或可能过期";
+      reasons.push(message);
+      errors.push(message);
+    }
   } catch (error) {
-    reasons.push(error instanceof Error ? error.message : "本地行情不可用");
+    const message = error instanceof Error ? error.message : "本地行情不可用";
+    reasons.push(message);
+    errors.push(message);
   }
   if (source.requestedSource === "local" && !resolved)
     throw new Error(reasons.join("；"));
-  if (resolved && source.requestedSource === "local")
-    resolved.sourceNote = reasons.join("；");
+  if (resolved && source.requestedSource === "local") {
+    if (reasons.length) resolved.sourceNote = reasons.join("；");
+    if (errors.length) resolved.sourceErrors = errors;
+  }
   if (source.requestedSource !== "local" && (!resolved || reasons.length)) {
     try {
       const remote = await freeChartHistory(
         source.symbol,
         period,
-        input.limit,
+        limit,
         source.requestedSource ?? "auto",
       );
+      const remoteSeries = await adjustChartSeries(
+        {
+          ...source,
+          ...remote,
+          period,
+          createdAt: now,
+          adjustment: "none" as const,
+        },
+        adjustment,
+        source.dataRoot ?? settings().tdxRoot,
+      );
       resolved = {
-        ...source,
-        ...remote,
-        period,
-        createdAt: now,
+        ...remoteSeries,
         excluded: [],
-        formingDates: remote.bars
+        historyExhausted: remote.historyExhausted,
+        formingDates: remoteSeries.bars
           .filter((b) => chartPeriodEnd(b.date, period) > now)
           .map((b) => b.date),
         sourceNote: [
@@ -186,18 +264,25 @@ export async function chartBars(
         ]
           .filter(Boolean)
           .join("；"),
+        sourceErrors: [
+          ...errors.filter((error) => error !== "使用手动指定的数据源"),
+          ...(remote.sourceErrors ?? []),
+        ],
       };
     } catch (error) {
       if (!resolved?.bars.length) throw error;
-      resolved.sourceNote = `${reasons.join("；")}；在线读取失败，显示本地历史：${error instanceof Error ? error.message : "读取失败"}`;
+      const message = `在线读取失败，显示本地历史：${error instanceof Error ? error.message : "读取失败"}`;
+      resolved.sourceNote = `${reasons.join("；")}；${message}`;
+      resolved.sourceErrors = [...errors, message];
     }
   }
   if (!resolved) throw new Error("目标周期没有可用行情");
-  const bars = resolved.bars.slice(-input.limit);
+  const bars = resolved.bars.slice(-limit);
   const hash = createHash("sha256")
     .update(
       JSON.stringify({
         period,
+        adjustment,
         source: resolved.source,
         baseVersion: resolved.hash,
         bars,
@@ -207,8 +292,9 @@ export async function chartBars(
     .digest("hex");
   const result: ChartSnapshot = {
     ...resolved,
+    adjustment,
     historyExhausted:
-      resolved.historyExhausted && resolved.bars.length <= input.limit,
+      resolved.historyExhausted && resolved.bars.length <= limit,
     bars,
     hash,
     id: `chart-snapshot-${source.symbol}-${period}-${hash.slice(0, 20)}`,

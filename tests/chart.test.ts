@@ -26,6 +26,13 @@ type FakeSeries = {
   };
   createPriceLine: (options: Record<string, unknown>) => void;
 };
+type FakePane = {
+  setStretchFactor: () => void;
+  scale: Record<string, unknown>;
+  priceScale: () => {
+    applyOptions: (options: Record<string, unknown>) => void;
+  };
+};
 type FakeChart = {
   series: FakeSeries[];
   options: Record<string, unknown>;
@@ -46,7 +53,7 @@ type FakeChart = {
     pane?: number,
   ) => FakeSeries;
   removeSeries: (series: FakeSeries) => void;
-  panes: () => { setStretchFactor: () => void }[];
+  panes: () => FakePane[];
   subscribeCrosshairMove: (
     callback: (event: { time?: string | number }) => void,
   ) => void;
@@ -100,6 +107,18 @@ vi.mock("lightweight-charts", () => ({
   ColorType: { Solid: "solid" },
   CrosshairMode: { Normal: 0 },
   createChart: (_element: unknown, options: Record<string, unknown>) => {
+    const panes: FakePane[] = Array.from({ length: 3 }, () => {
+      const pane: FakePane = {
+        setStretchFactor() {},
+        scale: {},
+        priceScale() {
+          return {
+            applyOptions: (options) => Object.assign(pane.scale, options),
+          };
+        },
+      };
+      return pane;
+    });
     const chart: FakeChart = {
       options,
       series: [],
@@ -132,7 +151,7 @@ vi.mock("lightweight-charts", () => ({
       removeSeries(series) {
         this.series = this.series.filter((s) => s !== series);
       },
-      panes: () => [{ setStretchFactor() {} }, { setStretchFactor() {} }],
+      panes: () => panes,
       timeScale: () => ({
         getVisibleLogicalRange: () => chart.range,
         setVisibleLogicalRange: (range) => {
@@ -225,16 +244,7 @@ describe("M2 chart event wiring", () => {
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);
-    const selects = elements(ui).filter(
-      (element) =>
-        typeof element.props.onValueChange === "function" &&
-        elements(element.props.children as ReactNode).some(
-          (child) => child.props["aria-label"] === "副图",
-        ),
-    );
-    expect(selects).toHaveLength(1);
-    (selects[0]!.props.onValueChange as (value: string) => void)("macd");
-    render(input);
+    expect(text(ui)).toContain("副图：成交量 + MACD");
     for (const i of [0, 19, 89]) {
       h.charts.at(-1)!.crosshair!({ time: input[i]!.date });
       ui = render(input);
@@ -309,9 +319,7 @@ it("Q1 actual chart options, cost line, parameter legend and keyboard handler ar
   const chart = h.charts.at(-1)!;
   expect(chart.options.rightPriceScale).toMatchObject({ mode: 0 });
   expect(chart.series[0]!.options.scale).toMatchObject({ mode: 1 });
-  expect(chart.series.find((s) => s.pane === 1)!.options.scale).toMatchObject({
-    mode: 0,
-  });
+  expect(chart.panes()[1]!.scale).toMatchObject({ mode: 0 });
   expect(chart.options.layout).toMatchObject({
     background: { color: "#111827" },
   });

@@ -10,10 +10,10 @@ export const marketSourceSchema = z.enum([
 ]);
 export type MarketSource = z.infer<typeof marketSourceSchema>;
 export const marketSourceLabels: Record<MarketSource, string> = {
-  auto: "自动（本地 → tstdx → 东方财富 HTTP → westock-data）",
-  local: "本地文件（vipdoc）",
-  pytdx: "tstdx（自定义 TDX）",
-  tencent: "westock-data（腾讯自选股）",
+  auto: "自动",
+  local: "通达信本地",
+  pytdx: "tstdx",
+  tencent: "腾讯自选股",
   eastmoney: "东方财富",
 };
 export function marketSourceLabel(source: string) {

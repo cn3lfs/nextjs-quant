@@ -20,6 +20,22 @@ export const periodLabels = {
   "30m": "30 分钟",
   "60m": "60 分钟",
 };
+export const subchartSchema = z.enum(["volume", "macd", "kdj", "rsi", "rps"]);
+export type Subchart = z.infer<typeof subchartSchema>;
+const legacySubchartMap: Record<string, Subchart[]> = {
+  none: [],
+  "volume-macd": ["volume", "macd"],
+  volume: ["volume"],
+  macd: ["macd"],
+  kdj: ["kdj"],
+  rsi: ["rsi"],
+  rps: ["rps"],
+};
+export function normalizeSubcharts(value: unknown): Subchart[] {
+  if (Array.isArray(value)) return value as Subchart[];
+  if (typeof value === "string") return legacySubchartMap[value] ?? [];
+  return [];
+}
 const n = z.number().int().min(1).max(500);
 export const indicatorParametersSchema = z
   .object({
@@ -59,21 +75,13 @@ export const drawingSchema = z
   })
   .strict();
 export type Drawing = z.infer<typeof drawingSchema>;
-export const chartViewSchema = z
+const canonicalChartViewSchema = z
   .object({
     parameters: indicatorParametersSchema,
     logarithmic: z.boolean(),
     dark: z.boolean(),
     showBoll: z.boolean(),
-    subchart: z.enum([
-      "none",
-      "volume-macd",
-      "volume",
-      "macd",
-      "kdj",
-      "rsi",
-      "rps",
-    ]),
+    subchart: subchartSchema.array().max(5).default(["volume", "macd"]),
     rps: z
       .object({
         periods: z
@@ -94,13 +102,20 @@ export const chartViewSchema = z
     drawings: z.array(drawingSchema).max(200),
   })
   .strict();
+export const chartViewSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  return "subchart" in record
+    ? { ...record, subchart: normalizeSubcharts(record.subchart) }
+    : record;
+}, canonicalChartViewSchema);
 export type ChartView = z.infer<typeof chartViewSchema>;
 export const defaultChartView: ChartView = {
   parameters: defaultParameters,
   logarithmic: false,
   dark: false,
   showBoll: false,
-  subchart: "volume-macd",
+  subchart: ["volume", "macd"],
   rps: { periods: [50, 120, 250], threshold: 90 },
   drawings: [],
 };

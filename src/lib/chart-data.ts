@@ -3,6 +3,7 @@ import {
   isMinutePeriod,
   type IndicatorParameters,
   type ChartPeriod as Period,
+  type Subchart,
 } from "./chart-view";
 import type { Bar } from "./domain";
 import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "./indicators";
@@ -131,8 +132,7 @@ export function czscChartMarkers(
 }
 
 export const chartPageSize = 180;
-export type Subchart =
-  "none" | "volume-macd" | "volume" | "macd" | "kdj" | "rsi" | "rps";
+export type { Subchart } from "./chart-view";
 
 // Compute against the entire immutable snapshot, never the displayed suffix:
 // revealing history must not move the recursive indicators' starting point.
@@ -167,14 +167,13 @@ export type ChartIndicators = ReturnType<typeof chartIndicators>;
 export type IndicatorName = keyof ChartIndicators;
 export function enabledIndicators(
   showBoll: boolean,
-  subchart: Subchart,
+  subcharts: readonly Subchart[],
 ): IndicatorName[] {
   const names: IndicatorName[] = ["MA5", "MA10", "MA20", "MA60"];
   if (showBoll) names.push("BOLL中", "BOLL上", "BOLL下");
-  if (subchart === "macd" || subchart === "volume-macd")
-    names.push("DIF", "DEA", "MACD");
-  if (subchart === "kdj") names.push("K", "D", "J");
-  if (subchart === "rsi") names.push("RSI6", "RSI12", "RSI24");
+  if (subcharts.includes("macd")) names.push("DIF", "DEA", "MACD");
+  if (subcharts.includes("kdj")) names.push("K", "D", "J");
+  if (subcharts.includes("rsi")) names.push("RSI6", "RSI12", "RSI24");
   return names;
 }
 export function chartTime(date: string, period: Period): Time {

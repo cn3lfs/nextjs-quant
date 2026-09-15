@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { put } from "../src/server/db";
-import { chartBars } from "../src/server/chart-bars";
+import { chartBars, chartBarsInput } from "../src/server/chart-bars";
 import { marketSourceSchema } from "../src/lib/market-source";
 import { settingsSchema, type Snapshot } from "../src/lib/domain";
 import {
@@ -85,6 +85,25 @@ it("persists all four sources and rejects the suspended provider in new configur
   ).toBe("tencent");
   expect(marketSourceSchema.safeParse("mcp").success).toBe(false);
 });
+it("defaults chart requests to unadjusted prices and accepts the three chart modes", () => {
+  expect(
+    chartBarsInput.parse({ snapshotId: "selected", period: "day" }).adjustment,
+  ).toBe("none");
+  expect(
+    chartBarsInput.parse({
+      snapshotId: "selected",
+      period: "day",
+      adjustment: "forward",
+    }).adjustment,
+  ).toBe("forward");
+  expect(
+    chartBarsInput.safeParse({
+      snapshotId: "selected",
+      period: "day",
+      adjustment: "invalid",
+    }).success,
+  ).toBe(false);
+});
 it("blocks every MCP entry without network access or credential reads", async () => {
   const fetch = vi.spyOn(globalThis, "fetch");
   expect(await mcpConfigured()).toBe(false);
@@ -117,4 +136,21 @@ it("disconnects original MCP imports and preserves selectable source wiring", ()
   expect(
     readFileSync("src/components/workbench/screen-view.tsx", "utf8"),
   ).not.toContain("<OnlineScreen");
+});
+it("keeps the chart tab focused and renders the task center only as a tab", () => {
+  const market = readFileSync(
+    "src/components/workbench/market-view.tsx",
+    "utf8",
+  );
+  expect(market).toContain("<ChartAdjustmentSelect");
+  expect(market).not.toContain("<MxDataQuery");
+  expect(market).not.toContain("<SecurityProfilePanel");
+  expect(market).not.toContain("核验证券身份");
+  expect(market).not.toContain("证券主档与名称来源");
+  expect(readFileSync("src/components/chart.tsx", "utf8")).not.toContain(
+    "双突破观察日",
+  );
+  const workbench = readFileSync("src/components/workbench.tsx", "utf8");
+  expect(workbench).toContain("tasks: <TaskCenter state={state} />");
+  expect(workbench.match(/<TaskCenter/g)).toHaveLength(1);
 });

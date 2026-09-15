@@ -155,9 +155,11 @@ export function Workbench({ children }: { children?: ReactNode }) {
                         ? "把策略想法变成可以复现的实验。"
                         : tab === "signals"
                           ? "让值得关注的变化，出现在你的聊天窗口。"
-                          : tab === "reports"
-                            ? "保存每一次研究，以及支撑判断的证据。"
-                            : "连接本地行情、研究模型与通知渠道。"}
+                          : tab === "tasks"
+                            ? "集中查看运行中的任务、进度与失败原因。"
+                            : tab === "reports"
+                              ? "保存每一次研究，以及支撑判断的证据。"
+                              : "连接本地行情、研究模型与通知渠道。"}
                 </p>
               </div>
               <Button
@@ -179,6 +181,7 @@ export function Workbench({ children }: { children?: ReactNode }) {
               screen: <ScreenView state={state} />,
               backtest: <BacktestView state={state} />,
               signals: <SignalsView state={state} />,
+              tasks: <TaskCenter state={state} />,
               reports: <ResearchArchive state={state} />,
               analysis: <EvidenceAnalysis state={state} />,
               news: <NewsPanel />,
@@ -200,7 +203,6 @@ export function Workbench({ children }: { children?: ReactNode }) {
           />
           {/* Ledger routes fetch server data per request and keep framework navigation. */}
           {!(pathname in routePanels) && children}
-          <TaskCenter state={state} />
         </div>
         <footer>
           观澜 · 数据驱动研究，证据支持判断{" "}

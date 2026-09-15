@@ -60,7 +60,7 @@ describe("S3b persisted RPS chart", () => {
     expect(
       chartViewSchema.parse({
         ...old,
-        subchart: "rps",
+        subchart: ["rps"],
         rps: { periods: [5, 20], threshold: 0 },
       }).rps,
     ).toEqual({ periods: [5, 20], threshold: 0 });

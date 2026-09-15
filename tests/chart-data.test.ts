@@ -28,9 +28,9 @@ export function fixture(length = 420): Bar[] {
 }
 
 describe("M2 chart data contract", () => {
-  it("defaults to volume plus MACD while preserving saved single-pane choices", () => {
+  it("defaults to volume plus MACD and migrates legacy single-pane choices", () => {
     const view = chartViewSchema.parse(defaultChartView);
-    expect(view.subchart).toBe("volume-macd");
+    expect(view.subchart).toEqual(["volume", "macd"]);
     expect(enabledIndicators(false, view.subchart)).toEqual([
       "MA5",
       "MA10",
@@ -42,7 +42,28 @@ describe("M2 chart data contract", () => {
     ]);
     expect(
       chartViewSchema.parse({ ...view, subchart: "volume" }).subchart,
-    ).toBe("volume");
+    ).toEqual(["volume"]);
+    expect(
+      chartViewSchema.parse({ ...view, subchart: "volume-macd" }).subchart,
+    ).toEqual(["volume", "macd"]);
+    expect(
+      chartViewSchema.parse({ ...view, subchart: "none" }).subchart,
+    ).toEqual([]);
+    expect(enabledIndicators(false, ["macd", "kdj", "rsi"])).toEqual([
+      "MA5",
+      "MA10",
+      "MA20",
+      "MA60",
+      "DIF",
+      "DEA",
+      "MACD",
+      "K",
+      "D",
+      "J",
+      "RSI6",
+      "RSI12",
+      "RSI24",
+    ]);
   });
   it("legend at three bars reads every enabled M1 value without another formula", () => {
     const bars = fixture();
@@ -71,7 +92,7 @@ describe("M2 chart data contract", () => {
           bars,
           values,
           index,
-          enabledIndicators(true, sub),
+          enabledIndicators(true, [sub]),
         )!;
         expect(legend.bar).toEqual(bars[index]);
         for (const { name, value } of legend.indicators)

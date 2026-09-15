@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpen,
   FlaskConical,
   LayoutDashboard,
@@ -14,6 +15,7 @@ export type Tab =
   | "backtest"
   | "signals"
   | "reports"
+  | "tasks"
   | "settings"
   | "analysis"
   | "news";
@@ -21,6 +23,7 @@ export const dailyTabs = [
   { id: "market", label: "行情图表", icon: LayoutDashboard },
   { id: "screen", label: "条件选股", icon: SlidersHorizontal },
   { id: "signals", label: "信号与通知", icon: Radio },
+  { id: "tasks", label: "任务中心", icon: Activity },
   { id: "settings", label: "数据与连接", icon: Settings2 },
 ] as const;
 // Research keeps existing panel groups intact; no panel implementation changes.

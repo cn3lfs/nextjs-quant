@@ -11,16 +11,15 @@ import {
 import { rememberChartRange, restoreChartRange } from "~/lib/chart-viewport";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { rpsPeriods } from "~/lib/rps";
 import { rpsChartSegments, type RpsCurve } from "~/lib/chart-data";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "~/components/ui/select";
 
 import { attachDrawings } from "~/lib/chart-drawings";
 import {
@@ -32,6 +31,8 @@ import {
   indicatorLabel,
   keyboardRange,
   periodLabels,
+  normalizeSubcharts,
+  type Subchart,
   type ChartPeriod as Period,
   type ChartView,
   type Drawing,
@@ -51,6 +52,10 @@ import {
   type ISeriesApi,
 } from "lightweight-charts";
 import type { Bar } from "~/lib/domain";
+import {
+  chartAdjustmentLabels,
+  type ChartAdjustment,
+} from "~/lib/chart-adjustment";
 import type { CzscResult } from "~/lib/czsc";
 import type { BreakoutResult } from "~/server/breakout";
 import { breakoutChartData } from "~/lib/chart-data";
@@ -66,7 +71,6 @@ import {
   czscChartLines,
   czscChartMarkers,
   type IndicatorName,
-  type Subchart,
 } from "~/lib/chart-data";
 function LegacyChart({
   bars,
@@ -180,15 +184,13 @@ const rpsColors: Record<number, string> = {
   120: "#9b4dcc",
   250: "#287e97",
 };
-const subcharts = {
-  "volume-macd": "成交量 + MACD",
-  none: "隐藏副图",
+const subchartLabels: Record<Subchart, string> = {
   volume: "成交量",
   macd: "MACD",
   kdj: "KDJ",
   rsi: "RSI",
   rps: "RPS（日线）",
-} as const;
+};
 const formatValue = (value: number | null | undefined, precision = 2) =>
   value == null ? "—" : value.toFixed(precision);
 
@@ -350,6 +352,7 @@ export function CzscMarketChart({
   bars,
   period,
   snapshotId,
+  adjustment = "none",
   chartSnapshot = false,
   view,
   onViewChange,
@@ -365,6 +368,7 @@ export function CzscMarketChart({
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  adjustment?: ChartAdjustment;
   chartSnapshot?: boolean;
   pricePrecision?: 2 | 3;
   volumeUnit?: string;
@@ -414,6 +418,7 @@ export function CzscMarketChart({
       volumeUnit={volumeUnit}
       bars={bars}
       period={period}
+      adjustment={adjustment}
       view={view}
       onViewChange={onViewChange}
       drawingTool={drawingTool}
@@ -449,6 +454,7 @@ export function MarketChart({
   volumeUnit = "股",
   bars,
   period,
+  adjustment = "none",
   czsc,
   czscMessage,
   breakout,
@@ -466,6 +472,7 @@ export function MarketChart({
 }: {
   bars: Bar[];
   period: Period;
+  adjustment?: ChartAdjustment;
   volumeUnit?: string;
   pricePrecision?: 2 | 3;
   czsc?: CzscResult;
@@ -500,21 +507,21 @@ export function MarketChart({
   const chartApi = useRef<ReturnType<typeof createChart> | null>(null);
   const [showCzsc, setShowCzsc] = useState(true);
   const [showBreakout, setShowBreakout] = useState(true);
-  const [breakoutDate, setBreakoutDate] = useState("");
-  const selectedBreakoutIndex = breakoutDate
-    ? bars.findIndex((b) => b.date === breakoutDate)
-    : -1;
-  const breakoutIndex =
-    selectedBreakoutIndex >= 0
-      ? selectedBreakoutIndex
-      : (breakout?.latest?.index ?? bars.length - 1);
+  const breakoutIndex = breakout?.latest?.index ?? bars.length - 1;
   // One chart shares its time scale across independently scaled indicator panes.
-  const [localSubchart, setLocalSubchart] = useState<Subchart>("volume-macd");
-  const subchart = view?.subchart ?? localSubchart;
-  const setSubchart = (value: Subchart) =>
+  const [localSubcharts, setLocalSubcharts] = useState<Subchart[]>(
+    defaultChartView.subchart,
+  );
+  const selectedSubcharts = normalizeSubcharts(
+    view?.subchart ?? localSubcharts,
+  );
+  const visibleSubcharts = selectedSubcharts.filter(
+    (subchart) => subchart !== "rps" || period === "day",
+  );
+  const setSubcharts = (value: Subchart[]) =>
     onViewChange && view
       ? onViewChange({ ...view, subchart: value })
-      : setLocalSubchart(value);
+      : setLocalSubcharts(value);
   const [localRps, setLocalRps] = useState(defaultChartView.rps);
   const rpsOptions = view?.rps ?? localRps;
   const setRpsOptions = (rps: ChartView["rps"]) =>
@@ -531,8 +538,8 @@ export function MarketChart({
     [bars, period, parameters],
   );
   const names = useMemo(
-    () => enabledIndicators(showBoll, subchart),
-    [showBoll, subchart],
+    () => enabledIndicators(showBoll, selectedSubcharts),
+    [showBoll, selectedSubcharts],
   );
   const legend = chartLegend(
     bars,
@@ -540,6 +547,9 @@ export function MarketChart({
     hover?.bars === bars ? hover.index : bars.length - 1,
     names,
   );
+  const subchartSummary = selectedSubcharts.length
+    ? selectedSubcharts.map((subchart) => subchartLabels[subchart]).join(" + ")
+    : "无副图";
 
   useEffect(() => {
     if (!ref.current) return;
@@ -550,9 +560,7 @@ export function MarketChart({
       saved.period === period &&
       saved.asOf === breakoutIndex
         ? saved.start
-        : selectedBreakoutIndex >= 0
-          ? Math.max(0, breakoutIndex - 120)
-          : (restored?.start ?? initialHistoryStart(bars.length));
+        : (restored?.start ?? initialHistoryStart(bars.length));
     const savedRange =
       saved?.bars === bars &&
       saved.period === period &&
@@ -580,7 +588,10 @@ export function MarketChart({
         mode: 0,
       },
       handleScale: {
-        axisPressedMouseMove: { time: true, price: subchart !== "rps" },
+        axisPressedMouseMove: {
+          time: true,
+          price: !visibleSubcharts.includes("rps"),
+        },
         mouseWheel: true,
         pinch: true,
       },
@@ -713,66 +724,73 @@ export function MarketChart({
       };
       candles.attachPrimitive(primitive);
     }
-    // The RPS reference anchor has values only to display its threshold;
-    // observations still come exclusively from persisted segmented curves.
-    // Other oscillators use whitespace to retain an empty warmup pane.
-    const dualPane = subchart === "volume-macd";
-    const oscillatorPane = dualPane ? 2 : 1;
-    const extraVolume = dualPane
-      ? chart.addSeries(
+    // Each selected secondary chart gets its own pane. RPS is only available
+    // for daily data; a legacy selection on another period is ignored.
+    const paneBySubchart = new Map(
+      visibleSubcharts.map((subchart, index) => [subchart, index + 1]),
+    );
+    let volume: ISeriesApi<"Histogram"> | null = null;
+    let macd: ISeriesApi<"Histogram"> | null = null;
+    let rpsAnchor: ISeriesApi<"Line"> | null = null;
+    for (const subchart of visibleSubcharts) {
+      const pane = paneBySubchart.get(subchart)!;
+      if (subchart === "volume")
+        volume = chart.addSeries(
           HistogramSeries,
           {
             priceFormat: { type: "volume" },
             priceLineVisible: false,
             title: "成交量",
           },
-          1,
-        )
-      : null;
-    extraVolume?.priceScale().applyOptions({ mode: 0 });
-    const anchor =
-      subchart === "none" || (subchart === "rps" && period !== "day")
-        ? null
-        : chart.addSeries(
-            LineSeries,
-            {
-              lastValueVisible: false,
-              priceLineVisible: false,
-              lineVisible: false,
-              crosshairMarkerVisible: false,
-              ...(subchart === "rps"
-                ? {
-                    autoscaleInfoProvider: () => ({
-                      priceRange: { minValue: 0, maxValue: 100 },
-                    }),
-                  }
-                : {}),
-            },
-            oscillatorPane,
-          );
-    const histogram =
-      subchart === "volume" || subchart === "macd" || dualPane
-        ? chart.addSeries(
-            HistogramSeries,
-            {
-              priceFormat:
-                subchart === "volume"
-                  ? { type: "volume" }
-                  : { type: "price", precision: 2, minMove: 0.01 },
-              priceLineVisible: false,
-            },
-            oscillatorPane,
-          )
-        : null;
+          pane,
+        );
+      else if (subchart === "macd")
+        macd = chart.addSeries(
+          HistogramSeries,
+          {
+            priceFormat: { type: "price", precision: 2, minMove: 0.01 },
+            priceLineVisible: false,
+            title: "MACD",
+          },
+          pane,
+        );
+      else if (subchart === "rps")
+        rpsAnchor = chart.addSeries(
+          LineSeries,
+          {
+            lastValueVisible: false,
+            priceLineVisible: false,
+            lineVisible: false,
+            crosshairMarkerVisible: false,
+            autoscaleInfoProvider: () => ({
+              priceRange: { minValue: 0, maxValue: 100 },
+            }),
+          },
+          pane,
+        );
+      else
+        chart.addSeries(
+          LineSeries,
+          {
+            lastValueVisible: false,
+            priceLineVisible: false,
+            lineVisible: false,
+            crosshairMarkerVisible: false,
+          },
+          pane,
+        );
+    }
+    const rpsPane = paneBySubchart.get("rps");
     // A newly created pane inherits the first pane scale settings in LWC 5.
-    // Explicitly reset the oscillator pane after it exists.
-    anchor?.priceScale().applyOptions({ mode: 0 });
-    if (subchart === "rps" && period === "day" && anchor) {
-      anchor.priceScale().applyOptions({
+    // Explicitly reset every secondary pane after it exists.
+    for (const pane of chart.panes().slice(1))
+      pane.priceScale("right").applyOptions({ mode: 0 });
+    if (rpsAnchor) {
+      rpsAnchor.priceScale().applyOptions({
         autoScale: true,
         scaleMargins: { top: 0, bottom: 0 },
       });
-      anchor.createPriceLine({
+      rpsAnchor.createPriceLine({
         price: rpsOptions.threshold,
         color: "#64748b",
         lineWidth: 1,
@@ -787,40 +805,34 @@ export function MarketChart({
       candles.setData(
         visible.map((bar) => ({ ...bar, time: chartTime(bar.date, period) })),
       );
-      extraVolume?.setData(
+      volume?.setData(
         visible.map((bar) => ({
           time: chartTime(bar.date, period),
           value: bar.volume,
           color: bar.close >= bar.open ? "#cf5562" : "#28977f",
         })),
       );
-      anchor?.setData(
-        visible.map((bar) =>
-          subchart === "rps"
-            ? { time: chartTime(bar.date, period), value: rpsOptions.threshold }
-            : { time: chartTime(bar.date, period) },
-        ),
+      rpsAnchor?.setData(
+        visible.map((bar) => ({
+          time: chartTime(bar.date, period),
+          value: rpsOptions.threshold,
+        })),
       );
-      histogram?.setData(
+      macd?.setData(
         visible.map((bar, i) => {
-          const value =
-            subchart === "volume" ? bar.volume : values.MACD[start + i];
+          const value = values.MACD[start + i];
           return value == null
             ? { time: chartTime(bar.date, period) }
             : {
                 time: chartTime(bar.date, period),
                 value,
-                color: (
-                  subchart === "volume" ? bar.close >= bar.open : value >= 0
-                )
-                  ? "#cf5562"
-                  : "#28977f",
+                color: value >= 0 ? "#cf5562" : "#28977f",
               };
         }),
       );
       for (const line of lines) chart.removeSeries(line);
       lines = [];
-      if (subchart === "rps") {
+      if (rpsPane !== undefined) {
         for (const window of rpsOptions.periods) {
           for (const segment of rpsChartSegments(
             bars,
@@ -843,7 +855,7 @@ export function MarketChart({
                   priceRange: { minValue: 0, maxValue: 100 },
                 }),
               },
-              1,
+              rpsPane,
             );
             line.setData(segment.data);
             lines.push(line);
@@ -888,7 +900,14 @@ export function MarketChart({
       for (const name of names) {
         if (name === "MACD") continue;
         const pane =
-          name.startsWith("MA") || name.startsWith("BOLL") ? 0 : oscillatorPane;
+          name.startsWith("MA") || name.startsWith("BOLL")
+            ? 0
+            : name === "DIF" || name === "DEA"
+              ? paneBySubchart.get("macd")
+              : name === "K" || name === "D" || name === "J"
+                ? paneBySubchart.get("kdj")
+                : paneBySubchart.get("rsi");
+        if (pane === undefined) continue;
         for (const segment of indicatorSegments(
           bars,
           values[name],
@@ -914,16 +933,16 @@ export function MarketChart({
     };
     render();
     chart.panes()[0]?.setStretchFactor(3);
-    chart.panes()[1]?.setStretchFactor(dualPane ? 1 : 1.4);
-    if (dualPane) chart.panes()[2]?.setStretchFactor(1.2);
+    visibleSubcharts.forEach((subchart, index) => {
+      chart
+        .panes()
+        [index + 1]?.setStretchFactor(subchart === "rps" ? 1.2 : 1.4);
+    });
     if (bars.length)
       chart.timeScale().setVisibleLogicalRange(
         savedRange ?? {
           from: 0,
-          to:
-            selectedBreakoutIndex >= 0
-              ? Math.min(180, bars.length - start - 1)
-              : bars.length - start - 1,
+          to: bars.length - start - 1,
         },
       );
     const byTime = new Map(
@@ -1008,7 +1027,8 @@ export function MarketChart({
     period,
     values,
     names,
-    subchart,
+    selectedSubcharts,
+    visibleSubcharts,
     czsc,
     showCzsc,
     breakout,
@@ -1047,32 +1067,6 @@ export function MarketChart({
           />{" "}
           双突破
         </label>
-        {breakout && (
-          <label className="flex shrink-0 items-center gap-1">
-            双突破观察日{" "}
-            <Select
-              value={breakoutDate}
-              onValueChange={(selected) => setBreakoutDate(selected)}
-            >
-              <SelectTrigger aria-label="双突破观察日" className="w-full">
-                <SelectValue placeholder="最新" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">最新</SelectItem>
-                {breakout.points.map((p) => (
-                  <SelectItem key={p.date} value={p.date}>
-                    {p.date}
-                    {p.long.status === "是"
-                      ? " ↑"
-                      : p.short.status === "是"
-                        ? " ↓"
-                        : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        )}
         <label className="flex items-center gap-1">
           <Checkbox
             checked={showBoll}
@@ -1080,24 +1074,46 @@ export function MarketChart({
           />
           BOLL
         </label>
-        <label className="flex shrink-0 items-center gap-1">
-          副图{" "}
-          <Select
-            value={subchart}
-            onValueChange={(selected) => setSubchart(selected as Subchart)}
-          >
-            <SelectTrigger aria-label="副图" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(subcharts).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="副图组合"
+            >
+              副图：{subchartSummary}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(Object.entries(subchartLabels) as [Subchart, string][]).map(
+              ([value, label]) => {
+                const disabled =
+                  value === "rps" &&
+                  period !== "day" &&
+                  !selectedSubcharts.includes(value);
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={value}
+                    checked={selectedSubcharts.includes(value)}
+                    disabled={disabled}
+                    onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={(checked) =>
+                      setSubcharts(
+                        checked
+                          ? [...selectedSubcharts, value]
+                          : selectedSubcharts.filter((item) => item !== value),
+                      )
+                    }
+                  >
+                    {label}
+                    {disabled && "（仅日线）"}
+                  </DropdownMenuCheckboxItem>
+                );
+              },
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <label>
           <Checkbox
             checked={showCzsc}
@@ -1105,7 +1121,7 @@ export function MarketChart({
           />{" "}
           缠论结构
         </label>
-        {subchart === "rps" && (
+        {selectedSubcharts.includes("rps") && (
           <div
             className="flex shrink-0 items-center gap-3 text-xs"
             data-testid="rps-controls"
@@ -1193,7 +1209,8 @@ export function MarketChart({
                 : "")}
         </span>
         <span>
-          {periodLabels[period]} · 不复权 · {subcharts[subchart]}
+          {periodLabels[period]} · {chartAdjustmentLabels[adjustment]} ·{" "}
+          {subchartSummary}
         </span>
       </div>
       <div
@@ -1229,7 +1246,7 @@ export function MarketChart({
         <div
           data-testid="chart-level-legend"
           className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums"
-          aria-label="所选日期支撑压力与趋势线"
+          aria-label="双突破关键位与趋势线"
         >
           {breakoutChartData(
             breakout,
@@ -1265,7 +1282,9 @@ export function MarketChart({
           // 660px is the application chrome above and below the canvas; the
           // clamp keeps the main pane usable on short windows.
           height: `clamp(${
-            subchart === "none" ? 320 : subchart === "volume-macd" ? 540 : 440
+            visibleSubcharts.length === 0
+              ? 320
+              : 320 + visibleSubcharts.length * 120
           }px, calc(100dvh - 660px), 1200px)`,
           cursor: "grab",
         }}

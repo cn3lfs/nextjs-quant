@@ -4,6 +4,7 @@ import fixture from "./fixtures/tdx-gbbq.json";
 import {
   adjustmentFactors,
   applyAdjustment,
+  applyAdjustmentByDate,
   parseGbbq,
 } from "../src/server/tdx-gbbq";
 
@@ -183,6 +184,32 @@ describe("复权因子", () => {
     expect(
       applyAdjustment(bars, factors, "backward").map((b) => b.volume),
     ).toEqual(bars.map((b) => b.volume));
+  });
+  it("分钟线按交易日使用日线因子，并保持成交量和成交额不变", () => {
+    const daily = [bar("2026-01-05", 20), bar("2026-01-06", 10)];
+    const intraday = [
+      { ...bar("2026-01-05T09:35:00+08:00", 20), volume: 12, amount: 240 },
+      { ...bar("2026-01-06T09:35:00+08:00", 10), volume: 15, amount: 150 },
+    ];
+    const factors = adjustmentFactors(daily, [
+      {
+        date: "2026-01-06",
+        category: 1,
+        name: "除权除息",
+        dividend: 0,
+        rightsPrice: 0,
+        bonusRatio: 1,
+        rightsRatio: 0,
+      },
+    ]);
+    const forward = applyAdjustmentByDate(intraday, factors, "forward");
+    const backward = applyAdjustmentByDate(intraday, factors, "backward");
+    expect(forward.map((item) => item.close)).toEqual([10, 10]);
+    expect(backward.map((item) => item.close)).toEqual([20, 20]);
+    expect(forward.map((item) => [item.volume, item.amount])).toEqual([
+      [12, 240],
+      [15, 150],
+    ]);
   });
   it("因子与行情长度不一致时报错", () => {
     const bars = [bar("2026-01-05", 10)];

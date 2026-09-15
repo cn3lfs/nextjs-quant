@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Bar } from "~/lib/domain";
+import type { ChartAdjustment } from "~/lib/chart-adjustment";
 import { GBBQ_KEY_BASE64 } from "./tdx-gbbq-key";
 import { XDXR_CATEGORIES, type TdxXdxr } from "./tdx-wire";
 
@@ -208,7 +209,7 @@ export function adjustmentFactors(
   return factors;
 }
 
-export type AdjustMode = "none" | "forward" | "backward";
+export type AdjustMode = ChartAdjustment;
 
 /**
  * 按显式指定的复权模式换算行情。因子必须与 bars 逐条对齐（同一次调用产出），
@@ -227,6 +228,43 @@ export function applyAdjustment(
   return bars.map((bar, index) => {
     const factor = factors[index]!.factor,
       scale = mode === "backward" ? factor : factor / last;
+    if (!(scale > 0)) throw new Error(`复权因子非法：${bar.date}`);
+    return {
+      ...bar,
+      open: bar.open * scale,
+      high: bar.high * scale,
+      low: bar.low * scale,
+      close: bar.close * scale,
+    };
+  });
+}
+
+/**
+ * Apply factors calculated from a full daily reference series to a chart
+ * series. Minute bars use the factor of their trading day; bars before the
+ * reference range retain the neutral factor instead of inventing history.
+ */
+export function applyAdjustmentByDate(
+  bars: Bar[],
+  factors: AdjustFactor[],
+  mode: AdjustMode,
+): Bar[] {
+  if (mode === "none") return bars;
+  const last = factors.at(-1)?.factor ?? 1;
+  if (!(last > 0)) throw new Error("复权因子非法");
+  let cursor = 0;
+  return bars.map((bar) => {
+    const day = bar.date.slice(0, 10);
+    while (
+      cursor + 1 < factors.length &&
+      factors[cursor + 1]!.date.slice(0, 10) <= day
+    )
+      cursor++;
+    const factor =
+      factors[cursor] && factors[cursor]!.date.slice(0, 10) <= day
+        ? factors[cursor]!.factor
+        : 1;
+    const scale = mode === "backward" ? factor : factor / last;
     if (!(scale > 0)) throw new Error(`复权因子非法：${bar.date}`);
     return {
       ...bar,

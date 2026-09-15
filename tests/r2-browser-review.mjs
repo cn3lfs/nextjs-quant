@@ -436,16 +436,18 @@ try {
     await page
       .getByRole("checkbox", { name: "暗色主题", exact: true })
       .uncheck();
-    await page.getByLabel("副图", { exact: true }).click();
-    await page.getByRole("option", { name: "MACD", exact: true }).click();
+    await page.getByLabel("副图组合", { exact: true }).click();
+    const macdOption = page.getByRole("menuitemcheckbox", {
+      name: "MACD",
+      exact: true,
+    });
+    await macdOption.uncheck();
+    await macdOption.check();
     await page.getByTestId("chart-legend").getByText(/MACD/).waitFor();
-    await page.getByLabel("副图", { exact: true }).click();
-    await page.getByRole("option", { name: "成交量", exact: true }).click();
-    await page.getByLabel("双突破观察日", { exact: true }).click();
-    const options = page.getByRole("option");
-    await options.nth(1).click();
-    await page.getByLabel("双突破观察日", { exact: true }).click();
-    await page.getByRole("option", { name: "最新", exact: true }).click();
+    await page
+      .getByRole("menuitemcheckbox", { name: "成交量", exact: true })
+      .uncheck();
+    await page.getByLabel("副图组合", { exact: true }).click();
     await page.getByText("指标参数", { exact: true }).click();
     await page.getByLabel("MA 参数 1", { exact: true }).fill("7");
     await page.getByRole("button", { name: "应用参数", exact: true }).click();
@@ -469,8 +471,7 @@ try {
     interactions.push(
       "BOLL、对数坐标复选开关",
       "既有图表暗色开关仍只作用于图表，测试后关闭",
-      "MACD/成交量副图切换",
-      "观察日选择并切回空值最新",
+      "MACD/成交量副图自由组合",
       "MA参数表单提交并核验保存请求",
       "品种搜索输入与Escape收起；图表canvas保留",
     );

@@ -26,7 +26,7 @@ import { MarketChart } from './src/components/chart';
 import { defaultChartView } from './src/lib/chart-view';
 const bars = Array.from({length: 80}, (_, i) => ({date: new Date(Date.UTC(2026, 4, i+1)).toISOString().slice(0,10), open: 30+i/20, close: 30.5+i/20, high: 31+i/20, low: 29+i/20, volume: 100, amount: 3000}));
 const rps = bars.map((b,i) => ({date:b.date, mode:i<45?'backfill':'forward', periods:[5,10,20,50,120,250], values:[5,10,20,50,120,250].map((_,j)=>i>=25&&i<=32?null:{rps:i===15?0:Math.min(100,45+j*6+i/4)})}));
-function App(){ const [view,setView]=useState({...defaultChartView,subchart:'rps'}); const period=new URLSearchParams(location.search).get('period') || 'day'; return <main className="p-4"><h1>S3b 受控绘图样例（非市场结果）</h1><p>第16点为真值0；第26–33点缺失；前45点回填，其余向前新增。</p><MarketChart bars={bars} period={period} rps={rps} view={view} onViewChange={setView}/></main> }
+function App(){ const [view,setView]=useState({...defaultChartView,subchart:['rps']}); const period=new URLSearchParams(location.search).get('period') || 'day'; return <main className="p-4"><h1>S3b 受控绘图样例（非市场结果）</h1><p>第16点为真值0；第26–33点缺失；前45点回填，其余向前新增。</p><MarketChart bars={bars} period={period} rps={rps} view={view} onViewChange={setView}/></main> }
 createRoot(document.getElementById('root')).render(<App/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",

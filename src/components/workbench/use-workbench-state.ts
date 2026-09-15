@@ -1,5 +1,4 @@
 import { type MarketSource } from "~/lib/market-source";
-import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { useEffect, useState } from "react";
 import { defaultBacktestCosts } from "~/lib/backtest-costs";
 import {
@@ -71,23 +70,6 @@ export function useWorkbenchState() {
     setTimeout(() => setToast(""), 7000);
   };
   const onError = (e: { message: string }) => notify(e.message);
-  const identityRecord = api.identityRecord.useQuery(symbol, {
-    enabled: !isSectorChartSymbol(symbol),
-    staleTime: 60000,
-  });
-  const verifyIdentity = api.securityIdentity.useMutation({
-    onSuccess: () => {
-      void utils.securityNames.invalidate();
-      void utils.securities.invalidate();
-      void utils.identityRecord.invalidate();
-      void utils.securityProfile.invalidate();
-    },
-    onError,
-  });
-  const identity =
-    verifyIdentity.data?.symbol === symbol
-      ? verifyIdentity.data
-      : identityRecord.data;
   const load = api.snapshot.useMutation({
     onSuccess: (s) => {
       setLoaded(s);
@@ -312,8 +294,6 @@ export function useWorkbenchState() {
     period,
     setPeriod,
     names,
-    verifyIdentity,
-    identity,
     load,
     watch,
     last,

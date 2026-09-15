@@ -94,12 +94,14 @@ it("T2 groups chart controls into two nonwrapping rows and retains parameter and
   ))
     expect(renderHandlers(workspace)).toContain(handler);
   for (const label of [
-    'aria-label="双突破观察日"',
-    'aria-label="副图"',
+    'aria-label="副图组合"',
+    "selectedSubcharts.includes(value)",
+    "setSubcharts(",
     'data-testid="rps-controls"',
     "setShowBoll(checked === true)",
     "setShowBreakout(checked === true)",
     "setShowCzsc(checked === true)",
   ])
     expect(chart).toContain(label);
+  expect(chart).not.toContain("双突破观察日");
 });

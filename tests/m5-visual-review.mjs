@@ -179,11 +179,6 @@ try {
     });
     await chart.getByLabel("双突破", { exact: true }).uncheck();
     await chart.getByLabel("双突破", { exact: true }).check();
-    // Historical selection must expose that day's structures, then restore latest.
-    await chart
-      .getByLabel("双突破观察日", { exact: true })
-      .selectOption(selected.bars.at(-2).date);
-    await chart.getByLabel("双突破观察日", { exact: true }).selectOption("");
   }
   await page.getByRole("button", { name: "信号与通知", exact: true }).click();
   await page

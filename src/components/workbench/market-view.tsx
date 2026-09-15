@@ -1,5 +1,5 @@
 import { MarketSourceSelect } from "../market-source-select";
-import { MxDataQuery } from "../mx-data-query";
+import { ChartAdjustmentSelect } from "../chart-adjustment-select";
 import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import {
@@ -7,16 +7,19 @@ import {
   periodLabels,
   type ChartPeriod,
 } from "~/lib/chart-view";
-import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
+import {
+  chartAdjustmentLabels,
+  type ChartAdjustment,
+} from "~/lib/chart-adjustment";
+import { securityDisplayName } from "~/lib/security-display";
 import { ChartWorkspace } from "../chart-workspace";
-import { SecurityProfilePanel } from "../security-profile";
 import { SecuritySelect } from "../security-select";
 import { MarketPoolBrowser } from "../market-pool-browser";
 import { isMarketIndex } from "~/lib/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { Button } from "../ui/button";
 
-import { Empty, stamp } from "./shared";
+import { Empty } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
 
 export function MarketView({
@@ -32,8 +35,6 @@ export function MarketView({
     | "setPeriod"
     | "loaded"
     | "names"
-    | "verifyIdentity"
-    | "identity"
     | "load"
     | "watch"
     | "last"
@@ -49,17 +50,20 @@ export function MarketView({
     period,
     loaded,
     names,
-    verifyIdentity,
-    identity,
     load,
     watch,
     watchlist,
   } = state;
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
+  const [chartAdjustment, setChartAdjustment] =
+    useState<ChartAdjustment>("none");
+  const effectiveAdjustment =
+    isMarketIndex(symbol) || isSectorChartSymbol(symbol)
+      ? "none"
+      : chartAdjustment;
   const displayedPeriod = chartPeriod;
   return (
     <>
-      <MxDataQuery />
       <div className="market-layout">
         <section className="panel chart-panel">
           <div className="panel-toolbar">
@@ -89,6 +93,15 @@ export function MarketView({
                 load.mutate({ symbol, period, source });
               }}
             />
+            <ChartAdjustmentSelect
+              value={effectiveAdjustment}
+              disabled={
+                load.isPending ||
+                isMarketIndex(symbol) ||
+                isSectorChartSymbol(symbol)
+              }
+              onChange={setChartAdjustment}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -98,18 +111,6 @@ export function MarketView({
               }
             >
               刷新行情
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={
-                verifyIdentity.isPending ||
-                isMarketIndex(symbol) ||
-                isSectorChartSymbol(symbol)
-              }
-              onClick={() => verifyIdentity.mutate(symbol)}
-            >
-              {verifyIdentity.isPending ? "核验中…" : "核验证券身份"}
             </Button>
             <div className="segmented">
               {chartPeriodSchema.options.map((p) => (
@@ -128,21 +129,16 @@ export function MarketView({
             </div>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 pt-3 pb-1">
-            <h2
-              className="text-lg font-semibold"
-              title={
-                loaded
-                  ? archivedNameHint(loaded.symbol, names, loaded.name)
-                  : undefined
-              }
-            >
+            <h2 className="text-lg font-semibold">
               {loaded
                 ? securityDisplayName(loaded.symbol, names, loaded.name)
                 : "加载行情"}
             </h2>
             <div className="eyebrow">
               {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
-              <span className="tag">不复权</span>
+              <span className="tag">
+                {chartAdjustmentLabels[effectiveAdjustment]}
+              </span>
               {loaded?.historicalAsOf && (
                 <span className="tag">
                   历史快照 · 截至 {loaded.historicalAsOf}
@@ -165,9 +161,10 @@ export function MarketView({
             </div>
           ) : loaded && !load.isPending ? (
             <ChartWorkspace
-              key={`${loaded.id}:${displayedPeriod}`}
+              key={`${loaded.id}:${displayedPeriod}:${effectiveAdjustment}`}
               snapshot={loaded}
               period={displayedPeriod}
+              adjustment={effectiveAdjustment}
             />
           ) : (
             <Empty>
@@ -187,46 +184,13 @@ export function MarketView({
               加入自选
             </Button>
           </div>
-          {isMarketIndex(symbol) || isSectorChartSymbol(symbol) ? (
+          {(isMarketIndex(symbol) || isSectorChartSymbol(symbol)) && (
             <p className="text-sm text-muted-foreground">
               指数行情 · 价格单位：点
             </p>
-          ) : (
-            <SecurityProfilePanel key={symbol} symbol={symbol} />
-          )}
-          {identity && (
-            <details className="notice">
-              <summary>
-                身份核验：
-                {
-                  {
-                    confirmed: "双源一致",
-                    partial: "单源确认",
-                    conflict: "来源冲突",
-                    unavailable: "未确认",
-                  }[identity.status]
-                }{" "}
-                · {identity.name ?? identity.symbol}
-              </summary>
-              <p>
-                {identity.reason} · {stamp(identity.checkedAt)}
-              </p>
-              <p>身份核验不代表当前正常交易；停复牌与行情时效需另外检查。</p>
-              <pre>
-                {JSON.stringify(
-                  { tencent: identity.tencent, tdx: identity.tdx },
-                  null,
-                  2,
-                )}
-              </pre>
-            </details>
           )}
         </section>
       </div>
-      <p className="text-sm text-muted-foreground">
-        自动模式按本地、tstdx、东方财富
-        HTTP、westock-data顺序补齐；手动选择不跨源回退。RPS与历史研究仍使用本地数据。
-      </p>
       <MarketPoolBrowser
         symbol={symbol}
         disabled={load.isPending}
