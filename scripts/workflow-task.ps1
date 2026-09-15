@@ -12,29 +12,35 @@ $env:QUANT_DATA_DIR = [IO.Path]::GetFullPath($DataDirectory)
 $date = Get-Date -Format 'yyyy-MM-dd'
 $slot = if ($Phase -eq 'download') { 'close' } else { $Phase }
 if ($Phase -eq 'download') {
-    # The daily package is only refreshed after the close, so download once at
-    # 16:00. The noon batch observes only and must not touch the source files.
-    $time = Get-Date -Format 'HH:mm'
-    # The external UTF-8 script may have no BOM. Windows PowerShell 5 -File
-    # then decodes Chinese text as ANSI and fails before creating its log.
-    $previousDownloader = $env:QUANT_TDX_DOWNLOADER
-    $previousMarketOnly = $env:QUANT_TDX_MARKET_ONLY
-    $env:QUANT_TDX_DOWNLOADER = $DownloaderPath
-    $env:QUANT_TDX_MARKET_ONLY = if ($time -lt '20:00') { '1' } else { '0' }
-    $loader = '$script = [ScriptBlock]::Create([IO.File]::ReadAllText($env:QUANT_TDX_DOWNLOADER, [Text.Encoding]::UTF8)); if ($env:QUANT_TDX_MARKET_ONLY -eq "1") { & $script -MarketOnly } else { & $script }'
-    try {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader)))
-        $downloadExit = $LASTEXITCODE
-    } finally {
-        $env:QUANT_TDX_DOWNLOADER = $previousDownloader
-        $env:QUANT_TDX_MARKET_ONLY = $previousMarketOnly
-    }
-    if ($downloadExit -ne 0) { throw "通达信下载未成功（$downloadExit），保留上一批排名" }
+    # The full daily package and the financial packages are both published after
+    # the close, so download all of them once at 17:00 (the old
+    # run_tdx_download.bat behaviour). The noon batch observes only and must not
+    # touch the source files.
     New-Item -ItemType Directory -Path $DataDirectory -Force | Out-Null
     $receipt = Join-Path $DataDirectory "download-$date-$slot.json"
-    $temporary = "$receipt.tmp"
-    @{ date = $date; phase = $slot; exitCode = 0; completedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds() } | ConvertTo-Json | Set-Content -LiteralPath $temporary -Encoding UTF8
-    Move-Item -LiteralPath $temporary -Destination $receipt -Force
+    if (Test-Path -LiteralPath $receipt -PathType Leaf) {
+        # A retry after the runner failed must not pull the packages again.
+        Write-Output "今日下载回执已存在，跳过下载：$receipt"
+    } else {
+        # The external UTF-8 script may have no BOM. Windows PowerShell 5 -File
+        # then decodes Chinese text as ANSI and fails before creating its log.
+        $previousDownloader = $env:QUANT_TDX_DOWNLOADER
+        $env:QUANT_TDX_DOWNLOADER = $DownloaderPath
+        $loader = '$script = [ScriptBlock]::Create([IO.File]::ReadAllText($env:QUANT_TDX_DOWNLOADER, [Text.Encoding]::UTF8)); & $script'
+        try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader)))
+            $downloadExit = $LASTEXITCODE
+        } finally {
+            $env:QUANT_TDX_DOWNLOADER = $previousDownloader
+        }
+        # 3 = the server still serves the previous session's package; the ranking
+        # would be stale, so stop before the runner rejects it.
+        if ($downloadExit -eq 3) { throw '通达信尚未发布本交易日数据，保留上一批排名' }
+        if ($downloadExit -ne 0) { throw "通达信下载未成功（$downloadExit），保留上一批排名" }
+        $temporary = "$receipt.tmp"
+        @{ date = $date; phase = $slot; exitCode = 0; completedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds() } | ConvertTo-Json | Set-Content -LiteralPath $temporary -Encoding UTF8
+        Move-Item -LiteralPath $temporary -Destination $receipt -Force
+    }
 }
 Push-Location -LiteralPath $ServerDirectory
 try {

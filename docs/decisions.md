@@ -1632,3 +1632,14 @@ tstdx 的终端 schema、图表格式及持久节点设置留在 adapter，独�
 ## 2026-09-15：tstdx 0FDB 握手末字节兼容
 
 官方抓包及单变量新连接实测证明：第三帧末字节 02 改为 05 即恢复旧 K 线与五档请求，无需搬入官方首帧身份数据或扩展 K 线到 54 字节。字段正式含义未知，保留最小兼容修复。43 节点前后对照与测试见 [握手修复](tstdx-handshake-fix.md)；不再把早期缺正文归结为公共节点均不可用。ETF 精度等字段问题另行处理，本次不扩大变更。
+
+
+## 2026-09-15：收盘下载定时任务修复与脚本清理
+
+- `TDX_DailyDownload` 长期失败的根因是 16:00 触发太早：通达信全量日线包在收盘后才发布，CDN 边缘节点在 16:00 常常仍返回上一交易日的包。下载脚本只校验「是不是有效 zip」，于是把旧包当成功、写下完成回执，随后 `--phase close` 因日历缺当日而抛「下载数据尚未包含今日收盘」，任务以 0x1 结束。实测当日 16:00 与 16:28 两次下载得到的包内最新数据均为前一交易日，16:37 时官方包才含当日 15:40 的数据。
+- 触发时间改为工作日 17:00，并一次下载行情包与两个专业财务包（恢复 `run_tdx_download.bat` 的原有范围）。此前 `workflow-task.ps1` 按 `$time -lt '20:00'` 传 `-MarketOnly`，使 16:00 的批次永久跳过财务包，`vipdoc/cw` 自 2026-09-10 起停更；该开关已移除。
+- 下载脚本 `E:\new_tdx64\auto_download\tdx_download.ps1` 增加哈希校验，状态记在 `auto_download\download-state.json`：HEAD 预检以 `Last-Modified|Content-Length` 指纹命中则完全不下载；下载后按 SHA256 与上次落盘内容比对，相同即说明 CDN 仍是旧包。每日包（行情）遇此情形重试一次后以退出码 3 结束，`workflow-task.ps1` 据此停在下载阶段而不写回执；财务包并非每日发布，包未变属正常，记为跳过。`Get-FileHash` 在本机不可用，改用 .NET SHA256。
+- `workflow-task.ps1` 的 download 阶段增加回执幂等：当日回执已存在时跳过下载直接复观察收盘，避免失败重试重复拉取约 1.8GB。任务设置加 `IgnoreNew` 防并发（手动运行与 17:00 触发曾撞车）、1 小时执行上限、失败后 30 分钟重启一次。
+- 删除停用的 `Quant_RPS_CloseIncrement` 任务及 `increment-close-task.ps1`、`install-increment-close-task.ps1`：g4day 增量入口已在 `workflow-runner.ts` 整段注释（见上文 WF3），打包产物不含 `--close-rps-increment`，脚本的兼容性检查使其永远无法启动。相应删除 `tests/increment-task-install.test.ts` 与 `tests/workflow-scripts.test.ts` 中的收盘增量用例。这取代了上文「保持停用、不改脚本」的处理。
+- 清理 17 个已无运行时引用的一次性调查脚本（audit/benchmark/diagnose/verify/tdx-\*-audit/w7\*/交易所名录更新等），它们只被 `tsconfig.tsbuildinfo` 与本文档等历史记录引用。上文各条中的 `pnpm exec tsx scripts/...` 重放命令因此不再可执行，结论与已归档的报告 JSON 仍然有效；需要重跑时从 git 历史取回脚本。
+- `scripts/u8-calibration-distribution.ts` 保留：它不只是调查脚本，`tests/strategy-admission-service.test.ts` 直接导入其 `admissionCalibrationDistribution`。按文件名搜索引用会漏掉这类不带扩展名的 import，删脚本前须按模块路径再查一次。

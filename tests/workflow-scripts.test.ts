@@ -30,28 +30,24 @@ it.skipIf(process.platform !== "win32")(
       );
       const loader = wrapper.match(/\$loader = '([^']+)'/)?.[1];
       expect(loader).toBeTruthy();
-      for (const enabled of ["1", "0"]) {
-        const result = spawnSync(
-          "powershell.exe",
-          [
-            "-NoProfile",
-            "-EncodedCommand",
-            Buffer.from(loader!, "utf16le").toString("base64"),
-          ],
-          {
-            encoding: "utf8",
-            windowsHide: true,
-            timeout: 15000,
-            env: {
-              ...process.env,
-              QUANT_TDX_DOWNLOADER: script,
-              QUANT_TDX_MARKET_ONLY: enabled,
-            },
-          },
-        );
-        expect(result.status).toBe(7);
-        expect(result.stdout.trim()).toBe(enabled === "1" ? "True" : "False");
-      }
+      const result = spawnSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-EncodedCommand",
+          Buffer.from(loader!, "utf16le").toString("base64"),
+        ],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 15000,
+          env: { ...process.env, QUANT_TDX_DOWNLOADER: script },
+        },
+      );
+      expect(result.status).toBe(7);
+      // 17:00 pulls the market and financial packages together, so the loader
+      // must never pass -MarketOnly.
+      expect(result.stdout.trim()).toBe("False");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -125,34 +121,36 @@ it.skipIf(process.platform !== "win32")(
       // Write no stdout: the wrapper's own stdout carries the runner report.
       writeFileSync(
         downloader,
-        `param([switch]$MarketOnly)\n@('marketOnly=' + $MarketOnly.IsPresent) | Set-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Encoding UTF8\n`,
+        `param([switch]$MarketOnly)\nAdd-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Value ('marketOnly=' + $MarketOnly.IsPresent) -Encoding UTF8\n`,
       );
       writeFileSync(
         resolve(root, "runtime/workflow-runner.cjs"),
         `console.log(JSON.stringify({data:process.env.QUANT_DATA_DIR,cwd:process.cwd(),args:process.argv.slice(2)}));`,
       );
-      const close = spawnSync(
-        "powershell.exe",
-        [
-          "-NoProfile",
-          "-ExecutionPolicy",
-          "Bypass",
-          "-File",
-          resolve("scripts/workflow-task.ps1"),
-          "-Phase",
-          "download",
-          "-ServerDirectory",
-          root,
-          "-DataDirectory",
-          data,
-          "-DownloaderPath",
-          downloader,
-        ],
-        { encoding: "utf8", windowsHide: true, timeout: 20000 },
-      );
+      const run = () =>
+        spawnSync(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            resolve("scripts/workflow-task.ps1"),
+            "-Phase",
+            "download",
+            "-ServerDirectory",
+            root,
+            "-DataDirectory",
+            data,
+            "-DownloaderPath",
+            downloader,
+          ],
+          { encoding: "utf8", windowsHide: true, timeout: 20000 },
+        );
+      const close = run();
       expect(close.status).toBe(0);
-      // 16:00 keeps the market-only package; financial packages stay out.
-      expect(readFileSync(marker, "utf8")).toContain("marketOnly=True");
+      // 17:00 pulls the market and financial packages together.
+      expect(readFileSync(marker, "utf8")).toContain("marketOnly=False");
       const receipts = readdirSync(data).filter((name) =>
         /^download-\d{4}-\d{2}-\d{2}-close\.json$/.test(name),
       );
@@ -170,6 +168,15 @@ it.skipIf(process.platform !== "win32")(
         cwd: root,
         args: ["--phase", "close"],
       });
+      // A retry on the same day re-observes close without pulling again. The
+      // marker line count is the proof; the wrapper's Chinese notice reaches
+      // stdout as ANSI here and must not be asserted on.
+      const retry = run();
+      expect(retry.status).toBe(0);
+      expect(readFileSync(marker, "utf8").trim().split(/\r?\n/)).toHaveLength(
+        1,
+      );
+      expect(retry.stdout).toContain('"--phase","close"');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -183,8 +190,6 @@ it.skipIf(process.platform !== "win32")(
       "workflow-task.ps1",
       "cls-workflow-task.ps1",
       "install-workflow-tasks.ps1",
-      "increment-close-task.ps1",
-      "install-increment-close-task.ps1",
     ]) {
       const path = resolve("scripts", name);
       expect([...readFileSync(path).subarray(0, 3)]).toEqual([239, 187, 191]);
@@ -198,57 +203,6 @@ it.skipIf(process.platform !== "win32")(
         { windowsHide: true, encoding: "utf8", timeout: 15000 },
       );
       expect(result.trim()).toBe("");
-    }
-  },
-);
-
-it.skipIf(process.platform !== "win32")(
-  "close wrapper rejects stale packages without touching data and preserves pending exit status",
-  () => {
-    const root = mkdtempSync(resolve(tmpdir(), "quant-close-wrapper-"));
-    const data = resolve(root, "isolated-data");
-    try {
-      mkdirSync(resolve(root, "node-runtime"));
-      mkdirSync(resolve(root, "runtime"));
-      copyFileSync(process.execPath, resolve(root, "node-runtime/node.exe"));
-      const runner = resolve(root, "runtime/workflow-runner.cjs");
-      const run = (check = false) =>
-        spawnSync(
-          "powershell.exe",
-          [
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            resolve("scripts/increment-close-task.ps1"),
-            "-ServerDirectory",
-            root,
-            "-DataDirectory",
-            data,
-            ...(check ? ["-CheckOnly"] : []),
-          ],
-          { encoding: "utf8", windowsHide: true, timeout: 15000 },
-        );
-      writeFileSync(runner, "throw new Error('old runner must never start');");
-      expect(run(true).status).toBe(1);
-      expect(existsSync(data)).toBe(false);
-      writeFileSync(
-        runner,
-        `// --close-rps-increment\nconsole.log(JSON.stringify({data:process.env.QUANT_DATA_DIR,cwd:process.cwd(),args:process.argv.slice(2)}));process.exitCode=2;`,
-      );
-      const check = run(true);
-      expect(check.status).toBe(0);
-      expect(JSON.parse(check.stdout).status).toBe("ready");
-      expect(existsSync(data)).toBe(false);
-      const executed = run();
-      expect(executed.status).toBe(2);
-      expect(JSON.parse(executed.stdout)).toEqual({
-        data,
-        cwd: root,
-        args: ["--close-rps-increment"],
-      });
-    } finally {
-      rmSync(root, { recursive: true, force: true });
     }
   },
 );

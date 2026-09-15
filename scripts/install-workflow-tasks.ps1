@@ -6,7 +6,7 @@ $task = Get-ScheduledTask -TaskName 'TDX_DailyDownload'
 $downloader = 'E:\new_tdx64\auto_download\tdx_download.ps1'
 $original = Get-Content -LiteralPath $downloader -Raw -Encoding UTF8
 if (!$Apply) {
-    Write-Output 'TDX_DailyDownload: 工作日16:00下载日线并计算收盘RPS（全量包收盘后才更新）；Quant_RPS_Noon: 工作日12:00只做午盘观察、不下载；Quant_RPS_Late: 工作日14:40。'
+    Write-Output 'TDX_DailyDownload: 工作日17:00下载日线与专业财务包并计算收盘RPS（全量包收盘后才发布，16:00 时 CDN 仍可能是上一交易日的包）；Quant_RPS_Noon: 工作日12:00只做午盘观察、不下载；Quant_RPS_Late: 工作日14:40。'
     Write-Output '使用 -Apply 备份后应用；仅在新桌面包验证完成后执行。'
     exit 0
 }
@@ -27,17 +27,13 @@ $collectorPath = 'E:\pythonPrj\cls_news_collector\collector.py'
 Copy-Item -LiteralPath $collectorPath -Destination (Join-Path $backup 'collector.py')
 $collectorCode = Get-Content -LiteralPath $collectorPath -Raw -Encoding UTF8
 if (!$collectorCode.Contains('CLS first-page fetch returned no data') -and !$collectorCode.Contains('            items = fetch_news(last_time=last_time)')) { throw '采集脚本结构变化，未修改任务' }
-if ($original -notmatch '\[switch\]\$MarketOnly') {
-    $updated = "param([switch]`$MarketOnly)`r`n" + $original
-    $updated = $updated.Replace('$MaxRetries = 8', '$MaxRetries = if ($MarketOnly) { 2 } else { 8 }').Replace('$TimeoutSec = 600', '$TimeoutSec = if ($MarketOnly) { 180 } else { 600 }')
-    $anchor = '$LogDir = Join-Path'
-    if (!$updated.Contains($anchor)) { throw '下载脚本结构变化，未修改' }
-    $updated = $updated.Replace($anchor, "if (`$MarketOnly) { `$Tasks = @(`$Tasks[0]) }`r`n`r`n" + $anchor)
-    Set-Content -LiteralPath $downloader -Value $updated -Encoding UTF8
-}
+# 下载脚本必须能识别 CDN 旧缓存：只校验 zip 有效性会把上一交易日的包当成功，
+# 于是回执写下去、收盘 RPS 再因日历缺当日而失败。
+if (!$original.Contains('download-state.json')) { throw '下载脚本缺少哈希校验，未修改任务' }
 $days = @('Monday','Tuesday','Wednesday','Thursday','Friday')
-# 日线全量包收盘后才发布，因此只保留 16:00 下载；12:00 只做午盘观察。
-$closeTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '16:00'
+# 全量日线包与专业财务包都在收盘后发布，16:00 时 CDN 边缘节点常常仍是上一
+# 交易日的包，因此推到 17:00 一次下全部；12:00 只做午盘观察。
+$closeTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '17:00'
 $wrapper = Join-Path $PSScriptRoot 'workflow-task.ps1'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase download" -WorkingDirectory $repo
 Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger @($closeTrigger) -ErrorAction Stop | Out-Null
