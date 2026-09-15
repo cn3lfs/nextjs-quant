@@ -56,7 +56,7 @@ export const defaultParameters: IndicatorParameters = {
   rsi: [6, 12, 24],
   boll: [20, 2],
 };
-// Anchors use exchange bar timestamps, not viewport pixels or suffix indices.
+// Anchors use exchange bar timestamps plus optional fractional bar offsets.
 const point = z
   .object({
     date: z
@@ -65,6 +65,7 @@ const point = z
       .max(40)
       .refine((d) => Number.isFinite(Date.parse(d))),
     price: z.number().finite().positive(),
+    offset: z.number().finite().optional(),
   })
   .strict();
 export const drawingSchema = z

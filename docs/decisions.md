@@ -1643,3 +1643,12 @@ tstdx 的终端 schema、图表格式及持久节点设置留在 adapter，独�
 - 删除停用的 `Quant_RPS_CloseIncrement` 任务及 `increment-close-task.ps1`、`install-increment-close-task.ps1`：g4day 增量入口已在 `workflow-runner.ts` 整段注释（见上文 WF3），打包产物不含 `--close-rps-increment`，脚本的兼容性检查使其永远无法启动。相应删除 `tests/increment-task-install.test.ts` 与 `tests/workflow-scripts.test.ts` 中的收盘增量用例。这取代了上文「保持停用、不改脚本」的处理。
 - 清理 17 个已无运行时引用的一次性调查脚本（audit/benchmark/diagnose/verify/tdx-\*-audit/w7\*/交易所名录更新等），它们只被 `tsconfig.tsbuildinfo` 与本文档等历史记录引用。上文各条中的 `pnpm exec tsx scripts/...` 重放命令因此不再可执行，结论与已归档的报告 JSON 仍然有效；需要重跑时从 git 历史取回脚本。
 - `scripts/u8-calibration-distribution.ts` 保留：它不只是调查脚本，`tests/strategy-admission-service.test.ts` 直接导入其 `admissionCalibrationDistribution`。按文件名搜索引用会漏掉这类不带扩展名的 import，删脚本前须按模块路径再查一次。
+
+
+## 行情图表自由画线与预览（2026-09-15）
+
+- 原实现仅订阅点击并要求存在 K 线时间，没有移动预览，横坐标落在 K 线中心。改用鼠标坐标反算价格和逻辑横坐标；绘制过程中禁用左键拖动平移，浏览模式保持原行为。
+- 锚点保留已有日期/价格，新增可选 `offset`（相对于日期的 K 线间距，可含小数和留白距离）。不存屏幕像素、不伪造交易日期；平移、缩放、补载前方历史后按日期定位再应用偏移。日期手动更改时清除偏移，仅更改价格时保留偏移。旧图形无偏移仍按原位置显示。
+- 预览复用正式图形几何，在独立 primitive 中以虚线绘制，只请求重绘，不写视图或持久化；水平线一击完成，其余工具两击完成。退出主图隐藏，Esc、切换工具或切换证券/周期取消草稿，完成后回浏览。矩形与斐波那契沿用既有几何语义。
+- 实际浏览器检查确认库的 `coordinateToLogical` 会取整。自由横坐标使用原生鼠标位置与相邻逻辑坐标的像素间距计算，避免整数化；单测模拟该取整行为，浏览器用保存结果的非零偏移验证真实交互。授权交互变更同步更新原 R2 图表指纹，由坐标、渲染和浏览器行为测试补充保护。
+- 无数据库迁移；含 `offset` 的新视图不保证被旧版本严格 schema 接受，使用新保存图形时应配套当前前后端；本次未更新旧 exe。

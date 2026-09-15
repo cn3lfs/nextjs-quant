@@ -1,7 +1,7 @@
 {
   "src/app/signal-ledger/error.tsx": "26709bdbd02b77f86d30e9994b78ca560d22b901154218d51b56d6ef3aa2aba0",
   "src/app/trade-ledger/error.tsx": "3df0932dff8e0b3a9c0218a3f7dc0032ffcc32a24ca7b4244280e0ba99877cde",
-  "src/components/chart-workspace.tsx": "a5cac7627fae939170f11eba6d74122bed5860cbb36d05c8628a9edd53cc4ad5",
+  "src/components/chart-workspace.tsx": "94a6704ff1f3d7daf50a669f97b097237727a03be60b56a459aa0900106e8357",
   "src/components/formula-screen.tsx": "a24774f00687f5228758dd0d03cb35bacf9b3035ef3d10e185c3573f4ac26b21",
   "src/components/security-select.tsx": "7c80b549a171211f5824bdb415c08386a4feb08a10179c651623671387b5b023",
   "src/components/signal-ledger-controls.tsx": "7571c0bf6257564d77e8416b5919341644015501c64af793cfaea0ba6803de54",
@@ -12,5 +12,5 @@
   "src/components/workbench/market-view.tsx": "ff7fc1874335b9916c54ce251c440f1ddcd078116705bc61c0cfff110eb54264",
   "src/components/workbench/reports.tsx": "41dff7e92b7ddc7bd36b397ad4994658a18c70d09f085e248ef343b936419d62",
   "src/components/workbench/task-center.tsx": "868af49e84c806e70102a4935d37c23e9ebff809c11dc5fd36e29033e84070db",
-  "src/components/chart.tsx": "ae298a503df6edefc63879d813d08841e6590b1121a8bd72d3fdb8ad90e81c10"
+  "src/components/chart.tsx": "0c362662842b1dc3d61cf862c65b63cc8e3a823551ca4f6e117451ad5d0b5d9f"
 }

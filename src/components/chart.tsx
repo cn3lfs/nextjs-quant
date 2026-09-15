@@ -21,7 +21,11 @@ import { rpsPeriods } from "~/lib/rps";
 import { rpsChartSegments, type RpsCurve } from "~/lib/chart-data";
 import { Checkbox } from "~/components/ui/checkbox";
 
-import { attachDrawings } from "~/lib/chart-drawings";
+import {
+  attachDrawings,
+  drawingAnchor,
+  drawingPreview,
+} from "~/lib/chart-drawings";
 import {
   chineseChartLocalization,
   chineseTickMark,
@@ -362,6 +366,7 @@ export function CzscMarketChart({
   view,
   onViewChange,
   drawingTool,
+  drawingStart,
   onAnchor,
   cost,
   rps,
@@ -380,6 +385,7 @@ export function CzscMarketChart({
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
   drawingTool?: Drawing["kind"] | "none";
+  drawingStart?: Drawing["a"] | null;
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
   rps?: RpsCurve;
@@ -427,6 +433,7 @@ export function CzscMarketChart({
       view={view}
       onViewChange={onViewChange}
       drawingTool={drawingTool}
+      drawingStart={drawingStart}
       onAnchor={onAnchor}
       cost={cost}
       rps={rps}
@@ -467,6 +474,7 @@ export function MarketChart({
   view,
   onViewChange,
   drawingTool = "none",
+  drawingStart,
   onAnchor,
   cost,
   rps,
@@ -487,6 +495,7 @@ export function MarketChart({
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
   drawingTool?: Drawing["kind"] | "none";
+  drawingStart?: Drawing["a"] | null;
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
   rps?: RpsCurve;
@@ -616,7 +625,7 @@ export function MarketChart({
         pinch: true,
       },
       handleScroll: {
-        pressedMouseMove: true,
+        pressedMouseMove: drawingTool === "none",
         mouseWheel: true,
         horzTouchDrag: true,
         vertTouchDrag: false,
@@ -656,18 +665,53 @@ export function MarketChart({
         axisLabelVisible: true,
         title: "持仓成本",
       });
-    if (onAnchor && drawingTool !== "none")
-      chart.subscribeClick((event) => {
-        if (!event.point || event.paneIndex !== 0 || event.time === undefined)
-          return;
-        const bar = bars.find((b) => chartTime(b.date, period) === event.time);
-        const price = candles.coordinateToPrice(event.point.y);
-        if (bar && price != null && price > 0)
-          onAnchor({
-            date: bar.date,
-            price: Number(price.toFixed(pricePrecision)),
-          });
-      });
+    const updatePreview = attachDrawings(
+      chart,
+      candles,
+      bars,
+      period,
+      [],
+      true,
+    );
+    const drawingContainer = ref.current;
+    const anchorAt = (event: MouseEvent) => {
+      const bounds = drawingContainer.getBoundingClientRect();
+      const x = event.clientX - bounds.left,
+        y = event.clientY - bounds.top;
+      if (
+        x < 0 ||
+        x > chart.timeScale().width() ||
+        y < 0 ||
+        y > chart.panes()[0]!.getHeight()
+      )
+        return null;
+      return drawingAnchor(chart, candles, bars, period, x, y);
+    };
+    // Chart crosshair events quantize x to a bar even in Normal mode.
+    // Native coordinates preserve the actual pointer location between bars.
+    const moveDrawing = (event: MouseEvent) => {
+      if (drawingTool === "none") return;
+      updatePreview(
+        drawingPreview(
+          drawingTool,
+          drawingStart ?? null,
+          anchorAt(event),
+          view?.dark ? "#60a5fa" : "#2563eb",
+        ),
+      );
+    };
+    const clickDrawing = (event: MouseEvent) => {
+      if (!onAnchor || drawingTool === "none" || event.button !== 0) return;
+      const point = anchorAt(event);
+      if (point) {
+        updatePreview(null);
+        onAnchor(point);
+      }
+    };
+    const clearPreview = () => updatePreview(null);
+    drawingContainer.addEventListener("mousemove", moveDrawing);
+    drawingContainer.addEventListener("click", clickDrawing);
+    drawingContainer.addEventListener("mouseleave", clearPreview);
     const markers =
       (czsc && showCzsc) || (breakout && showBreakout)
         ? createSeriesMarkers(candles, [])
@@ -1021,6 +1065,9 @@ export function MarketChart({
     window.addEventListener("pointercancel", endDrag);
     chart.timeScale().subscribeVisibleLogicalRangeChange(reveal);
     return () => {
+      container.removeEventListener("mousemove", moveDrawing);
+      container.removeEventListener("click", clickDrawing);
+      container.removeEventListener("mouseleave", clearPreview);
       container.removeEventListener("pointerdown", beginDrag, true);
       window.removeEventListener("pointerup", endDrag);
       window.removeEventListener("pointercancel", endDrag);
@@ -1056,6 +1103,7 @@ export function MarketChart({
     breakoutIndex,
     view,
     drawingTool,
+    drawingStart,
     onAnchor,
     cost,
     rps,
@@ -1338,7 +1386,7 @@ export function MarketChart({
               ? 320
               : 320 + visibleSubcharts.length * 120
           }px, calc(100dvh - 660px), 1200px)`,
-          cursor: "grab",
+          cursor: drawingTool === "none" ? "grab" : "crosshair",
         }}
       />
       <div className="flex justify-between text-xs text-slate-500">

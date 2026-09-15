@@ -224,6 +224,7 @@ function EditableChart({
     view,
     onViewChange: change,
     drawingTool: tool,
+    drawingStart: anchor,
     onAnchor,
     cost,
     adjustment,
@@ -340,8 +341,8 @@ function EditableChart({
             <span>
               {tool !== "none"
                 ? anchor
-                  ? "点击第二个端点；Esc 取消"
-                  : "点击主图 K 线位置定锚；Esc 取消"
+                  ? "移动鼠标预览，点击第二点完成；Esc 取消"
+                  : "移动鼠标自由定位，点击定锚；Esc 取消"
                 : "左右键平移 · 上下键缩放 · 拖拽价格轴缩放"}
             </span>
           </div>
@@ -391,10 +392,18 @@ function EditableChart({
                 a: {
                   date: String(f.get("aDate")),
                   price: Number(f.get("aPrice")),
+                  offset:
+                    String(f.get("aDate")) === d.a.date
+                      ? d.a.offset
+                      : undefined,
                 },
                 b: {
                   date: String(f.get("bDate")),
                   price: Number(f.get("bPrice")),
+                  offset:
+                    String(f.get("bDate")) === d.b.date
+                      ? d.b.offset
+                      : undefined,
                 },
               };
               if (
@@ -430,7 +439,7 @@ function EditableChart({
                   name={`${k}Price`}
                   type="number"
                   min="0.01"
-                  step="0.01"
+                  step="any"
                   defaultValue={d[k].price}
                 />
               </span>
