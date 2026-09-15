@@ -222,6 +222,17 @@ it("复权封装先取前置历史而非从请求开始日累积", async () => {
   expect(rows).toHaveLength(1);
   expect(rows[0]?.close).toBe(10);
 });
+it("复权不使用查询末日之后的除权事件", () => {
+  const bars = [bar("2026-09-10"), bar("2026-09-11", 9), bar("2026-09-14", 9)];
+  const future = { ...event, date: "2026-09-15", dividend: 20 };
+  const qfq = adjustBars(bars, [event, future], "qfq"),
+    hfq = adjustBars(bars, [event, future], "hfq");
+  expect(qfq.map((row) => row.close)).toEqual([9, 9, 9]);
+  expect(hfq.map((row) => row.close)).toEqual([10, 10, 10]);
+  expect(qfq.map((row) => [row.volume, row.amount])).toEqual(
+    bars.map((row) => [row.volume, row.amount]),
+  );
+});
 it("资金流阈值边界、未知方向可追溯，主力与总净额正确", () => {
   const result = classifyFundFlow([
     trade("10:00", 1001),
