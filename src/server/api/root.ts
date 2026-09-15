@@ -220,7 +220,11 @@ import {
 } from "~/lib/domain";
 import { get, list, put } from "../db";
 import { settings, saveSettings } from "../settings";
-import { resolveFinanceReportPeriod } from "../tdx-financial-reports";
+import {
+  localReportLag,
+  readLocalFinancials,
+  resolveFinanceReportPeriod,
+} from "../tdx-financial-reports";
 import {
   scanJob,
   snapshot,
@@ -251,6 +255,8 @@ import { securityDirectory, securityNameMap } from "../securities";
 import {
   TDX_HOSTS,
   barPage,
+  companyInfoCategories,
+  companyInfoContent,
   configuredHosts,
   finance,
   historyMinutes,
@@ -1268,20 +1274,52 @@ export const appRouter = createTRPCRouter({
           ),
     ),
   /*
-   * 协议财务快照不带报告期，所以同时用本地只读财务包把它定位到具体某一期。
-   * 定位失败不影响快照本身，只是不能给出任何需要报告期的年化口径。
+   * 基本面主源：本地只读财务包，读盘即得、报告期来自包头，不碰公共服务器。
+   */
+  tdxLocalFinancials: p
+    .input(symbolSchema)
+    .query(({ input }) => readLocalFinancials(settings().tdxRoot, input)),
+  /*
+   * 协议快照作为叠加：提供最新股本（本地只有报告期末口径）、上市日期与股本结构槽位，
+   * 并通过反查报告期判断本地财务包是否该更新。它慢且依赖公共服务器，所以与上面分开，
+   * 由页面先渲染本地数据再补齐。
    */
   tdxFinance: p.input(symbolSchema).query(async ({ input }) => {
     const snapshot = await finance(input);
+    const root = settings().tdxRoot;
+    const period = await resolveFinanceReportPeriod(root, input, snapshot);
+    const local = await readLocalFinancials(root, input);
     return {
       finance: snapshot,
-      period: await resolveFinanceReportPeriod(
-        settings().tdxRoot,
-        input,
-        snapshot,
-      ),
+      period,
+      lag: localReportLag(local.financials, period),
     };
   }),
+  /** F10 栏目清单；正文按需单独取，避免展开即拉全部文本。 */
+  tdxCompanyInfo: p
+    .input(symbolSchema)
+    .query(({ input }) => companyInfoCategories(input)),
+  tdxCompanyInfoContent: p
+    .input(
+      z.object({
+        symbol: symbolSchema,
+        filename: z.string().min(1).max(120),
+        start: z.number().int().min(0).max(0x7fffffff),
+        length: z
+          .number()
+          .int()
+          .min(1)
+          .max(1024 * 1024),
+      }),
+    )
+    .query(({ input }) =>
+      companyInfoContent(
+        input.symbol,
+        input.filename,
+        input.start,
+        input.length,
+      ),
+    ),
   fundamentalAnalyze: p
     .input(fundamentalResearchInput)
     .mutation(({ input }) => {

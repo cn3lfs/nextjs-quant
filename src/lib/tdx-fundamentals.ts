@@ -1,26 +1,13 @@
 import type { ReviewValue } from "./trade-review";
 
 /**
- * 通达信协议财务快照的结构最小集，字段来自 tstdx `finance`。
+ * 基本面的主源是本地专业财务包 `gpcw*.dat` 的报告期数据，字段下标在
+ * `src/server/tdx-financial-reports.ts` 锁定。金额单位为元。
  *
- * 2026-09-15 与本地专业财务包 `gpcw*.dat` 逐字段交叉核对（sh600519 / sz000002 /
- * sz300750 / sz000001）后的可信度划分：
- * - 金额字段单位已在 tstdx 按千元换算成元，与财务包的元单位数值吻合到 float32 精度。
- * - `totalShares` / `floatShares` 为股；`bookValuePerShare` 为元/股；`shareholders` 为户。
- * - 股本结构子项（国家股、发起人股、法人股、B 股、H 股、职工股）语义已被复用或错位，
- *   在财务包里任何倍率下都没有对应值，tstdx 保留协议原值；这里只原样展示，不参与派生。
- * - `updatedDate` 是快照更新日，不是报告期；报告期由本地财务包反查，见
- *   `src/server/tdx-financial-reports.ts`。
+ * `totalShares` 是**报告期末**总股本，用于每股类指标；市值类指标要用协议快照叠加的
+ * 最新股本，两者在有增发或回购时不同。
  */
-export type FinanceSnapshot = {
-  totalShares: number;
-  floatShares: number;
-  stateShares: number;
-  founderShares: number;
-  legalPersonShares: number;
-  bShares: number;
-  hShares: number;
-  employeeShares: number;
+export type ReportFields = {
   totalAssets: number;
   currentAssets: number;
   fixedAssets: number;
@@ -40,16 +27,35 @@ export type FinanceSnapshot = {
   netProfit: number;
   undistributedProfit: number;
   operatingCashFlow: number;
-  totalCashFlow: number;
   shareholders: number;
+  totalShares: number;
+  /** 归母每股净资产。与 `netAssets`（股东权益合计）不同口径，不能互相推导。 */
   bookValuePerShare: number;
-  province: number;
-  industry: number;
-  updatedDate: number;
-  ipoDate: number;
 };
 
-/** 已核对单位的报表明细，单位为元。 */
+/**
+ * 协议 7709 财务快照里仍然有用的部分：最新股本（本地只有报告期末口径）、
+ * 上市日期与快照更新日。其余字段本地都有且更权威，不再从这里取。
+ *
+ * 股本结构子项语义已被复用或错位（sh600519 的法人股大于总股本、sz000002 的
+ * 发起人股为负、职工股槽位实际等于每股收益），tstdx 保留协议原值，这里只原样展示。
+ */
+export type SnapshotOverlay = {
+  totalShares: number;
+  floatShares: number;
+  stateShares: number;
+  founderShares: number;
+  legalPersonShares: number;
+  bShares: number;
+  hShares: number;
+  employeeShares: number;
+  updatedDate: number;
+  ipoDate: number;
+  province: number;
+  industry: number;
+};
+
+/** 报表明细，单位为元，全部来自本地财务包。 */
 export const statementGroups = [
   {
     title: "资产负债",
@@ -81,17 +87,14 @@ export const statementGroups = [
   },
   {
     title: "现金流",
-    fields: [
-      ["operatingCashFlow", "经营现金流"],
-      ["totalCashFlow", "现金流合计"],
-    ],
+    fields: [["operatingCashFlow", "经营现金流"]],
   },
 ] as const satisfies readonly {
   title: string;
-  fields: readonly (readonly [keyof FinanceSnapshot, string])[];
+  fields: readonly (readonly [keyof ReportFields, string])[];
 }[];
 
-/** 语义未确认的字段，只按协议原值列出，不换算、不派生。 */
+/** 语义未确认的协议槽位，只按原值列出，不换算、不派生。 */
 export const unverifiedFields = [
   ["stateShares", "国家股"],
   ["legalPersonShares", "法人股"],
@@ -99,7 +102,7 @@ export const unverifiedFields = [
   ["bShares", "B 股"],
   ["hShares", "H 股"],
   ["employeeShares", "职工股"],
-] as const satisfies readonly (readonly [keyof FinanceSnapshot, string])[];
+] as const satisfies readonly (readonly [keyof SnapshotOverlay, string])[];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -147,12 +150,14 @@ const over = (numerator: number, denominator: number | null) =>
     ? numerator / denominator
     : null;
 
+export const shareBases = ["latest", "report"] as const;
+export type ShareBasis = (typeof shareBases)[number];
+
 export type FundamentalMetrics = {
-  /** 由本地财务包反查确定，快照本身不含报告期。 */
-  reportDate: string | null;
-  snapshotDate: string | null;
-  ipoDate: string | null;
+  reportDate: string;
   annualFactor: number | null;
+  /** 市值类指标用的股本口径：最新快照股本，还是报告期末股本。 */
+  sharesBasis: ShareBasis | null;
   marketCap: ReviewValue;
   floatMarketCap: ReviewValue;
   floatRatio: ReviewValue;
@@ -171,52 +176,72 @@ export type FundamentalMetrics = {
 };
 
 /**
- * 派生指标。价格来自实时五档快照、财务来自某个已确定的报告期，两者时点不同：
- * 任何一侧不可得就留空并给出原因，不用 0 或上期数填充。
+ * 派生指标。报表来自本地某个确定的报告期，价格来自实时五档，股本优先用协议快照的
+ * 最新值——三者时点不同，任何一侧不可得就留空并给出原因，不用 0 或上期数填充。
+ *
+ * 每股类指标一律用报告期末股本：报告期的利润要配报告期的股本，换成最新股本会算错。
  */
-export function fundamentalMetrics(
-  finance: FinanceSnapshot,
-  price: number | null,
-  reportDate: string | null,
-): FundamentalMetrics {
-  const last = price !== null ? positive(price) : null;
-  const total = positive(finance.totalShares),
-    floating = positive(finance.floatShares),
-    perShare = positive(finance.bookValuePerShare),
-    holders = positive(finance.shareholders),
-    equity = positive(finance.netAssets),
-    assets = positive(finance.totalAssets),
-    revenue = positive(finance.mainRevenue);
+export function fundamentalMetrics(input: {
+  report: ReportFields;
+  reportDate: string;
+  /** 协议快照的最新股本；尚未到达时为 null，市值类指标退回报告期末口径。 */
+  latestShares: { totalShares: number; floatShares: number } | null;
+  price: number | null;
+}): FundamentalMetrics {
+  const { report, reportDate } = input;
+  const last = input.price !== null ? positive(input.price) : null;
+  const reportShares = positive(report.totalShares);
+  const latestTotal = input.latestShares
+    ? positive(input.latestShares.totalShares)
+    : null;
+  const latestFloat = input.latestShares
+    ? positive(input.latestShares.floatShares)
+    : null;
+  // 市值口径：拿得到最新股本就用它，否则退回报告期末股本并如实标注。
+  const capShares = latestTotal ?? reportShares;
+  const sharesBasis: ShareBasis | null =
+    capShares === null ? null : latestTotal !== null ? "latest" : "report";
+  const equity = positive(report.netAssets),
+    assets = positive(report.totalAssets),
+    revenue = positive(report.mainRevenue),
+    holders = positive(report.shareholders);
   const factor = reportAnnualFactor(reportDate);
-  const eps = over(finance.netProfit, total);
+  const eps = over(report.netProfit, reportShares);
   const annualEps = eps !== null && factor !== null ? eps * factor : null;
+  /*
+   * 每股净资产直接取财务包的归母口径，不用 netAssets ÷ 总股本自算：
+   * netAssets 是股东权益合计，含少数股东权益与永续债，自算会让银行与券商的
+   * 每股净资产偏高、市净率偏低（sz000001 会从 24.13 变成 28.25）。
+   */
+  const perShare = positive(report.bookValuePerShare);
   /*
    * 协议对银行股不给流动负债：sz000001 两项都是 0，sh601398 与 sh600036 只有长期负债，
    * 直接相加会得到 0.05% 这种明显错误的负债率。任何有资产的公司都有流动负债，
    * 所以流动负债缺失就是明细不全，整体留空。
    */
   const liabilities =
-    positive(finance.currentLiabilities) === null
+    positive(report.currentLiabilities) === null
       ? null
-      : positive(finance.currentLiabilities + finance.longTermLiabilities);
+      : positive(report.currentLiabilities + report.longTermLiabilities);
   const annualRevenue =
     revenue !== null && factor !== null ? revenue * factor : null;
   return {
     reportDate,
-    snapshotDate: tdxDate(finance.updatedDate),
-    ipoDate: tdxDate(finance.ipoDate),
     annualFactor: factor,
+    sharesBasis,
     marketCap: measure(
-      last !== null && total !== null ? last * total : null,
+      last !== null && capShares !== null ? last * capShares : null,
       "实时价或总股本不可得",
     ),
     floatMarketCap: measure(
-      last !== null && floating !== null ? last * floating : null,
-      "实时价或流通股本不可得",
+      last !== null && latestFloat !== null ? last * latestFloat : null,
+      "实时价不可得，或流通股本要等实时快照",
     ),
     floatRatio: measure(
-      floating !== null ? over(floating, total) : null,
-      "流通股本或总股本不可得",
+      latestFloat !== null && latestTotal !== null
+        ? latestFloat / latestTotal
+        : null,
+      "流通占比要等实时快照",
     ),
     bookValuePerShare: measure(perShare, "每股净资产不可得"),
     priceToBook: measure(
@@ -224,42 +249,42 @@ export function fundamentalMetrics(
       "实时价或每股净资产不可得",
     ),
     sharesPerHolder: measure(
-      floating !== null ? over(floating, holders) : null,
-      "流通股本或股东户数不可得",
+      over(report.totalShares, holders),
+      "总股本或股东户数不可得",
     ),
-    reportedEps: measure(eps, "净利润或总股本不可得"),
-    annualizedEps: measure(annualEps, "报告期未确定或每股收益不可得"),
+    reportedEps: measure(eps, "净利润或报告期末总股本不可得"),
+    annualizedEps: measure(annualEps, "报告期不是标准季末或每股收益不可得"),
     annualizedPe: measure(
       last !== null && annualEps !== null && annualEps > 0
         ? last / annualEps
         : null,
-      "实时价不可得、报告期未确定或年化每股收益非正",
+      "实时价不可得、报告期不是标准季末或年化每股收益非正",
     ),
     priceToSales: measure(
-      last !== null && total !== null && annualRevenue !== null
-        ? (last * total) / annualRevenue
+      last !== null && capShares !== null && annualRevenue !== null
+        ? (last * capShares) / annualRevenue
         : null,
-      "实时价、总股本不可得或报告期未确定",
+      "实时价、总股本不可得或报告期不是标准季末",
     ),
     reportedRoe: measure(
-      over(finance.netProfit, equity),
+      over(report.netProfit, equity),
       "净利润或净资产不可得",
     ),
     netMargin: measure(
-      over(finance.netProfit, revenue),
+      over(report.netProfit, revenue),
       "净利润或主营收入不可得",
     ),
     debtRatio: measure(
       liabilities !== null ? over(liabilities, assets) : null,
-      "协议未提供流动负债明细或总资产不可得",
+      "财务包未提供流动负债明细或总资产不可得",
     ),
     reservePerShare: measure(
-      over(finance.capitalReserve, total),
-      "资本公积或总股本不可得",
+      over(report.capitalReserve, reportShares),
+      "资本公积或报告期末总股本不可得",
     ),
     undistributedPerShare: measure(
-      over(finance.undistributedProfit, total),
-      "未分配利润或总股本不可得",
+      over(report.undistributedProfit, reportShares),
+      "未分配利润或报告期末总股本不可得",
     ),
   };
 }

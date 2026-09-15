@@ -51,5 +51,7 @@ export const {
   historyMinutes,
   xdxr,
   finance,
+  companyInfoCategories,
+  companyInfoContent,
 } = client;
 export const closeQuotes = client.close;

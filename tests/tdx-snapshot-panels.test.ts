@@ -6,7 +6,10 @@ import { withoutTdxSnapshotPanel } from "./tdx-snapshot-contract";
 import { TdxQuoteBook } from "../src/components/tdx-quote-book";
 import { TdxFundamentalSummary } from "../src/components/tdx-fundamental-summary";
 import type { QuoteSnapshot } from "../src/lib/tdx-quote-view";
-import type { FinanceSnapshot } from "../src/lib/tdx-fundamentals";
+import type {
+  ReportFields,
+  SnapshotOverlay,
+} from "../src/lib/tdx-fundamentals";
 
 vi.mock("../src/trpc/react", () => ({ api: {} }));
 
@@ -39,21 +42,13 @@ const quote: QuoteSnapshot = {
     empty,
   ],
 };
-const finance: FinanceSnapshot = {
-  totalShares: 1_250_081_562.5,
-  floatShares: 1_250_081_562.5,
-  stateShares: 1215,
-  founderShares: 45_402_960,
-  legalPersonShares: 89_389_352,
-  bShares: 0,
-  hShares: 0,
-  employeeShares: 35.57,
+const report: ReportFields = {
   totalAssets: 309_050_784_000,
   currentAssets: 260_724_656_000,
   fixedAssets: 22_220_890_000,
   intangibleAssets: 8_578_744_000,
   inventory: 61_317_208_000,
-  receivables: 570_800,
+  receivables: 570_895.0625,
   currentLiabilities: 46_645_076_000,
   longTermLiabilities: 10_842_758_000,
   capitalReserve: 1_577_000,
@@ -67,17 +62,23 @@ const finance: FinanceSnapshot = {
   netProfit: 44_516_880_000,
   undistributedProfit: 199_683_216_000,
   operatingCashFlow: 70_690_752_000,
-  totalCashFlow: 58_387_000_000,
   shareholders: 296_404,
+  totalShares: 1_250_081_562.5,
   bookValuePerShare: 200.99,
-  province: 22,
-  industry: 471,
+};
+const overlay: SnapshotOverlay = {
+  totalShares: 1_250_081_562.5,
+  floatShares: 1_250_081_562.5,
+  stateShares: 1215,
+  founderShares: 45_402_960,
+  legalPersonShares: 89_389_352,
+  bShares: 0,
+  hShares: 0,
+  employeeShares: 35.57,
   updatedDate: 20260815,
   ipoDate: 20010827,
-};
-const period = {
-  reportDate: "2026-06-30",
-  sourceFilename: "gpcw20260630.dat",
+  province: 22,
+  industry: 471,
 };
 const book = (props: Partial<Parameters<typeof TdxQuoteBook>[0]> = {}) =>
   renderToStaticMarkup(
@@ -133,61 +134,71 @@ describe("五档盘口面板", () => {
 
 describe("基本面快照面板", () => {
   const render = (
-    price: number | null,
-    resolved: typeof period | null = period,
-    periodReason?: string,
+    props: Partial<Parameters<typeof TdxFundamentalSummary>[0]> = {},
   ) =>
     renderToStaticMarkup(
       createElement(TdxFundamentalSummary, {
-        finance,
-        price,
-        period: resolved,
-        periodReason,
+        report,
+        reportDate: "2026-06-30",
+        sourceFilename: "gpcw20260630.dat",
+        price: 1272.75,
+        overlay,
+        overlayPending: false,
+        ...props,
       }),
     );
-  it("展示由本地财务包确定的报告期与按修正口径算出的估值", () => {
-    const html = render(1272.75);
+  it("首屏用本地财务包出数并标明报告期与来源文件", () => {
+    const html = render();
     expect(html).toContain("2026-06-30");
     expect(html).toContain("gpcw20260630.dat");
-    expect(html).toContain("2026-08-15"); // 快照更新日与报告期分开呈现
-    expect(html).toContain("2001-08-27");
-    expect(html).toContain("15910.41 亿"); // 总市值，与真实市值同量级
+    expect(html).toContain("15910.41 亿"); // 总市值
     expect(html).toContain("6.33"); // PB
     expect(html).toContain("17.87"); // 年化 PE
     expect(html).toContain("49.08%"); // 报告期净利率
     expect(html).toContain("18.60%"); // 资产负债率
-    expect(html).toContain("17.72%"); // 报告期 ROE
-    expect(html).toContain("159.7362"); // 每股未分配利润，与财务包一致
+    expect(html).toContain("200.990"); // 由净资产自算的每股净资产
+    expect(html).toContain("读盘即得、不依赖公共服务器");
     expect(html).toContain("不是 TTM");
   });
-  it("报告期无法判定时不给任何年化口径并说明原因", () => {
-    const html = render(
-      1272.75,
-      null,
-      "最近 8 期本地财务包都没有与该快照一致的记录",
-    );
-    expect(html).toContain("报告期 未确定");
-    expect(html).toContain("最近 8 期本地财务包都没有与该快照一致的记录");
-    expect(html).toContain("不可得：报告期未确定或每股收益不可得");
-    // 不依赖报告期的口径仍然展示
-    expect(html).toContain("6.33");
-    expect(html).toContain("17.72%");
+  it("协议快照到达前后都能用，口径标注随之变化", () => {
+    const pending = render({ overlay: null, overlayPending: true });
+    expect(pending).toContain("市值暂按报告期末股本计算");
+    expect(pending).toContain("不可得：流通占比要等实时快照");
+    // 不依赖快照的口径首屏就有
+    expect(pending).toContain("6.33");
+    expect(pending).toContain("49.08%");
+    // 语义未确认的协议槽位只在快照到达后出现
+    expect(pending).not.toContain("语义未确认的协议槽位");
+    const ready = render();
+    expect(ready).toContain("使用实时快照的最新股本");
+    expect(ready).toContain("语义未确认的协议槽位");
+    expect(ready).toContain("法人股");
+    expect(ready).toContain("2001-08-27"); // 上市日期来自快照
   });
-  it("没有实时价时市值与估值留空并说明，其余口径仍展示", () => {
-    const html = render(null);
+  it("快照失败与本地落后都显示原因，不影响本地数字", () => {
+    const failed = render({
+      overlay: null,
+      overlayPending: false,
+      overlayError: "连接超时",
+    });
+    expect(failed).toContain("实时快照读取失败：连接超时");
+    expect(failed).toContain("49.08%");
+    const lagged = render({ lag: "本地财务包最新一期是 2026-03-31" });
+    expect(lagged).toContain("本地财务包最新一期是 2026-03-31");
+  });
+  it("没有实时价时市值与估值留空并说明，报表口径仍展示", () => {
+    const html = render({ price: null });
     expect(html).toContain("不可得：实时价或总股本不可得");
-    expect(html).toContain("不可得：实时价或每股净资产不可得");
     expect(html).toContain("49.08%");
     expect(html).not.toContain("15910.41 亿");
   });
-  it("语义未确认的槽位单独隔离，报表明细按元展示", () => {
-    const html = render(1272.75);
-    expect(html).toContain("语义未确认的协议字段");
-    expect(html).toContain("不换算单位、不当作股本使用");
-    expect(html).toContain("法人股");
+  it("报表明细按元展示，且不含本地没有的字段", () => {
+    const html = render();
     expect(html).toContain("金额（元）");
-    expect(html).toContain("3090.51 亿"); // 总资产按元展示
-    expect(html).toContain("445.17 亿"); // 净利润按元展示
+    expect(html).toContain("3090.51 亿"); // 总资产
+    expect(html).toContain("445.17 亿"); // 净利润
+    expect(html).toContain("经营现金流");
+    expect(html).not.toContain("现金流合计");
   });
 });
 

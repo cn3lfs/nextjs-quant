@@ -12,6 +12,7 @@ import {
 } from "~/lib/tdx-quote-view";
 import { TdxQuoteBook } from "./tdx-quote-book";
 import { TdxFundamentalSummary } from "./tdx-fundamental-summary";
+import { TdxCompanyInfo } from "./tdx-company-info";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
@@ -42,6 +43,16 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
     retry: false,
     refetchOnWindowFocus: false,
     refetchInterval: auto && interval !== null ? interval : false,
+  });
+  /*
+   * 基本面分两条：本地财务包读盘即得，先渲染；协议快照慢且依赖公共服务器，
+   * 到达后只补最新股本、上市日期与滞后提示，不阻塞首屏。
+   */
+  const local = api.tdxLocalFinancials.useQuery(symbol, {
+    enabled: quotable && !index,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 3600000,
   });
   const finance = api.tdxFinance.useQuery(symbol, {
     enabled: quotable && !index,
@@ -126,34 +137,45 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
           )}
         </TabsContent>
         <TabsContent value="fundamental" className="space-y-2">
-          {finance.error && (
+          {local.error && (
             <div role="alert" className="text-sm">
-              财务快照读取失败：{finance.error.message}
+              本地财务包读取失败：{local.error.message}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => void finance.refetch()}
+                onClick={() => void local.refetch()}
               >
-                重试财务快照
+                重试本地财务
               </Button>
             </div>
           )}
-          {!finance.error && !finance.data && (
+          {local.data && !local.data.financials && (
             <p role="status" className="text-sm">
-              {finance.isFetching ? "正在读取财务快照…" : "尚无财务快照"}
+              本地没有该证券的财务数据：{local.data.reason}
             </p>
           )}
-          {finance.data && (
+          {!local.error && !local.data && (
+            <p role="status" className="text-sm">
+              正在读取本地财务包…
+            </p>
+          )}
+          {local.data?.financials && (
             <TdxFundamentalSummary
-              finance={finance.data.finance}
-              period={finance.data.period.period}
-              periodReason={finance.data.period.reason}
+              report={local.data.financials.fields}
+              reportDate={local.data.financials.reportDate}
+              sourceFilename={local.data.financials.sourceFilename}
+              overlay={finance.data?.finance ?? null}
+              overlayPending={finance.isFetching && !finance.data}
+              overlayError={finance.error?.message ?? null}
+              lag={finance.data?.lag ?? null}
               price={
                 quote && Number.isFinite(quote.price) && quote.price > 0
                   ? quote.price
                   : null
               }
-            />
+            >
+              <TdxCompanyInfo symbol={symbol} />
+            </TdxFundamentalSummary>
           )}
         </TabsContent>
       </Tabs>
