@@ -22,6 +22,7 @@ import {
   type Drawing,
 } from "~/lib/chart-view";
 import { CzscMarketChart } from "./chart";
+import { TdxSnapshotContainer } from "./tdx-snapshot-container";
 const tools = {
   none: "浏览",
   trend: "趋势线",
@@ -378,6 +379,7 @@ function EditableChart({
       >
         <CzscMarketChart {...common} snapshotId={snapshot.id} chartSnapshot />
       </fieldset>
+      <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>
         {view.drawings.map((d) => (

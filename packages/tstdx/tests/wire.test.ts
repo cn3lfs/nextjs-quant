@@ -334,12 +334,30 @@ describe("财务数据", () => {
       fixture.finance,
     );
   });
-  it("股本与金额换算成股和元，股东户数与每股净资产不换算", () => {
+  it("股本按万股、金额按千元换算，其余字段保留协议原值", () => {
     const finance = parseFinance(hex(fixture.financeBody), "sh600000");
+    // fixture 是等差合成值：第 n 个 float 为 1.5n。总股本 1.5 万股 → 15000 股；
+    // 流通股本在记录头部单独解码，12345 万股 → 123,450,000 股。
     expect(finance.floatShares).toBe(123450000);
+    expect(finance.totalShares).toBe(15000);
+    // 金额是千元：总资产 12 千元 → 12,000 元，净利润 40.5 千元 → 40,500 元。
+    // 按旧的万元口径会得到 120,000 与 405,000，正好大 10 倍。
+    expect(finance.totalAssets).toBe(12000);
+    expect(finance.netProfit).toBe(40500);
+    expect(finance.netAssets).toBe(24000);
+    // 语义未确认的股本结构子项不换算，原样保留。
+    expect(finance.legalPersonShares).toBeCloseTo(6, 5);
+    expect(finance.employeeShares).toBeCloseTo(10.5, 5);
     expect(finance.shareholders).toBeCloseTo(18, 5);
     expect(finance.bookValuePerShare).toBeCloseTo(43.5, 5);
     expect(finance.ipoDate).toBe(19991110);
+  });
+  it("净资产与每股净资产口径自洽：净资产 = 每股净资产 × 总股本 的量级不再差 10 倍", () => {
+    const finance = parseFinance(hex(fixture.financeBody), "sh600000");
+    // 这条固定实网核对得到的关系（sh600519/sz000002 上恰好成立）所依赖的倍率：
+    // 金额用千元、股本用万股时两侧同量级；金额改回万元则右侧被放大 10 倍。
+    expect(finance.netAssets * 10).not.toBe(24000);
+    expect(finance.netAssets / (finance.totalShares || 1)).toBeCloseTo(1.6, 10);
   });
   it("证券不符或响应不完整时报错", () => {
     expect(() => parseFinance(hex(fixture.financeBody), "sz000001")).toThrow(

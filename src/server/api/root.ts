@@ -220,6 +220,7 @@ import {
 } from "~/lib/domain";
 import { get, list, put } from "../db";
 import { settings, saveSettings } from "../settings";
+import { resolveFinanceReportPeriod } from "../tdx-financial-reports";
 import {
   scanJob,
   snapshot,
@@ -1266,7 +1267,21 @@ export const appRouter = createTRPCRouter({
             input.count,
           ),
     ),
-  tdxFinance: p.input(symbolSchema).query(({ input }) => finance(input)),
+  /*
+   * 协议财务快照不带报告期，所以同时用本地只读财务包把它定位到具体某一期。
+   * 定位失败不影响快照本身，只是不能给出任何需要报告期的年化口径。
+   */
+  tdxFinance: p.input(symbolSchema).query(async ({ input }) => {
+    const snapshot = await finance(input);
+    return {
+      finance: snapshot,
+      period: await resolveFinanceReportPeriod(
+        settings().tdxRoot,
+        input,
+        snapshot,
+      ),
+    };
+  }),
   fundamentalAnalyze: p
     .input(fundamentalResearchInput)
     .mutation(({ input }) => {

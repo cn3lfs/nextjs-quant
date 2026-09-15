@@ -804,8 +804,19 @@ export function buildFinanceRequest(symbol: string): Buffer {
   return request;
 }
 
-/** 金额字段单位为万元、股本字段单位为万股，这里统一换算成元和股。 */
-const FINANCE_SCALE = 10000,
+/**
+ * 换算倍率按 2026-09-15 与本地通达信专业财务包 `gpcw*.dat` 的逐字段交叉核对确定，
+ * 样本 sh600519 / sz000002 / sz300750 / sz000001：
+ * - **金额字段单位是千元**，×1000 得元。20 个金额字段在四只标的上与财务包的元单位
+ *   数值全部吻合到 float32 精度。此前按万元 ×10000 会把所有金额放大 10 倍。
+ * - 股本字段单位是万股，×10000 得股；但只有总股本与流通股本经核对，
+ *   其余股本结构子项在财务包里任何倍率下都找不到对应值（sh600519 的法人股大于总股本、
+ *   sz000002 的发起人股为负、职工股位置的值实际等于每股收益），语义已被复用或错位，
+ *   因此保留协议原值不换算，由调用方决定是否使用。
+ * - 股东户数为户、每股净资产为元/股，本来就不换算。
+ */
+const SHARE_SCALE = 10000,
+  MONEY_SCALE = 1000,
   FINANCE_FIELDS = [
     "totalShares",
     "stateShares",
@@ -838,8 +849,16 @@ const FINANCE_SCALE = 10000,
     "bookValuePerShare",
     "reserved",
   ] as const;
-/** 这两个不是万元口径：股东户数是人数，每股净资产已是元/股。 */
+/** 唯一经核对的万股口径字段；流通股本在记录头部单独解码。 */
+const FINANCE_SHARE_FIELDS = new Set(["totalShares"]);
+/** 语义未确认或本来就不是千元口径的字段，一律保留协议原值。 */
 const FINANCE_UNSCALED = new Set([
+  "stateShares",
+  "founderShares",
+  "legalPersonShares",
+  "bShares",
+  "hShares",
+  "employeeShares",
   "shareholders",
   "bookValuePerShare",
   "reserved",
@@ -862,7 +881,7 @@ export function parseFinance(body: Buffer, symbol: string): TdxFinance {
   let pos = 9;
   if (pos + 136 > body.length) throw new Error("财务数据响应不完整");
   const finance = {
-    floatShares: body.readFloatLE(pos) * FINANCE_SCALE,
+    floatShares: body.readFloatLE(pos) * SHARE_SCALE,
     province: body.readUInt16LE(pos + 4),
     industry: body.readUInt16LE(pos + 6),
     updatedDate: body.readUInt32LE(pos + 8),
@@ -873,7 +892,7 @@ export function parseFinance(body: Buffer, symbol: string): TdxFinance {
     const value = body.readFloatLE(pos + i * 4);
     finance[field] = FINANCE_UNSCALED.has(field)
       ? value
-      : value * FINANCE_SCALE;
+      : value * (FINANCE_SHARE_FIELDS.has(field) ? SHARE_SCALE : MONEY_SCALE);
   });
   return finance;
 }

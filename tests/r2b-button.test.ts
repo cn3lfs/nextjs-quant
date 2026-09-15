@@ -4,6 +4,7 @@ import ts from "typescript";
 import { expect, it } from "vitest";
 import baseline from "./fixtures/r2b-button-render.json";
 import { withoutE1MarketBrowser } from "./e1-market-contract";
+import { withoutTdxSnapshotPanel } from "./tdx-snapshot-contract";
 
 function originalRendering(source: string) {
   // Only the authorized tag/variant substitution is normalized. Event bodies,
@@ -54,7 +55,9 @@ it("R2b replaces only button tags while preserving every original rendered prop,
       originalRendering(
         file.endsWith("/market-view.tsx")
           ? withoutE1MarketBrowser(source)
-          : source,
+          : file.endsWith("/chart-workspace.tsx")
+            ? withoutTdxSnapshotPanel(source)
+            : source,
       ),
       file,
     ).toBe(expected);
