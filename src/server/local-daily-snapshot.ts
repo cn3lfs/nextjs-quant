@@ -8,11 +8,15 @@ import {
 /** Keep source files read-only. A full-package import can fill missing history
  * or advance a stale local file, without replacing a newer local trading date.
  */
-export async function readLocalDailySnapshot(root: string, symbol: string) {
+export async function readLocalDailySnapshot(
+  root: string,
+  symbol: string,
+  options: { chartFunds?: boolean } = {},
+) {
   let local;
   let failure: unknown;
   try {
-    local = await readSnapshot(root, symbol, "day");
+    local = await readSnapshot(root, symbol, "day", options);
   } catch (error) {
     failure = error;
   }

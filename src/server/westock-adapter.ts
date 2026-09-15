@@ -5,7 +5,7 @@ import { isMarketIndex } from "~/lib/market-indices";
 import { query, westockScriptPath } from "./westock-data";
 import { parseWestockBars } from "./westock-bars";
 
-export const WESTOCK_ADAPTER_VERSION = "westock-adapter-1";
+export const WESTOCK_ADAPTER_VERSION = "westock-adapter-2";
 const symbol = z.string().regex(/^(?:(?:sh|sz|bj)\d{6}|pt[0-9A-Z]{6,12})$/);
 const day = z
   .string()
@@ -79,6 +79,9 @@ export async function westockKlines(
   const count = Math.min(value.limit, 2000);
   const warnings: string[] =
     value.limit > count ? ["请求深度超过上限，限制为2000根"] : [];
+  warnings.push("部分量额字段可能取整，保留原值；未核验单位不得跨源拼接");
+  if (value.symbols.some((code) => westockAssetKind(code) === "index"))
+    warnings.push("指数成交量与其他源存在倍率差异，不能统一解释为股或手");
   const items = new Map<string, WestockKlineItem>();
   const eligible = value.symbols.filter((code) => {
     if (

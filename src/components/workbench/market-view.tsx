@@ -13,6 +13,7 @@ import { SecurityProfilePanel } from "../security-profile";
 import { SecuritySelect } from "../security-select";
 import { MarketPoolBrowser } from "../market-pool-browser";
 import { isMarketIndex } from "~/lib/market-indices";
+import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { Button } from "../ui/button";
 
 import { Empty, stamp } from "./shared";
@@ -101,7 +102,11 @@ export function MarketView({
             <Button
               size="sm"
               variant="outline"
-              disabled={verifyIdentity.isPending || isMarketIndex(symbol)}
+              disabled={
+                verifyIdentity.isPending ||
+                isMarketIndex(symbol) ||
+                isSectorChartSymbol(symbol)
+              }
               onClick={() => verifyIdentity.mutate(symbol)}
             >
               {verifyIdentity.isPending ? "核验中…" : "核验证券身份"}
@@ -176,12 +181,13 @@ export function MarketView({
               size="sm"
               variant="ghost"
               onClick={() => watch.mutate([...watchlist, symbol])}
+              disabled={isSectorChartSymbol(symbol)}
             >
               <Plus size={13} />
               加入自选
             </Button>
           </div>
-          {isMarketIndex(symbol) ? (
+          {isMarketIndex(symbol) || isSectorChartSymbol(symbol) ? (
             <p className="text-sm text-muted-foreground">
               指数行情 · 价格单位：点
             </p>

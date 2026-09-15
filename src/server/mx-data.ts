@@ -9,9 +9,14 @@ import {
   StreamableHTTPClientTransport,
   StreamableHTTPError,
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { mxKinds, mxQueryPlan, type MxQueryInput } from "~/lib/mx-data";
+import {
+  mxKinds,
+  mxQueryPlan,
+  mxScopeWarnings,
+  type MxQueryInput,
+} from "~/lib/mx-data";
 
-export const MX_VERSION = "mx-data-1";
+export const MX_VERSION = "mx-data-2";
 const endpoint = "https://mxapi.eastmoney.com/mxds/mcp";
 
 // Consume only connection fields from the existing local configuration. Never execute its command.
@@ -182,8 +187,14 @@ export async function queryMxData(
   } catch {
     throw new Error("东方财富 MCP 返回错误或无法识别的数据，未转换为行情");
   }
+  const scopeWarnings = mxScopeWarnings(input, parsed.data);
   return {
     ...parsed,
+    scopeWarnings,
+    status:
+      scopeWarnings.length && parsed.status === "ok"
+        ? ("with-message" as const)
+        : parsed.status,
     source: "eastmoney/mx-ds-mcp" as const,
     version: MX_VERSION,
     tool: plan.tool,
@@ -191,7 +202,14 @@ export async function queryMxData(
     startedAt,
     fetchedAt: Date.now(),
     hash: createHash("sha256")
-      .update(JSON.stringify({ version: MX_VERSION, ...plan, ...parsed }))
+      .update(
+        JSON.stringify({
+          version: MX_VERSION,
+          ...plan,
+          ...parsed,
+          scopeWarnings,
+        }),
+      )
       .digest("hex"),
     limitation:
       "服务端自然语言查询结果，可能取整或包含额外指标；复权和单位以原表为准，未接入K线拼接、RPS或策略计算。",

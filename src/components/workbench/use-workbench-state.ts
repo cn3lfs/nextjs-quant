@@ -1,4 +1,5 @@
 import { type MarketSource } from "~/lib/market-source";
+import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { useEffect, useState } from "react";
 import { defaultBacktestCosts } from "~/lib/backtest-costs";
 import {
@@ -71,6 +72,7 @@ export function useWorkbenchState() {
   };
   const onError = (e: { message: string }) => notify(e.message);
   const identityRecord = api.identityRecord.useQuery(symbol, {
+    enabled: !isSectorChartSymbol(symbol),
     staleTime: 60000,
   });
   const verifyIdentity = api.securityIdentity.useMutation({

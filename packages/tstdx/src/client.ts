@@ -1,9 +1,13 @@
 import { Socket } from "node:net";
 import { ConnectionPool } from "./connection-pool.js";
+import { isAStock, isIndexSymbol } from "./analytics.js";
 import { createExtendedQueries, type BatchWorker } from "./queries.js";
 import {
   buildSecurityCountRequest,
+  buildSecurityListRequest,
+  parseSecurityList,
   parseSecurityCount,
+  type TdxMarket,
   uint,
 } from "./catalog-wire.js";
 import {
@@ -27,6 +31,7 @@ import {
   parseQuotes,
   parseTransactions,
   parseXdxr,
+  priceDivisor,
   type KlineName,
   type TdxBar,
   type TdxFinance,
@@ -305,6 +310,7 @@ export function createTdxClient(options: TdxClientOptions = {}) {
   const closeQuotes = () => {
     generation++;
     stopHeartbeat();
+    precisionCatalog.clear();
     return pool.close();
   };
   const heartbeat = () =>
@@ -353,15 +359,62 @@ export function createTdxClient(options: TdxClientOptions = {}) {
     return stopHeartbeat;
   }
 
-  /** 五档盘口快照；超过单包上限时自动分片，返回顺序与入参一致。 */
+  // 股票/指数的两位协议已验证；其他证券必须读取该源目录，不能按价格猜测。
+  const precisionCatalog = new Map<TdxMarket, Promise<Map<string, number>>>();
+  async function securityDecimals(symbol: string): Promise<number> {
+    if (isAStock(symbol) || isIndexSymbol(symbol)) return 2;
+    const market = symbol.slice(0, 2) as TdxMarket;
+    let pending = precisionCatalog.get(market);
+    if (!pending) {
+      pending = (async () => {
+        const count = await send(
+          () => buildSecurityCountRequest(market),
+          parseSecurityCount,
+        );
+        const values = new Map<string, number>();
+        for (let offset = 0; offset < count;) {
+          const page = await send(
+            () => buildSecurityListRequest(market, offset),
+            (body) => parseSecurityList(body, market),
+            false,
+          );
+          if (!page.length || offset + page.length > count)
+            throw new Error("价格精度目录分页不完整");
+          for (const row of page) {
+            priceDivisor(row.decimalPoint);
+            if (values.has(row.symbol)) throw new Error("价格精度目录证券重复");
+            values.set(row.symbol, row.decimalPoint);
+          }
+          offset += page.length;
+        }
+        return values;
+      })();
+      precisionCatalog.set(market, pending);
+      void pending.catch(() => precisionCatalog.delete(market));
+    }
+    const decimals = (await pending).get(symbol);
+    if (decimals === undefined)
+      throw new Error(`证券目录缺少价格精度：${symbol}`);
+    return decimals;
+  }
+
+  /** 五档盘口快照；指数没有可交易盘口，返回空 bids/asks。 */
   async function securityQuotes(symbols: string[]): Promise<TdxQuote[]> {
     const quotes: TdxQuote[] = [];
     for (let i = 0; i < symbols.length; i += QUOTES_BATCH_LIMIT) {
       const batch = symbols.slice(i, i + QUOTES_BATCH_LIMIT);
+      const decimals = new Map<string, number>();
+      for (const symbol of batch)
+        decimals.set(symbol, await securityDecimals(symbol));
       quotes.push(
         ...(await send(
           () => buildQuotesRequest(batch),
-          (body) => parseQuotes(body, batch),
+          (body) =>
+            parseQuotes(body, batch, decimals).map((quote) =>
+              isIndexSymbol(quote.symbol)
+                ? { ...quote, bids: [], asks: [] }
+                : quote,
+            ),
         )),
       );
     }
@@ -374,27 +427,29 @@ export function createTdxClient(options: TdxClientOptions = {}) {
    * 分页方向已在真实服务器上实测：**start 是从最新一笔往回数的偏移**，
    * start=0 拿到的是当前最新的成交，start 越大越早。
    */
-  function transactionPage(
+  async function transactionPage(
     symbol: string,
     start: number,
     count = PAGE_LIMIT,
   ): Promise<TdxTransaction[]> {
+    const decimals = await securityDecimals(symbol);
     return send(
       () => buildTransactionsRequest(symbol, start, count),
-      (body) => parseTransactions(body, false),
+      (body) => parseTransactions(body, false, decimals),
     );
   }
 
   /** 历史某日的一页逐笔成交；date 为 YYYYMMDD，无成交笔数字段。 */
-  function historyTransactionPage(
+  async function historyTransactionPage(
     symbol: string,
     date: number,
     start: number,
     count = PAGE_LIMIT,
   ): Promise<TdxTransaction[]> {
+    const decimals = await securityDecimals(symbol);
     return send(
       () => buildHistoryTransactionsRequest(symbol, date, start, count),
-      (body) => parseTransactions(body, true),
+      (body) => parseTransactions(body, true, decimals),
     );
   }
 
@@ -427,18 +482,23 @@ export function createTdxClient(options: TdxClientOptions = {}) {
   }
 
   /** 当日分时；盘中只到当前时刻，盘后可能仍返回整日数据。 */
-  function minutes(symbol: string): Promise<TdxMinute[]> {
+  async function minutes(symbol: string): Promise<TdxMinute[]> {
+    const decimals = await securityDecimals(symbol);
     return send(
       () => buildMinuteRequest(symbol),
-      (body) => parseMinutes(body, symbol, false),
+      (body) => parseMinutes(body, symbol, false, decimals),
     );
   }
 
   /** 历史某日分时；date 为 YYYYMMDD。 */
-  function historyMinutes(symbol: string, date: number): Promise<TdxMinute[]> {
+  async function historyMinutes(
+    symbol: string,
+    date: number,
+  ): Promise<TdxMinute[]> {
+    const decimals = await securityDecimals(symbol);
     return send(
       () => buildHistoryMinuteRequest(symbol, date),
-      (body) => parseMinutes(body, symbol, true),
+      (body) => parseMinutes(body, symbol, true, decimals),
     );
   }
 

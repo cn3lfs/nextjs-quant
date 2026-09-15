@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { symbolSchema } from "~/lib/domain";
-import { parseBars } from "./tdx";
+import { parseBars, isLocalFund } from "./tdx";
 
 const script = `
 $ErrorActionPreference='Stop'
@@ -101,7 +101,12 @@ export async function inspectFullDayPackage(path: string, symbols: string[]) {
         missing.push(symbol);
         continue;
       }
-      const bars = parseBars(bytes, "day");
+      const bars = parseBars(
+        bytes,
+        "day",
+        undefined,
+        isLocalFund(symbol) ? 3 : 2,
+      );
       if (!bars.length) throw new Error(`${symbol}完整日线为空`);
       records.push({
         symbol,

@@ -95,11 +95,15 @@ export function isAStock(symbol: string) {
     symbol,
   );
 }
+export const isLocalFund = (symbol: string) =>
+  /^(sh(?:51|56|58)|sz(?:15|16))\d{4}$/.test(symbol);
 export function parseBars(
   buffer: Buffer,
   period: Period,
   referenceYear = new Date().getFullYear(),
+  dailyDecimals = 2,
 ): Bar[] {
+  if (![2, 3].includes(dailyDecimals)) throw new Error("本地日线价格精度无效");
   if (buffer.length % 32 !== 0)
     throw new Error("行情文件不完整：记录长度不是 32 字节的整数倍");
   const bars: Bar[] = [];
@@ -123,7 +127,7 @@ export function parseBars(
         day = n % 100;
       date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       prices = [4, 8, 12, 16].map(
-        (offset) => buffer.readUInt32LE(i + offset) / 100,
+        (offset) => buffer.readUInt32LE(i + offset) / 10 ** dailyDecimals,
       );
     } else {
       const packed = buffer.readUInt16LE(i),
@@ -207,10 +211,16 @@ export async function readSnapshot(
   root: string,
   symbol: string,
   period: Period,
+  options: { chartFunds?: boolean } = {},
 ): Promise<Snapshot> {
   symbolSchema.parse(symbol);
-  if (!isAStock(symbol) && !isMarketIndex(symbol))
-    throw new Error("仅支持A股与沪深指数行情");
+  const fund = isLocalFund(symbol);
+  if (
+    !isAStock(symbol) &&
+    !isMarketIndex(symbol) &&
+    !(fund && options.chartFunds)
+  )
+    throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
   const file = join(
     resolve(root),
     "vipdoc",
@@ -240,7 +250,7 @@ export async function readSnapshot(
       await new Promise((r) => setTimeout(r, 100));
       continue;
     }
-    const bars = parseBars(buffer, period),
+    const bars = parseBars(buffer, period, undefined, fund ? 3 : 2),
       hash = createHash("sha256").update(buffer).digest("hex");
     if (!bars.length) throw new Error("行情文件为空");
     return {

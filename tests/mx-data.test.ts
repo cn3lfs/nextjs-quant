@@ -1,5 +1,10 @@
 import { expect, it, vi } from "vitest";
-import { mxKinds, mxQueryPlan, mxQuerySchema } from "../src/lib/mx-data";
+import {
+  mxKinds,
+  mxQueryPlan,
+  mxQuerySchema,
+  mxScopeWarnings,
+} from "../src/lib/mx-data";
 import {
   mxConnection,
   parseMxResponse,
@@ -31,6 +36,39 @@ const table = {
     ["成交量", "2618万股"],
   ],
 };
+it("新闻公告混类和越界日期显式提示，原始结果不被删改", async () => {
+  const data = [
+    {
+      sheetName: "原始结果",
+      columns: ["标题", "发布时间", "信息类型"],
+      items: [
+        ["半年度报告", "2026-07-25 00:19:27", "NOTICE"],
+        ["相关新闻", "2026-09-11 09:00:00", "INV_NEWS"],
+      ],
+    },
+  ];
+  const requested = {
+    ...input,
+    kind: "notice" as const,
+    timeRange: "2026-08-01至2026-09-14",
+  };
+  const result = await queryMxData(
+    requested,
+    undefined,
+    vi.fn().mockResolvedValue(envelope(data)),
+  );
+  expect(result.status).toBe("with-message");
+  expect(result.scopeWarnings).toHaveLength(2);
+  expect(result.data).toEqual(data);
+  expect(
+    mxScopeWarnings({ ...requested, kind: "news" }, data).join(),
+  ).toContain("信息类型");
+  expect(
+    mxScopeWarnings({ ...requested, timeRange: "最近一个月" }, [
+      { ...data[0], items: [data[0]!.items[0]] },
+    ]),
+  ).toEqual([]);
+});
 it.each(Object.entries(mxKinds))(
   "routes %s only to its specific read-only tool",
   (kind, item) => {

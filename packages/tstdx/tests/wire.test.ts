@@ -103,7 +103,9 @@ describe("响应帧", () => {
 
 describe("五档行情", () => {
   it("逐字段匹配参考实现的解析结果", () => {
-    expect(parseQuotes(quotesBody, quotes)).toEqual(fixture.quotes);
+    expect(parseQuotes(quotesBody, quotes)).toEqual(
+      fixture.quotes.map((quote) => ({ ...quote, quoteTimeRaw: 14999212 })),
+    );
   });
   it("请求包含市场号与 6 位代码，且按上限校验", () => {
     const request = buildQuotesRequest(["sh600000", "sz000001"]);

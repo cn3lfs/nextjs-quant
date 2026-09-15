@@ -8,6 +8,7 @@ import { Input } from "~/components/ui/input";
 import { useCallback, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market-indices";
+import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart-symbol";
 import { api } from "~/trpc/react";
 import {
   chartCost,
@@ -50,11 +51,12 @@ export function ChartWorkspace({
     },
   );
   const rps = api.rpsCurve.useQuery(snapshot.symbol, {
-    enabled: period === "day",
+    enabled: period === "day" && !isSectorChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
   const position = api.chartPosition.useQuery(snapshot.symbol, {
+    enabled: !isSectorChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
@@ -97,7 +99,7 @@ export function ChartWorkspace({
           ? undefined
           : rps.error
             ? `RPS读取失败：${rps.error.message}`
-            : rps.isPending
+            : rps.isLoading
               ? "RPS读取中…"
               : undefined
       }
@@ -107,7 +109,7 @@ export function ChartWorkspace({
       positionMessage={
         position.error
           ? `持仓读取失败：${position.error.message}`
-          : position.isPending
+          : position.isLoading
             ? "正在读取持仓成本…"
             : position.data &&
                 position.data.quantity > 0 &&
@@ -197,6 +199,7 @@ function EditableChart({
     [anchor, tool, view, change],
   );
   const common = {
+    pricePrecision: chartPricePrecision(snapshot.symbol),
     viewportKey: `${snapshot.symbol}:${period}`,
     onHistoryRequest,
     volumeUnit:

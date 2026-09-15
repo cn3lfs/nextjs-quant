@@ -10,8 +10,7 @@ import {
 } from "~/lib/chart-view";
 import { get, put } from "./db";
 import { settings } from "./settings";
-import { readSnapshot } from "./tdx";
-import { readLocalDailySnapshot } from "./local-daily-snapshot";
+import { readVipdocChart } from "./vipdoc-adapter";
 import { aggregateChartBars, chartPeriodEnd } from "./chart-aggregation";
 import { localCalendarReference } from "./data-health";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
@@ -62,7 +61,7 @@ export async function chartBars(
       local =
         source.source === "tdx-local" && source.period === base
           ? source
-          : await (base === "day" ? readLocalDailySnapshot : readSnapshot)(
+          : await readVipdocChart(
               source.dataRoot ?? settings().tdxRoot,
               source.symbol,
               base,
@@ -72,7 +71,7 @@ export async function chartBars(
       const minutes =
         source.period === "5m"
           ? source
-          : await readSnapshot(
+          : await readVipdocChart(
               source.dataRoot ?? settings().tdxRoot,
               source.symbol,
               "5m",

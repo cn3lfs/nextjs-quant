@@ -2,6 +2,7 @@
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { normalizeChartSymbol } from "~/lib/chart-symbol";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
@@ -55,7 +56,12 @@ export function SecuritySelect({
     { query, period },
     { enabled: open, staleTime: 0 },
   );
-  const items = results.data ?? [];
+  const directSymbol = normalizeChartSymbol(query);
+  const existing = results.data ?? [];
+  const items =
+    directSymbol && !existing.some((item) => item.symbol === directSymbol)
+      ? [{ symbol: directSymbol, name: "按代码查询行情" }, ...existing]
+      : existing;
   const index = Math.min(active, Math.max(0, items.length - 1));
   function select(value: string) {
     setOpen(false);
@@ -89,7 +95,7 @@ export function SecuritySelect({
             open && items.length ? `${id}-${index}` : undefined
           }
           disabled={disabled}
-          placeholder="名称 / 代码 / 拼音首字母"
+          placeholder="名称 / 代码 / 拼音，支持 pt 或 emBK 板块代码"
           value={
             open
               ? query

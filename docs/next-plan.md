@@ -1,5 +1,11 @@
 # 个人交易工作台扩充计划
 
+## 当前计划：逐源适配与验收收尾（2026-09-15）
+
+本轮 S1–S6 已实施适配、实网矩阵与真实页面验收：全量 2255 通过/27 跳过，typecheck、构建和格式检查通过；尚未提交。ETF 时间编码、指数分时量额、特殊证券真实样本和多日可用性仍单列未闭合，详情见[执行记录](data-source-execution.md)，不能理解为全部数据能力无条件通过。
+
+按[数据源适配与验收计划](data-source-adaptation-plan.md)推进：S1 tstdx 字段正确性 → S2 东方财富 HTTP adapter → S3 本地 vipdoc → S4 westock-data 收尾 → S5 mx-ds-mcp 工具验收 → S6 四源 UI 与优先级。用户已授权执行，当前进度与未确认项见[执行记录](data-source-execution.md)。此前 tstdx adapter 与握手修复已提交为 `eb53365`；以下旧阶段记录按原日期解读。
+
 2026-09-15 更新：第三条握手末字节修复后，43 个客户端主站日 K/五档恢复，应用十个日 K 样本通过；见[握手修复与对照证据](tstdx-handshake-fix.md)。下文早期失败结果保留其时点。
 
 最新：三库完整公开行情 API 对比与独立 tstdx 包已实施，见[本轮交付](tstdx-library-comparison.md)。下列早期阶段结果保留其测试范围与时点，不代表全部 TCP 接口不可用。

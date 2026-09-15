@@ -189,8 +189,8 @@ const subcharts = {
   rsi: "RSI",
   rps: "RPS（日线）",
 } as const;
-const formatValue = (value: number | null | undefined) =>
-  value == null ? "—" : value.toFixed(2);
+const formatValue = (value: number | null | undefined, precision = 2) =>
+  value == null ? "—" : value.toFixed(precision);
 
 export function RollingPerformanceChart({
   points,
@@ -345,6 +345,7 @@ export function PriceChart(props: {
 }
 
 export function CzscMarketChart({
+  pricePrecision = 2,
   volumeUnit,
   bars,
   period,
@@ -365,6 +366,7 @@ export function CzscMarketChart({
   period: Period;
   snapshotId: string;
   chartSnapshot?: boolean;
+  pricePrecision?: 2 | 3;
   volumeUnit?: string;
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
@@ -408,6 +410,7 @@ export function CzscMarketChart({
   );
   return (
     <MarketChart
+      pricePrecision={pricePrecision}
       volumeUnit={volumeUnit}
       bars={bars}
       period={period}
@@ -442,6 +445,7 @@ export function CzscMarketChart({
 }
 
 export function MarketChart({
+  pricePrecision = 2,
   volumeUnit = "股",
   bars,
   period,
@@ -463,6 +467,7 @@ export function MarketChart({
   bars: Bar[];
   period: Period;
   volumeUnit?: string;
+  pricePrecision?: 2 | 3;
   czsc?: CzscResult;
   czscMessage?: string;
   breakout?: BreakoutResult;
@@ -595,6 +600,11 @@ export function MarketChart({
     });
     chartApi.current = chart;
     const candles = chart.addSeries(CandlestickSeries, {
+      priceFormat: {
+        type: "price",
+        precision: pricePrecision,
+        minMove: 10 ** -pricePrecision,
+      },
       upColor: "#cf5562",
       downColor: "#28977f",
       borderVisible: false,
@@ -622,7 +632,10 @@ export function MarketChart({
         const bar = bars.find((b) => chartTime(b.date, period) === event.time);
         const price = candles.coordinateToPrice(event.point.y);
         if (bar && price != null && price > 0)
-          onAnchor({ date: bar.date, price: Math.round(price * 100) / 100 });
+          onAnchor({
+            date: bar.date,
+            price: Number(price.toFixed(pricePrecision)),
+          });
       });
     const markers =
       (czsc && showCzsc) || (breakout && showBreakout)
@@ -1009,6 +1022,7 @@ export function MarketChart({
     rpsOptions,
     onHistoryRequest,
     viewportKey,
+    pricePrecision,
   ]);
 
   return (
@@ -1194,10 +1208,10 @@ export function MarketChart({
                 chartTime(legend.bar.date, period),
               )}
             </span>
-            <span>开 {formatValue(legend.bar.open)}</span>
-            <span>高 {formatValue(legend.bar.high)}</span>
-            <span>低 {formatValue(legend.bar.low)}</span>
-            <span>收 {formatValue(legend.bar.close)}</span>
+            <span>开 {formatValue(legend.bar.open, pricePrecision)}</span>
+            <span>高 {formatValue(legend.bar.high, pricePrecision)}</span>
+            <span>低 {formatValue(legend.bar.low, pricePrecision)}</span>
+            <span>收 {formatValue(legend.bar.close, pricePrecision)}</span>
             <span>
               量 {formatValue(legend.bar.volume)} {volumeUnit}
             </span>

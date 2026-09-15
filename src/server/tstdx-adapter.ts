@@ -15,7 +15,7 @@ import type { Bar } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market-indices";
 import { configuredHosts } from "./tdx-quotes";
 
-export const TSTDX_ADAPTER_VERSION = "tstdx-adapter-1";
+export const TSTDX_ADAPTER_VERSION = "tstdx-adapter-2";
 const symbolSchema = z
   .string()
   .regex(/^(?:(?:sh|sz|bj)\d{6}|pt[0-9A-Z]{6,12})$/);
@@ -405,7 +405,12 @@ export async function tstdxMinutes(
         : "current-response-date-unverified",
       method,
       points,
-      volumeUnit: "源单位未独立核验",
+      volumeUnit: isIndexSymbol(value.symbol)
+        ? "指数源字段，不能作为股/手成交量"
+        : "源单位未独立核验",
+      volumeMeaning: isIndexSymbol(value.symbol)
+        ? "index-source-value"
+        : "source-volume",
       startedAt,
       completedAt: Date.now(),
     };

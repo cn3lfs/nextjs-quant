@@ -2,7 +2,7 @@ import type { Bar } from "~/lib/domain";
 import { isMinutePeriod, type ChartPeriod } from "~/lib/chart-view";
 import { normalizeMcpBars } from "./market-data";
 import { queryMcp } from "./tdx-mcp-disabled";
-import { parseOnlineChart } from "./online-chart-data";
+import { eastmoneyKlines } from "./eastmoney-adapter";
 
 const codes = {
   day: "4",
@@ -117,39 +117,27 @@ export async function onlinePeriodHistory(
   limit: number,
   beg = "0",
 ) {
-  const klt = {
-    day: "101",
-    week: "102",
-    month: "103",
-    "5m": "5",
-    "15m": "15",
-    "30m": "30",
-    "60m": "60",
-  }[period];
-  const url = new URL("https://push2his.eastmoney.com/api/qt/stock/kline/get");
-  url.search = new URLSearchParams({
-    secid: `${symbol.startsWith("sh") ? 1 : 0}.${symbol.slice(2)}`,
-    fields1: "f1,f2,f3,f4,f5,f6",
-    fields2: "f51,f52,f53,f54,f55,f56,f57",
-    klt,
-    fqt: "0",
-    beg: beg.replaceAll("-", ""),
-    end: "20500101",
-    lmt: String(limit),
-  }).toString();
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`在线行情请求失败（${response.status}）`);
-  const text = await response.text();
-  if (text.length > 8 * 1024 * 1024) throw new Error("在线行情超过读取上限");
-  const parsed = parseOnlineChart(
-    JSON.parse(text),
-    symbol,
-    isMinutePeriod(period) ? "5m" : "day",
-  );
+  const result = await eastmoneyKlines({
+    symbols: [symbol],
+    period,
+    limit,
+    ...(beg !== "0"
+      ? {
+          start:
+            beg.length === 8
+              ? `${beg.slice(0, 4)}-${beg.slice(4, 6)}-${beg.slice(6, 8)}`
+              : beg,
+        }
+      : {}),
+  });
+  const item = result.items[0]!;
+  if (item.status !== "ok") throw new Error(item.message);
   return {
-    ...parsed,
-    source: "eastmoney-online",
-    volumeUnit: "手",
-    historyExhausted: parsed.bars.length < limit,
+    name: item.name,
+    bars: item.bars,
+    source: result.source,
+    volumeUnit: result.volumeUnit,
+    historyExhausted: item.historyExhausted,
+    sourceNote: `${result.version}；${result.warnings.join("；")}`,
   };
 }

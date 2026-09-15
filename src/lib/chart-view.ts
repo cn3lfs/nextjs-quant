@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { symbolSchema } from "./domain";
+import { chartSymbolSchema } from "./chart-symbol";
 export const chartPeriodSchema = z.enum([
   "day",
   "week",
@@ -105,7 +105,7 @@ export const defaultChartView: ChartView = {
   drawings: [],
 };
 export const chartKeySchema = z.object({
-  symbol: symbolSchema,
+  symbol: chartSymbolSchema,
   period: chartPeriodSchema,
 });
 export const chartSaveSchema = chartKeySchema.extend({ view: chartViewSchema });

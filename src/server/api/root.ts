@@ -1,4 +1,5 @@
 import { marketSourceSchema } from "~/lib/market-source";
+import { chartSymbolSchema } from "~/lib/chart-symbol";
 import { mxQuerySchema } from "~/lib/mx-data";
 import { mxDataStatus, queryMxData } from "../mx-data";
 import { researchAdjustmentSchema } from "~/lib/research-adjustment";
@@ -1449,7 +1450,7 @@ export const appRouter = createTRPCRouter({
   snapshot: p
     .input(
       z.object({
-        symbol: symbolSchema,
+        symbol: chartSymbolSchema,
         period: periodSchema,
         source: z.union([marketSourceSchema, z.literal("online")]).optional(),
       }),

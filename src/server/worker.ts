@@ -1,8 +1,8 @@
 import type { ResearchAdjustment } from "~/lib/research-adjustment";
 import { recordResearchUsage } from "./research-usage";
 import { parentPort } from "node:worker_threads";
-import { scan, readSnapshot } from "./tdx";
-import { readLocalDailySnapshot } from "./local-daily-snapshot";
+import { scan } from "./tdx";
+import { readVipdocChart } from "./vipdoc-adapter";
 import { backtest } from "./quant";
 import { screenLocal } from "./screening";
 import { screenFormula, type FormulaWork } from "./formula-screening";
@@ -91,9 +91,7 @@ async function main(work: Work & { attemptId?: string }) {
   }
   if (work.type === "scan") return scan(work.root);
   if (work.type === "snapshot")
-    return work.period === "day"
-      ? readLocalDailySnapshot(work.root, work.symbol)
-      : readSnapshot(work.root, work.symbol, work.period);
+    return readVipdocChart(work.root, work.symbol, work.period);
   if (work.type === "backtest") {
     let source = work.fullRoot
       ? await fullBacktestSource(work.snapshot, work.fullRoot)

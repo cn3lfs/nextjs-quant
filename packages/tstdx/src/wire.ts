@@ -17,7 +17,9 @@ const MARKET_NAMES = ["sz", "sh", "bj"] as const;
 export type TdxQuote = {
   symbol: string;
   /** 单只证券快照的更新时刻 HH:MM:SS.mmm，不是服务器墙上时间，同批可不同。 */
-  quoteTime: string;
+  quoteTime: string | null;
+  /** 原始编码保留供核验；没有日期，不能证明行情属于今天。 */
+  quoteTimeRaw?: number;
   price: number;
   preClose: number;
   open: number;
@@ -159,10 +161,18 @@ function readTradeTime(buffer: Buffer, position: number): [string, number] {
   ];
 }
 
-/** 快照时刻编码为「小时 + 小时的百万分之一」，例如 14999212 → 14:59:57.163。 */
-function formatQuoteTime(raw: number) {
+/** 兼容两种已知布局；不能识别的值保持未知，不输出 153 点之类非法时间。
+ * 对照线索：https://github.com/rainx/pytdx/issues/187#issuecomment-441270487
+ */
+export function formatQuoteTime(raw: number): string | null {
+  if (!Number.isSafeInteger(raw) || raw < 0 || raw >= 24_000_000) return null;
   const hours = Math.floor(raw / 1_000_000),
-    millis = Math.floor(((raw % 1_000_000) * 3600) / 1000),
+    tail = raw % 1_000_000,
+    wholeMinutes = Math.floor(tail / 10_000),
+    millis =
+      wholeMinutes < 60
+        ? wholeMinutes * 60_000 + (tail % 10_000) * 6
+        : Math.floor(tail * 3.6),
     minutes = Math.floor(millis / 60_000),
     seconds = Math.floor((millis % 60_000) / 1000);
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis % 1000).padStart(3, "0")}`;
@@ -201,7 +211,11 @@ export function buildQuotesRequest(symbols: string[]): Buffer {
  * 记录中有若干语义未确认的字段，此处按协议顺序消费但不对外暴露，以免把
  * 未经验证的值当成指标使用。
  */
-export function parseQuotes(body: Buffer, expected: string[]): TdxQuote[] {
+export function parseQuotes(
+  body: Buffer,
+  expected: string[],
+  decimals: ReadonlyMap<string, number> = new Map(),
+): TdxQuote[] {
   if (body.length < 4) throw new Error("五档行情响应过短");
   const count = body.readUInt16LE(2);
   if (count !== expected.length)
@@ -214,6 +228,7 @@ export function parseQuotes(body: Buffer, expected: string[]): TdxQuote[] {
     if (pos + 9 > body.length) throw new Error("五档行情记录头越界");
     const market = body.readUInt8(pos),
       code = body.toString("ascii", pos + 1, pos + 7);
+    const divisor = priceDivisor(decimals.get(joinSymbol(market, code)) ?? 2);
     pos += 9; // 市场 1 + 代码 6 + 2 字节活跃度
     let price: number,
       preCloseDiff: number,
@@ -252,8 +267,8 @@ export function parseQuotes(body: Buffer, expected: string[]): TdxQuote[] {
       [askDiff, pos] = readVarint(body, pos);
       [bidVolume, pos] = readVarint(body, pos);
       [askVolume, pos] = readVarint(body, pos);
-      bids.push({ price: (price + bidDiff) / 100, volume: bidVolume });
-      asks.push({ price: (price + askDiff) / 100, volume: askVolume });
+      bids.push({ price: (price + bidDiff) / divisor, volume: bidVolume });
+      asks.push({ price: (price + askDiff) / divisor, volume: askVolume });
     }
     if (pos + 2 > body.length) throw new Error("五档行情记录尾越界");
     pos += 2;
@@ -269,11 +284,12 @@ export function parseQuotes(body: Buffer, expected: string[]): TdxQuote[] {
     quotes.push({
       symbol,
       quoteTime: formatQuoteTime(timeRaw),
-      price: price / 100,
-      preClose: (price + preCloseDiff) / 100,
-      open: (price + openDiff) / 100,
-      high: (price + highDiff) / 100,
-      low: (price + lowDiff) / 100,
+      quoteTimeRaw: timeRaw,
+      price: price / divisor,
+      preClose: (price + preCloseDiff) / divisor,
+      open: (price + openDiff) / divisor,
+      high: (price + highDiff) / divisor,
+      low: (price + lowDiff) / divisor,
       volume,
       currentVolume,
       amount,
@@ -349,7 +365,9 @@ function checkDate(date: number, label: string) {
 export function parseTransactions(
   body: Buffer,
   history: boolean,
+  decimalPoint = 2,
 ): TdxTransaction[] {
+  const divisor = priceDivisor(decimalPoint);
   if (body.length < 2) throw new Error("逐笔成交响应过短");
   const count = body.readUInt16LE(0);
   let pos = history ? 6 : 2, // 历史逐笔在计数后多 4 字节填充
@@ -372,7 +390,7 @@ export function parseTransactions(
     price += diff;
     records.push({
       time,
-      price: price / 100,
+      price: price / divisor,
       volume,
       direction,
       orders: history ? null : orders,
@@ -593,7 +611,9 @@ export function parseMinutes(
   body: Buffer,
   symbol: string,
   history: boolean,
+  decimalPoint = 2,
 ): TdxMinute[] {
+  const divisor = priceDivisor(decimalPoint);
   if (body.length < 4) throw new Error("分时响应过短");
   const count = body.readUInt16LE(0);
   if (count === 0) return [];
@@ -604,12 +624,26 @@ export function parseMinutes(
       body.length >= 11 &&
       body.readUInt16LE(2) === 0 &&
       body.toString("ascii", 5, 11) === code;
-  if (isNewLayout) return locateMinutes(body, count);
+  if (isNewLayout)
+    return locateMinutes(body, count).map((bar) => ({
+      ...bar,
+      price: (bar.price * 100) / divisor,
+    }));
   const decoded = decodeMinutes(body, history ? 6 : 4, count);
   // 旧布局允许尾部残留少量字节，但点数和价格必须完整可信。
   if (!decoded || decoded.end + 8 < body.length || !validMinutes(decoded.bars))
     throw new Error("分时响应与已知布局不符");
-  return decoded.bars;
+  return decoded.bars.map((bar) => ({
+    ...bar,
+    price: (bar.price * 100) / divisor,
+  }));
+}
+
+/** 证券目录提供价格精度；无效精度不能静默回退为两位。 */
+export function priceDivisor(decimalPoint: number) {
+  if (!Number.isInteger(decimalPoint) || decimalPoint < 0 || decimalPoint > 6)
+    throw new Error("证券价格精度无效");
+  return 10 ** decimalPoint;
 }
 
 function locateMinutes(body: Buffer, count: number) {

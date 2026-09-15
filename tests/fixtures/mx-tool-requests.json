@@ -1,0 +1,90 @@
+[
+  {
+    "kind": "ashare",
+    "subjects": [
+      "宁德时代(300750.SZ)"
+    ],
+    "timeRange": "2026-09-14",
+    "request": "查询当日收盘价、代码、日期和单位"
+  },
+  {
+    "kind": "fund",
+    "subjects": [
+      "沪深300ETF华泰柏瑞(510300.SH)"
+    ],
+    "timeRange": "2026-09-14",
+    "request": "查询场内收盘价、代码、日期和单位"
+  },
+  {
+    "kind": "bond",
+    "subjects": [
+      "23广东11"
+    ],
+    "timeRange": "截至2026-09-14",
+    "request": "查询债券代码、发行期限和发行总额及单位"
+  },
+  {
+    "kind": "index",
+    "subjects": [
+      "上证指数(000001.SH)"
+    ],
+    "timeRange": "2026-09-14",
+    "request": "查询当日收盘点数、代码和日期"
+  },
+  {
+    "kind": "hk",
+    "subjects": [
+      "腾讯控股(00700.HK)"
+    ],
+    "timeRange": "2026-09-14",
+    "request": "查询当日收盘价、证券代码、日期及币种"
+  },
+  {
+    "kind": "us",
+    "subjects": [
+      "苹果(AAPL.US)"
+    ],
+    "timeRange": "2026-09-11",
+    "request": "查询当日收盘价、证券代码、日期及币种"
+  },
+  {
+    "kind": "comprehensive",
+    "subjects": [
+      "华为技术有限公司"
+    ],
+    "timeRange": "截至2026-09-14",
+    "request": "查询企业全称与成立日期"
+  },
+  {
+    "kind": "macro",
+    "subjects": [
+      "中国国内生产总值"
+    ],
+    "timeRange": "2025年全年",
+    "request": "查询年度GDP总额及单位，使用年度口径"
+  },
+  {
+    "kind": "screener",
+    "subjects": [
+      "沪深A股"
+    ],
+    "timeRange": "2026-09-14",
+    "request": "筛选当日收盘价最高的前三只股票，列出代码、收盘价和日期"
+  },
+  {
+    "kind": "news",
+    "subjects": [
+      "宁德时代"
+    ],
+    "timeRange": "2026-09-01至2026-09-14",
+    "request": "检索一条相关新闻，返回标题、发布日期、来源与链接"
+  },
+  {
+    "kind": "notice",
+    "subjects": [
+      "宁德时代(300750.SZ)"
+    ],
+    "timeRange": "2026-08-01至2026-09-14",
+    "request": "检索2026年半年度报告公告，返回标题、公告日期和链接"
+  }
+]

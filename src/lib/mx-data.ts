@@ -56,3 +56,45 @@ export function mxQueryPlan(input: MxQueryInput) {
     query: `查询类别：${mxKinds[value.kind].label}。标的或范围：${value.subjects.join("、")}。时间范围：${value.timeRange}。查询内容：${value.request}`,
   };
 }
+
+/** 只核对明确的结构字段，不从自然语言摘要推断日期，也不裁剪原表。 */
+export function mxScopeWarnings(input: MxQueryInput, data: unknown[]) {
+  if (input.kind !== "news" && input.kind !== "notice") return [];
+  const range = input.timeRange.match(
+    /^(\d{4}-\d{2}-\d{2})(?:至(\d{4}-\d{2}-\d{2}))?$/,
+  );
+  let outside = 0,
+    mismatched = 0;
+  for (const raw of data) {
+    const parsed = mxTableSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const table = parsed.data;
+    const dateColumn = table.columns.indexOf("发布时间");
+    const typeColumn = table.columns.indexOf("信息类型");
+    for (const row of table.items) {
+      const date = String(row[dateColumn] ?? "").slice(0, 10);
+      if (
+        range &&
+        /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        (date < range[1]! || date > (range[2] ?? range[1]!))
+      )
+        outside++;
+      const type = String(row[typeColumn] ?? "");
+      if (
+        type &&
+        (input.kind === "news" ? type === "NOTICE" : type !== "NOTICE")
+      )
+        mismatched++;
+    }
+  }
+  return [
+    ...(outside
+      ? [`返回 ${outside} 条记录的发布时间不在请求区间内，原表已保留。`]
+      : []),
+    ...(mismatched
+      ? [
+          `返回 ${mismatched} 条记录的信息类型与所选查询类别不符，不能当作该类别结果。`,
+        ]
+      : []),
+  ];
+}

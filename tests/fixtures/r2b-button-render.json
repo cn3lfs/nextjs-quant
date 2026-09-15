@@ -1,16 +1,16 @@
 {
   "src/app/signal-ledger/error.tsx": "26709bdbd02b77f86d30e9994b78ca560d22b901154218d51b56d6ef3aa2aba0",
   "src/app/trade-ledger/error.tsx": "3df0932dff8e0b3a9c0218a3f7dc0032ffcc32a24ca7b4244280e0ba99877cde",
-  "src/components/chart-workspace.tsx": "160b940d1f329ce77227a61d7b6eeaaf58b726ca32772f5ee0619d1484b923b8",
+  "src/components/chart-workspace.tsx": "641cacd876d9090d43e74eb9a0fa12325cef6771f1ae34878a4af2e867fdbac1",
   "src/components/formula-screen.tsx": "a24774f00687f5228758dd0d03cb35bacf9b3035ef3d10e185c3573f4ac26b21",
-  "src/components/security-select.tsx": "b905a76b75e2b7b2bd3dc87275e7a236f6238215e52b1e6d2228edab3c6eeb52",
+  "src/components/security-select.tsx": "7c80b549a171211f5824bdb415c08386a4feb08a10179c651623671387b5b023",
   "src/components/signal-ledger-controls.tsx": "7571c0bf6257564d77e8416b5919341644015501c64af793cfaea0ba6803de54",
   "src/components/trade-ledger-panel.tsx": "2ca3415aca7906480cdc1c4fb981d1e1bb703f5a5c4905136ecb9acef1995fee",
   "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
   "src/components/workbench.tsx": "c8be6d14627e6b5a5d8591897c2780c18ea694ec773557d3769c680341698cb9",
   "src/components/workbench/evidence-analysis.tsx": "0d64b4f4de9060c3457bfc2f4e7cfab4af24264206c622178d9c89200db769ea",
-  "src/components/workbench/market-view.tsx": "38641ba34f848357fd056aad8ce4b7818533d780cacafab48730def1dfa938d8",
+  "src/components/workbench/market-view.tsx": "712065d30b893487166e51cf350abe4333d5c14b1a36235f110228275e0e5c1c",
   "src/components/workbench/reports.tsx": "41dff7e92b7ddc7bd36b397ad4994658a18c70d09f085e248ef343b936419d62",
   "src/components/workbench/task-center.tsx": "868af49e84c806e70102a4935d37c23e9ebff809c11dc5fd36e29033e84070db",
-  "src/components/chart.tsx": "40b2a01269607a0d170967ad2618ab7fed8798fb82df5c36404153329681aa70"
+  "src/components/chart.tsx": "4828b6e06f63c36ddfe9df4db4f096cb02f8c14ddddf755c2a36c1b9d5c9024a"
 }

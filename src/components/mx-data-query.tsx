@@ -151,6 +151,11 @@ export function MxDataQuery() {
                 来源提示：{query.data.message}
               </p>
             )}
+            {query.data.scopeWarnings.map((warning) => (
+              <p key={warning} role="alert" className="text-sm">
+                范围核验：{warning}
+              </p>
+            ))}
             {!query.data.data.length && <p>未返回数据，不代表指标为零。</p>}
             {query.data.data.map((raw, index) => {
               const parsed = mxTableSchema.safeParse(raw);

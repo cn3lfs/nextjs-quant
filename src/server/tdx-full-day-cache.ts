@@ -3,6 +3,8 @@ import type { Snapshot } from "~/lib/domain";
 import { symbolSchema } from "~/lib/domain";
 import { atomic, get, put, sqlite } from "./db";
 import { inspectFullDayPackage } from "./tdx-full-day-import";
+import { isLocalFund } from "./tdx";
+const fundDecoderVersion = "tdx-full-day-fund-3-v1";
 
 type Pointer = {
   snapshotId: string;
@@ -38,6 +40,12 @@ export function readFullDaySnapshot(symbol: string) {
     !snapshot.bars.length
   )
     throw new Error("完整日线缓存证据不完整");
+  // 旧基金缓存按两位精度解码；不能在三位精度修复后继续消费。
+  if (
+    isLocalFund(symbol) &&
+    !snapshot.sourceVersions?.includes(fundDecoderVersion)
+  )
+    return null;
   return snapshot;
 }
 
@@ -59,7 +67,9 @@ export async function publishFullDayPackage(
       const previousPointer = get<Pointer>(pointerId(record.symbol));
       const previous = readFullDaySnapshot(record.symbol);
       const hash = createHash("sha256")
-        .update(`tdx-full-day-1:${record.symbol}:${record.hash}`)
+        .update(
+          `${isLocalFund(record.symbol) ? fundDecoderVersion : "tdx-full-day-1"}:${record.symbol}:${record.hash}`,
+        )
         .digest("hex");
       const id = `tdx-full-day-${record.symbol}-${hash}`;
       if (previousPointer && previousPointer.importedAt > importedAt)
@@ -82,7 +92,9 @@ export async function publishFullDayPackage(
           createdAt: importedAt,
           hash,
           bars: record.bars,
-          sourceVersions: [id],
+          sourceVersions: isLocalFund(record.symbol)
+            ? [id, fundDecoderVersion]
+            : [id],
           volumeUnit: "通达信原始单位",
         } satisfies Snapshot);
       put("tdx-full-day-current", pointerId(record.symbol), {

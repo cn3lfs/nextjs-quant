@@ -127,6 +127,7 @@ export async function workflowQuotes(
           ))
             if (
               q.price > 0 &&
+              q.quoteTime !== null &&
               currentQuoteTime(
                 q.quoteTime.replaceAll(":", "").slice(0, 6),
                 Date.now(),

@@ -17,6 +17,28 @@ const rows = (symbol: string) =>
   }));
 beforeEach(() => vi.setSystemTime(new Date("2026-09-14T16:00:00+08:00")));
 afterEach(() => vi.useRealTimers());
+it("上市历史不足和零成交保留真实根数，不填补停牌日", async () => {
+  const one = { ...rows("sh600000")[0]!, volume: 0, amount: 0 };
+  const result = await westockKlines(
+    { symbols: ["sh600000"], period: "day", limit: 20 },
+    undefined,
+    vi.fn().mockResolvedValue([one]),
+  );
+  expect(result.items[0]).toMatchObject({
+    status: "ok",
+    bars: [expect.objectContaining({ date: one.date, volume: 0, amount: 0 })],
+  });
+  if (result.items[0]?.status === "ok")
+    expect(result.items[0].bars).toHaveLength(1);
+});
+it("退市或无历史空响应保持不可用，不生成零价格", async () => {
+  const result = await westockKlines(
+    { symbols: ["sh600001"], period: "day" },
+    undefined,
+    vi.fn().mockResolvedValue([]),
+  );
+  expect(result.items[0]?.status).toBe("unavailable");
+});
 it("recovers only omitted ETF once and preserves ordering, provenance and unadjusted args", async () => {
   const execute = vi
     .fn()

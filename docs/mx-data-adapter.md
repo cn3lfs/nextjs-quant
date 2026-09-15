@@ -1,5 +1,7 @@
 # 东方财富 mx-ds-mcp 查询适配
 
+2026-09-15：11 类工具均经实际服务和应用 API 复测，9 类返回正常，新闻与公告两类返回了超出时间范围或混入其他信息类型的数据。版本 2 增加可追踪的 scopeWarnings，并在页面显示原表与警告，不裁剪数据伪装语义通过。仅对明确日期和已知表字段核对，不能声称自然语言请求全部准确；详情见[执行记录](data-source-execution.md)。
+
 入口：行情页上方“东方财富 MCP 数据查询”，展开后选择类别，填写标的/范围、时间和查询内容，手动提交。使用 Codex 本地 mx-ds-mcp 配置中的官方地址及现有授权，项目不保存新的凭证、不执行配置中的命令、不展示请求头。配置可读不代表授权有效，401明确报错且不自动重试。
 
 用户明确确认自然语言查询不接入图表。现有东方财富 HTTP K线、自动源优先级和持久化source配置保持独立；MCP不是第五个图表源，不参与RPS、历史拼接和策略计算。
@@ -12,7 +14,7 @@
 - 实网成功响应会省略message，内部兼容为空字符串；保留data、表格、单位、日期、来源提示及请求版本哈希。不把万/亿取整数值还原成精确行情，不推断复权。
 - 标准sheetName/columns/items表格直接展示，其他data结构显示JSON。查询完成时间与原表数据日期分开；不渲染来源HTML，不执行返回内容。
 
-实现：[契约](../src/lib/mx-data.ts)、[服务](../src/server/mx-data.ts)、[页面](../src/components/mx-data-query.tsx)。来源eastmoney/mx-ds-mcp，版本mx-data-1，API为mxDataQuery。
+实现：[契约](../src/lib/mx-data.ts)、[服务](../src/server/mx-data.ts)、[页面](../src/components/mx-data-query.tsx)。来源eastmoney/mx-ds-mcp，版本mx-data-2，API为mxDataQuery。
 
 ## 实测（2026-09-14）
 

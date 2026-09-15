@@ -58,10 +58,26 @@ it.skipIf(process.env.QUANT_TSTDX_ADAPTER !== "1")(
       make,
     );
     const report = { klines, minutes, stocks, etfs, indices, sectors };
+    const otherPeriods = [];
+    for (const period of ["week", "5m"] as const) {
+      otherPeriods.push(
+        await tstdxKlines(
+          {
+            symbols: klines.items
+              .filter((item) => item.symbol !== "ptBK0475")
+              .map((item) => item.symbol),
+            period,
+            limit: 3,
+          },
+          undefined,
+          make,
+        ),
+      );
+    }
     if (process.env.QUANT_TSTDX_ADAPTER_REPORT)
       await writeFile(
         process.env.QUANT_TSTDX_ADAPTER_REPORT,
-        JSON.stringify(report, null, 2),
+        JSON.stringify({ ...report, otherPeriods }, null, 2),
       );
     expect(minutes.points).toHaveLength(240);
     expect(stocks.some((s) => s.code === "sz300750")).toBe(true);
@@ -72,6 +88,10 @@ it.skipIf(process.env.QUANT_TSTDX_ADAPTER !== "1")(
     expect(
       klines.items.filter((i) => i.symbol !== "ptBK0475").map((i) => i.status),
     ).toEqual(Array(10).fill("ok"));
+    for (const result of otherPeriods)
+      expect(result.items.map((item) => item.status)).toEqual(
+        Array(10).fill("ok"),
+      );
   },
   120000,
 );

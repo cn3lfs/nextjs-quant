@@ -76,7 +76,9 @@ it("wires persisted curves from the workspace and fixes the RPS pane range", asy
   const { readFileSync } = await import("node:fs");
   const workspace = readFileSync("src/components/chart-workspace.tsx", "utf8");
   expect(workspace).toContain("api.rpsCurve.useQuery(snapshot.symbol, {");
-  expect(workspace).toMatch(/enabled: period === "day",\s*retry: false/);
+  expect(workspace).toMatch(
+    /enabled: period === "day" && !isSectorChartSymbol\(snapshot.symbol\),\s*retry: false/,
+  );
   expect(workspace).toContain('rps={period === "day" ? rps.data : undefined}');
   expect(workspace).toContain("onRpsRetry={() => void rps.refetch()}");
   const chart = readFileSync("src/components/chart.tsx", "utf8");
