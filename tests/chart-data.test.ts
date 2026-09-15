@@ -28,10 +28,11 @@ export function fixture(length = 420): Bar[] {
 }
 
 describe("M2 chart data contract", () => {
-  it("defaults to volume plus MACD and migrates legacy single-pane choices", () => {
+  it("defaults to main MA plus volume and MACD and migrates legacy choices", () => {
     const view = chartViewSchema.parse(defaultChartView);
+    expect(view.mainIndicators).toEqual(["ma"]);
     expect(view.subchart).toEqual(["volume", "macd"]);
-    expect(enabledIndicators(false, view.subchart)).toEqual([
+    expect(enabledIndicators(view.mainIndicators, view.subchart)).toEqual([
       "MA5",
       "MA10",
       "MA20",
@@ -49,7 +50,7 @@ describe("M2 chart data contract", () => {
     expect(
       chartViewSchema.parse({ ...view, subchart: "none" }).subchart,
     ).toEqual([]);
-    expect(enabledIndicators(false, ["macd", "kdj", "rsi"])).toEqual([
+    expect(enabledIndicators(["ma"], ["macd", "kdj", "rsi"])).toEqual([
       "MA5",
       "MA10",
       "MA20",
@@ -63,6 +64,15 @@ describe("M2 chart data contract", () => {
       "RSI6",
       "RSI12",
       "RSI24",
+    ]);
+    const { mainIndicators: _, ...legacyView } = view;
+    expect(
+      chartViewSchema.parse({ ...legacyView, showBoll: true }).mainIndicators,
+    ).toEqual(["ma", "boll"]);
+    expect(enabledIndicators(["boll"], [])).toEqual([
+      "BOLL中",
+      "BOLL上",
+      "BOLL下",
     ]);
   });
   it("legend at three bars reads every enabled M1 value without another formula", () => {
@@ -92,7 +102,7 @@ describe("M2 chart data contract", () => {
           bars,
           values,
           index,
-          enabledIndicators(true, [sub]),
+          enabledIndicators(["ma", "boll"], [sub]),
         )!;
         expect(legend.bar).toEqual(bars[index]);
         for (const { name, value } of legend.indicators)

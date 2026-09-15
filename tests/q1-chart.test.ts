@@ -133,6 +133,7 @@ it("incremental migration preserves existing tables and durable view edits/delet
     key = { symbol: "sh600519", period: "week" };
   const view = structuredClone(defaultChartView);
   view.dark = true;
+  view.mainIndicators = ["boll"];
   view.parameters.macd = [3, 8, 2];
   view.drawings = [
     {

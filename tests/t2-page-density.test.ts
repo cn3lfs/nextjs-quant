@@ -95,10 +95,11 @@ it("T2 groups chart controls into two nonwrapping rows and retains parameter and
     expect(renderHandlers(workspace)).toContain(handler);
   for (const label of [
     'aria-label="副图组合"',
+    'aria-label="主图指标"',
     "selectedSubcharts.includes(value)",
     "setSubcharts(",
     'data-testid="rps-controls"',
-    "setShowBoll(checked === true)",
+    "setMainIndicators(",
     "setShowBreakout(checked === true)",
     "setShowCzsc(checked === true)",
   ])

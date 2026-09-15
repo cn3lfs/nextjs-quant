@@ -22,6 +22,8 @@ export const periodLabels = {
 };
 export const subchartSchema = z.enum(["volume", "macd", "kdj", "rsi", "rps"]);
 export type Subchart = z.infer<typeof subchartSchema>;
+export const mainIndicatorSchema = z.enum(["ma", "boll"]);
+export type MainIndicator = z.infer<typeof mainIndicatorSchema>;
 const legacySubchartMap: Record<string, Subchart[]> = {
   none: [],
   "volume-macd": ["volume", "macd"],
@@ -80,7 +82,7 @@ const canonicalChartViewSchema = z
     parameters: indicatorParametersSchema,
     logarithmic: z.boolean(),
     dark: z.boolean(),
-    showBoll: z.boolean(),
+    mainIndicators: mainIndicatorSchema.array().max(2).default(["ma"]),
     subchart: subchartSchema.array().max(5).default(["volume", "macd"]),
     rps: z
       .object({
@@ -105,16 +107,21 @@ const canonicalChartViewSchema = z
 export const chartViewSchema = z.preprocess((value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const record = value as Record<string, unknown>;
-  return "subchart" in record
-    ? { ...record, subchart: normalizeSubcharts(record.subchart) }
-    : record;
+  const next = { ...record };
+  if (!("mainIndicators" in next)) {
+    next.mainIndicators = next.showBoll === true ? ["ma", "boll"] : ["ma"];
+  }
+  delete next.showBoll;
+  return "subchart" in next
+    ? { ...next, subchart: normalizeSubcharts(next.subchart) }
+    : next;
 }, canonicalChartViewSchema);
 export type ChartView = z.infer<typeof chartViewSchema>;
 export const defaultChartView: ChartView = {
   parameters: defaultParameters,
   logarithmic: false,
   dark: false,
-  showBoll: false,
+  mainIndicators: ["ma"],
   subchart: ["volume", "macd"],
   rps: { periods: [50, 120, 250], threshold: 90 },
   drawings: [],

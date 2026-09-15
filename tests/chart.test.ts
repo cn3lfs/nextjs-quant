@@ -252,6 +252,7 @@ describe("M2 chart event wiring", () => {
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);
+    expect(text(ui)).toContain("主图：均线");
     expect(text(ui)).toContain("副图：成交量 + MACD");
     for (const i of [0, 19, 89]) {
       h.charts.at(-1)!.crosshair!({ time: input[i]!.date });
@@ -306,6 +307,28 @@ describe("M2 chart event wiring", () => {
     expect(replacement.removed).toBe(true);
     expect(h.charts.at(-1)!.series[0]!.data).toHaveLength(180);
   });
+});
+
+it("only renders selected main and secondary indicators in the chart and legend", () => {
+  const input = bars(90),
+    view = {
+      ...structuredClone(defaultChartView),
+      mainIndicators: [],
+      subchart: [],
+    };
+  h.cursor = 0;
+  const ui = MarketChart({ bars: input, period: "day", view });
+  h.effects.splice(0).forEach((effect) => effect());
+  const chart = h.charts.at(-1)!;
+  const legend = text(
+    elements(ui).find((e) => e.props["data-testid"] === "chart-legend"),
+  );
+  expect(text(ui)).toContain("主图：无主图指标");
+  expect(text(ui)).toContain("副图：无副图");
+  expect(legend).not.toContain("量 ");
+  expect(legend).not.toContain("MA");
+  expect(legend).not.toContain("MACD");
+  expect(chart.series).toHaveLength(1);
 });
 
 it("Q1 actual chart options, cost line, parameter legend and keyboard handler are wired", () => {

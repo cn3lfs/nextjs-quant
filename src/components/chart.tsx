@@ -32,6 +32,7 @@ import {
   keyboardRange,
   periodLabels,
   normalizeSubcharts,
+  type MainIndicator,
   type Subchart,
   type ChartPeriod as Period,
   type ChartView,
@@ -190,6 +191,10 @@ const subchartLabels: Record<Subchart, string> = {
   kdj: "KDJ",
   rsi: "RSI",
   rps: "RPS（日线）",
+};
+const mainIndicatorLabels: Record<MainIndicator, string> = {
+  ma: "均线",
+  boll: "BOLL",
 };
 const formatValue = (value: number | null | undefined, precision = 2) =>
   value == null ? "—" : value.toFixed(precision);
@@ -498,12 +503,17 @@ export function MarketChart({
     asOf: number;
     range: LogicalRange | null;
   } | null>(null);
-  const [localBoll, setLocalBoll] = useState(false);
-  const showBoll = view?.showBoll ?? localBoll;
-  const setShowBoll = (value: boolean) =>
+  const [localMainIndicators, setLocalMainIndicators] = useState<
+    MainIndicator[]
+  >(defaultChartView.mainIndicators);
+  const selectedMainIndicators = useMemo(
+    () => view?.mainIndicators ?? localMainIndicators,
+    [view?.mainIndicators, localMainIndicators],
+  );
+  const setMainIndicators = (value: MainIndicator[]) =>
     onViewChange && view
-      ? onViewChange({ ...view, showBoll: value })
-      : setLocalBoll(value);
+      ? onViewChange({ ...view, mainIndicators: value })
+      : setLocalMainIndicators(value);
   const chartApi = useRef<ReturnType<typeof createChart> | null>(null);
   const [showCzsc, setShowCzsc] = useState(true);
   const [showBreakout, setShowBreakout] = useState(true);
@@ -543,8 +553,8 @@ export function MarketChart({
     [bars, period, parameters],
   );
   const names = useMemo(
-    () => enabledIndicators(showBoll, selectedSubcharts),
-    [showBoll, selectedSubcharts],
+    () => enabledIndicators(selectedMainIndicators, selectedSubcharts),
+    [selectedMainIndicators, selectedSubcharts],
   );
   const legend = chartLegend(
     bars,
@@ -552,6 +562,11 @@ export function MarketChart({
     hover?.bars === bars ? hover.index : bars.length - 1,
     names,
   );
+  const mainIndicatorSummary = selectedMainIndicators.length
+    ? selectedMainIndicators
+        .map((indicator) => mainIndicatorLabels[indicator])
+        .join(" + ")
+    : "无主图指标";
   const subchartSummary = selectedSubcharts.length
     ? selectedSubcharts.map((subchart) => subchartLabels[subchart]).join(" + ")
     : "无副图";
@@ -1065,20 +1080,38 @@ export function MarketChart({
         className="flex items-center gap-3 overflow-x-auto py-2 text-sm whitespace-nowrap"
         data-testid="chart-secondary-controls"
       >
-        <label>
-          <Checkbox
-            checked={showBreakout}
-            onCheckedChange={(checked) => setShowBreakout(checked === true)}
-          />{" "}
-          双突破
-        </label>
-        <label className="flex items-center gap-1">
-          <Checkbox
-            checked={showBoll}
-            onCheckedChange={(checked) => setShowBoll(checked === true)}
-          />
-          BOLL
-        </label>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="主图指标"
+            >
+              主图：{mainIndicatorSummary}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(
+              Object.entries(mainIndicatorLabels) as [MainIndicator, string][]
+            ).map(([value, label]) => (
+              <DropdownMenuCheckboxItem
+                key={value}
+                checked={selectedMainIndicators.includes(value)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={(checked) =>
+                  setMainIndicators(
+                    checked
+                      ? [...selectedMainIndicators, value]
+                      : selectedMainIndicators.filter((item) => item !== value),
+                  )
+                }
+              >
+                {label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -1119,6 +1152,13 @@ export function MarketChart({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        <label>
+          <Checkbox
+            checked={showBreakout}
+            onCheckedChange={(checked) => setShowBreakout(checked === true)}
+          />{" "}
+          双突破
+        </label>
         <label>
           <Checkbox
             checked={showCzsc}
@@ -1192,27 +1232,31 @@ export function MarketChart({
         )}
       </div>
       <div className="flex flex-wrap gap-3 text-sm">
-        <span data-testid="breakout-status">
-          {breakoutMessage ??
-            (breakout
-              ? (() => {
-                  const p = breakout.points.find(
-                    (p) => p.index === breakoutIndex,
-                  );
-                  return p
-                    ? `${p.date.slice(0, 16).replace("T", " ")} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
-                    : "无日线数据";
-                })()
-              : "")}
-        </span>
-        <span data-testid="czsc-status">
-          {czscMessage ??
-            (czsc?.status === "no-structure"
-              ? "无结构"
-              : czsc
-                ? `笔 ${Math.max(0, (czsc.families[0]?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families[1]?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
+        {(showBreakout || breakoutMessage?.startsWith("双突破计算失败")) && (
+          <span data-testid="breakout-status">
+            {breakoutMessage ??
+              (breakout
+                ? (() => {
+                    const p = breakout.points.find(
+                      (p) => p.index === breakoutIndex,
+                    );
+                    return p
+                      ? `${p.date.slice(0, 16).replace("T", " ")} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
+                      : "无日线数据";
+                  })()
                 : "")}
-        </span>
+          </span>
+        )}
+        {(showCzsc || czscMessage?.startsWith("缠论计算失败")) && (
+          <span data-testid="czsc-status">
+            {czscMessage ??
+              (czsc?.status === "no-structure"
+                ? "无结构"
+                : czsc
+                  ? `笔 ${Math.max(0, (czsc.families[0]?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families[1]?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
+                  : "")}
+          </span>
+        )}
         <span>
           {periodLabels[period]} · {chartAdjustmentLabels[adjustment]} ·{" "}
           {subchartSummary}
@@ -1234,9 +1278,11 @@ export function MarketChart({
             <span>高 {formatValue(legend.bar.high, pricePrecision)}</span>
             <span>低 {formatValue(legend.bar.low, pricePrecision)}</span>
             <span>收 {formatValue(legend.bar.close, pricePrecision)}</span>
-            <span>
-              量 {formatValue(legend.bar.volume)} {volumeUnit}
-            </span>
+            {selectedSubcharts.includes("volume") && (
+              <span>
+                量 {formatValue(legend.bar.volume)} {volumeUnit}
+              </span>
+            )}
             {legend.indicators.map(({ name, value }) => (
               <span key={name} style={{ color: colors[name] }}>
                 {indicatorLabel(name, parameters)} {formatValue(value)}

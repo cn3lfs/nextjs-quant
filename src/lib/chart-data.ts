@@ -1,6 +1,7 @@
 import {
   defaultParameters,
   isMinutePeriod,
+  type MainIndicator,
   type IndicatorParameters,
   type ChartPeriod as Period,
   type Subchart,
@@ -166,11 +167,12 @@ export function chartIndicators(
 export type ChartIndicators = ReturnType<typeof chartIndicators>;
 export type IndicatorName = keyof ChartIndicators;
 export function enabledIndicators(
-  showBoll: boolean,
+  mainIndicators: readonly MainIndicator[],
   subcharts: readonly Subchart[],
 ): IndicatorName[] {
-  const names: IndicatorName[] = ["MA5", "MA10", "MA20", "MA60"];
-  if (showBoll) names.push("BOLL中", "BOLL上", "BOLL下");
+  const names: IndicatorName[] = [];
+  if (mainIndicators.includes("ma")) names.push("MA5", "MA10", "MA20", "MA60");
+  if (mainIndicators.includes("boll")) names.push("BOLL中", "BOLL上", "BOLL下");
   if (subcharts.includes("macd")) names.push("DIF", "DEA", "MACD");
   if (subcharts.includes("kdj")) names.push("K", "D", "J");
   if (subcharts.includes("rsi")) names.push("RSI6", "RSI12", "RSI24");
