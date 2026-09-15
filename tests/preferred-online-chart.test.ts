@@ -43,32 +43,32 @@ beforeEach(() => {
     volumeUnit: "手",
   });
 });
-it("prefers the currently verified Eastmoney source without calling other providers", async () => {
-  const result = await preferredOnlineChart("sh600000", "day");
-  expect(result.source).toBe("eastmoney-online");
-  expect(result.requestedSource).toBe("auto");
-  expect(result.bars).toEqual([bar]);
-  expect(deps.page).not.toHaveBeenCalled();
-  expect(deps.tencent).not.toHaveBeenCalled();
-});
-it("falls back to pytdx after both HTTP providers fail and discloses failures", async () => {
-  deps.eastmoney.mockRejectedValue(new Error("offline"));
-  deps.tencent.mockRejectedValue(new Error("Tencent unavailable"));
+it("prefers tstdx without calling other providers", async () => {
   deps.page.mockResolvedValue([bar]);
   const result = await preferredOnlineChart("sh600000", "day");
   expect(result.source).toBe("tdx-7709");
-  expect(result.sourceNote).toContain("东方财富：offline");
+  expect(result.requestedSource).toBe("auto");
   expect(result.bars).toEqual([bar]);
-  expect(deps.tencent).toHaveBeenCalledTimes(1);
+  expect(deps.eastmoney).not.toHaveBeenCalled();
+  expect(deps.tencent).not.toHaveBeenCalled();
 });
-it("uses Tencent after Eastmoney fails without requesting pytdx", async () => {
+it("falls back to Eastmoney after tstdx fails and discloses the failure", async () => {
+  deps.page.mockRejectedValue(new Error("bad packet"));
+  const result = await preferredOnlineChart("sh600000", "day");
+  expect(result.source).toBe("eastmoney-online");
+  expect(result.sourceNote).toContain("bad packet");
+  expect(result.bars).toEqual([bar]);
+  expect(deps.tencent).not.toHaveBeenCalled();
+});
+it("uses Tencent after both tstdx and Eastmoney fail", async () => {
   deps.eastmoney.mockRejectedValue(new Error("offline"));
   deps.page.mockRejectedValue(new Error("bad packet"));
   deps.tencent.mockResolvedValue([{ ...bar, last: bar.close }]);
   const result = await preferredOnlineChart("sh600000", "day");
   expect(result.source).toBe("tencent/westock-data");
   expect(result.sourceNote).toContain("offline");
-  expect(deps.page).not.toHaveBeenCalled();
+  expect(deps.page).toHaveBeenCalledTimes(1);
+  expect(result.sourceNote).toContain("bad packet");
   expect(result.sourceNote).toContain("延迟");
   expect(result.bars).toEqual([bar]);
 });

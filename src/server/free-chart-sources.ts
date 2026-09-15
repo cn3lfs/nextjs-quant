@@ -48,7 +48,7 @@ export async function freeChartHistory(
   source: OnlineSource = "auto",
 ) {
   const order =
-    source === "auto" ? (["eastmoney", "tencent", "pytdx"] as const) : [source];
+    source === "auto" ? (["pytdx", "eastmoney", "tencent"] as const) : [source];
   const failures: string[] = [];
   for (const provider of order) {
     try {

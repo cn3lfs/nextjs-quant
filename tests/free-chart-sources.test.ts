@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   parseTencentChart,
+  freeChartHistory,
   pytdxChartHistory,
   tencentChartHistory,
 } from "../src/server/free-chart-sources";
@@ -8,6 +9,10 @@ const deps = vi.hoisted(() => ({
   page: vi.fn(),
   index: vi.fn(),
   query: vi.fn(),
+  http: vi.fn(),
+}));
+vi.mock("../src/server/chart-history", () => ({
+  onlinePeriodHistory: deps.http,
 }));
 vi.mock("../src/server/tdx-quotes", () => ({
   configuredHosts: () => ["127.0.0.1"],
@@ -36,6 +41,52 @@ const row = {
   amount: 1000,
 };
 beforeEach(() => vi.resetAllMocks());
+it("auto prefers tstdx and stops after the first valid source", async () => {
+  deps.page.mockResolvedValue([{ ...row, close: row.last }]);
+  expect((await freeChartHistory("sh600000", "day", 3)).source).toBe(
+    "tdx-7709",
+  );
+  expect(deps.http).not.toHaveBeenCalled();
+  expect(deps.query).not.toHaveBeenCalled();
+});
+it("auto falls back from tstdx to HTTP, then westock, retaining failures", async () => {
+  const calls: string[] = [];
+  deps.page.mockImplementation(async () => {
+    calls.push("tstdx");
+    throw Error("tdx down");
+  });
+  deps.http.mockImplementation(async () => {
+    calls.push("http");
+    return { bars: [{ ...row, close: row.last }], source: "eastmoney-online" };
+  });
+  expect((await freeChartHistory("sh600000", "day", 3)).source).toBe(
+    "eastmoney-online",
+  );
+  expect(calls).toEqual(["tstdx", "http"]);
+  expect(deps.query).not.toHaveBeenCalled();
+  calls.length = 0;
+  deps.http.mockImplementation(async () => {
+    calls.push("http");
+    throw Error("http down");
+  });
+  deps.query.mockImplementation(async () => {
+    calls.push("westock");
+    return [row];
+  });
+  const result = await freeChartHistory("sh600000", "day", 3);
+  expect(calls).toEqual(["tstdx", "http", "westock"]);
+  expect(result.source).toBe("tencent/westock-data");
+  expect(result.sourceNote).toContain("tdx down");
+  expect(result.sourceNote).toContain("http down");
+});
+it("manual tstdx failure never falls back", async () => {
+  deps.page.mockRejectedValue(Error("tdx down"));
+  await expect(freeChartHistory("sh600000", "day", 3, "pytdx")).rejects.toThrow(
+    "tdx down",
+  );
+  expect(deps.http).not.toHaveBeenCalled();
+  expect(deps.query).not.toHaveBeenCalled();
+});
 it("validates Tencent OHLC, dates, identity, empty output and structured errors", () => {
   expect(parseTencentChart([row], "sh600000", "day")[0]?.close).toBe(11);
   for (const raw of [

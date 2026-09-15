@@ -224,7 +224,8 @@ export function MarketView({
         </section>
       </div>
       <p className="text-sm text-muted-foreground">
-        自动模式按本地、东方财富、腾讯、tstdx顺序补齐；手动选择不跨源回退。RPS与历史研究仍使用本地数据。
+        自动模式按本地、tstdx、东方财富
+        HTTP、westock-data顺序补齐；手动选择不跨源回退。RPS与历史研究仍使用本地数据。
       </p>
       <MarketPoolBrowser
         symbol={symbol}

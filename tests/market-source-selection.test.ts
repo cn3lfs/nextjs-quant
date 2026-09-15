@@ -77,8 +77,8 @@ it("persists all four sources and rejects the suspended provider in new configur
     "auto",
     "local",
     "pytdx",
-    "tencent",
     "eastmoney",
+    "tencent",
   ]);
   expect(
     settingsSchema.parse({ marketDataSource: "tencent" }).marketDataSource,
