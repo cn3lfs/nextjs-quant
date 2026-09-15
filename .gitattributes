@@ -1,0 +1,20 @@
+# 仓库统一以 LF 存储并以 LF 检出。
+#
+# 历史上全局 core.autocrlf=true 让 git 在检出时把 LF 转成 CRLF，但本项目的
+# 工具链（node、prettier、vitest 以及各类代码生成）写出的一律是 LF，于是被
+# 工具重写过的文件在工作区是 LF、git 却认为应当是 CRLF，每次触碰都报
+# "LF will be replaced by CRLF"。索引中 1000+ 个文本文件本来就全是 LF，
+# 这里显式声明，使规则不再依赖各人的本地配置。
+#
+# PowerShell 5.1 解析 LF 行尾脚本没有问题；仓库内也没有 .bat/.cmd
+# （只有它们才真正依赖 CRLF）。
+* text=auto eol=lf
+
+# 二进制：不做行尾或文本处理，避免被误判后损坏内容。
+*.png binary
+*.zip binary
+*.bin binary
+*.tdx binary
+*.ico binary
+*.woff binary
+*.woff2 binary
