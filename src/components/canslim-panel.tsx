@@ -16,13 +16,17 @@ const labels = {
 export function CanslimPanel({
   snapshot,
   archive = false,
+  initialReportId = "",
 }: {
   snapshot?: Snapshot;
   archive?: boolean;
+  initialReportId?: string;
 }) {
   const [jobId, setJob] = useState("");
-  const [reportId, setReport] = useState("");
-  const history = api.canslimHistory.useQuery(undefined, { enabled: archive });
+  const [reportId, setReport] = useState(initialReportId);
+  const history = api.canslimHistory.useQuery(undefined, {
+    enabled: archive && !initialReportId,
+  });
   const directory = api.securityNames.useQuery(undefined, { staleTime: 60000 });
   const names = directory.data ?? {};
   const create = api.canslimAnalyze.useMutation({
@@ -107,7 +111,7 @@ export function CanslimPanel({
           {create.error?.message ?? job.data?.error ?? report.error?.message}
         </p>
       )}
-      {archive && (
+      {archive && !initialReportId && (
         <label className="field">
           <span>CANSLIM 研究档案</span>
           <select value={reportId} onChange={(e) => setReport(e.target.value)}>
@@ -121,8 +125,10 @@ export function CanslimPanel({
           </select>
         </label>
       )}
-      {archive && history.isLoading && <p role="status">正在读取研究档案…</p>}
-      {archive && history.error && (
+      {archive && !initialReportId && history.isLoading && (
+        <p role="status">正在读取研究档案…</p>
+      )}
+      {archive && !initialReportId && history.error && (
         <p role="alert">
           研究档案读取失败：{history.error.message}
           <Button
@@ -133,10 +139,16 @@ export function CanslimPanel({
           </Button>
         </p>
       )}
-      {archive && history.isSuccess && !history.data.length && (
-        <p>暂无 CANSLIM 报告，请在日线行情页面生成研究报告。</p>
-      )}
+      {archive &&
+        !initialReportId &&
+        history.isSuccess &&
+        !history.data.length && (
+          <p>暂无 CANSLIM 报告，请在日线行情页面生成研究报告。</p>
+        )}
       {!!reportId && report.isLoading && <p role="status">正在读取报告…</p>}
+      {!!reportId && report.isSuccess && !data && (
+        <p role="alert">CANSLIM 报告不存在。</p>
+      )}
       {!!reportId && report.error && (
         <Button
           onClick={() => void report.refetch()}

@@ -37,77 +37,15 @@ function loadFunction(
 }
 
 it("T3 labels local calendar days explicitly without treating yesterday as today", () => {
-  const age = loadFunction(
-    "src/components/workbench/task-center.tsx",
-    "taskAge",
-  );
+  const age = loadFunction("src/lib/task-history.ts", "taskAge");
   const now = new Date(2026, 8, 10, 0, 1).getTime();
   expect(age(now, now)).toBe("今天");
   expect(age(new Date(2026, 8, 9, 23, 59).getTime(), now)).toBe("昨天");
   expect(age(new Date(2026, 8, 8).getTime(), now)).toBe("2 天前");
   expect(age(new Date(2026, 8, 11).getTime(), now)).toBe("未来日期");
-  const source = readFileSync(
-    "src/components/workbench/task-center.tsx",
-    "utf8",
-  );
-  expect(source).toContain("{taskAge(j.createdAt)} · {stamp(j.createdAt)}");
-  expect(source).toContain('<small style={{ display: "block" }}>');
-  expect(source).toContain("<TaskErrorDetails id={j.id} summary={j.error} />");
-  expect(source).toContain("cancel.mutate(j.id)");
-});
-
-it("T3 discloses the full server error on demand, with loading, missing and retry states", () => {
-  let open = false;
-  const refetch = vi.fn();
-  let response: Record<string, unknown> = { isPending: true };
-  const query = vi.fn(() => ({ ...response, refetch }));
-  const Component = loadFunction(
-    "src/components/task-history.tsx",
-    "TaskErrorDetails",
-    {
-      React: { createElement },
-      Button: "button",
-      useState: () => [
-        open,
-        (value: boolean) => {
-          open = value;
-        },
-      ],
-      api: { taskState: { useQuery: query } },
-    },
-  );
-  const props = { id: "failed-job", summary: "模型连续两次返…" };
-  const closed = Component(props);
-  expect(renderToStaticMarkup(closed)).toContain("展开完整错误");
-  expect(query).toHaveBeenLastCalledWith(
-    { id: props.id },
-    { enabled: false, retry: false },
-  );
-  closed.props.onToggle({ currentTarget: { open: true } });
-  expect(renderToStaticMarkup(Component(props))).toContain("正在读取完整错误");
-  expect(query).toHaveBeenLastCalledWith(
-    { id: props.id },
-    { enabled: true, retry: false },
-  );
-  const full = "模型连续两次返回无效结果\n原因：证据 ID 不存在。";
-  response = { data: { error: full } };
-  const html = renderToStaticMarkup(Component(props));
-  expect(html).toContain(full);
-  expect(html).toContain("white-space:pre-wrap;overflow-wrap:anywhere");
-  expect(html).toContain("收起错误");
-  response = { data: null };
-  expect(renderToStaticMarkup(Component(props))).toContain("任务不存在");
-  response = { error: { message: "离线" } };
-  const failed = Component(props);
-  expect(renderToStaticMarkup(failed)).toContain("重试读取完整错误");
-  // Reach the actual retry button and execute its callback.
-  const visit = (element: any) => {
-    if (!element?.props) return;
-    if (element.type === "button") element.props.onClick();
-    for (const child of [element.props.children].flat()) visit(child);
-  };
-  visit(failed);
-  expect(refetch).toHaveBeenCalledOnce();
+  const source = readFileSync("src/components/task-history.tsx", "utf8");
+  expect(source).toContain("taskAge(job.createdAt)");
+  expect(source).toContain("stamp(job.createdAt)");
 });
 
 it("T3 mounts the same usable chart before annotation requests and fills results after paint", () => {

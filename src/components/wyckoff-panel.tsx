@@ -27,17 +27,21 @@ const frameLabels = { daily: "日线", weekly: "周线", hourly: "小时线" };
 export function WyckoffPanel({
   snapshot,
   archive = false,
+  initialReportId = "",
 }: {
   snapshot?: Snapshot;
   archive?: boolean;
+  initialReportId?: string;
 }) {
   const utils = api.useUtils();
   const [question, setQuestion] = useState(
     "分析多周期结构、量价假设及反向证据，列出尚缺的核验条件。",
   );
   const [jobId, setJobId] = useState("");
-  const [reportId, setReportId] = useState("");
-  const history = api.wyckoffHistory.useQuery(undefined, { enabled: archive });
+  const [reportId, setReportId] = useState(initialReportId);
+  const history = api.wyckoffHistory.useQuery(undefined, {
+    enabled: archive && !initialReportId,
+  });
   const directory = api.securityNames.useQuery(undefined, { staleTime: 60000 });
   const names = directory.data ?? {};
   const job = api.job.useQuery(
@@ -137,7 +141,7 @@ export function WyckoffPanel({
           <Button onClick={() => void job.refetch()}>重试威科夫任务状态</Button>
         </p>
       )}
-      {archive && (
+      {archive && !initialReportId && (
         <label className="field">
           <span>威科夫研究档案</span>
           <select
@@ -156,16 +160,19 @@ export function WyckoffPanel({
           </select>
         </label>
       )}
-      {archive && history.isLoading && <p role="status">正在读取威科夫档案…</p>}
-      {archive && history.error && (
+      {archive && !initialReportId && history.isLoading && (
+        <p role="status">正在读取威科夫档案…</p>
+      )}
+      {archive && !initialReportId && history.error && (
         <p role="alert">
           档案读取失败。
           <Button onClick={() => void history.refetch()}>重试威科夫档案</Button>
         </p>
       )}
-      {archive && history.isSuccess && !history.data.length && (
-        <p>暂无威科夫报告。</p>
-      )}
+      {archive &&
+        !initialReportId &&
+        history.isSuccess &&
+        !history.data.length && <p>暂无威科夫报告。</p>}
       {reportId && report.isLoading && <p role="status">正在读取威科夫报告…</p>}
       {reportId && report.error && (
         <p role="alert">

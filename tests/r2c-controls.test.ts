@@ -51,32 +51,27 @@ it("R2c precisely connects controlled values and keeps server cursor pagination"
   );
   const history = readFileSync("src/components/task-history.tsx", "utf8");
   for (const prop of [
-    "data={history.data.items}",
-    "rowCount={history.data.total}",
-    "pagination={{ pageIndex: cursors.length - 1, pageSize: 20 }}",
-    "sorting={[]}",
-    "showPagination={false}",
-    "emptyMessage={null}",
-    '<SelectValue placeholder="全部" />',
+    "history.data.items.map((summary)",
+    "history.data.total",
+    'aria-label="任务分页"',
     "value={status}",
-    '<SelectItem value="">全部</SelectItem>',
+    '<SelectItem value="all">全部</SelectItem>',
+    "aria-expanded={expanded}",
+    "aria-controls={panelId}",
+    "hidden={!expanded}",
+    'setSelected(expanded ? "" : job.id)',
+    "setCursors([undefined])",
+    "setCursors((p) => p.slice(0, -1))",
+    "history.data!.nextCursor!",
+    "taskTypeLabels[job.type]",
+    "taskStatusLabels[job.status]",
+    "stamp(job.createdAt)",
+    "job.error || job.phase",
   ])
     expect(history).toContain(prop);
-  expect(history.match(/enableSorting: false/g)).toHaveLength(5);
   expect(history).not.toMatch(
     /\.sort\(|getSortedRowModel|getPaginationRowModel/,
   );
-  for (const text of [
-    'header: "任务"',
-    'header: "状态"',
-    'header: "进度 / 阶段"',
-    'header: "创建时间"',
-    'header: "详情"',
-    'job.error || job.phase || "—"',
-    "job.phaseTruncated || job.errorTruncated",
-    'new Date(row.original.createdAt).toLocaleString("zh-CN")',
-  ])
-    expect(history).toContain(text);
 });
 
 it("R2c evidence rejects changed strategy conversion and task page reset", () => {
@@ -86,7 +81,11 @@ it("R2c evidence rejects changed strategy conversion and task page reset", () =>
       "fast: Number(e.target.value)",
       "fast: 0",
     ],
-    ["src/components/task-history.tsx", "reset();", "setSelected('');"],
+    [
+      "src/components/task-history.tsx",
+      "setCursors((p) => p.slice(0, -1));",
+      "setSelected('');",
+    ],
   ]) {
     const source = readFileSync(file!, "utf8");
     expect(renderHandlers(source.replace(from!, to!))).not.toEqual(

@@ -129,41 +129,30 @@ try {
   result.interactions.push(
     "evidence multiline input and method selection; missing snapshot still disables submit",
   );
-  await page.getByText("全部任务与失败详情", { exact: true }).click();
-  const table = page.getByRole("table", { name: "任务历史", exact: true });
-  await table
-    .getByRole("button", { name: "查看任务 task-021", exact: true })
-    .waitFor();
-  assert.equal(await table.locator("tbody tr").count(), 20);
+  const table = page.locator('[aria-label="任务列表"]');
+  await table.locator('[id="task-trigger-task-021"]').waitFor();
+  assert.equal(await table.locator("article").count(), 20);
   assert.ok(
-    (await table.locator("tbody tr").first().textContent()).includes(
-      "task-021",
-    ),
+    (await table.locator("article").first().textContent()).includes("task-021"),
   );
   assert.equal(await table.locator('[data-slot="data-table-sort"]').count(), 0);
   await page.getByRole("button", { name: "下一页任务", exact: true }).click();
-  await table
-    .getByRole("button", { name: "查看任务 task-001", exact: true })
-    .waitFor();
-  assert.equal(await table.locator("tbody tr").count(), 2);
+  await table.locator('[id="task-trigger-task-001"]').waitFor();
+  assert.equal(await table.locator("article").count(), 2);
   assert.ok(
     await page
       .getByRole("button", { name: "下一页任务", exact: true })
       .isDisabled(),
   );
   await page.getByRole("button", { name: "上一页任务", exact: true }).click();
-  await table
-    .getByRole("button", { name: "查看任务 task-021", exact: true })
-    .waitFor();
+  await table.locator('[id="task-trigger-task-021"]').waitFor();
   await page.getByLabel("历史任务状态", { exact: true }).click();
   await page.getByRole("option", { name: "失败", exact: true }).click();
   await page.getByText("共 11 条 · 第 1 页", { exact: true }).waitFor();
-  assert.equal(await table.locator("tbody tr").count(), 11);
-  await table
-    .getByRole("button", { name: "查看任务 task-021", exact: true })
-    .click();
+  assert.equal(await table.locator("article").count(), 11);
+  await table.locator('[id="task-trigger-task-021"]').click();
   await page
-    .getByRole("region", { name: "任务状态详情" })
+    .locator('[id="task-detail-task-021"]')
     .getByText("合成失败详情", { exact: true })
     .waitFor();
   await page.getByLabel("历史任务状态", { exact: true }).click();

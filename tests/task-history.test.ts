@@ -1,12 +1,8 @@
 import { expect, it } from "vitest";
-import { mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import superjson from "superjson";
 import { put, get, sqlite } from "../src/server/db";
 import { taskHistory, taskState } from "../src/server/task-history";
 import type { Job } from "../src/lib/domain";
-process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-task-history-"));
 const error = "失败🔬\u0001\n".repeat(1000);
 it("pages every task with bounded previews while preserving complete status and original results", () => {
   for (let i = 0; i < 85; i++) {
@@ -88,4 +84,92 @@ it("keeps continuation stable when task progress changes or a newer task is inse
     ).n,
   );
   expect(() => taskHistory({ status: "bad" } as never)).toThrow();
+});
+
+it("links only completed research to the exact persisted report, with no result payload disclosure", () => {
+  const base: Job = {
+    id: "linked-job",
+    type: "research",
+    status: "completed",
+    progress: 100,
+    createdAt: 1,
+    updatedAt: 2,
+    input: {},
+  };
+  for (const kind of [
+    "report",
+    "chan-report",
+    "canslim-report",
+    "wyckoff-report",
+  ]) {
+    const id = kind === "report" ? "report /?#" : `${kind}-${"a".repeat(64)}`;
+    put(kind, id, { id, title: "exact report" });
+    put("job", base.id, {
+      ...base,
+      result: kind === "report" ? { id } : { reportId: id },
+    });
+    expect(taskState(base.id)?.resultLink).toEqual({
+      href: `/reports/${kind}/${encodeURIComponent(id)}`,
+      label: "查看研究报告",
+    });
+    expect(taskState(base.id)).not.toHaveProperty("result");
+    for (const status of [
+      "running",
+      "queued",
+      "failed",
+      "cancelled",
+    ] as const) {
+      put("job", base.id, { ...base, status, result: { reportId: id } });
+      expect(taskState(base.id)?.resultLink).toBeUndefined();
+    }
+  }
+  put("job", base.id, { ...base, result: { reportId: "deleted-report" } });
+  expect(taskState(base.id)?.resultLink).toBeUndefined();
+  put("final-validation", "sealed", { id: "sealed", result: { secret: true } });
+  put("job", base.id, { ...base, result: { id: "sealed" } });
+  expect(taskState(base.id)?.resultLink).toBeUndefined();
+  put("job", base.id, { ...base, result: { strategy: {} } });
+  expect(taskState(base.id)?.resultLink).toBeUndefined();
+});
+
+it("opens persisted screening results only after completion", () => {
+  const job: Job = {
+    id: "screen-with-result",
+    type: "screen",
+    status: "completed",
+    progress: 100,
+    createdAt: 1,
+    updatedAt: 2,
+    input: {},
+    result: { selected: [] },
+  };
+  put("job", job.id, job);
+  expect(taskState(job.id)?.screenResultId).toBe(job.id);
+  put("job", job.id, { ...job, status: "failed" });
+  expect(taskState(job.id)?.screenResultId).toBeUndefined();
+  put("job", job.id, { ...job, result: null });
+  expect(taskState(job.id)?.screenResultId).toBeUndefined();
+});
+
+it("routes batch quick reviews to their exact existing screening result", () => {
+  put("job", "batch-screen", {
+    id: "batch-screen",
+    type: "screen",
+    status: "completed",
+    result: { selected: [] },
+  });
+  put("job", "batch-review", {
+    id: "batch-review",
+    type: "research",
+    status: "completed",
+    input: { mode: "quick-review", contextId: "batch-screen" },
+    result: { reportIds: ["report-a"] },
+  });
+  expect(taskState("batch-review")?.screenResultId).toBe("batch-screen");
+  put("job", "batch-screen", {
+    id: "batch-screen",
+    type: "screen",
+    status: "failed",
+  });
+  expect(taskState("batch-review")?.screenResultId).toBeUndefined();
 });

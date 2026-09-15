@@ -26,7 +26,7 @@ export type TaskState = Pick<
   | "workProgress"
   | "attemptId"
   | "auditIncomplete"
->;
+> & { resultLink?: { href: string; label: string }; screenResultId?: string };
 export const taskTypeLabels: Record<Job["type"], string> = {
   scan: "数据扫描",
   screen: "条件选股",
@@ -43,3 +43,19 @@ export const taskStatusLabels: Record<Job["status"], string> = {
   failed: "失败",
   cancelled: "已取消",
 };
+
+export function taskAge(createdAt: number, now = Date.now()) {
+  // Compare local calendar days, including across DST and midnight.
+  const day = (value: number) => {
+    const date = new Date(value);
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+  const days = Math.round((day(now) - day(createdAt)) / 86_400_000);
+  return days < 0
+    ? "未来日期"
+    : days === 0
+      ? "今天"
+      : days === 1
+        ? "昨天"
+        : `${days} 天前`;
+}

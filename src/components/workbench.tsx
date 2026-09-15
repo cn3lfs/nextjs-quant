@@ -43,7 +43,9 @@ export function Workbench({ children }: { children?: ReactNode }) {
     state.setTab(next);
     if (!home) router.push("/", { scroll: false });
   };
-  const label = route?.label ?? tabs.find((item) => item.id === tab)?.label;
+  const label = pathname.startsWith("/reports/")
+    ? "研究报告详情"
+    : (route?.label ?? tabs.find((item) => item.id === tab)?.label);
   return (
     <div className="app-shell">
       <aside className="sidebar">

@@ -15,17 +15,21 @@ const labels = {
 export function ChanPanel({
   snapshot,
   archive = false,
+  initialReportId = "",
 }: {
   snapshot?: Snapshot;
   archive?: boolean;
+  initialReportId?: string;
 }) {
   const utils = api.useUtils();
   const [question, setQuestion] = useState(
     "核对当前窗口的结构假设、级别前提和反证条件。",
   );
   const [jobId, setJobId] = useState("");
-  const [reportId, setReportId] = useState("");
-  const history = api.chanHistory.useQuery(undefined, { enabled: archive });
+  const [reportId, setReportId] = useState(initialReportId);
+  const history = api.chanHistory.useQuery(undefined, {
+    enabled: archive && !initialReportId,
+  });
   const directory = api.securityNames.useQuery(undefined, { staleTime: 60000 });
   const names = directory.data ?? {};
   const job = api.job.useQuery(
@@ -122,7 +126,7 @@ export function ChanPanel({
           <Button onClick={() => void job.refetch()}>重试缠论状态</Button>
         </p>
       )}
-      {archive && (
+      {archive && !initialReportId && (
         <label className="field">
           <span>缠论研究档案</span>
           <select
@@ -141,16 +145,19 @@ export function ChanPanel({
           </select>
         </label>
       )}
-      {archive && history.isLoading && <p role="status">正在读取缠论档案…</p>}
-      {archive && history.error && (
+      {archive && !initialReportId && history.isLoading && (
+        <p role="status">正在读取缠论档案…</p>
+      )}
+      {archive && !initialReportId && history.error && (
         <p role="alert">
           档案读取失败。
           <Button onClick={() => void history.refetch()}>重试缠论档案</Button>
         </p>
       )}
-      {archive && history.isSuccess && !history.data.length && (
-        <p>暂无缠论标注报告。</p>
-      )}
+      {archive &&
+        !initialReportId &&
+        history.isSuccess &&
+        !history.data.length && <p>暂无缠论标注报告。</p>}
       {reportId && report.isLoading && <p role="status">正在读取缠论报告…</p>}
       {reportId && report.error && (
         <p role="alert">
