@@ -512,11 +512,16 @@ export function MarketChart({
   const [localSubcharts, setLocalSubcharts] = useState<Subchart[]>(
     defaultChartView.subchart,
   );
-  const selectedSubcharts = normalizeSubcharts(
-    view?.subchart ?? localSubcharts,
+  const selectedSubcharts = useMemo(
+    () => normalizeSubcharts(view?.subchart ?? localSubcharts),
+    [view?.subchart, localSubcharts],
   );
-  const visibleSubcharts = selectedSubcharts.filter(
-    (subchart) => subchart !== "rps" || period === "day",
+  const visibleSubcharts = useMemo(
+    () =>
+      selectedSubcharts.filter(
+        (subchart) => subchart !== "rps" || period === "day",
+      ),
+    [selectedSubcharts, period],
   );
   const setSubcharts = (value: Subchart[]) =>
     onViewChange && view
@@ -1266,6 +1271,7 @@ export function MarketChart({
         tabIndex={0}
         role="application"
         aria-label="行情图：按住鼠标左键拖动，左右键平移，上下键缩放"
+        onPointerDown={(event) => event.currentTarget.focus()}
         onKeyDown={(event) => {
           const range = chartApi.current?.timeScale().getVisibleLogicalRange();
           if (!range) return;

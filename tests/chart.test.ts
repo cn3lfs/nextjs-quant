@@ -241,6 +241,14 @@ describe("M2 chart event wiring", () => {
     expect(chart.series[0]!.data).toHaveLength(360);
     expect(chart.range).toEqual({ from: 170, to: 260 });
   });
+  it("keeps the native chart instance across parent rerenders", () => {
+    const input = bars(90);
+    render(input);
+    const chart = h.charts.at(-1)!;
+    render(input);
+    expect(h.charts).toHaveLength(1);
+    expect(h.charts.at(-1)).toBe(chart);
+  });
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);
@@ -337,6 +345,11 @@ it("Q1 actual chart options, cost line, parameter legend and keyboard handler ar
   const area = elements(ui).find((e) => e.props.role === "application")!;
   chart.range = { from: 0, to: 100 };
   const preventDefault = vi.fn();
+  const focus = vi.fn();
+  (area.props.onPointerDown as (e: unknown) => void)({
+    currentTarget: { focus },
+  });
+  expect(focus).toHaveBeenCalledOnce();
   (area.props.onKeyDown as (e: unknown) => void)({
     key: "ArrowUp",
     preventDefault,
