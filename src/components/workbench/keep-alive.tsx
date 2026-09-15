@@ -13,6 +13,25 @@ export function usePanelVisible() {
   return useContext(PanelVisible);
 }
 
+/**
+ * Nested visibility, for tabs inside a panel: hidden tab content stays mounted
+ * (state survives) while its queries pause, the same contract panels already use.
+ */
+export function PanelVisibility({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const parent = usePanelVisible();
+  return (
+    <PanelVisible.Provider value={parent && visible}>
+      {children}
+    </PanelVisible.Provider>
+  );
+}
+
 function slot(key: string, active: string, node: ReactNode) {
   return (
     <PanelVisible.Provider key={key} value={key === active}>

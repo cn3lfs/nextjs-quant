@@ -110,6 +110,7 @@ import { universeAuditPage } from "../universe-audit";
 import { RpsStore } from "../rps-store";
 import { rpsClient } from "../rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
+import { rpsLogIdPrefix, toRpsLogEntry } from "~/lib/rps-log";
 import { industryPageSchema } from "~/lib/industry-rps";
 import { industryRpsPage } from "../industry-rps-query";
 import { readRpsBlockSource } from "../rps-block-source";
@@ -1150,21 +1151,26 @@ export const appRouter = createTRPCRouter({
         latestRpsObservation(settings().tdxRoot),
       ),
     ),
-  workflowStatus: p.query(() => {
+  /* RPS 批次历史。只取RPS观测工作流写入的检查记录，不混入财联社分析批次。 */
+  rpsWorkflowLog: p.query(() => {
     const rows = chartSqlite()
       .prepare(
-        "SELECT payload FROM records WHERE kind IN ('workflow-check','cls-analysis-batch') ORDER BY updated_at DESC LIMIT 6",
+        "SELECT id, payload, updated_at AS updatedAt FROM records WHERE kind='workflow-check' AND id LIKE ? ORDER BY updated_at DESC LIMIT 50",
       )
-      .all() as { payload: string }[];
-    return rows.map(
-      (row) =>
-        JSON.parse(row.payload) as {
-          phase: string;
-          date: string;
-          status: string;
-          error?: string;
-        },
-    );
+      .all(`${rpsLogIdPrefix}%`) as {
+      id: string;
+      payload: string;
+      updatedAt: number;
+    }[];
+    return rows
+      .map((row) =>
+        toRpsLogEntry({
+          id: row.id,
+          payload: JSON.parse(row.payload),
+          updatedAt: row.updatedAt,
+        }),
+      )
+      .filter((entry) => entry !== null);
   }),
   rpsStatus: p.query(() => {
     const store = new RpsStore(chartSqlite());

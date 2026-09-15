@@ -150,10 +150,7 @@ it("completed forward day is explicitly tagged forward", async () => {
 it("data management visibly discloses thresholds, all six denominators, bias, retention and errors", () => {
   const { day } = rpsDay();
   const markup = renderToStaticMarkup(
-    createElement(RpsStatus, {
-      latest: day,
-      progress: { ...rpsProgress(), status: "failed", error: "GBBQ覆盖不足" },
-    }),
+    createElement(RpsStatus, { latest: day }),
   );
   for (const text of [
     "后复权",
@@ -163,7 +160,6 @@ it("data management visibly discloses thresholds, all six denominators, bias, re
     "750",
     "生存者偏差",
     "回填",
-    "GBBQ覆盖不足",
     "RPS5",
     "RPS10",
     "RPS20",
@@ -173,8 +169,6 @@ it("data management visibly discloses thresholds, all six denominators, bias, re
   ])
     expect(markup).toContain(text);
   expect(
-    renderToStaticMarkup(
-      createElement(RpsStatus, { latest: null, progress: null }),
-    ),
+    renderToStaticMarkup(createElement(RpsStatus, { latest: null })),
   ).toContain("尚无已完成的排名");
 });

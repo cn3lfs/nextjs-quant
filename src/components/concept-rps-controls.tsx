@@ -9,6 +9,7 @@ import { industryExclusionLabels } from "./industry-rps-status";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
+import { PoolMembersLink } from "./pool-members-link";
 import {
   Select,
   SelectContent,
@@ -24,12 +25,7 @@ const columns: DataTableColumn<Row>[] = [
     header: "概念",
     enableSorting: false,
     cell: ({ row }) => (
-      <a
-        className="text-primary underline"
-        href={`/?poolCategory=concept&poolName=${encodeURIComponent(row.original.name)}`}
-      >
-        {row.original.name} · 查看成分
-      </a>
+      <PoolMembersLink category="concept" name={row.original.name} />
     ),
   },
   {
@@ -94,7 +90,6 @@ export function ConceptRpsControls() {
     !status.data?.ready;
   return (
     <section className="space-y-4" aria-label="概念RPS数据管理">
-      <h2 className="text-xl font-semibold">概念RPS排名</h2>
       {page.data?.day && (
         <UniverseAuditContainer
           key={`${page.data.day.date}:${page.data.day.hash}`}
@@ -147,23 +142,10 @@ export function ConceptRpsControls() {
           <Button onClick={() => void status.refetch()}>重试</Button>
         </p>
       )}
-      {status.data?.progress && (
-        <p role="status">
-          {
-            { stock: "个股", industry: "行业", concept: "概念" }[
-              status.data.progress.target ?? "stock"
-            ]
-          }
-          任务：
-          {status.data.progress.status} · {status.data.progress.phase} · 完成
-          {status.data.progress.completedDays}/{status.data.progress.totalDays}
-          日 {status.data.progress.error}
-        </p>
-      )}
       {message && <p role="status">{message}</p>}
-      <div className="flex flex-wrap gap-3">
-        <label>
-          结果日期（留空为最近）
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+        <label className="space-y-1 text-sm">
+          <span className="block">结果日期（留空为最近）</span>
           <Input
             type="date"
             value={date}

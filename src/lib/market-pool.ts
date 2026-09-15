@@ -15,6 +15,16 @@ export const poolSelectionSchema = z.object({
     .max(128)
     .refine((s) => !/[\\/\x00-\x1f]/.test(s), "名单名称非法"),
 });
+/**
+ * Deep link into the stock pool browser, which reads these parameters on mount.
+ * Used by the板块 RPS tables so a ranked name opens its成分股.
+ */
+export function poolMembersHref(
+  category: z.infer<typeof poolCategorySchema>,
+  name: string,
+) {
+  return `/?poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
+}
 export const marketPoolQuerySchema = z.object({
   pool: poolSelectionSchema.nullable().default(null),
   search: z.string().trim().max(80).default(""),

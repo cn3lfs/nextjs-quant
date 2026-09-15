@@ -10,6 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
+import { PoolMembersLink } from "./pool-members-link";
 import { usePanelVisible } from "./workbench/keep-alive";
 import {
   Select,
@@ -22,7 +23,14 @@ import type { RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["industryRpsPage"]["rows"][number];
 const columns: DataTableColumn<Row>[] = [
-  { id: "name", header: "行业", accessorKey: "name", enableSorting: false },
+  {
+    id: "name",
+    header: "行业",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <PoolMembersLink category="industry" name={row.original.name} />
+    ),
+  },
   {
     id: "rank",
     header: "排名 / RPS / 等权涨幅",
@@ -109,31 +117,42 @@ export function IndustryRpsControls() {
     sourceConfigure.isPending;
   return (
     <section className="space-y-4" aria-label="行业RPS数据管理">
-      <h2 className="text-xl font-semibold">行业RPS数据管理</h2>
-      <Select
-        value={status.data?.membershipSource ?? "blocks"}
-        disabled={busy}
-        onValueChange={(value) =>
-          sourceConfigure.mutate(value as "blocks" | "tdx")
-        }
-      >
-        <SelectTrigger aria-label="板块RPS成分来源">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="blocks">外部 Blocks：申万行业 / 概念</SelectItem>
-          <SelectItem value="tdx">通达信：研究一级行业 / 概念</SelectItem>
-        </SelectContent>
-      </Select>
-      <p>来源同时用于行业和概念的新批次，已完成的快照保持原来源。</p>
-      <label className="block space-y-2">
-        外部 Blocks 根目录（选择外部来源时使用）
-        <Input
-          value={root ?? status.data?.root ?? ""}
-          placeholder="D:\wsWDZ\Blocks"
-          onChange={(e) => setRoot(e.target.value)}
-        />
-      </label>
+      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
+        <label className="space-y-2 text-sm">
+          <span className="font-medium">板块成分来源</span>
+          <Select
+            value={status.data?.membershipSource ?? "blocks"}
+            disabled={busy}
+            onValueChange={(value) =>
+              sourceConfigure.mutate(value as "blocks" | "tdx")
+            }
+          >
+            <SelectTrigger aria-label="板块RPS成分来源">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="blocks">
+                外部 Blocks：申万行业 / 概念
+              </SelectItem>
+              <SelectItem value="tdx">通达信：研究一级行业 / 概念</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="block text-xs text-muted-foreground">
+            来源同时用于行业和概念的新批次，已完成的快照保持原来源。
+          </span>
+        </label>
+        <label className="space-y-2 text-sm">
+          <span className="font-medium">外部 Blocks 根目录</span>
+          <Input
+            value={root ?? status.data?.root ?? ""}
+            placeholder="D:\wsWDZ\Blocks"
+            onChange={(e) => setRoot(e.target.value)}
+          />
+          <span className="block text-xs text-muted-foreground">
+            选择外部来源时使用；目录只读。
+          </span>
+        </label>
+      </div>
       <div className="flex flex-wrap gap-3">
         <Button
           disabled={busy}
@@ -197,13 +216,10 @@ export function IndustryRpsControls() {
           {inspect.data.hash}
         </p>
       )}
-      <IndustryRpsStatus
-        latest={status.data?.latest ?? null}
-        progress={status.data?.progress ?? null}
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <label>
-          结果日期（留空为最近）
+      <IndustryRpsStatus latest={status.data?.latest ?? null} />
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+        <label className="space-y-1 text-sm">
+          <span className="block">结果日期（留空为最近）</span>
           <Input
             type="date"
             value={date}

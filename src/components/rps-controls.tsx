@@ -8,10 +8,6 @@ import { RpsStatus } from "./rps-status";
 /** Data container; the display component receives data and remains independently renderable. */
 export function RpsControls() {
   const visible = usePanelVisible();
-  const workflow = api.workflowStatus.useQuery(undefined, {
-    enabled: visible,
-    refetchInterval: 10000,
-  });
   const [message, setMessage] = useState("");
   const query = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
@@ -26,8 +22,8 @@ export function RpsControls() {
   const cancel = api.rpsCancel.useMutation({ onSuccess, onError });
   const running = query.data?.progress?.status === "running";
   return (
-    <>
-      <div className="flex flex-wrap gap-3">
+    <section className="space-y-4" aria-label="个股RPS数据管理">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           disabled={
             running || start.isPending || query.isPending || query.isError
@@ -62,26 +58,7 @@ export function RpsControls() {
           </Button>
         </div>
       )}
-      {workflow.data?.map((row, index) => (
-        <p
-          key={`${row.date}:${row.phase}:${index}`}
-          role={row.status === "failed" ? "alert" : "status"}
-        >
-          {row.date} ·{" "}
-          {(
-            {
-              noon: "午盘",
-              late: "尾盘",
-              close: "收盘",
-              morning: "盘前",
-              evening: "晚间",
-            } as Record<string, string>
-          )[row.phase] ?? row.phase}
-          批次：{row.status}
-          {row.error ? ` · ${row.error}` : ""}
-        </p>
-      ))}
-      {query.data && <RpsStatus {...query.data} />}
-    </>
+      {query.data && <RpsStatus latest={query.data.latest} />}
+    </section>
   );
 }

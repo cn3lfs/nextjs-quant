@@ -1652,3 +1652,13 @@ tstdx 的终端 schema、图表格式及持久节点设置留在 adapter，独�
 - 预览复用正式图形几何，在独立 primitive 中以虚线绘制，只请求重绘，不写视图或持久化；水平线一击完成，其余工具两击完成。退出主图隐藏，Esc、切换工具或切换证券/周期取消草稿，完成后回浏览。矩形与斐波那契沿用既有几何语义。
 - 实际浏览器检查确认库的 `coordinateToLogical` 会取整。自由横坐标使用原生鼠标位置与相邻逻辑坐标的像素间距计算，避免整数化；单测模拟该取整行为，浏览器用保存结果的非零偏移验证真实交互。授权交互变更同步更新原 R2 图表指纹，由坐标、渲染和浏览器行为测试补充保护。
 - 无数据库迁移；含 `offset` 的新视图不保证被旧版本严格 schema 接受，使用新保存图形时应配套当前前后端；本次未更新旧 exe。
+
+
+## RPS 数据管理页信息架构重构（2026-09-15）
+
+- 页面只保留 RPS 内容：删除指向财联社观点复盘的页内链接，并把混合读取 `workflow-check` 与 `cls-analysis-batch` 的 `workflowStatus` 路由替换为 `rpsWorkflowLog`。新路由按 `rps-observation-check-` 前缀取最近 50 条记录，返回统一的日志条目；财联社复盘在侧边栏仍可达，未改动其自身页面。
+- 「当前运行状态」与「历史日志」拆成两个独立矩形框并列在页首：`rps_job` 是全局单例，个股/行业/概念共用一个任务，因此状态只需要一处。相应删去 `RpsStatus`、`IndustryRpsStatus`、概念面板里各自重复渲染的 progress，`RpsStatus` 与 `IndustryRpsStatus` 变成纯粹的"最近结果"展示。日志框用固定高度加 `overflow-y-auto` 滚动，条目为空时明确说明手工回填不写入自动批次日志——避免把"没有日志"误读为"任务没跑"。
+- 日志时间统一走 `rpsLogTime`（UTC+8 墙钟字符串），不使用 `toLocaleString`，保证 SSR、测试和桌面环境一致。记录解析用 zod，解析失败的行丢弃而不是让整个框报错：日志是观察辅助，不是不变量。
+- 行业表格的板块名接入 `PoolMembersLink`，与概念共用 `poolMembersHref(category, name)`；沿用整页跳转而不是客户端导航，因为股票池浏览器只在 mount 时读一次深链参数，缓存面板下的客户端跳转会忽略新选择。
+- 三个口径改为 Tabs，内容 `forceMount` 保留分页与草稿，新增 `PanelVisibility` 让隐藏 tab 的轮询暂停（与工作台面板缓存同一套约定）。
+- 检查：`pnpm exec tsc --noEmit` 通过；全量 vitest 除 `tests/tdx-local-blocks.test.ts` 与 `tests/industry-blocks.test.ts` 各 1 例外全部通过，这两例在本次改动前的同一工作区即失败（与 mtime/哈希相关），未在本次范围内处理。浏览器用隔离 `QUANT_DATA_DIR` 起 `next dev` 实测 `/rps`：两个框、Tabs 切换、行业面板渲染正常，验证后已停服并删除临时数据目录。

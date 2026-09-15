@@ -220,15 +220,7 @@ it("UI explicitly warns of incomparable Tongdaxin weighting, drift, six periods,
   const fixture = industryDay().day;
   const latest = { ...fixture, excluded: fixture.industry!.excluded };
   const html = renderToStaticMarkup(
-    createElement(IndustryRpsStatus, {
-      latest,
-      progress: {
-        ...rpsProgress(),
-        target: "industry",
-        error: "名单缺失",
-        status: "failed",
-      },
-    }),
+    createElement(IndustryRpsStatus, { latest }),
   );
   for (const text of [
     "等权平均",
@@ -244,7 +236,6 @@ it("UI explicitly warns of incomparable Tongdaxin weighting, drift, six periods,
     "RPS50",
     "RPS120",
     "RPS250",
-    "名单缺失",
     "20/50/120",
     "750",
   ])
@@ -253,7 +244,6 @@ it("UI explicitly warns of incomparable Tongdaxin weighting, drift, six periods,
     renderToStaticMarkup(
       createElement(IndustryRpsStatus, {
         latest: { ...latest, mode: "forward" },
-        progress: null,
       }),
     ),
   ).toContain("向前新增（当次成分快照）");
