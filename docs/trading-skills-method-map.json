@@ -12723,10 +12723,36 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "结构减0.3ATR/最大2ATR、收盘触发与盘中备份、风险1%/市值20%/容量1%、-2R灾难线、1R保本/2R减半抬1R/3ATR22尾仓/10日无进展、周-3R/连亏5笔减半及每100笔校准全部装配。局部组件不代表此组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-risk-scenarios.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-risk-scenarios.test.ts"
+      ],
+      "boundary": "工程v1见growthIntradayDescription：已装配结构低点减0.3ATR14/最大2ATR、1%风险/20%市值/前20日均额1%容量、日收盘技术线/五分钟-2R备份、1R保本/2R减半抬1R/实际减半后22日3ATR尾仓、10日从未达0.5R退出、周-3R/连亏5笔减半、已知事件前三交易日减半。每100笔完整同版本已结算交易MAE/ATR分布检查，不自动改参；缺持仓分钟日则百笔检查不可用。窗口2000-01-04..2022-11-30逐日48根，缺事件日历禁入。未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-risk-scenarios.ts",
+            "name": "swingCalibration"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D6-half2r",
@@ -13556,10 +13582,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入场前已冻结的日内转波段预案，可按当时可知新周期重设更宽止损，同时减少仓位保持风险金额；不能临时亏损后下调止损，跨周期数据与原始预案缺失则不可运行。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-repair.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts"
+      ],
+      "boundary": "工程v1见riskRepairBoundary：人工预登记持仓独立重放；首仓入场前冻结日内转波段及收盘严格高于阈值的预案，当时可知新结构；下一可成交开盘实际减仓后才放宽线，含费与已实现损益风险不得超过原风险与预算的较小值。旧线在减仓未完成期间保持，受阻保留。独立不修复基线与保存/导出/结果入口齐全，不伪造历史账户。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "riskRepairTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "replayRiskRepair"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-target23",
@@ -13662,10 +13706,28 @@
         "stop-loss/references/management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "加仓后基于各批成本和统一止损计算总风险，超过首仓1R则抬线或减仓回到预算内；修复动作用当时可知价格和数量规则，事前拒绝超预算加仓不是事后修复已实现。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-repair.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts"
+      ],
+      "boundary": "工程v1见riskRepairBoundary：人工已成交加仓批次/首仓1R预算明确输入，FIFO含费风险重算；add-raise解统一预算保护线，不低于现价时排队退出；add-reduce取可申报的最小减仓量直至含已实现亏损风险回到预算内。下一可成交开盘、T+1与受阻保留，跳空清仓仍超预算报告失败。独立未修复对照，不用事前拒绝冒充事后修复。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "riskRepairTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "replayRiskRepair"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-quarter",
@@ -14062,10 +14124,32 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "在历史训练段诊断入场是否太晚及周期/止损宽度不匹配，再冻结入场时机或宽度方案用于后续段；原文没有频繁、太晚阈值，需具名工程定义，不自动放宽或利用验证段挑最佳。 3%直接改8%作为未经风险缩放的反例路径保留；纠正方案包含ATR校准与入场调整，不把放宽本身当改进。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-routing.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts"
+      ],
+      "boundary": "工程v1见stopDiagnosisBoundary：至少100笔同版本开发记录，退出及结算可知日早于冻结验证起点；净亏止损占比≥30%、其中延迟≥3根且偏离触发位≥2ATR占比≥50%、宽度/ATR中位数<1.5分别诊断频繁/太晚/周期不匹配。具名时机门控、2ATR重算股数、3%改8%不缩股反例三版本用于后续段，缺输入禁入，不用验证收益选版本。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-routing.ts",
+            "name": "diagnoseStops"
+          },
+          {
+            "file": "src/lib/research-risk-routing.ts",
+            "name": "diagnosisDecision"
+          },
+          {
+            "file": "src/lib/research-risk-routing.ts",
+            "name": "diagnosisTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-scenario-routing",
@@ -14075,10 +14159,24 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "分别保留趋势回调、突破、高波动结构模糊、日内动量、浮盈趋势、中长基本面、无法监控和百笔记录场景。场景判定必须入场时可知或预登记实验输入；首选备选单独对照，不能用事后趋势分类挑赢家。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-routing.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts"
+      ],
+      "boundary": "工程v1见riskRoutingBoundary：实验起点前人工预登记八场景及可知日期，14个原文有效首选/备选分支分别装配具名管理并保存校验；定性ATR2/突破K低/0.5元/22日3ATR或EMA20/5%/Q90公开冻结，无备选不造备选。日内复用48根分钟引擎，基本面put独立扩展不生成A股净值，浮盈保护共用入场基线不伪造历史持仓。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-routing.ts",
+            "name": "resolveRiskRoute"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-held-risk-repair",
@@ -14088,10 +14186,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "对已持有头寸按正确结构止损重算在险金额，超当期预算则按实际可成交价格与数量规则减仓，止损不迁就原股数。与加仓后修复和事前拒绝买入不同；支持当时已知持仓或具名实验输入，不伪造历史仓位。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-repair.ts"
+      ],
+      "tests": [
+        "tests/research-risk-composition.test.ts"
+      ],
+      "boundary": "工程v1见riskRepairBoundary：当时已知人工持仓/结构保护线/当前权益风险预算，独立FIFO重放实际减仓直至含费、含已实现损益风险≤预算；不迁就原股数改结构线。与未修复基线并列，T+1/数量步长/受阻重试复用共享执行器。缺行情、规则或公司行动证明的真实入口标missing，不伪造历史账户或合入双突破净值。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "riskRepairTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-repair.ts",
+            "name": "replayRiskRepair"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-chop-frequency",

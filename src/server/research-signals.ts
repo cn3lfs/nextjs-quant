@@ -84,8 +84,9 @@ export async function researchSignals(
           : "研究区间没有可用技术指标，不能将缺失视为零信号",
     );
   const stop = spec.management?.stop;
-  const stopPeriod =
-    spec.management?.swingDiscipline === "sw-stop-volatility"
+  const stopPeriod = spec.stopDiagnosis
+    ? 14
+    : spec.management?.swingDiscipline === "sw-stop-volatility"
       ? 14
       : stop?.kind === "structure-auto"
         ? stop.atrPeriod
@@ -222,13 +223,27 @@ export async function researchSignals(
                     : null,
               }
             : {}),
-          ...(spec.strategy === "dual-breakout-structure" ||
+          ...(!!spec.stopDiagnosis ||
+          spec.strategy === "dual-breakout-structure" ||
           spec.management?.stop.kind === "structure" ||
           spec.management?.stop.kind === "structure-atr" ||
           spec.management?.stop.kind === "max-distance" ||
           spec.management?.stop.kind === "nearest-stop" ||
           spec.management?.stop.kind === "structure-auto"
-            ? { initialStop: result.long.risk.stop?.price ?? null }
+            ? {
+                initialStop:
+                  spec.management?.growthIntraday === "RK-C-swing-system" ||
+                  spec.riskRoute?.scenario === "pullback"
+                    ? (result.levels
+                        .filter(
+                          (l) =>
+                            l.source === "swing-low" &&
+                            l.confirmedAt <= bar.date &&
+                            l.price < bar.close,
+                        )
+                        .sort((a, b) => b.index - a.index)[0]?.price ?? null)
+                    : (result.long.risk.stop?.price ?? null),
+              }
             : {}),
         });
     } else {

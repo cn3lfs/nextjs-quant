@@ -716,6 +716,24 @@ export function StrategyResearchControls() {
               </p>
             )}
           </details>
+          {(result.data.riskRepair ||
+            result.data.stopDiagnosis ||
+            result.data.riskRoute) && (
+            <details>
+              <summary>持仓修复对照与场景诊断</summary>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">
+                {JSON.stringify(
+                  {
+                    riskRepair: result.data.riskRepair,
+                    stopDiagnosis: result.data.stopDiagnosis,
+                    riskRoute: result.data.riskRoute,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
+            </details>
+          )}
           <UniverseAuditContainer
             key={selected}
             source={{ kind: "research", id: selected }}
@@ -862,6 +880,8 @@ export function StrategyResearchControls() {
                           <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
                             {JSON.stringify(
                               {
+                                swingReview: trade.swingReview,
+                                swingAccount: part.simulation?.swingAccount,
                                 plannedRiskStop: trade.plannedRiskStop,
                                 realizedProfit: trade.realizedProfit,
                                 sales: trade.sales,

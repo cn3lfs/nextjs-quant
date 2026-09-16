@@ -1,8 +1,8 @@
 # 个人交易工作台扩充计划
 
-## B2 Track A 当前授权（2026-09-17）
+## B2 Track A 收口（2026-09-17）
 
-用户本轮授权剩余23项全部完成并跑批末L3；实际完整新增17项工程版本，仍有6项尚未实施，未达到整批目标。审计为22 implemented / 417 variant / 256 planned，errors []；K2a为0，剩余全在K7。指标初始线/沿线准入、原生三买结构线、开发段MAE、分散与相关簇/再平衡/事件减仓、凯利市场门控、分钟时间止损和期权/做空独立扩展等已完成。下一起点RK-C-swing-system，随后换周期、加仓/既有持仓风险修复、止损诊断与八场景路由；逐ID以method-map和`.codex-runs/delivery.json`为准。按本轮指令不跑L3/Playwright；共享执行器变更的会话收尾全量单独记录，不能冒充L3。定向9文件4998项及typecheck/审计/来源/格式检查已退出0，会话全量418文件/8223项通过、16文件/27项跳过，exit 0，详见delivery。不提交、推送或打包。
+最后6项已实现为具名工程版本：RK-C-swing-system、RK-D-cycle-switch、RK-D-add-repair、RK-A-stop-diagnosis、RK-A-scenario-routing、RK-C-held-risk-repair。审计22 implemented / 423 variant / 250 planned，K2a与K7均planned 0、errors []。修复使用明确人工持仓独立对照，诊断冻结训练/验证边界，八场景首选备选独立路由；完整波段组合复用既有48根分钟引擎。历史持仓公司行动证明反例修正后最终verify:batch退出0：419文件/8250项通过、16文件/27项跳过、0失败，374.61秒；build/runtime、审计与格式门禁通过。Playwright一次退出0，14路由/3诊断/4修复/94管理模板、390px无溢出、页面错误0。最终日志与退出码见`.codex-runs/delivery.json`。本批结束；B5未启动，下一起点OP01；未真实回测、提交、推送或打包。
 
 ## B3 Track A 当前授权（2026-09-16）
 

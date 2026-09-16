@@ -1,3 +1,9 @@
+import { atr, rollingHigh } from "~/lib/indicators";
+import { researchAccountRisk } from "~/lib/research-account-risk";
+import { researchInitialStop } from "~/lib/research-management";
+import { researchLiquidity } from "~/lib/research-liquidity";
+import { contextRiskPoint } from "~/lib/research-context-risk";
+import { swingCalibration } from "~/lib/research-risk-scenarios";
 import { confirmedExtrema } from "~/lib/indicators";
 import type { Bar } from "~/lib/domain";
 import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
@@ -13,7 +19,7 @@ import {
   researchSellQuantity,
   type ResearchExecutionRules,
 } from "~/lib/research-execution";
-import { researchRiskQuantity } from "~/lib/research-risk";
+import { researchRiskQuantity, plannedStopRisk } from "~/lib/research-risk";
 import {
   researchPositionBook,
   researchBookBuy,
@@ -117,7 +123,14 @@ export function researchGrowthIntraday(
 ): ReturnType<typeof researchPortfolio> {
   assertGrowthIntradayWindow(spec.start, spec.end);
   const id = spec.management!.growthIntraday!;
+  const swing = id === "RK-C-swing-system";
   const days = calendar.filter((d) => d >= spec.start && d <= spec.end);
+  const week = swing
+    ? researchAccountRisk("week3r", days, spec.initialCapital)
+    : null;
+  const streak = swing
+    ? researchAccountRisk("streak5-half", days, spec.initialCapital)
+    : null;
   if (days.some((d, i) => i > 0 && d <= days[i - 1]!))
     throw new Error("研究日历未严格递增");
   const fraction = id.startsWith("RK-")
@@ -136,6 +149,10 @@ export function researchGrowthIntraday(
       pending: { quantity: number; reason: string; at: string } | null;
       add: boolean;
       reduced: boolean;
+      scaled: boolean;
+      tailReady: boolean;
+      maxR: number;
+      eventIds: Set<string>;
     }
   >();
   const finished = new Set<ResearchEvent>();
@@ -168,6 +185,8 @@ export function researchGrowthIntraday(
     }),
   );
   for (const [index, date] of days.entries()) {
+    week?.begin(index);
+    streak?.begin(index);
     const available = new Map<string, Bar[]>();
     for (const [symbol] of daily) {
       const rows = growthMinuteDay(grouped.get(symbol)?.get(date) ?? [], date);
@@ -230,9 +249,11 @@ export function researchGrowthIntraday(
         const previous = slot > 0 ? rows[slot - 1] : null;
         if (
           previous &&
-          (id.startsWith("RK-")
-            ? previous.low <= state.stop
-            : previous.close < state.stop && date > t.entryDate)
+          (swing
+            ? previous.low <= t.entryPrice - 2 * (t.entryPrice - t.initialStop!)
+            : id.startsWith("RK-")
+              ? previous.low <= state.stop
+              : previous.close < state.stop && date > t.entryDate)
         )
           state.pending = {
             quantity: remaining,
@@ -257,6 +278,8 @@ export function researchGrowthIntraday(
               };
           }
         }
+        if (swing && previous)
+          t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - previous.low);
         const request = state.pending;
         if (!request || request.at > at || date <= t.entryDate) continue;
         const rule = rules(symbol, date),
@@ -285,6 +308,8 @@ export function researchGrowthIntraday(
           });
           continue;
         }
+        if (swing)
+          t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - fill.price);
         const commission = researchCommission(qty * fill.price, spec.costs),
           tax = (qty * fill.price * spec.costs.sellTaxBps) / 10000;
         const sold = researchBookSell(t.book!, {
@@ -312,7 +337,10 @@ export function researchGrowthIntraday(
         state.add = false;
         state.reduced = true;
         request.quantity -= qty;
-        if (request.quantity < 1e-8) state.pending = null;
+        if (request.quantity < 1e-8) {
+          if (swing && request.reason.startsWith("2R")) state.tailReady = true;
+          state.pending = null;
+        }
         if (t.remainingQuantity === 0) {
           t.exitDate = date;
           t.exitReason = request.reason;
@@ -322,6 +350,35 @@ export function researchGrowthIntraday(
           t.profit = t.book.realizedProfit;
           t.netReturn = t.profit / t.entryCost;
           t.holdingTradingDays = index - t.entryIndex;
+          if (swing) {
+            const risk = plannedStopRisk(
+              t.quantity,
+              t.entryPrice,
+              t.initialStop!,
+              spec.costs,
+            );
+            week!.settle(index, t.profit, risk);
+            streak!.settle(index, t.profit, risk);
+            const closed = result.trades
+              .filter((x) => x.profit != null)
+              .sort(
+                (a, b) =>
+                  a.sales!.at(-1)!.date.localeCompare(b.sales!.at(-1)!.date) ||
+                  a.event.symbol.localeCompare(b.event.symbol) ||
+                  a.event.key.localeCompare(b.event.key),
+              );
+            if (closed.length % 100 === 0)
+              t.swingReview = swingCalibration(
+                closed.slice(-100).map((x) => ({
+                  version: x.event.strategyVersion,
+                  complete: x.swingHistoryComplete !== false,
+                  mae: x.swingMae ?? NaN,
+                  profit: x.profit!,
+                  atr: x.event.stopAtr ?? NaN,
+                  entry: x.entryPrice,
+                })),
+              );
+          }
           positions.delete(symbol);
         }
       }
@@ -422,6 +479,30 @@ export function researchGrowthIntraday(
           continue;
         }
         if (positions.size >= spec.maxPositions) continue;
+        if (swing) {
+          const prior = calendar[calendar.indexOf(date) - 1];
+          const check = prior
+            ? contextRiskPoint(
+                "rk-event-reduce",
+                spec.management?.contextRiskInputs ?? [],
+                event.symbol,
+                prior,
+                calendar,
+              )
+            : null;
+          if (
+            week!.blocked(index) ||
+            !check?.allow ||
+            check.status === "missing"
+          ) {
+            finished.add(event);
+            result.excluded.push({
+              event,
+              reason: check?.reason ?? "周-3R暂停或事件日历不可用",
+            });
+            continue;
+          }
+        }
         if ([...positions.keys()].some((symbol) => !available.has(symbol))) {
           result.attempts.push({
             symbol: event.symbol,
@@ -465,8 +546,9 @@ export function researchGrowthIntraday(
               (s, p) => s + p.trade.book!.remainingQuantity * p.trade.lastPrice,
               0,
             ),
-          stop =
-            id === "RK-A-intraday-points30"
+          stop = swing
+            ? (researchInitialStop(spec.management!, fill.price, event) ?? NaN)
+            : id === "RK-A-intraday-points30"
               ? fill.price - 0.5
               : id === "RK-A-intraday-structure30"
                 ? (() => {
@@ -486,11 +568,29 @@ export function researchGrowthIntraday(
                       : NaN;
                   })()
                 : fill.price * (1 - fraction);
-        if (!Number.isFinite(stop) || stop <= 0 || stop >= fill.price) {
+        if (
+          !Number.isFinite(stop) ||
+          stop <= 0 ||
+          stop >= fill.price ||
+          (swing &&
+            (event.stopAtr == null ||
+              fill.price - stop > 2 * event.stopAtr + 1e-10))
+        ) {
           finished.add(event);
           result.excluded.push({
             event,
             reason: "missing: 五分钟结构缺失或开盘失守",
+          });
+          continue;
+        }
+        const liquidity = swing
+          ? researchLiquidity(daily.get(event.symbol) ?? [], calendar, date)
+          : null;
+        if (swing && liquidity?.maxPositionValue == null) {
+          finished.add(event);
+          result.excluded.push({
+            event,
+            reason: liquidity?.reason ?? "缺容量",
           });
           continue;
         }
@@ -499,8 +599,13 @@ export function researchGrowthIntraday(
           equity,
           price: fill.price,
           stop,
-          fraction: spec.risk!.fraction,
-          maxWeight: spec.risk!.maxWeight,
+          fraction: spec.risk!.fraction * (streak?.multiplier() ?? 1),
+          maxWeight: Math.min(
+            spec.risk!.maxWeight * (streak?.multiplier() ?? 1),
+            liquidity?.maxPositionValue != null
+              ? liquidity.maxPositionValue / equity
+              : 1,
+          ),
           rules: rule,
           costs: spec.costs,
         });
@@ -540,6 +645,9 @@ export function researchGrowthIntraday(
           profit: null,
           lastPrice: fill.price,
           initialStop: stop,
+          ...(swing
+            ? { riskBudget: equity * 0.01 * streak!.multiplier() }
+            : {}),
           book,
           remainingQuantity: qty,
           plannedQuantity: planned,
@@ -552,7 +660,9 @@ export function researchGrowthIntraday(
               quantity: qty,
               price: fill.price,
               commission,
-              plannedRisk: null,
+              plannedRisk: swing
+                ? plannedStopRisk(qty, fill.price, stop, spec.costs)
+                : null,
               stop,
             },
           ],
@@ -570,6 +680,10 @@ export function researchGrowthIntraday(
           pending: null,
           add: false,
           reduced: false,
+          scaled: false,
+          tailReady: false,
+          maxR: 0,
+          eventIds: new Set(),
         });
       }
     }
@@ -579,14 +693,18 @@ export function researchGrowthIntraday(
         t = state.trade;
       if (!rows) {
         stale.push(symbol);
+        if (swing) t.swingHistoryComplete = false;
         state.add = false;
         continue;
       }
       t.lastPrice = rows[47]!.close;
       if (
-        id.startsWith("RK-")
-          ? rows[47]!.low <= state.stop
-          : t.lastPrice < state.stop
+        swing
+          ? t.lastPrice < state.stop ||
+            rows[47]!.low <= t.entryPrice - 2 * (t.entryPrice - t.initialStop!)
+          : id.startsWith("RK-")
+            ? rows[47]!.low <= state.stop
+            : t.lastPrice < state.stop
       )
         state.pending = {
           quantity: t.book!.remainingQuantity,
@@ -595,6 +713,80 @@ export function researchGrowthIntraday(
             : "15:00收盘跌破止损",
           at: rows[47]!.date,
         };
+      if (swing) {
+        t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - rows[47]!.low);
+        const distance = t.entryPrice - t.initialStop!,
+          r = (t.lastPrice - t.entryPrice) / distance;
+        state.maxR = Math.max(state.maxR, r);
+        if (
+          index - t.entryIndex + 1 >= 10 &&
+          state.maxR < 0.5 &&
+          !state.pending
+        )
+          state.pending = {
+            quantity: t.book!.remainingQuantity,
+            reason: "10日未达0.5R时间止损",
+            at: rows[47]!.date,
+          };
+        const oldStop = state.stop;
+        if (r >= 1) state.stop = Math.max(state.stop, t.entryPrice);
+        if (r >= 2 && !state.scaled && !state.pending) {
+          state.scaled = true;
+          state.stop = Math.max(state.stop, t.entryPrice + distance);
+          state.pending = {
+            quantity: t.quantity * 0.5,
+            reason: "2R减原始半仓并抬1R",
+            at: rows[47]!.date,
+          };
+        }
+        if (state.tailReady) {
+          const prefix = (daily.get(symbol) ?? []).filter(
+            (b) => b.date <= date,
+          );
+          const a = atr(prefix, 22).at(-1),
+            h = rollingHigh(prefix, 22).at(-1);
+          if (a != null && h != null)
+            state.stop = Math.max(state.stop, h - 3 * a);
+          else
+            t.managementWarnings!.push({
+              date,
+              reason: "尾仓22日ATR/最高价缺失",
+            });
+        }
+        if (state.stop > oldStop)
+          t.stopHistory!.push({
+            date: rows[47]!.date,
+            stop: state.stop,
+            reason: "波段组合收盘抬线，下一根生效",
+          });
+        const check = contextRiskPoint(
+          "rk-event-reduce",
+          spec.management?.contextRiskInputs ?? [],
+          symbol,
+          date,
+          calendar,
+        );
+        if (check.status === "missing")
+          t.managementWarnings!.push({
+            date,
+            reason: check.reason ?? "缺事件日历",
+          });
+        const e = check.evidence?.scheduledEvent;
+        if (
+          check.status === "available" &&
+          !check.allow &&
+          e &&
+          !state.eventIds.has(e.id) &&
+          !state.pending
+        ) {
+          state.eventIds.add(e.id);
+          state.pending = {
+            quantity: t.book!.remainingQuantity * 0.5,
+            reason: "已知事件前三交易日减半",
+            at: rows[47]!.date,
+          };
+        }
+      }
       if (id === "CA-D-review1430" && !state.pending) {
         const prior = indexed
           .get(symbol)
@@ -619,6 +811,14 @@ export function researchGrowthIntraday(
           rows.reduce((s, b) => s + b.volume, 0) >= average * 1.5;
       }
     }
+    const closingValue =
+      cash +
+      [...positions.values()].reduce(
+        (sum, p) => sum + p.trade.book!.remainingQuantity * p.trade.lastPrice,
+        0,
+      );
+    week?.close(index, closingValue, stale.length > 0);
+    streak?.close(index, closingValue, stale.length > 0);
     result.nav.push({
       date,
       cash,
@@ -630,6 +830,15 @@ export function researchGrowthIntraday(
         ),
       stale,
     });
+  }
+  if (swing) {
+    const closed = result.trades.filter((t) => t.profit != null).length;
+    result.swingAccount = {
+      week: week!.snapshot(),
+      streak: streak!.snapshot(),
+      closedTrades: closed,
+      nextReviewAt: (Math.floor(closed / 100) + 1) * 100,
+    };
   }
   result.unfilled = ordered.filter((e) => !finished.has(e));
   result.openPositions = positions.size;

@@ -1,3 +1,4 @@
+import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
   riskExtensionSchema,
   riskExtensionTemplate,
@@ -47,6 +48,8 @@ export function applyResearchManagement(
   const selected = management.exitPreset;
   return {
     ...spec,
+    riskRoute: undefined,
+    stopDiagnosis: undefined,
     management,
     ...(management.contextRisk
       ? {
@@ -84,6 +87,9 @@ export function applyResearchManagement(
     ...(management.growthIntraday
       ? {
           strategy: growthIntradayBase(management.growthIntraday),
+          ...(management.growthIntraday === "RK-C-swing-system"
+            ? { risk: { fraction: 0.01, maxWeight: 0.2 }, holdingDays: 60 }
+            : {}),
           maParams: undefined,
         }
       : {}),
@@ -100,6 +106,7 @@ export function applyResearchManagement(
       : {}),
     holdingDays:
       management.contextRisk ||
+      management.growthIntraday === "RK-C-swing-system" ||
       management.growthDaily ||
       management.volatilityStop ||
       management.riskPreset
@@ -315,6 +322,11 @@ export function ResearchStrategyFields({
           </SelectContent>
         </Select>
       </label>
+      <ResearchRiskCompositionFields
+        spec={spec}
+        onChange={onChange}
+        apply={applyResearchManagement}
+      />
       {spec.riskExtension && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">

@@ -141,3 +141,53 @@ export function chopFrequency(
 
 export const riskScenarioBoundary =
   "缓冲工程v1：复用双突破当时已确认整数阶梯/摆动低点/至少3触点趋势线，取低于信号收盘的最近对应线，对照0/0.3/0.5ATR14；距实际开盘重算含费风险股数，不把拥挤解释当盘口证据。原脚本滑点诊断按不含费距离及市值/整手先取股数，再报告股数*(距离+假设每股滑点)，与严格实际股数并列，绝不以诊断股数替换交易执行。震荡工程定义为此前21研究日收盘、20段相邻方向反转至少6次且区间净涨跌绝对值≤3%；同时此前20日已结算净亏止损至少3笔，比较最后止损后暂停5日与入场间隔至少5日，仅限制新仓。无单笔止损对照固定布林下轨回归入场与原信号退出、60日上限、10%单股/30%总仓/10%账户回撤暂停；5%线只作数量预算标尺，取消其价格退出，不能保证单笔损失封顶。全部阈值为冻结工程版本，保留亏损结果。";
+
+/** Review every complete block, including losses. Never select parameters on this report. */
+export function swingCalibration(
+  records: readonly {
+    version: string;
+    complete?: boolean;
+    mae: number;
+    profit: number;
+    atr: number;
+    entry: number;
+  }[],
+) {
+  const missing =
+    records.length !== 100 ||
+    new Set(records.map((r) => r.version)).size !== 1 ||
+    records.some(
+      (r) =>
+        r.complete === false ||
+        ![r.mae, r.profit, r.atr, r.entry].every(Number.isFinite) ||
+        r.mae < 0 ||
+        r.atr <= 0 ||
+        r.entry <= 0,
+    );
+  const quantile = (xs: number[]) => {
+    if (!xs.length) return null;
+    xs.sort((a, b) => a - b);
+    const i = (xs.length - 1) * 0.9;
+    return (
+      xs[Math.floor(i)]! +
+      (xs[Math.ceil(i)]! - xs[Math.floor(i)]!) * (i - Math.floor(i))
+    );
+  };
+  return {
+    version: "swing-review-100-v1",
+    count: records.length,
+    reason: missing ? "百笔完整同版本记录/ATR缺失" : null,
+    winnerMaeAtrQ90: missing
+      ? null
+      : quantile(records.filter((r) => r.profit > 0).map((r) => r.mae / r.atr)),
+    loserMaeAtrQ90: missing
+      ? null
+      : quantile(
+          records.filter((r) => r.profit <= 0).map((r) => r.mae / r.atr),
+        ),
+    currentBufferAtr: 0.3,
+    currentMaxDistanceAtr: 2,
+    parametersChanged: false,
+    records,
+  };
+}

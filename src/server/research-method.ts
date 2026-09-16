@@ -1,3 +1,8 @@
+import { riskRepairBoundary } from "~/lib/research-risk-repair";
+import {
+  riskRoutingBoundary,
+  stopDiagnosisBoundary,
+} from "~/lib/research-risk-routing";
 import { riskExtensionBoundary } from "~/lib/research-risk-extensions";
 import { contextRiskBoundary } from "~/lib/research-context-risk";
 import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
@@ -63,7 +68,15 @@ import {
 export function researchMethodSnapshot(
   input:
     | ResearchStrategyId
-    | Pick<ResearchSpec, "strategy" | "management" | "riskExtension">,
+    | Pick<
+        ResearchSpec,
+        | "strategy"
+        | "management"
+        | "riskExtension"
+        | "riskRepair"
+        | "riskRoute"
+        | "stopDiagnosis"
+      >,
   management = false,
   scaleOut = false,
 ) {
@@ -166,6 +179,14 @@ export function researchMethodSnapshot(
             "stop-loss/references/pitfalls.md",
           ]
         : []),
+      ...(typeof input !== "string" &&
+      (input.riskRepair || input.riskRoute || input.stopDiagnosis)
+        ? [
+            "stop-loss/SKILL.md",
+            "stop-loss/references/management.md",
+            "stop-loss/references/pitfalls.md",
+          ]
+        : []),
       ...(kelly
         ? ["stop-loss/references/kelly-sizing.md", "stop-loss/scripts/kelly.py"]
         : []),
@@ -252,6 +273,30 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" && input.riskRepair
+      ? {
+          riskRepair: {
+            input: input.riskRepair,
+            interpretation: riskRepairBoundary,
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.riskRoute
+      ? {
+          riskRoute: {
+            input: input.riskRoute,
+            interpretation: riskRoutingBoundary,
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.stopDiagnosis
+      ? {
+          stopDiagnosis: {
+            input: input.stopDiagnosis,
+            interpretation: stopDiagnosisBoundary,
+          },
+        }
+      : {}),
     ...(typeof input !== "string" && input.riskExtension
       ? {
           riskExtension: {
@@ -654,7 +699,15 @@ export type ResearchMethodSnapshot = ReturnType<typeof researchMethodSnapshot>;
 export function validateResearchMethod(
   strategy:
     | ResearchStrategyId
-    | Pick<ResearchSpec, "strategy" | "management" | "riskExtension">,
+    | Pick<
+        ResearchSpec,
+        | "strategy"
+        | "management"
+        | "riskExtension"
+        | "riskRepair"
+        | "riskRoute"
+        | "stopDiagnosis"
+      >,
   saved: ResearchMethodSnapshot | undefined,
   management = false,
   scaleOut = false,

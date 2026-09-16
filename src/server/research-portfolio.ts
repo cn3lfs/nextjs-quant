@@ -1,3 +1,4 @@
+import { diagnosisDecision, diagnoseStops } from "~/lib/research-risk-routing";
 import { chopFrequency, scriptSlipSizing } from "~/lib/research-risk-scenarios";
 import { researchGroupRisk } from "~/lib/research-group-risk";
 import {
@@ -85,6 +86,11 @@ type WeeklyReductionSignal = NonNullable<
   Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
 >;
 export type ResearchTrade = {
+  swingMae?: number;
+  swingHistoryComplete?: boolean;
+  swingReview?: ReturnType<
+    typeof import("~/lib/research-risk-scenarios").swingCalibration
+  >;
   scriptSlipComparison?: ReturnType<typeof scriptSlipSizing>;
   sizingReferenceOnly?: true;
   growthReviews?: {
@@ -1192,15 +1198,31 @@ export function researchPortfolio(
         ? (volatilityLines.get(event.symbol)?.get(event.observedDate) ?? null)
         : undefined;
       const stopOverride = researchStopOverride(spec.management, event);
-      const initialStop = calibration?.mae
-        ? fill.price * (1 - calibratedWidth!)
-        : indicatorLine !== undefined
-          ? indicatorLine
-          : externalEntry?.status === "available"
-            ? externalEntry.stop
-            : spec.management
-              ? researchInitialStop(spec.management, fill.price, event)
-              : event.initialStop;
+      const diagnosis = spec.stopDiagnosis
+        ? diagnosisDecision(
+            spec.stopDiagnosis,
+            date,
+            fill.price,
+            event.stopAtr,
+            event.initialStop,
+          )
+        : null;
+      if (diagnosis && !diagnosis.allow) {
+        excluded.push({ event, reason: diagnosis.reason ?? "诊断不可用" });
+        finished.add(event);
+        continue;
+      }
+      const initialStop = diagnosis
+        ? diagnosis.stop
+        : calibration?.mae
+          ? fill.price * (1 - calibratedWidth!)
+          : indicatorLine !== undefined
+            ? indicatorLine
+            : externalEntry?.status === "available"
+              ? externalEntry.stop
+              : spec.management
+                ? researchInitialStop(spec.management, fill.price, event)
+                : event.initialStop;
       if (
         externalEntry?.status === "available" &&
         externalId === "rk-kase-stages"
@@ -1396,7 +1418,7 @@ export function researchPortfolio(
                 0,
               ),
             price: fill.price,
-            stop: plannedRiskStop!,
+            stop: diagnosis?.sizingStop ?? plannedRiskStop!,
             fraction:
               riskFraction! *
               (accountRisk?.multiplier() ?? 1) *
@@ -2403,6 +2425,23 @@ export function researchPortfolio(
     ...(admissionRule ? { riskAdmissionChecks } : {}),
     ...(spec.management?.contextRisk ? { contextChecks } : {}),
     ...(groupRiskChecks.length ? { groupRiskChecks } : {}),
+    ...(spec.management?.growthIntraday === "RK-C-swing-system"
+      ? {
+          swingAccount: {
+            week: null as ReturnType<
+              ReturnType<typeof researchAccountRisk>["snapshot"]
+            > | null,
+            streak: null as ReturnType<
+              ReturnType<typeof researchAccountRisk>["snapshot"]
+            > | null,
+            closedTrades: 0,
+            nextReviewAt: 100,
+          },
+        }
+      : {}),
+    ...(spec.stopDiagnosis
+      ? { stopDiagnosis: diagnoseStops(spec.stopDiagnosis) }
+      : {}),
     ...(chopFrequencyChecks.length ? { chopFrequencyChecks } : {}),
     ...(accountRisk ? { accountRisk: accountRisk.snapshot() } : {}),
     ...(lossPause ? { lossPause: lossPause.snapshot(days.length - 1) } : {}),

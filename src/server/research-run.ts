@@ -1,3 +1,5 @@
+import { replayRiskRepair } from "~/lib/research-risk-repair";
+import { diagnoseStops } from "~/lib/research-risk-routing";
 import { evaluateRiskExtension } from "~/lib/research-risk-extensions";
 import {
   researchMaeTraining,
@@ -340,6 +342,8 @@ export async function runStrategyResearch(
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
   const requiresActionPrefix =
+    !!spec.stopDiagnosis ||
+    spec.management?.growthIntraday === "RK-C-swing-system" ||
     spec.management?.trail.kind === "volatility" ||
     !!spec.management?.riskPreset ||
     spec.management?.contextRisk === "rk-sector-risk" ||
@@ -373,6 +377,24 @@ export async function runStrategyResearch(
       )
       .map((stock) => stock.symbol),
   );
+  const repairActionCovered =
+    !!spec.riskRepair &&
+    dataset.stocks.some(
+      (stock) =>
+        stock.symbol === spec.riskRepair!.symbol &&
+        !stock.actions.some(
+          (action) =>
+            action.category === 1 &&
+            action.date >= spec.riskRepair!.lots[0]!.date &&
+            action.date <= spec.end,
+        ) &&
+        !!marketEvidence?.corporateActionFree.some(
+          (coverage) =>
+            coverage.symbol === stock.symbol &&
+            coverage.start <= spec.riskRepair!.lots[0]!.date &&
+            coverage.end >= spec.end,
+        ),
+    );
   const trainsAdmission = riskAdmissionNeedsTraining(
     spec.management?.riskPreset
       ? riskPresetAdmission(spec.management.riskPreset)
@@ -547,6 +569,40 @@ export async function runStrategyResearch(
         }
       : null;
   const result = {
+    ...(spec.stopDiagnosis
+      ? { stopDiagnosis: diagnoseStops(spec.stopDiagnosis) }
+      : {}),
+    ...(spec.riskRoute ? { riskRoute: spec.riskRoute } : {}),
+    ...(spec.riskRepair
+      ? {
+          riskRepair: repairActionCovered
+            ? {
+                executionEvidenceAvailable: true,
+                includedInSignalPortfolio: false,
+                repaired: replayRiskRepair(
+                  spec.riskRepair,
+                  series.get(spec.riskRepair.symbol) ?? [],
+                  dataset.calendar.filter((d) => d <= spec.end),
+                  (date) => lookup(spec.riskRepair!.symbol, date),
+                  spec.costs,
+                ),
+                control: replayRiskRepair(
+                  spec.riskRepair,
+                  series.get(spec.riskRepair.symbol) ?? [],
+                  dataset.calendar.filter((d) => d <= spec.end),
+                  (date) => lookup(spec.riskRepair!.symbol, date),
+                  spec.costs,
+                  false,
+                ),
+              }
+            : {
+                executionEvidenceAvailable: false,
+                includedInSignalPortfolio: false,
+                status: "missing",
+                reason: "缺行情、交易规则或公司行动证明；不计算可成交修复",
+              },
+        }
+      : {}),
     ...(spec.riskExtension
       ? { riskExtension: evaluateRiskExtension(spec.riskExtension) }
       : {}),

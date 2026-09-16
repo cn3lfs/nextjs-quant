@@ -49,7 +49,10 @@ function setup(id: GrowthIntradayId) {
     holdingDays: 60,
     initialCapital: 100000,
     maxPositions: 1,
-    risk: { fraction: 0.1, maxWeight: 1 },
+    risk:
+      id === "RK-C-swing-system"
+        ? { fraction: 0.01, maxWeight: 0.2 }
+        : { fraction: 0.1, maxWeight: 1 },
     management: growthIntradayTemplate(id),
     costs: {
       commissionBps: 0,

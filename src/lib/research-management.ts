@@ -286,7 +286,11 @@ export const researchManagementSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.contextRiskInputs && !value.contextRisk)
+    if (
+      value.contextRiskInputs &&
+      !value.contextRisk &&
+      value.growthIntraday !== "RK-C-swing-system"
+    )
       context.addIssue({ code: "custom", message: "人工事件输入需具名预设" });
     if (value.contextRisk) {
       const template = contextRiskTemplate(value.contextRisk);
@@ -372,7 +376,20 @@ export const researchManagementSchema = z
           message: "日线具名版本参数不匹配，请重新应用模板",
         });
     }
-    if (value.growthIntraday) {
+    if (value.growthIntraday === "RK-C-swing-system") {
+      const template = growthIntradayTemplate(value.growthIntraday);
+      if (
+        Object.keys(value).some(
+          (k) => k !== "contextRiskInputs" && !(k in template),
+        ) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({ code: "custom", message: "波段完整组合参数不匹配" });
+    } else if (value.growthIntraday) {
       const template = growthIntradayTemplate(value.growthIntraday);
       if (
         Object.keys(value).some((key) => !(key in template)) ||

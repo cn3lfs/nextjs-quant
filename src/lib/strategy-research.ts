@@ -1,3 +1,10 @@
+import { riskRepairSchema } from "./research-risk-repair";
+import {
+  riskRouteSchema,
+  resolveRiskRoute,
+  stopDiagnosisSchema,
+  diagnosisTemplate,
+} from "./research-risk-routing";
 import { riskExtensionSchema } from "./research-risk-extensions";
 import { contextRiskMaxPositions } from "~/lib/research-context-risk";
 import { z } from "zod";
@@ -33,6 +40,9 @@ export const researchSpecSchema = z
     risk: researchRiskSchema.optional(),
     management: researchManagementSchema.optional(),
     riskExtension: riskExtensionSchema.optional(),
+    riskRepair: riskRepairSchema.optional(),
+    riskRoute: riskRouteSchema.optional(),
+    stopDiagnosis: stopDiagnosisSchema.optional(),
     // Optional only for reading historical tasks; new requests require a list.
     symbols: z
       .array(z.string().regex(/^(sh(60|68)|sz(00|30))\d{4}$/))
@@ -64,6 +74,58 @@ export const researchSpecSchema = z
   })
   .superRefine((value, context) => {
     if (
+      value.riskRepair &&
+      (value.riskRepair.observedDate < value.start ||
+        value.riskRepair.observedDate > value.end)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "修复观察日必须位于研究区间",
+      });
+    if (value.riskRoute) {
+      const route = resolveRiskRoute(value.riskRoute);
+      const { contextRiskInputs: _inputs, ...management } =
+        value.management ?? {};
+      if (
+        value.riskRoute.knownOn > value.start ||
+        value.stopDiagnosis ||
+        (route.management
+          ? Object.entries(route.management).some(
+              ([k, v]) =>
+                JSON.stringify(management[k as keyof typeof management]) !==
+                JSON.stringify(v),
+            ) || Object.keys(management).some((k) => !(k in route.management!))
+          : !value.riskExtension ||
+            value.riskExtension.kind !== "protective-put")
+      )
+        context.addIssue({
+          code: "custom",
+          message: "路由须开始前冻结且管理参数与具名分支一致",
+        });
+    }
+    if (
+      value.stopDiagnosis &&
+      (value.strategy !== "dual-breakout" ||
+        value.stopDiagnosis.cutoff !== value.validationStart ||
+        value.risk?.fraction !== 0.01 ||
+        value.risk.maxWeight !== 0.2 ||
+        value.holdingDays !== 60 ||
+        Object.entries(diagnosisTemplate()).some(
+          ([k, v]) =>
+            JSON.stringify(
+              value.management?.[k as keyof typeof value.management],
+            ) !== JSON.stringify(v),
+        ) ||
+        (value.stopDiagnosis &&
+          Object.keys(value.management ?? {}).some(
+            (k) => !(k in diagnosisTemplate()),
+          )))
+    )
+      context.addIssue({
+        code: "custom",
+        message: "诊断须同双突破1%/20%/60日及3%基线，冻结于验证起点",
+      });
+    if (
       value.management?.contextRisk &&
       (value.strategy !== "dual-breakout" ||
         value.risk?.fraction !== 0.02 ||
@@ -76,6 +138,16 @@ export const researchSpecSchema = z
         code: "custom",
         message:
           "人工事件预设须双突破、2%风险、20%单股、对应持仓数、60交易日上限",
+      });
+    if (
+      value.management?.growthIntraday === "RK-C-swing-system" &&
+      (value.risk?.fraction !== 0.01 ||
+        value.risk.maxWeight !== 0.2 ||
+        value.holdingDays !== 60)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "波段组合须1%风险/20%市值/60日上限",
       });
     if (value.management?.riskPreset) {
       const p = riskPresetParameters(value.management.riskPreset);

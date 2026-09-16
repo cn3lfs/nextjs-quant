@@ -1169,7 +1169,7 @@ export function ResearchManagementFields({
           应用{contextRiskProfiles[id][1]}
         </Button>
       ))}
-      {value.contextRisk && (
+      {(value.contextRisk || value.growthIntraday === "RK-C-swing-system") && (
         <label className="block space-y-2 text-sm">
           <span>事件与人工状态（JSON；缺失时不可用）</span>
           <Textarea
