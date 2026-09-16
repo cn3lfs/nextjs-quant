@@ -2,12 +2,21 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
-## B4 结构事件（2026-09-17，批内进行中）
+## B6a as-of 适配器（2026-09-17）
+
+- 唯一共用时点适配器与CANSLIM历史输入资料入口已实现，方法计数未变：22 implemented / 482 variant / 191 planned，审计errors []。
+- source/effectiveAt/availableAt/capturedAt逐版本保留；availableAt必须有版本公开证据引用，报告期、mtime、formatVersion不作替代；修订按首次可知时间筛选。
+- 六类输入统一接口，18字段具名口径；缺字段、单位/版本冲突和不完整日历返回missing/null与原因，不回退旧值或当前数据；精确生效日匹配，不隐式延续成分身份。
+- 最终定向35项通过；B6a L3退出0：433文件/8936项通过、16文件/27项跳过、0失败，396.03秒，typecheck/build/runtime/审计/format/diff通过；无新增UI交互，证据见delivery.b6a。
+- 本地财务包尚无已核验披露/修订可知字段；其他五类亦需请求区间内版本证据。合同校验不等于真实公告核验，不含因子评分或业绩。
+- 适配器完成即停，下一轮B6b；未真实回测、提交、推送、打包、连接生产库或修改用户MCP/来源锁/门禁。
+
+## B4 结构事件（2026-09-17，授权范围整批完成）
 
 - 累计30项variant；本轮新增WY10/WY11/WY19/WY20及CH04/CH05/CH14/CH15/CH16-ma-kiss/CH17-ma-area/CH17-ma-average-force共11项，审计695项为22 implemented / 482 variant / 191 planned，B4剩9项。
 - 复用既有周线、双RS、目标与DLL判据；原始输入/日历/身份/availableAt进入配置、方法快照及持久结果，显式空输入不回退。WY20人工评分胜率为原方法假设，实际采用B2训练净回报半凯利。
 - 方法正反例覆盖联合周日小时、双RS、评分边界/训练不足、三模型目标及实际分批、原生重合/镜像卖出/均线力度/周线前缀；注册驱动契约继续全覆盖。
-- L1/L2、runtime重建及触及portfolio后的例外全量真实退出码/计数见`.codex-runs/delivery.json`；B4批末L3/Playwright未运行。
+- 批末L3全部退出0：431文件/8904项通过、16文件/27项跳过、0失败，394.15秒；typecheck/build/runtime/审计/format/diff通过。Playwright一次覆盖33预设、3类输入、4条结构路径，390px无溢出、页面错误0；证据见delivery.b4.l3。
 - CH06/07/08/09/10/12/18原生结构具名缺口，CH11板块输入缺口、CH13月线输入与原生走势双缺口，均保留planned；不投入DLL算法或新通道。
 - 未真实回测、提交、推送、打包、生产库访问；未改来源锁/冻结快照、验证门禁、DLL队列及用户MCP。
 

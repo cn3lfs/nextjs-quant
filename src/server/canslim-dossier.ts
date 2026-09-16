@@ -16,6 +16,12 @@ import { canslimMarket } from "./canslim-market";
 import { canslimTechnical } from "./canslim-technical";
 import { canslimScorecard, type CanslimScoreInput } from "./canslim-scorecard";
 import { evidenceEnvelope } from "./evidence";
+// Historical callers must provide versioned publication evidence through the
+// separate input-only path. The current-query guards below remain intentional.
+export {
+  buildCanslimAsOfDossier,
+  gatherCanslimAsOfDossier,
+} from "./canslim-as-of-dossier";
 
 type Market = Awaited<ReturnType<typeof gatherCanslimMarket>>;
 export function buildCanslimDossier(

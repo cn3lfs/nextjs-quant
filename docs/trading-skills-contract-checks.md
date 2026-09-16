@@ -47,3 +47,24 @@ method-map 的 `bindings.presets` 指向可执行预设，`bindings.exports` 指
 批次来源检查使用 `audit-trading-skills.ts --registered`，消费 [known-source-drift.md](known-source-drift.md) 的 `(path, change, hash)` 精确集合并打印已登记漂移；新增、消失、再次变化或其他来源错误仍失败。原始无参数审计继续要求零漂移。`tests/source-drift.test.ts` 覆盖集合替换、类型/hash变化、登记消失、重复、空登记、新技能/缺技能与正文快照字节；没有新增策略预设或策略契约例外。
 
 方法审计增加 `batches` 与 `deliveryBatches.B1` 的分组计数及待办ID，依据batch归属，不按CA/SE前缀计数。`tests/trading-method-map.test.ts` 以跨前缀方法和非B1的CA项作为反例。
+
+## B6a 统一时点输入
+
+入口为 `src/lib/as-of.ts` 的 `createAsOfAdapter(records, { asOf, capturedBy? }).read(request)`；六类字段口径统一由 `src/lib/as-of-inputs.ts` 的 `readAsOfInput` 提供。未知字段返回 `missing/unsupported-field`，新增因子复用同一适配器并按需要补字段口径，不再新建时点层。
+
+每条输入独立携带 `domain/entity/field/effectiveAt/source/availableAt/capturedAt/versionId/availabilityEvidence/unit/value`。`effectiveAt` 是精确业务生效日期或带时区时间；财务/机构以季度末为报告期，年度字段限年末。日期以上海零时比较，但**绝不**作为披露时间。`availableAt`、`capturedAt` 必须为带时区的完整时间；前者是该确切值版本首次公开可知时间，后者是采集时间。`availabilityEvidence` 必须为 `{ kind: "version-publication", reference: "该版本原始公开证据引用" }`；`versionId` 标识值版本，不能借用文件格式号。证据真实性由提供者负责核验，本接口不把字符串引用视为独立公告认证。
+
+查询必须指定精确 `domain/entity/field/effectiveAt`，不把其他报告期或今日成分延续到请求日。仅在 `effectiveAt <= asOf` 且 `availableAt <= asOf` 的版本中选择最新可知版本；同版本值冲突、同可知时点冲突、跨源未显式选源、最新值无效或单位不匹配均返回missing/null及原因，不填零、不退回旧值。重复采集同一版本保留最早采集证据。允许事后采集已经公开的历史原版本；可选 `capturedBy` 进一步冻结档案采集上界，不与市场可知时间混用。未来修订不进入过去资料及其hash。
+
+| domain | 已定义字段 | entity / effectiveAt |
+| --- | --- | --- |
+| finance | quarterlyEps、quarterlyEpsGrowth、quarterlyRevenueGrowth、quarterlyProfitGrowth、annualEps、annualCashPerShare、annualRoe、annualWeightedRoe | 证券 / 报告期 |
+| capital | totalShares、floatShares、floatMarketCap | 证券 / 观察日期 |
+| institutions | count、shares、floatRatio | 证券 / 报告期 |
+| catalysts | events（具名事件清单；有证据的空清单与缺失不同） | 证券 / 观察日期 |
+| rs | members、industry（含分类版本） | 证券池ID或证券 / 观察日期 |
+| benchmarkCalendar | calendar（start/end/openDays/closedDays，逐日完整且覆盖请求日） | 基准ID / 观察日期 |
+
+CANSLIM入口由 `src/server/canslim-dossier.ts` 导出 `buildCanslimAsOfDossier(request, observations)` 和 `gatherCanslimAsOfDossier(request, load, signal?)`。request显式提供 `symbol/asOf/observationDate/financialPeriods/annualPeriods/institutionPeriods/universeId/benchmarkId`，可选capturedBy。返回六类inputs、逐字段dataGaps和确定性ID；每个available值保留四类来源时点及版本证据。load只返回版本化输入，不自动调用当前行情/财务或回退来源；加载器不能移动截止时间。原当前资料入口的历史保护保留；本批不改当前报告API，不产生因子评分，B6b消费本路径。
+
+固定输入入口：`tests/as-of.test.ts`、`tests/canslim-as-of-dossier.test.ts`；含修订不回填、availableAt缺失拒绝、时区边界、事后采集/档案截止、来源及版本冲突、六类缺覆盖、日历反例及取消。真实gpcw的22个数值字段没有已验证披露/修订可知证据，不能因数字完整而进入历史因子；无需重扫数据包。
