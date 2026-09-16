@@ -2,6 +2,10 @@ import { z } from "zod";
 import type { ResearchManagement } from "./research-management";
 
 export const contextRiskProfiles = {
+  "rk-sector-risk": ["RK-E-sector-risk", "板块及60日相关簇3%合并风险"],
+  "rk-diversify": ["RK-F-diversify", "板块及60日高相关持仓去集中"],
+  "rk-event-reduce": ["RK-F-event-reduce", "已知事件前三交易日减半"],
+  "rk-kelly-market": ["RK-C-kelly-market-gate", "开发段半凯利与熊市派发禁入"],
   "sw-emotion": ["SW11-emotion-gate", "人工情绪交易开关"],
   "sw-emotion-week": ["SW-P-emotion-week", "情绪失控暂停至少五交易日"],
   "sw-discipline-week": ["SW-P-discipline-week", "纪律违规暂停至少五交易日"],
@@ -25,6 +29,28 @@ export const contextRiskInputSchema = z
     effectiveAt: timestamp,
     availableAt: timestamp,
     capturedAt: timestamp,
+    sector: z.string().trim().min(1).optional(),
+    marketStage: z
+      .object({
+        stage: z.enum(["bull", "neutral", "bear", "distribution"]),
+        predicateVersion: z.string().trim().min(1),
+        evidence: z.string().trim().min(1),
+      })
+      .strict()
+      .optional(),
+    scheduledEvent: z
+      .object({
+        coverageComplete: z.literal(true),
+        id: z.string().trim().min(1),
+        eventDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable(),
+        announcedAt: timestamp,
+        evidence: z.string().trim().min(1),
+      })
+      .strict()
+      .optional(),
     emotion: z.enum(["normal", "impaired"]).optional(),
     discipline: z.enum(["compliant", "violated"]).optional(),
     // Complete coverage is mandatory even for a negative event classification.
@@ -65,6 +91,7 @@ export const contextRiskInputsSchema = z
   .max(100000);
 export type ContextRiskInput = z.infer<typeof contextRiskInputSchema>;
 export const contextRiskBoundary =
+  "组合补充v1：板块取有时点输入，相关性为前收截止60个相邻收益Pearson>=0.8；相关连接取传递闭包，缺行业或61日连续有效收盘则不准新仓；交易模拟需公司行动证明覆盖被读取的完整价格前缀，不能只证明研究期。板块/高相关合并含费规划风险上限3%；分散版同簇只持一只。再平衡为月切换首个观察收盘、只减超出权益20%的部分，下一可成交开盘按确认股数执行，不追买不足份额；持仓缺价不计算。事件完整日历已公告且进入前三研究交易日含当日则禁新仓、同事件每持仓减半一次，执行受阻保留请求；不以事后实际事件日期替代预公告。凯利只用开发段净盈亏训练，熊市/派发优先禁入，未知不当牛市。" +
   "B2人工/事件输入工程v1：固定双突破入场、2%含费风险、20%单股、60%总仓位、最多3只、60交易日上限、初始5%收盘保护。逐证券逐日输入必须有source/version/effectiveAt/availableAt/capturedAt且当日15:00前已知；无输入或事后补录missing，不从价格/LLM推断情绪或补新闻。情绪/纪律暂停当日确认后随后至少5个研究交易日，且恢复须有当日正常/合规输入，缺日不提前恢复。事件分类需完整覆盖、真实发布时间、可重现分类版本和证据，重大利空/利好兑现收盘确认下一可成交开盘退出。七项预检在前收核对环境、真实双突破事件、事件窗口、情绪，开盘用冻结目标/止损和费用重算2R及2%预算。持续资格独立于单次突破，有明确否才排队退出。逻辑证伪须入场前冻结命题和失效条件，持有期间同一命题；禁止补理由，另有入场价减2倍初始风险距离的日线最低价灾难确认（次日执行，不冒充盘中成交）。固定输入不是历史业绩。";
 export function contextRiskTemplate(id: ContextRiskId): ResearchManagement {
   return {
@@ -74,7 +101,15 @@ export function contextRiskTemplate(id: ContextRiskId): ResearchManagement {
     stressBuffer: 0,
     trail: { kind: "fixed" },
     timeExit: null,
-    maxTotalWeight: 0.6,
+    maxTotalWeight: id === "rk-sector-risk" ? 1 : 0.6,
+    ...(id === "rk-kelly-market"
+      ? {
+          kelly: {
+            fraction: 0.5,
+            provenance: "development-net-payoff" as const,
+          },
+        }
+      : {}),
   };
 }
 export function contextRiskPoint(
@@ -108,8 +143,27 @@ export function contextRiskPoint(
     Date.parse(e.availableAt) > Date.parse(e.capturedAt)
   )
     return missing("人工/事件输入当时不可知或事后补录");
+  if ((id === "rk-sector-risk" || id === "rk-diversify") && !e.sector)
+    return missing("缺当时可知行业归属");
+  if (id === "rk-kelly-market" && !e.marketStage)
+    return missing("缺当时可知市场阶段与判定证据");
+  if (
+    id === "rk-event-reduce" &&
+    (!e.scheduledEvent ||
+      Date.parse(e.scheduledEvent.announcedAt) > cutoff ||
+      (e.scheduledEvent.eventDate != null &&
+        !calendar.includes(e.scheduledEvent.eventDate)))
+  )
+    return missing("缺完整事件日历、公告可知时点或交易日映射");
   let allow = true,
     exit = false;
+  if (id === "rk-kelly-market")
+    allow = !["bear", "distribution"].includes(e.marketStage!.stage);
+  if (id === "rk-event-reduce" && e.scheduledEvent!.eventDate) {
+    const ahead =
+      calendar.indexOf(e.scheduledEvent!.eventDate) - calendar.indexOf(date);
+    allow = ahead < 0 || ahead > 3;
+  }
   if (
     id === "sw-emotion" ||
     id === "sw-emotion-week" ||
@@ -203,4 +257,8 @@ export function contextRiskPoint(
     reason: allow ? null : "具名事件/人工状态门槛未通过",
     evidence: e,
   };
+}
+
+export function contextRiskMaxPositions(id: ContextRiskId) {
+  return id === "rk-sector-risk" ? 10 : 3;
 }

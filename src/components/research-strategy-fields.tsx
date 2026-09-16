@@ -1,4 +1,15 @@
-import { riskPresetParameters } from "~/lib/research-risk-presets";
+import {
+  riskExtensionSchema,
+  riskExtensionTemplate,
+  evaluateRiskExtension,
+  riskExtensionBoundary,
+} from "~/lib/research-risk-extensions";
+import { Textarea } from "./ui/textarea";
+import { contextRiskMaxPositions } from "~/lib/research-context-risk";
+import {
+  riskPresetParameters,
+  riskPresetBase,
+} from "~/lib/research-risk-presets";
 import { growthIntradayBase } from "~/lib/research-growth-intraday";
 import { growthDailyBase } from "~/lib/research-growth-daily";
 import { maParamsSchema } from "~/lib/domain";
@@ -42,12 +53,12 @@ export function applyResearchManagement(
           strategy: "dual-breakout" as const,
           maParams: undefined,
           risk: { fraction: 0.02, maxWeight: 0.2 },
-          maxPositions: 3,
+          maxPositions: contextRiskMaxPositions(management.contextRisk),
         }
       : {}),
     ...(management.riskPreset
       ? {
-          strategy: "dual-breakout" as const,
+          strategy: riskPresetBase(management.riskPreset),
           maParams: undefined,
           risk: {
             fraction: riskPresetParameters(management.riskPreset).fraction,
@@ -121,7 +132,10 @@ export function selectResearchStrategy(
     } = management;
     management = rest;
   }
-  if (management?.riskPreset && strategy !== "dual-breakout") {
+  if (
+    management?.riskPreset &&
+    strategy !== riskPresetBase(management.riskPreset)
+  ) {
     const { riskPreset: _riskPreset, ...rest } = management;
     management = rest;
   }
@@ -271,6 +285,67 @@ export function ResearchStrategyFields({
             </SelectContent>
           </Select>
         </label>
+      )}
+      <label>
+        期权/做空扩展计算（不进入A股成交与净值）
+        <Select
+          value={spec.riskExtension?.kind ?? "off"}
+          onValueChange={(kind) => {
+            const { riskExtension: _old, ...rest } = spec;
+            onChange(
+              kind === "off"
+                ? rest
+                : {
+                    ...rest,
+                    riskExtension: riskExtensionTemplate(
+                      kind as "protective-put" | "collar" | "short-script",
+                    ),
+                  },
+            );
+          }}
+        >
+          <SelectTrigger aria-label="期权做空扩展">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="off">关闭扩展</SelectItem>
+            <SelectItem value="protective-put">保护性看跌到期情景</SelectItem>
+            <SelectItem value="collar">领口到期情景</SelectItem>
+            <SelectItem value="short-script">做空脚本诊断（扩展）</SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
+      {spec.riskExtension && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            {riskExtensionBoundary}
+          </p>
+          <Textarea
+            aria-label="扩展固定情景JSON"
+            key={JSON.stringify(spec.riskExtension)}
+            defaultValue={JSON.stringify(spec.riskExtension, null, 2)}
+            onBlur={(event) => {
+              try {
+                const value = riskExtensionSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...spec, riskExtension: value });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "扩展情景参数无效，请核对合约覆盖、价格与单位",
+                );
+                event.currentTarget.reportValidity();
+              }
+            }}
+          />
+          <pre
+            className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs"
+            aria-label="扩展情景结果"
+          >
+            {JSON.stringify(evaluateRiskExtension(spec.riskExtension), null, 2)}
+          </pre>
+        </div>
       )}
       {isCanslimResearch(spec.strategy) && (
         <Button

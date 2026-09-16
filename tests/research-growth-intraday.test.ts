@@ -362,3 +362,32 @@ it("RK-B-touch latches an entry-day touch across T+1 and a 15:00 touch across se
   f.minutes[96 + 47]!.low = 95;
   expect(f.run().trades[0]!.sales![0]!.date).toBe("2022-11-24T09:30:00+08:00");
 });
+
+it.each(["RK-A-intraday-structure30", "RK-A-intraday-points30"] as const)(
+  "%s confirms 30 trading minutes and preserves T+1 pending exit",
+  (id) => {
+    const f = setup(id);
+    f.minutes.forEach((b) => (b.low = 99.8));
+    f.minutes[40]!.low = 98.5;
+    const result = f.run();
+    expect(result.trades[0]!.initialStop).toBe(
+      id === "RK-A-intraday-structure30" ? 98.5 : 99.5,
+    );
+    expect(result.trades[0]!.sales![0]).toMatchObject({
+      date: `${f.bars[2]!.date}T09:30:00+08:00`,
+      reason: "30交易分钟收盘未达0.5R，时间止损",
+    });
+    expect(result.trades[0]!.sales![0]!.triggerDate).toBe(
+      `${f.bars[1]!.date}T10:00:00+08:00`,
+    );
+  },
+);
+it("intraday time equality passes and missing minute structure is not substituted by daily low", () => {
+  const f = setup("RK-A-intraday-points30");
+  f.minutes.forEach((b) => (b.low = 99.8));
+  f.minutes[48 + 5]!.close = 100.25;
+  expect(f.run().trades[0]!.exitDate).toBeNull();
+  const missing = setup("RK-A-intraday-structure30");
+  expect(missing.run().trades).toHaveLength(0);
+  expect(missing.run().excluded[0]!.reason).toContain("五分钟结构");
+});

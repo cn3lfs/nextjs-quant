@@ -1,3 +1,6 @@
+import { crowdedStop } from "~/lib/research-risk-scenarios";
+import { riskPresetEvolution } from "~/lib/research-risk-presets";
+import { chanStopLine } from "~/lib/research-stop-calibration";
 import { riskPresetAdmission } from "~/lib/research-risk-presets";
 import { isVolumePollution } from "~/lib/research-volume-pollution";
 import { isVolumeAdapted } from "~/lib/research-volume-adapted";
@@ -169,6 +172,15 @@ export async function researchSignals(
         });
     } else if (definition.signal === "dual-breakout") {
       const result = analyzeBreakout(bars.slice(0, index + 1)).latest;
+      const crowd = riskPresetEvolution(spec.management?.riskPreset)?.crowded;
+      const crowded = crowd
+        ? crowdedStop(
+            result,
+            crowd.anchor,
+            stopAtr?.[index] ?? null,
+            crowd.multiple,
+          )
+        : null;
       const location =
         stop?.kind === "breakout-candle" || stop?.kind === "platform-upper"
           ? researchBreakoutStopLocation(
@@ -195,6 +207,7 @@ export async function researchSignals(
             riskPresetAdmission(spec.management.riskPreset) === "rr2")
             ? { entryTarget: result.long.risk.target1?.price ?? null }
             : {}),
+          ...(crowd ? { initialStop: crowded?.price ?? null } : {}),
           ...(location !== undefined
             ? { initialStop: location?.price ?? null }
             : {}),
@@ -237,6 +250,24 @@ export async function researchSignals(
       }
     }
     progress(bar.date);
+  }
+  if (spec.management?.riskPreset === "rk-chan-line") {
+    let nativeVersion: string | null = null;
+    for (const event of events) {
+      if (cancelled()) throw new Error("研究已取消");
+      const prefix = bars.filter((b) => b.date <= event.observedDate);
+      const result = await czsc(prefix);
+      const version = `${result.sourceCommit}/${result.hash}`;
+      if (nativeVersion != null && nativeVersion !== version)
+        throw new Error("回放期间DLL版本变化");
+      nativeVersion = version;
+      const line = chanStopLine(result, prefix, spec.czscConfig);
+      event.initialStop = line.stop;
+      event.evidence = JSON.stringify({
+        baseline: event.evidence,
+        chanStop: line,
+      });
+    }
   }
   return events;
 }

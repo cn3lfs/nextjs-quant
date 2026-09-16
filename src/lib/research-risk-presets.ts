@@ -1,3 +1,6 @@
+import { riskScenarioBoundary } from "./research-risk-scenarios";
+import { stopCalibrationBoundary } from "./research-stop-calibration";
+import type { VolatilityStopId } from "./research-volatility-stops";
 import type { Bar } from "./domain";
 import {
   riskAdmissionBoundary,
@@ -12,6 +15,19 @@ import type { BacktestCosts } from "./backtest-costs";
 import { plannedStopRisk } from "./research-risk";
 
 type Profile = {
+  noSingleStop?: boolean;
+  meanReversion?: boolean;
+  chop?: "pause" | "spacing";
+  slipReport?: boolean;
+  crowded?: {
+    anchor: "round" | "swing-low" | "trend";
+    multiple: 0 | 0.3 | 0.5;
+  };
+  rebalance?: boolean;
+  line?: VolatilityStopId;
+  respect?: boolean;
+  mae?: boolean;
+  chan?: boolean;
   location?: "atr-bands" | "farther";
   structureTrail?: boolean;
   disaster?: "2r" | "3pct";
@@ -31,6 +47,182 @@ type Profile = {
   totalRisk?: number;
 };
 export const riskProfiles = {
+  "rk-mean-stop": {
+    method: "RK-F-no-single-stop",
+    label: "布林回归有单笔5%止损对照",
+    meanReversion: true,
+    weight: 0.1,
+    totalWeight: 0.3,
+    account: "drawdown10",
+  },
+  "rk-mean-no-stop": {
+    method: "RK-F-no-single-stop",
+    label: "布林回归无单笔止损/账户仓位约束",
+    meanReversion: true,
+    noSingleStop: true,
+    weight: 0.1,
+    totalWeight: 0.3,
+    account: "drawdown10",
+  },
+  "rk-chop-pause": {
+    method: "RK-E-chop-frequency",
+    label: "频繁止损与震荡后暂停5日",
+    chop: "pause",
+  },
+  "rk-chop-spacing": {
+    method: "RK-E-chop-frequency",
+    label: "频繁止损与震荡后间隔5日",
+    chop: "spacing",
+  },
+  "rk-slip-report": {
+    method: "RK-C-slip-report",
+    label: "原脚本不缩股滑点诊断对照",
+    slipReport: true,
+  },
+  "rk-crowded-round-0": {
+    method: "RK-A-crowded-buffer",
+    label: "round 0ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "round", multiple: 0 },
+  },
+  "rk-crowded-round-3": {
+    method: "RK-A-crowded-buffer",
+    label: "round 0.3ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "round", multiple: 0.3 },
+  },
+  "rk-crowded-round-5": {
+    method: "RK-A-crowded-buffer",
+    label: "round 0.5ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "round", multiple: 0.5 },
+  },
+  "rk-crowded-swing-low-0": {
+    method: "RK-A-crowded-buffer",
+    label: "swing-low 0ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "swing-low", multiple: 0 },
+  },
+  "rk-crowded-swing-low-3": {
+    method: "RK-A-crowded-buffer",
+    label: "swing-low 0.3ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "swing-low", multiple: 0.3 },
+  },
+  "rk-crowded-swing-low-5": {
+    method: "RK-A-crowded-buffer",
+    label: "swing-low 0.5ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "swing-low", multiple: 0.5 },
+  },
+  "rk-crowded-trend-0": {
+    method: "RK-A-crowded-buffer",
+    label: "trend 0ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "trend", multiple: 0 },
+  },
+  "rk-crowded-trend-3": {
+    method: "RK-A-crowded-buffer",
+    label: "trend 0.3ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "trend", multiple: 0.3 },
+  },
+  "rk-crowded-trend-5": {
+    method: "RK-A-crowded-buffer",
+    label: "trend 0.5ATR缓冲对照",
+    atr: 14,
+    crowded: { anchor: "trend", multiple: 0.5 },
+  },
+
+  "rk-rebalance": {
+    method: "RK-F-rebalance",
+    label: "月初收盘20%上限再平衡减仓",
+    rebalance: true,
+    totalWeight: 0.6,
+  },
+  "rk-indicator-ema20": {
+    method: "RK-A4-indicator",
+    label: "EMA20初始指标线止损",
+    line: "rk-ema20",
+    respect: false,
+  },
+  "rk-respect-ema20": {
+    method: "RK-A4-respect",
+    label: "EMA20历史沿线准入",
+    line: "rk-ema20",
+    respect: true,
+  },
+  "rk-indicator-ma60": {
+    method: "RK-A4-indicator",
+    label: "MA60初始指标线止损",
+    line: "rk-ma60",
+    respect: false,
+  },
+  "rk-respect-ma60": {
+    method: "RK-A4-respect",
+    label: "MA60历史沿线准入",
+    line: "rk-ma60",
+    respect: true,
+  },
+  "rk-indicator-ma120": {
+    method: "RK-A4-indicator",
+    label: "MA120初始指标线止损",
+    line: "rk-ma120",
+    respect: false,
+  },
+  "rk-respect-ma120": {
+    method: "RK-A4-respect",
+    label: "MA120历史沿线准入",
+    line: "rk-ma120",
+    respect: true,
+  },
+  "rk-indicator-boll-mid": {
+    method: "RK-A4-indicator",
+    label: "布林中轨初始指标线止损",
+    line: "rk-boll-mid",
+    respect: false,
+  },
+  "rk-respect-boll-mid": {
+    method: "RK-A4-respect",
+    label: "布林中轨历史沿线准入",
+    line: "rk-boll-mid",
+    respect: true,
+  },
+  "rk-indicator-keltner-mid": {
+    method: "RK-A4-indicator",
+    label: "Keltner中线初始指标线止损",
+    line: "rk-keltner-mid",
+    respect: false,
+  },
+  "rk-respect-keltner-mid": {
+    method: "RK-A4-respect",
+    label: "Keltner中线历史沿线准入",
+    line: "rk-keltner-mid",
+    respect: true,
+  },
+  "rk-indicator-sar": {
+    method: "RK-A4-indicator",
+    label: "SAR初始指标线止损",
+    line: "rk-sar",
+    respect: false,
+  },
+  "rk-respect-sar": {
+    method: "RK-A4-respect",
+    label: "SAR历史沿线准入",
+    line: "rk-sar",
+    respect: true,
+  },
+  "rk-chan-line": {
+    method: "RK-A4-chan-line",
+    label: "原生已确认三买中枢ZG止损",
+    chan: true,
+  },
+  "rk-mae": {
+    method: "RK-A5-mae",
+    label: "开发段百笔MAE百分比Q90止损",
+    mae: true,
+  },
+
   "rk-atr-bands": {
     method: "RK-A1-atr-bands",
     label: "ATR14价格比分档3/5/8%",
@@ -285,6 +477,8 @@ export const riskPresetIds = Object.keys(riskProfiles) as [
 export const riskPresetBoundary =
   "B2规模/演化工程v1：均为固定双突破入场、60交易日上限的独立对照，默认初始5%止损、当前权益1%含费风险和20%单股上限。五档风险不代表已知胜率；硬2%版禁止更高输入。初始权益版仅冻结风险金额基数，市值和可用现金仍以开盘已知现金加其余持仓前收估值约束。组合在险为逐持仓max(0,原始入场价至当前有效止损的含费规划损失)之和，盈利保护不能抵消其他持仓风险；预算不足或持仓估值/止损缺失不新入。15%/20%市值与前20日均成交额1%容量统一换算为股数向下取整，实际跳空可超预算。保本0.3/0.5/1R只用当时收盘浮盈、下一交易日起生效；结构版另需因果确认更高低点。10日无进展工程冻结为未达到0.5R，价格止损并存。ATR10/20共享算术ATR、均为2倍，仅改变初始定位及其风险股数，不按未来业绩选参数。不保本及亏损反例完整保留，未真实回测。" +
   "新增定位v1：ATR14/实际入场价>3%用8%、<1.5%用3%，两等号及中间档5%为显式工程版本。结构更远初始取min(结构减0.3ATR14,入场减2ATR14)，每条候选均有效才采用，风险股数按最终距离计算。结构跟随沿用60根3左3右因果更高低点确认，须入场后且高于入场价，只升不降、次日生效。灾难-2R/-3%两个对照均独立于初始5%技术止损和1%预算，日线最低价确认后次日可成交开盘，不冒充瞬时盘中备份或保证成交。3%风险版记录入场权益、计划含费风险及结算实际损失/超限，跳空不保证3%封顶。" +
+  riskScenarioBoundary +
+  stopCalibrationBoundary +
   accountRiskBoundary +
   riskAdmissionBoundary;
 export function riskPresetAdmission(id: RiskPresetId) {
@@ -315,7 +509,7 @@ export function riskPresetTemplate(id: RiskPresetId): ResearchManagement {
           : { kind: "percent", fraction: 0.05 },
     confirmations: 1,
     stressBuffer: 0,
-    trail: { kind: "fixed" },
+    trail: p.line ? { kind: "volatility", profile: p.line } : { kind: "fixed" },
     timeExit: p.days ? { days: p.days, minR: 0.5 } : null,
     ...(p.liquidity ? { liquidityCap: true as const } : {}),
     ...(p.be != null
@@ -417,4 +611,10 @@ export function riskDisasterTriggered(
     bar.low <=
     (kind === "2r" ? entry - 2 * (entry - initialStop) : entry * 0.97)
   );
+}
+
+export function riskPresetBase(id: RiskPresetId) {
+  return (riskProfiles[id] as Profile).meanReversion
+    ? ("boll-band-recovery" as const)
+    : ("dual-breakout" as const);
 }

@@ -1,5 +1,7 @@
+import { riskExtensionSchema } from "./research-risk-extensions";
+import { contextRiskMaxPositions } from "~/lib/research-context-risk";
 import { z } from "zod";
-import { riskPresetParameters } from "./research-risk-presets";
+import { riskPresetParameters, riskPresetBase } from "./research-risk-presets";
 import { growthIntradayBase } from "./research-growth-intraday";
 import { growthDailyBase } from "./research-growth-daily";
 import { poolSelectionSchema } from "./market-pool";
@@ -30,6 +32,7 @@ export const researchSpecSchema = z
     maParams: maParamsSchema.optional(),
     risk: researchRiskSchema.optional(),
     management: researchManagementSchema.optional(),
+    riskExtension: riskExtensionSchema.optional(),
     // Optional only for reading historical tasks; new requests require a list.
     symbols: z
       .array(z.string().regex(/^(sh(60|68)|sz(00|30))\d{4}$/))
@@ -66,16 +69,18 @@ export const researchSpecSchema = z
         value.risk?.fraction !== 0.02 ||
         value.risk?.maxWeight !== 0.2 ||
         value.holdingDays !== 60 ||
-        value.maxPositions !== 3)
+        value.maxPositions !==
+          contextRiskMaxPositions(value.management.contextRisk))
     )
       context.addIssue({
         code: "custom",
-        message: "人工事件预设须双突破、2%风险、20%单股、3只、60交易日上限",
+        message:
+          "人工事件预设须双突破、2%风险、20%单股、对应持仓数、60交易日上限",
       });
     if (value.management?.riskPreset) {
       const p = riskPresetParameters(value.management.riskPreset);
       if (
-        value.strategy !== "dual-breakout" ||
+        value.strategy !== riskPresetBase(value.management.riskPreset) ||
         value.risk?.fraction !== p.fraction ||
         value.risk?.maxWeight !== p.maxWeight ||
         value.holdingDays !== 60

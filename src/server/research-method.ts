@@ -1,3 +1,4 @@
+import { riskExtensionBoundary } from "~/lib/research-risk-extensions";
 import { contextRiskBoundary } from "~/lib/research-context-risk";
 import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
 import { growthIntradayDescription } from "~/lib/research-growth-intraday";
@@ -60,7 +61,9 @@ import {
 // This is the revision interpreted by this implementation, not whichever
 // skill happens to be installed when an old experiment is opened or retried.
 export function researchMethodSnapshot(
-  input: ResearchStrategyId | Pick<ResearchSpec, "strategy" | "management">,
+  input:
+    | ResearchStrategyId
+    | Pick<ResearchSpec, "strategy" | "management" | "riskExtension">,
   management = false,
   scaleOut = false,
 ) {
@@ -249,6 +252,15 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" && input.riskExtension
+      ? {
+          riskExtension: {
+            input: input.riskExtension,
+            interpretation: riskExtensionBoundary,
+            includedInSimulation: false,
+          },
+        }
+      : {}),
     ...(typeof input !== "string" && input.management?.riskPreset
       ? {
           riskPreset: {
@@ -640,7 +652,9 @@ export function researchMethodSnapshot(
 export type ResearchMethodSnapshot = ReturnType<typeof researchMethodSnapshot>;
 
 export function validateResearchMethod(
-  strategy: ResearchStrategyId | Pick<ResearchSpec, "strategy" | "management">,
+  strategy:
+    | ResearchStrategyId
+    | Pick<ResearchSpec, "strategy" | "management" | "riskExtension">,
   saved: ResearchMethodSnapshot | undefined,
   management = false,
   scaleOut = false,

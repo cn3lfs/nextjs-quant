@@ -1,3 +1,9 @@
+import { chopFrequency, scriptSlipSizing } from "~/lib/research-risk-scenarios";
+import { researchGroupRisk } from "~/lib/research-group-risk";
+import {
+  indicatorRespect,
+  type ResearchMaeTraining,
+} from "~/lib/research-stop-calibration";
 import {
   riskDisasterTriggered,
   riskPresetEvolution,
@@ -79,6 +85,8 @@ type WeeklyReductionSignal = NonNullable<
   Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
 >;
 export type ResearchTrade = {
+  scriptSlipComparison?: ReturnType<typeof scriptSlipSizing>;
+  sizingReferenceOnly?: true;
   growthReviews?: {
     date: string;
     days: number;
@@ -163,6 +171,7 @@ export function researchPortfolio(
   benchmark?: { symbol: string; bars: readonly Bar[] },
   kellyTraining?: ResearchKellyTraining | null,
   growthMarket?: { symbol: string; bars: readonly Bar[] },
+  maeTraining?: ResearchMaeTraining | null,
 ) {
   const growthDaily = spec.management?.growthDaily;
   const growthAdd = growthDaily === "CA-P-add23";
@@ -440,6 +449,16 @@ export function researchPortfolio(
     check: ReturnType<typeof contextRiskPoint>;
   }[] = [];
   const exits = new Map<string, string>();
+  const reducedEvents = new Set<string>();
+  const chopFrequencyChecks: {
+    date: string;
+    check: ReturnType<typeof chopFrequency>;
+  }[] = [];
+  const groupRiskChecks: {
+    symbol: string;
+    date: string;
+    check: ReturnType<typeof researchGroupRisk>;
+  }[] = [];
   const partials = new Map<
     string,
     | { stage: number; desired: number; triggerDate: string }
@@ -460,6 +479,8 @@ export function researchPortfolio(
   const pyramid = spec.management?.pyramid;
   const pullback = pyramid?.kind === "pullback-50-50" ? pyramid : null;
   const batched = !!(
+    spec.management?.contextRisk === "rk-event-reduce" ||
+    spec.management?.riskPreset === "rk-rebalance" ||
     scaleOut ||
     pyramid ||
     technicalId ||
@@ -975,6 +996,26 @@ export function researchPortfolio(
         });
         continue;
       }
+      const chopMode = riskPresetEvolution(spec.management?.riskPreset)?.chop;
+      if (chopMode) {
+        const check = chopFrequency(
+          chopMode,
+          date,
+          calendar,
+          benchmark?.bars ?? [],
+          trades,
+        );
+        chopFrequencyChecks.push({ date, check });
+        if (!check.allow) {
+          attempts.push({
+            symbol: event.symbol,
+            date,
+            side: "buy",
+            reason: check.reason!,
+          });
+          continue;
+        }
+      }
       if (spec.management?.contextRisk) {
         const priorDate =
           calendar.filter((d) => d < date).at(-1) ?? event.observedDate;
@@ -1117,13 +1158,49 @@ export function researchPortfolio(
         finished.add(event);
         continue;
       }
+      const calibration = riskPresetEvolution(spec.management?.riskPreset);
+      if (calibration?.respect && calibration.line) {
+        const check = indicatorRespect(
+          series.get(event.symbol) ?? [],
+          calendar,
+          event.observedDate,
+          calibration.line,
+        );
+        if (!check.allow) {
+          excluded.push({ event, reason: check.reason! });
+          finished.add(event);
+          continue;
+        }
+      }
+      const calibratedWidth =
+        calibration?.mae &&
+        maeTraining &&
+        !maeTraining.reason &&
+        maeTraining.cutoff <= spec.start &&
+        maeTraining.records.every((r) => r.exitDate < maeTraining.cutoff)
+          ? maeTraining.width
+          : null;
+      if (calibration?.mae && calibratedWidth == null) {
+        excluded.push({
+          event,
+          reason: `missing: ${maeTraining?.reason ?? "缺验证起点之前冻结的MAE训练"}`,
+        });
+        finished.add(event);
+        continue;
+      }
+      const indicatorLine = calibration?.line
+        ? (volatilityLines.get(event.symbol)?.get(event.observedDate) ?? null)
+        : undefined;
       const stopOverride = researchStopOverride(spec.management, event);
-      const initialStop =
-        externalEntry?.status === "available"
-          ? externalEntry.stop
-          : spec.management
-            ? researchInitialStop(spec.management, fill.price, event)
-            : event.initialStop;
+      const initialStop = calibration?.mae
+        ? fill.price * (1 - calibratedWidth!)
+        : indicatorLine !== undefined
+          ? indicatorLine
+          : externalEntry?.status === "available"
+            ? externalEntry.stop
+            : spec.management
+              ? researchInitialStop(spec.management, fill.price, event)
+              : event.initialStop;
       if (
         externalEntry?.status === "available" &&
         externalId === "rk-kase-stages"
@@ -1211,7 +1288,7 @@ export function researchPortfolio(
         0,
       );
       const entryEquity = cash + knownValue;
-      const riskFraction = spec.management?.riskPreset
+      let riskFraction = spec.management?.riskPreset
         ? riskPresetBudget(
             spec.management.riskPreset,
             spec.initialCapital,
@@ -1224,6 +1301,37 @@ export function researchPortfolio(
             spec.costs,
           )
         : spec.risk?.fraction;
+      if (
+        spec.management?.contextRisk === "rk-sector-risk" ||
+        spec.management?.contextRisk === "rk-diversify"
+      ) {
+        const priorDate = calendar.filter((d) => d < date).at(-1);
+        const check = researchGroupRisk(
+          event.symbol,
+          priorDate ?? event.observedDate,
+          calendar,
+          series,
+          spec.management.contextRiskInputs ?? [],
+          [...positions].map(([symbol, p]) => ({
+            symbol,
+            quantity: p.remainingQuantity ?? p.quantity,
+            entry: p.entryPrice,
+            stop: states.get(symbol)?.stop ?? null,
+          })),
+          entryEquity,
+          spec.costs,
+        );
+        groupRiskChecks.push({ symbol: event.symbol, date, check });
+        riskFraction =
+          check.fraction == null
+            ? null
+            : spec.management.contextRisk === "rk-diversify" &&
+                check.members.some(
+                  (s) => s !== event.symbol && positions.has(s),
+                )
+              ? 0
+              : Math.min(riskFraction ?? 0, check.fraction);
+      }
       if (managed && (riskFraction == null || riskFraction <= 0)) {
         attempts.push({
           symbol: event.symbol,
@@ -1436,6 +1544,19 @@ export function researchPortfolio(
       cash -= entryCost;
       const trade: ResearchTrade = {
         event,
+        ...(calibration?.slipReport
+          ? {
+              scriptSlipComparison: scriptSlipSizing(
+                entryEquity,
+                spec.risk!.fraction,
+                fill.price,
+                initialStop!,
+                dailyRules!.buyStep,
+                (fill.price * spec.costs.slippageBps) / 10000,
+                spec.risk!.maxWeight,
+              ),
+            }
+          : {}),
         entryDate: date,
         entryIndex: index,
         entryPrice: fill.price,
@@ -1484,6 +1605,9 @@ export function researchPortfolio(
             }
           : {}),
         ...(managed ? { initialStop: initialStop! } : {}),
+        ...(calibration?.noSingleStop
+          ? { sizingReferenceOnly: true as const }
+          : {}),
         ...(stopOverride ? { initialStopOverride: stopOverride } : {}),
         ...((spec.management?.stop.kind === "max-distance" ||
           spec.management?.stop.kind === "nearest-stop") &&
@@ -1500,7 +1624,15 @@ export function researchPortfolio(
           ? {
               plannedRiskStop: plannedRiskStop!,
               managementWarnings: [],
-              stopHistory: [{ date, stop: initialStop!, reason: "入场冻结" }],
+              stopHistory: [
+                {
+                  date,
+                  stop: initialStop!,
+                  reason: calibration?.noSingleStop
+                    ? "仅仓位测算参考，不执行价格止损"
+                    : "入场冻结",
+                },
+              ],
             }
           : {}),
       };
@@ -1638,6 +1770,51 @@ export function researchPortfolio(
       const state = states.get(symbol);
       if (spec.management && state) {
         const evolution = riskPresetEvolution(spec.management.riskPreset);
+        if (
+          evolution?.rebalance &&
+          validClose &&
+          index > 0 &&
+          days[index - 1]!.slice(0, 7) !== date.slice(0, 7) &&
+          !exits.has(symbol) &&
+          !partials.has(symbol)
+        ) {
+          const marks = [...positions].map(([s, p]) => ({
+            p,
+            bar: indexed.get(s)?.get(date),
+          }));
+          const complete = marks.every(
+            ({ bar: b }) =>
+              b &&
+              [b.open, b.close, b.high, b.low, b.volume].every(
+                (v) => Number.isFinite(v) && v > 0,
+              ) &&
+              b.low <= Math.min(b.open, b.close) &&
+              b.high >= Math.max(b.open, b.close),
+          );
+          if (complete) {
+            const equity =
+              cash +
+              marks.reduce(
+                (sum, { p, bar: b }) =>
+                  sum + (p.remainingQuantity ?? p.quantity) * b!.close,
+                0,
+              );
+            const excess =
+              (position.remainingQuantity ?? position.quantity) -
+              (equity * 0.2) / bar!.close;
+            if (excess > 1e-8)
+              partials.set(symbol, {
+                kind: "signal",
+                desired: excess,
+                triggerDate: date,
+                reason: "月初收盘20%上限再平衡，按冻结股数减仓",
+              });
+          } else
+            position.managementWarnings!.push({
+              date,
+              reason: "再平衡缺当日有效持仓估值，未补造目标",
+            });
+        }
         if (evolution?.disaster) {
           const triggered = riskDisasterTriggered(
             bar,
@@ -1677,6 +1854,33 @@ export function researchPortfolio(
               date,
               reason: `missing: ${check.reason}`,
             });
+          if (
+            id === "rk-event-reduce" &&
+            check.status === "available" &&
+            !check.allow &&
+            check.evidence.scheduledEvent
+          ) {
+            const key = JSON.stringify([
+              symbol,
+              position.event.key,
+              position.entryDate,
+              check.evidence.scheduledEvent.id,
+            ]);
+            if (
+              !reducedEvents.has(key) &&
+              !exits.has(symbol) &&
+              !partials.has(symbol)
+            ) {
+              partials.set(symbol, {
+                kind: "signal",
+                desired:
+                  (position.remainingQuantity ?? position.quantity) * 0.5,
+                triggerDate: date,
+                reason: "已公告事件前三交易日减半",
+              });
+              reducedEvents.add(key);
+            }
+          }
           if (check.exit && !exits.has(symbol))
             exits.set(symbol, `${id}已确认，下一可成交开盘退出`);
           if (
@@ -1784,7 +1988,10 @@ export function researchPortfolio(
         }
         // Test the line known before this close; close-derived raises apply
         // from the next session. An already queued exit is never revoked.
-        state.breaches = bar.close <= state.stop ? state.breaches + 1 : 0;
+        state.breaches =
+          !evolution?.noSingleStop && bar.close <= state.stop
+            ? state.breaches + 1
+            : 0;
         if (
           state.breaches >= spec.management.confirmations &&
           !exits.has(symbol)
@@ -2195,6 +2402,8 @@ export function researchPortfolio(
       : {}),
     ...(admissionRule ? { riskAdmissionChecks } : {}),
     ...(spec.management?.contextRisk ? { contextChecks } : {}),
+    ...(groupRiskChecks.length ? { groupRiskChecks } : {}),
+    ...(chopFrequencyChecks.length ? { chopFrequencyChecks } : {}),
     ...(accountRisk ? { accountRisk: accountRisk.snapshot() } : {}),
     ...(lossPause ? { lossPause: lossPause.snapshot(days.length - 1) } : {}),
     ...(marketEnvironment ? { marketEnvironment } : {}),

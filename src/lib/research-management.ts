@@ -1,4 +1,7 @@
-import { riskPresetInitialStop } from "./research-risk-presets";
+import {
+  riskPresetInitialStop,
+  riskPresetEvolution,
+} from "./research-risk-presets";
 import {
   contextRiskIds,
   contextRiskTemplate,
@@ -375,7 +378,7 @@ export const researchManagementSchema = z
         Object.keys(value).some((key) => !(key in template)) ||
         value.stop.kind !== "percent" ||
         value.stop.fraction !==
-          (value.growthIntraday === "RK-B-touch"
+          (value.growthIntraday.startsWith("RK-")
             ? 0.05
             : value.growthIntraday.startsWith("SE-")
               ? 0.1
@@ -482,6 +485,15 @@ export function researchInitialStop(
   },
 ) {
   if (management.riskPreset) {
+    if (
+      management.riskPreset === "rk-chan-line" ||
+      riskPresetEvolution(management.riskPreset)?.crowded
+    ) {
+      const line = evidence.initialStop;
+      return line != null && Number.isFinite(line) && line > 0 && line < entry
+        ? line
+        : null;
+    }
     const selected = riskPresetInitialStop(
       management.riskPreset,
       entry,

@@ -1,3 +1,8 @@
+import { evaluateRiskExtension } from "~/lib/research-risk-extensions";
+import {
+  researchMaeTraining,
+  type ResearchMaeTraining,
+} from "~/lib/research-stop-calibration";
 import { contextRiskPoint } from "~/lib/research-context-risk";
 import {
   externalVolatilityPoint,
@@ -334,6 +339,11 @@ export async function runStrategyResearch(
   const lookup = marketEvidence
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
+  const requiresActionPrefix =
+    spec.management?.trail.kind === "volatility" ||
+    !!spec.management?.riskPreset ||
+    spec.management?.contextRisk === "rk-sector-risk" ||
+    spec.management?.contextRisk === "rk-diversify";
   const actionCovered = new Set(
     dataset.stocks
       .filter(
@@ -341,8 +351,7 @@ export async function runStrategyResearch(
           !stock.actions.some(
             (action) =>
               action.date >=
-                (spec.management?.trail.kind === "volatility" ||
-                spec.management?.riskPreset
+                (requiresActionPrefix
                   ? (stock.bars[0]?.date ?? spec.start)
                   : spec.start) &&
               action.date <= spec.end &&
@@ -352,8 +361,7 @@ export async function runStrategyResearch(
             (coverage) =>
               coverage.symbol === stock.symbol &&
               coverage.start <=
-                (spec.management?.trail.kind === "volatility" ||
-                spec.management?.riskPreset
+                (requiresActionPrefix
                   ? (stock.bars[0]?.date ?? spec.start)
                   : volume
                     ? volumeStarts.get(stock.symbol)!
@@ -370,6 +378,8 @@ export async function runStrategyResearch(
       ? riskPresetAdmission(spec.management.riskPreset)
       : undefined,
   );
+  const trainsMae = spec.management?.riskPreset === "rk-mae";
+  let maeTraining: ResearchMaeTraining | null = null;
   const trainsKelly =
     trainsAdmission ||
     spec.management?.kelly?.provenance === "development-closed" ||
@@ -413,12 +423,12 @@ export async function runStrategyResearch(
       const { kelly: _kelly, ...referenceManagement } = (spec.management ??
         {}) as Partial<NonNullable<ResearchSpec["management"]>>;
       const partitionSpec =
-        trainsKelly && partition === "development"
+        (trainsKelly || trainsMae) && partition === "development"
           ? {
               ...spec,
               start,
               end,
-              management: (trainsAdmission
+              management: (trainsAdmission || trainsMae
                 ? (({ riskPreset: _riskPreset, ...rest }) => rest)(
                     referenceManagement,
                   )
@@ -440,6 +450,7 @@ export async function runStrategyResearch(
               ? kellyTraining
               : undefined,
             dataset.canslimMarket,
+            trainsMae && partition === "validation" ? maeTraining : undefined,
           )
         : null;
       if (simulation && spec.management?.growthIntraday)
@@ -453,6 +464,14 @@ export async function runStrategyResearch(
             actionCovered.has(symbol) ? lookup(symbol, date) : null,
           simulation,
         );
+      if (trainsMae && partition === "development")
+        maeTraining = researchMaeTraining(
+          simulation?.trades ?? [],
+          series,
+          dataset.calendar,
+          spec.start,
+          spec.validationStart,
+        );
       if (trainsKelly && partition === "development")
         kellyTraining = researchKellyTraining(
           simulation?.trades ?? [],
@@ -460,6 +479,15 @@ export async function runStrategyResearch(
           spec.validationStart,
         );
       return {
+        ...(trainsMae
+          ? {
+              maeRole:
+                partition === "development"
+                  ? "reference-fixed-5pct"
+                  : "validation-frozen-q90",
+              maeTraining: partition === "validation" ? maeTraining : null,
+            }
+          : {}),
         ...(trainsAdmission
           ? {
               riskAdmissionRole:
@@ -519,6 +547,9 @@ export async function runStrategyResearch(
         }
       : null;
   const result = {
+    ...(spec.riskExtension
+      ? { riskExtension: evaluateRiskExtension(spec.riskExtension) }
+      : {}),
     ...(trainingEvidence
       ? {
           kellyTraining: {
