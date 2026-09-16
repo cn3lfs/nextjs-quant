@@ -1,3 +1,11 @@
+import {
+  assertGrowthIntradayWindow,
+  growthIntradayDescription,
+} from "~/lib/research-growth-intraday";
+import {
+  growthIntradayEntries,
+  researchGrowthIntraday,
+} from "./research-growth-intraday";
 import { isSepaResearch } from "~/lib/research-sepa-strategies";
 import { isCanslimMarket } from "~/lib/research-canslim-market-strategies";
 import { isCanslimMarketCombination } from "~/lib/research-canslim-market-strategies";
@@ -67,6 +75,8 @@ export async function runStrategyResearch(
   ) => void = () => {},
 ) {
   validateResearchMethod(spec, dataset.method);
+  if (spec.management?.growthIntraday)
+    assertGrowthIntradayWindow(spec.start, spec.end);
   const events: ResearchEvent[] = [];
   const exclusions = [...dataset.excluded];
   const reversal =
@@ -150,16 +160,26 @@ export async function runStrategyResearch(
         throw new Error(
           "量价窗口含除权事件，未实现对应量调整，拒绝使用失真量价信号",
         );
-      const observed = await researchSignals(
-        stock.symbol,
-        stock.bars,
-        spec,
-        czsc,
-        cancelled,
-        (date) => progress(stock.symbol, date, index, dataset.stocks.length),
-        dataset.calendar,
-        dataset.canslimMarket,
-      );
+      const observed =
+        spec.management?.growthIntraday === "SE-E-intraday50"
+          ? growthIntradayEntries(
+              stock.symbol,
+              stock.bars,
+              stock.minuteBars ?? [],
+              dataset.calendar,
+              spec,
+            )
+          : await researchSignals(
+              stock.symbol,
+              stock.bars,
+              spec,
+              czsc,
+              cancelled,
+              (date) =>
+                progress(stock.symbol, date, index, dataset.stocks.length),
+              dataset.calendar,
+              dataset.canslimMarket,
+            );
       const accepted = cup
         ? observed.filter((event) => {
             const start = event.historyStart;
@@ -307,10 +327,10 @@ export async function runStrategyResearch(
               >,
             }
           : { ...spec, start, end };
-      const simulation = marketEvidence
+      let simulation = marketEvidence
         ? researchPortfolio(
             partitionSpec,
-            transactionEvents,
+            spec.management?.growthIntraday ? [] : transactionEvents,
             dataset.calendar,
             series,
             (symbol, date) =>
@@ -319,8 +339,20 @@ export async function runStrategyResearch(
             trainsKelly && partition === "validation"
               ? kellyTraining
               : undefined,
+            dataset.canslimMarket,
           )
         : null;
+      if (simulation && spec.management?.growthIntraday)
+        simulation = researchGrowthIntraday(
+          partitionSpec,
+          transactionEvents,
+          dataset.calendar,
+          series,
+          new Map(dataset.stocks.map((s) => [s.symbol, s.minuteBars ?? []])),
+          (symbol, date) =>
+            actionCovered.has(symbol) ? lookup(symbol, date) : null,
+          simulation,
+        );
       if (trainsKelly && partition === "development")
         kellyTraining = researchKellyTraining(
           simulation?.trades ?? [],
@@ -397,6 +429,12 @@ export async function runStrategyResearch(
     partitions,
     exclusions,
     warnings: [
+      ...(spec.management?.growthIntraday
+        ? [
+            growthIntradayDescription,
+            `日线输入区间：${dataset.stocks.map((s) => `${s.symbol} ${s.bars[0]?.date ?? "无"}至${s.bars.at(-1)?.date ?? "无"}`).join("；")}。五分钟输入区间：${dataset.stocks.map((s) => `${s.symbol} ${s.minuteBars?.[0]?.date ?? "无"}至${s.minuteBars?.at(-1)?.date ?? "无"}`).join("；")}。本次共同研究窗口${spec.start}至${spec.end}；逐日可用性见signalGaps。事件观察仍为日线次开盘固定持有基线，盘中真实成交比较见simulation，不混作相同入场收益。`,
+          ]
+        : []),
       ...(isCanslimMarketCombination(spec.strategy)
         ? researchCanslimMarketWarnings(
             dataset.calendar,

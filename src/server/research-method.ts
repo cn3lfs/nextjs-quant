@@ -1,3 +1,5 @@
+import { growthIntradayDescription } from "~/lib/research-growth-intraday";
+import { growthDailyDescription } from "~/lib/research-growth-daily";
 import { researchKellySwitchVersion } from "~/lib/research-kelly-switch";
 import {
   isGrowthPivotStop,
@@ -228,6 +230,24 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" && input.management?.growthDaily
+      ? {
+          growthDaily: {
+            version: "growth-daily-methods-1",
+            id: input.management.growthDaily,
+            interpretation: growthDailyDescription,
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.management?.growthIntraday
+      ? {
+          growthIntraday: {
+            version: "growth-intraday-1",
+            id: input.management.growthIntraday,
+            interpretation: growthIntradayDescription,
+          },
+        }
+      : {}),
     ...(typeof input !== "string" &&
     input.management &&
     isGrowthPivotStop(input.management.stop.kind)

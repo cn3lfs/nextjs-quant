@@ -41,11 +41,25 @@ if (args[0] === "--write") {
     const registered = knownSourceDrift(
       await readFile("docs/known-source-drift.md", "utf8"),
     );
-    const result = compareSourceDrift(baseline, current, registered);
+    const map = JSON.parse(
+      await readFile(resolve("docs/trading-skills-method-map.json"), "utf8"),
+    ) as { methods: { id: string; status: string; sources?: string[] }[] };
+    const result = compareSourceDrift(
+      baseline,
+      current,
+      registered,
+      map.methods,
+    );
     console.log("已登记漂移（未解决，B6 语义对齐前不得更新锁定）：");
     console.log(JSON.stringify(registered, null, 2));
-    console.log(JSON.stringify({ failures: result }, null, 2));
-    if (result.length) process.exitCode = 1;
+    console.log(
+      JSON.stringify(
+        { failures: result.errors, notices: result.notices },
+        null,
+        2,
+      ),
+    );
+    if (result.errors.length) process.exitCode = 1;
   } else if (Object.values(diff).some((items) => items.length))
     process.exitCode = 1;
 }

@@ -1,3 +1,8 @@
+import {
+  growthVolumeReduction,
+  growthDistributionReduction,
+  growthAddConfirmation,
+} from "~/lib/research-growth-daily";
 import { researchKellySwitch } from "~/lib/research-kelly-switch";
 import { researchProgressCheck } from "~/lib/research-progress-exit";
 import { researchSepaElite } from "~/lib/research-sepa-elite";
@@ -56,6 +61,13 @@ type WeeklyReductionSignal = NonNullable<
   Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
 >;
 export type ResearchTrade = {
+  growthReviews?: {
+    date: string;
+    days: number;
+    gain: number | null;
+    pivot: number | null;
+    invalid: boolean | null;
+  }[];
   sepaElite?: NonNullable<ReturnType<typeof researchSepaElite>>;
   event: ResearchEvent;
   entryDate: string;
@@ -132,7 +144,10 @@ export function researchPortfolio(
   rules: (symbol: string, date: string) => ResearchExecutionRules | null,
   benchmark?: { symbol: string; bars: readonly Bar[] },
   kellyTraining?: ResearchKellyTraining | null,
+  growthMarket?: { symbol: string; bars: readonly Bar[] },
 ) {
+  const growthDaily = spec.management?.growthDaily;
+  const growthAdd = growthDaily === "CA-P-add23";
   const entryRangeReason = (event: ResearchEvent, price: number) => {
     const range = event.entryPriceRange;
     if (!range) return null;
@@ -645,12 +660,28 @@ export function researchPortfolio(
           addState.stopped = true;
           continue;
         }
-        const desired = pullback
-          ? trade.entries![0]!.quantity
-          : Math.min(
-              trade.plannedQuantity! * (request.stage === 0 ? 0.3 : 0.2),
-              trade.entries!.at(-1)!.quantity - 1,
-            );
+        if (
+          growthAdd &&
+          (fill.price < trade.entryPrice * 1.02 - 1e-10 ||
+            fill.price > trade.entryPrice * 1.03 + 1e-10 ||
+            entryRangeReason(trade.event, fill.price))
+        ) {
+          additions.delete(symbol);
+          addState.stopped = true;
+          trade.managementWarnings!.push({
+            date,
+            reason: "补仓开盘越过2%至3%或冻结枢纽范围，取消补仓",
+          });
+          continue;
+        }
+        const desired = growthAdd
+          ? trade.plannedQuantity! - trade.book!.totalQuantity
+          : pullback
+            ? trade.entries![0]!.quantity
+            : Math.min(
+                trade.plannedQuantity! * (request.stage === 0 ? 0.3 : 0.2),
+                trade.entries!.at(-1)!.quantity - 1,
+              );
         if (!researchRoundedBuy(desired, dailyRules)) {
           trade.managementWarnings!.push({
             date,
@@ -800,6 +831,23 @@ export function researchPortfolio(
       }
       if (positions.has(event.symbol)) {
         excluded.push({ event, reason: "同股已有持仓，不重复加仓" });
+        finished.add(event);
+        continue;
+      }
+      if (
+        growthDaily === "CA-E-cooldown" &&
+        trades.some(
+          (t) =>
+            t.event.symbol === event.symbol &&
+            t.exitDate &&
+            t.exitReason?.includes("止损") &&
+            index - days.indexOf(t.exitDate) <= 3,
+        )
+      ) {
+        excluded.push({
+          event,
+          reason: "同股止损成交后3研究交易日冷静期，取消旧信号",
+        });
         finished.add(event);
         continue;
       }
@@ -1270,6 +1318,69 @@ export function researchPortfolio(
         !!bar && bar.volume > 0 && Number.isFinite(bar.close) && bar.close > 0;
       const state = states.get(symbol);
       if (spec.management && state) {
+        if (growthDaily === "SE-D-review23") {
+          const age =
+            (Date.parse(date) - Date.parse(position.entryDate)) / 86400000;
+          for (const due of [14, 21])
+            if (
+              age >= due &&
+              !position.growthReviews?.some((r) => r.days === due)
+            ) {
+              const pivot = position.event.entryPriceRange?.min ?? null;
+              const gain = validClose
+                ? bar!.close / position.entryPrice - 1
+                : null;
+              const invalid =
+                gain === null || pivot === null
+                  ? null
+                  : gain < 0.05 - 1e-12 && bar!.close < pivot;
+              (position.growthReviews ??= []).push({
+                date,
+                days: due,
+                gain,
+                pivot,
+                invalid,
+              });
+              if (invalid)
+                exits.set(
+                  symbol,
+                  `自然${due}天复核涨幅不足5%且收盘失守冻结枢纽，次日退出`,
+                );
+              if (invalid === null)
+                position.managementWarnings!.push({
+                  date,
+                  reason: `自然${due}天复核不可用：缺少当日收盘或冻结枢纽，不补造`,
+                });
+            }
+        }
+        if (
+          growthDaily === "CA-D-volume-sell" ||
+          growthDaily === "CA-D-distribution5"
+        ) {
+          const reduce =
+            growthDaily === "CA-D-volume-sell"
+              ? growthVolumeReduction(series.get(symbol) ?? [], calendar, date)
+              : growthDistributionReduction(
+                  growthMarket?.symbol === "sh000300" ? growthMarket.bars : [],
+                  calendar,
+                  date,
+                );
+          if (reduce === null)
+            position.managementWarnings!.push({
+              date,
+              reason: "异常减仓输入或逐日日历不完整，本日不可用",
+            });
+          else if (reduce && !exits.has(symbol) && !partials.has(symbol))
+            partials.set(symbol, {
+              kind: "weekly",
+              desired: position.remainingQuantity! * 0.5,
+              triggerDate: date,
+              reason:
+                growthDaily === "CA-D-volume-sell"
+                  ? "明显放量下跌减半"
+                  : "沪深300连续第五分布日减半",
+            });
+        }
         if (
           spec.management.sepaElite &&
           !position.sepaElite &&
@@ -1519,13 +1630,21 @@ export function researchPortfolio(
           if (
             !pullback &&
             !addState.stopped &&
-            addState.stage < 2 &&
+            addState.stage < (growthAdd ? 1 : 2) &&
             !holdingDue(position, index, date) &&
             !additions.has(symbol) &&
-            bar.close >=
-              position.entryPrice +
-                (addState.stage + 1) *
-                  (position.entryPrice - position.initialStop!)
+            (growthAdd
+              ? growthAddConfirmation(
+                  series.get(symbol) ?? [],
+                  growthMarket?.symbol === "sh000300" ? growthMarket.bars : [],
+                  calendar,
+                  date,
+                  position.entryPrice,
+                ) === true
+              : bar.close >=
+                position.entryPrice +
+                  (addState.stage + 1) *
+                    (position.entryPrice - position.initialStop!))
           )
             additions.set(symbol, {
               stage: addState.stage,

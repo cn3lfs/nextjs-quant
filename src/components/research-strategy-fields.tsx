@@ -1,3 +1,5 @@
+import { growthIntradayBase } from "~/lib/research-growth-intraday";
+import { growthDailyBase } from "~/lib/research-growth-daily";
 import { maParamsSchema } from "~/lib/domain";
 import type { ResearchSpec } from "~/lib/strategy-research";
 import {
@@ -34,11 +36,29 @@ export function applyResearchManagement(
   return {
     ...spec,
     management,
-    holdingDays:
-      selected &&
-      (isCanslimProgressPreset(selected) ||
-        selected.startsWith("sepa-time4")) &&
-      selected !== spec.management?.exitPreset
+    ...(management.growthIntraday
+      ? {
+          strategy: growthIntradayBase(management.growthIntraday),
+          maParams: undefined,
+        }
+      : {}),
+    ...(management.growthDaily
+      ? {
+          strategy: growthDailyBase(management.growthDaily),
+          maParams: undefined,
+          risk: {
+            fraction: management.growthDaily === "SE-P-standard" ? 0.02 : 0.015,
+            maxWeight: management.growthDaily === "SE-P-standard" ? 0.3 : 0.25,
+          },
+          maxPositions: management.growthDaily === "SE-P-standard" ? 8 : 5,
+        }
+      : {}),
+    holdingDays: management.growthDaily
+      ? 60
+      : selected &&
+          (isCanslimProgressPreset(selected) ||
+            selected.startsWith("sepa-time4")) &&
+          selected !== spec.management?.exitPreset
         ? Math.max(60, spec.holdingDays)
         : spec.holdingDays,
   };
@@ -57,6 +77,20 @@ export function selectResearchStrategy(
       : originalManagement;
   if (management?.sepaElite && !strategy.startsWith("sepa-")) {
     const { sepaElite: _elite, ...rest } = management;
+    management = rest;
+  }
+  if (
+    management?.growthIntraday &&
+    strategy !== growthIntradayBase(management.growthIntraday)
+  ) {
+    const { growthIntraday: _intraday, ...rest } = management;
+    management = rest;
+  }
+  if (
+    management?.growthDaily &&
+    strategy !== growthDailyBase(management.growthDaily)
+  ) {
+    const { growthDaily: _daily, ...rest } = management;
     management = rest;
   }
   if (

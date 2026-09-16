@@ -35,41 +35,41 @@
     "source": "news-industry-analyst/CHANGELOG.md",
     "snapshot": "unaligned-current/news-industry-analyst/CHANGELOG.md",
     "status": "unaligned-current",
-    "hash": "c2b11c0a3e4cb040c88ed761f999e8728cd9c72ba1ea3d1d24bfa866e909bf55",
+    "hash": "eb3b1a0722880186c0e894f807af23953bdef1d0922f8197456d7da27ecd50a9",
     "lockedHash": "7f829940138da32ce55c858995cc114f0efff4588a49ee5554a7a030450492c9",
-    "bytes": 34059
+    "bytes": 37065
   },
   {
     "source": "news-industry-analyst/SKILL.md",
     "snapshot": "unaligned-current/news-industry-analyst/SKILL.md",
     "status": "unaligned-current",
-    "hash": "d3bc8183fa7adf07075393986efa8a57253115d4f11840334c67d2bf07d441da",
+    "hash": "c9c79d2d5f7e3fe9d8e59f0fe842f0e3d9b790c60e13f33d3987ad1b5099292a",
     "lockedHash": "93b85417cfe4c52551bbfc60798fb1b251c498e00b19a5f13803a5d8363c76bc",
-    "bytes": 20266
+    "bytes": 20821
   },
   {
     "source": "news-industry-classifier/references/classify-cache.md",
     "snapshot": "unaligned-current/news-industry-classifier/references/classify-cache.md",
     "status": "unaligned-current",
-    "hash": "7339187e4e7302c3baa52d36380d20d2a04746d826d2753229bfc0b6346e28d6",
+    "hash": "0fab022b61d46fe64903823e659249ac52112a1bc368ea8f4524e9d906a88943",
     "lockedHash": "aa085fa59229050b387367019b5c7a93859d9f9313ec99beeea261bd2530309d",
-    "bytes": 42775
+    "bytes": 42942
   },
   {
     "source": "news-sector-analyzer/SKILL.md",
     "snapshot": "unaligned-current/news-sector-analyzer/SKILL.md",
     "status": "unaligned-current",
-    "hash": "d70c8a438baeb209e5db9645f64a6ccf36081c1946616578d0c97700139508c8",
+    "hash": "9cf086d56c6d490750134be221405c6c5c7b535d5392b1126f705b3d4da9fb4e",
     "lockedHash": "e5bdbe96f28e76faf0bd5a2903a8573114977d6d0da0ee74e57a8adcb8e9a6d2",
-    "bytes": 16196
+    "bytes": 18157
   },
   {
     "source": "news-sector-analyzer/scripts/analyze.py",
     "snapshot": "unaligned-current/news-sector-analyzer/scripts/analyze.py",
     "status": "unaligned-current",
-    "hash": "83e9a88fda17141614a9723f63ffd2f2758e1d6bd26edfea4c50948316706b89",
+    "hash": "a0257349c07fe14e2784d26b1a5ed4d893a3531ccdcd1d21c1a7829b31c33b8b",
     "lockedHash": "2855efe591fe159df4e86d952a62578177dcf153b8b1836df668e8d59fe6253e",
-    "bytes": 71501
+    "bytes": 77243
   },
   {
     "source": "news-sector-analyzer/scripts/build_sw_sector_codes.py",

@@ -107,10 +107,14 @@ try {
     command(["exec", "tsx", "scripts/audit-trading-skills.ts", "--registered"]);
     command(["exec", "tsx", "scripts/audit-trading-methods.ts"]);
     command(["format:check"]);
-    const diff = spawnSync("git", ["diff", "--check"], {
-      env,
-      stdio: "inherit",
-    });
+    // Source snapshots are byte-exact copies of external skill files; their
+    // trailing whitespace belongs to the author, not to us, and "fixing" it
+    // would break the manifest hashes that make drift reviewable.
+    const diff = spawnSync(
+      "git",
+      ["diff", "--check", "--", ".", ":!docs/trading-skills-source-snapshots"],
+      { env, stdio: "inherit" },
+    );
     if (diff.status !== 0) failures.push("git diff --check");
   }
 } finally {

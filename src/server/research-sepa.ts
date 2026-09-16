@@ -87,11 +87,10 @@ export function researchSepaSeries(
   id: SepaResearchId,
   bars: readonly Bar[],
   calendar: readonly string[] = bars.map((b) => b.date),
+  firstEvaluationIndex = 0,
 ): SepaPoint[] {
   const dates = new Map(calendar.map((date, i) => [date, i]));
   const points = bars.map((bar, index) => {
-    const prefix = bars.slice(0, index),
-      prior = bars[index - 1];
     const point = {
       date: bar.date,
       entry: false,
@@ -106,6 +105,10 @@ export function researchSepaSeries(
     // The production benchmark keeps only 250 warmup bars; stock history is full.
     // MA120 direction needs 140 prior observations, not the entire listing history.
     const windowStart = Math.max(0, index - 140);
+    if (index < firstEvaluationIndex)
+      return { ...point, reason: "调用方仅请求末端观察" };
+    const prefix = bars.slice(0, index),
+      prior = bars[index - 1];
     const complete =
       day != null &&
       bars.slice(0, index + 1).every(valid) &&

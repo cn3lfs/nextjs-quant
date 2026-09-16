@@ -8,7 +8,8 @@ import type { ResearchSpec } from "~/lib/strategy-research";
 import { isRpsMarketSymbol } from "~/lib/rps";
 import { settings } from "./settings";
 import { readMarketPool } from "./market-pool-files";
-import { scan } from "./tdx";
+import { scan, readSnapshot } from "./tdx";
+import { assertGrowthIntradayWindow } from "~/lib/research-growth-intraday";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
 import {
@@ -33,6 +34,8 @@ export async function captureResearchDataset(
   cancelled: () => boolean = () => false,
   progress: (symbol: string, count: number, total: number) => void = () => {},
 ) {
+  if (spec.management?.growthIntraday)
+    assertGrowthIntradayWindow(spec.start, spec.end);
   const config = settings(),
     root = resolve(config.tdxRoot);
   const pool = spec.pool
@@ -60,7 +63,11 @@ export async function captureResearchDataset(
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
   let canslimMarket: CanslimResearchMarket | undefined;
-  if (needsCanslimMarket(spec.strategy)) {
+  if (
+    needsCanslimMarket(spec.strategy) ||
+    spec.management?.growthDaily === "CA-D-distribution5" ||
+    spec.management?.growthDaily === "CA-P-add23"
+  ) {
     const snapshot = await readLocalDailySnapshot(root, "sh000300");
     const marketBars = snapshot.bars.filter((bar) => bar.date <= spec.end);
     canslimMarket = {
@@ -80,6 +87,13 @@ export async function captureResearchDataset(
     symbol: string;
     name: string;
     bars: Bar[];
+    minuteBars?: Bar[];
+    minuteSource?: {
+      source: string;
+      hash: string;
+      start: string | null;
+      end: string | null;
+    };
     hash: string;
     source?: string;
     sourceVersions?: string[];
@@ -95,10 +109,28 @@ export async function captureResearchDataset(
       // g4day 暂停：研究数据集只读本地日线，不叠加通达信增量。
       const snapshot = await readLocalDailySnapshot(root, symbol);
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
+      const minute = spec.management?.growthIntraday
+        ? await readSnapshot(root, symbol, "5m")
+        : null;
+      const minuteBars = minute?.bars.filter(
+        (b) =>
+          b.date.slice(0, 10) >= spec.start && b.date.slice(0, 10) <= spec.end,
+      );
       const raw = {
         symbol,
         name: snapshot.name ?? symbol,
         bars,
+        ...(minute
+          ? {
+              minuteBars,
+              minuteSource: {
+                source: minute.source,
+                hash: minute.hash,
+                start: minute.bars[0]?.date ?? null,
+                end: minute.bars.at(-1)?.date ?? null,
+              },
+            }
+          : {}),
         source: snapshot.source,
         ...(snapshot.sourceVersions?.length
           ? { sourceVersions: snapshot.sourceVersions }

@@ -32,27 +32,69 @@ const registered = [
     reviewWhen: "B6",
   },
 ];
-it("accepts only the exact path, change and current hash; empty registration requires no drift", () => {
-  expect(compareSourceDrift(before, current, registered)).toEqual([]);
-  expect(compareSourceDrift(before, before, [])).toEqual([]);
-  expect(compareSourceDrift(before, current, [])).not.toEqual([]);
-  expect(compareSourceDrift(before, before, registered)).not.toEqual([]);
+const errors = (...args: Parameters<typeof compareSourceDrift>) =>
+  compareSourceDrift(...args).errors;
+
+it("accepts the registered path and change; empty registration requires no drift", () => {
+  expect(errors(before, current, registered)).toEqual([]);
+  expect(errors(before, before, [])).toEqual([]);
+  expect(errors(before, current, [])).not.toEqual([]);
+  expect(errors(before, before, registered)).not.toEqual([]);
   for (const value of [
-    { ...registered[0]!, hash: "c".repeat(64) },
     { ...registered[0]!, path: "other/SKILL.md" },
     { ...registered[0]!, change: "added" as const },
   ])
-    expect(compareSourceDrift(before, current, [value])).not.toEqual([]);
+    expect(errors(before, current, [value])).not.toEqual([]);
+  expect(errors(before, current, [...registered, ...registered])).not.toEqual(
+    [],
+  );
   expect(
-    compareSourceDrift(before, current, [...registered, ...registered]),
-  ).not.toEqual([]);
-  expect(
-    compareSourceDrift(
+    errors(
       before,
       { ...current, missing: ["x"], otherSkills: ["new"] },
       registered,
     ),
   ).toHaveLength(2);
+});
+
+it("tolerates a further edit of a planned-only source but reports it as a notice", () => {
+  const planned = [
+    { id: "NW01", status: "planned", sources: ["skill/SKILL.md"] },
+  ];
+  const stale = [{ ...registered[0]!, hash: "c".repeat(64) }];
+  // The recorded hash is deliberately not part of the match: the author keeps
+  // editing these sources, and no implementation reads them yet.
+  const result = compareSourceDrift(before, current, stale, planned);
+  expect(result.errors).toEqual([]);
+  expect(result.notices).toEqual([
+    expect.stringContaining("edited again since review"),
+  ]);
+  expect(
+    compareSourceDrift(before, current, registered, planned).notices,
+  ).toEqual([]);
+});
+
+it("fails when a drifted source is already implemented, and when the registry disagrees with the map", () => {
+  for (const status of ["implemented", "implemented-variant"]) {
+    const result = compareSourceDrift(before, current, registered, [
+      { id: "NW01", status, sources: ["skill/SKILL.md"] },
+    ]);
+    expect(result.errors).toEqual([expect.stringContaining(`NW01(${status})`)]);
+  }
+  // Missing the other direction is dangerous; over-declaring is conservative.
+  expect(
+    compareSourceDrift(before, current, registered, [
+      { id: "NW01", status: "planned", sources: ["skill/SKILL.md"] },
+      { id: "NW02", status: "planned", sources: ["skill/SKILL.md"] },
+    ]).errors,
+  ).toEqual([expect.stringContaining("omit dependants")]);
+  const lenient = compareSourceDrift(before, current, registered, [
+    { id: "NW00", status: "planned", sources: ["other/file.md"] },
+  ]);
+  expect(lenient.errors).toEqual([]);
+  expect(lenient.notices).toEqual([
+    expect.stringContaining("exceed the method map"),
+  ]);
 });
 it("validates the registry and detects added and removed sources", () => {
   expect(knownSourceDrift("```json\n[]\n```")).toEqual([]);
@@ -60,12 +102,10 @@ it("validates the registry and detects added and removed sources", () => {
   expect(() => knownSourceDrift('```json\n[{"path":"x"}]\n```')).toThrow();
   const empty = { ...before, skills: [] };
   expect(
-    compareSourceDrift(empty, current, [
-      { ...registered[0]!, change: "added" },
-    ]),
+    errors(empty, current, [{ ...registered[0]!, change: "added" }]),
   ).toEqual([]);
   expect(
-    compareSourceDrift(before, empty, [
+    errors(before, empty, [
       { ...registered[0]!, change: "removed", hash: null },
     ]),
   ).toEqual([]);

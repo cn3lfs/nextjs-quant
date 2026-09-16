@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { growthIntradayBase } from "./research-growth-intraday";
+import { growthDailyBase } from "./research-growth-daily";
 import { poolSelectionSchema } from "./market-pool";
 import { backtestCostsSchema } from "./backtest-costs";
 import { maParamsSchema } from "./domain";
@@ -57,6 +59,42 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (value.management?.growthDaily) {
+      const id = value.management.growthDaily;
+      if (value.strategy !== growthDailyBase(id))
+        context.addIssue({
+          code: "custom",
+          path: ["strategy"],
+          message: "日线具名方法须使用对应价量基线",
+        });
+      const standard = id === "SE-P-standard";
+      if (
+        value.risk?.fraction! > (standard ? 0.02 : 0.015) ||
+        value.risk?.maxWeight! > (standard ? 0.3 : 0.25) ||
+        value.maxPositions > (standard ? 8 : 5)
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["risk"],
+          message: "具名仓位版本超过风险、单股或持仓数上限",
+        });
+    }
+    if (value.management?.growthIntraday) {
+      if (value.start < "2000-01-04" || value.end > "2022-11-30")
+        context.addIssue({
+          code: "custom",
+          path: ["end"],
+          message: "五分钟研究窗口仅2000-01-04至2022-11-30",
+        });
+      if (
+        value.strategy !== growthIntradayBase(value.management.growthIntraday)
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["strategy"],
+          message: "盘中版本须配合对应SEPA收盘VCP或CANSLIM严格形态直接突破基线",
+        });
+    }
     if (value.management?.sepaElite && !value.strategy.startsWith("sepa-"))
       context.addIssue({
         code: "custom",
@@ -132,6 +170,7 @@ export const researchSpecSchema = z
   });
 export type ResearchSpec = z.infer<typeof researchSpecSchema>;
 export type ResearchEvent = {
+  intradayAt?: string;
   symbol: string;
   observedDate: string;
   endpointDate: string;

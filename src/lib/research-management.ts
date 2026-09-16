@@ -1,3 +1,8 @@
+import { growthDailyIds, growthDailyTemplate } from "./research-growth-daily";
+import {
+  growthIntradayIds,
+  growthIntradayTemplate,
+} from "./research-growth-intraday";
 import { researchKellySchema } from "./research-kelly";
 import {
   isGrowthPivotStop,
@@ -28,6 +33,8 @@ export const researchManagementSources = [
 ] as const;
 export const researchManagementSchema = z
   .object({
+    growthIntraday: z.enum(growthIntradayIds).optional(),
+    growthDaily: z.enum(growthDailyIds).optional(),
     sepaElite: z.literal(true).optional(),
     progressExit: researchProgressExitSchema.optional(),
     kelly: researchKellySchema.optional(),
@@ -245,6 +252,38 @@ export const researchManagementSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.growthDaily) {
+      const template = growthDailyTemplate(value.growthDaily);
+      if (
+        Object.keys(value).some((k) => !(k in template)) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({
+          code: "custom",
+          message: "日线具名版本参数不匹配，请重新应用模板",
+        });
+    }
+    if (value.growthIntraday) {
+      const template = growthIntradayTemplate(value.growthIntraday);
+      if (
+        Object.keys(value).some((key) => !(key in template)) ||
+        value.stop.kind !== "percent" ||
+        value.stop.fraction !==
+          (value.growthIntraday.startsWith("SE-") ? 0.1 : 0.08) ||
+        value.confirmations !== 1 ||
+        value.trail.kind !== "fixed" ||
+        value.stressBuffer !== 0 ||
+        value.timeExit !== null
+      )
+        context.addIssue({
+          code: "custom",
+          message: "盘中具名版本使用固定管理参数，不接受其他风控叠加",
+        });
+    }
     if (value.exitPreset && !matchesResearchExitPreset(value))
       context.addIssue({
         code: "custom",

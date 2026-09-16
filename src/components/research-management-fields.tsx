@@ -1,5 +1,17 @@
 import type { ResearchManagement } from "~/lib/research-management";
 import {
+  growthIntradayIds,
+  growthIntradayLabels,
+  growthIntradayTemplate,
+  growthIntradayDescription,
+} from "~/lib/research-growth-intraday";
+import {
+  growthDailyIds,
+  growthDailyLabels,
+  growthDailyTemplate,
+  growthDailyDescription,
+} from "~/lib/research-growth-daily";
+import {
   growthPivotStopIds,
   isGrowthPivotStop,
   growthPivotStopLabels,
@@ -1095,6 +1107,40 @@ export function ResearchManagementFields({
           应用{growthPivotStopLabels[kind]}
         </Button>
       ))}
+      {growthIntradayIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(growthIntradayTemplate(id))}
+        >
+          应用{growthIntradayLabels[id]}
+        </Button>
+      ))}
+      {value.growthIntraday && (
+        <p className="text-sm text-muted-foreground">
+          当前版本：{growthIntradayLabels[value.growthIntraday]}。
+          {growthIntradayDescription}
+        </p>
+      )}
+      {growthDailyIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(growthDailyTemplate(id))}
+        >
+          应用{growthDailyLabels[id]}
+        </Button>
+      ))}
+      {value.growthDaily && (
+        <p className="text-sm text-muted-foreground">
+          当前版本：{growthDailyLabels[value.growthDaily]}。
+          {growthDailyDescription}
+        </p>
+      )}
       {isGrowthPivotStop(value.stop.kind) && (
         <p className="text-sm text-muted-foreground">
           {growthPivotStopDescription}
