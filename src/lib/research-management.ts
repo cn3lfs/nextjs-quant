@@ -1,4 +1,8 @@
 import { researchKellySchema } from "./research-kelly";
+import {
+  isGrowthPivotStop,
+  researchGrowthPivotStop,
+} from "./research-growth-stops";
 import { z } from "zod";
 import { symbolSchema } from "./domain";
 import { researchDateSchema } from "./research-usage";
@@ -24,6 +28,7 @@ export const researchManagementSources = [
 ] as const;
 export const researchManagementSchema = z
   .object({
+    sepaElite: z.literal(true).optional(),
     progressExit: researchProgressExitSchema.optional(),
     kelly: researchKellySchema.optional(),
     exitPreset: z.enum(researchExitPresetIds).optional(),
@@ -59,6 +64,9 @@ export const researchManagementSchema = z
       .optional(),
     stop: z
       .discriminatedUnion("kind", [
+        z.object({ kind: z.literal("sepa-pivot-min") }).strict(),
+        z.object({ kind: z.literal("sepa-pivot-max") }).strict(),
+        z.object({ kind: z.literal("canslim-pivot-max") }).strict(),
         z
           .object({
             kind: z.literal("breakout-candle"),
@@ -325,6 +333,7 @@ export function researchInitialStop(
     stopAtr?: number | null;
     symbol?: string;
     observedDate?: string;
+    entryPriceRange?: { min: number; max: number };
   },
 ) {
   const override = researchStopOverride(management, evidence);
@@ -336,6 +345,12 @@ export function researchInitialStop(
       ? override.price
       : null;
   const stop = management.stop;
+  if (isGrowthPivotStop(stop.kind))
+    return researchGrowthPivotStop(
+      stop.kind,
+      entry,
+      evidence.entryPriceRange?.min,
+    );
   if (stop.kind === "max-distance" || stop.kind === "nearest-stop")
     return researchStopComparison(stop, entry, evidence)?.selected ?? null;
   const value =
@@ -364,7 +379,7 @@ export function researchInitialStop(
             ? evidence.stopAtr != null && evidence.stopAtr > 0
               ? entry - stop.multiple * evidence.stopAtr
               : null
-            : evidence.initialStop != null
+            : evidence.initialStop != null && "buffer" in stop
               ? evidence.initialStop * (1 - stop.buffer)
               : null;
   return value != null && Number.isFinite(value) && value > 0 && value < entry

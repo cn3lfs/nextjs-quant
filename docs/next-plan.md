@@ -1,5 +1,9 @@
 # 个人交易工作台扩充计划
 
+## B1a 本轮接续（2026-09-16）
+
+本轮继续新增11个工程版本，新增完整实现0：CA-S-M-warning、CA-E-m6、CA-E-markettrend、CA-S-S1、CA-S-S1-crash、SE05、CA08、SE05-elite、SE-R-min、SE-R-max、CA-R-pivot-max。审计695项（planned 516 / variant 157 / implemented 22），B1为planned 92 / variant 44 / implemented 17；本轮28项仍缺17项，B1a整组及L3未完成，B1b未启动。下一起点SE-D-review23，随后SE-D-targets/SE-D-partial2030、仓位及其他退出，最后六个盘中方法；缺口原因是尚未实施，不能以分钟数据不足替代。分钟窗口固定2000-01-04至2022-11-30，逐证券缺日不可用。最新授权仍是B1a整组完成后立即L3，再B1b；具体ID、验证与未做事项见[执行记录](trading-skills-execution.md)。
+
 ## D0b/D0c + B1 最新授权（2026-09-16）
 
 D0 语义裁定保持；D0b 已接入精确漂移登记，D0c 已保留21份锁定正文及6份未对齐当前正文。B1授权继续有效，实际尚未完成任何新子任务，下一起点为 CANSLIM 评分全文剩余因子。计数只取 audit-trading-methods.ts：K3 planned 11 / variant 13，K4 planned 117 / variant 12，B1 planned 128 / variant 25；CA-B-N2不重复计数。L3 未执行，未宣称整批交付，见[本批记录](trading-skills-execution.md)。E0提交5e567a6、ec09746保持。

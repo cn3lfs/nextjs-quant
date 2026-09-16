@@ -1,4 +1,7 @@
 import { isSepaResearch } from "~/lib/research-sepa-strategies";
+import { isCanslimMarket } from "~/lib/research-canslim-market-strategies";
+import { isCanslimMarketCombination } from "~/lib/research-canslim-market-strategies";
+import { researchCanslimMarketWarnings } from "./research-canslim-market-combination";
 import {
   isCanslimResearch,
   isCanslimHigh,
@@ -155,6 +158,7 @@ export async function runStrategyResearch(
         cancelled,
         (date) => progress(stock.symbol, date, index, dataset.stocks.length),
         dataset.calendar,
+        dataset.canslimMarket,
       );
       const accepted = cup
         ? observed.filter((event) => {
@@ -393,6 +397,14 @@ export async function runStrategyResearch(
     partitions,
     exclusions,
     warnings: [
+      ...(isCanslimMarketCombination(spec.strategy)
+        ? researchCanslimMarketWarnings(
+            dataset.calendar,
+            dataset.canslimMarket,
+            spec.start,
+            spec.end,
+          )
+        : []),
       ...(spec.management?.kelly?.provenance === "development-net-payoff"
         ? [
             "回报倍数使用开发期盈利交易净损益金额均值除亏损交易净损益绝对值均值，零收益不进入两边均值；缺任一侧或计算无效则验证期不买入。这不是目标距离或净收益率均值比。",
@@ -424,13 +436,17 @@ export async function runStrategyResearch(
         ? [
             canslimHigh
               ? "CANSLIM N2新高分档仅为独立价格因子实验；52周为364自然日且含测试日最高价，前后观察均可计算后才确认上穿。无公司行动证明需覆盖首个研究观察前一观察日减364自然日至期末；并非完整CANSLIM或历史证券池验证。沿用持有期及可选组合风控，无平台枢纽105%限制。"
-              : canslim
-                ? `CANSLIM${spec.strategy.includes("-saucer-") ? "碟形" : "平台"}价量交易需无公司行动证据覆盖研究期及前${canslimWarmup}根；${spec.strategy.endsWith("-hold3") ? "三日维持按研究日历对齐且每日最低价不低于原枢纽，第三日收盘确认。" : "直接突破版本未包含三日维持。"}固定持有期对照未包含完整财务、RS、M、催化或原文分批退出。成交价含滑点须在冻结枢纽至105%范围，越界取消。`
-                : breakout
-                  ? "双突破规则交易的无公司行动证据须覆盖研究期及前60根；复用原趋势线与价位，辅助指标不替代三要素，完整原文仓位和来源排序另列。"
-                  : channel
-                    ? `通道形态交易的无公司行动证据须覆盖研究期及前${channelWarmupBars(channel)}根预热；拟合及触边阈值是工程对照，不证明趋势延续或真实盈利。`
-                    : "K线形态交易的无公司行动证据须覆盖研究期及前11根预热；几何定义和三根方向背景是工程对照，不能证明趋势末端或真实盈利。",
+              : isCanslimMarket(spec.strategy)
+                ? "CANSLIM M因子独立市场实验，入口二值与细则分层分名，沪深300独立冻结；缺失不造上穿，无枢纽限价，个股公司行动证明覆盖研究期及前25根。"
+                : spec.strategy.startsWith("canslim-volume-")
+                  ? "CANSLIM S1近5日峰量/此前20日均量组件，二值、分层与暴跌排除版本独立；无公司行动证明覆盖研究期及前25根，固定持有及可选风控，无枢纽价格限制，不代表完整CANSLIM。"
+                  : canslim
+                    ? `CANSLIM${spec.strategy.includes("-saucer-") ? "碟形" : "平台"}价量交易需无公司行动证据覆盖研究期及前${canslimWarmup}根；${spec.strategy.endsWith("-hold3") ? "三日维持按研究日历对齐且每日最低价不低于原枢纽，第三日收盘确认。" : "直接突破版本未包含三日维持。"}固定持有期对照未包含完整财务、RS、M、催化或原文分批退出。成交价含滑点须在冻结枢纽至105%范围，越界取消。`
+                    : breakout
+                      ? "双突破规则交易的无公司行动证据须覆盖研究期及前60根；复用原趋势线与价位，辅助指标不替代三要素，完整原文仓位和来源排序另列。"
+                      : channel
+                        ? `通道形态交易的无公司行动证据须覆盖研究期及前${channelWarmupBars(channel)}根预热；拟合及触边阈值是工程对照，不证明趋势延续或真实盈利。`
+                        : "K线形态交易的无公司行动证据须覆盖研究期及前11根预热；几何定义和三根方向背景是工程对照，不能证明趋势末端或真实盈利。",
           ]
         : []),
       ...(volume

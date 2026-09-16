@@ -1,4 +1,11 @@
 import type { ResearchManagement } from "~/lib/research-management";
+import {
+  growthPivotStopIds,
+  isGrowthPivotStop,
+  growthPivotStopLabels,
+  growthPivotStopTemplate,
+  growthPivotStopDescription,
+} from "~/lib/research-growth-stops";
 import { researchScaleOutPreset } from "~/lib/research-management";
 import { swingExitTemplate, swingExitKind } from "~/lib/research-swing-exits";
 import {
@@ -505,9 +512,10 @@ export function ResearchManagementFields({
           onValueChange={(kind) =>
             onChange({
               ...value,
-              stop:
-                (kind === "breakout-candle" || kind === "platform-upper") &&
-                allowStructure
+              stop: isGrowthPivotStop(kind)
+                ? { kind }
+                : (kind === "breakout-candle" || kind === "platform-upper") &&
+                    allowStructure
                   ? { kind, buffer: kind === "breakout-candle" ? 0 : 0.005 }
                   : kind === "atr"
                     ? { kind, period: 14, multiple: 2 }
@@ -541,6 +549,11 @@ export function ResearchManagementFields({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="percent">入场价百分比</SelectItem>
+            {growthPivotStopIds.map((kind) => (
+              <SelectItem key={kind} value={kind}>
+                {growthPivotStopLabels[kind]}
+              </SelectItem>
+            ))}
             <SelectItem value="atr">信号日 ATR 距离</SelectItem>
             {allowStructure && (
               <SelectItem value="structure-auto">
@@ -1071,6 +1084,22 @@ export function ResearchManagementFields({
           应用{researchExitPresetLabels[kind]}
         </Button>
       ))}
+      {growthPivotStopIds.map((kind) => (
+        <Button
+          key={kind}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(growthPivotStopTemplate(kind))}
+        >
+          应用{growthPivotStopLabels[kind]}
+        </Button>
+      ))}
+      {isGrowthPivotStop(value.stop.kind) && (
+        <p className="text-sm text-muted-foreground">
+          {growthPivotStopDescription}
+        </p>
+      )}
       {value.exitPreset && (
         <p className="text-sm text-muted-foreground">
           当前退出预设：{researchExitPresetLabels[value.exitPreset]}。

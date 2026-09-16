@@ -68,3 +68,45 @@ it("rejects empty, duplicated and non A-share explicit lists", () => {
       false,
     );
 });
+
+it("captures CSI300 separately for CANSLIM market factors and freezes only the requested historical range", async () => {
+  vi.mocked(readSnapshot).mockClear();
+  const bar = {
+    date: "2025-01-02",
+    open: 100,
+    high: 101,
+    low: 99,
+    close: 100,
+    volume: 100,
+    amount: 10000,
+  };
+  vi.mocked(readSnapshot).mockResolvedValueOnce({
+    id: "csi300",
+    hash: "source-hash",
+    symbol: "sh000300",
+    source: "tdx-local",
+    period: "day",
+    adjustment: "none",
+    createdAt: 0,
+    bars: [bar, { ...bar, date: "2025-03-01", close: 101 }],
+  });
+  const dataset = await captureResearchDataset(
+    researchSpecSchema.parse({
+      ...base,
+      strategy: "canslim-market-entry-ma250",
+      symbols: ["sh600004"],
+    }),
+  );
+  expect(vi.mocked(readSnapshot).mock.calls.map((call) => call[1])).toEqual([
+    "sh000300",
+    "sh600004",
+  ]);
+  expect(dataset.canslimMarket).toMatchObject({
+    symbol: "sh000300",
+    source: "tdx-local",
+    bars: [bar],
+  });
+  expect(dataset.canslimMarket!.hash).toMatch(/^[a-f0-9]{64}$/);
+  expect(dataset.benchmark.symbol).toBe("sh000001");
+  expect(dataset.membership.symbols).toEqual(["sh600004"]);
+});

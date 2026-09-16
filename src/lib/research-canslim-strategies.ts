@@ -1,4 +1,12 @@
 import type { Bar } from "./domain";
+import {
+  canslimMarketIds,
+  canslimMarketStrategies,
+  isCanslimMarket,
+  canslimMarketCombinationIds,
+  isCanslimMarketCombination,
+  canslimMarketCombinationDefinition,
+} from "./research-canslim-market-strategies";
 
 export const canslimHighIds = [
   "canslim-high-90",
@@ -56,6 +64,7 @@ export function canslimSaucerShape(id: CanslimSaucerId) {
   return /-w(?:-|$)/.test(id) ? "W" : "U";
 }
 export function canslimShapeWarmup(id: string) {
+  if (id.startsWith("canslim-volume-") || isCanslimMarket(id)) return 25;
   return (isCanslimSaucer(id) ? 140 : 50) + (id.endsWith("-hold3") ? 3 : 0);
 }
 function saucerDefinition(id: CanslimSaucerId) {
@@ -170,6 +179,8 @@ const cupStrategies = Object.fromEntries(
   canslimCupIds.map((id) => [id, cupDefinition(id)]),
 ) as Record<CanslimCupId, ReturnType<typeof cupDefinition>>;
 export const canslimPriorityIds = [
+  "canslim-priority-exits-daily",
+  ...canslimMarketCombinationIds,
   "canslim-priority-gate2-fallback",
   "canslim-priority-weekly10-half",
   "canslim-priority-bear4-previous",
@@ -188,6 +199,21 @@ export function isCanslimPriority(id: string): id is CanslimPriorityId {
   return (canslimPriorityIds as readonly string[]).includes(id);
 }
 function priorityDefinition(id: CanslimPriorityId) {
+  if (id === "canslim-priority-exits-daily")
+    return {
+      label: "CANSLIM价量 · 周线与放量大阴退出组合",
+      family: "成长股价量",
+      signal: "technical" as const,
+      version: `${id}-1`,
+      sources: [
+        "canslim-analyst/references/technical-patterns.md",
+        "canslim-analyst/references/entry-exit-rules.md",
+      ],
+      description:
+        "严格杯柄→平台→碟形突破组合。收盘跌超4%且量至少此前20日均量1.5倍清仓，已完成周线10MA下穿减剩余50%，全退优先、受阻重试、T+1。页面选择时装配固定8%止损、盈利15%保本、20%卖初始一半且成交后抬成本、25%清余仓、自然28天涨幅不足5%退出，最长60交易日。4.1成本版与4.2盈利10%版有冲突，本组合明确采用4.1成本版。组合风控参数独立保存，可改为自定义实验；禁用风控后仅剩周线与大阴退出。次日开盘含滑点须在枢纽至105%，公司行动证明覆盖完整形态前缀。日线工程组合，未含市场连续分布日、明显放量下跌减仓、盘中跳空或14:30动作，不是完整CA08或CANSLIM。",
+    };
+  if (isCanslimMarketCombination(id))
+    return canslimMarketCombinationDefinition(id);
   if (id === "canslim-priority-gate2-fallback")
     return {
       label: "CANSLIM价量 · 杯柄低于4分才替代",
@@ -278,6 +304,10 @@ const priorityStrategies = Object.fromEntries(
   canslimPriorityIds.map((id) => [id, priorityDefinition(id)]),
 ) as Record<CanslimPriorityId, ReturnType<typeof priorityDefinition>>;
 export const canslimResearchIds = [
+  "canslim-volume-tier",
+  "canslim-volume-tier-crash",
+  ...canslimMarketIds,
+  "canslim-volume-entry-binary",
   "canslim-flat-price-volume",
   "canslim-flat-hold3",
   ...canslimHighIds,
@@ -290,6 +320,34 @@ export function isCanslimResearch(id: string): id is CanslimResearchId {
   return (canslimResearchIds as readonly string[]).includes(id);
 }
 export const canslimResearchStrategies = {
+  "canslim-volume-tier": {
+    label: "CANSLIM量能 · 近5日峰量分层",
+    family: "成长股价量",
+    signal: "technical" as const,
+    version: "canslim-volume-tier-1",
+    sources: ["canslim-analyst/references/canslim-scoring.md"],
+    description:
+      "S1分层独立实验：近5日峰量/此前20日均量，至少2/1.5/1.2倍分别8/6/3分，否则0；两窗不重叠，前后连续有效评分从低于8到8才确认。次日合法开盘入场，固定持有及可选风控，无枢纽限价。25日OHLCV及日历必须完整，无公司行动证明覆盖研究期及前25根。未加入涨停缩量或市场暴跌例外，不等于完整S1或CANSLIM。",
+  },
+  "canslim-volume-tier-crash": {
+    label: "CANSLIM量能 · 分层排除暴跌放量日",
+    family: "成长股价量",
+    signal: "technical" as const,
+    version: "canslim-volume-tier-crash-1",
+    sources: ["canslim-analyst/references/canslim-scoring.md"],
+    description:
+      "S1分层具名工程版：近5日峰量/此前20日均量至少2/1.5/1.2倍给8/6/3分，否则0。近5日内沪深300较前日收跌至少3%、个股收跌且量大于前日的日期从峰量候选排除，20日基准不变，不向更早日补位；5日全排除则不可用。3%为暴跌工程阈值，不是原文明确值；未实现涨停缩量例外。沪深300独立来源冻结，近6日市场与25日个股日历/OHLCV完整，缺失不造上穿。由低于8到8收盘确认，次日合法开盘、固定持有和可选风控，无枢纽限价；公司行动证明覆盖研究期及前25根。不是完整CANSLIM或盈利证据。",
+  },
+  ...canslimMarketStrategies,
+  "canslim-volume-entry-binary": {
+    label: "CANSLIM量能 · 近5日峰量1.5倍二值评分",
+    family: "成长股价量",
+    signal: "technical" as const,
+    version: "canslim-volume-entry-binary-1",
+    sources: ["canslim-analyst/SKILL.md"],
+    description:
+      "入口S1独立二值组件：近5日最高成交量至少为此前20日均量1.5倍计8分，否则0分。两窗不重叠，不等同突破当日放量或细则3/6/8分。完整连续25个研究交易日且OHLCV有效；前后评分由0到8时收盘确认，下一可成交开盘买入，固定持有及可选组合风控；首次已知评分不造上穿。无额外枢纽或追价门槛，无公司行动证明覆盖研究期及前25根。不含涨停缩量/大盘暴跌例外，不是完整CANSLIM或盈利证据。",
+  },
   ...priorityStrategies,
   ...highStrategies,
   ...saucerStrategies,

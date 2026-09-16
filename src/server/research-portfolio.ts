@@ -1,5 +1,6 @@
 import { researchKellySwitch } from "~/lib/research-kelly-switch";
 import { researchProgressCheck } from "~/lib/research-progress-exit";
+import { researchSepaElite } from "~/lib/research-sepa-elite";
 import { researchKellyQuality } from "~/lib/research-kelly-quality";
 import { researchKellyNetPayoff } from "~/lib/research-kelly-payoff";
 import type { ResearchKellyTraining } from "~/lib/research-kelly-training";
@@ -55,6 +56,7 @@ type WeeklyReductionSignal = NonNullable<
   Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
 >;
 export type ResearchTrade = {
+  sepaElite?: NonNullable<ReturnType<typeof researchSepaElite>>;
   event: ResearchEvent;
   entryDate: string;
   entryIndex: number;
@@ -378,6 +380,10 @@ export function researchPortfolio(
     { stage: number; triggerDate: string; triggerIndex: number }
   >();
   const addStates = new Map<string, { stage: number; stopped: boolean }>();
+  const holdingDue = (trade: ResearchTrade, index: number, date: string) =>
+    trade.sepaElite
+      ? date >= trade.sepaElite.holdUntil
+      : index - trade.entryIndex >= spec.holdingDays;
   let previousStale: string[] = [];
   for (let index = 0; index < days.length; index++) {
     const date = days[index]!;
@@ -395,8 +401,7 @@ export function researchPortfolio(
     const environmentReason =
       chop?.reason ?? environment?.reason ?? "大盘环境总仓上限为0，暂停买入";
     for (const [symbol, trade] of positions) {
-      const fullExit =
-        index - trade.entryIndex >= spec.holdingDays || exits.has(symbol);
+      const fullExit = holdingDue(trade, index, date) || exits.has(symbol);
       const partial = partials.get(symbol);
       if ((!fullExit && !partial) || date <= trade.entryDate) continue;
       const bar = indexed.get(symbol)?.get(date);
@@ -559,7 +564,7 @@ export function researchPortfolio(
           addState.stopped ||
           exits.has(symbol) ||
           partials.has(symbol) ||
-          index - trade.entryIndex >= spec.holdingDays
+          holdingDue(trade, index, date)
         ) {
           additions.delete(symbol);
           if (addState) addState.stopped = true;
@@ -1265,6 +1270,19 @@ export function researchPortfolio(
         !!bar && bar.volume > 0 && Number.isFinite(bar.close) && bar.close > 0;
       const state = states.get(symbol);
       if (spec.management && state) {
+        if (
+          spec.management.sepaElite &&
+          !position.sepaElite &&
+          !exits.has(symbol)
+        ) {
+          const elite = researchSepaElite(
+            position,
+            date,
+            days,
+            indexed.get(symbol)!,
+          );
+          if (elite) position.sepaElite = elite;
+        }
         if (!validClose) {
           if (pullback) {
             addStates.get(symbol)!.stopped = true;
@@ -1489,7 +1507,7 @@ export function researchPortfolio(
               });
             } else if (
               check.status === "confirmed" &&
-              index - position.entryIndex < spec.holdingDays
+              !holdingDue(position, index, date)
             ) {
               additions.set(symbol, {
                 stage: 0,
@@ -1502,7 +1520,7 @@ export function researchPortfolio(
             !pullback &&
             !addState.stopped &&
             addState.stage < 2 &&
-            index - position.entryIndex < spec.holdingDays &&
+            !holdingDue(position, index, date) &&
             !additions.has(symbol) &&
             bar.close >=
               position.entryPrice +
@@ -1575,7 +1593,7 @@ export function researchPortfolio(
             const symbol = trade.event.symbol;
             const full =
               exits.has(symbol) ||
-              days.length - 1 - trade.entryIndex >= spec.holdingDays;
+              holdingDue(trade, days.length - 1, days.at(-1)!);
             const partial = partials.get(symbol);
             return full || partial
               ? [

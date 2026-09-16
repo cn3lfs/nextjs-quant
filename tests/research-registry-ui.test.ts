@@ -1,4 +1,8 @@
 import Database from "better-sqlite3";
+import {
+  isGrowthDailyExit,
+  growthDailyExitTemplate,
+} from "../src/lib/research-growth-exits";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   Children,
@@ -74,9 +78,13 @@ describe.each(researchStrategyIds)("form preset %s", (id) => {
       id,
     );
     expect(fromStructure.risk === undefined).toBe(
-      id !== "dual-breakout-structure",
+      id !== "dual-breakout-structure" && !isGrowthDailyExit(id),
     );
-    expect(fromStructure.management).toBeUndefined();
+    if (isGrowthDailyExit(id))
+      expect(fromStructure.management).toEqual(
+        growthDailyExitTemplate(fromStructure).management,
+      );
+    else expect(fromStructure.management).toBeUndefined();
     expect(researchSpecSchema.parse(fromMa).strategy).toBe(id);
   });
   it("clears breakout-only sizing/add-on and structural stop parameters", () => {
@@ -97,7 +105,9 @@ describe.each(researchStrategyIds)("form preset %s", (id) => {
     const next = selectResearchStrategy(source, id);
     if (id !== "dual-breakout")
       expect(next.management?.pyramid).toBeUndefined();
-    if (id !== "dual-breakout" && id !== "dual-breakout-structure")
+    if (isGrowthDailyExit(id))
+      expect(next.management).toEqual(growthDailyExitTemplate(next).management);
+    else if (id !== "dual-breakout" && id !== "dual-breakout-structure")
       expect(next.management!.stop).toEqual({
         kind: "percent",
         fraction: 0.05,

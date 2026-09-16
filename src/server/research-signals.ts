@@ -1,4 +1,5 @@
 import { researchBreakoutStopLocation } from "~/lib/research-breakout-stops";
+import type { CanslimResearchMarket } from "./research-canslim-market-score";
 import type { Bar } from "~/lib/domain";
 import type { CzscResult } from "~/lib/czsc";
 import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
@@ -19,6 +20,7 @@ export async function researchSignals(
   cancelled: () => boolean = () => false,
   progress: (date: string) => void = () => {},
   calendar: readonly string[] = bars.map((bar) => bar.date),
+  market?: CanslimResearchMarket,
 ) {
   if (
     bars.some(
@@ -42,7 +44,7 @@ export async function researchSignals(
     throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
   const technical = isResearchRule(spec.strategy)
-    ? researchRuleSeries(spec.strategy, bars, calendar)
+    ? researchRuleSeries(spec.strategy, bars, calendar, market)
     : null;
   if (
     technical &&

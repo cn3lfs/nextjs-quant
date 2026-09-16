@@ -17,6 +17,15 @@ import {
 import { researchCanslimFlatPoint } from "./research-canslim-flat";
 import { researchCanslimHold } from "./research-canslim-hold";
 import { researchCanslimHighSeries } from "./research-canslim-high";
+import { researchCanslimVolumeScore } from "./research-canslim-volume-score";
+import { researchCanslimVolumeTier } from "./research-canslim-volume-tier";
+import { researchCanslimMarketCombination } from "./research-canslim-market-combination";
+import { isCanslimMarketCombination } from "~/lib/research-canslim-market-strategies";
+import { isCanslimMarket } from "~/lib/research-canslim-market-strategies";
+import {
+  researchCanslimMarketScore,
+  type CanslimResearchMarket,
+} from "./research-canslim-market-score";
 import { researchCanslimSaucerPoint } from "./research-canslim-saucer";
 import { researchCanslimCupPoint } from "./research-canslim-cup";
 import { researchCanslimPriorityPoint } from "./research-canslim-priority";
@@ -40,6 +49,10 @@ import { analyzeBreakout } from "./breakout";
 export type ResearchRuleId =
   LocalId | BreakoutRuleId | CanslimResearchId | SepaResearchId;
 export type ResearchRulePoint =
+  | ReturnType<typeof researchCanslimVolumeTier>[number]
+  | ReturnType<typeof researchCanslimMarketCombination>[number]
+  | ReturnType<typeof researchCanslimMarketScore>[number]
+  | ReturnType<typeof researchCanslimVolumeScore>[number]
   | ReturnType<typeof researchSepaSeries>[number]
   | ReturnType<
       typeof researchCanslimWeekly<
@@ -68,7 +81,14 @@ export function researchRuleSeries(
   id: ResearchRuleId,
   bars: readonly Bar[],
   calendar: readonly string[] = bars.map((bar) => bar.date),
+  market?: CanslimResearchMarket,
 ): ResearchRulePoint[] {
+  if (id === "canslim-volume-tier" || id === "canslim-volume-tier-crash")
+    return researchCanslimVolumeTier(id, bars, calendar, market);
+  if (isCanslimMarket(id))
+    return researchCanslimMarketScore(id, bars, calendar, market);
+  if (id === "canslim-volume-entry-binary")
+    return researchCanslimVolumeScore(bars, calendar);
   if (isSepaResearch(id)) return researchSepaSeries(id, bars, calendar);
   if (isCanslimHigh(id)) return researchCanslimHighSeries(id, bars);
   if (isCanslimPriority(id)) {
@@ -82,6 +102,20 @@ export function researchRuleSeries(
             : "strict",
       ),
     );
+    if (isCanslimMarketCombination(id))
+      return researchCanslimMarketCombination(
+        id,
+        points,
+        bars,
+        calendar,
+        market,
+      );
+    if (id === "canslim-priority-exits-daily")
+      return researchCanslimWeekly(
+        researchCanslimBear(points, bars, calendar, "ma20"),
+        bars,
+        calendar,
+      );
     if (id === "canslim-priority-weekly10-half")
       return researchCanslimWeekly(points, bars, calendar);
     if (id.includes("-bear4-"))

@@ -1,4 +1,13 @@
 import { researchKellySwitchVersion } from "~/lib/research-kelly-switch";
+import {
+  isGrowthPivotStop,
+  growthPivotStopDescription,
+} from "~/lib/research-growth-stops";
+import { sepaEliteDescription } from "~/lib/research-sepa-elite";
+import {
+  isGrowthDailyExit,
+  growthDailyExitDescription,
+} from "~/lib/research-growth-exits";
 import { researchKellyQualityVersion } from "~/lib/research-kelly-quality";
 import { researchKellyPayoffVersion } from "~/lib/research-kelly-payoff";
 import { researchKellyTrainingVersion } from "~/lib/research-kelly-training";
@@ -131,6 +140,15 @@ export function researchMethodSnapshot(
   const sources = [
     ...new Set([
       ...definition.sources,
+      ...(typeof input !== "string" &&
+      input.management &&
+      isGrowthPivotStop(input.management.stop.kind)
+        ? [
+            input.management.stop.kind.startsWith("sepa")
+              ? "sepa-strategy-analyst/references/entry-exit-rules.md"
+              : "canslim-analyst/references/entry-exit-rules.md",
+          ]
+        : []),
       ...(kelly
         ? ["stop-loss/references/kelly-sizing.md", "stop-loss/scripts/kelly.py"]
         : []),
@@ -210,6 +228,35 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" &&
+    input.management &&
+    isGrowthPivotStop(input.management.stop.kind)
+      ? {
+          growthPivotStop: {
+            version: "growth-pivot-stop-1",
+            kind: input.management.stop.kind,
+            interpretation: growthPivotStopDescription,
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.management?.sepaElite
+      ? {
+          sepaElite: {
+            version: "sepa-elite-entry56-1",
+            interpretation: sepaEliteDescription,
+          },
+        }
+      : {}),
+    ...(isGrowthDailyExit(strategy)
+      ? {
+          growthDailyExit: {
+            version: "growth-daily-exit-1",
+            interpretation: growthDailyExitDescription,
+            configuration:
+              typeof input === "string" ? null : (input.management ?? null),
+          },
+        }
+      : {}),
     ...(typeof input !== "string" &&
     input.management?.kelly?.provenance === "rolling-switch30"
       ? {

@@ -1,4 +1,6 @@
 import { readBenchmarkSnapshot } from "./tdx-benchmark";
+import { needsCanslimMarket } from "~/lib/research-canslim-market-strategies";
+import type { CanslimResearchMarket } from "./research-canslim-market-score";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
@@ -57,6 +59,17 @@ export async function captureResearchDataset(
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
+  let canslimMarket: CanslimResearchMarket | undefined;
+  if (needsCanslimMarket(spec.strategy)) {
+    const snapshot = await readLocalDailySnapshot(root, "sh000300");
+    const marketBars = snapshot.bars.filter((bar) => bar.date <= spec.end);
+    canslimMarket = {
+      symbol: snapshot.symbol,
+      source: snapshot.source,
+      bars: marketBars,
+      hash: researchHash(marketBars),
+    };
+  }
   let actions: Awaited<ReturnType<typeof readGbbq>> | null = null;
   try {
     actions = await readGbbq(root);
@@ -133,6 +146,7 @@ export async function captureResearchDataset(
         ? { sourceVersions: benchmarkSource.sourceVersions }
         : {}),
     },
+    ...(canslimMarket ? { canslimMarket } : {}),
     calendar,
     stocks,
     excluded,

@@ -15,6 +15,10 @@ import { isCanslimProgressPreset } from "~/lib/research-exit-presets";
 import { isCanslimResearch } from "~/lib/research-canslim-strategies";
 import { canslimRiskTemplate } from "~/lib/research-canslim-management";
 import {
+  growthDailyExitTemplate,
+  isGrowthDailyExit,
+} from "~/lib/research-growth-exits";
+import {
   Select,
   SelectTrigger,
   SelectValue,
@@ -51,6 +55,10 @@ export function selectResearchStrategy(
     strategy !== "dual-breakout"
       ? (({ pyramid: _pyramid, ...rest }) => rest)(originalManagement)
       : originalManagement;
+  if (management?.sepaElite && !strategy.startsWith("sepa-")) {
+    const { sepaElite: _elite, ...rest } = management;
+    management = rest;
+  }
   if (
     (management?.kelly?.provenance === "breakout-quality" ||
       management?.kelly?.provenance === "rolling-switch30") &&
@@ -59,7 +67,7 @@ export function selectResearchStrategy(
     const { kelly: _kelly, ...rest } = management;
     management = rest;
   }
-  return {
+  const selected: ResearchSpec = {
     ...shared,
     strategy,
     ...(strategy === "canslim-priority-weekly10-half" &&
@@ -91,6 +99,9 @@ export function selectResearchStrategy(
         }
       : {}),
   };
+  return isGrowthDailyExit(strategy) && strategy !== spec.strategy
+    ? growthDailyExitTemplate(selected)
+    : selected;
 }
 
 export function ResearchStrategyFields({

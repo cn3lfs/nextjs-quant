@@ -57,6 +57,12 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (value.management?.sepaElite && !value.strategy.startsWith("sepa-"))
+      context.addIssue({
+        code: "custom",
+        path: ["management", "sepaElite"],
+        message: "精英持有规则仅用于SEPA价量策略",
+      });
     if (
       (value.management?.kelly?.provenance === "breakout-quality" ||
         value.management?.kelly?.provenance === "rolling-switch30") &&

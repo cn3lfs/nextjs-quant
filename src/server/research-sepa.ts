@@ -144,7 +144,9 @@ export function researchSepaSeries(
       ...point,
       entry,
       exit:
-        id === "sepa-vcp-bear4" &&
+        (id === "sepa-vcp-bear4" ||
+          id === "sepa-vcp-exits-daily" ||
+          id === "sepa-vcp-exits-elite") &&
         bar.close < prior.close * 0.96 &&
         bar.volume > average20 * 1.5,
       candidate: entry ? { high: pivot! } : null,
@@ -155,7 +157,11 @@ export function researchSepaSeries(
       volume: { period, threshold, average },
     };
   });
-  if (id === "sepa-vcp-weekly10-half")
+  if (
+    id === "sepa-vcp-weekly10-half" ||
+    id === "sepa-vcp-exits-daily" ||
+    id === "sepa-vcp-exits-elite"
+  )
     return researchCanslimWeekly(points, bars, calendar);
   if (id !== "sepa-vcp-retest") return points;
   let waiting: {
