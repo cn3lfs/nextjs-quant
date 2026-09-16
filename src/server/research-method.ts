@@ -78,6 +78,7 @@ export function researchMethodSnapshot(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffHourlyInputs"
         | "wyckoffInputs"
         | "stopDiagnosis"
       >,
@@ -320,6 +321,9 @@ export function researchMethodSnapshot(
             interpretation: stopDiagnosisBoundary,
           },
         }
+      : {}),
+    ...(typeof input !== "string" && input.wyckoffHourlyInputs
+      ? { wyckoffHourlyInputs: input.wyckoffHourlyInputs }
       : {}),
     ...(typeof input !== "string" && input.wyckoffInputs
       ? { wyckoffInputs: input.wyckoffInputs }
@@ -738,6 +742,7 @@ export function validateResearchMethod(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffHourlyInputs"
         | "wyckoffInputs"
         | "stopDiagnosis"
       >,

@@ -1461,11 +1461,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-hourly.ts",
+        "src/server/research-wyckoff-hourly.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-hourly.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线冻结TR + 小时Spring/UT工程v1；最近六研究交易日24小时逐槽完整性、15:00前可知、重叠快照不可修订；候选前20小时均量、3根确认窗、Spring缩量下探及1.5倍回收。日频次日成交，仅平多；小时全根量不冒充逐笔分量。详见wyckoffHourlyBoundary，真实小时证据缺失不可用。 默认研究采集只读本地五分钟并复用hourlyBars；手动输入含空数组优先不回退。历史完成K线时戳只建模回放可知时间，不证明供应商当年发布时效；小时聚合OHLC/量额须与同源日线配平。",
+      "bindings": {
+        "presets": [
+          "wy-daily-hourly"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY10",

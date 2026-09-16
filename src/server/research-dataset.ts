@@ -1,3 +1,4 @@
+import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
 import { readBenchmarkSnapshot } from "./tdx-benchmark";
 import { needsCanslimMarket } from "~/lib/research-canslim-market-strategies";
 import type { CanslimResearchMarket } from "./research-canslim-market-score";
@@ -35,7 +36,7 @@ export async function captureResearchDataset(
   cancelled: () => boolean = () => false,
   progress: (symbol: string, count: number, total: number) => void = () => {},
 ) {
-  if (spec.management?.growthIntraday)
+  if (spec.management?.growthIntraday || isWyckoffHourly(spec.strategy))
     assertGrowthIntradayWindow(spec.start, spec.end);
   const config = settings(),
     root = resolve(config.tdxRoot);
@@ -63,8 +64,11 @@ export async function captureResearchDataset(
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
-  const minuteStart =
-    spec.management?.growthIntraday && isOpening(spec.management.growthIntraday)
+  const minuteStart = isWyckoffHourly(spec.strategy)
+    ? (calendar[Math.max(0, calendar.findIndex((d) => d >= spec.start) - 6)] ??
+      spec.start)
+    : spec.management?.growthIntraday &&
+        isOpening(spec.management.growthIntraday)
       ? openingMinuteStart(calendar, spec.start)
       : spec.start;
   let canslimMarket: CanslimResearchMarket | undefined;
@@ -114,9 +118,12 @@ export async function captureResearchDataset(
       // g4day 暂停：研究数据集只读本地日线，不叠加通达信增量。
       const snapshot = await readLocalDailySnapshot(root, symbol);
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
-      const minute = spec.management?.growthIntraday
-        ? await readSnapshot(root, symbol, "5m")
-        : null;
+      const minute =
+        spec.management?.growthIntraday ||
+        (isWyckoffHourly(spec.strategy) &&
+          spec.wyckoffHourlyInputs === undefined)
+          ? await readSnapshot(root, symbol, "5m")
+          : null;
       const minuteBars = minute?.bars.filter(
         (b) =>
           b.date.slice(0, 10) >= minuteStart && b.date.slice(0, 10) <= spec.end,

@@ -1,4 +1,8 @@
 import {
+  isWyckoffHourly,
+  researchWyckoffHourlySeries,
+} from "~/lib/research-wyckoff-hourly";
+import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
 } from "~/lib/research-wyckoff-vsa";
@@ -362,15 +366,22 @@ export function researchPortfolio(
             [
               symbol,
               new Map(
-                (isWyckoffVsa(technicalId)
-                  ? researchWyckoffVsaSeries(
-                      technicalId,
+                (isWyckoffHourly(technicalId)
+                  ? researchWyckoffHourlySeries(
                       bars,
                       calendar,
-                      spec.wyckoffInputs,
+                      spec.wyckoffHourlyInputs,
                       symbol,
                     )
-                  : researchRuleSeries(technicalId, bars, calendar)
+                  : isWyckoffVsa(technicalId)
+                    ? researchWyckoffVsaSeries(
+                        technicalId,
+                        bars,
+                        calendar,
+                        spec.wyckoffInputs,
+                        symbol,
+                      )
+                    : researchRuleSeries(technicalId, bars, calendar)
                 )
                   .filter(
                     (point) =>

@@ -1,3 +1,7 @@
+import {
+  isWyckoffHourly,
+  researchWyckoffHourlySeries,
+} from "~/lib/research-wyckoff-hourly";
 import type { ResearchStructureObservation } from "~/lib/research-structure-events";
 import { isChanNative, chanNativeCandidates } from "~/lib/research-chan-native";
 import {
@@ -49,6 +53,13 @@ export async function researchSignals(
     )
   )
     throw new Error("研究行情日期无效或未递增");
+  if (
+    isWyckoffHourly(spec.strategy) &&
+    (spec.start < "2000-01-04" || spec.end > "2022-11-30")
+  )
+    throw new Error(
+      "小时研究窗口必须在2000-01-04至2022-11-30内；不得混用日线区间",
+    );
   const first = bars.findIndex((bar) => bar.date >= spec.start);
   const definition = researchStrategies[spec.strategy];
   const signalVersion =
@@ -64,17 +75,24 @@ export async function researchSignals(
   if (first < warmup)
     throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
-  const technical = isWyckoffVsa(spec.strategy)
-    ? researchWyckoffVsaSeries(
-        spec.strategy,
+  const technical = isWyckoffHourly(spec.strategy)
+    ? researchWyckoffHourlySeries(
         bars,
         calendar,
-        spec.wyckoffInputs,
+        spec.wyckoffHourlyInputs,
         symbol,
       )
-    : isResearchRule(spec.strategy)
-      ? researchRuleSeries(spec.strategy, bars, calendar, market)
-      : null;
+    : isWyckoffVsa(spec.strategy)
+      ? researchWyckoffVsaSeries(
+          spec.strategy,
+          bars,
+          calendar,
+          spec.wyckoffInputs,
+          symbol,
+        )
+      : isResearchRule(spec.strategy)
+        ? researchRuleSeries(spec.strategy, bars, calendar, market)
+        : null;
   if (technical && recordStructure)
     for (const point of technical) {
       if (!("events" in point) || point.date > spec.end) continue;
@@ -110,6 +128,7 @@ export async function researchSignals(
       isVolumeGrid(spec.strategy)
         ? `研究区间${spec.start}至${spec.end}没有可用量价输入：${[...new Set(technical.filter((p) => p.date >= spec.start && p.date <= spec.end).map((p) => p.reason))].slice(0, 3).join("；")}`
         : spec.strategy === "sw-system-combined" ||
+            isWyckoffHourly(spec.strategy) ||
             isWyckoffVsa(spec.strategy) ||
             isVolumePollution(spec.strategy) ||
             isVolumeAdapted(spec.strategy) ||

@@ -1,3 +1,7 @@
+import {
+  isWyckoffHourly,
+  wyckoffHourlyInputsSchema,
+} from "~/lib/research-wyckoff-hourly";
 import { isWyckoffVsa, wyckoffInputsSchema } from "~/lib/research-wyckoff-vsa";
 import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
@@ -119,6 +123,7 @@ export function applyResearchManagement(
           ? Math.max(60, spec.holdingDays)
           : spec.holdingDays,
   };
+  if (!isWyckoffHourly(next.strategy)) delete next.wyckoffHourlyInputs;
   if (!isWyckoffVsa(next.strategy)) delete next.wyckoffInputs;
   return next;
 }
@@ -132,6 +137,7 @@ export function selectResearchStrategy(
     maParams,
     risk,
     wyckoffInputs,
+    wyckoffHourlyInputs,
     management: originalManagement,
     ...shared
   } = spec;
@@ -201,6 +207,9 @@ export function selectResearchStrategy(
   }
   const selected: ResearchSpec = {
     ...shared,
+    ...(isWyckoffHourly(strategy) && wyckoffHourlyInputs
+      ? { wyckoffHourlyInputs }
+      : {}),
     ...(isWyckoffVsa(strategy) && wyckoffInputs ? { wyckoffInputs } : {}),
     strategy,
     ...(strategy === "canslim-priority-weekly10-half" &&
@@ -277,6 +286,45 @@ export function ResearchStrategyFields({
             : `${definition.label}的信号保持不变；交易部分使用下方组合风控，替代资金均分和仅固定持有退出。`
           : definition.description}
       </p>
+      {isWyckoffHourly(spec.strategy) && (
+        <label className="min-w-0 break-words [overflow-wrap:anywhere]">
+          日线区域小时确认证据覆盖（JSON；不填时读取本地五分钟）
+          <Textarea
+            aria-label="威科夫小时历史证据"
+            className="w-full min-w-0"
+            key={`${spec.strategy}:${JSON.stringify(spec.wyckoffHourlyInputs ?? [])}`}
+            defaultValue={
+              spec.wyckoffHourlyInputs === undefined
+                ? ""
+                : JSON.stringify(spec.wyckoffHourlyInputs, null, 2)
+            }
+            onBlur={(event) => {
+              try {
+                if (!event.currentTarget.value.trim()) {
+                  const { wyckoffHourlyInputs: _rows, ...rest } = spec;
+                  event.currentTarget.setCustomValidity("");
+                  onChange(rest);
+                  return;
+                }
+                const rows = wyckoffHourlyInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...spec, wyckoffHourlyInputs: rows });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入有效的逐证券逐日24小时证据",
+                );
+                event.currentTarget.reportValidity();
+                onChange({ ...spec, wyckoffHourlyInputs: [] });
+              }
+            }}
+          />
+          <span className="text-xs text-muted-foreground">
+            每行含symbol、date、source、availableAt、adjustment=none、hours；hours为最近六交易日的24根完整原始小时线，每日10:30/11:30/14:00/15:00。默认历史完成K线回放不证明供应商原始发布时效；显式空数组禁用本地回退。候选与确认独立记录，次日合法开盘成交。
+          </span>
+        </label>
+      )}
       {isWyckoffVsa(spec.strategy) && (
         <label className="min-w-0 break-words [overflow-wrap:anywhere]">
           VSA 历史排除与市值证据（JSON；缺失时不可用）

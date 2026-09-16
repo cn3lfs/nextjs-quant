@@ -1,3 +1,5 @@
+import { wyckoffHourlyFromMinutes } from "./research-wyckoff-hourly";
+import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
 import { isChanNative } from "~/lib/research-chan-native";
 import type { ResearchStructureObservation } from "~/lib/research-structure-events";
 import { isWyckoffVsa } from "~/lib/research-wyckoff-vsa";
@@ -106,6 +108,16 @@ export async function runStrategyResearch(
   ) => void = () => {},
 ) {
   validateResearchMethod(spec, dataset.method);
+  const requestedSpec = spec;
+  if (isWyckoffHourly(spec.strategy)) {
+    if (spec.wyckoffHourlyInputs === undefined)
+      spec = {
+        ...spec,
+        wyckoffHourlyInputs: dataset.stocks.flatMap((stock) =>
+          wyckoffHourlyFromMinutes(stock, dataset.calendar, spec.end),
+        ),
+      };
+  }
   if (spec.management?.growthIntraday)
     assertGrowthIntradayWindow(spec.start, spec.end);
   const externalVolatility = spec.management?.volatilityStop;
@@ -195,6 +207,7 @@ export async function runStrategyResearch(
     ]),
   );
   const volume =
+    isWyckoffHourly(spec.strategy) ||
     isWyckoffVsa(spec.strategy) ||
     isWyckoff(spec.strategy) ||
     isVolumePollution(spec.strategy) ||
@@ -213,6 +226,7 @@ export async function runStrategyResearch(
   const volumeStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
+      isWyckoffHourly(spec.strategy) ||
       isWyckoffVsa(spec.strategy) ||
       isWyckoff(spec.strategy) ||
       isVolumePollution(spec.strategy) ||
@@ -589,6 +603,7 @@ export async function runStrategyResearch(
       : null;
   const result = {
     ...(isWyckoff(spec.strategy) ||
+    isWyckoffHourly(spec.strategy) ||
     isWyckoffVsa(spec.strategy) ||
     isChanNative(spec.strategy)
       ? {
@@ -644,7 +659,7 @@ export async function runStrategyResearch(
         }
       : {}),
     version: "strategy-research-result-1" as const,
-    spec,
+    spec: requestedSpec,
     ...(dataset.method ? { method: dataset.method } : {}),
     datasetHash: dataset.hash,
     marketEvidenceHash: marketEvidence ? researchHash(marketEvidence) : null,

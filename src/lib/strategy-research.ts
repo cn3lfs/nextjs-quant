@@ -1,3 +1,7 @@
+import {
+  wyckoffHourlyInputsSchema,
+  isWyckoffHourly,
+} from "./research-wyckoff-hourly";
 import { wyckoffInputsSchema, isWyckoffVsa } from "./research-wyckoff-vsa";
 import { riskRepairSchema } from "./research-risk-repair";
 import {
@@ -36,6 +40,7 @@ export const researchSpecSchema = z
   .object({
     version: z.literal("strategy-research-1").default("strategy-research-1"),
     strategy: researchStrategySchema,
+    wyckoffHourlyInputs: wyckoffHourlyInputsSchema.optional(),
     wyckoffInputs: wyckoffInputsSchema.optional(),
     // Optional fields preserve the exact shape/fingerprint of historical specs.
     maParams: maParamsSchema.optional(),
@@ -75,6 +80,11 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (value.wyckoffHourlyInputs && !isWyckoffHourly(value.strategy))
+      context.addIssue({
+        code: "custom",
+        message: "小时结构证据仅用于威科夫小时策略",
+      });
     if (value.wyckoffInputs && !isWyckoffVsa(value.strategy))
       context.addIssue({
         code: "custom",

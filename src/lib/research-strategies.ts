@@ -1,3 +1,7 @@
+import {
+  wyckoffHourlyStrategies,
+  wyckoffHourlyIds,
+} from "./research-wyckoff-hourly";
 import { chanNativeStrategies, chanNativeIds } from "./research-chan-native";
 import { wyckoffVsaStrategies, wyckoffVsaIds } from "./research-wyckoff-vsa";
 import { wyckoffStrategies, wyckoffIds } from "./research-wyckoff";
@@ -49,6 +53,11 @@ import {
 
 // Only executable families belong here. Definitions drive form options and method snapshots.
 export const researchStrategyFamilies = [
+  {
+    file: "src/lib/research-wyckoff-hourly.ts",
+    strategies: wyckoffHourlyStrategies,
+    ids: wyckoffHourlyIds,
+  },
   {
     file: "src/lib/research-chan-native.ts",
     strategies: chanNativeStrategies,

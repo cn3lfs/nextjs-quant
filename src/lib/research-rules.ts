@@ -1,4 +1,9 @@
 import {
+  isWyckoffHourly,
+  researchWyckoffHourlySeries,
+  type WyckoffHourlyId,
+} from "./research-wyckoff-hourly";
+import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
   type WyckoffVsaId,
@@ -71,6 +76,7 @@ import {
   type VolumeReversalPoint,
 } from "./research-volume-reversals";
 export type ResearchRuleId =
+  | WyckoffHourlyId
   | WyckoffVsaId
   | WyckoffId
   | ChannelId
@@ -84,6 +90,7 @@ export type ResearchRuleId =
   | VolumeFailureId
   | VolumeSequenceId;
 export type ResearchRulePoint =
+  | ReturnType<typeof researchWyckoffHourlySeries>[number]
   | ReturnType<typeof researchWyckoffVsaSeries>[number]
   | WyckoffPoint
   | ChannelPoint
@@ -98,6 +105,7 @@ export type ResearchRulePoint =
   | VolumeSequencePoint;
 export function isResearchRule(id: string): id is ResearchRuleId {
   return (
+    isWyckoffHourly(id) ||
     isWyckoffVsa(id) ||
     isWyckoff(id) ||
     isChannelStrategy(id) ||
@@ -116,6 +124,7 @@ export function researchRuleSeries(
   id: ResearchRuleId,
   bars: readonly Bar[],
 ): ResearchRulePoint[] {
+  if (isWyckoffHourly(id)) return researchWyckoffHourlySeries(bars);
   if (isWyckoffVsa(id)) return researchWyckoffVsaSeries(id, bars);
   if (isWyckoff(id)) return researchWyckoffSeries(id, bars);
   if (isChannelStrategy(id)) return researchChannelSeries(id, bars);
