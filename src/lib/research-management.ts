@@ -1,4 +1,13 @@
 import {
+  isIntradayExecution,
+  intradayExecutionInputsSchema,
+} from "./research-intraday-execution";
+import {
+  isMarketAdmission,
+  marketAdmissionInputsSchema,
+} from "./research-market-admission";
+import { openingPlansSchema, isOpening } from "./research-opening";
+import {
   riskPresetInitialStop,
   riskPresetEvolution,
 } from "./research-risk-presets";
@@ -62,6 +71,9 @@ export const researchManagementSchema = z
     riskPreset: z.enum(riskPresetIds).optional(),
     swingDiscipline: z.enum(swingDisciplineIds).optional(),
     growthIntraday: z.enum(growthIntradayIds).optional(),
+    openingPlans: openingPlansSchema.optional(),
+    marketAdmissionInputs: marketAdmissionInputsSchema.optional(),
+    intradayExecutionInputs: intradayExecutionInputsSchema.optional(),
     growthDaily: z.enum(growthDailyIds).optional(),
     sepaElite: z.literal(true).optional(),
     progressExit: researchProgressExitSchema.optional(),
@@ -392,10 +404,24 @@ export const researchManagementSchema = z
     } else if (value.growthIntraday) {
       const template = growthIntradayTemplate(value.growthIntraday);
       if (
-        Object.keys(value).some((key) => !(key in template)) ||
+        Object.keys(value).some(
+          (key) =>
+            !(key in template) &&
+            !(
+              key === "intradayExecutionInputs" &&
+              isIntradayExecution(value.growthIntraday!)
+            ) &&
+            !(key === "openingPlans" && isOpening(value.growthIntraday!)) &&
+            !(
+              key === "marketAdmissionInputs" &&
+              isMarketAdmission(value.growthIntraday!)
+            ),
+        ) ||
         value.stop.kind !== "percent" ||
         value.stop.fraction !==
-          (value.growthIntraday.startsWith("RK-")
+          (value.growthIntraday === "SW02-last30" ||
+          isMarketAdmission(value.growthIntraday) ||
+          value.growthIntraday.startsWith("RK-")
             ? 0.05
             : value.growthIntraday.startsWith("SE-")
               ? 0.1

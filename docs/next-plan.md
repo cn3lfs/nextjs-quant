@@ -1,5 +1,9 @@
 # 个人交易工作台扩充计划
 
+## B5 Track A 整批收口（2026-09-17）
+
+K8的29项已接入具名工程版本，审计695项为22 implemented / 452 variant / 221 planned，K8 planned 0。复用原分钟引擎与逐批账本；OP五档表格、AR时点准入、尾盘双突破及RK-X执行/预算均保留缺数据边界。最终L3 verify:batch退出0：422文件/8339项通过、16文件/27项跳过、0失败，376.82秒；typecheck、build/runtime、来源/方法审计通过。Playwright窄屏溢出修正后31模板/3类输入/390px/页面错误0通过，修正前记录均final:false保留；会话例外全量单列。最终结果见`.codex-runs/delivery.json`。未真实回测，不进入下一批，不提交、推送或打包。
+
 ## B2 Track A 收口（2026-09-17）
 
 最后6项已实现为具名工程版本：RK-C-swing-system、RK-D-cycle-switch、RK-D-add-repair、RK-A-stop-diagnosis、RK-A-scenario-routing、RK-C-held-risk-repair。审计22 implemented / 423 variant / 250 planned，K2a与K7均planned 0、errors []。修复使用明确人工持仓独立对照，诊断冻结训练/验证边界，八场景首选备选独立路由；完整波段组合复用既有48根分钟引擎。历史持仓公司行动证明反例修正后最终verify:batch退出0：419文件/8250项通过、16文件/27项跳过、0失败，374.61秒；build/runtime、审计与格式门禁通过。Playwright一次退出0，14路由/3诊断/4修复/94管理模板、390px无溢出、页面错误0。最终日志与退出码见`.codex-runs/delivery.json`。本批结束；B5未启动，下一起点OP01；未真实回测、提交、推送或打包。

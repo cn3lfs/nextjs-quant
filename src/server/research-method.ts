@@ -1,3 +1,6 @@
+import { isOpening } from "~/lib/research-opening";
+import { isMarketAdmission } from "~/lib/research-market-admission";
+import { isIntradayExecution } from "~/lib/research-intraday-execution";
 import { riskRepairBoundary } from "~/lib/research-risk-repair";
 import {
   riskRoutingBoundary,
@@ -162,6 +165,26 @@ export function researchMethodSnapshot(
   const sources = [
     ...new Set([
       ...definition.sources,
+      ...(typeof input !== "string" &&
+      input.management?.growthIntraday &&
+      isOpening(input.management.growthIntraday)
+        ? [
+            "opening-price-playbook/SKILL.md",
+            "opening-price-playbook/references/position-playbooks.md",
+            "opening-price-playbook/references/intraday-decision-tree.md",
+          ]
+        : []),
+      ...(typeof input !== "string" &&
+      input.management?.growthIntraday &&
+      isMarketAdmission(input.management.growthIntraday)
+        ? ["astock-market-rules/SKILL.md"]
+        : []),
+      ...(typeof input !== "string" &&
+      input.management?.growthIntraday &&
+      isIntradayExecution(input.management.growthIntraday)
+        ? ["stop-loss/references/execution.md"]
+        : []),
+
       ...(typeof input !== "string" &&
       input.management &&
       isGrowthPivotStop(input.management.stop.kind)
@@ -361,6 +384,11 @@ export function researchMethodSnapshot(
           growthIntraday: {
             version: "growth-intraday-1",
             id: input.management.growthIntraday,
+            intradayExecutionInputs:
+              input.management.intradayExecutionInputs ?? null,
+            openingPlans: input.management.openingPlans ?? null,
+            marketAdmissionInputs:
+              input.management.marketAdmissionInputs ?? null,
             interpretation: growthIntradayDescription,
           },
         }

@@ -166,7 +166,13 @@ export function selectResearchStrategy(
     management?.growthIntraday &&
     strategy !== growthIntradayBase(management.growthIntraday)
   ) {
-    const { growthIntraday: _intraday, ...rest } = management;
+    const {
+      growthIntraday: _intraday,
+      openingPlans: _plans,
+      marketAdmissionInputs: _admission,
+      intradayExecutionInputs: _execution,
+      ...rest
+    } = management;
     management = rest;
   }
   if (

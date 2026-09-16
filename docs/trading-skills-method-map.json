@@ -1699,11 +1699,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP02",
@@ -1712,11 +1738,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP03",
@@ -1725,11 +1777,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP04",
@@ -1738,11 +1816,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP05",
@@ -1751,11 +1855,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "每类覆盖五档高低开、昨蜡烛、量能与观察线/生命线；竞价及一分钟数据缺失单列，不用五分钟收盘冒充开盘已知。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP06",
@@ -1764,11 +1894,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP07",
@@ -1777,11 +1933,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP08",
@@ -1790,11 +1972,37 @@
       "sources": [
         "opening-price-playbook/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-opening.ts"
+      ],
+      "tests": [
+        "tests/research-opening.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-opening.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-opening.ts",
+            "name": "openingDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA01",
@@ -5682,10 +5890,36 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "14:00-14:30优先、10:00-10:30次优、13:00-13:30一般；需分钟已知数据，与尾盘30分钟其他技能冲突独立对照。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "14:00-14:30优先、10:00-10:30次优、13:00-13:30一般；需分钟已知数据，与尾盘30分钟其他技能冲突独立对照。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR02-gain-filter",
@@ -5696,10 +5930,36 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "主板8%及其他板块等比阈值是作者经验过滤，不是交易所法定涨幅限制；禁止用当日最终涨幅提前判断。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "主板8%及其他板块等比阈值是作者经验过滤，不是交易所法定涨幅限制；禁止用当日最终涨幅提前判断。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR03-st-filter",
@@ -5710,10 +5970,36 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "作者选股过滤，需要当时证券状态；不是所有ST在法律上禁止买入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "作者选股过滤，需要当时证券状态；不是所有ST在法律上禁止买入。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR04-ipo-age",
@@ -5723,10 +6009,36 @@
         "astock-market-rules/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "作者经验条件，需要实际上市时点及交易日历；不是所有上市60日内没有涨跌幅限制。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "作者经验条件，需要实际上市时点及交易日历；不是所有上市60日内没有涨跌幅限制。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR05-resumption",
@@ -5736,10 +6048,36 @@
         "astock-market-rules/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "作者经验条件，需历史停复牌事件。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "作者经验条件，需历史停复牌事件。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR06-report-window",
@@ -5749,10 +6087,36 @@
         "astock-market-rules/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "作者经验条件，最近财报是前次披露还是未来已公告日程尚待明确，不能用事后实际披露日期预测窗口。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "作者经验条件，最近财报是前次披露还是未来已公告日程尚待明确，不能用事后实际披露日期预测窗口。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR07-late-size",
@@ -5762,10 +6126,36 @@
         "astock-market-rules/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文未给仓位递减函数，需显式工程定义并单独对照。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "原文未给仓位递减函数，需显式工程定义并单独对照。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR08-auction-confirm",
@@ -5775,10 +6165,36 @@
         "astock-market-rules/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "需竞价订单时点或明确延后确认；不可用首根5分钟收盘倒填竞价信号。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-market-admission.ts"
+      ],
+      "tests": [
+        "tests/research-market-admission.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "需竞价订单时点或明确延后确认；不可用首根5分钟收盘倒填竞价信号。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-market-admission.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-market-admission.ts",
+            "name": "marketAdmissionDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D6-close-atr-tail",
@@ -10923,10 +11339,35 @@
         "swing-trader/references/trading-system.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.1：最后半小时确认实体突破；需要盘中及当时可知量能，不能用最终日线收盘指标在14:30入场。优先现有5分钟基础，保留实际时段定义。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "§6.1：最后半小时确认实体突破；需要盘中及当时可知量能，不能用最终日线收盘指标在14:30入场。优先现有5分钟基础，保留实际时段定义。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-growth-intraday.ts的growthIntradayDescription与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "growthIntradayEntries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-r1-r2-exit",
@@ -13392,10 +13833,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "市价型止损以离场优先为意图，但停牌、跌停排队和缺行情不能保证成交；盘中触发与下一开盘代理分名，同K线顺序需要保守解释。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "市价型止损以离场优先为意图，但停牌、跌停排队和缺行情不能保证成交；盘中触发与下一开盘代理分名，同K线顺序需要保守解释。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-stop-limit1",
@@ -13405,10 +13876,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "触发后按触发价下方1%挂限价，急跌穿价保留未成交；有效期、撤改与跳空路径需冻结，日线触及不能保证限价成交。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "触发后按触发价下方1%挂限价，急跌穿价保留未成交；有效期、撤改与跳空路径需冻结，日线触及不能保证限价成交。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-profit-limit",
@@ -13418,10 +13919,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "止盈目标使用限价，触及但无队列证据的成交规则单列，不能把限价触发与市价退出混为同一价格。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "止盈目标使用限价，触及但无队列证据的成交规则单列，不能把限价触发与市价退出混为同一价格。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-manual",
@@ -13431,10 +13962,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "心理止损作为固定入场的执行对照，人工触发必须有当时冻结时间和价格依据；不能从事后收益或最终成交回填触发，缺记录列数据依赖。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "心理止损作为固定入场的执行对照，人工触发必须有当时冻结时间和价格依据；不能从事后收益或最终成交回填触发，缺记录列数据依赖。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-conditional",
@@ -13445,10 +14006,40 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "将触发运行时段、盘前盘后失效、临停中断作为执行组件；不接真实券商或交易所订单。各市场时段和条件语义需历史证据，不假定原文描述普适。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "将触发运行时段、盘前盘后失效、临停中断作为执行组件；不接真实券商或交易所订单。各市场时段和条件语义需历史证据，不假定原文描述普适。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-t0-old",
@@ -13458,10 +14049,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "仅卖出已有可卖批次再买入新批次，新批次仍受T+1；日内信号、旧仓来源、现金及成本明确，不能用当日新股数冒充可卖旧仓。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "仅卖出已有可卖批次再买入新批次，新批次仍受T+1；日内信号、旧仓来源、现金及成本明确，不能用当日新股数冒充可卖旧仓。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-gap10",
@@ -13471,10 +14092,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "按入场价下方10%独立灾难场景检查账户损失，并与止损风险预算取更严格约束；不同于止损价再下压10%，也非所有股票实际跌停幅度或最坏亏损保证。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "按入场价下方10%独立灾难场景检查账户损失，并与止损风险预算取更严格约束；不同于止损价再下压10%，也非所有股票实际跌停幅度或最坏亏损保证。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-limit-news",
@@ -13484,10 +14135,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "当时已知利空公告与跌停共同确认后优先退出，不等待反弹；公告可用时间及排队不可得则留缺口，不把优先意图当成已成交。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "当时已知利空公告与跌停共同确认后优先退出，不等待反弹；公告可用时间及排队不可得则留缺口，不把优先意图当成已成交。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-limit-budget",
@@ -13497,10 +14178,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "高位持仓按当日证券真实跌停规则限制一次跌停损失，高位与可承受阈值需工程冻结；不得固定套10%或用当前ST状态倒推历史。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "高位持仓按当日证券真实跌停规则限制一次跌停损失，高位与可承受阈值需工程冻结；不得固定套10%或用当前ST状态倒推历史。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-halt-cap",
@@ -13510,10 +14221,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "当时可知的停牌传闻或重组预期触发较低单股仓位上限，证据真实性、首次时间和降幅明确；不得用未来实际停牌回填信号。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "当时可知的停牌传闻或重组预期触发较低单股仓位上限，证据真实性、首次时间和降幅明确；不得用未来实际停牌回填信号。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-auction-queue",
@@ -13523,10 +14264,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "下一竞价按跌停价提交退出意图，真实成交需队列与竞价数据；日线缺证据不保证出局，不把开盘前窗口表述推广为唯一调整方式。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "下一竞价按跌停价提交退出意图，真实成交需队列与竞价数据；日线缺证据不保证出局，不把开盘前窗口表述推广为唯一调整方式。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-X-event5",
@@ -13536,10 +14307,40 @@
         "stop-loss/references/execution.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "依据当时已发布日程识别未来5个交易日的财报、解禁和重大事件，触发原文事前减仓或新仓限制组合；不能用事后实际发生日期重建预期日程。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts",
+        "src/lib/research-intraday-execution.ts"
+      ],
+      "tests": [
+        "tests/research-intraday-execution.test.ts",
+        "tests/research-growth-intraday.test.ts",
+        "tests/research-growth-intraday-run.test.ts"
+      ],
+      "boundary": "依据当时已发布日程识别未来5个交易日的财报、解禁和重大事件，触发原文事前减仓或新仓限制组合；不能用事后实际发生日期重建预期日程。 B5已接入同名分钟管理模板（AR01另有morning/afternoon独立对照），双突破基线；具名工程参数、来源及数据缺口见src/lib/research-intraday-execution.ts的Boundary与docs/decisions.md。窗口2000-01-04..2022-11-30，逐证券逐日48根，下一根open执行、逐批T+1；缺时点证据明确待数据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayExitPolicy"
+          },
+          {
+            "file": "src/lib/research-intraday-execution.ts",
+            "name": "intradayEntryPolicy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D2-compare",

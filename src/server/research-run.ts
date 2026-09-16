@@ -61,6 +61,9 @@ import {
 import { researchSignals } from "./research-signals";
 import { researchOutcomes } from "./research-outcomes";
 import { researchPortfolio } from "./research-portfolio";
+import { isOpening } from "~/lib/research-opening";
+import { isMarketAdmission } from "~/lib/research-market-admission";
+import { isIntradayExecution } from "~/lib/research-intraday-execution";
 import { researchHash, type ResearchDataset } from "./research-dataset";
 import { adjustmentFactors, applyAdjustment } from "./tdx-gbbq";
 import { validateResearchMethod } from "./research-method";
@@ -250,7 +253,8 @@ export async function runStrategyResearch(
           "量价窗口含除权事件，未实现对应量调整，拒绝使用失真量价信号",
         );
       const observed =
-        spec.management?.growthIntraday === "SE-E-intraday50"
+        spec.management?.growthIntraday === "SE-E-intraday50" ||
+        spec.management?.growthIntraday === "SW02-last30"
           ? growthIntradayEntries(
               stock.symbol,
               stock.bars,
@@ -342,6 +346,11 @@ export async function runStrategyResearch(
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
   const requiresActionPrefix =
+    (spec.management?.growthIntraday != null &&
+      (isOpening(spec.management.growthIntraday) ||
+        isMarketAdmission(spec.management.growthIntraday) ||
+        isIntradayExecution(spec.management.growthIntraday) ||
+        spec.management.growthIntraday === "SW02-last30")) ||
     !!spec.stopDiagnosis ||
     spec.management?.growthIntraday === "RK-C-swing-system" ||
     spec.management?.trail.kind === "volatility" ||

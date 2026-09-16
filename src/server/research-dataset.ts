@@ -10,6 +10,7 @@ import { settings } from "./settings";
 import { readMarketPool } from "./market-pool-files";
 import { scan, readSnapshot } from "./tdx";
 import { assertGrowthIntradayWindow } from "~/lib/research-growth-intraday";
+import { isOpening, openingMinuteStart } from "~/lib/research-opening";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
 import {
@@ -62,6 +63,10 @@ export async function captureResearchDataset(
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
+  const minuteStart =
+    spec.management?.growthIntraday && isOpening(spec.management.growthIntraday)
+      ? openingMinuteStart(calendar, spec.start)
+      : spec.start;
   let canslimMarket: CanslimResearchMarket | undefined;
   if (
     needsCanslimMarket(spec.strategy) ||
@@ -114,7 +119,7 @@ export async function captureResearchDataset(
         : null;
       const minuteBars = minute?.bars.filter(
         (b) =>
-          b.date.slice(0, 10) >= spec.start && b.date.slice(0, 10) <= spec.end,
+          b.date.slice(0, 10) >= minuteStart && b.date.slice(0, 10) <= spec.end,
       );
       const raw = {
         symbol,

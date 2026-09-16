@@ -1,3 +1,18 @@
+import {
+  isIntradayExecution,
+  intradayExecutionInputsSchema,
+  intradayExecutionBoundary,
+} from "~/lib/research-intraday-execution";
+import {
+  isMarketAdmission,
+  marketAdmissionInputsSchema,
+  marketAdmissionBoundary,
+} from "~/lib/research-market-admission";
+import {
+  isOpening,
+  openingPlansSchema,
+  openingBoundary,
+} from "~/lib/research-opening";
 import { Textarea } from "./ui/textarea";
 import {
   contextRiskIds,
@@ -1154,10 +1169,108 @@ export function ResearchManagementFields({
         </Button>
       ))}
       {value.growthIntraday && (
-        <p className="text-sm text-muted-foreground">
+        <p className="break-all text-sm text-muted-foreground">
           当前版本：{growthIntradayLabels[value.growthIntraday]}。
           {growthIntradayDescription}
         </p>
+      )}
+      {value.growthIntraday && isOpening(value.growthIntraday) && (
+        <label className="block space-y-2 text-sm">
+          <span>前日冻结开盘计划（JSON；缺失时不可用）</span>
+          <Textarea
+            aria-label="前日冻结开盘计划"
+            className="min-h-32 font-mono text-xs"
+            key={`${value.growthIntraday}:${JSON.stringify(value.openingPlans ?? [])}`}
+            defaultValue={JSON.stringify(value.openingPlans ?? [], null, 2)}
+            onBlur={(event) => {
+              try {
+                const plans = openingPlansSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...value, openingPlans: plans });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入含来源、可知时点、位置和三条价位的逐日计划数组",
+                );
+                event.currentTarget.reportValidity();
+                const { openingPlans: _plans, ...rest } = value;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="block break-all text-muted-foreground">
+            {openingBoundary}
+          </span>
+        </label>
+      )}
+      {value.growthIntraday && isMarketAdmission(value.growthIntraday) && (
+        <label className="block space-y-2 text-sm">
+          <span>历史入场状态（JSON；缺失时不可用）</span>
+          <Textarea
+            aria-label="历史入场状态"
+            className="min-h-32 font-mono text-xs"
+            key={`${value.growthIntraday}:${JSON.stringify(value.marketAdmissionInputs ?? [])}`}
+            defaultValue={JSON.stringify(
+              value.marketAdmissionInputs ?? [],
+              null,
+              2,
+            )}
+            onBlur={(event) => {
+              try {
+                const rows = marketAdmissionInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...value, marketAdmissionInputs: rows });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入带来源及可知时点的历史入场状态数组",
+                );
+                event.currentTarget.reportValidity();
+                const { marketAdmissionInputs: _rows, ...rest } = value;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="block break-all text-muted-foreground">
+            {marketAdmissionBoundary}
+          </span>
+        </label>
+      )}
+      {value.growthIntraday && isIntradayExecution(value.growthIntraday) && (
+        <label className="block space-y-2 text-sm">
+          <span>盘中执行历史证据（JSON；缺失时不可用）</span>
+          <Textarea
+            aria-label="盘中执行历史证据"
+            className="min-h-32 font-mono text-xs"
+            key={`${value.growthIntraday}:${JSON.stringify(value.intradayExecutionInputs ?? [])}`}
+            defaultValue={JSON.stringify(
+              value.intradayExecutionInputs ?? [],
+              null,
+              2,
+            )}
+            onBlur={(event) => {
+              try {
+                const rows = intradayExecutionInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...value, intradayExecutionInputs: rows });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入带来源及可知时点的盘中执行证据数组",
+                );
+                event.currentTarget.reportValidity();
+                const { intradayExecutionInputs: _rows, ...rest } = value;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="block break-all text-muted-foreground">
+            {intradayExecutionBoundary}
+          </span>
+        </label>
       )}
       {contextRiskIds.map((id) => (
         <Button
