@@ -4,12 +4,12 @@
 
 ## B6b 因子批量交付（2026-09-17，未整批完成）
 
-- 本轮新增31项variant，累计65项：SE01/CA-T三项、RS与板块、入场/财报/身份、完整17项评分及三形态组合；审计22 implemented / 547 variant / 126 planned，B6b剩91（K4 10 / K9 32 / K10 13 / K11 36），K3清零。
-- 同一as-of字段表扩7字段，不新增通道；114分三类分档、前后财报窗口、IPO/游资代理、涨停替代及跨面板一致性裁定见decisions，规则/人工分开。
-- 固定输入复用既有VCP/杯柄/平台/碟形和市场算法，覆盖门槛等号、完整组合正反例、缺失评分和全池窗口；未改变共享执行契约或注册聚合器。
-- 最终L1/L2家族含共享契约53文件5726项通过、0失败、148.82秒；typecheck/审计退出0。L3、build/Playwright未运行，仍待B6b整批完成；实际重试及最终格式/diff结果见delivery。
-- 真实覆盖start/end未知，realBacktest.available=false；已登记7个新增字段及原财务/机构缺口。nextStart为K4剩余纪律/凯利10项→K9→K10，K11先对齐5个漂移新闻来源语义。
-- 未真实回测、提交、推送、打包、外发、连接付费数据/生产库或更新来源锁定hash；精确ID、remainingMethods与门禁证据见.codex-runs/delivery.json。
+- 本轮新增42项variant：K4纪律/凯利10项、K9基本面/郭永清/价值假设32项；B6b累计107项，审计22 implemented / 589 variant / 84 planned，B6b剩49（K10 13 / K11 36）。
+- 同一as-of字段表扩11字段，无新适配器/通道；B2凯利训练准入、FA-WACC/GY股权8%分名、VI当时冻结与参与分组及原文冲突裁定见decisions。
+- 固定输入覆盖各方法正反例、门槛、模型手算、缺失/前视/事后归档拒绝；复用既有形态、市场、凯利与估值算术，未改共享执行契约/注册聚合器。
+- 最终L1/L2家族含共享契约62文件5872项通过、0失败、168.30秒；typecheck/方法审计/格式/normalize/diff退出0，重试及冻结证据见delivery。L3、build/Playwright未跑，留待整批完成。
+- 真实披露/FCFF/行业/五年采样/训练交易/冻结假设档案覆盖start/end未知，realBacktest.available=false；nextStart=K10，K11新闻漂移先语义对齐。
+- 未真实回测、提交、推送、打包、外发、连接付费数据/生产库或更新来源锁定hash；精确ID与门禁证据见.codex-runs/delivery.json。
 
 ## B6a as-of 适配器（2026-09-17）
 

@@ -1,3 +1,12 @@
+import {
+  evaluateValueFactor,
+  valueFactorRules,
+  valueFactorInputs,
+} from "~/lib/research-value-factors";
+import { researchKellyTraining } from "~/lib/research-kelly-training";
+import { researchKellyLimit } from "~/lib/research-kelly";
+import { researchWyckoffSeries } from "~/lib/research-wyckoff";
+import { growthTrainingSchema, growthOverrideSchema } from "~/lib/as-of-inputs";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { createAsOfAdapter, type AsOfDomain } from "~/lib/as-of";
@@ -76,7 +85,40 @@ export const growthCombinationRules: Record<string, string> = {
     "缩量涨停不认定量不足；工程单独实验给至少达标6分，涨停仍不准买入；非原文确定分",
 };
 
+export const growthDisciplineRules: Record<string, string> = {
+  "CA-E-exclusions":
+    "完整历史身份/止损/RS80/M6/预约财报/风险回报与冷静期；同CA形态基线",
+  "CA-E-checklist70": "17项114分版>=70、M>=6、既有形态确认及不可覆盖的风险纪律",
+  "CA-E-soft-overrides":
+    "事前冻结仅允许总分65至69弱项；形态、M、RS、身份、财报及风险不放宽，非临场LLM",
+  "SE-E-checklist":
+    "严格四核心+盈利惊喜>=10%第五项、七趋势/VCP6/市场/预约财报/风险全过",
+  "CA-K-kelly25":
+    "B2开发段30闭合样本实测p；20%入场空间/止损>=2.5，半凯利/1.5%风险/25%取小",
+  "SE-K-kelly":
+    "B2实测p；入场30%与枢纽30%两目标分名，>=3，半凯利/1.5%风险/25%取小",
+  "SE-K-quality":
+    "两门及VCP8/6映射假设p .55/.48/.40，不冒充实测；仍要求B2训练准入",
+  "CA-K-quality":
+    "完整评分93/70及强形态映射假设p .55/.48/.40，工程质量分档；仍要求B2训练准入",
+  "WY-K-quality":
+    "复用确认结构事件，20交易日同一结构多重/单一/弱信号映射假设p；仍要求B2训练准入，2%/30%",
+  "SE-K-script-quality":
+    "SEPA入口质量强档额外要求量>=前20均量2倍；p仅假设，仍要求B2训练准入",
+};
+
 const combinationFields = (id: string): [AsOfDomain, string[]][] => {
+  if (Object.hasOwn(growthDisciplineRules, id))
+    return [
+      ["rs", ["priceHistory"]],
+      ["capital", ["entryPlan"]],
+      ...(id.includes("-K-")
+        ? [["capital", ["kellyTraining"]] as [AsOfDomain, string[]]]
+        : []),
+      ...(id === "CA-E-soft-overrides"
+        ? [["capital", ["softOverride"]] as [AsOfDomain, string[]]]
+        : []),
+    ];
   const rs: [AsOfDomain, string[]] = ["rs", ["crossSection", "members"]];
   const h: [AsOfDomain, string[]] = ["rs", ["priceHistory"]];
   const state: [AsOfDomain, string[]] = ["capital", ["securityState"]];
@@ -119,7 +161,13 @@ const combinationFields = (id: string): [AsOfDomain, string[]][] => {
 };
 
 type Rule = {
-  family: "finance" | "catalyst" | "capital" | "institution" | "combination";
+  family:
+    | "finance"
+    | "catalyst"
+    | "capital"
+    | "institution"
+    | "combination"
+    | "value";
   kind: string;
   binary?: boolean;
   cap: number;
@@ -129,47 +177,55 @@ type Rule = {
 // Source main-text binary rules and reference tier rules are separate methods.
 export const growthFactorMethods: Record<string, Rule> = {
   ...Object.fromEntries(
-    Object.entries(growthCombinationRules).map(([id, note]) => [
+    Object.entries(valueFactorRules).map(([id, note]) => [
       id,
-      {
-        family: "combination" as const,
-        kind: id,
-        cap:
-          id === "CA-S-weighted-ratio"
-            ? 100
-            : id === "CA-S-L1" || id === "CA-B-L1" || id === "CA-S-L1-ipo"
-              ? 9
-              : id === "CA-S-L2" || id === "CA-B-L2"
-                ? 6
-                : id === "CA-S-S1-limitup"
-                  ? 8
-                  : [
-                        "CA07",
-                        "CA-S-total-absolute",
-                        "CA-S-total-ratio",
-                        "CA-S-weighted-ratio",
-                        "CA-S-C-downgrade",
-                        "CA-S-missing",
-                      ].includes(id)
-                    ? 114
-                    : 1,
-        threshold:
-          id === "CA-S-L1" || id === "CA-S-L1-ipo"
-            ? 5
-            : id === "CA-B-L1"
-              ? 9
-              : id === "CA-S-L2"
-                ? 5
-                : id === "CA-B-L2"
+      { family: "value" as const, kind: id, cap: 100, threshold: 1, note },
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries({ ...growthCombinationRules, ...growthDisciplineRules }).map(
+      ([id, note]) => [
+        id,
+        {
+          family: "combination" as const,
+          kind: id,
+          cap:
+            id === "CA-S-weighted-ratio"
+              ? 100
+              : id === "CA-S-L1" || id === "CA-B-L1" || id === "CA-S-L1-ipo"
+                ? 9
+                : id === "CA-S-L2" || id === "CA-B-L2"
                   ? 6
                   : id === "CA-S-S1-limitup"
-                    ? 6
-                    : id === "CA07"
-                      ? 70
+                    ? 8
+                    : [
+                          "CA07",
+                          "CA-S-total-absolute",
+                          "CA-S-total-ratio",
+                          "CA-S-weighted-ratio",
+                          "CA-S-C-downgrade",
+                          "CA-S-missing",
+                        ].includes(id)
+                      ? 114
                       : 1,
-        note,
-      },
-    ]),
+          threshold:
+            id === "CA-S-L1" || id === "CA-S-L1-ipo"
+              ? 5
+              : id === "CA-B-L1"
+                ? 9
+                : id === "CA-S-L2"
+                  ? 5
+                  : id === "CA-B-L2"
+                    ? 6
+                    : id === "CA-S-S1-limitup"
+                      ? 6
+                      : id === "CA07"
+                        ? 70
+                        : 1,
+          note,
+        },
+      ],
+    ),
   ),
   SE02: {
     family: "finance",
@@ -383,7 +439,10 @@ export function evaluateGrowthFactors(
             unit: asOfInputDefinitions[domain][field]!.unit,
           });
     };
-    if (rule.family === "combination") {
+    if (rule.family === "value") {
+      for (const v of valueFactorInputs(methodId, req))
+        requireFields(v.domain, [v.field], [v.effectiveAt]);
+    } else if (rule.family === "combination") {
       for (const [domain, fields] of combinationFields(methodId))
         requireFields(domain, fields, [req.observationDate]);
       const total = [
@@ -539,14 +598,56 @@ export function evaluateGrowthFactors(
         throw new InputGap(row.reason);
       }
       if (
-        domain === "rs" &&
-        ["priceHistory", "crossSection", "sectors"].includes(field) &&
+        ((domain === "rs" &&
+          ["priceHistory", "crossSection", "sectors"].includes(field)) ||
+          (domain === "capital" &&
+            ["valueMarket", "valueThesisObservations"].includes(field))) &&
         Date.parse(row.provenance.availableAt) <
           Date.parse(`${effectiveAt}T15:00:00+08:00`)
       ) {
         const reason = "日收盘面板的首次可知时间早于收盘，证据不可信";
         gaps.push({ field: `${domain}/${field}`, effectiveAt, reason });
         throw new InputGap(reason);
+      }
+      const frozenGap = (reason: string) => {
+        gaps.push({ field: `${domain}/${field}`, effectiveAt, reason });
+        return new InputGap(reason);
+      };
+      if (["valuePolicy", "softOverride"].includes(field)) {
+        const frozen = (row.value as { frozenAt: string }).frozenAt;
+        if (
+          Date.parse(row.provenance.availableAt) > Date.parse(frozen) ||
+          Date.parse(row.provenance.capturedAt) > Date.parse(frozen)
+        )
+          throw frozenGap(
+            "冻结参数缺当时档案：首次可知/采集晚于冻结时间；不得事后回填假设",
+          );
+      }
+      if (field === "valueThesisObservations") {
+        const values = Object.values(
+          row.value as Record<string, { origin: string; recordedAt: string }>,
+        );
+        if (
+          values.some(
+            (v) =>
+              v.origin !== "rule" &&
+              (Date.parse(v.recordedAt) > Date.parse(req.asOf) ||
+                Date.parse(row.provenance.capturedAt) > Date.parse(req.asOf)),
+          )
+        )
+          throw frozenGap("人工/LLM观察无当时归档证据，不充当历史已知判断");
+      }
+      if (field === "valueTheses") {
+        const theses = row.value as { frozenAt: string; recordedAt: string }[];
+        if (
+          theses.some(
+            (t) =>
+              Date.parse(row.provenance.availableAt) > Date.parse(t.frozenAt) ||
+              Date.parse(row.provenance.capturedAt) > Date.parse(t.frozenAt) ||
+              Date.parse(t.recordedAt) > Date.parse(t.frozenAt),
+          )
+        )
+          throw frozenGap("主观假设缺当时冻结档案，不接收回放时生成的历史预测");
       }
       return row.value;
     };
@@ -575,7 +676,7 @@ export function evaluateGrowthFactors(
     };
     let points: number | null = null,
       details: Record<string, unknown> = {},
-      mode: "rule" | "human" = "rule";
+      mode: "rule" | "human" | "llm" = "rule";
     for (const input of requiredInputs) {
       try {
         read(input.domain, input.field, input.effectiveAt);
@@ -586,7 +687,19 @@ export function evaluateGrowthFactors(
     try {
       if (gaps.length && methodId !== "CA-S-missing")
         throw new InputGap("所需字段尚未全部覆盖");
-      if (rule.family === "combination") {
+      if (rule.family === "value") {
+        try {
+          const v = evaluateValueFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "估值输入无效",
+          );
+        }
+      } else if (rule.family === "combination") {
         const supplemental = evaluateGrowthCombination(
           methodId,
           req,
@@ -1023,7 +1136,9 @@ export function evaluateGrowthFactors(
       human: results.filter(
         (r) => r.status === "computed" && r.participation === "human",
       ).length,
-      llm: 0,
+      llm: results.filter(
+        (r) => r.status === "computed" && r.participation === "llm",
+      ).length,
     },
   };
   return {
@@ -1051,10 +1166,12 @@ export function rankGrowthFactors(
     symbol: r.symbol,
     ...evaluateGrowthFactors(r, observations, [methodId]).results[0]!,
   }));
+  const statisticsGroup = (r: (typeof rows)[number]) =>
+    String(r.details.statisticsGroup ?? r.participation);
   return rows
     .sort(
       (a, b) =>
-        a.participation.localeCompare(b.participation) ||
+        statisticsGroup(a).localeCompare(statisticsGroup(b)) ||
         (b.points ?? -1) - (a.points ?? -1) ||
         a.symbol.localeCompare(b.symbol),
     )
@@ -1066,7 +1183,7 @@ export function rankGrowthFactors(
           : 1 +
             rows.filter(
               (p) =>
-                p.participation === r.participation &&
+                statisticsGroup(p) === statisticsGroup(r) &&
                 p.status === "computed" &&
                 p.points !== null &&
                 p.points > r.points!,
@@ -1338,6 +1455,275 @@ function evaluateGrowthCombination(
       any: cup.entry || flat.entry || saucer.entry || bottom.entry,
     };
   };
+  if (Object.hasOwn(growthDisciplineRules, id)) {
+    const plan = growthEntrySchema.parse(input("capital", "entryPlan"));
+    const stopPct =
+      ((plan.plannedPrice - plan.stopPrice) / plan.plannedPrice) * 100;
+    const wy = id === "WY-K-quality",
+      ca = id.startsWith("CA-");
+    const riskPct = wy ? 2 : 1.5,
+      capPct = wy ? 30 : 25;
+    const riskSafe =
+      stopPct > 0 &&
+      stopPct <= (ca ? 8 : 10) + 1e-10 &&
+      plan.accountRiskPct <= riskPct &&
+      plan.positionPct <= capPct &&
+      (plan.positionPct * stopPct) / 100 <= riskPct + 1e-10;
+    let eligible = false,
+      assumedP = 0.4;
+    let quality: Record<string, unknown> = {};
+    if (wy) {
+      const h = history();
+      assert(h.bars.length >= 61, "威科夫质量需要完整结构预热");
+      const series = researchWyckoffSeries(
+        "wy-sos-jac-daily",
+        h.bars,
+        h.calendar,
+      );
+      const tail = series.slice(-20),
+        latest = series.at(-1)!;
+      assert(latest.reason === null, "威科夫结构不可用");
+      const events = tail
+        .flatMap((p) => p.events)
+        .filter(
+          (e) =>
+            e.state === "confirmed" &&
+            ["spring", "test", "sos", "jac", "lps"].includes(e.kind),
+        );
+      const current = events.filter((e) => e.confirmedAt === at);
+      const latestEvent = current.at(-1);
+      const sameStructure = latestEvent
+        ? events.filter(
+            (e) =>
+              Math.abs(e.facts.support - latestEvent.facts.support) < 1e-8 &&
+              Math.abs(e.facts.resistance - latestEvent.facts.resistance) <
+                1e-8,
+          )
+        : [];
+      const types = new Set(
+        sameStructure.map((e) => (e.kind === "jac" ? "sos" : e.kind)),
+      );
+      assumedP =
+        types.size >= 2
+          ? 0.55
+          : current.some((e) => e.kind !== "test")
+            ? 0.48
+            : 0.4;
+      eligible =
+        current.length > 0 && riskSafe && !latest.exit && !latest.reduction;
+      quality = {
+        events,
+        sameStructure,
+        qualityInterpretation: "20交易日确认事件类型计数；弱信号仍单列",
+      };
+    } else if (ca) {
+      const total = components(["CA-S-total-absolute"])[0]!;
+      if (total.status !== "computed") return result(null, { total });
+      const groups = total.details.groups as Record<string, number>,
+        score = total.points!;
+      const sh = shape(),
+        f = five(),
+        s = state(),
+        e = earnings(),
+        r = rs();
+      const selected = [sh.cup, sh.flat, sh.saucer, sh.bottom].find(
+        (x) => x.entry,
+      );
+      let minimum = 70;
+      if (id === "CA-E-soft-overrides") {
+        const override = growthOverrideSchema.parse(
+          input("capital", "softOverride"),
+        );
+        assert(
+          Date.parse(override.frozenAt) < Date.parse(req.asOf),
+          "弱项政策必须在决策前冻结",
+        );
+        human ||= override.origin === "human";
+        minimum = 65;
+        quality.override = override;
+      }
+      const hard =
+        riskSafe &&
+        groups.M! >= 6 &&
+        r.percentile >= 80 &&
+        !s.st &&
+        !s.delistingRisk &&
+        s.exchange !== "BJ" &&
+        s.listingTradingDays >= 60 &&
+        s.resumedAfterSuspensionDays < 20 &&
+        plan.plannedPrice < s.limitUpPrice &&
+        plan.sessionsSinceStop >= 5 &&
+        e.before > 5 &&
+        20 / stopPct >= 2.5 - 1e-10;
+      eligible =
+        score >= minimum &&
+        !!selected &&
+        selected.candidate?.high === plan.pivot &&
+        f.buyEligible &&
+        hard;
+      assumedP =
+        score >= 93 && !!selected && f.buyEligible
+          ? 0.55
+          : score >= 70
+            ? 0.48
+            : 0.4;
+      quality = {
+        ...quality,
+        total,
+        shape: sh,
+        entry: f,
+        hard,
+        rs: r,
+        minimum,
+        assumptionQualityThresholds: [93, 70],
+      };
+    } else {
+      const fundamental = components(["SE02"])[0]!;
+      if (fundamental.status !== "computed")
+        return result(null, { fundamental });
+      const p = sepa(),
+        r = rs(),
+        f = five(),
+        e = earnings(),
+        s = state();
+      assert(
+        p.pattern?.score != null && p.trend !== undefined,
+        "SEPA质量形态不可用",
+      );
+      const trend =
+        Object.entries(p.trend!.checks)
+          .filter(([k]) => k !== "relativeStrength85")
+          .every(([, v]) => v === true) && r.percentile >= 85;
+      const gates = fundamental.details.strictPass === true && trend;
+      const volumeRatio = history().bars.at(-1)!.volume / p.volume!.average;
+      assumedP =
+        gates &&
+        p.pattern!.score! >= 8 &&
+        (id !== "SE-K-script-quality" || volumeRatio >= 2)
+          ? 0.55
+          : gates && p.pattern!.score! >= 6 && p.pattern!.score! < 8
+            ? 0.48
+            : 0.4;
+      const surprise =
+        e.consensusEps > 0 && e.actualEps >= e.consensusEps * 1.1 - 1e-10;
+      eligible =
+        gates &&
+        p.entry &&
+        p.candidate?.high === plan.pivot &&
+        f.buyEligible &&
+        f.market &&
+        e.before > 5 &&
+        riskSafe &&
+        30 / stopPct >= 3 - 1e-10 &&
+        !s.st &&
+        !s.delistingRisk &&
+        s.exchange !== "BJ" &&
+        plan.plannedPrice < s.limitUpPrice &&
+        (id !== "SE-E-checklist" || surprise);
+      quality = {
+        fundamental,
+        trend,
+        pattern: p.pattern,
+        volumeRatio,
+        surprise,
+        entry: f,
+      };
+    }
+    if (!id.includes("-K-"))
+      return decision(eligible, { ...quality, stopPct, riskSafe });
+    const inputTraining = growthTrainingSchema.parse(
+      input("capital", "kellyTraining"),
+    );
+    assert(
+      inputTraining.start < inputTraining.cutoff && inputTraining.cutoff <= at,
+      "训练截止须不晚于决策日，且区间有效",
+    );
+    const training = researchKellyTraining(
+      inputTraining.trades,
+      inputTraining.start,
+      inputTraining.cutoff,
+    );
+    assert(training.reason === null, training.reason ?? "开发训练不可用");
+    const target = wy
+      ? inputTraining.wyckoffTarget
+      : plan.plannedPrice * (ca ? 1.2 : 1.3);
+    if (plan.stopPrice >= plan.plannedPrice || target <= plan.plannedPrice)
+      return decision(false, {
+        ...quality,
+        training,
+        stopPct,
+        riskSafe,
+        weight: 0,
+        payoff: null,
+        halfKellyWeight: null,
+        reason: "止损距离或目标空间非正，拒绝除零/负赔率",
+        probabilityProvenance: id.includes("quality")
+          ? "source-quality-assumption"
+          : "development-closed",
+        assumptionParameterP: id.includes("quality") ? assumedP : null,
+        empiricalWinRate: training.winRate,
+      });
+    const payoff =
+      (target - plan.plannedPrice) / (plan.plannedPrice - plan.stopPrice);
+    const minimumPayoff = ca ? 2.5 : wy ? 0 : 3;
+    const assumption = id.includes("quality");
+    const limit = researchKellyLimit(
+      { provenance: "development-closed", payoff, fraction: 0.5 },
+      assumption ? assumedP : training.winRate,
+    );
+    const riskWeight = stopPct > 0 ? riskPct / stopPct : 0;
+    const weight =
+      limit.weight === null
+        ? 0
+        : Math.min(riskWeight, limit.weight, capPct / 100);
+    const pivotPayoff =
+      (plan.pivot * 1.3 - plan.plannedPrice) /
+      (plan.plannedPrice - plan.stopPrice);
+    const pivotLimit =
+      id === "SE-K-kelly" && pivotPayoff >= 3
+        ? researchKellyLimit(
+            {
+              provenance: "development-closed",
+              payoff: pivotPayoff,
+              fraction: 0.5,
+            },
+            training.winRate,
+          )
+        : null;
+    return decision(eligible && payoff >= minimumPayoff - 1e-10 && weight > 0, {
+      ...quality,
+      training,
+      probabilityProvenance: assumption
+        ? "source-quality-assumption"
+        : "development-closed",
+      assumptionParameterP: assumption ? assumedP : null,
+      empiricalWinRate: training.winRate,
+      target,
+      payoff,
+      stopPct,
+      riskWeight,
+      halfKellyWeight: limit.weight,
+      capWeight: capPct / 100,
+      weight: eligible && payoff >= minimumPayoff - 1e-10 ? weight : 0,
+      bindingConstraint:
+        weight === riskWeight
+          ? "risk"
+          : weight === capPct / 100
+            ? "cap"
+            : "half-kelly",
+      pivotTargetVariant:
+        id === "SE-K-kelly"
+          ? {
+              name: "pivot-plus30pct",
+              payoff: pivotPayoff,
+              weight:
+                eligible && pivotLimit?.weight
+                  ? Math.min(riskWeight, pivotLimit.weight, capPct / 100)
+                  : 0,
+            }
+          : null,
+    });
+  }
   if (
     [
       "CA-S-L1",

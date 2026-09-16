@@ -2494,117 +2494,253 @@
       "title": "F-Score",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/scoring-system.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "九项F-Score；>=6为工程质量筛选，零/等号不算改善。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA02",
       "title": "DuPont财务质量",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/scoring-system.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "三年DuPont与行业对照，利润率和周转共同改善且杠杆不升为工程准入。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA03",
       "title": "DCF折价",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "三年已核验FCFF均值、预先冻结CAPM/WACC、五年+2%永续，增长±1%三情景中位；折价>=20%。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA04",
       "title": "行业相对估值",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "行业PE/PB/PS/EV-EBITDA与五年历史比，PE隐含公允价折价>=10%；亏损不套PE。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA05",
       "title": "历史PE-PB分位",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "固定周年采样的五年估值窗口工程版，PE/PB严格更低者百分位<20；并列不拆，缺口不补。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA06",
       "title": "Graham",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "Graham EPS*(8.5+2g)*4.4/Y，g限制0至15%，持续盈利，价格严格<67%。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA07",
       "title": "PEG",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "TTM PE/预先冻结一年盈利增长百分数，PE与增长均正，PEG<=1；非正不可用。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA08",
       "title": "六维评分",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/scoring-system.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "六维20/20/20/15/15/10%，区间中点和边界具名工程版，完整输入且>=65。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。原分数区间固定中点90/69.5/49.5/29.5/9.5，毛利稳定为5个百分点，治理六个月；五年排雷/三年增长，缺项不重分权重。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "FA09",
       "title": "多模型安全边际",
       "batch": "K9",
       "sources": [
-        "fundamental-analyst/SKILL.md"
+        "fundamental-analyst/SKILL.md",
+        "fundamental-analyst/references/valuation-models.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "DCF/行业PE/历史PE/Graham/PEG 30/25/15/20/10%，全部模型有效且折价>=20%；不因缺失重分权重。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY01",
@@ -2613,24 +2749,53 @@
       "sources": [
         "guo-yongqing-valuation/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "五年利润/OCF累计比例<.5或连续3年非正+正利润为排雷代理，九类未解释危险硬否决；高弹性行业加严比例1。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY02",
       "title": "资产重构价值增加",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/SKILL.md"
+        "guo-yongqing-valuation/SKILL.md",
+        "guo-yongqing-valuation/references/balance-sheet-restructure.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "重构资产/有息资本、无效商誉研发剔除、五年股权价值增加>0；长期融资净值非负。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY03",
@@ -2639,141 +2804,308 @@
       "sources": [
         "guo-yongqing-valuation/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "OCF五状态；近零/近非付现成本为冻结1%尺度工程定义；状态5准入，状态4只显示无增长不入场。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY04",
       "title": "保全性支出FCF",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/SKILL.md"
+        "guo-yongqing-valuation/SKILL.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "七项保全性成本FCF，独立于全部资本支出及标准FCFF；正值筛选。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY05",
       "title": "安全边际",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/SKILL.md"
+        "guo-yongqing-valuation/SKILL.md",
+        "guo-yongqing-valuation/references/balance-sheet-restructure.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "郭永清独立股权8%/七折安全边际，排雷/重构/现金流门槛完整组合；不调用标准DCF口径。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06",
       "title": "行业专用估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/SKILL.md"
+        "guo-yongqing-valuation/SKILL.md",
+        "guo-yongqing-valuation/references/balance-sheet-restructure.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md",
+        "guo-yongqing-valuation/references/industry-switches.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "行业路由单独注册，专用现金流先于周期5至10年均值；完整七步工程组合与单组件分开。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI01",
       "title": "生意护城河",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结生意/护城河与现金转换假设、触发/失效/最长等待。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI02",
       "title": "增长持续性",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结每股增长/再投资回报假设，不用规模增长冒充每股价值。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI03",
       "title": "隐含预期市场分歧",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结市场隐含与保守增长的分歧假设，要求证据与兑现期。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI04",
       "title": "暂时问题反转",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结暂时压力/恢复进展假设，永久损伤独立否决。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI05",
       "title": "永久减值退出",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结永久损伤/治理恶化退出假设，失效优先且不因价格便宜撤销。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI06",
       "title": "不对称安全边际",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结上行/永久损失不对称假设与折价，不冒充实测概率。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI07",
       "title": "长期持有再平衡",
       "batch": "K9",
       "sources": [
-        "value-investing/SKILL.md"
+        "value-investing/SKILL.md",
+        "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结持有/估值要求/替代机会再平衡，失效或持有期限退出。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS01",
@@ -4152,78 +4484,168 @@
       "title": "银行行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "五年银行现金流减贷款投资资产额外1%减值，每股均值/.08，七折；无常规资产资本表。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06-research",
       "title": "研发行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "OCF加回当年研发，减min(当年,上年)研发保全与其他保全；不重复扣研发。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06-long-asset",
       "title": "长资产行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "5至10年披露维护或事前登记历史低位capex近似，禁止折旧直接替代。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06-cycle",
       "title": "周期行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "先行业现金流再5至10年均值，终值增速0至2%，保留冻结周期位置。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06-growth",
       "title": "成长行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "OCF减保全加回较基期增加的扩张营运现金，至少3年且逐期披露。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GY06-property",
       "title": "地产行业估值",
       "batch": "K9",
       "sources": [
-        "guo-yongqing-valuation/references/industry-switches.md"
+        "guo-yongqing-valuation/references/industry-switches.md",
+        "guo-yongqing-valuation/references/fcf-valuation.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "开发项目简化NAV=货值-剩余成本-税费-债务，七折；不混用DCF，非REIT。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。标准FA与郭永清股权8%分别命名，复用valuation算术，原人工valuation-scenario不变。阈值未定义处具名工程口径：月度候选、合法下一时点、风险1.5%/单股25%、365日对照；只输出准入/退出候选，不进入撮合。GY主组合采用两阶段、近零容差非付现成本1%，状态4单列无增长且不准入；行业单组件与完整七步工程组合分别输出。商誉/研发含金量及行业分类为冻结假设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI08-horizon",
@@ -4232,11 +4654,25 @@
       "sources": [
         "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结市场期限与投入形成优势的证据，时间错配不能替亏损辩护。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI08-categorization",
@@ -4245,11 +4681,25 @@
       "sources": [
         "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结业务结构变化/旧标签依赖与失效条件。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI08-coverage",
@@ -4258,11 +4708,25 @@
       "sources": [
         "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结低覆盖与证据完整性双条件，冷门自身不构成优势。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VI08-liquidity",
@@ -4271,11 +4735,25 @@
       "sources": [
         "value-investing/references/philosophy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-value-factors.ts"
+      ],
+      "tests": [
+        "tests/research-value-factors.test.ts"
+      ],
+      "boundary": "冻结被迫抛售与资金期限，永久损伤否决，不推断真实资金流。B6b同一as-of字段表/runGrowthFactorResearch离线可执行待数据工程版；固定输入可验证，不是估值建议或业绩。真实逐期披露/修订及覆盖start/end unknown，缺年报明细、已核验FCFF、行业与五年周年采样估值、冻结参数档案、主观假设/观察证据。结构化假设/阈值/失效/等待/持有期在决策前冻结，原始recordedAt/capturedAt及证据截止校验；LLM需模型/提示词版本，事后扮演过去拒绝。假设和观察参与类型取较高参与层，rule/human/llm及假设版本分组，不将人工场景当历史预测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-value-factors.ts",
+            "name": "evaluateValueFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01-inventory",
@@ -15234,10 +15712,25 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "单笔风险1.5%、市值上限25%、目标空间与止损距离比b至少2.5，与凯利取更严格值；质量/目标来源及时点需完整CANSLIM证据，不套波段2%/30%。 本源§5.3明确风险1.5%、市值25%，b按§8第一目标20%空间/初始止损空间，至少2.5；独立于脚本实测金额比定义。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "单笔风险1.5%、市值上限25%、目标空间与止损距离比b至少2.5，与凯利取更严格值；质量/目标来源及时点需完整CANSLIM证据，不套波段2%/30%。 本源§5.3明确风险1.5%、市值25%，b按§8第一目标20%空间/初始止损空间，至少2.5；独立于脚本实测金额比定义。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-K-kelly",
@@ -15250,10 +15743,25 @@
         "stop-loss/scripts/kelly.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "调用方风险1.5%、单股上限25%；参考5.3称枢纽目标空间/初始距离，入口5.3/5.4指定第二目标30%入场空间且b>=3。目标锚点版本须区分，质量代理另列，不套公共或波段默认。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "调用方风险1.5%、单股上限25%；参考5.3称枢纽目标空间/初始距离，入口5.3/5.4指定第二目标30%入场空间且b>=3。目标锚点版本须区分，质量代理另列，不套公共或波段默认。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-earliest",
@@ -16245,10 +16753,25 @@
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "第6节基本面5项全过、趋势7项、VCP>=6、价量/回报/风险/财报窗口/市场全项；与入口4核心弹性及惊喜加分冲突，保留独立组合。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "第6节基本面5项全过、趋势7项、VCP>=6、价量/回报/风险/财报窗口/市场全项；与入口4核心弹性及惊喜加分冲突，保留独立组合。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-K-quality",
@@ -16258,10 +16781,25 @@
         "sepa-strategy-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口5.3：两Gate全过且VCP>=8为0.55，VCP6至7为0.48，有瑕疵为0.40；这是代理不是实测胜率，评分证据须可重现，三类优先级和缺失明确。b取第二目标空间且>=3，风险1.5%、单股25%；与通用0.55/0.50/0.45表分开。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "入口5.3：两Gate全过且VCP>=8为0.55，VCP6至7为0.48，有瑕疵为0.40；这是代理不是实测胜率，评分证据须可重现，三类优先级和缺失明确。b取第二目标空间且>=3，风险1.5%、单股25%；与通用0.55/0.50/0.45表分开。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-direct",
@@ -16395,10 +16933,25 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "脚本high/strong0.55、basic0.48、partial/weak0.40，风险1.5%、单股25%；质量判定须由调用方当时证据实现，标签不是实测概率，与公共质量表分开。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "脚本high/strong0.55、basic0.48、partial/weak0.40，风险1.5%、单股25%；质量判定须由调用方当时证据实现，标签不是实测概率，与公共质量表分开。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY-K-quality",
@@ -16408,10 +16961,25 @@
         "stop-loss/scripts/kelly.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "脚本multi0.55、single0.48、weak/test0.40，风险2%、单股30%；多重Spring/Test/SOS/LPS与单一强信号须可重现，弱标签不能伪装实测优势。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "脚本multi0.55、single0.48、weak/test0.40，风险2%、单股30%；多重Spring/Test/SOS/LPS与单一强信号须可重现，弱标签不能伪装实测优势。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-K-script-quality",
@@ -16421,10 +16989,25 @@
         "stop-loss/scripts/kelly.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "strong注释两Gate全过、VCP>=8且放量>=2倍，basic两Gate全过VCP6至7，flawed为瑕疵；映射0.55/0.48/0.40，标签本身不执行行情校验，独立于入口质量条件。数字别名8的脚本解析缺陷不照搬。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "strong注释两Gate全过、VCP>=8且放量>=2倍，basic两Gate全过VCP6至7，flawed为瑕疵；映射0.55/0.48/0.40，标签本身不执行行情校验，独立于入口质量条件。数字别名8的脚本解析缺陷不照搬。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-five",
@@ -17194,10 +17777,25 @@
         "canslim-analyst/references/technical-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§2委托及§7：预设有效止损、非ST、不追涨停，与RS/M/财报/回报倍数/仓位和冷静期共同约束；历史状态及公共规则引用单独核对，本次不声称当前法规已验证。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "§2委托及§7：预设有效止损、非ST、不追涨停，与RS/M/财报/回报倍数/仓位和冷静期共同约束；历史状态及公共规则引用单独核对，本次不声称当前法规已验证。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-cup-u",
@@ -19718,10 +20316,25 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "M至少6、总分至少70、形态至少6或有效替代、放量突破、价不超枢纽105%、回报至少2.5、止损至多8%、单笔风险至多1.5%、非财报窗口及非ST共同准入；评分版本显式。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "M至少6、总分至少70、形态至少6或有效替代、放量突破、价不超枢纽105%、回报至少2.5、止损至多8%、单笔风险至多1.5%、非财报窗口及非ST共同准入；评分版本显式。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-soft-overrides",
@@ -19731,10 +20344,25 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "最终段允许个别弱项但整体风险可控且关键信号明确时正向判断；未给定算法。实现前冻结可放宽项、结构化证据及否决项，不由LLM临场绕过成交与风险约束。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-discipline.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "最终段允许个别弱项但整体风险可控且关键信号明确时正向判断；未给定算法。实现前冻结可放宽项、结构化证据及否决项，不由LLM临场绕过成交与风险约束。 B6b离线as-of待数据工程版：复用同一读入口及B2 researchKellyTraining(30笔开发闭合/重复身份拒绝)。原文质量p明确assumptionParameterP，与empiricalWinRate分列；CA质量93/70分档、WY前20日结构确认类型为具名工程假设。SE目标入场30%与枢纽30%分别输出。软覆盖仅事前冻结总分65至69，风险/身份/M/RS/财报与形态不可放宽。真实披露及训练成交覆盖start/end未知，不可真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-reported5",
@@ -20856,6 +21484,131 @@
         "CA-S-ipo-year-confidence"
       ],
       "reason": "全文Phase1至6、全部查询例、报告内交易表、错误处理和边界已审阅；新增17个入口二值评分及10个独立组合/差异。复用既有形态、退出、仓位与时段方法。数据采集、认证、重试和报告格式为操作依赖，不执行工具；原文阈值与细则冲突保留版本，详见CANSLIM审计。"
+    },
+    {
+      "source": "fundamental-analyst/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "FA01",
+        "FA02",
+        "FA03",
+        "FA04",
+        "FA05",
+        "FA06",
+        "FA07",
+        "FA08",
+        "FA09"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "fundamental-analyst/references/scoring-system.md",
+      "kind": "methods",
+      "methodIds": [
+        "FA01",
+        "FA02",
+        "FA08"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "fundamental-analyst/references/valuation-models.md",
+      "kind": "methods",
+      "methodIds": [
+        "FA03",
+        "FA04",
+        "FA05",
+        "FA06",
+        "FA07",
+        "FA08",
+        "FA09"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "guo-yongqing-valuation/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "GY01",
+        "GY02",
+        "GY03",
+        "GY04",
+        "GY05",
+        "GY06"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "guo-yongqing-valuation/references/balance-sheet-restructure.md",
+      "kind": "methods",
+      "methodIds": [
+        "GY02",
+        "GY05",
+        "GY06"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "guo-yongqing-valuation/references/fcf-valuation.md",
+      "kind": "methods",
+      "methodIds": [
+        "GY04",
+        "GY05",
+        "GY06",
+        "GY06-bank",
+        "GY06-research",
+        "GY06-long-asset",
+        "GY06-cycle",
+        "GY06-growth",
+        "GY06-property"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "guo-yongqing-valuation/references/industry-switches.md",
+      "kind": "methods",
+      "methodIds": [
+        "GY06",
+        "GY06-bank",
+        "GY06-research",
+        "GY06-long-asset",
+        "GY06-cycle",
+        "GY06-growth",
+        "GY06-property"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "value-investing/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "VI01",
+        "VI02",
+        "VI03",
+        "VI04",
+        "VI05",
+        "VI06",
+        "VI07"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "value-investing/references/philosophy.md",
+      "kind": "methods",
+      "methodIds": [
+        "VI01",
+        "VI02",
+        "VI03",
+        "VI04",
+        "VI05",
+        "VI06",
+        "VI07",
+        "VI08-horizon",
+        "VI08-categorization",
+        "VI08-coverage",
+        "VI08-liquidity"
+      ],
+      "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
     }
   ]
 }

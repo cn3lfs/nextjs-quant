@@ -2,9 +2,9 @@
 
 ## B6b 因子批量交付（2026-09-17，继续中）
 
-本轮新增31项待数据工程版本：SE01与CA-T三项、RS/板块分档及IPO对照、五步入场/催化/财报窗口/身份过滤、17分项完整评分与三形态组合等，累计65项。审计695项为22 implemented / 547 variant / 126 planned，B6b剩91项（K3 0 / K4 10 / K9 32 / K10 13 / K11 36）；ID与真实门禁结果以method-map和`.codex-runs/delivery.json`为准。沿用同一as-of字段表扩7字段，无新增通道；真实覆盖未知，待数据不等于可回测。
+本轮新增42项待数据工程版本：K4剩余纪律/凯利10项与K9基本面、郭永清及冻结价值假设32项，累计107项。审计695项为22 implemented / 589 variant / 84 planned，B6b剩49项（K3 0 / K4 0 / K9 0 / K10 13 / K11 36）；精确ID与真实门禁结果以method-map和`.codex-runs/delivery.json`为准。同一as-of字段表扩11字段，无新适配器或通道；真实数据与冻结档案覆盖未知，待数据不等于可回测。
 
-接续K4剩余10项：CA-K-kelly25、SE-K-kelly、SE-E-checklist、SE-K-quality、CA-K-quality、WY-K-quality、SE-K-script-quality、CA-E-exclusions、CA-E-checklist70、CA-E-soft-overrides。随后K9→K10→K11，NW01–NW04先对齐5个漂移新闻来源语义且不更新锁定hash；GY分模型、VI冻结主观假设与参与类型、GF日期/窗口/ETF映射以及TM四行业代理约束保持。L3仅B6b整批完成后。
+接续K10：MS01–MS06、TM01–TM04、GF01–GF03。GF缺指数估值计算日/历史窗口/ETF映射有效期即不可回测；TM只电子/计算机/传媒/通信，融资仍市场代理；MS子项和九维组合分别预设。K11仍押后，NW01–NW04先对齐5个漂移来源语义且不更新锁定hash。L3仅B6b整批完成后；本轮最终家族含共享契约62文件5872项通过、0失败、168.30秒；typecheck/审计/格式/diff通过，证据见delivery。
 
 ## B6a 时点适配器（2026-09-17）
 

@@ -76,3 +76,8 @@ B6b待数据研究入口为 `runGrowthFactorResearch(request, observations, meth
 B6b第二轮在同一字段表增加7项（现29项）：rs.priceHistory为同日股价/沪深300 OHLCV、完整冻结交易日序列、送转后复权及可比证据；rs.crossSection为冻结证券池全员同窗端点、上市日和明确停牌排除；rs.sectors为分类版本、同窗板块及完整成员价格；capital.securityState为当日历史身份/上市时长/涨停价/总市值/换手率；capital.entryPlan为当时冻结枢纽、拟价、止损、账户风险及仓位/止损后间隔；catalysts.earningsWindow为当时预约、上次真实披露、事前一致预期及覆盖日历；catalysts.entryEvents为近期三类事件、规则/人工来源与撤销状态。字段仍各自要求版本公开证据；收盘面板availableAt不得早于观察日15:00，含未来行情或日期/身份不一致拒绝。行情字段仅离线输入，未增加provider或执行通道。组合消费多个价格面板时，目标证券的起止价格和交易日序列必须对齐；不一致拒绝并在部分评分中列L1/L2缺口。
 
 31个新组合在同一runGrowthFactorResearch按ID调用；完整CA组合从17个真实计算分项与既有形态算法生成候选，SE01从SE02、既有趋势/VCP和同日全池RS合成严格/弹性结果。requiredInputs预登记主依赖、财务/机构期次，缺失逐项返回；CA-S-missing只显示部分总分和容量，不给完整评级或排名。固定输入覆盖、各阈值正反例及IPO独立窗口见tests/research-growth-combinations.test.ts；原因子共享夹具移至tests/helpers/growth-factor-fixture.ts。真实披露、价格可比、全池/板块历史归属、交易日历/身份/预约/事前预期的核验覆盖仍未知，realBacktest.available=false。
+
+
+B6b第三轮沿用相同`readAsOfInput`和`runGrowthFactorResearch`入口，字段表由29扩到40：capital.kellyTraining/softOverride、finance.annualValueQuality/annualGuo/annualFcff，以及capital.valueRisk/valueMarket/valuePolicy/valueGovernance/valueTheses/valueThesisObservations。逐年报仍要求独立报告期、版本与公开可知时间；字段内金额为CNY元、股数为股，政策利率小数、expectedGrowthPct/aaaYieldPct为百分数，VI指标及阈值由冻结测量版本定义。估值行情和VI日终观察的公开时间不得早于当日15:00；冻结政策和假设还须有冻结前采集档案，人工/LLM观察必须当时生成并归档，后采集公开报表与后生成判断严格区分。
+
+K4纪律复用既有形态/市场/凯利训练，K9计算集中`research-value-factors.ts`并作为原方法表的value家族，不新建适配器、provider、路由或交易预设。value-family按ID预登记输入，缺口逐字段返回；标准FCFF-WACC、郭永清经营现金流股权成本和冻结VI假设明确分名。FA/GY均保留单组件、完整组合及退出条件；VI规则/人工/LLM由假设与观察共同决定，分组不混算。固定测试见`research-growth-discipline.test.ts`和`research-value-factors.test.ts`。真实披露、FCFF核验、行业成分、五年采样和当时冻结档案的覆盖start/end均未知，所有新项仍`realBacktest.available=false`；不能用固定输入通过推断可回测或策略业绩。

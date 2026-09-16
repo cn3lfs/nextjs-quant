@@ -7,6 +7,7 @@ import {
   growthHistorySchema,
   growthCrossSectionSchema,
   growthSectorsSchema,
+  growthEntrySchema,
   asOfInputDefinitions,
 } from "../../src/lib/as-of-inputs";
 import type { AsOfObservation } from "../../src/lib/as-of";
@@ -265,4 +266,102 @@ export function alignPrices(rows: AsOfObservation[]) {
         ? { ...r, value: sectors }
         : r,
   );
+}
+
+const set = (rows: AsOfObservation[], field: string, value: unknown) =>
+  rows.map((r) => (r.field === field ? { ...r, value } : r));
+const value = (rows: AsOfObservation[], field: string) =>
+  rows.find((r) => r.field === field)!.value;
+export function growthShapedFixture(
+  kind: "flat" | "cup" | "saucer" | "sepa" = "flat",
+) {
+  let rows = completeFixture();
+  const h = growthHistorySchema.parse(value(rows, "priceHistory"));
+  const tail =
+    kind === "flat" ? 70 : kind === "cup" ? 121 : kind === "saucer" ? 161 : 371;
+  h.bars = h.bars.map((b, index) => {
+    const i = index - (h.bars.length - tail);
+    if (i < 0) return b;
+    if (kind === "flat")
+      return {
+        ...b,
+        open: 97,
+        high: i === 69 ? 103 : 100,
+        low: 95,
+        close: i === 69 ? 102 : 97,
+        volume: i < 49 ? 100 : i < 59 ? 45 : i < 69 ? 35 : 70,
+      };
+    if (kind === "cup") {
+      const j = i - 70,
+        high =
+          j < 0
+            ? 95
+            : j < 4
+              ? 97 + j
+              : j <= 43
+                ? 80 + 20 * ((j - 23) / 20) ** 2
+                : j < 50
+                  ? 98
+                  : 103;
+      return {
+        ...b,
+        high,
+        low: j > 43 && j < 50 ? 95 : high - 1,
+        open: high - 0.5,
+        close: high - 0.2,
+        volume: j <= 43 ? 100 : j < 50 ? 50 - (j - 44) * 5 : 200,
+      };
+    }
+    if (kind === "saucer") {
+      const high =
+        i < 130 ? 100 : i < 160 ? 93 + 7 * ((i - 144.5) / 14.5) ** 2 : 103;
+      return {
+        ...b,
+        high,
+        low: high - 1,
+        open: high - 0.5,
+        close: high - 0.2,
+        volume: i < 130 ? 100 : i < 160 ? 30 : 200,
+      };
+    }
+    let price = 50 + i * 0.08;
+    if (i >= 310 && i < 370) {
+      const j = i - 310,
+        knots = [
+          [0, 90],
+          [8, 100],
+          [16, 80],
+          [24, 108],
+          [32, 98],
+          [40, 112],
+          [48, 107],
+          [56, 114],
+          [59, 113],
+        ];
+      const r = knots.findIndex((p) => p[0]! >= j),
+        b = knots[r]!,
+        a = knots[Math.max(0, r - 1)]!;
+      price =
+        b[0] === a[0]
+          ? b[1]!
+          : a[1]! + ((b[1]! - a[1]!) * (j - a[0]!)) / (b[0]! - a[0]!);
+    }
+    if (i === 370) price = 116;
+    return {
+      ...b,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume: i >= 370 ? 200 : i >= 365 ? 10 : i >= 318 ? 40 : 100,
+    };
+  });
+  rows = set(rows, "priceHistory", h);
+  rows = set(rows, "entryPlan", {
+    ...growthEntrySchema.parse(value(rows, "entryPlan")),
+    pivot: kind === "sepa" ? 114 : 100,
+    plannedPrice: h.bars.at(-1)!.close,
+    stopPrice: h.bars.at(-1)!.close * 0.925,
+  });
+  return alignPrices(rows);
 }

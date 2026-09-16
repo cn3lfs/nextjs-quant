@@ -26,14 +26,16 @@ const one = (id: string, rows = fixture(), req = request) =>
 it("34 named waiting-data methods execute through research entry, with missing rather than fabricated scores", () => {
   expect(
     Object.keys(growthFactorMethods).filter(
-      (id) => growthFactorMethods[id]!.family !== "combination",
+      (id) =>
+        !["combination", "value"].includes(growthFactorMethods[id]!.family),
     ),
   ).toHaveLength(34);
   const all = runGrowthFactorResearch(
     request,
     fixture(),
     Object.keys(growthFactorMethods).filter(
-      (id) => growthFactorMethods[id]!.family !== "combination",
+      (id) =>
+        !["combination", "value"].includes(growthFactorMethods[id]!.family),
     ),
   );
   expect(all.results).toHaveLength(34);
@@ -369,7 +371,7 @@ it("future revisions do not change research hashes; missing publication, wrong u
 });
 it("every named method rejects loss of its consumed required provenance", () => {
   for (const id of Object.keys(growthFactorMethods).filter(
-    (id) => growthFactorMethods[id]!.family !== "combination",
+    (id) => !["combination", "value"].includes(growthFactorMethods[id]!.family),
   )) {
     const used = one(id).evidence[0]!;
     const rows = fixture().filter(

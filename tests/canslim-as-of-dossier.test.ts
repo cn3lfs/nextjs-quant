@@ -1,3 +1,4 @@
+import { valueFixture } from "./helpers/value-factor-fixture";
 import { supplementalValues } from "./helpers/growth-factor-fixture";
 import { asOfInputDefinitions } from "../src/lib/as-of-inputs";
 import { expect, it, vi } from "vitest";
@@ -20,7 +21,27 @@ const request: CanslimAsOfRequest = {
 };
 function fixture(): AsOfObservation[] {
   const empty = buildCanslimAsOfDossier(request, []);
-  const supplementary = supplementalValues(request.observationDate);
+  const supplementary: Record<string, unknown> = {
+    ...supplementalValues(request.observationDate),
+    ...Object.fromEntries(
+      valueFixture()
+        .filter((r) => r.domain === "capital" || r.effectiveAt === "2023-12-31")
+        .map((r) => [r.field, r.value]),
+    ),
+    kellyTraining: {
+      start: "2023-01-01",
+      cutoff: "2024-04-30",
+      trades: [],
+      wyckoffTarget: 150,
+    },
+    softOverride: {
+      version: "fixed",
+      frozenAt: "2024-04-30T15:00:00+08:00",
+      origin: "rule",
+      evidence: "synthetic",
+      allowedWeakness: "total-score-65-to-69",
+    },
+  };
   return Object.values(empty.inputs)
     .flat()
     .map((q) => {
@@ -115,7 +136,7 @@ it("provides all six historical input domains through the canslim-dossier entry 
   const d = buildCanslimAsOfDossier(request, fixture());
   expect(Object.keys(d.inputs)).toEqual([...asOfDomains]);
   expect(d.dataGaps).toEqual([]);
-  expect(d.inputs.finance).toHaveLength(9);
+  expect(d.inputs.finance).toHaveLength(12);
   expect(
     d.inputs.rs
       .filter((r) => ["members", "industry"].includes(r.field))
@@ -145,7 +166,7 @@ it("returns per-field missing reasons for absent coverage, not zero or current s
         code: "no-coverage",
       });
   }
-  expect(d.dataGaps).toHaveLength(29);
+  expect(d.dataGaps).toHaveLength(40);
 });
 it("keeps the complete past dossier and hash unchanged after later revisions in every domain", () => {
   const original = fixture();
@@ -170,7 +191,7 @@ it("rejects finance with numeric values but no verified publication times, like 
     r.domain === "finance" ? { ...r, availableAt: undefined } : r,
   );
   const d = buildCanslimAsOfDossier(request, raw);
-  expect(d.dataGaps).toHaveLength(9);
+  expect(d.dataGaps).toHaveLength(12);
   expect(
     d.dataGaps.every(
       (r) => r.domain === "finance" && r.code === "missing-available-at",
@@ -266,5 +287,5 @@ it("keeps the requested cutoff even when the loader mutates its argument", async
     }));
   });
   expect(result.request.asOf).toBe(request.asOf);
-  expect(result.dataGaps).toHaveLength(29);
+  expect(result.dataGaps).toHaveLength(40);
 });
