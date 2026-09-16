@@ -1,3 +1,4 @@
+import { volumeCompletionIds } from "../src/lib/research-volume-completion";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import { volumeMa } from "../src/lib/indicators";
@@ -317,7 +318,9 @@ it("extends the volume history coverage boundary past a long suspension", () => 
   // Candidate waiting history starts during suspension; all 20 prior volume
   // observations therefore precede suspension (indices 41 through 60).
   expect(volumeWarmupStart(input, input[145]!.date)).toBe(input[41]!.date);
-  expect(volumeStrategyIds).toHaveLength(9 + volumeGridIds.length);
+  expect(volumeStrategyIds).toHaveLength(
+    9 + volumeGridIds.length + volumeCompletionIds.length,
+  );
 });
 
 it("attributes a volume average exit without claiming a candidate stop", () => {

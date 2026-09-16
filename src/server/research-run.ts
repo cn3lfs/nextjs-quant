@@ -1,3 +1,4 @@
+import { isTechnicalMethod } from "~/lib/research-technical-methods";
 import {
   assertGrowthIntradayWindow,
   growthIntradayDescription,
@@ -117,6 +118,7 @@ export async function runStrategyResearch(
     ]),
   );
   const volume =
+    isTechnicalMethod(spec.strategy) ||
     isVolumeStrategy(spec.strategy) ||
     reversal ||
     structure ||
@@ -124,11 +126,13 @@ export async function runStrategyResearch(
   const volumeStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
-      structure
-        ? volumeStructureWarmupStart(stock.bars, spec.start)
-        : reversal
-          ? volumeReversalWarmupStart(stock.bars, spec.start)
-          : volumeWarmupStart(stock.bars, spec.start, spec.strategy),
+      isTechnicalMethod(spec.strategy)
+        ? (stock.bars[0]?.date ?? spec.start)
+        : structure
+          ? volumeStructureWarmupStart(stock.bars, spec.start)
+          : reversal
+            ? volumeReversalWarmupStart(stock.bars, spec.start)
+            : volumeWarmupStart(stock.bars, spec.start, spec.strategy),
     ]),
   );
   const series = new Map(

@@ -4,12 +4,12 @@
 
 ## B3 波段与量价（2026-09-16，进行中）
 
-- 本轮新增35项implemented-variant、0项implemented：VP01–VP09、VP11/VP12/VP15及23项位置/量价子方法；审计总计695项，implemented 22 / variant 209 / planned 464，K2b仍planned 127；精确ID见method-map与`.codex-runs/delivery.json`。
-- 共享量价引擎+20行预设；位置、状态转移、R2/R2.5与AND/OR、缩量回踩分母及换手边界裁定见decisions；缺数据规则保留待数据状态。
-- 最终L1/L2合并定向验证13文件2845项全绿（完整量价家族、方法证据、signals、共享契约/UI），typecheck、回填/只读审计均exit=0。初次L2因导出绑定未回填失败，回填后复跑全绿；不逐方法重测共享契约。
-- L3未运行（整批162项未完成）；本轮不跑全量/build/Playwright。收尾仅改动文件格式与换行/diff检查，证据见delivery。
-- 第一子任务尚余VP10分批减仓、VP13枢轴OBV、VP14七维洗盘及其余证据方法；后续技术指标32项、SW04/SW05、SW12未启动。真实请求全区间缺逐日股本和完整异常事件覆盖，不回填当前股本。
-- 未真实回测、未提交推送、未打包、未连生产库；来源门禁与分钟引擎未修改。
+- 本轮新增42项implemented-variant、0项implemented：VP10/13/14及四项七维证据、technical-indicators原32项及后补3项；审计695项为implemented 22 / variant 251 / planned 422，K2b仍planned 85；精确ID见method-map与`.codex-runs/delivery.json`。
+- 共享枢轴引擎、量价收口与技术指标声明表；七维不明从严，外部三维不以日线R/OBV替代；原文阈值/工程定义与综合基线差异见decisions。
+- 最终L1/L2定向15文件3458项全绿、50.88秒，typecheck、回填/只读审计与全仓format均exit=0；首次失败及修复经过保留在delivery与日志。
+- L3未运行（整批162项未完成），未build/Playwright；组合执行器改动触发例外全量：413文件（397通过/16跳过）、6259项（6232通过/27跳过）、零失败、389.07秒、exit=0；首次主动中止后已完整重跑。归一化/diff亦exit=0。
+- 下一起点SW04/SW05：trading-system.md §4.1–4.3，复用既有形态并补工程几何及正反例，之后SW12；其余数据证据依赖继续按清单。历史股本/volumeUnit缺口沿用；分时、筹码、消息及盘中量比适配已具备但真实输入未接线，分钟边界不延伸。
+- 未真实回测、未提交推送、未打包、未连生产库；来源锁/hash/快照、用户MCP与分钟引擎未修改。测试数据隔离于TEMP，verify:spot自动清理自己的目录。
 
 ## 2026-09-16：周线下破10周均线减半
 

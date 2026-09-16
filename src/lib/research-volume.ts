@@ -1,3 +1,9 @@
+import {
+  volumeCompletionIds,
+  isVolumeCompletion,
+  volumeCompletionDefinition,
+  researchVolumeCompletionSeries,
+} from "./research-volume-completion";
 import type { Bar } from "./domain";
 import { ma, volumeMa } from "./indicators";
 import {
@@ -24,6 +30,7 @@ const legacyVolumeStrategyIds = [
 export const volumeStrategyIds = [
   ...legacyVolumeStrategyIds,
   ...volumeGridIds,
+  ...volumeCompletionIds,
 ] as const;
 export type VolumeStrategyId = (typeof volumeStrategyIds)[number];
 export function isVolumeStrategy(id: string): id is VolumeStrategyId {
@@ -71,6 +78,7 @@ const descriptions: Record<
   ],
 };
 function definition(id: VolumeStrategyId) {
+  if (isVolumeCompletion(id)) return volumeCompletionDefinition(id);
   if (isVolumeGrid(id)) return volumeGridDefinition(id);
   return {
     label: descriptions[id][0],
@@ -211,6 +219,7 @@ export type VolumePoint = {
   candidate: Omit<Candidate, "index"> | null;
   decision: string;
   ruleStop?: RuleStop;
+  reduction?: { fraction: number; reason: string };
 };
 
 export function volumeWarmupStart(
@@ -220,7 +229,8 @@ export function volumeWarmupStart(
 ) {
   // Full-history extreme volume and confirmed pivot endpoint averages consume
   // the entire available prefix; company-action proof must cover it too.
-  if (strategy && isVolumeGrid(strategy)) return bars[0]?.date ?? start;
+  if (strategy && (isVolumeGrid(strategy) || isVolumeCompletion(strategy)))
+    return bars[0]?.date ?? start;
   const first = bars.findIndex((bar) => bar.date >= start);
   if (first < 0) return start;
   // Include the longest candidate wait (10 bars) and its previous trigger.
@@ -245,6 +255,13 @@ export function researchVolumeSeries(
   bars: readonly Bar[],
   evidence: VolumeEvidence = {},
 ): VolumePoint[] {
+  if (isVolumeCompletion(id))
+    return researchVolumeCompletionSeries(
+      id,
+      bars,
+      researchVolumeSeries,
+      evidence,
+    );
   if (isVolumeGrid(id)) {
     // Known abnormal observations poison the comparison window, not only the
     // current decision. The original bars remain in the returned evidence.

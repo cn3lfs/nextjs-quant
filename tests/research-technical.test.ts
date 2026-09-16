@@ -5,7 +5,7 @@ import {
   technicalStrategyIds,
   researchTechnicalSeries,
   type TechnicalValues,
-  type TechnicalStrategyId,
+  type LegacyTechnicalStrategyId,
 } from "../src/lib/research-technical";
 import { ma, macd, kdj, rsi, boll } from "../src/lib/indicators";
 import { researchSpecSchema } from "../src/lib/strategy-research";
@@ -38,7 +38,7 @@ const values = (input: Partial<TechnicalValues>): TechnicalValues => ({
   ...input,
 });
 const examples: [
-  TechnicalStrategyId,
+  LegacyTechnicalStrategyId,
   Partial<TechnicalValues>,
   Partial<TechnicalValues>,
   Partial<TechnicalValues>,

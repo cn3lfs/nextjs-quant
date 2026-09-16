@@ -378,7 +378,12 @@ export function researchPortfolio(
   const partials = new Map<
     string,
     | { stage: number; desired: number; triggerDate: string }
-    | { kind: "weekly"; desired: number; triggerDate: string; reason: string }
+    | {
+        kind: "weekly" | "signal";
+        desired: number;
+        triggerDate: string;
+        reason: string;
+      }
   >();
   const scaleOut = spec.management?.scaleOut;
   const partialReason = (
@@ -1087,9 +1092,17 @@ export function researchPortfolio(
             dailyRules,
             spec.costs,
           );
-      let quantity = pyramid
-        ? researchRoundedBuy(plannedQuantity * 0.5, dailyRules)
-        : plannedQuantity;
+      const confirmedPoint = technical
+        .get(event.symbol)
+        ?.get(event.observedDate);
+      const entryFraction =
+        confirmedPoint && "entryFraction" in confirmedPoint
+          ? confirmedPoint.entryFraction
+          : 1;
+      let quantity = researchRoundedBuy(
+        plannedQuantity * entryFraction * (pyramid ? 0.5 : 1),
+        dailyRules,
+      );
       let initialBatchRisk: number | null = null;
       if (pyramid) {
         for (
@@ -1273,6 +1286,23 @@ export function researchPortfolio(
               reason: "已完成周线下破10周均线，减当时剩余持仓50%",
             });
         }
+      }
+      if (
+        point &&
+        "reduction" in point &&
+        point.reduction &&
+        held &&
+        !exits.has(symbol) &&
+        !partials.has(symbol)
+      ) {
+        partials.set(symbol, {
+          kind: "signal",
+          desired:
+            (held.remainingQuantity ?? held.quantity) *
+            point.reduction.fraction,
+          triggerDate: date,
+          reason: point.reduction.reason,
+        });
       }
       if (!point?.exit) continue;
       if ("pivotFailures" in point) {

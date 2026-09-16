@@ -466,10 +466,21 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有天量次根/二顶退出与持续放量证伪工程版；形态权重、历史全量极值、完整位置与分批减仓组合仍待。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-volume.ts"],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts",
+        "tests/research-b3-execution.test.ts"
+      ],
+      "boundary": "主文R2工程天量形态/次根/二顶首次确认减剩余一半，独立新信号可再减半，MA20失守及最长持有期清仓；订单受阻保留固定目标，工程减仓比例。",
+      "bindings": {
+        "presets": ["vp-huge-half"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP11",
@@ -545,10 +556,20 @@
         "volume-price-analysis/references/vp-indicators.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有20根极值OBV背离、直接前高点量比较；枢轴型背离和跨周期/完整位置并未覆盖。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-volume.ts"],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "严格3/3价格枢轴采同端点OBV，确认日底背离入场、顶背离退出；不是滚动极值，不冒充跨周期完整体系。",
+      "bindings": {
+        "presets": ["vp-pivot-obv"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP14",
@@ -559,10 +580,20 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "洗盘派发七项证据已拆子方法；日线价量不能替代分时、筹码、换手、消息及不明从严组合。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-volume.ts"],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "七维组合工程版：日线幅度/关键位/收复/1至3根，加真实分时、筹码换手与消息覆盖。外部三维须同日时点来源，缺失/不明从严退出且不可买入；完整检索覆盖不能从无新闻记录推断。本地研究请求[start,end]尚未接入分时特征、历史筹码、完整消息覆盖，待数据；不使用日R/OBV代理。",
+      "bindings": {
+        "presets": ["vp-wash-seven"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP15",
@@ -4403,10 +4434,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "只表达持仓退出，不将原文继续做空解释为A股裸卖空。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-negative"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-red-grow",
@@ -4414,10 +4455,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与首次缩短反转分开；明确连续性与入场锚点。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-red"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-green-grow",
@@ -4425,10 +4476,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "只对已持仓或可用做空市场适配。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-green"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-top-divergence",
@@ -4436,10 +4497,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "价格新高而指标未新高；仅用当时已确认极值，并需其他指标确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-top"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-bottom-divergence",
@@ -4447,10 +4518,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "价格新低而指标未新低；仅用当时已确认极值，并需其他指标确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-bottom"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-double-top-divergence",
@@ -4458,10 +4539,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "连续两次与单次独立，可靠性仍未验证。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-double-top"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-double-bottom-divergence",
@@ -4469,10 +4560,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "连续两次与单次独立，可靠性仍未验证。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-macd-double-bottom"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW07-zone-filter",
@@ -4480,10 +4581,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "K>80不追多；K<20等待金叉。作为可组合过滤，不以极端区策略覆盖全部。 20<K<80正常按趋势；>80不追多但等待死叉并非立即卖出，<20等待金叉并非立即买入。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-kdj-zone"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW07-regime-filter",
@@ -4491,10 +4602,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "需要预先定义趋势与震荡，不用事后走势挑样本。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-kdj-range"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-zone-state",
@@ -4502,10 +4623,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文70/30区间本身与恢复交叉变体分开；50至70偏强、30至50偏弱保留状态证据。 保留>70、<30、50至70偏强、30至50偏弱；与50分界和40至60中性重叠须明确优先级。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-rsi-state"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-neutral-filter",
@@ -4513,10 +4644,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与50轴交叉分别研究，保留冲突区域。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-rsi-neutral"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-top-divergence",
@@ -4524,10 +4665,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "价格新高而RSI未新高，极值确认不能前视。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-rsi-top"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-bottom-divergence",
@@ -4535,10 +4686,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "价格新低而RSI未新低，极值确认不能前视。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-rsi-bottom"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-squeeze-breakout",
@@ -4546,10 +4707,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "收口长度/幅度原文未给，需显式参数；与方向及量能结合。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-boll-squeeze"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-expansion",
@@ -4557,10 +4728,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "明确宽度增长定义与方向。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-boll-expand"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-upper-ride",
@@ -4568,10 +4749,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "贴近阈值与持续长度需显式定义，不以单次上穿替代。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-boll-upper"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-lower-ride",
@@ -4579,10 +4770,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "A股先表达退出；不自动裸卖空。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-boll-lower"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-support-20",
@@ -4590,10 +4791,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "触碰、回踩确认和失效须给出可用时点与显式容差。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-support-20"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-support-60",
@@ -4601,10 +4812,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "触碰、回踩确认和失效须给出可用时点与显式容差。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-support-60"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-support-120",
@@ -4612,10 +4833,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "触碰、回踩确认和失效须给出可用时点与显式容差。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-support-120"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-support-250",
@@ -4623,10 +4854,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "触碰、回踩确认和失效须给出可用时点与显式容差。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-support-250"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-up-up",
@@ -4634,10 +4875,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-up-up"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-up-down",
@@ -4645,10 +4896,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-up-down"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-down-up",
@@ -4656,10 +4917,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-down-up"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-down-down",
@@ -4667,10 +4938,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-down-down"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-high-volume-divergence",
@@ -4678,10 +4959,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-top"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-low-volume-divergence",
@@ -4689,10 +4980,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与VP家族同类规则复用；不同来源不重复计算，需冻结放缩量基准及极值确认。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-bottom"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-breakout",
@@ -4700,10 +5001,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "三档门槛保留；均量包含当日与前20日的口径须显式区分。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-volume-breakout"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volume-ratio",
@@ -4711,10 +5022,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "比率输入的时段与分母须先明确，不以未说明的日成交量比代替。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。盘中同分钟量/时间/前五日量/单位须同日可知，目前本地请求区间无已接入覆盖，缺失为待数据，不借日线R冒充。",
+      "bindings": {
+        "presets": ["sw-intraday-ratio"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-confluence-count",
@@ -4722,10 +5043,21 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "量能必须，五辅助项至少3项入场、2项半仓、至多1项不交易；原文高/中权重不是已给数值。 五辅助明确为MACD、KDJ、RSI、BOLL和均线，量能不重复计分；原breakout四投票和五类checks.score不能代替。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts",
+        "tests/research-b3-execution.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-confluence"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-direction-conflict",
@@ -4733,10 +5065,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "两方向需显式可重现定义。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-direction"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-kdj-overbought-size",
@@ -4744,10 +5086,21 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "不能被普通MACD过滤替代，减少幅度为待显式参数。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts",
+        "tests/research-b3-execution.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-kdj-size"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-up-expanded-confirm",
@@ -6401,10 +6754,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "早盘/尾盘路径需当时分钟或逐笔，日OHLC无法证明路径先后；缺分时则不可用。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-completion.ts"
+      ],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "七维组合工程版：日线幅度/关键位/收复/1至3根，加真实分时、筹码换手与消息覆盖。外部三维须同日时点来源，缺失/不明从严退出且不可买入；完整检索覆盖不能从无新闻记录推断。本地研究请求[start,end]尚未接入分时特征、历史筹码、完整消息覆盖，待数据；不使用日R/OBV代理。",
+      "bindings": {
+        "presets": ["vp-wash-seven"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-completion.ts",
+            "name": "washExternalVotes"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-chips",
@@ -6412,10 +6783,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "历史换手、筹码分布算法和当时可得版本是必需输入，不能把当前筹码快照回填。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-completion.ts"
+      ],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "七维组合工程版：日线幅度/关键位/收复/1至3根，加真实分时、筹码换手与消息覆盖。外部三维须同日时点来源，缺失/不明从严退出且不可买入；完整检索覆盖不能从无新闻记录推断。本地研究请求[start,end]尚未接入分时特征、历史筹码、完整消息覆盖，待数据；不使用日R/OBV代理。",
+      "bindings": {
+        "presets": ["vp-wash-seven"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-completion.ts",
+            "name": "washExternalVotes"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-news",
@@ -6423,10 +6812,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "需要消息覆盖、发布时间和当时业绩预期；未查到消息不等于已证明无利空。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-completion.ts"
+      ],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "七维组合工程版：日线幅度/关键位/收复/1至3根，加真实分时、筹码换手与消息覆盖。外部三维须同日时点来源，缺失/不明从严退出且不可买入；完整检索覆盖不能从无新闻记录推断。本地研究请求[start,end]尚未接入分时特征、历史筹码、完整消息覆盖，待数据；不使用日R/OBV代理。",
+      "bindings": {
+        "presets": ["vp-wash-seven"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-completion.ts",
+            "name": "washExternalVotes"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-composite",
@@ -6437,10 +6844,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "七项证据组合、冲突与缺失规则公开；判别不明按出货的保守分支绑定持仓处理，并与纯价量版本区分。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-completion.ts"
+      ],
+      "tests": [
+        "tests/research-volume-completion.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "七维组合工程版：日线幅度/关键位/收复/1至3根，加真实分时、筹码换手与消息覆盖。外部三维须同日时点来源，缺失/不明从严退出且不可买入；完整检索覆盖不能从无新闻记录推断。本地研究请求[start,end]尚未接入分时特征、历史筹码、完整消息覆盖，待数据；不使用日R/OBV代理。",
+      "bindings": {
+        "presets": ["vp-wash-seven"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-completion.ts",
+            "name": "washComposite"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-turnover-bands",
@@ -7461,10 +7886,33 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§1.3：在已确认单次/连续两次背离上组合独立其他指标，确认集合、期限固定，不将背离本身重复计分。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-technical-methods.ts"
+      ],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "MACD单/双枢轴背离确认日另需RSI6严格低于/高于50；等于50不确认，不将背离重复计票，工程版本。",
+      "bindings": {
+        "presets": [
+          "sw-macd-top",
+          "sw-macd-bottom",
+          "sw-macd-double-top",
+          "sw-macd-double-bottom"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-technical-methods.ts",
+            "name": "technicalMethodDecision"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-bear-alignment",
@@ -7472,10 +7920,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.1：MA5<MA10<MA20<MA60为独立退出/禁多，区别现ma-alignment在任何多头排列失效（含混合排列）时退出。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-bear-order"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-tangle-filter",
@@ -7483,10 +7941,20 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/technical-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.1：交叉次数、均线距离与窗口需显式定义，交织不等于所有非多头排列，完整空头趋势不能误归震荡。"
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-technical-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "来源technical-indicators.md具名工程版本；参数/方向见technicalMethodProfiles、technicalEngineeringBoundary；严格3/3枢轴只在确认日生效，交易下一可成交开盘。不是完整双突破或盈利证据。",
+      "bindings": {
+        "presets": ["sw-tangle"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-risk2",

@@ -1,7 +1,13 @@
+import {
+  technicalMethodIds,
+  isTechnicalMethod,
+  technicalMethodDefinition,
+  researchTechnicalMethodSeries,
+} from "./research-technical-methods";
 import type { Bar } from "./domain";
 import { ma, macd, kdj, rsi, boll } from "./indicators";
 
-export const technicalStrategyIds = [
+const legacyTechnicalStrategyIds = [
   "ma-golden-5-10",
   "ma-golden-10-20",
   "ma-golden-20-60",
@@ -17,11 +23,17 @@ export const technicalStrategyIds = [
   "boll-middle-cross",
   "boll-band-recovery",
 ] as const;
+export const technicalStrategyIds = [
+  ...legacyTechnicalStrategyIds,
+  ...technicalMethodIds,
+] as const;
 export type TechnicalStrategyId = (typeof technicalStrategyIds)[number];
+export type LegacyTechnicalStrategyId =
+  (typeof legacyTechnicalStrategyIds)[number];
 export function isTechnicalStrategy(id: string): id is TechnicalStrategyId {
   return (technicalStrategyIds as readonly string[]).includes(id);
 }
-const rules: Record<TechnicalStrategyId, [string, string]> = {
+const rules: Record<LegacyTechnicalStrategyId, [string, string]> = {
   "ma-golden-5-10": ["均线5/10 · 金叉买死叉卖", "MA5上穿MA10买入，下穿退出。"],
   "ma-golden-10-20": [
     "均线10/20 · 金叉买死叉卖",
@@ -74,6 +86,7 @@ const rules: Record<TechnicalStrategyId, [string, string]> = {
   ],
 };
 function technicalDefinition(id: TechnicalStrategyId) {
+  if (isTechnicalMethod(id)) return technicalMethodDefinition(id);
   return {
     label: rules[id][0],
     family: "技术指标",
@@ -103,7 +116,7 @@ export type TechnicalValues = {
   upper: number | null;
   lower: number | null;
 };
-const required: Record<TechnicalStrategyId, (keyof TechnicalValues)[]> = {
+const required: Record<LegacyTechnicalStrategyId, (keyof TechnicalValues)[]> = {
   "ma-golden-5-10": ["ma5", "ma10"],
   "ma-golden-10-20": ["ma10", "ma20"],
   "ma-golden-20-60": ["ma20", "ma60"],
@@ -123,7 +136,7 @@ const required: Record<TechnicalStrategyId, (keyof TechnicalValues)[]> = {
 /** Decision-only entry point permits hand-worked indicator examples in tests.
  * Production values always come from the shared indicators above. */
 export function technicalDecision(
-  id: TechnicalStrategyId,
+  id: LegacyTechnicalStrategyId,
   current: TechnicalValues,
   previous: TechnicalValues | undefined,
   beforePrevious?: TechnicalValues,
@@ -227,6 +240,7 @@ export function researchTechnicalSeries(
   id: TechnicalStrategyId,
   bars: readonly Bar[],
 ) {
+  if (isTechnicalMethod(id)) return researchTechnicalMethodSeries(id, bars);
   if (
     bars.some(
       (bar, i) =>
