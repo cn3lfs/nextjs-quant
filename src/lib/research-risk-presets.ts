@@ -1,3 +1,4 @@
+import type { Bar } from "./domain";
 import {
   riskAdmissionBoundary,
   type RiskAdmissionRule,
@@ -11,6 +12,9 @@ import type { BacktestCosts } from "./backtest-costs";
 import { plannedStopRisk } from "./research-risk";
 
 type Profile = {
+  location?: "atr-bands" | "farther";
+  structureTrail?: boolean;
+  disaster?: "2r" | "3pct";
   account?: AccountRiskRule;
   admission?: RiskAdmissionRule;
   totalWeight?: number;
@@ -27,6 +31,37 @@ type Profile = {
   totalRisk?: number;
 };
 export const riskProfiles = {
+  "rk-atr-bands": {
+    method: "RK-A1-atr-bands",
+    label: "ATR14价格比分档3/5/8%",
+    atr: 14,
+    location: "atr-bands",
+  },
+  "rk-structure-farther": {
+    method: "RK-V-structure-farther",
+    label: "结构与2ATR取更远并缩股",
+    location: "farther",
+  },
+  "rk-structure-trail": {
+    method: "RK-D3-structure",
+    label: "确认更高低点结构跟随",
+    structureTrail: true,
+  },
+  "rk-disaster2r": {
+    method: "RK-C-disaster",
+    label: "独立-2R灾难确认",
+    disaster: "2r",
+  },
+  "rk-disaster3pct": {
+    method: "RK-C-disaster",
+    label: "独立-3%灾难确认",
+    disaster: "3pct",
+  },
+  "sw-riskcap3": {
+    method: "SW11-risk-cap3",
+    label: "3%含费规划与实际超限记录",
+    fraction: 0.03,
+  },
   "rk-admit-win45": {
     method: "SW-P-win45",
     label: "开发段胜率至少45%",
@@ -249,6 +284,7 @@ export const riskPresetIds = Object.keys(riskProfiles) as [
 ];
 export const riskPresetBoundary =
   "B2规模/演化工程v1：均为固定双突破入场、60交易日上限的独立对照，默认初始5%止损、当前权益1%含费风险和20%单股上限。五档风险不代表已知胜率；硬2%版禁止更高输入。初始权益版仅冻结风险金额基数，市值和可用现金仍以开盘已知现金加其余持仓前收估值约束。组合在险为逐持仓max(0,原始入场价至当前有效止损的含费规划损失)之和，盈利保护不能抵消其他持仓风险；预算不足或持仓估值/止损缺失不新入。15%/20%市值与前20日均成交额1%容量统一换算为股数向下取整，实际跳空可超预算。保本0.3/0.5/1R只用当时收盘浮盈、下一交易日起生效；结构版另需因果确认更高低点。10日无进展工程冻结为未达到0.5R，价格止损并存。ATR10/20共享算术ATR、均为2倍，仅改变初始定位及其风险股数，不按未来业绩选参数。不保本及亏损反例完整保留，未真实回测。" +
+  "新增定位v1：ATR14/实际入场价>3%用8%、<1.5%用3%，两等号及中间档5%为显式工程版本。结构更远初始取min(结构减0.3ATR14,入场减2ATR14)，每条候选均有效才采用，风险股数按最终距离计算。结构跟随沿用60根3左3右因果更高低点确认，须入场后且高于入场价，只升不降、次日生效。灾难-2R/-3%两个对照均独立于初始5%技术止损和1%预算，日线最低价确认后次日可成交开盘，不冒充瞬时盘中备份或保证成交。3%风险版记录入场权益、计划含费风险及结算实际损失/超限，跳空不保证3%封顶。" +
   accountRiskBoundary +
   riskAdmissionBoundary;
 export function riskPresetAdmission(id: RiskPresetId) {
@@ -271,9 +307,12 @@ export function riskPresetTemplate(id: RiskPresetId): ResearchManagement {
   return {
     riskPreset: id,
     ...(p.totalWeight != null ? { maxTotalWeight: p.totalWeight } : {}),
-    stop: p.atr
-      ? { kind: "atr", period: p.atr, multiple: 2 }
-      : { kind: "percent", fraction: 0.05 },
+    stop:
+      p.location === "farther"
+        ? { kind: "structure-atr", period: 14, multiple: 0.3 }
+        : p.atr
+          ? { kind: "atr", period: p.atr, multiple: 2 }
+          : { kind: "percent", fraction: 0.05 },
     confirmations: 1,
     stressBuffer: 0,
     trail: { kind: "fixed" },
@@ -315,4 +354,67 @@ export function riskPresetBudget(
     budget = Math.min(budget, Math.max(0, equity * p.totalRisk - used));
   }
   return Number.isFinite(budget) ? budget / equity : null;
+}
+
+export function riskPresetInitialStop(
+  id: RiskPresetId,
+  entry: number,
+  evidence: { initialStop?: number | null; stopAtr?: number | null },
+): number | null | undefined {
+  const p: Profile = riskProfiles[id];
+  if (!p.location) return undefined;
+  const a = evidence.stopAtr;
+  if (
+    !Number.isFinite(entry) ||
+    entry <= 0 ||
+    a == null ||
+    !Number.isFinite(a) ||
+    a <= 0
+  )
+    return null;
+  if (p.location === "atr-bands")
+    return (
+      entry * (1 - (a / entry > 0.03 ? 0.08 : a / entry < 0.015 ? 0.03 : 0.05))
+    );
+  const structure = evidence.initialStop;
+  if (
+    structure == null ||
+    !Number.isFinite(structure) ||
+    structure <= 0 ||
+    structure >= entry
+  )
+    return null;
+  const stop = Math.min(structure - 0.3 * a, entry - 2 * a);
+  return stop > 0 && stop < entry ? stop : null;
+}
+export function riskPresetEvolution(id: RiskPresetId | undefined) {
+  return id ? (riskProfiles[id] as Profile) : null;
+}
+
+export function riskDisasterTriggered(
+  bar: Bar | undefined,
+  entry: number,
+  initialStop: number,
+  kind: "2r" | "3pct",
+): boolean | null {
+  if (
+    !bar ||
+    ![
+      bar.open,
+      bar.high,
+      bar.low,
+      bar.close,
+      bar.volume,
+      entry,
+      initialStop,
+    ].every((v) => Number.isFinite(v) && v > 0) ||
+    bar.high < Math.max(bar.open, bar.close) ||
+    bar.low > Math.min(bar.open, bar.close) ||
+    initialStop >= entry
+  )
+    return null;
+  return (
+    bar.low <=
+    (kind === "2r" ? entry - 2 * (entry - initialStop) : entry * 0.97)
+  );
 }

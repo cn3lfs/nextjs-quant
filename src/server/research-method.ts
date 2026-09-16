@@ -1,3 +1,4 @@
+import { contextRiskBoundary } from "~/lib/research-context-risk";
 import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
 import { growthIntradayDescription } from "~/lib/research-growth-intraday";
 import { growthDailyDescription } from "~/lib/research-growth-daily";
@@ -154,6 +155,14 @@ export function researchMethodSnapshot(
               : "canslim-analyst/references/entry-exit-rules.md",
           ]
         : []),
+      ...(typeof input !== "string" && input.management?.contextRisk
+        ? [
+            "swing-trader/references/position-management.md",
+            "swing-trader/references/trading-system.md",
+            "stop-loss/references/methods.md",
+            "stop-loss/references/pitfalls.md",
+          ]
+        : []),
       ...(kelly
         ? ["stop-loss/references/kelly-sizing.md", "stop-loss/scripts/kelly.py"]
         : []),
@@ -256,6 +265,19 @@ export function researchMethodSnapshot(
             version: "volatility-stops-1",
             profile: input.management.trail.profile,
             interpretation: volatilityStopBoundary,
+            ...(input.management.volatilityInputs
+              ? { inputs: input.management.volatilityInputs }
+              : {}),
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.management?.contextRisk
+      ? {
+          contextRisk: {
+            version: "context-risk-1",
+            id: input.management.contextRisk,
+            interpretation: contextRiskBoundary,
+            inputs: input.management.contextRiskInputs ?? [],
           },
         }
       : {}),

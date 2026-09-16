@@ -1,3 +1,8 @@
+import { contextRiskPoint } from "~/lib/research-context-risk";
+import {
+  externalVolatilityPoint,
+  isExternalVolatility,
+} from "~/lib/research-volatility-input";
 import { riskPresetAdmission } from "~/lib/research-risk-presets";
 import { riskAdmissionNeedsTraining } from "~/lib/research-risk-admission";
 import { isVolumePollution } from "~/lib/research-volume-pollution";
@@ -89,6 +94,50 @@ export async function runStrategyResearch(
   validateResearchMethod(spec, dataset.method);
   if (spec.management?.growthIntraday)
     assertGrowthIntradayWindow(spec.start, spec.end);
+  const externalVolatility = spec.management?.volatilityStop;
+  if (externalVolatility && isExternalVolatility(externalVolatility)) {
+    if (!spec.management?.volatilityInputs?.length)
+      throw new Error(
+        "missing: Kase/Beta真实回测不可用，缺外部公式参数或原查表",
+      );
+    for (const stock of dataset.stocks)
+      for (const date of dataset.calendar.filter(
+        (d) => d >= spec.start && d <= spec.end,
+      )) {
+        const check = externalVolatilityPoint(
+          externalVolatility,
+          stock.bars,
+          stock.symbol,
+          date,
+          spec.management.volatilityInputs,
+          dataset.calendar,
+        );
+        if (check.status === "missing")
+          throw new Error(
+            `missing: ${stock.symbol} ${date} ${check.reason}；真实回测不可用`,
+          );
+      }
+  }
+  if (spec.management?.contextRisk) {
+    if (!spec.management.contextRiskInputs?.length)
+      throw new Error("missing: 真实回测不可用，缺历史事件或人工状态输入");
+    for (const stock of dataset.stocks)
+      for (const date of dataset.calendar.filter(
+        (d) => d >= spec.start && d <= spec.end,
+      )) {
+        const check = contextRiskPoint(
+          spec.management.contextRisk,
+          spec.management.contextRiskInputs ?? [],
+          stock.symbol,
+          date,
+          dataset.calendar,
+        );
+        if (check.status === "missing")
+          throw new Error(
+            `missing: ${stock.symbol} ${date} ${check.reason}；真实回测不可用`,
+          );
+      }
+  }
   const events: ResearchEvent[] = [];
   const exclusions = [...dataset.excluded];
   const reversal =

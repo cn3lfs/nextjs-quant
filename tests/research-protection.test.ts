@@ -1,3 +1,5 @@
+import { riskPresetTemplate } from "../src/lib/research-risk-presets";
+import { applyResearchManagement } from "../src/components/research-strategy-fields";
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import {
@@ -226,4 +228,24 @@ it("optional protections preserve old shapes and freeze their source version ind
   expect(
     researchManagementSchema.safeParse({ trailAfterScaleOut: true }).success,
   ).toBe(false);
+});
+
+it("structure trail waits for causal right-side confirmation, then uses actual higher low rather than cost", () => {
+  const input = structureBars();
+  const config = applyResearchManagement(
+    { ...spec(60, 75, {}), initialCapital: 100000 },
+    riskPresetTemplate("rk-structure-trail"),
+  );
+  const result = researchPortfolio(
+    config,
+    [event(60)],
+    input.map((b) => b.date),
+    new Map([["sh600000", input]]),
+    () => rules,
+  );
+  expect(result.trades[0]!.stopHistory!.map((r) => [r.date, r.stop])).toEqual([
+    [date(61), 95],
+    [date(68), 105],
+  ]);
+  expect(result.trades[0]!.exitDate).toBe(date(70));
 });

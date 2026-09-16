@@ -1,3 +1,12 @@
+import {
+  riskDisasterTriggered,
+  riskPresetEvolution,
+} from "~/lib/research-risk-presets";
+import { contextRiskPoint } from "~/lib/research-context-risk";
+import {
+  externalVolatilityPoint,
+  isExternalVolatility,
+} from "~/lib/research-volatility-input";
 import { researchRiskAdmission } from "~/lib/research-risk-admission";
 import { researchAccountRisk } from "~/lib/research-account-risk";
 import { volatilityStopSeries } from "~/lib/research-volatility-stops";
@@ -384,7 +393,10 @@ export function researchPortfolio(
   const volatilityLines = new Map(
     trail?.kind === "volatility"
       ? [...series].map(([symbol, bars]) => {
-          const values = volatilityStopSeries(bars, trail.profile, calendar);
+          const values = volatilityStopSeries(bars, trail.profile, calendar, {
+            symbol,
+            inputs: spec.management?.volatilityInputs ?? [],
+          });
           return [
             symbol,
             new Map(bars.map((bar, i) => [bar.date, values[i] ?? null])),
@@ -416,6 +428,17 @@ export function researchPortfolio(
         })
       : [],
   );
+  const kaseTargets = new Map<string, { fractions: number[]; level: number }>();
+  const cap3Entries = new Map<
+    string,
+    { equity: number; budget: number; plannedRisk: number }
+  >();
+  const contextChecks: {
+    symbol: string;
+    date: string;
+    phase: "entry" | "holding";
+    check: ReturnType<typeof contextRiskPoint>;
+  }[] = [];
   const exits = new Map<string, string>();
   const partials = new Map<
     string,
@@ -436,7 +459,12 @@ export function researchPortfolio(
       : request.reason;
   const pyramid = spec.management?.pyramid;
   const pullback = pyramid?.kind === "pullback-50-50" ? pyramid : null;
-  const batched = !!(scaleOut || pyramid || technicalId);
+  const batched = !!(
+    scaleOut ||
+    pyramid ||
+    technicalId ||
+    spec.management?.volatilityStop === "rk-kase-stages"
+  );
   const additions = new Map<
     string,
     { stage: number; triggerDate: string; triggerIndex: number }
@@ -947,6 +975,55 @@ export function researchPortfolio(
         });
         continue;
       }
+      if (spec.management?.contextRisk) {
+        const priorDate =
+          calendar.filter((d) => d < date).at(-1) ?? event.observedDate;
+        const frozenThesis = spec.management.contextRiskInputs?.find(
+          (r) => r.symbol === event.symbol && r.date === event.observedDate,
+        )?.thesis;
+        if (spec.management.contextRisk === "rk-thesis") {
+          const original = contextRiskPoint(
+            "rk-thesis",
+            spec.management.contextRiskInputs ?? [],
+            event.symbol,
+            event.observedDate,
+            calendar,
+          );
+          if (original.status === "missing" || !frozenThesis) {
+            excluded.push({
+              event,
+              reason: "missing: 缺入场信号时已冻结的有效命题",
+            });
+            finished.add(event);
+            continue;
+          }
+        }
+        const check = contextRiskPoint(
+          spec.management.contextRisk,
+          spec.management.contextRiskInputs ?? [],
+          event.symbol,
+          priorDate,
+          calendar,
+          frozenThesis,
+        );
+        contextChecks.push({
+          symbol: event.symbol,
+          date: event.observedDate,
+          phase: "entry",
+          check,
+        });
+        if (!check.allow) {
+          excluded.push({
+            event,
+            reason:
+              check.status === "missing"
+                ? `missing: ${check.reason}`
+                : (check.reason ?? "人工事件准入拒绝"),
+          });
+          finished.add(event);
+          continue;
+        }
+      }
       const admission = admissionRule
         ? researchRiskAdmission(
             admissionRule,
@@ -1023,10 +1100,38 @@ export function researchPortfolio(
         finished.add(event);
         continue;
       }
+      const externalId = spec.management?.volatilityStop;
+      const externalEntry =
+        externalId && isExternalVolatility(externalId)
+          ? externalVolatilityPoint(
+              externalId,
+              series.get(event.symbol) ?? [],
+              event.symbol,
+              event.observedDate,
+              spec.management?.volatilityInputs,
+              calendar,
+            )
+          : null;
+      if (externalEntry?.status === "missing") {
+        excluded.push({ event, reason: `missing: ${externalEntry.reason}` });
+        finished.add(event);
+        continue;
+      }
       const stopOverride = researchStopOverride(spec.management, event);
-      const initialStop = spec.management
-        ? researchInitialStop(spec.management, fill.price, event)
-        : event.initialStop;
+      const initialStop =
+        externalEntry?.status === "available"
+          ? externalEntry.stop
+          : spec.management
+            ? researchInitialStop(spec.management, fill.price, event)
+            : event.initialStop;
+      if (
+        externalEntry?.status === "available" &&
+        externalId === "rk-kase-stages"
+      )
+        kaseTargets.set(`${event.symbol}:${event.key}`, {
+          fractions: externalEntry.cumulativeFractions,
+          level: -1,
+        });
       const plannedRiskStop =
         initialStop == null
           ? null
@@ -1219,6 +1324,7 @@ export function researchPortfolio(
         dailyRules,
       );
       if (
+        spec.management?.contextRisk === "sw-preflight" ||
         spec.management?.swingDiscipline === "sw-min-rr2" ||
         admissionRule === "rr2"
       ) {
@@ -1274,6 +1380,17 @@ export function researchPortfolio(
         });
         continue;
       }
+      if (spec.management?.riskPreset === "sw-riskcap3")
+        cap3Entries.set(`${event.symbol}:${event.key}`, {
+          equity: entryEquity,
+          budget: entryEquity * 0.03,
+          plannedRisk: plannedStopRisk(
+            quantity,
+            fill.price,
+            plannedRiskStop!,
+            spec.costs,
+          ),
+        });
       if (admissionCheck && admission) {
         const riskQuantity = researchRiskQuantity({
           cash: entryEquity,
@@ -1520,6 +1637,63 @@ export function researchPortfolio(
         !!bar && bar.volume > 0 && Number.isFinite(bar.close) && bar.close > 0;
       const state = states.get(symbol);
       if (spec.management && state) {
+        const evolution = riskPresetEvolution(spec.management.riskPreset);
+        if (evolution?.disaster) {
+          const triggered = riskDisasterTriggered(
+            bar,
+            position.entryPrice,
+            position.initialStop!,
+            evolution.disaster,
+          );
+          if (triggered === null)
+            position.managementWarnings!.push({
+              date,
+              reason: "灾难线缺有效OHLC/量，未补造触发",
+            });
+          if (triggered && !exits.has(symbol))
+            exits.set(
+              symbol,
+              `日线最低价确认独立${evolution.disaster}灾难线，次日开盘退出`,
+            );
+        }
+
+        if (spec.management.contextRisk) {
+          const id = spec.management.contextRisk;
+          const frozenThesis = spec.management.contextRiskInputs?.find(
+            (r) =>
+              r.symbol === symbol && r.date === position.event.observedDate,
+          )?.thesis;
+          const check = contextRiskPoint(
+            id,
+            spec.management.contextRiskInputs ?? [],
+            symbol,
+            date,
+            calendar,
+            frozenThesis,
+          );
+          contextChecks.push({ symbol, date, phase: "holding", check });
+          if (check.status === "missing")
+            position.managementWarnings!.push({
+              date,
+              reason: `missing: ${check.reason}`,
+            });
+          if (check.exit && !exits.has(symbol))
+            exits.set(symbol, `${id}已确认，下一可成交开盘退出`);
+          if (
+            id === "rk-thesis" &&
+            riskDisasterTriggered(
+              bar,
+              position.entryPrice,
+              position.initialStop!,
+              "2r",
+            ) === true &&
+            !exits.has(symbol)
+          )
+            exits.set(
+              symbol,
+              "日线最低价确认-2R灾难线，次日执行，不保证灾难价成交",
+            );
+        }
         if (growthDaily === "SE-D-review23") {
           const age =
             (Date.parse(date) - Date.parse(position.entryDate)) / 86400000;
@@ -1704,11 +1878,73 @@ export function researchPortfolio(
           state.tailWarning = true;
         }
         const currentAtr = trailAtr.get(symbol)?.get(date);
-        const volatilityLine = volatilityLines.get(symbol)?.get(date);
+        const rawVolatilityLine = volatilityLines.get(symbol)?.get(date);
+        const opposite =
+          spec.management.volatilityStop === "rk-keltner-opposite";
+        const volatilityLine = opposite ? null : rawVolatilityLine;
+        if (
+          opposite &&
+          rawVolatilityLine != null &&
+          bar.close >= rawVolatilityLine &&
+          !exits.has(symbol)
+        )
+          exits.set(symbol, "收盘达到Keltner对侧上轨目标，下一可成交开盘退出");
+        const externalId = spec.management.volatilityStop;
+        if (externalId && isExternalVolatility(externalId)) {
+          const check = externalVolatilityPoint(
+            externalId,
+            series.get(symbol) ?? [],
+            symbol,
+            date,
+            spec.management.volatilityInputs,
+            calendar,
+          );
+          if (check.status === "missing")
+            position.managementWarnings!.push({
+              date,
+              reason: `missing: ${check.reason}`,
+            });
+          else if (externalId === "rk-kase-stages") {
+            const targetState = kaseTargets.get(
+              `${symbol}:${position.event.key}`,
+            )!;
+            if (check.warning != null && bar.close <= check.warning)
+              position.managementWarnings!.push({
+                date,
+                reason: "Kase预警线触及；预警本身不卖出",
+              });
+            const deepest = check.levels.reduce(
+              (level, line, i) => (bar.close <= line ? i : level),
+              -1,
+            );
+            targetState.level = Math.max(targetState.level, deepest);
+            if (targetState.level === 2 && !exits.has(symbol))
+              exits.set(symbol, "Kase第三级确认全清，受阻保留退出");
+            else if (
+              targetState.level >= 0 &&
+              !exits.has(symbol) &&
+              !partials.has(symbol)
+            ) {
+              const remaining = position.remainingQuantity ?? position.quantity;
+              const desired = Math.max(
+                0,
+                position.quantity * targetState.fractions[targetState.level]! -
+                  (position.quantity - remaining),
+              );
+              if (desired > 1e-8)
+                partials.set(symbol, {
+                  kind: "signal",
+                  desired,
+                  triggerDate: date,
+                  reason: `Kase第${targetState.level + 1}级累计原始仓位减仓`,
+                });
+            }
+          }
+        }
         if (
           trailActive &&
           trail?.kind === "volatility" &&
-          volatilityLine == null
+          rawVolatilityLine == null
         )
           position.managementWarnings!.push({
             date,
@@ -1743,6 +1979,33 @@ export function researchPortfolio(
                 state.high,
               )
             : null;
+        if (evolution?.structureTrail) {
+          const prefix = (series.get(symbol) ?? []).filter(
+            (b) => b.date <= date,
+          );
+          const window = prefix.slice(-60);
+          const complete =
+            window.length === 60 &&
+            calendar
+              .filter((d) => d >= window[0]!.date && d <= date)
+              .every((d) => window.some((b) => b.date === d));
+          const structure = complete
+            ? researchHigherLow(prefix, position.entryDate, position.entryPrice)
+            : { status: "unavailable" as const };
+          if (
+            structure.status === "confirmed" &&
+            structure.latest &&
+            structure.latest.price > state.stop &&
+            !exits.has(symbol)
+          ) {
+            state.stop = structure.latest.price;
+            position.stopHistory!.push({
+              date,
+              stop: state.stop,
+              reason: "因果更高低点确认结构跟随，下一交易日起生效",
+            });
+          }
+        }
         const nextStop = !trailActive
           ? state.stop
           : trail?.kind === "volatility"
@@ -1909,7 +2172,29 @@ export function researchPortfolio(
     ...(spec.management?.liquidityCap
       ? { liquidityChecks: [...liquidityChecks.values()] }
       : {}),
+    ...(spec.management?.riskPreset === "sw-riskcap3"
+      ? {
+          riskCap3: trades.map((t) => {
+            const plan = cap3Entries.get(`${t.event.symbol}:${t.event.key}`)!;
+            const actualLoss =
+              t.profit === null ? null : Math.max(0, -t.profit);
+            return {
+              symbol: t.event.symbol,
+              eventKey: t.event.key,
+              ...plan,
+              actualLoss,
+              excess:
+                actualLoss === null
+                  ? null
+                  : Math.max(0, actualLoss - plan.budget),
+              lossFraction:
+                actualLoss === null ? null : actualLoss / plan.equity,
+            };
+          }),
+        }
+      : {}),
     ...(admissionRule ? { riskAdmissionChecks } : {}),
+    ...(spec.management?.contextRisk ? { contextChecks } : {}),
     ...(accountRisk ? { accountRisk: accountRisk.snapshot() } : {}),
     ...(lossPause ? { lossPause: lossPause.snapshot(days.length - 1) } : {}),
     ...(marketEnvironment ? { marketEnvironment } : {}),

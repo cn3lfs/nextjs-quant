@@ -1,3 +1,15 @@
+import { Textarea } from "./ui/textarea";
+import {
+  contextRiskIds,
+  contextRiskProfiles,
+  contextRiskTemplate,
+  contextRiskInputsSchema,
+  contextRiskBoundary,
+} from "~/lib/research-context-risk";
+import {
+  isExternalVolatility,
+  volatilityInputsSchema,
+} from "~/lib/research-volatility-input";
 import {
   riskPresetIds,
   riskProfiles,
@@ -1147,6 +1159,50 @@ export function ResearchManagementFields({
           {growthIntradayDescription}
         </p>
       )}
+      {contextRiskIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          onClick={() => onChange(contextRiskTemplate(id))}
+        >
+          应用{contextRiskProfiles[id][1]}
+        </Button>
+      ))}
+      {value.contextRisk && (
+        <label className="block space-y-2 text-sm">
+          <span>事件与人工状态（JSON；缺失时不可用）</span>
+          <Textarea
+            key={`${value.contextRisk}:${JSON.stringify(value.contextRiskInputs ?? [])}`}
+            aria-label="事件与人工状态"
+            className="min-h-32 w-full rounded border p-2 font-mono text-xs"
+            defaultValue={JSON.stringify(
+              value.contextRiskInputs ?? [],
+              null,
+              2,
+            )}
+            onBlur={(event) => {
+              try {
+                const inputs = contextRiskInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...value, contextRiskInputs: inputs });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请提供带来源、版本及可知时点的完整状态数组",
+                );
+                event.currentTarget.reportValidity();
+                const { contextRiskInputs: _inputs, ...rest } = value;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="block text-muted-foreground">
+            {contextRiskBoundary}
+          </span>
+        </label>
+      )}
       {riskPresetIds.map((id) => (
         <Button
           key={id}
@@ -1160,6 +1216,36 @@ export function ResearchManagementFields({
       ))}
       {value.riskPreset && (
         <p className="text-sm text-muted-foreground">{riskPresetBoundary}</p>
+      )}
+      {value.volatilityStop && isExternalVolatility(value.volatilityStop) && (
+        <label className="block space-y-2 text-sm">
+          <span>外部波动参数（JSON；缺失时真实回测不可用）</span>
+          <Textarea
+            key={`${value.volatilityStop}:${JSON.stringify(value.volatilityInputs ?? [])}`}
+            aria-label="外部波动参数"
+            className="min-h-32 w-full rounded border p-2 font-mono text-xs"
+            defaultValue={JSON.stringify(value.volatilityInputs ?? [], null, 2)}
+            onBlur={(event) => {
+              try {
+                const inputs = volatilityInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...value, volatilityInputs: inputs });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入含来源、版本、时点和完整Kase/Beta参数的JSON数组",
+                );
+                event.currentTarget.reportValidity();
+                const { volatilityInputs: _inputs, ...rest } = value;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="block text-muted-foreground">
+            Kase需公式引用、偏度修正及分档比例；Beta需估计口径及原查表。不得用当前参数补造历史。
+          </span>
+        </label>
       )}
       {volatilityStopIds.map((id) => (
         <Button

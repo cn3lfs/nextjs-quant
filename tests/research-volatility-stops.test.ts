@@ -58,9 +58,16 @@ it.each(volatilityStopIds)(
   (id) => {
     const input = bars();
     // Flat closes: STD=0, EMA=MA=100; H-L=TR=4; high-2*range=94.
-    const expected =
-      id === "rk-safezone" || id === "rk-sar"
-        ? null
+    const expected = [
+      "rk-safezone",
+      "rk-sar",
+      "rk-kase",
+      "rk-kase-stages",
+      "rk-beta",
+    ].includes(id)
+      ? null
+      : id === "rk-keltner-opposite"
+        ? 108
         : id === "rk-keltner-lower"
           ? 92
           : id === "rk-kaufman"

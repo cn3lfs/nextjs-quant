@@ -37,6 +37,14 @@ export function applyResearchManagement(
   return {
     ...spec,
     management,
+    ...(management.contextRisk
+      ? {
+          strategy: "dual-breakout" as const,
+          maParams: undefined,
+          risk: { fraction: 0.02, maxWeight: 0.2 },
+          maxPositions: 3,
+        }
+      : {}),
     ...(management.riskPreset
       ? {
           strategy: "dual-breakout" as const,
@@ -80,6 +88,7 @@ export function applyResearchManagement(
         }
       : {}),
     holdingDays:
+      management.contextRisk ||
       management.growthDaily ||
       management.volatilityStop ||
       management.riskPreset
@@ -104,6 +113,14 @@ export function selectResearchStrategy(
     strategy !== "dual-breakout"
       ? (({ pyramid: _pyramid, ...rest }) => rest)(originalManagement)
       : originalManagement;
+  if (management?.contextRisk && strategy !== "dual-breakout") {
+    const {
+      contextRisk: _id,
+      contextRiskInputs: _inputs,
+      ...rest
+    } = management;
+    management = rest;
+  }
   if (management?.riskPreset && strategy !== "dual-breakout") {
     const { riskPreset: _riskPreset, ...rest } = management;
     management = rest;
@@ -113,7 +130,11 @@ export function selectResearchStrategy(
     management = rest;
   }
   if (management?.volatilityStop && strategy !== "dual-breakout") {
-    const { volatilityStop: _volatilityStop, ...rest } = management;
+    const {
+      volatilityStop: _volatilityStop,
+      volatilityInputs: _volatilityInputs,
+      ...rest
+    } = management;
     management = rest;
   }
   if (management?.sepaElite && !strategy.startsWith("sepa-")) {

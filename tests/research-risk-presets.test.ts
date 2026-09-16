@@ -1,3 +1,5 @@
+import { riskDisasterTriggered } from "../src/lib/research-risk-presets";
+import { riskPresetInitialStop } from "../src/lib/research-risk-presets";
 import { researchKellyTraining } from "../src/lib/research-kelly-training";
 import { expect, it } from "vitest";
 import {
@@ -59,7 +61,10 @@ it.each(riskPresetIds)(
     expect(
       researchSpecSchema.safeParse({
         ...spec,
-        risk: { fraction: 0.03, maxWeight: p.maxWeight },
+        risk: {
+          fraction: p.fraction === 0.03 ? 0.04 : 0.03,
+          maxWeight: p.maxWeight,
+        },
       }).success,
     ).toBe(false);
     expect(
@@ -350,4 +355,115 @@ it("RR2 accepts equality at the real opening and rejects a gap that destroys the
   bars[1]!.open = 101;
   bars[1]!.high = 102;
   expect(simulate().trades).toHaveLength(0);
+});
+
+it("ATR price bands preserve both exact boundaries and reject missing ATR", () => {
+  const stop = (a: number | null) =>
+    riskPresetInitialStop("rk-atr-bands", 100, { stopAtr: a });
+  expect([stop(1.49), stop(1.5), stop(3), stop(3.01)]).toEqual([
+    97, 95, 95, 92,
+  ]);
+  expect(stop(null)).toBeNull();
+  expect(stop(0)).toBeNull();
+});
+it("farther structure/volatility stop widens initial risk and therefore reduces quantity", () => {
+  expect(
+    riskPresetInitialStop("rk-structure-farther", 100, {
+      initialStop: 95,
+      stopAtr: 2,
+    }),
+  ).toBe(94.4);
+  expect(
+    riskPresetInitialStop("rk-structure-farther", 100, {
+      initialStop: 99,
+      stopAtr: 2,
+    }),
+  ).toBe(96);
+  expect(
+    riskPresetInitialStop("rk-structure-farther", 100, {
+      initialStop: 101,
+      stopAtr: 2,
+    }),
+  ).toBeNull();
+  const q = (stop: number) =>
+    researchRiskQuantity({
+      cash: 100000,
+      equity: 100000,
+      price: 100,
+      stop,
+      fraction: 0.01,
+      maxWeight: 1,
+      rules,
+      costs,
+    });
+  expect(q(94.4)).toBeLessThan(q(96));
+});
+it.each([
+  ["rk-disaster2r", 90],
+  ["rk-disaster3pct", 97],
+] as const)(
+  "%s triggers at low equality independently of a recovered close",
+  (id, floor) => {
+    const bars = input([100, 100, 100, 100, 100]);
+    bars[2]!.low = floor;
+    const t = run(id, bars).trades[0]!;
+    expect(t.exitDate).toBe(bars[3]!.date);
+    expect(t.initialStop).toBe(95);
+    expect(t.exitReason).toContain("灾难");
+    bars[2]!.low = floor + 0.01;
+    expect(run(id, bars).trades[0]!.exitDate).toBeNull();
+  },
+);
+it("3% planned cap records real gap loss above the budget rather than clipping results", () => {
+  const bars = input([100, 100, 94, 1, 1]);
+  Object.assign(bars[3]!, { open: 1, close: 1, high: 2, low: 0.5 });
+  const result = run("sw-riskcap3", bars);
+  expect(result.riskCap3?.[0]).toMatchObject({
+    equity: 100000,
+    budget: 3000,
+    plannedRisk: 1000,
+    actualLoss: 19800,
+    excess: 16800,
+    lossFraction: 0.198,
+  });
+  const unclosed = run("sw-riskcap3", input([100, 100, 100]));
+  expect(unclosed.riskCap3?.[0]?.actualLoss).toBeNull();
+});
+
+it("disaster input refuses illegal OHLC/zero volume rather than manufacturing a trigger", () => {
+  const bar = input([100])[0]!;
+  bar.low = 90;
+  expect(riskDisasterTriggered(bar, 100, 95, "2r")).toBe(true);
+  expect(riskDisasterTriggered({ ...bar, high: 89 }, 100, 95, "2r")).toBeNull();
+  expect(
+    riskDisasterTriggered({ ...bar, volume: 0 }, 100, 95, "2r"),
+  ).toBeNull();
+});
+
+it("risk-cap evidence does not overwrite another symbol with an identical event key", () => {
+  const bars = input([100, 100, 100]);
+  const events: ResearchEvent[] = ["sh600000", "sh600001"].map((symbol) => ({
+    symbol,
+    observedDate: bars[0]!.date,
+    endpointDate: bars[0]!.date,
+    key: "shared-date-key",
+    strategyVersion: "fixed",
+    evidence: "fixed",
+    partition: "development",
+  }));
+  const spec = applyResearchManagement(
+    { ...base, costs: { ...costs, minimumCommission: 10 } },
+    riskPresetTemplate("sw-riskcap3"),
+  );
+  const result = researchPortfolio(
+    spec,
+    events,
+    bars.map((b) => b.date),
+    new Map(events.map((e) => [e.symbol, bars])),
+    () => rules,
+  );
+  expect(result.riskCap3?.map((r) => [r.symbol, r.equity, r.budget])).toEqual([
+    ["sh600000", 100000, 3000],
+    ["sh600001", 99990, 2999.7],
+  ]);
 });

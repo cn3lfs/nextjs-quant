@@ -1,3 +1,13 @@
+import { riskPresetInitialStop } from "./research-risk-presets";
+import {
+  contextRiskIds,
+  contextRiskTemplate,
+  contextRiskInputsSchema,
+} from "./research-context-risk";
+import {
+  isExternalVolatility,
+  volatilityInputsSchema,
+} from "./research-volatility-input";
 import { riskPresetIds, riskPresetTemplate } from "./research-risk-presets";
 import {
   volatilityStopIds,
@@ -42,7 +52,10 @@ export const researchManagementSources = [
 ] as const;
 export const researchManagementSchema = z
   .object({
+    contextRisk: z.enum(contextRiskIds).optional(),
+    contextRiskInputs: contextRiskInputsSchema.optional(),
     volatilityStop: z.enum(volatilityStopIds).optional(),
+    volatilityInputs: volatilityInputsSchema.optional(),
     riskPreset: z.enum(riskPresetIds).optional(),
     swingDiscipline: z.enum(swingDisciplineIds).optional(),
     growthIntraday: z.enum(growthIntradayIds).optional(),
@@ -270,6 +283,22 @@ export const researchManagementSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.contextRiskInputs && !value.contextRisk)
+      context.addIssue({ code: "custom", message: "人工事件输入需具名预设" });
+    if (value.contextRisk) {
+      const template = contextRiskTemplate(value.contextRisk);
+      if (
+        Object.keys(value).some(
+          (k) => k !== "contextRiskInputs" && !(k in template),
+        ) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({ code: "custom", message: "人工事件具名参数不匹配" });
+    }
     if (value.riskPreset) {
       const template = riskPresetTemplate(value.riskPreset);
       if (
@@ -285,10 +314,20 @@ export const researchManagementSchema = z
           message: "规模演化具名参数不匹配，请重新应用模板",
         });
     }
+    if (
+      value.volatilityInputs &&
+      (!value.volatilityStop || !isExternalVolatility(value.volatilityStop))
+    )
+      context.addIssue({
+        code: "custom",
+        message: "外部波动输入只属于Kase/Beta具名版本",
+      });
     if (value.volatilityStop) {
       const template = volatilityStopTemplate(value.volatilityStop);
       if (
-        Object.keys(value).some((k) => !(k in template)) ||
+        Object.keys(value).some(
+          (k) => k !== "volatilityInputs" && !(k in template),
+        ) ||
         Object.entries(template).some(
           ([k, v]) =>
             JSON.stringify(value[k as keyof typeof value]) !==
@@ -442,6 +481,14 @@ export function researchInitialStop(
     entryPriceRange?: { min: number; max: number };
   },
 ) {
+  if (management.riskPreset) {
+    const selected = riskPresetInitialStop(
+      management.riskPreset,
+      entry,
+      evidence,
+    );
+    if (selected !== undefined) return selected;
+  }
   const override = researchStopOverride(management, evidence);
   if (override)
     return Number.isFinite(entry) &&

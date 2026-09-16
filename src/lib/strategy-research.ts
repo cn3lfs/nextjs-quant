@@ -60,6 +60,18 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (
+      value.management?.contextRisk &&
+      (value.strategy !== "dual-breakout" ||
+        value.risk?.fraction !== 0.02 ||
+        value.risk?.maxWeight !== 0.2 ||
+        value.holdingDays !== 60 ||
+        value.maxPositions !== 3)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "人工事件预设须双突破、2%风险、20%单股、3只、60交易日上限",
+      });
     if (value.management?.riskPreset) {
       const p = riskPresetParameters(value.management.riskPreset);
       if (

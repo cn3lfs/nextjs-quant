@@ -3972,10 +3972,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-max-distance",
@@ -4244,10 +4262,32 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "riskPresetBoundary定位演化工程v1：ATR14/入场价>3%用8%、<1.5%用3%、等号及中间5%；结构减0.3ATR与2ATR取更远，按最终风险距离缩股。结构跟随复用60根3左3右因果更高低点，入场后且高于入场价，只升不降、次日起效。灾难-2R/-3%独立于技术止损与仓位计算，日线最低价确认后下一开盘，非盘中即时成交。3%版保留入场权益/规划风险/实际结算损失和超限；固定输入验证非盈利证据。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetInitialStop"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetEvolution"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D1-fixed",
@@ -4381,10 +4421,33 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts",
+        "tests/research-protection.test.ts"
+      ],
+      "boundary": "riskPresetBoundary定位演化工程v1：ATR14/入场价>3%用8%、<1.5%用3%、等号及中间5%；结构减0.3ATR与2ATR取更远，按最终风险距离缩股。结构跟随复用60根3左3右因果更高低点，入场后且高于入场价，只升不降、次日起效。灾难-2R/-3%独立于技术止损与仓位计算，日线最低价确认后下一开盘，非盘中即时成交。3%版保留入场权益/规划风险/实际结算损失和超限；固定输入验证非盈利证据。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetInitialStop"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetEvolution"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D4-retracement",
@@ -4617,10 +4680,34 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts",
+        "src/lib/research-volatility-input.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-input.test.ts",
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破工程v1；规则见volatilityStopBoundary与volatilityInputBoundary。Kase/Beta必需来源版本和三个可知时点、公式引用/已求值偏度参数/原查表，缺失返回missing并拒绝真实回测；固定输入可验证。三级累计比例入场冻结，按实际成交扣减，预警不卖、等号触发、受阻不撤销。对侧上轨独立盈利目标，不混作保护止损，不宣称均值回归入场或真实业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          },
+          {
+            "file": "src/lib/research-volatility-input.ts",
+            "name": "externalVolatilityPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V5-kaufman",
@@ -4692,10 +4779,34 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts",
+        "src/lib/research-volatility-input.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-input.test.ts",
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破工程v1；规则见volatilityStopBoundary与volatilityInputBoundary。Kase/Beta必需来源版本和三个可知时点、公式引用/已求值偏度参数/原查表，缺失返回missing并拒绝真实回测；固定输入可验证。三级累计比例入场冻结，按实际成交扣减，预警不卖、等号触发、受阻不撤销。对侧上轨独立盈利目标，不混作保护止损，不宣称均值回归入场或真实业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          },
+          {
+            "file": "src/lib/research-volatility-input.ts",
+            "name": "externalVolatilityPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V8-sar",
@@ -10850,10 +10961,32 @@
         "swing-trader/references/trading-system.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§7.1：计划风险限制与实际亏损分开；用费用/跳空压力估算股数并记录真实超限，不能保证跳空后最大亏损绝不超过3%。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "riskPresetBoundary定位演化工程v1：ATR14/入场价>3%用8%、<1.5%用3%、等号及中间5%；结构减0.3ATR与2ATR取更远，按最终风险距离缩股。结构跟随复用60根3左3右因果更高低点，入场后且高于入场价，只升不降、次日起效。灾难-2R/-3%独立于技术止损与仓位计算，日线最低价确认后下一开盘，非盘中即时成交。3%版保留入场权益/规划风险/实际结算损失和超限；固定输入验证非盈利证据。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetInitialStop"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetEvolution"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-stop-required",
@@ -10995,10 +11128,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§7.1：使用用户明确记录且有时点的情绪/可交易状态，缺输入返回未评估；不从价格或LLM猜测用户情绪，历史手工补录不冒充当时已知。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-divergence-confirm",
@@ -11258,10 +11409,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§3.3：事件实际发布时间与分类版本固定，重大/兑现条件公开；缺历史事件不得拿今天新闻补造。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-time5",
@@ -11729,10 +11898,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.4：人工带时点输入明显影响决策时暂停，不从价格推断用户情绪；区别单次情绪禁入，期限及恢复固定。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-discipline-week",
@@ -11742,10 +11929,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.4：可审计违规事件如向亏损方向移动止损/不设止损；正常引擎拒绝这类操作，历史或人工违规仍有独立输入和暂停规则。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-dd15-week",
@@ -11788,10 +11993,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.1：环境、双突破、2R空间、有效止损、2%风险、事件和情绪七项联合；保存通过/拒绝/不可用与时点，不以指标通过覆盖缺失风控。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-review",
@@ -11879,10 +12102,29 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "均值回归/通道交易的对侧轨目标；冻结入场方向和对应轨，独立于保护性下轨止损。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-input.test.ts",
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破工程v1；规则见volatilityStopBoundary与volatilityInputBoundary。Kase/Beta必需来源版本和三个可知时点、公式引用/已求值偏度参数/原查表，缺失返回missing并拒绝真实回测；固定输入可验证。三级累计比例入场冻结，按实际成交扣减，预警不卖、等号触发、受阻不撤销。对侧上轨独立盈利目标，不混作保护止损，不宣称均值回归入场或真实业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V4-stages",
@@ -11892,10 +12134,34 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "预警线与1/2/3sigma递进风险等级接入分批减仓；原文未给偏度修正公式、每档比例和触发定义，需版本化且保留完整DevStop依赖。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts",
+        "src/lib/research-volatility-input.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-input.test.ts",
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破工程v1；规则见volatilityStopBoundary与volatilityInputBoundary。Kase/Beta必需来源版本和三个可知时点、公式引用/已求值偏度参数/原查表，缺失返回missing并拒绝真实回测；固定输入可验证。三级累计比例入场冻结，按实际成交扣减，预警不卖、等号触发、受阻不撤销。对侧上轨独立盈利目标，不混作保护止损，不宣称均值回归入场或真实业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          },
+          {
+            "file": "src/lib/research-volatility-input.ts",
+            "name": "externalVolatilityPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V-structure-farther",
@@ -11905,10 +12171,32 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "初始做多取两有效价位较低者并按更大风险距离减仓；持仓止损只升不降，不能用本规则放宽已有止损。与入口最早离场原则冲突须分名。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "riskPresetBoundary定位演化工程v1：ATR14/入场价>3%用8%、<1.5%用3%、等号及中间5%；结构减0.3ATR与2ATR取更远，按最终风险距离缩股。结构跟随复用60根3左3右因果更高低点，入场后且高于入场价，只升不降、次日起效。灾难-2R/-3%独立于技术止损与仓位计算，日线最低价确认后下一开盘，非盘中即时成交。3%版保留入场权益/规划风险/实际结算损失和超限；固定输入验证非盈利证据。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetInitialStop"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetEvolution"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A1-atr-bands",
@@ -11919,10 +12207,32 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "ATR/价格大于3%用8%、小于1.5%用3%；中间档及边界未规定，必须明确工程定义，ATR时点不可用未来行情。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "riskPresetBoundary定位演化工程v1：ATR14/入场价>3%用8%、<1.5%用3%、等号及中间5%；结构减0.3ATR与2ATR取更远，按最终风险距离缩股。结构跟随复用60根3左3右因果更高低点，入场后且高于入场价，只升不降、次日起效。灾难-2R/-3%独立于技术止损与仓位计算，日线最低价确认后下一开盘，非盘中即时成交。3%版保留入场权益/规划风险/实际结算损失和超限；固定输入验证非盈利证据。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetInitialStop"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetEvolution"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A3-atr-buffer",
@@ -13467,10 +13777,28 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逻辑证伪与价格灾难止损并行；需要当时可知的结构化论据及发布日期，不能让回顾性LLM评价冒充历史信号，保护性看跌另有关联方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-crowded-buffer",
@@ -13547,10 +13875,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "持仓期间按当前可知证据评估若空仓是否仍愿以当前价格买入，否则排队退出，与历史成本无关。需持续有效的买入资格谓词或带时点人工判断；单次交叉/突破事件没有再次出现不等于买入资格失效。缺证据保持未知，不能用事后LLM补判断。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-context-risk.ts"
+      ],
+      "tests": [
+        "tests/research-context-risk.test.ts"
+      ],
+      "boundary": "contextRiskBoundary工程v1：固定双突破、2%含费风险、20%市值/60%组合/3只。必需带真实可知/采集时点的事件或人工状态；缺失missing。冷静期随后5研究日且正常恢复；七项预检含真实开盘净2R及预算。命题入场前冻结且持有不替换，联合日线最低价-2R灾难确认，次日退出（非盘中即时）。该同一组合同时对应A6约束和中长线逻辑/灾难思路，当前双突破价量入场仅为对照；缺历史输入，真实回测不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskTemplate"
+          },
+          {
+            "file": "src/lib/research-context-risk.ts",
+            "name": "contextRiskPoint"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-atr10-20",

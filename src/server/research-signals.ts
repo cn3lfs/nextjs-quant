@@ -189,7 +189,8 @@ export async function researchSignals(
               ? result.long
               : { ...result.long, stopLocation: location },
           ),
-          ...(spec.management?.swingDiscipline === "sw-min-rr2" ||
+          ...(spec.management?.contextRisk === "sw-preflight" ||
+          spec.management?.swingDiscipline === "sw-min-rr2" ||
           (spec.management?.riskPreset &&
             riskPresetAdmission(spec.management.riskPreset) === "rr2")
             ? { entryTarget: result.long.risk.target1?.price ?? null }
