@@ -1,3 +1,16 @@
+import {
+  isCanslimResearch,
+  isCanslimHigh,
+  canslimHighWarmupStart,
+  canslimShapeWarmup,
+  isCanslimCup,
+  isCanslimPriority,
+} from "~/lib/research-canslim-strategies";
+import { researchKellyNetPayoff } from "~/lib/research-kelly-payoff";
+import {
+  researchKellyTraining,
+  type ResearchKellyTraining,
+} from "~/lib/research-kelly-training";
 import type { Bar } from "~/lib/domain";
 import type { CzscResult } from "~/lib/czsc";
 import {
@@ -14,6 +27,27 @@ import { researchOutcomes } from "./research-outcomes";
 import { researchPortfolio } from "./research-portfolio";
 import { researchHash, type ResearchDataset } from "./research-dataset";
 import { adjustmentFactors, applyAdjustment } from "./tdx-gbbq";
+import { validateResearchMethod } from "./research-method";
+import { isVolumeStrategy, volumeWarmupStart } from "~/lib/research-volume";
+import { isVolumeContext } from "~/lib/research-volume-context";
+import { isContinuation } from "~/lib/research-continuation";
+import { isBreakoutRule } from "~/lib/research-breakout-rules";
+import {
+  isChannelStrategy,
+  channelWarmupStart,
+  channelWarmupBars,
+} from "~/lib/research-channels";
+import { isCandleStrategy, candleWarmupStart } from "~/lib/research-candles";
+import { isVolumeSequence } from "~/lib/research-volume-sequence";
+import { isVolumeFailure } from "~/lib/research-volume-failure";
+import {
+  isVolumeStructure,
+  volumeStructureWarmupStart,
+} from "~/lib/research-volume-structure";
+import {
+  isVolumeReversal,
+  volumeReversalWarmupStart,
+} from "~/lib/research-volume-reversals";
 
 export async function runStrategyResearch(
   spec: ResearchSpec,
@@ -28,8 +62,60 @@ export async function runStrategyResearch(
     total: number,
   ) => void = () => {},
 ) {
+  validateResearchMethod(spec, dataset.method);
   const events: ResearchEvent[] = [];
   const exclusions = [...dataset.excluded];
+  const reversal =
+    isVolumeReversal(spec.strategy) ||
+    isVolumeContext(spec.strategy) ||
+    isVolumeSequence(spec.strategy);
+  const structure = isVolumeStructure(spec.strategy);
+  const channel = isChannelStrategy(spec.strategy) ? spec.strategy : null;
+  const breakout = isBreakoutRule(spec.strategy);
+  const canslim = isCanslimResearch(spec.strategy);
+  const priority = isCanslimPriority(spec.strategy);
+  const cup = isCanslimCup(spec.strategy) || priority;
+  const canslimHigh = isCanslimHigh(spec.strategy);
+  const canslimWarmup = canslimShapeWarmup(spec.strategy);
+  const candle =
+    isCandleStrategy(spec.strategy) ||
+    isContinuation(spec.strategy) ||
+    channel !== null ||
+    breakout ||
+    (canslim && !cup);
+  const candleStarts = new Map(
+    dataset.stocks.map((stock) => [
+      stock.symbol,
+      canslimHigh
+        ? canslimHighWarmupStart(stock.bars, spec.start)
+        : breakout || canslim
+          ? (stock.bars[
+              Math.max(
+                0,
+                stock.bars.findIndex((b) => b.date >= spec.start) -
+                  (canslim ? canslimWarmup : 60),
+              )
+            ]?.date ?? spec.start)
+          : channel
+            ? channelWarmupStart(channel, stock.bars, spec.start)
+            : candleWarmupStart(stock.bars, spec.start),
+    ]),
+  );
+  const volume =
+    isVolumeStrategy(spec.strategy) ||
+    reversal ||
+    structure ||
+    isVolumeFailure(spec.strategy);
+  const volumeStarts = new Map(
+    dataset.stocks.map((stock) => [
+      stock.symbol,
+      structure
+        ? volumeStructureWarmupStart(stock.bars, spec.start)
+        : reversal
+          ? volumeReversalWarmupStart(stock.bars, spec.start)
+          : volumeWarmupStart(stock.bars, spec.start),
+    ]),
+  );
   const series = new Map(
     dataset.stocks.map((stock) => [stock.symbol, stock.bars]),
   );
@@ -37,6 +123,28 @@ export async function runStrategyResearch(
   for (const [index, stock] of dataset.stocks.entries()) {
     if (cancelled()) throw new Error("研究已取消");
     try {
+      if (
+        candle &&
+        stock.actions.some(
+          (action) =>
+            action.category === 1 &&
+            action.date >= candleStarts.get(stock.symbol)! &&
+            action.date <= spec.end,
+        )
+      )
+        throw new Error("K线形态窗口含除权事件，拒绝失真跳空与反转信号");
+      if (
+        volume &&
+        stock.actions.some(
+          (action) =>
+            action.category === 1 &&
+            action.date >= volumeStarts.get(stock.symbol)! &&
+            action.date <= spec.end,
+        )
+      )
+        throw new Error(
+          "量价窗口含除权事件，未实现对应量调整，拒绝使用失真量价信号",
+        );
       const observed = await researchSignals(
         stock.symbol,
         stock.bars,
@@ -44,8 +152,33 @@ export async function runStrategyResearch(
         czsc,
         cancelled,
         (date) => progress(stock.symbol, date, index, dataset.stocks.length),
+        dataset.calendar,
       );
-      events.push(...observed);
+      const accepted = cup
+        ? observed.filter((event) => {
+            const start = event.historyStart;
+            const reason =
+              !start || start > event.observedDate
+                ? "杯柄事件缺少有效历史输入起点"
+                : stock.actions.some(
+                      (action) =>
+                        action.category === 1 &&
+                        action.date >= start &&
+                        action.date <= event.observedDate,
+                    )
+                  ? "杯柄选中形态窗口含除权事件"
+                  : null;
+            if (reason) {
+              exclusions.push({
+                symbol: stock.symbol,
+                reason: `${event.observedDate}：${reason}`,
+              });
+              return false;
+            }
+            return true;
+          })
+        : observed;
+      events.push(...accepted);
       // Backward factors are append-stable. This is an adjusted price study,
       // not the cash/share settlement path used for simulated transactions.
       if (dataset.actionCoverage !== "missing")
@@ -60,6 +193,9 @@ export async function runStrategyResearch(
       else eventSeries.set(stock.symbol, stock.bars);
     } catch (error) {
       if (cancelled()) throw error;
+      // A rejected stock must not be recalculated by the portfolio's exit
+      // engine and turn one stock's exclusion into a whole-task failure.
+      series.delete(stock.symbol);
       exclusions.push({
         symbol: stock.symbol,
         reason: error instanceof Error ? error.message : "策略计算失败",
@@ -103,12 +239,21 @@ export async function runStrategyResearch(
           marketEvidence?.corporateActionFree.some(
             (coverage) =>
               coverage.symbol === stock.symbol &&
-              coverage.start <= spec.start &&
+              coverage.start <=
+                (volume
+                  ? volumeStarts.get(stock.symbol)!
+                  : candle
+                    ? candleStarts.get(stock.symbol)!
+                    : spec.start) &&
               coverage.end >= spec.end,
           ),
       )
       .map((stock) => stock.symbol),
   );
+  const trainsKelly =
+    spec.management?.kelly?.provenance === "development-closed" ||
+    spec.management?.kelly?.provenance === "development-net-payoff";
+  let kellyTraining: ResearchKellyTraining | null = null;
   const partitions = (["development", "validation"] as const).map(
     (partition) => {
       const sample = outcomes.filter(
@@ -117,23 +262,74 @@ export async function runStrategyResearch(
       const partitionEvents = events.filter(
         (event) => event.partition === partition,
       );
+      // A later candidate may reach further into history. Check each event
+      // independently so it cannot revoke an earlier event's valid coverage.
+      const transactionEvents =
+        cup && marketEvidence
+          ? partitionEvents.filter((event) => {
+              const covered =
+                event.historyStart &&
+                marketEvidence.corporateActionFree.some(
+                  (coverage) =>
+                    coverage.symbol === event.symbol &&
+                    coverage.start <= event.historyStart! &&
+                    coverage.end >= spec.end,
+                );
+              if (!covered)
+                exclusions.push({
+                  symbol: event.symbol,
+                  reason: `${event.observedDate}：杯柄交易模拟缺少形态窗口无公司行动证明，保留事件观察`,
+                });
+              return !!covered;
+            })
+          : partitionEvents;
       const start =
         partition === "validation" ? spec.validationStart : spec.start;
       const beforeValidation =
         dataset.calendar.filter((day) => day < spec.validationStart).at(-1) ??
         spec.start;
       const end = partition === "validation" ? spec.end : beforeValidation;
+      const { kelly: _kelly, ...referenceManagement } = spec.management ?? {};
+      const partitionSpec =
+        trainsKelly && partition === "development"
+          ? {
+              ...spec,
+              start,
+              end,
+              management: referenceManagement as NonNullable<
+                ResearchSpec["management"]
+              >,
+            }
+          : { ...spec, start, end };
       const simulation = marketEvidence
         ? researchPortfolio(
-            { ...spec, start, end },
-            partitionEvents,
+            partitionSpec,
+            transactionEvents,
             dataset.calendar,
             series,
             (symbol, date) =>
               actionCovered.has(symbol) ? lookup(symbol, date) : null,
+            dataset.benchmark,
+            trainsKelly && partition === "validation"
+              ? kellyTraining
+              : undefined,
           )
         : null;
+      if (trainsKelly && partition === "development")
+        kellyTraining = researchKellyTraining(
+          simulation?.trades ?? [],
+          spec.start,
+          spec.validationStart,
+        );
       return {
+        ...(trainsKelly
+          ? {
+              kellyRole:
+                partition === "development"
+                  ? "reference-without-kelly"
+                  : "validation-with-trained-kelly",
+            }
+          : {}),
         partition,
         events: sample.length,
         pending: sample.filter((row) => row.status === "pending").length,
@@ -148,9 +344,46 @@ export async function runStrategyResearch(
       };
     },
   );
+  const trainingEvidence =
+    trainsKelly && kellyTraining
+      ? {
+          ...(kellyTraining as ResearchKellyTraining),
+          ...(spec.management?.kelly?.provenance === "development-net-payoff"
+            ? { netPayoff: researchKellyNetPayoff(kellyTraining) }
+            : {}),
+          reference: {
+            strategy: spec.strategy,
+            specHash: researchHash({
+              ...spec,
+              end:
+                dataset.calendar
+                  .filter((day) => day < spec.validationStart)
+                  .at(-1) ?? spec.start,
+              management: (({ kelly: _ignored, ...rest }) => rest)(
+                spec.management!,
+              ),
+            }),
+            datasetHash: dataset.hash,
+            marketEvidenceHash: marketEvidence
+              ? researchHash(marketEvidence)
+              : null,
+            kelly: "disabled",
+            cutoff: spec.validationStart,
+          },
+        }
+      : null;
   const result = {
+    ...(trainingEvidence
+      ? {
+          kellyTraining: {
+            ...trainingEvidence,
+            hash: researchHash(trainingEvidence),
+          },
+        }
+      : {}),
     version: "strategy-research-result-1" as const,
     spec,
+    ...(dataset.method ? { method: dataset.method } : {}),
     datasetHash: dataset.hash,
     marketEvidenceHash: marketEvidence ? researchHash(marketEvidence) : null,
     events,
@@ -158,6 +391,54 @@ export async function runStrategyResearch(
     partitions,
     exclusions,
     warnings: [
+      ...(spec.management?.kelly?.provenance === "development-net-payoff"
+        ? [
+            "回报倍数使用开发期盈利交易净损益金额均值除亏损交易净损益绝对值均值，零收益不进入两边均值；缺任一侧或计算无效则验证期不买入。这不是目标距离或净收益率均值比。",
+          ]
+        : []),
+      ...(trainsKelly
+        ? [
+            "开发期为同入场/退出且关闭凯利的参考组合；仅验证开始前完整闭合净收益计胜率，零收益计非胜，至少30笔。验证期独立起算资金且固定该胜率，参考未平仓/验证期收益不参与，分数仍为人工假设，b按所选模式取人工值或开发期净损益均值比。",
+          ]
+        : []),
+      ...(spec.management?.marketRegime
+        ? [
+            "大盘环境只影响交易买入，不过滤原始个股事件观察。交易日前需21根连续有效基准记录，按快照日历对齐；此日历尚非独立核验的交易所日历，缺失不可用。已有仓位保留原卖出规则。",
+          ]
+        : []),
+      ...(priority
+        ? [
+            spec.strategy.includes("-scored-handles")
+              ? "评分柄优先级合并U/W/V两分缩量浅柄及一分平稳柄，保留上半部、柄量比及总分至少6；先择形再确认突破，不等于只看总分。无公司行动证明覆盖完整输入前缀及研究期；杯柄事件类排除提示在此指优先级形态事件。"
+              : "形态优先级先选严格合格杯柄、平台、碟形再确认突破；无公司行动证明覆盖整个输入前缀及研究期，因为排除更优先形态也需要历史证据。杯柄事件类排除提示在此指优先级形态事件。",
+          ]
+        : []),
+      ...(cup && !priority
+        ? [
+            "杯柄按完整历史前缀识别，杯35至325条、柄至少5条且无额外上限；左杯沿前3条至确认日含已知除权则剔除该事件。每个事件独立核验所需窗口及研究期无公司行动证明，缺失只排除该事件的交易模拟，不让后续更长形态撤销早期成交；原研究期除权结算限制仍保留。固定持有及可选风控不等于完整CANSLIM，成交价含滑点须在原枢纽至105%内。",
+          ]
+        : []),
+      ...(candle
+        ? [
+            canslimHigh
+              ? "CANSLIM N2新高分档仅为独立价格因子实验；52周为364自然日且含测试日最高价，前后观察均可计算后才确认上穿。无公司行动证明需覆盖首个研究观察前一观察日减364自然日至期末；并非完整CANSLIM或历史证券池验证。沿用持有期及可选组合风控，无平台枢纽105%限制。"
+              : canslim
+                ? `CANSLIM${spec.strategy.includes("-saucer-") ? "碟形" : "平台"}价量交易需无公司行动证据覆盖研究期及前${canslimWarmup}根；${spec.strategy.endsWith("-hold3") ? "三日维持按研究日历对齐且每日最低价不低于原枢纽，第三日收盘确认。" : "直接突破版本未包含三日维持。"}固定持有期对照未包含完整财务、RS、M、催化或原文分批退出。成交价含滑点须在冻结枢纽至105%范围，越界取消。`
+                : breakout
+                  ? "双突破规则交易的无公司行动证据须覆盖研究期及前60根；复用原趋势线与价位，辅助指标不替代三要素，完整原文仓位和来源排序另列。"
+                  : channel
+                    ? `通道形态交易的无公司行动证据须覆盖研究期及前${channelWarmupBars(channel)}根预热；拟合及触边阈值是工程对照，不证明趋势延续或真实盈利。`
+                    : "K线形态交易的无公司行动证据须覆盖研究期及前11根预热；几何定义和三根方向背景是工程对照，不能证明趋势末端或真实盈利。",
+          ]
+        : []),
+      ...(volume
+        ? [
+            `量价交易的无公司行动证据须覆盖研究期、候选等待及预热（至少向前${structure ? 90 : reversal ? 81 : 71}根价格，并覆盖候选形成前${structure || reversal ? 60 : 20}个有效量能记录）；含已知除权的窗口不计算信号。未核验大宗、指数调整、尾盘量能、历史流通盘等污染，固定阈值仅为工程对照。`,
+          ]
+        : []),
+      ...(!dataset.method
+        ? ["旧数据快照未记录方法来源版本，不能追溯为当前技能版本"]
+        : []),
       dataset.membership.warning,
       dataset.actionCoverage === "missing"
         ? "缺少公司行动文件，事件收益为未复权价格观察"

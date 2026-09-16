@@ -1,3 +1,9 @@
+import { researchKellySwitch } from "~/lib/research-kelly-switch";
+import { researchProgressCheck } from "~/lib/research-progress-exit";
+import { researchKellyQuality } from "~/lib/research-kelly-quality";
+import { researchKellyNetPayoff } from "~/lib/research-kelly-payoff";
+import type { ResearchKellyTraining } from "~/lib/research-kelly-training";
+import { researchKellyLimit } from "~/lib/research-kelly";
 import type { Bar } from "~/lib/domain";
 import {
   researchNavStatistics,
@@ -9,9 +15,45 @@ import {
   researchBuyQuantity,
   researchCommission,
   researchFill,
+  researchSellQuantity,
   type ResearchExecutionRules,
 } from "~/lib/research-execution";
+import { researchRiskQuantity } from "~/lib/research-risk";
+import {
+  researchInitialStop,
+  researchStopComparison,
+  researchStopOverride,
+} from "~/lib/research-management";
+import { researchMarketEnvironment } from "~/lib/research-market-regime";
+import { researchLossPause } from "~/lib/research-loss-pause";
+import { researchLiquidity } from "~/lib/research-liquidity";
+import { researchRetracementStop } from "~/lib/research-retracement";
+import { researchMarketChop } from "~/lib/research-market-chop";
+import { atr, rollingHigh } from "~/lib/indicators";
+import { researchHigherLow } from "./research-protection";
+import { researchPullbackConfirmation } from "~/lib/research-pullback";
+import {
+  isResearchRule,
+  researchRuleSeries,
+  type ResearchRulePoint,
+} from "./research-rule-series";
+import type { RuleStop } from "~/lib/research-volume";
+import {
+  researchBookBuy,
+  researchBookSell,
+  researchBookSellable,
+  researchPositionBook,
+  type ResearchPositionBook,
+} from "~/lib/research-position-book";
+import {
+  researchPyramidOrder,
+  researchRoundedBuy,
+  researchPlannedProceeds,
+} from "~/lib/research-pyramid";
 
+type WeeklyReductionSignal = NonNullable<
+  Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
+>;
 export type ResearchTrade = {
   event: ResearchEvent;
   entryDate: string;
@@ -25,6 +67,56 @@ export type ResearchTrade = {
   profit: number | null;
   lastPrice: number;
   holdingTradingDays?: number;
+  initialStop?: number;
+  initialStopOverride?: NonNullable<ReturnType<typeof researchStopOverride>>;
+  initialStopCandidates?: NonNullable<
+    ReturnType<typeof researchStopComparison>
+  >["candidates"];
+  signalExit?: ResearchRulePoint;
+  weeklyReductionChecks?: WeeklyReductionSignal[];
+  weeklyReductionEvidence?: {
+    signal: WeeklyReductionSignal;
+    remainingQuantity: number;
+    targetQuantity: number;
+    disposition: "queued" | "existing-full-exit" | "existing-partial";
+  }[];
+  progressExitCheck?: NonNullable<ReturnType<typeof researchProgressCheck>>;
+  ruleStop?: RuleStop;
+  ruleStopTriggeredAt?: string;
+  exitReason?: string;
+  plannedRiskStop?: number;
+  managementWarnings?: { date: string; reason: string }[];
+  protectionEvidence?: {
+    date: string;
+    structure: ReturnType<typeof researchHigherLow>;
+  }[];
+  stopHistory?: { date: string; stop: number; reason: string }[];
+  remainingQuantity?: number;
+  realizedProceeds?: number;
+  realizedProfit?: number;
+  book?: ResearchPositionBook;
+  plannedQuantity?: number;
+  riskBudget?: number;
+  pullbackEvidence?: ReturnType<typeof researchPullbackConfirmation>[];
+  entries?: {
+    date: string;
+    triggerDate: string | null;
+    quantity: number;
+    price: number;
+    commission: number;
+    plannedRisk: number | null;
+    stop: number;
+  }[];
+  sales?: {
+    date: string;
+    triggerDate: string | null;
+    quantity: number;
+    price: number;
+    commission: number;
+    tax: number;
+    netProceeds: number;
+    reason: string;
+  }[];
 };
 
 /** Equal initial-capital allocation, stable chronological/code tie breaking.
@@ -36,18 +128,178 @@ export function researchPortfolio(
   calendar: readonly string[],
   series: ReadonlyMap<string, readonly Bar[]>,
   rules: (symbol: string, date: string) => ResearchExecutionRules | null,
+  benchmark?: { symbol: string; bars: readonly Bar[] },
+  kellyTraining?: ResearchKellyTraining | null,
 ) {
+  const entryRangeReason = (event: ResearchEvent, price: number) => {
+    const range = event.entryPriceRange;
+    if (!range) return null;
+    if (
+      ![range.min, range.max].every(Number.isFinite) ||
+      range.min <= 0 ||
+      range.max < range.min
+    )
+      return "冻结入场价格区间无效，取消买入";
+    return price < range.min || price > range.max
+      ? "成交价格越过冻结枢纽买入区间，取消买入"
+      : null;
+  };
   const days = calendar.filter(
     (date) => date >= spec.start && date <= spec.end,
   );
   if (days.some((date, i) => i > 0 && date <= days[i - 1]!))
     throw new Error("组合交易日历无效");
+  const lossPause = spec.management?.lossPauseDays
+    ? researchLossPause(days, spec.management.lossPauseDays)
+    : null;
+  const marketEnvironment = spec.management?.marketRegime
+    ? researchMarketEnvironment(
+        benchmark,
+        calendar,
+        spec.management.marketRegime,
+      ).filter((row) => row.date >= spec.start && row.date <= spec.end)
+    : null;
+  const environmentByDate = new Map(
+    marketEnvironment?.map((row) => [row.date, row]) ?? [],
+  );
+  const marketChop = spec.management?.marketChop
+    ? researchMarketChop(
+        benchmark,
+        calendar,
+        spec.management.marketChop,
+      ).filter((row) => row.date >= spec.start && row.date <= spec.end)
+    : null;
+  const chopByDate = new Map(marketChop?.map((row) => [row.date, row]) ?? []);
   const indexed = new Map(
     [...series].map(([symbol, bars]) => [
       symbol,
       new Map(bars.map((bar) => [bar.date, bar])),
     ]),
   );
+  const staticKelly = spec.management?.kelly
+    ? researchKellyLimit(
+        spec.management.kelly,
+        kellyTraining &&
+          kellyTraining.cutoff <= spec.start &&
+          kellyTraining.samples.length >= 30 &&
+          !kellyTraining.reason
+          ? kellyTraining.winRate
+          : null,
+        spec.management.kelly.provenance === "development-net-payoff"
+          ? researchKellyNetPayoff(kellyTraining).payoff
+          : undefined,
+      )
+    : null;
+  const qualityKelly =
+    spec.management?.kelly?.provenance === "breakout-quality";
+  const rollingKelly =
+    spec.management?.kelly?.provenance === "rolling-switch30";
+  const kellyFor = (event: ResearchEvent, date: string) => {
+    if (spec.management?.kelly?.provenance === "rolling-switch30")
+      return researchKellySwitch(
+        trades,
+        spec.start,
+        date,
+        event.partition,
+        event.evidence,
+        spec.management.kelly.payoff,
+      );
+    if (!qualityKelly) return staticKelly;
+    const quality = researchKellyQuality(event.evidence);
+    return quality.reason
+      ? { fullKelly: null, weight: null, reason: quality.reason }
+      : researchKellyLimit(spec.management!.kelly!, quality.winRate);
+  };
+  const kellyChecks: Array<{
+    symbol: string;
+    date: string;
+    phase: "entry" | "add";
+    equity: number;
+    price: number;
+    riskBudget: number;
+    kellyValue: number | null;
+    singleStockValue: number;
+    heldQuantity: number;
+    filledQuantity: number;
+    quality?: ReturnType<typeof researchKellyQuality>;
+    signalDate?: string;
+    parameterSwitch?: ReturnType<typeof researchKellySwitch>;
+  }> = [];
+  const checkKelly = (
+    event: ResearchEvent,
+    symbol: string,
+    date: string,
+    phase: "entry" | "add",
+    equity: number,
+    price: number,
+    riskBudget: number,
+    heldQuantity = 0,
+  ) => {
+    const kelly = kellyFor(event, date);
+    if (!kelly) return null;
+    const row = {
+      ...(rollingKelly
+        ? { parameterSwitch: kelly as ReturnType<typeof researchKellySwitch> }
+        : {}),
+      ...(qualityKelly || rollingKelly
+        ? {
+            quality: researchKellyQuality(event.evidence),
+            signalDate: event.observedDate,
+          }
+        : {}),
+      symbol,
+      date,
+      phase,
+      equity,
+      price,
+      riskBudget,
+      kellyValue: kelly.weight == null ? null : equity * kelly.weight,
+      singleStockValue: equity * spec.risk!.maxWeight,
+      heldQuantity,
+      filledQuantity: 0,
+    };
+    kellyChecks.push(row);
+    return row;
+  };
+  const liquidityChecks = new Map<
+    string,
+    ReturnType<typeof researchLiquidity> & { symbol: string }
+  >();
+  const capacity = (symbol: string, date: string) => {
+    if (!spec.management?.liquidityCap) return null;
+    const key = `${symbol}/${date}`;
+    let row = liquidityChecks.get(key);
+    if (!row) {
+      row = {
+        symbol,
+        ...researchLiquidity(series.get(symbol) ?? [], calendar, date),
+      };
+      liquidityChecks.set(key, row);
+    }
+    return row;
+  };
+  const technicalId = isResearchRule(spec.strategy) ? spec.strategy : null;
+  const technical = new Map(
+    technicalId
+      ? [...series].map(
+          ([symbol, bars]) =>
+            [
+              symbol,
+              new Map(
+                researchRuleSeries(technicalId, bars, calendar)
+                  .filter(
+                    (point) =>
+                      point.date >= spec.start && point.date <= spec.end,
+                  )
+                  .map((point) => [point.date, point]),
+              ),
+            ] as const,
+        )
+      : [],
+  );
+  const lastSignalExit = new Map<string, string>();
+  const failedBreakouts = new Map<string, Set<string>>();
+  const signalGaps: { symbol: string; date: string; reason: string }[] = [];
   const pending = [...events].sort(
     (a, b) =>
       a.observedDate.localeCompare(b.observedDate) ||
@@ -67,33 +319,453 @@ export function researchPortfolio(
   const nav: { date: string; value: number; cash: number; stale: string[] }[] =
     [];
   let cash = spec.initialCapital;
+  const managed =
+    spec.strategy === "dual-breakout-structure" || !!spec.management;
+  const states = new Map<
+    string,
+    {
+      stop: number;
+      high: number;
+      breaches: number;
+      stage: number;
+      completedStages: number;
+      tailWarning: boolean;
+    }
+  >();
+  const trail = spec.management?.trail;
+  const trailHigh = new Map(
+    trail?.kind === "rolling-chandelier"
+      ? [...series].map(([symbol, bars]) => {
+          const values = rollingHigh(bars, trail.period);
+          return [
+            symbol,
+            new Map(bars.map((bar, i) => [bar.date, values[i] ?? null])),
+          ] as const;
+        })
+      : [],
+  );
+  const trailAtr = new Map(
+    trail?.kind === "chandelier" ||
+      trail?.kind === "close-atr" ||
+      trail?.kind === "rolling-chandelier"
+      ? [...series].map(([symbol, bars]) => {
+          const values = atr(bars, trail.period);
+          return [
+            symbol,
+            new Map(bars.map((bar, i) => [bar.date, values[i] ?? null])),
+          ] as const;
+        })
+      : [],
+  );
+  const exits = new Map<string, string>();
+  const partials = new Map<
+    string,
+    | { stage: number; desired: number; triggerDate: string }
+    | { kind: "weekly"; desired: number; triggerDate: string; reason: string }
+  >();
+  const scaleOut = spec.management?.scaleOut;
+  const partialReason = (
+    request: NonNullable<ReturnType<typeof partials.get>>,
+  ) =>
+    "stage" in request
+      ? `第${request.stage + 1}档${scaleOut![request.stage]!.atR}R分批止盈`
+      : request.reason;
+  const pyramid = spec.management?.pyramid;
+  const pullback = pyramid?.kind === "pullback-50-50" ? pyramid : null;
+  const batched = !!(scaleOut || pyramid || technicalId);
+  const additions = new Map<
+    string,
+    { stage: number; triggerDate: string; triggerIndex: number }
+  >();
+  const addStates = new Map<string, { stage: number; stopped: boolean }>();
+  let previousStale: string[] = [];
   for (let index = 0; index < days.length; index++) {
     const date = days[index]!;
+    const environment = environmentByDate.get(date);
+    const chop = chopByDate.get(date);
+    if (chop?.state === "choppy")
+      for (const symbol of positions.keys()) exits.set(symbol, chop.reason!);
+    const environmentLimit = environment?.maxWeight ?? 1;
+    const environmentBlocked =
+      (!!marketChop && chop?.state !== "clear") ||
+      (marketEnvironment &&
+        (!environment ||
+          environment.maxWeight == null ||
+          environment.maxWeight === 0));
+    const environmentReason =
+      chop?.reason ?? environment?.reason ?? "大盘环境总仓上限为0，暂停买入";
     for (const [symbol, trade] of positions) {
-      if (
-        index - trade.entryIndex < spec.holdingDays ||
-        date <= trade.entryDate
-      )
-        continue;
+      const fullExit =
+        index - trade.entryIndex >= spec.holdingDays || exits.has(symbol);
+      const partial = partials.get(symbol);
+      if ((!fullExit && !partial) || date <= trade.entryDate) continue;
       const bar = indexed.get(symbol)?.get(date);
-      const fill = researchFill(bar, "sell", rules(symbol, date), spec.costs);
+      const dailyRules = rules(symbol, date);
+      const fill = researchFill(bar, "sell", dailyRules, spec.costs);
       if (fill.price === null) {
         attempts.push({ symbol, date, side: "sell", reason: fill.reason });
         continue;
       }
-      const amount = trade.quantity * fill.price;
-      const proceeds =
-        amount -
-        researchCommission(amount, spec.costs) -
-        (amount * spec.costs.sellTaxBps) / 10000;
+      const remaining = trade.remainingQuantity ?? trade.quantity;
+      const sellable = trade.book
+        ? researchBookSellable(trade.book, date)
+        : remaining;
+      const quantity = batched
+        ? researchSellQuantity(
+            Math.min(fullExit ? remaining : partial!.desired, sellable),
+            remaining,
+            dailyRules!,
+          )
+        : remaining;
+      if (quantity == null || quantity === 0) {
+        attempts.push({
+          symbol,
+          date,
+          side: "sell",
+          reason:
+            quantity == null
+              ? "缺少有效卖出数量规则"
+              : "待卖数量不足有效申报量",
+        });
+        if (quantity === 0 && !fullExit && partial) {
+          (trade.managementWarnings ??= []).push({
+            date,
+            reason:
+              "stage" in partial
+                ? `第${partial.stage + 1}档数量不足，跳过该档且不抬升止损`
+                : "周线减半目标不足最小卖出量，保留尾仓且不扩大目标",
+          });
+          if ("stage" in partial) states.get(symbol)!.stage++;
+          partials.delete(symbol);
+        }
+        continue;
+      }
+      const amount = quantity * fill.price;
+      const commission = researchCommission(amount, spec.costs);
+      const tax = (amount * spec.costs.sellTaxBps) / 10000;
+      const proceeds = amount - commission - tax;
       cash += proceeds;
+      const reason = fullExit
+        ? (exits.get(symbol) ?? "达到最长持有交易日")
+        : partialReason(partial!);
+      if (batched) {
+        trade.remainingQuantity = remaining - quantity;
+        if (trade.book) {
+          trade.book = researchBookSell(trade.book, {
+            date,
+            quantity,
+            price: fill.price,
+            commission,
+            tax,
+          }).book;
+          trade.realizedProceeds = trade.book.realizedProceeds;
+          trade.realizedProfit = trade.book.realizedProfit;
+          addStates.get(symbol)!.stopped = true;
+          additions.delete(symbol);
+        } else {
+          trade.realizedProceeds! += proceeds;
+          trade.realizedProfit =
+            trade.realizedProceeds! -
+            (trade.entryCost * (trade.quantity - trade.remainingQuantity)) /
+              trade.quantity;
+        }
+        trade.sales!.push({
+          date,
+          triggerDate: fullExit ? null : partial!.triggerDate,
+          quantity,
+          price: fill.price,
+          commission,
+          tax,
+          netProceeds: proceeds,
+          reason,
+        });
+        if (fullExit) {
+          partials.delete(symbol);
+          exits.set(symbol, reason);
+        } else {
+          partial!.desired -= quantity;
+          if (
+            partial!.desired < 1e-8 ||
+            researchSellQuantity(
+              partial!.desired,
+              trade.remainingQuantity,
+              dailyRules!,
+            ) === 0
+          ) {
+            if (partial!.desired >= 1e-8)
+              (trade.managementWarnings ??= []).push({
+                date,
+                reason:
+                  "stage" in partial!
+                    ? `第${partial!.stage + 1}档按卖出数量规则向下取整，剩余目标不足申报量`
+                    : "周线减半按卖出数量规则向下取整，剩余目标不足申报量",
+              });
+            if ("stage" in partial!) {
+              const state = states.get(symbol)!;
+              const target = scaleOut![partial!.stage]!;
+              if (target.raiseStopR != null && trade.remainingQuantity > 0) {
+                const next =
+                  trade.entryPrice +
+                  target.raiseStopR * (trade.entryPrice - trade.initialStop!);
+                if (next > state.stop) {
+                  state.stop = next;
+                  trade.stopHistory!.push({
+                    date,
+                    stop: next,
+                    reason: `第${partial!.stage + 1}档实际成交后抬升`,
+                  });
+                }
+              }
+              state.stage++;
+              state.completedStages++;
+            }
+            partials.delete(symbol);
+          }
+        }
+        if (trade.remainingQuantity > 0) continue;
+      }
       trade.exitDate = date;
+      if (managed || technicalId) trade.exitReason = reason;
+      exits.delete(symbol);
       trade.holdingTradingDays = index - trade.entryIndex;
-      trade.exitPrice = fill.price;
-      trade.profit = proceeds - trade.entryCost;
+      trade.exitPrice = batched
+        ? trade.sales!.reduce(
+            (sum, sale) => sum + sale.quantity * sale.price,
+            0,
+          ) / (trade.book?.totalQuantity ?? trade.quantity)
+        : fill.price;
+      trade.profit = (trade.realizedProceeds ?? proceeds) - trade.entryCost;
       trade.netReturn = trade.profit / trade.entryCost;
+      lossPause?.settle(index, {
+        symbol,
+        eventKey: trade.event.key,
+        entryDate: trade.entryDate,
+        profit: trade.profit,
+      });
       positions.delete(symbol);
+      states.delete(symbol);
+      partials.delete(symbol);
+      additions.delete(symbol);
+      addStates.delete(symbol);
     }
+    // Exits above have priority. A reduction ends all future additions.
+    if (pyramid)
+      for (const [symbol, request] of additions) {
+        const trade = positions.get(symbol);
+        const addState = addStates.get(symbol);
+        if (
+          !trade ||
+          !addState ||
+          addState.stopped ||
+          exits.has(symbol) ||
+          partials.has(symbol) ||
+          index - trade.entryIndex >= spec.holdingDays
+        ) {
+          additions.delete(symbol);
+          if (addState) addState.stopped = true;
+          continue;
+        }
+        if (date <= request.triggerDate) continue;
+        if (index - request.triggerIndex > spec.entryMaxWait) {
+          trade.managementWarnings!.push({
+            date,
+            reason: "加仓等待期结束，停止后续加仓",
+          });
+          additions.delete(symbol);
+          addState.stopped = true;
+          continue;
+        }
+        if (lossPause?.blocked(index)) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: "连续三笔完整交易亏损，冷静期暂停买入",
+          });
+          continue;
+        }
+        if (environmentBlocked) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: environmentReason,
+          });
+          continue;
+        }
+        const dailyRules = rules(symbol, date);
+        const fill = researchFill(
+          indexed.get(symbol)?.get(date),
+          "buy",
+          dailyRules,
+          spec.costs,
+        );
+        if (fill.price == null || !dailyRules) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: fill.reason ?? "缺少加仓规则",
+          });
+          continue;
+        }
+        if (previousStale.some((held) => positions.has(held))) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: "持仓前收估值缺失，暂停加仓",
+          });
+          continue;
+        }
+        const otherValue = [...positions].reduce(
+          (sum, [code, position]) =>
+            sum +
+            (code === symbol
+              ? 0
+              : (position.remainingQuantity ?? position.quantity) *
+                position.lastPrice),
+          0,
+        );
+        const state = states.get(symbol)!;
+        if (
+          pullback &&
+          indexed.get(symbol)!.get(date)!.open < trade.event.pullbackLevel!
+        ) {
+          trade.managementWarnings!.push({
+            date,
+            reason: "第二笔开盘失守冻结突破位，取消剩余计划",
+          });
+          additions.delete(symbol);
+          addState.stopped = true;
+          continue;
+        }
+        const desired = pullback
+          ? trade.entries![0]!.quantity
+          : Math.min(
+              trade.plannedQuantity! * (request.stage === 0 ? 0.3 : 0.2),
+              trade.entries!.at(-1)!.quantity - 1,
+            );
+        if (!researchRoundedBuy(desired, dailyRules)) {
+          trade.managementWarnings!.push({
+            date,
+            reason: "递减加仓数量不足最小申报量，停止后续加仓",
+          });
+          addState.stopped = true;
+          additions.delete(symbol);
+          continue;
+        }
+        const rangeReason = entryRangeReason(trade.event, fill.price);
+        if (rangeReason) {
+          attempts.push({ symbol, date, side: "buy", reason: rangeReason });
+          addState.stopped = true;
+          additions.delete(symbol);
+          continue;
+        }
+        const liquidity = capacity(symbol, date);
+        if (liquidity && liquidity.maxPositionValue == null) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: liquidity.reason ?? "成交额容量数据不可用",
+          });
+          continue;
+        }
+        const addEquity =
+          cash + otherValue + trade.remainingQuantity! * fill.price;
+        const kelly = kellyFor(trade.event, date);
+        const kellyCheck = checkKelly(
+          trade.event,
+          symbol,
+          date,
+          "add",
+          addEquity,
+          fill.price,
+          trade.riskBudget!,
+          trade.remainingQuantity!,
+        );
+        if (kelly && (kelly.weight == null || kelly.weight <= 0)) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: kelly.reason ?? "凯利禁止加仓",
+          });
+          continue;
+        }
+        const result = researchPyramidOrder({
+          book: trade.book!,
+          date,
+          price: fill.price,
+          desired,
+          stage: request.stage,
+          stop: state.stop,
+          firstPrice: trade.entryPrice,
+          stressBuffer: spec.management!.stressBuffer,
+          cash,
+          equity: cash + otherValue + trade.remainingQuantity! * fill.price,
+          otherValue,
+          riskBudget: trade.riskBudget!,
+          maxWeight: Math.min(
+            spec.risk!.maxWeight,
+            kelly?.weight ?? 1,
+            liquidity?.maxPositionValue == null
+              ? 1
+              : liquidity.maxPositionValue / addEquity,
+          ),
+          maxTotalWeight: Math.min(
+            pyramid.maxTotalWeight,
+            spec.management?.maxTotalWeight ?? 1,
+            environmentLimit,
+          ),
+          rules: dailyRules,
+          costs: spec.costs,
+          ...(pullback
+            ? {
+                pullback: {
+                  level: trade.event.pullbackLevel!,
+                  requireProfit: pullback.requireProfit,
+                },
+              }
+            : {}),
+        });
+        if (!result.order) {
+          attempts.push({
+            symbol,
+            date,
+            side: "buy",
+            reason: result.reason ?? "加仓条件不足",
+          });
+          continue;
+        }
+        const order = result.order;
+        if (kellyCheck) kellyCheck.filledQuantity = order.quantity;
+        cash -= order.quantity * fill.price + order.commission;
+        trade.book = order.book;
+        trade.lastPrice = fill.price;
+        trade.remainingQuantity = order.book.remainingQuantity;
+        trade.entryCost = order.book.totalCost;
+        trade.entries!.push({
+          date,
+          triggerDate: request.triggerDate,
+          quantity: order.quantity,
+          price: fill.price,
+          commission: order.commission,
+          plannedRisk: order.plannedRisk,
+          stop: order.stop,
+        });
+        if (order.stop > state.stop) {
+          state.stop = order.stop;
+          trade.stopHistory!.push({
+            date,
+            stop: state.stop,
+            reason: "加仓成交后重算整体风险，只抬升止损",
+          });
+        }
+        addState.stage++;
+        additions.delete(symbol);
+      }
     for (const event of pending) {
       if (finished.has(event) || event.observedDate >= date) continue;
       const signalIndex = days.indexOf(event.observedDate);
@@ -104,6 +776,20 @@ export function researchPortfolio(
       }
       if (index - signalIndex > spec.entryMaxWait) {
         excluded.push({ event, reason: "入场等待期结束仍未成交" });
+        finished.add(event);
+        continue;
+      }
+      if (
+        technicalId &&
+        ((lastSignalExit.get(event.symbol) ?? "") >= event.observedDate ||
+          failedBreakouts.get(event.symbol)?.has(event.observedDate))
+      ) {
+        excluded.push({
+          event,
+          reason: failedBreakouts.get(event.symbol)?.has(event.observedDate)
+            ? "原突破三日内枢纽失守已确认，取消未成交买入意图"
+            : "入场等待期间反向指标信号已确认，取消旧买入意图",
+        });
         finished.add(event);
         continue;
       }
@@ -118,6 +804,24 @@ export function researchPortfolio(
           date,
           side: "buy",
           reason: "持仓数量已满",
+        });
+        continue;
+      }
+      if (lossPause?.blocked(index)) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: "连续三笔完整交易亏损，冷静期暂停买入",
+        });
+        continue;
+      }
+      if (environmentBlocked) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: environmentReason,
         });
         continue;
       }
@@ -137,21 +841,241 @@ export function researchPortfolio(
         });
         continue;
       }
-      const quantity = researchBuyQuantity(
-        Math.min(cash, spec.initialCapital / spec.maxPositions),
-        fill.price,
-        dailyRules,
-        spec.costs,
+      const rangeReason = entryRangeReason(event, fill.price);
+      if (rangeReason) {
+        excluded.push({ event, reason: rangeReason });
+        finished.add(event);
+        continue;
+      }
+      if (batched && researchSellQuantity(1, 1, dailyRules) == null) {
+        excluded.push({
+          event,
+          reason: "分批策略缺少完整卖出数量规则，不能用买入步长替代",
+        });
+        finished.add(event);
+        continue;
+      }
+      if (event.ruleStop && fill.price < event.ruleStop.price) {
+        excluded.push({
+          event,
+          reason: "开盘已失守冻结的规则确认位，取消入场",
+        });
+        finished.add(event);
+        continue;
+      }
+      if (
+        pullback &&
+        (event.pullbackLevel == null ||
+          !Number.isFinite(event.pullbackLevel) ||
+          event.pullbackLevel <= 0 ||
+          fill.price < event.pullbackLevel ||
+          indexed.get(event.symbol)!.get(date)!.open < event.pullbackLevel)
+      ) {
+        excluded.push({
+          event,
+          reason: "缺少有效冻结突破位或首仓开盘已失守，不启动50/50分批",
+        });
+        finished.add(event);
+        continue;
+      }
+      const stopOverride = researchStopOverride(spec.management, event);
+      const initialStop = spec.management
+        ? researchInitialStop(spec.management, fill.price, event)
+        : event.initialStop;
+      const plannedRiskStop =
+        initialStop == null
+          ? null
+          : initialStop * (1 - (spec.management?.stressBuffer ?? 0));
+      if (
+        managed &&
+        (initialStop == null ||
+          !Number.isFinite(initialStop) ||
+          initialStop <= 0 ||
+          initialStop >= fill.price ||
+          !plannedRiskStop ||
+          plannedRiskStop <= 0 ||
+          ((!spec.management ||
+            (spec.management.stop.kind === "structure" && !stopOverride)) &&
+            initialStop >= indexed.get(event.symbol)!.get(date)!.open))
+      ) {
+        excluded.push({
+          event,
+          reason: spec.management
+            ? "止损输入缺失或无效，或开盘已失守信号结构"
+            : "缺少有效结构止损，或开盘已失守信号结构",
+        });
+        finished.add(event);
+        continue;
+      }
+      if (
+        spec.management?.maxInitialStopDistance != null &&
+        initialStop != null &&
+        (fill.price - initialStop) / fill.price >
+          spec.management.maxInitialStopDistance + 1e-12
+      ) {
+        excluded.push({
+          event,
+          reason: "实际入场价至初始止损距离超过准入上限，取消入场",
+        });
+        finished.add(event);
+        continue;
+      }
+      if (
+        spec.management?.stop.kind === "structure-atr" &&
+        spec.management.stop.maxDistanceAtr != null &&
+        initialStop != null &&
+        (event.stopAtr == null ||
+          !Number.isFinite(event.stopAtr) ||
+          event.stopAtr <= 0 ||
+          (fill.price - initialStop) / event.stopAtr >
+            spec.management.stop.maxDistanceAtr + 1e-12)
+      ) {
+        excluded.push({
+          event,
+          reason:
+            event.stopAtr == null ||
+            !Number.isFinite(event.stopAtr) ||
+            event.stopAtr <= 0
+              ? "2ATR准入缺少有效信号日ATR，取消入场"
+              : stopOverride
+                ? "实际入场价至显式止损超过2倍信号日ATR，取消入场"
+                : "实际入场价至缓冲后结构止损超过2倍信号日ATR，取消入场",
+        });
+        finished.add(event);
+        continue;
+      }
+      if (managed && previousStale.some((symbol) => positions.has(symbol))) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: "持仓前收估值缺失，无法确定风险预算",
+        });
+        continue;
+      }
+      const knownValue = [...positions.values()].reduce(
+        (sum, position) =>
+          sum +
+          (position.remainingQuantity ?? position.quantity) *
+            position.lastPrice,
+        0,
       );
+      const entryEquity = cash + knownValue;
+      const totalWeight = Math.min(
+        spec.management?.maxTotalWeight ?? 1,
+        pyramid?.maxTotalWeight ?? 1,
+        environmentLimit,
+      );
+      const liquidity = capacity(event.symbol, date);
+      if (liquidity && liquidity.maxPositionValue == null) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: liquidity.reason ?? "成交额容量数据不可用",
+        });
+        continue;
+      }
+      const kelly = kellyFor(event, date);
+      const kellyCheck = checkKelly(
+        event,
+        event.symbol,
+        date,
+        "entry",
+        entryEquity,
+        fill.price,
+        entryEquity * (spec.risk?.fraction ?? 0),
+      );
+      if (kelly && (kelly.weight == null || kelly.weight <= 0)) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: kelly.reason ?? "凯利禁止入场",
+        });
+        continue;
+      }
+      const plannedQuantity = managed
+        ? researchRiskQuantity({
+            cash:
+              pyramid ||
+              spec.management?.maxTotalWeight != null ||
+              marketEnvironment
+                ? Math.min(
+                    cash,
+                    Math.max(0, entryEquity * totalWeight - knownValue),
+                  )
+                : cash,
+            equity:
+              cash +
+              [...positions.values()].reduce(
+                (sum, position) =>
+                  sum +
+                  (position.remainingQuantity ?? position.quantity) *
+                    position.lastPrice,
+                0,
+              ),
+            price: fill.price,
+            stop: plannedRiskStop!,
+            fraction: spec.risk!.fraction,
+            maxWeight: Math.min(
+              spec.risk!.maxWeight,
+              kelly?.weight ?? 1,
+              liquidity?.maxPositionValue == null
+                ? 1
+                : liquidity.maxPositionValue / entryEquity,
+            ),
+            rules: dailyRules,
+            costs: spec.costs,
+          })
+        : researchBuyQuantity(
+            Math.min(cash, spec.initialCapital / spec.maxPositions),
+            fill.price,
+            dailyRules,
+            spec.costs,
+          );
+      let quantity = pyramid
+        ? researchRoundedBuy(plannedQuantity * 0.5, dailyRules)
+        : plannedQuantity;
+      let initialBatchRisk: number | null = null;
+      if (pyramid) {
+        for (
+          ;
+          quantity >= dailyRules.minimumBuy;
+          quantity -= dailyRules.buyStep
+        ) {
+          const proceeds = researchPlannedProceeds(
+            quantity,
+            plannedRiskStop!,
+            dailyRules,
+            spec.costs,
+          );
+          if (proceeds == null) continue;
+          const cost =
+            quantity * fill.price +
+            researchCommission(quantity * fill.price, spec.costs);
+          const risk = Math.max(0, cost - proceeds);
+          if (risk <= entryEquity * spec.risk!.fraction + 1e-8) {
+            initialBatchRisk = risk;
+            break;
+          }
+        }
+        if (initialBatchRisk == null) quantity = 0;
+      }
       if (!quantity) {
         attempts.push({
           symbol: event.symbol,
           date,
           side: "buy",
-          reason: "资金不足最小申报数量及费用",
+          reason: pyramid
+            ? "首仓数量、分单退出费用或风险预算不足，不能证明按当前规则退出"
+            : managed
+              ? "风险或市值预算不足最小申报数量及费用"
+              : "资金不足最小申报数量及费用",
         });
         continue;
       }
+      if (kellyCheck) kellyCheck.filledQuantity = quantity;
       const amount = quantity * fill.price,
         entryCost = amount + researchCommission(amount, spec.costs);
       cash -= entryCost;
@@ -162,15 +1086,171 @@ export function researchPortfolio(
         entryPrice: fill.price,
         quantity,
         entryCost,
+        ...(event.ruleStop ? { ruleStop: event.ruleStop } : {}),
+        ...(pullback ? { pullbackEvidence: [] } : {}),
         exitDate: null,
         exitPrice: null,
         profit: null,
         netReturn: null,
         lastPrice: fill.price,
+        ...(spec.management?.breakeven &&
+        spec.management.breakeven.mode !== "r-only"
+          ? { protectionEvidence: [] }
+          : {}),
+        ...(batched
+          ? {
+              remainingQuantity: quantity,
+              realizedProceeds: 0,
+              realizedProfit: 0,
+              sales: [],
+            }
+          : {}),
+        ...(pyramid
+          ? {
+              plannedQuantity,
+              riskBudget: entryEquity * spec.risk!.fraction,
+              book: researchBookBuy(researchPositionBook(), {
+                date,
+                quantity,
+                price: fill.price,
+                commission: researchCommission(amount, spec.costs),
+              }),
+              entries: [
+                {
+                  date,
+                  triggerDate: event.observedDate,
+                  quantity,
+                  price: fill.price,
+                  commission: researchCommission(amount, spec.costs),
+                  plannedRisk: initialBatchRisk,
+                  stop: initialStop!,
+                },
+              ],
+            }
+          : {}),
+        ...(managed ? { initialStop: initialStop! } : {}),
+        ...(stopOverride ? { initialStopOverride: stopOverride } : {}),
+        ...((spec.management?.stop.kind === "max-distance" ||
+          spec.management?.stop.kind === "nearest-stop") &&
+        !stopOverride
+          ? {
+              initialStopCandidates: researchStopComparison(
+                spec.management.stop,
+                fill.price,
+                event,
+              )!.candidates,
+            }
+          : {}),
+        ...(spec.management
+          ? {
+              plannedRiskStop: plannedRiskStop!,
+              managementWarnings: [],
+              stopHistory: [{ date, stop: initialStop!, reason: "入场冻结" }],
+            }
+          : {}),
       };
+      if (spec.management)
+        states.set(event.symbol, {
+          stop: initialStop!,
+          high: fill.price,
+          breaches: 0,
+          stage: 0,
+          completedStages: 0,
+          tailWarning: false,
+        });
       positions.set(event.symbol, trade);
+      if (pyramid) addStates.set(event.symbol, { stage: 0, stopped: false });
       trades.push(trade);
       finished.add(event);
+    }
+    // Completed-close indicator exits are known only after this day's fills.
+    // Capture even for an unheld symbol so a blocked old buy cannot outlive
+    // an intervening reverse signal. Earlier full-exit intents keep priority.
+    for (const [symbol, points] of technical) {
+      const point = points.get(date);
+      if (!point || point.reason)
+        signalGaps.push({
+          symbol,
+          date,
+          reason: point?.reason ?? "缺少当日日线",
+        });
+      const held = positions.get(symbol);
+      const current = indexed.get(symbol)?.get(date);
+      if (
+        held?.ruleStop &&
+        current &&
+        current.volume > 0 &&
+        Number.isFinite(current.close) &&
+        current.close > 0 &&
+        index - held.entryIndex < held.ruleStop.days &&
+        current.close < held.ruleStop.price &&
+        !exits.has(symbol)
+      ) {
+        exits.set(
+          symbol,
+          `${held.ruleStop.reason}入场后${held.ruleStop.days}根内失守，下一可成交开盘退出`,
+        );
+        held.ruleStopTriggeredAt = date;
+      }
+      if (
+        point &&
+        "weeklyReduction" in point &&
+        point.weeklyReduction &&
+        held
+      ) {
+        (held.weeklyReductionChecks ??= []).push(point.weeklyReduction);
+        if (point.weeklyReduction.triggered) {
+          const remaining = held.remainingQuantity ?? held.quantity;
+          const disposition = exits.has(symbol)
+            ? "existing-full-exit"
+            : partials.has(symbol)
+              ? "existing-partial"
+              : "queued";
+          (held.weeklyReductionEvidence ??= []).push({
+            signal: point.weeklyReduction,
+            remainingQuantity: remaining,
+            targetQuantity: remaining * point.weeklyReduction.fraction,
+            disposition,
+          });
+          if (disposition === "queued")
+            partials.set(symbol, {
+              kind: "weekly",
+              desired: remaining * point.weeklyReduction.fraction,
+              triggerDate: date,
+              reason: "已完成周线下破10周均线，减当时剩余持仓50%",
+            });
+        }
+      }
+      if (!point?.exit) continue;
+      if ("pivotFailures" in point) {
+        const failed = failedBreakouts.get(symbol) ?? new Set<string>();
+        for (const failure of point.pivotFailures)
+          failed.add(failure.breakoutDate);
+        failedBreakouts.set(symbol, failed);
+        const position = positions.get(symbol);
+        const failure = point.pivotFailures.find(
+          (item) => item.breakoutDate === position?.event.observedDate,
+        );
+        if (position && failure && !exits.has(symbol)) {
+          exits.set(
+            symbol,
+            `原突破后第${failure.day}日${failure.trigger === "low" ? "最低价" : "收盘价"}跌破枢纽，下一可成交开盘退出`,
+          );
+          position.signalExit = point;
+        }
+        continue;
+      }
+      lastSignalExit.set(symbol, date);
+      const position = positions.get(symbol);
+      if (position && !exits.has(symbol)) {
+        exits.set(
+          symbol,
+          "bearExit" in point
+            ? `收盘跌超4%且量${point.bearExit.basis === "previous" ? "大于前一日" : "至少前20日均量1.5倍"}，下一可成交开盘清仓`
+            : "技术指标退出已收盘确认，下一可成交开盘退出",
+        );
+        position.signalExit = point;
+      }
     }
     const stale: string[] = [];
     let value = cash;
@@ -179,9 +1259,274 @@ export function researchPortfolio(
       if (bar && Number.isFinite(bar.close) && bar.close > 0)
         position.lastPrice = bar.close;
       else stale.push(symbol);
-      value += position.quantity * position.lastPrice;
+      value +=
+        (position.remainingQuantity ?? position.quantity) * position.lastPrice;
+      const validClose =
+        !!bar && bar.volume > 0 && Number.isFinite(bar.close) && bar.close > 0;
+      const state = states.get(symbol);
+      if (spec.management && state) {
+        if (!validClose) {
+          if (pullback) {
+            addStates.get(symbol)!.stopped = true;
+            additions.delete(symbol);
+          }
+          state.breaches = 0;
+          position.managementWarnings!.push({
+            date,
+            reason: "缺少有效成交收盘，连续确认重置且本日不更新移动止损",
+          });
+          continue;
+        }
+        // Test the line known before this close; close-derived raises apply
+        // from the next session. An already queued exit is never revoked.
+        state.breaches = bar.close <= state.stop ? state.breaches + 1 : 0;
+        if (
+          state.breaches >= spec.management.confirmations &&
+          !exits.has(symbol)
+        )
+          exits.set(
+            symbol,
+            `连续${spec.management.confirmations}根有效收盘失守止损，下一可成交开盘退出`,
+          );
+        const time = spec.management.timeExit;
+        if (
+          spec.management.progressExit &&
+          !position.progressExitCheck &&
+          !exits.has(symbol)
+        ) {
+          const check = researchProgressCheck(
+            spec.management.progressExit,
+            position,
+            bar,
+            index,
+            days,
+          );
+          if (check) {
+            position.progressExitCheck = check;
+            if (check.triggered)
+              exits.set(
+                symbol,
+                `${check.clock === "calendar-days" ? "自然" : "含入场日交易"}${check.days}天到期收盘涨幅不足${check.minimumGain * 100}%，下一可成交开盘退出`,
+              );
+          }
+        }
+        if (
+          time &&
+          index - position.entryIndex + 1 >= time.days &&
+          (bar.close - position.entryPrice) /
+            (position.entryPrice - position.initialStop!) <
+            time.minR &&
+          !exits.has(symbol)
+        )
+          exits.set(
+            symbol,
+            `持仓${time.days}个交易日后收盘进展不足${time.minR}R`,
+          );
+        if (Number.isFinite(bar.high) && bar.high >= bar.close)
+          state.high = Math.max(state.high, bar.high);
+        const breakeven = spec.management.breakeven;
+        if (
+          breakeven &&
+          state.stop < position.entryPrice &&
+          !exits.has(symbol) &&
+          bar.close >=
+            position.entryPrice +
+              breakeven.atR * (position.entryPrice - position.initialStop!)
+        ) {
+          const structure =
+            breakeven.mode === "r-only"
+              ? null
+              : researchHigherLow(
+                  (series.get(symbol) ?? []).filter((row) => row.date <= date),
+                  position.entryDate,
+                  position.entryPrice,
+                );
+          if (structure) position.protectionEvidence!.push({ date, structure });
+          if (
+            breakeven.mode === "r-only" ||
+            structure?.status === "confirmed"
+          ) {
+            state.stop = position.entryPrice;
+            position.stopHistory!.push({
+              date,
+              stop: state.stop,
+              reason:
+                breakeven.mode === "r-only"
+                  ? `收盘浮盈达到${breakeven.atR}R，下一交易日起移至首仓成交价`
+                  : "浮盈及入场后更高低点已确认，下一交易日起移至成交价",
+            });
+          }
+        }
+        const trailActive =
+          !spec.management.trailAfterScaleOut ||
+          state.completedStages === scaleOut?.length;
+        if (
+          !trailActive &&
+          scaleOut &&
+          state.stage >= scaleOut.length &&
+          !state.tailWarning
+        ) {
+          position.managementWarnings!.push({
+            date,
+            reason: "存在未实际完成的减仓档，末档后移动止损尚未激活",
+          });
+          state.tailWarning = true;
+        }
+        const currentAtr = trailAtr.get(symbol)?.get(date);
+        if (
+          trailActive &&
+          (trail?.kind === "chandelier" ||
+            trail?.kind === "close-atr" ||
+            trail?.kind === "rolling-chandelier") &&
+          currentAtr == null
+        )
+          position.managementWarnings!.push({
+            date,
+            reason: "移动ATR缺失，保留上一有效止损线",
+          });
+        const windowHigh = trailHigh.get(symbol)?.get(date);
+        if (
+          trailActive &&
+          trail?.kind === "rolling-chandelier" &&
+          windowHigh == null
+        )
+          position.managementWarnings!.push({
+            date,
+            reason: "窗口最高价不足或含无效行情，保留上一有效止损线",
+          });
+        const retracement =
+          trail?.kind === "retracement"
+            ? researchRetracementStop(
+                position.entryPrice,
+                position.initialStop!,
+                state.high,
+              )
+            : null;
+        const nextStop = !trailActive
+          ? state.stop
+          : trail?.kind === "retracement"
+            ? (retracement?.stop ?? state.stop)
+            : trail?.kind === "percent"
+              ? state.high * (1 - trail.fraction)
+              : trail?.kind === "distance"
+                ? state.high - trail.distance
+                : trail?.kind === "rolling-chandelier" &&
+                    currentAtr != null &&
+                    windowHigh != null
+                  ? windowHigh - trail.multiple * currentAtr
+                  : trail?.kind === "chandelier" && currentAtr != null
+                    ? state.high - trail.multiple * currentAtr
+                    : trail?.kind === "close-atr" && currentAtr != null
+                      ? bar.close - trail.multiple * currentAtr
+                      : state.stop;
+        if (
+          Number.isFinite(nextStop) &&
+          nextStop > state.stop &&
+          !exits.has(symbol)
+        ) {
+          state.stop = nextStop;
+          position.stopHistory!.push({
+            date,
+            stop: nextStop,
+            reason: retracement
+              ? `最高浮盈${retracement.peakR}R，允许回吐${retracement.giveback * 100}%，下一交易日起生效`
+              : "收盘更新，下一交易日起生效",
+          });
+        }
+        const target = scaleOut?.[state.stage];
+        if (
+          target &&
+          !exits.has(symbol) &&
+          !partials.has(symbol) &&
+          bar.close >=
+            position.entryPrice +
+              target.atR * (position.entryPrice - position.initialStop!)
+        ) {
+          const cumulative = scaleOut!
+            .slice(0, state.stage + 1)
+            .reduce((sum, row) => sum + row.fraction, 0);
+          partials.set(symbol, {
+            stage: state.stage,
+            desired:
+              cumulative >= 1 - 1e-10
+                ? position.remainingQuantity!
+                : Math.min(
+                    position.remainingQuantity!,
+                    (position.book?.totalQuantity ?? position.quantity) *
+                      target.fraction,
+                  ),
+            triggerDate: date,
+          });
+        }
+        if (pyramid) {
+          const addState = addStates.get(symbol)!;
+          if (exits.has(symbol) || partials.has(symbol)) {
+            addState.stopped = true;
+            additions.delete(symbol);
+          }
+          if (pullback && !addState.stopped && addState.stage < 1) {
+            const check = researchPullbackConfirmation({
+              bar,
+              level: position.event.pullbackLevel!,
+              age: index - days.indexOf(position.event.observedDate),
+              waitBars: pullback.waitBars,
+              tolerance: pullback.tolerance,
+              requireProfit: pullback.requireProfit,
+              quantity: position.book!.remainingQuantity,
+              cost: position.book!.remainingCost,
+              alreadyConfirmed: additions.has(symbol),
+            });
+            position.pullbackEvidence!.push(check);
+            if (check.status === "cancelled" || check.status === "expired") {
+              addState.stopped = true;
+              additions.delete(symbol);
+              position.managementWarnings!.push({
+                date,
+                reason:
+                  check.status === "expired"
+                    ? "回踩确认期结束，保留首仓管理，取消第二笔"
+                    : "回踩输入无效或盘中失守冻结位，取消第二笔",
+              });
+            } else if (
+              check.status === "confirmed" &&
+              index - position.entryIndex < spec.holdingDays
+            ) {
+              additions.set(symbol, {
+                stage: 0,
+                triggerDate: date,
+                triggerIndex: index,
+              });
+            }
+          }
+          if (
+            !pullback &&
+            !addState.stopped &&
+            addState.stage < 2 &&
+            index - position.entryIndex < spec.holdingDays &&
+            !additions.has(symbol) &&
+            bar.close >=
+              position.entryPrice +
+                (addState.stage + 1) *
+                  (position.entryPrice - position.initialStop!)
+          )
+            additions.set(symbol, {
+              stage: addState.stage,
+              triggerDate: date,
+              triggerIndex: index,
+            });
+        }
+      } else if (
+        managed &&
+        bar &&
+        bar.volume > 0 &&
+        Number.isFinite(bar.close) &&
+        bar.close > 0 &&
+        bar.close <= position.initialStop!
+      )
+        exits.set(symbol, "收盘失守信号日结构位，下一可成交开盘退出");
     }
     nav.push({ date, value, cash, stale });
+    previousStale = stale;
   }
   const unfilled = pending.filter((event) => !finished.has(event));
   const statistics = researchTradeStatistics(
@@ -196,7 +1541,63 @@ export function researchPortfolio(
   );
   const staleValuation = nav.some((point) => point.stale.length > 0);
   return {
+    ...(staticKelly
+      ? {
+          kelly: {
+            ...spec.management!.kelly!,
+            ...staticKelly,
+            ...(qualityKelly || rollingKelly
+              ? { reason: "逐信号质量代理，见kellyChecks", perSignal: true }
+              : {}),
+          },
+          kellyChecks,
+        }
+      : {}),
     trades,
+    ...(spec.management?.liquidityCap
+      ? { liquidityChecks: [...liquidityChecks.values()] }
+      : {}),
+    ...(lossPause ? { lossPause: lossPause.snapshot(days.length - 1) } : {}),
+    ...(marketEnvironment ? { marketEnvironment } : {}),
+    ...(marketChop ? { marketChop } : {}),
+    ...(technicalId ? { signalGaps } : {}),
+    ...(pyramid
+      ? {
+          pendingAdditions: [...additions].map(([symbol, request]) => ({
+            symbol,
+            ...request,
+          })),
+        }
+      : {}),
+    ...(batched || technicalId
+      ? {
+          pendingSales: [...positions.values()].flatMap((trade) => {
+            const symbol = trade.event.symbol;
+            const full =
+              exits.has(symbol) ||
+              days.length - 1 - trade.entryIndex >= spec.holdingDays;
+            const partial = partials.get(symbol);
+            return full || partial
+              ? [
+                  {
+                    symbol,
+                    remainingQuantity:
+                      trade.remainingQuantity ?? trade.quantity,
+                    targetQuantity: full
+                      ? (trade.remainingQuantity ?? trade.quantity)
+                      : partial!.desired,
+                    triggerDate: full ? null : partial!.triggerDate,
+                    reason: full
+                      ? (exits.get(symbol) ?? "达到最长持有交易日")
+                      : "stage" in partial!
+                        ? `第${partial!.stage + 1}档待卖`
+                        : partial!.reason,
+                  },
+                ]
+              : [];
+          }),
+        }
+      : {}),
     attempts,
     excluded,
     unfilled,

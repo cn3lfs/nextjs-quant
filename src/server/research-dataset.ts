@@ -9,13 +9,20 @@ import { readMarketPool } from "./market-pool-files";
 import { scan } from "./tdx";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
+import {
+  researchMethodSnapshot,
+  type ResearchMethodSnapshot,
+} from "./research-method";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
 export const researchHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-export type ResearchDataset = Awaited<
-  ReturnType<typeof captureResearchDataset>
->;
+export type ResearchDataset = Omit<
+  Awaited<ReturnType<typeof captureResearchDataset>>,
+  "method"
+> & {
+  method?: ResearchMethodSnapshot;
+};
 
 export { parseBenchmarkWindow as parseResearchBenchmark } from "./tdx-benchmark";
 
@@ -102,6 +109,7 @@ export async function captureResearchDataset(
   }
   const content = {
     version: "research-dataset-1" as const,
+    method: researchMethodSnapshot(spec),
     source:
       benchmarkSource.source.startsWith("tdx-full-package") ||
       stocks.some((stock) => stock.source?.startsWith("tdx-full-package"))

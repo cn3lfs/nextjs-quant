@@ -1,4 +1,5 @@
 import type { Snapshot } from "~/lib/domain";
+import { confirmedExtrema } from "~/lib/indicators";
 
 export function vcpFacts(snapshot: Snapshot, chartBars = false) {
   const bars = snapshot.bars.slice(-60);
@@ -8,36 +9,13 @@ export function vcpFacts(snapshot: Snapshot, chartBars = false) {
       applicable: false,
       reason: "需要至少 60 根已完成日线",
     };
-  const extrema: {
-    index: number;
-    date: string;
-    confirmedAt: string;
-    kind: "high" | "low";
-    price: number;
-  }[] = [];
-  const ambiguous: string[] = [];
-  const ambiguousIndices: number[] = [];
+  const {
+    extrema,
+    ambiguousDates: ambiguous,
+    ambiguousIndices,
+  } = confirmedExtrema(bars);
   const crossesAmbiguity = (start: number, end: number) =>
     ambiguousIndices.some((i) => i > start && i < end);
-  for (let index = 3; index < bars.length - 3; index++) {
-    const bar = bars[index]!;
-    const peers = bars.slice(index - 3, index + 4).filter((_, i) => i !== 3);
-    const high = peers.every((b) => bar.high > b.high);
-    const low = peers.every((b) => bar.low < b.low);
-    if (high && low) {
-      ambiguous.push(bar.date);
-      ambiguousIndices.push(index);
-      continue;
-    }
-    if (high || low)
-      extrema.push({
-        index,
-        date: bar.date,
-        confirmedAt: bars[index + 3]!.date,
-        kind: high ? "high" : "low",
-        price: high ? bar.high : bar.low,
-      });
-  }
   const contractions: {
     highDate: string;
     lowDate: string;

@@ -40,9 +40,29 @@ export const researchMarketEvidenceSchema = z
             minimumBuy: z.number().int().positive().max(1000000),
             buyStep: z.number().int().positive().max(1000000),
             maximumOrder: z.number().int().positive().max(10000000),
+            minimumSell: z.number().int().positive().max(1000000).optional(),
+            sellStep: z.number().int().positive().max(1000000).optional(),
+            sellOddLotAll: z.boolean().optional(),
+            maximumSell: z.number().int().positive().max(10000000).optional(),
             evidenceId: z.string().min(1).max(200),
           })
           .superRefine((row, context) => {
+            const supplied = [
+              row.minimumSell,
+              row.sellStep,
+              row.sellOddLotAll,
+              row.maximumSell,
+            ].filter((v) => v !== undefined).length;
+            if (
+              (supplied !== 0 && supplied !== 4) ||
+              (row.minimumSell != null &&
+                row.maximumSell != null &&
+                row.minimumSell > row.maximumSell)
+            )
+              context.addIssue({
+                code: "custom",
+                message: "卖出数量规则须完整提供且最小量不超过最大量",
+              });
             if (row.minimumBuy > row.maximumOrder)
               context.addIssue({
                 code: "custom",

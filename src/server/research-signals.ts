@@ -1,7 +1,12 @@
+import { researchBreakoutStopLocation } from "~/lib/research-breakout-stops";
 import type { Bar } from "~/lib/domain";
 import type { CzscResult } from "~/lib/czsc";
 import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
 import { analyzeBreakout } from "./breakout";
+import { metrics } from "./quant";
+import { researchStrategies } from "~/lib/research-strategies";
+import { atr } from "~/lib/indicators";
+import { isResearchRule, researchRuleSeries } from "./research-rule-series";
 
 /** Full-prefix replay: native structures may revise endpoints, so a result
  * computed over the final range must never be used to label earlier dates.
@@ -13,6 +18,7 @@ export async function researchSignals(
   czsc: (bars: readonly Bar[]) => Promise<CzscResult>,
   cancelled: () => boolean = () => false,
   progress: (date: string) => void = () => {},
+  calendar: readonly string[] = bars.map((bar) => bar.date),
 ) {
   if (
     bars.some(
@@ -23,8 +29,42 @@ export async function researchSignals(
   )
     throw new Error("研究行情日期无效或未递增");
   const first = bars.findIndex((bar) => bar.date >= spec.start);
-  if (first < 61) throw new Error("研究起点之前至少需要61根预热日线");
+  const definition = researchStrategies[spec.strategy];
+  const signalVersion =
+    spec.strategy === "ma-cross"
+      ? `${definition.version}/${JSON.stringify(spec.maParams)}`
+      : definition.version;
+  const warmup =
+    definition.signal === "ma-cross"
+      ? Math.max(6, spec.maParams!.slow + 1)
+      : 61;
+  if (first < warmup)
+    throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
+  const technical = isResearchRule(spec.strategy)
+    ? researchRuleSeries(spec.strategy, bars, calendar)
+    : null;
+  if (
+    technical &&
+    !technical.some(
+      (point) =>
+        point.date >= spec.start &&
+        point.date <= spec.end &&
+        point.reason === null,
+    )
+  )
+    throw new Error("研究区间没有可用技术指标，不能将缺失视为零信号");
+  const stop = spec.management?.stop;
+  const stopPeriod =
+    stop?.kind === "structure-auto"
+      ? stop.atrPeriod
+      : stop?.kind === "atr" ||
+          stop?.kind === "structure-atr" ||
+          stop?.kind === "max-distance" ||
+          stop?.kind === "nearest-stop"
+        ? stop.period
+        : undefined;
+  const stopAtr = stopPeriod == null ? null : atr(bars, stopPeriod);
   const seen = new Set<string>();
   let version: string | null = null;
   const qualified = (result: CzscResult) =>
@@ -53,20 +93,96 @@ export async function researchSignals(
     const common = {
       symbol,
       observedDate: bar.date,
+      ...(stopAtr ? { stopAtr: stopAtr[index] ?? null } : {}),
       partition:
         bar.date >= spec.validationStart
           ? ("validation" as const)
           : ("development" as const),
     };
-    if (spec.strategy === "dual-breakout") {
+    if (technical) {
+      const point = technical[index]!;
+      if (point.entry)
+        events.push({
+          ...common,
+          key: `${signalVersion}:${bar.date}:long`,
+          endpointDate: bar.date,
+          strategyVersion: signalVersion,
+          evidence: JSON.stringify(point),
+          ...("historyStart" in point && point.historyStart
+            ? { historyStart: point.historyStart }
+            : {}),
+          ...("maxEntryPrice" in point &&
+          point.maxEntryPrice != null &&
+          point.candidate
+            ? {
+                entryPriceRange: {
+                  min: point.candidate.high,
+                  max: point.maxEntryPrice,
+                },
+              }
+            : {}),
+          ...("ruleStop" in point && point.ruleStop
+            ? { ruleStop: point.ruleStop }
+            : {}),
+        });
+    } else if (definition.signal === "ma-cross") {
+      const result = metrics(bars.slice(0, index + 1), {
+        ...spec.maParams!,
+        type: "ma-cross",
+        params: spec.maParams!,
+      });
+      if (result?.matched && bar.volume > 0)
+        events.push({
+          ...common,
+          key: `${signalVersion}:${bar.date}:long`,
+          endpointDate: bar.date,
+          strategyVersion: signalVersion,
+          evidence: JSON.stringify(result),
+        });
+    } else if (definition.signal === "dual-breakout") {
       const result = analyzeBreakout(bars.slice(0, index + 1)).latest;
+      const location =
+        stop?.kind === "breakout-candle" || stop?.kind === "platform-upper"
+          ? researchBreakoutStopLocation(
+              stop.kind,
+              bar,
+              bars[index - 1]!,
+              result?.levels ?? [],
+            )
+          : undefined;
       if (result?.long.status === "是" && bar.volume > 0)
         events.push({
           ...common,
-          key: `dual-breakout-1:${bar.date}:long`,
+          key: `${definition.version}:${bar.date}:long`,
           endpointDate: bar.date,
-          strategyVersion: "dual-breakout-1",
-          evidence: JSON.stringify(result.long),
+          strategyVersion: definition.version,
+          evidence: JSON.stringify(
+            location === undefined
+              ? result.long
+              : { ...result.long, stopLocation: location },
+          ),
+          ...(location !== undefined
+            ? { initialStop: location?.price ?? null }
+            : {}),
+          ...(spec.management?.pyramid?.kind === "pullback-50-50"
+            ? {
+                pullbackLevel:
+                  result.long.keyLevel && result.long.line
+                    ? Math.max(
+                        result.long.keyLevel.price,
+                        result.long.line.value,
+                      )
+                    : null,
+              }
+            : {}),
+          ...(spec.strategy === "dual-breakout-structure" ||
+          spec.management?.stop.kind === "structure" ||
+          spec.management?.stop.kind === "structure-atr" ||
+          spec.management?.stop.kind === "max-distance" ||
+          spec.management?.stop.kind === "nearest-stop" ||
+          spec.management?.stop.kind === "structure-auto"
+            ? { initialStop: result.long.risk.stop?.price ?? null }
+            : {}),
         });
     } else {
       const result = await czsc(bars.slice(0, index + 1));

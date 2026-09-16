@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { boll, kdj, ma, macd, rsi } from "~/lib/indicators";
+import { boll, kdj, ma, macd, rsi, candlePatterns } from "~/lib/indicators";
 import method from "~/lib/breakout-method.json";
 import { vcpFacts } from "./vcp";
 
@@ -130,53 +130,14 @@ function trend(
   return line;
 }
 
-// Only five named reversal patterns. Context is a three-session directional
-// move before the pattern, not a guessed swing endpoint. Star gaps refer to
-// real bodies; confirmation closes past the first body's midpoint.
+// Preserve the existing five-pattern diagnostic contract. Extended candle
+// strategy patterns opt in through the same shared calculation.
 export function breakoutPatterns(
   bars: readonly Bar[],
   i: number,
   direction: Direction,
 ): string[] {
-  const c = bars[i],
-    b = bars[i - 1],
-    a = bars[i - 2];
-  if (!c || !b || !a || i < 5) return [];
-  const sign = direction === "long" ? 1 : -1;
-  const context = (start: number) =>
-    (bars[start - 1]!.close - bars[start - 3]!.close) * sign < 0;
-  const found: string[] = [];
-  if (
-    direction === "long" &&
-    context(i) &&
-    body(c) > 0 &&
-    Math.min(c.open, c.close) - c.low >= body(c) * 2 &&
-    c.high - Math.max(c.open, c.close) <= body(c) * 0.25
-  )
-    found.push("锤子线");
-  if (
-    context(i - 1) &&
-    (c.close - c.open) * sign > 0 &&
-    (b.close - b.open) * sign < 0 &&
-    (c.open - b.close) * sign <= 0 &&
-    (c.close - b.open) * sign >= 0 &&
-    body(c) > body(b)
-  )
-    found.push(direction === "long" ? "看涨吞没" : "看跌吞没");
-  const gap =
-    direction === "long"
-      ? Math.max(b.open, b.close) < Math.min(a.open, a.close)
-      : Math.min(b.open, b.close) > Math.max(a.open, a.close);
-  if (
-    context(i - 2) &&
-    (a.close - a.open) * sign < 0 &&
-    body(b) <= body(a) * 0.3 &&
-    gap &&
-    (c.close - c.open) * sign > 0 &&
-    (c.close - (a.open + a.close) / 2) * sign > 0
-  )
-    found.push(direction === "long" ? "启明星" : "黄昏之星");
-  return found;
+  return candlePatterns(bars, i, direction);
 }
 
 function prepare(bars: readonly Bar[]) {

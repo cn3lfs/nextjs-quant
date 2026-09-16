@@ -12,7 +12,38 @@ export type ResearchExecutionRules = {
   limitUp: number | null;
   limitDown: number | null;
   tradable: boolean;
+  minimumSell?: number;
+  sellStep?: number;
+  sellOddLotAll?: boolean;
+  maximumSell?: number;
 };
+export function researchSellQuantity(
+  desired: number,
+  remaining: number,
+  rules: ResearchExecutionRules,
+) {
+  const { minimumSell, sellStep, sellOddLotAll, maximumSell } = rules;
+  if (
+    !Number.isFinite(desired) ||
+    desired < 0 ||
+    !Number.isSafeInteger(remaining) ||
+    remaining < 0 ||
+    minimumSell == null ||
+    sellStep == null ||
+    sellOddLotAll == null ||
+    maximumSell == null ||
+    ![minimumSell, sellStep, maximumSell].every(
+      (v) => Number.isSafeInteger(v) && v > 0,
+    ) ||
+    minimumSell > maximumSell
+  )
+    return null;
+  const limit = Math.floor(Math.min(desired + 1e-8, remaining, maximumSell));
+  if (sellOddLotAll && limit === remaining) return remaining;
+  return limit < minimumSell
+    ? 0
+    : minimumSell + Math.floor((limit - minimumSell) / sellStep) * sellStep;
+}
 export function researchCommission(amount: number, costs: BacktestCosts) {
   return Math.max(
     costs.minimumCommission,

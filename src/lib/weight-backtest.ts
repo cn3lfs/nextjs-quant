@@ -116,7 +116,19 @@ export function projectResearchWeights(
           trade.entryDate <= point.date &&
           (!trade.exitDate || trade.exitDate > point.date),
       );
-      const quantity = held.reduce((sum, trade) => sum + trade.quantity, 0);
+      const quantity = held.reduce(
+        (sum, trade) =>
+          sum +
+          (trade.entries
+            ? trade.entries
+                .filter((entry) => entry.date <= point.date)
+                .reduce((bought, entry) => bought + entry.quantity, 0)
+            : trade.quantity) -
+          (trade.sales ?? [])
+            .filter((sale) => sale.date <= point.date)
+            .reduce((sold, sale) => sold + sale.quantity, 0),
+        0,
+      );
       const close = marks.get(symbol)?.get(point.date);
       const valid =
         Number.isFinite(point.value) &&

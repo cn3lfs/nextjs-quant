@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { poolSelectionSchema } from "./market-pool";
 import { backtestCostsSchema } from "./backtest-costs";
+import { maParamsSchema } from "./domain";
+import { researchManagementSchema } from "./research-management";
+import type { RuleStop } from "./research-volume";
+import {
+  researchRiskSchema,
+  researchStrategySchema,
+} from "./research-strategies";
 
 const date = z
   .string()
@@ -15,7 +22,11 @@ const date = z
 export const researchSpecSchema = z
   .object({
     version: z.literal("strategy-research-1").default("strategy-research-1"),
-    strategy: z.enum(["dual-breakout", "czsc"]),
+    strategy: researchStrategySchema,
+    // Optional fields preserve the exact shape/fingerprint of historical specs.
+    maParams: maParamsSchema.optional(),
+    risk: researchRiskSchema.optional(),
+    management: researchManagementSchema.optional(),
     // Optional only for reading historical tasks; new requests require a list.
     symbols: z
       .array(z.string().regex(/^(sh(60|68)|sz(00|30))\d{4}$/))
@@ -46,6 +57,57 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (
+      (value.management?.kelly?.provenance === "breakout-quality" ||
+        value.management?.kelly?.provenance === "rolling-switch30") &&
+      value.strategy !== "dual-breakout"
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["management", "kelly"],
+        message: "五项质量凯利仅适用于基础双突破策略",
+      });
+    if (
+      value.management?.pyramid?.kind === "pullback-50-50" &&
+      value.strategy !== "dual-breakout"
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["management", "pyramid"],
+        message: "50/50回踩分批仅用于有冻结突破位的双突破策略",
+      });
+    if ((value.strategy === "ma-cross") !== !!value.maParams)
+      context.addIssue({
+        code: "custom",
+        path: ["maParams"],
+        message: "均线参数仅适用于双均线策略，选择双均线时必须提供",
+      });
+    if (
+      (value.strategy === "dual-breakout-structure" || !!value.management) !==
+      !!value.risk
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["risk"],
+        message: "启用风控时必须提供风险仓位参数，固定持有策略不接收此参数",
+      });
+    if (
+      value.management &&
+      (value.strategy === "dual-breakout-structure" ||
+        ((value.management.stop.kind === "structure" ||
+          value.management.stop.kind === "structure-atr" ||
+          value.management.stop.kind === "max-distance" ||
+          value.management.stop.kind === "nearest-stop" ||
+          value.management.stop.kind === "structure-auto" ||
+          value.management.stop.kind === "breakout-candle" ||
+          value.management.stop.kind === "platform-upper") &&
+          value.strategy !== "dual-breakout"))
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["management"],
+        message: "组合风控使用基础策略；结构定位仅适用于双突破信号",
+      });
     if (value.start >= value.end)
       context.addIssue({
         code: "custom",
@@ -71,6 +133,13 @@ export type ResearchEvent = {
   strategyVersion: string;
   partition: "development" | "validation" | "tracking";
   evidence: string;
+  initialStop?: number | null;
+  stopAtr?: number | null;
+  ruleStop?: RuleStop;
+  pullbackLevel?: number | null;
+  entryPriceRange?: { min: number; max: number };
+  /** Earliest input used by the selected variable-length historical shape. */
+  historyStart?: string;
 };
 
 /** Closed net trade returns only. Unfilled, open and missing samples are

@@ -48,7 +48,7 @@ export type Snapshot = {
   sourceVersions?: string[];
   requestedSource?: MarketSource;
 };
-const maParamsSchema = z
+export const maParamsSchema = z
   .object({
     name: z.string().min(1).max(80).default("双均线趋势"),
     fast: z.number().int().min(2).max(120).default(5),

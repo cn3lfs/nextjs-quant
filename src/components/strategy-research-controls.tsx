@@ -11,6 +11,8 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { researchSpecSchema, type ResearchSpec } from "~/lib/strategy-research";
+import { ResearchStrategyFields } from "./research-strategy-fields";
+import { researchStrategyLabel } from "~/lib/research-strategies";
 import {
   researchMarketEvidenceSchema,
   type ResearchMarketEvidence,
@@ -394,23 +396,7 @@ export function StrategyResearchControls() {
             </>
           )}
         </div>
-        <label>
-          策略
-          <Select
-            value={spec.strategy}
-            onValueChange={(value) =>
-              setSpec({ ...spec, strategy: value as ResearchSpec["strategy"] })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dual-breakout">双突破</SelectItem>
-              <SelectItem value="czsc">缠论</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
+        <ResearchStrategyFields spec={spec} onChange={setSpec} />
         {(
           [
             ["start", "样本开始"],
@@ -577,8 +563,8 @@ export function StrategyResearchControls() {
           {tasks.data.map((task) => (
             <section className="space-y-2 rounded-lg border p-3" key={task.id}>
               <Button variant="ghost" onClick={() => setSelected(task.id)}>
-                {task.spec.strategy === "czsc" ? "缠论" : "双突破"} ·{" "}
-                {task.spec.start}—{task.spec.end} · {statuses[task.status]}
+                {researchStrategyLabel(task.spec.strategy)} · {task.spec.start}—
+                {task.spec.end} · {statuses[task.status]}
               </Button>
               <p className="text-sm">
                 {task.phase}{" "}
@@ -707,6 +693,29 @@ export function StrategyResearchControls() {
       {result.data && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">样本结果</h2>
+          <p className="text-sm">
+            {researchStrategyLabel(result.data.spec.strategy)} · 固定事件观察{" "}
+            {result.data.spec.holdingDays}{" "}
+            个交易日；完整交易结果另见各分区交易模拟。
+          </p>
+          <details>
+            <summary>本次保存的策略参数</summary>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+              {JSON.stringify(result.data.spec, null, 2)}
+            </pre>
+          </details>
+          <details>
+            <summary>方法版本与来源</summary>
+            {result.data.method ? (
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                {JSON.stringify(result.data.method, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                此历史结果未记录方法来源版本。
+              </p>
+            )}
+          </details>
           <UniverseAuditContainer
             key={selected}
             source={{ kind: "research", id: selected }}
@@ -807,9 +816,12 @@ export function StrategyResearchControls() {
                         "信号日期",
                         "买入",
                         "卖出",
-                        "股数",
+                        "初始股数",
+                        "剩余股数",
                         "净收益",
                         "持有交易日",
+                        "初始止损",
+                        "退出原因",
                       ]}
                       rows={part.simulation.trades
                         .slice(0, 50)
@@ -819,11 +831,93 @@ export function StrategyResearchControls() {
                           trade.entryDate,
                           trade.exitDate ?? "未平仓",
                           trade.quantity,
+                          trade.remainingQuantity ??
+                            (trade.exitDate ? 0 : trade.quantity),
                           percent(trade.netReturn),
                           trade.holdingTradingDays ?? "—",
+                          trade.initialStop === undefined
+                            ? "—"
+                            : number(trade.initialStop),
+                          trade.exitReason ??
+                            (trade.exitDate ? "固定持有期" : "未平仓"),
                         ])}
                     />
+                    {part.simulation.trades
+                      .slice(0, 50)
+                      .filter(
+                        (trade) =>
+                          trade.stopHistory ||
+                          trade.signalExit ||
+                          trade.ruleStop ||
+                          trade.sales?.length,
+                      )
+                      .map((trade) => (
+                        <details
+                          key={`${trade.event.key}:${trade.event.symbol}:${trade.entryDate}`}
+                        >
+                          <summary>
+                            {trade.event.symbol} · {trade.entryDate} ·
+                            退出依据与止损演化
+                          </summary>
+                          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                            {JSON.stringify(
+                              {
+                                plannedRiskStop: trade.plannedRiskStop,
+                                realizedProfit: trade.realizedProfit,
+                                sales: trade.sales,
+                                entries: trade.entries,
+                                plannedQuantity: trade.plannedQuantity,
+                                riskBudget: trade.riskBudget,
+                                book: trade.book,
+                                stopHistory: trade.stopHistory,
+                                protectionEvidence: trade.protectionEvidence,
+                                warnings: trade.managementWarnings,
+                                signalExit: trade.signalExit,
+                                ruleStop: trade.ruleStop,
+                                ruleStopTriggeredAt: trade.ruleStopTriggeredAt,
+                              },
+                              null,
+                              2,
+                            )}
+                          </pre>
+                        </details>
+                      ))}
                     <p>最近50个交易日净值</p>
+                    {part.simulation.signalGaps?.length ? (
+                      <details>
+                        <summary>
+                          技术指标输入缺失（{part.simulation.signalGaps.length}
+                          条）
+                        </summary>
+                        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                          {JSON.stringify(part.simulation.signalGaps, null, 2)}
+                        </pre>
+                      </details>
+                    ) : null}
+                    {part.simulation.pendingAdditions?.length ? (
+                      <details>
+                        <summary>期末待加仓意图</summary>
+                        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                          {JSON.stringify(
+                            part.simulation.pendingAdditions,
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      </details>
+                    ) : null}
+                    {part.simulation.pendingSales?.length ? (
+                      <details>
+                        <summary>期末待卖意图</summary>
+                        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                          {JSON.stringify(
+                            part.simulation.pendingSales,
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      </details>
+                    ) : null}
                     <ResearchTable
                       headings={[
                         "日期",
@@ -861,6 +955,16 @@ export function StrategyResearchControls() {
           ))}
           <details>
             <summary>信号明细及排除原因（前50条）</summary>
+            {result.data.events.slice(0, 50).map((event) => (
+              <details key={`${event.symbol}:${event.key}`}>
+                <summary>
+                  {event.symbol} · {event.observedDate} · 条件证据
+                </summary>
+                <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-xs">
+                  {event.evidence}
+                </pre>
+              </details>
+            ))}
             <ResearchTable
               headings={["股票", "确认日期", "结构端点", "事件收益", "说明"]}
               rows={result.data.outcomes

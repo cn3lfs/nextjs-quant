@@ -5,6 +5,7 @@ import { ResearchStore } from "./research-store";
 import { ResearchAttempts, bestEffortAudit } from "./research-governance";
 import { captureResearchDataset } from "./research-dataset";
 import { runStrategyResearch } from "./research-run";
+import { validateResearchMethod } from "./research-method";
 import { analyzeCzsc, type projectCzsc, type CzscProjections } from "./czsc";
 
 const data = workerData as { id: string; cancellation: SharedArrayBuffer };
@@ -47,6 +48,7 @@ async function run() {
         (symbol, count, total) => progress(`采集 ${symbol}`, count, total),
       ));
     if (cancelled()) throw new Error("研究已取消");
+    validateResearchMethod(task.spec, dataset.method);
     store.saveDataset(task.id, dataset);
     if (task.mode === "final-validation") store.freeze(task.id);
     if (
