@@ -83,22 +83,9 @@ function technicalDefinition(id: TechnicalStrategyId) {
     sources: ["swing-trader/references/technical-indicators.md"],
   };
 }
-export const technicalStrategies = {
-  "ma-golden-5-10": technicalDefinition("ma-golden-5-10"),
-  "ma-golden-10-20": technicalDefinition("ma-golden-10-20"),
-  "ma-golden-20-60": technicalDefinition("ma-golden-20-60"),
-  "ma-alignment": technicalDefinition("ma-alignment"),
-  "macd-golden": technicalDefinition("macd-golden"),
-  "macd-golden-positive": technicalDefinition("macd-golden-positive"),
-  "macd-histogram-turn": technicalDefinition("macd-histogram-turn"),
-  "kdj-golden": technicalDefinition("kdj-golden"),
-  "kdj-extreme": technicalDefinition("kdj-extreme"),
-  "kdj-macd-confirmed": technicalDefinition("kdj-macd-confirmed"),
-  "rsi-recovery": technicalDefinition("rsi-recovery"),
-  "rsi-50-cross": technicalDefinition("rsi-50-cross"),
-  "boll-middle-cross": technicalDefinition("boll-middle-cross"),
-  "boll-band-recovery": technicalDefinition("boll-band-recovery"),
-} satisfies Record<TechnicalStrategyId, ReturnType<typeof technicalDefinition>>;
+export const technicalStrategies = Object.fromEntries(
+  technicalStrategyIds.map((id) => [id, technicalDefinition(id)]),
+) as Record<TechnicalStrategyId, ReturnType<typeof technicalDefinition>>;
 
 export type TechnicalValues = {
   close: number | null;

@@ -1683,8 +1683,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-hammer"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-morning-star",
@@ -1698,8 +1708,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-morning-star"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-morning-doji",
@@ -1713,8 +1733,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-morning-doji"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-bull-engulf",
@@ -1728,8 +1758,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-bull-engulf"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-bottom-doji",
@@ -1743,8 +1783,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-bottom-doji"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-shooting-star",
@@ -1758,8 +1808,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-shooting-star-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-evening-star",
@@ -1773,8 +1833,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-evening-star-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-bear-engulf",
@@ -1788,8 +1858,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-bear-engulf-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-dark-cloud",
@@ -1803,8 +1883,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-dark-cloud-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-top-doji",
@@ -1818,8 +1908,18 @@
         "src/lib/research-candles.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-candles.test.ts", "tests/breakout.test.ts"],
-      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-candles.test.ts",
+        "tests/breakout.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名单形态日线工程预设；共用既有几何识别，三根收盘首尾方向代替不可提前证明的趋势末端。看多入场/五种看空退出；看空预设用MA5/10金叉共同入场，不裸卖空。短影、十字、跳空与穿透阈值公开；公司行动覆盖研究期及前11根。完整综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["candle-top-doji-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW05-rising-three",
@@ -1833,8 +1933,17 @@
         "src/lib/research-continuation.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-continuation.test.ts"],
-      "boundary": "5/6/7根具名日线工程预设：首尾实体占开盘至少3%、全幅至少60%，中间反向小实体不超过首体50%且全幅包含，末收越首高低。三根同向背景；下降形态用MA5/10金叉共同入场作退出对照，不裸卖空。工程阈值、11根公司行动预热与次日执行公开；旗形三角及完整系统另列，真实回测待执行。"
+      "tests": [
+        "tests/research-continuation.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "5/6/7根具名日线工程预设：首尾实体占开盘至少3%、全幅至少60%，中间反向小实体不超过首体50%且全幅包含，末收越首高低。三根同向背景；下降形态用MA5/10金叉共同入场作退出对照，不裸卖空。工程阈值、11根公司行动预热与次日执行公开；旗形三角及完整系统另列，真实回测待执行。",
+      "bindings": {
+        "presets": ["three-rising-5", "three-rising-6", "three-rising-7"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW05-falling-three",
@@ -1848,8 +1957,21 @@
         "src/lib/research-continuation.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-continuation.test.ts"],
-      "boundary": "5/6/7根具名日线工程预设：首尾实体占开盘至少3%、全幅至少60%，中间反向小实体不超过首体50%且全幅包含，末收越首高低。三根同向背景；下降形态用MA5/10金叉共同入场作退出对照，不裸卖空。工程阈值、11根公司行动预热与次日执行公开；旗形三角及完整系统另列，真实回测待执行。"
+      "tests": [
+        "tests/research-continuation.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "5/6/7根具名日线工程预设：首尾实体占开盘至少3%、全幅至少60%，中间反向小实体不超过首体50%且全幅包含，末收越首高低。三根同向背景；下降形态用MA5/10金叉共同入场作退出对照，不裸卖空。工程阈值、11根公司行动预热与次日执行公开；旗形三角及完整系统另列，真实回测待执行。",
+      "bindings": {
+        "presets": [
+          "three-falling-5-exit",
+          "three-falling-6-exit",
+          "three-falling-7-exit"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW05-flag",
@@ -1863,8 +1985,17 @@
         "src/lib/research-channels.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-channels.test.ts"],
-      "boundary": "旗形10/15/20根、三角15/20/30根具名日线工程预设。突破前高低价最小二乘外包络、分散触边、平行或收敛阈值及旗杆/回撤条件公开，当前K线不参与拟合。上下突破入场/退出、冻结下沿三根保护、次日成交；公司行动覆盖各自整理及旗杆窗口。并非唯一图形定义，完整波段综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-channels.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "旗形10/15/20根、三角15/20/30根具名日线工程预设。突破前高低价最小二乘外包络、分散触边、平行或收敛阈值及旗杆/回撤条件公开，当前K线不参与拟合。上下突破入场/退出、冻结下沿三根保护、次日成交；公司行动覆盖各自整理及旗杆窗口。并非唯一图形定义，完整波段综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["flag-10", "flag-15", "flag-20"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW05-triangle",
@@ -1878,8 +2009,17 @@
         "src/lib/research-channels.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-channels.test.ts"],
-      "boundary": "旗形10/15/20根、三角15/20/30根具名日线工程预设。突破前高低价最小二乘外包络、分散触边、平行或收敛阈值及旗杆/回撤条件公开，当前K线不参与拟合。上下突破入场/退出、冻结下沿三根保护、次日成交；公司行动覆盖各自整理及旗杆窗口。并非唯一图形定义，完整波段综合确认和真实回测仍待执行。"
+      "tests": [
+        "tests/research-channels.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "旗形10/15/20根、三角15/20/30根具名日线工程预设。突破前高低价最小二乘外包络、分散触边、平行或收敛阈值及旗杆/回撤条件公开，当前K线不参与拟合。上下突破入场/退出、冻结下沿三根保护、次日成交；公司行动覆盖各自整理及旗杆窗口。并非唯一图形定义，完整波段综合确认和真实回测仍待执行。",
+      "bindings": {
+        "presets": ["triangle-15", "triangle-20", "triangle-30"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW02-half-entry",
@@ -1899,7 +2039,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-pullback.test.ts"],
-      "boundary": "双突破日线50/50计划回踩与仍盈利对照：原信号冻结突破位，次根确认后下一开盘补入，第二笔最多首仓实际数量，原预算与逐批T+1。与50/30/20盈利递减要求分开；容差和更长等待是公开工程参数。原文盘中最后半小时入场未覆盖，真实回测待执行。 position-management仅作50/30/20和禁止亏损追加的冲突参照，不是50/50来源。"
+      "boundary": "双突破日线50/50计划回踩与仍盈利对照：原信号冻结突破位，次根确认后下一开盘补入，第二笔最多首仓实际数量，原预算与逐批T+1。与50/30/20盈利递减要求分开；容差和更长等待是公开工程参数。原文盘中最后半小时入场未覆盖，真实回测待执行。 position-management仅作50/30/20和禁止亏损追加的冲突参照，不是50/50来源。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-pullback.ts",
+            "name": "researchPullbackConfirmation"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-calendar",
@@ -2435,7 +2585,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A2-atr",
@@ -2455,7 +2615,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A3-buffer",
@@ -2473,7 +2643,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A4-indicator",
@@ -2534,9 +2714,20 @@
       ],
       "tests": [
         "tests/research-max-distance.test.ts",
-        "tests/research-structure-atr.test.ts"
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
       ],
-      "boundary": "三方案做多版本：百分比、实际入场价减信号ATR、信号结构减ATR缓冲取最低合法价；保留候选并按选中距离计算含费股数。缺任一输入或任一候选非法均拒绝，14周期工程默认；结构沿用双突破摆动/平台支撑。显式覆盖、缺ATR回退、短向及真实回测仍另列，不替代最早离场。"
+      "boundary": "三方案做多版本：百分比、实际入场价减信号ATR、信号结构减ATR缓冲取最低合法价；保留候选并按选中距离计算含费股数。缺任一输入或任一候选非法均拒绝，14周期工程默认；结构沿用双突破摆动/平台支撑。显式覆盖、缺ATR回退、短向及真实回测仍另列，不替代最早离场。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-B-touch",
@@ -2561,7 +2752,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-B-two-closes",
@@ -2575,7 +2776,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-risk",
@@ -2598,7 +2809,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-stress",
@@ -2616,7 +2837,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly",
@@ -2638,7 +2869,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-kelly.test.ts"],
-      "boundary": "f*=(b*p-(1-p))/b，非正禁入；半凯利与止损风险及明确的市值/总仓上限取小。p/b来源、样本和单位须冻结；目标距离b不直接替换为平均盈亏比，30笔/质量/四分之一及调用方具名组合另列。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。"
+      "boundary": "f*=(b*p-(1-p))/b，非正禁入；半凯利与止损风险及明确的市值/总仓上限取小。p/b来源、样本和单位须冻结；目标距离b不直接替换为平均盈亏比，30笔/质量/四分之一及调用方具名组合另列。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly.ts",
+            "name": "researchKellyLimit"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-liquidity",
@@ -2658,7 +2899,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-liquidity.test.ts"],
-      "boundary": "买入前20个连续快照交易日平均成交额1%，按本地日线amount元契约限制单股总持仓市值；首仓及加仓与风险/市值上限取小，费用算法略保守。缺有效窗口暂停买入且不延长等待，卖出照常，容量下降不自动减仓。记录均额与窗口，不将该代理冒充实际冲击或跨源单位已验证；具名三重约束组合及真实回测另列。"
+      "boundary": "买入前20个连续快照交易日平均成交额1%，按本地日线amount元契约限制单股总持仓市值；首仓及加仓与风险/市值上限取小，费用算法略保守。缺有效窗口暂停买入且不延长等待，卖出照常，容量下降不自动减仓。记录均额与窗口，不将该代理冒充实际冲击或跨源单位已验证；具名三重约束组合及真实回测另列。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-liquidity.ts",
+            "name": "researchLiquidity"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-disaster",
@@ -2693,7 +2944,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D2-breakeven",
@@ -2713,7 +2974,17 @@
         "src/lib/research-management.ts"
       ],
       "tests": ["tests/research-protection.test.ts"],
-      "boundary": "浮盈阈值与入场后更高低点共同确认；复用VCP 60根窗口/左右3根极值，后低点须高于前低点及成交价，移至成交价而非承诺含费无亏损。不是新增CZSC原生结构信号。"
+      "boundary": "浮盈阈值与入场后更高低点共同确认；复用VCP 60根窗口/左右3根极值，后低点须高于前低点及成交价，移至成交价而非承诺含费无亏损。不是新增CZSC原生结构信号。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-protection.ts",
+            "name": "researchHigherLow"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D3-percent",
@@ -2727,7 +2998,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D3-distance",
@@ -2742,8 +3023,21 @@
         "src/server/research-method.ts",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-distance-trail.test.ts"],
-      "boundary": "持仓最高价减固定价格差，默认1个行情价格单位是工程起点，不是百分比或ATR。收盘更新次日起生效，只升不降；可配全部减仓档实际成交后启动。分批与加仓不重置最高锚点，盘中触发与实际回测仍待验证。"
+      "tests": [
+        "tests/research-distance-trail.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "持仓最高价减固定价格差，默认1个行情价格单位是工程起点，不是百分比或ATR。收盘更新次日起生效，只升不降；可配全部减仓档实际成交后启动。分批与加仓不重置最高锚点，盘中触发与实际回测仍待验证。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D3-structure",
@@ -2771,7 +3065,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-retracement.test.ts"],
-      "boundary": "原文2/3/4/7R对应回吐30/25/20/5%，首仓价格与初始止损冻结R，分批及加仓不重置。最高价格浮盈收盘更新、次日起生效，只升不降并沿用收盘确认；已实现盈亏和费用独立核算，不承诺锁定实际利润。末档后启动须实际成交完成。盘中触发及实际账户利润基准另留变体，不宣称真实回测业绩。"
+      "boundary": "原文2/3/4/7R对应回吐30/25/20/5%，首仓价格与初始止损冻结R，分批及加仓不重置。最高价格浮盈收盘更新、次日起生效，只升不降并沿用收盘确认；已实现盈亏和费用独立核算，不承诺锁定实际利润。末档后启动须实际成交完成。盘中触发及实际账户利润基准另留变体，不宣称真实回测业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-retracement.ts",
+            "name": "researchRetracementStop"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D5-time",
@@ -2790,7 +3094,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D6-partial",
@@ -2813,9 +3127,20 @@
       ],
       "tests": [
         "tests/research-scale-out.test.ts",
-        "tests/research-strategy-run.test.ts"
+        "tests/research-strategy-run.test.ts",
+        "tests/research-management.test.ts"
       ],
-      "boundary": "已接入日线分档卖出、实际减仓后抬线；末档收盘ATR尾仓另见RK-D6-close-atr-tail，50/30/20加仓与总风险重算另见RK-D7-pyramid。整个手册其他退出与仓位方法仍分别待实施。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "boundary": "已接入日线分档卖出、实际减仓后抬线；末档收盘ATR尾仓另见RK-D6-close-atr-tail，50/30/20加仓与总风险重算另见RK-D7-pyramid。整个手册其他退出与仓位方法仍分别待实施。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V1-chandelier",
@@ -2832,7 +3157,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-management.test.ts"],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。"
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V1-rolling-high",
@@ -2851,8 +3186,21 @@
         "src/server/research-method.ts",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-rolling-chandelier.test.ts"],
-      "boundary": "最近完整窗口最高价减算术ATR，默认22根/3倍，与持仓以来最高价分名；含入场前历史。收盘更新次日起生效，只升不降；缺失有效锚点或ATR保留旧线并留原因。缺日期不冒充交易日连续性核验，真实回测未完成。"
+      "tests": [
+        "tests/research-rolling-chandelier.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "最近完整窗口最高价减算术ATR，默认22根/3倍，与持仓以来最高价分名；含入场前历史。收盘更新次日起生效，只升不降；缺失有效锚点或ATR保留旧线并留原因。缺日期不冒充交易日连续性核验，真实回测未完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V2-boll",
@@ -3313,8 +3661,21 @@
         "src/lib/research-management.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-protection.test.ts"],
-      "boundary": "收盘减算术ATR倍数，仅上移；可从入场开始或等全部档实际成交后激活，跳过档不算完成。原文2ATR模板的14周期为显式工程默认。"
+      "tests": [
+        "tests/research-protection.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "收盘减算术ATR倍数，仅上移；可从入场开始或等全部档实际成交后激活，跳过档不算完成。原文2ATR模板的14周期为显式工程默认。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D7-pyramid",
@@ -3339,7 +3700,17 @@
         "tests/research-position-book.test.ts",
         "tests/research-strategy-run.test.ts"
       ],
-      "boundary": "日线完成收盘触发、次日开盘仍盈利才加仓；首仓冻结计划量、1R/2R及风险预算。每档一笔向下取整，实际量递减；统一止损只升不降。独立卖出规则估算分单费用，FIFO与逐批T+1，减仓优先且停止加仓。默认总仓位60%可配置；市场环境30%切换、50/50回踩和账户熔断仍未覆盖，不称完整波段策略。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。"
+      "boundary": "日线完成收盘触发、次日开盘仍盈利才加仓；首仓冻结计划量、1R/2R及风险预算。每档一笔向下取整，实际量递减；统一止损只升不降。独立卖出规则估算分单费用，FIFO与逐批T+1，减仓优先且停止加仓。默认总仓位60%可配置；市场环境30%切换、50/50回踩和账户熔断仍未覆盖，不称完整波段策略。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-pyramid.ts",
+            "name": "researchRoundedBuy"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-ma-golden-5-10",
@@ -3353,8 +3724,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["ma-golden-5-10"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-ma-golden-10-20",
@@ -3368,8 +3748,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["ma-golden-10-20"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-ma-golden-20-60",
@@ -3383,8 +3772,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["ma-golden-20-60"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW10-ma-alignment",
@@ -3398,8 +3796,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["ma-alignment"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-macd-golden",
@@ -3413,8 +3820,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["macd-golden"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-macd-golden-positive",
@@ -3428,8 +3844,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["macd-golden-positive"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-macd-histogram-turn",
@@ -3443,8 +3868,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。 原文柱长变化是状态，现仅首次缩短，持续缩短对照仍保留。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。 原文柱长变化是状态，现仅首次缩短，持续缩短对照仍保留。",
+      "bindings": {
+        "presets": ["macd-histogram-turn"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW07-kdj-golden",
@@ -3458,8 +3892,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["kdj-golden"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW07-kdj-extreme",
@@ -3473,8 +3916,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["kdj-extreme"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW07-kdj-macd-confirmed",
@@ -3488,8 +3940,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["kdj-macd-confirmed"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-rsi-recovery",
@@ -3503,8 +3964,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["rsi-recovery"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW08-rsi-50-cross",
@@ -3518,8 +3988,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["rsi-50-cross"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-boll-middle-cross",
@@ -3533,8 +4012,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["boll-middle-cross"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW09-boll-band-recovery",
@@ -3548,8 +4036,17 @@
         "src/server/research-signals.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-technical.test.ts"],
-      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。"
+      "tests": [
+        "tests/research-technical.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定参数工程对照，原文未给的周期/交易化条件已在注册表说明；共用既有指标。完成日线交叉、下一可成交开盘，反向信号取消未成交旧买入，组合风控不取消指标退出。不以此替代背离、量能确认或整个指标家族。",
+      "bindings": {
+        "presets": ["boll-band-recovery"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-negative-dead",
@@ -3922,8 +4419,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-up-expanded-confirm"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-flat-expanded-break",
@@ -3944,8 +4450,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-flat-expanded-break"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-up-contracted-confirm",
@@ -3966,8 +4481,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-up-contracted-confirm"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-down-contracted-confirm",
@@ -3988,8 +4512,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-down-contracted-confirm"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-up-normal-confirm",
@@ -4010,8 +4543,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-up-normal-confirm"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-flat-contracted-break",
@@ -4032,8 +4574,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-flat-contracted-break"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-breakout-1-5",
@@ -4055,8 +4606,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-breakout-1-5"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-breakout-2",
@@ -4078,8 +4638,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-breakout-2"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-volume-ma-cross",
@@ -4100,8 +4669,17 @@
         "src/server/research-portfolio.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume.test.ts"],
-      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。"
+      "tests": [
+        "tests/research-volume.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "固定主板阈值工程对照；位置用显式60/20均线和区间代理，不冒充完整枢轴/历史换手或主力意图。含当日VMA5、前5和前20有效成交均量分别保留；主文件与指标文件量级边界分开。候选等待、破位取消及入场后3根冻结确认位退出；次日受约束开盘成交。零量跳过均量、一字与复牌初期不解释；公司行动覆盖延伸候选和预热，未调整的已知除权窗口排除。其余量价子方法继续，非完整技能交付。",
+      "bindings": {
+        "presets": ["vp-volume-ma-cross"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-panic-2",
@@ -4121,8 +4699,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-reversals.test.ts"],
-      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。"
+      "tests": [
+        "tests/research-volume-reversals.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。",
+      "bindings": {
+        "presets": ["vp-panic-2"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-panic-3",
@@ -4142,8 +4729,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-reversals.test.ts"],
-      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。"
+      "tests": [
+        "tests/research-volume-reversals.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。",
+      "bindings": {
+        "presets": ["vp-panic-3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-dry-and",
@@ -4163,8 +4759,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-reversals.test.ts"],
-      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。"
+      "tests": [
+        "tests/research-volume-reversals.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。",
+      "bindings": {
+        "presets": ["vp-dry-and"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-dry-or",
@@ -4184,8 +4789,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-reversals.test.ts"],
-      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。"
+      "tests": [
+        "tests/research-volume-reversals.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "原文恐慌2至3日拆成独立连续守底预设；巨量用R>=2.5，长下影>=全幅一半、收盘在上半区、收复恐慌最高价、10根等待为工程解释。地量的AND/OR分歧分别保留，温和1.2<=R<1.5之后另根R>=1.5突破冻结10根高点，20根等待。低位采用既有公开价格/均线代理，缺失历史换手与量能污染不补造。候选破底/高位/无效取消，次日开盘与3根冻结低点守卫复用组合引擎；不是完整量价或真实业绩验证。",
+      "bindings": {
+        "presets": ["vp-dry-or"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-obv-high",
@@ -4205,8 +4819,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-obv-high"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-obv-top-exit",
@@ -4226,8 +4849,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-obv-top-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-obv-bottom",
@@ -4247,8 +4879,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-obv-bottom"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-obv-flat",
@@ -4268,8 +4909,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-obv-flat"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-stack-3",
@@ -4289,8 +4939,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-stack-3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-contract-3",
@@ -4310,8 +4969,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-contract-3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-huge-next-exit",
@@ -4331,8 +4999,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-huge-next-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-huge-second-exit",
@@ -4352,8 +5029,17 @@
         "src/lib/research-rules.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-context.test.ts"],
-      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。"
+      "tests": [
+        "tests/research-volume-context.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "OBV断段后只比较连续20根相对高低，不称真实资金流。20根收盘与OBV极值、5根OBV连续、3根递增/递减量、5%区间、5/10根等待是工程参数，枢轴背离另列。天量后二顶须超过候选以来最高价，两根连续放量新高证伪；次根确认独立保留。三个退出预设复用1.5倍突破及冻结位，81/60扩展公司行动覆盖；历史换手及污染未核验。",
+      "bindings": {
+        "presets": ["vp-huge-second-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-interval-3",
@@ -4371,8 +5057,18 @@
         "src/lib/research-volume-context.ts",
         "src/lib/research-rules.ts"
       ],
-      "tests": ["tests/research-volume-sequences.test.ts"],
-      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。"
+      "tests": [
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume-context.test.ts"
+      ],
+      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。",
+      "bindings": {
+        "presets": ["vp-interval-3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-isolated-filter",
@@ -4390,8 +5086,18 @@
         "src/lib/research-volume-context.ts",
         "src/lib/research-rules.ts"
       ],
-      "tests": ["tests/research-volume-sequences.test.ts"],
-      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。"
+      "tests": [
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume-context.test.ts"
+      ],
+      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。",
+      "bindings": {
+        "presets": ["vp-isolated-filter"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-stall-exit",
@@ -4409,8 +5115,18 @@
         "src/lib/research-volume-context.ts",
         "src/lib/research-rules.ts"
       ],
-      "tests": ["tests/research-volume-sequences.test.ts"],
-      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。"
+      "tests": [
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume-context.test.ts"
+      ],
+      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。",
+      "bindings": {
+        "presets": ["vp-stall-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-vp-high-low-volume-exit",
@@ -4429,8 +5145,18 @@
         "src/lib/research-volume-context.ts",
         "src/lib/research-rules.ts"
       ],
-      "tests": ["tests/research-volume-sequences.test.ts"],
-      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。"
+      "tests": [
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume-context.test.ts"
+      ],
+      "boundary": "间隔固定为7根中0/3/6放量、其余缩量并末根突破。孤量过滤只延迟此前3根缩量且当根巨量的基线突破，下一根延续确认，否则取消；消息与分时缺失不冒充已核验。放量滞涨用3根递增量与正涨幅递减。缩量新高比较前20根最高价所在最近记录的成交量，不比较均量。周期/阈值/确认是公开工程参数；沿用81/60证据覆盖和共享执行规则。",
+      "bindings": {
+        "presets": ["vp-high-low-volume-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-amount-basis",
@@ -4674,8 +5400,17 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-failure.test.ts"],
-      "boundary": "已实现vp-failure-1/2/3三个具名预设：信号后1、1至2、1至3根收盘低于冻结前20根突破位证伪；信号当根不计，延迟成交不重启。入场基线为均线上涨位置、涨幅严格大于2%、含当日R至少1.5的首次突破，保留开盘守位、共享退出与持有期。收盘证伪采用原文未指定盘中路径时的明确工程口径；已验证最后允许根、过期、延迟买入、旧买单取消、受阻卖出及多个冻结线。实现完成不代表真实数据回测或有效性通过。"
+      "tests": [
+        "tests/research-volume-failure.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "已实现vp-failure-1/2/3三个具名预设：信号后1、1至2、1至3根收盘低于冻结前20根突破位证伪；信号当根不计，延迟成交不重启。入场基线为均线上涨位置、涨幅严格大于2%、含当日R至少1.5的首次突破，保留开盘守位、共享退出与持有期。收盘证伪采用原文未指定盘中路径时的明确工程口径；已验证最后允许根、过期、延迟买入、旧买单取消、受阻卖出及多个冻结线。实现完成不代表真实数据回测或有效性通过。",
+      "bindings": {
+        "presets": ["vp-failure-1", "vp-failure-2", "vp-failure-3"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "VP-next-larger-bearish",
@@ -4690,8 +5425,21 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-failure.test.ts"],
-      "boundary": "已实现vp-next-bear-exit、vp-next-wick-exit、vp-next-shape-exit三个具名预设及同一价涨量增突破基线：下一根绝对成交量严格大于信号量，阴线按收盘低于开盘；长上影按高点减开收较大者占全幅至少一半，二分之一为工程定义。独立阴线、独立上影及二者OR均有完整交易路径；保留共同冻结位/共享退出，测试相同量不触发、阳线上影、非下跌阴线、时限和边界。实现完成不代表真实数据回测或有效性通过。"
+      "tests": [
+        "tests/research-volume-failure.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "已实现vp-next-bear-exit、vp-next-wick-exit、vp-next-shape-exit三个具名预设及同一价涨量增突破基线：下一根绝对成交量严格大于信号量，阴线按收盘低于开盘；长上影按高点减开收较大者占全幅至少一半，二分之一为工程定义。独立阴线、独立上影及二者OR均有完整交易路径；保留共同冻结位/共享退出，测试相同量不触发、阳线上影、非下跌阴线、时限和边界。实现完成不代表真实数据回测或有效性通过。",
+      "bindings": {
+        "presets": [
+          "vp-next-bear-exit",
+          "vp-next-wick-exit",
+          "vp-next-shape-exit"
+        ],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "VP-high-acceleration-filter",
@@ -4821,9 +5569,23 @@
       ],
       "tests": [
         "tests/research-volume-sequence.test.ts",
-        "tests/research-volume-sequences.test.ts"
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已实现vp-slope-up-3/5、vp-slope-down-3/5最小二乘正/负斜率对照，负斜率需5根窄幅且等待10根放量突破；新增vp-stack-5、vp-contract-5与原三根严格序列具名对照。斜率对等距序号计算，缺失不填充；5%振幅、10根期限为公开工程参数。逐前缀、六新增预设交易、低点失效与最后允许根均验证。历史换手与完整位置归其他方法，本项实现不等于真实回测有效。"
+      "boundary": "已实现vp-slope-up-3/5、vp-slope-down-3/5最小二乘正/负斜率对照，负斜率需5根窄幅且等待10根放量突破；新增vp-stack-5、vp-contract-5与原三根严格序列具名对照。斜率对等距序号计算，缺失不填充；5%振幅、10根期限为公开工程参数。逐前缀、六新增预设交易、低点失效与最后允许根均验证。历史换手与完整位置归其他方法，本项实现不等于真实回测有效。",
+      "bindings": {
+        "presets": [
+          "vp-slope-up-3",
+          "vp-slope-up-5",
+          "vp-slope-down-3",
+          "vp-slope-down-5",
+          "vp-stack-5",
+          "vp-contract-5"
+        ],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "VP-interval-family",
@@ -4845,9 +5607,22 @@
       ],
       "tests": [
         "tests/research-volume-sequence.test.ts",
-        "tests/research-volume-sequences.test.ts"
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已实现gap=1/2/3、count=2/3六种固定节奏：新增vp-pulse-1-2/1-3/2-2/3-2/3-3，gap2/count3复用vp-interval-3。R至少1.5的放量之间每根R小于0.8；末根收盘突破前20根高点才入场。gap和次数由具名预设冻结，不自动优化，原文未给范围故2/3次为工程参数。共享节奏判定，保留旧预设结果与全部对应交易路径；缺失、错误中间量能拒绝。"
+      "boundary": "已实现gap=1/2/3、count=2/3六种固定节奏：新增vp-pulse-1-2/1-3/2-2/3-2/3-3，gap2/count3复用vp-interval-3。R至少1.5的放量之间每根R小于0.8；末根收盘突破前20根高点才入场。gap和次数由具名预设冻结，不自动优化，原文未给范围故2/3次为工程参数。共享节奏判定，保留旧预设结果与全部对应交易路径；缺失、错误中间量能拒绝。",
+      "bindings": {
+        "presets": [
+          "vp-pulse-1-2",
+          "vp-pulse-1-3",
+          "vp-pulse-2-2",
+          "vp-pulse-3-2",
+          "vp-pulse-3-3"
+        ],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "VP-wash-price-volume",
@@ -4979,9 +5754,16 @@
       ],
       "tests": [
         "tests/research-volume-sequence.test.ts",
-        "tests/research-volume-sequences.test.ts"
+        "tests/research-volume-sequences.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已实现vp-center-5/10/20：复用含当日有效量能记录算术均值，连续3个均量值严格上移在均线上涨/价格不下降条件入场，连续3个值严格下移退出。方向三点为明确工程定义，不以VMA5/10交叉冒充中枢移动。每周期均有完整交易、原始均量同源、断档拒绝与公司行动覆盖测试；真实策略收益尚未评估。"
+      "boundary": "已实现vp-center-5/10/20：复用含当日有效量能记录算术均值，连续3个均量值严格上移在均线上涨/价格不下降条件入场，连续3个值严格下移退出。方向三点为明确工程定义，不以VMA5/10交叉冒充中枢移动。每周期均有完整交易、原始均量同源、断档拒绝与公司行动覆盖测试；真实策略收益尚未评估。",
+      "bindings": {
+        "presets": ["vp-center-5", "vp-center-10", "vp-center-20"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "VP-profile-support",
@@ -5272,8 +6054,18 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-structure.test.ts", "tests/vcp.test.ts"],
-      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。"
+      "tests": [
+        "tests/research-volume-structure.test.ts",
+        "tests/vcp.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。",
+      "bindings": {
+        "presets": ["vp-structure-up"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-structure-range-v1",
@@ -5294,8 +6086,18 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-structure.test.ts", "tests/vcp.test.ts"],
-      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。"
+      "tests": [
+        "tests/research-volume-structure.test.ts",
+        "tests/vcp.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。",
+      "bindings": {
+        "presets": ["vp-structure-range"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-retest-1-v1",
@@ -5316,8 +6118,18 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-structure.test.ts", "tests/vcp.test.ts"],
-      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。"
+      "tests": [
+        "tests/research-volume-structure.test.ts",
+        "tests/vcp.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。",
+      "bindings": {
+        "presets": ["vp-retest-1"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-retest-5-v1",
@@ -5338,8 +6150,18 @@
         "src/lib/research-strategies.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-volume-structure.test.ts", "tests/vcp.test.ts"],
-      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。"
+      "tests": [
+        "tests/research-volume-structure.test.ts",
+        "tests/vcp.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "左三右三确认，突破仅用前一根已知结构；最后四点交替，高低点递升并守各自当时MA20，或两次高低触边相差不超1%、振幅不超20%。递升突破用前20有效均量1.5倍，区间/回踩候选用含当日R1.5；回踩1/5根等待、0.5%容差、R至少1且量小于突破日。冻结位3根守卫从入场日起算，保留共享量价退出。参数是工程解释，不替代完整五类位置、涨幅大于2%的价涨定义、次根更大量阴线证伪或信号日起1至3日假突破全部分支。",
+      "bindings": {
+        "presets": ["vp-retest-5"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW01-double-down",
@@ -5353,8 +6175,17 @@
         "src/server/research-rule-series.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-breakout-rules.test.ts"],
-      "boundary": "breakout-down-exit以反向趋势/支撑/前20根量比三要素全通过退出。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。"
+      "tests": [
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "breakout-down-exit以反向趋势/支撑/前20根量比三要素全通过退出。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。",
+      "bindings": {
+        "presets": ["breakout-down-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW01-strength-size",
@@ -5390,8 +6221,17 @@
         "src/server/research-rule-series.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-breakout-rules.test.ts"],
-      "boundary": "breakout-touch-3在三要素入场上要求已确认下降线至少3次触及。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。"
+      "tests": [
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "breakout-touch-3在三要素入场上要求已确认下降线至少3次触及。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。",
+      "bindings": {
+        "presets": ["breakout-touch-3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW01-line-span",
@@ -5405,8 +6245,17 @@
         "src/server/research-rule-series.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-breakout-rules.test.ts"],
-      "boundary": "breakout-span-20在三要素入场上要求最近两锚点间隔至少20根日线，不使用自然日差。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。"
+      "tests": [
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "breakout-span-20在三要素入场上要求最近两锚点间隔至少20根日线，不使用自然日差。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。",
+      "bindings": {
+        "presets": ["breakout-span-20"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW01-line-angle",
@@ -5431,8 +6280,17 @@
         "src/server/research-rule-series.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-breakout-rules.test.ts"],
-      "boundary": "breakout-large-body在三要素入场上要求阳实体/开盘至少3%、实体/全幅至少60%；阴线长实体限定尚未覆盖。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。"
+      "tests": [
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "breakout-large-body在三要素入场上要求阳实体/开盘至少3%、实体/全幅至少60%；阴线长实体限定尚未覆盖。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。",
+      "bindings": {
+        "presets": ["breakout-large-body"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW03-swing-level",
@@ -5533,7 +6391,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-market-regime.test.ts"],
-      "boundary": "§5.1/5.3：大盘价在MA20之上且线向上偏多，反向空仓/减仓；必须使用指定大盘同一时点数据，不能用个股MA20代替。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。 已接入前一交易日MA20方向与价位的强60%/中30%/弱0或30%总仓版本；默认1%中性带明确工程参数。21根连续有效快照基准记录，缺失暂停新买/加仓，交易等待期不重置；与固定及加仓上限取小，已有持仓不强制平仓。每日参考时点、分类、均线和缺失留证，原始信号观察不筛掉。完整空仓、独立交易所日历核验及震荡穿越/其他环境仍待实施。"
+      "boundary": "§5.1/5.3：大盘价在MA20之上且线向上偏多，反向空仓/减仓；必须使用指定大盘同一时点数据，不能用个股MA20代替。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。 已接入前一交易日MA20方向与价位的强60%/中30%/弱0或30%总仓版本；默认1%中性带明确工程参数。21根连续有效快照基准记录，缺失暂停新买/加仓，交易等待期不重置；与固定及加仓上限取小，已有持仓不强制平仓。每日参考时点、分类、均线和缺失留证，原始信号观察不筛掉。完整空仓、独立交易所日历核验及震荡穿越/其他环境仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-market-regime.ts",
+            "name": "researchMarketEnvironment"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-market-chop",
@@ -5550,7 +6418,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-market-chop.test.ts"],
-      "boundary": "§5.2：大盘MA20附近反复穿越空仓等待；次数、窗口、附近范围需公开工程定义，缺指数历史不默认允许。"
+      "boundary": "§5.2：大盘MA20附近反复穿越空仓等待；次数、窗口、附近范围需公开工程定义，缺指数历史不默认允许。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-market-chop.ts",
+            "name": "researchMarketChop"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-market-boll",
@@ -5638,7 +6516,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-swing-exits.test.ts"],
-      "boundary": "日线具名模板：1R/2R各减累计实际买入量三分之一，第一档不抬线；基础对照保持初始止损，前目标版在第二档实际完成后抬至1R。复用整手、分单、费用、T+1和受阻意图；收盘触及/跌破后下一可成交开盘退出。模板保留初始止损/时间退出，关闭其他移动线与结构保本，信号退出和最长持有仍有效。原50/48.5/51.5/53示例已验证，不保证目标价成交或完整波段系统。"
+      "boundary": "日线具名模板：1R/2R各减累计实际买入量三分之一，第一档不抬线；基础对照保持初始止损，前目标版在第二档实际完成后抬至1R。复用整手、分单、费用、T+1和受阻意图；收盘触及/跌破后下一可成交开盘退出。模板保留初始止损/时间退出，关闭其他移动线与结构保本，信号退出和最长持有仍有效。原50/48.5/51.5/53示例已验证，不保证目标价成交或完整波段系统。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-exits.ts",
+            "name": "swingExitTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-prior-target-tail",
@@ -5657,7 +6545,17 @@
         "src/server/research-portfolio.ts"
       ],
       "tests": ["tests/research-swing-exits.test.ts"],
-      "boundary": "日线具名模板：1R/2R各减累计实际买入量三分之一，第一档不抬线；基础对照保持初始止损，前目标版在第二档实际完成后抬至1R。复用整手、分单、费用、T+1和受阻意图；收盘触及/跌破后下一可成交开盘退出。模板保留初始止损/时间退出，关闭其他移动线与结构保本，信号退出和最长持有仍有效。原50/48.5/51.5/53示例已验证，不保证目标价成交或完整波段系统。"
+      "boundary": "日线具名模板：1R/2R各减累计实际买入量三分之一，第一档不抬线；基础对照保持初始止损，前目标版在第二档实际完成后抬至1R。复用整手、分单、费用、T+1和受阻意图；收盘触及/跌破后下一可成交开盘退出。模板保留初始止损/时间退出，关闭其他移动线与结构保本，信号退出和最长持有仍有效。原50/48.5/51.5/53示例已验证，不保证目标价成交或完整波段系统。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-exits.ts",
+            "name": "swingExitTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-reverse-line-exit",
@@ -5674,8 +6572,17 @@
         "src/server/research-rule-series.ts",
         "src/server/research-run.ts"
       ],
-      "tests": ["tests/research-breakout-rules.test.ts"],
-      "boundary": "breakout-reverse-line-exit只要求反向趋势线条件通过，不附加支撑与量能。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "tests": [
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "breakout-reverse-line-exit只要求反向趋势线条件通过，不附加支撑与量能。质量过滤预设采用反向趋势线退出；核心三要素不依赖辅助指标是否可用。沿用现有60根结构、距离排序和前20根均量，不等同于完整来源优先、分级仓位、角度或综合系统。下一可成交开盘执行，卖出受阻保留意图，公司行动覆盖前60根及研究期。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "bindings": {
+        "presets": ["breakout-reverse-line-exit"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06-fixed-stop-2-3",
@@ -5745,7 +6652,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-loss-pause.test.ts"],
-      "boundary": "§7.1：按实际完整闭合交易净损益统计，连续三亏后暂停1/2交易日；分批卖出不能算三笔，明确恢复与同日多单排序，与连亏降仓不同。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "boundary": "§7.1：按实际完整闭合交易净损益统计，连续三亏后暂停1/2交易日；分批卖出不能算三笔，明确恢复与同日多单排序，与连亏降仓不同。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-loss-pause.ts",
+            "name": "researchLossPause"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-min-rr2",
@@ -5822,8 +6739,21 @@
         "src/components/research-strategy-fields.tsx",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-entry-limits.test.ts"],
-      "boundary": "§1：复用含费风险股数，当前研究权益2%预算、30%单股上限。100万元是演示基准，不覆盖用户资金；区别现1%/20%默认及另一来源3%铁律。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。"
+      "tests": [
+        "tests/research-entry-limits.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "§1：复用含费风险股数，当前研究权益2%预算、30%单股上限。100万元是演示基准，不覆盖用户资金；区别现1%/20%默认及另一来源3%铁律。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-stop5",
@@ -5839,8 +6769,21 @@
         "src/components/research-strategy-fields.tsx",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-entry-limits.test.ts"],
-      "boundary": "§1：实际拟成交价与有效止损距离严格超过5%拒绝；跳空时重验，不能缩仓后继续或把止损强截到5%。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。"
+      "tests": [
+        "tests/research-entry-limits.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "§1：实际拟成交价与有效止损距离严格超过5%拒绝；跳空时重验，不能缩仓后继续或把止损强截到5%。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-three-positions",
@@ -5856,8 +6799,21 @@
         "src/components/research-strategy-fields.tsx",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-entry-limits.test.ts"],
-      "boundary": "§2.1：复用maxPositions=3，逐批加仓不重复计股票，部分退出仍占名额；区别默认5只。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。"
+      "tests": [
+        "tests/research-entry-limits.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "§2.1：复用maxPositions=3，逐批加仓不重复计股票，部分退出仍占名额；区别默认5只。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-total60",
@@ -5873,8 +6829,21 @@
         "src/components/research-strategy-fields.tsx",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-entry-limits.test.ts"],
-      "boundary": "§2.1/3.2：首仓及加仓按当前可知权益、市值和费用约束60%，不能只在选了金字塔时生效；复用pyramid.maxTotalWeight边界。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。"
+      "tests": [
+        "tests/research-entry-limits.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "§2.1/3.2：首仓及加仓按当前可知权益、市值和费用约束60%，不能只在选了金字塔时生效；复用pyramid.maxTotalWeight边界。 已接入具名2%风险/30%单股/最多3只/60%总仓/5%距离模板，保留原初始止损与退出设置。新限制可分别启用；距离按含滑点拟成交价至有效初始止损，超过则取消首仓，不截线。总仓用于全部首仓和加仓，与加仓上限取小；首仓已知估值及含费预算保守，存量被动超限不自动减仓。弱市动态上限与完整准入仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-market-cap",
@@ -5892,7 +6861,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-market-regime.test.ts"],
-      "boundary": "§2.2：大盘MA20方向/价位驱动60%/30%，弱市0或30%做具名对照。中性附近震荡定义公开，缺行情不默认强市，新入场限额与主动降仓分开。 已接入前一交易日MA20方向与价位的强60%/中30%/弱0或30%总仓版本；默认1%中性带明确工程参数。21根连续有效快照基准记录，缺失暂停新买/加仓，交易等待期不重置；与固定及加仓上限取小，已有持仓不强制平仓。每日参考时点、分类、均线和缺失留证，原始信号观察不筛掉。完整空仓、独立交易所日历核验及震荡穿越/其他环境仍待实施。"
+      "boundary": "§2.2：大盘MA20方向/价位驱动60%/30%，弱市0或30%做具名对照。中性附近震荡定义公开，缺行情不默认强市，新入场限额与主动降仓分开。 已接入前一交易日MA20方向与价位的强60%/中30%/弱0或30%总仓版本；默认1%中性带明确工程参数。21根连续有效快照基准记录，缺失暂停新买/加仓，交易等待期不重置；与固定及加仓上限取小，已有持仓不强制平仓。每日参考时点、分类、均线和缺失留证，原始信号观察不筛掉。完整空仓、独立交易所日历核验及震荡穿越/其他环境仍待实施。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-market-regime.ts",
+            "name": "researchMarketEnvironment"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-news-exit",
@@ -6213,8 +7192,21 @@
         "src/components/research-management-fields.tsx",
         "src/components/research-strategy-fields.tsx"
       ],
-      "tests": ["tests/research-structure-atr.test.ts"],
-      "boundary": "双突破信号日已有结构支撑减信号日算术ATR缓冲，默认14/0.3，真实距离用于风险股数；缺输入不回退。结构含摆动低点或平台下沿，严格仅摆动低点及超过2ATR禁入组合仍另列，不宣称完整原文或真实收益。"
+      "tests": [
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "双突破信号日已有结构支撑减信号日算术ATR缓冲，默认14/0.3，真实距离用于风险股数；缺输入不回退。结构含摆动低点或平台下沿，严格仅摆动低点及超过2ATR禁入组合仍另列，不宣称完整原文或真实收益。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A3-distance2atr",
@@ -6229,8 +7221,21 @@
         "src/server/research-method.ts",
         "src/components/research-management-fields.tsx"
       ],
-      "tests": ["tests/research-structure-atr.test.ts"],
-      "boundary": "结构ATR定位可选2倍准入，实际买入候选价至缓冲后止损严格超过2倍信号ATR取消，等于允许。事件永久取消不因后续回落复活，不夹紧止损；后续独立信号可评估。沿用双突破摆动/平台支撑，严格纯摆动低点及主动等待回踩版本另列。"
+      "tests": [
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
+      ],
+      "boundary": "结构ATR定位可选2倍准入，实际买入候选价至缓冲后止损严格超过2倍信号ATR取消，等于允许。事件永久取消不因后续回落复活，不夹紧止损；后续独立信号可评估。沿用双突破摆动/平台支撑，严格纯摆动低点及主动等待回踩版本另列。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A4-ema20",
@@ -6383,7 +7388,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-r-management.test.ts"],
-      "boundary": "具名1R纯收盘保本、2R减半抬1R、22周期3ATR窗口吊灯组合；半仓按累计实买量及规则取整，全部目标实际成交后才抬1R并启用尾仓。首仓R冻结，旧结构保本不变，不回溯当日最高价或撤销已有退出；脚本未指定尾仓，采用methods.md的22/3方案。原始定位/时间/最长持有仍独立，跳空费用不保证保本；盘中版本及真实回测继续。"
+      "boundary": "具名1R纯收盘保本、2R减半抬1R、22周期3ATR窗口吊灯组合；半仓按累计实买量及规则取整，全部目标实际成交后才抬1R并启用尾仓。首仓R冻结，旧结构保本不变，不回溯当日最高价或撤销已有退出；脚本未指定尾仓，采用methods.md的22/3方案。原始定位/时间/最长持有仍独立，跳空费用不保证保本；盘中版本及真实回测继续。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-r-management.ts",
+            "name": "researchRManagementTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D5-time10",
@@ -6641,9 +7656,20 @@
       ],
       "tests": [
         "tests/research-stop-input.test.ts",
-        "tests/research-structure-atr.test.ts"
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
       ],
-      "boundary": "显式覆盖绑定证券与信号observedDate，匹配才代替推荐；随成交记录manual-scenario，不证明历史当时已登记。未匹配仍用原定位；非法价格/方向拒绝，独立风险和距离限制不绕过，2ATR门槛仍须有效ATR，不伪造候选。"
+      "boundary": "显式覆盖绑定证券与信号observedDate，匹配才代替推荐；随成交记录manual-scenario，不证明历史当时已登记。未匹配仍用原定位；非法价格/方向拒绝，独立风险和距离限制不绕过，2ATR门槛仍须有效ATR，不伪造候选。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-buffer-auto",
@@ -6663,9 +7689,20 @@
       ],
       "tests": [
         "tests/research-stop-input.test.ts",
-        "tests/research-structure-atr.test.ts"
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
       ],
-      "boundary": "结构缓冲按是否配置ATR周期分支：提供有效信号ATR取结构减倍数，未提供取结构百分比；选择ATR但窗口无效拒绝，不静默回退。默认14周期/0.3ATR/0.5%，结构沿用双突破摆动低点或平台下沿，证据冻结，切换家族清理参数。"
+      "boundary": "结构缓冲按是否配置ATR周期分支：提供有效信号ATR取结构减倍数，未提供取结构百分比；选择ATR但窗口无效拒绝，不静默回退。默认14周期/0.3ATR/0.5%，结构沿用双突破摆动低点或平台下沿，证据冻结，切换家族清理参数。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-slip-report",
@@ -6707,7 +7744,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-r-management.test.ts"],
-      "boundary": "具名1R纯收盘保本、2R减半抬1R、22周期3ATR窗口吊灯组合；半仓按累计实买量及规则取整，全部目标实际成交后才抬1R并启用尾仓。首仓R冻结，旧结构保本不变，不回溯当日最高价或撤销已有退出；脚本未指定尾仓，采用methods.md的22/3方案。原始定位/时间/最长持有仍独立，跳空费用不保证保本；盘中版本及真实回测继续。"
+      "boundary": "具名1R纯收盘保本、2R减半抬1R、22周期3ATR窗口吊灯组合；半仓按累计实买量及规则取整，全部目标实际成交后才抬1R并启用尾仓。首仓R冻结，旧结构保本不变，不回溯当日最高价或撤销已有退出；脚本未指定尾仓，采用methods.md的22/3方案。原始定位/时间/最长持有仍独立，跳空费用不保证保本；盘中版本及真实回测继续。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-r-management.ts",
+            "name": "researchRManagementTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-F-short-script",
@@ -6901,7 +7948,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-exit-presets.test.ts"],
-      "boundary": "具名固定2R/3R整仓退出，收盘确认后下一可成交开盘执行，受部分成交、跳空和交易限制影响；无额外保本或跟随，初始止损、独立退出与最长持有仍有效。"
+      "boundary": "具名固定2R/3R整仓退出，收盘确认后下一可成交开盘执行，受部分成交、跳空和交易限制影响；无额外保本或跟随，初始止损、独立退出与最长持有仍有效。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-trend-exit",
@@ -6918,7 +7975,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-exit-presets.test.ts"],
-      "boundary": "取消固定目标，采用22周期窗口最高价减3ATR的明确工程版本；只升不降、次日生效，保留初始止损、信号退出、独立时间退出及最长持有。"
+      "boundary": "取消固定目标，采用22周期窗口最高价减3ATR的明确工程版本；只升不降、次日生效，保留初始止损、信号退出、独立时间退出及最长持有。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-half-tail",
@@ -6935,7 +8002,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-exit-presets.test.ts"],
-      "boundary": "2R兑现一半，按卖出数量规则取整且目标全部实际成交后启动22周期3ATR跟随；没有附加1R保本或抬1R，缺ATR不伪造尾仓线。独立退出及最长持有仍有效。"
+      "boundary": "2R兑现一半，按卖出数量规则取整且目标全部实际成交后启动22周期3ATR跟随；没有附加1R保本或抬1R，缺ATR不伪造尾仓线。独立退出及最长持有仍有效。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-add-repair",
@@ -6966,7 +8043,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-kelly.test.ts"],
-      "boundary": "分数0.25与0.5保持同p/b和入场作对照，f*非正不入场，分数不超过1；原文理论增长说明不当作任意市场收益保证。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。"
+      "boundary": "分数0.25与0.5保持同p/b和入场作对照，f*非正不入场，分数不超过1；原文理论增长说明不当作任意市场收益保证。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly.ts",
+            "name": "researchKellyLimit"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-p30",
@@ -6987,7 +8074,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-kelly-training.test.ts"],
-      "boundary": "至少30笔同策略同版本训练或此前已闭合记录，冻结统计窗口、截至时点和零收益处理；不可计入未平仓或未来验证结果，胜率估计有明确样本数。 已接入开发期关闭凯利的同入场/退出参考模拟组合：至少30笔在验证开始前完整闭合的净收益，零收益计非胜并单列，重复身份拒绝；验证期独立资金且固定p，保存逐笔样本、截止日及参考规格/数据hash。不是实际凯利组合滚动历史，b与分数仍为人工假设，少样本不回退，其他实测来源与滚动切换继续。"
+      "boundary": "至少30笔同策略同版本训练或此前已闭合记录，冻结统计窗口、截至时点和零收益处理；不可计入未平仓或未来验证结果，胜率估计有明确样本数。 已接入开发期关闭凯利的同入场/退出参考模拟组合：至少30笔在验证开始前完整闭合的净收益，零收益计非胜并单列，重复身份拒绝；验证期独立资金且固定p，保存逐笔样本、截止日及参考规格/数据hash。不是实际凯利组合滚动历史，b与分数仍为人工假设，少样本不回退，其他实测来源与滚动切换继续。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly-training.ts",
+            "name": "researchKellyTraining"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-quality",
@@ -7008,7 +8105,17 @@
         "src/components/research-strategy-fields.tsx"
       ],
       "tests": ["tests/research-kelly.test.ts"],
-      "boundary": "基础双突破原信号五项checks映射3/4/5为假设p0.45/0.50/0.55，未知或不足3禁买；忽略外部声明score/winRate，加仓沿用原信号质量，金额上限按当日权益重算。b和分数人工参数，半凯利b2的4/5例可独立运行；未实现30笔自动切换及其他家族质量，不代表真实概率或历史业绩。"
+      "boundary": "基础双突破原信号五项checks映射3/4/5为假设p0.45/0.50/0.55，未知或不足3禁买；忽略外部声明score/winRate，加仓沿用原信号质量，金额上限按当日权益重算。b和分数人工参数，半凯利b2的4/5例可独立运行；未实现30笔自动切换及其他家族质量，不代表真实概率或历史业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly-quality.ts",
+            "name": "researchKellyQuality"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-switch30",
@@ -7030,7 +8137,17 @@
         "src/components/research-strategy-fields.tsx"
       ],
       "tests": ["tests/research-kelly-switch.test.ts"],
-      "boundary": "基础双突破本分区实际模拟成交逐日累计，买入日前至少30笔完整闭合净交易采用实测p和半凯利，否则原入场质量代理和四分之一；零收益非胜，同日退出次日起计入，重复身份拒绝，b人工固定。首仓/加仓当日均重算并记录截止日、样本计数、p和分数；开发验证独立，不使用未来或参考组合。其他家族质量、参数不稳定诊断及真实历史回测继续。"
+      "boundary": "基础双突破本分区实际模拟成交逐日累计，买入日前至少30笔完整闭合净交易采用实测p和半凯利，否则原入场质量代理和四分之一；零收益非胜，同日退出次日起计入，重复身份拒绝，b人工固定。首仓/加仓当日均重算并记录截止日、样本计数、p和分数；开发验证独立，不使用未来或参考组合。其他家族质量、参数不稳定诊断及真实历史回测继续。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly-switch.ts",
+            "name": "researchKellySwitch"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-uncertain",
@@ -7096,9 +8213,20 @@
       ],
       "tests": [
         "tests/research-nearest-stop.test.ts",
-        "tests/research-structure-atr.test.ts"
+        "tests/research-structure-atr.test.ts",
+        "tests/research-management.test.ts"
       ],
-      "boundary": "同一收盘或连续两根收盘确认的三方案做多工程版本：百分比、ATR及结构缓冲三项合法候选取最高价格，冻结来源并保留成交候选，实际距离参与含费股数。结构沿用双突破摆动低点/平台下沿；不同盘中/收盘触发条件混合仍待实现，不能由价格比较替代实际事件。与最大距离版本独立，显式覆盖优先。"
+      "boundary": "同一收盘或连续两根收盘确认的三方案做多工程版本：百分比、ATR及结构缓冲三项合法候选取最高价格，冻结来源并保留成交候选，实际距离参与含费股数。结构沿用双突破摆动低点/平台下沿；不同盘中/收盘触发条件混合仍待实现，不能由价格比较替代实际事件。与最大距离版本独立，显式覆盖优先。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-management.ts",
+            "name": "researchStopOverride"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-breakout-upper",
@@ -7117,7 +8245,17 @@
         "src/components/research-strategy-fields.tsx"
       ],
       "tests": ["tests/research-breakout-stops.test.ts"],
-      "boundary": "使用突破前已知平台上沿，不是平台下沿；下方缓冲原文未定，预登记参数并保留原始边界。突破后未来形成的平台不得回填。 已接入基础双突破工程版本，原始价和确认日冻结；低点默认无缓冲，上沿默认0.5%工程缓冲。平台复用已有10根定义，仅取本次从下方突破且此前确认的上沿，最近确认优先，同日较高优先，缺证据拒绝，实际入场距离参与风险仓位。"
+      "boundary": "使用突破前已知平台上沿，不是平台下沿；下方缓冲原文未定，预登记参数并保留原始边界。突破后未来形成的平台不得回填。 已接入基础双突破工程版本，原始价和确认日冻结；低点默认无缓冲，上沿默认0.5%工程缓冲。平台复用已有10根定义，仅取本次从下方突破且此前确认的上沿，最近确认优先，同日较高优先，缺证据拒绝，实际入场距离参与风险仓位。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-breakout-stops.ts",
+            "name": "researchBreakoutStopLocation"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-breakout-candle",
@@ -7136,7 +8274,17 @@
         "src/components/research-strategy-fields.tsx"
       ],
       "tests": ["tests/research-breakout-stops.test.ts"],
-      "boundary": "冻结信号突破K线低点；日线完整低点仅收盘后可知，不能用于该日较早入场。与摆动低点、平台上沿分别对照，非法方向按实际成交价拒绝。 已接入基础双突破工程版本，原始价和确认日冻结；低点默认无缓冲，上沿默认0.5%工程缓冲。平台复用已有10根定义，仅取本次从下方突破且此前确认的上沿，最近确认优先，同日较高优先，缺证据拒绝，实际入场距离参与风险仓位。"
+      "boundary": "冻结信号突破K线低点；日线完整低点仅收盘后可知，不能用于该日较早入场。与摆动低点、平台上沿分别对照，非法方向按实际成交价拒绝。 已接入基础双突破工程版本，原始价和确认日冻结；低点默认无缓冲，上沿默认0.5%工程缓冲。平台复用已有10根定义，仅取本次从下方突破且此前确认的上沿，最近确认优先，同日较高优先，缺证据拒绝，实际入场距离参与风险仓位。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-breakout-stops.ts",
+            "name": "researchBreakoutStopLocation"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-intraday-time",
@@ -7494,7 +8642,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-kelly.test.ts"],
-      "boundary": "显式p优先于profile质量标签，数字quality也可作p；必须标明人工假设或历史实测及截至时间，严格有限0<p<1，不将输入假设当真实胜率。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。"
+      "boundary": "显式p优先于profile质量标签，数字quality也可作p；必须标明人工假设或历史实测及截至时间，严格有限0<p<1，不将输入假设当真实胜率。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly.ts",
+            "name": "researchKellyLimit"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-realized-b",
@@ -7515,7 +8673,17 @@
         "tests/research-kelly-payoff.test.ts",
         "tests/research-kelly-training.test.ts"
       ],
-      "boundary": "开发期关闭凯利的同配置参考组合至少30笔完整闭合交易，p为盈利笔数/全部笔数；b为净盈利金额均值/净亏损绝对值均值，零收益计非胜但不进入b均值。验证期固定参数且独立起算资金，缺任一侧或数值无效不买入、不回退人工值。金额比受参考仓位影响，不等于目标距离或收益率均值比；非滚动实际凯利持仓历史，真实数据回测仍待完成。"
+      "boundary": "开发期关闭凯利的同配置参考组合至少30笔完整闭合交易，p为盈利笔数/全部笔数；b为净盈利金额均值/净亏损绝对值均值，零收益计非胜但不进入b均值。验证期固定参数且独立起算资金，缺任一侧或数值无效不买入、不回退人工值。金额比受参考仓位影响，不等于目标距离或收益率均值比；非滚动实际凯利持仓历史，真实数据回测仍待完成。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly-payoff.ts",
+            "name": "researchKellyNetPayoff"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-fraction",
@@ -7532,7 +8700,17 @@
         "src/components/research-management-fields.tsx"
       ],
       "tests": ["tests/research-kelly.test.ts"],
-      "boundary": "脚本允许0<fraction<=1，默认0.5；半/四分之一之外保留分数参数及1倍对照，实际仓位仍取风险和市值上限最小值，不把全凯利当无条件最优。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。"
+      "boundary": "脚本允许0<fraction<=1，默认0.5；半/四分之一之外保留分数参数及1倍对照，实际仓位仍取风险和市值上限最小值，不把全凯利当无条件最优。 已接入全区间固定人工p/b分数实验，标记manual-scenario；首仓/加仓总市值上限与原含费风险、仓位和容量同时约束，非正/无效禁买不阻卖。0.25/0.5/1可独立运行，逐次记录权益、预算、金额上限、已有股数及成交股数；实测/质量参数源、切换和完整约束归因仍独立验收。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-kelly.ts",
+            "name": "researchKellyLimit"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-kelly-market-gate",
@@ -7649,7 +8827,17 @@
         "tests/research-canslim-management.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "已接入canslim-8-fixed及两种阶梯退出预设；实际首仓价8%定位，收盘确认后下一可成交开盘，跳空按实际价格。7至8%未另造连续择优；不代表完整CANSLIM。"
+      "boundary": "已接入canslim-8-fixed及两种阶梯退出预设；实际首仓价8%定位，收盘确认后下一可成交开盘，跳空按实际价格。7至8%未另造连续择优；不代表完整CANSLIM。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-R-pivot-max",
@@ -7680,7 +8868,17 @@
         "tests/research-canslim-management.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "已接入canslim-20-25-cost，固定8%初始风险，15%收盘保本、20%卖原仓一半并在实际完成后抬成本，25%清余仓；目标对应1.875/2.5/3.125R。保留§4.1与§4.2的独立版本，非盘中即时成交。"
+      "boundary": "已接入canslim-20-25-cost，固定8%初始风险，15%收盘保本、20%卖原仓一半并在实际完成后抬成本，25%清余仓；目标对应1.875/2.5/3.125R。保留§4.1与§4.2的独立版本，非盘中即时成交。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-D-target-plus10",
@@ -7703,7 +8901,17 @@
         "tests/research-canslim-management.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "已接入canslim-20-25-profit10，15%收盘保本，20%卖原仓一半，完成首档后抬首仓价10%，25%清余仓；部分成交和受阻不提前抬线。固定8%初始风险；信号与最长持有仍有效。"
+      "boundary": "已接入canslim-20-25-profit10，15%收盘保本，20%卖原仓一半，完成首档后抬首仓价10%，25%清余仓；部分成交和受阻不提前抬线。固定8%初始风险；信号与最长持有仍有效。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-D-be15",
@@ -7726,7 +8934,17 @@
         "tests/research-canslim-management.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "两种CANSLIM阶梯退出均按收盘盈利至少15%抬首仓成交价，次日生效；以固定8%初始风险的1.875R表达。保本指价格成本，不保证含费净收益为零；固定8%纯止损版不附加保本。"
+      "boundary": "两种CANSLIM阶梯退出均按收盘盈利至少15%抬首仓成交价，次日生效；以固定8%初始风险的1.875R表达。保本指价格成本，不保证含费净收益为零；固定8%纯止损版不附加保本。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-D-volume-sell",
@@ -7770,9 +8988,16 @@
       "tests": [
         "tests/research-canslim-weekly.test.ts",
         "tests/research-scale-out.test.ts",
-        "tests/research-pyramid.test.ts"
+        "tests/research-pyramid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已接canslim-priority-weekly10-half：完整周线从不低于各自10周均线到严格低于时，冻结当时剩余仓位50%次可成交开盘卖出，持续线下不重卖，恢复再跌破可再减半。周五收盘完成，节假日短周延至下一周首条行情确认；完整研究日历缺价/零量周及首个不完整周不可用，均线包含当周。受阻和部分成交保留目标，已有全仓退出优先、已有部分卖出不叠加；不强行清不足最小卖出量尾仓，保存每周检查/缺失/下单证据。页面切换最长持有60日，入场与公司行动证明复用严格优先级；时点及重复处理是工程版本。"
+      "boundary": "已接canslim-priority-weekly10-half：完整周线从不低于各自10周均线到严格低于时，冻结当时剩余仓位50%次可成交开盘卖出，持续线下不重卖，恢复再跌破可再减半。周五收盘完成，节假日短周延至下一周首条行情确认；完整研究日历缺价/零量周及首个不完整周不可用，均线包含当周。受阻和部分成交保留目标，已有全仓退出优先、已有部分卖出不叠加；不强行清不足最小卖出量尾仓，保存每周检查/缺失/下单证据。页面切换最长持有60日，入场与公司行动证明复用严格优先级；时点及重复处理是工程版本。",
+      "bindings": {
+        "presets": ["canslim-priority-weekly10-half"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-D-time4",
@@ -7797,7 +9022,17 @@
         "tests/research-progress-exit.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "已接canslim-time4-calendar/trading20：实际首仓成交后自然28天、含入场日第20研究交易日独立时钟，到期首个有效收盘检查一次，涨幅严格不足5%次可成交开盘清仓；5%等号通过，通过后不每日重测。缺价/零量顺延，保留原到期日与检查日。两预设附固定8%止损且应用重置其他管理，页面切换时最长持有期至少60日；提前退出无四周结论。时钟、一次检查及缺失顺延为工程定义，不混为旧R时间退出或SEPA不足10%。"
+      "boundary": "已接canslim-time4-calendar/trading20：实际首仓成交后自然28天、含入场日第20研究交易日独立时钟，到期首个有效收盘检查一次，涨幅严格不足5%次可成交开盘清仓；5%等号通过，通过后不每日重测。缺价/零量顺延，保留原到期日与检查日。两预设附固定8%止损且应用重置其他管理，页面切换时最长持有期至少60日；提前退出无四周结论。时钟、一次检查及缺失顺延为工程定义，不混为旧R时间退出或SEPA不足10%。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-progress-exit.ts",
+            "name": "researchProgressCheck"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-P-risk1525",
@@ -7820,7 +9055,17 @@
         "tests/research-canslim-management.test.ts",
         "tests/research-exit-presets.test.ts"
       ],
-      "boundary": "CANSLIM风险模板设置权益1.5%风险及单股25%市值上限并应用8%固定止损；取较小仓位，复用费用、整手与资金约束。100万/8%理论18.75万，102元实例1800股。不是总仓25%或完整确认度/凯利策略；应用会重置其他组合风控。"
+      "boundary": "CANSLIM风险模板设置权益1.5%风险及单股25%市值上限并应用8%固定止损；取较小仓位，复用费用、整手与资金约束。100万/8%理论18.75万，102元实例1800股。不是总仓25%或完整确认度/凯利策略；应用会重置其他组合风控。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "isCanslimProgressPreset"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-P-full",
@@ -7894,8 +9139,20 @@
         "src/server/research-rule-series.ts",
         "src/server/research-portfolio.ts"
       ],
-      "tests": ["tests/research-canslim-bear.test.ts"],
-      "boundary": "已接入canslim-priority-bear4-previous/ma20两个工程对照。严格收盘较前研究交易日跌超4%，放量分别为大于前一日或至少此前20研究交易日均量1.5倍；均量不含当日，窗口缺日/零量拒绝，4%等号不触发。收盘确认后下一可成交开盘清仓，保留受阻/T+1/旧买入取消及证据。原文未定义量能比较，不要求阴线实体或破枢纽；不是异常减半、完整CANSLIM或盘中执行。"
+      "tests": [
+        "tests/research-canslim-bear.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "已接入canslim-priority-bear4-previous/ma20两个工程对照。严格收盘较前研究交易日跌超4%，放量分别为大于前一日或至少此前20研究交易日均量1.5倍；均量不含当日，窗口缺日/零量拒绝，4%等号不触发。收盘确认后下一可成交开盘清仓，保留受阻/T+1/旧买入取消及证据。原文未定义量能比较，不要求阴线实体或破枢纽；不是异常减半、完整CANSLIM或盘中执行。",
+      "bindings": {
+        "presets": [
+          "canslim-priority-bear4-previous",
+          "canslim-priority-bear4-ma20"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-earnings5",
@@ -7997,9 +9254,16 @@
       ],
       "tests": [
         "tests/research-canslim-cup.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§1：圆底2至4周盘整计3分；杯深12至33%、杯35至325交易日、柄至少5日等共同验证。现有底部20%区域连续10条为工程定义，不等于完整2至4周范围。 已接独立U/W直接与最低价三日维持预设；完整历史前缀保留杯35至325、柄至少5且不新加上限，按分数/杯周期/柄长度/枢纽降序选择。选中左杯沿前3条记录为historyStart，逐事件核验无公司行动证明；后续更早窗口不撤销已有成交。1%/5%收盘及前20均量1.5倍准入、次日含滑点价枢纽至105%范围。完整因子、原文退出和评分宽松分支继续。"
+      "boundary": "§1：圆底2至4周盘整计3分；杯深12至33%、杯35至325交易日、柄至少5日等共同验证。现有底部20%区域连续10条为工程定义，不等于完整2至4周范围。 已接独立U/W直接与最低价三日维持预设；完整历史前缀保留杯35至325、柄至少5且不新加上限，按分数/杯周期/柄长度/枢纽降序选择。选中左杯沿前3条记录为historyStart，逐事件核验无公司行动证明；后续更早窗口不撤销已有成交。1%/5%收盘及前20均量1.5倍准入、次日含滑点价枢纽至105%范围。完整因子、原文退出和评分宽松分支继续。",
+      "bindings": {
+        "presets": ["canslim-cup-u", "canslim-cup-u-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-cup-w",
@@ -8021,9 +9285,16 @@
       ],
       "tests": [
         "tests/research-canslim-cup.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§1评分W计2分；双低点与反弹几何须显式定义且等待右侧确认。复用bottomShape相隔至少5条及30%深度反弹适配，不冒充原文给出该阈值。 已接独立U/W直接与最低价三日维持预设；完整历史前缀保留杯35至325、柄至少5且不新加上限，按分数/杯周期/柄长度/枢纽降序选择。选中左杯沿前3条记录为historyStart，逐事件核验无公司行动证明；后续更早窗口不撤销已有成交。1%/5%收盘及前20均量1.5倍准入、次日含滑点价枢纽至105%范围。完整因子、原文退出和评分宽松分支继续。"
+      "boundary": "§1评分W计2分；双低点与反弹几何须显式定义且等待右侧确认。复用bottomShape相隔至少5条及30%深度反弹适配，不冒充原文给出该阈值。 已接独立U/W直接与最低价三日维持预设；完整历史前缀保留杯35至325、柄至少5且不新加上限，按分数/杯周期/柄长度/枢纽降序选择。选中左杯沿前3条记录为historyStart，逐事件核验无公司行动证明；后续更早窗口不撤销已有成交。1%/5%收盘及前20均量1.5倍准入、次日含滑点价枢纽至105%范围。完整因子、原文退出和评分宽松分支继续。",
+      "bindings": {
+        "presets": ["canslim-cup-w", "canslim-cup-w-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-cup-v",
@@ -8044,9 +9315,16 @@
       "tests": [
         "tests/research-canslim-cup.test.ts",
         "tests/canslim-cup.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "源§1评分V形1分并非一律禁止。已接V形评分对照直接突破和三日最低价维持；共用canslimCup显式v-score资格分支，只允许V进入，仍保留上半部、三分之一柄深、缩量、量比与至少6分。原报告默认strict及U/W研究结果保持。固定V形总分8可入，深柄虽7分仍拒绝；宽松深柄和完整CANSLIM继续。historyStart逐事件证明、成交价格范围和未来隔离同杯柄路径。"
+      "boundary": "源§1评分V形1分并非一律禁止。已接V形评分对照直接突破和三日最低价维持；共用canslimCup显式v-score资格分支，只允许V进入，仍保留上半部、三分之一柄深、缩量、量比与至少6分。原报告默认strict及U/W研究结果保持。固定V形总分8可入，深柄虽7分仍拒绝；宽松深柄和完整CANSLIM继续。historyStart逐事件证明、成交价格范围和未来隔离同杯柄路径。",
+      "bindings": {
+        "presets": ["canslim-cup-v-score", "canslim-cup-v-score-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-handle-third",
@@ -8081,9 +9359,23 @@
       "tests": [
         "tests/research-canslim-cup.test.ts",
         "tests/canslim-cup.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "源§1.3柄质量1分：回调不超杯深二分之一且量能平稳，与硬条件三分之一不同。已接U/W/V各直接/三日维持共六预设，仅选柄质量恰为1分；浅柄且缩量先计2分，不混入。平稳为后半均量在前半90%至110%含边界的工程定义。仍保留上半部、柄量低于杯量80%、总分至少6及突破执行/逐事件证明；原strict与v-score行为保持。平稳的其他量化口径与完整组合仍待对照。"
+      "boundary": "源§1.3柄质量1分：回调不超杯深二分之一且量能平稳，与硬条件三分之一不同。已接U/W/V各直接/三日维持共六预设，仅选柄质量恰为1分；浅柄且缩量先计2分，不混入。平稳为后半均量在前半90%至110%含边界的工程定义。仍保留上半部、柄量低于杯量80%、总分至少6及突破执行/逐事件证明；原strict与v-score行为保持。平稳的其他量化口径与完整组合仍待对照。",
+      "bindings": {
+        "presets": [
+          "canslim-cup-u-half-handle",
+          "canslim-cup-u-half-handle-hold3",
+          "canslim-cup-w-half-handle",
+          "canslim-cup-w-half-handle-hold3",
+          "canslim-cup-v-half-handle",
+          "canslim-cup-v-half-handle-hold3"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-cup-score6",
@@ -8103,9 +9395,16 @@
       ],
       "tests": [
         "tests/research-canslim-cup.test.ts",
-        "tests/canslim-cup.test.ts"
+        "tests/canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§1.5综合表工程对照：五项3/2/2/2/1合计至少6，柄分按深度计2/1/0，不附§1.3缩量/平稳门槛；形状、柄或量能0分不独立否决。独立score-total版本及直接/三日维持两预设，记录scoreComponents和hardChecks。保留杯35–325条、深12–33%、杯沿±5%、柄至少5条且上半部等基础几何；不是撤销全部几何限制。60/80量比严格小于，原strict/v-score/half-handle输出保持。披露期等完整因子与真实回测尚未完成。"
+      "boundary": "§1.5综合表工程对照：五项3/2/2/2/1合计至少6，柄分按深度计2/1/0，不附§1.3缩量/平稳门槛；形状、柄或量能0分不独立否决。独立score-total版本及直接/三日维持两预设，记录scoreComponents和hardChecks。保留杯35–325条、深12–33%、杯沿±5%、柄至少5条且上半部等基础几何；不是撤销全部几何限制。60/80量比严格小于，原strict/v-score/half-handle输出保持。披露期等完整因子与真实回测尚未完成。",
+      "bindings": {
+        "presets": ["canslim-cup-total-score", "canslim-cup-total-score-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-rim",
@@ -8119,8 +9418,22 @@
         "src/lib/research-canslim-strategies.ts",
         "src/server/research-rule-series.ts"
       ],
-      "tests": ["tests/research-canslim-cup.test.ts"],
-      "boundary": "§1.2：U/W严格柄各接直接/三日维持的右沿不高预设，右杯沿最高价在左沿95%至100%含边界，过滤后再按原候选顺序选择。原上下5%对称版与原诊断默认保持，记录独立ID/版本和rimRule。其他几何工程定义、逐事件公司行动及成交范围复用，评分柄与完整成长股组合另列；真实历史回测尚未完成。"
+      "tests": [
+        "tests/research-canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "§1.2：U/W严格柄各接直接/三日维持的右沿不高预设，右杯沿最高价在左沿95%至100%含边界，过滤后再按原候选顺序选择。原上下5%对称版与原诊断默认保持，记录独立ID/版本和rimRule。其他几何工程定义、逐事件公司行动及成交范围复用，评分柄与完整成长股组合另列；真实历史回测尚未完成。",
+      "bindings": {
+        "presets": [
+          "canslim-cup-u-right-not-higher",
+          "canslim-cup-u-right-not-higher-hold3",
+          "canslim-cup-w-right-not-higher",
+          "canslim-cup-w-right-not-higher-hold3"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-flat-score6",
@@ -8139,9 +9452,16 @@
       ],
       "tests": [
         "tests/research-canslim-flat.test.ts",
-        "tests/canslim-flat-base.test.ts"
+        "tests/canslim-flat-base.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§2：至少15日、振幅不超15%、近前高15%、缩量；20日/10%/量50与70%/位置10与15%分档。当前15至30日窗口及前20日参照是工程上限，原文无30日上限；上限与持续萎缩算法显式参数。 已接入canslim-flat-price-volume固定持有期纯价量工程版本：逐前缀51根、最高分再最长周期再最高枢纽排序、收盘首次越过1%且不超5%并放量，实际含滑点买价须在枢纽至105%内。公司行动证明覆盖前50根；完整财务/RS/M/催化/三日维持及原文退出未完成。"
+      "boundary": "§2：至少15日、振幅不超15%、近前高15%、缩量；20日/10%/量50与70%/位置10与15%分档。当前15至30日窗口及前20日参照是工程上限，原文无30日上限；上限与持续萎缩算法显式参数。 已接入canslim-flat-price-volume固定持有期纯价量工程版本：逐前缀51根、最高分再最长周期再最高枢纽排序、收盘首次越过1%且不超5%并放量，实际含滑点买价须在枢纽至105%内。公司行动证明覆盖前50根；完整财务/RS/M/催化/三日维持及原文退出未完成。",
+      "bindings": {
+        "presets": ["canslim-flat-price-volume", "canslim-flat-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-saucer-u",
@@ -8159,9 +9479,16 @@
       ],
       "tests": [
         "tests/research-canslim-saucer.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§3：深度不超15%、至少25日、圆底缩量；深度3/周期2/形状2/量3，30日与10%边界高档，底量40%/60%严格小于。现有25至120日窗口并非原文完整范围。 已接独立U/W直接突破及最低价三日维持预设，收盘首次越枢纽1%且不超5%、量前20均量1.5倍，次日含滑点成交在枢纽至105%内。25至120日为工程范围，前140/143条无公司行动覆盖；完整因子、原文退出与更长形态仍待。"
+      "boundary": "§3：深度不超15%、至少25日、圆底缩量；深度3/周期2/形状2/量3，30日与10%边界高档，底量40%/60%严格小于。现有25至120日窗口并非原文完整范围。 已接独立U/W直接突破及最低价三日维持预设，收盘首次越枢纽1%且不超5%、量前20均量1.5倍，次日含滑点成交在枢纽至105%内。25至120日为工程范围，前140/143条无公司行动覆盖；完整因子、原文退出与更长形态仍待。",
+      "bindings": {
+        "presets": ["canslim-saucer-u", "canslim-saucer-u-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-saucer-w",
@@ -8179,9 +9506,16 @@
       ],
       "tests": [
         "tests/research-canslim-saucer.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§3.3给W形1分，虽定义强调圆弧仍保留该评分版本；沿用有确认时间的双低点，尖V不冒充W或圆底。 已接独立U/W直接突破及最低价三日维持预设，收盘首次越枢纽1%且不超5%、量前20均量1.5倍，次日含滑点成交在枢纽至105%内。25至120日为工程范围，前140/143条无公司行动覆盖；完整因子、原文退出与更长形态仍待。"
+      "boundary": "§3.3给W形1分，虽定义强调圆弧仍保留该评分版本；沿用有确认时间的双低点，尖V不冒充W或圆底。 已接独立U/W直接突破及最低价三日维持预设，收盘首次越枢纽1%且不超5%、量前20均量1.5倍，次日含滑点成交在枢纽至105%内。25至120日为工程范围，前140/143条无公司行动覆盖；完整因子、原文退出与更长形态仍待。",
+      "bindings": {
+        "presets": ["canslim-saucer-w", "canslim-saucer-w-hold3"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-priority",
@@ -8198,9 +9532,21 @@
       "tests": [
         "tests/research-canslim-priority.test.ts",
         "tests/research-canslim-priority-run.test.ts",
-        "tests/research-canslim-cup.test.ts"
+        "tests/research-canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§4工程版：严格U/W杯柄及评分柄U/W/V两分浅柄缩量+一分平稳柄分别直接/三日维持，共四预设。杯柄优先，其次平台、碟形；先按分数、周期、柄长度、枢纽降序择形，再确认价格/量能，不因高优先级尚未突破而降级。评分柄仍保留上半部、柄量比、总分至少6等门槛，不等于只看总分。完整输入前缀用于证明更优先形态不存在，逐事件无公司行动证明覆盖该前缀及研究期。完整CANSLIM与真实历史回测尚未完成。"
+      "boundary": "§4工程版：严格U/W杯柄及评分柄U/W/V两分浅柄缩量+一分平稳柄分别直接/三日维持，共四预设。杯柄优先，其次平台、碟形；先按分数、周期、柄长度、枢纽降序择形，再确认价格/量能，不因高优先级尚未突破而降级。评分柄仍保留上半部、柄量比、总分至少6等门槛，不等于只看总分。完整输入前缀用于证明更优先形态不存在，逐事件无公司行动证明覆盖该前缀及研究期。完整CANSLIM与真实历史回测尚未完成。",
+      "bindings": {
+        "presets": [
+          "canslim-priority",
+          "canslim-priority-hold3",
+          "canslim-priority-scored-handles",
+          "canslim-priority-scored-handles-hold3"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-hold3",
@@ -8223,7 +9569,17 @@
         "tests/research-canslim-saucer.test.ts",
         "tests/research-canslim-cup.test.ts"
       ],
-      "boundary": "技术形态源§1.4：突破后连续3个交易日不跌破枢纽才确认。已接平台、U/W碟形和U/W/V杯柄的最低价工程版：逐研究日历校验有效日线，第三日收盘仍不超105%，次日起成交，不回填突破日。平台前53根、碟形前143根无公司行动覆盖；杯柄冻结原候选左杯沿前3条historyStart并逐事件核验。候选枢纽及突破/确认时点保留。仅收盘维持对照、独立交易所日历核验及完整CANSLIM组合仍待。 柄1分U/W/V对照亦沿同一最低价确认路径，未重复计方法完成数。"
+      "boundary": "技术形态源§1.4：突破后连续3个交易日不跌破枢纽才确认。已接平台、U/W碟形和U/W/V杯柄的最低价工程版：逐研究日历校验有效日线，第三日收盘仍不超105%，次日起成交，不回填突破日。平台前53根、碟形前143根无公司行动覆盖；杯柄冻结原候选左杯沿前3条historyStart并逐事件核验。候选枢纽及突破/确认时点保留。仅收盘维持对照、独立交易所日历核验及完整CANSLIM组合仍待。 柄1分U/W/V对照亦沿同一最低价确认路径，未重复计方法完成数。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-canslim-hold.ts",
+            "name": "researchCanslimHold"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-fail3",
@@ -8240,9 +9596,19 @@
       ],
       "tests": [
         "tests/research-canslim-failure.test.ts",
-        "tests/research-breakout-rules.test.ts"
+        "tests/research-breakout-rules.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "§5严格优先级直接突破基线，最低价/收盘严格跌破枢纽两个具名预设。窗口为原突破后第1至3个研究日历日，缺日或延迟入场不顺延；日线完成确认，下一可成交开盘执行，T+1和受阻卖出意图保持。按原突破日期绑定退出与未成交意图取消，不后验删除已成交，不误伤其他突破。缺有效行情不造触发，日线无法模拟盘中即时止损；完整CANSLIM与真实回测仍待。"
+      "boundary": "§5严格优先级直接突破基线，最低价/收盘严格跌破枢纽两个具名预设。窗口为原突破后第1至3个研究日历日，缺日或延迟入场不顺延；日线完成确认，下一可成交开盘执行，T+1和受阻卖出意图保持。按原突破日期绑定退出与未成交意图取消，不后验删除已成交，不误伤其他突破。缺有效行情不造触发，日线无法模拟盘中即时止损；完整CANSLIM与真实回测仍待。",
+      "bindings": {
+        "presets": [
+          "canslim-priority-fail3-low",
+          "canslim-priority-fail3-close"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-volume-wait",
@@ -8256,8 +9622,20 @@
         "src/server/research-rule-series.ts",
         "src/lib/research-canslim-strategies.ts"
       ],
-      "tests": ["tests/research-canslim-volume-wait.test.ts"],
-      "boundary": "§5原日量严格小于前20均量才启动等待，1至1.5倍不归低量样本。严格形态优先级首次价格突破，冻结候选/枢纽/历史起点，3/5研究日历日两个明确工程期限；后续量至少前20均量1.5倍且收盘越原枢纽1%不超5%确认。收盘破枢纽、超105%、缺日或无效行情取消，末日可确认否则过期；期限和取消口径原文未量化，按工程版保存。次日起成交、公司行动证明和固定持有复用，不回填原突破日；完整CANSLIM及真实回测仍待。"
+      "tests": [
+        "tests/research-canslim-volume-wait.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "§5原日量严格小于前20均量才启动等待，1至1.5倍不归低量样本。严格形态优先级首次价格突破，冻结候选/枢纽/历史起点，3/5研究日历日两个明确工程期限；后续量至少前20均量1.5倍且收盘越原枢纽1%不超5%确认。收盘破枢纽、超105%、缺日或无效行情取消，末日可确认否则过期；期限和取消口径原文未量化，按工程版保存。次日起成交、公司行动证明和固定持有复用，不回填原突破日；完整CANSLIM及真实回测仍待。",
+      "bindings": {
+        "presets": [
+          "canslim-priority-volume-wait3",
+          "canslim-priority-volume-wait5"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-sector",
@@ -8604,9 +9982,16 @@
       ],
       "tests": [
         "tests/research-canslim-high.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "N2至少3分独立价格预设；364自然日含当前最高价，前后可计算观察上穿，固定持有及可选风控；高点滚动下降可触发。"
+      "boundary": "N2至少3分独立价格预设；364自然日含当前最高价，前后可计算观察上穿，固定持有及可选风控；高点滚动下降可触发。",
+      "bindings": {
+        "presets": ["canslim-high-90"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N2-95",
@@ -8623,9 +10008,16 @@
       ],
       "tests": [
         "tests/research-canslim-high.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "N2至少6分独立价格预设；保留等号，不从缺失评分产生买点，不附加放量或平台105%限制。"
+      "boundary": "N2至少6分独立价格预设；保留等号，不从缺失评分产生买点，不附加放量或平台105%限制。",
+      "bindings": {
+        "presets": ["canslim-high-95"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N2-100",
@@ -8642,9 +10034,16 @@
       ],
       "tests": [
         "tests/research-canslim-high.test.ts",
-        "tests/research-method.test.ts"
+        "tests/research-method.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "N2达到9分独立预设；含当前最高价故收盘必须达到窗口最高价，量加分已封顶不额外门控；不是枢纽首次突破1%。"
+      "boundary": "N2达到9分独立预设；含当前最高价故收盘必须达到窗口最高价，量加分已封顶不额外门控；不是枢纽首次突破1%。",
+      "bindings": {
+        "presets": ["canslim-high-100"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-S1-limitup",
@@ -8878,8 +10277,17 @@
         "src/lib/research-canslim-strategies.ts",
         "src/server/research-canslim-high.ts"
       ],
-      "tests": ["tests/research-canslim-high.test.ts"],
-      "boundary": "已接canslim-high-98：入口98%二值0/9分，前后有效完整窗口从不满足到满足才产生事件。364自然日左开右闭含当前最高价，沿用无公司行动证明、下一合法开盘成交及可选风控；未知不产生上穿，滚动高点下降可触发。独立于细则90/95/100%分档，来源快照指向入口SKILL。窗口与上穿为工程解释，完整17因子及真实回测尚未完成。"
+      "tests": [
+        "tests/research-canslim-high.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "已接canslim-high-98：入口98%二值0/9分，前后有效完整窗口从不满足到满足才产生事件。364自然日左开右闭含当前最高价，沿用无公司行动证明、下一合法开盘成交及可选风控；未知不产生上穿，滚动高点下降可触发。独立于细则90/95/100%分档，来源快照指向入口SKILL。窗口与上穿为工程解释，完整17因子及真实回测尚未完成。",
+      "bindings": {
+        "presets": ["canslim-high-98"],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-S1",

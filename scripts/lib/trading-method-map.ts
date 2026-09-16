@@ -27,6 +27,18 @@ export const tradingMethodMapSchema = z
           implementation: z.array(path),
           tests: z.array(path),
           boundary: z.string().min(1),
+          bindings: z
+            .object({
+              presets: z.array(z.string()).default([]),
+              exports: z
+                .array(
+                  z.object({ file: path, name: z.string().min(1) }).strict(),
+                )
+                .default([]),
+              completion: z.enum(["implemented", "implemented-variant"]),
+            })
+            .strict()
+            .optional(),
         })
         .strict(),
     ),

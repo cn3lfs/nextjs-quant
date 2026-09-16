@@ -72,17 +72,9 @@ function definition(id: VolumeStrategyId) {
     ],
   };
 }
-export const volumeStrategies = {
-  "vp-up-expanded-confirm": definition("vp-up-expanded-confirm"),
-  "vp-flat-expanded-break": definition("vp-flat-expanded-break"),
-  "vp-up-contracted-confirm": definition("vp-up-contracted-confirm"),
-  "vp-down-contracted-confirm": definition("vp-down-contracted-confirm"),
-  "vp-up-normal-confirm": definition("vp-up-normal-confirm"),
-  "vp-flat-contracted-break": definition("vp-flat-contracted-break"),
-  "vp-breakout-1-5": definition("vp-breakout-1-5"),
-  "vp-breakout-2": definition("vp-breakout-2"),
-  "vp-volume-ma-cross": definition("vp-volume-ma-cross"),
-} satisfies Record<VolumeStrategyId, ReturnType<typeof definition>>;
+export const volumeStrategies = Object.fromEntries(
+  volumeStrategyIds.map((id) => [id, definition(id)]),
+) as Record<VolumeStrategyId, ReturnType<typeof definition>>;
 
 export function classifyVolumePrice(
   change: number,

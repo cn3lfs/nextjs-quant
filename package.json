@@ -21,7 +21,9 @@
     "desktop:smoke": "node scripts/desktop-smoke.mjs",
     "smoke:data": "tsx scripts/smoke.ts",
     "tstdx:build": "pnpm --dir packages/tstdx build",
-    "tstdx:test": "pnpm --dir packages/tstdx test"
+    "tstdx:test": "pnpm --dir packages/tstdx test",
+    "verify:spot": "tsx scripts/verify.ts spot",
+    "verify:batch": "tsx scripts/verify.ts batch"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

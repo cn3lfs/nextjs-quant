@@ -110,7 +110,10 @@ export function ResearchStrategyFields({
             onChange(selectResearchStrategy(spec, value))
           }
         >
-          <SelectTrigger aria-label="研究策略">
+          <SelectTrigger
+            aria-label="研究策略"
+            className="w-full min-w-0 max-w-full"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

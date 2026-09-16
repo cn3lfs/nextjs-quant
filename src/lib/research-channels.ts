@@ -2,23 +2,16 @@ import type { Bar } from "./domain";
 import { priceChannel } from "./indicators";
 import type { RuleStop } from "./research-volume";
 
-export const channelIds = [
-  "flag-10",
-  "flag-15",
-  "flag-20",
-  "triangle-15",
-  "triangle-20",
-  "triangle-30",
-] as const;
-export type ChannelId = (typeof channelIds)[number];
-const profiles: Record<ChannelId, { length: number; flag: boolean }> = {
+const profiles = {
   "flag-10": { length: 10, flag: true },
   "flag-15": { length: 15, flag: true },
   "flag-20": { length: 20, flag: true },
   "triangle-15": { length: 15, flag: false },
   "triangle-20": { length: 20, flag: false },
   "triangle-30": { length: 30, flag: false },
-};
+} satisfies Record<string, { length: number; flag: boolean }>;
+export type ChannelId = keyof typeof profiles;
+export const channelIds = Object.keys(profiles) as [ChannelId, ...ChannelId[]];
 export function isChannelStrategy(id: string): id is ChannelId {
   return (channelIds as readonly string[]).includes(id);
 }
