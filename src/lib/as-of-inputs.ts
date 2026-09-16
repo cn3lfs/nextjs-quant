@@ -42,6 +42,7 @@ export const asOfInputDefinitions: Record<
   Record<string, Definition>
 > = {
   finance: {
+    quarterlyNetMargin: { unit: "%", schema: number },
     quarterlyEps: { unit: "CNY/share", schema: number },
     quarterlyEpsGrowth: { unit: "%", schema: number },
     quarterlyRevenueGrowth: { unit: "%", schema: number },
@@ -52,16 +53,87 @@ export const asOfInputDefinitions: Record<
     annualWeightedRoe: { unit: "%", schema: number },
   },
   capital: {
+    plans: {
+      unit: "plan",
+      schema: z
+        .object({
+          unlockDates: z.array(researchDateSchema),
+          activeBuybackPlan: z.boolean(),
+        })
+        .strict(),
+    },
     totalShares: { unit: "share", schema: positive },
     floatShares: { unit: "share", schema: positive },
     floatMarketCap: { unit: "CNY", schema: positive },
   },
   institutions: {
+    holders: {
+      unit: "holder",
+      schema: z
+        .object({
+          classificationVersion: text,
+          origin: z.enum(["rule", "human"]),
+          rows: z
+            .array(
+              z
+                .object({
+                  id: text,
+                  category: z.enum([
+                    "quality-public",
+                    "foreign",
+                    "private",
+                    "general",
+                  ]),
+                })
+                .strict(),
+            )
+            .refine(
+              (rows) => new Set(rows.map((r) => r.id)).size === rows.length,
+            ),
+        })
+        .strict(),
+    },
     count: { unit: "institution", schema: count },
     shares: { unit: "share", schema: number.nonnegative() },
     floatRatio: { unit: "%", schema: ratio },
   },
   catalysts: {
+    growthEvents: {
+      unit: "event",
+      schema: z
+        .array(
+          z
+            .object({
+              id: text,
+              kind: z.enum([
+                "product",
+                "management",
+                "policy",
+                "contract",
+                "incentive",
+                "forecast",
+                "rumor",
+                "other",
+              ]),
+              origin: z.enum(["rule", "human"]),
+              classificationVersion: text,
+              evidence: text,
+              effectiveFrom: researchDateSchema,
+              expiresAt: researchDateSchema,
+              withdrawn: z.boolean(),
+              landingDate: researchDateSchema.nullable(),
+              role: z.enum(["CEO", "CFO", "other"]).nullable(),
+              successfulTrackRecord: z.boolean(),
+              industryId: text.nullable(),
+              contractRevenuePct: number.nonnegative().nullable(),
+              forecastLowerPct: number.nullable(),
+              forecastBaseProfit: number.nullable(),
+            })
+            .strict()
+            .refine((r) => r.expiresAt >= r.effectiveFrom),
+        )
+        .refine((rows) => new Set(rows.map((r) => r.id)).size === rows.length),
+    },
     // The publication assertion covers the entire versioned event list,
     // including an explicitly evidenced empty list. No news retrieval here.
     events: {

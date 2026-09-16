@@ -68,3 +68,7 @@ method-map 的 `bindings.presets` 指向可执行预设，`bindings.exports` 指
 CANSLIM入口由 `src/server/canslim-dossier.ts` 导出 `buildCanslimAsOfDossier(request, observations)` 和 `gatherCanslimAsOfDossier(request, load, signal?)`。request显式提供 `symbol/asOf/observationDate/financialPeriods/annualPeriods/institutionPeriods/universeId/benchmarkId`，可选capturedBy。返回六类inputs、逐字段dataGaps和确定性ID；每个available值保留四类来源时点及版本证据。load只返回版本化输入，不自动调用当前行情/财务或回退来源；加载器不能移动截止时间。原当前资料入口的历史保护保留；本批不改当前报告API，不产生因子评分，B6b消费本路径。
 
 固定输入入口：`tests/as-of.test.ts`、`tests/canslim-as-of-dossier.test.ts`；含修订不回填、availableAt缺失拒绝、时区边界、事后采集/档案截止、来源及版本冲突、六类缺覆盖、日历反例及取消。真实gpcw的22个数值字段没有已验证披露/修订可知证据，不能因数字完整而进入历史因子；无需重扫数据包。
+
+B6b在同一字段表增加4项（总计22项输入口径，与gpcw的22数值字段无对应关系）：finance.quarterlyNetMargin（季度净利率，%）；capital.plans（观察日已知解禁日期和有效回购计划）；institutions.holders（报告期机构身份、分类版本及rule/human来源）；catalysts.growthEvents（观察日冻结事件、分类版本/证据、生效/到期/撤销及各类型原始结构字段）。这些字段和其他B6a输入采用同一版本公开证据契约，不新增适配层。LLM来源不接受，不能绕过K11模型冻结重放要求。
+
+B6b待数据研究入口为 `runGrowthFactorResearch(request, observations, methodIds?)`，方法表及截面排序见 `research-growth-factors.ts`。返回每方法requiredInputs、逐字段缺口、分数/准入/证据与规则或人工参与类型；缺失为null，不计入已计算规则/人工数量。排序只比较相同时点/报告期/证券池及同参与类型，缺失不排名。真实回测始终明确不可用及覆盖未知，不进入交易撮合；固定输入测试见 `tests/research-growth-factors.test.ts`，未增加研究预设或改变共享交易契约。

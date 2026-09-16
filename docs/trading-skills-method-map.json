@@ -977,11 +977,29 @@
       "sources": [
         "sepa-strategy-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：四核心严格/20%容差并列；年报ROE版本，净利率改善在宽松版仍必需。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE03",
@@ -17454,10 +17472,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "增速50/25/20%对应8/6/3分；标题EPS而查询净利润，必须分口径。亏损转盈单独标识，不能把任意负增长算8分。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-C2",
@@ -17467,10 +17503,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "三季/两季加速7/5分，波动小于5个百分点3分；80降60仍3分，转正5分。加速季数、绝对增速不足20%仅3分的优先级须冻结。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-C3",
@@ -17480,10 +17534,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "30/20/10%对应5/4/2分；增收利润降扣1，收入降利润增最多2。扣分下限和降本提利是否实际加分不能自行混同。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-A1",
@@ -17493,10 +17565,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "CAGR35/25/15%对应8/6/3分；期初亏损转盈特殊8分。删除中间亏损年份重新计算原文未明年数，保留原文分支及不删年份对照。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-A2",
@@ -17506,10 +17596,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "25/17/12%对应7/5/2分；TTM优先、年报备用，超过50%标注净资产风险。历史披露和口径可用性独立记录。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-A3",
@@ -17519,10 +17627,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每股经营现金流/EPS达1.2/1/0.7对应5/4/2分；负EPS或负现金流不给分；零EPS不能按比例直接获得满分。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：评分细则多档；EPS不替代为净利润，ROE采用具名年报版。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1",
@@ -17532,10 +17658,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "多个/单个实质催化6/4分；传闻在评分表2分，在非实质定义0分，两版保留。事件去重、落地时间、公告可知时间和有效期需定义。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N2",
@@ -17605,10 +17749,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "100至300亿5分，50至100/300至500亿4分，30至50/500至1000亿2分；三个月内解禁扣1，回购计划加1封顶5。边界和同日已知流通股本明确。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：市值重叠边界取高档；三日历月解禁-1、有效回购+1，钳制0..5。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-L1",
@@ -17644,10 +17806,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "连续两季增长且超过10%得5，否则连续增长4，仅一季2；机构数量增但比例降2。持股股数、机构家数、持股比例必须区分；两次季度变化至少需要三期。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：三个连续季度两次持股增加，两次均严格>10%满分；家数增比例降例外2分。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-I2",
@@ -17657,10 +17837,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "优质公募加外资3，任一2，一般机构1；名单是源文例子，不认定永久优质。按历史身份和披露时点冻结名单版本，私募如何归档单列。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：时点分类版本；公募与外资3/之一2/一般或私募1/无0。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-M1",
@@ -17766,10 +17964,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "实际同期EPS负且当季正单独8分；任意负增长不算扭亏，零基数另列；与当前非正基数conflict诊断分开。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：同期EPS严格负且本期严格正；不将负增速视为扭亏。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-A1-turnaround",
@@ -17779,10 +17995,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "期初亏损期末盈利原文8分，不虚构CAGR；历史披露与股本可比性独立核验。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：3至5连续年报首负末正，不产生CAGR。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-A1-loss-exclusion",
@@ -17792,10 +18026,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文要求删亏损年份重算；须明示年数与删除轨迹，对照现有保留实际年份的严格版，不能冒充连续盈利。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：删除中间负EPS年但保留真实日历跨度；不删除零值或端点，输出删除轨迹。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-rumor2",
@@ -17805,10 +18057,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文评分表传闻2分，与非实质定义不给分冲突；分名保留且仅用当时记录，不以今天确认结果回填。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-product",
@@ -17818,10 +18088,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "有具体落地时间的产品、服务或市场进入事件，按公开可知时间去重，定义有效期与撤销。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-management",
@@ -17831,10 +18119,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "CEO/CFO任命公开时点和履历证据，成功履历需事前定义，不使用事后股价评价。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-policy",
@@ -17844,10 +18150,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "实质政策与历史行业归属关联，公布时间、影响范围和有效期显式，不能仅关键词即通过。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-contract",
@@ -17857,10 +18181,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "公告合同或订单的重大性需冻结阈值、金额口径与可知时间，重复新闻不增加催化数量。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-incentive",
@@ -17870,10 +18212,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "公布激励计划及撤回版本，区分草案、批准与实施时点，避免把未来通过当已知。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N1-forecast50",
@@ -17883,10 +18243,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "用当时公告的盈利预增至少50%，区间上下界选择与负基数定义公开；非实质调研或泛泛规划不补分。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-N2-90",
@@ -18031,10 +18409,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "历史当时已知解禁计划扣1，三个月为日期窗口并记录修订，不能把今天解禁表直接回填。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：基础分减解禁1分，与完整修正独立对照。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-S2-buyback",
@@ -18044,10 +18440,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "有效回购计划加1且总分封顶5，计划不等于实际减少流通盘；中止/完成状态按可知时间更新。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：基础分加有效回购计划1分，上限5；不声称实际减股。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-L1-ipo",
@@ -18070,10 +18484,28 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "该例外计2分，家数、股数、占流通比例不互换；同比股本和统计范围需可比。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：最近两期家数严格增且比例严格降2分，独立识别例外。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-M1-200",
@@ -18203,10 +18635,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "最近季度同比至少25%计8分；EPS与净利润代理分名，不沿用CA-S-C1的25%计6分。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-C2",
@@ -18216,10 +18666,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "最近两期同比增速后者高于前者计7分；一次比较与细则三期连续增长分开，负基数不造增速。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-C3",
@@ -18229,10 +18697,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "最近季度营收同比至少20%计5分，不沿用细则20%计4分。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-A1",
@@ -18242,10 +18728,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "3至5年CAGR至少25%计8分，实际起止年数显式；EPS与净利润代理分名，负基数保持不可计算。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-A2",
@@ -18255,10 +18759,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "最近年报或TTM ROE至少17%计7分，记录所用口径与可知时间，不沿用细则17%计5分。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-A3",
@@ -18268,10 +18790,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "每股经营现金流至少EPS计5分；零或负EPS的简单不等式与细则负值不给分冲突，须显式边界版本。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文二元阈值；EPS标题口径，不混净利润查询口径。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-N1",
@@ -18281,10 +18821,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "存在至少一个实质催化计6分，与细则单个4分分开；冻结事件证据、可知时间、有效期。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：冻结结构化事件；规则/人工分开，传闻2分单列；合同金额>=最近年营收10%为工程重大性阈值。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-N2",
@@ -18353,10 +18911,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "50至500亿元含边界计5分，不附细则100至300亿最优档或回购解禁修正；历史股本及价格可知。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文50至500亿元闭区间二元，不混细则事件修正。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-L1",
@@ -18392,10 +18968,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "比较最近两期机构持股股数，增加计5分；股数、机构家数及持股比例不互换，也不等于三期连续两次增持。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文最近两期股数比较，严格增加5分。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-I2",
@@ -18405,10 +18999,28 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "前十大股东含知名公募或QFII/陆股通任一计3分；质量名单版本及身份时点明确，不沿用细则任一2分。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据因子工程v1：主文优质公募或外资任一3分；私募不自动等同优质公募。通过runGrowthFactorResearch按具名ID执行，复用buildCanslimAsOfDossier/createAsOfAdapter/readAsOfInput；逐字段所需报告期/观察日、单位、首次可知/采集/版本证据随结果保存，缺失为null不补0。返回分数、准入及同方法同参与类型截面排名；不是订单或交易回测。可信真实历史覆盖start/end均未知，披露/修订证据、股本及机构统计可比性未核验，realBacktest.available=false；固定输入仅程序证据。规则/人工分类分开，LLM输入不接受。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-M1",

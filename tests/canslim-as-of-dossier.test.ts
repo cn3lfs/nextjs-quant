@@ -53,6 +53,22 @@ function fixture(): AsOfObservation[] {
           },
         ];
       }
+      if (q.field === "growthEvents") {
+        unit = "event";
+        value = [];
+      }
+      if (q.field === "plans") {
+        unit = "plan";
+        value = { unlockDates: [], activeBuybackPlan: false };
+      }
+      if (q.field === "holders") {
+        unit = "holder";
+        value = {
+          classificationVersion: "fixture-v1",
+          origin: "rule",
+          rows: [],
+        };
+      }
       if (q.field === "members") {
         unit = "security";
         value = [request.symbol, "sz000001"];
@@ -92,14 +108,16 @@ it("provides all six historical input domains through the canslim-dossier entry 
   const d = buildCanslimAsOfDossier(request, fixture());
   expect(Object.keys(d.inputs)).toEqual([...asOfDomains]);
   expect(d.dataGaps).toEqual([]);
-  expect(d.inputs.finance).toHaveLength(8);
+  expect(d.inputs.finance).toHaveLength(9);
   expect(d.inputs.rs.map((r) => r.entity)).toEqual([
     request.universeId,
     request.symbol,
   ]);
   expect(d.inputs.benchmarkCalendar[0]!.entity).toBe(request.benchmarkId);
   expect(d).not.toHaveProperty("scorecard");
-  expect(d.inputs.finance[0]).toMatchObject({
+  expect(
+    d.inputs.finance.find((r) => r.field === "quarterlyEps"),
+  ).toMatchObject({
     value: 1.2,
     effectiveAt: "2024-03-31",
     provenance: {
@@ -119,7 +137,7 @@ it("returns per-field missing reasons for absent coverage, not zero or current s
         code: "no-coverage",
       });
   }
-  expect(d.dataGaps).toHaveLength(18);
+  expect(d.dataGaps).toHaveLength(22);
 });
 it("keeps the complete past dossier and hash unchanged after later revisions in every domain", () => {
   const original = fixture();
@@ -144,7 +162,7 @@ it("rejects finance with numeric values but no verified publication times, like 
     r.domain === "finance" ? { ...r, availableAt: undefined } : r,
   );
   const d = buildCanslimAsOfDossier(request, raw);
-  expect(d.dataGaps).toHaveLength(8);
+  expect(d.dataGaps).toHaveLength(9);
   expect(
     d.dataGaps.every(
       (r) => r.domain === "finance" && r.code === "missing-available-at",
@@ -234,5 +252,5 @@ it("keeps the requested cutoff even when the loader mutates its argument", async
     }));
   });
   expect(result.request.asOf).toBe(request.asOf);
-  expect(result.dataGaps).toHaveLength(18);
+  expect(result.dataGaps).toHaveLength(22);
 });

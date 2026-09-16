@@ -1,4 +1,15 @@
 import { researchManagementSchema } from "~/lib/research-management";
+import { evaluateGrowthFactors } from "./research-growth-factors";
+import type { CanslimAsOfRequest } from "./canslim-as-of-dossier";
+
+/** B6b waiting-data research: scores and evidence only, never simulated trades. */
+export function runGrowthFactorResearch(
+  request: CanslimAsOfRequest,
+  observations: unknown,
+  methods?: readonly string[],
+) {
+  return evaluateGrowthFactors(request, observations, methods);
+}
 import { wyckoffHourlyFromMinutes } from "./research-wyckoff-hourly";
 import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
 import { isChanNative } from "~/lib/research-chan-native";
