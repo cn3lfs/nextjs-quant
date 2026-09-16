@@ -23,7 +23,8 @@
     "tstdx:build": "pnpm --dir packages/tstdx build",
     "tstdx:test": "pnpm --dir packages/tstdx test",
     "verify:spot": "tsx scripts/verify.ts spot",
-    "verify:batch": "tsx scripts/verify.ts batch"
+    "verify:batch": "tsx scripts/verify.ts batch",
+    "normalize:eol": "tsx scripts/normalize-eol.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
