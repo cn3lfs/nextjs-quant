@@ -128,7 +128,7 @@ export async function runStrategyResearch(
         ? volumeStructureWarmupStart(stock.bars, spec.start)
         : reversal
           ? volumeReversalWarmupStart(stock.bars, spec.start)
-          : volumeWarmupStart(stock.bars, spec.start),
+          : volumeWarmupStart(stock.bars, spec.start, spec.strategy),
     ]),
   );
   const series = new Map(

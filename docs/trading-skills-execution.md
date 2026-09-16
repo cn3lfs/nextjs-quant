@@ -2,6 +2,15 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
+## B3 波段与量价（2026-09-16，进行中）
+
+- 本轮新增35项implemented-variant、0项implemented：VP01–VP09、VP11/VP12/VP15及23项位置/量价子方法；审计总计695项，implemented 22 / variant 209 / planned 464，K2b仍planned 127；精确ID见method-map与`.codex-runs/delivery.json`。
+- 共享量价引擎+20行预设；位置、状态转移、R2/R2.5与AND/OR、缩量回踩分母及换手边界裁定见decisions；缺数据规则保留待数据状态。
+- 最终L1/L2合并定向验证13文件2845项全绿（完整量价家族、方法证据、signals、共享契约/UI），typecheck、回填/只读审计均exit=0。初次L2因导出绑定未回填失败，回填后复跑全绿；不逐方法重测共享契约。
+- L3未运行（整批162项未完成）；本轮不跑全量/build/Playwright。收尾仅改动文件格式与换行/diff检查，证据见delivery。
+- 第一子任务尚余VP10分批减仓、VP13枢轴OBV、VP14七维洗盘及其余证据方法；后续技术指标32项、SW04/SW05、SW12未启动。真实请求全区间缺逐日股本和完整异常事件覆盖，不回填当前股本。
+- 未真实回测、未提交推送、未打包、未连生产库；来源门禁与分钟引擎未修改。
+
 ## 2026-09-16：周线下破10周均线减半
 
 - CA-D-weekly10接入canslim-priority-weekly10-half。严格形态优先级买点不变，已完成周收盘从不低于自身10周均线到严格低于时，减触发时剩余数量50%。持续在线下不重复卖，恢复后重新下穿可再减；均线含当周并复用maSeries。

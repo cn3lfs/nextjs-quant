@@ -1,5 +1,9 @@
 # 个人交易工作台扩充计划
 
+## B3 Track A 当前授权（2026-09-16）
+
+当前执行波段与量价，先完整九宫格与多日量形，再技术指标32个子方法、K线/持续形态清单、SW12公式示例。九宫格工程版本及部分关联量价方法已接入，第一子任务剩余VP10分批减仓、VP13枢轴OBV、VP14七维判别及其余证据方法尚未收口；不把本轮增量称为162项整批完成。方法进度只取method-map审计，交接见`.codex-runs/delivery.json`。本轮不跑L3、不提交推送或打包，来源门禁和分钟引擎保持。
+
 ## B1a 本轮接续（2026-09-16）
 
 本轮继续新增11个工程版本，新增完整实现0：CA-S-M-warning、CA-E-m6、CA-E-markettrend、CA-S-S1、CA-S-S1-crash、SE05、CA08、SE05-elite、SE-R-min、SE-R-max、CA-R-pivot-max。审计695项（planned 516 / variant 157 / implemented 22），B1为planned 92 / variant 44 / implemented 17；本轮28项仍缺17项，B1a整组及L3未完成，B1b未启动。下一起点SE-D-review23，随后SE-D-targets/SE-D-partial2030、仓位及其他退出，最后六个盘中方法；缺口原因是尚未实施，不能以分钟数据不足替代。分钟窗口固定2000-01-04至2022-11-30，逐证券缺日不可用。最新授权仍是B1a整组完成后立即L3，再B1b；具体ID、验证与未做事项见[执行记录](trading-skills-execution.md)。

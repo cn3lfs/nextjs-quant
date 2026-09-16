@@ -176,10 +176,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有趋势放量确认、1.5/2倍突破；底部R2颈线、缩量回踩、次根更大量上影/阴线、完整位置与下跌反弹分支继续。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP02",
@@ -190,10 +208,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有价涨量平后次根走强；转缩量形态3及完整后续方向路由仍待实现。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-normal。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-normal"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP03",
@@ -204,10 +240,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有缩量上涨后温和放量确认；低换手连续小阳守MA5与不同位置含义不可被该价量版本替代。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-contracted,vp-controlled-turnover。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-contracted", "vp-controlled-turnover"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP04",
@@ -218,10 +272,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有横盘放量后上破候选及过期；放量下破、回归区间和完整底部/高位含义仍需组合。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-flat-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-flat-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP05",
@@ -229,10 +301,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文为价平量平无信息等待，没有独立买卖信号；应作为具名量价组合内的等待状态验收，不制造恒不买入的虚假独立策略。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP06",
@@ -243,10 +333,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有缩量横盘突破；完整区间上下沿和多周期/真实性条件仍有缺口。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-flat-contracted。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-flat-contracted"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP07",
@@ -257,10 +365,33 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有恐慌2/3根缩量回收及普通放量下跌退出；洗盘关键位不破、下跌加速、高位分支与完整位置仍待组合。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-down-expanded,vp-wash-1,vp-wash-2,vp-wash-3。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": [
+          "vp-grid-down-expanded",
+          "vp-wash-1",
+          "vp-wash-2",
+          "vp-wash-3"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP08",
@@ -271,10 +402,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文为过渡形态等待量能选方向；登记为状态路由，不能凭下跌量平编造买点。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP09",
@@ -285,10 +434,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有上涨位置缩量回调后放量阳线；底部地量、下跌位置和高位转势分支需按完整条件联合验收。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-down-contracted。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-down-contracted"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP10",
@@ -313,10 +480,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有AND/OR地量三阶段；历史低换手、完整底部及真量验证未完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-dry-turnover-and,vp-dry-turnover-or。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-dry-turnover-and", "vp-dry-turnover-or"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP12",
@@ -327,10 +512,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有缩量回调后需求回归；关键位回踩、枢轴与不同位置分支继续，不重复造同一已实现条件。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-down-contracted,vp-grid-up-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-down-contracted", "vp-grid-up-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP13",
@@ -370,10 +573,44 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "已有三根递增、递减、固定间隔、孤量过滤、滞涨、缩量新高；五根/其他间隔及真实消息确认另列。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-sequence.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts",
+        "tests/research-volume-sequence.test.ts",
+        "tests/research-volume-sequences.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-multiday-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 三/五根斜率、五根严格递增/递减与其余具名间隔复用既有research-volume-sequence；本轮只新增共享多日组合。孤量的消息核验保留VP-isolated-news待办，不把纯量延续说成已查消息。",
+      "bindings": {
+        "presets": [
+          "vp-multiday-grid",
+          "vp-slope-up-3",
+          "vp-slope-up-5",
+          "vp-slope-down-3",
+          "vp-slope-down-5",
+          "vp-stack-5",
+          "vp-contract-5",
+          "vp-pulse-1-2",
+          "vp-pulse-1-3",
+          "vp-pulse-2-2",
+          "vp-pulse-3-2",
+          "vp-pulse-3-3"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE01",
@@ -5391,10 +5628,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "长期下跌、横盘、均线走平粘合和长期量缩同时核对；当前60根回撤/10根区间代理只是一种工程对照。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-up-full",
@@ -5405,10 +5660,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "20/60多头、高低点抬高、回调守关键均线；需已确认枢轴与确认时间，不能把未来拐点写回历史。 已新增VP-structure-up-v1 / VP-structure-range-v1 / VP-retest-1-v1 / VP-retest-5-v1具名工程对照；完整位置及原文全部确认/证伪分支仍按本项验收。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-high-full",
@@ -5419,10 +5692,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "从起涨点涨幅或同期阶段排名、均线乖离及滞涨共同判断；当前距60根低点涨50%不等于完整高位识别。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-down-full",
@@ -5433,10 +5724,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "均线空头、高低点持续下移、反弹不过前高，保留反弹与反转分支；不得只用MA20低于MA60替代。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-range-full",
@@ -5447,10 +5756,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "上下沿的触及与确认规则需冻结；百分比振幅窄不自动证明存在可交易支撑压力。 已新增VP-structure-up-v1 / VP-structure-range-v1 / VP-retest-1-v1 / VP-retest-5-v1具名工程对照；完整位置及原文全部确认/证伪分支仍按本项验收。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-uncertain",
@@ -5458,10 +5785,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "具名组合内保留未知状态和开仓/持仓不同处理；现有未知不开仓不能覆盖所有持仓从严行为。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "volumeGridPosition"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-controlled-contraction",
@@ -5472,10 +5817,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "换手持续低于2%、连续小阳且不破MA5的良性缩量上涨，需历史流通股本；不能由缺换手时的普通缩量确认代替。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-controlled-turnover。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-controlled-turnover"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-bottom-expanded-2",
@@ -5483,10 +5846,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "明确底部与颈线/平台上沿的确认时点；R2版本独立于现有R1.5横盘突破及前20均量突破。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-expanded-retest",
@@ -5494,10 +5875,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "次根无巨量回落、缩量回踩突破位不破及量能维持VMA5之上分阶段解释；目前下一收盘不低且R至少1不含完整回踩。 已新增VP-structure-up-v1 / VP-structure-range-v1 / VP-retest-1-v1 / VP-retest-5-v1具名工程对照；完整位置及原文全部确认/证伪分支仍按本项验收。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-false-break-signal-clock",
@@ -5573,10 +5972,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "保留反弹到前高压力受阻与有效收复的两条条件路线；不能把所有下跌位置统一排除称为完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-flat-expanded-down",
@@ -5584,10 +6001,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "放量向下破区间作为既有持仓退出/风险过滤，幅度不必超过2%；不裸卖空，绑定具名入场基线。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-flat-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-flat-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-flat-expanded-stale",
@@ -5595,10 +6030,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "候选10根过期已有工程版本，但回到区间处理的后续行为需有明确组合，不只删除候选。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-flat-expanded。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-flat-expanded"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-normal-transition",
@@ -5609,10 +6062,28 @@
         "volume-price-analysis/references/vp-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "价涨量平次根放量走强已有变体；缩量转入形态3、价跌量平等待量能选择方向仍需明确组合状态机。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-grid-up-normal,vp-grid。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-grid-up-normal", "vp-grid"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-huge-band-main",
@@ -5623,10 +6094,28 @@
         "volume-price-analysis/references/vp-indicators.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "主文巨量从2起、附件从2.5起，当前保存双分级并不等于相关巨量策略的两套阈值都已运行。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-extreme-main,vp-extreme-detail。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-extreme-main", "vp-extreme-detail"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-high-huge-candle",
@@ -5634,10 +6123,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "形态权重独立于次根缩量/二顶退出；量化各形态与权重/过滤方式，并绑定可运行对照。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-extreme-main,vp-extreme-detail。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-extreme-main", "vp-extreme-detail"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-all-history-extreme-volume",
@@ -5645,10 +6152,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文同时提及阶段/历史新高量；全历史基准与可得历史起点冻结，不能用60根窗口声称覆盖全部历史。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-extreme-history。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 全历史指输入首日起的可得历史，起点随事实输出，异常导致不可比较，不冒充上市以来完整历史。",
+      "bindings": {
+        "presets": ["vp-extreme-history"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-dry-turnover-confirm",
@@ -5659,10 +6184,28 @@
         "volume-price-analysis/references/vp-indicators.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "换手低于1%及自身历史低位确认是独立过滤；地量AND/OR价量三阶段未包含历史流通盘条件。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-dry-turnover-and,vp-dry-turnover-or。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-dry-turnover-and", "vp-dry-turnover-or"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-volume-slope-5",
@@ -5742,10 +6285,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "幅度可控且未创天量，对照巨量长阴和阶段新高量；量化两侧条件并保留无法判定。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-wash-1,vp-wash-2,vp-wash-3。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 只实现价量、关键位、收复、1/2/3记录期限；分时/筹码/消息与七维总判定仍planned，不冒充完整洗盘判别。",
+      "bindings": {
+        "presets": ["vp-wash-1", "vp-wash-2", "vp-wash-3"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-key-level",
@@ -5753,10 +6314,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "20/60均线、前低与平台守住或跌破分别记录，使用已知的支撑，不把日后结构回写。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-wash-1,vp-wash-2,vp-wash-3。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 只实现价量、关键位、收复、1/2/3记录期限；分时/筹码/消息与七维总判定仍planned，不冒充完整洗盘判别。",
+      "bindings": {
+        "presets": ["vp-wash-1", "vp-wash-2", "vp-wash-3"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-reclaim",
@@ -5764,10 +6343,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "快速收复对照反抽无量不过前高，明确等待与失效；不能只按放量下跌立即退出覆盖此分支。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-wash-1,vp-wash-2,vp-wash-3。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 只实现价量、关键位、收复、1/2/3记录期限；分时/筹码/消息与七维总判定仍planned，不冒充完整洗盘判别。",
+      "bindings": {
+        "presets": ["vp-wash-1", "vp-wash-2", "vp-wash-3"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-duration",
@@ -5775,10 +6372,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-patterns.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "短促1/2/3日分别验证，持续多日逐级下行需因果阶段证据；不是持有期参数的同义词。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-wash-1,vp-wash-2,vp-wash-3。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。 只实现价量、关键位、收复、1/2/3记录期限；分时/筹码/消息与七维总判定仍planned，不冒充完整洗盘判别。",
+      "bindings": {
+        "presets": ["vp-wash-1", "vp-wash-2", "vp-wash-3"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-wash-intraday",
@@ -5833,10 +6448,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "小于1、1至3、3至7、7至15、大于15各档保留；状态表不单造恒不交易策略，但必须明确服务哪个可运行组合。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-turnover-bands。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-turnover-bands"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-turnover-location",
@@ -5844,10 +6477,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/references/vp-indicators.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "大于15%换手在底部吸筹与高位派发分开，完整位置与真实历史浮筹必需；阈值可靠性不当已验证结论。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volume.ts",
+        "src/lib/research-volume-grid.ts"
+      ],
+      "tests": [
+        "tests/research-volume-grid.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-volume.test.ts"
+      ],
+      "boundary": "量价工程v1；具名组合=vp-turnover-location。前一根已知3/3枢轴与20/60均线定义五类位置；底部20%回落、均线3%粘合/5根1%走平、10根低于VMA20；高位50%涨幅/10%乖离/3根±1%滞涨。上下沿两次触边1%、区间20%；无结构则未知，不开仓并从严退出。涨平跌×放平缩按表路由；两周不选方向后冻结边界再等10根。具体确认/证伪、三根守卫及数据缺失见预设回显与正反例。已知涨跌停/除权/停复牌/ETF申赎隔离并污染比较窗口；未知逐项标记，不宣称真量已证实。换手严格要求逐日可知流通股本及股/手单位，真实历史全区间尚无输入接线，待数据不使用当前股本；量比未以换手或日R冒充。非原文等价实现、非完整技能、非策略业绩。",
+      "bindings": {
+        "presets": ["vp-turnover-location"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-grid.ts",
+            "name": "evaluateVolumeGrid"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-volume-center",

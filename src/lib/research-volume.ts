@@ -1,7 +1,16 @@
 import type { Bar } from "./domain";
 import { ma, volumeMa } from "./indicators";
+import {
+  volumeGridIds,
+  isVolumeGrid,
+  volumeGridDefinition,
+  volumeDayStatus,
+  volumeGridFacts,
+  evaluateVolumeGrid,
+  type VolumeEvidence,
+} from "./research-volume-grid";
 
-export const volumeStrategyIds = [
+const legacyVolumeStrategyIds = [
   "vp-up-expanded-confirm",
   "vp-flat-expanded-break",
   "vp-up-contracted-confirm",
@@ -12,11 +21,18 @@ export const volumeStrategyIds = [
   "vp-breakout-2",
   "vp-volume-ma-cross",
 ] as const;
+export const volumeStrategyIds = [
+  ...legacyVolumeStrategyIds,
+  ...volumeGridIds,
+] as const;
 export type VolumeStrategyId = (typeof volumeStrategyIds)[number];
 export function isVolumeStrategy(id: string): id is VolumeStrategyId {
   return (volumeStrategyIds as readonly string[]).includes(id);
 }
-const descriptions: Record<VolumeStrategyId, [string, string]> = {
+const descriptions: Record<
+  (typeof legacyVolumeStrategyIds)[number],
+  [string, string]
+> = {
   "vp-up-expanded-confirm": [
     "量价 · 趋势放量后确认",
     "均线上涨位置价涨量增后，下一根收盘不低于候选收盘且R≥1确认。",
@@ -55,6 +71,7 @@ const descriptions: Record<VolumeStrategyId, [string, string]> = {
   ],
 };
 function definition(id: VolumeStrategyId) {
+  if (isVolumeGrid(id)) return volumeGridDefinition(id);
   return {
     label: descriptions[id][0],
     family: "量价",
@@ -196,7 +213,14 @@ export type VolumePoint = {
   ruleStop?: RuleStop;
 };
 
-export function volumeWarmupStart(bars: readonly Bar[], start: string) {
+export function volumeWarmupStart(
+  bars: readonly Bar[],
+  start: string,
+  strategy?: string,
+) {
+  // Full-history extreme volume and confirmed pivot endpoint averages consume
+  // the entire available prefix; company-action proof must cover it too.
+  if (strategy && isVolumeGrid(strategy)) return bars[0]?.date ?? start;
   const first = bars.findIndex((bar) => bar.date >= start);
   if (first < 0) return start;
   // Include the longest candidate wait (10 bars) and its previous trigger.
@@ -219,7 +243,19 @@ export function volumeIndicatorInput(bars: readonly Bar[]): Bar[] {
 export function researchVolumeSeries(
   id: VolumeStrategyId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumePoint[] {
+  if (isVolumeGrid(id)) {
+    // Known abnormal observations poison the comparison window, not only the
+    // current decision. The original bars remain in the returned evidence.
+    const input = bars.map((bar) =>
+      volumeDayStatus(bar, evidence).abnormal
+        ? { ...bar, volume: bar.volume === 0 ? 0 : NaN }
+        : bar,
+    );
+    const base = researchVolumeSeries("vp-breakout-1-5", input);
+    return evaluateVolumeGrid(id, base, volumeGridFacts(bars, base, evidence));
+  }
   if (
     bars.some(
       (bar, i) =>
