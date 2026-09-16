@@ -1,3 +1,5 @@
+import { supplementalValues } from "./helpers/growth-factor-fixture";
+import { asOfInputDefinitions } from "../src/lib/as-of-inputs";
 import { expect, it, vi } from "vitest";
 import {
   buildCanslimAsOfDossier,
@@ -18,6 +20,7 @@ const request: CanslimAsOfRequest = {
 };
 function fixture(): AsOfObservation[] {
   const empty = buildCanslimAsOfDossier(request, []);
+  const supplementary = supplementalValues(request.observationDate);
   return Object.values(empty.inputs)
     .flat()
     .map((q) => {
@@ -86,6 +89,10 @@ function fixture(): AsOfObservation[] {
           closedDays: ["2024-05-01", "2024-05-02"],
         };
       }
+      if (q.field in supplementary) {
+        value = supplementary[q.field];
+        unit = asOfInputDefinitions[q.domain][q.field]!.unit;
+      }
       return {
         domain: q.domain,
         entity: q.entity,
@@ -109,10 +116,11 @@ it("provides all six historical input domains through the canslim-dossier entry 
   expect(Object.keys(d.inputs)).toEqual([...asOfDomains]);
   expect(d.dataGaps).toEqual([]);
   expect(d.inputs.finance).toHaveLength(9);
-  expect(d.inputs.rs.map((r) => r.entity)).toEqual([
-    request.universeId,
-    request.symbol,
-  ]);
+  expect(
+    d.inputs.rs
+      .filter((r) => ["members", "industry"].includes(r.field))
+      .map((r) => r.entity),
+  ).toEqual([request.universeId, request.symbol]);
   expect(d.inputs.benchmarkCalendar[0]!.entity).toBe(request.benchmarkId);
   expect(d).not.toHaveProperty("scorecard");
   expect(
@@ -137,7 +145,7 @@ it("returns per-field missing reasons for absent coverage, not zero or current s
         code: "no-coverage",
       });
   }
-  expect(d.dataGaps).toHaveLength(22);
+  expect(d.dataGaps).toHaveLength(29);
 });
 it("keeps the complete past dossier and hash unchanged after later revisions in every domain", () => {
   const original = fixture();
@@ -174,7 +182,13 @@ it("does not carry today's universe or classification back to an earlier effecti
     r.domain === "rs" ? { ...r, effectiveAt: "2024-06-01" } : r,
   );
   const d = buildCanslimAsOfDossier(request, rows);
-  expect(d.dataGaps.map((r) => r.field)).toEqual(["members", "industry"]);
+  expect(d.dataGaps.map((r) => r.field)).toEqual([
+    "priceHistory",
+    "crossSection",
+    "sectors",
+    "members",
+    "industry",
+  ]);
 });
 it("rejects incomplete calendars and contradictory open/closed days", () => {
   for (const value of [
@@ -207,7 +221,7 @@ it("keeps genuinely evidenced empty catalysts distinct from absent coverage", ()
     request,
     fixture().map((r) => (r.domain === "catalysts" ? { ...r, value: [] } : r)),
   );
-  expect(d.inputs.catalysts[0]).toMatchObject({
+  expect(d.inputs.catalysts.find((r) => r.field === "events")).toMatchObject({
     status: "available",
     value: [],
   });
@@ -252,5 +266,5 @@ it("keeps the requested cutoff even when the loader mutates its argument", async
     }));
   });
   expect(result.request.asOf).toBe(request.asOf);
-  expect(result.dataGaps).toHaveLength(22);
+  expect(result.dataGaps).toHaveLength(29);
 });

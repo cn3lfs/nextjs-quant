@@ -72,3 +72,7 @@ CANSLIM入口由 `src/server/canslim-dossier.ts` 导出 `buildCanslimAsOfDossier
 B6b在同一字段表增加4项（总计22项输入口径，与gpcw的22数值字段无对应关系）：finance.quarterlyNetMargin（季度净利率，%）；capital.plans（观察日已知解禁日期和有效回购计划）；institutions.holders（报告期机构身份、分类版本及rule/human来源）；catalysts.growthEvents（观察日冻结事件、分类版本/证据、生效/到期/撤销及各类型原始结构字段）。这些字段和其他B6a输入采用同一版本公开证据契约，不新增适配层。LLM来源不接受，不能绕过K11模型冻结重放要求。
 
 B6b待数据研究入口为 `runGrowthFactorResearch(request, observations, methodIds?)`，方法表及截面排序见 `research-growth-factors.ts`。返回每方法requiredInputs、逐字段缺口、分数/准入/证据与规则或人工参与类型；缺失为null，不计入已计算规则/人工数量。排序只比较相同时点/报告期/证券池及同参与类型，缺失不排名。真实回测始终明确不可用及覆盖未知，不进入交易撮合；固定输入测试见 `tests/research-growth-factors.test.ts`，未增加研究预设或改变共享交易契约。
+
+B6b第二轮在同一字段表增加7项（现29项）：rs.priceHistory为同日股价/沪深300 OHLCV、完整冻结交易日序列、送转后复权及可比证据；rs.crossSection为冻结证券池全员同窗端点、上市日和明确停牌排除；rs.sectors为分类版本、同窗板块及完整成员价格；capital.securityState为当日历史身份/上市时长/涨停价/总市值/换手率；capital.entryPlan为当时冻结枢纽、拟价、止损、账户风险及仓位/止损后间隔；catalysts.earningsWindow为当时预约、上次真实披露、事前一致预期及覆盖日历；catalysts.entryEvents为近期三类事件、规则/人工来源与撤销状态。字段仍各自要求版本公开证据；收盘面板availableAt不得早于观察日15:00，含未来行情或日期/身份不一致拒绝。行情字段仅离线输入，未增加provider或执行通道。组合消费多个价格面板时，目标证券的起止价格和交易日序列必须对齐；不一致拒绝并在部分评分中列L1/L2缺口。
+
+31个新组合在同一runGrowthFactorResearch按ID调用；完整CA组合从17个真实计算分项与既有形态算法生成候选，SE01从SE02、既有趋势/VCP和同日全池RS合成严格/弹性结果。requiredInputs预登记主依赖、财务/机构期次，缺失逐项返回；CA-S-missing只显示部分总分和容量，不给完整评级或排名。固定输入覆盖、各阈值正反例及IPO独立窗口见tests/research-growth-combinations.test.ts；原因子共享夹具移至tests/helpers/growth-factor-fixture.ts。真实披露、价格可比、全池/板块历史归属、交易日历/身份/预约/事前预期的核验覆盖仍未知，realBacktest.available=false。

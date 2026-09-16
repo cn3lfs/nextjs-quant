@@ -2,9 +2,9 @@
 
 ## B6b 因子批量交付（2026-09-17，继续中）
 
-本轮新增34项待数据工程版本：SE02；CANSLIM C/A六因子的评分细则版及主文二元版、三项扭亏/删亏年对照、N1及七子项与主文版、S2及两项计划修正与主文版、I1/I2及主文版与机构换手例外。审计695项为22 implemented / 516 variant / 157 planned，B6b剩122项；ID以method-map和`.codex-runs/delivery.json`为准。历史输入复用B6a，新增4个字段口径，不新增通道。规则/人工分类分开统计，真实回测固定不可用，缺失字段及请求报告期/观察日随结果返回。
+本轮新增31项待数据工程版本：SE01与CA-T三项、RS/板块分档及IPO对照、五步入场/催化/财报窗口/身份过滤、17分项完整评分与三形态组合等，累计65项。审计695项为22 implemented / 547 variant / 126 planned，B6b剩91项（K3 0 / K4 10 / K9 32 / K10 13 / K11 36）；ID与真实门禁结果以method-map和`.codex-runs/delivery.json`为准。沿用同一as-of字段表扩7字段，无新增通道；真实覆盖未知，待数据不等于可回测。
 
-下一起点SE01完整两道门VCP组合及三个CA-T过滤，随后RS/板块因子和剩余K4，再K9/K10/K11。K11新闻漂移必须先语义对齐并登记conflicts，不自行更新锁定hash。L3仅156项全部完成后执行；当前没有新增UI、交易撮合或真实历史覆盖，不提交、推送或打包。最终L1/L2合并52文件5654项通过、0失败（114.58秒），typecheck/审计/代码格式/diff退出0，证据见delivery。
+接续K4剩余10项：CA-K-kelly25、SE-K-kelly、SE-E-checklist、SE-K-quality、CA-K-quality、WY-K-quality、SE-K-script-quality、CA-E-exclusions、CA-E-checklist70、CA-E-soft-overrides。随后K9→K10→K11，NW01–NW04先对齐5个漂移新闻来源语义且不更新锁定hash；GY分模型、VI冻结主观假设与参与类型、GF日期/窗口/ETF映射以及TM四行业代理约束保持。L3仅B6b整批完成后。
 
 ## B6a 时点适配器（2026-09-17）
 

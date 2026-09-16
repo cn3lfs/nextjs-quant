@@ -964,11 +964,30 @@
         "sepa-strategy-analyst/SKILL.md",
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：严格/弹性财务两版并列，七趋势含冻结全池60日RS85，既有VCP首次枢纽突破；日收盘研究版非14:30买入。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE02",
@@ -1099,10 +1118,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：完整17细则>=70且M>=6+既有严格U杯柄首次突破，独立财报/风险/身份/RS纪律。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA02",
@@ -1112,10 +1150,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：完整17细则>=70且M>=6+既有平台首次突破，独立财报/风险/身份/RS纪律。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA03",
@@ -1125,10 +1182,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：完整17细则>=70且M>=6+既有U/W碟形平底首次突破，独立财报/风险/身份/RS纪律。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA04",
@@ -1218,10 +1294,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：完整17细则分项筛选>=70，截面按同参与类型排序，缺失不排名。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA08",
@@ -15539,10 +15634,29 @@
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "收盘超过枢纽1%、20日均量至少1.5倍、实际买价不高于枢纽5%；指数高于MA120或当时已发布催化剂至少一项，未知不通过。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：收盘>枢纽101%、量>=前20日均量150%、计划价<=105%；沪深300>MA120或近期催化。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。收盘超过枢纽1%、20日均量至少1.5倍、实际买价不高于枢纽5%；指数高于MA120或当时已发布催化剂至少一项，未知不通过。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-E-volume-levels",
@@ -16013,10 +16127,29 @@
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "财报已发布且超预期、形态完好后1至3交易日入场；历史发布时间与当时一致预期必需，不用修订后财报或未来结果。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：已披露超一致预期严格>0，披露后1至3交易日，既有VCP趋势形态保持成熟；一致预期版本须早于披露。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。财报已发布且超预期、形态完好后1至3交易日入场；历史发布时间与当时一致预期必需，不用修订后财报或未来结果。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-P-tplus",
@@ -16080,10 +16213,29 @@
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "历史ST及退市风险、首日新股、北交所、长期停牌复牌过滤；长期阈值预登记，具体日期规则另核验，当前标签不回填历史。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：历史ST/退市风险/上市首日/北交所/长期停牌复牌过滤；长期工程阈值20交易日。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。历史ST及退市风险、首日新股、北交所、长期停牌复牌过滤；长期阈值预登记，具体日期规则另核验，当前标签不回填历史。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-E-checklist",
@@ -16282,10 +16434,29 @@
         "canslim-analyst/references/entry-exit-rules.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§1：收盘严格高于枢纽1%、量至少20日均量1.5倍、价格不高于枢纽5%；三项全过且市场或催化一项成立为BUY，两者均否为WATCH，任一核心否为PASS。未知单列；均量是否含当日预登记。此清单不替代完整准入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：核心三项全过且市场或催化成立BUY，两者都否WATCH，核心任一否PASS。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§1：收盘严格高于枢纽1%、量至少20日均量1.5倍、价格不高于枢纽5%；三项全过且市场或催化一项成立为BUY，两者均否为WATCH，任一核心否为PASS。未知单列；均量是否含当日预登记。此清单不替代完整准入。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-rs80",
@@ -16296,10 +16467,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§2：RS至少80，需同日历史证券池与排名口径；非价格同比涨幅80%。不可用当前成分或缺失排名代替。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：完整同日60交易日证券池百分位至少80准入。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§2：RS至少80，需同日历史证券池与排名口径；非价格同比涨幅80%。不可用当前成分或缺失排名代替。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-markettrend",
@@ -16342,10 +16532,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§1：盈利超预期、研报上调、机构调研，冻结近期窗口及首次可用时点；原文为加分但三态逻辑可替代§1市场条件，不能据此绕过完整M约束。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：已知未撤销盈利超预期/研报上调/调研，工程近期窗口20自然日含端点。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§1：盈利超预期、研报上调、机构调研，冻结近期窗口及首次可用时点；原文为加分但三态逻辑可替代§1市场条件，不能据此绕过完整M约束。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-R-eight",
@@ -16829,10 +17038,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§7：未来五交易日财报禁入需要当时已知预约披露日期；实际发布日期事后回填存在前视，计划变更须保留历史。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：已知预约财报在未来0至5交易日禁入，覆盖日历须包含预约日。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§7：未来五交易日财报禁入需要当时已知预约披露日期；实际发布日期事后回填存在前视，计划变更须保留历史。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-cooldown",
@@ -17433,10 +17661,29 @@
         "canslim-analyst/references/technical-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6：板块联动配合须定义同日行业/概念映射、强弱指标和确认阈值，当前缺此过滤；历史板块归属不可由今天标签回填。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：冻结同日多板块，20交易日板块收益严格正且位于前50%；取最强所属板块。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§6：板块联动配合须定义同日行业/概念映射、强弱指标和确认阈值，当前缺此过滤；历史板块归属不可由今天标签回填。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-smallcap",
@@ -17446,10 +17693,29 @@
         "canslim-analyst/references/technical-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6：中小盘短线炒作降低可靠性为原文假设，需可验证代理及市值时点，显式过滤/降权实验，不由模型主观贴标签或直接断言失败。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：流通市值低于100亿且换手率至少10%为游资代理，形态候选权重减半；不证明游资身份。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§6：中小盘短线炒作降低可靠性为原文假设，需可验证代理及市值时点，显式过滤/降权实验，不由模型主观贴标签或直接断言失败。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-earnings-window",
@@ -17459,10 +17725,29 @@
         "canslim-analyst/references/technical-patterns.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6：前后窗口须预登记，前窗口使用当时已知预约时间，后窗口用已披露时点；与入退场源明确前5交易日禁入有区别，保留后窗口对照。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：财报前5交易日至披露后3交易日谨慎窗口，形态候选减半；预约和已披露分开。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。§6：前后窗口须预登记，前窗口使用当时已知预约时间，后窗口用已披露时点；与入退场源明确前5交易日禁入有区别，保留后窗口对照。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-C1",
@@ -17780,10 +18065,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "60日全市场百分位95/90/80/70对应9/7/5/2分；次新上市以来、停牌排除另设版本；历史证券池、并列排名和复权统一。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：全池60交易日可比收益百分位95/90/80/70给9/7/5/2；严格更低者/(有效数-1)，并列不拆。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。60日全市场百分位95/90/80/70对应9/7/5/2分；次新上市以来、停牌排除另设版本；历史证券池、并列排名和复权统一。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-L2",
@@ -17793,10 +18097,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "板块内第1/2至3/前10对应6/5/3分；弱板块封顶3，多板块取最强。板块及个股排名周期原文未给，不能用今日归属回填。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：冻结20交易日板块及成员收益，最强所属板块内1/2-3/4-10名给6/5/3，后50%封顶3。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。板块内第1/2至3/前10对应6/5/3分；弱板块封顶3，多板块取最强。板块及个股排名周期原文未给，不能用今日归属回填。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-I1",
@@ -18364,10 +18687,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文不将缩量涨停视为量不足但未给替代分；当前低于满分保留conflict。未来规则实验需真实涨停价/交易状态证据及显式替代方案。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：缩量涨停不认定量不足；工程单独实验给至少达标6分，涨停仍不准买入；非原文确定分。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。原文不将缩量涨停视为量不足但未给替代分；当前低于满分保留conflict。未来规则实验需真实涨停价/交易状态证据及显式替代方案。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-S1-crash",
@@ -18471,10 +18813,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "不足60日按上市以来收益且降置信度；对比证券池同区间还是各自上市以来必须分名，不伪装60日RS。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：不足60交易日，目标上市日起全池同一窗口百分位，降置信度；非各自上市以来混窗。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。不足60日按上市以来收益且降置信度；对比证券池同区间还是各自上市以来必须分名，不伪装60日RS。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-I1-turnover",
@@ -18549,10 +18910,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文93/70/47绝对门槛及小仓/观察/禁入；真实上限114不补2分，小仓比例显式；各因子证据需历史可知。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：17项细则合计114，93/70/47分档，候选仓位上限25/12.5/0/0%。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。原文93/70/47绝对门槛及小仓/观察/禁入；真实上限114不补2分，小仓比例显式；各因子证据需历史可知。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-total-ratio",
@@ -18562,10 +18942,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文80/60/40%与绝对93/70/47在实际114分下不相等；按114比例独立对照，不用可得分容量重新归一化。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：固定114分分母80/60/40%分档，不按可得容量归一。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。原文80/60/40%与绝对93/70/47在实际114分下不相等；按114比例独立对照，不用可得分容量重新归一化。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-C-downgrade",
@@ -18575,10 +18974,29 @@
         "canslim-analyst/references/canslim-scoring.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "C低于10最终判断降级，幅度源未量化；提供冻结的级别下降/仓位参数，不由模型临场决定。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：细则C低于10则绝对分档下降一级，工程固定降档不改原始分。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。C低于10最终判断降级，幅度源未量化；提供冻结的级别下降/仓位参数，不由模型临场决定。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-M-warning",
@@ -18622,10 +19040,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "源缺失项0分仍标缺失；保留缺失/冲突、覆盖容量，不以缺失为确认失败，也不重新归一化；完整证据门槛单独实验。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：缺失/冲突0贡献仅用于显示，完整证据为准入门槛；缺失不算规则失败，容量不重归一。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。源缺失项0分仍标缺失；保留缺失/冲突、覆盖容量，不以缺失为确认失败，也不重新归一化；完整证据门槛单独实验。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-C1",
@@ -18942,10 +19379,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "60日涨幅前20%计9分，不沿用细则RS80计5分；证券池、并列排名与复权冻结。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：RS至少80二元9分，与细则5分独立。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。60日涨幅前20%计9分，不沿用细则RS80计5分；证券池、并列排名与复权冻结。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-L2",
@@ -18955,10 +19411,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "判定列为所属板块内个股涨幅排名前三计6分，标题最强板块前3不能偷换成行业排名前三；排名周期另定。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：最强所属板块内前三二元6分，不把行业前三当个股前三。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。判定列为所属板块内个股涨幅排名前三计6分，标题最强板块前3不能偷换成行业排名前三；排名周期另定。 入口阈值满分与细则分层分别回测；条件不满足零贡献是二值工程解释，缺失另标未知并保留覆盖率。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-B-I1",
@@ -19126,10 +19601,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口权重20/20/15/15/15/5/10%；各因子按固定满分归一后加权为明确工程版，不用可得容量重归一。原始分相加114、文称116及此百分比分名。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：各因子按固定20/20/15/13/15/8/23容量归一，再乘20/20/15/15/15/5/10%权重。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口权重20/20/15/15/15/5/10%；各因子按固定满分归一后加权为明确工程版，不用可得容量重归一。原始分相加114、文称116及此百分比分名。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-T-window120",
@@ -19192,10 +19686,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "核心1至3任一失败仍WATCH或观望，与入退场细则PASS分开；分类不等于准许违反价格/量能条件买入。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：核心失败WATCH，保留buyEligible=false，与细则PASS分开。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。核心1至3任一失败仍WATCH或观望，与入退场细则PASS分开；分类不等于准许违反价格/量能条件买入。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-checklist70",
@@ -19231,10 +19744,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口距最近财报大于5交易日解释为前次已披露后冷却的独立工程版本；报告又写下次财报，对应CA-E-earnings5。不能将原文歧义认定已解决。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：最近已披露后超过5交易日才通过，不替代未来5日预约禁入。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口距最近财报大于5交易日解释为前次已披露后冷却的独立工程版本；报告又写下次财报，对应CA-E-earnings5。不能将原文歧义认定已解决。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-L-query-screen",
@@ -19244,10 +19776,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "60日涨幅前20%、均线多头排列、总市值严格大于50亿共同筛选；均线周期原例未给须预登记，不能仅登记RS而遗漏复合示例。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：RS80、20>60>120日均线、总市值严格大于50亿。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。60日涨幅前20%、均线多头排列、总市值严格大于50亿共同筛选；均线周期原例未给须预登记，不能仅登记RS而遗漏复合示例。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-E-ipo60-risk",
@@ -19257,10 +19808,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口不满足上市60交易日只标风险，与AR04硬门槛分开；可做风险标签/降权组合，具体降权参数是工程定义。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：上市不足60交易日标注风险，候选权重减半，不冒充硬性禁入。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口不满足上市60交易日只标风险，与AR04硬门槛分开；可做风险标签/降权组合，具体降权参数是工程定义。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-S-ipo-year-confidence",
@@ -19270,10 +19840,29 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口上市未满一年标数据可信度低，不能伪造MA250。自然年与交易日窗口分开；标注及具名证据过滤组合，不混为60日RS例外。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/server/research-growth-factors.ts"
+      ],
+      "tests": [
+        "tests/research-growth-combinations.test.ts",
+        "tests/research-growth-factors.test.ts"
+      ],
+      "boundary": "B6b待数据组合工程v1：上市未满一个自然年标低置信度，独立过滤组合；闰日周年取次年3月1日。同一runGrowthFactorResearch/createAsOfAdapter/readAsOfInput字段表执行；raw priceHistory/crossSection/sectors/securityState/entryPlan/earningsWindow/entryEvents各有首次可知、采集和版本公开证据，不接收文字报告评分。规则/人工分开；缺失null及逐字段清单，真实覆盖start/end未知，realBacktest.available=false。组合复用既有VCP/杯柄/平台/碟形、量能和市场计算，不新建撮合通道；收盘候选不声称盘中已知，未验证真实回测及收益。入口上市未满一年标数据可信度低，不能伪造MA250。自然年与交易日窗口分开；标注及具名证据过滤组合，不混为60日RS例外。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "evaluateGrowthFactors"
+          },
+          {
+            "file": "src/server/research-growth-factors.ts",
+            "name": "rankGrowthFactors"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     }
   ],
   "dispositions": [
@@ -20058,9 +20647,10 @@
         "SE-E-exclusions",
         "SE-E-checklist",
         "SE03",
-        "SE05"
+        "SE05",
+        "SE01"
       ],
-      "reason": "全文六节及50元示例逐条处置，21个新增方法，周线/精英/凯利补口径。MIN/MAX/修正、20日/50日均量、五项基本面与入口弹性等冲突分别保留，详见SEPA来源审计；入口仅局部复核不计整文件完成。 父组合SE01/SE03/SE05仍待其他来源复核，只保留来源关联，不当作已复核方法引用。 本轮另核对入口Phase 5/6及后续管理，SE05完成日线组合语义审阅并加入关联；其工程版本仍不含全部盘中子项。"
+      "reason": "全文六节及50元示例逐条处置，21个新增方法，周线/精英/凯利补口径。MIN/MAX/修正、20日/50日均量、五项基本面与入口弹性等冲突分别保留，详见SEPA来源审计；入口仅局部复核不计整文件完成。 父组合SE01/SE03/SE05仍待其他来源复核，只保留来源关联，不当作已复核方法引用。 本轮另核对入口Phase 5/6及后续管理，SE05完成日线组合语义审阅并加入关联；其工程版本仍不含全部盘中子项。 B6b本轮已核对SE01两门/VCP/五步收盘研究组合并补关联；盘中执行与独立风控子项不据此销账。"
     },
     {
       "source": "stop-loss/scripts/kelly.py",
