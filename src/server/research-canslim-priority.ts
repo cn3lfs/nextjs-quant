@@ -7,7 +7,7 @@ import { canslimEntry } from "./canslim-entry";
 /** Select geometry before testing entry; a waiting cup must not fall through. */
 export function researchCanslimPriorityPoint(
   bars: readonly Bar[],
-  qualification: "strict" | "scored-handles" = "strict",
+  qualification: "strict" | "scored-handles" | "gate2-fallback" = "strict",
 ) {
   const last = bars.at(-1);
   const cutoff = last ? Date.parse(`${last.date}T07:06:00Z`) : NaN;
@@ -26,7 +26,11 @@ export function researchCanslimPriorityPoint(
     ? canslimCup(
         snapshot,
         cutoff,
-        qualification === "strict" ? "strict" : "v-score",
+        qualification === "gate2-fallback"
+          ? "score-total"
+          : qualification === "strict"
+            ? "strict"
+            : "v-score",
       )
     : null;
   const half =
@@ -44,7 +48,7 @@ export function researchCanslimPriorityPoint(
   // The two qualified sets are disjoint: shrinking shallow handles score two
   // first, and the half-handle diagnostic accepts exactly one point.
   const cupCandidates =
-    qualification === "strict"
+    qualification !== "scored-handles"
       ? (cup?.candidates ?? [])
       : [
           ...(cup?.candidates ?? [])
@@ -60,9 +64,15 @@ export function researchCanslimPriorityPoint(
               handleQualification: "steady-half" as const,
             })),
         ];
+  const bestCupScore = Math.max(-1, ...cupCandidates.map((c) => c.points));
+  const allowFallback = qualification !== "gate2-fallback" || bestCupScore < 4;
   const selectedCup = applicable
     ? cupCandidates
-        .filter((c) => c.qualified)
+        .filter(
+          (c) =>
+            c.qualified &&
+            (qualification !== "gate2-fallback" || c.points === bestCupScore),
+        )
         .sort(
           (a, b) =>
             b.points - a.points ||
@@ -72,7 +82,7 @@ export function researchCanslimPriorityPoint(
         )[0]
     : undefined;
   const selectedFlat =
-    applicable && flat?.applicable
+    applicable && allowFallback && flat?.applicable
       ? flat.candidates
           .filter((c) => c.qualified)
           .sort(
@@ -81,7 +91,7 @@ export function researchCanslimPriorityPoint(
           )[0]
       : undefined;
   const selectedSaucer =
-    applicable && saucer?.applicable
+    applicable && allowFallback && saucer?.applicable
       ? saucer.candidates
           .filter((c) => c.qualified)
           .sort(
@@ -112,6 +122,14 @@ export function researchCanslimPriorityPoint(
     exit: false,
     reason: applicable ? null : (cup?.reason ?? "缺少有效历史截止日"),
     values: { close: last && Number.isFinite(last.close) ? last.close : null },
+    ...(qualification === "gate2-fallback"
+      ? {
+          gate2: {
+            bestCupScore: bestCupScore < 0 ? null : bestCupScore,
+            allowFallback,
+          },
+        }
+      : {}),
     candidate,
     maxEntryPrice: candidate ? candidate.high * 1.05 : null,
     // Includes evidence for the absence of higher-priority geometry, not only

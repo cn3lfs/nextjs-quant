@@ -53,7 +53,7 @@ export function isCanslimSaucer(id: string): id is CanslimSaucerId {
   return (canslimSaucerIds as readonly string[]).includes(id);
 }
 export function canslimSaucerShape(id: CanslimSaucerId) {
-  return id.includes("-w") ? "W" : "U";
+  return /-w(?:-|$)/.test(id) ? "W" : "U";
 }
 export function canslimShapeWarmup(id: string) {
   return (isCanslimSaucer(id) ? 140 : 50) + (id.endsWith("-hold3") ? 3 : 0);
@@ -76,6 +76,8 @@ const saucerStrategies = Object.fromEntries(
   canslimSaucerIds.map((id) => [id, saucerDefinition(id)]),
 ) as Record<CanslimSaucerId, ReturnType<typeof saucerDefinition>>;
 export const canslimCupIds = [
+  "canslim-cup-u-window120",
+  "canslim-cup-w-window120",
   "canslim-cup-total-score",
   "canslim-cup-total-score-hold3",
   "canslim-cup-u-right-not-higher",
@@ -100,9 +102,22 @@ export function isCanslimCup(id: string): id is CanslimCupId {
   return (canslimCupIds as readonly string[]).includes(id);
 }
 export function canslimCupShape(id: CanslimCupId) {
-  return id.includes("-v-") ? "V" : id.includes("-w") ? "W" : "U";
+  return id.includes("-v-") ? "V" : /-w(?:-|$)/.test(id) ? "W" : "U";
 }
 function cupDefinition(id: CanslimCupId) {
+  if (id.endsWith("-window120"))
+    return {
+      label: `CANSLIM价量 · ${canslimCupShape(id)}杯柄120根窗口`,
+      family: "成长股价量",
+      signal: "technical" as const,
+      version: `${id}-1`,
+      sources: [
+        "canslim-analyst/SKILL.md",
+        "canslim-analyst/references/technical-patterns.md",
+      ],
+      description:
+        "仅取截至观察日最近120根日线，窗口未满保持缺失。复用严格杯柄、柄深三分之一、缩量及至少6分规则，U/W分名；首次收盘超过枢纽1%、不超过5%、量至少此前20日均量1.5倍，次日含滑点成交限枢纽至105%。固定持有及可选风控。与完整前缀版对照，不覆盖超过120根的杯形，不是完整CANSLIM。",
+    };
   if (id.includes("-total-score"))
     return {
       label: `CANSLIM价量 · 杯柄总分确认${id.endsWith("-hold3") ? "三日维持" : "突破"}`,
@@ -155,6 +170,7 @@ const cupStrategies = Object.fromEntries(
   canslimCupIds.map((id) => [id, cupDefinition(id)]),
 ) as Record<CanslimCupId, ReturnType<typeof cupDefinition>>;
 export const canslimPriorityIds = [
+  "canslim-priority-gate2-fallback",
   "canslim-priority-weekly10-half",
   "canslim-priority-bear4-previous",
   "canslim-priority-bear4-ma20",
@@ -172,6 +188,19 @@ export function isCanslimPriority(id: string): id is CanslimPriorityId {
   return (canslimPriorityIds as readonly string[]).includes(id);
 }
 function priorityDefinition(id: CanslimPriorityId) {
+  if (id === "canslim-priority-gate2-fallback")
+    return {
+      label: "CANSLIM价量 · 杯柄低于4分才替代",
+      family: "成长股价量",
+      signal: "technical" as const,
+      version: `${id}-1`,
+      sources: [
+        "canslim-analyst/SKILL.md",
+        "canslim-analyst/references/technical-patterns.md",
+      ],
+      description:
+        "以五项总分版杯柄按分数、周期、柄长、枢纽降序选择；最高分4至5分保持观察，不检查替代形态，至少6分且几何合格才准入。无杯柄或最高分低于4才依次检查平台、碟形；高分但几何不合格亦不降级。复用首次收盘越枢纽1%、量至少此前20日均量1.5倍、追价不超5%，下一可成交开盘限枢纽至105%；固定持有和可选风控。此保守交易解释与原文继续分析相区别，不是完整CANSLIM。",
+    };
   if (id === "canslim-priority-weekly10-half")
     return {
       label: "CANSLIM价量 · 周线下破10周均线减半",

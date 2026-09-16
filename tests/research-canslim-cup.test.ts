@@ -798,3 +798,31 @@ it("a later event needing older unproven history cannot revoke an earlier covere
     spy.mockRestore();
   }
 });
+
+it("120-bar variants require the complete window, reuse geometry and ignore older bars", () => {
+  for (const shape of ["U", "W"] as const) {
+    const id =
+      shape === "U" ? "canslim-cup-u-window120" : "canslim-cup-w-window120";
+    const bars = fixture(shape);
+    const points = researchRuleSeries(id, bars);
+    expect(points.slice(0, 119).every((p) => !p.entry)).toBe(true);
+    expect(points[120]).toMatchObject({ entry: true, candidate: { shape } });
+    expect(points[120]).toEqual(
+      researchCanslimCupPoint(shape, bars.slice(1, 121)),
+    );
+    expect(researchRuleSeries(id, bars.slice(0, 121))).toEqual(
+      points.slice(0, 121),
+    );
+    const changed = structuredClone(bars);
+    changed[0]!.high = 99999;
+    expect(researchRuleSeries(id, changed)[120]).toEqual(points[120]);
+    const short = bars.slice(2, 121);
+    expect(researchRuleSeries(id, short).at(-1)).toMatchObject({
+      entry: false,
+      reason: "120根观察窗口未满",
+    });
+    const noVolume = structuredClone(bars);
+    noVolume[120]!.volume = 1;
+    expect(researchRuleSeries(id, noVolume)[120]!.entry).toBe(false);
+  }
+});

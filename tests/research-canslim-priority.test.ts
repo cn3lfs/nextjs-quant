@@ -209,3 +209,75 @@ it("falls back to saucer only after both higher families fail qualification", ()
     saucer.mockRestore();
   }
 });
+
+it("Gate 2 keeps four/five-point cups in observation and only falls back below four", () => {
+  const bars = fixture().slice(0, 70);
+  const candidate = {
+    qualified: true,
+    points: 8,
+    duration: 40,
+    handleLength: 6,
+    pivot: 104,
+    left: bars[3]!.date,
+    right: bars[43]!.date,
+    bottomDate: bars[23]!.date,
+    leftConfirmedAt: bars[6]!.date,
+    rightConfirmedAt: bars[46]!.date,
+    handleEnd: bars[68]!.date,
+    depthPercent: 20,
+    handlePullbackPercent: 5,
+    upperHalf: true,
+    rounded: true,
+    shape: "U",
+    doubleBottom: null,
+    longestBottomRun: 10,
+    volumeRatio: 0.5,
+    contracting: true,
+    testDate: bars[69]!.date,
+    breakoutAboveOnePercent: false,
+    threeDayHold: null,
+  };
+  const cup = vi.spyOn(cupModule, "canslimCup");
+  try {
+    for (const score of [3, 4, 5, 6]) {
+      cup.mockReturnValue({
+        applicable: true,
+        version: "fixture",
+        warnings: [],
+        candidates: [
+          { ...candidate, shape: "U", points: score, qualified: score >= 6 },
+        ],
+      });
+      const result = researchCanslimPriorityPoint(bars, "gate2-fallback");
+      expect(result.gate2).toEqual({
+        bestCupScore: score,
+        allowFallback: score < 4,
+      });
+      expect(result.entry).toBe(score < 4);
+      expect(result.candidate?.family ?? null).toBe(
+        score < 4 ? "flat" : score >= 6 ? "cup" : null,
+      );
+    }
+    cup.mockReturnValue({
+      applicable: true,
+      version: "fixture",
+      warnings: [],
+      candidates: [],
+    });
+    expect(researchCanslimPriorityPoint(bars, "gate2-fallback")).toMatchObject({
+      entry: true,
+      gate2: { bestCupScore: null, allowFallback: true },
+    });
+    cup.mockReturnValue({
+      applicable: false,
+      version: "fixture",
+      reason: "invalid prefix",
+    });
+    expect(researchCanslimPriorityPoint(bars, "gate2-fallback")).toMatchObject({
+      entry: false,
+      reason: "invalid prefix",
+    });
+  } finally {
+    cup.mockRestore();
+  }
+});

@@ -106,7 +106,13 @@ it("requires an executable signal adapter for every registered preset", () => {
 
 describe.each(researchStrategyIds)("registered contracts: %s", (id) => {
   const bars = prices(
-    id.startsWith("canslim-high") ? 370 : id === "czsc" ? 67 : 85,
+    id.startsWith("canslim-high") ||
+      id.startsWith("sepa-") ||
+      id.endsWith("window120")
+      ? 370
+      : id === "czsc"
+        ? 67
+        : 85,
   );
   const first = bars.length - 5;
   const spec = researchSpecSchema.parse({

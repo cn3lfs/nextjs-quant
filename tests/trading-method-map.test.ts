@@ -38,6 +38,39 @@ const fixture = {
 };
 const files = new Set([...method.implementation, ...method.tests]);
 
+it("reports batch progress from batch membership rather than CA/SE name prefixes", () => {
+  const report = auditTradingMethodMap(
+    {
+      ...fixture,
+      methods: [
+        { ...method, id: "WY-K-quality", batch: "K4", status: "planned" },
+        {
+          ...method,
+          id: "CA-B-N2",
+          batch: "K4",
+          status: "implemented-variant",
+        },
+        { ...method, id: "SE01", batch: "K3", status: "planned" },
+        { ...method, id: "CA-outside", batch: "K2a", status: "planned" },
+      ],
+    },
+    inventory,
+    files,
+  );
+  expect(report.deliveryBatches.B1).toEqual({
+    planned: 2,
+    variants: 1,
+    implemented: 0,
+    pendingIds: ["WY-K-quality", "SE01"],
+  });
+  expect(report.batches.K4).toEqual({
+    planned: 1,
+    variants: 1,
+    implemented: 0,
+    pendingIds: ["WY-K-quality"],
+  });
+});
+
 it("does not confuse method mappings with whole-source review", () => {
   const mapped = auditTradingMethodMap(fixture, inventory, files);
   expect(mapped.errors).toEqual([]);

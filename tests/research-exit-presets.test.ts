@@ -6,6 +6,7 @@ import {
   matchesResearchExitPreset,
   researchExitPresetIds,
   isCanslimExitPreset,
+  isSepaExitPreset,
   researchExitPresetTemplate,
   type ResearchExitPreset,
 } from "../src/lib/research-exit-presets";
@@ -178,7 +179,7 @@ it("persists explicit identities, removes stale labels and keeps untagged legacy
     );
     expect(researchManagementSchema.safeParse(selected).success).toBe(true);
     expect(matchesResearchExitPreset(selected)).toBe(true);
-    if (isCanslimExitPreset(kind)) {
+    if (isCanslimExitPreset(kind) || isSepaExitPreset(kind)) {
       expect(selected.liquidityCap).toBeUndefined();
       expect(selected.timeExit).toBeNull();
     } else {
@@ -194,9 +195,11 @@ it("persists explicit identities, removes stale labels and keeps untagged legacy
       method.sources.some(
         (s) =>
           s.path ===
-          (isCanslimExitPreset(kind)
-            ? "canslim-analyst/references/entry-exit-rules.md"
-            : "stop-loss/references/management.md"),
+          (isSepaExitPreset(kind)
+            ? "sepa-strategy-analyst/references/entry-exit-rules.md"
+            : isCanslimExitPreset(kind)
+              ? "canslim-analyst/references/entry-exit-rules.md"
+              : "stop-loss/references/management.md"),
       ),
     ).toBe(true);
     const { exitPreset: _id, ...old } = selected;

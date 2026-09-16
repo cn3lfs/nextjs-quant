@@ -1,13 +1,12 @@
 import type { Bar } from "~/lib/domain";
 import { maSeries } from "~/lib/indicators";
 import { isoWeek } from "~/lib/period-performance";
-import type { researchCanslimPriorityPoint } from "./research-canslim-priority";
 
 type Week = { key: string; dates: string[]; completedAt: string };
 /** Friday closes are complete. Holiday short weeks become known on the next
  * observed week, never by looking ahead at a future stock close. */
-export function researchCanslimWeekly(
-  points: readonly ReturnType<typeof researchCanslimPriorityPoint>[],
+export function researchCanslimWeekly<T extends { date: string }>(
+  points: readonly T[],
   bars: readonly Bar[],
   calendar: readonly string[],
 ) {

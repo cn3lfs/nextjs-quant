@@ -32,7 +32,8 @@ export function applyResearchManagement(
     management,
     holdingDays:
       selected &&
-      isCanslimProgressPreset(selected) &&
+      (isCanslimProgressPreset(selected) ||
+        selected.startsWith("sepa-time4")) &&
       selected !== spec.management?.exitPreset
         ? Math.max(60, spec.holdingDays)
         : spec.holdingDays,

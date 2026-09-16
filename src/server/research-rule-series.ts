@@ -1,3 +1,8 @@
+import {
+  isSepaResearch,
+  type SepaResearchId,
+} from "~/lib/research-sepa-strategies";
+import { researchSepaSeries } from "./research-sepa";
 import type { Bar } from "~/lib/domain";
 import {
   isCanslimResearch,
@@ -32,9 +37,15 @@ import {
   type BreakoutRulePoint,
 } from "~/lib/research-breakout-rules";
 import { analyzeBreakout } from "./breakout";
-export type ResearchRuleId = LocalId | BreakoutRuleId | CanslimResearchId;
+export type ResearchRuleId =
+  LocalId | BreakoutRuleId | CanslimResearchId | SepaResearchId;
 export type ResearchRulePoint =
-  | ReturnType<typeof researchCanslimWeekly>[number]
+  | ReturnType<typeof researchSepaSeries>[number]
+  | ReturnType<
+      typeof researchCanslimWeekly<
+        ReturnType<typeof researchCanslimPriorityPoint>
+      >
+    >[number]
   | ReturnType<typeof researchCanslimBear>[number]
   | ReturnType<typeof researchCanslimVolumeWait>[number]
   | ReturnType<typeof researchCanslimFailure>[number]
@@ -44,7 +55,12 @@ export type ResearchRulePoint =
   | ReturnType<typeof researchCanslimHold>[number]
   | ReturnType<typeof researchCanslimHighSeries>[number];
 export function isResearchRule(id: string): id is ResearchRuleId {
-  return isLocalRule(id) || isBreakoutRule(id) || isCanslimResearch(id);
+  return (
+    isSepaResearch(id) ||
+    isLocalRule(id) ||
+    isBreakoutRule(id) ||
+    isCanslimResearch(id)
+  );
 }
 /** Server adapter keeps the existing diagnostic engine out of client bundles.
  * Each historical point uses its own confirmed structure and indicator prefix. */
@@ -53,12 +69,17 @@ export function researchRuleSeries(
   bars: readonly Bar[],
   calendar: readonly string[] = bars.map((bar) => bar.date),
 ): ResearchRulePoint[] {
+  if (isSepaResearch(id)) return researchSepaSeries(id, bars, calendar);
   if (isCanslimHigh(id)) return researchCanslimHighSeries(id, bars);
   if (isCanslimPriority(id)) {
     const points = bars.map((_, index) =>
       researchCanslimPriorityPoint(
         bars.slice(0, index + 1),
-        id.includes("-scored-handles") ? "scored-handles" : "strict",
+        id === "canslim-priority-gate2-fallback"
+          ? "gate2-fallback"
+          : id.includes("-scored-handles")
+            ? "scored-handles"
+            : "strict",
       ),
     );
     if (id === "canslim-priority-weekly10-half")
@@ -92,7 +113,10 @@ export function researchRuleSeries(
     const points = bars.map((_, index) =>
       researchCanslimCupPoint(
         canslimCupShape(id),
-        bars.slice(0, index + 1),
+        bars.slice(
+          id.endsWith("-window120") ? Math.max(0, index - 119) : 0,
+          index + 1,
+        ),
         id.includes("-total-score")
           ? "score-total"
           : id.includes("-half-handle")
@@ -103,7 +127,20 @@ export function researchRuleSeries(
     );
     return id.endsWith("-hold3")
       ? researchCanslimHold(points, bars, calendar)
-      : points;
+      : id.endsWith("-window120")
+        ? points.map((p, i) =>
+            i < 119
+              ? {
+                  ...p,
+                  entry: false,
+                  candidate: null,
+                  historyStart: null,
+                  maxEntryPrice: null,
+                  reason: "120根观察窗口未满",
+                }
+              : p,
+          )
+        : points;
   }
   if (isCanslimSaucer(id)) {
     const points = bars.map((_, index) =>

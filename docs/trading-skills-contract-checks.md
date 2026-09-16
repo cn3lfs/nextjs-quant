@@ -40,3 +40,10 @@ method-map 的 `bindings.presets` 指向可执行预设，`bindings.exports` 指
 回填前后均为695项：planned 552 / implemented-variant 138 / implemented 5，status 与 implementation 无变更。143项既有实现增加显式绑定（85项关联基础预设，58项关联组件导出），不据此新增完成方法。99项 tests 引用补齐来自独立依赖扫描：85项具名预设自动关联共享契约与UI套件；其中 VP-vp-interval-3 / VP-vp-isolated-filter / VP-vp-stall-exit / VP-vp-high-low-volume-exit 另补实际消费其家族的 research-volume-context.test.ts。其余14项从实际可达导出补充 research-management.test.ts：RK-A-max-distance、RK-D3-distance、RK-D6-partial、RK-V1-rolling-high、RK-D6-close-atr-tail、SW-P-risk2、SW-P-stop5、SW-P-three-positions、SW-P-total60、RK-A3-atr-buffer、RK-A3-distance2atr、RK-A-explicit、RK-A-buffer-auto、RK-A-earliest。原有专用测试引用全部保留；任何字段差异可由审计 changes 逐项报告。
 
 新增预设实测：在 research-channels.ts 的 profiles 增加临时 flag-12-e0-probe，并在 method-map 的 SW05-flag 绑定增加该ID，仅2文件变化；无需改聚合器、表单、快照或测试。5文件2030项通过，审计退出0后，两文件按测试前字节完全恢复，最终基础菜单仍133项。初次探针被“字典插入顺序必须等于菜单顺序”的过强测试拒绝；菜单顺序本来由显式ID序列控制，后改为字典与ID集合一致，实际表单顺序仍独立精确断言，未改生产菜单顺序。
+
+
+## D0b/D0c 门禁补充
+
+批次来源检查使用 `audit-trading-skills.ts --registered`，消费 [known-source-drift.md](known-source-drift.md) 的 `(path, change, hash)` 精确集合并打印已登记漂移；新增、消失、再次变化或其他来源错误仍失败。原始无参数审计继续要求零漂移。`tests/source-drift.test.ts` 覆盖集合替换、类型/hash变化、登记消失、重复、空登记、新技能/缺技能与正文快照字节；没有新增策略预设或策略契约例外。
+
+方法审计增加 `batches` 与 `deliveryBatches.B1` 的分组计数及待办ID，依据batch归属，不按CA/SE前缀计数。`tests/trading-method-map.test.ts` 以跨前缀方法和非B1的CA项作为反例。

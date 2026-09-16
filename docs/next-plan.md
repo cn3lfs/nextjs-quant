@@ -1,5 +1,9 @@
 # 个人交易工作台扩充计划
 
+## D0b/D0c + B1 最新授权（2026-09-16）
+
+D0 语义裁定保持；D0b 已接入精确漂移登记，D0c 已保留21份锁定正文及6份未对齐当前正文。B1授权继续有效，实际尚未完成任何新子任务，下一起点为 CANSLIM 评分全文剩余因子。计数只取 audit-trading-methods.ts：K3 planned 11 / variant 13，K4 planned 117 / variant 12，B1 planned 128 / variant 25；CA-B-N2不重复计数。L3 未执行，未宣称整批交付，见[本批记录](trading-skills-execution.md)。E0提交5e567a6、ec09746保持。
+
 ## E0 效率基建批（2026-09-16）
 
 用户最新授权为 E0-2–E0-7，本批不启动 B1 或新增方法。并行测试项目、分层验证命令、注册驱动契约/UI验证、家族聚合与方法绑定回填已实现；695项覆盖目标保持。最终验证与来源冻结阻塞见[本批执行记录](trading-skills-execution.md)，使用方式及证据边界见[契约清单](trading-skills-contract-checks.md)。此前“停在98%新高批次”是旧授权时点，不阻止本批效率基建。

@@ -1,3 +1,4 @@
+import { isSepaResearch } from "~/lib/research-sepa-strategies";
 import {
   isCanslimResearch,
   isCanslimHigh,
@@ -74,7 +75,8 @@ export async function runStrategyResearch(
   const breakout = isBreakoutRule(spec.strategy);
   const canslim = isCanslimResearch(spec.strategy);
   const priority = isCanslimPriority(spec.strategy);
-  const cup = isCanslimCup(spec.strategy) || priority;
+  const cup =
+    isCanslimCup(spec.strategy) || priority || isSepaResearch(spec.strategy);
   const canslimHigh = isCanslimHigh(spec.strategy);
   const canslimWarmup = canslimShapeWarmup(spec.strategy);
   const candle =

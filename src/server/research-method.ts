@@ -9,6 +9,8 @@ import {
   researchExitPresetVersion,
   researchExitPresetLabels,
   canslimExitDescription,
+  isSepaExitPreset,
+  sepaExitDescription,
   isCanslimProgressPreset,
 } from "~/lib/research-exit-presets";
 import {
@@ -134,13 +136,19 @@ export function researchMethodSnapshot(
         : []),
       ...(breakoutStop ? ["stop-loss/SKILL.md"] : []),
       ...(progressExit
-        ? ["canslim-analyst/references/entry-exit-rules.md"]
+        ? [
+            exitPreset?.startsWith("sepa-")
+              ? "sepa-strategy-analyst/references/entry-exit-rules.md"
+              : "canslim-analyst/references/entry-exit-rules.md",
+          ]
         : []),
       ...(exitPreset
         ? [
-            exitPreset.startsWith("canslim-")
-              ? "canslim-analyst/references/entry-exit-rules.md"
-              : "stop-loss/references/management.md",
+            exitPreset.startsWith("sepa-")
+              ? "sepa-strategy-analyst/references/entry-exit-rules.md"
+              : exitPreset.startsWith("canslim-")
+                ? "canslim-analyst/references/entry-exit-rules.md"
+                : "stop-loss/references/management.md",
           ]
         : []),
       ...(stopOverride || structureAuto
@@ -272,7 +280,9 @@ export function researchMethodSnapshot(
           progressExit: {
             version: researchProgressExitVersion,
             configuration: progressExit,
-            interpretation: researchProgressExitDescription,
+            interpretation: exitPreset?.startsWith("sepa-")
+              ? sepaExitDescription
+              : researchProgressExitDescription,
           },
         }
       : {}),
@@ -282,11 +292,13 @@ export function researchMethodSnapshot(
             version: researchExitPresetVersion,
             kind: exitPreset,
             label: researchExitPresetLabels[exitPreset],
-            interpretation: isCanslimProgressPreset(exitPreset)
-              ? researchProgressExitDescription
-              : exitPreset.startsWith("canslim-")
-                ? canslimExitDescription
-                : "固定2R/3R按首仓初始R设置整仓目标，收盘确认后下一可成交开盘退出；仅跟随不设固定目标；混合版本半仓2R实际成交后启用尾仓，均无额外保本或减半后抬1R。尾仓/仅跟随明确采用22周期窗口最高价减3ATR，是对原文未指定跟随算法的工程选择。只上移，收盘更新次日起生效；数量取整、T+1、跳空、费用及无法成交按既有执行处理。保留初始定位、信号/时间退出和最长持有，不用事后市场状态过滤。",
+            interpretation: isSepaExitPreset(exitPreset)
+              ? sepaExitDescription
+              : isCanslimProgressPreset(exitPreset)
+                ? researchProgressExitDescription
+                : exitPreset.startsWith("canslim-")
+                  ? canslimExitDescription
+                  : "固定2R/3R按首仓初始R设置整仓目标，收盘确认后下一可成交开盘退出；仅跟随不设固定目标；混合版本半仓2R实际成交后启用尾仓，均无额外保本或减半后抬1R。尾仓/仅跟随明确采用22周期窗口最高价减3ATR，是对原文未指定跟随算法的工程选择。只上移，收盘更新次日起生效；数量取整、T+1、跳空、费用及无法成交按既有执行处理。保留初始定位、信号/时间退出和最长持有，不用事后市场状态过滤。",
           },
         }
       : {}),

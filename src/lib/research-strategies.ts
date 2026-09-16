@@ -1,3 +1,7 @@
+import {
+  sepaResearchIds,
+  sepaResearchStrategies,
+} from "./research-sepa-strategies";
 import { baseStrategies, baseStrategyIds } from "./research-base-strategies";
 import { z } from "zod";
 import {
@@ -42,6 +46,11 @@ import {
 
 // Only executable families belong here. Definitions drive form options and method snapshots.
 export const researchStrategyFamilies = [
+  {
+    file: "src/lib/research-sepa-strategies.ts",
+    strategies: sepaResearchStrategies,
+    ids: sepaResearchIds,
+  },
   {
     file: "src/lib/research-base-strategies.ts",
     strategies: baseStrategies,

@@ -9,6 +9,8 @@ import {
   isCanslimExitPreset,
   isCanslimProgressPreset,
   canslimExitDescription,
+  isSepaExitPreset,
+  sepaExitDescription,
 } from "~/lib/research-exit-presets";
 import { researchProgressExitDescription } from "~/lib/research-progress-exit";
 import {
@@ -1072,15 +1074,17 @@ export function ResearchManagementFields({
       {value.exitPreset && (
         <p className="text-sm text-muted-foreground">
           当前退出预设：{researchExitPresetLabels[value.exitPreset]}。
-          {isCanslimProgressPreset(value.exitPreset)
-            ? researchProgressExitDescription
-            : isCanslimExitPreset(value.exitPreset)
-              ? canslimExitDescription
-              : value.exitPreset === "half-2r-tail"
-                ? "半仓按数量规则实际卖出后才启动尾仓，不额外保本或抬至1R。"
-                : value.exitPreset === "trail-only"
-                  ? "不设固定止盈目标，入场后按窗口吊灯跟随。"
-                  : "收盘达到目标后，下一可成交开盘退出全部仓位；没有提前保本或移动线。"}
+          {isSepaExitPreset(value.exitPreset)
+            ? sepaExitDescription
+            : isCanslimProgressPreset(value.exitPreset)
+              ? researchProgressExitDescription
+              : isCanslimExitPreset(value.exitPreset)
+                ? canslimExitDescription
+                : value.exitPreset === "half-2r-tail"
+                  ? "半仓按数量规则实际卖出后才启动尾仓，不额外保本或抬至1R。"
+                  : value.exitPreset === "trail-only"
+                    ? "不设固定止盈目标，入场后按窗口吊灯跟随。"
+                    : "收盘达到目标后，下一可成交开盘退出全部仓位；没有提前保本或移动线。"}
           初始止损、信号退出、时间退出和最长持有仍有效。
         </p>
       )}

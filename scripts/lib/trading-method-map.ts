@@ -66,6 +66,17 @@ export function auditTradingMethodMap(
   repositoryFiles: ReadonlySet<string>,
 ) {
   const map = tradingMethodMapSchema.parse(raw);
+  const summarize = (methods: typeof map.methods) => ({
+    planned: methods.filter((method) => method.status === "planned").length,
+    variants: methods.filter(
+      (method) => method.status === "implemented-variant",
+    ).length,
+    implemented: methods.filter((method) => method.status === "implemented")
+      .length,
+    pendingIds: methods
+      .filter((method) => method.status === "planned")
+      .map((method) => method.id),
+  });
   const sources = new Set(
     inventory.skills.flatMap((skill) =>
       skill.sources.map((source) => `${skill.id}/${source.path}`),
@@ -129,6 +140,21 @@ export function auditTradingMethodMap(
       implemented: map.methods.filter((m) => m.status === "implemented").length,
       variants: map.methods.filter((m) => m.status === "implemented-variant")
         .length,
+    },
+    batches: Object.fromEntries(
+      [...new Set(map.methods.map((method) => method.batch))]
+        .sort()
+        .map((batch) => {
+          const methods = map.methods.filter(
+            (method) => method.batch === batch,
+          );
+          return [batch, summarize(methods)];
+        }),
+    ),
+    deliveryBatches: {
+      B1: summarize(
+        map.methods.filter((method) => ["K3", "K4"].includes(method.batch)),
+      ),
     },
     pendingMethods: map.methods
       .filter((m) => m.review === "pending" || m.status !== "implemented")

@@ -26,7 +26,20 @@ export function isCanslimExitPreset(kind: string): kind is CanslimExitPreset {
 }
 export const canslimExitDescription =
   "固定首仓成交价8%止损，收盘不高于止损确认、下一可成交开盘执行。阶梯版收盘盈利15%保本、20%卖初始仓位一半、25%卖完余仓；首档实际完成后才按版本抬成本或盈利10%，受阻与取整不提前抬线。固定8%初始风险下阈值对应1.875R、2.5R、3.125R；不改变原始买点。应用时重置组合风控参数，仓位比例独立设置，信号退出与最长持有有效。日线收盘确认不代表盘中即时成交，不含完整CANSLIM因子、凯利或异常退出。";
+export const sepaExitPresetIds = [
+  "sepa-min-cap10",
+  "sepa-be15",
+  "sepa-time4-calendar",
+  "sepa-time4-trading20",
+] as const;
+export type SepaExitPreset = (typeof sepaExitPresetIds)[number];
+export function isSepaExitPreset(id: string): id is SepaExitPreset {
+  return (sepaExitPresetIds as readonly string[]).includes(id);
+}
+export const sepaExitDescription =
+  "SEPA价量组合组件：固定首仓10%初始止损为MIN后按10%修正的具名版本（不是MIN或MAX原式）；15%保本版收盘达到1.5R抬至首仓价，次日起生效，不保证扣费或跳空后无亏损；四周版从实际首仓成交日起自然28天或含入场日第20研究交易日，首个有效收盘涨幅不足10%才全退，等于10%不退出，只复核一次。收盘确认后下一可成交开盘执行，T+1/受阻重试/最长持有保持；不含完整SEPA。";
 export const researchExitPresetIds = [
+  ...sepaExitPresetIds,
   ...canslimProgressPresetIds,
   ...canslimExitPresetIds,
   "target-2r",
@@ -36,6 +49,10 @@ export const researchExitPresetIds = [
 ] as const;
 export type ResearchExitPreset = (typeof researchExitPresetIds)[number];
 export const researchExitPresetLabels: Record<ResearchExitPreset, string> = {
+  "sepa-min-cap10": "SEPA MIN后10%修正止损",
+  "sepa-be15": "SEPA盈利15%后保本",
+  "sepa-time4-calendar": "SEPA自然28天涨幅不足10%退出",
+  "sepa-time4-trading20": "SEPA第20交易日涨幅不足10%退出",
   "canslim-time4-calendar": "CANSLIM自然28天涨幅不足5%退出",
   "canslim-time4-trading20": "CANSLIM第20交易日涨幅不足5%退出",
   "canslim-8-fixed": "CANSLIM固定8%止损",
@@ -67,6 +84,39 @@ export function matchesResearchExitPreset(value: {
   trailAfterScaleOut?: boolean;
 }) {
   const kind = value.exitPreset;
+  if (kind && isSepaExitPreset(kind)) {
+    if (
+      value.stop?.kind !== "percent" ||
+      value.stop.fraction !== 0.1 ||
+      value.confirmations !== 1 ||
+      value.stopOverride ||
+      value.pyramid ||
+      value.stressBuffer !== 0 ||
+      value.timeExit != null ||
+      value.trail.kind !== "fixed" ||
+      value.trailAfterScaleOut ||
+      value.scaleOut
+    )
+      return false;
+    if (kind === "sepa-be15")
+      return (
+        !value.progressExit &&
+        typeof value.breakeven === "object" &&
+        value.breakeven !== null &&
+        "atR" in value.breakeven &&
+        value.breakeven.atR === 1.5 &&
+        "mode" in value.breakeven &&
+        value.breakeven.mode === "r-only"
+      );
+    if (value.breakeven) return false;
+    if (kind === "sepa-min-cap10") return !value.progressExit;
+    return (
+      value.progressExit?.clock ===
+        (kind.endsWith("calendar") ? "calendar-days" : "trading-days") &&
+      value.progressExit.days === (kind.endsWith("calendar") ? 28 : 20) &&
+      value.progressExit.minimumGain === 0.1
+    );
+  }
   if (kind && isCanslimExitPreset(kind)) {
     if (
       value.confirmations !== 1 ||
@@ -141,6 +191,29 @@ export function researchExitPresetTemplate(
   value: ResearchManagement,
   kind: ResearchExitPreset,
 ): ResearchManagement {
+  if (isSepaExitPreset(kind))
+    return {
+      exitPreset: kind,
+      stop: { kind: "percent", fraction: 0.1 },
+      confirmations: 1,
+      stressBuffer: 0,
+      trail: { kind: "fixed" },
+      timeExit: null,
+      ...(kind === "sepa-be15"
+        ? { breakeven: { atR: 1.5, mode: "r-only" as const } }
+        : {}),
+      ...(kind.startsWith("sepa-time4")
+        ? {
+            progressExit: {
+              clock: kind.endsWith("calendar")
+                ? ("calendar-days" as const)
+                : ("trading-days" as const),
+              days: kind.endsWith("calendar") ? 28 : 20,
+              minimumGain: 0.1,
+            },
+          }
+        : {}),
+    };
   if (isCanslimProgressPreset(kind))
     return {
       ...researchExitPresetTemplate(value, "canslim-8-fixed"),

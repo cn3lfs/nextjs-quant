@@ -408,22 +408,45 @@
         "sepa-strategy-analyst/SKILL.md",
         "sepa-strategy-analyst/references/entry-exit-rules.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/server/research-sepa.ts",
+        "src/server/research-rule-series.ts",
+        "src/server/research-run.ts"
+      ],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "仅六项价量趋势与VCP，不含RS/财务；前日冻结60根已确认VCP，评分至少6且至少两收缩递减30%，评分逐项最高11；上升段与缺失规则见具名预设。",
+      "bindings": {
+        "presets": ["sepa-vcp-close"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE04",
       "title": "首次突破与回踩再入场",
       "batch": "K3",
       "sources": ["sepa-strategy-analyst/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented",
+      "implementation": ["src/lib/research-sepa-strategies.ts"],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "首次突破与回踩分名；回踩时间/触及阈值来源未量化，明确工程v1：突破后1至10研究日、最低价枢纽至101%、收盘站回101%且量1.5倍；破枢纽、超105%、缺日或过期取消，冻结原枢纽，非实际持仓再买。",
+      "bindings": {
+        "presets": ["sepa-vcp-close", "sepa-vcp-retest"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE05",
@@ -478,10 +501,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用已实现严格U/W杯柄价量预设及完整信号/成交链，本次补齐家族完成绑定；不是新增识别算法或完整CANSLIM。",
+      "bindings": {
+        "presets": ["canslim-cup-u", "canslim-cup-w"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA05",
@@ -489,10 +521,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-flat.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用既有平台价量固定持有策略及成交上限，本次补齐家族绑定；不含完整CANSLIM。",
+      "bindings": {
+        "presets": ["canslim-flat-price-volume"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA06",
@@ -500,10 +541,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口家族级组合已核对；独立评分、形态、入退场和仓位由CA子项追踪。家族登记不是所有子方法已实现，纯价量组合不代替完整因子。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-saucer.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用既有U/W碟形价量固定持有策略，本次补齐家族绑定；不含完整CANSLIM。",
+      "bindings": {
+        "presets": ["canslim-saucer-u", "canslim-saucer-w"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA07",
@@ -1537,7 +1587,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：分类缓存相对锁定版本追加12条确定性关键词映射，命中会跳过LLM，可能改变行业计数与Top7热点池。保留来源锁定hash；先冻结分类缓存/模型输出版本和历史可用时点，再对旧版与新版同输入重放，详见docs/decisions.md的D0裁定。"
     },
     {
       "id": "NW02",
@@ -1548,7 +1598,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：analyst 1.6.0→1.7.0、analyzer 1.10.0→1.11.0新增一级/二级资金流证据及FLOW_SYS消息与资金背离判断，且分类输入发生变化；不得当作仅排版升级。保留来源锁定hash，需给旧定性验证信号与新资金流版本分别定义时点/缺失/判断规则，详见docs/decisions.md的D0裁定。"
     },
     {
       "id": "NW03",
@@ -1559,7 +1609,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：估值分位公式本身未改，但上游分类缓存新增12条映射会改变被选行业与新闻输入；新资金维度与估值结论必须分版本、不得暗中合并。保留来源锁定hash，冻结相同历史池后对照，详见docs/decisions.md的D0裁定。"
     },
     {
       "id": "NW04",
@@ -1570,7 +1620,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：新增二级近5日资金排序及资金背离判断，分类缓存亦改变主线输入；既有cross/GAP_SYS未因本次diff改变，不将新增资金结论冒充旧八象限规则。保留来源锁定hash，先登记旧新闻主线与资金流增强对照版本，详见docs/decisions.md的D0裁定。"
     },
     {
       "id": "ME01",
@@ -2189,10 +2239,20 @@
       "batch": "K3",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "完整周线收盘跌破10周均线减半，重新站上不回补；明确定义首次跌破或重新武装，不能连续每周无解释地减半。仅完整周数据，下一可成交时点执行。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-sepa-strategies.ts"],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-canslim-weekly.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "SE03入场接既有已完成10周MA下穿减半组件；不回补、不把未完成周线当已完成，全退与受阻数量逻辑复用。",
+      "bindings": {
+        "presets": ["sepa-vcp-weekly10-half"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE05-elite",
@@ -8402,10 +8462,24 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "20日均量1.5/2/2.5倍独立对照，均量是否包含当日需固定，不以事后收益挑量级。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/server/research-sepa.ts",
+        "src/server/research-rule-series.ts",
+        "src/server/research-run.ts"
+      ],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "共用SE03信号基线，此前20根均量（不含当日）的1.5/2/2.5倍三个独立预设，包含阈值等号。",
+      "bindings": {
+        "presets": ["sepa-vcp-close", "sepa-vcp-volume2", "sepa-vcp-volume25"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-E-intraday50",
@@ -8424,10 +8498,24 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "完整收盘突破1%后下一可成交开盘一次建仓；实际价仍受枢纽5%上限和等待期限约束，不能按已知收盘价倒填。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/server/research-sepa.ts",
+        "src/server/research-rule-series.ts",
+        "src/server/research-run.ts"
+      ],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "独立收盘确认组件装配SE03基线，次日可成交开盘含滑点仍限枢纽至105%，沿用研究等待有效期；不冒充五步完整入场。",
+      "bindings": {
+        "presets": ["sepa-vcp-close"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-R-min",
@@ -8457,10 +8545,28 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "先MIN，再把超过10%距离收紧至入场90%；在合法入场条件下恒等于入场90%，并不一般等于MAX。保留流程来源与无费50/48示例。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/lib/research-exit-presets.ts"
+      ],
+      "tests": [
+        "tests/research-sepa-management.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-exit-presets.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "先MIN，再把超过10%距离收紧至入场90%；在合法入场条件下恒等于入场90%，并不一般等于MAX。保留流程来源与无费50/48示例。 具名组合：SE03 + sepa-min-cap10；界面退出预设、保存、方法参数导出及真实成交引擎已接通。固定10%初始止损，收盘确认，不替代MIN/MAX原式；规则版本见sepaExitDescription。",
+      "bindings": {
+        "presets": ["sepa-vcp-close"],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "researchExitPresetTemplate"
+          }
+        ],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-D-be15",
@@ -8468,10 +8574,28 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "首仓上涨15%后抬至首仓价，确认方式与次日生效需冻结；费用和跳空可能亏损，不声称无损失保证。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/lib/research-exit-presets.ts"
+      ],
+      "tests": [
+        "tests/research-sepa-management.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-exit-presets.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "首仓上涨15%后抬至首仓价，确认方式与次日生效需冻结；费用和跳空可能亏损，不声称无损失保证。 具名组合：SE03 + sepa-be15；界面退出预设、保存、方法参数导出及真实成交引擎已接通。固定10%初始止损，收盘确认，不替代MIN/MAX原式；规则版本见sepaExitDescription。",
+      "bindings": {
+        "presets": ["sepa-vcp-close"],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "researchExitPresetTemplate"
+          }
+        ],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-D-review23",
@@ -8490,10 +8614,28 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入场4周仍上涨不足10%强制退出，周起算与进展按收盘或最高值需明确；下一可成交时点执行。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/lib/research-exit-presets.ts"
+      ],
+      "tests": [
+        "tests/research-sepa-management.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-exit-presets.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "入场4周仍上涨不足10%强制退出，周起算与进展按收盘或最高值需明确；下一可成交时点执行。 具名组合：SE03 + sepa-time4-calendar / sepa-time4-trading20；界面退出预设、保存、方法参数导出及真实成交引擎已接通。固定10%初始止损，收盘确认，不替代MIN/MAX原式；规则版本见sepaExitDescription。",
+      "bindings": {
+        "presets": ["sepa-vcp-close"],
+        "exports": [
+          {
+            "file": "src/lib/research-exit-presets.ts",
+            "name": "researchExitPresetTemplate"
+          }
+        ],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-D-bear4",
@@ -8501,10 +8643,24 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "日跌幅严格大于4%且量严格大于20日均量1.5倍，次日可成交开盘退出；均量窗口明确，不把形态当机构出逃事实。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/server/research-sepa.ts",
+        "src/server/research-rule-series.ts",
+        "src/server/research-run.ts"
+      ],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "共用SE03入场，日跌幅严格超过4%且当日量严格超过此前20根均量1.5倍，收盘确认次日全退；两个等号均不触发。",
+      "bindings": {
+        "presets": ["sepa-vcp-bear4"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-D-targets",
@@ -8556,10 +8712,24 @@
       "batch": "K4",
       "sources": ["sepa-strategy-analyst/references/entry-exit-rules.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "4.1要求突破量至少50日均量1.5倍，与1.1的20日分开比较，叠加版本需具名。距突破价5%与距枢纽5%的锚点差异显式记录。"
+      "status": "implemented",
+      "implementation": [
+        "src/lib/research-sepa-strategies.ts",
+        "src/server/research-sepa.ts",
+        "src/server/research-rule-series.ts",
+        "src/server/research-run.ts"
+      ],
+      "tests": [
+        "tests/research-sepa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "此前50根均量1.5倍独立版本，最优买价仍按枢纽105%上限；不混成距确认价105%的宽松版，也不含财报窗口。",
+      "bindings": {
+        "presets": ["sepa-vcp-volume50"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "SE-E-earnings13",
@@ -9335,10 +9505,19 @@
         "canslim-analyst/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§1.3硬条件：上半部、至少5日、回调不超三分之一及持续缩量；百分比以左杯沿/右杯沿还是绝对杯深为分母明确，左右杯沿不等时不能混用。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用严格柄预设：杯深=(左沿高-杯底低)/左沿高，柄回调=(右沿高-柄低)/右沿高；比较两个百分比，另有上半部、至少5日、后半均量低于前半及柄量低于杯量80%要求。",
+      "bindings": {
+        "presets": ["canslim-cup-u", "canslim-cup-w"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA-T-handle-half",
@@ -9753,10 +9932,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/references/canslim-scoring.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "52周高点的100/95/90%对应9/6/3分；突破量1.5倍加1但封顶9，真正新高已满分，不能把附加分默默扩展到近高点。 独立因子阈值/分层与七因子组合分别验收；当前诊断不代表历史策略已接入。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-high.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用已有52周90/95/100%三个首次达到分档预设，3/6/9分；新高量能奖励封顶9不改变交易阈值。补齐因子方法绑定，非新增高点算法，不是完整CANSLIM。",
+      "bindings": {
+        "presets": ["canslim-high-90", "canslim-high-95", "canslim-high-100"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA-S-S1",
@@ -10405,10 +10593,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口Phase4只取120根寻找杯柄；与35至325根杯周期及完整前缀版本冲突。独立截断窗口，不宣称覆盖65周形态。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-cup.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "120根含观察当日；不足120明确missing；严格U/W分名，完整前缀与窗口版独立，不覆盖65周。",
+      "bindings": {
+        "presets": ["canslim-cup-u-window120", "canslim-cup-w-window120"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA-T-gate2-fallback",
@@ -10416,10 +10613,19 @@
       "batch": "K4",
       "sources": ["canslim-analyst/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "入口仅杯柄低于4分或不存在时检查平台/平底；4至5分保持未成熟杯柄，区别于合格形态优先级；候选排序和替代范围冻结。"
+      "status": "implemented",
+      "implementation": ["src/lib/research-canslim-strategies.ts"],
+      "tests": [
+        "tests/research-canslim-priority.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "五项总分最高候选4/5分只观察，低于4或无候选才查平台/碟形；至少6分仍须几何合格。总分版为明确版本，不把继续分析当买入。",
+      "bindings": {
+        "presets": ["canslim-priority-gate2-fallback"],
+        "exports": [],
+        "completion": "implemented"
+      }
     },
     {
       "id": "CA-E-five-soft",
@@ -11279,7 +11485,8 @@
         "SE-P-tplus",
         "SE-P-standard",
         "SE-E-exclusions",
-        "SE-E-checklist"
+        "SE-E-checklist",
+        "SE03"
       ],
       "reason": "全文六节及50元示例逐条处置，21个新增方法，周线/精英/凯利补口径。MIN/MAX/修正、20日/50日均量、五项基本面与入口弹性等冲突分别保留，详见SEPA来源审计；入口仅局部复核不计整文件完成。 父组合SE01/SE03/SE05仍待其他来源复核，只保留来源关联，不当作已复核方法引用。"
     },
