@@ -1,4 +1,16 @@
 import {
+  riskPresetIds,
+  riskProfiles,
+  riskPresetTemplate,
+  riskPresetBoundary,
+} from "~/lib/research-risk-presets";
+import {
+  volatilityStopIds,
+  volatilityStopProfiles,
+  volatilityStopTemplate,
+  volatilityStopBoundary,
+} from "~/lib/research-volatility-stops";
+import {
   swingDisciplineIds,
   swingDisciplineLabels,
   swingDisciplineTemplate,
@@ -904,6 +916,11 @@ export function ResearchManagementFields({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="fixed">初始位置不动</SelectItem>
+            {value.trail.kind === "volatility" && (
+              <SelectItem value="volatility">
+                {volatilityStopProfiles[value.trail.profile][1]}
+              </SelectItem>
+            )}
             <SelectItem value="percent">持仓最高价百分比跟随</SelectItem>
             <SelectItem value="distance">持仓最高价固定价差跟随</SelectItem>
             <SelectItem value="chandelier">持仓最高价吊灯 ATR 跟随</SelectItem>
@@ -1128,6 +1145,36 @@ export function ResearchManagementFields({
         <p className="text-sm text-muted-foreground">
           当前版本：{growthIntradayLabels[value.growthIntraday]}。
           {growthIntradayDescription}
+        </p>
+      )}
+      {riskPresetIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(riskPresetTemplate(id))}
+        >
+          应用{riskProfiles[id].label}
+        </Button>
+      ))}
+      {value.riskPreset && (
+        <p className="text-sm text-muted-foreground">{riskPresetBoundary}</p>
+      )}
+      {volatilityStopIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(volatilityStopTemplate(id))}
+        >
+          应用{volatilityStopProfiles[id][1]}
+        </Button>
+      ))}
+      {value.trail.kind === "volatility" && (
+        <p className="text-sm text-muted-foreground">
+          {volatilityStopBoundary}
         </p>
       )}
       {swingDisciplineIds.map((id) => (

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { riskPresetParameters } from "./research-risk-presets";
 import { growthIntradayBase } from "./research-growth-intraday";
 import { growthDailyBase } from "./research-growth-daily";
 import { poolSelectionSchema } from "./market-pool";
@@ -59,6 +60,30 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (value.management?.riskPreset) {
+      const p = riskPresetParameters(value.management.riskPreset);
+      if (
+        value.strategy !== "dual-breakout" ||
+        value.risk?.fraction !== p.fraction ||
+        value.risk?.maxWeight !== p.maxWeight ||
+        value.holdingDays !== 60
+      )
+        context.addIssue({
+          code: "custom",
+          message: "规模演化预设须双突破、对应固定风险/市值参数与60交易日上限",
+        });
+    }
+    if (
+      value.management?.volatilityStop &&
+      (value.strategy !== "dual-breakout" ||
+        value.risk?.fraction !== 0.01 ||
+        value.risk?.maxWeight !== 0.2 ||
+        value.holdingDays !== 60)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "波动止损预设须双突破、1%风险、20%单股上限及60交易日持有上限",
+      });
     if (
       value.management?.swingDiscipline &&
       (value.strategy !== "dual-breakout" ||

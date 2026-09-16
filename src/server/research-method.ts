@@ -2,6 +2,8 @@ import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
 import { growthIntradayDescription } from "~/lib/research-growth-intraday";
 import { growthDailyDescription } from "~/lib/research-growth-daily";
 import { researchKellySwitchVersion } from "~/lib/research-kelly-switch";
+import { riskPresetBoundary } from "~/lib/research-risk-presets";
+import { volatilityStopBoundary } from "~/lib/research-volatility-stops";
 import {
   isGrowthPivotStop,
   growthPivotStopDescription,
@@ -184,6 +186,12 @@ export function researchMethodSnapshot(
       ...(maxDistance ? ["stop-loss/scripts/stop_loss_calc.py"] : []),
       ...(liquidityCap ? ["stop-loss/references/position-sizing.md"] : []),
       ...(management ? researchManagementSources : []),
+      ...(typeof input !== "string" && input.management?.riskPreset
+        ? [
+            "stop-loss/references/pitfalls.md",
+            "stop-loss/references/management.md",
+          ]
+        : []),
       ...(scaleOut || protection || pyramid || pullback
         ? ["stop-loss/references/management.md"]
         : []),
@@ -231,6 +239,25 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" && input.management?.riskPreset
+      ? {
+          riskPreset: {
+            version: "risk-presets-1",
+            id: input.management.riskPreset,
+            interpretation: riskPresetBoundary,
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" &&
+    input.management?.trail.kind === "volatility"
+      ? {
+          volatilityStop: {
+            version: "volatility-stops-1",
+            profile: input.management.trail.profile,
+            interpretation: volatilityStopBoundary,
+          },
+        }
+      : {}),
     ...(typeof input !== "string" && input.management?.swingDiscipline
       ? {
           swingDiscipline: {

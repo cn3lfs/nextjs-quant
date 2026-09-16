@@ -4536,10 +4536,28 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V3-keltner",
@@ -4549,10 +4567,28 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V4-kase",
@@ -4575,10 +4611,28 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V6-safezone",
@@ -11278,10 +11332,28 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文多数情况下使用中轨而非下轨；独立MA20收盘退出对照，不由布林下轨或个股金叉预设替代。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V3-mid",
@@ -11293,10 +11365,28 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "明确中线模型及周期；原文未指定SMA/EMA和周期，需公开工程参数，不能偷换成布林中线。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V3-opposite",
@@ -11426,10 +11516,28 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立20EMA退出，必须先检验标的历史沿线关系；不能以MA20代替EMA20。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A4-ma60",
@@ -11439,10 +11547,28 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立60日均线退出，同入场基线比较，持仓历史时点冻结。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A4-ma120",
@@ -11452,10 +11578,28 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立120日均线退出，数据不足不补短期均线。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "独立具名双突破风控预设；参数、公式及只升不降的工程裁定见volatilityStopBoundary与volatilityStopProfiles。固定5%初始止损、1%含费风险、20%单股及60交易日上限。收盘更新次日起生效，缺失保留原线；全前缀公司行动证明缺失拒绝交易模拟。固定输入为程序证据，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A4-chan-line",
@@ -11608,10 +11752,28 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原组合10日与5日时间止损分名；无进展阈值未给，需公开工程值并与价格止损并存。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-q80",
@@ -11772,10 +11934,28 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "新手0.25%/0.5%、成熟1%、强信号1.5%/2%分别具名同入场预设；原文风格文字不能自动推断胜率。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-hard2",
@@ -11787,10 +11967,28 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "该源任何情况不超过2%作为组合准入上限，不以现有可调风险输入框视为已强制执行；含费估算及跳空超额风险分别记录。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-current-equity",
@@ -11800,10 +11998,28 @@
         "stop-loss/references/position-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "与初始权益固定预算建立具名对照；连亏按当前权益缩小，权益时点及持仓估值缺失不补造。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-weight15-20",
@@ -11814,10 +12030,28 @@
         "stop-loss/scripts/stop_loss_calc.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "两个独立固定参数预设，风险预算与容量同时取小，保留原文B例降至8000股的无费示例及含费实际值。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-total-risk4-6",
@@ -11829,10 +12063,28 @@
         "stop-loss/references/kelly-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "合计所有持仓在险金额与新仓增量，不把市值总仓上限当作风险金额上限；移动止损高于成本后的风险、含费与估值时点须定义。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-expect02",
@@ -11855,10 +12107,28 @@
         "stop-loss/references/position-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "风险股数、单股15%或20%市值、近20日平均成交额1%容量取最小；单位先对齐为股数，交易数量向下取整，不把金额与股数直接比较。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A-explicit",
@@ -12170,10 +12440,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "固定入场、相同退出基线分别回放不保本/0.5R/1R，纯R与结构确认分名；需要完整后续价格路径，不能只重算原闭合收益。阈值选择仅用训练段，保留全部结果。 pitfalls补0.3R过早保本对照，虽为原文反例仍保留；1R且结构确认独立于纯R。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-cycle-switch",
@@ -12689,10 +12977,28 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "冻结相同入场、倍数与风险预算，分别以截至信号日的10/20周期共享ATR计算定位和实际股数，比较后续独立路径。原文可能相差30%仅是示例，不把差异比例作为硬阈值或保证，选周期只能用训练段。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "共享规模/演化引擎与riskProfiles具名参数表；同双突破、60交易日上限逐方案对照，规则细节见riskPresetBoundary。含费资金风险、市值、前20日成交额容量向下取整；当前/初始权益风险基数分名；组合在险以每仓非负含费规划损失累计，开盘已知现金和其他持仓前收估值，缺估值拒绝新仓。0.3/0.5/1R及结构保本分名；含入场日10交易日不足0.5R持续检查并与价格保护并存；ATR10/20同为2倍。未用未来样本选参，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetBudget"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE-E-five",

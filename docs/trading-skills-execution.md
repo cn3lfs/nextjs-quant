@@ -2,6 +2,15 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
+## B2 风控全量（2026-09-16，进行中）
+
+- 本轮波动保护线8项、规模/演化9项，共新增implemented 0 / variant 17，独立预设30个；审计695项为22 implemented / 353 variant / 320 planned，B2剩70项，逐ID见method-map及delivery。
+- 共享跟踪止损复用Chandelier只升不降/缺失保留语义；风险五档、初始/当前权益、市值/容量/组合在险与保本/时间/ATR周期由参数表驱动，冲突裁定见decisions。
+- L1最终7文件4877项通过；增加手算公式、同开盘风险重算、缺失估值/止损拒入、完整历史公司行动证明及参数冻结检查，既有执行契约保持。
+- L3未运行；两组共享执行器例外全量均exit 0，最终410文件通过/16跳过，8027项通过/27跳过，378.32秒；typecheck、来源登记门禁、方法审计、format及diff均exit 0。
+- 下一起点RK-V6-safezone，再RK-V8-sar、Kase/Beta适配与其余RK层；账户恢复、分钟触碰、MAE/凯利及期权扩展等70项未销账，nextStart/remainingMethods及未达30项方法目标的原因见delivery。
+- 未真实回测、未运行Playwright/build/L3、未提交推送打包、未连接生产库；来源锁/快照和MCP未修改。原始来源审计exit 1为新闻来源漂移，正式--registered门禁exit 0，保留既有通知。
+
 ## B3 波段与量价（2026-09-16，整批完成）
 
 - 本轮剩余54项逐ID实现为工程版本，新增implemented 0 / variant 54；审计695项为22 implemented / 336 variant / 337 planned，K2b planned 0，errors []；精确ID以method-map及delivery为准。

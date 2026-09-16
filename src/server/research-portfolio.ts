@@ -1,3 +1,5 @@
+import { volatilityStopSeries } from "~/lib/research-volatility-stops";
+import { riskPresetBudget } from "~/lib/research-risk-presets";
 import { swingRewardAdmission } from "~/lib/research-swing-discipline";
 import {
   growthVolumeReduction,
@@ -351,6 +353,17 @@ export function researchPortfolio(
     }
   >();
   const trail = spec.management?.trail;
+  const volatilityLines = new Map(
+    trail?.kind === "volatility"
+      ? [...series].map(([symbol, bars]) => {
+          const values = volatilityStopSeries(bars, trail.profile, calendar);
+          return [
+            symbol,
+            new Map(bars.map((bar, i) => [bar.date, values[i] ?? null])),
+          ] as const;
+        })
+      : [],
+  );
   const trailHigh = new Map(
     trail?.kind === "rolling-chandelier"
       ? [...series].map(([symbol, bars]) => {
@@ -1020,6 +1033,28 @@ export function researchPortfolio(
         0,
       );
       const entryEquity = cash + knownValue;
+      const riskFraction = spec.management?.riskPreset
+        ? riskPresetBudget(
+            spec.management.riskPreset,
+            spec.initialCapital,
+            entryEquity,
+            [...positions].map(([symbol, position]) => ({
+              quantity: position.remainingQuantity ?? position.quantity,
+              entry: position.entryPrice,
+              stop: states.get(symbol)?.stop ?? null,
+            })),
+            spec.costs,
+          )
+        : spec.risk?.fraction;
+      if (managed && (riskFraction == null || riskFraction <= 0)) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: "组合在险预算不足或持仓止损缺失，暂停新仓",
+        });
+        continue;
+      }
       const totalWeight = Math.min(
         spec.management?.maxTotalWeight ?? 1,
         pyramid?.maxTotalWeight ?? 1,
@@ -1076,7 +1111,7 @@ export function researchPortfolio(
               ),
             price: fill.price,
             stop: plannedRiskStop!,
-            fraction: spec.risk!.fraction,
+            fraction: riskFraction!,
             maxWeight: Math.min(
               spec.risk!.maxWeight,
               kelly?.weight ?? 1,
@@ -1548,6 +1583,16 @@ export function researchPortfolio(
           state.tailWarning = true;
         }
         const currentAtr = trailAtr.get(symbol)?.get(date);
+        const volatilityLine = volatilityLines.get(symbol)?.get(date);
+        if (
+          trailActive &&
+          trail?.kind === "volatility" &&
+          volatilityLine == null
+        )
+          position.managementWarnings!.push({
+            date,
+            reason: "波动止损窗口缺失或非法，保留上一有效止损线",
+          });
         if (
           trailActive &&
           (trail?.kind === "chandelier" ||
@@ -1579,21 +1624,23 @@ export function researchPortfolio(
             : null;
         const nextStop = !trailActive
           ? state.stop
-          : trail?.kind === "retracement"
-            ? (retracement?.stop ?? state.stop)
-            : trail?.kind === "percent"
-              ? state.high * (1 - trail.fraction)
-              : trail?.kind === "distance"
-                ? state.high - trail.distance
-                : trail?.kind === "rolling-chandelier" &&
-                    currentAtr != null &&
-                    windowHigh != null
-                  ? windowHigh - trail.multiple * currentAtr
-                  : trail?.kind === "chandelier" && currentAtr != null
-                    ? state.high - trail.multiple * currentAtr
-                    : trail?.kind === "close-atr" && currentAtr != null
-                      ? bar.close - trail.multiple * currentAtr
-                      : state.stop;
+          : trail?.kind === "volatility"
+            ? (volatilityLine ?? state.stop)
+            : trail?.kind === "retracement"
+              ? (retracement?.stop ?? state.stop)
+              : trail?.kind === "percent"
+                ? state.high * (1 - trail.fraction)
+                : trail?.kind === "distance"
+                  ? state.high - trail.distance
+                  : trail?.kind === "rolling-chandelier" &&
+                      currentAtr != null &&
+                      windowHigh != null
+                    ? windowHigh - trail.multiple * currentAtr
+                    : trail?.kind === "chandelier" && currentAtr != null
+                      ? state.high - trail.multiple * currentAtr
+                      : trail?.kind === "close-atr" && currentAtr != null
+                        ? bar.close - trail.multiple * currentAtr
+                        : state.stop;
         if (
           Number.isFinite(nextStop) &&
           nextStop > state.stop &&

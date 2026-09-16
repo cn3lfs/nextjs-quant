@@ -1,3 +1,4 @@
+import { riskPresetParameters } from "~/lib/research-risk-presets";
 import { growthIntradayBase } from "~/lib/research-growth-intraday";
 import { growthDailyBase } from "~/lib/research-growth-daily";
 import { maParamsSchema } from "~/lib/domain";
@@ -36,6 +37,23 @@ export function applyResearchManagement(
   return {
     ...spec,
     management,
+    ...(management.riskPreset
+      ? {
+          strategy: "dual-breakout" as const,
+          maParams: undefined,
+          risk: {
+            fraction: riskPresetParameters(management.riskPreset).fraction,
+            maxWeight: riskPresetParameters(management.riskPreset).maxWeight,
+          },
+        }
+      : {}),
+    ...(management.volatilityStop
+      ? {
+          strategy: "dual-breakout" as const,
+          maParams: undefined,
+          risk: { fraction: 0.01, maxWeight: 0.2 },
+        }
+      : {}),
     ...(management.swingDiscipline
       ? {
           strategy: "dual-breakout" as const,
@@ -61,14 +79,17 @@ export function applyResearchManagement(
           maxPositions: management.growthDaily === "SE-P-standard" ? 8 : 5,
         }
       : {}),
-    holdingDays: management.growthDaily
-      ? 60
-      : selected &&
-          (isCanslimProgressPreset(selected) ||
-            selected.startsWith("sepa-time4")) &&
-          selected !== spec.management?.exitPreset
-        ? Math.max(60, spec.holdingDays)
-        : spec.holdingDays,
+    holdingDays:
+      management.growthDaily ||
+      management.volatilityStop ||
+      management.riskPreset
+        ? 60
+        : selected &&
+            (isCanslimProgressPreset(selected) ||
+              selected.startsWith("sepa-time4")) &&
+            selected !== spec.management?.exitPreset
+          ? Math.max(60, spec.holdingDays)
+          : spec.holdingDays,
   };
 }
 
@@ -83,8 +104,16 @@ export function selectResearchStrategy(
     strategy !== "dual-breakout"
       ? (({ pyramid: _pyramid, ...rest }) => rest)(originalManagement)
       : originalManagement;
+  if (management?.riskPreset && strategy !== "dual-breakout") {
+    const { riskPreset: _riskPreset, ...rest } = management;
+    management = rest;
+  }
   if (management?.swingDiscipline && strategy !== "dual-breakout") {
     const { swingDiscipline: _swing, ...rest } = management;
+    management = rest;
+  }
+  if (management?.volatilityStop && strategy !== "dual-breakout") {
+    const { volatilityStop: _volatilityStop, ...rest } = management;
     management = rest;
   }
   if (management?.sepaElite && !strategy.startsWith("sepa-")) {

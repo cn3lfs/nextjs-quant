@@ -289,7 +289,11 @@ export async function runStrategyResearch(
         (stock) =>
           !stock.actions.some(
             (action) =>
-              action.date >= spec.start &&
+              action.date >=
+                (spec.management?.trail.kind === "volatility" ||
+                spec.management?.riskPreset
+                  ? (stock.bars[0]?.date ?? spec.start)
+                  : spec.start) &&
               action.date <= spec.end &&
               action.category === 1,
           ) &&
@@ -297,11 +301,14 @@ export async function runStrategyResearch(
             (coverage) =>
               coverage.symbol === stock.symbol &&
               coverage.start <=
-                (volume
-                  ? volumeStarts.get(stock.symbol)!
-                  : candle
-                    ? candleStarts.get(stock.symbol)!
-                    : spec.start) &&
+                (spec.management?.trail.kind === "volatility" ||
+                spec.management?.riskPreset
+                  ? (stock.bars[0]?.date ?? spec.start)
+                  : volume
+                    ? volumeStarts.get(stock.symbol)!
+                    : candle
+                      ? candleStarts.get(stock.symbol)!
+                      : spec.start) &&
               coverage.end >= spec.end,
           ),
       )

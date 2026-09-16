@@ -1,3 +1,8 @@
+import { riskPresetIds, riskPresetTemplate } from "./research-risk-presets";
+import {
+  volatilityStopIds,
+  volatilityStopTemplate,
+} from "./research-volatility-stops";
 import {
   swingDisciplineIds,
   swingDisciplineTemplate,
@@ -37,6 +42,8 @@ export const researchManagementSources = [
 ] as const;
 export const researchManagementSchema = z
   .object({
+    volatilityStop: z.enum(volatilityStopIds).optional(),
+    riskPreset: z.enum(riskPresetIds).optional(),
     swingDiscipline: z.enum(swingDisciplineIds).optional(),
     growthIntraday: z.enum(growthIntradayIds).optional(),
     growthDaily: z.enum(growthDailyIds).optional(),
@@ -152,6 +159,12 @@ export const researchManagementSchema = z
     trail: z
       .discriminatedUnion("kind", [
         z.object({ kind: z.literal("fixed") }).strict(),
+        z
+          .object({
+            kind: z.literal("volatility"),
+            profile: z.enum(volatilityStopIds),
+          })
+          .strict(),
         z.object({ kind: z.literal("retracement") }).strict(),
         z
           .object({
@@ -257,6 +270,36 @@ export const researchManagementSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.riskPreset) {
+      const template = riskPresetTemplate(value.riskPreset);
+      if (
+        Object.keys(value).some((k) => !(k in template)) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({
+          code: "custom",
+          message: "规模演化具名参数不匹配，请重新应用模板",
+        });
+    }
+    if (value.volatilityStop) {
+      const template = volatilityStopTemplate(value.volatilityStop);
+      if (
+        Object.keys(value).some((k) => !(k in template)) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({
+          code: "custom",
+          message: "波动止损具名参数不匹配，请重新应用模板",
+        });
+    }
     if (value.swingDiscipline) {
       const template = swingDisciplineTemplate(value.swingDiscipline);
       if (

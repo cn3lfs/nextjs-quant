@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { researchManagementSchema } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { maParamsSchema } from "../src/lib/domain";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
@@ -121,6 +122,34 @@ it("runs MA signals through both research partitions with evidence-backed fills 
     result,
   );
   expect(native).not.toHaveBeenCalled();
+  const volatilitySpec = {
+    ...spec,
+    initialCapital: 1000000,
+    risk: { fraction: 0.01, maxWeight: 0.2 },
+    management: researchManagementSchema.parse({
+      trail: { kind: "volatility", profile: "rk-ema20" },
+    }),
+  };
+  const shortProof = await runStrategyResearch(
+    volatilitySpec,
+    dataset,
+    evidence,
+    native,
+  );
+  expect(
+    shortProof.partitions.flatMap((p) => p.simulation?.trades ?? []),
+  ).toHaveLength(0);
+  const fullProof = structuredClone(evidence);
+  fullProof.corporateActionFree[0]!.start = bars[0]!.date;
+  const fullHistory = await runStrategyResearch(
+    volatilitySpec,
+    dataset,
+    fullProof,
+    native,
+  );
+  expect(
+    fullHistory.partitions.flatMap((p) => p.simulation?.trades ?? []).length,
+  ).toBeGreaterThan(0);
   expect(result).not.toHaveProperty("method");
   const method = researchMethodSnapshot(spec.strategy);
   const frozen = await runStrategyResearch(
