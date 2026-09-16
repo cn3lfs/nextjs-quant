@@ -4,6 +4,10 @@ import type { CzscInput } from "./czsc-input";
 import type { Bar } from "~/lib/domain";
 import type { CzscResult, CzscFamily } from "~/lib/czsc";
 import { decodeCzscCenters } from "./czsc-structures";
+import {
+  czscResearchOutputs,
+  decodeCzscResearchStructures,
+} from "./czsc-research-structures";
 
 export interface CzscProjections {
   hash: string;
@@ -91,6 +95,7 @@ export async function analyzeCzsc(
   bars: readonly Bar[],
   signalDetails = false,
   project: typeof projectCzsc = projectCzsc,
+  researchStructures = false,
 ): Promise<CzscResult> {
   if (
     bars.some(
@@ -120,11 +125,16 @@ export async function analyzeCzsc(
       9,
       23,
       ...(signalDetails ? [25, 29, 30, 31, 32, 53] : []),
+      ...(signalDetails && researchStructures ? czscResearchOutputs : []),
     ],
   );
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
     const decoded = decodeCzscCenters(input, raw, config);
     const p = (output: number) => raw.projections[`${config}:${output}`]!;
+    const research =
+      signalDetails && researchStructures
+        ? decodeCzscResearchStructures(raw, config, bars.length)
+        : null;
     const empty: CzscFamily = {
       config,
       points: [],
@@ -133,6 +143,7 @@ export async function analyzeCzsc(
       movements: [],
       qualities: [],
       divergences: [],
+      ...(research ? { diagnostics: research.diagnostics } : {}),
     };
     // A single endpoint cannot form a stroke/segment. Do not render a false structure.
     if (decoded.points.length < 2) return empty;
@@ -150,6 +161,7 @@ export async function analyzeCzsc(
               ...(signalDetails
                 ? {
                     centerId: p(25)[index]!,
+                    ...(research ? { structure: research.signal(index) } : {}),
                     divergence: {
                       areaRatio: p(29)[index]!,
                       priceRatio: p(30)[index]!,
@@ -192,6 +204,7 @@ export async function analyzeCzsc(
         endDate: bars[center.end]!.date,
       })),
       signals,
+      ...(research ? { diagnostics: research.diagnostics } : {}),
       divergences,
       movements: signals.map((s) => ({
         index: s.index,

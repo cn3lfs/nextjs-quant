@@ -32,12 +32,57 @@ export interface CzscFamily {
       flags: number;
       semantic: number;
     };
+    structure?: CzscSignalStructure;
   }[];
+  diagnostics?: {
+    version: "native-projections-b67f3c6-1";
+    ma: {
+      index: number;
+      difference: number;
+      kiss: number;
+      volumeKiss: number;
+      instantWarning: number;
+    }[];
+    lifecycle: { index: number; value: number }[];
+    nested: CzscNestedStructure[];
+  };
   // Output 23 describes the movement belonging to each signal, not every bar.
   movements: { index: number; direction: number }[];
   qualities: { index: number; value: number }[];
   divergences: { start: number; end: number; direction: number }[];
 }
+/** IDs are native one-based object ordinals, NEVER bar indices. Zero denotes
+ * absent association. The nested source is a candidate ordinal, not a signal. */
+export type CzscSignalStructure = {
+  contextFlags: number;
+  pointId: number;
+  trendId: number;
+  breakoutId: number;
+  leavePointId: number;
+  retestPointId: number;
+  secondBasePointId: number;
+  secondTurnPointId: number;
+  smallTurnBasePointId: number;
+  smallTurnLeavePointId: number;
+  smallTurnRetestPointId: number;
+  previousStartPointId: number;
+  previousEndPointId: number;
+  currentStartPointId: number;
+  currentEndPointId: number;
+  centerLifecycle: number;
+};
+export type CzscNestedStructure = {
+  lowConfig: 0;
+  sourceConfig: 1100;
+  index: number;
+  level: number;
+  sourceCandidateId: number;
+  lowStartPointId: number;
+  lowEndPointId: number;
+  semantic: number;
+  confirmFlags: number;
+  direction: number;
+};
 export interface CzscSignalDetails {
   strategyVersion: "czsc-monitor-1";
   dllVersion: string;
