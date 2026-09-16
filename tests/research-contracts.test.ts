@@ -1,3 +1,4 @@
+import { chanNativeIds } from "../src/lib/research-chan-native";
 import { describe, expect, it } from "vitest";
 import { maParamsSchema, type Bar } from "../src/lib/domain";
 import type { CzscResult } from "../src/lib/czsc";
@@ -30,6 +31,12 @@ import {
 } from "../src/lib/research-position-book";
 
 export const structureExceptions = {
+  ...Object.fromEntries(
+    chanNativeIds.map((id) => [
+      id,
+      "原生具名变体沿用逐前缀协议；结构语义由家族正反例与DLL golden验证",
+    ]),
+  ),
   "ma-cross":
     "均线事件没有可证实结构线，执行契约注入合成止损线，不冒充信号证据",
   czsc: "原生事件未提供可证实结构线；以确定性替身验证前缀协议，DLL golden 另测",
@@ -42,13 +49,33 @@ const native = async (bars: readonly Bar[]): Promise<CzscResult> => ({
     {
       config: 0,
       points: [],
-      centers: [],
+      centers: [
+        {
+          start: 0,
+          end: 20,
+          startDate: bars[0]!.date,
+          endDate: bars[20]?.date ?? bars[0]!.date,
+          direction: 1,
+          ZD: 1,
+          ZG: 2,
+          DD: 1,
+          GG: 2,
+        },
+      ],
       movements: [],
       qualities: [],
       divergences: [],
       signals:
         bars.length >= 63
-          ? [{ index: 30, date: bars[30]!.date, kind: 3, quality: 1 }]
+          ? [
+              {
+                index: 30,
+                date: bars[30]!.date,
+                kind: 3,
+                quality: 1,
+                centerId: 1,
+              },
+            ]
           : [],
     },
   ],

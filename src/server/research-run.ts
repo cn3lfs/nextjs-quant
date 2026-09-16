@@ -1,3 +1,7 @@
+import { isChanNative } from "~/lib/research-chan-native";
+import type { ResearchStructureObservation } from "~/lib/research-structure-events";
+import { isWyckoffVsa } from "~/lib/research-wyckoff-vsa";
+import { isWyckoff } from "~/lib/research-wyckoff";
 import { replayRiskRepair } from "~/lib/research-risk-repair";
 import { diagnoseStops } from "~/lib/research-risk-routing";
 import { evaluateRiskExtension } from "~/lib/research-risk-extensions";
@@ -149,6 +153,7 @@ export async function runStrategyResearch(
       }
   }
   const events: ResearchEvent[] = [];
+  const structureObservations: ResearchStructureObservation[] = [];
   const exclusions = [...dataset.excluded];
   const reversal =
     isVolumeReversal(spec.strategy) ||
@@ -190,6 +195,8 @@ export async function runStrategyResearch(
     ]),
   );
   const volume =
+    isWyckoffVsa(spec.strategy) ||
+    isWyckoff(spec.strategy) ||
     isVolumePollution(spec.strategy) ||
     isVolumeAdapted(spec.strategy) ||
     isIndicatorCombination(spec.strategy) ||
@@ -206,6 +213,8 @@ export async function runStrategyResearch(
   const volumeStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
+      isWyckoffVsa(spec.strategy) ||
+      isWyckoff(spec.strategy) ||
       isVolumePollution(spec.strategy) ||
       isVolumeAdapted(spec.strategy) ||
       isIndicatorCombination(spec.strategy) ||
@@ -272,6 +281,7 @@ export async function runStrategyResearch(
                 progress(stock.symbol, date, index, dataset.stocks.length),
               dataset.calendar,
               dataset.canslimMarket,
+              (row) => structureObservations.push(row),
             );
       const accepted = cup
         ? observed.filter((event) => {
@@ -578,6 +588,16 @@ export async function runStrategyResearch(
         }
       : null;
   const result = {
+    ...(isWyckoff(spec.strategy) ||
+    isWyckoffVsa(spec.strategy) ||
+    isChanNative(spec.strategy)
+      ? {
+          structureObservations: structureObservations.sort(
+            (a, b) =>
+              a.date.localeCompare(b.date) || a.symbol.localeCompare(b.symbol),
+          ),
+        }
+      : {}),
     ...(spec.stopDiagnosis
       ? { stopDiagnosis: diagnoseStops(spec.stopDiagnosis) }
       : {}),

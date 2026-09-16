@@ -1,3 +1,4 @@
+import { isWyckoff, researchWyckoffSeries } from "~/lib/research-wyckoff";
 import { researchSwingSystemSeries } from "~/lib/research-swing-system";
 import {
   isSwingCore,
@@ -90,6 +91,7 @@ export function researchRuleSeries(
   calendar: readonly string[] = bars.map((bar) => bar.date),
   market?: CanslimResearchMarket,
 ): ResearchRulePoint[] {
+  if (isWyckoff(id)) return researchWyckoffSeries(id, bars, calendar);
   if (id === "canslim-volume-tier" || id === "canslim-volume-tier-crash")
     return researchCanslimVolumeTier(id, bars, calendar, market);
   if (isCanslimMarket(id))

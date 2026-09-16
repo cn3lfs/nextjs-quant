@@ -1,3 +1,4 @@
+import { wyckoffInputsSchema, isWyckoffVsa } from "./research-wyckoff-vsa";
 import { riskRepairSchema } from "./research-risk-repair";
 import {
   riskRouteSchema,
@@ -35,6 +36,7 @@ export const researchSpecSchema = z
   .object({
     version: z.literal("strategy-research-1").default("strategy-research-1"),
     strategy: researchStrategySchema,
+    wyckoffInputs: wyckoffInputsSchema.optional(),
     // Optional fields preserve the exact shape/fingerprint of historical specs.
     maParams: maParamsSchema.optional(),
     risk: researchRiskSchema.optional(),
@@ -73,6 +75,11 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (value.wyckoffInputs && !isWyckoffVsa(value.strategy))
+      context.addIssue({
+        code: "custom",
+        message: "VSA历史证据仅用于威科夫VSA策略",
+      });
     if (
       value.riskRepair &&
       (value.riskRepair.observedDate < value.start ||

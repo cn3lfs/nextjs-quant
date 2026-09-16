@@ -1,3 +1,4 @@
+import { isWyckoffVsa, wyckoffInputsSchema } from "~/lib/research-wyckoff-vsa";
 import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
   riskExtensionSchema,
@@ -46,7 +47,7 @@ export function applyResearchManagement(
   management: ResearchManagement,
 ): ResearchSpec {
   const selected = management.exitPreset;
-  return {
+  const next: ResearchSpec = {
     ...spec,
     riskRoute: undefined,
     stopDiagnosis: undefined,
@@ -118,6 +119,8 @@ export function applyResearchManagement(
           ? Math.max(60, spec.holdingDays)
           : spec.holdingDays,
   };
+  if (!isWyckoffVsa(next.strategy)) delete next.wyckoffInputs;
+  return next;
 }
 
 export function selectResearchStrategy(
@@ -125,7 +128,13 @@ export function selectResearchStrategy(
   raw: string,
 ): ResearchSpec {
   const strategy = researchStrategySchema.parse(raw);
-  const { maParams, risk, management: originalManagement, ...shared } = spec;
+  const {
+    maParams,
+    risk,
+    wyckoffInputs,
+    management: originalManagement,
+    ...shared
+  } = spec;
   let management =
     originalManagement?.pyramid?.kind === "pullback-50-50" &&
     strategy !== "dual-breakout"
@@ -192,6 +201,7 @@ export function selectResearchStrategy(
   }
   const selected: ResearchSpec = {
     ...shared,
+    ...(isWyckoffVsa(strategy) && wyckoffInputs ? { wyckoffInputs } : {}),
     strategy,
     ...(strategy === "canslim-priority-weekly10-half" &&
     strategy !== spec.strategy
@@ -267,6 +277,38 @@ export function ResearchStrategyFields({
             : `${definition.label}的信号保持不变；交易部分使用下方组合风控，替代资金均分和仅固定持有退出。`
           : definition.description}
       </p>
+      {isWyckoffVsa(spec.strategy) && (
+        <label className="min-w-0 break-words [overflow-wrap:anywhere]">
+          VSA 历史排除与市值证据（JSON；缺失时不可用）
+          <Textarea
+            aria-label="VSA历史证据"
+            className="w-full min-w-0"
+            key={`${spec.strategy}:${JSON.stringify(spec.wyckoffInputs ?? [])}`}
+            defaultValue={JSON.stringify(spec.wyckoffInputs ?? [], null, 2)}
+            onBlur={(event) => {
+              try {
+                const rows = wyckoffInputsSchema.parse(
+                  JSON.parse(event.currentTarget.value),
+                );
+                event.currentTarget.setCustomValidity("");
+                onChange({ ...spec, wyckoffInputs: rows });
+              } catch {
+                event.currentTarget.setCustomValidity(
+                  "请输入有效的逐证券逐日VSA证据",
+                );
+                event.currentTarget.reportValidity();
+                const { wyckoffInputs: _rows, ...rest } = spec;
+                onChange(rest);
+              }
+            }}
+          />
+          <span className="text-xs text-muted-foreground">
+            每行含
+            symbol、date、availableAt（北京时间）、source、limit、corporateAction、openingCrash、specialDate、marketCapYuan；未知不可填
+            false。
+          </span>
+        </label>
+      )}
       {spec.strategy !== "dual-breakout-structure" && (
         <label>
           交易风控

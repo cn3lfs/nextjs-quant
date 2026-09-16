@@ -78,6 +78,7 @@ export function researchMethodSnapshot(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffInputs"
         | "stopDiagnosis"
       >,
   management = false,
@@ -319,6 +320,9 @@ export function researchMethodSnapshot(
             interpretation: stopDiagnosisBoundary,
           },
         }
+      : {}),
+    ...(typeof input !== "string" && input.wyckoffInputs
+      ? { wyckoffInputs: input.wyckoffInputs }
       : {}),
     ...(typeof input !== "string" && input.riskExtension
       ? {
@@ -734,6 +738,7 @@ export function validateResearchMethod(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffInputs"
         | "stopDiagnosis"
       >,
   saved: ResearchMethodSnapshot | undefined,

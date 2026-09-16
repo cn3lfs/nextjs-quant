@@ -1,4 +1,15 @@
 import {
+  isWyckoffVsa,
+  researchWyckoffVsaSeries,
+  type WyckoffVsaId,
+} from "./research-wyckoff-vsa";
+import {
+  isWyckoff,
+  researchWyckoffSeries,
+  type WyckoffId,
+  type WyckoffPoint,
+} from "./research-wyckoff";
+import {
   isTechnicalStrategy,
   researchTechnicalSeries,
   type TechnicalStrategyId,
@@ -60,6 +71,8 @@ import {
   type VolumeReversalPoint,
 } from "./research-volume-reversals";
 export type ResearchRuleId =
+  | WyckoffVsaId
+  | WyckoffId
   | ChannelId
   | ContinuationId
   | CandleStrategyId
@@ -71,6 +84,8 @@ export type ResearchRuleId =
   | VolumeFailureId
   | VolumeSequenceId;
 export type ResearchRulePoint =
+  | ReturnType<typeof researchWyckoffVsaSeries>[number]
+  | WyckoffPoint
   | ChannelPoint
   | ContinuationPoint
   | CandlePoint
@@ -83,6 +98,8 @@ export type ResearchRulePoint =
   | VolumeSequencePoint;
 export function isResearchRule(id: string): id is ResearchRuleId {
   return (
+    isWyckoffVsa(id) ||
+    isWyckoff(id) ||
     isChannelStrategy(id) ||
     isContinuation(id) ||
     isCandleStrategy(id) ||
@@ -99,6 +116,8 @@ export function researchRuleSeries(
   id: ResearchRuleId,
   bars: readonly Bar[],
 ): ResearchRulePoint[] {
+  if (isWyckoffVsa(id)) return researchWyckoffVsaSeries(id, bars);
+  if (isWyckoff(id)) return researchWyckoffSeries(id, bars);
   if (isChannelStrategy(id)) return researchChannelSeries(id, bars);
   if (isContinuation(id)) return researchContinuationSeries(id, bars);
   if (isCandleStrategy(id)) return researchCandleSeries(id, bars);

@@ -1,3 +1,6 @@
+import { chanNativeStrategies, chanNativeIds } from "./research-chan-native";
+import { wyckoffVsaStrategies, wyckoffVsaIds } from "./research-wyckoff-vsa";
+import { wyckoffStrategies, wyckoffIds } from "./research-wyckoff";
 import {
   sepaResearchIds,
   sepaResearchStrategies,
@@ -46,6 +49,21 @@ import {
 
 // Only executable families belong here. Definitions drive form options and method snapshots.
 export const researchStrategyFamilies = [
+  {
+    file: "src/lib/research-chan-native.ts",
+    strategies: chanNativeStrategies,
+    ids: chanNativeIds,
+  },
+  {
+    file: "src/lib/research-wyckoff-vsa.ts",
+    strategies: wyckoffVsaStrategies,
+    ids: wyckoffVsaIds,
+  },
+  {
+    file: "src/lib/research-wyckoff.ts",
+    strategies: wyckoffStrategies,
+    ids: wyckoffIds,
+  },
   {
     file: "src/lib/research-sepa-strategies.ts",
     strategies: sepaResearchStrategies,

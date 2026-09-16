@@ -2,6 +2,15 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
+## B4 结构事件（2026-09-17，批内进行中）
+
+- 新增18项variant：WY01–WY08、WY12–WY18、CH01–CH03；审计695项为22 implemented / 470 variant / 203 planned，B4仍21项planned。
+- 候选/确认/取消逐项冻结并持久化回显；VSA六类需历史排除证据，日线VP仅均匀分量估算；缠论原生具名子集及结构缺口见method-map/decisions。
+- 注册契约覆盖新增预设；固定形态、阈值、AR/ST、原生元数据与串行前缀、VSA保存/切换、真实DLL三买、LPSY实际整手减半均有用例。
+- L1/L2与共享执行器会话例外全量结果、真实退出码/计数见`.codex-runs/delivery.json`；整批未完成，L3/Playwright未运行。
+- 下一起点WY09，剩余多周期/RS/目标评分和16项缠论未交付；原生结构缺口不自造近似，固定输入不代表真实数据可用。
+- 未真实回测、提交、推送、打包或连接生产库；未改来源锁/快照、验证门禁、DLL及用户MCP。
+
 ## B2 风控全量（2026-09-17，整批完成）
 
 - 本轮最后6项工程版本已实现；审计695项为22 implemented / 423 variant / 250 planned，K2a/K7待办均0、errors []，精确ID见method-map与delivery。

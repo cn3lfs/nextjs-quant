@@ -1,3 +1,7 @@
+import {
+  isWyckoffVsa,
+  researchWyckoffVsaSeries,
+} from "~/lib/research-wyckoff-vsa";
 import { diagnosisDecision, diagnoseStops } from "~/lib/research-risk-routing";
 import { chopFrequency, scriptSlipSizing } from "~/lib/research-risk-scenarios";
 import { researchGroupRisk } from "~/lib/research-group-risk";
@@ -358,7 +362,16 @@ export function researchPortfolio(
             [
               symbol,
               new Map(
-                researchRuleSeries(technicalId, bars, calendar)
+                (isWyckoffVsa(technicalId)
+                  ? researchWyckoffVsaSeries(
+                      technicalId,
+                      bars,
+                      calendar,
+                      spec.wyckoffInputs,
+                      symbol,
+                    )
+                  : researchRuleSeries(technicalId, bars, calendar)
+                )
                   .filter(
                     (point) =>
                       point.date >= spec.start && point.date <= spec.end,

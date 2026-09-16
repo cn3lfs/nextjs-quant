@@ -1,3 +1,9 @@
+import type { ResearchStructureObservation } from "~/lib/research-structure-events";
+import { isChanNative, chanNativeCandidates } from "~/lib/research-chan-native";
+import {
+  isWyckoffVsa,
+  researchWyckoffVsaSeries,
+} from "~/lib/research-wyckoff-vsa";
 import { crowdedStop } from "~/lib/research-risk-scenarios";
 import { riskPresetEvolution } from "~/lib/research-risk-presets";
 import { chanStopLine } from "~/lib/research-stop-calibration";
@@ -33,6 +39,7 @@ export async function researchSignals(
   progress: (date: string) => void = () => {},
   calendar: readonly string[] = bars.map((bar) => bar.date),
   market?: CanslimResearchMarket,
+  recordStructure?: (row: ResearchStructureObservation) => void,
 ) {
   if (
     bars.some(
@@ -57,9 +64,39 @@ export async function researchSignals(
   if (first < warmup)
     throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
-  const technical = isResearchRule(spec.strategy)
-    ? researchRuleSeries(spec.strategy, bars, calendar, market)
-    : null;
+  const technical = isWyckoffVsa(spec.strategy)
+    ? researchWyckoffVsaSeries(
+        spec.strategy,
+        bars,
+        calendar,
+        spec.wyckoffInputs,
+        symbol,
+      )
+    : isResearchRule(spec.strategy)
+      ? researchRuleSeries(spec.strategy, bars, calendar, market)
+      : null;
+  if (technical && recordStructure)
+    for (const point of technical) {
+      if (!("events" in point) || point.date > spec.end) continue;
+      const rawPatterns =
+        "patterns" in point.values &&
+        Array.isArray(point.values.patterns) &&
+        point.values.patterns.length > 0;
+      if (
+        point.events.length ||
+        rawPatterns ||
+        (point.date >= spec.start && point.reason)
+      )
+        recordStructure({
+          symbol,
+          date: point.date,
+          warmup: point.date < spec.start,
+          reason: point.reason,
+          events: point.events,
+          values: point.values,
+          structure: "structure" in point ? point.structure : null,
+        });
+    }
   if (
     technical &&
     !technical.some(
@@ -73,6 +110,7 @@ export async function researchSignals(
       isVolumeGrid(spec.strategy)
         ? `研究区间${spec.start}至${spec.end}没有可用量价输入：${[...new Set(technical.filter((p) => p.date >= spec.start && p.date <= spec.end).map((p) => p.reason))].slice(0, 3).join("；")}`
         : spec.strategy === "sw-system-combined" ||
+            isWyckoffVsa(spec.strategy) ||
             isVolumePollution(spec.strategy) ||
             isVolumeAdapted(spec.strategy) ||
             isSwingCore(spec.strategy) ||
@@ -99,8 +137,21 @@ export async function researchSignals(
   const stopAtr = stopPeriod == null ? null : atr(bars, stopPeriod);
   const seen = new Set<string>();
   let version: string | null = null;
-  const qualified = (result: CzscResult) =>
-    result.status === "structure"
+  const nativeVersionPrefix = isChanNative(spec.strategy)
+    ? definition.version
+    : "czsc-research-1";
+  const qualified = (result: CzscResult, prefix: readonly Bar[]) => {
+    if (isChanNative(spec.strategy)) {
+      const found = chanNativeCandidates(
+        spec.strategy,
+        result,
+        prefix,
+        spec.czscConfig,
+      );
+      if (found.gaps.length) throw new Error(found.gaps.join("；"));
+      return found.signals;
+    }
+    return result.status === "structure"
       ? (result.families
           .find((family) => family.config === spec.czscConfig)
           ?.signals.filter(
@@ -108,12 +159,14 @@ export async function researchSignals(
               [1, 2, 3].includes(point.kind) && [1, 2].includes(point.quality),
           ) ?? [])
       : [];
+  };
   const key = (point: { date: string; kind: number }) =>
     `czsc:${spec.czscConfig}:${point.date}:${point.kind}`;
-  if (spec.strategy === "czsc") {
+  if (definition.signal === "czsc") {
     const baseline = await czsc(bars.slice(0, first));
-    version = `czsc-research-1/${baseline.sourceCommit}/${baseline.hash}`;
-    for (const point of qualified(baseline)) seen.add(key(point));
+    version = `${nativeVersionPrefix}/${baseline.sourceCommit}/${baseline.hash}`;
+    for (const point of qualified(baseline, bars.slice(0, first)))
+      seen.add(key(point));
   }
   for (
     let index = first;
@@ -137,7 +190,10 @@ export async function researchSignals(
         events.push({
           ...common,
           key: `${signalVersion}:${bar.date}:long`,
-          endpointDate: bar.date,
+          endpointDate:
+            "candidateAt" in point && point.candidateAt
+              ? point.candidateAt
+              : bar.date,
           strategyVersion: signalVersion,
           evidence: JSON.stringify(point),
           ...("historyStart" in point && point.historyStart
@@ -248,19 +304,71 @@ export async function researchSignals(
         });
     } else {
       const result = await czsc(bars.slice(0, index + 1));
-      if (`czsc-research-1/${result.sourceCommit}/${result.hash}` !== version)
+      if (
+        `${nativeVersionPrefix}/${result.sourceCommit}/${result.hash}` !==
+        version
+      )
         throw new Error("回放期间DLL版本变化，请重新研究");
-      for (const point of qualified(result)) {
+      for (const point of qualified(result, bars.slice(0, index + 1))) {
         const signalKey = key(point);
         if (seen.has(signalKey)) continue;
         seen.add(signalKey);
-        if (bar.volume <= 0) continue;
+        if (
+          bar.volume <= 0 ||
+          (isChanNative(spec.strategy) &&
+            (![bar.open, bar.high, bar.low, bar.close, bar.volume].every(
+              (v) => Number.isFinite(v) && v > 0,
+            ) ||
+              bar.high < Math.max(bar.open, bar.close) ||
+              bar.low > Math.min(bar.open, bar.close)))
+        )
+          continue;
+        if (isChanNative(spec.strategy))
+          recordStructure?.({
+            symbol,
+            date: bar.date,
+            warmup: false,
+            reason: null,
+            events: [
+              {
+                key: signalKey,
+                kind: `native-buy-${point.kind}`,
+                candidateAt: point.date,
+                observedAt: bar.date,
+                confirmedAt: bar.date,
+                state: "confirmed",
+                reason: "原生端点在该完整前缀首次通过质量及结构判据",
+                facts: {
+                  point,
+                  center: result.families.find(
+                    (f) => f.config === spec.czscConfig,
+                  )?.centers[point.centerId! - 1],
+                  dllHash: result.hash,
+                },
+              },
+            ],
+          });
         events.push({
           ...common,
           key: signalKey,
           endpointDate: point.date,
           strategyVersion: version!,
-          evidence: JSON.stringify({ config: spec.czscConfig, point }),
+          evidence: JSON.stringify({
+            config: spec.czscConfig,
+            point,
+            ...(isChanNative(spec.strategy)
+              ? {
+                  candidateAt: point.date,
+                  confirmedAt: bar.date,
+                  state: "confirmed",
+                  center: result.families.find(
+                    (f) => f.config === spec.czscConfig,
+                  )?.centers[point.centerId! - 1],
+                  dllHash: result.hash,
+                  sourceCommit: result.sourceCommit,
+                }
+              : {}),
+          }),
         });
       }
     }

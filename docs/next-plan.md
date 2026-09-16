@@ -1,5 +1,10 @@
 # 个人交易工作台扩充计划
 
+## B4 结构事件进行中（2026-09-17）
+
+本轮已实现18项具名工程版本：WY01–WY08、WY12–WY18、CH01–CH03。审计695项：22 implemented / 470 variant / 203 planned；B4仍21项planned，未达本轮30项目标。共享事件状态机记录候选/确认/取消，VSA历史证据显式输入，原生DLL队列与逐前缀不变。当前会话收口检查以`.codex-runs/delivery.json`为准；未整批完成，不跑L3。下一起点WY09：复用小时适配实现日线区域+小时确认，再WY10/WY11/WY19/WY20；缠论原生适配/结构缺口逐项见method-map，不以kind或文字说明销账。未真实回测、提交、推送或打包。
+
+
 ## B5 Track A 整批收口（2026-09-17）
 
 K8的29项已接入具名工程版本，审计695项为22 implemented / 452 variant / 221 planned，K8 planned 0。复用原分钟引擎与逐批账本；OP五档表格、AR时点准入、尾盘双突破及RK-X执行/预算均保留缺数据边界。最终L3 verify:batch退出0：422文件/8339项通过、16文件/27项跳过、0失败，376.82秒；typecheck、build/runtime、来源/方法审计通过。Playwright窄屏溢出修正后31模板/3类输入/390px/页面错误0通过，修正前记录均final:false保留；会话例外全量单列。最终结果见`.codex-runs/delivery.json`。未真实回测，不进入下一批，不提交、推送或打包。

@@ -1244,11 +1244,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-spring-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY02",
@@ -1257,11 +1271,26 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-sos-daily",
+          "wy-sos-jac-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY03",
@@ -1270,11 +1299,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-lps-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY04",
@@ -1283,11 +1326,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-reaccumulation-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY05",
@@ -1296,11 +1353,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-ut-exit-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY06",
@@ -1309,11 +1380,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-sow-lpsy-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY07",
@@ -1322,11 +1407,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-ice-exit-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY08",
@@ -1335,11 +1434,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts",
+        "src/lib/research-structure-events.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照，仅入场开盘守冻结TR下沿，持有后按具名UT/LPSY/破冰或最长持有期处理，避免共同MA20/突破低点守卫在LPSY之前先平仓；入场类另有MA20下穿退出及候选低点3根守卫。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-trend-pullback-daily"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY09",
@@ -1387,11 +1500,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-stopping-volume"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY13",
@@ -1400,11 +1526,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-no-supply"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY14",
@@ -1413,11 +1552,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-no-demand"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY15",
@@ -1426,11 +1578,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-absorption"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY16",
@@ -1439,11 +1604,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-churning"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY17",
@@ -1452,11 +1630,24 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff-vsa.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-vsa.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "VSA工程v1，单事件候选与确认逐项记录，交易组合共用日线TR工程状态机。量与价差基准为前20根（不含当前）；Stopping候选价<MA60、量>1.5倍、收位>0.5，确认另需候选量>3倍、后续无新低且5根内出现近低1%的No Supply；No Supply/No Demand为阴/阳、量<0.5、价差<1倍且TR内，分别需此前20根止跌量/高量滞涨证据、距支撑/阻力1%内，再下一根收盘越候选高/低确认。Absorption连续3根各量>1.2倍，三根总波幅<2%或各价差<0.8倍，冻结低位TR内且无突破，前20根缩量下跌数>放量下跌数；下一根越候选高点确认。Churning量>2倍、价差<0.3倍、收位[0.3,0.7]，高位TR且前20根缩量上涨数>放量上涨数，次根跌破候选低点退出。高低位以价相对MA60作代理，不宣称主力意图。SC/BC量>3倍、价差>2倍、破前5根低/高、收位>0.6/<0.4；候选后至少3根不创新极值，先出现距极值>1% AR，再10根内缩量ST触及原极值1%区域才确认。盘中先后未知不得同根认AR/ST。卖出事件以同一JAC基线入场，仅退出已有多仓；其余入场及MA20下穿/最长持有退出。逐日历史涨跌停/除权/开盘跳水/特殊日期和市值证据必须在15:00前已知，缺失或冲突不可用，异常取消候选；市值<50亿元保守禁入。百分比距离、窗口、收盘确认及小盘禁入是显式工程解释。不是完整体系或盈利证据。",
+      "bindings": {
+        "presets": [
+          "wy-climax"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY18",
@@ -1465,11 +1656,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff.test.ts",
+        "tests/research-wyckoff-profile.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "日线结构工程v1：TR以前一日已知60根内最后4个交替极值识别，极值各需右侧3根确认；两高/两低差各≤1%，区间宽≤20%，不是完整五阶段自动诊断。冻结区间后观察，不用全区间最终结构回填。均量/价差用候选日前20根；长实体≥全幅50%，放量≥1.5倍，Spring日线回收量≥1.5倍只是盘中拉回放量的近似，UT同理。Spring/UT先越界候选，最多3根收回且放量才确认；次根跌破/突破候选极值取消。SOS越中轴/JAC越上沿放量长阳，下一根不失守冻结线确认；LPS在SOS/JAC后10根内缩量回踩不超过涨幅50%，触及冻结线至其上1%，下一根收盘超过回踩最高价确认。再吸筹另需此前MA20>MA60且MA60上升。SOW为放量长阴跌穿中轴，LPSY镜像反弹不超过跌幅50%，确认后减当时剩余多仓50%；破冰放量长阴下穿冻结下沿当日确认退出。无TR回调需MA20>MA60、MA20上升，缩量回踩MA20并守住，下一根放量收盘越回踩高点。退出类以同一JAC确认入场作对照；其余均有MA20下穿退出与最长持有期。所有成交在确认后下一合法开盘，沿用T+1/受阻重试；仅卖已有多仓、不做空。1%/20%/3根/10根/实体50%与次日确认均为工程参数；不等于原文全覆盖、真实回测或盈利证据。 VP取候选前已确认TR最早极值起至少20根，12等宽箱按日线高低重叠长度均匀分量。前三箱HVN并列低价优先，JAC需上方2箱有HVN；非真实逐价成交分布。",
+      "bindings": {
+        "presets": [
+          "wy-vp-daily-estimate"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY19",
@@ -1504,11 +1709,24 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用b67f3c6 DLL原生具名子集，保持配置0/1100、单队列逐完整前缀调用。每根只消费当时新出现的quality=1/2信号，端点日与首次可知确认日分离；预热已有信号不回填。原生kind=1另需semantic=1及flags含新极值(1)/背驰确认(16)、所属中枢存在且端点低于ZD；kind=2仅选原生二买，原生规则为一买后的第二段回调不低于一买低点；kind=3另验所属中枢ZG之上，严格大于，首次回试由原生算法负责。中枢归属来自output25，禁止最近中枢推测。缺少元数据或归属无效报结构缺口，不补造信号。固定持有期及既有可选风控，确认后下一合法开盘，T+1及成交限制保持；不实现裸卖空。这三个预设是锁定DLL的具体规则变体，不宣称原文递归级别、二三买重合、区间套或完整体系覆盖；固定输入不是盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-first-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH02",
@@ -1517,11 +1735,24 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用b67f3c6 DLL原生具名子集，保持配置0/1100、单队列逐完整前缀调用。每根只消费当时新出现的quality=1/2信号，端点日与首次可知确认日分离；预热已有信号不回填。原生kind=1另需semantic=1及flags含新极值(1)/背驰确认(16)、所属中枢存在且端点低于ZD；kind=2仅选原生二买，原生规则为一买后的第二段回调不低于一买低点；kind=3另验所属中枢ZG之上，严格大于，首次回试由原生算法负责。中枢归属来自output25，禁止最近中枢推测。缺少元数据或归属无效报结构缺口，不补造信号。固定持有期及既有可选风控，确认后下一合法开盘，T+1及成交限制保持；不实现裸卖空。这三个预设是锁定DLL的具体规则变体，不宣称原文递归级别、二三买重合、区间套或完整体系覆盖；固定输入不是盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-second-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH03",
@@ -1530,11 +1761,24 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "复用b67f3c6 DLL原生具名子集，保持配置0/1100、单队列逐完整前缀调用。每根只消费当时新出现的quality=1/2信号，端点日与首次可知确认日分离；预热已有信号不回填。原生kind=1另需semantic=1及flags含新极值(1)/背驰确认(16)、所属中枢存在且端点低于ZD；kind=2仅选原生二买，原生规则为一买后的第二段回调不低于一买低点；kind=3另验所属中枢ZG之上，严格大于，首次回试由原生算法负责。中枢归属来自output25，禁止最近中枢推测。缺少元数据或归属无效报结构缺口，不补造信号。固定持有期及既有可选风控，确认后下一合法开盘，T+1及成交限制保持；不实现裸卖空。这三个预设是锁定DLL的具体规则变体，不宣称原文递归级别、二三买重合、区间套或完整体系覆盖；固定输入不是盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-third-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH04",
@@ -1547,7 +1791,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构适配缺口：CzscResult未暴露原生二三买重合上下文/第二类关联端点。先接入已存在DLL重合标志及output40/41，逐前缀验证重合两条关系；不能用kind=2或3任选其一代替。"
     },
     {
       "id": "CH05",
@@ -1560,7 +1804,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构适配与周期缺口：原文类一买至少周线级别，现有日线semantic=2不证明周线盘整背驰类一买。补已完成周线前缀、原生背驰A/C端点与中枢归属后再实施。"
     },
     {
       "id": "CH06",
@@ -1573,7 +1817,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构适配缺口：当前只在原生一买子集中消费semantic=1，不等于独立趋势背驰策略；需要原生A/C端点43-46、走势归属28与两中枢证据及对应卖出组合。"
     },
     {
       "id": "CH07",
@@ -1586,7 +1830,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构适配缺口：CzscResult未输出原生嵌套链；锁定DLL已存在49-52/56-58投影，应先逐前缀解码、核对高级别段与低级别段包含关系及确认时点，不自写区间套算法。"
     },
     {
       "id": "CH08",
@@ -1599,7 +1843,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构能力待核对：需完整已完成同级别走势类型序列及连接边界；当前movements仅信号所属方向，不能当作全行情分解。先核对DLL导出是否足够；不足则单列新增原生完成段/级别/连接关系输出任务。"
     },
     {
       "id": "CH09",
@@ -1612,7 +1856,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构能力待核对：需要已完成下跌与已完成上涨的连接、级别与端点证明，不能按movements正负拼接。与CH08共用原生完成段输出核验任务。"
     },
     {
       "id": "CH10",
@@ -1625,7 +1869,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "boundary": "结构适配缺口：需中枢生命周期/延伸扩张与中阴震荡的操作阶段关系，当前单组centers不能证明；核对DLL47/48，再定义确认后多仓操作，不能自行从全区间中枢补过去。"
     },
     {
       "id": "CH11",
@@ -3558,7 +3802,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "boundary": "结构适配缺口：semantic=3只是原生小转大必要条件，需核对38/39/42关联的最后次级别中枢突破回试与原文操作边界，不能将必要条件宣称充分确认。"
     },
     {
       "id": "SE05-weekly-ma",

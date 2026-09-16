@@ -12,7 +12,10 @@ import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { researchSpecSchema, type ResearchSpec } from "~/lib/strategy-research";
 import { ResearchStrategyFields } from "./research-strategy-fields";
-import { researchStrategyLabel } from "~/lib/research-strategies";
+import {
+  researchStrategies,
+  researchStrategyLabel,
+} from "~/lib/research-strategies";
 import {
   researchMarketEvidenceSchema,
   type ResearchMarketEvidence,
@@ -450,7 +453,7 @@ export function StrategyResearchControls() {
             }
           />
         </label>
-        {spec.strategy === "czsc" && (
+        {researchStrategies[spec.strategy].signal === "czsc" && (
           <label>
             缠论配置
             <Select
@@ -716,6 +719,18 @@ export function StrategyResearchControls() {
               </p>
             )}
           </details>
+          {result.data.structureObservations && (
+            <details>
+              <summary>结构事件明细（候选、确认、取消与缺口）</summary>
+              <p className="text-xs text-muted-foreground">
+                候选日与首次确认日分开；warmup
+                表示预热记录。原生买点保留端点日与首次通过判据日，不虚构此前未观测的候选。记录不等于成交或业绩。
+              </p>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">
+                {JSON.stringify(result.data.structureObservations, null, 2)}
+              </pre>
+            </details>
+          )}
           {(result.data.riskRepair ||
             result.data.stopDiagnosis ||
             result.data.riskRoute) && (
