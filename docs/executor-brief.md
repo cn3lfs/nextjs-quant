@@ -72,7 +72,7 @@
 | L2   | 每个子任务收口       | typecheck + 该家族全部测试 + `audit-trading-methods.ts --write`        | 全量、Playwright        |
 | L3   | **每批一次**（批末） | `pnpm verify:batch` + Playwright 一次（只走本批新增交互）+ format/diff | —                       |
 
-例外全量：改动触及 `research-execution.ts`、`research-portfolio.ts`、注册聚合器、`indicators.ts` 或新增数据库迁移时，该子任务结束追加一次全量。任何一次全量失败，修正后**在会话结束前再跑一次**，使最后记录的全量为零失败。
+例外全量：改动触及 `research-execution.ts`、`research-portfolio.ts`、注册聚合器、`indicators.ts` 或新增数据库迁移时，同一会话内连续触及同一共享执行器的多个子任务，合并为会话收尾前的一次全量；不按子任务计次。任何一次全量失败，修正后**在会话结束前再跑一次**，使最后记录的全量为零失败。
 
 `pnpm test` 不接受 `--outputFile=` 之类参数透传，用 `pnpm run test` 或重定向输出。收尾前跑一次 `pnpm normalize:eol`，否则残留 CRLF 会让 `git diff --check` 失败。
 

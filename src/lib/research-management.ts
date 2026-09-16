@@ -336,7 +336,11 @@ export const researchManagementSchema = z
         Object.keys(value).some((key) => !(key in template)) ||
         value.stop.kind !== "percent" ||
         value.stop.fraction !==
-          (value.growthIntraday.startsWith("SE-") ? 0.1 : 0.08) ||
+          (value.growthIntraday === "RK-B-touch"
+            ? 0.05
+            : value.growthIntraday.startsWith("SE-")
+              ? 0.1
+              : 0.08) ||
         value.confirmations !== 1 ||
         value.trail.kind !== "fixed" ||
         value.stressBuffer !== 0 ||

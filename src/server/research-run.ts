@@ -1,3 +1,5 @@
+import { riskPresetAdmission } from "~/lib/research-risk-presets";
+import { riskAdmissionNeedsTraining } from "~/lib/research-risk-admission";
 import { isVolumePollution } from "~/lib/research-volume-pollution";
 import { isVolumeAdapted } from "~/lib/research-volume-adapted";
 import { isIndicatorCombination } from "~/lib/research-indicator-combinations";
@@ -314,7 +316,13 @@ export async function runStrategyResearch(
       )
       .map((stock) => stock.symbol),
   );
+  const trainsAdmission = riskAdmissionNeedsTraining(
+    spec.management?.riskPreset
+      ? riskPresetAdmission(spec.management.riskPreset)
+      : undefined,
+  );
   const trainsKelly =
+    trainsAdmission ||
     spec.management?.kelly?.provenance === "development-closed" ||
     spec.management?.kelly?.provenance === "development-net-payoff";
   let kellyTraining: ResearchKellyTraining | null = null;
@@ -353,14 +361,19 @@ export async function runStrategyResearch(
         dataset.calendar.filter((day) => day < spec.validationStart).at(-1) ??
         spec.start;
       const end = partition === "validation" ? spec.end : beforeValidation;
-      const { kelly: _kelly, ...referenceManagement } = spec.management ?? {};
+      const { kelly: _kelly, ...referenceManagement } = (spec.management ??
+        {}) as Partial<NonNullable<ResearchSpec["management"]>>;
       const partitionSpec =
         trainsKelly && partition === "development"
           ? {
               ...spec,
               start,
               end,
-              management: referenceManagement as NonNullable<
+              management: (trainsAdmission
+                ? (({ riskPreset: _riskPreset, ...rest }) => rest)(
+                    referenceManagement,
+                  )
+                : referenceManagement) as NonNullable<
                 ResearchSpec["management"]
               >,
             }
@@ -398,6 +411,14 @@ export async function runStrategyResearch(
           spec.validationStart,
         );
       return {
+        ...(trainsAdmission
+          ? {
+              riskAdmissionRole:
+                partition === "development"
+                  ? "reference-without-admission"
+                  : "validation-with-development-only-training",
+            }
+          : {}),
         ...(trainsKelly
           ? {
               kellyRole:
@@ -486,7 +507,12 @@ export async function runStrategyResearch(
             "回报倍数使用开发期盈利交易净损益金额均值除亏损交易净损益绝对值均值，零收益不进入两边均值；缺任一侧或计算无效则验证期不买入。这不是目标距离或净收益率均值比。",
           ]
         : []),
-      ...(trainsKelly
+      ...(trainsAdmission
+        ? [
+            "风险准入预设：开发段关闭准入门槛形成参考成交，验证段只用其已闭合训练样本。riskAdmissionChecks保留阈值、缺失及全部非盈利样本；固定输入不是业绩证据。",
+          ]
+        : []),
+      ...(trainsKelly && !trainsAdmission
         ? [
             "开发期为同入场/退出且关闭凯利的参考组合；仅验证开始前完整闭合净收益计胜率，零收益计非胜，至少30笔。验证期独立起算资金且固定该胜率，参考未平仓/验证期收益不参与，分数仍为人工假设，b按所选模式取人工值或开发期净损益均值比。",
           ]

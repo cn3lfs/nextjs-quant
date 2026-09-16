@@ -4,12 +4,12 @@
 
 ## B2 风控全量（2026-09-16，进行中）
 
-- 本轮波动保护线8项、规模/演化9项，共新增implemented 0 / variant 17，独立预设30个；审计695项为22 implemented / 353 variant / 320 planned，B2剩70项，逐ID见method-map及delivery。
-- 共享跟踪止损复用Chandelier只升不降/缺失保留语义；风险五档、初始/当前权益、市值/容量/组合在险与保本/时间/ATR周期由参数表驱动，冲突裁定见decisions。
-- L1最终7文件4877项通过；增加手算公式、同开盘风险重算、缺失估值/止损拒入、完整历史公司行动证明及参数冻结检查，既有执行契约保持。
-- L3未运行；两组共享执行器例外全量均exit 0，最终410文件通过/16跳过，8027项通过/27跳过，378.32秒；typecheck、来源登记门禁、方法审计、format及diff均exit 0。
-- 下一起点RK-V6-safezone，再RK-V8-sar、Kase/Beta适配与其余RK层；账户恢复、分钟触碰、MAE/凯利及期权扩展等70项未销账，nextStart/remainingMethods及未达30项方法目标的原因见delivery。
-- 未真实回测、未运行Playwright/build/L3、未提交推送打包、未连接生产库；来源锁/快照和MCP未修改。原始来源审计exit 1为新闻来源漂移，正式--registered门禁exit 0，保留既有通知。
+- 本会话新增implemented 0 / variant 30：SafeZone/SAR 2项、分钟触碰1项、账户纪律14项、准入/时间/减仓13项；审计695项为22 implemented / 383 variant / 290 planned，B2剩40项（K2a 4、K7 36），逐ID见method-map及delivery。
+- 复用具名风险表、共享组合与B1a五分钟引擎；因果转折、分钟触碰时点、账户恢复、月度缺失与开发段训练/假设参数分离见decisions，未盈利样本完整保留。
+- L1最终10文件4974项通过，覆盖分钟触碰与T+1、账户暂停/恢复、期末未知日期、实际仓位约束及验证价格不改变训练样本；RR2信号目标遗漏的负控制先失败后修复。
+- L3未运行；同会话共享执行器全量合并收尾，首次8103通过/27跳过/1失败（CRLF源码守卫），归一化后定向3文件4830项通过，最终重跑exit 0（412文件通过/16跳过、8104项通过/27跳过/0失败，367.54秒）；typecheck、方法审计、来源登记门禁、pnpm format:check和diff-check均exit 0，详细日志见delivery。
+- 下一起点Kase/Beta完整公式/查表的可验证输入适配与RK-V3-opposite；SW-P事件/情绪/纪律/盘前与其他RK层仍保留planned，remainingMethods列全40项，不以缺数据销账。
+- 未真实回测、未运行Playwright/build/L3、未提交推送打包、未连接生产库；来源锁/快照和MCP未修改。来源登记门禁沿用已登记新闻漂移；额外文档Prettier抽查为既有空行及审计JSON格式差异，未批量重排历史文档。
 
 ## B3 波段与量价（2026-09-16，整批完成）
 

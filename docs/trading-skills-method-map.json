@@ -4021,10 +4021,29 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "盘中触碰触发与委托/成交分开，T+1、新旧批次、涨跌停、跳空和临停必须校验；日线推演同K线顺序需保守假设并单独命名，市价不能保证成交。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-growth-intraday.ts",
+        "src/server/research-growth-intraday.ts"
+      ],
+      "tests": [
+        "tests/research-growth-intraday.test.ts"
+      ],
+      "boundary": "RK-B-touch五分钟具名工程版本：双突破入场与5%初始止损，完整五分钟low≤有效线确认后下一根open执行，15:00转次日；入场日触碰锁存至T+1可卖，不推断K线内先后或止损价即时成交。硬窗口2000-01-04..2022-11-30与48根完整性沿用B1a，日线低价不参与触发；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-growth-intraday.ts",
+            "name": "growthIntradayTemplate"
+          },
+          {
+            "file": "src/server/research-growth-intraday.ts",
+            "name": "researchGrowthIntraday"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-B-close",
@@ -4642,10 +4661,28 @@
         "stop-loss/references/volatility-family.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破保护线；SafeZone EMA22方向与因果斜率转折截断近10次穿透，SAR 0.02/0.2与Wilder ADX14>25；规则及初始种子见volatilityStopBoundary。缺失行情重置递推，弱趋势保留旧保护；不代表真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V7-beta",
@@ -4669,10 +4706,28 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-volatility-stops.ts"
+      ],
+      "tests": [
+        "tests/research-volatility-stops.test.ts"
+      ],
+      "boundary": "具名双突破保护线；SafeZone EMA22方向与因果斜率转折截断近10次穿透，SAR 0.02/0.2与Wilder ADX14>25；规则及初始种子见volatilityStopBoundary。缺失行情重置递推，弱趋势保留旧保护；不代表真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopTemplate"
+          },
+          {
+            "file": "src/lib/research-volatility-stops.ts",
+            "name": "volatilityStopSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-daily",
@@ -4685,10 +4740,30 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-day2。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-weekly",
@@ -4699,10 +4774,30 @@
         "stop-loss/references/position-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-week6。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-monthly",
@@ -4713,10 +4808,30 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-month6。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-streak",
@@ -4728,10 +4843,30 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-streak5-half。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-drawdown",
@@ -4743,10 +4878,30 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-drawdown10。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-equity",
@@ -4756,10 +4911,30 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-equity20。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-F-reduce",
@@ -4770,10 +4945,24 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本轮已复核原文定位，具体阈值、公式缺口及实施边界见docs/trading-skills-risk-audit.md；尚未实现，父项不替代子方法。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "独立具名双突破管理预设：rk-reduce-half。固定5%初始止损；5日未达0.5R收盘确认后次开盘退出，或风险/市值上限同比减半（0.5%/10%）；均保留成交约束与原始同入场基线，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-F-diversify",
@@ -11082,10 +11271,24 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§3.3：复用timeExit.days=5，进展相对首仓冻结R，阈值公开；加仓/部分退出不重启时钟，区别无条件固定持有五日。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts"
+      ],
+      "tests": [
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "独立具名双突破管理预设：sw-time5。固定5%初始止损；5日未达0.5R收盘确认后次开盘退出，或风险/市值上限同比减半（0.5%/10%）；均保留成交约束与原始同入场基线，未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-win45",
@@ -11095,10 +11298,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.1：当时已闭合可用的类似形态样本胜率至少45%；相似性、窗口、最小样本、费用及交易规则版本固定，缺证据不估填50%。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-win45。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-expect-positive",
@@ -11108,10 +11331,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.1/5.2：E=P*W-(1-P)*L严格大于0；L=1R是原文计划假设，历史含跳空费用损失版本单列；与胜率和2R门槛保留联合检查。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-positive。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-quality3",
@@ -11121,10 +11364,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.1：趋势线/压力位/放量/指标/形态五类，区别五个辅助指标；复用breakout.checks/score，未知不补零，是否仍要求三核心全过须具名呈现。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-quality3。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-expect-size",
@@ -11134,10 +11397,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.3：E>0.5R标准、0.2至0.5R半仓、0至0.2R观望或极小仓、E<=0禁入；0.2边界原文重叠需明确版本，极小仓比例公开。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-expect-size。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-example-50-2",
@@ -11147,10 +11430,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.2：E=0.5R为正且通过45%/2R门槛，但按§5.3属半仓边界；分别检验算术、准入和仓位。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-example50。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-example-40-3",
@@ -11160,10 +11463,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.2：E=0.6R为正，但40%不满足45%最低胜率；保留正期望示例对照与严格联合准入，严格版拒绝，不能静默放宽。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-example40。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-example-60-1",
@@ -11173,10 +11496,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.2：E=0.2R为正，但1R不满足至少2R准入；边际减仓为示例对照，严格版拒绝，0.2分档边界显式处理。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-example60。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-kelly30",
@@ -11188,10 +11531,30 @@
         "stop-loss/scripts/kelly.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.4：公共半凯利、风险比例2%、该模式总仓上限30%，b=第二目标空间/止损空间；并列风险仓位、半凯利和最终约束，不套用一般模式60%。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-kelly30。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-month-win",
@@ -11201,10 +11564,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.3：完整自然月闭合交易胜率连续两月严格低于35%，无交易不填0；样本数与恢复公开，45%目标不是暂停阈值。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-month-win35。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-month-rr",
@@ -11214,10 +11597,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.3：两完整月严格低于1:1.5；计划R或闭合盈亏比需明示、不可混用，无亏损或无样本保留不可用，恢复规则独立。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-month-rr15。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-month-negative3",
@@ -11227,10 +11630,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.3：三完整月严格负收益，包含费用与持仓估值时点固定，零收益不算负值，不用月内未来收益；恢复原文未给需明确。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-month-negative3。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-day5-week",
@@ -11240,10 +11663,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.4：已知日收益严格低于-5%，复用RK-E-daily但冻结阈值及冷静期；一周按自然/交易日分版本，已有仓位退出与禁新仓分开。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-day5-week。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-loss5-week",
@@ -11253,10 +11696,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.4：完整头寸闭合后计亏损，不把分批记多笔；三笔普通暂停与五笔紧急门槛分开，期限及恢复不能前视。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-loss5-week。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-emotion-week",
@@ -11292,10 +11755,30 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.3/6.4：账户已知高水位回撤严格超过15%，小于10%是目标不是暂停线；复用RK-E-drawdown，冻结期限及恢复。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-drawdown15-week。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW-P-preflight",
@@ -11651,10 +12134,30 @@
         "stop-loss/references/methods.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "组合范式使用周-3R，独立于周-6%；R基准、周界、含费盈亏与恢复条件固定。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-week3r。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-E-elder2-6",
@@ -11665,10 +12168,30 @@
         "stop-loss/SKILL.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "单笔风险上限2%且月累计回撤6%停止新仓；月起权益或月峰值回撤歧义须明确，不混同单周阈值。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-account-risk.ts"
+      ],
+      "tests": [
+        "tests/research-account-risk.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破账户纪律工程预设：rk-account-elder6。完整规则、统计口径、日频延迟与恢复条件见accountRiskBoundary；期末剩余固定暂停交易日保留，条件恢复或未知日历余日为null，快照外恢复日期null。首个不完整月/缺失月/无交易月不补造统计，未盈利样本保留；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-account-risk.ts",
+            "name": "researchAccountRisk"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-F-no-single-stop",
@@ -12094,10 +12617,30 @@
         "stop-loss/references/position-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "只用已闭合训练交易，E=p乘平均盈利R减(1-p)乘平均亏损R；严格大于0.2才放大，放大量未给须工程参数。不同于SW-P-expect-size的0.5R标准仓分档。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-expect02。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-sizing-three",
@@ -12223,10 +12766,30 @@
         "stop-loss/scripts/stop_loss_calc.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "先冻结有效方向目标，盈亏比低于2默认放弃或等待；胜率统计支持例外需要训练样本、成本后期望和显式阈值工程定义，不用未来胜率。脚本abs会把反向目标当奖励的缺陷不沿用。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-rr2。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-D-script-r",
@@ -12724,10 +13287,30 @@
         "stop-loss/scripts/kelly.py"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "对不足样本、参数非平稳或肥尾风险采用四分之一；后两项原文无阈值，需预登记诊断或结构化假设，不能从未来回撤倒填。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-risk-presets.ts",
+        "src/lib/research-risk-admission.ts"
+      ],
+      "tests": [
+        "tests/research-risk-admission.test.ts",
+        "tests/research-risk-presets.test.ts"
+      ],
+      "boundary": "具名双突破风险准入工程预设：rk-admit-quarter-kelly。开发段参考组合关闭准入、验证段只用开发期已闭合至少30笔样本；原文三个示例使用独立命名assumptionWinRate/assumptionPayoff，均非已证实概率。阈值/分档/半或四分之一凯利及缺失规则见riskAdmissionBoundary；RR2单独重算实际开盘费用与目标。输出全部未盈利样本及实际规划/成交约束；未真实回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-risk-presets.ts",
+            "name": "riskPresetTemplate"
+          },
+          {
+            "file": "src/lib/research-risk-admission.ts",
+            "name": "researchRiskAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CA-K-kelly25",

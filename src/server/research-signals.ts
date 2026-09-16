@@ -1,3 +1,4 @@
+import { riskPresetAdmission } from "~/lib/research-risk-presets";
 import { isVolumePollution } from "~/lib/research-volume-pollution";
 import { isVolumeAdapted } from "~/lib/research-volume-adapted";
 import { isSwingCore } from "~/lib/research-swing-core";
@@ -188,7 +189,9 @@ export async function researchSignals(
               ? result.long
               : { ...result.long, stopLocation: location },
           ),
-          ...(spec.management?.swingDiscipline === "sw-min-rr2"
+          ...(spec.management?.swingDiscipline === "sw-min-rr2" ||
+          (spec.management?.riskPreset &&
+            riskPresetAdmission(spec.management.riskPreset) === "rr2")
             ? { entryTarget: result.long.risk.target1?.price ?? null }
             : {}),
           ...(location !== undefined

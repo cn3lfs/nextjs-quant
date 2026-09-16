@@ -1,3 +1,4 @@
+import { researchKellyTraining } from "../src/lib/research-kelly-training";
 import { expect, it } from "vitest";
 import {
   riskPresetIds,
@@ -230,4 +231,123 @@ it("the portfolio recomputes aggregate risk after each same-open fill without to
   expect(
     result.attempts.some((a) => a.reason.includes("组合在险预算不足")),
   ).toBe(true);
+});
+
+it("five-day time discipline and direct budget reduction change actual fills", () => {
+  const flat = input(Array(12).fill(100));
+  expect(run("sw-time5", flat).trades[0]!.exitDate).toBe(flat[6]!.date);
+  expect(run("rk-reduce-half", flat).trades[0]!.quantity).toBe(100);
+  expect(run("rk-equity-current", flat).trades[0]!.quantity).toBe(200);
+  expect(run("rk-admit-example50", flat).trades[0]!.quantity).toBe(100);
+  expect(run("rk-admit-example40", flat).trades[0]!.quantity).toBe(200);
+  expect(run("rk-admit-quality3", flat).trades).toHaveLength(0);
+  expect(run("rk-admit-rr2", flat).excluded[0]!.reason).toContain("目标");
+});
+it("account close loss prevents the next opening buy, while a control fills it", () => {
+  const bars = input([100, 100, 90, 90, 100, 100]);
+  bars[3]!.open = 90;
+  const events: ResearchEvent[] = [0, 2].map((i) => ({
+    symbol: i === 0 ? "sh600000" : "sh600001",
+    observedDate: bars[i]!.date,
+    endpointDate: bars[i]!.date,
+    key: String(i),
+    strategyVersion: "fixture",
+    evidence: "{}",
+    partition: "development",
+  }));
+  const series = new Map([
+    ["sh600000", bars],
+    ["sh600001", input(Array(6).fill(100))],
+  ]);
+  const simulate = (id: (typeof riskPresetIds)[number]) =>
+    researchPortfolio(
+      applyResearchManagement(base, riskPresetTemplate(id)),
+      events,
+      bars.map((b) => b.date),
+      series,
+      () => rules,
+    );
+  const controlled = simulate("rk-account-day2"),
+    baseline = simulate("rk-equity-current");
+  expect(baseline.trades[1]!.entryDate).toBe(bars[3]!.date);
+  expect(controlled.trades[1]!.entryDate).toBe(bars[4]!.date);
+  expect(controlled.attempts.some((a) => a.reason.includes("账户风控"))).toBe(
+    true,
+  );
+});
+
+it("half Kelly, risk sizing and 30-percent total exposure constrain actual simultaneous fills", () => {
+  const bars = input([100, 100, 100]);
+  const training = researchKellyTraining(
+    Array.from({ length: 30 }, (_, i) => ({
+      event: {
+        symbol: "sh600000",
+        key: String(i),
+        observedDate: "2020-01-01",
+        partition: "development",
+      },
+      entryDate: "2020-01-02",
+      exitDate: "2020-01-03",
+      profit: i < 15 ? 2 : -1,
+      remainingQuantity: 0,
+    })),
+    "2020-01-01",
+    "2020-02-01",
+  );
+  const events: ResearchEvent[] = Array.from({ length: 4 }, (_, i) => ({
+    symbol: `sh60000${i}`,
+    observedDate: bars[0]!.date,
+    endpointDate: bars[0]!.date,
+    key: String(i),
+    strategyVersion: "fixture",
+    evidence: "{}",
+    partition: "validation",
+  }));
+  const result = researchPortfolio(
+    {
+      ...applyResearchManagement(base, riskPresetTemplate("rk-admit-kelly30")),
+      maxPositions: 10,
+    },
+    events,
+    bars.map((b) => b.date),
+    new Map(events.map((e) => [e.symbol, bars])),
+    () => rules,
+    undefined,
+    training,
+  );
+  expect(result.trades.map((t) => t.quantity)).toEqual([100, 100, 100]);
+  expect(result.riskAdmissionChecks![0]!.sizing).toEqual({
+    riskQuantity: 400,
+    kellyQuantity: 100,
+    singleStockQuantity: 300,
+    finalQuantity: 100,
+    binding: ["分数凯利"],
+  });
+  expect(result.nav[1]!.cash).toBe(70000);
+});
+
+it("RR2 accepts equality at the real opening and rejects a gap that destroys the frozen ratio", () => {
+  const bars = input([100, 100, 100]);
+  const e: ResearchEvent = {
+    symbol: "sh600000",
+    observedDate: bars[0]!.date,
+    endpointDate: bars[0]!.date,
+    key: "rr2",
+    strategyVersion: "fixture",
+    evidence: "{}",
+    partition: "development",
+    entryTarget: 110,
+  };
+  const simulate = () =>
+    researchPortfolio(
+      applyResearchManagement(base, riskPresetTemplate("rk-admit-rr2")),
+      [e],
+      bars.map((b) => b.date),
+      new Map([[e.symbol, bars]]),
+      () => rules,
+    );
+  expect(simulate().trades).toHaveLength(1);
+  bars[1]!.open = 101;
+  bars[1]!.high = 102;
+  expect(simulate().trades).toHaveLength(0);
 });

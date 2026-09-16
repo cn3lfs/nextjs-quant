@@ -1,5 +1,11 @@
+import { researchRiskAdmission } from "~/lib/research-risk-admission";
+import { researchAccountRisk } from "~/lib/research-account-risk";
 import { volatilityStopSeries } from "~/lib/research-volatility-stops";
-import { riskPresetBudget } from "~/lib/research-risk-presets";
+import {
+  riskPresetBudget,
+  riskPresetAccount,
+  riskPresetAdmission,
+} from "~/lib/research-risk-presets";
 import { swingRewardAdmission } from "~/lib/research-swing-discipline";
 import {
   growthVolumeReduction,
@@ -27,7 +33,7 @@ import {
   researchSellQuantity,
   type ResearchExecutionRules,
 } from "~/lib/research-execution";
-import { researchRiskQuantity } from "~/lib/research-risk";
+import { researchRiskQuantity, plannedStopRisk } from "~/lib/research-risk";
 import {
   researchInitialStop,
   researchStopComparison,
@@ -169,6 +175,28 @@ export function researchPortfolio(
   );
   if (days.some((date, i) => i > 0 && date <= days[i - 1]!))
     throw new Error("组合交易日历无效");
+  const admissionRule = spec.management?.riskPreset
+    ? riskPresetAdmission(spec.management.riskPreset)
+    : undefined;
+  const riskAdmissionChecks: {
+    date: string;
+    symbol: string;
+    eventKey: string;
+    sizing?: {
+      riskQuantity: number;
+      kellyQuantity: number;
+      singleStockQuantity: number;
+      finalQuantity: number;
+      binding: string[];
+    };
+    check: ReturnType<typeof researchRiskAdmission>;
+  }[] = [];
+  const accountRule = spec.management?.riskPreset
+    ? riskPresetAccount(spec.management.riskPreset)
+    : undefined;
+  const accountRisk = accountRule
+    ? researchAccountRisk(accountRule, days, spec.initialCapital)
+    : null;
   const lossPause = spec.management?.lossPauseDays
     ? researchLossPause(days, spec.management.lossPauseDays)
     : null;
@@ -420,6 +448,7 @@ export function researchPortfolio(
       : index - trade.entryIndex >= spec.holdingDays;
   let previousStale: string[] = [];
   for (let index = 0; index < days.length; index++) {
+    accountRisk?.begin(index);
     const date = days[index]!;
     const environment = environmentByDate.get(date);
     const chop = chopByDate.get(date);
@@ -575,6 +604,18 @@ export function researchPortfolio(
         : fill.price;
       trade.profit = (trade.realizedProceeds ?? proceeds) - trade.entryCost;
       trade.netReturn = trade.profit / trade.entryCost;
+      accountRisk?.settle(
+        index,
+        trade.profit,
+        trade.initialStop != null
+          ? plannedStopRisk(
+              trade.quantity,
+              trade.entryPrice,
+              trade.initialStop,
+              spec.costs,
+            )
+          : null,
+      );
       lossPause?.settle(index, {
         symbol,
         eventKey: trade.event.key,
@@ -879,6 +920,15 @@ export function researchPortfolio(
         });
         continue;
       }
+      if (accountRisk?.blocked(index)) {
+        attempts.push({
+          symbol: event.symbol,
+          date,
+          side: "buy",
+          reason: "账户风控暂停新仓，恢复条件见accountRisk",
+        });
+        continue;
+      }
       if (lossPause?.blocked(index)) {
         attempts.push({
           symbol: event.symbol,
@@ -895,6 +945,29 @@ export function researchPortfolio(
           side: "buy",
           reason: environmentReason,
         });
+        continue;
+      }
+      const admission = admissionRule
+        ? researchRiskAdmission(
+            admissionRule,
+            spec.start,
+            event.evidence,
+            kellyTraining,
+          )
+        : null;
+      const admissionCheck: (typeof riskAdmissionChecks)[number] | null =
+        admission
+          ? {
+              date,
+              symbol: event.symbol,
+              eventKey: event.key,
+              check: admission,
+            }
+          : null;
+      if (admissionCheck) riskAdmissionChecks.push(admissionCheck);
+      if (admission && !admission.allow) {
+        excluded.push({ event, reason: admission.reason ?? "风控准入未满足" });
+        finished.add(event);
         continue;
       }
       const dailyRules = rules(event.symbol, date);
@@ -1111,9 +1184,15 @@ export function researchPortfolio(
               ),
             price: fill.price,
             stop: plannedRiskStop!,
-            fraction: riskFraction!,
+            fraction:
+              riskFraction! *
+              (accountRisk?.multiplier() ?? 1) *
+              (admission?.scale ?? 1),
             maxWeight: Math.min(
-              spec.risk!.maxWeight,
+              spec.risk!.maxWeight *
+                (accountRisk?.multiplier() ?? 1) *
+                (admission?.scale ?? 1),
+              admission?.maxWeight ?? 1,
               kelly?.weight ?? 1,
               liquidity?.maxPositionValue == null
                 ? 1
@@ -1139,7 +1218,10 @@ export function researchPortfolio(
         plannedQuantity * entryFraction * (pyramid ? 0.5 : 1),
         dailyRules,
       );
-      if (spec.management?.swingDiscipline === "sw-min-rr2") {
+      if (
+        spec.management?.swingDiscipline === "sw-min-rr2" ||
+        admissionRule === "rr2"
+      ) {
         const gate = swingRewardAdmission({
           entry: fill.price,
           stop: initialStop,
@@ -1191,6 +1273,45 @@ export function researchPortfolio(
               : "资金不足最小申报数量及费用",
         });
         continue;
+      }
+      if (admissionCheck && admission) {
+        const riskQuantity = researchRiskQuantity({
+          cash: entryEquity,
+          equity: entryEquity,
+          price: fill.price,
+          stop: plannedRiskStop!,
+          fraction: riskFraction! * admission.scale,
+          maxWeight: 1,
+          rules: dailyRules,
+          costs: spec.costs,
+        });
+        const kellyQuantity = researchBuyQuantity(
+          entryEquity * admission.maxWeight,
+          fill.price,
+          dailyRules,
+          spec.costs,
+        );
+        const singleStockQuantity = researchBuyQuantity(
+          entryEquity * spec.risk!.maxWeight * admission.scale,
+          fill.price,
+          dailyRules,
+          spec.costs,
+        );
+        const caps = [
+          { name: "含费风险预算", quantity: riskQuantity },
+          { name: "分数凯利", quantity: kellyQuantity },
+          { name: "单股市值", quantity: singleStockQuantity },
+        ];
+        admissionCheck.sizing = {
+          riskQuantity,
+          kellyQuantity,
+          singleStockQuantity,
+          finalQuantity: quantity,
+          binding:
+            quantity < Math.min(...caps.map((c) => c.quantity))
+              ? ["现金/总仓/申报约束"]
+              : caps.filter((c) => c.quantity === quantity).map((c) => c.name),
+        };
       }
       if (kellyCheck) kellyCheck.filledQuantity = quantity;
       const amount = quantity * fill.price,
@@ -1755,6 +1876,7 @@ export function researchPortfolio(
       )
         exits.set(symbol, "收盘失守信号日结构位，下一可成交开盘退出");
     }
+    accountRisk?.close(index, value, stale.length > 0);
     nav.push({ date, value, cash, stale });
     previousStale = stale;
   }
@@ -1787,6 +1909,8 @@ export function researchPortfolio(
     ...(spec.management?.liquidityCap
       ? { liquidityChecks: [...liquidityChecks.values()] }
       : {}),
+    ...(admissionRule ? { riskAdmissionChecks } : {}),
+    ...(accountRisk ? { accountRisk: accountRisk.snapshot() } : {}),
     ...(lossPause ? { lossPause: lossPause.snapshot(days.length - 1) } : {}),
     ...(marketEnvironment ? { marketEnvironment } : {}),
     ...(marketChop ? { marketChop } : {}),

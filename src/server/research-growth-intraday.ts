@@ -119,7 +119,8 @@ export function researchGrowthIntraday(
   const days = calendar.filter((d) => d >= spec.start && d <= spec.end);
   if (days.some((d, i) => i > 0 && d <= days[i - 1]!))
     throw new Error("研究日历未严格递增");
-  const fraction = id.startsWith("SE-") ? 0.1 : 0.08;
+  const fraction =
+    id === "RK-B-touch" ? 0.05 : id.startsWith("SE-") ? 0.1 : 0.08;
   const positions = new Map<
     string,
     {
@@ -221,10 +222,18 @@ export function researchGrowthIntraday(
             });
         }
         const previous = slot > 0 ? rows[slot - 1] : null;
-        if (previous && previous.close < state.stop && date > t.entryDate)
+        if (
+          previous &&
+          (id === "RK-B-touch"
+            ? previous.low <= state.stop
+            : previous.close < state.stop && date > t.entryDate)
+        )
           state.pending = {
             quantity: remaining,
-            reason: "五分钟收盘跌破止损",
+            reason:
+              id === "RK-B-touch"
+                ? "完成五分钟最低价触碰止损，下一根开盘"
+                : "五分钟收盘跌破止损",
             at: previous.date,
           };
         const request = state.pending;
@@ -523,10 +532,17 @@ export function researchGrowthIntraday(
         continue;
       }
       t.lastPrice = rows[47]!.close;
-      if (t.lastPrice < state.stop)
+      if (
+        id === "RK-B-touch"
+          ? rows[47]!.low <= state.stop
+          : t.lastPrice < state.stop
+      )
         state.pending = {
           quantity: t.book!.remainingQuantity,
-          reason: "15:00收盘跌破止损",
+          reason:
+            id === "RK-B-touch"
+              ? "15:00完成五分钟触碰，下一交易日开盘"
+              : "15:00收盘跌破止损",
           at: rows[47]!.date,
         };
       if (id === "CA-D-review1430" && !state.pending) {

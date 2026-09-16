@@ -189,6 +189,7 @@ export function researchMethodSnapshot(
       ...(typeof input !== "string" && input.management?.riskPreset
         ? [
             "stop-loss/references/pitfalls.md",
+            "swing-trader/references/position-management.md",
             "stop-loss/references/management.md",
           ]
         : []),

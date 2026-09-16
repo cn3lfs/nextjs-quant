@@ -59,7 +59,13 @@ it.each(volatilityStopIds)(
     const input = bars();
     // Flat closes: STD=0, EMA=MA=100; H-L=TR=4; high-2*range=94.
     const expected =
-      id === "rk-keltner-lower" ? 92 : id === "rk-kaufman" ? 94 : 100;
+      id === "rk-safezone" || id === "rk-sar"
+        ? null
+        : id === "rk-keltner-lower"
+          ? 92
+          : id === "rk-kaufman"
+            ? 94
+            : 100;
     expect(volatilityStopSeries(input, id).at(-1)).toBe(expected);
     expect(
       volatilityStopSeries(input.slice(0, 19), id).every((v) => v === null),
@@ -152,3 +158,58 @@ it("portfolio ratchets a falling candidate and executes equality at the next ope
   expect(stops).toEqual([...stops].sort((a, b) => a - b));
   expect(stops).toContain(100.75);
 });
+
+const trendBars = (n = 60) =>
+  bars(n).map((b, i) => ({
+    ...b,
+    open: 100 + i,
+    close: 100 + i,
+    high: 102 + i,
+    low: 98 + i,
+  }));
+it("SafeZone uses only downward penetrations, truncates at a causal EMA turn, and rejects flat/down slopes", () => {
+  const input = trendBars();
+  expect(volatilityStopSeries(input, "rk-safezone").at(-1)).toBe(157);
+  input[59]!.low = 153; // prior low 156 -> penetration 3; denominator is one, not ten.
+  expect(volatilityStopSeries(input, "rk-safezone").at(-1)).toBe(147);
+  const reversed = trendBars(45);
+  for (let i = 30; i < 40; i++)
+    Object.assign(reversed[i]!, { open: 80, close: 80, high: 82, low: 78 });
+  Object.assign(reversed[40]!, { open: 150, close: 150, high: 152, low: 70 });
+  // At the newly confirmed upturn, the 8-point penetration crosses the turn and is excluded.
+  expect(volatilityStopSeries(reversed, "rk-safezone")[40]).toBe(70);
+  expect(volatilityStopSeries(reversed, "rk-safezone")[39]).toBeNull();
+});
+it("SAR warms ADX, accelerates in a trend, and suppresses a bearish reversal", () => {
+  const input = trendBars();
+  const values = volatilityStopSeries(input, "rk-sar");
+  expect(values[26]).toBeNull();
+  // The previous-two-low clamp is binding: day 57 low = 155.
+  expect(values[59]).toBe(155);
+  Object.assign(input[59]!, { open: 100, close: 100, high: 102, low: 98 });
+  expect(volatilityStopSeries(input, "rk-sar")[59]).toBeNull();
+});
+it.each(["rk-safezone", "rk-sar"] as const)(
+  "%s resets recursive state at unknown observations and never backfills a turn",
+  (id) => {
+    const input = trendBars(),
+      calendar = input.map((b) => b.date);
+    const values = volatilityStopSeries(input, id, calendar);
+    for (let n = 1; n <= input.length; n++)
+      expect(volatilityStopSeries(input.slice(0, n), id, calendar)).toEqual(
+        values.slice(0, n),
+      );
+    input[40]!.volume = 0;
+    expect(
+      volatilityStopSeries(input, id, calendar)
+        .slice(40)
+        .every((x) => x === null),
+    ).toBe(true);
+    const missing = trendBars().filter((_, i) => i !== 40);
+    expect(
+      volatilityStopSeries(missing, id, calendar)
+        .slice(40)
+        .every((x) => x === null),
+    ).toBe(true);
+  },
+);

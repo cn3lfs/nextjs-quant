@@ -91,7 +91,7 @@ B1a（成长股行情方法）已于 `7ebad45` 完成，28/28 交付含六个盘
 | L2 子任务级 | 一个来源文件/RK 分组做完 | typecheck + 该家族全部测试 + 方法审计回填                                                  | 全量测试、Playwright                  |
 | L3 批末     | 一个功能批全部子任务完成 | `pnpm verify:batch` 一次 + Playwright 一次（只走本批新增交互）+ 来源冻结审计 + format/diff | 无需每子任务重复                      |
 
-例外（**批内允许追加一次全量**）：改动触及共享执行引擎（`research-execution.ts`、`research-portfolio.ts`）、注册聚合器、`indicators.ts` 或数据库迁移时，当次子任务结束即跑一次全量，不等批末。
+例外（**批内允许追加一次全量**）：改动触及共享执行引擎（`research-execution.ts`、`research-portfolio.ts`）、注册聚合器、`indicators.ts` 或数据库迁移时，按2026-09-16管理者增量指令，同一会话连续触及同一共享执行器的多个子任务合并为会话收尾前一次全量，不等批末；失败修正后须在会话结束前再跑一次。
 
 桌面：`pnpm desktop:prepare` 仅在有意义的桌面交付前执行，不随批次固定执行。打包、提交、推送、外发仍各需单独授权。
 

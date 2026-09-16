@@ -1,8 +1,19 @@
+import {
+  riskAdmissionBoundary,
+  type RiskAdmissionRule,
+} from "./research-risk-admission";
+import {
+  accountRiskBoundary,
+  type AccountRiskRule,
+} from "./research-account-risk";
 import type { ResearchManagement } from "./research-management";
 import type { BacktestCosts } from "./backtest-costs";
 import { plannedStopRisk } from "./research-risk";
 
 type Profile = {
+  account?: AccountRiskRule;
+  admission?: RiskAdmissionRule;
+  totalWeight?: number;
   method: string;
   label: string;
   fraction?: number;
@@ -16,6 +27,142 @@ type Profile = {
   totalRisk?: number;
 };
 export const riskProfiles = {
+  "rk-admit-win45": {
+    method: "SW-P-win45",
+    label: "开发段胜率至少45%",
+    admission: "win45",
+  },
+  "rk-admit-positive": {
+    method: "SW-P-expect-positive",
+    label: "开发段净期望正值",
+    admission: "positive",
+  },
+  "rk-admit-quality3": {
+    method: "SW-P-quality3",
+    label: "冻结信号质量3/5",
+    admission: "quality3",
+  },
+  "rk-admit-expect-size": {
+    method: "SW-P-expect-size",
+    label: "开发段期望分档仓位",
+    admission: "expect-size",
+  },
+  "rk-admit-example50": {
+    method: "SW-P-example-50-2",
+    label: "假设胜率50%回报2R",
+    admission: "example50",
+  },
+  "rk-admit-example40": {
+    method: "SW-P-example-40-3",
+    label: "假设胜率40%回报3R",
+    admission: "example40",
+  },
+  "rk-admit-example60": {
+    method: "SW-P-example-60-1",
+    label: "假设胜率60%回报1R",
+    admission: "example60",
+  },
+  "rk-admit-kelly30": {
+    method: "SW-P-kelly30",
+    label: "2%风险/半凯利/30%组合",
+    admission: "kelly30",
+    fraction: 0.02,
+    weight: 0.3,
+    totalWeight: 0.3,
+  },
+  "rk-admit-expect02": {
+    method: "RK-C-expect02",
+    label: "净期望至少0.2R",
+    admission: "expect02",
+  },
+  "rk-admit-rr2": {
+    method: "RK-C-rr2",
+    label: "实际开盘费用后2R",
+    admission: "rr2",
+  },
+  "rk-admit-quarter-kelly": {
+    method: "RK-C-kelly-uncertain",
+    label: "不确定参数四分之一凯利",
+    admission: "quarter-kelly",
+  },
+  "sw-time5": { method: "SW-P-time5", label: "5交易日未达0.5R退出", days: 5 },
+  "rk-reduce-half": {
+    method: "RK-F-reduce",
+    label: "风险与市值预算直接减半",
+    fraction: 0.005,
+    weight: 0.1,
+  },
+  "rk-account-day2": {
+    method: "RK-E-daily",
+    label: "日亏2%次日暂停",
+    account: "day2",
+  },
+  "rk-account-week6": {
+    method: "RK-E-weekly",
+    label: "周亏6%本周暂停",
+    account: "week6",
+  },
+  "rk-account-month6": {
+    method: "RK-E-monthly",
+    label: "月亏6%本月暂停",
+    account: "month6",
+  },
+  "rk-account-streak5-half": {
+    method: "RK-E-streak",
+    label: "连亏5笔减半至正R",
+    account: "streak5-half",
+  },
+  "rk-account-drawdown10": {
+    method: "RK-E-drawdown",
+    label: "回撤10%休息5交易日",
+    account: "drawdown10",
+  },
+  "rk-account-equity20": {
+    method: "RK-E-equity",
+    label: "权益MA20开关",
+    account: "equity20",
+  },
+  "rk-account-week3r": {
+    method: "RK-E-week3r",
+    label: "周亏3R暂停",
+    account: "week3r",
+  },
+  "rk-account-elder6": {
+    method: "RK-E-elder2-6",
+    label: "Elder单笔2%月回撤6%",
+    account: "elder6",
+    fraction: 0.02,
+  },
+  "rk-account-month-win35": {
+    method: "SW-P-month-win",
+    label: "月胜率低于35%连续两月",
+    account: "month-win35",
+  },
+  "rk-account-month-rr15": {
+    method: "SW-P-month-rr",
+    label: "月净盈亏比低于1.5连续两月",
+    account: "month-rr15",
+  },
+  "rk-account-month-negative3": {
+    method: "SW-P-month-negative3",
+    label: "连续三完整月亏损",
+    account: "month-negative3",
+  },
+  "rk-account-day5-week": {
+    method: "SW-P-day5-week",
+    label: "日亏超过5%休息一周",
+    account: "day5-week",
+  },
+  "rk-account-loss5-week": {
+    method: "SW-P-loss5-week",
+    label: "连亏5笔休息一周",
+    account: "loss5-week",
+  },
+  "rk-account-drawdown15-week": {
+    method: "SW-P-dd15-week",
+    label: "回撤超过15%休息一周",
+    account: "drawdown15-week",
+  },
   "rk-risk025": {
     method: "RK-C-risk-tiers",
     label: "风险0.25%",
@@ -101,7 +248,15 @@ export const riskPresetIds = Object.keys(riskProfiles) as [
   ...RiskPresetId[],
 ];
 export const riskPresetBoundary =
-  "B2规模/演化工程v1：均为固定双突破入场、60交易日上限的独立对照，默认初始5%止损、当前权益1%含费风险和20%单股上限。五档风险不代表已知胜率；硬2%版禁止更高输入。初始权益版仅冻结风险金额基数，市值和可用现金仍以开盘已知现金加其余持仓前收估值约束。组合在险为逐持仓max(0,原始入场价至当前有效止损的含费规划损失)之和，盈利保护不能抵消其他持仓风险；预算不足或持仓估值/止损缺失不新入。15%/20%市值与前20日均成交额1%容量统一换算为股数向下取整，实际跳空可超预算。保本0.3/0.5/1R只用当时收盘浮盈、下一交易日起生效；结构版另需因果确认更高低点。10日无进展工程冻结为未达到0.5R，价格止损并存。ATR10/20共享算术ATR、均为2倍，仅改变初始定位及其风险股数，不按未来业绩选参数。不保本及亏损反例完整保留，未真实回测。";
+  "B2规模/演化工程v1：均为固定双突破入场、60交易日上限的独立对照，默认初始5%止损、当前权益1%含费风险和20%单股上限。五档风险不代表已知胜率；硬2%版禁止更高输入。初始权益版仅冻结风险金额基数，市值和可用现金仍以开盘已知现金加其余持仓前收估值约束。组合在险为逐持仓max(0,原始入场价至当前有效止损的含费规划损失)之和，盈利保护不能抵消其他持仓风险；预算不足或持仓估值/止损缺失不新入。15%/20%市值与前20日均成交额1%容量统一换算为股数向下取整，实际跳空可超预算。保本0.3/0.5/1R只用当时收盘浮盈、下一交易日起生效；结构版另需因果确认更高低点。10日无进展工程冻结为未达到0.5R，价格止损并存。ATR10/20共享算术ATR、均为2倍，仅改变初始定位及其风险股数，不按未来业绩选参数。不保本及亏损反例完整保留，未真实回测。" +
+  accountRiskBoundary +
+  riskAdmissionBoundary;
+export function riskPresetAdmission(id: RiskPresetId) {
+  return (riskProfiles[id] as Profile).admission;
+}
+export function riskPresetAccount(id: RiskPresetId) {
+  return (riskProfiles[id] as Profile).account;
+}
 export function riskPresetParameters(id: RiskPresetId) {
   const p: Profile = riskProfiles[id];
   return {
@@ -115,6 +270,7 @@ export function riskPresetTemplate(id: RiskPresetId): ResearchManagement {
   const p: Profile = riskProfiles[id];
   return {
     riskPreset: id,
+    ...(p.totalWeight != null ? { maxTotalWeight: p.totalWeight } : {}),
     stop: p.atr
       ? { kind: "atr", period: p.atr, multiple: 2 }
       : { kind: "percent", fraction: 0.05 },

@@ -1,6 +1,7 @@
 import type { ResearchManagement } from "./research-management";
 
 export const growthIntradayIds = [
+  "RK-B-touch",
   "SE-E-intraday50",
   "SE-D-gapup3",
   "SE-D-gapdown3",
@@ -10,6 +11,7 @@ export const growthIntradayIds = [
 ] as const;
 export type GrowthIntradayId = (typeof growthIntradayIds)[number];
 export const growthIntradayLabels: Record<GrowthIntradayId, string> = {
+  "RK-B-touch": "双突破5分钟触碰止损/下一根开盘",
   "SE-E-intraday50": "SEPA五分钟半仓与收盘补足",
   "SE-D-gapup3": "SEPA次日高开3%保本",
   "SE-D-gapdown3": "SEPA次日低开3%减半与盘中止损",
@@ -18,13 +20,16 @@ export const growthIntradayLabels: Record<GrowthIntradayId, string> = {
   "CA-D-review1430": "CANSLIM 14:30异常次日减半",
 };
 export const growthIntradayDescription =
-  "五分钟工程版v1；研究窗口2000-01-04至2022-11-30，逐证券逐日48根完整性校验，缺日不可用不顺延。时间戳为右端：14:30是14:25–14:30收盘。跳空仅首仓下一研究交易日，按日线开盘/前日收盘严格超过±3%；日线开盘是9:30已知价，首根五分钟open仅为连续交易首笔，不混用。开盘条件确认后最早9:35（第二根open）执行；五分钟收盘跌破止损后下一根open执行，午休跨至13:00，15:00确认次日。高开在9:35起抬成本；低开减当时剩余50%，止损全退优先。14:30异常工程定义为较昨收跌超2%，次日9:30减剩余50%。SEPA半仓量能为截至当时累计量至少此前20日整日均量1.5倍，不外推全天；价格严格越冻结枢纽101%且不超105%，下一根open先买计划50%；15:00仍满足才次日9:30补至冻结计划量，越105%取消，失败不补。沿用固定10%/8%止损、风险仓位、费用、申报数量、T+1与最长持有；不与其他管理叠加，不代表完整SEPA/CANSLIM。";
+  "五分钟工程版v1；RK-B-touch为双突破5%初始线，完成5分钟low≤线确认，下一根open执行（15:00则次日）；不推断K线内触碰时间，不假定止损价成交，T+1当日触碰保留退出请求。研究窗口2000-01-04至2022-11-30，逐证券逐日48根完整性校验，缺日不可用不顺延。时间戳为右端：14:30是14:25–14:30收盘。跳空仅首仓下一研究交易日，按日线开盘/前日收盘严格超过±3%；日线开盘是9:30已知价，首根五分钟open仅为连续交易首笔，不混用。开盘条件确认后最早9:35（第二根open）执行；五分钟收盘跌破止损后下一根open执行，午休跨至13:00，15:00确认次日。高开在9:35起抬成本；低开减当时剩余50%，止损全退优先。14:30异常工程定义为较昨收跌超2%，次日9:30减剩余50%。SEPA半仓量能为截至当时累计量至少此前20日整日均量1.5倍，不外推全天；价格严格越冻结枢纽101%且不超105%，下一根open先买计划50%；15:00仍满足才次日9:30补至冻结计划量，越105%取消，失败不补。沿用固定10%/8%止损、风险仓位、费用、申报数量、T+1与最长持有；不与其他管理叠加，不代表完整SEPA/CANSLIM。";
 export function growthIntradayTemplate(
   id: GrowthIntradayId,
 ): ResearchManagement {
   return {
     growthIntraday: id,
-    stop: { kind: "percent", fraction: id.startsWith("SE-") ? 0.1 : 0.08 },
+    stop: {
+      kind: "percent",
+      fraction: id === "RK-B-touch" ? 0.05 : id.startsWith("SE-") ? 0.1 : 0.08,
+    },
     confirmations: 1,
     stressBuffer: 0,
     trail: { kind: "fixed" },
@@ -32,6 +37,7 @@ export function growthIntradayTemplate(
   };
 }
 export function growthIntradayBase(id: GrowthIntradayId) {
+  if (id === "RK-B-touch") return "dual-breakout" as const;
   return id.startsWith("SE-")
     ? ("sepa-vcp-close" as const)
     : ("canslim-priority" as const);

@@ -129,7 +129,7 @@ export const researchSpecSchema = z
         context.addIssue({
           code: "custom",
           path: ["strategy"],
-          message: "盘中版本须配合对应SEPA收盘VCP或CANSLIM严格形态直接突破基线",
+          message: "盘中版本须配合其具名入场基线",
         });
     }
     if (value.management?.sepaElite && !value.strategy.startsWith("sepa-"))

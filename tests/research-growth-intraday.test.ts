@@ -340,3 +340,25 @@ it("lunch observation executes at 13:00, never at 11:30 or a fabricated lunch ba
     "2022-11-21T13:00:00+08:00",
   );
 });
+
+it("RK-B-touch uses completed minute lows at equality, not daily lows or an invented same-bar stop fill", () => {
+  const f = setup("RK-B-touch");
+  expect(f.run().trades[0]!.exitDate).toBeNull(); // all daily lows=80, minutes never touch 95
+  f.minutes[96 + 10]!.low = 95;
+  f.minutes[96 + 11]!.open = 94;
+  f.minutes[96 + 11]!.low = 93;
+  const t = f.run().trades[0]!;
+  expect(t.sales![0]).toMatchObject({
+    date: "2022-11-23T10:25:00+08:00",
+    price: 94,
+    triggerDate: "2022-11-23T10:25:00+08:00",
+  });
+});
+it("RK-B-touch latches an entry-day touch across T+1 and a 15:00 touch across sessions", () => {
+  const f = setup("RK-B-touch");
+  f.minutes[48 + 10]!.low = 94;
+  expect(f.run().trades[0]!.sales![0]!.date).toBe("2022-11-23T09:30:00+08:00");
+  f.minutes[48 + 10]!.low = 99;
+  f.minutes[96 + 47]!.low = 95;
+  expect(f.run().trades[0]!.sales![0]!.date).toBe("2022-11-24T09:30:00+08:00");
+});
