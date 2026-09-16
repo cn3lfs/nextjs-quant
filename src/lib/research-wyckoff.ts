@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { researchDateSchema } from "./research-usage";
+import { researchStructureTargets } from "./research-structure-targets";
 import { wyckoffDailyProfile } from "./research-wyckoff-profile";
 import type { Bar } from "./domain";
 import { confirmedExtrema, ma } from "./indicators";
@@ -6,7 +9,155 @@ import {
   type StructureEvent,
 } from "./research-structure-events";
 
+const stamp = z.string().datetime({ offset: true });
+const text = z.string().trim().min(1);
+const rawBar = z
+  .object({
+    date: researchDateSchema,
+    open: z.number().finite().positive(),
+    high: z.number().finite().positive(),
+    low: z.number().finite().positive(),
+    close: z.number().finite().positive(),
+    volume: z.number().finite().nonnegative(),
+    amount: z.number().finite().nonnegative(),
+  })
+  .strict()
+  .refine(
+    (b) =>
+      b.low <= Math.min(b.open, b.close) && b.high >= Math.max(b.open, b.close),
+  );
+const rawSnapshot = z
+  .object({
+    id: text,
+    symbol: z.string().regex(/^(sh|sz)\d{6}$/),
+    name: text.optional(),
+    period: z.literal("day"),
+    source: text,
+    adjustment: z.literal("none"),
+    createdAt: z.number().finite().nonnegative(),
+    hash: text,
+    bars: z.array(rawBar),
+    historicalAsOf: researchDateSchema.optional(),
+    volumeUnit: text.optional(),
+    sourceVersions: z.array(text).optional(),
+  })
+  .strict();
+export const structureBenchmarkIdentitySchema = z
+  .object({
+    role: z.enum(["industry", "market"]),
+    stock: z.string().regex(/^(sh|sz)\d{6}$/),
+    benchmark: z.string().regex(/^(sh|sz)\d{6}$/),
+    name: text,
+    source: text,
+    effectiveFrom: researchDateSchema,
+    effectiveTo: researchDateSchema,
+    availableAt: stamp,
+    capturedAt: stamp,
+  })
+  .strict()
+  .refine((r) => r.effectiveFrom <= r.effectiveTo, "基准身份有效区间倒置");
+const score = z.number().finite().min(0).max(100);
+export const wyckoffStructureInputsSchema = z
+  .array(
+    z
+      .object({
+        symbol: z.string().regex(/^(sh|sz)\d{6}$/),
+        date: researchDateSchema,
+        source: text,
+        availableAt: stamp,
+        weeklyAvailableAt: stamp.optional(),
+        stock: rawSnapshot,
+        calendar: z
+          .object({
+            days: z.array(researchDateSchema),
+            closedDays: z.array(researchDateSchema),
+            source: text,
+            hash: text,
+            availableAt: stamp,
+          })
+          .strict(),
+        benchmarks: z
+          .array(
+            z
+              .object({
+                snapshot: rawSnapshot,
+                identity: structureBenchmarkIdentitySchema,
+                availableAt: stamp,
+              })
+              .strict(),
+          )
+          .optional(),
+        assessment: z
+          .object({
+            phase: z.enum([
+              "accumulation",
+              "markup",
+              "distribution",
+              "markdown",
+              "unknown",
+            ]),
+            quality: z.enum(["multi", "single", "weak"]),
+            tr: score,
+            vsa: score,
+            mtf: score,
+            rs: score,
+            market: score,
+            source: text,
+            availableAt: stamp,
+          })
+          .strict()
+          .optional(),
+      })
+      .strict(),
+  )
+  .max(100000)
+  .superRefine((rows, ctx) => {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const key = `${r.symbol}:${r.date}`;
+      if (seen.has(key))
+        ctx.addIssue({ code: "custom", message: `结构输入重复：${key}` });
+      seen.add(key);
+    }
+  });
+export type WyckoffStructureInput = z.infer<
+  typeof wyckoffStructureInputsSchema
+>[number];
+export const isWyckoffStructure = (id: string) =>
+  [
+    "wy-week-day-hour",
+    "wy-dual-rs",
+    "wy-target-pf",
+    "wy-target-time",
+    "wy-target-width",
+    "wy-score-half-kelly",
+  ].includes(id);
+export const wyckoffStructureBoundary =
+  "WY10：52个连续已完成周，右侧3周确认极值的最后两高两低均抬升，叠加WY09日线TR/小时Spring；weeklyAvailableAt须在小时候选前且不早于末周完成，非完整周线阶段诊断。WY11：JAC基线，候选前20研究日到确认日相对历史行业与市场归一化RS均>0。输入按证券/观察日保存原始日线、日历开闭市、基准身份和availableAt；显式空输入不回退，源日线必须与研究日线逐字对齐。WY19：JAC确认冻结突破前TR，格值为宽度10%，单格收盘反转P&F/原文宽度时间列数/宽度1-2-3三模型独立命名；非传统三格P&F。前两目标各减初始仓位1/3，最后目标清仓；单目标模型清仓。收盘触达后次合法开盘成交，原文非单调目标按原顺序不排序，每次仅处理一个档位。WY20：时点人工阶段与五项评分原始证据，25/25/20/15/15加权≥70及非派发/下跌/未知，JAC单强信号；0.55/0.48/0.40仅原方法假设展示，实际仓位复用B2开发段闭合样本净回报半凯利，风险2%且单股≤30%，样本不足拒绝验证段入场。评分70、52周、RS20日是工程参数；不宣称自动完整阶段识别或盈利证据。";
+export function wyckoffScore(assessment: WyckoffStructureInput["assessment"]) {
+  if (!assessment) return null;
+  return {
+    value:
+      assessment.tr * 0.25 +
+      assessment.vsa * 0.25 +
+      assessment.mtf * 0.2 +
+      assessment.rs * 0.15 +
+      assessment.market * 0.15,
+    assumedWinRate: { multi: 0.55, single: 0.48, weak: 0.4 }[
+      assessment.quality
+    ],
+    probabilitySource: "原方法假设，非实测胜率",
+    phase: assessment.phase,
+  };
+}
+
 export const wyckoffProfiles = {
+  "wy-week-day-hour": ["WY10", "周日小时对齐 · 52周确认结构", "mtf"],
+  "wy-dual-rs": ["WY11", "JAC · 历史行业/市场双RS", "rs"],
+  "wy-target-pf": ["WY19", "JAC · 收盘单格P&F目标", "target"],
+  "wy-target-time": ["WY19", "JAC · 原文时间列数目标", "target"],
+  "wy-target-width": ["WY19", "JAC · 原文宽度1/2/3目标", "target"],
+  "wy-score-half-kelly": ["WY20", "JAC · 阶段评分/训练半凯利", "score"],
   "wy-vp-daily-estimate": ["WY18", "日线均匀分配估算VP · JAC上沿HVN过滤", "vp"],
   "wy-spring-daily": ["WY01", "Spring 日线回收确认", "spring"],
   "wy-sos-daily": ["WY02", "SOS 中轴突破后一日守位", "sos"],
@@ -39,11 +190,19 @@ export const wyckoffStrategies = Object.fromEntries(
       version: `${id}-engineering-1`,
       description:
         wyckoffBoundary +
+        (isWyckoffStructure(id) ? wyckoffStructureBoundary : "") +
         (id === "wy-vp-daily-estimate"
           ? "VP为候选前已确认TR最早极值起至少20根、12等宽箱、按日线高低区间重叠长度均匀分量的估算；量和守恒。量最多3箱为HVN、最少3箱为LVN，并列低价优先；JAC只在最高2箱内存在HVN时入场。非真实逐价成交分布；边界容差与箱数为工程参数。"
           : ""),
       sources: [
         "wyckoff-trader/SKILL.md",
+        ...(isWyckoffStructure(id)
+          ? [
+              "wyckoff-trader/references/wyckoff-mtf-guide.md",
+              "wyckoff-trader/references/wyckoff-relative-strength.md",
+              "wyckoff-trader/references/wyckoff-pf-targets.md",
+            ]
+          : []),
         ...(id === "wy-vp-daily-estimate"
           ? ["wyckoff-trader/references/wyckoff-volume-profile.md"]
           : []),
@@ -93,6 +252,7 @@ export type WyckoffPoint = {
     trend: boolean;
   } | null;
   events: StructureEvent<WyckoffFacts>[];
+  targetPlan?: ReturnType<typeof researchStructureTargets>;
   profile?: ReturnType<typeof wyckoffDailyProfile>;
   ruleStop?: { price: number; days: number; reason: string };
   reduction?: { fraction: number; reason: string };
@@ -353,7 +513,9 @@ export function researchWyckoffSeries(
     }
     const kind: Kind = wyckoffProfiles[id][2];
     const confirms = events.filter((e) => e.state === "confirmed");
-    const baseline = ["ut", "lpsy", "ice"].includes(kind);
+    const baseline = ["ut", "lpsy", "ice", "target", "rs", "score"].includes(
+      kind,
+    );
     const match = confirms.find((e) =>
       baseline || kind === "vp"
         ? e.kind === "jac"
@@ -361,6 +523,27 @@ export function researchWyckoffSeries(
           ? e.kind === "lps" && e.facts.trend
           : e.kind === kind,
     );
+    const targetPlan =
+      kind === "target" && match
+        ? researchStructureTargets({
+            model:
+              id === "wy-target-pf"
+                ? "pf-close-reversal-1box"
+                : id === "wy-target-time"
+                  ? "source-width-time-columns"
+                  : "source-width-123",
+            bars: bars.slice(match.facts.rangeStart, match.facts.index),
+            low: match.facts.support,
+            high: match.facts.resistance,
+            boxSize: (match.facts.resistance - match.facts.support) * 0.1,
+            direction: 1,
+            breakoutPrice: match.facts.close,
+            confirmedAt: b.date,
+          })
+        : undefined;
+    const externalMissing = ["mtf", "rs", "score"].includes(kind)
+      ? "缺少周线/RS/阶段评分研究输入"
+      : null;
     const profile =
       kind === "vp" && match
         ? wyckoffDailyProfile(
@@ -378,17 +561,30 @@ export function researchWyckoffSeries(
       ((!baseline &&
         b.close < mean20[i]! &&
         bars[i - 1]!.close >= mean20[i - 1]!) ||
-        (kind === "ut" && confirms.some((e) => e.kind === "ut")) ||
-        (kind === "ice" && confirms.some((e) => e.kind === "ice")));
+        (["ut", "target"].includes(kind) &&
+          confirms.some((e) => e.kind === "ut")) ||
+        (["ice", "target"].includes(kind) &&
+          confirms.some((e) => e.kind === "ice")));
     const reduce = kind === "lpsy" && confirms.some((e) => e.kind === "lpsy");
     return {
       date: b.date,
       ...(match ? { candidateAt: match.candidateAt } : {}),
       values: { close: b.close, ma20: mean20[i] ?? null, meanVolume: average },
-      entry: !!match && !exit && !reduce && profilePass,
+      entry:
+        !!match &&
+        !exit &&
+        !reduce &&
+        profilePass &&
+        !externalMissing &&
+        targetPlan?.status !== "missing",
+      ...(targetPlan ? { targetPlan } : {}),
       ...(profile ? { profile } : {}),
       exit,
-      reason: reason ?? (profile?.status === "missing" ? profile.reason : null),
+      reason:
+        reason ??
+        externalMissing ??
+        (targetPlan?.status === "missing" ? targetPlan.reason : null) ??
+        (profile?.status === "missing" ? profile.reason : null),
       decision:
         reason ??
         (exit
@@ -406,7 +602,7 @@ export function researchWyckoffSeries(
         ? {
             ruleStop: {
               price: baseline ? match.facts.support : match.facts.low,
-              days: baseline ? 0 : 3,
+              days: kind === "target" ? 60 : baseline ? 0 : 3,
               reason: "威科夫冻结候选低点",
             },
           }
@@ -422,3 +618,16 @@ export function researchWyckoffSeries(
     };
   });
 }
+
+export const structureBarBytes = (bars: readonly Bar[]) =>
+  JSON.stringify(
+    bars.map((b) => [
+      b.date,
+      b.open,
+      b.high,
+      b.low,
+      b.close,
+      b.volume,
+      b.amount,
+    ]),
+  );

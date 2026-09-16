@@ -1,4 +1,8 @@
 import {
+  isWyckoffStructure,
+  wyckoffStructureInputsSchema,
+} from "~/lib/research-wyckoff";
+import {
   isWyckoffHourly,
   wyckoffHourlyInputsSchema,
 } from "~/lib/research-wyckoff-hourly";
@@ -123,7 +127,13 @@ export function applyResearchManagement(
           ? Math.max(60, spec.holdingDays)
           : spec.holdingDays,
   };
-  if (!isWyckoffHourly(next.strategy)) delete next.wyckoffHourlyInputs;
+  if (!isWyckoffHourly(next.strategy) && next.strategy !== "wy-week-day-hour")
+    delete next.wyckoffHourlyInputs;
+  if (
+    !isWyckoffStructure(next.strategy) &&
+    next.strategy !== "chan-consolidation-weekly-native"
+  )
+    delete next.wyckoffStructureInputs;
   if (!isWyckoffVsa(next.strategy)) delete next.wyckoffInputs;
   return next;
 }
@@ -138,6 +148,7 @@ export function selectResearchStrategy(
     risk,
     wyckoffInputs,
     wyckoffHourlyInputs,
+    wyckoffStructureInputs,
     management: originalManagement,
     ...shared
   } = spec;
@@ -207,7 +218,13 @@ export function selectResearchStrategy(
   }
   const selected: ResearchSpec = {
     ...shared,
-    ...(isWyckoffHourly(strategy) && wyckoffHourlyInputs
+    ...((isWyckoffStructure(strategy) ||
+      strategy === "chan-consolidation-weekly-native") &&
+    wyckoffStructureInputs !== undefined
+      ? { wyckoffStructureInputs }
+      : {}),
+    ...((isWyckoffHourly(strategy) || strategy === "wy-week-day-hour") &&
+    wyckoffHourlyInputs
       ? { wyckoffHourlyInputs }
       : {}),
     ...(isWyckoffVsa(strategy) && wyckoffInputs ? { wyckoffInputs } : {}),
@@ -286,7 +303,43 @@ export function ResearchStrategyFields({
             : `${definition.label}的信号保持不变；交易部分使用下方组合风控，替代资金均分和仅固定持有退出。`
           : definition.description}
       </p>
-      {isWyckoffHourly(spec.strategy) && (
+      {(isWyckoffStructure(spec.strategy) ||
+        spec.strategy === "chan-consolidation-weekly-native") &&
+        !spec.strategy.startsWith("wy-target-") && (
+          <label className="min-w-0 break-words [overflow-wrap:anywhere]">
+            周线 / 双基准 / 阶段评分原始证据（JSON）
+            <Textarea
+              aria-label="威科夫结构原始证据"
+              className="w-full min-w-0"
+              key={`${spec.strategy}:${JSON.stringify(spec.wyckoffStructureInputs ?? [])}`}
+              defaultValue={JSON.stringify(
+                spec.wyckoffStructureInputs ?? [],
+                null,
+                2,
+              )}
+              onBlur={(event) => {
+                try {
+                  const rows = wyckoffStructureInputsSchema.parse(
+                    JSON.parse(event.currentTarget.value || "[]"),
+                  );
+                  event.currentTarget.setCustomValidity("");
+                  onChange({ ...spec, wyckoffStructureInputs: rows });
+                } catch {
+                  event.currentTarget.setCustomValidity(
+                    "原始证据无效，请核对身份、日历、行情和可用时点",
+                  );
+                  event.currentTarget.reportValidity();
+                  onChange({ ...spec, wyckoffStructureInputs: [] });
+                }
+              }}
+            />
+            <span className="text-xs text-muted-foreground">
+              每行保存symbol/date/source/availableAt、stock原始日线快照、calendar开闭市日历及可用时点；周日小时需weeklyAvailableAt证明周线在小时候选前已知；双RS另需benchmarks的历史身份与原始行情，评分另需assessment阶段、quality、tr/vsa/mtf/rs/market五项0–100评分及来源/可用时点。缺失或空数组不可用，不以当前身份补齐。WY20运行固定采用2%风险、30%单股上限与开发段净回报半凯利；评分胜率仅是原文假设。
+            </span>
+          </label>
+        )}
+      {(isWyckoffHourly(spec.strategy) ||
+        spec.strategy === "wy-week-day-hour") && (
         <label className="min-w-0 break-words [overflow-wrap:anywhere]">
           日线区域小时确认证据覆盖（JSON；不填时读取本地五分钟）
           <Textarea

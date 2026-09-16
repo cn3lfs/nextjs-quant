@@ -1,16 +1,18 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import type { CzscResult } from "../src/lib/czsc";
-import {
-  chanNativeCandidates,
-  chanNativeIds,
-} from "../src/lib/research-chan-native";
+import { chanNativeCandidates } from "../src/lib/research-chan-native";
 import { researchSignals } from "../src/server/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { analyzeCzsc, closeCzsc } from "../src/server/czsc";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
 
+const chanNativeIds = [
+  "chan-first-native",
+  "chan-second-native",
+  "chan-third-native",
+] as const;
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),
   open: 10,

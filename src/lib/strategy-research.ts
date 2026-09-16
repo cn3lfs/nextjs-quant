@@ -1,4 +1,8 @@
 import {
+  wyckoffStructureInputsSchema,
+  isWyckoffStructure,
+} from "./research-wyckoff";
+import {
   wyckoffHourlyInputsSchema,
   isWyckoffHourly,
 } from "./research-wyckoff-hourly";
@@ -40,6 +44,7 @@ export const researchSpecSchema = z
   .object({
     version: z.literal("strategy-research-1").default("strategy-research-1"),
     strategy: researchStrategySchema,
+    wyckoffStructureInputs: wyckoffStructureInputsSchema.optional(),
     wyckoffHourlyInputs: wyckoffHourlyInputsSchema.optional(),
     wyckoffInputs: wyckoffInputsSchema.optional(),
     // Optional fields preserve the exact shape/fingerprint of historical specs.
@@ -80,7 +85,20 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
-    if (value.wyckoffHourlyInputs && !isWyckoffHourly(value.strategy))
+    if (
+      value.wyckoffStructureInputs &&
+      !isWyckoffStructure(value.strategy) &&
+      value.strategy !== "chan-consolidation-weekly-native"
+    )
+      context.addIssue({
+        code: "custom",
+        message: "结构输入仅用于具名威科夫结构方法",
+      });
+    if (
+      value.wyckoffHourlyInputs &&
+      !isWyckoffHourly(value.strategy) &&
+      value.strategy !== "wy-week-day-hour"
+    )
       context.addIssue({
         code: "custom",
         message: "小时结构证据仅用于威科夫小时策略",
@@ -288,7 +306,11 @@ export const researchSpecSchema = z
           value.management.stop.kind === "structure-auto" ||
           value.management.stop.kind === "breakout-candle" ||
           value.management.stop.kind === "platform-upper") &&
-          value.strategy !== "dual-breakout"))
+          value.strategy !== "dual-breakout" &&
+          !(
+            value.strategy === "wy-score-half-kelly" &&
+            value.management.stop.kind === "structure"
+          )))
     )
       context.addIssue({
         code: "custom",
@@ -313,6 +335,7 @@ export const researchSpecSchema = z
   });
 export type ResearchSpec = z.infer<typeof researchSpecSchema>;
 export type ResearchEvent = {
+  side?: "exit";
   intradayAt?: string;
   symbol: string;
   observedDate: string;
@@ -321,6 +344,7 @@ export type ResearchEvent = {
   strategyVersion: string;
   partition: "development" | "validation" | "tracking";
   evidence: string;
+  structureTargets?: { model: string; targets: number[]; confirmedAt: string };
   entryTarget?: number | null;
   initialStop?: number | null;
   stopAtr?: number | null;

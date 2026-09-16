@@ -1488,11 +1488,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享适配researchStructureWeekly已复用weeklyBars并验证连续已完成交易周：缺整周不压缩，休市整周仅凭完整closedDays跳过，缺日/零量/未知日历不可用。仍待周线结构与日线方向、WY09小时候选的声明式过滤、研究输入持久化及扫描/交易验证；未计方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-wyckoff.test.ts"
+      ],
+      "boundary": "共享输入和方法已集成：ResearchSpec/表单/方法快照/运行结果保存原始输入、身份、开闭市日历、availableAt；空输入不可用不回退。具名方法及工程参数见wyckoffStructureBoundary。WY20评分0.55/0.48/0.40仅原方法假设；实际仓位复用B2开发段30笔净回报半凯利、风险2%/单股30%，未真实回测。",
+      "bindings": {
+        "presets": [
+          "wy-week-day-hour"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY11",
@@ -1501,11 +1515,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享researchStructureRs已复用归一化RS比率，行业与市场双基准独立，要求基期已知且覆盖整个窗口的身份/行业归属、行情可用时点、日历来源及逐日对齐。仍待输入快照接入研究配置与具名判据表、事件/交易验证；缺历史行业归属不使用当前成员替代。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-wyckoff.test.ts"
+      ],
+      "boundary": "共享输入和方法已集成：ResearchSpec/表单/方法快照/运行结果保存原始输入、身份、开闭市日历、availableAt；空输入不可用不回退。具名方法及工程参数见wyckoffStructureBoundary。WY20评分0.55/0.48/0.40仅原方法假设；实际仓位复用B2开发段30笔净回报半凯利、风险2%/单股30%，未真实回测。",
+      "bindings": {
+        "presets": [
+          "wy-dual-rs"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY12",
@@ -1697,11 +1725,27 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享researchStructureTargets已分名：pf-close-reversal-1box（收盘路径严格超过一格才反转）、source-width-time-columns（原文§3）、source-width-123（原文§4）。保留非单调目标和无有效列缺口，不把宽度启发式说成传统P&F。仍待冻结TR方法表、分批目标与实际成交回放；未计方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-wyckoff.test.ts"
+      ],
+      "boundary": "共享输入和方法已集成：ResearchSpec/表单/方法快照/运行结果保存原始输入、身份、开闭市日历、availableAt；空输入不可用不回退。具名方法及工程参数见wyckoffStructureBoundary。WY20评分0.55/0.48/0.40仅原方法假设；实际仓位复用B2开发段30笔净回报半凯利、风险2%/单股30%，未真实回测。",
+      "bindings": {
+        "presets": [
+          "wy-target-pf",
+          "wy-target-time",
+          "wy-target-width"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WY20",
@@ -1710,11 +1754,25 @@
       "sources": [
         "wyckoff-trader/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "仍待五项综合评分与结构质量映射的具名规则表；原文0.55/0.48/0.40只作assumption，不冒充实测胜率；半凯利必须复用B2 researchKellyTraining/researchRiskAdmission的至少30笔开发段有效闭合交易准入，拒绝不足，不另造准入。目标通道已可复用，未计方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-wyckoff.ts"
+      ],
+      "tests": [
+        "tests/research-wyckoff-methods.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-wyckoff.test.ts"
+      ],
+      "boundary": "共享输入和方法已集成：ResearchSpec/表单/方法快照/运行结果保存原始输入、身份、开闭市日历、availableAt；空输入不可用不回退。具名方法及工程参数见wyckoffStructureBoundary。WY20评分0.55/0.48/0.40仅原方法假设；实际仓位复用B2开发段30笔净回报半凯利、风险2%/单股30%，未真实回测。",
+      "bindings": {
+        "presets": [
+          "wy-score-half-kelly"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH01",
@@ -1801,11 +1859,25 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：验证二三买重合胜出候选同时保留二类40/41与三类33/34关联；原生第三类胜出可能不导出二类端点，缺失不可猜测"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-overlap-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH05",
@@ -1814,11 +1886,25 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：已完成连续周线逐前缀调用，验证semantic=2与原生A/C及中枢归属；日线不代替周线"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-consolidation-weekly-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH06",
@@ -1831,7 +1917,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：需原生走势28对应的完整同级别两中枢成员列表与完成状态；trendId不能映射到当前未导出的趋势数组"
+      "boundary": "原生结构缺口 CH06-native-trend-centers：缺走势28对应完整两中枢成员列表、级别与完成状态；trendId不是可访问的走势数组。"
     },
     {
       "id": "CH07",
@@ -1844,7 +1930,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：导出output50对应高级别Candidates完整表及段起止；当前仅胜出signals，不能将候选序号当signals序号；证明高级别与笔级段包含关系"
+      "boundary": "原生结构缺口 CH07-native-nested-candidates：缺output50索引的完整高级别Candidates表与起止段，不能以胜出signals替代。"
     },
     {
       "id": "CH08",
@@ -1857,7 +1943,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：原生新增完整已完成同级别走势序列、级别、连接边界；output23仅胜出信号所属方向"
+      "boundary": "原生结构缺口 CH08-native-completed-movements：缺已完成同级别走势序列、连接边界及级别；output23只为胜出信号所属方向。"
     },
     {
       "id": "CH09",
@@ -1870,7 +1956,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：复用CH08已完成走势序列，证明下跌与上涨的同级别连接及操作确认时点"
+      "boundary": "原生结构缺口 CH09-native-down-up：依赖CH08完整走势连接，缺下跌-盘整-下跌到上涨/盘整退出的完成证明。"
     },
     {
       "id": "CH10",
@@ -1883,7 +1969,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：47/48只证明中枢间生命周期分类；需中阴阶段进入/结束及操作级别上下文"
+      "boundary": "原生结构缺口 CH10-native-transition：47/48仅中枢生命周期；缺已完成走势到新走势确立的中阴进入/结束及操作级别。"
     },
     {
       "id": "CH11",
@@ -1896,7 +1982,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：接入历史板块成分与各板块同窗均线，冻结强弱排序及轮动参数；双基准RS不等于板块轮动"
+      "boundary": "历史输入缺口 CH11-sector-ma-rotation：缺时点板块成分与各板块同窗均线/强弱排序输入；现有双基准RS不是板块轮动。当前禁止新增通道，本轮保留具名后续任务，不伪称DLL缺口。"
     },
     {
       "id": "CH12",
@@ -1909,7 +1995,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：复用CH07高级别背驰段与低级别买点关联，冻结短线退出参数"
+      "boundary": "原生结构缺口 CH12-native-rebound-containment：依赖CH07高级别背驰段与低级别买点包含关系，当前高级别完整候选表缺失。"
     },
     {
       "id": "CH13",
@@ -1922,7 +2008,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：补完整月线日历适配与月线逐前缀背驰、其后首次三类点；周线和日线不能代替月线"
+      "boundary": "周期输入及原生结构缺口 CH13-monthly-bottom：缺完整月线已完成周期输入，本轮禁止新通道；月线背驰后至首次三类点需趋势成员/完成证明（CH06），周线不能代替月线。"
     },
     {
       "id": "CH14",
@@ -1931,11 +2017,25 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：对称消费经归属验证的原生卖点，接入持有状态及受阻重试；卖点只退出已有多仓"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-hold-cash-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH15",
@@ -1944,11 +2044,25 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：冻结市场基准及MACD零轴口径，复用现有训练/资金约束；不从DLL结构推导账户能力"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-wolf-daily-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "OP01",
@@ -3773,11 +3887,25 @@
       "sources": [
         "chan-theory/references/01-moving-average.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：原生10/11/13均线差与吻已有；冻结具名吻入场/失效/退出规则，不把湿吻放量4当有效吻"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-ma-kiss-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH17-ma-area",
@@ -3786,11 +3914,25 @@
       "sources": [
         "chan-theory/references/04-dynamics.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：使用均线差10与吻11，按已完成前后同向区间累计面积；与DLL的MACD面积比29分名"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-ma-area-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH17-ma-average-force",
@@ -3799,11 +3941,25 @@
       "sources": [
         "chan-theory/references/04-dynamics.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：使用均线差10与吻11逐前缀累计单位时间面积；output12为原生端点即时背驰，不冒充均线面积平均力度"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-methods.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "具名DLL工程方法见chanMethodBoundary，保持单队列逐完整前缀；类型/吻/力度/日线防狼/周线盘整分别按显式判据执行，非原文全覆盖。缺元数据不补造。仅卖已有多仓，固定输入与DLL golden不是策略盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-ma-average-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH18-small-to-large",
@@ -3816,7 +3972,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "共享原生投影解码与判据接口已建立，不代表方法完成。后续子任务：核验38/39/42、原生三类归属及原文回抽退出边界；semantic=3只为必要条件，不能标充分确认"
+      "boundary": "原生结构缺口 CH18-native-retest-movement：38/39/42证明小转大必要三类关联，但未证明原文前趋势最后中枢的次级别完整走势类型及后续下跌/回抽连接；缺该回抽退出边界的级别与走势完成证明，semantic=3不作充分条件。"
     },
     {
       "id": "SE05-weekly-ma",

@@ -1,9 +1,24 @@
 import {
+  structureBarBytes,
+  isWyckoffStructure,
+  type WyckoffId,
+} from "~/lib/research-wyckoff";
+import {
+  researchStructureWeekly,
+  researchWyckoffStructureSeries,
+} from "./research-structure-weekly";
+import {
   isWyckoffHourly,
   researchWyckoffHourlySeries,
 } from "~/lib/research-wyckoff-hourly";
 import type { ResearchStructureObservation } from "~/lib/research-structure-events";
-import { isChanNative, chanNativeCandidates } from "~/lib/research-chan-native";
+import {
+  chanWolfPoint,
+  isChanMa,
+  chanMaMethodPoint,
+  isChanNative,
+  chanNativeCandidates,
+} from "~/lib/research-chan-native";
 import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
@@ -60,6 +75,147 @@ export async function researchSignals(
     throw new Error(
       "小时研究窗口必须在2000-01-04至2022-11-30内；不得混用日线区间",
     );
+  if (spec.strategy === "chan-consolidation-weekly-native") {
+    const events: ResearchEvent[] = [],
+      seen = new Set<string>();
+    let ready = false,
+      lastWeek = "",
+      identity: string | null = null;
+    let priorWeeks: Bar[] = [];
+    for (const row of (spec.wyckoffStructureInputs ?? [])
+      .filter((r) => r.symbol === symbol && r.date <= spec.end)
+      .sort((a, b) => a.date.localeCompare(b.date))) {
+      if (cancelled()) throw new Error("研究已取消");
+      const prefix = bars.filter((b) => b.date <= row.date),
+        cutoff = Date.parse(`${row.date}T15:05:00+08:00`);
+      let reason: string | null = null;
+      if (
+        row.stock.symbol !== symbol ||
+        Date.parse(row.availableAt) > cutoff ||
+        Date.parse(row.availableAt) <
+          Date.parse(`${row.date}T15:00:00+08:00`) ||
+        Date.parse(row.calendar.availableAt) > cutoff ||
+        structureBarBytes(row.stock.bars.filter((b) => b.date <= row.date)) !==
+          structureBarBytes(prefix) ||
+        JSON.stringify(
+          row.calendar.days.filter((d) => d >= bars[0]!.date && d <= row.date),
+        ) !==
+          JSON.stringify(
+            calendar.filter((d) => d >= bars[0]!.date && d <= row.date),
+          )
+      )
+        reason = "周线原始输入、可用时点或研究日历不一致";
+      const weekKeys = new Set(
+        row.calendar.days
+          .filter((d) => d >= bars[0]!.date && d <= row.date)
+          .map((d) => {
+            const t = new Date(d);
+            t.setUTCDate(t.getUTCDate() + 5 - (t.getUTCDay() || 7));
+            return t.toISOString().slice(0, 10);
+          })
+          .filter((d) => d <= row.date),
+      );
+      const count = weekKeys.size;
+      if (count < 2 || count > 104)
+        reason = "周线完整前缀需2至104周；不滑窗截断DLL历史";
+      const weekly = reason
+        ? null
+        : researchStructureWeekly(row.stock, row.calendar, row.date, count);
+      reason ??= weekly?.reason ?? null;
+      if (reason || !weekly) {
+        ready = false;
+        recordStructure?.({
+          symbol,
+          date: row.date,
+          warmup: row.date < spec.start,
+          reason: reason ?? "缺少连续周线输入",
+          events: [],
+        });
+        continue;
+      }
+      const weeklyBars = weekly.weeks.map((w) => w.bar),
+        last = weeklyBars.at(-1)!.date;
+      if (
+        priorWeeks.length &&
+        (weeklyBars.length < priorWeeks.length ||
+          structureBarBytes(weeklyBars.slice(0, priorWeeks.length)) !==
+            structureBarBytes(priorWeeks))
+      ) {
+        ready = false;
+        recordStructure?.({
+          symbol,
+          date: row.date,
+          warmup: row.date < spec.start,
+          reason: "周线输入重叠历史修订，拒绝回填",
+          events: [],
+        });
+        continue;
+      }
+      if (weeklyBars.length > priorWeeks.length + 1) ready = false;
+      if (ready && last === lastWeek) continue;
+      priorWeeks = weeklyBars;
+      const result = await czsc(weeklyBars),
+        version = `${result.sourceCommit}/${result.hash}`;
+      if (identity && identity !== version)
+        throw new Error("回放期间DLL版本变化");
+      identity = version;
+      if (result.status !== "structure" || result.sourceCommit !== "b67f3c6") {
+        ready = false;
+        recordStructure?.({
+          symbol,
+          date: row.date,
+          warmup: row.date < spec.start,
+          reason: "周线原生结构不可用或来源版本不符",
+          events: [],
+        });
+        continue;
+      }
+      const found = chanNativeCandidates(
+        "chan-consolidation-weekly-native",
+        result,
+        weeklyBars,
+        spec.czscConfig,
+      );
+      if (found.gaps.length) {
+        ready = false;
+        recordStructure?.({
+          symbol,
+          date: row.date,
+          warmup: row.date < spec.start,
+          reason: found.gaps.join("；"),
+          events: [],
+        });
+        continue;
+      }
+      for (const p of found.signals) {
+        const key = `weekly:${p.date}:${p.kind}`;
+        if (!seen.has(key) && ready && row.date >= spec.start)
+          events.push({
+            symbol,
+            key,
+            observedDate: row.date,
+            endpointDate: p.date,
+            strategyVersion: `chan-consolidation-weekly-native/${version}`,
+            partition:
+              row.date >= spec.validationStart ? "validation" : "development",
+            evidence: JSON.stringify({ point: p, weekly, raw: row }),
+          });
+        seen.add(key);
+      }
+      ready = true;
+      lastWeek = last;
+      progress(row.date);
+    }
+    if (!ready)
+      recordStructure?.({
+        symbol,
+        date: spec.start,
+        warmup: false,
+        reason: "结构缺口：缺少可用周线DLL研究输入",
+        events: [],
+      });
+    return events;
+  }
   const first = bars.findIndex((bar) => bar.date >= spec.start);
   const definition = researchStrategies[spec.strategy];
   const signalVersion =
@@ -75,24 +231,33 @@ export async function researchSignals(
   if (first < warmup)
     throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
-  const technical = isWyckoffHourly(spec.strategy)
-    ? researchWyckoffHourlySeries(
+  const technical = isWyckoffStructure(spec.strategy)
+    ? researchWyckoffStructureSeries(
+        spec.strategy as WyckoffId,
         bars,
         calendar,
-        spec.wyckoffHourlyInputs,
         symbol,
+        spec.wyckoffStructureInputs,
+        spec.wyckoffHourlyInputs,
       )
-    : isWyckoffVsa(spec.strategy)
-      ? researchWyckoffVsaSeries(
-          spec.strategy,
+    : isWyckoffHourly(spec.strategy)
+      ? researchWyckoffHourlySeries(
           bars,
           calendar,
-          spec.wyckoffInputs,
+          spec.wyckoffHourlyInputs,
           symbol,
         )
-      : isResearchRule(spec.strategy)
-        ? researchRuleSeries(spec.strategy, bars, calendar, market)
-        : null;
+      : isWyckoffVsa(spec.strategy)
+        ? researchWyckoffVsaSeries(
+            spec.strategy,
+            bars,
+            calendar,
+            spec.wyckoffInputs,
+            symbol,
+          )
+        : isResearchRule(spec.strategy)
+          ? researchRuleSeries(spec.strategy, bars, calendar, market)
+          : null;
   if (technical && recordStructure)
     for (const point of technical) {
       if (!("events" in point) || point.date > spec.end) continue;
@@ -160,6 +325,7 @@ export async function researchSignals(
     ? definition.version
     : "czsc-research-1";
   const qualified = (result: CzscResult, prefix: readonly Bar[]) => {
+    if (isChanMa(spec.strategy)) return [];
     if (isChanNative(spec.strategy)) {
       const found = chanNativeCandidates(
         spec.strategy,
@@ -167,7 +333,23 @@ export async function researchSignals(
         prefix,
         spec.czscConfig,
       );
-      if (found.gaps.length) throw new Error(found.gaps.join("；"));
+      if (found.gaps.length) {
+        if (
+          [
+            "chan-first-native",
+            "chan-second-native",
+            "chan-third-native",
+          ].includes(spec.strategy)
+        )
+          throw new Error(found.gaps.join("；"));
+        recordStructure?.({
+          symbol,
+          date: prefix.at(-1)!.date,
+          warmup: prefix.at(-1)!.date < spec.start,
+          reason: found.gaps.join("；"),
+          events: [],
+        });
+      }
       return found.signals;
     }
     return result.status === "structure"
@@ -215,6 +397,23 @@ export async function researchSignals(
               : bar.date,
           strategyVersion: signalVersion,
           evidence: JSON.stringify(point),
+          ...(spec.strategy === "wy-score-half-kelly" &&
+          "ruleStop" in point &&
+          point.ruleStop
+            ? { initialStop: point.ruleStop.price }
+            : {}),
+          ...("targetPlan" in point && point.targetPlan?.status === "computed"
+            ? {
+                structureTargets: {
+                  model: point.targetPlan.model,
+                  targets: point.targetPlan.targets,
+                  confirmedAt: point.targetPlan.confirmedAt,
+                },
+                ...(spec.strategy === "wy-score-half-kelly"
+                  ? { entryTarget: point.targetPlan.targets.at(-1) }
+                  : {}),
+              }
+            : {}),
           ...("historyStart" in point && point.historyStart
             ? { historyStart: point.historyStart }
             : {}),
@@ -328,6 +527,43 @@ export async function researchSignals(
         version
       )
         throw new Error("回放期间DLL版本变化，请重新研究");
+      if (spec.strategy === "chan-wolf-daily-native") {
+        const decision = chanWolfPoint(bars.slice(0, index + 1));
+        if (decision.exit)
+          events.push({
+            ...common,
+            side: "exit",
+            key: `${signalVersion}:${bar.date}:wolf-exit`,
+            endpointDate: bar.date,
+            strategyVersion: version!,
+            evidence: JSON.stringify(decision),
+          });
+      }
+      if (isChanNative(spec.strategy) && isChanMa(spec.strategy)) {
+        const decision = chanMaMethodPoint(
+          spec.strategy,
+          result,
+          bars.slice(0, index + 1),
+          spec.czscConfig,
+        );
+        recordStructure?.({
+          symbol,
+          date: bar.date,
+          warmup: false,
+          reason: decision.reason,
+          events: [],
+          values: decision,
+        });
+        if (decision.entry || decision.exit)
+          events.push({
+            ...common,
+            key: `${signalVersion}:${bar.date}:${decision.exit ? "exit" : "entry"}`,
+            endpointDate: bar.date,
+            strategyVersion: version!,
+            evidence: JSON.stringify(decision),
+            ...(decision.exit ? { side: "exit" as const } : {}),
+          });
+      }
       for (const point of qualified(result, bars.slice(0, index + 1))) {
         const signalKey = key(point);
         if (seen.has(signalKey)) continue;
@@ -351,7 +587,7 @@ export async function researchSignals(
             events: [
               {
                 key: signalKey,
-                kind: `native-buy-${point.kind}`,
+                kind: `native-${point.kind < 0 ? "sell" : "buy"}-${Math.abs(point.kind)}`,
                 candidateAt: point.date,
                 observedAt: bar.date,
                 confirmedAt: bar.date,
@@ -369,6 +605,7 @@ export async function researchSignals(
           });
         events.push({
           ...common,
+          ...(point.kind < 0 ? { side: "exit" as const } : {}),
           key: signalKey,
           endpointDate: point.date,
           strategyVersion: version!,

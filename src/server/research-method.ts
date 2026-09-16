@@ -78,6 +78,7 @@ export function researchMethodSnapshot(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffStructureInputs"
         | "wyckoffHourlyInputs"
         | "wyckoffInputs"
         | "stopDiagnosis"
@@ -321,6 +322,31 @@ export function researchMethodSnapshot(
             interpretation: stopDiagnosisBoundary,
           },
         }
+      : {}),
+    ...(strategy === "chan-wolf-daily-native"
+      ? {
+          chanWolfSizing: {
+            version: "chan-wolf-daily-1",
+            riskFraction: 0.01,
+            maxWeight: 0.2,
+            stopFraction: 0.05,
+          },
+        }
+      : {}),
+    ...(strategy === "wy-score-half-kelly"
+      ? {
+          wyckoffSizing: {
+            version: "wy20-training-1",
+            stop: "frozen-tr-lower-minus-0.1pct",
+            riskFraction: 0.02,
+            maxWeight: 0.3,
+            kelly: { provenance: "development-net-payoff", fraction: 0.5 },
+            scoreProbability: "原方法假设，非实测胜率",
+          },
+        }
+      : {}),
+    ...(typeof input !== "string" && input.wyckoffStructureInputs !== undefined
+      ? { wyckoffStructureInputs: input.wyckoffStructureInputs }
       : {}),
     ...(typeof input !== "string" && input.wyckoffHourlyInputs
       ? { wyckoffHourlyInputs: input.wyckoffHourlyInputs }
@@ -742,6 +768,7 @@ export function validateResearchMethod(
         | "riskExtension"
         | "riskRepair"
         | "riskRoute"
+        | "wyckoffStructureInputs"
         | "wyckoffHourlyInputs"
         | "wyckoffInputs"
         | "stopDiagnosis"

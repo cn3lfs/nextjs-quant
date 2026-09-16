@@ -1,3 +1,4 @@
+import type { researchWyckoffStructureSeries } from "./research-structure-weekly";
 import { isWyckoff, researchWyckoffSeries } from "~/lib/research-wyckoff";
 import { researchSwingSystemSeries } from "~/lib/research-swing-system";
 import {
@@ -55,6 +56,7 @@ import { analyzeBreakout } from "./breakout";
 export type ResearchRuleId =
   LocalId | BreakoutRuleId | CanslimResearchId | SepaResearchId;
 export type ResearchRulePoint =
+  | ReturnType<typeof researchWyckoffStructureSeries>[number]
   | ReturnType<typeof researchCanslimVolumeTier>[number]
   | ReturnType<typeof researchCanslimMarketCombination>[number]
   | ReturnType<typeof researchCanslimMarketScore>[number]

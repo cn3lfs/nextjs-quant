@@ -36,7 +36,11 @@ export async function captureResearchDataset(
   cancelled: () => boolean = () => false,
   progress: (symbol: string, count: number, total: number) => void = () => {},
 ) {
-  if (spec.management?.growthIntraday || isWyckoffHourly(spec.strategy))
+  if (
+    spec.management?.growthIntraday ||
+    isWyckoffHourly(spec.strategy) ||
+    spec.strategy === "wy-week-day-hour"
+  )
     assertGrowthIntradayWindow(spec.start, spec.end);
   const config = settings(),
     root = resolve(config.tdxRoot);
@@ -64,13 +68,15 @@ export async function captureResearchDataset(
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
-  const minuteStart = isWyckoffHourly(spec.strategy)
-    ? (calendar[Math.max(0, calendar.findIndex((d) => d >= spec.start) - 6)] ??
-      spec.start)
-    : spec.management?.growthIntraday &&
-        isOpening(spec.management.growthIntraday)
-      ? openingMinuteStart(calendar, spec.start)
-      : spec.start;
+  const minuteStart =
+    isWyckoffHourly(spec.strategy) || spec.strategy === "wy-week-day-hour"
+      ? (calendar[
+          Math.max(0, calendar.findIndex((d) => d >= spec.start) - 6)
+        ] ?? spec.start)
+      : spec.management?.growthIntraday &&
+          isOpening(spec.management.growthIntraday)
+        ? openingMinuteStart(calendar, spec.start)
+        : spec.start;
   let canslimMarket: CanslimResearchMarket | undefined;
   if (
     needsCanslimMarket(spec.strategy) ||
@@ -120,7 +126,8 @@ export async function captureResearchDataset(
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
       const minute =
         spec.management?.growthIntraday ||
-        (isWyckoffHourly(spec.strategy) &&
+        ((isWyckoffHourly(spec.strategy) ||
+          spec.strategy === "wy-week-day-hour") &&
           spec.wyckoffHourlyInputs === undefined)
           ? await readSnapshot(root, symbol, "5m")
           : null;

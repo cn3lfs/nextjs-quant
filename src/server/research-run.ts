@@ -1,3 +1,4 @@
+import { researchManagementSchema } from "~/lib/research-management";
 import { wyckoffHourlyFromMinutes } from "./research-wyckoff-hourly";
 import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
 import { isChanNative } from "~/lib/research-chan-native";
@@ -109,7 +110,26 @@ export async function runStrategyResearch(
 ) {
   validateResearchMethod(spec, dataset.method);
   const requestedSpec = spec;
-  if (isWyckoffHourly(spec.strategy)) {
+  if (spec.strategy === "chan-wolf-daily-native")
+    spec = {
+      ...spec,
+      risk: { fraction: 0.01, maxWeight: 0.2 },
+      management: researchManagementSchema.parse({
+        stop: { kind: "percent", fraction: 0.05 },
+        trail: { kind: "fixed" },
+      }),
+    };
+  if (spec.strategy === "wy-score-half-kelly")
+    spec = {
+      ...spec,
+      risk: { fraction: 0.02, maxWeight: 0.3 },
+      management: researchManagementSchema.parse({
+        stop: { kind: "structure", buffer: 0 },
+        trail: { kind: "fixed" },
+        kelly: { provenance: "development-net-payoff", fraction: 0.5 },
+      }),
+    };
+  if (isWyckoffHourly(spec.strategy) || spec.strategy === "wy-week-day-hour") {
     if (spec.wyckoffHourlyInputs === undefined)
       spec = {
         ...spec,
@@ -346,7 +366,7 @@ export async function runStrategyResearch(
     }
   }
   const outcomes = researchOutcomes(
-    events,
+    events.filter((e) => e.side !== "exit"),
     eventSeries,
     dataset.benchmark.bars,
     dataset.calendar,
@@ -370,6 +390,7 @@ export async function runStrategyResearch(
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
   const requiresActionPrefix =
+    isChanNative(spec.strategy) ||
     (spec.management?.growthIntraday != null &&
       (isOpening(spec.management.growthIntraday) ||
         isMarketAdmission(spec.management.growthIntraday) ||
@@ -602,6 +623,9 @@ export async function runStrategyResearch(
         }
       : null;
   const result = {
+    ...(spec.wyckoffStructureInputs !== undefined
+      ? { wyckoffStructureInputs: spec.wyckoffStructureInputs }
+      : {}),
     ...(isWyckoff(spec.strategy) ||
     isWyckoffHourly(spec.strategy) ||
     isWyckoffVsa(spec.strategy) ||
@@ -660,6 +684,11 @@ export async function runStrategyResearch(
       : {}),
     version: "strategy-research-result-1" as const,
     spec: requestedSpec,
+    ...(["wy-score-half-kelly", "chan-wolf-daily-native"].includes(
+      spec.strategy,
+    )
+      ? { effectiveSpec: spec }
+      : {}),
     ...(dataset.method ? { method: dataset.method } : {}),
     datasetHash: dataset.hash,
     marketEvidenceHash: marketEvidence ? researchHash(marketEvidence) : null,

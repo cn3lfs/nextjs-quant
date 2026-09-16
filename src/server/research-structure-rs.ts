@@ -1,3 +1,5 @@
+import { structureBenchmarkIdentitySchema } from "~/lib/research-wyckoff";
+export { structureBenchmarkIdentitySchema } from "~/lib/research-wyckoff";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
 import { researchDateSchema } from "~/lib/research-usage";
@@ -5,23 +7,6 @@ import { wyckoffRelativeStrength } from "./wyckoff-relative-strength";
 import type { CalendarReference } from "./data-health";
 
 const stamp = z.string().datetime({ offset: true });
-export const structureBenchmarkIdentitySchema = z
-  .object({
-    role: z.enum(["industry", "market"]),
-    stock: z.string().regex(/^(sh|sz)\d{6}$/),
-    benchmark: z.string().regex(/^(sh|sz)\d{6}$/),
-    name: z.string().trim().min(1),
-    source: z.string().trim().min(1),
-    effectiveFrom: researchDateSchema,
-    effectiveTo: researchDateSchema,
-    availableAt: stamp,
-    capturedAt: stamp,
-  })
-  .strict()
-  .refine(
-    (row) => row.effectiveFrom <= row.effectiveTo,
-    "基准身份有效区间倒置",
-  );
 export type StructureBenchmarkIdentity = z.infer<
   typeof structureBenchmarkIdentitySchema
 >;

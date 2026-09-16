@@ -1,3 +1,5 @@
+import { isWyckoffStructure, type WyckoffId } from "~/lib/research-wyckoff";
+import { researchWyckoffStructureSeries } from "./research-structure-weekly";
 import {
   isWyckoffHourly,
   researchWyckoffHourlySeries,
@@ -366,22 +368,31 @@ export function researchPortfolio(
             [
               symbol,
               new Map(
-                (isWyckoffHourly(technicalId)
-                  ? researchWyckoffHourlySeries(
+                (isWyckoffStructure(technicalId)
+                  ? researchWyckoffStructureSeries(
+                      technicalId as WyckoffId,
                       bars,
                       calendar,
-                      spec.wyckoffHourlyInputs,
                       symbol,
+                      spec.wyckoffStructureInputs,
+                      spec.wyckoffHourlyInputs,
                     )
-                  : isWyckoffVsa(technicalId)
-                    ? researchWyckoffVsaSeries(
-                        technicalId,
+                  : isWyckoffHourly(technicalId)
+                    ? researchWyckoffHourlySeries(
                         bars,
                         calendar,
-                        spec.wyckoffInputs,
+                        spec.wyckoffHourlyInputs,
                         symbol,
                       )
-                    : researchRuleSeries(technicalId, bars, calendar)
+                    : isWyckoffVsa(technicalId)
+                      ? researchWyckoffVsaSeries(
+                          technicalId,
+                          bars,
+                          calendar,
+                          spec.wyckoffInputs,
+                          symbol,
+                        )
+                      : researchRuleSeries(technicalId, bars, calendar)
                 )
                   .filter(
                     (point) =>
@@ -393,15 +404,18 @@ export function researchPortfolio(
         )
       : [],
   );
+  const structureStages = new Map<ResearchEvent, number>();
   const lastSignalExit = new Map<string, string>();
   const failedBreakouts = new Map<string, Set<string>>();
   const signalGaps: { symbol: string; date: string; reason: string }[] = [];
-  const pending = [...events].sort(
-    (a, b) =>
-      a.observedDate.localeCompare(b.observedDate) ||
-      a.symbol.localeCompare(b.symbol) ||
-      a.key.localeCompare(b.key),
-  );
+  const pending = events
+    .filter((e) => e.side !== "exit")
+    .sort(
+      (a, b) =>
+        a.observedDate.localeCompare(b.observedDate) ||
+        a.symbol.localeCompare(b.symbol) ||
+        a.key.localeCompare(b.key),
+    );
   const trades: ResearchTrade[] = [],
     positions = new Map<string, ResearchTrade>();
   const attempts: {
@@ -955,7 +969,7 @@ export function researchPortfolio(
         continue;
       }
       if (
-        technicalId &&
+        (technicalId || events.some((e) => e.side === "exit")) &&
         ((lastSignalExit.get(event.symbol) ?? "") >= event.observedDate ||
           failedBreakouts.get(event.symbol)?.has(event.observedDate))
       ) {
@@ -1255,6 +1269,20 @@ export function researchPortfolio(
           fractions: externalEntry.cumulativeFractions,
           level: -1,
         });
+      if (
+        spec.strategy === "wy-score-half-kelly" &&
+        event.structureTargets &&
+        (initialStop == null ||
+          event.entryTarget == null ||
+          (event.entryTarget - fill.price) / (fill.price - initialStop) < 2)
+      ) {
+        excluded.push({
+          event,
+          reason: "WY20成交价至冻结目标的回报/风险不足2",
+        });
+        finished.add(event);
+        continue;
+      }
       const plannedRiskStop =
         initialStop == null
           ? null
@@ -1696,6 +1724,16 @@ export function researchPortfolio(
       trades.push(trade);
       finished.add(event);
     }
+    for (const signal of events.filter(
+      (e) => e.side === "exit" && e.observedDate === date,
+    )) {
+      lastSignalExit.set(signal.symbol, date);
+      if (positions.has(signal.symbol) && !exits.has(signal.symbol))
+        exits.set(
+          signal.symbol,
+          `原生具名卖出/失效判据于${date}确认，下一合法开盘退出`,
+        );
+    }
     // Completed-close indicator exits are known only after this day's fills.
     // Capture even for an unheld symbol so a blocked old buy cannot outlive
     // an intervening reverse signal. Earlier full-exit intents keep priority.
@@ -1770,6 +1808,35 @@ export function researchPortfolio(
           triggerDate: date,
           reason: point.reduction.reason,
         });
+      }
+      const plan = held?.event.structureTargets;
+      if (
+        held &&
+        plan &&
+        current &&
+        !point?.reason &&
+        !exits.has(symbol) &&
+        !partials.has(symbol)
+      ) {
+        const stage = structureStages.get(held.event) ?? 0;
+        if (
+          stage < plan.targets.length &&
+          current.close >= plan.targets[stage]!
+        ) {
+          if (stage === plan.targets.length - 1)
+            exits.set(
+              symbol,
+              `${plan.model} T${stage + 1}收盘触达，下一合法开盘清仓`,
+            );
+          else
+            partials.set(symbol, {
+              kind: "signal",
+              desired: held.quantity / 3,
+              triggerDate: date,
+              reason: `${plan.model} T${stage + 1}收盘触达，减初始仓位1/3`,
+            });
+          structureStages.set(held.event, stage + 1);
+        }
       }
       if (!point?.exit) continue;
       if ("pivotFailures" in point) {
