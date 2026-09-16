@@ -1,0 +1,218 @@
+[
+  {
+    "source": "canslim-analyst/SKILL.md",
+    "snapshot": "locked/canslim-analyst/SKILL.md",
+    "status": "locked",
+    "hash": "2a9b77ed92cca5fb8a6bd950ae75344dc4cbf2c0dbb9db592d77a5d9f533dda9",
+    "lockedHash": "2a9b77ed92cca5fb8a6bd950ae75344dc4cbf2c0dbb9db592d77a5d9f533dda9",
+    "bytes": 23674
+  },
+  {
+    "source": "canslim-analyst/references/canslim-scoring.md",
+    "snapshot": "locked/canslim-analyst/references/canslim-scoring.md",
+    "status": "locked",
+    "hash": "da5f3fcd1a1f9d3f8c4463ace8eb322b7b11d9448cd102d3479e5a9c6963454d",
+    "lockedHash": "da5f3fcd1a1f9d3f8c4463ace8eb322b7b11d9448cd102d3479e5a9c6963454d",
+    "bytes": 11365
+  },
+  {
+    "source": "canslim-analyst/references/entry-exit-rules.md",
+    "snapshot": "locked/canslim-analyst/references/entry-exit-rules.md",
+    "status": "locked",
+    "hash": "3aba3bc358899858be523e78ba7798b2188b1a81d276988de97e1dc95b071427",
+    "lockedHash": "3aba3bc358899858be523e78ba7798b2188b1a81d276988de97e1dc95b071427",
+    "bytes": 7271
+  },
+  {
+    "source": "canslim-analyst/references/technical-patterns.md",
+    "snapshot": "locked/canslim-analyst/references/technical-patterns.md",
+    "status": "locked",
+    "hash": "862490bb5a0888f33d4063255f27fc504485df710dde213c88addc4927681786",
+    "lockedHash": "862490bb5a0888f33d4063255f27fc504485df710dde213c88addc4927681786",
+    "bytes": 6707
+  },
+  {
+    "source": "news-industry-analyst/CHANGELOG.md",
+    "snapshot": "unaligned-current/news-industry-analyst/CHANGELOG.md",
+    "status": "unaligned-current",
+    "hash": "c2b11c0a3e4cb040c88ed761f999e8728cd9c72ba1ea3d1d24bfa866e909bf55",
+    "lockedHash": "7f829940138da32ce55c858995cc114f0efff4588a49ee5554a7a030450492c9",
+    "bytes": 34059
+  },
+  {
+    "source": "news-industry-analyst/SKILL.md",
+    "snapshot": "unaligned-current/news-industry-analyst/SKILL.md",
+    "status": "unaligned-current",
+    "hash": "d3bc8183fa7adf07075393986efa8a57253115d4f11840334c67d2bf07d441da",
+    "lockedHash": "93b85417cfe4c52551bbfc60798fb1b251c498e00b19a5f13803a5d8363c76bc",
+    "bytes": 20266
+  },
+  {
+    "source": "news-industry-classifier/references/classify-cache.md",
+    "snapshot": "unaligned-current/news-industry-classifier/references/classify-cache.md",
+    "status": "unaligned-current",
+    "hash": "7339187e4e7302c3baa52d36380d20d2a04746d826d2753229bfc0b6346e28d6",
+    "lockedHash": "aa085fa59229050b387367019b5c7a93859d9f9313ec99beeea261bd2530309d",
+    "bytes": 42775
+  },
+  {
+    "source": "news-sector-analyzer/SKILL.md",
+    "snapshot": "unaligned-current/news-sector-analyzer/SKILL.md",
+    "status": "unaligned-current",
+    "hash": "d70c8a438baeb209e5db9645f64a6ccf36081c1946616578d0c97700139508c8",
+    "lockedHash": "e5bdbe96f28e76faf0bd5a2903a8573114977d6d0da0ee74e57a8adcb8e9a6d2",
+    "bytes": 16196
+  },
+  {
+    "source": "news-sector-analyzer/scripts/analyze.py",
+    "snapshot": "unaligned-current/news-sector-analyzer/scripts/analyze.py",
+    "status": "unaligned-current",
+    "hash": "83e9a88fda17141614a9723f63ffd2f2758e1d6bd26edfea4c50948316706b89",
+    "lockedHash": "2855efe591fe159df4e86d952a62578177dcf153b8b1836df668e8d59fe6253e",
+    "bytes": 71501
+  },
+  {
+    "source": "news-sector-analyzer/scripts/build_sw_sector_codes.py",
+    "snapshot": "unaligned-current/news-sector-analyzer/scripts/build_sw_sector_codes.py",
+    "status": "unaligned-current",
+    "hash": "98e675e69660fab03d6d61ee75c40ce5aa936bb8595ce45eb838e93e941d6440",
+    "lockedHash": null,
+    "bytes": 4063
+  },
+  {
+    "source": "stop-loss/SKILL.md",
+    "snapshot": "locked/stop-loss/SKILL.md",
+    "status": "locked",
+    "hash": "a286cb044458f4189016782ec11bcf5de99a1fb6526b1660671d97cece6c0fea",
+    "lockedHash": "a286cb044458f4189016782ec11bcf5de99a1fb6526b1660671d97cece6c0fea",
+    "bytes": 8033
+  },
+  {
+    "source": "stop-loss/references/execution.md",
+    "snapshot": "locked/stop-loss/references/execution.md",
+    "status": "locked",
+    "hash": "b4f8038e59c090c601e88ff8cf2398ee977355abd5e187b71a4dc3082e7fc97c",
+    "lockedHash": "b4f8038e59c090c601e88ff8cf2398ee977355abd5e187b71a4dc3082e7fc97c",
+    "bytes": 3409
+  },
+  {
+    "source": "stop-loss/references/kelly-sizing.md",
+    "snapshot": "locked/stop-loss/references/kelly-sizing.md",
+    "status": "locked",
+    "hash": "d09365cc7915e85bfccd85d53aec94101b1e576c0af13e7c87aabbca1a5b9de6",
+    "lockedHash": "d09365cc7915e85bfccd85d53aec94101b1e576c0af13e7c87aabbca1a5b9de6",
+    "bytes": 3226
+  },
+  {
+    "source": "stop-loss/references/management.md",
+    "snapshot": "locked/stop-loss/references/management.md",
+    "status": "locked",
+    "hash": "91b75cd671086ccc7aa64fd8b3553d6965cc86bc487c9ff7aacaca7477564dd7",
+    "lockedHash": "91b75cd671086ccc7aa64fd8b3553d6965cc86bc487c9ff7aacaca7477564dd7",
+    "bytes": 2821
+  },
+  {
+    "source": "stop-loss/references/methods.md",
+    "snapshot": "locked/stop-loss/references/methods.md",
+    "status": "locked",
+    "hash": "05259cd0871fe5e7804f28c383dd0e780ef8d318375ad9aaea733de8139e2283",
+    "lockedHash": "05259cd0871fe5e7804f28c383dd0e780ef8d318375ad9aaea733de8139e2283",
+    "bytes": 10060
+  },
+  {
+    "source": "stop-loss/references/pitfalls.md",
+    "snapshot": "locked/stop-loss/references/pitfalls.md",
+    "status": "locked",
+    "hash": "e1e7609a56e8bbeff8e8fc9db4ca01e455bdc02ea635b0b61931c3e873a17038",
+    "lockedHash": "e1e7609a56e8bbeff8e8fc9db4ca01e455bdc02ea635b0b61931c3e873a17038",
+    "bytes": 4031
+  },
+  {
+    "source": "stop-loss/references/position-sizing.md",
+    "snapshot": "locked/stop-loss/references/position-sizing.md",
+    "status": "locked",
+    "hash": "7f578fef30d51d781544003261830f9b018c06c83629c8e0014c542d77179c71",
+    "lockedHash": "7f578fef30d51d781544003261830f9b018c06c83629c8e0014c542d77179c71",
+    "bytes": 2946
+  },
+  {
+    "source": "stop-loss/references/volatility-family.md",
+    "snapshot": "locked/stop-loss/references/volatility-family.md",
+    "status": "locked",
+    "hash": "092224df5dc2c7d3ec0e49e54fab1ac07c701b071f3c5890968783d3f669469a",
+    "lockedHash": "092224df5dc2c7d3ec0e49e54fab1ac07c701b071f3c5890968783d3f669469a",
+    "bytes": 3893
+  },
+  {
+    "source": "stop-loss/scripts/kelly.py",
+    "snapshot": "locked/stop-loss/scripts/kelly.py",
+    "status": "locked",
+    "hash": "c228e3cba16630d0b13d7ab8d680d8ddc8eea154139e9cfab60c86b8007fe902",
+    "lockedHash": "c228e3cba16630d0b13d7ab8d680d8ddc8eea154139e9cfab60c86b8007fe902",
+    "bytes": 10154
+  },
+  {
+    "source": "stop-loss/scripts/stop_loss_calc.py",
+    "snapshot": "locked/stop-loss/scripts/stop_loss_calc.py",
+    "status": "locked",
+    "hash": "d204bc947e0c156d8cec3b1bc0947e8e7d6f75f4c5a0170e7b886934e92619fc",
+    "lockedHash": "d204bc947e0c156d8cec3b1bc0947e8e7d6f75f4c5a0170e7b886934e92619fc",
+    "bytes": 7390
+  },
+  {
+    "source": "swing-trader/references/position-management.md",
+    "snapshot": "locked/swing-trader/references/position-management.md",
+    "status": "locked",
+    "hash": "bc6553877f1450510848569b25f1f9c81c6a8e675e65757ccb12a5e63f129117",
+    "lockedHash": "bc6553877f1450510848569b25f1f9c81c6a8e675e65757ccb12a5e63f129117",
+    "bytes": 5911
+  },
+  {
+    "source": "swing-trader/references/technical-indicators.md",
+    "snapshot": "locked/swing-trader/references/technical-indicators.md",
+    "status": "locked",
+    "hash": "da71d77cfdc3f02b400d5feb99cc475a7c31f4913e491c3ee3c254e75703201e",
+    "lockedHash": "da71d77cfdc3f02b400d5feb99cc475a7c31f4913e491c3ee3c254e75703201e",
+    "bytes": 6078
+  },
+  {
+    "source": "swing-trader/references/trading-system.md",
+    "snapshot": "locked/swing-trader/references/trading-system.md",
+    "status": "locked",
+    "hash": "99d35dfe20112fbc3ecaffba938e34ad641ff067ce161b16f65dad4658556b30",
+    "lockedHash": "99d35dfe20112fbc3ecaffba938e34ad641ff067ce161b16f65dad4658556b30",
+    "bytes": 6991
+  },
+  {
+    "source": "volume-price-analysis/SKILL.md",
+    "snapshot": "locked/volume-price-analysis/SKILL.md",
+    "status": "locked",
+    "hash": "357f768590ef6f5d69fba498c9f8a3e2f18a94e4b809ac2acb5f7564873a5782",
+    "lockedHash": "357f768590ef6f5d69fba498c9f8a3e2f18a94e4b809ac2acb5f7564873a5782",
+    "bytes": 8697
+  },
+  {
+    "source": "volume-price-analysis/references/vp-astock-caveats.md",
+    "snapshot": "locked/volume-price-analysis/references/vp-astock-caveats.md",
+    "status": "locked",
+    "hash": "ef26cbe38c159f0e284525942bb8d5ac945b59d210e0eb3dafe3de01d9cb2aba",
+    "lockedHash": "ef26cbe38c159f0e284525942bb8d5ac945b59d210e0eb3dafe3de01d9cb2aba",
+    "bytes": 4209
+  },
+  {
+    "source": "volume-price-analysis/references/vp-indicators.md",
+    "snapshot": "locked/volume-price-analysis/references/vp-indicators.md",
+    "status": "locked",
+    "hash": "c9d16cf5e3749fa2ce40de2bef0ee6bab9dbee10619f24d32c0044d614ab54cf",
+    "lockedHash": "c9d16cf5e3749fa2ce40de2bef0ee6bab9dbee10619f24d32c0044d614ab54cf",
+    "bytes": 4164
+  },
+  {
+    "source": "volume-price-analysis/references/vp-patterns.md",
+    "snapshot": "locked/volume-price-analysis/references/vp-patterns.md",
+    "status": "locked",
+    "hash": "75b282249ab513399ad8afeeb7d001ccff15d3adbee94fecf894364766cdebef",
+    "lockedHash": "75b282249ab513399ad8afeeb7d001ccff15d3adbee94fecf894364766cdebef",
+    "bytes": 8290
+  }
+]

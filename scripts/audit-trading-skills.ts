@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { knownSourceDrift, compareSourceDrift } from "./lib/source-drift";
 import ids from "../src/lib/trading-skill-ids.json";
 import {
   diffSkillInventory,
@@ -9,7 +10,11 @@ import {
 } from "./lib/trading-skill-inventory";
 
 const args = process.argv.slice(2);
-if (args.length && !(args.length === 2 && args[0] === "--write"))
+if (
+  args.length &&
+  !(args.length === 2 && args[0] === "--write") &&
+  !(args.length === 1 && args[0] === "--registered")
+)
   throw new Error(
     "用法：tsx scripts/audit-trading-skills.ts [--write <清单路径>]",
   );
@@ -32,6 +37,16 @@ if (args[0] === "--write") {
   ) as SkillInventory;
   const diff = diffSkillInventory(baseline, current);
   console.log(JSON.stringify(diff, null, 2));
-  if (Object.values(diff).some((items) => items.length)) process.exitCode = 1;
+  if (args[0] === "--registered") {
+    const registered = knownSourceDrift(
+      await readFile("docs/known-source-drift.md", "utf8"),
+    );
+    const result = compareSourceDrift(baseline, current, registered);
+    console.log("已登记漂移（未解决，B6 语义对齐前不得更新锁定）：");
+    console.log(JSON.stringify(registered, null, 2));
+    console.log(JSON.stringify({ failures: result }, null, 2));
+    if (result.length) process.exitCode = 1;
+  } else if (Object.values(diff).some((items) => items.length))
+    process.exitCode = 1;
 }
 if (current.missing.length) process.exitCode = 1;

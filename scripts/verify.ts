@@ -104,7 +104,7 @@ try {
       failures.push(`Missing runtime error report: ${String(error)}`);
     }
     command(["build"]);
-    command(["exec", "tsx", "scripts/audit-trading-skills.ts"]);
+    command(["exec", "tsx", "scripts/audit-trading-skills.ts", "--registered"]);
     command(["exec", "tsx", "scripts/audit-trading-methods.ts"]);
     command(["format:check"]);
     const diff = spawnSync("git", ["diff", "--check"], {

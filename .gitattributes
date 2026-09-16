@@ -26,3 +26,7 @@
 # 在检出时回转才偶然通过）。这些路径不做任何行尾或文本处理。
 tests/fixtures/tdx-local-blocks/*.dat binary
 tests/fixtures/tdx-local-blocks/*.cfg binary
+
+# Source snapshots preserve exact bytes while remaining text-diffable.
+docs/trading-skills-source-snapshots/locked/** -text
+docs/trading-skills-source-snapshots/unaligned-current/** -text

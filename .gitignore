@@ -15,3 +15,6 @@ test-results/
 .playwright-cli/
 output/
 .playwright-mcp/
+
+# 管理者与执行者之间的派单书、运行日志与中间审计输出，不入库。
+.codex-runs/
