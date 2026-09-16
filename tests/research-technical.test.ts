@@ -241,9 +241,11 @@ it("uses the shared indicators and preserves every past decision under prefix re
     point = researchTechnicalSeries("ma-golden-5-10", oscillating)[at]!.values;
   expect(point.ma5).toBe(ma(oscillating, 5)[at]);
   expect(point.dif).toBe(macd(oscillating)[at]!.dif);
-  expect(point.k).toBe(kdj(oscillating)[at]!.k);
+  expect("k" in point ? point.k : undefined).toBe(kdj(oscillating)[at]!.k);
   expect(point.rsi6).toBe(rsi(oscillating)[at]!.rsi6);
-  expect(point.upper).toBe(boll(oscillating)[at]!.upper);
+  expect("upper" in point ? point.upper : undefined).toBe(
+    boll(oscillating)[at]!.upper,
+  );
 });
 
 const native = vi.fn(async () => {

@@ -1,4 +1,34 @@
 import {
+  volumeIntradayIds,
+  isVolumeIntraday,
+  volumeIntradayDefinition,
+  researchVolumeIntradaySeries,
+} from "./research-volume-intraday";
+import {
+  swingMarketIds,
+  isSwingMarket,
+  swingMarketDefinition,
+  researchSwingMarketSeries,
+} from "./research-swing-market";
+import {
+  externalFormulaIds,
+  isExternalFormula,
+  externalFormulaDefinition,
+  researchExternalFormulaSeries,
+} from "./research-formula-external";
+import {
+  formulaExampleIds,
+  isFormulaExample,
+  formulaExampleDefinition,
+  researchFormulaExampleSeries,
+} from "./research-formula-examples";
+import {
+  patternCombinationIds,
+  isPatternCombination,
+  patternCombinationDefinition,
+  researchPatternCombinationSeries,
+} from "./research-pattern-combinations";
+import {
   technicalMethodIds,
   isTechnicalMethod,
   technicalMethodDefinition,
@@ -26,6 +56,11 @@ const legacyTechnicalStrategyIds = [
 export const technicalStrategyIds = [
   ...legacyTechnicalStrategyIds,
   ...technicalMethodIds,
+  ...patternCombinationIds,
+  ...formulaExampleIds,
+  ...externalFormulaIds,
+  ...swingMarketIds,
+  ...volumeIntradayIds,
 ] as const;
 export type TechnicalStrategyId = (typeof technicalStrategyIds)[number];
 export type LegacyTechnicalStrategyId =
@@ -86,6 +121,11 @@ const rules: Record<LegacyTechnicalStrategyId, [string, string]> = {
   ],
 };
 function technicalDefinition(id: TechnicalStrategyId) {
+  if (isVolumeIntraday(id)) return volumeIntradayDefinition(id);
+  if (isSwingMarket(id)) return swingMarketDefinition(id);
+  if (isExternalFormula(id)) return externalFormulaDefinition(id);
+  if (isFormulaExample(id)) return formulaExampleDefinition(id);
+  if (isPatternCombination(id)) return patternCombinationDefinition(id);
   if (isTechnicalMethod(id)) return technicalMethodDefinition(id);
   return {
     label: rules[id][0],
@@ -240,6 +280,12 @@ export function researchTechnicalSeries(
   id: TechnicalStrategyId,
   bars: readonly Bar[],
 ) {
+  if (isVolumeIntraday(id)) return researchVolumeIntradaySeries(id, bars);
+  if (isSwingMarket(id)) return researchSwingMarketSeries(id, bars);
+  if (isExternalFormula(id)) return researchExternalFormulaSeries(id, bars);
+  if (isFormulaExample(id)) return researchFormulaExampleSeries(id, bars);
+  if (isPatternCombination(id))
+    return researchPatternCombinationSeries(id, bars);
   if (isTechnicalMethod(id)) return researchTechnicalMethodSeries(id, bars);
   if (
     bars.some(

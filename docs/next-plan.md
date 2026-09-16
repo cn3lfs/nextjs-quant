@@ -2,7 +2,7 @@
 
 ## B3 Track A 当前授权（2026-09-16）
 
-当前继续B3 Track A：本轮收口VP10天量分批、VP13枢轴OBV、VP14七维及外部三维待数据适配，并完成technical-indicators具名子方法参数/方向表（含后续补入的背离确认、空头排列、交织过滤）。审计新增42项implemented-variant、0项implemented，695项为22 implemented / 251 variant / 422 planned，K2b剩余85。验证日志与退出码持续写`.codex-runs/delivery.json`；B3整批162项尚未完成，不跑L3。组合执行器新增减仓与信号日半仓适配触发例外全量，不能称为L3。下一起点子任务3 SW04/SW05确定性几何形态清单，之后SW12；量价其他数据依赖仍按method-map待办保留。未提交推送或打包。
+本轮继续B3 Track A，已完成SW04/SW05形态工程组合、SW12父项及18个登记子项、SW11八类市场过滤和两类盘中量能快照，新增31项implemented-variant、0项implemented。审计695项为22 implemented / 282 variant / 391 planned，K2b剩余54项。最终家族/契约22文件4439项通过，typecheck、审计、全仓format、归一化和diff均exit=0；实际日志见`.codex-runs/delivery.json`。85项未全部完成，按派单不跑L3/build/Playwright。SW01/SW02/SW03核心组合：先SW01-strength-size、SW01-weak-retest、SW01-line-angle，再SW03六类价位与来源优先级，复用现有breakout；之后SW06至SW11父组合及风控准入、清单中的剩余量价方法。54项逐ID列于remainingMethods，未实现，不以待数据为由销账；全部完成才跑L3。 未提交、推送、打包或真实回测。
 
 ## B1a 本轮接续（2026-09-16）
 

@@ -52,10 +52,28 @@
         "swing-trader/references/trading-system.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本源§4.1/4.2十个形态均有子项工程预设，完整波段背景/量能/指标综合确认仍待组合，父项不据此关闭。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-pattern-combinations.ts"
+      ],
+      "tests": [
+        "tests/research-pattern-combinations.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "工程组合v1：复用全部具名形态判据，前20根量均值1.5倍及MACD方向/RSI6>50/MA5确认，空头形态退出优先；持续长度为5/6/7、10/15/20、15/20/30具名版本，非原文唯一几何。冻结结构三根保护，全部输入公司行动覆盖。详见patternCombinationBoundary；不等同完整市场与账户体系。",
+      "bindings": {
+        "presets": ["sw-reversal-confirmed"],
+        "exports": [
+          {
+            "file": "src/lib/research-pattern-combinations.ts",
+            "name": "researchPatternCombinationSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW05",
@@ -66,10 +84,28 @@
         "swing-trader/references/trading-system.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本源§4.3四个持续形态均有子项工程版本；当前固定长度和拟合不等于所有原文定义与完整组合，见对应子项。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-pattern-combinations.ts"
+      ],
+      "tests": [
+        "tests/research-pattern-combinations.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "工程组合v1：复用全部具名形态判据，前20根量均值1.5倍及MACD方向/RSI6>50/MA5确认，空头形态退出优先；持续长度为5/6/7、10/15/20、15/20/30具名版本，非原文唯一几何。冻结结构三根保护，全部输入公司行动覆盖。详见patternCombinationBoundary；不等同完整市场与账户体系。",
+      "bindings": {
+        "presets": ["sw-continuation-confirmed"],
+        "exports": [
+          {
+            "file": "src/lib/research-pattern-combinations.ts",
+            "name": "researchPatternCombinationSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW06",
@@ -161,11 +197,62 @@
       "title": "通达信具逻辑示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": ["src/lib/research-technical.ts"],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "已登记SW12子方法逐项具名覆盖；共享公式执行核+原式/修订式表，18项子方法39预设（含六类盘口状态）。财务、股本、上市日期、历史限价/盘口、PSY历史池、指数数据缺失继续待数据，不能称真实运行完成。原不支持或板块阈值不适配例保留不可运行，工程修订和冲突详见两张表。",
+      "bindings": {
+        "presets": [
+          "tdx-macd-zero",
+          "tdx-boll-reentry",
+          "tdx-volume-double",
+          "tdx-volume-five-four",
+          "tdx-volume-half",
+          "tdx-volume-five-half",
+          "tdx-volume-capital-high",
+          "tdx-volume-capital-low",
+          "tdx-price-seven",
+          "tdx-price-ma-rise",
+          "tdx-price-bull",
+          "tdx-price-bear",
+          "tdx-price-volume-attack",
+          "tdx-price-high",
+          "tdx-price-range",
+          "tdx-open-high",
+          "tdx-open-low",
+          "tdx-gap-up",
+          "tdx-gap-down",
+          "tdx-gap-unfilled",
+          "tdx-gap-count-original",
+          "tdx-ma-order",
+          "tdx-ma-order-four",
+          "tdx-base-breakout",
+          "tdx-skill-cross",
+          "tdx-new-high",
+          "tdx-three-volume",
+          "tdx-finance-asof",
+          "tdx-duck-asof",
+          "tdx-limit-up-any",
+          "tdx-limit-up-current",
+          "tdx-limit-up-intraday",
+          "tdx-limit-down-any",
+          "tdx-limit-down-current",
+          "tdx-limit-down-intraday",
+          "tdx-psy-rank-asof",
+          "tdx-four-down-asof",
+          "tdx-ten-up-asof",
+          "tdx-relative-asof"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP01",
@@ -2409,10 +2496,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本源§5.2节假日前2交易日等待；交易所历史日历取证，不按周末推断全部休市。重大事件窗口另见SW11-event-window。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-holiday"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-breadth",
@@ -2420,10 +2525,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本源§5.1/5.3：涨跌比大于1.5偏多、小于0.7偏空；连续三日0.8至1.2另列。证券池、平盘/停牌和分母零须明确，缺历史数据不能制造广度。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-breadth"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-volatility",
@@ -2431,65 +2554,180 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "本源§5.2恐慌波动突然飙升暂停；原文无数值阈值，后续以具名公开工程定义实现，不能把不明状态默认当作低波动。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-volatility"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-macd-zero",
       "title": "MACD柱零轴进退",
       "batch": "K2b",
       "sources": ["tdx-doc/references/examples/专家系统.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-macd-zero"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-boll-reentry",
       "title": "上穿布林下轨入上轨出",
       "batch": "K2b",
       "sources": ["tdx-doc/references/examples/专家系统.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-boll-reentry"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-buffett",
       "title": "财务阈值选股",
       "batch": "K2b",
       "sources": ["tdx-doc/references/examples/条件选股公式.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-finance-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-old-duck",
       "title": "老鸭头EMA13-55组合",
       "batch": "K2b",
       "sources": ["tdx-doc/references/examples/条件选股公式.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-duck-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-limit-state",
       "title": "涨跌停状态分类",
       "batch": "K2b",
       "sources": ["tdx-doc/references/examples/条件选股公式.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": [
+          "tdx-limit-up-any",
+          "tdx-limit-up-current",
+          "tdx-limit-up-intraday",
+          "tdx-limit-down-any",
+          "tdx-limit-down-current",
+          "tdx-limit-down-intraday"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH16-ma-kiss",
@@ -3804,143 +4042,397 @@
       "title": "放缩量条件",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": [
+          "tdx-volume-double",
+          "tdx-volume-five-four",
+          "tdx-volume-half",
+          "tdx-volume-five-half",
+          "tdx-volume-capital-high",
+          "tdx-volume-capital-low"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-price",
       "title": "涨跌及新高条件",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": [
+          "tdx-price-seven",
+          "tdx-price-ma-rise",
+          "tdx-price-bull",
+          "tdx-price-bear",
+          "tdx-price-volume-attack",
+          "tdx-price-high",
+          "tdx-price-range"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-gap",
       "title": "高低开与跳空",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": [
+          "tdx-open-high",
+          "tdx-open-low",
+          "tdx-gap-up",
+          "tdx-gap-down"
+        ],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-gap-unfilled",
       "title": "向上跳空两日不回补",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-gap-unfilled", "tdx-gap-count-original"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-ma-order",
       "title": "5-10-30多头排列",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-ma-order", "tdx-ma-order-four"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-base-breakout",
       "title": "底部横盘后新高",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/基础教程.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-base-breakout"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-psy-rank",
       "title": "PSY横截面排名",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/答疑.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-psy-rank-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-four-limit-down",
       "title": "连续四日跌停",
       "batch": "K2b",
       "sources": ["tdx-doc/references/tutorials/答疑.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-four-down-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-skill-cross",
       "title": "均线金叉示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-skill-cross"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-new-high",
       "title": "20日新高示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-new-high"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-three-volume",
       "title": "连续三日放量示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-examples.ts"
+      ],
+      "tests": [
+        "tests/research-formula-examples.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "原式/修订式分别保留，原式不可执行时明确报原因；27行具名示例共享公式核，原输出选择、参数字面量、REE/双分号、两日缺口锚点冲突均显式。股本需逐日availableDate/source/floatShares/volumeUnit；不默认当前股本。工程MA基线/下一开盘/固定持有上限，不称原式完整交易体系。详见formulaExamples。",
+      "bindings": {
+        "presets": ["tdx-three-volume"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-examples.ts",
+            "name": "researchFormulaExampleSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-ten-limit",
       "title": "十日内涨停示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-ten-up-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW12-relative-strength",
       "title": "相对大盘强度示例",
       "batch": "K2b",
       "sources": ["tdx-doc/SKILL.md"],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "逐原式复核；未来函数、未支持财务/横截面数据或历史涨跌停口径不适用时保留缺口，工程改版另行命名。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-formula-external.ts"
+      ],
+      "tests": [
+        "tests/research-formula-external.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "待数据工程修订v1：原FINANCE/DYNAINFO/INSORT/INDEXC不可由现有核执行；1.097和-9%虽可解析但不能等价跨板块真实涨跌停，原例不可用于交易运行。财务固定毛利率>20%、净利率>10%、ROE>15%，同币种同期间营业收入/营业成本/净利润/净资产及首次可得日，净资产和营收必须正；老鸭头保留原EMA与FILTER，在收盘完成时用上市自然天数>100且已完成日量>0替换当前财务及即时总量。涨跌停使用当日有证据的限价，不推断比例；六种状态默认包含一字板，盘口缺失不从日线猜测封板。四跌停仅date>=2007-06-01输出；十日涨停需完整10根证据。PSY第二输出工程固定PSY12的MA6，用同日历史池完整18根收盘，降序竞赛排名并列同名次，保留排名≥10（不是前10名）。相对强度按证券20根前对应日指数比较，缺日不移位补齐。所有输入逐观察日source/date/availableDate可审计，修订非等价原式；缺失不补零。收盘首次已知false转true入场，MA5/10死叉退出；跌停项以MA金叉为基线、规则true退出。下一可成交开盘、T+1、最长持有期保留，全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["tdx-relative-asof"],
+        "exports": [
+          {
+            "file": "src/lib/research-formula-external.ts",
+            "name": "researchExternalFormulaSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "AR01-time-window",
@@ -5898,10 +6390,28 @@
         "volume-price-analysis/references/vp-indicators.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "使用当时已完成分钟与过去5日每分钟均量，保留开盘前30分钟异常提示；不能拿含当日VMA5的R代替。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-volume-intraday.ts"
+      ],
+      "tests": [
+        "tests/research-volume-intraday.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "工程v1：只在2000-01-04至2022-11-30读取已完成14:30分钟快照（已过210/全天240交易分钟），盘中价突破前20根日高且量比≥1.5并≤5，或预计全天量≥过去5日均量1.5倍且≤5倍确认。量比=累计量/已过分钟/(前5日总量/1200)，预计量=累计量×240/已过分钟；两种量纲分别展示，数学上此固定分母条件相同，保留两种原文用途，不宣称独立收益。分档<0.8/[0.8,1.5)/[1.5,2.5)/[2.5,5]/>5，原文重叠边界按左闭版本固定；开盘前30分钟极端值警告，不直接外推。需要同单位五个紧邻已完成交易日量、分钟快照source/observedAt/availableAt、精确日历关联；不使用当日最终成交量倒填。日线收盘回放保存该快照判断，次日可成交开盘执行（不是14:30成交）；日线MA5/10死叉或持有上限退出。快照价不高于前高则无信号；真实分钟证据缺失为待数据。全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["vp-intraday-rate"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-intraday.ts",
+            "name": "researchVolumeIntradaySeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-intraday-projection",
@@ -5909,10 +6419,28 @@
       "batch": "K2b",
       "sources": ["volume-price-analysis/SKILL.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "作为独立近似变体冻结时点与交易分钟，开盘半小时误差大；不得使用实际收盘量倒填盘中判断。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-volume-intraday.ts"
+      ],
+      "tests": [
+        "tests/research-volume-intraday.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "工程v1：只在2000-01-04至2022-11-30读取已完成14:30分钟快照（已过210/全天240交易分钟），盘中价突破前20根日高且量比≥1.5并≤5，或预计全天量≥过去5日均量1.5倍且≤5倍确认。量比=累计量/已过分钟/(前5日总量/1200)，预计量=累计量×240/已过分钟；两种量纲分别展示，数学上此固定分母条件相同，保留两种原文用途，不宣称独立收益。分档<0.8/[0.8,1.5)/[1.5,2.5)/[2.5,5]/>5，原文重叠边界按左闭版本固定；开盘前30分钟极端值警告，不直接外推。需要同单位五个紧邻已完成交易日量、分钟快照source/observedAt/availableAt、精确日历关联；不使用当日最终成交量倒填。日线收盘回放保存该快照判断，次日可成交开盘执行（不是14:30成交）；日线MA5/10死叉或持有上限退出。快照价不高于前高则无信号；真实分钟证据缺失为待数据。全部输入公司行动覆盖。",
+      "bindings": {
+        "presets": ["vp-intraday-projection"],
+        "exports": [
+          {
+            "file": "src/lib/research-volume-intraday.ts",
+            "name": "researchVolumeIntradaySeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-board-volume",
@@ -7624,10 +8152,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.1：大盘布林收口后方向选择，区别单股布林入场；收口阈值及突破确认时点固定，未确认时等待。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-boll"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-breadth-neutral",
@@ -7635,10 +8181,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.2：连续3日涨跌比0.8至1.2等待；历史证券池、平盘/停牌、分母零与缺失独立处理，不以今日股票清单制造历史广度。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-neutral3"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-market-macd",
@@ -7646,10 +8210,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.3：金叉/红柱偏多，死叉/绿柱偏空，临界中性。作为大盘过滤输入和具名对照；原文未给整体评分权重，不补造评分。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-macd"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-market-volume",
@@ -7657,10 +8239,28 @@
       "batch": "K2b",
       "sources": ["swing-trader/references/trading-system.md"],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.3：放量上涨/平量/放量下跌分环境，明确指数成交量来源和放量窗口；不同于单股量价预设。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-volume"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW11-event-window",
@@ -7671,10 +8271,28 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§5.2/7.1：已知重大事件前1至2交易日、财报政策窗口禁入；日历必须当时已知，突发政策不能事后伪装预告。与节假日过滤分开。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-technical.ts",
+        "src/lib/research-swing-market.ts"
+      ],
+      "tests": [
+        "tests/research-swing-market.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts",
+        "tests/research-technical.test.ts"
+      ],
+      "boundary": "波段市场组件工程v1：股票MA5/10金叉是统一入场对照，指数或日历仅过滤；MA死叉退出，明确偏空/恐慌退出，缺失和中性不新入但不伪造偏空。广度只用完整历史沪深股票池，平盘停牌从涨跌分子分母排除但保留总数配平；跌家数0为不可定义，>1.5偏多、<0.7偏空，相等为中性；连续3日[0.8,1.2]等待。已知交易所节日/预告重大事件距离1或2交易日禁入，距离必须来自当时已知日历；事件distance=null仅在检索覆盖完整且无预告时有效。指数MACD12/26/9柱正负判向，零为中性；布林20/2前3宽度递减且末宽≤10%，突破上轨偏多/下轨偏空，否则等待，不外推过去方向。指数放量为当日≥前20根均量1.5倍，涨跌严格±2%，其余中性。恐慌工程定义：指数20日收益率样本波动率≥截至前一日60日波动率两倍，历史为零或不足则不可用；正常波动放行。指数同日完整OHLC/量/来源和可得日严格对齐研究日历；不拿单股指标或当前池替代市场。信号收盘确认后下一可成交开盘，最长持有期和T+1有效。",
+      "bindings": {
+        "presets": ["sw-market-event"],
+        "exports": [
+          {
+            "file": "src/lib/research-swing-market.ts",
+            "name": "researchSwingMarketSeries"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW02-last30",

@@ -8,6 +8,10 @@ import { metrics } from "./quant";
 import { researchStrategies } from "~/lib/research-strategies";
 import { atr } from "~/lib/indicators";
 import { isVolumeGrid } from "~/lib/research-volume-grid";
+import { isFormulaExample } from "~/lib/research-formula-examples";
+import { isExternalFormula } from "~/lib/research-formula-external";
+import { isSwingMarket } from "~/lib/research-swing-market";
+import { isVolumeIntraday } from "~/lib/research-volume-intraday";
 import { isResearchRule, researchRuleSeries } from "./research-rule-series";
 
 /** Full-prefix replay: native structures may revise endpoints, so a result
@@ -59,7 +63,12 @@ export async function researchSignals(
     throw new Error(
       isVolumeGrid(spec.strategy)
         ? `研究区间${spec.start}至${spec.end}没有可用量价输入：${[...new Set(technical.filter((p) => p.date >= spec.start && p.date <= spec.end).map((p) => p.reason))].slice(0, 3).join("；")}`
-        : "研究区间没有可用技术指标，不能将缺失视为零信号",
+        : isFormulaExample(spec.strategy) ||
+            isExternalFormula(spec.strategy) ||
+            isSwingMarket(spec.strategy) ||
+            isVolumeIntraday(spec.strategy)
+          ? `研究区间${spec.start}至${spec.end}没有可用策略输入：${[...new Set(technical.filter((p) => p.date >= spec.start && p.date <= spec.end).map((p) => p.reason))].slice(0, 3).join("；")}`
+          : "研究区间没有可用技术指标，不能将缺失视为零信号",
     );
   const stop = spec.management?.stop;
   const stopPeriod =

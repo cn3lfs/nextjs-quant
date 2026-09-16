@@ -1,3 +1,8 @@
+import { isSwingMarket } from "~/lib/research-swing-market";
+import { isVolumeIntraday } from "~/lib/research-volume-intraday";
+import { isExternalFormula } from "~/lib/research-formula-external";
+import { isFormulaExample } from "~/lib/research-formula-examples";
+import { isPatternCombination } from "~/lib/research-pattern-combinations";
 import { isTechnicalMethod } from "~/lib/research-technical-methods";
 import {
   assertGrowthIntradayWindow,
@@ -118,6 +123,11 @@ export async function runStrategyResearch(
     ]),
   );
   const volume =
+    isVolumeIntraday(spec.strategy) ||
+    isSwingMarket(spec.strategy) ||
+    isExternalFormula(spec.strategy) ||
+    isFormulaExample(spec.strategy) ||
+    isPatternCombination(spec.strategy) ||
     isTechnicalMethod(spec.strategy) ||
     isVolumeStrategy(spec.strategy) ||
     reversal ||
@@ -126,6 +136,11 @@ export async function runStrategyResearch(
   const volumeStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
+      isVolumeIntraday(spec.strategy) ||
+      isSwingMarket(spec.strategy) ||
+      isExternalFormula(spec.strategy) ||
+      isFormulaExample(spec.strategy) ||
+      isPatternCombination(spec.strategy) ||
       isTechnicalMethod(spec.strategy)
         ? (stock.bars[0]?.date ?? spec.start)
         : structure
