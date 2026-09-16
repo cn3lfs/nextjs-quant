@@ -36,6 +36,14 @@ export function applyResearchManagement(
   return {
     ...spec,
     management,
+    ...(management.swingDiscipline
+      ? {
+          strategy: "dual-breakout" as const,
+          maParams: undefined,
+          risk: { fraction: 0.03, maxWeight: 0.2 },
+          maxPositions: 3,
+        }
+      : {}),
     ...(management.growthIntraday
       ? {
           strategy: growthIntradayBase(management.growthIntraday),
@@ -75,6 +83,10 @@ export function selectResearchStrategy(
     strategy !== "dual-breakout"
       ? (({ pyramid: _pyramid, ...rest }) => rest)(originalManagement)
       : originalManagement;
+  if (management?.swingDiscipline && strategy !== "dual-breakout") {
+    const { swingDiscipline: _swing, ...rest } = management;
+    management = rest;
+  }
   if (management?.sepaElite && !strategy.startsWith("sepa-")) {
     const { sepaElite: _elite, ...rest } = management;
     management = rest;

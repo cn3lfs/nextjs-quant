@@ -1,3 +1,8 @@
+import { researchSwingSystemSeries } from "~/lib/research-swing-system";
+import {
+  isSwingCore,
+  researchSwingCoreSeries,
+} from "~/lib/research-swing-core";
 import {
   isSepaResearch,
   type SepaResearchId,
@@ -62,6 +67,8 @@ export type ResearchRulePoint =
   | ReturnType<typeof researchCanslimBear>[number]
   | ReturnType<typeof researchCanslimVolumeWait>[number]
   | ReturnType<typeof researchCanslimFailure>[number]
+  | ReturnType<typeof researchSwingSystemSeries>[number]
+  | ReturnType<typeof researchSwingCoreSeries>[number]
   | LocalPoint
   | BreakoutRulePoint
   | ReturnType<typeof researchCanslimFlatPoint>
@@ -195,6 +202,15 @@ export function researchRuleSeries(
       ? researchCanslimHold(points, bars, calendar)
       : points;
   }
+  if (id === "sw-system-combined")
+    return researchSwingSystemSeries(bars, analyzeBreakout(bars, 0).points);
+  if (isSwingCore(id))
+    return researchSwingCoreSeries(
+      id,
+      bars,
+      analyzeBreakout(bars, 0).points,
+      calendar,
+    );
   return isBreakoutRule(id)
     ? analyzeBreakout(bars, 0).points.map((point, i) =>
         breakoutRuleDecision(id, point, bars[i]!),

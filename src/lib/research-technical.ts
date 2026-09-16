@@ -1,4 +1,22 @@
 import {
+  volumePollutionIds,
+  isVolumePollution,
+  volumePollutionDefinition,
+  researchVolumePollutionSeries,
+} from "./research-volume-pollution";
+import {
+  volumeAdaptedIds,
+  isVolumeAdapted,
+  volumeAdaptedDefinition,
+  researchVolumeAdaptedSeries,
+} from "./research-volume-adapted";
+import {
+  indicatorCombinationIds,
+  isIndicatorCombination,
+  indicatorCombinationDefinition,
+  researchIndicatorCombinationSeries,
+} from "./research-indicator-combinations";
+import {
   volumeIntradayIds,
   isVolumeIntraday,
   volumeIntradayDefinition,
@@ -61,6 +79,9 @@ export const technicalStrategyIds = [
   ...externalFormulaIds,
   ...swingMarketIds,
   ...volumeIntradayIds,
+  ...indicatorCombinationIds,
+  ...volumeAdaptedIds,
+  ...volumePollutionIds,
 ] as const;
 export type TechnicalStrategyId = (typeof technicalStrategyIds)[number];
 export type LegacyTechnicalStrategyId =
@@ -121,6 +142,9 @@ const rules: Record<LegacyTechnicalStrategyId, [string, string]> = {
   ],
 };
 function technicalDefinition(id: TechnicalStrategyId) {
+  if (isVolumePollution(id)) return volumePollutionDefinition(id);
+  if (isVolumeAdapted(id)) return volumeAdaptedDefinition(id);
+  if (isIndicatorCombination(id)) return indicatorCombinationDefinition(id);
   if (isVolumeIntraday(id)) return volumeIntradayDefinition(id);
   if (isSwingMarket(id)) return swingMarketDefinition(id);
   if (isExternalFormula(id)) return externalFormulaDefinition(id);
@@ -280,6 +304,14 @@ export function researchTechnicalSeries(
   id: TechnicalStrategyId,
   bars: readonly Bar[],
 ) {
+  if (isVolumePollution(id)) return researchVolumePollutionSeries(id, bars);
+  if (isVolumeAdapted(id)) return researchVolumeAdaptedSeries(id, bars);
+  if (isIndicatorCombination(id))
+    return researchIndicatorCombinationSeries(
+      id,
+      bars,
+      researchLegacyTechnicalSeries,
+    );
   if (isVolumeIntraday(id)) return researchVolumeIntradaySeries(id, bars);
   if (isSwingMarket(id)) return researchSwingMarketSeries(id, bars);
   if (isExternalFormula(id)) return researchExternalFormulaSeries(id, bars);
@@ -287,6 +319,12 @@ export function researchTechnicalSeries(
   if (isPatternCombination(id))
     return researchPatternCombinationSeries(id, bars);
   if (isTechnicalMethod(id)) return researchTechnicalMethodSeries(id, bars);
+  return researchLegacyTechnicalSeries(id, bars);
+}
+function researchLegacyTechnicalSeries(
+  id: LegacyTechnicalStrategyId,
+  bars: readonly Bar[],
+) {
   if (
     bars.some(
       (bar, i) =>

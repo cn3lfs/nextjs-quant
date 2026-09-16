@@ -1,3 +1,4 @@
+import { swingRewardAdmission } from "~/lib/research-swing-discipline";
 import {
   growthVolumeReduction,
   growthDistributionReduction,
@@ -1103,6 +1104,21 @@ export function researchPortfolio(
         plannedQuantity * entryFraction * (pyramid ? 0.5 : 1),
         dailyRules,
       );
+      if (spec.management?.swingDiscipline === "sw-min-rr2") {
+        const gate = swingRewardAdmission({
+          entry: fill.price,
+          stop: initialStop,
+          target: event.entryTarget,
+          quantity,
+          rules: dailyRules,
+          costs: spec.costs,
+        });
+        if (!gate.allow) {
+          excluded.push({ event, reason: gate.reason ?? "2R准入拒绝" });
+          finished.add(event);
+          continue;
+        }
+      }
       let initialBatchRisk: number | null = null;
       if (pyramid) {
         for (

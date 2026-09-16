@@ -1,3 +1,9 @@
+import {
+  swingDisciplineIds,
+  swingDisciplineLabels,
+  swingDisciplineTemplate,
+  swingDisciplineBoundary,
+} from "~/lib/research-swing-discipline";
 import type { ResearchManagement } from "~/lib/research-management";
 import {
   growthIntradayIds,
@@ -1122,6 +1128,23 @@ export function ResearchManagementFields({
         <p className="text-sm text-muted-foreground">
           当前版本：{growthIntradayLabels[value.growthIntraday]}。
           {growthIntradayDescription}
+        </p>
+      )}
+      {swingDisciplineIds.map((id) => (
+        <Button
+          key={id}
+          type="button"
+          variant="outline"
+          className="h-auto whitespace-normal"
+          onClick={() => onChange(swingDisciplineTemplate(id))}
+        >
+          应用{swingDisciplineLabels[id]}
+        </Button>
+      ))}
+      {value.swingDiscipline && (
+        <p className="text-sm text-muted-foreground">
+          当前版本：{swingDisciplineLabels[value.swingDiscipline]}。
+          {swingDisciplineBoundary}
         </p>
       )}
       {growthDailyIds.map((id) => (

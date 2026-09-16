@@ -1,3 +1,7 @@
+import {
+  swingDisciplineIds,
+  swingDisciplineTemplate,
+} from "./research-swing-discipline";
 import { growthDailyIds, growthDailyTemplate } from "./research-growth-daily";
 import {
   growthIntradayIds,
@@ -33,6 +37,7 @@ export const researchManagementSources = [
 ] as const;
 export const researchManagementSchema = z
   .object({
+    swingDiscipline: z.enum(swingDisciplineIds).optional(),
     growthIntraday: z.enum(growthIntradayIds).optional(),
     growthDaily: z.enum(growthDailyIds).optional(),
     sepaElite: z.literal(true).optional(),
@@ -252,6 +257,21 @@ export const researchManagementSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.swingDiscipline) {
+      const template = swingDisciplineTemplate(value.swingDiscipline);
+      if (
+        Object.keys(value).some((k) => !(k in template)) ||
+        Object.entries(template).some(
+          ([k, v]) =>
+            JSON.stringify(value[k as keyof typeof value]) !==
+            JSON.stringify(v),
+        )
+      )
+        context.addIssue({
+          code: "custom",
+          message: "波段具名管理参数不匹配，请重新应用模板",
+        });
+    }
     if (value.growthDaily) {
       const template = growthDailyTemplate(value.growthDaily);
       if (
@@ -383,6 +403,12 @@ export function researchInitialStop(
       override.price < entry
       ? override.price
       : null;
+  if (management.swingDiscipline === "sw-stop-volatility") {
+    const a = evidence.stopAtr;
+    return a != null && Number.isFinite(a) && a > 0 && entry > 0
+      ? entry * (1 - (a / entry >= 0.02 ? 0.03 : 0.02))
+      : null;
+  }
   const stop = management.stop;
   if (isGrowthPivotStop(stop.kind))
     return researchGrowthPivotStop(

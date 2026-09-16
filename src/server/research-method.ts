@@ -1,3 +1,4 @@
+import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
 import { growthIntradayDescription } from "~/lib/research-growth-intraday";
 import { growthDailyDescription } from "~/lib/research-growth-daily";
 import { researchKellySwitchVersion } from "~/lib/research-kelly-switch";
@@ -230,6 +231,15 @@ export function researchMethodSnapshot(
       };
     });
   const content = {
+    ...(typeof input !== "string" && input.management?.swingDiscipline
+      ? {
+          swingDiscipline: {
+            version: "swing-discipline-1",
+            id: input.management.swingDiscipline,
+            interpretation: swingDisciplineBoundary,
+          },
+        }
+      : {}),
     ...(typeof input !== "string" && input.management?.growthDaily
       ? {
           growthDaily: {

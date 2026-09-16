@@ -1,3 +1,6 @@
+import { isVolumePollution } from "~/lib/research-volume-pollution";
+import { isVolumeAdapted } from "~/lib/research-volume-adapted";
+import { isSwingCore } from "~/lib/research-swing-core";
 import { researchBreakoutStopLocation } from "~/lib/research-breakout-stops";
 import type { CanslimResearchMarket } from "./research-canslim-market-score";
 import type { Bar } from "~/lib/domain";
@@ -42,9 +45,11 @@ export async function researchSignals(
       ? `${definition.version}/${JSON.stringify(spec.maParams)}`
       : definition.version;
   const warmup =
-    definition.signal === "ma-cross"
-      ? Math.max(6, spec.maParams!.slow + 1)
-      : 61;
+    spec.strategy === "vp-ipo-own"
+      ? 1
+      : definition.signal === "ma-cross"
+        ? Math.max(6, spec.maParams!.slow + 1)
+        : 61;
   if (first < warmup)
     throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
   const events: ResearchEvent[] = [];
@@ -63,7 +68,11 @@ export async function researchSignals(
     throw new Error(
       isVolumeGrid(spec.strategy)
         ? `研究区间${spec.start}至${spec.end}没有可用量价输入：${[...new Set(technical.filter((p) => p.date >= spec.start && p.date <= spec.end).map((p) => p.reason))].slice(0, 3).join("；")}`
-        : isFormulaExample(spec.strategy) ||
+        : spec.strategy === "sw-system-combined" ||
+            isVolumePollution(spec.strategy) ||
+            isVolumeAdapted(spec.strategy) ||
+            isSwingCore(spec.strategy) ||
+            isFormulaExample(spec.strategy) ||
             isExternalFormula(spec.strategy) ||
             isSwingMarket(spec.strategy) ||
             isVolumeIntraday(spec.strategy)
@@ -72,14 +81,16 @@ export async function researchSignals(
     );
   const stop = spec.management?.stop;
   const stopPeriod =
-    stop?.kind === "structure-auto"
-      ? stop.atrPeriod
-      : stop?.kind === "atr" ||
-          stop?.kind === "structure-atr" ||
-          stop?.kind === "max-distance" ||
-          stop?.kind === "nearest-stop"
-        ? stop.period
-        : undefined;
+    spec.management?.swingDiscipline === "sw-stop-volatility"
+      ? 14
+      : stop?.kind === "structure-auto"
+        ? stop.atrPeriod
+        : stop?.kind === "atr" ||
+            stop?.kind === "structure-atr" ||
+            stop?.kind === "max-distance" ||
+            stop?.kind === "nearest-stop"
+          ? stop.period
+          : undefined;
   const stopAtr = stopPeriod == null ? null : atr(bars, stopPeriod);
   const seen = new Set<string>();
   let version: string | null = null;
@@ -177,6 +188,9 @@ export async function researchSignals(
               ? result.long
               : { ...result.long, stopLocation: location },
           ),
+          ...(spec.management?.swingDiscipline === "sw-min-rr2"
+            ? { entryTarget: result.long.risk.target1?.price ?? null }
+            : {}),
           ...(location !== undefined
             ? { initialStop: location?.price ?? null }
             : {}),

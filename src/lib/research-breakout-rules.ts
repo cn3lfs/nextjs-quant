@@ -1,17 +1,29 @@
+import { swingSystemBoundary } from "./research-swing-system";
+import {
+  swingCoreIds,
+  isSwingCore,
+  swingCoreDefinition,
+} from "./research-swing-core";
 import type { Bar } from "./domain";
 import type { BreakoutPoint } from "../server/breakout";
-export const breakoutRuleIds = [
+export const legacyBreakoutRuleIds = [
   "breakout-down-exit",
   "breakout-reverse-line-exit",
   "breakout-touch-3",
   "breakout-span-20",
   "breakout-large-body",
 ] as const;
+export const breakoutRuleIds = [
+  ...legacyBreakoutRuleIds,
+  ...swingCoreIds,
+  "sw-system-combined",
+] as const;
 export type BreakoutRuleId = (typeof breakoutRuleIds)[number];
+type LegacyBreakoutRuleId = (typeof legacyBreakoutRuleIds)[number];
 export function isBreakoutRule(id: string): id is BreakoutRuleId {
   return (breakoutRuleIds as readonly string[]).includes(id);
 }
-const descriptions: Record<BreakoutRuleId, [string, string]> = {
+const descriptions: Record<LegacyBreakoutRuleId, [string, string]> = {
   "breakout-down-exit": [
     "双突破 · 反向三要素退出",
     "阴实体跌破上升趋势线、支撑位且量比≥1.5才退出；不要求辅助指标或反转蜡烛通过。",
@@ -34,6 +46,19 @@ const descriptions: Record<BreakoutRuleId, [string, string]> = {
   ],
 };
 function definition(id: BreakoutRuleId) {
+  if (id === "sw-system-combined")
+    return {
+      label: "波段 · 双突破五辅助与完整市场过滤",
+      family: "波段",
+      signal: "technical" as const,
+      version: "sw-system-combined-engineering-1",
+      sources: [
+        "swing-trader/references/trading-system.md",
+        "swing-trader/references/technical-indicators.md",
+      ],
+      description: swingSystemBoundary,
+    };
+  if (isSwingCore(id)) return swingCoreDefinition(id);
   return {
     label: descriptions[id][0],
     family: "波段",
@@ -50,7 +75,7 @@ export const breakoutRuleStrategies = Object.fromEntries(
   breakoutRuleIds.map((id) => [id, definition(id)]),
 ) as Record<BreakoutRuleId, ReturnType<typeof definition>>;
 export function breakoutRuleDecision(
-  id: BreakoutRuleId,
+  id: LegacyBreakoutRuleId,
   point: BreakoutPoint,
   bar: Bar,
 ) {

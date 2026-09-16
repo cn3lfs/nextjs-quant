@@ -59,6 +59,18 @@ export const researchSpecSchema = z
     annualRiskFreeRate: z.number().finite().min(-0.1).max(0.2).default(0),
   })
   .superRefine((value, context) => {
+    if (
+      value.management?.swingDiscipline &&
+      (value.strategy !== "dual-breakout" ||
+        !value.risk ||
+        value.risk.fraction > 0.03 ||
+        value.risk.maxWeight > 0.2 ||
+        value.maxPositions > 3)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "波段管理需双突破基线且风险≤3%、单股≤20%、最多3只",
+      });
     if (value.management?.growthDaily) {
       const id = value.management.growthDaily;
       if (value.strategy !== growthDailyBase(id))
@@ -178,6 +190,7 @@ export type ResearchEvent = {
   strategyVersion: string;
   partition: "development" | "validation" | "tracking";
   evidence: string;
+  entryTarget?: number | null;
   initialStop?: number | null;
   stopAtr?: number | null;
   ruleStop?: RuleStop;

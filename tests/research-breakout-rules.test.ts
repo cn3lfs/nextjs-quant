@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import { analyzeBreakout } from "../src/server/breakout";
 import {
-  breakoutRuleIds,
+  legacyBreakoutRuleIds,
   breakoutRuleDecision,
   type BreakoutRuleId,
 } from "../src/lib/research-breakout-rules";
@@ -90,7 +90,7 @@ function settings(strategy: BreakoutRuleId, bars: Bar[]) {
     },
   });
 }
-it.each(breakoutRuleIds)(
+it.each(legacyBreakoutRuleIds)(
   "%s reuses confirmed historical geometry and trades at the next open",
   async (id) => {
     const bars = fixture(),

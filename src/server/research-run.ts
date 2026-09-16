@@ -1,3 +1,7 @@
+import { isVolumePollution } from "~/lib/research-volume-pollution";
+import { isVolumeAdapted } from "~/lib/research-volume-adapted";
+import { isIndicatorCombination } from "~/lib/research-indicator-combinations";
+import { isSwingCore } from "~/lib/research-swing-core";
 import { isSwingMarket } from "~/lib/research-swing-market";
 import { isVolumeIntraday } from "~/lib/research-volume-intraday";
 import { isExternalFormula } from "~/lib/research-formula-external";
@@ -107,22 +111,27 @@ export async function runStrategyResearch(
   const candleStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
-      canslimHigh
-        ? canslimHighWarmupStart(stock.bars, spec.start)
-        : breakout || canslim
-          ? (stock.bars[
-              Math.max(
-                0,
-                stock.bars.findIndex((b) => b.date >= spec.start) -
-                  (canslim ? canslimWarmup : 60),
-              )
-            ]?.date ?? spec.start)
-          : channel
-            ? channelWarmupStart(channel, stock.bars, spec.start)
-            : candleWarmupStart(stock.bars, spec.start),
+      isSwingCore(spec.strategy) || spec.strategy === "sw-system-combined"
+        ? (stock.bars[0]?.date ?? spec.start)
+        : canslimHigh
+          ? canslimHighWarmupStart(stock.bars, spec.start)
+          : breakout || canslim
+            ? (stock.bars[
+                Math.max(
+                  0,
+                  stock.bars.findIndex((b) => b.date >= spec.start) -
+                    (canslim ? canslimWarmup : 60),
+                )
+              ]?.date ?? spec.start)
+            : channel
+              ? channelWarmupStart(channel, stock.bars, spec.start)
+              : candleWarmupStart(stock.bars, spec.start),
     ]),
   );
   const volume =
+    isVolumePollution(spec.strategy) ||
+    isVolumeAdapted(spec.strategy) ||
+    isIndicatorCombination(spec.strategy) ||
     isVolumeIntraday(spec.strategy) ||
     isSwingMarket(spec.strategy) ||
     isExternalFormula(spec.strategy) ||
@@ -136,6 +145,9 @@ export async function runStrategyResearch(
   const volumeStarts = new Map(
     dataset.stocks.map((stock) => [
       stock.symbol,
+      isVolumePollution(spec.strategy) ||
+      isVolumeAdapted(spec.strategy) ||
+      isIndicatorCombination(spec.strategy) ||
       isVolumeIntraday(spec.strategy) ||
       isSwingMarket(spec.strategy) ||
       isExternalFormula(spec.strategy) ||
