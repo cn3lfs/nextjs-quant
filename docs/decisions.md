@@ -2096,3 +2096,17 @@ CANSLIM固定8%初始止损使15%、20%、25%及10%保护线分别等价1.875R�
 ## CANSLIM入口98%保留独立口径（2026-09-16）
 
 入口新高98%计9分与评分细则95%计6分、100%计9分不能共用同一评分阈值。研究路径复用窗口诊断后生成独立二值诊断，保留原报告和旧策略，独立ID/版本/入口来源。窗口上穿只是策略工程定义，不声称原文要求仅第一次上穿或已验证盈利。基础菜单133项、工程版本138项，全文审计数量不变。
+
+## 2026-09-16 三项长期失败测试的根因与裁定（E0-1）
+
+三项长期失败（每批执行记录复述"无新增失败"的那三项）已逐个定位根因并修正，不放松或删除任何断言语义。
+
+**`industry-blocks.test.ts:38` 与 `tdx-local-blocks.test.ts:105`：同一个根因——定字节夹具的 CRLF 从未存在于提交字节中。** 两个夹具在 `8583236` 提交时仓库还没有 `.gitattributes`，当时的全局 `core.autocrlf=true` 在检出时把 LF 回转成 CRLF，测试因此偶然通过；`daf2062` 引入 `* text=auto eol=lf` 后转换停止，工作区拿到 LF，于是 `bytes.includes("\r\n")` 为假、`replace("1600519\r\n", "")` 变成空操作使前后 hash 相同。`git cat-file` 确认 HEAD 里的 blob 本来就是纯 LF。
+
+修正：把 `tests/fixtures/industry-members.bin` 与 `tests/fixtures/tdx-local-blocks/*.{dat,cfg}` 写回真实 CRLF 字节，并在 `.gitattributes` 把这些路径声明为 binary，使行尾不再受 `eol=lf` 规范化。CRLF 是这些夹具被断言的内容本身——README 写明按本机 `T0002/hq_cache` 实际格式手工构造，真实通达信文件用 CRLF；`parseIndustryMembers` 与 `parseTdxLocalBlocks` 各处都按 `/\r?\n/` 切行，CRLF 分支本就在覆盖范围内，之前是静默失去了这条分支。改动后消费这些夹具的 7 个文件 54 项全部通过。GB18030 的后继字节不会取 `0x0A`，逐字节 LF→CRLF 不破坏编码。
+
+**`workbench-refactor.test.ts:80`：有意的特征化守卫，正确触发但缺一次显式确认。** `baseline.state` 最后一次设值在 `2bb9511`，其后 `d68098e`（个股 RPS 排名与 `/?symbol=` 深链）改了 `use-workbench-state.ts` 的挂载 effect 却没同步基线，守卫从那次提交起一直红。`git diff 2bb9511 HEAD` 确认该文件自基线有效以来只有这六行深链改动，没有夹带其他结构、prop 或 handler 变化；`readChartSymbolParam` 本身在 `rps-page-boxes.test.ts:204-208` 有独立覆盖，含路径穿越输入被拒。
+
+裁定：守卫保留（同文件"检测 refetchInterval 改动"的敏感性测试仍通过，证明刷新后仍能发现改动），按该夹具既有约定把刷新理由写入 `provenance`，只刷新 `state` 一项，functions/views/connections 指纹不动。这是守卫要求的人工确认，不是绕过断言。
+
+因此 `docs/known-test-failures.md` 的登记集合保持空数组：不存在需要豁免的失败，`verify:batch` 要求零失败。

@@ -18,3 +18,11 @@
 *.ico binary
 *.woff binary
 *.woff2 binary
+
+# 定字节测试夹具：按外部格式（通达信 T0002/hq_cache、申万名单）逐字节构造，
+# CRLF 和 GB18030 字节都是被断言的内容本身。上面的 eol=lf 会把它们规范化成
+# LF，测试就会静默失去 CRLF 分支——`tests/fixtures/industry-members.bin` 和
+# `tests/fixtures/tdx-local-blocks/*` 都曾因此长期失败（原先靠 core.autocrlf
+# 在检出时回转才偶然通过）。这些路径不做任何行尾或文本处理。
+tests/fixtures/tdx-local-blocks/*.dat binary
+tests/fixtures/tdx-local-blocks/*.cfg binary
