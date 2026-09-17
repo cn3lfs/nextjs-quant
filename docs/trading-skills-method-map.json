@@ -5590,11 +5590,25 @@
       "sources": [
         "westock-data/references/scenarios-guide.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chip-factors.ts"
+      ],
+      "tests": [
+        "tests/research-chip-factors.test.ts"
+      ],
+      "boundary": "B7 chip-trend-21-v1：同源同模型21交易日端点变化，成本/获利盘严格上升，70与90集中度同时严格下降；等号不过。沿用as-of首次可知与采集截止，缺失不造信号；具名双突破日收盘过滤适配、原基线退出/仓位。真实历史覆盖未知，固定输入不是业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-chip-factors.ts",
+            "name": "evaluateChipFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WP01-concentration",
@@ -5603,11 +5617,25 @@
       "sources": [
         "westock-data/references/scenarios-guide.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chip-factors.ts"
+      ],
+      "tests": [
+        "tests/research-chip-factors.test.ts"
+      ],
+      "boundary": "B7 chip-trend-21-v1：同源同模型21交易日端点变化，成本/获利盘严格上升，70与90集中度同时严格下降；等号不过。沿用as-of首次可知与采集截止，缺失不造信号；具名双突破日收盘过滤适配、原基线退出/仓位。真实历史覆盖未知，固定输入不是业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-chip-factors.ts",
+            "name": "evaluateChipFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WP01-profit",
@@ -5616,24 +5644,55 @@
       "sources": [
         "westock-data/references/scenarios-guide.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chip-factors.ts"
+      ],
+      "tests": [
+        "tests/research-chip-factors.test.ts"
+      ],
+      "boundary": "B7 chip-trend-21-v1：同源同模型21交易日端点变化，成本/获利盘严格上升，70与90集中度同时严格下降；等号不过。沿用as-of首次可知与采集截止，缺失不造信号；具名双突破日收盘过滤适配、原基线退出/仓位。真实历史覆盖未知，固定输入不是业绩。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-chip-factors.ts",
+            "name": "evaluateChipFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-astock",
       "title": "逐条查询示例筛选模板",
       "batch": "K12",
       "sources": [
-        "hithink-astock-selector/SKILL.md"
+        "hithink-astock-selector/SKILL.md",
+        "mx-ds-mcp-skill/SKILL.md",
+        "gf-quant/SKILL.md",
+        "gf-lhb/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-sector",
@@ -5642,24 +5701,53 @@
       "sources": [
         "hithink-sector-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-etf",
       "title": "逐条查询示例筛选模板",
       "batch": "K12",
       "sources": [
-        "hithink-etf-selector/SKILL.md"
+        "hithink-etf-selector/SKILL.md",
+        "gf-etf-rank/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-cb",
@@ -5668,11 +5756,25 @@
       "sources": [
         "hithink-cb-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-fund",
@@ -5681,11 +5783,25 @@
       "sources": [
         "hithink-fund-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-fundcompany",
@@ -5694,11 +5810,25 @@
       "sources": [
         "hithink-fundcompany-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-fundmanager",
@@ -5707,11 +5837,25 @@
       "sources": [
         "hithink-fundmanager-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-futures",
@@ -5720,11 +5864,25 @@
       "sources": [
         "hithink-futures-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-hkstock",
@@ -5733,11 +5891,25 @@
       "sources": [
         "hithink-hkstock-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "QT-usstock",
@@ -5746,11 +5918,25 @@
       "sources": [
         "hithink-usstock-selector/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-query-templates.ts"
+      ],
+      "tests": [
+        "tests/research-query-templates.test.ts"
+      ],
+      "boundary": "B7 query-template-v1：逐例独立筛选、固定字段/单位/可知时间/完整截面，排名含并列，先筛选后排名；不接受自由查询或自动放宽。沪深股票每日收盘确认、下一合法开盘等权再平衡和落选退出意图；板块需历史成员映射、ETF和后续市场禁止混入股票执行器。只交付离线可执行筛选与待数据适配，真实历史覆盖未知；统一成交回测与报告未完成。具体各示例及模糊参数版本见queryTemplates，港股北向例显式rule-unresolved。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-query-templates.ts",
+            "name": "evaluateQueryFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-A1-percent",
@@ -8080,7 +8266,8 @@
       "title": "MACD金叉死叉",
       "batch": "K2b",
       "sources": [
-        "swing-trader/references/technical-indicators.md"
+        "swing-trader/references/technical-indicators.md",
+        "hithink-market-query/SKILL.md"
       ],
       "review": "reviewed",
       "status": "implemented-variant",
@@ -10307,10 +10494,24 @@
         "volume-price-analysis/references/vp-indicators.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "保留7乘24市场的相同时段比较及季节性基准，归后续品种；当前日线A股预设不算覆盖。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-crypto-time-slot.ts"
+      ],
+      "tests": [
+        "tests/research-crypto-time-slot.test.ts"
+      ],
+      "boundary": "B7后续7x24市场工程版：UTC完整小时，前7日同小时及前4周同星期同小时均量独立对照；缺口/零分母/时点冲突明确不可用，不以日均量替代；只做量能归一，不设未经来源定义的买卖阈值或A股交易。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-crypto-time-slot.ts",
+            "name": "evaluateCryptoTimeSlot"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "VP-position-bottom-full",
@@ -22307,6 +22508,126 @@
         "VI08-liquidity"
       ],
       "reason": "B6b本源全文语义复核：具名财务/估值/哲学条件按绑定方法交付，查询/认证/报告格式仅为输入依赖，不执行脚本/外呼。原文模糊与冲突采用明确工程版本，真实数据覆盖缺失仍保留。"
+    },
+    {
+      "source": "hithink-astock-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-astock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "mx-ds-mcp-skill/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-astock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "gf-quant/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-astock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "gf-lhb/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-astock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-sector-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-sector"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-etf-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-etf"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "gf-etf-rank/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-etf"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-cb-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-cb"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-fund-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-fund"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-fundcompany-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-fundcompany"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-fundmanager-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-fundmanager"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-futures-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-futures"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-hkstock-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-hkstock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-usstock-selector/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "QT-usstock"
+      ],
+      "reason": "B7具名查询示例逐条对应queryTemplates，重复CLI/curl/响应示例合并为同表达式；分页/认证/展示参数不作为买卖规则。完整筛选结果不冒充实际成交；后续品种显式隔离。"
+    },
+    {
+      "source": "hithink-market-query/SKILL.md",
+      "kind": "methods",
+      "methodIds": [
+        "SW06-macd-golden"
+      ],
+      "reason": "MACD金叉示例复用本地12/26/9预设macd-golden；其余指定证券价格/成交量/资金流查询是输入，不以供应商当前金叉列表替换历史指标。"
     }
   ]
 }

@@ -4,6 +4,14 @@ import {
   indexFactorInputs,
 } from "~/lib/research-index-factors";
 import {
+  chipFactorRules,
+  evaluateChipFactor,
+} from "~/lib/research-chip-factors";
+import {
+  queryFactorRules,
+  evaluateQueryFactor,
+} from "~/lib/research-query-templates";
+import {
   evaluateNewsFactor,
   newsFactorRules,
   newsFactorInputs,
@@ -189,6 +197,8 @@ type Rule = {
     | "value"
     | "index"
     | "crowding"
+    | "chip"
+    | "query"
     | "sentiment"
     | "news";
   kind: string;
@@ -199,6 +209,18 @@ type Rule = {
 };
 // Source main-text binary rules and reference tier rules are separate methods.
 export const growthFactorMethods: Record<string, Rule> = {
+  ...Object.fromEntries(
+    Object.entries(queryFactorRules).map(([id, note]) => [
+      id,
+      { family: "query" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(chipFactorRules).map(([id, note]) => [
+      id,
+      { family: "chip" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
   ...Object.fromEntries(
     Object.entries(newsFactorRules).map(([id, note]) => [
       id,
@@ -486,7 +508,11 @@ export function evaluateGrowthFactors(
             unit: asOfInputDefinitions[domain][field]!.unit,
           });
     };
-    if (rule.family === "news") {
+    if (rule.family === "query") {
+      requireFields("capital", ["queryPanel"], [req.observationDate]);
+    } else if (rule.family === "chip") {
+      requireFields("capital", ["chipHistory"], [req.observationDate]);
+    } else if (rule.family === "news") {
       for (const v of newsFactorInputs(methodId, req.observationDate))
         requireFields(v.domain, [v.field], [v.effectiveAt]);
     } else if (rule.family === "sentiment") {
@@ -820,7 +846,31 @@ export function evaluateGrowthFactors(
     try {
       if (gaps.length && methodId !== "CA-S-missing")
         throw new InputGap("所需字段尚未全部覆盖");
-      if (rule.family === "news") {
+      if (rule.family === "query") {
+        try {
+          const v = evaluateQueryFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "查询输入无效",
+          );
+        }
+      } else if (rule.family === "chip") {
+        try {
+          const v = evaluateChipFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "筹码输入无效",
+          );
+        }
+      } else if (rule.family === "news") {
         try {
           const v = evaluateNewsFactor(methodId, req, read);
           points = v.points;

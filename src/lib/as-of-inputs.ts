@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { chipHistorySchema } from "./research-chip-factors";
+import { queryPanelSchema } from "./research-query-templates";
 import {
   newsReplaySchema,
   eventMarketSchema,
@@ -630,6 +632,11 @@ export const asOfInputDefinitions: Record<
     annualWeightedRoe: { unit: "%", schema: number },
   },
   capital: {
+    queryPanel: {
+      unit: "frozen-query-cross-section",
+      schema: queryPanelSchema,
+    },
+    chipHistory: { unit: "chip-CNY-percent-panel", schema: chipHistorySchema },
     sentimentPanel: {
       unit: "market-sentiment-metrics",
       schema: sentimentPanelSchema,

@@ -1,5 +1,11 @@
 # 个人交易工作台扩充计划
 
+## B7 查询模板与统一回测（2026-09-17，阶段交付）
+
+最新授权为K12+K13共26项。K12的14个既有ID已交付离线筛选/待数据/后续品种工程版本，方法审计22 implemented / 652 variant / 21 planned；K13的12项及B4挂起9项仍planned。K12工程版本不代表统一成交回测完成；全局来源的dispositions销账仍有未完成记录，详见delivery，不把来源hash门禁通过当成语义审查完成。
+
+继续从`SW-P-review`与`RK-MAE-q80/q90/q50/q100`开始，复用`research-stop-calibration.ts`、`research-risk-routing.ts`和现有研究治理/使用台账；完成全部诊断及统一对照后才跑B7 L3。批次未结束，未运行L3、真实历史回测、提交、推送或打包。精确剩余ID、实际检查退出码和计数见`.codex-runs/delivery.json`。
+
 ## B6b 因子批量交付（2026-09-17，方法收口）
 
 本轮剩余49项已实现为待数据工程版本：K10 13项、K11 36项，B6b累计156项、剩0。方法审计695项为22 implemented / 638 variant / 35 planned，errors []；精确ID、门禁退出码与计数见method-map及`.codex-runs/delivery.json`。

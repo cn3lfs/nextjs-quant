@@ -1,4 +1,9 @@
 import { researchManagementSchema } from "~/lib/research-management";
+import { evaluateCryptoTimeSlot } from "~/lib/research-crypto-time-slot";
+
+export function runCryptoTimeSlotResearch(raw: unknown) {
+  return evaluateCryptoTimeSlot(raw);
+}
 import { evaluateGrowthFactors } from "./research-growth-factors";
 import type { CanslimAsOfRequest } from "./canslim-as-of-dossier";
 
