@@ -298,7 +298,9 @@ export function ResearchStrategyFields({
           </SelectContent>
         </Select>
       </label>
-      <p className="text-sm text-muted-foreground">
+      {/* 通达信示例的说明里内嵌公式原式，是无空格长串；不允许断词就会在窄屏
+          横向溢出。按字符换行只影响这段说明的排版，不改动公式文本本身。 */}
+      <p className="text-sm break-words text-muted-foreground [overflow-wrap:anywhere]">
         {spec.management
           ? definition.signal === "technical"
             ? `${definition.description}组合风控追加风险仓位与止损，指标退出继续有效。`
