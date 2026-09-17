@@ -7818,8 +7818,8 @@
       "sources": [
         {
           "path": "CHANGELOG.md",
-          "hash": "7f829940138da32ce55c858995cc114f0efff4588a49ee5554a7a030450492c9",
-          "bytes": 29879,
+          "hash": "eb3b1a0722880186c0e894f807af23953bdef1d0922f8197456d7da27ecd50a9",
+          "bytes": 37065,
           "headings": [
             {
               "line": 1,
@@ -7927,18 +7927,26 @@
             },
             {
               "line": 295,
+              "text": "⑲ 板块资金流实测固化进脚本（含申万二级细分）（2026-09-16，sector-analyzer v1.10.0 → v1.11.0，analyst v1.6.0 → v1.7.0）"
+            },
+            {
+              "line": 327,
+              "text": "⑳ 新闻要点强制时间标注 + 资金流时点口径修正（2026-09-16，sector-analyzer v1.11.0 → v1.12.0，analyst v1.7.0 → v1.8.0）"
+            },
+            {
+              "line": 353,
               "text": "三、依赖"
             },
             {
-              "line": 304,
+              "line": 363,
               "text": "四、相关文档"
             }
           ]
         },
         {
           "path": "SKILL.md",
-          "hash": "93b85417cfe4c52551bbfc60798fb1b251c498e00b19a5f13803a5d8363c76bc",
-          "bytes": 17801,
+          "hash": "c9c79d2d5f7e3fe9d8e59f0fe842f0e3d9b790c60e13f33d3987ad1b5099292a",
+          "bytes": 20821,
           "headings": [
             {
               "line": 13,
@@ -7965,51 +7973,51 @@
               "text": "2. 板块分析逻辑（Phase 2）"
             },
             {
-              "line": 73,
+              "line": 83,
               "text": "3. 报告三层结构（Phase 4 产出）"
             },
             {
-              "line": 79,
+              "line": 89,
               "text": "设计原则"
             },
             {
-              "line": 84,
+              "line": 94,
               "text": "工作流"
             },
             {
-              "line": 90,
+              "line": 100,
               "text": "Phase 0：数据获取"
             },
             {
-              "line": 110,
+              "line": 120,
               "text": "Phase 1：行业分类（调用 news-industry-classifier skill）"
             },
             {
-              "line": 131,
+              "line": 141,
               "text": "Phase 2：板块机会/风险/验证信号分析（调用 news-sector-analyzer skill）"
             },
             {
-              "line": 154,
+              "line": 172,
               "text": "Phase 3：定量数据增强（可选）"
             },
             {
-              "line": 173,
+              "line": 192,
               "text": "Phase 4：报告确认与摘要"
             },
             {
-              "line": 182,
+              "line": 201,
               "text": "外部 Skill 调用汇总"
             },
             {
-              "line": 196,
+              "line": 215,
               "text": "错误处理速查"
             },
             {
-              "line": 211,
+              "line": 230,
               "text": "相关文档（查阅入口）"
             },
             {
-              "line": 223,
+              "line": 242,
               "text": "Metadata"
             }
           ]
@@ -8228,21 +8236,6 @@
           ]
         },
         {
-          "path": "references/classify-cache.md",
-          "hash": "aa085fa59229050b387367019b5c7a93859d9f9313ec99beeea261bd2530309d",
-          "bytes": 42444,
-          "headings": [
-            {
-              "line": 1,
-              "text": "分类缓存：关键词 | 行业（由 classify.py 从 LLM 分类结果自动沉淀）"
-            },
-            {
-              "line": 2,
-              "text": "命中标题即直接归类、跳过 LLM；歧义（多行业命中）时仍走 LLM。"
-            }
-          ]
-        },
-        {
           "path": "references/sw-industries.md",
           "hash": "db99010e0a8cd9a2fb63187040dc41dd2f22e637e4dd7c0efed05ca388cdaa7f",
           "bytes": 6051,
@@ -8273,6 +8266,10 @@
         }
       ],
       "excluded": [
+        {
+          "path": "references/classify-cache.md",
+          "reason": "技能运行时写入的分类缓存，随每次运行增长；NW 方法只消费归档分类结果，不把缓存当规则来源"
+        },
         {
           "path": "scripts/.work",
           "reason": "运行数据、缓存、依赖或生成产物目录"
@@ -8738,43 +8735,47 @@
       "sources": [
         {
           "path": "SKILL.md",
-          "hash": "e5bdbe96f28e76faf0bd5a2903a8573114977d6d0da0ee74e57a8adcb8e9a6d2",
-          "bytes": 12982,
+          "hash": "9cf086d56c6d490750134be221405c6c5c7b535d5392b1126f705b3d4da9fb4e",
+          "bytes": 18157,
           "headings": [
             {
-              "line": 16,
+              "line": 17,
               "text": "板块机会/风险/验证信号分析器（news-sector-analyzer）"
             },
             {
-              "line": 20,
+              "line": 21,
               "text": "设计理念"
             },
             {
-              "line": 25,
+              "line": 26,
               "text": "用法"
             },
             {
-              "line": 34,
+              "line": 35,
               "text": "分析框架"
             },
             {
-              "line": 77,
+              "line": 104,
               "text": "机制"
             },
             {
-              "line": 99,
+              "line": 135,
               "text": "依赖"
             },
             {
-              "line": 105,
+              "line": 142,
               "text": "个股标注数据（references/stock-industry.json）"
             },
             {
-              "line": 152,
+              "line": 189,
+              "text": "板块代码表（references/sw-sector-codes.json）"
+            },
+            {
+              "line": 205,
               "text": "典型上游（先分类再分析）"
             },
             {
-              "line": 159,
+              "line": 212,
               "text": "Metadata"
             }
           ]
@@ -8804,14 +8805,20 @@
         },
         {
           "path": "scripts/analyze.py",
-          "hash": "2855efe591fe159df4e86d952a62578177dcf153b8b1836df668e8d59fe6253e",
-          "bytes": 60368,
+          "hash": "a0257349c07fe14e2784d26b1a5ed4d893a3531ccdcd1d21c1a7829b31c33b8b",
+          "bytes": 77243,
           "headings": []
         },
         {
           "path": "scripts/build_stock_industry.py",
           "hash": "19bba63e90638760e4017c3d9fd6471f1e6d0cfcfedd681504ffa23e8f32c9d3",
           "bytes": 10716,
+          "headings": []
+        },
+        {
+          "path": "scripts/build_sw_sector_codes.py",
+          "hash": "98e675e69660fab03d6d61ee75c40ce5aa936bb8595ce45eb838e93e941d6440",
+          "bytes": 4063,
           "headings": []
         },
         {

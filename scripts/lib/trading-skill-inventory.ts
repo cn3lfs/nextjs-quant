@@ -31,6 +31,16 @@ const excludedDirectories = new Set([
   ".venv",
   "venv",
 ]);
+// File-level runtime caches live inside `references/`, so the directory rules
+// above miss them. Hash-locking one is futile: the skill rewrites it on every
+// run, so the lock drifts again minutes after it is refreshed. Name them
+// explicitly — a loose pattern would silently drop real rule sources.
+const excludedFiles = new Map([
+  [
+    "news-industry-classifier/references/classify-cache.md",
+    "技能运行时写入的分类缓存，随每次运行增长；NW 方法只消费归档分类结果，不把缓存当规则来源",
+  ],
+]);
 const sourceExtensions = new Set([".md", ".py", ".ts", ".js", ".mjs", ".cjs"]);
 const portable = (path: string) => path.split(sep).join("/");
 const inside = (root: string, path: string) => {
@@ -96,6 +106,11 @@ export async function inventoryTradingSkills(
           entry.isFile() &&
           sourceExtensions.has(extname(entry.name))
         ) {
+          const excludedReason = excludedFiles.get(`${skill.id}/${rel}`);
+          if (excludedReason) {
+            skill.excluded.push({ path: rel, reason: excludedReason });
+            continue;
+          }
           const bytes = await readFile(path);
           const headings: SkillSource["headings"] = [];
           if (extname(entry.name) === ".md") {

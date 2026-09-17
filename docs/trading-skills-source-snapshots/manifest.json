@@ -33,50 +33,42 @@
   },
   {
     "source": "news-industry-analyst/CHANGELOG.md",
-    "snapshot": "unaligned-current/news-industry-analyst/CHANGELOG.md",
-    "status": "unaligned-current",
+    "snapshot": "locked/news-industry-analyst/CHANGELOG.md",
+    "status": "locked",
     "hash": "eb3b1a0722880186c0e894f807af23953bdef1d0922f8197456d7da27ecd50a9",
-    "lockedHash": "7f829940138da32ce55c858995cc114f0efff4588a49ee5554a7a030450492c9",
+    "lockedHash": "eb3b1a0722880186c0e894f807af23953bdef1d0922f8197456d7da27ecd50a9",
     "bytes": 37065
   },
   {
     "source": "news-industry-analyst/SKILL.md",
-    "snapshot": "unaligned-current/news-industry-analyst/SKILL.md",
-    "status": "unaligned-current",
+    "snapshot": "locked/news-industry-analyst/SKILL.md",
+    "status": "locked",
     "hash": "c9c79d2d5f7e3fe9d8e59f0fe842f0e3d9b790c60e13f33d3987ad1b5099292a",
-    "lockedHash": "93b85417cfe4c52551bbfc60798fb1b251c498e00b19a5f13803a5d8363c76bc",
+    "lockedHash": "c9c79d2d5f7e3fe9d8e59f0fe842f0e3d9b790c60e13f33d3987ad1b5099292a",
     "bytes": 20821
   },
   {
-    "source": "news-industry-classifier/references/classify-cache.md",
-    "snapshot": "unaligned-current/news-industry-classifier/references/classify-cache.md",
-    "status": "unaligned-current",
-    "hash": "0fab022b61d46fe64903823e659249ac52112a1bc368ea8f4524e9d906a88943",
-    "lockedHash": "aa085fa59229050b387367019b5c7a93859d9f9313ec99beeea261bd2530309d",
-    "bytes": 42942
-  },
-  {
     "source": "news-sector-analyzer/SKILL.md",
-    "snapshot": "unaligned-current/news-sector-analyzer/SKILL.md",
-    "status": "unaligned-current",
+    "snapshot": "locked/news-sector-analyzer/SKILL.md",
+    "status": "locked",
     "hash": "9cf086d56c6d490750134be221405c6c5c7b535d5392b1126f705b3d4da9fb4e",
-    "lockedHash": "e5bdbe96f28e76faf0bd5a2903a8573114977d6d0da0ee74e57a8adcb8e9a6d2",
+    "lockedHash": "9cf086d56c6d490750134be221405c6c5c7b535d5392b1126f705b3d4da9fb4e",
     "bytes": 18157
   },
   {
     "source": "news-sector-analyzer/scripts/analyze.py",
-    "snapshot": "unaligned-current/news-sector-analyzer/scripts/analyze.py",
-    "status": "unaligned-current",
+    "snapshot": "locked/news-sector-analyzer/scripts/analyze.py",
+    "status": "locked",
     "hash": "a0257349c07fe14e2784d26b1a5ed4d893a3531ccdcd1d21c1a7829b31c33b8b",
-    "lockedHash": "2855efe591fe159df4e86d952a62578177dcf153b8b1836df668e8d59fe6253e",
+    "lockedHash": "a0257349c07fe14e2784d26b1a5ed4d893a3531ccdcd1d21c1a7829b31c33b8b",
     "bytes": 77243
   },
   {
     "source": "news-sector-analyzer/scripts/build_sw_sector_codes.py",
-    "snapshot": "unaligned-current/news-sector-analyzer/scripts/build_sw_sector_codes.py",
-    "status": "unaligned-current",
+    "snapshot": "locked/news-sector-analyzer/scripts/build_sw_sector_codes.py",
+    "status": "locked",
     "hash": "98e675e69660fab03d6d61ee75c40ce5aa936bb8595ce45eb838e93e941d6440",
-    "lockedHash": null,
+    "lockedHash": "98e675e69660fab03d6d61ee75c40ce5aa936bb8595ce45eb838e93e941d6440",
     "bytes": 4063
   },
   {

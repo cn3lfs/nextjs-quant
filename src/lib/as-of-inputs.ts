@@ -1,4 +1,16 @@
 import { z } from "zod";
+import {
+  newsReplaySchema,
+  eventMarketSchema,
+  newsSectorPanelSchema,
+} from "./research-news-factors";
+import { sentimentPanelSchema } from "./research-sentiment-factors";
+import { crowdingPanelSchema } from "./research-crowding-factors";
+import {
+  indexValuationSchema,
+  indexEtfMappingSchema,
+  indexPolicySchema,
+} from "./research-index-factors";
 import { symbolSchema } from "./domain";
 import { researchDateSchema } from "./research-usage";
 import { createAsOfAdapter, type AsOfDomain, type AsOfResult } from "./as-of";
@@ -618,6 +630,23 @@ export const asOfInputDefinitions: Record<
     annualWeightedRoe: { unit: "%", schema: number },
   },
   capital: {
+    sentimentPanel: {
+      unit: "market-sentiment-metrics",
+      schema: sentimentPanelSchema,
+    },
+    crowdingPanel: {
+      unit: "TMT-31-industry-panel",
+      schema: crowdingPanelSchema,
+    },
+    indexValuation: {
+      unit: "index-valuation-panel",
+      schema: indexValuationSchema,
+    },
+    indexEtfMapping: {
+      unit: "frozen-etf-mapping",
+      schema: indexEtfMappingSchema,
+    },
+    indexPolicy: { unit: "frozen-index-policy", schema: indexPolicySchema },
     valueRisk: { unit: "risk-evidence", schema: valueRiskSchema },
     valueMarket: { unit: "CNY-multiples", schema: valueMarketSchema },
     valuePolicy: { unit: "frozen-policy", schema: valuePolicySchema },
@@ -684,6 +713,15 @@ export const asOfInputDefinitions: Record<
     floatRatio: { unit: "%", schema: ratio },
   },
   catalysts: {
+    newsReplay: { unit: "frozen-first-model-result", schema: newsReplaySchema },
+    eventMarket: {
+      unit: "event-price-breadth-panel",
+      schema: eventMarketSchema,
+    },
+    newsSectorPanel: {
+      unit: "frozen-sector-valuation-flow",
+      schema: newsSectorPanelSchema,
+    },
     earningsWindow: { unit: "schedule", schema: growthEarningsSchema },
     entryEvents: { unit: "event", schema: growthEntryEventsSchema },
     growthEvents: {

@@ -1,3 +1,8 @@
+import {
+  crowdingFixturePanel,
+  indexFixtureRows,
+} from "./helpers/market-factor-fixture";
+import { newsRows } from "./helpers/news-factor-fixture";
 import { valueFixture } from "./helpers/value-factor-fixture";
 import { supplementalValues } from "./helpers/growth-factor-fixture";
 import { asOfInputDefinitions } from "../src/lib/as-of-inputs";
@@ -22,6 +27,21 @@ const request: CanslimAsOfRequest = {
 function fixture(): AsOfObservation[] {
   const empty = buildCanslimAsOfDossier(request, []);
   const supplementary: Record<string, unknown> = {
+    ...Object.fromEntries(
+      [...indexFixtureRows(), ...newsRows()].map((r) => [r.field, r.value]),
+    ),
+    crowdingPanel: crowdingFixturePanel(),
+    sentimentPanel: {
+      version: "synthetic",
+      evidence: "fixture-only",
+      origin: "rule",
+      classifiedAt: request.asOf,
+      observationDate: request.observationDate,
+      scope: "A-share-market",
+      fearGreedIdentity: "unofficial-domestic-proxy",
+      valuationWindowYears: 10,
+      metrics: {},
+    },
     ...supplementalValues(request.observationDate),
     ...Object.fromEntries(
       valueFixture()
@@ -166,7 +186,7 @@ it("returns per-field missing reasons for absent coverage, not zero or current s
         code: "no-coverage",
       });
   }
-  expect(d.dataGaps).toHaveLength(40);
+  expect(d.dataGaps).toHaveLength(48);
 });
 it("keeps the complete past dossier and hash unchanged after later revisions in every domain", () => {
   const original = fixture();
@@ -287,5 +307,5 @@ it("keeps the requested cutoff even when the loader mutates its argument", async
     }));
   });
   expect(result.request.asOf).toBe(request.asOf);
-  expect(result.dataGaps).toHaveLength(40);
+  expect(result.dataGaps).toHaveLength(48);
 });

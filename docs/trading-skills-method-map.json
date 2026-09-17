@@ -3114,11 +3114,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS02",
@@ -3127,11 +3141,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS03",
@@ -3140,11 +3168,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS04",
@@ -3153,11 +3195,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS05",
@@ -3166,11 +3222,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "MS06",
@@ -3179,11 +3249,25 @@
       "sources": [
         "market-sentiment-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-sentiment-factors.ts"
+      ],
+      "tests": [
+        "tests/research-sentiment-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。MS六法、九个独立维度及MS-full-nine完整组合分别具名；源新闻权重采用修订20%，总分乘10，区间左闭与主观模糊处为工程阈值；缺历史项保留missing不重归一，担保不足独立否决。真实软数据和当时分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-sentiment-factors.ts",
+            "name": "evaluateSentimentFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "TM01",
@@ -3192,11 +3276,25 @@
       "sources": [
         "tmt-crowding/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-crowding-factors.ts"
+      ],
+      "tests": [
+        "tests/research-crowding-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。TM仅电子/计算机/传媒/通信，31行业同源分母，融资仍SSE市场代理，原脚本缺失填50不沿用；脚本<=分位与>50/70/85边界，四行业均值指数动量；TM04五维可独立调用。真实历史面板/分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-crowding-factors.ts",
+            "name": "evaluateCrowdingFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "TM02",
@@ -3205,11 +3303,25 @@
       "sources": [
         "tmt-crowding/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-crowding-factors.ts"
+      ],
+      "tests": [
+        "tests/research-crowding-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。TM仅电子/计算机/传媒/通信，31行业同源分母，融资仍SSE市场代理，原脚本缺失填50不沿用；脚本<=分位与>50/70/85边界，四行业均值指数动量；TM04五维可独立调用。真实历史面板/分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-crowding-factors.ts",
+            "name": "evaluateCrowdingFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "TM03",
@@ -3218,11 +3330,25 @@
       "sources": [
         "tmt-crowding/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-crowding-factors.ts"
+      ],
+      "tests": [
+        "tests/research-crowding-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。TM仅电子/计算机/传媒/通信，31行业同源分母，融资仍SSE市场代理，原脚本缺失填50不沿用；脚本<=分位与>50/70/85边界，四行业均值指数动量；TM04五维可独立调用。真实历史面板/分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-crowding-factors.ts",
+            "name": "evaluateCrowdingFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "TM04",
@@ -3231,11 +3357,25 @@
       "sources": [
         "tmt-crowding/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-crowding-factors.ts"
+      ],
+      "tests": [
+        "tests/research-crowding-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。TM仅电子/计算机/传媒/通信，31行业同源分母，融资仍SSE市场代理，原脚本缺失填50不沿用；脚本<=分位与>50/70/85边界，四行业均值指数动量；TM04五维可独立调用。真实历史面板/分类覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-crowding-factors.ts",
+            "name": "evaluateCrowdingFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GF01",
@@ -3244,11 +3384,25 @@
       "sources": [
         "gf-windmill/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-index-factors.ts"
+      ],
+      "tests": [
+        "tests/research-index-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。GF冻结计算日/完整日历窗口/事前阈值与映射有效期，PE/PB严格更低分位取较高者；仅有效境内股票ETF，配置25%上限。真实估值及映射档案覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-index-factors.ts",
+            "name": "evaluateIndexFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GF02",
@@ -3257,11 +3411,25 @@
       "sources": [
         "gf-windmill/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-index-factors.ts"
+      ],
+      "tests": [
+        "tests/research-index-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。GF冻结计算日/完整日历窗口/事前阈值与映射有效期，PE/PB严格更低分位取较高者；仅有效境内股票ETF，配置25%上限。真实估值及映射档案覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-index-factors.ts",
+            "name": "evaluateIndexFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "GF03",
@@ -3270,11 +3438,25 @@
       "sources": [
         "gf-windmill/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-index-factors.ts"
+      ],
+      "tests": [
+        "tests/research-index-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表及runGrowthFactorResearch离线候选工程版；不撮合、不宣称真实数据覆盖或业绩。GF冻结计算日/完整日历窗口/事前阈值与映射有效期，PE/PB严格更低分位取较高者；仅有效境内股票ETF，配置25%上限。真实估值及映射档案覆盖unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-index-factors.ts",
+            "name": "evaluateIndexFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV01",
@@ -3283,11 +3465,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV02",
@@ -3296,11 +3492,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV03",
@@ -3309,11 +3519,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV04",
@@ -3322,11 +3546,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV05",
@@ -3335,11 +3573,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV06",
@@ -3348,11 +3600,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV07",
@@ -3361,11 +3627,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV08",
@@ -3374,11 +3654,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV09",
@@ -3387,11 +3681,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV10",
@@ -3400,11 +3708,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV11",
@@ -3413,11 +3735,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV12",
@@ -3426,11 +3762,25 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "EV13",
@@ -3439,63 +3789,145 @@
       "sources": [
         "swing-trader/references/expectation-gap.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "NW01",
       "title": "新闻密度热点",
       "batch": "K11",
       "sources": [
-        "news-industry-analyst/SKILL.md"
+        "news-industry-analyst/SKILL.md",
+        "news-industry-analyst/CHANGELOG.md",
+        "news-sector-analyzer/SKILL.md",
+        "news-sector-analyzer/scripts/analyze.py"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：分类缓存相对锁定版本追加12条确定性关键词映射，命中会跳过LLM，可能改变行业计数与Top7热点池。保留来源锁定hash；先冻结分类缓存/模型输出版本和历史可用时点，再对旧版与新版同输入重放，详见docs/decisions.md的D0裁定。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。 分类缓存已排出锁定清单（技能运行时写入、非规则来源），本方法只消费归档分类结果，规则依据为其余四个来源文件。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "NW02",
       "title": "方向与可验证催化",
       "batch": "K11",
       "sources": [
-        "news-industry-analyst/SKILL.md"
+        "news-industry-analyst/SKILL.md",
+        "news-industry-analyst/CHANGELOG.md",
+        "news-sector-analyzer/SKILL.md",
+        "news-sector-analyzer/scripts/analyze.py"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：analyst 1.6.0→1.7.0、analyzer 1.10.0→1.11.0新增一级/二级资金流证据及FLOW_SYS消息与资金背离判断，且分类输入发生变化；不得当作仅排版升级。保留来源锁定hash，需给旧定性验证信号与新资金流版本分别定义时点/缺失/判断规则，详见docs/decisions.md的D0裁定。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。 分类缓存已排出锁定清单（技能运行时写入、非规则来源），本方法只消费归档分类结果，规则依据为其余四个来源文件。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "NW03",
       "title": "新闻与估值分位",
       "batch": "K11",
       "sources": [
-        "news-industry-analyst/SKILL.md"
+        "news-industry-analyst/SKILL.md",
+        "news-industry-analyst/CHANGELOG.md",
+        "news-sector-analyzer/SKILL.md",
+        "news-sector-analyzer/scripts/analyze.py"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：估值分位公式本身未改，但上游分类缓存新增12条映射会改变被选行业与新闻输入；新资金维度与估值结论必须分版本、不得暗中合并。保留来源锁定hash，冻结相同历史池后对照，详见docs/decisions.md的D0裁定。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。 分类缓存已排出锁定清单（技能运行时写入、非规则来源），本方法只消费归档分类结果，规则依据为其余四个来源文件。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "NW04",
       "title": "板块主线轮动",
       "batch": "K11",
       "sources": [
-        "news-industry-analyst/SKILL.md"
+        "news-industry-analyst/SKILL.md",
+        "news-industry-analyst/CHANGELOG.md",
+        "news-sector-analyzer/SKILL.md",
+        "news-sector-analyzer/scripts/analyze.py"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。 D0规则版本冲突（2026-09-16），B6前置：新增二级近5日资金排序及资金背离判断，分类缓存亦改变主线输入；既有cross/GAP_SYS未因本次diff改变，不将新增资金结论冒充旧八象限规则。保留来源锁定hash，先登记旧新闻主线与资金流增强对照版本，详见docs/decisions.md的D0裁定。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。 分类缓存已排出锁定清单（技能运行时写入、非规则来源），本方法只消费归档分类结果，规则依据为其余四个来源文件。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "ME01",
@@ -3504,11 +3936,25 @@
       "sources": [
         "message-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "ME02",
@@ -3517,11 +3963,25 @@
       "sources": [
         "message-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "ME03",
@@ -3530,11 +3990,25 @@
       "sources": [
         "message-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "ME04",
@@ -3543,11 +4017,25 @@
       "sources": [
         "message-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01",
@@ -3556,11 +4044,25 @@
       "sources": [
         "industry-chain-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02",
@@ -3569,11 +4071,25 @@
       "sources": [
         "industry-chain-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC03",
@@ -3582,11 +4098,25 @@
       "sources": [
         "industry-chain-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC04",
@@ -3595,11 +4125,25 @@
       "sources": [
         "industry-chain-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC05",
@@ -3608,11 +4152,25 @@
       "sources": [
         "industry-chain-analyst/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "计划级定位；实施前逐条核对引用、子方法、阈值与可用时点，不以此入口映射宣称完整复核。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SW04-hammer",
@@ -4762,11 +5320,25 @@
       "sources": [
         "industry-chain-analyst/references/prosperity-scoring.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01-capacity",
@@ -4775,11 +5347,25 @@
       "sources": [
         "industry-chain-analyst/references/prosperity-scoring.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01-demand",
@@ -4788,11 +5374,25 @@
       "sources": [
         "industry-chain-analyst/references/prosperity-scoring.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01-profit",
@@ -4801,11 +5401,25 @@
       "sources": [
         "industry-chain-analyst/references/prosperity-scoring.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC01-policy",
@@ -4814,11 +5428,25 @@
       "sources": [
         "industry-chain-analyst/references/prosperity-scoring.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02-technology",
@@ -4827,11 +5455,25 @@
       "sources": [
         "industry-chain-analyst/references/bottleneck-taxonomy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02-supply",
@@ -4840,11 +5482,25 @@
       "sources": [
         "industry-chain-analyst/references/bottleneck-taxonomy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02-verification",
@@ -4853,11 +5509,25 @@
       "sources": [
         "industry-chain-analyst/references/bottleneck-taxonomy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02-commercialization",
@@ -4866,11 +5536,25 @@
       "sources": [
         "industry-chain-analyst/references/bottleneck-taxonomy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "IC02-competition",
@@ -4879,11 +5563,25 @@
       "sources": [
         "industry-chain-analyst/references/bottleneck-taxonomy.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "独立子方法待语义复核和实现；父项存在不代表本项已经覆盖。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-news-factors.ts"
+      ],
+      "tests": [
+        "tests/research-news-factors.test.ts"
+      ],
+      "boundary": "B6b同一as-of字段表/runGrowthFactorResearch离线待数据工程版：原始输入、prompt/model版本、首次结构化结果和hash冻结，重放不调用模型；发布/首次采集/首次可用/公司与行业映射/模型处理独立保留，迟到模型或映射及缺首次可知显式retrospective-only，禁止当前搜索补历史。共享八象限个股2-3日/行业5日命名参数、每格入场/持有/减仓/禁入独立，原入场象限止损不因迁移消失；板块/市场范围分开，减仓不冒充清仓。NW冻结Top7>=2、分类器仅输入，旧定性/资金增强版本分别重放；5漂移来源语义已对齐但hash及登记未解除。ME真实性权重30/30/20/10/10，IC五维及19子项中点工程版、五类瓶颈/反证/催化/三期限/业务路径独立。仅候选未撮合，固定输入非真实业绩；真实新闻档案、历史模型结果/映射、行情广度/估值/资金/产业证据覆盖start/end unknown。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-news-factors.ts",
+            "name": "evaluateNewsFactor"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "WP01-cost",

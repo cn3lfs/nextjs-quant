@@ -142,8 +142,10 @@ it("preserves snapshot bytes and distinguishes unaligned observations from locke
     else
       expect(drift.find((e) => e.path === file.source)?.hash).toBe(file.hash);
   }
-  expect(manifest.filter((f) => f.status === "locked")).toHaveLength(21);
+  // Every snapshot is aligned again after the B6b drift release; the registry
+  // is empty, so an unaligned entry would now be an unreviewed source.
+  expect(manifest.filter((f) => f.status === "locked")).toHaveLength(26);
   expect(manifest.filter((f) => f.status === "unaligned-current")).toHaveLength(
-    6,
+    0,
   );
 });

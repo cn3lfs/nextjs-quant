@@ -1,4 +1,23 @@
 import {
+  evaluateIndexFactor,
+  indexFactorRules,
+  indexFactorInputs,
+} from "~/lib/research-index-factors";
+import {
+  evaluateNewsFactor,
+  newsFactorRules,
+  newsFactorInputs,
+  newsReplaySchema,
+} from "~/lib/research-news-factors";
+import {
+  evaluateCrowdingFactor,
+  crowdingFactorRules,
+} from "~/lib/research-crowding-factors";
+import {
+  evaluateSentimentFactor,
+  sentimentFactorRules,
+} from "~/lib/research-sentiment-factors";
+import {
   evaluateValueFactor,
   valueFactorRules,
   valueFactorInputs,
@@ -167,7 +186,11 @@ type Rule = {
     | "capital"
     | "institution"
     | "combination"
-    | "value";
+    | "value"
+    | "index"
+    | "crowding"
+    | "sentiment"
+    | "news";
   kind: string;
   binary?: boolean;
   cap: number;
@@ -176,6 +199,30 @@ type Rule = {
 };
 // Source main-text binary rules and reference tier rules are separate methods.
 export const growthFactorMethods: Record<string, Rule> = {
+  ...Object.fromEntries(
+    Object.entries(newsFactorRules).map(([id, note]) => [
+      id,
+      { family: "news" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(sentimentFactorRules).map(([id, note]) => [
+      id,
+      { family: "sentiment" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(crowdingFactorRules).map(([id, note]) => [
+      id,
+      { family: "crowding" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(indexFactorRules).map(([id, note]) => [
+      id,
+      { family: "index" as const, kind: id, cap: 1, threshold: 1, note },
+    ]),
+  ),
   ...Object.fromEntries(
     Object.entries(valueFactorRules).map(([id, note]) => [
       id,
@@ -439,7 +486,17 @@ export function evaluateGrowthFactors(
             unit: asOfInputDefinitions[domain][field]!.unit,
           });
     };
-    if (rule.family === "value") {
+    if (rule.family === "news") {
+      for (const v of newsFactorInputs(methodId, req.observationDate))
+        requireFields(v.domain, [v.field], [v.effectiveAt]);
+    } else if (rule.family === "sentiment") {
+      requireFields("capital", ["sentimentPanel"], [req.observationDate]);
+    } else if (rule.family === "crowding") {
+      requireFields("capital", ["crowdingPanel"], [req.observationDate]);
+    } else if (rule.family === "index") {
+      for (const v of indexFactorInputs(req.observationDate))
+        requireFields(v.domain, [v.field], [v.effectiveAt]);
+    } else if (rule.family === "value") {
       for (const v of valueFactorInputs(methodId, req))
         requireFields(v.domain, [v.field], [v.effectiveAt]);
     } else if (rule.family === "combination") {
@@ -601,7 +658,12 @@ export function evaluateGrowthFactors(
         ((domain === "rs" &&
           ["priceHistory", "crossSection", "sectors"].includes(field)) ||
           (domain === "capital" &&
-            ["valueMarket", "valueThesisObservations"].includes(field))) &&
+            [
+              "valueMarket",
+              "valueThesisObservations",
+              "indexValuation",
+              "crowdingPanel",
+            ].includes(field))) &&
         Date.parse(row.provenance.availableAt) <
           Date.parse(`${effectiveAt}T15:00:00+08:00`)
       ) {
@@ -613,7 +675,69 @@ export function evaluateGrowthFactors(
         gaps.push({ field: `${domain}/${field}`, effectiveAt, reason });
         return new InputGap(reason);
       };
-      if (["valuePolicy", "softOverride"].includes(field)) {
+      if (field === "newsReplay") {
+        const v = newsReplaySchema.parse(row.value);
+        const immutable = (x: z.infer<typeof newsReplaySchema>) =>
+          JSON.stringify(x);
+        if (Array.isArray(observations))
+          for (const raw of observations) {
+            const candidate = z
+              .object({
+                field: z.string(),
+                availableAt: z.string(),
+                capturedAt: z.string(),
+                value: z.unknown(),
+              })
+              .safeParse(raw);
+            if (
+              !candidate.success ||
+              candidate.data.field !== "newsReplay" ||
+              Date.parse(candidate.data.availableAt) > Date.parse(req.asOf) ||
+              (req.capturedBy !== undefined &&
+                Date.parse(candidate.data.capturedAt) >
+                  Date.parse(req.capturedBy))
+            )
+              continue;
+            const other = newsReplaySchema.safeParse(candidate.data.value);
+            if (
+              other.success &&
+              other.data.archiveId === v.archiveId &&
+              immutable(other.data) !== immutable(v)
+            )
+              throw frozenGap(
+                "同一archiveId的原文/prompt/模型/映射/首次结果不可替换；新计算须新档案身份",
+              );
+          }
+        for (const [bytes, digest] of [
+          [v.rawInput, v.rawInputHash],
+          [v.prompt, v.promptHash],
+          [v.firstResult, v.firstResultHash],
+        ])
+          if (createHash("sha256").update(bytes!).digest("hex") !== digest)
+            throw frozenGap(
+              "原始输入/prompt/首次结果hash不一致，拒绝篡改后的重放",
+            );
+        if (
+          Date.parse(v.firstProcessedAt) >
+            Date.parse(row.provenance.availableAt) ||
+          Date.parse(v.firstProcessedAt) > Date.parse(row.provenance.capturedAt)
+        )
+          throw frozenGap("首次结果可知/存档早于模型处理完成");
+      }
+      if (
+        ["eventMarket", "newsSectorPanel"].includes(field) &&
+        Date.parse(row.provenance.availableAt) <
+          Date.parse(`${effectiveAt}T15:00:00+08:00`)
+      )
+        throw frozenGap("消息日终价格/资金面板不得早于收盘可知");
+      if (
+        [
+          "valuePolicy",
+          "softOverride",
+          "indexPolicy",
+          "indexEtfMapping",
+        ].includes(field)
+      ) {
         const frozen = (row.value as { frozenAt: string }).frozenAt;
         if (
           Date.parse(row.provenance.availableAt) > Date.parse(frozen) ||
@@ -622,6 +746,15 @@ export function evaluateGrowthFactors(
           throw frozenGap(
             "冻结参数缺当时档案：首次可知/采集晚于冻结时间；不得事后回填假设",
           );
+      }
+      if (field === "sentimentPanel") {
+        const v = row.value as { origin: string; classifiedAt: string };
+        if (
+          Date.parse(v.classifiedAt) > Date.parse(req.asOf) ||
+          (v.origin !== "rule" &&
+            Date.parse(row.provenance.capturedAt) > Date.parse(req.asOf))
+        )
+          throw frozenGap("情绪分类缺当时处理/采集证据");
       }
       if (field === "valueThesisObservations") {
         const values = Object.values(
@@ -687,7 +820,55 @@ export function evaluateGrowthFactors(
     try {
       if (gaps.length && methodId !== "CA-S-missing")
         throw new InputGap("所需字段尚未全部覆盖");
-      if (rule.family === "value") {
+      if (rule.family === "news") {
+        try {
+          const v = evaluateNewsFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "冻结新闻输入无效",
+          );
+        }
+      } else if (rule.family === "sentiment") {
+        try {
+          const v = evaluateSentimentFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "情绪输入无效",
+          );
+        }
+      } else if (rule.family === "crowding") {
+        try {
+          const v = evaluateCrowdingFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "拥挤输入无效",
+          );
+        }
+      } else if (rule.family === "index") {
+        try {
+          const v = evaluateIndexFactor(methodId, req, read);
+          points = v.points;
+          details = v.details;
+          mode = v.participation;
+        } catch (error) {
+          if (error instanceof InputGap) throw error;
+          throw new InputGap(
+            error instanceof Error ? error.message : "指数输入无效",
+          );
+        }
+      } else if (rule.family === "value") {
         try {
           const v = evaluateValueFactor(methodId, req, read);
           points = v.points;

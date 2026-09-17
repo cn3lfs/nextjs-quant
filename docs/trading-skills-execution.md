@@ -2,14 +2,14 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
-## B6b 因子批量交付（2026-09-17，未整批完成）
+## B6b 因子批量交付（2026-09-17，49项方法完成、L3待解除阻塞）
 
-- 本轮新增42项variant：K4纪律/凯利10项、K9基本面/郭永清/价值假设32项；B6b累计107项，审计22 implemented / 589 variant / 84 planned，B6b剩49（K10 13 / K11 36）。
-- 同一as-of字段表扩11字段，无新适配器/通道；B2凯利训练准入、FA-WACC/GY股权8%分名、VI当时冻结与参与分组及原文冲突裁定见decisions。
-- 固定输入覆盖各方法正反例、门槛、模型手算、缺失/前视/事后归档拒绝；复用既有形态、市场、凯利与估值算术，未改共享执行契约/注册聚合器。
-- 最终L1/L2家族含共享契约62文件5872项通过、0失败、168.30秒；typecheck/方法审计/格式/normalize/diff退出0，重试及冻结证据见delivery。L3、build/Playwright未跑，留待整批完成。
-- 真实披露/FCFF/行业/五年采样/训练交易/冻结假设档案覆盖start/end未知，realBacktest.available=false；nextStart=K10，K11新闻漂移先语义对齐。
-- 未真实回测、提交、推送、打包、外发、连接付费数据/生产库或更新来源锁定hash；精确ID与门禁证据见.codex-runs/delivery.json。
+- 本轮新增49项variant：K10情绪/拥挤/指数13项、K11新闻/产业链36项；B6b累计156项、剩0，审计22 implemented / 638 variant / 35 planned，errors []。
+- 同一as-of字段表由40扩至48；MS31子指标/9维/完整组合分名、TM四行业与市场融资代理、GF冻结估值日/窗口/ETF有效映射；八象限共享并保留三层范围与原持仓证伪。
+- 冻结原文/prompt/model/首次结果字节与时点，晚模型/映射/缺首次可用显式回溯实验；NW五漂移文件语义对齐，hash与登记不改，分类器仅输入。冲突与裁定见decisions。
+- 最终家族66文件5991项0失败169.17秒；L3全量441文件9294项通过/16文件27项跳过/0失败443.79秒，typecheck/build/方法审计/format/diff均0。verify:batch退出1仅来源审计；Playwright启动因缓存EPERM退出1，未执行交互，完整记录见`.codex-runs/delivery.json`。
+- 真实历史新闻/模型结果/映射/情绪/指数/资金/产业链档案覆盖unknown，realBacktest.available=false；来源门禁对NW已实现依赖会阻塞，解除登记须管理者处理。
+- 未真实回测、提交、推送、打包、外发、连接付费数据/生产库；无新增UI或通道，Playwright只记录实际浏览器范围，不冒充49项方法验收。
 
 ## B6a as-of 适配器（2026-09-17）
 

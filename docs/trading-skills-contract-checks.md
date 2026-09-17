@@ -81,3 +81,6 @@ B6b第二轮在同一字段表增加7项（现29项）：rs.priceHistory为同�
 B6b第三轮沿用相同`readAsOfInput`和`runGrowthFactorResearch`入口，字段表由29扩到40：capital.kellyTraining/softOverride、finance.annualValueQuality/annualGuo/annualFcff，以及capital.valueRisk/valueMarket/valuePolicy/valueGovernance/valueTheses/valueThesisObservations。逐年报仍要求独立报告期、版本与公开可知时间；字段内金额为CNY元、股数为股，政策利率小数、expectedGrowthPct/aaaYieldPct为百分数，VI指标及阈值由冻结测量版本定义。估值行情和VI日终观察的公开时间不得早于当日15:00；冻结政策和假设还须有冻结前采集档案，人工/LLM观察必须当时生成并归档，后采集公开报表与后生成判断严格区分。
 
 K4纪律复用既有形态/市场/凯利训练，K9计算集中`research-value-factors.ts`并作为原方法表的value家族，不新建适配器、provider、路由或交易预设。value-family按ID预登记输入，缺口逐字段返回；标准FCFF-WACC、郭永清经营现金流股权成本和冻结VI假设明确分名。FA/GY均保留单组件、完整组合及退出条件；VI规则/人工/LLM由假设与观察共同决定，分组不混算。固定测试见`research-growth-discipline.test.ts`和`research-value-factors.test.ts`。真实披露、FCFF核验、行业成分、五年采样和当时冻结档案的覆盖start/end均未知，所有新项仍`realBacktest.available=false`；不能用固定输入通过推断可回测或策略业绩。
+
+
+B6b末轮在同一字段表再加8项：capital.indexValuation/indexEtfMapping/indexPolicy/crowdingPanel/sentimentPanel及catalysts.newsReplay/eventMarket/newsSectorPanel。指数冻结估值计算日、窗口与ETF映射；TMT冻结31行业面板及目标归属；情绪九维与完整组合分名。新闻保存原始输入、prompt、模型版本与首次结果的字节hash，发布/首次采集/首次可用/映射/处理独立；同档案身份不可替换，回溯实验显式禁用历史交易候选。八象限共享核输出入场/持有/减仓/禁入、作用范围与原持仓守卫，NW旧定性/新资金分别重放。见四个research-{index,crowding,sentiment,news}-factors.test.ts的固定正反例；全批仍realBacktest.available=false，未增加UI、provider、适配器或执行通道。
