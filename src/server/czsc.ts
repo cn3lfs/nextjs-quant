@@ -6,6 +6,7 @@ import type { CzscResult, CzscFamily } from "~/lib/czsc";
 import { decodeCzscCenters } from "./czsc-structures";
 import {
   czscResearchOutputs,
+  czscNativeOutputs,
   decodeCzscResearchStructures,
 } from "./czsc-research-structures";
 
@@ -40,6 +41,8 @@ export function projectCzsc(
   outputs = [0, 1, 2, 3, 4, 5, 9, 23],
 ): Promise<CzscProjections> {
   // Queue entire jobs, including C/V registration; retain singleton across Next HMR.
+  if (outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 92))
+    return Promise.reject(new RangeError("Invalid CZSC output"));
   const snapshot = structuredClone(input);
   const job = (scope.czscQueue ?? Promise.resolve()).then(
     () =>
@@ -125,7 +128,9 @@ export async function analyzeCzsc(
       9,
       23,
       ...(signalDetails ? [25, 29, 30, 31, 32, 53] : []),
-      ...(signalDetails && researchStructures ? czscResearchOutputs : []),
+      ...(signalDetails && researchStructures
+        ? [...czscResearchOutputs, ...czscNativeOutputs]
+        : []),
     ],
   );
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
@@ -133,8 +138,9 @@ export async function analyzeCzsc(
     const p = (output: number) => raw.projections[`${config}:${output}`]!;
     const research =
       signalDetails && researchStructures
-        ? decodeCzscResearchStructures(raw, config, bars.length)
+        ? decodeCzscResearchStructures(raw, config, bars.length, true)
         : null;
+    const native = research?.native;
     const empty: CzscFamily = {
       config,
       points: [],
@@ -143,7 +149,7 @@ export async function analyzeCzsc(
       movements: [],
       qualities: [],
       divergences: [],
-      ...(research ? { diagnostics: research.diagnostics } : {}),
+      ...(research ? { diagnostics: research.diagnostics, native } : {}),
     };
     // A single endpoint cannot form a stroke/segment. Do not render a false structure.
     if (decoded.points.length < 2) return empty;
@@ -204,7 +210,7 @@ export async function analyzeCzsc(
         endDate: bars[center.end]!.date,
       })),
       signals,
-      ...(research ? { diagnostics: research.diagnostics } : {}),
+      ...(research ? { diagnostics: research.diagnostics, native } : {}),
       divergences,
       movements: signals.map((s) => ({
         index: s.index,

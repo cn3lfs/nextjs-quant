@@ -1,5 +1,6 @@
 import type { CzscFamily, CzscSignalStructure } from "~/lib/czsc";
 import type { CzscProjections } from "./czsc";
+import { decodeCzscNative } from "./czsc-structures";
 
 const fields = {
   contextFlags: 21,
@@ -19,6 +20,7 @@ const fields = {
   currentEndPointId: 46,
   centerLifecycle: 47,
 } as const;
+export const czscNativeOutputs = Array.from({ length: 34 }, (_, i) => i + 59);
 export const czscResearchOutputs = [
   ...new Set([
     10,
@@ -42,6 +44,7 @@ export function decodeCzscResearchStructures(
   raw: CzscProjections,
   config: 0 | 1100,
   length: number,
+  includeNative = false,
 ) {
   const codes: Record<number, readonly number[]> = {
     11: [0, 1, 2, 3],
@@ -105,5 +108,9 @@ export function decodeCzscResearchStructures(
       (p) => p.level !== 0 || p.semantic !== 0 || p.confirmFlags !== 0,
     ),
   };
-  return { signal, diagnostics };
+  return {
+    signal,
+    diagnostics,
+    ...(includeNative ? { native: decodeCzscNative(raw, config, length) } : {}),
+  };
 }

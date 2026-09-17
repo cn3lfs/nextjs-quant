@@ -49,22 +49,45 @@ process.on(
         registered = new Float32Array(n);
       if (n) func40(n, registered, close, volume, new Float32Array([0]));
       const projections: Record<string, number[]> = {};
+      // All counts and slots remain inside this synchronous IPC transaction.
+      const run = (config: number, output: number, slot = 0) => {
+        const out = new Float32Array(n);
+        const mode = new Float32Array(output >= 59 && output <= 91 ? n : 1);
+        mode[0] = config * 1000 + output * 10;
+        if (output >= 59 && output <= 91 && n > 1) mode[1] = slot;
+        if (n) func30(n, out, high, low, mode);
+        return Array.from(out);
+      };
       for (const config of message.configs) {
         if (![0, 1100].includes(config))
           throw new RangeError("Unsupported CZSC config");
+        const counts = new Map<number, number[]>();
         for (const output of message.outputs) {
-          if (!Number.isInteger(output) || output < 0 || output > 58)
+          if (!Number.isInteger(output) || output < 0 || output > 92)
             throw new RangeError("Invalid CZSC output");
-          const out = new Float32Array(n);
-          if (n)
-            func30(
-              n,
-              out,
-              high,
-              low,
-              new Float32Array([config * 1000 + output * 10]),
-            );
-          projections[`${config}:${output}`] = Array.from(out);
+          if (output < 59 || output === 92) {
+            projections[`${config}:${output}`] = run(config, output);
+            continue;
+          }
+          const countOutput = output < 70 ? 59 : 70;
+          if (!counts.has(countOutput)) {
+            const values = run(config, countOutput);
+            if (
+              values.some((v) => !Number.isInteger(v) || v < 0 || v > 16777216)
+            )
+              throw new Error("结构缺口：原生投影行数非法");
+            counts.set(countOutput, values);
+            projections[`${config}:${countOutput}`] = values;
+          }
+          if (output === countOutput) continue;
+          const max = counts
+            .get(countOutput)!
+            .reduce((a, b) => Math.max(a, b), 0);
+          for (let slot = 0; slot < Math.max(1, max); slot++) {
+            const values = run(config, output, slot);
+            projections[`${config}:${output}:${slot}`] = values;
+            if (slot === 0) projections[`${config}:${output}`] = values;
+          }
         }
       }
       process.send?.({

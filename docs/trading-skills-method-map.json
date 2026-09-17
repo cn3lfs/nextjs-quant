@@ -2039,11 +2039,26 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH07-native-nested-candidates：缺output50索引的完整高级别Candidates表与起止段，不能以胜出signals替代。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-containment.test.ts",
+        "tests/czsc-projections.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "C2原生两层构件组合工程版本1，规则见chanContainmentBoundary。N2全量候选按ID关联config1100走势/中枢，59/70计数后枚举槽位。CH07不依赖胜出signals；CH12核验高背驰段内低买点。逐完整前缀首次确认与端点时点分离；日线固定持有参数默认5日、运行前冻结，合法成交/T+1；不是理论递归级别或完成证明，不是盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-nested-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH08",
@@ -2104,11 +2119,26 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH12-native-rebound-containment：依赖CH07高级别背驰段与低级别买点包含关系，当前高级别完整候选表缺失。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-containment.test.ts",
+        "tests/czsc-projections.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "C2原生两层构件组合工程版本1，规则见chanContainmentBoundary。N2全量候选按ID关联config1100走势/中枢，59/70计数后枚举槽位。CH07不依赖胜出signals；CH12核验高背驰段内低买点。逐完整前缀首次确认与端点时点分离；日线固定持有参数默认5日、运行前冻结，合法成交/T+1；不是理论递归级别或完成证明，不是盈利证据。",
+      "bindings": {
+        "presets": [
+          "chan-rebound-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH13",

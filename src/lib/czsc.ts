@@ -32,8 +32,15 @@ export interface CzscFamily {
       flags: number;
       semantic: number;
     };
+    containment?: {
+      highCandidate: CzscHighCandidate;
+      lowStart: number;
+      lowEnd: number;
+      rule: string;
+    };
     structure?: CzscSignalStructure;
   }[];
+  native?: CzscNativeProjection;
   diagnostics?: {
     version: "native-projections-b67f3c6-1";
     ma: {
@@ -103,3 +110,51 @@ export interface CzscResult {
   sourceCommit: "b67f3c6";
   families: CzscFamily[];
 }
+
+/** Snapshot-local IDs are one-based; bar positions are decoded to zero-based.
+ * No completion or theoretical-level inference is hidden in this transport. */
+export type CzscNativeTrend = {
+  id: number;
+  config: 0 | 1100;
+  unit: number;
+  type: number;
+  start: number;
+  end: number;
+  firstCenterId: number;
+  lastCenterId: number;
+  memberCenterIds: number[];
+  completion: "unknown";
+  theoreticalLevel: null;
+};
+export type CzscHighCandidate = {
+  id: number;
+  config: 1100;
+  index: number;
+  kind: number;
+  pointId: number;
+  segmentStartPointId: number;
+  segmentEndPointId: number;
+  segmentStart: number | null;
+  segmentEnd: number | null;
+  semantic: number;
+  divergence: boolean;
+  trendId: number;
+  centerId: number;
+  source: number;
+  priority: number;
+  quality: number;
+  unit: 2;
+  newExtreme: boolean;
+  weakSpace: boolean;
+  weakSpeed: boolean;
+  weakMacd: boolean;
+  currentStart: number | null;
+  currentEnd: number | null;
+};
+export type CzscNativeProjection = {
+  version: "native-projections-c2-1";
+  config: 0 | 1100;
+  trends: CzscNativeTrend[];
+  highCandidates: CzscHighCandidate[];
+  completedSequence: "unavailable";
+};
