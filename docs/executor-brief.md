@@ -1,6 +1,8 @@
 # 执行者常备说明（每轮派单只写增量，这里是不变部分）
 
-管理分工：Claude 定批次、验收门槛与进度核对；Codex 实现与验证。**每轮派单只给"本轮目标 + 上轮结论 + 特殊约束"，其余一律以本文件为准。**
+管理分工：管理者定批次、验收门槛与进度核对；执行者实现与验证。**每轮派单只给"本轮目标 + 上轮结论 + 特殊约束"，其余一律以本文件为准。**
+
+本文件**与具体执行工具无关**。无论执行者是哪个 CLI，纪律、验证分层与不变量均以本文件为准；调用参数、沙箱范围、会话恢复等属工具细节，由管理者在派单时处理，不写进本文件。运行目录沿用历史名称 `.codex-runs/`（已在 gitignore 内），不因更换工具而改名。
 
 必读：`AGENTS.md`、[优化方案](trading-skills-execution-optimization.md)、[原计划](trading-skills-strategy-plan.md) §1/§6/§7、[契约清单](trading-skills-contract-checks.md)。
 
@@ -37,7 +39,7 @@
 - `docs/trading-skills-execution.md`：**每批一条、六行以内**，不是每轮一篇。段落写不下就说明信息该进 method-map 或 decisions.md。
 - 计数一律取审计脚本输出，不手工推算。区分 `implemented` 与 `implemented-variant`，不要混为一谈。
 
-## 4. 每轮必须产出 `.codex-runs/delivery.json`
+## 4. 每轮必须产出 `.codex-runs/delivery.json`（运行目录，名称沿用历史）
 
 **边做边写，每完成一个子任务就更新**——会话被中止过两次，其中一次已完成的工作因为没写记录而需要管理者逐项反查。格式：
 
