@@ -8,7 +8,7 @@ export async function researchChanMonthlyInput(
   snapshot: Snapshot,
   calendar: CalendarReference & { availableAt: string },
   asOf: string,
-  czsc: (bars: Snapshot["bars"]) => Promise<CzscResult>,
+  czsc: (bars: Snapshot["bars"], anchor: 3) => Promise<CzscResult>,
 ) {
   const cutoff = Date.parse(`${asOf}T15:05:00+08:00`);
   if (
@@ -77,10 +77,10 @@ export async function researchChanMonthlyInput(
           aggregate,
           result: null,
         };
-  const result = await czsc(aggregate.bars);
+  const result = await czsc(aggregate.bars, 3);
   return {
     status: "input-ready" as const,
-    reason: "CH13仍缺月线趋势的原文完成/级别证明；仅输入接通，不产入场",
+    reason: "monthly-anchor-v1输入已接通；C4真实DLL趋势/背驰验证前不产入场",
     aggregate,
     result,
   };

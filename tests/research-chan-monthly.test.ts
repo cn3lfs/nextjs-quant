@@ -34,7 +34,8 @@ it("CH13 adapter uses complete real monthly aggregates and no unfinished month o
     snapshot,
     calendar,
     "2020-02-14",
-    async (bars) => {
+    async (bars, anchor) => {
+      expect(anchor).toBe(3);
       count++;
       expect(bars).toHaveLength(1);
       expect(bars[0]!.date).toBe("2020-01-31");

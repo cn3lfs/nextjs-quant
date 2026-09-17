@@ -45,7 +45,7 @@ export function decodeCzscResearchStructures(
   config: 0 | 1100,
   length: number,
   includeNative = false,
-  anchor?: 1 | 2,
+  anchor?: 1 | 2 | 3,
 ) {
   const codes: Record<number, readonly number[]> = {
     11: [0, 1, 2, 3],

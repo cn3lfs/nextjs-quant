@@ -4,6 +4,8 @@ import type { CzscInput } from "./czsc-input";
 import type { Bar } from "~/lib/domain";
 import type { CzscResult, CzscFamily } from "~/lib/czsc";
 import { decodeCzscCenters } from "./czsc-structures";
+import { decodeCzscMovements } from "./czsc-movements";
+import { chanMovementOutputs } from "~/lib/czsc-movements";
 import {
   czscResearchOutputs,
   czscNativeOutputs,
@@ -41,7 +43,7 @@ export function projectCzsc(
   outputs = [0, 1, 2, 3, 4, 5, 9, 23],
 ): Promise<CzscProjections> {
   // Queue entire jobs, including C/V registration; retain singleton across Next HMR.
-  if (outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 99))
+  if (outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 108))
     return Promise.reject(new RangeError("Invalid CZSC output"));
   const snapshot = structuredClone(input);
   configs = [...configs];
@@ -101,8 +103,11 @@ export async function analyzeCzsc(
   signalDetails = false,
   project: typeof projectCzsc = projectCzsc,
   researchStructures = false,
-  anchor?: 1 | 2,
+  anchor?: 1 | 2 | 3,
+  movements = false,
 ): Promise<CzscResult> {
+  if (movements && (!anchor || !signalDetails || !researchStructures))
+    throw new Error("C4读取必须启用显式锚及完整结构表");
   if (
     bars.some(
       (bar, i) =>
@@ -137,6 +142,7 @@ export async function analyzeCzsc(
             ...czscResearchOutputs,
             ...czscNativeOutputs,
             ...(anchor ? [93, 94, 95, 96, 97, 98, 99] : []),
+            ...(movements ? chanMovementOutputs : []),
           ]
         : []),
     ],
@@ -149,6 +155,15 @@ export async function analyzeCzsc(
         ? decodeCzscResearchStructures(raw, config, bars.length, true, anchor)
         : null;
     const native = research?.native;
+    if (movements && native && anchor)
+      native.recursiveMovements = decodeCzscMovements(
+        raw,
+        bars,
+        config,
+        anchor,
+        native,
+        decoded.centers,
+      );
     const empty: CzscFamily = {
       config,
       points: [],
@@ -235,4 +250,13 @@ export async function analyzeCzsc(
     sourceCommit: "b67f3c6",
     families,
   };
+}
+
+/** Opt-in C4 reader. Capability validation rejects the currently installed C3 DLL. */
+export function analyzeChanMovements(
+  bars: readonly Bar[],
+  anchor: 1 | 2 | 3,
+  project: typeof projectCzsc = projectCzsc,
+) {
+  return analyzeCzsc(bars, true, project, true, anchor, true);
 }

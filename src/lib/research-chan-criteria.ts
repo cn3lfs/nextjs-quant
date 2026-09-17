@@ -179,10 +179,43 @@ export function chanStructureCriterion(
         c.index < e.index &&
         e.index === own.index
       );
-      if (criterion === "trend-divergence")
-        gaps.push(
-          "原生走势完整两中枢成员列表尚未导出，不能由trendId证明原文趋势背驰",
+      if (criterion === "trend-divergence") {
+        const table = family?.native?.recursiveMovements;
+        const association = table?.associations.find(
+          (a) => a.structureId === meta?.trendId && a.status === "verified",
         );
+        const movement = table?.movements.find(
+          (m) => m.id === association?.movementId,
+        );
+        if (
+          !movement ||
+          movement.completed === null ||
+          movement.centerIds.length < 2 ||
+          association?.level !== movement.level
+        )
+          gaps.push(
+            "缺少C4逐成员关联的已完成同级别多中枢走势，不能由trendId/方向推测",
+          );
+        else {
+          const last = table!.centers.find(
+            (c) => c.id === movement.centerIds.at(-1),
+          );
+          matches &&=
+            movement.type === -Math.sign(signal.kind) &&
+            e?.index === movement.end &&
+            !!last &&
+            center?.start === last.centerStart &&
+            center.end === last.centerEnd &&
+            !!c &&
+            c.index >= last.centerEnd &&
+            !!a &&
+            a.index >= movement.start &&
+            !!d &&
+            (d.flags & 1) !== 0 &&
+            d.areaRatio > 0 &&
+            d.areaRatio < 1;
+        }
+      }
     }
   }
   return {

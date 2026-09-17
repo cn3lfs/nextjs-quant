@@ -158,6 +158,7 @@ export type CzscNativeProjection = {
   highCandidates: CzscHighCandidate[];
   completedSequence: "unavailable";
   recursive?: CzscRecursive;
+  recursiveMovements?: import("./czsc-movements").CzscMovements;
 };
 
 /** Snapshot-local foreign keys; evidence indices are NOT discovery times. */
@@ -192,7 +193,7 @@ export type CzscCompletion = {
   level: number | null;
 };
 export type CzscRecursive = {
-  anchor: 1 | 2;
+  anchor: 1 | 2 | 3;
   config: 0 | 1100;
   nodes: CzscRecursiveNode[];
   completions: CzscCompletion[];

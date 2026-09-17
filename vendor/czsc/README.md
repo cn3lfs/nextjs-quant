@@ -3,10 +3,10 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `05d14c1`（分支 `chan-native`，在 `b67f3c6` 之上新增 Func30 输出 59–99：只读投影与走势完成证据） |
+| 来源 commit | `ba8f766`（分支 `chan-native`，在 `b67f3c6` 之上新增 Func30 输出 59–108：只读投影、走势完成证据、递归走势类型与三锚契约） |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `876060` 字节 |
-| SHA-256 | `62dfbf28e407ab195d01193ca59419a32722217fcbe3da8251adff5e5107a6de` |
+| 大小 | `898072` 字节 |
+| SHA-256 | `7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457` |
 | 构建方式 | WSL Ubuntu-22.04 + MinGW-w64，`make mingw64`（2026-09-17 由管理者重建） |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 

@@ -55,7 +55,7 @@ it("rejects missing anchor, daily relabelled as minutes, illegal output and minu
       [93],
     ),
   ).rejects.toThrow("窗口");
-  await expect(projectCzsc(input, [0], [100])).rejects.toThrow(
+  await expect(projectCzsc(input, [0], [109])).rejects.toThrow(
     "Invalid CZSC output",
   );
 });

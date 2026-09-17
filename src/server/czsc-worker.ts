@@ -1,4 +1,5 @@
 import koffi from "koffi";
+import { chanAnchorDateCodes, chanProjectionMode } from "../lib/czsc-movements";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -44,7 +45,7 @@ process.on(
     outputs: number[];
   }) => {
     try {
-      if (message.outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 99))
+      if (message.outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 108))
         throw new RangeError("Invalid CZSC output");
       const { high, low, close, volume } = czscInput(message.input);
       if (high.length > 16777216)
@@ -69,41 +70,12 @@ process.on(
         if (message.outputs.some((o) => o >= 93)) {
           const dates = message.input.dates,
             anchor = message.input.anchor;
-          if (!dates || dates.length !== n || ![1, 2].includes(anchor ?? 0))
+          if (!dates || dates.length !== n || ![1, 2, 3].includes(anchor ?? 0))
             throw new Error("显式锚及逐根日期缺失");
-          const dateCodes = dates.map((date, i) => {
-            if (anchor === 2) {
-              if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+08:00$/.test(date))
-                throw new Error("五分钟锚必须使用已结束五分钟K线的上海时戳");
-              const minute =
-                Number(date.slice(11, 13)) * 60 + Number(date.slice(14, 16));
-              if (
-                minute % 5 ||
-                !(
-                  (minute >= 575 && minute <= 690) ||
-                  (minute >= 785 && minute <= 900)
-                )
-              )
-                throw new Error("五分钟收盘时戳不在交易时段");
-            }
-            const day = date.slice(0, 10);
-            if (
-              !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
-              !Number.isFinite(Date.parse(date)) ||
-              new Date(day).toISOString().slice(0, 10) !== day ||
-              (i > 0 && date <= dates[i - 1]!) ||
-              (anchor === 1 && date !== day) ||
-              (anchor === 2 &&
-                (!/T\d{2}:\d{2}/.test(date) ||
-                  day < "2000-01-04" ||
-                  day > "2022-11-30"))
-            )
-              throw new Error("锚周期、日期顺序或五分钟窗口无效");
-            return Number(day.replaceAll("-", "")) - 20000000;
-          });
+          const dateCodes = chanAnchorDateCodes(dates, anchor!);
           const explicit = (output: number, slot = 0, field = 0) => {
             const mode = Float32Array.from([
-              config * 1000 + output * 10,
+              chanProjectionMode(config, output),
               slot,
               field,
               anchor!,
@@ -116,6 +88,11 @@ process.on(
             if (!slot && !field) projections[`${config}:${output}`] = values;
             return values.at(-1) ?? 0;
           };
+          const c4 = message.outputs.some((o) => o >= 100);
+          if (c4 && n && explicit(100) !== 4)
+            throw new Error(
+              "待验证：DLL未提供C4能力100=4，不能把旧DLL零列当空表",
+            );
           if (n && explicit(93) !== 1) throw new Error("原生显式锚不可用");
           for (const [countOutput, rowOutput, fields] of [
             [94, 95, 17],
@@ -141,10 +118,53 @@ process.on(
               }
             }
           }
+          if (c4) {
+            for (const [countOutput, rowOutput, fields] of [
+              [101, 102, 17],
+              [103, 104, 14],
+              [105, 106, 9],
+              [107, 108, 9],
+            ] as const) {
+              const count = explicit(countOutput);
+              if (!Number.isInteger(count) || count < 0 || count > 16777216)
+                throw new Error("C4行数非法");
+              for (let slot = 0; slot < count; slot++) {
+                for (let field = 0; field < fields; field++)
+                  explicit(rowOutput, slot, field);
+                const arrays =
+                  rowOutput === 104
+                    ? [
+                        [8, 100, 2],
+                        [9, 101, 2],
+                      ]
+                    : [
+                        [
+                          rowOutput === 102 ? 10 : rowOutput === 106 ? 8 : 6,
+                          100,
+                          1,
+                        ],
+                      ];
+                for (const [sizeField, start, step] of arrays) {
+                  const size =
+                    projections[
+                      `${config}:${rowOutput}:${slot}:${sizeField}`
+                    ]!.at(-1)!;
+                  if (
+                    !Number.isInteger(size) ||
+                    size < 0 ||
+                    start! + size * step! >= 16777216
+                  )
+                    throw new Error("C4成员数超出可精确枚举域");
+                  for (let j = 0; j < size; j++)
+                    explicit(rowOutput, slot, start! + j * step!);
+                }
+              }
+            }
+          }
         }
         for (const output of message.outputs) {
           if (output >= 93) continue;
-          if (!Number.isInteger(output) || output < 0 || output > 99)
+          if (!Number.isInteger(output) || output < 0 || output > 108)
             throw new RangeError("Invalid CZSC output");
           if (output < 59 || output === 92) {
             projections[`${config}:${output}`] = run(config, output);

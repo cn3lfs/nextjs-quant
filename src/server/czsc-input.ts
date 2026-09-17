@@ -1,5 +1,5 @@
 export interface CzscInput {
-  anchor?: 1 | 2;
+  anchor?: 1 | 2 | 3;
   dates?: string[];
   high: number[];
   low: number[];
