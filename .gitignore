@@ -13,6 +13,7 @@ test-results/
 *.sqlite*
 *.db
 .playwright-cli/
+.playwright-browsers/
 output/
 .playwright-mcp/
 

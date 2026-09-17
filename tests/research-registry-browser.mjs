@@ -6,6 +6,10 @@ import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
+process.env.PLAYWRIGHT_BROWSERS_PATH = resolve(
+  process.cwd(),
+  ".playwright-browsers",
+);
 const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 )("playwright");

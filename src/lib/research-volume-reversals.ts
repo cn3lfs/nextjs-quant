@@ -1,4 +1,5 @@
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import { priorVolumeRange } from "./indicators";
 import {
   researchVolumeSeries,
@@ -84,10 +85,11 @@ export function volumeReversalWarmupStart(bars: readonly Bar[], start: string) {
 export function researchVolumeReversalSeries(
   id: VolumeReversalId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumeReversalPoint[] {
   // Reuse the established input, position and common-exit calculations. The
   // baseline VMA crossover itself is deliberately not inherited as a signal.
-  const base = researchVolumeSeries("vp-volume-ma-cross", bars);
+  const base = researchVolumeSeries("vp-volume-ma-cross", bars, evidence);
   const ranges = priorVolumeRange(
     bars.map((bar) =>
       bar.volume > 0 && bar.high === bar.low ? { ...bar, volume: NaN } : bar,

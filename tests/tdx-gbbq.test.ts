@@ -5,6 +5,7 @@ import {
   adjustmentFactors,
   applyAdjustment,
   applyAdjustmentByDate,
+  deriveHistoricalFloatShares,
   parseGbbq,
 } from "../src/server/tdx-gbbq";
 
@@ -215,5 +216,48 @@ describe("复权因子", () => {
     const bars = [bar("2026-01-05", 10)];
     expect(() => applyAdjustment(bars, [], "forward")).toThrow("长度不一致");
     expect(applyAdjustment(bars, [], "none")).toBe(bars);
+  });
+});
+
+describe("历史流通股本", () => {
+  it("只在股本事件生效日后提供证据，不把当前值回填到更早日期", () => {
+    const bars = [
+      bar("2020-01-02", 10),
+      bar("2020-01-03", 10),
+      bar("2020-01-06", 10),
+    ];
+    const result = deriveHistoricalFloatShares(bars, [
+      {
+        date: "2020-01-03",
+        category: 5,
+        name: "股本变化",
+        floatSharesAfter: 2_000,
+      },
+    ]);
+    expect(result.coverage).toMatchObject({
+      status: "partial",
+      coveredBars: 2,
+      missingBars: 1,
+      coveredStart: "2020-01-03",
+      coveredEnd: "2020-01-06",
+    });
+    expect(result.evidence["2020-01-02"]).toBeUndefined();
+    expect(result.evidence["2020-01-03"]).toMatchObject({
+      floatShares: 2_000,
+      availableDate: "2020-01-03",
+      availableAt: "2020-01-03T15:00:00+08:00",
+    });
+  });
+  it("没有可用事件时明确返回全区间缺口", () => {
+    const result = deriveHistoricalFloatShares(
+      [bar("2020-01-02", 10)],
+      [{ date: "2020-01-01", category: 5, name: "股本变化" }],
+    );
+    expect(result.coverage).toMatchObject({
+      status: "missing",
+      coveredBars: 0,
+      missingBars: 1,
+      eventCount: 0,
+    });
   });
 });

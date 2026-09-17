@@ -1,4 +1,5 @@
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import { researchVolumeSeries, type VolumePoint } from "./research-volume";
 
 export const volumeFailureIds = [
@@ -82,8 +83,9 @@ export type VolumeFailurePoint = VolumePoint & {
 export function researchVolumeFailureSeries(
   id: VolumeFailureId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumeFailurePoint[] {
-  const base = researchVolumeSeries("vp-breakout-1-5", bars);
+  const base = researchVolumeSeries("vp-breakout-1-5", bars, evidence);
   const clock = id.startsWith("vp-failure"),
     window = id === "vp-failure-3" ? 3 : id === "vp-failure-2" ? 2 : 1;
   let candidates: Breakout[] = [];

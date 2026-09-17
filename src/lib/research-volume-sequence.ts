@@ -1,4 +1,5 @@
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import { linearSlope, volumeMa } from "./indicators";
 import {
   researchVolumeSeries,
@@ -136,9 +137,10 @@ export type VolumeSequencePoint = VolumePoint & {
 export function researchVolumeSequenceSeries(
   id: VolumeSequenceId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumeSequencePoint[] {
   const p = profiles[id],
-    base = researchVolumeSeries("vp-breakout-1-5", bars);
+    base = researchVolumeSeries("vp-breakout-1-5", bars, evidence);
   const mean =
     p.kind === "center" ? volumeMa(volumeIndicatorInput(bars), p.n) : [];
   let candidate: Candidate | null = null,

@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   evaluateChanSectorRotation,
+  evaluateChanSectorCurrentMembership,
   chanSectorAdmission,
 } from "../src/lib/research-chan-sector";
 const calendar = Array.from(
@@ -98,4 +99,20 @@ it("CH11 strict MA equality does not qualify and missing data never creates an e
     entry: false,
     exit: false,
   });
+});
+it("CH11 current-membership-v1 is a separate biased comparison", () => {
+  const x = input();
+  x.sectors[0]!.membership[0]!.availableAt = "2026-01-01T15:00:00+08:00";
+  const result = evaluateChanSectorCurrentMembership(x, asOf);
+  expect(result).toMatchObject({
+    status: "available",
+    methodVersion: "current-membership-v1",
+    comparisonGroup: "current-membership-v1",
+    bias: "membership-and-survivorship",
+  });
+  expect(result.boundary).toContain("成分偏差与存活偏差");
+  expect(
+    chanSectorAdmission(x, asOf, "sh600000", true, "current-membership-v1")
+      .entry,
+  ).toBe(true);
 });

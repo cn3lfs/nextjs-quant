@@ -12,14 +12,20 @@ export async function runChanMonthlyInput(
   return researchChanMonthlyInput(...args);
 }
 import { chanSectorAdmission } from "~/lib/research-chan-sector";
-/** CH11 waiting-data combination; true historical sector inputs are mandatory. */
+/** CH11 engineering comparison uses current-membership-v1 and exposes its bias. */
 export function runChanSectorResearch(
   raw: unknown,
   asOf: string,
   symbol: string,
   nativeThirdBuy: boolean,
 ) {
-  return chanSectorAdmission(raw, asOf, symbol, nativeThirdBuy);
+  return chanSectorAdmission(
+    raw,
+    asOf,
+    symbol,
+    nativeThirdBuy,
+    "current-membership-v1",
+  );
 }
 import { researchManagementSchema } from "~/lib/research-management";
 import { evaluateCryptoTimeSlot } from "~/lib/research-crypto-time-slot";
@@ -356,6 +362,7 @@ export async function runStrategyResearch(
               dataset.canslimMarket,
               (row) => structureObservations.push(row),
               stock.minuteBars,
+              stock.volumeEvidence,
             );
       const accepted = cup
         ? observed.filter((event) => {

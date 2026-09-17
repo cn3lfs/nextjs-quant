@@ -48,6 +48,7 @@ import { isFormulaExample } from "~/lib/research-formula-examples";
 import { isExternalFormula } from "~/lib/research-formula-external";
 import { isSwingMarket } from "~/lib/research-swing-market";
 import { isVolumeIntraday } from "~/lib/research-volume-intraday";
+import type { VolumeEvidence } from "~/lib/research-volume-grid";
 import { isResearchRule, researchRuleSeries } from "./research-rule-series";
 
 /** Full-prefix replay: native structures may revise endpoints, so a result
@@ -64,6 +65,7 @@ export async function researchSignals(
   market?: CanslimResearchMarket,
   recordStructure?: (row: ResearchStructureObservation) => void,
   minuteBars?: readonly Bar[],
+  volumeEvidence: VolumeEvidence = {},
 ) {
   if (
     bars.some(
@@ -284,7 +286,13 @@ export async function researchSignals(
             symbol,
           )
         : isResearchRule(spec.strategy)
-          ? researchRuleSeries(spec.strategy, bars, calendar, market)
+          ? researchRuleSeries(
+              spec.strategy,
+              bars,
+              calendar,
+              market,
+              volumeEvidence,
+            )
           : null;
   if (technical && recordStructure)
     for (const point of technical) {

@@ -1,4 +1,5 @@
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import { hasVolumePulses } from "./research-volume-sequence";
 import { obv, priorVolumeRange } from "./indicators";
 import {
@@ -145,8 +146,9 @@ export type VolumeContextPoint = VolumePoint & {
 export function researchVolumeContextSeries(
   id: VolumeContextId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumeContextPoint[] {
-  const base = researchVolumeSeries("vp-breakout-1-5", bars);
+  const base = researchVolumeSeries("vp-breakout-1-5", bars, evidence);
   const input = bars.map((bar) =>
     bar.volume > 0 && bar.high === bar.low ? { ...bar, volume: NaN } : bar,
   );

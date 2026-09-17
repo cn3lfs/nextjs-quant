@@ -11,6 +11,7 @@ import {
 } from "~/lib/research-sepa-strategies";
 import { researchSepaSeries } from "./research-sepa";
 import type { Bar } from "~/lib/domain";
+import type { VolumeEvidence } from "~/lib/research-volume-grid";
 import {
   isCanslimResearch,
   isCanslimHigh,
@@ -92,6 +93,7 @@ export function researchRuleSeries(
   bars: readonly Bar[],
   calendar: readonly string[] = bars.map((bar) => bar.date),
   market?: CanslimResearchMarket,
+  evidence: VolumeEvidence = {},
 ): ResearchRulePoint[] {
   if (isWyckoff(id)) return researchWyckoffSeries(id, bars, calendar);
   if (id === "canslim-volume-tier" || id === "canslim-volume-tier-crash")
@@ -219,5 +221,5 @@ export function researchRuleSeries(
     ? analyzeBreakout(bars, 0).points.map((point, i) =>
         breakoutRuleDecision(id, point, bars[i]!),
       )
-    : localSeries(id, bars);
+    : localSeries(id, bars, evidence);
 }

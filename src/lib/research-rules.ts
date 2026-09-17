@@ -27,6 +27,7 @@ import {
   type VolumePoint,
 } from "./research-volume";
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import {
   isChannelStrategy,
   researchChannelSeries,
@@ -123,6 +124,7 @@ export function isResearchRule(id: string): id is ResearchRuleId {
 export function researchRuleSeries(
   id: ResearchRuleId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): ResearchRulePoint[] {
   if (isWyckoffHourly(id)) return researchWyckoffHourlySeries(bars);
   if (isWyckoffVsa(id)) return researchWyckoffVsaSeries(id, bars);
@@ -131,16 +133,16 @@ export function researchRuleSeries(
   if (isContinuation(id)) return researchContinuationSeries(id, bars);
   if (isCandleStrategy(id)) return researchCandleSeries(id, bars);
   return isVolumeSequence(id)
-    ? researchVolumeSequenceSeries(id, bars)
+    ? researchVolumeSequenceSeries(id, bars, evidence)
     : isVolumeFailure(id)
-      ? researchVolumeFailureSeries(id, bars)
+      ? researchVolumeFailureSeries(id, bars, evidence)
       : isVolumeStructure(id)
-        ? researchVolumeStructureSeries(id, bars)
+        ? researchVolumeStructureSeries(id, bars, evidence)
         : isVolumeContext(id)
-          ? researchVolumeContextSeries(id, bars)
+          ? researchVolumeContextSeries(id, bars, evidence)
           : isVolumeReversal(id)
-            ? researchVolumeReversalSeries(id, bars)
+            ? researchVolumeReversalSeries(id, bars, evidence)
             : isVolumeStrategy(id)
-              ? researchVolumeSeries(id, bars)
-              : researchTechnicalSeries(id, bars);
+              ? researchVolumeSeries(id, bars, evidence)
+              : researchTechnicalSeries(id, bars, evidence);
 }

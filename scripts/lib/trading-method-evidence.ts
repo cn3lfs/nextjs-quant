@@ -12,6 +12,90 @@ export type MethodEvidence = {
   tests: Set<string>;
   files: Set<string>;
 };
+const gbbqAvailableMethods = new Set([
+  "VP01",
+  "VP02",
+  "VP03",
+  "VP04",
+  "VP05",
+  "VP06",
+  "VP07",
+  "VP08",
+  "VP09",
+  "VP11",
+  "VP12",
+  "VP15",
+  "VP-small-float-turnover",
+  "VP-controlled-contraction",
+  "VP-dry-turnover-confirm",
+  "VP-turnover-bands",
+  "VP-turnover-location",
+  "VP-float-break",
+]);
+const gbbqCoverageNote =
+  "R1-1 本机只读汇总（E:/new_tdx64）：6149 个证券、18,344,968 根日线，其中 16,634,968 根（90.6786427%）有生效日流通股本，1,710,000 根缺口；4632 个证券全覆盖、942 个部分覆盖、575 个无覆盖，覆盖区间 1990-12-19 至 2026-09-16，127,317 条有效股本事件。研究运行仍按逐证券缺口返回 missing，不使用当前股本回算历史。";
+export function syncMethodDelivery(map: MethodMap) {
+  const next = structuredClone(map);
+  for (const method of next.methods) {
+    if (method.delivery) {
+      if (gbbqAvailableMethods.has(method.id))
+        method.delivery.data = {
+          status: "available",
+          note: gbbqCoverageNote,
+        };
+      continue;
+    }
+    const implementation =
+      method.status === "implemented"
+        ? ("complete" as const)
+        : method.status === "implemented-variant"
+          ? ("engineering" as const)
+          : ("planned" as const);
+    const data = gbbqAvailableMethods.has(method.id)
+      ? {
+          status: "available" as const,
+          note: gbbqCoverageNote,
+        }
+      : method.id === "CH11"
+        ? {
+            status: "partial" as const,
+            note: "current-membership-v1 可运行，但含成分偏差与存活偏差；availableAt 的时点正确语义仍缺失，只作参考。",
+          }
+        : /待数据|数据缺口|尚未接通|真实历史.*未知|未接入|缺少.*历史/.test(
+              method.boundary,
+            )
+          ? {
+              status: "missing" as const,
+              note: "当前边界仍登记数据缺口；本轮不以固定夹具或当前值替代真实历史覆盖。",
+            }
+          : {
+              status: "unknown" as const,
+              note: "本轮未执行 R3 真实历史覆盖核验；实现存在不等于数据可用。",
+            };
+    method.delivery = {
+      implementation: {
+        status: implementation,
+        note:
+          implementation === "complete"
+            ? "method.status=implemented；已登记完整实现入口。"
+            : implementation === "engineering"
+              ? "method.status=implemented-variant；具名工程版本已登记，不能等同完整原文。"
+              : "method.status=planned；尚无可验收实现入口。",
+      },
+      data,
+      realBacktest: {
+        status: "pending",
+        resultRecords: [],
+        note: "R3 尚未运行；本轮不预填真实回测完成。",
+      },
+      effect: {
+        status: "pending",
+        note: "没有真实回测结果，不得形成效果结论。",
+      },
+    };
+  }
+  return next;
+}
 export const legacyPresetBoundaries: Record<string, string> = {
   "dual-breakout": "既有基线，不把尚未完整实现的SW01整体升级为完成",
   "dual-breakout-structure": "既有结构风险基线，独立风险组件由具名导出绑定",

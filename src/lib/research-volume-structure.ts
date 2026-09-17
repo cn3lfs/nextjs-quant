@@ -1,4 +1,5 @@
 import type { Bar } from "./domain";
+import type { VolumeEvidence } from "./research-volume-grid";
 import { confirmedExtrema, ma, type ConfirmedExtremum } from "./indicators";
 import {
   researchVolumeSeries,
@@ -100,8 +101,9 @@ export function volumeStructureWarmupStart(
 export function researchVolumeStructureSeries(
   id: VolumeStructureId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ): VolumeStructurePoint[] {
-  const base = researchVolumeSeries("vp-breakout-1-5", bars),
+  const base = researchVolumeSeries("vp-breakout-1-5", bars, evidence),
     ma20 = ma(bars, 20);
   let candidate: (Retest & { index: number }) | null = null;
   return base.map((point, i) => {

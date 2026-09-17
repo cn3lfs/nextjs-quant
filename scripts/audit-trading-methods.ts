@@ -11,6 +11,7 @@ import { researchStrategyFamilies } from "../src/lib/research-strategies";
 import {
   collectMethodEvidence,
   reconcileMethodEvidence,
+  syncMethodDelivery,
 } from "./lib/trading-method-evidence";
 const args = process.argv.slice(2);
 if (args.some((arg) => !["--require-complete", "--write"].includes(arg)))
@@ -26,6 +27,7 @@ const reconciliation = reconcileMethodEvidence(
   map,
   collectMethodEvidence(researchStrategyFamilies),
 );
+const deliverySync = syncMethodDelivery(reconciliation.map);
 const counts = (value: typeof map) => ({
   total: value.methods.length,
   planned: value.methods.filter((m) => m.status === "planned").length,
@@ -36,7 +38,7 @@ const counts = (value: typeof map) => ({
 const before = counts(map);
 const paths = [
   ...new Set(
-    reconciliation.map.methods.flatMap((method) => [
+    deliverySync.methods.flatMap((method) => [
       ...method.implementation,
       ...method.tests,
     ]),
@@ -52,7 +54,7 @@ for (const path of paths) {
   }
 }
 const report = auditTradingMethodMap(
-  reconciliation.map,
+  deliverySync,
   inventory as SkillInventory,
   files,
 );
@@ -63,7 +65,7 @@ if (
 ) {
   await writeFile(
     resolve("docs/trading-skills-method-map.json"),
-    `${JSON.stringify(reconciliation.map, null, 2)}\n`,
+    `${JSON.stringify(deliverySync, null, 2)}\n`,
   );
 }
 console.log(
@@ -72,10 +74,17 @@ console.log(
       ...report,
       reconciliation: {
         before,
-        after: counts(reconciliation.map),
+        after: counts(deliverySync),
         errors: reconciliation.errors,
         changes: reconciliation.changes,
         pendingWithoutEvidence: reconciliation.pendingWithoutEvidence,
+      },
+      deliverySync: {
+        added: deliverySync.methods.filter(
+          (method) =>
+            !reconciliation.map.methods.find((row) => row.id === method.id)
+              ?.delivery,
+        ).length,
       },
     },
     null,
@@ -85,7 +94,13 @@ console.log(
 if (
   report.errors.length ||
   reconciliation.errors.length ||
-  (!args.includes("--write") && reconciliation.changes.length > 0) ||
+  (!args.includes("--write") &&
+    (reconciliation.changes.length > 0 ||
+      deliverySync.methods.some(
+        (method) =>
+          !reconciliation.map.methods.find((row) => row.id === method.id)
+            ?.delivery,
+      ))) ||
   (args.includes("--require-complete") &&
     (report.pendingMethods.length || report.undisposedSources.length))
 )

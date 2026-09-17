@@ -30,6 +30,16 @@ const method = {
   implementation: ["src/strategy.ts"],
   tests: ["tests/strategy.test.ts"],
   boundary: "fixture only",
+  delivery: {
+    implementation: { status: "complete" as const, note: "fixture" },
+    data: { status: "unknown" as const, note: "fixture" },
+    realBacktest: {
+      status: "pending" as const,
+      resultRecords: [],
+      note: "fixture",
+    },
+    effect: { status: "pending" as const, note: "fixture" },
+  },
 };
 const fixture = {
   version: "trading-method-map-1" as const,

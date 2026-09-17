@@ -15,6 +15,19 @@ import { assertGrowthIntradayWindow } from "~/lib/research-growth-intraday";
 import { isOpening, openingMinuteStart } from "~/lib/research-opening";
 import { readLocalDailySnapshot } from "./local-daily-snapshot";
 import { readGbbq } from "./tdx-gbbq";
+import { deriveHistoricalFloatShares } from "./tdx-gbbq";
+import {
+  buildDailyEventCoverage,
+  mergeVolumeEvidence,
+} from "~/lib/research-event-coverage";
+import { isVolumeAdapted } from "~/lib/research-volume-adapted";
+import { isVolumeGrid } from "~/lib/research-volume-grid";
+import { isVolumeStrategy } from "~/lib/research-volume";
+import { isVolumeContext } from "~/lib/research-volume-context";
+import { isVolumeFailure } from "~/lib/research-volume-failure";
+import { isVolumeSequence } from "~/lib/research-volume-sequence";
+import { isVolumeStructure } from "~/lib/research-volume-structure";
+import { isVolumeReversal } from "~/lib/research-volume-reversals";
 import {
   researchMethodSnapshot,
   type ResearchMethodSnapshot,
@@ -23,14 +36,40 @@ import {
 
 export const researchHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+type CapturedResearchDataset = Awaited<
+  ReturnType<typeof captureResearchDataset>
+>;
+type ResearchStock = CapturedResearchDataset["stocks"][number];
 export type ResearchDataset = Omit<
-  Awaited<ReturnType<typeof captureResearchDataset>>,
-  "method"
+  CapturedResearchDataset,
+  "method" | "stocks" | "volumeEvidence"
 > & {
   method?: ResearchMethodSnapshot;
+  stocks: (Omit<
+    ResearchStock,
+    "volumeEvidence" | "floatShareCoverage" | "eventCoverage"
+  > & {
+    volumeEvidence?: ResearchStock["volumeEvidence"];
+    floatShareCoverage?: ResearchStock["floatShareCoverage"];
+    eventCoverage?: ResearchStock["eventCoverage"];
+  })[];
+  volumeEvidence?: CapturedResearchDataset["volumeEvidence"];
 };
 
 export { parseBenchmarkWindow as parseResearchBenchmark } from "./tdx-benchmark";
+
+function needsVolumeEvidence(strategy: string) {
+  return (
+    isVolumeStrategy(strategy) ||
+    isVolumeGrid(strategy) ||
+    isVolumeAdapted(strategy) ||
+    isVolumeContext(strategy) ||
+    isVolumeFailure(strategy) ||
+    isVolumeSequence(strategy) ||
+    isVolumeStructure(strategy) ||
+    isVolumeReversal(strategy)
+  );
+}
 
 export async function captureResearchDataset(
   spec: ResearchSpec,
@@ -118,6 +157,11 @@ export async function captureResearchDataset(
     actions: NonNullable<typeof actions>["events"] extends Map<string, infer T>
       ? T
       : never;
+    volumeEvidence?: ReturnType<typeof mergeVolumeEvidence>;
+    floatShareCoverage?: ReturnType<
+      typeof deriveHistoricalFloatShares
+    >["coverage"];
+    eventCoverage?: ReturnType<typeof buildDailyEventCoverage>;
   }[] = [];
   const excluded: { symbol: string; reason: string }[] = [];
   let payloadBytes = Buffer.byteLength(JSON.stringify(benchmark));
@@ -139,6 +183,54 @@ export async function captureResearchDataset(
         (b) =>
           b.date.slice(0, 10) >= minuteStart && b.date.slice(0, 10) <= spec.end,
       );
+      const stockActions = (actions?.events.get(symbol) ?? []).filter(
+        (event) => event.date <= spec.end,
+      );
+      const floatShares = actions
+        ? deriveHistoricalFloatShares(bars, stockActions)
+        : {
+            evidence: {},
+            coverage: {
+              status: "missing" as const,
+              source: "tdx-gbbq" as const,
+              coveredBars: 0,
+              missingBars: bars.length,
+              coveredStart: null,
+              coveredEnd: null,
+              missingIntervals: bars.length
+                ? [
+                    {
+                      start: bars[0]!.date,
+                      end: bars.at(-1)!.date,
+                      bars: bars.length,
+                      reason: "GBBQ文件不可用",
+                    },
+                  ]
+                : [],
+              eventCount: 0,
+            },
+          };
+      const volumeRun = needsVolumeEvidence(spec.strategy);
+      const eventCoverage: ReturnType<typeof buildDailyEventCoverage> =
+        volumeRun
+          ? buildDailyEventCoverage(
+              symbol,
+              bars,
+              stockActions,
+              calendar,
+              actions !== null,
+            )
+          : {
+              version: "daily-event-coverage-v1",
+              source: "tdx-gbbq+daily-bars",
+              symbol,
+              board: "unknown",
+              caveat: "非量价研究未生成逐日事件行",
+              rows: [],
+            };
+      const volumeEvidence = volumeRun
+        ? mergeVolumeEvidence(floatShares.evidence, eventCoverage)
+        : {};
       const raw = {
         symbol,
         name: snapshot.name ?? symbol,
@@ -158,9 +250,10 @@ export async function captureResearchDataset(
         ...(snapshot.sourceVersions?.length
           ? { sourceVersions: snapshot.sourceVersions }
           : {}),
-        actions: (actions?.events.get(symbol) ?? []).filter(
-          (event) => event.date <= spec.end,
-        ),
+        actions: stockActions,
+        volumeEvidence,
+        floatShareCoverage: floatShares.coverage,
+        eventCoverage,
       };
       payloadBytes += Buffer.byteLength(JSON.stringify(raw));
       if (payloadBytes > 512 * 1024 * 1024)
@@ -209,6 +302,13 @@ export async function captureResearchDataset(
     actionSource: actions
       ? { path: actions.path, modified: actions.modified }
       : null,
+    volumeEvidence: {
+      version: "gbbq-float-shares+daily-events-v1" as const,
+      source: actions ? "tdx-gbbq" : null,
+      coverage: Object.fromEntries(
+        stocks.map((stock) => [stock.symbol, stock.floatShareCoverage]),
+      ),
+    },
   };
   return { ...content, capturedAt: Date.now(), hash: researchHash(content) };
 }

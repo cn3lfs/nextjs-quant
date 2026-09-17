@@ -142,6 +142,125 @@ export async function readGbbq(root: string) {
   return { events: parseGbbq(buffer), modified: after.mtimeMs, path };
 }
 
+export type HistoricalFloatShareCoverage = {
+  status: "available" | "partial" | "missing";
+  source: "tdx-gbbq";
+  coveredBars: number;
+  missingBars: number;
+  coveredStart: string | null;
+  coveredEnd: string | null;
+  missingIntervals: {
+    start: string;
+    end: string;
+    bars: number;
+    reason: string;
+  }[];
+  eventCount: number;
+};
+
+export type HistoricalFloatShareEvidence = {
+  evidence: Readonly<
+    Record<
+      string,
+      {
+        date: string;
+        availableDate: string;
+        availableAt: string;
+        source: "tdx-gbbq:floatSharesAfter";
+        floatShares: number;
+        volumeUnit: "share";
+      }
+    >
+  >;
+  coverage: HistoricalFloatShareCoverage;
+};
+
+/**
+ * Derive day-level circulating shares from the GBBQ effective-day events.
+ * A value is carried only after its own effective date; current shares are
+ * never projected backwards into earlier bars.
+ */
+export function deriveHistoricalFloatShares(
+  bars: readonly Bar[],
+  events: readonly TdxXdxr[],
+): HistoricalFloatShareEvidence {
+  const usable = events
+    .filter(
+      (event) =>
+        event.floatSharesAfter != null &&
+        Number.isFinite(event.floatSharesAfter) &&
+        event.floatSharesAfter > 0,
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const evidence: Record<
+    string,
+    HistoricalFloatShareEvidence["evidence"][string]
+  > = {};
+  const missingIntervals: HistoricalFloatShareCoverage["missingIntervals"] = [];
+  let cursor = 0;
+  let current: (typeof usable)[number] | undefined;
+  let missingStart: string | null = null;
+  let missingEnd: string | null = null;
+  let missingCount = 0;
+  const closeMissing = (end: string) => {
+    if (!missingStart) return;
+    missingIntervals.push({
+      start: missingStart,
+      end: missingEnd ?? end,
+      bars: missingCount,
+      reason:
+        usable.length === 0
+          ? "GBBQ缺少正数floatSharesAfter事件"
+          : "行情起点早于第一条可知的GBBQ流通股本生效日",
+    });
+    missingStart = null;
+    missingEnd = null;
+    missingCount = 0;
+  };
+  for (const bar of bars) {
+    const day = bar.date.slice(0, 10);
+    while (cursor < usable.length && usable[cursor]!.date <= day)
+      current = usable[cursor++];
+    if (!current) {
+      missingStart ??= day;
+      missingEnd = day;
+      missingCount++;
+      continue;
+    }
+    closeMissing(day);
+    evidence[bar.date] = {
+      date: bar.date,
+      availableDate: current.date,
+      availableAt: `${current.date}T15:00:00+08:00`,
+      source: "tdx-gbbq:floatSharesAfter",
+      floatShares: current.floatSharesAfter!,
+      volumeUnit: "share",
+    };
+  }
+  if (missingStart) closeMissing(missingEnd ?? missingStart);
+  const coveredDates = Object.keys(evidence).sort();
+  const coveredBars = coveredDates.length;
+  const missingBars = bars.length - coveredBars;
+  return {
+    evidence,
+    coverage: {
+      status:
+        coveredBars === 0
+          ? "missing"
+          : missingBars === 0
+            ? "available"
+            : "partial",
+      source: "tdx-gbbq",
+      coveredBars,
+      missingBars,
+      coveredStart: coveredDates[0] ?? null,
+      coveredEnd: coveredDates.at(-1) ?? null,
+      missingIntervals,
+      eventCount: usable.length,
+    },
+  };
+}
+
 export type AdjustFactor = {
   date: string;
   /** 后复权因子，上市首日为 1，此后只增不减。 */

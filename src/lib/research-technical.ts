@@ -10,6 +10,7 @@ import {
   volumeAdaptedDefinition,
   researchVolumeAdaptedSeries,
 } from "./research-volume-adapted";
+import type { VolumeEvidence } from "./research-volume-grid";
 import {
   indicatorCombinationIds,
   isIndicatorCombination,
@@ -303,9 +304,24 @@ export function technicalDecision(
 export function researchTechnicalSeries(
   id: TechnicalStrategyId,
   bars: readonly Bar[],
+  evidence: VolumeEvidence = {},
 ) {
   if (isVolumePollution(id)) return researchVolumePollutionSeries(id, bars);
-  if (isVolumeAdapted(id)) return researchVolumeAdaptedSeries(id, bars);
+  if (isVolumeAdapted(id))
+    return researchVolumeAdaptedSeries(
+      id,
+      bars,
+      Object.values(evidence).map((item) => ({
+        date: item.date,
+        availableDate: item.availableDate,
+        source: item.source,
+        floatShares: item.floatShares,
+        volumeUnit:
+          item.volumeUnit === "lot100"
+            ? ("hands" as const)
+            : ("shares" as const),
+      })),
+    );
   if (isIndicatorCombination(id))
     return researchIndicatorCombinationSeries(
       id,

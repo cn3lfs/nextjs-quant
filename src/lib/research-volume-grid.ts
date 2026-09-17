@@ -51,15 +51,17 @@ export function volumeGridDefinition(id: VolumeGridId) {
 export type VolumeDayEvidence = {
   date: string;
   availableDate: string;
+  /** Optional B6a timestamp; it must describe the event/effective day, not capture time. */
+  availableAt?: string;
   source: string;
   // Volume units are explicit; float is valid for this date only, never forward-filled.
   floatShares?: number;
   volumeUnit?: "share" | "lot100";
-  limit?: boolean;
-  corporateAction?: boolean;
-  suspension?: boolean;
-  resumption?: boolean;
-  etfFlow?: boolean;
+  limit?: boolean | null;
+  corporateAction?: boolean | null;
+  suspension?: boolean | null;
+  resumption?: boolean | null;
+  etfFlow?: boolean | null;
 };
 export type VolumeEvidence = Readonly<Record<string, VolumeDayEvidence>>;
 export type GridLocation =
@@ -122,6 +124,12 @@ function evidenceAt(bar: Bar, evidence: VolumeEvidence) {
     item.date === bar.date &&
     /^\d{4}-\d{2}-\d{2}$/.test(item.availableDate) &&
     item.availableDate <= bar.date &&
+    (item.availableAt === undefined ||
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(
+        item.availableAt,
+      )) &&
+    (item.availableAt === undefined ||
+      item.availableAt.slice(0, 10) >= item.availableDate) &&
     typeof item.source === "string" &&
     item.source.trim()
     ? item
