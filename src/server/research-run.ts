@@ -113,11 +113,8 @@ import {
 import { researchSignals } from "./research-signals";
 import { researchOutcomes } from "./research-outcomes";
 import { researchPortfolio } from "./research-portfolio";
-import { isOpening } from "~/lib/research-opening";
-import { isMarketAdmission } from "~/lib/research-market-admission";
-import { isIntradayExecution } from "~/lib/research-intraday-execution";
 import { researchHash, type ResearchDataset } from "./research-dataset";
-import { adjustmentFactors, applyAdjustment } from "./tdx-gbbq";
+import { prepareResearchAdjustedCoverage } from "./research-adjustment-coverage";
 import { validateResearchMethod } from "./research-method";
 import { isVolumeStrategy, volumeWarmupStart } from "~/lib/research-volume";
 import { isVolumeContext } from "~/lib/research-volume-context";
@@ -139,6 +136,12 @@ import {
   isVolumeReversal,
   volumeReversalWarmupStart,
 } from "~/lib/research-volume-reversals";
+import { buildResearchCompositeSpec } from "~/lib/research-composite-presets";
+
+/** Resolve a declared component×baseline preset before entering the shared engine. */
+export function buildNamedResearchSpec(id: string, base: ResearchSpec) {
+  return buildResearchCompositeSpec(id, base);
+}
 
 export async function runStrategyResearch(
   spec: ResearchSpec,
@@ -315,44 +318,32 @@ export async function runStrategyResearch(
     dataset.stocks.map((stock) => [stock.symbol, stock.bars]),
   );
   const eventSeries = new Map<string, Bar[]>();
+  const adjustedCoverage = new Set<string>();
+  const adjustedMinuteSeries = new Map<string, Bar[]>();
   for (const [index, stock] of dataset.stocks.entries()) {
     if (cancelled()) throw new Error("研究已取消");
     try {
-      if (
-        candle &&
-        stock.actions.some(
-          (action) =>
-            action.category === 1 &&
-            action.date >= candleStarts.get(stock.symbol)! &&
-            action.date <= spec.end,
-        )
-      )
-        throw new Error("K线形态窗口含除权事件，拒绝失真跳空与反转信号");
-      if (
-        volume &&
-        stock.actions.some(
-          (action) =>
-            action.category === 1 &&
-            action.date >= volumeStarts.get(stock.symbol)! &&
-            action.date <= spec.end,
-        )
-      )
-        throw new Error(
-          "量价窗口含除权事件，未实现对应量调整，拒绝使用失真量价信号",
-        );
+      const adjusted = prepareResearchAdjustedCoverage(
+        stock,
+        dataset.actionCoverage,
+      );
+      if (adjusted.status === "missing")
+        throw new Error(adjusted.reason ?? "复权覆盖缺失");
+      adjustedCoverage.add(stock.symbol);
+      adjustedMinuteSeries.set(stock.symbol, adjusted.minuteBars);
       const observed =
         spec.management?.growthIntraday === "SE-E-intraday50" ||
         spec.management?.growthIntraday === "SW02-last30"
           ? growthIntradayEntries(
               stock.symbol,
-              stock.bars,
-              stock.minuteBars ?? [],
+              adjusted.bars,
+              adjusted.minuteBars,
               dataset.calendar,
               spec,
             )
           : await researchSignals(
               stock.symbol,
-              stock.bars,
+              adjusted.bars,
               spec,
               czsc,
               cancelled,
@@ -361,7 +352,7 @@ export async function runStrategyResearch(
               dataset.calendar,
               dataset.canslimMarket,
               (row) => structureObservations.push(row),
-              stock.minuteBars,
+              adjusted.minuteBars,
               stock.volumeEvidence,
             );
       const accepted = cup
@@ -370,13 +361,8 @@ export async function runStrategyResearch(
             const reason =
               !start || start > event.observedDate
                 ? "杯柄事件缺少有效历史输入起点"
-                : stock.actions.some(
-                      (action) =>
-                        action.category === 1 &&
-                        action.date >= start &&
-                        action.date <= event.observedDate,
-                    )
-                  ? "杯柄选中形态窗口含除权事件"
+                : !adjustedCoverage.has(stock.symbol)
+                  ? "杯柄选中形态窗口复权覆盖缺失"
                   : null;
             if (reason) {
               exclusions.push({
@@ -389,18 +375,9 @@ export async function runStrategyResearch(
           })
         : observed;
       events.push(...accepted);
-      // Backward factors are append-stable. This is an adjusted price study,
-      // not the cash/share settlement path used for simulated transactions.
-      if (dataset.actionCoverage !== "missing")
-        eventSeries.set(
-          stock.symbol,
-          applyAdjustment(
-            stock.bars,
-            adjustmentFactors(stock.bars, stock.actions),
-            "backward",
-          ),
-        );
-      else eventSeries.set(stock.symbol, stock.bars);
+      // Signal/outcome prices are adjusted; the raw series above remains the
+      // execution source for the portfolio simulation.
+      eventSeries.set(stock.symbol, adjusted.bars);
     } catch (error) {
       if (cancelled()) throw error;
       // A rejected stock must not be recalculated by the portfolio's exit
@@ -436,67 +413,12 @@ export async function runStrategyResearch(
   const lookup = marketEvidence
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
-  const requiresActionPrefix =
-    isChanNative(spec.strategy) ||
-    isChanC4(spec.strategy) ||
-    (spec.management?.growthIntraday != null &&
-      (isOpening(spec.management.growthIntraday) ||
-        isMarketAdmission(spec.management.growthIntraday) ||
-        isIntradayExecution(spec.management.growthIntraday) ||
-        spec.management.growthIntraday === "SW02-last30")) ||
-    !!spec.stopDiagnosis ||
-    spec.management?.growthIntraday === "RK-C-swing-system" ||
-    spec.management?.trail.kind === "volatility" ||
-    !!spec.management?.riskPreset ||
-    spec.management?.contextRisk === "rk-sector-risk" ||
-    spec.management?.contextRisk === "rk-diversify";
-  const actionCovered = new Set(
-    dataset.stocks
-      .filter(
-        (stock) =>
-          !stock.actions.some(
-            (action) =>
-              action.date >=
-                (requiresActionPrefix
-                  ? (stock.bars[0]?.date ?? spec.start)
-                  : spec.start) &&
-              action.date <= spec.end &&
-              action.category === 1,
-          ) &&
-          marketEvidence?.corporateActionFree.some(
-            (coverage) =>
-              coverage.symbol === stock.symbol &&
-              coverage.start <=
-                (requiresActionPrefix
-                  ? (stock.bars[0]?.date ?? spec.start)
-                  : volume
-                    ? volumeStarts.get(stock.symbol)!
-                    : candle
-                      ? candleStarts.get(stock.symbol)!
-                      : spec.start) &&
-              coverage.end >= spec.end,
-          ),
-      )
-      .map((stock) => stock.symbol),
-  );
+  // A complete adjusted price series is the company-action admission gate.
+  // The execution rows are checked separately by researchEvidenceLookup;
+  // absence of those rows must remain a missing execution-evidence result.
+  const actionCovered = adjustedCoverage;
   const repairActionCovered =
-    !!spec.riskRepair &&
-    dataset.stocks.some(
-      (stock) =>
-        stock.symbol === spec.riskRepair!.symbol &&
-        !stock.actions.some(
-          (action) =>
-            action.category === 1 &&
-            action.date >= spec.riskRepair!.lots[0]!.date &&
-            action.date <= spec.end,
-        ) &&
-        !!marketEvidence?.corporateActionFree.some(
-          (coverage) =>
-            coverage.symbol === stock.symbol &&
-            coverage.start <= spec.riskRepair!.lots[0]!.date &&
-            coverage.end >= spec.end,
-        ),
-    );
+    !!spec.riskRepair && adjustedCoverage.has(spec.riskRepair!.symbol);
   const trainsAdmission = riskAdmissionNeedsTraining(
     spec.management?.riskPreset
       ? riskPresetAdmission(spec.management.riskPreset)
@@ -519,25 +441,17 @@ export async function runStrategyResearch(
       );
       // A later candidate may reach further into history. Check each event
       // independently so it cannot revoke an earlier event's valid coverage.
-      const transactionEvents =
-        cup && marketEvidence
-          ? partitionEvents.filter((event) => {
-              const covered =
-                event.historyStart &&
-                marketEvidence.corporateActionFree.some(
-                  (coverage) =>
-                    coverage.symbol === event.symbol &&
-                    coverage.start <= event.historyStart! &&
-                    coverage.end >= spec.end,
-                );
-              if (!covered)
-                exclusions.push({
-                  symbol: event.symbol,
-                  reason: `${event.observedDate}：杯柄交易模拟缺少形态窗口无公司行动证明，保留事件观察`,
-                });
-              return !!covered;
-            })
-          : partitionEvents;
+      const transactionEvents = cup
+        ? partitionEvents.filter((event) => {
+            const covered = adjustedCoverage.has(event.symbol);
+            if (!covered)
+              exclusions.push({
+                symbol: event.symbol,
+                reason: `${event.observedDate}：杯柄交易模拟缺少完整复权覆盖，保留事件观察`,
+              });
+            return covered;
+          })
+        : partitionEvents;
       const start =
         partition === "validation" ? spec.validationStart : spec.start;
       const beforeValidation =
@@ -583,7 +497,7 @@ export async function runStrategyResearch(
           transactionEvents,
           dataset.calendar,
           series,
-          new Map(dataset.stocks.map((s) => [s.symbol, s.minuteBars ?? []])),
+          adjustedMinuteSeries,
           (symbol, date) =>
             actionCovered.has(symbol) ? lookup(symbol, date) : null,
           simulation,
@@ -803,7 +717,7 @@ export async function runStrategyResearch(
                   : canslim
                     ? `CANSLIM${spec.strategy.includes("-saucer-") ? "碟形" : "平台"}价量交易需无公司行动证据覆盖研究期及前${canslimWarmup}根；${spec.strategy.endsWith("-hold3") ? "三日维持按研究日历对齐且每日最低价不低于原枢纽，第三日收盘确认。" : "直接突破版本未包含三日维持。"}固定持有期对照未包含完整财务、RS、M、催化或原文分批退出。成交价含滑点须在冻结枢纽至105%范围，越界取消。`
                     : breakout
-                      ? "双突破规则交易的无公司行动证据须覆盖研究期及前60根；复用原趋势线与价位，辅助指标不替代三要素，完整原文仓位和来源排序另列。"
+                      ? "双突破信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。"
                       : channel
                         ? `通道形态交易的无公司行动证据须覆盖研究期及前${channelWarmupBars(channel)}根预热；拟合及触边阈值是工程对照，不证明趋势延续或真实盈利。`
                         : "K线形态交易的无公司行动证据须覆盖研究期及前11根预热；几何定义和三根方向背景是工程对照，不能证明趋势末端或真实盈利。",
@@ -811,7 +725,7 @@ export async function runStrategyResearch(
         : []),
       ...(volume
         ? [
-            `量价交易的无公司行动证据须覆盖研究期、候选等待及预热（至少向前${structure ? 90 : reversal ? 81 : 71}根价格，并覆盖候选形成前${structure || reversal ? 60 : 20}个有效量能记录）；含已知除权的窗口不计算信号。未核验大宗、指数调整、尾盘量能、历史流通盘等污染，固定阈值仅为工程对照。`,
+            `量价信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。未核验大宗、指数调整、尾盘量能、历史流通盘等污染，固定阈值仅为工程对照。`,
           ]
         : []),
       ...(!dataset.method
@@ -819,9 +733,11 @@ export async function runStrategyResearch(
         : []),
       dataset.membership.warning,
       dataset.actionCoverage === "missing"
-        ? "缺少公司行动文件，事件收益为未复权价格观察"
-        : "事件收益使用当前文件的后复权因子，公司行动历史覆盖仍不完整",
-      "事件观察不等于可成交收益；公司行动无覆盖或存在除权事件的股票不进入交易模拟",
+        ? "缺少公司行动文件，复权信号与交易模拟均保留missing，不用当前因子回填历史"
+        : `信号使用后复权、成交使用原始价；复权覆盖完整 ${adjustedCoverage.size}/${dataset.stocks.length} 只，交易模拟仅准入这些证券`,
+      marketEvidence
+        ? `交易规则证据行 ${marketEvidence.rows.length} 条；缺行时保留“缺少当日交易限制依据”，不把信号观察计为成交`
+        : "未提供交易规则证据，交易模拟保留missing",
       "导入的历史交易条件是外部来源断言，并未由程序独立验证；费用是固定实验参数",
       "开发期与验证期的资金分别从初始资金开始，跨区间未平仓保留；开发期跨入验证期的事件收益不计入开发期统计",
     ],

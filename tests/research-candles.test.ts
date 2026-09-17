@@ -294,7 +294,9 @@ it("requires prehistory action evidence and rejects known ex-rights in the compl
     native,
   );
   expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(short.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = await runStrategyResearch(
     spec,
     {
@@ -314,6 +316,8 @@ it("requires prehistory action evidence and rejects known ex-rights in the compl
     evidence,
     native,
   );
-  expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("K线形态窗口含除权");
+  expect(split.events.length).toBeGreaterThan(0);
+  expect(split.warnings.some((warning) => warning.includes("后复权"))).toBe(
+    true,
+  );
 });

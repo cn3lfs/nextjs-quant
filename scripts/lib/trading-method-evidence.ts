@@ -3,6 +3,7 @@ import { basename, dirname, relative, resolve } from "node:path";
 import ts from "typescript";
 import type { z } from "zod";
 import { tradingMethodMapSchema } from "./trading-method-map";
+import { researchCompositePresetIds } from "../../src/lib/research-composite-presets";
 
 export type MethodMap = z.infer<typeof tradingMethodMapSchema>;
 export type MethodEvidence = {
@@ -174,7 +175,14 @@ export function collectMethodEvidence(
     exports,
     tests,
     owners: new Map(
-      families.flatMap((f) => f.ids.map((id) => [id, f.file] as const)),
+      [
+        ...families.flatMap((f) =>
+          f.ids.map((id) => [id, f.file] as const),
+        ),
+        ...researchCompositePresetIds.map(
+          (id) => [id, "src/lib/research-composite-presets.ts"] as const,
+        ),
+      ],
     ),
   };
 }
@@ -248,6 +256,16 @@ export function reconcileMethodEvidence(
         )
           discovered.push(test);
       }
+    if (
+      bindings.presets.length &&
+      owners.includes("src/lib/research-composite-presets.ts") &&
+      evidence.tests.has("tests/research-composite-presets.test.ts") &&
+      reaches(
+        "tests/research-composite-presets.test.ts",
+        "src/lib/research-composite-presets.ts",
+      )
+    )
+      discovered.push("tests/research-composite-presets.test.ts");
     for (const test of method.tests)
       if (!evidence.tests.has(test))
         errors.push(`${method.id}: declared test missing/empty: ${test}`);

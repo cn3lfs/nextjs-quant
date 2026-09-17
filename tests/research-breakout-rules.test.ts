@@ -263,7 +263,9 @@ it("requires sixty preceding bars of action evidence in the full runner", async 
   expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
     bars[183]!.date,
   );
-  expect(result.warnings[0]).toContain("前60根");
+  expect(result.warnings).toContain(
+    "双突破信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。",
+  );
   const short = await runStrategyResearch(
     spec,
     dataset,
@@ -277,7 +279,9 @@ it("requires sixty preceding bars of action evidence in the full runner", async 
     native,
   );
   expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(short.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = await runStrategyResearch(
     spec,
     {
@@ -297,6 +301,8 @@ it("requires sixty preceding bars of action evidence in the full runner", async 
     evidence,
     native,
   );
-  expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("K线形态窗口含除权");
+  expect(split.events.length).toBeGreaterThan(0);
+  expect(split.warnings).toContain(
+    "双突破信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。",
+  );
 });

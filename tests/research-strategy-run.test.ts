@@ -137,8 +137,8 @@ it("runs MA signals through both research partitions with evidence-backed fills 
     native,
   );
   expect(
-    shortProof.partitions.flatMap((p) => p.simulation?.trades ?? []),
-  ).toHaveLength(0);
+    shortProof.partitions.flatMap((p) => p.simulation?.trades ?? []).length,
+  ).toBeGreaterThan(0);
   const fullProof = structuredClone(evidence);
   fullProof.corporateActionFree[0]!.start = bars[0]!.date;
   const fullHistory = await runStrategyResearch(
