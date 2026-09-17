@@ -1,5 +1,11 @@
 import { isChanC4 } from "~/lib/research-chan-movements";
 import { researchChanMonthlyInput } from "./research-chan-monthly";
+import { researchK13Report, type K13ReportInput } from "~/lib/research-k13";
+
+export function runK13Review(input: K13ReportInput) {
+  return researchK13Report(input);
+}
+
 export async function runChanMonthlyInput(
   ...args: Parameters<typeof researchChanMonthlyInput>
 ) {

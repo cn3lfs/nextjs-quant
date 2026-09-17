@@ -833,3 +833,11 @@ kelly.py全文补7项并记录单位、别名、目标b/实测b、提示未执�
 - CH06/08/09/13/18具名规则、正反例、disabled预设及读取契约已准备；K6仍5项planned，未验证路径不升状态。
 - 0–58仅作变更隔离，原文仍是正确性权威；59–99保持语义，分组延伸登记revision，不回填首见。
 - 原生构建/自检执行/新DLL验证/vendor替换由管理者完成；真实TS gates及nextStart见`.codex-runs/delivery.json`，未提交/推送/打包。
+
+## K13 统一回测与结论（2026-09-17）
+
+- 完成 `SW-P-review`、`RK-MAE-q80`、`RK-MAE-q90`、`RK-MAE-q50`、`RK-MAE-q100`、`RK-MAE-widen-resize`、`RK-MAE-tighten-resize`、`RK-MAE-overlap`、`RK-MAE-mfe-tail`、`RK-MAE-regime`、`RK-MAE-cycle100`、`RK-MAE-emotion20` 共12项，全部登记为 `implemented-variant`。方法审计实际输出 total 695 / implemented 22 / implemented-variant 673 / planned 0，K13 planned 0，errors=[]。
+- 新增共享 K13 统一回测/复盘契约：同证券池、可知时点、区间、公司行动、成本、现金和成交规则；保留现金、买入持有、既有双突破和均线基线；信号与交易指标分开，原始/共同可用样本分开。预先登记 q50/q80/q90/q100、放宽/收紧、重叠、MFE、regime、cycle100、emotion20 网格。
+- q80/q90 仅消费同策略同周期已闭合训练样本且至少100笔，参数只供下一批；q50/q100和MFE反例保留；重叠不升级为普遍无效；MFE不自动归因；cycle100保留少于50及50–99门槛；emotion20缺失原因不填非情绪。没有可证明的统一历史输入，因此12项结果标签均为“数据不足”，未把固定输入验证写成真实业绩。
+- L3按顺序 `normalize:eol` 0（无CRLF残留）→ `verify:batch` 0：455文件通过、16跳过，9673项通过、27跳过、0失败，648.86秒；build/typecheck/来源与方法审计/format/diff均0。显式触及文件的Prettier检查和git diff --check均0。Playwright因沙箱写入 `%LOCALAPPDATA%\\ms-playwright` 的EPERM跳过，交由管理者补跑。
+- 缺口保持可见：历史时点证券池、公司行动/逐日事件、流通股本与 `volumeUnit`、板块成分、真实退出原因、regime字段、共同入场及两组MFE替代回测输入不足；财务披露日/修订可知时间字段为0。未提交、推送、打包、访问生产库、连接付费数据或外发。

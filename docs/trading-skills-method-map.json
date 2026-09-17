@@ -14644,10 +14644,24 @@
         "swing-trader/references/position-management.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "§6.2/6.3：记录入场/止损/目标/技术理由/人工情绪及计划实际差异，统计胜率、收益风险、回撤、连亏、月收益；研究组件服务策略，不造恒定交易预设。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "§6.2/6.3：记录入场/止损/目标/技术理由/人工情绪及计划实际差异，统计胜率、收益风险、回撤、连亏、月收益；研究组件服务策略，不造恒定交易预设。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13Review"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-V2-mid",
@@ -15347,10 +15361,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "至少100笔同策略同周期已闭合训练样本，盈利子集MAE以百分比或入场ATR归一，80分位冻结用于下一批。不可用本次结果回调本次止损。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "至少100笔同策略同周期已闭合训练样本，盈利子集MAE以百分比或入场ATR归一，80分位冻结用于下一批。不可用本次结果回调本次止损。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13MaeQuantile"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-q90",
@@ -15360,10 +15388,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "90分位独立对照80分位；冻结分位算法、有效样本数与策略版本，盈利样本不足保留不可用。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "90分位独立对照80分位；冻结分位算法、有效样本数与策略版本，盈利样本不足保留不可用。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13MaeQuantile"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-q50",
@@ -15373,10 +15415,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文指出会误伤盈利交易的紧止损反例，也保留为实验预设；不因预计较差删除。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "原文指出会误伤盈利交易的紧止损反例，也保留为实验预设；不因预计较差删除。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13MaeQuantile"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-q100",
@@ -15386,10 +15442,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文指出止损过宽的反例，保留最大值对照并同步按风险预算缩仓，不能承诺样本外不误伤。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "原文指出止损过宽的反例，保留最大值对照并同步按风险预算缩仓，不能承诺样本外不误伤。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13MaeQuantile"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-widen-resize",
@@ -15400,10 +15470,24 @@
         "stop-loss/references/position-sizing.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文-1R出局后回到+2R需退出后观察窗口，不能从持仓期MAE臆测；新参数只能用于下一批，同风险缩仓。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "原文-1R出局后回到+2R需退出后观察窗口，不能从持仓期MAE臆测；新参数只能用于下一批，同风险缩仓。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13WidenResize"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-tighten-resize",
@@ -15413,10 +15497,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "近零阈值工程定义，收紧和增仓仍受单股/总仓/容量上限；使用训练子集，避免结果驱动同次回测。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "近零阈值工程定义，收紧和增仓仍受单股/总仓/容量上限；使用训练子集，避免结果驱动同次回测。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13TightenResize"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-overlap",
@@ -15427,10 +15525,24 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文称无区分度即策略无边际，实施仅记录样本证据不足以区分，不把分布重叠升级成普遍无效证明；冻结重叠统计与版本。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "原文称无区分度即策略无边际，实施仅记录样本证据不足以区分，不把分布重叠升级成普遍无效证明；冻结重叠统计与版本。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13Overlap"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-mfe-tail",
@@ -15440,10 +15552,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原文MFE远大于最终收益却归因为止盈/移动线太紧，因果不充分；保留观察并分别回测吊灯与回撤止损，不自动断言成因。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "原文MFE远大于最终收益却归因为止盈/移动线太紧，因果不充分；保留观察并分别回测吊灯与回撤止损，不自动断言成因。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13MfeTail"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-regime",
@@ -15453,10 +15579,24 @@
         "stop-loss/references/mae-validation.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "ATR分位与指数趋势分组仅用当时训练数据；样本不足不借其他市场状态填补，分组标准冻结。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "ATR分位与指数趋势分组仅用当时训练数据；样本不足不借其他市场状态填补，分组标准冻结。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13Regime"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-cycle100",
@@ -15470,10 +15610,24 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "策略变更旧样本失效，按同策略版本顺序训练再下一批验证；少于50笔不出统计结论，50至99笔也未满足100笔校准门槛。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "策略变更旧样本失效，按同策略版本顺序训练再下一批验证；少于50笔不出统计结论，50至99笔也未满足100笔校准门槛。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13Cycle100"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-MAE-emotion20",
@@ -15484,10 +15638,24 @@
         "stop-loss/references/pitfalls.md"
       ],
       "review": "reviewed",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "需要真实退出原因分类，缺失不能填非情绪；超过20%仅为原文纪律假设，不能由自动策略无情绪标签认定通过。"
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-k13.ts"
+      ],
+      "tests": [
+        "tests/research-k13.test.ts"
+      ],
+      "boundary": "需要真实退出原因分类，缺失不能填非情绪；超过20%仅为原文纪律假设，不能由自动策略无情绪标签认定通过。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-k13.ts",
+            "name": "researchK13Emotion20"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "RK-C-risk-tiers",
