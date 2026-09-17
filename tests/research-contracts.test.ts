@@ -1,3 +1,4 @@
+import { chanC4Ids } from "../src/lib/research-chan-movements";
 import {
   chanNativeIds,
   isChanZhongyin,
@@ -36,7 +37,7 @@ import {
 
 export const structureExceptions = {
   ...Object.fromEntries(
-    chanNativeIds.map((id) => [
+    [...chanNativeIds, ...chanC4Ids].map((id) => [
       id,
       "原生具名变体沿用逐前缀协议；结构语义由原文及家族正反例核对，DLL golden仅为变更隔离信号",
     ]),
@@ -47,7 +48,7 @@ export const structureExceptions = {
 };
 const native = async (
   bars: readonly Bar[],
-  anchor?: 1 | 2,
+  anchor?: 1 | 2 | 3,
 ): Promise<CzscResult> => ({
   status: "structure",
   hash: "contract",
@@ -63,6 +64,15 @@ const native = async (
               trends: [],
               highCandidates: [],
               completedSequence: "unavailable" as const,
+              recursiveMovements: {
+                version: "native-movements-c4-1" as const,
+                anchor,
+                config: 0 as const,
+                centers: [],
+                movements: [],
+                connections: [],
+                associations: [],
+              },
               recursive: {
                 anchor,
                 config: 0 as const,
@@ -187,7 +197,7 @@ describe.each(researchStrategyIds)("registered contracts: %s", (id) => {
           ? 67
           : 85,
   );
-  if (isChanZhongyin(id))
+  if (isChanZhongyin(id) || isChanFiveMinute(id))
     for (const bar of bars) bar.date = bar.date.replace("2023-", "2020-");
   const first = bars.length - 5;
   const spec = researchSpecSchema.parse({

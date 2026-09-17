@@ -198,7 +198,7 @@ it("locked real DLL fixture proves third-buy ownership; this fixture has no firs
   }));
   const result = await analyzeCzsc(b, true);
   expect(result.hash).toBe(
-    "62dfbf28e407ab195d01193ca59419a32722217fcbe3da8251adff5e5107a6de",
+    "7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457",
   );
   for (const id of chanNativeIds) {
     const selected = chanNativeCandidates(id, result, b, 0);

@@ -3,7 +3,7 @@ import type { CzscFamily, CzscResult } from "./czsc";
 import type { ChanMovement, CzscMovements } from "./czsc-movements";
 import { chanStructureCriterion } from "./research-chan-criteria";
 
-/** Deliberately NOT merged into the live strategy registry before real DLL acceptance. */
+/** C5: real DLL prefix/anchor acceptance precedes registration. */
 export const chanC4Presets = [
   {
     method: "CH06",
@@ -61,16 +61,16 @@ export const chanC4Presets = [
   )
   .map((p) => ({
     ...p,
-    status: "planned" as const,
-    enabled: false as const,
-    validation: "awaiting-real-dll" as const,
+    status: "implemented-variant" as const,
+    enabled: true as const,
+    validation: "real-dll-prefix-verified" as const,
     observation: "full-prefix-first-seen" as const,
     execution:
       "下一合法日线开盘；只退出已有多仓，复用T+1/受阻重试/固定持有期保护",
   }));
 
 export const chanC4Boundary =
-  "第17/18/20/33课：maximal-same-direction-centers-v1；相对级别不映射钟表周期。100–108是独立快照，97保持原语义、108逐成员验证后解析级别。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。规则与预设待真实DLL验证，未加入线上注册表。";
+  "第17/18/20/33课：maximal-same-direction-centers-v1；相对级别不映射钟表周期。100–108是独立快照，97保持原语义、108逐成员验证后解析级别。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。建立在未经验证的基线上（旧笔/线段/动力学）；真实DLL接线验证不认证旧算法。三锚分开统计、不同表比较；五分钟2000-01-04..2022-11-30，月线仅用完整月历聚合。候选、确认、revision分别留痕。";
 type Signal = CzscFamily["signals"][number];
 type Verdict = {
   status: "matched" | "not-matched" | "missing";
@@ -330,10 +330,11 @@ export function chanC4SmallTurn(
     !reference ||
     reference.completed === null ||
     reference.type !== -1 ||
-    !last.children.includes(reference.id) ||
+    reference.start < last.centerEnd ||
     reference.id !== refs.thirdBuyMovementId ||
     !small ||
     small.level >= trend.level ||
+    small.start < reference.end ||
     !down ||
     down.completed === null ||
     down.type !== -1 ||
@@ -465,3 +466,50 @@ export function chanC4Observations(inputVersion: string) {
     ];
   };
 }
+
+export type ChanC4Id =
+  | "chan-trend-completed-daily-c4"
+  | "chan-trend-completed-five-c4"
+  | "chan-same-level-daily-c4"
+  | "chan-same-level-five-c4"
+  | "chan-down-consolidation-down-daily-c4"
+  | "chan-down-consolidation-down-five-c4"
+  | "chan-small-turn-pullback-daily-c4"
+  | "chan-small-turn-pullback-five-c4"
+  | "chan-bottom-monthly-c4";
+export const chanC4Ids = chanC4Presets.map((p) => p.id) as ChanC4Id[];
+export const isChanC4 = (id: string) => chanC4Ids.includes(id as ChanC4Id);
+const methodLabels: Record<string, string> = {
+  CH06: "完成趋势背驰",
+  CH08: "同级别分解持有",
+  CH09: "下跌盘整下跌后反弹退出",
+  CH13: "月线底部构造",
+  "CH18-small-to-large": "小转大必要条件回抽退出",
+};
+export const chanC4Strategies = Object.fromEntries(
+  chanC4Presets.map((p) => [
+    p.id,
+    {
+      label: `缠论 · ${methodLabels[p.method]} · ${p.anchor === 1 ? "日线锚" : p.anchor === 2 ? "五分钟锚" : "月线锚"}`,
+      family: `缠论${p.anchor === 1 ? "日线" : p.anchor === 2 ? "五分钟" : "月线"}锚`,
+      signal: "czsc" as const,
+      version: `${p.id}-engineering-1`,
+      description: `${p.method} 第${p.lessons.join("/")}课 ${p.rule}；${chanC4Boundary} ${p.execution}。CH08持有上涨/盘整、CH09完成反弹退出分名；CH18采用已验证三买为入场基线；回抽仅采用104上涨类型确立证据，较原文任何向上回抽更严格，只称操作子集并退出已有多仓。`,
+      sources: [
+        "chan-theory/SKILL.md",
+        "chan-theory/references/04-dynamics.md",
+        "chan-theory/references/06-strategy.md",
+      ],
+    },
+  ]),
+) as Record<
+  ChanC4Id,
+  {
+    label: string;
+    family: string;
+    signal: "czsc";
+    version: string;
+    description: string;
+    sources: string[];
+  }
+>;

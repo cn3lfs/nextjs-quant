@@ -1,3 +1,5 @@
+import { isChanC4 } from "~/lib/research-chan-movements";
+import { researchChanMovements } from "./research-chan-movements";
 import { researchChanZhongyin } from "./research-chan-zhongyin";
 import { isChanZhongyin } from "~/lib/research-chan-native";
 import {
@@ -55,7 +57,7 @@ export async function researchSignals(
   symbol: string,
   bars: readonly Bar[],
   spec: ResearchSpec,
-  czsc: (bars: readonly Bar[], anchor?: 1 | 2) => Promise<CzscResult>,
+  czsc: (bars: readonly Bar[], anchor?: 1 | 2 | 3) => Promise<CzscResult>,
   cancelled: () => boolean = () => false,
   progress: (date: string) => void = () => {},
   calendar: readonly string[] = bars.map((bar) => bar.date),
@@ -77,6 +79,18 @@ export async function researchSignals(
   )
     throw new Error(
       "小时研究窗口必须在2000-01-04至2022-11-30内；不得混用日线区间",
+    );
+  if (isChanC4(spec.strategy))
+    return researchChanMovements(
+      symbol,
+      bars,
+      minuteBars,
+      spec,
+      czsc,
+      calendar,
+      cancelled,
+      progress,
+      recordStructure,
     );
   if (isChanZhongyin(spec.strategy))
     return researchChanZhongyin(

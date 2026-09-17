@@ -2,6 +2,15 @@
 
 对应[计划](trading-skills-strategy-plan.md)，目标保持全部有思路的方法策略化；本文件区分代码、数据与回测进度。
 
+## C5 最后五项（2026-09-17，方法收口、浏览器待补）
+
+- CH06/CH08/CH09/CH18-small-to-large/CH13接入9预设；审计22 implemented / 661 variant / 12 planned，K6 planned 0。
+- 三锚450前缀/900表与正反例通过；108各锚unknown98/verified0，固定正例非真实关联成立率；三锚分表，分钟窗口2000-01-04..2022-11-30。
+- 原生基线未经验证；MACD百分比、CH18回试成员引用纠正及较严格回抽子集、CH08/09退出分名见decisions；月线完整日历与monthlyBars复用。
+- 家族17文件5654通过；L3 verify:batch=0，454文件9658通过/27跳过/0失败，543.39秒，build/runtime/审计/格式与diff通过。
+- Playwright两次启动均EPERM、退出1、交互0；须在可写浏览器服务缓存环境补验9预设/月线入口/窄屏，代码未变不重复全量。
+- 无真实历史回测、提交、推送、打包或原生算法改动；完整计数、三锚范围条件、冲突及nextStart见`.codex-runs/delivery.json`。
+
 ## C2 原生投影接线（2026-09-17，源码交付、浏览器验收待补）
 
 - CH07/CH12新增2个工程版本；审计总表22 implemented / 654 variant / 19 planned，errors=[]。

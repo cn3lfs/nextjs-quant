@@ -36,7 +36,7 @@ it("real DLL extended projection decoding preserves old signal identity and nati
   ).toBe(true);
   const full = await analyzeCzsc(bars, true, projectCzsc, true);
   expect(full.hash).toBe(
-    "62dfbf28e407ab195d01193ca59419a32722217fcbe3da8251adff5e5107a6de",
+    "7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457",
   );
   for (const [i, f] of full.families.entries()) {
     expect(

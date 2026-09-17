@@ -1,3 +1,4 @@
+import { isChanC4 } from "~/lib/research-chan-movements";
 import { researchChanMonthlyInput } from "./research-chan-monthly";
 export async function runChanMonthlyInput(
   ...args: Parameters<typeof researchChanMonthlyInput>
@@ -131,7 +132,7 @@ export async function runStrategyResearch(
   spec: ResearchSpec,
   dataset: ResearchDataset,
   marketEvidence: ResearchMarketEvidence | null,
-  czsc: (bars: readonly Bar[], anchor?: 1 | 2) => Promise<CzscResult>,
+  czsc: (bars: readonly Bar[], anchor?: 1 | 2 | 3) => Promise<CzscResult>,
   cancelled: () => boolean = () => false,
   progress: (
     symbol: string,
@@ -424,6 +425,7 @@ export async function runStrategyResearch(
     : () => null;
   const requiresActionPrefix =
     isChanNative(spec.strategy) ||
+    isChanC4(spec.strategy) ||
     (spec.management?.growthIntraday != null &&
       (isOpening(spec.management.growthIntraday) ||
         isMarketAdmission(spec.management.growthIntraday) ||
@@ -662,7 +664,8 @@ export async function runStrategyResearch(
     ...(isWyckoff(spec.strategy) ||
     isWyckoffHourly(spec.strategy) ||
     isWyckoffVsa(spec.strategy) ||
-    isChanNative(spec.strategy)
+    isChanNative(spec.strategy) ||
+    isChanC4(spec.strategy)
       ? {
           structureObservations: structureObservations.sort(
             (a, b) =>

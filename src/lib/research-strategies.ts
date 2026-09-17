@@ -1,3 +1,4 @@
+import { chanC4Strategies, chanC4Ids } from "./research-chan-movements";
 import {
   wyckoffHourlyStrategies,
   wyckoffHourlyIds,
@@ -53,6 +54,11 @@ import {
 
 // Only executable families belong here. Definitions drive form options and method snapshots.
 export const researchStrategyFamilies = [
+  {
+    file: "src/lib/research-chan-movements.ts",
+    strategies: chanC4Strategies,
+    ids: chanC4Ids,
+  },
   {
     file: "src/lib/research-wyckoff-hourly.ts",
     strategies: wyckoffHourlyStrategies,

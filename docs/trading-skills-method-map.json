@@ -2026,11 +2026,34 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH06-native-trend-centers：缺走势28对应完整两中枢成员列表、级别与完成状态；trendId不是可访问的走势数组。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。 C4-native：100–108独立递归多中枢/连接/逐成员关联及monthly-anchor-v1源码已交付；src/lib/research-chan-movements.ts具名规则、正反例及disabled预设骨架已就绪。读取先验100=4，映射未知不提升级别，97原义保持。原生未构建，真实DLL路径与分组修订待验证，仍planned，不登记线上方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-movements.ts",
+        "src/server/research-chan-movements.ts"
+      ],
+      "tests": [
+        "tests/research-chan-movements.test.ts",
+        "tests/research-chan-movements-execution.test.ts",
+        "tests/czsc-movements-native.test.ts",
+        "tests/czsc-movements.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第17/24/27课：108逐成员映射完成多枢同级趋势、原生A/C端点、新极值与0<MACD面积百分比<100共同证明。 具名分解maximal-same-direction-centers-v1仅合法多解之一；全前缀冻结候选/确认首见，revision不回填。daily-anchor-v1、five-minute-anchor-v1、monthly-anchor-v1独立统计/不同表比较；五分钟仅2000-01-04..2022-11-30，日/月区间取真实完整输入覆盖交集。建立在未经验证的基线上（旧笔/线段/中枢/动力学），真实DLL接线验证及0–58变更隔离均不是原文正确性或收益证明。下一合法日线开盘、T+1/受阻重试和固定持有保护沿用共享执行器。",
+      "bindings": {
+        "presets": [
+          "chan-trend-completed-daily-c4",
+          "chan-trend-completed-five-c4"
+        ],
+        "exports": [
+          {
+            "file": "src/server/research-chan-movements.ts",
+            "name": "researchChanMovements"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH07",
@@ -2067,11 +2090,34 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH08-native-completed-movements：缺已完成同级别走势序列、连接边界及级别；output23只为胜出信号所属方向。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。 C4-native：100–108独立递归多中枢/连接/逐成员关联及monthly-anchor-v1源码已交付；src/lib/research-chan-movements.ts具名规则、正反例及disabled预设骨架已就绪。读取先验100=4，映射未知不提升级别，97原义保持。原生未构建，真实DLL路径与分组修订待验证，仍planned，不登记线上方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-movements.ts",
+        "src/server/research-chan-movements.ts"
+      ],
+      "tests": [
+        "tests/research-chan-movements.test.ts",
+        "tests/research-chan-movements-execution.test.ts",
+        "tests/czsc-movements-native.test.ts",
+        "tests/czsc-movements.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第17/33/38课：显式同级完成后继链下跌-盘整-下跌一买；上涨/盘整持有，下跌完成退出。 具名分解maximal-same-direction-centers-v1仅合法多解之一；全前缀冻结候选/确认首见，revision不回填。daily-anchor-v1、five-minute-anchor-v1、monthly-anchor-v1独立统计/不同表比较；五分钟仅2000-01-04..2022-11-30，日/月区间取真实完整输入覆盖交集。建立在未经验证的基线上（旧笔/线段/中枢/动力学），真实DLL接线验证及0–58变更隔离均不是原文正确性或收益证明。下一合法日线开盘、T+1/受阻重试和固定持有保护沿用共享执行器。",
+      "bindings": {
+        "presets": [
+          "chan-same-level-daily-c4",
+          "chan-same-level-five-c4"
+        ],
+        "exports": [
+          {
+            "file": "src/server/research-chan-movements.ts",
+            "name": "researchChanMovements"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH09",
@@ -2080,11 +2126,34 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH09-native-down-up：依赖CH08完整走势连接，缺下跌-盘整-下跌到上涨/盘整退出的完成证明。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。 C4-native：100–108独立递归多中枢/连接/逐成员关联及monthly-anchor-v1源码已交付；src/lib/research-chan-movements.ts具名规则、正反例及disabled预设骨架已就绪。读取先验100=4，映射未知不提升级别，97原义保持。原生未构建，真实DLL路径与分组修订待验证，仍planned，不登记线上方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-movements.ts",
+        "src/server/research-chan-movements.ts"
+      ],
+      "tests": [
+        "tests/research-chan-movements.test.ts",
+        "tests/research-chan-movements-execution.test.ts",
+        "tests/czsc-movements-native.test.ts",
+        "tests/czsc-movements.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第16/17课：共享下跌-盘整-下跌一买，首次完成盘整或上涨反弹退出，和CH08持有版本分名。 具名分解maximal-same-direction-centers-v1仅合法多解之一；全前缀冻结候选/确认首见，revision不回填。daily-anchor-v1、five-minute-anchor-v1、monthly-anchor-v1独立统计/不同表比较；五分钟仅2000-01-04..2022-11-30，日/月区间取真实完整输入覆盖交集。建立在未经验证的基线上（旧笔/线段/中枢/动力学），真实DLL接线验证及0–58变更隔离均不是原文正确性或收益证明。下一合法日线开盘、T+1/受阻重试和固定持有保护沿用共享执行器。",
+      "bindings": {
+        "presets": [
+          "chan-down-consolidation-down-daily-c4",
+          "chan-down-consolidation-down-five-c4"
+        ],
+        "exports": [
+          {
+            "file": "src/server/research-chan-movements.ts",
+            "name": "researchChanMovements"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH10",
@@ -2179,11 +2248,34 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "周期输入及原生结构缺口 CH13-monthly-bottom：缺完整月线已完成周期输入，本轮禁止新通道；月线背驰后至首次三类点需趋势成员/完成证明（CH06），周线不能代替月线。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。 C4-native：100–108独立递归多中枢/连接/逐成员关联及monthly-anchor-v1源码已交付；src/lib/research-chan-movements.ts具名规则、正反例及disabled预设骨架已就绪。读取先验100=4，映射未知不提升级别，97原义保持。原生未构建，真实DLL路径与分组修订待验证，仍planned，不登记线上方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-movements.ts",
+        "src/server/research-chan-movements.ts"
+      ],
+      "tests": [
+        "tests/research-chan-movements.test.ts",
+        "tests/research-chan-movements-execution.test.ts",
+        "tests/czsc-movements-native.test.ts",
+        "tests/czsc-movements.test.ts",
+        "tests/research-chan-monthly.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第108课monthly-anchor-v1；复用monthlyBars完整交易月/当时已知日历/原始日线证据，月线下跌背驰至显式后继中枢首次三类点退出。周线不得替代月线，缺月/迟到日历missing。 具名分解maximal-same-direction-centers-v1仅合法多解之一；全前缀冻结候选/确认首见，revision不回填。daily-anchor-v1、five-minute-anchor-v1、monthly-anchor-v1独立统计/不同表比较；五分钟仅2000-01-04..2022-11-30，日/月区间取真实完整输入覆盖交集。建立在未经验证的基线上（旧笔/线段/中枢/动力学），真实DLL接线验证及0–58变更隔离均不是原文正确性或收益证明。下一合法日线开盘、T+1/受阻重试和固定持有保护沿用共享执行器。",
+      "bindings": {
+        "presets": [
+          "chan-bottom-monthly-c4"
+        ],
+        "exports": [
+          {
+            "file": "src/server/research-chan-movements.ts",
+            "name": "researchChanMovements"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH14",
@@ -5033,11 +5125,34 @@
       "sources": [
         "chan-theory/references/04-dynamics.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH18-native-retest-movement：38/39/42证明小转大必要三类关联，但未证明原文前趋势最后中枢的次级别完整走势类型及后续下跌/回抽连接；缺该回抽退出边界的级别与走势完成证明，semantic=3不作充分条件。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。 C4-native：100–108独立递归多中枢/连接/逐成员关联及monthly-anchor-v1源码已交付；src/lib/research-chan-movements.ts具名规则、正反例及disabled预设骨架已就绪。读取先验100=4，映射未知不提升级别，97原义保持。原生未构建，真实DLL路径与分组修订待验证，仍planned，不登记线上方法完成。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-movements.ts",
+        "src/server/research-chan-movements.ts"
+      ],
+      "tests": [
+        "tests/research-chan-movements.test.ts",
+        "tests/research-chan-movements-execution.test.ts",
+        "tests/czsc-movements-native.test.ts",
+        "tests/czsc-movements.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第43/44课：已关联三买入场基线；原三买向下回试段不属于中枢内部子成员，按108最后中枢及原生端点精确匹配完整次级段。小顶背驰后显式后继下跌严格跌破原段高点，向上回抽退出已有多仓；仅必要条件/应对规则，不称充分反转。 具名分解maximal-same-direction-centers-v1仅合法多解之一；全前缀冻结候选/确认首见，revision不回填。daily-anchor-v1、five-minute-anchor-v1、monthly-anchor-v1独立统计/不同表比较；五分钟仅2000-01-04..2022-11-30，日/月区间取真实完整输入覆盖交集。建立在未经验证的基线上（旧笔/线段/中枢/动力学），真实DLL接线验证及0–58变更隔离均不是原文正确性或收益证明。下一合法日线开盘、T+1/受阻重试和固定持有保护沿用共享执行器。 回抽仅以104上涨类型确立确认，较第44课任何向上回抽更严格，是有遗漏的操作子集，非完整原文。",
+      "bindings": {
+        "presets": [
+          "chan-small-turn-pullback-daily-c4",
+          "chan-small-turn-pullback-five-c4"
+        ],
+        "exports": [
+          {
+            "file": "src/server/research-chan-movements.ts",
+            "name": "researchChanMovements"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "SE05-weekly-ma",

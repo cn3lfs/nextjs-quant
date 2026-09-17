@@ -131,7 +131,8 @@ export function applyResearchManagement(
     delete next.wyckoffHourlyInputs;
   if (
     !isWyckoffStructure(next.strategy) &&
-    next.strategy !== "chan-consolidation-weekly-native"
+    next.strategy !== "chan-consolidation-weekly-native" &&
+    next.strategy !== "chan-bottom-monthly-c4"
   )
     delete next.wyckoffStructureInputs;
   if (!isWyckoffVsa(next.strategy)) delete next.wyckoffInputs;
@@ -219,7 +220,8 @@ export function selectResearchStrategy(
   const selected: ResearchSpec = {
     ...shared,
     ...((isWyckoffStructure(strategy) ||
-      strategy === "chan-consolidation-weekly-native") &&
+      strategy === "chan-consolidation-weekly-native" ||
+      strategy === "chan-bottom-monthly-c4") &&
     wyckoffStructureInputs !== undefined
       ? { wyckoffStructureInputs }
       : {}),
@@ -304,12 +306,17 @@ export function ResearchStrategyFields({
           : definition.description}
       </p>
       {(isWyckoffStructure(spec.strategy) ||
-        spec.strategy === "chan-consolidation-weekly-native") &&
+        spec.strategy === "chan-consolidation-weekly-native" ||
+        spec.strategy === "chan-bottom-monthly-c4") &&
         !spec.strategy.startsWith("wy-target-") && (
           <label className="min-w-0 break-words [overflow-wrap:anywhere]">
-            周线 / 双基准 / 阶段评分原始证据（JSON）
+            周线 / 月线 / 双基准 / 阶段评分原始证据（JSON）
             <Textarea
-              aria-label="威科夫结构原始证据"
+              aria-label={
+                spec.strategy === "chan-bottom-monthly-c4"
+                  ? "月线原始证据"
+                  : "威科夫结构原始证据"
+              }
               className="w-full min-w-0"
               key={`${spec.strategy}:${JSON.stringify(spec.wyckoffStructureInputs ?? [])}`}
               defaultValue={JSON.stringify(

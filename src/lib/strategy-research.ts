@@ -88,7 +88,8 @@ export const researchSpecSchema = z
     if (
       value.wyckoffStructureInputs &&
       !isWyckoffStructure(value.strategy) &&
-      value.strategy !== "chan-consolidation-weekly-native"
+      value.strategy !== "chan-consolidation-weekly-native" &&
+      value.strategy !== "chan-bottom-monthly-c4"
     )
       context.addIssue({
         code: "custom",

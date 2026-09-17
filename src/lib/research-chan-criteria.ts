@@ -213,7 +213,7 @@ export function chanStructureCriterion(
             !!d &&
             (d.flags & 1) !== 0 &&
             d.areaRatio > 0 &&
-            d.areaRatio < 1;
+            d.areaRatio < 100;
         }
       }
     }

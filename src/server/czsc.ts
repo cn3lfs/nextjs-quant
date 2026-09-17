@@ -252,7 +252,7 @@ export async function analyzeCzsc(
   };
 }
 
-/** Opt-in C4 reader. Capability validation rejects the currently installed C3 DLL. */
+/** Opt-in C4 reader. Capability validation rejects older DLLs without outputs 100–108. */
 export function analyzeChanMovements(
   bars: readonly Bar[],
   anchor: 1 | 2 | 3,

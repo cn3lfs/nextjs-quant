@@ -1,5 +1,9 @@
 # 个人交易工作台扩充计划
 
+## C5 最后五项（2026-09-17，方法收口、浏览器验收受阻）
+
+CH06 → CH08 → CH09 → CH18-small-to-large → CH13已接入9个具名工程预设、统一前缀观察和共享执行契约。三锚分表，五分钟窗口固定2000-01-04..2022-11-30，月线复用monthlyBars与当时可知日历；原文边界及基线冲突见decisions。真实DLL450前缀/900表通过，但每锚108关联unknown98/verified0，不能声称已证明真实关联正例或策略业绩。审计22 implemented / 661 variant / 12 planned，K6 planned 0。L3 verify:batch=0，454文件9658项通过、27跳过、0失败，build/runtime与审计通过；Playwright两次启动EPERM、退出1、交互0，未宣称UI通过。补验起点与实际计数见`.codex-runs/delivery.json`；不提交、不推送、不打包。
+
 ## chan-native / C4-native（2026-09-17，待管理者构建）
 
 原生100–108多中枢递归/低级连接/旧新关联与monthly-anchor-v1源码、自检、Func30文档已交；59–99语义不变。

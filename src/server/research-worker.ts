@@ -1,3 +1,4 @@
+import { isChanC4 } from "~/lib/research-chan-movements";
 import { recordResearchUsage } from "./research-usage";
 import { parentPort, workerData } from "node:worker_threads";
 import { sqlite } from "./db";
@@ -65,7 +66,15 @@ async function run() {
       task.spec,
       dataset,
       store.evidence(task.id),
-      (bars, anchor) => analyzeCzsc(bars, true, project, true, anchor),
+      (bars, anchor) =>
+        analyzeCzsc(
+          bars,
+          true,
+          project,
+          true,
+          anchor,
+          isChanC4(task.spec.strategy),
+        ),
       cancelled,
       (symbol, date, completed, total) =>
         progress(`回放 ${symbol} ${date}`, completed, total),

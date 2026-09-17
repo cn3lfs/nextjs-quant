@@ -3,7 +3,7 @@ import type { CalendarReference } from "./data-health";
 import type { CzscResult } from "~/lib/czsc";
 import { monthlyBars } from "./monthly-bars";
 
-/** CH13 input path only. Monthly units are never relabelled daily/five-minute anchors. */
+/** CH13 complete-month input. Signal evaluation belongs to the shared C4 prefix observer. */
 export async function researchChanMonthlyInput(
   snapshot: Snapshot,
   calendar: CalendarReference & { availableAt: string },
@@ -80,7 +80,8 @@ export async function researchChanMonthlyInput(
   const result = await czsc(aggregate.bars, 3);
   return {
     status: "input-ready" as const,
-    reason: "monthly-anchor-v1输入已接通；C4真实DLL趋势/背驰验证前不产入场",
+    reason:
+      "monthly-anchor-v1完整月输入；本适配只返回结构，不产入场，统一C4观察器判定信号",
     aggregate,
     result,
   };
