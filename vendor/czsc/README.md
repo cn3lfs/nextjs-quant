@@ -3,11 +3,11 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `408c886`（在 `b67f3c6` 之上新增 Func30 输出 59–92 只读投影；`make test` 的 core/formula/golden 三项自检通过） |
+| 来源 commit | `05d14c1`（分支 `chan-native`，在 `b67f3c6` 之上新增 Func30 输出 59–99：只读投影与走势完成证据） |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `852829` 字节 |
-| SHA-256 | `b43316f371ea0a70810d98cef3407aa1c6e39fa1b2025eaa9fd095f99936d92b` |
-| 构建方式 | WSL Ubuntu-22.04 + MinGW-w64，`make mingw64`（2026-09-17 由管理者为缠论原生投影扩展重建） |
+| 大小 | `876060` 字节 |
+| SHA-256 | `62dfbf28e407ab195d01193ca59419a32722217fcbe3da8251adff5e5107a6de` |
+| 构建方式 | WSL Ubuntu-22.04 + MinGW-w64，`make mingw64`（2026-09-17 由管理者重建） |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
 ## 为什么是重建的
