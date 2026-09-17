@@ -151,7 +151,7 @@ it("real SSE projections match native golden counts and independent endpoint/mem
   ]);
   expect(b).toEqual(serial);
   expect(a.projections["0:70"]).toEqual(a.projections["1100:70"]);
-  await expect(projectCzsc(short, [0], [93])).rejects.toThrow("Invalid");
+  await expect(projectCzsc(short, [0], [100])).rejects.toThrow("Invalid");
 });
 it.each([0, 1, 2])(
   "new ABI handles nCount=%s including no slot cell",

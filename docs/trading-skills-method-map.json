@@ -2030,7 +2030,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "原生结构缺口 CH06-native-trend-centers：缺走势28对应完整两中枢成员列表、级别与完成状态；trendId不是可访问的走势数组。"
+      "boundary": "原生结构缺口 CH06-native-trend-centers：缺走势28对应完整两中枢成员列表、级别与完成状态；trendId不是可访问的走势数组。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。"
     },
     {
       "id": "CH07",
@@ -2071,7 +2071,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "原生结构缺口 CH08-native-completed-movements：缺已完成同级别走势序列、连接边界及级别；output23只为胜出信号所属方向。"
+      "boundary": "原生结构缺口 CH08-native-completed-movements：缺已完成同级别走势序列、连接边界及级别；output23只为胜出信号所属方向。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。"
     },
     {
       "id": "CH09",
@@ -2084,7 +2084,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "原生结构缺口 CH09-native-down-up：依赖CH08完整走势连接，缺下跌-盘整-下跌到上涨/盘整退出的完成证明。"
+      "boundary": "原生结构缺口 CH09-native-down-up：依赖CH08完整走势连接，缺下跌-盘整-下跌到上涨/盘整退出的完成证明。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。"
     },
     {
       "id": "CH10",
@@ -2093,11 +2093,29 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "原生结构缺口 CH10-native-transition：47/48仅中枢生命周期；缺已完成走势到新走势确立的中阴进入/结束及操作级别。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-native.ts"
+      ],
+      "tests": [
+        "tests/research-chan-recursive.test.ts",
+        "tests/czsc-recursive.test.ts",
+        "tests/research-chan-native.test.ts",
+        "tests/research-contracts.test.ts",
+        "tests/research-registry-ui.test.ts"
+      ],
+      "boundary": "第89/90课具名组合：relative-level-0中阴结束首见前缀与新原生三买同前缀入场，三卖退出，固定持有期及执行器风险/T+1保持。纯结构主版和BOLL20辅助版分别具名；日线与五分钟锚分表，五分钟2000-01-04..2022-11-30。完成和确立分别冻结首见，不以端点回填。旧笔/线段/三买为未经验证基线，不宣称原文完整性或策略业绩。",
+      "bindings": {
+        "presets": [
+          "chan-zhongyin-daily-native",
+          "chan-zhongyin-boll-daily-native",
+          "chan-zhongyin-five-native",
+          "chan-zhongyin-boll-five-native"
+        ],
+        "exports": [],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH11",
@@ -2106,11 +2124,25 @@
       "sources": [
         "chan-theory/SKILL.md"
       ],
-      "review": "pending",
-      "status": "planned",
-      "implementation": [],
-      "tests": [],
-      "boundary": "历史输入缺口 CH11-sector-ma-rotation：缺时点板块成分与各板块同窗均线/强弱排序输入；现有双基准RS不是板块轮动。当前禁止新增通道，本轮保留具名后续任务，不伪称DLL缺口。"
+      "review": "reviewed",
+      "status": "implemented-variant",
+      "implementation": [
+        "src/lib/research-chan-sector.ts"
+      ],
+      "tests": [
+        "tests/research-chan-sector.test.ts"
+      ],
+      "boundary": "待数据策略 sector-ma20-breadth-v1（第106课具名工程参数）：真实历史成分及availableAt必需，20日同窗收盘高于MA20的成员占比，前50%且占比严格>50%准入，与原生三买基线组合，弱板块退出。缺失不卖出，不用当前成分回溯，不用双基准RS冒充轮动。历史成分数据未接通；旧三买基线未经验证。",
+      "bindings": {
+        "presets": [],
+        "exports": [
+          {
+            "file": "src/lib/research-chan-sector.ts",
+            "name": "chanSectorAdmission"
+          }
+        ],
+        "completion": "implemented-variant"
+      }
     },
     {
       "id": "CH12",
@@ -2151,7 +2183,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "周期输入及原生结构缺口 CH13-monthly-bottom：缺完整月线已完成周期输入，本轮禁止新通道；月线背驰后至首次三类点需趋势成员/完成证明（CH06），周线不能代替月线。"
+      "boundary": "周期输入及原生结构缺口 CH13-monthly-bottom：缺完整月线已完成周期输入，本轮禁止新通道；月线背驰后至首次三类点需趋势成员/完成证明（CH06），周线不能代替月线。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。"
     },
     {
       "id": "CH14",
@@ -5005,7 +5037,7 @@
       "status": "planned",
       "implementation": [],
       "tests": [],
-      "boundary": "原生结构缺口 CH18-native-retest-movement：38/39/42证明小转大必要三类关联，但未证明原文前趋势最后中枢的次级别完整走势类型及后续下跌/回抽连接；缺该回抽退出边界的级别与走势完成证明，semantic=3不作充分条件。"
+      "boundary": "原生结构缺口 CH18-native-retest-movement：38/39/42证明小转大必要三类关联，但未证明原文前趋势最后中枢的次级别完整走势类型及后续下跌/回抽连接；缺该回抽退出边界的级别与走势完成证明，semantic=3不作充分条件。 C3-ts复核：93–99单中枢递归节点无趋势类型，也未关联旧Structures多中枢走势；旧完成space=0的理论级别仍unknown。不得用方向/config或重叠时间猜测理论同级别映射；保持待结构证据。既有笔/线段基线未经验证，tests/golden不作原文权威。"
     },
     {
       "id": "SE05-weekly-ma",

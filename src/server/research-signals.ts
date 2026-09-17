@@ -1,3 +1,5 @@
+import { researchChanZhongyin } from "./research-chan-zhongyin";
+import { isChanZhongyin } from "~/lib/research-chan-native";
 import {
   structureBarBytes,
   isWyckoffStructure,
@@ -53,12 +55,13 @@ export async function researchSignals(
   symbol: string,
   bars: readonly Bar[],
   spec: ResearchSpec,
-  czsc: (bars: readonly Bar[]) => Promise<CzscResult>,
+  czsc: (bars: readonly Bar[], anchor?: 1 | 2) => Promise<CzscResult>,
   cancelled: () => boolean = () => false,
   progress: (date: string) => void = () => {},
   calendar: readonly string[] = bars.map((bar) => bar.date),
   market?: CanslimResearchMarket,
   recordStructure?: (row: ResearchStructureObservation) => void,
+  minuteBars?: readonly Bar[],
 ) {
   if (
     bars.some(
@@ -74,6 +77,17 @@ export async function researchSignals(
   )
     throw new Error(
       "小时研究窗口必须在2000-01-04至2022-11-30内；不得混用日线区间",
+    );
+  if (isChanZhongyin(spec.strategy))
+    return researchChanZhongyin(
+      symbol,
+      bars,
+      minuteBars,
+      spec,
+      czsc,
+      cancelled,
+      progress,
+      recordStructure,
     );
   if (spec.strategy === "chan-consolidation-weekly-native") {
     const events: ResearchEvent[] = [],

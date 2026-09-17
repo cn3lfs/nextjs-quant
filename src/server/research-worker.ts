@@ -65,7 +65,7 @@ async function run() {
       task.spec,
       dataset,
       store.evidence(task.id),
-      (bars) => analyzeCzsc(bars, true, project, true),
+      (bars, anchor) => analyzeCzsc(bars, true, project, true, anchor),
       cancelled,
       (symbol, date, completed, total) =>
         progress(`回放 ${symbol} ${date}`, completed, total),

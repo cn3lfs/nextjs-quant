@@ -1,3 +1,19 @@
+import { researchChanMonthlyInput } from "./research-chan-monthly";
+export async function runChanMonthlyInput(
+  ...args: Parameters<typeof researchChanMonthlyInput>
+) {
+  return researchChanMonthlyInput(...args);
+}
+import { chanSectorAdmission } from "~/lib/research-chan-sector";
+/** CH11 waiting-data combination; true historical sector inputs are mandatory. */
+export function runChanSectorResearch(
+  raw: unknown,
+  asOf: string,
+  symbol: string,
+  nativeThirdBuy: boolean,
+) {
+  return chanSectorAdmission(raw, asOf, symbol, nativeThirdBuy);
+}
 import { researchManagementSchema } from "~/lib/research-management";
 import { evaluateCryptoTimeSlot } from "~/lib/research-crypto-time-slot";
 
@@ -115,7 +131,7 @@ export async function runStrategyResearch(
   spec: ResearchSpec,
   dataset: ResearchDataset,
   marketEvidence: ResearchMarketEvidence | null,
-  czsc: (bars: readonly Bar[]) => Promise<CzscResult>,
+  czsc: (bars: readonly Bar[], anchor?: 1 | 2) => Promise<CzscResult>,
   cancelled: () => boolean = () => false,
   progress: (
     symbol: string,
@@ -332,6 +348,7 @@ export async function runStrategyResearch(
               dataset.calendar,
               dataset.canslimMarket,
               (row) => structureObservations.push(row),
+              stock.minuteBars,
             );
       const accepted = cup
         ? observed.filter((event) => {

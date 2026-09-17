@@ -1,3 +1,4 @@
+import { isChanFiveMinute } from "~/lib/research-chan-native";
 import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
 import { readBenchmarkSnapshot } from "./tdx-benchmark";
 import { needsCanslimMarket } from "~/lib/research-canslim-market-strategies";
@@ -38,6 +39,7 @@ export async function captureResearchDataset(
 ) {
   if (
     spec.management?.growthIntraday ||
+    isChanFiveMinute(spec.strategy) ||
     isWyckoffHourly(spec.strategy) ||
     spec.strategy === "wy-week-day-hour"
   )
@@ -68,8 +70,9 @@ export async function captureResearchDataset(
   if (!benchmark.some((bar) => bar.date >= spec.start))
     throw new Error("研究区间缺少上证指数基准行情");
   const calendar = benchmark.map((bar) => bar.date);
-  const minuteStart =
-    isWyckoffHourly(spec.strategy) || spec.strategy === "wy-week-day-hour"
+  const minuteStart = isChanFiveMinute(spec.strategy)
+    ? "2000-01-04"
+    : isWyckoffHourly(spec.strategy) || spec.strategy === "wy-week-day-hour"
       ? (calendar[
           Math.max(0, calendar.findIndex((d) => d >= spec.start) - 6)
         ] ?? spec.start)
@@ -125,6 +128,7 @@ export async function captureResearchDataset(
       const snapshot = await readLocalDailySnapshot(root, symbol);
       const bars = snapshot.bars.filter((bar) => bar.date <= spec.end);
       const minute =
+        isChanFiveMinute(spec.strategy) ||
         spec.management?.growthIntraday ||
         ((isWyckoffHourly(spec.strategy) ||
           spec.strategy === "wy-week-day-hour") &&

@@ -41,9 +41,11 @@ export function projectCzsc(
   outputs = [0, 1, 2, 3, 4, 5, 9, 23],
 ): Promise<CzscProjections> {
   // Queue entire jobs, including C/V registration; retain singleton across Next HMR.
-  if (outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 92))
+  if (outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 99))
     return Promise.reject(new RangeError("Invalid CZSC output"));
   const snapshot = structuredClone(input);
+  configs = [...configs];
+  outputs = [...outputs];
   const job = (scope.czscQueue ?? Promise.resolve()).then(
     () =>
       new Promise<CzscProjections>((resolveResult, reject) => {
@@ -99,6 +101,7 @@ export async function analyzeCzsc(
   signalDetails = false,
   project: typeof projectCzsc = projectCzsc,
   researchStructures = false,
+  anchor?: 1 | 2,
 ): Promise<CzscResult> {
   if (
     bars.some(
@@ -109,6 +112,7 @@ export async function analyzeCzsc(
   )
     throw new RangeError("CZSC bars must be in strictly ascending time order");
   const input = {
+    ...(anchor ? { anchor, dates: bars.map((b) => b.date) } : {}),
     high: bars.map((b) => b.high),
     low: bars.map((b) => b.low),
     close: bars.map((b) => b.close),
@@ -129,7 +133,11 @@ export async function analyzeCzsc(
       23,
       ...(signalDetails ? [25, 29, 30, 31, 32, 53] : []),
       ...(signalDetails && researchStructures
-        ? [...czscResearchOutputs, ...czscNativeOutputs]
+        ? [
+            ...czscResearchOutputs,
+            ...czscNativeOutputs,
+            ...(anchor ? [93, 94, 95, 96, 97, 98, 99] : []),
+          ]
         : []),
     ],
   );
@@ -138,7 +146,7 @@ export async function analyzeCzsc(
     const p = (output: number) => raw.projections[`${config}:${output}`]!;
     const research =
       signalDetails && researchStructures
-        ? decodeCzscResearchStructures(raw, config, bars.length, true)
+        ? decodeCzscResearchStructures(raw, config, bars.length, true, anchor)
         : null;
     const native = research?.native;
     const empty: CzscFamily = {

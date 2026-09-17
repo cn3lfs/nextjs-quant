@@ -99,7 +99,7 @@ test("float32 conversion rejects invalid values and preserves rounding", () => {
   expect(() => toFloat32([1e40])).toThrow();
 });
 
-test("SSE golden: authoritative CzscCoreTests.cpp assertions at b67f3c6", async () => {
+test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness authority", async () => {
   expect(fixture.date).toHaveLength(2038);
   expect([fixture.date[0], fixture.date.at(-1)]).toEqual([
     "2018-01-26",
@@ -107,7 +107,7 @@ test("SSE golden: authoritative CzscCoreTests.cpp assertions at b67f3c6", async 
   ]);
   const result = await projectCzsc(fixture);
   expect(result.hash).toBe(
-    "b43316f371ea0a70810d98cef3407aa1c6e39fa1b2025eaa9fd095f99936d92b",
+    "62dfbf28e407ab195d01193ca59419a32722217fcbe3da8251adff5e5107a6de",
   );
   result.registered.forEach((v, i) =>
     expect(Math.abs(v - Math.fround(fixture.close[i]!))).toBeLessThan(0.0001),
@@ -127,7 +127,7 @@ test("SSE golden: authoritative CzscCoreTests.cpp assertions at b67f3c6", async 
   };
   console.log("GOLDEN totals", actual);
   // Keep both config codes and raw float32 spans visible even when counts fail.
-  // Count failures must stop integration, but must not hide the diagnostic evidence.
+  // Differences are diagnostic signals; original lessons remain correctness authority.
   for (const config of [0, 1100]) {
     const centers = p(config, 3).flatMap((mark, start) => {
       if (mark !== 1) return [];

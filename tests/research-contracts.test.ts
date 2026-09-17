@@ -1,4 +1,8 @@
-import { chanNativeIds } from "../src/lib/research-chan-native";
+import {
+  chanNativeIds,
+  isChanZhongyin,
+  isChanFiveMinute,
+} from "../src/lib/research-chan-native";
 import { describe, expect, it } from "vitest";
 import { maParamsSchema, type Bar } from "../src/lib/domain";
 import type { CzscResult } from "../src/lib/czsc";
@@ -10,7 +14,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals as actualResearchSignals } from "../src/server/research-signals";
 import {
   isResearchRule,
   researchRuleSeries,
@@ -34,20 +38,41 @@ export const structureExceptions = {
   ...Object.fromEntries(
     chanNativeIds.map((id) => [
       id,
-      "原生具名变体沿用逐前缀协议；结构语义由家族正反例与DLL golden验证",
+      "原生具名变体沿用逐前缀协议；结构语义由原文及家族正反例核对，DLL golden仅为变更隔离信号",
     ]),
   ),
   "ma-cross":
     "均线事件没有可证实结构线，执行契约注入合成止损线，不冒充信号证据",
   czsc: "原生事件未提供可证实结构线；以确定性替身验证前缀协议，DLL golden 另测",
 };
-const native = async (bars: readonly Bar[]): Promise<CzscResult> => ({
+const native = async (
+  bars: readonly Bar[],
+  anchor?: 1 | 2,
+): Promise<CzscResult> => ({
   status: "structure",
   hash: "contract",
   sourceCommit: "b67f3c6",
   families: [
     {
       config: 0,
+      ...(anchor
+        ? {
+            native: {
+              version: "native-projections-c2-1" as const,
+              config: 0 as const,
+              trends: [],
+              highCandidates: [],
+              completedSequence: "unavailable" as const,
+              recursive: {
+                anchor,
+                config: 0 as const,
+                nodes: [],
+                completions: [],
+                transitions: [],
+              },
+            },
+          }
+        : {}),
       points: [],
       centers: [
         {
@@ -80,6 +105,25 @@ const native = async (bars: readonly Bar[]): Promise<CzscResult> => ({
     },
   ],
 });
+function minuteFixture(bars: readonly Bar[]) {
+  return bars.flatMap((b) =>
+    Array.from({ length: 48 }, (_, i) => {
+      const m = i < 24 ? 575 + i * 5 : 785 + (i - 24) * 5;
+      return {
+        ...b,
+        date: `${b.date}T${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00+08:00`,
+        volume: b.volume / 48,
+        amount: b.amount / 48,
+      };
+    }),
+  );
+}
+async function researchSignals(
+  ...args: Parameters<typeof actualResearchSignals>
+) {
+  if (isChanFiveMinute(args[2].strategy)) args[9] = minuteFixture(args[1]);
+  return actualResearchSignals(...args);
+}
 const prices = (count: number): Bar[] =>
   Array.from({ length: count }, (_, i) => {
     const close = 100 + i * 0.03 + Math.sin(i / 3) * 4;
@@ -133,14 +177,18 @@ it("requires an executable signal adapter for every registered preset", () => {
 
 describe.each(researchStrategyIds)("registered contracts: %s", (id) => {
   const bars = prices(
-    id.startsWith("canslim-high") ||
-      id.startsWith("sepa-") ||
-      id.endsWith("window120")
-      ? 370
-      : id === "czsc"
-        ? 67
-        : 85,
+    isChanFiveMinute(id)
+      ? 7
+      : id.startsWith("canslim-high") ||
+          id.startsWith("sepa-") ||
+          id.endsWith("window120")
+        ? 370
+        : id === "czsc"
+          ? 67
+          : 85,
   );
+  if (isChanZhongyin(id))
+    for (const bar of bars) bar.date = bar.date.replace("2023-", "2020-");
   const first = bars.length - 5;
   const spec = researchSpecSchema.parse({
     strategy: id,
@@ -350,6 +398,7 @@ describe.each(researchStrategyIds)("registered contracts: %s", (id) => {
           name: "synthetic",
           bars,
           hash: "fixture",
+          ...(isChanFiveMinute(id) ? { minuteBars: minuteFixture(bars) } : {}),
           actions: [],
         },
       ],

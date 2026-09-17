@@ -4,6 +4,18 @@ import type { Bar } from "./domain";
 import type { CzscFamily, CzscResult } from "./czsc";
 
 export const chanNativeProfiles = {
+  "chan-zhongyin-daily-native": ["CH10", "中阴结束 · 日线锚纯结构＋三买", 90],
+  "chan-zhongyin-boll-daily-native": [
+    "CH10",
+    "中阴结束 · 日线锚BOLL辅助＋三买",
+    90,
+  ],
+  "chan-zhongyin-five-native": ["CH10", "中阴结束 · 五分钟锚纯结构＋三买", 90],
+  "chan-zhongyin-boll-five-native": [
+    "CH10",
+    "中阴结束 · 五分钟锚BOLL辅助＋三买",
+    90,
+  ],
   "chan-nested-native": ["CH07", "区间套 · 全候选ID关联", 7],
   "chan-rebound-native": ["CH12", "短线反弹 · 高级别背驰段内买点", 12],
   "chan-consolidation-weekly-native": [
@@ -36,6 +48,11 @@ export const chanContainmentBoundary =
 export const chanMethodBoundary =
   "CH05：只消费连续完整周线全前缀DLL semantic=2、A/C端点与中枢关联；最多104周固定起点，超过窗口明确不可用，不把日线信号改名周线。缺输入中断后重新建立观察基线，旧信号不回填。CH15：个股日线最低周期工程版MACD12/26/9，双线均>0才买、均<0收盘确认退出，等于0观望；非30/60分钟或全市场过滤，风险1%/单股20%、5%止损复用资金执行器。CH04要求原生二/三类上下文位同时成立、两套端点齐全及中枢归属，不以kind推断重合。CH14只在已有多仓消费镜像核验的一二三卖点，首次确认后次合法开盘卖出，受阻意图保留；无信号保持，最长持有期作为工程尾部保护。CH16使用原生MA差与吻（10/11/13）：正差趋势首次非零有效吻结束且差仍正入场，volumeKiss=4否决；差转负退出。CH17面积版比较已结束两段负差非吻区间的绝对面积，后段面积严格更小且价格新低，结束吻时入场；平均力度版比较当前负差非吻段与上次完整负差段的面积/根数，严格更弱且差绝对值缩短、价格新低入场。面积求和按日线矩形法，吻节点不计面积，非MACD面积或原生output12；均线背驰版负差吻后再现负差缠绕退出。固定周期、收盘确认与持有期均是工程变体，不将首次缠绕称为可预知最后缠绕，不宣称完整原文或实测盈利。";
 export const isChanMa = (id: string) => id.startsWith("chan-ma-");
+export const isChanZhongyin = (id: string) => id.startsWith("chan-zhongyin-");
+export const isChanFiveMinute = (id: string) =>
+  isChanZhongyin(id) && id.includes("-five-");
+export const chanZhongyinBoundary =
+  "CH10第89/90课具名组合：relative-level-0的中阴结束首次可知前缀，若同一前缀存在新确认原生三买则入场，三卖退出已有多仓；候选/完成/后继确立分别冻结首见时间，不以证据端点回填。纯结构主版与BOLL20辅助版分名（20/2及收口后放大是原生具名参数，不是主判据），与不含中阴过滤的三买基线对照。日线daily-anchor-v1与five-minute-anchor-v1分别运行分表，五分钟锁定2000-01-04..2022-11-30，按五分钟全前缀观察、当日收盘归集、下一合法日线开盘成交，非盘中成交；固定持有期及T+1沿用执行器。旧笔/线段/三买基线未经验证，不宣称原文全覆盖；递归单中枢节点不冒充趋势，固定输入不证明收益。";
 export const chanNativeStrategies = Object.fromEntries(
   chanNativeIds.map((id) => [
     id,
@@ -44,10 +61,12 @@ export const chanNativeStrategies = Object.fromEntries(
       family: "缠论原生结构",
       signal: "czsc" as const,
       version: `${id}-engineering-1`,
-      description: ["chan-nested-native", "chan-rebound-native"].includes(id)
-        ? chanContainmentBoundary
-        : chanNativeBoundary +
-          (chanNativeProfiles[id][2] > 3 ? chanMethodBoundary : ""),
+      description: isChanZhongyin(id)
+        ? chanZhongyinBoundary
+        : ["chan-nested-native", "chan-rebound-native"].includes(id)
+          ? chanContainmentBoundary
+          : chanNativeBoundary +
+            (chanNativeProfiles[id][2] > 3 ? chanMethodBoundary : ""),
       sources: [
         "chan-theory/SKILL.md",
         ...(chanNativeProfiles[id][2] > 3

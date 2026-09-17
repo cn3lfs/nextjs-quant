@@ -157,4 +157,53 @@ export type CzscNativeProjection = {
   trends: CzscNativeTrend[];
   highCandidates: CzscHighCandidate[];
   completedSequence: "unavailable";
+  recursive?: CzscRecursive;
+};
+
+/** Snapshot-local foreign keys; evidence indices are NOT discovery times. */
+export type CzscRecursiveNode = {
+  id: number;
+  level: number;
+  start: number;
+  end: number;
+  centerStart: number;
+  centerEnd: number;
+  established: number;
+  connection: number | null;
+  completed: number | null;
+  successorId: number;
+  children: number[];
+  high: number;
+  low: number;
+  ZG: number;
+  ZD: number;
+};
+export type CzscCompletion = {
+  id: number;
+  trendId: number;
+  space: 0 | 1;
+  connectionPointId: number;
+  connection: number;
+  requiredPointId: number;
+  required: number;
+  observed: number;
+  successorId: number;
+  successorEstablished: number | null;
+  level: number | null;
+};
+export type CzscRecursive = {
+  anchor: 1 | 2;
+  config: 0 | 1100;
+  nodes: CzscRecursiveNode[];
+  completions: CzscCompletion[];
+  transitions: {
+    id: number;
+    completionId: number;
+    variant: 1 | 2;
+    entered: number;
+    ended: number | null;
+    observed: number;
+    contraction: number | null;
+    available: boolean;
+  }[];
 };

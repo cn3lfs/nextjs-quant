@@ -44,7 +44,11 @@ process.on(
     outputs: number[];
   }) => {
     try {
+      if (message.outputs.some((o) => !Number.isInteger(o) || o < 0 || o > 99))
+        throw new RangeError("Invalid CZSC output");
       const { high, low, close, volume } = czscInput(message.input);
+      if (high.length > 16777216)
+        throw new RangeError("CZSC input exceeds exact index domain");
       const n = high.length,
         registered = new Float32Array(n);
       if (n) func40(n, registered, close, volume, new Float32Array([0]));
@@ -62,8 +66,85 @@ process.on(
         if (![0, 1100].includes(config))
           throw new RangeError("Unsupported CZSC config");
         const counts = new Map<number, number[]>();
+        if (message.outputs.some((o) => o >= 93)) {
+          const dates = message.input.dates,
+            anchor = message.input.anchor;
+          if (!dates || dates.length !== n || ![1, 2].includes(anchor ?? 0))
+            throw new Error("显式锚及逐根日期缺失");
+          const dateCodes = dates.map((date, i) => {
+            if (anchor === 2) {
+              if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+08:00$/.test(date))
+                throw new Error("五分钟锚必须使用已结束五分钟K线的上海时戳");
+              const minute =
+                Number(date.slice(11, 13)) * 60 + Number(date.slice(14, 16));
+              if (
+                minute % 5 ||
+                !(
+                  (minute >= 575 && minute <= 690) ||
+                  (minute >= 785 && minute <= 900)
+                )
+              )
+                throw new Error("五分钟收盘时戳不在交易时段");
+            }
+            const day = date.slice(0, 10);
+            if (
+              !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+              !Number.isFinite(Date.parse(date)) ||
+              new Date(day).toISOString().slice(0, 10) !== day ||
+              (i > 0 && date <= dates[i - 1]!) ||
+              (anchor === 1 && date !== day) ||
+              (anchor === 2 &&
+                (!/T\d{2}:\d{2}/.test(date) ||
+                  day < "2000-01-04" ||
+                  day > "2022-11-30"))
+            )
+              throw new Error("锚周期、日期顺序或五分钟窗口无效");
+            return Number(day.replaceAll("-", "")) - 20000000;
+          });
+          const explicit = (output: number, slot = 0, field = 0) => {
+            const mode = Float32Array.from([
+              config * 1000 + output * 10,
+              slot,
+              field,
+              anchor!,
+              ...dateCodes,
+            ]);
+            const out = new Float32Array(n);
+            if (n) func30(n, out, high, low, mode);
+            const values = Array.from(out);
+            projections[`${config}:${output}:${slot}:${field}`] = values;
+            if (!slot && !field) projections[`${config}:${output}`] = values;
+            return values.at(-1) ?? 0;
+          };
+          if (n && explicit(93) !== 1) throw new Error("原生显式锚不可用");
+          for (const [countOutput, rowOutput, fields] of [
+            [94, 95, 17],
+            [96, 97, 15],
+            [98, 99, 8],
+          ]) {
+            const count = explicit(countOutput!);
+            if (!Number.isInteger(count) || count < 0 || count > 16777216)
+              throw new Error("原生旁路行数非法");
+            for (let slot = 0; slot < count; slot++) {
+              for (let field = 0; field < fields!; field++)
+                explicit(rowOutput!, slot, field);
+              if (rowOutput === 95) {
+                const children =
+                  projections[`${config}:95:${slot}:10`]!.at(-1)!;
+                if (
+                  !Number.isInteger(children) ||
+                  children < 0 ||
+                  children > count
+                )
+                  throw new Error("原生子成员数非法");
+                for (let j = 0; j < children; j++) explicit(95, slot, 100 + j);
+              }
+            }
+          }
+        }
         for (const output of message.outputs) {
-          if (!Number.isInteger(output) || output < 0 || output > 92)
+          if (output >= 93) continue;
+          if (!Number.isInteger(output) || output < 0 || output > 99)
             throw new RangeError("Invalid CZSC output");
           if (output < 59 || output === 92) {
             projections[`${config}:${output}`] = run(config, output);
