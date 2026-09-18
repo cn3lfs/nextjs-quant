@@ -139,11 +139,34 @@ import {
   isVolumeReversal,
   volumeReversalWarmupStart,
 } from "~/lib/research-volume-reversals";
-import { buildResearchCompositeSpec } from "~/lib/research-composite-presets";
+import {
+  buildResearchCompositeSpec,
+  researchCompositePresetIds,
+} from "~/lib/research-composite-presets";
 
-/** Resolve a declared component×baseline preset before entering the shared engine. */
+/** Resolve a declared component×baseline preset before entering the shared engine.
+ * This is the only correct entry point for turning a preset id into a
+ * runnable spec: `researchSpecSchema.parse({ strategy: id, ... })` throws
+ * (preset ids are not in the `strategy` enum — they expand onto a shared
+ * baseline strategy via `management`/`risk` overrides instead). See the
+ * `researchSpecSchema.safeParse({strategy: id})` regression guard in
+ * tests/research-composite-presets.test.ts. */
 export function buildNamedResearchSpec(id: string, base: ResearchSpec) {
   return buildResearchCompositeSpec(id, base);
+}
+
+/**
+ * Enumerates every registered composite preset as an `{id, spec}` pair.
+ * All 162 presets currently resolve to the same `spec.strategy` (the
+ * shared baseline they expand onto), so any caller that keys results by
+ * `spec.strategy` collapses them into one row. Callers (batch drivers,
+ * archivers, result tables) must key by the `id` returned here instead.
+ */
+export function researchNamedRunSpecs(base: ResearchSpec) {
+  return researchCompositePresetIds.map((id) => ({
+    id,
+    spec: buildNamedResearchSpec(id, base),
+  }));
 }
 
 /**
