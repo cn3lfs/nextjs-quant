@@ -19,6 +19,32 @@
 
 1. **池层排除**：公司行动守卫过宽——量价窗口含除权即排除 193 个策略、形态窗口 44 个。23 年区间内几乎每只股票都除权过，于是排掉 100% 证券池。
 2. **成交层**：`entryMaxWait` 默认 3（`strategy-research.ts:76`），判定在 `research-portfolio.ts:967`（等待期结束）与 `980`（反向信号取消）。15 个有信号策略的交易全部为 0。
+
+   **2026-09-18 归因更正（原归因描述的是症状，不是原因）**：S4 首轮重跑后逐环实测，
+   零成交与 `entryMaxWait` 无关，放宽到 5 或 10 也无效。真实根因链：
+
+   1. 驱动器只用一个 `baseSpec`（`strategy: "dual-breakout"`）抓一次数据集
+      （`scripts/r3-batch-runner.ts:154`、`:243`）。
+   2. `src/server/research-dataset.ts:213` 的 `const volumeRun = needsVolumeEvidence(spec.strategy)`
+      **只在量价族策略下构建 `eventCoverage`**，否则返回存根
+      `{ rows: [], caveat: "非量价研究未生成逐日事件行" }`。实测
+      `isVolumeStrategy("dual-breakout") === false`。
+   3. 实测数据集缓存 `b3/dataset-daily.bin`：500 只股票的 `eventCoverage` 字段存在
+      但 `rows.length === 0`；`b3/summary.json` 记 **`"evidenceRows": 0`**。
+   4. `scripts/r3-batch-runner.ts:260-262` 的 `(stock.eventCoverage?.rows ?? [])`
+      把这个缺失**静默**变成空数组。
+   5. 于是每次买入都查不到当日交易限制依据。实测 `breakout-down-exit` 的 12030 次
+      买入尝试，原因分布是**单一值**「缺少当日交易限制依据」（12030/12030）；
+      等待期耗尽后才表现为「入场等待期结束仍未成交」（4014 条排除里 4001 条）。
+
+   已排除的误判方向：`src/lib/research-event-coverage.ts:48-54` 的 `limitRate` 对主板
+   恒返回 0.1，A500 成分基本是主板，**涨跌停价本来算得出来**，不是算不出来。
+
+   实测样本（本轮新归档，事件 → 成交）：`breakout-down-exit` 4017 → 0、
+   `boll-middle-cross` 27811 → 0、`boll-band-recovery` 12453 → 0。
+
+   **性质**：`needsVolumeEvidence` 这个门把「信号是否需要量能证据」与「**执行**是否
+   需要逐日交易规则」混为一谈。后者是每个策略成交都要的，与信号族无关。
 3. **组件缺具名预设**：B2 133 项 + B5 29 项只有导出函数、无可被研究引擎调用的具名策略入口。按计划 §1「只有函数或文字说明不算完成」，这 162 项未达可组合组件的完成要求。
 
    **2026-09-18 复核修正**：`src/lib/research-composite-presets.ts` 已按单一基线
