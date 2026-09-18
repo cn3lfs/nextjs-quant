@@ -1,4 +1,5 @@
 import { analyzeBreakout } from "./breakout";
+import { big, bpsOf, moneyMul, toNumber } from "~/lib/money";
 import {
   isIntradayExecution,
   intradayExecutionEvidence,
@@ -567,8 +568,9 @@ export function researchGrowthIntraday(
         }
         if (swing)
           t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - fill.price);
-        const commission = researchCommission(qty * fill.price, spec.costs),
-          tax = (qty * fill.price * spec.costs.sellTaxBps) / 10000;
+        const sellAmount = moneyMul(qty, fill.price);
+        const commission = researchCommission(sellAmount, spec.costs),
+          tax = bpsOf(sellAmount, spec.costs.sellTaxBps);
         const sold = researchBookSell(t.book!, {
           date,
           quantity: qty,
@@ -577,7 +579,7 @@ export function researchGrowthIntraday(
           tax,
         });
         t.book = sold.book;
-        cash += sold.netProceeds;
+        cash = toNumber(big(cash).plus(sold.netProceeds));
         t.remainingQuantity = t.book.remainingQuantity;
         t.realizedProceeds = t.book.realizedProceeds;
         t.realizedProfit = t.book.realizedProfit;
@@ -730,14 +732,15 @@ export function researchGrowthIntraday(
             spec.costs,
           );
           if (!qty) continue;
-          const commission = researchCommission(qty * fill.price, spec.costs);
+          const buyAmount = moneyMul(qty, fill.price);
+          const commission = researchCommission(buyAmount, spec.costs);
           t.book = researchBookBuy(t.book!, {
             date,
             quantity: qty,
             price: fill.price,
             commission,
           });
-          cash -= qty * fill.price + commission;
+          cash = toNumber(big(cash).minus(buyAmount).minus(commission));
           t.entryCost = t.book.totalCost;
           t.remainingQuantity = t.book.remainingQuantity;
           t.entries!.push({
@@ -1043,14 +1046,17 @@ export function researchGrowthIntraday(
           });
           continue;
         }
-        const commission = researchCommission(qty * fill.price, spec.costs),
+        const commission = researchCommission(
+            moneyMul(qty, fill.price),
+            spec.costs,
+          ),
           book = researchBookBuy(researchPositionBook(), {
             date,
             quantity: qty,
             price: fill.price,
             commission,
           });
-        cash -= book.totalCost;
+        cash = toNumber(big(cash).minus(book.totalCost));
         const trade: ResearchTrade = {
           event,
           entryDate: date,

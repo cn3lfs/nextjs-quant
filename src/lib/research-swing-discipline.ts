@@ -5,6 +5,7 @@ import {
   type ResearchExecutionRules,
 } from "./research-execution";
 import { researchPlannedProceeds } from "./research-pyramid";
+import { big, moneyMul, toNumber } from "./money";
 export const swingDisciplineIds = [
   "sw-stop2",
   "sw-stop3",
@@ -79,7 +80,10 @@ export function swingRewardAdmission(input: {
       ratio: null,
       reason: "缺有效冻结目标/止损或开盘已越过目标",
     };
-  const cost = entry * quantity + researchCommission(entry * quantity, costs),
+  const entryAmount = moneyMul(entry, quantity),
+    cost = toNumber(
+      big(entryAmount).plus(researchCommission(entryAmount, costs)),
+    ),
     lossProceeds = researchPlannedProceeds(quantity, stop, rules, costs),
     winProceeds = researchPlannedProceeds(quantity, target, rules, costs);
   if (lossProceeds === null || winProceeds === null || cost <= lossProceeds)
@@ -88,7 +92,9 @@ export function swingRewardAdmission(input: {
       ratio: null,
       reason: "卖出步长/尾仓或净风险不可定义",
     };
-  const ratio = (winProceeds - cost) / (cost - lossProceeds);
+  const ratio = toNumber(
+    big(winProceeds).minus(cost).div(big(cost).minus(lossProceeds)),
+  );
   return {
     allow: ratio >= 2,
     ratio,

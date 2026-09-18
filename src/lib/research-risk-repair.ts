@@ -15,6 +15,7 @@ import {
   researchCommission,
   type ResearchExecutionRules,
 } from "./research-execution";
+import { big, bpsOf, moneyMul, toNumber } from "./money";
 const positive = z.number().finite().positive();
 const validBar = (b: Bar | undefined): b is Bar =>
   !!b &&
@@ -157,12 +158,17 @@ export function repairRisk(
   costs: z.infer<typeof backtestCostsSchema>,
 ) {
   const q = book.remainingQuantity;
+  const amount = moneyMul(q, stop);
   const proceeds = q
-    ? q * stop -
-      researchCommission(q * stop, costs) -
-      (q * stop * costs.sellTaxBps) / 10000
+    ? toNumber(
+        big(amount)
+          .minus(researchCommission(amount, costs))
+          .minus(bpsOf(amount, costs.sellTaxBps)),
+      )
     : 0;
-  return book.remainingCost - proceeds - book.realizedProfit;
+  return toNumber(
+    big(book.remainingCost).minus(proceeds).minus(book.realizedProfit),
+  );
 }
 export function replayRiskRepair(
   raw: RiskRepair,
@@ -274,14 +280,16 @@ export function replayRiskRepair(
         });
         continue;
       }
-      const trial = (quantity: number) =>
-        researchBookSell(book, {
+      const trial = (quantity: number) => {
+        const amount = moneyMul(quantity, fill.price);
+        return researchBookSell(book, {
           date,
           quantity,
           price: fill.price,
-          commission: researchCommission(quantity * fill.price, costs),
-          tax: (quantity * fill.price * costs.sellTaxBps) / 10000,
+          commission: researchCommission(amount, costs),
+          tax: bpsOf(amount, costs.sellTaxBps),
         });
+      };
       let quantity = max;
       if (!exit) {
         // Monotonic FIFO remaining risk at the proposed stop when execution is above it.
@@ -313,7 +321,7 @@ export function replayRiskRepair(
       }
       const sold = trial(quantity);
       book = sold.book;
-      cash += sold.netProceeds;
+      cash = toNumber(big(cash).plus(sold.netProceeds));
       const risk = repairRisk(book, targetStop, costs);
       if (!exit && risk <= budget + 1e-8) {
         pending = false;

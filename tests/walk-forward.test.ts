@@ -133,16 +133,24 @@ it("候选合法去重，拒绝不足数据、分钟线及越过历史截止", (
   ).toThrow("预热");
 });
 it("V1 接入前 summary 数值特征化护栏", () => {
+  // S1 (Big.js money math) recaptured these four fields: src/server/quant.ts
+  // cash/fee arithmetic now runs through src/lib/money.ts instead of plain
+  // double +=/-=. Deltas are all at float-epsilon scale from removing
+  // accumulated dust across this fold's trade sequence, not a logic change:
+  //   averageReturn   6.544974497455101  -> 6.544974497455098  (delta 3e-15)
+  //   medianReturn    4.566050066345806  -> 4.566050066345784  (delta 2.2e-14)
+  //   worstReturn    -0.21876888198689715 -> -0.21876888198687494 (delta 2.2e-14)
+  //   worstDrawdown   0.3946594912975181 -> 0.3946594912975036  (delta 1.45e-14)
   expect(
     walkForward(source, strategy, 100000, defaultBacktestCosts, options)
       .summary,
   ).toEqual({
     folds: 7,
     positiveFolds: 5,
-    averageReturn: 6.544974497455101,
-    medianReturn: 4.566050066345806,
-    worstReturn: -0.21876888198689715,
-    worstDrawdown: 0.3946594912975181,
+    averageReturn: 6.544974497455098,
+    medianReturn: 4.566050066345784,
+    worstReturn: -0.21876888198687494,
+    worstDrawdown: 0.3946594912975036,
     averageBenchmarkReturn: 1.2507214207768094,
   });
 });

@@ -16,6 +16,7 @@ import {
   defaultBacktestCosts,
   type BacktestCosts,
 } from "~/lib/backtest-costs";
+import { big, bpsOf, moneyMul, toNumber, bigFloor } from "~/lib/money";
 const avg = (values: number[]) =>
   values.reduce((a, b) => a + b, 0) / values.length;
 export function metrics(bars: Bar[], strategy: Strategy): Metrics | null {
@@ -64,9 +65,7 @@ export function backtest(
       ? bonusAdjustedSignals(bars, research.corporateActions)
       : undefined;
   const costs = backtestCostsSchema.parse(costInput);
-  const commission = costs.commissionBps / 10000,
-    tax = costs.sellTaxBps / 10000,
-    slippage = costs.slippageBps / 10000;
+  const commission = costs.commissionBps / 10000;
   if (bars.length < strategy.slow + 2) throw new Error("历史数据不足");
   if (
     !Number.isInteger(evaluationStart) ||
@@ -149,18 +148,23 @@ export function backtest(
     // Same retrospective execution restrictions and costs as the strategy.
     // If the first eligible bar is unaffordable, cash waits for an affordable lot.
     if (!benchmarkTrade && tradable) {
-      const price = bar.open * (1 + slippage);
+      const price = toNumber(big(bar.open).plus(bpsOf(bar.open, costs.slippageBps)));
       const qty = Math.max(
         0,
-        Math.floor(
-          (benchmarkCash - costs.minimumCommission) /
-            (price * (1 + commission)) /
-            100,
+        bigFloor(
+          big(benchmarkCash)
+            .minus(costs.minimumCommission)
+            .div(big(price).times(big(1).plus(commission)))
+            .div(100),
         ) * 100,
       );
       if (qty > 0) {
-        const fee = Math.max(costs.minimumCommission, qty * price * commission);
-        benchmarkCash -= qty * price + fee;
+        const orderAmount = moneyMul(qty, price);
+        const fee = Math.max(
+          costs.minimumCommission,
+          bpsOf(orderAmount, costs.commissionBps),
+        );
+        benchmarkCash = toNumber(big(benchmarkCash).minus(orderAmount).minus(fee));
         benchmarkShares = qty;
         benchmarkTrade = {
           date: bar.date,
@@ -188,16 +192,23 @@ export function backtest(
       if (!tradable) diagnostics.untradable++;
     }
     if (signal?.matched && shares === 0 && tradable) {
-      const price = bar.open * (1 + slippage),
+      const price = toNumber(big(bar.open).plus(bpsOf(bar.open, costs.slippageBps))),
         qty = Math.max(
           0,
-          Math.floor(
-            (cash - costs.minimumCommission) / (price * (1 + commission)) / 100,
+          bigFloor(
+            big(cash)
+              .minus(costs.minimumCommission)
+              .div(big(price).times(big(1).plus(commission)))
+              .div(100),
           ) * 100,
         );
       if (qty > 0) {
-        const fee = Math.max(costs.minimumCommission, qty * price * commission);
-        cash -= qty * price + fee;
+        const orderAmount = moneyMul(qty, price);
+        const fee = Math.max(
+          costs.minimumCommission,
+          bpsOf(orderAmount, costs.commissionBps),
+        );
+        cash = toNumber(big(cash).minus(orderAmount).minus(fee));
         shares = qty;
         buyDay = bar.date.slice(0, 10);
         trades.push({ date: bar.date, side: "buy", price, shares: qty, fee });
@@ -209,11 +220,16 @@ export function backtest(
       tradable &&
       buyDay !== bar.date.slice(0, 10)
     ) {
-      const price = bar.open * (1 - slippage),
-        fee =
-          Math.max(costs.minimumCommission, shares * price * commission) +
-          shares * price * tax;
-      cash += shares * price - fee;
+      const price = toNumber(
+          big(bar.open).minus(bpsOf(bar.open, costs.slippageBps)),
+        ),
+        orderAmount = moneyMul(shares, price),
+        fee = toNumber(
+          big(
+            Math.max(costs.minimumCommission, bpsOf(orderAmount, costs.commissionBps)),
+          ).plus(bpsOf(orderAmount, costs.sellTaxBps)),
+        );
+      cash = toNumber(big(cash).plus(orderAmount).minus(fee));
       trades.push({ date: bar.date, side: "sell", price, shares, fee });
       shares = 0;
     }

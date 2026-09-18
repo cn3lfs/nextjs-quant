@@ -9,6 +9,7 @@ import {
   researchBookBuy,
   type ResearchPositionBook,
 } from "./research-position-book";
+import { big, moneyMul, toNumber } from "./money";
 
 export function researchRoundedBuy(
   desired: number,
@@ -45,11 +46,22 @@ export function researchPlannedProceeds(
   const count = Math.floor(quantity / chunk);
   const tail = quantity - count * chunk;
   if (tail > 0 && researchSellQuantity(tail, tail, rules) !== tail) return null;
-  const price = stop * (1 - costs.slippageBps / 10000);
-  return (
-    quantity * price * (1 - costs.sellTaxBps / 10000) -
-    count * researchCommission(chunk * price, costs) -
-    (tail ? researchCommission(tail * price, costs) : 0)
+  const price = toNumber(
+    big(stop).times(big(1).minus(big(costs.slippageBps).div(10000))),
+  );
+  const grossAfterTax = toNumber(
+    big(moneyMul(quantity, price)).times(
+      big(1).minus(big(costs.sellTaxBps).div(10000)),
+    ),
+  );
+  const chunkCommission = researchCommission(moneyMul(chunk, price), costs);
+  const tailCommission = tail
+    ? researchCommission(moneyMul(tail, price), costs)
+    : 0;
+  return toNumber(
+    big(grossAfterTax)
+      .minus(big(chunkCommission).times(count))
+      .minus(tailCommission),
   );
 }
 
@@ -96,17 +108,18 @@ export function researchPyramidOrder(input: {
     rules,
   );
   const candidate = (quantity: number) => {
-    const commission = researchCommission(quantity * price, costs);
+    const commission = researchCommission(moneyMul(quantity, price), costs);
     const next = researchBookBuy(book, {
       date: input.date,
       price,
       quantity,
       commission,
     });
-    const netEquity = input.equity - commission;
+    const netEquity = toNumber(big(input.equity).minus(commission));
+    const remainingValue = moneyMul(next.remainingQuantity, price);
     if (
-      next.remainingQuantity * price > netEquity * input.maxWeight + 1e-8 ||
-      next.remainingQuantity * price + input.otherValue >
+      remainingValue > netEquity * input.maxWeight + 1e-8 ||
+      remainingValue + input.otherValue >
         netEquity * input.maxTotalWeight + 1e-8
     )
       return null;
@@ -144,7 +157,10 @@ export function researchPyramidOrder(input: {
       costs,
     );
     if (proceeds == null || stop >= price) return null;
-    const risk = Math.max(0, next.remainingCost - proceeds);
+    const risk = Math.max(
+      0,
+      toNumber(big(next.remainingCost).minus(proceeds)),
+    );
     if (risk > input.riskBudget + 1e-8) return null;
     return { book: next, quantity, commission, stop, plannedRisk: risk };
   };

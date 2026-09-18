@@ -6,6 +6,7 @@ import { researchDateSchema } from "./research-usage";
 import { researchTradeStatistics } from "./strategy-research";
 import { reviewTrades, type TradeReviewInput } from "./trade-review";
 import { reviewTradeNav, type TradeReviewNavInput } from "./trade-review-nav";
+import { big, bpsOf, moneyMul, toNumber } from "./money";
 
 export const disciplineNotice = "参数在已知结果后选定，本对照不构成可交易结论";
 export const disciplineScope =
@@ -183,14 +184,14 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
         if (!b || !Number.isFinite(b.open) || b.open <= 0 || b.volume <= 0)
           continue;
         const first = input.fills[s.round.fillIndices[0]!]!;
-        const amount = b.open * s.held;
+        const amount = moneyMul(b.open, s.held);
         const commission = Math.max(
           input.stopCosts.minimumCommission,
-          (amount * input.stopCosts.commissionBps) / 10000,
+          bpsOf(amount, input.stopCosts.commissionBps),
         );
         const tax =
           first.instrument === "stock"
-            ? (amount * input.stopCosts.sellTaxBps) / 10000
+            ? bpsOf(amount, input.stopCosts.sellTaxBps)
             : 0;
         emit(
           {
@@ -202,13 +203,13 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
             price: b.open,
             quantity: s.held,
             amount,
-            netAmount: amount - commission - tax,
+            netAmount: toNumber(big(amount).minus(commission).minus(tax)),
             fees: {
               commission,
               stampTax: tax,
               transferFee: 0,
               otherFee: 0,
-              total: commission + tax,
+              total: toNumber(big(commission).plus(tax)),
             },
             balanceCash: null,
             balanceShares: null,

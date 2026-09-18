@@ -1,3 +1,5 @@
+import { big, moneyMul, toNumber } from "./money";
+
 /** Research-only FIFO cost allocation. Prices are actual simulated fills;
  * commission is supplied once per order by the execution layer. */
 export type ResearchPositionLot = {
@@ -61,9 +63,11 @@ export function researchBookBuy(
 ): ResearchPositionBook {
   checkDate(book, fill.date);
   checkFill(fill.quantity, fill.price, fill.commission);
-  const cost = fill.quantity * fill.price + fill.commission;
+  const cost = toNumber(
+    big(moneyMul(fill.quantity, fill.price)).plus(fill.commission),
+  );
   const totalQuantity = book.totalQuantity + fill.quantity;
-  const totalCost = book.totalCost + cost;
+  const totalCost = toNumber(big(book.totalCost).plus(cost));
   if (!Number.isSafeInteger(totalQuantity) || !Number.isFinite(totalCost))
     throw new Error("批次累计数量或成本溢出");
   return {
@@ -82,7 +86,7 @@ export function researchBookBuy(
     totalQuantity,
     totalCost,
     remainingQuantity: book.remainingQuantity + fill.quantity,
-    remainingCost: book.remainingCost + cost,
+    remainingCost: toNumber(big(book.remainingCost).plus(cost)),
     lastDate: fill.date,
   };
 }
@@ -118,23 +122,33 @@ export function researchBookSell(
     const cost =
       quantity === lot.remainingQuantity
         ? lot.remainingCost
-        : (lot.remainingCost * quantity) / lot.remainingQuantity;
+        : toNumber(
+            big(lot.remainingCost).times(quantity).div(lot.remainingQuantity),
+          );
     needed -= quantity;
-    releasedCost += cost;
+    releasedCost = toNumber(big(releasedCost).plus(cost));
     return {
       ...lot,
       remainingQuantity: lot.remainingQuantity - quantity,
       remainingCost:
-        quantity === lot.remainingQuantity ? 0 : lot.remainingCost - cost,
+        quantity === lot.remainingQuantity
+          ? 0
+          : toNumber(big(lot.remainingCost).minus(cost)),
     };
   });
-  const netProceeds = fill.quantity * fill.price - fill.commission - fill.tax;
+  const netProceeds = toNumber(
+    big(moneyMul(fill.quantity, fill.price))
+      .minus(fill.commission)
+      .minus(fill.tax),
+  );
   const remainingQuantity = book.remainingQuantity - fill.quantity;
-  const realizedProceeds = book.realizedProceeds + netProceeds;
+  const realizedProceeds = toNumber(big(book.realizedProceeds).plus(netProceeds));
   const remainingCost =
     remainingQuantity === 0
       ? 0
-      : lots.reduce((sum, lot) => sum + lot.remainingCost, 0);
+      : toNumber(
+          lots.reduce((sum, lot) => sum.plus(lot.remainingCost), big(0)),
+        );
   return {
     releasedCost,
     netProceeds,
@@ -144,7 +158,9 @@ export function researchBookSell(
       remainingQuantity,
       remainingCost,
       realizedProceeds,
-      realizedProfit: realizedProceeds - (book.totalCost - remainingCost),
+      realizedProfit: toNumber(
+        big(realizedProceeds).minus(big(book.totalCost).minus(remainingCost)),
+      ),
       lastDate: fill.date,
     },
   };

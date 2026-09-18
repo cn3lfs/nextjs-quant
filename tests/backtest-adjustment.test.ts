@@ -174,9 +174,18 @@ it("默认及显式none完整结果保持实现前特征化哈希，包括全部
   const bars = prices([10, 11, 12, 13, 14, 15, 9, 8, 7]);
   const baseline = backtest(bars, strategy, "snapshot", 10000);
   // Captured from HEAD:src/server/quant.ts before W1, using the existing costs fixture.
+  // S1 (Big.js money math) recaptured this hash: cash/fee arithmetic in
+  // src/server/quant.ts now runs through src/lib/money.ts instead of plain
+  // double +=/-=, which removes trailing float dust from every diffing
+  // field (e.g. cash 5779.501400000001 -> 5779.5014, benchmark.cash
+  // 890.4500000000007 -> 890.45, benchmark.trade.price
+  // 13.006499999999999 -> 13.0065, maxDrawdown
+  // 45.93594634287798 -> 45.93594634287799). No field changed by more than
+  // float epsilon and no structural/shape change occurred; see
+  // .codex-runs/s1-delivery.md for the full old-vs-new field diff.
   expect(
     createHash("sha256").update(JSON.stringify(baseline)).digest("hex"),
-  ).toBe("a394c9a04903e65f8617e208fc6c4987ac2f94c6b5502fc3c8ff5b4de4181817");
+  ).toBe("5e83a0044518df442d8ab8d31cc807b3ea888b892199af57fdf3efcf1f73efda");
   const explicit = backtest(
     bars,
     strategy,

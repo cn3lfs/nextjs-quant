@@ -1,3 +1,4 @@
+import { big, bpsOf, moneyMul, toNumber } from "~/lib/money";
 import { isWyckoffStructure, type WyckoffId } from "~/lib/research-wyckoff";
 import { researchWyckoffStructureSeries } from "./research-structure-weekly";
 import {
@@ -601,11 +602,11 @@ export function researchPortfolio(
         }
         continue;
       }
-      const amount = quantity * fill.price;
+      const amount = moneyMul(quantity, fill.price);
       const commission = researchCommission(amount, spec.costs);
-      const tax = (amount * spec.costs.sellTaxBps) / 10000;
-      const proceeds = amount - commission - tax;
-      cash += proceeds;
+      const tax = bpsOf(amount, spec.costs.sellTaxBps);
+      const proceeds = toNumber(big(amount).minus(commission).minus(tax));
+      cash = toNumber(big(cash).plus(proceeds));
       const reason = fullExit
         ? (exits.get(symbol) ?? "达到最长持有交易日")
         : partialReason(partial!);
@@ -624,11 +625,16 @@ export function researchPortfolio(
           addStates.get(symbol)!.stopped = true;
           additions.delete(symbol);
         } else {
-          trade.realizedProceeds! += proceeds;
-          trade.realizedProfit =
-            trade.realizedProceeds! -
-            (trade.entryCost * (trade.quantity - trade.remainingQuantity)) /
-              trade.quantity;
+          trade.realizedProceeds = toNumber(
+            big(trade.realizedProceeds!).plus(proceeds),
+          );
+          trade.realizedProfit = toNumber(
+            big(trade.realizedProceeds).minus(
+              big(trade.entryCost)
+                .times(trade.quantity - trade.remainingQuantity)
+                .div(trade.quantity),
+            ),
+          );
         }
         trade.sales!.push({
           date,
@@ -690,12 +696,18 @@ export function researchPortfolio(
       exits.delete(symbol);
       trade.holdingTradingDays = index - trade.entryIndex;
       trade.exitPrice = batched
-        ? trade.sales!.reduce(
-            (sum, sale) => sum + sale.quantity * sale.price,
-            0,
-          ) / (trade.book?.totalQuantity ?? trade.quantity)
+        ? toNumber(
+            trade
+              .sales!.reduce(
+                (sum, sale) => sum.plus(moneyMul(sale.quantity, sale.price)),
+                big(0),
+              )
+              .div(trade.book?.totalQuantity ?? trade.quantity),
+          )
         : fill.price;
-      trade.profit = (trade.realizedProceeds ?? proceeds) - trade.entryCost;
+      trade.profit = toNumber(
+        big(trade.realizedProceeds ?? proceeds).minus(trade.entryCost),
+      );
       trade.netReturn = trade.profit / trade.entryCost;
       accountRisk?.settle(
         index,
@@ -930,7 +942,11 @@ export function researchPortfolio(
         }
         const order = result.order;
         if (kellyCheck) kellyCheck.filledQuantity = order.quantity;
-        cash -= order.quantity * fill.price + order.commission;
+        cash = toNumber(
+          big(cash)
+            .minus(moneyMul(order.quantity, fill.price))
+            .minus(order.commission),
+        );
         trade.book = order.book;
         trade.lastPrice = fill.price;
         trade.remainingQuantity = order.book.remainingQuantity;
@@ -1538,10 +1554,11 @@ export function researchPortfolio(
             spec.costs,
           );
           if (proceeds == null) continue;
-          const cost =
-            quantity * fill.price +
-            researchCommission(quantity * fill.price, spec.costs);
-          const risk = Math.max(0, cost - proceeds);
+          const orderAmount = moneyMul(quantity, fill.price);
+          const cost = toNumber(
+            big(orderAmount).plus(researchCommission(orderAmount, spec.costs)),
+          );
+          const risk = Math.max(0, toNumber(big(cost).minus(proceeds)));
           if (risk <= entryEquity * spec.risk!.fraction + 1e-8) {
             initialBatchRisk = risk;
             break;
@@ -1613,9 +1630,11 @@ export function researchPortfolio(
         };
       }
       if (kellyCheck) kellyCheck.filledQuantity = quantity;
-      const amount = quantity * fill.price,
-        entryCost = amount + researchCommission(amount, spec.costs);
-      cash -= entryCost;
+      const amount = moneyMul(quantity, fill.price),
+        entryCost = toNumber(
+          big(amount).plus(researchCommission(amount, spec.costs)),
+        );
+      cash = toNumber(big(cash).minus(entryCost));
       const trade: ResearchTrade = {
         event,
         ...(calibration?.slipReport
@@ -1626,7 +1645,7 @@ export function researchPortfolio(
                 fill.price,
                 initialStop!,
                 dailyRules!.buyStep,
-                (fill.price * spec.costs.slippageBps) / 10000,
+                bpsOf(fill.price, spec.costs.slippageBps),
                 spec.risk!.maxWeight,
               ),
             }

@@ -4,6 +4,7 @@ import {
   researchCommission,
   type ResearchExecutionRules,
 } from "./research-execution";
+import { big, bpsOf, moneyMul, toNumber } from "./money";
 
 export function plannedStopRisk(
   quantity: number,
@@ -11,12 +12,17 @@ export function plannedStopRisk(
   stop: number,
   costs: BacktestCosts,
 ) {
-  const estimatedExit = stop * (1 - costs.slippageBps / 10000);
-  return (
-    quantity * (entry - estimatedExit) +
-    researchCommission(quantity * entry, costs) +
-    researchCommission(quantity * estimatedExit, costs) +
-    (quantity * estimatedExit * costs.sellTaxBps) / 10000
+  const estimatedExit = toNumber(
+    big(stop).times(big(1).minus(big(costs.slippageBps).div(10000))),
+  );
+  const entryAmount = moneyMul(quantity, entry);
+  const exitAmount = moneyMul(quantity, estimatedExit);
+  return toNumber(
+    big(entryAmount)
+      .minus(exitAmount)
+      .plus(researchCommission(entryAmount, costs))
+      .plus(researchCommission(exitAmount, costs))
+      .plus(bpsOf(exitAmount, costs.sellTaxBps)),
   );
 }
 

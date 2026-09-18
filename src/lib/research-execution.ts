@@ -1,5 +1,6 @@
 import type { Bar } from "./domain";
 import type { BacktestCosts } from "./backtest-costs";
+import { big, bpsOf, moneyMul, toNumber, bigFloor, bigMin } from "./money";
 
 /** Historical daily constraints must come from evidence or an explicitly
  * labelled scenario. Current ST/IPO status is not a historical substitute.
@@ -45,10 +46,7 @@ export function researchSellQuantity(
     : minimumSell + Math.floor((limit - minimumSell) / sellStep) * sellStep;
 }
 export function researchCommission(amount: number, costs: BacktestCosts) {
-  return Math.max(
-    costs.minimumCommission,
-    (amount * costs.commissionBps) / 10000,
-  );
+  return Math.max(costs.minimumCommission, bpsOf(amount, costs.commissionBps));
 }
 
 export function researchFill(
@@ -110,18 +108,22 @@ export function researchBuyQuantity(
     )
   )
     throw new Error("申报数量规则无效");
-  const affordable = Math.floor(
-    Math.min(
-      (budget - costs.minimumCommission) / price,
-      budget / (price * (1 + costs.commissionBps / 10000)),
-      rules.maximumOrder,
+  const priceWithCommissionRate = big(price).times(
+    big(1).plus(big(costs.commissionBps).div(10000)),
+  );
+  const affordable = bigFloor(
+    bigMin(
+      big(budget).minus(costs.minimumCommission).div(price),
+      big(budget).div(priceWithCommissionRate),
+      big(rules.maximumOrder),
     ),
   );
   if (affordable < rules.minimumBuy) return 0;
   const quantity =
     rules.minimumBuy +
     Math.floor((affordable - rules.minimumBuy) / rules.buyStep) * rules.buyStep;
-  return quantity * price + researchCommission(quantity * price, costs) <=
+  const orderAmount = moneyMul(quantity, price);
+  return toNumber(big(orderAmount).plus(researchCommission(orderAmount, costs))) <=
     budget + 1e-8
     ? quantity
     : 0;

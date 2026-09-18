@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defaultBacktestCosts, type BacktestCosts } from "./backtest-costs";
+import { big, bpsOf, moneyMul, toNumber } from "./money";
 import { aggregateLedger, type LedgerRow } from "./signal-ledger";
 import type { SkillUse } from "~/server/research-skills";
 import type { TdxXdxr } from "~/server/tdx-wire";
@@ -53,14 +54,16 @@ export function tradeFees(
   t: Pick<TradeInput, "price" | "quantity" | "side">,
   c = defaultBacktestCosts,
 ) {
-  const amount = t.price * t.quantity;
-  const commission = Math.max(
-    c.minimumCommission,
-    (amount * c.commissionBps) / 10000,
-  );
-  const tax = t.side === "sell" ? (amount * c.sellTaxBps) / 10000 : 0;
-  const slippage = (amount * c.slippageBps) / 10000;
-  return { commission, tax, slippage, total: commission + tax + slippage };
+  const amount = moneyMul(t.price, t.quantity);
+  const commission = Math.max(c.minimumCommission, bpsOf(amount, c.commissionBps));
+  const tax = t.side === "sell" ? bpsOf(amount, c.sellTaxBps) : 0;
+  const slippage = bpsOf(amount, c.slippageBps);
+  return {
+    commission,
+    tax,
+    slippage,
+    total: toNumber(big(commission).plus(tax).plus(slippage)),
+  };
 }
 export type CorporateEvidence = {
   events: TdxXdxr[];
