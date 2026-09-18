@@ -1,4 +1,7 @@
 import { isChanC4 } from "~/lib/research-chan-movements";
+import { isOpening } from "~/lib/research-opening";
+import { isMarketAdmission } from "~/lib/research-market-admission";
+import { isIntradayExecution } from "~/lib/research-intraday-execution";
 import { researchChanMonthlyInput } from "./research-chan-monthly";
 import { researchK13Report, type K13ReportInput } from "~/lib/research-k13";
 
@@ -141,6 +144,27 @@ import { buildResearchCompositeSpec } from "~/lib/research-composite-presets";
 /** Resolve a declared component×baseline preset before entering the shared engine. */
 export function buildNamedResearchSpec(id: string, base: ResearchSpec) {
   return buildResearchCompositeSpec(id, base);
+}
+
+/**
+ * Cup/handle history windows are per-event (`historyStart` varies with the
+ * detected shape), so the stock-wide `adjustedCoverage` price-factor check
+ * is not fine-grained enough on its own: it only fails when a company action
+ * actually perturbs the price-factor series, but a later, longer-reaching
+ * candidate must not be able to admit an action that falls inside an
+ * *earlier* candidate's narrower window just because that action happens to
+ * have zero net price effect. Any recorded ex-dividend/rights/bonus action
+ * inside `[start, end]` keeps that specific window's coverage undetermined,
+ * independent of whether adjustmentFactors could still compute for it.
+ */
+function hasActionInWindow(
+  stock: ResearchDataset["stocks"][number],
+  start: string,
+  end: string,
+) {
+  return stock.actions.some(
+    (action) => action.category === 1 && action.date >= start && action.date <= end,
+  );
 }
 
 export async function runStrategyResearch(
@@ -327,23 +351,53 @@ export async function runStrategyResearch(
         stock,
         dataset.actionCoverage,
       );
-      if (adjusted.status === "missing")
+      // Only pattern (candle) and volume-price strategies read adjusted
+      // price/volume for their signal, so only they must be excluded
+      // wholesale when a complete adjustment prefix cannot be verified. A
+      // strategy outside those buckets (e.g. chan-native) never asked for
+      // adjusted prices before this coverage gate existed, so it must still
+      // be able to run on the stock's raw bars when coverage is missing —
+      // execution admission is unaffected by this fallback: `adjustedCoverage`
+      // is only added when coverage is genuinely available, so the separate
+      // actionCovered/lookup gate below still withholds trade execution.
+      if (adjusted.status === "missing" && (candle || volume))
         throw new Error(adjusted.reason ?? "复权覆盖缺失");
-      adjustedCoverage.add(stock.symbol);
-      adjustedMinuteSeries.set(stock.symbol, adjusted.minuteBars);
+      // Volume-dependent strategies need both the price coverage above and
+      // volume comparability across any share-count-changing event; a
+      // pattern-only strategy never reaches this branch's rejection because
+      // it does not read bar.volume for its signal.
+      if (
+        volume &&
+        adjusted.status === "available" &&
+        adjusted.volumeCoverage === "missing"
+      )
+        throw new Error(adjusted.volumeReason ?? "量能可比性覆盖缺失");
+      if (adjusted.status === "available") adjustedCoverage.add(stock.symbol);
+      const priceCovered = adjusted.status === "available";
+      const signalBars = !priceCovered
+        ? stock.bars
+        : volume
+          ? adjusted.volumeAdjustedBars
+          : adjusted.bars;
+      const signalMinuteBars = !priceCovered
+        ? (stock.minuteBars ?? [])
+        : volume
+          ? adjusted.volumeAdjustedMinuteBars
+          : adjusted.minuteBars;
+      adjustedMinuteSeries.set(stock.symbol, signalMinuteBars);
       const observed =
         spec.management?.growthIntraday === "SE-E-intraday50" ||
         spec.management?.growthIntraday === "SW02-last30"
           ? growthIntradayEntries(
               stock.symbol,
-              adjusted.bars,
-              adjusted.minuteBars,
+              signalBars,
+              signalMinuteBars,
               dataset.calendar,
               spec,
             )
           : await researchSignals(
               stock.symbol,
-              adjusted.bars,
+              signalBars,
               spec,
               czsc,
               cancelled,
@@ -352,7 +406,7 @@ export async function runStrategyResearch(
               dataset.calendar,
               dataset.canslimMarket,
               (row) => structureObservations.push(row),
-              adjusted.minuteBars,
+              signalMinuteBars,
               stock.volumeEvidence,
             );
       const accepted = cup
@@ -363,7 +417,9 @@ export async function runStrategyResearch(
                 ? "杯柄事件缺少有效历史输入起点"
                 : !adjustedCoverage.has(stock.symbol)
                   ? "杯柄选中形态窗口复权覆盖缺失"
-                  : null;
+                  : hasActionInWindow(stock, start, event.observedDate)
+                    ? "杯柄选中形态窗口内存在未核验的公司行动记录，复权覆盖缺失"
+                    : null;
             if (reason) {
               exclusions.push({
                 symbol: stock.symbol,
@@ -375,9 +431,10 @@ export async function runStrategyResearch(
           })
         : observed;
       events.push(...accepted);
-      // Signal/outcome prices are adjusted; the raw series above remains the
-      // execution source for the portfolio simulation.
-      eventSeries.set(stock.symbol, adjusted.bars);
+      // Signal/outcome prices are adjusted when coverage allows it; the raw
+      // series above remains the execution source for the portfolio
+      // simulation either way.
+      eventSeries.set(stock.symbol, priceCovered ? adjusted.bars : stock.bars);
     } catch (error) {
       if (cancelled()) throw error;
       // A rejected stock must not be recalculated by the portfolio's exit
@@ -413,12 +470,76 @@ export async function runStrategyResearch(
   const lookup = marketEvidence
     ? researchEvidenceLookup(marketEvidence)
     : () => null;
-  // A complete adjusted price series is the company-action admission gate.
-  // The execution rows are checked separately by researchEvidenceLookup;
-  // absence of those rows must remain a missing execution-evidence result.
-  const actionCovered = adjustedCoverage;
+  // A complete adjusted price series (adjustedCoverage) is the primary
+  // company-action admission gate for execution lookup. When the GBBQ source
+  // itself is entirely absent (dataset.actionCoverage === "missing"), no
+  // internal price-factor coverage can ever be derived, so strategies that
+  // never needed adjusted prices in the first place (i.e. outside the
+  // candle/volume buckets, which fall back to raw bars above) may still be
+  // admitted for execution via an explicit external assertion
+  // (marketEvidence.corporateActionFree) — the same fallback the pre-coverage
+  // design used, now scoped to only the missing-source case so it cannot
+  // re-admit a stock whose GBBQ-derived coverage was verified and found
+  // wanting. requiresActionPrefix strategies read history back to the
+  // series' first bar, so their required proof window is the whole prefix,
+  // not just spec.start.
+  const requiresActionPrefix =
+    isChanNative(spec.strategy) ||
+    isChanC4(spec.strategy) ||
+    (spec.management?.growthIntraday != null &&
+      (isOpening(spec.management.growthIntraday) ||
+        isMarketAdmission(spec.management.growthIntraday) ||
+        isIntradayExecution(spec.management.growthIntraday) ||
+        spec.management.growthIntraday === "SW02-last30")) ||
+    !!spec.stopDiagnosis ||
+    spec.management?.growthIntraday === "RK-C-swing-system" ||
+    spec.management?.trail.kind === "volatility" ||
+    !!spec.management?.riskPreset ||
+    spec.management?.contextRisk === "rk-sector-risk" ||
+    spec.management?.contextRisk === "rk-diversify" ||
+    // A held-position stop diagnosis reads back to the position's own entry,
+    // so its proof window is the prefix too, not spec.start.
+    !!spec.riskRepair;
+  const proofWindowStart = (symbol: string, bars: Bar[]) =>
+    requiresActionPrefix
+      ? (bars[0]?.date ?? spec.start)
+      : volume
+        ? volumeStarts.get(symbol)!
+        : candle
+          ? candleStarts.get(symbol)!
+          : spec.start;
+  /** The explicit external assertion, judged on its own window alone. */
+  const proven = (symbol: string, bars: Bar[]) =>
+    !!marketEvidence?.corporateActionFree.some(
+      (coverage) =>
+        coverage.symbol === symbol &&
+        coverage.start <= proofWindowStart(symbol, bars) &&
+        coverage.end >= spec.end,
+    );
+  // Locally-derived GBBQ price-factor coverage is the primary gate, and the
+  // external provider assertion is only a fallback for the case where no
+  // GBBQ source exists at all. `marketEvidence` is an imported third-party
+  // export (see research-market-evidence.ts: "importing is not
+  // verification"), so making it mandatory would put every real backtest at
+  // the mercy of a file the workbench cannot produce — which is exactly the
+  // admission blocker this coverage gate replaced. Scoping the fallback to
+  // the missing-source case also keeps it from re-admitting a stock whose
+  // GBBQ-derived coverage was computed and found wanting. The prefix window
+  // above therefore only ever tightens the fallback, never the primary gate.
+  const admitsAction = (symbol: string, bars: Bar[]) =>
+    adjustedCoverage.has(symbol) ||
+    (dataset.actionCoverage === "missing" && proven(symbol, bars));
+  const actionCovered = new Set(
+    dataset.stocks
+      .filter((stock) => admitsAction(stock.symbol, stock.bars))
+      .map((stock) => stock.symbol),
+  );
   const repairActionCovered =
-    !!spec.riskRepair && adjustedCoverage.has(spec.riskRepair!.symbol);
+    !!spec.riskRepair &&
+    admitsAction(
+      spec.riskRepair!.symbol,
+      series.get(spec.riskRepair!.symbol) ?? [],
+    );
   const trainsAdmission = riskAdmissionNeedsTraining(
     spec.management?.riskPreset
       ? riskPresetAdmission(spec.management.riskPreset)
@@ -441,13 +562,31 @@ export async function runStrategyResearch(
       );
       // A later candidate may reach further into history. Check each event
       // independently so it cannot revoke an earlier event's valid coverage.
+      // Cup/handle history windows vary per event, so the stock-wide
+      // adjustedCoverage price-factor check alone cannot tell whether *this*
+      // event's own [historyStart, spec.end] slice is free of undisclosed
+      // actions. That per-event slice still needs an explicit external
+      // assertion (marketEvidence.corporateActionFree) — GBBQ coverage is
+      // computed once for the whole bars array, not per dynamically-varying
+      // event window, so it cannot express "this specific stretch is
+      // additionally proven action-free" the way a later, longer-reaching
+      // candidate requires without retroactively revoking an earlier,
+      // narrower-windowed trade.
       const transactionEvents = cup
         ? partitionEvents.filter((event) => {
-            const covered = adjustedCoverage.has(event.symbol);
+            const covered =
+              adjustedCoverage.has(event.symbol) &&
+              !!event.historyStart &&
+              !!marketEvidence?.corporateActionFree.some(
+                (coverage) =>
+                  coverage.symbol === event.symbol &&
+                  coverage.start <= event.historyStart! &&
+                  coverage.end >= spec.end,
+              );
             if (!covered)
               exclusions.push({
                 symbol: event.symbol,
-                reason: `${event.observedDate}：杯柄交易模拟缺少完整复权覆盖，保留事件观察`,
+                reason: `${event.observedDate}：杯柄交易模拟缺少形态窗口无公司行动证明，保留事件观察`,
               });
             return covered;
           })
@@ -725,7 +864,7 @@ export async function runStrategyResearch(
         : []),
       ...(volume
         ? [
-            `量价信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。未核验大宗、指数调整、尾盘量能、历史流通盘等污染，固定阈值仅为工程对照。`,
+            `量价信号使用后复权价格、量能按GBBQ流通股本比例调整；交易模拟使用原始价格与原始量，且仅纳入复权覆盖与量能可比性覆盖均完整的证券。研究期、候选等待及预热至少向前${structure ? 90 : reversal ? 81 : 71}根价格，并覆盖候选形成前${structure || reversal ? 60 : 20}个有效量能记录。未核验大宗、指数调整、尾盘量能、历史流通盘等污染，固定阈值仅为工程对照。`,
           ]
         : []),
       ...(!dataset.method

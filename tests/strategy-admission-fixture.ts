@@ -57,8 +57,15 @@ export async function admissionResearchFixture() {
     calendar: bars.map((bar) => bar.date),
     stocks: [stock],
     excluded: [],
-    actionCoverage: "missing" as const,
-    actionSource: null,
+    // A GBBQ source is present but reports zero actions for this synthetic
+    // stock — "missing" would mean no GBBQ source at all, which the
+    // coverage gate in research-adjustment-coverage.ts now correctly
+    // excludes every stock for (no price-adjustment coverage can be
+    // verified without a source). This fixture is meant to admit its
+    // one stock so downstream weight-backtest/admission tests exercise a
+    // real trade, so it must assert a present-but-empty source.
+    actionCoverage: "partial" as const,
+    actionSource: { path: "fixture", modified: 0 },
   };
   const dataset: ResearchDataset = {
     ...content,

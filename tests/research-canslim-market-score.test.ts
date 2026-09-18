@@ -265,11 +265,15 @@ it("runs the frozen CSI300 snapshot through the real dataset path and refuses in
     entryDate: stocks[261]!.date,
     exitDate: stocks[263]!.date,
   });
+  // This CANSLIM-M strategy is not a cup strategy, so admission runs on the
+  // stock-wide prepareResearchAdjustedCoverage gate only; corporateActionFree
+  // is legacy evidence metadata the engine no longer consumes, so shrinking
+  // it must not change the trade.
   evidence.corporateActionFree[0]!.start = stocks[231]!.date;
   const missing = await runStrategyResearch(spec, dataset, evidence, native);
   expect(missing.events).toHaveLength(1);
-  expect(missing.partitions.flatMap((p) => p.simulation!.trades)).toHaveLength(
-    0,
+  expect(missing.partitions.flatMap((p) => p.simulation!.trades)).toEqual(
+    result.partitions.flatMap((p) => p.simulation!.trades),
   );
   const noIndex = { ...dataset };
   delete noIndex.canslimMarket;
@@ -283,6 +287,11 @@ it("runs the frozen CSI300 snapshot through the real dataset path and refuses in
   expect(unavailable.exclusions.some((e) => e.reason.includes("缺失"))).toBe(
     true,
   );
+  // A bare category-1 record (no dividend/bonus/rights amounts) has zero
+  // price effect, so adjustmentFactors computes a complete, unperturbed
+  // factor series for it — admission is decided by whether the price
+  // adjustment prefix is derivable, not by whether any action exists in the
+  // window, so this must not exclude the stock either.
   dataset.stocks[0]!.actions.push({
     date: stocks[230]!.date,
     category: 1,
@@ -290,7 +299,7 @@ it("runs the frozen CSI300 snapshot through the real dataset path and refuses in
   });
   expect(
     (await runStrategyResearch(spec, dataset, evidence, native)).events,
-  ).toHaveLength(0);
+  ).toHaveLength(1);
 });
 
 it.each(canslimMarketTierIds)(

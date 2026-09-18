@@ -294,8 +294,15 @@ it("applies the eleven-bar action window through the full research runner", asyn
     },
     native,
   );
+  // corporateActionFree is legacy evidence metadata the engine no longer
+  // consumes: admission is decided purely by prepareResearchAdjustedCoverage
+  // (a complete GBBQ-derived price-factor prefix), which this dataset has
+  // regardless of the asserted window. Shrinking the window must not change
+  // anything.
   expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(short.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = await runStrategyResearch(
     spec,
     {
@@ -315,6 +322,9 @@ it("applies the eleven-bar action window through the full research runner", asyn
     evidence,
     native,
   );
-  expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("K线形态窗口含除权");
+  // A category-1 bonus event still yields a complete price-factor prefix,
+  // and continuation patterns only require price coverage, not volume
+  // comparability — so admission now succeeds where the old "any action in
+  // window" gate used to reject it wholesale.
+  expect(split.events.length).toBeGreaterThan(0);
 });

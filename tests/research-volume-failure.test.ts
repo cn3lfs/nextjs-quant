@@ -316,8 +316,13 @@ it("requires volume warmup action evidence in the complete research runner", asy
     },
     native,
   );
+  // corporateActionFree is legacy evidence metadata the engine no longer
+  // consumes; admission runs on prepareResearchAdjustedCoverage instead,
+  // which this actions-free dataset satisfies regardless of the window.
   expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(short.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = await runStrategyResearch(
     spec,
     {
@@ -337,6 +342,9 @@ it("requires volume warmup action evidence in the complete research runner", asy
     evidence,
     native,
   );
+  // A category-1 bonus event without floatSharesBefore/After is a real
+  // share-count change GBBQ cannot quantify, so volume comparability stays
+  // missing — the reason now names that specifically.
   expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("量价窗口含除权");
+  expect(split.exclusions[0]!.reason).toContain("量能可比性无法判定");
 });

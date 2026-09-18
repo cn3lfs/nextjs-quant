@@ -418,9 +418,18 @@ it("SW02 last30 reuses dual breakout on a partial candle; final daily prices/vol
   expect(run.partitions[1]!.simulation!.trades[0]!.entries![0]!.date).toBe(
     `${day.date}T14:30:00+08:00`,
   );
+  // corporateActionFree is legacy evidence metadata the engine no longer
+  // consumes for admission: the gate is now prepareResearchAdjustedCoverage's
+  // locally-derived GBBQ price coverage, which this actions-free dataset
+  // satisfies regardless of the asserted window. Narrowing the window is
+  // therefore inert here. The withheld-execution case it used to assert is
+  // now reached through a dataset with no GBBQ source at all
+  // (actionCoverage: "missing"), where the external assertion is the only
+  // route and its window is checked against the whole prefix — see
+  // tests/research-risk-composition.test.ts's shortProof case.
   evidence.corporateActionFree[0]!.start = spec.start;
   const uncovered = await runStrategyResearch(spec, dataset, evidence, native);
   expect(
     uncovered.partitions.flatMap((p) => p.simulation?.trades ?? []),
-  ).toEqual([]);
+  ).toEqual(run.partitions.flatMap((p) => p.simulation?.trades ?? []));
 });

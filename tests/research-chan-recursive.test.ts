@@ -320,8 +320,12 @@ it("research runner forwards five-minute input and explicit anchor to the serial
       },
     ],
     excluded: [],
-    actionCoverage: "missing",
-    actionSource: null,
+    // A GBBQ source is present but reports zero actions for this synthetic
+    // stock; "missing" would mean no GBBQ source at all, which the coverage
+    // gate in research-adjustment-coverage.ts now correctly excludes every
+    // stock for.
+    actionCoverage: "partial",
+    actionSource: { path: "fixture", modified: 0 },
     capturedAt: 0,
     hash: "fixture",
   };

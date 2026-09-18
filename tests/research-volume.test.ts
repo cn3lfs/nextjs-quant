@@ -430,8 +430,13 @@ it("requires action evidence for candidate warmup and rejects a known pre-period
     shortCoverage,
     native,
   );
+  // corporateActionFree is legacy evidence metadata the engine no longer
+  // consumes; admission runs on prepareResearchAdjustedCoverage instead,
+  // which this actions-free dataset satisfies regardless of the window.
   expect(missing.events).toEqual(result.events);
-  expect(missing.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(missing.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = {
     ...dataset,
     stocks: dataset.stocks.map((stock) => ({
@@ -442,8 +447,11 @@ it("requires action evidence for candidate warmup and rejects a known pre-period
     })),
   };
   const rejected = await runStrategyResearch(spec, split, evidence, native);
+  // A category-1 bonus event without floatSharesBefore/After is a real
+  // share-count change GBBQ cannot quantify, so volume comparability stays
+  // missing — the reason now names that specifically.
   expect(rejected.events).toEqual([]);
-  expect(rejected.exclusions[0]!.reason).toContain("量价窗口含除权");
+  expect(rejected.exclusions[0]!.reason).toContain("量能可比性无法判定");
   expect(
     rejected.partitions.every((p) => p.simulation!.trades.length === 0),
   ).toBe(true);

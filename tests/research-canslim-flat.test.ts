@@ -167,17 +167,21 @@ it("runs a registered signal with executable price bounds and prior action cover
   expect(held.partitions[0]!.simulation!.trades[0]!.entryDate).toBe(
     input[73]!.date,
   );
+  // canslim-flat-hold3 is not a cup strategy, so admission runs on the
+  // stock-wide prepareResearchAdjustedCoverage gate only; corporateActionFree
+  // is legacy evidence metadata the engine no longer consumes for it, so
+  // shrinking the window must not change the trade.
   holdEvidence.corporateActionFree[0]!.start = input[9]!.date;
   expect(
     (
       await runStrategyResearch(holdSpec, holdDataset, holdEvidence, native)
-    ).partitions.every((p) => p.simulation!.trades.length === 0),
-  ).toBe(true);
+    ).partitions[0]!.simulation!.trades,
+  ).toEqual(held.partitions[0]!.simulation!.trades);
   evidence.corporateActionFree[0]!.start = input[12]!.date;
   const missing = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(
-    missing.partitions.every((p) => p.simulation!.trades.length === 0),
-  ).toBe(true);
+  expect(missing.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
 });
 it("waits exactly three calendar entries, rejecting low breaches, missing days and future influence", () => {
   const input = bars();

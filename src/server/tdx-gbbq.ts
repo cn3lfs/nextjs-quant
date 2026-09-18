@@ -394,3 +394,149 @@ export function applyAdjustmentByDate(
     };
   });
 }
+
+export type VolumeRatioCoverage = {
+  status: "available" | "missing";
+  reason: string | null;
+  /** The bar whose share count is the fixed basis; explicit and never "today". */
+  referenceDate: string | null;
+  /**
+   * Per-bar multiplier so raw volume can be compared on the reference day's
+   * share-count basis. Empty when status is "missing".
+   */
+  ratios: number[];
+};
+
+/** GBBQ categories whose non-dividend fields carry floatSharesBefore/After
+ * (see parseGbbq's else-branch: everything except 1/11/12/13/14). */
+const SHARE_COUNT_CATEGORIES = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+function hasUsableFloatShares(event: TdxXdxr) {
+  return (
+    event.floatSharesBefore != null &&
+    event.floatSharesAfter != null &&
+    Number.isFinite(event.floatSharesBefore) &&
+    Number.isFinite(event.floatSharesAfter) &&
+    event.floatSharesBefore > 0 &&
+    event.floatSharesAfter > 0
+  );
+}
+
+/**
+ * Derive a per-bar volume comparability ratio from dated GBBQ share-count
+ * events, anchored at the *last* bar of the series (the explicit reference
+ * date — never the security's present-day, out-of-window share count).
+ *
+ * A share-count change (bonus issue, rights issue, split/consolidation)
+ * alters how many raw shares a given amount of trading turns into, so raw
+ * volume before and after such an event is not directly comparable. The
+ * ratio is the multiplier that restates a bar's raw volume in the reference
+ * day's share-count terms: ratio(day) = product of (floatSharesAfter /
+ * floatSharesBefore) for every quantified event strictly between `day` and
+ * the reference day. Two consecutive 1:2 splits therefore compound to 4x for
+ * bars before both events, not 2x from only the nearer one — the ratio is
+ * built by walking bars backward from the reference day and multiplying in
+ * every event crossed, never by taking a single event's local ratio.
+ *
+ * Any share-changing event in the window that is *not* quantified this way
+ * (a category-1 除权除息 record with a bonus/rights ratio but no paired
+ * floatSharesBefore/After, or a 扩缩股/非流通股缩股 record) leaves the
+ * series' comparability undetermined, so the whole series is reported
+ * "missing" rather than silently assuming ratio 1 for it.
+ */
+export function deriveVolumeRatios(
+  bars: readonly Bar[],
+  events: readonly TdxXdxr[],
+): VolumeRatioCoverage {
+  if (bars.length === 0)
+    return {
+      status: "missing",
+      reason: "无日线，量能可比性无法判定",
+      referenceDate: null,
+      ratios: [],
+    };
+  const start = bars[0]!.date.slice(0, 10);
+  const end = bars.at(-1)!.date.slice(0, 10);
+  // The backward walk below treats bars[0] as the oldest day and bars.at(-1)
+  // as the reference day, and advances the event cursor monotonically. A
+  // descending or shuffled series would silently produce ratios anchored at
+  // the wrong day, so refuse it instead of returning a plausible-looking
+  // number.
+  for (let i = 1; i < bars.length; i++)
+    if (bars[i - 1]!.date.slice(0, 10) > bars[i]!.date.slice(0, 10))
+      throw new Error("量能可比性要求日线按日期升序");
+  const inWindow = (event: TdxXdxr) => event.date > start && event.date <= end;
+  const unquantified = events.filter(
+    (event) =>
+      inWindow(event) &&
+      ((event.category === 1 &&
+        ((event.bonusRatio ?? 0) > 0 || (event.rightsRatio ?? 0) > 0)) ||
+        event.category === 11 ||
+        event.category === 12 ||
+        (SHARE_COUNT_CATEGORIES.has(event.category) &&
+          !hasUsableFloatShares(event))),
+  );
+  if (unquantified.length > 0)
+    return {
+      status: "missing",
+      reason: `研究窗口内 ${unquantified.length} 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定`,
+      referenceDate: end,
+      ratios: [],
+    };
+  const quantified = events
+    .filter(
+      (event) =>
+        inWindow(event) &&
+        SHARE_COUNT_CATEGORIES.has(event.category) &&
+        hasUsableFloatShares(event),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
+  let cumulative = 1;
+  let cursor = 0;
+  const ratios = new Array<number>(bars.length);
+  for (let i = bars.length - 1; i >= 0; i--) {
+    const day = bars[i]!.date.slice(0, 10);
+    while (cursor < quantified.length && quantified[cursor]!.date > day) {
+      const event = quantified[cursor]!;
+      cumulative *= event.floatSharesAfter! / event.floatSharesBefore!;
+      cursor++;
+    }
+    ratios[i] = cumulative;
+  }
+  return { status: "available", reason: null, referenceDate: end, ratios };
+}
+
+/**
+ * Scale raw volume by the per-bar ratios from {@link deriveVolumeRatios}.
+ * Price fields are left untouched — this only restates the share-count
+ * basis of volume, it is not a price adjustment.
+ */
+export function applyVolumeRatios(bars: Bar[], ratios: number[]): Bar[] {
+  if (ratios.length !== bars.length)
+    throw new Error("量能比例与日线长度不一致");
+  return bars.map((bar, index) => ({
+    ...bar,
+    volume: bar.volume * ratios[index]!,
+  }));
+}
+
+/**
+ * Apply the daily volume ratios to a finer-grained (e.g. five-minute) series
+ * keyed by trading day. Bars outside the daily ratio series' date range keep
+ * their raw volume instead of inventing a ratio.
+ */
+export function applyVolumeRatiosByDate(
+  bars: Bar[],
+  dailyDates: readonly string[],
+  ratios: number[],
+): Bar[] {
+  if (dailyDates.length !== ratios.length)
+    throw new Error("量能比例与日线长度不一致");
+  const byDate = new Map(
+    dailyDates.map((date, index) => [date.slice(0, 10), ratios[index]!]),
+  );
+  return bars.map((bar) => {
+    const ratio = byDate.get(bar.date.slice(0, 10)) ?? 1;
+    return { ...bar, volume: bar.volume * ratio };
+  });
+}

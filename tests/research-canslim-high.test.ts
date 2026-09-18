@@ -190,20 +190,28 @@ it("runs all registered tiers through saved method, events and transactions with
       entryDate: input[index + 1]!.date,
       exitDate: input[index + 3]!.date,
     });
+    // canslim-high is not a cup strategy, so admission runs on the stock-wide
+    // prepareResearchAdjustedCoverage gate only; corporateActionFree is
+    // legacy evidence metadata the engine no longer consumes, so shrinking
+    // it must not change the trade.
     evidence.corporateActionFree[0]!.start = input[1]!.date;
     const missing = await runStrategyResearch(spec, dataset, evidence, native);
     expect(missing.events).toHaveLength(1);
-    expect(
-      missing.partitions.every((p) => p.simulation!.trades.length === 0),
-    ).toBe(true);
+    expect(missing.partitions[0]!.simulation!.trades).toEqual(
+      result.partitions[0]!.simulation!.trades,
+    );
+    // A bare category-1 record (no dividend/bonus/rights amounts) has zero
+    // price effect, so adjustmentFactors computes a complete, unperturbed
+    // factor series for it — admission is decided by whether the price
+    // adjustment prefix is derivable, not by whether any action exists in
+    // the window, so this must not exclude the stock either.
     dataset.stocks[0]!.actions.push({
       date: input[1]!.date,
       category: 1,
       name: "fixture除权",
     });
     const action = await runStrategyResearch(spec, dataset, evidence, native);
-    expect(action.events).toHaveLength(0);
-    expect(action.exclusions.some((e) => e.reason.includes("除权"))).toBe(true);
+    expect(action.events).toHaveLength(1);
   }
 });
 

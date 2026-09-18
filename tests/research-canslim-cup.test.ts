@@ -596,6 +596,12 @@ it("executes both scoring priority presets across all shapes and handle grades w
         entryDate: bars[index + 1]!.date,
         exitDate: bars[index + 3]!.date,
       });
+      // Cup transactionEvents admission still requires
+      // marketEvidence.corporateActionFree to cover this event's own
+      // historyStart..spec.end window (GBBQ coverage alone cannot express a
+      // per-event, dynamically-varying window) — see the longer comment in
+      // "runs all cup presets..." below. Shrinking it past historyStart
+      // withholds trade admission even though the signal is unaffected.
       evidence.corporateActionFree[0]!.start = bars[1]!.date;
       const missing = await runStrategyResearch(
         spec,
@@ -736,6 +742,14 @@ it("runs all cup presets with exact shape coverage and rejects actions inside, n
       entryDate: bars[index + 1]!.date,
       exitDate: bars[index + 3]!.date,
     });
+    // Unlike the stock-wide candle/volume admission gate (which now runs
+    // purely on GBBQ-derived coverage), the cup transactionEvents filter
+    // still needs marketEvidence.corporateActionFree: it is the only
+    // per-event-window proof available, since GBBQ coverage is computed once
+    // for the whole bars array and cannot express "this specific
+    // [historyStart, spec.end] slice is proven action-free" for a
+    // dynamically varying window. Shrinking it below historyStart keeps the
+    // signal (events) but withholds trade admission.
     evidence.corporateActionFree[0]!.start = bars[71]!.date;
     const missing = await run();
     expect(missing.events).toHaveLength(1);

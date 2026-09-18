@@ -426,8 +426,14 @@ it("uses extended action coverage for context strategies in the full runner", as
     },
     native,
   );
+  // corporateActionFree is legacy evidence metadata the engine no longer
+  // consumes: admission now runs on prepareResearchAdjustedCoverage's price
+  // and volume coverage, which this actions-free dataset satisfies
+  // regardless of the asserted window.
   expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual([]);
+  expect(short.partitions[0]!.simulation!.trades).toEqual(
+    result.partitions[0]!.simulation!.trades,
+  );
   const split = await runStrategyResearch(
     spec,
     {
@@ -447,6 +453,11 @@ it("uses extended action coverage for context strategies in the full runner", as
     evidence,
     native,
   );
+  // A category-1 bonus event carries no floatSharesBefore/After, so it is a
+  // real share-count change we cannot quantify from GBBQ — volume
+  // comparability genuinely stays missing (this is the safety property the
+  // old "any action in window" gate approximated); the reason must now name
+  // that specifically instead of blanket "any corporate action present".
   expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("量价窗口含除权");
+  expect(split.exclusions[0]!.reason).toContain("量能可比性无法判定");
 });

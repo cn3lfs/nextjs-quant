@@ -231,12 +231,16 @@ it("runs all four presets with frozen prices and 140/143-bar company-action cove
       entryDate: bars[signalIndex + 1]!.date,
       exitDate: bars[signalIndex + 3]!.date,
     });
+    // canslim-saucer is not a cup strategy, so admission runs on the
+    // stock-wide prepareResearchAdjustedCoverage gate only; corporateActionFree
+    // is legacy evidence metadata the engine no longer consumes, so
+    // shrinking it must not change the trade.
     evidence.corporateActionFree[0]!.start = bars[startIndex + 1]!.date;
     expect(
       (
         await runStrategyResearch(spec, dataset, evidence, native)
-      ).partitions.every((p) => p.simulation!.trades.length === 0),
-    ).toBe(true);
+      ).partitions[0]!.simulation!.trades,
+    ).toEqual(result.partitions[0]!.simulation!.trades);
     evidence.corporateActionFree[0]!.start = bars[startIndex]!.date;
     bars[signalIndex + 1]!.open = 106;
     bars[signalIndex + 1]!.high = 106;
