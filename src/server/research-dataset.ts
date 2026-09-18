@@ -45,20 +45,24 @@ export type ResearchDataset = Omit<
   "method" | "stocks" | "volumeEvidence"
 > & {
   method?: ResearchMethodSnapshot;
-  stocks: (Omit<
-    ResearchStock,
-    "volumeEvidence" | "floatShareCoverage" | "eventCoverage"
-  > & {
+  stocks: (Omit<ResearchStock, "volumeEvidence" | "floatShareCoverage"> & {
     volumeEvidence?: ResearchStock["volumeEvidence"];
     floatShareCoverage?: ResearchStock["floatShareCoverage"];
-    eventCoverage?: ResearchStock["eventCoverage"];
   })[];
   volumeEvidence?: CapturedResearchDataset["volumeEvidence"];
 };
 
 export { parseBenchmarkWindow as parseResearchBenchmark } from "./tdx-benchmark";
 
-function needsVolumeEvidence(strategy: string) {
+/**
+ * The set of strategies that consume per-day volume evidence. Exported because
+ * the batch driver must derive `volumeEvidence` at the point of use with the
+ * *preset's* strategy rather than the capture spec's: the capture gate is only
+ * correct when the capture spec is the strategy being run, which is false for a
+ * driver that captures once with a fixed base spec (manager ruling 2026-09-19,
+ * third instance of the same capture-time trap — see .codex-runs/s4-delivery.md).
+ */
+export function needsVolumeEvidence(strategy: string) {
   return (
     isVolumeStrategy(strategy) ||
     isVolumeGrid(strategy) ||
@@ -161,7 +165,6 @@ export async function captureResearchDataset(
     floatShareCoverage?: ReturnType<
       typeof deriveHistoricalFloatShares
     >["coverage"];
-    eventCoverage?: ReturnType<typeof buildDailyEventCoverage>;
   }[] = [];
   const excluded: { symbol: string; reason: string }[] = [];
   let payloadBytes = Buffer.byteLength(JSON.stringify(benchmark));
@@ -211,27 +214,31 @@ export async function captureResearchDataset(
             },
           };
       const volumeRun = needsVolumeEvidence(spec.strategy);
-      // Daily execution evidence (price-limit / suspension / corporate-action
-      // rows) is required for EVERY strategy's trade admission, not just the
-      // volume-reading family: research-run.ts's marketEvidence.rows (built
-      // from this eventCoverage by the batch drivers) gates whether any
-      // attempted buy can be filled at all, independent of what the signal
-      // itself reads. Gating this construction on `needsVolumeEvidence` left
-      // every non-volume strategy with `rows: []`, so every attempted buy was
-      // rejected for "缺少当日交易限制依据" regardless of entryMaxWait — a
-      // driver-invisible execution-layer bug, not a real data gap (see
-      // .codex-runs/s4-delivery.md). Only the volume-specific merge below
-      // stays conditional; the coverage rows themselves are unconditional.
-      const eventCoverage: ReturnType<typeof buildDailyEventCoverage> =
-        buildDailyEventCoverage(
-          symbol,
-          bars,
-          stockActions,
-          calendar,
-          actions !== null,
-        );
+      // Manager ruling 2026-09-19: the per-day event table (`eventCoverage`) is
+      // NOT persisted in the dataset any more. It is a pure function of
+      // (symbol, bars, actions, calendar, gbbqAvailable) — computed at the
+      // point of use, which is the batch driver building
+      // `marketEvidence.rows` (scripts/r3-batch-runner.ts) — because it was
+      // 75.8% of a stock's snapshot payload and pushed a full A500 capture past
+      // both the 512MiB per-capture cap and V8's single-string limit that
+      // `researchHash` needs. `docs/decisions.md:827` registers that cap as a
+      // deliberate product limit, so the payload shrank instead of the cap
+      // moving. Execution evidence itself is still required for EVERY strategy
+      // (research-run.ts gates every fill on marketEvidence.rows), it is just no
+      // longer stored here. Only the volume-specific merge below consumes the
+      // table here, and only for the volume family; its `volumeEvidence` output
+      // is still stored exactly as before.
       const volumeEvidence = volumeRun
-        ? mergeVolumeEvidence(floatShares.evidence, eventCoverage)
+        ? mergeVolumeEvidence(
+            floatShares.evidence,
+            buildDailyEventCoverage(
+              symbol,
+              bars,
+              stockActions,
+              calendar,
+              actions !== null,
+            ),
+          )
         : {};
       const raw = {
         symbol,
@@ -255,7 +262,6 @@ export async function captureResearchDataset(
         actions: stockActions,
         volumeEvidence,
         floatShareCoverage: floatShares.coverage,
-        eventCoverage,
       };
       payloadBytes += Buffer.byteLength(JSON.stringify(raw));
       if (payloadBytes > 512 * 1024 * 1024)

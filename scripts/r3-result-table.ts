@@ -96,6 +96,28 @@ function loadRecordsMeta(batchDir: string): RecordsMeta {
 }
 
 const rows: Row[] = [];
+/**
+ * Pool accounting per batch, counted in SYMBOLS (not strategies). The manager
+ * flagged (2026-09-19) that the "排除主因（按策略数）" table understates reasons
+ * that hit every strategy at once: with `spec.start = 2000-01-04`, the 61-bar
+ * warmup requirement (src/server/research-signals.ts:259-265) rejects every
+ * symbol whose first daily bar is later than ~1999-08-31, i.e. ~80% of the
+ * intent pool, for every strategy — it only looked small before S2 because the
+ * corporate-action gate (193/44 strategies) dominated per-strategy tallies.
+ */
+const poolByBatch = new Map<
+  string,
+  Map<
+    string,
+    {
+      intent: number;
+      warmup: number;
+      other: number;
+      presets: number;
+      topOtherReason: string;
+    }
+  >
+>();
 for (const batch of readdirSync(root)) {
   const dir = join(root, batch, "raw");
   if (!existsSync(dir)) continue;
@@ -105,7 +127,11 @@ for (const batch of readdirSync(root)) {
   for (const file of readdirSync(dir)) {
     if (!file.endsWith(".json")) continue;
     const raw = JSON.parse(readFileSync(join(dir, file), "utf8")) as {
-      spec?: { strategy?: string; management?: { growthIntraday?: unknown } };
+      spec?: {
+        strategy?: string;
+        symbols?: string[];
+        management?: { growthIntraday?: unknown };
+      };
       partitions?: {
         partition: string;
         events: number;
@@ -161,6 +187,36 @@ for (const batch of readdirSync(root)) {
       const reason = item.reason ?? "未记录原因";
       poolReasons[reason] = (poolReasons[reason] ?? 0) + 1;
     }
+    const intent = raw.spec?.symbols?.length ?? 0;
+    const warmup = Object.entries(poolReasons)
+      .filter(([reason]) => reason.includes("预热"))
+      .reduce((sum, [, count]) => sum + count, 0);
+    // Normalize the per-symbol event count so variants of the same reason
+    // ("研究窗口内 2 处…" / "…9 处…") aggregate into one row.
+    const normalized: Record<string, number> = {};
+    for (const [reason, count] of Object.entries(poolReasons))
+      if (!reason.includes("预热")) {
+        const key = reason.replace(/研究窗口内\s*\d+\s*处/, "研究窗口内 N 处");
+        normalized[key] = (normalized[key] ?? 0) + count;
+      }
+    const otherReasons = Object.entries(normalized);
+    const other = otherReasons.reduce((sum, [, count]) => sum + count, 0);
+    const shapes = poolByBatch.get(batch) ?? new Map();
+    const shapeKey = `${intent}/${warmup}/${other}`;
+    const shape = shapes.get(shapeKey) ?? {
+      intent,
+      warmup,
+      other,
+      presets: 0,
+      topOtherReason: "",
+    };
+    shape.presets += 1;
+    if (otherReasons.length) {
+      const [reason, count] = otherReasons.sort((a, b) => b[1] - a[1])[0]!;
+      shape.topOtherReason = `${reason}（${count}）`;
+    }
+    shapes.set(shapeKey, shape);
+    poolByBatch.set(batch, shapes);
     const label =
       known?.label ??
       (raw.status === "failed"
@@ -260,6 +316,10 @@ function renderSection(heading: string, subset: Row[], lines: string[]) {
   }
   lines.push("**证券池层排除主因（按出现该主因的项数）**");
   lines.push("");
+  lines.push(
+    "口径说明：本表按**项（preset）**计数，只统计每项**占比最高**的那一条原因，因此会系统性低估**对每一项都发生**的原因。61 根预热就是这种原因——它按**每股**移除约 80% 的意图池（见 §0.5），却只会在少数项里当上「主因」。不要把本表的数字读成「只影响这么多项」。",
+  );
+  lines.push("");
   lines.push("| 原因 | 项数 |");
   lines.push("| --- | --- |");
   for (const [reason, count] of Object.entries(allPool).sort(
@@ -288,6 +348,18 @@ lines.push(
   `由 \`scripts/r3-result-table.ts\` 从 \`.codex-runs/r3-results\` 的原始归档汇总，共 ${rows.length} 个具名 preset。**信号统计是固定持有期的事件观察，不是可成交业绩**。`,
 );
 lines.push("");
+// A batch whose raw/ has files but no records.json is mid-flight (the driver
+// writes records.json only in its final assembly run), so the table is a
+// snapshot rather than a finished batch result. Say so mechanically instead of
+// letting a partial archive read as a complete one.
+const inProgress = [...new Set(rows.map((row) => row.batch))]
+  .filter((batch) => !existsSync(join(root, batch, "records.json")))
+  .sort();
+if (inProgress.length)
+  lines.push(
+    `**进行中快照**：${inProgress.join("、")} 的 \`records.json\` 尚未生成（装配未完成），本批在表中的行数少于方法表要求的预设数，是**未跑完**而不是零信号。续跑命令见 \`.codex-runs/s4-delivery.md\`。`,
+  );
+lines.push("");
 lines.push("## 0. 必读标注（适用于本表全部行）");
 lines.push("");
 lines.push(
@@ -306,11 +378,40 @@ lines.push(
   "- **固定输入测试通过只是程序证据，不是盈利证据**；回测结果是历史统计，不构成盈利预期。",
 );
 lines.push("");
+lines.push("## 0.5 证券池与有效池（按每股计数，不是按项计数）");
+lines.push("");
+lines.push(
+  "研究窗口起点 2000-01-04 与「研究起点之前至少需要 61 根预热日线」（`src/server/research-signals.ts:259-265`：`if (first < warmup) throw new Error(...)`，`warmup` 非双均线策略为 61）叠加后，**本地首根日线晚于约 1999-08-31 的证券会被整只拒绝**，对每一个策略都如此。有效池因此不是「当前成分」，而是成分里**上市最早的那一批**——这是叠加在「当前成分回溯 + 存活偏差」之上的第二层偏差，方向同样是**不保守**（隐含「当时已上市且活到今天且仍在池里」）。",
+);
+lines.push("");
+lines.push(
+  "| 批 | 意图池（`spec.symbols`） | 因预热排除 | 其他原因排除 | 有效池 | 该取值的项数 | 其他原因主因 |",
+);
+lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+for (const [batch, shapes] of [...poolByBatch].sort((a, b) =>
+  a[0] < b[0] ? -1 : 1,
+)) {
+  for (const shape of [...shapes.values()].sort(
+    (a, b) => b.presets - a.presets,
+  ))
+    lines.push(
+      `| ${batch} | ${shape.intent} | ${shape.warmup} | ${shape.other} | ${shape.intent - shape.warmup - shape.other} | ${shape.presets} | ${shape.topOtherReason || "—"} |`,
+    );
+}
+lines.push("");
+lines.push(
+  "**有效池为 0 的含义**：该组项下没有任何证券同时满足预热与研究所需的覆盖证明，因此它们产出的是「无交易」而不是「策略无效」——例如量价族要求「量能可比性覆盖」（除权事件的 GBBQ `floatSharesBefore/floatSharesAfter` 逐条齐全），本批实测被该条整体拒绝。这类行必须读作**数据覆盖缺口**，不是策略结论。",
+);
+lines.push("");
+lines.push(
+  "年龄分布证据（逐项，不是百分比断言）：`.codex-runs/s4-delivery.md` §「预热偏差」列出意图池与有效池各自的**首根日线年份直方图**。实测：中证A500 当前成分 500 只中有效 **96** 只（19.2%），有效池的首根日线年份全部落在 1991–1999（最晚 1999-08-31），被排除的 404 只覆盖 1999-11 至 2023；B3 的 160 只抽样中有效 **33** 只（20.6%），分布同向。",
+);
+lines.push("");
 renderSection("1. 日线/月线锚", dailyRows, lines);
 renderSection("2. 五分钟锚", fiveMinuteRows, lines);
 
 const out = "docs/trading-skills-r3-results.md";
-writeFileSync(out, `${lines.join("\n")}\n`, "utf8");
+writeFileSync(out, `${lines.join("\n").replace(/\n+$/, "")}\n`, "utf8");
 console.log(
   `已写出 ${out}：共 ${rows.length} 个 preset（日线/月线锚 ${dailyRows.length}、五分钟锚 ${fiveMinuteRows.length}）`,
 );

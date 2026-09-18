@@ -258,8 +258,24 @@ export async function researchSignals(
       : definition.signal === "ma-cross"
         ? Math.max(6, spec.maParams!.slow + 1)
         : 61;
-  if (first < warmup)
-    throw new Error(`研究起点之前至少需要${warmup}根预热日线`);
+  // Manager ruling 2026-09-19 (S4): a symbol listed too late to supply
+  // `warmup` bars before `spec.start` used to be rejected outright. Because the
+  // window starts at 2000-01-04, that silently dropped ~80% of the A500
+  // membership (404/500; only symbols with a first local daily bar on or before
+  // 1999-08-31 survived), leaving an effective pool that was systematically the
+  // oldest listing cohort. The disposition is now: enter the study at the first
+  // bar that itself has `warmup` bars of history, i.e. loop from
+  // `max(first, warmup)`.
+  //
+  // Compatibility: for a symbol with `first >= warmup` the start index is
+  // exactly `first`, so every previously working symbol computes the identical
+  // event series — the only symbols whose behaviour changes are the ones that
+  // previously threw this error. `max(first, warmup) >= first` and
+  // `first` is the first bar at/after `spec.start`, so no event can be observed
+  // before `spec.start`. The warmup values (1 / max(6, slow+1) / 61) are
+  // unchanged; only the disposition of an unsatisfiable warmup changed.
+  if (first < 0) throw new Error("研究窗口内没有可用日线");
+  const startIndex = Math.max(first, warmup);
   const events: ResearchEvent[] = [];
   const technical = isWyckoffStructure(spec.strategy)
     ? researchWyckoffStructureSeries(
@@ -400,13 +416,44 @@ export async function researchSignals(
   const key = (point: { date: string; kind: number }) =>
     `czsc:${spec.czscConfig}:${point.date}:${point.kind}`;
   if (definition.signal === "czsc") {
-    const baseline = await czsc(bars.slice(0, first));
+    const baseline = await czsc(bars.slice(0, startIndex));
     version = `${nativeVersionPrefix}/${baseline.sourceCommit}/${baseline.hash}`;
-    for (const point of qualified(baseline, bars.slice(0, first)))
+    for (const point of qualified(baseline, bars.slice(0, startIndex)))
       seen.add(key(point));
   }
+  // Manager ruling 2026-09-19 (S4): the dual-breakout branch below used to call
+  // `analyzeBreakout(bars.slice(0, index + 1)).latest` once per bar, i.e. it
+  // re-evaluated the whole prefix on every step — O(n²) per symbol, and the
+  // reason `dual-breakout` (and every B2 preset built on that baseline) cost
+  // minutes per symbol. One pass over the full series is provably the same
+  // value at each index:
+  //
+  //   analyzeBreakout(bars, 0).points[index] === analyzeBreakout(bars.slice(0, index + 1)).latest
+  //
+  // Causality (both halves read only data at or before the evaluated bar, so a
+  // prefix and the full series agree on that bar):
+  //   - `prepare` (src/server/breakout.ts:143-152) is macd/kdj/rsi/boll/ma60;
+  //     src/lib/indicators.ts computes every one of them from trailing windows
+  //     only (`bars.slice(i + 1 - n, i + 1)` at :426 and :475, `bars[i - 1]` at
+  //     :520), so values[i] depends on bars[0..i].
+  //   - `point` (src/server/breakout.ts:153-393) reads bars[i], bars[i - 1],
+  //     `bars.slice(max(0, i - 60), i)`, `bars.slice(0, i + 1)`, `bars.slice(j - 9, j + 1)`
+  //     with every loop bounded by `j < i` (:241), and `values.*[i]` / `.*[i - 1]`;
+  //     nothing reads an index above `i`.
+  // Exhaustive check in progress (every index of every pooled symbol,
+  // byte-for-byte) via `.codex-runs/s4-breakout-prefix-equivalence.ts`; at the
+  // time of this commit it has compared 276,757 (symbol, index) pairs across
+  // 53 of 280 pooled symbols with 0 mismatches, and is still running. Sampling
+  // alone was explicitly rejected as evidence for this change, so until that
+  // run finishes this change rests on the causality argument above plus the
+  // full test suite — NOT on a completed exhaustive proof. Do not restate this
+  // as verified-until-done; the proof log is the authority.
+  const breakoutPoints =
+    definition.signal === "dual-breakout"
+      ? analyzeBreakout(bars, 0).points
+      : null;
   for (
-    let index = first;
+    let index = startIndex;
     index < bars.length && bars[index]!.date <= spec.end;
     index++
   ) {
@@ -482,7 +529,7 @@ export async function researchSignals(
           evidence: JSON.stringify(result),
         });
     } else if (definition.signal === "dual-breakout") {
-      const result = analyzeBreakout(bars.slice(0, index + 1)).latest;
+      const result = breakoutPoints![index]!;
       const crowd = riskPresetEvolution(spec.management?.riskPreset)?.crowded;
       const crowded = crowd
         ? crowdedStop(

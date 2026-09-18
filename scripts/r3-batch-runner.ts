@@ -55,9 +55,15 @@ import {
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import {
   captureResearchDataset,
+  needsVolumeEvidence,
   researchHash,
   type ResearchDataset,
 } from "../src/server/research-dataset";
+import {
+  buildDailyEventCoverage,
+  mergeVolumeEvidence,
+} from "../src/lib/research-event-coverage";
+import { deriveHistoricalFloatShares } from "../src/server/tdx-gbbq";
 import {
   runStrategyResearch,
   buildNamedResearchSpec,
@@ -217,6 +223,43 @@ const dailyPresets = uniquePresets.filter(
   (id) => !needsMinute(resolvedSpecs.get(id)!),
 );
 
+// Sharding (manager request, 2026-09-19): presets are independent — each has
+// its own spec and its own runStrategyResearch call, and no mutable state is
+// shared between them — so a batch may be split across N OS processes with
+// R3_SHARD=i/N. Each shard runs a disjoint slice (`index % N === i`) of the
+// same sorted preset list and writes the same raw/<presetId>.json files it
+// would have written serially, so a single preset's result is byte-identical
+// whether it runs alone or inside a shard. What is NOT sharded-safe on its own
+// is the batch-level bookkeeping: every shard would otherwise overwrite
+// records.json/summary.json with only its own slice, so a shard writes
+// records.shard-<i>-of-<N>.json / summary.shard-<i>-of-<N>.json instead, and
+// the final canonical pair is produced by one unsharded assembly run after all
+// shards finish (raw files are reused, no preset is recomputed).
+const shard = (process.env.R3_SHARD ?? "").split("/");
+const shardCount = shard.length === 2 ? Number(shard[1]) : 1;
+const shardIndex = shard.length === 2 ? Number(shard[0]) : 0;
+if (
+  !Number.isInteger(shardCount) ||
+  !Number.isInteger(shardIndex) ||
+  shardCount < 1 ||
+  shardIndex < 0 ||
+  shardIndex >= shardCount
+)
+  throw new Error("R3_SHARD 需为 i/N（0 <= i < N）");
+const ownedPresets = uniquePresets.filter(
+  (_id, index) => index % shardCount === shardIndex,
+);
+const shardSuffix =
+  shardCount > 1 ? `.shard-${shardIndex}-of-${shardCount}` : "";
+// Capture-only mode: build the dataset caches without running presets, so N
+// shards can then start concurrently against a warm cache instead of racing to
+// capture the same file.
+const captureOnly = process.env.R3_CAPTURE_ONLY === "1";
+console.log(
+  `shard ${shardIndex}/${shardCount} presets ${ownedPresets.length}/${uniquePresets.length}` +
+    (captureOnly ? " (capture-only)" : ""),
+);
+
 async function loadOrCapture(
   cachePath: string,
   captureSpecFor: ResearchSpec,
@@ -268,9 +311,45 @@ if (minutePresets.length) {
 const evidenceDataset = (dailyDataset ?? minuteDataset)!;
 const datasetFor = (id: string) =>
   needsMinute(resolvedSpecs.get(id)!) ? minuteDataset! : dailyDataset!;
+if (captureOnly) {
+  console.log(
+    JSON.stringify(
+      {
+        captureOnly: true,
+        dailyStocks: dailyDataset?.stocks.length ?? 0,
+        minuteStocks: minuteDataset?.stocks.length ?? 0,
+        dailyDatasetHash: dailyDataset?.hash ?? null,
+        minuteDatasetHash: minuteDataset?.hash ?? null,
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
 
+// Manager ruling 2026-09-19: the per-day event table is no longer persisted in
+// the dataset (it was 75.8% of a stock's snapshot payload, which pushed a full
+// A500 capture past the 512MiB cap that docs/decisions.md:827 registers as a
+// deliberate product limit). It is a pure function of
+// (symbol, bars, actions, calendar, gbbqAvailable), so it is derived here, at
+// the single point of use. The 5th argument mirrors capture's `actions !== null`
+// (src/server/research-dataset.ts), i.e. `actionCoverage !== "missing"`.
+const gbbqAvailable = evidenceDataset.actionCoverage !== "missing";
+const eventCoverageBySymbol = new Map(
+  evidenceDataset.stocks.map((stock) => [
+    stock.symbol,
+    buildDailyEventCoverage(
+      stock.symbol,
+      stock.bars,
+      stock.actions,
+      evidenceDataset.calendar,
+      gbbqAvailable,
+    ),
+  ]),
+);
 const evidenceRows = evidenceDataset.stocks.flatMap((stock) =>
-  (stock.eventCoverage?.rows ?? [])
+  (eventCoverageBySymbol.get(stock.symbol)?.rows ?? [])
     .filter((row) => row.hasBar && row.priceLimit.status === "derived")
     .map((row) => ({
       symbol: stock.symbol,
@@ -291,24 +370,23 @@ const evidenceRows = evidenceDataset.stocks.flatMap((stock) =>
 // Fail-fast guard against the "silent all-zero battle" failure mode, which
 // this project has now hit twice, both times producing a full batch of
 // zero-trade rows that looked like a legitimate negative result:
-//   1. `research-dataset.ts`'s former `needsVolumeEvidence` gate left
-//      `eventCoverage.rows` empty for every non-volume strategy, and the
-//      `?? []` above turned that absence into an empty array.
-//   2. A dataset cache (`dataset-daily.bin`) captured *before* that fix keeps
-//      being reused, so a corrected source tree still yields zero evidence.
+//   1. `research-dataset.ts`'s former `needsVolumeEvidence` gate left the
+//      per-day event rows empty for every non-volume strategy.
+//   2. A dataset cache captured *before* that fix kept being reused, so a
+//      corrected source tree still yielded zero evidence.
 // Zero evidence rows means no attempted buy can ever be filled, so every
 // strategy would report zero trades for a reason that has nothing to do with
 // the strategy. Refuse to run rather than emit that table.
 if (evidenceRows.length === 0) {
-  const coverageRows = evidenceDataset.stocks.reduce(
-    (sum, stock) => sum + (stock.eventCoverage?.rows?.length ?? 0),
+  const coverageRows = [...eventCoverageBySymbol.values()].reduce(
+    (sum, coverage) => sum + coverage.rows.length,
     0,
   );
   throw new Error(
     "逐日执行证据为 0 行：任何买入都无法成交，本次战役只会产出全零结果，已中止。" +
-      `已抓取 ${evidenceDataset.stocks.length} 只证券，其 eventCoverage.rows 合计 ${coverageRows} 行。` +
-      "常见原因有二：(1) 复用了修复前抓取的数据集缓存 .bin —— 请删除后重抓；" +
-      "(2) 数据集里的 eventCoverage 未被构建（research-dataset.ts 需无条件构建逐日事件行）。" +
+      `已抓取 ${evidenceDataset.stocks.length} 只证券，现算的逐日事件行合计 ${coverageRows} 行。` +
+      "常见原因有二：(1) 数据集里没有任何可用证券（池/覆盖判定全数拒绝）；" +
+      "(2) buildDailyEventCoverage 的输入（bars/actions/calendar/gbbqAvailable）为空。" +
       "排查时请核对 summary.json 的 data.evidenceRows 字段。",
   );
 }
@@ -358,7 +436,7 @@ function summarizeResult(result: any) {
 }
 
 const strategyResults = new Map<string, any>();
-for (const [index, presetId] of uniquePresets.entries()) {
+for (const [index, presetId] of ownedPresets.entries()) {
   // Archive key is always the preset id, never `spec.strategy` (Trap 2).
   const rawPath = resolve(rawRoot, `${presetId}.json`);
   if (existsSync(rawPath) && process.env.R3_REFRESH_RESULTS !== "1") {
@@ -366,19 +444,44 @@ for (const [index, presetId] of uniquePresets.entries()) {
       presetId,
       summarizeResult(JSON.parse(readFileSync(rawPath, "utf8"))),
     );
-    console.log(`reuse ${index + 1}/${uniquePresets.length} ${presetId}`);
+    console.log(
+      `reuse ${index + 1}/${ownedPresets.length} ${presetId} (shard ${shardIndex}/${shardCount})`,
+    );
     continue;
   }
-  console.log(`run ${index + 1}/${uniquePresets.length} ${presetId}`);
+  console.log(
+    `run ${index + 1}/${ownedPresets.length} ${presetId} (shard ${shardIndex}/${shardCount})`,
+  );
   try {
     const strategySpec = resolvedSpecs.get(presetId)!;
     const dataset = datasetFor(presetId);
     const { hash: _baseHash, ...datasetContent } = dataset;
+    // Third capture-time trap (manager 2026-09-19): `volumeEvidence` was
+    // gated at *capture* time by `needsVolumeEvidence(captureSpec.strategy)`,
+    // and this driver captures once with a fixed `dual-breakout` base spec — so
+    // every stock carried `{}` and the volume family silently lost its
+    // evidence-layer pollution filtering (turnover always null, and the
+    // corporate-action / suspension / resumption anomaly flags null without
+    // any consumer for the computed-but-ignored `unverified` list). Derive it
+    // here with the *preset's* strategy, exactly like the per-day event table,
+    // and only for the presets that actually consume it, so every other
+    // preset's dataset hash is unchanged.
+    const stocks = needsVolumeEvidence(strategySpec.strategy)
+      ? datasetContent.stocks.map((stock) => ({
+          ...stock,
+          volumeEvidence: mergeVolumeEvidence(
+            deriveHistoricalFloatShares(stock.bars, stock.actions).evidence,
+            eventCoverageBySymbol.get(stock.symbol)!,
+          ),
+        }))
+      : datasetContent.stocks;
     const strategyDataset = {
       ...datasetContent,
+      stocks,
       method: researchMethodSnapshot(strategySpec),
       hash: researchHash({
         ...datasetContent,
+        stocks,
         method: researchMethodSnapshot(strategySpec),
       }),
     };
@@ -451,50 +554,57 @@ type RecordRow = {
 const records: RecordRow[] = targetMethods.flatMap((method): RecordRow[] => {
   const presets = method.bindings?.presets ?? [];
   if (!presets.length) {
-    return [
-      {
-        recordId: `r3-${batch.toLowerCase()}-${method.id}-no-executable-entry`,
-        methodId: method.id,
-        presetId: null,
-        resolvedStrategy: null,
-        anchor: null,
-        chanUnverifiedBaseline: false,
-        label: "规则实现失败",
-        status: "failed",
-        resultHash: null,
-        rawPath: null,
-        partitions: null,
-        error: undefined,
-        reason:
-          "方法登记只有导出函数/组件，没有可由共享真实研究引擎调用的具名策略入口；未将固定输入测试替代为历史结果。",
-      },
-    ];
+    // No preset means no raw file, so no shard can read a result for it; only
+    // shard 0 emits the placeholder so the assembled records list holds it
+    // exactly once.
+    return shardIndex === 0
+      ? [
+          {
+            recordId: `r3-${batch.toLowerCase()}-${method.id}-no-executable-entry`,
+            methodId: method.id,
+            presetId: null,
+            resolvedStrategy: null,
+            anchor: null,
+            chanUnverifiedBaseline: false,
+            label: "规则实现失败",
+            status: "failed",
+            resultHash: null,
+            rawPath: null,
+            partitions: null,
+            error: undefined,
+            reason:
+              "方法登记只有导出函数/组件，没有可由共享真实研究引擎调用的具名策略入口；未将固定输入测试替代为历史结果。",
+          },
+        ]
+      : [];
   }
-  return presets.map((presetId): RecordRow => {
-    const result = strategyResults.get(presetId);
-    const label = labelFor(result);
-    const recordId = `r3-${batch.toLowerCase()}-${method.id}-${presetId}`;
-    const resolvedSpec = resolvedSpecs.get(presetId);
-    return {
-      recordId,
-      methodId: method.id,
-      presetId,
-      resolvedStrategy: resolvedSpec?.strategy ?? null,
-      anchor: needsMinute(resolvedSpec ?? baseSpec)
-        ? ("five-minute" as const)
-        : ("daily-or-monthly" as const),
-      chanUnverifiedBaseline:
-        !!resolvedSpec &&
-        (isChanNative(resolvedSpec.strategy) ||
-          isChanC4(resolvedSpec.strategy)),
-      label,
-      status: result?.status === "failed" ? "failed" : "complete",
-      resultHash: result?.hash ?? null,
-      rawPath: `raw/${presetId}.json`,
-      partitions: result?.status === "failed" ? null : result.partitions,
-      error: result?.status === "failed" ? result.error : undefined,
-    };
-  });
+  return presets
+    .filter((presetId) => strategyResults.has(presetId))
+    .map((presetId): RecordRow => {
+      const result = strategyResults.get(presetId);
+      const label = labelFor(result);
+      const recordId = `r3-${batch.toLowerCase()}-${method.id}-${presetId}`;
+      const resolvedSpec = resolvedSpecs.get(presetId);
+      return {
+        recordId,
+        methodId: method.id,
+        presetId,
+        resolvedStrategy: resolvedSpec?.strategy ?? null,
+        anchor: needsMinute(resolvedSpec ?? baseSpec)
+          ? ("five-minute" as const)
+          : ("daily-or-monthly" as const),
+        chanUnverifiedBaseline:
+          !!resolvedSpec &&
+          (isChanNative(resolvedSpec.strategy) ||
+            isChanC4(resolvedSpec.strategy)),
+        label,
+        status: result?.status === "failed" ? "failed" : "complete",
+        resultHash: result?.hash ?? null,
+        rawPath: `raw/${presetId}.json`,
+        partitions: result?.status === "failed" ? null : result.partitions,
+        error: result?.status === "failed" ? result.error : undefined,
+      };
+    });
 });
 const summary = {
   version: "r3-real-batch-2" as const,
@@ -572,20 +682,22 @@ const summary = {
   ),
 };
 writeFileSync(
-  resolve(archiveRoot, "records.json"),
+  resolve(archiveRoot, `records${shardSuffix}.json`),
   JSON.stringify(records, null, 2),
 );
 writeFileSync(
-  resolve(archiveRoot, "summary.json"),
+  resolve(archiveRoot, `summary${shardSuffix}.json`),
   JSON.stringify(summary, null, 2),
 );
 console.log(
   JSON.stringify(
     {
       batch,
+      shard: `${shardIndex}/${shardCount}`,
       entryMaxWait,
       methods: targetMethods.length,
       presets: uniquePresets.length,
+      ownedPresets: ownedPresets.length,
       dailyPresets: dailyPresets.length,
       minutePresets: minutePresets.length,
       records: records.length,
@@ -593,6 +705,7 @@ console.log(
       dailyDatasetHash: dailyDataset?.hash ?? null,
       minuteDatasetHash: minuteDataset?.hash ?? null,
       corporateActionFree: corporateActionFree.length,
+      wrote: `records${shardSuffix}.json summary${shardSuffix}.json`,
     },
     null,
     2,

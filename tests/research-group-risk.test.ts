@@ -300,16 +300,20 @@ it.each(["rk-sector-risk", "rk-diversify"] as const)(
   "%s refuses research-period-only action proof for its historical correlation inputs",
   async (id) => {
     const original = breakout.analyzeBreakout(bars);
+    // S4 breakout rewrite: the signal loop calls `analyzeBreakout(bars, 0)` once
+    // and reads `points[index]`, so the stub must cover every index instead of
+    // only the called prefix. The overrides (and therefore the behaviour this
+    // test asserts) are unchanged.
     const spy = vi
       .spyOn(breakout, "analyzeBreakout")
-      .mockImplementation((prefix) => ({
-        ...original,
-        latest: {
+      .mockImplementation((calledBars: readonly Bar[]) => {
+        const points = calledBars.map((bar) => ({
           ...original.latest!,
-          date: prefix.at(-1)!.date,
+          date: bar.date,
           long: { ...original.latest!.long, status: "是" },
-        },
-      }));
+        }));
+        return { ...original, points, latest: points.at(-1) ?? null };
+      });
     const spec = researchSpecSchema.parse({
       ...applyResearchManagement(base, {
         ...contextRiskTemplate(id),

@@ -315,14 +315,20 @@ it("chan signal adapter calls the existing DLL callback serially with exact hist
   const source = breakout.analyzeBreakout(bars);
   const spy = vi
     .spyOn(breakout, "analyzeBreakout")
-    .mockImplementation((prefix) => ({
-      ...source,
-      latest: {
+    // The signal loop now calls `analyzeBreakout(bars, 0)` once and reads
+    // `points[index]` (S4 breakout rewrite; equivalence proven exhaustively in
+    // .codex-runs/s4-breakout-prefix-equivalence.ts). This stub exists only to
+    // force "breakout side is a signal" on every bar, so it must cover every
+    // index rather than only the last prefix — the assertion this test makes
+    // (serial DLL callback with exact historical prefixes) is unchanged.
+    .mockImplementation((calledBars: readonly Bar[]) => {
+      const points = calledBars.map((bar) => ({
         ...source.latest!,
-        date: prefix.at(-1)!.date,
+        date: bar.date,
         long: { ...source.latest!.long, status: "是" },
-      },
-    }));
+      }));
+      return { ...source, points, latest: points.at(-1) ?? null };
+    });
   let active = 0,
     maximum = 0;
   const lengths: number[] = [];
