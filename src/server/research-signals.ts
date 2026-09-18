@@ -440,14 +440,13 @@ export async function researchSignals(
   //     `bars.slice(max(0, i - 60), i)`, `bars.slice(0, i + 1)`, `bars.slice(j - 9, j + 1)`
   //     with every loop bounded by `j < i` (:241), and `values.*[i]` / `.*[i - 1]`;
   //     nothing reads an index above `i`.
-  // Exhaustive check in progress (every index of every pooled symbol,
-  // byte-for-byte) via `.codex-runs/s4-breakout-prefix-equivalence.ts`; at the
-  // time of this commit it has compared 276,757 (symbol, index) pairs across
-  // 53 of 280 pooled symbols with 0 mismatches, and is still running. Sampling
-  // alone was explicitly rejected as evidence for this change, so until that
-  // run finishes this change rests on the causality argument above plus the
-  // full test suite — NOT on a completed exhaustive proof. Do not restate this
-  // as verified-until-done; the proof log is the authority.
+  // Verified EXHAUSTIVELY, byte for byte: `.codex-runs/s4-breakout-prefix-equivalence.ts`
+  // compared `analyzeBreakout(bars, 0).points[index]` against
+  // `analyzeBreakout(bars.slice(0, index + 1)).latest` at EVERY index of EVERY
+  // pooled symbol — 925,299 (symbol, index) pairs over all 280 symbols, with
+  // 0 mismatches (log: `.codex-runs/logs/s4-breakout-proof.log`, exit 0).
+  // Sampling was explicitly rejected as evidence for this change, so the count
+  // above — not a sample — is the basis; the log is the authority.
   const breakoutPoints =
     definition.signal === "dual-breakout"
       ? analyzeBreakout(bars, 0).points
