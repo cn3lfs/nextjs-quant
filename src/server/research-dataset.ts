@@ -211,23 +211,25 @@ export async function captureResearchDataset(
             },
           };
       const volumeRun = needsVolumeEvidence(spec.strategy);
+      // Daily execution evidence (price-limit / suspension / corporate-action
+      // rows) is required for EVERY strategy's trade admission, not just the
+      // volume-reading family: research-run.ts's marketEvidence.rows (built
+      // from this eventCoverage by the batch drivers) gates whether any
+      // attempted buy can be filled at all, independent of what the signal
+      // itself reads. Gating this construction on `needsVolumeEvidence` left
+      // every non-volume strategy with `rows: []`, so every attempted buy was
+      // rejected for "缺少当日交易限制依据" regardless of entryMaxWait — a
+      // driver-invisible execution-layer bug, not a real data gap (see
+      // .codex-runs/s4-delivery.md). Only the volume-specific merge below
+      // stays conditional; the coverage rows themselves are unconditional.
       const eventCoverage: ReturnType<typeof buildDailyEventCoverage> =
-        volumeRun
-          ? buildDailyEventCoverage(
-              symbol,
-              bars,
-              stockActions,
-              calendar,
-              actions !== null,
-            )
-          : {
-              version: "daily-event-coverage-v1",
-              source: "tdx-gbbq+daily-bars",
-              symbol,
-              board: "unknown",
-              caveat: "非量价研究未生成逐日事件行",
-              rows: [],
-            };
+        buildDailyEventCoverage(
+          symbol,
+          bars,
+          stockActions,
+          calendar,
+          actions !== null,
+        );
       const volumeEvidence = volumeRun
         ? mergeVolumeEvidence(floatShares.evidence, eventCoverage)
         : {};
