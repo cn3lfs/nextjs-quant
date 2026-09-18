@@ -567,8 +567,8 @@ it("real research entry retains repair comparison and refuses missing execution 
   // behaviour this test asserts) are unchanged.
   const spy = vi
     .spyOn(breakout, "analyzeBreakout")
-    .mockImplementation((calledBars: readonly Bar[]) => {
-      const points = calledBars.map((bar) => ({
+    .mockImplementation((calledBars) => {
+      const points: typeof original.points = calledBars.map((bar) => ({
         ...original.latest!,
         date: bar.date,
         levels: [

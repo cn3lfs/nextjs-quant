@@ -322,7 +322,7 @@ it("chan signal adapter calls the existing DLL callback serially with exact hist
     // index rather than only the last prefix — the assertion this test makes
     // (serial DLL callback with exact historical prefixes) is unchanged.
     .mockImplementation((calledBars: readonly Bar[]) => {
-      const points = calledBars.map((bar) => ({
+      const points: typeof source.points = calledBars.map((bar) => ({
         ...source.latest!,
         date: bar.date,
         long: { ...source.latest!.long, status: "是" },

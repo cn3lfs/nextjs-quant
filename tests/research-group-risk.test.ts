@@ -306,8 +306,8 @@ it.each(["rk-sector-risk", "rk-diversify"] as const)(
     // test asserts) are unchanged.
     const spy = vi
       .spyOn(breakout, "analyzeBreakout")
-      .mockImplementation((calledBars: readonly Bar[]) => {
-        const points = calledBars.map((bar) => ({
+      .mockImplementation((calledBars) => {
+        const points: typeof original.points = calledBars.map((bar) => ({
           ...original.latest!,
           date: bar.date,
           long: { ...original.latest!.long, status: "是" },
