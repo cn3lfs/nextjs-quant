@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
@@ -53,6 +54,7 @@ const indexEntrySchema = supermindEnvelopeSchema
   .pick({ dataset: true, captureId: true, capturedAt: true })
   .extend({
     rowCount: z.number().int().nonnegative(),
+    inputRowCount: z.number().int().nonnegative().optional(),
     payloadHash: z.string().regex(/^[0-9a-f]{64}$/),
     request: z.record(z.string(), z.unknown()),
   });
@@ -80,12 +82,11 @@ function readIndex(root: string) {
 
 function writeIndex(root: string, index: z.infer<typeof indexSchema>) {
   mkdirSync(root, { recursive: true });
-  const sorted = [...index.captures].sort((a, b) =>
-    a.captureId < b.captureId ? -1 : a.captureId > b.captureId ? 1 : 0,
-  );
+  // Insertion order is preserved on purpose: it is the only ordering the store
+  // can vouch for, and the reader takes the last entry as "most recent".
   writeFileSync(
     join(root, "index.json"),
-    `${JSON.stringify({ version: 1, captures: sorted }, null, 2)}\n`,
+    `${JSON.stringify({ version: 1, captures: index.captures }, null, 2)}\n`,
     "utf8",
   );
 }
@@ -117,7 +118,10 @@ export type FreezeSupermindResult = {
   payloadHash: string;
   payloadPath: string;
   envelopePath: string;
+  /** Frozen rows after canonical de-duplication. */
   rowCount: number;
+  /** Raw records summed over the shards handed in; >= rowCount. */
+  inputRowCount: number;
   payloadBytes: number;
   /** True when this exact payload was already frozen under another capture. */
   alreadyFrozen: boolean;
@@ -134,6 +138,13 @@ export function freezeSupermindSnapshot(
   const root = input.root ?? supermindSnapshotRoot();
   const rows = buildSupermindRows(input.dataset, input.raw);
   const payload = canonicalSupermindPayload(rows);
+  // De-duplication happens inside canonicalisation, so the persisted row count
+  // must be read back from the payload: recording the pre-de-duplication count
+  // would make a later `readSupermindSnapshot` reject a healthy snapshot as
+  // "行数与信封不符" as soon as any two shards overlapped.
+  const frozenRowCount = payload
+    ? payload.split("\n").filter(Boolean).length
+    : 0;
   const payloadHash = sha256(payload);
   const captureId = supermindCaptureId(input.capturedAt, payloadHash);
   const directory = captureDirectory(input.dataset, captureId, root);
@@ -156,7 +167,8 @@ export function freezeSupermindSnapshot(
     captureId,
     capturedAt: input.capturedAt,
     request: input.request,
-    rowCount: rows.length,
+    rowCount: frozenRowCount,
+    inputRowCount: rows.length,
     payloadHash,
     payloadBytes: Buffer.byteLength(payload, "utf8"),
   };
@@ -173,6 +185,7 @@ export function freezeSupermindSnapshot(
       captureId,
       capturedAt: envelope.capturedAt,
       rowCount: envelope.rowCount,
+      inputRowCount: envelope.inputRowCount,
       payloadHash: envelope.payloadHash,
       request: envelope.request,
     });
@@ -183,21 +196,45 @@ export function freezeSupermindSnapshot(
     payloadHash,
     payloadPath,
     envelopePath: join(directory, "envelope.json"),
-    rowCount: rows.length,
+    rowCount: frozenRowCount,
+    inputRowCount: rows.length,
     payloadBytes: envelope.payloadBytes,
     alreadyFrozen,
   };
 }
 
+/**
+ * Captures in WRITE order, oldest first, so the last entry is the most
+ * recently frozen one.
+ *
+ * Deliberately NOT sorted by `capturedAt`. That field is a label the caller
+ * supplies, and an early capture was labelled with a wall-clock time later
+ * than a capture written after it, which made "latest" pick the wrong one. The
+ * order used here is the envelope file's own modification time — a fact the
+ * filesystem recorded, not an assertion anyone can type in.
+ */
 export function listSupermindCaptures(
   dataset?: SupermindDataset,
   root = supermindSnapshotRoot(),
 ) {
   return readIndex(root)
     .captures.filter((entry) => !dataset || entry.dataset === dataset)
-    .sort((a, b) =>
-      a.capturedAt < b.capturedAt ? -1 : a.capturedAt > b.capturedAt ? 1 : 0,
-    );
+    .map((entry, index) => {
+      let writtenAt = index;
+      try {
+        writtenAt = statSync(
+          join(
+            captureDirectory(entry.dataset, entry.captureId, root),
+            "envelope.json",
+          ),
+        ).mtimeMs;
+      } catch {
+        // A catalogue entry without its envelope is reported by `verify`.
+      }
+      return { entry, writtenAt, index };
+    })
+    .sort((a, b) => a.writtenAt - b.writtenAt || a.index - b.index)
+    .map((row) => row.entry);
 }
 
 export type ReadSupermindResult = {
@@ -210,7 +247,7 @@ export type ReadSupermindResult = {
 };
 
 /**
- * Read a frozen capture. Without `captureId` the most recently captured one
+ * Read a frozen capture. Without `captureId` the most recently WRITTEN one
  * wins; every value keeps the provenance it was frozen with.
  */
 export function readSupermindSnapshot(options: {

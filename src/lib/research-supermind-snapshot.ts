@@ -64,10 +64,35 @@ export function toLocalSymbol(code: string) {
 
 const decimalText = z.string().regex(/^-?\d+(?:\.\d+)?$/);
 
+/**
+ * The four statement tables the 217 factor methods read. `profit_report` is
+ * deliberately NOT here: it is the 业绩快报 table and only carries a few hundred
+ * symbols per snapshot, while these four cover the whole market.
+ */
+export const supermindStatementTables = [
+  "income",
+  "balance",
+  "cashflow",
+  "valuation",
+] as const;
+export type SupermindStatementTable = (typeof supermindStatementTables)[number];
+
+/** One frozen field id and unit per table; the value is the metric object. */
+export const supermindStatementFields: Record<
+  SupermindStatementTable,
+  { field: string; unit: string }
+> = {
+  income: { field: "incomeStatement", unit: "CNY-statement" },
+  balance: { field: "balanceStatement", unit: "CNY-statement" },
+  cashflow: { field: "cashflowStatement", unit: "CNY-statement" },
+  // 市值类为人民币、倍数为无量纲，不做单位换算，如实标为混合。
+  valuation: { field: "valuationMultiples", unit: "CNY-and-ratio" },
+};
+
 export const supermindDisclosureRawSchema = z
   .object({
-    /** Platform table the row came from, e.g. `income`. */
-    table: z.literal("income"),
+    /** Platform table the row came from. */
+    table: z.enum(supermindStatementTables),
     /** Platform code, e.g. `600519.SH`. */
     symbol: z.string().min(1),
     /** `date` column: the point-in-time snapshot the row was read at. */
@@ -76,9 +101,16 @@ export const supermindDisclosureRawSchema = z
     reportDate: researchDateSchema,
     /** 报告期. */
     statDate: researchDateSchema,
-    changeId: z.number().int().nonnegative(),
-    /** 营业总收入, frozen as decimal text so no binary float is stored. */
-    overallIncome: decimalText.nullable(),
+    /** `valuation` has no change_id column; null is not the same as 0. */
+    changeId: z.number().int().nonnegative().nullable(),
+    /**
+     * Metric name -> exact decimal text. Nulls are dropped upstream, so a key
+     * that is absent means "the platform returned null for it" or "this table
+     * has no such column"; the exact requested column list lives in the fetch
+     * script and in the envelope's `request`, which is what makes that
+     * unambiguous.
+     */
+    metrics: z.record(z.string(), decimalText),
   })
   .strict();
 export type SupermindDisclosureRaw = z.infer<
@@ -115,7 +147,15 @@ export const supermindEnvelopeSchema = z
     /** The four as-of time fields, split by what they identify. */
     capturedAt: z.string().datetime({ offset: true }),
     request: z.record(z.string(), z.unknown()),
+    /** Frozen rows, i.e. lines in payload.jsonl after canonical de-duplication. */
     rowCount: z.number().int().nonnegative(),
+    /**
+     * Raw records handed in, summed over shards; overlaps show up here.
+     * Optional because captures written before sharded fetching predate the
+     * field. Absent means "not recorded", never "zero": the store is
+     * append-only and an older envelope is never rewritten to add it.
+     */
+    inputRowCount: z.number().int().nonnegative().optional(),
     payloadHash: z.string().regex(/^[0-9a-f]{64}$/),
     payloadBytes: z.number().int().nonnegative(),
   })
@@ -196,21 +236,32 @@ export const supermindSources = {
 export function buildDisclosureRows(
   raw: SupermindDisclosureRaw[],
 ): SupermindFrozenRow[] {
-  return raw.map((row) => ({
-    domain: "finance" as const,
-    entity: toLocalSymbol(row.symbol),
-    field: "quarterlyOverallIncome",
-    effectiveAt: row.statDate,
-    source: supermindSources["disclosure-dates"],
-    availableAt: dateOnlyKnowableAt(row.reportDate),
-    versionId: `${row.table}:${row.statDate}:${row.reportDate}:chg${row.changeId}`,
-    availabilityEvidence: {
-      kind: "version-publication" as const,
-      reference: `supermind:${row.table}:report_date=${row.reportDate}&change_id=${row.changeId}`,
-    },
-    unit: "CNY-statement",
-    value: row.overallIncome,
-  }));
+  return raw.map((row) => {
+    const { field, unit } = supermindStatementFields[row.table];
+    const change = row.changeId === null ? "none" : String(row.changeId);
+    // Metric keys are emitted in sorted order so the frozen bytes never depend
+    // on the order the platform happened to return columns in.
+    const metrics = Object.fromEntries(
+      Object.entries(row.metrics).sort(([a], [b]) =>
+        a < b ? -1 : a > b ? 1 : 0,
+      ),
+    );
+    return {
+      domain: "finance" as const,
+      entity: toLocalSymbol(row.symbol),
+      field,
+      effectiveAt: row.statDate,
+      source: supermindSources["disclosure-dates"],
+      availableAt: dateOnlyKnowableAt(row.reportDate),
+      versionId: `${row.table}:${row.statDate}:${row.reportDate}:chg${change}`,
+      availabilityEvidence: {
+        kind: "version-publication" as const,
+        reference: `supermind:${row.table}:report_date=${row.reportDate}&change_id=${change}`,
+      },
+      unit,
+      value: metrics,
+    };
+  });
 }
 
 export function buildIndexMemberRows(

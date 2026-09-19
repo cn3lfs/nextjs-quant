@@ -28,15 +28,19 @@ import {
 function parseArgs(argv: string[]) {
   const [command, ...rest] = argv;
   const options = new Map<string, string>();
+  // `--raw` is the one repeatable option: a dataset is fetched in shards and
+  // each shard arrives as its own file.
+  const raws: string[] = [];
   for (let index = 0; index < rest.length; index += 1) {
     const key = rest[index]!;
     if (!key.startsWith("--")) throw new Error(`无法识别的参数：${key}`);
     const value = rest[index + 1];
     if (value === undefined) throw new Error(`${key} 缺少取值`);
-    options.set(key.slice(2), value);
+    if (key === "--raw") raws.push(value);
+    else options.set(key.slice(2), value);
     index += 1;
   }
-  return { command, options };
+  return { command, options, raws };
 }
 
 function datasetOf(options: Map<string, string>): SupermindDataset {
@@ -50,19 +54,28 @@ function datasetOf(options: Map<string, string>): SupermindDataset {
 }
 
 const args = process.argv.slice(2);
-const { command, options } = parseArgs(args);
+const { command, options, raws } = parseArgs(args);
 const root = options.get("root") ?? supermindSnapshotRoot();
 const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
 
 if (command === "freeze") {
   const dataset = datasetOf(options);
-  const rawPath = options.get("raw");
-  if (!rawPath) throw new Error("freeze 需要 --raw <file>");
+  if (!raws.length) throw new Error("freeze 需要至少一个 --raw <file>");
   const request = JSON.parse(options.get("request") ?? "{}");
   const capturedAt = options.get("captured-at") ?? new Date().toISOString();
+  // Shards are concatenated before canonicalisation. The payload is sorted and
+  // de-duplicated by identity, so `shard1 ++ shard2` and `shard2 ++ shard1`
+  // produce the same bytes as a single one-shot fetch of the same facts; the
+  // test suite pins that. Shards may overlap without effect.
+  const raw = raws.flatMap((path) => {
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (!Array.isArray(parsed))
+      throw new Error(`${path} 不是数组，分片必须是原始记录数组`);
+    return parsed;
+  });
   const result = freezeSupermindSnapshot({
     dataset,
-    raw: JSON.parse(readFileSync(rawPath, "utf8")),
+    raw,
     request,
     capturedAt,
     root,

@@ -31,7 +31,7 @@ const disclosure = (overrides: Partial<SupermindDisclosureRaw> = {}) =>
     reportDate: "2019-10-16",
     statDate: "2019-09-30",
     changeId: 1,
-    overallIncome: "63508663046.7",
+    metrics: { overall_income: "63508663046.7" },
     ...overrides,
   }) satisfies SupermindDisclosureRaw;
 
@@ -72,31 +72,88 @@ describe("披露日行映射", () => {
     expect(row).toMatchObject({
       domain: "finance",
       entity: "sh600519",
-      field: "quarterlyOverallIncome",
+      field: "incomeStatement",
       // 报告期
       effectiveAt: "2019-09-30",
       // 公布日 2019-10-16 -> 次日零点，且绝不等于报告期
       availableAt: "2019-10-17T00:00:00+08:00",
       versionId: "income:2019-09-30:2019-10-16:chg1",
       unit: "CNY-statement",
-      value: "63508663046.7",
     });
+    // The frozen value is the statement's metric object, not a bare number:
+    // one row per (table, symbol, 报告期, 版本), so the row count stays at one
+    // per period rather than one per metric.
+    expect(row!.value).toEqual({ overall_income: "63508663046.7" });
     expect(row!.effectiveAt).not.toBe(row!.availableAt.slice(0, 10));
+  });
+
+  it("四张表各有自己的 field 与 unit，versionId 带表名", () => {
+    const rows = buildSupermindRows("disclosure-dates", [
+      disclosure({ table: "income" }),
+      disclosure({ table: "balance" }),
+      disclosure({ table: "cashflow" }),
+      disclosure({ table: "valuation" }),
+    ]);
+    expect(rows.map((row) => row.field)).toEqual([
+      "incomeStatement",
+      "balanceStatement",
+      "cashflowStatement",
+      "valuationMultiples",
+    ]);
+    expect(rows.map((row) => row.unit)).toEqual([
+      "CNY-statement",
+      "CNY-statement",
+      "CNY-statement",
+      "CNY-and-ratio",
+    ]);
+    expect(
+      rows.every((row) =>
+        String(row.versionId).startsWith(
+          row.field === "valuationMultiples" ? "valuation:" : "",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("valuation 没有 change_id 列，缺列与 0 不是同一件事", () => {
+    const [withNull] = buildSupermindRows("disclosure-dates", [
+      disclosure({ table: "valuation", changeId: null }),
+    ]);
+    const [withZero] = buildSupermindRows("disclosure-dates", [
+      disclosure({ table: "valuation", changeId: 0 }),
+    ]);
+    expect(withNull!.versionId).toContain(":chgnone");
+    expect(withZero!.versionId).toContain(":chg0");
+    expect(withNull!.availabilityEvidence.reference).toContain(
+      "change_id=none",
+    );
   });
 
   it("数值以十进制字符串冻结，不经二进制浮点", () => {
     const [row] = buildSupermindRows("disclosure-dates", [
-      disclosure({ overallIncome: "367893877538.94" }),
+      disclosure({ metrics: { overall_income: "367893877538.94" } }),
     ]);
-    expect(row!.value).toBe("367893877538.94");
-    expect(typeof row!.value).toBe("string");
+    expect(row!.value).toEqual({ overall_income: "367893877538.94" });
+    expect(typeof (row!.value as Record<string, unknown>).overall_income).toBe(
+      "string",
+    );
   });
 
-  it("金额缺失时不填零，原样保留 null", () => {
-    const [row] = buildSupermindRows("disclosure-dates", [
-      disclosure({ overallIncome: null }),
+  it("指标键按字典序落库，不随平台返回列的顺序变化", () => {
+    const [forward] = buildSupermindRows("disclosure-dates", [
+      disclosure({ metrics: { zeta: "1", alpha: "2", mid: "3" } }),
     ]);
-    expect(row!.value).toBeNull();
+    const [reversed] = buildSupermindRows("disclosure-dates", [
+      disclosure({ metrics: { mid: "3", alpha: "2", zeta: "1" } }),
+    ]);
+    expect(Object.keys(forward!.value as object)).toEqual([
+      "alpha",
+      "mid",
+      "zeta",
+    ]);
+    expect(JSON.stringify(forward!.value)).toBe(
+      JSON.stringify(reversed!.value),
+    );
   });
 
   it("原始字段缺失或以错误类型出现时报错，不静默降级", () => {
@@ -109,6 +166,18 @@ describe("披露日行映射", () => {
     expect(() => buildSupermindRows("disclosure-dates", [missing])).toThrow(
       /原始数据不符合契约/,
     );
+    // 未知表名必须被拒绝：profit_report 是业绩快报表，不属于本数据集。
+    expect(() =>
+      buildSupermindRows("disclosure-dates", [
+        { ...disclosure(), table: "profit_report" },
+      ]),
+    ).toThrow(/原始数据不符合契约/);
+    // 指标值必须是十进制文本；浮点数说明远端没有做转换。
+    expect(() =>
+      buildSupermindRows("disclosure-dates", [
+        { ...disclosure(), metrics: { overall_income: 1.5 } },
+      ]),
+    ).toThrow(/原始数据不符合契约/);
   });
 });
 
@@ -205,16 +274,17 @@ describe("载荷规范化", () => {
 
 describe("接入既有 as-of 契约", () => {
   const capturedAt = "2026-09-19T05:10:00+08:00";
+  const metrics = z.record(z.string(), z.string());
   const read = (rows: ReturnType<typeof buildSupermindRows>, asOf: string) =>
     createAsOfAdapter(materializeSupermindRows(rows, capturedAt), {
       asOf,
     }).read({
       domain: "finance",
       entity: "sh600519",
-      field: "quarterlyOverallIncome",
+      field: "incomeStatement",
       effectiveAt: "2019-09-30",
       unit: "CNY-statement",
-      schema: z.string(),
+      schema: metrics,
     });
 
   it("公布日之前读不到该报告期的值", () => {
@@ -236,7 +306,7 @@ describe("接入既有 as-of 契约", () => {
     });
     expect(read(rows, "2019-10-17T09:30:00+08:00")).toMatchObject({
       status: "available",
-      value: "63508663046.7",
+      value: { overall_income: "63508663046.7" },
     });
   });
 
@@ -247,21 +317,24 @@ describe("接入既有 as-of 契约", () => {
       disclosure({
         reportDate: "2019-12-05",
         changeId: 2,
-        overallIncome: "63508663000.0",
+        metrics: { overall_income: "63508663000.0" },
       }),
     ]);
     const rows = [...original, ...restated];
     const early = read(rows, "2019-11-01T09:30:00+08:00");
     expect(early).toMatchObject({
       status: "available",
-      value: "63508663046.7",
+      value: { overall_income: "63508663046.7" },
     });
     if (early.status !== "available") throw new Error("unreachable");
     expect(early.provenance.versionId).toBe(
       "income:2019-09-30:2019-10-16:chg1",
     );
     const late = read(rows, "2019-12-10T09:30:00+08:00");
-    expect(late).toMatchObject({ status: "available", value: "63508663000.0" });
+    expect(late).toMatchObject({
+      status: "available",
+      value: { overall_income: "63508663000.0" },
+    });
     if (late.status !== "available") throw new Error("unreachable");
     expect(late.provenance.versionId).toBe("income:2019-09-30:2019-12-05:chg2");
   });
@@ -271,7 +344,7 @@ describe("接入既有 as-of 契约", () => {
       ...buildSupermindRows("disclosure-dates", [disclosure()]),
       // 同一公布日、不同变更批次、不同数值：与修订不同，这里没有先后之分。
       ...buildSupermindRows("disclosure-dates", [
-        disclosure({ changeId: 2, overallIncome: "1.0" }),
+        disclosure({ changeId: 2, metrics: { overall_income: "1.0" } }),
       ]),
     ];
     expect(read(rows, "2019-11-01T09:30:00+08:00")).toMatchObject({
@@ -292,6 +365,53 @@ describe("冻结快照存储", () => {
       capturedAt,
       root,
     });
+
+  it("分片合并 == 一次性抓取：顺序无关、重叠无语义影响", () => {
+    const root = temporaryRoot();
+    // Shard boundaries are an operational detail (20 remote runs of ~18 min).
+    // If the merged payload depended on shard order or on a record appearing in
+    // two shards, "sharded fetch" would not be the same experiment as a single
+    // fetch, and the freeze could not be compared across runs.
+    const shardA = [
+      disclosure({ symbol: "600519.SH", statDate: "2019-09-30" }),
+      disclosure({ symbol: "600000.SH", statDate: "2019-09-30" }),
+    ];
+    const shardB = [
+      disclosure({ symbol: "000001.SZ", statDate: "2019-12-31" }),
+      // Deliberate overlap across the shard boundary.
+      disclosure({ symbol: "600000.SH", statDate: "2019-09-30" }),
+    ];
+    const oneShot = freezeSupermindSnapshot({
+      dataset: "disclosure-dates",
+      raw: [...shardA, ...shardB],
+      request,
+      capturedAt: "2026-09-19T13:10:00+08:00",
+      root,
+    });
+    const merged = freezeSupermindSnapshot({
+      dataset: "disclosure-dates",
+      raw: [...shardB, ...shardA],
+      request,
+      capturedAt: "2026-09-19T13:10:00+08:00",
+      root,
+    });
+    const reversed = freezeSupermindSnapshot({
+      dataset: "disclosure-dates",
+      raw: [...shardB].reverse().concat([...shardA].reverse()),
+      request,
+      capturedAt: "2026-09-19T13:10:00+08:00",
+      root,
+    });
+    expect(merged.payloadHash).toBe(oneShot.payloadHash);
+    expect(reversed.payloadHash).toBe(oneShot.payloadHash);
+    expect(merged.captureId).toBe(oneShot.captureId);
+    expect(oneShot.alreadyFrozen).toBe(false);
+    expect(merged.alreadyFrozen).toBe(true);
+    expect(oneShot.rowCount).toBe(3);
+    expect(readFileSync(merged.payloadPath, "utf8")).toBe(
+      readFileSync(oneShot.payloadPath, "utf8"),
+    );
+  });
 
   it("同一请求两次采集：载荷字节一致，差异只落在 capturedAt", () => {
     const root = temporaryRoot();
