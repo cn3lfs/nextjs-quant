@@ -261,3 +261,85 @@ describe("历史流通股本", () => {
     });
   });
 });
+
+/**
+ * 股改对价一类事件：`bonusRatio > 0` 但同日股本变动记录显示**总股本没有增加**
+ * （股份只是从非流通股东转让给流通股东），交易所从未重新基准化价格，因此因子
+ * 不得跳变。判据是配对记录里的 `totalSharesAfter === totalSharesBefore`。
+ * 依据：sh600000 2006-05-12 当日最高 10.66 高于「按 10 送 3 除权」的理论涨停
+ * 9.19（前收 10.86 / 1.3 × 1.1），物理上不可能除权；本地因子当时恰好跳 1.3，
+ * 把原始 −5.99% 复权成 +22.22%。
+ */
+describe("复权因子：真实摊薄与股份转让的区分", () => {
+  const shareEvent = (date: string, before: number, after: number) => ({
+    date,
+    category: 5,
+    name: "股本变化",
+    floatSharesBefore: before,
+    totalSharesBefore: before,
+    floatSharesAfter: after,
+    totalSharesAfter: after,
+  });
+  const bonusEvent = (date: string, bonusRatio: number) => ({
+    date,
+    category: 1,
+    name: "除权除息",
+    dividend: 0,
+    rightsPrice: 0,
+    bonusRatio,
+    rightsRatio: 0,
+  });
+
+  it("总股本未变（股份转让）时不产生价格调整：因子不跳、复权收益等于原始收益", () => {
+    const bars = [bar("2026-01-05", 10.86), bar("2026-01-06", 10.21)],
+      events = [
+        bonusEvent("2026-01-06", 0.3),
+        shareEvent("2026-01-06", 3_915_000_000, 3_915_000_000),
+      ],
+      factors = adjustmentFactors(bars, events);
+    expect(factors.map((f) => f.factor)).toEqual([1, 1]);
+    const adjusted = applyAdjustment(bars, factors, "backward");
+    expect(adjusted[1]!.close / adjusted[0]!.close).toBeCloseTo(
+      10.21 / 10.86,
+      12,
+    );
+  });
+
+  it("总股本增加（真实摊薄）时沿用除权公式，行为与不带股本记录时逐字节相同", () => {
+    const bars = [bar("2026-01-05", 20), bar("2026-01-06", 10)],
+      diluting = [
+        bonusEvent("2026-01-06", 1),
+        shareEvent("2026-01-06", 1_000_000_000, 2_000_000_000),
+      ],
+      withoutShareRecord = [bonusEvent("2026-01-06", 1)];
+    expect(adjustmentFactors(bars, diluting)).toEqual(
+      adjustmentFactors(bars, withoutShareRecord),
+    );
+    expect(adjustmentFactors(bars, diluting)[1]!.factor).toBeCloseTo(2, 12);
+  });
+
+  it("同日没有股本变动记录时维持原行为（无依据不改）", () => {
+    const bars = [bar("2026-01-05", 20), bar("2026-01-06", 10)],
+      events = [bonusEvent("2026-01-06", 1)];
+    expect(adjustmentFactors(bars, events)[1]!.factor).toBeCloseTo(2, 12);
+  });
+
+  it("股份转让当日若同时派现，派现仍必须调整", () => {
+    const bars = [bar("2026-01-05", 10), bar("2026-01-06", 9)],
+      events = [
+        {
+          date: "2026-01-06",
+          category: 1,
+          name: "除权除息",
+          dividend: 1,
+          rightsPrice: 0,
+          bonusRatio: 0.5,
+          rightsRatio: 0,
+        },
+        shareEvent("2026-01-06", 1_000_000_000, 1_000_000_000),
+      ],
+      factors = adjustmentFactors(bars, events);
+    // 只有派现参与调整：除权参考价 = (10 − 1) / 10 × 10 = 9，因子 10/9。
+    expect(factors[1]!.factor).toBeCloseTo(10 / 9, 12);
+  });
+});

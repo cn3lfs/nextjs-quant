@@ -15,6 +15,14 @@ import { XDXR_CATEGORIES, type TdxXdxr } from "./tdx-wire";
  * 记录结构与解密轮函数参考 MIT 许可的 rustdx 项目，实现代码为本仓库自有。
  */
 
+/**
+ * 股本变动类事件（相对 category 1 除权除息、11/12 扩缩股、13/14 权证）。
+ * 与 `XDXR_CATEGORIES`（packages/tstdx/src/wire.ts:709）同名同序，这里只列
+ * 参与「真实摊薄 vs 股份转让」判定的那些：解析器对 1/11/12/13/14 之外的类别
+ * 一律按股本字段布局读（src/server/tdx-gbbq.ts:96-107），集合必须与之一致。
+ */
+const SHARE_CHANGE_CATEGORIES = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
 const KEY = Buffer.from(GBBQ_KEY_BASE64, "base64"),
   S1 = 0x48,
   S2 = 0x448,
@@ -286,8 +294,37 @@ export function adjustmentFactors(
   events: TdxXdxr[] = [],
 ): AdjustFactor[] {
   const dividends = events.filter((event) => event.category === 1),
-    factors: AdjustFactor[] = [],
-    firstDay = bars[0]?.date.slice(0, 10);
+    /**
+     * 股本变动类记录（2 送配股上市 … 10 可转债上市），按日期索引，同日多条时取
+     * 最后一条。用途只有一个：区分 `bonusRatio > 0` 的两种情形——
+     *
+     * - **真实摊薄**：同日股本变动记录里 `totalSharesAfter > totalSharesBefore`
+     *   → 股本真的增加，除权公式适用（行为与修复前逐字节相同）；
+     * - **股份转让**（如股改对价）：`totalSharesAfter === totalSharesBefore`
+     *   → 股本没有增加，价格从未被重新基准化，**因子不得跳变**。
+     *
+     * 修复前的代码对两者一视同仁，把转让也按 `divisor = 10 + 配股 + 送转` 处理，
+     * 于是插出一个不存在的台阶。实测 sh600000 2006-05-12：因子恰好跳 1.3，
+     * 而当日最高 10.66 高于「按 10 送 3 除权」的理论涨停 9.19（前收 10.86 /
+     * 1.3 × 1.1），物理上不可能除权——原始 −5.99% 被复权成 +22.22%。
+     *
+     * 判据范围实测（280 只，`bonusRatio>0 || rightsRatio>0` 的 category-1 事件；
+     * `.codex-runs/s4-xdxr-pairing-measure.ts`）：
+     *   - 总股本增加 **519 起 / 156 只** → 沿用除权公式；
+     *   - 总股本不变 **74 起 / 74 只** → 不再调整。**限定 category 5 只有 71 起**，
+     *     另有 3 起记在 category 3（sh600346 2006-07-11、sh600499 2006-05-10、
+     *     sz000035 1995-02-28），故这里用整个股本变动类集合而不是单个 category 5；
+     *   - 总股本减少 1 起（sh600839 2006-04-12）→ 无公开依据，**沿用除权公式**；
+     *   - 同日**没有**股本变动记录 422 起 / 116 只（事件之前共 806,902 根 K 线）
+     *     → 维持现有行为。这些的比例呈逐年节奏（0.1–0.5 的年度送转），
+     *     把它们也当作转让会把 80 万根 K 线的真实除权抹掉——没有依据时不改。
+     */
+    shareChangesByDate = new Map<string, TdxXdxr>();
+  for (const event of events)
+    if (SHARE_CHANGE_CATEGORIES.has(event.category))
+      shareChangesByDate.set(event.date, event);
+  const factors: AdjustFactor[] = [];
+  const firstDay = bars[0]?.date.slice(0, 10);
   let factor = 1,
     previousClose = bars[0]?.close ?? 0,
     cursor = 0;
@@ -304,10 +341,20 @@ export function adjustmentFactors(
     // 用 <= 而不是 ==：除权日可能落在停牌日或非交易日，那样的事件必须在其后
     // 第一个交易日补上。只认相等会让游标卡住，之后所有除权全被漏掉。
     while (cursor < dividends.length && dividends[cursor]!.date <= day) {
-      const event = dividends[cursor]!,
+      const event = dividends[cursor]!;
+      // 股本未变的转让（股改对价等）：**股本部分不得参与除权** —— 没有新增股份
+      // 就没有需要摊薄的价格，交易所也没有重新基准化。但当日若真有派现，派现仍
+      // 必须调整（派现是要重新基准化的），所以这里只把配股/送转项归零，不整条跳过。
+      // 见上方 shareChangesByDate 的实测分档；把整条跳过会连派现一起丢掉
+      // （该过度修正被 .codex-runs/s4-gbbq-factor-diff.ts 的逐日比较当场抓出）。
+      const shareChange = shareChangesByDate.get(event.date),
+        sharesUnchanged =
+          shareChange?.totalSharesBefore != null &&
+          shareChange.totalSharesAfter != null &&
+          shareChange.totalSharesAfter === shareChange.totalSharesBefore,
         cash = (event.dividend ?? 0) * 10,
-        rights = (event.rightsRatio ?? 0) * 10,
-        bonus = (event.bonusRatio ?? 0) * 10,
+        rights = sharesUnchanged ? 0 : (event.rightsRatio ?? 0) * 10,
+        bonus = sharesUnchanged ? 0 : (event.bonusRatio ?? 0) * 10,
         divisor = 10 + rights + bonus,
         adjusted =
           divisor > 0
