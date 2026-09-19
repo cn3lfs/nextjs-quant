@@ -30,6 +30,7 @@ import { join } from "node:path";
 type Row = {
   batch: string;
   presetId: string;
+  entryMaxWait: number;
   resolvedStrategy: string;
   anchor: "five-minute" | "daily-or-monthly";
   chanUnverifiedBaseline: boolean;
@@ -41,6 +42,7 @@ type Row = {
   payoff: number | null;
   expectancy: number | null;
   trades: number;
+  tradeArrayLength: number;
   tradeExcluded: number;
   topTradeReason: string;
   poolExcluded: number;
@@ -131,6 +133,7 @@ for (const batch of readdirSync(root)) {
         strategy?: string;
         symbols?: string[];
         management?: { growthIntraday?: unknown };
+        entryMaxWait?: number;
       };
       partitions?: {
         partition: string;
@@ -173,9 +176,15 @@ for (const batch of readdirSync(root)) {
     );
     const tradeReasons: Record<string, number> = {};
     let trades = 0;
+    let tradeArrayLength = 0;
     let tradeExcluded = 0;
     for (const partition of raw.partitions ?? []) {
+      // `statistics.count` counts closed round trips; `trades.length` is the raw
+      // array and also holds unclosed / partial fills. Both are legitimate and
+      // they differ on many presets, so the table states which one it uses
+      // instead of letting a reader cross-check against the other silently.
       trades += partition.simulation?.statistics?.count ?? 0;
+      tradeArrayLength += partition.simulation?.trades?.length ?? 0;
       for (const item of partition.simulation?.excluded ?? []) {
         tradeExcluded += 1;
         const reason = item.reason ?? "未记录原因";
@@ -187,6 +196,10 @@ for (const batch of readdirSync(root)) {
       const reason = item.reason ?? "未记录原因";
       poolReasons[reason] = (poolReasons[reason] ?? 0) + 1;
     }
+    // entryMaxWait grid point (next-round-plan.md §5: 3/5/10, each registered
+    // under its own archive). Archives that predate the grid carry no explicit
+    // value and are the frozen default 3.
+    const entryMaxWait = raw.spec?.entryMaxWait ?? 3;
     const intent = raw.spec?.symbols?.length ?? 0;
     const warmup = Object.entries(poolReasons)
       .filter(([reason]) => reason.includes("预热"))
@@ -228,6 +241,7 @@ for (const batch of readdirSync(root)) {
     rows.push({
       batch,
       presetId,
+      entryMaxWait,
       resolvedStrategy,
       anchor,
       chanUnverifiedBaseline,
@@ -239,6 +253,7 @@ for (const batch of readdirSync(root)) {
       payoff: development?.eventStatistics?.payoffRatio ?? null,
       expectancy: development?.eventStatistics?.expectancy ?? null,
       trades,
+      tradeArrayLength,
       tradeExcluded,
       topTradeReason: top(tradeReasons),
       poolExcluded: raw.exclusions?.length ?? 0,
@@ -340,6 +355,71 @@ function renderSection(heading: string, subset: Row[], lines: string[]) {
 
 const dailyRows = rows.filter((row) => row.anchor === "daily-or-monthly");
 const fiveMinuteRows = rows.filter((row) => row.anchor === "five-minute");
+// Each entryMaxWait grid point is registered as its own table
+// (next-round-plan.md §5), never merged with another: merging would hide the
+// factor under test.
+const gridValues = [...new Set(rows.map((row) => row.entryMaxWait))].sort(
+  (a, b) => a - b,
+);
+
+/**
+ * Cross-grid comparison: the same preset under every registered entryMaxWait.
+ * Presets whose numbers are identical across all grid points are listed too —
+ * "no difference" is a result, not an omission — and the counts are reported.
+ */
+function renderGridComparison(lines: string[]) {
+  const byPreset = new Map<string, Map<number, Row>>();
+  for (const row of rows) {
+    const entry = byPreset.get(row.presetId) ?? new Map<number, Row>();
+    entry.set(row.entryMaxWait, row);
+    byPreset.set(row.presetId, entry);
+  }
+  const comparable = [...byPreset.entries()]
+    .filter(([, entry]) => gridValues.every((grid) => entry.has(grid)))
+    .map(([presetId, entry]) => ({
+      presetId,
+      anchor: entry.get(gridValues[0]!)!.anchor,
+      trades: gridValues.map((grid) => entry.get(grid)!.trades),
+      signals: gridValues.map((grid) => entry.get(grid)!.signalCount),
+    }));
+  const differ = comparable.filter((row) => new Set(row.trades).size > 1);
+  const same = comparable.filter((row) => new Set(row.trades).size === 1);
+  lines.push(
+    `## ${gridValues.length > 1 ? "跨档对照" : "跨档对照（仅一档已归档）"}`,
+  );
+  lines.push("");
+  lines.push(
+    `口径：逐预设比较各档的**成交数**（成交是 entryMaxWait 唯一能改变的量——它只作用于未成交的买入意图：\`src/server/research-portfolio.ts:967\` 等待期结束、\`:980\` 反向信号取消）。**无差异的预设一并列出**：那本身是结论。可比预设 ${comparable.length} 个（在各档均有归档）：**有差异 ${differ.length} 个 / 无差异 ${same.length} 个**。`,
+  );
+  if (gridValues.length < 2) {
+    lines.push("");
+    lines.push(
+      `**注意**：本表当前只有 ${gridValues.length} 档（${gridValues.join("/")}）已归档，无法呈现跨档差异；其余档跑完后重跑本脚本即可。**不得**把这一档的数字当作敏感性的结论。`,
+    );
+    lines.push("");
+    return;
+  }
+  if (gridValues.length > 1) {
+    lines.push("");
+    lines.push(
+      `| Preset ID | 锚 | ${gridValues.map((g) => `成交 w=${g}`).join(" | ")} | 差异 |`,
+    );
+    lines.push(
+      `| --- | --- | ${gridValues.map(() => "---").join(" | ")} | --- |`,
+    );
+    for (const row of differ)
+      lines.push(
+        `| \`${row.presetId}\` | ${row.anchor} | ${row.trades.join(" | ")} | **有差异**（${row.trades[0]} → ${row.trades[row.trades.length - 1]}） |`,
+      );
+    for (const row of same.slice(0, 60))
+      lines.push(
+        `| \`${row.presetId}\` | ${row.anchor} | ${row.trades.join(" | ")} | 无差异 |`,
+      );
+    if (same.length > 60)
+      lines.push(`| … 其余 ${same.length - 60} 个**无差异**预设见归档 | | | |`);
+  }
+  lines.push("");
+}
 
 const lines: string[] = [];
 lines.push("# R3/S4 真实回测结果表（只读汇总，非效果判断）");
@@ -377,6 +457,20 @@ lines.push(
 lines.push(
   "- **固定输入测试通过只是程序证据，不是盈利证据**；回测结果是历史统计，不构成盈利预期。",
 );
+const tradeSkewed = rows.filter(
+  (row) => row.trades !== row.tradeArrayLength,
+).length;
+const perGrid = gridValues
+  .map((grid) => {
+    const subset = rows.filter((row) => row.entryMaxWait === grid);
+    const byCount = subset.reduce((sum, row) => sum + row.trades, 0);
+    const byArray = subset.reduce((sum, row) => sum + row.tradeArrayLength, 0);
+    return `entryMaxWait=${grid}：**${byCount}**（数组口径 ${byArray}）`;
+  })
+  .join("；");
+lines.push(
+  `- **「成交」口径（引用本表数字前必读）**：本表的成交数 = \`sum(partitions[].simulation.statistics.count)\`，即**已闭合的往返交易计数**。另一个可用口径是 \`sum(partitions[].simulation.trades.length)\`（**成交数组长度**，含未闭合/部分成交），两者在 **${tradeSkewed} 个预设行**上不等。**本表一律用前者**；与其它来源的「成交数」对照时必须先确认口径，差额不是算错。按档的合计（各档独立，不跨档相加）：${perGrid || "（无归档）"}。`,
+);
 lines.push("");
 lines.push("## 0.5 证券池与有效池（按每股计数，不是按项计数）");
 lines.push("");
@@ -407,8 +501,23 @@ lines.push(
   "年龄分布证据（逐项，不是百分比断言）：`.codex-runs/s4-delivery.md` §「预热偏差」列出意图池与有效池各自的**首根日线年份直方图**。实测：中证A500 当前成分 500 只中有效 **96** 只（19.2%），有效池的首根日线年份全部落在 1991–1999（最晚 1999-08-31），被排除的 404 只覆盖 1999-11 至 2023；B3 的 160 只抽样中有效 **33** 只（20.6%），分布同向。",
 );
 lines.push("");
-renderSection("1. 日线/月线锚", dailyRows, lines);
-renderSection("2. 五分钟锚", fiveMinuteRows, lines);
+let sectionNumber = 1;
+for (const grid of gridValues) {
+  const subset = rows.filter((row) => row.entryMaxWait === grid);
+  const daily = subset.filter((row) => row.anchor === "daily-or-monthly");
+  const fiveMinute = subset.filter((row) => row.anchor === "five-minute");
+  renderSection(
+    `${sectionNumber++}. entryMaxWait = ${grid} — 日线/月线锚`,
+    daily,
+    lines,
+  );
+  renderSection(
+    `${sectionNumber++}. entryMaxWait = ${grid} — 五分钟锚`,
+    fiveMinute,
+    lines,
+  );
+}
+renderGridComparison(lines);
 
 const out = "docs/trading-skills-r3-results.md";
 writeFileSync(out, `${lines.join("\n").replace(/\n+$/, "")}\n`, "utf8");

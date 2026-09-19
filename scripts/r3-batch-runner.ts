@@ -203,6 +203,36 @@ const uniquePresets = [
   ...new Set(targetMethods.flatMap((method) => method.bindings?.presets ?? [])),
 ].sort();
 
+// Scope filter — PURPOSE-LIMITED: this exists ONLY for the single-factor
+// entryMaxWait sensitivity grid (next-round-plan.md §5), where re-running a
+// preset that cannot respond to the factor is provably information-free. It is
+// NOT a general "shrink the batch" switch and must not become the normal path:
+// a batch run without R3_ONLY_PRESETS covers every preset the method map asks
+// for (the default is full scope, and omitting the variable is how every
+// registered batch result was produced).
+//
+// `R3_ONLY_PRESETS` is a comma/space list or `@path` to a file with one id per
+// line. Excluding a preset is only sound when the factor provably cannot change
+// its result: for `entryMaxWait` that means presets with zero events, because
+// the factor only acts on *unfilled buy intents*
+// (src/server/research-portfolio.ts:967 expiry, :980 reversal cancel) and a
+// preset with no events never creates one. The caller registers the exclusion,
+// its reason, and which presets were left out; this flag only implements scope.
+const onlyEnv = (process.env.R3_ONLY_PRESETS ?? "").trim();
+const onlyList = onlyEnv
+  ? (onlyEnv.startsWith("@") ? readFileSync(onlyEnv.slice(1), "utf8") : onlyEnv)
+      .split(/[\s,]+/)
+      .filter(Boolean)
+  : [];
+const unknownOnly = onlyList.filter((id) => !uniquePresets.includes(id));
+if (unknownOnly.length)
+  throw new Error(
+    `R3_ONLY_PRESETS 含不属于本批的预设：${unknownOnly.join(",")}`,
+  );
+const scopedPresets = onlyList.length
+  ? uniquePresets.filter((id) => onlyList.includes(id))
+  : uniquePresets;
+
 const resolvedSpecs = new Map<string, ResearchSpec>(
   uniquePresets.map((id) => [id, specFor(id)]),
 );
@@ -216,10 +246,10 @@ function needsMinute(spec: ResearchSpec) {
   );
 }
 
-const minutePresets = uniquePresets.filter((id) =>
+const minutePresets = scopedPresets.filter((id) =>
   needsMinute(resolvedSpecs.get(id)!),
 );
-const dailyPresets = uniquePresets.filter(
+const dailyPresets = scopedPresets.filter(
   (id) => !needsMinute(resolvedSpecs.get(id)!),
 );
 
@@ -246,7 +276,7 @@ if (
   shardIndex >= shardCount
 )
   throw new Error("R3_SHARD 需为 i/N（0 <= i < N）");
-const ownedPresets = uniquePresets.filter(
+const ownedPresets = scopedPresets.filter(
   (_id, index) => index % shardCount === shardIndex,
 );
 const shardSuffix =
@@ -256,7 +286,10 @@ const shardSuffix =
 // capture the same file.
 const captureOnly = process.env.R3_CAPTURE_ONLY === "1";
 console.log(
-  `shard ${shardIndex}/${shardCount} presets ${ownedPresets.length}/${uniquePresets.length}` +
+  `shard ${shardIndex}/${shardCount} presets ${ownedPresets.length}/${scopedPresets.length}` +
+    (scopedPresets.length === uniquePresets.length
+      ? ""
+      : ` (scoped from ${uniquePresets.length} by R3_ONLY_PRESETS)`) +
     (captureOnly ? " (capture-only)" : ""),
 );
 
@@ -697,6 +730,8 @@ console.log(
       entryMaxWait,
       methods: targetMethods.length,
       presets: uniquePresets.length,
+      scopedPresets: scopedPresets.length,
+      onlyPresets: onlyList.length ? onlyList.length : null,
       ownedPresets: ownedPresets.length,
       dailyPresets: dailyPresets.length,
       minutePresets: minutePresets.length,
