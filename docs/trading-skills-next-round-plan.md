@@ -2,7 +2,7 @@
 
 日期：2026-09-18（本文件已按 SuperMind 接通与用户裁定重写，取代先前版本）。
 
-历史交代见[成果与缺陷清单](trading-skills-round-review.md)与[回测结果表](trading-skills-r3-results.md)；执行纪律见[执行者常备说明](executor-brief.md)。**本文件是当前唯一的计划源**。
+历史交代见[成果与缺陷清单](2026-09-17/01-trading-skills-round-review.md)与[回测结果表](trading-skills-r3-results.md)；执行纪律见[执行者常备说明](executor-brief.md)。**本文件是当前唯一的计划源**。
 
 ## 1. 现状（已核实）
 

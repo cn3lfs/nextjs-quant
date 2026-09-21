@@ -4,7 +4,7 @@
 
 本文件**与具体执行工具无关**。无论执行者是哪个 CLI，纪律、验证分层与不变量均以本文件为准；调用参数、沙箱范围、会话恢复等属工具细节，由管理者在派单时处理，不写进本文件。运行目录沿用历史名称 `.codex-runs/`（已在 gitignore 内），不因更换工具而改名。
 
-必读：`AGENTS.md`、[优化方案](trading-skills-execution-optimization.md)、[原计划](trading-skills-strategy-plan.md) §1/§6/§7、[契约清单](trading-skills-contract-checks.md)。
+必读：`AGENTS.md`、[优化方案](2026-09-16/07-trading-skills-execution-optimization.md)、[原计划](trading-skills-strategy-plan.md) §1/§6/§7、[契约清单](trading-skills-contract-checks.md)。
 
 ## 1. 交付形态：共享引擎 + 具名方法表
 
@@ -36,7 +36,7 @@
 
 - `docs/trading-skills-method-map.json`：唯一进度源。每项的 `status`/`implementation`/`tests`/`boundary` 由 `scripts/audit-trading-methods.ts --write` 回填。
 - `docs/decisions.md`：**只写真实的原文冲突与工程裁定**，一个冲突一条，不是一个方法一条。同族多个方法共用同一裁定就写一条并列出适用 ID。
-- `docs/trading-skills-execution.md`：**每批一条、六行以内**，不是每轮一篇。段落写不下就说明信息该进 method-map 或 decisions.md。
+- `2026-09-16/09-trading-skills-execution.md`：**每批一条、六行以内**，不是每轮一篇。段落写不下就说明信息该进 method-map 或 decisions.md。
 - 计数一律取审计脚本输出，不手工推算。区分 `implemented` 与 `implemented-variant`，不要混为一谈。
 
 ## 4. 每轮必须产出 `.codex-runs/delivery.json`（运行目录，名称沿用历史）

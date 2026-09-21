@@ -10265,7 +10265,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10322,7 +10322,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10377,7 +10377,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10725,7 +10725,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10779,7 +10779,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10839,7 +10839,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -10894,7 +10894,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -11129,7 +11129,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -11239,7 +11239,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -11470,7 +11470,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。 本源trading-system对应基础组件可复用；2%/3%、1R/2R、风险上限及禁止亏损追加的具名组合另列，不提升本项完成声明。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -11585,7 +11585,7 @@
         "tests/research-contracts.test.ts",
         "tests/research-registry-ui.test.ts"
       ],
-      "boundary": "已交付具名工程版本，参数和原文差异见docs/trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
+      "boundary": "已交付具名工程版本，参数和原文差异见docs/2026-09-16/09-trading-skills-execution.md的K2a表；不据此宣称同族全部原文规则完成或实测盈利。",
       "delivery": {
         "implementation": {
           "status": "engineering",
@@ -36565,7 +36565,7 @@
         "SW10-bear-alignment",
         "SW10-tangle-filter"
       ],
-      "reason": "全文逐节去向、源码核对及示例冲突见docs/trading-skills-swing-indicators-position-audit.md。组合、历史/人工输入和研究记录各有归属；引用stop-loss来源仍独立审阅，整文件处置不代表实现或回测完成。"
+      "reason": "全文逐节去向、源码核对及示例冲突见docs/2026-09-16/03-trading-skills-swing-indicators-position-audit.md。组合、历史/人工输入和研究记录各有归属；引用stop-loss来源仍独立审阅，整文件处置不代表实现或回测完成。"
     },
     {
       "source": "volume-price-analysis/SKILL.md",
@@ -36634,7 +36634,7 @@
         "VP-retest-1-v1",
         "VP-retest-5-v1"
       ],
-      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
+      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/2026-09-16/01-trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
     },
     {
       "source": "volume-price-analysis/references/vp-patterns.md",
@@ -36711,7 +36711,7 @@
         "VP-retest-1-v1",
         "VP-retest-5-v1"
       ],
-      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
+      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/2026-09-16/01-trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
     },
     {
       "source": "volume-price-analysis/references/vp-indicators.md",
@@ -36766,7 +36766,7 @@
         "VP-retest-1-v1",
         "VP-retest-5-v1"
       ],
-      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
+      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/2026-09-16/01-trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
     },
     {
       "source": "volume-price-analysis/references/vp-astock-caveats.md",
@@ -36824,7 +36824,7 @@
         "VP-retest-1-v1",
         "VP-retest-5-v1"
       ],
-      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
+      "reason": "已按整文件逐节核对并登记方法、条件及示例；已实现工程变体、未实现完整分支及数据依赖分别保留。术语、取数路由和报告格式作为输入/表达说明，不凭格式另造交易策略；引用到其他技能的材料仍由目标来源独立审阅。见docs/2026-09-16/01-trading-skills-volume-audit.md，不表示本来源所有策略已实现。"
     },
     {
       "source": "swing-trader/references/trading-system.md",
@@ -36894,7 +36894,7 @@
         "SW11-min-rr2",
         "SW11-emotion-gate"
       ],
-      "reason": "全文§1至§7逐项去向见docs/trading-skills-swing-audit.md。交易判断、仓位/退出/禁入规则均列子项或复用组件；无信号等待属于对应规则未通过，理由/日记/月度统计是研究记录和复核能力，不造恒不交易策略。整文件处置只证明语义映射，不证明实现、数据可用或真实回测完成。"
+      "reason": "全文§1至§7逐项去向见docs/2026-09-16/02-trading-skills-swing-audit.md。交易判断、仓位/退出/禁入规则均列子项或复用组件；无信号等待属于对应规则未通过，理由/日记/月度统计是研究记录和复核能力，不造恒不交易策略。整文件处置只证明语义映射，不证明实现、数据可用或真实回测完成。"
     },
     {
       "source": "swing-trader/references/position-management.md",
@@ -36945,7 +36945,7 @@
         "SW-P-preflight",
         "SW-P-review"
       ],
-      "reason": "全文逐节去向、源码核对及示例冲突见docs/trading-skills-swing-indicators-position-audit.md。组合、历史/人工输入和研究记录各有归属；引用stop-loss来源仍独立审阅，整文件处置不代表实现或回测完成。"
+      "reason": "全文逐节去向、源码核对及示例冲突见docs/2026-09-16/03-trading-skills-swing-indicators-position-audit.md。组合、历史/人工输入和研究记录各有归属；引用stop-loss来源仍独立审阅，整文件处置不代表实现或回测完成。"
     },
     {
       "source": "stop-loss/references/volatility-family.md",
@@ -36968,7 +36968,7 @@
         "RK-V-structure-farther",
         "RK-MAE-cycle100"
       ],
-      "reason": "全文逐项映射见docs/trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
+      "reason": "全文逐项映射见docs/2026-09-16/04-trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
     },
     {
       "source": "stop-loss/references/methods.md",
@@ -37027,7 +37027,7 @@
         "RK-D5-time10",
         "RK-MAE-cycle100"
       ],
-      "reason": "全文逐项映射见docs/trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
+      "reason": "全文逐项映射见docs/2026-09-16/04-trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
     },
     {
       "source": "stop-loss/references/mae-validation.md",
@@ -37046,7 +37046,7 @@
         "RK-MAE-cycle100",
         "RK-MAE-emotion20"
       ],
-      "reason": "全文逐项映射见docs/trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
+      "reason": "全文逐项映射见docs/2026-09-16/04-trading-skills-risk-audit.md。定位/触发/仓位/演化/账户/替代、波动族及MAE校准和诊断分别映射；文献评价与效果判断保留为原文假设，不当作实证。来源处置不代表策略、数据或回测完成；相邻引用及脚本分别待审。"
     },
     {
       "source": "stop-loss/references/position-sizing.md",
@@ -37066,7 +37066,7 @@
         "RK-C-expect02",
         "RK-C-sizing-three"
       ],
-      "reason": "全文基本公式、风险档位、三重集中度、R期望值、A/B示例、组合风险与日周熔断逐条映射，见docs/trading-skills-risk-audit.md的仓位补充。费用示例不是当前法定规则，简化连亏算式不等于复利结果；来源处置不代表方法或真实回测完成。"
+      "reason": "全文基本公式、风险档位、三重集中度、R期望值、A/B示例、组合风险与日周熔断逐条映射，见docs/2026-09-16/04-trading-skills-risk-audit.md的仓位补充。费用示例不是当前法定规则，简化连亏算式不等于复利结果；来源处置不代表方法或真实回测完成。"
     },
     {
       "source": "stop-loss/scripts/stop_loss_calc.py",
@@ -37321,7 +37321,7 @@
         "CA-E-exclusions",
         "CA-K-kelly25"
       ],
-      "reason": "全文九节、示例与委托引用逐项映射，新增25项；20%止盈后成本/盈利10%冲突、五步与完整M准入差异及盘中时点见docs/trading-skills-canslim-audit.md。引用源仍各自审核，处置不代表实现或回测完成。"
+      "reason": "全文九节、示例与委托引用逐项映射，新增25项；20%止盈后成本/盈利10%冲突、五步与完整M准入差异及盘中时点见docs/2026-09-16/06-trading-skills-canslim-audit.md。引用源仍各自审核，处置不代表实现或回测完成。"
     },
     {
       "source": "canslim-analyst/references/technical-patterns.md",

@@ -98,7 +98,7 @@ B1a（成长股行情方法）已于 `7ebad45` 完成，28/28 交付含六个盘
 ## 6. 记录纪律（替换逐批长文）
 
 - `docs/trading-skills-method-map.json`：唯一进度源。每项含 `status`（planned / implemented-variant / implemented）、`implementation`、`tests`、`boundary`、来源与规则版本；由 E0-7 脚本回填与校验。
-- `docs/trading-skills-execution.md`：**每批一条**，固定模板：
+- `09-trading-skills-execution.md`：**每批一条**，固定模板：
   1. 批次与覆盖的方法 ID 区间、实际完成数与仍缺数；
   2. 关键工程定义与原文冲突的裁定（原文模糊处登记明确版本，不暗改规则）；
   3. 契约套件新增覆盖项；
