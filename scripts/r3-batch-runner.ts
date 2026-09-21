@@ -67,6 +67,7 @@ import { deriveHistoricalFloatShares } from "../src/server/tdx-gbbq";
 import {
   runStrategyResearch,
   buildNamedResearchSpec,
+  createResearchCzscCache,
 } from "../src/server/research-run";
 import { findResearchCompositePreset } from "../src/lib/research-composite-presets";
 import { researchMethodSnapshot } from "../src/server/research-method";
@@ -80,6 +81,7 @@ import {
   isChanFiveMinute,
 } from "../src/lib/research-chan-native";
 import { isWyckoffHourly } from "../src/lib/research-wyckoff-hourly";
+import { writeResearchJsonFile } from "../src/server/research-json";
 
 // Isolation guard (executor-brief.md §7 / next-round-plan.md §7): this driver
 // calls saveSettings(), which writes to the sqlite DB resolved by
@@ -148,6 +150,26 @@ const holdingDays = 5;
 // R3_ENTRY_MAX_WAIT lets a run register a different grid point under a
 // separate R3_ARCHIVE path without touching the default.
 const entryMaxWait = Number(process.env.R3_ENTRY_MAX_WAIT ?? 3);
+// Parallel shards otherwise stamp market evidence with their own Date.now(),
+// which makes the evidence hash (and therefore the raw result hash) differ
+// even when the actual evidence rows are identical.  A manager may inject one
+// run-wide epoch-millisecond value into every shard; omitting it preserves the
+// historical behavior for standalone runs.
+const marketEvidenceExportedAt = (() => {
+  const raw = process.env.R3_MARKET_EVIDENCE_EXPORTED_AT;
+  if (raw === undefined || raw.trim() === "") return Date.now();
+  const normalized = raw.trim();
+  if (!/^[1-9]\d*$/.test(normalized))
+    throw new Error(
+      "R3_MARKET_EVIDENCE_EXPORTED_AT 需为十进制正整数 epoch 毫秒",
+    );
+  const value = Number(normalized);
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error(
+      "R3_MARKET_EVIDENCE_EXPORTED_AT 需为正的安全整数 epoch 毫秒",
+    );
+  return value;
+})();
 const initialCapital = 1_000_000;
 const maxPositions = 5;
 const costs = {
@@ -253,13 +275,14 @@ const dailyPresets = scopedPresets.filter(
   (id) => !needsMinute(resolvedSpecs.get(id)!),
 );
 
-// Sharding (manager request, 2026-09-19): presets are independent — each has
-// its own spec and its own runStrategyResearch call, and no mutable state is
-// shared between them — so a batch may be split across N OS processes with
+// Sharding (manager request, 2026-09-19): presets have independent specs and
+// result files, so a batch may be split across N OS processes with
 // R3_SHARD=i/N. Each shard runs a disjoint slice (`index % N === i`) of the
 // same sorted preset list and writes the same raw/<presetId>.json files it
 // would have written serially, so a single preset's result is byte-identical
-// whether it runs alone or inside a shard. What is NOT sharded-safe on its own
+// whether it runs alone or inside a shard. The optional R3_REUSE_CZSC path
+// shares only exact, hash-keyed non-C4 CZSC prefix promises within one process;
+// it is disabled by default and does not change the result contract. What is NOT sharded-safe on its own
 // is the batch-level bookkeeping: every shard would otherwise overwrite
 // records.json/summary.json with only its own slice, so a shard writes
 // records.shard-<i>-of-<N>.json / summary.shard-<i>-of-<N>.json instead, and
@@ -440,7 +463,7 @@ const corporateActionFree = evidenceDataset.stocks
 const marketEvidence = researchMarketEvidenceSchema.parse({
   version: "research-market-evidence-1",
   source: "tdx-gbbq+daily-event-coverage-r3-real-v1",
-  exportedAt: Date.now(),
+  exportedAt: marketEvidenceExportedAt,
   adjustment: "none",
   corporateActionFree,
   rows: evidenceRows,
@@ -469,6 +492,8 @@ function summarizeResult(result: any) {
 }
 
 const strategyResults = new Map<string, any>();
+const reuseCzsc = process.env.R3_REUSE_CZSC === "1";
+const czscCache = createResearchCzscCache();
 for (const [index, presetId] of ownedPresets.entries()) {
   // Archive key is always the preset id, never `spec.strategy` (Trap 2).
   const rawPath = resolve(rawRoot, `${presetId}.json`);
@@ -531,8 +556,16 @@ for (const [index, presetId] of ownedPresets.entries()) {
           anchor,
           isChanC4(strategySpec.strategy),
         ),
+      undefined,
+      undefined,
+      reuseCzsc && !isChanC4(strategySpec.strategy)
+        ? {
+            czscCache,
+            czscCacheNamespace: "r3-analyze-v1/non-c4",
+          }
+        : undefined,
     );
-    writeFileSync(rawPath, JSON.stringify(result));
+    writeResearchJsonFile(rawPath, result);
     strategyResults.set(presetId, summarizeResult(result));
   } catch (error) {
     const failure = {

@@ -33,6 +33,7 @@ export async function researchChanZhongyin(
   const bars = (five ? minutes! : daily).filter(
     (b) => b.date.slice(0, 10) <= spec.end,
   );
+  const dailyDates = new Set(daily.map((b) => b.date));
   if (
     bars.some(
       (b, i) =>
@@ -138,12 +139,7 @@ export async function researchChanZhongyin(
         boundary: chanZhongyinBoundary,
       },
     });
-    if (
-      day < spec.start ||
-      found.gaps.length ||
-      !daily.some((b) => b.date === day)
-    )
-      continue;
+    if (day < spec.start || found.gaps.length || !dailyDates.has(day)) continue;
     if (
       ![bar.open, bar.high, bar.low, bar.close, bar.volume].every(
         (v) => Number.isFinite(v) && v > 0,

@@ -22,6 +22,7 @@ announced after the snapshot date.
 
 import gzip
 import json
+import math
 from decimal import Decimal
 
 from mindgo_api import (
@@ -148,6 +149,29 @@ def decimal_text(value):
     return format(Decimal(repr(number)), "f")
 
 
+def reporttype_value(value):
+    """Keep the raw categorical code JSON-safe without assigning semantics."""
+    if value is None:
+        return None
+    native = value.item() if hasattr(value, "item") else value
+    if isinstance(native, bool):
+        raise TypeError("reporttypecode 不能是 bool")
+    if isinstance(native, float) and not math.isfinite(native):
+        return None
+    if isinstance(native, str):
+        text = native.strip()
+        if not text or text.lower().lstrip("+-") in {
+            "nan",
+            "inf",
+            "infinity",
+        }:
+            return None
+        return text
+    if isinstance(native, (int, float)):
+        return native
+    return str(native)
+
+
 def main():
     columns, names = SHARDS[TABLE]
     days = [str(d)[:10] for d in get_trade_days(start_date=START, end_date=END)]
@@ -171,6 +195,9 @@ def main():
             stat_date = str(item["%s_stat_date" % TABLE])[:10]
             raw_change = item.get("%s_change_id" % TABLE)
             change_id = None if raw_change is None else int(raw_change)
+            reporttypecode = reporttype_value(
+                item.get("%s_reporttypecode" % TABLE)
+            )
             metrics = {}
             for name in names:
                 if name in IDENTITY:
@@ -178,7 +205,7 @@ def main():
                 text = decimal_text(item["%s_%s" % (TABLE, name)])
                 if text is not None:
                     metrics[name] = text
-            key = (symbol, report_date, stat_date, change_id)
+            key = (symbol, report_date, stat_date, change_id, reporttypecode)
             if key in seen:
                 continue
             seen[key] = {
@@ -188,6 +215,7 @@ def main():
                 "reportDate": report_date,
                 "statDate": stat_date,
                 "changeId": change_id,
+                "reporttypecode": reporttypecode,
                 "metrics": metrics,
             }
         if index % 250 == 0:
@@ -198,7 +226,19 @@ def main():
         raise AssertionError(
             "快照含晚于快照日的公布日，平台不再是时点数据：%s" % (violations[:5],)
         )
-    records = sorted(seen.values(), key=lambda r: (r["symbol"], r["statDate"], r["reportDate"]))
+    def record_sort_key(record):
+        return tuple(
+            json.dumps(record[name], ensure_ascii=False, sort_keys=True)
+            for name in (
+                "symbol",
+                "statDate",
+                "reportDate",
+                "changeId",
+                "reporttypecode",
+            )
+        )
+
+    records = sorted(seen.values(), key=record_sort_key)
     payload = json.dumps(records, ensure_ascii=False, sort_keys=True).encode("utf-8")
     packed = gzip.compress(payload, 9)
     print("distinct_facts=%d rows_seen=%d calls=%d" % (len(records), rows_seen, len(days)))

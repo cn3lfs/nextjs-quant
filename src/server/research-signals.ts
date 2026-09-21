@@ -20,6 +20,7 @@ import {
   chanWolfPoint,
   isChanMa,
   chanMaMethodPoint,
+  compactChanMaMethodPoint,
   isChanNative,
   chanNativeCandidates,
 } from "~/lib/research-chan-native";
@@ -634,7 +635,7 @@ export async function researchSignals(
           warmup: false,
           reason: decision.reason,
           events: [],
-          values: decision,
+          values: compactChanMaMethodPoint(decision),
         });
         if (decision.entry || decision.exit)
           events.push({

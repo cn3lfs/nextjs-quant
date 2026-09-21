@@ -38,6 +38,29 @@ export const chanNativeProfiles = {
   "chan-third-native": ["CH03", "原生三买 · 中枢上首次回试", 3],
 } as const;
 export type ChanNativeId = keyof typeof chanNativeProfiles;
+type ChanMaRows = NonNullable<CzscFamily["diagnostics"]>["ma"];
+type ChanMaChunk = {
+  start: number;
+  end: number;
+  sign: number;
+  area: number;
+  low: number;
+  closed: boolean;
+};
+type ChanMaDecision = {
+  entry: boolean;
+  exit: boolean;
+  reason: string | null;
+  evidence: {
+    rows: ChanMaRows;
+    chunks: ChanMaChunk[];
+    positiveKisses: number;
+    areaMatch: boolean;
+    averageMatch: boolean;
+    source: string;
+    boundary: string;
+  } | null;
+};
 export const chanNativeIds = Object.keys(chanNativeProfiles) as ChanNativeId[];
 export const isChanNative = (id: string): id is ChanNativeId =>
   Object.hasOwn(chanNativeProfiles, id);
@@ -208,14 +231,14 @@ export function chanMaMethodPoint(
   result: CzscResult,
   bars: readonly Bar[],
   config: 0 | 1100,
-) {
+): ChanMaDecision {
   const rows = result.families.find((f) => f.config === config)?.diagnostics
     ?.ma;
-  const missing = (reason: string) => ({
+  const missing = (reason: string): ChanMaDecision => ({
     entry: false,
     exit: false,
     reason,
-    evidence: null as unknown,
+    evidence: null,
   });
   if (
     result.status !== "structure" ||
@@ -336,6 +359,28 @@ export function chanMaMethodPoint(
       averageMatch,
       source: "DLL MA10/11/13; rectangle sum",
       boundary: chanMethodBoundary,
+    },
+  };
+}
+
+/**
+ * Keep research observations useful without copying every historical MA row
+ * into every prefix observation. The full rows remain available from
+ * `chanMaMethodPoint` for direct method tests; research observations retain
+ * the rows and negative chunks that can affect the current decision, plus the
+ * exact history length.
+ */
+export function compactChanMaMethodPoint(decision: ChanMaDecision) {
+  if (!decision.evidence) return decision;
+  const { rows, chunks, ...summary } = decision.evidence;
+  return {
+    ...decision,
+    evidence: {
+      ...summary,
+      rowCount: rows.length,
+      previousRow: rows.at(-2) ?? null,
+      lastRow: rows.at(-1) ?? null,
+      negativeChunks: chunks.filter((chunk) => chunk.sign < 0).slice(-2),
     },
   };
 }

@@ -77,7 +77,7 @@ describe("披露日行映射", () => {
       effectiveAt: "2019-09-30",
       // 公布日 2019-10-16 -> 次日零点，且绝不等于报告期
       availableAt: "2019-10-17T00:00:00+08:00",
-      versionId: "income:2019-09-30:2019-10-16:chg1",
+      versionId: "income:sh600519:2019-09-30:2019-10-16:chg1",
       unit: "CNY-statement",
     });
     // The frozen value is the statement's metric object, not a bare number:
@@ -113,6 +113,17 @@ describe("披露日行映射", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("不同证券的同一披露版本拥有不同 versionId", () => {
+    const rows = buildSupermindRows("disclosure-dates", [
+      disclosure({ symbol: "600519.SH" }),
+      disclosure({ symbol: "600000.SH" }),
+    ]);
+    expect(rows.map((row) => row.versionId)).toEqual([
+      "income:sh600519:2019-09-30:2019-10-16:chg1",
+      "income:sh600000:2019-09-30:2019-10-16:chg1",
+    ]);
   });
 
   it("valuation 没有 change_id 列，缺列与 0 不是同一件事", () => {
@@ -178,6 +189,48 @@ describe("披露日行映射", () => {
         { ...disclosure(), metrics: { overall_income: 1.5 } },
       ]),
     ).toThrow(/原始数据不符合契约/);
+    expect(() =>
+      buildSupermindRows("disclosure-dates", [
+        { ...disclosure(), reporttypecode: true },
+      ]),
+    ).toThrow(/原始数据不符合契约/);
+    expect(() =>
+      buildSupermindRows("disclosure-dates", [
+        { ...disclosure(), reporttypecode: "NaN" },
+      ]),
+    ).toThrow(/原始数据不符合契约/);
+  });
+
+  it("保留原始 reporttypecode，但不在快照层解释其业务语义", () => {
+    const [row] = buildSupermindRows("disclosure-dates", [
+      disclosure({ reporttypecode: "1" }),
+    ]);
+    expect(row?.availabilityEvidence).toMatchObject({ reporttypecode: "1" });
+    const materialized = materializeSupermindRows(
+      [row!],
+      "2026-09-19T05:10:00+08:00",
+    );
+    expect(materialized[0]?.availabilityEvidence).toMatchObject({
+      reporttypecode: "1",
+    });
+
+    const [numeric] = buildSupermindRows("disclosure-dates", [
+      disclosure({ reporttypecode: 1 }),
+    ]);
+    expect(numeric?.availabilityEvidence).toMatchObject({ reporttypecode: 1 });
+    expect(numeric?.versionId).toContain(":reporttype=");
+
+    const [otherNumeric] = buildSupermindRows("disclosure-dates", [
+      disclosure({ reporttypecode: 2 }),
+    ]);
+    expect(otherNumeric?.versionId).not.toBe(numeric?.versionId);
+
+    const [unknown] = buildSupermindRows("disclosure-dates", [
+      disclosure({ reporttypecode: null }),
+    ]);
+    expect(unknown?.availabilityEvidence).toMatchObject({
+      reporttypecode: null,
+    });
   });
 });
 
@@ -328,7 +381,7 @@ describe("接入既有 as-of 契约", () => {
     });
     if (early.status !== "available") throw new Error("unreachable");
     expect(early.provenance.versionId).toBe(
-      "income:2019-09-30:2019-10-16:chg1",
+      "income:sh600519:2019-09-30:2019-10-16:chg1",
     );
     const late = read(rows, "2019-12-10T09:30:00+08:00");
     expect(late).toMatchObject({
@@ -336,7 +389,9 @@ describe("接入既有 as-of 契约", () => {
       value: { overall_income: "63508663000.0" },
     });
     if (late.status !== "available") throw new Error("unreachable");
-    expect(late.provenance.versionId).toBe("income:2019-09-30:2019-12-05:chg2");
+    expect(late.provenance.versionId).toBe(
+      "income:sh600519:2019-09-30:2019-12-05:chg2",
+    );
   });
 
   it("同一可知时点出现冲突值时不择优，报冲突", () => {

@@ -40,6 +40,23 @@ export const asOfObservationSchema = identitySchema
       .object({
         kind: z.literal("version-publication"),
         reference: text,
+        // Optional because older frozen captures predate raw report type
+        // preservation. New statement captures keep the platform's exact
+        // categorical code without interpreting its business meaning.
+        reporttypecode: z
+          .union([
+            z
+              .string()
+              .trim()
+              .min(1)
+              .refine(
+                (value) => !/^[+-]?(?:nan|inf(?:inity)?)$/i.test(value),
+                "reporttypecode 不能是非有限值哨兵文本",
+              ),
+            z.number().finite(),
+          ])
+          .nullable()
+          .optional(),
       })
       .strict(),
     unit: text,

@@ -63,6 +63,15 @@ export function toLocalSymbol(code: string) {
 // ---------------------------------------------------------------------------
 
 const decimalText = z.string().regex(/^-?\d+(?:\.\d+)?$/);
+const reporttypecodeText = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(
+    (value) => !/^[+-]?(?:nan|inf(?:inity)?)$/i.test(value),
+    "reporttypecode 不能是非有限值哨兵文本",
+  );
+const reporttypecodeSchema = z.union([reporttypecodeText, z.number().finite()]);
 
 /**
  * The four statement tables the 217 factor methods read. `profit_report` is
@@ -103,6 +112,8 @@ export const supermindDisclosureRawSchema = z
     statDate: researchDateSchema,
     /** `valuation` has no change_id column; null is not the same as 0. */
     changeId: z.number().int().nonnegative().nullable(),
+    /** Raw platform report type; preserved but not interpreted here. */
+    reporttypecode: reporttypecodeSchema.nullable().optional(),
     /**
      * Metric name -> exact decimal text. Nulls are dropped upstream, so a key
      * that is absent means "the platform returned null for it" or "this table
@@ -246,6 +257,17 @@ export function buildDisclosureRows(
         a < b ? -1 : a > b ? 1 : 0,
       ),
     );
+    const availabilityEvidence = {
+      kind: "version-publication" as const,
+      reference: `supermind:${row.table}:report_date=${row.reportDate}&change_id=${change}`,
+      ...(row.reporttypecode !== undefined
+        ? { reporttypecode: row.reporttypecode }
+        : {}),
+    };
+    const reporttypeVersion =
+      row.reporttypecode === undefined
+        ? ""
+        : `:reporttype=${encodeURIComponent(JSON.stringify(row.reporttypecode))}`;
     return {
       domain: "finance" as const,
       entity: toLocalSymbol(row.symbol),
@@ -253,11 +275,8 @@ export function buildDisclosureRows(
       effectiveAt: row.statDate,
       source: supermindSources["disclosure-dates"],
       availableAt: dateOnlyKnowableAt(row.reportDate),
-      versionId: `${row.table}:${row.statDate}:${row.reportDate}:chg${change}`,
-      availabilityEvidence: {
-        kind: "version-publication" as const,
-        reference: `supermind:${row.table}:report_date=${row.reportDate}&change_id=${change}`,
-      },
+      versionId: `${row.table}:${toLocalSymbol(row.symbol)}:${row.statDate}:${row.reportDate}:chg${change}${reporttypeVersion}`,
+      availabilityEvidence,
       unit,
       value: metrics,
     };

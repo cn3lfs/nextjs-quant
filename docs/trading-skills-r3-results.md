@@ -1,8 +1,7 @@
 # R3/S4 真实回测结果表（只读汇总，非效果判断）
 
-由 `scripts/r3-result-table.ts` 从 `.codex-runs/r3-results` 的原始归档汇总，共 296 个具名 preset。**信号统计是固定持有期的事件观察，不是可成交业绩**。
+由 `scripts/r3-result-table.ts` 从 `.codex-runs/r3-results` 的原始归档汇总，共 592 个具名 preset。**信号统计是固定持有期的事件观察，不是可成交业绩**。
 
-**进行中快照**：b3-w5 的 `records.json` 尚未生成（装配未完成），本批在表中的行数少于方法表要求的预设数，是**未跑完**而不是零信号。续跑命令见 `.codex-runs/s4-delivery.md`。
 
 ## 0. 必读标注（适用于本表全部行）
 
@@ -11,7 +10,7 @@
 - **五分钟锚窗口与日线/月线锚窗口分表**：两者数值恰好都是 2000-01-04..2022-11-30，但 bar 粒度与逐日可用性不同，不是同一种统计口径，本表按 §1/§2 分开列出，不得跨表比较信号数、胜率等指标。
 - **czsc 未经验证基线**（标 †）：依赖 czsc 输出的方法（chan-native / chan-c4 系列）建立在未经验证的基线上——czsc-tdx 自带的 tests 断言本身有误（连笔都画错），不得据其判断实现正确性。
 - **固定输入测试通过只是程序证据，不是盈利证据**；回测结果是历史统计，不构成盈利预期。
-- **「成交」口径（引用本表数字前必读）**：本表的成交数 = `sum(partitions[].simulation.statistics.count)`，即**已闭合的往返交易计数**。另一个可用口径是 `sum(partitions[].simulation.trades.length)`（**成交数组长度**，含未闭合/部分成交），两者在 **157 个预设行**上不等。**本表一律用前者**；与其它来源的「成交数」对照时必须先确认口径，差额不是算错。按档的合计（各档独立，不跨档相加）：entryMaxWait=3：**296610**（数组口径 297340）；entryMaxWait=5：**168362**（数组口径 168693）。
+- **「成交」口径（引用本表数字前必读）**：本表的成交数 = `sum(partitions[].simulation.statistics.count)`，即**已闭合的往返交易计数**。另一个可用口径是 `sum(partitions[].simulation.trades.length)`（**成交数组长度**，含未闭合/部分成交），两者在 **345 个预设行**上不等。**本表一律用前者**；与其它来源的「成交数」对照时必须先确认口径，差额不是算错。按档的合计（各档独立，不跨档相加）：entryMaxWait=3：**296610**（数组口径 297340）；entryMaxWait=5：**310245**（数组口径 310994）；entryMaxWait=10：**321166**（数组口径 321934）。
 
 ## 0.5 证券池与有效池（按每股计数，不是按项计数）
 
@@ -28,8 +27,20 @@
 | b3 | 280 | 0 | 226 | 54 | 1 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
 | b3 | 280 | 0 | 259 | 21 | 1 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
 | b3 | 280 | 0 | 222 | 58 | 1 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
-| b3-w5 | 280 | 0 | 4 | 276 | 33 | 研究窗口内没有可用日线（4） |
-| b3-w5 | 280 | 0 | 221 | 59 | 11 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w10 | 280 | 0 | 221 | 59 | 118 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w10 | 280 | 0 | 4 | 276 | 44 | 研究窗口内没有可用日线（4） |
+| b3-w10 | 280 | 0 | 280 | 0 | 3 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w10 | 280 | 0 | 224 | 56 | 2 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w10 | 280 | 0 | 7 | 273 | 1 | 研究窗口内没有可用日线（4） |
+| b3-w10 | 280 | 0 | 5 | 275 | 1 | 研究窗口内没有可用日线（4） |
+| b3-w10 | 280 | 0 | 226 | 54 | 1 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w5 | 280 | 0 | 221 | 59 | 118 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w5 | 280 | 0 | 4 | 276 | 44 | 研究窗口内没有可用日线（4） |
+| b3-w5 | 280 | 0 | 280 | 0 | 3 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w5 | 280 | 0 | 224 | 56 | 2 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
+| b3-w5 | 280 | 0 | 7 | 273 | 1 | 研究窗口内没有可用日线（4） |
+| b3-w5 | 280 | 0 | 5 | 275 | 1 | 研究窗口内没有可用日线（4） |
+| b3-w5 | 280 | 0 | 226 | 54 | 1 | 研究窗口内 N 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（217） |
 
 **有效池为 0 的含义**：该组项下没有任何证券同时满足预热与研究所需的覆盖证明，因此它们产出的是「无交易」而不是「策略无效」——例如量价族要求「量能可比性覆盖」（除权事件的 GBBQ `floatSharesBefore/floatSharesAfter` 逐条齐全），本批实测被该条整体拒绝。这类行必须读作**数据覆盖缺口**，不是策略结论。
 
@@ -289,15 +300,16 @@
 | 原因 | 项数 |
 | --- | --- |
 
-## 3. entryMaxWait = 5 — 日线/月线锚（44 个）
+## 3. entryMaxWait = 5 — 日线/月线锚（170 个）
 
 ### 按结果标签分布
 
 | 标签 | 数量 |
 | --- | --- |
-| （records.json 缺该项，未在批次交付登记标签） | 44 |
+| 样本不足 | 167 |
+| 无交易 | 3 |
 
-### 产出信号的项（43 个）——信号层事件统计
+### 产出信号的项（163 个）——信号层事件统计
 
 期望值为固定持有期的单次事件平均收益，未扣交易摩擦、未经可成交性检验。标 † 的项依赖 czsc 输出，其基线未经验证（czsc-tdx 自带 tests 断言本身有误），不得据此判断算法正确性。
 
@@ -307,6 +319,9 @@
 | `rsi-50-cross` | `rsi-50-cross` | b3-w5 | 43788 | 52.18% | 1.18 | 0.63% | 6928 | 入场等待期间反向指标信号已确认，取消旧买入意图（42408） |
 | `macd-histogram-turn` | `macd-histogram-turn` | b3-w5 | 38132 | 51.86% | 1.08 | 0.41% | 5940 | 入场等待期结束仍未成交（50638） |
 | `ma-golden-5-10` | `ma-golden-5-10` | b3-w5 | 28300 | 48.81% | 1.15 | 0.26% | 6604 | 入场等待期结束仍未成交（29695） |
+| `three-falling-5-exit` | `three-falling-5-exit` | b3-w5 | 28030 | 48.79% | 1.14 | 0.24% | 5263 | 入场等待期结束仍未成交（42012） |
+| `three-falling-6-exit` | `three-falling-6-exit` | b3-w5 | 28030 | 48.79% | 1.14 | 0.24% | 5263 | 入场等待期结束仍未成交（42013） |
+| `three-falling-7-exit` | `three-falling-7-exit` | b3-w5 | 28030 | 48.79% | 1.14 | 0.24% | 5263 | 入场等待期结束仍未成交（42013） |
 | `candle-evening-star-exit` | `candle-evening-star-exit` | b3-w5 | 27925 | 48.76% | 1.14 | 0.24% | 5290 | 入场等待期结束仍未成交（41064） |
 | `candle-dark-cloud-exit` | `candle-dark-cloud-exit` | b3-w5 | 27916 | 48.79% | 1.14 | 0.24% | 5265 | 入场等待期结束仍未成交（41372） |
 | `candle-shooting-star-exit` | `candle-shooting-star-exit` | b3-w5 | 27705 | 48.76% | 1.14 | 0.24% | 5350 | 入场等待期结束仍未成交（39621） |
@@ -315,43 +330,84 @@
 | `candle-top-doji-exit` | `candle-top-doji-exit` | b3-w5 | 25873 | 48.65% | 1.14 | 0.23% | 5914 | 入场等待期结束仍未成交（28468） |
 | `candle-bottom-doji` | `candle-bottom-doji` | b3-w5 | 24132 | 50.85% | 1.09 | 0.34% | 6305 | 入场等待期结束仍未成交（24695） |
 | `rsi-recovery` | `rsi-recovery` | b3-w5 | 23950 | 50.58% | 1.02 | 0.15% | 4924 | 入场等待期结束仍未成交（33451） |
+| `sw-level-swing` | `sw-level-swing` | b3-w5 | 21130 | 49.86% | 1.24 | 0.53% | 5418 | 入场等待期结束仍未成交（21615） |
 | `macd-golden` | `macd-golden` | b3-w5 | 19331 | 50.33% | 1.17 | 0.45% | 5873 | 入场等待期结束仍未成交（20489） |
 | `kdj-macd-confirmed` | `kdj-macd-confirmed` | b3-w5 | 18725 | 51.87% | 1.24 | 0.75% | 7132 | 入场等待期间反向指标信号已确认，取消旧买入意图（16118） |
+| `sw-level-round` | `sw-level-round` | b3-w5 | 16966 | 49.50% | 1.24 | 0.56% | 5502 | 入场等待期结束仍未成交（16240） |
 | `ma-alignment` | `ma-alignment` | b3-w5 | 13631 | 49.59% | 1.25 | 0.54% | 5892 | 入场等待期结束仍未成交（10588） |
 | `ma-golden-10-20` | `ma-golden-10-20` | b3-w5 | 13182 | 50.84% | 1.14 | 0.45% | 5103 | 入场等待期结束仍未成交（15632） |
 | `candle-bull-engulf` | `candle-bull-engulf` | b3-w5 | 12592 | 53.18% | 1.14 | 0.65% | 6153 | 入场等待期结束仍未成交（7586） |
 | `boll-band-recovery` | `boll-band-recovery` | b3-w5 | 11976 | 51.46% | 0.94 | 0.07% | 4066 | 入场等待期结束仍未成交（15419） |
+| `sw-level-average` | `sw-level-average` | b3-w5 | 8095 | 49.76% | 1.16 | 0.35% | 4580 | 入场等待期结束仍未成交（4859） |
 | `macd-golden-positive` | `macd-golden-positive` | b3-w5 | 7788 | 50.04% | 1.23 | 0.56% | 4795 | 入场等待期结束仍未成交（4456） |
+| `tdx-price-bull` | `tdx-price-bull` | b3-w5 | 5281 | 50.03% | 1.16 | 0.42% | 3895 | 入场等待期结束仍未成交（6365） |
 | `ma-golden-20-60` | `ma-golden-20-60` | b3-w5 | 4705 | 50.95% | 1.25 | 0.62% | 3642 | 入场等待期结束仍未成交（4393） |
 | `kdj-extreme` | `kdj-extreme` | b3-w5 | 4653 | 49.49% | 1.06 | 0.16% | 2697 | 入场等待期结束仍未成交（5116） |
+| `tdx-open-high` | `tdx-open-high` | b3-w5 | 4477 | 47.93% | 1.19 | 0.29% | 3827 | 入场等待期结束仍未成交（5400） |
 | `candle-hammer` | `candle-hammer` | b3-w5 | 4277 | 50.41% | 1.07 | 0.25% | 4630 | 入场等待期结束仍未成交（1167） |
 | `breakout-down-exit` | `breakout-down-exit` | b3-w5 | 3955 | 50.42% | 1.21 | 0.50% | 4084 | 入场等待期结束仍未成交（2396） |
 | `breakout-reverse-line-exit` | `breakout-reverse-line-exit` | b3-w5 | 3955 | 50.42% | 1.21 | 0.50% | 4137 | 入场等待期结束仍未成交（2204） |
 | `dual-breakout` | `dual-breakout` | b3-w5 | 3955 | 50.42% | 1.21 | 0.50% | 4077 | 入场等待期结束仍未成交（2448） |
 | `sw-double-prior20` | `sw-double-prior20` | b3-w5 | 3955 | 50.42% | 1.21 | 0.50% | 4137 | 入场等待期结束仍未成交（2204） |
+| `sw-double-strength` | `sw-double-strength` | b3-w5 | 3914 | 50.49% | 1.21 | 0.51% | 4092 | 入场等待期结束仍未成交（2183） |
+| `sw-level-body` | `sw-level-body` | b3-w5 | 3912 | 49.59% | 1.29 | 0.69% | 4190 | 入场等待期间反向指标信号已确认，取消旧买入意图（1723） |
 | `sw-double-current20` | `sw-double-current20` | b3-w5 | 3864 | 50.31% | 1.21 | 0.48% | 4086 | 入场等待期结束仍未成交（2079） |
 | `breakout-large-body` | `breakout-large-body` | b3-w5 | 2100 | 49.90% | 1.15 | 0.37% | 2953 | 入场等待期结束仍未成交（556） |
+| `sw-rsi-top` | `sw-rsi-top` | b3-w5 | 1884 | 51.01% | 1.20 | 0.53% | 2731 | 入场等待期结束仍未成交（2332） |
 | `sw-kdj-zone` | `sw-kdj-zone` | b3-w5 | 1823 | 49.97% | 1.17 | 0.43% | 3353 | 入场等待期间反向指标信号已确认，取消旧买入意图（1613） |
+| `sw-rsi-neutral` | `sw-rsi-neutral` | b3-w5 | 1698 | 49.23% | 1.28 | 0.57% | 2707 | 入场等待期结束仍未成交（1222） |
 | `sw-level-platform` | `sw-level-platform` | b3-w5 | 1607 | 47.60% | 1.23 | 0.21% | 1945 | 入场等待期结束仍未成交（636） |
+| `tdx-price-ma-rise` | `tdx-price-ma-rise` | b3-w5 | 1413 | 51.17% | 1.24 | 0.65% | 2591 | 入场等待期结束仍未成交（912） |
+| `tdx-volume-double` | `tdx-volume-double` | b3-w5 | 1409 | 47.76% | 1.28 | 0.41% | 2608 | 入场等待期结束仍未成交（601） |
 | `sw-boll-expand` | `sw-boll-expand` | b3-w5 | 1378 | 49.78% | 1.30 | 0.65% | 2369 | 同股已有持仓，不重复加仓（879） |
 | `candle-morning-star` | `candle-morning-star` | b3-w5 | 1354 | 55.69% | 1.11 | 0.86% | 2056 | 入场等待期间反向指标信号已确认，取消旧买入意图（170） |
+| `tdx-gap-up` | `tdx-gap-up` | b3-w5 | 1278 | 48.75% | 1.24 | 0.46% | 2423 | 入场等待期结束仍未成交（969） |
+| `tdx-price-high` | `tdx-price-high` | b3-w5 | 1255 | 48.61% | 1.47 | 0.87% | 2223 | 同股已有持仓，不重复加仓（1054） |
+| `sw-macd-red` | `sw-macd-red` | b3-w5 | 1240 | 52.90% | 1.22 | 0.70% | 2368 | 入场等待期结束仍未成交（935） |
+| `tdx-skill-cross` | `tdx-skill-cross` | b3-w5 | 1232 | 48.94% | 1.23 | 0.43% | 2622 | 入场等待期结束仍未成交（741） |
 | `sw-boll-lower` | `sw-boll-lower` | b3-w5 | 1207 | 50.70% | 1.18 | 0.50% | 2241 | 入场等待期结束仍未成交（1092） |
+| `tdx-gap-down` | `tdx-gap-down` | b3-w5 | 1176 | 49.15% | 1.23 | 0.45% | 2480 | 入场等待期间反向指标信号已确认，取消旧买入意图（636） |
+| `sw-volume-up-up` | `sw-volume-up-up` | b3-w5 | 1156 | 50.61% | 1.44 | 1.06% | 2117 | 同股已有持仓，不重复加仓（696） |
+| `sw-rsi-state` | `sw-rsi-state` | b3-w5 | 1131 | 51.19% | 1.00 | 0.20% | 2040 | 入场等待期结束仍未成交（914） |
+| `vp-float-segment` | `vp-float-segment` | b3-w5 | 984 | 49.80% | 1.52 | 1.09% | 1969 | 入场等待期结束仍未成交（604） |
+| `tdx-volume-half` | `tdx-volume-half` | b3-w5 | 976 | 47.44% | 1.09 | 0.07% | 1920 | 同股已有持仓，不重复加仓（252） |
+| `sw-support-20` | `sw-support-20` | b3-w5 | 941 | 49.52% | 1.17 | 0.38% | 2125 | 入场等待期间反向指标信号已确认，取消旧买入意图（520） |
 | `sw-boll-combined` | `sw-boll-combined` | b3-w5 | 900 | 53.56% | 1.43 | 1.22% | 2006 | 同股已有持仓，不重复加仓（364） |
+| `sw-volume-bottom` | `sw-volume-bottom` | b3-w5 | 880 | 50.68% | 0.95 | 0.10% | 1660 | 同股已有持仓，不重复加仓（704） |
+| `vp-center-20` | `vp-center-20` | b3-w5 | 835 | 54.01% | 1.54 | 1.31% | 1518 | 同股已有持仓，不重复加仓（687） |
+| `tdx-price-bear` | `tdx-price-bear` | b3-w5 | 833 | 48.14% | 1.26 | 0.43% | 2097 | 入场等待期间反向指标信号已确认，取消旧买入意图（474） |
+| `sw-macd-double-top` | `sw-macd-double-top` | b3-w5 | 821 | 51.89% | 1.20 | 0.72% | 1954 | 入场等待期结束仍未成交（666） |
+| `sw-macd-green` | `sw-macd-green` | b3-w5 | 821 | 51.89% | 1.20 | 0.72% | 2004 | 入场等待期结束仍未成交（544） |
+| `sw-macd-negative` | `sw-macd-negative` | b3-w5 | 821 | 51.89% | 1.20 | 0.72% | 1981 | 入场等待期结束仍未成交（531） |
+| `sw-macd-top` | `sw-macd-top` | b3-w5 | 821 | 51.89% | 1.20 | 0.72% | 1968 | 入场等待期结束仍未成交（624） |
+| `tdx-macd-zero` | `tdx-macd-zero` | b3-w5 | 821 | 51.89% | 1.20 | 0.72% | 2006 | 入场等待期结束仍未成交（427） |
 | `candle-morning-doji` | `candle-morning-doji` | b3-w5 | 814 | 57.86% | 1.15 | 1.11% | 1350 | 入场等待期间反向指标信号已确认，取消旧买入意图（39） |
+| `sw-macd-combined` | `sw-macd-combined` | b3-w5 | 803 | 54.30% | 1.44 | 1.23% | 1810 | 同股已有持仓，不重复加仓（248） |
+| `tdx-three-volume` | `tdx-three-volume` | b3-w5 | 802 | 50.25% | 1.31 | 0.76% | 1951 | 入场等待期结束仍未成交（298） |
+| `tdx-ma-order` | `tdx-ma-order` | b3-w5 | 783 | 50.19% | 1.34 | 0.75% | 2043 | 入场等待期间反向指标信号已确认，取消旧买入意图（271） |
+| `tdx-open-low` | `tdx-open-low` | b3-w5 | 728 | 49.04% | 1.33 | 0.61% | 1986 | 入场等待期间反向指标信号已确认，取消旧买入意图（311） |
+| `tdx-price-range` | `tdx-price-range` | b3-w5 | 726 | 48.76% | 1.13 | 0.18% | 1739 | 入场等待期间反向指标信号已确认，取消旧买入意图（136） |
+| `vp-slope-up-3` | `vp-slope-up-3` | b3-w5 | 661 | 49.17% | 1.38 | 0.70% | 1392 | 同股已有持仓，不重复加仓（329） |
+| `vp-center-10` | `vp-center-10` | b3-w5 | 641 | 53.67% | 1.48 | 1.18% | 1338 | 同股已有持仓，不重复加仓（450） |
+| `tdx-ma-order-four` | `tdx-ma-order-four` | b3-w5 | 622 | 50.32% | 1.15 | 0.44% | 1718 | 入场等待期间反向指标信号已确认，取消旧买入意图（216） |
+| `sw-volume-breakout` | `sw-volume-breakout` | b3-w5 | 599 | 50.75% | 1.68 | 1.50% | 1349 | 同股已有持仓，不重复加仓（309） |
+| `sw-volume-down-up` | `sw-volume-down-up` | b3-w5 | 599 | 50.75% | 1.68 | 1.50% | 1338 | 同股已有持仓，不重复加仓（277） |
+| `sw-volume-up-down` | `sw-volume-up-down` | b3-w5 | 599 | 50.75% | 1.68 | 1.50% | 1341 | 同股已有持仓，不重复加仓（314） |
 | `sw-confluence` | `sw-confluence` | b3-w5 | 596 | 50.84% | 1.67 | 1.50% | 1339 | 同股已有持仓，不重复加仓（305） |
 | `sw-direction` | `sw-direction` | b3-w5 | 596 | 50.84% | 1.67 | 1.50% | 1350 | 同股已有持仓，不重复加仓（301） |
-| `sw-bear-order` | `sw-bear-order` | b3-w5 | 533 | 51.97% | 1.48 | 1.13% | 1461 | 入场等待期结束仍未成交（168） |
-| `sw-boll-upper` | `sw-boll-upper` | b3-w5 | 418 | 46.17% | 1.68 | 0.92% | 1189 | 入场等待期结束仍未成交（85） |
-| `breakout-span-20` | `breakout-span-20` | b3-w5 | 416 | 48.32% | 1.13 | 0.17% | 675 | 入场等待期结束仍未成交（15） |
-| `breakout-touch-3` | `breakout-touch-3` | b3-w5 | 359 | 49.58% | 1.04 | 0.05% | 629 | 入场等待期间反向指标信号已确认，取消旧买入意图（3） |
-| `sw-kdj-combined` | `sw-kdj-combined` | b3-w5 | 278 | 52.52% | 1.46 | 1.14% | 863 | 入场等待期间反向指标信号已确认，取消旧买入意图（53） |
-| `sw-boll-squeeze` | `sw-boll-squeeze` | b3-w5 | 111 | 50.45% | 2.20 | 1.56% | 312 | 入场等待期间反向指标信号已确认，取消旧买入意图（3） |
+| … 其余 83 个见归档 | | | | | | | | |
 
-### 零信号且全池排除的项（1 个）
+### 零信号且全池排除的项（7 个）
 
 | Preset ID | 解析后 strategy | 批 | 排除证券数 | 排除主因 |
 | --- | --- | --- | --- | --- |
 | `sw-continuation-confirmed` | `sw-continuation-confirmed` | b3-w5 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `tdx-duck-asof` | `tdx-duck-asof` | b3-w5 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：待数据：观察日唯一date/availableDate/source证据；历史上市日期（59） |
+| `vp-auction-exclude` | `vp-auction-exclude` | b3-w5 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：量价基准不足；待数据：14:57至15:00实际量与指数/ETF事件覆盖（59） |
+| `vp-basis-adjusted` | `vp-basis-adjusted` | b3-w5 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：量价窗口不足或调整因子缺失无效（59） |
+| `vp-controlled-turnover` | `vp-controlled-turnover` | b3-w5 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `vp-grid-up-contracted` | `vp-grid-up-contracted` | b3-w5 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `vp-pulse-2-2` | `vp-pulse-2-2` | b3-w5 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
 
 ### 阻塞归因汇总
 
@@ -361,16 +417,20 @@
 
 | 原因 | 项数 |
 | --- | --- |
-| 研究窗口内没有可用日线 | 33 |
-| 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定 | 11 |
+| 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定 | 121 |
+| 研究窗口内没有可用日线 | 46 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：待数据：观察日唯一date/availableDate/source证据；历史上市日期 | 1 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：量价基准不足；待数据：14:57至15:00实际量与指数/ETF事件覆盖 | 1 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：量价窗口不足或调整因子缺失无效 | 1 |
 
 **交易模拟层排除主因（按出现该主因的项数）**
 
 | 原因 | 项数 |
 | --- | --- |
-| 入场等待期结束仍未成交 | 30 |
-| 入场等待期间反向指标信号已确认，取消旧买入意图 | 9 |
-| 同股已有持仓，不重复加仓 | 4 |
+| 入场等待期结束仍未成交 | 61 |
+| 开盘已失守冻结的规则确认位，取消入场 | 44 |
+| 入场等待期间反向指标信号已确认，取消旧买入意图 | 29 |
+| 同股已有持仓，不重复加仓 | 28 |
 
 ## 4. entryMaxWait = 5 — 五分钟锚（0 个）
 
@@ -405,53 +465,344 @@
 | 原因 | 项数 |
 | --- | --- |
 
+## 5. entryMaxWait = 10 — 日线/月线锚（170 个）
+
+### 按结果标签分布
+
+| 标签 | 数量 |
+| --- | --- |
+| 样本不足 | 167 |
+| 无交易 | 3 |
+
+### 产出信号的项（163 个）——信号层事件统计
+
+期望值为固定持有期的单次事件平均收益，未扣交易摩擦、未经可成交性检验。标 † 的项依赖 czsc 输出，其基线未经验证（czsc-tdx 自带 tests 断言本身有误），不得据此判断算法正确性。
+
+| Preset ID | 解析后 strategy | 批 | 开发期信号 | 胜率 | 盈亏比 | 期望 | 交易 | 交易被拒主因 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `kdj-golden` | `kdj-golden` | b3-w10 | 44182 | 50.36% | 1.15 | 0.41% | 8632 | 入场等待期间反向指标信号已确认，取消旧买入意图（58215） |
+| `rsi-50-cross` | `rsi-50-cross` | b3-w10 | 43788 | 52.18% | 1.18 | 0.63% | 6974 | 入场等待期间反向指标信号已确认，取消旧买入意图（57822） |
+| `macd-histogram-turn` | `macd-histogram-turn` | b3-w10 | 38132 | 51.86% | 1.08 | 0.41% | 6134 | 入场等待期结束仍未成交（30842） |
+| `ma-golden-5-10` | `ma-golden-5-10` | b3-w10 | 28300 | 48.81% | 1.15 | 0.26% | 7117 | 入场等待期间反向指标信号已确认，取消旧买入意图（29089） |
+| `three-falling-5-exit` | `three-falling-5-exit` | b3-w10 | 28030 | 48.79% | 1.14 | 0.24% | 5349 | 入场等待期结束仍未成交（40469） |
+| `three-falling-6-exit` | `three-falling-6-exit` | b3-w10 | 28030 | 48.79% | 1.14 | 0.24% | 5349 | 入场等待期结束仍未成交（40471） |
+| `three-falling-7-exit` | `three-falling-7-exit` | b3-w10 | 28030 | 48.79% | 1.14 | 0.24% | 5349 | 入场等待期结束仍未成交（40471） |
+| `candle-evening-star-exit` | `candle-evening-star-exit` | b3-w10 | 27925 | 48.76% | 1.14 | 0.24% | 5361 | 入场等待期结束仍未成交（39017） |
+| `candle-dark-cloud-exit` | `candle-dark-cloud-exit` | b3-w10 | 27916 | 48.79% | 1.14 | 0.24% | 5373 | 入场等待期结束仍未成交（39378） |
+| `candle-shooting-star-exit` | `candle-shooting-star-exit` | b3-w10 | 27705 | 48.76% | 1.14 | 0.24% | 5446 | 入场等待期结束仍未成交（36326） |
+| `boll-middle-cross` | `boll-middle-cross` | b3-w10 | 27441 | 52.21% | 1.19 | 0.65% | 6252 | 入场等待期间反向指标信号已确认，取消旧买入意图（29983） |
+| `candle-bear-engulf-exit` | `candle-bear-engulf-exit` | b3-w10 | 27197 | 48.66% | 1.14 | 0.22% | 5620 | 入场等待期结束仍未成交（28700） |
+| `candle-top-doji-exit` | `candle-top-doji-exit` | b3-w10 | 25873 | 48.65% | 1.14 | 0.23% | 5916 | 入场等待期结束仍未成交（20007） |
+| `candle-bottom-doji` | `candle-bottom-doji` | b3-w10 | 24132 | 50.85% | 1.09 | 0.34% | 6292 | 入场等待期间反向指标信号已确认，取消旧买入意图（19395） |
+| `rsi-recovery` | `rsi-recovery` | b3-w10 | 23950 | 50.58% | 1.02 | 0.15% | 5213 | 入场等待期结束仍未成交（27082） |
+| `sw-level-swing` | `sw-level-swing` | b3-w10 | 21130 | 49.86% | 1.24 | 0.53% | 5497 | 入场等待期结束仍未成交（16096） |
+| `macd-golden` | `macd-golden` | b3-w10 | 19331 | 50.33% | 1.17 | 0.45% | 6011 | 入场等待期结束仍未成交（13970） |
+| `kdj-macd-confirmed` | `kdj-macd-confirmed` | b3-w10 | 18725 | 51.87% | 1.24 | 0.75% | 7686 | 入场等待期间反向指标信号已确认，取消旧买入意图（23298） |
+| `sw-level-round` | `sw-level-round` | b3-w10 | 16966 | 49.50% | 1.24 | 0.56% | 5454 | 入场等待期间反向指标信号已确认，取消旧买入意图（12679） |
+| `ma-alignment` | `ma-alignment` | b3-w10 | 13631 | 49.59% | 1.25 | 0.54% | 6014 | 入场等待期间反向指标信号已确认，取消旧买入意图（12362） |
+| `ma-golden-10-20` | `ma-golden-10-20` | b3-w10 | 13182 | 50.84% | 1.14 | 0.45% | 5713 | 入场等待期结束仍未成交（11709） |
+| `candle-bull-engulf` | `candle-bull-engulf` | b3-w10 | 12592 | 53.18% | 1.14 | 0.65% | 6073 | 入场等待期间反向指标信号已确认，取消旧买入意图（10755） |
+| `boll-band-recovery` | `boll-band-recovery` | b3-w10 | 11976 | 51.46% | 0.94 | 0.07% | 4511 | 入场等待期结束仍未成交（13800） |
+| `sw-level-average` | `sw-level-average` | b3-w10 | 8095 | 49.76% | 1.16 | 0.35% | 4938 | 入场等待期间反向指标信号已确认，取消旧买入意图（5666） |
+| `macd-golden-positive` | `macd-golden-positive` | b3-w10 | 7788 | 50.04% | 1.23 | 0.56% | 5058 | 入场等待期间反向指标信号已确认，取消旧买入意图（5716） |
+| `tdx-price-bull` | `tdx-price-bull` | b3-w10 | 5281 | 50.03% | 1.16 | 0.42% | 3957 | 同股已有持仓，不重复加仓（6780） |
+| `ma-golden-20-60` | `ma-golden-20-60` | b3-w10 | 4705 | 50.95% | 1.25 | 0.62% | 3881 | 入场等待期结束仍未成交（3829） |
+| `kdj-extreme` | `kdj-extreme` | b3-w10 | 4653 | 49.49% | 1.06 | 0.16% | 3221 | 入场等待期结束仍未成交（4278） |
+| `tdx-open-high` | `tdx-open-high` | b3-w10 | 4477 | 47.93% | 1.19 | 0.29% | 3854 | 同股已有持仓，不重复加仓（5646） |
+| `candle-hammer` | `candle-hammer` | b3-w10 | 4277 | 50.41% | 1.07 | 0.25% | 4809 | 入场等待期间反向指标信号已确认，取消旧买入意图（1379） |
+| `breakout-down-exit` | `breakout-down-exit` | b3-w10 | 3955 | 50.42% | 1.21 | 0.50% | 4348 | 入场等待期结束仍未成交（2000） |
+| `breakout-reverse-line-exit` | `breakout-reverse-line-exit` | b3-w10 | 3955 | 50.42% | 1.21 | 0.50% | 4434 | 入场等待期结束仍未成交（1429） |
+| `dual-breakout` | `dual-breakout` | b3-w10 | 3955 | 50.42% | 1.21 | 0.50% | 4375 | 入场等待期结束仍未成交（2090） |
+| `sw-double-prior20` | `sw-double-prior20` | b3-w10 | 3955 | 50.42% | 1.21 | 0.50% | 4434 | 入场等待期结束仍未成交（1429） |
+| `sw-double-strength` | `sw-double-strength` | b3-w10 | 3914 | 50.49% | 1.21 | 0.51% | 4389 | 入场等待期结束仍未成交（1427） |
+| `sw-level-body` | `sw-level-body` | b3-w10 | 3912 | 49.59% | 1.29 | 0.69% | 4248 | 入场等待期间反向指标信号已确认，取消旧买入意图（1983） |
+| `sw-double-current20` | `sw-double-current20` | b3-w10 | 3864 | 50.31% | 1.21 | 0.48% | 4393 | 入场等待期结束仍未成交（1338） |
+| `breakout-large-body` | `breakout-large-body` | b3-w10 | 2100 | 49.90% | 1.15 | 0.37% | 3208 | 入场等待期结束仍未成交（202） |
+| `sw-rsi-top` | `sw-rsi-top` | b3-w10 | 1884 | 51.01% | 1.20 | 0.53% | 2811 | 同股已有持仓，不重复加仓（1686） |
+| `sw-kdj-zone` | `sw-kdj-zone` | b3-w10 | 1823 | 49.97% | 1.17 | 0.43% | 3550 | 入场等待期间反向指标信号已确认，取消旧买入意图（2356） |
+| `sw-rsi-neutral` | `sw-rsi-neutral` | b3-w10 | 1698 | 49.23% | 1.28 | 0.57% | 2729 | 同股已有持仓，不重复加仓（1520） |
+| `sw-level-platform` | `sw-level-platform` | b3-w10 | 1607 | 47.60% | 1.23 | 0.21% | 2040 | 同股已有持仓，不重复加仓（440） |
+| `tdx-price-ma-rise` | `tdx-price-ma-rise` | b3-w10 | 1413 | 51.17% | 1.24 | 0.65% | 2703 | 入场等待期间反向指标信号已确认，取消旧买入意图（1009） |
+| `tdx-volume-double` | `tdx-volume-double` | b3-w10 | 1409 | 47.76% | 1.28 | 0.41% | 2700 | 同股已有持仓，不重复加仓（710） |
+| `sw-boll-expand` | `sw-boll-expand` | b3-w10 | 1378 | 49.78% | 1.30 | 0.65% | 2386 | 同股已有持仓，不重复加仓（1155） |
+| `candle-morning-star` | `candle-morning-star` | b3-w10 | 1354 | 55.69% | 1.11 | 0.86% | 2109 | 入场等待期间反向指标信号已确认，取消旧买入意图（188） |
+| `tdx-gap-up` | `tdx-gap-up` | b3-w10 | 1278 | 48.75% | 1.24 | 0.46% | 2525 | 同股已有持仓，不重复加仓（956） |
+| `tdx-price-high` | `tdx-price-high` | b3-w10 | 1255 | 48.61% | 1.47 | 0.87% | 2269 | 同股已有持仓，不重复加仓（1345） |
+| `sw-macd-red` | `sw-macd-red` | b3-w10 | 1240 | 52.90% | 1.22 | 0.70% | 2449 | 同股已有持仓，不重复加仓（857） |
+| `tdx-skill-cross` | `tdx-skill-cross` | b3-w10 | 1232 | 48.94% | 1.23 | 0.43% | 2742 | 入场等待期间反向指标信号已确认，取消旧买入意图（1144） |
+| `sw-boll-lower` | `sw-boll-lower` | b3-w10 | 1207 | 50.70% | 1.18 | 0.50% | 2302 | 同股已有持仓，不重复加仓（977） |
+| `tdx-gap-down` | `tdx-gap-down` | b3-w10 | 1176 | 49.15% | 1.23 | 0.45% | 2526 | 入场等待期间反向指标信号已确认，取消旧买入意图（922） |
+| `sw-volume-up-up` | `sw-volume-up-up` | b3-w10 | 1156 | 50.61% | 1.44 | 1.06% | 2145 | 同股已有持仓，不重复加仓（861） |
+| `sw-rsi-state` | `sw-rsi-state` | b3-w10 | 1131 | 51.19% | 1.00 | 0.20% | 2131 | 同股已有持仓，不重复加仓（886） |
+| `vp-float-segment` | `vp-float-segment` | b3-w10 | 984 | 49.80% | 1.52 | 1.09% | 2013 | 同股已有持仓，不重复加仓（604） |
+| `tdx-volume-half` | `tdx-volume-half` | b3-w10 | 976 | 47.44% | 1.09 | 0.07% | 1946 | 同股已有持仓，不重复加仓（262） |
+| `sw-support-20` | `sw-support-20` | b3-w10 | 941 | 49.52% | 1.17 | 0.38% | 2119 | 入场等待期间反向指标信号已确认，取消旧买入意图（540） |
+| `sw-boll-combined` | `sw-boll-combined` | b3-w10 | 900 | 53.56% | 1.43 | 1.22% | 2009 | 同股已有持仓，不重复加仓（365） |
+| `sw-volume-bottom` | `sw-volume-bottom` | b3-w10 | 880 | 50.68% | 0.95 | 0.10% | 1733 | 同股已有持仓，不重复加仓（913） |
+| `vp-center-20` | `vp-center-20` | b3-w10 | 835 | 54.01% | 1.54 | 1.31% | 1516 | 同股已有持仓，不重复加仓（719） |
+| `tdx-price-bear` | `tdx-price-bear` | b3-w10 | 833 | 48.14% | 1.26 | 0.43% | 2098 | 入场等待期间反向指标信号已确认，取消旧买入意图（475） |
+| `sw-macd-double-top` | `sw-macd-double-top` | b3-w10 | 821 | 51.89% | 1.20 | 0.72% | 2033 | 入场等待期结束仍未成交（498） |
+| `sw-macd-green` | `sw-macd-green` | b3-w10 | 821 | 51.89% | 1.20 | 0.72% | 2084 | 入场等待期结束仍未成交（262） |
+| `sw-macd-negative` | `sw-macd-negative` | b3-w10 | 821 | 51.89% | 1.20 | 0.72% | 2053 | 入场等待期结束仍未成交（315） |
+| `sw-macd-top` | `sw-macd-top` | b3-w10 | 821 | 51.89% | 1.20 | 0.72% | 2033 | 入场等待期结束仍未成交（461） |
+| `tdx-macd-zero` | `tdx-macd-zero` | b3-w10 | 821 | 51.89% | 1.20 | 0.72% | 2105 | 入场等待期间反向指标信号已确认，取消旧买入意图（466） |
+| `candle-morning-doji` | `candle-morning-doji` | b3-w10 | 814 | 57.86% | 1.15 | 1.11% | 1361 | 入场等待期间反向指标信号已确认，取消旧买入意图（39） |
+| `sw-macd-combined` | `sw-macd-combined` | b3-w10 | 803 | 54.30% | 1.44 | 1.23% | 1813 | 同股已有持仓，不重复加仓（248） |
+| `tdx-three-volume` | `tdx-three-volume` | b3-w10 | 802 | 50.25% | 1.31 | 0.76% | 2024 | 入场等待期间反向指标信号已确认，取消旧买入意图（265） |
+| `tdx-ma-order` | `tdx-ma-order` | b3-w10 | 783 | 50.19% | 1.34 | 0.75% | 2093 | 入场等待期间反向指标信号已确认，取消旧买入意图（425） |
+| `tdx-open-low` | `tdx-open-low` | b3-w10 | 728 | 49.04% | 1.33 | 0.61% | 1986 | 入场等待期间反向指标信号已确认，取消旧买入意图（311） |
+| `tdx-price-range` | `tdx-price-range` | b3-w10 | 726 | 48.76% | 1.13 | 0.18% | 1752 | 入场等待期间反向指标信号已确认，取消旧买入意图（156） |
+| `vp-slope-up-3` | `vp-slope-up-3` | b3-w10 | 661 | 49.17% | 1.38 | 0.70% | 1398 | 同股已有持仓，不重复加仓（351） |
+| `vp-center-10` | `vp-center-10` | b3-w10 | 641 | 53.67% | 1.48 | 1.18% | 1337 | 同股已有持仓，不重复加仓（466） |
+| `tdx-ma-order-four` | `tdx-ma-order-four` | b3-w10 | 622 | 50.32% | 1.15 | 0.44% | 1734 | 入场等待期间反向指标信号已确认，取消旧买入意图（263） |
+| `sw-volume-breakout` | `sw-volume-breakout` | b3-w10 | 599 | 50.75% | 1.68 | 1.50% | 1370 | 同股已有持仓，不重复加仓（345） |
+| `sw-volume-down-up` | `sw-volume-down-up` | b3-w10 | 599 | 50.75% | 1.68 | 1.50% | 1349 | 同股已有持仓，不重复加仓（294） |
+| `sw-volume-up-down` | `sw-volume-up-down` | b3-w10 | 599 | 50.75% | 1.68 | 1.50% | 1376 | 同股已有持仓，不重复加仓（352） |
+| `sw-confluence` | `sw-confluence` | b3-w10 | 596 | 50.84% | 1.67 | 1.50% | 1359 | 同股已有持仓，不重复加仓（337） |
+| `sw-direction` | `sw-direction` | b3-w10 | 596 | 50.84% | 1.67 | 1.50% | 1369 | 同股已有持仓，不重复加仓（343） |
+| … 其余 83 个见归档 | | | | | | | | |
+
+### 零信号且全池排除的项（7 个）
+
+| Preset ID | 解析后 strategy | 批 | 排除证券数 | 排除主因 |
+| --- | --- | --- | --- | --- |
+| `sw-continuation-confirmed` | `sw-continuation-confirmed` | b3-w10 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `tdx-duck-asof` | `tdx-duck-asof` | b3-w10 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：待数据：观察日唯一date/availableDate/source证据；历史上市日期（59） |
+| `vp-auction-exclude` | `vp-auction-exclude` | b3-w10 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：量价基准不足；待数据：14:57至15:00实际量与指数/ETF事件覆盖（59） |
+| `vp-basis-adjusted` | `vp-basis-adjusted` | b3-w10 | 280 | 研究区间2000-01-04至2022-11-30没有可用策略输入：量价窗口不足或调整因子缺失无效（59） |
+| `vp-controlled-turnover` | `vp-controlled-turnover` | b3-w10 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `vp-grid-up-contracted` | `vp-grid-up-contracted` | b3-w10 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+| `vp-pulse-2-2` | `vp-pulse-2-2` | b3-w10 | 221 | 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定（35） |
+
+### 阻塞归因汇总
+
+**证券池层排除主因（按出现该主因的项数）**
+
+口径说明：本表按**项（preset）**计数，只统计每项**占比最高**的那一条原因，因此会系统性低估**对每一项都发生**的原因——按每股生效的池层限制（例如量价族的「量能可比性覆盖」缺口）就是这种原因，它按每股移除大部分意图池（见 §0.5），却未必在多数项里当上「主因」。不要把本表的数字读成「只影响这么多项」；按每股的真实数字见 §0.5。
+
+| 原因 | 项数 |
+| --- | --- |
+| 研究窗口内 3 处送股/转增/配股/扩缩股等股本变动事件缺少GBBQ流通股本前后记录（floatSharesBefore/floatSharesAfter），量能可比性无法判定 | 121 |
+| 研究窗口内没有可用日线 | 46 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：待数据：观察日唯一date/availableDate/source证据；历史上市日期 | 1 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：量价基准不足；待数据：14:57至15:00实际量与指数/ETF事件覆盖 | 1 |
+| 研究区间2000-01-04至2022-11-30没有可用策略输入：量价窗口不足或调整因子缺失无效 | 1 |
+
+**交易模拟层排除主因（按出现该主因的项数）**
+
+| 原因 | 项数 |
+| --- | --- |
+| 入场等待期间反向指标信号已确认，取消旧买入意图 | 44 |
+| 同股已有持仓，不重复加仓 | 44 |
+| 开盘已失守冻结的规则确认位，取消入场 | 44 |
+| 入场等待期结束仍未成交 | 30 |
+
+## 6. entryMaxWait = 10 — 五分钟锚（0 个）
+
+### 按结果标签分布
+
+| 标签 | 数量 |
+| --- | --- |
+
+### 产出信号的项（0 个）——信号层事件统计
+
+期望值为固定持有期的单次事件平均收益，未扣交易摩擦、未经可成交性检验。标 † 的项依赖 czsc 输出，其基线未经验证（czsc-tdx 自带 tests 断言本身有误），不得据此判断算法正确性。
+
+| Preset ID | 解析后 strategy | 批 | 开发期信号 | 胜率 | 盈亏比 | 期望 | 交易 | 交易被拒主因 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+### 零信号且全池排除的项（0 个）
+
+| Preset ID | 解析后 strategy | 批 | 排除证券数 | 排除主因 |
+| --- | --- | --- | --- | --- |
+
+### 阻塞归因汇总
+
+**证券池层排除主因（按出现该主因的项数）**
+
+口径说明：本表按**项（preset）**计数，只统计每项**占比最高**的那一条原因，因此会系统性低估**对每一项都发生**的原因——按每股生效的池层限制（例如量价族的「量能可比性覆盖」缺口）就是这种原因，它按每股移除大部分意图池（见 §0.5），却未必在多数项里当上「主因」。不要把本表的数字读成「只影响这么多项」；按每股的真实数字见 §0.5。
+
+| 原因 | 项数 |
+| --- | --- |
+
+**交易模拟层排除主因（按出现该主因的项数）**
+
+| 原因 | 项数 |
+| --- | --- |
+
 ## 跨档对照
 
-口径：逐预设比较各档的**成交数**（成交是 entryMaxWait 唯一能改变的量——它只作用于未成交的买入意图：`src/server/research-portfolio.ts:967` 等待期结束、`:980` 反向信号取消）。**无差异的预设一并列出**：那本身是结论。可比预设 44 个（在各档均有归档）：**有差异 43 个 / 无差异 1 个**。
+口径：逐预设比较各档的**成交数**（成交是 entryMaxWait 唯一能改变的量——它只作用于未成交的买入意图：`src/server/research-portfolio.ts:967` 等待期结束、`:980` 反向信号取消）。**无差异的预设一并列出**：那本身是结论。可比预设 170 个（在各档均有归档）：**有差异 118 个 / 无差异 52 个**。
 
-| Preset ID | 锚 | 成交 w=3 | 成交 w=5 | 差异 |
-| --- | --- | --- | --- | --- |
-| `kdj-golden` | daily-or-monthly | 7138 | 7441 | **有差异**（7138 → 7441） |
-| `rsi-50-cross` | daily-or-monthly | 7212 | 6928 | **有差异**（7212 → 6928） |
-| `macd-histogram-turn` | daily-or-monthly | 4635 | 5940 | **有差异**（4635 → 5940） |
-| `ma-golden-5-10` | daily-or-monthly | 6060 | 6604 | **有差异**（6060 → 6604） |
-| `candle-evening-star-exit` | daily-or-monthly | 5127 | 5290 | **有差异**（5127 → 5290） |
-| `candle-dark-cloud-exit` | daily-or-monthly | 5153 | 5265 | **有差异**（5153 → 5265） |
-| `candle-shooting-star-exit` | daily-or-monthly | 5206 | 5350 | **有差异**（5206 → 5350） |
-| `boll-middle-cross` | daily-or-monthly | 6649 | 6463 | **有差异**（6649 → 6463） |
-| `candle-bear-engulf-exit` | daily-or-monthly | 5297 | 5342 | **有差异**（5297 → 5342） |
-| `candle-top-doji-exit` | daily-or-monthly | 5755 | 5914 | **有差异**（5755 → 5914） |
-| `candle-bottom-doji` | daily-or-monthly | 6174 | 6305 | **有差异**（6174 → 6305） |
-| `rsi-recovery` | daily-or-monthly | 4163 | 4924 | **有差异**（4163 → 4924） |
-| `macd-golden` | daily-or-monthly | 5658 | 5873 | **有差异**（5658 → 5873） |
-| `kdj-macd-confirmed` | daily-or-monthly | 6661 | 7132 | **有差异**（6661 → 7132） |
-| `ma-alignment` | daily-or-monthly | 5565 | 5892 | **有差异**（5565 → 5892） |
-| `ma-golden-10-20` | daily-or-monthly | 4803 | 5103 | **有差异**（4803 → 5103） |
-| `candle-bull-engulf` | daily-or-monthly | 6024 | 6153 | **有差异**（6024 → 6153） |
-| `boll-band-recovery` | daily-or-monthly | 3474 | 4066 | **有差异**（3474 → 4066） |
-| `macd-golden-positive` | daily-or-monthly | 4590 | 4795 | **有差异**（4590 → 4795） |
-| `ma-golden-20-60` | daily-or-monthly | 3452 | 3642 | **有差异**（3452 → 3642） |
-| `kdj-extreme` | daily-or-monthly | 2532 | 2697 | **有差异**（2532 → 2697） |
-| `candle-hammer` | daily-or-monthly | 4317 | 4630 | **有差异**（4317 → 4630） |
-| `breakout-down-exit` | daily-or-monthly | 3773 | 4084 | **有差异**（3773 → 4084） |
-| `breakout-reverse-line-exit` | daily-or-monthly | 3816 | 4137 | **有差异**（3816 → 4137） |
-| `dual-breakout` | daily-or-monthly | 3755 | 4077 | **有差异**（3755 → 4077） |
-| `sw-double-prior20` | daily-or-monthly | 3816 | 4137 | **有差异**（3816 → 4137） |
-| `sw-double-current20` | daily-or-monthly | 3764 | 4086 | **有差异**（3764 → 4086） |
-| `breakout-large-body` | daily-or-monthly | 2744 | 2953 | **有差异**（2744 → 2953） |
-| `sw-kdj-zone` | daily-or-monthly | 3126 | 3353 | **有差异**（3126 → 3353） |
-| `sw-level-platform` | daily-or-monthly | 1819 | 1945 | **有差异**（1819 → 1945） |
-| `sw-boll-expand` | daily-or-monthly | 2312 | 2369 | **有差异**（2312 → 2369） |
-| `candle-morning-star` | daily-or-monthly | 1998 | 2056 | **有差异**（1998 → 2056） |
-| `sw-boll-lower` | daily-or-monthly | 2154 | 2241 | **有差异**（2154 → 2241） |
-| `sw-boll-combined` | daily-or-monthly | 1991 | 2006 | **有差异**（1991 → 2006） |
-| `candle-morning-doji` | daily-or-monthly | 1335 | 1350 | **有差异**（1335 → 1350） |
-| `sw-confluence` | daily-or-monthly | 1290 | 1339 | **有差异**（1290 → 1339） |
-| `sw-direction` | daily-or-monthly | 1294 | 1350 | **有差异**（1294 → 1350） |
-| `sw-bear-order` | daily-or-monthly | 1405 | 1461 | **有差异**（1405 → 1461） |
-| `sw-boll-upper` | daily-or-monthly | 1128 | 1189 | **有差异**（1128 → 1189） |
-| `breakout-span-20` | daily-or-monthly | 657 | 675 | **有差异**（657 → 675） |
-| `breakout-touch-3` | daily-or-monthly | 623 | 629 | **有差异**（623 → 629） |
-| `sw-kdj-combined` | daily-or-monthly | 848 | 863 | **有差异**（848 → 863） |
-| `sw-boll-squeeze` | daily-or-monthly | 311 | 312 | **有差异**（311 → 312） |
-| `sw-continuation-confirmed` | daily-or-monthly | 1 | 1 | 无差异 |
+| Preset ID | 锚 | 成交 w=3 | 成交 w=5 | 成交 w=10 | 差异 |
+| --- | --- | --- | --- | --- | --- |
+| `kdj-golden` | daily-or-monthly | 7138 | 7441 | 8632 | **有差异**（7138 → 8632） |
+| `rsi-50-cross` | daily-or-monthly | 7212 | 6928 | 6974 | **有差异**（7212 → 6974） |
+| `macd-histogram-turn` | daily-or-monthly | 4635 | 5940 | 6134 | **有差异**（4635 → 6134） |
+| `ma-golden-5-10` | daily-or-monthly | 6060 | 6604 | 7117 | **有差异**（6060 → 7117） |
+| `three-falling-5-exit` | daily-or-monthly | 5121 | 5263 | 5349 | **有差异**（5121 → 5349） |
+| `three-falling-6-exit` | daily-or-monthly | 5121 | 5263 | 5349 | **有差异**（5121 → 5349） |
+| `three-falling-7-exit` | daily-or-monthly | 5121 | 5263 | 5349 | **有差异**（5121 → 5349） |
+| `candle-evening-star-exit` | daily-or-monthly | 5127 | 5290 | 5361 | **有差异**（5127 → 5361） |
+| `candle-dark-cloud-exit` | daily-or-monthly | 5153 | 5265 | 5373 | **有差异**（5153 → 5373） |
+| `candle-shooting-star-exit` | daily-or-monthly | 5206 | 5350 | 5446 | **有差异**（5206 → 5446） |
+| `boll-middle-cross` | daily-or-monthly | 6649 | 6463 | 6252 | **有差异**（6649 → 6252） |
+| `candle-bear-engulf-exit` | daily-or-monthly | 5297 | 5342 | 5620 | **有差异**（5297 → 5620） |
+| `candle-top-doji-exit` | daily-or-monthly | 5755 | 5914 | 5916 | **有差异**（5755 → 5916） |
+| `candle-bottom-doji` | daily-or-monthly | 6174 | 6305 | 6292 | **有差异**（6174 → 6292） |
+| `rsi-recovery` | daily-or-monthly | 4163 | 4924 | 5213 | **有差异**（4163 → 5213） |
+| `sw-level-swing` | daily-or-monthly | 5209 | 5418 | 5497 | **有差异**（5209 → 5497） |
+| `macd-golden` | daily-or-monthly | 5658 | 5873 | 6011 | **有差异**（5658 → 6011） |
+| `kdj-macd-confirmed` | daily-or-monthly | 6661 | 7132 | 7686 | **有差异**（6661 → 7686） |
+| `sw-level-round` | daily-or-monthly | 5221 | 5502 | 5454 | **有差异**（5221 → 5454） |
+| `ma-alignment` | daily-or-monthly | 5565 | 5892 | 6014 | **有差异**（5565 → 6014） |
+| `ma-golden-10-20` | daily-or-monthly | 4803 | 5103 | 5713 | **有差异**（4803 → 5713） |
+| `candle-bull-engulf` | daily-or-monthly | 6024 | 6153 | 6073 | **有差异**（6024 → 6073） |
+| `boll-band-recovery` | daily-or-monthly | 3474 | 4066 | 4511 | **有差异**（3474 → 4511） |
+| `sw-level-average` | daily-or-monthly | 4481 | 4580 | 4938 | **有差异**（4481 → 4938） |
+| `macd-golden-positive` | daily-or-monthly | 4590 | 4795 | 5058 | **有差异**（4590 → 5058） |
+| `tdx-price-bull` | daily-or-monthly | 3867 | 3895 | 3957 | **有差异**（3867 → 3957） |
+| `ma-golden-20-60` | daily-or-monthly | 3452 | 3642 | 3881 | **有差异**（3452 → 3881） |
+| `kdj-extreme` | daily-or-monthly | 2532 | 2697 | 3221 | **有差异**（2532 → 3221） |
+| `tdx-open-high` | daily-or-monthly | 3766 | 3827 | 3854 | **有差异**（3766 → 3854） |
+| `candle-hammer` | daily-or-monthly | 4317 | 4630 | 4809 | **有差异**（4317 → 4809） |
+| `breakout-down-exit` | daily-or-monthly | 3773 | 4084 | 4348 | **有差异**（3773 → 4348） |
+| `breakout-reverse-line-exit` | daily-or-monthly | 3816 | 4137 | 4434 | **有差异**（3816 → 4434） |
+| `dual-breakout` | daily-or-monthly | 3755 | 4077 | 4375 | **有差异**（3755 → 4375） |
+| `sw-double-prior20` | daily-or-monthly | 3816 | 4137 | 4434 | **有差异**（3816 → 4434） |
+| `sw-double-strength` | daily-or-monthly | 3814 | 4092 | 4389 | **有差异**（3814 → 4389） |
+| `sw-level-body` | daily-or-monthly | 4061 | 4190 | 4248 | **有差异**（4061 → 4248） |
+| `sw-double-current20` | daily-or-monthly | 3764 | 4086 | 4393 | **有差异**（3764 → 4393） |
+| `breakout-large-body` | daily-or-monthly | 2744 | 2953 | 3208 | **有差异**（2744 → 3208） |
+| `sw-rsi-top` | daily-or-monthly | 2628 | 2731 | 2811 | **有差异**（2628 → 2811） |
+| `sw-kdj-zone` | daily-or-monthly | 3126 | 3353 | 3550 | **有差异**（3126 → 3550） |
+| `sw-rsi-neutral` | daily-or-monthly | 2611 | 2707 | 2729 | **有差异**（2611 → 2729） |
+| `sw-level-platform` | daily-or-monthly | 1819 | 1945 | 2040 | **有差异**（1819 → 2040） |
+| `tdx-price-ma-rise` | daily-or-monthly | 2436 | 2591 | 2703 | **有差异**（2436 → 2703） |
+| `tdx-volume-double` | daily-or-monthly | 2480 | 2608 | 2700 | **有差异**（2480 → 2700） |
+| `sw-boll-expand` | daily-or-monthly | 2312 | 2369 | 2386 | **有差异**（2312 → 2386） |
+| `candle-morning-star` | daily-or-monthly | 1998 | 2056 | 2109 | **有差异**（1998 → 2109） |
+| `tdx-gap-up` | daily-or-monthly | 2299 | 2423 | 2525 | **有差异**（2299 → 2525） |
+| `tdx-price-high` | daily-or-monthly | 2094 | 2223 | 2269 | **有差异**（2094 → 2269） |
+| `sw-macd-red` | daily-or-monthly | 2258 | 2368 | 2449 | **有差异**（2258 → 2449） |
+| `tdx-skill-cross` | daily-or-monthly | 2378 | 2622 | 2742 | **有差异**（2378 → 2742） |
+| `sw-boll-lower` | daily-or-monthly | 2154 | 2241 | 2302 | **有差异**（2154 → 2302） |
+| `tdx-gap-down` | daily-or-monthly | 2327 | 2480 | 2526 | **有差异**（2327 → 2526） |
+| `sw-volume-up-up` | daily-or-monthly | 2042 | 2117 | 2145 | **有差异**（2042 → 2145） |
+| `sw-rsi-state` | daily-or-monthly | 1940 | 2040 | 2131 | **有差异**（1940 → 2131） |
+| `vp-float-segment` | daily-or-monthly | 1886 | 1969 | 2013 | **有差异**（1886 → 2013） |
+| `tdx-volume-half` | daily-or-monthly | 1863 | 1920 | 1946 | **有差异**（1863 → 1946） |
+| `sw-support-20` | daily-or-monthly | 2136 | 2125 | 2119 | **有差异**（2136 → 2119） |
+| `sw-boll-combined` | daily-or-monthly | 1991 | 2006 | 2009 | **有差异**（1991 → 2009） |
+| `sw-volume-bottom` | daily-or-monthly | 1563 | 1660 | 1733 | **有差异**（1563 → 1733） |
+| `vp-center-20` | daily-or-monthly | 1504 | 1518 | 1516 | **有差异**（1504 → 1516） |
+| `tdx-price-bear` | daily-or-monthly | 2095 | 2097 | 2098 | **有差异**（2095 → 2098） |
+| `sw-macd-double-top` | daily-or-monthly | 1835 | 1954 | 2033 | **有差异**（1835 → 2033） |
+| `sw-macd-green` | daily-or-monthly | 1871 | 2004 | 2084 | **有差异**（1871 → 2084） |
+| `sw-macd-negative` | daily-or-monthly | 1868 | 1981 | 2053 | **有差异**（1868 → 2053） |
+| `sw-macd-top` | daily-or-monthly | 1843 | 1968 | 2033 | **有差异**（1843 → 2033） |
+| `tdx-macd-zero` | daily-or-monthly | 1916 | 2006 | 2105 | **有差异**（1916 → 2105） |
+| `candle-morning-doji` | daily-or-monthly | 1335 | 1350 | 1361 | **有差异**（1335 → 1361） |
+| `sw-macd-combined` | daily-or-monthly | 1791 | 1810 | 1813 | **有差异**（1791 → 1813） |
+| `tdx-three-volume` | daily-or-monthly | 1855 | 1951 | 2024 | **有差异**（1855 → 2024） |
+| `tdx-ma-order` | daily-or-monthly | 1935 | 2043 | 2093 | **有差异**（1935 → 2093） |
+| `tdx-open-low` | daily-or-monthly | 1979 | 1986 | 1986 | **有差异**（1979 → 1986） |
+| `tdx-price-range` | daily-or-monthly | 1695 | 1739 | 1752 | **有差异**（1695 → 1752） |
+| `vp-slope-up-3` | daily-or-monthly | 1376 | 1392 | 1398 | **有差异**（1376 → 1398） |
+| `vp-center-10` | daily-or-monthly | 1329 | 1338 | 1337 | **有差异**（1329 → 1337） |
+| `tdx-ma-order-four` | daily-or-monthly | 1673 | 1718 | 1734 | **有差异**（1673 → 1734） |
+| `sw-volume-breakout` | daily-or-monthly | 1300 | 1349 | 1370 | **有差异**（1300 → 1370） |
+| `sw-volume-down-up` | daily-or-monthly | 1317 | 1338 | 1349 | **有差异**（1317 → 1349） |
+| `sw-volume-up-down` | daily-or-monthly | 1294 | 1341 | 1376 | **有差异**（1294 → 1376） |
+| `sw-confluence` | daily-or-monthly | 1290 | 1339 | 1359 | **有差异**（1290 → 1359） |
+| `sw-direction` | daily-or-monthly | 1294 | 1350 | 1369 | **有差异**（1294 → 1369） |
+| `sw-line-angle-percent` | daily-or-monthly | 961 | 995 | 1023 | **有差异**（961 → 1023） |
+| `vp-profile-edge` | daily-or-monthly | 1545 | 1604 | 1621 | **有差异**（1545 → 1621） |
+| `sw-tangle` | daily-or-monthly | 1273 | 1319 | 1358 | **有差异**（1273 → 1358） |
+| `sw-double-retest-next` | daily-or-monthly | 805 | 809 | 812 | **有差异**（805 → 812） |
+| `vp-center-5` | daily-or-monthly | 1230 | 1251 | 1255 | **有差异**（1230 → 1255） |
+| `sw-bear-order` | daily-or-monthly | 1405 | 1461 | 1484 | **有差异**（1405 → 1484） |
+| `tdx-boll-reentry` | daily-or-monthly | 1096 | 1185 | 1283 | **有差异**（1096 → 1283） |
+| `sw-volume-top` | daily-or-monthly | 1364 | 1372 | 1376 | **有差异**（1364 → 1376） |
+| `tdx-gap-count-original` | daily-or-monthly | 1244 | 1371 | 1455 | **有差异**（1244 → 1455） |
+| `sw-kdj-range` | daily-or-monthly | 1283 | 1335 | 1342 | **有差异**（1283 → 1342） |
+| `vp-obv-high` | daily-or-monthly | 994 | 1008 | 1015 | **有差异**（994 → 1015） |
+| `sw-support-60` | daily-or-monthly | 1243 | 1247 | 1250 | **有差异**（1243 → 1250） |
+| `sw-boll-upper` | daily-or-monthly | 1128 | 1189 | 1215 | **有差异**（1128 → 1215） |
+| `breakout-span-20` | daily-or-monthly | 657 | 675 | 685 | **有差异**（657 → 685） |
+| `sw-ma-combined` | daily-or-monthly | 892 | 899 | 904 | **有差异**（892 → 904） |
+| `tdx-price-seven` | daily-or-monthly | 987 | 1047 | 1088 | **有差异**（987 → 1088） |
+| `breakout-touch-3` | daily-or-monthly | 623 | 629 | 630 | **有差异**（623 → 630） |
+| `sw-rsi-combined` | daily-or-monthly | 998 | 999 | 999 | **有差异**（998 → 999） |
+| `vp-volume-ma-cross` | daily-or-monthly | 927 | 941 | 944 | **有差异**（927 → 944） |
+| `sw-kdj-size` | daily-or-monthly | 803 | 826 | 831 | **有差异**（803 → 831） |
+| `sw-kdj-combined` | daily-or-monthly | 848 | 863 | 866 | **有差异**（848 → 866） |
+| `tdx-volume-five-half` | daily-or-monthly | 696 | 704 | 709 | **有差异**（696 → 709） |
+| `tdx-gap-unfilled` | daily-or-monthly | 697 | 723 | 757 | **有差异**（697 → 757） |
+| `vp-breakout-1-5` | daily-or-monthly | 184 | 185 | 185 | **有差异**（184 → 185） |
+| `vp-huge-next-exit` | daily-or-monthly | 183 | 184 | 184 | **有差异**（183 → 184） |
+| `vp-huge-second-exit` | daily-or-monthly | 183 | 184 | 184 | **有差异**（183 → 184） |
+| `vp-isolated-filter` | daily-or-monthly | 183 | 184 | 184 | **有差异**（183 → 184） |
+| `vp-stall-exit` | daily-or-monthly | 183 | 184 | 184 | **有差异**（183 → 184） |
+| `sw-rsi-bottom` | daily-or-monthly | 717 | 743 | 764 | **有差异**（717 → 764） |
+| `vp-slope-up-5` | daily-or-monthly | 501 | 511 | 518 | **有差异**（501 → 518） |
+| `tdx-new-high` | daily-or-monthly | 429 | 434 | 439 | **有差异**（429 → 439） |
+| `vp-pivot-obv` | daily-or-monthly | 572 | 582 | 590 | **有差异**（572 → 590） |
+| `tdx-price-volume-attack` | daily-or-monthly | 498 | 502 | 502 | **有差异**（498 → 502） |
+| `sw-boll-squeeze` | daily-or-monthly | 311 | 312 | 312 | **有差异**（311 → 312） |
+| `sw-volume-down-down` | daily-or-monthly | 362 | 363 | 365 | **有差异**（362 → 365） |
+| `vp-up-expanded-confirm` | daily-or-monthly | 161 | 164 | 164 | **有差异**（161 → 164） |
+| `sw-macd-bottom` | daily-or-monthly | 284 | 288 | 295 | **有差异**（284 → 295） |
+| `tdx-volume-five-four` | daily-or-monthly | 108 | 110 | 110 | **有差异**（108 → 110） |
+| `sw-support-120` | daily-or-monthly | 883 | 883 | 883 | 无差异 |
+| `sw-weak-retest5` | daily-or-monthly | 393 | 393 | 393 | 无差异 |
+| `vp-obv-top-exit` | daily-or-monthly | 161 | 161 | 161 | 无差异 |
+| `vp-high-low-volume-exit` | daily-or-monthly | 165 | 165 | 165 | 无差异 |
+| `sw-support-250` | daily-or-monthly | 485 | 485 | 485 | 无差异 |
+| `vp-breakout-2` | daily-or-monthly | 120 | 120 | 120 | 无差异 |
+| `vp-failure-1` | daily-or-monthly | 136 | 136 | 136 | 无差异 |
+| `vp-failure-2` | daily-or-monthly | 136 | 136 | 136 | 无差异 |
+| `vp-failure-3` | daily-or-monthly | 136 | 136 | 136 | 无差异 |
+| `vp-next-bear-exit` | daily-or-monthly | 137 | 137 | 137 | 无差异 |
+| `vp-next-shape-exit` | daily-or-monthly | 137 | 137 | 137 | 无差异 |
+| `vp-next-wick-exit` | daily-or-monthly | 137 | 137 | 137 | 无差异 |
+| `vp-flat-contracted-break` | daily-or-monthly | 83 | 83 | 83 | 无差异 |
+| `vp-slope-down-5` | daily-or-monthly | 131 | 131 | 131 | 无差异 |
+| `vp-slope-down-3` | daily-or-monthly | 127 | 127 | 127 | 无差异 |
+| `vp-contract-3` | daily-or-monthly | 79 | 79 | 79 | 无差异 |
+| `sw-reversal-confirmed` | daily-or-monthly | 111 | 111 | 111 | 无差异 |
+| `vp-obv-bottom` | daily-or-monthly | 91 | 91 | 91 | 无差异 |
+| `vp-flat-expanded-break` | daily-or-monthly | 15 | 15 | 15 | 无差异 |
+| `vp-up-normal-confirm` | daily-or-monthly | 55 | 55 | 55 | 无差异 |
+| `vp-small-turnover` | daily-or-monthly | 155 | 155 | 155 | 无差异 |
+| `tdx-base-breakout` | daily-or-monthly | 71 | 71 | 71 | 无差异 |
+| `vp-obv-flat` | daily-or-monthly | 75 | 75 | 75 | 无差异 |
+| `vp-contract-5` | daily-or-monthly | 13 | 13 | 13 | 无差异 |
+| `vp-up-contracted-confirm` | daily-or-monthly | 17 | 17 | 17 | 无差异 |
+| `vp-extreme-detail` | daily-or-monthly | 15 | 15 | 15 | 无差异 |
+| `vp-extreme-main` | daily-or-monthly | 15 | 15 | 15 | 无差异 |
+| `vp-huge-half` | daily-or-monthly | 15 | 15 | 15 | 无差异 |
+| `vp-structure-range` | daily-or-monthly | 7 | 7 | 7 | 无差异 |
+| `vp-down-contracted-confirm` | daily-or-monthly | 12 | 12 | 12 | 无差异 |
+| `vp-stack-3` | daily-or-monthly | 22 | 22 | 22 | 无差异 |
+| `vp-structure-up` | daily-or-monthly | 10 | 10 | 10 | 无差异 |
+| `sw-macd-double-bottom` | daily-or-monthly | 30 | 30 | 30 | 无差异 |
+| `vp-turnover-bands` | daily-or-monthly | 10 | 10 | 10 | 无差异 |
+| `vp-grid` | daily-or-monthly | 6 | 6 | 6 | 无差异 |
+| `three-rising-5` | daily-or-monthly | 11 | 11 | 11 | 无差异 |
+| `vp-multiday-grid` | daily-or-monthly | 6 | 6 | 6 | 无差异 |
+| `vp-pulse-1-2` | daily-or-monthly | 1 | 1 | 1 | 无差异 |
+| `vp-dry-or` | daily-or-monthly | 2 | 2 | 2 | 无差异 |
+| `vp-grid-flat-contracted` | daily-or-monthly | 3 | 3 | 3 | 无差异 |
+| `three-rising-6` | daily-or-monthly | 2 | 2 | 2 | 无差异 |
+| `vp-grid-flat-expanded` | daily-or-monthly | 1 | 1 | 1 | 无差异 |
+| `vp-grid-up-expanded` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `vp-grid-up-normal` | daily-or-monthly | 1 | 1 | 1 | 无差异 |
+| `vp-pulse-3-2` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `sw-continuation-confirmed` | daily-or-monthly | 1 | 1 | 1 | 无差异 |
+| `tdx-duck-asof` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `vp-auction-exclude` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `vp-basis-adjusted` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `vp-controlled-turnover` | daily-or-monthly | 0 | 0 | 0 | 无差异 |
+| `vp-grid-up-contracted` | daily-or-monthly | 2 | 2 | 2 | 无差异 |
+| `vp-pulse-2-2` | daily-or-monthly | 0 | 0 | 0 | 无差异 |

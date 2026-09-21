@@ -3,7 +3,11 @@ import { researchManagementSchema } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { maParamsSchema } from "../src/lib/domain";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { runStrategyResearch } from "../src/server/research-run";
+import {
+  createResearchCzscCache,
+  runStrategyResearch,
+} from "../src/server/research-run";
+import type { CzscResult } from "../src/lib/czsc";
 import { researchMethodSnapshot } from "../src/server/research-method";
 import {
   researchHash,
@@ -274,4 +278,140 @@ it("runs MA signals through both research partitions with evidence-backed fills 
       native,
     ),
   ).rejects.toThrow("方法版本");
+});
+
+it("reuses only identical native CZSC prefixes and preserves the result", async () => {
+  const bars = Array.from({ length: 72 }, (_, i) => ({
+    date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
+    open: 10 + i,
+    high: 12 + i,
+    low: 8 + i,
+    close: 10 + i,
+    volume: 100,
+    amount: (10 + i) * 100,
+  }));
+  const spec = researchSpecSchema.parse({
+    strategy: "chan-ma-kiss-native",
+    symbols: ["sh600000"],
+    start: bars[61]!.date,
+    end: bars[70]!.date,
+    validationStart: bars[66]!.date,
+    holdingDays: 1,
+    initialCapital: 10000,
+    maxPositions: 1,
+    costs: {
+      commissionBps: 0,
+      minimumCommission: 0,
+      sellTaxBps: 0,
+      slippageBps: 0,
+    },
+  });
+  const dataset: ResearchDataset = {
+    version: "research-dataset-1",
+    source: "tdx-local",
+    root: "synthetic-fixture",
+    adjustment: "none",
+    membership: {
+      mode: "current-snapshot",
+      symbols: spec.symbols!,
+      source: null,
+      warning: "固定合成池，并非真实历史证券池",
+    },
+    benchmark: { symbol: "sh000001", bars },
+    calendar: bars.map((b) => b.date),
+    stocks: [
+      {
+        symbol: "sh600000",
+        name: "合成输入",
+        bars,
+        hash: researchHash(bars),
+        actions: [],
+      },
+    ],
+    excluded: [],
+    actionCoverage: "partial",
+    actionSource: { path: "fixture", modified: 0 },
+    capturedAt: 0,
+    hash: "fixed-input",
+  };
+  const nativeResult: CzscResult = {
+    status: "no-structure",
+    hash: "fixed-native",
+    sourceCommit: "b67f3c6",
+    families: ([0, 1100] as const).map((config) => ({
+      config,
+      points: [],
+      centers: [],
+      signals: [],
+      movements: [],
+      qualities: [],
+      divergences: [],
+    })),
+  };
+  const native = vi.fn(async () => nativeResult);
+  const cache = new Map<string, Promise<CzscResult>>();
+  const first = await runStrategyResearch(
+    spec,
+    dataset,
+    null,
+    native,
+    undefined,
+    undefined,
+    {
+      czscCache: cache,
+      czscCacheNamespace: "test/native",
+    },
+  );
+  const firstCalls = native.mock.calls.length;
+  expect(firstCalls).toBeGreaterThan(0);
+  const second = await runStrategyResearch(
+    spec,
+    dataset,
+    null,
+    native,
+    undefined,
+    undefined,
+    {
+      czscCache: cache,
+      czscCacheNamespace: "test/native",
+    },
+  );
+  expect(native).toHaveBeenCalledTimes(firstCalls);
+  expect(second.events).toEqual(first.events);
+  expect(second.outcomes).toEqual(first.outcomes);
+  expect(second.structureObservations).toEqual(first.structureObservations);
+});
+
+it("bounds executor CZSC cache and keeps recently used prefixes hot", async () => {
+  const cache = createResearchCzscCache(2);
+  const value = Promise.resolve({} as CzscResult);
+  cache.set("a", value);
+  cache.set("b", value);
+  expect(cache.has("a")).toBe(true);
+  cache.get("a");
+  cache.set("c", value);
+  expect(cache.has("a")).toBe(true);
+  expect(cache.has("b")).toBe(false);
+  expect(cache.has("c")).toBe(true);
+});
+
+it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+  "falls back to the default cache limit for invalid limit %s",
+  (limit) => {
+    const cache = createResearchCzscCache(limit);
+    const value = Promise.resolve({} as CzscResult);
+    cache.set("a", value);
+    cache.set("b", value);
+    expect(cache.has("a")).toBe(true);
+    expect(cache.has("b")).toBe(true);
+  },
+);
+
+it("evicts the oldest entry when the configured limit is one", () => {
+  const cache = createResearchCzscCache(1);
+  const value = Promise.resolve({} as CzscResult);
+  cache.set("a", value);
+  cache.set("b", value);
+  expect(cache.has("a")).toBe(false);
+  expect(cache.has("b")).toBe(true);
 });

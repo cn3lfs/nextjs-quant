@@ -4,7 +4,7 @@ import { readBenchmarkSnapshot } from "./tdx-benchmark";
 import { needsCanslimMarket } from "~/lib/research-canslim-market-strategies";
 import type { CanslimResearchMarket } from "./research-canslim-market-score";
 import { resolve } from "node:path";
-import { createHash } from "node:crypto";
+import { researchJsonHash } from "./research-json";
 import type { Bar } from "~/lib/domain";
 import type { ResearchSpec } from "~/lib/strategy-research";
 import { isRpsMarketSymbol } from "~/lib/rps";
@@ -34,8 +34,7 @@ import {
 } from "./research-method";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 
-export const researchHash = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
+export const researchHash = researchJsonHash;
 type CapturedResearchDataset = Awaited<
   ReturnType<typeof captureResearchDataset>
 >;

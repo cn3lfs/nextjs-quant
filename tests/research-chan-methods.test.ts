@@ -4,6 +4,7 @@ import type { CzscResult, CzscSignalStructure } from "../src/lib/czsc";
 import {
   chanNativeCandidates,
   chanMaMethodPoint,
+  compactChanMaMethodPoint,
   chanWolfPoint,
 } from "../src/lib/research-chan-native";
 import { researchSignals } from "../src/server/research-signals";
@@ -191,6 +192,28 @@ it("CH17 completed area and instantaneous average are separate rows, strict weak
       0,
     ).reason,
   ).toContain("结构缺口");
+});
+it("CHAN-MA research observations compact repeated diagnostics without changing the decision", () => {
+  const { result, input } = maInput([-4, -4, -1, -3, -1], [0, 0, 3, 0, 0]);
+  const decision = chanMaMethodPoint(
+    "chan-ma-average-native",
+    result,
+    input,
+    0,
+  );
+  const compact = compactChanMaMethodPoint(decision);
+  expect(compact).toMatchObject({
+    entry: decision.entry,
+    exit: decision.exit,
+    reason: decision.reason,
+  });
+  expect(compact.evidence).toMatchObject({
+    rowCount: decision.evidence!.rows.length,
+    previousRow: decision.evidence!.rows.at(-2),
+    lastRow: decision.evidence!.rows.at(-1),
+  });
+  expect(compact.evidence).not.toHaveProperty("rows");
+  expect(compact.evidence).not.toHaveProperty("chunks");
 });
 it("CH14 symmetric native sell belongs to its center; actual long holding exits after sell confirmation and no short is opened", async () => {
   const spec = researchSpecSchema.parse({

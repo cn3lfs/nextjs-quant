@@ -144,6 +144,61 @@ import {
   researchCompositePresetIds,
 } from "~/lib/research-composite-presets";
 
+export type ResearchCzscCache = Map<string, Promise<CzscResult>>;
+
+const defaultResearchCzscCacheEntries = 256;
+
+class BoundedResearchCzscCache extends Map<string, Promise<CzscResult>> {
+  private readonly limit: number;
+
+  constructor(limit: number) {
+    super();
+    this.limit =
+      Number.isInteger(limit) && limit > 0
+        ? limit
+        : defaultResearchCzscCacheEntries;
+  }
+
+  override get(key: string) {
+    const value = super.get(key);
+    if (value) {
+      super.delete(key);
+      super.set(key, value);
+    }
+    return value;
+  }
+
+  override set(key: string, value: Promise<CzscResult>) {
+    super.delete(key);
+    super.set(key, value);
+    while (this.size > this.limit) {
+      const oldest = super.keys().next().value;
+      if (oldest === undefined) break;
+      super.delete(oldest);
+    }
+    return this;
+  }
+}
+
+/**
+ * Create the bounded cache used by long-running batch executors. A full CZSC
+ * prefix contains diagnostics and native projection arrays; retaining every
+ * prefix across a 280-symbol campaign is an avoidable process-wide memory
+ * sink. Eviction only removes a reuse opportunity: a later miss recomputes
+ * the exact same prefix and cannot change the research result.
+ */
+export function createResearchCzscCache(
+  limit = defaultResearchCzscCacheEntries,
+): ResearchCzscCache {
+  return new BoundedResearchCzscCache(limit);
+}
+
+export interface ResearchRunOptions {
+  /** Executor-scoped cache for identical CZSC prefix requests. */
+  czscCache?: ResearchCzscCache;
+  czscCacheNamespace?: string;
+}
+
 /** Resolve a declared component×baseline preset before entering the shared engine.
  * This is the only correct entry point for turning a preset id into a
  * runnable spec: `researchSpecSchema.parse({ strategy: id, ... })` throws
@@ -186,7 +241,8 @@ function hasActionInWindow(
   end: string,
 ) {
   return stock.actions.some(
-    (action) => action.category === 1 && action.date >= start && action.date <= end,
+    (action) =>
+      action.category === 1 && action.date >= start && action.date <= end,
   );
 }
 
@@ -202,6 +258,7 @@ export async function runStrategyResearch(
     done: number,
     total: number,
   ) => void = () => {},
+  options: ResearchRunOptions = {},
 ) {
   validateResearchMethod(spec, dataset.method);
   const requestedSpec = spec;
@@ -408,6 +465,27 @@ export async function runStrategyResearch(
           ? adjusted.volumeAdjustedMinuteBars
           : adjusted.minuteBars;
       adjustedMinuteSeries.set(stock.symbol, signalMinuteBars);
+      const cacheSeriesHash = options.czscCache
+        ? researchHash(signalBars)
+        : null;
+      const cachedCzsc =
+        options.czscCache && cacheSeriesHash && options.czscCacheNamespace
+          ? (prefix: readonly Bar[], anchor?: 1 | 2 | 3) => {
+              const key = [
+                options.czscCacheNamespace,
+                cacheSeriesHash,
+                prefix.length,
+                prefix[0]?.date ?? "",
+                prefix.at(-1)?.date ?? "",
+                anchor ?? "none",
+              ].join("|");
+              const hit = options.czscCache!.get(key);
+              if (hit) return hit;
+              const pending = czsc(prefix, anchor);
+              options.czscCache!.set(key, pending);
+              return pending;
+            }
+          : czsc;
       const observed =
         spec.management?.growthIntraday === "SE-E-intraday50" ||
         spec.management?.growthIntraday === "SW02-last30"
@@ -422,7 +500,7 @@ export async function runStrategyResearch(
               stock.symbol,
               signalBars,
               spec,
-              czsc,
+              cachedCzsc,
               cancelled,
               (date) =>
                 progress(stock.symbol, date, index, dataset.stocks.length),
