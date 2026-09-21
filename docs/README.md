@@ -35,11 +35,12 @@
 | [next-plan.md](next-plan.md)                                                                   | E0–E4 扩充顺序与验收                               |
 | [operations.md](operations.md)                                                                 | 开发、测试、构建、故障与目录维护                   |
 | [decisions.md](decisions.md)                                                                   | 完整历史决策正文，旧结论按后续修订解释             |
+| [archive-index.md](archive-index.md)                                                           | 中途计划、验收、审计和执行记录的日期归档索引       |
 | [review/README.md](review/README.md)                                                           | 七份核对/实操文档和四组截图/证据的总索引           |
-| [m4-message-samples.md](m4-message-samples.md)、[p2-message-samples.md](p2-message-samples.md) | 两个旧路径测试兼容副本；人工阅读使用 review 版     |
+| [m4-message-samples.md](review/m4-message-samples.md)、[p2-message-samples.md](review/p2-message-samples.md) | 两个旧路径测试兼容副本；人工阅读使用 review 版     |
 | [personal-quant-survey.md](personal-quant-survey.md)                                           | 外部调研：个人量化软件应有模块与本仓库差距对照     |
 
-仓库外层还应知道：[根 README](../README.md) 保留启动、连接与全部免责声明；[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 与 [vendor/czsc/README](../vendor/czsc/README.md) 说明依赖来源。未生成的 `strategy-scorecard.md` 是 N2 交付物，不是缺失文档。已删除 A–H、output、m2-review/n3-review 不再导航，也不重建 archive。
+仓库外层还应知道：[根 README](../README.md) 保留启动、连接与全部免责声明；[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 与 [vendor/czsc/README](../vendor/czsc/README.md) 说明依赖来源。未生成的 `strategy-scorecard.md` 是 N2 交付物，不是缺失文档。已删除 A–H、output、m2-review/n3-review 不再导航；现存中途记录统一见 [日期归档索引](archive-index.md)，不恢复已删除材料。
 
 ## 五分钟上手（依赖已预置）
 
