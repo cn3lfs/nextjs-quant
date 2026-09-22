@@ -2,7 +2,7 @@
 
 日期：2026-09-17。用户已授权单独拟定计划并拉分支实施。分支：`chan-native`。
 
-对应 [B4 批次](2026-09-16/07-trading-skills-execution-optimization.md) 挂起的 9 项：`CH06`、`CH07`、`CH08`、`CH09`、`CH10`、`CH11`、`CH12`、`CH13`、`CH18-small-to-large`。这 9 项在 B4 中被逐项登记为原生结构缺口或历史输入缺口，未用 kind 标签或趋势方向销账，也未自造近似冒充原文方法。
+对应 [B4 批次](../../../2026-09-16/07-trading-skills-execution-optimization.md) 挂起的 9 项：`CH06`、`CH07`、`CH08`、`CH09`、`CH10`、`CH11`、`CH12`、`CH13`、`CH18-small-to-large`。这 9 项在 B4 中被逐项登记为原生结构缺口或历史输入缺口，未用 kind 标签或趋势方向销账，也未自造近似冒充原文方法。
 
 ## 1. 调研结论（只读核查，已完成）
 

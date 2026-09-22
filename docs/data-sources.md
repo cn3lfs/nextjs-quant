@@ -47,4 +47,4 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 
 本轮工程验证：身份修复后的相关 30 项测试、typecheck、build 通过。此前并行全测为 2132 通过、15 跳过、3 失败；其中科创板/北交所身份两项已修复并定向复测通过。另一个 workflow-scripts 测试在晚于20:00时仍固定期待 marketOnly=True，与未改动脚本实际按时间切换的行为冲突，本次未修改该无关逻辑；未声称全量回归全绿。
 
-统一验收标准、八类样本及批量遗漏问题见 [数据源验收要求](data-source-requirements.md)。
+统一验收标准、八类样本及批量遗漏问题见 [数据源验收要求](archive/2026-09-22/data-sources/data-source-requirements.md)。

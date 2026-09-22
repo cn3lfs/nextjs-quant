@@ -1,6 +1,6 @@
 # 数据源适配执行记录
 
-对应[执行计划](../data-source-adaptation-plan.md)，2026-09-15 开始。未提交、未打包；所有应用验证使用临时 QUANT_DATA_DIR。
+对应[执行计划](../archive/2026-09-22/data-sources/data-source-adaptation-plan.md)，2026-09-15 开始。未提交、未打包；所有应用验证使用临时 QUANT_DATA_DIR。
 
 ## S1：tstdx 字段正确性
 

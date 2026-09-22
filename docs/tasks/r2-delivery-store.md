@@ -3,7 +3,7 @@
 你是执行者。管理者已完成 R1（解析层）并验收通过。本任务**只做存储与服务层，不做 UI**。
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
-`docs/trade-review-plan.md`（§2 决策、§3 数据模型、§4 已交付的解析层）。
+`docs/archive/2026-09-22/trade-review/trade-review-plan.md`（§2 决策、§3 数据模型、§4 已交付的解析层）。
 
 ## 0. 不可越界
 
@@ -23,7 +23,7 @@
 
 ### 1.1 迁移（追加为第 10 条）
 
-三张表，语义见 `docs/trade-review-plan.md` §3，但按以下修订落地：
+三张表，语义见 `docs/archive/2026-09-22/trade-review/trade-review-plan.md` §3，但按以下修订落地：
 
 ```sql
 CREATE TABLE import_batches (

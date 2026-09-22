@@ -4,7 +4,7 @@
 本任务做**每日净值重建与风险指标**，仍是纯函数，不碰 UI、不碰数据库。
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
-`docs/trade-review-plan.md` §5.3、`src/lib/trade-review.ts`、
+`docs/archive/2026-09-22/trade-review/trade-review-plan.md` §5.3、`src/lib/trade-review.ts`、
 `src/lib/strategy-research.ts` 的 `researchNavStatistics`。
 
 ## 0. 不可越界

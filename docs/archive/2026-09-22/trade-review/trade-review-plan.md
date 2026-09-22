@@ -2,7 +2,7 @@
 
 2026-09-11。用户授权新增「复盘」能力：行情复用、交割单导入（同花顺 / 东方财富）、
 买卖点分析、盈亏比、最大回撤、夏普及扩充指标。本文是实施前的设计与分批，
-范围口径以 [roadmap](roadmap.md) 为准，正确性约束以 [invariants](invariants.md) 为准。
+范围口径以 [roadmap](../../../roadmap.md) 为准，正确性约束以 [invariants](../../../invariants.md) 为准。
 
 本阶段的事实基础是**用户真实成交**，与 `signal_ledger`（市场观察）、
 `strategy-research`（合成/历史模拟）是三种不同事实，不得互相冒充。

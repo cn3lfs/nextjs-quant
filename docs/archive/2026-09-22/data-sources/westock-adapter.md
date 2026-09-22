@@ -1,8 +1,8 @@
 # westock-data 适配边界
 
-2026-09-15 更新：adapter 版本 2，原始 CLI 与应用分别复测，矩阵 21 项通过、3 项明确不支持。`pt` 板块已可在行情搜索框输入完整代码查看日/周图，分钟限制保留；交易、研究证券池与身份门禁未放宽。真实点击验收已进行，取代下文早期“浏览器不可用”的现状描述。量额存在指数尺度和源端取整差异，保留未知单位，不做跨源拼接；详情见[执行记录](2026-09-15/02-data-source-execution.md)。
+2026-09-15 更新：adapter 版本 2，原始 CLI 与应用分别复测，矩阵 21 项通过、3 项明确不支持。`pt` 板块已可在行情搜索框输入完整代码查看日/周图，分钟限制保留；交易、研究证券池与身份门禁未放宽。真实点击验收已进行，取代下文早期“浏览器不可用”的现状描述。量额存在指数尺度和源端取整差异，保留未知单位，不做跨源拼接；详情见[执行记录](../../../2026-09-15/02-data-source-execution.md)。
 
-实现见 [westock-adapter.ts](../src/server/data-sources/westock/westock-adapter.ts)。依据本地最新版 `westock-data/SKILL.md`、`references/commands.md`、路由文档及当前 CLI 帮助，适配项目实际使用的境内行情和搜索。财务、宏观等其他技能维度不强转成行情数据。
+实现见 [westock-adapter.ts](../../../../src/server/data-sources/westock/westock-adapter.ts)。依据本地最新版 `westock-data/SKILL.md`、`references/commands.md`、路由文档及当前 CLI 帮助，适配项目实际使用的境内行情和搜索。财务、宏观等其他技能维度不强转成行情数据。
 
 ## 调用与约束
 

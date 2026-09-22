@@ -8,7 +8,7 @@
 管理者已用真实文件确认：该合成样本复现了真实文件的全部问题，数量完全一致。
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
-`docs/trade-review-plan.md` §4。
+`docs/archive/2026-09-22/trade-review/trade-review-plan.md` §4。
 
 ## 0. 不可越界
 

@@ -5,7 +5,7 @@ R4/R4b（净值与风险）已验收。本任务做**归因分组**与**服务�
 仍不做页面（页面是 R2b）。
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
-`docs/trade-review-plan.md` §5.4 §6，以及 `src/lib/trade-review*.ts`、
+`docs/archive/2026-09-22/trade-review/trade-review-plan.md` §5.4 §6，以及 `src/lib/trade-review*.ts`、
 `src/server/portfolio/delivery-store.ts`。
 
 ## 0. 不可越界

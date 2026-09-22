@@ -19,7 +19,7 @@
 
 - **已交付**：M1–M5 的指标/图表/缠论/推送/双突破 A 层；N1 信号台账、N3 工作台收口、P2 分级、P1 账本、Q1 图表和 Q2a/Q2b 公式。
 - **Q0 部分闭环**：买入 100 股成交已核实并在隔离本地账本对账；卖出被当日 T+1 可卖 0 拦住，完整往返尚未完成，不能重复买入。
-- **E0–E4扩充**：规则修订、沪深/A500/行业概念浏览与六周期RPS、午尾盘预选、策略研究和财联社复盘已接入。日常操作见 [daily-workflow.md](daily-workflow.md)，阶段证据与数据边界见 [next-plan.md](next-plan.md)。
+- **E0–E4扩充**：规则修订、沪深/A500/行业概念浏览与六周期RPS、午尾盘预选、策略研究和财联社复盘已接入。日常操作见 [daily-workflow.md](archive/2026-09-22/operations/daily-workflow.md)，阶段证据与数据边界见 [next-plan.md](next-plan.md)。
 - **待确认**：通达信抽查、结构/图表/阈值/消息排版、真实渠道及 GPL 对外捆绑决定；普通用户盘中录入的当天交易日历证据来源仍待裁定。
 - **交付边界**：现有核对材料不能证明用户已签收；本轮未更新打包exe或生产库。概念RPS新增迁移9，旧exe需另行授权重打包。程序能算不代表已有盈利证据，盘中行情覆盖、历史成分/交易条件及公司行动限制在使用说明中保留。
 
@@ -40,7 +40,7 @@
 | [strategy-consolidation-plan.md](strategy-consolidation-plan.md)                              | 策略独立包、server 分域重构与清理边界                       |
 | [review/README.md](review/README.md)                                                           | 七份核对/实操文档和四组截图/证据的总索引           |
 | [m4-message-samples.md](review/m4-message-samples.md)、[p2-message-samples.md](review/p2-message-samples.md) | 两个旧路径测试兼容副本；人工阅读使用 review 版     |
-| [personal-quant-survey.md](personal-quant-survey.md)                                           | 外部调研：个人量化软件应有模块与本仓库差距对照     |
+| [archive/2026-09-22/research/](archive/2026-09-22/research/)                                   | 外部调研与设计参考归档                           |
 
 仓库外层还应知道：[根 README](../README.md) 保留启动、连接与全部免责声明；[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 与 [vendor/czsc/README](../vendor/czsc/README.md) 说明依赖来源。未生成的 `strategy-scorecard.md` 是 N2 交付物，不是缺失文档。已删除 A–H、output、m2-review/n3-review 不再导航；现存中途记录统一见 [日期归档索引](archive-index.md)，不恢复已删除材料。
 

@@ -44,7 +44,7 @@ method-map 的 `bindings.presets` 指向可执行预设，`bindings.exports` 指
 
 ## D0b/D0c 门禁补充
 
-批次来源检查使用 `audit-trading-skills.ts --registered`，消费 [known-source-drift.md](known-source-drift.md) 的 `(path, change, hash)` 精确集合并打印已登记漂移；新增、消失、再次变化或其他来源错误仍失败。原始无参数审计继续要求零漂移。`tests/source-drift.test.ts` 覆盖集合替换、类型/hash变化、登记消失、重复、空登记、新技能/缺技能与正文快照字节；没有新增策略预设或策略契约例外。
+批次来源检查使用 `audit-trading-skills.ts --registered`，消费 [known-source-drift.md](../../../known-source-drift.md) 的 `(path, change, hash)` 精确集合并打印已登记漂移；新增、消失、再次变化或其他来源错误仍失败。原始无参数审计继续要求零漂移。`tests/source-drift.test.ts` 覆盖集合替换、类型/hash变化、登记消失、重复、空登记、新技能/缺技能与正文快照字节；没有新增策略预设或策略契约例外。
 
 方法审计增加 `batches` 与 `deliveryBatches.B1` 的分组计数及待办ID，依据batch归属，不按CA/SE前缀计数。`tests/trading-method-map.test.ts` 以跨前缀方法和非B1的CA项作为反例。
 

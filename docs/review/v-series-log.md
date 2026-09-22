@@ -1,7 +1,7 @@
 # V 系列执行日志
 
 管理者：Claude。执行者：codex（`codex exec -s workspace-write`，后台运行）。
-立项依据：[个人量化软件调研](../personal-quant-survey.md) 的差距对照。
+立项依据：[个人量化软件调研](../archive/2026-09-22/research/personal-quant-survey.md) 的差距对照。
 排期与边界：[next-plan §7](../next-plan.md)。
 
 顺序：V1 → V2 → V3 → V4 → V5，串行。

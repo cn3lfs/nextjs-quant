@@ -4,7 +4,7 @@
 不碰 UI、不碰数据库、不做 IO。
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
-`docs/trade-review-plan.md` §5。
+`docs/archive/2026-09-22/trade-review/trade-review-plan.md` §5。
 
 ## 0. 不可越界
 

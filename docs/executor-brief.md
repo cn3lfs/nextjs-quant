@@ -4,7 +4,7 @@
 
 本文件**与具体执行工具无关**。无论执行者是哪个 CLI，纪律、验证分层与不变量均以本文件为准；调用参数、沙箱范围、会话恢复等属工具细节，由管理者在派单时处理，不写进本文件。运行目录沿用历史名称 `.codex-runs/`（已在 gitignore 内），不因更换工具而改名。
 
-必读：`AGENTS.md`、[优化方案](2026-09-16/07-trading-skills-execution-optimization.md)、[原计划](trading-skills-strategy-plan.md) §1/§6/§7、[契约清单](trading-skills-contract-checks.md)。
+必读：`AGENTS.md`、[优化方案](2026-09-16/07-trading-skills-execution-optimization.md)、[原计划](trading-skills-strategy-plan.md) §1/§6/§7、[契约清单](archive/2026-09-22/strategy/trading-skills-contract-checks.md)。
 
 ## 1. 交付形态：共享引擎 + 具名方法表
 

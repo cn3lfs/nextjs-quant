@@ -12,7 +12,7 @@
 
 **当前状态**：B3 的 252 个预设**已跑完并装配**（这是工作台第一次跑出真实成交）；网格 5 档跑到 46/170 时被叫停；S5 云端取数抓完 7 片、受平台配额限制待明日续传。
 
-**阶段复核**：截至 2026-09-21 的管理者总结见 [research-stage-review-2026-09-21.md](research-stage-review-2026-09-21.md)，执行核查记录见 [consolidation-delivery.md](../.codex-runs/consolidation-delivery.md)；二者不改变本交接书后文的历史记录，未完成事项仍按报告标记。
+**阶段复核**：截至 2026-09-21 的管理者总结见 [research-stage-review-2026-09-21.md](research-stage-review-2026-09-21.md)，执行核查记录见 [consolidation-delivery.md](../../../../.codex-runs/consolidation-delivery.md)；二者不改变本交接书后文的历史记录，未完成事项仍按报告标记。
 
 **接手第一件事**：读 §4 那三份文件（执行者常备说明、下一轮计划、R3/S4 结果表），再看 §2 的当前状态与 §6 的四个缺陷处置。**不要**跳过 §8 的硬约束。
 
