@@ -1,12 +1,12 @@
 import { expect, it } from "vitest";
 import { researchRetracementStop } from "../src/lib/research-retracement";
 import { researchManagementSchema } from "../src/lib/research-management";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 const dates = Array.from(
   { length: 8 },

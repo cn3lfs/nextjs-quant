@@ -5,8 +5,8 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 const dates = Array.from(
   { length: 28 },

@@ -4,18 +4,18 @@ const state = vi.hoisted(() => ({
   dates: ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08"],
 }));
 vi.mock("../src/server/db", () => ({ sqlite: () => ({}) }));
-vi.mock("../src/server/settings", async (original) => ({
-  ...(await original<typeof import("../src/server/settings")>()),
+vi.mock("../src/server/infra/settings", async (original) => ({
+  ...(await original<typeof import("../src/server/infra/settings")>()),
   settings: () => ({ tdxRoot: "fixture", calendar: state.dates }),
 }));
-vi.mock("../src/server/data-health", async (original) => ({
-  ...(await original<typeof import("../src/server/data-health")>()),
+vi.mock("../src/server/market/data-health", async (original) => ({
+  ...(await original<typeof import("../src/server/market/data-health")>()),
   fullLocalCalendarReference: async () => ({
     days: state.dates,
     coverage: { start: state.dates[0], end: state.dates.at(-1), count: 4 },
   }),
 }));
-vi.mock("../src/server/delivery-store", () => ({
+vi.mock("../src/server/portfolio/delivery-store", () => ({
   DeliveryStore: class {
     fills() {
       return state.dates.map((tradeDate) => ({ tradeDate }));
@@ -25,8 +25,10 @@ vi.mock("../src/server/delivery-store", () => ({
     }
   },
 }));
-vi.mock("../src/server/trade-review-service", async (original) => ({
-  ...(await original<typeof import("../src/server/trade-review-service")>()),
+vi.mock("../src/server/portfolio/trade-review-service", async (original) => ({
+  ...(await original<
+    typeof import("../src/server/portfolio/trade-review-service")
+  >()),
   buildTradeReviewSnapshot: async () => ({
     nav: {
       days: state.dates.map((date, i) => ({
@@ -37,7 +39,7 @@ vi.mock("../src/server/trade-review-service", async (original) => ({
     replayInput: { nav: { tradingDays: state.dates } },
   }),
 }));
-vi.mock("../src/server/research-store", () => ({
+vi.mock("../src/server/backtest/research-store", () => ({
   ResearchStore: class {
     isResultVisible() {
       return true;

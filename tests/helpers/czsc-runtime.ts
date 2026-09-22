@@ -18,7 +18,7 @@ export async function prepareCzscTestRuntime() {
       "CZSC runtime DLL differs from vendor; stop its owners and rebuild runtime",
     );
   await build({
-    entryPoints: ["src/server/czsc-worker.ts"],
+    entryPoints: ["src/server/strategies/chan/czsc-worker.ts"],
     outfile: "runtime/czsc-worker.cjs",
     bundle: true,
     platform: "node",

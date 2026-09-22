@@ -7,15 +7,15 @@ import {
   rollingPageSchema,
   tradeReviewRollingPage,
   researchRollingPage,
-} from "../src/server/rolling-performance-service";
+} from "../src/server/research/performance/rolling-performance-service";
 import { rollingPerformance } from "../src/lib/rolling-performance";
-import { replayTradeReview } from "../src/server/trade-review-service";
+import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
 import { RollingPerformanceResults } from "../src/components/rolling-performance-results";
 import type {
   ResearchStore,
   ResearchResult,
-} from "../src/server/research-store";
-import type { ResearchDataset } from "../src/server/research-dataset";
+} from "../src/server/backtest/research-store";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 
 vi.mock("../src/components/chart", () => ({

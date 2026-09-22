@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { researchOutcomes } from "../src/server/research-outcomes";
+import { researchOutcomes } from "../src/server/backtest/research-outcomes";
 import type { ResearchEvent } from "../src/lib/strategy-research";
 
 const days = ["2024-01-02", "2024-01-03", "2024-01-04"];

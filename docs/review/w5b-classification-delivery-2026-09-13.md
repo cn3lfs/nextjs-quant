@@ -5,7 +5,7 @@
 ## 改动
 
 - `src/lib/delivery-import.ts`：收窄结息/费用识别；同批结息对按余额恒等式选入账腿；明确逆回购排除；支持成功银行返回码方括号；返回去重前各类已识别现金流条数/金额。
-- `src/server/delivery-import-service.ts`、`src/server/delivery-store.ts`：预览、导入返回及批次 payload 携带 `cashFlowSummary`，不将其误称为新增入库合计。
+- `src/server/portfolio/delivery-import-service.ts`、`src/server/portfolio/delivery-store.ts`：预览、导入返回及批次 payload 携带 `cashFlowSummary`，不将其误称为新增入库合计。
 - `tests/w5-statement-import.test.ts`、对应 `tests/__snapshots__/w5-statement-import.test.ts.snap`：真实结构、未知利息/扣款、混合排序、无金额阈值、银行返回码和默认 all 修复前完整快照护栏。
 - `docs/decisions.md`、`docs/next-plan.md` 及本文：事实、冲突、交付范围。
 

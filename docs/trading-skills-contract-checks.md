@@ -65,7 +65,7 @@ method-map 的 `bindings.presets` 指向可执行预设，`bindings.exports` 指
 | rs | members、industry（含分类版本） | 证券池ID或证券 / 观察日期 |
 | benchmarkCalendar | calendar（start/end/openDays/closedDays，逐日完整且覆盖请求日） | 基准ID / 观察日期 |
 
-CANSLIM入口由 `src/server/canslim-dossier.ts` 导出 `buildCanslimAsOfDossier(request, observations)` 和 `gatherCanslimAsOfDossier(request, load, signal?)`。request显式提供 `symbol/asOf/observationDate/financialPeriods/annualPeriods/institutionPeriods/universeId/benchmarkId`，可选capturedBy。返回六类inputs、逐字段dataGaps和确定性ID；每个available值保留四类来源时点及版本证据。load只返回版本化输入，不自动调用当前行情/财务或回退来源；加载器不能移动截止时间。原当前资料入口的历史保护保留；本批不改当前报告API，不产生因子评分，B6b消费本路径。
+CANSLIM入口由 `src/server/strategies/canslim/canslim-dossier.ts` 导出 `buildCanslimAsOfDossier(request, observations)` 和 `gatherCanslimAsOfDossier(request, load, signal?)`。request显式提供 `symbol/asOf/observationDate/financialPeriods/annualPeriods/institutionPeriods/universeId/benchmarkId`，可选capturedBy。返回六类inputs、逐字段dataGaps和确定性ID；每个available值保留四类来源时点及版本证据。load只返回版本化输入，不自动调用当前行情/财务或回退来源；加载器不能移动截止时间。原当前资料入口的历史保护保留；本批不改当前报告API，不产生因子评分，B6b消费本路径。
 
 固定输入入口：`tests/as-of.test.ts`、`tests/canslim-as-of-dossier.test.ts`；含修订不回填、availableAt缺失拒绝、时区边界、事后采集/档案截止、来源及版本冲突、六类缺覆盖、日历反例及取消。真实gpcw的22个数值字段没有已验证披露/修订可知证据，不能因数字完整而进入历史因子；无需重扫数据包。
 

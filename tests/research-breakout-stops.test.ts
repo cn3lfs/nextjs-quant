@@ -5,11 +5,11 @@ import {
   researchManagementSchema,
 } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import type { Level } from "../src/server/breakout";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import type { Level } from "../src/server/strategies/breakout/breakout";
 const candle = {
   date: "2024-05-20",
   open: 99,

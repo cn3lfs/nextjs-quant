@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
-import { buildCanslimDossier } from "../src/server/canslim-dossier";
+import { buildCanslimDossier } from "../src/server/strategies/canslim/canslim-dossier";
 import type { Snapshot } from "../src/lib/domain";
-import { floatEvidence } from "../src/server/hithink-float";
+import { floatEvidence } from "../src/server/data-sources/hithink/hithink-float";
 const snapshot: Snapshot = {
   id: "stock",
   hash: "hash",

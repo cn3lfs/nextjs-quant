@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
 import fixture from "./fixtures/hithink-dividends.json";
-import { dividendSchedule } from "../src/server/hithink-dividends";
-import { actionReview } from "../src/server/backtest-actions";
-import { reconcileDividends } from "../src/server/dividend-reconciliation";
+import { dividendSchedule } from "../src/server/data-sources/hithink/hithink-dividends";
+import { actionReview } from "../src/server/backtest/backtest-actions";
+import { reconcileDividends } from "../src/server/backtest/dividend-reconciliation";
 const source = {
   symbol: "sh600519",
   source: "tdx-local",

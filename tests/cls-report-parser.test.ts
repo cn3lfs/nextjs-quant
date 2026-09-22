@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { parseClsReport } from "../src/server/cls-report-parser";
+import { parseClsReport } from "../src/server/news/cls-report-parser";
 
 it("preserves exact source hashes and line evidence for both existing report layouts", () => {
   const report =

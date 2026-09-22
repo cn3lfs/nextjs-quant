@@ -6,15 +6,15 @@ import {
   parseTdxLocalBlocks,
   readTdxLocalBlocks,
   tdxBlockFiles,
-} from "../src/server/tdx-local-blocks";
+} from "../src/server/data-sources/tdx/tdx-local-blocks";
 import {
   marketPoolCatalog,
   readMarketPool,
-} from "../src/server/market-pool-files";
+} from "../src/server/market/market-pool-files";
 import { get } from "../src/server/db";
-import { requireA500Selection } from "../src/server/a500-research";
+import { requireA500Selection } from "../src/server/research/a500-research";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { readRpsBlockSource } from "../src/server/rps-block-source";
+import { readRpsBlockSource } from "../src/server/screening/rps-block-source";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "tdx-local-blocks-"));

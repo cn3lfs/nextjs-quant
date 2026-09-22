@@ -4,7 +4,7 @@ import {
   publishDailyIncrement,
   readDailyIncrement,
   type DailyIncrementSnapshot,
-} from "../src/server/tdx-daily-cache";
+} from "../src/server/data-sources/tdx/tdx-daily-cache";
 import { get } from "../src/server/db";
 
 it("publishes valid rows with explicit gaps while preserving a previous valid bar when a later record is empty", () => {

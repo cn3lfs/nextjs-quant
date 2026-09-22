@@ -9,7 +9,7 @@ import {
   queryTemplateAliases,
 } from "../src/lib/research-query-templates";
 import { researchStrategies } from "../src/lib/research-strategies";
-import { evaluateGrowthFactors } from "../src/server/research-growth-factors";
+import { evaluateGrowthFactors } from "../src/server/strategies/canslim/research-growth-factors";
 import { request } from "./helpers/growth-factor-fixture";
 
 it("compound screens rank only the filtered cohort, and local MACD aliases remain executable", () => {

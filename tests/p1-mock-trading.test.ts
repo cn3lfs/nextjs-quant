@@ -4,7 +4,7 @@ import {
   MockTradingAdapter,
   reconcilePositions,
   type MockAccount,
-} from "../src/server/mock-trading";
+} from "../src/server/portfolio/mock/mock-trading";
 import { tradeInputSchema } from "../src/lib/trade-ledger";
 let server: Server,
   baseUrl: string,

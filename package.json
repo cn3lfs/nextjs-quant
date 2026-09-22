@@ -4,27 +4,28 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm runtime:build && next build",
+    "build": "pnpm trading-strategies:build && pnpm runtime:build && next build",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "dev": "pnpm runtime:build && next dev --hostname 127.0.0.1",
+    "dev": "pnpm trading-strategies:build && pnpm runtime:build && next dev --hostname 127.0.0.1",
     "preview": "pnpm build && pnpm desktop:prepare && pnpm start",
     "start": "node scripts/start.mjs",
-    "typecheck": "pnpm tstdx:build && tsc --noEmit",
+    "typecheck": "pnpm trading-strategies:build && pnpm tstdx:build && tsc --noEmit",
     "runtime:build": "pnpm tstdx:build && node scripts/build-runtime.mjs",
-    "test": "pnpm tstdx:build && vitest run",
+    "test": "pnpm trading-strategies:build && pnpm tstdx:build && vitest run && pnpm --filter trading-strategies test",
     "check": "pnpm typecheck && pnpm test",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:dev": "pnpm build && pnpm desktop:prepare && electron .",
     "desktop:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-desktop.ps1",
-    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml packages/tstdx/src packages/tstdx/tests packages/tstdx/*.ts packages/tstdx/*.json",
+    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml packages/tstdx/src packages/tstdx/tests packages/tstdx/*.ts packages/tstdx/*.json packages/trading-strategies/src packages/trading-strategies/tests packages/trading-strategies/*.ts packages/trading-strategies/*.json",
     "desktop:smoke": "node scripts/desktop-smoke.mjs",
     "smoke:data": "tsx scripts/smoke.ts",
     "tstdx:build": "pnpm --dir packages/tstdx build",
     "tstdx:test": "pnpm --dir packages/tstdx test",
     "verify:spot": "tsx scripts/verify.ts spot",
     "verify:batch": "tsx scripts/verify.ts batch",
-    "normalize:eol": "tsx scripts/normalize-eol.ts"
+    "normalize:eol": "tsx scripts/normalize-eol.ts",
+    "trading-strategies:build": "pnpm --filter trading-strategies build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -54,7 +55,8 @@
     "tailwind-merge": "^3.6.0",
     "tstdx": "workspace:*",
     "undici": "^7.29.1",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "trading-strategies": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.15",

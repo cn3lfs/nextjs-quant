@@ -3,14 +3,16 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const mocks = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("../src/server/hithink-context", () => ({ request: mocks.request }));
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: mocks.request,
+}));
 import {
   parseSecurityLifecycle,
   verifySecurityLifecycle,
   storedSecurityLifecycle,
-} from "../src/server/security-lifecycle";
+} from "../src/server/market/security-lifecycle";
 import { put } from "../src/server/db";
-import { securityProfile } from "../src/server/securities";
+import { securityProfile } from "../src/server/market/securities";
 import live from "./fixtures/security-lifecycle-live.json";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-lifecycle-test-"),

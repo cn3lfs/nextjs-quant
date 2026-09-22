@@ -5,7 +5,7 @@ import {
   tstdxKlines,
   tstdxMinutes,
   tstdxSearch,
-} from "../src/server/tstdx-adapter";
+} from "../src/server/data-sources/tstdx/tstdx-adapter";
 it.skipIf(process.env.QUANT_TSTDX_ADAPTER !== "1")(
   "真实 adapter 样本保留可用与不可用证据",
   async () => {

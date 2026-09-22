@@ -3,15 +3,15 @@ import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { readTradeReviewSnapshot } from "../src/server/trade-review-market";
-import { readSnapshot, parseBars } from "../src/server/tdx";
+import { readTradeReviewSnapshot } from "../src/server/portfolio/trade-review-market";
+import { readSnapshot, parseBars } from "../src/server/data-sources/tdx/tdx";
 import { classifyCode } from "../src/lib/delivery-import";
 import { migrate } from "../src/server/db/migrations";
-import { commitDeliveryImport } from "../src/server/delivery-import-service";
+import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
 import {
   buildTradeReviewSnapshot,
   replayTradeReview,
-} from "../src/server/trade-review-service";
+} from "../src/server/portfolio/trade-review-service";
 
 const roots: string[] = [];
 it("指数点位不与成交均价比较，保留基准读取行为", async () => {

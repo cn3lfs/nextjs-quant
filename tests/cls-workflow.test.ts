@@ -2,12 +2,12 @@ import { expect, it } from "vitest";
 import {
   incrementalClsNews,
   validateClsClassification,
-} from "../src/server/cls-news-workflow";
+} from "../src/server/news/cls-news-workflow";
 import { clsBatchReceiptSchema } from "../src/lib/cls-batch";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { previewClsReport } from "../src/server/cls-report-files";
-import { parseClsReport } from "../src/server/cls-report-parser";
+import { previewClsReport } from "../src/server/news/cls-report-files";
+import { parseClsReport } from "../src/server/news/cls-report-parser";
 it("deduplicates by evidence ID and excludes records beyond the input cutoff", () => {
   const row = { id: 1, ctime: 100, title: "新闻", content: "内容" };
   expect(

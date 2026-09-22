@@ -2,12 +2,12 @@ import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
-import { settings, saveSettings } from "../src/server/settings";
+import { settings, saveSettings } from "../src/server/infra/settings";
 import { sqlite } from "../src/server/db";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { captureResearchDataset } from "../src/server/research-dataset";
-import { publishDailyIncrement } from "../src/server/tdx-daily-cache";
+import { captureResearchDataset } from "../src/server/backtest/research-dataset";
+import { publishDailyIncrement } from "../src/server/data-sources/tdx/tdx-daily-cache";
 
 // g4day 暂停（见 docs/decisions.md WF3）：研究数据集不再叠加增量，解冻时去掉 .skip。
 it.skip("freezes captured increments and benchmark dates while new research sees a later revision", async () => {

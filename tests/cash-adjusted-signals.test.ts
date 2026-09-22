@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { cashAdjustedSignals } from "../src/server/cash-adjusted-signals";
-import { backtest } from "../src/server/quant";
+import { cashAdjustedSignals } from "../src/server/backtest/cash-adjusted-signals";
+import { backtest } from "../src/server/backtest/quant";
 import { defaultStrategy } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import type { CashDividendPlan } from "../src/lib/cash-dividends";

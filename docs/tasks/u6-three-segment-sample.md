@@ -33,8 +33,8 @@ E3 现在只有两段：`researchSpecSchema` 的 `start → validationStart` 是
 
 仓库里已有两处带 `observedAt` + `strategyVersion` 的前向记录：
 
-- `src/server/signal-ledger-store.ts` —— 信号台账的向前观察（T+5/10/20）
-- `src/server/intraday-store.ts` —— E2 午尾盘预选与收盘确认快照
+- `src/server/monitoring/signal-ledger-store.ts` —— 信号台账的向前观察（T+5/10/20）
+- `src/server/monitoring/intraday-store.ts` —— E2 午尾盘预选与收盘确认快照
 
 先核实这两处的实际字段与查询方式再动手；本任务书对存储结构的描述若与代码不符，
 **以代码为准**并记入 `decisions.md`。

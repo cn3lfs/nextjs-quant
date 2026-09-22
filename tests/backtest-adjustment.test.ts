@@ -1,19 +1,22 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { backtest } from "../src/server/quant";
+import { backtest } from "../src/server/backtest/quant";
 import {
   actionReview,
   type BacktestActions,
-} from "../src/server/backtest-actions";
+} from "../src/server/backtest/backtest-actions";
 import {
   bonusAdjustedSignals,
   bonusShares,
   AdjustmentUnavailableError,
-} from "../src/server/bonus-adjusted-signals";
+} from "../src/server/backtest/bonus-adjusted-signals";
 import { defaultStrategy, type Bar, type Snapshot } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
-import { candidateTrialMatrix, walkForward } from "../src/server/walk-forward";
+import {
+  candidateTrialMatrix,
+  walkForward,
+} from "../src/server/backtest/walk-forward";
 import { equityDailyReturns } from "../src/lib/multiple-testing";
 import { walkForwardSchema } from "../src/lib/walk-forward";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -173,9 +176,9 @@ it("类别2至10不重复调整个人股份，判断来源可追溯", () => {
 it("默认及显式none完整结果保持实现前特征化哈希，包括全部数值与假设", () => {
   const bars = prices([10, 11, 12, 13, 14, 15, 9, 8, 7]);
   const baseline = backtest(bars, strategy, "snapshot", 10000);
-  // Captured from HEAD:src/server/quant.ts before W1, using the existing costs fixture.
+  // Captured from HEAD:src/server/backtest/quant.ts before W1, using the existing costs fixture.
   // S1 (Big.js money math) recaptured this hash: cash/fee arithmetic in
-  // src/server/quant.ts now runs through src/lib/money.ts instead of plain
+  // src/server/backtest/quant.ts now runs through src/lib/money.ts instead of plain
   // double +=/-=, which removes trailing float dust from every diffing
   // field (e.g. cash 5779.501400000001 -> 5779.5014, benchmark.cash
   // 890.4500000000007 -> 890.45, benchmark.trade.price
@@ -372,7 +375,7 @@ it("页面回显残余跳空、未建模边界，模式输入贯通API与worker"
   expect(readFileSync("src/server/api/root.ts", "utf8")).toContain(
     "input.adjustment",
   );
-  expect(readFileSync("src/server/worker.ts", "utf8")).toContain(
+  expect(readFileSync("src/server/jobs/worker.ts", "utf8")).toContain(
     "adjustment: work.adjustment",
   );
 });

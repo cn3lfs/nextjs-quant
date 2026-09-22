@@ -3,7 +3,7 @@ import {
   forecastEvidence,
   forecastYear,
   queryForecast,
-} from "~/server/hithink-forecast";
+} from "~/server/data-sources/hithink/hithink-forecast";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 function fixture() {
   const row: Record<string, unknown> = {

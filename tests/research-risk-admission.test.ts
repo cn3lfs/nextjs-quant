@@ -135,16 +135,16 @@ it("quality admission requires three of five explicit checks and never trusts a 
   ).toBe(false);
 });
 
-import * as signals from "../src/server/research-signals";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import * as signals from "../src/server/strategies/shared/research-signals";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { riskPresetTemplate } from "../src/lib/research-risk-presets";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 it("run entrypoint trains a real reference ledger without admission and never learns from validation prices", async () => {
   const bars = Array.from({ length: 106 }, (_, i) => ({

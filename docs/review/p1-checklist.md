@@ -29,9 +29,9 @@
 ## P1 文件范围
 
 - 页面：`src/app/trade-ledger/{page,actions,loading,error}.tsx/ts`，`src/components/trade-ledger-panel.tsx`；入口：`src/components/workbench.tsx`。
-- 本地账本：`src/lib/trade-ledger.ts`，`src/server/trade-ledger-store.ts`，`src/server/trade-ledger-service.ts`。
-- 可选模拟盘：`src/server/mock-trading.ts`，`src/server/mock-trading-service.ts`。
-- 复用接点：`src/server/db/migrations.ts`，`src/server/research-skills.ts`。
+- 本地账本：`src/lib/trade-ledger.ts`，`src/server/portfolio/trade-ledger-store.ts`，`src/server/portfolio/trade-ledger-service.ts`。
+- 可选模拟盘：`src/server/portfolio/mock/mock-trading.ts`，`src/server/portfolio/mock/mock-trading-service.ts`。
+- 复用接点：`src/server/db/migrations.ts`，`src/server/research/research-skills.ts`。
 - 验证：上述3个P1测试文件，`tests/integration.test.ts`的新增版本断言。
 - 文档：本核对表与`docs/decisions.md`追加条目。
 

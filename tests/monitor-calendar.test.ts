@@ -5,18 +5,20 @@ const mocks = vi.hoisted(() => ({
   history: vi.fn(),
   increments: vi.fn(),
 }));
-vi.mock("../src/server/tdx-daily-cache", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-daily-cache", () => ({
   readDailyIncrementRange: mocks.increments,
 }));
-vi.mock("../src/server/gf-calendar", () => ({ gfCalendarReference: mocks.gf }));
-vi.mock("../src/server/data-health", async (original) => ({
-  ...(await original<typeof import("../src/server/data-health")>()),
+vi.mock("../src/server/data-sources/gf/gf-calendar", () => ({
+  gfCalendarReference: mocks.gf,
+}));
+vi.mock("../src/server/market/data-health", async (original) => ({
+  ...(await original<typeof import("../src/server/market/data-health")>()),
   localCalendarReference: mocks.local,
 }));
-vi.mock("../src/server/preferred-online-chart", () => ({
+vi.mock("../src/server/market/preferred-online-chart", () => ({
   preferredOnlineChart: mocks.history,
 }));
-import { monitorCalendar } from "../src/server/monitor-calendar";
+import { monitorCalendar } from "../src/server/monitoring/monitor-calendar";
 import { freshCompleted, transition } from "../src/server/runtime";
 beforeEach(() => {
   vi.clearAllMocks();

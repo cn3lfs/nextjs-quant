@@ -1,12 +1,12 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import * as cupModule from "../src/server/canslim-cup";
-import * as flatModule from "../src/server/canslim-flat-base";
-import * as saucerModule from "../src/server/canslim-saucer";
-import { researchCanslimPriorityPoint } from "../src/server/research-canslim-priority";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import * as cupModule from "../src/server/strategies/canslim/canslim-cup";
+import * as flatModule from "../src/server/strategies/canslim/canslim-flat-base";
+import * as saucerModule from "../src/server/strategies/canslim/canslim-saucer";
+import { researchCanslimPriorityPoint } from "../src/server/strategies/canslim/research-canslim-priority";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 
 const fixture = (): Bar[] =>
   Array.from({ length: 77 }, (_, i) => ({

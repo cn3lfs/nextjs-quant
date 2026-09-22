@@ -5,14 +5,14 @@ import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import valid from "./fixtures/breakout-valid.json";
 import { migrate } from "../src/server/db/migrations";
-import { projectCzsc, closeCzsc } from "../src/server/czsc";
-import { ResearchStore } from "../src/server/research-store";
+import { projectCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 
 it("executes the bundled research worker and reproduces trades from an immutable snapshot", async () => {
   await mkdir(".test-data", { recursive: true });

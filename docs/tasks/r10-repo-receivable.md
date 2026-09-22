@@ -90,7 +90,7 @@ R6 任务书里管理者写了：
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/lib/trade-review-nav.ts src/server/trade-review-service.ts
+npx prettier --check src/lib/trade-review-nav.ts src/server/portfolio/trade-review-service.ts
 ```
 
 基线：257 文件通过 / 5 跳过，1584 用例通过 / 6 跳过。

@@ -4,9 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import probe from "./fixtures/sse-margin-20260908.json";
-import * as sse from "~/server/sse-margin";
-import { mergeSseMargin, updateTmtMargin } from "~/server/tmt-margin-update";
-import { tmtCrowding, type TmtInput } from "~/server/tmt-crowding";
+import * as sse from "~/server/data-sources/sse/sse-margin";
+import {
+  mergeSseMargin,
+  updateTmtMargin,
+} from "~/server/strategies/sentiment/tmt-margin-update";
+import {
+  tmtCrowding,
+  type TmtInput,
+} from "~/server/strategies/sentiment/tmt-crowding";
 import { get, put, sqlite } from "~/server/db";
 const now = Date.parse("2026-09-09T12:00:00+08:00");
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-sse-test-"));

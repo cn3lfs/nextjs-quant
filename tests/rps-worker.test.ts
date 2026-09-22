@@ -4,11 +4,11 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sqlite, put } from "../src/server/db";
-import { RpsWorkerClient } from "../src/server/rps-client";
-import { RpsStore } from "../src/server/rps-store";
+import { RpsWorkerClient } from "../src/server/screening/rps-client";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsPeriods } from "../src/lib/rps";
 import fixture from "./fixtures/tdx-gbbq.json";
-import { readIndustryBlocks } from "../src/server/industry-blocks";
+import { readIndustryBlocks } from "../src/server/market/industry-blocks";
 
 let directory: string;
 let root: string;
@@ -22,7 +22,7 @@ beforeAll(async () => {
   process.env.QUANT_DATA_DIR = directory;
   root = join(directory, "tdx");
   await build({
-    entryPoints: ["src/server/rps-worker.ts"],
+    entryPoints: ["src/server/screening/rps-worker.ts"],
     outfile: "runtime/rps-worker.cjs",
     bundle: true,
     platform: "node",

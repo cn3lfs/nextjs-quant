@@ -18,7 +18,7 @@ import {
   type VolumeGridId,
   type VolumeEvidence,
 } from "../src/lib/research-volume-grid";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 
 const position: PositionFacts = {

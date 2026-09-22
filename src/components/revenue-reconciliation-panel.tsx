@@ -1,4 +1,4 @@
-import type { revenueReconciliation } from "~/server/revenue-reconciliation";
+import type { revenueReconciliation } from "~/server/strategies/value/revenue-reconciliation";
 
 type Reconciliation = ReturnType<typeof revenueReconciliation>;
 const amount = (value: number | null) =>

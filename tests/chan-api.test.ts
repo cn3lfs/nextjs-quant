@@ -3,8 +3,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const mocks = vi.hoisted(() => ({ analyze: vi.fn() }));
-vi.mock("../src/server/chan-report", async (original) => ({
-  ...(await original<typeof import("../src/server/chan-report")>()),
+vi.mock("../src/server/strategies/chan/chan-report", async (original) => ({
+  ...(await original<
+    typeof import("../src/server/strategies/chan/chan-report")
+  >()),
   analyzeChan: mocks.analyze,
 }));
 import { createCaller } from "../src/server/api/root";

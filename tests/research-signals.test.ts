@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { CzscResult } from "../src/lib/czsc";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 
 const bars = Array.from({ length: 65 }, (_, i) => ({
   date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),

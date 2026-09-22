@@ -1,5 +1,10 @@
 # 个人交易工作台扩充计划
 
+## 策略整理接续（2026-09-22）
+
+九方向代表 package 与 2026-09-21 清理已有登记；当前新增 C1—C4 重构阶段，先收紧 method/preset 与证据契约，再核对来源并安排应用只读接入。具体范围、验收与状态见 [策略整理计划](strategy-consolidation-plan.md#5-后续重构阶段2026-09-22)；追加 [server 分域整理 S0—S5](strategy-consolidation-plan.md#6-srcserver-按职责整理2026-09-22-追加)，涵盖策略、数据源、回测及其他业务域。用户随后授权“执行 plan”；C1—C4 与 S0—S5 已完成，服务端分域与代表目录接入研究页均通过验收。根测试 11,525 项、package 5 项通过，typecheck/build/runtime 通过；浏览器六预设切换与 390px 布局通过，全仓格式仍有 3 个未改文件的历史问题，实际检查及限制见整理计划 §8。历史回测事实仍见 [结果登记](strategy-results-consolidated-2026-09-21.md)，不由目录整理升级证据等级。
+
+
 ## C5 最后五项（2026-09-17，方法收口、浏览器验收受阻）
 
 CH06 → CH08 → CH09 → CH18-small-to-large → CH13已接入9个具名工程预设、统一前缀观察和共享执行契约。三锚分表，五分钟窗口固定2000-01-04..2022-11-30，月线复用monthlyBars与当时可知日历；原文边界及基线冲突见decisions。真实DLL450前缀/900表通过，但每锚108关联unknown98/verified0，不能声称已证明真实关联正例或策略业绩。审计22 implemented / 661 variant / 12 planned，K6 planned 0。L3 verify:batch=0，454文件9658项通过、27跳过、0失败，build/runtime与审计通过；Playwright两次启动EPERM、退出1、交互0，未宣称UI通过。补验起点与实际计数见`.codex-runs/delivery.json`；不提交、不推送、不打包。

@@ -1,9 +1,9 @@
 import { closeMcp } from "../src/server/mcp";
-import { readSnapshot, scan } from "../src/server/tdx";
-import { metrics } from "../src/server/quant";
+import { readSnapshot, scan } from "../src/server/data-sources/tdx/tdx";
+import { metrics } from "~/lib/screening-metrics";
 import { defaultStrategy } from "../src/lib/domain";
 import { importLocalMcp, mcpTools } from "../src/server/mcp";
-import { structured, researchModel } from "../src/server/research";
+import { structured, researchModel } from "../src/server/research/research";
 import { z } from "zod";
 const root = "E:\\new_tdx64";
 const coverage = await scan(root);

@@ -8,10 +8,10 @@ import {
   type VsaContext,
   wyckoffVsaIds,
 } from "../src/lib/research-wyckoff-vsa";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 function fixture(down = true): Bar[] {
   const anchors = [

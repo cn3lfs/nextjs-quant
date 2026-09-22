@@ -7,15 +7,17 @@ const state = vi.hoisted(() => ({
   model: vi.fn(),
   provider: "codex:default",
 }));
-vi.mock("../src/server/cls-news", () => ({ readClsNews: state.news }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/data-sources/cls/cls-news", () => ({
+  readClsNews: state.news,
+}));
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ clsDbPath: "fixture" }),
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => state.provider,
   structured: state.model,
 }));
-import { analyzeNews } from "../src/server/news-analysis";
+import { analyzeNews } from "../src/server/news/news-analysis";
 import { sqlite } from "../src/server/db";
 const root = mkdtempSync(join(tmpdir(), "quant-news-incremental-"));
 vi.stubEnv("QUANT_DATA_DIR", root);

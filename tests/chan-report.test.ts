@@ -11,11 +11,11 @@ vi.mock("../src/server/db", () => ({
     return value;
   },
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: state.call,
 }));
-vi.mock("../src/server/chan-method", () => ({
+vi.mock("../src/server/strategies/chan/chan-method", () => ({
   chanMethod: async () => ({
     version: "chan-annotation-1",
     source: "fixture",
@@ -35,8 +35,8 @@ vi.mock("../src/server/chan-method", () => ({
     })),
   }),
 }));
-import { analyzeChan, chanWindow } from "~/server/chan-report";
-import { chanStageIds } from "~/server/chan-report-schema";
+import { analyzeChan, chanWindow } from "~/server/strategies/chan/chan-report";
+import { chanStageIds } from "~/server/strategies/chan/chan-report-schema";
 const now = Date.parse("2026-09-08T12:00:00+08:00");
 const source: Snapshot = {
   id: "s1",

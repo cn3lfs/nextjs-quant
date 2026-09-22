@@ -5,7 +5,7 @@ import {
   volatilityStopSeries,
   type VolatilityStopId,
 } from "./research-volatility-stops";
-import type { ResearchTrade } from "../server/research-portfolio";
+import type { ResearchTrade } from "../server/backtest/research-portfolio";
 
 export const indicatorStopLines = [
   "rk-ema20",

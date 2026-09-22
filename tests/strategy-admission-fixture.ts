@@ -4,8 +4,8 @@ import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidenc
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
-import { runStrategyResearch } from "../src/server/research-run";
+} from "../src/server/backtest/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 
 /** 复用 e3-browser-fixture / research-worker.test 的固定日线、续接和实验规格。
  * 只在内存运行双突破，不读行情目录、数据库、DLL 或真实账户。

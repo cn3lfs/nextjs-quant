@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   canslimVolume,
   type VolumeContext,
-} from "../src/server/canslim-volume";
+} from "../src/server/strategies/canslim/canslim-volume";
 import type { Snapshot } from "../src/lib/domain";
 function fixture() {
   const snapshot: Snapshot = {

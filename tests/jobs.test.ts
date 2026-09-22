@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { background, cancelJob, updateJob } from "../src/server/jobs";
+import { background, cancelJob, updateJob } from "../src/server/jobs/jobs";
 import { sqlite, get } from "../src/server/db";
 import type { Job } from "../src/lib/domain";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-job-tests-"));

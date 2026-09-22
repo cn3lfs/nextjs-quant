@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import { chanMovementFixture } from "./helpers/chan-movements";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import type { CzscResult } from "../src/lib/czsc";
-import { chanC4SmallTurnFromSignal } from "../src/server/research-chan-movements";
+import { chanC4SmallTurnFromSignal } from "../src/server/strategies/chan/research-chan-movements";
 
 it.each([
   "chan-trend-completed-daily-c4",

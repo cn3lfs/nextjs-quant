@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { sectorPriceMetrics } from "~/server/sector-price-metrics";
+import { sectorPriceMetrics } from "~/server/market/sector-price-metrics";
 const symbol = "pt01801080";
 const rows = [symbol, "sh000001"].flatMap((symbol) =>
   Array.from({ length: 32 }, (_, i) => ({

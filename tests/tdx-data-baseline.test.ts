@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { summarizeTdxSnapshot } from "../src/server/tdx-data-baseline";
+import { summarizeTdxSnapshot } from "../src/server/data-sources/tdx/tdx-data-baseline";
 
 const make = (times: string[]): Snapshot => ({
   id: "sample",

@@ -22,12 +22,12 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import {
   researchGrowthIntraday,
   growthMinuteTimes,
-} from "../src/server/research-growth-intraday";
+} from "../src/server/strategies/canslim/research-growth-intraday";
 const costs = {
   version: "cost-experiment-1" as const,
   commissionBps: 0,
@@ -468,10 +468,12 @@ it("swing locks 1R, halves at2R and retains an early known event reduction", () 
 });
 
 it("real research entry retains repair comparison and refuses missing execution proof", async () => {
-  const { runStrategyResearch } = await import("../src/server/research-run");
+  const { runStrategyResearch } =
+    await import("../src/server/backtest/research-run");
   const { researchMarketEvidenceSchema } =
     await import("../src/lib/research-market-evidence");
-  const { researchSignals } = await import("../src/server/research-signals");
+  const { researchSignals } =
+    await import("../src/server/strategies/shared/research-signals");
   const symbol = "sh600000";
   const input = {
     ...riskRepairTemplate("held-reduce"),
@@ -483,26 +485,27 @@ it("real research entry retains repair comparison and refuses missing execution 
     start: calendar[61],
     riskRepair: input,
   });
-  const dataset: import("../src/server/research-dataset").ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: [symbol],
-      source: null,
-      warning: "fixture",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar,
-    stocks: [{ symbol, name: "fixture", bars, hash: "fixture", actions: [] }],
-    excluded: [],
-    actionCoverage: "missing",
-    actionSource: null,
-    capturedAt: 0,
-    hash: "fixture",
-  };
+  const dataset: import("../src/server/backtest/research-dataset").ResearchDataset =
+    {
+      version: "research-dataset-1",
+      source: "tdx-local",
+      root: "synthetic",
+      adjustment: "none",
+      membership: {
+        mode: "current-snapshot",
+        symbols: [symbol],
+        source: null,
+        warning: "fixture",
+      },
+      benchmark: { symbol: "sh000001", bars },
+      calendar,
+      stocks: [{ symbol, name: "fixture", bars, hash: "fixture", actions: [] }],
+      excluded: [],
+      actionCoverage: "missing",
+      actionSource: null,
+      capturedAt: 0,
+      hash: "fixture",
+    };
   const evidence = researchMarketEvidenceSchema.parse({
     version: "research-market-evidence-1",
     source: "fixture",
@@ -559,7 +562,7 @@ it("real research entry retains repair comparison and refuses missing execution 
     ),
   ).toBe(true);
   // The initial stop for the full system must be an actual swing low, not any nearby support.
-  const breakout = await import("../src/server/breakout"),
+  const breakout = await import("../src/server/strategies/breakout/breakout"),
     original = breakout.analyzeBreakout(bars);
   // S4 breakout rewrite: the signal loop calls `analyzeBreakout(bars, 0)` once
   // and reads `points[index]`, so the stub must cover every index instead of

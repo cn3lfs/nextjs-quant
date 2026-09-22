@@ -3,7 +3,7 @@ import type { Bar } from "../src/lib/domain";
 import { researchSepaElite } from "../src/lib/research-sepa-elite";
 import { growthDailyExitTemplate } from "../src/lib/research-growth-exits";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 function fixture() {
   const bars: Bar[] = Array.from({ length: 65 }, (_, i) => ({

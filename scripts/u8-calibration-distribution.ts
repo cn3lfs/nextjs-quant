@@ -3,7 +3,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { format } from "prettier";
 import { admissionResearchFixture } from "../tests/strategy-admission-fixture";
-import { researchAdmissionSource } from "../src/server/strategy-admission-service";
+import { researchAdmissionSource } from "../src/server/research/performance/strategy-admission-service";
 import {
   strategyAdmission,
   defaultAdmissionParams,

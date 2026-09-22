@@ -1,14 +1,14 @@
 import { expect, it, vi, beforeEach } from "vitest";
-import { preferredOnlineChart } from "../src/server/preferred-online-chart";
+import { preferredOnlineChart } from "../src/server/market/preferred-online-chart";
 const deps = vi.hoisted(() => ({
   eastmoney: vi.fn(),
   page: vi.fn(),
   tencent: vi.fn(),
 }));
-vi.mock("../src/server/chart-history", () => ({
+vi.mock("../src/server/market/chart-history", () => ({
   onlinePeriodHistory: deps.eastmoney,
 }));
-vi.mock("../src/server/tdx-quotes", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-quotes", () => ({
   configuredHosts: () => ["127.0.0.1"],
   barPage: deps.page,
   indexBarPage: deps.page,
@@ -21,7 +21,7 @@ vi.mock("tstdx", async (original) => ({
     close: async () => {},
   }),
 }));
-vi.mock("../src/server/westock-data", () => ({
+vi.mock("../src/server/data-sources/westock/westock-data", () => ({
   westockScriptPath: () => "fixture-westock.js",
   query: deps.tencent,
 }));

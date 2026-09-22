@@ -1,7 +1,7 @@
 import { SignalLedgerSummaryTable } from "./signal-ledger-summary-table";
 import { SignalInformationView } from "./signal-information-view";
 import { aggregateLedger, horizons, type LedgerRow } from "~/lib/signal-ledger";
-import type { LedgerRun } from "~/server/signal-ledger-store";
+import type { LedgerRun } from "~/server/monitoring/signal-ledger-store";
 import {
   tierLabels,
   type NotificationDecision,

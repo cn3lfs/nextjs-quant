@@ -6,10 +6,10 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, key: string, value: unknown) =>
     state.records.set(key, value),
 }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ autoNewsDailyBatches: 2 }),
 }));
-import { newsBudget, reserveNewsBatch } from "../src/server/news-budget";
+import { newsBudget, reserveNewsBatch } from "../src/server/news/news-budget";
 afterEach(() => {
   vi.useRealTimers();
   state.records.clear();

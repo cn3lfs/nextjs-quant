@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { annualCashFlow } from "~/server/annual-cash-flow";
-import { financeEvidence } from "~/server/hithink-finance";
+import { annualCashFlow } from "~/server/strategies/value/annual-cash-flow";
+import { financeEvidence } from "~/server/data-sources/hithink/hithink-finance";
 const ocf = "经营活动产生的现金流量净额";
 const capex = "购建固定资产、无形资产和其他长期资产支付的现金";
 const profit = "归属于母公司所有者的净利润";

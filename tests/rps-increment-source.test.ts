@@ -2,8 +2,8 @@ import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
-import { publishDailyIncrement } from "../src/server/tdx-daily-cache";
-import { localRpsDependencies } from "../src/server/rps-job";
+import { publishDailyIncrement } from "../src/server/data-sources/tdx/tdx-daily-cache";
+import { localRpsDependencies } from "../src/server/screening/rps-job";
 
 // g4day 暂停（见 docs/decisions.md WF3）：RPS 依赖不再叠加增量，解冻时去掉 .skip。
 it.skip("uses published increments for RPS bars and reference dates while retaining source evidence", async () => {

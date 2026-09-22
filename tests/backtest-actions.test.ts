@@ -1,10 +1,12 @@
 import { expect, it, vi } from "vitest";
-vi.mock("../src/server/tdx-gbbq", () => ({ readGbbq: vi.fn() }));
-import { readGbbq } from "../src/server/tdx-gbbq";
+vi.mock("../src/server/data-sources/tdx/tdx-gbbq", () => ({
+  readGbbq: vi.fn(),
+}));
+import { readGbbq } from "../src/server/data-sources/tdx/tdx-gbbq";
 import {
   actionReview,
   readBacktestActions,
-} from "../src/server/backtest-actions";
+} from "../src/server/backtest/backtest-actions";
 import type { Snapshot } from "../src/lib/domain";
 const source: Snapshot = {
   id: "s",

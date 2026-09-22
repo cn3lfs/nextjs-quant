@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Evidence, Report } from "../src/lib/domain";
-import { sepaSupportedStagesValid } from "../src/server/sepa-stage-support";
+import { sepaSupportedStagesValid } from "../src/server/strategies/canslim/sepa-stage-support";
 const stage = (
   id: NonNullable<Report["stages"]>[number]["id"],
   status: "supported" | "missing" = "supported",

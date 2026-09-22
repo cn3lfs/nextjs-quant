@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import { aggregateIndustryRps } from "../src/lib/industry-rps";
-import { calculateRpsDay, prepareRpsSecurity } from "../src/server/rps-engine";
+import {
+  calculateRpsDay,
+  prepareRpsSecurity,
+} from "../src/server/screening/rps-engine";
 import { rpsBars, rpsCalendar, rpsDate, tenStocks } from "./rps-fixture";
 import { industrySnapshot } from "./industry-rps-fixture";
 

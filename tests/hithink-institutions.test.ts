@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   queryInstitutions,
   institutionsEvidence,
-} from "../src/server/hithink-institutions";
+} from "../src/server/data-sources/hithink/hithink-institutions";
 const raw = { status_code: 0, datas: [{ 股票代码: "600519.SH" }], columns: [] };
 afterEach(() => {
   vi.unstubAllEnvs();

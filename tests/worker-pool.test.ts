@@ -8,7 +8,7 @@ import {
   cancelJob,
   background,
   updateJob,
-} from "../src/server/jobs";
+} from "../src/server/jobs/jobs";
 import { get } from "../src/server/db";
 import type { Job } from "../src/lib/domain";
 const root = mkdtempSync(join(tmpdir(), "quant-worker-pool-"));

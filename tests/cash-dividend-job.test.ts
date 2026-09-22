@@ -10,14 +10,14 @@ vi.mock("../src/server/db", () => ({
   get: (id: string) => state.records.get(id),
   put: state.put,
 }));
-vi.mock("../src/server/jobs", () => ({
+vi.mock("../src/server/jobs/jobs", () => ({
   background: state.background,
   runWorker: state.worker,
 }));
-import { cashDividendJob } from "../src/server/cash-dividend-job";
-import { actionReview } from "../src/server/backtest-actions";
-import { dividendSchedule } from "../src/server/hithink-dividends";
-import { reconcileDividends } from "../src/server/dividend-reconciliation";
+import { cashDividendJob } from "../src/server/backtest/cash-dividend-job";
+import { actionReview } from "../src/server/backtest/backtest-actions";
+import { dividendSchedule } from "../src/server/data-sources/hithink/hithink-dividends";
+import { reconcileDividends } from "../src/server/backtest/dividend-reconciliation";
 import { defaultStrategy, type Snapshot } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 const source: Snapshot = {

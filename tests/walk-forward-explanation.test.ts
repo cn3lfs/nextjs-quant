@@ -3,7 +3,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const state = vi.hoisted(() => ({ local: vi.fn(), paid: vi.fn() }));
-vi.mock("../src/server/local-llm", () => ({ localCompletion: state.local }));
+vi.mock("../src/server/infra/local-llm", () => ({
+  localCompletion: state.local,
+}));
 vi.mock("openai", () => ({
   default: class {
     chat = { completions: { create: state.paid } };
@@ -13,8 +15,8 @@ import {
   perBarReturn,
   walkForwardEvidence,
   explainWalkForwardJob,
-} from "../src/server/walk-forward-explanation";
-import { walkForward } from "../src/server/walk-forward";
+} from "../src/server/backtest/walk-forward-explanation";
+import { walkForward } from "../src/server/backtest/walk-forward";
 import {
   defaultStrategy,
   type Snapshot,
@@ -23,7 +25,7 @@ import {
 } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import { get, put, sqlite, list } from "../src/server/db";
-import { cancelJob } from "../src/server/jobs";
+import { cancelJob } from "../src/server/jobs/jobs";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-wf-explain-"));
 const source: Snapshot = {
   id: "snapshot-fixture",

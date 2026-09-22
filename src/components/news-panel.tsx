@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
-import type { NewsAnalysis } from "~/server/news-analysis";
+import type { NewsAnalysis } from "~/server/news/news-analysis";
 import { NewsSectorPanel } from "./news-sector-panel";
 import { NewsThemesPanel } from "./news-themes-panel";
 const localInput = () =>

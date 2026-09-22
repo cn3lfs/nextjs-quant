@@ -11,7 +11,7 @@ import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "./indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
 import type { CzscPoint, CzscResult } from "./czsc";
-import type { BreakoutResult } from "../server/breakout";
+import type { BreakoutResult } from "../server/strategies/breakout/breakout";
 
 /** Render as-of evidence only; no chart-side fitting or indicator formulas. */
 export function breakoutChartData(

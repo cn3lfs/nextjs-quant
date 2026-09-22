@@ -37,7 +37,7 @@
 | [decisions.md](decisions.md)                                                                   | 完整历史决策正文，旧结论按后续修订解释             |
 | [archive-index.md](archive-index.md)                                                           | 中途计划、验收、审计和执行记录的日期归档索引       |
 | [strategy-results-consolidated-2026-09-21.md](strategy-results-consolidated-2026-09-21.md) | 策略代表与已执行回测结果收口登记 |
-| [strategy-consolidation-plan.md](strategy-consolidation-plan.md)                              | 策略独立包和中间产物清理计划                       |
+| [strategy-consolidation-plan.md](strategy-consolidation-plan.md)                              | 策略独立包、server 分域重构与清理边界                       |
 | [review/README.md](review/README.md)                                                           | 七份核对/实操文档和四组截图/证据的总索引           |
 | [m4-message-samples.md](review/m4-message-samples.md)、[p2-message-samples.md](review/p2-message-samples.md) | 两个旧路径测试兼容副本；人工阅读使用 review 版     |
 | [personal-quant-survey.md](personal-quant-survey.md)                                           | 外部调研：个人量化软件应有模块与本仓库差距对照     |

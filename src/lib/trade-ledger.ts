@@ -2,8 +2,8 @@ import { z } from "zod";
 import { defaultBacktestCosts, type BacktestCosts } from "./backtest-costs";
 import { big, bpsOf, moneyMul, toNumber } from "./money";
 import { aggregateLedger, type LedgerRow } from "./signal-ledger";
-import type { SkillUse } from "~/server/research-skills";
-import type { TdxXdxr } from "~/server/tdx-wire";
+import type { SkillUse } from "~/server/research/research-skills";
+import type { TdxXdxr } from "~/server/data-sources/tdx/tdx-wire";
 
 export const feeLabel = "实验参数，非历史实际费用";
 const positive = z.number().finite().positive();
@@ -55,7 +55,10 @@ export function tradeFees(
   c = defaultBacktestCosts,
 ) {
   const amount = moneyMul(t.price, t.quantity);
-  const commission = Math.max(c.minimumCommission, bpsOf(amount, c.commissionBps));
+  const commission = Math.max(
+    c.minimumCommission,
+    bpsOf(amount, c.commissionBps),
+  );
   const tax = t.side === "sell" ? bpsOf(amount, c.sellTaxBps) : 0;
   const slippage = bpsOf(amount, c.slippageBps);
   return {

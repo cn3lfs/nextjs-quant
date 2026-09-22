@@ -174,16 +174,12 @@ export function collectMethodEvidence(
     imports,
     exports,
     tests,
-    owners: new Map(
-      [
-        ...families.flatMap((f) =>
-          f.ids.map((id) => [id, f.file] as const),
-        ),
-        ...researchCompositePresetIds.map(
-          (id) => [id, "src/lib/research-composite-presets.ts"] as const,
-        ),
-      ],
-    ),
+    owners: new Map([
+      ...families.flatMap((f) => f.ids.map((id) => [id, f.file] as const)),
+      ...researchCompositePresetIds.map(
+        (id) => [id, "src/lib/research-composite-presets.ts"] as const,
+      ),
+    ]),
   };
 }
 export function reconcileMethodEvidence(
@@ -224,7 +220,7 @@ export function reconcileMethodEvidence(
     for (const binding of bindings.exports) {
       if (
         !evidence.exports.get(binding.file)?.has(binding.name) ||
-        !reaches("src/server/research-run.ts", binding.file)
+        !reaches("src/server/backtest/research-run.ts", binding.file)
       )
         errors.push(
           `${method.id}: executable export missing/unreachable: ${binding.file}#${binding.name}`,

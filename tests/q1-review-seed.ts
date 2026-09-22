@@ -6,7 +6,7 @@ if (
   resolve(process.env.QUANT_DATA_DIR) !== isolated
 )
   throw new Error("Set QUANT_DATA_DIR to .test-data/q1/browser");
-const { saveSettings } = await import("../src/server/settings");
+const { saveSettings } = await import("../src/server/infra/settings");
 const { settingsSchema } = await import("../src/lib/domain");
 saveSettings(
   settingsSchema.parse({ autoAnalysis: false, autoNewsAnalysis: false }),
@@ -16,7 +16,8 @@ console.log(
 );
 
 const { sqlite } = await import("../src/server/db");
-const { ChartViewStore } = await import("../src/server/chart-view-store");
+const { ChartViewStore } =
+  await import("../src/server/charts/chart-view-store");
 const { defaultChartView, chartPeriodSchema } =
   await import("../src/lib/chart-view");
 for (const period of chartPeriodSchema.options)

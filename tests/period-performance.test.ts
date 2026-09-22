@@ -10,7 +10,7 @@ import {
 import {
   pagePeriodicReturns,
   periodPageSchema,
-} from "../src/server/period-performance-service";
+} from "../src/server/research/performance/period-performance-service";
 
 // 合成交易日历，明确剔除周末及长假；不冒充真实交易所日历。
 const calendar: string[] = [];

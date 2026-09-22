@@ -3,7 +3,7 @@ import {
   verifiedRank,
   fullRsSnapshot,
   rankInSnapshot,
-} from "../src/server/hithink-rs";
+} from "../src/server/data-sources/hithink/hithink-rs";
 const range = "20260616-20260908",
   key = `涨跌幅[${range}]`,
   rankKey = `涨跌幅排名[${range}]`;

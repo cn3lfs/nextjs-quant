@@ -1,10 +1,10 @@
 import { expect, it, vi } from "vitest";
-vi.mock("~/server/quant", async (original) => {
-  const module = await original<typeof import("~/server/quant")>();
+vi.mock("~/lib/screening-metrics", async (original) => {
+  const module = await original<typeof import("~/lib/screening-metrics")>();
   return { ...module, metrics: vi.fn(module.metrics) };
 });
-import { metrics } from "~/server/quant";
-import { MetricsCache } from "~/server/metrics-cache";
+import { metrics } from "~/lib/screening-metrics";
+import { MetricsCache } from "~/server/screening/metrics-cache";
 import { defaultStrategy, type Snapshot } from "~/lib/domain";
 
 const snapshot: Snapshot = {

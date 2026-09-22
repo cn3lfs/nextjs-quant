@@ -13,17 +13,17 @@ import {
   growthCombinationRules,
   growthFactorMethods,
   rankGrowthFactors,
-} from "../src/server/research-growth-factors";
+} from "../src/server/strategies/canslim/research-growth-factors";
 import {
   request,
   completeFixture,
   alignPrices,
   growthShapedFixture as shaped,
 } from "./helpers/growth-factor-fixture";
-import { runGrowthFactorResearch } from "../src/server/research-run";
-import { researchCanslimCupPoint } from "../src/server/research-canslim-cup";
-import { researchCanslimFlatPoint } from "../src/server/research-canslim-flat";
-import { researchCanslimSaucerPoint } from "../src/server/research-canslim-saucer";
+import { runGrowthFactorResearch } from "../src/server/backtest/research-run";
+import { researchCanslimCupPoint } from "../src/server/strategies/canslim/research-canslim-cup";
+import { researchCanslimFlatPoint } from "../src/server/strategies/canslim/research-canslim-flat";
+import { researchCanslimSaucerPoint } from "../src/server/strategies/canslim/research-canslim-saucer";
 
 const set = (rows: AsOfObservation[], field: string, value: unknown) =>
   rows.map((r) => (r.field === field ? { ...r, value } : r));

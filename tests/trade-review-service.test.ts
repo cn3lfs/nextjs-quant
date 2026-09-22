@@ -4,13 +4,13 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { commitDeliveryImport } from "../src/server/delivery-import-service";
-import { DeliveryStore } from "../src/server/delivery-store";
+import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
+import { DeliveryStore } from "../src/server/portfolio/delivery-store";
 import {
   buildTradeReviewSnapshot,
   exportTradeReview,
   replayTradeReview,
-} from "../src/server/trade-review-service";
+} from "../src/server/portfolio/trade-review-service";
 import type { Snapshot } from "../src/lib/domain";
 import { importDeliveryTable } from "../src/lib/delivery-import";
 import { parseDeliveryTable } from "../src/lib/delivery-table";

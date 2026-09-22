@@ -4,9 +4,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { IndustryRpsStatus } from "../src/components/industry-rps-status";
 import { migrate } from "../src/server/db/migrations";
-import { RpsStore } from "../src/server/rps-store";
-import { runRpsJob } from "../src/server/rps-job";
-import { industryRpsPage } from "../src/server/industry-rps-query";
+import { RpsStore } from "../src/server/screening/rps-store";
+import { runRpsJob } from "../src/server/screening/rps-job";
+import { industryRpsPage } from "../src/server/screening/industry-rps-query";
 import { industrySnapshot, industryDay } from "./industry-rps-fixture";
 import { rpsDate, rpsDay, rpsDeps, rpsProgress } from "./rps-fixture";
 

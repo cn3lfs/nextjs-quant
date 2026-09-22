@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { themePriceEvidence } from "~/server/theme-price-explanation";
-import { sectorPriceMetrics } from "~/server/sector-price-metrics";
-import { evidenceEnvelope } from "~/server/evidence";
-import type { ThemePrices } from "~/server/theme-prices";
-import type { NewsThemesReport } from "~/server/news-themes";
+import { themePriceEvidence } from "~/server/news/theme-price-explanation";
+import { sectorPriceMetrics } from "~/server/market/sector-price-metrics";
+import { evidenceEnvelope } from "~/server/infra/evidence";
+import type { ThemePrices } from "~/server/news/theme-prices";
+import type { NewsThemesReport } from "~/server/news/news-themes";
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const cutoff = Date.parse("2026-09-08T16:00:00+08:00");

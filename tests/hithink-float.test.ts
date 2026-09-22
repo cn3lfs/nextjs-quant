@@ -3,7 +3,7 @@ import {
   floatEvidence,
   floatFromEvidence,
   queryFloat,
-} from "../src/server/hithink-float";
+} from "../src/server/data-sources/hithink/hithink-float";
 const raw = {
   status_code: 0,
   datas: [{ 股票代码: "600519.SH", "流通市值[20260908]": 200e8 }],

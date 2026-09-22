@@ -1,7 +1,10 @@
 import { expect, it } from "vitest";
-import { rsAlignmentEvidence } from "../src/server/rs-alignment";
-import { fullRsSnapshot, rankInSnapshot } from "../src/server/hithink-rs";
-import { evidenceEnvelope } from "../src/server/evidence";
+import { rsAlignmentEvidence } from "../src/server/research/rs-alignment";
+import {
+  fullRsSnapshot,
+  rankInSnapshot,
+} from "../src/server/data-sources/hithink/hithink-rs";
+import { evidenceEnvelope } from "../src/server/infra/evidence";
 import type { Snapshot, Evidence } from "../src/lib/domain";
 const source: Snapshot = {
   id: "stock-fixture",

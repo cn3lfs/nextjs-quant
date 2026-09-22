@@ -1,8 +1,8 @@
 import { SignalLedgerControls } from "~/components/signal-ledger-controls";
 import { SignalLedgerView } from "~/components/signal-ledger-view";
 import { sqlite } from "~/server/db";
-import { SignalLedgerStore } from "~/server/signal-ledger-store";
-import { NotificationPolicyStore } from "~/server/notification-policy-store";
+import { SignalLedgerStore } from "~/server/monitoring/signal-ledger-store";
+import { NotificationPolicyStore } from "~/server/infra/notification-policy-store";
 import { connection } from "next/server";
 import { z } from "zod";
 

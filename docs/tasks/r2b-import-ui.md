@@ -4,8 +4,8 @@
 **三份真实文件的端到端导入已跑通**。本任务做**最后一块：tRPC 路由与页面**。
 
 先读 `AGENTS.md`、`docs/conventions.md`（**§4 UI 规范是硬性的**）、
-`docs/invariants.md`，以及 `src/server/trade-review-service.ts`、
-`src/server/delivery-import-service.ts`、`src/server/delivery-store.ts`。
+`docs/invariants.md`，以及 `src/server/portfolio/trade-review-service.ts`、
+`src/server/portfolio/delivery-import-service.ts`、`src/server/portfolio/delivery-store.ts`。
 
 ## 0. 不可越界
 

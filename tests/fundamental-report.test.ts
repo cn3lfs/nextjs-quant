@@ -4,43 +4,48 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 const mocks = vi.hoisted(() => ({ structured: vi.fn(), context: vi.fn() }));
-vi.mock("../src/server/research", async (original) => ({
-  ...(await original<typeof import("../src/server/research")>()),
+vi.mock("../src/server/research/research", async (original) => ({
+  ...(await original<typeof import("../src/server/research/research")>()),
   structured: mocks.structured,
 }));
-vi.mock("../src/server/fundamental-dossier", async (original) => ({
-  ...(await original<typeof import("../src/server/fundamental-dossier")>()),
-  gatherFundamentalContext: mocks.context,
-}));
-import { financeEvidence } from "~/server/hithink-finance";
-import { businessEvidence } from "~/server/hithink-business";
-import { ownershipEvidence } from "~/server/hithink-ownership";
-import { forecastEvidence } from "~/server/hithink-forecast";
-import { macroEvidence } from "~/server/hithink-macro";
-import { solvencyEvidence } from "~/server/hithink-solvency";
-import { incomeScopeEvidence } from "~/server/hithink-income-scope";
-import { capitalEventsEvidence } from "~/server/hithink-capital-events";
-import { fundamentalPrompt } from "~/server/fundamental-prompt";
+vi.mock(
+  "../src/server/strategies/value/fundamental-dossier",
+  async (original) => ({
+    ...(await original<
+      typeof import("../src/server/strategies/value/fundamental-dossier")
+    >()),
+    gatherFundamentalContext: mocks.context,
+  }),
+);
+import { financeEvidence } from "~/server/data-sources/hithink/hithink-finance";
+import { businessEvidence } from "~/server/data-sources/hithink/hithink-business";
+import { ownershipEvidence } from "~/server/data-sources/hithink/hithink-ownership";
+import { forecastEvidence } from "~/server/data-sources/hithink/hithink-forecast";
+import { macroEvidence } from "~/server/data-sources/hithink/hithink-macro";
+import { solvencyEvidence } from "~/server/data-sources/hithink/hithink-solvency";
+import { incomeScopeEvidence } from "~/server/data-sources/hithink/hithink-income-scope";
+import { capitalEventsEvidence } from "~/server/data-sources/hithink/hithink-capital-events";
+import { fundamentalPrompt } from "~/server/strategies/value/fundamental-prompt";
 import {
   financialQuality,
   type FinancialQualityArchive,
-} from "~/server/financial-quality";
+} from "~/server/strategies/value/financial-quality";
 import {
   buildFundamentalDossier,
   fundamentalPrice,
-} from "~/server/fundamental-dossier";
+} from "~/server/strategies/value/fundamental-dossier";
 import {
   valuationMethod,
   valuationMethodFiles,
-} from "~/server/valuation-method";
+} from "~/server/strategies/value/valuation-method";
 import {
   analyzeFundamental,
   fundamentalCitationRules,
   fundamentalReportSchema,
-} from "~/server/fundamental-report";
+} from "~/server/strategies/value/fundamental-report";
 import { createCaller } from "~/server/api/root";
 import { put, get, sqlite } from "~/server/db";
-import { saveValuationScenario } from "~/server/valuation-scenario";
+import { saveValuationScenario } from "~/server/strategies/value/valuation-scenario";
 import type { Job, Snapshot } from "~/lib/domain";
 const now = Date.parse("2026-09-09T10:00:00+08:00"),
   hash = (value: unknown) =>

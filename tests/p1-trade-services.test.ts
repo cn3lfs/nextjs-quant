@@ -7,7 +7,7 @@ const stubs = vi.hoisted(() => ({
   open: vi.fn(),
   positions: vi.fn(),
 }));
-vi.mock("../src/server/mock-trading", () => ({
+vi.mock("../src/server/portfolio/mock/mock-trading", () => ({
   MockTradingAdapter: class {
     constructor(readonly deps: { enabled: () => boolean }) {}
     open() {
@@ -25,16 +25,16 @@ vi.mock("../src/server/mock-trading", () => ({
   },
   reconcilePositions: vi.fn(),
 }));
-vi.mock("../src/server/data-health", () => ({
+vi.mock("../src/server/market/data-health", () => ({
   localCalendarReference: async () => ({
     days: ["2026-09-10", "2026-09-11"],
     source: "controlled-local-calendar",
   }),
 }));
-vi.mock("../src/server/tdx", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx", () => ({
   readSnapshot: async () => ({ bars: [{ date: "2026-09-10", close: 12 }] }),
 }));
-vi.mock("../src/server/tdx-gbbq", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-gbbq", () => ({
   readGbbq: async () => ({
     path: "controlled-gbbq",
     modified: 1,
@@ -53,11 +53,11 @@ import {
   openMockAccount,
   previewMockOrder,
   confirmMockOrder,
-} from "../src/server/mock-trading-service";
+} from "../src/server/portfolio/mock/mock-trading-service";
 import {
   recordLocalTrade,
   tradeDashboard,
-} from "../src/server/trade-ledger-service";
+} from "../src/server/portfolio/trade-ledger-service";
 import { saveSecret, readSecret } from "../src/server/vault";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "p1-services-"));
 const input = () => ({

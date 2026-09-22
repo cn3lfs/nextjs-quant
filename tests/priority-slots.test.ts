@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { PrioritySlots } from "../src/server/priority-slots";
+import { PrioritySlots } from "../src/server/infra/priority-slots";
 it("interactive work overtakes queued batches and release is idempotent", async () => {
   const slots = new PrioritySlots(1),
     release = await slots.acquire();

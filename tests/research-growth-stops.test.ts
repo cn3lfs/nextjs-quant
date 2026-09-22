@@ -9,8 +9,8 @@ import {
   researchManagementSchema,
 } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 it("keeps the contradictory MIN/MAX and CANSLIM pivot formula distinct", () => {
   expect(researchGrowthPivotStop("sepa-pivot-min", 50, 48)).toBeCloseTo(44.16);
   expect(researchGrowthPivotStop("sepa-pivot-max", 50, 48)).toBe(45);

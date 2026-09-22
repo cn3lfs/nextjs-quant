@@ -6,7 +6,7 @@ import {
   macroEvidence,
   queryMacro,
   type MacroProfile,
-} from "~/server/hithink-macro";
+} from "~/server/data-sources/hithink/hithink-macro";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 function raw(profile: MacroProfile = "bond-10y") {
   const d = macroDefinitions[profile];

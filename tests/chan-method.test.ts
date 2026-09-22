@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { chanPassages } from "~/server/chan-method";
+import { chanPassages } from "~/server/strategies/chan/chan-method";
 
 it("binds quotes to the nearest attributed section and keeps verbatim formatting", () => {
   const text =

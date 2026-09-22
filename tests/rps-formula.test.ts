@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 import { evaluateFormula, futureFunctions } from "../src/lib/tdx-formula";
 import { rpsFields } from "../src/lib/tdx-formula-check";
-import { RpsStore } from "../src/server/rps-store";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { migrate } from "../src/server/db/migrations";
 import { rpsBars, rpsDay } from "./rps-fixture";
 

@@ -3,8 +3,8 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as db from "../src/server/db";
-import * as jobs from "../src/server/jobs";
-import { settings, saveSettings } from "../src/server/settings";
+import * as jobs from "../src/server/jobs/jobs";
+import { settings, saveSettings } from "../src/server/infra/settings";
 import {
   researchUsageSchema,
   summarizeResearchUsage,
@@ -15,15 +15,15 @@ import {
   researchUsage,
   usageConfigHash,
   recordedResearchTrials,
-} from "../src/server/research-usage";
+} from "../src/server/research/research-usage";
 import {
   walkForwardJob,
   walkForwardInput,
-} from "../src/server/walk-forward-job";
-import { walkForward } from "../src/server/walk-forward";
+} from "../src/server/backtest/walk-forward-job";
+import { walkForward } from "../src/server/backtest/walk-forward";
 import { defaultStrategy, type Snapshot, type Job } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { ResearchUsagePanel } from "../src/components/research-usage-panel";
 import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";

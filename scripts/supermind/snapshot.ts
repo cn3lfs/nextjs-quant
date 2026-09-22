@@ -6,7 +6,7 @@ import {
   readSupermindSnapshot,
   supermindSnapshotRoot,
   verifySupermindSnapshots,
-} from "../../src/server/research-supermind-store";
+} from "../../src/server/research/research-supermind-store";
 import {
   supermindDatasets,
   type SupermindDataset,

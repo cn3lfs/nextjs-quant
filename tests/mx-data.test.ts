@@ -9,7 +9,7 @@ import {
   mxConnection,
   parseMxResponse,
   queryMxData,
-} from "../src/server/mx-data";
+} from "../src/server/data-sources/mx/mx-data";
 
 const input = {
   kind: "ashare" as const,

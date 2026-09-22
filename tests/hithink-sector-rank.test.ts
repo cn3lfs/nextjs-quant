@@ -4,7 +4,7 @@ import {
   sectorMembershipAudit,
   sectorRankEvidence,
   sectorRankFromEvidence,
-} from "../src/server/hithink-sector-rank";
+} from "../src/server/data-sources/hithink/hithink-sector-rank";
 it("audits price-filter omissions without assuming all returned rows form the full membership", () => {
   const row = (code: string) => ({
     股票代码: code,

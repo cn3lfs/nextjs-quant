@@ -8,21 +8,21 @@ const mocks = vi.hoisted(() => ({
   calendar: vi.fn(),
   analyze: vi.fn(),
 }));
-vi.mock("../src/server/tdx", async (original) => ({
-  ...(await original<typeof import("../src/server/tdx")>()),
+vi.mock("../src/server/data-sources/tdx/tdx", async (original) => ({
+  ...(await original<typeof import("../src/server/data-sources/tdx/tdx")>()),
   readTailSnapshot: mocks.read,
   readHistoricalSnapshot: mocks.historical,
 }));
-vi.mock("../src/server/data-health", async (original) => ({
-  ...(await original<typeof import("../src/server/data-health")>()),
+vi.mock("../src/server/market/data-health", async (original) => ({
+  ...(await original<typeof import("../src/server/market/data-health")>()),
   localCalendarReference: mocks.calendar,
 }));
-vi.mock("../src/server/wyckoff-report", () => ({
+vi.mock("../src/server/strategies/wyckoff/wyckoff-report", () => ({
   analyzeWyckoff: mocks.analyze,
 }));
-import { wyckoffJob } from "~/server/wyckoff-job";
+import { wyckoffJob } from "~/server/strategies/wyckoff/wyckoff-job";
 import { put, get, sqlite } from "~/server/db";
-import { cancelJob } from "~/server/jobs";
+import { cancelJob } from "~/server/jobs/jobs";
 import type { Job } from "~/lib/domain";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-wyckoff-job-"));
 beforeEach(() => {

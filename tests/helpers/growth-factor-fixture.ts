@@ -2,7 +2,7 @@ import type { Bar } from "../../src/lib/domain";
 import {
   buildCanslimAsOfDossier,
   type CanslimAsOfRequest,
-} from "../../src/server/canslim-as-of-dossier";
+} from "../../src/server/strategies/canslim/canslim-as-of-dossier";
 import {
   growthHistorySchema,
   growthCrossSectionSchema,

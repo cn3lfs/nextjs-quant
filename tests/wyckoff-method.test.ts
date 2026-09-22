@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import {
   wyckoffMethod,
   wyckoffMethodFiles,
-} from "../src/server/wyckoff-method";
+} from "../src/server/strategies/wyckoff/wyckoff-method";
 afterEach(() => vi.unstubAllEnvs());
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "quant-wyckoff-method-"));

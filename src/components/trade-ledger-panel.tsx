@@ -15,11 +15,11 @@ import {
 import { useRef, useState, useTransition } from "react";
 import { feeLabel } from "~/lib/trade-ledger";
 import { mockContract, mockMarketLabel } from "~/lib/mock-trading-contract";
-import type { tradeDashboard } from "~/server/trade-ledger-service";
+import type { tradeDashboard } from "~/server/portfolio/trade-ledger-service";
 import type {
   reconcileMock,
   previewMockOrder,
-} from "~/server/mock-trading-service";
+} from "~/server/portfolio/mock/mock-trading-service";
 import {
   readMockDiagnostics,
   readMockMarkets,

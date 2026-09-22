@@ -18,15 +18,15 @@ import { reviewTradeNav } from "../src/lib/trade-review-nav";
 import {
   replayTradeReview,
   buildTradeReviewSnapshot,
-} from "../src/server/trade-review-service";
+} from "../src/server/portfolio/trade-review-service";
 import {
   exportExecutionQuality,
   pageExecutionQuality,
-} from "../src/server/execution-quality-service";
-import { commitDeliveryImport } from "../src/server/delivery-import-service";
+} from "../src/server/portfolio/execution-quality-service";
+import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
 import { migrate } from "../src/server/db/migrations";
 import { ExecutionQualityResults } from "../src/components/execution-quality-results";
-import { readSnapshot } from "../src/server/tdx";
+import { readSnapshot } from "../src/server/data-sources/tdx/tdx";
 
 const date = "2026-01-05";
 const bar = (extra: Partial<Bar> = {}): Bar => ({
@@ -486,7 +486,7 @@ it.runIf(
         ["512100", "2026-04-08", 1, 3.132, 3.145676],
       ] as const;
       const { readTradeReviewSnapshot } =
-        await import("../src/server/trade-review-market");
+        await import("../src/server/portfolio/trade-review-market");
       const shBar = (await readTradeReviewSnapshot(root, "sh113050")).bars.find(
         (b) => b.date === "2025-07-14",
       );

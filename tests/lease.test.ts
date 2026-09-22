@@ -2,9 +2,9 @@ import { it, expect } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acquireScheduler } from "~/server/lease";
+import { acquireScheduler } from "~/server/infra/lease";
 import { get, put } from "~/server/db";
-import { newJob, recoverJobs } from "~/server/jobs";
+import { newJob, recoverJobs } from "~/server/jobs/jobs";
 import type { Job } from "~/lib/domain";
 
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-lease-"));

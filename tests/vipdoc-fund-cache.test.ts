@@ -3,7 +3,7 @@ import { put } from "../src/server/db";
 import {
   publishFullDayPackage,
   readFullDaySnapshot,
-} from "../src/server/tdx-full-day-cache";
+} from "../src/server/data-sources/tdx/tdx-full-day-cache";
 
 it.skipIf(process.platform !== "win32")(
   "旧两位精度基金缓存不可复用，新导入与本地文件精度一致",

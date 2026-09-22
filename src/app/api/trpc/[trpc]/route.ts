@@ -2,7 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { NextRequest } from "next/server";
 import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
-import { trustedRequest } from "~/server/access";
+import { trustedRequest } from "~/server/infra/access";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 async function handler(req: NextRequest) {

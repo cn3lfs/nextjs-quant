@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   summarizePool,
   type PoolObservation,
-} from "../src/server/pool-context";
+} from "../src/server/market/pool-context";
 import { defaultStrategy, type Metrics } from "../src/lib/domain";
 const row = (
   symbol: string,

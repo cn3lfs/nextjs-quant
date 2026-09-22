@@ -4,7 +4,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchManagementSchema } from "../src/lib/research-management";
 
 const dates = Array.from(

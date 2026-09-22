@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
-import { SnapshotSerializer } from "~/server/snapshot-serializer";
+import { SnapshotSerializer } from "~/server/screening/snapshot-serializer";
 import type { Snapshot } from "~/lib/domain";
-import { packScreen, unpackScreen } from "~/server/screen-wire";
+import { packScreen, unpackScreen } from "~/server/screening/screen-wire";
 const source: Snapshot = {
   id: "same-id",
   hash: "same-hash",

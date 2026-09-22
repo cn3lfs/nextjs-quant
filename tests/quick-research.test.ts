@@ -1,4 +1,4 @@
-vi.mock("../src/server/cls-news", () => ({
+vi.mock("../src/server/data-sources/cls/cls-news", () => ({
   sharedNewsEvidence: vi.fn(() => []),
 }));
 import { beforeEach, expect, it, vi } from "vitest";
@@ -40,16 +40,18 @@ function sharedBackground() {
     },
   };
 }
-vi.mock("../src/server/gf-windmill", () => ({
+vi.mock("../src/server/data-sources/gf/gf-windmill", () => ({
   sharedWindmillContext: mocks.windmill,
 }));
-vi.mock("../src/server/local-llm", () => ({ localCompletion: mocks.local }));
+vi.mock("../src/server/infra/local-llm", () => ({
+  localCompletion: mocks.local,
+}));
 vi.mock("openai", () => ({
   default: class {
     chat = { completions: { create: mocks.paid } };
   },
 }));
-vi.mock("../src/server/market-data", () => ({
+vi.mock("../src/server/research/gather-evidence", () => ({
   gatherEvidence: async (s: { symbol: string }) => [
     {
       id: `E-${s.symbol}`,
@@ -73,9 +75,11 @@ vi.mock("../src/server/market-data", () => ({
       : []),
   ],
 }));
-vi.mock("../src/server/research-skills", async (importOriginal) => {
+vi.mock("../src/server/research/research-skills", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../src/server/research-skills")>();
+    await importOriginal<
+      typeof import("../src/server/research/research-skills")
+    >();
   return {
     ...original,
     volumePriceMethod: async () => ({
@@ -90,9 +94,12 @@ vi.mock("../src/server/research-skills", async (importOriginal) => {
     }),
   };
 });
-import { quickResearch, quickReviewSchema } from "../src/server/quick-research";
-import { sharedNewsEvidence } from "../src/server/cls-news";
-import { volumePriceFacts } from "../src/server/research-skills";
+import {
+  quickResearch,
+  quickReviewSchema,
+} from "../src/server/research/quick-research";
+import { sharedNewsEvidence } from "../src/server/data-sources/cls/cls-news";
+import { volumePriceFacts } from "../src/server/research/research-skills";
 import { defaultStrategy, type Snapshot, type Report } from "../src/lib/domain";
 import { sqlite, get, list, put } from "../src/server/db";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-quick-"));

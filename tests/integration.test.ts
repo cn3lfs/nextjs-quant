@@ -3,12 +3,12 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
-import { trustedRequest } from "~/server/access";
-import { normalizeMcpBars } from "~/server/market-data";
+import { trustedRequest } from "~/server/infra/access";
+import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
 import { cleanMcpResult } from "~/server/mcp";
-import { parseBars, parseNames } from "~/server/tdx";
+import { parseBars, parseNames } from "~/server/data-sources/tdx/tdx";
 import { migrate } from "~/server/db/migrations";
-import { backtest } from "~/server/quant";
+import { backtest } from "~/server/backtest/quant";
 import { defaultStrategy, type Bar } from "~/lib/domain";
 describe("HTTP 与数据适配集成", () => {
   it("拒绝非本机 Host、跨站 Origin、缺少客户端头和错误桌面令牌", () => {

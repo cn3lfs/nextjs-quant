@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { canslimRs } from "../src/server/canslim-rs";
-import { evidenceEnvelope } from "../src/server/evidence";
+import { canslimRs } from "../src/server/strategies/canslim/canslim-rs";
+import { evidenceEnvelope } from "../src/server/infra/evidence";
 import type { Snapshot, Evidence } from "../src/lib/domain";
 const stock = {
   id: "s",

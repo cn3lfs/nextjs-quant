@@ -1,9 +1,9 @@
 /** Synthetic UI sample, never a real SH600000 signal or RPS measurement. */
 import { resolve } from "node:path";
 import { sqlite, put } from "../src/server/db";
-import { IntradayStore } from "../src/server/intraday-store";
-import { evaluateIntraday } from "../src/server/intraday-strategy";
-import { analyzeCzsc, closeCzsc } from "../src/server/czsc";
+import { IntradayStore } from "../src/server/monitoring/intraday-store";
+import { evaluateIntraday } from "../src/server/monitoring/intraday-strategy";
+import { analyzeCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
 import { intradayConfigSchema } from "../src/lib/intraday-schedule";
 import valid from "./fixtures/breakout-valid.json";
 

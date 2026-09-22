@@ -1,5 +1,5 @@
 import type { Bar } from "./domain";
-import type { BreakoutPoint } from "../server/breakout";
+import type { BreakoutPoint } from "../server/strategies/breakout/breakout";
 import { ma } from "./indicators";
 import {
   swingMarketIds,

@@ -1,6 +1,6 @@
 "use client";
 import { api } from "~/trpc/react";
-import type { BacktestActions } from "~/server/backtest-actions";
+import type { BacktestActions } from "~/server/backtest/backtest-actions";
 import type { Backtest } from "~/lib/domain";
 import { CashDividendExperiment } from "./cash-dividend-experiment";
 export function BacktestActionsPanel({

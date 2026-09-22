@@ -3,6 +3,7 @@ export {
   hasOneRepresentativePerFamily,
   listStrategyRepresentatives,
   strategyRepresentatives,
+  strategyFamilies,
 } from "./catalog.js";
 export type {
   BacktestEvidence,

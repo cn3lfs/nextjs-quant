@@ -16,8 +16,8 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { atr, rollingHigh } from "../src/lib/indicators";
 
 const dates = Array.from({ length: 35 }, (_, i) =>

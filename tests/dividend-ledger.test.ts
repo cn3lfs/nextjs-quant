@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { DividendLedger } from "../src/server/dividend-ledger";
-import { backtest } from "../src/server/quant";
+import { DividendLedger } from "../src/server/backtest/dividend-ledger";
+import { backtest } from "../src/server/backtest/quant";
 import { defaultStrategy } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import type { CashDividendPlan } from "../src/lib/cash-dividends";

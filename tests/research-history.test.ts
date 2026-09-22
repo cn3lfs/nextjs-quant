@@ -4,7 +4,7 @@ const state = vi.hoisted(() => ({
   db: undefined as Database.Database | undefined,
 }));
 vi.mock("../src/server/db", () => ({ sqlite: () => state.db! }));
-import { researchHistory } from "../src/server/research-history";
+import { researchHistory } from "../src/server/research/research-history";
 afterAll(() => state.db?.close());
 
 it("projects bounded summaries for each method without returning full evidence", () => {

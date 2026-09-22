@@ -10,15 +10,16 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readSnapshot, readTailSnapshot, tailCacheStats } from "~/server/tdx";
 import {
-  screenLocal,
-  completedBar,
-  completedBarFilter,
-} from "~/server/screening";
+  readSnapshot,
+  readTailSnapshot,
+  tailCacheStats,
+} from "~/server/data-sources/tdx/tdx";
+import { screenLocal } from "~/server/screening/screening";
+import { completedBar, completedBarFilter } from "~/lib/completed-bars";
 import { defaultStrategy } from "~/lib/domain";
-import { metrics } from "~/server/quant";
-import * as tdx from "~/server/tdx";
+import { metrics } from "~/lib/screening-metrics";
+import * as tdx from "~/server/data-sources/tdx/tdx";
 import { createHash } from "node:crypto";
 function data(count: number, year = 2025) {
   const bytes = Buffer.alloc(count * 32);

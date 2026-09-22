@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { executeMx } from "../src/server/mx-data";
+import { executeMx } from "../src/server/data-sources/mx/mx-data";
 vi.mock("node:fs/promises", () => ({
   readFile: vi
     .fn()

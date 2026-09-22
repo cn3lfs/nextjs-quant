@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { canslimSaucer } from "../src/server/canslim-saucer";
+import { canslimSaucer } from "../src/server/strategies/canslim/canslim-saucer";
 const fixture = (): Snapshot => ({
   id: "test",
   symbol: "sh600519",

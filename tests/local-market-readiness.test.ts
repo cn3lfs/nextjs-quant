@@ -1,10 +1,13 @@
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { localRpsDependencies, runRpsJob } from "../src/server/rps-job";
-import { RpsStore } from "../src/server/rps-store";
+import {
+  localRpsDependencies,
+  runRpsJob,
+} from "../src/server/screening/rps-job";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsProgress } from "./rps-fixture";
-import { scan } from "../src/server/tdx";
+import { scan } from "../src/server/data-sources/tdx/tdx";
 
 it.skipIf(!process.env.QUANT_TDX_AUDIT_ROOT)(
   "real local stock names cover every daily file without excluding instruments",

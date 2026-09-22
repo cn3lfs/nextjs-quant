@@ -62,7 +62,7 @@ import {
   type ChartAdjustment,
 } from "~/lib/chart-adjustment";
 import type { CzscResult } from "~/lib/czsc";
-import type { BreakoutResult } from "~/server/breakout";
+import type { BreakoutResult } from "~/server/strategies/breakout/breakout";
 import { breakoutChartData } from "~/lib/chart-data";
 import { api } from "~/trpc/react";
 import {

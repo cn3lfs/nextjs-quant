@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { researchCanslimVolumeScore } from "../src/server/research-canslim-volume-score";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchCanslimVolumeScore } from "../src/server/strategies/canslim/research-canslim-volume-score";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 const bars = (): Bar[] =>
   Array.from({ length: 80 }, (_, i) => ({

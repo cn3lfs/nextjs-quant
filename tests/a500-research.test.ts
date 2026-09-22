@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { parseResearchBenchmark } from "../src/server/research-dataset";
-import { requireA500Selection } from "../src/server/a500-research";
+import { parseResearchBenchmark } from "../src/server/backtest/research-dataset";
+import { requireA500Selection } from "../src/server/research/a500-research";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 it("ignores unrelated malformed index history while rejecting corruption inside the study warmup", () => {
   const bytes = readFileSync("tests/fixtures/research-index-window.bin");

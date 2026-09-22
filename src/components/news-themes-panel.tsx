@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import type { NewsThemesReport } from "~/server/news-themes";
+import type { NewsThemesReport } from "~/server/news/news-themes";
 import { Button } from "./ui/button";
 import { ThemePricesPanel } from "./theme-prices-panel";
 export function NewsThemesPanel({ id }: { id: string }) {

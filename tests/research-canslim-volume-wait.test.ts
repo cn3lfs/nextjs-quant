@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 
 function fixture(confirm = 72): Bar[] {

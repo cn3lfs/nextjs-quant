@@ -10,7 +10,7 @@ export const walkForwardSchema = z.object({
 });
 export type WalkForwardOptions = z.infer<typeof walkForwardSchema>;
 export type WalkForwardResult = {
-  corporateActions?: import("~/server/backtest-actions").BacktestActions;
+  corporateActions?: import("~/server/backtest/backtest-actions").BacktestActions;
   id?: string;
   createdAt?: number;
   version: "walk-forward-1";

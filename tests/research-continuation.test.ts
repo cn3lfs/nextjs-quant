@@ -7,14 +7,14 @@ import {
   type ContinuationId,
 } from "../src/lib/research-continuation";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { runStrategyResearch } from "../src/server/research-run";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 
 const native = vi.fn(async (): Promise<never> => {

@@ -4,13 +4,13 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { researchPullbackConfirmation } from "../src/lib/research-pullback";
 import { researchBookSellable } from "../src/lib/research-position-book";
 import { projectResearchWeights } from "../src/lib/weight-backtest";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import breakoutFixture from "./fixtures/breakout-valid.json";
 
 const dates = Array.from({ length: 9 }, (_, i) =>

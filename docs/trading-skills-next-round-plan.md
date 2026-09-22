@@ -30,7 +30,7 @@
 
    1. 驱动器只用一个 `baseSpec`（`strategy: "dual-breakout"`）抓一次数据集
       （`scripts/r3-batch-runner.ts:154`、`:243`）。
-   2. `src/server/research-dataset.ts:213` 的 `const volumeRun = needsVolumeEvidence(spec.strategy)`
+   2. `src/server/backtest/research-dataset.ts:213` 的 `const volumeRun = needsVolumeEvidence(spec.strategy)`
       **只在量价族策略下构建 `eventCoverage`**，否则返回存根
       `{ rows: [], caveat: "非量价研究未生成逐日事件行" }`。实测
       `isVolumeStrategy("dual-breakout") === false`。
@@ -80,14 +80,14 @@
    `tests/research-composite-presets.test.ts:25-32` 已断言 162 项且
    `buildResearchCompositeSpec` 可产出 spec —— 这部分随 e5b9a17 的中途状态带入，
    此前未登记为完成。**剩余缺口是接线**：`researchCompositePresets` 在 `src/` 内除
-   自身文件外无引用，`buildNamedResearchSpec`（`src/server/research-run.ts:145`）
+   自身文件外无引用，`buildNamedResearchSpec`（`src/server/backtest/research-run.ts:145`）
    无调用方，故这 162 项既未被契约套件覆盖、回测驱动也枚举不到。S3 收口即补这一段。
 
    **S3 已完成（`4c4be04`）**，并实测出两个必须带进 S4 的陷阱：
 
    1. `researchSpecSchema.parse({strategy: presetId})` **抛 `invalid_enum_value`** ——
       preset id 不在 strategy 枚举里，唯一正确入口是 `buildNamedResearchSpec`
-      （`src/server/research-run.ts:154`）或 `researchNamedRunSpecs`（同文件 :165）。
+      （`src/server/backtest/research-run.ts:154`）或 `researchNamedRunSpecs`（同文件 :165）。
    2. 展开后 161 项 `spec.strategy` 回落为 `dual-breakout`、1 项
       （`RK-F-no-single-stop`）回落为 `boll-band-recovery`。**凡按 `spec.strategy`
       做结果键的地方都会把 162 个组件塌缩成一行**，并据此得出「组件无效果」的
@@ -115,7 +115,7 @@ S2 把主门换成**本地可推导**的 GBBQ 覆盖：价格复权覆盖 + 量�
 `.codex-runs/s2-delivery.md`。
 
 **遗留（必须记住，S4 解读结果时要带上）**：`dataset.actionCoverage` **永远不会是
-`"full"`** —— `src/server/research-dataset.ts:301` 只发 `"partial"`（读到了 GBBQ 源，
+`"full"`** —— `src/server/backtest/research-dataset.ts:301` 只发 `"partial"`（读到了 GBBQ 源，
 但不声称它完整）或 `"missing"`。因此本地 GBBQ 覆盖对「某段前缀无公司行动」只是
 **较强证据，不是证明**：「在一个我们拒绝称之为完整的源里没查到记录」不等于「没
 发生过」。曾尝试对读前缀的策略要求「本地覆盖之外**另需**外部前缀证明」，理由成立
@@ -176,7 +176,7 @@ S2 把主门换成**本地可推导**的 GBBQ 覆盖：价格复权覆盖 + 量�
 ### 2.4 成本模型：预设成本是双峰的（更正管理者的采样偏差）
 
 管理者曾用 4 个归档估出「7.75 分钟/预设」——**该估计有采样偏差**，那 4 个恰好全落在
-`analyzeBreakout`（`src/server/breakout.ts:241` 的 `for (let j = start + 20; j < i; j++)`
+`analyzeBreakout`（`src/server/strategies/breakout/breakout.ts:241` 的 `for (let j = start + 20; j < i; j++)`
 O(bars²) 内层循环）慢类。实测分布：
 
 - B3 的 252 个预设中**只有 23 个**属慢类（`isBreakoutRule` 的 22 个 + `dual-breakout`），
@@ -248,7 +248,7 @@ balance 5.27× / 冻结载荷 6.42×**；按 ~5.5× 计约 **165 MB、3–4 天*
 **这是本项目至今最实质的一处正确性缺陷。** 由 SuperMind 指标交叉验证独立发现，
 管理者逐环复核确认。**用户裁定：修 + 重跑。**
 
-**机制**：`src/server/tdx-gbbq.ts:284-327` 的 `adjustmentFactors` 把所有
+**机制**：`src/server/data-sources/tdx/tdx-gbbq.ts:284-327` 的 `adjustmentFactors` 把所有
 `category === 1` 且 `bonusRatio > 0` 的事件一律按标准除权公式处理
 （`divisor = 10 + rights + bonus`），**不区分「新发股份摊薄」与「股改对价转让」**。
 后者是**非流通股东把股份转让给流通股东**，总股本不变、不摊薄、交易所不除权。

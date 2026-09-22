@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { canslimStageIds } from "../src/server/canslim-report-schema";
+import { canslimStageIds } from "../src/server/strategies/canslim/canslim-report-schema";
 const state = vi.hoisted(() => ({
   cache: new Map<string, unknown>(),
   calls: 0,
@@ -10,7 +10,7 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.cache.set(id, value),
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: async (_prompt: string, schema: any) => {
     state.calls++;
@@ -37,8 +37,8 @@ vi.mock("../src/server/research", () => ({
 import {
   analyzeCanslimDossier,
   canslimPolicy,
-} from "../src/server/canslim-report";
-import type { buildCanslimDossier } from "../src/server/canslim-dossier";
+} from "../src/server/strategies/canslim/canslim-report";
+import type { buildCanslimDossier } from "../src/server/strategies/canslim/canslim-dossier";
 const dossier = {
   id: "d1",
   evidence: [{ id: "e1", text: "资料" }],

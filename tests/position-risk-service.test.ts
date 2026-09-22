@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   pagePositionRisk,
   positionRiskPageSchema,
-} from "../src/server/position-risk-service";
+} from "../src/server/portfolio/position-risk-service";
 import type { NavDay } from "../src/lib/trade-review-nav";
 import { PositionRiskResults } from "../src/components/position-risk-results";
 vi.mock("../src/components/chart", () => ({

@@ -7,8 +7,8 @@ import {
   compactChanMaMethodPoint,
   chanWolfPoint,
 } from "../src/lib/research-chan-native";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import type { WyckoffStructureInput } from "../src/lib/research-wyckoff";
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({

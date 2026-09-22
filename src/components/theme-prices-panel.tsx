@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import type { ThemePrices } from "~/server/theme-prices";
+import type { ThemePrices } from "~/server/news/theme-prices";
 import { Button } from "./ui/button";
 import { ThemePriceExplanation } from "./theme-price-explanation";
 const pct = (n: number | null) => (n === null ? "缺失" : `${n.toFixed(2)}%`);

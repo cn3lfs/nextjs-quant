@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimTechnical } from "../src/server/canslim-technical";
+import { canslimTechnical } from "../src/server/strategies/canslim/canslim-technical";
 import type { Snapshot } from "../src/lib/domain";
 
 it("joins qualified geometry to its own pivot without inventing market evidence", () => {

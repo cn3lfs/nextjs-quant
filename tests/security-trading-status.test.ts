@@ -3,12 +3,14 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 const mocks = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("../src/server/hithink-context", () => ({ request: mocks.request }));
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: mocks.request,
+}));
 import {
   parseSecurityTradingStatus,
   verifySecurityTradingStatus,
   storedSecurityTradingStatus,
-} from "../src/server/security-trading-status";
+} from "../src/server/market/security-trading-status";
 import { currentTradingStatus } from "../src/lib/security-trading-status";
 import { sqlite } from "../src/server/db";
 import live from "./fixtures/security-status-live.json";

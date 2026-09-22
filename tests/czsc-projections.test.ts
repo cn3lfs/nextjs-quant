@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { decodeCzscNative } from "../src/server/czsc-structures";
+import { decodeCzscNative } from "../src/server/strategies/chan/czsc-structures";
 import {
   projectCzsc,
   closeCzsc,
   analyzeCzsc,
   type CzscProjections,
-} from "../src/server/czsc";
-import { czscNativeOutputs } from "../src/server/czsc-research-structures";
+} from "../src/server/strategies/chan/czsc";
+import { czscNativeOutputs } from "../src/server/strategies/chan/czsc-research-structures";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
 function raw(): CzscProjections {

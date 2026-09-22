@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import superjson from "superjson";
 import { put, get, sqlite } from "../src/server/db";
-import { taskHistory, taskState } from "../src/server/task-history";
+import { taskHistory, taskState } from "../src/server/jobs/task-history";
 import type { Job } from "../src/lib/domain";
 const error = "失败🔬\u0001\n".repeat(1000);
 it("pages every task with bounded previews while preserving complete status and original results", () => {

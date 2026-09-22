@@ -1,6 +1,6 @@
 import type { Bar } from "./domain";
-import type { BreakoutPoint } from "../server/breakout";
-import type { ResearchTrade } from "../server/research-portfolio";
+import type { BreakoutPoint } from "../server/strategies/breakout/breakout";
+import type { ResearchTrade } from "../server/backtest/research-portfolio";
 
 export function crowdedStop(
   point: BreakoutPoint | null,

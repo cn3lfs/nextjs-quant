@@ -7,7 +7,7 @@ import {
   swingMarketIds,
   type SwingMarketEvidence,
 } from "../src/lib/research-swing-market";
-import { analyzeBreakout } from "../src/server/breakout";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 const market = Object.fromEntries(
   swingMarketIds.map((id) => [id, "bull" as const]),
 );

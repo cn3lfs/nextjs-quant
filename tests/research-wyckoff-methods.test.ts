@@ -2,7 +2,7 @@ import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidenc
 import { expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "../src/server/db/migrations";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import type { Bar } from "../src/lib/domain";
 import type { WyckoffHourlyInput } from "../src/lib/research-wyckoff-hourly";
 import {
@@ -11,14 +11,14 @@ import {
   wyckoffScore,
   type WyckoffStructureInput,
 } from "../src/lib/research-wyckoff";
-import { researchWyckoffStructureSeries as series } from "../src/server/research-structure-weekly";
+import { researchWyckoffStructureSeries as series } from "../src/server/strategies/shared/research-structure-weekly";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 function fixture(): Bar[] {
   const anchors = [
     [0, 80],

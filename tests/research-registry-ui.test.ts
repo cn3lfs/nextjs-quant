@@ -20,7 +20,7 @@ import {
   researchStrategyIds,
 } from "../src/lib/research-strategies";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { migrate } from "../src/server/db/migrations";
 
 const db = new Database(":memory:");

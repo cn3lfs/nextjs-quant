@@ -5,8 +5,8 @@ import {
   evaluateRiskExtension,
 } from "../src/lib/research-risk-extensions";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 it("protective put pays only intrinsic at expiry and includes premium and fees", () => {
   const v = evaluateRiskExtension(riskExtensionTemplate("protective-put"));
   expect(v).toMatchObject({

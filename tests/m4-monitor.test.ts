@@ -30,36 +30,38 @@ vi.mock("../src/server/vault", () => ({
   readSecret: mocks.secret,
   saveSecret: vi.fn(),
 }));
-vi.mock("../src/server/czsc", () => ({ analyzeCzsc: mocks.engine }));
-vi.mock("../src/server/jobs", async (original) => ({
-  ...(await original<typeof import("../src/server/jobs")>()),
+vi.mock("../src/server/strategies/chan/czsc", () => ({
+  analyzeCzsc: mocks.engine,
+}));
+vi.mock("../src/server/jobs/jobs", async (original) => ({
+  ...(await original<typeof import("../src/server/jobs/jobs")>()),
   runWorker: mocks.worker,
   background: mocks.background,
 }));
-vi.mock("../src/server/research", async (original) => ({
-  ...(await original<typeof import("../src/server/research")>()),
+vi.mock("../src/server/research/research", async (original) => ({
+  ...(await original<typeof import("../src/server/research/research")>()),
   structured: mocks.structured,
 }));
-vi.mock("../src/server/monitor-calendar", () => ({
+vi.mock("../src/server/monitoring/monitor-calendar", () => ({
   monitorCalendar: mocks.calendar,
 }));
-vi.mock("../src/server/security-trading-status", () => ({
+vi.mock("../src/server/market/security-trading-status", () => ({
   verifySecurityTradingStatus: mocks.status,
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityDirectory: async () => ({ entries: {} }),
   securityLabel: (s: string) => s.toUpperCase(),
 }));
-vi.mock("../src/server/news-scheduler", () => ({ scheduleNews: vi.fn() }));
+vi.mock("../src/server/news/news-scheduler", () => ({ scheduleNews: vi.fn() }));
 import { tick } from "../src/server/runtime";
 import {
   drain,
   notificationRequest,
   SendError,
-} from "../src/server/notifications";
+} from "../src/server/infra/notifications";
 import { get, list, put, sqlite } from "../src/server/db";
-import { chanMethod } from "../src/server/chan-method";
-import { analyzeCzscSignal } from "../src/server/czsc-signal-analysis";
+import { chanMethod } from "../src/server/strategies/chan/chan-method";
+import { analyzeCzscSignal } from "../src/server/strategies/chan/czsc-signal-analysis";
 import breakoutFixture from "./fixtures/breakout-valid.json";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-m4-"));
 const today = "2026-09-09";

@@ -12,7 +12,7 @@
 
 ## 0. 不可越界
 
-- 不改 `src/server/delivery-store.ts`、`delivery-import-service.ts`、
+- 不改 `src/server/portfolio/delivery-store.ts`、`delivery-import-service.ts`、
   `tests/delivery-store.test.ts` 的**对外行为**（R2 已验收）。
   若你的改动导致它们的测试失败，说明改错了方向，先报告再动。
 - 不改 `src/server/mcp.ts`；不改已有迁移；不 commit / push / 打包；不新增依赖。

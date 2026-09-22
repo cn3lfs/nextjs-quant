@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { canslimFollowThrough } from "../src/server/canslim-follow-through";
+import { canslimFollowThrough } from "../src/server/strategies/canslim/canslim-follow-through";
 const fixture = (): Snapshot => ({
   id: "follow",
   hash: "hash",

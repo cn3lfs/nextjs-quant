@@ -3,7 +3,7 @@ import {
   chanCitationRules,
   chanReportSchema,
   chanStageIds,
-} from "~/server/chan-report-schema";
+} from "~/server/strategies/chan/chan-report-schema";
 const files = [
   "02-morphology.md",
   "03-center-and-trend.md",

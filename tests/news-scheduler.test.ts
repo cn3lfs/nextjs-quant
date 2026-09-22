@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
   read: vi.fn(),
   tasks: [] as Promise<unknown>[],
 }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ autoNewsAnalysis: state.enabled, clsDbPath: "fixture" }),
 }));
 vi.mock("../src/server/db", () => ({
@@ -16,13 +16,17 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, key: string, value: unknown) =>
     state.records.set(key, value),
 }));
-vi.mock("../src/server/news-analysis", () => ({ analyzeNews: state.analyze }));
-vi.mock("../src/server/news-budget", () => ({
+vi.mock("../src/server/news/news-analysis", () => ({
+  analyzeNews: state.analyze,
+}));
+vi.mock("../src/server/news/news-budget", () => ({
   newsBudget: () => ({ exhausted: state.exhausted, resetAt: 86400000 }),
   reserveNewsBatch: vi.fn(),
 }));
-vi.mock("../src/server/cls-news", () => ({ readClsNews: state.read }));
-vi.mock("../src/server/jobs", () => ({
+vi.mock("../src/server/data-sources/cls/cls-news", () => ({
+  readClsNews: state.read,
+}));
+vi.mock("../src/server/jobs/jobs", () => ({
   updateJob: vi.fn(),
   background: (
     _kind: string,
@@ -39,7 +43,7 @@ vi.mock("../src/server/jobs", () => ({
     return { id: "job" };
   },
 }));
-import { scheduleNews } from "../src/server/news-scheduler";
+import { scheduleNews } from "../src/server/news/news-scheduler";
 beforeEach(() => {
   state.enabled = true;
   state.cancelBeforeStart = false;

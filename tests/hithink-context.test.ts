@@ -1,6 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { contextEvidence, request } from "../src/server/hithink-context";
-import { validateHithinkColumns } from "../src/server/hithink-columns";
+import {
+  contextEvidence,
+  request,
+} from "../src/server/data-sources/hithink/hithink-context";
+import { validateHithinkColumns } from "../src/server/data-sources/hithink/hithink-columns";
 const response = {
   status_code: 0,
   token: "private",

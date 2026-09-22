@@ -2,7 +2,7 @@ import {
   disciplineNotice,
   disciplineScope,
 } from "~/lib/discipline-counterfactual";
-import type { disciplineStatus } from "~/server/discipline-service";
+import type { disciplineStatus } from "~/server/portfolio/discipline-service";
 import { DataTable, type DataTableColumn } from "./ui/data-table";
 
 export type DisciplinePage = ReturnType<typeof disciplineStatus>;

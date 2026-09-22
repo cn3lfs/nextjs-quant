@@ -60,7 +60,7 @@ CREATE INDEX cash_flows_batch ON cash_flows(batch_id);
 `symbol` 必须可空——这是 R1 已确立的语义（非沪深北品种计入资金、不进个股分析）。
 不要为了"整齐"给它 NOT NULL 或填空串。
 
-### 1.2 `src/server/delivery-store.ts`
+### 1.2 `src/server/portfolio/delivery-store.ts`
 
 导出 `class DeliveryStore { constructor(readonly db: Database.Database) }`，
 构造只接收连接，不自己打开数据库（与 `TradeLedgerStore`、`RpsStore` 一致）。
@@ -86,7 +86,7 @@ CREATE INDEX cash_flows_batch ON cash_flows(batch_id);
    `unresolved` 明细、解析统计。**账号列必须已被 `redactRow` 替换为 `***`**，
    真实账号不得进入任何一张表。
 
-### 1.3 `src/server/delivery-import-service.ts`
+### 1.3 `src/server/portfolio/delivery-import-service.ts`
 
 - `previewDeliveryImport(bytes: Uint8Array, options)` → 解析 + 逐行定状态
   （`new` / `duplicate` / `conflict`），**绝不写库**。返回给 UI 的摘要必须包含：

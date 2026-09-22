@@ -1,13 +1,13 @@
 import Database from "better-sqlite3";
 import { afterEach, expect, it, vi } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { ResearchAttempts } from "../src/server/research-governance";
+import { ResearchAttempts } from "../src/server/research/research-governance";
 import {
   ResearchStore,
   type ResearchResult,
-} from "../src/server/research-store";
+} from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 
 const connections: Database.Database[] = [];
 function setup() {

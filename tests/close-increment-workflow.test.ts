@@ -2,11 +2,11 @@ import { expect, it, vi, afterEach } from "vitest";
 import {
   checkIncrementCoverage,
   runCloseIncrementWorkflow,
-} from "../src/server/close-increment-workflow";
-import * as observations from "../src/server/rps-observation";
-import * as increments from "../src/server/tdx-increment-job";
-import * as tdx from "../src/server/tdx";
-import { settings } from "../src/server/settings";
+} from "../src/server/jobs/close-increment-workflow";
+import * as observations from "../src/server/screening/rps-observation";
+import * as increments from "../src/server/data-sources/tdx/tdx-increment-job";
+import * as tdx from "../src/server/data-sources/tdx/tdx";
+import { settings } from "../src/server/infra/settings";
 afterEach(() => vi.restoreAllMocks());
 
 it("reuses a published close before reading securities or downloading again", async () => {
@@ -31,8 +31,8 @@ it("reuses a published close before reading securities or downloading again", as
   expect(download).not.toHaveBeenCalled();
   expect(names).not.toHaveBeenCalled();
 });
-import type { IncrementJob } from "../src/server/tdx-increment-job";
-import type { DailyIncrementSnapshot } from "../src/server/tdx-daily-cache";
+import type { IncrementJob } from "../src/server/data-sources/tdx/tdx-increment-job";
+import type { DailyIncrementSnapshot } from "../src/server/data-sources/tdx/tdx-daily-cache";
 const symbols = Array.from({ length: 10 }, (_, i) => `sh${600000 + i}`);
 const job: IncrementJob = {
   id: "job",

@@ -7,13 +7,13 @@ const { create, localCompletion } = vi.hoisted(() => ({
   create: vi.fn(),
   localCompletion: vi.fn(),
 }));
-vi.mock("~/server/local-llm", () => ({ localCompletion }));
+vi.mock("~/server/infra/local-llm", () => ({ localCompletion }));
 vi.mock("openai", () => ({
   default: class {
     chat = { completions: { create } };
   },
 }));
-import { structured, analyze, researchModel } from "~/server/research";
+import { structured, analyze, researchModel } from "~/server/research/research";
 import { get, list, sqlite, put } from "~/server/db";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-research-tests-"),

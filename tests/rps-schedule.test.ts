@@ -1,7 +1,10 @@
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { put, sqlite } from "../src/server/db";
-import { RpsWorkerClient, scheduleRps } from "../src/server/rps-client";
-import { RpsStore } from "../src/server/rps-store";
+import {
+  RpsWorkerClient,
+  scheduleRps,
+} from "../src/server/screening/rps-client";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsDate, rpsDay, rpsProgress } from "./rps-fixture";
 import type { RpsProgress } from "../src/lib/rps";
 

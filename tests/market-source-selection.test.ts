@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { put } from "../src/server/db";
-import { chartBars, chartBarsInput } from "../src/server/chart-bars";
+import { chartBars, chartBarsInput } from "../src/server/charts/chart-bars";
 import { marketSourceSchema } from "../src/lib/market-source";
 import { settingsSchema, type Snapshot } from "../src/lib/domain";
 import {
@@ -9,13 +9,13 @@ import {
   mcpConfigured,
   mcpTools,
   importLocalMcp,
-} from "../src/server/tdx-mcp-disabled";
+} from "../src/server/data-sources/tdx/tdx-mcp-disabled";
 const deps = vi.hoisted(() => ({ remote: vi.fn(), local: vi.fn() }));
-vi.mock("../src/server/free-chart-sources", () => ({
+vi.mock("../src/server/market/free-chart-sources", () => ({
   freeChartHistory: deps.remote,
 }));
-vi.mock("../src/server/tdx", async (original) => ({
-  ...(await original<typeof import("../src/server/tdx")>()),
+vi.mock("../src/server/data-sources/tdx/tdx", async (original) => ({
+  ...(await original<typeof import("../src/server/data-sources/tdx/tdx")>()),
   readSnapshot: deps.local,
 }));
 const bar = {
@@ -113,12 +113,20 @@ it("blocks every MCP entry without network access or credential reads", async ()
   expect(fetch).not.toHaveBeenCalled();
   fetch.mockRestore();
 });
+const liveMcpImport = /from ["'](?:(?:\.\.?\/)+mcp|~\/server\/mcp)["']/;
+it("recognizes disabled MCP bypasses at nested service paths", () => {
+  for (const path of ["./mcp", "../mcp", "../../mcp", "~/server/mcp"])
+    expect(`import { queryMcp } from "${path}";`).toMatch(liveMcpImport);
+  expect('import { queryMcp } from "./tdx-mcp-disabled";').not.toMatch(
+    liveMcpImport,
+  );
+});
 it("disconnects original MCP imports and preserves selectable source wiring", () => {
-  for (const file of readdirSync("src/server").filter(
-    (f) => f.endsWith(".ts") && f !== "tdx-mcp-disabled.ts",
-  ))
+  for (const file of readdirSync("src/server", { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith(".ts") && f !== "tdx-mcp-disabled.ts"))
     expect(readFileSync(`src/server/${file}`, "utf8")).not.toMatch(
-      /from ["']\.\/mcp["']/,
+      liveMcpImport,
     );
   const market = readFileSync(
     "src/components/workbench/market-view.tsx",

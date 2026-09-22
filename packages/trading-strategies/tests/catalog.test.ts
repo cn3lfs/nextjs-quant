@@ -30,8 +30,27 @@ describe("strategy representative catalog", () => {
     }
   });
 
+  it("rejects missing and duplicate families", () => {
+    const items = listStrategyRepresentatives();
+    expect(hasOneRepresentativePerFamily(items.slice(1))).toBe(false);
+    expect(hasOneRepresentativePerFamily([...items.slice(1), items[1]!])).toBe(
+      false,
+    );
+    expect(items.map((item) => item.family).sort()).toEqual([
+      "breakout",
+      "chan",
+      "growth",
+      "indicator-confluence",
+      "industry-chain",
+      "sentiment",
+      "value",
+      "volume-price",
+      "wyckoff",
+    ]);
+  });
+
   it("resolves a representative by stable package id", () => {
-    expect(findStrategyRepresentative("chan")?.representativePreset).toBe(
+    expect(findStrategyRepresentative("chan")?.presetId).toBe(
       "chan-third-native",
     );
     expect(findStrategyRepresentative("missing")).toBeUndefined();

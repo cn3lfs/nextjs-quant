@@ -9,7 +9,7 @@ PSR 出自同作者 *The Sharpe Ratio Efficient Frontier*（2012）。
 
 ## 1. 问题
 
-`src/server/walk-forward.ts:62` 起，每个 fold 做的事是：
+`src/server/backtest/walk-forward.ts:62` 起，每个 fold 做的事是：
 
 1. 在训练段对 `walkForwardCandidates(base)` 产生的 N 个候选各跑一次 `backtest`
 2. 按训练净收益排序取第一名
@@ -72,7 +72,7 @@ SR₀ = √V[SR] · [ (1−γ)·Φ⁻¹(1 − 1/N) + γ·Φ⁻¹(1 − 1/(N·e))
 
 ### 2.2 候选试验矩阵
 
-`src/server/walk-forward.ts` 新增导出 `candidateTrialMatrix(source, base, initial, costs, options)`：
+`src/server/backtest/walk-forward.ts` 新增导出 `candidateTrialMatrix(source, base, initial, costs, options)`：
 
 - 候选**必须**来自现有 `walkForwardCandidates(base)`，不得另写一套生成逻辑
 - 每个候选在**同一评估窗口、同一预热 `warmupBars`、同一 costs** 下跑一次 `backtest`

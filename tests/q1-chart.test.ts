@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import Database from "better-sqlite3";
 import type { Snapshot } from "../src/lib/domain";
-import { monthlyBars } from "../src/server/monthly-bars";
-import { weeklyBars } from "../src/server/weekly-bars";
-import { ChartViewStore } from "../src/server/chart-view-store";
+import { monthlyBars } from "../src/server/market/monthly-bars";
+import { weeklyBars } from "../src/server/market/weekly-bars";
+import { ChartViewStore } from "../src/server/charts/chart-view-store";
 import { migrate } from "../src/server/db/migrations";
 import {
   chartCost,

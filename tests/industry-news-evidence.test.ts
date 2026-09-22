@@ -5,8 +5,8 @@ const state = vi.hoisted(() => ({
   db: undefined as Database.Database | undefined,
 }));
 vi.mock("../src/server/db", () => ({ sqlite: () => state.db! }));
-import { industryNewsEvidence } from "../src/server/industry-news-evidence";
-import { contextEvidence } from "../src/server/hithink-context";
+import { industryNewsEvidence } from "../src/server/research/industry-news-evidence";
+import { contextEvidence } from "../src/server/data-sources/hithink/hithink-context";
 const now = Date.parse("2026-09-08T12:00:00Z");
 const source = { symbol: "sh600519" } as Snapshot;
 function basic(symbol = "sh600519", industry = "食品饮料") {

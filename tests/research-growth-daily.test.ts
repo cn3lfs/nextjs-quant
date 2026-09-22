@@ -13,8 +13,8 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { researchManagementSchema } from "../src/lib/research-management";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
 function setup(id: GrowthDailyId) {
   const bars = Array.from({ length: 50 }, (_, i) => ({

@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import type { Bar, Snapshot } from "~/lib/domain";
-import { researchStructureWeekly } from "~/server/research-structure-weekly";
+import { researchStructureWeekly } from "~/server/strategies/shared/research-structure-weekly";
 import {
   researchStructureRs,
   type StructureBenchmark,
-} from "~/server/research-structure-rs";
+} from "~/server/strategies/shared/research-structure-rs";
 import {
   researchStructureTargets,
   structurePfColumns,

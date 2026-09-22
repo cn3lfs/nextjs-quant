@@ -3,15 +3,15 @@ import { build } from "esbuild";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import Database from "better-sqlite3";
-import { closeCzsc } from "../src/server/czsc";
+import { closeCzsc } from "../src/server/strategies/chan/czsc";
 import { migrate } from "../src/server/db/migrations";
-import { SignalLedgerStore } from "../src/server/signal-ledger-store";
-import { SignalLedgerWorker } from "../src/server/signal-ledger-client";
+import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerWorker } from "../src/server/monitoring/signal-ledger-client";
 import valid from "./fixtures/breakout-valid.json";
 
 it("resident ledger worker reports progress while the caller ticks, cancels and accepts another job", async () => {
   await build({
-    entryPoints: ["src/server/signal-ledger-worker.ts"],
+    entryPoints: ["src/server/monitoring/signal-ledger-worker.ts"],
     outfile: "runtime/signal-ledger-worker.cjs",
     bundle: true,
     platform: "node",

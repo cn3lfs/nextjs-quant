@@ -6,12 +6,12 @@ import { build } from "esbuild";
 import { expect, it } from "vitest";
 import valid from "./fixtures/breakout-valid.json";
 import { migrate } from "../src/server/db/migrations";
-import { RpsStore } from "../src/server/rps-store";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsDay } from "./rps-fixture";
 import { intradayConfigSchema } from "../src/lib/intraday-schedule";
 import { previewSlots } from "../src/lib/intraday-preview";
-import { projectCzsc, closeCzsc } from "../src/server/czsc";
-import { IntradayStore } from "../src/server/intraday-store";
+import { projectCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
+import { IntradayStore } from "../src/server/monitoring/intraday-store";
 
 it("runs captured intraday signals through the actual worker and host DLL queue, then confirms at close", async () => {
   await mkdir(".test-data", { recursive: true });
@@ -80,7 +80,7 @@ it("runs captured intraday signals through the actual worker and host DLL queue,
       const path = join(directory, `worker-${time.replace(":", "")}.cjs`);
       const now = Date.parse(`${today.date}T${time}:01+08:00`);
       await build({
-        entryPoints: ["src/server/intraday-worker.ts"],
+        entryPoints: ["src/server/monitoring/intraday-worker.ts"],
         outfile: path,
         bundle: true,
         platform: "node",

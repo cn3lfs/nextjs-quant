@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import { researchTechnicalSeries } from "../src/lib/research-technical";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import {
   externalFormulaIds,

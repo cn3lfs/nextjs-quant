@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import {
   downloadDailyIncrement,
   extractDailyIncrement,
-} from "../src/server/tdx-increment-download";
+} from "../src/server/data-sources/tdx/tdx-increment-download";
 import { readFileSync } from "node:fs";
 
 it.skipIf(process.platform !== "win32")(

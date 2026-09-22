@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimBuyback } from "../src/server/canslim-buyback";
+import { canslimBuyback } from "../src/server/strategies/canslim/canslim-buyback";
 const row = () => ({
   股票代码: "600519.SH",
   预案公告日: "20250101",

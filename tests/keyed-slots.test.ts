@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { keyedSlots } from "../src/server/keyed-slots";
+import { keyedSlots } from "../src/server/infra/keyed-slots";
 
 it("cancellation releases partial claims and later callers can reuse all keys", async () => {
   const claim = keyedSlots();

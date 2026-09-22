@@ -1,8 +1,11 @@
 import { expect, it } from "vitest";
-import { walkForward, walkForwardCandidates } from "../src/server/walk-forward";
+import {
+  walkForward,
+  walkForwardCandidates,
+} from "../src/server/backtest/walk-forward";
 import { defaultStrategy, type Snapshot } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
-import { backtest } from "../src/server/quant";
+import { backtest } from "../src/server/backtest/quant";
 const strategy = { ...defaultStrategy, fast: 4, slow: 12 };
 const source: Snapshot = {
   id: "wf-fixture",
@@ -133,7 +136,7 @@ it("候选合法去重，拒绝不足数据、分钟线及越过历史截止", (
   ).toThrow("预热");
 });
 it("V1 接入前 summary 数值特征化护栏", () => {
-  // S1 (Big.js money math) recaptured these four fields: src/server/quant.ts
+  // S1 (Big.js money math) recaptured these four fields: src/server/backtest/quant.ts
   // cash/fee arithmetic now runs through src/lib/money.ts instead of plain
   // double +=/-=. Deltas are all at float-epsilon scale from removing
   // accumulated dust across this fold's trade sequence, not a logic change:

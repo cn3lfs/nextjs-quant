@@ -1,5 +1,5 @@
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { expect, it } from "vitest";
 import {
   contextRiskIds,
@@ -13,8 +13,8 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 const dates = Array.from(
   { length: 12 },
   (_, i) => `2021-01-${String(i + 1).padStart(2, "0")}`,

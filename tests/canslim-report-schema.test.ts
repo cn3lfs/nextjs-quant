@@ -3,7 +3,7 @@ import {
   canslimReportSchema,
   canslimStageIds,
   type CanslimStagePolicy,
-} from "../src/server/canslim-report-schema";
+} from "../src/server/strategies/canslim/canslim-report-schema";
 const policy = Object.fromEntries(
   canslimStageIds.map((id) => [
     id,

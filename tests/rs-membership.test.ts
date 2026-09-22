@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { rsMembershipAudit } from "../src/server/rs-membership";
-import { priceRsSnapshot } from "../src/server/price-rs";
+import { rsMembershipAudit } from "../src/server/research/rs-membership";
+import { priceRsSnapshot } from "../src/server/research/price-rs";
 const raw = {
   status_code: 0,
   code_count: 2,

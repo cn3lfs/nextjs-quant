@@ -3,8 +3,8 @@ import {
   evaluateGrowthFactors,
   growthFactorMethods,
   rankGrowthFactors,
-} from "../src/server/research-growth-factors";
-import { runGrowthFactorResearch } from "../src/server/research-run";
+} from "../src/server/strategies/canslim/research-growth-factors";
+import { runGrowthFactorResearch } from "../src/server/backtest/research-run";
 import type { AsOfObservation } from "../src/lib/as-of";
 
 import { request, event, fixture } from "./helpers/growth-factor-fixture";

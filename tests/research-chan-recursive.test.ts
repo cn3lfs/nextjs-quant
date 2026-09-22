@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { chanRecursiveObservations } from "../src/lib/research-chan-recursive";
 import type { CzscRecursive, CzscResult } from "../src/lib/czsc";
 import type { Bar } from "../src/lib/domain";
-import { researchChanZhongyin } from "../src/server/research-chan-zhongyin";
+import { researchChanZhongyin } from "../src/server/strategies/chan/research-chan-zhongyin";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 export const bars: Bar[] = Array.from({ length: 9 }, (_, i) => ({
   date: `2020-01-${String(i + 1).padStart(2, "0")}`,
@@ -278,7 +278,8 @@ it("CH10 five-minute positive path keeps its own named table and freezes intrada
 });
 
 it("research runner forwards five-minute input and explicit anchor to the serial projection callback", async () => {
-  const { runStrategyResearch } = await import("../src/server/research-run");
+  const { runStrategyResearch } =
+    await import("../src/server/backtest/research-run");
   const day = { ...bars[0]!, date: "2020-01-06", volume: 4800, amount: 48000 };
   const minutes = Array.from({ length: 48 }, (_, i) => {
     const m = i < 24 ? 575 + i * 5 : 785 + (i - 24) * 5;
@@ -296,39 +297,40 @@ it("research runner forwards five-minute input and explicit anchor to the serial
     validationStart: "2020-01-07",
     symbols: ["sh600000"],
   });
-  const dataset: import("../src/server/research-dataset").ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "fixture",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: ["sh600000"],
-      source: null,
-      warning: "fixture",
-    },
-    benchmark: { symbol: "sh000001", bars: [day] },
-    calendar: [day.date],
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "fixture",
-        bars: [day],
-        minuteBars: minutes,
-        hash: "fixture",
-        actions: [],
+  const dataset: import("../src/server/backtest/research-dataset").ResearchDataset =
+    {
+      version: "research-dataset-1",
+      source: "tdx-local",
+      root: "fixture",
+      adjustment: "none",
+      membership: {
+        mode: "current-snapshot",
+        symbols: ["sh600000"],
+        source: null,
+        warning: "fixture",
       },
-    ],
-    excluded: [],
-    // A GBBQ source is present but reports zero actions for this synthetic
-    // stock; "missing" would mean no GBBQ source at all, which the coverage
-    // gate in research-adjustment-coverage.ts now correctly excludes every
-    // stock for.
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixture",
-  };
+      benchmark: { symbol: "sh000001", bars: [day] },
+      calendar: [day.date],
+      stocks: [
+        {
+          symbol: "sh600000",
+          name: "fixture",
+          bars: [day],
+          minuteBars: minutes,
+          hash: "fixture",
+          actions: [],
+        },
+      ],
+      excluded: [],
+      // A GBBQ source is present but reports zero actions for this synthetic
+      // stock; "missing" would mean no GBBQ source at all, which the coverage
+      // gate in research-adjustment-coverage.ts now correctly excludes every
+      // stock for.
+      actionCoverage: "partial",
+      actionSource: { path: "fixture", modified: 0 },
+      capturedAt: 0,
+      hash: "fixture",
+    };
   let calls = 0;
   const output = await runStrategyResearch(
     request,

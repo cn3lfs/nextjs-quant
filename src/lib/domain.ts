@@ -200,7 +200,7 @@ export type Channel = Omit<
   "secret" | "signingSecret" | "id"
 > & { id: string; configured: boolean };
 export type Signal = {
-  breakout?: import("../server/breakout").BreakoutResult;
+  breakout?: import("../server/strategies/breakout/breakout").BreakoutResult;
   czsc?: import("./czsc").CzscSignalDetails;
   monitorRun?: { createdAt: number; revision: string | null };
   tradingStatusEvidence?: SecurityTradingStatus;
@@ -297,12 +297,12 @@ export type Trade = {
 };
 export type Backtest = {
   adjustment?: import("./research-adjustment").ResearchAdjustment;
-  signalAdjustment?: import("~/server/cash-adjusted-signals").CashSignalAdjustment;
+  signalAdjustment?: import("~/server/backtest/cash-adjusted-signals").CashSignalAdjustment;
   dividends?: {
-    strategy: import("~/server/dividend-ledger").DividendLedgerResult;
-    benchmark: import("~/server/dividend-ledger").DividendLedgerResult;
+    strategy: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
+    benchmark: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
   };
-  corporateActions?: import("~/server/backtest-actions").BacktestActions;
+  corporateActions?: import("~/server/backtest/backtest-actions").BacktestActions;
   benchmark?: {
     version: "buy-hold-1" | "buy-hold-2";
     label: string;

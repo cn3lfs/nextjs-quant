@@ -8,13 +8,13 @@ import { migrate } from "../src/server/db/migrations";
 import {
   previewDeliveryImport,
   commitDeliveryImport,
-} from "../src/server/delivery-import-service";
+} from "../src/server/portfolio/delivery-import-service";
 import { TradeReviewPreview } from "../src/components/trade-review-import";
 import {
   TradeReviewCaveats,
   TradeReviewResults,
 } from "../src/components/trade-review-results";
-import { replayTradeReview } from "../src/server/trade-review-service";
+import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
 const dbs: Database.Database[] = [];
 it.each(["explicit", "previousClose"] as const)(
   "R7/W4 页面展示连续段TWR、起止日期与 %s 模式说明",

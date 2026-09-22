@@ -1,13 +1,13 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { researchRuleSeries } from "../src/server/research-rule-series";
-import { researchCanslimMarketCombination } from "../src/server/research-canslim-market-combination";
-import { researchCanslimPriorityPoint } from "../src/server/research-canslim-priority";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
+import { researchCanslimMarketCombination } from "../src/server/strategies/canslim/research-canslim-market-combination";
+import { researchCanslimPriorityPoint } from "../src/server/strategies/canslim/research-canslim-priority";
 import { canslimMarketCombinationIds } from "../src/lib/research-canslim-market-strategies";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 function fixture() {
   const bars: Bar[] = Array.from({ length: 290 }, (_, i) => ({

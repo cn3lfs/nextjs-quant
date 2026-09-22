@@ -3,7 +3,7 @@ import {
   screenDataHealth,
   localCalendarReference,
   requireCurrentScreen,
-} from "../src/server/data-health";
+} from "../src/server/market/data-health";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

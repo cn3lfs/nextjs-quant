@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   evaluateGrowthFactors,
   rankGrowthFactors,
-} from "../src/server/research-growth-factors";
+} from "../src/server/strategies/canslim/research-growth-factors";
 import {
   valueFactorRules,
   valueThesisMetrics,

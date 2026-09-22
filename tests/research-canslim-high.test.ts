@@ -4,11 +4,11 @@ import {
   canslimHighIds,
   canslimHighWarmupStart,
 } from "../src/lib/research-canslim-strategies";
-import { researchCanslimHighSeries } from "../src/server/research-canslim-high";
+import { researchCanslimHighSeries } from "../src/server/strategies/canslim/research-canslim-high";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 
 const bars = (): Bar[] =>

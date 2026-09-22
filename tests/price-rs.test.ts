@@ -8,13 +8,15 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.records.set(id, value),
 }));
-vi.mock("../src/server/hithink-context", () => ({ request: state.request }));
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: state.request,
+}));
 import {
   priceRsSnapshot,
   priceRsEvidence,
   queryPriceRsEvidence,
-} from "../src/server/price-rs";
-import { exportRsArchive } from "../src/server/rs-export";
+} from "../src/server/research/price-rs";
+import { exportRsArchive } from "../src/server/research/rs-export";
 import type { Snapshot } from "../src/lib/domain";
 const start = "20260101",
   end = "20260302",

@@ -21,7 +21,7 @@ import {
   listSupermindCaptures,
   readSupermindSnapshot,
   verifySupermindSnapshots,
-} from "../src/server/research-supermind-store";
+} from "../src/server/research/research-supermind-store";
 
 const disclosure = (overrides: Partial<SupermindDisclosureRaw> = {}) =>
   ({

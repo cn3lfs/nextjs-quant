@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { parseCanslimMarket } from "../src/server/canslim-market-data";
+import { parseCanslimMarket } from "../src/server/strategies/canslim/canslim-market-data";
 const day = (date = "2025-01-02", symbol = "sh000300") => ({
   symbol,
   date,

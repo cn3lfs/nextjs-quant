@@ -1,12 +1,15 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { TDX_HOSTS, TdxSession } from "../src/server/tdx-quotes";
+import {
+  TDX_HOSTS,
+  TdxSession,
+} from "../src/server/data-sources/tdx/tdx-quotes";
 import {
   buildBarsRequest,
   parseBars,
   buildQuotesRequest,
   parseQuotes,
-} from "../src/server/tdx-wire";
+} from "../src/server/data-sources/tdx/tdx-wire";
 
 // Explicit opt-in: TCP/handshake success is not a successful market-data read.
 it.skipIf(process.env.QUANT_TSTDX_ACCEPTANCE !== "1")(

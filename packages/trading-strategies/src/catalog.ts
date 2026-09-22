@@ -1,13 +1,15 @@
-export type StrategyFamily =
-  | "breakout"
-  | "indicator-confluence"
-  | "volume-price"
-  | "wyckoff"
-  | "chan"
-  | "growth"
-  | "value"
-  | "sentiment"
-  | "industry-chain";
+export const strategyFamilies = [
+  "breakout",
+  "indicator-confluence",
+  "volume-price",
+  "wyckoff",
+  "chan",
+  "growth",
+  "value",
+  "sentiment",
+  "industry-chain",
+] as const;
+export type StrategyFamily = (typeof strategyFamilies)[number];
 
 export type StrategyReadiness =
   | "observed-complete-batch"
@@ -46,18 +48,30 @@ export type BacktestEvidence = {
   chanBaselineUnverified?: boolean;
 };
 
-export type StrategyRepresentative = {
+type RepresentativeIdentity = {
   id: string;
   name: string;
   family: StrategyFamily;
-  representativeMethodId: string;
-  representativePreset?: string;
-  readiness: StrategyReadiness;
+  methodId: string;
+  presetId?: string;
   dataCoverage: DataCoverage;
   description: string;
-  evidence?: BacktestEvidence;
   notes: readonly string[];
 };
+
+type ObservedReadiness = Exclude<StrategyReadiness, "implemented-no-backtest">;
+type ObservedRepresentative = {
+  [R in ObservedReadiness]: RepresentativeIdentity & {
+    readiness: R;
+    evidence: BacktestEvidence & { readiness: R };
+  };
+}[ObservedReadiness];
+export type StrategyRepresentative =
+  | ObservedRepresentative
+  | (RepresentativeIdentity & {
+      readiness: "implemented-no-backtest";
+      evidence?: never;
+    });
 
 const b3Evidence = (
   preset: string,
@@ -68,7 +82,7 @@ const b3Evidence = (
   validation: EvidencePartition,
   totalEvents: number,
   totalClosedRoundTrips: number,
-): BacktestEvidence => ({
+): BacktestEvidence & { readiness: "observed-complete-batch" } => ({
   readiness: "observed-complete-batch",
   batch: "B3",
   archive: ".codex-runs/r3-results/b3",
@@ -89,8 +103,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "breakout",
     name: "双突破直接确认",
     family: "breakout",
-    representativeMethodId: "SW01",
-    representativePreset: "sw-double-prior20",
+    methodId: "SW01",
+    presetId: "sw-double-prior20",
     readiness: "observed-complete-batch",
     dataCoverage: "partial",
     description: "以双突破和前二十日均量确认作为代表的趋势/突破方向。",
@@ -129,8 +143,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "indicator-confluence",
     name: "多指标共振",
     family: "indicator-confluence",
-    representativeMethodId: "SW11-confluence-count",
-    representativePreset: "sw-confluence",
+    methodId: "SW11-confluence-count",
+    presetId: "sw-confluence",
     readiness: "observed-complete-batch",
     dataCoverage: "partial",
     description: "以多项技术指标确认计数作为技术指标组合方向的唯一代表。",
@@ -162,15 +176,15 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     ),
     notes: [
       "不再把 MACD/KDJ/RSI/布林/均线的每个变体都作为独立包入口。",
-      "预设 ID 在原方法表中可能复用；本包通过 sourceMethodIds 保留归属。",
+      "预设 ID 在原方法表中可能复用；本包通过 methodId 保留归属。",
     ],
   },
   {
     id: "volume-price",
     name: "价涨量增确认",
     family: "volume-price",
-    representativeMethodId: "VP-vp-up-expanded-confirm",
-    representativePreset: "vp-up-expanded-confirm",
+    methodId: "VP-vp-up-expanded-confirm",
+    presetId: "vp-up-expanded-confirm",
     readiness: "observed-complete-batch",
     dataCoverage: "partial",
     description: "以价涨量增并放量确认作为量价方向的标志性代表。",
@@ -209,8 +223,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "wyckoff",
     name: "SOS-JAC 突破",
     family: "wyckoff",
-    representativeMethodId: "WY02",
-    representativePreset: "wy-sos-daily",
+    methodId: "WY02",
+    presetId: "wy-sos-daily",
     readiness: "observed-incomplete-batch",
     dataCoverage: "partial",
     description: "以 Wyckoff 的 SOS-JAC 日线突破作为结构交易方向代表。",
@@ -236,8 +250,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "chan",
     name: "三类买点",
     family: "chan",
-    representativeMethodId: "CH03",
-    representativePreset: "chan-third-native",
+    methodId: "CH03",
+    presetId: "chan-third-native",
     readiness: "observed-incomplete-batch",
     dataCoverage: "partial",
     description: "以三类买点作为缠论结构方向的唯一工程代表。",
@@ -245,7 +259,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
       readiness: "observed-incomplete-batch",
       batch: "B4",
       archive: ".codex-runs/r3-results/b4-full-min11",
-      rawPath: ".codex-runs/r3-results/b4-full-min11/raw/chan-third-native.json",
+      rawPath:
+        ".codex-runs/r3-results/b4-full-min11/raw/chan-third-native.json",
       resultHash:
         "387189441c5cb94272c7187541f9aeeddd34bfdb2aa2576b7d95e5de8285d267",
       label: "无交易",
@@ -264,8 +279,8 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "growth",
     name: "CANSLIM 98% 高点入口",
     family: "growth",
-    representativeMethodId: "CA-B-N2",
-    representativePreset: "canslim-high-98",
+    methodId: "CA-B-N2",
+    presetId: "canslim-high-98",
     readiness: "implemented-no-backtest",
     dataCoverage: "unknown",
     description: "以独立的 52 周高点 98% 入口作为成长股方向代表。",
@@ -278,7 +293,7 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "value",
     name: "六维价值评分",
     family: "value",
-    representativeMethodId: "FA08",
+    methodId: "FA08",
     readiness: "implemented-no-backtest",
     dataCoverage: "missing",
     description: "以六维价值评分作为基本面/价值方向代表。",
@@ -291,7 +306,7 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "sentiment",
     name: "三状态情绪切换",
     family: "sentiment",
-    representativeMethodId: "MS04",
+    methodId: "MS04",
     readiness: "implemented-no-backtest",
     dataCoverage: "unknown",
     description: "以冻结三状态标签和仓位切换作为市场情绪方向代表。",
@@ -304,7 +319,7 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
     id: "industry-chain",
     name: "长中短逻辑组合",
     family: "industry-chain",
-    representativeMethodId: "IC04",
+    methodId: "IC04",
     readiness: "implemented-no-backtest",
     dataCoverage: "missing",
     description: "以长中短逻辑同向和过期退出作为产业链方向代表。",
@@ -315,8 +330,6 @@ export const strategyRepresentatives: readonly StrategyRepresentative[] = [
   },
 ] as const satisfies readonly StrategyRepresentative[];
 
-const familyIds = new Set(strategyRepresentatives.map((item) => item.family));
-
 export function listStrategyRepresentatives() {
   return strategyRepresentatives;
 }
@@ -325,6 +338,16 @@ export function findStrategyRepresentative(id: string) {
   return strategyRepresentatives.find((item) => item.id === id);
 }
 
-export function hasOneRepresentativePerFamily() {
-  return familyIds.size === strategyRepresentatives.length;
+export function hasOneRepresentativePerFamily(
+  items: readonly Pick<
+    StrategyRepresentative,
+    "family"
+  >[] = strategyRepresentatives,
+) {
+  return (
+    items.length === strategyFamilies.length &&
+    strategyFamilies.every(
+      (family) => items.filter((item) => item.family === family).length === 1,
+    )
+  );
 }

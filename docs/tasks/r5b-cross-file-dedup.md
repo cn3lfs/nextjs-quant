@@ -5,7 +5,7 @@
 
 ## 0. 不可越界
 
-- 只改 `src/lib/delivery-import.ts`、`src/server/delivery-store.ts` 及其测试。
+- 只改 `src/lib/delivery-import.ts`、`src/server/portfolio/delivery-store.ts` 及其测试。
 - 不改迁移、`mcp.ts`；不 commit / push / 打包；不新增依赖。
 - 既有用例必须继续通过；与修复冲突的先报告，不要擅自改断言。
 
@@ -91,7 +91,7 @@ fingerprintSource: ["cash","deal","0","2025-01-10"]
 npx vitest run tests/delivery-import.test.ts tests/delivery-store.test.ts tests/trade-review.test.ts tests/trade-review-nav.test.ts tests/trade-review-service.test.ts tests/trade-review-attribution.test.ts
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/lib/delivery-import.ts src/server/delivery-store.ts tests/delivery-import.test.ts tests/delivery-store.test.ts
+npx prettier --check src/lib/delivery-import.ts src/server/portfolio/delivery-store.ts tests/delivery-import.test.ts tests/delivery-store.test.ts
 ```
 
 ## 6. 管理者的真实数据验收锚点（你无法自证）

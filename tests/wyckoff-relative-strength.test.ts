@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "~/lib/domain";
-import { wyckoffRelativeStrength } from "~/server/wyckoff-relative-strength";
+import { wyckoffRelativeStrength } from "~/server/strategies/wyckoff/wyckoff-relative-strength";
 const dates = ["2026-09-01", "2026-09-02", "2026-09-03"];
 const series = (symbol: string, prices: number[]): Snapshot => ({
   id: symbol,

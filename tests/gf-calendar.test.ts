@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import raw from "./fixtures/gf-calendar-202610.json";
-import { parseGfCalendar } from "../src/server/gf-calendar";
-import { screenDataHealth } from "../src/server/data-health";
+import { parseGfCalendar } from "../src/server/data-sources/gf/gf-calendar";
+import { screenDataHealth } from "../src/server/market/data-health";
 it("uses trading flags independently from the absent future leaderboard and covers holiday boundaries", () => {
   const calendar = parseGfCalendar(raw, "2026-10");
   expect(calendar.days).toContain("2026-10-08");

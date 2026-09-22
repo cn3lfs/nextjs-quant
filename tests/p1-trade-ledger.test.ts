@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { migrate } from "../src/server/db/migrations";
-import { TradeLedgerStore } from "../src/server/trade-ledger-store";
+import { TradeLedgerStore } from "../src/server/portfolio/trade-ledger-store";
 import {
   positionFor,
   tradeInputSchema,
@@ -12,8 +12,8 @@ import {
   type TradeInput,
   type CorporateEvidence,
 } from "../src/lib/trade-ledger";
-import { tradingLedgerMethods } from "../src/server/research-skills";
-import type { SkillUse } from "../src/server/research-skills";
+import { tradingLedgerMethods } from "../src/server/research/research-skills";
+import type { SkillUse } from "../src/server/research/research-skills";
 import type { LedgerRow } from "../src/lib/signal-ledger";
 import { TradeLedgerPanel } from "../src/components/trade-ledger-panel";
 vi.mock("../src/app/trade-ledger/actions", () => ({

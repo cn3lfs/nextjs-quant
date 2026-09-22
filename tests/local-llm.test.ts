@@ -1,5 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { cliArgs, parseCliReply, subscriptionEnv } from "~/server/local-llm";
+import {
+  cliArgs,
+  parseCliReply,
+  subscriptionEnv,
+} from "~/server/infra/local-llm";
 import { settingsSchema } from "~/lib/domain";
 it("旧配置升级默认 Codex，显式提供方选择保留", () => {
   expect(settingsSchema.parse({ fastModel: "old" }).llmProvider).toBe("codex");

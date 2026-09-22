@@ -7,7 +7,7 @@ import {
   indexFacts,
   localIndexEvidence,
   relativePerformance,
-} from "../src/server/index-context";
+} from "../src/server/research/index-context";
 const bars: Bar[] = Array.from({ length: 301 }, (_, i) => ({
   date: new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10),
   open: i + 1,

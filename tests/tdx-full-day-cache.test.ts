@@ -1,14 +1,14 @@
 import { expect, it } from "vitest";
 import { get } from "../src/server/db";
-import { readLocalDailySnapshot } from "../src/server/local-daily-snapshot";
+import { readLocalDailySnapshot } from "../src/server/market/local-daily-snapshot";
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
-import { readBenchmarkSnapshot } from "../src/server/tdx-benchmark";
-import { localRpsDependencies } from "../src/server/rps-job";
+import { readBenchmarkSnapshot } from "../src/server/data-sources/tdx/tdx-benchmark";
+import { localRpsDependencies } from "../src/server/screening/rps-job";
 import {
   publishFullDayPackage,
   readFullDaySnapshot,
-} from "../src/server/tdx-full-day-cache";
+} from "../src/server/data-sources/tdx/tdx-full-day-cache";
 const file = "tests/fixtures/tdx-full-day/valid.zip";
 it.skipIf(process.platform !== "win32")(
   "uses the imported benchmark when no local index file exists",

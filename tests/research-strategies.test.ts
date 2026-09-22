@@ -10,8 +10,8 @@ import {
   researchStrategies,
   researchStrategyIds,
 } from "../src/lib/research-strategies";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   plannedStopRisk,
   researchRiskQuantity,
@@ -21,7 +21,7 @@ import {
   ResearchStrategyFields,
   selectResearchStrategy,
 } from "../src/components/research-strategy-fields";
-import { researchParamsFingerprint } from "../src/server/research-store";
+import { researchParamsFingerprint } from "../src/server/backtest/research-store";
 
 const days = [
   "2024-01-02",

@@ -3,20 +3,20 @@ import {
   researchAdjustmentSchema,
   type ResearchAdjustment,
 } from "~/lib/research-adjustment";
-import { quickResearch } from "./quick-research";
-import { preferredOnlineChart } from "./preferred-online-chart";
+import { quickResearch } from "./research/quick-research";
+import { preferredOnlineChart } from "./market/preferred-online-chart";
 import { isMarketIndex } from "~/lib/market-indices";
-import { scheduleSignalLedger } from "./signal-ledger-client";
-import { scheduleRps } from "./rps-client";
-import { scheduleIntraday } from "./intraday-client";
-import { scheduleClsReview } from "./cls-review-scheduler";
-import { NotificationPolicyStore } from "./notification-policy-store";
+import { scheduleSignalLedger } from "./monitoring/signal-ledger-client";
+import { scheduleRps } from "./screening/rps-client";
+import { scheduleIntraday } from "./monitoring/intraday-client";
+import { scheduleClsReview } from "./news/cls-review-scheduler";
+import { NotificationPolicyStore } from "./infra/notification-policy-store";
 import { workProgress } from "~/lib/work-progress";
-import { gfCalendarReference } from "./gf-calendar";
-import { monitorCalendar } from "./monitor-calendar";
-import { verifySecurityTradingStatus } from "./security-trading-status";
+import { gfCalendarReference } from "./data-sources/gf/gf-calendar";
+import { monitorCalendar } from "./monitoring/monitor-calendar";
+import { verifySecurityTradingStatus } from "./market/security-trading-status";
 import { currentTradingStatus } from "~/lib/security-trading-status";
-import { sameMonitorRun, sameMonitorBaseline } from "./monitor-run";
+import { sameMonitorRun, sameMonitorBaseline } from "./monitoring/monitor-run";
 import { validateHistoricalScreen } from "~/lib/historical-screen";
 import {
   backtestCostsSchema,
@@ -27,7 +27,7 @@ import {
   localCalendarReference,
   screenDataHealth,
   requireCurrentScreen,
-} from "./data-health";
+} from "./market/data-health";
 import { randomUUID } from "node:crypto";
 import type {
   Monitor,
@@ -42,19 +42,19 @@ import type {
   Backtest,
 } from "~/lib/domain";
 import { put, get, list, atomic, putChangedBatch, sqlite } from "./db";
-import { settings } from "./settings";
-import { runWorker, background, recoverJobs, updateJob } from "./jobs";
-import { metrics } from "./quant";
-import { monitorStrategy } from "./monitor-strategy";
-import { analyzeCzscSignal } from "./czsc-signal-analysis";
-import { analyze, snapshotEvidence } from "./research";
-import { enqueue, drain, recoverDeliveries } from "./notifications";
-import { gatherEvidence } from "./market-data";
-import { acquireScheduler } from "./lease";
-import type { ScreeningResult } from "./screening";
-import { securityDirectory } from "./securities";
-import { serializeSnapshot } from "./snapshot-serializer";
-import { scheduleNews } from "./news-scheduler";
+import { settings } from "./infra/settings";
+import { runWorker, background, recoverJobs, updateJob } from "./jobs/jobs";
+import { metrics } from "~/lib/screening-metrics";
+import { monitorStrategy } from "./monitoring/monitor-strategy";
+import { analyzeCzscSignal } from "./strategies/chan/czsc-signal-analysis";
+import { analyze, snapshotEvidence } from "./research/research";
+import { enqueue, drain, recoverDeliveries } from "./infra/notifications";
+import { gatherEvidence } from "./research/gather-evidence";
+import { acquireScheduler } from "./infra/lease";
+import type { ScreeningResult } from "./screening/screening";
+import { securityDirectory } from "./market/securities";
+import { serializeSnapshot } from "./screening/snapshot-serializer";
+import { scheduleNews } from "./news/news-scheduler";
 const scope = globalThis as typeof globalThis & {
   quantRuntime?: {
     started: boolean;

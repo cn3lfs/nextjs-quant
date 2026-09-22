@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimFinanceFacts } from "../src/server/canslim-finance";
+import { canslimFinanceFacts } from "../src/lib/strategy-facts/canslim-finance";
 it("keeps per-share periods and ROE identities separate", () => {
   const names = [
     "单季度_基本每股收益",

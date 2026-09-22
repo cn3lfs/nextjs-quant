@@ -1,4 +1,4 @@
-import { parseTencentChart } from "../src/server/free-chart-sources";
+import { parseTencentChart } from "../src/server/market/free-chart-sources";
 import type { ChartPeriod } from "../src/lib/chart-view";
 
 /** Minimum representative matrix for every source; support must be disclosed per cell. */

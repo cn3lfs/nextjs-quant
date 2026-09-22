@@ -2,9 +2,9 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import type { CzscResult } from "../src/lib/czsc";
 import { chanNativeCandidates } from "../src/lib/research-chan-native";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { analyzeCzsc, closeCzsc } from "../src/server/czsc";
+import { analyzeCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
 

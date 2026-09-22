@@ -4,7 +4,7 @@ import {
   marketSentiment,
   marketSentimentEvidence,
   type MarketSentimentInput,
-} from "~/server/market-sentiment";
+} from "~/server/strategies/sentiment/market-sentiment";
 
 function fixture(): MarketSentimentInput {
   const provenance = (id: string, asOf = "2026-09-08") => ({

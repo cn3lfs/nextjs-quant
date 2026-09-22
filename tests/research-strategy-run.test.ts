@@ -6,13 +6,13 @@ import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidenc
 import {
   createResearchCzscCache,
   runStrategyResearch,
-} from "../src/server/research-run";
+} from "../src/server/backtest/research-run";
 import type { CzscResult } from "../src/lib/czsc";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 
 it("runs MA signals through both research partitions with evidence-backed fills and deterministic saved results", async () => {
   const bars = Array.from({ length: 72 }, (_, i) => ({

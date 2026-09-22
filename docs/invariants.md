@@ -164,7 +164,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 5. 信号台账：宁可留空，不可给假数
 
-- **是什么**：[signal-ledger-job.ts](../src/server/signal-ledger-job.ts) 每个完成交易日收盘后按本地全市场日线池向前积累两策略观察，不限订阅；落库不等于推送。无历史回放补录，首次旧缠论端点只建基线，质量变化是新观察。首次到期回填固定，含留空状态；数据修订不覆写已结算记录。
+- **是什么**：[signal-ledger-job.ts](../src/server/monitoring/signal-ledger-job.ts) 每个完成交易日收盘后按本地全市场日线池向前积累两策略观察，不限订阅；落库不等于推送。无历史回放补录，首次旧缠论端点只建基线，质量变化是新观察。首次到期回填固定，含留空状态；数据修订不覆写已结算记录。
 - **是什么（收益）**：信号观察日为 T，T+1 开盘入场，T+5/10/20 收盘出场；不复权、无成本、无滑点，页面标“非策略业绩”。按市场交易日而非该股有效 bar 计数；未到期继续等待，缺行情/停牌留空并记原因，不顺延。向下信号也用价格涨跌，不反号模拟做空。聚合只让有效收益进入统计，零收益进入胜率分母，缺盈利或亏损一侧时盈亏比留空。无建议、评级、自动调参。
 - **是什么（除权三态）**：GBBQ 可读、全文件最大事件日期覆盖持有区间且无该股事件 → 无除权，可比；区间含类别 1/11/12 事件 → 含除权，不可比，收益空；文件缺失/不可读/无有效覆盖日期或最大日期早于区间末 → 未知，收益空。覆盖日期与来源必须展示；不能把“该股无事件”当成“未知”，也不能用文件 mtime 代替覆盖日期。
 - **为什么**：无事件与缺证据不同；除权跳空不是策略亏损。全市场观察用于积累样本，订阅只用于控制打扰。
@@ -173,7 +173,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 6. 缠论原生边界
 
-- **是什么**：[czsc.ts](../src/server/czsc.ts) 的全局 Promise 队列将任务交给一个专用子进程；[czsc-worker.ts](../src/server/czsc-worker.ts) 同步执行真实 C/V 的 Func40，再执行全部 Func30。禁止 koffi async、worker_threads 并发进入 DLL；台账线程把投影请求转回同一所有者。单例是每个宿主进程的边界，不是操作系统全局互斥锁。
+- **是什么**：[czsc.ts](../src/server/strategies/chan/czsc.ts) 的全局 Promise 队列将任务交给一个专用子进程；[czsc-worker.ts](../src/server/strategies/chan/czsc-worker.ts) 同步执行真实 C/V 的 Func40，再执行全部 Func30。禁止 koffi async、worker_threads 并发进入 DLL；台账线程把投影请求转回同一所有者。单例是每个宿主进程的边界，不是操作系统全局互斥锁。
 - **是什么（ABI/精度）**：koffi 从 RegisterTdxFunc 的 pack(1) 注册表取 30/40 号指针；输入/输出用 Float32Array，价格不严格相等比较。库对象保持引用直至 disconnect，不能让裸函数指针指向已卸载库。少于两个端点为无结构。
 - **是什么（golden）**：vendor 二进制为版本资产；运行时副本由构建复制。权威为来源 CzscCoreTests.cpp 断言，结果文本辅助，过期 notes 锚点不作依据。配置 0 对应笔 157/端点158/中枢18/买卖点17；1100 对应线段端点15/中枢2/买卖点2；mode=配置×1000+输出×10。除数量外核对方向、日期和价格；float32 锚点容差严格小于 0.0001。
 - **为什么**：DLL 有全局 C/V 和单槽缓存，交错调用、失去库引用或混用二进制版本都会破坏结果。
@@ -182,7 +182,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 7. 双突破不足即未知
 
-- **是什么**：[breakout.ts](../src/server/breakout.ts) 复用 vcpFacts 的确认摆动/歧义屏障和共享指标；至少 61 根日线，前 60 根结构窗口，趋势线至少两触，触及容差 0.5%，缩量平台 10 根；放量基准是此前 20 根均量×1.5。趋势、关键位、放量三项与五项质量评分分开，不能用评分覆盖核心失败。目标二缺失时 1:X 留空，不外推凑数；向下仅为破位观察。形态限评分所需，不扩完整形态库。
+- **是什么**：[breakout.ts](../src/server/strategies/breakout/breakout.ts) 复用 vcpFacts 的确认摆动/歧义屏障和共享指标；至少 61 根日线，前 60 根结构窗口，趋势线至少两触，触及容差 0.5%，缩量平台 10 根；放量基准是此前 20 根均量×1.5。趋势、关键位、放量三项与五项质量评分分开，不能用评分覆盖核心失败。目标二缺失时 1:X 留空，不外推凑数；向下仅为破位观察。形态限评分所需，不扩完整形态库。
 - **为什么**：结构及目标必须有当时证据，方法来源保存 swing-trader 文件 hash。
 - **测试**：[breakout.test.ts](../tests/breakout.test.ts)、[breakout-batch.test.ts](../tests/breakout-batch.test.ts)；阈值合理性需 [M5 人工确认](review/m5-review/README.md)，**无自动测试保护**。
 - **违反会怎样**：短历史拼出买点、虚构目标，评分被误读为完整交易准入。
@@ -236,7 +236,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 14. LLM 是解读层，不是执行器
 
-- **是什么**：[research.ts](../src/server/research.ts) 及专项报告校验结构和证据 ID；技能只读取方法并记录文件 hash，缺文件明确失败；不能执行模型生成代码或让模型/信号触发交易 API。历史证据不能混入今天财务新闻冒充当时已知。
+- **是什么**：[research.ts](../src/server/research/research.ts) 及专项报告校验结构和证据 ID；技能只读取方法并记录文件 hash，缺文件明确失败；不能执行模型生成代码或让模型/信号触发交易 API。历史证据不能混入今天财务新闻冒充当时已知。
 - **为什么**：模型输出与外部证据不可信，报告成功不等于策略被验证有用。
 - **测试**：[research.test.ts](../tests/research.test.ts)、[report-security.test.ts](../tests/report-security.test.ts)、[local-llm.test.ts](../tests/local-llm.test.ts)、[research-skills.test.ts](../tests/research-skills.test.ts)、[m4-monitor.test.ts](../tests/m4-monitor.test.ts)。
 - **违反会怎样**：伪造引用、未来信息泄漏、自动产生未经确认的交易动作。

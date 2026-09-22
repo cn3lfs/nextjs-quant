@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { packScreen, unpackScreen } from "../src/server/screen-wire";
-import type { ScreeningResult } from "../src/server/screening";
+import { packScreen, unpackScreen } from "../src/server/screening/screen-wire";
+import type { ScreeningResult } from "../src/server/screening/screening";
 import type { Snapshot } from "../src/lib/domain";
 const bar = {
   date: "2026-09-08T15:00:00+08:00",

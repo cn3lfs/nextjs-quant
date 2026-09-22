@@ -11,8 +11,8 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 const bars = (n = 130): Bar[] =>
   Array.from({ length: n }, (_, i) => ({

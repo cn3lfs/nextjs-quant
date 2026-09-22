@@ -2,7 +2,7 @@ import type { ReviewValue } from "./trade-review";
 
 /**
  * 基本面的主源是本地专业财务包 `gpcw*.dat` 的报告期数据，字段下标在
- * `src/server/tdx-financial-reports.ts` 锁定。金额单位为元。
+ * `src/server/data-sources/tdx/tdx-financial-reports.ts` 锁定。金额单位为元。
  *
  * `totalShares` 是**报告期末**总股本，用于每股类指标；市值类指标要用协议快照叠加的
  * 最新股本，两者在有增发或回购时不同。

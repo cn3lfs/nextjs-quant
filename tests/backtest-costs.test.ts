@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { backtest } from "../src/server/quant";
+import { backtest } from "../src/server/backtest/quant";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import { defaultStrategy } from "../src/lib/domain";
 const bars = [10, 11, 12, 13, 14, 15, 9, 8, 7].map((price, index) => ({

@@ -1,5 +1,9 @@
 import type { Bar } from "./domain";
-import type { BreakoutPoint, Level, TrendLine } from "../server/breakout";
+import type {
+  BreakoutPoint,
+  Level,
+  TrendLine,
+} from "../server/strategies/breakout/breakout";
 import { ma } from "./indicators";
 
 export const swingCoreProfiles = {

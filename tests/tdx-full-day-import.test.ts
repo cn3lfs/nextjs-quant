@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { inspectFullDayPackage } from "../src/server/tdx-full-day-import";
+import { inspectFullDayPackage } from "../src/server/data-sources/tdx/tdx-full-day-import";
 const fixture = (name: string) => `tests/fixtures/tdx-full-day/${name}.zip`;
 it.skipIf(process.platform !== "win32")(
   "extracts requested histories, reports missing symbols, and leaves the archive unchanged",

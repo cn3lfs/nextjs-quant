@@ -1,10 +1,10 @@
 import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { analyzeCzsc, closeCzsc } from "../src/server/czsc";
-import { analyzeBreakout } from "../src/server/breakout";
+import { analyzeCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 import { closeMcp } from "../src/server/mcp";
-import { mcpChartHistory } from "../src/server/chart-history";
+import { mcpChartHistory } from "../src/server/market/chart-history";
 import { chartPeriodSchema } from "../src/lib/chart-view";
 it.skipIf(!process.env.QUANT_MCP_AUDIT_ROOT)(
   "loads seven native periods through the app MCP",

@@ -6,16 +6,16 @@ import { migrate } from "../src/server/db/migrations";
 import {
   ResearchStore,
   type ResearchResult,
-} from "../src/server/research-store";
-import { researchPortfolio } from "../src/server/research-portfolio";
+} from "../src/server/backtest/research-store";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import {
   periodPageSchema,
   researchPeriodPage,
   researchDailyReturns,
   tradeReviewPeriodPage,
-} from "../src/server/period-performance-service";
-import { replayTradeReview } from "../src/server/trade-review-service";
+} from "../src/server/research/performance/period-performance-service";
+import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
 import type { NavDay } from "../src/lib/trade-review-nav";
 import { PeriodPerformanceResults } from "../src/components/period-performance-results";
 

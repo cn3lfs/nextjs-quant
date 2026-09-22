@@ -6,25 +6,25 @@ import {
   valuationMethod,
   valuationMethodFiles,
   valuationMethodVersions,
-} from "../src/server/valuation-method";
+} from "../src/server/strategies/value/valuation-method";
 import {
   wyckoffMethod,
   wyckoffMethodFiles,
   wyckoffMethodVersion,
-} from "../src/server/wyckoff-method";
+} from "../src/server/strategies/wyckoff/wyckoff-method";
 import {
   canslimMethodFiles,
   canslimMethodVersion,
-} from "../src/server/canslim-method";
+} from "../src/server/strategies/canslim/canslim-method";
 import {
   chanMethod,
   chanMethodFiles,
   chanMethodVersion,
-} from "../src/server/chan-method";
+} from "../src/server/strategies/chan/chan-method";
 import {
   researchSkillCatalog,
   volumePriceMethod,
-} from "../src/server/research-skills";
+} from "../src/server/research/research-skills";
 afterEach(() => vi.unstubAllEnvs());
 it("uses the actual fundamental, Guo and value method dependencies and rejects missing or empty methods", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-valuation-catalog-"));

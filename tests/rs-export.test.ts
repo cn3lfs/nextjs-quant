@@ -4,8 +4,8 @@ vi.mock("../src/server/db", () => ({
   get: (id: string) => records.get(id),
   put: vi.fn(),
 }));
-import { fullRsSnapshot } from "../src/server/hithink-rs";
-import { exportRsArchive } from "../src/server/rs-export";
+import { fullRsSnapshot } from "../src/server/data-sources/hithink/hithink-rs";
+import { exportRsArchive } from "../src/server/research/rs-export";
 let archive: ReturnType<typeof fullRsSnapshot>;
 beforeEach(() => {
   records.clear();

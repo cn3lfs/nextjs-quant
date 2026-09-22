@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { put, sqlite } from "../src/server/db";
 import { settingsSchema } from "../src/lib/domain";
-import { commitDeliveryImport } from "../src/server/delivery-import-service";
+import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
 import { r13Days, r13Statement } from "./r13-scale-fixture";
 const directory = resolve(".test-data/r13-browser");
 if (resolve(process.env.QUANT_DATA_DIR ?? "") !== directory)

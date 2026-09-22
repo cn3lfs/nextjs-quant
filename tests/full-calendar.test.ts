@@ -2,12 +2,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import * as fs from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseBars } from "../src/server/tdx";
+import { parseBars } from "../src/server/data-sources/tdx/tdx";
 import { createHash } from "node:crypto";
 import {
   fullLocalCalendarReference,
   localCalendarReference,
-} from "../src/server/data-health";
+} from "../src/server/market/data-health";
 
 vi.mock("node:fs/promises", async (original) => ({
   ...(await original<typeof import("node:fs/promises")>()),

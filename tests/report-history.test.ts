@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import superjson from "superjson";
 import { put, get } from "../src/server/db";
-import { reportHistory, archivedReport } from "../src/server/report-history";
+import {
+  reportHistory,
+  archivedReport,
+} from "../src/server/research/report-history";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-report-history-"),
 );

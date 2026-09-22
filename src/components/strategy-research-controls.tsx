@@ -11,7 +11,10 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { researchSpecSchema, type ResearchSpec } from "~/lib/strategy-research";
-import { ResearchStrategyFields } from "./research-strategy-fields";
+import {
+  ResearchStrategyFields,
+  selectResearchStrategy,
+} from "./research-strategy-fields";
 import {
   researchStrategies,
   researchStrategyLabel,
@@ -35,6 +38,8 @@ import {
   SelectContent,
   SelectItem,
 } from "./ui/select";
+
+import { StrategyRepresentativeCatalog } from "./strategy-representative-catalog";
 
 const percent = (value: number | null) =>
   value === null ? "—" : `${(value * 100).toFixed(2)}%`;
@@ -217,6 +222,11 @@ export function StrategyResearchControls() {
       <p className="text-sm text-muted-foreground">
         逐日回放已有双突破或缠论信号，分别查看开发期和保留验证期。当前成分名单用于历史样本，存在幸存者偏差。事件收益用于观察信号；导入历史交易条件后才能计算交易模拟净值与夏普。
       </p>
+      <StrategyRepresentativeCatalog
+        onSelect={(preset) =>
+          setSpec((current) => selectResearchStrategy(current, preset))
+        }
+      />
       <form
         className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3"
         onSubmit={(event) => {

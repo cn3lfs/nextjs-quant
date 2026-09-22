@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
-import { mergeNewsDay } from "~/server/news-day";
+import { mergeNewsDay } from "~/server/news/news-day";
 import {
   newsAnalysisInput,
   newsAnalysisView,
   type NewsAnalysis,
-} from "~/server/news-analysis";
+} from "~/server/news/news-analysis";
 const cutoff = Date.parse("2026-09-08T12:00:00+08:00");
 function archive(id: string, ids: number[]): NewsAnalysis {
   return {

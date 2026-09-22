@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import {
   sectorIdentity,
   fetchSectorPrices,
-} from "~/server/tencent-sector-prices";
+} from "~/server/data-sources/tencent/tencent-sector-prices";
 it("requires exact industry name, first-level classification and unique identity", () => {
   const row = { code: "pt01801080", name: "电子", 分类: "申万一级行业清单" };
   expect(

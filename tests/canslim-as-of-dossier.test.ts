@@ -10,9 +10,9 @@ import { expect, it, vi } from "vitest";
 import {
   buildCanslimAsOfDossier,
   gatherCanslimAsOfDossier,
-} from "../src/server/canslim-dossier";
+} from "../src/server/strategies/canslim/canslim-dossier";
 import { asOfDomains, type AsOfObservation } from "../src/lib/as-of";
-import type { CanslimAsOfRequest } from "../src/server/canslim-as-of-dossier";
+import type { CanslimAsOfRequest } from "../src/server/strategies/canslim/canslim-as-of-dossier";
 
 const request: CanslimAsOfRequest = {
   symbol: "sh600000",

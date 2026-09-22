@@ -5,7 +5,7 @@ import {
   swingCoreDefinition,
 } from "./research-swing-core";
 import type { Bar } from "./domain";
-import type { BreakoutPoint } from "../server/breakout";
+import type { BreakoutPoint } from "../server/strategies/breakout/breakout";
 export const legacyBreakoutRuleIds = [
   "breakout-down-exit",
   "breakout-reverse-line-exit",

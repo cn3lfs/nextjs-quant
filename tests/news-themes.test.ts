@@ -11,12 +11,12 @@ vi.mock("~/server/db", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.records.set(id, value),
 }));
-vi.mock("~/server/research", () => ({
+vi.mock("~/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: state.model,
 }));
-import { analyzeNewsThemes, themeSources } from "~/server/news-themes";
-import type { NewsAnalysis } from "~/server/news-analysis";
+import { analyzeNewsThemes, themeSources } from "~/server/news/news-themes";
+import type { NewsAnalysis } from "~/server/news/news-analysis";
 const id = `news-analysis-${"a".repeat(64)}`;
 const claim = { text: "仅作研究", citations: [1, 2] };
 const result = {

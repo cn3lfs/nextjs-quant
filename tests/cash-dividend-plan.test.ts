@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
-import { reconciledCashPlan } from "../src/server/cash-dividend-plan";
-import { reconcileDividends } from "../src/server/dividend-reconciliation";
-import { actionReview } from "../src/server/backtest-actions";
-import { dividendSchedule } from "../src/server/hithink-dividends";
+import { reconciledCashPlan } from "../src/server/backtest/cash-dividend-plan";
+import { reconcileDividends } from "../src/server/backtest/dividend-reconciliation";
+import { actionReview } from "../src/server/backtest/backtest-actions";
+import { dividendSchedule } from "../src/server/data-sources/hithink/hithink-dividends";
 import fixture from "./fixtures/hithink-dividends.json";
 const remote = dividendSchedule("sh600519", fixture.raw, fixture.fetchedAt);
 const source = {

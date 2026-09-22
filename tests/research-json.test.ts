@@ -7,7 +7,7 @@ import {
   researchJsonHash,
   streamResearchJson,
   writeResearchJsonFile,
-} from "../src/server/research-json";
+} from "../src/server/backtest/research-json";
 
 describe("research JSON streaming", () => {
   const tempDirs: string[] = [];

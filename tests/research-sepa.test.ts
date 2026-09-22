@@ -1,7 +1,10 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { researchSepaSeries, sepaVcpScore } from "../src/server/research-sepa";
-import { researchSignals } from "../src/server/research-signals";
+import {
+  researchSepaSeries,
+  sepaVcpScore,
+} from "../src/server/strategies/canslim/research-sepa";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 const fixture = (): Bar[] => {
   const knots = [

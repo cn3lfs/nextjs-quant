@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
-import * as breakout from "../src/server/breakout";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import * as breakout from "../src/server/strategies/breakout/breakout";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import { researchGroupRisk } from "../src/lib/research-group-risk";
 import {
@@ -16,7 +16,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 const bars = Array.from({ length: 100 }, (_, i) => ({
   date: new Date(Date.UTC(2021, 0, i + 1)).toISOString().slice(0, 10),
   open: 100,

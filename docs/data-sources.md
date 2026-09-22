@@ -21,7 +21,7 @@ RPS、策略样本历史研究和本地选股继续使用本地行情及原有�
 
 腾讯故障原因：用户默认命令使用前复权 qfq；应用要求不复权，显式 bfq 被当前代理接口拒绝。项目仅在该 skill 子进程中将 K 线请求的 bfq 映射为空 fqtype，不修改本地 skill。2026-01-05/06 宁德时代不复权 OHLC 与东方财富 fqt=0 逐项一致；2026-09-14 最新收盘为 337.11。不能以删除 bfq、接受默认前复权代替修复。
 
-TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) 和 [rustdx-complete 1.11.0](https://crates.io/crates/rustdx-complete) 发布源码，K 线 38 字节请求、0x052d 命令及 xmtdx 三段握手与项目一致。xmtdx 在同机三个服务器也因两字节响应解析失败；Rust 股票解析器明确保护此类截断。2026-09-15 通过官方客户端抓包与单字段对照，确认第三条握手末字节从 02 改为 05 可恢复原请求的 K 线和五档；不需要采用官方客户端完整初始化数据。仍保留严格报错和免费来源回退，不把空数据作为查询成功。`src/server/tdx.ts` 的本地文件读取保持复用。
+TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) 和 [rustdx-complete 1.11.0](https://crates.io/crates/rustdx-complete) 发布源码，K 线 38 字节请求、0x052d 命令及 xmtdx 三段握手与项目一致。xmtdx 在同机三个服务器也因两字节响应解析失败；Rust 股票解析器明确保护此类截断。2026-09-15 通过官方客户端抓包与单字段对照，确认第三条握手末字节从 02 改为 05 可恢复原请求的 K 线和五档；不需要采用官方客户端完整初始化数据。仍保留严格报错和免费来源回退，不把空数据作为查询成功。`src/server/data-sources/tdx/tdx.ts` 的本地文件读取保持复用。
 
 本地 skill 同步：注册并接入独立 guo-yongqing-valuation，郭永清估值方法改读该目录的 SKILL.md 及四份 references；更新引用校验、方法版本和报告提示版本。其他方法继续从本地 skill 读取并计算文件哈希。
 
@@ -29,7 +29,7 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 
 命名约定：本地文件（vipdoc）只读取磁盘行情；tstdx 是项目自定义 TypeScript 行情协议源，二者独立。旧配置键 pytdx 保留兼容，界面统一显示 tstdx；实际行情来源标识 tdx-7709 不变。
 
-腾讯 skill 接入统一由 src/server/westock-data.ts 执行，供行情、行业价格、CANSLIM 指数及证券身份查询使用；界面名称统一为 westock-data。旧 tencent 配置键和快照来源保留兼容。盘中 qt.gtimg.cn 报价仍为独立能力，不使用延迟 K 线冒充实时价。2026-09-14 晚间实测日线、周线、5分钟线成功；修正搜索返回 GP-A-CYB 的创业板身份兼容。
+腾讯 skill 接入统一由 src/server/data-sources/westock/westock-data.ts 执行，供行情、行业价格、CANSLIM 指数及证券身份查询使用；界面名称统一为 westock-data。旧 tencent 配置键和快照来源保留兼容。盘中 qt.gtimg.cn 报价仍为独立能力，不使用延迟 K 线冒充实时价。2026-09-14 晚间实测日线、周线、5分钟线成功；修正搜索返回 GP-A-CYB 的创业板身份兼容。
 
 ### westock-data 五市场验收（2026-09-14）
 

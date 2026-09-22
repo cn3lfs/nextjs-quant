@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimFloat } from "../src/server/canslim-float";
+import { canslimFloat } from "../src/lib/strategy-facts/canslim-float";
 const raw = (yi: number) => ({
   status_code: 0,
   datas: [{ 股票代码: "600519.SH", "流通市值[20260908]": yi * 1e8 }],

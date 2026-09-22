@@ -3,10 +3,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const mocks = vi.hoisted(() => ({ gather: vi.fn(), analyze: vi.fn() }));
-vi.mock("../src/server/canslim-dossier", () => ({
+vi.mock("../src/server/strategies/canslim/canslim-dossier", () => ({
   gatherCanslimDossier: mocks.gather,
 }));
-vi.mock("../src/server/canslim-report", () => ({
+vi.mock("../src/server/strategies/canslim/canslim-report", () => ({
   analyzeCanslimDossier: mocks.analyze,
 }));
 import { createCaller } from "../src/server/api/root";

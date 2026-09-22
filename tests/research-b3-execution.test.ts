@@ -1,30 +1,35 @@
 import { expect, it, vi } from "vitest";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import type { Bar } from "../src/lib/domain";
 const state = vi.hoisted(() => ({ fraction: 1, reduce: true }));
-vi.mock("../src/server/research-rule-series", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../src/server/research-rule-series")>();
-  return {
-    ...actual,
-    researchRuleSeries: (_id: string, bars: readonly Bar[]) =>
-      bars.map((b, i) => ({
-        date: b.date,
-        reason: null,
-        entry: i === 0,
-        exit: false,
-        entryFraction: i === 0 ? state.fraction : 1,
-        reduction:
-          state.reduce && i === 2
-            ? { fraction: 0.5, reason: "天量形态首次确认减剩余持仓一半" }
-            : undefined,
-      })),
-  };
-});
+vi.mock(
+  "../src/server/strategies/shared/research-rule-series",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../src/server/strategies/shared/research-rule-series")
+      >();
+    return {
+      ...actual,
+      researchRuleSeries: (_id: string, bars: readonly Bar[]) =>
+        bars.map((b, i) => ({
+          date: b.date,
+          reason: null,
+          entry: i === 0,
+          exit: false,
+          entryFraction: i === 0 ? state.fraction : 1,
+          reduction:
+            state.reduce && i === 2
+              ? { fraction: 0.5, reason: "天量形态首次确认减剩余持仓一半" }
+              : undefined,
+        })),
+    };
+  },
+);
 const bars: Bar[] = Array.from({ length: 7 }, (_, i) => ({
   date: `2020-01-${String(i + 1).padStart(2, "0")}`,
   open: 10,

@@ -8,14 +8,14 @@ import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { Coverage, Job } from "../src/lib/domain";
 import { settingsSchema, strategySchema } from "../src/lib/domain";
-import type { ScreeningResult } from "../src/server/screening";
+import type { ScreeningResult } from "../src/server/screening/screening";
 import {
   formulaScreenJob,
   saveFormula,
-} from "../src/server/formula-screen-service";
+} from "../src/server/screening/formula-screen-service";
 import { get } from "../src/server/db";
-import { settings, saveSettings } from "../src/server/settings";
-import { runWorker, cancelJob } from "../src/server/jobs";
+import { settings, saveSettings } from "../src/server/infra/settings";
+import { runWorker, cancelJob } from "../src/server/jobs/jobs";
 if (
   resolve(process.env.QUANT_DATA_DIR ?? "") !== resolve(".test-data/q2b/data")
 )

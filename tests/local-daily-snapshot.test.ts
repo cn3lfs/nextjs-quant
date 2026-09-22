@@ -4,12 +4,14 @@ const mocks = vi.hoisted(() => ({
   cache: vi.fn(),
   repair: vi.fn(),
 }));
-vi.mock("../src/server/tdx", () => ({ readSnapshot: mocks.local }));
-vi.mock("../src/server/tdx-full-day-cache", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx", () => ({
+  readSnapshot: mocks.local,
+}));
+vi.mock("../src/server/data-sources/tdx/tdx-full-day-cache", () => ({
   readFullDaySnapshot: mocks.cache,
   fullDayRepairsSameDate: mocks.repair,
 }));
-import { readLocalDailySnapshot } from "../src/server/local-daily-snapshot";
+import { readLocalDailySnapshot } from "../src/server/market/local-daily-snapshot";
 beforeEach(() => vi.resetAllMocks());
 it("requires explicit same-date repair and returns to local when its date advances", async () => {
   const local = {

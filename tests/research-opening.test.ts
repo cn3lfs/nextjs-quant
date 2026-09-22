@@ -13,12 +13,12 @@ import { growthIntradayTemplate } from "../src/lib/research-growth-intraday";
 import {
   growthMinuteTimes,
   researchGrowthIntraday,
-} from "../src/server/research-growth-intraday";
+} from "../src/server/strategies/canslim/research-growth-intraday";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 it("minute capture includes five benchmark warmup sessions without crossing the hard coverage start", () => {
   const calendar = [

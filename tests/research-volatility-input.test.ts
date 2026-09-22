@@ -1,5 +1,5 @@
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { expect, it } from "vitest";
 import {
   externalVolatilityPoint,
@@ -11,9 +11,9 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 const bars = Array.from({ length: 30 }, (_, i) => ({
   date: `2021-01-${String(i + 1).padStart(2, "0")}`,

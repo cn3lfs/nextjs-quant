@@ -1,21 +1,21 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { analyzeBreakout } from "../src/server/breakout";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 import {
   legacyBreakoutRuleIds,
   breakoutRuleDecision,
   type BreakoutRuleId,
 } from "../src/lib/research-breakout-rules";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { runStrategyResearch } from "../src/server/research-run";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 const native = vi.fn(async (): Promise<never> => {
   throw new Error("native must not run");

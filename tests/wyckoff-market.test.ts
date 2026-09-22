@@ -7,8 +7,8 @@ import type { Snapshot } from "~/lib/domain";
 import {
   gatherWyckoffMarket,
   wyckoffMarketForReport,
-} from "~/server/wyckoff-market";
-import { wyckoffFrames } from "~/server/wyckoff-frames";
+} from "~/server/strategies/wyckoff/wyckoff-market";
+import { wyckoffFrames } from "~/server/strategies/wyckoff/wyckoff-frames";
 const stock: Snapshot = {
   id: "s",
   symbol: "sh600519",

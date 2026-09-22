@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { TdxSession } from "../src/server/tdx-quotes";
-import * as wire from "../src/server/tdx-wire";
+import { TdxSession } from "../src/server/data-sources/tdx/tdx-quotes";
+import * as wire from "../src/server/data-sources/tdx/tdx-wire";
 
 it.skipIf(process.env.QUANT_TSTDX_INTERFACES !== "1")(
   "checks the remaining TCP interfaces independently without provider fallback",
@@ -118,7 +118,7 @@ it.skipIf(process.env.QUANT_TSTDX_INTERFACES !== "1")(
 it.skipIf(process.env.QUANT_TSTDX_INTERFACES !== "1")(
   "validates historical minutes through the public pooled API",
   async () => {
-    const api = await import("../src/server/tdx-quotes");
+    const api = await import("../src/server/data-sources/tdx/tdx-quotes");
     const previous = process.env.TDX_HOSTS;
     process.env.TDX_HOSTS = "180.153.18.170";
     try {

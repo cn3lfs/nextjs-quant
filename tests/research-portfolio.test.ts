@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   researchSpecSchema,
   type ResearchEvent,

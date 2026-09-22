@@ -4,12 +4,12 @@ import fake from "./fixtures/breakout-false.json";
 import {
   retrospectiveSignals,
   type SignalBacktestInput,
-} from "../src/server/signal-backtest";
-import { analyzeBreakout } from "../src/server/breakout";
-import { ledgerSignals } from "../src/server/signal-ledger-engine";
+} from "../src/server/backtest/signal-backtest";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
+import { ledgerSignals } from "../src/server/monitoring/signal-ledger-engine";
 import { horizons, ledgerOutcome } from "../src/lib/signal-ledger";
 import { sqlite } from "../src/server/db";
-import { recordResearchUsage } from "../src/server/research-usage";
+import { recordResearchUsage } from "../src/server/research/research-usage";
 import { signalInformation } from "../src/lib/signal-information";
 
 function input(bars = valid.bars): SignalBacktestInput {

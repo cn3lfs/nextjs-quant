@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import fixture from "./fixtures/eastmoney-index-day.json";
-import { eastmoneyKlines } from "../src/server/eastmoney-adapter";
-import { onlinePeriodHistory } from "../src/server/chart-history";
+import { eastmoneyKlines } from "../src/server/data-sources/eastmoney/eastmoney-adapter";
+import { onlinePeriodHistory } from "../src/server/market/chart-history";
 
 afterEach(() => vi.unstubAllGlobals());
 const response = () => new Response(JSON.stringify(fixture));

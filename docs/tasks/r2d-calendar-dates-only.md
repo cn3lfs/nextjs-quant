@@ -40,7 +40,7 @@
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/server/data-health.ts src/server/api/root.ts
+npx prettier --check src/server/market/data-health.ts src/server/api/root.ts
 ```
 
 基线：256 文件通过 / 5 跳过，1532 用例通过 / 6 跳过。

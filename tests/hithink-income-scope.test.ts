@@ -2,9 +2,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   incomeScopeEvidence,
   queryIncomeScope,
-} from "~/server/hithink-income-scope";
-import { revenueReconciliation } from "~/server/revenue-reconciliation";
-import { businessEvidence } from "~/server/hithink-business";
+} from "~/server/data-sources/hithink/hithink-income-scope";
+import { revenueReconciliation } from "~/server/strategies/value/revenue-reconciliation";
+import { businessEvidence } from "~/server/data-sources/hithink/hithink-business";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 function raw() {
   const row: Record<string, unknown> = {

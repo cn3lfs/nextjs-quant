@@ -1,6 +1,6 @@
 import type { BacktestCosts } from "./backtest-costs";
 import type { Bar } from "./domain";
-import type { researchPortfolio } from "../server/research-portfolio";
+import type { researchPortfolio } from "../server/backtest/research-portfolio";
 
 export type WeightRow = { dt: string; symbol: string; weight: number | null };
 export type ReturnRow = { dt: string; symbol: string; value: number | null };

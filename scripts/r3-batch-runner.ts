@@ -13,7 +13,7 @@
  *   `invalid_enum_value` for every one of the 162 composite presets. The
  *   only correct entry point for those ids is
  *   `buildNamedResearchSpec`/`findResearchCompositePreset`
- *   (src/server/research-run.ts:154, src/lib/research-composite-presets.ts).
+ *   (src/server/backtest/research-run.ts:154, src/lib/research-composite-presets.ts).
  *   Non-composite ids (B3's indicator/pattern names, B4's "wy-" and "chan-"
  *   prefixed strategy names) ARE valid `strategy` enum values and must keep going
  *   through the direct `researchSpecSchema.parse({strategy: id, ...})` path
@@ -34,7 +34,7 @@
  * Third, undocumented-by-name but load-bearing fix: `captureResearchDataset`
  * only fetches 5-minute bars when the *capture-time* spec it is given carries
  * `management.growthIntraday` (or is a chan-five-minute / wyckoff-hourly
- * strategy) — see src/server/research-dataset.ts:79-85,112-121,174-181. The
+ * strategy) — see src/server/backtest/research-dataset.ts:79-85,112-121,174-181. The
  * original driver always captured with a bare `dual-breakout` spec, so any
  * batch containing an intraday-anchored preset (all 29 of B5; 3 of B2 —
  * RK-B-touch/RK-C-swing-system/RK-A-intraday-time; 2 of B4 —
@@ -58,30 +58,30 @@ import {
   needsVolumeEvidence,
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
 } from "../src/lib/research-event-coverage";
-import { deriveHistoricalFloatShares } from "../src/server/tdx-gbbq";
+import { deriveHistoricalFloatShares } from "../src/server/data-sources/tdx/tdx-gbbq";
 import {
   runStrategyResearch,
   buildNamedResearchSpec,
   createResearchCzscCache,
-} from "../src/server/research-run";
+} from "../src/server/backtest/research-run";
 import { findResearchCompositePreset } from "../src/lib/research-composite-presets";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { readMarketPool } from "../src/server/market-pool-files";
-import { saveSettings } from "../src/server/settings";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { readMarketPool } from "../src/server/market/market-pool-files";
+import { saveSettings } from "../src/server/infra/settings";
 import { settingsSchema } from "../src/lib/domain";
-import { analyzeCzsc } from "../src/server/czsc";
+import { analyzeCzsc } from "../src/server/strategies/chan/czsc";
 import { isChanC4 } from "../src/lib/research-chan-movements";
 import {
   isChanNative,
   isChanFiveMinute,
 } from "../src/lib/research-chan-native";
 import { isWyckoffHourly } from "../src/lib/research-wyckoff-hourly";
-import { writeResearchJsonFile } from "../src/server/research-json";
+import { writeResearchJsonFile } from "../src/server/backtest/research-json";
 
 // Isolation guard (executor-brief.md §7 / next-round-plan.md §7): this driver
 // calls saveSettings(), which writes to the sqlite DB resolved by
@@ -237,7 +237,7 @@ const uniquePresets = [
 // line. Excluding a preset is only sound when the factor provably cannot change
 // its result: for `entryMaxWait` that means presets with zero events, because
 // the factor only acts on *unfilled buy intents*
-// (src/server/research-portfolio.ts:967 expiry, :980 reversal cancel) and a
+// (src/server/backtest/research-portfolio.ts:967 expiry, :980 reversal cancel) and a
 // preset with no events never creates one. The caller registers the exclusion,
 // its reason, and which presets were left out; this flag only implements scope.
 const onlyEnv = (process.env.R3_ONLY_PRESETS ?? "").trim();
@@ -390,7 +390,7 @@ if (captureOnly) {
 // deliberate product limit). It is a pure function of
 // (symbol, bars, actions, calendar, gbbqAvailable), so it is derived here, at
 // the single point of use. The 5th argument mirrors capture's `actions !== null`
-// (src/server/research-dataset.ts), i.e. `actionCoverage !== "missing"`.
+// (src/server/backtest/research-dataset.ts), i.e. `actionCoverage !== "missing"`.
 const gbbqAvailable = evidenceDataset.actionCoverage !== "missing";
 const eventCoverageBySymbol = new Map(
   evidenceDataset.stocks.map((stock) => [

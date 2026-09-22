@@ -66,11 +66,11 @@ pnpm normalize:eol && npx prettier --check <改到的文件>
 
 这些是执行者已完成、管理者尚未提交的工作：
 
-- `src/server/tdx-gbbq.ts` —— **复权因子缺陷修复**（见 §6.3），已验证
+- `src/server/data-sources/tdx/tdx-gbbq.ts` —— **复权因子缺陷修复**（见 §6.3），已验证
 - `tests/tdx-gbbq.test.ts` —— 该修复新增的 4 条断言（既有断言一条未改）
 - `docs/trading-skills-r3-results.md` + `scripts/r3-result-table.ts` —— 结果表重建（含 §0.5 按每股计数、成交口径说明、按 `entryMaxWait` 分节的骨架）
 - `scripts/r3-batch-runner.ts` —— 分片、`R3_ONLY_PRESETS`、volumeEvidence 现算等
-- `src/lib/research-supermind-snapshot.ts`、`src/server/research-supermind-store.ts`、`scripts/supermind/*`、`tests/research-supermind-snapshot.test.ts` —— S5 冻结存储与取数（见 §5）
+- `src/lib/research-supermind-snapshot.ts`、`src/server/research/research-supermind-store.ts`、`scripts/supermind/*`、`tests/research-supermind-snapshot.test.ts` —— S5 冻结存储与取数（见 §5）
 - `.gitignore` —— 新增 `.data/`
 
 **⚠️ 网格 5 档停在 46/170**：续跑前请先核对 `b3-w5/raw/` 下每个 JSON **可解析**（若某个分片被杀于写盘中途，会留下半写文件，而驱动器的续跑逻辑是 `existsSync` 命中即复用，**会把半写文件当成完整归档**）。不可解析的请移入 `.stale-partial/` 并在交付说明记明。

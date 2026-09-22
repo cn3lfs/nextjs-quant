@@ -68,7 +68,7 @@
 **目录职责**
 
 - `src/lib/` — 纯函数、类型、无 IO。可被服务端与客户端同时引用。
-- `src/server/` — 有 IO：文件、数据库、网络、worker、FFI。
+- `src/server/` — 有 IO：文件、数据库、网络、worker、FFI。按策略、数据源、回测、研究等职责分域，目录归属见 [architecture](architecture.md#服务端职责目录2026-09-22)；专用 worker/store 跟随业务域，根目录只保留组合入口与明确受保护文件。
 - `src/components/` — React 组件。
 - `src/components/ui/` — **只放 shadcn 组件与其薄封装**，不放业务组件。
 - `src/app/` — 路由与页面。

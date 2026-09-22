@@ -5,25 +5,28 @@ import { join } from "node:path";
 import type { Bar, Job, Snapshot } from "../src/lib/domain";
 import { settingsSchema } from "../src/lib/domain";
 import { validateScreenFormula } from "../src/lib/formula-screen";
-vi.mock("../src/server/tdx", () => ({ scan: vi.fn(), readSnapshot: vi.fn() }));
-vi.mock("../src/server/jobs", async (original) => ({
-  ...(await original<typeof import("../src/server/jobs")>()),
+vi.mock("../src/server/data-sources/tdx/tdx", () => ({
+  scan: vi.fn(),
+  readSnapshot: vi.fn(),
+}));
+vi.mock("../src/server/jobs/jobs", async (original) => ({
+  ...(await original<typeof import("../src/server/jobs/jobs")>()),
   runWorker: vi.fn(),
 }));
-import { scan, readSnapshot } from "../src/server/tdx";
-import { screenFormula } from "../src/server/formula-screening";
+import { scan, readSnapshot } from "../src/server/data-sources/tdx/tdx";
+import { screenFormula } from "../src/server/screening/formula-screening";
 import {
   saveFormula,
   savedFormulas,
   formulaScreenJob,
   exportFormulaScreen,
-} from "../src/server/formula-screen-service";
-import { runWorker, cancelJob } from "../src/server/jobs";
+} from "../src/server/screening/formula-screen-service";
+import { runWorker, cancelJob } from "../src/server/jobs/jobs";
 import { get, list, put, sqlite } from "../src/server/db";
 import {
   pageScreenResults,
   type StoredScreenResult,
-} from "../src/server/screen-results";
+} from "../src/server/screening/screen-results";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "q2b-screen-"));
 const bars: Bar[] = Array.from({ length: 30 }, (_, i) => ({
   date: `2026-01-${String(i + 1).padStart(2, "0")}`,
@@ -266,7 +269,7 @@ it("zero/multiple outputs and dead-branch future calls never launch work", () =>
 });
 
 it("formula screening consumes persisted RPS and distinguishes missing from weak", async () => {
-  const { RpsStore } = await import("../src/server/rps-store");
+  const { RpsStore } = await import("../src/server/screening/rps-store");
   const { rpsDay } = await import("./rps-fixture");
   const store = new RpsStore(sqlite());
   const { day, rows } = rpsDay();

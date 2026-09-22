@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import type { NewsAnalysis } from "~/server/news-analysis";
-import type { NewsSectorReport } from "~/server/news-sector";
+import type { NewsAnalysis } from "~/server/news/news-analysis";
+import type { NewsSectorReport } from "~/server/news/news-sector";
 import { Button } from "./ui/button";
 
 export function NewsSectorPanel({ analysis }: { analysis: NewsAnalysis }) {

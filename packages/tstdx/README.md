@@ -56,4 +56,4 @@ pnpm test       # 离线测试，不访问公网
 pnpm typecheck
 ```
 
-本仓库通过 pnpm workspace 的 `tstdx: workspace:*` 引入；节点来源与环境变量优先级保留在宿主应用的 `src/server/tdx-quotes.ts`，通过 `hosts` 函数传入。
+本仓库通过 pnpm workspace 的 `tstdx: workspace:*` 引入；节点来源与环境变量优先级保留在宿主应用的 `src/server/data-sources/tdx/tdx-quotes.ts`，通过 `hosts` 函数传入。

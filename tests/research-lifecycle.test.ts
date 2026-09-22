@@ -5,10 +5,10 @@ import {
   newJob,
   recoverJobs,
   updateJob,
-} from "../src/server/jobs";
+} from "../src/server/jobs/jobs";
 import { get, sqlite } from "../src/server/db";
-import { ResearchAttempts } from "../src/server/research-governance";
-import { recordResearchUsage } from "../src/server/research-usage";
+import { ResearchAttempts } from "../src/server/research/research-governance";
+import { recordResearchUsage } from "../src/server/research/research-usage";
 import type { Job } from "../src/lib/domain";
 
 beforeEach(() => sqlite().prepare("DELETE FROM records").run());

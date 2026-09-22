@@ -5,8 +5,8 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import type { ResearchExecutionRules } from "../src/lib/research-execution";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import {
   researchPlannedProceeds,
   researchPyramidOrder,

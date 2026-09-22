@@ -2,12 +2,16 @@ import { beforeAll, afterAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { strategySchema } from "../src/lib/domain";
 import fixture from "./fixtures/czsc-sse.json";
-import { analyzeCzsc, closeCzsc, projectCzsc } from "../src/server/czsc";
-import { parseBars } from "../src/server/tdx";
+import {
+  analyzeCzsc,
+  closeCzsc,
+  projectCzsc,
+} from "../src/server/strategies/chan/czsc";
+import { parseBars } from "../src/server/data-sources/tdx/tdx";
 beforeAll(async () => {
   const { build } = await import("esbuild");
   await build({
-    entryPoints: ["src/server/czsc-worker.ts"],
+    entryPoints: ["src/server/strategies/chan/czsc-worker.ts"],
     outfile: "runtime/czsc-worker.cjs",
     bundle: true,
     platform: "node",

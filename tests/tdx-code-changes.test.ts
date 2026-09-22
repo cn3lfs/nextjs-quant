@@ -2,8 +2,8 @@ import { expect, it } from "vitest";
 import { readFile, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseTdxCodeChanges } from "../src/server/tdx-code-changes";
-import { securityDirectory } from "../src/server/securities";
+import { parseTdxCodeChanges } from "../src/server/data-sources/tdx/tdx-code-changes";
+import { securityDirectory } from "../src/server/market/securities";
 import { put } from "../src/server/db";
 
 it("decodes fixed old-code evidence without inferring target trading status", async () => {

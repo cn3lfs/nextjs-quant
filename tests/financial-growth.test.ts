@@ -3,12 +3,12 @@ import { createHash } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { financeEvidence } from "~/server/hithink-finance";
+import { financeEvidence } from "~/server/data-sources/hithink/hithink-finance";
 import {
   financialQuality,
   type FinancialQualityArchive,
-} from "~/server/financial-quality";
-import { financialGrowth } from "~/server/financial-growth";
+} from "~/server/strategies/value/financial-quality";
+import { financialGrowth } from "~/server/strategies/value/financial-growth";
 import { put } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-growth-test-"));

@@ -9,7 +9,7 @@ import {
 import {
   holdingsCorrelationPageSchema,
   pageHoldingsCorrelation,
-} from "../src/server/holdings-correlation-service";
+} from "../src/server/portfolio/holdings-correlation-service";
 import { HoldingsCorrelationResults } from "../src/components/holdings-correlation-results";
 const dates = Array.from({ length: 32 }, (_, i) =>
   new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10),

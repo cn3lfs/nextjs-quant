@@ -5,25 +5,30 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 const mocks = vi.hoisted(() => ({ tencent: vi.fn(), tdx: vi.fn() }));
-vi.mock("../src/server/tencent-identity", async (original) => ({
-  ...(await original<typeof import("../src/server/tencent-identity")>()),
-  searchTencentIdentity: mocks.tencent,
-}));
-vi.mock("../src/server/tdx-mcp-disabled", () => ({
+vi.mock(
+  "../src/server/data-sources/tencent/tencent-identity",
+  async (original) => ({
+    ...(await original<
+      typeof import("../src/server/data-sources/tencent/tencent-identity")
+    >()),
+    searchTencentIdentity: mocks.tencent,
+  }),
+);
+vi.mock("../src/server/data-sources/tdx/tdx-mcp-disabled", () => ({
   mcpConfigured: async () => true,
   queryMcp: mocks.tdx,
 }));
-import { parseTencentIdentity } from "../src/server/tencent-identity";
+import { parseTencentIdentity } from "../src/server/data-sources/tencent/tencent-identity";
 import {
   checkTdxIdentity,
   verifySecurityIdentity,
-} from "../src/server/security-identity";
+} from "../src/server/market/security-identity";
 import {
   securityDirectory,
   storedSecurityName,
   mergeVerifiedSecurityName,
   securityProfile,
-} from "../src/server/securities";
+} from "../src/server/market/securities";
 import { put, get } from "../src/server/db";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-identity-"));
 async function root(name: string) {

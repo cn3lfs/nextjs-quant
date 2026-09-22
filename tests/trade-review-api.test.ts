@@ -30,16 +30,18 @@ vi.mock("../src/server/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/server/db")>()),
   sqlite: () => state.db!,
 }));
-vi.mock("../src/server/settings", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../src/server/settings")>()),
+vi.mock("../src/server/infra/settings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/server/infra/settings")>()),
   settings: () => ({
     tdxRoot: "fixture-missing-root",
     calendar: state.days,
     industryBlocksRoot: "",
   }),
 }));
-vi.mock("../src/server/data-health", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../src/server/data-health")>()),
+vi.mock("../src/server/market/data-health", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../src/server/market/data-health")
+  >()),
   fullLocalCalendarReference: async () => ({
     days: state.days,
     coverage: {
@@ -51,8 +53,10 @@ vi.mock("../src/server/data-health", async (importOriginal) => ({
     hash: "fixture-calendar",
   }),
 }));
-vi.mock("../src/server/tdx", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../src/server/tdx")>()),
+vi.mock("../src/server/data-sources/tdx/tdx", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../src/server/data-sources/tdx/tdx")
+  >()),
   readSnapshot: async (_root: string, symbol: string) => {
     if (state.scale)
       return {
@@ -78,7 +82,7 @@ vi.mock("../src/server/tdx", async (importOriginal) => ({
 }));
 import { createCaller } from "../src/server/api/root";
 import { r13Days, r13Statement } from "./r13-scale-fixture";
-import { DeliveryStore } from "../src/server/delivery-store";
+import { DeliveryStore } from "../src/server/portfolio/delivery-store";
 const caller = createCaller({ headers: new Headers() });
 const input = {
   path: resolve("tests/fixtures/delivery/tdx-statement.txt"),

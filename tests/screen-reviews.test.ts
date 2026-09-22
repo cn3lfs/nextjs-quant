@@ -3,8 +3,8 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { put, get, sqlite } from "../src/server/db";
-import { screenReviews } from "../src/server/screen-reviews";
-import { screenTaskProgress } from "../src/server/task-history";
+import { screenReviews } from "../src/server/screening/screen-reviews";
+import { screenTaskProgress } from "../src/server/jobs/task-history";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-screen-reviews-"),
 );

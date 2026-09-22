@@ -9,9 +9,9 @@ import {
 } from "../src/lib/research-exit-presets";
 import { researchManagementSchema } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 function setup(kind: (typeof canslimExitPresetIds)[number]) {
   const bars: Bar[] = Array.from({ length: 84 }, (_, i) => ({

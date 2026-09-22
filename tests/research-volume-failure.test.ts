@@ -6,15 +6,15 @@ import {
   type VolumeFailureId,
 } from "../src/lib/research-volume-failure";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { runStrategyResearch } from "../src/server/research-run";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 
 const native = vi.fn(async () => {
   throw new Error("no CZSC");

@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { get, list, put, sqlite } from "~/server/db";
-import { jobSummaries } from "~/server/job-summaries";
+import { jobSummaries } from "~/server/jobs/job-summaries";
 import type { Job } from "~/lib/domain";
 import superjson from "superjson";
 

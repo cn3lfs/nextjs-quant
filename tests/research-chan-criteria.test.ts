@@ -4,11 +4,15 @@ import {
   chanStructureCriterion,
   chanStructureTasks,
 } from "~/lib/research-chan-criteria";
-import { analyzeCzsc, closeCzsc, projectCzsc } from "~/server/czsc";
+import {
+  analyzeCzsc,
+  closeCzsc,
+  projectCzsc,
+} from "~/server/strategies/chan/czsc";
 import {
   czscResearchOutputs,
   decodeCzscResearchStructures,
-} from "~/server/czsc-research-structures";
+} from "~/server/strategies/chan/czsc-research-structures";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
 

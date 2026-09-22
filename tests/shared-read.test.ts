@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { sharedRead } from "../src/server/shared-read";
+import { sharedRead } from "../src/server/infra/shared-read";
 function deferred<T>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
   const promise = new Promise<T>((a, b) => {

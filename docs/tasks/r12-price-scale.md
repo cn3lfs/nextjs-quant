@@ -15,7 +15,7 @@ R11 后净值恢复 **1265/1265**、残差 `295.90`、收益 >1000% 的分段为
 
 ## 2. 根因与实测依据
 
-`parseBars`（`src/server/tdx.ts` 约 128 行）对日线固定 `/100`：
+`parseBars`（`src/server/data-sources/tdx/tdx.ts` 约 128 行）对日线固定 `/100`：
 
 ```ts
 prices = [4, 8, 12, 16].map((offset) => buffer.readUInt32LE(i + offset) / 100);
@@ -74,7 +74,7 @@ prices = [4, 8, 12, 16].map((offset) => buffer.readUInt32LE(i + offset) / 100);
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/server/trade-review-service.ts src/lib/trade-review-nav.ts
+npx prettier --check src/server/portfolio/trade-review-service.ts src/lib/trade-review-nav.ts
 ```
 
 ## 7. 报告格式

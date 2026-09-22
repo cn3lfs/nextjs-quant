@@ -14,7 +14,11 @@ vi.mock("undici", () => ({
   },
 }));
 import { get, put, sqlite } from "../src/server/db";
-import { drain, enqueue, recoverDeliveries } from "../src/server/notifications";
+import {
+  drain,
+  enqueue,
+  recoverDeliveries,
+} from "../src/server/infra/notifications";
 import {
   strategySchema,
   type Monitor,

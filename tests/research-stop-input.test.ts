@@ -7,8 +7,8 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
 const dates = ["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"];
 const management = researchManagementSchema.parse({

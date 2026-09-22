@@ -11,38 +11,38 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   put: vi.fn(),
 }));
-vi.mock("~/server/hithink-context", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-context", () => ({
   queryIndustryContext: mocks.industry,
 }));
-vi.mock("~/server/hithink-business", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-business", () => ({
   businessProfiles: ["segments", "customers"],
   queryBusiness: mocks.business,
 }));
-vi.mock("~/server/hithink-ownership", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-ownership", () => ({
   ownershipProfiles: ["control", "annual-capital"],
   queryOwnership: mocks.ownership,
 }));
-vi.mock("~/server/hithink-forecast", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-forecast", () => ({
   forecastYear: () => 2026,
   queryForecast: mocks.forecast,
 }));
-vi.mock("~/server/hithink-macro", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-macro", () => ({
   macroProfiles: ["bond-10y"],
   queryMacro: mocks.macro,
 }));
-vi.mock("~/server/hithink-solvency", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-solvency", () => ({
   solvencyProfiles: ["balance"],
   querySolvency: mocks.solvency,
 }));
 vi.mock("~/server/db", () => ({ get: mocks.get, put: mocks.put }));
-vi.mock("~/server/hithink-income-scope", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-income-scope", () => ({
   queryIncomeScope: mocks.income,
 }));
-vi.mock("~/server/hithink-capital-events", () => ({
+vi.mock("~/server/data-sources/hithink/hithink-capital-events", () => ({
   capitalEventProfiles: ["placement", "rights"],
   queryCapitalEvents: mocks.capital,
 }));
-import { gatherFundamentalContext } from "~/server/fundamental-dossier";
+import { gatherFundamentalContext } from "~/server/strategies/value/fundamental-dossier";
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => vi.useRealTimers());
 const entry = (id: string) => ({ id, envelope: { source: id } });

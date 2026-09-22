@@ -11,12 +11,12 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.records.set(id, value),
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: state.model,
 }));
-import { analyzeNewsSector } from "../src/server/news-sector";
-import type { NewsAnalysis } from "../src/server/news-analysis";
+import { analyzeNewsSector } from "../src/server/news/news-sector";
+import type { NewsAnalysis } from "../src/server/news/news-analysis";
 const input = {
   analysisId: `news-analysis-${"a".repeat(64)}`,
   industry: "电子",

@@ -4,7 +4,7 @@ import {
   indexFixtureRequest as req,
 } from "./helpers/market-factor-fixture";
 import { expect, it } from "vitest";
-import { evaluateGrowthFactors } from "../src/server/research-growth-factors";
+import { evaluateGrowthFactors } from "../src/server/strategies/canslim/research-growth-factors";
 import { indexFactorRules } from "../src/lib/research-index-factors";
 import { asOfInputDefinitions } from "../src/lib/as-of-inputs";
 import type { AsOfObservation } from "../src/lib/as-of";

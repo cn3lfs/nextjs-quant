@@ -10,17 +10,17 @@ import {
   volumeWarmupStart,
   type VolumeStrategyId,
 } from "../src/lib/research-volume";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import type { ResearchExecutionRules } from "../src/lib/research-execution";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { runStrategyResearch } from "../src/server/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 
 function bars(
   tail: { close: number; volume: number; open?: number }[],

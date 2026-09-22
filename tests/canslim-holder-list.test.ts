@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimHolderList } from "../src/server/canslim-holder-list";
+import { canslimHolderList } from "../src/server/strategies/canslim/canslim-holder-list";
 const rows = () =>
   Array.from({ length: 10 }, (_, i) => ({
     股票代码: "600519.SH",

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimEntry } from "../src/server/canslim-entry";
+import { canslimEntry } from "../src/server/strategies/canslim/canslim-entry";
 import type { Snapshot } from "../src/lib/domain";
 const fixture = (): Snapshot => ({
   id: "entry",

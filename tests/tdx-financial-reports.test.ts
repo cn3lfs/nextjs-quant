@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   financialReportDirectory,
   resolveFinanceReportPeriod,
-} from "../src/server/tdx-financial-reports";
+} from "../src/server/data-sources/tdx/tdx-financial-reports";
 
 /**
  * 合成一个通达信财务包：20 字节包头 + 每条 11 字节索引 + 每条 fieldCount 个 float。

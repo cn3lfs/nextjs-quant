@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import type { Bar, Snapshot } from "../src/lib/domain";
 import { put } from "../src/server/db";
-import { saveSettings, settings } from "../src/server/settings";
-import { chartBars } from "../src/server/chart-bars";
-import { mergeOnlineDailyTail } from "../src/server/chart-online-delta";
-import * as freeSources from "../src/server/free-chart-sources";
+import { saveSettings, settings } from "../src/server/infra/settings";
+import { chartBars } from "../src/server/charts/chart-bars";
+import { mergeOnlineDailyTail } from "../src/server/market/chart-online-delta";
+import * as freeSources from "../src/server/market/free-chart-sources";
 afterEach(() => vi.restoreAllMocks());
 
 /** 交易日（周一至周五）倒推，避免周末混进本地或日历。 */

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { searchSecurities } from "~/server/security-search";
+import { searchSecurities } from "~/server/market/security-search";
 import type { Security } from "~/lib/domain";
 const stocks: Security[] = [
   {

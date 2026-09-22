@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { mergeCanslimFinance } from "../src/server/canslim-finance-bundle";
-import { financeEvidence } from "../src/server/hithink-finance";
+import { mergeCanslimFinance } from "../src/server/strategies/canslim/canslim-finance-bundle";
+import { financeEvidence } from "../src/server/data-sources/hithink/hithink-finance";
 const entry = (value: number, period = "20251231") =>
   financeEvidence(
     "sh600519",

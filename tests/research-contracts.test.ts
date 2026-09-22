@@ -16,23 +16,23 @@ import {
   type ResearchEvent,
   type ResearchSpec,
 } from "../src/lib/strategy-research";
-import { researchSignals as actualResearchSignals } from "../src/server/research-signals";
+import { researchSignals as actualResearchSignals } from "../src/server/strategies/shared/research-signals";
 import {
   isResearchRule,
   researchRuleSeries,
-} from "../src/server/research-rule-series";
+} from "../src/server/strategies/shared/research-rule-series";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   buildNamedResearchSpec,
   runStrategyResearch,
-} from "../src/server/research-run";
+} from "../src/server/backtest/research-run";
 import {
   findResearchCompositePreset,
   researchCompositePresetIds,
 } from "../src/lib/research-composite-presets";
 import { isExternalVolatility } from "../src/lib/research-volatility-input";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import {
   researchSellQuantity,
   type ResearchExecutionRules,
@@ -676,9 +676,9 @@ describe.each(researchCompositePresetIds)(
           low: 9000,
         },
       ];
-      expect(
-        await researchSignals(event.symbol, future, spec, native),
-      ).toEqual(await researchSignals(event.symbol, bars, spec, native));
+      expect(await researchSignals(event.symbol, future, spec, native)).toEqual(
+        await researchSignals(event.symbol, bars, spec, native),
+      );
     });
 
     it.each(["missing", "zero-volume", "invalid-ohlc"])(
@@ -768,10 +768,7 @@ describe.each(researchCompositePresetIds)(
       }
       const result = await runStrategyResearch(spec, dataset, null, native);
       expect(result.partitions).toHaveLength(2);
-      expect(result.partitions.map((p) => p.simulation)).toEqual([
-        null,
-        null,
-      ]);
+      expect(result.partitions.map((p) => p.simulation)).toEqual([null, null]);
       const dailyEvidence = researchMarketEvidenceSchema.parse({
         version: "research-market-evidence-1",
         source: "synthetic-contract",

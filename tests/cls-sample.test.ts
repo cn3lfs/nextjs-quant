@@ -1,12 +1,12 @@
 import { expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "../src/server/db/migrations";
-import { ClsReviewStore } from "../src/server/cls-review-store";
-import { parseClsReport } from "../src/server/cls-report-parser";
+import { ClsReviewStore } from "../src/server/news/cls-review-store";
+import { parseClsReport } from "../src/server/news/cls-report-parser";
 import {
   buildClsSample,
   type ClsSampleCandidate,
-} from "../src/server/cls-sample";
+} from "../src/server/news/cls-sample";
 
 it("locks one premarket sample with deterministic priority and rejects hindsight selection", () => {
   const db = new Database(":memory:");

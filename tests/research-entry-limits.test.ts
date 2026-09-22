@@ -5,8 +5,8 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { researchManagementSchema } from "../src/lib/research-management";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { swingPositionTemplate } from "../src/components/research-strategy-fields";
 const dates = ["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"];
 const symbols = ["sh600000", "sh600001", "sh600002", "sh600003"];

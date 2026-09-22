@@ -9,7 +9,7 @@ import {
   researchInitialStop,
   researchManagementSchema,
 } from "../src/lib/research-management";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   researchSpecSchema,
   type ResearchEvent,
@@ -18,7 +18,7 @@ import {
   applyResearchManagement,
   selectResearchStrategy,
 } from "../src/components/research-strategy-fields";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 const rules = {
   evidence: "fixture",
   tradable: true,

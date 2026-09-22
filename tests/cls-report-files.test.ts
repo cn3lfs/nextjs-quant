@@ -6,8 +6,8 @@ import { migrate } from "../src/server/db/migrations";
 import {
   clsReportFiles,
   previewClsReport,
-} from "../src/server/cls-report-files";
-import { ClsReviewStore } from "../src/server/cls-review-store";
+} from "../src/server/news/cls-report-files";
+import { ClsReviewStore } from "../src/server/news/cls-review-store";
 
 it("previews read-only files, rejects stale approval and archives revisions idempotently", async () => {
   await mkdir(".test-data", { recursive: true });

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Evidence } from "../src/lib/domain";
-import { canslimPromptEvidence } from "../src/server/canslim-prompt-evidence";
+import { canslimPromptEvidence } from "../src/server/strategies/canslim/canslim-prompt-evidence";
 it("retains every qualified geometry, original index and entries without modifying the archive", () => {
   const payload = {
     technical: {

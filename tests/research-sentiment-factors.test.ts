@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { evaluateGrowthFactors } from "../src/server/research-growth-factors";
+import { evaluateGrowthFactors } from "../src/server/strategies/canslim/research-growth-factors";
 import {
   sentimentFactorRules,
   sentimentMetrics,

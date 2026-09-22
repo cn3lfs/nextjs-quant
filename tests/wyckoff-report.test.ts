@@ -11,11 +11,11 @@ vi.mock("../src/server/db", () => ({
     return value;
   },
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: state.call,
 }));
-vi.mock("../src/server/wyckoff-method", () => ({
+vi.mock("../src/server/strategies/wyckoff/wyckoff-method", () => ({
   wyckoffMethod: async () => ({
     version: "fixture",
     source: "fixture",
@@ -24,14 +24,14 @@ vi.mock("../src/server/wyckoff-method", () => ({
     boundaries: [],
   }),
 }));
-import { wyckoffFrames } from "~/server/wyckoff-frames";
+import { wyckoffFrames } from "~/server/strategies/wyckoff/wyckoff-frames";
 import {
   wyckoffReportSchema,
   wyckoffStages,
   wyckoffStageFiles,
-} from "~/server/wyckoff-report-schema";
-import { analyzeWyckoff } from "~/server/wyckoff-report";
-import { wyckoffRelativeStrength } from "~/server/wyckoff-relative-strength";
+} from "~/server/strategies/wyckoff/wyckoff-report-schema";
+import { analyzeWyckoff } from "~/server/strategies/wyckoff/wyckoff-report";
+import { wyckoffRelativeStrength } from "~/server/strategies/wyckoff/wyckoff-relative-strength";
 const dates = Array.from(
   { length: 60 },
   (_, i) => new Date(Date.UTC(2026, 5, 1 + i)),

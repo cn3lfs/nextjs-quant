@@ -4,7 +4,7 @@ import {
   configuredHosts,
   parseHosts,
   TDX_HOSTS,
-} from "../src/server/tdx-quotes";
+} from "../src/server/data-sources/tdx/tdx-quotes";
 
 describe("服务器配置", () => {
   const original = process.env.TDX_HOSTS;

@@ -6,8 +6,8 @@ import {
 } from "../src/lib/research-exit-presets";
 import { researchManagementSchema } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
 const setup = (kind: (typeof sepaExitPresetIds)[number]) => {
   const bars = Array.from({ length: 45 }, (_, i) => ({

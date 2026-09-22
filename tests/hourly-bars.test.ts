@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "~/lib/domain";
-import { hourlyBars } from "~/server/hourly-bars";
+import { hourlyBars } from "~/server/market/hourly-bars";
 function source(): Snapshot {
   return {
     id: "minute-fixture",

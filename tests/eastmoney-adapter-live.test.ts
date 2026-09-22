@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { eastmoneyKlines } from "../src/server/eastmoney-adapter";
+import { eastmoneyKlines } from "../src/server/data-sources/eastmoney/eastmoney-adapter";
 
 it.skipIf(process.env.QUANT_EASTMONEY_ACCEPTANCE !== "1")(
   "东方财富各品种日周分钟真实验收",

@@ -8,7 +8,7 @@
 
 ## 接口与接入
 
-`src/server/tstdx-adapter.ts` 提供：
+`src/server/data-sources/tstdx/tstdx-adapter.ts` 提供：
 
 - `tstdxKlines({symbols, period, limit?, adjustment?, start?, end?}, signal?)`：最多 80 个证券、20000 根，图表全部七个周期；按输入顺序返回 `ok / unsupported / unavailable / invalid`。含版本、真实来源、请求参数/开始结束时间/错误、单位说明及逐项历史边界。
 - `requireTstdxRows(result)`：要求整批成功的消费者可使用；有失败即抛错，不静默漏掉证券。

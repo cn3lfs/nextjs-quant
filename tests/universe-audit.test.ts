@@ -10,14 +10,14 @@ import {
   type UniverseAuditEvidence,
 } from "../src/lib/universe-audit";
 import { UniverseAuditResults } from "../src/components/universe-audit-results";
-import { universeAuditPage } from "../src/server/universe-audit";
+import { universeAuditPage } from "../src/server/research/universe-audit";
 import { get, put, sqlite } from "../src/server/db";
-import { settings, saveSettings } from "../src/server/settings";
-import { ResearchStore } from "../src/server/research-store";
-import { RpsStore } from "../src/server/rps-store";
+import { settings, saveSettings } from "../src/server/infra/settings";
+import { ResearchStore } from "../src/server/backtest/research-store";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { industryDay } from "./industry-rps-fixture";
-import { readMarketPool } from "../src/server/market-pool-files";
-import { tdxBlockFiles } from "../src/server/tdx-local-blocks";
+import { readMarketPool } from "../src/server/market/market-pool-files";
+import { tdxBlockFiles } from "../src/server/data-sources/tdx/tdx-local-blocks";
 
 const blocked = vi.hoisted(() => ({
   request: vi.fn(() => {
@@ -27,9 +27,13 @@ const blocked = vi.hoisted(() => ({
     throw new Error("禁止刷新");
   }),
 }));
-vi.mock("../src/server/hithink-context", () => ({ request: blocked.request }));
-vi.mock("../src/server/security-lifecycle", async (original) => ({
-  ...(await original<typeof import("../src/server/security-lifecycle")>()),
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: blocked.request,
+}));
+vi.mock("../src/server/market/security-lifecycle", async (original) => ({
+  ...(await original<
+    typeof import("../src/server/market/security-lifecycle")
+  >()),
   verifySecurityLifecycle: blocked.verify,
 }));
 afterEach(() => {

@@ -71,7 +71,7 @@ const result = runDisciplineGrid(evidence.input, {
 
 ### 裁定一：grep 验收范围收窄
 
-改为：在 **`src/server/discipline-source.ts` 与 `src/components/discipline-*.tsx`** 两处，
+改为：在 **`src/server/portfolio/discipline-source.ts` 与 `src/components/discipline-*.tsx`** 两处，
 `230837` / `197422` / `count: 784` / `count: 774` 零命中。
 
 **明确禁止**修改 `src/lib/multiple-testing.ts` 的任何数值——

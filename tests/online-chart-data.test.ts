@@ -4,8 +4,8 @@ import fixture from "./fixtures/eastmoney-index-day.json";
 import {
   onlineChartSnapshot,
   parseOnlineChart,
-} from "../src/server/online-chart-data";
-import { parseBars } from "../src/server/tdx-wire";
+} from "../src/server/charts/online-chart-data";
+import { parseBars } from "../src/server/data-sources/tdx/tdx-wire";
 
 afterEach(() => vi.unstubAllGlobals());
 it("validates online symbol and OHLC fields, retaining amounts and original volume units", async () => {

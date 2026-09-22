@@ -1,11 +1,15 @@
 import { beforeAll, afterAll, expect, test } from "vitest";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
 import fixture from "./fixtures/czsc-sse.json";
-import { projectCzsc, closeCzsc, analyzeCzsc } from "../src/server/czsc";
-import { parseBars } from "../src/server/tdx";
-import { toFloat32 } from "../src/server/czsc-input";
+import {
+  projectCzsc,
+  closeCzsc,
+  analyzeCzsc,
+} from "../src/server/strategies/chan/czsc";
+import { parseBars } from "../src/server/data-sources/tdx/tdx";
+import { toFloat32 } from "../src/server/strategies/chan/czsc-input";
 import { readFileSync } from "node:fs";
-import { decodeCzscCenters } from "../src/server/czsc-structures";
+import { decodeCzscCenters } from "../src/server/strategies/chan/czsc-structures";
 
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);

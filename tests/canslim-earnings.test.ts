@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimEarnings } from "../src/server/canslim-earnings";
+import { canslimEarnings } from "../src/lib/strategy-facts/canslim-earnings";
 const point = (period: string, value: number | null) => ({
   period,
   value,

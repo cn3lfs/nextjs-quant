@@ -3,15 +3,20 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
-vi.mock("../src/server/hithink-finance", async (original) => ({
-  ...(await original<typeof import("../src/server/hithink-finance")>()),
-  queryFinance: mocks.query,
-}));
+vi.mock(
+  "../src/server/data-sources/hithink/hithink-finance",
+  async (original) => ({
+    ...(await original<
+      typeof import("../src/server/data-sources/hithink/hithink-finance")
+    >()),
+    queryFinance: mocks.query,
+  }),
+);
 import { createCaller } from "../src/server/api/root";
 import {
   financeEvidence,
   annualFinanceMetrics,
-} from "../src/server/hithink-finance";
+} from "../src/server/data-sources/hithink/hithink-finance";
 import { get, sqlite } from "../src/server/db";
 import type { Job } from "../src/lib/domain";
 process.env.QUANT_DATA_DIR = mkdtempSync(

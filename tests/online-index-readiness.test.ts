@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { onlineChartSnapshot } from "../src/server/online-chart-data";
+import { onlineChartSnapshot } from "../src/server/charts/online-chart-data";
 import { commonIndices } from "../src/lib/market-indices";
 
 it.skipIf(!process.env.QUANT_ONLINE_INDEX_AUDIT)(

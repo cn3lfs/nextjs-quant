@@ -17,8 +17,8 @@ import {
 import {
   marketPoolCatalog,
   readMarketPool,
-} from "../src/server/market-pool-files";
-import { readIndustryBlocks } from "../src/server/industry-blocks";
+} from "../src/server/market/market-pool-files";
+import { readIndustryBlocks } from "../src/server/market/industry-blocks";
 
 const roots: string[] = [];
 if (process.env.MARKET_POOL_BLOCKS_ROOT) {

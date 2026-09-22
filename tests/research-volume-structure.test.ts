@@ -8,13 +8,13 @@ import {
 } from "../src/lib/research-volume-structure";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { runStrategyResearch } from "../src/server/research-run";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
+} from "../src/server/backtest/research-dataset";
 
 const native = vi.fn(async () => {
   throw new Error("must not call CZSC");

@@ -132,4 +132,4 @@ import { buildQuotesRequest, parseQuotes } from "tstdx/wire";
 - 落盘、缓存、调度、重试策略（除了 `requestRetries` 这层）
 - 下载本地财务包或行情文件
 
-在本仓库里，节点来源与环境变量优先级保留在 `src/server/tdx-quotes.ts`，通过 `hosts` 函数传入。
+在本仓库里，节点来源与环境变量优先级保留在 `src/server/data-sources/tdx/tdx-quotes.ts`，通过 `hosts` 函数传入。

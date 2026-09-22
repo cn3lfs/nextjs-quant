@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { ownershipEvidence, queryOwnership } from "~/server/hithink-ownership";
+import {
+  ownershipEvidence,
+  queryOwnership,
+} from "~/server/data-sources/hithink/hithink-ownership";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 function capital() {
   return {

@@ -6,8 +6,8 @@ import { parseDeliveryTable } from "../src/lib/delivery-table";
 import { reviewTrades } from "../src/lib/trade-review";
 import { reviewTradeNav } from "../src/lib/trade-review-nav";
 import { migrate } from "../src/server/db/migrations";
-import { commitDeliveryImport } from "../src/server/delivery-import-service";
-import { DeliveryStore } from "../src/server/delivery-store";
+import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
+import { DeliveryStore } from "../src/server/portfolio/delivery-store";
 
 const header =
   "日期\t时间\t操作\t摘要\t证券代码\t成交价格\t成交数量\t发生金额\t资金余额\t成交金额";

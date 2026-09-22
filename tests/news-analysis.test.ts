@@ -28,11 +28,13 @@ vi.mock("../src/server/db", () => ({
     }),
   }),
 }));
-vi.mock("../src/server/cls-news", () => ({ readClsNews: state.news }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/data-sources/cls/cls-news", () => ({
+  readClsNews: state.news,
+}));
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ clsDbPath: "fixture" }),
 }));
-vi.mock("../src/server/research", () => ({
+vi.mock("../src/server/research/research", () => ({
   researchModel: () => "codex:default",
   structured: state.model,
 }));
@@ -40,7 +42,7 @@ import {
   analyzeNews,
   newsAnalysisView,
   type NewsAnalysis,
-} from "../src/server/news-analysis";
+} from "../src/server/news/news-analysis";
 const input = { cutoff: 1000, page: 0, query: "", historical: true };
 let guidePath: string, guide: string;
 beforeEach(async () => {

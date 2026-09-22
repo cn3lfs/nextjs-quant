@@ -8,8 +8,10 @@ vi.mock("../src/server/db", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.records.set(id, value),
 }));
-vi.mock("../src/server/hithink-context", () => ({ request: state.request }));
-import { queryRsEvidence } from "../src/server/hithink-rs";
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: state.request,
+}));
+import { queryRsEvidence } from "../src/server/data-sources/hithink/hithink-rs";
 const key = "涨跌幅[20260616-20260908]";
 const raw = {
   status_code: 0,

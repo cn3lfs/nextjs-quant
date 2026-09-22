@@ -5,7 +5,7 @@
 
 ## 1. 根因
 
-`localCalendarReference`（`src/server/data-health.ts`）只从
+`localCalendarReference`（`src/server/market/data-health.ts`）只从
 `vipdoc/sh/lday/sh000001.day` **末尾读 400 根**：
 
 ```ts
@@ -47,7 +47,7 @@ const size = Math.min(before.size, 400 * 32);
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/server/data-health.ts src/server/api/root.ts
+npx prettier --check src/server/market/data-health.ts src/server/api/root.ts
 ```
 
 基线：255 文件通过 / 5 跳过，1525 用例通过 / 6 跳过。

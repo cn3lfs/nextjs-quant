@@ -10,9 +10,12 @@ import { setup } from "./global-setup";
 import { settingsSchema } from "../src/lib/domain";
 import { rpsPolicy, type RpsProgress } from "../src/lib/rps";
 import { sqlite } from "../src/server/db";
-import { RpsStore } from "../src/server/rps-store";
-import { localRpsDependencies, runRpsJob } from "../src/server/rps-job";
-import { screenFormula } from "../src/server/formula-screening";
+import { RpsStore } from "../src/server/screening/rps-store";
+import {
+  localRpsDependencies,
+  runRpsJob,
+} from "../src/server/screening/rps-job";
+import { screenFormula } from "../src/server/screening/formula-screening";
 
 assert.equal(
   resolve(process.env.QUANT_DATA_DIR ?? ""),

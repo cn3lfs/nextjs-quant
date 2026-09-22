@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { sepaTrendFacts } from "../src/server/sepa-trend";
+import { sepaTrendFacts } from "../src/server/strategies/canslim/sepa-trend";
 function source(count: number): Snapshot {
   return {
     id: "fixture",

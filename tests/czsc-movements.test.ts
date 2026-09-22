@@ -3,9 +3,9 @@ import {
   chanProjectionMode,
   chanAnchorDateCodes,
 } from "../src/lib/czsc-movements";
-import { decodeCzscMovements } from "../src/server/czsc-movements";
+import { decodeCzscMovements } from "../src/server/strategies/chan/czsc-movements";
 import type { CzscNativeProjection } from "../src/lib/czsc";
-import type { CzscProjections } from "../src/server/czsc";
+import type { CzscProjections } from "../src/server/strategies/chan/czsc";
 
 function fixed() {
   const high = [12, 13, 12, 16, 17, 17, 17, 21, 22],

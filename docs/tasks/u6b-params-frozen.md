@@ -15,7 +15,7 @@ U6 的执行者在交付时如实指出了一个洞，页面上也写了：
 而消除这种「事后可调」正是 U6 立项的唯一理由。
 
 好消息是这个洞可以堵上：`ResearchStore` 的 `research-task` 记录里
-同时存了 `spec` 和 `createdAt`（见 `src/server/research-store.ts`）。
+同时存了 `spec` 和 `createdAt`（见 `src/server/backtest/research-store.ts`）。
 「这组参数在某个时间点之前就存在」是可以查证的事实。
 
 ## 2. 比较口径：只比参数，不比日期窗口

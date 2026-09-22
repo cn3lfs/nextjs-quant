@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { financeEvidence } from "~/server/hithink-finance";
-import { financialQuality } from "~/server/financial-quality";
+import { financeEvidence } from "~/server/data-sources/hithink/hithink-finance";
+import { financialQuality } from "~/server/strategies/value/financial-quality";
 function fixture(unit = "人民币元") {
   const years: Record<string, Record<string, number>> = {
     "20231231": { 资产总计: 100, 所有者权益合计: 50 },

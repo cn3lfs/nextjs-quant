@@ -48,8 +48,8 @@
 
 ## 已有代码核对
 
-- `src/server/canslim-entry.ts`已实现五项诊断：测试日前20条均量、不含当日、市场涨跌幅严格大于-2%、核心否决/未知传播；由`canslim-technical.ts`等消费。可复用此计算，仍需逐前缀历史输入、实际下一开盘买价上限及完整准入，诊断strong不等于自动BUY。
-- `src/server/canslim-market.ts`的M3取最近20条累计分布日及最近5条至少3个集中度。与本源连续至少5个有明确差别，分别命名验证，不把当前实现宣称原文全覆盖。M1/M2/M3诊断不等于所有历史市场许可。
+- `src/server/strategies/canslim/canslim-entry.ts`已实现五项诊断：测试日前20条均量、不含当日、市场涨跌幅严格大于-2%、核心否决/未知传播；由`canslim-technical.ts`等消费。可复用此计算，仍需逐前缀历史输入、实际下一开盘买价上限及完整准入，诊断strong不等于自动BUY。
+- `src/server/strategies/canslim/canslim-market.ts`的M3取最近20条累计分布日及最近5条至少3个集中度。与本源连续至少5个有明确差别，分别命名验证，不把当前实现宣称原文全覆盖。M1/M2/M3诊断不等于所有历史市场许可。
 
 ## technical-patterns.md全文（2026-09-16）
 

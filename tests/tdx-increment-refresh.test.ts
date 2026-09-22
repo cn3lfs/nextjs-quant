@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
-import { refreshDailyIncrement } from "../src/server/tdx-increment-refresh";
-import { readDailyIncrement } from "../src/server/tdx-daily-cache";
+import { refreshDailyIncrement } from "../src/server/data-sources/tdx/tdx-increment-refresh";
+import { readDailyIncrement } from "../src/server/data-sources/tdx/tdx-daily-cache";
 
 it.skipIf(process.platform !== "win32")(
   "rolls back all markets when a later market is incomplete, then publishes a complete selected batch",

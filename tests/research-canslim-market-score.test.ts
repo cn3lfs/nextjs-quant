@@ -4,13 +4,13 @@ import {
   canslimMarketBinaryIds as canslimMarketIds,
   type CanslimMarketId,
 } from "../src/lib/research-canslim-market-strategies";
-import { researchCanslimMarketScore } from "../src/server/research-canslim-market-score";
+import { researchCanslimMarketScore } from "../src/server/strategies/canslim/research-canslim-market-score";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import { canslimMarketTierIds } from "../src/lib/research-canslim-market-strategies";
 

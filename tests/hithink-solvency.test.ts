@@ -3,7 +3,7 @@ import {
   solvencyEvidence,
   querySolvency,
   type SolvencyProfile,
-} from "~/server/hithink-solvency";
+} from "~/server/data-sources/hithink/hithink-solvency";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 function raw(profile: SolvencyProfile = "balance") {
   const row: Record<string, unknown> = {

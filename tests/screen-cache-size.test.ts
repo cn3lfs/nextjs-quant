@@ -4,9 +4,9 @@ import {
   cachedScreen,
   cachedPackedScreen,
   cachePackedScreen,
-} from "~/server/screen-cache";
-import { packScreen, unpackScreen } from "~/server/screen-wire";
-import type { ScreeningResult } from "~/server/screening";
+} from "~/server/screening/screen-cache";
+import { packScreen, unpackScreen } from "~/server/screening/screen-wire";
+import type { ScreeningResult } from "~/server/screening/screening";
 
 it("caches results above the former bar limit losslessly and isolates returned objects", () => {
   const bar = {

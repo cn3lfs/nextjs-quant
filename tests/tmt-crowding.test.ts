@@ -7,19 +7,21 @@ import {
   swIndustries,
   tmtCodes,
   type TmtInput,
-} from "~/server/tmt-crowding";
+} from "~/server/strategies/sentiment/tmt-crowding";
 import {
   parseTmtCsv,
   tmtCsvInput,
   readTmtCache,
   tmtCandidateEvidence,
   tmtUsedMethods,
-} from "~/server/tmt-cache";
-import { contextEvidence } from "~/server/hithink-context";
+} from "~/server/strategies/sentiment/tmt-cache";
+import { contextEvidence } from "~/server/data-sources/hithink/hithink-context";
 import type { Snapshot } from "~/lib/domain";
 import { get } from "~/server/db";
-vi.mock("../src/server/sse-margin", async (original) => ({
-  ...(await original<typeof import("../src/server/sse-margin")>()),
+vi.mock("../src/server/data-sources/sse/sse-margin", async (original) => ({
+  ...(await original<
+    typeof import("../src/server/data-sources/sse/sse-margin")
+  >()),
   querySseMargin: vi.fn().mockRejectedValue(new Error("offline test")),
 }));
 

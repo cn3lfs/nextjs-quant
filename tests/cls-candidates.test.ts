@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { parseClsReport } from "../src/server/cls-report-parser";
-import { clsCandidates } from "../src/server/cls-candidates";
+import { parseClsReport } from "../src/server/news/cls-report-parser";
+import { clsCandidates } from "../src/server/news/cls-candidates";
 
 it("maps exact sectors to prior RPS while distinguishing recommendations from news mentions", async () => {
   const report = parseClsReport(

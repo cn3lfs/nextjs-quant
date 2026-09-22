@@ -2,8 +2,11 @@ import { expect, it } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readTailSnapshot, readHistoricalSnapshot } from "../src/server/tdx";
-import { fullBacktestSource } from "../src/server/backtest-source";
+import {
+  readTailSnapshot,
+  readHistoricalSnapshot,
+} from "../src/server/data-sources/tdx/tdx";
+import { fullBacktestSource } from "../src/server/backtest/backtest-source";
 function bytes(count: number) {
   const data = Buffer.alloc(count * 32);
   for (let i = 0; i < count; i++) {

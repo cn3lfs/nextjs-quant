@@ -1,6 +1,6 @@
-import { wyckoffHourlyFromMinutes } from "../src/server/research-wyckoff-hourly";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { wyckoffHourlyFromMinutes } from "../src/server/strategies/wyckoff/research-wyckoff-hourly";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import {
@@ -9,11 +9,11 @@ import {
   type WyckoffHourlyInput,
 } from "../src/lib/research-wyckoff-hourly";
 import { researchWyckoffSeries } from "../src/lib/research-wyckoff";
-import { hourlyBars } from "../src/server/hourly-bars";
+import { hourlyBars } from "../src/server/market/hourly-bars";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
 
 function aggregate(b: Bar, h: Bar[]) {

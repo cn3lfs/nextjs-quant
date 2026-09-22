@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { put, get } from "../src/server/db";
-import { reportSecurityContext } from "../src/server/report-security";
+import { reportSecurityContext } from "../src/server/research/report-security";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-report-security-"),
 );

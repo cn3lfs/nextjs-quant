@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { clsOutcomes, clsOutcomeStatistics } from "../src/server/cls-outcomes";
-import type { ClsSample } from "../src/server/cls-sample";
+import {
+  clsOutcomes,
+  clsOutcomeStatistics,
+} from "../src/server/news/cls-outcomes";
+import type { ClsSample } from "../src/server/news/cls-sample";
 
 const dates = [
   "2026-09-11",

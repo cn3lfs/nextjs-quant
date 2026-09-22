@@ -29,7 +29,7 @@
 
 ## 2. ETF 与可转债读不到日线，市值与买卖点全废
 
-`readSnapshot`（`src/server/tdx.ts`）对非股票品种直接抛
+`readSnapshot`（`src/server/data-sources/tdx/tdx.ts`）对非股票品种直接抛
 `仅支持A股与沪深指数行情`：
 
 ```
@@ -76,7 +76,7 @@ sz159915: 失败 → 仅支持A股与沪深指数行情
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/server/trade-review-service.ts src/lib/trade-review-nav.ts
+npx prettier --check src/server/portfolio/trade-review-service.ts src/lib/trade-review-nav.ts
 ```
 
 基线：256 文件通过 / 5 跳过，1543 用例通过 / 6 跳过。

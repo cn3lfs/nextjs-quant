@@ -1,6 +1,9 @@
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
-import { analyzeChanMovements, closeCzsc } from "../src/server/czsc";
+import {
+  analyzeChanMovements,
+  closeCzsc,
+} from "../src/server/strategies/chan/czsc";
 import { chanC4Observations } from "../src/lib/research-chan-movements";
 import type { ChanAnchor } from "../src/lib/czsc-movements";
 import fixture from "./fixtures/czsc-sse.json";

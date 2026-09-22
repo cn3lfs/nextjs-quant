@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { parseTdxDailyIncrement } from "../src/server/tdx-daily-increment";
+import { parseTdxDailyIncrement } from "../src/server/data-sources/tdx/tdx-daily-increment";
 const cod = readFileSync("tests/fixtures/tdx-daily-increment/sample.cod");
 const md1 = readFileSync("tests/fixtures/tdx-daily-increment/sample.md1");
 const parse = (c = cod, m = md1) =>

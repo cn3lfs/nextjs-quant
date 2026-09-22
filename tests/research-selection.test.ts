@@ -1,24 +1,24 @@
 import { expect, it, vi } from "vitest";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { captureResearchDataset } from "../src/server/research-dataset";
-import { readSnapshot, scan } from "../src/server/tdx";
+import { captureResearchDataset } from "../src/server/backtest/research-dataset";
+import { readSnapshot, scan } from "../src/server/data-sources/tdx/tdx";
 
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: "fixture", industryBlocksRoot: "blocks" }),
 }));
-vi.mock("../src/server/market-pool-files", () => ({
+vi.mock("../src/server/market/market-pool-files", () => ({
   readMarketPool: async () => ({ members: ["sh600000", "sh600004"] }),
 }));
 vi.mock("node:fs/promises", () => ({
   stat: async () => ({ size: 32, mtimeMs: 1 }),
   readFile: async () => Buffer.alloc(32),
 }));
-vi.mock("../src/server/tdx-gbbq", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-gbbq", () => ({
   readGbbq: async () => {
     throw new Error("missing");
   },
 }));
-vi.mock("../src/server/tdx", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx", () => ({
   scan: vi.fn(),
   parseBars: () => [
     {

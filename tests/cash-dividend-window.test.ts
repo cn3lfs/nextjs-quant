@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { cashDividendWindow } from "../src/server/cash-dividend-window";
+import { cashDividendWindow } from "../src/server/backtest/cash-dividend-window";
 import type { Snapshot } from "../src/lib/domain";
 const source: Snapshot = {
   id: "s",

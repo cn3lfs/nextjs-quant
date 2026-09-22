@@ -4,12 +4,12 @@ import { researchKellyLimit } from "../src/lib/research-kelly";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { maParamsSchema } from "../src/lib/domain";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { runStrategyResearch } from "../src/server/research-run";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
-} from "../src/server/research-dataset";
-import { researchMethodSnapshot } from "../src/server/research-method";
+} from "../src/server/backtest/research-dataset";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 const sample = (i: number, profit = 1) => ({
   event: {
     symbol: "sh600000",

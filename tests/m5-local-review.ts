@@ -5,10 +5,14 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { parseBars, isAStock, readSnapshot } from "../src/server/tdx";
-import { analyzeBreakout } from "../src/server/breakout";
-import { breakoutBatch } from "../src/server/breakout-batch";
-import { screenLocal } from "../src/server/screening";
+import {
+  parseBars,
+  isAStock,
+  readSnapshot,
+} from "../src/server/data-sources/tdx/tdx";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
+import { breakoutBatch } from "../src/server/strategies/breakout/breakout-batch";
+import { screenLocal } from "../src/server/screening/screening";
 import { defaultStrategy } from "../src/lib/domain";
 const root = process.env.M5_TDX_ROOT ?? "E:/new_tdx64";
 const digest = (b: Buffer | string) =>

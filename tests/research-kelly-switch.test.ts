@@ -4,7 +4,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchKellySchema } from "../src/lib/research-kelly";
 
 const evidence = JSON.stringify({

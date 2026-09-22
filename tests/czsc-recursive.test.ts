@@ -1,6 +1,10 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { prepareCzscTestRuntime } from "./helpers/czsc-runtime";
-import { analyzeCzsc, closeCzsc, projectCzsc } from "../src/server/czsc";
+import {
+  analyzeCzsc,
+  closeCzsc,
+  projectCzsc,
+} from "../src/server/strategies/chan/czsc";
 import fixture from "./fixtures/czsc-sse.json";
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
@@ -87,7 +91,8 @@ it("keeps independent concurrent anchor/config jobs atomic and decodes a real fi
   ]);
   expect(a.projections["0:95:0:11"]!.at(-1)).toBe(2);
   expect(b.projections["1100:95:0:11"]!.at(-1)).toBe(1);
-  const { decodeCzscRecursive } = await import("../src/server/czsc-structures");
+  const { decodeCzscRecursive } =
+    await import("../src/server/strategies/chan/czsc-structures");
   const table = decodeCzscRecursive(a, 0, 8, 2);
   expect(table.nodes[0]!.completed).toBe(4);
   expect(table.transitions.find((t) => t.variant === 1)?.ended).not.toBeNull();

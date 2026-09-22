@@ -1,5 +1,5 @@
 import type { Bar } from "./domain";
-import type { Level } from "../server/breakout";
+import type { Level } from "../server/strategies/breakout/breakout";
 
 export const researchBreakoutStopVersion = "research-breakout-stop-1";
 

@@ -27,7 +27,7 @@ import {
   windmillEvidence,
   fetchWindmillPages,
   sharedWindmillContext,
-} from "~/server/gf-windmill";
+} from "~/server/data-sources/gf/gf-windmill";
 import { sqlite, put, get } from "~/server/db";
 const now = Date.parse("2026-09-09T11:00:00+08:00");
 process.env.QUANT_DATA_DIR = mkdtempSync(

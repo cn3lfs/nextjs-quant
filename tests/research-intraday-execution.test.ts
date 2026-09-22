@@ -12,17 +12,17 @@ import {
   researchGrowthIntraday,
   growthMinuteTimes,
   growthIntradayEntries,
-} from "../src/server/research-growth-intraday";
+} from "../src/server/strategies/canslim/research-growth-intraday";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import breakout from "./fixtures/breakout-valid.json";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 function fixture(id: IntradayExecutionId) {
   const daily = Array.from({ length: 12 }, (_, i) => ({

@@ -4,7 +4,7 @@ import valid from "./fixtures/breakout-valid.json";
 import {
   evaluateIntraday,
   intradaySignals,
-} from "../src/server/intraday-strategy";
+} from "../src/server/monitoring/intraday-strategy";
 
 function result(signals: CzscFamily["signals"] = []): CzscResult {
   return {

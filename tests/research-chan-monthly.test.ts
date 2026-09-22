@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../src/lib/domain";
-import { researchChanMonthlyInput } from "../src/server/research-chan-monthly";
+import { researchChanMonthlyInput } from "../src/server/strategies/chan/research-chan-monthly";
 const days = Array.from({ length: 60 }, (_, i) =>
   new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),
 ).filter((d) => ![0, 6].includes(new Date(d).getUTCDay()));

@@ -1,5 +1,5 @@
 import type { Bar } from "./domain";
-import type { ResearchTrade } from "../server/research-portfolio";
+import type { ResearchTrade } from "../server/backtest/research-portfolio";
 
 export const k13MethodIds = [
   "SW-P-review",

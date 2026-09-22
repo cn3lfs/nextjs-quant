@@ -3,11 +3,14 @@ import { readFileSync } from "node:fs";
 import { parseDeliveryTable } from "../src/lib/delivery-table";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { DeliveryStore, deliveryRowId } from "../src/server/delivery-store";
+import {
+  DeliveryStore,
+  deliveryRowId,
+} from "../src/server/portfolio/delivery-store";
 import {
   commitDeliveryImport,
   previewDeliveryImport,
-} from "../src/server/delivery-import-service";
+} from "../src/server/portfolio/delivery-import-service";
 
 const connections: Database.Database[] = [];
 function database(migrated = true) {

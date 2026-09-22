@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import {
   remoteResearchEvidence,
   evidenceEnvelope,
-} from "../src/server/evidence";
+} from "../src/server/infra/evidence";
 
 it("remote fetch time never masquerades as verified financial or publication time", () => {
   const payload = { report: "2023 annual", amount: 100 };

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
-import * as breakout from "../src/server/breakout";
-import { researchSignals } from "../src/server/research-signals";
+import * as breakout from "../src/server/strategies/breakout/breakout";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import {
   chanStopLine,
   indicatorRespect,
@@ -11,7 +11,7 @@ import { riskPresetTemplate } from "../src/lib/research-risk-presets";
 import {
   researchPortfolio,
   type ResearchTrade,
-} from "../src/server/research-portfolio";
+} from "../src/server/backtest/research-portfolio";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
 import {
   researchSpecSchema,

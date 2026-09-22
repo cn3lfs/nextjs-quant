@@ -4,17 +4,17 @@ import {
   freeChartHistory,
   pytdxChartHistory,
   tencentChartHistory,
-} from "../src/server/free-chart-sources";
+} from "../src/server/market/free-chart-sources";
 const deps = vi.hoisted(() => ({
   page: vi.fn(),
   index: vi.fn(),
   query: vi.fn(),
   http: vi.fn(),
 }));
-vi.mock("../src/server/chart-history", () => ({
+vi.mock("../src/server/market/chart-history", () => ({
   onlinePeriodHistory: deps.http,
 }));
-vi.mock("../src/server/tdx-quotes", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-quotes", () => ({
   configuredHosts: () => ["127.0.0.1"],
   barPage: deps.page,
   indexBarPage: deps.index,
@@ -27,7 +27,7 @@ vi.mock("tstdx", async (original) => ({
     close: async () => {},
   }),
 }));
-vi.mock("../src/server/westock-data", () => ({
+vi.mock("../src/server/data-sources/westock/westock-data", () => ({
   westockScriptPath: () => "fixture-westock.js",
   query: deps.query,
 }));

@@ -7,7 +7,7 @@ import {
   applyAdjustmentByDate,
   deriveHistoricalFloatShares,
   parseGbbq,
-} from "../src/server/tdx-gbbq";
+} from "../src/server/data-sources/tdx/tdx-gbbq";
 
 /**
  * 夹具是本机 gbbq 文件的前 24 条加密记录，期望值由一份独立实现的 Blowfish

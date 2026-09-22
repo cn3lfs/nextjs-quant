@@ -18,10 +18,10 @@ vi.mock("~/server/db", () => ({
     }),
   }),
 }));
-vi.mock("~/server/tencent-sector-prices", () => ({
+vi.mock("~/server/data-sources/tencent/tencent-sector-prices", () => ({
   fetchSectorPrices: state.fetch,
 }));
-import { checkThemePrices } from "~/server/theme-prices";
+import { checkThemePrices } from "~/server/news/theme-prices";
 const themeId = `news-themes-${"a".repeat(64)}`;
 beforeEach(() => {
   state.records.clear();

@@ -1,7 +1,7 @@
 import {
   ResearchStore,
   researchParamsFingerprint,
-} from "../src/server/research-store";
+} from "../src/server/backtest/research-store";
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
@@ -13,7 +13,7 @@ import {
   threeSegmentSample,
   threeSegmentAdmission,
   trackingUnavailableReason,
-} from "../src/server/three-segment-sample";
+} from "../src/server/research/performance/three-segment-sample";
 import { admissionResearchFixture } from "./strategy-admission-fixture";
 import { dailyPerformance } from "../src/lib/daily-performance";
 import { researchSpecSchema } from "../src/lib/strategy-research";
@@ -21,14 +21,14 @@ import {
   admissionPageSchema,
   researchAdmissionSource,
   pageStrategyAdmission,
-} from "../src/server/strategy-admission-service";
+} from "../src/server/research/performance/strategy-admission-service";
 import {
   trackingDecayWarning,
   trackingDecayThreshold,
 } from "../src/lib/three-segment-sample";
 import { ThreeSegmentResults } from "../src/components/three-segment-results";
-import { IntradayStore } from "../src/server/intraday-store";
-import { SignalLedgerStore } from "../src/server/signal-ledger-store";
+import { IntradayStore } from "../src/server/monitoring/intraday-store";
+import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
 
 function ledger(
   db: Database.Database,
@@ -278,10 +278,16 @@ it("日期不可从规格注入，服务签名没有 trackingStart 覆盖，原�
     trackingStart: "2026-02-20",
   });
   expect(spec).not.toHaveProperty("trackingStart");
-  const source = readFileSync("src/server/three-segment-sample.ts", "utf8");
+  const source = readFileSync(
+    "src/server/research/performance/three-segment-sample.ts",
+    "utf8",
+  );
   expect(source).not.toMatch(/trackingStart\s*\?:/);
   expect(source).not.toMatch(/(?:input|params|spec)\.trackingStart/);
-  const signals = readFileSync("src/server/research-signals.ts", "utf8");
+  const signals = readFileSync(
+    "src/server/strategies/shared/research-signals.ts",
+    "utf8",
+  );
   expect(signals).toContain(
     'bar.date >= spec.validationStart\n          ? ("validation" as const)\n          : ("development" as const)',
   );

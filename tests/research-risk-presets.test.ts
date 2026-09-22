@@ -14,7 +14,7 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchRiskQuantity } from "../src/lib/research-risk";
 import type { Bar } from "../src/lib/domain";
 

@@ -5,23 +5,23 @@ import {
   buildDisciplineSource,
   calculateDiscipline,
   type DisciplineSource,
-} from "../src/server/discipline-source";
+} from "../src/server/portfolio/discipline-source";
 import {
   startDiscipline,
   disciplineStatus,
   cancelDiscipline,
   exportDiscipline,
-} from "../src/server/discipline-service";
+} from "../src/server/portfolio/discipline-service";
 import { runDisciplineGrid } from "../src/lib/discipline-counterfactual";
-import { researchUsage } from "../src/server/research-usage";
-import * as usage from "../src/server/research-usage";
-import { readTradeReviewSnapshot } from "../src/server/trade-review-market";
-import { fullLocalCalendarReference } from "../src/server/data-health";
-import { readGbbq } from "../src/server/tdx-gbbq";
+import { researchUsage } from "../src/server/research/research-usage";
+import * as usage from "../src/server/research/research-usage";
+import { readTradeReviewSnapshot } from "../src/server/portfolio/trade-review-market";
+import { fullLocalCalendarReference } from "../src/server/market/data-health";
+import { readGbbq } from "../src/server/data-sources/tdx/tdx-gbbq";
 
-import * as market from "../src/server/trade-review-market";
-import * as calendarSource from "../src/server/data-health";
-import * as gbbqSource from "../src/server/tdx-gbbq";
+import * as market from "../src/server/portfolio/trade-review-market";
+import * as calendarSource from "../src/server/market/data-health";
+import * as gbbqSource from "../src/server/data-sources/tdx/tdx-gbbq";
 
 const mock = vi.hoisted(() => ({
   workers: [] as (EventEmitter & { terminate: ReturnType<typeof vi.fn> })[],

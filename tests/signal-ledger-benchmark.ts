@@ -6,12 +6,12 @@
  */
 import { resolve, join } from "node:path";
 import { existsSync } from "node:fs";
-import { closeCzsc } from "../src/server/czsc";
+import { closeCzsc } from "../src/server/strategies/chan/czsc";
 import { sqlite } from "../src/server/db";
-import { SignalLedgerStore } from "../src/server/signal-ledger-store";
-import { SignalLedgerWorker } from "../src/server/signal-ledger-client";
-import { localLedgerDependencies } from "../src/server/signal-ledger-job";
-import { readSnapshot, scan } from "../src/server/tdx";
+import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerWorker } from "../src/server/monitoring/signal-ledger-client";
+import { localLedgerDependencies } from "../src/server/monitoring/signal-ledger-job";
+import { readSnapshot, scan } from "../src/server/data-sources/tdx/tdx";
 import {
   horizons,
   ledgerOutcome,

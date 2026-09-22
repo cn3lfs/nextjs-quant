@@ -4,8 +4,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Snapshot, Strategy } from "../src/lib/domain";
-vi.mock("../src/server/research", () => ({ snapshotEvidence: () => [] }));
-vi.mock("../src/server/hithink-finance", () => ({
+vi.mock("../src/server/research/research", () => ({
+  snapshotEvidence: () => [],
+}));
+vi.mock("../src/server/data-sources/hithink/hithink-finance", () => ({
   queryFinance: vi.fn(async () => ({
     id: "finance-fixture",
     source: "同花顺问财",
@@ -15,15 +17,15 @@ vi.mock("../src/server/hithink-finance", () => ({
     envelope: { version: "evidence-1" },
   })),
 }));
-vi.mock("../src/server/tdx-mcp-disabled", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-mcp-disabled", () => ({
   mcpConfigured: async () => true,
   queryMcp: vi.fn(async () => ({ data: "fixture" })),
 }));
-import { gatherEvidence } from "../src/server/market-data";
-import { queryMcp } from "../src/server/tdx-mcp-disabled";
-import { queryFinance } from "../src/server/hithink-finance";
+import { gatherEvidence } from "../src/server/research/gather-evidence";
+import { queryMcp } from "../src/server/data-sources/tdx/tdx-mcp-disabled";
+import { queryFinance } from "../src/server/data-sources/hithink/hithink-finance";
 import { put, sqlite } from "../src/server/db";
-import { contextEvidence } from "../src/server/hithink-context";
+import { contextEvidence } from "../src/server/data-sources/hithink/hithink-context";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-evidence-"));
 vi.stubEnv("IWENCAI_API_KEY", "");
 beforeEach(() => {

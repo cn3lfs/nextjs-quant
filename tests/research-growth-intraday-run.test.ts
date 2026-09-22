@@ -1,12 +1,12 @@
 import { expect, it, vi } from "vitest";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 import { growthIntradayTemplate } from "../src/lib/research-growth-intraday";
-import { growthMinuteTimes } from "../src/server/research-growth-intraday";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import { ResearchStore } from "../src/server/research-store";
+import { growthMinuteTimes } from "../src/server/strategies/canslim/research-growth-intraday";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { migrate } from "../src/server/db/migrations";
 import Database from "better-sqlite3";
 

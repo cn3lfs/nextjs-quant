@@ -4,7 +4,7 @@ import {
   analyzeBreakout,
   type BreakoutPoint,
   type TrendLine,
-} from "../src/server/breakout";
+} from "../src/server/strategies/breakout/breakout";
 import {
   researchSwingCoreSeries,
   selectSwingLevel,

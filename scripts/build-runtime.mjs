@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { copyFile, mkdir, cp } from "node:fs/promises";
 import { dirname } from "node:path";
 await build({
-  entryPoints: ["src/server/westock-preload.ts"],
+  entryPoints: ["src/server/data-sources/westock/westock-preload.ts"],
   outfile: "runtime/westock-preload.mjs",
   bundle: true,
   platform: "node",
@@ -11,7 +11,7 @@ await build({
   target: "node22",
 });
 await build({
-  entryPoints: ["src/server/discipline-worker.ts"],
+  entryPoints: ["src/server/portfolio/discipline-worker.ts"],
   outfile: "runtime/discipline-worker.cjs",
   bundle: true,
   platform: "node",
@@ -19,7 +19,7 @@ await build({
   target: "node22",
 });
 await build({
-  entryPoints: ["src/server/workflow-runner.ts"],
+  entryPoints: ["src/server/jobs/workflow-runner.ts"],
   outfile: "runtime/workflow-runner.cjs",
   bundle: true,
   platform: "node",
@@ -28,7 +28,7 @@ await build({
   target: "node22",
 });
 await build({
-  entryPoints: ["src/server/rps-worker.ts"],
+  entryPoints: ["src/server/screening/rps-worker.ts"],
   outfile: "runtime/rps-worker.cjs",
   bundle: true,
   platform: "node",
@@ -53,7 +53,7 @@ await cp(
 await mkdir("runtime/czsc", { recursive: true });
 await copyFile("vendor/czsc/CZSC64.dll", "runtime/czsc/CZSC64.dll");
 await build({
-  entryPoints: ["src/server/czsc-worker.ts"],
+  entryPoints: ["src/server/strategies/chan/czsc-worker.ts"],
   outfile: "runtime/czsc-worker.cjs",
   bundle: true,
   platform: "node",
@@ -66,7 +66,7 @@ const require = createRequire(import.meta.url),
     require.resolve("sharp", { paths: [require.resolve("next/package.json")] }),
   );
 await build({
-  entryPoints: ["src/server/worker.ts"],
+  entryPoints: ["src/server/jobs/worker.ts"],
   external: ["better-sqlite3"],
   outfile: "runtime/worker.cjs",
   bundle: true,
@@ -92,7 +92,7 @@ await sharp(
   .toFile("desktop/icon.png");
 
 await build({
-  entryPoints: ["src/server/signal-ledger-worker.ts"],
+  entryPoints: ["src/server/monitoring/signal-ledger-worker.ts"],
   outfile: "runtime/signal-ledger-worker.cjs",
   bundle: true,
   platform: "node",
@@ -102,7 +102,7 @@ await build({
 });
 
 await build({
-  entryPoints: ["src/server/intraday-worker.ts"],
+  entryPoints: ["src/server/monitoring/intraday-worker.ts"],
   outfile: "runtime/intraday-worker.cjs",
   bundle: true,
   platform: "node",
@@ -112,7 +112,7 @@ await build({
 });
 
 await build({
-  entryPoints: ["src/server/research-worker.ts"],
+  entryPoints: ["src/server/backtest/research-worker.ts"],
   outfile: "runtime/research-worker.cjs",
   bundle: true,
   platform: "node",

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { sepaFinanceFacts } from "../src/server/sepa-finance";
+import { sepaFinanceFacts } from "../src/lib/strategy-facts/sepa-finance";
 const row: Record<string, unknown> = {
   "单季度_营业收入同比增长率[20260331]": 20,
   "单季度_营业收入同比增长率[20251231]": 21,

@@ -1,15 +1,15 @@
 import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { RpsStore } from "../src/server/rps-store";
-import { runRpsJob } from "../src/server/rps-job";
+import { RpsStore } from "../src/server/screening/rps-store";
+import { runRpsJob } from "../src/server/screening/rps-job";
 import {
   industrySnapshotSchema,
   aggregateIndustryRps,
 } from "../src/lib/industry-rps";
 import { industrySnapshot, industryDay } from "./industry-rps-fixture";
 import { rpsDay, rpsDate, rpsDeps, rpsProgress } from "./rps-fixture";
-import { industryRpsPage } from "../src/server/industry-rps-query";
+import { industryRpsPage } from "../src/server/screening/industry-rps-query";
 
 const dbs: Database.Database[] = [];
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));

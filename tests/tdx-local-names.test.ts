@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import {
   parseInfoharborNames,
   readInfoharborNames,
-} from "../src/server/tdx-local-names";
-import { securityDirectory } from "../src/server/securities";
+} from "../src/server/data-sources/tdx/tdx-local-names";
+import { securityDirectory } from "../src/server/market/securities";
 import { put } from "../src/server/db";
 
 it("decodes the fixed GB18030 fixture and never maps an ETF into an A-share identity", async () => {

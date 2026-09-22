@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { evaluateCryptoTimeSlot } from "../src/lib/research-crypto-time-slot";
-import { runCryptoTimeSlotResearch } from "../src/server/research-run";
+import { runCryptoTimeSlotResearch } from "../src/server/backtest/research-run";
 
 function fixture() {
   const at = Date.parse("2024-05-01T08:00:00Z"),

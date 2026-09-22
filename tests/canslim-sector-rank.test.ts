@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimSectorRank } from "../src/server/canslim-sector-rank";
+import { canslimSectorRank } from "../src/lib/strategy-facts/canslim-sector-rank";
 const columns = [
   {
     key: "涨跌幅[20260908]",

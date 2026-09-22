@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "~/lib/domain";
-import { wyckoffFrames } from "~/server/wyckoff-frames";
+import { wyckoffFrames } from "~/server/strategies/wyckoff/wyckoff-frames";
 import {
   wyckoffPromptFrames,
   wyckoffBarColumns,
-} from "~/server/wyckoff-prompt-frames";
+} from "~/server/strategies/wyckoff/wyckoff-prompt-frames";
 const dates = Array.from(
   { length: 14 },
   (_, i) => new Date(Date.UTC(2026, 7, 24 + i)),

@@ -4,7 +4,7 @@ import { migrate } from "../src/server/db/migrations";
 import {
   ResearchStore,
   type ResearchResult,
-} from "../src/server/research-store";
+} from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 
 it("preserves completed results, handles cancellation and only removes terminal research records", () => {

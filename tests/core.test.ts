@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseBars, isAStock } from "~/server/tdx";
-import { metrics, backtest } from "~/server/quant";
+import { parseBars, isAStock } from "~/server/data-sources/tdx/tdx";
+import { backtest } from "~/server/backtest/quant";
+import { metrics } from "~/lib/screening-metrics";
 import {
   defaultStrategy,
   strategySchema,
@@ -21,7 +22,7 @@ import {
   drain,
   enqueue,
   recoverDeliveries,
-} from "~/server/notifications";
+} from "~/server/infra/notifications";
 import { put, get, list, sqlite, atomic } from "~/server/db";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-tests-"));
 function day(date = 20260907) {

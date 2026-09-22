@@ -3,7 +3,7 @@ import {
   westockKlines,
   requireWestockRows,
   westockAssetKind,
-} from "../src/server/westock-adapter";
+} from "../src/server/data-sources/westock/westock-adapter";
 const rows = (symbol: string) =>
   ["2026-09-14", "2026-09-11", "2026-09-10"].map((date) => ({
     symbol,

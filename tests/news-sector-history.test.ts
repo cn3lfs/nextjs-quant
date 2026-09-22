@@ -4,7 +4,7 @@ const state = vi.hoisted(() => ({
   db: undefined as Database.Database | undefined,
 }));
 vi.mock("../src/server/db", () => ({ sqlite: () => state.db! }));
-import { newsSectorHistory } from "../src/server/news-sector-history";
+import { newsSectorHistory } from "../src/server/news/news-sector-history";
 afterAll(() => state.db?.close());
 it("按档案及行业恢复最新报告，不被其他档案的100份报告挤掉", () => {
   const db = (state.db = new Database(":memory:"));

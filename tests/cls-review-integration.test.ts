@@ -19,25 +19,25 @@ vi.mock("../src/server/db", () => ({
     return row ? JSON.parse(row.payload) : undefined;
   },
 }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({
     tdxRoot: state.root,
     industryBlocksRoot: state.blocks,
     calendar: ["2026-09-10", "2026-09-11", "2026-09-14"],
   }),
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityDirectory: async () => ({
     entries: { sh600000: { symbol: "sh600000", name: "合成样本" } },
   }),
 }));
 import { migrate } from "../src/server/db/migrations";
-import { RpsStore } from "../src/server/rps-store";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsDay } from "./rps-fixture";
-import { previewClsReport } from "../src/server/cls-report-files";
-import { ClsReviewStore } from "../src/server/cls-review-store";
-import { fixClsSample } from "../src/server/cls-review-service";
-import { verifyClsSample } from "../src/server/cls-verification";
+import { previewClsReport } from "../src/server/news/cls-report-files";
+import { ClsReviewStore } from "../src/server/news/cls-review-store";
+import { fixClsSample } from "../src/server/news/cls-review-service";
+import { verifyClsSample } from "../src/server/news/cls-verification";
 
 it("fixes a sector-RPS sample before open and persists matching close evidence without writing source files", async () => {
   await mkdir(".test-data", { recursive: true });

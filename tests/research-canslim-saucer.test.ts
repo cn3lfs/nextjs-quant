@@ -5,13 +5,13 @@ import {
   canslimSaucerShape,
   canslimShapeWarmup,
 } from "../src/lib/research-canslim-strategies";
-import { researchCanslimSaucerPoint } from "../src/server/research-canslim-saucer";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import { researchCanslimSaucerPoint } from "../src/server/strategies/canslim/research-canslim-saucer";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 
 function fixture(shape: "U" | "W"): Bar[] {
@@ -237,9 +237,8 @@ it("runs all four presets with frozen prices and 140/143-bar company-action cove
     // shrinking it must not change the trade.
     evidence.corporateActionFree[0]!.start = bars[startIndex + 1]!.date;
     expect(
-      (
-        await runStrategyResearch(spec, dataset, evidence, native)
-      ).partitions[0]!.simulation!.trades,
+      (await runStrategyResearch(spec, dataset, evidence, native))
+        .partitions[0]!.simulation!.trades,
     ).toEqual(result.partitions[0]!.simulation!.trades);
     evidence.corporateActionFree[0]!.start = bars[startIndex]!.date;
     bars[signalIndex + 1]!.open = 106;

@@ -27,3 +27,7 @@ pnpm --filter trading-strategies build
 ```
 
 固定输入测试和历史回测统计都是程序/研究证据，不是盈利证明。A 股交易规则、复权、证券池时点和缺失数据边界以工作台文档为准。
+
+公开标识：`id` 是稳定代表 ID，`methodId` 是方法，`presetId` 是可选参数预设。无预设保持缺失；未回测条目不允许 evidence，已观察条目的 evidence.readiness 必须匹配。
+
+工作台通过 workspace 依赖接入研究页的“九方向代表策略”。选择代表只填写已有研究预设；无 preset 的三个方法仅作参考。根 `dev`、`build`、`typecheck`、`test` 均先构建本包，根 `test` 也显式运行包内测试。

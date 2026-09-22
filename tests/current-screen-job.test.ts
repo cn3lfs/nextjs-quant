@@ -4,18 +4,18 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { Job } from "../src/lib/domain";
 import { settingsSchema, strategySchema } from "../src/lib/domain";
-vi.mock("../src/server/jobs", async (original) => ({
-  ...(await original<typeof import("../src/server/jobs")>()),
+vi.mock("../src/server/jobs/jobs", async (original) => ({
+  ...(await original<typeof import("../src/server/jobs/jobs")>()),
   runWorker: vi.fn(),
 }));
-vi.mock("../src/server/quick-research", () => ({
+vi.mock("../src/server/research/quick-research", () => ({
   quickResearch: vi.fn(async () => ({ paused: false })),
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityDirectory: async () => ({ root: "fixture", entries: {} }),
 }));
-vi.mock("../src/server/data-health", async (original) => ({
-  ...(await original<typeof import("../src/server/data-health")>()),
+vi.mock("../src/server/market/data-health", async (original) => ({
+  ...(await original<typeof import("../src/server/market/data-health")>()),
   localCalendarReference: async () => ({
     days: [new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10)],
     source: "fixture",
@@ -23,9 +23,9 @@ vi.mock("../src/server/data-health", async (original) => ({
   }),
 }));
 import { screenJob } from "../src/server/runtime";
-import { screenTaskProgress } from "../src/server/task-history";
-import { runWorker } from "../src/server/jobs";
-import { quickResearch } from "../src/server/quick-research";
+import { screenTaskProgress } from "../src/server/jobs/task-history";
+import { runWorker } from "../src/server/jobs/jobs";
+import { quickResearch } from "../src/server/research/quick-research";
 import { sqlite, put, get, list } from "../src/server/db";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-current-job-"));
 beforeEach(() => {
@@ -170,7 +170,7 @@ it("stops later save batches when stored cancellation precedes the owner's abort
     sqlite().exec("DROP TRIGGER cancel_screen_after_save");
   }
 });
-vi.mock("../src/server/gf-calendar", () => ({
+vi.mock("../src/server/data-sources/gf/gf-calendar", () => ({
   gfCalendarReference: async () => {
     throw new Error("fixture unavailable");
   },

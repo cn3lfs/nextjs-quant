@@ -3,12 +3,15 @@ import { createHash } from "node:crypto";
 import valid from "./fixtures/breakout-valid.json";
 import fake from "./fixtures/breakout-false.json";
 import short from "./fixtures/breakout-insufficient.json";
-import { analyzeBreakout, breakoutPatterns } from "../src/server/breakout";
-import { breakoutMethod } from "../src/server/research-skills";
-import { vcpFacts } from "../src/server/vcp";
+import {
+  analyzeBreakout,
+  breakoutPatterns,
+} from "../src/server/strategies/breakout/breakout";
+import { breakoutMethod } from "../src/server/research/research-skills";
+import { vcpFacts } from "../src/server/strategies/canslim/vcp";
 import { boll, kdj, macd, rsi } from "../src/lib/indicators";
 import { breakoutChartData } from "../src/lib/chart-data";
-import { monitorStrategy } from "../src/server/monitor-strategy";
+import { monitorStrategy } from "../src/server/monitoring/monitor-strategy";
 import { strategySchema, type Bar } from "../src/lib/domain";
 
 // Real, unadjusted TDX files; full initial history preserved for recursive M1

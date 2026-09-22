@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import {
   valuationMethod,
   valuationMethodFiles,
-} from "~/server/valuation-method";
+} from "~/server/strategies/value/valuation-method";
 afterEach(() => vi.unstubAllEnvs());
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "quant-valuation-method-"));

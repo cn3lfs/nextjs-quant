@@ -4,11 +4,11 @@ import {
   scriptSlipSizing,
   chopFrequency,
 } from "../src/lib/research-risk-scenarios";
-import { analyzeBreakout } from "../src/server/breakout";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 import {
   researchPortfolio,
   type ResearchTrade,
-} from "../src/server/research-portfolio";
+} from "../src/server/backtest/research-portfolio";
 import { riskPresetTemplate } from "../src/lib/research-risk-presets";
 import { applyResearchManagement } from "../src/components/research-strategy-fields";
 import {

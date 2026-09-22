@@ -10,12 +10,12 @@ import {
   researchManagementSchema,
   researchScaleOutPreset,
 } from "../src/lib/research-management";
-import { researchHigherLow } from "../src/server/research-protection";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchHigherLow } from "../src/server/strategies/shared/research-protection";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import {
   researchMethodSnapshot,
   validateResearchMethod,
-} from "../src/server/research-method";
+} from "../src/server/research/research-method";
 
 const date = (i: number) =>
   new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10);

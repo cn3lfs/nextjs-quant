@@ -2,11 +2,11 @@ import { expect, it } from "vitest";
 import {
   coverageAllowsPublication,
   estimateRpsSecurity,
-} from "../src/server/rps-observation-job";
-import { parseWorkflowQuote } from "../src/server/workflow-quotes";
-import { claimWorkflow } from "../src/server/workflow-lease";
-import { latestRpsObservation } from "../src/server/rps-observation";
-import { requiresDownloadReceipt } from "../src/server/workflow-scheduler";
+} from "../src/server/screening/rps-observation-job";
+import { parseWorkflowQuote } from "../src/server/jobs/workflow-quotes";
+import { claimWorkflow } from "../src/server/jobs/workflow-lease";
+import { latestRpsObservation } from "../src/server/screening/rps-observation";
+import { requiresDownloadReceipt } from "../src/server/jobs/workflow-scheduler";
 import { put } from "../src/server/db";
 it("waits for a download receipt only for the close batch", () => {
   // Noon and late estimate today's bar from online quotes, so a redundant noon
@@ -99,7 +99,7 @@ it("does not select a future noon ranking for morning screening", () => {
   expect(latestRpsObservation(root, morning)).toBeNull();
 });
 import { readFileSync } from "node:fs";
-import { parseTencentWorkflowQuotes } from "../src/server/workflow-quotes";
+import { parseTencentWorkflowQuotes } from "../src/server/jobs/workflow-quotes";
 it("parses a real Tencent batch without evaluating JavaScript and keeps missing rows explicit", () => {
   const raw = readFileSync(
     "tests/fixtures/tencent-quotes-20260911.txt",

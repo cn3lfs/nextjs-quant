@@ -2,7 +2,7 @@
 import Database from "better-sqlite3";
 import { join, resolve } from "node:path";
 import { defaultStrategy, type Backtest, type Job } from "../src/lib/domain";
-import type { NewsAnalysis } from "../src/server/news-analysis";
+import type { NewsAnalysis } from "../src/server/news/news-analysis";
 
 const isolated = resolve(".test-data/n3/browser");
 if (
@@ -12,7 +12,7 @@ if (
   throw new Error("Set QUANT_DATA_DIR to .test-data/n3/browser before seeding");
 }
 const { put, sqlite } = await import("../src/server/db");
-const { saveSettings } = await import("../src/server/settings");
+const { saveSettings } = await import("../src/server/infra/settings");
 const { settingsSchema } = await import("../src/lib/domain");
 saveSettings(
   settingsSchema.parse({

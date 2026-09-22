@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   capitalEventsEvidence,
   queryCapitalEvents,
-} from "~/server/hithink-capital-events";
+} from "~/server/data-sources/hithink/hithink-capital-events";
 const now = Date.parse("2026-09-09T10:00:00+08:00");
 export function capitalFixture(profile: "placement" | "rights" = "placement") {
   const specs =

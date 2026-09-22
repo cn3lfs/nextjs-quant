@@ -1,5 +1,5 @@
 import { defaultStrategy } from "../src/lib/domain";
-import { backtest } from "../src/server/quant";
+import { backtest } from "../src/server/backtest/quant";
 import { equityDailyReturns } from "../src/lib/multiple-testing";
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";

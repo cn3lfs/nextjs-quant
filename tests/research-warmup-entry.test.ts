@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 
 /**
  * Manager ruling 2026-09-19 (S4): "研究起点之前至少需要 61 根预热日线" no longer
@@ -60,7 +60,7 @@ const specFor = (start: string, end = bars[119]!.date, at = day(80)) =>
   });
 
 // The ruling's warmup value for non-ma-cross technical strategies
-// (src/server/research-signals.ts:255-260); rsi-recovery is `signal: "technical"`.
+// (src/server/strategies/shared/research-signals.ts:255-260); rsi-recovery is `signal: "technical"`.
 const warmup = 61;
 
 it("窗口内历史不足 warmup 根时从第 warmup 根进入研究，而不是整只拒绝", async () => {

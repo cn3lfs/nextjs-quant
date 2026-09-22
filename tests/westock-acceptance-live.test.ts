@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { westockKlines } from "../src/server/westock-adapter";
+import { westockKlines } from "../src/server/data-sources/westock/westock-adapter";
 import {
   sourceAcceptanceSamples,
   sourceAcceptancePeriods,

@@ -102,7 +102,7 @@ const rows: Row[] = [];
  * Pool accounting per batch, counted in SYMBOLS (not strategies). The manager
  * flagged (2026-09-19) that the "排除主因（按策略数）" table understates reasons
  * that hit every strategy at once: with `spec.start = 2000-01-04`, the 61-bar
- * warmup requirement (src/server/research-signals.ts:259-265) rejects every
+ * warmup requirement (src/server/strategies/shared/research-signals.ts:259-265) rejects every
  * symbol whose first daily bar is later than ~1999-08-31, i.e. ~80% of the
  * intent pool, for every strategy — it only looked small before S2 because the
  * corporate-action gate (193/44 strategies) dominated per-strategy tallies.
@@ -389,7 +389,7 @@ function renderGridComparison(lines: string[]) {
   );
   lines.push("");
   lines.push(
-    `口径：逐预设比较各档的**成交数**（成交是 entryMaxWait 唯一能改变的量——它只作用于未成交的买入意图：\`src/server/research-portfolio.ts:967\` 等待期结束、\`:980\` 反向信号取消）。**无差异的预设一并列出**：那本身是结论。可比预设 ${comparable.length} 个（在各档均有归档）：**有差异 ${differ.length} 个 / 无差异 ${same.length} 个**。`,
+    `口径：逐预设比较各档的**成交数**（成交是 entryMaxWait 唯一能改变的量——它只作用于未成交的买入意图：\`src/server/backtest/research-portfolio.ts:967\` 等待期结束、\`:980\` 反向信号取消）。**无差异的预设一并列出**：那本身是结论。可比预设 ${comparable.length} 个（在各档均有归档）：**有差异 ${differ.length} 个 / 无差异 ${same.length} 个**。`,
   );
   if (gridValues.length < 2) {
     lines.push("");
@@ -475,7 +475,7 @@ lines.push("");
 lines.push("## 0.5 证券池与有效池（按每股计数，不是按项计数）");
 lines.push("");
 lines.push(
-  "本节按**每股**（不是按项）呈现证券池被拒绝的原因。**历史变更**：S4 裁决一之前，研究窗口起点 2000-01-04 与「研究起点之前至少需要 61 根预热日线」叠加，会把本地首根日线晚于约 1999-08-31 的证券**整只拒绝**（404/500，有效池只剩 19%，且只剩上市最早的一批）；裁决一已改为从 `max(first, warmup)` 进入研究（`src/server/research-signals.ts` 的 `const startIndex = Math.max(first, warmup);`），因此**本表的「因预热排除」现为 0**。当前按股拒绝的主因是**研究所需的覆盖证明**（量价族的「量能可比性覆盖」：除权事件的 GBBQ `floatSharesBefore/floatSharesAfter` 逐条齐全），它同样与策略优劣无关，是**数据覆盖缺口**。存活/成分偏差（方向不保守）仍然叠加在所有行上。",
+  "本节按**每股**（不是按项）呈现证券池被拒绝的原因。**历史变更**：S4 裁决一之前，研究窗口起点 2000-01-04 与「研究起点之前至少需要 61 根预热日线」叠加，会把本地首根日线晚于约 1999-08-31 的证券**整只拒绝**（404/500，有效池只剩 19%，且只剩上市最早的一批）；裁决一已改为从 `max(first, warmup)` 进入研究（`src/server/strategies/shared/research-signals.ts` 的 `const startIndex = Math.max(first, warmup);`），因此**本表的「因预热排除」现为 0**。当前按股拒绝的主因是**研究所需的覆盖证明**（量价族的「量能可比性覆盖」：除权事件的 GBBQ `floatSharesBefore/floatSharesAfter` 逐条齐全），它同样与策略优劣无关，是**数据覆盖缺口**。存活/成分偏差（方向不保守）仍然叠加在所有行上。",
 );
 lines.push("");
 lines.push(

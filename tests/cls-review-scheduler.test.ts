@@ -16,17 +16,17 @@ vi.mock("../src/server/db", () => ({
   put: state.put,
   sqlite: () => ({}),
 }));
-vi.mock("../src/server/cls-report-files", () => ({
+vi.mock("../src/server/news/cls-report-files", () => ({
   clsReportFiles: state.files,
   previewClsReport: state.preview,
 }));
-vi.mock("../src/server/cls-review-service", () => ({
+vi.mock("../src/server/news/cls-review-service", () => ({
   fixClsSample: state.fix,
 }));
-vi.mock("../src/server/cls-verification", () => ({
+vi.mock("../src/server/news/cls-verification", () => ({
   verifyClsSample: state.verify,
 }));
-vi.mock("../src/server/cls-review-store", () => ({
+vi.mock("../src/server/news/cls-review-store", () => ({
   ClsReviewStore: class {
     sample = state.sample;
     import = state.archive;
@@ -34,7 +34,7 @@ vi.mock("../src/server/cls-review-store", () => ({
     db = { prepare: () => ({ all: () => state.rows }) };
   },
 }));
-import { runClsReviewTick } from "../src/server/cls-review-scheduler";
+import { runClsReviewTick } from "../src/server/news/cls-review-scheduler";
 afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();

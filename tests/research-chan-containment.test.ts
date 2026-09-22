@@ -6,7 +6,7 @@ import type {
   CzscResult,
 } from "../src/lib/czsc";
 import { chanNativeCandidates } from "../src/lib/research-chan-native";
-import { researchSignals } from "../src/server/research-signals";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),

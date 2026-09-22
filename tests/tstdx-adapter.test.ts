@@ -5,7 +5,7 @@ import {
   tstdxMinutes,
   tstdxAssetKind,
   requireTstdxRows,
-} from "../src/server/tstdx-adapter";
+} from "../src/server/data-sources/tstdx/tstdx-adapter";
 type Client = ReturnType<NonNullable<Parameters<typeof tstdxKlines>[2]>>;
 const bar = (date = "2026-09-14", close = 10) => ({
   date,

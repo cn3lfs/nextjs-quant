@@ -10,7 +10,7 @@ vi.mock("../src/server/vault", () => ({
   readSecret: blocked.secret,
   saveSecret: vi.fn(),
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityLabel: (s: string) => s,
 }));
 import { get, put, sqlite, list } from "../src/server/db";
@@ -21,11 +21,11 @@ import {
   notificationRequest,
   recoverDeliveries,
   SendError,
-} from "../src/server/notifications";
+} from "../src/server/infra/notifications";
 import {
   NotificationPolicyStore,
   renderSummary,
-} from "../src/server/notification-policy-store";
+} from "../src/server/infra/notification-policy-store";
 import {
   chinaClock,
   grade,
@@ -44,13 +44,13 @@ import {
   type Monitor,
   type Signal,
 } from "../src/lib/domain";
-import { SignalLedgerStore } from "../src/server/signal-ledger-store";
-import { ledgerSignals } from "../src/server/signal-ledger-engine";
+import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
+import { ledgerSignals } from "../src/server/monitoring/signal-ledger-engine";
 import { SignalLedgerView } from "../src/components/signal-ledger-view";
 import { NotificationPolicyFields } from "../src/components/notification-policy-fields";
 import type { CzscResult } from "../src/lib/czsc";
 import valid from "./fixtures/breakout-valid.json";
-import { analyzeBreakout } from "../src/server/breakout";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-p2-"));
 const date = "2026-09-10";

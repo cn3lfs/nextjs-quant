@@ -3,18 +3,18 @@ import valid from "./fixtures/breakout-valid.json";
 import {
   retrospectiveSignals,
   type SignalBacktestInput,
-} from "../src/server/signal-backtest";
+} from "../src/server/backtest/signal-backtest";
 import {
   bonusAdjustedSignals,
   AdjustmentUnavailableError,
-} from "../src/server/bonus-adjusted-signals";
+} from "../src/server/backtest/bonus-adjusted-signals";
 import {
   actionReview,
   type BacktestActions,
-} from "../src/server/backtest-actions";
-import { analyzeBreakout } from "../src/server/breakout";
+} from "../src/server/backtest/backtest-actions";
+import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 import { ledgerOutcome, type LedgerRow } from "../src/lib/signal-ledger";
-import { benchmarkStratification } from "../src/server/signal-backtest-benchmark";
+import { benchmarkStratification } from "../src/server/backtest/signal-backtest-benchmark";
 import { signalInformation } from "../src/lib/signal-information";
 import type { Bar } from "../src/lib/domain";
 import { sqlite } from "../src/server/db";

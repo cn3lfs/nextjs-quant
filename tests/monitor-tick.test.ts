@@ -28,31 +28,33 @@ vi.mock("../src/server/db", async (original) => {
     },
   };
 });
-vi.mock("../src/server/jobs", async (original) => ({
-  ...(await original<typeof import("../src/server/jobs")>()),
+vi.mock("../src/server/jobs/jobs", async (original) => ({
+  ...(await original<typeof import("../src/server/jobs/jobs")>()),
   runWorker: mocked.worker,
   background: mocked.background,
 }));
-vi.mock("../src/server/research", async (original) => ({
-  ...(await original<typeof import("../src/server/research")>()),
+vi.mock("../src/server/research/research", async (original) => ({
+  ...(await original<typeof import("../src/server/research/research")>()),
   analyze: mocked.analyze,
 }));
-vi.mock("../src/server/market-data", async (original) => ({
-  ...(await original<typeof import("../src/server/market-data")>()),
+vi.mock("../src/server/research/gather-evidence", async (original) => ({
+  ...(await original<
+    typeof import("../src/server/research/gather-evidence")
+  >()),
   gatherEvidence: async () => [],
 }));
-vi.mock("../src/server/notifications", () => ({
+vi.mock("../src/server/infra/notifications", () => ({
   enqueue: mocked.enqueue,
   recoverDeliveries: vi.fn(),
   drain: vi.fn(),
 }));
-vi.mock("../src/server/monitor-calendar", () => ({
+vi.mock("../src/server/monitoring/monitor-calendar", () => ({
   monitorCalendar: mocked.calendar,
 }));
-vi.mock("../src/server/security-trading-status", () => ({
+vi.mock("../src/server/market/security-trading-status", () => ({
   verifySecurityTradingStatus: mocked.tradingStatus,
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityDirectory: async () => ({ entries: {} }),
 }));
 import { tick } from "../src/server/runtime";

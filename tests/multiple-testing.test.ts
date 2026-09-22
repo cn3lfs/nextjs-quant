@@ -1,6 +1,6 @@
 import { combinatoriallySymmetricCv } from "../src/lib/backtest-overfit";
 import { describe, expect, it, vi } from "vitest";
-import * as quant from "../src/server/quant";
+import * as quant from "../src/server/backtest/quant";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { dailyPerformance } from "../src/lib/daily-performance";
@@ -21,8 +21,8 @@ import {
   candidateTrialMatrix,
   walkForward,
   walkForwardCandidates,
-} from "../src/server/walk-forward";
-import { backtest } from "../src/server/quant";
+} from "../src/server/backtest/walk-forward";
+import { backtest } from "../src/server/backtest/quant";
 import { defaultStrategy, type Snapshot } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";

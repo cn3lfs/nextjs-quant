@@ -6,15 +6,19 @@ const mocks = vi.hoisted(() => ({
   snapshot: vi.fn(),
   increments: vi.fn(() => [] as unknown[]),
 }));
-vi.mock("../src/server/tdx-daily-cache", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-daily-cache", () => ({
   readDailyIncrementRange: mocks.increments,
 }));
-vi.mock("../src/server/tdx-quotes", () => ({ barPage: mocks.page }));
-vi.mock("../src/server/tdx", () => ({ readSnapshot: mocks.snapshot }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/data-sources/tdx/tdx-quotes", () => ({
+  barPage: mocks.page,
+}));
+vi.mock("../src/server/data-sources/tdx/tdx", () => ({
+  readSnapshot: mocks.snapshot,
+}));
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: "isolated-root" }),
 }));
-import { intradayHistory } from "../src/server/intraday-data";
+import { intradayHistory } from "../src/server/monitoring/intraday-data";
 
 beforeEach(() => {
   mocks.page.mockReset();

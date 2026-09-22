@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { admissionResearchFixture } from "./strategy-admission-fixture";
 import { defaultStrategy } from "../src/lib/domain";
 

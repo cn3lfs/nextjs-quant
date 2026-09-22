@@ -1,11 +1,13 @@
 import { expect, it, vi, afterEach } from "vitest";
 import fixture from "./fixtures/hithink-dividends.json";
-vi.mock("../src/server/hithink-context", () => ({ request: vi.fn() }));
-import { request } from "../src/server/hithink-context";
+vi.mock("../src/server/data-sources/hithink/hithink-context", () => ({
+  request: vi.fn(),
+}));
+import { request } from "../src/server/data-sources/hithink/hithink-context";
 import {
   dividendSchedule,
   queryDividendSchedule,
-} from "../src/server/hithink-dividends";
+} from "../src/server/data-sources/hithink/hithink-dividends";
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();

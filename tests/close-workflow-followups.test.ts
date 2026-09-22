@@ -1,14 +1,14 @@
 import { afterEach, expect, it, vi } from "vitest";
 const jobs = vi.hoisted(() => ({ signals: vi.fn(), news: vi.fn() }));
-vi.mock("../src/server/czsc", () => ({ analyzeCzsc: vi.fn() }));
-vi.mock("../src/server/intraday-service", () => ({
+vi.mock("../src/server/strategies/chan/czsc", () => ({ analyzeCzsc: vi.fn() }));
+vi.mock("../src/server/monitoring/intraday-service", () => ({
   intradayDependencies: () => ({}),
   runIntradayTick: jobs.signals,
 }));
-vi.mock("../src/server/cls-review-scheduler", () => ({
+vi.mock("../src/server/news/cls-review-scheduler", () => ({
   runClsReviewTick: jobs.news,
 }));
-import { runCloseWorkflowFollowups } from "../src/server/close-workflow-followups";
+import { runCloseWorkflowFollowups } from "../src/server/jobs/close-workflow-followups";
 afterEach(() => vi.resetAllMocks());
 it("runs both close consumers", async () => {
   await runCloseWorkflowFollowups();

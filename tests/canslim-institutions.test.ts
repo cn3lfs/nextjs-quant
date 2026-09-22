@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { canslimInstitutions } from "../src/server/canslim-institutions";
+import { canslimInstitutions } from "../src/lib/strategy-facts/canslim-institutions";
 function fixture(shares = [121, 110, 100]) {
   const row: Record<string, unknown> = { 股票代码: "600519.SH" };
   const columns: { key: string; unit: string; timestamp: string }[] = [];

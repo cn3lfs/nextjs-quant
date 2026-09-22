@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { aggregateChartBars } from "../src/server/chart-aggregation";
+import { aggregateChartBars } from "../src/server/market/chart-aggregation";
 import { chartTime } from "../src/lib/chart-data";
-import { mcpChartHistory } from "../src/server/chart-history";
+import { mcpChartHistory } from "../src/server/market/chart-history";
 const rows = (minutes: number[]) =>
   minutes.map((m, i) => ({
     date: `2026-09-11T${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00+08:00`,
@@ -110,7 +110,7 @@ import {
   rememberChartRange,
   restoreChartRange,
 } from "../src/lib/chart-viewport";
-import { normalizeChartMcpPage } from "../src/server/chart-history";
+import { normalizeChartMcpPage } from "../src/server/market/chart-history";
 it("preserves visible dates when older bars are prepended and across period switches", () => {
   const bars = rows(morning);
   rememberChartRange("sh600000:5m", bars, 0, { from: 2.5, to: 10.5 });

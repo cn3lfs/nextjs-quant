@@ -3,7 +3,7 @@ import { researchStrategyIds } from "../src/lib/research-strategies";
 import {
   researchMethodSnapshot,
   validateResearchMethod,
-} from "../src/server/research-method";
+} from "../src/server/research/research-method";
 
 it("every executable strategy resolves pinned source hashes without installed skills", () => {
   for (const strategy of researchStrategyIds) {

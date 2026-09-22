@@ -5,8 +5,11 @@ import {
   type RpsDay,
   type RpsProgress,
 } from "../src/lib/rps";
-import { calculateRpsDay, prepareRpsSecurity } from "../src/server/rps-engine";
-import type { RpsDependencies } from "../src/server/rps-job";
+import {
+  calculateRpsDay,
+  prepareRpsSecurity,
+} from "../src/server/screening/rps-engine";
+import type { RpsDependencies } from "../src/server/screening/rps-job";
 
 export const rpsCalendar = Array.from({ length: 801 }, (_, i) =>
   new Date(Date.UTC(2022, 0, 1 + i)).toISOString().slice(0, 10),

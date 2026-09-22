@@ -1,7 +1,7 @@
 import { marketSourceSchema } from "~/lib/market-source";
 import { chartSymbolSchema } from "~/lib/chart-symbol";
 import { mxQuerySchema } from "~/lib/mx-data";
-import { mxDataStatus, queryMxData } from "../mx-data";
+import { mxDataStatus, queryMxData } from "../data-sources/mx/mx-data";
 import { researchAdjustmentSchema } from "~/lib/research-adjustment";
 import {
   disciplineRequestSchema,
@@ -9,41 +9,41 @@ import {
   disciplineStatus,
   cancelDiscipline,
   exportDiscipline,
-} from "../discipline-service";
+} from "../portfolio/discipline-service";
 import { researchRangeSchema, researchDateSchema } from "~/lib/research-usage";
-import { researchUsage } from "../research-usage";
+import { researchUsage } from "../research/research-usage";
 import { researchAttemptsQuerySchema } from "~/lib/research-governance";
-import { ResearchAttempts } from "../research-governance";
+import { ResearchAttempts } from "../research/research-governance";
 import {
   holdingsCorrelationPageSchema,
   pageHoldingsCorrelation,
-} from "../holdings-correlation-service";
+} from "../portfolio/holdings-correlation-service";
 import { keyTrades } from "~/lib/key-trades";
 import {
   positionRiskPageSchema,
   pagePositionRisk,
-} from "../position-risk-service";
+} from "../portfolio/position-risk-service";
 import {
   rollingPageSchema,
   tradeReviewRollingPage,
   researchRollingPage,
-} from "../rolling-performance-service";
+} from "../research/performance/rolling-performance-service";
 import {
   threeSegmentSample,
   threeSegmentAdmission,
-} from "../three-segment-sample";
-import { readMarketPool } from "../market-pool-files";
+} from "../research/performance/three-segment-sample";
+import { readMarketPool } from "../market/market-pool-files";
 import {
   admissionPageSchema,
   tradeReviewAdmissionSource,
   pageStrategyAdmission,
   exportStrategyAdmission,
-} from "../strategy-admission-service";
+} from "../research/performance/strategy-admission-service";
 import {
   executionPageSchema,
   pageExecutionQuality,
   exportExecutionQuality,
-} from "../execution-quality-service";
+} from "../portfolio/execution-quality-service";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -56,147 +56,167 @@ import {
 import {
   previewDeliveryImport,
   commitDeliveryImport,
-} from "../delivery-import-service";
-import { DeliveryStore } from "../delivery-store";
+} from "../portfolio/delivery-import-service";
+import { DeliveryStore } from "../portfolio/delivery-store";
 import {
   buildTradeReviewSnapshot,
   exportTradeReview,
   pageTradeReviewDrawdowns,
-} from "../trade-review-service";
-import { fullLocalCalendarReference } from "../data-health";
-import { requireA500Selection } from "../a500-research";
-import { latestRpsObservation } from "../rps-observation";
-import { tradeDashboard } from "../trade-ledger-service";
-import { indexDirectory } from "../index-directory";
+} from "../portfolio/trade-review-service";
+import { fullLocalCalendarReference } from "../market/data-health";
+import { requireA500Selection } from "../research/a500-research";
+import { latestRpsObservation } from "../screening/rps-observation";
+import { tradeDashboard } from "../portfolio/trade-ledger-service";
+import { indexDirectory } from "../market/index-directory";
 import { clsReviewConfigSchema } from "~/lib/cls-review-config";
 import {
   clsReviewConfig,
   clsReviewLastCheck,
   saveClsReviewConfig,
-} from "../cls-review-scheduler";
+} from "../news/cls-review-scheduler";
 import { clsFactReviewSchema, clsFactStatistics } from "~/lib/cls-fact-review";
-import { clsReportFiles, previewClsReport } from "../cls-report-files";
-import { ClsReviewStore } from "../cls-review-store";
-import { fixClsSample } from "../cls-review-service";
-import { verifyClsSample } from "../cls-verification";
+import { clsReportFiles, previewClsReport } from "../news/cls-report-files";
+import { ClsReviewStore } from "../news/cls-review-store";
+import { fixClsSample } from "../news/cls-review-service";
+import { verifyClsSample } from "../news/cls-verification";
 import { researchSpecSchema } from "~/lib/strategy-research";
 import { researchMarketEvidenceSchema } from "~/lib/research-market-evidence";
-import { ResearchStore } from "../research-store";
+import { ResearchStore } from "../backtest/research-store";
 import {
   periodPageSchema,
   tradeReviewPeriodPage,
   researchPeriodPage,
-} from "../period-performance-service";
+} from "../research/performance/period-performance-service";
 import {
   launchResearch,
   cancelResearch,
   recoverResearch,
-} from "../research-client";
+} from "../backtest/research-client";
 import { intradayConfigSchema } from "~/lib/intraday-schedule";
 import {
   intradayConfig,
   intradayLastCheck,
   saveIntradayConfig,
   intradayDependencies,
-} from "../intraday-service";
-import { intradayWorkerStatus, scheduleIntraday } from "../intraday-client";
-import { IntradayStore } from "../intraday-store";
-import { IntradayJob } from "../intraday-job";
+} from "../monitoring/intraday-service";
+import {
+  intradayWorkerStatus,
+  scheduleIntraday,
+} from "../monitoring/intraday-client";
+import { IntradayStore } from "../monitoring/intraday-store";
+import { IntradayJob } from "../monitoring/intraday-job";
 import { marketPoolQuerySchema, poolCategorySchema } from "~/lib/market-pool";
-import { marketPoolCatalog } from "../market-pool-files";
-import { marketPoolPage, marketPoolRows } from "../market-pool-service";
+import { marketPoolCatalog } from "../market/market-pool-files";
+import { marketPoolPage, marketPoolRows } from "../market/market-pool-service";
 import { universeAuditQuerySchema } from "~/lib/universe-audit";
-import { universeAuditPage } from "../universe-audit";
-import { RpsStore } from "../rps-store";
-import { rpsClient } from "../rps-client";
+import { universeAuditPage } from "../research/universe-audit";
+import { RpsStore } from "../screening/rps-store";
+import { rpsClient } from "../screening/rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/rps";
 import { rpsLogIdPrefix, toRpsLogEntry } from "~/lib/rps-log";
 import { industryPageSchema } from "~/lib/industry-rps";
-import { industryRpsPage } from "../industry-rps-query";
-import { readRpsBlockSource } from "../rps-block-source";
-import { chartBars, chartBarsInput } from "../chart-bars";
-import { ChartViewStore } from "../chart-view-store";
+import { industryRpsPage } from "../screening/industry-rps-query";
+import { readRpsBlockSource } from "../screening/rps-block-source";
+import { chartBars, chartBarsInput } from "../charts/chart-bars";
+import { ChartViewStore } from "../charts/chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart-view";
 import { sqlite as chartSqlite } from "../db";
-import { newsBudget } from "../news-budget";
-import { analyzeCzsc } from "../czsc";
-import { analyzeBreakout } from "../breakout";
-import { completedBarFilter } from "../screening";
-import { reportSecurityContext } from "../report-security";
+import { newsBudget } from "../news/news-budget";
+import { analyzeCzsc } from "../strategies/chan/czsc";
+import { analyzeBreakout } from "../strategies/breakout/breakout";
+import { completedBarFilter } from "~/lib/completed-bars";
+import { reportSecurityContext } from "../research/report-security";
 import { screenSortSchema } from "~/lib/screen-sort";
-import { securityProfile } from "../securities";
-import { verifySecurityLifecycle } from "../security-lifecycle";
-import { verifySecurityTradingStatus } from "../security-trading-status";
-import { screenReviews, screenReviewsInput } from "../screen-reviews";
+import { securityProfile } from "../market/securities";
+import { verifySecurityLifecycle } from "../market/security-lifecycle";
+import { verifySecurityTradingStatus } from "../market/security-trading-status";
+import { screenReviews, screenReviewsInput } from "../screening/screen-reviews";
 import {
   reportHistory,
   reportHistoryInput,
   archivedReport,
-} from "../report-history";
-import { cashDividendInput, cashDividendJob } from "../cash-dividend-job";
-import { queryDividendSchedule } from "../hithink-dividends";
-import { readBacktestActions, validateActionRange } from "../backtest-actions";
-import { reconcileDividends } from "../dividend-reconciliation";
-import { financialGrowth } from "../financial-growth";
+} from "../research/report-history";
+import {
+  cashDividendInput,
+  cashDividendJob,
+} from "../backtest/cash-dividend-job";
+import { queryDividendSchedule } from "../data-sources/hithink/hithink-dividends";
+import {
+  readBacktestActions,
+  validateActionRange,
+} from "../backtest/backtest-actions";
+import { reconcileDividends } from "../backtest/dividend-reconciliation";
+import { financialGrowth } from "../strategies/value/financial-growth";
 import { fundamentalResearchInput } from "~/lib/fundamental-research";
 import {
   fundamentalResearchJob,
   type FundamentalReport,
-} from "../fundamental-report";
+} from "../strategies/value/fundamental-report";
 import {
   financialQualityJob,
   financialQualityHistory,
   type FinancialQualityArchive,
-} from "../financial-quality";
+} from "../strategies/value/financial-quality";
 import { valuationScenarioSchema } from "~/lib/valuation-scenario";
 import {
   saveValuationScenario,
   valuationScenarioHistory,
   type ValuationScenario,
-} from "../valuation-scenario";
-import { researchHistory } from "../research-history";
-import { wyckoffJob } from "../wyckoff-job";
-import type { WyckoffReport } from "../wyckoff-report";
-import { jobSummaries } from "../job-summaries";
-import { taskHistory, taskState, screenTaskProgress } from "../task-history";
+} from "../strategies/value/valuation-scenario";
+import { researchHistory } from "../research/research-history";
+import { wyckoffJob } from "../strategies/wyckoff/wyckoff-job";
+import type { WyckoffReport } from "../strategies/wyckoff/wyckoff-report";
+import { jobSummaries } from "../jobs/job-summaries";
+import {
+  taskHistory,
+  taskState,
+  screenTaskProgress,
+} from "../jobs/task-history";
 import { taskHistoryInput } from "~/lib/task-history";
-import { analyzeChan, chanWindow, type ChanReport } from "../chan-report";
-import { gatherCanslimDossier } from "../canslim-dossier";
+import {
+  analyzeChan,
+  chanWindow,
+  type ChanReport,
+} from "../strategies/chan/chan-report";
+import { gatherCanslimDossier } from "../strategies/canslim/canslim-dossier";
 import {
   analyzeCanslimDossier,
   type CanslimResearchReport,
-} from "../canslim-report";
+} from "../strategies/canslim/canslim-report";
 import {
   verifySecurityIdentity,
   type IdentityCheck,
-} from "../security-identity";
-import { readClsNews } from "../cls-news";
-import { walkForwardJob, walkForwardInput } from "../walk-forward-job";
+} from "../market/security-identity";
+import { readClsNews } from "../data-sources/cls/cls-news";
+import { walkForwardJob, walkForwardInput } from "../backtest/walk-forward-job";
 import { walkForwardPage, type WalkForwardResult } from "~/lib/walk-forward";
-import { explainWalkForwardJob } from "../walk-forward-explanation";
-import { newsSectorHistory } from "../news-sector-history";
-import { aggregateNewsDay } from "../news-day";
-import { checkThemePrices, latestThemePrices } from "../theme-prices";
-import { explainThemePricesJob } from "../theme-price-explanation";
-import { analyzeNewsThemes, latestNewsThemes } from "../news-themes";
-import { analyzeNewsSector, newsSectorInput } from "../news-sector";
+import { explainWalkForwardJob } from "../backtest/walk-forward-explanation";
+import { newsSectorHistory } from "../news/news-sector-history";
+import { aggregateNewsDay } from "../news/news-day";
+import { checkThemePrices, latestThemePrices } from "../news/theme-prices";
+import { explainThemePricesJob } from "../news/theme-price-explanation";
+import { analyzeNewsThemes, latestNewsThemes } from "../news/news-themes";
+import { analyzeNewsSector, newsSectorInput } from "../news/news-sector";
 import {
   analyzeNews,
   newsAnalysisInput,
   newsAnalysisView,
   type NewsAnalysis,
-} from "../news-analysis";
+} from "../news/news-analysis";
 import { historicalScreenSchema } from "~/lib/historical-screen";
 import { backtestCostsSchema } from "~/lib/backtest-costs";
 import { currentMcpHealth } from "../mcp-health";
-import { onlineScreenJob, type OnlineScreenResult } from "../online-screen";
-import { researchSkillCatalog } from "../research-skills";
-import { exportRsArchive } from "../rs-export";
+import {
+  onlineScreenJob,
+  type OnlineScreenResult,
+} from "../screening/online-screen";
+import { researchSkillCatalog } from "../research/research-skills";
+import { exportRsArchive } from "../research/rs-export";
 import {
   pageScreenResults,
   exportScreenResults,
   type StoredScreenResult,
-} from "../screen-results";
+} from "../screening/screen-results";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
@@ -219,12 +239,12 @@ import {
   type Signal,
 } from "~/lib/domain";
 import { get, list, put } from "../db";
-import { settings, saveSettings } from "../settings";
+import { settings, saveSettings } from "../infra/settings";
 import {
   localReportLag,
   readLocalFinancials,
   resolveFinanceReportPeriod,
-} from "../tdx-financial-reports";
+} from "../data-sources/tdx/tdx-financial-reports";
 import {
   scanJob,
   snapshot,
@@ -233,25 +253,25 @@ import {
   startRuntime,
   tick,
 } from "../runtime";
-import { background, cancelJob, updateJob, readJob } from "../jobs";
+import { background, cancelJob, updateJob, readJob } from "../jobs/jobs";
 import {
   analyze,
   interpret,
   snapshotEvidence,
   researchModel,
-} from "../research";
-import { saveChannel, testDelivery } from "../notifications";
+} from "../research/research";
+import { saveChannel, testDelivery } from "../infra/notifications";
 import {
   importLocalMcp,
   mcpTools,
   queryMcp,
   mcpConfigured,
-} from "../tdx-mcp-disabled";
-import { gatherEvidence } from "../market-data";
-import { searchSecurities } from "../security-search";
-import { securityNames } from "../tdx";
-import { findCli } from "../local-llm";
-import { securityDirectory, securityNameMap } from "../securities";
+} from "../data-sources/tdx/tdx-mcp-disabled";
+import { gatherEvidence } from "../research/gather-evidence";
+import { searchSecurities } from "../market/security-search";
+import { securityNames } from "../data-sources/tdx/tdx";
+import { findCli } from "../infra/local-llm";
+import { securityDirectory, securityNameMap } from "../market/securities";
 import {
   TDX_HOSTS,
   barPage,
@@ -266,8 +286,12 @@ import {
   saveHosts,
   securityQuotes,
   transactionPage,
-} from "../tdx-quotes";
-import { KLINE, PAGE_LIMIT, QUOTES_BATCH_LIMIT } from "../tdx-wire";
+} from "../data-sources/tdx/tdx-quotes";
+import {
+  KLINE,
+  PAGE_LIMIT,
+  QUOTES_BATCH_LIMIT,
+} from "../data-sources/tdx/tdx-wire";
 
 const klineSchema = z.enum(
   Object.keys(KLINE) as [keyof typeof KLINE, ...(keyof typeof KLINE)[]],
@@ -2066,4 +2090,4 @@ import {
   saveFormula,
   formulaScreenJob,
   exportFormulaScreen,
-} from "../formula-screen-service";
+} from "../screening/formula-screen-service";

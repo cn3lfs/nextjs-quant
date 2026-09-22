@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import {
   parseIndustryMembers,
   readIndustryBlocks,
-} from "../src/server/industry-blocks";
+} from "../src/server/market/industry-blocks";
 
 const directories: string[] = [];
 afterEach(async () => {

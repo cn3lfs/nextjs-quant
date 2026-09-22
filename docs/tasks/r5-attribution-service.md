@@ -6,12 +6,12 @@ R4/R4b（净值与风险）已验收。本任务做**归因分组**与**服务�
 
 先读 `AGENTS.md`、`docs/conventions.md`、`docs/invariants.md`、
 `docs/trade-review-plan.md` §5.4 §6，以及 `src/lib/trade-review*.ts`、
-`src/server/delivery-store.ts`。
+`src/server/portfolio/delivery-store.ts`。
 
 ## 0. 不可越界
 
 - 新建 `src/lib/trade-review-attribution.ts`（纯函数）与
-  `src/server/trade-review-service.ts`（有 IO），及各自测试。
+  `src/server/portfolio/trade-review-service.ts`（有 IO），及各自测试。
 - 不改解析层、存储层、迁移、`src/server/mcp.ts`；不 commit / push / 打包；不新增依赖。
 - 既有用例全部必须继续通过。
 
@@ -41,12 +41,12 @@ profit factor、净收益合计）。
 
 ## 2. 服务层组装
 
-`src/server/trade-review-service.ts`：
+`src/server/portfolio/trade-review-service.ts`：
 
 - 从 `DeliveryStore` 读某账户的 fills 与 cashFlows，调用 R3/R4 引擎，
   组装出完整复盘快照：回合、买卖点、净值与风险、归因、逆回购汇总、
   未解释资金残差、待核对行。
-- 日线由既有 `readSnapshot`（`src/server/tdx.ts`）提供；
+- 日线由既有 `readSnapshot`（`src/server/data-sources/tdx/tdx.ts`）提供；
   **缺行情的标的不得跳过**，要在快照里列出「因缺行情无法分析」的标的清单。
 - 行业/概念用既有 `market-pool-files.ts` / `industry-blocks`；
   RPS 用既有 `rps_values` 查询。这些都**可选**：取不到就是「未知」组，
@@ -82,7 +82,7 @@ profit factor、净收益合计）。
 npx vitest run tests/trade-review-attribution.test.ts tests/trade-review-service.test.ts tests/trade-review.test.ts tests/trade-review-nav.test.ts tests/delivery-import.test.ts tests/delivery-store.test.ts
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/lib/trade-review-attribution.ts src/server/trade-review-service.ts tests/trade-review-attribution.test.ts tests/trade-review-service.test.ts
+npx prettier --check src/lib/trade-review-attribution.ts src/server/portfolio/trade-review-service.ts tests/trade-review-attribution.test.ts tests/trade-review-service.test.ts
 ```
 
 ## 6. 报告格式

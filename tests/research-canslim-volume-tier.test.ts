@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
-import { researchCanslimVolumeTier } from "../src/server/research-canslim-volume-tier";
-import { researchSignals } from "../src/server/research-signals";
+import { researchCanslimVolumeTier } from "../src/server/strategies/canslim/research-canslim-volume-tier";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 const fixture = (): Bar[] =>
   Array.from({ length: 90 }, (_, i) => ({

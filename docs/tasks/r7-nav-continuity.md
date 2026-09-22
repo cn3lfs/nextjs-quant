@@ -76,7 +76,7 @@ R6 后真实账户净值可得率从 0% 升到 **42.2%（534/1265 天）**，
 ```
 npx vitest run
 npx tsc --noEmit
-npx prettier --check src/lib/trade-review-nav.ts src/server/trade-review-service.ts
+npx prettier --check src/lib/trade-review-nav.ts src/server/portfolio/trade-review-service.ts
 ```
 
 基线：257 文件通过 / 5 跳过，1558 用例通过 / 6 跳过。

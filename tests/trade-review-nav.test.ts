@@ -6,7 +6,7 @@ import {
   type ParsedFill,
 } from "../src/lib/delivery-import";
 import { parseDeliveryTable } from "../src/lib/delivery-table";
-import { pageTradeReviewDrawdowns } from "../src/server/trade-review-service";
+import { pageTradeReviewDrawdowns } from "../src/server/portfolio/trade-review-service";
 import { dailyPerformance } from "../src/lib/daily-performance";
 import {
   reviewTradeNav,

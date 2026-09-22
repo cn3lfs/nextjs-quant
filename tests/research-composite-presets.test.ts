@@ -9,7 +9,7 @@ import { researchSpecSchema } from "../src/lib/strategy-research";
 import {
   buildNamedResearchSpec,
   researchNamedRunSpecs,
-} from "../src/server/research-run";
+} from "../src/server/backtest/research-run";
 
 const base = researchSpecSchema.parse({
   strategy: "dual-breakout",

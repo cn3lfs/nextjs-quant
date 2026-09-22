@@ -4,7 +4,7 @@ import { migrate } from "../src/server/db/migrations";
 import {
   IntradayStore,
   type IntradayObservation,
-} from "../src/server/intraday-store";
+} from "../src/server/monitoring/intraday-store";
 
 it("preserves previews, retries unavailable closes and never rewrites settled results", () => {
   const db = new Database(":memory:");

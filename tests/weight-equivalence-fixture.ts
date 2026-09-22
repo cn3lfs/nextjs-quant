@@ -13,7 +13,7 @@ import {
   projectResearchWeights,
   weightBacktest,
 } from "../src/lib/weight-backtest";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 export const anchorDays = [
   "2024-01-02",

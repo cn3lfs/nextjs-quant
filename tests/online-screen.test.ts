@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { normalizeOnlineScreen } from "../src/server/online-screen";
+import { normalizeOnlineScreen } from "../src/server/screening/online-screen";
 const source = () => ({
   meta: {
     code: 0,

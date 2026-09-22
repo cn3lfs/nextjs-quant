@@ -1,12 +1,12 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../src/server/db/migrations";
-import { RpsStore } from "../src/server/rps-store";
+import { RpsStore } from "../src/server/screening/rps-store";
 import { rpsDay } from "./rps-fixture";
 import {
   marketPoolPage,
   marketPoolRows,
-} from "../src/server/market-pool-service";
+} from "../src/server/market/market-pool-service";
 
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
@@ -23,10 +23,10 @@ vi.mock("../src/server/db", () => ({
     ],
   }),
 }));
-vi.mock("../src/server/settings", () => ({
+vi.mock("../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: state.root, industryBlocksRoot: "blocks" }),
 }));
-vi.mock("../src/server/securities", () => ({
+vi.mock("../src/server/market/securities", () => ({
   securityDirectory: async () => ({
     entries: Object.fromEntries(
       Array.from({ length: 25 }, (_, i) => [
@@ -36,7 +36,7 @@ vi.mock("../src/server/securities", () => ({
     ),
   }),
 }));
-vi.mock("../src/server/market-pool-files", () => ({
+vi.mock("../src/server/market/market-pool-files", () => ({
   readMarketPool: async () => ({
     category: "index",
     name: "中证A500",

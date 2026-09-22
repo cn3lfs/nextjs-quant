@@ -9,14 +9,14 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../src/lib/strategy-research";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { researchSignals } from "../src/server/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { maParamsSchema } from "../src/lib/domain";
-import { researchParamsFingerprint } from "../src/server/research-store";
+import { researchParamsFingerprint } from "../src/server/backtest/research-store";
 import {
   researchMethodSnapshot,
   validateResearchMethod,
-} from "../src/server/research-method";
+} from "../src/server/research/research-method";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
 
 const dates = Array.from(

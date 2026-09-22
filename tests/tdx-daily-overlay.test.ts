@@ -4,10 +4,10 @@ import type { Snapshot } from "../src/lib/domain";
 import {
   publishDailyIncrement,
   readDailyIncrement,
-} from "../src/server/tdx-daily-cache";
-import { overlayDailyIncrements } from "../src/server/tdx-daily-overlay";
+} from "../src/server/data-sources/tdx/tdx-daily-cache";
+import { overlayDailyIncrements } from "../src/server/data-sources/tdx/tdx-daily-overlay";
 import { put } from "../src/server/db";
-import { chartBars } from "../src/server/chart-bars";
+import { chartBars } from "../src/server/charts/chart-bars";
 
 // g4day 暂停（见 docs/decisions.md WF3）：图表链路不再叠加已发布的增量，函数本身保持可用。
 // 解冻时把断言改回 `tdx-local+g4day` 与 close 11。

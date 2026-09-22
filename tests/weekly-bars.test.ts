@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "~/lib/domain";
-import { weeklyBars } from "~/server/weekly-bars";
+import { weeklyBars } from "~/server/market/weekly-bars";
 const days = [
   "2026-08-31",
   "2026-09-01",

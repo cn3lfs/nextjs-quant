@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import { readSnapshot } from "../src/server/tdx";
-import { aggregateChartBars } from "../src/server/chart-aggregation";
+import { readSnapshot } from "../src/server/data-sources/tdx/tdx";
+import { aggregateChartBars } from "../src/server/market/chart-aggregation";
 
 it.skipIf(!process.env.QUANT_VIPDOC_ACCEPTANCE_ROOT)(
   "本地文件完整解析与周期聚合逐项记录",

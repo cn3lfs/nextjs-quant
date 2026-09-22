@@ -2,10 +2,10 @@ import { expect, it } from "vitest";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { westockUnadjustedRequest } from "../src/server/westock-unadjusted";
-import { query } from "../src/server/westock-data";
-import { parseTencentChart } from "../src/server/free-chart-sources";
-import { parseBars } from "../src/server/tdx-wire";
+import { westockUnadjustedRequest } from "../src/server/data-sources/westock/westock-unadjusted";
+import { query } from "../src/server/data-sources/westock/westock-data";
+import { parseTencentChart } from "../src/server/market/free-chart-sources";
+import { parseBars } from "../src/server/data-sources/tdx/tdx-wire";
 const endpoint =
   "https://proxy.finance.qq.com/cgi/cgi-bin/openai/openclaw/proxy";
 const init = {

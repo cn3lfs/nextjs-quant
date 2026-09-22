@@ -2,7 +2,7 @@ import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { queryMcp, closeMcp, importLocalMcp } from "../src/server/mcp";
-import { normalizeMcpBars } from "../src/server/market-data";
+import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
 import { readSecret } from "../src/server/vault";
 
 // Copy only the encrypted configuration into the isolated test directory.

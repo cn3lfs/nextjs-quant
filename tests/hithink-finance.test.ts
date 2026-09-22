@@ -3,7 +3,7 @@ import {
   annualFinanceMetrics,
   financeEvidence,
   queryFinance,
-} from "../src/server/hithink-finance";
+} from "../src/server/data-sources/hithink/hithink-finance";
 const fixture = {
   status_code: 0,
   token: "gateway-private",

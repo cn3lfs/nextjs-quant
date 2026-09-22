@@ -11,8 +11,8 @@
 
 | 已有能力                                  | 位置                                      | 对本阶段的作用                               |
 | ----------------------------------------- | ----------------------------------------- | -------------------------------------------- |
-| 日线/分钟快照、覆盖与健康检查             | `src/server/tdx.ts`、`data-health.ts`     | **直接复用**，复盘不新增行情通道             |
-| 公司行动事件与复权工具                    | `src/server/tdx-gbbq.ts`                  | 判定回合是否跨除权、成本是否可信             |
+| 日线/分钟快照、覆盖与健康检查             | `src/server/data-sources/tdx/tdx.ts`、`data-health.ts`     | **直接复用**，复盘不新增行情通道             |
+| 公司行动事件与复权工具                    | `src/server/data-sources/tdx/tdx-gbbq.ts`                  | 判定回合是否跨除权、成本是否可信             |
 | 交易日历                                  | `localCalendarReference`                  | 持有交易日数、可卖判定、净值日序列           |
 | 移动加权成本 / T+1 / 除权审计             | `src/lib/trade-ledger.ts` `positionFor`   | 成本口径参照，**不改这支**                   |
 | 费用模型                                  | `tradeFees` + `backtest-costs`            | 仅在交割单缺费用列时兜底，默认用券商实际费用 |

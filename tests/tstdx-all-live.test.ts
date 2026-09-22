@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
-import * as api from "../src/server/tdx-quotes";
-import { KLINE, type KlineName } from "../src/server/tdx-wire";
+import * as api from "../src/server/data-sources/tdx/tdx-quotes";
+import { KLINE, type KlineName } from "../src/server/data-sources/tdx/tdx-wire";
 
 it.skipIf(process.env.QUANT_TSTDX_ALL !== "1")(
   "audits every public data query and all implemented periods without fallback",

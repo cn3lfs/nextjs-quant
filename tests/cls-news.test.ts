@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readClsNews } from "../src/server/cls-news";
+import { readClsNews } from "../src/server/data-sources/cls/cls-news";
 const ts = (time: string) => Date.parse(`2025-01-01T${time}:00+08:00`);
 function fixture() {
   const file = join(mkdtempSync(join(tmpdir(), "quant-news-")), "news.db");

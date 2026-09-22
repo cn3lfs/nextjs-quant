@@ -51,7 +51,7 @@ RSI §3.1映射SW08-zone-state，保留>70、<30、50至70、30至50四区；已
 
 §7.1/7.2为SW11-confluence-count：核心量能必须，五辅助分别MACD、KDJ、RSI、BOLL、均线；≥3确认标准、2确认半仓、≤1不入场。高/中权重是文字分类，并非已给数值权重。§7.3的量能否决保留在此组合；MACD与均线冲突单列SW11-direction-conflict；KDJ超买但MACD金叉减仓单列SW11-kdj-overbought-size，减幅需明示。父项SW11保留。
 
-当前[breakout](../../src/server/breakout.ts)只有四辅助投票，且其中KDJ是K与D相对大小，不是单日交叉；`checks.score`则计算趋势、价位、量能、合并指标、蜡烛五类。**四投票、五辅助、五类信号是三套不同计数**，后续必须分别具名冻结。
+当前[breakout](../../src/server/strategies/breakout/breakout.ts)只有四辅助投票，且其中KDJ是K与D相对大小，不是单日交叉；`checks.score`则计算趋势、价位、量能、合并指标、蜡烛五类。**四投票、五辅助、五类信号是三套不同计数**，后续必须分别具名冻结。
 
 ## 2. 仓位与纪律：六节与44个关联方法
 

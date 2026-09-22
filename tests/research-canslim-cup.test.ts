@@ -4,15 +4,15 @@ import {
   canslimCupIds,
   canslimCupShape,
 } from "../src/lib/research-canslim-strategies";
-import { researchCanslimCupPoint } from "../src/server/research-canslim-cup";
-import { researchCanslimPriorityPoint } from "../src/server/research-canslim-priority";
-import { canslimCup } from "../src/server/canslim-cup";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import { researchCanslimCupPoint } from "../src/server/strategies/canslim/research-canslim-cup";
+import { researchCanslimPriorityPoint } from "../src/server/strategies/canslim/research-canslim-priority";
+import { canslimCup } from "../src/server/strategies/canslim/canslim-cup";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import * as signals from "../src/server/research-signals";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import * as signals from "../src/server/strategies/shared/research-signals";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 
 function fixture(shape: "U" | "W" | "V"): Bar[] {

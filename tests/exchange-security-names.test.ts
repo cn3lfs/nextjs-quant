@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   exchangeNames,
   exchangeNamesSchema,
-} from "../src/server/exchange-security-names";
+} from "../src/server/market/exchange-security-names";
 import snapshot from "../src/server/data/exchange-delisted.json";
 
 it("uses exchange names and distinguishes code changes from delisting", () => {

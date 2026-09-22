@@ -2,21 +2,24 @@
 import {
   MockTradingAdapter,
   type MockAccount,
-} from "../src/server/mock-trading";
+} from "../src/server/portfolio/mock/mock-trading";
 import { readSecret, saveSecret } from "../src/server/vault";
 import { get, put } from "../src/server/db";
 import { tradeInputSchema } from "../src/lib/trade-ledger";
-import { redactMockBody, mockHost } from "../src/server/mock-trading";
+import {
+  redactMockBody,
+  mockHost,
+} from "../src/server/portfolio/mock/mock-trading";
 import { fetch } from "undici";
-import { evidenceEnvelope } from "../src/server/evidence";
+import { evidenceEnvelope } from "../src/server/infra/evidence";
 import {
   tradeContext,
   tradeDashboard,
-} from "../src/server/trade-ledger-service";
-import { TradeLedgerStore } from "../src/server/trade-ledger-store";
+} from "../src/server/portfolio/trade-ledger-service";
+import { TradeLedgerStore } from "../src/server/portfolio/trade-ledger-store";
 import { sqlite } from "../src/server/db";
-import { tradingLedgerMethods } from "../src/server/research-skills";
-import { reconcilePositions } from "../src/server/mock-trading";
+import { tradingLedgerMethods } from "../src/server/research/research-skills";
+import { reconcilePositions } from "../src/server/portfolio/mock/mock-trading";
 import { writeFile } from "node:fs/promises";
 if (!process.env.QUANT_DATA_DIR?.includes(".test-data"))
   throw new Error("Q0 requires isolated QUANT_DATA_DIR");

@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import { serialize } from "node:v8";
-import { encodeTail, decodeTail } from "~/server/tail-cache-codec";
+import {
+  encodeTail,
+  decodeTail,
+} from "~/server/data-sources/tdx/tail-cache-codec";
 import type { Snapshot } from "~/lib/domain";
 it("preserves all TDX bar precision and metadata without sharing returned objects", () => {
   const source: Snapshot = {

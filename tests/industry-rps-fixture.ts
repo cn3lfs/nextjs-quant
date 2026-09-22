@@ -1,6 +1,7 @@
 import type { IndustrySnapshot } from "../src/lib/industry-rps";
 import { aggregateIndustryRps } from "../src/lib/industry-rps";
-import { calculateRpsDay, rpsHash } from "../src/server/rps-engine";
+import { calculateRpsDay } from "../src/server/screening/rps-engine";
+import { rpsHash } from "~/server/infra/content-hash";
 import { rpsCalendar, rpsDate, rpsDay, tenStocks } from "./rps-fixture";
 
 export function industrySnapshot(

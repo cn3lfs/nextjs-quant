@@ -1,14 +1,14 @@
 import { expect, it } from "vitest";
-import { researchCanslimFlatPoint } from "../src/server/research-canslim-flat";
+import { researchCanslimFlatPoint } from "../src/server/strategies/canslim/research-canslim-flat";
 import type { Bar } from "../src/lib/domain";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { runStrategyResearch } from "../src/server/research-run";
-import { researchMethodSnapshot } from "../src/server/research-method";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
-import { researchRuleSeries } from "../src/server/research-rule-series";
+import { researchRuleSeries } from "../src/server/strategies/shared/research-rule-series";
 
 const bars = (): Bar[] =>
   Array.from({ length: 70 }, (_, i) => ({
@@ -173,9 +173,8 @@ it("runs a registered signal with executable price bounds and prior action cover
   // shrinking the window must not change the trade.
   holdEvidence.corporateActionFree[0]!.start = input[9]!.date;
   expect(
-    (
-      await runStrategyResearch(holdSpec, holdDataset, holdEvidence, native)
-    ).partitions[0]!.simulation!.trades,
+    (await runStrategyResearch(holdSpec, holdDataset, holdEvidence, native))
+      .partitions[0]!.simulation!.trades,
   ).toEqual(held.partitions[0]!.simulation!.trades);
   evidence.corporateActionFree[0]!.start = input[12]!.date;
   const missing = await runStrategyResearch(spec, dataset, evidence, native);

@@ -4,12 +4,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { settingsSchema } from "../src/lib/domain";
 import { put, sqlite } from "../src/server/db";
-import { RpsStore } from "../src/server/rps-store";
-import { scan } from "../src/server/tdx";
+import { RpsStore } from "../src/server/screening/rps-store";
+import { scan } from "../src/server/data-sources/tdx/tdx";
 import { rpsBars, rpsDay } from "./rps-fixture";
-import { readIndustryBlocks } from "../src/server/industry-blocks";
+import { readIndustryBlocks } from "../src/server/market/industry-blocks";
 import { aggregateIndustryRps } from "../src/lib/industry-rps";
-import { rpsHash } from "../src/server/rps-engine";
+import { rpsHash } from "~/server/infra/content-hash";
 
 const directory = resolve(".test-data/e1-browser");
 if (resolve(process.env.QUANT_DATA_DIR ?? "") !== directory)

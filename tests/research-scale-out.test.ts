@@ -16,12 +16,12 @@ import {
   researchMarketEvidenceSchema,
   researchEvidenceLookup,
 } from "../src/lib/research-market-evidence";
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { projectResearchWeights } from "../src/lib/weight-backtest";
 import {
   researchMethodSnapshot,
   validateResearchMethod,
-} from "../src/server/research-method";
+} from "../src/server/research/research-method";
 
 const dates = Array.from(
   { length: 7 },

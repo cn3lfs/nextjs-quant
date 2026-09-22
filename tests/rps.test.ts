@@ -4,7 +4,7 @@ import {
   calculateRpsDay,
   prepareRpsSecurity,
   rpsPoolExclusion,
-} from "../src/server/rps-engine";
+} from "../src/server/screening/rps-engine";
 import { rpsBars, rpsCalendar, rpsDate, tenStocks } from "./rps-fixture";
 
 it("10 calculator-checkable stocks rank identically across all six parameterized periods", () => {

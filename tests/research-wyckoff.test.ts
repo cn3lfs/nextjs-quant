@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { migrate } from "../src/server/db/migrations";
-import { ResearchStore } from "../src/server/research-store";
+import { ResearchStore } from "../src/server/backtest/research-store";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import {
@@ -9,10 +9,10 @@ import {
 } from "../src/lib/research-wyckoff";
 import { structureEventMachine } from "../src/lib/research-structure-events";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchSignals } from "../src/server/research-signals";
-import { researchPortfolio } from "../src/server/research-portfolio";
-import { runStrategyResearch } from "../src/server/research-run";
-import type { ResearchDataset } from "../src/server/research-dataset";
+import { researchSignals } from "../src/server/strategies/shared/research-signals";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
+import { runStrategyResearch } from "../src/server/backtest/research-run";
+import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 
 function fixture(): Bar[] {
   const anchors = [

@@ -1,4 +1,4 @@
-import { researchPortfolio } from "../src/server/research-portfolio";
+import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import type { ResearchEvent } from "../src/lib/strategy-research";
 import { expect, it } from "vitest";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { selectResearchStrategy } from "../src/components/research-strategy-fields";
-import { researchMethodSnapshot } from "../src/server/research-method";
+import { researchMethodSnapshot } from "../src/server/research/research-method";
 const management = researchManagementSchema.parse({
   stop: {
     kind: "nearest-stop",
