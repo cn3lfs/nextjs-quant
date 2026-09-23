@@ -42,7 +42,7 @@
     "RollingPerformanceChart": "4c3e2e5727b4461f7737bb7d4bf9531aea6f0788e99e535d18cdaeb03dc2f02c",
     "PositionRiskChart": "a02ddf10d68739189aa3e1c50fdd24ae5e151528e63cd0f8031452a6a16bb9ce",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    "CzscMarketChart": "730a3ac012adb9b412fd58bfb00e4b8c2f0c84b043221a8b8a3201c72914bc7a",
+    "CzscMarketChart": "36ae1a1fdaec546d5ad22c8ace94c5ba274f9bfc4daae5c294bf9076b48edc79",
     "MarketChart": "40987616777fafa4f3bdff5c43eba8a8ac7926ee9a0c5aa9062187f9734a899d"
   },
   "src/components/market/security-select.tsx": {

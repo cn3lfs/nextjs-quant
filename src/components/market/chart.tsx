@@ -73,6 +73,7 @@ import {
   chartIndicators,
   chartLegend,
   chartTime,
+  wallClockLabel,
   enabledIndicators,
   indicatorSegments,
   initialHistoryStart,
@@ -380,10 +381,13 @@ export function CzscMarketChart({
   onRpsRetry,
   onHistoryRequest,
   viewportKey,
+  annotations = true,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  /** Chan/breakout overlays; off for charts outside the A-share method scope. */
+  annotations?: boolean;
   adjustment?: ChartAdjustment;
   chartSnapshot?: boolean;
   pricePrecision?: number;
@@ -416,7 +420,7 @@ export function CzscMarketChart({
   const result = api.czsc.useQuery(
     { snapshotId, chartSnapshot },
     {
-      enabled: annotationsReady,
+      enabled: annotationsReady && annotations,
       staleTime: Infinity,
       retry: false,
     },
@@ -424,7 +428,7 @@ export function CzscMarketChart({
   const breakout = api.breakout.useQuery(
     { snapshotId, chartSnapshot },
     {
-      enabled: annotationsReady,
+      enabled: annotationsReady && annotations,
       staleTime: Infinity,
       retry: false,
     },
@@ -447,21 +451,26 @@ export function CzscMarketChart({
       onRpsRetry={onRpsRetry}
       onHistoryRequest={onHistoryRequest}
       viewportKey={viewportKey}
-      czsc={result.data}
-      breakout={breakout.data}
+      annotations={annotations}
+      czsc={annotations ? result.data : undefined}
+      breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
-        breakout.error
-          ? `双突破计算失败：${breakout.error.message}`
-          : breakout.isPending
-            ? "双突破标注后台加载中，K 线可正常浏览"
-            : undefined
+        !annotations
+          ? undefined
+          : breakout.error
+            ? `双突破计算失败：${breakout.error.message}`
+            : breakout.isPending
+              ? "双突破标注后台加载中，K 线可正常浏览"
+              : undefined
       }
       czscMessage={
-        result.error
-          ? `缠论计算失败：${result.error.message}`
-          : result.isPending
-            ? "缠论标注后台加载中，K 线可正常浏览"
-            : undefined
+        !annotations
+          ? undefined
+          : result.error
+            ? `缠论计算失败：${result.error.message}`
+            : result.isPending
+              ? "缠论标注后台加载中，K 线可正常浏览"
+              : undefined
       }
     />
   );
@@ -488,10 +497,12 @@ export function MarketChart({
   onRpsRetry,
   onHistoryRequest,
   viewportKey,
+  annotations = true,
 }: {
   bars: Bar[];
   period: Period;
   adjustment?: ChartAdjustment;
+  annotations?: boolean;
   volumeUnit?: string;
   pricePrecision?: number;
   czsc?: CzscResult;
@@ -1218,20 +1229,24 @@ export function MarketChart({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <label>
-          <Checkbox
-            checked={showBreakout}
-            onCheckedChange={(checked) => setShowBreakout(checked === true)}
-          />{" "}
-          双突破
-        </label>
-        <label>
-          <Checkbox
-            checked={showCzsc}
-            onCheckedChange={(checked) => setShowCzsc(checked === true)}
-          />{" "}
-          缠论结构
-        </label>
+        {annotations && (
+          <>
+            <label>
+              <Checkbox
+                checked={showBreakout}
+                onCheckedChange={(checked) => setShowBreakout(checked === true)}
+              />{" "}
+              双突破
+            </label>
+            <label>
+              <Checkbox
+                checked={showCzsc}
+                onCheckedChange={(checked) => setShowCzsc(checked === true)}
+              />{" "}
+              缠论结构
+            </label>
+          </>
+        )}
         {selectedSubcharts.includes("rps") && (
           <div
             className="flex shrink-0 items-center gap-3 text-xs"
@@ -1298,31 +1313,33 @@ export function MarketChart({
         )}
       </div>
       <div className="flex flex-wrap gap-3 text-sm">
-        {(showBreakout || breakoutMessage?.startsWith("双突破计算失败")) && (
-          <span data-testid="breakout-status">
-            {breakoutMessage ??
-              (breakout
-                ? (() => {
-                    const p = breakout.points.find(
-                      (p) => p.index === breakoutIndex,
-                    );
-                    return p
-                      ? `${p.date.slice(0, 16).replace("T", " ")} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
-                      : "无日线数据";
-                  })()
-                : "")}
-          </span>
-        )}
-        {(showCzsc || czscMessage?.startsWith("缠论计算失败")) && (
-          <span data-testid="czsc-status">
-            {czscMessage ??
-              (czsc?.status === "no-structure"
-                ? "无结构"
-                : czsc
-                  ? `笔 ${Math.max(0, (czsc.families[0]?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families[1]?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
+        {annotations &&
+          (showBreakout || breakoutMessage?.startsWith("双突破计算失败")) && (
+            <span data-testid="breakout-status">
+              {breakoutMessage ??
+                (breakout
+                  ? (() => {
+                      const p = breakout.points.find(
+                        (p) => p.index === breakoutIndex,
+                      );
+                      return p
+                        ? `${wallClockLabel(p.date)} · 多 ${p.long.status} ${p.long.quality} · 空 ${p.short.status} ${p.short.quality} · 紫色虚线/箭头 · 关键位按来源标注`
+                        : "无日线数据";
+                    })()
                   : "")}
-          </span>
-        )}
+            </span>
+          )}
+        {annotations &&
+          (showCzsc || czscMessage?.startsWith("缠论计算失败")) && (
+            <span data-testid="czsc-status">
+              {czscMessage ??
+                (czsc?.status === "no-structure"
+                  ? "无结构"
+                  : czsc
+                    ? `笔 ${Math.max(0, (czsc.families[0]?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families[1]?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
+                    : "")}
+            </span>
+          )}
         <span>
           {periodLabels[period]} · {chartAdjustmentLabels[adjustment]} ·{" "}
           {subchartSummary}

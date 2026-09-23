@@ -14,6 +14,7 @@ import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
   chartPricePrecision,
+  isCryptoChartSymbol,
   isNonAShareChartSymbol,
 } from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
@@ -384,7 +385,12 @@ function EditableChart({
         disabled={save.isPending}
         style={{ border: 0, padding: 0, minWidth: 0 }}
       >
-        <CzscMarketChart {...common} snapshotId={snapshot.id} chartSnapshot />
+        <CzscMarketChart
+          {...common}
+          snapshotId={snapshot.id}
+          chartSnapshot
+          annotations={!isCryptoChartSymbol(snapshot.symbol)}
+        />
       </fieldset>
       <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>

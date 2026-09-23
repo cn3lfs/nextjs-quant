@@ -21,6 +21,7 @@ import {
   cryptoBarDate,
 } from "../../../src/lib/market/crypto";
 import { symbolSchema } from "../../../src/lib/domain";
+import { wallClockLabel } from "../../../src/lib/chart/chart-data";
 
 const DAY = 86400000;
 const row = (open: number, price = 100, span = DAY) => [
@@ -69,6 +70,16 @@ describe("crypto symbols stay apart from A-share codes", () => {
     expect(
       cryptoBarDate(Date.UTC(2026, 8, 23), Date.UTC(2026, 8, 24) - 1, "day"),
     ).toBe("2026-09-23");
+  });
+
+  it("labels UTC and Beijing-stamped bars on the same Beijing wall clock", () => {
+    expect(wallClockLabel("2026-09-23T16:50:00+00:00")).toBe(
+      "2026-09-24 00:50",
+    );
+    expect(wallClockLabel("2026-09-23T14:35:00+08:00")).toBe(
+      "2026-09-23 14:35",
+    );
+    expect(wallClockLabel("2026-09-23")).toBe("2026-09-23");
   });
 
   it("scales price precision with the quote level", () => {

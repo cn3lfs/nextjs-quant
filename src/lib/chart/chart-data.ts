@@ -178,6 +178,15 @@ export function enabledIndicators(
   if (subcharts.includes("rsi")) names.push("RSI6", "RSI12", "RSI24");
   return names;
 }
+/** Beijing wall-clock label for a bar date, matching the chart axis. Dates
+ *  without a time part (daily and longer) are returned unchanged. */
+export function wallClockLabel(date: string) {
+  if (!date.includes("T")) return date;
+  return new Date(Date.parse(date) + 8 * 3600000)
+    .toISOString()
+    .slice(0, 16)
+    .replace("T", " ");
+}
 export function chartTime(date: string, period: Period): Time {
   // Intraday timestamps encode exchange wall time on the UTC chart axis so the
   // displayed labels remain Asia/Shanghai, independently of browser timezone.
