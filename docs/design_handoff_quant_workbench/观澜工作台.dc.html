@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-3387fe22-4238-48dc-a0a6-343c46321eba/styles.css">
+<script src="_ds/nocturne-3387fe22-4238-48dc-a0a6-343c46321eba/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+body { margin:0; background:#161826; }
+a { color:#d2cefd; text-decoration:none; }
+a:hover { color:#b5abfc; }
+input, select, textarea, button { font-family:inherit; }
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:#161826;color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:13px;line-height:1.5">
+
+  <aside style="width:206px;flex:none;background:#1b1d2c;border-right:1px solid #292b31;padding:16px 12px;display:flex;flex-direction:column;gap:12px;position:sticky;top:0;height:100vh;box-sizing:border-box;overflow-y:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 4px 4px">
+      <div style="width:34px;height:34px;border-radius:8px;border:1px solid #5d5294;display:flex;align-items:center;justify-content:center;color:#9184d9;box-shadow:0 0 18px rgba(145,132,217,0.18)"><i class="ph ph-activity" style="font-size:19px"></i></div>
+      <div style="display:flex;flex-direction:column">
+        <strong style="font-size:14px;font-weight:500;letter-spacing:0.04em">观澜</strong>
+        <span style="font-size:9px;letter-spacing:0.16em;color:#75798c">QUANT WORKBENCH</span>
+      </div>
+    </div>
+    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="5">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-size:10px;letter-spacing:0.14em;color:#75798c;padding:2px 8px">{{ g.label }}</div>
+        <sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3">
+          <button type="button" onClick="{{ n.go }}" style="display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:8px;border:none;border-left:2px solid {{ n.edge }};background:{{ n.bg }};color:{{ n.fg }};cursor:pointer;text-align:left;font-size:12.5px" style-hover="background:#24233a">
+            <i class="{{ n.icon }}" style="font-size:16px"></i><span>{{ n.label }}</span>
+            <span style="margin-left:auto;font-size:10px;color:{{ n.badgeFg }}">{{ n.badge }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:8px;background:#1f2130;border:1px solid #292b31">
+      <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:#cfd3e5"><span style="width:7px;height:7px;border-radius:999px;background:#7fc2a0"></span>本机研究环境</div>
+      <span style="font-size:10.5px;color:#75798c">数据留在本地 · 调度仅在应用运行时执行</span>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="display:flex;align-items:center;gap:14px;padding:11px 22px;border-bottom:1px solid #292b31;background:#1b1d2c;position:sticky;top:0;z-index:5">
+      <div style="display:flex;flex-direction:column;min-width:0">
+        <span style="font-size:10.5px;color:#75798c;white-space:nowrap">{{ crumb }}</span>
+        <strong style="font-size:15px;font-weight:500;white-space:nowrap">{{ title }}</strong>
+      </div>
+      <span style="font-size:11.5px;color:#9397ab;margin-left:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ subtitle }}</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex:none">
+        <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid #3f424d;border-radius:8px;color:#75798c;font-size:12px;width:190px"><i class="ph ph-magnifying-glass"></i>代码 / 名称<span style="margin-left:auto;font-size:10px;border:1px solid #3f424d;border-radius:4px;padding:0 4px">Ctrl K</span></div>
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #423a6a;background:#2b2741;color:#d2cefd;font-size:11.5px;white-space:nowrap"><i class="ph-fill ph-circle" style="font-size:7px"></i>下午盘 14:32</div>
+      </div>
+    </header>
+
+    <div style="padding:18px 22px 32px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:start">
+      <sc-for list="{{ panels }}" as="p" hint-placeholder-count="4">
+        <section style="grid-column:span {{ p.span }};border:1px solid {{ p.border }};border-radius:8px;background:{{ p.bg }};padding:14px 16px;display:flex;flex-direction:column;gap:11px;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <i class="{{ p.icon }}" style="font-size:15px;color:#9184d9"></i>
+            <h3 style="margin:0;font-size:13px;font-weight:500">{{ p.title }}</h3>
+            <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;color:#d2cefd;background:#2b2741;border-radius:999px;padding:1px 8px">{{ p.tag }}</span></sc-if>
+            <span style="font-size:11px;color:#75798c">{{ p.meta }}</span>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+              <sc-for list="{{ p.seg }}" as="s" hint-placeholder-count="0">
+                <button type="button" onClick="{{ s.go }}" style="border:1px solid {{ s.border }};background:{{ s.bg }};color:{{ s.fg }};border-radius:6px;padding:3px 10px;font-size:11.5px;cursor:pointer">{{ s.label }}</button>
+              </sc-for>
+              <sc-for list="{{ p.actions }}" as="a" hint-placeholder-count="0">
+                <button type="button" onClick="{{ a.go }}" style="border:1px solid {{ a.border }};background:transparent;color:{{ a.fg }};border-radius:8px;padding:5px 11px;font-size:11.5px;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap" style-hover="background:#2b2741"><i class="{{ a.icon }}"></i>{{ a.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ p.isStats }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+              <sc-for list="{{ p.items }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:8px;background:#232532;border:1px solid {{ s.edge }}">
+                  <span style="font-size:11px;color:#9397ab;white-space:nowrap">{{ s.k }}</span>
+                  <strong style="font-size:17px;font-weight:500;color:{{ s.tone }};font-variant-numeric:tabular-nums">{{ s.v }}</strong>
+                  <span style="font-size:10.5px;color:#75798c">{{ s.n }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.isTable }}" hint-placeholder-val="{{ false }}">
+            <div style="overflow-x:auto">
+              <div style="min-width:{{ p.minW }}">
+                <div style="display:grid;grid-template-columns:{{ p.cols }};gap:10px;padding:0 4px 7px;border-bottom:1px solid #292b31;font-size:10.5px;letter-spacing:0.06em;color:#75798c">
+                  <sc-for list="{{ p.head }}" as="h" hint-placeholder-count="5"><span>{{ h }}</span></sc-for>
+                </div>
+                <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:{{ p.cols }};gap:10px;padding:8px 4px;border-bottom:1px solid #232532;align-items:center;font-size:12px" style-hover="background:#232532">
+                    <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+                      <div style="display:flex;flex-direction:column;min-width:0">
+                        <span style="color:{{ c.c }};font-variant-numeric:tabular-nums;font-weight:{{ c.w }};overflow:hidden;text-overflow:ellipsis">{{ c.t }}</span>
+                        <span style="font-size:10.5px;color:#75798c">{{ c.sub }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.isList }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ p.items }}" as="i" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;background:#232532;border:1px solid {{ i.edge }}">
+                  <i class="{{ i.icon }}" style="font-size:16px;color:{{ i.tone }}"></i>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                    <strong style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.title }}</strong>
+                    <span style="font-size:11px;color:#9397ab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.sub }}</span>
+                  </div>
+                  <span style="font-size:10.5px;color:{{ i.tone }};border:1px solid {{ i.edge }};border-radius:999px;padding:1px 8px;white-space:nowrap">{{ i.tag }}</span>
+                  <sc-if value="{{ i.action }}" hint-placeholder-val="{{ false }}"><button type="button" style="border:1px solid #3f424d;background:transparent;color:#cfd3e5;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap" style-hover="border-color:#796cbf">{{ i.action }}</button></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.isForm }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+              <sc-for list="{{ p.fields }}" as="f" hint-placeholder-count="4">
+                <label style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                  <span style="font-size:11px;color:#9397ab">{{ f.label }}</span>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border:1px solid #3f424d;border-radius:8px;background:#1b1d2c;font-size:12px;color:{{ f.c }};min-height:18px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.value }}</span><i class="{{ f.icon }}" style="color:#75798c"></i></div>
+                </label>
+              </sc-for>
+            </div>
+            <sc-for list="{{ p.checks }}" as="k" hint-placeholder-count="0">
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#cfd3e5"><i class="{{ k.icon }}" style="font-size:15px;color:{{ k.tone }}"></i>{{ k.label }}</div>
+            </sc-for>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ p.buttons }}" as="b" hint-placeholder-count="1">
+                <button type="button" onClick="{{ b.go }}" style="border:1px solid {{ b.border }};background:transparent;color:{{ b.fg }};border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:#2b2741"><i class="{{ b.icon }}"></i>{{ b.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.isBars }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ p.items }}" as="g" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                  <span style="width:90px;font-size:12px;color:#cfd3e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name }}</span>
+                  <span style="flex:1;height:5px;border-radius:999px;background:#292b31;display:block"><span style="display:block;height:5px;border-radius:999px;background:{{ g.tone }};width:{{ g.pct }}"></span></span>
+                  <span style="width:44px;text-align:right;font-size:11.5px;color:#9397ab;font-variant-numeric:tabular-nums">{{ g.val }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.isKline }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column"><span style="font-size:11px;color:#75798c">{{ p.q.code }}</span><strong style="font-size:20px;font-weight:500">{{ p.q.name }}</strong></div>
+              <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:24px;color:{{ p.q.tone }};font-variant-numeric:tabular-nums">{{ p.q.last }}</span><span style="font-size:13px;color:{{ p.q.tone }};font-variant-numeric:tabular-nums">{{ p.q.chg }}</span></div>
+              <span style="font-size:11px;color:#9397ab;font-variant-numeric:tabular-nums">{{ p.q.ohlc }}</span>
+            </div>
+            <div style="position:relative;height:{{ p.h }};border-top:1px solid #292b31;border-bottom:1px solid #292b31">
+              <sc-for list="{{ p.grid }}" as="l" hint-placeholder-count="4">
+                <div style="position:absolute;left:0;right:52px;top:{{ l.top }};border-top:1px dashed #292b31"></div>
+                <span style="position:absolute;right:0;top:{{ l.top }};transform:translateY(-50%);font-size:10px;color:#75798c;font-variant-numeric:tabular-nums">{{ l.label }}</span>
+              </sc-for>
+              <div style="position:absolute;left:4px;right:56px;top:6px;bottom:6px">
+                <sc-for list="{{ p.candles }}" as="c" hint-placeholder-count="0">
+                  <div style="position:absolute;left:{{ c.x }};width:1px;top:{{ c.wt }};height:{{ c.wh }};background:{{ c.color }}"></div>
+                  <div style="position:absolute;left:{{ c.x }};margin-left:-3px;width:7px;top:{{ c.bt }};height:{{ c.bh }};background:{{ c.fill }};border:1px solid {{ c.color }};box-sizing:border-box"></div>
+                </sc-for>
+                <sc-for list="{{ p.marks }}" as="m" hint-placeholder-count="0">
+                  <div style="position:absolute;left:{{ m.x }};top:{{ m.y }};transform:translateX(-50%);font-size:10px;color:#f5f4ff;background:{{ m.bg }};border-radius:4px;padding:0 5px;white-space:nowrap">{{ m.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <span style="font-size:11px;color:#75798c">{{ p.foot }}</span>
+          </sc-if>
+
+          <sc-if value="{{ p.isEquity }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:flex-end;gap:2px;height:150px;border-bottom:1px solid #292b31">
+              <sc-for list="{{ p.items }}" as="e" hint-placeholder-count="0">
+                <span style="flex:1;display:block;height:{{ e.h }};background:linear-gradient(to top,rgba(145,132,217,0.05),{{ e.c }});border-top:1px solid {{ e.line }}"></span>
+              </sc-for>
+            </div>
+            <span style="font-size:11px;color:#75798c">{{ p.foot }}</span>
+          </sc-if>
+
+          <sc-if value="{{ p.isReport }}" hint-placeholder-val="{{ false }}">
+            <strong style="font-size:15px;font-weight:500">{{ p.headline }}</strong>
+            <span style="font-size:12px;color:#cfd3e5;line-height:1.65">{{ p.summary }}</span>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+              <sc-for list="{{ p.items }}" as="s" hint-placeholder-count="3">
+                <div style="padding:10px 12px;border-radius:8px;background:#232532;border:1px solid {{ s.edge }};display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;justify-content:space-between;gap:6px"><strong style="font-size:12px;font-weight:500">{{ s.k }}</strong><span style="font-size:10.5px;color:{{ s.tone }}">{{ s.status }}</span></div>
+                  <span style="font-size:11.5px;color:#9397ab;line-height:1.6">{{ s.v }}</span>
+                  <span style="font-size:10px;color:#75798c">{{ s.n }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ p.note }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;font-size:11px;color:#75798c;line-height:1.6;text-wrap:pretty">{{ p.note }}</p>
+          </sc-if>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;market&quot;,&quot;screen&quot;,&quot;signals&quot;,&quot;tasks&quot;,&quot;settings&quot;,&quot;intraday&quot;,&quot;cls&quot;,&quot;rps&quot;,&quot;ledger&quot;,&quot;trades&quot;,&quot;analysis&quot;,&quot;backtest&quot;,&quot;research&quot;,&quot;news&quot;,&quot;reports&quot;],&quot;default&quot;:&quot;market&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const UP = "#e0897c", DOWN = "#7fc2a0", OK = "#7fc2a0", WARN = "#e0b07c", BAD = "#e0897c", IDLE = "#75798c", ACC = "#9184d9", TX = "#e9e9ed", MUT = "#9397ab";
+const E = { ok: "#2f4a3c", warn: "#5c4a33", bad: "#5c3a38", acc: "#423a6a", n: "#292b31" };
+const c = (t, o = {}) => ({ t, sub: o.sub ?? "", c: o.c ?? TX, w: o.w ?? 400 });
+const nm = (name, code) => c(name, { sub: code, w: 500 });
+const pc = (v) => c((v >= 0 ? "+" : "") + v.toFixed(2) + "%", { c: v >= 0 ? UP : DOWN });
+const btn = (label, icon, primary, go) => ({ label, icon, go: go ?? (() => {}), border: primary ? "#9184d9" : "#3f424d", fg: primary ? "#d2cefd" : "#cfd3e5" });
+const st = (k, v, n, tone = TX, edge = E.n) => ({ k, v, n, tone, edge });
+const fd = (label, value, icon = "", col = TX) => ({ label, value, icon, c: col });
+const li = (icon, title, sub, tag, tone, edge, action = "") => ({ icon, title, sub, tag, tone, edge, action });
+
+const NAV = [
+  { label: "今日", items: [
+    { id: "overview", label: "今日总览", icon: "ph ph-compass", badge: "3", href: "观澜主面板.dc.html" },
+    { id: "intraday", label: "盘中预选", icon: "ph ph-crosshair", route: "/intraday" },
+    { id: "cls", label: "财联社复盘", icon: "ph ph-newspaper", route: "/cls-review" } ] },
+  { label: "分析", items: [
+    { id: "market", label: "行情图表", icon: "ph ph-chart-line", route: "tab: market" },
+    { id: "screen", label: "条件选股", icon: "ph ph-funnel", route: "tab: screen" },
+    { id: "rps", label: "RPS 数据", icon: "ph ph-ranking", route: "/rps" },
+    { id: "signals", label: "信号与通知", icon: "ph ph-broadcast", badge: "2", badgeBad: true, route: "tab: signals" } ] },
+  { label: "台账", items: [
+    { id: "ledger", label: "信号台账", icon: "ph ph-notebook", route: "/signal-ledger" },
+    { id: "trades", label: "持仓与交易日志", icon: "ph ph-wallet", route: "/trade-ledger" } ] },
+  { label: "研究", items: [
+    { id: "analysis", label: "证据分析", icon: "ph ph-sparkle", route: "tab: analysis" },
+    { id: "backtest", label: "策略实验", icon: "ph ph-flask", route: "tab: backtest" },
+    { id: "research", label: "策略样本研究", icon: "ph ph-test-tube", route: "/research" },
+    { id: "news", label: "新闻 / 主题", icon: "ph ph-hash", route: "tab: news" },
+    { id: "reports", label: "研究档案", icon: "ph ph-books", route: "tab: reports" } ] },
+  { label: "系统", items: [
+    { id: "tasks", label: "任务中心", icon: "ph ph-list-checks", badge: "1", route: "tab: tasks" },
+    { id: "settings", label: "数据与连接", icon: "ph ph-plugs-connected", route: "tab: settings" } ] }
+];
+
+function kline(n, seed, base, target) {
+  let r = seed, p = base; const bars = [];
+  const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < n; i++) {
+    const o = p, cl = o * (1 + (rnd() - 0.44) * 0.05);
+    bars.push({ o, c: cl, h: Math.max(o, cl) * (1 + rnd() * 0.015), l: Math.min(o, cl) * (1 - rnd() * 0.015) });
+    p = cl;
+  }
+  const f = (target ?? p) / p;
+  bars.forEach(b => { b.o *= f; b.c *= f; b.h *= f; b.l *= f; });
+  const hi = Math.max(...bars.map(b => b.h)), lo = Math.min(...bars.map(b => b.l)), y = (v) => ((hi - v) / (hi - lo) * 100);
+  const candles = bars.map((b, i) => {
+    const up = b.c >= b.o, col = up ? UP : DOWN;
+    return { x: (i / (n - 1) * 100).toFixed(2) + "%", wt: y(b.h).toFixed(2) + "%", wh: (y(b.l) - y(b.h)).toFixed(2) + "%",
+      bt: y(Math.max(b.o, b.c)).toFixed(2) + "%", bh: Math.max(0.4, Math.abs(y(b.o) - y(b.c))).toFixed(2) + "%", color: col, fill: up ? "transparent" : col };
+  });
+  const grid = [0, 1, 2, 3, 4].map(k => ({ top: (k * 25) + "%", label: (hi - (hi - lo) * k / 4).toFixed(2) }));
+  return { candles, grid, bars, y, n };
+}
+
+class Component extends DCLogic {
+  state = { screen: null, period: "day", rpsTab: "stock", entry: "formula", intradayBatch: "tail" };
+
+  componentDidMount() { this.onResize = () => this.setState({ narrow: window.innerWidth < 1240 }); this.onResize(); window.addEventListener("resize", this.onResize); }
+  componentWillUnmount() { window.removeEventListener("resize", this.onResize); }
+  get cur() { return this.state.screen ?? this.props.startScreen ?? "market"; }
+  go = (id) => () => { const it = NAV.flatMap(g => g.items).find(x => x.id === id); if (it.href) { window.location.href = it.href; return; } this.setState({ screen: id }); window.scrollTo?.(0, 0); };
+  seg(opts, cur, key) { return opts.map(([v, label]) => ({ label, go: () => this.setState({ [key]: v }), bg: v === cur ? "#2b2741" : "transparent", fg: v === cur ? "#d2cefd" : MUT, border: v === cur ? "#5d5294" : "#3f424d" })); }
+  P(o) { return { span: 12, border: "#3f424d", bg: "#1f2130", icon: "", tag: "", meta: "", seg: [], actions: [], note: "", ...o }; }
+
+  screens() {
+    const S = this.state;
+    const k = kline(64, 7, 120, 168.2);
+    return {
+      market: { crumb: "分析", title: "行情图表", sub: "本地通达信 · 不复权 · 加载后可直接研究或回测", panels: [
+        this.P({ span: 9, isKline: true, icon: "ph ph-chart-line", title: "K 线", tag: "不复权", h: "340px",
+          seg: this.seg([["day", "日 K"], ["week", "周 K"], ["5m", "5 分钟"]], S.period, "period"),
+          q: { code: "SZ300308 · 创业板 · 光模块", name: "中际旭创", last: "168.20", chg: "+7.74 · +4.82%", tone: UP, ohlc: "开 161.30  高 169.88  低 160.52  量比 1.86  换手 3.41%" },
+          candles: k.candles, grid: k.grid,
+          marks: [{ x: k.candles[41].x, y: "4%", label: "三买 · 09-02", bg: "#5d5294" }, { x: k.candles[58].x, y: "0%", label: "双突破 · 09-12", bg: "#5d5294" }],
+          foot: "数据源 通达信本地 · 截至 09-16 14:30 · 历史导入与回测不会发送通知",
+          actions: [btn("刷新行情", "ph ph-arrow-clockwise"), btn("加入自选", "ph ph-plus")] }),
+        this.P({ span: 3, isList: true, icon: "ph ph-sparkle", title: "对此快照", border: E.acc, bg: "linear-gradient(180deg,#232132,#1f2130)", items: [
+          li("ph ph-sparkle", "证据分析", "趋势、反向证据与风险", "Codex", ACC, E.acc),
+          li("ph ph-flask", "双均线回测", "完整本地历史", "研究模拟", ACC, E.acc),
+          li("ph ph-broadcast", "建立监控", "新信号推送至渠道", "日线", ACC, E.acc) ] }),
+        this.P({ span: 4, isBars: true, icon: "ph ph-ranking", title: "RPS", meta: "个股 · 截至 09-15", items: [
+          { name: "RPS 5", val: "98", pct: "98%", tone: ACC }, { name: "RPS 20", val: "96", pct: "96%", tone: ACC }, { name: "RPS 60", val: "91", pct: "91%", tone: "#796cbf" }, { name: "RPS 120", val: "84", pct: "84%", tone: "#5d5294" }] }),
+        this.P({ span: 8, isTable: true, icon: "ph ph-star", title: "我的自选", meta: "6 个标的", cols: "1.6fr 1fr 1fr 1fr 1fr", minW: "480px",
+          head: ["证券", "最新", "涨跌幅", "RPS20", "最近信号"],
+          rows: [["贵州茅台", "SH600519", 1528.00, -0.62, 42, "—"], ["紫金矿业", "SH601899", 21.46, 2.41, 88, "双均线 09-16"], ["中际旭创", "SZ300308", 168.20, 4.82, 96, "三买 09-02"], ["宁德时代", "SZ300750", 262.10, 0.88, 71, "—"], ["赛力斯", "SH601127", 112.75, 3.07, 90, "双突破 09-16"]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2].toFixed(2)), pc(r[3]), c(String(r[4]), { c: r[4] >= 87 ? "#d2cefd" : MUT }), c(r[5], { c: MUT })] })) })
+      ] },
+
+      screen: { crumb: "分析", title: "条件选股", sub: "规则筛选本地全 A 日线 · 结果附带数据时间 · 前 10 个候选自动 AI 快评", panels: [
+        this.P({ span: 12, isStats: false, isList: false, icon: "ph ph-funnel", title: "选股入口",
+          seg: this.seg([["formula", "通达信公式"], ["draft", "自然语言草案"], ["local", "本地可复现条件"]], S.entry, "entry"),
+          note: { formula: "使用通达信公式筛选本地全 A 股已完成日线，采用不复权口径。", draft: "将自然语言需求转为双均线条件草案，确认应用后再运行本地筛选。", local: "按双均线、涨幅与量比规则筛选本地数据，覆盖范围只反映最近扫描索引。" }[S.entry] }),
+        this.P({ span: 12, isForm: true, icon: "ph ph-sliders-horizontal", title: { formula: "通达信公式", draft: "本地条件草案（双均线）", local: "本地可复现条件" }[S.entry], tag: "双均线趋势",
+          fields: [fd("短均线", "5"), fd("长均线", "20"), fd("最小涨幅 %", "2.0"), fd("最小量比", "1.5"), fd("历史研究截止日", "留空 · 使用本地最近时点", "ph ph-calendar", MUT), fd("证券池", "全部本地 A 股", "ph ph-caret-down", MUT)],
+          checks: [{ icon: "ph-fill ph-check-square", tone: ACC, label: "严格当前模式：时点落后或无法核验时停止，不生成候选分析" }],
+          buttons: [btn("运行选股", "ph ph-play", true), btn("保存为监控", "ph ph-broadcast")] }),
+        this.P({ span: 12, isStats: true, icon: "ph ph-gauge", title: "本次运行", meta: "基准日 09-15 · 本地计算 3.42 秒", items: [st("候选", "37", "已排序 · 均线差"), st("已检查", "5,128", "全部本地 A 股"), st("已隔离", "212", "停牌 / ST / 次新", WARN, E.warn), st("读取异常", "3", "查看明细", BAD, E.bad), st("数据时效", "已对齐", "上证日线 09-15", OK, E.ok)] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-list-dashes", title: "候选结果", tag: "37 个", cols: "1.4fr 0.9fr 0.8fr 0.8fr 0.6fr 0.6fr 2.2fr", minW: "820px",
+          actions: [btn("导出本次完整结果", "ph ph-download-simple")],
+          head: ["证券", "数据时间", "收盘", "涨跌幅", "量比", "趋势分", "AI 快评"],
+          rows: [["中际旭创", "SZ300308", 168.2, 4.82, 1.86, 92, "放量突破前高，行业 RPS 共振；风险 2 项 · 缺口 1 项"], ["沪电股份", "SZ002463", 43.08, 3.15, 2.10, 88, "均线多头，但距 60 日高仅 3%；风险 1 项"], ["工业富联", "SH601138", 27.36, 1.94, 1.52, 81, "缺口回补后企稳；缺口 2 项（资金面）"], ["北方华创", "SZ002371", 412.5, -0.42, 1.61, 79, "正在读取快评…"], ["紫金矿业", "SH601899", 21.46, 2.41, 1.73, 76, "暂无本任务快评"]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c("09-15", { c: MUT }), c(r[2].toFixed(2)), pc(r[3]), c(r[4].toFixed(2)), c(String(r[5])), c(r[6], { c: r[6].startsWith("暂无") || r[6].startsWith("正在") ? IDLE : "#cfd3e5" })] })),
+          note: "下表均线差与量比仅作描述。本地数据可能落后于今天；AI 研究在独立后台任务中执行。" })
+      ] },
+
+      signals: { crumb: "分析", title: "信号与通知", sub: "规则触发 → 交易状态核验 → 渠道投递", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-pulse", title: "今日", items: [st("运行中的订阅", "3", "最近检查 14:30"), st("新信号", "4", "规则触发"), st("已送达", "1", "飞书", OK, E.ok), st("投递失败", "2", "企业微信 45009", BAD, E.bad), st("暂停证券", "1", "状态未知", WARN, E.warn)] }),
+        this.P({ span: 7, isTable: true, icon: "ph ph-lightning", title: "信号记录", cols: "1.3fr 1.3fr 0.7fr 1.1fr 1fr", minW: "560px",
+          head: ["证券", "策略", "触发", "核验", "投递"],
+          rows: [["紫金矿业", "SH601899", "双均线趋势", "09:35", "已核验 · 正常交易", OK, "已送达", OK], ["中际旭创", "SZ300308", "缠论三买（确认）", "13:12", "已核验 · 正常交易", OK, "失败 · 45009", BAD], ["赛力斯", "SH601127", "双突破（日线）", "13:48", "已核验 · 正常交易", OK, "失败 · 45009", BAD], ["沪电股份", "SZ002463", "双均线趋势", "14:05", "状态未知 · 已暂停", WARN, "未投递", IDLE]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2], { c: "#cfd3e5" }), c(r[3], { c: MUT }), c(r[4], { c: r[5] }), c(r[6], { c: r[7] })] })),
+          note: "历史导入与回测不会发送通知；新信号须通过当日交易状态核验。" }),
+        this.P({ span: 5, isList: true, icon: "ph ph-broadcast", title: "运行中的订阅", actions: [btn("新建", "ph ph-plus", true)], items: [
+          li("ph ph-chart-line-up", "A500 · 双均线趋势", "日线 · 本地 · 检查于 14:30", "运行中", OK, E.ok, "暂停"),
+          li("ph ph-git-branch", "自选 · 缠论买卖点", "日线 15:05 后检查 · 严格笔中枢", "运行中", OK, E.ok, "暂停"),
+          li("ph ph-arrows-out-line-vertical", "科创 · 双突破", "日线 · 在线源", "已暂停", IDLE, E.n, "启用") ] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-paper-plane-tilt", title: "投递历史", actions: [btn("管理渠道", "ph ph-caret-right", false, this.go("settings"))], cols: "1.8fr 1fr 1fr 0.6fr 1.4fr 0.8fr", minW: "700px",
+          head: ["消息", "渠道", "时间", "尝试", "结果", "状态"],
+          rows: [["中际旭创 · 缠论三买", "企业微信", "13:12", "3", "45009 接口调用超限", "失败", BAD], ["赛力斯 · 双突破", "企业微信", "13:48", "3", "45009 接口调用超限", "失败", BAD], ["紫金矿业 · 双均线", "飞书", "09:35", "1", "om_7f2a…c91", "平台已接受", OK]]
+            .map(r => ({ cells: [c(r[0], { w: 500 }), c(r[1], { c: MUT }), c(r[2], { c: MUT }), c(r[3], { c: MUT }), c(r[4], { c: MUT }), c(r[5], { c: r[6] })] })) })
+      ] },
+
+      tasks: { crumb: "系统", title: "任务中心", sub: "选股、RPS、AI 研究共用本机后台队列", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-list-checks", title: "队列", items: [st("运行中", "1", "RPS 行业排名"), st("排队", "2", "AI 快评批次"), st("今日完成", "14", ""), st("失败", "1", "可重试", BAD, E.bad)] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-queue", title: "全部任务", cols: "1.8fr 0.9fr 1.3fr 0.8fr 0.9fr", minW: "700px",
+          seg: this.seg([["all", "全部"]], "all", "_"),
+          head: ["任务", "类型", "进度", "耗时", "状态"],
+          rows: [["行业 RPS · 六周期", "RPS", "▓▓▓▓▓▓░░░░ 62%", "01:14", "运行中", ACC], ["AI 快评 · 候选 6–10", "研究", "等待队列", "—", "排队", IDLE], ["AI 快评 · 候选 1–5", "研究", "5/5 份报告", "02:41", "已完成", OK], ["通达信公式 · 突破 20 日高", "选股", "37 个候选", "00:03", "已完成", OK], ["财联社新闻自动研究", "新闻", "批次上限已用完", "—", "失败", BAD]]
+            .map(r => ({ cells: [c(r[0], { w: 500 }), c(r[1], { c: MUT }), c(r[2], { c: "#cfd3e5" }), c(r[3], { c: MUT }), c(r[4], { c: r[5] })] })),
+          note: "同一时间只运行一个 RPS 任务。退出应用会中止运行中的任务，可在此重新发起。" })
+      ] },
+
+      settings: { crumb: "系统", title: "数据与连接", sub: "只读接入本地行情 · 凭证保存在系统加密存储", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-database", title: "本地行情", tag: "只读接入", meta: "最近扫描 09-16 08:12 · 5,341 个 A 股周期记录", actions: [btn("重新扫描", "ph ph-arrow-clockwise")],
+          items: [st("日线", "5,341", "行情文件 · 截至 09-15", OK, E.ok), st("五分钟", "5,297", "截至 09-16 14:26", OK, E.ok), st("交易日历", "上证日线", "默认来源"), st("新闻 AI 批次", "12/20", "今日已用")] }),
+        this.P({ span: 6, isForm: true, icon: "ph ph-folder", title: "路径", fields: [fd("通达信安装目录", "D:\\new_tdx", "ph ph-folder-open"), fd("财联社新闻数据库", "D:\\data\\cls.db", "ph ph-folder-open"), fd("默认行情数据源", "通达信本地", "ph ph-caret-down"), fd("聊天渠道出站代理", "http://127.0.0.1:7890")],
+          checks: [{ icon: "ph-fill ph-check-square", tone: ACC, label: "自动分析最近七天新闻（每分钟最多 50 条）" }], buttons: [btn("保存设置", "ph ph-floppy-disk", true)] }),
+        this.P({ span: 6, isForm: true, icon: "ph ph-sparkle", title: "研究模型", fields: [fd("模型提供方", "Codex（默认 · 本机订阅）", "ph ph-caret-down"), fd("CLI 模型", "使用 CLI 默认模型", "", MUT), fd("自动分析候选数", "10"), fd("研究技能", "已登记 7 项", "ph ph-caret-right")],
+          checks: [{ icon: "ph-fill ph-check-square", tone: ACC, label: "选股和回测完成后自动分析" }],
+          note: "Codex / Claude Code 复用本机 CLI 的订阅登录。失败不会自动切换 DeepSeek。" }),
+        this.P({ span: 12, isList: true, icon: "ph ph-paper-plane-tilt", title: "聊天推送渠道", actions: [btn("添加渠道", "ph ph-plus", true)], items: [
+          li("ph ph-chat-circle", "研究群 · 飞书", "飞书群机器人 · 签名已配置 · 凭证已加密保存", "已启用", OK, E.ok, "发送测试通知"),
+          li("ph ph-chat-circle", "盘中提醒 · 企业微信", "企业微信群机器人 · 最近 45009 接口调用超限", "异常", BAD, E.bad, "编辑"),
+          li("ph ph-telegram-logo", "个人 · Telegram", "Bot · Chat ID 已填写", "已暂停", IDLE, E.n, "编辑") ],
+          note: "单向通知，无需公网回调地址。保存不会发送消息。" })
+      ] },
+
+      intraday: { crumb: "今日", title: "盘中预选", sub: "午尾盘预选与收盘确认 · 截至时点行情，不覆盖原始记录", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-crosshair", title: "批次",
+          seg: this.seg([["noon", "11:20 午盘"], ["tail", "14:40 尾盘"]], S.intradayBatch, "intradayBatch"),
+          items: S.intradayBatch === "noon"
+            ? [st("状态", "已完成", "11:20:14 运行", OK, E.ok), st("候选", "6", "RPS≥87 · A500"), st("5 分钟数据", "当日 11:15", "通达信盘中", OK, E.ok), st("待收盘确认", "6", "15:05 后")]
+            : [st("状态", "8 分钟后", "窗口 14:40–14:45", ACC, E.acc), st("候选", "—", "尚未运行"), st("5 分钟数据", "当日 14:26", "通达信盘中", OK, E.ok), st("待收盘确认", "—", "")] }),
+        this.P({ span: 4, isForm: true, icon: "ph ph-sliders", title: "参数", fields: [fd("股票池", "中证 A500", "ph ph-caret-down"), fd("RPS 周期", "20 日", "ph ph-caret-down"), fd("阈值", "87"), fd("数据源", "通达信盘中", "ph ph-caret-down")], buttons: [btn("立即运行本批", "ph ph-play", true)],
+          note: "应用退出或电脑休眠会错过该批次。" }),
+        this.P({ span: 8, isTable: true, icon: "ph ph-list-checks", title: "候选与收盘确认", meta: "11:20 批次", cols: "1.3fr 1.6fr 0.8fr 0.8fr 1.1fr", minW: "600px",
+          head: ["证券", "入选理由", "预选价", "收盘", "收盘确认"],
+          rows: [["中际旭创", "SZ300308", "概念 RPS 96 · 突破 20 日高", 164.1, 168.2, "待确认", ACC], ["沪电股份", "SZ002463", "行业 RPS 91 · 放量", 42.55, 43.08, "待确认", ACC], ["工业富联", "SH601138", "概念 RPS 89 · 缺口回补", 27.02, 27.36, "待确认", ACC], ["北方华创", "SZ002371", "行业 RPS 88", 415.0, 412.5, "待确认", ACC]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2], { c: "#cfd3e5" }), c(r[3].toFixed(2), { c: MUT }), c(r[4].toFixed(2)), c(r[5], { c: r[6] })] })),
+          actions: [btn("开始收盘确认", "ph ph-check", true)], note: "收盘后标记 成立 / 撤销 / 数据不足，并保存当时与收盘的行情证据。" })
+      ] },
+
+      cls: { crumb: "今日", title: "财联社复盘", sub: "盘前报告观点 → 当日与 T+1/5/10 方向和超额收益", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-newspaper", title: "近 30 个样本日", items: [st("样本", "142", "唯一识别个股"), st("T+1 方向命中", "54%", "基准 沪深300"), st("T+5 平均超额", "+0.8%", "未到期 12 条单列", UP), st("停牌 / 缺价", "5", "不计入", WARN, E.warn)] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-table", title: "今日样本", meta: "09-16 · 固定于 09:04", cols: "1.2fr 2fr 0.7fr 0.8fr 0.8fr 0.8fr", minW: "760px",
+          head: ["证券", "原文观点", "方向", "当日", "T+1", "超额"],
+          rows: [["中际旭创", "SZ300308", "光模块订单超预期，关注 800G 放量", "看多", 4.82, "未到期"], ["赛力斯", "SH601127", "问界新车交付提速", "看多", 3.07, "未到期"], ["贵州茅台", "SH600519", "渠道库存仍偏高", "谨慎", -0.62, "未到期"]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2], { c: "#cfd3e5" }), c(r[3], { c: r[3] === "看多" ? UP : WARN }), pc(r[4]), c(r[5], { c: IDLE }), c("—", { c: IDLE })] })),
+          actions: [btn("核对收盘", "ph ph-check", true)], note: "原文日期须为当日、停改超 1 分钟；8 个候选中 5 个唯一识别为沪深个股。" })
+      ] },
+
+      rps: { crumb: "分析", title: "RPS 数据管理", sub: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-gauge", title: "运行状态", items: [st("个股 RPS", "09-15", "六周期已生成", OK, E.ok), st("行业 RPS", "62%", "运行中 · 01:14", ACC, E.acc), st("概念 RPS", "09-15", "六周期已生成", OK, E.ok), st("历史日志", "38 次", "最近失败 0")] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-ranking", title: "排名", meta: "截至 09-15",
+          seg: this.seg([["stock", "个股"], ["industry", "行业"], ["concept", "概念"]], S.rpsTab, "rpsTab"),
+          cols: "0.4fr 1.4fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr 0.6fr", minW: "700px",
+          head: ["#", "名称", "5", "10", "20", "60", "120", "250"],
+          rows: ({ stock: [["中际旭创", "SZ300308"], ["新易盛", "SZ300502"], ["沪电股份", "SZ002463"], ["胜宏科技", "SZ300476"], ["工业富联", "SH601138"]], industry: [["通信设备", "申万二级"], ["PCB", "申万三级"], ["半导体设备", "申万三级"], ["工业金属", "申万二级"], ["汽车整车", "申万二级"]], concept: [["光模块 CPO", "概念"], ["算力租赁", "概念"], ["液冷服务器", "概念"], ["铜缆高速连接", "概念"], ["华为汽车", "概念"]] })[S.rpsTab]
+            .map((r, i) => ({ cells: [c(String(i + 1), { c: MUT }), nm(r[0], r[1]), ...[99, 98, 96, 93, 90, 86].map(v => c(String(v - i * 2), { c: v - i * 2 >= 90 ? "#d2cefd" : "#cfd3e5" }))] })),
+          actions: [btn("重新计算", "ph ph-arrow-clockwise")], note: "高 RPS 是候选过滤，不是买入指令。A500 成分显示全沪深 RPS。" })
+      ] },
+
+      ledger: { crumb: "台账", title: "信号台账", sub: "每条信号的后续表现 · 原始记录只追加不覆盖", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-notebook", title: "近 60 日", items: [st("信号", "86", "3 个策略"), st("T+5 胜率", "57%", "基准 沪深300"), st("T+5 平均超额", "+1.2%", "", UP), st("未到期", "9", "单列")] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-table", title: "按策略汇总", cols: "1.6fr 0.7fr 0.8fr 0.8fr 0.8fr 0.8fr", minW: "620px",
+          head: ["策略", "信号数", "T+1", "T+5", "T+10", "最大回撤"],
+          rows: [["双均线趋势", 41, 0.4, 1.1, 1.8, -6.2], ["缠论买卖点（确认）", 28, 0.6, 1.5, 2.4, -8.1], ["双突破（日线）", 17, -0.2, 0.9, 0.7, -9.4]]
+            .map(r => ({ cells: [c(r[0], { w: 500 }), c(String(r[1]), { c: MUT }), pc(r[2]), pc(r[3]), pc(r[4]), c(r[5].toFixed(1) + "%", { c: DOWN })] })) }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-list", title: "明细", cols: "1.2fr 1.3fr 0.8fr 0.7fr 0.7fr 0.7fr", minW: "640px",
+          head: ["证券", "策略", "日期", "T+1", "T+5", "T+10"],
+          rows: [["紫金矿业", "SH601899", "双均线趋势", "09-16", null, null, null], ["中际旭创", "SZ300308", "缠论三买", "09-02", 2.1, 5.6, 8.3], ["赛力斯", "SH601127", "双突破", "08-29", -1.2, 0.8, 2.2]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2], { c: "#cfd3e5" }), c(r[3], { c: MUT }), ...[r[4], r[5], r[6]].map(v => v === null ? c("未到期", { c: IDLE }) : pc(v))] })) })
+      ] },
+
+      trades: { crumb: "台账", title: "持仓与交易日志", sub: "导入券商成交 · 现金对账 · 纪律与执行质量复盘", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-wallet", title: "账户", actions: [btn("导入成交", "ph ph-upload-simple", true)], items: [st("总资产", "¥ 486,320", "对账于 09-15", TX, E.ok), st("持仓市值", "¥ 312,880", "5 只"), st("现金", "¥ 173,440", "对账差异 0"), st("本月盈亏", "+3.4%", "", UP)] }),
+        this.P({ span: 7, isTable: true, icon: "ph ph-briefcase", title: "持仓", cols: "1.3fr 0.7fr 0.8fr 0.8fr 0.8fr", minW: "520px",
+          head: ["证券", "股数", "成本", "现价", "浮盈"],
+          rows: [["中际旭创", "SZ300308", 400, 142.3, 168.2, 18.2], ["紫金矿业", "SH601899", 3000, 19.8, 21.46, 8.4], ["宁德时代", "SZ300750", 200, 268.5, 262.1, -2.4]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(String(r[2]), { c: MUT }), c(r[3].toFixed(2), { c: MUT }), c(r[4].toFixed(2)), pc(r[5])] })) }),
+        this.P({ span: 5, isList: true, icon: "ph ph-scales", title: "纪律复盘", items: [
+          li("ph ph-warning", "宁德时代 未按止损执行", "跌破 -8% 线后继续持有 3 日", "违规", WARN, E.warn, "查看"),
+          li("ph ph-check-circle", "中际旭创 按信号入场", "三买确认后次日开盘买入", "合规", OK, E.ok),
+          li("ph ph-chart-scatter", "持仓相关性 0.62", "3 只同属算力链", "集中", WARN, E.warn) ] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-receipt", title: "交易日志", cols: "0.8fr 1.2fr 0.6fr 0.8fr 0.7fr 0.7fr 1.4fr", minW: "760px",
+          head: ["日期", "证券", "方向", "价格", "股数", "费用", "关联信号"],
+          rows: [["09-03", "中际旭创", "买入", 142.3, 400, 17.1, "缠论三买 09-02"], ["08-20", "紫金矿业", "买入", 19.8, 3000, 17.8, "双均线 08-19"], ["08-12", "宁德时代", "买入", 268.5, 200, 16.1, "—"]]
+            .map(r => ({ cells: [c(r[0], { c: MUT }), c(r[1], { w: 500 }), c(r[2], { c: UP }), c(r[3].toFixed(2)), c(String(r[4])), c(r[5].toFixed(2), { c: MUT }), c(r[6], { c: r[6] === "—" ? IDLE : "#d2cefd" })] })) })
+      ] },
+
+      analysis: { crumb: "研究", title: "证据分析", sub: "多看一层，少猜一步 · 数据来源与时间可追溯，缺少证据时明确标注", panels: [
+        this.P({ span: 4, isForm: true, icon: "ph ph-sparkle", title: "研究问题", tag: "Codex", border: E.acc, bg: "linear-gradient(180deg,#232132,#1f2130)",
+          fields: [fd("快照", "中际旭创 · 日线 · 截至 09-15", "ph ph-caret-down"), fd("研究方法", "SEPA 分阶段研究", "ph ph-caret-down"), fd("问题", "突破后的持续性与主要风险？")],
+          buttons: [btn("开始研究", "ph ph-sparkle", true)], note: "研究结果写入研究档案，可导出 Markdown。" }),
+        this.P({ span: 8, isReport: true, icon: "ph ph-article", title: "SEPA 分阶段研究", meta: "09-16 14:18 · 1.2 万 tokens", actions: [btn("导出报告", "ph ph-download-simple")],
+          headline: "趋势成立，入场位置偏高", summary: "股价处于第二阶段上升趋势，行业与概念 RPS 共振；但距 50 日线 18%，VCP 收缩不足，追高风险大于回调入场。",
+          items: [
+            { k: "市场与行业", status: "证据支持", tone: OK, edge: E.ok, v: "通信设备行业 RPS 96，指数站上 60 日线。", n: "引用 E1、E3" },
+            { k: "趋势与相对强度", status: "证据支持", tone: OK, edge: E.ok, v: "MA50 > MA150 > MA200，RPS20 96。", n: "引用 E2" },
+            { k: "VCP 形态", status: "存在反证", tone: BAD, edge: E.bad, v: "最近一次收缩 14%，量能未明显萎缩。", n: "引用 E2" },
+            { k: "基本面", status: "证据不足", tone: WARN, edge: E.warn, v: "缺少 Q3 预告；仅有 H1 数据。", n: "缺口 1 项" },
+            { k: "入场与风险", status: "存在反证", tone: BAD, edge: E.bad, v: "距枢轴 +9%，建议等待回踩 MA10。", n: "引用 E2、E4" },
+            { k: "下一步观察", status: "—", tone: MUT, edge: E.n, v: "回踩 158 附近缩量企稳；Q3 业绩预告。", n: "" } ] }),
+        this.P({ span: 12, isList: true, icon: "ph ph-stack", title: "方法面板", items: [
+          li("ph ph-chart-line-up", "CAN SLIM", "C/A 满足 · N 待确认 · L 满足", "4/7", ACC, E.acc, "展开"),
+          li("ph ph-git-branch", "缠论", "日线三买确认 · 笔中枢严格", "确认", OK, E.ok, "展开"),
+          li("ph ph-wave-sine", "威科夫", "上升阶段 · 未见 UTAD", "中性", MUT, E.n, "展开") ] })
+      ] },
+
+      backtest: { crumb: "研究", title: "策略实验", sub: "研究模拟，不作为正式策略业绩", panels: [
+        this.P({ span: 12, isForm: true, icon: "ph ph-flask", title: "双均线研究模拟", tag: "中际旭创",
+          fields: [fd("复权", "不复权", "ph ph-caret-down"), fd("短 / 长均线", "5 / 20"), fd("初始资金", "100,000"), fd("数据范围", "完整本地历史", "ph ph-caret-down"), fd("佣金 · 税 · 滑点", "万 2.5 · 万 5 · 万 5", "ph ph-caret-right")],
+          checks: [{ icon: "ph ph-warning", tone: WARN, label: "跨除权事件、涨跌停排队与历史费用尚未完整还原" }],
+          buttons: [btn("运行回测", "ph ph-play", true), btn("滚动验证", "ph ph-arrows-clockwise")] }),
+        this.P({ span: 12, isStats: true, icon: "ph ph-chart-bar", title: "结果", meta: "引擎 v3 · 1,184 根 · 2021-05-06 至 2026-09-15", items: [st("模拟区间收益", "+142.6%", "基准 +96.1%", UP), st("最大回撤", "-31.4%", "", DOWN), st("超额", "+46.5 pt", "买入持有"), st("成交", "38", "19 买 / 19 卖"), st("无法成交", "4", "一字板 / 无量", WARN, E.warn)] }),
+        this.P({ span: 8, isEquity: true, icon: "ph ph-chart-line", title: "净值", foot: "紫线 策略净值 · 已扣除成本",
+          items: Array.from({ length: 60 }, (_, i) => { const v = 20 + i * 1.1 + Math.sin(i / 3) * 8 + (i > 30 && i < 38 ? -12 : 0); return { h: Math.max(6, Math.min(100, v)) + "%", c: "rgba(145,132,217,0.35)", line: ACC }; }) }),
+        this.P({ span: 4, isList: true, icon: "ph ph-info", title: "计算假设与边界", items: [
+          li("ph ph-dot", "次日开盘成交", "信号日收盘判定", "假设", MUT, E.n),
+          li("ph ph-dot", "一手 100 股", "资金不足时跳过", "假设", MUT, E.n),
+          li("ph ph-dot", "现金分红不入账", "不复权口径", "边界", WARN, E.warn) ] })
+      ] },
+
+      research: { crumb: "研究", title: "策略样本研究", sub: "多策略批量样本 · 准入评估与多重检验", panels: [
+        this.P({ span: 12, isStats: true, icon: "ph ph-test-tube", title: "本轮", items: [st("策略", "12", "代表性目录"), st("样本外通过", "3", "三段检验", OK, E.ok), st("多重检验后", "1", "BH 校正", ACC, E.acc), st("AI 用量", "38%", "本月额度")] }),
+        this.P({ span: 12, isTable: true, icon: "ph ph-table", title: "策略准入", cols: "1.6fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr", minW: "700px",
+          head: ["策略", "样本内", "样本外", "回撤", "p 值", "准入"],
+          rows: [["缠论三买 + RPS≥87", 38.2, 21.4, -14.2, "0.012", "通过", OK], ["双均线 5/20 + 量比", 24.1, 9.8, -18.6, "0.081", "观察", WARN], ["突破 20 日高", 31.5, -2.1, -22.4, "0.410", "拒绝", BAD], ["SEPA 回踩 MA10", 19.8, 12.2, -11.3, "0.046", "观察", WARN]]
+            .map(r => ({ cells: [c(r[0], { w: 500 }), pc(r[1]), pc(r[2]), c(r[3].toFixed(1) + "%", { c: DOWN }), c(r[4], { c: MUT }), c(r[5], { c: r[6] })] })),
+          actions: [btn("新建研究", "ph ph-plus", true)] })
+      ] },
+
+      news: { crumb: "研究", title: "新闻 / 主题", sub: "财联社新闻 AI 归纳为主题，并对照主题成分价格", panels: [
+        this.P({ span: 5, isBars: true, icon: "ph ph-hash", title: "近 7 日主题热度", items: [
+          { name: "光模块 CPO", val: "46 条", pct: "92%", tone: ACC }, { name: "固态电池", val: "31 条", pct: "62%", tone: "#796cbf" }, { name: "低空经济", val: "24 条", pct: "48%", tone: "#5d5294" }, { name: "机器人", val: "22 条", pct: "44%", tone: "#5d5294" }, { name: "白酒", val: "9 条", pct: "18%", tone: "#423a6a" }] }),
+        this.P({ span: 7, isTable: true, icon: "ph ph-chart-line-up", title: "主题价格对照", cols: "1.3fr 0.8fr 0.8fr 0.8fr 1.3fr", minW: "520px",
+          head: ["主题", "成分", "5 日", "20 日", "解释"],
+          rows: [["光模块 CPO", 18, 6.4, 21.2, "新闻与价格同向"], ["固态电池", 24, 3.1, 4.8, "新闻领先价格"], ["低空经济", 31, -2.2, 1.4, "新闻热、价格弱"]]
+            .map(r => ({ cells: [c(r[0], { w: 500 }), c(String(r[1]), { c: MUT }), pc(r[2]), pc(r[3]), c(r[4], { c: "#cfd3e5" })] })) }),
+        this.P({ span: 12, isList: true, icon: "ph ph-newspaper", title: "最新新闻", meta: "自动研究 12/20 批", items: [
+          li("ph ph-article", "光模块龙头 800G 订单排产至明年一季度", "14:21 · 关联 中际旭创、新易盛", "光模块", ACC, E.acc, "研究"),
+          li("ph ph-article", "固态电池中试线投产，良率突破 90%", "13:58 · 关联 3 只", "固态电池", ACC, E.acc, "研究"),
+          li("ph ph-article", "白酒渠道反馈中秋动销平淡", "11:40 · 关联 贵州茅台", "白酒", WARN, E.warn, "研究") ] })
+      ] },
+
+      reports: { crumb: "研究", title: "研究档案", sub: "全部 AI 研究报告与证据 · 可导出 Markdown", panels: [
+        this.P({ span: 12, isTable: true, icon: "ph ph-books", title: "通用研究报告", meta: "共 214 份", actions: [btn("刷新列表", "ph ph-arrow-clockwise")], cols: "1.3fr 2fr 1fr 1fr 0.8fr", minW: "720px",
+          head: ["关联证券", "标题", "方法", "时间", "结论"],
+          rows: [["中际旭创", "SZ300308", "趋势成立，入场位置偏高", "SEPA", "09-16 14:18", "等待", WARN], ["沪电股份", "SZ002463", "均线多头，距前高过近", "量价快评", "09-16 09:52", "观察", WARN], ["紫金矿业", "SH601899", "金价驱动，趋势延续", "通用证据", "09-15 20:11", "支持", OK], ["—", "未确认关联证券", "光模块景气度月度追踪", "通用证据", "09-14 18:30", "—", MUT]]
+            .map(r => ({ cells: [nm(r[0], r[1]), c(r[2], { c: "#d2cefd" }), c(r[3], { c: MUT }), c(r[4], { c: MUT }), c(r[5], { c: r[6] })] })),
+          note: "点击报告查看完整正文、分阶段结论与证据版本。" })
+      ] }
+    };
+  }
+
+  renderVals() {
+    const cur = this.cur, all = this.screens(), s = all[cur];
+    return {
+      crumb: s.crumb, title: s.title, subtitle: s.sub,
+      navGroups: NAV.map(g => ({ label: g.label, items: g.items.map(n => {
+        const on = n.id === cur;
+        return { label: n.label, icon: on ? n.icon.replace("ph ", "ph-fill ") : n.icon, go: this.go(n.id), bg: on ? "#2b2741" : "transparent", fg: on ? "#d2cefd" : "#b2b6ca", edge: on ? "#9184d9" : "transparent", badge: n.badge ?? "", badgeFg: n.badgeBad ? BAD : "#9184d9" };
+      }) })),
+      panels: this.state.narrow ? s.panels.map(p => ({ ...p, span: 12 })) : s.panels
+    };
+  }
+}
+</script>
+</body>
+</html>
