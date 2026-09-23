@@ -38,7 +38,14 @@ it("T2 keeps the three available forms mounted and hides exactly the inactive en
         );
         expect(hidden?.getText()).toBe(`hidden={entry !== "${name}"}`);
         expect(ts.isJsxElement(node.parent)).toBe(true);
-        expect(ts.isJsxFragment(node.parent.parent)).toBe(true);
+        // Direct children of the page root (the panel grid since the
+        // Nocturne redesign), so every form stays mounted while hidden.
+        const root = node.parent.parent;
+        expect(
+          ts.isJsxFragment(root) ||
+            (ts.isJsxElement(root) &&
+              root.openingElement.tagName.getText() === "PageGrid"),
+        ).toBe(true);
         panels.push(name);
       }
     }

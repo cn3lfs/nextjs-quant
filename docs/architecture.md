@@ -25,7 +25,7 @@
 
 ## 总体结构与数据流
 
-Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面，`src/components/workbench/` 放壳层、路由面板、视图和状态；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由入口是 [api/root.ts](../src/server/api/root.ts)，调度入口是 [runtime.ts](../src/server/runtime.ts)。
+Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面（侧边栏与顶栏见 `sidebar.tsx` / `topbar.tsx`，一层分组导航与页面标题见 `navigation.ts`），`src/components/workbench/` 放壳层、路由面板、视图和状态；`src/components/panels/` 是设计交接的面板与 12 列网格，`src/components/overview/` 是今日总览；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由入口是 [api/root.ts](../src/server/api/root.ts)，调度入口是 [runtime.ts](../src/server/runtime.ts)。
 
 ```text
 通达信本地目录（只读）
