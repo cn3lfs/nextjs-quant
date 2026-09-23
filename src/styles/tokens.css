@@ -1,0 +1,56 @@
+/* Nocturne design tokens (docs/design_handoff_quant_workbench/README.md).
+   The single source of color, type, radius and spacing for the workbench:
+   components reference these variables (or the matching Tailwind `nc-*`
+   utilities), never raw hex values. Chart canvases read them at runtime. */
+:root {
+  /* grounds */
+  --nc-bg: #161826;
+  --nc-chrome: #1b1d2c; /* sidebar and topbar */
+  --nc-card: #1f2130;
+  --nc-inset: #232532; /* rows and cards inside a panel, table hover */
+  --nc-field: #1b1d2c; /* form inputs */
+  --nc-border: #3f424d;
+  --nc-border-soft: #292b31;
+
+  /* text */
+  --nc-text: #e9e9ed;
+  --nc-text-2: #cfd3e5;
+  --nc-text-3: #9397ab;
+  --nc-text-4: #75798c;
+  --nc-text-5: #595d6c;
+  --nc-nav: #b2b6ca;
+  --nc-neutral-700: #595d6c;
+
+  /* accent ramp */
+  --nc-accent: #9184d9;
+  --nc-accent-light: #d2cefd;
+  --nc-accent-100: #f5f4ff;
+  --nc-accent-400: #b5abfc;
+  --nc-accent-600: #796cbf;
+  --nc-accent-700: #5d5294;
+  --nc-accent-800: #423a6a;
+  --nc-accent-900: #2b2741;
+  --nc-accent-glow: #232132; /* top stop of the highlighted panel gradient */
+
+  /* semantic */
+  --nc-ok: #7fc2a0;
+  --nc-warn: #e0b07c;
+  --nc-bad: #e0897c;
+  --nc-ok-edge: #2f4a3c;
+  --nc-warn-edge: #5c4a33;
+  --nc-bad-edge: #5c3a38;
+  /* A-share convention: red rises, green falls. */
+  --nc-up: #e0897c;
+  --nc-down: #7fc2a0;
+
+  /* type */
+  --nc-font: "Inter", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --nc-text-base: 13px;
+
+  /* shape and layout */
+  --nc-radius: 8px;
+  --nc-pill: 999px;
+  --nc-gap: 14px;
+  --nc-sidebar-width: 206px;
+  --nc-shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, 0.55);
+}

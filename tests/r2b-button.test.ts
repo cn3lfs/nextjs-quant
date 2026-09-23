@@ -77,19 +77,19 @@ it("R2b rendering evidence detects changed actions", () => {
 });
 it("T1 keeps all three server routes in the shared client navigation", () => {
   const source = readFileSync("src/components/workbench/workbench.tsx", "utf8");
-  expect(source).toContain("routeTabs.map((item)");
-  expect(source).toContain("href={item.href}");
-  expect(source).toContain("scroll={false}");
-  expect(source).toContain("hidden={!home}");
-  expect(source).toContain("state.setTab(next)");
-  expect(source).toContain('router.push("/", { scroll: false })');
+  const sidebar = readFileSync("src/components/workbench/sidebar.tsx", "utf8");
+  // One navigation layer: every page is a framework route (native links).
+  expect(sidebar).toContain("navGroups.map((group)");
+  expect(sidebar).toContain("href={item.href}");
+  expect(sidebar).toContain("scroll={false}");
+  expect(source).toContain("router.push(");
+  expect(source).toContain("scroll: false");
   expect(source).not.toContain("<a ");
-  expect(source).not.toContain("RESEARCH /");
+  expect(sidebar).not.toContain("<a ");
   // Visited tab and route panels stay mounted; only cached routes skip the
   // framework children so a panel never renders twice.
-  expect(source).toContain("<PanelCache");
-  expect(source).toContain("active={home ? tab : pathname}");
-  expect(source).toContain("{!(pathname in routePanels) && children}");
+  expect(source).toContain("<PanelCache active={pathname} panels={panels} />");
+  expect(source).toContain("{!(pathname in panels) && children}");
   const navigation = readFileSync(
     "src/components/workbench/navigation.ts",
     "utf8",

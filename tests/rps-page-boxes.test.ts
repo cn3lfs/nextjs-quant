@@ -170,7 +170,7 @@ describe("历史日志框", () => {
 describe("板块成分股入口", () => {
   it("行业与概念都链接到股票池深链，名称编码后传递", () => {
     expect(poolMembersHref("industry", "电力设备")).toBe(
-      "/?poolCategory=industry&poolName=%E7%94%B5%E5%8A%9B%E8%AE%BE%E5%A4%87",
+      "/market?poolCategory=industry&poolName=%E7%94%B5%E5%8A%9B%E8%AE%BE%E5%A4%87",
     );
     const html = renderToStaticMarkup(
       createElement(PoolMembersLink, {
@@ -188,14 +188,14 @@ describe("板块成分股入口", () => {
 
 describe("个股K线入口", () => {
   it("个股链接指向行情图表页深链，代码大写展示", () => {
-    expect(chartSymbolHref("sh600519")).toBe("/?symbol=sh600519");
+    expect(chartSymbolHref("sh600519")).toBe("/market?symbol=sh600519");
     const html = renderToStaticMarkup(
       createElement(ChartSymbolLink, {
         symbol: "sh600519",
         name: "贵州茅台",
       }),
     );
-    expect(html).toContain('href="/?symbol=sh600519"');
+    expect(html).toContain('href="/market?symbol=sh600519"');
     expect(html).toContain("贵州茅台 · SH600519");
     expect(html).toContain('title="查看 贵州茅台 的K线"');
   });

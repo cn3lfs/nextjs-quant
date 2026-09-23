@@ -3,7 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { Menu, MenuItem, MenuGroup } from "../src/components/ui/menu";
-import { routeTabs } from "../src/components/workbench/navigation";
+import {
+  navGroups,
+  navItemFor,
+  navItems,
+  searchNav,
+  tabHref,
+} from "../src/components/workbench/navigation";
 
 it("navigation preserves native links, selected route and expanded research group", () => {
   const html = renderToStaticMarkup(
@@ -23,8 +29,39 @@ it("navigation preserves native links, selected route and expanded research grou
   expect(html).toContain('aria-current="page"');
   expect(html).toContain('aria-expanded="true"');
   expect(html).toContain('href="/research"');
-  expect(routeTabs.map((item) => item.href)).toEqual(
+  expect(navItems.map((item) => item.href)).toEqual(
     expect.arrayContaining(["/research", "/intraday", "/cls-review"]),
+  );
+});
+
+it("navigation is one grouped layer: every page, including former tabs, is a route", () => {
+  expect(navGroups.map((group) => group.label)).toEqual([
+    "今日",
+    "分析",
+    "台账",
+    "研究",
+    "系统",
+  ]);
+  const hrefs = navItems.map((item) => item.href);
+  expect(new Set(hrefs).size).toBe(hrefs.length);
+  expect(hrefs[0]).toBe("/");
+  for (const tab of [
+    "market",
+    "screen",
+    "signals",
+    "tasks",
+    "settings",
+    "analysis",
+    "backtest",
+    "news",
+    "reports",
+  ] as const)
+    expect(navItemFor(tabHref(tab))?.tab).toBe(tab);
+  expect(navItemFor("/reports/report/abc")?.title).toBe("研究报告详情");
+  expect(navItemFor("/ui-gallery")).toBeUndefined();
+  expect(searchNav("rps")[0]?.href).toBe("/rps");
+  expect(searchNav("台账").map((item) => item.href)).toContain(
+    "/signal-ledger",
   );
 });
 

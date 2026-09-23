@@ -37,8 +37,8 @@ export function TaskReportDetail({ kind, id }: { kind: string; id: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">研究报告详情</h1>
         <Button asChild variant="outline">
-          <Link href="/" scroll={false}>
-            返回工作台
+          <Link href="/reports" scroll={false}>
+            返回研究档案
           </Link>
         </Button>
       </div>

@@ -46,6 +46,7 @@
     "runtime",
     "desktop",
     "release",
+    "docs",
     "packages/*/dist"
   ]
 }
