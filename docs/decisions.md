@@ -2565,5 +2565,5 @@ CH11 的运行对照改为 `current-membership-v1`，结果必须与时点正确
 
 - 用 `cx` 前缀的图表代码与 A 股隔离；快照和 `chartBars` 在入口处分流到 `server/market/crypto-chart.ts`，不进入 vipdoc、复权、A 股交易时段和本地日历这条链。
 - 新增依赖 `fetch-socks`：undici 的 `ProxyAgent` 只支持 HTTP 代理，而 10808 是 SOCKS5。
-- 为区分加密货币，A 股专属旁路统一改用 `isNonAShareChartSymbol`，因此刷新了 `market-view`、`chart-workspace`、`security-select` 的布局/逻辑指纹；处理函数契约不变。
+- 按用户要求把 A 股和数字货币明显分开：数字货币有独立的侧边栏分组和 `/crypto` 页面，状态独立；A 股行情页、证券搜索和 `/market?symbol=` 深链都不接受加密货币代码，所以 `market-view` 和 `security-select` 回到接入前的原样，指纹也恢复原值。复用的 `chart-workspace` 里，A 股专属查询改用 `isNonAShareChartSymbol` 跳过，只有它的指纹刷新了；处理函数契约不变。
 - 实测 10808 的出口在币安受限地区（`api.binance.com` 返回 451），私有接口的阶段暂缓，等换好可用出口后再做。

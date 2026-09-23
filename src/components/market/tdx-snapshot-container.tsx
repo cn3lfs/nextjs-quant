@@ -5,6 +5,7 @@ import { api } from "~/trpc/react";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
   chartPricePrecision,
+  isCryptoChartSymbol,
   isNonAShareChartSymbol,
 } from "~/lib/chart/chart-symbol";
 import {
@@ -65,7 +66,7 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
   });
   const quote = quotes.data?.[0];
   if (!quotable)
-    return (
+    return isCryptoChartSymbol(symbol) ? null : (
       <p className="text-sm text-muted-foreground">
         板块与自定义指数没有通达信实时盘口与财务快照，本区块不适用。
       </p>

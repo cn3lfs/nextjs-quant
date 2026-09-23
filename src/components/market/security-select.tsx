@@ -1,6 +1,5 @@
 "use client";
 
-import { cryptoMatches } from "~/lib/market/crypto";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { normalizeChartSymbol } from "~/lib/chart/chart-symbol";
@@ -58,7 +57,7 @@ export function SecuritySelect({
     { enabled: open, staleTime: 0 },
   );
   const directSymbol = normalizeChartSymbol(query);
-  const existing = [...(results.data ?? []), ...cryptoMatches(query)];
+  const existing = results.data ?? [];
   const items =
     directSymbol && !existing.some((item) => item.symbol === directSymbol)
       ? [{ symbol: directSymbol, name: "按代码查询行情" }, ...existing]
@@ -96,7 +95,7 @@ export function SecuritySelect({
             open && items.length ? `${id}-${index}` : undefined
           }
           disabled={disabled}
-          placeholder="名称 / 代码 / 拼音，支持 pt、emBK 板块与 BTC 等加密货币"
+          placeholder="名称 / 代码 / 拼音，支持 pt 或 emBK 板块代码"
           value={
             open
               ? query

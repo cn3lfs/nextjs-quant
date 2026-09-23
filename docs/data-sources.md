@@ -51,7 +51,7 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 
 ## 加密货币（币安现货公开 K 线，2026-09-24 接入）
 
-图表代码为 `cx` + 交易对，例如 `cxBTCUSDT`；证券搜索里直接输入 `btc`、`以太坊` 或任意 `XXXUSDT` 都能找到。只有图表接受这种代码：A 股自选、监控、RPS、复权、持仓与 TDX 盘口面板都跳过它（`isNonAShareChartSymbol`），行情数据源下拉也会禁用。
+数字货币和 A 股分开：侧边栏有独立的「数字货币」分组，页面是 `/crypto`（深链 `/crypto?pair=BTCUSDT`），交易对和周期状态都是这个页面自己的。A 股行情页（`/market`）的搜索和深链解析不接受加密货币代码。内部图表代码为 `cx` + 交易对（如 `cxBTCUSDT`）；A 股自选、监控、RPS、复权、持仓与 TDX 盘口面板都跳过它（`isNonAShareChartSymbol`）。
 
 | 项目 | 口径 |
 | --- | --- |

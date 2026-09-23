@@ -1,5 +1,6 @@
 import {
   Books,
+  CurrencyBtc,
   Broadcast,
   ChartLine,
   Compass,
@@ -102,6 +103,17 @@ export const navGroups: readonly NavGroup[] = [
         subtitle: "规则触发 → 交易状态核验 → 渠道投递",
         icon: Broadcast,
         tab: "signals",
+      },
+    ],
+  },
+  {
+    label: "数字货币",
+    items: [
+      {
+        href: "/crypto",
+        label: "数字货币行情",
+        subtitle: "币安现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
+        icon: CurrencyBtc,
       },
     ],
   },

@@ -13,12 +13,12 @@ import {
   isNonAShareChartSymbol,
   normalizeChartSymbol,
   chartPricePrecision,
+  chartSymbolHref,
 } from "../../../src/lib/chart/chart-symbol";
 import {
   binanceInterval,
   cryptoAssets,
   cryptoBarDate,
-  cryptoMatches,
 } from "../../../src/lib/market/crypto";
 import { symbolSchema } from "../../../src/lib/domain";
 
@@ -45,7 +45,6 @@ afterEach(() => resetOutboundRoutes());
 describe("crypto symbols stay apart from A-share codes", () => {
   it("accepts cx pairs in charts only and bypasses A-share paths", () => {
     expect(chartSymbolSchema.safeParse("cxBTCUSDT").success).toBe(true);
-    expect(normalizeChartSymbol("cxbtcusdt")).toBe("cxBTCUSDT");
     expect(chartSymbolSchema.safeParse("cxBT").success).toBe(false);
     expect(symbolSchema.safeParse("cxBTCUSDT").success).toBe(false);
     expect(isNonAShareChartSymbol("cxETHUSDT")).toBe(true);
@@ -79,13 +78,11 @@ describe("crypto symbols stay apart from A-share codes", () => {
     expect(chartPricePrecision("sh600519")).toBe(2);
   });
 
-  it("offers default pairs and typed pairs in the picker", () => {
-    expect(cryptoMatches("btc").map((m) => m.symbol)).toEqual(["cxBTCUSDT"]);
-    expect(cryptoMatches("以太坊")[0]!.symbol).toBe("cxETHUSDT");
-    expect(cryptoMatches("pepeusdt").map((m) => m.symbol)).toEqual([
-      "cxPEPEUSDT",
-    ]);
-    expect(cryptoMatches("600519")).toEqual([]);
+  it("keeps crypto out of A-share chart parsing and links to its own page", () => {
+    expect(normalizeChartSymbol("cxbtcusdt")).toBeNull();
+    expect(normalizeChartSymbol("sh600519")).toBe("sh600519");
+    expect(chartSymbolHref("cxETHUSDT")).toBe("/crypto?pair=ETHUSDT");
+    expect(chartSymbolHref("sh600519")).toBe("/market?symbol=sh600519");
   });
 });
 

@@ -9,6 +9,7 @@ import { ResearchUsageContainer } from "../research/research-usage-container";
 import { RpsControls } from "../market/rps-controls";
 import { RpsOverview } from "../market/rps-overview";
 import { StrategyResearchControls } from "../research/strategy-research-controls";
+import { CryptoView } from "../market/crypto-view";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { PanelVisibility } from "./keep-alive";
 
@@ -94,4 +95,5 @@ export const routePanels = {
   "/rps": RpsPanel,
   "/research": ResearchPanel,
   "/cls-review": ClsReviewPanel,
+  "/crypto": CryptoView,
 } as const;

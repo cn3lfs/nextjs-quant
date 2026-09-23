@@ -489,3 +489,8 @@
 .nc-panel .panel .list-row {
   background: var(--nc-card);
 }
+
+/* 数字货币: a warm edge keeps crypto charts visually apart from A-share ones. */
+.nc-crypto-frame {
+  border-color: var(--nc-warn-edge);
+}

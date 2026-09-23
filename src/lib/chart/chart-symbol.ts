@@ -27,7 +27,9 @@ export const isNonAShareChartSymbol = (symbol: string) =>
   isSectorChartSymbol(symbol) || isCryptoSymbol(symbol);
 /** 深链：其他页面用 /market?symbol=sh600519 打开行情图表页并加载该证券K线。 */
 export function chartSymbolHref(symbol: string) {
-  return `/market?symbol=${encodeURIComponent(symbol)}`;
+  return isCryptoSymbol(symbol)
+    ? `/crypto?pair=${encodeURIComponent(symbol.slice(2))}`
+    : `/market?symbol=${encodeURIComponent(symbol)}`;
 }
 export function readChartSymbolParam(search: string): string | null {
   return normalizeChartSymbol(new URLSearchParams(search).get("symbol") ?? "");
@@ -36,5 +38,9 @@ export function normalizeChartSymbol(value: string): string | null {
   const text = value.trim();
   const normalized =
     text.slice(0, 2).toLowerCase() + text.slice(2).toUpperCase();
-  return chartSymbolSchema.safeParse(normalized).success ? normalized : null;
+  // Crypto pairs open on their own page (/crypto), never in the A-share view.
+  return chartSymbolSchema.safeParse(normalized).success &&
+    !isCryptoSymbol(normalized)
+    ? normalized
+    : null;
 }

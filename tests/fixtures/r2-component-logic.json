@@ -31,7 +31,7 @@
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
-    "MarketView": "4a27c41765c1eee42b99f76e215318adc67181e39fb8bec9382e3c824ac5dc6a"
+    "MarketView": "a507ed133e823d72fe05815854d9086b07da8a9ba0f37961a87f873689dc8fbf"
   },
   "src/components/market/chart-workspace.tsx": {
     "ChartWorkspace": "27d08638a9f36257b0168249f919e3584728b75d0e6e3635a97610b342e5cab9",
@@ -46,7 +46,7 @@
     "MarketChart": "40987616777fafa4f3bdff5c43eba8a8ac7926ee9a0c5aa9062187f9734a899d"
   },
   "src/components/market/security-select.tsx": {
-    "SecuritySelect": "74f11a2b619df7b33cc7c68029c0c12ec10ee28df946740c81e1ae4b37b3a909",
+    "SecuritySelect": "8c83e31baea3c230c5cbbeeb988c91026ce84e88763d929da197200d8ce1d936",
     "keyboard": "886668cdce76e19c2885c4fc52997774367c268c811b51d3be67267b0757c40a",
     "select": "764e53ec15907456d5346b9f474230528cf39cc26489e763e011f2fb0bb5fac6"
   }

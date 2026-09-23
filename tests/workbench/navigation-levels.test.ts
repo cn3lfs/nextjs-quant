@@ -38,6 +38,7 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
   expect(navGroups.map((group) => group.label)).toEqual([
     "今日",
     "分析",
+    "数字货币",
     "台账",
     "研究",
     "系统",

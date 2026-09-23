@@ -62,31 +62,3 @@ export function cryptoBarDate(
     return new Date(openTime).toISOString().slice(0, 10);
   return new Date(closeTime + 1).toISOString().replace(/\.\d{3}Z$/, "+00:00");
 }
-
-/**
- * Crypto entries for the security picker: the default pairs matching the
- * query (code, pair or Chinese name), plus a typed `XXXUSDT` pair on demand.
- * An empty query lists the defaults so the group is discoverable.
- */
-export function cryptoMatches(query: string) {
-  const q = query.trim();
-  const upper = q
-    .toUpperCase()
-    .replace(/^CX/, "")
-    .replace(/[/\s-]/g, "");
-  const found = defaultCryptoPairs.filter(
-    (p) =>
-      !q ||
-      p.symbol.slice(2).includes(upper) ||
-      p.name.toUpperCase().includes(q.toUpperCase()),
-  );
-  const typed =
-    /^[A-Z0-9]{2,15}(USDT|USDC|FDUSD|BTC|ETH|BNB)$/.test(upper) &&
-    !found.some((p) => p.symbol === cryptoSymbol(upper))
-      ? [{ symbol: cryptoSymbol(upper), name: `${upper} · 币安现货` }]
-      : [];
-  return [...found, ...typed].map((p) => ({
-    symbol: p.symbol,
-    name: `${p.name} · 加密货币`,
-  }));
-}
