@@ -22,8 +22,12 @@ const binary = process.argv.includes("--packaged")
         "release/win-unpacked/GuanlanQuant.exe",
     )
   : require("electron");
+const args = [
+  `--user-data-dir=${join(data, "electron-profile")}`,
+  ...(process.argv.includes("--packaged") ? [] : ["."]),
+];
 const child = temporary.track(
-  spawn(binary, process.argv.includes("--packaged") ? [] : ["."], {
+  spawn(binary, args, {
     windowsHide: true,
     stdio: "pipe",
     env: { ...process.env, QUANT_DESKTOP_SMOKE: "1", QUANT_DATA_DIR: data },
@@ -42,29 +46,39 @@ const code = await new Promise((resolve, reject) => {
 clearTimeout(timer);
 const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
   sourceUnchanged = source.equals(await readFile(sourcePath)),
+  // Startup smoke checks the current dashboard; chart-period coverage is separate.
+  requiredLabels = [
+    "今日总览",
+    "今日调度时间轴",
+    "下一步",
+    "贵州茅台",
+    "行情图表",
+    "条件选股",
+    "信号与通知",
+    "数据与连接",
+  ],
+  forbiddenLabels = [
+    "启动超时",
+    "本地服务已停止",
+    "Forbidden",
+    "Cannot find module",
+  ],
+  missingLabels = requiredLabels.filter((label) => !text.includes(label)),
+  presentErrors = forbiddenLabels.filter((label) => text.includes(label)),
+  smokeOutputPresent = text.length > 0,
   passed =
     code === 0 &&
     sourceUnchanged &&
-    // Chart source is now resolved independently per period and may load online.
-    // Startup smoke checks the real workbench; seven-period data/structure checks
-    // live in chart-periods-live and the browser acceptance pass.
-    text.includes("贵州茅台") &&
-    [
-      "日 K",
-      "周线",
-      "月线",
-      "5 分钟",
-      "15 分钟",
-      "30 分钟",
-      "60 分钟",
-      "股票池与强势股浏览",
-    ].every((label) => text.includes(label)) &&
-    !text.includes("Forbidden") &&
-    !text.includes("Cannot find module");
+    smokeOutputPresent &&
+    missingLabels.length === 0 &&
+    presentErrors.length === 0;
 console.log(
   JSON.stringify({
     desktopSmoke: passed,
     exitCode: code,
+    smokeOutputPresent,
+    missingLabels,
+    presentErrors,
     expectedRecords,
     expectedDate,
     sourceUnchanged,
