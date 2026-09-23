@@ -1,5 +1,5 @@
 import type { Snapshot } from "~/lib/domain";
-import { confirmedExtrema } from "~/lib/indicators";
+import { confirmedExtrema } from "trading-strategy-core/indicators";
 
 export function vcpFacts(snapshot: Snapshot, chartBars = false) {
   const bars = snapshot.bars.slice(-60);

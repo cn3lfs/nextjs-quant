@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { maSeries } from "~/lib/indicators";
+import { maSeries } from "trading-strategy-core/indicators";
 import { isoWeek } from "~/lib/period-performance";
 
 type Week = { key: string; dates: string[]; completedAt: string };

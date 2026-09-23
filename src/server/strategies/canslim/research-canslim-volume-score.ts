@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { maSeries } from "~/lib/indicators";
+import { maSeries } from "trading-strategy-core/indicators";
 
 /** Entry-table S1, deliberately independent of the reference's tiered score. */
 export function researchCanslimVolumeScore(

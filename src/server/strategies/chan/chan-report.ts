@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { chanMethod } from "./chan-method";
 import { chanCitationRules, chanReportSchema } from "./chan-report-schema";
-import { completedBarFilter } from "~/lib/completed-bars";
+import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { researchModel, structured } from "../../research/research";
 import { get, put } from "../../db";
 import { sharedRead } from "../../infra/shared-read";

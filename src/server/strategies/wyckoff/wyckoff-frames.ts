@@ -3,7 +3,7 @@ import type { Snapshot } from "~/lib/domain";
 import type { CalendarReference } from "../../market/data-health";
 import { weeklyBars } from "../../market/weekly-bars";
 import { hourlyBars } from "../../market/hourly-bars";
-import { completedBarFilter } from "~/lib/completed-bars";
+import { completedBarFilter } from "trading-strategy-core/completed-bars";
 
 /** A frozen daily research cutoff, not an intraday trading-timeframe assertion. */
 export function wyckoffFrames(

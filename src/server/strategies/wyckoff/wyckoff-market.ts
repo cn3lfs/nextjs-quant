@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
 import type { Snapshot } from "~/lib/domain";
 import { parseBars } from "../../data-sources/tdx/tdx";
-import { completedBarFilter } from "~/lib/completed-bars";
+import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { wyckoffRelativeStrength } from "./wyckoff-relative-strength";
 import type { wyckoffFrames } from "./wyckoff-frames";
 const signature = (s: Stats) =>

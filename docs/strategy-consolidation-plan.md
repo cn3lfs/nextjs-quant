@@ -671,3 +671,14 @@ C1 修改前后九代表 evidence 序列 SHA-256 均为 `cd92b0bb092d6b246c4c671
 - `mcp.ts` SHA-256 保持 `84298d84a2d5b33e43d0cc8ac7a9d011dc535ec6d368c60c5640e30cb10560b0`，其 UI、数据库 schema/migrations 与来源锁无差异。依赖安装初次遇到本机离线缓存不全；补齐 workspace 锁定引用后 `pnpm install --frozen-lockfile --offline --ignore-scripts` 通过，未新增外部依赖。
 
 2026-09-22 后续授权：用户明确要求本地 commit，本次重构与验收文档纳入同一提交；不推送、不打包，隔离临时目录不纳入 Git。
+
+## 9. 共享纯策略核心层（2026-09-22）
+
+用户追加要求：交易策略运行实现不能因为独立 package 而继续依赖 `src/lib` 的纯工具，也不能把数据库、文件系统、环境变量、Next.js、数据源或 DLL 一并抽进 package。执行结果如下：
+
+- 新增 `packages/trading-strategy-core`，只承载无环境副作用的 K 线基础类型、完成 K 线截止判定和 Big.js 金额/费率/数量运算。
+- `src/lib/domain.ts`、`src/lib/completed-bars.ts`、`src/lib/money.ts` 保留应用兼容导出，但实现已移到核心包；策略服务对应调用点直接依赖 `trading-strategy-core`。
+- `packages/trading-strategies` 继续只负责九方向代表目录和证据元数据，不与核心包合并；完整运行编排仍在 `src/server/strategies`。
+- 纯指标算法已迁入核心包；研究规格、数据库和 DLL 相关模块未整块迁移，它们仍含应用边界或研究状态，后续按同一纯度规则逐模块抽取，不能仅按文件名批量搬迁。
+
+本次验证：核心包独立 typecheck/build/test 通过（2 项）；代表目录 package 的 test/typecheck/build 通过（5 项）；根 `pnpm typecheck` 通过；根受影响回归 `tests/screening.test.ts` 与 `tests/indicators.test.ts` 通过（30 项）。

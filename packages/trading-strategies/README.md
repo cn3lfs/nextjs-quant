@@ -31,3 +31,5 @@ pnpm --filter trading-strategies build
 公开标识：`id` 是稳定代表 ID，`methodId` 是方法，`presetId` 是可选参数预设。无预设保持缺失；未回测条目不允许 evidence，已观察条目的 evidence.readiness 必须匹配。
 
 工作台通过 workspace 依赖接入研究页的“九方向代表策略”。选择代表只填写已有研究预设；无 preset 的三个方法仅作参考。根 `dev`、`build`、`typecheck`、`test` 均先构建本包，根 `test` 也显式运行包内测试。
+
+共享纯策略基础能力位于独立的 `trading-strategy-core` 包。代表目录不反向依赖 `src`，也不把运行时策略、行情 IO、数据库或 DLL 搬进本包；运行编排继续由 `src/server/strategies` 负责。

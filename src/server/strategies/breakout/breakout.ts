@@ -1,5 +1,12 @@
 import type { Bar } from "~/lib/domain";
-import { boll, kdj, ma, macd, rsi, candlePatterns } from "~/lib/indicators";
+import {
+  boll,
+  kdj,
+  ma,
+  macd,
+  rsi,
+  candlePatterns,
+} from "trading-strategy-core/indicators";
 import method from "~/lib/breakout-method.json";
 import { vcpFacts } from "../canslim/vcp";
 

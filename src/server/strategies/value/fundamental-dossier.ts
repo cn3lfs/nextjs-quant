@@ -44,7 +44,7 @@ import {
   businessProfiles,
   queryBusiness,
 } from "../../data-sources/hithink/hithink-business";
-import { completedBarFilter } from "~/lib/completed-bars";
+import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { get, put } from "../../db";
 import { isAStock } from "../../data-sources/tdx/tdx";

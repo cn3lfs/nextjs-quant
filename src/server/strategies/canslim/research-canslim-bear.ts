@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { maSeries } from "~/lib/indicators";
+import { maSeries } from "trading-strategy-core/indicators";
 import type { researchCanslimPriorityPoint } from "./research-canslim-priority";
 
 /** Daily-close experiment: the source leaves the volume comparator undefined. */

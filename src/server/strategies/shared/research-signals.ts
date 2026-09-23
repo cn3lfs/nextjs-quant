@@ -43,7 +43,7 @@ import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
 import { analyzeBreakout } from "../breakout/breakout";
 import { metrics } from "~/lib/screening-metrics";
 import { researchStrategies } from "~/lib/research-strategies";
-import { atr } from "~/lib/indicators";
+import { atr } from "trading-strategy-core/indicators";
 import { isVolumeGrid } from "~/lib/research-volume-grid";
 import { isFormulaExample } from "~/lib/research-formula-examples";
 import { isExternalFormula } from "~/lib/research-formula-external";

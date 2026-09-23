@@ -8,7 +8,7 @@ import {
   requireWestockRows,
   WESTOCK_ADAPTER_VERSION,
 } from "../../data-sources/westock/westock-adapter";
-import { completedBar } from "~/lib/completed-bars";
+import { completedBar } from "trading-strategy-core/completed-bars";
 import { canslimMarket } from "./canslim-market";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { sharedRead } from "../../infra/shared-read";

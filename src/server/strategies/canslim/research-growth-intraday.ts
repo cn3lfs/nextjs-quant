@@ -1,5 +1,5 @@
 import { analyzeBreakout } from "../breakout/breakout";
-import { big, bpsOf, moneyMul, toNumber } from "~/lib/money";
+import { big, bpsOf, moneyMul, toNumber } from "trading-strategy-core/money";
 import {
   isIntradayExecution,
   intradayExecutionEvidence,
@@ -16,13 +16,13 @@ import {
   openingDecision,
   type OpeningId,
 } from "~/lib/research-opening";
-import { atr, rollingHigh } from "~/lib/indicators";
+import { atr, rollingHigh } from "trading-strategy-core/indicators";
 import { researchAccountRisk } from "~/lib/research-account-risk";
 import { researchInitialStop } from "~/lib/research-management";
 import { researchLiquidity } from "~/lib/research-liquidity";
 import { contextRiskPoint } from "~/lib/research-context-risk";
 import { swingCalibration } from "~/lib/research-risk-scenarios";
-import { confirmedExtrema } from "~/lib/indicators";
+import { confirmedExtrema } from "trading-strategy-core/indicators";
 import type { Bar } from "~/lib/domain";
 import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
 import {

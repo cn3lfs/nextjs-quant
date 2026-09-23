@@ -3,18 +3,10 @@ import { researchDateSchema } from "./research-usage";
 import { z } from "zod";
 import { notificationPolicySchema } from "./notification-policy";
 import type { SecurityTradingStatus } from "./security-trading-status";
+import type { Bar, Period } from "trading-strategy-core/bars";
+export type { Bar, Period } from "trading-strategy-core/bars";
 export const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
 export const periodSchema = z.enum(["day", "5m"]);
-export type Period = z.infer<typeof periodSchema>;
-export type Bar = {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  amount: number;
-};
 export type Security = {
   symbol: string;
   name: string;

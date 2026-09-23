@@ -1,5 +1,5 @@
 import { researchStructureTargets } from "~/lib/research-structure-targets";
-import { confirmedExtrema } from "~/lib/indicators";
+import { confirmedExtrema } from "trading-strategy-core/indicators";
 import {
   researchWyckoffSeries,
   structureBarBytes,

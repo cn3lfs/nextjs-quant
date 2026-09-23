@@ -86,6 +86,9 @@ importers:
       trading-strategies:
         specifier: workspace:*
         version: link:packages/trading-strategies
+      trading-strategy-core:
+        specifier: workspace:*
+        version: link:packages/trading-strategy-core
       tstdx:
         specifier: workspace:*
         version: link:packages/tstdx
@@ -146,6 +149,22 @@ importers:
         version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
 
   packages/trading-strategies:
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 5.0.0
+        version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
+
+  packages/trading-strategy-core:
+    dependencies:
+      big.js:
+        specifier: 7.0.1
+        version: 7.0.1
     devDependencies:
       '@types/node':
         specifier: 22.20.1

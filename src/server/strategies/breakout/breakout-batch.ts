@@ -4,7 +4,7 @@ import {
   readTailSnapshot,
   isAStock,
 } from "../../data-sources/tdx/tdx";
-import { completedBarFilter } from "~/lib/completed-bars";
+import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { screeningKey, screeningManifest } from "../../screening/screen-cache";
 import { strategySchema } from "~/lib/domain";
 
