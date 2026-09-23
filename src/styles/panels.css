@@ -312,3 +312,167 @@
   border-radius: var(--nc-radius);
   background: var(--nc-inset);
 }
+
+/* 今日总览 */
+.nc-timeline {
+  position: relative;
+  height: 172px;
+  margin: 4px 40px 0;
+}
+.nc-timeline-rail,
+.nc-timeline-done {
+  position: absolute;
+  top: 11px;
+  left: 0;
+  height: 2px;
+}
+.nc-timeline-rail {
+  right: 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--nc-text-5) 10%,
+    var(--nc-text-5) 90%,
+    transparent
+  );
+}
+.nc-timeline-done {
+  background: linear-gradient(to right, transparent, var(--nc-accent));
+}
+.nc-timeline-now {
+  position: absolute;
+  top: -8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
+  pointer-events: none;
+}
+.nc-timeline-now em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--nc-accent-100);
+  background: var(--nc-accent-700);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.nc-timeline-now i {
+  width: 2px;
+  height: 54px;
+  background: linear-gradient(to bottom, var(--nc-accent), transparent);
+}
+.nc-timeline-slot {
+  position: absolute;
+  top: 7px;
+  width: 104px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  line-height: 1.35;
+}
+.nc-timeline-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--nc-pill);
+  border: 2px solid var(--nc-card);
+  box-shadow: 0 0 0 1px var(--dot);
+  margin-bottom: 6px;
+}
+.nc-health {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.nc-health-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--nc-border);
+  border-radius: var(--nc-radius);
+  background: var(--nc-card);
+}
+.nc-todo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--nc-border-soft);
+  border-radius: var(--nc-radius);
+  background: var(--nc-inset);
+}
+.nc-candidate,
+.nc-watch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--nc-border-soft);
+  border-radius: var(--nc-radius);
+  background: var(--nc-inset);
+  color: var(--nc-text);
+  text-decoration: none;
+}
+.nc-watch:hover {
+  border-color: var(--nc-accent-700);
+  color: var(--nc-text);
+}
+.nc-rank {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--nc-accent-900);
+  color: var(--nc-accent-light);
+  font-size: 10px;
+}
+
+/* Tones — declared last so they override the base panel rules above. */
+.nc-text-neutral {
+  color: var(--nc-text);
+}
+.nc-text-accent {
+  color: var(--nc-accent);
+}
+.nc-text-accent-light {
+  color: var(--nc-accent-light);
+}
+.nc-text-ok {
+  color: var(--nc-ok);
+}
+.nc-text-warn {
+  color: var(--nc-warn);
+}
+.nc-text-bad {
+  color: var(--nc-bad);
+}
+.nc-text-idle {
+  color: var(--nc-text-4);
+}
+.nc-edge-neutral {
+  border-color: var(--nc-border-soft);
+}
+.nc-edge-strong {
+  border-color: var(--nc-border);
+}
+.nc-edge-accent {
+  border-color: var(--nc-accent-800);
+}
+.nc-edge-ok {
+  border-color: var(--nc-ok-edge);
+}
+.nc-edge-warn {
+  border-color: var(--nc-warn-edge);
+}
+.nc-edge-bad {
+  border-color: var(--nc-bad-edge);
+}

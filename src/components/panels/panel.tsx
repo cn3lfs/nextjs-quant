@@ -101,9 +101,9 @@ export function Pill({
         "nc-pill",
         toneText[tone === "neutral" ? "idle" : tone],
         tone === "neutral" || tone === "idle"
-          ? "border-nc-border"
+          ? "nc-edge-strong"
           : tone === "accent"
-            ? "border-nc-accent-800 text-nc-accent-light"
+            ? "nc-edge-accent nc-text-accent-light"
             : toneEdge[tone],
         className,
       )}

@@ -42,8 +42,8 @@ it("panel shell renders span, title row, tag, meta and note", () => {
   expect(html).toContain("基准日 09-15");
   expect(html).toContain("仅作描述");
   // Abnormal cards switch to the semantic edge and value color.
-  expect(html).toContain("border-nc-bad-edge");
-  expect(html).toContain("text-nc-bad");
+  expect(html).toContain("nc-edge-bad");
+  expect(html).toContain("nc-text-bad");
 });
 
 it("table, list, form, bars and report panels render their rows", () => {
@@ -89,7 +89,7 @@ it("table, list, form, bars and report panels render their rows", () => {
       ],
     }),
   );
-  expect(list).toContain("border-nc-ok-edge");
+  expect(list).toContain("nc-edge-ok");
   expect(list).toContain("运行中");
 
   const form = renderToStaticMarkup(
