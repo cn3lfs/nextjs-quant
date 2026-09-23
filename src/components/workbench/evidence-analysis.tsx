@@ -12,7 +12,7 @@ import { ChanPanel } from "../research/chan-panel";
 import { Button } from "../ui/button";
 import { WyckoffPanel } from "../research/wyckoff-panel";
 import { LatestReport } from "../research/latest-report";
-import { Sparkle, Stack } from "@phosphor-icons/react";
+import { Sparkle, Stack } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel } from "../panels";
 
 import { Field } from "./shared";

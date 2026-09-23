@@ -1,4 +1,4 @@
-import { Books, DownloadSimple, Sparkle } from "@phosphor-icons/react";
+import { Books, DownloadSimple, Sparkle } from "@phosphor-icons/react/ssr";
 import { useState } from "react";
 import { type Report } from "~/lib/domain";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";

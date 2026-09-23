@@ -1,5 +1,5 @@
 "use client";
-import { Circle, MagnifyingGlass } from "@phosphor-icons/react";
+import { Circle, MagnifyingGlass } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";

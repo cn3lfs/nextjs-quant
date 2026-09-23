@@ -1,5 +1,5 @@
 "use client";
-import { Ranking } from "@phosphor-icons/react";
+import { Ranking } from "@phosphor-icons/react/ssr";
 import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { api } from "~/trpc/react";
 import { BarsPanel } from "../panels";

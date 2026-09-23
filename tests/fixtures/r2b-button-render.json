@@ -4,7 +4,7 @@
   "src/components/market/chart-workspace.tsx": "54c52e61d46b129e10083539a5505b46c4c8f7ba4ad4795f27d4d8e8d330e7e0",
   "src/components/screening/formula-screen.tsx": "81c151d22a8b55ddc06e0960587cbc5380108c599f996f06260f56eb259c6920",
   "src/components/market/security-select.tsx": "7c80b549a171211f5824bdb415c08386a4feb08a10179c651623671387b5b023",
-  "src/components/signals/signal-ledger-controls.tsx": "7571c0bf6257564d77e8416b5919341644015501c64af793cfaea0ba6803de54",
+  "src/components/signals/signal-ledger-controls.tsx": "ffebd58bd8fa056f351478d1814196106dbceb1346334342f1fe4a32cd939a56",
   "src/components/portfolio/trade-ledger-panel.tsx": "2ca3415aca7906480cdc1c4fb981d1e1bb703f5a5c4905136ecb9acef1995fee",
   "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
   "src/components/workbench/workbench.tsx": "5b2cfd77a689840dffffca025b5d9b6a4561a0c3f7fd8bde0ffb6b0d1154be0d",

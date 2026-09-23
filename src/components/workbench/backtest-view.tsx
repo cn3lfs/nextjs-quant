@@ -12,7 +12,7 @@ import {
   Flask,
   Info,
   Receipt,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
 import {
   changeTone,
   EquityPanel,

@@ -1,5 +1,5 @@
 "use client";
-import { Article } from "@phosphor-icons/react";
+import { Article } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { Panel, PanelEmpty } from "../panels";
 import { ReportCard } from "../workbench/reports";

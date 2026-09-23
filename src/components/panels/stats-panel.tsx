@@ -1,4 +1,3 @@
-"use client";
 import type { ReactNode } from "react";
 import { cn } from "~/lib/common/classnames";
 import { Panel, type PanelProps } from "./panel";

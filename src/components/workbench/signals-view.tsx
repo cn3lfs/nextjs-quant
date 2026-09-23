@@ -14,7 +14,11 @@ import { type Period } from "~/lib/domain";
 import { securityDisplayName } from "~/lib/security-display";
 import { TradingStatusEvidence } from "../signals/trading-status-evidence";
 import { Button } from "../ui/button";
-import { Broadcast, Lightning, PaperPlaneTilt } from "@phosphor-icons/react";
+import {
+  Broadcast,
+  Lightning,
+  PaperPlaneTilt,
+} from "@phosphor-icons/react/ssr";
 import { GridTable, PageGrid, Panel, Pill, SecurityCell } from "../panels";
 import { SignalStats } from "../signals/signal-stats";
 

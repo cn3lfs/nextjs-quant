@@ -1,5 +1,5 @@
 "use client";
-import { Pulse } from "@phosphor-icons/react";
+import { Pulse } from "@phosphor-icons/react/ssr";
 import type { Delivery, Monitor, Signal } from "~/lib/domain";
 import { StatsPanel } from "../panels";
 

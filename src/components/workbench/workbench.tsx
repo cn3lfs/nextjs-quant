@@ -1,6 +1,6 @@
 "use client";
 import { Activity, X } from "lucide-react";
-import { ArrowClockwise } from "@phosphor-icons/react";
+import { ArrowClockwise } from "@phosphor-icons/react/ssr";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode, type SetStateAction } from "react";
 import { NewsPanel } from "../news/news-panel";

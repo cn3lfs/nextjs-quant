@@ -16,8 +16,8 @@ import {
   Sparkle,
   TestTube,
   Wallet,
-  type Icon,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
+import { type Icon } from "@phosphor-icons/react";
 
 export type Tab =
   | "market"

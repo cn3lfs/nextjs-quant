@@ -1,4 +1,4 @@
-import { ClockCounterClockwise } from "@phosphor-icons/react";
+import { ClockCounterClockwise } from "@phosphor-icons/react/ssr";
 import {
   rpsLogTime,
   rpsPhaseLabel,

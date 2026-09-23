@@ -2,6 +2,8 @@ import Link from "next/link";
 import { signalInformation } from "~/lib/signal-information";
 import type { LedgerRow } from "~/lib/signal-ledger";
 import { SignalInformationTables } from "./signal-information-tables";
+import { ChartScatter } from "@phosphor-icons/react/ssr";
+import { Panel } from "../panels";
 
 export function SignalInformationView({
   rows,
@@ -20,13 +22,14 @@ export function SignalInformationView({
     ),
   );
   return (
-    <section
-      className="space-y-4 rounded-lg border border-border bg-card p-4"
-      aria-label="信息含量"
+    <Panel
       id="signal-information"
+      aria-label="信息含量"
+      icon={ChartScatter}
+      title="信息含量"
+      bodyClassName="space-y-4 text-[12px] text-nc-text-2"
     >
-      <h2>信息含量</h2>
-      <p>
+      <p className="m-0">
         出处：V3 信号信息含量口径。按策略 × 方向 ×
         期限分别计算；全样本服务端计算，每页展示一个策略与方向的三个期限。非策略业绩，不作显著性判断，不拟合或外推。
       </p>
@@ -81,6 +84,6 @@ export function SignalInformationView({
           </Link>
         )}
       </nav>
-    </section>
+    </Panel>
   );
 }

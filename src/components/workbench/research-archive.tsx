@@ -5,7 +5,7 @@ import { ValuationPanel } from "../research/valuation-panel";
 import { WyckoffPanel } from "../research/wyckoff-panel";
 
 import { ReportArchive } from "./reports";
-import { Scales, Stack } from "@phosphor-icons/react";
+import { Scales, Stack } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel } from "../panels";
 import { type WorkbenchState } from "./use-workbench-state";
 

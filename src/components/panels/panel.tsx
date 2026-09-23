@@ -1,4 +1,3 @@
-"use client";
 import type { Icon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { cn } from "~/lib/common/classnames";
@@ -35,6 +34,7 @@ export type PanelProps = {
   className?: string;
   bodyClassName?: string;
   children?: ReactNode;
+  id?: string;
   "aria-label"?: string;
 };
 
@@ -54,10 +54,12 @@ export function Panel({
   className,
   bodyClassName,
   children,
+  id,
   ...rest
 }: PanelProps) {
   return (
     <section
+      id={id}
       aria-label={
         rest["aria-label"] ?? (typeof title === "string" ? title : undefined)
       }

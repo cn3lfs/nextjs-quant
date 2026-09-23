@@ -25,7 +25,7 @@ import {
   Flask,
   Sparkle,
   Star,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
 import { GridTable, ListPanel, PageGrid, Panel, SecurityCell } from "../panels";
 import { SymbolRpsBars } from "../market/symbol-rps-bars";
 

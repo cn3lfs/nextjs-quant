@@ -12,8 +12,8 @@ import {
   Timer,
   WarningCircle,
   Lightning,
-  type Icon,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
+import { type Icon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";

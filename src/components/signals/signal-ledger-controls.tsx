@@ -13,10 +13,17 @@ export function SignalLedgerControls({ date }: { date?: string }) {
     return () => clearInterval(timer);
   }, [router]);
   return (
-    <div>
+    <div
+      className={
+        date || message
+          ? "mb-[var(--nc-gap)] flex flex-wrap items-center gap-3"
+          : "hidden"
+      }
+    >
       {date && (
         <Button
-          variant="plain"
+          variant="danger"
+          size="sm"
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
@@ -33,7 +40,9 @@ export function SignalLedgerControls({ date }: { date?: string }) {
           取消当日台账任务
         </Button>
       )}
-      <p role="status">{message}</p>
+      <p role="status" className="m-0 text-[12px] text-nc-text-3">
+        {message}
+      </p>
     </div>
   );
 }

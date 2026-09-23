@@ -18,7 +18,7 @@ import {
   PaperPlaneTilt,
   Plus,
   Sparkle,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Pill, StatsPanel } from "../panels";
 import { useState } from "react";
 import { type Channel, type Settings } from "~/lib/domain";

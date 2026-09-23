@@ -1,5 +1,5 @@
 "use client";
-import { Pulse } from "@phosphor-icons/react";
+import { Pulse } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { cn } from "~/lib/common/classnames";
 import { navGroups } from "./navigation";

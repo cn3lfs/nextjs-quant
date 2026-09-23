@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Newspaper, Ranking, TestTube } from "@phosphor-icons/react";
+import { Newspaper, Ranking, TestTube } from "@phosphor-icons/react/ssr";
 import { ClsReviewControls } from "../news/cls-review-controls";
 import { ConceptRpsControls } from "../market/concept-rps-controls";
 import { IndustryRpsControls } from "../market/industry-rps-controls";

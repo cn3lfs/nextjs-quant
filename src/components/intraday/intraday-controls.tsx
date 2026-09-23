@@ -7,7 +7,7 @@ import {
   Play,
   Queue,
   SlidersHorizontal,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
 import {

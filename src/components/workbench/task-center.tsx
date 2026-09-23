@@ -1,4 +1,4 @@
-import { ListChecks, Queue } from "@phosphor-icons/react";
+import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { TaskHistory } from "../common/task-history";
 import { PageGrid, Panel, StatsPanel } from "../panels";
 import { type WorkbenchState } from "./use-workbench-state";

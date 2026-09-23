@@ -22,7 +22,7 @@ import {
   Gauge,
   ListDashes,
   Sparkle,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, StatsPanel } from "../panels";
 
 import { ReportCard } from "./reports";

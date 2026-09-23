@@ -6,7 +6,7 @@ import { ResearchUsagePanel } from "./research-usage-panel";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { ResearchAttemptsContainer } from "./research-attempts-container";
-import { Notebook } from "@phosphor-icons/react";
+import { Notebook } from "@phosphor-icons/react/ssr";
 import { Panel, StatCards } from "../panels";
 
 export function ResearchUsageContainer({ range }: { range?: ResearchRange }) {
