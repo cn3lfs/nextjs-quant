@@ -13,6 +13,26 @@ import {
 } from "~/components/ui/select";
 
 import { useRef, useState, useTransition } from "react";
+import {
+  Briefcase,
+  ChartScatter,
+  FloppyDisk,
+  NotePencil,
+  Receipt,
+  Robot,
+  Scales,
+  Wallet,
+} from "@phosphor-icons/react/ssr";
+import {
+  changeTone,
+  GridTable,
+  PageGrid,
+  Panel,
+  PanelEmpty,
+  StatsPanel,
+  toneText,
+  type Stat,
+} from "../panels";
 import { feeLabel } from "~/lib/trade-ledger";
 import { mockContract, mockMarketLabel } from "~/lib/mock-trading-contract";
 import type { tradeDashboard } from "~/server/portfolio/trade-ledger-service";
@@ -90,22 +110,28 @@ export function TradeLedgerPanel({
     };
   }
   return (
-    <main className="page">
-      <div className="page-heading">
-        <div>
-          <h1>持仓与交易日志</h1>
-          <p>本地账本为事实来源。人工录入、离线计算；模拟盘默认关闭。</p>
-        </div>
-      </div>
-      <p role="status" aria-live="polite">
+    <PageGrid>
+      <StatsPanel
+        icon={Wallet}
+        title="账户"
+        meta="本地账本为事实来源。人工录入、离线计算；模拟盘默认关闭。"
+        items={tradeStats(data, enabled)}
+      />
+      <p
+        role="status"
+        aria-live="polite"
+        className="nc-span-12 m-0 text-[12px] text-nc-text-3 empty:hidden"
+      >
         {pending ? "正在处理…" : message}
       </p>
-      <section className="panel">
-        <h2>录入本地交易</h2>
-        <p>
-          {feeLabel}：cost-experiment-1，佣金3bp /
-          最低5元、卖出印花税5bp、滑点5bp。成交价保留，滑点作为实验成本另计。
-        </p>
+      {/* Source order keeps the original handler order; `order-*` sets the
+          on-screen order: 持仓 → 交易日志 → 录入 → 除权 → 对比 → 模拟盘. */}
+      <Panel
+        className="order-3"
+        icon={NotePencil}
+        title="录入本地交易"
+        note={`${feeLabel}：cost-experiment-1，佣金3bp / 最低5元、卖出印花税5bp、滑点5bp。成交价保留，滑点作为实验成本另计。`}
+      >
         <form
           ref={form}
           onSubmit={(e) => {
@@ -117,7 +143,7 @@ export function TradeLedgerPanel({
             });
           }}
         >
-          <fieldset disabled={pending}>
+          <fieldset disabled={pending} className="m-0 border-0 p-0">
             <div className="form-grid">
               <label>
                 股票代码（如sh600519）
@@ -218,22 +244,26 @@ export function TradeLedgerPanel({
                 <Input name="note" maxLength={500} />
               </label>
             </div>
-            <p>
+            <p className="muted">
               涨跌停上下限按该交易日终端值录入；无普通涨跌幅限制或依据未知时暂不录入，避免套用常规比例。记录只追加，保存后可查原值。
             </p>
-            <Button variant="plain" type="submit">
+            <Button type="submit">
+              <FloppyDisk size={14} />
               仅保存本地交易
             </Button>
           </fieldset>
         </form>
-      </section>
-      <section className="panel">
-        <h2>当前持仓</h2>
-        <p>
-          本地不复权已完成日线收盘价；日期见各行，非实时行情。止损距离＝（现价－止损位）/现价，负数表示已跌破，不自动卖出。日历：
-          {data.calendarSource}
-        </p>
-        {!data.positions.length && <p>暂无持仓，请先录入一笔买入。</p>}
+      </Panel>
+      <Panel
+        className="order-1"
+        icon={Briefcase}
+        title="当前持仓"
+        meta={`日历：${data.calendarSource}`}
+        note="本地不复权已完成日线收盘价；日期见各行，非实时行情。止损距离＝（现价－止损位）/现价，负数表示已跌破，不自动卖出。"
+      >
+        {!data.positions.length && (
+          <PanelEmpty>暂无持仓，请先录入一笔买入。</PanelEmpty>
+        )}
         <div style={{ overflowX: "auto" }}>
           <DataTable
             label="当前持仓"
@@ -245,7 +275,7 @@ export function TradeLedgerPanel({
                 enableSorting: false,
                 cell: ({ row }) => {
                   const p = row.original;
-                  return <>{p.symbol}</>;
+                  return <strong>{p.symbol}</strong>;
                 },
               },
               {
@@ -303,7 +333,11 @@ export function TradeLedgerPanel({
                 enableSorting: false,
                 cell: ({ row }) => {
                   const p = row.original;
-                  return <>{number(p.floating)}</>;
+                  return (
+                    <span className={toneText[changeTone(p.floating)]}>
+                      {number(p.floating)}
+                    </span>
+                  );
                 },
               },
               {
@@ -312,7 +346,17 @@ export function TradeLedgerPanel({
                 enableSorting: false,
                 cell: ({ row }) => {
                   const p = row.original;
-                  return <>{number(p.stopDistancePct)}%</>;
+                  return (
+                    <span
+                      className={
+                        p.stopDistancePct != null && p.stopDistancePct < 0
+                          ? "nc-text-warn"
+                          : undefined
+                      }
+                    >
+                      {number(p.stopDistancePct)}%
+                    </span>
+                  );
                 },
               },
               {
@@ -338,45 +382,52 @@ export function TradeLedgerPanel({
             emptyMessage={null}
           />
         </div>
-        {data.positions
-          .filter((p) => p.quantity > 0)
-          .map((p) => (
-            <form
-              key={p.symbol}
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                run(async () => {
-                  await updateStop(p.symbol, Number(f.get("stop")));
-                  setMessage("止损位已更新，仅本地记录");
-                });
-              }}
-            >
-              <label>
-                {p.symbol} 当前止损位
-                <Input
-                  name="stop"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  defaultValue={p.stop ?? ""}
-                  required
-                />
-              </label>
-              <Button variant="plain" disabled={pending}>
-                更新止损位
-              </Button>
-            </form>
-          ))}
-      </section>
-      <section className="panel">
-        <h2>除权调整依据（保留每次观察版本）</h2>
-        <p>
-          GBBQ不可用时：成本未按除权调整，浮盈留空。配股/缩股依据不足时留空；送转股到账日期未知时暂不计可卖，可按账户显示补录可卖日期。除权后尚无新收盘行情时浮盈留空。参考成本不可当作已核对成本。
-        </p>
-        {!data.adjustments.length && <p>暂无持仓期除权调整记录。</p>}
+        <div className="mt-3 flex flex-wrap gap-3">
+          {data.positions
+            .filter((p) => p.quantity > 0)
+            .map((p) => (
+              <form
+                key={p.symbol}
+                className="flex items-end gap-2 rounded-lg border border-nc-border-soft bg-nc-inset p-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  run(async () => {
+                    await updateStop(p.symbol, Number(f.get("stop")));
+                    setMessage("止损位已更新，仅本地记录");
+                  });
+                }}
+              >
+                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
+                  {p.symbol} 当前止损位
+                  <Input
+                    name="stop"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    defaultValue={p.stop ?? ""}
+                    required
+                  />
+                </label>
+                <Button size="sm" variant="outline" disabled={pending}>
+                  更新止损位
+                </Button>
+              </form>
+            ))}
+        </div>
+      </Panel>
+      <Panel
+        className="order-4"
+        icon={Scales}
+        title="除权调整依据"
+        meta="保留每次观察版本"
+        note="GBBQ不可用时：成本未按除权调整，浮盈留空。配股/缩股依据不足时留空；送转股到账日期未知时暂不计可卖，可按账户显示补录可卖日期。除权后尚无新收盘行情时浮盈留空。参考成本不可当作已核对成本。"
+      >
+        {!data.adjustments.length && (
+          <PanelEmpty>暂无持仓期除权调整记录。</PanelEmpty>
+        )}
         {data.adjustments.map((a) => (
-          <details key={a.id}>
+          <details key={a.id} className="list-row my-0 block">
             <summary>
               {a.symbol} · {a.event.date} · {a.event.name} · 成本{" "}
               {number(a.beforeCost)} → {number(a.afterCost)}
@@ -391,6 +442,7 @@ export function TradeLedgerPanel({
             </pre>
             {(a.event.bonusRatio ?? 0) > 0 && (
               <form
+                className="flex flex-wrap items-end gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
@@ -405,7 +457,7 @@ export function TradeLedgerPanel({
                   });
                 }}
               >
-                <label>
+                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
                   账户确认的送转股可卖日期
                   <Input
                     type="date"
@@ -415,51 +467,113 @@ export function TradeLedgerPanel({
                     required
                   />
                 </label>
-                <label>
+                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
                   到账依据
                   <Input name="source" maxLength={200} required />
                 </label>
-                <Button variant="plain" disabled={pending}>
+                <Button size="sm" variant="outline" disabled={pending}>
                   保存可卖依据（只记录一次）
                 </Button>
               </form>
             )}
           </details>
         ))}
-      </section>
-      <section className="panel">
-        <h2>交易日志</h2>
-        {!data.trades.length && <p>暂无交易。</p>}
-        {data.trades.map((t) => (
-          <details key={t.id}>
-            <summary>
-              {t.date} · {t.symbol} · {t.side === "buy" ? "买入" : "卖出"}{" "}
-              {t.quantity}股 × {t.price}
-            </summary>
-            <p>
-              关联信号：{t.signalId ?? "无（手动交易）"}；{t.note}
-            </p>
-            <p>
-              实验费用合计 {number(t.fees.total)}：佣金{" "}
-              {number(t.fees.commission)} / 税 {number(t.fees.tax)} / 滑点{" "}
-              {number(t.fees.slippage)}；{feeLabel}
-            </p>
-            <p>
-              涨跌停 {t.lowerLimit}–{t.upperLimit}；依据：{t.limitSource}
-            </p>
-            <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-              {JSON.stringify(t.methods, null, 2)}
-            </pre>
-          </details>
-        ))}
-      </section>
-      <section className="panel">
-        <h2>做过与没做的信号</h2>
-        <p>
-          按是否关联任一交易分组，比较同口径 N1
-          向前收益，非实际交易盈亏、非策略业绩，不代表跟随信号的因果效果。含除权/未到期沿用台账留空规则。
-        </p>
-        {!data.comparison.length && <p>暂无可比较台账信号。</p>}
+      </Panel>
+      <Panel
+        className="order-2"
+        icon={Receipt}
+        title="交易日志"
+        meta={`${data.trades.length} 笔 · 只追加`}
+      >
+        <GridTable
+          label="交易日志"
+          minWidth={760}
+          rows={data.trades}
+          rowKey={(t) => t.id}
+          empty="暂无交易。"
+          columns={[
+            {
+              key: "date",
+              header: "日期",
+              width: "0.8fr",
+              cell: (t) => <span className="text-nc-text-3">{t.date}</span>,
+            },
+            {
+              key: "symbol",
+              header: "证券",
+              width: "0.9fr",
+              cell: (t) => <strong className="font-medium">{t.symbol}</strong>,
+            },
+            {
+              key: "side",
+              header: "方向",
+              width: "0.5fr",
+              cell: (t) => (
+                <span className={t.side === "buy" ? "up" : "down"}>
+                  {t.side === "buy" ? "买入" : "卖出"}
+                </span>
+              ),
+            },
+            {
+              key: "price",
+              header: "价格",
+              width: "0.7fr",
+              cell: (t) => <>{t.price}</>,
+            },
+            {
+              key: "quantity",
+              header: "股数",
+              width: "0.6fr",
+              cell: (t) => <>{t.quantity}</>,
+            },
+            {
+              key: "fees",
+              header: "实验费用",
+              width: "0.7fr",
+              cell: (t) => (
+                <span
+                  className="text-nc-text-3"
+                  title={`佣金 ${number(t.fees.commission)} / 税 ${number(t.fees.tax)} / 滑点 ${number(t.fees.slippage)}；${feeLabel}`}
+                >
+                  {number(t.fees.total)}
+                </span>
+              ),
+            },
+            {
+              key: "signal",
+              header: "关联信号",
+              width: "1.6fr",
+              cell: (t) => (
+                <details className="my-0">
+                  <summary
+                    className={t.signalId ? undefined : "text-nc-text-4"}
+                  >
+                    {t.signalId ? t.signalId.slice(0, 12) : "无（手动交易）"}
+                  </summary>
+                  <p>{t.note}</p>
+                  <p>
+                    涨跌停 {t.lowerLimit}–{t.upperLimit}；依据：{t.limitSource}
+                  </p>
+                  <pre
+                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {JSON.stringify(t.methods, null, 2)}
+                  </pre>
+                </details>
+              ),
+            },
+          ]}
+        />
+      </Panel>
+      <Panel
+        className="order-5"
+        icon={ChartScatter}
+        title="做过与没做的信号"
+        note="按是否关联任一交易分组，比较同口径 N1 向前收益，非实际交易盈亏、非策略业绩，不代表跟随信号的因果效果。含除权/未到期沿用台账留空规则。"
+      >
+        {!data.comparison.length && (
+          <PanelEmpty>暂无可比较台账信号。</PanelEmpty>
+        )}
         <div style={{ overflowX: "auto" }}>
           <DataTable
             label="做过与没做的信号"
@@ -552,9 +666,14 @@ export function TradeLedgerPanel({
             emptyMessage={null}
           />
         </div>
-      </section>
-      <section className="panel">
-        <h2>同花顺模拟盘（可选同步层）</h2>
+      </Panel>
+      <Panel
+        className="order-6"
+        icon={Robot}
+        title="同花顺模拟盘（可选同步层）"
+        tag={enabled ? "已开启" : "已关闭"}
+        note="同花顺问财提供模拟炒股服务"
+      >
         <details>
           <summary>文档契约与实测契约差异</summary>
           <DataTable
@@ -602,70 +721,81 @@ export function TradeLedgerPanel({
             emptyMessage={null}
           />
         </details>
-        <Button
-          variant="plain"
-          disabled={pending || !enabled}
-          onClick={() => run(async () => setMarkets(await readMockMarkets()))}
-        >
-          查看已保存市场代码（本地）
-        </Button>
-        {markets.map((code) => (
-          <p key={code}>
-            {code}：{mockMarketLabel(code)}
-          </p>
-        ))}
-        <Button
-          variant="plain"
-          disabled={pending || !enabled}
-          onClick={() => run(async () => setRemoteQuery(await readMockFunds()))}
-        >
-          查询远程资金
-        </Button>
-        <Button
-          variant="plain"
-          disabled={pending || !enabled}
-          onClick={() =>
-            run(async () => setRemoteQuery(await readMockTrades()))
-          }
-        >
-          查询当日成交
-        </Button>
+        <div className="button-row">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || !enabled}
+            onClick={() => run(async () => setMarkets(await readMockMarkets()))}
+          >
+            查看已保存市场代码（本地）
+          </Button>
+          {markets.map((code) => (
+            <p key={code}>
+              {code}：{mockMarketLabel(code)}
+            </p>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || !enabled}
+            onClick={() =>
+              run(async () => setRemoteQuery(await readMockFunds()))
+            }
+          >
+            查询远程资金
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || !enabled}
+            onClick={() =>
+              run(async () => setRemoteQuery(await readMockTrades()))
+            }
+          >
+            查询当日成交
+          </Button>
+        </div>
         {remoteQuery !== null && (
           <pre className="overflow-auto">
             {JSON.stringify(remoteQuery, null, 2)}
           </pre>
         )}
-        <p>
+        <p className="muted">
           当前{enabled ? "已开启" : "关闭"}
           。关闭时不读取远程账户、不发送任何远程请求。开启本身也不开户；所有远程操作需点击。
         </p>
-        <Button
-          variant="plain"
-          disabled={pending}
-          onClick={() =>
-            run(async () => {
-              await toggleMock(!enabled);
-              setDiff(null);
-              setPreview(null);
-              setMessage(
-                enabled ? "模拟盘已关闭" : "模拟盘已开启，尚未开户或下单",
-              );
-            })
-          }
-        >
-          {enabled ? "关闭模拟盘" : "开启模拟盘"}
-        </Button>
-        <Button
-          variant="plain"
-          disabled={pending}
-          onClick={() =>
-            run(async () => {
-              setDiagnostics(await readMockDiagnostics());
-            })
-          }
-        >
-          查看最近20次脱敏响应（本地）
-        </Button>
+        <div className="button-row">
+          <Button
+            size="sm"
+            variant={enabled ? "danger" : "default"}
+            disabled={pending}
+            onClick={() =>
+              run(async () => {
+                await toggleMock(!enabled);
+                setDiff(null);
+                setPreview(null);
+                setMessage(
+                  enabled ? "模拟盘已关闭" : "模拟盘已开启，尚未开户或下单",
+                );
+              })
+            }
+          >
+            {enabled ? "关闭模拟盘" : "开启模拟盘"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() =>
+              run(async () => {
+                setDiagnostics(await readMockDiagnostics());
+              })
+            }
+          >
+            查看最近20次脱敏响应（本地）
+          </Button>
+        </div>
         {diagnostics && (
           <div aria-live="polite">
             {diagnostics.length === 0
@@ -686,59 +816,69 @@ export function TradeLedgerPanel({
         )}
         {enabled && (
           <>
-            <p>
+            <p className="notice">
               开户将在第三方建立持久账户，用户名以DPAPI加密保存。服务使用HTTP。委托与本地交易互不自动覆盖。
             </p>
-            <Button
-              variant="plain"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  await createMockAccount();
-                  setMessage("账户已准备，可手动对账");
-                })
-              }
-            >
-              确认创建或使用模拟账户
-            </Button>
-            <Button
-              variant="plain"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  await recoverMockAccount();
-                  setMessage("既有账户股东账号已核验");
-                })
-              }
-            >
-              查询既有账户股东账号（不开户）
-            </Button>
-            <Button
-              variant="plain"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  setDiff(await reconcileAccount());
-                  setMessage("对账完成，未覆盖任何一侧");
-                })
-              }
-            >
-              查询远程并对账
-            </Button>
-            <Button
-              variant="plain"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  setPreview(await previewOrder(input()));
-                  setMessage("请核对委托后点击确认；预览60秒过期");
-                })
-              }
-            >
-              用上方输入预览模拟委托
-            </Button>
+            <div className="button-row">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    await createMockAccount();
+                    setMessage("账户已准备，可手动对账");
+                  })
+                }
+              >
+                确认创建或使用模拟账户
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    await recoverMockAccount();
+                    setMessage("既有账户股东账号已核验");
+                  })
+                }
+              >
+                查询既有账户股东账号（不开户）
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    setDiff(await reconcileAccount());
+                    setMessage("对账完成，未覆盖任何一侧");
+                  })
+                }
+              >
+                查询远程并对账
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    setPreview(await previewOrder(input()));
+                    setMessage("请核对委托后点击确认；预览60秒过期");
+                  })
+                }
+              >
+                用上方输入预览模拟委托
+              </Button>
+            </div>
             {preview && (
-              <div role="group" aria-label="确认模拟委托">
+              <div
+                role="group"
+                aria-label="确认模拟委托"
+                className="notice mt-3"
+              >
                 <p>
                   {preview.input.symbol} ·{" "}
                   {preview.input.side === "buy" ? "买入" : "卖出"} ·{" "}
@@ -746,7 +886,7 @@ export function TradeLedgerPanel({
                   元；确认后发送远程委托。
                 </p>
                 <Button
-                  variant="plain"
+                  size="sm"
                   disabled={pending}
                   onClick={() =>
                     run(async () => {
@@ -758,7 +898,11 @@ export function TradeLedgerPanel({
                 >
                   确认发送这笔模拟委托
                 </Button>
-                <Button variant="plain" onClick={() => setPreview(null)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPreview(null)}
+                >
                   取消
                 </Button>
               </div>
@@ -781,8 +925,60 @@ export function TradeLedgerPanel({
             )}
           </>
         )}
-        <p>同花顺问财提供模拟炒股服务</p>
-      </section>
-    </main>
+      </Panel>
+    </PageGrid>
   );
 }
+
+/** Header counts derived from the dashboard rows; nothing is fetched here. */
+const tradeStats = (data: Dashboard, enabled: boolean): Stat[] => {
+  const held = data.positions.filter((p) => p.quantity > 0);
+  const priced = held.filter((p) => p.quote?.price != null);
+  const value = priced.reduce((s, p) => s + p.quantity * p.quote!.price, 0);
+  const floating = held.filter((p) => p.floating != null);
+  const total = floating.reduce((s, p) => s + p.floating!, 0);
+  const breached = held.filter(
+    (p) => p.stopDistancePct != null && p.stopDistancePct < 0,
+  ).length;
+  return [
+    {
+      label: "持仓",
+      value: `${held.length} 只`,
+      note: `T+1 可卖 ${held.filter((p) => p.sellable > 0).length} 只`,
+    },
+    {
+      label: "持仓市值",
+      value: priced.length ? number(value) : "—",
+      note:
+        priced.length < held.length
+          ? `${held.length - priced.length} 只缺本地收盘`
+          : "本地收盘价计",
+    },
+    {
+      label: "浮动盈亏",
+      value: floating.length ? number(total) : "—",
+      note:
+        floating.length < held.length
+          ? `${held.length - floating.length} 只留空（除权或缺价）`
+          : "不含已实现",
+      tone: floating.length ? changeTone(total) : "neutral",
+    },
+    {
+      label: "跌破止损",
+      value: breached,
+      note: "不自动卖出",
+      tone: breached ? "warn" : "neutral",
+    },
+    {
+      label: "交易记录",
+      value: data.trades.length,
+      note: `${data.trades.filter((t) => t.signalId).length} 笔关联信号`,
+    },
+    {
+      label: "模拟盘",
+      value: enabled ? "已开启" : "已关闭",
+      note: "关闭时不发远程请求",
+      tone: enabled ? "accent" : "idle",
+    },
+  ];
+};

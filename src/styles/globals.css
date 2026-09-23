@@ -1264,6 +1264,7 @@ textarea[data-slot]::placeholder {
   color: var(--nc-text-3);
 }
 .panel > label,
+.form-grid > label,
 .panel .inline-form > label {
   display: flex;
   flex-direction: column;
