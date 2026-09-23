@@ -86,79 +86,175 @@
   --ring: var(--nc-accent);
   --radius: var(--nc-radius);
 }
+/* Element defaults sit in the base layer so Tailwind utilities on new
+   components override them; legacy class rules below stay unlayered. */
+@layer base {
+  body {
+    margin: 0;
+    background: var(--nc-bg);
+    color: var(--nc-text);
+    font: var(--nc-text-base) / 1.5 var(--nc-font);
+  }
+  button,
+  input,
+  textarea:not([data-slot]),
+  select:not([data-slot]) {
+    font: inherit;
+  }
+  button,
+  a,
+  input,
+  textarea:not([data-slot]),
+  select:not([data-slot]) {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  a {
+    color: var(--nc-accent-light);
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--nc-accent-400);
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--nc-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--nc-accent) 30%, transparent);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  p {
+    margin: 0;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 500;
+  }
+  h3 {
+    font-size: 13px;
+  }
+  h4 {
+    font-size: 12.5px;
+    margin: 14px 0 6px;
+  }
+  p {
+    margin: 8px 0;
+  }
+  small {
+    font-size: 11px;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([data-slot]),
+  textarea:not([data-slot]),
+  select:not([data-slot]) {
+    border: 1px solid var(--nc-border);
+    border-radius: var(--nc-radius);
+    background: var(--nc-field);
+    color: var(--nc-text);
+    padding: 7px 10px;
+    min-width: 0;
+    width: 100%;
+    font-size: 12px;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([data-slot]):hover,
+  textarea:not([data-slot]):hover,
+  select:not([data-slot]):hover {
+    border-color: var(--nc-neutral-700);
+  }
+  textarea:not([data-slot]) {
+    resize: vertical;
+    line-height: 1.7;
+  }
+  input::placeholder,
+  textarea:not([data-slot])::placeholder {
+    color: var(--nc-text-5);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    white-space: nowrap;
+  }
+  th {
+    text-align: left;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--nc-text-4);
+    font-weight: 400;
+    background: transparent;
+    padding: 0 8px 7px;
+    border-bottom: 1px solid var(--nc-border-soft);
+  }
+  td {
+    border-bottom: 1px solid var(--nc-inset);
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+  tbody tr:hover td {
+    background: var(--nc-inset);
+  }
+  td strong {
+    font-weight: 500;
+  }
+  td small {
+    display: block;
+    color: var(--nc-text-4);
+    font-size: 10.5px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--nc-accent);
+  }
+  details {
+    font-size: 12px;
+    color: var(--nc-text-3);
+    margin: 12px 0;
+  }
+  summary {
+    cursor: pointer;
+    color: var(--nc-accent-light);
+  }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font:
+      11px/1.75 Consolas,
+      var(--nc-font);
+    background: var(--nc-inset);
+    color: var(--nc-text-2);
+    border: 1px solid var(--nc-border-soft);
+    padding: 12px 14px;
+    border-radius: var(--nc-radius);
+    max-height: 350px;
+    overflow: auto;
+  }
+  footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 22px 18px;
+    color: var(--nc-text-5);
+    font-size: 10.5px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
-body {
-  margin: 0;
-  background: var(--nc-bg);
-  color: var(--nc-text);
-  font: var(--nc-text-base) / 1.5 var(--nc-font);
-}
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-button,
-a,
-input,
-textarea,
-select {
-  -webkit-tap-highlight-color: transparent;
-}
-button {
-  cursor: pointer;
-}
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-a {
-  color: var(--nc-accent-light);
-  text-underline-offset: 3px;
-}
-a:hover {
-  color: var(--nc-accent-400);
-}
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--nc-accent);
-  outline-offset: 2px;
-}
-::selection {
-  background: color-mix(in srgb, var(--nc-accent) 30%, transparent);
-}
-h1,
-h2,
-h3,
-h4,
-p {
-  margin: 0;
-}
-h1,
-h2,
-h3,
-h4 {
-  font-weight: 500;
-}
-h3 {
-  font-size: 13px;
-}
-h4 {
-  font-size: 12.5px;
-  margin: 14px 0 6px;
-}
-p {
-  margin: 8px 0;
-}
-small {
-  font-size: 11px;
-}
+
 .num,
 td,
 .tabular {
@@ -740,31 +836,7 @@ td,
   font-size: 11px;
   color: var(--nc-text-3);
 }
-input:not([type="checkbox"]):not([type="radio"]),
-textarea,
-select {
-  border: 1px solid var(--nc-border);
-  border-radius: var(--nc-radius);
-  background: var(--nc-field);
-  color: var(--nc-text);
-  padding: 7px 10px;
-  min-width: 0;
-  width: 100%;
-  font-size: 12px;
-}
-input:not([type="checkbox"]):not([type="radio"]):hover,
-textarea:hover,
-select:hover {
-  border-color: var(--nc-neutral-700);
-}
-textarea {
-  resize: vertical;
-  line-height: 1.7;
-}
-input::placeholder,
-textarea::placeholder {
-  color: var(--nc-text-5);
-}
+
 .evidence-note {
   font-size: 11px;
   color: var(--nc-text-4);
@@ -897,37 +969,7 @@ textarea::placeholder {
 .table-wrap {
   overflow: auto;
 }
-table {
-  border-collapse: collapse;
-  width: 100%;
-  white-space: nowrap;
-}
-th {
-  text-align: left;
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--nc-text-4);
-  font-weight: 400;
-  background: transparent;
-  padding: 0 8px 7px;
-  border-bottom: 1px solid var(--nc-border-soft);
-}
-td {
-  border-bottom: 1px solid var(--nc-inset);
-  padding: 9px 8px;
-  font-size: 12px;
-}
-tbody tr:hover td {
-  background: var(--nc-inset);
-}
-td strong {
-  font-weight: 500;
-}
-td small {
-  display: block;
-  color: var(--nc-text-4);
-  font-size: 10.5px;
-}
+
 .result-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -965,10 +1007,7 @@ td small {
   gap: 7px;
   align-items: center;
 }
-input[type="checkbox"],
-input[type="radio"] {
-  accent-color: var(--nc-accent);
-}
+
 .list-row {
   display: flex;
   align-items: center;
@@ -1024,29 +1063,7 @@ details ul {
   font-size: 12px;
   line-height: 1.8;
 }
-details {
-  font-size: 12px;
-  color: var(--nc-text-3);
-  margin: 12px 0;
-}
-summary {
-  cursor: pointer;
-  color: var(--nc-accent-light);
-}
-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font:
-    11px/1.75 Consolas,
-    var(--nc-font);
-  background: var(--nc-inset);
-  color: var(--nc-text-2);
-  border: 1px solid var(--nc-border-soft);
-  padding: 12px 14px;
-  border-radius: var(--nc-radius);
-  max-height: 350px;
-  overflow: auto;
-}
+
 .coverage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -1114,13 +1131,7 @@ pre {
   display: flex;
   color: var(--nc-accent);
 }
-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 22px 18px;
-  color: var(--nc-text-5);
-  font-size: 10.5px;
-}
+
 .toast {
   position: fixed;
   bottom: 24px;

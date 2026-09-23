@@ -40,7 +40,11 @@ export function GridTable<T>({
     .join(" ");
   return (
     <div className="nc-table-scroll">
-      <div role="table" aria-label={label} style={{ minWidth }}>
+      <div
+        role="table"
+        aria-label={label}
+        style={{ minWidth: rows.length ? minWidth : undefined }}
+      >
         <div
           role="row"
           className="nc-table-head"

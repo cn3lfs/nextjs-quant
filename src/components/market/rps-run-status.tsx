@@ -1,18 +1,19 @@
+import { Gauge } from "@phosphor-icons/react";
 import { summarizeRpsProgress, rpsLogTime } from "~/lib/rps-log";
 import type { RpsProgress } from "~/lib/rps";
-import { Badge } from "../ui/badge";
+import { Panel, Pill } from "../panels";
 
 const tone = {
-  running: "default",
-  complete: "secondary",
-  failed: "destructive",
-  cancelled: "outline",
+  running: "accent",
+  complete: "ok",
+  failed: "bad",
+  cancelled: "idle",
 } as const;
 
 function Bar({ label, percent }: { label: string; percent: number }) {
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
+      <div className="flex justify-between text-[11px] text-nc-text-3 tabular-nums">
         <span>{label}</span>
         <span>{percent}%</span>
       </div>
@@ -22,10 +23,10 @@ function Bar({ label, percent }: { label: string; percent: number }) {
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        className="nc-bar-track block h-[5px]"
       >
         <div
-          className="h-full rounded-full bg-primary transition-[width]"
+          className="h-full rounded-full bg-nc-accent transition-[width]"
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -40,19 +41,22 @@ function Bar({ label, percent }: { label: string; percent: number }) {
 export function RpsRunStatus({ progress }: { progress: RpsProgress | null }) {
   const view = summarizeRpsProgress(progress);
   return (
-    <section
+    <Panel
+      span={6}
       aria-label="RPS运行状态"
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-4"
-    >
-      <header className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">当前运行状态</h3>
-        <Badge variant={view ? tone[view.status] : "outline"}>
+      icon={Gauge}
+      title="当前运行状态"
+      tone={view?.status === "running" ? "accent" : "neutral"}
+      className="h-full"
+      actions={
+        <Pill tone={view ? tone[view.status] : "idle"}>
           {view ? view.statusLabel : "空闲"}
-        </Badge>
-      </header>
+        </Pill>
+      }
+    >
       {view && progress ? (
-        <div className="space-y-3 text-sm" role="status">
-          <p>
+        <div className="space-y-3 text-[12px] text-nc-text-2" role="status">
+          <p className="m-0">
             {view.target}任务 · {view.mode} · 阶段 {view.phase}
           </p>
           <Bar
@@ -63,21 +67,21 @@ export function RpsRunStatus({ progress }: { progress: RpsProgress | null }) {
             label={`提交 ${progress.completedDays}/${progress.totalDays} 日`}
             percent={view.dayPercent}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="m-0 text-[11px] text-nc-text-4">
             开始 {rpsLogTime(progress.startedAt)} · 更新{" "}
             {rpsLogTime(progress.updatedAt)}
           </p>
           {view.error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="m-0 text-[12px] text-nc-bad">
               {view.error}
             </p>
           )}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className="m-0 text-[12px] text-nc-text-3">
           尚未运行RPS任务。个股、行业、概念共用同一队列，同一时间只有一个任务在跑。
         </p>
       )}
-    </section>
+    </Panel>
   );
 }
