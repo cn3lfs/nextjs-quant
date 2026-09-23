@@ -113,7 +113,7 @@ function LegacyChart({
       (date.includes("T") ? Math.floor(Date.parse(date) / 1000) : date) as Time;
     if (equity) {
       const series = chart.addSeries(LineSeries, {
-        color: chartColor.series3,
+        color: chartColor.accent,
         lineWidth: 2,
       });
       series.setData(
