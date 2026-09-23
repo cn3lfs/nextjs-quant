@@ -27,6 +27,7 @@ import { Button } from "../ui/button";
 
 import { Field, stamp } from "./shared";
 import { NotificationPolicyFields } from "../signals/notification-policy-fields";
+import { CryptoConnections } from "../common/crypto-connections";
 
 export function Connections({
   value,
@@ -468,6 +469,7 @@ export function Connections({
           )}
         </div>
       </Panel>
+      <CryptoConnections />
       <Panel
         icon={Books}
         title="研究技能"

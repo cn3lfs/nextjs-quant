@@ -64,3 +64,7 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 出站网络由 `src/server/infra/outbound.ts` 处理：先直连（等待连接和响应头最多 3 秒），失败再走设置里的 `outboundProxy`（默认 `socks5://127.0.0.1:10808`，也支持 `http://`）。每个主机名会记住走通的路线 10 分钟，之后重新试直连。每次实际用的路线写进 `sourceNote`。通知渠道的代理设置 `proxy` 与此无关，保持不变。
 
 2026-09-24 本机实测：`data-api.binance.vision` 直连可用，BTCUSDT 日线和 5 分钟线各 1500 根，约 5 秒；经 10808 代理也可用。`api.binance.com` 直连超时，经 10808 代理返回 HTTP 451（受限地区）。私有接口（账户、下单）只在 `api.binance.com` 上，所以当前这个代理出口无法使用私有接口，需要换一个不受限地区的出口。
+
+数据与连接页的「数字货币出站代理」面板可以修改代理地址，也可以一键测试三个币安地址在直连和经代理两种方式下是否可用。2026-09-24 实测结果：`data-api.binance.vision` 两种方式都可用；`api.binance.com` 直连超时，经代理受地区限制；`testnet.binance.vision`（测试网）直连可用，经代理受地区限制。所以测试网的账户和下单可以直连使用，实盘仍需要一个不受限地区的代理出口。代理地址和测试网开关只由这个面板保存，旧页面的整体「保存设置」不会覆盖它们。
+
+币安 API Key 用 Windows DPAPI 加密保存在凭证库（`credentials/binance-api.bin`），界面只显示末 4 位，也不会把 Key 返回给前端。目前只支持 HMAC 类型的 Key。
