@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { AsOfObservation } from "../../src/lib/as-of";
-import { asOfInputDefinitions } from "../../src/lib/as-of-inputs";
+import type { AsOfObservation } from "../../src/lib/research/evidence/as-of";
+import { asOfInputDefinitions } from "../../src/lib/research/evidence/as-of-inputs";
 import { request } from "./growth-factor-fixture";
 export const newsRequest = request;
 export const digest = (s: string) =>

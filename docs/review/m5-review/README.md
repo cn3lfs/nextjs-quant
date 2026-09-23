@@ -57,10 +57,10 @@
 ## 本轮文件清单
 
 - 计算与批量：新增 `src/server/strategies/breakout/breakout.ts`、`src/server/strategies/breakout/breakout-batch.ts`。
-- 方法溯源：新增 `src/lib/breakout-method.json`；修改 `src/server/research/research-skills.ts` 的 swing-trader 接入与hash读取。
+- 方法溯源：新增 `src/lib/strategy-facts/breakout-method.json`；修改 `src/server/research/research-skills.ts` 的 swing-trader 接入与hash读取。
 - 策略接线：修改 `src/lib/domain.ts`、`src/server/monitoring/monitor-strategy.ts`、`src/server/backtest/quant.ts`（仅防止双突破被当作MA）、`src/server/api/root.ts`、`src/server/runtime.ts`、`src/server/infra/notifications.ts`。
-- 图表与订阅：修改 `src/components/chart.tsx`、`src/lib/chart-data.ts`、`src/components/workbench.tsx`。
-- 测试：新增 `tests/breakout.test.ts`、`tests/breakout-batch.test.ts`；增补 `tests/m4-monitor.test.ts` 的双突破outbox案例及策略schema断言。
+- 图表与订阅：修改 `src/components/market/chart.tsx`、`src/lib/chart/chart-data.ts`、`src/components/workbench/workbench.tsx`。
+- 测试：新增 `tests/strategy-signals/methods/breakout/breakout.test.ts`、`tests/strategy-signals/methods/breakout/breakout-batch.test.ts`；增补 `tests/strategy-signals/monitoring/m4-monitor.test.ts` 的双突破outbox案例及策略schema断言。
 - 固定数据：新增 `tests/fixtures/breakout-valid.json`、`breakout-false.json`、`breakout-insufficient.json`。
 - 可重复复核入口：新增 `tests/m5-local-review.ts`、`tests/m5-visual-review.mjs`。
 - 文档：仅追加一条M5决策至 `docs/decisions.md`；新增本目录README、batch.json、capture.json和三个案例PNG。

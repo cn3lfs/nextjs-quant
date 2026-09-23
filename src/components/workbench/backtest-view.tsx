@@ -3,7 +3,7 @@ import {
   AdjustmentControl,
   AdjustmentDisclosure,
 } from "../backtest/research-adjustment";
-import type { ResearchAdjustment } from "~/lib/research-adjustment";
+import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { Play, TriangleAlert } from "lucide-react";
 import {

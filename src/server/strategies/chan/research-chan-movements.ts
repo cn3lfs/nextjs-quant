@@ -1,12 +1,12 @@
-import { structureBarBytes } from "~/lib/research-wyckoff";
+import { structureBarBytes } from "~/lib/research/methods/wyckoff/research-wyckoff";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult, CzscFamily } from "~/lib/czsc";
-import type { ChanAnchor } from "~/lib/czsc-movements";
-import { chanAnchorDateCodes } from "~/lib/czsc-movements";
-import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
-import type { ResearchStructureObservation } from "~/lib/research-structure-events";
-import { chanAnchorVersions } from "~/lib/research-chan-recursive";
-import { chanNativeCandidates } from "~/lib/research-chan-native";
+import type { CzscResult, CzscFamily } from "~/lib/research/methods/chan/czsc";
+import type { ChanAnchor } from "~/lib/research/methods/chan/czsc-movements";
+import { chanAnchorDateCodes } from "~/lib/research/methods/chan/czsc-movements";
+import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
+import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
+import { chanAnchorVersions } from "~/lib/research/methods/chan/research-chan-recursive";
+import { chanNativeCandidates } from "~/lib/research/methods/chan/research-chan-native";
 import {
   chanC4Presets,
   chanC4Boundary,
@@ -16,7 +16,7 @@ import {
   chanC4SmallTurn,
   chanC4Observations,
   chanMovementKey,
-} from "~/lib/research-chan-movements";
+} from "~/lib/research/methods/chan/research-chan-movements";
 import { researchChanMonthlyInput } from "./research-chan-monthly";
 
 type Signal = CzscFamily["signals"][number];

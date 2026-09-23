@@ -2,7 +2,7 @@
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { normalizeChartSymbol } from "~/lib/chart-symbol";
+import { normalizeChartSymbol } from "~/lib/chart/chart-symbol";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";

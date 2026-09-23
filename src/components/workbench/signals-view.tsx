@@ -1,5 +1,5 @@
 import { MarketSourceSelect } from "../market/market-source-select";
-import { marketSourceLabels } from "~/lib/market-source";
+import { marketSourceLabels } from "~/lib/market/market-source";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -11,7 +11,7 @@ import {
 import { Checkbox } from "~/components/ui/checkbox";
 import { ChevronRight, Plus } from "lucide-react";
 import { type Period } from "~/lib/domain";
-import { securityDisplayName } from "~/lib/security-display";
+import { securityDisplayName } from "~/lib/market/security-display";
 import { TradingStatusEvidence } from "../signals/trading-status-evidence";
 import { Button } from "../ui/button";
 import {

@@ -5,8 +5,8 @@ import {
   poolCategoryLabels,
   poolCategorySchema,
   poolSelectionSchema,
-} from "~/lib/market-pool";
-import { industryRpsPolicy } from "~/lib/industry-rps";
+} from "~/lib/market/market-pool";
+import { industryRpsPolicy } from "~/lib/screening/industry-rps";
 import { parseIndustryMembers } from "./industry-blocks";
 import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
 import { get, put } from "../db";

@@ -7,7 +7,7 @@ import {
   rsi,
   candlePatterns,
 } from "trading-strategy-core/indicators";
-import method from "~/lib/breakout-method.json";
+import method from "~/lib/strategy-facts/breakout-method.json";
 import { vcpFacts } from "../canslim/vcp";
 
 /** swing-trader Phase 3–4 / trading-system §1–4. All thresholds below are

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
 import { Button } from "../ui/button";
-import { securityDisplayName } from "~/lib/security-display";
+import { securityDisplayName } from "~/lib/market/security-display";
 
 const labels = {
   morphology: "形态与包含关系",

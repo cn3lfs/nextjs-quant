@@ -4,7 +4,7 @@ import {
   rpsPhaseLabel,
   rpsStatusLabel,
   type RpsLogEntry,
-} from "~/lib/rps-log";
+} from "~/lib/screening/rps-log";
 import { Panel, Pill } from "../panels";
 import { Button } from "../ui/button";
 

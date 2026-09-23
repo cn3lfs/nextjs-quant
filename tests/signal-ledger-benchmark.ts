@@ -16,7 +16,7 @@ import {
   horizons,
   ledgerOutcome,
   type LedgerSignal,
-} from "../src/lib/signal-ledger";
+} from "../src/lib/strategy-facts/signal-ledger";
 
 const directory = process.env.QUANT_DATA_DIR;
 if (

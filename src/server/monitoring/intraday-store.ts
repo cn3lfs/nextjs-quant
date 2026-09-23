@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import type { evaluateIntraday } from "./intraday-strategy";
-import { previewConfirmation } from "~/lib/intraday-preview";
+import { previewConfirmation } from "~/lib/research/analysis/intraday-preview";
 
 export type IntradayObservation = Awaited<
   ReturnType<typeof evaluateIntraday>

@@ -2,17 +2,17 @@ import type { Bar } from "../src/lib/domain";
 import {
   researchCommission,
   type ResearchExecutionRules,
-} from "../src/lib/research-execution";
+} from "../src/lib/research/technical/research-execution";
 import {
   researchSpecSchema,
   type ResearchEvent,
   type ResearchSpec,
-} from "../src/lib/strategy-research";
+} from "../src/lib/research/strategy-research";
 import {
   closeReturns,
   projectResearchWeights,
   weightBacktest,
-} from "../src/lib/weight-backtest";
+} from "../src/lib/backtest/weight-backtest";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 
 export const anchorDays = [

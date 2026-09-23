@@ -1,5 +1,5 @@
 "use client";
-import type { keyTrades, KeyTrade, KeyTradeRanking } from "~/lib/key-trades";
+import type { keyTrades, KeyTrade, KeyTradeRanking } from "~/lib/research/analysis/key-trades";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import {

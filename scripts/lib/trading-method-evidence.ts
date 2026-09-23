@@ -3,7 +3,7 @@ import { basename, dirname, relative, resolve } from "node:path";
 import ts from "typescript";
 import type { z } from "zod";
 import { tradingMethodMapSchema } from "./trading-method-map";
-import { researchCompositePresetIds } from "../../src/lib/research-composite-presets";
+import { researchCompositePresetIds } from "../../src/lib/research/specs/research-composite-presets";
 
 export type MethodMap = z.infer<typeof tradingMethodMapSchema>;
 export type MethodEvidence = {
@@ -177,7 +177,7 @@ export function collectMethodEvidence(
     owners: new Map([
       ...families.flatMap((f) => f.ids.map((id) => [id, f.file] as const)),
       ...researchCompositePresetIds.map(
-        (id) => [id, "src/lib/research-composite-presets.ts"] as const,
+        (id) => [id, "src/lib/research/specs/research-composite-presets.ts"] as const,
       ),
     ]),
   };
@@ -237,31 +237,31 @@ export function reconcileMethodEvidence(
       owners.some(
         (owner) =>
           (method.tests.includes(test) && reaches(test, owner)) ||
-          (test === `tests/${basename(owner, ".ts")}.test.ts` &&
+          (test.endsWith(`/${basename(owner, ".ts")}.test.ts`) &&
             reaches(test, owner)),
       ),
     );
     if (bindings.presets.length)
       for (const test of [
-        "tests/research-contracts.test.ts",
-        "tests/research-registry-ui.test.ts",
+        "tests/research-backtest/research-contracts.test.ts",
+        "tests/research-backtest/research-registry-ui.test.ts",
       ]) {
         if (
           evidence.tests.has(test) &&
-          reaches(test, "src/lib/research-strategies.ts")
+          reaches(test, "src/lib/research/specs/research-strategies.ts")
         )
           discovered.push(test);
       }
     if (
       bindings.presets.length &&
-      owners.includes("src/lib/research-composite-presets.ts") &&
-      evidence.tests.has("tests/research-composite-presets.test.ts") &&
+      owners.includes("src/lib/research/specs/research-composite-presets.ts") &&
+      evidence.tests.has("tests/research-backtest/research-composite-presets.test.ts") &&
       reaches(
-        "tests/research-composite-presets.test.ts",
-        "src/lib/research-composite-presets.ts",
+        "tests/research-backtest/research-composite-presets.test.ts",
+        "src/lib/research/specs/research-composite-presets.ts",
       )
     )
-      discovered.push("tests/research-composite-presets.test.ts");
+      discovered.push("tests/research-backtest/research-composite-presets.test.ts");
     for (const test of method.tests)
       if (!evidence.tests.has(test))
         errors.push(`${method.id}: declared test missing/empty: ${test}`);

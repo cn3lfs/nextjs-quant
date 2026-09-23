@@ -3,13 +3,13 @@ import { useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import { usePanelVisible } from "../workbench/keep-alive";
-import { rpsPeriods } from "~/lib/rps";
-import { industryEmptyLabels, industryExclusions } from "~/lib/industry-rps";
+import { rpsPeriods } from "~/lib/screening/rps";
+import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
 import { industryExclusionLabels } from "./industry-rps-status";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
-import { PoolMembersLink } from "../common/pool-members-link";
+import { PoolMembersLink } from "./pool-members-link";
 import {
   Select,
   SelectContent,

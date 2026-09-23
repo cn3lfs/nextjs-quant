@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { clsFactReviewSchema, type ClsFactReview } from "~/lib/cls-fact-review";
+import { clsFactReviewSchema, type ClsFactReview } from "~/lib/news/cls-fact-review";
 import type Database from "better-sqlite3";
 import type { ClsReportPreview } from "./cls-report-files";
 import type { ClsSample } from "./cls-sample";

@@ -13,13 +13,13 @@ const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {ResearchStrategyFields,selectResearchStrategy} from './src/components/research-strategy-fields';
-import {researchStrategyIds,researchStrategies} from './src/lib/research-strategies';
-import {researchSpecSchema} from './src/lib/strategy-research';
-import {swingCoreIds} from './src/lib/research-swing-core';
-import {indicatorCombinationIds} from './src/lib/research-indicator-combinations';
-import {volumeAdaptedIds} from './src/lib/research-volume-adapted';
-import {volumePollutionIds} from './src/lib/research-volume-pollution';
-import {swingDisciplineIds,swingDisciplineLabels,swingDisciplineTemplate} from './src/lib/research-swing-discipline';
+import {researchStrategyIds,researchStrategies} from './src/lib/research/specs/research-strategies';
+import {researchSpecSchema} from './src/lib/research/strategy-research';
+import {swingCoreIds} from './src/lib/research/methods/swing/research-swing-core';
+import {indicatorCombinationIds} from './src/lib/research/technical/research-indicator-combinations';
+import {volumeAdaptedIds} from './src/lib/research/methods/volume/research-volume-adapted';
+import {volumePollutionIds} from './src/lib/research/methods/volume/research-volume-pollution';
+import {swingDisciplineIds,swingDisciplineLabels,swingDisciplineTemplate} from './src/lib/research/methods/swing/research-swing-discipline';
 import {applyResearchManagement} from './src/components/research-strategy-fields';
 function Fixture(){const [spec,setSpec]=useState(()=>researchSpecSchema.parse({strategy:'dual-breakout',start:'2024-01-01',end:'2024-12-31',validationStart:'2024-10-01'}));
 window.b3Ids=[...swingCoreIds,...indicatorCombinationIds,...volumeAdaptedIds,...volumePollutionIds,'sw-system-combined'];window.disciplines=swingDisciplineIds.map(id=>({id,label:swingDisciplineLabels[id]}));window.showManagement=()=>setSpec(previous=>applyResearchManagement(previous,swingDisciplineTemplate('sw-stop2')));

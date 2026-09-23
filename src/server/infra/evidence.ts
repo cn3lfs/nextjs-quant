@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import {
   evidenceEnvelopeSchema,
   type EvidenceEnvelope,
-} from "~/lib/evidence-envelope";
+} from "~/lib/research/evidence/evidence-envelope";
 import type { Evidence } from "~/lib/domain";
 
 export function evidenceEnvelope(

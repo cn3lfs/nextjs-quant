@@ -3,7 +3,7 @@ import {
   bonusAdjustmentAssumptions,
   type AdjustmentDiagnostics,
   type ResearchAdjustment,
-} from "~/lib/research-adjustment";
+} from "~/lib/research/evidence/research-adjustment";
 import {
   Select,
   SelectTrigger,

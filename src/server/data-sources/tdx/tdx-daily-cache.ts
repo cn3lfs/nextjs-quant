@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { symbolSchema } from "~/lib/domain";
-import { historicalDateSchema } from "~/lib/historical-screen";
+import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { atomic, get, put, sqlite } from "../../db";
 import { parseTdxDailyIncrement } from "./tdx-daily-increment";
 

@@ -1,11 +1,11 @@
 "use client";
 import { AdjustmentDisclosure } from "./research-adjustment";
-import type { ResearchAdjustment } from "~/lib/research-adjustment";
+import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useEffect, useState } from "react";
 import type { Snapshot, Strategy } from "~/lib/domain";
-import type { BacktestCosts } from "~/lib/backtest-costs";
-import type { WalkForwardPage } from "~/lib/walk-forward";
+import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
+import type { WalkForwardPage } from "~/lib/backtest/walk-forward";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { WalkForwardExplanation } from "./walk-forward-explanation";

@@ -4,7 +4,7 @@ import {
   rpsPeriods,
   rpsPolicy,
   type RpsDay,
-} from "~/lib/rps";
+} from "~/lib/screening/rps";
 
 /**
  * Latest 个股 result and the口径 behind it. The running job is reported by the

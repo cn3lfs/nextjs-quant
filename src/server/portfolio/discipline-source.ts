@@ -1,5 +1,5 @@
-import type { DisciplineInput } from "~/lib/discipline-counterfactual";
-import { runDisciplineGrid } from "~/lib/discipline-counterfactual";
+import type { DisciplineInput } from "~/lib/research/risk/discipline-counterfactual";
+import { runDisciplineGrid } from "~/lib/research/risk/discipline-counterfactual";
 import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
 import { readTradeReviewSnapshot } from "./trade-review-market";
 import { fullLocalCalendarReference } from "../market/data-health";

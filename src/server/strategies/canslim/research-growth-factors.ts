@@ -2,42 +2,42 @@ import {
   evaluateIndexFactor,
   indexFactorRules,
   indexFactorInputs,
-} from "~/lib/research-index-factors";
+} from "~/lib/research/factors/research-index-factors";
 import {
   chipFactorRules,
   evaluateChipFactor,
-} from "~/lib/research-chip-factors";
+} from "~/lib/research/factors/research-chip-factors";
 import {
   queryFactorRules,
   evaluateQueryFactor,
-} from "~/lib/research-query-templates";
+} from "~/lib/research/workflow/research-query-templates";
 import {
   evaluateNewsFactor,
   newsFactorRules,
   newsFactorInputs,
   newsReplaySchema,
-} from "~/lib/research-news-factors";
+} from "~/lib/research/factors/research-news-factors";
 import {
   evaluateCrowdingFactor,
   crowdingFactorRules,
-} from "~/lib/research-crowding-factors";
+} from "~/lib/research/factors/research-crowding-factors";
 import {
   evaluateSentimentFactor,
   sentimentFactorRules,
-} from "~/lib/research-sentiment-factors";
+} from "~/lib/research/factors/research-sentiment-factors";
 import {
   evaluateValueFactor,
   valueFactorRules,
   valueFactorInputs,
-} from "~/lib/research-value-factors";
-import { researchKellyTraining } from "~/lib/research-kelly-training";
-import { researchKellyLimit } from "~/lib/research-kelly";
-import { researchWyckoffSeries } from "~/lib/research-wyckoff";
-import { growthTrainingSchema, growthOverrideSchema } from "~/lib/as-of-inputs";
+} from "~/lib/research/factors/research-value-factors";
+import { researchKellyTraining } from "~/lib/research/risk/research-kelly-training";
+import { researchKellyLimit } from "~/lib/research/risk/research-kelly";
+import { researchWyckoffSeries } from "~/lib/research/methods/wyckoff/research-wyckoff";
+import { growthTrainingSchema, growthOverrideSchema } from "~/lib/research/evidence/as-of-inputs";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { createAsOfAdapter, type AsOfDomain } from "~/lib/as-of";
-import { asOfInputDefinitions, readAsOfInput } from "~/lib/as-of-inputs";
+import { createAsOfAdapter, type AsOfDomain } from "~/lib/research/evidence/as-of";
+import { asOfInputDefinitions, readAsOfInput } from "~/lib/research/evidence/as-of-inputs";
 import {
   buildCanslimAsOfDossier,
   canslimAsOfRequestSchema,
@@ -52,7 +52,7 @@ import {
   growthEntrySchema,
   growthEarningsSchema,
   growthEntryEventsSchema,
-} from "~/lib/as-of-inputs";
+} from "~/lib/research/evidence/as-of-inputs";
 import { researchSepaSeries } from "./research-sepa";
 import { researchCanslimHighSeries } from "./research-canslim-high";
 import { researchCanslimVolumeTier } from "./research-canslim-volume-tier";

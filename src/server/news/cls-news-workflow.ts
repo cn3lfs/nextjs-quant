@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { z } from "zod";
-import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/cls-batch";
+import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/news/cls-batch";
 import { get, put, sqlite } from "../db";
 import { claimWorkflow } from "../jobs/workflow-lease";
 import { parseClsReport } from "./cls-report-parser";

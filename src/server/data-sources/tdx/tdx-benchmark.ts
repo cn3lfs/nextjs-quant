@@ -1,5 +1,5 @@
 import { parseBars } from "./tdx";
-import { historicalDateSchema } from "~/lib/historical-screen";
+import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";

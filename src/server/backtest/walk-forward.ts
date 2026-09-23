@@ -1,20 +1,20 @@
 import { bonusAdjustedSignals } from "./bonus-adjusted-signals";
 import type { BacktestActions } from "./backtest-actions";
-import { combinatoriallySymmetricCv } from "~/lib/backtest-overfit";
+import { combinatoriallySymmetricCv } from "~/lib/backtest/backtest-overfit";
 import { createHash } from "node:crypto";
 import { strategySchema, type Snapshot, type Strategy } from "~/lib/domain";
 import {
   walkForwardSchema,
   type WalkForwardOptions,
   type WalkForwardResult,
-} from "~/lib/walk-forward";
-import { backtestCostsSchema, type BacktestCosts } from "~/lib/backtest-costs";
+} from "~/lib/backtest/walk-forward";
+import { backtestCostsSchema, type BacktestCosts } from "~/lib/backtest/backtest-costs";
 import { backtest } from "./quant";
 import {
   equityDailyReturns,
   multipleTesting,
   sharpeDaily,
-} from "~/lib/multiple-testing";
+} from "~/lib/backtest/multiple-testing";
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export function walkForwardCandidates(base: Strategy): Strategy[] {

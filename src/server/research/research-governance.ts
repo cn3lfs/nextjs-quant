@@ -5,9 +5,9 @@ import {
   researchAttemptsQuerySchema,
   isAttemptTerminal,
   type ResearchAttempt,
-} from "~/lib/research-governance";
+} from "~/lib/research/workflow/research-governance";
 import type { z } from "zod";
-import type { ResearchRange } from "~/lib/research-usage";
+import type { ResearchRange } from "~/lib/research/workflow/research-usage";
 import { usageConfigHash } from "./research-usage";
 
 /** Separate from successful candidate counts. Audit writes never fabricate successes. */

@@ -1,4 +1,4 @@
-import { chartSymbolHref } from "~/lib/chart-symbol";
+import { chartSymbolHref } from "~/lib/chart/chart-symbol";
 
 /**
  * A full navigation on purpose: the workbench reads `?symbol=` once on mount, so

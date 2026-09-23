@@ -42,7 +42,7 @@
       买入尝试，原因分布是**单一值**「缺少当日交易限制依据」（12030/12030）；
       等待期耗尽后才表现为「入场等待期结束仍未成交」（4014 条排除里 4001 条）。
 
-   已排除的误判方向：`src/lib/research-event-coverage.ts:48-54` 的 `limitRate` 对主板
+   已排除的误判方向：`src/lib/research/factors/research-event-coverage.ts:48-54` 的 `limitRate` 对主板
    恒返回 0.1，A500 成分基本是主板，**涨跌停价本来算得出来**，不是算不出来。
 
    实测样本（本轮新归档，事件 → 成交）：`breakout-down-exit` 4017 → 0、
@@ -75,9 +75,9 @@
    `SW06-prior-target-tail`。与 S3 同类问题，S4 中处置。
 3. **组件缺具名预设**：B2 133 项 + B5 29 项只有导出函数、无可被研究引擎调用的具名策略入口。按计划 §1「只有函数或文字说明不算完成」，这 162 项未达可组合组件的完成要求。
 
-   **2026-09-18 复核修正**：`src/lib/research-composite-presets.ts` 已按单一基线
+   **2026-09-18 复核修正**：`src/lib/research/specs/research-composite-presets.ts` 已按单一基线
    `dual-breakout` 展开出全部 162 个预设（`b2MethodIds` 133 + `b5MethodIds` 29），
-   `tests/research-composite-presets.test.ts:25-32` 已断言 162 项且
+   `tests/research-backtest/research-composite-presets.test.ts:25-32` 已断言 162 项且
    `buildResearchCompositeSpec` 可产出 spec —— 这部分随 e5b9a17 的中途状态带入，
    此前未登记为完成。**剩余缺口是接线**：`researchCompositePresets` 在 `src/` 内除
    自身文件外无引用，`buildNamedResearchSpec`（`src/server/backtest/research-run.ts:145`）
@@ -106,7 +106,7 @@
 ### 2.1 阻塞 1 的处置（S2 已完成，`c74512d`）
 
 根因不是守卫太严，而是**守卫装错了地方**：admission 要的
-`marketEvidence.corporateActionFree` 是**外部提供方导出文件**（`src/lib/research-market-evidence.ts:19`
+`marketEvidence.corporateActionFree` 是**外部提供方导出文件**（`src/lib/research/factors/research-market-evidence.ts:19`
 自述 "A provider assertion, retained as evidence; importing is not verification"），
 代码库里**没有任何本地生成方**，本机研究拿不到，于是每只股票都不放行。
 

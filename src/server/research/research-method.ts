@@ -1,33 +1,33 @@
-import { isOpening } from "~/lib/research-opening";
-import { isMarketAdmission } from "~/lib/research-market-admission";
-import { isIntradayExecution } from "~/lib/research-intraday-execution";
-import { riskRepairBoundary } from "~/lib/research-risk-repair";
+import { isOpening } from "~/lib/research/technical/research-opening";
+import { isMarketAdmission } from "~/lib/research/risk/research-market-admission";
+import { isIntradayExecution } from "~/lib/research/technical/research-intraday-execution";
+import { riskRepairBoundary } from "~/lib/research/risk/research-risk-repair";
 import {
   riskRoutingBoundary,
   stopDiagnosisBoundary,
-} from "~/lib/research-risk-routing";
-import { riskExtensionBoundary } from "~/lib/research-risk-extensions";
-import { contextRiskBoundary } from "~/lib/research-context-risk";
-import { swingDisciplineBoundary } from "~/lib/research-swing-discipline";
-import { growthIntradayDescription } from "~/lib/research-growth-intraday";
-import { growthDailyDescription } from "~/lib/research-growth-daily";
-import { researchKellySwitchVersion } from "~/lib/research-kelly-switch";
-import { riskPresetBoundary } from "~/lib/research-risk-presets";
-import { volatilityStopBoundary } from "~/lib/research-volatility-stops";
+} from "~/lib/research/risk/research-risk-routing";
+import { riskExtensionBoundary } from "~/lib/research/risk/research-risk-extensions";
+import { contextRiskBoundary } from "~/lib/research/risk/research-context-risk";
+import { swingDisciplineBoundary } from "~/lib/research/methods/swing/research-swing-discipline";
+import { growthIntradayDescription } from "~/lib/research/factors/research-growth-intraday";
+import { growthDailyDescription } from "~/lib/research/factors/research-growth-daily";
+import { researchKellySwitchVersion } from "~/lib/research/risk/research-kelly-switch";
+import { riskPresetBoundary } from "~/lib/research/risk/research-risk-presets";
+import { volatilityStopBoundary } from "~/lib/research/risk/research-volatility-stops";
 import {
   isGrowthPivotStop,
   growthPivotStopDescription,
-} from "~/lib/research-growth-stops";
-import { sepaEliteDescription } from "~/lib/research-sepa-elite";
+} from "~/lib/research/factors/research-growth-stops";
+import { sepaEliteDescription } from "~/lib/research/specs/research-sepa-elite";
 import {
   isGrowthDailyExit,
   growthDailyExitDescription,
-} from "~/lib/research-growth-exits";
-import { researchKellyQualityVersion } from "~/lib/research-kelly-quality";
-import { researchKellyPayoffVersion } from "~/lib/research-kelly-payoff";
-import { researchKellyTrainingVersion } from "~/lib/research-kelly-training";
-import { researchKellyVersion } from "~/lib/research-kelly";
-import { researchBreakoutStopVersion } from "~/lib/research-breakout-stops";
+} from "~/lib/research/factors/research-growth-exits";
+import { researchKellyQualityVersion } from "~/lib/research/risk/research-kelly-quality";
+import { researchKellyPayoffVersion } from "~/lib/research/risk/research-kelly-payoff";
+import { researchKellyTrainingVersion } from "~/lib/research/risk/research-kelly-training";
+import { researchKellyVersion } from "~/lib/research/risk/research-kelly";
+import { researchBreakoutStopVersion } from "~/lib/research/technical/research-breakout-stops";
 import { createHash } from "node:crypto";
 import {
   researchExitPresetVersion,
@@ -36,22 +36,22 @@ import {
   isSepaExitPreset,
   sepaExitDescription,
   isCanslimProgressPreset,
-} from "~/lib/research-exit-presets";
+} from "~/lib/research/specs/research-exit-presets";
 import {
   researchProgressExitDescription,
   researchProgressExitVersion,
-} from "~/lib/research-progress-exit";
+} from "~/lib/research/technical/research-progress-exit";
 import {
   isResearchRManagementTemplate,
   researchRManagementVersion,
-} from "~/lib/research-r-management";
-import { researchLiquidityVersion } from "~/lib/research-liquidity";
+} from "~/lib/research/risk/research-r-management";
+import { researchLiquidityVersion } from "~/lib/research/factors/research-liquidity";
 import sourceLock from "../../../docs/trading-skills-source-lock.json";
-import { researchLossPauseVersion } from "~/lib/research-loss-pause";
-import { researchRetracementVersion } from "~/lib/research-retracement";
-import { researchMarketChopVersion } from "~/lib/research-market-chop";
-import { researchMarketRegimeVersion } from "~/lib/research-market-regime";
-import { swingExitKind, swingExitVersion } from "~/lib/research-swing-exits";
+import { researchLossPauseVersion } from "~/lib/research/risk/research-loss-pause";
+import { researchRetracementVersion } from "~/lib/research/technical/research-retracement";
+import { researchMarketChopVersion } from "~/lib/research/risk/research-market-chop";
+import { researchMarketRegimeVersion } from "~/lib/research/risk/research-market-regime";
+import { swingExitKind, swingExitVersion } from "~/lib/research/methods/swing/research-swing-exits";
 import {
   researchManagementSources,
   researchManagementVersion,
@@ -59,12 +59,12 @@ import {
   researchProtectionVersion,
   researchPyramidVersion,
   researchPullbackVersion,
-} from "~/lib/research-management";
-import type { ResearchSpec } from "~/lib/strategy-research";
+} from "~/lib/research/workflow/research-management";
+import type { ResearchSpec } from "~/lib/research/strategy-research";
 import {
   researchStrategies,
   type ResearchStrategyId,
-} from "~/lib/research-strategies";
+} from "~/lib/research/specs/research-strategies";
 
 // This is the revision interpreted by this implementation, not whichever
 // skill happens to be installed when an old experiment is opened or retried.

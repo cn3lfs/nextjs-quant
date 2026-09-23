@@ -1,8 +1,8 @@
-import { marketSourceSchema, type MarketSource } from "./market-source";
-import { researchDateSchema } from "./research-usage";
+import { marketSourceSchema, type MarketSource } from "./market/market-source";
+import { researchDateSchema } from "./research/workflow/research-usage";
 import { z } from "zod";
-import { notificationPolicySchema } from "./notification-policy";
-import type { SecurityTradingStatus } from "./security-trading-status";
+import { notificationPolicySchema } from "./strategy-facts/notification-policy";
+import type { SecurityTradingStatus } from "./market/security-trading-status";
 import type { Bar, Period } from "trading-strategy-core/bars";
 export type { Bar, Period } from "trading-strategy-core/bars";
 export const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
@@ -118,7 +118,7 @@ export type Job = {
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
   progress: number;
   phase?: string;
-  workProgress?: import("./work-progress").WorkProgress;
+  workProgress?: import("./research/workflow/work-progress").WorkProgress;
   createdAt: number;
   updatedAt: number;
   input: unknown;
@@ -130,7 +130,7 @@ export type Evidence = {
   source: string;
   asOf: string;
   text: string;
-  envelope?: import("./evidence-envelope").EvidenceEnvelope;
+  envelope?: import("./research/evidence/evidence-envelope").EvidenceEnvelope;
 };
 export const reportSchema = z.object({
   title: z.string(),
@@ -193,7 +193,7 @@ export type Channel = Omit<
 > & { id: string; configured: boolean };
 export type Signal = {
   breakout?: import("../server/strategies/breakout/breakout").BreakoutResult;
-  czsc?: import("./czsc").CzscSignalDetails;
+  czsc?: import("./research/methods/chan/czsc").CzscSignalDetails;
   monitorRun?: { createdAt: number; revision: string | null };
   tradingStatusEvidence?: SecurityTradingStatus;
   calendarEvidence?: {
@@ -288,7 +288,7 @@ export type Trade = {
   fee: number;
 };
 export type Backtest = {
-  adjustment?: import("./research-adjustment").ResearchAdjustment;
+  adjustment?: import("./research/evidence/research-adjustment").ResearchAdjustment;
   signalAdjustment?: import("~/server/backtest/cash-adjusted-signals").CashSignalAdjustment;
   dividends?: {
     strategy: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
@@ -308,7 +308,7 @@ export type Backtest = {
   };
   evaluationStart?: number;
   engineVersion?: string;
-  costs?: import("./backtest-costs").BacktestCosts;
+  costs?: import("./backtest/backtest-costs").BacktestCosts;
   dataRange?: {
     scope: "full" | "window";
     warmupBars?: number;
@@ -326,7 +326,7 @@ export type Backtest = {
   cash: number;
   shares: number;
   diagnostics: Partial<
-    import("./research-adjustment").AdjustmentDiagnostics
+    import("./research/evidence/research-adjustment").AdjustmentDiagnostics
   > & {
     entrySignals: number;
     insufficientCash: number;

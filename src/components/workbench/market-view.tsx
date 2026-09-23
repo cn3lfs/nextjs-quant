@@ -6,17 +6,17 @@ import {
   chartPeriodSchema,
   periodLabels,
   type ChartPeriod,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 import {
   chartAdjustmentLabels,
   type ChartAdjustment,
-} from "~/lib/chart-adjustment";
-import { securityDisplayName } from "~/lib/security-display";
+} from "~/lib/chart/chart-adjustment";
+import { securityDisplayName } from "~/lib/market/security-display";
 import { ChartWorkspace } from "../market/chart-workspace";
 import { SecuritySelect } from "../market/security-select";
 import { MarketPoolBrowser } from "../market/market-pool-browser";
-import { isMarketIndex } from "~/lib/market-indices";
-import { isSectorChartSymbol } from "~/lib/chart-symbol";
+import { isMarketIndex } from "~/lib/market/market-indices";
+import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import {

@@ -27,7 +27,7 @@
     "46277f0337c9173733c63929ce8f026a87d1bf722adf5889eb701b44787a511e",
     "2032553729f6f4b605e00af69785c80ab65ff57d9cf54c8ecef750c7ce95b1fc"
   ],
-  "src/components/common/notification-policy-fields.tsx": [
+  "src/components/signals/notification-policy-fields.tsx": [
     "af5f1ec45bf042b46a955379aa89e2f62f1b898fde846b4cf2d698fd98adcd9d",
     "254fc57925c4d6c7f0a33c949e91ba182c782cefced4f35db1eab3d8ddb9fc0f",
     "ce15b7898bf2d98f722e57fcde4758d04aae83497289fbcd80bb377da0e9ed16",

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { commonIndices } from "~/lib/market-indices";
+import { commonIndices } from "~/lib/market/market-indices";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 

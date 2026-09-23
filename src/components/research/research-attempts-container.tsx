@@ -5,7 +5,7 @@ import { api } from "~/trpc/react";
 import {
   researchAttemptStates,
   type ResearchAttempt,
-} from "~/lib/research-governance";
+} from "~/lib/research/workflow/research-governance";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import {
   Select,

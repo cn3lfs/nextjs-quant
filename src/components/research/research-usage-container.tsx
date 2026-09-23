@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import type { ResearchRange } from "~/lib/research-usage";
+import type { ResearchRange } from "~/lib/research/workflow/research-usage";
 import { ResearchUsagePanel } from "./research-usage-panel";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";

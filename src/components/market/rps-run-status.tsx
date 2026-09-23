@@ -1,6 +1,6 @@
 import { Gauge } from "@phosphor-icons/react/ssr";
-import { summarizeRpsProgress, rpsLogTime } from "~/lib/rps-log";
-import type { RpsProgress } from "~/lib/rps";
+import { summarizeRpsProgress, rpsLogTime } from "~/lib/screening/rps-log";
+import type { RpsProgress } from "~/lib/screening/rps";
 import { Panel, Pill } from "../panels";
 
 const tone = {

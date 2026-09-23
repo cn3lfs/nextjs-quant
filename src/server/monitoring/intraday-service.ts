@@ -1,7 +1,7 @@
 import {
   intradayConfigSchema,
   intradaySchedule,
-} from "~/lib/intraday-schedule";
+} from "~/lib/strategy-facts/intraday-schedule";
 import { get, put, sqlite } from "../db";
 import { settings } from "../infra/settings";
 import { monitorCalendar } from "./monitor-calendar";

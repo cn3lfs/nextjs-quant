@@ -1,4 +1,4 @@
-import type { CzscFamily, CzscSignalStructure } from "~/lib/czsc";
+import type { CzscFamily, CzscSignalStructure } from "~/lib/research/methods/chan/czsc";
 import type { CzscProjections } from "./czsc";
 import { decodeCzscNative } from "./czsc-structures";
 

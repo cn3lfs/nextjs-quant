@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { type Bar, type Period, type Snapshot } from "~/lib/domain";
-import { type ChartPeriod } from "~/lib/chart-view";
-import { type MarketSource, marketSourceLabels } from "~/lib/market-source";
+import { type ChartPeriod } from "~/lib/chart/chart-view";
+import { type MarketSource, marketSourceLabels } from "~/lib/market/market-source";
 import { tstdxKlines } from "../data-sources/tstdx/tstdx-adapter";
 import { onlinePeriodHistory } from "./chart-history";
 import { westockKlines } from "../data-sources/westock/westock-adapter";

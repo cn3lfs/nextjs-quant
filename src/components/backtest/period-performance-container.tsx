@@ -6,7 +6,7 @@ import { api, type RouterInputs } from "~/trpc/react";
 import { PeriodPerformanceResults } from "./period-performance-results";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
-import type { PerformanceBasis } from "~/lib/daily-performance";
+import type { PerformanceBasis } from "~/lib/backtest/daily-performance";
 
 export function PeriodPerformanceContainer({
   source,

@@ -1,6 +1,6 @@
 import type { Snapshot } from "~/lib/domain";
 import type { CalendarReference } from "../../market/data-health";
-import type { CzscResult } from "~/lib/czsc";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import { monthlyBars } from "../../market/monthly-bars";
 
 /** CH13 complete-month input. Signal evaluation belongs to the shared C4 prefix observer. */

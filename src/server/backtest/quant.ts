@@ -1,22 +1,22 @@
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import {
   bonusAdjustmentAssumptions,
   researchAdjustmentSchema,
-} from "~/lib/research-adjustment";
+} from "~/lib/research/evidence/research-adjustment";
 import {
   bonusAdjustedSignals,
   bonusShares,
   type ResearchAdjustmentInput,
 } from "./bonus-adjusted-signals";
 import type { Bar, Strategy, Backtest, Trade } from "~/lib/domain";
-import type { CashDividendPlan } from "~/lib/cash-dividends";
+import type { CashDividendPlan } from "~/lib/portfolio/cash-dividends";
 import { DividendLedger } from "./dividend-ledger";
 import { cashAdjustedSignals } from "./cash-adjusted-signals";
 import {
   backtestCostsSchema,
   defaultBacktestCosts,
   type BacktestCosts,
-} from "~/lib/backtest-costs";
+} from "~/lib/backtest/backtest-costs";
 import { big, bpsOf, moneyMul, toNumber, bigFloor } from "~/lib/money";
 export function backtest(
   bars: Bar[],

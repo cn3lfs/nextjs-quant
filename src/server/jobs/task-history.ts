@@ -1,7 +1,7 @@
 import { sqlite } from "../db";
-import { taskHistoryInput, type TaskState } from "~/lib/task-history";
+import { taskHistoryInput, type TaskState } from "~/lib/research/workflow/task-history";
 import type { z } from "zod";
-import { workProgressSchema } from "~/lib/work-progress";
+import { workProgressSchema } from "~/lib/research/workflow/work-progress";
 
 export const taskStateFields = `
  'id', id, 'type', json_extract(payload, '$.type'),

@@ -6,7 +6,7 @@ import {
   industryFileSchema,
   industryRpsPolicy,
   industrySnapshotSchema,
-} from "~/lib/industry-rps";
+} from "~/lib/screening/industry-rps";
 import { rpsHash } from "~/server/infra/content-hash";
 
 /** External Blocks directory is read-only; no cache or sidecar is written there. */

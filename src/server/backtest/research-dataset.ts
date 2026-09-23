@@ -1,33 +1,33 @@
-import { isChanFiveMinute } from "~/lib/research-chan-native";
-import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
+import { isChanFiveMinute } from "~/lib/research/methods/chan/research-chan-native";
+import { isWyckoffHourly } from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
 import { readBenchmarkSnapshot } from "../data-sources/tdx/tdx-benchmark";
-import { needsCanslimMarket } from "~/lib/research-canslim-market-strategies";
+import { needsCanslimMarket } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
 import type { CanslimResearchMarket } from "../strategies/canslim/research-canslim-market-score";
 import { resolve } from "node:path";
 import { researchJsonHash } from "./research-json";
 import type { Bar } from "~/lib/domain";
-import type { ResearchSpec } from "~/lib/strategy-research";
-import { isRpsMarketSymbol } from "~/lib/rps";
+import type { ResearchSpec } from "~/lib/research/strategy-research";
+import { isRpsMarketSymbol } from "~/lib/screening/rps";
 import { settings } from "../infra/settings";
 import { readMarketPool } from "../market/market-pool-files";
 import { scan, readSnapshot } from "../data-sources/tdx/tdx";
-import { assertGrowthIntradayWindow } from "~/lib/research-growth-intraday";
-import { isOpening, openingMinuteStart } from "~/lib/research-opening";
+import { assertGrowthIntradayWindow } from "~/lib/research/factors/research-growth-intraday";
+import { isOpening, openingMinuteStart } from "~/lib/research/technical/research-opening";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
 import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
 import { deriveHistoricalFloatShares } from "../data-sources/tdx/tdx-gbbq";
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
-} from "~/lib/research-event-coverage";
-import { isVolumeAdapted } from "~/lib/research-volume-adapted";
-import { isVolumeGrid } from "~/lib/research-volume-grid";
-import { isVolumeStrategy } from "~/lib/research-volume";
-import { isVolumeContext } from "~/lib/research-volume-context";
-import { isVolumeFailure } from "~/lib/research-volume-failure";
-import { isVolumeSequence } from "~/lib/research-volume-sequence";
-import { isVolumeStructure } from "~/lib/research-volume-structure";
-import { isVolumeReversal } from "~/lib/research-volume-reversals";
+} from "~/lib/research/factors/research-event-coverage";
+import { isVolumeAdapted } from "~/lib/research/methods/volume/research-volume-adapted";
+import { isVolumeGrid } from "~/lib/research/methods/volume/research-volume-grid";
+import { isVolumeStrategy } from "~/lib/research/methods/volume/research-volume";
+import { isVolumeContext } from "~/lib/research/methods/volume/research-volume-context";
+import { isVolumeFailure } from "~/lib/research/methods/volume/research-volume-failure";
+import { isVolumeSequence } from "~/lib/research/methods/volume/research-volume-sequence";
+import { isVolumeStructure } from "~/lib/research/methods/volume/research-volume-structure";
+import { isVolumeReversal } from "~/lib/research/methods/volume/research-volume-reversals";
 import {
   researchMethodSnapshot,
   type ResearchMethodSnapshot,

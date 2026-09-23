@@ -1,6 +1,6 @@
 import type { Bar } from "~/lib/domain";
-import { ledgerOutcome, type LedgerRow } from "~/lib/signal-ledger";
-import { signalInformation } from "~/lib/signal-information";
+import { ledgerOutcome, type LedgerRow } from "~/lib/strategy-facts/signal-ledger";
+import { signalInformation } from "~/lib/strategy-facts/signal-information";
 
 /** Keep V3 absolute-return membership and bins; missing benchmarks cannot re-bin scores. */
 export function benchmarkStratification(

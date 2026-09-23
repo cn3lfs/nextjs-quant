@@ -1,47 +1,47 @@
 import {
   isWyckoffStructure,
   wyckoffStructureInputsSchema,
-} from "~/lib/research-wyckoff";
+} from "~/lib/research/methods/wyckoff/research-wyckoff";
 import {
   isWyckoffHourly,
   wyckoffHourlyInputsSchema,
-} from "~/lib/research-wyckoff-hourly";
-import { isWyckoffVsa, wyckoffInputsSchema } from "~/lib/research-wyckoff-vsa";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
+import { isWyckoffVsa, wyckoffInputsSchema } from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
 import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
   riskExtensionSchema,
   riskExtensionTemplate,
   evaluateRiskExtension,
   riskExtensionBoundary,
-} from "~/lib/research-risk-extensions";
+} from "~/lib/research/risk/research-risk-extensions";
 import { Textarea } from "../ui/textarea";
-import { contextRiskMaxPositions } from "~/lib/research-context-risk";
+import { contextRiskMaxPositions } from "~/lib/research/risk/research-context-risk";
 import {
   riskPresetParameters,
   riskPresetBase,
-} from "~/lib/research-risk-presets";
-import { growthIntradayBase } from "~/lib/research-growth-intraday";
-import { growthDailyBase } from "~/lib/research-growth-daily";
+} from "~/lib/research/risk/research-risk-presets";
+import { growthIntradayBase } from "~/lib/research/factors/research-growth-intraday";
+import { growthDailyBase } from "~/lib/research/factors/research-growth-daily";
 import { maParamsSchema } from "~/lib/domain";
-import type { ResearchSpec } from "~/lib/strategy-research";
+import type { ResearchSpec } from "~/lib/research/strategy-research";
 import {
   researchRiskSchema,
   researchStrategies,
   researchStrategyIds,
   researchStrategySchema,
-} from "~/lib/research-strategies";
+} from "~/lib/research/specs/research-strategies";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { ResearchManagementFields } from "./research-management-fields";
-import { researchManagementSchema } from "~/lib/research-management";
-import type { ResearchManagement } from "~/lib/research-management";
-import { isCanslimProgressPreset } from "~/lib/research-exit-presets";
-import { isCanslimResearch } from "~/lib/research-canslim-strategies";
-import { canslimRiskTemplate } from "~/lib/research-canslim-management";
+import { researchManagementSchema } from "~/lib/research/workflow/research-management";
+import type { ResearchManagement } from "~/lib/research/workflow/research-management";
+import { isCanslimProgressPreset } from "~/lib/research/specs/research-exit-presets";
+import { isCanslimResearch } from "~/lib/research/methods/canslim/research-canslim-strategies";
+import { canslimRiskTemplate } from "~/lib/research/methods/canslim/research-canslim-management";
 import {
   growthDailyExitTemplate,
   isGrowthDailyExit,
-} from "~/lib/research-growth-exits";
+} from "~/lib/research/factors/research-growth-exits";
 import {
   Select,
   SelectTrigger,

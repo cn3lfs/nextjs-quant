@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { defaultBacktestCosts } from "~/lib/backtest-costs";
+import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
 import {
   positionFor,
   tradeFees,
@@ -7,7 +7,7 @@ import {
   type Trade,
   type CorporateEvidence,
   type CostAdjustment,
-} from "~/lib/trade-ledger";
+} from "~/lib/portfolio/trade-ledger";
 import type { SkillUse } from "../research/research-skills";
 import { createHash } from "node:crypto";
 

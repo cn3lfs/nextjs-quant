@@ -6,8 +6,8 @@
 
 ## 复现与证据范围
 
-- 实现：[weight-backtest.ts](../../src/lib/weight-backtest.ts)，仅测试引用，无页面、tRPC、路由或运行服务接入。
-- 可重放计算：[weight-equivalence-fixture.ts](../../tests/weight-equivalence-fixture.ts)；验证与完整逐日 stdout：[weight-backtest.test.ts](../../tests/weight-backtest.test.ts)。运行 `pnpm exec vitest run tests/weight-backtest.test.ts --silent=false --reporter=verbose`，查找 `U7A_EVIDENCE`。默认测试不生成文件或覆盖报告。
+- 实现：[weight-backtest.ts](../../src/lib/backtest/weight-backtest.ts)，仅测试引用，无页面、tRPC、路由或运行服务接入。
+- 可重放计算：[weight-equivalence-fixture.ts](../../tests/weight-equivalence-fixture.ts)；验证与完整逐日 stdout：[weight-backtest.test.ts](../../tests/research-backtest/backtest/weight-backtest.test.ts)。运行 `pnpm exec vitest run tests/research-backtest/backtest/weight-backtest.test.ts --silent=false --reporter=verbose`，查找 `U7A_EVIDENCE`。默认测试不生成文件或覆盖报告。
 - 主样本原样调用 [strategy-admission-fixture.ts](../../tests/strategy-admission-fixture.ts)，与 [e3-browser-fixture.ts](../../tests/e3-browser-fixture.ts) 共用固定双突破日线和续接方法；后者会写 SQLite 和行情文件，本批只读其源码、不执行。两个 fixture 不是两个独立样本。
 - datasetHash：`73b684ad144fda80185c0e1a8c85fdc4e711f754d2daa13996a6899e708f280c`。来源为内存合成、未复权、单只 `sh600000`，非历史市场样本。
 - 原参数不变：2025-03-06 至 2025-03-21，验证段始于 03-18；本金 100000，holdingDays=2，entryMaxWait=3，maxPositions=5；佣金 3 bp、最低佣金 5 元、卖出税 5 bp、滑点 5 bp。

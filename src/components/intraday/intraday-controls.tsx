@@ -13,7 +13,7 @@ import { cn } from "~/lib/common/classnames";
 import {
   intradayConfigSchema,
   type IntradayConfig,
-} from "~/lib/intraday-schedule";
+} from "~/lib/strategy-facts/intraday-schedule";
 import {
   GridTable,
   ListPanel,

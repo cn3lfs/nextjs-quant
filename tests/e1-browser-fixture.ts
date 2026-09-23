@@ -8,7 +8,7 @@ import { RpsStore } from "../src/server/screening/rps-store";
 import { scan } from "../src/server/data-sources/tdx/tdx";
 import { rpsBars, rpsDay } from "./rps-fixture";
 import { readIndustryBlocks } from "../src/server/market/industry-blocks";
-import { aggregateIndustryRps } from "../src/lib/industry-rps";
+import { aggregateIndustryRps } from "../src/lib/screening/industry-rps";
 import { rpsHash } from "~/server/infra/content-hash";
 
 const directory = resolve(".test-data/e1-browser");

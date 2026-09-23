@@ -3,7 +3,7 @@ import type { RouterOutputs } from "~/trpc/react";
 import {
   positionRiskMetrics,
   type PositionRiskPoint,
-} from "~/lib/position-risk";
+} from "~/lib/portfolio/position-risk";
 import { PositionRiskChart } from "../market/chart";
 import {
   DataTable,

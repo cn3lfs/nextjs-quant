@@ -1,7 +1,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { sqlite } from "../db";
 import { settings } from "../infra/settings";
-import { rpsRequestSchema, type RpsProgress } from "~/lib/rps";
+import { rpsRequestSchema, type RpsProgress } from "~/lib/screening/rps";
 import { RpsStore } from "./rps-store";
 import { localRpsDependencies, runRpsJob } from "./rps-job";
 

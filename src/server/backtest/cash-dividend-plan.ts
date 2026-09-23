@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cashDividendPlanSchema } from "~/lib/cash-dividends";
+import { cashDividendPlanSchema } from "~/lib/portfolio/cash-dividends";
 import { validateActionRange } from "./backtest-actions";
 import type { reconcileDividends } from "./dividend-reconciliation";
 type Reconciliation = ReturnType<typeof reconcileDividends>;

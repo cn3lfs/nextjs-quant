@@ -7,8 +7,8 @@ import {
   poolSelectionSchema,
   type MarketPoolQuery,
   type MarketPoolRow,
-} from "~/lib/market-pool";
-import { rpsPeriods } from "~/lib/rps";
+} from "~/lib/market/market-pool";
+import { rpsPeriods } from "~/lib/screening/rps";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";

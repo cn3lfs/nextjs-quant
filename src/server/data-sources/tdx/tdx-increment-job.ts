@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { historicalDateSchema } from "~/lib/historical-screen";
+import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { symbolSchema } from "~/lib/domain";
 import { get, put } from "../../db";
 import { claimWorkflow } from "../../jobs/workflow-lease";

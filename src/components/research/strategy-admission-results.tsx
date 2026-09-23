@@ -1,8 +1,8 @@
 "use client";
 
 import type { RouterOutputs } from "~/trpc/react";
-import type { ReviewValue } from "~/lib/trade-review";
-import { admissionConclusion } from "~/lib/strategy-admission";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
+import { admissionConclusion } from "~/lib/strategy-facts/strategy-admission";
 import {
   DataTable,
   type DataTableColumn,

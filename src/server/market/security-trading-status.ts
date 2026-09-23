@@ -4,7 +4,7 @@ import { symbolSchema } from "~/lib/domain";
 import {
   chinaDate,
   type SecurityTradingStatus,
-} from "~/lib/security-trading-status";
+} from "~/lib/market/security-trading-status";
 import { get, put } from "../db";
 import { isAStock } from "../data-sources/tdx/tdx";
 import { request } from "../data-sources/hithink/hithink-context";

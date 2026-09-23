@@ -11,7 +11,7 @@ const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react'; import {createRoot} from 'react-dom/client';
       import {ResearchStrategyFields} from './src/components/research-strategy-fields';
-      import {researchSpecSchema} from './src/lib/strategy-research';
+      import {researchSpecSchema} from './src/lib/research/strategy-research';
       function Fixture(){const [spec,setSpec]=useState(()=>researchSpecSchema.parse({strategy:'dual-breakout',start:'2024-01-01',end:'2024-12-31',validationStart:'2024-10-01'}));
         const [result,setResult]=useState('');return <main className="mx-auto max-w-2xl space-y-4 p-6"><h1>策略参数固定输入验收</h1>
           <ResearchStrategyFields spec={spec} onChange={setSpec}/>

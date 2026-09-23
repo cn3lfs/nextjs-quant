@@ -5,8 +5,8 @@ import {
   importDeliveryTable,
   importOptionsSchema,
   redactRow,
-} from "~/lib/delivery-import";
-import { parseDeliveryTable } from "~/lib/delivery-table";
+} from "~/lib/research/evidence/delivery-import";
+import { parseDeliveryTable } from "~/lib/research/evidence/delivery-table";
 import { DeliveryStore } from "./delivery-store";
 
 const optionsSchema = importOptionsSchema.extend({

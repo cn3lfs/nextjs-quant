@@ -1,4 +1,4 @@
-import type { SecurityTradingStatus } from "~/lib/security-trading-status";
+import type { SecurityTradingStatus } from "~/lib/market/security-trading-status";
 const labels = { trading: "交易", suspended: "停牌", unknown: "未核验" };
 export function TradingStatusEvidence({
   value,

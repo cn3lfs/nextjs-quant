@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Bar } from "~/lib/domain";
-import { type ChartPeriod, isMinutePeriod } from "~/lib/chart-view";
+import { type ChartPeriod, isMinutePeriod } from "~/lib/chart/chart-view";
 
 const number = z.number().finite();
 const tencentRow = z.object({

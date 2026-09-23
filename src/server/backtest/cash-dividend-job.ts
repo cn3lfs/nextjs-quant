@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { strategySchema, type Snapshot, type Backtest } from "~/lib/domain";
-import { backtestCostsSchema } from "~/lib/backtest-costs";
+import { backtestCostsSchema } from "~/lib/backtest/backtest-costs";
 import { get, put } from "../db";
 import { background, runWorker } from "../jobs/jobs";
 import { settings } from "../infra/settings";

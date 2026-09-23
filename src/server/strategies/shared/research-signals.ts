@@ -1,12 +1,12 @@
-import { isChanC4 } from "~/lib/research-chan-movements";
+import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
 import { researchChanMovements } from "../chan/research-chan-movements";
 import { researchChanZhongyin } from "../chan/research-chan-zhongyin";
-import { isChanZhongyin } from "~/lib/research-chan-native";
+import { isChanZhongyin } from "~/lib/research/methods/chan/research-chan-native";
 import {
   structureBarBytes,
   isWyckoffStructure,
   type WyckoffId,
-} from "~/lib/research-wyckoff";
+} from "~/lib/research/methods/wyckoff/research-wyckoff";
 import {
   researchStructureWeekly,
   researchWyckoffStructureSeries,
@@ -14,8 +14,8 @@ import {
 import {
   isWyckoffHourly,
   researchWyckoffHourlySeries,
-} from "~/lib/research-wyckoff-hourly";
-import type { ResearchStructureObservation } from "~/lib/research-structure-events";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
+import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
 import {
   chanWolfPoint,
   isChanMa,
@@ -23,33 +23,33 @@ import {
   compactChanMaMethodPoint,
   isChanNative,
   chanNativeCandidates,
-} from "~/lib/research-chan-native";
+} from "~/lib/research/methods/chan/research-chan-native";
 import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
-} from "~/lib/research-wyckoff-vsa";
-import { crowdedStop } from "~/lib/research-risk-scenarios";
-import { riskPresetEvolution } from "~/lib/research-risk-presets";
-import { chanStopLine } from "~/lib/research-stop-calibration";
-import { riskPresetAdmission } from "~/lib/research-risk-presets";
-import { isVolumePollution } from "~/lib/research-volume-pollution";
-import { isVolumeAdapted } from "~/lib/research-volume-adapted";
-import { isSwingCore } from "~/lib/research-swing-core";
-import { researchBreakoutStopLocation } from "~/lib/research-breakout-stops";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
+import { crowdedStop } from "~/lib/research/risk/research-risk-scenarios";
+import { riskPresetEvolution } from "~/lib/research/risk/research-risk-presets";
+import { chanStopLine } from "~/lib/research/risk/research-stop-calibration";
+import { riskPresetAdmission } from "~/lib/research/risk/research-risk-presets";
+import { isVolumePollution } from "~/lib/research/methods/volume/research-volume-pollution";
+import { isVolumeAdapted } from "~/lib/research/methods/volume/research-volume-adapted";
+import { isSwingCore } from "~/lib/research/methods/swing/research-swing-core";
+import { researchBreakoutStopLocation } from "~/lib/research/technical/research-breakout-stops";
 import type { CanslimResearchMarket } from "../canslim/research-canslim-market-score";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/czsc";
-import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
 import { analyzeBreakout } from "../breakout/breakout";
-import { metrics } from "~/lib/screening-metrics";
-import { researchStrategies } from "~/lib/research-strategies";
+import { metrics } from "~/lib/screening/screening-metrics";
+import { researchStrategies } from "~/lib/research/specs/research-strategies";
 import { atr } from "trading-strategy-core/indicators";
-import { isVolumeGrid } from "~/lib/research-volume-grid";
-import { isFormulaExample } from "~/lib/research-formula-examples";
-import { isExternalFormula } from "~/lib/research-formula-external";
-import { isSwingMarket } from "~/lib/research-swing-market";
-import { isVolumeIntraday } from "~/lib/research-volume-intraday";
-import type { VolumeEvidence } from "~/lib/research-volume-grid";
+import { isVolumeGrid } from "~/lib/research/methods/volume/research-volume-grid";
+import { isFormulaExample } from "~/lib/research/specs/research-formula-examples";
+import { isExternalFormula } from "~/lib/research/specs/research-formula-external";
+import { isSwingMarket } from "~/lib/research/methods/swing/research-swing-market";
+import { isVolumeIntraday } from "~/lib/research/methods/volume/research-volume-intraday";
+import type { VolumeEvidence } from "~/lib/research/methods/volume/research-volume-grid";
 import { isResearchRule, researchRuleSeries } from "./research-rule-series";
 
 /** Full-prefix replay: native structures may revise endpoints, so a result

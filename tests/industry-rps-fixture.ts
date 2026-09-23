@@ -1,5 +1,5 @@
-import type { IndustrySnapshot } from "../src/lib/industry-rps";
-import { aggregateIndustryRps } from "../src/lib/industry-rps";
+import type { IndustrySnapshot } from "../src/lib/screening/industry-rps";
+import { aggregateIndustryRps } from "../src/lib/screening/industry-rps";
 import { calculateRpsDay } from "../src/server/screening/rps-engine";
 import { rpsHash } from "~/server/infra/content-hash";
 import { rpsCalendar, rpsDate, rpsDay, tenStocks } from "./rps-fixture";

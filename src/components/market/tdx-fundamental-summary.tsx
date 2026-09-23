@@ -1,5 +1,5 @@
 "use client";
-import type { ReviewValue } from "~/lib/trade-review";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import {
   compactNumber,
   fundamentalMetrics,
@@ -8,7 +8,7 @@ import {
   unverifiedFields,
   type ReportFields,
   type SnapshotOverlay,
-} from "~/lib/tdx-fundamentals";
+} from "~/lib/market/tdx-fundamentals";
 import {
   Table,
   TableBody,

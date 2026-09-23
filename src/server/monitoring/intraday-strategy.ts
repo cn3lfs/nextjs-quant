@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/czsc";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import { analyzeBreakout } from "../strategies/breakout/breakout";
 
 export type PreviewSignal = {

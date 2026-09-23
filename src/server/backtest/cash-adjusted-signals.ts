@@ -2,7 +2,7 @@ import type { Bar } from "~/lib/domain";
 import {
   cashDividendPlanSchema,
   type CashDividendPlan,
-} from "~/lib/cash-dividends";
+} from "~/lib/portfolio/cash-dividends";
 export function cashAdjustedSignals(bars: Bar[], input: CashDividendPlan) {
   const plan = cashDividendPlanSchema.parse(input),
     events = [...plan.events].sort((a, b) => a.ex.localeCompare(b.ex));

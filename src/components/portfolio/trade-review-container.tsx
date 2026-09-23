@@ -5,7 +5,7 @@ import { PageGrid, Panel } from "../panels";
 import { useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
-import type { CostMethod } from "~/lib/trade-review";
+import type { CostMethod } from "~/lib/portfolio/trade-review";
 import {
   TradeReviewImport,
   type DeliveryDraft,

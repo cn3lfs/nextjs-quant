@@ -5,7 +5,7 @@ import {
   rollingMetrics,
   rollingPerformanceDefaults,
   type RollingPoint,
-} from "~/lib/rolling-performance";
+} from "~/lib/backtest/rolling-performance";
 import { RollingPerformanceChart } from "../market/chart";
 import {
   DataTable,

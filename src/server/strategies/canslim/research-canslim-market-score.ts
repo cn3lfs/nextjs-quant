@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import type { CanslimMarketId } from "~/lib/research-canslim-market-strategies";
+import type { CanslimMarketId } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
 import { ma } from "trading-strategy-core/indicators";
 import { canslimMarket } from "./canslim-market";
 import { canslimFollowThrough } from "./canslim-follow-through";

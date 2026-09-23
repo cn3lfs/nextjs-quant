@@ -4,7 +4,7 @@ import {
   chartAdjustmentLabels,
   chartAdjustmentSchema,
   type ChartAdjustment,
-} from "~/lib/chart-adjustment";
+} from "~/lib/chart/chart-adjustment";
 import {
   Select,
   SelectContent,

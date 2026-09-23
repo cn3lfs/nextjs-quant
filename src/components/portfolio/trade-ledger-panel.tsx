@@ -35,8 +35,8 @@ import {
   toneText,
   type Stat,
 } from "../panels";
-import { feeLabel } from "~/lib/trade-ledger";
-import { mockContract, mockMarketLabel } from "~/lib/mock-trading-contract";
+import { feeLabel } from "~/lib/portfolio/trade-ledger";
+import { mockContract, mockMarketLabel } from "~/lib/contracts/mock-trading-contract";
 import type { tradeDashboard } from "~/server/portfolio/trade-ledger-service";
 import type {
   reconcileMock,

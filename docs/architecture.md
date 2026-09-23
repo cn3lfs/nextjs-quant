@@ -19,13 +19,13 @@
 
 专用 worker 与业务 store 跟随所属域；根目录只保留 `runtime.ts` 组合入口，以及 `mcp.ts`、`connection-pool.ts`、`mcp-session.ts`、`mcp-health.ts`、`vault.ts` 五个受保护文件。新增业务代码放入职责目录，不新增根目录转发镜像。
 
-数据源不得反向加载策略、回测或研究编排；纯事实转换共享于 `src/lib/strategy-facts/`。`completed-bars.ts` 与 `screening-metrics.ts` 保持纯函数，避免完成时点或筛选指标把整个回测服务引入调用方。`packages/trading-strategies` 只持有九方向代表与证据元数据，执行仍由工作台原实现负责。
+数据源不得反向加载策略、回测或研究编排；纯事实转换共享于 `src/lib/strategy-facts/`。`src/lib/completed-bars.ts` 与 `src/lib/screening/screening-metrics.ts` 保持纯函数，避免完成时点或筛选指标把整个回测服务引入调用方。`packages/trading-strategies` 只持有九方向代表与证据元数据，执行仍由工作台原实现负责。
 
-迁移清单和验证进度见 [整理计划](strategy-consolidation-plan.md)；目录与依赖护栏见 [server-layout.test.ts](../tests/server-layout.test.ts)。
+迁移清单和验证进度见 [整理计划](strategy-consolidation-plan.md)；目录与依赖护栏见 [server-layout.test.ts](../tests/engineering-validation/server-layout.test.ts)。
 
 ## 总体结构与数据流
 
-Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面（侧边栏与顶栏见 `sidebar.tsx` / `topbar.tsx`，一层分组导航与页面标题见 `navigation.ts`），`src/components/workbench/` 放壳层、路由面板、视图和状态；`src/components/panels/` 是设计交接的面板与 12 列网格，`src/components/overview/` 是今日总览；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由入口是 [api/root.ts](../src/server/api/root.ts)，调度入口是 [runtime.ts](../src/server/runtime.ts)。
+Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面（侧边栏与顶栏见 `sidebar.tsx` / `topbar.tsx`，一层分组导航与页面标题见 `navigation.ts`），`src/components/workbench/` 放壳层、路由面板、视图和状态；`src/components/panels/` 是设计交接的面板与 12 列网格，`src/components/overview/` 是今日总览；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由组合入口是 [api/root.ts](../src/server/api/root.ts)，各业务 router 位于 `src/server/api/routers/`，调度入口是 [runtime.ts](../src/server/runtime.ts)。
 
 ```text
 通达信本地目录（只读）
@@ -68,7 +68,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 指标层
 
 - **职责**：纯函数计算 MA/EMA/MACD/KDJ/RSI/BOLL 和公式共享序列基元。
-- **关键文件**：[core indicators](../packages/trading-strategy-core/src/indicators.ts)，应用图表消费入口 [chart-data.ts](../src/lib/chart-data.ts)。
+- **关键文件**：[core indicators](../packages/trading-strategy-core/src/indicators.ts)，应用图表消费入口 [chart-data.ts](../src/lib/chart/chart-data.ts)。
 - **输入输出**：readonly Bar[] + 参数 → 同长度指标数组（number/null）；序列基元接收 number/null 数组。
 - **依赖**：domain 的 Bar 类型，无 IO/远程服务；具体认定公式见 [invariants §2](invariants.md#2-通达信认定公式与预热)。
 - **不变量**：唯一共享实现、完整历史递推、窗口不足 null、状态不因缺口重置、内部不舍入。
@@ -76,7 +76,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 图表层
 
 - **职责**：K 线/指标/缠论与双突破证据展示，周月聚合、视图设置和四种画线工具。
-- **关键文件**：[chart.tsx](../src/components/market/chart.tsx) 管图表实例、pane、事件及绘制；[chart-data.ts](../src/lib/chart-data.ts) 做指标/结构适配；[chart-drawings.ts](../src/lib/chart-drawings.ts) 做画线几何；[chart-view.ts](../src/lib/chart-view.ts) 定义参数与视图 schema；[chart-view-store.ts](../src/server/charts/chart-view-store.ts) 持久化；[chart-bars.ts](../src/server/charts/chart-bars.ts)、[weekly-bars.ts](../src/server/market/weekly-bars.ts)、[monthly-bars.ts](../src/server/market/monthly-bars.ts) 聚合。
+- **关键文件**：[chart.tsx](../src/components/market/chart.tsx) 管图表实例、pane、事件及绘制；[chart-data.ts](../src/lib/chart/chart-data.ts) 做指标/结构适配；[chart-drawings.ts](../src/lib/chart/chart-drawings.ts) 做画线几何；[chart-view.ts](../src/lib/chart/chart-view.ts) 定义参数与视图 schema；[chart-view-store.ts](../src/server/charts/chart-view-store.ts) 持久化；[chart-bars.ts](../src/server/charts/chart-bars.ts)、[weekly-bars.ts](../src/server/market/weekly-bars.ts)、[monthly-bars.ts](../src/server/market/monthly-bars.ts) 聚合。
 - **输入输出**：快照、ChartPeriod、策略结果、已核对成本、保存的视图 → 图形与 legend；用户保存→chart_views 表（标的×周期）。工具为趋势线、水平线、矩形、斐波那契。
 - **依赖**：lightweight-charts、共享 indicators、交易日历、P1 成本；week/month 从日线快照聚合，不扩展底层策略 Period。
 - **不变量**：先全量计算再按 180 根展开显示；null 不补零连线；周/月策略结构明确不可用，5m 缠论图不等于 5m 通知开放。无仓或成本未知不画成本线。主图对数不改变副图线性与斐波那契价格回撤。
@@ -92,7 +92,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 双突破
 
 - **职责**：确定性地识别趋势线+关键价位+放量三要素，给五项评分和结构止损/两个目标。
-- **关键文件**：[breakout.ts](../src/server/strategies/breakout/breakout.ts)、[breakout-batch.ts](../src/server/strategies/breakout/breakout-batch.ts)、[vcp.ts](../src/server/strategies/canslim/vcp.ts)、[breakout-method.json](../src/lib/breakout-method.json)。
+- **关键文件**：[breakout.ts](../src/server/strategies/breakout/breakout.ts)、[breakout-batch.ts](../src/server/strategies/breakout/breakout-batch.ts)、[vcp.ts](../src/server/strategies/canslim/vcp.ts)、[breakout-method.json](../src/lib/strategy-facts/breakout-method.json)。
 - **输入输出**：已完成不复权日线→每时点 long/short 的 是/否/数据不足、x/5、结构依据及 1:X；批量输入股票池→候选、读取错误、hash/耗时等。
 - **依赖**：vcpFacts 已确认摆动、indicators、固定方法 hash；批量层读 62 根尾窗做否决，候选用全历史复核，缓存文件清单未变的单次结果。
 - **不变量**：尾窗不确认信号；短历史/缺指标/缺目标不能凑数；评分不覆盖三核心条件；仅日线，向下信号不是自动做空指令。
@@ -100,7 +100,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 通达信公式选股
 
 - **职责**：本地受限公式语言的解析、静态安全检查、序列求值、保存与全市场任务。
-- **关键文件**：[tdx-formula-syntax.ts](../src/lib/tdx-formula-syntax.ts)、[tdx-formula-check.ts](../src/lib/tdx-formula-check.ts)、[tdx-formula.ts](../src/lib/tdx-formula.ts)、[formula-screen.ts](../src/lib/formula-screen.ts)、[formula-screen-service.ts](../src/server/screening/formula-screen-service.ts)、[formula-screening.ts](../src/server/screening/formula-screening.ts)。
+- **关键文件**：[tdx-formula-syntax.ts](../src/lib/formula/tdx-formula-syntax.ts)、[tdx-formula-check.ts](../src/lib/formula/tdx-formula-check.ts)、[tdx-formula.ts](../src/lib/formula/tdx-formula.ts)、[formula-screen.ts](../src/lib/formula/formula-screen.ts)、[formula-screen-service.ts](../src/server/screening/formula-screen-service.ts)、[formula-screening.ts](../src/server/screening/formula-screening.ts)。
 - **输入输出**：命名公式、参数→AST/问题（函数及行号）→整列输出；筛选要求单输出，最新完成日非零为候选。保存公式版本、参数、行情快照，结果进入既有候选分页/JSON 导出；过旧证券从最终基准日结果隔离。
 - **依赖**：共享指标基元、本地全历史日线、jobs/worker、SQLite records。候选表均线/量列是描述列，不能误读为额外公式条件；缺候选表指标历史也会列入隔离。
 - **不变量**：31 项未来函数全语句硬拒绝；未知函数不替代；60 函数不算行情别名；错误使任务失败、取消丢弃迟到结果。无 JS eval，无远程财务函数支持。
@@ -108,7 +108,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 信号与四渠道推送
 
 - **职责**：周期监控、基线/新鲜度门禁、策略事件、分级静默及可靠投递；规则通知成功后可追加 LLM 解读。
-- **关键文件**：[runtime.ts](../src/server/runtime.ts)、[monitor-strategy.ts](../src/server/monitoring/monitor-strategy.ts)、[monitor-run.ts](../src/server/monitoring/monitor-run.ts)、[monitor-calendar.ts](../src/server/monitoring/monitor-calendar.ts)、[notification-policy.ts](../src/lib/notification-policy.ts)、[notification-policy-store.ts](../src/server/infra/notification-policy-store.ts)、[notifications.ts](../src/server/infra/notifications.ts)、[delivery-authorization.ts](../src/server/infra/delivery-authorization.ts)、[lease.ts](../src/server/infra/lease.ts)。
+- **关键文件**：[runtime.ts](../src/server/runtime.ts)、[monitor-strategy.ts](../src/server/monitoring/monitor-strategy.ts)、[monitor-run.ts](../src/server/monitoring/monitor-run.ts)、[monitor-calendar.ts](../src/server/monitoring/monitor-calendar.ts)、[notification-policy.ts](../src/lib/strategy-facts/notification-policy.ts)、[notification-policy-store.ts](../src/server/infra/notification-policy-store.ts)、[notifications.ts](../src/server/infra/notifications.ts)、[delivery-authorization.ts](../src/server/infra/delivery-authorization.ts)、[lease.ts](../src/server/infra/lease.ts)。
 - **输入输出**：启用的订阅+新完成行情→规则事件→立即/汇总/仅台账策略→每渠道 outbox 状态→飞书、企业微信、Telegram、Discord。monitor 每 60 秒 tick，投递轮询每 3 秒；调度租约控制共享库的活跃调度者。
 - **依赖**：策略引擎、交易日历/证券状态、SQLite、vault、官方渠道 HTTP 适配；AI 追加依赖研究编排。
 - **不变量**：无订阅不投递；日线两策略 15:05 后才监控；重新检查配置修订、静默、限额与授权。网络结果不确定可能重试重复，“平台接受”不等于已读。自动测试真实第三方投递 0。
@@ -116,7 +116,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 信号台账与持仓账本（两种事实）
 
 - **职责**：信号台账记录市场观察及向前收益；持仓账本记录用户实际填入的成交、成本/可卖与除权审计。
-- **关键文件**：信号侧 [signal-ledger.ts](../src/lib/signal-ledger.ts)、[signal-ledger-client.ts](../src/server/monitoring/signal-ledger-client.ts)、[signal-ledger-worker.ts](../src/server/monitoring/signal-ledger-worker.ts)、[signal-ledger-job.ts](../src/server/monitoring/signal-ledger-job.ts)、[signal-ledger-engine.ts](../src/server/monitoring/signal-ledger-engine.ts)、[signal-ledger-store.ts](../src/server/monitoring/signal-ledger-store.ts)；成交侧 [trade-ledger.ts](../src/lib/trade-ledger.ts)、[trade-ledger-service.ts](../src/server/portfolio/trade-ledger-service.ts)、[trade-ledger-store.ts](../src/server/portfolio/trade-ledger-store.ts)。
+- **关键文件**：信号侧 [signal-ledger.ts](../src/lib/strategy-facts/signal-ledger.ts)、[signal-ledger-client.ts](../src/server/monitoring/signal-ledger-client.ts)、[signal-ledger-worker.ts](../src/server/monitoring/signal-ledger-worker.ts)、[signal-ledger-job.ts](../src/server/monitoring/signal-ledger-job.ts)、[signal-ledger-engine.ts](../src/server/monitoring/signal-ledger-engine.ts)、[signal-ledger-store.ts](../src/server/monitoring/signal-ledger-store.ts)；成交侧 [trade-ledger.ts](../src/lib/portfolio/trade-ledger.ts)、[trade-ledger-service.ts](../src/server/portfolio/trade-ledger-service.ts)、[trade-ledger-store.ts](../src/server/portfolio/trade-ledger-store.ts)。
 - **输入输出**：全市场当日两策略+日历+GBBQ→不可变观察、T+5/10/20 结果、分组事实；手工成交/限价依据/可选信号 ID→持仓、移动加权成本、T+1、浮盈、成本调整轨迹。
 - **依赖**：增量 SQLite 表、完整行情、GBBQ、同一 CZSC 投影所有者；N1 为常驻 worker 线程，主线程转发 DLL，支持进度和取消。P1 成本复用既有实验参数。
 - **不变量**：落库不依赖订阅、不做历史回放；信号收益不是成交绩效。含除权/未知收益空，P1 依据不足成本空；后续修订不覆盖已结算信号结果，对账不覆盖本地交易。
@@ -124,7 +124,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 模拟盘
 
 - **职责**：可选的同花顺模拟账户开户、查询、用户确认委托与差异对账。
-- **关键文件**：[mock-trading-contract.ts](../src/lib/mock-trading-contract.ts)、[mock-trading.ts](../src/server/portfolio/mock/mock-trading.ts)、[mock-trading-service.ts](../src/server/portfolio/mock/mock-trading-service.ts)、[vault.ts](../src/server/vault.ts)。
+- **关键文件**：[mock-trading-contract.ts](../src/lib/contracts/mock-trading-contract.ts)、[mock-trading.ts](../src/server/portfolio/mock/mock-trading.ts)、[mock-trading-service.ts](../src/server/portfolio/mock/mock-trading-service.ts)、[vault.ts](../src/server/vault.ts)。
 - **输入输出**：显式操作/一次性确认→`http://trade.10jqka.com.cn:8088`→已校验响应、脱敏诊断、与本地持仓差异。最近 20 次诊断含原始脱敏文本与证据 envelope，文档及实测契约同时可查。
 - **依赖**：undici、Zod、Windows DPAPI、手工账本/交易日历；技能只读契约，TS 执行请求。
 - **不变量**：默认零请求；身份不写业务库；未知结果不重试；接受委托不自动写成交；9/8/: 含义未确认；不用模拟盘对账结果暗中覆盖任一侧。Q0 买入已核实，T+1 卖出未完成，见 [实操记录](review/q0-mock-trading-log.md)。

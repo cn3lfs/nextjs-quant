@@ -12,7 +12,7 @@ import {
 } from "~/lib/domain";
 import { get, put } from "../db";
 import { settings } from "../infra/settings";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import { localCompletion } from "../infra/local-llm";
 import { evidenceEnvelope } from "../infra/evidence";
 import { sepaTrendFacts } from "../strategies/canslim/sepa-trend";

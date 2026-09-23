@@ -6,8 +6,8 @@ import {
   universeBiasWarning,
   type UniverseAuditMetric,
   type UniverseAuditSource,
-} from "~/lib/universe-audit";
-import { historicalDateSchema } from "~/lib/historical-screen";
+} from "~/lib/screening/universe-audit";
+import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { UniverseAuditResults } from "./universe-audit-results";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";

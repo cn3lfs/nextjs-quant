@@ -8,7 +8,7 @@ import { researchModel, structured } from "./research";
 import { volumePriceFacts, volumePriceMethod } from "./research-skills";
 import { sharedWindmillContext } from "../data-sources/gf/gf-windmill";
 import { tmtUsedMethods } from "../strategies/sentiment/tmt-cache";
-import { workProgress, type WorkProgress } from "~/lib/work-progress";
+import { workProgress, type WorkProgress } from "~/lib/research/workflow/work-progress";
 const itemSchema = z.object({
   symbol: z.string(),
   summary: z.string().min(1),

@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { rpsPeriods } from "~/lib/rps";
-import type { MarketPoolRow } from "~/lib/market-pool";
+import { rpsPeriods } from "~/lib/screening/rps";
+import type { MarketPoolRow } from "~/lib/market/market-pool";
 import { ChartSymbolLink } from "./chart-symbol-link";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";

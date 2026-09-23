@@ -6,7 +6,7 @@ import {
   trackingSimulationDisclaimer,
   trackingDecayThreshold,
   trackingDecayWarning,
-} from "~/lib/three-segment-sample";
+} from "~/lib/backtest/three-segment-sample";
 import { PerformanceSegmentTable } from "./period-performance-results";
 
 export function ThreeSegmentResults({

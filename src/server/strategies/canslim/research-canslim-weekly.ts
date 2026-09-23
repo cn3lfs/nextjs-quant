@@ -1,6 +1,6 @@
 import type { Bar } from "~/lib/domain";
 import { maSeries } from "trading-strategy-core/indicators";
-import { isoWeek } from "~/lib/period-performance";
+import { isoWeek } from "~/lib/backtest/period-performance";
 
 type Week = { key: string; dates: string[]; completedAt: string };
 /** Friday closes are complete. Holiday short weeks become known on the next

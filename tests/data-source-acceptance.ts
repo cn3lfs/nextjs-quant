@@ -1,5 +1,5 @@
 import { parseTencentChart } from "../src/server/market/free-chart-sources";
-import type { ChartPeriod } from "../src/lib/chart-view";
+import type { ChartPeriod } from "../src/lib/chart/chart-view";
 
 /** Minimum representative matrix for every source; support must be disclosed per cell. */
 export const sourceAcceptanceSamples = [

@@ -5,7 +5,7 @@ import {
 import {
   researchStrategySchema,
   type ResearchStrategyId,
-} from "~/lib/research-strategies";
+} from "~/lib/research/specs/research-strategies";
 import { Button } from "../ui/button";
 
 const coverage = {

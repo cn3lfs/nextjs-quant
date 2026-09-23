@@ -1,97 +1,97 @@
 import { big, bpsOf, moneyMul, toNumber } from "~/lib/money";
-import { isWyckoffStructure, type WyckoffId } from "~/lib/research-wyckoff";
+import { isWyckoffStructure, type WyckoffId } from "~/lib/research/methods/wyckoff/research-wyckoff";
 import { researchWyckoffStructureSeries } from "../strategies/shared/research-structure-weekly";
 import {
   isWyckoffHourly,
   researchWyckoffHourlySeries,
-} from "~/lib/research-wyckoff-hourly";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
 import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
-} from "~/lib/research-wyckoff-vsa";
-import { diagnosisDecision, diagnoseStops } from "~/lib/research-risk-routing";
-import { chopFrequency, scriptSlipSizing } from "~/lib/research-risk-scenarios";
-import { researchGroupRisk } from "~/lib/research-group-risk";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
+import { diagnosisDecision, diagnoseStops } from "~/lib/research/risk/research-risk-routing";
+import { chopFrequency, scriptSlipSizing } from "~/lib/research/risk/research-risk-scenarios";
+import { researchGroupRisk } from "~/lib/research/risk/research-group-risk";
 import {
   indicatorRespect,
   type ResearchMaeTraining,
-} from "~/lib/research-stop-calibration";
+} from "~/lib/research/risk/research-stop-calibration";
 import {
   riskDisasterTriggered,
   riskPresetEvolution,
-} from "~/lib/research-risk-presets";
-import { contextRiskPoint } from "~/lib/research-context-risk";
+} from "~/lib/research/risk/research-risk-presets";
+import { contextRiskPoint } from "~/lib/research/risk/research-context-risk";
 import {
   externalVolatilityPoint,
   isExternalVolatility,
-} from "~/lib/research-volatility-input";
-import { researchRiskAdmission } from "~/lib/research-risk-admission";
-import { researchAccountRisk } from "~/lib/research-account-risk";
-import { volatilityStopSeries } from "~/lib/research-volatility-stops";
+} from "~/lib/research/factors/research-volatility-input";
+import { researchRiskAdmission } from "~/lib/research/risk/research-risk-admission";
+import { researchAccountRisk } from "~/lib/research/risk/research-account-risk";
+import { volatilityStopSeries } from "~/lib/research/risk/research-volatility-stops";
 import {
   riskPresetBudget,
   riskPresetAccount,
   riskPresetAdmission,
-} from "~/lib/research-risk-presets";
-import { swingRewardAdmission } from "~/lib/research-swing-discipline";
+} from "~/lib/research/risk/research-risk-presets";
+import { swingRewardAdmission } from "~/lib/research/methods/swing/research-swing-discipline";
 import {
   growthVolumeReduction,
   growthDistributionReduction,
   growthAddConfirmation,
-} from "~/lib/research-growth-daily";
-import { researchKellySwitch } from "~/lib/research-kelly-switch";
-import { researchProgressCheck } from "~/lib/research-progress-exit";
-import { researchSepaElite } from "~/lib/research-sepa-elite";
-import { researchKellyQuality } from "~/lib/research-kelly-quality";
-import { researchKellyNetPayoff } from "~/lib/research-kelly-payoff";
-import type { ResearchKellyTraining } from "~/lib/research-kelly-training";
-import { researchKellyLimit } from "~/lib/research-kelly";
+} from "~/lib/research/factors/research-growth-daily";
+import { researchKellySwitch } from "~/lib/research/risk/research-kelly-switch";
+import { researchProgressCheck } from "~/lib/research/technical/research-progress-exit";
+import { researchSepaElite } from "~/lib/research/specs/research-sepa-elite";
+import { researchKellyQuality } from "~/lib/research/risk/research-kelly-quality";
+import { researchKellyNetPayoff } from "~/lib/research/risk/research-kelly-payoff";
+import type { ResearchKellyTraining } from "~/lib/research/risk/research-kelly-training";
+import { researchKellyLimit } from "~/lib/research/risk/research-kelly";
 import type { Bar } from "~/lib/domain";
 import {
   researchNavStatistics,
   researchTradeStatistics,
   type ResearchEvent,
   type ResearchSpec,
-} from "~/lib/strategy-research";
+} from "~/lib/research/strategy-research";
 import {
   researchBuyQuantity,
   researchCommission,
   researchFill,
   researchSellQuantity,
   type ResearchExecutionRules,
-} from "~/lib/research-execution";
-import { researchRiskQuantity, plannedStopRisk } from "~/lib/research-risk";
+} from "~/lib/research/technical/research-execution";
+import { researchRiskQuantity, plannedStopRisk } from "~/lib/research/risk/research-risk";
 import {
   researchInitialStop,
   researchStopComparison,
   researchStopOverride,
-} from "~/lib/research-management";
-import { researchMarketEnvironment } from "~/lib/research-market-regime";
-import { researchLossPause } from "~/lib/research-loss-pause";
-import { researchLiquidity } from "~/lib/research-liquidity";
-import { researchRetracementStop } from "~/lib/research-retracement";
-import { researchMarketChop } from "~/lib/research-market-chop";
+} from "~/lib/research/workflow/research-management";
+import { researchMarketEnvironment } from "~/lib/research/risk/research-market-regime";
+import { researchLossPause } from "~/lib/research/risk/research-loss-pause";
+import { researchLiquidity } from "~/lib/research/factors/research-liquidity";
+import { researchRetracementStop } from "~/lib/research/technical/research-retracement";
+import { researchMarketChop } from "~/lib/research/risk/research-market-chop";
 import { atr, rollingHigh } from "~/lib/indicators";
 import { researchHigherLow } from "../strategies/shared/research-protection";
-import { researchPullbackConfirmation } from "~/lib/research-pullback";
+import { researchPullbackConfirmation } from "~/lib/research/technical/research-pullback";
 import {
   isResearchRule,
   researchRuleSeries,
   type ResearchRulePoint,
 } from "../strategies/shared/research-rule-series";
-import type { RuleStop } from "~/lib/research-volume";
+import type { RuleStop } from "~/lib/research/methods/volume/research-volume";
 import {
   researchBookBuy,
   researchBookSell,
   researchBookSellable,
   researchPositionBook,
   type ResearchPositionBook,
-} from "~/lib/research-position-book";
+} from "~/lib/research/analysis/research-position-book";
 import {
   researchPyramidOrder,
   researchRoundedBuy,
   researchPlannedProceeds,
-} from "~/lib/research-pyramid";
+} from "~/lib/research/technical/research-pyramid";
 
 type WeeklyReductionSignal = NonNullable<
   Extract<ResearchRulePoint, { weeklyReduction: unknown }>["weeklyReduction"]
@@ -100,7 +100,7 @@ export type ResearchTrade = {
   swingMae?: number;
   swingHistoryComplete?: boolean;
   swingReview?: ReturnType<
-    typeof import("~/lib/research-risk-scenarios").swingCalibration
+    typeof import("~/lib/research/risk/research-risk-scenarios").swingCalibration
   >;
   scriptSlipComparison?: ReturnType<typeof scriptSlipSizing>;
   sizingReferenceOnly?: true;

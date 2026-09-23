@@ -1,21 +1,21 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { Bar } from "~/lib/domain";
-import { reviewExecutionQuality } from "~/lib/execution-quality";
-import { reviewTrades, type TradeReviewInput } from "~/lib/trade-review";
-import { classifyCode } from "~/lib/delivery-import";
+import { reviewExecutionQuality } from "~/lib/backtest/execution-quality";
+import { reviewTrades, type TradeReviewInput } from "~/lib/portfolio/trade-review";
+import { classifyCode } from "~/lib/research/evidence/delivery-import";
 import {
   extractStatementCashEvidence,
   reconcileCashDays,
-} from "~/lib/cash-reconciliation";
+} from "~/lib/portfolio/cash-reconciliation";
 import {
   reviewTradeNav,
   type TradeReviewNavInput,
-} from "~/lib/trade-review-nav";
+} from "~/lib/portfolio/trade-review-nav";
 import {
   reviewAttribution,
   type AttributionDimensions,
-} from "~/lib/trade-review-attribution";
+} from "~/lib/portfolio/trade-review-attribution";
 import { DeliveryStore, type ImportBatch } from "./delivery-store";
 import {
   readTradeReviewSnapshot,

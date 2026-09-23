@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import type { RouterOutputs } from "~/trpc/react";
-import type { ReviewValue, CostMethod } from "~/lib/trade-review";
+import type { ReviewValue, CostMethod } from "~/lib/portfolio/trade-review";
 import {
   DataTable,
   type DataTableColumn,

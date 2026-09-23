@@ -1,18 +1,18 @@
 "use client";
-import { chartColor } from "~/lib/chart-theme";
+import { chartColor } from "~/lib/chart/chart-theme";
 
 import {
   chartAdjustmentLabels,
   type ChartAdjustment,
-} from "~/lib/chart-adjustment";
+} from "~/lib/chart/chart-adjustment";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 
 import { useCallback, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
-import { isMarketIndex } from "~/lib/market-indices";
-import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart-symbol";
+import { isMarketIndex } from "~/lib/market/market-indices";
+import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
 import {
   chartCost,
@@ -21,7 +21,7 @@ import {
   type ChartPeriod,
   type ChartView,
   type Drawing,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 import { CzscMarketChart } from "../market/chart";
 import { TdxSnapshotContainer } from "./tdx-snapshot-container";
 const tools = {
@@ -147,7 +147,7 @@ function EditableChart({
   rpsMessage,
   onRpsRetry,
 }: {
-  snapshot: import("~/lib/chart-snapshot").ChartSnapshot;
+  snapshot: import("~/lib/chart/chart-snapshot").ChartSnapshot;
   period: ChartPeriod;
   adjustment: ChartAdjustment;
   initial: ChartView;
@@ -156,7 +156,7 @@ function EditableChart({
   cost: number | null;
   positionMessage?: string;
   aggregateErrors?: string[];
-  rps?: import("~/lib/chart-data").RpsCurve;
+  rps?: import("~/lib/chart/chart-data").RpsCurve;
   rpsMessage?: string;
   onRpsRetry?: () => void;
 }) {

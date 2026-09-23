@@ -7,7 +7,7 @@ import {
 } from "./lib/trading-method-map";
 import type { SkillInventory } from "./lib/trading-skill-inventory";
 
-import { researchStrategyFamilies } from "../src/lib/research-strategies";
+import { researchStrategyFamilies } from "../src/lib/research/specs/research-strategies";
 import {
   collectMethodEvidence,
   reconcileMethodEvidence,

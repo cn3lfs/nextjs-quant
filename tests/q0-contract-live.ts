@@ -5,7 +5,7 @@ import {
 } from "../src/server/portfolio/mock/mock-trading";
 import { readSecret, saveSecret } from "../src/server/vault";
 import { get, put } from "../src/server/db";
-import { tradeInputSchema } from "../src/lib/trade-ledger";
+import { tradeInputSchema } from "../src/lib/portfolio/trade-ledger";
 import {
   redactMockBody,
   mockHost,

@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { industryEmptyLabels, industryExclusions } from "~/lib/industry-rps";
-import { rpsPeriods } from "~/lib/rps";
+import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
+import { rpsPeriods } from "~/lib/screening/rps";
 import {
   IndustryRpsStatus,
   industryExclusionLabels,
@@ -10,7 +10,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
-import { PoolMembersLink } from "../common/pool-members-link";
+import { PoolMembersLink } from "./pool-members-link";
 import { usePanelVisible } from "../workbench/keep-alive";
 import {
   Select,

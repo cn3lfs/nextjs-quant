@@ -32,7 +32,7 @@ export function readFixture() {
 }
 
 // Both values must already be float32. Subtraction/comparison intentionally uses
-// JS doubles, like tests/czsc.test.ts: absolute difference STRICTLY < 0.0001.
+// JS doubles, like tests/strategy-signals/methods/chan/czsc.test.ts: absolute difference STRICTLY < 0.0001.
 export function compareSeries(before, after, onDifference = () => {}) {
   if (before.length !== after.length)
     throw new Error("Projection length mismatch");

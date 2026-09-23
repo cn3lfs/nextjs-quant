@@ -1,7 +1,7 @@
 import { request } from "./growth-factor-fixture";
-import { tmtIndustries } from "../../src/lib/research-crowding-factors";
-import type { AsOfObservation } from "../../src/lib/as-of";
-import { asOfInputDefinitions } from "../../src/lib/as-of-inputs";
+import { tmtIndustries } from "../../src/lib/research/factors/research-crowding-factors";
+import type { AsOfObservation } from "../../src/lib/research/evidence/as-of";
+import { asOfInputDefinitions } from "../../src/lib/research/evidence/as-of-inputs";
 export function crowdingFixturePanel() {
   const calendar = Array.from({ length: 62 }, (_, i) =>
     new Date(Date.parse("2024-03-01") + i * 86400000)

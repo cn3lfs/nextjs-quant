@@ -1,4 +1,4 @@
-import { industryPageSchema } from "~/lib/industry-rps";
+import { industryPageSchema } from "~/lib/screening/industry-rps";
 import { RpsStore } from "./rps-store";
 import { observationRanking, type RpsObservation } from "./rps-observation";
 

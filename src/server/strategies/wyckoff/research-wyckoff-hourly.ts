@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import type { WyckoffHourlyInput } from "~/lib/research-wyckoff-hourly";
+import type { WyckoffHourlyInput } from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
 import { hourlyBars } from "../../market/hourly-bars";
 /** Historical completed-bar replay; end timestamps are model availability,
  * not evidence of the vendor's original publication latency. */

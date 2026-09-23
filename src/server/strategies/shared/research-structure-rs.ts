@@ -1,8 +1,8 @@
-import { structureBenchmarkIdentitySchema } from "~/lib/research-wyckoff";
-export { structureBenchmarkIdentitySchema } from "~/lib/research-wyckoff";
+import { structureBenchmarkIdentitySchema } from "~/lib/research/methods/wyckoff/research-wyckoff";
+export { structureBenchmarkIdentitySchema } from "~/lib/research/methods/wyckoff/research-wyckoff";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
-import { researchDateSchema } from "~/lib/research-usage";
+import { researchDateSchema } from "~/lib/research/workflow/research-usage";
 import { wyckoffRelativeStrength } from "../wyckoff/wyckoff-relative-strength";
 import type { CalendarReference } from "../../market/data-health";
 

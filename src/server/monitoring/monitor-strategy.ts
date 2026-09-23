@@ -5,9 +5,9 @@ import {
   type Monitor,
   type Strategy,
 } from "~/lib/domain";
-import type { CzscSignalDetails } from "~/lib/czsc";
+import type { CzscSignalDetails } from "~/lib/research/methods/chan/czsc";
 import { analyzeCzsc } from "../strategies/chan/czsc";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import { analyzeBreakout } from "../strategies/breakout/breakout";
 
 export async function monitorStrategy(

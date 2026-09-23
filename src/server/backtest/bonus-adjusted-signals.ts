@@ -2,7 +2,7 @@ import type { Bar } from "~/lib/domain";
 import type {
   AdjustmentDiagnostics,
   ResearchAdjustment,
-} from "~/lib/research-adjustment";
+} from "~/lib/research/evidence/research-adjustment";
 import { actionReview, type BacktestActions } from "./backtest-actions";
 
 export type ResearchAdjustmentInput = {

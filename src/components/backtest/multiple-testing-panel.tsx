@@ -1,5 +1,5 @@
-import type { WalkForwardPage } from "~/lib/walk-forward";
-import type { ReviewValue } from "~/lib/trade-review";
+import type { WalkForwardPage } from "~/lib/backtest/walk-forward";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
 
 const display = (metric: ReviewValue) =>
   metric.value === null

@@ -1,12 +1,12 @@
 import { evidenceEnvelope } from "../../infra/evidence";
-import type { EvidenceEnvelope } from "~/lib/evidence-envelope";
+import type { EvidenceEnvelope } from "~/lib/research/evidence/evidence-envelope";
 import { fetch } from "undici";
 import { z } from "zod";
 import {
   tradeInputSchema,
   type TradeInput,
   type Position,
-} from "~/lib/trade-ledger";
+} from "~/lib/portfolio/trade-ledger";
 
 export const mockHost = "http://trade.10jqka.com.cn:8088";
 export type MockAccount = {

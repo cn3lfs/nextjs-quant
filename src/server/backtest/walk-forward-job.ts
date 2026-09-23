@@ -4,8 +4,8 @@ import {
 } from "../research/research-usage";
 import { z } from "zod";
 import { strategySchema, type Snapshot } from "~/lib/domain";
-import { backtestCostsSchema } from "~/lib/backtest-costs";
-import { walkForwardSchema, type WalkForwardResult } from "~/lib/walk-forward";
+import { backtestCostsSchema } from "~/lib/backtest/backtest-costs";
+import { walkForwardSchema, type WalkForwardResult } from "~/lib/backtest/walk-forward";
 import { background, runWorker } from "../jobs/jobs";
 import { atomic, get, put } from "../db";
 import { settings } from "../infra/settings";

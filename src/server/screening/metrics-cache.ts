@@ -1,5 +1,5 @@
 import type { Snapshot, Strategy, Metrics } from "~/lib/domain";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 
 // Only accept snapshots whose hash describes the completed, filtered bars.
 // The caller still independently recomputes the candidate research window.

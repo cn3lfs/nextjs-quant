@@ -54,7 +54,7 @@ export function decodeCzscNative(
   config: 0 | 1100,
   length: number,
   anchor?: 1 | 2 | 3,
-): import("~/lib/czsc").CzscNativeProjection {
+): import("~/lib/research/methods/chan/czsc").CzscNativeProjection {
   const fail = (detail: string): never => {
     throw new Error(`结构缺口：${detail}`);
   };
@@ -230,7 +230,7 @@ export function decodeCzscRecursive(
   config: 0 | 1100,
   length: number,
   anchor: 1 | 2 | 3,
-): import("~/lib/czsc").CzscRecursive {
+): import("~/lib/research/methods/chan/czsc").CzscRecursive {
   const fail = (): never => {
     throw new Error("结构缺口：93–99显式锚字段或外键非法");
   };

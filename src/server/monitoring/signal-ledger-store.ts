@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
-import type { LedgerSignal, LedgerRow, Outcome } from "~/lib/signal-ledger";
+import type { LedgerSignal, LedgerRow, Outcome } from "~/lib/strategy-facts/signal-ledger";
 import { NotificationPolicyStore } from "../infra/notification-policy-store";
-import type { NotificationDecision } from "~/lib/notification-policy";
+import type { NotificationDecision } from "~/lib/strategy-facts/notification-policy";
 
 export type LedgerRun = {
   date: string;

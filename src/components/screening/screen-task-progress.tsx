@@ -1,7 +1,7 @@
 "use client";
 import { api } from "~/trpc/react";
-import { taskStatusLabels, type TaskState } from "~/lib/task-history";
-import type { WorkProgress } from "~/lib/work-progress";
+import { taskStatusLabels, type TaskState } from "~/lib/research/workflow/task-history";
+import type { WorkProgress } from "~/lib/research/workflow/work-progress";
 export function WorkProgressView({ counts }: { counts?: WorkProgress }) {
   return counts ? (
     <p>

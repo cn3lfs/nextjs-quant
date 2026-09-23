@@ -20,7 +20,7 @@ import {
   type SupermindDataset,
   type SupermindEnvelope,
   type SupermindFrozenRow,
-} from "~/lib/research-supermind-snapshot";
+} from "~/lib/research/workflow/research-supermind-snapshot";
 
 /**
  * Frozen SuperMind snapshot store.

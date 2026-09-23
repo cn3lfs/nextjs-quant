@@ -1,7 +1,7 @@
 import type { RouterOutputs } from "~/trpc/react";
-import { universeAuditLabels } from "~/lib/universe-audit";
+import { universeAuditLabels } from "~/lib/screening/universe-audit";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
-import type { UniverseAuditRow } from "~/lib/universe-audit";
+import type { UniverseAuditRow } from "~/lib/screening/universe-audit";
 
 const columns: DataTableColumn<UniverseAuditRow>[] = [
   { id: "symbol", header: "证券", accessorKey: "symbol", enableSorting: false },

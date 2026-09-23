@@ -1,10 +1,10 @@
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/czsc";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import {
   horizons,
   ledgerOutcome,
   type ActionEvidence,
-} from "~/lib/signal-ledger";
+} from "~/lib/strategy-facts/signal-ledger";
 import { SignalLedgerStore, type LedgerRun } from "./signal-ledger-store";
 import { ledgerSignals } from "./signal-ledger-engine";
 import { analyzeCzsc } from "../strategies/chan/czsc";

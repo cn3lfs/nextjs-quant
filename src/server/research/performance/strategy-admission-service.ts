@@ -3,7 +3,7 @@ import {
   admissionParamsSchema,
   strategyAdmission,
   type StrategyAdmissionInput,
-} from "~/lib/strategy-admission";
+} from "~/lib/strategy-facts/strategy-admission";
 import type { ResearchDataset } from "../../backtest/research-dataset";
 import type { ResearchResult } from "../../backtest/research-store";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";

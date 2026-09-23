@@ -7,7 +7,7 @@ import {
   summarizeResearchUsage,
   type ResearchUsage,
   type ResearchRange,
-} from "~/lib/research-usage";
+} from "~/lib/research/workflow/research-usage";
 
 export function usageConfigHash(config: unknown): string {
   function canonical(value: unknown): unknown {

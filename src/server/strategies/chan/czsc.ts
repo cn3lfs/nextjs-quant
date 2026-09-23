@@ -2,10 +2,10 @@ import { fork, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import type { CzscInput } from "./czsc-input";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult, CzscFamily } from "~/lib/czsc";
+import type { CzscResult, CzscFamily } from "~/lib/research/methods/chan/czsc";
 import { decodeCzscCenters } from "./czsc-structures";
 import { decodeCzscMovements } from "./czsc-movements";
-import { chanMovementOutputs } from "~/lib/czsc-movements";
+import { chanMovementOutputs } from "~/lib/research/methods/chan/czsc-movements";
 import {
   czscResearchOutputs,
   czscNativeOutputs,

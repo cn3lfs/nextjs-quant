@@ -1,4 +1,4 @@
-import type { ResearchUsageSummary } from "~/lib/research-usage";
+import type { ResearchUsageSummary } from "~/lib/research/workflow/research-usage";
 
 export function ResearchUsagePanel({
   summary,

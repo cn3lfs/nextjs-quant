@@ -1,4 +1,4 @@
-import type { ResearchAdjustment } from "~/lib/research-adjustment";
+import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
 import { scan } from "../data-sources/tdx/tdx";
@@ -15,10 +15,10 @@ import { readBacktestActions } from "../backtest/backtest-actions";
 import { cashDividendWindow } from "../backtest/cash-dividend-window";
 import { reconciledCashPlan } from "../backtest/cash-dividend-plan";
 import type { reconcileDividends } from "../backtest/dividend-reconciliation";
-import type { CashDividendPlan } from "~/lib/cash-dividends";
+import type { CashDividendPlan } from "~/lib/portfolio/cash-dividends";
 import { walkForward } from "../backtest/walk-forward";
-import type { WalkForwardOptions } from "~/lib/walk-forward";
-import type { BacktestCosts } from "~/lib/backtest-costs";
+import type { WalkForwardOptions } from "~/lib/backtest/walk-forward";
+import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
   | FormulaWork

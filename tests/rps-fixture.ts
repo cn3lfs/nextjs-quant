@@ -4,7 +4,7 @@ import {
   rpsPolicy,
   type RpsDay,
   type RpsProgress,
-} from "../src/lib/rps";
+} from "../src/lib/screening/rps";
 import {
   calculateRpsDay,
   prepareRpsSecurity,

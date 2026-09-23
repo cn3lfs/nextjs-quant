@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   executionDiagnosticCategories,
   executionDiagnosticLabels,
-} from "~/lib/execution-quality";
+} from "~/lib/backtest/execution-quality";
 
 export function ExecutionQualityContainer({ account }: { account: string }) {
   const utils = api.useUtils();

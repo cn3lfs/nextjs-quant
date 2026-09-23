@@ -1,16 +1,16 @@
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/czsc";
-import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
-import type { ResearchStructureObservation } from "~/lib/research-structure-events";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
+import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
 import {
   chanRecursiveObservations,
   chanAnchorVersions,
-} from "~/lib/research-chan-recursive";
+} from "~/lib/research/methods/chan/research-chan-recursive";
 import {
   chanNativeCandidates,
   isChanFiveMinute,
   chanZhongyinBoundary,
-} from "~/lib/research-chan-native";
+} from "~/lib/research/methods/chan/research-chan-native";
 
 export async function researchChanZhongyin(
   symbol: string,

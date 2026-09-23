@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseFinancialReport } from "tstdx";
-import type { ReportFields } from "~/lib/tdx-fundamentals";
+import type { ReportFields } from "~/lib/market/tdx-fundamentals";
 
 /**
  * 基本面的主数据源是本地专业财务包 `vipdoc/cw/gpcw<YYYYMMDD>.dat`：包头写明报告期，

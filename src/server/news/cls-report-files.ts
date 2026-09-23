@@ -1,7 +1,7 @@
 import { lstat, readFile, realpath, readdir } from "node:fs/promises";
 import { resolve, join, extname } from "node:path";
 import { parseClsReport } from "./cls-report-parser";
-import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/cls-batch";
+import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/news/cls-batch";
 
 export async function clsReportFiles(directory: string) {
   const root = resolve(directory);

@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { isMinutePeriod, type ChartPeriod } from "~/lib/chart-view";
+import { isMinutePeriod, type ChartPeriod } from "~/lib/chart/chart-view";
 import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
 import { queryMcp } from "../data-sources/tdx/tdx-mcp-disabled";
 import { eastmoneyKlines } from "../data-sources/eastmoney/eastmoney-adapter";

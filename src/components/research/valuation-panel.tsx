@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { valuationScenarioSchema } from "~/lib/valuation-scenario";
+import { valuationScenarioSchema } from "~/lib/research/factors/valuation-scenario";
 import { Button } from "../ui/button";
 
 const commonFields = [

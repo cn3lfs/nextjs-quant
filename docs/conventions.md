@@ -74,7 +74,7 @@
 - `src/app/` — 路由与页面。
 - `tests/` — 全部测试与其 fixture；`tests/fixtures/` 放固定数据。
 
-`src/components/` 的业务组件按 `workbench`、`market`、`screening`、`research`、`backtest`、`portfolio`、`news`、`signals`、`intraday`、`overview`、`common` 分域；`ui/`、`panels/`（设计交接的八种面板与 12 列网格）与 workbench 壳层是基础层。页面样式取自 `src/styles/tokens.css` 的 `--nc-*` 变量或对应 Tailwind `nc-*` 工具类，不直接写 hex；图表画布颜色取自 `src/lib/chart-theme.ts`。纯函数按同一领域归档，通用样式合并入口为 `src/lib/common/classnames.ts`，不再新增无归属的 `utils.ts`。
+`src/components/` 的业务组件按 `workbench`、`market`、`screening`、`research`、`backtest`、`portfolio`、`news`、`signals`、`intraday`、`overview`、`common` 分域；`ui/`、`panels/`（设计交接的八种面板与 12 列网格）与 workbench 壳层是基础层。页面样式取自 `src/styles/tokens.css` 的 `--nc-*` 变量或对应 Tailwind `nc-*` 工具类，不直接写 hex；图表画布颜色取自 `src/lib/chart/chart-theme.ts`。纯函数按同一领域归档，通用样式合并入口为 `src/lib/common/classnames.ts`，不再新增无归属的 `utils.ts`。
 
 跨 package 的纯行情、指标和资金能力以 `packages/trading-strategy-core` 为实现源；`src/lib` 只保留应用侧契约、编排和展示计算，不复制 core 实现。
 
@@ -139,7 +139,7 @@
   写明期望的具体值。
 - 手算可验证的用例，在注释里写出算式，让人能用计算器复核。
 - **不删除、不跳过既有测试来让新代码通过。** 结构指纹类护栏
-  （`tests/workbench-refactor.test.ts`）失败时，**更新指纹并对新增部分补精确校验**，
+  （`tests/workbench/workbench-refactor.test.ts`）失败时，**更新指纹并对新增部分补精确校验**，
   不是删掉它。
 - 涉及外部投递的测试，**断言实际网络请求数为 0**。
 - 偶发失败必须定位根因，**不接受"重跑就好"**——

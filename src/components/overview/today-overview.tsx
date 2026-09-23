@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";
 import { cn } from "~/lib/common/classnames";
-import { beijingClock, dateLine, marketSession } from "~/lib/market-session";
+import { beijingClock, dateLine, marketSession } from "~/lib/market/market-session";
 import { api } from "~/trpc/react";
 import {
   BarRows,

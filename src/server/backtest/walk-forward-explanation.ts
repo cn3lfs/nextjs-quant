@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Evidence } from "~/lib/domain";
-import type { WalkForwardResult } from "~/lib/walk-forward";
+import type { WalkForwardResult } from "~/lib/backtest/walk-forward";
 import { evidenceEnvelope } from "../infra/evidence";
 import { get } from "../db";
 import { background } from "../jobs/jobs";

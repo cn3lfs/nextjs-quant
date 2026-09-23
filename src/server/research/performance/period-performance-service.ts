@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { performanceBases } from "~/lib/daily-performance";
+import { performanceBases } from "~/lib/backtest/daily-performance";
 import {
   naturalPeriodWinRates,
   periodPerformance,
   periodicReturns,
   type PeriodicReturns,
   type PeriodInput,
-} from "~/lib/period-performance";
+} from "~/lib/backtest/period-performance";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";
 import type {
   ResearchResult,

@@ -1,7 +1,7 @@
 import {
   cashDividendPlanSchema,
   type CashDividendPlan,
-} from "~/lib/cash-dividends";
+} from "~/lib/portfolio/cash-dividends";
 type Event = CashDividendPlan["events"][number];
 type Movement = {
   id: string;

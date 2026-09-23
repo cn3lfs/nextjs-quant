@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import type { ResearchEvent } from "~/lib/strategy-research";
+import type { ResearchEvent } from "~/lib/research/strategy-research";
 
 export type ResearchOutcome = {
   event: ResearchEvent;

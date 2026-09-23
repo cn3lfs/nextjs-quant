@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
-import { dailyPerformance } from "~/lib/daily-performance";
-import type { ResearchEvent } from "~/lib/strategy-research";
+import { dailyPerformance } from "~/lib/backtest/daily-performance";
+import type { ResearchEvent } from "~/lib/research/strategy-research";
 import type { ResearchDataset } from "../../backtest/research-dataset";
 import {
   ResearchStore,
@@ -13,7 +13,7 @@ import {
   pageStrategyAdmission,
   type AdmissionPageInput,
 } from "./strategy-admission-service";
-import { strategyAdmission } from "~/lib/strategy-admission";
+import { strategyAdmission } from "~/lib/strategy-facts/strategy-admission";
 
 const dateSchema = z
   .string()

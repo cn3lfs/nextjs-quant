@@ -23,7 +23,7 @@ import {
   summaryWindow,
   type NotificationDecision,
   type PolicyUnit,
-} from "~/lib/notification-policy";
+} from "~/lib/strategy-facts/notification-policy";
 type Credential = { secret: string; signingSecret?: string };
 export function validateDestination(type: Channel["type"], secret: string) {
   if (type === "telegram") {

@@ -17,8 +17,8 @@ const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {ResearchStrategyFields,selectResearchStrategy} from './src/components/research-strategy-fields';
-import {researchStrategyIds,researchStrategies} from './src/lib/research-strategies';
-import {researchSpecSchema} from './src/lib/strategy-research';
+import {researchStrategyIds,researchStrategies} from './src/lib/research/specs/research-strategies';
+import {researchSpecSchema} from './src/lib/research/strategy-research';
 function Fixture(){const [spec,setSpec]=useState(()=>researchSpecSchema.parse({strategy:'dual-breakout',start:'2024-01-01',end:'2024-12-31',validationStart:'2024-10-01'}));
 window.registry=researchStrategyIds.map(id=>({id,label:researchStrategies[id].label}));window.currentSpec=spec;window.selectPreset=id=>setSpec(previous=>selectResearchStrategy(previous,id));
 return <main className="mx-auto max-w-2xl space-y-4 p-6"><ResearchStrategyFields spec={spec} onChange={setSpec}/><button onClick={()=>window.saved=researchSpecSchema.parse(spec)}>保存固定配置</button></main>};createRoot(document.getElementById('root')).render(<Fixture/>);`,

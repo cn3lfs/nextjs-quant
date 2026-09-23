@@ -640,7 +640,7 @@ S0—S5 已完成，原 308 个根文件迁移 302 个，根保留 6 个有明�
 
 - 六个被问财适配器与策略共同使用的纯事实转换模块移入 `src/lib/strategy-facts/`，解除供应商层对策略服务的反向引用；不复制计算。
 - `market-data.ts` 拆成 `data-sources/tdx/mcp-market-data.ts` 行情访问和 `research/gather-evidence.ts` 研究证据组装。
-- `quant.ts` 的筛选 metrics 移入 `src/lib/screening-metrics.ts`；`screening.ts` 的完成时点判断移入 `src/lib/completed-bars.ts`。两者均保持原函数内容与签名。
+- `quant.ts` 的筛选 metrics 移入 `src/lib/screening/screening-metrics.ts`；`screening.ts` 的完成时点判断移入 `src/lib/completed-bars.ts`。两者均保持原函数内容与签名。
 - `rpsHash` 移入 `infra/content-hash.ts`，供名单读取与 RPS 共用；`evidence.ts` 归 infra，避免供应商层加载研究服务。
 - `research-growth-intraday` 仅以类型引用组合输出，GF windmill 仅以类型引用 SkillUse；保留类型引用，不为目录整齐复制类型。
 - 迁移前静态本地 import 图发现 `research-usage` / `research-governance` 双向依赖，均保留在 research 域内。动态加载与 type-only 关系另由类型/构建核验，不将静态图宣称为所有运行依赖。
@@ -667,7 +667,7 @@ C1 修改前后九代表 evidence 序列 SHA-256 均为 `cd92b0bb092d6b246c4c671
 - 隔离生产服务使用 `127.0.0.1:43127` 与本轮 app 数据目录；关闭自动分析并指向空行情目录，未连接默认生产库。通过 Chrome DevTools 展开九方向目录并逐一点击六个预设，原研究选择器全部正确变化；数据库复核 research-task/research-result 均为 0。空行情目录引起既有图表缺本地 day 文件提示，属本次隔离输入缺口，不作行情功能通过依据。
 - 390px 下页面与九卡片无横向溢出；4 个未回测、2 个 B4 批次未完整状态和 3 个无预设原因可见。控制台 error/warn 均为 0；截图接口 `Page.captureScreenshot` 超时，未反复重试，不登记截图视觉验收通过。已停止本轮服务，验证标签页回到空白。
 - 297 个迁移模块去除 import 后主体与迁移前一致；另 5 个仅涉及内联类型路径或已说明职责拆分，8 个抽取声明逐项一致；1,472 个静态本地引用无缺失。method audit：695 方法、22 implemented / 673 variant、errors=[]、reconciliation changes=[]。
-- 本轮 751 个变更代码文件格式通过。全仓 `pnpm format:check` 退出 1，仅 `src/lib/research-execution.ts`、`research-position-book.ts`、`research-pyramid.ts` 三个未改动文件存在历史格式问题；逐个核对与 HEAD 一致且 HEAD 本身未通过格式检查，未混入无关格式修改。
+- 本轮 751 个变更代码文件格式通过。全仓 `pnpm format:check` 退出 1，仅 `src/lib/research/technical/research-execution.ts`、`research-position-book.ts`、`research-pyramid.ts` 三个未改动文件存在历史格式问题；逐个核对与 HEAD 一致且 HEAD 本身未通过格式检查，未混入无关格式修改。
 - `mcp.ts` SHA-256 保持 `84298d84a2d5b33e43d0cc8ac7a9d011dc535ec6d368c60c5640e30cb10560b0`，其 UI、数据库 schema/migrations 与来源锁无差异。依赖安装初次遇到本机离线缓存不全；补齐 workspace 锁定引用后 `pnpm install --frozen-lockfile --offline --ignore-scripts` 通过，未新增外部依赖。
 
 2026-09-22 后续授权：用户明确要求本地 commit，本次重构与验收文档纳入同一提交；不推送、不打包，隔离临时目录不纳入 Git。
@@ -681,4 +681,4 @@ C1 修改前后九代表 evidence 序列 SHA-256 均为 `cd92b0bb092d6b246c4c671
 - `packages/trading-strategies` 继续只负责九方向代表目录和证据元数据，不与核心包合并；完整运行编排仍在 `src/server/strategies`。
 - 纯指标算法已迁入核心包；研究规格、数据库和 DLL 相关模块未整块迁移，它们仍含应用边界或研究状态，后续按同一纯度规则逐模块抽取，不能仅按文件名批量搬迁。
 
-本次验证：核心包独立 typecheck/build/test 通过（2 项）；代表目录 package 的 test/typecheck/build 通过（5 项）；根 `pnpm typecheck` 通过；根受影响回归 `tests/screening.test.ts` 与 `tests/indicators.test.ts` 通过（30 项）。
+本次验证：核心包独立 typecheck/build/test 通过（2 项）；代表目录 package 的 test/typecheck/build 通过（5 项）；根 `pnpm typecheck` 通过；根受影响回归 `tests/screening-rps/screening.test.ts` 与 `tests/engineering-validation/indicators.test.ts` 通过（30 项）。

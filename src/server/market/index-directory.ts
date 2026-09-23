@@ -1,4 +1,4 @@
-import { commonIndices, isMarketIndex } from "~/lib/market-indices";
+import { commonIndices, isMarketIndex } from "~/lib/market/market-indices";
 import { securityNames } from "../data-sources/tdx/tdx";
 import type { Period, Security } from "~/lib/domain";
 

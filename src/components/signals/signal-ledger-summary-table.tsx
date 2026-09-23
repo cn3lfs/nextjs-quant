@@ -1,6 +1,6 @@
 "use client";
 import { DataTable } from "~/components/ui/data-table";
-import type { aggregateLedger } from "~/lib/signal-ledger";
+import type { aggregateLedger } from "~/lib/strategy-facts/signal-ledger";
 const name = (s: string) => (s === "czsc" ? "缠论" : "双突破");
 const percent = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
 // Aggregation remains in the server view; this component receives display rows only.

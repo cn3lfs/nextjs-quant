@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { knownSourceDrift, compareSourceDrift } from "./lib/source-drift";
-import ids from "../src/lib/trading-skill-ids.json";
+import ids from "../src/lib/strategy-facts/trading-skill-ids.json";
 import {
   diffSkillInventory,
   inventoryTradingSkills,

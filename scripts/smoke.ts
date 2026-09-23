@@ -1,6 +1,6 @@
 import { closeMcp } from "../src/server/mcp";
 import { readSnapshot, scan } from "../src/server/data-sources/tdx/tdx";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import { defaultStrategy } from "../src/lib/domain";
 import { importLocalMcp, mcpTools } from "../src/server/mcp";
 import { structured, researchModel } from "../src/server/research/research";

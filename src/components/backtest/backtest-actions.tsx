@@ -10,7 +10,7 @@ export function BacktestActionsPanel({
 }: {
   review?: BacktestActions;
   base?: Backtest;
-  adjustment?: import("~/lib/research-adjustment").ResearchAdjustment;
+  adjustment?: import("~/lib/research/evidence/research-adjustment").ResearchAdjustment;
 }) {
   const schedule = api.dividendSchedule.useMutation();
   if (!review) return <p className="muted">旧档案未保存公司行动核验。</p>;

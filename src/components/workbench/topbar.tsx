@@ -3,7 +3,7 @@ import { Circle, MagnifyingGlass } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { marketSession } from "~/lib/market-session";
+import { marketSession } from "~/lib/market/market-session";
 import { cn } from "~/lib/common/classnames";
 import { Input } from "../ui/input";
 import { searchNav } from "./navigation";

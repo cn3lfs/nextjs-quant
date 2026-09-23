@@ -101,7 +101,7 @@ Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 
 ### 测试偶发文件级失败 / DLL EBUSY
 
-已稳定复现的缺陷是 beforeAll 无条件覆盖被占用的 `runtime/czsc/CZSC64.dll`，不是已证实的 20 秒超时。[tests/helpers/czsc-runtime.ts](../tests/helpers/czsc-runtime.ts) 已改为 COPYFILE_EXCL 首次复制，存在则逐字节核对，不覆盖已加载文件；[czsc.test.ts](../tests/czsc.test.ts) 有占用回归用例。
+已稳定复现的缺陷是 beforeAll 无条件覆盖被占用的 `runtime/czsc/CZSC64.dll`，不是已证实的 20 秒超时。[tests/helpers/czsc-runtime.ts](../tests/helpers/czsc-runtime.ts) 已改为 COPYFILE_EXCL 首次复制，存在则逐字节核对，不覆盖已加载文件；[czsc.test.ts](../tests/strategy-signals/methods/chan/czsc.test.ts) 有占用回归用例。
 
 若仍报 EBUSY，保留完整报错路径/阶段，找出是否另一个 build、旧测试或应用正在覆盖 DLL，停止已确认的占用者后重建再验证。内容不一致应明确失败，不吞错误、不放宽 timeout、不把“重跑好了”当修复。旧轮次未保留原始栈，因此不能声称历史每次偶发都由这一原因造成。
 

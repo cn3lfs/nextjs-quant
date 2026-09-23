@@ -1,7 +1,7 @@
 import { Books, DownloadSimple, Sparkle } from "@phosphor-icons/react/ssr";
 import { useState } from "react";
 import { type Report } from "~/lib/domain";
-import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
+import { archivedNameHint, securityDisplayName } from "~/lib/market/security-display";
 import { api } from "~/trpc/react";
 import { RsSourceDownload } from "../market/rs-source-download";
 import { GridTable, Panel, SecurityCell, StageCards } from "../panels";

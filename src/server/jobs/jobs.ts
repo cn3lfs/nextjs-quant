@@ -4,7 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { get, put, list, sqlite } from "../db";
 import type { Job } from "~/lib/domain";
 import type { Work } from "./worker";
-import { workProgressSchema, type WorkProgress } from "~/lib/work-progress";
+import { workProgressSchema, type WorkProgress } from "~/lib/research/workflow/work-progress";
 import { processAlive } from "../infra/lease";
 import { PrioritySlots } from "../infra/priority-slots";
 import { unpackScreen, type PackedScreen } from "../screening/screen-wire";
@@ -12,7 +12,7 @@ import {
   ResearchAttempts,
   bestEffortAudit,
 } from "../research/research-governance";
-import { researchRangeSchema } from "~/lib/research-usage";
+import { researchRangeSchema } from "~/lib/research/workflow/research-usage";
 const scope = globalThis as typeof globalThis & {
   quantJobs?: {
     workers: Map<string, Worker>;

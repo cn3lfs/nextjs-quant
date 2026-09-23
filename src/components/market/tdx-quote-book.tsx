@@ -1,6 +1,6 @@
 "use client";
-import type { ReviewValue } from "~/lib/trade-review";
-import { compactNumber } from "~/lib/tdx-fundamentals";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
+import { compactNumber } from "~/lib/market/tdx-fundamentals";
 import {
   activeBuyRatio,
   orderBook,
@@ -9,7 +9,7 @@ import {
   quoteSessionLabels,
   type QuoteSession,
   type QuoteSnapshot,
-} from "~/lib/tdx-quote-view";
+} from "~/lib/market/tdx-quote-view";
 import {
   Table,
   TableBody,

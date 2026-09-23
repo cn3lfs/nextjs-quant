@@ -15,13 +15,14 @@
 
 做具体修改前还必须读根 [AGENTS.md](../AGENTS.md)；它与当前用户授权决定执行边界。人工确认和历史证据从 [review/README.md](review/README.md) 进入。
 
-## 当前状态（2026-09-11）
+## 当前状态（2026-09-23）
 
 - **已交付**：M1–M5 的指标/图表/缠论/推送/双突破 A 层；N1 信号台账、N3 工作台收口、P2 分级、P1 账本、Q1 图表和 Q2a/Q2b 公式。
 - **Q0 部分闭环**：买入 100 股成交已核实并在隔离本地账本对账；卖出被当日 T+1 可卖 0 拦住，完整往返尚未完成，不能重复买入。
 - **E0–E4扩充**：规则修订、沪深/A500/行业概念浏览与六周期RPS、午尾盘预选、策略研究和财联社复盘已接入。日常操作见 [daily-workflow.md](archive/2026-09-22/operations/daily-workflow.md)，阶段证据与数据边界见 [next-plan.md](next-plan.md)。
 - **待确认**：通达信抽查、结构/图表/阈值/消息排版、真实渠道及 GPL 对外捆绑决定；普通用户盘中录入的当天交易日历证据来源仍待裁定。
 - **交付边界**：现有核对材料不能证明用户已签收；本轮未更新打包exe或生产库。概念RPS新增迁移9，旧exe需另行授权重打包。程序能算不代表已有盈利证据，盘中行情覆盖、历史成分/交易条件及公司行动限制在使用说明中保留。
+- **模块整理**：已授权按 [模块重构计划](project-module-reorganization-plan.md) 分阶段执行；R0/R1 模块基线与文档、R2 API 分域已完成，当前进入 R3 `src/lib` 归属整理。模块地图与责任说明从 [docs/modules](modules/README.md) 进入。
 
 ## docs/ 导航
 
@@ -30,6 +31,7 @@
 | [README.md](README.md)                                                                         | 接手入口与全目录导航                               |
 | [roadmap.md](roadmap.md)                                                                       | 范围唯一事实源，含完成摘要而非旧验收任务           |
 | [architecture.md](architecture.md)                                                             | 模块职责/入口/输入输出/依赖/不变量                 |
+| [modules/](modules/README.md)                                                                   | 按领域查看入口、消费者、副作用与验证               |
 | [invariants.md](invariants.md)                                                                 | 持续有效约束与测试映射，含裁剪抢救的裁定           |
 | [conventions.md](conventions.md)                                                               | 开发规范：风格、命名、UI、服务端、测试、注释、提交 |
 | [next-plan.md](next-plan.md)                                                                   | E0–E4 扩充顺序与验收                               |

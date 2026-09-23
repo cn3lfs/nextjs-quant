@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setup } from "./global-setup";
 import { settingsSchema } from "../src/lib/domain";
-import { rpsPolicy, type RpsProgress } from "../src/lib/rps";
+import { rpsPolicy, type RpsProgress } from "../src/lib/screening/rps";
 import { sqlite } from "../src/server/db";
 import { RpsStore } from "../src/server/screening/rps-store";
 import {

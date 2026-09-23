@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { Worker } from "node:worker_threads";
 import { z } from "zod";
-import { backtestCostsSchema } from "~/lib/backtest-costs";
+import { backtestCostsSchema } from "~/lib/backtest/backtest-costs";
 import type {
   calculateDiscipline,
   DisciplineSource,

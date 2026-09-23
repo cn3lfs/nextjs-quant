@@ -1,6 +1,6 @@
 import valid from "./fixtures/breakout-valid.json";
-import { researchSpecSchema } from "../src/lib/strategy-research";
-import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
+import { researchSpecSchema } from "../src/lib/research/strategy-research";
+import { researchMarketEvidenceSchema } from "../src/lib/research/factors/research-market-evidence";
 import {
   researchHash,
   type ResearchDataset,

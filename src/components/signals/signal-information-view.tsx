@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { signalInformation } from "~/lib/signal-information";
-import type { LedgerRow } from "~/lib/signal-ledger";
+import { signalInformation } from "~/lib/strategy-facts/signal-information";
+import type { LedgerRow } from "~/lib/strategy-facts/signal-ledger";
 import { SignalInformationTables } from "./signal-information-tables";
 import { ChartScatter } from "@phosphor-icons/react/ssr";
 import { Panel } from "../panels";

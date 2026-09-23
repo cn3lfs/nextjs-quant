@@ -1,6 +1,6 @@
 import { researchCanslimWeekly } from "./research-canslim-weekly";
 import type { Bar, Snapshot } from "~/lib/domain";
-import type { SepaResearchId } from "~/lib/research-sepa-strategies";
+import type { SepaResearchId } from "~/lib/research/specs/research-sepa-strategies";
 import { sepaTrendFacts } from "./sepa-trend";
 import { vcpFacts } from "./vcp";
 

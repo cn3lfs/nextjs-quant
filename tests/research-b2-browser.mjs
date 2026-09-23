@@ -13,12 +13,12 @@ const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {ResearchStrategyFields,applyResearchManagement} from './src/components/research-strategy-fields';
-import {researchSpecSchema} from './src/lib/strategy-research';
-import {riskRouteNames} from './src/lib/research-risk-routing';
-import {riskProfiles,riskPresetIds,riskPresetTemplate} from './src/lib/research-risk-presets';
-import {volatilityStopIds,volatilityStopProfiles} from './src/lib/research-volatility-stops';
-import {contextRiskIds,contextRiskProfiles} from './src/lib/research-context-risk';
-import {growthIntradayLabels,growthIntradayIds} from './src/lib/research-growth-intraday';
+import {researchSpecSchema} from './src/lib/research/strategy-research';
+import {riskRouteNames} from './src/lib/research/risk/research-risk-routing';
+import {riskProfiles,riskPresetIds,riskPresetTemplate} from './src/lib/research/risk/research-risk-presets';
+import {volatilityStopIds,volatilityStopProfiles} from './src/lib/research/risk/research-volatility-stops';
+import {contextRiskIds,contextRiskProfiles} from './src/lib/research/risk/research-context-risk';
+import {growthIntradayLabels,growthIntradayIds} from './src/lib/research/factors/research-growth-intraday';
 function Fixture(){const base=()=>researchSpecSchema.parse({strategy:'dual-breakout',start:'2021-01-01',end:'2021-12-31',validationStart:'2021-10-01'});const [spec,setSpec]=useState(base);
 window.reset=()=>{window.saved=null;setSpec(base())};window.showManagement=()=>setSpec(applyResearchManagement(base(),riskPresetTemplate('rk-risk1')));
 window.currentSpec=spec;window.routes=Object.entries(riskRouteNames).flatMap(([id,label])=>['primary','alternative'].filter(branch=>branch==='primary'||!['unmonitored','records100'].includes(id)).map(branch=>({id,branch,label:'路由'+label+'·'+(branch==='primary'?'首选':'备选')})));

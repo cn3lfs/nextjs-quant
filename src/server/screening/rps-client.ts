@@ -2,7 +2,7 @@ import { settings } from "../infra/settings";
 import { Worker } from "node:worker_threads";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { rpsRequestSchema, type RpsRequest, type RpsProgress } from "~/lib/rps";
+import { rpsRequestSchema, type RpsRequest, type RpsProgress } from "~/lib/screening/rps";
 import { sqlite } from "../db";
 import { RpsStore } from "./rps-store";
 import {

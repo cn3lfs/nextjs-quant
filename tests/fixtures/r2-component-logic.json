@@ -2,7 +2,7 @@
   "src/components/workbench/connections.tsx": {
     "Connections": "e6e64e25d0304cfd3d9f9c8991caf8e0cbab5a9fdfb5d19cbc5f31b61bfdb151"
   },
-  "src/components/common/notification-policy-fields.tsx": {
+  "src/components/signals/notification-policy-fields.tsx": {
     "NotificationPolicyFields": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/workbench/signals-view.tsx": {

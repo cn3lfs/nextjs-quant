@@ -3,9 +3,9 @@ import { open, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Stats } from "node:fs";
 import type { Snapshot } from "~/lib/domain";
-import { classifyCode } from "~/lib/delivery-import";
-import { tradeReviewDayVwap } from "~/lib/trade-review-vwap";
-import { isMarketIndex } from "~/lib/market-indices";
+import { classifyCode } from "~/lib/research/evidence/delivery-import";
+import { tradeReviewDayVwap } from "~/lib/portfolio/trade-review-vwap";
+import { isMarketIndex } from "~/lib/market/market-indices";
 import { parseBars, readSnapshot } from "../data-sources/tdx/tdx";
 
 export type PriceScaleEvidence = {

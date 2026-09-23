@@ -1,7 +1,7 @@
 import {
   disciplineNotice,
   disciplineScope,
-} from "~/lib/discipline-counterfactual";
+} from "~/lib/research/risk/discipline-counterfactual";
 import type { disciplineStatus } from "~/server/portfolio/discipline-service";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 

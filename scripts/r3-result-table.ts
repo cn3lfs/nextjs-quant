@@ -9,7 +9,7 @@ import { join } from "node:path";
  * this round): the row key MUST be the archived preset id (the JSON
  * filename), never `raw.spec?.strategy`. 161/162 B2/B5 composite presets
  * resolve to the same `spec.strategy` ("dual-breakout"; 1 resolves to
- * "boll-band-recovery" — see src/lib/research-risk-presets.ts:616-620), so
+ * "boll-band-recovery" — see src/lib/research/risk/research-risk-presets:616-620), so
  * keying by `spec.strategy` collapsed 161 independently-run trials into one
  * table row and would support a false "component has no effect" conclusion.
  * `spec.strategy` is still surfaced as a separate `resolvedStrategy` column

@@ -4,7 +4,7 @@ import { sqlite, put } from "../src/server/db";
 import { IntradayStore } from "../src/server/monitoring/intraday-store";
 import { evaluateIntraday } from "../src/server/monitoring/intraday-strategy";
 import { analyzeCzsc, closeCzsc } from "../src/server/strategies/chan/czsc";
-import { intradayConfigSchema } from "../src/lib/intraday-schedule";
+import { intradayConfigSchema } from "../src/lib/strategy-facts/intraday-schedule";
 import valid from "./fixtures/breakout-valid.json";
 
 if (

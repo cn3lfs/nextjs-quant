@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { performanceBases } from "~/lib/daily-performance";
+import { performanceBases } from "~/lib/backtest/daily-performance";
 import {
   rollingPerformance,
   rollingPerformanceDefaults,
@@ -7,7 +7,7 @@ import {
   type RollingPoint,
   type RollingPerformanceInput,
   type RollingCurvePoint,
-} from "~/lib/rolling-performance";
+} from "~/lib/backtest/rolling-performance";
 import { researchDailyReturns } from "./period-performance-service";
 import type { ResearchStore } from "../../backtest/research-store";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { canslimSourceLabel } from "~/lib/canslim-source-label";
+import { canslimSourceLabel } from "~/lib/strategy-facts/canslim-source-label";
 import { get, put } from "../../db";
 import { structured, researchModel } from "../../research/research";
 import { sharedRead } from "../../infra/shared-read";

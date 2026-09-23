@@ -6,44 +6,44 @@ import {
   intradayEntryPolicy,
   intradayExitPolicy,
   intradaySessionActive,
-} from "~/lib/research-intraday-execution";
+} from "~/lib/research/technical/research-intraday-execution";
 import {
   isMarketAdmission,
   marketAdmissionDecision,
-} from "~/lib/research-market-admission";
+} from "~/lib/research/risk/research-market-admission";
 import {
   isOpening,
   openingDecision,
   type OpeningId,
-} from "~/lib/research-opening";
+} from "~/lib/research/technical/research-opening";
 import { atr, rollingHigh } from "trading-strategy-core/indicators";
-import { researchAccountRisk } from "~/lib/research-account-risk";
-import { researchInitialStop } from "~/lib/research-management";
-import { researchLiquidity } from "~/lib/research-liquidity";
-import { contextRiskPoint } from "~/lib/research-context-risk";
-import { swingCalibration } from "~/lib/research-risk-scenarios";
+import { researchAccountRisk } from "~/lib/research/risk/research-account-risk";
+import { researchInitialStop } from "~/lib/research/workflow/research-management";
+import { researchLiquidity } from "~/lib/research/factors/research-liquidity";
+import { contextRiskPoint } from "~/lib/research/risk/research-context-risk";
+import { swingCalibration } from "~/lib/research/risk/research-risk-scenarios";
 import { confirmedExtrema } from "trading-strategy-core/indicators";
 import type { Bar } from "~/lib/domain";
-import type { ResearchEvent, ResearchSpec } from "~/lib/strategy-research";
+import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
 import {
   researchNavStatistics,
   researchTradeStatistics,
-} from "~/lib/strategy-research";
-import { assertGrowthIntradayWindow } from "~/lib/research-growth-intraday";
+} from "~/lib/research/strategy-research";
+import { assertGrowthIntradayWindow } from "~/lib/research/factors/research-growth-intraday";
 import {
   researchFill,
   researchBuyQuantity,
   researchCommission,
   researchSellQuantity,
   type ResearchExecutionRules,
-} from "~/lib/research-execution";
-import { researchRiskQuantity, plannedStopRisk } from "~/lib/research-risk";
+} from "~/lib/research/technical/research-execution";
+import { researchRiskQuantity, plannedStopRisk } from "~/lib/research/risk/research-risk";
 import {
   researchPositionBook,
   researchBookBuy,
   researchBookSell,
   researchBookSellable,
-} from "~/lib/research-position-book";
+} from "~/lib/research/analysis/research-position-book";
 import type {
   researchPortfolio,
   ResearchTrade,

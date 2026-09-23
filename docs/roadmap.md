@@ -14,17 +14,15 @@
 
 ### 1.2 指标本地计算
 
-本地通达信行情由 TypeScript 计算，指标共享实现位于 `packages/trading-strategy-core`，`src/lib/indicators.ts` 仅保留应用兼容入口，不走问财查询替代。技能提供方法、阈值和来源，不能变成另一个指标数据源。图表/公式/双突破的约束与手算测试入口见 [invariants §1–4](invariants.md#1-指标只有一个实现入口)。
-
-### 1.3 缠论复用 DLL，不移植算法
-
-版本资产在 vendor/czsc/CZSC64.dll，经 runtime:build 复制到 runtime/czsc；来源 commit、实际 hash 与重建原因见 [vendor 清单](../vendor/czsc/README.md)。koffi 从 RegisterTdxFunc 注册表读取 Func30/40 指针；先真实 C/V 注册，再按配置投影。不能按旧描述直接寻找 Func30 导出符号。
+本地通达信行情由 TypeScript 计算，指标共享实现位于 `packages/trading-strategy-core`，`src/lib/research/methods/chan/czsc/README.md)。koffi 从 RegisterTdxFunc 注册表读取 Func30/40 指针；先真实 C/V 注册，再按配置投影。不能按旧描述直接寻找 Func30 导出符号。
 
 每个应用宿主使用单一专用子进程串行 DLL 调用，台账任务线程转发到同一队列；不得并发进入或另开 DLL 工作池。Float32Array、库对象存活与 golden 权威规则见 [invariants §6](invariants.md#6-缠论原生边界)。无法加载则汇报，不换 FFI、不移植算法。
 
 DLL 由管理者重建并预置；执行者不需要自行安装编译工具或依赖。旧“本机无工具链/旧 build DLL 可直接用”的前提已被实际重建推翻。对外捆绑分发仍需用户确认许可义务，见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)；不由执行者作法律或分发决定。
 
 ## 2. 当前范围与待议
+
+2026-09-23 用户授权执行[项目模块重构与文档计划](project-module-reorganization-plan.md)：先建立模块基线和文档，再按阶段收拢 API、纯模块、服务端、页面组件和测试结构；不得改变业务口径或触碰受保护 MCP 文件。进度与阶段验收见 [next-plan](next-plan.md)。
 
 2026-09-22 策略整理接续：九方向代表目录与回测证据元数据保持独立 package，后续按 [整理计划](strategy-consolidation-plan.md#5-后续重构阶段2026-09-22) 收紧契约、核对来源并规划应用接入；保留全量方法与执行实现，不扩展完整回测引擎。追加 `src/server` 按策略、数据源、回测及其他职责分域整理；用户随后授权执行，已完成服务端分域及代表目录接入，C1—C4 与 S0—S5 已验收收尾，具体结果及限制见整理计划 §8。
 

@@ -1,17 +1,17 @@
 import type { researchWyckoffStructureSeries } from "./research-structure-weekly";
-import { isWyckoff, researchWyckoffSeries } from "~/lib/research-wyckoff";
-import { researchSwingSystemSeries } from "~/lib/research-swing-system";
+import { isWyckoff, researchWyckoffSeries } from "~/lib/research/methods/wyckoff/research-wyckoff";
+import { researchSwingSystemSeries } from "~/lib/research/methods/swing/research-swing-system";
 import {
   isSwingCore,
   researchSwingCoreSeries,
-} from "~/lib/research-swing-core";
+} from "~/lib/research/methods/swing/research-swing-core";
 import {
   isSepaResearch,
   type SepaResearchId,
-} from "~/lib/research-sepa-strategies";
+} from "~/lib/research/specs/research-sepa-strategies";
 import { researchSepaSeries } from "../canslim/research-sepa";
 import type { Bar } from "~/lib/domain";
-import type { VolumeEvidence } from "~/lib/research-volume-grid";
+import type { VolumeEvidence } from "~/lib/research/methods/volume/research-volume-grid";
 import {
   isCanslimResearch,
   isCanslimHigh,
@@ -21,15 +21,15 @@ import {
   isCanslimPriority,
   canslimCupShape,
   type CanslimResearchId,
-} from "~/lib/research-canslim-strategies";
+} from "~/lib/research/methods/canslim/research-canslim-strategies";
 import { researchCanslimFlatPoint } from "../canslim/research-canslim-flat";
 import { researchCanslimHold } from "../canslim/research-canslim-hold";
 import { researchCanslimHighSeries } from "../canslim/research-canslim-high";
 import { researchCanslimVolumeScore } from "../canslim/research-canslim-volume-score";
 import { researchCanslimVolumeTier } from "../canslim/research-canslim-volume-tier";
 import { researchCanslimMarketCombination } from "../canslim/research-canslim-market-combination";
-import { isCanslimMarketCombination } from "~/lib/research-canslim-market-strategies";
-import { isCanslimMarket } from "~/lib/research-canslim-market-strategies";
+import { isCanslimMarketCombination } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
+import { isCanslimMarket } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
 import {
   researchCanslimMarketScore,
   type CanslimResearchMarket,
@@ -46,13 +46,13 @@ import {
   researchRuleSeries as localSeries,
   type ResearchRuleId as LocalId,
   type ResearchRulePoint as LocalPoint,
-} from "~/lib/research-rules";
+} from "~/lib/research/specs/research-rules";
 import {
   isBreakoutRule,
   breakoutRuleDecision,
   type BreakoutRuleId,
   type BreakoutRulePoint,
-} from "~/lib/research-breakout-rules";
+} from "~/lib/research/technical/research-breakout-rules";
 import { analyzeBreakout } from "../breakout/breakout";
 export type ResearchRuleId =
   LocalId | BreakoutRuleId | CanslimResearchId | SepaResearchId;

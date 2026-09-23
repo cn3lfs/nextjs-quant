@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { chartPeriodSchema, isMinutePeriod } from "~/lib/chart-view";
+import { chartPeriodSchema, isMinutePeriod } from "~/lib/chart/chart-view";
 import type { Bar } from "~/lib/domain";
-import { isMarketIndex } from "~/lib/market-indices";
+import { isMarketIndex } from "~/lib/market/market-indices";
 import { query, westockScriptPath } from "./westock-data";
 import { parseWestockBars } from "./westock-bars";
 

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
-import { rollingPerformanceDefaults } from "~/lib/rolling-performance";
-import type { PerformanceBasis } from "~/lib/daily-performance";
+import { rollingPerformanceDefaults } from "~/lib/backtest/rolling-performance";
+import type { PerformanceBasis } from "~/lib/backtest/daily-performance";
 import { RollingPerformanceResults } from "./rolling-performance-results";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";

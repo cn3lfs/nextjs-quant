@@ -13,7 +13,7 @@
  *   `invalid_enum_value` for every one of the 162 composite presets. The
  *   only correct entry point for those ids is
  *   `buildNamedResearchSpec`/`findResearchCompositePreset`
- *   (src/server/backtest/research-run.ts:154, src/lib/research-composite-presets.ts).
+ *   (src/server/backtest/research-run.ts:154, src/lib/research/specs/research-composite-presets.ts).
  *   Non-composite ids (B3's indicator/pattern names, B4's "wy-" and "chan-"
  *   prefixed strategy names) ARE valid `strategy` enum values and must keep going
  *   through the direct `researchSpecSchema.parse({strategy: id, ...})` path
@@ -51,8 +51,8 @@ import { deserialize, serialize } from "node:v8";
 import {
   researchSpecSchema,
   type ResearchSpec,
-} from "../src/lib/strategy-research";
-import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
+} from "../src/lib/research/strategy-research";
+import { researchMarketEvidenceSchema } from "../src/lib/research/factors/research-market-evidence";
 import {
   captureResearchDataset,
   needsVolumeEvidence,
@@ -62,25 +62,25 @@ import {
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
-} from "../src/lib/research-event-coverage";
+} from "../src/lib/research/factors/research-event-coverage";
 import { deriveHistoricalFloatShares } from "../src/server/data-sources/tdx/tdx-gbbq";
 import {
   runStrategyResearch,
   buildNamedResearchSpec,
   createResearchCzscCache,
 } from "../src/server/backtest/research-run";
-import { findResearchCompositePreset } from "../src/lib/research-composite-presets";
+import { findResearchCompositePreset } from "../src/lib/research/specs/research-composite-presets";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { readMarketPool } from "../src/server/market/market-pool-files";
 import { saveSettings } from "../src/server/infra/settings";
 import { settingsSchema } from "../src/lib/domain";
 import { analyzeCzsc } from "../src/server/strategies/chan/czsc";
-import { isChanC4 } from "../src/lib/research-chan-movements";
+import { isChanC4 } from "../src/lib/research/methods/chan/research-chan-movements";
 import {
   isChanNative,
   isChanFiveMinute,
-} from "../src/lib/research-chan-native";
-import { isWyckoffHourly } from "../src/lib/research-wyckoff-hourly";
+} from "../src/lib/research/methods/chan/research-chan-native";
+import { isWyckoffHourly } from "../src/lib/research/methods/wyckoff/research-wyckoff-hourly";
 import { writeResearchJsonFile } from "../src/server/backtest/research-json";
 
 // Isolation guard (executor-brief.md §7 / next-round-plan.md §7): this driver

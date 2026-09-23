@@ -14,7 +14,7 @@
 - 实网成功响应会省略message，内部兼容为空字符串；保留data、表格、单位、日期、来源提示及请求版本哈希。不把万/亿取整数值还原成精确行情，不推断复权。
 - 标准sheetName/columns/items表格直接展示，其他data结构显示JSON。查询完成时间与原表数据日期分开；不渲染来源HTML，不执行返回内容。
 
-实现：[契约](../../../../src/lib/mx-data.ts)、[服务](../../../../src/server/data-sources/mx/mx-data.ts)、[页面](../../../../src/components/mx-data-query.tsx)。来源eastmoney/mx-ds-mcp，版本mx-data-2，API为mxDataQuery。
+实现：[契约](../../../../src/lib/market/mx-data.ts)、[服务](../../../../src/server/data-sources/mx/mx-data.ts)、[页面](../../../../src/components/data-sources/mx-data-query.tsx)。来源eastmoney/mx-ds-mcp，版本mx-data-2，API为mxDataQuery。
 
 ## 实测（2026-09-14）
 

@@ -9,8 +9,8 @@ import {
   growthSectorsSchema,
   growthEntrySchema,
   asOfInputDefinitions,
-} from "../../src/lib/as-of-inputs";
-import type { AsOfObservation } from "../../src/lib/as-of";
+} from "../../src/lib/research/evidence/as-of-inputs";
+import type { AsOfObservation } from "../../src/lib/research/evidence/as-of";
 export const request: CanslimAsOfRequest = {
   symbol: "sh600000",
   asOf: "2024-05-01T15:00:00+08:00",

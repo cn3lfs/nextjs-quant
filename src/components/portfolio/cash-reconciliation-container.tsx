@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PaginationState } from "@tanstack/react-table";
-import type { CashReconciliationStatus } from "~/lib/cash-reconciliation";
+import type { CashReconciliationStatus } from "~/lib/portfolio/cash-reconciliation";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";

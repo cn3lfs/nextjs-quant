@@ -2,7 +2,7 @@ import koffi from "koffi";
 import {
   chanAnchorDateCodes,
   chanProjectionMode,
-} from "../../../lib/czsc-movements";
+} from "../../../lib/research/methods/chan/czsc-movements";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

@@ -2,20 +2,20 @@ import { recordResearchUsage } from "../research/research-usage";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { strategySchema } from "~/lib/domain";
-import { evaluateFormula, FormulaError } from "~/lib/tdx-formula";
+import { evaluateFormula, FormulaError } from "~/lib/formula/tdx-formula";
 import {
   validateScreenFormula,
   type ScreeningFormula,
-} from "~/lib/formula-screen";
-import { workProgress, type WorkProgress } from "~/lib/work-progress";
+} from "~/lib/formula/formula-screen";
+import { workProgress, type WorkProgress } from "~/lib/research/workflow/work-progress";
 import { readSnapshot, scan } from "../data-sources/tdx/tdx";
 import { type ScreeningResult } from "./screening";
 import { completedBarFilter } from "~/lib/completed-bars";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import { sqlite } from "../db";
 import { RpsStore } from "./rps-store";
-import { usesRpsFields } from "~/lib/tdx-formula-check";
-import { parseFormula } from "~/lib/tdx-formula-syntax";
+import { usesRpsFields } from "~/lib/formula/tdx-formula-check";
+import { parseFormula } from "~/lib/formula/tdx-formula-syntax";
 
 export type FormulaWork = {
   attemptId?: string;

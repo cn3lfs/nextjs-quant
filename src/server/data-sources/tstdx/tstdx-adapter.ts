@@ -10,10 +10,10 @@ import {
   chartPeriodSchema,
   isMinutePeriod,
   type ChartPeriod,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 import type { Bar } from "~/lib/domain";
-import { isMarketIndex } from "~/lib/market-indices";
-import { isPriceScaleThreeFund } from "~/lib/security-classification";
+import { isMarketIndex } from "~/lib/market/market-indices";
+import { isPriceScaleThreeFund } from "~/lib/market/security-classification";
 import { configuredHosts } from "../tdx/tdx-quotes";
 
 export const TSTDX_ADAPTER_VERSION = "tstdx-adapter-2";

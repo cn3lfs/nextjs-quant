@@ -2,17 +2,17 @@ import { freeChartHistory } from "../market/free-chart-sources";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
-import type { ChartSnapshot } from "~/lib/chart-snapshot";
+import type { ChartSnapshot } from "~/lib/chart/chart-snapshot";
 import {
   chartAdjustmentLabels,
   chartAdjustmentSchema,
   type ChartAdjustment,
-} from "~/lib/chart-adjustment";
+} from "~/lib/chart/chart-adjustment";
 import {
   chartPeriodSchema,
   isMinutePeriod,
   type ChartPeriod,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 import { get, put } from "../db";
 import { settings } from "../infra/settings";
 import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";

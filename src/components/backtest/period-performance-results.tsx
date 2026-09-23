@@ -1,9 +1,9 @@
 "use client";
 
 import type { RouterOutputs } from "~/trpc/react";
-import type { DailyPerformance } from "~/lib/daily-performance";
-import type { ReviewValue } from "~/lib/trade-review";
-import { periodicWindows } from "~/lib/period-performance";
+import type { DailyPerformance } from "~/lib/backtest/daily-performance";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
+import { periodicWindows } from "~/lib/backtest/period-performance";
 import {
   DataTable,
   type DataTableColumn,

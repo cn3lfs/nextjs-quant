@@ -1,7 +1,7 @@
 "use client";
 
 import { Children, useState, type ReactNode } from "react";
-import type { NavDiagnostic } from "~/lib/trade-review-nav";
+import type { NavDiagnostic } from "~/lib/portfolio/trade-review-nav";
 import { Button } from "../ui/button";
 import {
   Collapsible,

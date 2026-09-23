@@ -6,7 +6,7 @@ import { api, type RouterInputs } from "~/trpc/react";
 import {
   admissionParamsSchema,
   defaultAdmissionParams,
-} from "~/lib/strategy-admission";
+} from "~/lib/strategy-facts/strategy-admission";
 import { StrategyAdmissionResults } from "./strategy-admission-results";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";

@@ -1,4 +1,4 @@
-import type { ResearchSpec } from "~/lib/strategy-research";
+import type { ResearchSpec } from "~/lib/research/strategy-research";
 import type { readMarketPool } from "../market/market-pool-files";
 export function requireA500Selection(
   spec: ResearchSpec,

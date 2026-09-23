@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
-import { fundamentalStageLabels } from "~/lib/fundamental-research";
+import { fundamentalStageLabels } from "~/lib/research/factors/fundamental-research";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { RevenueReconciliationPanel } from "./revenue-reconciliation-panel";
-import { securityDisplayName } from "~/lib/security-display";
+import { securityDisplayName } from "~/lib/market/security-display";
 type Mode = keyof typeof fundamentalStageLabels;
 const modeNames = {
   fundamental: "基本面五阶段",

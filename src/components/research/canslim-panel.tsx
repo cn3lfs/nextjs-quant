@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
 import { Button } from "../ui/button";
-import { canslimSourceLabel } from "~/lib/canslim-source-label";
-import { securityDisplayName } from "~/lib/security-display";
+import { canslimSourceLabel } from "~/lib/strategy-facts/canslim-source-label";
+import { securityDisplayName } from "~/lib/market/security-display";
 const labels = {
   market: "市场环境",
   "data-coverage": "资料覆盖",

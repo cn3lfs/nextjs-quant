@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { RpsDay, RpsRow } from "~/lib/rps";
+import type { RpsDay, RpsRow } from "~/lib/screening/rps";
 import { get, sqlite } from "../db";
 
 export type RpsObservation = {

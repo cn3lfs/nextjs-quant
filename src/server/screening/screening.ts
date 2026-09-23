@@ -11,13 +11,13 @@ import {
   cachePackedScreen,
 } from "./screen-cache";
 import { createHash } from "node:crypto";
-import { workProgress, type WorkProgress } from "~/lib/work-progress";
+import { workProgress, type WorkProgress } from "~/lib/research/workflow/work-progress";
 import {
   summarizePool,
   type PoolContext,
   type PoolObservation,
 } from "../market/pool-context";
-import { metrics } from "~/lib/screening-metrics";
+import { metrics } from "~/lib/screening/screening-metrics";
 import { screeningMetrics } from "./metrics-cache";
 import { packScreen, unpackScreen, type PackedScreen } from "./screen-wire";
 import type { Strategy, Candidate, Snapshot, Period, Bar } from "~/lib/domain";

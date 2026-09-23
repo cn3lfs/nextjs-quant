@@ -1,6 +1,6 @@
 "use client";
 import { DataTable } from "~/components/ui/data-table";
-import type { SignalInformation } from "~/lib/signal-information";
+import type { SignalInformation } from "~/lib/strategy-facts/signal-information";
 export type SignalInformationDisplay = {
   groups: (Omit<SignalInformation["groups"][number], "daily"> & {
     sectionReasons: Record<string, number>;

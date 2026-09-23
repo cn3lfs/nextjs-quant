@@ -2,14 +2,14 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { api } from "~/trpc/react";
-import { isMarketIndex } from "~/lib/market-indices";
-import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart-symbol";
+import { isMarketIndex } from "~/lib/market/market-indices";
+import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import {
   quoteRefreshInterval,
   quoteSession,
   quoteSessionLabels,
   type QuoteSession,
-} from "~/lib/tdx-quote-view";
+} from "~/lib/market/tdx-quote-view";
 import { TdxQuoteBook } from "./tdx-quote-book";
 import { TdxFundamentalSummary } from "./tdx-fundamental-summary";
 import { TdxCompanyInfo } from "./tdx-company-info";

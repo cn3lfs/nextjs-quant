@@ -4,7 +4,7 @@ import {
   formatMinutes,
   parseHhmm,
   type DayPhase,
-} from "~/lib/market-session";
+} from "~/lib/market/market-session";
 
 /**
  * Pure derivations behind 今日总览. Inputs are the repository's own status

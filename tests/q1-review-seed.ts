@@ -19,7 +19,7 @@ const { sqlite } = await import("../src/server/db");
 const { ChartViewStore } =
   await import("../src/server/charts/chart-view-store");
 const { defaultChartView, chartPeriodSchema } =
-  await import("../src/lib/chart-view");
+  await import("../src/lib/chart/chart-view");
 for (const period of chartPeriodSchema.options)
   new ChartViewStore(sqlite()).save({
     symbol: "sh600519",

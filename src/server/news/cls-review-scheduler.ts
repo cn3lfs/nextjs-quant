@@ -1,4 +1,4 @@
-import { clsReviewConfigSchema } from "~/lib/cls-review-config";
+import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
 import { get, put, sqlite } from "../db";
 import { clsReportFiles, previewClsReport } from "./cls-report-files";
 import { ClsReviewStore } from "./cls-review-store";

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
-import ids from "~/lib/trading-skill-ids.json";
+import ids from "~/lib/strategy-facts/trading-skill-ids.json";
 import {
   canslimMethodFiles,
   canslimMethodVersion,

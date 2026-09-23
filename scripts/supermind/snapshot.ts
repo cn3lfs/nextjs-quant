@@ -10,7 +10,7 @@ import {
 import {
   supermindDatasets,
   type SupermindDataset,
-} from "../../src/lib/research-supermind-snapshot";
+} from "../../src/lib/research/workflow/research-supermind-snapshot";
 
 /**
  * CLI for the frozen SuperMind snapshot store.

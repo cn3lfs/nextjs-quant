@@ -9,7 +9,7 @@ import {
   type RpsDay,
   type RpsExclusion,
   type RpsRow,
-} from "~/lib/rps";
+} from "~/lib/screening/rps";
 import { adjustmentFactors } from "../data-sources/tdx/tdx-gbbq";
 import type { TdxXdxr } from "../data-sources/tdx/tdx-wire";
 

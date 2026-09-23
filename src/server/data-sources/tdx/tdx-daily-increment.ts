@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { historicalDateSchema } from "~/lib/historical-screen";
+import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { symbolSchema, type Bar } from "~/lib/domain";
 
 /** Raw vendor units: index volume must not be relabelled as stock shares. */

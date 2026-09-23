@@ -1,5 +1,5 @@
-import type { ResearchSpec } from "~/lib/strategy-research";
-import type { ResearchManagement } from "~/lib/research-management";
+import type { ResearchSpec } from "~/lib/research/strategy-research";
+import type { ResearchManagement } from "~/lib/research/workflow/research-management";
 import {
   riskRouteSchema,
   riskRouteNames,
@@ -10,12 +10,12 @@ import {
   diagnosisTemplate,
   stopDiagnosisBoundary,
   type RiskRoute,
-} from "~/lib/research-risk-routing";
+} from "~/lib/research/risk/research-risk-routing";
 import {
   riskRepairSchema,
   riskRepairTemplate,
   riskRepairBoundary,
-} from "~/lib/research-risk-repair";
+} from "~/lib/research/risk/research-risk-repair";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 export function ResearchRiskCompositionFields({

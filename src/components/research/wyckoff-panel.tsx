@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
-import { securityDisplayName } from "~/lib/security-display";
+import { securityDisplayName } from "~/lib/market/security-display";
 
 const stageLabels = {
   environment: "市场背景",

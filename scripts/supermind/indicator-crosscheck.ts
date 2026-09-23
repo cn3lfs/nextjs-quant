@@ -28,7 +28,7 @@ import {
  *     formula-convention difference from a raw-data difference.
  *
  * Parameters are the ones the research strategies actually use, not
- * re-invented here: `src/lib/research-technical.ts:352-356` calls
+ * re-invented here: `src/lib/research/technical/research-technical.ts:352-356` calls
  * `ma(bars, 5|10|20|60)`, `macd(bars)`, `kdj(bars)`, `rsi(bars)`, `boll(bars)`,
  * and `src/lib/indicators.ts` fixes those defaults at MACD (12, 26, 9),
  * KDJ (9, 3, 3), RSI (6, 12, 24) and BOLL (20, 2, sample STD).
@@ -327,7 +327,7 @@ async function main() {
     eraAnchors: [...ERA_ANCHORS],
     indicatorParams: INDICATOR_PARAMS,
     parameterSource:
-      "src/lib/research-technical.ts:352-356 + src/lib/indicators.ts defaults",
+      "src/lib/research/technical/research-technical.ts:352-356 + src/lib/indicators.ts defaults",
     barFieldOrder: ["open", "high", "low", "close", "volume"],
     local,
     formulaFixture,

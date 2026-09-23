@@ -1,6 +1,6 @@
-import { type MarketSource } from "~/lib/market-source";
+import { type MarketSource } from "~/lib/market/market-source";
 import { useEffect, useState } from "react";
-import { defaultBacktestCosts } from "~/lib/backtest-costs";
+import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
 import {
   defaultStrategy,
   type Backtest,
@@ -8,8 +8,8 @@ import {
   type Snapshot,
   type Strategy,
 } from "~/lib/domain";
-import { readChartSymbolParam } from "~/lib/chart-symbol";
-import { type ScreenSort } from "~/lib/screen-sort";
+import { readChartSymbolParam } from "~/lib/chart/chart-symbol";
+import { type ScreenSort } from "~/lib/screening/screen-sort";
 import { api } from "~/trpc/react";
 import type { Tab } from "./navigation";
 // Keep all original state, effects and queries in one unconditional hook so tab switches

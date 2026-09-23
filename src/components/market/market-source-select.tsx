@@ -9,7 +9,7 @@ import {
   marketSourceLabels,
   marketSourceSchema,
   type MarketSource,
-} from "~/lib/market-source";
+} from "~/lib/market/market-source";
 
 export function MarketSourceSelect({
   value,

@@ -8,12 +8,12 @@ import {
   Table,
 } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, PanelEmpty, StatsPanel, type Stat } from "../panels";
-import { aggregateLedger, horizons, type LedgerRow } from "~/lib/signal-ledger";
+import { aggregateLedger, horizons, type LedgerRow } from "~/lib/strategy-facts/signal-ledger";
 import type { LedgerRun } from "~/server/monitoring/signal-ledger-store";
 import {
   tierLabels,
   type NotificationDecision,
-} from "~/lib/notification-policy";
+} from "~/lib/strategy-facts/notification-policy";
 
 const name = (s: string) => (s === "czsc" ? "缠论" : "双突破");
 const percent = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);

@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { redactRow, mapDeliveryColumns } from "~/lib/delivery-import";
+import { redactRow, mapDeliveryColumns } from "~/lib/research/evidence/delivery-import";
 import {
   summarizeExecution,
   executionDiagnosticCategories,
   executionDiagnosticLabels,
   type ExecutionRow,
-} from "~/lib/execution-quality";
+} from "~/lib/backtest/execution-quality";
 import type { replayTradeReview } from "./trade-review-service";
 
 export const executionSortFields = [

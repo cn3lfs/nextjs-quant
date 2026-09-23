@@ -1,6 +1,6 @@
-import type { AsOfObservation } from "../../src/lib/as-of";
-import { asOfInputDefinitions } from "../../src/lib/as-of-inputs";
-import { valueThesisMetrics } from "../../src/lib/research-value-factors";
+import type { AsOfObservation } from "../../src/lib/research/evidence/as-of";
+import { asOfInputDefinitions } from "../../src/lib/research/evidence/as-of-inputs";
+import { valueThesisMetrics } from "../../src/lib/research/factors/research-value-factors";
 import { request } from "./growth-factor-fixture";
 export const valueRequest = {
   ...request,

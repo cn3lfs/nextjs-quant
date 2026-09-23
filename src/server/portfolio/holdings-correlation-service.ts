@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   holdingsCorrelation,
   type HoldingsCorrelationInput,
-} from "~/lib/holdings-correlation";
+} from "~/lib/portfolio/holdings-correlation";
 export const holdingsCorrelationPageSchema = z.object({
   pageIndex: z.number().int().min(0).max(1000000).default(0),
   pageSize: z.number().int().min(1).max(20).default(10),

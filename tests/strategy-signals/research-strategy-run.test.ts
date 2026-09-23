@@ -1,0 +1,417 @@
+import { expect, it, vi } from "vitest";
+import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
+import { researchSpecSchema } from "../../src/lib/research/strategy-research";
+import { maParamsSchema } from "../../src/lib/domain";
+import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import {
+  createResearchCzscCache,
+  runStrategyResearch,
+} from "../../src/server/backtest/research-run";
+import type { CzscResult } from "../../src/lib/research/methods/chan/czsc";
+import { researchMethodSnapshot } from "../../src/server/research/research-method";
+import {
+  researchHash,
+  type ResearchDataset,
+} from "../../src/server/backtest/research-dataset";
+
+it("runs MA signals through both research partitions with evidence-backed fills and deterministic saved results", async () => {
+  const bars = Array.from({ length: 72 }, (_, i) => ({
+    date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
+    open: 10 + i,
+    high: 12 + i,
+    low: 8 + i,
+    close: 10 + i,
+    volume: 100,
+    amount: (10 + i) * 100,
+  }));
+  const spec = researchSpecSchema.parse({
+    strategy: "ma-cross",
+    maParams: maParamsSchema.parse({}),
+    symbols: ["sh600000"],
+    start: bars[61]!.date,
+    end: bars[70]!.date,
+    validationStart: bars[66]!.date,
+    holdingDays: 1,
+    initialCapital: 10000,
+    maxPositions: 1,
+    costs: {
+      commissionBps: 0,
+      minimumCommission: 0,
+      sellTaxBps: 0,
+      slippageBps: 0,
+    },
+  });
+  const dataset: ResearchDataset = {
+    version: "research-dataset-1",
+    source: "tdx-local",
+    root: "synthetic-fixture",
+    adjustment: "none",
+    membership: {
+      mode: "current-snapshot",
+      symbols: spec.symbols!,
+      source: null,
+      warning: "固定合成池，并非真实历史证券池",
+    },
+    benchmark: { symbol: "sh000001", bars },
+    calendar: bars.map((b) => b.date),
+    stocks: [
+      {
+        symbol: "sh600000",
+        name: "合成输入",
+        bars,
+        hash: researchHash(bars),
+        actions: [],
+      },
+    ],
+    excluded: [],
+    actionCoverage: "partial",
+    actionSource: { path: "fixture", modified: 0 },
+    capturedAt: 0,
+    hash: "fixed-input",
+  };
+  const evidence = researchMarketEvidenceSchema.parse({
+    version: "research-market-evidence-1",
+    source: "合成交易规则",
+    exportedAt: 0,
+    adjustment: "none",
+    corporateActionFree: [
+      {
+        symbol: "sh600000",
+        start: spec.start,
+        end: spec.end,
+        evidenceId: "fixture",
+      },
+    ],
+    rows: bars.map((bar) => ({
+      symbol: "sh600000",
+      date: bar.date,
+      tradable: true,
+      limitUp: null,
+      limitDown: null,
+      minimumBuy: 100,
+      buyStep: 100,
+      maximumOrder: 100000,
+      evidenceId: "fixture",
+    })),
+  });
+  const native = vi.fn(async () => {
+    throw new Error("unexpected native call");
+  });
+  const result = await runStrategyResearch(spec, dataset, evidence, native);
+  expect(result.events).toHaveLength(10);
+  expect(result.exclusions).toEqual([]);
+  expect(result.partitions.map((p) => p.simulation?.statistics.count)).toEqual([
+    3, 3,
+  ]);
+  for (const part of result.partitions) {
+    expect(
+      part.simulation!.trades.every(
+        (trade) => trade.entryDate > trade.event.observedDate,
+      ),
+    ).toBe(true);
+    expect(part.simulation!.nav.every((point) => point.cash >= 0)).toBe(true);
+  }
+  const withoutEvidence = await runStrategyResearch(
+    spec,
+    dataset,
+    null,
+    native,
+  );
+  expect(withoutEvidence.events).toEqual(result.events);
+  expect(withoutEvidence.partitions.map((p) => p.simulation)).toEqual([
+    null,
+    null,
+  ]);
+  expect(await runStrategyResearch(spec, dataset, evidence, native)).toEqual(
+    result,
+  );
+  expect(native).not.toHaveBeenCalled();
+  const volatilitySpec = {
+    ...spec,
+    initialCapital: 1000000,
+    risk: { fraction: 0.01, maxWeight: 0.2 },
+    management: researchManagementSchema.parse({
+      trail: { kind: "volatility", profile: "rk-ema20" },
+    }),
+  };
+  const shortProof = await runStrategyResearch(
+    volatilitySpec,
+    dataset,
+    evidence,
+    native,
+  );
+  expect(
+    shortProof.partitions.flatMap((p) => p.simulation?.trades ?? []).length,
+  ).toBeGreaterThan(0);
+  const fullProof = structuredClone(evidence);
+  fullProof.corporateActionFree[0]!.start = bars[0]!.date;
+  const fullHistory = await runStrategyResearch(
+    volatilitySpec,
+    dataset,
+    fullProof,
+    native,
+  );
+  expect(
+    fullHistory.partitions.flatMap((p) => p.simulation?.trades ?? []).length,
+  ).toBeGreaterThan(0);
+  expect(result).not.toHaveProperty("method");
+  const method = researchMethodSnapshot(spec.strategy);
+  const frozen = await runStrategyResearch(
+    spec,
+    { ...dataset, method },
+    evidence,
+    native,
+  );
+  expect(frozen.method).toEqual(method);
+  expect(frozen.hash).not.toBe(result.hash);
+  const managed = researchSpecSchema.parse({
+    ...spec,
+    risk: { fraction: 0.05, maxWeight: 1 },
+    management: {},
+  });
+  const managedResult = await runStrategyResearch(
+    managed,
+    { ...dataset, method: researchMethodSnapshot(spec.strategy, true) },
+    evidence,
+    native,
+  );
+  expect(managedResult.events).toEqual(result.events);
+  expect(
+    managedResult.partitions.every(
+      (part) =>
+        part.simulation!.trades.length > 0 &&
+        part.simulation!.trades.every(
+          (trade) => trade.initialStop != null && trade.stopHistory!.length > 0,
+        ),
+    ),
+  ).toBe(true);
+  expect(managedResult.method!.management!.version).toBe(
+    "research-management-1",
+  );
+  const scaled = researchSpecSchema.parse({
+    ...managed,
+    initialCapital: 50000,
+    holdingDays: 60,
+    management: {
+      ...managed.management,
+      scaleOut: [{ atR: 0.1, fraction: 0.5, raiseStopR: 0 }],
+    },
+  });
+  const sellEvidence = researchMarketEvidenceSchema.parse({
+    ...evidence,
+    rows: evidence.rows.map((row) => ({
+      ...row,
+      minimumSell: 100,
+      sellStep: 100,
+      maximumSell: 100000,
+      sellOddLotAll: true,
+    })),
+  });
+  const scaledResult = await runStrategyResearch(
+    scaled,
+    { ...dataset, method: researchMethodSnapshot(spec.strategy, true, true) },
+    sellEvidence,
+    native,
+  );
+  expect(
+    scaledResult.partitions.every((part) =>
+      part.simulation!.trades.some(
+        (trade) => trade.sales!.length > 0 && trade.remainingQuantity! > 0,
+      ),
+    ),
+  ).toBe(true);
+  expect(scaledResult.method!.scaleOut!.version).toBe("research-scale-out-1");
+  const protectedSpec = researchSpecSchema.parse({
+    ...scaled,
+    management: {
+      ...scaled.management,
+      trail: { kind: "close-atr", period: 2, multiple: 0.5 },
+      trailAfterScaleOut: true,
+      breakeven: { atR: 1 },
+    },
+  });
+  const protectedResult = await runStrategyResearch(
+    protectedSpec,
+    { ...dataset, method: researchMethodSnapshot(protectedSpec) },
+    sellEvidence,
+    native,
+  );
+  expect(protectedResult.method!.protection!.version).toBe(
+    "research-protection-1",
+  );
+  expect(
+    protectedResult.partitions.every((part) =>
+      part.simulation!.trades.some((trade) => trade.stopHistory!.length >= 3),
+    ),
+  ).toBe(true);
+  const pyramidSpec = researchSpecSchema.parse({
+    ...managed,
+    initialCapital: 200000,
+    holdingDays: 60,
+    management: {
+      ...managed.management,
+      pyramid: { kind: "r-50-30-20", maxTotalWeight: 0.6 },
+      stop: { kind: "percent", fraction: 0.01 },
+    },
+  });
+  const pyramidResult = await runStrategyResearch(
+    pyramidSpec,
+    { ...dataset, method: researchMethodSnapshot(pyramidSpec) },
+    sellEvidence,
+    native,
+  );
+  expect(pyramidResult.method!.pyramid!.version).toBe("research-pyramid-1");
+  expect(
+    pyramidResult.partitions.every((part) =>
+      part.simulation!.trades.some(
+        (trade) =>
+          trade.entries!.length > 1 &&
+          trade.book!.totalQuantity > trade.quantity,
+      ),
+    ),
+  ).toBe(true);
+  await expect(
+    runStrategyResearch(
+      spec,
+      { ...dataset, method: { ...method, ruleVersion: "changed" } },
+      evidence,
+      native,
+    ),
+  ).rejects.toThrow("方法版本");
+});
+
+it("reuses only identical native CZSC prefixes and preserves the result", async () => {
+  const bars = Array.from({ length: 72 }, (_, i) => ({
+    date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
+    open: 10 + i,
+    high: 12 + i,
+    low: 8 + i,
+    close: 10 + i,
+    volume: 100,
+    amount: (10 + i) * 100,
+  }));
+  const spec = researchSpecSchema.parse({
+    strategy: "chan-ma-kiss-native",
+    symbols: ["sh600000"],
+    start: bars[61]!.date,
+    end: bars[70]!.date,
+    validationStart: bars[66]!.date,
+    holdingDays: 1,
+    initialCapital: 10000,
+    maxPositions: 1,
+    costs: {
+      commissionBps: 0,
+      minimumCommission: 0,
+      sellTaxBps: 0,
+      slippageBps: 0,
+    },
+  });
+  const dataset: ResearchDataset = {
+    version: "research-dataset-1",
+    source: "tdx-local",
+    root: "synthetic-fixture",
+    adjustment: "none",
+    membership: {
+      mode: "current-snapshot",
+      symbols: spec.symbols!,
+      source: null,
+      warning: "固定合成池，并非真实历史证券池",
+    },
+    benchmark: { symbol: "sh000001", bars },
+    calendar: bars.map((b) => b.date),
+    stocks: [
+      {
+        symbol: "sh600000",
+        name: "合成输入",
+        bars,
+        hash: researchHash(bars),
+        actions: [],
+      },
+    ],
+    excluded: [],
+    actionCoverage: "partial",
+    actionSource: { path: "fixture", modified: 0 },
+    capturedAt: 0,
+    hash: "fixed-input",
+  };
+  const nativeResult: CzscResult = {
+    status: "no-structure",
+    hash: "fixed-native",
+    sourceCommit: "b67f3c6",
+    families: ([0, 1100] as const).map((config) => ({
+      config,
+      points: [],
+      centers: [],
+      signals: [],
+      movements: [],
+      qualities: [],
+      divergences: [],
+    })),
+  };
+  const native = vi.fn(async () => nativeResult);
+  const cache = new Map<string, Promise<CzscResult>>();
+  const first = await runStrategyResearch(
+    spec,
+    dataset,
+    null,
+    native,
+    undefined,
+    undefined,
+    {
+      czscCache: cache,
+      czscCacheNamespace: "test/native",
+    },
+  );
+  const firstCalls = native.mock.calls.length;
+  expect(firstCalls).toBeGreaterThan(0);
+  const second = await runStrategyResearch(
+    spec,
+    dataset,
+    null,
+    native,
+    undefined,
+    undefined,
+    {
+      czscCache: cache,
+      czscCacheNamespace: "test/native",
+    },
+  );
+  expect(native).toHaveBeenCalledTimes(firstCalls);
+  expect(second.events).toEqual(first.events);
+  expect(second.outcomes).toEqual(first.outcomes);
+  expect(second.structureObservations).toEqual(first.structureObservations);
+});
+
+it("bounds executor CZSC cache and keeps recently used prefixes hot", async () => {
+  const cache = createResearchCzscCache(2);
+  const value = Promise.resolve({} as CzscResult);
+  cache.set("a", value);
+  cache.set("b", value);
+  expect(cache.has("a")).toBe(true);
+  cache.get("a");
+  cache.set("c", value);
+  expect(cache.has("a")).toBe(true);
+  expect(cache.has("b")).toBe(false);
+  expect(cache.has("c")).toBe(true);
+});
+
+it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+  "falls back to the default cache limit for invalid limit %s",
+  (limit) => {
+    const cache = createResearchCzscCache(limit);
+    const value = Promise.resolve({} as CzscResult);
+    cache.set("a", value);
+    cache.set("b", value);
+    expect(cache.has("a")).toBe(true);
+    expect(cache.has("b")).toBe(true);
+  },
+);
+
+it("evicts the oldest entry when the configured limit is one", () => {
+  const cache = createResearchCzscCache(1);
+  const value = Promise.resolve({} as CzscResult);
+  cache.set("a", value);
+  cache.set("b", value);
+  expect(cache.has("a")).toBe(false);
+  expect(cache.has("b")).toBe(true);
+});

@@ -10,7 +10,7 @@ import {
 } from "~/components/ui/table";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { researchSpecSchema, type ResearchSpec } from "~/lib/strategy-research";
+import { researchSpecSchema, type ResearchSpec } from "~/lib/research/strategy-research";
 import {
   ResearchStrategyFields,
   selectResearchStrategy,
@@ -18,11 +18,11 @@ import {
 import {
   researchStrategies,
   researchStrategyLabel,
-} from "~/lib/research-strategies";
+} from "~/lib/research/specs/research-strategies";
 import {
   researchMarketEvidenceSchema,
   type ResearchMarketEvidence,
-} from "~/lib/research-market-evidence";
+} from "~/lib/research/factors/research-market-evidence";
 import { Button } from "../ui/button";
 import { RollingPerformanceContainer } from "../backtest/rolling-performance-container";
 import { PeriodPerformanceContainer } from "../backtest/period-performance-container";

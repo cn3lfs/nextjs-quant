@@ -22,7 +22,7 @@
 
 ### 2.1 全局技能来源
 
-本机 `C:/Users/jm/.codex/skills` 实际为 Junction，目标是 `C:/Users/jm/.agent-skills/skills`。当前应用清单 [trading-skill-ids.json](../src/lib/trading-skill-ids.json) 有 55 项，其中 `tdx-finance-skill` 已停用；`astock-market-rules` 还由交易规则入口独立读取。
+本机 `C:/Users/jm/.codex/skills` 实际为 Junction，目标是 `C:/Users/jm/.agent-skills/skills`。当前应用清单 [trading-skill-ids.json](../src/lib/strategy-facts/trading-skill-ids.json) 有 55 项，其中 `tdx-finance-skill` 已停用；`astock-market-rules` 还由交易规则入口独立读取。
 
 本轮读取了方法类 SKILL.md、相关引用目录/方法章节和现有策略代码，并检查查询类入口。**这是已核实的初始拆分，不宣称已逐条解释全部引用文件。** K0 必须递归核对方法引用、附带脚本的计算规则和教学示例，补齐遗漏；初始清单是下限，不是数量上限。无需启动这些 skill 的取数、模型、外发或模拟下单流程。
 
@@ -33,13 +33,13 @@
 | 双突破                   | [breakout.ts](../src/server/strategies/breakout/breakout.ts)、[research-signals.ts](../src/server/strategies/shared/research-signals.ts)、[monitor-strategy.ts](../src/server/monitoring/monitor-strategy.ts) | 已有确定性信号、监控与样本研究；补回踩、完整退出和仓位管理，不重写核心                   |
 | CZSC                     | research-signals 中按完整历史前缀回放 DLL，区分 observedDate 与 endpointDate                                                                                 | 已有原生信号研究；不等于 chan-theory 全部策略已实现；按买卖点及操作方法补映射            |
 | 均线交叉                 | [domain.ts](../src/lib/domain.ts) 已有 ma-cross 类型，既有 walk-forward 自检链路                                                                             | 作为已有基线复用；不能因为新样本研究只列两个策略而重复实现                               |
-| 样本研究                 | [strategy-research.ts](../src/lib/strategy-research.ts) 的研究枚举仅 dual-breakout / czsc                                                                    | 新家族尚未进入统一研究契约                                                               |
+| 样本研究                 | [strategy-research.ts](../src/lib/research/strategy-research.ts) 的研究枚举仅 dual-breakout / czsc                                                                    | 新家族尚未进入统一研究契约                                                               |
 | 组合模拟                 | [research-portfolio.ts](../src/server/backtest/research-portfolio.ts)                                                                                                 | 固定 holdingDays 退出、期初资金均分、同股不重复加仓；必须扩展才能承载完整 skill 交易逻辑 |
 | SEPA                     | [sepa-trend.ts](../src/server/strategies/canslim/sepa-trend.ts)、[sepa-finance.ts](../src/lib/strategy-facts/sepa-finance.ts)、[vcp.ts](../src/server/strategies/canslim/vcp.ts)                               | 已有趋势、财务、VCP 诊断及报告支持；RS 检查在趋势诊断里仍为 null；不是完整策略           |
 | CANSLIM                  | [canslim-cup.ts](../src/server/strategies/canslim/canslim-cup.ts) 及 canslim 系列证据/报告模块                                                                                  | 已有杯柄和因子证据；补形态替代、自动确定性门槛、入退场及历史财务时点                     |
 | 威科夫                   | wyckoff-method / frames / relative-strength / report 系列模块                                                                                                | 已有多周期报告与相对强弱证据；阶段事件、P&F、交易状态机不能按已有报告视为完成            |
 | 量价                     | [research-skills.ts](../src/server/research/research-skills.ts) 的 volumePriceFacts / volumePriceMethod                                                               | 已有量价事实与快评；补逐日事件、信号组合与回测                                           |
-| 基本面、郭永清、价值投资 | [valuation.ts](../src/lib/valuation.ts)、[valuation-scenario.ts](../src/lib/valuation-scenario.ts)、valuation-method 及报告链路                              | 已有估值计算和不同方法的证据报告；人工场景不能变成当时已知的历史预测                     |
+| 基本面、郭永清、价值投资 | [valuation.ts](../src/lib/research/factors/valuation.ts)、[valuation-scenario.ts](../src/lib/research/factors/valuation-scenario.ts)、valuation-method 及报告链路                              | 已有估值计算和不同方法的证据报告；人工场景不能变成当时已知的历史预测                     |
 | 情绪、拥挤度、指数估值   | [market-sentiment.ts](../src/server/strategies/sentiment/market-sentiment.ts)、[tmt-crowding.ts](../src/server/strategies/sentiment/tmt-crowding.ts)、技能目录内 gf-windmill 集成描述                  | 有部分当前背景；历史覆盖、完整评分和交易化另行落实                                       |
 | 新闻                     | research-skills 中 CLS、news-industry-classifier、news-sector-analyzer 集成                                                                                  | 有分类与行业报告；目录明确未覆盖价格象限及估值，不能算预期差策略完成                     |
 | 开盘、止损等             | 本轮未在上述研究主链找到完整家族接入                                                                                                                         | 登记为待接入；K0 继续排查零散可复用代码，不武断认定全部从零开始                          |

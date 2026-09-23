@@ -5,8 +5,8 @@ import {
   executionDiagnosticCategories,
   executionDiagnosticLabels,
   type ExecutionRow,
-} from "~/lib/execution-quality";
-import type { ReviewValue } from "~/lib/trade-review";
+} from "~/lib/backtest/execution-quality";
+import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import {
   DataTable,
   type DataTableColumn,

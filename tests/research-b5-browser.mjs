@@ -13,11 +13,11 @@ const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {ResearchStrategyFields,applyResearchManagement} from './src/components/research-strategy-fields';
-import {researchSpecSchema} from './src/lib/strategy-research';
-import {growthIntradayTemplate,growthIntradayLabels} from './src/lib/research-growth-intraday';
-import {openingIds} from './src/lib/research-opening';
-import {marketAdmissionIds} from './src/lib/research-market-admission';
-import {intradayExecutionIds} from './src/lib/research-intraday-execution';
+import {researchSpecSchema} from './src/lib/research/strategy-research';
+import {growthIntradayTemplate,growthIntradayLabels} from './src/lib/research/factors/research-growth-intraday';
+import {openingIds} from './src/lib/research/technical/research-opening';
+import {marketAdmissionIds} from './src/lib/research/risk/research-market-admission';
+import {intradayExecutionIds} from './src/lib/research/technical/research-intraday-execution';
 function Fixture(){const [spec,setSpec]=useState(()=>researchSpecSchema.parse({strategy:'dual-breakout',start:'2021-01-01',end:'2021-12-31',validationStart:'2021-10-01',risk:{fraction:0.02,maxWeight:0.2},management:growthIntradayTemplate('OP01')}));
 window.currentSpec=spec;window.rows=[...openingIds,...marketAdmissionIds,...intradayExecutionIds,'SW02-last30'].map(id=>({id,label:growthIntradayLabels[id]}));
 return <main className="mx-auto max-w-2xl space-y-4 p-6"><ResearchStrategyFields spec={spec} onChange={setSpec}/><button onClick={()=>window.saved=researchSpecSchema.parse(spec)}>保存固定配置</button></main>};createRoot(document.getElementById('root')).render(<Fixture/>);`,

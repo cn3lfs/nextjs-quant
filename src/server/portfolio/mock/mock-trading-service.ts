@@ -7,7 +7,7 @@ import {
   type MockAccount,
   type MockResponseEvidence,
 } from "./mock-trading";
-import { tradeInputSchema, type TradeInput } from "~/lib/trade-ledger";
+import { tradeInputSchema, type TradeInput } from "~/lib/portfolio/trade-ledger";
 import { tradeContext, tradeDashboard } from "../trade-ledger-service";
 const configId = "mock-trading-config";
 const credentialId = "mock-trading-account";

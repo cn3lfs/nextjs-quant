@@ -1,9 +1,9 @@
-import { isChanC4 } from "~/lib/research-chan-movements";
-import { isOpening } from "~/lib/research-opening";
-import { isMarketAdmission } from "~/lib/research-market-admission";
-import { isIntradayExecution } from "~/lib/research-intraday-execution";
+import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
+import { isOpening } from "~/lib/research/technical/research-opening";
+import { isMarketAdmission } from "~/lib/research/risk/research-market-admission";
+import { isIntradayExecution } from "~/lib/research/technical/research-intraday-execution";
 import { researchChanMonthlyInput } from "../strategies/chan/research-chan-monthly";
-import { researchK13Report, type K13ReportInput } from "~/lib/research-k13";
+import { researchK13Report, type K13ReportInput } from "~/lib/research/specs/research-k13";
 
 export function runK13Review(input: K13ReportInput) {
   return researchK13Report(input);
@@ -14,7 +14,7 @@ export async function runChanMonthlyInput(
 ) {
   return researchChanMonthlyInput(...args);
 }
-import { chanSectorAdmission } from "~/lib/research-chan-sector";
+import { chanSectorAdmission } from "~/lib/research/methods/chan/research-chan-sector";
 /** CH11 engineering comparison uses current-membership-v1 and exposes its bias. */
 export function runChanSectorResearch(
   raw: unknown,
@@ -30,8 +30,8 @@ export function runChanSectorResearch(
     "current-membership-v1",
   );
 }
-import { researchManagementSchema } from "~/lib/research-management";
-import { evaluateCryptoTimeSlot } from "~/lib/research-crypto-time-slot";
+import { researchManagementSchema } from "~/lib/research/workflow/research-management";
+import { evaluateCryptoTimeSlot } from "~/lib/research/factors/research-crypto-time-slot";
 
 export function runCryptoTimeSlotResearch(raw: unknown) {
   return evaluateCryptoTimeSlot(raw);
@@ -48,46 +48,46 @@ export function runGrowthFactorResearch(
   return evaluateGrowthFactors(request, observations, methods);
 }
 import { wyckoffHourlyFromMinutes } from "../strategies/wyckoff/research-wyckoff-hourly";
-import { isWyckoffHourly } from "~/lib/research-wyckoff-hourly";
-import { isChanNative } from "~/lib/research-chan-native";
-import type { ResearchStructureObservation } from "~/lib/research-structure-events";
-import { isWyckoffVsa } from "~/lib/research-wyckoff-vsa";
-import { isWyckoff } from "~/lib/research-wyckoff";
-import { replayRiskRepair } from "~/lib/research-risk-repair";
-import { diagnoseStops } from "~/lib/research-risk-routing";
-import { evaluateRiskExtension } from "~/lib/research-risk-extensions";
+import { isWyckoffHourly } from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
+import { isChanNative } from "~/lib/research/methods/chan/research-chan-native";
+import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
+import { isWyckoffVsa } from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
+import { isWyckoff } from "~/lib/research/methods/wyckoff/research-wyckoff";
+import { replayRiskRepair } from "~/lib/research/risk/research-risk-repair";
+import { diagnoseStops } from "~/lib/research/risk/research-risk-routing";
+import { evaluateRiskExtension } from "~/lib/research/risk/research-risk-extensions";
 import {
   researchMaeTraining,
   type ResearchMaeTraining,
-} from "~/lib/research-stop-calibration";
-import { contextRiskPoint } from "~/lib/research-context-risk";
+} from "~/lib/research/risk/research-stop-calibration";
+import { contextRiskPoint } from "~/lib/research/risk/research-context-risk";
 import {
   externalVolatilityPoint,
   isExternalVolatility,
-} from "~/lib/research-volatility-input";
-import { riskPresetAdmission } from "~/lib/research-risk-presets";
-import { riskAdmissionNeedsTraining } from "~/lib/research-risk-admission";
-import { isVolumePollution } from "~/lib/research-volume-pollution";
-import { isVolumeAdapted } from "~/lib/research-volume-adapted";
-import { isIndicatorCombination } from "~/lib/research-indicator-combinations";
-import { isSwingCore } from "~/lib/research-swing-core";
-import { isSwingMarket } from "~/lib/research-swing-market";
-import { isVolumeIntraday } from "~/lib/research-volume-intraday";
-import { isExternalFormula } from "~/lib/research-formula-external";
-import { isFormulaExample } from "~/lib/research-formula-examples";
-import { isPatternCombination } from "~/lib/research-pattern-combinations";
-import { isTechnicalMethod } from "~/lib/research-technical-methods";
+} from "~/lib/research/factors/research-volatility-input";
+import { riskPresetAdmission } from "~/lib/research/risk/research-risk-presets";
+import { riskAdmissionNeedsTraining } from "~/lib/research/risk/research-risk-admission";
+import { isVolumePollution } from "~/lib/research/methods/volume/research-volume-pollution";
+import { isVolumeAdapted } from "~/lib/research/methods/volume/research-volume-adapted";
+import { isIndicatorCombination } from "~/lib/research/technical/research-indicator-combinations";
+import { isSwingCore } from "~/lib/research/methods/swing/research-swing-core";
+import { isSwingMarket } from "~/lib/research/methods/swing/research-swing-market";
+import { isVolumeIntraday } from "~/lib/research/methods/volume/research-volume-intraday";
+import { isExternalFormula } from "~/lib/research/specs/research-formula-external";
+import { isFormulaExample } from "~/lib/research/specs/research-formula-examples";
+import { isPatternCombination } from "~/lib/research/technical/research-pattern-combinations";
+import { isTechnicalMethod } from "~/lib/research/technical/research-technical-methods";
 import {
   assertGrowthIntradayWindow,
   growthIntradayDescription,
-} from "~/lib/research-growth-intraday";
+} from "~/lib/research/factors/research-growth-intraday";
 import {
   growthIntradayEntries,
   researchGrowthIntraday,
 } from "../strategies/canslim/research-growth-intraday";
-import { isSepaResearch } from "~/lib/research-sepa-strategies";
-import { isCanslimMarket } from "~/lib/research-canslim-market-strategies";
-import { isCanslimMarketCombination } from "~/lib/research-canslim-market-strategies";
+import { isSepaResearch } from "~/lib/research/specs/research-sepa-strategies";
+import { isCanslimMarket } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
+import { isCanslimMarketCombination } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
 import { researchCanslimMarketWarnings } from "../strategies/canslim/research-canslim-market-combination";
 import {
   isCanslimResearch,
@@ -96,53 +96,53 @@ import {
   canslimShapeWarmup,
   isCanslimCup,
   isCanslimPriority,
-} from "~/lib/research-canslim-strategies";
-import { researchKellyNetPayoff } from "~/lib/research-kelly-payoff";
+} from "~/lib/research/methods/canslim/research-canslim-strategies";
+import { researchKellyNetPayoff } from "~/lib/research/risk/research-kelly-payoff";
 import {
   researchKellyTraining,
   type ResearchKellyTraining,
-} from "~/lib/research-kelly-training";
+} from "~/lib/research/risk/research-kelly-training";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/czsc";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import {
   researchTradeStatistics,
   type ResearchEvent,
   type ResearchSpec,
-} from "~/lib/strategy-research";
+} from "~/lib/research/strategy-research";
 import {
   researchEvidenceLookup,
   type ResearchMarketEvidence,
-} from "~/lib/research-market-evidence";
+} from "~/lib/research/factors/research-market-evidence";
 import { researchSignals } from "../strategies/shared/research-signals";
 import { researchOutcomes } from "./research-outcomes";
 import { researchPortfolio } from "./research-portfolio";
 import { researchHash, type ResearchDataset } from "./research-dataset";
 import { prepareResearchAdjustedCoverage } from "./research-adjustment-coverage";
 import { validateResearchMethod } from "../research/research-method";
-import { isVolumeStrategy, volumeWarmupStart } from "~/lib/research-volume";
-import { isVolumeContext } from "~/lib/research-volume-context";
-import { isContinuation } from "~/lib/research-continuation";
-import { isBreakoutRule } from "~/lib/research-breakout-rules";
+import { isVolumeStrategy, volumeWarmupStart } from "~/lib/research/methods/volume/research-volume";
+import { isVolumeContext } from "~/lib/research/methods/volume/research-volume-context";
+import { isContinuation } from "~/lib/research/technical/research-continuation";
+import { isBreakoutRule } from "~/lib/research/technical/research-breakout-rules";
 import {
   isChannelStrategy,
   channelWarmupStart,
   channelWarmupBars,
-} from "~/lib/research-channels";
-import { isCandleStrategy, candleWarmupStart } from "~/lib/research-candles";
-import { isVolumeSequence } from "~/lib/research-volume-sequence";
-import { isVolumeFailure } from "~/lib/research-volume-failure";
+} from "~/lib/research/technical/research-channels";
+import { isCandleStrategy, candleWarmupStart } from "~/lib/research/technical/research-candles";
+import { isVolumeSequence } from "~/lib/research/methods/volume/research-volume-sequence";
+import { isVolumeFailure } from "~/lib/research/methods/volume/research-volume-failure";
 import {
   isVolumeStructure,
   volumeStructureWarmupStart,
-} from "~/lib/research-volume-structure";
+} from "~/lib/research/methods/volume/research-volume-structure";
 import {
   isVolumeReversal,
   volumeReversalWarmupStart,
-} from "~/lib/research-volume-reversals";
+} from "~/lib/research/methods/volume/research-volume-reversals";
 import {
   buildResearchCompositeSpec,
   researchCompositePresetIds,
-} from "~/lib/research-composite-presets";
+} from "~/lib/research/specs/research-composite-presets";
 
 export type ResearchCzscCache = Map<string, Promise<CzscResult>>;
 
@@ -205,7 +205,7 @@ export interface ResearchRunOptions {
  * (preset ids are not in the `strategy` enum — they expand onto a shared
  * baseline strategy via `management`/`risk` overrides instead). See the
  * `researchSpecSchema.safeParse({strategy: id})` regression guard in
- * tests/research-composite-presets.test.ts. */
+ * tests/research-backtest/research-composite-presets.test.ts. */
 export function buildNamedResearchSpec(id: string, base: ResearchSpec) {
   return buildResearchCompositeSpec(id, base);
 }

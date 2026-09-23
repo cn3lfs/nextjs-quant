@@ -14,7 +14,7 @@ import {
   mxQueryPlan,
   mxScopeWarnings,
   type MxQueryInput,
-} from "~/lib/mx-data";
+} from "~/lib/market/mx-data";
 
 export const MX_VERSION = "mx-data-2";
 const endpoint = "https://mxapi.eastmoney.com/mxds/mcp";

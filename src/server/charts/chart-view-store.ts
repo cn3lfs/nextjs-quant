@@ -4,7 +4,7 @@ import {
   chartSaveSchema,
   chartViewSchema,
   defaultChartView,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 export class ChartViewStore {
   constructor(private readonly db: Database.Database) {}
   read(input: unknown) {

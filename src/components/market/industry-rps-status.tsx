@@ -2,8 +2,8 @@ import {
   industryExclusions,
   industryRpsPolicy,
   type IndustryRpsAudit,
-} from "~/lib/industry-rps";
-import { rpsExclusionLabels, rpsPeriods, rpsPolicy } from "~/lib/rps";
+} from "~/lib/screening/industry-rps";
+import { rpsExclusionLabels, rpsPeriods, rpsPolicy } from "~/lib/screening/rps";
 
 export const industryExclusionLabels = {
   ...rpsExclusionLabels,

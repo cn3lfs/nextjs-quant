@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Bar } from "~/lib/domain";
-import type { ChartAdjustment } from "~/lib/chart-adjustment";
+import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
 import { GBBQ_KEY_BASE64 } from "./tdx-gbbq-key";
 import { XDXR_CATEGORIES, type TdxXdxr } from "./tdx-wire";
 

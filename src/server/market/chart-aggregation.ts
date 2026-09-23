@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import { isMinutePeriod, type ChartPeriod } from "~/lib/chart-view";
+import { isMinutePeriod, type ChartPeriod } from "~/lib/chart/chart-view";
 
 const dayMs = 86400000;
 function exchangeNow(now: number) {

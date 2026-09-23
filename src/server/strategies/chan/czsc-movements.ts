@@ -3,15 +3,15 @@ import type {
   CzscFamily,
   CzscNativeProjection,
   CzscRecursiveNode,
-} from "~/lib/czsc";
+} from "~/lib/research/methods/chan/czsc";
 import type {
   ChanAnchor,
   ChanMovement,
   ChanConnection,
   ChanAssociation,
   CzscMovements,
-} from "~/lib/czsc-movements";
-import { chanAnchorDateCodes } from "~/lib/czsc-movements";
+} from "~/lib/research/methods/chan/czsc-movements";
+import { chanAnchorDateCodes } from "~/lib/research/methods/chan/czsc-movements";
 import type { CzscProjections } from "./czsc";
 
 /** Validate native evidence, never reconstruct absent centers or infer their level. */

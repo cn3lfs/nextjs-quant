@@ -2,7 +2,7 @@ import type { Bar, Snapshot } from "~/lib/domain";
 import {
   canslimHighPoints,
   type CanslimHighId,
-} from "~/lib/research-canslim-strategies";
+} from "~/lib/research/methods/canslim/research-canslim-strategies";
 import { canslimNewHigh } from "./canslim-new-high";
 
 export function researchCanslimHighSeries(

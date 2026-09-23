@@ -3,8 +3,8 @@ import {
   positionRisk,
   positionRiskMetrics,
   type PositionRiskPoint,
-} from "~/lib/position-risk";
-import type { NavDay } from "~/lib/trade-review-nav";
+} from "~/lib/portfolio/position-risk";
+import type { NavDay } from "~/lib/portfolio/trade-review-nav";
 
 export const positionRiskPageSchema = z.object({
   pageIndex: z.number().int().min(0).max(1000000).default(0),

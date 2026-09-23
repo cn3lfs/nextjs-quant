@@ -1,15 +1,15 @@
 "use client";
-import { chartColor, createNocturneChart } from "~/lib/chart-theme";
+import { chartColor, createNocturneChart } from "~/lib/chart/chart-theme";
 import {
   positionRiskCurveSegments,
   type PositionRiskCurvePoint,
-} from "~/lib/position-risk";
+} from "~/lib/portfolio/position-risk";
 import {
   rollingChartMetrics,
   rollingCurveSegments,
   type RollingCurvePoint,
-} from "~/lib/rolling-performance";
-import { rememberChartRange, restoreChartRange } from "~/lib/chart-viewport";
+} from "~/lib/backtest/rolling-performance";
+import { rememberChartRange, restoreChartRange } from "~/lib/chart/chart-viewport";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import {
@@ -18,19 +18,19 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { rpsPeriods } from "~/lib/rps";
-import { rpsChartSegments, type RpsCurve } from "~/lib/chart-data";
+import { rpsPeriods } from "~/lib/screening/rps";
+import { rpsChartSegments, type RpsCurve } from "~/lib/chart/chart-data";
 import { Checkbox } from "~/components/ui/checkbox";
 
 import {
   attachDrawings,
   drawingAnchor,
   drawingPreview,
-} from "~/lib/chart-drawings";
+} from "~/lib/chart/chart-drawings";
 import {
   chineseChartLocalization,
   chineseTickMark,
-} from "~/lib/chart-localization";
+} from "~/lib/chart/chart-localization";
 import {
   defaultChartView,
   indicatorLabel,
@@ -42,7 +42,7 @@ import {
   type ChartPeriod as Period,
   type ChartView,
   type Drawing,
-} from "~/lib/chart-view";
+} from "~/lib/chart/chart-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
@@ -61,10 +61,10 @@ import type { Bar } from "~/lib/domain";
 import {
   chartAdjustmentLabels,
   type ChartAdjustment,
-} from "~/lib/chart-adjustment";
-import type { CzscResult } from "~/lib/czsc";
+} from "~/lib/chart/chart-adjustment";
+import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import type { BreakoutResult } from "~/server/strategies/breakout/breakout";
-import { breakoutChartData } from "~/lib/chart-data";
+import { breakoutChartData } from "~/lib/chart/chart-data";
 import { api } from "~/trpc/react";
 import {
   chartIndicators,
@@ -77,7 +77,7 @@ import {
   czscChartLines,
   czscChartMarkers,
   type IndicatorName,
-} from "~/lib/chart-data";
+} from "~/lib/chart/chart-data";
 function LegacyChart({
   bars,
   equity,

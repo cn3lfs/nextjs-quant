@@ -1,4 +1,4 @@
-import { researchStructureTargets } from "~/lib/research-structure-targets";
+import { researchStructureTargets } from "~/lib/research/technical/research-structure-targets";
 import { confirmedExtrema } from "trading-strategy-core/indicators";
 import {
   researchWyckoffSeries,
@@ -6,11 +6,11 @@ import {
   wyckoffScore,
   type WyckoffId,
   type WyckoffStructureInput,
-} from "~/lib/research-wyckoff";
+} from "~/lib/research/methods/wyckoff/research-wyckoff";
 import {
   researchWyckoffHourlySeries,
   type WyckoffHourlyInput,
-} from "~/lib/research-wyckoff-hourly";
+} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
 import { researchStructureRs } from "./research-structure-rs";
 import type { Bar } from "~/lib/domain";
 import type { Snapshot } from "~/lib/domain";

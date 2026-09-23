@@ -8,7 +8,7 @@ Button 的尺寸、圆角、排列、背景、边框、阴影、悬停、禁用�
 
 新增 plain variant 只提供共同的光标、禁用与焦点行为，不添加底色、边框、间距或 .button 标记。40 处原生按钮全部选择 plain/default，保留原本的导航、链接样式、表单动作、表头排序、分段选项与绘图工具外观；没有把它们改成大号主按钮。分段和证券选项的 role、aria-selected、selected、键盘处理器未改，仍渲染 button 元素。
 
-源码 JSX 开始标签统计（src/**/*.tsx，不含测试、不按运行时循环展开）：原生共 41 处 → 1 处；非冻结 40 → **0**。唯一残留为 [backtest-actions.tsx:26](../../../src/components/backtest-actions.tsx#L26)，按 conventions §9.5 明确豁免。Button 实现内部的字符串 "button" 是底层宿主，不是原生 JSX 消费者。
+源码 JSX 开始标签统计（src/**/*.tsx，不含测试、不按运行时循环展开）：原生共 41 处 → 1 处；非冻结 40 → **0**。唯一残留为 [backtest-actions.tsx:26](../../../src/components/backtest/backtest-actions.tsx#L26)，按 conventions §9.5 明确豁免。Button 实现内部的字符串 "button" 是底层宿主，不是原生 JSX 消费者。
 
 全 src 的 Button variant/size 分布（含未修改的既有调用与画廊）：default/default 51、default/sm 1；outline/default 39、outline/sm 12；ghost/default 12、ghost/sm 5；danger/default 1；plain/default 40；合计 161。
 

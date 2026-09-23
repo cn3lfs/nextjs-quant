@@ -1,4 +1,4 @@
-import { industrySnapshotSchema } from "~/lib/industry-rps";
+import { industrySnapshotSchema } from "~/lib/screening/industry-rps";
 import { readIndustryBlocks } from "../market/industry-blocks";
 import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
 import { rpsHash } from "~/server/infra/content-hash";
