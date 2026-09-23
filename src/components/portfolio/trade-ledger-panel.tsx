@@ -21,8 +21,10 @@ import {
   Receipt,
   Robot,
   Scales,
+  UploadSimple,
   Wallet,
 } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import {
   changeTone,
   GridTable,
@@ -115,6 +117,14 @@ export function TradeLedgerPanel({
         icon={Wallet}
         title="账户"
         meta="本地账本为事实来源。人工录入、离线计算；模拟盘默认关闭。"
+        actions={
+          <Button asChild size="sm" variant="outline">
+            <Link href="/trade-review" scroll={false}>
+              <UploadSimple size={13} />
+              交割单与交易复盘
+            </Link>
+          </Button>
+        }
         items={tradeStats(data, enabled)}
       />
       <p

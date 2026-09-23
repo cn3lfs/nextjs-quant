@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadSimple } from "@phosphor-icons/react/ssr";
+import { Panel } from "../panels";
 import type { RouterInputs, RouterOutputs } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -169,8 +171,12 @@ export function TradeReviewImport({
   onConfirm: () => void;
 }) {
   return (
-    <section className="space-y-4" aria-label="交割单导入向导">
-      <h2 className="text-xl font-semibold">交割单导入</h2>
+    <Panel
+      aria-label="交割单导入向导"
+      icon={UploadSimple}
+      title="交割单导入"
+      bodyClassName="space-y-4"
+    >
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-64 flex-1 space-y-2">
           <Label htmlFor="delivery-directory">交割单目录（只读）</Label>
@@ -271,6 +277,6 @@ export function TradeReviewImport({
           onConfirm={onConfirm}
         />
       )}
-    </section>
+    </Panel>
   );
 }

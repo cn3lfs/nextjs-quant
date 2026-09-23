@@ -1,10 +1,6 @@
 import { TradeReviewContainer } from "~/components/portfolio/trade-review-container";
 
+// Title and subtitle come from the workbench topbar (navigation.ts).
 export default function TradeReviewPage() {
-  return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">交割单与交易复盘</h1>
-      <TradeReviewContainer />
-    </main>
-  );
+  return <TradeReviewContainer />;
 }

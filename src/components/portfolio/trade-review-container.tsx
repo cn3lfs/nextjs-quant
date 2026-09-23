@@ -1,5 +1,7 @@
 "use client";
 
+import { Scales } from "@phosphor-icons/react/ssr";
+import { PageGrid, Panel } from "../panels";
 import { useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
@@ -141,13 +143,20 @@ export function TradeReviewContainer() {
     ]);
   };
   return (
-    <div className="space-y-8">
+    <PageGrid>
       {error && (
-        <p role="alert" className="rounded-lg border border-destructive p-3">
+        <p
+          role="alert"
+          className="notice nc-span-12 m-0 border-nc-bad-edge text-nc-bad"
+        >
           {error}。请核对后重试。
         </p>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && (
+        <p role="status" className="nc-span-12 m-0 text-[12px] text-nc-ok">
+          {message}
+        </p>
+      )}
       <TradeReviewImport
         directory={directory}
         onDirectoryChange={(value) => {
@@ -197,7 +206,11 @@ export function TradeReviewContainer() {
             });
         }}
       />
-      {batches.isLoading && <p role="status">正在加载批次…</p>}
+      {batches.isLoading && (
+        <p role="status" className="nc-span-12 m-0 text-[12px] text-nc-text-4">
+          正在加载批次…
+        </p>
+      )}
       {batches.error && (
         <div role="alert">
           {batches.error.message}
@@ -224,7 +237,7 @@ export function TradeReviewContainer() {
           }}
         />
       )}
-      <section className="space-y-4">
+      <Panel icon={Scales} title="交易复盘" bodyClassName="space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-2">
             <Label htmlFor="review-account">复盘账户别名</Label>
@@ -384,7 +397,7 @@ export function TradeReviewContainer() {
             account={account}
           />
         )}
-      </section>
-    </div>
+      </Panel>
+    </PageGrid>
   );
 }

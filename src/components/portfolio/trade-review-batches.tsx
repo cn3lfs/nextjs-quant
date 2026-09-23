@@ -1,5 +1,7 @@
 "use client";
 
+import { Stack } from "@phosphor-icons/react/ssr";
+import { Panel } from "../panels";
 import { useState } from "react";
 import type { RouterOutputs } from "~/trpc/react";
 import { Button } from "../ui/button";
@@ -24,11 +26,13 @@ export function TradeReviewBatches({
     null,
   );
   return (
-    <section className="space-y-3" aria-label="导入批次">
-      <h2 className="text-xl font-semibold">导入批次</h2>
-      <p className="text-sm text-muted-foreground">
-        成交/现金流为文件识别笔数，包含因重复而跳过的记录。
-      </p>
+    <Panel
+      aria-label="导入批次"
+      icon={Stack}
+      title="导入批次"
+      meta="成交/现金流为文件识别笔数，包含因重复而跳过的记录。"
+      bodyClassName="space-y-3"
+    >
       {!batches.length && <p>尚无导入批次。</p>}
       {batches.map((batch) => (
         <div
@@ -87,6 +91,6 @@ export function TradeReviewBatches({
           </div>
         </DialogContent>
       </Dialog>
-    </section>
+    </Panel>
   );
 }
