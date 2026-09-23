@@ -1,9 +1,10 @@
-import { ArrowDownToLine, Sparkles } from "lucide-react";
+import { Books, DownloadSimple, Sparkle } from "@phosphor-icons/react";
 import { useState } from "react";
 import { type Report } from "~/lib/domain";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
 import { api } from "~/trpc/react";
 import { RsSourceDownload } from "../market/rs-source-download";
+import { GridTable, Panel, SecurityCell, StageCards } from "../panels";
 import { Button } from "../ui/button";
 
 import { stamp } from "./shared";
@@ -32,55 +33,99 @@ export function ReportArchive({
     staleTime: Infinity,
   });
   return (
-    <section className="panel">
-      <h3>通用研究报告</h3>
-      <p className="muted">
-        选择报告查看完整正文与证据。共 {history.data?.total ?? 0} 份 · 第{" "}
-        {cursors.length} 页
-      </p>
-      <Button
-        variant="outline"
-        onClick={() => {
-          setCursors([undefined]);
-          void utils.reportHistory.invalidate();
-        }}
-      >
-        刷新列表
-      </Button>
+    <Panel
+      icon={Books}
+      title="通用研究报告"
+      meta={`共 ${history.data?.total ?? 0} 份 · 第 ${cursors.length} 页`}
+      note="点击报告查看完整正文、分阶段结论与证据版本。"
+      actions={
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setCursors([undefined]);
+              void utils.reportHistory.invalidate();
+            }}
+          >
+            刷新列表
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={cursors.length === 1 || history.isFetching}
+            onClick={() => setCursors(cursors.slice(0, -1))}
+          >
+            上一页报告
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!history.data?.nextCursor || history.isFetching}
+            onClick={() => {
+              if (history.data?.nextCursor)
+                setCursors([...cursors, history.data.nextCursor]);
+            }}
+          >
+            下一页报告
+          </Button>
+        </>
+      }
+    >
       {history.isLoading && <p role="status">正在读取报告列表…</p>}
       {history.error && <p role="alert">{history.error.message}</p>}
-      {history.data?.items.map((item) => (
-        <div key={item.id}>
-          <Button
-            variant="plain"
-            className="text-link"
-            onClick={() => setSelected(item.id)}
-          >
-            {item.securityContext
-              ? `${securityDisplayName(item.securityContext.symbol, names, item.securityContext.archivedName)} · ${item.securityContext.symbol} · `
-              : ""}
-            {item.title} · {stamp(item.createdAt)}
-          </Button>
-        </div>
-      ))}
-      {history.data?.total === 0 && <p>暂无通用研究报告。</p>}
-      <Button
-        variant="outline"
-        disabled={cursors.length === 1 || history.isFetching}
-        onClick={() => setCursors(cursors.slice(0, -1))}
-      >
-        上一页报告
-      </Button>
-      <Button
-        variant="outline"
-        disabled={!history.data?.nextCursor || history.isFetching}
-        onClick={() => {
-          if (history.data?.nextCursor)
-            setCursors([...cursors, history.data.nextCursor]);
-        }}
-      >
-        下一页报告
-      </Button>
+      <GridTable
+        label="通用研究报告"
+        minWidth={620}
+        rows={history.data?.items ?? []}
+        rowKey={(item) => item.id}
+        rowClassName={(item) =>
+          item.id === selected ? "bg-nc-accent-900" : undefined
+        }
+        empty="暂无通用研究报告。"
+        columns={[
+          {
+            key: "security",
+            header: "关联证券",
+            width: "1.2fr",
+            cell: (item) =>
+              item.securityContext ? (
+                <SecurityCell
+                  name={securityDisplayName(
+                    item.securityContext.symbol,
+                    names,
+                    item.securityContext.archivedName,
+                  )}
+                  code={item.securityContext.symbol.toUpperCase()}
+                />
+              ) : (
+                <span className="text-nc-text-4">未确认关联证券</span>
+              ),
+          },
+          {
+            key: "title",
+            header: "标题",
+            width: "2fr",
+            cell: (item) => (
+              <Button
+                variant="plain"
+                className="text-link max-w-full truncate text-left"
+                onClick={() => setSelected(item.id)}
+              >
+                {item.title}
+              </Button>
+            ),
+          },
+          {
+            key: "time",
+            header: "时间",
+            width: "1fr",
+            cell: (item) => (
+              <span className="text-nc-text-3">{stamp(item.createdAt)}</span>
+            ),
+          },
+        ]}
+      />
       {selected && detail.isLoading && <p role="status">正在读取完整报告…</p>}
       {detail.error && (
         <p role="alert">
@@ -90,13 +135,15 @@ export function ReportArchive({
       )}
       {selected && detail.isSuccess && !detail.data && <p>该报告不存在。</p>}
       {detail.data && (
-        <ReportCard
-          report={detail.data}
-          securityContext={detail.data.securityContext}
-          names={names}
-        />
+        <div className="mt-3">
+          <ReportCard
+            report={detail.data}
+            securityContext={detail.data.securityContext}
+            names={names}
+          />
+        </div>
       )}
-    </section>
+    </Panel>
   );
 }
 export function ReportCard({
@@ -155,47 +202,61 @@ export function ReportCard({
   }
   return (
     <article className="report-card">
-      <div className="eyebrow">
-        <Sparkles size={13} /> AI 研究 · {stamp(report.createdAt)}
-        <Button size="sm" variant="ghost" onClick={download}>
-          <ArrowDownToLine size={13} />
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-nc-text-4">
+        <Sparkle size={13} className="text-nc-accent" /> AI 研究 ·{" "}
+        {stamp(report.createdAt)}
+        <span
+          title={
+            securityContext
+              ? archivedNameHint(
+                  securityContext.symbol,
+                  names,
+                  securityContext.archivedName,
+                )
+              : undefined
+          }
+        >
+          ·{" "}
+          {securityContext
+            ? `关联证券：${securityDisplayName(securityContext.symbol, names, securityContext.archivedName)} · ${securityContext.symbol.toUpperCase()}`
+            : "未确认关联证券"}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
+          onClick={download}
+        >
+          <DownloadSimple size={13} />
           导出报告
         </Button>
       </div>
-      <p
-        className="muted"
-        title={
-          securityContext
-            ? archivedNameHint(
-                securityContext.symbol,
-                names,
-                securityContext.archivedName,
-              )
-            : undefined
-        }
-      >
-        {securityContext
-          ? `关联证券：${securityDisplayName(securityContext.symbol, names, securityContext.archivedName)} · ${securityContext.symbol.toUpperCase()}`
-          : "未确认关联证券"}
-      </p>
-      <h3>{report.title}</h3>
-      <p>{report.summary}</p>
-      {report.stages?.map((stage) => (
-        <section key={stage.id}>
-          <h4>
-            {stageNames[stage.id]} ·{" "}
-            {stage.status === "supported"
-              ? "证据支持"
-              : stage.status === "contradicted"
-                ? "存在反证"
-                : "证据不足"}
-          </h4>
-          <p>{stage.summary}</p>
-          {stage.missing.length > 0 && <p>缺口：{stage.missing.join("；")}</p>}
-          <small>引用：{stage.citations.join("、")}</small>
-        </section>
-      ))}
-      <div className="report-grid">
+      <h3 className="nc-report-headline mt-2">{report.title}</h3>
+      <p className="nc-report-summary">{report.summary}</p>
+      {report.stages && report.stages.length > 0 && (
+        <StageCards
+          stages={report.stages.map((stage) => ({
+            key: stage.id,
+            title: stageNames[stage.id],
+            status:
+              stage.status === "supported"
+                ? "support"
+                : stage.status === "contradicted"
+                  ? "counter"
+                  : "insufficient",
+            body: stage.summary,
+            note: [
+              stage.missing.length > 0
+                ? `缺口：${stage.missing.join("；")}`
+                : "",
+              `引用：${stage.citations.join("、")}`,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          }))}
+        />
+      )}
+      <div className="report-grid mt-3">
         {[
           ["支持证据", report.supporting],
           ["反向证据", report.opposing],

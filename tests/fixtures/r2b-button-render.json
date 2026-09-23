@@ -8,9 +8,9 @@
   "src/components/portfolio/trade-ledger-panel.tsx": "2ca3415aca7906480cdc1c4fb981d1e1bb703f5a5c4905136ecb9acef1995fee",
   "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
   "src/components/workbench/workbench.tsx": "5b2cfd77a689840dffffca025b5d9b6a4561a0c3f7fd8bde0ffb6b0d1154be0d",
-  "src/components/workbench/evidence-analysis.tsx": "0d64b4f4de9060c3457bfc2f4e7cfab4af24264206c622178d9c89200db769ea",
+  "src/components/workbench/evidence-analysis.tsx": "616ecd636b18128ecb24448834f49570b3243f8cb9e993b683a713d8d262e98d",
   "src/components/workbench/market-view.tsx": "92e98f0ee112f8b6e2faf027a32b7c7fb6d1e557ff7b43b94a46304cb17c8c8c",
-  "src/components/workbench/reports.tsx": "41dff7e92b7ddc7bd36b397ad4994658a18c70d09f085e248ef343b936419d62",
+  "src/components/workbench/reports.tsx": "0050db25efa9c70902bbe6916ccc8e7251e92eb0dd2d8aa04eba8d2237881384",
   "src/components/workbench/task-center.tsx": "d61ed34f26f3958c6526c4e658f9cd4900eca43cc2f95658133120fea8be6024",
   "src/components/market/chart.tsx": "eb94a2ad926bbbd7118b0322237df9cc5e97d50dfd4e2b49e89fec9b3eaaf695"
 }

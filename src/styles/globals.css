@@ -796,9 +796,6 @@ td,
 .panel-title .tag:last-child {
   margin-left: auto;
 }
-.research-panel {
-  padding: 14px 16px;
-}
 .research-intro {
   text-align: center;
   padding: 12px 0 18px;
@@ -1169,9 +1166,6 @@ details ul {
   }
 }
 @media (max-width: 1239px) {
-  .research-panel {
-    display: none;
-  }
   .topbar-title p {
     display: none;
   }

@@ -478,3 +478,14 @@
 .nc-edge-bad {
   border-color: var(--nc-bad-edge);
 }
+
+/* Legacy `.panel` sections nested inside a panel read as inset cards. */
+.nc-panel .panel {
+  margin: 0;
+  background: var(--nc-inset);
+  border-color: var(--nc-border-soft);
+}
+.nc-panel .panel .panel,
+.nc-panel .panel .list-row {
+  background: var(--nc-card);
+}
