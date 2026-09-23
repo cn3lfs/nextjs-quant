@@ -12,7 +12,10 @@ import { Input } from "~/components/ui/input";
 import { useCallback, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart/chart-symbol";
+import {
+  chartPricePrecision,
+  isNonAShareChartSymbol,
+} from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
 import {
   chartCost,
@@ -58,12 +61,12 @@ export function ChartWorkspace({
     },
   );
   const rps = api.rpsCurve.useQuery(snapshot.symbol, {
-    enabled: period === "day" && !isSectorChartSymbol(snapshot.symbol),
+    enabled: period === "day" && !isNonAShareChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
   const position = api.chartPosition.useQuery(snapshot.symbol, {
-    enabled: adjustment === "none" && !isSectorChartSymbol(snapshot.symbol),
+    enabled: adjustment === "none" && !isNonAShareChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
@@ -213,7 +216,10 @@ function EditableChart({
     [anchor, tool, view, change],
   );
   const common = {
-    pricePrecision: chartPricePrecision(snapshot.symbol),
+    pricePrecision: chartPricePrecision(
+      snapshot.symbol,
+      snapshot.bars.at(-1)?.close,
+    ),
     viewportKey: `${snapshot.symbol}:${period}`,
     onHistoryRequest,
     volumeUnit:

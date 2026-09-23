@@ -14,6 +14,8 @@ import {
   type ChartPeriod,
 } from "~/lib/chart/chart-view";
 import { get, put } from "../db";
+import { isCryptoSymbol } from "~/lib/market/crypto";
+import { cryptoChartSnapshot } from "../market/crypto-chart";
 import { settings } from "../infra/settings";
 import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
 import {
@@ -100,6 +102,16 @@ export async function chartBars(
   const parsed = chartBarsInput.parse(input);
   const source = get<Snapshot>(parsed.snapshotId);
   if (!source) throw new Error("行情快照不存在");
+  if (isCryptoSymbol(source.symbol)) {
+    if (parsed.adjustment !== "none") throw new Error("加密货币不支持复权");
+    const chart = await cryptoChartSnapshot(
+      source,
+      parsed.period,
+      parsed.limit,
+    );
+    if (!get(chart.id)) put("chart-snapshot", chart.id, chart);
+    return chart;
+  }
   const now = Date.now(),
     period = parsed.period,
     { limit, adjustment } = parsed;

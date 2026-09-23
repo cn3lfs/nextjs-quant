@@ -80,7 +80,7 @@ it("wires persisted curves from the workspace and fixes the RPS pane range", asy
   );
   expect(workspace).toContain("api.rpsCurve.useQuery(snapshot.symbol, {");
   expect(workspace).toMatch(
-    /enabled: period === "day" && !isSectorChartSymbol\(snapshot.symbol\),\s*retry: false/,
+    /enabled: period === "day" && !isNonAShareChartSymbol\(snapshot.symbol\),\s*retry: false/,
   );
   expect(workspace).toContain('rps={period === "day" ? rps.data : undefined}');
   expect(workspace).toContain("onRpsRetry={() => void rps.refetch()}");

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
+import { symbolSchema } from "~/lib/domain";
 import {
   poolCategoryLabels,
   poolSelectionSchema,
@@ -78,7 +79,11 @@ export function MarketPoolBrowser({
   );
   const ready = category === "all" || query.pool !== null;
   const page = api.marketPoolPage.useQuery(
-    { ...query, selected: symbol },
+    // Only A-share codes are members of a pool; other charts select nothing.
+    {
+      ...query,
+      selected: symbolSchema.safeParse(symbol).success ? symbol : undefined,
+    },
     { enabled: ready },
   );
   const exportRows = api.marketPoolExport.useMutation({

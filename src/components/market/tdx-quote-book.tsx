@@ -60,7 +60,7 @@ export function TdxQuoteBook({
   hasOrderBook,
 }: {
   quote: QuoteSnapshot;
-  precision: 2 | 3;
+  precision: number;
   session: QuoteSession;
   /** 指数没有可交易盘口，协议返回空档；此时只展示价格与统计。 */
   hasOrderBook: boolean;

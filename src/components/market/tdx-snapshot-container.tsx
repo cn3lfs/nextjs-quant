@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { api } from "~/trpc/react";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { chartPricePrecision, isSectorChartSymbol } from "~/lib/chart/chart-symbol";
+import {
+  chartPricePrecision,
+  isNonAShareChartSymbol,
+} from "~/lib/chart/chart-symbol";
 import {
   quoteRefreshInterval,
   quoteSession,
@@ -35,7 +38,7 @@ function useQuoteSession() {
 export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
   const [auto, setAuto] = useState(false);
   const session = useQuoteSession();
-  const quotable = tradableSymbol(symbol) && !isSectorChartSymbol(symbol);
+  const quotable = tradableSymbol(symbol) && !isNonAShareChartSymbol(symbol);
   const index = isMarketIndex(symbol);
   const interval = session === null ? null : quoteRefreshInterval(session);
   const quotes = api.tdxQuotes.useQuery([symbol], {

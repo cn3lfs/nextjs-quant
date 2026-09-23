@@ -5,6 +5,8 @@ import { runWorker } from "../jobs/jobs";
 import { preferredOnlineChart } from "./preferred-online-chart";
 import { securityDirectory } from "./securities";
 import { get, put } from "../db";
+import { isCryptoSymbol } from "~/lib/market/crypto";
+import { cryptoSnapshot } from "./crypto-chart";
 
 export async function snapshot(
   symbol: string,
@@ -15,6 +17,13 @@ export async function snapshot(
     throw new Error("原 MCP 监控已停用，请重新选择免费数据源");
   const selected = source === "online" ? "auto" : source;
   let result: Snapshot;
+  if (isCryptoSymbol(symbol)) {
+    // Crypto has one source (Binance); the A-share source choice does not apply.
+    result = await cryptoSnapshot(symbol, period);
+    const existing = get<Snapshot>(result.id);
+    if (!existing) put("snapshot", result.id, result);
+    return existing ?? result;
+  }
   if (selected === "local" || selected === "auto") {
     try {
       result = await runWorker<Snapshot>({

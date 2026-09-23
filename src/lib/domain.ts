@@ -277,6 +277,14 @@ export const settingsSchema = z.object({
   fastModel: z.string().default("deepseek-v4-flash"),
   deepModel: z.string().default("deepseek-v4-pro"),
   proxy: z.string().default(""),
+  /** Fallback route for overseas data (crypto): direct first, then this proxy. */
+  outboundProxy: z
+    .string()
+    .trim()
+    .max(200)
+    .regex(/^$|^(socks5h?|socks4|https?):\/\/[^\s/]+$/, "代理地址格式无效")
+    .default("socks5://127.0.0.1:10808"),
+  binanceTestnet: z.boolean().default(true),
   calendar: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
 });
 export type Settings = z.infer<typeof settingsSchema>;

@@ -24,6 +24,7 @@ export function marketSourceLabel(source: string) {
         "tdx-7709": "tstdx（自定义 TDX）",
         "tencent/westock-data": "westock-data（腾讯自选股）",
         "eastmoney-online": "东方财富",
+        "binance-spot": "币安现货",
         "tdx-mcp": "已停用来源（历史快照）",
       } as Record<string, string>
     )[source] ?? source

@@ -9,7 +9,10 @@ import {
   rollingCurveSegments,
   type RollingCurvePoint,
 } from "~/lib/backtest/rolling-performance";
-import { rememberChartRange, restoreChartRange } from "~/lib/chart/chart-viewport";
+import {
+  rememberChartRange,
+  restoreChartRange,
+} from "~/lib/chart/chart-viewport";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import {
@@ -383,7 +386,7 @@ export function CzscMarketChart({
   snapshotId: string;
   adjustment?: ChartAdjustment;
   chartSnapshot?: boolean;
-  pricePrecision?: 2 | 3;
+  pricePrecision?: number;
   volumeUnit?: string;
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
@@ -490,7 +493,7 @@ export function MarketChart({
   period: Period;
   adjustment?: ChartAdjustment;
   volumeUnit?: string;
-  pricePrecision?: 2 | 3;
+  pricePrecision?: number;
   czsc?: CzscResult;
   czscMessage?: string;
   breakout?: BreakoutResult;

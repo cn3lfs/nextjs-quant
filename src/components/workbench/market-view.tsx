@@ -16,7 +16,11 @@ import { ChartWorkspace } from "../market/chart-workspace";
 import { SecuritySelect } from "../market/security-select";
 import { MarketPoolBrowser } from "../market/market-pool-browser";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
+import {
+  isCryptoChartSymbol,
+  isNonAShareChartSymbol,
+} from "~/lib/chart/chart-symbol";
+import { cryptoAssets } from "~/lib/market/crypto";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import {
@@ -68,7 +72,7 @@ export function MarketView({
   const [chartAdjustment, setChartAdjustment] =
     useState<ChartAdjustment>("none");
   const effectiveAdjustment =
-    isMarketIndex(symbol) || isSectorChartSymbol(symbol)
+    isMarketIndex(symbol) || isNonAShareChartSymbol(symbol)
       ? "none"
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
@@ -96,7 +100,7 @@ export function MarketView({
           />
           <MarketSourceSelect
             value={marketSource}
-            disabled={load.isPending}
+            disabled={load.isPending || isCryptoChartSymbol(symbol)}
             onChange={(source) => {
               setMarketSource(source);
               load.mutate({ symbol, period, source });
@@ -107,7 +111,7 @@ export function MarketView({
             disabled={
               load.isPending ||
               isMarketIndex(symbol) ||
-              isSectorChartSymbol(symbol)
+              isNonAShareChartSymbol(symbol)
             }
             onChange={setChartAdjustment}
           />
@@ -187,13 +191,15 @@ export function MarketView({
           {loaded
             ? `数据源 ${loaded.source} · 快照于 ${new Date(loaded.createdAt).toLocaleString("zh-CN", { hour12: false })} · 历史导入与回测不会发送通知`
             : "历史导入与回测不会发送通知"}
-          {(isMarketIndex(symbol) || isSectorChartSymbol(symbol)) &&
-            " · 指数行情 · 价格单位：点"}
+          {isCryptoChartSymbol(symbol)
+            ? ` · 币安现货 · 7×24 · UTC 收线 · 计价 ${cryptoAssets(symbol).quote || "—"}`
+            : (isMarketIndex(symbol) || isNonAShareChartSymbol(symbol)) &&
+              " · 指数行情 · 价格单位：点"}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => watch.mutate([...watchlist, symbol])}
-            disabled={isSectorChartSymbol(symbol)}
+            disabled={isNonAShareChartSymbol(symbol)}
           >
             <Plus size={13} />
             加入自选

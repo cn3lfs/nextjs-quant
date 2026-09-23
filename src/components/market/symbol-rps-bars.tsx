@@ -1,6 +1,6 @@
 "use client";
 import { Ranking } from "@phosphor-icons/react/ssr";
-import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
+import { isNonAShareChartSymbol } from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
 import { BarsPanel } from "../panels";
 
@@ -9,7 +9,7 @@ import { BarsPanel } from "../panels";
  * key with the chart workspace, so it adds no extra request.
  */
 export function SymbolRpsBars({ symbol }: { symbol: string }) {
-  const sector = isSectorChartSymbol(symbol);
+  const sector = isNonAShareChartSymbol(symbol);
   const curve = api.rpsCurve.useQuery(symbol, {
     enabled: !sector,
     retry: false,
@@ -26,7 +26,7 @@ export function SymbolRpsBars({ symbol }: { symbol: string }) {
       meta={latest ? `个股 · 截至 ${latest.date.slice(5)}` : "个股"}
       empty={
         sector
-          ? "板块行情不计算个股 RPS"
+          ? "板块与加密货币不计算个股 RPS"
           : curve.isLoading
             ? "正在读取 RPS…"
             : curve.error
