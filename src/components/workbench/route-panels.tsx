@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Newspaper, Ranking, TestTube } from "@phosphor-icons/react/ssr";
+import { Ranking, TestTube } from "@phosphor-icons/react/ssr";
 import { ClsReviewControls } from "../news/cls-review-controls";
 import { ConceptRpsControls } from "../market/concept-rps-controls";
 import { IndustryRpsControls } from "../market/industry-rps-controls";
@@ -86,13 +86,7 @@ export function ResearchPanel() {
 }
 
 export function ClsReviewPanel() {
-  return (
-    <PageGrid>
-      <Panel icon={Newspaper} title="财联社观点复盘">
-        <ClsReviewControls />
-      </Panel>
-    </PageGrid>
-  );
+  return <ClsReviewControls />;
 }
 
 export const routePanels = {
