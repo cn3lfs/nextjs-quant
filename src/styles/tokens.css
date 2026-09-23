@@ -42,6 +42,11 @@
   /* A-share convention: red rises, green falls. */
   --nc-up: #e0897c;
   --nc-down: #7fc2a0;
+  /* categorical chart lines (MA, MACD, RPS periods); mirrored in chart-theme.ts */
+  --nc-series-1: #e0b07c;
+  --nc-series-2: #b5abfc;
+  --nc-series-3: #7ab8d6;
+  --nc-series-4: #d58fbf;
 
   /* type */
   --nc-font: "Inter", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;

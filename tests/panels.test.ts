@@ -136,3 +136,10 @@ it("panel styles take every color from tokens", () => {
   for (const file of ["src/styles/panels.css", "src/styles/globals.css"])
     expect(readFileSync(file, "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
 });
+
+it("a zero tag renders as a pill, not a stray text node", () => {
+  const html = renderToStaticMarkup(
+    h(StatsPanel, { title: "信号", tag: 0, items: [] }),
+  );
+  expect(html).toMatch(/nc-pill[^>]*>0</);
+});

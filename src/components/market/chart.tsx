@@ -1,4 +1,5 @@
 "use client";
+import { chartColor, createNocturneChart } from "~/lib/chart-theme";
 import {
   positionRiskCurveSegments,
   type PositionRiskCurvePoint,
@@ -87,24 +88,24 @@ function LegacyChart({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const chart = createChart(ref.current, {
+    const chart = createNocturneChart(ref.current, {
       localization: chineseChartLocalization,
       autoSize: true,
       height: 340,
       layout: {
-        background: { type: ColorType.Solid, color: "#ffffff" },
-        textColor: "#6a7d91",
+        background: { type: ColorType.Solid, color: chartColor.ground },
+        textColor: chartColor.text,
         fontFamily: "Consolas, monospace",
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: "#f0f3f7" },
-        horzLines: { color: "#f0f3f7" },
+        vertLines: { color: chartColor.grid },
+        horzLines: { color: chartColor.grid },
       },
-      rightPriceScale: { borderColor: "#e5ebf2" },
+      rightPriceScale: { borderColor: chartColor.border },
       timeScale: {
         tickMarkFormatter: chineseTickMark,
-        borderColor: "#e5ebf2",
+        borderColor: chartColor.border,
         timeVisible: Boolean(bars?.[0]?.date.includes("T")),
       },
     });
@@ -112,7 +113,7 @@ function LegacyChart({
       (date.includes("T") ? Math.floor(Date.parse(date) / 1000) : date) as Time;
     if (equity) {
       const series = chart.addSeries(LineSeries, {
-        color: "#287e97",
+        color: chartColor.series3,
         lineWidth: 2,
       });
       series.setData(
@@ -120,11 +121,11 @@ function LegacyChart({
       );
     } else if (bars) {
       const series = chart.addSeries(CandlestickSeries, {
-        upColor: "#cf5562",
-        downColor: "#28977f",
+        upColor: chartColor.up,
+        downColor: chartColor.down,
         borderVisible: false,
-        wickUpColor: "#cf5562",
-        wickDownColor: "#28977f",
+        wickUpColor: chartColor.up,
+        wickDownColor: chartColor.down,
       });
       series.setData(bars.map((b) => ({ ...b, time: time(b.date) })));
       const volume = chart.addSeries(HistogramSeries, {
@@ -141,7 +142,7 @@ function LegacyChart({
         bars.map((b) => ({
           time: time(b.date),
           value: b.volume,
-          color: b.close >= b.open ? "#cf556233" : "#28977f33",
+          color: b.close >= b.open ? chartColor.upSoft : chartColor.downSoft,
         })),
       );
     }
@@ -164,30 +165,30 @@ function LegacyChart({
 }
 
 const colors: Record<IndicatorName, string> = {
-  MA5: "#b77900",
-  MA10: "#9b4dcc",
-  MA20: "#287e97",
-  MA60: "#4666cc",
-  BOLL中: "#68788c",
-  BOLL上: "#d97706",
-  BOLL下: "#d97706",
-  DIF: "#b77900",
-  DEA: "#9b4dcc",
-  MACD: "#cf5562",
-  K: "#b77900",
-  D: "#9b4dcc",
-  J: "#287e97",
-  RSI6: "#b77900",
-  RSI12: "#9b4dcc",
-  RSI24: "#287e97",
+  MA5: chartColor.series1,
+  MA10: chartColor.series2,
+  MA20: chartColor.series3,
+  MA60: chartColor.series4,
+  BOLL中: chartColor.muted,
+  BOLL上: chartColor.series1,
+  BOLL下: chartColor.series1,
+  DIF: chartColor.series1,
+  DEA: chartColor.series2,
+  MACD: chartColor.up,
+  K: chartColor.series1,
+  D: chartColor.series2,
+  J: chartColor.series3,
+  RSI6: chartColor.series1,
+  RSI12: chartColor.series2,
+  RSI24: chartColor.series3,
 };
 const rpsColors: Record<number, string> = {
-  5: "#be5263",
-  10: "#218775",
-  20: "#68788c",
-  50: "#b77900",
-  120: "#9b4dcc",
-  250: "#287e97",
+  5: chartColor.up,
+  10: chartColor.down,
+  20: chartColor.muted,
+  50: chartColor.series1,
+  120: chartColor.series2,
+  250: chartColor.series3,
 };
 const subchartLabels: Record<Subchart, string> = {
   volume: "成交量",
@@ -213,7 +214,7 @@ export function RollingPerformanceChart({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const chart = createChart(ref.current, {
+    const chart = createNocturneChart(ref.current, {
       autoSize: true,
       height: 540,
       localization: chineseChartLocalization,
@@ -235,7 +236,9 @@ export function RollingPerformanceChart({
           LineSeries,
           {
             title: labels[pane],
-            color: ["#287e97", "#cf5562", "#9b4dcc"][pane],
+            color: [chartColor.series3, chartColor.up, chartColor.series2][
+              pane
+            ],
             lineWidth: 2,
             pointMarkersVisible: segment.length === 1,
             priceLineVisible: false,
@@ -278,7 +281,7 @@ export function PositionRiskChart({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const chart = createChart(ref.current, {
+    const chart = createNocturneChart(ref.current, {
       autoSize: true,
       height: 360,
       localization: chineseChartLocalization,
@@ -597,23 +600,27 @@ export function MarketChart({
         ? saved.range
         : (restored?.range ?? null);
     setHistoryStart(start);
-    const chart = createChart(ref.current, {
+    const chart = createNocturneChart(ref.current, {
       localization: chineseChartLocalization,
       autoSize: true,
       layout: {
         background: {
           type: ColorType.Solid,
-          color: view?.dark ? "#111827" : "#ffffff",
+          color: view?.dark ? chartColor.groundDeep : chartColor.ground,
         },
-        textColor: view?.dark ? "#d1d5db" : "#52677c",
+        textColor: view?.dark ? chartColor.textStrong : chartColor.text,
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: view?.dark ? "#263244" : "#f0f3f7" },
-        horzLines: { color: view?.dark ? "#263244" : "#f0f3f7" },
+        vertLines: {
+          color: view?.dark ? chartColor.gridDeep : chartColor.grid,
+        },
+        horzLines: {
+          color: view?.dark ? chartColor.gridDeep : chartColor.grid,
+        },
       },
       rightPriceScale: {
-        borderColor: "#64748b",
+        borderColor: chartColor.muted,
         mode: 0,
       },
       handleScale: {
@@ -634,7 +641,7 @@ export function MarketChart({
         tickMarkFormatter: chineseTickMark,
         timeVisible: period.endsWith("m"),
         secondsVisible: false,
-        borderColor: "#e5ebf2",
+        borderColor: chartColor.border,
       },
       crosshair: { mode: CrosshairMode.Normal },
     });
@@ -645,11 +652,11 @@ export function MarketChart({
         precision: pricePrecision,
         minMove: 10 ** -pricePrecision,
       },
-      upColor: "#cf5562",
-      downColor: "#28977f",
+      upColor: chartColor.up,
+      downColor: chartColor.down,
       borderVisible: false,
-      wickUpColor: "#cf5562",
-      wickDownColor: "#28977f",
+      wickUpColor: chartColor.up,
+      wickDownColor: chartColor.down,
     });
     if (view) {
       // Log prices only: oscillators can be negative and must retain their linear scale.
@@ -659,7 +666,10 @@ export function MarketChart({
     if (cost != null && cost > 0)
       candles.createPriceLine({
         price: cost,
-        color: (bars.at(-1)?.close ?? cost) >= cost ? "#cf5562" : "#28977f",
+        color:
+          (bars.at(-1)?.close ?? cost) >= cost
+            ? chartColor.up
+            : chartColor.down,
         lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
@@ -696,7 +706,7 @@ export function MarketChart({
           drawingTool,
           drawingStart ?? null,
           anchorAt(event),
-          view?.dark ? "#60a5fa" : "#2563eb",
+          view?.dark ? chartColor.accentLight : chartColor.accentLight,
         ),
       );
     };
@@ -728,7 +738,10 @@ export function MarketChart({
                 target.useMediaCoordinateSpace(
                   ({ context: ctx, mediaSize }) => {
                     for (const family of czsc.families) {
-                      const color = family.config === 0 ? "#b77900" : "#7c3aed";
+                      const color =
+                        family.config === 0
+                          ? chartColor.series1
+                          : chartColor.accent;
                       for (const center of family.centers) {
                         if (center.end < start) continue;
                         const x1 = chart
@@ -776,7 +789,9 @@ export function MarketChart({
                           );
                         if (x1 === null || x2 === null) continue;
                         ctx.fillStyle =
-                          interval.direction > 0 ? "#cf556220" : "#28977f20";
+                          interval.direction > 0
+                            ? chartColor.upFaint
+                            : chartColor.downFaint;
                         ctx.fillRect(x1, 0, x2 - x1, mediaSize.height);
                       }
                     }
@@ -856,7 +871,7 @@ export function MarketChart({
       });
       rpsAnchor.createPriceLine({
         price: rpsOptions.threshold,
-        color: "#64748b",
+        color: chartColor.muted,
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: true,
@@ -873,7 +888,7 @@ export function MarketChart({
         visible.map((bar) => ({
           time: chartTime(bar.date, period),
           value: bar.volume,
-          color: bar.close >= bar.open ? "#cf5562" : "#28977f",
+          color: bar.close >= bar.open ? chartColor.up : chartColor.down,
         })),
       );
       rpsAnchor?.setData(
@@ -890,7 +905,7 @@ export function MarketChart({
             : {
                 time: chartTime(bar.date, period),
                 value,
-                color: value >= 0 ? "#cf5562" : "#28977f",
+                color: value >= 0 ? chartColor.up : chartColor.down,
               };
         }),
       );
@@ -929,7 +944,7 @@ export function MarketChart({
       if (czsc && showCzsc) {
         for (const family of czsc.families) {
           const line = chart.addSeries(LineSeries, {
-            color: family.config === 0 ? "#b77900" : "#7c3aed",
+            color: family.config === 0 ? chartColor.series1 : chartColor.accent,
             lineWidth: family.config === 0 ? 1 : 2,
             priceLineVisible: false,
             lastValueVisible: false,
@@ -1119,8 +1134,8 @@ export function MarketChart({
       data-period={period}
       data-dark={view?.dark ?? false}
       style={{
-        background: view?.dark ? "#111827" : undefined,
-        color: view?.dark ? "#e5e7eb" : undefined,
+        background: view?.dark ? chartColor.groundDeep : undefined,
+        color: view?.dark ? chartColor.textStrong : undefined,
         padding: 8,
       }}
     >

@@ -74,7 +74,7 @@
 - `src/app/` — 路由与页面。
 - `tests/` — 全部测试与其 fixture；`tests/fixtures/` 放固定数据。
 
-`src/components/` 的业务组件按 `workbench`、`market`、`screening`、`research`、`backtest`、`portfolio`、`news`、`signals`、`intraday`、`common` 分域；`ui/` 与 workbench 壳层是基础层。纯函数按同一领域归档，通用样式合并入口为 `src/lib/common/classnames.ts`，不再新增无归属的 `utils.ts`。
+`src/components/` 的业务组件按 `workbench`、`market`、`screening`、`research`、`backtest`、`portfolio`、`news`、`signals`、`intraday`、`overview`、`common` 分域；`ui/`、`panels/`（设计交接的八种面板与 12 列网格）与 workbench 壳层是基础层。页面样式取自 `src/styles/tokens.css` 的 `--nc-*` 变量或对应 Tailwind `nc-*` 工具类，不直接写 hex；图表画布颜色取自 `src/lib/chart-theme.ts`。纯函数按同一领域归档，通用样式合并入口为 `src/lib/common/classnames.ts`，不再新增无归属的 `utils.ts`。
 
 跨 package 的纯行情、指标和资金能力以 `packages/trading-strategy-core` 为实现源；`src/lib` 只保留应用侧契约、编排和展示计算，不复制 core 实现。
 

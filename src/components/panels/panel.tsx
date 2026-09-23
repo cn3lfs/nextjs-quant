@@ -75,7 +75,9 @@ export function Panel({
             <TitleIcon size={16} className="flex-none text-nc-accent" />
           )}
           {title && <h3>{title}</h3>}
-          {tag && <Pill tone="accent">{tag}</Pill>}
+          {tag !== undefined && tag !== null && tag !== "" && (
+            <Pill tone="accent">{tag}</Pill>
+          )}
           {meta && <span className="nc-panel-meta">{meta}</span>}
           {actions && <div className="nc-panel-actions">{actions}</div>}
         </header>

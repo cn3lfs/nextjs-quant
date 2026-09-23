@@ -16,6 +16,14 @@ import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
 import { FormulaScreen } from "../screening/formula-screen";
 import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
+import {
+  DownloadSimple,
+  Funnel,
+  Gauge,
+  ListDashes,
+  Sparkle,
+} from "@phosphor-icons/react";
+import { PageGrid, Panel, StatsPanel } from "../panels";
 
 import { ReportCard } from "./reports";
 import { Empty, Field, fmt, ResultPager } from "./shared";
@@ -149,33 +157,42 @@ export function ScreenView({
     ],
   ] as const;
   return (
-    <>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="选股入口">
-        {entries.map(([id, label]) => (
-          <Button
-            key={id}
-            variant={entry === id ? "default" : "outline"}
-            aria-pressed={entry === id}
-            aria-controls={`screen-entry-${id}`}
-            onClick={() => setEntry(id)}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <p className="text-muted-foreground text-sm">
-        {entries.find(([id]) => id === entry)?.[2]}
-      </p>
+    <PageGrid>
+      <Panel
+        icon={Funnel}
+        title="选股入口"
+        note={entries.find(([id]) => id === entry)?.[2]}
+        actions={
+          <div className="nc-segmented" role="group" aria-label="选股入口">
+            {entries.map(([id, label]) => (
+              <Button
+                key={id}
+                variant="plain"
+                className={entry === id ? "selected" : ""}
+                aria-pressed={entry === id}
+                aria-controls={`screen-entry-${id}`}
+                onClick={() => setEntry(id)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        }
+      />
       {/* Keep forms mounted so switching preserves drafts, validation and pending submissions. */}
-      <div id="screen-entry-formula" hidden={entry !== "formula"}>
+      <div
+        id="screen-entry-formula"
+        className="nc-span-12 min-w-0"
+        hidden={entry !== "formula"}
+      >
         <FormulaScreen onStarted={state.selectFormulaJob} />
       </div>
-      <div id="screen-entry-draft" hidden={entry !== "draft"}>
-        <section className="panel">
-          <div className="panel-title">
-            <Sparkles size={17} />
-            <h3>本地条件草案（双均线）</h3>
-          </div>
+      <div
+        id="screen-entry-draft"
+        className="nc-span-12 min-w-0"
+        hidden={entry !== "draft"}
+      >
+        <Panel icon={Sparkle} title="本地条件草案（双均线）">
           <div className="inline-form">
             <Input
               value={prompt}
@@ -211,17 +228,21 @@ export function ScreenView({
               </Button>
             </div>
           )}
-        </section>
+        </Panel>
       </div>
-      <div id="screen-entry-local" hidden={entry !== "local"}>
-        <section className="panel">
-          <div className="panel-title">
-            <SlidersHorizontal size={17} />
-            <h3>本地可复现条件</h3>
-            <span className="tag">双均线趋势</span>
-          </div>
+      <div
+        id="screen-entry-local"
+        className="nc-span-12 min-w-0"
+        hidden={entry !== "local"}
+      >
+        <Panel
+          icon={SlidersHorizontal}
+          title="本地可复现条件"
+          tag="双均线趋势"
+          note={`收盘价高于短均线，短均线高于长均线，并满足涨幅与量比条件。采用 ${period === "day" ? "日线" : "五分钟线"}，按均线差排序。`}
+        >
           <StrategyFields strategy={strategy} setStrategy={setStrategy} />
-          <label className="muted">
+          <label className="nc-checks mt-0 mb-3 items-center gap-2">
             <Checkbox
               checked={requireCurrent}
               disabled={!!historicalDate}
@@ -280,32 +301,79 @@ export function ScreenView({
               运行选股
             </Button>
           </div>
-          <p className="muted">
-            收盘价高于短均线，短均线高于长均线，并满足涨幅与量比条件。采用{" "}
-            {period === "day" ? "日线" : "五分钟线"}，按均线差排序。
-          </p>
-        </section>
+        </Panel>
       </div>
-      <section className="panel">
-        <div className="panel-title">
-          <h3>候选结果</h3>
+      {screenResult && (
+        <StatsPanel
+          icon={Gauge}
+          title="本次运行"
+          meta={`基准日 ${screenResult.asOf ?? "旧任务未记录"} · ${
+            screenResult.elapsedMs !== undefined
+              ? `本地计算 ${(screenResult.elapsedMs / 1000).toFixed(2)} 秒`
+              : "旧版结果"
+          }`}
+          items={[
+            {
+              label: "候选",
+              value: screenResult.candidateTotal,
+              note: screenSortLabels[screenSort],
+            },
+            { label: "已检查", value: screenResult.total },
+            {
+              label: "已隔离",
+              value: screenResult.excludedTotal,
+              note: "停牌 / ST / 次新等",
+              tone: screenResult.excludedTotal ? "warn" : "neutral",
+            },
+            {
+              label: "读取异常",
+              value: screenResult.errorTotal,
+              note: screenResult.errorTotal ? "见下方明细" : undefined,
+              tone: screenResult.errorTotal ? "bad" : "neutral",
+            },
+            {
+              label: "数据时效",
+              value: !screenResult.dataHealth
+                ? "未记录"
+                : screenResult.dataHealth.status === "aligned"
+                  ? "已对齐"
+                  : screenResult.dataHealth.status === "lagging"
+                    ? "已落后"
+                    : "未核验",
+              note: screenResult.dataHealth?.referenceAsOf ?? undefined,
+              tone:
+                screenResult.dataHealth?.status === "aligned"
+                  ? "ok"
+                  : screenResult.dataHealth
+                    ? "warn"
+                    : "neutral",
+            },
+          ]}
+        />
+      )}
+      <Panel
+        icon={ListDashes}
+        title="候选结果"
+        tag={`${screenResult?.candidateTotal ?? "—"} 个`}
+        meta={
+          screenResult
+            ? `已检查 ${screenResult.total} 个 · ${screenResult.errorTotal} 个读取异常 · ${screenResult.excludedTotal} 个已隔离`
+            : screenJob?.status === "completed"
+              ? "任务已完成，候选结果尚未读取"
+              : "运行后显示真实结果"
+        }
+        actions={
           <Button
             size="sm"
             variant="outline"
             disabled={exportingScreen || screenJob?.status !== "completed"}
             onClick={exportScreen}
           >
+            <DownloadSimple size={13} />
             {exportingScreen ? "导出中…" : "导出本次完整结果"}
           </Button>
-          <span className="tag">{screenResult?.candidateTotal ?? "—"} 个</span>
-          <span className="muted">
-            {screenResult
-              ? `已检查 ${screenResult.total} 个 · ${screenResult.errorTotal} 个读取异常 · ${screenResult.excludedTotal} 个已隔离`
-              : screenJob?.status === "completed"
-                ? "任务已完成，候选结果尚未读取"
-                : "运行后显示真实结果"}
-          </span>
-        </div>
+        }
+      >
         {screenJob?.id && <ScreenTaskProgress id={screenJob.id} />}
         {!firstScreenPage && screened.isError && (
           <div role="alert" className="notice">
@@ -784,7 +852,7 @@ export function ScreenView({
             </Empty>
           )
         )}
-      </section>
-    </>
+      </Panel>
+    </PageGrid>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { chartColor } from "~/lib/chart-theme";
 
 import {
   chartAdjustmentLabels,
@@ -196,7 +197,7 @@ function EditableChart({
             kind: tool,
             a: anchor ?? point,
             b: point,
-            color: view.dark ? "#60a5fa" : "#2563eb",
+            color: view.dark ? chartColor.accentLight : chartColor.accentLight,
           },
         ],
       };
@@ -260,7 +261,7 @@ function EditableChart({
               change({ ...view, dark: checked === true })
             }
           />{" "}
-          暗色主题
+          加深背景
         </label>
         <Button
           variant="plain"

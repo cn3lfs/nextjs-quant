@@ -37,8 +37,10 @@
 .nc-grid > .panel,
 .nc-grid > .report-card,
 .nc-grid > .task-bar {
-  grid-column: span 12;
   margin: 0;
+}
+.nc-grid > :where(.panel, .report-card, .task-bar):not([class*="nc-span-"]) {
+  grid-column: span 12;
 }
 
 .nc-panel {

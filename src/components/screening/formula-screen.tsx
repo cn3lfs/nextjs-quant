@@ -122,7 +122,7 @@ export function FormulaScreen({
       </label>
       <div className="inline-form">
         <Button
-          variant="plain"
+          variant="outline"
           disabled={busy}
           onClick={() => {
             setChecked(null);
@@ -138,7 +138,7 @@ export function FormulaScreen({
           语法检查与未来函数门禁
         </Button>
         <Button
-          variant="plain"
+          variant="outline"
           disabled={busy || checked !== key}
           onClick={async () => {
             try {
@@ -154,7 +154,6 @@ export function FormulaScreen({
           保存公式
         </Button>
         <Button
-          variant="plain"
           disabled={busy || checked !== key}
           onClick={async () => {
             try {

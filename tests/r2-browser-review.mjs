@@ -425,7 +425,7 @@ try {
     await page
       .getByRole("checkbox", { name: "对数坐标", exact: true })
       .uncheck();
-    await page.getByRole("checkbox", { name: "暗色主题", exact: true }).check();
+    await page.getByRole("checkbox", { name: "加深背景", exact: true }).check();
     assert.equal(await chart.getAttribute("data-dark"), "true");
     assert.equal(
       await page
@@ -434,7 +434,7 @@ try {
       false,
     );
     await page
-      .getByRole("checkbox", { name: "暗色主题", exact: true })
+      .getByRole("checkbox", { name: "加深背景", exact: true })
       .uncheck();
     await page.getByLabel("副图组合", { exact: true }).click();
     const macdOption = page.getByRole("menuitemcheckbox", {

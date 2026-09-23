@@ -8,6 +8,8 @@ const componentDomains = [
   "intraday",
   "market",
   "news",
+  "overview",
+  "panels",
   "portfolio",
   "research",
   "screening",

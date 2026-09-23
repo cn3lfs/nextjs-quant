@@ -79,7 +79,7 @@ try {
   await chart.getByLabel("副图", { exact: true }).selectOption("macd");
   assert.match(await chart.getByTestId("chart-legend").innerText(), /MA3/);
   await workspace.getByLabel("对数坐标", { exact: true }).check();
-  await workspace.getByLabel("暗色主题", { exact: true }).check();
+  await workspace.getByLabel("加深背景", { exact: true }).check();
   for (const [i, name] of ["趋势线", "水平线", "矩形", "斐波那契"].entries()) {
     await workspace.getByRole("button", { name, exact: true }).click();
     await canvas.scrollIntoViewIfNeeded();
@@ -121,7 +121,7 @@ try {
     edited,
   );
   assert.equal(
-    await workspace.getByLabel("暗色主题", { exact: true }).isChecked(),
+    await workspace.getByLabel("加深背景", { exact: true }).isChecked(),
     true,
   );
   assert.equal(

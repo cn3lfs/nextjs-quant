@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { chartColor } from "../src/lib/chart-theme";
 import type { ReactElement, ReactNode } from "react";
 import type { Bar, Period } from "../src/lib/domain";
 import { macd, ma } from "../src/lib/indicators";
@@ -352,14 +353,14 @@ it("Q1 actual chart options, cost line, parameter legend and keyboard handler ar
   expect(chart.series[0]!.options.scale).toMatchObject({ mode: 1 });
   expect(chart.panes()[1]!.scale).toMatchObject({ mode: 0 });
   expect(chart.options.layout).toMatchObject({
-    background: { color: "#111827" },
+    background: { color: chartColor.groundDeep },
   });
   expect(chart.options.handleScale).toMatchObject({
     axisPressedMouseMove: { price: true, time: true },
   });
   expect(chart.series[0]!.options.costLine).toMatchObject({
     price: 50,
-    color: "#cf5562",
+    color: chartColor.up,
   });
   expect(
     text(elements(ui).find((e) => e.props["data-testid"] === "chart-legend")),
