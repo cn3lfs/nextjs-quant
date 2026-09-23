@@ -9,7 +9,17 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { Input } from "~/components/ui/input";
-import { Database, Send, Sparkles } from "lucide-react";
+import {
+  Books,
+  ChatCircle,
+  Database,
+  FloppyDisk,
+  FolderOpen,
+  PaperPlaneTilt,
+  Plus,
+  Sparkle,
+} from "@phosphor-icons/react";
+import { PageGrid, Panel, Pill, StatsPanel } from "../panels";
 import { useState } from "react";
 import { type Channel, type Settings } from "~/lib/domain";
 import { api } from "~/trpc/react";
@@ -78,61 +88,37 @@ export function Connections({
       onError,
     });
   return (
-    <>
-      <section className="panel">
-        <div className="panel-title">
-          <Sparkles size={18} />
-          <h3>研究技能</h3>
-        </div>
-        <p>
-          自动快评按量价方法每批分析最多 5
-          只。其他已登记技能会在对应研究模块接入后开放，登记不代表已执行完整流程。
-        </p>
-        <details>
-          <summary>
-            查看技能登记与版本（{skillCatalog.data?.length ?? 0}）
-          </summary>
-          {skillCatalog.error && <p>{skillCatalog.error.message}</p>}
-          <div className="max-h-80 overflow-auto">
-            {skillCatalog.data?.map((skill) => (
-              <div className="list-row" key={skill.skillId}>
-                <div>
-                  <strong>{skill.skillId}</strong>
-                  <small>
-                    {skill.ruleVersion ?? "流程待接入"} ·{" "}
-                    {skill.hash?.slice(0, 16) ?? "未找到文件"}
-                  </small>
-                  <small>{skill.integrationScope}</small>
-                  <small>前提：{skill.prerequisites.join("；")}</small>
-                  <small>调用预算：{skill.budget}</small>
-                  {skill.missingFiles.length > 0 && (
-                    <small>缺少文件：{skill.missingFiles.join("、")}</small>
-                  )}
-                </div>
-                <span className="tag">
-                  {skill.status === "quick-review"
-                    ? "量价快评"
-                    : skill.status === "staged-research"
-                      ? "分阶段研究"
-                      : skill.status === "adapter"
-                        ? "部分数据接入"
-                        : skill.status === "incomplete"
-                          ? "依赖不完整"
-                          : skill.installed
-                            ? "已登记"
-                            : "未安装"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </details>
-      </section>
-      <section className="panel">
-        <div className="panel-title">
-          <Database size={18} />
-          <h3>本地行情</h3>
-          <span className="tag">只读接入</span>
-        </div>
+    <PageGrid>
+      <StatsPanel
+        icon={Database}
+        title="本地行情"
+        tag="只读接入"
+        meta={
+          coverage
+            ? `最近扫描 ${stamp(coverage.scannedAt)} · ${coverage.total} 个 A 股周期记录`
+            : "尚未扫描，保存目录后点击页面右上角扫描。"
+        }
+        items={[
+          ...Object.entries(coverage?.counts ?? {}).map(([name, count]) => ({
+            key: name,
+            label: name.replace("day", "日线").replace("5m", "五分钟"),
+            value: count.toLocaleString(),
+            note: "行情文件",
+          })),
+          {
+            key: "news-budget",
+            label: "新闻 AI 批次",
+            value: budget.data
+              ? `${budget.data.used}/${budget.data.limit}`
+              : "—",
+            note: budget.data
+              ? `${budget.data.day} · ${budget.data.exhausted ? "额度已用完，自动研究暂停至次日" : "额度可用"}`
+              : "今日已用",
+            tone: budget.data?.exhausted ? "warn" : "neutral",
+          },
+        ]}
+      />
+      <Panel span={6} icon={FolderOpen} title="路径与新闻">
         <Field label="财联社新闻数据库路径">
           <Input
             value={config.clsDbPath}
@@ -142,7 +128,7 @@ export function Connections({
           />
         </Field>
         <Field label="新闻自动研究">
-          <span>
+          <span className="flex items-center gap-2 text-[12px] text-nc-text-2">
             <Checkbox
               checked={config.autoNewsAnalysis}
               onCheckedChange={(checked) =>
@@ -171,43 +157,20 @@ export function Connections({
               })
             }
           />
-          <small>
+          <small className="text-nc-text-4">
             每批最多25条，含最多一次格式修复重试；缓存复用不计，失败计入额度，次日恢复。不是套餐Token余额。
           </small>
-          {budget.data && (
-            <small>
-              {budget.data.day} 已用 {budget.data.used}/{budget.data.limit} 批 ·{" "}
-              {budget.data.exhausted
-                ? "额度已用完，自动研究暂停至次日"
-                : "额度可用"}
-            </small>
-          )}
         </Field>
-        <div className="coverage-grid">
-          {Object.entries(coverage?.counts ?? {}).map(([name, count]) => (
-            <div key={name}>
-              <span>{name.replace("day", "日线").replace("5m", "五分钟")}</span>
-              <strong>{count.toLocaleString()}</strong>
-              <small>行情文件</small>
-            </div>
-          ))}
-        </div>
-        <p className="muted">
-          {coverage
-            ? `最近扫描 ${stamp(coverage.scannedAt)} · ${coverage.total} 个 A 股周期记录`
-            : "尚未扫描，保存目录后点击页面右上角扫描。"}
+        <p className="nc-panel-note">
+          通达信目录与外部 Blocks 目录只读；设置在“研究模型”面板底部统一保存。
         </p>
-      </section>
-      <section className="panel">
-        <div className="panel-title">
-          <Sparkles size={18} />
-          <h3>研究模型</h3>
-        </div>
-        <p className="muted">
-          Codex / Claude Code 复用本机 CLI
-          的订阅登录，使用对应套餐额度。请先在终端登录，再启动应用。失败不会自动切换
-          DeepSeek。
-        </p>
+      </Panel>
+      <Panel
+        span={6}
+        icon={Sparkle}
+        title="研究模型"
+        note="Codex / Claude Code 复用本机 CLI 的订阅登录，使用对应套餐额度。请先在终端登录，再启动应用。失败不会自动切换 DeepSeek。"
+      >
         <div className="form-grid">
           <Field label="模型提供方">
             <Select
@@ -333,21 +296,26 @@ export function Connections({
           />
         </Field>
         <Button onClick={() => save.mutate(config)} disabled={save.isPending}>
+          <FloppyDisk size={14} />
           保存设置
         </Button>
-      </section>
-      <section className="panel">
-        <div className="panel-title">
-          <Send size={18} />
-          <h3>聊天推送渠道</h3>
-        </div>
+      </Panel>
+      <Panel
+        icon={PaperPlaneTilt}
+        title="聊天推送渠道"
+        note="单向通知，无需公网回调地址。保存不会发送消息；点击“发送测试通知”才会向所选目标发送测试内容。"
+      >
         {channels.map((c) => (
           <div className="list-row" key={c.id}>
             <div>
-              <strong>{c.name}</strong>
-              <p>
-                {c.type} · {c.enabled ? "已启用" : "已暂停"} · 凭证已加密保存
-              </p>
+              <div className="flex items-center gap-2">
+                <ChatCircle size={16} className="text-nc-accent" />
+                <strong>{c.name}</strong>
+                <Pill tone={c.enabled ? "ok" : "idle"}>
+                  {c.enabled ? "已启用" : "已暂停"}
+                </Pill>
+              </div>
+              <p>{c.type} · 凭证已加密保存</p>
             </div>
             <Button
               size="sm"
@@ -405,53 +373,55 @@ export function Connections({
               </SelectContent>
             </Select>
           </Field>
-        </div>
-        <Field
-          label={
-            channel.type === "telegram" ? "Bot Token" : "机器人 Webhook 地址"
-          }
-        >
-          <Input
-            type="password"
-            autoComplete="new-password"
-            value={channel.secret}
-            onChange={(e) => setChannel({ ...channel, secret: e.target.value })}
-            placeholder={
-              editId ? "留空保留已有凭证" : "凭证仅保存到系统加密存储"
+          <Field
+            label={
+              channel.type === "telegram" ? "Bot Token" : "机器人 Webhook 地址"
             }
-          />
-        </Field>
-        {channel.type === "feishu" && (
-          <Field label="签名密钥（可选）">
+          >
             <Input
               type="password"
-              value={channel.signingSecret}
+              autoComplete="new-password"
+              value={channel.secret}
               onChange={(e) =>
-                setChannel({ ...channel, signingSecret: e.target.value })
+                setChannel({ ...channel, secret: e.target.value })
+              }
+              placeholder={
+                editId ? "留空保留已有凭证" : "凭证仅保存到系统加密存储"
               }
             />
           </Field>
-        )}
-        {channel.type === "telegram" && (
-          <Field label="Chat ID（私聊需先联系机器人）">
-            <Input
-              value={channel.target}
-              onChange={(e) =>
-                setChannel({ ...channel, target: e.target.value })
-              }
-            />
-          </Field>
-        )}
-        {["telegram", "discord"].includes(channel.type) && (
-          <Field label="话题 / Thread ID（可选）">
-            <Input
-              value={channel.thread}
-              onChange={(e) =>
-                setChannel({ ...channel, thread: e.target.value })
-              }
-            />
-          </Field>
-        )}
+          {channel.type === "feishu" && (
+            <Field label="签名密钥（可选）">
+              <Input
+                type="password"
+                value={channel.signingSecret}
+                onChange={(e) =>
+                  setChannel({ ...channel, signingSecret: e.target.value })
+                }
+              />
+            </Field>
+          )}
+          {channel.type === "telegram" && (
+            <Field label="Chat ID（私聊需先联系机器人）">
+              <Input
+                value={channel.target}
+                onChange={(e) =>
+                  setChannel({ ...channel, target: e.target.value })
+                }
+              />
+            </Field>
+          )}
+          {["telegram", "discord"].includes(channel.type) && (
+            <Field label="话题 / Thread ID（可选）">
+              <Input
+                value={channel.thread}
+                onChange={(e) =>
+                  setChannel({ ...channel, thread: e.target.value })
+                }
+              />
+            </Field>
+          )}
+        </div>
         <div className="check-row">
           <label>
             <Checkbox
@@ -474,6 +444,7 @@ export function Connections({
             }
             disabled={saveChannel.isPending}
           >
+            <Plus size={14} />
             保存渠道
           </Button>
           {editId && (
@@ -496,10 +467,68 @@ export function Connections({
             </Button>
           )}
         </div>
-        <p className="muted">
-          单向通知，无需公网回调地址。保存不会发送消息；点击“发送测试通知”才会向所选目标发送测试内容。
-        </p>
-      </section>
-    </>
+      </Panel>
+      <Panel
+        icon={Books}
+        title="研究技能"
+        meta={`已登记 ${skillCatalog.data?.length ?? 0} 项`}
+        note="自动快评按量价方法每批分析最多 5 只。其他已登记技能会在对应研究模块接入后开放，登记不代表已执行完整流程。"
+      >
+        <details className="my-0">
+          <summary>
+            查看技能登记与版本（{skillCatalog.data?.length ?? 0}）
+          </summary>
+          {skillCatalog.error && <p>{skillCatalog.error.message}</p>}
+          <div className="mt-2 max-h-80 overflow-auto">
+            {skillCatalog.data?.map((skill) => (
+              <div className="list-row" key={skill.skillId}>
+                <div>
+                  <strong>{skill.skillId}</strong>
+                  <small className="block text-nc-text-4">
+                    {skill.ruleVersion ?? "流程待接入"} ·{" "}
+                    {skill.hash?.slice(0, 16) ?? "未找到文件"}
+                  </small>
+                  <small className="block text-nc-text-4">
+                    {skill.integrationScope}
+                  </small>
+                  <small className="block text-nc-text-4">
+                    前提：{skill.prerequisites.join("；")}
+                  </small>
+                  <small className="block text-nc-text-4">
+                    调用预算：{skill.budget}
+                  </small>
+                  {skill.missingFiles.length > 0 && (
+                    <small className="block text-nc-warn">
+                      缺少文件：{skill.missingFiles.join("、")}
+                    </small>
+                  )}
+                </div>
+                <Pill
+                  tone={
+                    skill.status === "incomplete"
+                      ? "warn"
+                      : skill.installed
+                        ? "accent"
+                        : "idle"
+                  }
+                >
+                  {skill.status === "quick-review"
+                    ? "量价快评"
+                    : skill.status === "staged-research"
+                      ? "分阶段研究"
+                      : skill.status === "adapter"
+                        ? "部分数据接入"
+                        : skill.status === "incomplete"
+                          ? "依赖不完整"
+                          : skill.installed
+                            ? "已登记"
+                            : "未安装"}
+                </Pill>
+              </div>
+            ))}
+          </div>
+        </details>
+      </Panel>
+    </PageGrid>
   );
 }
