@@ -25,7 +25,7 @@ import {
 import { backtest } from "../src/server/backtest/quant";
 import { defaultStrategy, type Snapshot } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
-import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";
+import { MultipleTestingPanel } from "../src/components/backtest/multiple-testing-panel";
 
 const moments = { sharpe: 0.1, observations: 101, skewness: 0, kurtosis: 3 };
 const returns = [-0.02, 0.01, 0.03, -0.01, 0.005, 0.02];

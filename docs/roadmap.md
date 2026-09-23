@@ -14,7 +14,7 @@
 
 ### 1.2 指标本地计算
 
-本地通达信行情由 TypeScript 计算，指标共享实现为 src/lib/indicators.ts，不走问财查询替代。技能提供方法、阈值和来源，不能变成另一个指标数据源。图表/公式/双突破的约束与手算测试入口见 [invariants §1–4](invariants.md#1-指标只有一个实现入口)。
+本地通达信行情由 TypeScript 计算，指标共享实现位于 `packages/trading-strategy-core`，`src/lib/indicators.ts` 仅保留应用兼容入口，不走问财查询替代。技能提供方法、阈值和来源，不能变成另一个指标数据源。图表/公式/双突破的约束与手算测试入口见 [invariants §1–4](invariants.md#1-指标只有一个实现入口)。
 
 ### 1.3 缠论复用 DLL，不移植算法
 

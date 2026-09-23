@@ -9,7 +9,7 @@ import {
   type UniverseAuditInput,
   type UniverseAuditEvidence,
 } from "../src/lib/universe-audit";
-import { UniverseAuditResults } from "../src/components/universe-audit-results";
+import { UniverseAuditResults } from "../src/components/screening/universe-audit-results";
 import { universeAuditPage } from "../src/server/research/universe-audit";
 import { get, put, sqlite } from "../src/server/db";
 import { settings, saveSettings } from "../src/server/infra/settings";
@@ -369,9 +369,9 @@ it("renders delisting as a lower bound, including zero, and all three pages shar
     ),
   ).toContain("≥ 0 只");
   for (const file of [
-    "market-pool-browser",
-    "strategy-research-controls",
-    "concept-rps-controls",
+    "market/market-pool-browser",
+    "research/strategy-research-controls",
+    "market/concept-rps-controls",
   ])
     expect(await readFile(`src/components/${file}.tsx`, "utf8")).toContain(
       "<UniverseAuditContainer",

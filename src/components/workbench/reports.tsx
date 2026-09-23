@@ -3,7 +3,7 @@ import { useState } from "react";
 import { type Report } from "~/lib/domain";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
 import { api } from "~/trpc/react";
-import { RsSourceDownload } from "../rs-source-download";
+import { RsSourceDownload } from "../market/rs-source-download";
 import { Button } from "../ui/button";
 
 import { stamp } from "./shared";

@@ -25,7 +25,7 @@ import {
 } from "../src/server/portfolio/execution-quality-service";
 import { commitDeliveryImport } from "../src/server/portfolio/delivery-import-service";
 import { migrate } from "../src/server/db/migrations";
-import { ExecutionQualityResults } from "../src/components/execution-quality-results";
+import { ExecutionQualityResults } from "../src/components/portfolio/execution-quality-results";
 import { readSnapshot } from "../src/server/data-sources/tdx/tdx";
 
 const date = "2026-01-05";

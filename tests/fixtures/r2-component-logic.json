@@ -2,42 +2,42 @@
   "src/components/workbench/connections.tsx": {
     "Connections": "e6e64e25d0304cfd3d9f9c8991caf8e0cbab5a9fdfb5d19cbc5f31b61bfdb151"
   },
-  "src/components/notification-policy-fields.tsx": {
+  "src/components/common/notification-policy-fields.tsx": {
     "NotificationPolicyFields": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/workbench/signals-view.tsx": {
     "SignalsView": "edc3b7cc3f7d3f4cfb744e6010f7c50e3bec327571eb80dfc7c9957281445ce0"
   },
-  "src/components/trade-ledger-panel.tsx": {
+  "src/components/portfolio/trade-ledger-panel.tsx": {
     "TradeLedgerPanel": "3ac4c755783668b863012d02d8be4883eb7039e0bb9b27787fc8a05dfd785796",
     "input": "5c74cf2f1c5f2b729e82cffe096ddf0f4f14422e5567e994ae0fe0bf259778bb"
   },
-  "src/components/signal-ledger-view.tsx": {
+  "src/components/signals/signal-ledger-view.tsx": {
     "SignalLedgerView": "dc26b757a8c62712f233f4256f086252f5a7c4b3f8d3e0957015c9965e0d14dc"
   },
-  "src/components/signal-ledger-controls.tsx": {
+  "src/components/signals/signal-ledger-controls.tsx": {
     "SignalLedgerControls": "b632d439ebc2aaa794b0a2cd1c70dbc4d84deab68d9d61373fc9bf94881c4a31"
   },
   "src/components/workbench/screen-view.tsx": {
     "ScreenView": "26a07fecc6016cf23b65ffd6b54da276eab75c2df93ed2b04e2e37d632c680a5"
   },
-  "src/components/formula-screen.tsx": {
+  "src/components/screening/formula-screen.tsx": {
     "FormulaScreen": "4e50b25d0683df3b2f6cddf056c8482b00b8674bd250e6e972c6b983f22a4cfa",
     "input": "369b1bf38ddb076097617948b5919278dafa93ddfefad4221d38d77dbe03cec0",
     "error": "e1da808c7d91b6a6d905a3f1c91e54e8d6e21f58bf9e69305d229d773b88acf7"
   },
-  "src/components/online-screen.tsx": {
+  "src/components/screening/online-screen.tsx": {
     "OnlineScreen": "b507c10ad1a7192083aca5aebe79a05bc213263fb066c36f0a1bc0782b5cc139",
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
     "MarketView": "a507ed133e823d72fe05815854d9086b07da8a9ba0f37961a87f873689dc8fbf"
   },
-  "src/components/chart-workspace.tsx": {
+  "src/components/market/chart-workspace.tsx": {
     "ChartWorkspace": "0d7206b730afc3668fd54794dad700dc15e2383ea60e5606fe0822f5ebfb4914",
     "EditableChart": "569d2cbd76b13afe8a25264a24638250628a0cad3b1d4fbaa154f2995c0a47f2"
   },
-  "src/components/chart.tsx": {
+  "src/components/market/chart.tsx": {
     "LegacyChart": "bc7c5a84ccea94acf4b1f73c4c4d169bf47f31fb0ac417ddefe7cde0ca671e03",
     "RollingPerformanceChart": "cdfdfe1b838abf6de38f0c7130c63b766627b0508784617232e84952066b6206",
     "PositionRiskChart": "d20469cc0142d79df2284fe2a3eadfaa3179bc1f7be9ee470fd2a0c8894c797e",
@@ -45,7 +45,7 @@
     "CzscMarketChart": "730a3ac012adb9b412fd58bfb00e4b8c2f0c84b043221a8b8a3201c72914bc7a",
     "MarketChart": "6689258390c250b78e4d9a410a4ba2f4c3697dae11bfa05c2ff8a61e26d4491b"
   },
-  "src/components/security-select.tsx": {
+  "src/components/market/security-select.tsx": {
     "SecuritySelect": "8c83e31baea3c230c5cbbeeb988c91026ce84e88763d929da197200d8ce1d936",
     "keyboard": "886668cdce76e19c2885c4fc52997774367c268c811b51d3be67267b0757c40a",
     "select": "764e53ec15907456d5346b9f474230528cf39cc26489e763e011f2fb0bb5fac6"

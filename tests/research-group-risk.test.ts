@@ -11,7 +11,7 @@ import {
 } from "../src/lib/research-context-risk";
 import { riskPresetTemplate } from "../src/lib/research-risk-presets";
 import { researchKellyTraining } from "../src/lib/research-kelly-training";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 import {
   researchSpecSchema,
   type ResearchEvent,

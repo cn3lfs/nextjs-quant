@@ -19,7 +19,7 @@ import {
 } from "../src/server/strategies/canslim/research-growth-intraday";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 
 function setup(id: GrowthIntradayId) {
   const bars = Array.from({ length: 6 }, (_, i) => ({

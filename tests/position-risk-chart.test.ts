@@ -43,7 +43,7 @@ vi.mock("lightweight-charts", async (original) => ({
     remove: harness.remove,
   }),
 }));
-import { PositionRiskChart } from "../src/components/chart";
+import { PositionRiskChart } from "../src/components/market/chart";
 
 it("the actual chart sends two panes with separate null segments and cleans up", () => {
   const points = [1, null, 0, 2].map((value, i) => ({

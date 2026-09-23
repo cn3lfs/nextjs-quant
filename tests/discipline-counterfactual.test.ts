@@ -12,7 +12,7 @@ import {
 } from "../src/lib/discipline-counterfactual";
 import * as navSource from "../src/lib/trade-review-nav";
 import { reviewTradeNav } from "../src/lib/trade-review-nav";
-import { DisciplineResults } from "../src/components/discipline-results";
+import { DisciplineResults } from "../src/components/portfolio/discipline-results";
 
 const d = (n: number) => `2026-01-${String(n).padStart(2, "0")}`;
 const fill = (

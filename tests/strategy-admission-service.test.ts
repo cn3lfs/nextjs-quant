@@ -16,7 +16,7 @@ import {
   exportStrategyAdmission,
 } from "../src/server/research/performance/strategy-admission-service";
 import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
-import { StrategyAdmissionResults } from "../src/components/strategy-admission-results";
+import { StrategyAdmissionResults } from "../src/components/research/strategy-admission-results";
 import { admissionCalibrationDistribution } from "../scripts/u8-calibration-distribution";
 
 it("E3 真实计算结果接入两种模式，分区独立并保留缺失", async () => {

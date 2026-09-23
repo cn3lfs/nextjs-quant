@@ -5,7 +5,7 @@ import {
   researchManagementSchema,
 } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 const management = researchManagementSchema.parse({
   stop: {

@@ -155,10 +155,13 @@ it("keeps the chart tab focused and renders the task center only as a tab", () =
   expect(market).not.toContain("<SecurityProfilePanel");
   expect(market).not.toContain("核验证券身份");
   expect(market).not.toContain("证券主档与名称来源");
-  expect(readFileSync("src/components/chart.tsx", "utf8")).not.toContain(
+  expect(readFileSync("src/components/market/chart.tsx", "utf8")).not.toContain(
     "双突破观察日",
   );
-  const workbench = readFileSync("src/components/workbench.tsx", "utf8");
+  const workbench = readFileSync(
+    "src/components/workbench/workbench.tsx",
+    "utf8",
+  );
   expect(workbench).toContain("tasks: <TaskCenter state={state} />");
   expect(workbench.match(/<TaskCenter/g)).toHaveLength(1);
 });

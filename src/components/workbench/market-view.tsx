@@ -1,5 +1,5 @@
-import { MarketSourceSelect } from "../market-source-select";
-import { ChartAdjustmentSelect } from "../chart-adjustment-select";
+import { MarketSourceSelect } from "../market/market-source-select";
+import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
 import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import {
@@ -12,9 +12,9 @@ import {
   type ChartAdjustment,
 } from "~/lib/chart-adjustment";
 import { securityDisplayName } from "~/lib/security-display";
-import { ChartWorkspace } from "../chart-workspace";
-import { SecuritySelect } from "../security-select";
-import { MarketPoolBrowser } from "../market-pool-browser";
+import { ChartWorkspace } from "../market/chart-workspace";
+import { SecuritySelect } from "../market/security-select";
+import { MarketPoolBrowser } from "../market/market-pool-browser";
 import { isMarketIndex } from "~/lib/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart-symbol";
 import { Button } from "../ui/button";

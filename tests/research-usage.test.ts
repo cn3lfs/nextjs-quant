@@ -25,8 +25,8 @@ import { defaultStrategy, type Snapshot, type Job } from "../src/lib/domain";
 import { defaultBacktestCosts } from "../src/lib/backtest-costs";
 import { ResearchStore } from "../src/server/backtest/research-store";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { ResearchUsagePanel } from "../src/components/research-usage-panel";
-import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";
+import { ResearchUsagePanel } from "../src/components/research/research-usage-panel";
+import { MultipleTestingPanel } from "../src/components/backtest/multiple-testing-panel";
 
 const range = { start: "2025-02-01", end: "2025-03-01" };
 const input = () => ({
@@ -277,7 +277,10 @@ it("real walk-forward job succeeds on put failure; m never changes DSR or prior 
 });
 it("holdout display carries lower-bound reason and observation-only limitation", () => {
   // The panel body is shared by the route and the workbench panel cache.
-  const panel = readFileSync("src/components/route-panels.tsx", "utf8");
+  const panel = readFileSync(
+    "src/components/workbench/route-panels.tsx",
+    "utf8",
+  );
   expect(panel.indexOf("<ResearchUsageContainer />")).toBeGreaterThan(0);
   expect(panel.indexOf("<ResearchUsageContainer />")).toBeLessThan(
     panel.indexOf("<StrategyResearchControls />"),

@@ -2,15 +2,15 @@ import { useState } from "react";
 import {
   AdjustmentControl,
   AdjustmentDisclosure,
-} from "../research-adjustment";
+} from "../backtest/research-adjustment";
 import type { ResearchAdjustment } from "~/lib/research-adjustment";
-import { ResearchUsageContainer } from "~/components/research-usage-container";
+import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { FlaskConical, Play, TriangleAlert } from "lucide-react";
-import { BacktestActionsPanel } from "../backtest-actions";
-import { DividendLedgerPanel } from "../cash-dividend-experiment";
-import { PriceChart } from "../chart";
+import { BacktestActionsPanel } from "../backtest/backtest-actions";
+import { DividendLedgerPanel } from "../backtest/cash-dividend-experiment";
+import { PriceChart } from "../market/chart";
 import { Button } from "../ui/button";
-import { WalkForwardPanel } from "../walk-forward-panel";
+import { WalkForwardPanel } from "../backtest/walk-forward-panel";
 
 import { Field, fmt } from "./shared";
 import { StrategyFields } from "./strategy-fields";

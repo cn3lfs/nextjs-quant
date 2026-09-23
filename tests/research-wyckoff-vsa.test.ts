@@ -10,7 +10,7 @@ import {
 } from "../src/lib/research-wyckoff-vsa";
 import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../src/lib/strategy-research";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 function fixture(down = true): Bar[] {

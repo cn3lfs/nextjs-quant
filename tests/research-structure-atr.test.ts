@@ -5,7 +5,7 @@ import {
 } from "../src/lib/research-management";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";

@@ -17,7 +17,7 @@ import {
 import {
   applyResearchManagement,
   selectResearchStrategy,
-} from "../src/components/research-strategy-fields";
+} from "../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 const rules = {
   evidence: "fixture",

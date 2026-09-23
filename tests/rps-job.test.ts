@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { RpsStatus } from "../src/components/rps-status";
+import { RpsStatus } from "../src/components/market/rps-status";
 import { migrate } from "../src/server/db/migrations";
 import { RpsStore } from "../src/server/screening/rps-store";
 import { runRpsJob } from "../src/server/screening/rps-job";

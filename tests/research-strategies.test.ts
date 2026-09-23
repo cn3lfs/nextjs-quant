@@ -20,7 +20,7 @@ import { backtestCostsSchema } from "../src/lib/backtest-costs";
 import {
   ResearchStrategyFields,
   selectResearchStrategy,
-} from "../src/components/research-strategy-fields";
+} from "../src/components/research/research-strategy-fields";
 import { researchParamsFingerprint } from "../src/server/backtest/research-store";
 
 const days = [

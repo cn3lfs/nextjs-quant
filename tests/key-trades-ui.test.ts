@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
-import { KeyTradesResults } from "../src/components/key-trades-results";
+import { KeyTradesResults } from "../src/components/portfolio/key-trades-results";
 import { keyTrades } from "../src/lib/key-trades";
 it("U9 空状态、笔数配置和排除原因明确可见", () => {
   const html = renderToStaticMarkup(

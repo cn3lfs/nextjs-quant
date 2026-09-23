@@ -1,5 +1,5 @@
 import "~/styles/globals.css";
-import { WorkbenchLayout } from "~/components/workbench-layout";
+import { WorkbenchLayout } from "~/components/workbench/workbench-layout";
 import type { Metadata } from "next";
 import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {

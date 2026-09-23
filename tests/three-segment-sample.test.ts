@@ -26,7 +26,7 @@ import {
   trackingDecayWarning,
   trackingDecayThreshold,
 } from "../src/lib/three-segment-sample";
-import { ThreeSegmentResults } from "../src/components/three-segment-results";
+import { ThreeSegmentResults } from "../src/components/backtest/three-segment-results";
 import { IntradayStore } from "../src/server/monitoring/intraday-store";
 import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
 

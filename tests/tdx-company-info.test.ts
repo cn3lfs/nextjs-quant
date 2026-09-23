@@ -12,14 +12,18 @@ vi.mock("../src/trpc/react", () => ({
     tdxCompanyInfoContent: { useQuery: () => content },
   },
 }));
-const { TdxCompanyInfo } = await import("../src/components/tdx-company-info");
+const { TdxCompanyInfo } =
+  await import("../src/components/market/tdx-company-info");
 
 const render = () =>
   renderToStaticMarkup(createElement(TdxCompanyInfo, { symbol: "sh600519" }));
 
 describe("F10 公司资料", () => {
   it("默认折叠，并且两级都按需加载才请求", () => {
-    const source = readFileSync("src/components/tdx-company-info.tsx", "utf8");
+    const source = readFileSync(
+      "src/components/market/tdx-company-info.tsx",
+      "utf8",
+    );
     // 展开折叠区才拉栏目清单
     expect(source).toContain("enabled: open");
     // 选中某个非空栏目才拉正文

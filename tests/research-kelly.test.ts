@@ -10,7 +10,7 @@ import {
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { researchKellyQuality } from "../src/lib/research-kelly-quality";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 const assumption = {
   winRate: 0.5,
   payoff: 2,

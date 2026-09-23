@@ -7,8 +7,8 @@ import {
   positionRiskPageSchema,
 } from "../src/server/portfolio/position-risk-service";
 import type { NavDay } from "../src/lib/trade-review-nav";
-import { PositionRiskResults } from "../src/components/position-risk-results";
-vi.mock("../src/components/chart", () => ({
+import { PositionRiskResults } from "../src/components/backtest/position-risk-results";
+vi.mock("../src/components/market/chart", () => ({
   PositionRiskChart: () => createElement("div", { role: "img" }),
 }));
 const dates = Array.from(
@@ -106,7 +106,7 @@ it("空数据摘要留空并列峰值取最早日", () => {
 });
 it("新增入口精确接线、刷新失效、排序归首页且颜色只取token", () => {
   const container = readFileSync(
-    "src/components/position-risk-container.tsx",
+    "src/components/backtest/position-risk-container.tsx",
     "utf8",
   );
   expect(container).toContain("api.tradeReviewPositionRisk.useQuery");
@@ -115,7 +115,7 @@ it("新增入口精确接线、刷新失效、排序归首页且颜色只取toke
     /setPagination\(\(p\) => \(\{ \.\.\.p, pageIndex: 0 \}\)\)/,
   );
   const parent = readFileSync(
-    "src/components/trade-review-container.tsx",
+    "src/components/portfolio/trade-review-container.tsx",
     "utf8",
   );
   expect(parent).toContain("utils.tradeReviewPositionRisk.invalidate()");
@@ -123,7 +123,7 @@ it("新增入口精确接线、刷新失效、排序归首页且颜色只取toke
   expect(parent).toContain(
     'key={`position-risk:${account}:${batches.data?.map((b) => b.id).join(",")}`}',
   );
-  const chart = readFileSync("src/components/chart.tsx", "utf8")
+  const chart = readFileSync("src/components/market/chart.tsx", "utf8")
     .split("export function PositionRiskChart")[1]!
     .split("export function PriceChart")[0]!;
   expect(chart).toContain('getPropertyValue("--primary")');

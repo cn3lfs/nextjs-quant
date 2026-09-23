@@ -1,8 +1,8 @@
-import { CanslimPanel } from "../canslim-panel";
-import { ChanPanel } from "../chan-panel";
-import { FinancialQualityPanel } from "../financial-quality-panel";
-import { ValuationPanel } from "../valuation-panel";
-import { WyckoffPanel } from "../wyckoff-panel";
+import { CanslimPanel } from "../research/canslim-panel";
+import { ChanPanel } from "../research/chan-panel";
+import { FinancialQualityPanel } from "../research/financial-quality-panel";
+import { ValuationPanel } from "../research/valuation-panel";
+import { WyckoffPanel } from "../research/wyckoff-panel";
 
 import { ReportArchive } from "./reports";
 import { type WorkbenchState } from "./use-workbench-state";

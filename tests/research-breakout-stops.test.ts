@@ -7,7 +7,7 @@ import {
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 import type { Level } from "../src/server/strategies/breakout/breakout";
 const candle = {

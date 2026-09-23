@@ -76,7 +76,7 @@ it("R2b rendering evidence detects changed actions", () => {
   ).not.toBe(baseline[file]);
 });
 it("T1 keeps all three server routes in the shared client navigation", () => {
-  const source = readFileSync("src/components/workbench.tsx", "utf8");
+  const source = readFileSync("src/components/workbench/workbench.tsx", "utf8");
   expect(source).toContain("routeTabs.map((item)");
   expect(source).toContain("href={item.href}");
   expect(source).toContain("scroll={false}");
@@ -96,7 +96,10 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
   );
   for (const href of ["/signal-ledger", "/trade-ledger", "/rps"])
     expect(navigation.split(`href: "${href}"`)).toHaveLength(2);
-  const panels = readFileSync("src/components/route-panels.tsx", "utf8");
+  const panels = readFileSync(
+    "src/components/workbench/route-panels.tsx",
+    "utf8",
+  );
   for (const href of ["/intraday", "/rps", "/research", "/cls-review"])
     expect(panels).toContain(`"${href}":`);
   // The two ledger routes fetch server data per request; caching them would
@@ -106,13 +109,13 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
   expect(readFileSync("src/app/layout.tsx", "utf8")).toContain(
     "<WorkbenchLayout>{children}</WorkbenchLayout>",
   );
-  expect(readFileSync("src/components/workbench-layout.tsx", "utf8")).toContain(
-    "<Workbench>{children}</Workbench>",
-  );
+  expect(
+    readFileSync("src/components/workbench/workbench-layout.tsx", "utf8"),
+  ).toContain("<Workbench>{children}</Workbench>");
   for (const file of [
     "src/app/rps/page.tsx",
-    "src/components/signal-ledger-view.tsx",
-    "src/components/trade-ledger-panel.tsx",
+    "src/components/signals/signal-ledger-view.tsx",
+    "src/components/portfolio/trade-ledger-panel.tsx",
   ])
     expect(readFileSync(file, "utf8")).not.toContain("返回工作台");
 });
@@ -123,13 +126,14 @@ it("R2b leaves only the explicitly exempt frozen native button", () => {
       (file): file is string =>
         typeof file === "string" &&
         file.endsWith(".tsx") &&
-        file.replaceAll("\\", "/") !== "components/backtest-actions.tsx",
+        file.replaceAll("\\", "/") !==
+          "components/backtest/backtest-actions.tsx",
     )
     .map((file) => `src/${file}`);
   for (const file of files)
     expect(readFileSync(file, "utf8")).not.toMatch(/<button\b/);
   expect(
-    readFileSync("src/components/backtest-actions.tsx", "utf8").match(
+    readFileSync("src/components/backtest/backtest-actions.tsx", "utf8").match(
       /<button\b/g,
     ),
   ).toHaveLength(1);

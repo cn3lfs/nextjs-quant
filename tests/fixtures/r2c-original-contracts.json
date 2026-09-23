@@ -55,7 +55,7 @@
       "EvidenceAnalysis": "13ff9f65b1076e1309481a3d140fd7ed9cfa005f7835069459f135fd0aa22ce6"
     }
   },
-  "src/components/task-history.tsx": {
+  "src/components/common/task-history.tsx": {
     "handlers": [
       "7a4145c6c1f4be291a5710fcebb3d4334613183327ecc7eca499b8303aa85f75",
       "c11f1ad022d768cdf3a997f0dcdf50db303d6d3dd4429dc0b421e1295d341f11",

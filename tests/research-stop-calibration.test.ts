@@ -12,7 +12,7 @@ import {
   researchPortfolio,
   type ResearchTrade,
 } from "../src/server/backtest/research-portfolio";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 import {
   researchSpecSchema,
   type ResearchEvent,

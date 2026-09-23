@@ -17,7 +17,7 @@ import {
   researchMethodSnapshot,
   validateResearchMethod,
 } from "../src/server/research/research-method";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 
 const dates = Array.from(
   { length: 8 },

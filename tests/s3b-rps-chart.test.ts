@@ -74,14 +74,17 @@ describe("S3b persisted RPS chart", () => {
 
 it("wires persisted curves from the workspace and fixes the RPS pane range", async () => {
   const { readFileSync } = await import("node:fs");
-  const workspace = readFileSync("src/components/chart-workspace.tsx", "utf8");
+  const workspace = readFileSync(
+    "src/components/market/chart-workspace.tsx",
+    "utf8",
+  );
   expect(workspace).toContain("api.rpsCurve.useQuery(snapshot.symbol, {");
   expect(workspace).toMatch(
     /enabled: period === "day" && !isSectorChartSymbol\(snapshot.symbol\),\s*retry: false/,
   );
   expect(workspace).toContain('rps={period === "day" ? rps.data : undefined}');
   expect(workspace).toContain("onRpsRetry={() => void rps.refetch()}");
-  const chart = readFileSync("src/components/chart.tsx", "utf8");
+  const chart = readFileSync("src/components/market/chart.tsx", "utf8");
   expect(chart).toContain("rpsChartSegments(");
   expect(chart).toContain('lineStyle: segment.mode === "backfill" ? 2 : 0');
   expect(chart).toContain("pointMarkersVisible: segment.data.length === 1");

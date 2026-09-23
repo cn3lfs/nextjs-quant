@@ -1,4 +1,4 @@
-import { ResearchUsageContainer } from "~/components/research-usage-container";
+import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useState } from "react";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
@@ -13,8 +13,8 @@ import {
 import { ArrowUpRight, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { screenSortLabels, type ScreenSort } from "~/lib/screen-sort";
 import { archivedNameHint, securityDisplayName } from "~/lib/security-display";
-import { FormulaScreen } from "../formula-screen";
-import { ScreenTaskProgress } from "../screen-task-progress";
+import { FormulaScreen } from "../screening/formula-screen";
+import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
 
 import { ReportCard } from "./reports";

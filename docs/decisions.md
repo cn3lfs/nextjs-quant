@@ -2,6 +2,14 @@
 
 # 决策日志
 
+## 2026-09-23：`src/components` 按业务域归档，保留 UI 与 workbench 基础层
+
+组件不再堆在 `src/components` 根目录：行情、筛选、研究、回测、组合复盘、新闻、信号、盘中与公共业务组件分别归档，workbench 壳层集中在 `components/workbench`。所有仓内引用和结构型测试同步迁移，不保留旧路径兼容 re-export；`components/ui` 继续只承载薄 UI 原语。
+
+`src/lib/utils.ts` 的唯一职责是 className 合并，因此移动到 `src/lib/common/classnames.ts`；指标、资金与完成周期的共享实现继续由 `trading-strategy-core` 提供，避免在应用层产生第二份量化核心。
+
+本轮只做结构与引用迁移，不改变策略计算、tRPC/数据库契约、外部数据读取和交易行为。函数层的大规模移动暂缓，原因是现有 `src/lib` 被脚本、服务端和测试以大量相对路径共享；后续按领域边界拆分纯 kernel 与服务端 adapter，并逐批验证。
+
 ## 2026-09-15：基本面改为本地财务包为主源，协议快照只作叠加
 
 上一条把协议快照当主源，每次打开基本面都要等一次公共服务器往返，本地财务包只用来定报告期。

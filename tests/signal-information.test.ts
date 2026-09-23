@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { signalInformation } from "~/lib/signal-information";
 import { horizons, aggregateLedger, type LedgerRow } from "~/lib/signal-ledger";
-import { SignalInformationView } from "~/components/signal-information-view";
+import { SignalInformationView } from "~/components/signals/signal-information-view";
 function rows(
   values: number[],
   date = "2026-01-01",

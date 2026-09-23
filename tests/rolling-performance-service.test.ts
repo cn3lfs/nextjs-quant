@@ -10,7 +10,7 @@ import {
 } from "../src/server/research/performance/rolling-performance-service";
 import { rollingPerformance } from "../src/lib/rolling-performance";
 import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
-import { RollingPerformanceResults } from "../src/components/rolling-performance-results";
+import { RollingPerformanceResults } from "../src/components/backtest/rolling-performance-results";
 import type {
   ResearchStore,
   ResearchResult,
@@ -18,7 +18,7 @@ import type {
 import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 
-vi.mock("../src/components/chart", () => ({
+vi.mock("../src/components/market/chart", () => ({
   RollingPerformanceChart: () =>
     createElement("div", { role: "img", "aria-label": "滚动绩效曲线" }),
 }));
@@ -221,11 +221,11 @@ it("research uses frozen partition dates without bridging independent capital or
 
 it("both containers wire rolling separately from the existing U2/U6/U8 paths", () => {
   const trade = readFileSync(
-    "src/components/trade-review-container.tsx",
+    "src/components/portfolio/trade-review-container.tsx",
     "utf8",
   );
   const research = readFileSync(
-    "src/components/strategy-research-controls.tsx",
+    "src/components/research/strategy-research-controls.tsx",
     "utf8",
   );
   for (const source of [trade, research])
@@ -235,7 +235,7 @@ it("both containers wire rolling separately from the existing U2/U6/U8 paths", (
     "utils.strategyResearchRollingPerformance.invalidate()",
   );
   const container = readFileSync(
-    "src/components/rolling-performance-container.tsx",
+    "src/components/backtest/rolling-performance-container.tsx",
     "utf8",
   );
   expect(container).toContain("api.tradeReviewRollingPerformance.useQuery");

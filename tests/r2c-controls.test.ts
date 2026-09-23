@@ -49,7 +49,10 @@ it("R2c precisely connects controlled values and keeps server cursor pagination"
   expect(evidence).toContain(
     '<SelectItem value="sepa">SEPA 分阶段研究</SelectItem>',
   );
-  const history = readFileSync("src/components/task-history.tsx", "utf8");
+  const history = readFileSync(
+    "src/components/common/task-history.tsx",
+    "utf8",
+  );
   for (const prop of [
     "history.data.items.map((summary)",
     "history.data.total",
@@ -82,7 +85,7 @@ it("R2c evidence rejects changed strategy conversion and task page reset", () =>
       "fast: 0",
     ],
     [
-      "src/components/task-history.tsx",
+      "src/components/common/task-history.tsx",
       "setCursors((p) => p.slice(0, -1));",
       "setSelected('');",
     ],
@@ -96,21 +99,21 @@ it("R2c evidence rejects changed strategy conversion and task page reset", () =>
 
 it("R2c leaves native controls only in the exact frozen exemption inventory", () => {
   const exempt: Record<string, number> = {
-    "backtest-actions.tsx": 3,
-    "canslim-panel.tsx": 2,
-    "cash-dividend-experiment.tsx": 4,
-    "chan-panel.tsx": 2,
-    "financial-growth-panel.tsx": 1,
-    "financial-quality-panel.tsx": 2,
-    "fundamental-report-panel.tsx": 4,
-    "news-panel.tsx": 6,
-    "news-sector-panel.tsx": 1,
-    "revenue-reconciliation-panel.tsx": 2,
-    "theme-prices-panel.tsx": 1,
-    "valuation-panel.tsx": 7,
-    "walk-forward-panel.tsx": 4,
+    "backtest/backtest-actions.tsx": 3,
+    "research/canslim-panel.tsx": 2,
+    "backtest/cash-dividend-experiment.tsx": 4,
+    "research/chan-panel.tsx": 2,
+    "research/financial-growth-panel.tsx": 1,
+    "research/financial-quality-panel.tsx": 2,
+    "research/fundamental-report-panel.tsx": 4,
+    "news/news-panel.tsx": 6,
+    "news/news-sector-panel.tsx": 1,
+    "research/revenue-reconciliation-panel.tsx": 2,
+    "news/theme-prices-panel.tsx": 1,
+    "research/valuation-panel.tsx": 7,
+    "backtest/walk-forward-panel.tsx": 4,
     "workbench/backtest-view.tsx": 4,
-    "wyckoff-panel.tsx": 2,
+    "research/wyckoff-panel.tsx": 2,
   };
   const remaining: Record<string, number> = {};
   for (const file of readdirSync("src", { recursive: true })) {

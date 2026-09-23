@@ -1,4 +1,4 @@
-import { ClsReviewPanel } from "~/components/route-panels";
+import { ClsReviewPanel } from "~/components/workbench/route-panels";
 
 export default function ClsReviewPage() {
   return <ClsReviewPanel />;

@@ -7,10 +7,10 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { ArrowUpRight, Check, Sparkles } from "lucide-react";
-import { CanslimPanel } from "../canslim-panel";
-import { ChanPanel } from "../chan-panel";
+import { CanslimPanel } from "../research/canslim-panel";
+import { ChanPanel } from "../research/chan-panel";
 import { Button } from "../ui/button";
-import { WyckoffPanel } from "../wyckoff-panel";
+import { WyckoffPanel } from "../research/wyckoff-panel";
 
 import { Field } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";

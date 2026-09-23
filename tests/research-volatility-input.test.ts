@@ -12,7 +12,7 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
 
 const bars = Array.from({ length: 30 }, (_, i) => ({

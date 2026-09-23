@@ -9,11 +9,11 @@ import {
   previewDeliveryImport,
   commitDeliveryImport,
 } from "../src/server/portfolio/delivery-import-service";
-import { TradeReviewPreview } from "../src/components/trade-review-import";
+import { TradeReviewPreview } from "../src/components/portfolio/trade-review-import";
 import {
   TradeReviewCaveats,
   TradeReviewResults,
-} from "../src/components/trade-review-results";
+} from "../src/components/portfolio/trade-review-results";
 import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
 const dbs: Database.Database[] = [];
 it.each(["explicit", "previousClose"] as const)(

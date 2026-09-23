@@ -13,7 +13,7 @@ import {
 import {
   ResearchStrategyFields,
   selectResearchStrategy,
-} from "../src/components/research-strategy-fields";
+} from "../src/components/research/research-strategy-fields";
 import { SelectItem, SelectTrigger } from "../src/components/ui/select";
 import {
   researchStrategies,

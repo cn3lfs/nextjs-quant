@@ -3,8 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { withoutTdxSnapshotPanel } from "./tdx-snapshot-contract";
-import { TdxQuoteBook } from "../src/components/tdx-quote-book";
-import { TdxFundamentalSummary } from "../src/components/tdx-fundamental-summary";
+import { TdxQuoteBook } from "../src/components/market/tdx-quote-book";
+import { TdxFundamentalSummary } from "../src/components/market/tdx-fundamental-summary";
 import type { QuoteSnapshot } from "../src/lib/tdx-quote-view";
 import type {
   ReportFields,
@@ -203,7 +203,7 @@ describe("基本面快照面板", () => {
 });
 
 describe("图表工作区挂载契约", () => {
-  const file = "src/components/chart-workspace.tsx";
+  const file = "src/components/market/chart-workspace.tsx";
   const source = readFileSync(file, "utf8");
   it("按当前图表快照的证券唯一挂载，并从既有渲染指纹中摘除", () => {
     expect(source).toContain(

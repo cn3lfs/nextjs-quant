@@ -17,7 +17,7 @@ import {
 } from "../src/server/research/performance/period-performance-service";
 import { replayTradeReview } from "../src/server/portfolio/trade-review-service";
 import type { NavDay } from "../src/lib/trade-review-nav";
-import { PeriodPerformanceResults } from "../src/components/period-performance-results";
+import { PeriodPerformanceResults } from "../src/components/backtest/period-performance-results";
 
 const dates = [
   "2026-01-05",

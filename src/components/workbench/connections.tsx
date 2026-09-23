@@ -1,4 +1,4 @@
-import { MarketSourceSelect } from "../market-source-select";
+import { MarketSourceSelect } from "../market/market-source-select";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
@@ -16,7 +16,7 @@ import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 
 import { Field, stamp } from "./shared";
-import { NotificationPolicyFields } from "../notification-policy-fields";
+import { NotificationPolicyFields } from "../common/notification-policy-fields";
 
 export function Connections({
   value,

@@ -15,7 +15,7 @@ import {
 import { tradingLedgerMethods } from "../src/server/research/research-skills";
 import type { SkillUse } from "../src/server/research/research-skills";
 import type { LedgerRow } from "../src/lib/signal-ledger";
-import { TradeLedgerPanel } from "../src/components/trade-ledger-panel";
+import { TradeLedgerPanel } from "../src/components/portfolio/trade-ledger-panel";
 vi.mock("../src/app/trade-ledger/actions", () => ({
   saveTrade: vi.fn(),
   toggleMock: vi.fn(),

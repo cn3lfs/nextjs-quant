@@ -29,7 +29,7 @@ vi.mock("lightweight-charts", async (original) => ({
     remove: harness.remove,
   }),
 }));
-import { RollingPerformanceChart } from "../src/components/chart";
+import { RollingPerformanceChart } from "../src/components/market/chart";
 
 it("the actual chart sends three panes with separate null segments and cleans up", () => {
   const points = [1, null, 0, 2].map((value, i) => ({

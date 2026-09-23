@@ -43,7 +43,7 @@ it("T3 labels local calendar days explicitly without treating yesterday as today
   expect(age(new Date(2026, 8, 9, 23, 59).getTime(), now)).toBe("昨天");
   expect(age(new Date(2026, 8, 8).getTime(), now)).toBe("2 天前");
   expect(age(new Date(2026, 8, 11).getTime(), now)).toBe("未来日期");
-  const source = readFileSync("src/components/task-history.tsx", "utf8");
+  const source = readFileSync("src/components/common/task-history.tsx", "utf8");
   expect(source).toContain("taskAge(job.createdAt)");
   expect(source).toContain("stamp(job.createdAt)");
 });
@@ -63,7 +63,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
   }));
   const MarketChart = () => null;
   const Component = loadFunction(
-    "src/components/chart.tsx",
+    "src/components/market/chart.tsx",
     "CzscMarketChart",
     {
       React: { createElement },

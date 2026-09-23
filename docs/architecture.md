@@ -25,7 +25,7 @@
 
 ## 总体结构与数据流
 
-Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench.tsx` 组合页面，`src/components/workbench/` 放拆分后的视图和状态；服务路由入口是 [api/root.ts](../src/server/api/root.ts)，调度入口是 [runtime.ts](../src/server/runtime.ts)。
+Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面，`src/components/workbench/` 放壳层、路由面板、视图和状态；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由入口是 [api/root.ts](../src/server/api/root.ts)，调度入口是 [runtime.ts](../src/server/runtime.ts)。
 
 ```text
 通达信本地目录（只读）
@@ -35,7 +35,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
  │                      └→ securities.ts → 证券主档/搜索名称
  └─ T0002/hq_cache/gbbq → tdx-gbbq.ts → 除权证据 ───────────────┐
                                              │               │
- 快照 → indicators.ts → chart-data → chart.tsx                │
+ 快照 → trading-strategy-core/indicators.ts → chart-data → market/chart.tsx │
    ├→ czsc.ts → IPC串行队列 → czsc-worker → koffi → CZSC64.dll │
    ├→ breakout-batch → 尾窗否决 → 完整历史 → breakout.ts       │
    └→ 公式解析/静态门禁 → jobs/worker → formula-screening      │
@@ -68,7 +68,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 指标层
 
 - **职责**：纯函数计算 MA/EMA/MACD/KDJ/RSI/BOLL 和公式共享序列基元。
-- **关键文件**：[indicators.ts](../src/lib/indicators.ts)，图表消费入口 [chart-data.ts](../src/lib/chart-data.ts)。
+- **关键文件**：[core indicators](../packages/trading-strategy-core/src/indicators.ts)，应用图表消费入口 [chart-data.ts](../src/lib/chart-data.ts)。
 - **输入输出**：readonly Bar[] + 参数 → 同长度指标数组（number/null）；序列基元接收 number/null 数组。
 - **依赖**：domain 的 Bar 类型，无 IO/远程服务；具体认定公式见 [invariants §2](invariants.md#2-通达信认定公式与预热)。
 - **不变量**：唯一共享实现、完整历史递推、窗口不足 null、状态不因缺口重置、内部不舍入。
@@ -76,7 +76,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 ## 图表层
 
 - **职责**：K 线/指标/缠论与双突破证据展示，周月聚合、视图设置和四种画线工具。
-- **关键文件**：[chart.tsx](../src/components/chart.tsx) 管图表实例、pane、事件及绘制；[chart-data.ts](../src/lib/chart-data.ts) 做指标/结构适配；[chart-drawings.ts](../src/lib/chart-drawings.ts) 做画线几何；[chart-view.ts](../src/lib/chart-view.ts) 定义参数与视图 schema；[chart-view-store.ts](../src/server/charts/chart-view-store.ts) 持久化；[chart-bars.ts](../src/server/charts/chart-bars.ts)、[weekly-bars.ts](../src/server/market/weekly-bars.ts)、[monthly-bars.ts](../src/server/market/monthly-bars.ts) 聚合。
+- **关键文件**：[chart.tsx](../src/components/market/chart.tsx) 管图表实例、pane、事件及绘制；[chart-data.ts](../src/lib/chart-data.ts) 做指标/结构适配；[chart-drawings.ts](../src/lib/chart-drawings.ts) 做画线几何；[chart-view.ts](../src/lib/chart-view.ts) 定义参数与视图 schema；[chart-view-store.ts](../src/server/charts/chart-view-store.ts) 持久化；[chart-bars.ts](../src/server/charts/chart-bars.ts)、[weekly-bars.ts](../src/server/market/weekly-bars.ts)、[monthly-bars.ts](../src/server/market/monthly-bars.ts) 聚合。
 - **输入输出**：快照、ChartPeriod、策略结果、已核对成本、保存的视图 → 图形与 legend；用户保存→chart_views 表（标的×周期）。工具为趋势线、水平线、矩形、斐波那契。
 - **依赖**：lightweight-charts、共享 indicators、交易日历、P1 成本；week/month 从日线快照聚合，不扩展底层策略 Period。
 - **不变量**：先全量计算再按 180 根展开显示；null 不补零连线；周/月策略结构明确不可用，5m 缠论图不等于 5m 通知开放。无仓或成本未知不画成本线。主图对数不改变副图线性与斐波那契价格回撤。

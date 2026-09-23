@@ -174,7 +174,7 @@ vi.mock("lightweight-charts", () => ({
   },
 }));
 import { defaultChartView } from "../src/lib/chart-view";
-import { MarketChart, PriceChart } from "../src/components/chart";
+import { MarketChart, PriceChart } from "../src/components/market/chart";
 function render(bars: Bar[], period: Period = "day") {
   h.cursor = 0;
   const element = PriceChart({ bars, period }) as ReactElement<{

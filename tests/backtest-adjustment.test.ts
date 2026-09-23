@@ -21,7 +21,7 @@ import { equityDailyReturns } from "../src/lib/multiple-testing";
 import { walkForwardSchema } from "../src/lib/walk-forward";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { AdjustmentDisclosure } from "../src/components/research-adjustment";
+import { AdjustmentDisclosure } from "../src/components/backtest/research-adjustment";
 const strategy = {
   ...defaultStrategy,
   fast: 2,

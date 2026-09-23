@@ -1,5 +1,5 @@
-import { SignalLedgerControls } from "~/components/signal-ledger-controls";
-import { SignalLedgerView } from "~/components/signal-ledger-view";
+import { SignalLedgerControls } from "~/components/signals/signal-ledger-controls";
+import { SignalLedgerView } from "~/components/signals/signal-ledger-view";
 import { sqlite } from "~/server/db";
 import { SignalLedgerStore } from "~/server/monitoring/signal-ledger-store";
 import { NotificationPolicyStore } from "~/server/infra/notification-policy-store";

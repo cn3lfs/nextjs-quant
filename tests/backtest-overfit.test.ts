@@ -11,7 +11,7 @@ import {
   performanceDegradation,
 } from "../src/lib/backtest-overfit";
 import { sharpeDaily, multipleTesting } from "../src/lib/multiple-testing";
-import { MultipleTestingPanel } from "../src/components/multiple-testing-panel";
+import { MultipleTestingPanel } from "../src/components/backtest/multiple-testing-panel";
 
 // V2 既有用例显式保留夏普口径：默认改为 selection，不改变原算法预期。
 const cv = (input: Parameters<typeof combinatoriallySymmetricCv>[0]) =>

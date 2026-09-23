@@ -10,7 +10,7 @@ import {
   holdingsCorrelationPageSchema,
   pageHoldingsCorrelation,
 } from "../src/server/portfolio/holdings-correlation-service";
-import { HoldingsCorrelationResults } from "../src/components/holdings-correlation-results";
+import { HoldingsCorrelationResults } from "../src/components/portfolio/holdings-correlation-results";
 const dates = Array.from({ length: 32 }, (_, i) =>
   new Date(Date.UTC(2026, 0, i + 1)).toISOString().slice(0, 10),
 );
@@ -194,19 +194,19 @@ it("非法或重复价格不补零，区间之外的收益不计样本", () => {
 
 it("U5嵌入集中度同卡，导入撤销刷新使相关性缓存失效", () => {
   const parent = readFileSync(
-    "src/components/trade-review-container.tsx",
+    "src/components/portfolio/trade-review-container.tsx",
     "utf8",
   );
   expect(parent).toContain("utils.tradeReviewHoldingsCorrelation.invalidate()");
   const container = readFileSync(
-    "src/components/position-risk-container.tsx",
+    "src/components/backtest/position-risk-container.tsx",
     "utf8",
   );
   expect(container).toMatch(
     /<PositionRiskResults[\s\S]*<HoldingsCorrelationContainer account=\{account\} \/>[\s\S]*<\/PositionRiskResults>/,
   );
   const result = readFileSync(
-    "src/components/position-risk-results.tsx",
+    "src/components/backtest/position-risk-results.tsx",
     "utf8",
   );
   expect(result.indexOf("{children}")).toBeGreaterThan(

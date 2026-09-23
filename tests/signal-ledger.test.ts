@@ -20,7 +20,7 @@ import {
   type LedgerSignal,
   type ActionEvidence,
 } from "../src/lib/signal-ledger";
-import { SignalLedgerView } from "../src/components/signal-ledger-view";
+import { SignalLedgerView } from "../src/components/signals/signal-ledger-view";
 import type { Bar } from "../src/lib/domain";
 import type { CzscResult } from "../src/lib/czsc";
 

@@ -16,7 +16,7 @@ import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { runStrategyResearch } from "../src/server/backtest/research-run";
 import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 function fixture(): Bar[] {

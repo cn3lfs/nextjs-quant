@@ -6,7 +6,7 @@ import {
   reconcileCashDays,
   type CashDaySource,
 } from "../src/lib/cash-reconciliation";
-import { CashReconciliationResults } from "../src/components/cash-reconciliation-results";
+import { CashReconciliationResults } from "../src/components/portfolio/cash-reconciliation-results";
 
 const source = (cash: number): CashDaySource => ({
   batchId: "evidence-batch",

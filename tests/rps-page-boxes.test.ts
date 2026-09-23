@@ -11,10 +11,10 @@ import {
 } from "../src/lib/rps-log";
 import { poolMembersHref } from "../src/lib/market-pool";
 import { chartSymbolHref, readChartSymbolParam } from "../src/lib/chart-symbol";
-import { ChartSymbolLink } from "../src/components/chart-symbol-link";
-import { RpsRunStatus } from "../src/components/rps-run-status";
-import { RpsWorkflowLog } from "../src/components/rps-workflow-log";
-import { PoolMembersLink } from "../src/components/pool-members-link";
+import { ChartSymbolLink } from "../src/components/market/chart-symbol-link";
+import { RpsRunStatus } from "../src/components/market/rps-run-status";
+import { RpsWorkflowLog } from "../src/components/market/rps-workflow-log";
+import { PoolMembersLink } from "../src/components/common/pool-members-link";
 import type { RpsProgress } from "../src/lib/rps";
 
 const progress: RpsProgress = {

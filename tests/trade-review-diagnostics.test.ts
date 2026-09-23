@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import {
   ReviewDiagnostics,
   groupNavDiagnostics,
-} from "../src/components/trade-review-diagnostics";
+} from "../src/components/portfolio/trade-review-diagnostics";
 it("R13 groups repeated dated causes while keeping exact evidence untouched and details unmounted", () => {
   const rows = Array.from({ length: 100 }, (_, i) => ({
     date: `2025-01-${String((i % 28) + 1).padStart(2, "0")}`,

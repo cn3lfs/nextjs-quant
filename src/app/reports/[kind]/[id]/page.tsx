@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TaskReportDetail } from "~/components/task-report-detail";
+import { TaskReportDetail } from "~/components/research/task-report-detail";
 
 export default async function TaskReportPage({
   params,

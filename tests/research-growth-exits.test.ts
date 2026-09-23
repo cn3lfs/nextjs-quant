@@ -7,7 +7,7 @@ import {
 import { researchSpecSchema } from "../src/lib/strategy-research";
 import { researchPortfolio } from "../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../src/server/research/research-method";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 
 function setup(id: (typeof growthDailyExitIds)[number]) {
   const bars: Bar[] = Array.from({ length: 45 }, (_, i) => ({

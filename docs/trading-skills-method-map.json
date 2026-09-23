@@ -7186,7 +7186,7 @@
         "src/lib/research-pyramid.ts",
         "src/server/strategies/shared/research-signals.ts",
         "src/server/backtest/research-portfolio.ts",
-        "src/components/research-management-fields.tsx"
+        "src/components/research/research-management-fields.tsx"
       ],
       "tests": ["tests/research-pullback.test.ts"],
       "boundary": "双突破日线50/50计划回踩与仍盈利对照：原信号冻结突破位，次根确认后下一开盘补入，第二笔最多首仓实际数量，原预算与逐批T+1。与50/30/20盈利递减要求分开；容差和更长等待是公开工程参数。原文盘中最后半小时入场未覆盖，真实回测待执行。 position-management仅作50/30/20和禁止亏损追加的冲突参照，不是50/50来源。本方法在原文登记的两个具名变体（计划回踩 / 仍盈利对照）均未注册为具名预设，属预设绑定缺口，不是数据缺失。",
@@ -9564,8 +9564,8 @@
         "src/server/strategies/shared/research-signals.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/strategy-research.ts",
         "src/lib/research-composite-presets.ts"
       ],
@@ -9887,7 +9887,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -9942,7 +9942,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -10212,7 +10212,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -10322,7 +10322,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -10542,7 +10542,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -12760,7 +12760,7 @@
         "src/lib/research-position-book.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/lib/weight-backtest.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -20122,7 +20122,7 @@
         "src/server/backtest/research-portfolio.ts",
         "src/server/backtest/research-run.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx"
+        "src/components/research/research-management-fields.tsx"
       ],
       "tests": ["tests/research-market-regime.test.ts"],
       "boundary": "§5.1/5.3：大盘价在MA20之上且线向上偏多，反向空仓/减仓；必须使用指定大盘同一时点数据，不能用个股MA20代替。 position-management具体波段参数/冷静期另见SW-P子项，公共组件不等于整份组合完成。 已接入前一交易日MA20方向与价位的强60%/中30%/弱0或30%总仓版本；默认1%中性带明确工程参数。21根连续有效快照基准记录，缺失暂停新买/加仓，交易等待期不重置；与固定及加仓上限取小，已有持仓不强制平仓。每日参考时点、分类、均线和缺失留证，原始信号观察不筛掉。完整空仓、独立交易所日历核验及震荡穿越/其他环境仍待实施。本方法在原文登记的弱 0 / 弱 30% 两个具名变体均未注册为具名预设，属预设绑定缺口，不是数据缺失。",
@@ -20168,7 +20168,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx"
+        "src/components/research/research-management-fields.tsx"
       ],
       "tests": ["tests/research-market-chop.test.ts"],
       "boundary": "§5.2：大盘MA20附近反复穿越空仓等待；次数、窗口、附近范围需公开工程定义，缺指数历史不默认允许。本方法的具名版本未注册为具名预设，属预设绑定缺口，不是数据缺失。",
@@ -20516,7 +20516,7 @@
       "status": "implemented-variant",
       "implementation": [
         "src/lib/research-swing-exits.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/server/research/research-method.ts",
         "src/server/backtest/research-portfolio.ts"
       ],
@@ -20564,7 +20564,7 @@
       "status": "implemented-variant",
       "implementation": [
         "src/lib/research-swing-exits.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/server/research/research-method.ts",
         "src/server/backtest/research-portfolio.ts"
       ],
@@ -20866,7 +20866,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -21160,8 +21160,8 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-strategy-fields.tsx",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -21213,8 +21213,8 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-strategy-fields.tsx",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -21266,8 +21266,8 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-strategy-fields.tsx",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -21319,8 +21319,8 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-strategy-fields.tsx",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -21374,7 +21374,7 @@
         "src/server/backtest/research-portfolio.ts",
         "src/server/backtest/research-run.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -22823,8 +22823,8 @@
         "src/lib/strategy-research.ts",
         "src/server/strategies/shared/research-signals.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -22876,7 +22876,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -23523,7 +23523,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -24463,8 +24463,8 @@
         "src/server/strategies/shared/research-signals.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -24519,8 +24519,8 @@
         "src/server/strategies/shared/research-signals.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -24679,7 +24679,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25663,7 +25663,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25715,7 +25715,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25767,7 +25767,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25874,7 +25874,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25930,7 +25930,7 @@
         "src/server/backtest/research-run.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -25985,8 +25985,8 @@
         "src/lib/research-kelly.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -26042,8 +26042,8 @@
         "src/lib/research-kelly.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -26253,8 +26253,8 @@
         "src/server/strategies/shared/research-signals.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -26309,8 +26309,8 @@
         "src/lib/strategy-research.ts",
         "src/server/strategies/shared/research-signals.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -26363,8 +26363,8 @@
         "src/lib/strategy-research.ts",
         "src/server/strategies/shared/research-signals.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -27873,7 +27873,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -27926,7 +27926,7 @@
         "src/server/backtest/research-portfolio.ts",
         "src/server/backtest/research-run.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -27979,7 +27979,7 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-management-fields.tsx",
+        "src/components/research/research-management-fields.tsx",
         "src/lib/research-composite-presets.ts"
       ],
       "tests": [
@@ -28416,7 +28416,7 @@
       "implementation": [
         "src/lib/research-exit-presets.ts",
         "src/lib/research-canslim-management.ts",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts"
       ],
@@ -28512,7 +28512,7 @@
       "implementation": [
         "src/lib/research-exit-presets.ts",
         "src/lib/research-canslim-management.ts",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts"
       ],
@@ -28564,7 +28564,7 @@
       "implementation": [
         "src/lib/research-exit-presets.ts",
         "src/lib/research-canslim-management.ts",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts"
       ],
@@ -28616,7 +28616,7 @@
       "implementation": [
         "src/lib/research-exit-presets.ts",
         "src/lib/research-canslim-management.ts",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts"
       ],
@@ -28750,7 +28750,7 @@
         "src/lib/research-canslim-strategies.ts",
         "src/server/strategies/shared/research-rule-series.ts",
         "src/server/backtest/research-portfolio.ts",
-        "src/components/research-strategy-fields.tsx"
+        "src/components/research/research-strategy-fields.tsx"
       ],
       "tests": [
         "tests/research-canslim-weekly.test.ts",
@@ -28801,8 +28801,8 @@
         "src/lib/research-management.ts",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts",
-        "src/components/research-strategy-fields.tsx",
-        "src/components/research-management-fields.tsx"
+        "src/components/research/research-strategy-fields.tsx",
+        "src/components/research/research-management-fields.tsx"
       ],
       "tests": [
         "tests/research-progress-exit.test.ts",
@@ -28852,7 +28852,7 @@
       "implementation": [
         "src/lib/research-exit-presets.ts",
         "src/lib/research-canslim-management.ts",
-        "src/components/research-strategy-fields.tsx",
+        "src/components/research/research-strategy-fields.tsx",
         "src/server/backtest/research-portfolio.ts",
         "src/server/research/research-method.ts"
       ],

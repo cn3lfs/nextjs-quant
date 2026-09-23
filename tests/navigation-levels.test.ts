@@ -29,7 +29,7 @@ it("navigation preserves native links, selected route and expanded research grou
 });
 
 it("breakout overlay keeps dashed lines and moves labels outside the chart canvas", () => {
-  const source = readFileSync("src/components/chart.tsx", "utf8");
+  const source = readFileSync("src/components/market/chart.tsx", "utf8");
   const overlay = source.slice(
     source.indexOf("for (const item of overlay?.lines"),
     source.indexOf("markers?.setMarkers"),

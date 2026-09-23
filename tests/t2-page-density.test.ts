@@ -4,8 +4,11 @@ import { expect, it } from "vitest";
 import { renderHandlers } from "./r2-contracts";
 
 const screen = readFileSync("src/components/workbench/screen-view.tsx", "utf8");
-const workspace = readFileSync("src/components/chart-workspace.tsx", "utf8");
-const chart = readFileSync("src/components/chart.tsx", "utf8");
+const workspace = readFileSync(
+  "src/components/market/chart-workspace.tsx",
+  "utf8",
+);
+const chart = readFileSync("src/components/market/chart.tsx", "utf8");
 
 it("T2 keeps the three available forms mounted and hides exactly the inactive entries", () => {
   const ast = ts.createSourceFile(

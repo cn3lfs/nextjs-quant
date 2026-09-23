@@ -1,4 +1,4 @@
-import { TradeReviewContainer } from "~/components/trade-review-container";
+import { TradeReviewContainer } from "~/components/portfolio/trade-review-container";
 
 export default function TradeReviewPage() {
   return (

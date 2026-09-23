@@ -27,7 +27,7 @@
     "46277f0337c9173733c63929ce8f026a87d1bf722adf5889eb701b44787a511e",
     "2032553729f6f4b605e00af69785c80ab65ff57d9cf54c8ecef750c7ce95b1fc"
   ],
-  "src/components/notification-policy-fields.tsx": [
+  "src/components/common/notification-policy-fields.tsx": [
     "af5f1ec45bf042b46a955379aa89e2f62f1b898fde846b4cf2d698fd98adcd9d",
     "254fc57925c4d6c7f0a33c949e91ba182c782cefced4f35db1eab3d8ddb9fc0f",
     "ce15b7898bf2d98f722e57fcde4758d04aae83497289fbcd80bb377da0e9ed16",
@@ -52,7 +52,7 @@
     "de0a343c2a3af713c4e7660ae3bb1d9561296dc8492a06aea43e28a392e7df2f",
     "58d3b9138ea02d90cbbcdafd5cf8dd23a04a7c0f47a52e1bdb25f6987fc2aace"
   ],
-  "src/components/trade-ledger-panel.tsx": [
+  "src/components/portfolio/trade-ledger-panel.tsx": [
     "6f3216b997fdf73558488b75c39f3ad94f86bb9b3e0ae203a7b633eadad23d9d",
     "cab4ee0c7439539f6406a7e5b8e5458e69636ec34aaa3fdc2bc876ec5d5237f9",
     "5846352f98d8fb602990e481a5a6c2c4916137090f834a47cb977c2cf11d30a9",
@@ -68,8 +68,8 @@
     "185c57c7403620300895c7804f18cb8c2cc6e0c81796efbbb82f7bc1fd1c8677",
     "7cd9884e27051de8cdc0e281b12179cbe379233fdc0d2f4737e59c3613d7524f"
   ],
-  "src/components/signal-ledger-view.tsx": [],
-  "src/components/signal-ledger-controls.tsx": [
+  "src/components/signals/signal-ledger-view.tsx": [],
+  "src/components/signals/signal-ledger-controls.tsx": [
     "60b3c11fe66542d484938e308e45cfee3b4f6af55ff5fe2cc43a750fb821cb00"
   ],
   "src/components/workbench/screen-view.tsx": [
@@ -99,7 +99,7 @@
     "b3ed782f257b7d06473ec6e54bf5769b4e2a12d8915715ae5e12945a9f749b0e",
     "943f5cf078d33b8250a22bf5bf25bad6ea4f72036b44828f47683531342f2f35"
   ],
-  "src/components/formula-screen.tsx": [
+  "src/components/screening/formula-screen.tsx": [
     "cd4bbc18c850935997c4267495d58bff2742f2e6db47d681d16ddf3d1b5070ee",
     "af20d83b8a517337d481fb6ce2fe3f5bafdf0e5073939389669ffdf9ca858901",
     "4732a9583ac5ef5e62f88c1111b1f210a6cc60f53626f88a3a896ab15054504a",
@@ -109,7 +109,7 @@
     "4f8276098690bd66ec4bd55099b1b6837261a11a52bc5f9f4fa5c4185226d102",
     "e7f844e1a30ffc68aa700763ef82715b7ab8a24ec1821a55b04eeb811ddb6ac7"
   ],
-  "src/components/online-screen.tsx": [
+  "src/components/screening/online-screen.tsx": [
     "2fc3d539f073c33ed690c364fcbad68b308189a12cda7eea9912a988ad500dfe",
     "edd28fe7732ef6a4f56e6191bc39373dde67e044d5211435418a842106875383",
     "3eee45b3de07dd5a9e3619377a05060df15433e8800beb7fa9c71c13b7f419d2",
@@ -128,7 +128,7 @@
     "d4e73068f27ed333385698b6973fc1891b4f2702a07b670e1728b0363fe62eaf",
     "7d47be73e8de2e223a0460c362ad8a9ddd294bb717ed486af6ab5a8fbe66f433"
   ],
-  "src/components/chart-workspace.tsx": [
+  "src/components/market/chart-workspace.tsx": [
     "f7748f0f7886049adcdd31461697e31523f59776633e49760faf2ca600d17751",
     "3ecf24e78c5c1fc480982afe50a539c0d8c3b5aff9f488a1d2237b66367438f2",
     "3ab160ccabaf4fcea0b16310d60957bba1fffbd2274a0a586c39b919c24dc6a7",
@@ -142,7 +142,7 @@
     "ecfc7b046c6511a167c659597976c5953a9ffd090997c3a6797daa4ce671404f",
     "3f0b67780b4ba6cc39ffad28f8b9efb44a6c739f6cbeb05177a7a25cb552ccc4"
   ],
-  "src/components/chart.tsx": [
+  "src/components/market/chart.tsx": [
     "f28a3312801557e42e6b4ecdce8288b443f0df4cf0c999d045b49cc042bcf339",
     "337919b1b21f2fe7da462d72b90cec8d3e6aabcc549169c9956d40d4420961f7",
     "1a3b21d314cced5efcdf7e48d212cfe9e9d55e2e99771caa3f60a1ae239dde32",
@@ -159,7 +159,7 @@
     "9aa1e38637899b766bbfe877a1c1f7476acee2ca98e402b4a71890c441a280a9",
     "59add8a5f3325688b03cdfb148e886eea0235a11e93b49aa8ab81cc904b75e0e"
   ],
-  "src/components/security-select.tsx": [
+  "src/components/market/security-select.tsx": [
     "dd348178b169bd5c05b2a9448f7689c5e494d10ade367e01cffdf62465b3e420",
     "b8302cb17a0184b3efb88033c4589550f9c3da4f7631e02f9801137391d85ed0",
     "9baa155995eb251f5163d6ef671055181ddbdbe77c2d54915ea01e778aa3efa3",

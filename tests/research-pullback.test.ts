@@ -9,7 +9,7 @@ import { researchMethodSnapshot } from "../src/server/research/research-method";
 import { researchPullbackConfirmation } from "../src/lib/research-pullback";
 import { researchBookSellable } from "../src/lib/research-position-book";
 import { projectResearchWeights } from "../src/lib/weight-backtest";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchSignals } from "../src/server/strategies/shared/research-signals";
 import breakoutFixture from "./fixtures/breakout-valid.json";
 

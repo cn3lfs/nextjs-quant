@@ -25,7 +25,7 @@ it("R2 precisely wires the connection components and preserves validation attrib
     "utf8",
   );
   const policy = readFileSync(
-    "src/components/notification-policy-fields.tsx",
+    "src/components/common/notification-policy-fields.tsx",
     "utf8",
   );
   expect(connection.match(/<Input\b/g)).toHaveLength(13);
@@ -75,10 +75,13 @@ it("R2 tables receive original result arrays and leave existing pagination and s
   expect(screen).toContain("pageIndex: excludedPage");
   expect(screen.match(/showPagination={false}/g)).toHaveLength(2);
   expect(screen.match(/enableSorting: false/g)).toHaveLength(11);
-  const ledger = readFileSync("src/components/signal-ledger-view.tsx", "utf8");
+  const ledger = readFileSync(
+    "src/components/signals/signal-ledger-view.tsx",
+    "utf8",
+  );
   expect(ledger).toContain("const groups = aggregateLedger(rows)");
   expect(ledger).toContain("<SignalLedgerSummaryTable groups={groups} />");
-  expect(readFileSync("src/components/formula-screen.tsx", "utf8")).toContain(
-    'className="field-sizing-fixed"',
-  );
+  expect(
+    readFileSync("src/components/screening/formula-screen.tsx", "utf8"),
+  ).toContain('className="field-sizing-fixed"');
 });

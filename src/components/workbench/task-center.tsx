@@ -1,5 +1,5 @@
 import { Workflow } from "lucide-react";
-import { TaskHistory } from "../task-history";
+import { TaskHistory } from "../common/task-history";
 import { type WorkbenchState } from "./use-workbench-state";
 
 export function TaskCenter({

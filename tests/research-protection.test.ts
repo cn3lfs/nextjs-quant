@@ -1,5 +1,5 @@
 import { riskPresetTemplate } from "../src/lib/research-risk-presets";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";
 import {

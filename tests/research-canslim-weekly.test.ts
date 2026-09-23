@@ -1,6 +1,6 @@
 import { researchCanslimWeekly } from "../src/server/strategies/canslim/research-canslim-weekly";
 import { researchCanslimPriorityPoint } from "../src/server/strategies/canslim/research-canslim-priority";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchManagementSchema } from "../src/lib/research-management";
 import { expect, it } from "vitest";
 import type { Bar } from "../src/lib/domain";

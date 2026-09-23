@@ -46,8 +46,8 @@ import {
 } from "../src/lib/domain";
 import { SignalLedgerStore } from "../src/server/monitoring/signal-ledger-store";
 import { ledgerSignals } from "../src/server/monitoring/signal-ledger-engine";
-import { SignalLedgerView } from "../src/components/signal-ledger-view";
-import { NotificationPolicyFields } from "../src/components/notification-policy-fields";
+import { SignalLedgerView } from "../src/components/signals/signal-ledger-view";
+import { NotificationPolicyFields } from "../src/components/common/notification-policy-fields";
 import type { CzscResult } from "../src/lib/czsc";
 import valid from "./fixtures/breakout-valid.json";
 import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";

@@ -143,7 +143,7 @@ import {
   type ResearchEvent,
 } from "../src/lib/strategy-research";
 import { riskPresetTemplate } from "../src/lib/research-risk-presets";
-import { applyResearchManagement } from "../src/components/research-strategy-fields";
+import { applyResearchManagement } from "../src/components/research/research-strategy-fields";
 import type { ResearchDataset } from "../src/server/backtest/research-dataset";
 import { researchMarketEvidenceSchema } from "../src/lib/research-market-evidence";
 it("run entrypoint trains a real reference ledger without admission and never learns from validation prices", async () => {

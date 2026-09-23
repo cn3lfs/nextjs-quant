@@ -6,7 +6,7 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { migrate } from "../src/server/db/migrations";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TradeReviewResults } from "../src/components/trade-review-results";
+import { TradeReviewResults } from "../src/components/portfolio/trade-review-results";
 
 const state = vi.hoisted(() => ({
   scale: false,

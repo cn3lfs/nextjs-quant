@@ -8,10 +8,10 @@ import { expect, it } from "vitest";
 import {
   StrategyRepresentativeCatalog,
   representativePreset,
-} from "../src/components/strategy-representative-catalog";
+} from "../src/components/research/strategy-representative-catalog";
 import { listStrategyRepresentatives } from "trading-strategies";
 import { Button } from "../src/components/ui/button";
-import { selectResearchStrategy } from "../src/components/research-strategy-fields";
+import { selectResearchStrategy } from "../src/components/research/research-strategy-fields";
 import { researchSpecSchema } from "../src/lib/strategy-research";
 function elements(node: ReactNode): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(node).flatMap((child) =>

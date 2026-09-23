@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
-import { TaskDetails } from "../src/components/task-history";
+import { TaskDetails } from "../src/components/common/task-history";
 import type { TaskState } from "../src/lib/task-history";
 
 vi.mock("../src/trpc/react", () => ({ api: {} }));
