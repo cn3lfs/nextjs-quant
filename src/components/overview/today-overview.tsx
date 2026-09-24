@@ -39,6 +39,10 @@ import type { WorkbenchState } from "../workbench/use-workbench-state";
 import { useNow } from "../workbench/use-now";
 import {
   axisPct,
+  AXIS_END,
+  AXIS_START,
+  LUNCH_END,
+  LUNCH_START,
   health,
   phaseOf,
   scheduleSummary,
@@ -206,45 +210,77 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
       >
         <div className="nc-timeline" aria-label="调度时间轴">
           <span className="nc-timeline-rail" />
-          <span className="nc-timeline-done" style={{ width: `${nowPct}%` }} />
-          <span className="nc-timeline-now" style={{ left: `${nowPct}%` }}>
-            <em>现在 {clock.hhmm}</em>
-            <i />
-          </span>
-          {slots.map((slot, index) => (
-            <div
-              key={slot.key}
-              className="nc-timeline-slot"
-              style={{
-                left: `${slot.pct}%`,
-                // Close slots would overlap: drop the last one below the rest.
-                paddingTop:
-                  index > 0 && slot.pct - slots[index - 1]!.pct < 9 ? 88 : 0,
-              }}
-            >
-              <span
-                className="nc-timeline-dot"
-                style={
-                  {
-                    background: dot[slot.tone],
-                    "--dot": dot[slot.tone],
-                  } as CSSProperties
-                }
-              />
-              <span className="text-[11px] text-nc-text-2 tabular-nums">
-                {slot.time}
+          <span
+            className="nc-timeline-lunch"
+            style={{
+              left: `${axisPct(LUNCH_START)}%`,
+              width: `${axisPct(LUNCH_END) - axisPct(LUNCH_START)}%`,
+            }}
+            title="午休 11:30–13:00"
+          />
+          {session.kind !== "closed-day" && (
+            <span
+              className="nc-timeline-done"
+              style={{ width: `${nowPct}%` }}
+            />
+          )}
+          {session.kind !== "closed-day" &&
+            clock.minutes >= AXIS_START &&
+            clock.minutes <= AXIS_END && (
+              <span className="nc-timeline-now" style={{ left: `${nowPct}%` }}>
+                <em
+                  style={{
+                    transform: `translateX(${nowPct < 4 ? -10 : nowPct > 96 ? -90 : -50}%)`,
+                  }}
+                >
+                  现在 {clock.hhmm}
+                </em>
+                <i />
               </span>
-              <span className="text-[11.5px] text-nc-text">{slot.label}</span>
-              <span
-                className={cn(
-                  "text-[10.5px]",
-                  toneText[slot.tone === "neutral" ? "ok" : slot.tone],
-                )}
+            )}
+          {slots.map((slot, index) => {
+            // Close neighbours lean apart so every label stays on one row.
+            const near = (other?: { pct: number }) =>
+              other !== undefined && Math.abs(other.pct - slot.pct) < 9;
+            const align = near(slots[index + 1])
+              ? "end"
+              : near(slots[index - 1])
+                ? "start"
+                : "center";
+            const passed = axisPct(clock.minutes) >= slot.pct;
+            return (
+              <div
+                key={slot.key}
+                className="nc-timeline-slot"
+                data-align={align}
+                data-passed={passed || undefined}
+                data-active={slot.tone === "accent" && passed ? true : undefined}
+                style={{ left: `${slot.pct}%` }}
               >
-                {slot.status}
-              </span>
-            </div>
-          ))}
+                <span
+                  className="nc-timeline-dot"
+                  style={{ "--dot": dot[slot.tone] } as CSSProperties}
+                />
+                <span className="nc-timeline-text">
+                  <span className="text-[11px] text-nc-text-3 tabular-nums">
+                    {slot.time}
+                  </span>
+                  <span className="text-[12px] text-nc-text">{slot.label}</span>
+                </span>
+                <span
+                  className={cn(
+                    "text-[10.5px] whitespace-nowrap",
+                    toneText[slot.tone === "neutral" ? "ok" : slot.tone],
+                  )}
+                >
+                  {slot.status}
+                </span>
+              </div>
+            );
+          })}
+          {session.kind === "closed-day" && (
+            <span className="nc-timeline-closed">今日休市 · 调度不运行</span>
+          )}
         </div>
       </Panel>
 

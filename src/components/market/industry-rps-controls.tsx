@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
 import { rpsPeriods } from "~/lib/screening/rps";
@@ -87,7 +87,12 @@ export function IndustryRpsControls() {
   });
   const page = api.industryRpsPage.useQuery(
     { date: date || undefined, period, page: pagination.pageIndex },
-    { enabled: visible, refetchInterval: 4000 },
+    {
+      enabled: visible,
+      refetchInterval:
+        status.data?.progress?.status === "running" ? 4000 : false,
+      placeholderData: (previous) => previous,
+    },
   );
   const onError = (error: { message: string }) => setMessage(error.message);
   const onSuccess = () => {
@@ -107,6 +112,11 @@ export function IndustryRpsControls() {
   const start = api.rpsStart.useMutation({ onSuccess, onError });
   const cancel = api.rpsCancel.useMutation({ onSuccess, onError });
   const running = status.data?.progress?.status === "running";
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) void page.refetch();
+    wasRunning.current = running;
+  }, [running, page]);
   const directoryDirty = root !== undefined && root !== status.data?.root;
   const busy =
     running ||

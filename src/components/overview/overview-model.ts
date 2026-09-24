@@ -69,9 +69,23 @@ export type TimelineSlot = {
 };
 
 export const AXIS_START = 7 * 60 + 40;
-export const AXIS_SPAN = 8 * 60;
-export const axisPct = (minutes: number) =>
-  Math.max(0, Math.min(100, ((minutes - AXIS_START) / AXIS_SPAN) * 100));
+export const AXIS_END = 15 * 60 + 40;
+/** The 11:30–13:00 lunch break is drawn at a fixed short width. */
+export const LUNCH_START = 11 * 60 + 30;
+export const LUNCH_END = 13 * 60;
+const LUNCH_DRAWN = 20;
+const AXIS_SPAN = AXIS_END - AXIS_START - (LUNCH_END - LUNCH_START) + LUNCH_DRAWN;
+export const axisPct = (minutes: number) => {
+  const m = Math.max(AXIS_START, Math.min(AXIS_END, minutes));
+  const drawn =
+    m <= LUNCH_START
+      ? m - AXIS_START
+      : m < LUNCH_END
+        ? LUNCH_START - AXIS_START +
+          ((m - LUNCH_START) / (LUNCH_END - LUNCH_START)) * LUNCH_DRAWN
+        : m - AXIS_START - (LUNCH_END - LUNCH_START) + LUNCH_DRAWN;
+  return (drawn / AXIS_SPAN) * 100;
+};
 
 const hhmm = (at: number) =>
   new Date(at + 8 * 3600000).toISOString().slice(11, 16);

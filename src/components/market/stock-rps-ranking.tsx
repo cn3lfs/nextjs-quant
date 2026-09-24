@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriods } from "~/lib/screening/rps";
 import type { MarketPoolRow } from "~/lib/market/market-pool";
@@ -27,6 +27,12 @@ export function StockRpsRanking() {
   const [search, setSearch] = useState("");
   const [minimumRps, setMinimumRps] = useState<number | null>(null);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  // Ranks only change when an RPS batch writes a new day: poll while one runs.
+  const job = api.rpsStatus.useQuery(undefined, {
+    enabled: visible,
+    refetchInterval: 5000,
+  });
+  const running = job.data?.progress?.status === "running";
   const page = api.marketPoolPage.useQuery(
     {
       pool: null,
@@ -36,8 +42,17 @@ export function StockRpsRanking() {
       sort: "rps",
       page: pagination.pageIndex,
     },
-    { enabled: visible, refetchInterval: 10000 },
+    {
+      enabled: visible,
+      refetchInterval: running ? 10000 : false,
+      placeholderData: (previous) => previous,
+    },
   );
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) void page.refetch();
+    wasRunning.current = running;
+  }, [running, page]);
   const reset =
     <T,>(apply: (value: T) => void) =>
     (value: T) => {
@@ -158,7 +173,7 @@ export function StockRpsRanking() {
         onSortingChange={() => {}}
         getRowId={(row) => row.symbol}
         label="个股RPS排名"
-        loading={page.isFetching}
+        loading={page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}
         emptyMessage="没有符合条件的证券，请调整筛选或先计算RPS。"

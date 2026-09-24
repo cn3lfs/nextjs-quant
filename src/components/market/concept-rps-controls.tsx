@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import { usePanelVisible } from "../workbench/keep-alive";
@@ -70,7 +70,12 @@ export function ConceptRpsControls() {
   });
   const page = api.conceptRpsPage.useQuery(
     { date: date || undefined, period, page: pagination.pageIndex },
-    { enabled: visible, refetchInterval: 5000 },
+    {
+      enabled: visible,
+      refetchInterval:
+        status.data?.progress?.status === "running" ? 5000 : false,
+      placeholderData: (previous) => previous,
+    },
   );
   const onError = (e: { message: string }) => setMessage(e.message);
   const start = api.rpsStart.useMutation({
@@ -82,6 +87,11 @@ export function ConceptRpsControls() {
   });
   const cancel = api.rpsCancel.useMutation({ onError });
   const running = status.data?.progress?.status === "running";
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) void page.refetch();
+    wasRunning.current = running;
+  }, [running, page]);
   const busy =
     running ||
     start.isPending ||

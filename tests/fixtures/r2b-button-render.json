@@ -9,7 +9,7 @@
   "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
   "src/components/workbench/workbench.tsx": "5b2cfd77a689840dffffca025b5d9b6a4561a0c3f7fd8bde0ffb6b0d1154be0d",
   "src/components/workbench/evidence-analysis.tsx": "616ecd636b18128ecb24448834f49570b3243f8cb9e993b683a713d8d262e98d",
-  "src/components/workbench/market-view.tsx": "92e98f0ee112f8b6e2faf027a32b7c7fb6d1e557ff7b43b94a46304cb17c8c8c",
+  "src/components/workbench/market-view.tsx": "2532bd99afead86d6b0a6e1d847d96cdc7347956711f10b865aa2dd50f1d826d",
   "src/components/workbench/reports.tsx": "0050db25efa9c70902bbe6916ccc8e7251e92eb0dd2d8aa04eba8d2237881384",
   "src/components/workbench/task-center.tsx": "d61ed34f26f3958c6526c4e658f9cd4900eca43cc2f95658133120fea8be6024",
   "src/components/market/chart.tsx": "d97022b5864011082ba4f4399fed134437c02ba23dfbc129eb5bfd11105c0737"

@@ -26,7 +26,8 @@ import {
   Sparkle,
   Star,
 } from "@phosphor-icons/react/ssr";
-import { GridTable, ListPanel, PageGrid, Panel, SecurityCell } from "../panels";
+import { GridTable, PageGrid, Panel, SecurityCell } from "../panels";
+import { TdxSidePanel } from "../market/tdx-side-panel";
 import { SymbolRpsBars } from "../market/symbol-rps-bars";
 
 import { Empty } from "./shared";
@@ -155,6 +156,28 @@ export function MarketView({
               </span>
             )}
           </div>
+          {loaded && (
+            <nav
+              aria-label="对此快照"
+              className="ml-auto flex items-center gap-1 text-[11.5px] text-nc-text-4"
+            >
+              对此快照
+              {(
+                [
+                  ["/analysis", Sparkle, "证据分析"],
+                  ["/backtest", Flask, "策略回测"],
+                  ["/signals", Broadcast, "建立监控"],
+                ] as const
+              ).map(([href, Glyph, label]) => (
+                <Button key={href} asChild size="sm" variant="ghost">
+                  <Link href={href} scroll={false}>
+                    <Glyph size={12} />
+                    {label}
+                  </Link>
+                </Button>
+              ))}
+            </nav>
+          )}
         </div>
 
         {load.error && !load.isPending ? (
@@ -200,61 +223,21 @@ export function MarketView({
           </Button>
         </div>
       </section>
-      <ListPanel
+      <Panel
         span={3}
-        tone="accent"
-        icon={Sparkle}
-        title="对此快照"
-        empty="先加载一只证券"
-        items={
-          loaded
-            ? [
-                {
-                  key: "analysis",
-                  icon: Sparkle,
-                  title: "证据分析",
-                  subtitle: "趋势、反向证据与风险",
-                  tone: "accent",
-                  action: (
-                    <Button asChild size="sm" variant="outline">
-                      <Link href="/analysis" scroll={false}>
-                        去分析
-                      </Link>
-                    </Button>
-                  ),
-                },
-                {
-                  key: "backtest",
-                  icon: Flask,
-                  title: "策略回测",
-                  subtitle: "研究模拟，不作为正式业绩",
-                  tone: "accent",
-                  action: (
-                    <Button asChild size="sm" variant="outline">
-                      <Link href="/backtest" scroll={false}>
-                        去回测
-                      </Link>
-                    </Button>
-                  ),
-                },
-                {
-                  key: "monitor",
-                  icon: Broadcast,
-                  title: "建立监控",
-                  subtitle: "新信号推送至渠道",
-                  tone: "accent",
-                  action: (
-                    <Button asChild size="sm" variant="outline">
-                      <Link href="/signals" scroll={false}>
-                        去订阅
-                      </Link>
-                    </Button>
-                  ),
-                },
-              ]
-            : []
+        icon={Broadcast}
+        title={
+          loaded ? securityDisplayName(loaded.symbol, names, loaded.name) : "盘口"
         }
-      />
+        meta={loaded?.symbol.toUpperCase()}
+        className="self-start"
+      >
+        {loaded ? (
+          <TdxSidePanel symbol={loaded.symbol} />
+        ) : (
+          <Empty>先加载一只证券</Empty>
+        )}
+      </Panel>
       <SymbolRpsBars symbol={symbol} />
       <Panel
         span={8}
