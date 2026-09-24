@@ -106,7 +106,7 @@ describe("M2 chart data contract", () => {
         )!;
         expect(legend.bar).toEqual(bars[index]);
         for (const { name, value } of legend.indicators)
-          expect(value).toBe(expected[name]);
+          expect(value).toBe(expected[name as keyof typeof expected]);
       }
     }
   });

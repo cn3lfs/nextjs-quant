@@ -8,6 +8,7 @@ import {
 } from "./chart-view";
 import type { Bar } from "../domain";
 import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "../indicators";
+import { bias, cci, ema, obv, williams } from "./chart-extra-indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
 import type { CzscPoint, CzscResult } from "../research/methods/chan/czsc";
@@ -162,6 +163,16 @@ export function chartIndicators(
     RSI6: r.map((v) => v.rsi6),
     RSI12: r.map((v) => v.rsi12),
     RSI24: r.map((v) => v.rsi24),
+    EMA1: ema(bars, parameters.ema[0]),
+    EMA2: ema(bars, parameters.ema[1]),
+    EMA3: ema(bars, parameters.ema[2]),
+    WR1: williams(bars, parameters.wr[0]),
+    WR2: williams(bars, parameters.wr[1]),
+    BIAS1: bias(bars, parameters.bias[0]),
+    BIAS2: bias(bars, parameters.bias[1]),
+    BIAS3: bias(bars, parameters.bias[2]),
+    CCI: cci(bars, parameters.cci[0]),
+    OBV: obv(bars),
   };
 }
 export type ChartIndicators = ReturnType<typeof chartIndicators>;
@@ -172,10 +183,15 @@ export function enabledIndicators(
 ): IndicatorName[] {
   const names: IndicatorName[] = [];
   if (mainIndicators.includes("ma")) names.push("MA5", "MA10", "MA20", "MA60");
+  if (mainIndicators.includes("ema")) names.push("EMA1", "EMA2", "EMA3");
   if (mainIndicators.includes("boll")) names.push("BOLL中", "BOLL上", "BOLL下");
   if (subcharts.includes("macd")) names.push("DIF", "DEA", "MACD");
   if (subcharts.includes("kdj")) names.push("K", "D", "J");
   if (subcharts.includes("rsi")) names.push("RSI6", "RSI12", "RSI24");
+  if (subcharts.includes("wr")) names.push("WR1", "WR2");
+  if (subcharts.includes("bias")) names.push("BIAS1", "BIAS2", "BIAS3");
+  if (subcharts.includes("cci")) names.push("CCI");
+  if (subcharts.includes("obv")) names.push("OBV");
   return names;
 }
 /** Beijing wall-clock label for a bar date, matching the chart axis. Dates

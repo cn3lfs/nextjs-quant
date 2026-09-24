@@ -9,7 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
@@ -185,6 +185,17 @@ function EditableChart({
     setDirty(true);
     setMessage("");
   }, []);
+  // Views persist automatically, like broker terminals; the debounce keeps
+  // rapid parameter typing and indicator toggling to one request.
+  const { mutate: saveView } = save;
+  useEffect(() => {
+    if (!dirty) return;
+    const timer = setTimeout(
+      () => saveView({ symbol: snapshot.symbol, period, view }),
+      800,
+    );
+    return () => clearTimeout(timer);
+  }, [dirty, view, snapshot.symbol, period, saveView]);
   const onAnchor = useCallback(
     (point: Drawing["a"]) => {
       if (tool === "none") return;
@@ -270,63 +281,6 @@ function EditableChart({
           />{" "}
           加深背景
         </label>
-        <Button
-          variant="plain"
-          disabled={save.isPending}
-          onClick={() => save.mutate({ symbol: snapshot.symbol, period, view })}
-        >
-          保存视图
-        </Button>
-        <details className="relative !my-0" name="chart-tools">
-          <summary className="cursor-pointer">指标参数</summary>
-          <div className="absolute left-0 top-full z-20 max-h-96 w-[min(36rem,70vw)] overflow-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md whitespace-normal">
-            <p>参数仅影响图表；缠论与双突破标注仍按原策略参数计算。</p>
-            <form
-              key={JSON.stringify(view.parameters)}
-              className="flex flex-wrap gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const data = new FormData(e.currentTarget);
-                const candidate = Object.fromEntries(
-                  Object.entries(view.parameters).map(([name, values]) => [
-                    name,
-                    values.map((_, i) => Number(data.get(`${name}-${i}`))),
-                  ]),
-                );
-                const parsed = indicatorParametersSchema.safeParse(candidate);
-                if (!parsed.success) {
-                  setMessage("周期须为 1–500 整数，BOLL 周期至少 2、倍数 0–20");
-                  return;
-                }
-                change({ ...view, parameters: parsed.data });
-              }}
-            >
-              {Object.entries(view.parameters).map(([name, values]) => (
-                <fieldset key={name}>
-                  <legend>{name.toUpperCase()}</legend>
-                  {values.map((value, i) => (
-                    <label key={i} className="inline-flex flex-col">
-                      {name.toUpperCase()} {i + 1}
-                      <Input
-                        aria-label={`${name.toUpperCase()} 参数 ${i + 1}`}
-                        name={`${name}-${i}`}
-                        type="number"
-                        className="w-20"
-                        min={name === "boll" ? (i === 0 ? 2 : 0) : 1}
-                        max={name === "boll" && i === 1 ? 20 : 500}
-                        step={name === "boll" && i === 1 ? 0.1 : 1}
-                        defaultValue={value}
-                      />
-                    </label>
-                  ))}
-                </fieldset>
-              ))}
-              <Button variant="plain" type="submit">
-                应用参数
-              </Button>
-            </form>
-          </div>
-        </details>
         <details className="relative !my-0" name="chart-tools">
           <summary className="cursor-pointer">画线：{tools[tool]}</summary>
           <div
@@ -359,8 +313,8 @@ function EditableChart({
       </div>
       <span role="status" className="text-xs">
         {save.error
-          ? `保存失败：${save.error.message}，可重新保存`
-          : message || (dirty ? "有未保存更改，请切换前保存" : "")}
+          ? `视图自动保存失败：${save.error.message}，下次修改时重试`
+          : message || (dirty ? "正在自动保存视图…" : "")}
       </span>
       {aggregateErrors?.map((error) => (
         <p key={error} role="alert" className="!my-0 text-xs">
@@ -381,17 +335,13 @@ function EditableChart({
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
       )}
-      <fieldset
-        disabled={save.isPending}
-        style={{ border: 0, padding: 0, minWidth: 0 }}
-      >
-        <CzscMarketChart
-          {...common}
-          snapshotId={snapshot.id}
-          chartSnapshot
-          annotations={!isForeignMarketChartSymbol(snapshot.symbol)}
-        />
-      </fieldset>
+      <CzscMarketChart
+        {...common}
+        snapshotId={snapshot.id}
+        chartSnapshot
+        annotations={!isForeignMarketChartSymbol(snapshot.symbol)}
+        rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
+      />
       <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>

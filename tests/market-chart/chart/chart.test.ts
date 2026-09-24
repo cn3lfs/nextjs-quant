@@ -253,8 +253,8 @@ describe("M2 chart event wiring", () => {
   it("actual crosshair callbacks render OHLCV and M1 reads for three bars", () => {
     const input = bars(90);
     let ui = render(input);
-    expect(text(ui)).toContain("主图：均线");
-    expect(text(ui)).toContain("副图：成交量 + MACD");
+    expect(text(ui)).toContain("MA(5,10,20,60)");
+    expect(text(ui)).toContain("· 成交量 + MACD");
     for (const i of [0, 19, 89]) {
       h.charts.at(-1)!.crosshair!({ time: input[i]!.date });
       ui = render(input);
@@ -324,8 +324,8 @@ it("only renders selected main and secondary indicators in the chart and legend"
   const legend = text(
     elements(ui).find((e) => e.props["data-testid"] === "chart-legend"),
   );
-  expect(text(ui)).toContain("主图：无主图指标");
-  expect(text(ui)).toContain("副图：无副图");
+  expect(text(ui)).not.toContain("MA(5,10,20,60)");
+  expect(text(ui)).toContain("· 无副图");
   expect(legend).not.toContain("量 ");
   expect(legend).not.toContain("MA");
   expect(legend).not.toContain("MACD");

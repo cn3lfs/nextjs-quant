@@ -15,12 +15,6 @@ import {
 } from "~/lib/chart/chart-viewport";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { rpsPeriods } from "~/lib/screening/rps";
 import { rpsChartSegments, type RpsCurve } from "~/lib/chart/chart-data";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -36,7 +30,12 @@ import {
 } from "~/lib/chart/chart-localization";
 import {
   defaultChartView,
+  defaultParameters,
+  indicatorCatalog,
   indicatorLabel,
+  indicatorParametersSchema,
+  parameterSummary,
+  type IndicatorParameters,
   keyboardRange,
   periodLabels,
   normalizeSubcharts,
@@ -185,6 +184,16 @@ const colors: Record<IndicatorName, string> = {
   RSI6: chartColor.series1,
   RSI12: chartColor.series2,
   RSI24: chartColor.series3,
+  EMA1: chartColor.series1,
+  EMA2: chartColor.series2,
+  EMA3: chartColor.series3,
+  WR1: chartColor.series1,
+  WR2: chartColor.series2,
+  BIAS1: chartColor.series1,
+  BIAS2: chartColor.series2,
+  BIAS3: chartColor.series3,
+  CCI: chartColor.series1,
+  OBV: chartColor.series2,
 };
 const rpsColors: Record<number, string> = {
   5: chartColor.up,
@@ -199,12 +208,50 @@ const subchartLabels: Record<Subchart, string> = {
   macd: "MACD",
   kdj: "KDJ",
   rsi: "RSI",
-  rps: "RPS（日线）",
+  wr: "WR",
+  bias: "BIAS",
+  cci: "CCI",
+  obv: "OBV",
+  rps: "RPS",
 };
 const mainIndicatorLabels: Record<MainIndicator, string> = {
-  ma: "均线",
+  ma: "MA",
+  ema: "EMA",
   boll: "BOLL",
 };
+/** Legend groups: indicator lines sharing one parameter set and header. */
+const legendGroups: {
+  key: keyof IndicatorParameters | "obv";
+  names: IndicatorName[];
+}[] = [
+  { key: "ma", names: ["MA5", "MA10", "MA20", "MA60"] },
+  { key: "ema", names: ["EMA1", "EMA2", "EMA3"] },
+  { key: "boll", names: ["BOLL中", "BOLL上", "BOLL下"] },
+  { key: "macd", names: ["DIF", "DEA", "MACD"] },
+  { key: "kdj", names: ["K", "D", "J"] },
+  { key: "rsi", names: ["RSI6", "RSI12", "RSI24"] },
+  { key: "wr", names: ["WR1", "WR2"] },
+  { key: "bias", names: ["BIAS1", "BIAS2", "BIAS3"] },
+  { key: "cci", names: ["CCI"] },
+  { key: "obv", names: ["OBV"] },
+];
+/** Sub-chart pane that hosts an indicator line; main-chart lines use pane 0. */
+const subchartOf = (name: IndicatorName): Subchart | "main" =>
+  name.startsWith("MA") || name.startsWith("EMA") || name.startsWith("BOLL")
+    ? "main"
+    : name === "DIF" || name === "DEA" || name === "MACD"
+      ? "macd"
+      : name === "K" || name === "D" || name === "J"
+        ? "kdj"
+        : name.startsWith("RSI")
+          ? "rsi"
+          : name.startsWith("WR")
+            ? "wr"
+            : name.startsWith("BIAS")
+              ? "bias"
+              : name === "CCI"
+                ? "cci"
+                : "obv";
 const formatValue = (value: number | null | undefined, precision = 2) =>
   value == null ? "—" : value.toFixed(precision);
 
@@ -382,10 +429,13 @@ export function CzscMarketChart({
   onHistoryRequest,
   viewportKey,
   annotations = true,
+  rpsAvailable = true,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  /** RPS is an A-share ranking; futures, crypto and sectors hide it. */
+  rpsAvailable?: boolean;
   /** Chan/breakout overlays; off for charts outside the A-share method scope. */
   annotations?: boolean;
   adjustment?: ChartAdjustment;
@@ -452,6 +502,7 @@ export function CzscMarketChart({
       onHistoryRequest={onHistoryRequest}
       viewportKey={viewportKey}
       annotations={annotations}
+      rpsAvailable={rpsAvailable}
       czsc={annotations ? result.data : undefined}
       breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
@@ -498,11 +549,13 @@ export function MarketChart({
   onHistoryRequest,
   viewportKey,
   annotations = true,
+  rpsAvailable = true,
 }: {
   bars: Bar[];
   period: Period;
   adjustment?: ChartAdjustment;
   annotations?: boolean;
+  rpsAvailable?: boolean;
   volumeUnit?: string;
   pricePrecision?: number;
   czsc?: CzscResult;
@@ -555,9 +608,9 @@ export function MarketChart({
   const visibleSubcharts = useMemo(
     () =>
       selectedSubcharts.filter(
-        (subchart) => subchart !== "rps" || period === "day",
+        (subchart) => subchart !== "rps" || (rpsAvailable && period === "day"),
       ),
-    [selectedSubcharts, period],
+    [selectedSubcharts, period, rpsAvailable],
   );
   const setSubcharts = (value: Subchart[]) =>
     onViewChange && view
@@ -567,7 +620,15 @@ export function MarketChart({
   const rpsOptions = view?.rps ?? localRps;
   const setRpsOptions = (rps: ChartView["rps"]) =>
     onViewChange && view ? onViewChange({ ...view, rps }) : setLocalRps(rps);
-  const parameters = view?.parameters ?? defaultChartView.parameters;
+  const [localParameters, setLocalParameters] = useState(defaultParameters);
+  const parameters = view?.parameters ?? localParameters;
+  const setParameters = (value: IndicatorParameters) =>
+    onViewChange && view
+      ? onViewChange({ ...view, parameters: value })
+      : setLocalParameters(value);
+  const [editing, setEditing] = useState<keyof IndicatorParameters | null>(
+    null,
+  );
   const [hover, setHover] = useState<{ bars: Bar[]; index: number } | null>(
     null,
   );
@@ -579,8 +640,8 @@ export function MarketChart({
     [bars, period, parameters],
   );
   const names = useMemo(
-    () => enabledIndicators(selectedMainIndicators, selectedSubcharts),
-    [selectedMainIndicators, selectedSubcharts],
+    () => enabledIndicators(selectedMainIndicators, visibleSubcharts),
+    [selectedMainIndicators, visibleSubcharts],
   );
   const legend = chartLegend(
     bars,
@@ -588,14 +649,12 @@ export function MarketChart({
     hover?.bars === bars ? hover.index : bars.length - 1,
     names,
   );
-  const mainIndicatorSummary = selectedMainIndicators.length
-    ? selectedMainIndicators
-        .map((indicator) => mainIndicatorLabels[indicator])
-        .join(" + ")
-    : "无主图指标";
-  const subchartSummary = selectedSubcharts.length
-    ? selectedSubcharts.map((subchart) => subchartLabels[subchart]).join(" + ")
+  const subchartSummary = visibleSubcharts.length
+    ? visibleSubcharts.map((subchart) => subchartLabels[subchart]).join(" + ")
     : "无副图";
+  const subchartOptions = (Object.keys(subchartLabels) as Subchart[]).filter(
+    (value) => value !== "rps" || rpsAvailable,
+  );
 
   useEffect(() => {
     if (!ref.current) return;
@@ -992,14 +1051,8 @@ export function MarketChart({
       );
       for (const name of names) {
         if (name === "MACD") continue;
-        const pane =
-          name.startsWith("MA") || name.startsWith("BOLL")
-            ? 0
-            : name === "DIF" || name === "DEA"
-              ? paneBySubchart.get("macd")
-              : name === "K" || name === "D" || name === "J"
-                ? paneBySubchart.get("kdj")
-                : paneBySubchart.get("rsi");
+        const host = subchartOf(name);
+        const pane = host === "main" ? 0 : paneBySubchart.get(host);
         if (pane === undefined) continue;
         for (const segment of indicatorSegments(
           bars,
@@ -1157,78 +1210,79 @@ export function MarketChart({
         className="flex items-center gap-3 overflow-x-auto py-2 text-sm whitespace-nowrap"
         data-testid="chart-secondary-controls"
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="主图指标"
-            >
-              主图：{mainIndicatorSummary}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {(
-              Object.entries(mainIndicatorLabels) as [MainIndicator, string][]
-            ).map(([value, label]) => (
-              <DropdownMenuCheckboxItem
+        <div
+          role="group"
+          aria-label="主图指标"
+          className="flex shrink-0 items-center gap-1"
+        >
+          <span className="text-xs opacity-70">主图</span>
+          {(
+            Object.entries(mainIndicatorLabels) as [MainIndicator, string][]
+          ).map(([value, label]) => (
+            <IndicatorChip
+              key={value}
+              label={label}
+              title={indicatorCatalog[value].title}
+              active={selectedMainIndicators.includes(value)}
+              editing={editing === value}
+              onToggle={() =>
+                setMainIndicators(
+                  selectedMainIndicators.includes(value)
+                    ? selectedMainIndicators.filter((item) => item !== value)
+                    : [...selectedMainIndicators, value],
+                )
+              }
+              onEdit={() => setEditing(editing === value ? null : value)}
+            />
+          ))}
+        </div>
+        <div
+          role="group"
+          aria-label="副图指标"
+          className="flex shrink-0 items-center gap-1"
+        >
+          <span className="text-xs opacity-70">副图</span>
+          {subchartOptions.map((value) => {
+            const disabled =
+              value === "rps" &&
+              period !== "day" &&
+              !selectedSubcharts.includes(value);
+            const key =
+              value in indicatorCatalog
+                ? (value as keyof IndicatorParameters)
+                : null;
+            return (
+              <IndicatorChip
                 key={value}
-                checked={selectedMainIndicators.includes(value)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) =>
-                  setMainIndicators(
-                    checked
-                      ? [...selectedMainIndicators, value]
-                      : selectedMainIndicators.filter((item) => item !== value),
+                label={subchartLabels[value]}
+                title={
+                  key
+                    ? indicatorCatalog[key].title
+                    : value === "volume"
+                      ? "成交量"
+                      : value === "obv"
+                        ? "能量潮"
+                        : "相对强度排名（仅日线）"
+                }
+                active={selectedSubcharts.includes(value)}
+                disabled={disabled}
+                editing={key != null && editing === key}
+                onToggle={() =>
+                  setSubcharts(
+                    selectedSubcharts.includes(value)
+                      ? selectedSubcharts.filter((item) => item !== value)
+                      : [...selectedSubcharts, value],
                   )
                 }
-              >
-                {label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="副图组合"
-            >
-              副图：{subchartSummary}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {(Object.entries(subchartLabels) as [Subchart, string][]).map(
-              ([value, label]) => {
-                const disabled =
-                  value === "rps" &&
-                  period !== "day" &&
-                  !selectedSubcharts.includes(value);
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={value}
-                    checked={selectedSubcharts.includes(value)}
-                    disabled={disabled}
-                    onSelect={(event) => event.preventDefault()}
-                    onCheckedChange={(checked) =>
-                      setSubcharts(
-                        checked
-                          ? [...selectedSubcharts, value]
-                          : selectedSubcharts.filter((item) => item !== value),
-                      )
-                    }
-                  >
-                    {label}
-                    {disabled && "（仅日线）"}
-                  </DropdownMenuCheckboxItem>
-                );
-              },
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                onEdit={
+                  key
+                    ? () => setEditing(editing === key ? null : key)
+                    : undefined
+                }
+              />
+            );
+          })}
+        </div>
         {annotations && (
           <>
             <label>
@@ -1312,6 +1366,15 @@ export function MarketChart({
           </div>
         )}
       </div>
+      {editing && (
+        <IndicatorParameterPanel
+          key={editing}
+          indicator={editing}
+          parameters={parameters}
+          onChange={setParameters}
+          onClose={() => setEditing(null)}
+        />
+      )}
       <div className="flex flex-wrap gap-3 text-sm">
         {annotations &&
           (showBreakout || breakoutMessage?.startsWith("双突破计算失败")) && (
@@ -1366,11 +1429,34 @@ export function MarketChart({
                 量 {formatValue(legend.bar.volume)} {volumeUnit}
               </span>
             )}
-            {legend.indicators.map(({ name, value }) => (
-              <span key={name} style={{ color: colors[name] }}>
-                {indicatorLabel(name, parameters)} {formatValue(value)}
-              </span>
-            ))}
+            {legendGroups.map(({ key, names: group }) => {
+              const items = legend.indicators.filter(({ name }) =>
+                group.includes(name),
+              );
+              if (!items.length) return null;
+              return (
+                <span key={key} className="inline-flex gap-2">
+                  {key === "obv" ? (
+                    <span className="opacity-70">OBV</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="cursor-pointer opacity-70 hover:underline"
+                      title="点击修改参数"
+                      onClick={() => setEditing(editing === key ? null : key)}
+                    >
+                      {parameterSummary(key, parameters)}
+                    </button>
+                  )}
+                  {items.map(({ name, value }) => (
+                    <span key={name} style={{ color: colors[name] }}>
+                      {indicatorLabel(name, parameters)}{" "}
+                      {formatValue(value, name === "OBV" ? 0 : 2)}
+                    </span>
+                  ))}
+                </span>
+              );
+            })}
           </>
         ) : (
           <span>暂无行情</span>
@@ -1438,6 +1524,145 @@ export function MarketChart({
           TradingView Lightweight Charts™ · © 2026 TradingView, Inc.
         </a>
       </div>
+    </div>
+  );
+}
+
+function IndicatorChip({
+  label,
+  title,
+  active,
+  disabled,
+  editing,
+  onToggle,
+  onEdit,
+}: {
+  label: string;
+  title: string;
+  active: boolean;
+  disabled?: boolean;
+  editing?: boolean;
+  onToggle: () => void;
+  onEdit?: () => void;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center overflow-hidden rounded border text-xs ${
+        active
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-border opacity-80"
+      } ${editing ? "ring-1 ring-primary" : ""}`}
+    >
+      <button
+        type="button"
+        className="px-2 py-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-pressed={active}
+        disabled={disabled}
+        title={`${title}${disabled ? "（当前周期不可用）" : ""}`}
+        onClick={onToggle}
+        onDoubleClick={onEdit}
+      >
+        {label}
+      </button>
+      {onEdit && (
+        <button
+          type="button"
+          className="border-l border-inherit px-1 py-0.5 hover:bg-primary/20"
+          aria-label={`${label} 参数`}
+          aria-expanded={editing}
+          title={`${label} 参数`}
+          onClick={onEdit}
+        >
+          ⚙
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** Inline parameter editor: valid values apply immediately, as in broker
+ *  terminals; invalid drafts stay local until corrected. */
+function IndicatorParameterPanel({
+  indicator,
+  parameters,
+  onChange,
+  onClose,
+}: {
+  indicator: keyof IndicatorParameters;
+  parameters: IndicatorParameters;
+  onChange: (value: IndicatorParameters) => void;
+  onClose: () => void;
+}) {
+  const meta = indicatorCatalog[indicator];
+  const [draft, setDraft] = useState<string[]>(
+    parameters[indicator].map(String),
+  );
+  const [error, setError] = useState("");
+  const apply = (values: string[]) => {
+    setDraft(values);
+    const parsed = indicatorParametersSchema.safeParse({
+      ...parameters,
+      [indicator]: values.map(Number),
+    });
+    if (values.some((v) => v.trim() === "") || !parsed.success) {
+      setError(
+        meta.fields
+          .map(
+            (f) => `${f.label} ${f.min}–${f.max}${f.step === 1 ? " 整数" : ""}`,
+          )
+          .join("，"),
+      );
+      return;
+    }
+    setError("");
+    onChange(parsed.data);
+  };
+  return (
+    <div
+      role="dialog"
+      aria-label={`${meta.label} 参数`}
+      className="flex flex-wrap items-center gap-3 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.key === "Enter") onClose();
+      }}
+    >
+      <strong>
+        {meta.label} · {meta.title}
+      </strong>
+      {meta.fields.map((field, i) => (
+        <label key={field.label} className="flex items-center gap-1">
+          {field.label}
+          <Input
+            aria-label={`${meta.label} 参数 ${field.label}`}
+            type="number"
+            className="h-7 w-16"
+            min={field.min}
+            max={field.max}
+            step={field.step}
+            value={draft[i] ?? ""}
+            autoFocus={i === 0}
+            onChange={(e) =>
+              apply(draft.map((v, j) => (j === i ? e.target.value : v)))
+            }
+          />
+        </label>
+      ))}
+      <Button
+        variant="plain"
+        size="sm"
+        onClick={() => apply(defaultParameters[indicator].map(String))}
+      >
+        恢复默认
+      </Button>
+      <Button variant="plain" size="sm" onClick={onClose}>
+        完成
+      </Button>
+      <span role="status" className="text-destructive">
+        {error}
+      </span>
+      <span className="opacity-60">
+        修改即时生效；缠论与双突破标注仍按原策略参数计算
+      </span>
     </div>
   );
 }

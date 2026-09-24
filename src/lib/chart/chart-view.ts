@@ -20,9 +20,19 @@ export const periodLabels = {
   "30m": "30 分钟",
   "60m": "60 分钟",
 };
-export const subchartSchema = z.enum(["volume", "macd", "kdj", "rsi", "rps"]);
+export const subchartSchema = z.enum([
+  "volume",
+  "macd",
+  "kdj",
+  "rsi",
+  "wr",
+  "bias",
+  "cci",
+  "obv",
+  "rps",
+]);
 export type Subchart = z.infer<typeof subchartSchema>;
-export const mainIndicatorSchema = z.enum(["ma", "boll"]);
+export const mainIndicatorSchema = z.enum(["ma", "ema", "boll"]);
 export type MainIndicator = z.infer<typeof mainIndicatorSchema>;
 const legacySubchartMap: Record<string, Subchart[]> = {
   none: [],
@@ -46,6 +56,11 @@ export const indicatorParametersSchema = z
     kdj: z.tuple([n, n, n]),
     rsi: z.tuple([n, n, n]),
     boll: z.tuple([n.min(2), z.number().finite().min(0).max(20)]),
+    // Added later; defaults keep previously saved views valid.
+    ema: z.tuple([n, n, n]).default([12, 26, 50]),
+    wr: z.tuple([n, n]).default([10, 6]),
+    bias: z.tuple([n, n, n]).default([6, 12, 24]),
+    cci: z.tuple([n]).default([14]),
   })
   .strict();
 export type IndicatorParameters = z.infer<typeof indicatorParametersSchema>;
@@ -55,6 +70,10 @@ export const defaultParameters: IndicatorParameters = {
   kdj: [9, 3, 3],
   rsi: [6, 12, 24],
   boll: [20, 2],
+  ema: [12, 26, 50],
+  wr: [10, 6],
+  bias: [6, 12, 24],
+  cci: [14],
 };
 // Anchors use exchange bar timestamps plus optional fractional bar offsets.
 const point = z
@@ -83,8 +102,8 @@ const canonicalChartViewSchema = z
     parameters: indicatorParametersSchema,
     logarithmic: z.boolean(),
     dark: z.boolean(),
-    mainIndicators: mainIndicatorSchema.array().max(2).default(["ma"]),
-    subchart: subchartSchema.array().max(5).default(["volume", "macd"]),
+    mainIndicators: mainIndicatorSchema.array().max(3).default(["ma"]),
+    subchart: subchartSchema.array().max(9).default(["volume", "macd"]),
     rps: z
       .object({
         periods: z
@@ -132,14 +151,55 @@ export const chartKeySchema = z.object({
   period: chartPeriodSchema,
 });
 export const chartSaveSchema = chartKeySchema.extend({ view: chartViewSchema });
+const numberedLines: Record<string, [keyof IndicatorParameters, number]> = {
+  MA5: ["ma", 0],
+  MA10: ["ma", 1],
+  MA20: ["ma", 2],
+  MA60: ["ma", 3],
+  RSI6: ["rsi", 0],
+  RSI12: ["rsi", 1],
+  RSI24: ["rsi", 2],
+  EMA1: ["ema", 0],
+  EMA2: ["ema", 1],
+  EMA3: ["ema", 2],
+  WR1: ["wr", 0],
+  WR2: ["wr", 1],
+  BIAS1: ["bias", 0],
+  BIAS2: ["bias", 1],
+  BIAS3: ["bias", 2],
+};
 export function indicatorLabel(name: string, p: IndicatorParameters) {
-  const maIndex = ["MA5", "MA10", "MA20", "MA60"].indexOf(name),
-    rsiIndex = ["RSI6", "RSI12", "RSI24"].indexOf(name);
-  return maIndex >= 0
-    ? `MA${p.ma[maIndex]}`
-    : rsiIndex >= 0
-      ? `RSI${p.rsi[rsiIndex]}`
-      : name;
+  const line = numberedLines[name];
+  if (!line) return name;
+  const [key, index] = line;
+  return `${key.toUpperCase()}${p[key][index]}`;
+}
+type ParameterField = { label: string; min: number; max: number; step: number };
+const period = (label: string, min = 1): ParameterField => ({
+  label,
+  min,
+  max: 500,
+  step: 1,
+});
+/** Indicator catalog shared by the toolbar and the parameter editor, in the
+ *  order mainstream broker terminals list them. */
+export const indicatorCatalog = {
+  ma: { label: "MA", title: "移动平均线", fields: ["N1", "N2", "N3", "N4"].map((l) => period(l)) },
+  ema: { label: "EMA", title: "指数平均线", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
+  boll: {
+    label: "BOLL",
+    title: "布林线",
+    fields: [period("N", 2), { label: "P", min: 0, max: 20, step: 0.1 }],
+  },
+  macd: { label: "MACD", title: "平滑异同平均", fields: ["SHORT", "LONG", "MID"].map((l) => period(l)) },
+  kdj: { label: "KDJ", title: "随机指标", fields: ["N", "M1", "M2"].map((l) => period(l)) },
+  rsi: { label: "RSI", title: "相对强弱", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
+  wr: { label: "WR", title: "威廉指标", fields: ["N", "N1"].map((l) => period(l)) },
+  bias: { label: "BIAS", title: "乖离率", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
+  cci: { label: "CCI", title: "顺势指标", fields: [period("N")] },
+} satisfies Record<keyof IndicatorParameters, { label: string; title: string; fields: ParameterField[] }>;
+export function parameterSummary(key: keyof IndicatorParameters, p: IndicatorParameters) {
+  return `${indicatorCatalog[key].label}(${p[key].join(",")})`;
 }
 export function keyboardRange(
   range: { from: number; to: number },

@@ -172,6 +172,7 @@ it("incremental migration preserves existing tables and durable view edits/delet
 it("all adjustable chart reads call the shared indicator functions with unchanged default strategy results", () => {
   const bars = source().bars,
     p = {
+      ...defaultParameters,
       ma: [2, 4, 6, 8],
       macd: [3, 7, 2],
       kdj: [4, 2, 5],
