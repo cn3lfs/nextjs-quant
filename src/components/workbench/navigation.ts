@@ -1,5 +1,6 @@
 import {
   Books,
+  Mountains,
   CurrencyBtc,
   Broadcast,
   ChartLine,
@@ -114,6 +115,17 @@ export const navGroups: readonly NavGroup[] = [
         label: "数字货币行情",
         subtitle: "币安现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
         icon: CurrencyBtc,
+      },
+    ],
+  },
+  {
+    label: "资源期货",
+    items: [
+      {
+        href: "/futures",
+        label: "资源期货行情",
+        subtitle: "金银铜铝与原油 · Yahoo / 东方财富连续合约 · 仅浏览",
+        icon: Mountains,
       },
     ],
   },

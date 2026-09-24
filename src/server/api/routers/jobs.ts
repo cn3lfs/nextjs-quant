@@ -1,5 +1,7 @@
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { chartSymbolSchema } from "~/lib/chart/chart-symbol";
+import { futuresQuotes } from "../../market/futures-chart";
+import { futuresSourceSchema } from "~/lib/market/futures";
 import { researchAdjustmentSchema } from "~/lib/research/evidence/research-adjustment";
 import { sqlite as chartSqlite } from "../../db";
 import {
@@ -15,7 +17,10 @@ import { reconcileDividends } from "../../backtest/dividend-reconciliation";
 import { jobSummaries } from "../../jobs/job-summaries";
 import { taskHistory, taskState } from "../../jobs/task-history";
 import { taskHistoryInput } from "~/lib/research/workflow/task-history";
-import { walkForwardPage, type WalkForwardResult } from "~/lib/backtest/walk-forward";
+import {
+  walkForwardPage,
+  type WalkForwardResult,
+} from "~/lib/backtest/walk-forward";
 import { backtestCostsSchema } from "~/lib/backtest/backtest-costs";
 import {
   pageScreenResults,
@@ -83,11 +88,13 @@ export const jobsRouter = createTRPCRouter({
         symbol: chartSymbolSchema,
         period: periodSchema,
         source: z.union([marketSourceSchema, z.literal("online")]).optional(),
+        futuresSource: futuresSourceSchema.optional(),
       }),
     )
     .mutation(({ input }) =>
-      snapshot(input.symbol, input.period, input.source),
+      snapshot(input.symbol, input.period, input.source, input.futuresSource),
     ),
+  futuresQuotes: p.query(() => futuresQuotes()),
   watchlist: p
     .input(z.array(symbolSchema).max(100))
     .mutation(({ input }) =>

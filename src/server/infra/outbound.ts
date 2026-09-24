@@ -50,6 +50,9 @@ export type OutboundOptions = {
   fetcher?: Fetcher;
   proxy?: string;
   directTimeoutMs?: number;
+  /** Direct responses with these statuses count as a failed direct route
+   *  (e.g. Yahoo answers 403 to mainland IPs) and are retried via the proxy. */
+  proxyOnStatus?: readonly number[];
 };
 
 const defaultFetcher: Fetcher = (url, init) =>
@@ -105,6 +108,10 @@ export async function outboundFetch(
       signal: AbortSignal.any([base.signal, probe.signal]),
     });
     clearTimeout(timer);
+    if (proxy && options.proxyOnStatus?.includes(response.status)) {
+      await response.body?.cancel().catch(() => {});
+      throw new Error(`直连 HTTP ${response.status}`);
+    }
     routes.set(host, { route: "direct", at: now() });
     return { response, route: "direct" };
   } catch (error) {

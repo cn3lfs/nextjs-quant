@@ -1,7 +1,7 @@
 "use client";
 import { api } from "~/trpc/react";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { isCryptoChartSymbol } from "~/lib/chart/chart-symbol";
+import { isForeignMarketChartSymbol } from "~/lib/chart/chart-symbol";
 import { TdxFundamentalSummary } from "./tdx-fundamental-summary";
 import { TdxCompanyInfo } from "./tdx-company-info";
 import {
@@ -31,7 +31,7 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
     enabled: quotable && !index,
   });
   if (!quotable)
-    return isCryptoChartSymbol(symbol) ? null : (
+    return isForeignMarketChartSymbol(symbol) ? null : (
       <p className="text-sm text-muted-foreground">
         板块与自定义指数没有通达信实时盘口与财务快照，本区块不适用。
       </p>

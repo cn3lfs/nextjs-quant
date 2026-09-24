@@ -39,6 +39,7 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
     "今日",
     "分析",
     "数字货币",
+    "资源期货",
     "台账",
     "研究",
     "系统",

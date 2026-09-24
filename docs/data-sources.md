@@ -68,3 +68,25 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 数据与连接页的「数字货币出站代理」面板可以修改代理地址，也可以一键测试三个币安地址在直连和经代理两种方式下是否可用。2026-09-24 实测结果：`data-api.binance.vision` 两种方式都可用；`api.binance.com` 直连超时，经代理受地区限制；`testnet.binance.vision`（测试网）直连可用，经代理受地区限制。所以测试网的账户和下单可以直连使用，实盘仍需要一个不受限地区的代理出口。代理地址和测试网开关只由这个面板保存，旧页面的整体「保存设置」不会覆盖它们。
 
 币安 API Key 用 Windows DPAPI 加密保存在凭证库（`credentials/binance-api.bin`），界面只显示末 4 位，也不会把 Key 返回给前端。目前只支持 HMAC 类型的 Key。
+
+## 资源期货（2026-09-24 接入）
+
+侧边栏「资源期货」分组，页面 `/futures`（深链 `/futures?code=GC00Y`），只做浏览。内部图表代码为 `fu` + 大写合约代码（如 `fuGC00Y`、`fuAUM`），只支持 `src/lib/market/futures.ts` 里的 11 个固定品种，不做任意合约搜索；A 股专属链路同样经 `isNonAShareChartSymbol` 跳过。
+
+| 品种 | Yahoo | 东方财富 secid | 新浪日线 |
+| --- | --- | --- | --- |
+| COMEX 黄金 / 白银 / 铜 | `GC=F` `SI=F` `HG=F` | `101.GC00Y` `101.SI00Y` `101.HG00Y` | GC / SI / HG（铜 ×0.01） |
+| COMEX 铝 | `ALI=F` | — | — |
+| WTI / 布伦特 | `CL=F` `BZ=F` | `102.CL00Y` `112.B00Y` | CL / OIL |
+| 沪金 / 沪银 / 沪铜 / 沪铝主连 | — | `113.aum` `113.agm` `113.cum` `113.alm` | AU0 / AG0 / CU0 / AL0 |
+| 上海原油主连 | — | `142.scm` | SC0 |
+
+- 源顺序：**Yahoo → 东方财富 → 新浪（仅日线）**，按品种跳过没有代码的源。某个源失败后 5 分钟内直接跳过它（最后一个可用源不跳过），失败原因写进 `sourceErrors` 并显示在图表上。所有请求走 `outboundFetch`（先直连，失败走出站代理 10808）。
+- 页面工具栏有「期货数据源」下拉框：自动 / Yahoo / 东方财富 / 新浪（仅日线）。当前品种没有代码的源置灰；手动选定时只用该源，不回退、不退避，失败直接显示原因；切到没有该源的品种时自动回到「自动」。所选源记在快照的 `futuresSource` 上，切换周期沿用。
+- Yahoo 对中国大陆直连返回 HTTP 403，只能经代理访问。`outboundFetch` 新增 `proxyOnStatus` 选项：直连返回列出的状态码（Yahoo 用 403/451）时视同直连失败，改走代理；其他调用方不受影响。
+- Yahoo：`query1.finance.yahoo.com/v8/finance/chart/{symbol}`，免 Key，非官方接口，以后可能加 crumb/cookie 校验。必须用 `period1`/`period2` 指定范围：`range=max` 会把日线悄悄降成月线（实测 GC=F 只剩 268 根）。日/周/月原生周期，从 2000 年（铝 2014 年）起；5/15/30 分钟约 60 天，60 分钟约 730 天。日线按交易所当地交易日标注，分钟线按北京时间结束时刻标注，末根未收线列入 `formingDates`。分钟线里休市时段的空值行（约 20%）静默丢弃，日线空行和 OHLC 不自洽的行列入 `excluded`，都不补造。`BZ=F` 是 NYMEX 上市的布伦特金融结算合约，价格与 ICE 布伦特一致但不是同一合约。
+- 东方财富：`push2his.eastmoney.com/api/qt/stock/kline/get`，`fqt=0`，原生周期。
+- 新浪（仅日线）：`GlobalFuturesService.getGlobalFuturesDailyKLine` 与 `InnerFuturesNewService.getDailyKLine`。COMEX 铜为美分/磅，乘 0.01；历史里偶有 OHLC 不自洽的行（如 OIL 2019-07-31），剔除并列入 `excluded`。国内日线可能滞后一日，境外合约无成交量。
+- 右栏报价：境外 6 个品种各请求一次 Yahoo（`range=5d`，取 `regularMarketPrice` 与 `regularMarketChangePercent`）；其余品种以及 Yahoo 失败的品种用一次东方财富批量请求 `push2.eastmoney.com/api/qt/ulist.np/get`（`f3` 相对昨结算），东方财富失败换新浪 `hq.sinajs.cn`。每 60 秒刷新。
+- 口径：连续/近月合约照原样使用，**未做换月调整**，换月处可能有跳空；境外合约成交额为 0。
+- 2026-09-24 实测：Yahoo 经 10808（HTTP 与 SOCKS5）6 个代码均返回当日数据。东方财富 10 个 secid 起初可用，一轮密集探测后本机 IP 被其全部域名断开（直连与代理均失败，A 股东方财富源同样受影响）；新浪日线与报价仍可用。Stooq 返回 JS 人机验证，不可程序化；CME/LME 官方与 Nasdaq Data Link 需付费或 Key，EIA 只有原油现货，均未采用。

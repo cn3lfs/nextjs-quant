@@ -1,4 +1,5 @@
 import { marketSourceSchema, type MarketSource } from "./market/market-source";
+import type { FuturesSource } from "./market/futures";
 import { researchDateSchema } from "./research/workflow/research-usage";
 import { z } from "zod";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
@@ -39,6 +40,8 @@ export type Snapshot = {
   sourceErrors?: string[];
   sourceVersions?: string[];
   requestedSource?: MarketSource;
+  /** Futures only: the source the user picked on the futures page. */
+  futuresSource?: FuturesSource;
 };
 export const maParamsSchema = z
   .object({

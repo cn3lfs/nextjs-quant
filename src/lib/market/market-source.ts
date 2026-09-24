@@ -25,6 +25,9 @@ export function marketSourceLabel(source: string) {
         "tencent/westock-data": "westock-data（腾讯自选股）",
         "eastmoney-online": "东方财富",
         "binance-spot": "币安现货",
+        "eastmoney-futures": "东方财富期货",
+        "sina-futures": "新浪期货日线",
+        "yahoo-futures": "Yahoo 期货",
         "tdx-mcp": "已停用来源（历史快照）",
       } as Record<string, string>
     )[source] ?? source

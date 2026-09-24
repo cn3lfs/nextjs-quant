@@ -129,6 +129,7 @@ const expectedProcedures = {
   breakout: "query",
   czsc: "query",
   snapshot: "mutation",
+  futuresQuotes: "query",
   watchlist: "mutation",
   screen: "mutation",
   formulas: "query",
