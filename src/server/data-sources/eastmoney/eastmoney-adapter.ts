@@ -6,6 +6,7 @@ import {
   eastmoneySymbolSchema,
   parseOnlineChart,
 } from "./eastmoney-bars";
+import { emFetch } from "./em-fetch";
 
 export const EASTMONEY_ADAPTER_VERSION = "eastmoney-adapter-1";
 const day = z
@@ -119,12 +120,7 @@ export async function eastmoneyKlines(
     }).toString();
     let raw: unknown;
     try {
-      const timeout = AbortSignal.timeout(15000);
-      raw = await readJson(
-        await fetcher(url, {
-          signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-        }),
-      );
+      raw = await readJson(await emFetch(url, { signal }, fetcher));
     } catch (error) {
       signal?.throwIfAborted();
       items.push({

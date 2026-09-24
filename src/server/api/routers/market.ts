@@ -45,6 +45,10 @@ import {
   PAGE_LIMIT,
   QUOTES_BATCH_LIMIT,
 } from "../../data-sources/tdx/tdx-wire";
+import { limitSentiment } from "../../market/limit-sentiment";
+import { stockEvents } from "../../research/stock-events";
+import { capitalProfile } from "../../market/capital-profile";
+import { macroRates } from "../../data-sources/macro/macro-rates";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
 const klineSchema = z.enum(
   Object.keys(KLINE) as [keyof typeof KLINE, ...(keyof typeof KLINE)[]],
@@ -215,4 +219,14 @@ export const marketRouter = createTRPCRouter({
         recordOfKind<IdentityCheck>("security-identity", `identity-${input}`) ??
         null,
     ),
+  limitSentiment: p
+    .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+    .query(({ input, signal }) => limitSentiment(input.date, signal)),
+  stockEvents: p
+    .input(symbolSchema)
+    .query(({ input, signal }) => stockEvents(input, signal)),
+  capitalProfile: p
+    .input(symbolSchema)
+    .query(({ input, signal }) => capitalProfile(input, signal)),
+  macroRates: p.query(({ signal }) => macroRates(signal)),
 });

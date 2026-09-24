@@ -15,6 +15,24 @@ import {
   routeLabel,
   type OutboundOptions,
 } from "../../infra/outbound";
+import { EM_USER_AGENT, emObserve, emThrottle } from "./em-fetch";
+
+/** Throttled Eastmoney request over the direct-then-proxy outbound route. */
+const emOutbound = (url: URL, options: OutboundOptions) =>
+  emThrottle(url, async () => {
+    const result = await outboundFetch(
+      url.toString(),
+      {
+        headers: {
+          "user-agent": EM_USER_AGENT,
+          referer: "https://quote.eastmoney.com/",
+        },
+      },
+      options,
+    );
+    emObserve(url, result.response.status);
+    return result;
+  });
 
 export const EASTMONEY_FUTURES_VERSION = "eastmoney-futures-1";
 const ENDPOINT = "https://push2his.eastmoney.com/api/qt/stock/kline/get";
@@ -123,7 +141,7 @@ export async function eastmoneyFuturesKlines(
   }).toString();
   // Some networks drop direct Node connections to Eastmoney; fall back to the
   // configured outbound proxy like the crypto source does.
-  const { response, route } = await outboundFetch(url.toString(), {}, options);
+  const { response, route } = await emOutbound(url, options);
   if (!response.ok) throw new Error(`东方财富 HTTP ${response.status}`);
   const text = await response.text();
   if (text.length > 8 * 1024 * 1024)
@@ -195,7 +213,7 @@ export async function eastmoneyFuturesQuotes(options: OutboundOptions = {}) {
       .flatMap((c) => (c.secid ? [c.secid] : []))
       .join(","),
   }).toString();
-  const { response } = await outboundFetch(url.toString(), {}, options);
+  const { response } = await emOutbound(url, options);
   if (!response.ok) throw new Error(`东方财富 HTTP ${response.status}`);
   return parseFuturesQuotes(JSON.parse(await response.text()));
 }

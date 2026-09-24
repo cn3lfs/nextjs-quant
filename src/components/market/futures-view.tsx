@@ -19,6 +19,7 @@ import {
 } from "~/lib/market/futures";
 import { api } from "~/trpc/react";
 import { ListPanel, PageGrid, PanelEmpty, Pill } from "../panels";
+import { MacroRatesPanel } from "./macro-rates-panel";
 import { Button } from "../ui/button";
 import {
   Select,
@@ -196,6 +197,7 @@ export function FuturesView() {
               })}
           />
         ))}
+        <MacroRatesPanel />
       </div>
     </PageGrid>
   );

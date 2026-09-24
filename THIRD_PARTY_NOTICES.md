@@ -24,3 +24,10 @@ associated GPL obligations remain a user decision; this work does not authorize 
 ## Node.js runtime
 
 The desktop application ships the same Node executable used to build its backend, preserving native module ABI compatibility. Node.js license text is copied from the build environment when available. Node.js distribution: https://nodejs.org/
+
+## a-stock-data
+
+Source: https://github.com/simonlin1212/a-stock-data (V3.10.0, 2026-09-22).
+Licensed under Apache License 2.0. No code is copied; its documented endpoints, request parameters and
+rate-limit findings were used as reference and re-implemented in TypeScript (Eastmoney request gate,
+limit-up pools, datacenter events and capital data, ChinaBond / ChinaMoney / LPR rates).

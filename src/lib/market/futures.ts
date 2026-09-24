@@ -5,7 +5,7 @@ import { z } from "zod";
  * code, e.g. `fuGC00Y` (COMEX gold continuous) or `fuAUM` (SHFE gold main).
  * Only the fixed list below is supported; no free-form contract search.
  */
-export const futuresGroups = ["贵金属", "基本金属", "能源"] as const;
+export const futuresGroups = ["贵金属", "基本金属", "黑色系", "能源"] as const;
 export type FuturesGroup = (typeof futuresGroups)[number];
 export type FuturesContract = {
   symbol: string;
@@ -104,6 +104,48 @@ export const futuresContracts: readonly FuturesContract[] = [
     unit: "美元/吨",
     group: "基本金属",
     precision: 1,
+  },
+  {
+    symbol: "fuRBM",
+    secid: "113.rbm",
+    name: "螺纹钢主连",
+    exchange: "上期所",
+    unit: "元/吨",
+    group: "黑色系",
+    precision: 0,
+    sina: { service: "inner", code: "RB0" },
+  },
+  {
+    symbol: "fuIM",
+    secid: "114.im",
+    name: "铁矿石主连",
+    exchange: "大商所",
+    unit: "元/吨",
+    group: "黑色系",
+    precision: 1,
+    sina: { service: "inner", code: "I0" },
+  },
+  {
+    // Eastmoney's `jmm` is coking coal and `jm` is coke (the reverse of the
+    // exchange product codes JM / J).
+    symbol: "fuJMM",
+    secid: "114.jmm",
+    name: "焦煤主连",
+    exchange: "大商所",
+    unit: "元/吨",
+    group: "黑色系",
+    precision: 1,
+    sina: { service: "inner", code: "JM0" },
+  },
+  {
+    symbol: "fuJM",
+    secid: "114.jm",
+    name: "焦炭主连",
+    exchange: "大商所",
+    unit: "元/吨",
+    group: "黑色系",
+    precision: 1,
+    sina: { service: "inner", code: "J0" },
   },
   {
     symbol: "fuCL00Y",

@@ -19,6 +19,7 @@ import {
   type QuoteSession,
 } from "~/lib/market/tdx-quote-view";
 import { TdxQuoteBook } from "./tdx-quote-book";
+import { CapitalSection, StockEventsSection } from "./stock-side-cards";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 
@@ -244,6 +245,8 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
           )}
         </div>
       )}
+      {!index && <StockEventsSection symbol={symbol} />}
+      {!index && <CapitalSection symbol={symbol} />}
     </section>
   );
 }

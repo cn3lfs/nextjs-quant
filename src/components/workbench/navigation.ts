@@ -6,6 +6,7 @@ import {
   ChartLine,
   Compass,
   Crosshair,
+  Fire,
   Flask,
   Funnel,
   Hash,
@@ -99,6 +100,12 @@ export const navGroups: readonly NavGroup[] = [
         icon: Ranking,
       },
       {
+        href: "/limit-up",
+        label: "打板情绪",
+        subtitle: "涨停 / 炸板 / 跌停 / 昨涨停四池 · 炸板率、连板梯队与晋级率",
+        icon: Fire,
+      },
+      {
         href: "/signals",
         label: "信号与通知",
         subtitle: "规则触发 → 交易状态核验 → 渠道投递",
@@ -124,7 +131,7 @@ export const navGroups: readonly NavGroup[] = [
       {
         href: "/futures",
         label: "资源期货行情",
-        subtitle: "金银铜铝与原油 · Yahoo / 东方财富连续合约 · 仅浏览",
+        subtitle: "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
         icon: Mountains,
       },
     ],

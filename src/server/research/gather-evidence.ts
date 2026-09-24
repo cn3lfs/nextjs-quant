@@ -10,6 +10,9 @@ import { queryIndustryContext } from "../data-sources/hithink/hithink-context";
 import { queryPriceRsEvidence } from "./price-rs";
 import { industryNewsEvidence } from "./industry-news-evidence";
 import { tmtCandidateEvidence } from "../strategies/sentiment/tmt-cache";
+import { isAStock } from "../data-sources/tdx/tdx";
+import { stockEvents, stockEventsEvidence } from "./stock-events";
+import { capitalProfile, capitalProfileEvidence } from "../market/capital-profile";
 const setcode = (symbol: string) =>
   symbol.startsWith("sh") ? "1" : symbol.startsWith("sz") ? "0" : "2";
 export async function gatherEvidence(
@@ -91,6 +94,30 @@ export async function gatherEvidence(
   }
   evidence.push(...industryNewsEvidence(source, evidence));
   evidence.push(...(await tmtCandidateEvidence(source, evidence, signal)));
+  if (isAStock(source.symbol)) {
+    try {
+      evidence.push(stockEventsEvidence(await stockEvents(source.symbol, signal)));
+    } catch {
+      signal?.throwIfAborted();
+      evidence.push({
+        id: `missing-stock-events-${source.symbol}`,
+        source: "个股事件可用性检查",
+        asOf: "未知",
+        text: "业绩预告、调研、增减持、回购、质押、解禁事件查询失败；不得推断这些事件是否存在。",
+      });
+    }
+    try {
+      evidence.push(capitalProfileEvidence(await capitalProfile(source.symbol, signal)));
+    } catch {
+      signal?.throwIfAborted();
+      evidence.push({
+        id: `missing-capital-profile-${source.symbol}`,
+        source: "资金面可用性检查",
+        asOf: "未知",
+        text: "两融、大宗交易、股东户数、龙虎榜查询失败；不得推断资金面。",
+      });
+    }
+  }
   if (!(await mcpConfigured())) return evidence;
   const queries = [
     {

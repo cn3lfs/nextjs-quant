@@ -1,9 +1,13 @@
 import { afterEach, expect, it, vi } from "vitest";
 import fixture from "../fixtures/eastmoney-index-day.json";
 import { eastmoneyKlines } from "../../src/server/data-sources/eastmoney/eastmoney-adapter";
+import { resetEastmoneyCooldowns } from "../../src/server/data-sources/eastmoney/em-fetch";
 import { onlinePeriodHistory } from "../../src/server/market/chart-history";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetEastmoneyCooldowns();
+});
 const response = () => new Response(JSON.stringify(fixture));
 it("限量不依赖供应商 lmt，原始返回不足也不宣称历史完整", async () => {
   const fetcher = vi.fn<typeof fetch>(async () => response());

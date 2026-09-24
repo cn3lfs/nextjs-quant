@@ -21,6 +21,18 @@ vi.mock("../../src/server/data-sources/tdx/tdx-mcp-disabled", () => ({
   mcpConfigured: async () => true,
   queryMcp: vi.fn(async () => ({ data: "fixture" })),
 }));
+vi.mock("../../src/server/research/stock-events", () => ({
+  stockEvents: vi.fn(async () => {
+    throw new Error("offline");
+  }),
+  stockEventsEvidence: vi.fn(),
+}));
+vi.mock("../../src/server/market/capital-profile", () => ({
+  capitalProfile: vi.fn(async () => {
+    throw new Error("offline");
+  }),
+  capitalProfileEvidence: vi.fn(),
+}));
 import { gatherEvidence } from "../../src/server/research/gather-evidence";
 import { queryMcp } from "../../src/server/data-sources/tdx/tdx-mcp-disabled";
 import { queryFinance } from "../../src/server/data-sources/hithink/hithink-finance";
@@ -120,7 +132,14 @@ it("does not reuse legacy timestamps and refreshes quotes sooner than announceme
     const first = await gatherEvidence(source, {} as Strategy);
     expect(queryMcp).toHaveBeenCalledTimes(2);
     const remote = (entries: typeof first) =>
-      entries.filter((entry) => entry.source !== "行业新闻关联检查");
+      entries.filter(
+        (entry) =>
+          ![
+            "行业新闻关联检查",
+            "个股事件可用性检查",
+            "资金面可用性检查",
+          ].includes(entry.source),
+      );
     expect(remote(first).every((entry) => entry.envelope?.asOf === null)).toBe(
       true,
     );
