@@ -25,7 +25,7 @@ export const isSectorChartSymbol = (symbol: string) =>
   /^(pt|emBK)/.test(symbol);
 export { isCryptoSymbol as isCryptoChartSymbol };
 export { isFuturesSymbol as isFuturesChartSymbol };
-/** Crypto and futures charts have their own pages and no A-share overlays. */
+/** Crypto and futures charts have their own pages and no A-share data panels. */
 export const isForeignMarketChartSymbol = (symbol: string) =>
   isCryptoSymbol(symbol) || isFuturesSymbol(symbol);
 /** Sector and crypto charts skip every A-share-only path (adjustment, RPS,

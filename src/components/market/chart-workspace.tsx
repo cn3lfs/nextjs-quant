@@ -14,7 +14,6 @@ import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
   chartPricePrecision,
-  isForeignMarketChartSymbol,
   isNonAShareChartSymbol,
 } from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
@@ -339,7 +338,7 @@ function EditableChart({
         {...common}
         snapshotId={snapshot.id}
         chartSnapshot
-        annotations={!isForeignMarketChartSymbol(snapshot.symbol)}
+        annotations
         rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
       />
       <TdxSnapshotContainer symbol={snapshot.symbol} />

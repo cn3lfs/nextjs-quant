@@ -135,8 +135,11 @@ export function createExtendedQueries(
     catalog.uint(start, "start", 0xffffffff);
     const chunks: Buffer[] = [];
     let offset = 0;
+    // Servers cap one reply at 30720 bytes regardless of the request, so a
+    // short reply means "continue from here"; only an empty or oversized
+    // reply is an error.
     while (offset < length) {
-      const requested = Math.min(65535, length - offset);
+      const requested = Math.min(30000, length - offset);
       const part = await send(
         () =>
           catalog.buildCompanyContentRequest(
@@ -147,7 +150,7 @@ export function createExtendedQueries(
           ),
         catalog.parseCompanyContent,
       );
-      if (!part.length || part.length !== requested)
+      if (!part.length || part.length > requested)
         throw new Error(`F10 内容不完整：${offset + part.length}/${length}`);
       chunks.push(part);
       offset += part.length;

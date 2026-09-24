@@ -91,6 +91,16 @@ export type BreakoutResult = {
 };
 const check = (v: boolean): Check => (v ? "是" : "否");
 const body = (b: Bar) => Math.abs(b.close - b.open);
+/** Round-number rung size; A-share price ranges keep the original ladder. */
+export function roundStep(price: number) {
+  if (price >= 1 && price < 10) return 1;
+  if (price >= 10 && price < 100) return 5;
+  if (price >= 100 && price < 1000) return 10;
+  if (price >= 1000 && price < 10000) return 100;
+  const decade = 10 ** Math.floor(Math.log10(price));
+  // Sub-unit prices use their own decade; large prices one decade lower.
+  return Number((price < 1 ? decade : decade / 10).toPrecision(12));
+}
 const average = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
 const priceOn = (line: TrendLine, index: number) =>
   line.anchors[0].price + line.slope * (index - line.anchors[0].index);
@@ -195,7 +205,7 @@ function point(
       (b, j) =>
         !(
           chartBars
-            ? /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:00\+08:00)?$/
+            ? /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:00(Z|[+-]\d{2}:\d{2}))?$/
             : /^\d{4}-\d{2}-\d{2}$/
         ).test(b.date) ||
         !Number.isFinite(Date.parse(b.date)) ||
@@ -233,18 +243,13 @@ function point(
   if (ready) {
     add(values.b[i - 1]?.mid, "ma20", i - 1);
     add(values.ma60[i - 1], "ma60", i - 1);
-    // Integer ladder: 1 yuan below 10, 5 below 100, 10 below 1000,
-    // 100 thereafter. Only adjacent historical-price rungs are candidates.
-    const step =
-      previous!.close < 10
-        ? 1
-        : previous!.close < 100
-          ? 5
-          : previous!.close < 1000
-            ? 10
-            : 100;
+    // Integer ladder: 1 below 10, 5 below 100, 10 below 1000, 100 below
+    // 10000. Beyond that range (crypto, some futures) the rung is one decade
+    // below the price magnitude. Only adjacent historical-price rungs count.
+    const step = roundStep(previous!.close);
     const base = Math.floor(previous!.close / step) * step;
-    for (const price of [base, base + step]) add(price, "round", i - 1);
+    for (const price of [base, base + step])
+      add(Number(price.toPrecision(12)), "round", i - 1);
     for (let j = start + 20; j < i; j++) {
       if (barrier && bars[j]!.date <= barrier) continue;
       const b = bars[j]!,

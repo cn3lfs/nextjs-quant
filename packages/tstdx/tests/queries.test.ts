@@ -131,7 +131,21 @@ it("板块完整下载及 MD5 校验后返回分组/扁平成分", async () => {
   expect((await a.blockInfo())[0]?.codes).toEqual(["600000", "000750"]);
   expect(await a.blockMembers()).toHaveLength(2);
 });
-it("F10 内容短回包不会当作完整栏目", async () => {
+it("F10 短回包从已读位置续读，拼接成完整栏目", async () => {
+  // 服务器单次回包有上限（实测 30720 字节），短回包表示“继续读”。
+  const starts: number[] = [];
+  const text = await api(core(), (req) => {
+    starts.push(req.readUInt32LE(req.length - 12));
+    return Buffer.from(fixture.bodies.content, "hex");
+  }).companyInfoContent("sh600000", "资料.txt", 5, 16);
+  expect(text).toBe("资料测试资料测试");
+  expect(starts).toEqual([5, 13]);
+});
+it("F10 空回包或超长回包不会当作完整栏目", async () => {
+  const empty = Buffer.from("000000000000000000000000", "hex");
+  await expect(
+    api(core(), () => empty).companyInfoContent("sh600000", "资料.txt", 5, 10),
+  ).rejects.toThrow("不完整");
   await expect(
     api(core(), () =>
       Buffer.from(fixture.bodies.content, "hex"),
