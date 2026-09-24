@@ -18,6 +18,7 @@ import {
   type FuturesSource,
 } from "~/lib/market/futures";
 import { api } from "~/trpc/react";
+import { useSnapshotLoad } from "./use-snapshot-load";
 import { ListPanel, PageGrid, PanelEmpty, Pill } from "../panels";
 import { MacroRatesPanel } from "./macro-rates-panel";
 import { Button } from "../ui/button";
@@ -49,7 +50,7 @@ export function FuturesView() {
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [source, setSource] = useState<FuturesSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
-  const load = api.snapshot.useMutation({ onSuccess: setLoaded });
+  const load = useSnapshotLoad({ onSuccess: setLoaded });
   const quotes = api.futuresQuotes.useQuery(undefined, {
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,

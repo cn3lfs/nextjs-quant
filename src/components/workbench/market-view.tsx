@@ -117,7 +117,10 @@ export function MarketView({
             variant="outline"
             disabled={load.isPending}
             onClick={() =>
-              load.mutate({ symbol, period, source: marketSource })
+              load.mutate(
+                { symbol, period, source: marketSource },
+                { fresh: true },
+              )
             }
           >
             <ArrowClockwise size={13} />

@@ -1,6 +1,9 @@
 "use client";
 
-import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
+import { type QueryClient } from "@tanstack/react-query";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createStore, del, get, set } from "idb-keyval";
 import { httpBatchStreamLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
@@ -9,6 +12,11 @@ import SuperJSON from "superjson";
 
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
+import {
+  applyCachePolicy,
+  PERSIST_MAX_AGE,
+  shouldPersistQuery,
+} from "./cache-policy";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
@@ -17,12 +25,37 @@ const getQueryClient = () => {
     return createQueryClient();
   }
   // Browser: use singleton pattern to keep the same query client
-  clientQueryClientSingleton ??= createQueryClient();
+  if (!clientQueryClientSingleton) {
+    clientQueryClientSingleton = createQueryClient();
+    applyCachePolicy(clientQueryClientSingleton);
+  }
 
   return clientQueryClientSingleton;
 };
 
 export const api = createTRPCReact<AppRouter>();
+
+/** IndexedDB-backed persister; created lazily because it needs `window`. */
+let persister: ReturnType<typeof createAsyncStoragePersister> | undefined;
+function getPersister() {
+  if (typeof window === "undefined" || !("indexedDB" in window)) return null;
+  if (!persister) {
+    const store = createStore("guanlan-query-cache", "queries");
+    persister = createAsyncStoragePersister({
+      storage: {
+        getItem: (key) => get<string>(key, store).then((v) => v ?? null),
+        setItem: (key, value: string) => set(key, value, store),
+        removeItem: (key) => del(key, store),
+      },
+      key: "trpc",
+      throttleTime: 2000,
+      // tRPC data carries Dates and Maps; plain JSON would flatten them.
+      serialize: (client) => SuperJSON.stringify(client),
+      deserialize: (text) => SuperJSON.parse(text),
+    });
+  }
+  return persister;
+}
 
 /**
  * Inference helper for inputs.
@@ -58,14 +91,33 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
     }),
   );
 
+  const body = (
+    <api.Provider client={trpcClient} queryClient={queryClient}>
+      {props.children}
+    </api.Provider>
+  );
+  const storage = getPersister();
   return (
-    <QueryClientProvider client={queryClient}>
-      <api.Provider client={trpcClient} queryClient={queryClient}>
-        {props.children}
-      </api.Provider>
-    </QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        // Without IndexedDB (server render) nothing is restored or written.
+        persister: storage ?? noopPersister,
+        maxAge: PERSIST_MAX_AGE,
+        buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? "dev",
+        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+      }}
+    >
+      {body}
+    </PersistQueryClientProvider>
   );
 }
+
+const noopPersister = {
+  persistClient: async () => {},
+  restoreClient: async () => undefined,
+  removeClient: async () => {},
+};
 
 function getBaseUrl() {
   if (typeof window !== "undefined") return window.location.origin;

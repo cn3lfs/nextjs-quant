@@ -1,6 +1,6 @@
 {
   "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged. V5 adds only research usage result containers to backtest and formula results; tests/workbench/workbench-refactor.test.ts verifies their exact range and conditional anchors. Free-source switch (2026-09-14): MCP panel and online screening removed, four-source selection and saved default added; market-source-selection.test.ts verifies source isolation and suspended MCP zero network calls. Only affected component fingerprints refreshed. RPS deep link (d68098e, baseline refreshed 2026-09-16): use-workbench-state.ts mount effect now reads the validated `/?symbol=` parameter and falls back to the default security; git diff from 2bb9511 (the commit that last set this hash) to HEAD confirms this six-line change is the only source difference, and readChartSymbolParam has independent coverage in rps-page-boxes.test.ts including rejected traversal input. Only the state fingerprint refreshed; functions, views and connections unchanged. Nocturne redesign (2026-09-23): the user authorized a layout-only rebuild of every page; views market/screen/signals/task-center were re-laid out on the panel grid and only these view fingerprints were refreshed. R2 handler order/payloads and component logic stayed identical for them; chart.tsx/chart-workspace.tsx logic hashes changed only because hex literals became chartColor references (diff reviewed: colors, createNocturneChart and formatting only).",
-  "state": "83e3e83e4d86d3116a7daeed958887ed399ffecef9afb2b48ac40e9027a05f88",
+  "state": "978e98166b4d920e72233d872bdfa31f2090a75c88a26c55c267abad6086526c",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
     "Empty": "9807530393701ac8f10cacdc370d8ecd8eb3b90600a0bd7b4479434fab049078",
@@ -11,7 +11,7 @@
     "ResultPager": "cf306043633a5191ba8eac3ced1656558d3a79c1a851168deb7fa7c958dac3d5"
   },
   "views": {
-    "market-view.tsx": "b01a236b9c6158501165621985169e561a5cbf3af1396421468607028491c98b",
+    "market-view.tsx": "63a970f4bd5d52ea0aa8f0d97eceba7d483d4bb6dba9e8ac2ac41866a0c63dbd",
     "screen-view.tsx": "767678836e1348e8941ebba4419dcdd23716c2f8b3fe7e1f708da2c81208da7d",
     "backtest-view.tsx": "4348e32470209d67f899bd5b36f80e325dccd261c18bb13390ccc8ec0638e4ae",
     "signals-view.tsx": "8764c27cb1ecdb753ba70e1e82d5709134ee02f046dddc1c2aaabe959073a299",

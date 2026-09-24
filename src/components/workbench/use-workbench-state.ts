@@ -1,4 +1,5 @@
 import { type MarketSource } from "~/lib/market/market-source";
+import { useSnapshotLoad } from "../market/use-snapshot-load";
 import { useEffect, useState } from "react";
 import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
 import {
@@ -71,7 +72,7 @@ export function useWorkbenchState() {
     setTimeout(() => setToast(""), 7000);
   };
   const onError = (e: { message: string }) => notify(e.message);
-  const load = api.snapshot.useMutation({
+  const load = useSnapshotLoad({
     onSuccess: (s) => {
       setLoaded(s);
       if (s.requestedSource) setMarketSource(s.requestedSource);

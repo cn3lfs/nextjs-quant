@@ -15,7 +15,7 @@ import {
   defaultCryptoPairs,
   isCryptoSymbol,
 } from "~/lib/market/crypto";
-import { api } from "~/trpc/react";
+import { useSnapshotLoad } from "./use-snapshot-load";
 import { ListPanel, PageGrid, Panel, PanelEmpty, Pill } from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -39,7 +39,7 @@ export function CryptoView() {
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [draft, setDraft] = useState("");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
-  const load = api.snapshot.useMutation({ onSuccess: setLoaded });
+  const load = useSnapshotLoad({ onSuccess: setLoaded });
   useEffect(() => {
     const first = initialPair();
     setSymbol(first);
