@@ -2,6 +2,7 @@ import "~/styles/globals.css";
 import { WorkbenchLayout } from "~/components/workbench/workbench-layout";
 import type { Metadata } from "next";
 import { TRPCReactProvider } from "~/trpc/react";
+import { TableSortProvider } from "~/components/common/table-sort-provider";
 export const metadata: Metadata = {
   title: "观澜 · 量化研究工作台",
   description: "本地行情、策略研究与信号通知",
@@ -16,6 +17,7 @@ export default function RootLayout({
       <body>
         <TRPCReactProvider>
           <WorkbenchLayout>{children}</WorkbenchLayout>
+          <TableSortProvider />
         </TRPCReactProvider>
       </body>
     </html>

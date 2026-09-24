@@ -9,14 +9,15 @@ import { Button } from "../ui/button";
  */
 export function TdxCompanyInfo({ symbol }: { symbol: string }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  // 同一证券的所有栏目共用一个文件、按偏移切分，所以用 start 区分栏目。
+  const [selected, setSelected] = useState<number | null>(null);
   const categories = api.tdxCompanyInfo.useQuery(symbol, {
     enabled: open,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 3600000,
   });
-  const category = categories.data?.find((row) => row.filename === selected);
+  const category = categories.data?.find((row) => row.start === selected);
   const content = api.tdxCompanyInfoContent.useQuery(
     {
       symbol,
@@ -63,12 +64,12 @@ export function TdxCompanyInfo({ symbol }: { symbol: string }) {
         <div className="flex flex-wrap gap-2 py-1" role="toolbar">
           {categories.data.map((row) => (
             <Button
-              key={row.filename}
+              key={`${row.filename}:${row.start}`}
               size="sm"
               variant="outline"
-              aria-pressed={selected === row.filename}
+              aria-pressed={selected === row.start}
               disabled={!row.length}
-              onClick={() => setSelected(row.filename)}
+              onClick={() => setSelected(row.start)}
             >
               {row.name}
               {row.length ? "" : "（空）"}
@@ -96,7 +97,11 @@ export function TdxCompanyInfo({ symbol }: { symbol: string }) {
             </div>
           )}
           {content.data !== undefined && (
-            <pre className="max-h-96 overflow-auto text-xs whitespace-pre-wrap">
+            <pre
+              className="max-h-96 overflow-auto text-xs whitespace-pre"
+              // F10 tables are laid out for GBK fixed width (CJK = 2 columns).
+              style={{ fontFamily: '"NSimSun", "SimSun", monospace' }}
+            >
               {content.data}
             </pre>
           )}

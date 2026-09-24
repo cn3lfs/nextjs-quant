@@ -86,7 +86,7 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
               : null
           }
         >
-          <TdxCompanyInfo symbol={symbol} />
+          <TdxCompanyInfo key={symbol} symbol={symbol} />
         </TdxFundamentalSummary>
       )}
     </section>

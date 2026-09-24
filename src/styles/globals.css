@@ -1278,3 +1278,20 @@ textarea[data-slot]::placeholder {
   min-width: 0;
   margin-bottom: 0;
 }
+
+/* Click-to-sort headers (lib/common/table-sort.ts). */
+table:not([data-sortable="false"]) > thead > tr:last-child > th,
+[role="table"]:not([data-sortable="false"]) > [role="row"] > [role="columnheader"] {
+  cursor: pointer;
+  user-select: none;
+}
+[data-sort-direction="asc"]::after {
+  content: " ▲";
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+[data-sort-direction="desc"]::after {
+  content: " ▼";
+  font-size: 0.8em;
+  opacity: 0.8;
+}
