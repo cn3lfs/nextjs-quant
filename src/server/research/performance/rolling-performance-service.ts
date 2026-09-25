@@ -16,6 +16,8 @@ const rollingSortKeys = [
   "endDate",
   "startDate",
   "tradingDays",
+  "coverage",
+  "insufficientCoverage",
   ...rollingMetrics.map(([key]) => key),
 ] as const;
 export const rollingPageSchema = z.object({
@@ -53,6 +55,7 @@ export function pageRollingPerformance(
     annualReturn: point.annualReturn.value,
   }));
   const value = (point: RollingPoint) => {
+    if (page.sort === "coverage") return point.coverage.observedDays;
     const field = point[page.sort];
     return typeof field === "object" ? field.value : field;
   };

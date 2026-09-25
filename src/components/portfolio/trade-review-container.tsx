@@ -43,6 +43,7 @@ export function TradeReviewContainer() {
   const [account, setAccount] = useState("");
   const [keyTradesN, setKeyTradesN] = useState(3);
   const [method, setMethod] = useState<CostMethod>("movingAverage");
+  const [monthSorting, setMonthSorting] = useState<SortingState>([]);
   const [monthPagination, setMonthPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 12,
@@ -103,6 +104,9 @@ export function TradeReviewContainer() {
         ?.id as RouterInputs["tradeReviewSnapshot"]["drawdownSort"],
       drawdownDesc: drawdownSorting[0]?.desc ?? true,
       monthPageIndex: monthPagination.pageIndex,
+      monthOrder: monthSorting[0]
+        ? { id: monthSorting[0].id, desc: monthSorting[0].desc }
+        : null,
       sort: sorting[0]?.id as RouterInputs["tradeReviewSnapshot"]["sort"],
       desc: sorting[0]?.desc ?? false,
     },
@@ -370,6 +374,11 @@ export function TradeReviewContainer() {
             pagination={pagination}
             monthPagination={monthPagination}
             onMonthPaginationChange={setMonthPagination}
+            monthSorting={monthSorting}
+            onMonthSortingChange={(value) => {
+              setMonthSorting(value);
+              setMonthPagination((p) => ({ ...p, pageIndex: 0 }));
+            }}
             sorting={sorting}
             onPaginationChange={setPagination}
             onSortingChange={(value) => {

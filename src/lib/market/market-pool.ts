@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sortTableRows, tableSortSchema } from "../common/server-sort";
 import { isRpsMarketSymbol, rpsPeriods, type RpsValue } from "../screening/rps";
 
 export const poolCategorySchema = z.enum(["industry", "concept", "index"]);
@@ -34,6 +35,8 @@ export const marketPoolQuerySchema = z.object({
     .default(50),
   minimumRps: z.number().min(0).max(100).nullable().default(null),
   sort: z.enum(["rps", "symbol"]).default("rps"),
+  /** Column header sort; overrides `sort` across the whole filtered pool. */
+  order: tableSortSchema,
   page: z.number().int().min(0).max(1000).default(0),
   selected: z
     .string()
@@ -63,7 +66,7 @@ export function selectMarketPoolRows(
   input: MarketPoolQuery,
 ) {
   const needle = input.search.toLowerCase();
-  return rows
+  const filtered = rows
     .filter(
       (row) =>
         isRpsMarketSymbol(row.symbol) &&
@@ -79,4 +82,13 @@ export function selectMarketPoolRows(
           ? (a.value?.rank ?? Infinity) - (b.value?.rank ?? Infinity)
           : 0) || a.symbol.localeCompare(b.symbol),
     );
+  return sortTableRows(filtered, input.order, {
+    symbol: (row) => row.symbol,
+    name: (row) => row.name,
+    rps: (row) => row.value?.rps,
+    rank: (row) => row.value?.rank,
+    reason: (row) => row.reason,
+    return: (row) => row.value?.return,
+    status: (row) => (row.localDay || row.fullDayCache ? 1 : 0),
+  });
 }

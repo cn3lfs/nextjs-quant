@@ -1,21 +1,25 @@
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import type { RouterOutputs } from "~/trpc/react";
 import { universeAuditLabels } from "~/lib/screening/universe-audit";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import type { UniverseAuditRow } from "~/lib/screening/universe-audit";
 
 const columns: DataTableColumn<UniverseAuditRow>[] = [
-  { id: "symbol", header: "证券", accessorKey: "symbol", enableSorting: false },
+  { id: "symbol", header: "证券", accessorKey: "symbol" },
   {
     id: "date",
     header: "依据日期",
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }) => row.original.date ?? "—",
   },
   {
     id: "source",
     header: "证据来源 / 缺失原因",
     accessorKey: "source",
-    enableSorting: false,
   },
 ];
 export function UniverseAuditResults({
@@ -23,7 +27,11 @@ export function UniverseAuditResults({
   page,
   onPage,
   loading,
+  order = null,
+  onOrder = () => {},
 }: {
+  order?: TableSort;
+  onOrder?: (order: TableSort) => void;
   data: RouterOutputs["universeAuditPage"];
   page: number;
   onPage: (page: number) => void;
@@ -73,8 +81,8 @@ export function UniverseAuditResults({
             ).pageIndex,
           )
         }
-        sorting={[]}
-        onSortingChange={() => {}}
+        sorting={sortingState(order)}
+        onSortingChange={(updater) => onOrder(nextTableSort(updater, order))}
         getRowId={(row) => row.symbol}
         label="时点审计明细"
         loading={loading}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tableSortSchema } from "../common/server-sort";
 import { symbolSchema } from "../domain";
 import { historicalDateSchema } from "./historical-screen";
 import { poolSelectionSchema } from "../market/market-pool";
@@ -39,6 +40,7 @@ export const universeAuditQuerySchema = z
       )
       .default("total"),
     page: z.number().int().min(0).max(10000).default(0),
+    order: tableSortSchema,
   })
   .refine((q) => q.start <= q.end, "审计开始日期不能晚于结束日期");
 export type UniverseAuditEvidence = {

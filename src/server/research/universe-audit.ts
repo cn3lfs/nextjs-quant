@@ -1,3 +1,4 @@
+import { sortTableRows } from "~/lib/common/server-sort";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
@@ -190,6 +191,10 @@ export async function universeAuditPage(input: unknown) {
     warnings,
     metric: query.metric,
     total: details[query.metric].length,
-    rows: details[query.metric].slice(query.page * 20, (query.page + 1) * 20),
+    rows: sortTableRows(details[query.metric], query.order, {
+      symbol: (row) => row.symbol,
+      date: (row) => row.date,
+      source: (row) => row.source,
+    }).slice(query.page * 20, (query.page + 1) * 20),
   };
 }

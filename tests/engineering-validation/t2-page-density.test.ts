@@ -82,15 +82,19 @@ it("T2 describes the remaining entry boundaries without implying online or curre
 });
 
 it("T2 groups chart controls into two nonwrapping rows and retains parameter and drawing actions", () => {
+  // Indicator parameters moved from a workspace popover into the chart's
+  // inline indicator bar, and views now save automatically (debounced).
   expect(workspace).toContain('data-testid="chart-primary-controls"');
   expect(workspace).toContain(
     'className="relative flex items-center gap-3 py-1 whitespace-nowrap"',
   );
   // Both control rows cancel the global `details` margin, which otherwise makes
   // the primary row 64px tall for two 20px summaries.
-  expect(workspace.match(/className="relative !my-0"/g)).toHaveLength(2);
-  expect(workspace.match(/name="chart-tools"/g)).toHaveLength(2);
-  expect(workspace).toContain("指标参数</summary>");
+  expect(workspace.match(/className="relative !my-0"/g)).toHaveLength(1);
+  expect(workspace.match(/name="chart-tools"/g)).toHaveLength(1);
+  expect(workspace).not.toContain("指标参数</summary>");
+  expect(workspace).toContain("saveView({ symbol: snapshot.symbol, period, view })");
+  expect(chart).toContain("<IndicatorParameterPanel");
   expect(workspace).toContain("画线：{tools[tool]}</summary>");
   expect(workspace).toContain('role="toolbar"');
   expect(workspace).toContain("Object.entries(tools).map");
@@ -100,11 +104,11 @@ it("T2 groups chart controls into two nonwrapping rows and retains parameter and
     "flex items-center gap-3 overflow-x-auto py-2 text-sm whitespace-nowrap",
   );
   for (const handler of renderHandlers(
-    `<><Button onClick={() => save.mutate({ symbol: snapshot.symbol, period, view })} /><Button onClick={() => { setTool(id as keyof typeof tools); setAnchor(null); }} /></>`,
+    `<><Button onClick={() => { setTool(id as keyof typeof tools); setAnchor(null); }} /></>`,
   ))
     expect(renderHandlers(workspace)).toContain(handler);
   for (const label of [
-    'aria-label="副图组合"',
+    'aria-label="副图指标"',
     'aria-label="主图指标"',
     "selectedSubcharts.includes(value)",
     "setSubcharts(",

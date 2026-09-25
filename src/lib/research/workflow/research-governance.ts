@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tableSortSchema } from "../../common/server-sort";
 import { researchKinds, researchRangeSchema } from "./research-usage";
 
 export const researchAttemptStates = [
@@ -36,4 +37,5 @@ export const researchAttemptsQuerySchema = z.object({
   pageSize: z.number().int().min(1).max(100).default(20),
   kind: z.enum(researchKinds).optional(),
   state: z.enum(researchAttemptStates).optional(),
+  order: tableSortSchema,
 });

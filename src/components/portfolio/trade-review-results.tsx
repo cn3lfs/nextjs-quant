@@ -229,6 +229,8 @@ export function TradeReviewResults({
   loading,
   monthPagination,
   onMonthPaginationChange,
+  monthSorting = [],
+  onMonthSortingChange = () => {},
   pointTable,
   attributionTable,
   drawdownTable,
@@ -256,6 +258,8 @@ export function TradeReviewResults({
   onMethodChange: (method: CostMethod) => void;
   monthPagination: DataTableProps<Round>["pagination"];
   onMonthPaginationChange: DataTableProps<Round>["onPaginationChange"];
+  monthSorting?: DataTableProps<Round>["sorting"];
+  onMonthSortingChange?: DataTableProps<Round>["onSortingChange"];
 } & Pick<
   DataTableProps<Round>,
   | "pagination"
@@ -519,21 +523,16 @@ export function TradeReviewResults({
           rowCount={data.monthCount}
           pagination={monthPagination}
           onPaginationChange={onMonthPaginationChange}
-          sorting={[]}
-          onSortingChange={() => {}}
+          sorting={monthSorting}
+          onSortingChange={onMonthSortingChange}
           getRowId={(row) => row.month}
           loading={loading}
           columns={[
-            { accessorKey: "month", header: "月份", enableSorting: false },
-            {
-              accessorKey: "tradingDays",
-              header: "交易日数",
-              enableSorting: false,
-            },
+            { accessorKey: "month", header: "月份" },
+            { accessorKey: "tradingDays", header: "交易日数" },
             {
               accessorKey: "return",
               header: "月度收益率",
-              enableSorting: false,
               cell: (cell) => (
                 <>
                   <p>{metric(cell.row.original.return, true)}</p>

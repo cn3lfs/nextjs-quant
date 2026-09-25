@@ -1,5 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import { api } from "~/trpc/react";
 import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
 import { rpsPeriods } from "~/lib/screening/rps";
@@ -25,16 +30,16 @@ type Row = RouterOutputs["industryRpsPage"]["rows"][number];
 const columns: DataTableColumn<Row>[] = [
   {
     id: "name",
+    enableSorting: true,
     header: "行业",
-    enableSorting: false,
     cell: ({ row }) => (
       <PoolMembersLink category="industry" name={row.original.name} />
     ),
   },
   {
     id: "rank",
+    enableSorting: true,
     header: "排名 / RPS / 等权涨幅",
-    enableSorting: false,
     cell: ({ row }) => {
       const v = row.original.value;
       return v
@@ -44,15 +49,15 @@ const columns: DataTableColumn<Row>[] = [
   },
   {
     id: "members",
+    enableSorting: true,
     header: "成分 / 本周期有效 / 端点不足",
-    enableSorting: false,
     cell: ({ row }) =>
       `${row.original.total} / ${row.original.valid} / ${row.original.endpointMissing}`,
   },
   {
     id: "excluded",
+    enableSorting: true,
     header: "剔除原因及数量",
-    enableSorting: false,
     cell: ({ row }) =>
       industryExclusions
         .filter((k) => row.original.excluded[k])
@@ -61,8 +66,8 @@ const columns: DataTableColumn<Row>[] = [
   },
   {
     id: "source",
+    enableSorting: true,
     header: "名单文件证据",
-    enableSorting: false,
     cell: ({ row }) => (
       <details>
         <summary>{row.original.file.file}</summary>
@@ -80,13 +85,14 @@ export function IndustryRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(20);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [order, setOrder] = useState<TableSort>(null);
   const visible = usePanelVisible();
   const status = api.industryRpsStatus.useQuery(undefined, {
     enabled: visible,
     refetchInterval: 2000,
   });
   const page = api.industryRpsPage.useQuery(
-    { date: date || undefined, period, page: pagination.pageIndex },
+    { date: date || undefined, period, page: pagination.pageIndex, order },
     {
       enabled: visible,
       refetchInterval:
@@ -280,8 +286,11 @@ export function IndustryRpsControls() {
         rowCount={page.data?.total ?? 0}
         pagination={pagination}
         onPaginationChange={setPagination}
-        sorting={[]}
-        onSortingChange={() => {}}
+        sorting={sortingState(order)}
+        onSortingChange={(updater) => {
+          setOrder(nextTableSort(updater, order));
+          setPagination({ pageIndex: 0, pageSize: 20 });
+        }}
         getRowId={(r) => r.name}
         label="行业RPS排名与成分审计"
         loading={page.isPending}

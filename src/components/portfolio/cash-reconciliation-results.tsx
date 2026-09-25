@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import type {
   cashReconciliationPage,
   CashReconciliationDay,
@@ -33,11 +38,10 @@ const orderLabels = {
   "timestamp-chain": "时间与余额链",
 };
 const columns: DataTableColumn<CashReconciliationDay>[] = [
-  { accessorKey: "date", header: "日期", enableSorting: false },
+  { accessorKey: "date", header: "日期" },
   {
     accessorKey: "status",
     header: "核对状态",
-    enableSorting: false,
     cell: ({ row }) => cashReconciliationLabels[row.original.status],
   },
   ...(
@@ -49,20 +53,18 @@ const columns: DataTableColumn<CashReconciliationDay>[] = [
   ).map(([key, header]) => ({
     accessorKey: key,
     header,
-    enableSorting: false,
     cell: ({ row }: { row: { original: CashReconciliationDay } }) =>
       money(row.original[key]),
   })),
   {
     accessorKey: "reason",
     header: "说明",
-    enableSorting: false,
     cell: ({ row }) => row.original.reason ?? "已比较至分精度",
   },
   {
     id: "evidence",
     header: "核对证据",
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }) => (
       <details>
         <summary className="cursor-pointer">
@@ -104,7 +106,7 @@ type Page = ReturnType<typeof cashReconciliationPage>;
 type TableState = Pick<
   DataTableProps<CashReconciliationDay>,
   "pagination" | "onPaginationChange" | "loading"
->;
+> & { order?: TableSort; onOrder?: (order: TableSort) => void };
 export function CashReconciliationResults({
   data,
   table,
@@ -169,9 +171,13 @@ export function CashReconciliationResults({
         columns={columns}
         data={data.rows}
         rowCount={data.total}
-        {...table}
-        sorting={[]}
-        onSortingChange={() => {}}
+        pagination={table.pagination}
+        onPaginationChange={table.onPaginationChange}
+        loading={table.loading}
+        sorting={sortingState(table.order)}
+        onSortingChange={(updater) =>
+          table.onOrder?.(nextTableSort(updater, table.order))
+        }
         getRowId={(row) => row.date}
         label="逐日现金核对"
         emptyMessage="当前筛选下没有现金核对记录。"

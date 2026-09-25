@@ -59,7 +59,7 @@ it("renders the server page with global coverage, correct difference sign and ex
   expect(html).toContain("查看结构化余额证据");
   expect(html).toContain("不代表流水完整");
   expect((html.match(/<tr/g) ?? []).length).toBe(2);
-  expect(html).not.toContain("data-table-sort");
+  expect(html).toContain("data-table-sort");
 });
 
 it("leaves missing cash unknown and distinguishes no matching rows from reconciled evidence", () => {

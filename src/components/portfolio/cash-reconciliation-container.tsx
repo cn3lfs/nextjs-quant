@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { TableSort } from "~/lib/common/server-sort";
 import type { PaginationState } from "@tanstack/react-table";
 import type { CashReconciliationStatus } from "~/lib/portfolio/cash-reconciliation";
 import { api } from "~/trpc/react";
@@ -17,12 +18,13 @@ export function CashReconciliationContainer({ account }: { account: string }) {
     pageIndex: 0,
     pageSize: 20,
   });
+  const [order, setOrder] = useState<TableSort>(null);
   const [status, setStatus] = useState<"all" | CashReconciliationStatus>("all");
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const query = api.tradeReviewCashReconciliation.useQuery(
-    { account, ...pagination, status },
+    { account, ...pagination, status, order },
     { retry: false },
   );
   const download = async () => {
@@ -104,6 +106,11 @@ export function CashReconciliationContainer({ account }: { account: string }) {
           table={{
             pagination,
             onPaginationChange: setPagination,
+            order,
+            onOrder: (next) => {
+              setOrder(next);
+              setPagination((current) => ({ ...current, pageIndex: 0 }));
+            },
             loading: query.isFetching,
           }}
         />

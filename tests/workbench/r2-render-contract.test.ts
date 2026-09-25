@@ -74,7 +74,9 @@ it("R2 tables receive original result arrays and leave existing pagination and s
   expect(screen).toContain("pageIndex: screenPage");
   expect(screen).toContain("pageIndex: excludedPage");
   expect(screen.match(/showPagination={false}/g)).toHaveLength(2);
-  expect(screen.match(/enableSorting: false/g)).toHaveLength(11);
+  // Candidate columns backed by the server screen sort keys are sortable.
+  expect(screen.match(/enableSorting: false/g)).toHaveLength(6);
+  expect(screen.match(/enableSorting: true/g)).toHaveLength(5);
   const ledger = readFileSync(
     "src/components/signals/signal-ledger-view.tsx",
     "utf8",

@@ -36,6 +36,7 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
     minAmount: 0,
     group: "code" as "code" | "kind" | "month",
   });
+  const [groupSorting, setGroupSorting] = useState<SortingState>([]);
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -51,6 +52,9 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
     sort: sorting[0]?.id as RouterInputs["tradeReviewExecution"]["sort"],
     desc: sorting[0]?.desc ?? false,
     groupPageIndex: groupPagination.pageIndex,
+    groupOrder: groupSorting[0]
+      ? { id: groupSorting[0].id, desc: groupSorting[0].desc }
+      : null,
   };
   const query = api.tradeReviewExecution.useQuery(input, { retry: false });
   return (
@@ -200,9 +204,12 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
             }}
             groupTable={{
               pagination: groupPagination,
-              sorting: [],
+              sorting: groupSorting,
               onPaginationChange: setGroupPagination,
-              onSortingChange: () => {},
+              onSortingChange: (value) => {
+                setGroupSorting(value);
+                setGroupPagination({ pageIndex: 0, pageSize: 10 });
+              },
               loading: query.isFetching,
             }}
           />

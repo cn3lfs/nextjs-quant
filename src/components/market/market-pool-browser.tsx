@@ -1,5 +1,6 @@
 "use client";
 
+import { nextTableSort, sortingState } from "~/lib/common/server-sort";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { symbolSchema } from "~/lib/domain";
@@ -43,6 +44,7 @@ export function MarketPoolBrowser({
     period: 50,
     minimumRps: null,
     sort: "rps",
+    order: null,
     page: 0,
   });
   const [message, setMessage] = useState("");
@@ -118,8 +120,8 @@ export function MarketPoolBrowser({
   const columns: DataTableColumn<MarketPoolRow>[] = [
     {
       id: "symbol",
+      enableSorting: true,
       header: "股票",
-      enableSorting: false,
       cell: ({ row }) => (
         <Button
           variant={row.original.symbol === symbol ? "default" : "ghost"}
@@ -132,14 +134,14 @@ export function MarketPoolBrowser({
     },
     {
       id: "rps",
+      enableSorting: true,
       header: `全沪深 RPS${query.period}`,
-      enableSorting: false,
       cell: ({ row }) => row.original.value?.rps.toFixed(2) ?? "—",
     },
     {
       id: "return",
+      enableSorting: true,
       header: `${query.period}日后复权涨幅`,
-      enableSorting: false,
       cell: ({ row }) =>
         row.original.value
           ? `${(row.original.value.return * 100).toFixed(2)}%`
@@ -147,8 +149,8 @@ export function MarketPoolBrowser({
     },
     {
       id: "status",
+      enableSorting: true,
       header: "数据状态",
-      enableSorting: false,
       cell: ({ row }) =>
         [
           row.original.identity
@@ -272,7 +274,7 @@ export function MarketPoolBrowser({
         <Select
           value={query.sort}
           onValueChange={(value) =>
-            change({ sort: value as MarketPoolQuery["sort"] })
+            change({ sort: value as MarketPoolQuery["sort"], order: null })
           }
         >
           <SelectTrigger aria-label="股票排序">
@@ -422,8 +424,10 @@ export function MarketPoolBrowser({
           data={rows}
           rowCount={ready ? (page.data?.total ?? 0) : 0}
           pagination={{ pageIndex: query.page, pageSize: 20 }}
-          sorting={[]}
-          onSortingChange={() => {}}
+          sorting={sortingState(query.order)}
+          onSortingChange={(updater) =>
+            change({ order: nextTableSort(updater, query.order) })
+          }
           onPaginationChange={(updater) =>
             setQuery((q) => ({
               ...q,

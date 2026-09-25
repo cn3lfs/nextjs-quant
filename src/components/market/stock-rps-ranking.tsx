@@ -1,4 +1,9 @@
 "use client";
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriods } from "~/lib/screening/rps";
@@ -27,6 +32,7 @@ export function StockRpsRanking() {
   const [search, setSearch] = useState("");
   const [minimumRps, setMinimumRps] = useState<number | null>(null);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [order, setOrder] = useState<TableSort>(null);
   // Ranks only change when an RPS batch writes a new day: poll while one runs.
   const job = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
@@ -40,6 +46,7 @@ export function StockRpsRanking() {
       period,
       minimumRps,
       sort: "rps",
+      order,
       page: pagination.pageIndex,
     },
     {
@@ -62,8 +69,8 @@ export function StockRpsRanking() {
   const columns: DataTableColumn<MarketPoolRow>[] = [
     {
       id: "symbol",
+      enableSorting: true,
       header: "股票",
-      enableSorting: false,
       cell: ({ row }) => (
         <ChartSymbolLink
           symbol={row.original.symbol}
@@ -73,20 +80,20 @@ export function StockRpsRanking() {
     },
     {
       id: "rank",
+      enableSorting: true,
       header: `RPS${period} 排名`,
-      enableSorting: false,
       cell: ({ row }) => row.original.value?.rank ?? "—",
     },
     {
       id: "rps",
+      enableSorting: true,
       header: `RPS${period}`,
-      enableSorting: false,
       cell: ({ row }) => row.original.value?.rps.toFixed(2) ?? "—",
     },
     {
       id: "return",
+      enableSorting: true,
       header: `${period}日后复权涨幅`,
-      enableSorting: false,
       cell: ({ row }) =>
         row.original.value
           ? `${(row.original.value.return * 100).toFixed(2)}%`
@@ -94,8 +101,8 @@ export function StockRpsRanking() {
     },
     {
       id: "reason",
+      enableSorting: true,
       header: "未排名原因",
-      enableSorting: false,
       cell: ({ row }) => row.original.reason ?? "—",
     },
   ];
@@ -169,8 +176,10 @@ export function StockRpsRanking() {
         rowCount={page.data?.total ?? 0}
         pagination={pagination}
         onPaginationChange={setPagination}
-        sorting={[]}
-        onSortingChange={() => {}}
+        sorting={sortingState(order)}
+        onSortingChange={(updater) =>
+          reset(setOrder)(nextTableSort(updater, order))
+        }
         getRowId={(row) => row.symbol}
         label="个股RPS排名"
         loading={page.isPending}

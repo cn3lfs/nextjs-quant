@@ -1,3 +1,4 @@
+import type { TableSort } from "~/lib/common/server-sort";
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import {
@@ -111,7 +112,7 @@ export class ResearchAttempts {
         .all() as { payload: string }[]
     ).map((row) => researchAttemptSchema.parse(JSON.parse(row.payload)));
   }
-  page(input: z.infer<typeof researchAttemptsQuerySchema>) {
+  page(input: z.input<typeof researchAttemptsQuerySchema>) {
     const query = researchAttemptsQuerySchema.parse(input);
     const where =
       "kind='research-attempt'" +
@@ -129,7 +130,7 @@ export class ResearchAttempts {
     const items = (
       this.db
         .prepare(
-          `SELECT payload FROM records WHERE ${where} ORDER BY updated_at DESC,id DESC LIMIT @limit OFFSET @offset`,
+          `SELECT payload FROM records WHERE ${where} ORDER BY ${attemptOrder(query.order)}updated_at DESC,id DESC LIMIT @limit OFFSET @offset`,
         )
         .all({
           ...params,
@@ -180,4 +181,20 @@ export function bestEffortAudit<T>(write: () => T): T | null {
     console.warn("研究运行审计不完整，请检查本地台账");
     return null;
   }
+}
+
+// Whitelisted sort columns only; values are never interpolated from input.
+const attemptSortPaths: Record<string, string> = {
+  createdAt: "$.createdAt",
+  kind: "$.kind",
+  state: "$.state",
+  range: "$.requestedRange.start",
+  taskId: "$.taskId",
+  error: "$.error",
+};
+function attemptOrder(order: TableSort) {
+  const path = order ? attemptSortPaths[order.id] : undefined;
+  if (!order || !path) return "";
+  const expr = `json_extract(payload,'${path}')`;
+  return `(${expr} IS NULL),${expr} ${order.desc ? "DESC" : "ASC"},`;
 }

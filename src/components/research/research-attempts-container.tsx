@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import {
@@ -34,34 +39,32 @@ const columns: DataTableColumn<ResearchAttempt>[] = [
   {
     accessorKey: "createdAt",
     header: "启动时间",
-    enableSorting: false,
     cell: ({ row }) => new Date(row.original.createdAt).toLocaleString("zh-CN"),
   },
   {
     accessorKey: "kind",
     header: "研究类型",
-    enableSorting: false,
     cell: ({ row }) => kinds[row.original.kind],
   },
   {
     accessorKey: "state",
     header: "状态",
-    enableSorting: false,
     cell: ({ row }) => labels[row.original.state],
   },
   {
     id: "range",
+    enableSorting: true,
     header: "请求区间",
-    enableSorting: false,
     cell: ({ row }) =>
       row.original.requestedRange
         ? `${row.original.requestedRange.start}—${row.original.requestedRange.end}`
         : "尚未确定",
   },
-  { accessorKey: "taskId", header: "任务标识", enableSorting: false },
+  { accessorKey: "taskId", header: "任务标识" },
   {
     id: "audit",
     header: "记录完整性",
+    // Derived after the page query; the database cannot order by it.
     enableSorting: false,
     cell: ({ row }) =>
       row.original.auditIncomplete ? "审计不完整" : "已记录（历史完整性未知）",
@@ -69,19 +72,20 @@ const columns: DataTableColumn<ResearchAttempt>[] = [
   {
     accessorKey: "error",
     header: "失败或中断原因",
-    enableSorting: false,
     cell: ({ row }) => row.original.error ?? "—",
   },
 ];
 
 export function ResearchAttemptsContainer() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [order, setOrder] = useState<TableSort>(null);
   const [state, setState] = useState<ResearchAttempt["state"] | "all">("all");
   const query = api.researchAttempts.useQuery(
     {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       state: state === "all" ? undefined : state,
+      order,
     },
     { refetchInterval: 3000 },
   );
@@ -118,9 +122,12 @@ export function ResearchAttemptsContainer() {
         data={query.data?.items ?? []}
         rowCount={query.data?.total ?? 0}
         pagination={pagination}
-        sorting={[]}
+        sorting={sortingState(order)}
         onPaginationChange={setPagination}
-        onSortingChange={() => {}}
+        onSortingChange={(updater) => {
+          setOrder(nextTableSort(updater, order));
+          setPagination((p) => ({ ...p, pageIndex: 0 }));
+        }}
         getRowId={(row) => row.id}
         label="研究运行记录明细"
         loading={query.isLoading}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tableSortSchema } from "../common/server-sort";
 import { historicalDateSchema } from "./historical-screen";
 import {
   rankRps,
@@ -168,6 +169,7 @@ export const industryPageSchema = z.object({
     .number()
     .refine((p) => (rpsPeriods as readonly number[]).includes(p)),
   page: z.number().int().min(0).max(255).default(0),
+  order: tableSortSchema,
 });
 export const industryEmptyLabels = {
   "empty-list": "名单为空，不参与排名",

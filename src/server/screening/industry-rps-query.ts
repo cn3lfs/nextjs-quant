@@ -1,3 +1,4 @@
+import { sortTableRows } from "~/lib/common/server-sort";
 import { industryPageSchema } from "~/lib/screening/industry-rps";
 import { RpsStore } from "./rps-store";
 import { observationRanking, type RpsObservation } from "./rps-observation";
@@ -30,7 +31,7 @@ export function industryRpsPage(
     ).map((r) => [r.symbol, r]),
   );
   const files = new Map(day.industry.snapshot.files.map((f) => [f.name, f]));
-  const all = day.industry.members
+  const ranked = day.industry.members
     .map((m) => ({
       ...m,
       value: ranks.get(m.name) ?? null,
@@ -44,6 +45,18 @@ export function industryRpsPage(
         (a.value?.rank ?? Infinity) - (b.value?.rank ?? Infinity) ||
         a.name.localeCompare(b.name),
     );
+  const all = sortTableRows(ranked, query.order, {
+    name: (row) => row.name,
+    rank: (row) => row.value?.rank,
+    members: (row) => row.total,
+    coverage: (row) => row.total,
+    excluded: (row) =>
+      Object.values(row.excluded as Record<string, number>).reduce(
+        (sum, n) => sum + (n ?? 0),
+        0,
+      ),
+    source: (row) => row.file.file,
+  });
   // Membership arrays are audit evidence, not a full-pool UI response.
   return {
     day: {

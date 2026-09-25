@@ -23,7 +23,7 @@ const columns: DataTableColumn<Year>[] = [
   {
     id: "isCompleteYear",
     header: "完整年",
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }) => (row.original.isCompleteYear ? "是" : "否"),
   },
   ...(
@@ -35,6 +35,7 @@ const columns: DataTableColumn<Year>[] = [
   ).map(([key, header]) => ({
     id: key,
     header,
+    enableSorting: true,
     cell: ({ row }: { row: { original: Year } }) => show(row.original[key]),
   })),
   ...(
@@ -47,7 +48,7 @@ const columns: DataTableColumn<Year>[] = [
   ).map(([key, header]) => ({
     id: key,
     header,
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }: { row: { original: Year } }) => passed(row.original[key]),
   })),
 ];

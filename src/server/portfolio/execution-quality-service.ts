@@ -1,3 +1,4 @@
+import { sortTableRows, tableSortSchema } from "~/lib/common/server-sort";
 import { z } from "zod";
 import { redactRow, mapDeliveryColumns } from "~/lib/research/evidence/delivery-import";
 import {
@@ -17,6 +18,9 @@ export const executionSortFields = [
   "amount",
   "slippageBp",
   "slippageCost",
+  "name",
+  "diagnostic",
+  "fees",
 ] as const;
 export const executionPageSchema = z.object({
   account: z.string().trim().min(1),
@@ -39,8 +43,10 @@ export const executionPageSchema = z.object({
   minAmount: z.number().finite().min(0).default(0),
   group: z.enum(["code", "kind", "month"]).default("code"),
   groupPageIndex: z.number().int().min(0).max(1000000).default(0),
+  groupOrder: tableSortSchema,
 });
 type Options = z.infer<typeof executionPageSchema>;
+type GroupSummary = { id: string } & ReturnType<typeof summarizeExecution>;
 type Snapshot = ReturnType<typeof replayTradeReview>;
 function selectedRows(snapshot: Snapshot, input: Options) {
   return snapshot.execution.rows
@@ -59,8 +65,10 @@ function selectedRows(snapshot: Snapshot, input: Options) {
     )
     .sort((a, b) => {
       const field = (r: ExecutionRow) => {
+        if (input.sort === "diagnostic") return r.diagnostic.category;
+        if (input.sort === "fees") return r.fees.total.value;
         const v = r[input.sort];
-        return typeof v === "object" ? v.value : v;
+        return v !== null && typeof v === "object" ? v.value : (v ?? null);
       };
       const x = field(a),
         y = field(b);
@@ -84,9 +92,36 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
     group.push(row);
     groups.set(key, group);
   }
-  const grouped = [...groups]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([id, group]) => ({ id, ...summarizeExecution(group) }));
+  const grouped = sortTableRows(
+    [...groups]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, group]) => ({ id, ...summarizeExecution(group) })),
+    input.groupOrder,
+    {
+      id: (g) => g.id,
+      count: (g) => g.count,
+      validBpCount: (g) => g.validBpCount,
+      weightedCount: (g) => g.weightedCount,
+      ...Object.fromEntries(
+        (
+          [
+            "amount",
+            "weightedAmount",
+            "slippageCost",
+            "arithmeticMeanBp",
+            "averageSlippageBp",
+            "totalCost",
+            "costBp",
+          ] as const
+        ).map((key) => [key, (g: GroupSummary) => g[key].value]),
+      ),
+      ...Object.fromEntries(
+        (
+          ["commission", "stampTax", "transferFee", "otherFee", "total"] as const
+        ).map((key) => [key, (g: GroupSummary) => g.fees[key].value]),
+      ),
+    },
+  );
   const e = snapshot.execution;
   return {
     benchmark: e.benchmark,

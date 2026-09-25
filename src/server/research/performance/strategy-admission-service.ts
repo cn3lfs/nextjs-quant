@@ -20,6 +20,11 @@ export const admissionPageSchema = z.object({
       "absReturn",
       "alphaReturn",
       "alphaMaxDrawdown",
+      "isCompleteYear",
+      "condAbsReturnPassed",
+      "condAlphaReturnPassed",
+      "condAlphaDrawdownPassed",
+      "yearPassed",
     ])
     .default("year"),
   desc: z.boolean().default(false),

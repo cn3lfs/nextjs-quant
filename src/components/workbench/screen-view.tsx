@@ -30,6 +30,15 @@ import { Empty, Field, fmt, ResultPager } from "./shared";
 import { StrategyFields } from "./strategy-fields";
 import { type WorkbenchState } from "./use-workbench-state";
 
+/** Candidate table column → server-side screen sort key. */
+const screenSortColumn: Record<Exclude<ScreenSort, "original">, string> = {
+  symbol: "column-0",
+  close: "column-2",
+  change: "column-3",
+  volumeRatio: "column-4",
+  score: "column-5",
+};
+
 export function ScreenView({
   state,
 }: {
@@ -573,7 +582,7 @@ export function ScreenView({
                   {
                     id: "column-0",
                     header: "证券",
-                    enableSorting: false,
+                    enableSorting: true,
                     cell: ({ row }) => {
                       const c = row.original;
                       return (
@@ -600,7 +609,7 @@ export function ScreenView({
                   {
                     id: "column-2",
                     header: "收盘",
-                    enableSorting: false,
+                    enableSorting: true,
                     cell: ({ row }) => {
                       const c = row.original;
                       return <>{fmt(c.metrics.close)}</>;
@@ -609,7 +618,7 @@ export function ScreenView({
                   {
                     id: "column-3",
                     header: "涨跌幅",
-                    enableSorting: false,
+                    enableSorting: true,
                     cell: ({ row }) => {
                       const c = row.original;
                       return (
@@ -622,7 +631,7 @@ export function ScreenView({
                   {
                     id: "column-4",
                     header: "量比",
-                    enableSorting: false,
+                    enableSorting: true,
                     cell: ({ row }) => {
                       const c = row.original;
                       return <>{fmt(c.metrics.volumeRatio)}</>;
@@ -631,7 +640,7 @@ export function ScreenView({
                   {
                     id: "column-5",
                     header: "趋势分",
-                    enableSorting: false,
+                    enableSorting: true,
                     cell: ({ row }) => {
                       const c = row.original;
                       return <>{fmt(c.metrics.score)}</>;
@@ -724,9 +733,39 @@ export function ScreenView({
                 getRowId={(c) => String(c.symbol)}
                 rowCount={screenResult.count}
                 pagination={{ pageIndex: screenPage, pageSize: 50 }}
-                sorting={[]}
+                sorting={
+                  screenSort === "original"
+                    ? []
+                    : [
+                        {
+                          id: screenSortColumn[screenSort],
+                          desc: screenDirection === "desc",
+                        },
+                      ]
+                }
                 onPaginationChange={() => {}}
-                onSortingChange={() => {}}
+                onSortingChange={(updater) => {
+                  const current =
+                    screenSort === "original"
+                      ? []
+                      : [
+                          {
+                            id: screenSortColumn[screenSort],
+                            desc: screenDirection === "desc",
+                          },
+                        ];
+                  const next = (
+                    typeof updater === "function" ? updater(current) : updater
+                  )[0];
+                  const sort = next
+                    ? (Object.entries(screenSortColumn).find(
+                        ([, column]) => column === next.id,
+                      )?.[0] as ScreenSort | undefined)
+                    : undefined;
+                  setScreenSort(sort ?? "original");
+                  if (next) setScreenDirection(next.desc ? "desc" : "asc");
+                  setScreenPage(0);
+                }}
                 showPagination={false}
                 emptyMessage={null}
               />

@@ -49,6 +49,21 @@ export type DataTableProps<T extends object> = {
   showPagination?: boolean;
 };
 
+/** TanStack only sorts columns with an accessor. Display columns that opt in
+ *  with `enableSorting: true` are ordered by the server (manualSorting), so a
+ *  placeholder accessor is enough to expose their sort button. */
+function serverSortable<T extends object>(
+  column: DataTableColumn<T>,
+): DataTableColumn<T> {
+  const c = column as DataTableColumn<T> & {
+    accessorKey?: unknown;
+    accessorFn?: unknown;
+  };
+  return c.enableSorting === true && !c.accessorKey && !c.accessorFn
+    ? ({ ...column, accessorFn: () => null } as DataTableColumn<T>)
+    : column;
+}
+
 export function DataTable<T extends object>({
   columns,
   data,
@@ -67,7 +82,7 @@ export function DataTable<T extends object>({
 }: DataTableProps<T>) {
   const table = useTable({
     features: dataTableFeatures,
-    columns,
+    columns: columns.map(serverSortable),
     data,
     rowCount,
     getRowId,

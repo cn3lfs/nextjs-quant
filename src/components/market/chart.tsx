@@ -1439,14 +1439,15 @@ export function MarketChart({
                   {key === "obv" ? (
                     <span className="opacity-70">OBV</span>
                   ) : (
-                    <button
+                    <Button
+                      variant="plain"
                       type="button"
                       className="cursor-pointer opacity-70 hover:underline"
                       title="点击修改参数"
                       onClick={() => setEditing(editing === key ? null : key)}
                     >
                       {parameterSummary(key, parameters)}
-                    </button>
+                    </Button>
                   )}
                   {items.map(({ name, value }) => (
                     <span key={name} style={{ color: colors[name] }}>
@@ -1553,7 +1554,8 @@ function IndicatorChip({
           : "border-border opacity-80"
       } ${editing ? "ring-1 ring-primary" : ""}`}
     >
-      <button
+      <Button
+        variant="plain"
         type="button"
         className="px-2 py-0.5 disabled:cursor-not-allowed disabled:opacity-40"
         aria-pressed={active}
@@ -1563,9 +1565,10 @@ function IndicatorChip({
         onDoubleClick={onEdit}
       >
         {label}
-      </button>
+      </Button>
       {onEdit && (
-        <button
+        <Button
+          variant="plain"
           type="button"
           className="border-l border-inherit px-1 py-0.5 hover:bg-primary/20"
           aria-label={`${label} 参数`}
@@ -1574,7 +1577,7 @@ function IndicatorChip({
           onClick={onEdit}
         >
           ⚙
-        </button>
+        </Button>
       )}
     </span>
   );

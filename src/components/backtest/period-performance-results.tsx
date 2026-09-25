@@ -143,6 +143,7 @@ export function PeriodPerformanceResults({
     ...periodicWindows.map((window, i) => ({
       id: String(window),
       header: `近${window}交易日`,
+      enableSorting: true,
       cell: (c: { row: { original: MatrixRow } }) => {
         const cell = c.row.original.cells[i]!;
         return (

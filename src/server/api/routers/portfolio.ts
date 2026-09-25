@@ -1,3 +1,4 @@
+import { sortTableRows, tableSortSchema } from "~/lib/common/server-sort";
 import {
   disciplineRequestSchema,
   startDiscipline,
@@ -350,6 +351,7 @@ export const portfolioRouter = createTRPCRouter({
           .default("drawdown"),
         drawdownDesc: z.boolean().default(true),
         monthPageIndex: z.number().int().min(0).max(10000).default(0),
+        monthOrder: tableSortSchema,
         sort: z.enum(roundSortFields).default("openingDate"),
         desc: z.boolean().default(false),
       }),
@@ -459,7 +461,11 @@ export const portfolioRouter = createTRPCRouter({
         nav: {
           ...s.nav,
           segments: drawdownPage.segments,
-          monthlyReturns: s.nav.monthlyReturns.slice(
+          monthlyReturns: sortTableRows(s.nav.monthlyReturns, input.monthOrder, {
+            month: (m) => m.month,
+            tradingDays: (m) => m.tradingDays,
+            return: (m) => m.return.value,
+          }).slice(
             input.monthPageIndex * 12,
             (input.monthPageIndex + 1) * 12,
           ),

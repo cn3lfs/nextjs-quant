@@ -29,7 +29,7 @@ const show = (v: ReviewValue, percent = false) =>
 const columns: DataTableColumn<ExecutionRow>[] = [
   { accessorKey: "tradeDate", header: "日期" },
   { accessorKey: "code", header: "代码" },
-  { accessorKey: "name", header: "名称", enableSorting: false },
+  { accessorKey: "name", header: "名称" },
   {
     accessorKey: "kind",
     header: "方向",
@@ -52,14 +52,14 @@ const columns: DataTableColumn<ExecutionRow>[] = [
   {
     id: "diagnostic",
     header: "诊断",
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }) =>
       executionDiagnosticLabels[row.original.diagnostic.category],
   },
   {
     id: "fees",
     header: "总费用",
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }) => show(row.original.fees.total),
   },
 ];
@@ -68,13 +68,12 @@ const groupColumns: DataTableColumn<Group>[] = [
   {
     accessorKey: "id",
     header: "分组",
-    enableSorting: false,
     cell: ({ row }) =>
       ({ buy: "买入", sell: "卖出" })[row.original.id] ?? row.original.id,
   },
-  { accessorKey: "count", header: "笔数", enableSorting: false },
-  { accessorKey: "validBpCount", header: "有效偏差笔数", enableSorting: false },
-  { accessorKey: "weightedCount", header: "可加权笔数", enableSorting: false },
+  { accessorKey: "count", header: "笔数" },
+  { accessorKey: "validBpCount", header: "有效偏差笔数" },
+  { accessorKey: "weightedCount", header: "可加权笔数" },
   ...(
     [
       ["amount", "成交额"],
@@ -88,7 +87,6 @@ const groupColumns: DataTableColumn<Group>[] = [
   ).map(([key, header]) => ({
     accessorKey: key,
     header,
-    enableSorting: false,
     cell: ({ row }: { row: { original: Group } }) => show(row.original[key]),
   })),
   ...(
@@ -102,7 +100,7 @@ const groupColumns: DataTableColumn<Group>[] = [
   ).map(([key, header]) => ({
     id: key,
     header,
-    enableSorting: false,
+    enableSorting: true,
     cell: ({ row }: { row: { original: Group } }) =>
       show(row.original.fees[key]),
   })),

@@ -22,7 +22,7 @@ const columns: DataTableColumn<RollingPoint>[] = [
   {
     id: "coverage",
     header: "观察 / 可得 / 缺失 / 零收益日",
-    enableSorting: false,
+    enableSorting: true,
     cell: (c: { row: { original: RollingPoint } }) => {
       const coverage = c.row.original.coverage;
       return `${coverage.observedDays} / ${coverage.availableDays} / ${coverage.nullDays} / ${coverage.zeroReturnDays}`;
@@ -31,7 +31,7 @@ const columns: DataTableColumn<RollingPoint>[] = [
   {
     id: "insufficientCoverage",
     header: "覆盖说明",
-    enableSorting: false,
+    enableSorting: true,
     cell: (c: { row: { original: RollingPoint } }) =>
       c.row.original.insufficientCoverage ? (
         <Badge variant="secondary">insufficientCoverage：覆盖不足</Badge>
@@ -42,6 +42,7 @@ const columns: DataTableColumn<RollingPoint>[] = [
   ...rollingMetrics.map(([key, header, percent]) => ({
     id: key,
     header,
+    enableSorting: true,
     cell: (c: { row: { original: RollingPoint } }) => {
       const metric = c.row.original[key];
       return metric.value === null

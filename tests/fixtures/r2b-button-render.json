@@ -1,16 +1,16 @@
 {
   "src/app/signal-ledger/error.tsx": "26709bdbd02b77f86d30e9994b78ca560d22b901154218d51b56d6ef3aa2aba0",
   "src/app/trade-ledger/error.tsx": "3df0932dff8e0b3a9c0218a3f7dc0032ffcc32a24ca7b4244280e0ba99877cde",
-  "src/components/market/chart-workspace.tsx": "ec9ce2d6e2d1f49a2c25169c8895a3f2fdd6bc0f3aae9c90c3f3279af6dedc0f",
+  "src/components/market/chart-workspace.tsx": "4409be168f8f237f2155b07bf5a1f24dfc0174bb4ccf0987e71350d7b06b699f",
   "src/components/screening/formula-screen.tsx": "81c151d22a8b55ddc06e0960587cbc5380108c599f996f06260f56eb259c6920",
   "src/components/market/security-select.tsx": "7c80b549a171211f5824bdb415c08386a4feb08a10179c651623671387b5b023",
   "src/components/signals/signal-ledger-controls.tsx": "ffebd58bd8fa056f351478d1814196106dbceb1346334342f1fe4a32cd939a56",
   "src/components/portfolio/trade-ledger-panel.tsx": "4a2ebac3b1f53ae91bf04cf2fe34498bb2263649ea558ac23c02f11f26cb0588",
-  "src/components/ui/data-table.tsx": "2ebf5bd35e43bece9a7df2e15ae5b784208e173a5acd4856fb46c8a099b70c8c",
+  "src/components/ui/data-table.tsx": "bc3dc0783a0cd5ef7b4228e77a78b6c35cc98fa24f7dc7216b40ce5eae1df2e1",
   "src/components/workbench/workbench.tsx": "5b2cfd77a689840dffffca025b5d9b6a4561a0c3f7fd8bde0ffb6b0d1154be0d",
   "src/components/workbench/evidence-analysis.tsx": "616ecd636b18128ecb24448834f49570b3243f8cb9e993b683a713d8d262e98d",
   "src/components/workbench/market-view.tsx": "0a8733af939bf8688b50ca30d26b95586c78ab96570791cacbe1e05a9e24d3c3",
   "src/components/workbench/reports.tsx": "0050db25efa9c70902bbe6916ccc8e7251e92eb0dd2d8aa04eba8d2237881384",
   "src/components/workbench/task-center.tsx": "d61ed34f26f3958c6526c4e658f9cd4900eca43cc2f95658133120fea8be6024",
-  "src/components/market/chart.tsx": "d97022b5864011082ba4f4399fed134437c02ba23dfbc129eb5bfd11105c0737"
+  "src/components/market/chart.tsx": "796ad01d156cdb1a560df1cc5f8b70f3697830045f0e175d01dec613c0fbf81c"
 }

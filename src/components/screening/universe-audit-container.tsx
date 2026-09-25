@@ -1,4 +1,5 @@
 "use client";
+import type { TableSort } from "~/lib/common/server-sort";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import {
@@ -32,12 +33,13 @@ export function UniverseAuditContainer({
   const [range, setRange] = useState({ start, end });
   const [metric, setMetric] = useState<UniverseAuditMetric>("total");
   const [page, setPage] = useState(0);
+  const [order, setOrder] = useState<TableSort>(null);
   const valid =
     historicalDateSchema.safeParse(range.start).success &&
     historicalDateSchema.safeParse(range.end).success &&
     range.start <= range.end;
   const audit = api.universeAuditPage.useQuery(
-    { source, ...range, metric, page },
+    { source, ...range, metric, page, order },
     {
       enabled: valid && (open || source.kind === "research"),
       retry: false,
@@ -132,6 +134,11 @@ export function UniverseAuditContainer({
               data={audit.data}
               page={page}
               onPage={setPage}
+              order={order}
+              onOrder={(next) => {
+                setOrder(next);
+                setPage(0);
+              }}
               loading={audit.isFetching}
             />
           )}

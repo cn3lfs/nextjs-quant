@@ -1,5 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import {
+  nextTableSort,
+  sortingState,
+  type TableSort,
+} from "~/lib/common/server-sort";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import { usePanelVisible } from "../workbench/keep-alive";
@@ -22,16 +27,16 @@ type Row = RouterOutputs["conceptRpsPage"]["rows"][number];
 const columns: DataTableColumn<Row>[] = [
   {
     id: "name",
+    enableSorting: true,
     header: "概念",
-    enableSorting: false,
     cell: ({ row }) => (
       <PoolMembersLink category="concept" name={row.original.name} />
     ),
   },
   {
     id: "rank",
+    enableSorting: true,
     header: "排名 / RPS / 等权涨幅",
-    enableSorting: false,
     cell: ({ row }) =>
       row.original.value
         ? `${row.original.value.rank} / ${row.original.value.rps.toFixed(2)} / ${(row.original.value.return * 100).toFixed(2)}%`
@@ -39,15 +44,15 @@ const columns: DataTableColumn<Row>[] = [
   },
   {
     id: "coverage",
+    enableSorting: true,
     header: "成分 / 有效 / 端点不足",
-    enableSorting: false,
     cell: ({ row }) =>
       `${row.original.total} / ${row.original.valid} / ${row.original.endpointMissing}`,
   },
   {
     id: "excluded",
+    enableSorting: true,
     header: "剔除原因",
-    enableSorting: false,
     cell: ({ row }) =>
       industryExclusions
         .filter((reason) => row.original.excluded[reason])
@@ -62,6 +67,7 @@ export function ConceptRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(50);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
+  const [order, setOrder] = useState<TableSort>(null);
   const [message, setMessage] = useState("");
   const visible = usePanelVisible();
   const status = api.conceptRpsStatus.useQuery(undefined, {
@@ -69,7 +75,7 @@ export function ConceptRpsControls() {
     refetchInterval: 3000,
   });
   const page = api.conceptRpsPage.useQuery(
-    { date: date || undefined, period, page: pagination.pageIndex },
+    { date: date || undefined, period, page: pagination.pageIndex, order },
     {
       enabled: visible,
       refetchInterval:
@@ -198,8 +204,11 @@ export function ConceptRpsControls() {
         rowCount={page.data?.total ?? 0}
         pagination={pagination}
         onPaginationChange={setPagination}
-        sorting={[]}
-        onSortingChange={() => {}}
+        sorting={sortingState(order)}
+        onSortingChange={(updater) => {
+          setOrder(nextTableSort(updater, order));
+          setPagination({ pageIndex: 0, pageSize: 20 });
+        }}
         getRowId={(r) => r.name}
         label="概念RPS排名"
         loading={page.isPending}

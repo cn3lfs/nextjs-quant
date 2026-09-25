@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sortTableRows, tableSortSchema } from "../common/server-sort";
 import {
   parseDeliveryDate,
   parseDeliveryNumber,
@@ -379,14 +380,27 @@ export const cashReconciliationPageSchema = z.object({
   pageIndex: z.number().int().min(0).max(1000000).default(0),
   pageSize: z.number().int().min(1).max(100).default(20),
   status: z.enum(["all", ...cashReconciliationStatuses]).default("all"),
+  order: tableSortSchema,
 });
 export function cashReconciliationPage(
   result: CashReconciliation,
   input: z.input<typeof cashReconciliationPageSchema> = {},
 ) {
   const options = cashReconciliationPageSchema.parse(input);
-  const rows = result.days.filter(
-    (day) => options.status === "all" || day.status === options.status,
+  const rows = sortTableRows(
+    result.days.filter(
+      (day) => options.status === "all" || day.status === options.status,
+    ),
+    options.order,
+    {
+      date: (day) => day.date,
+      status: (day) => day.status,
+      statementCash: (day) => day.statementCash,
+      projectedCash: (day) => day.projectedCash,
+      difference: (day) => day.difference,
+      reason: (day) => day.reason,
+      evidence: (day) => day.evidence.length,
+    },
   );
   const { days: _days, ...metadata } = result;
   return {
