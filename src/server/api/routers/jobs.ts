@@ -2,6 +2,7 @@ import { marketSourceSchema } from "~/lib/market/market-source";
 import { chartSymbolSchema } from "~/lib/chart/chart-symbol";
 import { futuresQuotes } from "../../market/futures-chart";
 import { futuresSourceSchema } from "~/lib/market/futures";
+import { cryptoSourceSchema } from "~/lib/market/crypto";
 import { researchAdjustmentSchema } from "~/lib/research/evidence/research-adjustment";
 import { sqlite as chartSqlite } from "../../db";
 import {
@@ -89,10 +90,17 @@ export const jobsRouter = createTRPCRouter({
         period: periodSchema,
         source: z.union([marketSourceSchema, z.literal("online")]).optional(),
         futuresSource: futuresSourceSchema.optional(),
+        cryptoSource: cryptoSourceSchema.optional(),
       }),
     )
     .mutation(({ input }) =>
-      snapshot(input.symbol, input.period, input.source, input.futuresSource),
+      snapshot(
+        input.symbol,
+        input.period,
+        input.source,
+        input.futuresSource,
+        input.cryptoSource,
+      ),
     ),
   futuresQuotes: p.query(() => futuresQuotes()),
   watchlist: p

@@ -11,9 +11,11 @@ export type SnapshotRequest = {
   period: string;
   source?: string;
   futuresSource?: string;
+  cryptoSource?: string;
 };
 export const snapshotCacheKey = (r: SnapshotRequest) =>
-  [r.symbol, r.period, r.source ?? "", r.futuresSource ?? ""].join("|");
+  [r.symbol, r.period, r.source ?? "", r.futuresSource ?? ""].join("|") +
+  (r.cryptoSource ? `|${r.cryptoSource}` : "");
 
 const LIMIT = 12;
 

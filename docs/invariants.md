@@ -208,6 +208,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **是什么**：默认关闭，启用自身不请求网络；开户、对账、委托各需显式操作。产品下单需界面确认，60 秒一次性预览编号在请求前消费，不自动重放/重试；受理不等于成交，不自动写本地成交。历史 Q0 的实操授权不是本次文档任务的操作授权，不接真实券商。
 - **是什么（契约）**：读取技能契约写 TypeScript HTTP 适配器，不执行技能交易 Python 脚本。允许的模拟主机与弱身份认证例外仅属模拟盘；用户名/资金及股东账号按凭证用 DPAPI 保存，不入业务库/日志。保留最近 20 次脱敏原始响应、fetchedAt、payloadHash、HTTP 状态及失败字段；成功适配也不删除诊断。文档/实测两套字段显式展示，冲突拒绝，9/8/: 未知市场不猜测、不静默丢弃。
 - **是什么（重试/对账）**：结果未知保留原身份，不重复开户/买入；Q0 限定的一次重查已经用完，非自动重试许可。对账展示差异，不覆盖任一侧；实测持仓使用 gpsl+djsl，总数不等于 kysl 可卖数。
+- **是什么（数字货币模拟盘）**：币安只接 Demo Mode 和现货测试网两种模拟网络，客户端不含实盘地址，实盘 Key 拒绝使用。默认关闭；委托需预览，60 秒一次性编号在请求前消费，确认时核对 Key 网络未变；下单和撤单用 `singleAttempt` 只发一次，不改走其他线路重发；结果分受理、拒绝、未知，未知不重试；不写 A 股台账。测试：[binance-sim.test.ts](../tests/market-chart/market-data/binance-sim.test.ts)、[crypto-demo-service.test.ts](../tests/portfolio-ledger/crypto-demo-service.test.ts)。
 - **为什么**：弱认证身份仍能触发持久外部动作；契约会漂移，空结果不能伪装成空账户。
 - **测试**：[p1-mock-trading.test.ts](../tests/portfolio-ledger/p1-mock-trading.test.ts)、[p1-trade-services.test.ts](../tests/portfolio-ledger/p1-trade-services.test.ts)、[p1-trade-ledger.test.ts](../tests/portfolio-ledger/p1-trade-ledger.test.ts)。默认关闭实际请求 0；技能 hash 有覆盖，禁止执行任意技能脚本的全局静态护栏：**无测试保护**。
 - **违反会怎样**：重复外部账户/委托、凭证泄漏、假对账。既有证券身份查询另有受限 westock-data Node 搜索入口；“不执行技能脚本”在此特指契约适配与研究方法读取，不伪称全仓库零子进程。

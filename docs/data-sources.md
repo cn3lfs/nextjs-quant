@@ -67,7 +67,26 @@ TCP 协议早期复核：对照 [xmtdx 0.2.1](https://pypi.org/project/xmtdx/) �
 
 数据与连接页的「数字货币出站代理」面板可以修改代理地址，也可以一键测试三个币安地址在直连和经代理两种方式下是否可用。2026-09-24 实测结果：`data-api.binance.vision` 两种方式都可用；`api.binance.com` 直连超时，经代理受地区限制；`testnet.binance.vision`（测试网）直连可用，经代理受地区限制。所以测试网的账户和下单可以直连使用，实盘仍需要一个不受限地区的代理出口。代理地址和测试网开关只由这个面板保存，旧页面的整体「保存设置」不会覆盖它们。
 
-币安 API Key 用 Windows DPAPI 加密保存在凭证库（`credentials/binance-api.bin`），界面只显示末 4 位，也不会把 Key 返回给前端。目前只支持 HMAC 类型的 Key。
+币安 API Key 用 Windows DPAPI 加密保存在凭证库（`credentials/binance-api.bin`），界面只显示末 4 位，也不会把 Key 返回给前端。目前只支持 HMAC 类型的 Key。2026-09-25 起只接受模拟盘 Key（Demo 或测试网，见下文），旧的实盘 Key 会被识别出来并拒绝使用。
+
+### 备用行情源（2026-09-25）
+
+数字货币行情除币安外新增 OKX、Gate.io、Coinbase、Bybit 四个免 Key 公开接口（`src/server/data-sources/crypto-venues/`），页面可选「自动」或手动指定。自动模式按 币安 → OKX → Gate.io → Coinbase → Bybit 依次尝试，失败的源 5 分钟内跳过（最后一个不跳过）；手动指定只用该源、不回退。各源都按原交易对取价，不把 USDT 换成 USD；某源不提供的周期直接报错并提示换源。
+
+| 源 | 接口 | 周期 | 说明 |
+|---|---|---|---|
+| OKX | `/api/v5/market/history-candles`，`after` 向前翻页，每页 300 | 全部；日/周/月用 `1Dutc` 等 UTC 切分（`1D` 按香港时间） | 有成交额与收线标志 |
+| Gate.io | `/api/v4/spot/candlesticks`，`to` 向前翻页，每页 1000 | 分钟与日线；周/月不按日历对齐，不提供 | 只保留最近 10000 根，超出按“历史到头”处理 |
+| Coinbase | `/products/{id}/candles`，按时间窗向前平铺，每窗 300 | 5 分、15 分、60 分、日线 | 无成交额（记 0）；时间窗可能返回短页，只有空页才算到头 |
+| Bybit | `/v5/market/kline?category=spot`，`end` 向前翻页，每页 1000 | 全部 | — |
+
+2026-09-25 本机实测（BTCUSDT，各 1500 根）：OKX 直连超时、经 10808 代理可用（日线约 6.6 秒）；Gate.io 直连可用（约 5.5 秒）；Coinbase 直连超时、经代理可用（约 4 秒）；Bybit 直连超时，经代理返回 403（CloudFront 按国家屏蔽代理出口），当前不可用。
+
+### 币安模拟盘（2026-09-25）
+
+只支持两种模拟网络，客户端（`binance-private.ts`）只内置这两个地址：Demo Mode `demo-api.binance.com`（行情贴近实盘，规则与实盘一致，每月重置余额）和现货测试网 `testnet.binance.vision`（独立行情，约每月清空）。两种 Key 不能互用：Demo Key 在币安账户的 Demo Trading → API 管理里创建，测试网 Key 在 testnet.binance.vision 用 GitHub 登录生成。
+
+2026-09-25 实测：`demo-api.binance.com` 直连超时，经 10808 代理返回 451，当前网络不可用；`testnet.binance.vision` 直连可用。所以当前只能用测试网，Demo Mode 需要换一个不受限地区的出口。下单与撤单只发一次、不改走其他线路重发（`outboundFetch` 的 `singleAttempt`），避免直连超时后经代理重复下单。
 
 ## 资源期货（2026-09-24 接入）
 

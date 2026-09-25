@@ -11,15 +11,27 @@ import {
   cryptoAssets,
   cryptoDisplayName,
   cryptoPair,
+  cryptoSourceLabels,
+  cryptoSourceSchema,
   cryptoSymbol,
   defaultCryptoPairs,
   isCryptoSymbol,
+  type CryptoSource,
 } from "~/lib/market/crypto";
+import { marketSourceLabel } from "~/lib/market/market-source";
 import { useSnapshotLoad } from "./use-snapshot-load";
 import { ListPanel, PageGrid, Panel, PanelEmpty, Pill } from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
+import { CryptoDemoPanel } from "./crypto-demo-panel";
 
 /** Pair from `?pair=BTCUSDT` (or a legacy `?symbol=cxBTCUSDT` deep link). */
 function initialPair() {
@@ -38,16 +50,18 @@ export function CryptoView() {
   const [symbol, setSymbol] = useState("cxBTCUSDT");
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [draft, setDraft] = useState("");
+  const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
   useEffect(() => {
     const first = initialPair();
     setSymbol(first);
-    load.mutate({ symbol: first, period: "day" });
+    load.mutate({ symbol: first, period: "day", cryptoSource: "auto" });
   }, []);
-  const open = (next: string) => {
+  const open = (next: string, pick = source) => {
     setSymbol(next);
-    load.mutate({ symbol: next, period: "day" });
+    setSource(pick);
+    load.mutate({ symbol: next, period: "day", cryptoSource: pick });
   };
   const typed = cryptoSymbol(
     draft
@@ -66,8 +80,30 @@ export function CryptoView() {
               {cryptoDisplayName(symbol)}
             </strong>
             <Pill tone="warn">数字货币</Pill>
-            <Pill tone="idle">币安现货 · 7×24 · UTC 收线</Pill>
+            <Pill tone="idle">现货 · 7×24 · UTC 收线</Pill>
           </div>
+          <Select
+            value={source}
+            disabled={load.isPending}
+            onValueChange={(next) => {
+              setPeriod("day");
+              open(symbol, cryptoSourceSchema.parse(next));
+            }}
+          >
+            <SelectTrigger
+              aria-label="数字货币数据源"
+              className="ml-auto w-auto min-w-44"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {cryptoSourceSchema.options.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {cryptoSourceLabels[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="segmented">
             {chartPeriodSchema.options.map((p) => (
               <Button
@@ -84,7 +120,7 @@ export function CryptoView() {
         </div>
         {load.error && !load.isPending ? (
           <div role="alert" className="p-4 text-[12px] text-nc-bad">
-            币安行情读取失败：{load.error.message}
+            数字货币行情读取失败：{load.error.message}
             <Button
               size="sm"
               variant="outline"
@@ -102,9 +138,12 @@ export function CryptoView() {
             adjustment="none"
           />
         ) : (
-          <PanelEmpty>正在读取币安行情…</PanelEmpty>
+          <PanelEmpty>正在读取数字货币行情…</PanelEmpty>
         )}
         <div className="source-line">
+          {loaded?.symbol === symbol
+            ? `数据源 ${marketSourceLabel(loaded.source)} · `
+            : ""}
           价格单位 {quote || "计价币"} · 成交量单位 {base} · 不复权 · 与 A
           股数据、自选、RPS、监控和台账完全分开
         </div>
@@ -131,10 +170,11 @@ export function CryptoView() {
             ),
           }))}
         />
+        <CryptoDemoPanel symbol={symbol} />
         <Panel
           icon={Globe}
           title="其他交易对"
-          note="输入币安现货交易对，如 PEPEUSDT、ETHBTC。"
+          note="输入现货交易对，如 PEPEUSDT、ETHBTC。"
         >
           <form
             className="flex gap-2"

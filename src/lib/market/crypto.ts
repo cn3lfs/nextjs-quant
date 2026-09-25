@@ -62,3 +62,44 @@ export function cryptoBarDate(
     return new Date(openTime).toISOString().slice(0, 10);
   return new Date(closeTime + 1).toISOString().replace(/\.\d{3}Z$/, "+00:00");
 }
+
+/** User-selectable crypto market source; `auto` walks the fallback chain. */
+export const cryptoSourceSchema = z.enum([
+  "auto",
+  "binance",
+  "okx",
+  "gate",
+  "coinbase",
+  "bybit",
+]);
+export type CryptoSource = z.infer<typeof cryptoSourceSchema>;
+export type CryptoVenue = Exclude<CryptoSource, "auto">;
+export const cryptoSourceLabels: Record<CryptoSource, string> = {
+  auto: "自动（币安 → OKX → Gate → Coinbase → Bybit）",
+  binance: "币安",
+  okx: "OKX",
+  gate: "Gate.io",
+  coinbase: "Coinbase（无 30 分钟/周/月）",
+  bybit: "Bybit",
+};
+
+/**
+ * Venue instrument id for a `cx` symbol. The quote asset is never swapped
+ * (e.g. USDT for USD), so every source prices the same book; a venue that
+ * lacks the pair reports it instead. Returns null when the pair cannot be split.
+ */
+export function venueSymbol(venue: CryptoVenue, symbol: string) {
+  const { base, quote } = cryptoAssets(symbol);
+  if (!quote) return venue === "binance" || venue === "bybit" ? cryptoPair(symbol) : null;
+  switch (venue) {
+    case "binance":
+    case "bybit":
+      return `${base}${quote}`;
+    case "okx":
+      return `${base}-${quote}`;
+    case "gate":
+      return `${base}_${quote}`;
+    case "coinbase":
+      return `${base}-${quote}`;
+  }
+}

@@ -120,7 +120,7 @@ export const navGroups: readonly NavGroup[] = [
       {
         href: "/crypto",
         label: "数字货币行情",
-        subtitle: "币安现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
+        subtitle: "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
         icon: CurrencyBtc,
       },
     ],

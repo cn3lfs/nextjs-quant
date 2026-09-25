@@ -12,6 +12,7 @@ const {
   binanceCredentialStatus,
   clearBinanceCredential,
   preserveCryptoSettings,
+  readBinanceSimCredential,
   saveBinanceCredential,
   saveCryptoSettings,
 } = await import("../../src/server/infra/crypto-connectivity");
@@ -28,12 +29,12 @@ describe("Binance credentials", () => {
     await saveBinanceCredential({
       apiKey: key,
       apiSecret: secret,
-      testnet: true,
+      network: "demo",
     });
     const status = await binanceCredentialStatus();
     expect(status).toMatchObject({
       configured: true,
-      testnet: true,
+      network: "demo",
       keyHint: "…WXYZ",
     });
     expect(JSON.stringify(status)).not.toContain(secret);
@@ -45,14 +46,14 @@ describe("Binance credentials", () => {
       saveBinanceCredential({
         apiKey: "short",
         apiSecret: secret,
-        testnet: true,
+        network: "testnet",
       }),
     ).rejects.toThrow();
     await expect(
       saveBinanceCredential({
         apiKey: key,
         apiSecret: "-----BEGIN PRIVATE KEY-----",
-        testnet: false,
+        network: "testnet",
       }),
     ).rejects.toThrow();
     expect(await binanceCredentialStatus()).toEqual({ configured: false });
@@ -62,10 +63,23 @@ describe("Binance credentials", () => {
     await saveBinanceCredential({
       apiKey: key,
       apiSecret: secret,
-      testnet: false,
+      network: "testnet",
     });
     await clearBinanceCredential();
     expect(await binanceCredentialStatus()).toEqual({ configured: false });
+    await expect(readBinanceSimCredential()).rejects.toThrow("尚未保存");
+  });
+
+  it("accepts only simulated networks and refuses a legacy live key", async () => {
+    await expect(
+      saveBinanceCredential({ apiKey: key, apiSecret: secret, network: "live" }),
+    ).rejects.toThrow();
+    // Saved before networks were split: testnet=false meant a live key.
+    store.set("binance-api", { apiKey: key, apiSecret: secret, testnet: false, savedAt: 1 });
+    expect(await binanceCredentialStatus()).toMatchObject({ network: "live" });
+    await expect(readBinanceSimCredential()).rejects.toThrow("实盘 Key");
+    store.set("binance-api", { apiKey: key, apiSecret: secret, testnet: true, savedAt: 1 });
+    await expect(readBinanceSimCredential()).resolves.toMatchObject({ network: "testnet" });
   });
 });
 

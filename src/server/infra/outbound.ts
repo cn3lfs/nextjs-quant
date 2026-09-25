@@ -53,6 +53,10 @@ export type OutboundOptions = {
   /** Direct responses with these statuses count as a failed direct route
    *  (e.g. Yahoo answers 403 to mainland IPs) and are retried via the proxy. */
   proxyOnStatus?: readonly number[];
+  /** Non-idempotent requests (orders): one attempt on the remembered route
+   *  (direct when none), never re-sent over the other route after a failure
+   *  that may already have reached the server. */
+  singleAttempt?: boolean;
 };
 
 const defaultFetcher: Fetcher = (url, init) =>
@@ -92,6 +96,11 @@ export async function outboundFetch(
     return { response, route: "proxy" as const };
   };
   if (preferProxy) return viaProxy();
+  if (options.singleAttempt) {
+    const response = await fetcher(url, withTimeout(init, REQUEST_TIMEOUT_MS));
+    routes.set(host, { route: "direct", at: now() });
+    return { response, route: "direct" };
+  }
   // The short limit covers connecting and headers only; the body may stream
   // for as long as the request timeout allows.
   const probe = new AbortController();

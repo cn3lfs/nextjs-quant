@@ -1,3 +1,4 @@
+import type { CryptoSource } from "~/lib/market/crypto";
 import type { MarketSource } from "~/lib/market/market-source";
 import type { Period, Snapshot } from "~/lib/domain";
 import { settings } from "../infra/settings";
@@ -15,16 +16,17 @@ export async function snapshot(
   period: Period,
   source: MarketSource | "mcp" | "online" = settings().marketDataSource,
   futuresSource: FuturesSource = "auto",
+  cryptoSource: CryptoSource = "auto",
 ) {
   if (source === "mcp")
     throw new Error("原 MCP 监控已停用，请重新选择免费数据源");
   const selected = source === "online" ? "auto" : source;
   let result: Snapshot;
   if (isCryptoSymbol(symbol) || isFuturesSymbol(symbol)) {
-    // Crypto (Binance) and futures have their own sources; the A-share
+    // Crypto and futures have their own sources; the A-share
     // source choice does not apply.
     result = isCryptoSymbol(symbol)
-      ? await cryptoSnapshot(symbol, period)
+      ? await cryptoSnapshot(symbol, period, cryptoSource)
       : await futuresSnapshot(symbol, period, futuresSource);
     const existing = get<Snapshot>(result.id);
     if (!existing) put("snapshot", result.id, result);

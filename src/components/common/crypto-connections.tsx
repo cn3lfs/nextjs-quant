@@ -4,8 +4,20 @@ import { CurrencyBtc, Globe, Key } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { GridTable, Panel, Pill } from "../panels";
 import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+
+const networkLabels = {
+  demo: "Demo 模拟盘",
+  testnet: "测试网",
+  live: "实盘 Key（模拟盘不使用，请重新保存）",
+} as const;
 
 type Probe = { ok: boolean; status?: number; ms: number; message: string };
 const ProbeCell = ({ value }: { value: Probe | null }) =>
@@ -38,7 +50,7 @@ export function CryptoConnections() {
   const check = api.cryptoConnectivity.useMutation();
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [live, setLive] = useState(false);
+  const [network, setNetwork] = useState<"demo" | "testnet">("demo");
   const [clearing, setClearing] = useState(false);
   const refreshCredential = () =>
     void utils.binanceCredentialStatus.invalidate();
@@ -143,21 +155,21 @@ export function CryptoConnections() {
         title="币安 API"
         actions={
           credential.data?.configured ? (
-            <Pill tone={credential.data.testnet ? "accent" : "warn"}>
+            <Pill tone={credential.data.network === "live" ? "warn" : "accent"}>
               已配置 {credential.data.keyHint} ·{" "}
-              {credential.data.testnet ? "测试网" : "实盘"}
+              {networkLabels[credential.data.network]}
             </Pill>
           ) : (
             <Pill tone="idle">未配置</Pill>
           )
         }
-        note="Key 与 Secret 用 Windows DPAPI 加密保存在本机，界面只显示末 4 位。建议在币安创建 Key 时只勾选「读取」，需要手动下单时再加「现货交易」，不要开启提现。应用不会自动下单。"
+        note="只接受模拟盘 Key：Demo Key 在币安账户的 Demo Trading → API 管理创建，测试网 Key 在 testnet.binance.vision 用 GitHub 登录生成；两种 Key 不能互用，也不接受实盘 Key。Key 与 Secret 用 Windows DPAPI 加密保存在本机，界面只显示末 4 位。应用不会自动下单。"
       >
         <form
           className="form-grid"
           onSubmit={(event) => {
             event.preventDefault();
-            saveKey.mutate({ apiKey, apiSecret, testnet: !live });
+            saveKey.mutate({ apiKey, apiSecret, network });
           }}
         >
           <label>
@@ -178,12 +190,24 @@ export function CryptoConnections() {
               onChange={(event) => setApiSecret(event.target.value)}
             />
           </label>
-          <label className="col-span-full flex-row! items-center gap-2 text-[12px] text-nc-text-2">
-            <Checkbox
-              checked={live}
-              onCheckedChange={(checked) => setLive(checked === true)}
-            />
-            这是实盘 Key（不勾选即按测试网 testnet.binance.vision 保存）
+          <label className="col-span-full">
+            Key 所属网络
+            <Select
+              value={network}
+              onValueChange={(value) => setNetwork(value as typeof network)}
+            >
+              <SelectTrigger aria-label="Key 所属网络">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="demo">
+                  Demo 模拟盘（demo-api.binance.com，贴近实盘行情）
+                </SelectItem>
+                <SelectItem value="testnet">
+                  现货测试网（testnet.binance.vision，独立行情）
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           <div className="button-row col-span-full">
             <Button

@@ -1,3 +1,4 @@
+import type { CryptoSource } from "./market/crypto";
 import { marketSourceSchema, type MarketSource } from "./market/market-source";
 import type { FuturesSource } from "./market/futures";
 import { researchDateSchema } from "./research/workflow/research-usage";
@@ -42,6 +43,7 @@ export type Snapshot = {
   requestedSource?: MarketSource;
   /** Futures only: the source the user picked on the futures page. */
   futuresSource?: FuturesSource;
+  cryptoSource?: CryptoSource;
 };
 export const maParamsSchema = z
   .object({
