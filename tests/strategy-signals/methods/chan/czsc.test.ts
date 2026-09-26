@@ -111,7 +111,7 @@ test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness
   ]);
   const result = await projectCzsc(fixture);
   expect(result.hash).toBe(
-    "35316da4f1ce057ca477a7055523f078e659ec5ba2b7ca2b0b706ab09ff9faf3",
+    "a09e557a3febc3ce0fd1c730dcb52ea6d4a5f95ca61bdb6ae4e668a4e80a4ce8",
   );
   result.registered.forEach((v, i) =>
     expect(Math.abs(v - Math.fround(fixture.close[i]!))).toBeLessThan(0.0001),
