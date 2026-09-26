@@ -11,7 +11,7 @@ Golden expectations come exclusively from `tests/CzscCoreTests.cpp`:
 `TestRealSseGoldenSegmentCentersPresent`. The manual notes are not authoritative.
 The source repository identifies its code license as GPL v3 (Martin Tang, 2016).
 
-`czsc-sse-structures.txt` preserves the first full-history L001–L015,
-BZ00–BZ17 and SZ00–SZ01 lines verbatim from `tests/czsc_sse_result.txt` at
-the same source commit. Its center prices use the generator's `%.0f` format;
+`czsc-sse-structures.txt` preserves the first full-history L001–L011,
+BZ00–BZ13 and SZ00 lines verbatim from `tests/czsc_sse_result.txt` at
+source commit `bb58ecf05f5ec97a8da66e7a65cb89e91e21a075` (bar data unchanged). Its center prices use the generator's `%.0f` format;
 the separate C++ anchor assertions retain float32 precision and <0.0001 tolerance.

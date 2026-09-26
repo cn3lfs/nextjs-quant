@@ -64,7 +64,7 @@ export function chanStructureCriterion(
     !center ||
     !Number.isInteger(center.start) ||
     !Number.isInteger(center.end) ||
-    center.end > signal.index ||
+    center.start > signal.index ||
     center.start < 0 ||
     center.end < center.start ||
     bars[center.start]?.date !== center.startDate ||

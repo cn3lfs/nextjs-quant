@@ -183,7 +183,7 @@ export function chanNativeCandidates(
       !Number.isFinite(center.ZG) ||
       center.ZD <= 0 ||
       center.ZD > center.ZG ||
-      center.end > p.index ||
+      center.start > p.index ||
       center.end < center.start ||
       bars[center.start]?.date !== center.startDate ||
       bars[center.end]?.date !== center.endDate ||

@@ -58,7 +58,7 @@ it.each([1, 2, 3] as ChanAnchor[])(
         result = await analyzeChanMovements(prefix, anchor);
       totals.prefixes++;
       expect(result.hash).toBe(
-        "7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457",
+        "35316da4f1ce057ca477a7055523f078e659ec5ba2b7ca2b0b706ab09ff9faf3",
       );
       for (const [i, family] of result.families.entries()) {
         const table = family.native!.recursiveMovements!;

@@ -115,7 +115,8 @@ it("real SSE projections match native golden counts and independent endpoint/mem
   }));
   const result = await analyzeCzsc(input, true, projectCzsc, true);
   for (const f of result.families) {
-    expect(f.native!.highCandidates).toHaveLength(2);
+    // czsc-tdx bb58ecf: one segment center and no segment-level candidates on SSE daily.
+    expect(f.native!.highCandidates).toHaveLength(0);
     for (const t of f.native!.trends) {
       expect(t.start).toBe(f.centers[t.firstCenterId - 1]!.start);
       expect(t.end).toBe(f.centers[t.lastCenterId - 1]!.end);

@@ -111,7 +111,7 @@ test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness
   ]);
   const result = await projectCzsc(fixture);
   expect(result.hash).toBe(
-    "7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457",
+    "35316da4f1ce057ca477a7055523f078e659ec5ba2b7ca2b0b706ab09ff9faf3",
   );
   result.registered.forEach((v, i) =>
     expect(Math.abs(v - Math.fround(fixture.close[i]!))).toBeLessThan(0.0001),
@@ -176,11 +176,11 @@ test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness
   expect(actual).toEqual({
     strokes: 157,
     endpoints: 158,
-    segments: 15,
-    strokeCenters: 18,
-    segmentCenters: 2,
-    strokeSignals: 17,
-    segmentSignals: 2,
+    segments: 11,
+    strokeCenters: 14,
+    segmentCenters: 1,
+    strokeSignals: 13,
+    segmentSignals: 0,
   });
   // DumpSseResult.cpp prints centers with %.0f and endpoints with %.2f.
   // Compare that exact representation, retaining the stricter float32 anchor
@@ -188,7 +188,7 @@ test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness
   const rows = readFileSync("tests/fixtures/czsc-sse-structures.txt", "utf8")
     .trim()
     .split(/\r?\n/);
-  expect(rows).toHaveLength(35);
+  expect(rows).toHaveLength(26);
   const differences: string[] = [];
   for (const row of rows) {
     const center = row.match(
@@ -230,18 +230,17 @@ test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness
         );
     }
   }
-  console.log("GOLDEN 35-row field differences", differences);
+  console.log("GOLDEN 26-row field differences", differences);
   expect(differences).toEqual([]);
   // TestRealSseGoldenCentersPresent / TestRealSseGoldenSegmentCentersPresent.
   const anchors: [number, string, string, number, number][] = [
-    [0, "2018-02-26", "2018-07-06", 3128.72, 3091.46],
-    [0, "2018-07-12", "2018-11-30", 2676.48, 2653.11],
-    [0, "2019-01-04", "2019-05-10", 3125.02, 2987.77],
-    [0, "2019-05-17", "2020-03-19", 2922.91, 2891.54],
-    [0, "2020-04-10", "2020-07-09", 2833.02, 2802.47],
-    [0, "2020-07-27", "2021-01-25", 3350.59, 3325.17],
-    [1100, "2018-11-19", "2020-07-09", 2822.19, 2822.19],
-    [1100, "2020-09-25", "2023-06-26", 3418.95, 3312.72],
+    [0, "2018-02-26", "2018-06-07", 3220.85, 3091.46],
+    [0, "2018-07-06", "2018-08-28", 2791.39, 2691.02],
+    [0, "2018-10-19", "2019-01-04", 2676.48, 2590.21],
+    [0, "2019-03-07", "2019-04-08", 3125.02, 2987.77],
+    [0, "2019-05-10", "2020-03-05", 2922.91, 2838.38],
+    [0, "2020-03-19", "2020-05-25", 2833.02, 2796.84],
+    [1100, "2020-03-19", "2025-04-07", 3723.85, 3312.72],
   ];
   for (const [config, start, end, high, low] of anchors) {
     const a = fixture.date.indexOf(start),

@@ -186,7 +186,7 @@ it("missing native metadata is a structural gap, not a silent zero-signal result
 
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
-it("locked real DLL fixture proves third-buy ownership; this fixture has no first/second buys", async () => {
+it("locked real DLL fixture proves first/third-buy ownership; this fixture has no second buys", async () => {
   const b = fixture.date.map((date, i) => ({
     date,
     open: fixture.close[i]!,
@@ -198,20 +198,21 @@ it("locked real DLL fixture proves third-buy ownership; this fixture has no firs
   }));
   const result = await analyzeCzsc(b, true);
   expect(result.hash).toBe(
-    "7f2b2ec4703ed67c811046d0b2b73a1f40b6266cd3abaeb2620e2ece47e77457",
+    "35316da4f1ce057ca477a7055523f078e659ec5ba2b7ca2b0b706ab09ff9faf3",
   );
   for (const id of chanNativeIds) {
     const selected = chanNativeCandidates(id, result, b, 0);
     expect(selected.gaps).toEqual([]);
     if (id === "chan-third-native")
       expect(selected.signals.length).toBeGreaterThan(0);
+    else if (id === "chan-first-native")
+      // czsc-tdx bb58ecf: the owning center extends past the signal in hindsight (lesson 29).
+      expect(selected.signals.map((p) => p.date)).toEqual(["2018-08-20"]);
     else {
       expect(
         result.families
           .find((f) => f.config === 0)!
-          .signals.filter(
-            (p) => p.kind === (id === "chan-first-native" ? 1 : 2),
-          ),
+          .signals.filter((p) => p.kind === 2),
       ).toEqual([]);
       expect(selected.signals).toEqual([]);
     }
