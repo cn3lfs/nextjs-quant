@@ -6,7 +6,7 @@ import { localLedgerDependencies, runSignalLedger } from "./signal-ledger-job";
 import {
   analyzeCzsc,
   type projectCzsc,
-  type CzscProjections,
+  type CzscSnapshot,
 } from "../strategies/chan/czsc";
 
 let nextId = 0;
@@ -16,7 +16,7 @@ const project: typeof projectCzsc = (...args) =>
     const listener = (message: {
       type: string;
       id?: number;
-      result: CzscProjections;
+      result: CzscSnapshot;
       error?: string;
     }) => {
       if (message.type !== "projection" || message.id !== id) return;

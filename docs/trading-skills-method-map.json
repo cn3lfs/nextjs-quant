@@ -3092,7 +3092,6 @@
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-movements-execution.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-movements-native.test.ts",
         "tests/strategy-signals/methods/chan/czsc-movements.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3141,7 +3140,6 @@
       "implementation": ["src/lib/research/methods/chan/research-chan-native.ts"],
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-containment.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-projections.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-native.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3186,7 +3184,6 @@
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-movements-execution.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-movements-native.test.ts",
         "tests/strategy-signals/methods/chan/czsc-movements.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3236,7 +3233,6 @@
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-movements-execution.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-movements-native.test.ts",
         "tests/strategy-signals/methods/chan/czsc-movements.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3285,7 +3281,6 @@
       "implementation": ["src/lib/research/methods/chan/research-chan-native.ts"],
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-recursive.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-recursive.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-native.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3371,7 +3366,6 @@
       "implementation": ["src/lib/research/methods/chan/research-chan-native.ts"],
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-containment.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-projections.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-native.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"
@@ -3416,7 +3410,6 @@
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-movements-execution.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-movements-native.test.ts",
         "tests/strategy-signals/methods/chan/czsc-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-monthly.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
@@ -7752,7 +7745,6 @@
       "tests": [
         "tests/strategy-signals/methods/chan/research-chan-movements.test.ts",
         "tests/strategy-signals/methods/chan/research-chan-movements-execution.test.ts",
-        "tests/strategy-signals/methods/chan/czsc-movements-native.test.ts",
         "tests/strategy-signals/methods/chan/czsc-movements.test.ts",
         "tests/research-backtest/research-contracts.test.ts",
         "tests/research-backtest/research-registry-ui.test.ts"

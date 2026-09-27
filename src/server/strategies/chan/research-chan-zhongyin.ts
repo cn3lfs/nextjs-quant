@@ -1,6 +1,9 @@
 import type { Bar } from "~/lib/domain";
 import type { CzscResult } from "~/lib/research/methods/chan/czsc";
-import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
+import type {
+  ResearchEvent,
+  ResearchSpec,
+} from "~/lib/research/strategy-research";
 import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
 import {
   chanRecursiveObservations,
@@ -101,7 +104,7 @@ export async function researchChanZhongyin(
     const table = result.families.find((f) => f.config === spec.czscConfig)
       ?.native?.recursive;
     if (!table || table.anchor !== anchor || table.config !== spec.czscConfig)
-      throw new Error("结构缺口：显式锚93–99递归表缺失");
+      throw new Error("结构缺口：缺中阴递归表");
     const observations = ledger.observe(prefix, table);
     const ended = observations.some(
       (e) =>

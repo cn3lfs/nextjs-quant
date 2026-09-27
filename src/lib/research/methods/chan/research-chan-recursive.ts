@@ -8,7 +8,7 @@ export const chanAnchorVersions = {
   2: { name: "five-minute-anchor-v1", start: "2000-01-04", end: "2022-11-30" },
 } as const;
 export const chanRecursiveBoundary =
-  "第17/18/33/89/90课：strict-subtrend-recursion-v1、leftmost-core-first-departure-v1；递归层级相对显式锚，不自动等同周/月，单中枢节点不冒充趋势。93–99仅当时快照，端点/required不是confirmedAt；身份用锚、config、级别、固定中枢起点及价格，不跨前缀连ID。日线与五分钟分别具名分表，五分钟2000-01-04..2022-11-30。旧笔/线段及完成基线未经验证，不用既有tests/golden证明原文正确；0–58一致只证明变更隔离。";
+  "第17/18/33/89课：czsc-tdx api v5 递归节点（level 0 = 配置级别走势），层级相对调用方锚序列，不自动等同周/月，单中枢节点不冒充趋势。中阴开始 = 与后继的连接极值点之后的下一端点可知之时，结束 = 后继首中枢成立（口径见 czsc-tdx chan-ambiguity-decisions.md「中阴阶段」）。身份用锚、config、级别、固定中枢起点及价格，不跨前缀连ID。日线与五分钟分别具名分表，五分钟2000-01-04..2022-11-30。";
 
 type Fact = {
   anchor: 1 | 2 | 3;

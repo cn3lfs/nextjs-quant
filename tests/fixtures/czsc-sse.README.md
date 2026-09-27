@@ -6,12 +6,9 @@ source HEAD `b67f3c642a8542ab9abd30c920ebf88f2cfdb7f8`.
 as forward-adjusted SSE index data. JSON preserves high, low, close, volume and date.
 No open-price substitute is fabricated; the native ABI consumes H/L/C/V only.
 
-Golden expectations come exclusively from `tests/CzscCoreTests.cpp`:
-`TestRealSseDiagnosticCounts`, `TestRealSseGoldenCentersPresent`, and
-`TestRealSseGoldenSegmentCentersPresent`. The manual notes are not authoritative.
 The source repository identifies its code license as GPL v3 (Martin Tang, 2016).
 
-`czsc-sse-structures.txt` preserves the first full-history L001–L011,
-BZ00–BZ13 and SZ00 lines verbatim from `tests/czsc_sse_result.txt` at
-source commit `bb58ecf05f5ec97a8da66e7a65cb89e91e21a075` (bar data unchanged). Its center prices use the generator's `%.0f` format;
-the separate C++ anchor assertions retain float32 precision and <0.0001 tolerance.
+`czsc-sse-golden.txt` is a verbatim copy of czsc-tdx `tests/unit/golden/sse.txt`
+at `4af864a`. Structure sections are rendered from H/L only (MACD uses the engine's
+(H+L)/2 proxy, so the test feeds exactly that as close); the recursion section uses
+the real close/volume. It is the authority for configs 0 and 1100.

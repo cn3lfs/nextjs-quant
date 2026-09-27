@@ -70,7 +70,7 @@ export const chanC4Presets = [
   }));
 
 export const chanC4Boundary =
-  "第17/18/20/33课：maximal-same-direction-centers-v1；相对级别不映射钟表周期。100–108是独立快照，97保持原语义、108逐成员验证后解析级别。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。建立在未经验证的基线上（旧笔/线段/动力学）；真实DLL接线验证不认证旧算法。三锚分开统计、不同表比较；五分钟2000-01-04..2022-11-30，月线仅用完整月历聚合。候选、确认、revision分别留痕。";
+  "第17/18/20/29/33课：czsc-tdx api v5 递归表按调用方锚序列（日线/五分钟/完整月线）构建；C4 level 0 为相邻端点间的笔/线段，level L+1 为原生递归第 L 层（level 1 即配置级别走势，与信号所属走势一一关联）。趋势完成以原生完成证据为准（趋势末端一类点且后继走势已确立），背驰后回到最后中枢使其事后延伸（第29课）不再视为矛盾。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。三锚分开统计、不同表比较；五分钟2000-01-04..2022-11-30，月线仅用完整月历聚合。候选、确认、revision分别留痕。";
 type Signal = CzscFamily["signals"][number];
 type Verdict = {
   status: "matched" | "not-matched" | "missing";

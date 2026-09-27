@@ -64,13 +64,13 @@ function context(): CzscResult {
     qualities: [],
     divergences: [],
     diagnostics: {
-      version: "native-projections-b67f3c6-1",
+      version: "czsc-api-v4",
       ma: [],
       lifecycle: [],
       nested: [],
     },
     native: {
-      version: "native-projections-c2-1",
+      version: "czsc-api-v4",
       config,
       trends: [],
       highCandidates: [
@@ -106,8 +106,9 @@ function context(): CzscResult {
       firstCenterId: 1,
       lastCenterId: 1,
       memberCenterIds: [1],
-      completion: "unknown",
-      theoreticalLevel: null,
+      completedAt: null,
+      completedByIndex: -1,
+      confirmedAt: -1,
     },
   ];
   low.diagnostics!.nested = [
@@ -130,7 +131,7 @@ function context(): CzscResult {
   return {
     status: "structure",
     hash: "fixed-c2",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [low, high],
   };
 }

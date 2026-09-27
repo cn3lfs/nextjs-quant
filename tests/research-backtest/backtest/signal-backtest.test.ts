@@ -40,7 +40,7 @@ it("historical points and signals equal direct prefix evaluation field for field
       {
         status: "no-structure",
         hash: "",
-        sourceCommit: "b67f3c6",
+        sourceCommit: "czsc-api-v4",
         families: [],
       },
       direct,

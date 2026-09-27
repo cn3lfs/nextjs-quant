@@ -3,7 +3,10 @@ import type { Bar } from "~/lib/domain";
 import type { CzscResult, CzscFamily } from "~/lib/research/methods/chan/czsc";
 import type { ChanAnchor } from "~/lib/research/methods/chan/czsc-movements";
 import { chanAnchorDateCodes } from "~/lib/research/methods/chan/czsc-movements";
-import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
+import type {
+  ResearchEvent,
+  ResearchSpec,
+} from "~/lib/research/strategy-research";
 import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
 import { chanAnchorVersions } from "~/lib/research/methods/chan/research-chan-recursive";
 import { chanNativeCandidates } from "~/lib/research/methods/chan/research-chan-native";
@@ -264,7 +267,7 @@ export async function researchChanMovements(
     const family = result.families.find((f) => f.config === spec.czscConfig),
       table = family?.native?.recursiveMovements;
     if (!table || table.anchor !== anchor || table.config !== spec.czscConfig)
-      throw new Error("结构缺口：缺100–108显式锚表");
+      throw new Error("结构缺口：缺C4锚定递归走势表");
     const observations = ledger(prefix, table, at);
     const valid = (id: number) =>
       observations.find(

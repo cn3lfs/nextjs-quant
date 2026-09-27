@@ -570,7 +570,7 @@ it("all native observations remain immutable in the ledger; exact point joins ex
   const native: CzscResult = {
     status: "structure",
     hash: "fixture",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,
@@ -749,7 +749,7 @@ it("notification audit failure cannot roll back native ledger signals or their b
   const native: CzscResult = {
     status: "structure",
     hash: "fixture",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,

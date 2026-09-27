@@ -1,5 +1,11 @@
 import type { Bar } from "../../../domain";
-import type { CzscFamily, CzscResult, CzscSignalStructure } from "./czsc";
+import {
+  CZSC_CTX,
+  czscSourceCommit,
+  type CzscFamily,
+  type CzscResult,
+  type CzscSignalStructure,
+} from "./czsc";
 
 export const chanStructureTasks = {
   CH04: "验证二三买重合胜出候选同时保留二类40/41与三类33/34关联；原生第三类胜出可能不导出二类端点，缺失不可猜测",
@@ -47,7 +53,7 @@ export function chanStructureCriterion(
   const gaps: string[] = [];
   const family = result.families.find((f) => f.config === config);
   const meta = signal.structure;
-  if (result.status !== "structure" || result.sourceCommit !== "b67f3c6")
+  if (result.status !== "structure" || result.sourceCommit !== czscSourceCommit)
     gaps.push("原生结构状态或锁定版本不符");
   const center =
     family && Number.isInteger(signal.centerId) && signal.centerId! > 0
@@ -104,8 +110,7 @@ export function chanStructureCriterion(
   if (criterion === "overlap") {
     matches &&=
       [2, 3].includes(Math.abs(signal.kind)) &&
-      (flags! & 2048) !== 0 &&
-      (flags! & 4096) !== 0;
+      (flags! & CZSC_CTX.overlap) !== 0;
     if (matches) {
       const base = point("secondBasePointId"),
         turn = point("secondTurnPointId"),
@@ -180,36 +185,49 @@ export function chanStructureCriterion(
         e.index === own.index
       );
       if (criterion === "trend-divergence") {
+        // Native completion evidence (lessons 17/29): the signal is the
+        // first-class point ending a multi-center trend on its last center and
+        // the successor movement has been established. After the divergence
+        // the price may re-enter B and extend it in hindsight (lesson 29), so
+        // c is not required to start after B's end.
         const table = family?.native?.recursiveMovements;
-        const association = table?.associations.find(
-          (a) => a.structureId === meta?.trendId && a.status === "verified",
-        );
-        const movement = table?.movements.find(
-          (m) => m.id === association?.movementId,
-        );
+        if (table) {
+          // Anchored C4 tables must also map the trend to one completed
+          // same-level movement by explicit association.
+          const association = table.associations.find(
+            (a) => a.structureId === meta?.trendId && a.status === "verified",
+          );
+          const movement = table.movements.find(
+            (m) => m.id === association?.movementId,
+          );
+          if (
+            !movement ||
+            movement.completed === null ||
+            movement.centerIds.length < 2 ||
+            association?.level !== movement.level
+          )
+            gaps.push(
+              "缺少C4逐成员关联的已完成同级别多中枢走势，不能由trendId/方向推测",
+            );
+        }
+        const trend = family?.native?.trends[(meta?.trendId ?? 0) - 1];
         if (
-          !movement ||
-          movement.completed === null ||
-          movement.centerIds.length < 2 ||
-          association?.level !== movement.level
+          !trend ||
+          trend.completedAt === null ||
+          trend.memberCenterIds.length < 2 ||
+          trend.completedByIndex !== signal.index
         )
           gaps.push(
-            "缺少C4逐成员关联的已完成同级别多中枢走势，不能由trendId/方向推测",
+            "缺少原生已完成同级别多中枢趋势（完成证据），不能由trendId/方向推测",
           );
         else {
-          const last = table!.centers.find(
-            (c) => c.id === movement.centerIds.at(-1),
-          );
+          const last = family!.centers[trend.lastCenterId - 1];
           matches &&=
-            movement.type === -Math.sign(signal.kind) &&
-            e?.index === movement.end &&
+            trend.type === -Math.sign(signal.kind) &&
             !!last &&
-            center?.start === last.centerStart &&
-            center.end === last.centerEnd &&
-            !!c &&
-            c.index >= last.centerEnd &&
+            center === last &&
             !!a &&
-            a.index >= movement.start &&
+            a.index >= trend.start &&
             !!d &&
             (d.flags & 1) !== 0 &&
             d.areaRatio > 0 &&

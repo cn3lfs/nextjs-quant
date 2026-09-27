@@ -45,23 +45,6 @@ export type CzscMovements = {
   associations: ChanAssociation[];
 };
 
-export const chanMovementOutputs = [
-  100, 101, 102, 103, 104, 105, 106, 107, 108,
-];
-/** Negative extension prevents output100 from becoming config1/output0. */
-export function chanProjectionMode(config: number, output: number) {
-  if (
-    ![0, 1100].includes(config) ||
-    !Number.isInteger(output) ||
-    output < 0 ||
-    output > 108
-  )
-    throw new RangeError("Invalid CZSC output/config");
-  return output >= 100
-    ? -(config * 10000 + output * 10)
-    : config * 1000 + output * 10;
-}
-
 /** Validate explicit period identity; monthly bars must already be calendar-complete. */
 export function chanAnchorDateCodes(
   dates: readonly string[],

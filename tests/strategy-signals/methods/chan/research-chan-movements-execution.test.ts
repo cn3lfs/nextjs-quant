@@ -102,7 +102,7 @@ it("unified C4 rejects absent tables and records missing monthly calendar withou
       }),
       native,
     ),
-  ).rejects.toThrow("100–108");
+  ).rejects.toThrow("C4锚定递归走势表");
   let calls = 0;
   expect(
     await researchSignals(
@@ -178,6 +178,15 @@ it("CH18 resolves original third-buy retest outside the center, small top and su
   f.signal.index = 27;
   f.signal.date = f.bars[27]!.date;
   f.signal.kind = -1;
+  // The mirrored small trend is an up trend ended by the top at bar 27.
+  Object.assign(f.family.native!.trends[0]!, {
+    type: 1,
+    start: 9,
+    end: 22,
+    completedAt: 28,
+    completedByIndex: 27,
+    confirmedAt: 28,
+  });
   const mainCenter = {
     ...f.table.centers[0]!,
     id: 3,
@@ -256,8 +265,9 @@ it("CH18 resolves original third-buy retest outside the center, small top and su
     firstCenterId: 3,
     lastCenterId: 4,
     memberCenterIds: [3, 4],
-    completion: "unknown",
-    theoreticalLevel: null,
+    completedAt: null,
+    completedByIndex: -1,
+    confirmedAt: -1,
   });
   f.table.associations.push({
     id: 2,

@@ -1,3 +1,4 @@
+import { czscSourceCommit } from "~/lib/research/methods/chan/czsc";
 import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
 import { researchChanMovements } from "../chan/research-chan-movements";
 import { researchChanZhongyin } from "../chan/research-chan-zhongyin";
@@ -190,7 +191,7 @@ export async function researchSignals(
       if (identity && identity !== version)
         throw new Error("回放期间DLL版本变化");
       identity = version;
-      if (result.status !== "structure" || result.sourceCommit !== "b67f3c6") {
+      if (result.status !== "structure" || result.sourceCommit !== czscSourceCommit) {
         ready = false;
         recordStructure?.({
           symbol,

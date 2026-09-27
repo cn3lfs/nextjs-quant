@@ -13,7 +13,7 @@ import { validateResearchMethod } from "../research/research-method";
 import {
   analyzeCzsc,
   type projectCzsc,
-  type CzscProjections,
+  type CzscSnapshot,
 } from "../strategies/chan/czsc";
 
 const data = workerData as { id: string; cancellation: SharedArrayBuffer };
@@ -26,7 +26,7 @@ const project: typeof projectCzsc = (...args) =>
     const listener = (message: {
       type: string;
       id: number;
-      result: CzscProjections;
+      result: CzscSnapshot;
       error?: string;
     }) => {
       if (message.type !== "projection" || message.id !== id) return;

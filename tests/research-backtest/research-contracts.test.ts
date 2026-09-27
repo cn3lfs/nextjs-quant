@@ -61,14 +61,14 @@ const native = async (
 ): Promise<CzscResult> => ({
   status: "structure",
   hash: "contract",
-  sourceCommit: "b67f3c6",
+  sourceCommit: "czsc-api-v4",
   families: [
     {
       config: 0,
       ...(anchor
         ? {
             native: {
-              version: "native-projections-c2-1" as const,
+              version: "czsc-api-v4" as const,
               config: 0 as const,
               trends: [],
               highCandidates: [],

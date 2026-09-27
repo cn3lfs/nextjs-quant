@@ -33,7 +33,8 @@ it("CH06 cannot substitute kind/direction/config or missing new extreme for tren
   const f = fixture();
   f.signal.divergence!.flags = 16;
   expect(f.trend().status).toBe("not-matched");
-  delete f.family.native!.recursiveMovements;
+  // The C4 table only corroborates; the native completion evidence is required.
+  f.family.native!.trends = [];
   expect(f.trend().status).toBe("missing");
 });
 

@@ -85,7 +85,7 @@ Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置�
 
 - **职责**：封装现有原生缠论引擎，组装端点、中枢、买卖点、质量与背驰证据；不移植核心算法。
 - **关键文件**：[vendor/czsc/README.md](../vendor/czsc/README.md)、`vendor/czsc/CZSC64.dll`、[czsc.ts](../src/server/strategies/chan/czsc.ts)、[czsc-input.ts](../src/server/strategies/chan/czsc-input.ts)、[czsc-worker.ts](../src/server/strategies/chan/czsc-worker.ts)、[czsc-structures.ts](../src/server/strategies/chan/czsc-structures.ts)、[czsc-signal-analysis.ts](../src/server/strategies/chan/czsc-signal-analysis.ts)。
-- **输入输出**：有序行情→Float32Array H/L/C/V→注册表 Func40/Func30 投影→CzscResult，含配置、来源 commit、DLL hash；运行副本在 runtime/czsc。
+- **输入输出**：有序行情→Float32Array H/L/C/V→czsc-tdx 结构化 C API（`adapter/czsc_api.h`）快照表（端点/中枢/走势/突破/信号/事件/逐根/递归节点/区间套）→CzscResult，含配置、引擎版本（czsc-api-v4）、DLL hash；运行副本在 runtime/czsc。
 - **依赖**：koffi、专用 Node 子进程 IPC、vendor 二进制、runtime 构建；台账线程的 DLL 请求由主进程转交相同队列。
 - **不变量**：宿主进程内单一串行所有者，整任务原子排队，库对象保持存活，float32 容差；golden 与二进制同源。对外捆绑许可由用户决定，不能把已有 exe 当成许可已确认。
 

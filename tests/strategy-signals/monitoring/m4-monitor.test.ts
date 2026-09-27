@@ -81,7 +81,7 @@ const center = {
 function result(kinds: number[] = [], quality = 1): CzscResult {
   return {
     status: "structure",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     hash: "c0ac4c5118585553081b649613d4d9f2ed494ddd34abd17d12a2f8964c95549a",
     families: [
       {

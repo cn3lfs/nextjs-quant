@@ -21,7 +21,7 @@ const spec = researchSpecSchema.parse({
 const result = (signal: boolean): CzscResult => ({
   status: "structure",
   hash: "dll",
-  sourceCommit: "b67f3c6",
+  sourceCommit: "czsc-api-v4",
   families: [
     {
       config: 0,

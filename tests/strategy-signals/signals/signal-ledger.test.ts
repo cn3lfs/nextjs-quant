@@ -97,7 +97,7 @@ const clock = (date: string, time = "15:05") =>
 const emptyCzsc: CzscResult = {
   status: "no-structure",
   hash: "dll",
-  sourceCommit: "b67f3c6",
+  sourceCommit: "czsc-api-v4",
   families: [],
 };
 

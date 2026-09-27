@@ -130,9 +130,26 @@ export function chanMovementFixture() {
     qualities: [],
     divergences: [],
     native: {
-      version: "native-projections-c2-1",
+      version: "czsc-api-v4",
       config: 0,
-      trends: [],
+      // Native trend 1 = the C4 movement's configured-level trend; its
+      // completion evidence names the first buy at bar 18.
+      trends: [
+        {
+          id: 1,
+          config: 0,
+          unit: 1,
+          type: -1,
+          start: 0,
+          end: 13,
+          firstCenterId: 1,
+          lastCenterId: 2,
+          memberCenterIds: [1, 2],
+          completedAt: 19,
+          completedByIndex: 18,
+          confirmedAt: 19,
+        },
+      ],
       highCandidates: [],
       completedSequence: "unavailable",
       recursiveMovements: table,
@@ -141,7 +158,7 @@ export function chanMovementFixture() {
   const result: CzscResult = {
     status: "structure",
     hash: "fixed-only",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [family],
   };
   return {

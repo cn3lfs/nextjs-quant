@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import type { CzscResult, CzscSignalStructure } from "~/lib/research/methods/chan/czsc";
+import {
+  CZSC_CTX,
+  type CzscResult,
+  type CzscSignalStructure,
+} from "~/lib/research/methods/chan/czsc";
 import {
   chanStructureCriterion,
   chanStructureTasks,
@@ -9,10 +13,7 @@ import {
   closeCzsc,
   projectCzsc,
 } from "~/server/strategies/chan/czsc";
-import {
-  czscResearchOutputs,
-  decodeCzscResearchStructures,
-} from "~/server/strategies/chan/czsc-research-structures";
+import { CZSC_FLAG_HIGHER } from "~/server/strategies/chan/czsc-api";
 import { prepareCzscTestRuntime } from "../../../helpers/czsc-runtime";
 import fixture from "../../../fixtures/czsc-sse.json";
 
@@ -28,7 +29,7 @@ const bars = fixture.date.map((date, i) => ({
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
 
-it("real DLL extended projection decoding preserves old signal identity and native ownership", async () => {
+it("real DLL research decoding preserves plain signal identity and native ownership", async () => {
   const plain = await analyzeCzsc(bars);
   const details = await analyzeCzsc(bars, true);
   expect(
@@ -40,16 +41,21 @@ it("real DLL extended projection decoding preserves old signal identity and nati
   ).toBe(true);
   const full = await analyzeCzsc(bars, true, projectCzsc, true);
   expect(full.hash).toBe(
-    "a09e557a3febc3ce0fd1c730dcb52ea6d4a5f95ca61bdb6ae4e668a4e80a4ce8",
+    "2aeda7103524cd9fc45c7580d4402e48120ed9c8c01a152232285c65bb43e432",
   );
   for (const [i, f] of full.families.entries()) {
     expect(
-      f.signals.map(({ index, date, kind, quality }) => ({
-        index,
-        date,
-        kind,
-        quality,
-      })),
+      f.signals.map(
+        ({ index, date, kind, quality, confirmedAt, revokedAt, stop }) => ({
+          index,
+          date,
+          kind,
+          quality,
+          confirmedAt,
+          revokedAt,
+          stop,
+        }),
+      ),
     ).toEqual(plain.families[i]!.signals);
     expect(f.diagnostics?.ma).toHaveLength(bars.length);
     for (const s of f.signals) {
@@ -62,16 +68,16 @@ it("real DLL extended projection decoding preserves old signal identity and nati
     }
   }
 });
-it("extended decoding uses the same serial projection owner on successive full prefixes", async () => {
+it("research decoding uses the same serial snapshot owner on successive full prefixes", async () => {
   const sizes: number[] = [];
   let active = 0;
-  const read: typeof projectCzsc = async (input, configs, outputs) => {
+  const read: typeof projectCzsc = async (input, configs, flags, nested) => {
     expect(active).toBe(0);
     active++;
     sizes.push(input.high.length);
-    expect(outputs).toEqual(expect.arrayContaining(czscResearchOutputs));
+    expect([flags, nested]).toEqual([CZSC_FLAG_HIGHER, true]);
     try {
-      return await projectCzsc(input, configs, outputs);
+      return await projectCzsc(input, configs, flags, nested);
     } finally {
       active--;
     }
@@ -84,56 +90,9 @@ it("extended decoding uses the same serial projection owner on successive full p
   }
   expect(sizes).toEqual([300, 301, 302]);
 });
-it("missing/non-finite/truncated native projections are explicit structure gaps", () => {
-  const projections = Object.fromEntries(
-    czscResearchOutputs.map((o) => [`0:${o}`, [0, 0]]),
-  );
-  const raw = { hash: "fixture", registered: [0, 0], projections };
-  expect(decodeCzscResearchStructures(raw, 0, 2).diagnostics.nested).toEqual(
-    [],
-  );
-  projections["0:50"] = [1];
-  expect(() => decodeCzscResearchStructures(raw, 0, 2)).toThrow("长度");
-  projections["0:50"] = [0, NaN];
-  expect(() => decodeCzscResearchStructures(raw, 0, 2)).toThrow("非有限");
-  delete projections["0:50"];
-  expect(() => decodeCzscResearchStructures(raw, 0, 2)).toThrow("缺失");
-  projections["0:50"] = [0, 1.5];
-  expect(() => decodeCzscResearchStructures(raw, 0, 2)).toThrow("结构缺口");
-});
-it("nested source is retained as candidate ordinal and level-zero semantic is not discarded", () => {
-  const projections = Object.fromEntries(
-    czscResearchOutputs.map((o) => [`0:${o}`, [0, 0]]),
-  );
-  projections["0:56"] = [0, 2];
-  projections["0:57"] = [0, 3];
-  projections["0:58"] = [0, 1];
-  const r = decodeCzscResearchStructures(
-    { hash: "fixture", registered: [0, 0], projections },
-    0,
-    2,
-  );
-  expect(r.diagnostics.nested).toEqual([
-    {
-      index: 1,
-      level: 0,
-      lowConfig: 0,
-      sourceConfig: 1100,
-      sourceCandidateId: 0,
-      lowStartPointId: 0,
-      lowEndPointId: 0,
-      semantic: 2,
-      confirmFlags: 3,
-      direction: 1,
-    },
-  ]);
-  expect(chanStructureTasks.CH07).toContain("Candidates完整表");
-  expect(Object.keys(chanStructureTasks)).toHaveLength(16);
-});
-
 function context() {
   const meta: CzscSignalStructure = {
-    contextFlags: 2048 | 4096,
+    contextFlags: CZSC_CTX.overlap,
     pointId: 5,
     trendId: 1,
     breakoutId: 1,
@@ -156,7 +115,7 @@ function context() {
   const result: CzscResult = {
     status: "structure",
     hash: "fixture",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,
@@ -209,9 +168,9 @@ it("overlap needs both association chains; bare kind and equality above ZG canno
   const check = () =>
     chanStructureCriterion("overlap", result, input, 0, signal);
   expect(check().status).toBe("matched");
-  signal.structure!.contextFlags = 4096;
+  signal.structure!.contextFlags = CZSC_CTX.firstRetest;
   expect(check().status).toBe("not-matched");
-  signal.structure!.contextFlags = 2048 | 4096;
+  signal.structure!.contextFlags = CZSC_CTX.overlap;
   result.families[0]!.centers[0]!.ZG = 10;
   expect(check().status).toBe("not-matched");
   result.families[0]!.centers[0]!.ZG = 9;

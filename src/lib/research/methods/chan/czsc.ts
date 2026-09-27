@@ -1,8 +1,24 @@
+/** Engine identity recorded in every derived version string. */
+export const czscSourceCommit = "czsc-api-v4";
+
+/** czsc_signal.context bits (adapter/czsc_api.h). */
+export const CZSC_CTX = {
+  abc: 0x01,
+  zeroPullback: 0x02,
+  lineWeak: 0x04,
+  standard: 0x08,
+  smallTurn: 0x10,
+  overlap: 0x20,
+  firstRetest: 0x40,
+} as const;
+
 export interface CzscPoint {
   index: number;
   date: string;
   direction: number;
   price: number;
+  /** Earliest bar after which this endpoint never changes; -1 = not final. */
+  confirmedAt?: number;
 }
 export interface CzscCenter {
   start: number;
@@ -14,6 +30,11 @@ export interface CzscCenter {
   ZD: number;
   GG: number;
   DD: number;
+  confirmedAt?: number;
+  /** Lesson 20 relation to the previous center: 1 up / -1 down / 2 expansion / 0 first. */
+  relation?: number;
+  /** 0 extension / 1 expansion / 2 newborn up / 3 newborn down / -1 first. */
+  lifecycle?: number;
 }
 export interface CzscFamily {
   config: 0 | 1100;
@@ -24,6 +45,12 @@ export interface CzscFamily {
     date: string;
     kind: number;
     quality: number;
+    /** Bar on which the signal became knowable (endpoint confirmed); -1 = not yet. */
+    confirmedAt?: number;
+    /** Bar on which the live signal was revoked; -1 = still valid. */
+    revokedAt?: number;
+    /** Native invalidation price (lessons 20/21/27). */
+    stop?: number;
     centerId?: number;
     divergence?: {
       areaRatio: number;
@@ -42,7 +69,7 @@ export interface CzscFamily {
   }[];
   native?: CzscNativeProjection;
   diagnostics?: {
-    version: "native-projections-b67f3c6-1";
+    version: typeof czscSourceCommit;
     ma: {
       index: number;
       difference: number;
@@ -61,6 +88,7 @@ export interface CzscFamily {
 /** IDs are native one-based object ordinals, NEVER bar indices. Zero denotes
  * absent association. The nested source is a candidate ordinal, not a signal. */
 export type CzscSignalStructure = {
+  /** CZSC_CTX bit mask (adapter/czsc_api.h), frozen at signal confirmation. */
   contextFlags: number;
   pointId: number;
   trendId: number;
@@ -107,7 +135,7 @@ export interface CzscSignalDetails {
 export interface CzscResult {
   status: "structure" | "no-structure";
   hash: string;
-  sourceCommit: "b67f3c6";
+  sourceCommit: typeof czscSourceCommit;
   families: CzscFamily[];
 }
 
@@ -123,8 +151,11 @@ export type CzscNativeTrend = {
   firstCenterId: number;
   lastCenterId: number;
   memberCenterIds: number[];
-  completion: "unknown";
-  theoreticalLevel: null;
+  /** Bar at which the successor movement's first center was established; null = open. */
+  completedAt: number | null;
+  /** Bar of the first-class signal ending this trend on its last center; -1 = none. */
+  completedByIndex: number;
+  confirmedAt: number;
 };
 export type CzscHighCandidate = {
   id: number;
@@ -152,7 +183,7 @@ export type CzscHighCandidate = {
   currentEnd: number | null;
 };
 export type CzscNativeProjection = {
-  version: "native-projections-c2-1";
+  version: typeof czscSourceCommit;
   config: 0 | 1100;
   trends: CzscNativeTrend[];
   highCandidates: CzscHighCandidate[];

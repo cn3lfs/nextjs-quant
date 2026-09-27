@@ -3,11 +3,11 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `718defa`（分支 `dev`，在 `bb58ecf` 之上：性能优化、一类过滤诊断复用 b/c 定位、分析器缓存修正，新增 Func30 输出 109–113（因果逐步重放/撤销/失效价、缺口、分型强弱）与笔类型 2；既有输出结构不变） |
+| 来源 commit | `4af864a`（分支 `dev`）：新 core/ + tdx/ 引擎与结构化 C API `adapter/czsc_api.h`（api v5：P0 基础结构、P1 研判语义、走势完成证据、区间套、递归节点/中枢/连接段、中阴）。旧 Func30 接口已删除 |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `921386` 字节 |
-| SHA-256 | `a09e557a3febc3ce0fd1c730dcb52ea6d4a5f95ca61bdb6ae4e668a4e80a4ce8` |
-| 构建方式 | 来源仓库 `build/CZSC64.dll`（2026-09-26 20:11，晚于最后一次源码提交），MinGW-w64 x64 |
+| 大小 | `954224` 字节 |
+| SHA-256 | `2aeda7103524cd9fc45c7580d4402e48120ed9c8c01a152232285c65bb43e432` |
+| 构建方式 | 来源仓库 `build/CZSC64.dll`（2026-09-27 11:41，晚于最后一次源码提交），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
 ## 为什么是重建的

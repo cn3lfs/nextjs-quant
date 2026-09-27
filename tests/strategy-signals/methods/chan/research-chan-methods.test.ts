@@ -1,6 +1,10 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import type { CzscResult, CzscSignalStructure } from "../../../../src/lib/research/methods/chan/czsc";
+import {
+  CZSC_CTX,
+  type CzscResult,
+  type CzscSignalStructure,
+} from "../../../../src/lib/research/methods/chan/czsc";
 import {
   chanNativeCandidates,
   chanMaMethodPoint,
@@ -22,7 +26,7 @@ const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
 }));
 function context() {
   const meta: CzscSignalStructure = {
-    contextFlags: 2048 | 4096,
+    contextFlags: CZSC_CTX.overlap,
     pointId: 5,
     trendId: 1,
     breakoutId: 1,
@@ -45,7 +49,7 @@ function context() {
   const result: CzscResult = {
     status: "structure",
     hash: "fixture",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,
@@ -104,7 +108,7 @@ it("CH04 registers actual overlap criterion; missing second chain or a single co
     chanNativeCandidates("chan-overlap-native", result, input, 0).gaps.length,
   ).toBeGreaterThan(0);
   signal.structure!.secondBasePointId = 3;
-  signal.structure!.contextFlags = 2048;
+  signal.structure!.contextFlags = CZSC_CTX.firstRetest;
   expect(
     chanNativeCandidates("chan-overlap-native", result, input, 0).signals,
   ).toEqual([]);
@@ -118,7 +122,7 @@ function maInput(
   const f = result.families[0]!;
   f.signals = [];
   f.diagnostics = {
-    version: "native-projections-b67f3c6-1",
+    version: "czsc-api-v4",
     ma: differences.map((difference, index) => ({
       index,
       difference,

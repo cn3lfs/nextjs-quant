@@ -173,11 +173,12 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 6. 缠论原生边界
 
-- **是什么**：[czsc.ts](../src/server/strategies/chan/czsc.ts) 的全局 Promise 队列将任务交给一个专用子进程；[czsc-worker.ts](../src/server/strategies/chan/czsc-worker.ts) 同步执行真实 C/V 的 Func40，再执行全部 Func30。禁止 koffi async、worker_threads 并发进入 DLL；台账线程把投影请求转回同一所有者。单例是每个宿主进程的边界，不是操作系统全局互斥锁。
-- **是什么（ABI/精度）**：koffi 从 RegisterTdxFunc 的 pack(1) 注册表取 30/40 号指针；输入/输出用 Float32Array，价格不严格相等比较。库对象保持引用直至 disconnect，不能让裸函数指针指向已卸载库。少于两个端点为无结构。
-- **是什么（golden）**：vendor 二进制为版本资产；运行时副本由构建复制。权威为来源 CzscCoreTests.cpp 断言，结果文本辅助，过期 notes 锚点不作依据。配置 0 对应笔 157/端点158/中枢18/买卖点17；1100 对应线段端点15/中枢2/买卖点2；mode=配置×1000+输出×10。除数量外核对方向、日期和价格；float32 锚点容差严格小于 0.0001。
-- **为什么**：DLL 有全局 C/V 和单槽缓存，交错调用、失去库引用或混用二进制版本都会破坏结果。
-- **测试**：[czsc.test.ts](../tests/strategy-signals/methods/chan/czsc.test.ts)、[m4-native.test.ts](../tests/engineering-validation/m4-native.test.ts)、[signal-ledger-worker.test.ts](../tests/strategy-signals/signals/signal-ledger-worker.test.ts)。跨独立应用实例只有一个 DLL 进程：**无测试保护，也非当前代码保证**。
+- **是什么**：[czsc.ts](../src/server/strategies/chan/czsc.ts) 的全局 Promise 队列将任务交给一个专用子进程；[czsc-worker.ts](../src/server/strategies/chan/czsc-worker.ts) 通过 czsc-tdx 的结构化 C API（`adapter/czsc_api.h`，api v5）构建快照、读表、释放句柄，一次消息内完成。禁止 koffi async、worker_threads 并发进入 DLL；台账线程把快照请求转回同一所有者。单例是每个宿主进程的边界，不是操作系统全局互斥锁。
+- **是什么（ABI/精度）**：koffi 按头文件声明 POD 结构体，逐行校验首字段 `size`，api 版本低于 5 即拒绝加载。输入用 Float32Array，close/volume 作为入参传入（不再有旁路注册），价格不严格相等比较。库对象保持引用直至 disconnect。少于两个端点为无结构。
+- **是什么（golden）**：vendor 二进制为版本资产；运行时副本由构建复制。权威为来源仓库 `tests/unit/golden/sse.txt`（本仓副本 `tests/fixtures/czsc-sse-golden.txt`），按 (H+L)/2 收盘代理逐行核对配置 0 与 1100 的中枢、趋势、事后信号与当下事件（含失效价），并以真实收盘核对配置 0 的递归段（中阴、上层中枢、连接段）。
+- **是什么（因果）**：对象带 `confirmedAt`（定型K线），信号带 `confirmedAt`/`revokedAt`。C4 与中阴表由 v5 递归节点/中枢/连接段解码（`czsc-recursive.ts`）：C4 level 0 为笔/线段，level L+1 为原生第 L 层；日期锚由调用方以不同序列体现，DLL 不接触日期。
+- **为什么**：交错调用、失去库引用或混用二进制版本都会破坏结果。
+- **测试**：[czsc.test.ts](../tests/strategy-signals/methods/chan/czsc.test.ts)、[signal-ledger-worker.test.ts](../tests/strategy-signals/signals/signal-ledger-worker.test.ts)。跨独立应用实例只有一个 DLL 进程：**无测试保护，也非当前代码保证**。
 - **违反会怎样**：信号串股、golden 失败或 native 崩溃。FFI 无法加载应汇报，不换库、不移植算法、不放宽 golden。
 
 ## 7. 双突破不足即未知

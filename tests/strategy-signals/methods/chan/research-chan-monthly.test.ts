@@ -41,7 +41,7 @@ it("CH13 adapter uses complete real monthly aggregates and no unfinished month o
       expect(bars[0]!.date).toBe("2020-01-31");
       return {
         status: "no-structure",
-        sourceCommit: "b67f3c6",
+        sourceCommit: "czsc-api-v4",
         hash: "fixture",
         families: [],
       };

@@ -33,7 +33,7 @@ it("runs a partial batch, retries only failures, and closes against the captured
     const engine = vi.fn(async (): Promise<CzscResult> => ({
       status: "no-structure",
       hash: "fixed",
-      sourceCommit: "b67f3c6",
+      sourceCommit: "czsc-api-v4",
       families: [],
     }));
     const history = vi.fn(async (_source: unknown, symbol: string) => {

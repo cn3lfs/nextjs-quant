@@ -257,7 +257,7 @@ it("indicator initial line is mandatory and not replaced by the five percent bas
 const native = (): CzscResult => ({
   status: "structure",
   hash: "fixed-dll",
-  sourceCommit: "b67f3c6",
+  sourceCommit: "czsc-api-v4",
   families: [
     {
       config: 0,

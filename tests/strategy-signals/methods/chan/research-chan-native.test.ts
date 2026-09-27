@@ -26,7 +26,7 @@ function native(kind: number): CzscResult {
   return {
     status: "structure",
     hash: "fixture-native",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,
@@ -149,7 +149,7 @@ it.each(chanNativeIds)(
     expect(e[0]).toMatchObject({
       endpointDate: bars[30]!.date,
       observedDate: bars[62]!.date,
-      strategyVersion: `${id}-engineering-1/b67f3c6/fixture-native`,
+      strategyVersion: `${id}-engineering-1/czsc-api-v4/fixture-native`,
     });
     expect(
       await researchSignals(
@@ -198,7 +198,7 @@ it("locked real DLL fixture proves first/third-buy ownership; this fixture has n
   }));
   const result = await analyzeCzsc(b, true);
   expect(result.hash).toBe(
-    "a09e557a3febc3ce0fd1c730dcb52ea6d4a5f95ca61bdb6ae4e668a4e80a4ce8",
+    "2aeda7103524cd9fc45c7580d4402e48120ed9c8c01a152232285c65bb43e432",
   );
   for (const id of chanNativeIds) {
     const selected = chanNativeCandidates(id, result, b, 0);

@@ -1,3 +1,4 @@
+import { czscSourceCommit } from "~/lib/research/methods/chan/czsc";
 import type { Bar } from "~/lib/domain";
 import {
   horizons,
@@ -50,7 +51,7 @@ export function retrospectiveSignals(input: SignalBacktestInput) {
         {
           status: "no-structure",
           hash: "",
-          sourceCommit: "b67f3c6",
+          sourceCommit: czscSourceCommit,
           families: [],
         },
         point,

@@ -337,7 +337,7 @@ it("reuses only identical native CZSC prefixes and preserves the result", async 
   const nativeResult: CzscResult = {
     status: "no-structure",
     hash: "fixed-native",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: ([0, 1100] as const).map((config) => ({
       config,
       points: [],

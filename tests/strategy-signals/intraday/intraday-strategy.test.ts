@@ -10,7 +10,7 @@ function result(signals: CzscFamily["signals"] = []): CzscResult {
   return {
     status: "structure",
     hash: "dll-hash",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,

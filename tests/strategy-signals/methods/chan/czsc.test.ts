@@ -5,11 +5,20 @@ import {
   projectCzsc,
   closeCzsc,
   analyzeCzsc,
+  analyzeChanMovements,
 } from "../../../../src/server/strategies/chan/czsc";
+import {
+  chanC4Sequence,
+  chanC4Trend,
+} from "../../../../src/lib/research/methods/chan/research-chan-movements";
+import { chanRecursiveObservations } from "../../../../src/lib/research/methods/chan/research-chan-recursive";
 import { parseBars } from "../../../../src/server/data-sources/tdx/tdx";
 import { toFloat32 } from "../../../../src/server/strategies/chan/czsc-input";
 import { readFileSync } from "node:fs";
-import { decodeCzscCenters } from "../../../../src/server/strategies/chan/czsc-structures";
+import {
+  CZSC_FLAG_EVENTS,
+  CZSC_FLAG_HIGHER,
+} from "../../../../src/server/strategies/chan/czsc-api";
 
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
@@ -103,166 +112,145 @@ test("float32 conversion rejects invalid values and preserves rounding", () => {
   expect(() => toFloat32([1e40])).toThrow();
 });
 
-test("SSE characterization: legacy CzscCoreTests.cpp assertions, not correctness authority", async () => {
+// Upstream golden (czsc-tdx tests/unit/golden/sse.txt) is rendered from H/L
+// only, so MACD uses the engine's (H+L)/2 proxy; feed exactly that as close.
+test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", async () => {
   expect(fixture.date).toHaveLength(2038);
-  expect([fixture.date[0], fixture.date.at(-1)]).toEqual([
-    "2018-01-26",
-    "2026-06-26",
-  ]);
-  const result = await projectCzsc(fixture);
-  expect(result.hash).toBe(
-    "a09e557a3febc3ce0fd1c730dcb52ea6d4a5f95ca61bdb6ae4e668a4e80a4ce8",
-  );
-  result.registered.forEach((v, i) =>
-    expect(Math.abs(v - Math.fround(fixture.close[i]!))).toBeLessThan(0.0001),
-  );
-  const p = (config: number, output: number) =>
-    result.projections[`${config}:${output}`]!;
-  const count = (config: number, output: number) =>
-    p(config, output).filter((v) => v !== 0).length;
-  const actual = {
-    strokes: count(0, 0) - 1,
-    endpoints: count(0, 0),
-    segments: count(1100, 0),
-    strokeCenters: p(0, 3).filter((v) => v === 1).length,
-    segmentCenters: p(1100, 3).filter((v) => v === 1).length,
-    strokeSignals: count(0, 4),
-    segmentSignals: count(1100, 4),
-  };
-  console.log("GOLDEN totals", actual);
-  // Keep both config codes and raw float32 spans visible even when counts fail.
-  // Differences are diagnostic signals; original lessons remain correctness authority.
-  for (const config of [0, 1100]) {
-    const centers = p(config, 3).flatMap((mark, start) => {
-      if (mark !== 1) return [];
-      const end = p(config, 3).findIndex((v, i) => i >= start && v === 2);
-      return [
-        {
-          start: fixture.date[start],
-          end: fixture.date[end],
-          ZG: p(config, 1)[start],
-          ZD: p(config, 2)[start],
-        },
-      ];
-    });
-    console.log(
-      "GOLDEN config",
-      config,
-      "mode base",
-      config * 1000,
-      "centers",
-      JSON.stringify(centers),
-    );
-  }
-  console.log(
-    "GOLDEN segment endpoints",
-    JSON.stringify(
-      p(1100, 0).flatMap((direction, i) =>
-        direction === 0
-          ? []
-          : [
-              {
-                date: fixture.date[i],
-                direction,
-                price: Math.fround(
-                  direction > 0 ? fixture.high[i]! : fixture.low[i]!,
-                ),
-              },
-            ],
-      ),
+  const close = fixture.high.map((h, i) =>
+    Math.fround(
+      Math.fround(Math.fround(h) + Math.fround(fixture.low[i]!)) * 0.5,
     ),
   );
-  // TestRealSseDiagnosticCounts: its segment count is Points.size(), not N-1 edges.
-  expect(actual).toEqual({
-    strokes: 157,
-    endpoints: 158,
-    segments: 11,
-    strokeCenters: 14,
-    segmentCenters: 1,
-    strokeSignals: 13,
-    segmentSignals: 0,
-  });
-  // DumpSseResult.cpp prints centers with %.0f and endpoints with %.2f.
-  // Compare that exact representation, retaining the stricter float32 anchor
-  // assertions below; this does not increase their 0.0001 tolerance.
-  const rows = readFileSync("tests/fixtures/czsc-sse-structures.txt", "utf8")
-    .trim()
-    .split(/\r?\n/);
-  expect(rows).toHaveLength(26);
-  const differences: string[] = [];
-  for (const row of rows) {
-    const center = row.match(
-      /^(BZ|SZ)(\d+) (上升|下降)  (\S+)~(\S+)  ZG(\d+) ZD(\d+)  GG(\d+) DD(\d+)$/,
-    );
-    if (center) {
-      const [, family, ordinal, direction, start, end, ...prices] = center;
-      const value = decodeCzscCenters(
-        fixture,
-        result,
-        family === "BZ" ? 0 : 1100,
-      ).centers[Number(ordinal)]!;
-      const got = [
-        value.direction > 0 ? "上升" : "下降",
-        fixture.date[value.start],
-        fixture.date[value.end],
-        ...[value.ZG, value.ZD, value.GG, value.DD].map((v) => v.toFixed(0)),
-      ];
-      const expected = [direction, start, end, ...prices];
-      if (JSON.stringify(got) !== JSON.stringify(expected))
-        differences.push(
-          `${family}${ordinal}: expected ${JSON.stringify(expected)}, actual ${JSON.stringify(got)}`,
-        );
-    } else {
-      const endpoint = row.match(/^L(\d+)  (\S+)  (顶|底)  (\S+)$/);
-      expect(endpoint, row).not.toBeNull();
-      const [, ordinal, date, direction, price] = endpoint!;
-      const value = decodeCzscCenters(fixture, result, 1100).points[
-        Number(ordinal) - 1
-      ]!;
-      const got = [
-        fixture.date[value.index],
-        value.direction > 0 ? "顶" : "底",
-        value.price.toFixed(2),
-      ];
-      if (JSON.stringify(got) !== JSON.stringify([date, direction, price]))
-        differences.push(
-          `L${ordinal}: expected ${date}/${direction}/${price}, actual ${got.join("/")}`,
-        );
-    }
+  const input = { ...fixture, close };
+  const raw = await projectCzsc(input, [0, 1100], CZSC_FLAG_EVENTS);
+  const name = (t: number) =>
+    `${["一", "二", "三"][Math.abs(t) - 1]}${t > 0 ? "买" : "卖"}`;
+  const date = (i: number) => fixture.date[i] ?? "?";
+  const golden = readFileSync("tests/fixtures/czsc-sse-golden.txt", "utf8")
+    .replace(/\r/g, "")
+    .split(/\n\n/)
+    .filter(Boolean);
+  for (const config of [0, 1100]) {
+    const f = raw.families[config]!;
+    const hindsight = f.signals.filter((s) => s.hindsight === 1);
+    const lines = [
+      `## 配置 ${config}：端点 ${f.pivots.length}，中枢 ${f.centers.length}，走势 ${f.movements.length}，事后信号 ${hindsight.length}，当下事件 ${f.events.length}`,
+      ...f.centers.map(
+        (c, i) =>
+          `中枢 ${date(c.start)}~${date(c.end)} ZG ${c.zg.toFixed(2)} ZD ${c.zd.toFixed(2)} GG ${c.gg.toFixed(2)} DD ${c.dd.toFixed(2)} 方向 ${c.direction}${i === 0 ? "" : c.relationToPrev === 1 ? " 上涨" : c.relationToPrev === -1 ? " 下跌" : " 扩展"}`,
+      ),
+      ...f.movements
+        .filter((m) => m.type !== 0)
+        .map(
+          (m) =>
+            `趋势 ${m.type > 0 ? "上涨" : "下跌"} ${date(m.start)}~${date(m.end)} 中枢 ${m.firstCenter}-${m.lastCenter}`,
+        ),
+      ...hindsight.map((s) => `事后 ${name(s.type)} ${date(s.index)}`),
+      ...f.events.map((e) => {
+        const s = f.signals[e.signal]!;
+        return `当下 ${e.op > 0 ? "出现" : "失效"} ${name(s.type)} ${date(s.index)} 于 ${date(e.bar)} 失效价 ${s.stop.toFixed(2)}`;
+      }),
+    ];
+    const expected = golden
+      .find((block) => block.startsWith(`## 配置 ${config}：`))!
+      .trim()
+      .split("\n");
+    expect(lines).toEqual(expected);
   }
-  console.log("GOLDEN 26-row field differences", differences);
-  expect(differences).toEqual([]);
-  // TestRealSseGoldenCentersPresent / TestRealSseGoldenSegmentCentersPresent.
-  const anchors: [number, string, string, number, number][] = [
-    [0, "2018-02-26", "2018-06-07", 3220.85, 3091.46],
-    [0, "2018-07-06", "2018-08-28", 2791.39, 2691.02],
-    [0, "2018-10-19", "2019-01-04", 2676.48, 2590.21],
-    [0, "2019-03-07", "2019-04-08", 3125.02, 2987.77],
-    [0, "2019-05-10", "2020-03-05", 2922.91, 2838.38],
-    [0, "2020-03-19", "2020-05-25", 2833.02, 2796.84],
-    [1100, "2020-03-19", "2025-04-07", 3723.85, 3312.72],
-  ];
-  for (const [config, start, end, high, low] of anchors) {
-    const a = fixture.date.indexOf(start),
-      b = fixture.date.indexOf(end);
-    console.log(
-      "GOLDEN anchor",
-      config,
-      start,
-      end,
-      p(config, 1)[a],
-      p(config, 2)[a],
-    );
-    expect(p(config, 3)[a]).toBe(1);
-    expect(p(config, 3)[b]).toBe(2);
-    for (let i = a; i <= b; i++) {
-      // Compare against C++ float literals at the exact original NearlyEqual tolerance.
-      expect(Math.abs(p(config, 1)[i]! - Math.fround(high))).toBeLessThan(
-        0.0001,
-      );
-      expect(Math.abs(p(config, 2)[i]! - Math.fround(low))).toBeLessThan(
-        0.0001,
-      );
-    }
-  }
+  // The v5 recursion section is rendered with the sample's real close/volume.
+  const recursive = (await projectCzsc(fixture, [0], CZSC_FLAG_HIGHER))
+    .families[0]!;
+  const date2 = (i: number) => (i >= 0 ? (fixture.date[i] ?? "?") : "?");
+  expect([
+    `## 递归 配置 0：节点 ${recursive.nodes.length}，上层中枢 ${recursive.recursiveCenters.length}，上层连接段 ${recursive.connections.length}`,
+    ...recursive.movements.flatMap((m, i) =>
+      m.successor < 0
+        ? []
+        : [
+            `中阴 走势${i} ${date2(m.zhongyinStart)}~${date2(m.successorEstablishedAt)}`,
+          ],
+    ),
+    ...recursive.nodes
+      .filter((n) => n.level > 0)
+      .map(
+        (n) =>
+          `节点 L${n.level}#${n.ordinal} 类型 ${n.type} ${date2(n.start)}~${date2(n.end)} 高 ${n.high.toFixed(2)} 低 ${n.low.toFixed(2)} 中枢 ${n.firstCenter}-${n.lastCenter} 子 ${n.childCount} 中阴 ${date2(n.zhongyinStart)}~${date2(n.completed)} 定型 ${date2(n.confirmedAt)}`,
+      ),
+    ...recursive.recursiveCenters.map(
+      (c) =>
+        `上层中枢 L${c.level}#${c.ordinal} ${date2(c.start)}~${date2(c.end)} ZG ${c.zg.toFixed(2)} ZD ${c.zd.toFixed(2)} GG ${c.gg.toFixed(2)} DD ${c.dd.toFixed(2)} 方向 ${c.direction} 成员 ${c.firstMember}+${c.memberCount} 成立 ${date2(c.established)} 定型 ${date2(c.confirmedAt)}`,
+    ),
+    ...recursive.connections.map(
+      (k) =>
+        `连接段 L${k.level}#${k.ordinal} ${date2(k.start)}~${date2(k.end)} 成员 ${k.firstMember}+${k.memberCount} 定型 ${date2(k.confirmedAt)}`,
+    ),
+  ]).toEqual(
+    golden
+      .find((block) => block.startsWith("## 递归 配置 0："))!
+      .trim()
+      .split("\n"),
+  );
+  // Decoding keeps the same objects and one-based center ownership.
+  const bars = fixture.date.map((d, i) => ({
+    date: d,
+    open: close[i]!,
+    high: fixture.high[i]!,
+    low: fixture.low[i]!,
+    close: close[i]!,
+    volume: fixture.volume[i]!,
+    amount: 0,
+  }));
+  const result = await analyzeCzsc(bars, true);
+  const low = result.families[0]!;
+  expect(low.centers).toHaveLength(14);
+  expect(low.signals.map((s) => `${s.date}:${s.kind}`)).toEqual(
+    raw.families[0]!.signals.filter((s) => s.hindsight === 1)
+      .sort((a, b) => a.index - b.index)
+      .map((s) => `${fixture.date[s.index]}:${s.type}`),
+  );
+  const first = low.signals.find((s) => s.date === "2018-08-20")!;
+  expect(first.kind).toBe(1);
+  expect(low.centers[first.centerId! - 1]!.startDate).toBe("2018-07-06");
+  expect(first.confirmedAt).toBe(fixture.date.indexOf("2018-11-20"));
+  expect(first.stop).toBe(Math.fround(2653.11));
+});
+
+test("anchored C4 and zhongyin tables decode from api v5 and prove the trend-ending first-class points", async () => {
+  const bars = fixture.date.map((date, i) => ({
+    date,
+    open: fixture.close[i]!,
+    close: fixture.close[i]!,
+    high: fixture.high[i]!,
+    low: fixture.low[i]!,
+    volume: fixture.volume[i]!,
+    amount: 0,
+  }));
+  const result = await analyzeChanMovements(bars, 1);
+  const family = result.families[0]!;
+  const table = family.native!.recursiveMovements!;
+  // Level 0 = strokes between adjacent endpoints; level 1 = configured-level movements.
+  expect(table.movements.filter((m) => m.level === 0)).toHaveLength(157);
+  expect(table.movements.filter((m) => m.level === 1)).toHaveLength(10);
+  expect(chanC4Sequence(table, 1).status).toBe("ready");
+  expect(
+    family.signals
+      .filter((s) => Math.abs(s.kind) === 1)
+      .map((s) => [s.date, chanC4Trend(result, bars, 0, s).action]),
+  ).toEqual([
+    ["2018-08-20", "enter"],
+    ["2019-04-08", "exit"],
+    ["2021-02-18", "exit"],
+  ]);
+  const recursive = family.native!.recursive!;
+  expect(
+    recursive.transitions
+      .filter((t) => t.variant === 1)
+      .map((t) => `${bars[t.entered]!.date}~${bars[t.ended!]!.date}`)
+      .slice(0, 2),
+  ).toEqual(["2018-10-22~2018-11-20", "2019-05-13~2019-06-03"]);
+  expect(
+    chanRecursiveObservations("sse")
+      .observe(bars, recursive)
+      .map((o) => o.kind),
+  ).toContain("zhongyin-structural-end");
 });

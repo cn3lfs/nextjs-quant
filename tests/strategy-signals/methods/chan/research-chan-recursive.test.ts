@@ -126,7 +126,7 @@ function result(n: number, ended = true, buyAt = 7): CzscResult {
   return {
     status: "structure",
     hash: "fixture",
-    sourceCommit: "b67f3c6",
+    sourceCommit: "czsc-api-v4",
     families: [
       {
         config: 0,
@@ -160,7 +160,7 @@ function result(n: number, ended = true, buyAt = 7): CzscResult {
               ]
             : [],
         native: {
-          version: "native-projections-c2-1",
+          version: "czsc-api-v4",
           config: 0,
           trends: [],
           highCandidates: [],
@@ -342,7 +342,7 @@ it("research runner forwards five-minute input and explicit anchor to the serial
       expect(prefix.at(-1)!.date).toContain("T");
       return {
         status: "no-structure",
-        sourceCommit: "b67f3c6",
+        sourceCommit: "czsc-api-v4",
         hash: "fixture",
         families: [
           {
@@ -354,7 +354,7 @@ it("research runner forwards five-minute input and explicit anchor to the serial
             qualities: [],
             divergences: [],
             native: {
-              version: "native-projections-c2-1",
+              version: "czsc-api-v4",
               config: 0,
               trends: [],
               highCandidates: [],
