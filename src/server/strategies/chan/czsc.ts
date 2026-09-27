@@ -130,21 +130,6 @@ function divergenceOf(d: CzscRawDivergence, kind: number, context: number) {
   };
 }
 
-/** MA5 − MA20 of close with the engine's float32 running-sum average. */
-function maDifference(close: readonly number[]) {
-  const average = (period: number) => {
-    let sum = 0;
-    return close.map((value, i) => {
-      sum = Math.fround(sum + Math.fround(value));
-      if (i >= period) sum = Math.fround(sum - Math.fround(close[i - period]!));
-      return Math.fround(sum / Math.min(i + 1, period));
-    });
-  };
-  const short = average(5),
-    long = average(20);
-  return short.map((v, i) => Math.fround(v - long[i]!));
-}
-
 function decodeFamily(
   raw: CzscRawFamily,
   config: 0 | 1100,
@@ -352,7 +337,6 @@ export async function analyzeCzsc(
     research ? CZSC_FLAG_HIGHER : 0,
     research,
   );
-  const difference = research ? maDifference(input.close) : [];
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
     const family = raw.families[config];
     if (!family) throw new Error(`结构缺口：缺少配置${config}快照`);
@@ -409,7 +393,8 @@ export async function analyzeCzsc(
         version: czscSourceCommit,
         ma: family.bars.map((b, index) => ({
           index,
-          difference: difference[index]!,
+          // Native MA5/MA20 (api v6), the same pair the engine's kisses use.
+          difference: Math.fround(b.maShort - b.maLong),
           kiss: b.kiss === 4 ? 3 : b.kiss,
           instantWarning: b.instantDivergence,
           volumeKiss: b.kiss,

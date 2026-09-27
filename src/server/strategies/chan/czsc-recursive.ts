@@ -60,8 +60,7 @@ export function decodeCzscMovements(
       end: c.end,
       centerStart: c.start,
       centerEnd: c.end,
-      // A center is established when its third member segment ends (lesson 20).
-      established: pivots[c.firstPivot + 3]?.fractalAt ?? -1,
+      established: c.established,
       connection: null,
       completed: null,
       successorId: 0,

@@ -7,7 +7,7 @@ import type { CzscRawFamily, CzscSnapshot } from "./czsc-api";
 
 // adapter/czsc_api.h (czsc-tdx) is the single contract; every struct is packed
 // 4-byte fields with a leading size, so koffi's natural layout matches exactly.
-export const czscApiVersion = 5;
+export const czscApiVersion = 6;
 const dllPath = resolve("runtime/czsc/CZSC64.dll");
 const hash = createHash("sha256").update(readFileSync(dllPath)).digest("hex");
 const library = koffi.load(dllPath);
@@ -54,6 +54,7 @@ const structs = {
     confirmedAt: "int32",
     relationToPrev: "int32",
     lifecycle: "int32",
+    established: "int32",
   }),
   movement: koffi.struct("czsc_movement", {
     size: "uint32",
@@ -119,6 +120,8 @@ const structs = {
     gap: "int32",
     fractalStrength: "int32",
     instantDivergence: "int32",
+    maShort: "float",
+    maLong: "float",
   }),
   node: koffi.struct("czsc_recursive_node", {
     size: "uint32",
@@ -203,6 +206,7 @@ const api = {
   build: library.func("void *czsc_snapshot_build(const czsc_input *input)"),
   free: library.func("void czsc_snapshot_free(void *snapshot)"),
   nested: library.func("void *czsc_nested_build(void *low, void *high)"),
+  commit: library.func("const char *czsc_build_commit(void)"),
 };
 const table = (name: string) =>
   library.func(`const void *${name}(void *snapshot, _Out_ int32_t *count)`);
@@ -224,6 +228,7 @@ const nestedRows = table("czsc_nested_rows");
 const version = api.version() as number;
 if (version < czscApiVersion)
   throw new Error(`CZSC API v${version} < required v${czscApiVersion}`);
+const buildCommit = (api.commit() as string | null) ?? "unknown";
 
 function read(
   fn: (handle: unknown, count: number[]) => unknown,
@@ -319,6 +324,7 @@ process.on(
       const result: CzscSnapshot = {
         hash,
         apiVersion: version,
+        buildCommit,
         families,
         nested,
       };

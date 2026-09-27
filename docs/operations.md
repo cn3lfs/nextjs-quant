@@ -90,7 +90,7 @@ await db.backup(dest); // 输出的是含 WAL 的一致快照
 
 ### 缠论 golden 失败
 
-先核对 [vendor 清单](../vendor/czsc/README.md)、vendor DLL 与 runtime 副本 hash，再确认 DLL 与来源仓库 `tests/unit/golden/sse.txt`（本仓副本 `tests/fixtures/czsc-sse-golden.txt`）是同一来源版本。历史故障是外部 build 目录残留旧 DLL，不是配置码不对。配置 0/1100 分别对应笔/特征线段，两族不能混用；入口是 `czsc_snapshot_build` 等导出的 C API，worker 启动时拒绝 api 版本低于 5 或结构体 size 不符的 DLL。
+先核对 [vendor 清单](../vendor/czsc/README.md)、vendor DLL 与 runtime 副本 hash，再确认 DLL 与来源仓库 `tests/unit/golden/sse.txt`（本仓副本 `tests/fixtures/czsc-sse-golden.txt`）是同一来源版本。历史故障是外部 build 目录残留旧 DLL，不是配置码不对。配置 0/1100 分别对应笔/特征线段，两族不能混用；入口是 `czsc_snapshot_build` 等导出的 C API，worker 启动时拒绝 api 版本低于 6 或结构体 size 不符的 DLL；`czsc_build_commit()` 应与 vendor 清单记录的来源 commit 一致且不带 `-dirty`。
 
 ```powershell
 Get-FileHash vendor/czsc/CZSC64.dll -Algorithm SHA256

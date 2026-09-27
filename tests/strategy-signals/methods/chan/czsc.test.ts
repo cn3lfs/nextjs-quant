@@ -157,6 +157,23 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
       .split("\n");
     expect(lines).toEqual(expected);
   }
+  // api v6: the DLL names its clean source commit; centers carry their
+  // formation bar; bars carry the MA5/MA20 pair the kisses use.
+  expect(raw.buildCommit).toBe("56d0d8f4729b");
+  const native = raw.families[0]!;
+  for (const c of native.centers)
+    expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);
+  const average = (period: number) => {
+    let sum = 0;
+    return close.map((v, i) => {
+      sum = Math.fround(sum + v);
+      if (i >= period) sum = Math.fround(sum - close[i - period]!);
+      return Math.fround(sum / Math.min(i + 1, period));
+    });
+  };
+  expect(native.bars.map((b) => [b.maShort, b.maLong])).toEqual(
+    average(5).map((v, i) => [v, average(20)[i]]),
+  );
   // The v5 recursion section is rendered with the sample's real close/volume.
   const recursive = (await projectCzsc(fixture, [0], CZSC_FLAG_HIGHER))
     .families[0]!;

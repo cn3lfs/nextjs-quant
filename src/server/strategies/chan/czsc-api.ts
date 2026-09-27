@@ -1,4 +1,4 @@
-// Mirrors adapter/czsc_api.h (czsc-tdx, api v5). Bar positions are zero-based
+// Mirrors adapter/czsc_api.h (czsc-tdx, api v6). Bar positions are zero-based
 // raw bar indices; table references are zero-based indices into the same
 // snapshot; -1 means none. confirmedAt is the earliest bar after which the
 // object never changes (-1 = not final yet).
@@ -43,6 +43,8 @@ export type CzscRawCenter = {
   relationToPrev: number;
   /** 0 extension / 1 expansion / 2 newborn up / 3 newborn down / -1 first */
   lifecycle: number;
+  /** v6: bar on which the center formed (third member segment's end fractal). */
+  established: number;
 };
 export type CzscRawMovement = {
   type: number;
@@ -101,6 +103,9 @@ export type CzscRawBar = {
   gap: number;
   fractalStrength: number;
   instantDivergence: number;
+  /** v6: MA5 / MA20 of close, the pair used for kisses. */
+  maShort: number;
+  maLong: number;
 };
 export type CzscRawNode = {
   level: number;
@@ -183,6 +188,8 @@ export type CzscRawFamily = {
 export type CzscSnapshot = {
   hash: string;
   apiVersion: number;
+  /** Source git commit baked in at build time ("-dirty" / "unknown" possible). */
+  buildCommit: string;
   families: Record<string, CzscRawFamily>;
   /** low = config 0, high = config 1100 */
   nested: CzscRawNested[];
