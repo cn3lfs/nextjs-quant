@@ -1,18 +1,23 @@
 import { expect, it } from "vitest";
 import { formulaFromText } from "~/server/screening/formula-from-text";
+import { researchModel, structured } from "~/server/research/research";
 
 /**
  * F1 acceptance against the configured real model (tokens are spent). Run with
  *   QUANT_FORMULA_NL_ACCEPTANCE=1 npx vitest run tests/screening-rps/formula-nl-acceptance-live.test.ts
- * using the data directory whose settings choose the provider. `expect` lists
+ * using the data directory whose settings choose the provider, or name a model
+ * with QUANT_FORMULA_NL_MODEL (e.g. deepseek-v4-flash). `expect` lists
  * tokens the formula must contain as a coarse semantic check; `unsupported`
- * cases must report the condition instead of inventing a field.
+ * cases must report the condition and touch no price/volume/RPS field (no
+ * substitute technical screen).
  */
+const marketField =
+  /(^|[^A-Z0-9_])(C|O|H|L|V|VOL|CLOSE|OPEN|HIGH|LOW|AMOUNT|RPS\d+)([^A-Z0-9_]|$)/;
 const cases: { text: string; expect?: RegExp[]; unsupported?: true }[] = [
   { text: "收盘价站上20日均线", expect: [/MA\(\s*(C|CLOSE)\s*,\s*20\s*\)/] },
   { text: "5日均线上穿20日均线", expect: [/CROSS/, /5/, /20/] },
   { text: "MACD金叉", expect: [/EMA/, /CROSS/] },
-  { text: "MACD零轴上方金叉", expect: [/EMA/, /CROSS/, />\s*0/] },
+  { text: "MACD零轴上方金叉", expect: [/EMA/, /CROSS/, />\s*(0|ZERO)/] },
   { text: "KDJ的J值小于0", expect: [/LLV/, /HHV/] },
   { text: "RSI6低于20", expect: [/SMA|EMA/] },
   { text: "布林带下轨附近", expect: [/STD/] },
@@ -24,8 +29,13 @@ const cases: { text: string; expect?: RegExp[]; unsupported?: true }[] = [
     expect: [/MA\(\s*(VOL|V)\s*,\s*5\s*\)/, /2/],
   },
   { text: "创60日新高", expect: [/HHV/, /60/] },
-  { text: "创20日新低", expect: [/LLV/, /20/] },
-  { text: "连续3天上涨", expect: [/EVERY|COUNT/] },
+  {
+    text: "创20日新低",
+    expect: [
+      /L\s*<=\s*LLV\(\s*L\s*,\s*20\s*\)|L\s*<\s*REF\(\s*LLV\(\s*L\s*,\s*20\s*\)\s*,\s*1\s*\)/,
+    ],
+  },
+  { text: "连续3天上涨", expect: [/EVERY|COUNT|REF\(\s*C\s*,\s*2\s*\)/] },
   { text: "今天涨停", expect: [/REF\(\s*(C|CLOSE)\s*,\s*1\s*\)/] },
   { text: "涨幅大于5%", expect: [/REF/] },
   { text: "近10日振幅小于3%", expect: [/HHV|LLV|H|L/] },
@@ -53,13 +63,29 @@ it.skipIf(process.env.QUANT_FORMULA_NL_ACCEPTANCE !== "1")(
       tokens = 0;
     const report: string[] = [];
     for (const c of cases) {
-      const r = await formulaFromText(c.text);
+      const model = process.env.QUANT_FORMULA_NL_MODEL ?? researchModel(false);
+      let r;
+      try {
+        r = await formulaFromText(c.text, undefined, (prompt, schema) =>
+          structured(prompt, schema, model),
+        );
+      } catch (error) {
+        // One failed generation counts against the rates; it does not abort.
+        report.push(
+          `✗✗ ${c.text} ⇒ 出错：${error instanceof Error ? error.message : error}`,
+        );
+        continue;
+      }
       tokens += r.tokens;
-      const source = r.source.toUpperCase();
+      // TDX {…} comments carry no meaning for the checks below.
+      const source = r.source.replace(/\{[^}]*\}/g, "").toUpperCase();
       const passed = r.ok;
+      // Unsupported asks must be reported, not approximated with price data;
+      // supported ones keep assumptions in the explanation, not in unsupported.
       const meaning = c.unsupported
-        ? r.unsupported.length > 0
-        : (c.expect ?? []).every((p) => p.test(source));
+        ? r.unsupported.length > 0 && !marketField.test(source)
+        : (c.expect ?? []).every((p) => p.test(source)) &&
+          r.unsupported.length === 0;
       gate += Number(passed || !!c.unsupported);
       semantic += Number(meaning);
       report.push(

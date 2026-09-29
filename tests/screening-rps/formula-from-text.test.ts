@@ -74,6 +74,16 @@ describe("formulaFromText", () => {
   });
 });
 
+it("treats an empty draft as the select-nothing formula, not an error", async () => {
+  const m = model(draft("", ["市盈率低于20倍"]));
+  const result = await formulaFromText("市盈率低于20倍", undefined, m.complete);
+  expect(result).toMatchObject({
+    ok: true,
+    source: "0;",
+    unsupported: ["市盈率低于20倍"],
+  });
+});
+
 describe("formulaPrompt", () => {
   it("lists exactly the engine's functions and forbidden names", () => {
     const prompt = formulaPrompt("测试");

@@ -48,6 +48,9 @@ export async function formulaFromText(
       formulaDraftSchema,
     );
     tokens += used;
+    // A model that finds nothing expressible may answer with an empty formula;
+    // that is the documented "select nothing" formula, not a failure.
+    if (!data.source) data.source = "0;";
     try {
       validateScreenFormula({ name: "一句话选股", source: data.source });
       return { ...data, ok: true, tokens, attempts: attempt };
