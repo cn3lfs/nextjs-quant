@@ -672,6 +672,35 @@ it("server filters, stable sorting, pages and grouped totals use the complete se
   expect(
     exportExecutionQuality(s, { ...options, pageIndex: 99 }).split("\r\n"),
   ).toHaveLength(52);
+  // Pages past the end clamp to the last page and report the served index.
+  const clamped = pageExecutionQuality(s, { ...options, pageIndex: 99 });
+  expect(clamped.pageIndex).toBe(5);
+  expect(clamped.rows.map((r) => r.fillIndex)).toEqual([101]);
+  expect(
+    pageExecutionQuality(s, { ...options, groupPageIndex: 7 }).groupPageIndex,
+  ).toBe(0);
+  expect(
+    pageExecutionQuality(s, { ...options, side: "sell", pageIndex: 3 })
+      .pageIndex,
+  ).toBe(0);
+  // Dates must exist and bound a non-empty closed interval.
+  expect(() =>
+    pageExecutionQuality(s, { ...options, start: "2026-02-30" }),
+  ).toThrow("日期不存在");
+  expect(() =>
+    pageExecutionQuality(s, {
+      ...options,
+      start: "2026-01-06",
+      end: "2026-01-05",
+    }),
+  ).toThrow("开始日期不能晚于结束日期");
+  expect(
+    pageExecutionQuality(s, {
+      ...options,
+      start: "2024-02-29",
+      end: "2026-01-05",
+    }).rowCount,
+  ).toBe(51);
 });
 
 it("CSV follows R2 import redaction and excludes account and raw identifiers", async () => {

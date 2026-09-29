@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
 import { ExecutionQualityResults } from "./execution-quality-results";
@@ -56,7 +56,24 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
       ? { id: groupSorting[0].id, desc: groupSorting[0].desc }
       : null,
   };
-  const query = api.tradeReviewExecution.useQuery(input, { retry: false });
+  // Reversed bounds would be rejected by the server; say so here instead.
+  const dateError =
+    filters.start && filters.end && filters.start > filters.end
+      ? "开始日期不能晚于结束日期"
+      : "";
+  const query = api.tradeReviewExecution.useQuery(input, {
+    retry: false,
+    enabled: !dateError,
+  });
+  // The server clamps out-of-range pages (e.g. after a revoke); follow it.
+  useEffect(() => {
+    const served = query.data;
+    if (!served || query.isPlaceholderData) return;
+    if (served.pageIndex !== pagination.pageIndex)
+      setPagination((p) => ({ ...p, pageIndex: served.pageIndex }));
+    if (served.groupPageIndex !== groupPagination.pageIndex)
+      setGroupPagination((p) => ({ ...p, pageIndex: served.groupPageIndex }));
+  }, [query.data]);
   return (
     <section className="space-y-4" aria-label="执行质量">
       <h2 className="text-lg font-semibold">执行质量</h2>
@@ -180,6 +197,7 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
           <TabsTrigger value="month">按月</TabsTrigger>
         </TabsList>
       </Tabs>
+      {dateError && <p role="alert">{dateError}</p>}
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
       {query.isFetching && <p role="status">正在计算执行质量…</p>}

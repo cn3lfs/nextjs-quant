@@ -109,7 +109,9 @@ export function reviewAttribution(
       const members = new Map<string, number[]>();
       rounds.forEach((r, i) =>
         select(r, i).forEach((name) => {
-          members.set(name, [...(members.get(name) ?? []), i]);
+          const list = members.get(name);
+          if (list) list.push(i);
+          else members.set(name, [i]);
         }),
       );
       return {

@@ -1,6 +1,9 @@
 import { sortTableRows, tableSortSchema } from "~/lib/common/server-sort";
 import { z } from "zod";
-import { redactRow, mapDeliveryColumns } from "~/lib/research/evidence/delivery-import";
+import {
+  redactRow,
+  mapDeliveryColumns,
+} from "~/lib/research/evidence/delivery-import";
 import {
   summarizeExecution,
   executionDiagnosticCategories,
@@ -22,29 +25,39 @@ export const executionSortFields = [
   "diagnostic",
   "fees",
 ] as const;
-export const executionPageSchema = z.object({
-  account: z.string().trim().min(1),
-  pageIndex: z.number().int().min(0).max(1000000).default(0),
-  pageSize: z.number().int().min(1).max(100).default(10),
-  sort: z.enum(executionSortFields).default("tradeDate"),
-  desc: z.boolean().default(false),
-  search: z.string().trim().max(100).default(""),
-  side: z.enum(["all", "buy", "sell"]).default("all"),
-  adverseOnly: z.boolean().default(false),
-  diagnostic: z.enum(["all", ...executionDiagnosticCategories]).default("all"),
-  start: z
-    .string()
-    .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
-    .default(""),
-  end: z
-    .string()
-    .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
-    .default(""),
-  minAmount: z.number().finite().min(0).default(0),
-  group: z.enum(["code", "kind", "month"]).default("code"),
-  groupPageIndex: z.number().int().min(0).max(1000000).default(0),
-  groupOrder: tableSortSchema,
-});
+// Closed-interval filter bound: empty, or a real calendar date (no 02-30).
+const filterDate = z
+  .string()
+  .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
+  .refine(
+    (v) => !v || new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v,
+    "日期不存在",
+  )
+  .default("");
+export const executionPageSchema = z
+  .object({
+    account: z.string().trim().min(1),
+    pageIndex: z.number().int().min(0).max(1000000).default(0),
+    pageSize: z.number().int().min(1).max(100).default(10),
+    sort: z.enum(executionSortFields).default("tradeDate"),
+    desc: z.boolean().default(false),
+    search: z.string().trim().max(100).default(""),
+    side: z.enum(["all", "buy", "sell"]).default("all"),
+    adverseOnly: z.boolean().default(false),
+    diagnostic: z
+      .enum(["all", ...executionDiagnosticCategories])
+      .default("all"),
+    start: filterDate,
+    end: filterDate,
+    minAmount: z.number().finite().min(0).default(0),
+    group: z.enum(["code", "kind", "month"]).default("code"),
+    groupPageIndex: z.number().int().min(0).max(1000000).default(0),
+    groupOrder: tableSortSchema,
+  })
+  .refine((v) => !v.start || !v.end || v.start <= v.end, {
+    message: "开始日期不能晚于结束日期",
+    path: ["end"],
+  });
 type Options = z.infer<typeof executionPageSchema>;
 type GroupSummary = { id: string } & ReturnType<typeof summarizeExecution>;
 type Snapshot = ReturnType<typeof replayTradeReview>;
@@ -117,19 +130,36 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
       ),
       ...Object.fromEntries(
         (
-          ["commission", "stampTax", "transferFee", "otherFee", "total"] as const
+          [
+            "commission",
+            "stampTax",
+            "transferFee",
+            "otherFee",
+            "total",
+          ] as const
         ).map((key) => [key, (g: GroupSummary) => g.fees[key].value]),
       ),
     },
   );
   const e = snapshot.execution;
+  const matched = new Set(rows.map((r) => r.fillIndex));
+  // Out-of-range pages (e.g. after a revoke shrinks the list) clamp to the
+  // last page; the effective index is returned so the client can follow.
+  const lastPage = (count: number, size: number) =>
+    Math.max(0, Math.ceil(count / size) - 1);
+  const pageIndex = Math.min(
+    input.pageIndex,
+    lastPage(rows.length, input.pageSize),
+  );
+  const groupPageIndex = Math.min(
+    input.groupPageIndex,
+    lastPage(grouped.length, 10),
+  );
   return {
     benchmark: e.benchmark,
     summary: summarizeExecution(rows),
     unitMismatchCount: rows.filter((r) => r.unitCheck.reason !== null).length,
-    unitMismatches: e.unitMismatches.filter((m) =>
-      rows.some((r) => r.fillIndex === m.fillIndex),
-    ),
+    unitMismatches: e.unitMismatches.filter((m) => matched.has(m.fillIndex)),
     loss: e.loss,
     terminalDifference: e.terminalDifference,
     fallbackNote: e.fallbackNote,
@@ -138,15 +168,14 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
     // Loss always describes the whole account; detail filters never change replay.
     segments: e.segments,
     rowCount: rows.length,
+    pageIndex,
     rows: rows.slice(
-      input.pageIndex * input.pageSize,
-      (input.pageIndex + 1) * input.pageSize,
+      pageIndex * input.pageSize,
+      (pageIndex + 1) * input.pageSize,
     ),
     groupCount: grouped.length,
-    groups: grouped.slice(
-      input.groupPageIndex * 10,
-      (input.groupPageIndex + 1) * 10,
-    ),
+    groupPageIndex,
+    groups: grouped.slice(groupPageIndex * 10, (groupPageIndex + 1) * 10),
   };
 }
 export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
