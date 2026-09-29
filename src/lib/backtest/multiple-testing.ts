@@ -1,4 +1,4 @@
-import { dailyPerformance } from "./daily-performance";
+import { sharpeWbt } from "./daily-performance";
 import type { ReviewValue } from "../portfolio/trade-review";
 
 const missing = (reason: string): ReviewValue => ({ value: null, reason });
@@ -121,10 +121,7 @@ function invalidReturns(
 }
 
 export function sharpeDaily(returns: readonly (number | null)[]): ReviewValue {
-  return (
-    invalidReturns(returns) ??
-    dailyPerformance({ returns, basis: "simple", yearlyDays: 1 }).sharpeWbt
-  );
+  return invalidReturns(returns) ?? sharpeWbt(returns, 1);
 }
 
 function standardizedMoment(

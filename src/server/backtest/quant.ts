@@ -18,6 +18,39 @@ import {
   type BacktestCosts,
 } from "~/lib/backtest/backtest-costs";
 import { big, bpsOf, moneyMul, toNumber, bigFloor } from "~/lib/money";
+/**
+ * Whole 100-share lots the cash buys after the minimum commission. The float
+ * quotient decides unless it sits within rounding distance of a lot boundary;
+ * only then is the Big.js decimal division (28 places) needed for the floor.
+ */
+export function affordableShares(
+  cash: number,
+  minimumCommission: number,
+  price: number,
+  commission: number,
+) {
+  const lots = (cash - minimumCommission) / (price * (1 + commission)) / 100;
+  const floor = Math.floor(lots);
+  const margin = 1e-9 * Math.max(1, Math.abs(lots));
+  if (
+    Number.isFinite(lots) &&
+    lots - floor > margin &&
+    floor + 1 - lots > margin
+  )
+    return Math.max(0, floor) * 100;
+  return (
+    Math.max(
+      0,
+      bigFloor(
+        big(cash)
+          .minus(minimumCommission)
+          .div(big(price).times(big(1).plus(commission)))
+          .div(100),
+      ),
+    ) * 100
+  );
+}
+
 export function backtest(
   bars: Bar[],
   strategy: Strategy,
@@ -122,14 +155,11 @@ export function backtest(
       const price = toNumber(
         big(bar.open).plus(bpsOf(bar.open, costs.slippageBps)),
       );
-      const qty = Math.max(
-        0,
-        bigFloor(
-          big(benchmarkCash)
-            .minus(costs.minimumCommission)
-            .div(big(price).times(big(1).plus(commission)))
-            .div(100),
-        ) * 100,
+      const qty = affordableShares(
+        benchmarkCash,
+        costs.minimumCommission,
+        price,
+        commission,
       );
       if (qty > 0) {
         const orderAmount = moneyMul(qty, price);
@@ -170,14 +200,11 @@ export function backtest(
       const price = toNumber(
           big(bar.open).plus(bpsOf(bar.open, costs.slippageBps)),
         ),
-        qty = Math.max(
-          0,
-          bigFloor(
-            big(cash)
-              .minus(costs.minimumCommission)
-              .div(big(price).times(big(1).plus(commission)))
-              .div(100),
-          ) * 100,
+        qty = affordableShares(
+          cash,
+          costs.minimumCommission,
+          price,
+          commission,
         );
       if (qty > 0) {
         const orderAmount = moneyMul(qty, price);

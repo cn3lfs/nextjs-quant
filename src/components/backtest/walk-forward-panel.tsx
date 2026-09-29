@@ -1,4 +1,5 @@
 "use client";
+import { activeJobPoll } from "../workbench/job-poll";
 import { AdjustmentDisclosure } from "./research-adjustment";
 import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
@@ -48,10 +49,7 @@ export function WalkForwardPanel({
     { id: jobId },
     {
       enabled: !!jobId,
-      refetchInterval: (q) =>
-        ["queued", "running"].includes(q.state.data?.status ?? "")
-          ? 1000
-          : false,
+      refetchInterval: (q) => activeJobPoll(q.state.data),
     },
   );
   const cancel = api.cancel.useMutation({

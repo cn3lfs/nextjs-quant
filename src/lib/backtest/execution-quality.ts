@@ -1,7 +1,13 @@
-import { classifyCode, type ParsedFill } from "../research/evidence/delivery-import";
+import {
+  classifyCode,
+  type ParsedFill,
+} from "../research/evidence/delivery-import";
 import type { Bar } from "../domain";
 import type { ReviewValue } from "../portfolio/trade-review";
-import { reviewTradeNav, type TradeReviewNavInput } from "../portfolio/trade-review-nav";
+import {
+  reviewTradeNav,
+  type TradeReviewNavInput,
+} from "../portfolio/trade-review-nav";
 import { tradeReviewDayVwap } from "../portfolio/trade-review-vwap";
 
 export type ExecutionBenchmark = { kind: "dayVwap" };
@@ -62,12 +68,24 @@ export function executionRows(
   fills: readonly ParsedFill[],
   bars: Readonly<Record<string, readonly Bar[]>>,
 ): ExecutionRow[] {
+  // Bars grouped by date once per security instead of scanned per fill.
+  const indexed = new Map<string, Map<string, Bar[]>>();
+  const barsOn = (security: string, date: string) => {
+    let byDate = indexed.get(security);
+    if (!byDate) {
+      byDate = new Map();
+      for (const b of bars[security] ?? []) {
+        const rows = byDate.get(b.date);
+        if (rows) rows.push(b);
+        else byDate.set(b.date, [b]);
+      }
+      indexed.set(security, byDate);
+    }
+    return byDate.get(date) ?? [];
+  };
   return fills.flatMap((fill, fillIndex) => {
     if (repo(fill)) return [];
-    const matches =
-      bars[fill.symbol ?? fill.code]?.filter(
-        (b) => b.date === fill.tradeDate,
-      ) ?? [];
+    const matches = barsOn(fill.symbol ?? fill.code, fill.tradeDate);
     let vwap =
       matches.length === 1
         ? tradeReviewDayVwap(matches[0]!)

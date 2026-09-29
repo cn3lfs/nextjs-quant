@@ -1,4 +1,4 @@
-import { dailyPerformance } from "./daily-performance";
+import { curvePerformance } from "./daily-performance";
 import type { Strategy } from "../domain";
 import { sharpeDaily } from "./multiple-testing";
 import type { ReviewValue } from "../portfolio/trade-review";
@@ -38,8 +38,7 @@ export type BacktestOverfitPairSummary = {
 
 /** V2b：复用 U1 的复利净收益与含本金回撤，均为小数比例。 */
 export function selectionPerformance(returns: readonly (number | null)[]) {
-  const { totalReturn, maxDrawdown } = dailyPerformance({ returns });
-  return { totalReturn, maxDrawdown };
+  return curvePerformance(returns);
 }
 
 /** 含截距 OLS；常数因变量的 R² 无定义，不能填成 1。 */

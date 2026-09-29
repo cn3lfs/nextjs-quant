@@ -93,18 +93,14 @@ function topDrawdownLength(curve: readonly number[], basis: PerformanceBasis) {
   return length;
 }
 
-/** U1 §2：新核只追加；旧 sharpe / sortino 不由这里替代。 */
-export function dailyPerformance(
-  input: DailyPerformanceInput,
-): DailyPerformance {
-  const basis = input.basis ?? "compound";
-  const yearlyDays = input.yearlyDays ?? defaultYearlyDays;
-  const annualRiskFreeRate = input.annualRiskFreeRate ?? 0.02;
-  if (!performanceBases.includes(basis)) throw new Error("收益口径无效");
-  if (!Number.isFinite(yearlyDays) || yearlyDays <= 0)
-    throw new Error("年化天数必须为正有限数");
-  if (!Number.isFinite(annualRiskFreeRate) || annualRiskFreeRate <= -1)
-    throw new Error("无风险利率无效");
+/**
+ * Validated net-value curve, total return and the peak-to-trough pass: the
+ * part of the U1 kernel CSCV selection needs for every combination.
+ */
+function curveCore(
+  input: Pick<DailyPerformanceInput, "returns">,
+  basis: PerformanceBasis,
+) {
   if (input.returns.some((r) => r !== null && !Number.isFinite(r)))
     throw new Error("日收益必须为有限数或 null");
   const returns = input.returns.filter((r): r is number => r !== null);
@@ -130,12 +126,6 @@ export function dailyPerformance(
       ? "复利日收益低于 -100%，净值曲线无定义"
       : "累计净值溢出，曲线指标不可估";
   const total = n && validCurve ? value - Number(basis === "compound") : null;
-  const annual =
-    total === null
-      ? null
-      : basis === "compound"
-        ? (1 + total) ** (yearlyDays / n) - 1
-        : (total / n) * yearlyDays;
   let peak = basis === "compound" ? 1 : 0;
   let maxDrawdown = 0;
   let underwater = 0;
@@ -154,6 +144,96 @@ export function dailyPerformance(
       highs++;
     }
   }
+  return {
+    returns,
+    n,
+    coverage,
+    empty,
+    curve,
+    validCurve,
+    curveReason,
+    total,
+    maxDrawdown,
+    longest,
+    highs,
+  };
+}
+
+/** Compound total return and max drawdown, identical to `dailyPerformance`. */
+export function curvePerformance(returns: readonly (number | null)[]) {
+  const { n, validCurve, curveReason, total, maxDrawdown } = curveCore(
+    { returns },
+    "compound",
+  );
+  return {
+    totalReturn: metric(total, curveReason),
+    maxDrawdown: metric(n && validCurve ? maxDrawdown : null, curveReason),
+  };
+}
+
+function sharpeMetric(
+  returns: readonly number[],
+  deviation: number | null,
+  yearlyDays: number,
+) {
+  return metric(
+    deviation !== null && Number.isFinite(deviation) && deviation > 0
+      ? (mean(returns) / deviation) * Math.sqrt(yearlyDays)
+      : null,
+    !returns.length
+      ? "无可得日收益"
+      : deviation !== null && !Number.isFinite(deviation)
+        ? "收益标准差溢出，夏普不可估"
+        : "收益标准差为零，夏普无定义",
+  );
+}
+
+/** `dailyPerformance(...).sharpeWbt` without the rest of the kernel. */
+export function sharpeWbt(
+  input: readonly (number | null)[],
+  yearlyDays = defaultYearlyDays,
+) {
+  if (input.some((r) => r !== null && !Number.isFinite(r)))
+    throw new Error("日收益必须为有限数或 null");
+  const returns = input.filter((r): r is number => r !== null);
+  return sharpeMetric(
+    returns,
+    returns.length ? std(returns) : null,
+    yearlyDays,
+  );
+}
+
+/** U1 §2：新核只追加；旧 sharpe / sortino 不由这里替代。 */
+export function dailyPerformance(
+  input: DailyPerformanceInput,
+): DailyPerformance {
+  const basis = input.basis ?? "compound";
+  const yearlyDays = input.yearlyDays ?? defaultYearlyDays;
+  const annualRiskFreeRate = input.annualRiskFreeRate ?? 0.02;
+  if (!performanceBases.includes(basis)) throw new Error("收益口径无效");
+  if (!Number.isFinite(yearlyDays) || yearlyDays <= 0)
+    throw new Error("年化天数必须为正有限数");
+  if (!Number.isFinite(annualRiskFreeRate) || annualRiskFreeRate <= -1)
+    throw new Error("无风险利率无效");
+  const {
+    returns,
+    n,
+    coverage,
+    empty,
+    curve,
+    validCurve,
+    curveReason,
+    total,
+    maxDrawdown,
+    longest,
+    highs,
+  } = curveCore(input, basis);
+  const annual =
+    total === null
+      ? null
+      : basis === "compound"
+        ? (1 + total) ** (yearlyDays / n) - 1
+        : (total / n) * yearlyDays;
   const deviation = n ? std(returns) : null;
   const volatility =
     deviation === null ? null : deviation * Math.sqrt(yearlyDays);
@@ -193,16 +273,7 @@ export function dailyPerformance(
       annual,
       annual !== null ? "年化收益溢出" : curveReason,
     ),
-    sharpeWbt: metric(
-      deviation !== null && Number.isFinite(deviation) && deviation > 0
-        ? (mean(returns) / deviation) * Math.sqrt(yearlyDays)
-        : null,
-      !n
-        ? empty
-        : deviation !== null && !Number.isFinite(deviation)
-          ? "收益标准差溢出，夏普不可估"
-          : "收益标准差为零，夏普无定义",
-    ),
+    sharpeWbt: sharpeMetric(returns, deviation, yearlyDays),
     maxDrawdown: curveMetric(maxDrawdown),
     calmar: metric(
       annual !== null && maxDrawdown > 0 ? annual / maxDrawdown : null,
