@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import {
   nextMounted,
+  nextPanelCache,
   PanelCache,
   usePanelVisible,
 } from "../../src/components/workbench/keep-alive";
@@ -44,4 +45,18 @@ it("reports hidden panels as not visible", () => {
   expect(renderToStaticMarkup(createElement(Probe, { label: "outside" }))).toBe(
     "<span>outside:true</span>",
   );
+});
+
+it("evicts the least recently shown panels beyond the limit, never the pinned or active one", () => {
+  let cache = { mounted: ["/market"], recent: ["/market"] };
+  for (const key of ["/", "/screen", "/rps", "/signals", "/news"])
+    cache = nextPanelCache(cache, key, 4, ["/market"]);
+  // "/market" is the oldest but pinned; "/" and "/screen" go.
+  expect(cache.mounted).toEqual(["/market", "/rps", "/signals", "/news"]);
+  // Revisiting refreshes recency without moving the render order.
+  cache = nextPanelCache(cache, "/rps", 4, ["/market"]);
+  expect(cache.mounted).toEqual(["/market", "/rps", "/signals", "/news"]);
+  cache = nextPanelCache(cache, "/tasks", 4, ["/market"]);
+  expect(cache.mounted).toEqual(["/market", "/rps", "/news", "/tasks"]);
+  expect(nextPanelCache(cache, "/tasks", 4, ["/market"])).toBe(cache);
 });
