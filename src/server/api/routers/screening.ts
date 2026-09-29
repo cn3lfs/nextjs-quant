@@ -1,5 +1,8 @@
 import { latestRpsObservation } from "../../screening/rps-observation";
-import { marketPoolQuerySchema, poolCategorySchema } from "~/lib/market/market-pool";
+import {
+  marketPoolQuerySchema,
+  poolCategorySchema,
+} from "~/lib/market/market-pool";
 import { marketPoolCatalog } from "../../market/market-pool-files";
 import {
   marketPoolPage,
@@ -38,7 +41,10 @@ import { screenJob } from "../../screening/screen-job";
 import { snapshot } from "../../market/snapshot";
 import { readJob } from "../../jobs/jobs";
 import { securityNameMap } from "../../market/securities";
-import { formulaSchema, validateScreenFormula } from "~/lib/formula/formula-screen";
+import {
+  formulaSchema,
+  validateScreenFormula,
+} from "~/lib/formula/formula-screen";
 import {
   savedFormulas,
   saveFormula,
@@ -46,6 +52,7 @@ import {
   exportFormulaScreen,
 } from "../../screening/formula-screen-service";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { formulaFromText } from "../../screening/formula-from-text";
 export const screeningRouter = createTRPCRouter({
   conceptRpsStatus: p.query(() => {
     const store = new RpsStore(chartSqlite(), "concept");
@@ -227,6 +234,10 @@ export const screeningRouter = createTRPCRouter({
     validateScreenFormula(input);
     return { ok: true };
   }),
+  // Drafts a formula from a sentence; the draft is checked, never launched here.
+  formulaFromText: p
+    .input(z.string().trim().min(2).max(500))
+    .mutation(({ input, signal }) => formulaFromText(input, signal)),
   formulaScreen: p
     .input(formulaSchema)
     .mutation(({ input }) => formulaScreenJob(input)),

@@ -31,7 +31,47 @@ export function FormulaScreen({
   const formulas = api.formulas.useQuery();
   const save = api.saveFormula.useMutation();
   const run = api.formulaScreen.useMutation();
-  const busy = save.isPending || run.isPending;
+  const draft = api.formulaFromText.useMutation();
+  const [request, setRequest] = useState("");
+  const [explained, setExplained] = useState<{
+    lines: { line: string; meaning: string }[];
+    unsupported: string[];
+  } | null>(null);
+  const busy = save.isPending || run.isPending || draft.isPending;
+  async function generate() {
+    setChecked(null);
+    setExplained(null);
+    setMessage("");
+    try {
+      const result = await draft.mutateAsync(request);
+      // The draft replaces the editor but is never launched from here: the
+      // user still runs the gate and confirms.
+      setId(undefined);
+      setName(request.slice(0, 40));
+      setSource(result.source);
+      setParams("{}");
+      if (result.ok) {
+        setExplained({
+          lines: result.explanation,
+          unsupported: result.unsupported,
+        });
+        setMessage("已生成公式，请核对含义后点击“语法检查与未来函数门禁”。");
+      } else {
+        setExplained({ lines: [], unsupported: result.unsupported });
+        setMessage(
+          "模型两次生成的公式均未通过校验，已放入编辑框供手工修改：\n" +
+            result.issues
+              .map(
+                (i) =>
+                  `第${i.line}行${i.name ? ` ${i.name}` : ""}：${i.reason}`,
+              )
+              .join("\n"),
+        );
+      }
+    } catch (e) {
+      error(e);
+    }
+  }
   function input() {
     return validateScreenFormula({
       id,
@@ -98,6 +138,48 @@ export function FormulaScreen({
             重试读取
           </Button>
         </p>
+      )}
+      <div className="inline-form">
+        <label className="grow">
+          一句话选股
+          <Input
+            aria-label="一句话选股"
+            value={request}
+            maxLength={500}
+            placeholder="例如：MACD 金叉、RPS250 大于 90、近 5 日放量"
+            onChange={(e) => setRequest(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && request.trim().length >= 2 && !busy)
+                void generate();
+            }}
+          />
+        </label>
+        <Button
+          variant="outline"
+          disabled={busy || request.trim().length < 2}
+          onClick={() => void generate()}
+        >
+          {draft.isPending ? "正在生成…" : "生成公式"}
+        </Button>
+      </div>
+      {explained && (
+        <div aria-label="公式解释">
+          {explained.lines.length > 0 && (
+            <ul>
+              {explained.lines.map((l, i) => (
+                <li key={i}>
+                  <code>{l.line}</code> — {l.meaning}
+                </li>
+              ))}
+            </ul>
+          )}
+          {explained.unsupported.length > 0 && (
+            <p role="alert">
+              以下条件无法用本地公式表达，未包含在公式中：
+              {explained.unsupported.join("；")}
+            </p>
+          )}
+        </div>
       )}
       <label>
         公式源码

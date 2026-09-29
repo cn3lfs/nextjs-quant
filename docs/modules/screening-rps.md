@@ -24,3 +24,5 @@
 ## 维护指南
 
 新筛选条件需写明输入日期/证券池、数据不足的处理和结果身份；长任务补取消/进度验证。新增用例放在 `tests/screening-rps/`，跨域工程约束归 `tests/engineering-validation/`。
+
+**一句话选股**：`formulaFromText` 由模型起草通达信公式，再经 `validateScreenFormula` 门禁（失败时回喂报错修正一次），界面只回填草稿、不自动执行。提示词中的函数和字段表由 `tdx-formula-check.ts` 生成；向引擎新增函数后提示词会自动同步，不要在提示词里手写函数清单。
