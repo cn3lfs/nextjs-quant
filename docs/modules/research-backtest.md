@@ -24,3 +24,5 @@
 ## 维护指南
 
 新增研究因子要绑定证据来源与时点并归入 `factors/`；方法家族代码放入对应 `methods/` 子目录，跨家族技术规则放 `technical/`，共用风险参数放 `risk/`，固定输入 schema 与策略目录放 `specs/`。新增执行规则要分离信号价格与成交假设，并明确交易规则、费用和公司行动。只有定义了数据覆盖和执行条件的结果才可作业绩主张；参见 [roadmap §1.1](../roadmap.md#11-策略验证分层) 与 [invariants](../invariants.md)。
+
+因子评估：纯计算在 `lib/research/factor-evaluation.ts`（alphalens 口径，列式存储），worker 任务在 `server/research/factor-evaluation-job.ts`，界面在 `components/research/factor-evaluation-panel.tsx`（条件选股页）。任务种类 `factor-eval` 会计入研究尝试台账。

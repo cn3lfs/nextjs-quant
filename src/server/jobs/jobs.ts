@@ -80,7 +80,7 @@ export function newJob(type: Job["type"], input: unknown): Job {
     snapshotId?: string;
   };
   const kind =
-    type === "backtest" || type === "walk-forward"
+    type === "backtest" || type === "walk-forward" || type === "factor-eval"
       ? type
       : type === "screen" && value?.type === "formula-screen"
         ? "formula-screen"

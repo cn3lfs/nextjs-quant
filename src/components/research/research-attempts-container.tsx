@@ -33,6 +33,7 @@ const kinds: Record<ResearchAttempt["kind"], string> = {
   backtest: "回测",
   "walk-forward": "滚动验证",
   "formula-screen": "公式选股",
+  "factor-eval": "因子评估",
   "sample-research": "样本研究",
   "discipline-counterfactual": "纪律反事实",
 };

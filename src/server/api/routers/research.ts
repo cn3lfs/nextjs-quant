@@ -52,7 +52,11 @@ import { researchArchiveHistory } from "../../research/archive-history";
 import { strategySchema, type Snapshot, type Report } from "~/lib/domain";
 import { list } from "../../db";
 import { settings, saveSettings } from "../../infra/settings";
-import { background } from "../../jobs/jobs";
+import { background, runWorker } from "../../jobs/jobs";
+import {
+  factorEvaluationSchema,
+  type evaluateFactorWork,
+} from "../../research/factor-evaluation-job";
 import { analyze, interpret } from "../../research/research";
 import { gatherEvidence } from "../../research/gather-evidence";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
@@ -280,6 +284,18 @@ export const researchRouter = createTRPCRouter({
       ({ input }) =>
         recordOfKind<WalkForwardResult>("walk-forward", input) ?? null,
     ),
+  // Cross-sectional factor evaluation over local A-shares (worker job).
+  factorEvaluate: p.input(factorEvaluationSchema).mutation(({ input }) => {
+    const work = {
+      ...input,
+      type: "factor-eval" as const,
+      root: settings().tdxRoot,
+      now: Date.now(),
+    };
+    return background("factor-eval", work, (job) =>
+      runWorker<Awaited<ReturnType<typeof evaluateFactorWork>>>(work, job.id),
+    );
+  }),
   interpret: p
     .input(z.string().min(1).max(2000))
     .mutation(({ input }) =>

@@ -16,6 +16,7 @@ export const researchKinds = [
   "walk-forward",
   "backtest",
   "formula-screen",
+  "factor-eval",
   "sample-research",
   "discipline-counterfactual",
 ] as const;

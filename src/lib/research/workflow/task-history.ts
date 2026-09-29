@@ -16,6 +16,7 @@ export const taskHistoryInput = z.object({
       "online-screen",
       "backtest",
       "walk-forward",
+      "factor-eval",
       "research",
       "monitor",
     ])
@@ -49,6 +50,7 @@ export const taskTypeLabels: Record<Job["type"], string> = {
   "online-screen": "在线筛选",
   backtest: "策略回测",
   "walk-forward": "滚动检验",
+  "factor-eval": "因子评估",
   research: "AI 研究",
   monitor: "策略监控",
 };

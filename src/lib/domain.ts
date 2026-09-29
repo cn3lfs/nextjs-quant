@@ -118,6 +118,7 @@ export type Job = {
     | "online-screen"
     | "backtest"
     | "walk-forward"
+    | "factor-eval"
     | "research"
     | "monitor";
   status: "queued" | "running" | "completed" | "failed" | "cancelled";

@@ -10,6 +10,10 @@ import {
   type FormulaWork,
 } from "../screening/formula-screening";
 import type { PackedScreen } from "../screening/screen-wire";
+import {
+  evaluateFactorWork,
+  type FactorWork,
+} from "../research/factor-evaluation-job";
 import { fullBacktestSource } from "../backtest/backtest-source";
 import { readBacktestActions } from "../backtest/backtest-actions";
 import { cashDividendWindow } from "../backtest/cash-dividend-window";
@@ -22,6 +26,7 @@ import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
   | FormulaWork
+  | FactorWork
   | {
       type: "walk-forward";
       snapshot: Snapshot;
@@ -60,6 +65,10 @@ export type Work =
 async function main(work: Work & { attemptId?: string }) {
   if (work.type === "formula-screen")
     return screenFormula(work, (progress, phase, workProgress) =>
+      parentPort?.postMessage({ progress, phase, workProgress }),
+    );
+  if (work.type === "factor-eval")
+    return evaluateFactorWork(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),
     );
   if (work.type === "walk-forward") {
