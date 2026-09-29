@@ -5,7 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { IndustryRpsStatus } from "../../../src/components/market/industry-rps-status";
 import { migrate } from "../../../src/server/db/migrations";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { runRpsJob } from "../../../src/server/screening/rps-job";
+import {
+  runRpsJob,
+  RPS_PUBLISH_BATCH,
+} from "../../../src/server/screening/rps-job";
 import { industryRpsPage } from "../../../src/server/screening/industry-rps-query";
 import { industrySnapshot, industryDay } from "../../industry-rps-fixture";
 import { rpsDate, rpsDay, rpsDeps, rpsProgress } from "../../rps-fixture";
@@ -68,17 +71,19 @@ it("industry backfill reuses the S1 job and stores independent immutable results
 });
 it("industry cancellation preserves committed days and resumption fills only missing dates", async () => {
   const { store, progress } = setup();
-  const result = await runRpsJob(store, deps(), request, progress, now, (p) => {
-    if (p.completedDays === 1) store.cancel();
+  // Backfills publish in batches: cancel right after the first batch commits.
+  const longer = { ...request, days: RPS_PUBLISH_BATCH + 2 };
+  const result = await runRpsJob(store, deps(), longer, progress, now, (p) => {
+    if (p.completedDays === RPS_PUBLISH_BATCH) store.cancel();
   });
   expect(result.status).toBe("cancelled");
-  expect(result.completedDays).toBe(1);
+  expect(result.completedDays).toBe(RPS_PUBLISH_BATCH);
   const next = { ...rpsProgress(), target: "industry" as const };
   store.claim(next);
   expect(
-    (await runRpsJob(store, deps(), request, next, now)).completedDays,
+    (await runRpsJob(store, deps(), longer, next, now)).completedDays,
   ).toBe(2);
-  expect(store.curve("甲")).toHaveLength(3);
+  expect(store.curve("甲")).toHaveLength(RPS_PUBLISH_BATCH + 2);
 });
 it("whole empty industry set publishes explicit null audit without a false zero ranking", async () => {
   const { store, progress } = setup();

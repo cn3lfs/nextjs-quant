@@ -136,6 +136,9 @@ export function localRpsDependencies(
   };
 }
 
+/** Days per publication transaction during a backfill (see saveDays). */
+export const RPS_PUBLISH_BATCH = 10;
+
 export async function runRpsJob(
   store: RpsStore,
   deps: RpsDependencies,
@@ -263,6 +266,20 @@ export async function runRpsJob(
         progress.scanned++;
       }
       source.incrementSnapshots = deps.incrementSnapshots?.();
+      // Days are published in batches (see RpsStore.saveDays); progress
+      // counts a day only once its batch is committed.
+      const batch: Parameters<typeof store.saveDays>[0][number][] = [];
+      const publish = () => {
+        if (!batch.length) return;
+        const dates = batch.map(({ day }) => day.date);
+        store.saveDays(batch, () =>
+          checkpoint(
+            `提交 ${dates[0]}${dates.length > 1 ? `…${dates.at(-1)}` : ""}`,
+          ),
+        );
+        progress.completedDays += batch.length;
+        batch.length = 0;
+      };
       for (const date of pending) {
         checkpoint(`计算并固定 ${date}`);
         const stockResult = calculateRpsDay(stocks, days, date);
@@ -282,8 +299,8 @@ export async function runRpsJob(
           : stockResult;
         if (!industryResult && !result.counts.some((n) => n > 0))
           throw new Error(`${date}没有可计算的RPS，未发布空排名`);
-        store.saveDay(
-          {
+        batch.push({
+          day: {
             industry: industryResult?.industry,
             date,
             mode: request.mode,
@@ -298,11 +315,11 @@ export async function runRpsJob(
             source,
             createdAt: now,
           },
-          result.rows,
-          () => checkpoint(`提交 ${date}`),
-        );
-        progress.completedDays++;
+          rows: result.rows,
+        });
+        if (batch.length === RPS_PUBLISH_BATCH) publish();
       }
+      publish();
     }
     checkpoint("完成");
     progress.status = "complete";

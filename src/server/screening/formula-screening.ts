@@ -7,7 +7,10 @@ import {
   validateScreenFormula,
   type ScreeningFormula,
 } from "~/lib/formula/formula-screen";
-import { workProgress, type WorkProgress } from "~/lib/research/workflow/work-progress";
+import {
+  workProgress,
+  type WorkProgress,
+} from "~/lib/research/workflow/work-progress";
 import { readSnapshot, scan } from "../data-sources/tdx/tdx";
 import { type ScreeningResult } from "./screening";
 import { completedBarFilter } from "~/lib/completed-bars";
@@ -53,10 +56,27 @@ export async function screenFormula(
   const completed = completedBarFilter("day", work.now);
   const observed: { symbol: string; name: string; date: string }[] = [];
   const strategy = strategySchema.parse({});
+  // Reads run up to PREFETCH files ahead while earlier ones are evaluated;
+  // results are still consumed strictly in order, so outputs, errors and
+  // progress are identical to a sequential scan.
+  const PREFETCH = 8;
+  const pending: Promise<Snapshot | { error: unknown }>[] = [];
+  const read = (i: number) => {
+    const security = securities[i];
+    if (security)
+      pending[i] = readSnapshot(work.root, security.symbol, "day").catch(
+        (error: unknown) => ({ error }),
+      );
+  };
+  for (let i = 0; i < PREFETCH; i++) read(i);
   for (const [index, security] of securities.entries()) {
     let snapshot: Snapshot;
+    const loaded = await pending[index]!;
+    delete pending[index];
+    read(index + PREFETCH);
     try {
-      snapshot = await readSnapshot(work.root, security.symbol, "day");
+      if ("error" in loaded) throw loaded.error;
+      snapshot = loaded;
     } catch (error) {
       result.errors.push({
         symbol: security.symbol,

@@ -5,7 +5,10 @@ import { createElement } from "react";
 import { RpsStatus } from "../../../src/components/market/rps-status";
 import { migrate } from "../../../src/server/db/migrations";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { runRpsJob } from "../../../src/server/screening/rps-job";
+import {
+  runRpsJob,
+  RPS_PUBLISH_BATCH,
+} from "../../../src/server/screening/rps-job";
 import {
   rpsCalendar,
   rpsDate,
@@ -86,14 +89,15 @@ it.each(["missing-gbbq", "stale-gbbq", "broken-bars"])(
 );
 it("cancellation keeps only fully committed dates; explicit retry resumes missing dates", async () => {
   const { store, progress } = setup();
+  // Backfills publish in batches: cancel right after the first batch commits.
   const result = await runRpsJob(
     store,
     rpsDeps(),
-    { mode: "backfill", days: 3 },
+    { mode: "backfill", days: RPS_PUBLISH_BATCH + 2 },
     progress,
     now,
     (p) => {
-      if (p.completedDays === 1) store.cancel();
+      if (p.completedDays === RPS_PUBLISH_BATCH) store.cancel();
     },
   );
   expect(result.status).toBe("cancelled");
@@ -105,7 +109,7 @@ it("cancellation keeps only fully committed dates; explicit retry resumes missin
       await runRpsJob(
         store,
         rpsDeps(),
-        { mode: "backfill", days: 3 },
+        { mode: "backfill", days: RPS_PUBLISH_BATCH + 2 },
         next,
         now,
       )
