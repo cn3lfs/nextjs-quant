@@ -115,7 +115,9 @@ async function main() {
   );
   tray.on("double-click", () => window?.show());
   let ready = false;
-  for (let i = 0; i < 90; i++) {
+  // Poll every 100 ms (45 s in total): the service answers ~1 s after spawn,
+  // and a 500 ms step added ~250 ms to every start on average.
+  for (let i = 0; i < 450; i++) {
     try {
       const response = await fetch(`${origin}/api/health`, {
         signal: AbortSignal.timeout(1000),
@@ -125,7 +127,7 @@ async function main() {
         break;
       }
     } catch {}
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 100));
   }
   if (!ready) {
     await window.loadURL(
