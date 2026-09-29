@@ -8,6 +8,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { api } from "~/trpc/react";
 import type { Period } from "~/lib/domain";
+import { periodLabels, type ChartPeriod } from "~/lib/chart/chart-view";
+import { periodFromCode } from "./chart-hotkeys";
 
 export function SecuritySelect({
   symbol,
@@ -15,12 +17,22 @@ export function SecuritySelect({
   period,
   disabled,
   onSelect,
+  onPeriod,
+  captureKeys = true,
+  placeholder = "名称 / 代码 / 拼音，支持 pt 或 emBK 板块代码",
+  label = "搜索品种名称或代码",
 }: {
   symbol: string;
   name?: string;
   period: Period;
   disabled: boolean;
   onSelect: (symbol: string) => void;
+  /** Enables TDX sprite period codes (D/W/MO/M5/M15/M3/M6). */
+  onPeriod?: (period: ChartPeriod) => void;
+  /** Page-level keyboard sprite: only the page's main selector captures keys. */
+  captureKeys?: boolean;
+  placeholder?: string;
+  label?: string;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -31,6 +43,7 @@ export function SecuritySelect({
     function keyboard(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (
+        !captureKeys ||
         disabled ||
         event.isComposing ||
         event.ctrlKey ||
@@ -51,22 +64,38 @@ export function SecuritySelect({
     }
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
-  }, [disabled]);
+  }, [disabled, captureKeys]);
   const results = api.securities.useQuery(
     { query, period },
     { enabled: open, staleTime: 0 },
   );
   const directSymbol = normalizeChartSymbol(query);
   const existing = results.data ?? [];
-  const items =
-    directSymbol && !existing.some((item) => item.symbol === directSymbol)
+  const codePeriod = onPeriod ? periodFromCode(query) : null;
+  const items = [
+    // An exact period code is offered first, as in the TDX keyboard sprite;
+    // securities stay reachable with ↓.
+    ...(codePeriod
+      ? [
+          {
+            symbol: `period:${codePeriod}`,
+            name: `切换到${periodLabels[codePeriod]}`,
+            period: codePeriod,
+          },
+        ]
+      : []),
+    ...(directSymbol && !existing.some((item) => item.symbol === directSymbol)
       ? [{ symbol: directSymbol, name: "按代码查询行情" }, ...existing]
-      : existing;
+      : existing),
+  ] as { symbol: string; name: string; period?: ChartPeriod }[];
   const index = Math.min(active, Math.max(0, items.length - 1));
-  function select(value: string) {
+  function select(item: (typeof items)[number]) {
     setOpen(false);
     setQuery("");
-    onSelect(value);
+    if (item.period) {
+      input.current?.blur();
+      onPeriod?.(item.period);
+    } else onSelect(item.symbol);
   }
   return (
     <div
@@ -87,7 +116,7 @@ export function SecuritySelect({
             }
           }}
           role="combobox"
-          aria-label="搜索品种名称或代码"
+          aria-label={label}
           aria-expanded={open}
           aria-controls={id}
           aria-autocomplete="list"
@@ -95,7 +124,7 @@ export function SecuritySelect({
             open && items.length ? `${id}-${index}` : undefined
           }
           disabled={disabled}
-          placeholder="名称 / 代码 / 拼音，支持 pt 或 emBK 板块代码"
+          placeholder={placeholder}
           value={
             open
               ? query
@@ -131,7 +160,7 @@ export function SecuritySelect({
             }
             if (event.key === "Enter" && open && items[index]) {
               event.preventDefault();
-              select(items[index].symbol);
+              select(items[index]);
             }
           }}
         />
@@ -140,7 +169,9 @@ export function SecuritySelect({
       {open && (
         <div className="security-dropdown">
           <div className="security-hint">
-            键盘选股 · 名称 / 代码 / 拼音 · ↑↓ 选择，Enter 切换
+            键盘选股 · 名称 / 代码 / 拼音
+            {onPeriod ? " · 周期码 D/W/MO/M5/M15/M3/M6" : ""} · ↑↓ 选择，Enter
+            切换
           </div>
           <div
             role="listbox"
@@ -159,10 +190,14 @@ export function SecuritySelect({
                 tabIndex={-1}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActive(i)}
-                onClick={() => select(item.symbol)}
+                onClick={() => select(item)}
               >
                 <span>{item.name}</span>
-                <small>{item.symbol.toUpperCase()}</small>
+                <small>
+                  {item.period
+                    ? query.trim().toUpperCase()
+                    : item.symbol.toUpperCase()}
+                </small>
               </Button>
             ))}
           </div>

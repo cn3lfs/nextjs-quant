@@ -87,12 +87,27 @@ const point = z
     offset: z.number().finite().optional(),
   })
   .strict();
+export const drawingKinds = [
+  "trend",
+  "horizontal",
+  "rectangle",
+  "fibonacci",
+  // Added 2026-09; the optional fields below keep earlier saved views valid.
+  "ray",
+  "channel",
+  "text",
+  "measure",
+] as const;
 export const drawingSchema = z
   .object({
     id: z.string().uuid(),
-    kind: z.enum(["trend", "horizontal", "rectangle", "fibonacci"]),
+    kind: z.enum(drawingKinds),
     a: point,
     b: point,
+    /** Parallel channel: the offset line passes through c. */
+    c: point.optional(),
+    /** Text label content. */
+    text: z.string().min(1).max(80).optional(),
     color: z.string().regex(/^#[\da-fA-F]{6}$/),
   })
   .strict();
@@ -184,38 +199,118 @@ const period = (label: string, min = 1): ParameterField => ({
 /** Indicator catalog shared by the toolbar and the parameter editor, in the
  *  order mainstream broker terminals list them. */
 export const indicatorCatalog = {
-  ma: { label: "MA", title: "移动平均线", fields: ["N1", "N2", "N3", "N4"].map((l) => period(l)) },
-  ema: { label: "EMA", title: "指数平均线", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
+  ma: {
+    label: "MA",
+    title: "移动平均线",
+    fields: ["N1", "N2", "N3", "N4"].map((l) => period(l)),
+  },
+  ema: {
+    label: "EMA",
+    title: "指数平均线",
+    fields: ["N1", "N2", "N3"].map((l) => period(l)),
+  },
   boll: {
     label: "BOLL",
     title: "布林线",
     fields: [period("N", 2), { label: "P", min: 0, max: 20, step: 0.1 }],
   },
-  macd: { label: "MACD", title: "平滑异同平均", fields: ["SHORT", "LONG", "MID"].map((l) => period(l)) },
-  kdj: { label: "KDJ", title: "随机指标", fields: ["N", "M1", "M2"].map((l) => period(l)) },
-  rsi: { label: "RSI", title: "相对强弱", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
-  wr: { label: "WR", title: "威廉指标", fields: ["N", "N1"].map((l) => period(l)) },
-  bias: { label: "BIAS", title: "乖离率", fields: ["N1", "N2", "N3"].map((l) => period(l)) },
+  macd: {
+    label: "MACD",
+    title: "平滑异同平均",
+    fields: ["SHORT", "LONG", "MID"].map((l) => period(l)),
+  },
+  kdj: {
+    label: "KDJ",
+    title: "随机指标",
+    fields: ["N", "M1", "M2"].map((l) => period(l)),
+  },
+  rsi: {
+    label: "RSI",
+    title: "相对强弱",
+    fields: ["N1", "N2", "N3"].map((l) => period(l)),
+  },
+  wr: {
+    label: "WR",
+    title: "威廉指标",
+    fields: ["N", "N1"].map((l) => period(l)),
+  },
+  bias: {
+    label: "BIAS",
+    title: "乖离率",
+    fields: ["N1", "N2", "N3"].map((l) => period(l)),
+  },
   cci: { label: "CCI", title: "顺势指标", fields: [period("N")] },
-} satisfies Record<keyof IndicatorParameters, { label: string; title: string; fields: ParameterField[] }>;
-export function parameterSummary(key: keyof IndicatorParameters, p: IndicatorParameters) {
+} satisfies Record<
+  keyof IndicatorParameters,
+  { label: string; title: string; fields: ParameterField[] }
+>;
+export function parameterSummary(
+  key: keyof IndicatorParameters,
+  p: IndicatorParameters,
+) {
   return `${indicatorCatalog[key].label}(${p[key].join(",")})`;
 }
 export function keyboardRange(
   range: { from: number; to: number },
   key: string,
 ) {
-  const width = Math.max(2, range.to - range.from),
-    center = (range.from + range.to) / 2;
+  const width = Math.max(2, range.to - range.from);
   if (key === "ArrowLeft" || key === "ArrowRight") {
     const d = width * 0.1 * (key === "ArrowLeft" ? -1 : 1);
     return { from: range.from + d, to: range.to + d };
   }
+  // ↑/↓ zoom with the right edge fixed (TDX), so the newest bar in view
+  // stays in view instead of being pushed out by a centred zoom.
   if (key === "ArrowUp" || key === "ArrowDown") {
-    const half = Math.max(2, width * (key === "ArrowUp" ? 0.8 : 1.25)) / 2;
-    return { from: center - half, to: center + half };
+    const next = Math.max(2, width * (key === "ArrowUp" ? 0.8 : 1.25));
+    return { from: range.to - next, to: range.to };
   }
   return null;
+}
+/** TDX-style viewport keys over `loaded` logical bars (0..loaded-1):
+ * PageUp/PageDown shift one screen, Home/End jump to the first/last bar. */
+export function keyboardPage(
+  range: { from: number; to: number },
+  key: string,
+  loaded: number,
+) {
+  const width = Math.max(2, range.to - range.from);
+  if (key === "PageUp" || key === "PageDown") {
+    const d = width * (key === "PageUp" ? -1 : 1);
+    return { from: range.from + d, to: range.to + d };
+  }
+  if (key === "Home") return { from: 0, to: width };
+  if (key === "End")
+    return { from: loaded - 1 - width, to: Math.max(width, loaded - 1) };
+  return null;
+}
+/** ←/→ cursor stepping (TDX): move one bar within the loaded bars
+ * [start, last]; returns the new bar index and, when the cursor leaves the
+ * visible logical range, the range scrolled just enough to keep it in view. */
+export function keyboardCursor(
+  range: { from: number; to: number },
+  step: -1 | 1,
+  cursor: number | null,
+  start: number,
+  last: number,
+) {
+  const width = range.to - range.from;
+  // A fresh cursor appears on the last visible bar without stepping.
+  const index = Math.max(
+    start,
+    Math.min(
+      last,
+      cursor === null ? start + Math.floor(range.to) : cursor + step,
+    ),
+  );
+  const logical = index - start;
+  const next =
+    logical < range.from
+      ? { from: logical, to: logical + width }
+      : logical > range.to
+        ? { from: logical - width, to: logical }
+        : null;
+  return { index, range: next };
 }
 export function chartCost(
   position: { quantity: number; adjustedCost: number | null } | undefined,

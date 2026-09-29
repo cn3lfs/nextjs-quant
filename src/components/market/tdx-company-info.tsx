@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isTypingTarget } from "./chart-hotkeys";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 
@@ -9,6 +10,28 @@ import { Button } from "../ui/button";
  */
 export function TdxCompanyInfo({ symbol }: { symbol: string }) {
   const [open, setOpen] = useState(false);
+  const details = useRef<HTMLDetailsElement>(null);
+  // F10 opens the company profile and brings it into view, as in TDX.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key !== "F10" ||
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        isTypingTarget(event.target) ||
+        !details.current
+      )
+        return;
+      event.preventDefault();
+      details.current.open = true;
+      details.current.scrollIntoView({ block: "start", behavior: "smooth" });
+      details.current.querySelector("summary")?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // 同一证券的所有栏目共用一个文件、按偏移切分，所以用 start 区分栏目。
   const [selected, setSelected] = useState<number | null>(null);
   const categories = api.tdxCompanyInfo.useQuery(symbol, {
@@ -34,11 +57,12 @@ export function TdxCompanyInfo({ symbol }: { symbol: string }) {
   );
   return (
     <details
+      ref={details}
       data-testid="tdx-company-info"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="cursor-pointer text-sm">
-        公司资料 F10（展开后按需读取）
+        公司资料 F10（按 F10 或展开后按需读取）
       </summary>
       {categories.isFetching && !categories.data && (
         <p role="status" className="text-sm">

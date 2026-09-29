@@ -25,7 +25,9 @@ type FakeSeries = {
   priceScale: () => {
     applyOptions: (options: Record<string, unknown>) => void;
   };
-  createPriceLine: (options: Record<string, unknown>) => void;
+  createPriceLine: (options: Record<string, unknown>) => unknown;
+  removePriceLine: (line: unknown) => void;
+  getPane: () => FakePane;
 };
 type FakePane = {
   setStretchFactor: () => void;
@@ -33,6 +35,8 @@ type FakePane = {
   priceScale: () => {
     applyOptions: (options: Record<string, unknown>) => void;
   };
+  paneIndex: () => number;
+  moveTo: (index: number) => void;
 };
 type FakeChart = {
   series: FakeSeries[];
@@ -54,6 +58,11 @@ type FakeChart = {
     pane?: number,
   ) => FakeSeries;
   removeSeries: (series: FakeSeries) => void;
+  removePane: (index: number) => void;
+  cursor?: { price: number; time: string | number } | null;
+  setCrosshairPosition: (price: number, time: string | number) => void;
+  clearCrosshairPosition: () => void;
+  applyOptions: (options: Record<string, unknown>) => void;
   panes: () => FakePane[];
   subscribeCrosshairMove: (
     callback: (event: { time?: string | number }) => void,
@@ -95,7 +104,7 @@ vi.mock("react", async (importOriginal) => {
           { deps: unknown[]; cleanup: () => void } | undefined;
       if (!previous || !same(previous.deps, deps))
         h.effects.push(() => {
-          previous?.cleanup();
+          previous?.cleanup?.();
           h.slots[i] = { deps, cleanup: fn() };
         });
     },
@@ -107,18 +116,29 @@ vi.mock("lightweight-charts", () => ({
   HistogramSeries: "Histogram",
   ColorType: { Solid: "solid" },
   CrosshairMode: { Normal: 0 },
+  createSeriesMarkers: () => ({ setMarkers() {} }),
   createChart: (_element: unknown, options: Record<string, unknown>) => {
-    const panes: FakePane[] = Array.from({ length: 3 }, () => {
-      const pane: FakePane = {
-        setStretchFactor() {},
-        scale: {},
-        priceScale() {
-          return {
-            applyOptions: (options) => Object.assign(pane.scale, options),
-          };
-        },
-      };
-      return pane;
+    // Panes exist while a series lives in them, as in LWC 5: a pane index is
+    // a series property, removing a pane shifts later panes down.
+    const scales: Record<string, unknown>[] = [];
+    const paneApi = (index: number): FakePane => ({
+      setStretchFactor() {},
+      get scale() {
+        return (scales[index] ??= {});
+      },
+      priceScale() {
+        return {
+          applyOptions: (options) =>
+            Object.assign((scales[index] ??= {}), options),
+        };
+      },
+      paneIndex: () => index,
+      moveTo(target) {
+        for (const s of chart.series)
+          s.pane =
+            s.pane === index ? target : s.pane === target ? index : s.pane;
+        [scales[index], scales[target]] = [scales[target]!, scales[index]!];
+      },
     });
     const chart: FakeChart = {
       options,
@@ -139,8 +159,15 @@ vi.mock("lightweight-charts", () => ({
               },
             };
           },
+          getPane() {
+            return paneApi(this.pane);
+          },
           createPriceLine(options) {
             this.options.costLine = options;
+            return options;
+          },
+          removePriceLine(line) {
+            if (this.options.costLine === line) delete this.options.costLine;
           },
           setData(data) {
             this.data = data;
@@ -152,7 +179,32 @@ vi.mock("lightweight-charts", () => ({
       removeSeries(series) {
         this.series = this.series.filter((s) => s !== series);
       },
-      panes: () => panes,
+      removePane(index) {
+        this.series = this.series.filter((s) => s.pane !== index);
+        for (const s of this.series) if (s.pane > index) s.pane--;
+        scales.splice(index, 1);
+      },
+      // Options are applied in place (deep merge), like the real chart.
+      applyOptions(next) {
+        const merge = (
+          target: Record<string, unknown>,
+          source: Record<string, unknown>,
+        ) => {
+          for (const [key, value] of Object.entries(source))
+            if (value && typeof value === "object" && !Array.isArray(value))
+              merge(
+                (target[key] ??= {}) as Record<string, unknown>,
+                value as Record<string, unknown>,
+              );
+            else target[key] = value;
+        };
+        merge(this.options, next);
+      },
+      panes: () =>
+        Array.from(
+          { length: Math.max(1, ...chart.series.map((s) => s.pane + 1)) },
+          (_, index) => paneApi(index),
+        ),
       timeScale: () => ({
         getVisibleLogicalRange: () => chart.range,
         setVisibleLogicalRange: (range) => {
@@ -163,6 +215,12 @@ vi.mock("lightweight-charts", () => ({
           chart.rangeChanged = callback;
         },
       }),
+      setCrosshairPosition(price, time) {
+        this.cursor = { price, time };
+      },
+      clearCrosshairPosition() {
+        this.cursor = null;
+      },
       subscribeCrosshairMove(callback) {
         this.crosshair = callback;
       },
@@ -378,10 +436,132 @@ it("Q1 actual chart options, cost line, parameter legend and keyboard handler ar
     key: "ArrowUp",
     preventDefault,
   });
-  expect(chart.range).toEqual({ from: 10, to: 90 });
+  expect(chart.range).toEqual({ from: 20, to: 100 });
   expect(preventDefault).toHaveBeenCalledOnce();
 });
 it("Q1 no holding produces no price line", () => {
   render(bars(90));
   expect(h.charts.at(-1)!.series[0]!.options.costLine).toBeUndefined();
+});
+
+it("drawing, indicator, pane and theme changes update the chart in place without rebuilding it", () => {
+  const input = bars(90);
+  let view = structuredClone(defaultChartView);
+  const show = (props: Partial<Parameters<typeof MarketChart>[0]> = {}) => {
+    h.cursor = 0;
+    MarketChart({ bars: input, period: "day", view, ...props });
+    h.effects.splice(0).forEach((effect) => effect());
+  };
+  show();
+  const chart = h.charts.at(-1)!;
+  show({ drawingTool: "trend" });
+  expect(chart.options.handleScroll).toMatchObject({ pressedMouseMove: false });
+  show({
+    drawingTool: "trend",
+    drawingPoints: [{ date: input[5]!.date, price: 25 }],
+  });
+  view = { ...view, mainIndicators: ["ma", "boll"], subchart: ["volume"] };
+  show();
+  expect(chart.series.some((s) => s.pane === 2)).toBe(false);
+  view = { ...view, dark: true };
+  show();
+  expect(chart.options.layout).toMatchObject({
+    background: { color: chartColor.groundDeep },
+  });
+  expect(h.charts).toEqual([chart]);
+  expect(chart.removed).toBe(false);
+  expect(chart.series[0]!.data).toHaveLength(90);
+});
+
+it("toggling one secondary pane keeps the other panes and their series", () => {
+  const input = bars(90);
+  let view: typeof defaultChartView = {
+    ...structuredClone(defaultChartView),
+    subchart: ["volume"],
+  };
+  const show = () => {
+    h.cursor = 0;
+    MarketChart({ bars: input, period: "day", view });
+    h.effects.splice(0).forEach((effect) => effect());
+  };
+  show();
+  const chart = h.charts.at(-1)!;
+  const volume = chart.series.find((s) => s.kind === "Histogram")!;
+  view = { ...view, subchart: ["volume", "macd"] };
+  show();
+  expect(chart.series).toContain(volume);
+  expect(volume.pane).toBe(1);
+  const macd = chart.series.find(
+    (s) => s.kind === "Histogram" && s !== volume,
+  )!;
+  expect(macd.pane).toBe(2);
+  view = { ...view, subchart: ["macd"] };
+  show();
+  expect(chart.series).not.toContain(volume);
+  expect(chart.series).toContain(macd);
+  expect(macd.pane).toBe(1);
+  expect(macd.data).toHaveLength(90);
+});
+
+it("TDX keys: arrows step a bar cursor with scrolling, Home/End/Page jump, Esc leaves", () => {
+  const input = bars(400);
+  h.cursor = 0;
+  const ui = MarketChart({ bars: input, period: "day", hotkeys: true });
+  h.effects.splice(0).forEach((effect) => effect());
+  const chart = h.charts.at(-1)!;
+  const area = elements(ui).find((e) => e.props.role === "application")!;
+  const press = (key: string) => {
+    const preventDefault = vi.fn();
+    (area.props.onKeyDown as (e: unknown) => void)({ key, preventDefault });
+    return preventDefault.mock.calls.length === 1;
+  };
+  // 400 bars show the last 180 (start 220): logical 0..179.
+  chart.range = { from: 100, to: 179 };
+  expect(press("ArrowLeft")).toBe(true);
+  expect(chart.cursor).toEqual({
+    price: input[399]!.close,
+    time: input[399]!.date,
+  });
+  press("ArrowLeft");
+  expect(chart.cursor!.time).toBe(input[398]!.date);
+  // Stepping past the left edge scrolls just enough to keep the cursor visible.
+  chart.range = { from: 178, to: 200 };
+  press("ArrowLeft");
+  expect(chart.range).toEqual({ from: 177, to: 199 });
+  expect(press("Escape")).toBe(true);
+  expect(chart.cursor).toBeNull();
+  expect(press("Escape")).toBe(false);
+  chart.range = { from: 100, to: 150 };
+  press("PageUp");
+  expect(chart.range).toEqual({ from: 50, to: 100 });
+  press("Home");
+  expect(chart.range).toEqual({ from: 0, to: 50 });
+  press("End");
+  expect(chart.range).toEqual({ from: 129, to: 179 });
+  expect(press("q")).toBe(false);
+  // Page-level listener: keys typed outside inputs reach the chart.
+  const event = Object.assign(new Event("keydown"), { key: "PageDown" });
+  window.dispatchEvent(event);
+  expect(chart.range).toEqual({ from: 179, to: 229 });
+});
+
+it("compared symbols align to the main dates on a percentage scale", () => {
+  const input = bars(90);
+  const other = bars(90)
+    .filter((_, i) => i !== 5)
+    .map((b) => ({ ...b, close: b.close / 10 }));
+  h.cursor = 0;
+  MarketChart({
+    bars: input,
+    period: "day",
+    view: structuredClone(defaultChartView),
+    compare: [{ symbol: "sz000001", label: "平安银行", bars: other }],
+  });
+  h.effects.splice(0).forEach((effect) => effect());
+  const chart = h.charts.at(-1)!;
+  expect(chart.series[0]!.options.scale).toMatchObject({ mode: 2 });
+  const line = chart.series.find((s) => s.options.title === "平安银行")!;
+  expect(line.data).toHaveLength(90);
+  expect(line.data[5]).toEqual({ time: input[5]!.date });
+  expect(line.data[6]!.value).toBe(input[6]!.close / 10);
 });

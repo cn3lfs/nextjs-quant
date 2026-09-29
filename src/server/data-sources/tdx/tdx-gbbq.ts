@@ -140,14 +140,31 @@ function formatPacked(packed: number) {
  * 读取通达信目录下的 gbbq。与本地行情文件同样的做法：读前读后各取一次文件
  * 状态，通达信正在写盘时宁可报错，也不返回半份数据。
  */
+// One whole-market file; decoding it takes most of a second. Keep the last
+// parse per process (callers only read it) until path, size or mtime change.
+let parsed:
+  | {
+      key: string;
+      value: {
+        events: ReturnType<typeof parseGbbq>;
+        modified: number;
+        path: string;
+      };
+    }
+  | undefined;
+
 export async function readGbbq(root: string) {
   const path = join(resolve(root), "T0002", "hq_cache", "gbbq"),
     before = await stat(path),
-    buffer = await readFile(path),
+    key = `${path}:${before.size}:${before.mtimeMs}`;
+  if (parsed?.key === key) return parsed.value;
+  const buffer = await readFile(path),
     after = await stat(path);
   if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
     throw new Error("gbbq 文件正在更新");
-  return { events: parseGbbq(buffer), modified: after.mtimeMs, path };
+  const value = { events: parseGbbq(buffer), modified: after.mtimeMs, path };
+  parsed = { key, value };
+  return value;
 }
 
 export type HistoricalFloatShareCoverage = {

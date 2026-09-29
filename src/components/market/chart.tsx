@@ -22,6 +22,9 @@ import { Checkbox } from "~/components/ui/checkbox";
 import {
   attachDrawings,
   drawingAnchor,
+  drawingX,
+  hitDrawing,
+  type DrawingHandle,
   drawingPreview,
 } from "~/lib/chart/chart-drawings";
 import {
@@ -37,6 +40,8 @@ import {
   parameterSummary,
   type IndicatorParameters,
   keyboardRange,
+  keyboardPage,
+  keyboardCursor,
   periodLabels,
   normalizeSubcharts,
   type MainIndicator,
@@ -58,6 +63,10 @@ import {
   CrosshairMode,
   type LogicalRange,
   type ISeriesApi,
+  type IPriceLine,
+  type LineSeriesPartialOptions,
+  type SeriesType,
+  type ISeriesMarkersPluginApi,
 } from "lightweight-charts";
 import type { Bar } from "~/lib/domain";
 import {
@@ -420,7 +429,9 @@ export function CzscMarketChart({
   view,
   onViewChange,
   drawingTool,
-  drawingStart,
+  drawingPoints,
+  drawingText,
+  compare,
   onAnchor,
   cost,
   rps,
@@ -430,10 +441,12 @@ export function CzscMarketChart({
   viewportKey,
   annotations = true,
   rpsAvailable = true,
+  hotkeys = false,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
+  hotkeys?: boolean;
   /** RPS is an A-share ranking; futures, crypto and sectors hide it. */
   rpsAvailable?: boolean;
   /** Chan/breakout overlays; off for charts outside the A-share method scope. */
@@ -445,7 +458,12 @@ export function CzscMarketChart({
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
   drawingTool?: Drawing["kind"] | "none";
-  drawingStart?: Drawing["a"] | null;
+  /** Comparison symbols (TDX 叠加): drawn on a shared percentage scale. */
+  compare?: readonly ChartCompare[];
+  /** Anchors placed so far for the active drawing tool. */
+  drawingPoints?: readonly Drawing["a"][];
+  /** Label for the text tool preview. */
+  drawingText?: string;
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
   rps?: RpsCurve;
@@ -493,7 +511,9 @@ export function CzscMarketChart({
       view={view}
       onViewChange={onViewChange}
       drawingTool={drawingTool}
-      drawingStart={drawingStart}
+      drawingPoints={drawingPoints}
+      drawingText={drawingText}
+      compare={compare}
       onAnchor={onAnchor}
       cost={cost}
       rps={rps}
@@ -503,6 +523,7 @@ export function CzscMarketChart({
       viewportKey={viewportKey}
       annotations={annotations}
       rpsAvailable={rpsAvailable}
+      hotkeys={hotkeys}
       czsc={annotations ? result.data : undefined}
       breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
@@ -527,6 +548,14 @@ export function CzscMarketChart({
   );
 }
 
+export type ChartCompare = { symbol: string; label: string; bars: Bar[] };
+// Theme categorical colours, distinct from the MA/structure lines.
+export const compareColors = [
+  chartColor.series3,
+  chartColor.series4,
+  chartColor.accentLight,
+] as const;
+
 export function MarketChart({
   pricePrecision = 2,
   volumeUnit = "股",
@@ -540,7 +569,9 @@ export function MarketChart({
   view,
   onViewChange,
   drawingTool = "none",
-  drawingStart,
+  drawingPoints,
+  drawingText,
+  compare,
   onAnchor,
   cost,
   rps,
@@ -550,11 +581,15 @@ export function MarketChart({
   viewportKey,
   annotations = true,
   rpsAvailable = true,
+  hotkeys = false,
 }: {
   bars: Bar[];
   period: Period;
   adjustment?: ChartAdjustment;
   annotations?: boolean;
+  /** Page-level TDX keys (arrows, Home/End, PageUp/PageDown, Esc) without
+   * first focusing the chart; for the one main chart of a page. */
+  hotkeys?: boolean;
   rpsAvailable?: boolean;
   volumeUnit?: string;
   pricePrecision?: number;
@@ -565,7 +600,12 @@ export function MarketChart({
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
   drawingTool?: Drawing["kind"] | "none";
-  drawingStart?: Drawing["a"] | null;
+  /** Comparison symbols (TDX 叠加): drawn on a shared percentage scale. */
+  compare?: readonly ChartCompare[];
+  /** Anchors placed so far for the active drawing tool. */
+  drawingPoints?: readonly Drawing["a"][];
+  /** Label for the text tool preview. */
+  drawingText?: string;
   onAnchor?: (p: Drawing["a"]) => void;
   cost?: number | null;
   rps?: RpsCurve;
@@ -655,57 +695,80 @@ export function MarketChart({
   const subchartOptions = (Object.keys(subchartLabels) as Subchart[]).filter(
     (value) => value !== "rps" || rpsAvailable,
   );
+  const dark = view?.dark ?? false;
+  const logarithmic = view?.logarithmic ?? false;
+  const drawings = view?.drawings;
+  const hasRps = visibleSubcharts.includes("rps");
+  // Long-lived chart callbacks read the latest props through this ref, so
+  // pointer/drawing state never forces the native chart to be rebuilt.
+  const [selected, setSelected] = useState<string | null>(null);
+  const live = useRef({
+    drawingTool,
+    drawingPoints,
+    drawingText,
+    onAnchor,
+    onHistoryRequest,
+    dark,
+    view,
+    onViewChange,
+  });
+  live.current = {
+    drawingTool,
+    drawingPoints,
+    drawingText,
+    onAnchor,
+    onHistoryRequest,
+    dark,
+    view,
+    onViewChange,
+  };
+  // The native chart and its content layer. Created once per period and
+  // precision; everything else is applied in place by the effects below.
+  const native = useRef<{
+    chart: ReturnType<typeof createChart>;
+    candles: ISeriesApi<"Candlestick">;
+    setDrawings: ReturnType<typeof attachDrawings>;
+    markers: ISeriesMarkersPluginApi<Time>;
+    /** What the structure primitive paints; replaced per content pass. */
+    structure: { czsc: CzscResult | null; bars: Bar[]; start: number };
+    bars: Bar[];
+    start: number;
+    asOf: number;
+    byTime: Map<Time, number>;
+    renderBase: () => void;
+    renderIndicators: () => void;
+    baseLines: ISeriesApi<"Line">[];
+    compareLines: ISeriesApi<"Line">[];
+    indicatorLines: ISeriesApi<"Line">[];
+    /** One pane per selected subchart, identified by its anchor series. */
+    panes: Map<
+      Subchart,
+      { anchor: ISeriesApi<SeriesType>; threshold: IPriceLine | null }
+    >;
+    costLine: IPriceLine | null;
+    /** Keyboard cursor bar index (TDX ←/→), null when not in cursor mode. */
+    cursor: number | null;
+    /** Range to apply after the next data change; undefined = keep. */
+    pendingRange?: LogicalRange | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
-    const saved = viewport.current;
-    const restored = viewportKey ? restoreChartRange(viewportKey, bars) : null;
-    let start =
-      saved?.bars === bars &&
-      saved.period === period &&
-      saved.asOf === breakoutIndex
-        ? saved.start
-        : (restored?.start ?? initialHistoryStart(bars.length));
-    const savedRange =
-      saved?.bars === bars &&
-      saved.period === period &&
-      saved.asOf === breakoutIndex
-        ? saved.range
-        : (restored?.range ?? null);
-    setHistoryStart(start);
     const chart = createNocturneChart(ref.current, {
       localization: chineseChartLocalization,
       autoSize: true,
-      layout: {
-        background: {
-          type: ColorType.Solid,
-          color: view?.dark ? chartColor.groundDeep : chartColor.ground,
-        },
-        textColor: view?.dark ? chartColor.textStrong : chartColor.text,
-        attributionLogo: true,
-      },
-      grid: {
-        vertLines: {
-          color: view?.dark ? chartColor.gridDeep : chartColor.grid,
-        },
-        horzLines: {
-          color: view?.dark ? chartColor.gridDeep : chartColor.grid,
-        },
-      },
+      layout: { attributionLogo: true },
       rightPriceScale: {
         borderColor: chartColor.muted,
         mode: 0,
       },
       handleScale: {
-        axisPressedMouseMove: {
-          time: true,
-          price: !visibleSubcharts.includes("rps"),
-        },
+        axisPressedMouseMove: { time: true, price: true },
         mouseWheel: true,
         pinch: true,
       },
       handleScroll: {
-        pressedMouseMove: drawingTool === "none",
+        pressedMouseMove: true,
         mouseWheel: true,
         horzTouchDrag: true,
         vertTouchDrag: false,
@@ -731,31 +794,29 @@ export function MarketChart({
       wickUpColor: chartColor.up,
       wickDownColor: chartColor.down,
     });
-    if (view) {
-      // Log prices only: oscillators can be negative and must retain their linear scale.
-      candles.priceScale().applyOptions({ mode: view.logarithmic ? 1 : 0 });
-      attachDrawings(chart, candles, bars, period, view.drawings);
-    }
-    if (cost != null && cost > 0)
-      candles.createPriceLine({
-        price: cost,
-        color:
-          (bars.at(-1)?.close ?? cost) >= cost
-            ? chartColor.up
-            : chartColor.down,
-        lineWidth: 2,
-        lineStyle: 2,
-        axisLabelVisible: true,
-        title: "持仓成本",
-      });
-    const updatePreview = attachDrawings(
+    const setDrawings = attachDrawings(chart, candles, [], period, []);
+    const updatePreview = attachDrawings(chart, candles, [], period, [], true);
+    const markers = createSeriesMarkers(candles, []);
+    const state: NonNullable<typeof native.current> = {
       chart,
       candles,
-      bars,
-      period,
-      [],
-      true,
-    );
+      setDrawings,
+      markers,
+      structure: { czsc: null, bars: [], start: 0 },
+      bars: [],
+      start: 0,
+      asOf: -1,
+      byTime: new Map(),
+      renderBase: () => {},
+      renderIndicators: () => {},
+      baseLines: [],
+      compareLines: [],
+      indicatorLines: [],
+      panes: new Map(),
+      costLine: null,
+      cursor: null,
+    };
+    native.current = state;
     const drawingContainer = ref.current;
     const anchorAt = (event: MouseEvent) => {
       const bounds = drawingContainer.getBoundingClientRect();
@@ -768,341 +829,226 @@ export function MarketChart({
         y > chart.panes()[0]!.getHeight()
       )
         return null;
-      return drawingAnchor(chart, candles, bars, period, x, y);
+      return drawingAnchor(chart, candles, state.bars, period, x, y);
     };
     // Chart crosshair events quantize x to a bar even in Normal mode.
     // Native coordinates preserve the actual pointer location between bars.
     const moveDrawing = (event: MouseEvent) => {
-      if (drawingTool === "none") return;
+      const {
+        drawingTool: tool,
+        drawingPoints: from,
+        drawingText,
+      } = live.current;
+      if (tool === "none") return;
       updatePreview(
         drawingPreview(
-          drawingTool,
-          drawingStart ?? null,
+          tool,
+          from ?? [],
           anchorAt(event),
-          view?.dark ? chartColor.accentLight : chartColor.accentLight,
+          chartColor.accentLight,
+          drawingText,
         ),
       );
     };
     const clickDrawing = (event: MouseEvent) => {
-      if (!onAnchor || drawingTool === "none" || event.button !== 0) return;
+      const { drawingTool: tool, onAnchor: anchor } = live.current;
+      if (!anchor || tool === "none" || event.button !== 0) return;
       const point = anchorAt(event);
       if (point) {
         updatePreview(null);
-        onAnchor(point);
+        anchor(point);
       }
     };
     const clearPreview = () => updatePreview(null);
     drawingContainer.addEventListener("mousemove", moveDrawing);
     drawingContainer.addEventListener("click", clickDrawing);
     drawingContainer.addEventListener("mouseleave", clearPreview);
-    const markers =
-      (czsc && showCzsc) || (breakout && showBreakout)
-        ? createSeriesMarkers(candles, [])
-        : null;
+    // Browsing (no tool): pointing at a saved drawing selects it; dragging a
+    // handle reshapes it, dragging the body moves it. Anchors are recomputed
+    // from the moved pixels so they stay on real bars and prices.
+    let edit: {
+      id: string;
+      handle: DrawingHandle | null;
+      x: number;
+      y: number;
+      original: Drawing;
+      next: Drawing | null;
+    } | null = null;
+    const local = (event: MouseEvent) => {
+      const bounds = drawingContainer.getBoundingClientRect();
+      return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    };
+    const shift = (p: Drawing["a"], dx: number, dy: number) => {
+      const x = drawingX(chart, p, period),
+        y = candles.priceToCoordinate(p.price);
+      return x === null || y === null
+        ? null
+        : drawingAnchor(chart, candles, state.bars, period, x + dx, y + dy);
+    };
+    const reshape = (
+      d: Drawing,
+      handle: DrawingHandle | null,
+      dx: number,
+      dy: number,
+    ): Drawing | null => {
+      const keys: DrawingHandle[] =
+        handle && d.kind !== "horizontal"
+          ? [handle]
+          : (["a", "b", "c"] as const).filter((k) => d[k]);
+      const next: Drawing = { ...d };
+      for (const key of keys) {
+        const moved = shift(d[key]!, dx, dy);
+        if (!moved) return null;
+        next[key] = moved;
+      }
+      return next;
+    };
+    const beginEdit = (event: PointerEvent) => {
+      const {
+        drawingTool: tool,
+        view: current,
+        onViewChange: save,
+      } = live.current;
+      if (tool !== "none" || event.button !== 0 || !current || !save) return;
+      const p = local(event);
+      if (p.y > chart.panes()[0]!.getHeight()) return;
+      const hit = hitDrawing(setDrawings.geometries(), p.x, p.y);
+      setSelected(hit?.id ?? null);
+      const original = hit && current.drawings.find((d) => d.id === hit.id);
+      if (!hit || !original) return;
+      edit = { id: hit.id, handle: hit.handle, ...p, original, next: null };
+      // Keep the chart from panning under the drag.
+      chart.applyOptions({
+        handleScroll: { pressedMouseMove: false },
+        handleScale: { axisPressedMouseMove: false },
+      });
+      event.stopPropagation();
+    };
+    const blockPan = (event: MouseEvent) => {
+      if (edit) event.stopPropagation();
+    };
+    const moveEdit = (event: PointerEvent) => {
+      if (!edit) return;
+      const p = local(event);
+      const next = reshape(
+        edit.original,
+        edit.handle,
+        p.x - edit.x,
+        p.y - edit.y,
+      );
+      const current = live.current.view;
+      if (!next || !current) return;
+      edit.next = next;
+      setDrawings(
+        current.drawings.map((d) => (d.id === next.id ? next : d)),
+        next.id,
+      );
+    };
+    const endEdit = () => {
+      if (!edit) return;
+      const { next } = edit;
+      edit = null;
+      const {
+        view: current,
+        onViewChange: save,
+        drawingTool: tool,
+      } = live.current;
+      chart.applyOptions({
+        handleScroll: { pressedMouseMove: tool === "none" },
+        handleScale: {
+          axisPressedMouseMove: {
+            time: true,
+            price: !current?.subchart.includes("rps"),
+          },
+        },
+      });
+      if (next && current && save)
+        save({
+          ...current,
+          drawings: current.drawings.map((d) => (d.id === next.id ? next : d)),
+        });
+    };
+    drawingContainer.addEventListener("pointerdown", beginEdit, true);
+    drawingContainer.addEventListener("mousedown", blockPan, true);
+    window.addEventListener("pointermove", moveEdit);
+    window.addEventListener("pointerup", endEdit);
     // A series primitive follows the chart's own pan/zoom/price-scale paint cycle.
     // Rectangles use DLL boundaries and ZG/ZD; no chart-side structure calculation.
-    if (czsc && showCzsc) {
-      const primitive: ISeriesPrimitive<Time> = {
-        paneViews: () => [
-          {
-            zOrder: () => "normal",
-            renderer: () => ({
-              draw: (target) =>
-                target.useMediaCoordinateSpace(
-                  ({ context: ctx, mediaSize }) => {
-                    for (const family of czsc.families) {
-                      const color =
-                        family.config === 0
-                          ? chartColor.series1
-                          : chartColor.accent;
-                      for (const center of family.centers) {
-                        if (center.end < start) continue;
-                        const x1 = chart
-                          .timeScale()
-                          .timeToCoordinate(
-                            chartTime(
-                              bars[Math.max(start, center.start)]!.date,
-                              period,
-                            ),
-                          );
-                        const x2 = chart
-                          .timeScale()
-                          .timeToCoordinate(
-                            chartTime(bars[center.end]!.date, period),
-                          );
-                        const y1 = candles.priceToCoordinate(center.ZG),
-                          y2 = candles.priceToCoordinate(center.ZD);
-                        if (
-                          x1 === null ||
-                          x2 === null ||
-                          y1 === null ||
-                          y2 === null
-                        )
-                          continue;
-                        ctx.fillStyle = `${color}18`;
-                        ctx.strokeStyle = color;
-                        ctx.lineWidth = 1;
-                        ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
-                        ctx.strokeRect(x1, y1, x2 - x1, Math.max(1, y2 - y1));
-                      }
-                      for (const interval of family.divergences) {
-                        if (interval.end < start) continue;
-                        const x1 = chart
-                          .timeScale()
-                          .timeToCoordinate(
-                            chartTime(
-                              bars[Math.max(start, interval.start)]!.date,
-                              period,
-                            ),
-                          );
-                        const x2 = chart
-                          .timeScale()
-                          .timeToCoordinate(
-                            chartTime(bars[interval.end]!.date, period),
-                          );
-                        if (x1 === null || x2 === null) continue;
-                        ctx.fillStyle =
-                          interval.direction > 0
-                            ? chartColor.upFaint
-                            : chartColor.downFaint;
-                        ctx.fillRect(x1, 0, x2 - x1, mediaSize.height);
-                      }
-                    }
-                  },
-                ),
-            }),
-          },
-        ],
-      };
-      candles.attachPrimitive(primitive);
-    }
-    // Each selected secondary chart gets its own pane. RPS is only available
-    // for daily data; a legacy selection on another period is ignored.
-    const paneBySubchart = new Map(
-      visibleSubcharts.map((subchart, index) => [subchart, index + 1]),
-    );
-    let volume: ISeriesApi<"Histogram"> | null = null;
-    let macd: ISeriesApi<"Histogram"> | null = null;
-    let rpsAnchor: ISeriesApi<"Line"> | null = null;
-    for (const subchart of visibleSubcharts) {
-      const pane = paneBySubchart.get(subchart)!;
-      if (subchart === "volume")
-        volume = chart.addSeries(
-          HistogramSeries,
-          {
-            priceFormat: { type: "volume" },
-            priceLineVisible: false,
-            title: "成交量",
-          },
-          pane,
-        );
-      else if (subchart === "macd")
-        macd = chart.addSeries(
-          HistogramSeries,
-          {
-            priceFormat: { type: "price", precision: 2, minMove: 0.01 },
-            priceLineVisible: false,
-            title: "MACD",
-          },
-          pane,
-        );
-      else if (subchart === "rps")
-        rpsAnchor = chart.addSeries(
-          LineSeries,
-          {
-            lastValueVisible: false,
-            priceLineVisible: false,
-            lineVisible: false,
-            crosshairMarkerVisible: false,
-            autoscaleInfoProvider: () => ({
-              priceRange: { minValue: 0, maxValue: 100 },
-            }),
-          },
-          pane,
-        );
-      else
-        chart.addSeries(
-          LineSeries,
-          {
-            lastValueVisible: false,
-            priceLineVisible: false,
-            lineVisible: false,
-            crosshairMarkerVisible: false,
-          },
-          pane,
-        );
-    }
-    const rpsPane = paneBySubchart.get("rps");
-    // A newly created pane inherits the first pane scale settings in LWC 5.
-    // Explicitly reset every secondary pane after it exists.
-    for (const pane of chart.panes().slice(1))
-      pane.priceScale("right").applyOptions({ mode: 0 });
-    if (rpsAnchor) {
-      rpsAnchor.priceScale().applyOptions({
-        autoScale: true,
-        scaleMargins: { top: 0, bottom: 0 },
-      });
-      rpsAnchor.createPriceLine({
-        price: rpsOptions.threshold,
-        color: chartColor.muted,
-        lineWidth: 1,
-        lineStyle: 2,
-        axisLabelVisible: true,
-        title: "RPS阈值",
-      });
-    }
-    let lines: ISeriesApi<"Line">[] = [];
-    const render = () => {
-      const visible = bars.slice(start);
-      candles.setData(
-        visible.map((bar) => ({ ...bar, time: chartTime(bar.date, period) })),
-      );
-      volume?.setData(
-        visible.map((bar) => ({
-          time: chartTime(bar.date, period),
-          value: bar.volume,
-          color: bar.close >= bar.open ? chartColor.up : chartColor.down,
-        })),
-      );
-      rpsAnchor?.setData(
-        visible.map((bar) => ({
-          time: chartTime(bar.date, period),
-          value: rpsOptions.threshold,
-        })),
-      );
-      macd?.setData(
-        visible.map((bar, i) => {
-          const value = values.MACD[start + i];
-          return value == null
-            ? { time: chartTime(bar.date, period) }
-            : {
-                time: chartTime(bar.date, period),
-                value,
-                color: value >= 0 ? chartColor.up : chartColor.down,
-              };
-        }),
-      );
-      for (const line of lines) chart.removeSeries(line);
-      lines = [];
-      if (rpsPane !== undefined) {
-        for (const window of rpsOptions.periods) {
-          for (const segment of rpsChartSegments(
-            bars,
-            rps ?? [],
-            period,
-            window,
-            start,
-          )) {
-            const line = chart.addSeries(
-              LineSeries,
-              {
-                color: rpsColors[window],
-                lineWidth: 2,
-                lineStyle: segment.mode === "backfill" ? 2 : 0,
-                pointMarkersVisible: segment.data.length === 1,
-                pointMarkersRadius: 3,
-                priceLineVisible: false,
-                lastValueVisible: false,
-                autoscaleInfoProvider: () => ({
-                  priceRange: { minValue: 0, maxValue: 100 },
-                }),
-              },
-              rpsPane,
-            );
-            line.setData(segment.data);
-            lines.push(line);
-          }
-        }
-      }
-      if (czsc && showCzsc) {
-        for (const family of czsc.families) {
-          const line = chart.addSeries(LineSeries, {
-            color: family.config === 0 ? chartColor.series1 : chartColor.accent,
-            lineWidth: family.config === 0 ? 1 : 2,
-            priceLineVisible: false,
-            lastValueVisible: false,
-            crosshairMarkerVisible: false,
-          });
-          line.setData(czscChartLines(bars, family.points, period, start));
-          lines.push(line);
-        }
-      }
-      const overlay =
-        breakout && showBreakout
-          ? breakoutChartData(breakout, bars, start, breakoutIndex, period)
-          : null;
-      for (const item of overlay?.lines ?? []) {
-        const line = chart.addSeries(LineSeries, {
-          color: item.color,
-          lineWidth: 2,
-          lineStyle: 2,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        line.setData(item.data);
-        lines.push(line);
-      }
-      markers?.setMarkers(
-        [
-          ...(czsc && showCzsc ? czscChartMarkers(czsc, period, start) : []),
-          ...(overlay?.markers ?? []),
-        ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
-      );
-      for (const name of names) {
-        if (name === "MACD") continue;
-        const host = subchartOf(name);
-        const pane = host === "main" ? 0 : paneBySubchart.get(host);
-        if (pane === undefined) continue;
-        for (const segment of indicatorSegments(
-          bars,
-          values[name],
-          period,
-          start,
-        )) {
-          const line = chart.addSeries(
-            LineSeries,
-            {
-              color: colors[name],
-              lineWidth: 1,
-              priceLineVisible: false,
-              lastValueVisible: false,
-              pointMarkersVisible: segment.length === 1,
-              pointMarkersRadius: 2,
-            },
-            pane,
-          );
-          line.setData(segment);
-          lines.push(line);
-        }
-      }
-    };
-    render();
-    chart.panes()[0]?.setStretchFactor(3);
-    visibleSubcharts.forEach((subchart, index) => {
-      chart
-        .panes()
-        [index + 1]?.setStretchFactor(subchart === "rps" ? 1.2 : 1.4);
-    });
-    if (bars.length)
-      chart.timeScale().setVisibleLogicalRange(
-        savedRange ?? {
-          from: 0,
-          to: bars.length - start - 1,
+    const primitive: ISeriesPrimitive<Time> = {
+      paneViews: () => [
+        {
+          zOrder: () => "normal",
+          renderer: () => ({
+            draw: (target) =>
+              target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+                const { czsc: structure, bars: shown, start } = state.structure;
+                if (!structure) return;
+                const x = (index: number) =>
+                  chart
+                    .timeScale()
+                    .timeToCoordinate(chartTime(shown[index]!.date, period));
+                for (const family of structure.families) {
+                  const color =
+                    family.config === 0
+                      ? chartColor.series1
+                      : chartColor.accent;
+                  for (const center of family.centers) {
+                    if (center.end < start) continue;
+                    const x1 = x(Math.max(start, center.start)),
+                      x2 = x(center.end);
+                    const y1 = candles.priceToCoordinate(center.ZG),
+                      y2 = candles.priceToCoordinate(center.ZD);
+                    if (
+                      x1 === null ||
+                      x2 === null ||
+                      y1 === null ||
+                      y2 === null
+                    )
+                      continue;
+                    ctx.fillStyle = `${color}18`;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1;
+                    ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+                    ctx.strokeRect(x1, y1, x2 - x1, Math.max(1, y2 - y1));
+                  }
+                  for (const interval of family.divergences) {
+                    if (interval.end < start) continue;
+                    const x1 = x(Math.max(start, interval.start)),
+                      x2 = x(interval.end);
+                    if (x1 === null || x2 === null) continue;
+                    ctx.fillStyle =
+                      interval.direction > 0
+                        ? chartColor.upFaint
+                        : chartColor.downFaint;
+                    ctx.fillRect(x1, 0, x2 - x1, mediaSize.height);
+                  }
+                }
+              }),
+          }),
         },
-      );
-    const byTime = new Map(
-      bars.map((bar, index) => [chartTime(bar.date, period), index]),
-    );
+      ],
+    };
+    candles.attachPrimitive(primitive);
     chart.subscribeCrosshairMove((event) => {
       const index =
-        event.time === undefined ? undefined : byTime.get(event.time);
-      setHover(index === undefined ? null : { bars, index });
+        event.time === undefined ? undefined : state.byTime.get(event.time);
+      // Arrow keys continue from wherever the pointer last left the cursor.
+      if (index !== undefined) state.cursor = index;
+      setHover(index === undefined ? null : { bars: state.bars, index });
     });
     let frame = 0;
     let updating = false;
     let dragging = false;
     const container = ref.current;
+    const remember = (range: LogicalRange | null) => {
+      viewport.current = {
+        bars: state.bars,
+        period,
+        start: state.start,
+        range,
+        asOf: state.asOf,
+      };
+    };
     const beginDrag = () => {
       dragging = true;
     };
@@ -1112,10 +1058,10 @@ export function MarketChart({
     };
     const reveal = (range: LogicalRange | null) => {
       if (!range || updating) return;
-      viewport.current = { bars, period, start, range, asOf: breakoutIndex };
+      remember(range);
       if (dragging || range.from > 12 || frame) return;
-      if (!start) {
-        onHistoryRequest?.();
+      if (!state.start) {
+        live.current.onHistoryRequest?.();
         return;
       }
       // Defer setData outside the library's range callback and shift logical
@@ -1124,19 +1070,14 @@ export function MarketChart({
         frame = 0;
         const current = chart.timeScale().getVisibleLogicalRange();
         if (dragging || !current || current.from > 12) return;
-        const next = revealHistory(start, current);
+        const next = revealHistory(state.start, current);
         updating = true;
-        start = next.start;
-        render();
+        state.start = next.start;
+        state.renderBase();
+        state.renderIndicators();
         chart.timeScale().setVisibleLogicalRange(next.range);
-        viewport.current = {
-          bars,
-          period,
-          start,
-          asOf: breakoutIndex,
-          range: chart.timeScale().getVisibleLogicalRange(),
-        };
-        setHistoryStart(start);
+        remember(chart.timeScale().getVisibleLogicalRange());
+        setHistoryStart(state.start);
         updating = false;
       });
     };
@@ -1150,50 +1091,509 @@ export function MarketChart({
       container.removeEventListener("mousemove", moveDrawing);
       container.removeEventListener("click", clickDrawing);
       container.removeEventListener("mouseleave", clearPreview);
+      container.removeEventListener("pointerdown", beginEdit, true);
+      container.removeEventListener("mousedown", blockPan, true);
+      window.removeEventListener("pointermove", moveEdit);
+      window.removeEventListener("pointerup", endEdit);
       container.removeEventListener("pointerdown", beginDrag, true);
       window.removeEventListener("pointerup", endDrag);
       window.removeEventListener("pointercancel", endDrag);
       cancelAnimationFrame(frame);
-      viewport.current = {
-        bars,
-        period,
-        start,
-        asOf: breakoutIndex,
-        range: chart.timeScale().getVisibleLogicalRange(),
-      };
+      const range = chart.timeScale().getVisibleLogicalRange();
+      remember(range);
       if (viewportKey)
-        rememberChartRange(
-          viewportKey,
-          bars,
-          start,
-          chart.timeScale().getVisibleLogicalRange(),
-        );
+        rememberChartRange(viewportKey, state.bars, state.start, range);
+      native.current = null;
       chartApi.current = null;
       chart.remove();
     };
+  }, [period, pricePrecision, viewportKey]);
+
+  // Appearance and gesture options: applied in place.
+  useEffect(() => {
+    const n = native.current;
+    if (!n) return;
+    n.chart.applyOptions({
+      layout: {
+        background: {
+          type: ColorType.Solid,
+          color: dark ? chartColor.groundDeep : chartColor.ground,
+        },
+        textColor: dark ? chartColor.textStrong : chartColor.text,
+      },
+      grid: {
+        vertLines: { color: dark ? chartColor.gridDeep : chartColor.grid },
+        horzLines: { color: dark ? chartColor.gridDeep : chartColor.grid },
+      },
+      handleScale: {
+        axisPressedMouseMove: { time: true, price: !hasRps },
+      },
+      handleScroll: { pressedMouseMove: drawingTool === "none" },
+    });
+  }, [period, pricePrecision, viewportKey, dark, hasRps, drawingTool]);
+
+  // Log prices only: oscillators can be negative and must retain their linear
+  // scale. A comparison switches the main scale to percent from the first
+  // visible bar (TradingView compare), so different price levels line up.
+  const comparing = (compare?.length ?? 0) > 0;
+  useEffect(() => {
+    native.current?.candles.priceScale().applyOptions({
+      mode: comparing ? 2 : view && logarithmic ? 1 : 0,
+    });
   }, [
-    bars,
     period,
-    values,
-    names,
-    selectedSubcharts,
-    visibleSubcharts,
+    pricePrecision,
+    viewportKey,
+    view === undefined,
+    logarithmic,
+    comparing,
+  ]);
+
+  const selectedId =
+    selected && drawings?.some((d) => d.id === selected) ? selected : null;
+  useEffect(() => {
+    native.current?.setDrawings(drawings ?? [], selectedId);
+  }, [period, pricePrecision, viewportKey, drawings, selectedId]);
+
+  // Content is replaced in place on the existing chart, in two independent
+  // layers so an indicator or pane toggle never rewrites the price data:
+  //   base: candles, structure/breakout lines, markers and the cost line;
+  //   indicators: secondary panes and indicator lines.
+  // The viewport is only reset when the data itself changes.
+  useEffect(() => {
+    const n = native.current;
+    if (!n) return;
+    const { chart, candles } = n;
+    if (n.bars !== bars || n.asOf !== breakoutIndex) {
+      const saved = viewport.current;
+      const restored = viewportKey
+        ? restoreChartRange(viewportKey, bars)
+        : null;
+      const same =
+        saved?.bars === bars &&
+        saved.period === period &&
+        saved.asOf === breakoutIndex;
+      n.start = same
+        ? saved.start
+        : (restored?.start ?? initialHistoryStart(bars.length));
+      n.bars = bars;
+      n.asOf = breakoutIndex;
+      n.cursor = null;
+      n.byTime = new Map(
+        bars.map((bar, index) => [chartTime(bar.date, period), index]),
+      );
+      n.pendingRange = same
+        ? saved.range
+        : ((restored?.range as LogicalRange | undefined) ?? null);
+      setHistoryStart(n.start);
+    }
+    if (n.costLine) candles.removePriceLine(n.costLine);
+    n.costLine =
+      cost != null && cost > 0
+        ? candles.createPriceLine({
+            price: cost,
+            color:
+              (bars.at(-1)?.close ?? cost) >= cost
+                ? chartColor.up
+                : chartColor.down,
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "持仓成本",
+          })
+        : null;
+    const renderBase = () => {
+      const start = n.start;
+      n.structure = { czsc: czsc && showCzsc ? czsc : null, bars, start };
+      candles.setData(
+        bars
+          .slice(start)
+          .map((bar) => ({ ...bar, time: chartTime(bar.date, period) })),
+      );
+      for (const line of n.baseLines) chart.removeSeries(line);
+      n.baseLines = [];
+      for (const line of n.compareLines) chart.removeSeries(line);
+      n.compareLines = [];
+      // Compared closes are aligned to the main chart's own dates: a date the
+      // other symbol did not trade is whitespace, never an extra time point.
+      compare?.forEach((item, i) => {
+        const close = new Map(item.bars.map((bar) => [bar.date, bar.close]));
+        const line = chart.addSeries(LineSeries, {
+          color: compareColors[i % compareColors.length],
+          lineWidth: 2,
+          priceLineVisible: false,
+          title: item.label,
+          crosshairMarkerVisible: false,
+        });
+        line.setData(
+          bars.slice(start).map((bar) => {
+            const time = chartTime(bar.date, period),
+              value = close.get(bar.date);
+            return value === undefined ? { time } : { time, value };
+          }),
+        );
+        n.compareLines.push(line);
+      });
+      const line = (options: LineSeriesPartialOptions) => {
+        const series = chart.addSeries(LineSeries, options);
+        n.baseLines.push(series);
+        return series;
+      };
+      if (czsc && showCzsc) {
+        for (const family of czsc.families) {
+          line({
+            color: family.config === 0 ? chartColor.series1 : chartColor.accent,
+            lineWidth: family.config === 0 ? 1 : 2,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          }).setData(czscChartLines(bars, family.points, period, start));
+        }
+      }
+      const overlay =
+        breakout && showBreakout
+          ? breakoutChartData(breakout, bars, start, breakoutIndex, period)
+          : null;
+      for (const item of overlay?.lines ?? []) {
+        line({
+          color: item.color,
+          lineWidth: 2,
+          lineStyle: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        }).setData(item.data);
+      }
+      n.markers.setMarkers(
+        [
+          ...(czsc && showCzsc ? czscChartMarkers(czsc, period, start) : []),
+          ...(overlay?.markers ?? []),
+        ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
+      );
+    };
+    n.renderBase = renderBase;
+    renderBase();
+    if (n.pendingRange !== undefined) {
+      if (bars.length)
+        chart
+          .timeScale()
+          .setVisibleLogicalRange(
+            n.pendingRange ?? { from: 0, to: bars.length - n.start - 1 },
+          );
+      n.pendingRange = undefined;
+    }
+  }, [
+    period,
+    pricePrecision,
+    viewportKey,
+    bars,
     czsc,
     showCzsc,
     breakout,
     showBreakout,
     breakoutIndex,
-    view,
-    drawingTool,
-    drawingStart,
-    onAnchor,
     cost,
+    compare,
+  ]);
+
+  // Secondary panes are diffed by identity: each subchart owns one anchor
+  // series, and its pane is wherever that series lives. Unselected panes are
+  // removed, new ones appended, and panes reordered only when the selection
+  // order changed, so toggling one pane leaves the others untouched.
+  useEffect(() => {
+    const n = native.current;
+    if (!n) return;
+    const { chart } = n;
+    const gone = [...n.panes.keys()].filter(
+      (key) => !visibleSubcharts.includes(key),
+    );
+    if (gone.length) {
+      // Removing a pane also removes the indicator lines on it; drop every
+      // line first so none is removed twice. The line layer re-adds them.
+      for (const line of n.indicatorLines) chart.removeSeries(line);
+      n.indicatorLines = [];
+      for (const key of gone) {
+        chart.removePane(n.panes.get(key)!.anchor.getPane().paneIndex());
+        n.panes.delete(key);
+      }
+    }
+    for (const subchart of visibleSubcharts) {
+      if (n.panes.has(subchart)) continue;
+      const pane = chart.panes().length;
+      const anchor =
+        subchart === "volume"
+          ? chart.addSeries(
+              HistogramSeries,
+              {
+                priceFormat: { type: "volume" },
+                priceLineVisible: false,
+                title: "成交量",
+              },
+              pane,
+            )
+          : subchart === "macd"
+            ? chart.addSeries(
+                HistogramSeries,
+                {
+                  priceFormat: { type: "price", precision: 2, minMove: 0.01 },
+                  priceLineVisible: false,
+                  title: "MACD",
+                },
+                pane,
+              )
+            : chart.addSeries(
+                LineSeries,
+                {
+                  lastValueVisible: false,
+                  priceLineVisible: false,
+                  lineVisible: false,
+                  crosshairMarkerVisible: false,
+                  ...(subchart === "rps"
+                    ? {
+                        autoscaleInfoProvider: () => ({
+                          priceRange: { minValue: 0, maxValue: 100 },
+                        }),
+                      }
+                    : {}),
+                },
+                pane,
+              );
+      // A newly created pane inherits the first pane scale settings in LWC 5.
+      // Explicitly reset every secondary pane after it exists.
+      anchor.getPane().priceScale("right").applyOptions({ mode: 0 });
+      if (subchart === "rps")
+        anchor.priceScale().applyOptions({
+          autoScale: true,
+          scaleMargins: { top: 0, bottom: 0 },
+        });
+      n.panes.set(subchart, { anchor, threshold: null });
+    }
+    visibleSubcharts.forEach((subchart, index) => {
+      const pane = n.panes.get(subchart)!.anchor.getPane();
+      if (pane.paneIndex() !== index + 1) pane.moveTo(index + 1);
+    });
+    const rpsPane = n.panes.get("rps");
+    if (rpsPane) {
+      if (rpsPane.threshold) rpsPane.anchor.removePriceLine(rpsPane.threshold);
+      rpsPane.threshold = rpsPane.anchor.createPriceLine({
+        price: rpsOptions.threshold,
+        color: chartColor.muted,
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "RPS阈值",
+      });
+    }
+    chart.panes()[0]?.setStretchFactor(3);
+    visibleSubcharts.forEach((subchart, index) => {
+      chart
+        .panes()
+        [index + 1]?.setStretchFactor(subchart === "rps" ? 1.2 : 1.4);
+    });
+  }, [
+    period,
+    pricePrecision,
+    viewportKey,
+    visibleSubcharts,
+    rpsOptions.threshold,
+  ]);
+
+  // Indicator lines and the pane anchors' data. Lines are cheap to replace;
+  // panes are not touched here.
+  useEffect(() => {
+    const n = native.current;
+    if (!n) return;
+    const { chart } = n;
+    const renderIndicators = () => {
+      const start = n.start;
+      const visible = bars.slice(start);
+      const time = (bar: Bar) => chartTime(bar.date, period);
+      for (const [subchart, { anchor }] of n.panes) {
+        if (subchart === "volume")
+          anchor.setData(
+            visible.map((bar) => ({
+              time: time(bar),
+              value: bar.volume,
+              color: bar.close >= bar.open ? chartColor.up : chartColor.down,
+            })),
+          );
+        else if (subchart === "macd")
+          anchor.setData(
+            visible.map((bar, i) => {
+              const value = values.MACD[start + i];
+              return value == null
+                ? { time: time(bar) }
+                : {
+                    time: time(bar),
+                    value,
+                    color: value >= 0 ? chartColor.up : chartColor.down,
+                  };
+            }),
+          );
+        else if (subchart === "rps")
+          anchor.setData(
+            visible.map((bar) => ({
+              time: time(bar),
+              value: rpsOptions.threshold,
+            })),
+          );
+      }
+      for (const line of n.indicatorLines) chart.removeSeries(line);
+      n.indicatorLines = [];
+      const paneOf = (subchart: Subchart) =>
+        n.panes.get(subchart)?.anchor.getPane().paneIndex();
+      const line = (options: LineSeriesPartialOptions, pane: number) => {
+        const series = chart.addSeries(LineSeries, options, pane);
+        n.indicatorLines.push(series);
+        return series;
+      };
+      const rpsPane = paneOf("rps");
+      if (rpsPane !== undefined) {
+        for (const window of rpsOptions.periods) {
+          for (const segment of rpsChartSegments(
+            bars,
+            rps ?? [],
+            period,
+            window,
+            start,
+          )) {
+            line(
+              {
+                color: rpsColors[window],
+                lineWidth: 2,
+                lineStyle: segment.mode === "backfill" ? 2 : 0,
+                pointMarkersVisible: segment.data.length === 1,
+                pointMarkersRadius: 3,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                autoscaleInfoProvider: () => ({
+                  priceRange: { minValue: 0, maxValue: 100 },
+                }),
+              },
+              rpsPane,
+            ).setData(segment.data);
+          }
+        }
+      }
+      for (const name of names) {
+        if (name === "MACD") continue;
+        const host = subchartOf(name);
+        const pane = host === "main" ? 0 : paneOf(host);
+        if (pane === undefined) continue;
+        for (const segment of indicatorSegments(
+          bars,
+          values[name],
+          period,
+          start,
+        )) {
+          line(
+            {
+              color: colors[name],
+              lineWidth: 1,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              pointMarkersVisible: segment.length === 1,
+              pointMarkersRadius: 2,
+            },
+            pane,
+          ).setData(segment);
+        }
+      }
+    };
+    n.renderIndicators = renderIndicators;
+    renderIndicators();
+  }, [
+    period,
+    pricePrecision,
+    viewportKey,
+    bars,
+    values,
+    names,
+    visibleSubcharts,
     rps,
     rpsOptions,
-    onHistoryRequest,
-    viewportKey,
-    pricePrecision,
   ]);
+
+  // TDX keys: ←/→ step a bar cursor (scrolling when it leaves the view),
+  // ↑/↓ zoom, PageUp/PageDown page, Home/End jump, Esc leaves cursor mode.
+  const chartKey = (key: string) => {
+    if (selectedId && view && onViewChange) {
+      if (key === "Delete" || key === "Backspace") {
+        onViewChange({
+          ...view,
+          drawings: view.drawings.filter((d) => d.id !== selectedId),
+        });
+        setSelected(null);
+        return true;
+      }
+      if (key === "Escape") {
+        setSelected(null);
+        return true;
+      }
+    }
+    const n = native.current;
+    const range = n?.chart.timeScale().getVisibleLogicalRange();
+    if (!n || !range) return false;
+    const scale = n.chart.timeScale();
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+      const last = n.bars.length - 1;
+      if (last < n.start) return false;
+      const move = keyboardCursor(
+        range,
+        key === "ArrowLeft" ? -1 : 1,
+        n.cursor,
+        n.start,
+        last,
+      );
+      n.cursor = move.index;
+      if (move.range) scale.setVisibleLogicalRange(move.range);
+      const bar = n.bars[move.index]!;
+      n.chart.setCrosshairPosition(
+        bar.close,
+        chartTime(bar.date, period),
+        n.candles,
+      );
+      setHover({ bars: n.bars, index: move.index });
+      return true;
+    }
+    if (key === "Escape") {
+      if (n.cursor === null) return false;
+      n.cursor = null;
+      n.chart.clearCrosshairPosition();
+      setHover(null);
+      return true;
+    }
+    const next =
+      keyboardRange(range, key) ??
+      keyboardPage(range, key, n.bars.length - n.start);
+    if (!next) return false;
+    scale.setVisibleLogicalRange(next);
+    return true;
+  };
+  const chartKeyRef = useRef(chartKey);
+  chartKeyRef.current = chartKey;
+  useEffect(() => {
+    if (!hotkeys) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        // Keys inside the chart are handled by its own onKeyDown.
+        (target?.nodeType !== undefined && ref.current?.contains(target)) ||
+        target?.closest?.(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=listbox], [role=combobox], [role=menu]",
+        )
+      )
+        return;
+      if (chartKeyRef.current(event.key)) event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hotkeys]);
 
   return (
     <div
@@ -1429,6 +1829,18 @@ export function MarketChart({
                 量 {formatValue(legend.bar.volume)} {volumeUnit}
               </span>
             )}
+            {compare?.map((item, i) => {
+              const bar = item.bars.find((b) => b.date === legend.bar.date);
+              return (
+                <span
+                  key={item.symbol}
+                  style={{ color: compareColors[i % compareColors.length] }}
+                >
+                  {item.label}{" "}
+                  {bar ? formatValue(bar.close, pricePrecision) : "—"}
+                </span>
+              );
+            })}
             {legendGroups.map(({ key, names: group }) => {
               const items = legend.indicators.filter(({ name }) =>
                 group.includes(name),
@@ -1486,16 +1898,10 @@ export function MarketChart({
         ref={ref}
         tabIndex={0}
         role="application"
-        aria-label="行情图：按住鼠标左键拖动，左右键平移，上下键缩放"
+        aria-label="行情图：按住鼠标左键拖动；←→ 逐根移动光标，↑↓ 缩放，PageUp/PageDown 翻页，Home/End 到最早/最新，Esc 退出光标"
         onPointerDown={(event) => event.currentTarget.focus()}
         onKeyDown={(event) => {
-          const range = chartApi.current?.timeScale().getVisibleLogicalRange();
-          if (!range) return;
-          const next = keyboardRange(range, event.key);
-          if (next) {
-            event.preventDefault();
-            chartApi.current?.timeScale().setVisibleLogicalRange(next);
-          }
+          if (chartKey(event.key)) event.preventDefault();
         }}
         className="price-chart"
         style={{

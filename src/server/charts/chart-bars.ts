@@ -107,13 +107,9 @@ export async function chartBars(
   if (isCryptoSymbol(source.symbol) || isFuturesSymbol(source.symbol)) {
     if (parsed.adjustment !== "none")
       throw new Error("加密货币和期货不支持复权");
-    const chart = await (isCryptoSymbol(source.symbol)
-      ? cryptoChartSnapshot
-      : futuresChartSnapshot)(
-      source,
-      parsed.period,
-      parsed.limit,
-    );
+    const chart = await (
+      isCryptoSymbol(source.symbol) ? cryptoChartSnapshot : futuresChartSnapshot
+    )(source, parsed.period, parsed.limit);
     if (!get(chart.id)) put("chart-snapshot", chart.id, chart);
     return chart;
   }
@@ -325,4 +321,26 @@ export async function chartBars(
   };
   if (!get(result.id)) put("chart-snapshot", result.id, result);
   return result;
+}
+
+export const compareBarsInput = z.object({
+  symbol: z.string().regex(/^(sh|sz|bj)\d{6}$/),
+  period: chartPeriodSchema,
+  limit: z.number().int().min(100).max(20000).default(2000),
+});
+/**
+ * Bars of a comparison symbol (TDX 叠加 / TradingView compare) for the main
+ * chart's period: local TDX, unadjusted, grouped exactly as `chartBars`
+ * groups the main symbol. Read-only — unlike loading a symbol it persists no
+ * snapshot record, since a comparison is a transient view.
+ */
+export async function compareBars(input: z.input<typeof compareBarsInput>) {
+  const { symbol, period, limit } = compareBarsInput.parse(input);
+  const base = isMinutePeriod(period) ? "5m" : "day";
+  const local = await readVipdocChart(settings().tdxRoot, symbol, base);
+  const bars =
+    period === base
+      ? local.bars
+      : aggregateChartBars(local.bars, base, period, Date.now()).bars;
+  return { symbol, period, bars: bars.slice(-limit) };
 }

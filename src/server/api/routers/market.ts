@@ -2,7 +2,12 @@ import { mxQuerySchema } from "~/lib/market/mx-data";
 import { mxDataStatus, queryMxData } from "../../data-sources/mx/mx-data";
 import { tradeDashboard } from "../../portfolio/trade-ledger-service";
 import { indexDirectory } from "../../market/index-directory";
-import { chartBars, chartBarsInput } from "../../charts/chart-bars";
+import {
+  chartBars,
+  chartBarsInput,
+  compareBars,
+  compareBarsInput,
+} from "../../charts/chart-bars";
 import { ChartViewStore } from "../../charts/chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart/chart-view";
 import { sqlite as chartSqlite } from "../../db";
@@ -78,6 +83,9 @@ export const marketRouter = createTRPCRouter({
         null,
     ),
   chartBars: p.input(chartBarsInput).query(({ input }) => chartBars(input)),
+  compareBars: p
+    .input(compareBarsInput)
+    .query(({ input }) => compareBars(input)),
   chartView: p
     .input(chartKeySchema)
     .query(({ input }) => new ChartViewStore(chartSqlite()).read(input)),

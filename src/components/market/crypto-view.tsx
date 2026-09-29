@@ -1,5 +1,6 @@
 "use client";
 import { CurrencyBtc, Globe } from "@phosphor-icons/react/ssr";
+import { usePeriodHotkey } from "./chart-hotkeys";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import {
@@ -53,6 +54,7 @@ export function CryptoView() {
   const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
+  usePeriodHotkey(period, setPeriod, load.isPending);
   useEffect(() => {
     const first = initialPair();
     setSymbol(first);

@@ -1,5 +1,6 @@
 "use client";
 import { Mountains } from "@phosphor-icons/react/ssr";
+import { usePeriodHotkey } from "./chart-hotkeys";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import {
@@ -51,6 +52,7 @@ export function FuturesView() {
   const [source, setSource] = useState<FuturesSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
+  usePeriodHotkey(period, setPeriod, load.isPending);
   const quotes = api.futuresQuotes.useQuery(undefined, {
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,

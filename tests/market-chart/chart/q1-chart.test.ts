@@ -253,12 +253,12 @@ it("log/theme settings survive validation; keyboard center/zoom and cost/no-posi
     to: 110,
   });
   expect(keyboardRange({ from: 0, to: 100 }, "ArrowUp")).toEqual({
-    from: 10,
-    to: 90,
+    from: 20,
+    to: 100,
   });
   expect(keyboardRange({ from: 0, to: 100 }, "ArrowDown")).toEqual({
-    from: -12.5,
-    to: 112.5,
+    from: -25,
+    to: 100,
   });
   expect(keyboardRange({ from: 0, to: 100 }, "a")).toBeNull();
   expect(chartCost(undefined)).toBeNull();

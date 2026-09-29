@@ -9,7 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
@@ -25,7 +25,20 @@ import {
   type ChartView,
   type Drawing,
 } from "~/lib/chart/chart-view";
-import { CzscMarketChart } from "../market/chart";
+import {
+  CzscMarketChart,
+  compareColors,
+  type ChartCompare,
+} from "../market/chart";
+import { SecuritySelect } from "./security-select";
+import { drawingPointCount } from "~/lib/chart/chart-drawings";
+import { IntradayChart } from "./intraday-chart";
+import { tradableSymbol } from "./tdx-side-panel";
+import { isTypingTarget } from "./chart-hotkeys";
+
+// TDX keeps 分时 or K 线 across symbol switches; the workspace remounts per
+// symbol/period, so the last choice lives at module scope for the session.
+let lastIntraday = false;
 import { TdxSnapshotContainer } from "./tdx-snapshot-container";
 const tools = {
   none: "浏览",
@@ -33,6 +46,10 @@ const tools = {
   horizontal: "水平线",
   rectangle: "矩形",
   fibonacci: "斐波那契",
+  ray: "射线",
+  channel: "平行通道",
+  text: "文字",
+  measure: "测量",
 } as const;
 export function ChartWorkspace({
   snapshot,
@@ -165,9 +182,77 @@ function EditableChart({
 }) {
   const [view, setView] = useState(initial),
     [tool, setTool] = useState<keyof typeof tools>("none"),
-    [anchor, setAnchor] = useState<Drawing["a"] | null>(null),
+    [points, setPoints] = useState<Drawing["a"][]>([]),
+    [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
   const [dirty, setDirty] = useState(false);
+  const canIntraday = tradableSymbol(snapshot.symbol);
+  // TDX 叠加 / TradingView compare: up to three A-share symbols.
+  const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
+  const names = api.securityNames.useQuery(undefined, {
+    enabled: compareSymbols.length > 0,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const compareQueries = api.useQueries((t) =>
+    compareSymbols.map((symbol) =>
+      t.compareBars(
+        {
+          symbol,
+          period,
+          limit: Math.min(20000, Math.max(100, bars.length)),
+        },
+        { retry: false, refetchOnWindowFocus: false, staleTime: 60000 },
+      ),
+    ),
+  );
+  const compareKey = compareQueries.map((q) => q.dataUpdatedAt).join();
+  const compare = useMemo<ChartCompare[]>(
+    () =>
+      compareQueries.flatMap((q, i) =>
+        q.data
+          ? [
+              {
+                symbol: compareSymbols[i]!,
+                label:
+                  names.data?.[compareSymbols[i]!] ??
+                  compareSymbols[i]!.toUpperCase(),
+                bars: q.data.bars,
+              },
+            ]
+          : [],
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [compareKey, compareSymbols.join(), names.data],
+  );
+  const compareErrors = compareQueries.flatMap((q, i) =>
+    q.error ? [`${compareSymbols[i]!.toUpperCase()}：${q.error.message}`] : [],
+  );
+  const [intraday, setIntradayState] = useState(lastIntraday);
+  const showIntraday = canIntraday && intraday;
+  const setIntraday = (next: boolean) => {
+    lastIntraday = next;
+    setIntradayState(next);
+  };
+  // F5 switches between K 线 and 分时 (TDX).
+  useEffect(() => {
+    if (!canIntraday) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key !== "F5" ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        isTypingTarget(event.target)
+      )
+        return;
+      event.preventDefault();
+      setIntradayState((current) => (lastIntraday = !current));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canIntraday]);
   const utils = api.useUtils();
   const save = api.saveChartView.useMutation({
     onSuccess: (saved) => {
@@ -198,8 +283,10 @@ function EditableChart({
   const onAnchor = useCallback(
     (point: Drawing["a"]) => {
       if (tool === "none") return;
-      if (tool !== "horizontal" && !anchor) {
-        setAnchor(point);
+      const placed = [...points, point];
+      // Channels take three clicks, horizontal lines and text one, the rest two.
+      if (placed.length < drawingPointCount(tool)) {
+        setPoints(placed);
         return;
       }
       const next = {
@@ -209,8 +296,10 @@ function EditableChart({
           {
             id: crypto.randomUUID(),
             kind: tool,
-            a: anchor ?? point,
-            b: point,
+            a: placed[0]!,
+            b: placed[1] ?? placed[0]!,
+            ...(tool === "channel" ? { c: placed[2]! } : {}),
+            ...(tool === "text" ? { text: label.trim() || "标注" } : {}),
             color: view.dark ? chartColor.accentLight : chartColor.accentLight,
           },
         ],
@@ -221,10 +310,10 @@ function EditableChart({
         return;
       }
       change(checked.data);
-      setAnchor(null);
+      setPoints([]);
       setTool("none");
     },
-    [anchor, tool, view, change],
+    [points, tool, label, view, change],
   );
   const common = {
     pricePrecision: chartPricePrecision(
@@ -243,7 +332,8 @@ function EditableChart({
     view,
     onViewChange: change,
     drawingTool: tool,
-    drawingStart: anchor,
+    drawingPoints: points,
+    drawingText: label,
     onAnchor,
     cost,
     adjustment,
@@ -253,7 +343,7 @@ function EditableChart({
       data-testid="chart-workspace"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
-          setAnchor(null);
+          setPoints([]);
           setTool("none");
         }
       }}
@@ -262,6 +352,28 @@ function EditableChart({
         className="relative flex items-center gap-3 py-1 whitespace-nowrap"
         data-testid="chart-primary-controls"
       >
+        {canIntraday && (
+          <span role="group" aria-label="图表类型" className="segmented">
+            <Button
+              variant="plain"
+              className={showIntraday ? "" : "selected"}
+              aria-pressed={!showIntraday}
+              title="F5 切换"
+              onClick={() => setIntraday(false)}
+            >
+              K 线
+            </Button>
+            <Button
+              variant="plain"
+              className={showIntraday ? "selected" : ""}
+              aria-pressed={showIntraday}
+              title="F5 切换"
+              onClick={() => setIntraday(true)}
+            >
+              分时
+            </Button>
+          </span>
+        )}
         <label>
           <Checkbox
             checked={view.logarithmic}
@@ -280,6 +392,50 @@ function EditableChart({
           />{" "}
           加深背景
         </label>
+        {canIntraday && !showIntraday && (
+          <span
+            className="flex items-center gap-2"
+            role="group"
+            aria-label="叠加对比"
+          >
+            {compareSymbols.length < 3 && (
+              <span className="w-44">
+                <SecuritySelect
+                  symbol=""
+                  period="day"
+                  disabled={false}
+                  captureKeys={false}
+                  label="叠加对比品种"
+                  placeholder="叠加对比…"
+                  onSelect={(symbol) =>
+                    setCompareSymbols((current) =>
+                      symbol === snapshot.symbol ||
+                      current.includes(symbol) ||
+                      !tradableSymbol(symbol)
+                        ? current
+                        : [...current, symbol],
+                    )
+                  }
+                />
+              </span>
+            )}
+            {compareSymbols.map((symbol, i) => (
+              <Button
+                key={symbol}
+                variant="plain"
+                title="移除叠加"
+                style={{ color: compareColors[i % compareColors.length] }}
+                onClick={() =>
+                  setCompareSymbols((current) =>
+                    current.filter((item) => item !== symbol),
+                  )
+                }
+              >
+                {names.data?.[symbol] ?? symbol.toUpperCase()} ×
+              </Button>
+            ))}
+          </span>
+        )}
         <details className="relative !my-0" name="chart-tools">
           <summary className="cursor-pointer">画线：{tools[tool]}</summary>
           <div
@@ -294,27 +450,46 @@ function EditableChart({
                 aria-pressed={tool === id}
                 onClick={() => {
                   setTool(id as keyof typeof tools);
-                  setAnchor(null);
+                  setPoints([]);
                 }}
               >
                 {label}
               </Button>
             ))}
+            {tool === "text" && (
+              <Input
+                aria-label="标注文字"
+                className="w-full"
+                maxLength={80}
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+              />
+            )}
             <span>
               {tool !== "none"
-                ? anchor
-                  ? "移动鼠标预览，点击第二点完成；Esc 取消"
+                ? points.length
+                  ? `移动鼠标预览，再点击 ${drawingPointCount(tool) - points.length} 次完成${tool === "channel" && points.length === 2 ? "（第三点定通道宽度）" : ""}；Esc 取消`
                   : "移动鼠标自由定位，点击定锚；Esc 取消"
-                : "左右键平移 · 上下键缩放 · 拖拽价格轴缩放"}
+                : "浏览时点中图形可选中：拖端点改形状、拖线身移动、Delete 删除 · ←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页 · Home/End · F5 分时 · F8 周期"}
             </span>
           </div>
         </details>
       </div>
-      <span role="status" className="text-xs">
+      <span role="status" className="block min-h-4 text-xs">
         {save.error
           ? `视图自动保存失败：${save.error.message}，下次修改时重试`
           : message || (dirty ? "正在自动保存视图…" : "")}
       </span>
+      {compareErrors.map((error) => (
+        <p key={error} role="alert" className="!my-0 text-xs">
+          叠加品种读取失败（仅支持本地通达信 A 股）：{error}
+        </p>
+      ))}
+      {compare.length > 0 && (
+        <p role="status" className="!my-0 text-xs">
+          叠加对比：纵轴为自可见区首根起的涨跌幅，叠加品种为不复权本地数据，按主图日期对齐
+        </p>
+      )}
       {aggregateErrors?.map((error) => (
         <p key={error} role="alert" className="!my-0 text-xs">
           数据源错误：{error}
@@ -334,13 +509,24 @@ function EditableChart({
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
       )}
-      <CzscMarketChart
-        {...common}
-        snapshotId={snapshot.id}
-        chartSnapshot
-        annotations
-        rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
-      />
+      {showIntraday ? (
+        <IntradayChart
+          symbol={snapshot.symbol}
+          snapshotId={snapshot.id}
+          pricePrecision={common.pricePrecision}
+          dark={view.dark}
+        />
+      ) : (
+        <CzscMarketChart
+          {...common}
+          compare={compare}
+          hotkeys
+          snapshotId={snapshot.id}
+          chartSnapshot
+          annotations
+          rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
+        />
+      )}
       <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>

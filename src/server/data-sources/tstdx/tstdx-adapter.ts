@@ -54,6 +54,7 @@ export type TstdxKlineItem =
       symbol: string;
       status: "unsupported" | "unavailable" | "invalid";
       message: string;
+      reason?: "empty";
     };
 type Client = Pick<
   TdxClient,
@@ -71,6 +72,7 @@ const factory: Factory = () => createTdxClient({ hosts: configuredHosts() });
 const today = () =>
   new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 class InvalidData extends Error {}
+class EmptyData extends Error {}
 const numeric = z.number().finite();
 const barSchema = z.object({
   date: z.string(),
@@ -251,7 +253,7 @@ export async function tstdxKlines(
         let bars: Bar[] = [...rows.values()].sort((a, b) =>
           a.date.localeCompare(b.date),
         );
-        if (!bars.length) throw Error("tstdx 未返回行情");
+        if (!bars.length) throw new EmptyData("tstdx 未返回行情");
         if (adjusted) {
           const events = await request("xdxr", [symbol], () =>
             client.xdxr(symbol),
@@ -282,6 +284,7 @@ export async function tstdxKlines(
         symbol,
         status: e instanceof InvalidData ? "invalid" : "unavailable",
         message: e instanceof Error ? e.message : String(e),
+        ...(e instanceof EmptyData ? { reason: "empty" as const } : {}),
       });
     }
   }

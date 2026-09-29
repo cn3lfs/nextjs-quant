@@ -47,6 +47,7 @@ export type EastmoneyKlineItem =
       symbol: string;
       status: "unsupported" | "unavailable" | "invalid";
       message: string;
+      reason?: "empty";
     };
 
 async function readJson(response: Response) {
@@ -146,6 +147,27 @@ export async function eastmoneyKlines(
         });
         continue;
       }
+      // A successful, identity-checked empty response is different from a malformed packet.
+      const empty = z
+        .object({
+          rc: z.literal(0),
+          data: z.object({
+            code: z.literal(code),
+            market: z.literal(market),
+            name: z.string().min(1),
+            klines: z.tuple([]),
+          }),
+        })
+        .safeParse(raw);
+      if (empty.success) {
+        items.push({
+          symbol,
+          status: "unavailable",
+          reason: "empty",
+          message: "东方财富未返回请求区间行情",
+        });
+        continue;
+      }
       const parsed = parseOnlineChart(
         raw,
         symbol,
@@ -161,6 +183,7 @@ export async function eastmoneyKlines(
           symbol,
           status: "unavailable",
           message: "东方财富未返回请求区间行情",
+          reason: "empty",
         });
         continue;
       }

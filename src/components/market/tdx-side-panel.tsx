@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import { api } from "~/trpc/react";
@@ -14,29 +14,16 @@ import {
 } from "~/lib/market/tdx-fundamentals";
 import {
   quoteRefreshInterval,
-  quoteSession,
   quoteSessionLabels,
-  type QuoteSession,
 } from "~/lib/market/tdx-quote-view";
 import { TdxQuoteBook } from "./tdx-quote-book";
+import { useQuoteSession } from "./use-quote-session";
 import { CapitalSection, StockEventsSection } from "./stock-side-cards";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 
 export const tradableSymbol = (symbol: string) =>
   /^(sh|sz|bj)\d{6}$/.test(symbol) && !isNonAShareChartSymbol(symbol);
-
-/** 时段只驱动刷新节奏，所以在客户端定时重算即可，不在服务端渲染时判定。 */
-function useQuoteSession() {
-  const [session, setSession] = useState<QuoteSession | null>(null);
-  useEffect(() => {
-    const update = () => setSession(quoteSession(Date.now()));
-    update();
-    const timer = setInterval(update, 30000);
-    return () => clearInterval(timer);
-  }, []);
-  return session;
-}
 
 /*
  * 与图表下方的基本面详情共用同一组查询键：这里负责轮询，下方只读缓存，

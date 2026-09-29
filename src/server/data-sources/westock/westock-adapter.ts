@@ -43,6 +43,7 @@ export type WestockKlineItem =
       symbol: string;
       status: "unsupported" | "unavailable" | "invalid";
       message: string;
+      reason?: "empty";
     };
 type Execute = typeof query;
 export function westockAssetKind(code: string) {
@@ -195,6 +196,7 @@ export async function westockKlines(
         symbol: code,
         status: "unavailable",
         message: "westock-data 未返回行情，缺失不得补造",
+        reason: "empty",
       });
   return {
     version: WESTOCK_ADAPTER_VERSION,

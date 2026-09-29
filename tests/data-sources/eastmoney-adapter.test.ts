@@ -123,6 +123,31 @@ it("HTTP 限流不重试，错误和空行情不能当成功", async () => {
   }
 });
 
+it("distinguishes a valid empty result from an empty packet for the wrong security", async () => {
+  for (const [code, expected] of [
+    [fixture.data.code, "empty"],
+    ["999999", undefined],
+  ] as const) {
+    const result = await eastmoneyKlines(
+      { symbols: ["sh000001"], period: "day" },
+      undefined,
+      async () =>
+        new Response(
+          JSON.stringify({
+            ...fixture,
+            data: { ...fixture.data, code, klines: [] },
+          }),
+        ),
+    );
+    const item = result.items[0]!;
+    expect(item.status).not.toBe("ok");
+    if (item.status === "ok")
+      throw Error("Empty response unexpectedly became data");
+    expect(item.reason).toBe(expected);
+    expect(item.status).toBe(expected ? "unavailable" : "invalid");
+  }
+});
+
 it("请求范围和复权参数可追踪，超大响应及时停止读取", async () => {
   const fetcher = vi.fn<typeof fetch>(async () => response());
   const result = await eastmoneyKlines(

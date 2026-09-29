@@ -97,6 +97,16 @@ export function isAStock(symbol: string) {
   );
 }
 export const isLocalFund = isPriceScaleThreeFund;
+const pad2 = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, "0"));
+const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+/** A real calendar date from 1990-01-01 on, checked arithmetically; same
+ * verdict as a `new Date(day).toISOString()` round trip for 4-digit years. */
+function isTradingCalendarDate(year: number, month: number, day: number) {
+  if (year < 1990 || year > 9999 || month < 1 || month > 12 || day < 1)
+    return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return day <= (month === 2 && leap ? 29 : monthDays[month - 1]!);
+}
 export function parseBars(
   buffer: Buffer,
   period: Period,
@@ -106,6 +116,9 @@ export function parseBars(
   if (![2, 3].includes(dailyDecimals)) throw new Error("本地日线价格精度无效");
   if (buffer.length % 32 !== 0)
     throw new Error("行情文件不完整：记录长度不是 32 字节的整数倍");
+  // Hot path of every full-market scan (tens of millions of records): no
+  // per-record Date objects, arrays or string padding.
+  const scale = 10 ** dailyDecimals;
   const bars: Bar[] = [];
   // The 5-bit year field wraps every 32 years. Unwrap backwards from the newest
   // record so pre-2004 history (e.g. 2001 encoded as 2033) remains chronological.
@@ -118,38 +131,48 @@ export function parseBars(
       years.set(i, year);
       nextYear = year;
     }
+  let previous = "";
   for (let i = 0; i < buffer.length; i += 32) {
-    let date: string, prices: number[];
+    let date: string,
+      year: number,
+      month: number,
+      day: number,
+      open: number,
+      high: number,
+      low: number,
+      close: number;
     if (period === "day") {
-      const n = buffer.readUInt32LE(i),
-        year = Math.floor(n / 10000),
-        month = Math.floor(n / 100) % 100,
-        day = n % 100;
-      date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      prices = [4, 8, 12, 16].map(
-        (offset) => buffer.readUInt32LE(i + offset) / 10 ** dailyDecimals,
-      );
+      const n = buffer.readUInt32LE(i);
+      year = Math.floor(n / 10000);
+      month = Math.floor(n / 100) % 100;
+      day = n % 100;
+      date = `${year}-${pad2[month]}-${pad2[day]}`;
+      open = buffer.readUInt32LE(i + 4) / scale;
+      high = buffer.readUInt32LE(i + 8) / scale;
+      low = buffer.readUInt32LE(i + 12) / scale;
+      close = buffer.readUInt32LE(i + 16) / scale;
     } else {
       const packed = buffer.readUInt16LE(i),
-        year = years.get(i)!,
         md = packed & 2047,
-        month = Math.floor(md / 100),
-        day = md % 100,
         minutes = buffer.readUInt16LE(i + 2);
+      year = years.get(i)!;
+      month = Math.floor(md / 100);
+      day = md % 100;
       if (minutes >= 1440) throw new Error("分钟线时间非法");
-      date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00+08:00`;
-      prices = [4, 8, 12, 16].map((offset) => buffer.readFloatLE(i + offset));
+      date = `${year}-${pad2[month]}-${pad2[day]}T${pad2[Math.floor(minutes / 60)]}:${pad2[minutes % 60]}:00+08:00`;
+      open = buffer.readFloatLE(i + 4);
+      high = buffer.readFloatLE(i + 8);
+      low = buffer.readFloatLE(i + 12);
+      close = buffer.readFloatLE(i + 16);
     }
-    const [open, high, low, close] = prices as [number, number, number, number],
-      volume = buffer.readUInt32LE(i + 24),
-      amount = buffer.readFloatLE(i + 20),
-      day = date.slice(0, 10),
-      validDate = new Date(day);
+    const volume = buffer.readUInt32LE(i + 24),
+      amount = buffer.readFloatLE(i + 20);
     if (
-      !Number.isFinite(+validDate) ||
-      validDate.toISOString().slice(0, 10) !== day ||
-      day < "1990-01-01" ||
-      !prices.every((v) => Number.isFinite(v) && v > 0) ||
+      !isTradingCalendarDate(year, month, day) ||
+      !(Number.isFinite(open) && open > 0) ||
+      !(Number.isFinite(high) && high > 0) ||
+      !(Number.isFinite(low) && low > 0) ||
+      !(Number.isFinite(close) && close > 0) ||
       !Number.isFinite(amount) ||
       amount < 0 ||
       low > Math.min(open, close) ||
@@ -157,8 +180,8 @@ export function parseBars(
       high < low
     )
       throw new Error(`行情记录非法：${date}`);
-    if (bars.length && date <= bars.at(-1)!.date)
-      throw new Error("行情时间重复或倒序");
+    if (previous && date <= previous) throw new Error("行情时间重复或倒序");
+    previous = date;
     bars.push({ date, open, high, low, close, volume, amount });
   }
   return bars;
