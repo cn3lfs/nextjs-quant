@@ -1,3 +1,8 @@
+import {
+  navDetailPage,
+  navPageSchema,
+  navSummary,
+} from "../../portfolio/trade-review-nav-page";
 import { sortTableRows, tableSortSchema } from "~/lib/common/server-sort";
 import {
   cashWorkspacePageSchema,
@@ -739,8 +744,7 @@ export const portfolioRouter = createTRPCRouter({
         ),
         pointCount: tradePoints.length,
         nav: {
-          ...s.nav,
-          segments: drawdownPage.segments,
+          ...navSummary(s, input.method),
           monthlyReturns: sortTableRows(
             s.nav.monthlyReturns,
             input.monthOrder,
@@ -762,22 +766,23 @@ export const portfolioRouter = createTRPCRouter({
         attributionCount: attribution.length,
         unexplainedCashResidual: s.unexplainedCashResidual,
         excludedCashFlows,
-        feeSources: s.replayInput.trades.fills.map((fill, index) => ({
-          index,
-          security: fill.symbol ?? fill.code,
-          date: fill.tradeDate,
-          sources: rounds
-            .flatMap((r) => r.feeSources)
-            .concat(s.reverseRepo.feeSources)
-            .filter((f) => f.fillIndex === index)
-            .slice(0, 1),
-        })),
         missingMarketData: s.missingMarketData,
         warnings: s.warnings,
         exceptions: s.exceptions,
         pendingRows: s.pendingRows,
       };
     }),
+  // Further pages of the long review details (first pages ship with the snapshot).
+  tradeReviewNavPage: p
+    .input(navPageSchema)
+    .query(async ({ input }) =>
+      navDetailPage(
+        (await accountReview(input.account)).snapshot,
+        input.kind,
+        input.method,
+        input.pageIndex,
+      ),
+    ),
   tradeReviewExport: p
     .input(reviewInputSchema)
     .query(async ({ input }) =>

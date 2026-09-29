@@ -7,6 +7,7 @@ import { migrate } from "../../src/server/db/migrations";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TradeReviewResults } from "../../src/components/portfolio/trade-review-results";
+import { groupNavDiagnostics } from "~/lib/portfolio/nav-diagnostics";
 
 const state = vi.hoisted(() => ({
   onCalendar: null as (() => void) | null,
@@ -718,7 +719,21 @@ it("R13 bounds both table payloads and preserves 2543 fills and dated diagnostic
     expect(exported.trades.tradePoints).toHaveLength(2543);
     expect(exported.trades.movingAverage.closedRounds).toHaveLength(785);
     expect(exported.nav.days).toHaveLength(1265);
-    expect(exported.nav.twr.reasons).toEqual(first.nav.twr.reasons);
+    // The review ships grouped reasons and the first page; the rest is paged.
+    expect(first.nav.twr.groups).toEqual(
+      groupNavDiagnostics(exported.nav.twr.reasons),
+    );
+    expect(first.nav.details.twrReasons.total).toBe(1265);
+    expect(first.nav.details.twrReasons.rows).toEqual(
+      exported.nav.twr.reasons.slice(0, 20),
+    );
+    const lastReasons = await caller.tradeReviewNavPage({
+      account: input.account,
+      kind: "twrReasons",
+      pageIndex: 999,
+    });
+    expect(lastReasons.pageIndex).toBe(63);
+    expect(lastReasons.rows.at(-1)).toEqual(exported.nav.twr.reasons[1264]);
     expect(exported.nav.twr.reasons).toHaveLength(1265);
     expect(exported.nav.twr.reason.length).toBeLessThan(100);
     expect(exported.nav.twr.reasons[1264].date).toBe(r13Days[1264]);

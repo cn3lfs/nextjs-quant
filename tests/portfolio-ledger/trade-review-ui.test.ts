@@ -18,6 +18,7 @@ import {
   TradeReviewResults,
 } from "../../src/components/portfolio/trade-review-results";
 import { replayTradeReview } from "../../src/server/portfolio/trade-review-service";
+import { navSummary } from "~/server/portfolio/trade-review-nav-page";
 const dbs: Database.Database[] = [];
 it.each(["explicit", "previousClose"] as const)(
   "R7/W4 页面展示连续段TWR、起止日期与 %s 模式说明",
@@ -57,6 +58,10 @@ it.each(["explicit", "previousClose"] as const)(
       createElement(TradeReviewResults, {
         data: {
           ...data,
+          nav: {
+            ...navSummary(data, "movingAverage"),
+            monthlyReturns: data.nav.monthlyReturns,
+          },
           calendar: {
             source: "合成",
             hash: "fixture",
@@ -75,7 +80,6 @@ it.each(["explicit", "previousClose"] as const)(
           drawdownCount: 0,
           attribution: [],
           excludedCashFlows: [],
-          feeSources: [],
         },
         method: "movingAverage",
         onMethodChange: () => {},

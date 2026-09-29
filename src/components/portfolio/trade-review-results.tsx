@@ -21,6 +21,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { Badge } from "../ui/badge";
+import { PagedDetail } from "./paged-detail";
 
 export type TradeReviewData = RouterOutputs["tradeReviewSnapshot"];
 type Round = TradeReviewData["rounds"][number];
@@ -362,23 +363,25 @@ export function TradeReviewResults({
       />
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">费用来源</h3>
-        <ReviewDisclosure label={`费用来源，共 ${data.feeSources.length} 笔`}>
-          {data.feeSources.length ? (
-            data.feeSources.map((fill) => (
-              <p key={fill.index}>
-                {fill.date} · {fill.security} ·{" "}
-                {fill.sources
-                  .map(
-                    (source) =>
-                      `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : source.amount.toFixed(2)} 元；${source.warnings.join("；")}`,
-                  )
-                  .join("；") || "不可得：该成交未进入可分析回合"}
-              </p>
-            ))
-          ) : (
-            <p>无成交费用记录。</p>
+        <PagedDetail
+          account={data.account}
+          method={method}
+          kind="feeSources"
+          first={nav.details.feeSources}
+          label="费用来源"
+          empty={<p>无成交费用记录。</p>}
+          render={(fill) => (
+            <p key={fill.index}>
+              {fill.date} · {fill.security} ·{" "}
+              {fill.sources
+                .map(
+                  (source) =>
+                    `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : source.amount.toFixed(2)} 元；${source.warnings.join("；")}`,
+                )
+                .join("；") || "不可得：该成交未进入可分析回合"}
+            </p>
           )}
-        </ReviewDisclosure>
+        />
       </section>
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">
@@ -450,7 +453,21 @@ export function TradeReviewResults({
         {periodPerformance}
         <p>TWR：{metric(nav.twr, true)}</p>
         {nav.flowValuationNote && <p role="note">{nav.flowValuationNote}</p>}
-        <ReviewDiagnostics rows={nav.twr.reasons} />
+        {nav.twr.groups.slice(0, 3).map((text) => (
+          <p key={text}>{text}</p>
+        ))}
+        <PagedDetail
+          account={data.account}
+          method={method}
+          kind="twrReasons"
+          first={nav.details.twrReasons}
+          label={`TWR 逐日原因（${nav.twr.groups.length} 类）`}
+          render={(row, i) => (
+            <p key={i}>
+              {row.date} · {row.reason}
+            </p>
+          )}
+        />
         <p>
           实际使用的交易日数：{nav.usedTradingDays}；每日收益观察数：
           {nav.usedReturnObservations}；年化因子：{nav.basis.annualization}
@@ -473,14 +490,17 @@ export function TradeReviewResults({
             </ReviewDisclosure>
           </div>
         )}
-        {!nav.segments.length && (
+        {!nav.details.segments.total && (
           <p>最大回撤、夏普、Sortino、Calmar 不可得：没有连续有效净值段。</p>
         )}
-        <ReviewDisclosure
+        <PagedDetail
+          account={data.account}
+          method={method}
+          kind="segments"
+          first={nav.details.segments}
           preview={1}
-          label={`连续段风险指标（最大回撤、夏普、Sortino、Calmar），共 ${nav.segments.length} 段`}
-        >
-          {nav.segments.map((segment, i) => (
+          label="连续段风险指标（最大回撤、夏普、Sortino、Calmar）"
+          render={(segment, i) => (
             <Card key={i}>
               <CardHeader>
                 <CardTitle>
@@ -497,8 +517,8 @@ export function TradeReviewResults({
                 </p>
               </CardContent>
             </Card>
-          ))}
-        </ReviewDisclosure>
+          )}
+        />
         <h4 className="font-medium">回撤明细</h4>
         <p className="text-sm text-muted-foreground">
           未修复段始终优先；默认按回撤幅度从深到浅，每页 10
@@ -546,22 +566,28 @@ export function TradeReviewResults({
             },
           ]}
         />
-        <ReviewDisclosure
-          label={`每日资金与净值明细，共 ${nav.days.length} 天`}
-        >
-          {nav.days.map((day) => (
+        <PagedDetail
+          account={data.account}
+          method={method}
+          kind="days"
+          first={nav.details.days}
+          label="每日资金与净值明细"
+          render={(day) => (
             <p key={day.date}>
               {day.date} · 现金 {metric(day.cash)} · 市值{" "}
               {metric(day.marketValue)} · 净值 {metric(day.nav)} · 日收益{" "}
               {metric(day.dailyReturn, true)}
             </p>
-          ))}
-        </ReviewDisclosure>
-        <ReviewDisclosure label={`净值诊断，共 ${nav.warnings.length} 条`}>
-          {nav.warnings.map((w, i) => (
-            <p key={i}>{w}</p>
-          ))}
-        </ReviewDisclosure>
+          )}
+        />
+        <PagedDetail
+          account={data.account}
+          method={method}
+          kind="warnings"
+          first={nav.details.warnings}
+          label="净值诊断"
+          render={(w, i) => <p key={i}>{w}</p>}
+        />
       </section>
       <section className="space-y-3">
         <h3 className="text-lg font-semibold">

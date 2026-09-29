@@ -69,6 +69,7 @@ const expectedProcedures = {
   tradeReviewCashReconciliationExport: "query",
   tradeReviewExecutionExport: "query",
   tradeReviewSnapshot: "query",
+  tradeReviewNavPage: "query",
   tradeReviewExport: "query",
   clsReviewExportAll: "query",
   clsReviewRemove: "mutation",
