@@ -20,14 +20,25 @@ import {
   Sparkle,
 } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Pill, StatsPanel } from "../panels";
-import { useState } from "react";
-import { type Channel, type Settings } from "~/lib/domain";
+import { useEffect, useRef, useState } from "react";
+import { settingsSchema, type Channel, type Settings } from "~/lib/domain";
+import {
+  acknowledgeSettings,
+  changedSettings,
+  reconcileSettings,
+  settingsToSave,
+} from "~/lib/settings/settings-draft";
+import { usePanelVisible } from "./keep-alive";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 
 import { Field, stamp } from "./shared";
 import { NotificationPolicyFields } from "../signals/notification-policy-fields";
 import { CryptoConnections } from "../common/crypto-connections";
+import { ConnectionDiagnostics } from "./connection-diagnostics";
+import { connectionConfiguration } from "~/lib/settings/connection-check";
+import { sameSetting } from "~/lib/settings/settings-draft";
+import { useSnapshotCache } from "~/lib/stores/snapshot-cache";
 
 export function Connections({
   value,
@@ -44,17 +55,40 @@ export function Connections({
   } | null;
   notify: (s: string) => void;
 }) {
-  const budget = api.newsBudget.useQuery(undefined, { refetchInterval: 30000 });
+  const visible = usePanelVisible();
+  const budget = api.newsBudget.useQuery(undefined, {
+    enabled: visible,
+    refetchInterval: visible ? 30000 : false,
+  });
   const skillCatalog = api.researchSkills.useQuery(undefined, {
+    enabled: visible,
     staleTime: 60000,
   });
-  const directory = api.securityNames.useQuery(undefined, {
-    staleTime: 60000,
-    refetchInterval: 300000,
-  });
-  const names = directory.data ?? {};
+  const [draftState, setDraftState] = useState({ base: value, draft: value });
+  const [saveError, setSaveError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const saving = useRef(false);
+  const submittedDraft = useRef(value);
+  const config = draftState.draft;
+  const dirty = changedSettings(draftState).length > 0;
+  const setConfig = (draft: Settings) => {
+    setDraftState((state) => ({ ...state, draft }));
+    setSaveError("");
+    setFieldErrors({});
+  };
+  useEffect(() => {
+    setDraftState((state) => reconcileSettings(state, value));
+  }, [value]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const utils = api.useUtils(),
-    [config, setConfig] = useState(value),
     [channel, setChannel] = useState({
       name: "",
       type: "feishu" as Channel["type"],
@@ -67,14 +101,35 @@ export function Connections({
     [editId, setEditId] = useState<string | undefined>();
   const onError = (e: { message: string }) => notify(e.message),
     save = api.saveSettings.useMutation({
-      onSuccess: () => {
+      onSuccess: (_result, submitted) => {
+        if (
+          !sameSetting(
+            connectionConfiguration(draftState.base),
+            connectionConfiguration(settingsSchema.parse(submitted)),
+          )
+        )
+          useSnapshotCache.getState().clearMarket();
+        setDraftState((state) =>
+          acknowledgeSettings(
+            state,
+            settingsSchema.parse(submitted),
+            submittedDraft.current,
+          ),
+        );
+        setSaveError("");
         notify("设置已保存");
         void utils.status.invalidate();
         void utils.securityProfile.invalidate();
         void utils.securityNames.invalidate();
         void utils.securities.invalidate();
       },
-      onError,
+      onError: (error) => {
+        setSaveError(error.message);
+        onError(error);
+      },
+      onSettled: () => {
+        saving.current = false;
+      },
     }),
     saveChannel = api.saveChannel.useMutation({
       onSuccess: () => {
@@ -88,15 +143,154 @@ export function Connections({
       onSuccess: () => notify("测试通知已加入发送队列，请查看投递历史"),
       onError,
     });
+  const submitSettings = () => {
+    if (!dirty || saving.current) return;
+    const parsed = settingsSchema.safeParse(settingsToSave(draftState, value));
+    const errors: Record<string, string> = {};
+    if (!parsed.success)
+      for (const issue of parsed.error.issues)
+        errors[String(issue.path[0])] = "请检查此项的格式或允许范围。";
+    if (!config.tdxRoot.trim()) errors.tdxRoot = "请输入通达信安装目录。";
+    if (!config.clsDbPath.trim())
+      errors.clsDbPath = "请输入财联社新闻数据库路径。";
+    if (
+      config.calendar.some(
+        (day) =>
+          !Number.isFinite(Date.parse(day)) ||
+          new Date(day).toISOString().slice(0, 10) !== day,
+      )
+    )
+      errors.calendar = "请输入真实日期，格式为 YYYY-MM-DD，每行一个。";
+    if (!parsed.success || Object.keys(errors).length) {
+      setFieldErrors(errors);
+      setSaveError("请检查目录、日期格式及数值范围后重试。设置尚未保存。");
+      const first = document.getElementById(
+        `setting-${Object.keys(errors)[0]}`,
+      );
+      const details = first?.closest("details");
+      if (details) details.open = true;
+      first?.focus();
+      return;
+    }
+    saving.current = true;
+    submittedDraft.current = config;
+    setSaveError("");
+    save.mutate(parsed.data);
+  };
+  const fieldProps = (name: string) => ({
+    id: `setting-${name}`,
+    "aria-invalid": Boolean(fieldErrors[name]),
+    "aria-describedby": fieldErrors[name] ? `setting-error-${name}` : undefined,
+  });
+  const fieldError = (name: string) =>
+    fieldErrors[name] && (
+      <p id={`setting-error-${name}`} className="mb-2 text-nc-bad">
+        {fieldErrors[name]}
+      </p>
+    );
   return (
     <PageGrid>
+      <Panel
+        title="数据与连接设置"
+        icon={FolderOpen}
+        className="sticky top-0 z-10"
+        note="保存以下路径、行情源、研究与通知策略。聊天渠道和数字货币连接分别保存。"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p
+            role="status"
+            data-settings-state={
+              save.isPending ? "saving" : dirty ? "dirty" : "saved"
+            }
+          >
+            {save.isPending
+              ? "正在保存；可以继续编辑"
+              : dirty
+                ? "有未保存的修改 · 切换页面会保留草稿"
+                : "设置已保存"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              disabled={!dirty || save.isPending}
+              onClick={() => {
+                setDraftState((state) => ({
+                  base: state.base,
+                  draft: state.base,
+                }));
+                setSaveError("");
+                setFieldErrors({});
+              }}
+            >
+              撤销修改
+            </Button>
+            <Button
+              onClick={submitSettings}
+              disabled={!dirty || save.isPending}
+            >
+              <FloppyDisk size={14} />
+              保存设置
+            </Button>
+          </div>
+        </div>
+        {saveError && (
+          <p role="alert" className="mt-2 text-nc-bad">
+            {saveError}
+          </p>
+        )}
+      </Panel>
+      <Panel
+        span={6}
+        icon={FolderOpen}
+        title="行情数据配置"
+        note="目录只读。保存后用于新的行情请求，已加载快照保留原始来源；行情页手动选择优先。全市场覆盖由右上角扫描更新。"
+      >
+        <Field label="通达信安装目录">
+          <Input
+            {...fieldProps("tdxRoot")}
+            value={config.tdxRoot}
+            onChange={(e) => setConfig({ ...config, tdxRoot: e.target.value })}
+          />
+        </Field>
+        {fieldError("tdxRoot")}
+        <Field label="默认行情数据源">
+          <MarketSourceSelect
+            value={config.marketDataSource}
+            onChange={(marketDataSource) =>
+              setConfig({ ...config, marketDataSource })
+            }
+          />
+        </Field>
+        <details>
+          <summary>交易日历参考（高级）</summary>
+          <p className="text-nc-text-3">
+            默认使用本地上证指数已有日期，并非完整官方日历。覆盖时每行输入一个已确认交易日，格式
+            YYYY-MM-DD；留空恢复默认。
+          </p>
+          <Field label="交易日期覆盖">
+            <Textarea
+              {...fieldProps("calendar")}
+              rows={4}
+              value={config.calendar.join("\n")}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  calendar: e.target.value.split(/\s+/).filter(Boolean),
+                })
+              }
+            />
+          </Field>
+          {fieldError("calendar")}
+        </details>
+      </Panel>
+      <ConnectionDiagnostics value={draftState.base} dirty={dirty} />
       <StatsPanel
         icon={Database}
-        title="本地行情"
+        title="本地行情覆盖"
         tag="只读接入"
         meta={
           coverage
-            ? `最近扫描 ${stamp(coverage.scannedAt)} · ${coverage.total} 个 A 股周期记录`
+            ? `最近扫描 ${stamp(coverage.scannedAt)} · ${coverage.total} 个 A 股周期记录（扫描时间不代表行情时点）`
             : "尚未扫描，保存目录后点击页面右上角扫描。"
         }
         items={[
@@ -106,28 +300,27 @@ export function Connections({
             value: count.toLocaleString(),
             note: "行情文件",
           })),
-          {
-            key: "news-budget",
-            label: "新闻 AI 批次",
-            value: budget.data
-              ? `${budget.data.used}/${budget.data.limit}`
-              : "—",
-            note: budget.data
-              ? `${budget.data.day} · ${budget.data.exhausted ? "额度已用完，自动研究暂停至次日" : "额度可用"}`
-              : "今日已用",
-            tone: budget.data?.exhausted ? "warn" : "neutral",
-          },
         ]}
       />
-      <Panel span={6} icon={FolderOpen} title="路径与新闻">
+      <Panel span={6} icon={FolderOpen} title="新闻配置">
+        <p className="mb-3 text-nc-text-3">
+          新闻 AI 批次：
+          {budget.data
+            ? `${budget.data.used}/${budget.data.limit} · ${budget.data.day}`
+            : "暂未获取"}
+          {budget.error ? " · 获取失败" : ""}
+          {budget.data?.exhausted ? " · 额度已用完，自动研究暂停至次日" : ""}
+        </p>
         <Field label="财联社新闻数据库路径">
           <Input
+            {...fieldProps("clsDbPath")}
             value={config.clsDbPath}
             onChange={(e) =>
               setConfig({ ...config, clsDbPath: e.target.value })
             }
           />
         </Field>
+        {fieldError("clsDbPath")}
         <Field label="新闻自动研究">
           <span className="flex items-center gap-2 text-[12px] text-nc-text-2">
             <Checkbox
@@ -139,14 +332,9 @@ export function Connections({
             自动分析最近七天新闻（每分钟最多50条，使用当前模型；失败后等待15分钟）
           </span>
         </Field>
-        <Field label="通达信安装目录">
-          <Input
-            value={config.tdxRoot}
-            onChange={(e) => setConfig({ ...config, tdxRoot: e.target.value })}
-          />
-        </Field>
         <Field label="自动新闻每日AI批次上限（北京时间）">
           <Input
+            {...fieldProps("autoNewsDailyBatches")}
             type="number"
             min={1}
             max={100}
@@ -162,8 +350,9 @@ export function Connections({
             每批最多25条，含最多一次格式修复重试；缓存复用不计，失败计入额度，次日恢复。不是套餐Token余额。
           </small>
         </Field>
+        {fieldError("autoNewsDailyBatches")}
         <p className="nc-panel-note">
-          通达信目录与外部 Blocks 目录只读；设置在“研究模型”面板底部统一保存。
+          通达信目录与外部 Blocks 目录只读；修改后使用页面顶部“保存设置”。
         </p>
       </Panel>
       <Panel
@@ -218,6 +407,10 @@ export function Connections({
           ) : (
             <Field label="CLI 模型（留空使用默认模型）">
               <Input
+                {...fieldProps(
+                  config.llmProvider === "codex" ? "codexModel" : "claudeModel",
+                )}
+                maxLength={100}
                 value={
                   config.llmProvider === "codex"
                     ? config.codexModel
@@ -233,10 +426,14 @@ export function Connections({
                   })
                 }
               />
+              {fieldError(
+                config.llmProvider === "codex" ? "codexModel" : "claudeModel",
+              )}
             </Field>
           )}
           <Field label="自动分析候选数（1–10）">
             <Input
+              {...fieldProps("analysisLimit")}
               type="number"
               min={1}
               max={10}
@@ -246,6 +443,7 @@ export function Connections({
               }
             />
           </Field>
+          {fieldError("analysisLimit")}
         </div>
         <div className="check-row">
           <label>
@@ -265,41 +463,15 @@ export function Connections({
             placeholder="http://127.0.0.1:7890"
           />
         </Field>
-        <details>
-          <summary>交易日历覆盖</summary>
-          <p>
-            默认读取本地上证指数日线中的交易日期。若需覆盖，输入已确认的交易日期，每行一个；空白表示使用默认来源。
-          </p>
-          <Textarea
-            className="field-sizing-fixed"
-            rows={4}
-            value={config.calendar.join("\n")}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                calendar: e.target.value.split(/\s+/).filter(Boolean),
-              })
-            }
-          />
-        </details>
+      </Panel>
+      <Panel title="通知策略" icon={PaperPlaneTilt}>
+        {fieldError("notificationPolicy")}
         <NotificationPolicyFields
           value={config.notificationPolicy}
           onChange={(notificationPolicy) =>
             setConfig({ ...config, notificationPolicy })
           }
         />
-        <Field label="默认行情数据源">
-          <MarketSourceSelect
-            value={config.marketDataSource}
-            onChange={(marketDataSource) =>
-              setConfig({ ...config, marketDataSource })
-            }
-          />
-        </Field>
-        <Button onClick={() => save.mutate(config)} disabled={save.isPending}>
-          <FloppyDisk size={14} />
-          保存设置
-        </Button>
       </Panel>
       <Panel
         icon={PaperPlaneTilt}

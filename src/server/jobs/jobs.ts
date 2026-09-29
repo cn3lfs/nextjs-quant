@@ -4,7 +4,10 @@ import { randomUUID, createHash } from "node:crypto";
 import { get, put, list, sqlite } from "../db";
 import type { Job } from "~/lib/domain";
 import type { Work } from "./worker";
-import { workProgressSchema, type WorkProgress } from "~/lib/research/workflow/work-progress";
+import {
+  workProgressSchema,
+  type WorkProgress,
+} from "~/lib/research/workflow/work-progress";
 import { processAlive } from "../infra/lease";
 import { PrioritySlots } from "../infra/priority-slots";
 import { unpackScreen, type PackedScreen } from "../screening/screen-wire";
@@ -148,12 +151,33 @@ export function updateJob(id: string, patch: Partial<Job>) {
     .immediate();
 }
 export function cancelJob(id: string) {
-  const job = updateJob(id, { status: "cancelled", phase: "已取消" });
-  if (job?.status === "cancelled") {
+  const result = sqlite()
+    .transaction(() => {
+      const before = readJob(id);
+      if (!before)
+        return { ok: true, outcome: "not-found" as const, status: null };
+      if (before.status === "cancelled")
+        return {
+          ok: true,
+          outcome: "already-cancelled" as const,
+          status: before.status,
+        };
+      if (before.status === "completed" || before.status === "failed")
+        return {
+          ok: true,
+          outcome: "already-terminal" as const,
+          status: before.status,
+        };
+      const job = updateJob(id, { status: "cancelled", phase: "已取消" })!;
+      return { ok: true, outcome: "accepted" as const, status: job.status };
+    })
+    .immediate();
+  if (result.status === "cancelled") {
     void workers.get(id)?.terminate();
     controllers.get(id)?.abort();
     state.computeControllers.get(id)?.abort();
   }
+  return result;
 }
 export function recoverJobs() {
   bestEffortAudit(() => new ResearchAttempts(sqlite()).recover(processAlive));

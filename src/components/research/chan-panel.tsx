@@ -1,4 +1,10 @@
 "use client";
+import { useArchiveDownload } from "./use-archive-download";
+import {
+  ArchiveEvidence,
+  ArchiveMetadata,
+  ArchiveText,
+} from "./archive-evidence";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
@@ -65,19 +71,18 @@ export function ChanPanel({
     void utils.chanHistory.invalidate();
   }, [job.data?.id, job.data?.status, utils]);
   const data = report.data;
+  const exporter = useArchiveDownload();
   function download() {
     if (!data) return;
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+    exporter.save(
+      () => JSON.stringify(data, null, 2),
+      `缠论标注-${data.evidence.symbol}-${data.id}.json`,
+      "application/json",
     );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `缠论标注-${data.evidence.symbol}-${data.id}.json`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return (
     <section className="panel">
+      {exporter.error && <p role="alert">{exporter.error}</p>}
       <h3>缠论标注研究</h3>
       <p className="muted">
         用于人工核验结构与课文定义。图周期不等于走势级别，笔、线段和中枢算法尚未验收，不生成自动信号。
@@ -171,6 +176,11 @@ export function ChanPanel({
       {data && (
         <>
           <h4>{data.result.title}</h4>
+          <ArchiveMetadata
+            createdAt={data.createdAt}
+            model={data.model}
+            version={data.method.version}
+          />
           <p>{data.result.summary}</p>
           <p className="muted">
             {securityDisplayName(data.evidence.symbol, names)} ·{" "}
@@ -231,21 +241,24 @@ export function ChanPanel({
               <li key={i}>{step}</li>
             ))}
           </ul>
-          <details>
-            <summary>方法版本与完整证据</summary>
-            <pre>
-              {JSON.stringify(
-                {
-                  version: data.method.version,
-                  files: data.method.files,
-                  evidence: data.evidence,
-                  automaticSignals: data.automaticSignals,
-                },
-                null,
-                2,
-              )}
-            </pre>
-          </details>
+          <ArchiveEvidence title="方法版本与完整证据">
+            {() => (
+              <>
+                <ArchiveText
+                  text={JSON.stringify(
+                    {
+                      version: data.method.version,
+                      files: data.method.files,
+                      evidence: data.evidence,
+                      automaticSignals: data.automaticSignals,
+                    },
+                    null,
+                    2,
+                  )}
+                />
+              </>
+            )}
+          </ArchiveEvidence>
         </>
       )}
     </section>

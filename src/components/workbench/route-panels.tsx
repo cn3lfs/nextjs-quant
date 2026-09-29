@@ -19,8 +19,8 @@ import { PanelVisibility } from "./keep-alive";
  * Bodies of the routed workbench pages, shared by the route definitions under
  * `src/app` and by the workbench panel cache. The workbench keeps a visited panel
  * mounted so switching pages does not discard drafts, pagination or scroll state.
- * Routes that fetch server data per request (signal ledger, trade ledger) stay on
- * the framework navigation and are deliberately absent here. Page titles live in
+ * Ledger routes own their query/navigation state and stay on framework
+ * navigation rather than this panel cache. Page titles live in
  * the workbench topbar (navigation.ts).
  */
 export function IntradayPanel() {

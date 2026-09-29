@@ -1,4 +1,10 @@
 "use client";
+import { useArchiveDownload } from "./use-archive-download";
+import {
+  ArchiveEvidence,
+  ArchiveMetadata,
+  ArchiveText,
+} from "./archive-evidence";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
@@ -62,8 +68,10 @@ export function CanslimPanel({
   const busy =
     create.isPending || ["queued", "running"].includes(job.data?.status ?? "");
   const data = report.data;
+  const exporter = useArchiveDownload();
   return (
     <section className="panel">
+      {exporter.error && <p role="alert">{exporter.error}</p>}
       <h3>CANSLIM 六阶段研究</h3>
       <p className="muted">
         展示17项计算与证据缺口。尚未完成全部因子和交易风险核验，不构成完整评级。
@@ -160,6 +168,22 @@ export function CanslimPanel({
       {data && (
         <>
           <h4>{data.result.title}</h4>
+          <Button
+            onClick={() =>
+              exporter.save(
+                () => JSON.stringify(data, null, 2),
+                `CANSLIM-${data.dossier.symbol}-${data.id}.json`,
+                "application/json",
+              )
+            }
+          >
+            下载 CAN SLIM 证据档案
+          </Button>
+          <ArchiveMetadata
+            createdAt={data.createdAt}
+            model={data.model}
+            version={data.method.version}
+          />
           <p className="muted">
             关联证券：{securityDisplayName(data.dossier.symbol, names)} ·{" "}
             {data.dossier.symbol}
@@ -246,24 +270,32 @@ export function CanslimPanel({
               <li key={i}>{item}</li>
             ))}
           </ul>
-          <details>
-            <summary>证据与方法版本</summary>
-            {data.dossier.evidence.map((e) => (
-              <details key={e.id}>
-                <summary>
-                  {e.source} · {e.asOf}
-                </summary>
+          <ArchiveEvidence title="证据与方法版本">
+            {() => (
+              <>
+                {data.dossier.evidence.map((e) => (
+                  <details key={e.id}>
+                    <summary>
+                      {e.source} · {e.asOf}
+                    </summary>
+                    <pre
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {JSON.stringify(e, null, 2)}
+                    </pre>
+                  </details>
+                ))}
                 <pre
                   style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
                 >
-                  {JSON.stringify(e, null, 2)}
+                  {JSON.stringify(data.method, null, 2)}
                 </pre>
-              </details>
-            ))}
-            <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-              {JSON.stringify(data.method, null, 2)}
-            </pre>
-          </details>
+              </>
+            )}
+          </ArchiveEvidence>
         </>
       )}
     </section>

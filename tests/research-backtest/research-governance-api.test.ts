@@ -313,12 +313,34 @@ it("properly typed report, delivery and monitor records remain usable in isolate
     title: "fixture",
   });
   insert.run(
+    "channel-fixture",
+    "channel",
+    JSON.stringify({
+      id: "channel-fixture",
+      name: "isolated",
+      type: "feishu",
+      target: "",
+      thread: "",
+      configured: true,
+      enabled: true,
+    }),
+    Date.now(),
+  );
+  insert.run(
     "delivery-fixture",
     "delivery",
     JSON.stringify({
       id: "delivery-fixture",
+      channelId: "channel-fixture",
+      signalId: "signal-fixture",
+      kind: "signal",
+      title: "fixture",
       body: "fixture",
       status: "failed",
+      createdAt: 1,
+      nextAt: 1,
+      expiresAt: 2,
+      attempts: 1,
     }),
     Date.now(),
   );

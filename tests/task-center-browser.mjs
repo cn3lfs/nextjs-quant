@@ -10,9 +10,10 @@ import tailwind from "@tailwindcss/postcss";
 const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 )("playwright");
+let negativeApplied = false;
 const bundle = await build({
   stdin: {
-    contents: `import React, {useState} from 'react'; import {createRoot} from 'react-dom/client'; import {TaskCenter} from './src/components/workbench/task-center'; import {PanelVisibility} from './src/components/workbench/keep-alive'; function Fixture(){const [visible,setVisible]=useState(true); window.setTaskVisible=setVisible;return <PanelVisibility visible={visible}><TaskCenter state={{selectFormulaJob:id=>window.openedScreen=id,setTab:tab=>window.openedTab=tab}}/></PanelVisibility>}; createRoot(document.getElementById('root')).render(<Fixture/>);`,
+    contents: `import React, {useState} from 'react'; import {createRoot} from 'react-dom/client'; import {TaskCenter} from './src/components/workbench/task-center'; import {PanelVisibility} from './src/components/workbench/keep-alive'; function Fixture(){const [visible,setVisible]=useState(true); window.setTaskVisible=setVisible;return <PanelVisibility visible={visible}><TaskCenter state={{jobs:{data:[]},selectFormulaJob:id=>window.openedScreen=id,setTab:tab=>window.openedTab=tab}}/></PanelVisibility>}; createRoot(document.getElementById('root')).render(<Fixture/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
   },
@@ -20,7 +21,7 @@ const bundle = await build({
   write: false,
   format: "iife",
   jsx: "automatic",
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: { "process.env.NODE_ENV": '"production"', "process.env": "{}" },
   plugins: [
     {
       name: "isolated-task-fixture",
@@ -46,28 +47,40 @@ const bundle = await build({
       const items=Array.from({length:22},(_,i)=>({id:'task-'+String(i).padStart(3,'0'),type:i===18?'screen':'research',status:i===19?'running':i%2?'failed':'completed',progress:i===19?45:100,phase:'阶段摘要 '+i,createdAt:1700000000000+i,updatedAt:1700000001000+i})).reverse();
       const full=id=>{const value=items.find(j=>j.id===id);return {...value,phase:'完整阶段 '+id,error:value.status==='failed'?'完整错误：证据缺失\\n'+ 'LONG_ERROR_'.repeat(80):undefined,resultLink:id==='task-020'?{href:'/reports/report/report-020',label:'查看研究报告'}:undefined,screenResultId:id==='task-018'?id:undefined,auditIncomplete:id==='task-021',attemptId:id==='task-021'?'attempt-021':undefined}};
       export const api={
-        taskHistory:{useQuery(input){useRevision();const filtered=items.filter(j=>!input.status||j.status===input.status);const start=input.cursor?filtered.findIndex(j=>j.id===input.cursor.id)+1:0;const page=filtered.slice(start,start+20);return {data:f.listError?undefined:{items:page,total:filtered.length,nextCursor:start+20<filtered.length?{id:page.at(-1).id,createdAt:page.at(-1).createdAt}:null},isFetching:false,error:f.listError?{message:'列表离线'}:null,refetch:()=>{f.listError=false;bump()}}}},
+        taskOverview:{useQuery(){return {data:{running:1,queued:0,completedToday:10,failed:11,cancelled:0,total:22,revision:1,checkedAt:Date.now()},refetch:()=>bump()}}},
+        taskHistory:{useQuery(input){useRevision();const filtered=items.filter(j=>(!input.status||j.status===input.status)&&(!input.type||j.type===input.type)&&(!input.id||j.id===input.id));const start=input.cursor?filtered.findIndex(j=>j.id===input.cursor.id)+1:0;const page=filtered.slice(start,start+20);return {data:f.listError?undefined:{items:page,total:filtered.length,nextCursor:start+20<filtered.length?{id:page.at(-1).id,createdAt:page.at(-1).createdAt}:null},isFetching:false,error:f.listError?{message:'列表离线'}:null,refetch:()=>{f.listError=false;bump()}}}},
         taskState:{useQuery({id},options){useRevision();f.detailEnabled=options.enabled;f.interval=options.refetchInterval({state:{data:items.find(j=>j.id===id)}});useEffect(()=>{if(options.enabled)f.queries.push(id)},[id,options.enabled]);return {data:!options.enabled||f.mode==='loading'||f.mode==='error'?undefined:f.mode==='missing'?null:full(id),isFetching:options.enabled&&f.mode==='loading',error:options.enabled&&f.mode==='error'?{message:'详情离线'}:null,refetch:()=>{f.mode='ok';bump()}}}},
-        cancel:{useMutation(options){const [error,setError]=useState(null);const [variables,setVariables]=useState();return {error,variables,isPending:false,reset:()=>setError(null),mutate:id=>{setVariables(id);f.cancelled.push(id);if(f.cancelFail)setError({message:'取消请求失败'});else{items.find(j=>j.id===id).status='cancelled';setError(null);options.onSuccess({},id);bump()}}}}},
-        useUtils:()=>({taskHistory:{invalidate:bump},taskState:{invalidate:bump},jobs:{invalidate:bump}})
+        cancel:{useMutation(options={}){const [error,setError]=useState(null);const [variables,setVariables]=useState();return {error,variables,isPending:false,reset:()=>setError(null),mutateAsync:async id=>{setVariables(id);f.cancelled.push(id);if(f.cancelFail)throw Error('取消请求失败');items.find(j=>j.id===id).status='cancelled';setError(null);bump();return {ok:true,outcome:'accepted'}}}}},
+        useUtils:()=>({taskOverview:{invalidate:bump},taskHistory:{invalidate:bump},taskState:{invalidate:bump},jobs:{invalidate:bump}})
       };
     `,
         }));
         if (process.env.TASK_CENTER_NEGATIVE === "1")
           b.onLoad(
-            { filter: /components[\\/]task-history\.tsx$/ },
-            async (args) => ({
-              loader: "tsx",
-              contents: (await readFile(args.path, "utf8")).replace(
-                'setSelected(expanded ? "" : job.id)',
-                "setSelected(job.id)",
-              ),
-            }),
+            { filter: /components[\\/]workbench[\\/]task-history\.tsx$/ },
+            async (args) => {
+              const source = await readFile(args.path, "utf8");
+              const anchor = 'setSelected(expanded ? "" : job.id)';
+              assert.ok(
+                source.includes(anchor),
+                "Negative control must match its target",
+              );
+              negativeApplied = true;
+              return {
+                loader: "tsx",
+                contents: source.replace(anchor, "setSelected(job.id)"),
+              };
+            },
           );
       },
     },
   ],
 });
+if (process.env.TASK_CENTER_NEGATIVE === "1")
+  assert.ok(
+    negativeApplied,
+    "Negative control must load the current component path",
+  );
 const css = await postcss([tailwind()]).process(
   await readFile("src/styles/globals.css", "utf8"),
   { from: resolve("src/styles/globals.css") },
@@ -79,7 +92,10 @@ try {
   });
   const errors = [];
   const external = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+    console.error(error.message);
+  });
   await page.route("**/*", (route) => {
     if (route.request().url() === "http://127.0.0.1/task-fixture")
       return route.fulfill({
@@ -200,7 +216,7 @@ try {
     await page
       .locator('button[aria-expanded="true"][id^="task-trigger-"]')
       .count(),
-    0,
+    1,
   );
   await page.evaluate(() => window.fixture.set({ listError: true }));
   await page.getByRole("button", { name: "重试列表" }).click();

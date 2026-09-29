@@ -41,8 +41,7 @@ export function Workbench({ children }: { children?: ReactNode }) {
       }),
   };
   const { toast, setToast, status, channels, notify, scan } = state;
-  const failed =
-    state.deliveries.data?.filter((d) => d.status === "failed").length ?? 0;
+  const failed = state.monitorSummary.data?.failedDeliveries ?? 0;
   const settings = status.data?.settings;
   const model =
     settings?.llmProvider === "deepseek"

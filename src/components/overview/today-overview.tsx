@@ -18,7 +18,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";
 import { cn } from "~/lib/common/classnames";
-import { beijingClock, dateLine, marketSession } from "~/lib/market/market-session";
+import {
+  beijingClock,
+  dateLine,
+  marketSession,
+} from "~/lib/market/market-session";
 import { api } from "~/trpc/react";
 import {
   BarRows,
@@ -35,6 +39,7 @@ import {
 } from "../panels";
 import { Button } from "../ui/button";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { MarketPulse, useOverviewQuotes, WatchQuote } from "./market-pulse";
 import type { WorkbenchState } from "../workbench/use-workbench-state";
 import { useNow } from "../workbench/use-now";
 import {
@@ -129,6 +134,8 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
     { period: 20, page: 0 },
     { enabled: visible && rpsTarget === "concept" },
   );
+  // Hooks stay above the early return below.
+  const quotes = useOverviewQuotes(state.status.data?.watchlist ?? []);
   if (now === null) return null;
   const clock = beijingClock(now);
   const schedule = intraday.data?.lastCheck?.schedule;
@@ -142,7 +149,6 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
     intraday.data?.rows.filter((row) =>
       row.value.barCutoff.startsWith(clock.date),
     ) ?? [];
-  const deliveries = state.deliveries.data ?? [];
   const input: OverviewInput = {
     now,
     date: clock.date,
@@ -166,15 +172,13 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
         rps.data.progress?.status === "failed" ? rps.data.progress.error : null,
     },
     channels: state.channels.data ?? [],
-    failedDeliveries: deliveries.filter((d) => d.status === "failed").length,
+    failedDeliveries: state.monitorSummary.data?.failedDeliveries ?? 0,
   };
   const phase = phaseOf(input);
   const slots = timeline(input);
   const nowPct = axisPct(clock.minutes);
   const names = state.names;
-  const today = (at: number) =>
-    new Date(at + 8 * 3600000).toISOString().slice(0, 10) === clock.date;
-  const signals = (state.signals.data ?? []).filter((s) => today(s.createdAt));
+  const signals = state.signals.data?.items ?? [];
   const batch =
     intraday.data?.runs.find(
       (run) => run.date === clock.date && run.slot === "late",
@@ -197,6 +201,8 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
         </Pill>
         <span className="text-[11px] text-nc-text-4">当前阶段：{phase}</span>
       </div>
+
+      <MarketPulse bySymbol={quotes.bySymbol} error={quotes.error} />
 
       <Panel
         icon={Timer}
@@ -254,7 +260,9 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                 className="nc-timeline-slot"
                 data-align={align}
                 data-passed={passed || undefined}
-                data-active={slot.tone === "accent" && passed ? true : undefined}
+                data-active={
+                  slot.tone === "accent" && passed ? true : undefined
+                }
                 style={{ left: `${slot.pct}%` }}
               >
                 <span
@@ -332,10 +340,13 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
           <Panel
             icon={Lightning}
             title="今日信号"
-            meta="规则触发 · 已通过交易状态核验才会投递"
+            meta="最近20条 · 完整历史见订阅信号"
             actions={
-              <Link href="/signal-ledger" className="text-[11.5px]">
-                全部台账 →
+              <Link
+                href="/signals?monitorTab=signals"
+                className="text-[11.5px]"
+              >
+                全部订阅信号 →
               </Link>
             }
             note="历史导入与回测不会发送通知；未知或停牌的证券暂停信号。"
@@ -356,9 +367,9 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                       name={name(s.symbol)}
                       code={s.symbol.toUpperCase()}
                       extra={
-                        s.metrics.close === undefined
+                        s.close === undefined
                           ? undefined
-                          : `收 ${s.metrics.close.toFixed(2)}`
+                          : `收 ${s.close.toFixed(2)}`
                       }
                     />
                   ),
@@ -368,7 +379,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                   header: "策略",
                   width: "1.2fr",
                   cell: (s) => (
-                    <span className="text-nc-text-2">{s.strategy.name}</span>
+                    <span className="text-nc-text-2">{s.strategyName}</span>
                   ),
                 },
                 {
@@ -390,8 +401,8 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                   header: "核验",
                   width: "1fr",
                   cell: (s) => {
-                    const [label, tone] = s.tradingStatusEvidence
-                      ? tradingLabel[s.tradingStatusEvidence.status]
+                    const [label, tone] = s.tradingStatus
+                      ? tradingLabel[s.tradingStatus]
                       : (["未记录核验", "idle"] as const);
                     return (
                       <span className={cn("text-[11.5px]", toneText[tone])}>
@@ -405,17 +416,23 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                   header: "投递",
                   width: "0.9fr",
                   cell: (s) => {
-                    const delivery = deliveries.find(
-                      (d) => d.signalId === s.id,
-                    );
-                    const [label, tone] = delivery
-                      ? deliveryLabel[delivery.status]
-                      : (["未投递", "idle"] as const);
+                    const label =
+                      Object.entries(s.deliveries)
+                        .filter(([, count]) => count > 0)
+                        .map(
+                          ([status, count]) =>
+                            `${deliveryLabel[status as keyof typeof deliveryLabel][0]} ${count}`,
+                        )
+                        .join(" / ") || "未找到投递记录";
+                    const tone = s.deliveries.failed
+                      ? "bad"
+                      : s.deliveries.pending || s.deliveries.sending
+                        ? "accent"
+                        : s.deliveries.sent
+                          ? "ok"
+                          : "idle";
                     return (
-                      <span
-                        className={cn("text-[11.5px]", toneText[tone])}
-                        title={delivery?.error}
-                      >
+                      <span className={cn("text-[11.5px]", toneText[tone])}>
                         {label}
                       </span>
                     );
@@ -532,6 +549,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                       name={name(symbol)}
                       code={symbol.toUpperCase()}
                     />
+                    <WatchQuote quote={quotes.bySymbol.get(symbol)} />
                   </Link>
                 ))}
               </div>

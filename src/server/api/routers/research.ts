@@ -1,4 +1,7 @@
-import { researchRangeSchema, researchDateSchema } from "~/lib/research/workflow/research-usage";
+import {
+  researchRangeSchema,
+  researchDateSchema,
+} from "~/lib/research/workflow/research-usage";
 import { researchUsage } from "../../research/research-usage";
 import { researchAttemptsQuerySchema } from "~/lib/research/workflow/research-governance";
 import { ResearchAttempts } from "../../research/research-governance";
@@ -36,11 +39,16 @@ import {
   walkForwardJob,
   walkForwardInput,
 } from "../../backtest/walk-forward-job";
-import { walkForwardPage, type WalkForwardResult } from "~/lib/backtest/walk-forward";
+import {
+  walkForwardPage,
+  type WalkForwardResult,
+} from "~/lib/backtest/walk-forward";
 import { explainWalkForwardJob } from "../../backtest/walk-forward-explanation";
 import { researchSkillCatalog } from "../../research/research-skills";
 import { exportRsArchive } from "../../research/rs-export";
 import { z } from "zod";
+import { archiveHistoryInput } from "~/lib/research/workflow/archive-history";
+import { researchArchiveHistory } from "../../research/archive-history";
 import { strategySchema, type Snapshot, type Report } from "~/lib/domain";
 import { list } from "../../db";
 import { settings, saveSettings } from "../../infra/settings";
@@ -321,6 +329,9 @@ export const researchRouter = createTRPCRouter({
       securityContext: reportSecurityContext(report.contextId),
     })),
   ),
+  researchArchiveHistory: p
+    .input(archiveHistoryInput)
+    .query(({ input }) => researchArchiveHistory(input)),
   reportHistory: p
     .input(reportHistoryInput)
     .query(({ input }) => reportHistory(input)),

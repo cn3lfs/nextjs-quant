@@ -14,6 +14,7 @@ import {
 import { securityDisplayName } from "~/lib/market/security-display";
 import { ChartWorkspace } from "../market/chart-workspace";
 import { SecuritySelect } from "../market/security-select";
+import { usePeriodHotkey } from "../market/chart-hotkeys";
 import { MarketPoolBrowser } from "../market/market-pool-browser";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
@@ -73,6 +74,7 @@ export function MarketView({
       ? "none"
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
+  usePeriodHotkey(chartPeriod, setChartPeriod, load.isPending);
   return (
     <PageGrid>
       <section className="panel chart-panel nc-span-9">
@@ -86,6 +88,7 @@ export function MarketView({
             }
             period={period}
             disabled={load.isPending}
+            onPeriod={setChartPeriod}
             onSelect={(next) => {
               setSymbol(next);
               load.mutate({
@@ -230,7 +233,9 @@ export function MarketView({
         span={3}
         icon={Broadcast}
         title={
-          loaded ? securityDisplayName(loaded.symbol, names, loaded.name) : "盘口"
+          loaded
+            ? securityDisplayName(loaded.symbol, names, loaded.name)
+            : "盘口"
         }
         meta={loaded?.symbol.toUpperCase()}
         className="self-start"

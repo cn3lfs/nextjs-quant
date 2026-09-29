@@ -16,7 +16,7 @@ import {
 } from "../../backtest/backtest-actions";
 import { reconcileDividends } from "../../backtest/dividend-reconciliation";
 import { jobSummaries } from "../../jobs/job-summaries";
-import { taskHistory, taskState } from "../../jobs/task-history";
+import { taskHistory, taskState, taskOverview } from "../../jobs/task-history";
 import { taskHistoryInput } from "~/lib/research/workflow/task-history";
 import {
   walkForwardPage,
@@ -175,6 +175,7 @@ export const jobsRouter = createTRPCRouter({
     return cashDividendJob(input);
   }),
   jobs: p.query(() => jobSummaries()),
+  taskOverview: p.query(() => taskOverview()),
   taskHistory: p
     .input(taskHistoryInput)
     .query(({ input }) => taskHistory(input)),
@@ -217,7 +218,6 @@ export const jobsRouter = createTRPCRouter({
       };
     }),
   cancel: p.input(z.string()).mutation(({ input }) => {
-    cancelJob(input);
-    return { ok: true };
+    return cancelJob(input);
   }),
 });

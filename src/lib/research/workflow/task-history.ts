@@ -9,6 +9,18 @@ export const taskStatusSchema = z.enum([
 ]);
 export const taskHistoryInput = z.object({
   status: taskStatusSchema.optional(),
+  type: z
+    .enum([
+      "scan",
+      "screen",
+      "online-screen",
+      "backtest",
+      "walk-forward",
+      "research",
+      "monitor",
+    ])
+    .optional(),
+  id: z.string().trim().min(1).max(200).optional(),
   cursor: z
     .object({ createdAt: z.number().finite(), id: z.string().min(1).max(200) })
     .optional(),
@@ -26,7 +38,11 @@ export type TaskState = Pick<
   | "workProgress"
   | "attemptId"
   | "auditIncomplete"
-> & { resultLink?: { href: string; label: string }; screenResultId?: string };
+> & {
+  resultLink?: { href: string; label: string };
+  screenResultId?: string;
+  sourceLink?: { href: string; label: string };
+};
 export const taskTypeLabels: Record<Job["type"], string> = {
   scan: "数据扫描",
   screen: "条件选股",
@@ -45,11 +61,8 @@ export const taskStatusLabels: Record<Job["status"], string> = {
 };
 
 export function taskAge(createdAt: number, now = Date.now()) {
-  // Compare local calendar days, including across DST and midnight.
-  const day = (value: number) => {
-    const date = new Date(value);
-    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  };
+  const day = (value: number) =>
+    Math.floor((value + 8 * 3600000) / 86400000) * 86400000;
   const days = Math.round((day(now) - day(createdAt)) / 86_400_000);
   return days < 0
     ? "未来日期"
@@ -59,3 +72,6 @@ export function taskAge(createdAt: number, now = Date.now()) {
         ? "昨天"
         : `${days} 天前`;
 }
+
+export const taskStamp = (value: number) =>
+  new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });

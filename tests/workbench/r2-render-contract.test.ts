@@ -47,14 +47,16 @@ it("R2 handler evidence rejects changed submitted settings", () => {
     "src/components/workbench/connections.tsx",
     "utf8",
   );
+  // Saving now validates outside JSX; retain payload sensitivity at that boundary.
+  expect(original).toContain("save.mutate(parsed.data)");
   expect(
-    renderHandlers(
+    componentLogic(
       original.replace(
-        "save.mutate(config)",
-        "save.mutate({ ...config, tdxRoot: '' })",
+        "save.mutate(parsed.data)",
+        "save.mutate({ ...parsed.data, tdxRoot: '' })",
       ),
     ),
-  ).not.toEqual(renderHandlers(original));
+  ).not.toEqual(componentLogic(original));
 });
 
 it("R2 preserves component hooks, queries, local validation and computation outside rendering", () => {
@@ -78,11 +80,19 @@ it("R2 tables receive original result arrays and leave existing pagination and s
   expect(screen.match(/enableSorting: false/g)).toHaveLength(6);
   expect(screen.match(/enableSorting: true/g)).toHaveLength(5);
   const ledger = readFileSync(
-    "src/components/signals/signal-ledger-view.tsx",
+    "src/components/signals/signal-ledger-analysis.tsx",
     "utf8",
   );
-  expect(ledger).toContain("const groups = aggregateLedger(rows)");
-  expect(ledger).toContain("<SignalLedgerSummaryTable groups={groups} />");
+  // Ledger analysis now reads an independent full-population server projection;
+  // the 20-row history page must never become its statistical input.
+  expect(ledger).toContain("api.ledgerAnalysis.useQuery");
+  expect(ledger).toContain("<SignalLedgerSummaryTable groups={data.groups} />");
+  const ledgerQuery = readFileSync(
+    "src/server/monitoring/signal-ledger-query.ts",
+    "utf8",
+  );
+  expect(ledgerQuery).toContain("groups: aggregateLedger(rows)");
+  expect(ledgerQuery).not.toContain("aggregateLedger(rows.slice(");
   expect(
     readFileSync("src/components/screening/formula-screen.tsx", "utf8"),
   ).toContain('className="field-sizing-fixed"');

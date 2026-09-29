@@ -40,6 +40,8 @@ it("displays full errors, elapsed time and incomplete audit without inventing a 
   expect(html).not.toContain("取消任务");
 });
 it("handles loading, missing, failed reads and failed cancellation explicitly", () => {
+  // Cached details remain stable during polling, without repeated live announcements.
+  expect(render({ pending: true })).not.toContain("正在读取任务详情");
   expect(render({ data: undefined, pending: true })).toContain(
     "正在读取任务详情",
   );
@@ -67,5 +69,5 @@ it("exposes exact report destinations and disables duplicate cancellation", () =
     data: { ...data, status: "running" },
     cancelling: true,
   });
-  expect(html).toMatch(/disabled=""[^>]*>正在取消/);
+  expect(html).toMatch(/disabled=""[^>]*>正在提交取消/);
 });

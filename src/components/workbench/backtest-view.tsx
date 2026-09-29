@@ -23,7 +23,7 @@ import {
 } from "../panels";
 import { BacktestActionsPanel } from "../backtest/backtest-actions";
 import { DividendLedgerPanel } from "../backtest/cash-dividend-experiment";
-import { PriceChart } from "../market/chart";
+import { EquityChart } from "../backtest/equity-chart";
 import { Button } from "../ui/button";
 import { WalkForwardPanel } from "../backtest/walk-forward-panel";
 
@@ -214,9 +214,13 @@ export function BacktestView({
             span={8}
             icon={ChartLine}
             title="净值"
-            foot="紫线 策略净值 · 已扣除成本"
+            foot={
+              bt.benchmark
+                ? "紫线 策略净值（已扣除成本）· 蓝线 买入持有 · 下方 策略回撤"
+                : "紫线 策略净值（已扣除成本）· 下方 策略回撤"
+            }
           >
-            <PriceChart equity={bt.equity} />
+            <EquityChart equity={bt.equity} benchmark={bt.benchmark?.equity} />
           </EquityPanel>
           <ListPanel
             span={4}

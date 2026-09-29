@@ -1,5 +1,8 @@
 import { sqlite } from "../db";
-import { taskHistoryInput, type TaskState } from "~/lib/research/workflow/task-history";
+import {
+  taskHistoryInput,
+  type TaskState,
+} from "~/lib/research/workflow/task-history";
 import type { z } from "zod";
 import { workProgressSchema } from "~/lib/research/workflow/work-progress";
 
@@ -20,11 +23,16 @@ export function taskTextPreview(value: string | null, maxBytes = 128) {
   return result.length === value.length ? value : result + "…";
 }
 export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
-  const { status, cursor } = taskHistoryInput.parse(input);
+  const { status, type, id, cursor } = taskHistoryInput.parse(input);
   const filter =
     "kind = 'job'" +
-    (status ? " AND json_extract(payload, '$.status') = ?" : "");
-  const args: (string | number)[] = status ? [status] : [];
+    (status ? " AND json_extract(payload, '$.status') = ?" : "") +
+    (type ? " AND json_extract(payload, '$.type') = ?" : "") +
+    (id ? " AND id = ?" : "");
+  const filterArgs = [status, type, id].filter(
+    (value): value is string => value !== undefined,
+  );
+  const args: (string | number)[] = [...filterArgs];
   const pageFilter =
     filter +
     (cursor ? ` AND (${created} < ? OR (${created} = ? AND id < ?))` : "");
@@ -74,7 +82,7 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
       total: (
         sqlite()
           .prepare(`SELECT count(*) AS n FROM records WHERE ${filter}`)
-          .get(...(status ? [status] : [])) as { n: number }
+          .get(...filterArgs) as { n: number }
       ).n,
       nextCursor:
         rows.length > 20 && last
@@ -91,6 +99,10 @@ export function taskState(id: string): TaskState | null {
     'auditIncomplete', json_extract(payload, '$.auditIncomplete'),
     'phase', json_extract(payload, '$.phase'), 'error', json_extract(payload, '$.error'),
     'workProgress', json_extract(payload, '$.workProgress'),
+    'inputType', json_extract(payload, '$.input.type'),
+    'inputMode', json_extract(payload, '$.input.mode'),
+    'inputKind', json_extract(payload, '$.input.kind'),
+    'inputMethod', json_extract(payload, '$.input.method'),
     'screenResultId', CASE WHEN json_extract(payload, '$.type') = 'screen'
       AND json_extract(payload, '$.status') = 'completed'
       AND json_type(payload, '$.result') = 'object' THEN id
@@ -107,7 +119,15 @@ export function taskState(id: string): TaskState | null {
     )
     .get(id) as { payload: string } | undefined;
   if (!row) return null;
-  const { attemptId, auditIncomplete, ...value } = JSON.parse(row.payload);
+  const {
+    attemptId,
+    auditIncomplete,
+    inputType,
+    inputMode,
+    inputKind,
+    inputMethod,
+    ...value
+  } = JSON.parse(row.payload);
   const counts = workProgressSchema.safeParse(value.workProgress);
   return {
     ...value,
@@ -120,7 +140,83 @@ export function taskState(id: string): TaskState | null {
     error: value.error ?? undefined,
     screenResultId: value.screenResultId ?? undefined,
     resultLink: taskResultLink(id),
+    sourceLink: taskSourceLink(
+      value.type,
+      inputType,
+      inputMode,
+      inputKind,
+      inputMethod,
+    ),
   };
+}
+
+function taskSourceLink(
+  type: string,
+  inputType: unknown,
+  mode: unknown,
+  kind: unknown,
+  method: unknown,
+): TaskState["sourceLink"] {
+  let href: string | undefined;
+  if (type === "scan") href = "/settings";
+  else if (
+    type === "screen" &&
+    (inputType == null || inputType === "formula-screen")
+  )
+    href = "/screen";
+  else if (type === "backtest" || type === "walk-forward") href = "/backtest";
+  else if (type === "research" && mode === "quick-review") href = "/screen";
+  else if (
+    type === "research" &&
+    typeof kind === "string" &&
+    [
+      "news-analysis",
+      "automatic-news-analysis",
+      "news-sector",
+      "news-themes",
+      "theme-prices",
+      "theme-price-explanation",
+    ].includes(kind)
+  )
+    href = "/news";
+  else if (type === "research" && (method === "general" || method === "sepa"))
+    href = "/analysis";
+  return href ? { href, label: "前往来源页重新配置" } : undefined;
+}
+
+/** Entire persisted Job scope, independent of the recent-80 sidebar contract. */
+export function taskOverview(now = Date.now()) {
+  const start =
+    Math.floor((now + 8 * 3600000) / 86400000) * 86400000 - 8 * 3600000;
+  return sqlite().transaction(() => {
+    const row = sqlite()
+      .prepare(
+        `SELECT count(*) total,
+      coalesce(sum(json_extract(payload,'$.status')='running'),0) running,
+      coalesce(sum(json_extract(payload,'$.status')='queued'),0) queued,
+      coalesce(sum(json_extract(payload,'$.status')='failed'),0) failed,
+      coalesce(sum(json_extract(payload,'$.status')='cancelled'),0) cancelled,
+      coalesce(sum(json_extract(payload,'$.status')='completed' AND json_extract(payload,'$.updatedAt')>=? AND json_extract(payload,'$.updatedAt')<?),0) completedToday
+      FROM records WHERE kind='job'`,
+      )
+      .get(start, start + 86400000) as {
+      total: number;
+      running: number;
+      queued: number;
+      failed: number;
+      cancelled: number;
+      completedToday: number;
+    };
+    const revision =
+      (
+        sqlite()
+          .prepare(
+            "SELECT revision FROM record_kind_revisions WHERE kind='job'",
+          )
+          .get() as { revision: number } | undefined
+      )?.revision ?? 0;
+    return { ...row, revision, checkedAt: now };
+  })();
 }
 
 // Only expose a destination for a persisted report, never infer one from status

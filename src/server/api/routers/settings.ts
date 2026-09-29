@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { settingsSchema } from "~/lib/domain";
+import { connectionCheckSchema } from "~/lib/settings/connection-check";
+import { checkConnection } from "../../market/connection-check";
 import { saveSettings, settings } from "../../infra/settings";
 import {
   binanceCredentialStatus,
@@ -21,6 +23,11 @@ import {
 } from "../../portfolio/crypto-demo-service";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
 export const settingsRouter = createTRPCRouter({
+  checkConnection: p
+    .input(connectionCheckSchema)
+    .mutation(({ input, signal }) =>
+      checkConnection(settings(), input, signal),
+    ),
   // The 数字货币 panel owns outboundProxy and binanceTestnet.
   saveSettings: p
     .input(settingsSchema)

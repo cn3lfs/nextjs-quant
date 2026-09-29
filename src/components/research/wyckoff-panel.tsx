@@ -1,4 +1,10 @@
 "use client";
+import { useArchiveDownload } from "./use-archive-download";
+import {
+  ArchiveEvidence,
+  ArchiveMetadata,
+  ArchiveText,
+} from "./archive-evidence";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import { api } from "~/trpc/react";
@@ -77,19 +83,18 @@ export function WyckoffPanel({
     void utils.wyckoffHistory.invalidate();
   }, [job.data?.id, job.data?.status, utils]);
   const data = report.data;
+  const exporter = useArchiveDownload();
   function download() {
     if (!data) return;
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+    exporter.save(
+      () => JSON.stringify(data, null, 2),
+      `威科夫研究-${data.frames.symbol}-${data.id}.json`,
+      "application/json",
     );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `威科夫研究-${data.frames.symbol}-${data.id}.json`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return (
     <section className="panel">
+      {exporter.error && <p role="alert">{exporter.error}</p>}
       <h3>威科夫多周期研究</h3>
       <p className="muted">
         分开检查周线、日线和小时线。阶段及事件为待核验假设，不生成自动信号；缺少证据时不提供评分或目标价。
@@ -186,6 +191,11 @@ export function WyckoffPanel({
       {data && (
         <>
           <h4>{data.result.title}</h4>
+          <ArchiveMetadata
+            createdAt={data.createdAt}
+            model={data.model}
+            version={data.method.version}
+          />
           <p>{data.result.summary}</p>
           <p>
             {securityDisplayName(data.frames.symbol, names)} ·{" "}
@@ -217,7 +227,7 @@ export function WyckoffPanel({
                 <p>行业基准尚缺，不代表完整RS结论或全市场排名。</p>
                 <details>
                   <summary>RS逐日计算与来源</summary>
-                  <pre>{JSON.stringify(data.market, null, 2)}</pre>
+                  <ArchiveText text={JSON.stringify(data.market, null, 2)} />
                 </details>
               </>
             ) : (
@@ -249,8 +259,8 @@ export function WyckoffPanel({
           )}
           <details>
             <summary>查看周期缺口与数据来源</summary>
-            <pre>
-              {JSON.stringify(
+            <ArchiveText
+              text={JSON.stringify(
                 {
                   daily: {
                     source: data.frames.daily.source,
@@ -267,7 +277,7 @@ export function WyckoffPanel({
                 null,
                 2,
               )}
-            </pre>
+            />
           </details>
           {data.result.stages.map((stage) => (
             <details key={stage.id} open>
@@ -305,19 +315,22 @@ export function WyckoffPanel({
               <li key={i}>{step}</li>
             ))}
           </ul>
-          <details>
-            <summary>完整方法与证据</summary>
-            <p>
-              {data.method.source} · {data.method.version}
-            </p>
-            <pre>
-              {JSON.stringify(
-                { method: data.method, frames: data.frames },
-                null,
-                2,
-              )}
-            </pre>
-          </details>
+          <ArchiveEvidence title="完整方法与证据">
+            {() => (
+              <>
+                <p>
+                  {data.method.source} · {data.method.version}
+                </p>
+                <ArchiveText
+                  text={JSON.stringify(
+                    { method: data.method, frames: data.frames },
+                    null,
+                    2,
+                  )}
+                />
+              </>
+            )}
+          </ArchiveEvidence>
         </>
       )}
     </section>

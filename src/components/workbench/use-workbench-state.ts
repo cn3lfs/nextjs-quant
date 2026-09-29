@@ -1,6 +1,9 @@
+import { useTaskVisible } from "./use-task-visible";
+import { activeJobPoll } from "./job-poll";
+import { usePathname } from "next/navigation";
 import { type MarketSource } from "~/lib/market/market-source";
 import { useSnapshotLoad } from "../market/use-snapshot-load";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
 import {
   defaultStrategy,
@@ -16,9 +19,14 @@ import type { Tab } from "./navigation";
 // Keep all original state, effects and queries in one unconditional hook so tab switches
 // retain their original lifetimes. Views only receive the fields they render.
 export function useWorkbenchState() {
+  const pathname = usePathname();
+  const foreground = useTaskVisible();
+  const initialSnapshotLoaded = useRef(false);
   const [tab, setTab] = useState<Tab>("market"),
     [symbol, setSymbol] = useState("sh600519"),
-    [marketSource, setMarketSource] = useState<MarketSource>("auto"),
+    [marketSourceOverride, setMarketSource] = useState<MarketSource | null>(
+      null,
+    ),
     [period, setPeriod] = useState<Period>("day"),
     [loaded, setLoaded] = useState<Snapshot | null>(null),
     [strategy, setStrategy] = useState<Strategy>(defaultStrategy),
@@ -63,19 +71,29 @@ export function useWorkbenchState() {
           ? 2000
           : 30000,
     }),
-    channels = api.channels.useQuery(),
-    monitors = api.monitors.useQuery(undefined, { refetchInterval: 10000 }),
-    signals = api.signals.useQuery(undefined, { refetchInterval: 10000 }),
-    deliveries = api.deliveries.useQuery(undefined, { refetchInterval: 4000 });
+    channels = api.channels.useQuery(undefined, { enabled: foreground }),
+    monitorSummary = api.monitorWorkspaceSummary.useQuery(undefined, {
+      enabled: foreground && pathname !== "/signals",
+      refetchInterval: foreground && pathname !== "/signals" ? 30000 : false,
+    }),
+    signals = api.signalWorkspacePage.useQuery(
+      { from: monitorSummary.data?.today, to: monitorSummary.data?.today },
+      {
+        enabled: foreground && pathname === "/" && !!monitorSummary.data,
+        refetchInterval: foreground && pathname === "/" ? 10000 : false,
+      },
+    );
   const notify = (text: string) => {
     setToast(text);
     setTimeout(() => setToast(""), 7000);
   };
   const onError = (e: { message: string }) => notify(e.message);
+  // Follow saved defaults until the user explicitly chooses a source on the page.
+  const marketSource =
+    marketSourceOverride ?? status.data?.settings.marketDataSource ?? "auto";
   const load = useSnapshotLoad({
     onSuccess: (s) => {
       setLoaded(s);
-      if (s.requestedSource) setMarketSource(s.requestedSource);
       setSymbol(s.symbol);
     },
     onError,
@@ -140,38 +158,27 @@ export function useWorkbenchState() {
     onSuccess: () => void utils.jobs.invalidate(),
     onError,
   });
-  const saveMonitor = api.saveMonitor.useMutation({
-    onSuccess: () => {
-      notify("监控已启用，从当前行情建立基线");
-      void utils.monitors.invalidate();
-    },
-    onError,
-  });
-  const toggleMonitor = api.toggleMonitor.useMutation({
-    onSuccess: () => void utils.monitors.invalidate(),
-    onError,
-  });
-  const retry = api.retryDelivery.useMutation({
-    onSuccess: () => {
-      notify("已加入手动重发队列");
-      void utils.deliveries.invalidate();
-    },
-    onError,
-  });
-  const [monitorType, setMonitorType] = useState<
-    "ma-cross" | "czsc" | "dual-breakout"
-  >("ma-cross");
-  const [monitorName, setMonitorName] = useState("趋势跟踪"),
-    [monitorChannels, setMonitorChannels] = useState<string[]>([]),
-    [monitorAi, setMonitorAi] = useState(true),
-    [monitorSource, setMonitorSource] = useState<MarketSource>("local");
   useEffect(() => {
+    // These pages load their own persisted observations. Defer the initial
+    // market snapshot until the user enters a page that consumes it.
+    if (
+      pathname === "/signals" ||
+      pathname === "/trade-ledger" ||
+      pathname === "/reports" ||
+      pathname.startsWith("/reports/") ||
+      pathname === "/intraday" ||
+      pathname === "/signal-ledger" ||
+      pathname === "/news" ||
+      initialSnapshotLoaded.current
+    )
+      return;
+    initialSnapshotLoaded.current = true;
     // `/?symbol=` deep link from the RPS page and other tables; the parameter is
     // validated, so an unknown value simply falls back to the default security.
     const requested = readChartSymbolParam(window.location.search);
     if (requested) setSymbol(requested);
     load.mutate({ symbol: requested ?? "sh600519", period: "day" });
-  }, []);
+  }, [pathname]);
   useEffect(() => {
     if (jobs.data?.some((j) => j.type === "scan" && j.status === "completed"))
       void utils.status.invalidate();
@@ -182,13 +189,7 @@ export function useWorkbenchState() {
     { id: screenId, screenFirstPage: true },
     {
       enabled: !!screenId && tab === "screen",
-      refetchInterval: (query) => {
-        const job = query.state.data;
-        if (!job || !["queued", "running"].includes(job.status)) return false;
-        // Keep short cached runs responsive without polling long scans at 10 Hz.
-        const age = Date.now() - job.createdAt;
-        return age >= 0 && age < 5000 ? 100 : 250;
-      },
+      refetchInterval: (query) => activeJobPoll(query.state.data),
     },
   );
   const screenJob =
@@ -259,7 +260,17 @@ export function useWorkbenchState() {
     enabled: tab === "screen" && !!screenReportId,
     staleTime: Infinity,
   });
+  // The started run is polled on its own (a second-long backtest otherwise
+  // waits on the 2 s jobs-list poll plus a details round trip).
+  const btSummary = api.jobSummary.useQuery(
+    { id: backtestId },
+    {
+      enabled: !!backtestId,
+      refetchInterval: (query) => activeJobPoll(query.state.data),
+    },
+  );
   const btJob =
+    (btSummary.data?.id === backtestId ? btSummary.data : undefined) ??
     jobs.data?.find((j) => j.id === backtestId) ??
     jobs.data?.find((j) => j.type === "backtest");
   const btDetails = api.job.useQuery(
@@ -358,22 +369,8 @@ export function useWorkbenchState() {
     runBacktest,
     bt,
     channels,
-    monitors,
+    monitorSummary,
     signals,
-    deliveries,
-    saveMonitor,
-    toggleMonitor,
-    retry,
-    monitorType,
-    setMonitorType,
-    monitorName,
-    setMonitorName,
-    monitorChannels,
-    setMonitorChannels,
-    monitorAi,
-    setMonitorAi,
-    monitorSource,
-    setMonitorSource,
     activeJobs,
     scan,
     cancel,

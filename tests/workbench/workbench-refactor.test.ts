@@ -163,7 +163,7 @@ it("retains every extracted view subtree, including handlers and panel props", (
   }
 });
 
-it("retains connection implementation with the explicitly verified P2 configuration addition", () => {
+it("retains the reviewed connection implementation and independent P2 configuration guard", () => {
   const connection = functions("connections.tsx");
   const additions: ts.JsxSelfClosingElement[] = [];
   const visit = (node: ts.Node) => {

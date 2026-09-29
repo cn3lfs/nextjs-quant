@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -14,6 +14,7 @@ import {
 import { api } from "~/trpc/react";
 import {
   taskAge,
+  taskStamp,
   taskStatusLabels,
   taskTypeLabels,
   type TaskState,
@@ -26,11 +27,13 @@ import {
   SelectItem,
 } from "../ui/select";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { WorkProgressView } from "../screening/screen-task-progress";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useTaskVisible } from "./use-task-visible";
+import type { RouterOutputs } from "~/trpc/react";
 
 type Cursor = { createdAt: number; id: string };
-const stamp = (value: number) => new Date(value).toLocaleString("zh-CN");
+const stamp = taskStamp;
 const active = (status: string) => status === "running" || status === "queued";
 const statusIcons = {
   queued: Clock,
@@ -48,6 +51,7 @@ export function TaskDetails({
   onCancel,
   cancelling,
   cancelError,
+  cancelNotice,
   onOpenScreen,
 }: {
   data?: TaskState | null;
@@ -57,11 +61,12 @@ export function TaskDetails({
   onCancel: () => void;
   cancelling: boolean;
   cancelError?: string;
+  cancelNotice?: string;
   onOpenScreen?: (id: string) => void;
 }) {
   return (
     <div className="space-y-3 text-sm">
-      {pending && <p role="status">正在读取任务详情…</p>}
+      {pending && !data && <p role="status">正在读取任务详情…</p>}
       {error && (
         <p role="alert">
           读取失败：{error}{" "}
@@ -98,6 +103,13 @@ export function TaskDetails({
                   <ArrowUpRight size={14} />
                 </Button>
               )}
+              {!active(data.status) && data.sourceLink && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={data.sourceLink.href} prefetch={false}>
+                    {data.sourceLink.label}
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -113,7 +125,7 @@ export function TaskDetails({
                   disabled={cancelling}
                   onClick={onCancel}
                 >
-                  {cancelling ? "正在取消…" : "取消任务"}
+                  {cancelling ? "正在提交取消…" : "取消任务"}
                 </Button>
               )}
             </div>
@@ -122,6 +134,21 @@ export function TaskDetails({
             阶段：{data.phase || "未记录"}
           </p>
           <WorkProgressView counts={data.workProgress} />
+          {!active(data.status) && !data.sourceLink && (
+            <p className="text-muted-foreground">
+              未记录可确认的来源入口，请回到原功能页核对参数后重新发起。
+            </p>
+          )}
+          {data.sourceLink && !active(data.status) && (
+            <p className="text-muted-foreground">
+              跳转只打开来源页，不会自动填入原参数或启动任务。
+            </p>
+          )}
+          {data.status === "cancelled" && (
+            <p className="text-muted-foreground">
+              已标记取消；不代表外部请求已撤回或执行资源已全部释放。
+            </p>
+          )}
           {data.error && (
             <div
               role="alert"
@@ -176,6 +203,7 @@ export function TaskDetails({
           </dl>
         </>
       )}
+      {cancelNotice && <p role="status">{cancelNotice}</p>}
       {cancelError && <p role="alert">取消失败：{cancelError}</p>}
     </div>
   );
@@ -183,49 +211,131 @@ export function TaskDetails({
 
 export function TaskHistory({
   onOpenScreen,
-}: { onOpenScreen?: (id: string) => void } = {}) {
+  overview,
+  refreshOverview,
+}: {
+  onOpenScreen?: (id: string) => void;
+  overview?: RouterOutputs["taskOverview"];
+  refreshOverview?: () => void;
+} = {}) {
   const [status, setStatus] = useState<TaskState["status"] | "all">("all");
+  const [type, setType] = useState<TaskState["type"] | "all">("all");
+  const [idDraft, setIdDraft] = useState("");
+  const [id, setId] = useState("");
   const [cursors, setCursors] = useState<(Cursor | undefined)[]>([undefined]);
   const [selected, setSelected] = useState("");
-  const visible = usePanelVisible();
+  const [notice, setNotice] = useState("");
+  const [cancelStates, setCancelStates] = useState<
+    Record<string, { pending?: boolean; error?: string; notice?: string }>
+  >({});
+  const inFlight = useRef(new Set<string>());
+  const title = useRef<HTMLParagraphElement>(null);
+  const seenRevision = useRef<number | undefined>(undefined);
+  const [seenTotal, setSeenTotal] = useState<number | undefined>(undefined);
+  const visible = useTaskVisible();
   const utils = api.useUtils();
-  const history = api.taskHistory.useQuery(
-    { status: status === "all" ? undefined : status, cursor: cursors.at(-1) },
-    { refetchOnWindowFocus: false, staleTime: Infinity, retry: false },
-  );
+  const input = {
+    status: status === "all" ? undefined : status,
+    type: type === "all" ? undefined : type,
+    id: id || undefined,
+    cursor: cursors.at(-1),
+  };
+  const history = api.taskHistory.useQuery(input, {
+    enabled: visible,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+    retry: false,
+  });
   const detail = api.taskState.useQuery(
     { id: selected },
     {
       enabled: visible && !!selected,
-      refetchOnWindowFocus: false,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
       retry: false,
       refetchInterval: (query) =>
         visible && active(query.state.data?.status ?? "") ? 2000 : false,
     },
   );
-  const cancel = api.cancel.useMutation({
-    onSuccess: (_data, id) => {
-      void utils.taskState.invalidate({ id });
-      void utils.taskHistory.invalidate();
+  // A job revision includes older active jobs, unlike the sidebar's recent-80 window.
+  useEffect(() => {
+    if (!visible || overview == null) return;
+    if (
+      seenRevision.current !== undefined &&
+      seenRevision.current !== overview.revision
+    )
+      void utils.taskHistory.invalidate(input);
+    seenRevision.current = overview.revision;
+    setSeenTotal((value) => value ?? overview.total);
+  }, [visible, overview?.revision]); // Query filters fetch through their own key.
+  useEffect(() => {
+    if (
+      selected &&
+      history.data &&
+      !history.isFetching &&
+      !history.error &&
+      !history.data.items.some((item) => item.id === selected)
+    ) {
+      setSelected("");
+      setNotice("所选任务已不在当前页或筛选结果中。");
+      title.current?.focus();
+    }
+  }, [selected, history.data, history.isFetching, history.error]);
+  const cancel = api.cancel.useMutation();
+  async function cancelTask(taskId: string) {
+    if (inFlight.current.has(taskId)) return;
+    inFlight.current.add(taskId);
+    setCancelStates((value) => ({ ...value, [taskId]: { pending: true } }));
+    try {
+      const result = await cancel.mutateAsync(taskId);
+      const messages = {
+        accepted: "取消已受理；不撤销已经发生的外部请求。",
+        "already-cancelled": "任务已标记取消。",
+        "already-terminal": "任务已经结束，保留实际最终状态。",
+        "not-found": "任务不存在，请刷新列表。",
+      };
+      setCancelStates((value) => ({
+        ...value,
+        [taskId]: { notice: messages[result.outcome] },
+      }));
+      void utils.taskState.invalidate({ id: taskId });
+      void utils.taskHistory.invalidate(input);
+      void utils.taskOverview.invalidate();
       void utils.jobs.invalidate();
-    },
-  });
+    } catch (error) {
+      setCancelStates((value) => ({
+        ...value,
+        [taskId]: {
+          error: error instanceof Error ? error.message : "请求失败",
+        },
+      }));
+    } finally {
+      inFlight.current.delete(taskId);
+    }
+  }
   function close() {
     setSelected("");
-    if (!cancel.isPending) cancel.reset();
+    setNotice("");
   }
   function refresh() {
+    void history.refetch();
+    if (selected) void detail.refetch();
+    refreshOverview?.();
+  }
+  function latest() {
     setCursors([undefined]);
     close();
-    void utils.taskHistory.invalidate();
+    setSeenTotal(overview?.total);
+    void utils.taskHistory.invalidate({ ...input, cursor: undefined });
   }
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        按创建时间倒序，每页 20 条。点击任务展开详情，再次点击收起。
+        按创建时间倒序，每页 20
+        条；时间均为北京时间。点击任务展开详情，再次点击收起。
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm">任务状态</span>
           <Select
             value={status}
@@ -247,6 +357,61 @@ export function TaskHistory({
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={type}
+            onValueChange={(value) => {
+              setType(value as typeof type);
+              setCursors([undefined]);
+              close();
+            }}
+          >
+            <SelectTrigger aria-label="任务类型">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部类型</SelectItem>
+              {Object.entries(taskTypeLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setId(idDraft.trim());
+              setCursors([undefined]);
+              close();
+            }}
+          >
+            <Input
+              aria-label="精确任务编号"
+              placeholder="输入完整任务编号"
+              maxLength={200}
+              value={idDraft}
+              onChange={(event) => setIdDraft(event.target.value)}
+              className="min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            <Button type="submit" variant="outline">
+              查找
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setIdDraft("");
+                setId("");
+                setStatus("all");
+                setType("all");
+                setCursors([undefined]);
+                close();
+              }}
+            >
+              清除筛选
+            </Button>
+          </form>
         </div>
         <Button
           variant="outline"
@@ -257,6 +422,21 @@ export function TaskHistory({
           刷新任务
         </Button>
       </div>
+      {(cursors.length > 1 ||
+        (overview && seenTotal != null && overview.total > seenTotal)) && (
+        <Button variant="outline" onClick={latest}>
+          {overview && seenTotal != null && overview.total > seenTotal
+            ? "有新任务，回到最新"
+            : "回到最新"}
+        </Button>
+      )}
+      {notice && <p role="status">{notice}</p>}
+      {history.dataUpdatedAt > 0 && (
+        <p className="text-xs text-muted-foreground">
+          列表更新于 {stamp(history.dataUpdatedAt)}
+          {history.error ? "；当前为上次读取的数据，尚未刷新。" : ""}
+        </p>
+      )}
       {history.error && (
         <p role="alert">
           任务列表读取失败：{history.error.message}{" "}
@@ -265,10 +445,16 @@ export function TaskHistory({
           </Button>
         </p>
       )}
-      {history.isFetching && <p role="status">正在读取任务列表…</p>}
+      {history.isFetching && !history.data && (
+        <p role="status">正在读取任务列表…</p>
+      )}
       {history.data && (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p
+            ref={title}
+            tabIndex={-1}
+            className="text-sm text-muted-foreground"
+          >
             共 {history.data.total} 条 · 第 {cursors.length} 页
           </p>
           <div aria-label="任务列表" className="space-y-2">
@@ -291,7 +477,7 @@ export function TaskHistory({
                       aria-controls={panelId}
                       onClick={() => {
                         setSelected(expanded ? "" : job.id);
-                        if (!cancel.isPending) cancel.reset();
+                        setNotice("");
                       }}
                       className="flex w-full items-start gap-3 p-4 text-left hover:bg-muted/40"
                     >
@@ -351,13 +537,10 @@ export function TaskHistory({
                         pending={detail.isFetching}
                         error={detail.error?.message}
                         onRetry={() => void detail.refetch()}
-                        onCancel={() => cancel.mutate(job.id)}
-                        cancelling={cancel.isPending}
-                        cancelError={
-                          cancel.variables === job.id
-                            ? cancel.error?.message
-                            : undefined
-                        }
+                        onCancel={() => void cancelTask(job.id)}
+                        cancelling={!!cancelStates[job.id]?.pending}
+                        cancelError={cancelStates[job.id]?.error}
+                        cancelNotice={cancelStates[job.id]?.notice}
                         onOpenScreen={onOpenScreen}
                       />
                     )}
@@ -368,7 +551,7 @@ export function TaskHistory({
           </div>
           {history.data.items.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              {status === "all"
+              {status === "all" && type === "all" && !id
                 ? "暂无任务。扫描数据、运行选股或发起研究后，可在这里查看。"
                 : "没有符合该状态的任务。可切换为全部查看。"}
             </div>
