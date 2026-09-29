@@ -53,6 +53,8 @@ export type OverviewInput = {
     counts: Record<string, number>;
     scannedAt: number;
   } | null;
+  /** Local daily bars' last day and the day they should reach (server-side). */
+  daily?: { asOf: string | null; expected: string | null } | null;
   rps?: { latestDate: string | null; running: boolean; error?: string | null };
   channels: { enabled: boolean }[];
   failedDeliveries: number;
@@ -74,14 +76,16 @@ export const AXIS_END = 15 * 60 + 40;
 export const LUNCH_START = 11 * 60 + 30;
 export const LUNCH_END = 13 * 60;
 const LUNCH_DRAWN = 20;
-const AXIS_SPAN = AXIS_END - AXIS_START - (LUNCH_END - LUNCH_START) + LUNCH_DRAWN;
+const AXIS_SPAN =
+  AXIS_END - AXIS_START - (LUNCH_END - LUNCH_START) + LUNCH_DRAWN;
 export const axisPct = (minutes: number) => {
   const m = Math.max(AXIS_START, Math.min(AXIS_END, minutes));
   const drawn =
     m <= LUNCH_START
       ? m - AXIS_START
       : m < LUNCH_END
-        ? LUNCH_START - AXIS_START +
+        ? LUNCH_START -
+          AXIS_START +
           ((m - LUNCH_START) / (LUNCH_END - LUNCH_START)) * LUNCH_DRAWN
         : m - AXIS_START - (LUNCH_END - LUNCH_START) + LUNCH_DRAWN;
   return (drawn / AXIS_SPAN) * 100;
@@ -251,7 +255,16 @@ const sum = (counts: Record<string, number>, period: string) =>
     .filter(([key]) => key.endsWith(`/${period}`))
     .reduce((total, [, n]) => total + n, 0);
 
+/** Whether local daily bars reach the expected day; null when either is unknown. */
+export function dailyFreshness(input: OverviewInput) {
+  const asOf = input.daily?.asOf,
+    expected = input.daily?.expected;
+  if (!asOf || !expected) return null;
+  return { asOf, expected, lagging: asOf < expected };
+}
+
 export function health(input: OverviewInput): HealthCard[] {
+  const fresh = dailyFreshness(input);
   const c = input.coverage;
   const previous = input.intraday?.lastCheck?.schedule.previousTradingDay;
   const rpsStale =
@@ -262,13 +275,17 @@ export function health(input: OverviewInput): HealthCard[] {
     {
       key: "day",
       name: "通达信日线",
-      value: c
-        ? `${sum(c.counts, "day").toLocaleString("zh-CN")} 个`
-        : "未扫描",
-      note: c
-        ? `扫描于 ${new Date(c.scannedAt).toLocaleString("zh-CN", { hour12: false })} · 源目录只读`
-        : "在数据与连接中扫描本地行情",
-      tone: c ? "neutral" : "warn",
+      value: fresh
+        ? `截至 ${fresh.asOf.slice(5)}`
+        : c
+          ? `${sum(c.counts, "day").toLocaleString("zh-CN")} 个`
+          : "未扫描",
+      note: fresh?.lagging
+        ? `应更新到 ${fresh.expected}，请在通达信下载盘后数据`
+        : c
+          ? `${fresh ? `${sum(c.counts, "day").toLocaleString("zh-CN")} 个 · ` : ""}扫描于 ${new Date(c.scannedAt).toLocaleString("zh-CN", { hour12: false })} · 源目录只读`
+          : "在数据与连接中扫描本地行情",
+      tone: !c || fresh?.lagging ? "warn" : "neutral",
     },
     {
       key: "5m",
@@ -374,6 +391,18 @@ export function todos(input: OverviewInput): Todo[] {
       title: "尚未扫描本地行情",
       detail:
         "选股、RPS 与盘中预选都依赖本地扫描索引。扫描只读取通达信目录，不修改源文件。",
+      action: "去扫描",
+      href: "/settings",
+    });
+  const fresh = dailyFreshness(input);
+  if (fresh?.lagging)
+    list.push({
+      key: "daily-stale",
+      tone: "warn",
+      tag: "数据",
+      title: `本地日线停在 ${fresh.asOf}，应到 ${fresh.expected}`,
+      detail:
+        "RPS、选股与信号确认都读本地日线。请在通达信下载盘后数据后回来扫描；本应用只读、不代为下载。",
       action: "去扫描",
       href: "/settings",
     });

@@ -114,6 +114,10 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
   const [rpsTarget, setRpsTarget] = useState<"industry" | "concept">(
     "industry",
   );
+  const daily = api.localDailyAsOf.useQuery(undefined, {
+    enabled: visible,
+    refetchInterval: visible ? 60000 : false,
+  });
   const intraday = api.intradayStatus.useQuery(
     { offset: 0 },
     { enabled: visible, refetchInterval: 15000 },
@@ -165,6 +169,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
       lastCheck: cls.data.lastCheck,
     },
     coverage: state.status.data?.coverage ?? null,
+    daily: daily.data ?? null,
     rps: rps.data && {
       latestDate: rps.data.latest?.date ?? null,
       running: rps.data.progress?.status === "running",

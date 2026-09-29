@@ -44,6 +44,9 @@ import { cancelJob, readJob } from "../../jobs/jobs";
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
 import { findCli } from "../../infra/local-llm";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { fullLocalCalendarReference } from "../../market/data-health";
+import { monitorCalendar } from "../../monitoring/monitor-calendar";
+import { expectedDailyAsOf } from "~/lib/market/daily-freshness";
 function recordOfKind<T>(kind: string, id: string): T | undefined {
   const row = chartSqlite()
     .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
@@ -103,6 +106,22 @@ export const jobsRouter = createTRPCRouter({
       ),
     ),
   futuresQuotes: p.query(() => futuresQuotes()),
+  // How far local daily data reaches (last Shanghai-index bar) against the
+  // day it should reach: today after 15:05 on a trading day, otherwise the
+  // previous trading day, per the scheduler's (external when available) calendar.
+  localDailyAsOf: p.query(async () => {
+    const config = settings(),
+      now = Date.now();
+    const [local, calendar] = await Promise.all([
+      fullLocalCalendarReference(config.tdxRoot, []),
+      monitorCalendar(config.tdxRoot, config.calendar, false, true, now),
+    ]);
+    return {
+      asOf: local.coverage.end,
+      expected: expectedDailyAsOf(calendar, now),
+      calendarSource: calendar.source,
+    };
+  }),
   watchlist: p
     .input(z.array(symbolSchema).max(100))
     .mutation(({ input }) =>
