@@ -13,7 +13,9 @@
     "typecheck": "pnpm trading-strategy-core:build && pnpm trading-strategies:build && pnpm tstdx:build && tsc --noEmit",
     "runtime:build": "pnpm tstdx:build && node scripts/build-runtime.mjs",
     "test": "pnpm trading-strategy-core:build && pnpm trading-strategies:build && pnpm tstdx:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test",
-    "check": "pnpm typecheck && pnpm test",
+    "lint": "eslint src",
+    "e2e": "playwright test",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:dev": "pnpm build && pnpm desktop:prepare && electron .",
     "desktop:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-desktop.ps1",
@@ -67,6 +69,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.0.15",
     "@types/better-sqlite3": "^9.6.0",
     "@types/big.js": "^7.0.0",
@@ -77,11 +80,14 @@
     "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.3",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.0.15",
     "tsx": "^4.23.13",
     "typescript": "^5.8.2",
+    "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.0"
   },
   "ct3aMetadata": {
