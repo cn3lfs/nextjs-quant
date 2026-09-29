@@ -1,0 +1,13 @@
+{
+  "_note": "Upper limits for tests/e2e specs: first-round/second-round measured values plus ~30-50% headroom. Raise only with a decisions.md entry.",
+  "firstLoadScriptMs": 250,
+  "firstLoadScriptKbIncludingPrefetch": 1200,
+  "panelFirstSwitchMs": 300,
+  "hiddenPanelRequestsIn10s": 0,
+  "idleMainThreadMsIn10s": 260,
+  "backtestClickToResultMs": 1500,
+  "tradeReviewBig2222Ms": 1500,
+  "browseStepMs": 1500,
+  "monitorPrefillOpenMs": 1500,
+  "factorEval3yMs": 60000
+}

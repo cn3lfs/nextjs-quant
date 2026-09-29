@@ -39,12 +39,16 @@
 - **验收**：全量耗时降到基线的 40% 以下；串行文件 ≤ 60 个，且每个都写明理由；连续 3 次全量结果一致、无卡死。`verify:batch` 零失败的语义不变。
 
 ### 0B 浏览器验收正规化
+
+> 进度：首批完成（2026-09-30）：7 个 spec 全部通过；口径修正、自动 AI 解读、复盘 6 MB 等发现见 decisions。其余约 100 个手写脚本按需迁移。
 - 把第一轮留下的性能与交互脚本收拢成 Playwright Test 项目（约 15 个 spec），逐步覆盖约 110 个零散脚本。优先收拢的有：`chart-perf`、`chart-keys`、`chart-drawings`、`intraday`、`chart-compare`、`workbench-perf`、`persist-cache`、`screen-perf`、`backtest-perf`、`trade-review-perf`，另新增 keep-alive 巡检。
 - 共用 fixture：构建一次；启动隔离服务；灌入种子数据（交割单生成脚本从临时的 `scripts/_gen-ths.ts` 转正）。
 - 引入 `perf-budgets.json`，把第一轮的数字写成上限（留 30% 余量），例如：画线工具切换 ≤ 8ms、回测出结果 ≤ 1.5s、2222 笔成交的复盘 ≤ 1.5s。超出即失败，防止性能回退。
 - **依赖决定**：`@playwright/test` 作为 devDependency，替代现在 `~/.agent-tools/playwright` 的借用方式（见 §6 D4）。
 
 ### 0C 静态检查
+
+> 进度：已完成（2026-09-30）。只启用 rules-of-hooks，全仓 0 违规，并有负对照测试。
 - 引入 ESLint，只开启高价值规则：`react-hooks/rules-of-hooks`（error）、`exhaustive-deps`（warn）、`no-floating-promises`（针对 server）。先按现状生成基线，只拦新增违规，不做全仓格式化。
 - **验收**：`pnpm lint` 加入 `check`；把 #310 那类写法作为反例放进测试，确认会被拦下。
 
