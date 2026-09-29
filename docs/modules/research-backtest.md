@@ -19,6 +19,8 @@
 
 持久化任务、样本、快照、结果与报告；长任务使用 worker，模型/外部查询会有网络效果。API 验证请求后由 [backtest-job.ts](../../src/server/backtest/backtest-job.ts) 执行回测任务；隔离数据库要求见 [operations](../operations.md)。代表测试：[research-worker](../../tests/research-backtest/research-worker.test.ts)、[backtest-actions](../../tests/research-backtest/backtest/backtest-actions.test.ts)、[backtest-adjustment](../../tests/research-backtest/backtest/backtest-adjustment.test.ts)、[daily-performance](../../tests/research-backtest/backtest/daily-performance.test.ts)、[walk-forward](../../tests/research-backtest/backtest/walk-forward.test.ts)。
 
+回测结果净值图（`components/backtest/equity-chart.tsx`）同时画策略与买入持有两条收益率线和策略回撤面板，纯计算在 `lib/backtest/equity-drawdown.ts`。浏览器基线脚本：`tests/backtest-perf-browser.mjs`。CSCV 每个组合只调 `curvePerformance`/`sharpeWbt`，不要换回完整 `dailyPerformance`；买入手数统一用 `affordableShares`；`readGbbq` 有进程内缓存，调用方不得修改返回的事件。
+
 ## 维护指南
 
 新增研究因子要绑定证据来源与时点并归入 `factors/`；方法家族代码放入对应 `methods/` 子目录，跨家族技术规则放 `technical/`，共用风险参数放 `risk/`，固定输入 schema 与策略目录放 `specs/`。新增执行规则要分离信号价格与成交假设，并明确交易规则、费用和公司行动。只有定义了数据覆盖和执行条件的结果才可作业绩主张；参见 [roadmap §1.1](../roadmap.md#11-策略验证分层) 与 [invariants](../invariants.md)。

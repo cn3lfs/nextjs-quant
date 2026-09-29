@@ -23,3 +23,9 @@
 ## 维护指南
 
 新增 provider 需固定成功与非法输入 fixture，记录来源、单位和可用性证据；供应商失败不可被无声 fallback 成可信结果。MCP 根文件受保护，移动或编辑需用户明确交接。
+
+## 连接检查
+
+`src/server/market/connection-check.ts` 接收设置快照和明确的来源/证券/周期。路由先校验输入及配置是否仍一致；本地仅以只读描述符读取最多 64 根尾部记录，沿用 parseBars 并核对读取前后文件签名。在线直接调用所选既有适配器，限制请求日期与数量，传入取消信号，整个检查上限 10 秒，不自动回退到其它源。不保存行情快照或改动源文件。
+
+新鲜度复用 `localCalendarReference` 与 `screenDataHealth`；连接成功不等于样本可用，扫描时间不代表行情时点，参考未知不能显示实时。适配器只在已确认响应为空时额外返回 `reason: empty`，保留原 status 契约；格式无效、未知失败、限流及权限错误分别处理。用户输出为固定脱敏分类，不透传供应商异常中的 URL 或认证信息。代表测试为 `tests/data-sources/connection-check.test.ts`。

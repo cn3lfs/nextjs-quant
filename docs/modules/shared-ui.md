@@ -21,4 +21,6 @@
 
 ## 维护指南
 
+DataTable 通过唯一 `aria-describedby` 关联键盘排序说明，只给可排序表格提供；现有按钮与表头 `aria-sort` 保持。列适配以调用方 columns 引用为 memo 边界，不接入客户端排序或分页。Gallery 已有正常/加载/空/失败/重试和排序样例；`r1-data-table.test.ts` 与 `news-shared-ui-browser.mjs` 分别验证语义标记和实际 Enter/空格交互。
+
 新增基础控件放 `src/components/ui/`；跨业务稳定复用的展示组件放 `common/`；带业务词汇、API 或领域状态的组件必须归入对应 domain。新增组件补 Gallery 样例或在所属模块文档说明，不将 Gallery 样例数据接入真实服务。

@@ -19,6 +19,8 @@
 
 写入公式、RPS 日/值、筛选结果及任务状态；workers 支持进度、取消和失败报告。选股应用用例位于 [screen-job.ts](../../src/server/screening/screen-job.ts)。代表测试：[q2a-formula](../../tests/screening-rps/rps/q2a-formula.test.ts)、[q2b-screening](../../tests/screening-rps/rps/q2b-screening.test.ts)、[rps-worker](../../tests/screening-rps/rps/rps-worker.test.ts)、[screen-results](../../tests/screening-rps/screen-results.test.ts)、[server-layout](../../tests/engineering-validation/server-layout.test.ts)。正确性约束见 [invariants](../invariants.md) 的未来函数、缺失语义和批处理章节。
 
+**性能**：全市场公式选股的主要成本曾是通达信 `.day` 解码（`parseBars`，每条记录构造 Date 往返校验、数组与补零字符串）。现以数值日历校验与查表实现，全部本地日线（两种价格精度）与 5 分钟样本共 25690 次解析、1.525 亿条记录与旧实现逐条一致，解码耗时约为原来的 1/4.4；`screenFormula` 预读后续 8 个文件、按原顺序消费。基线：6154 只证券默认均线金叉 50.7 s → 15.4 s（同结果）。RPS 回填按 `RPS_PUBLISH_BATCH`（10 天）一个事务发布（`RpsStore.saveDays`），值行按 (symbol,date) 排序写入：表以 symbol 为首键，逐日写入每天要触及约 6000 个分散页面，批量后同一证券的若干天相邻；新旧实现写出的 `rps_days`/`rps_values` 逐行相同，个股 250 天回填 132 s → 55 s。取消最多丢弃一个批次内已计算未提交的天数，已提交日期保留。基线脚本 [screen-perf-browser.mjs](../../tests/screen-perf-browser.mjs)（需已扫描的隔离数据库与生产服务）。
+
 ## 维护指南
 
 新筛选条件需写明输入日期/证券池、数据不足的处理和结果身份；长任务补取消/进度验证。新增用例放在 `tests/screening-rps/`，跨域工程约束归 `tests/engineering-validation/`。
