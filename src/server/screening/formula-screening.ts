@@ -19,6 +19,7 @@ import { sqlite } from "../db";
 import { RpsStore } from "./rps-store";
 import { usesRpsFields } from "~/lib/formula/tdx-formula-check";
 import { parseFormula } from "~/lib/formula/tdx-formula-syntax";
+import { scanFormulaParallel } from "./formula-shards";
 
 export type FormulaWork = {
   attemptId?: string;
@@ -27,30 +28,37 @@ export type FormulaWork = {
   formula: ScreeningFormula;
   now: number;
 };
-/** Full local history is needed by recursive/cumulative formulas. Never truncate
- * their initial state to the legacy dual-MA tail window. Runs only in worker.
- * Latest completed local day is explicit, with stale securities excluded.
+/** Raw results of one contiguous range of securities (in symbol order). */
+export type FormulaPart = {
+  candidates: ScreeningResult["candidates"];
+  snapshots: ScreeningResult["snapshots"];
+  errors: ScreeningResult["errors"];
+  excluded: ScreeningResult["excluded"];
+  observed: { symbol: string; name: string; date: string }[];
+  usageStart: string | null;
+  asOf: string | null;
+};
+type Security = { symbol: string; name: string };
+
+/**
+ * Evaluates the formula over `securities` in order. Stale-date exclusion needs
+ * the batch-wide as-of date, so it is left to the caller (mergeFormulaParts).
  */
-export async function screenFormula(
-  work: FormulaWork,
-  progress?: (n: number, phase: string, counts: WorkProgress) => void,
-): Promise<ScreeningResult> {
-  const formula = validateScreenFormula(work.formula);
+export async function scanFormulaRange(
+  work: Pick<FormulaWork, "root" | "now">,
+  formula: ScreeningFormula,
+  securities: readonly Security[],
+  step?: (processed: number, errors: number, excluded: number) => void,
+): Promise<FormulaPart> {
   const rps = usesRpsFields(parseFormula(formula.source))
     ? new RpsStore(sqlite())
     : undefined;
-  const started = performance.now();
-  const securities = (await scan(work.root)).securities
-    .filter((s) => s.period === "day")
-    .sort((a, b) => a.symbol.localeCompare(b.symbol));
-  const result: ScreeningResult = {
-    candidates: [],
-    snapshots: [],
-    errors: [],
-    excluded: [],
-    total: securities.length,
-    asOf: null,
-    elapsedMs: 0,
+  const result = {
+    candidates: [] as FormulaPart["candidates"],
+    snapshots: [] as FormulaPart["snapshots"],
+    errors: [] as FormulaPart["errors"],
+    excluded: [] as FormulaPart["excluded"],
+    asOf: null as string | null,
   };
   let usageStart: string | null = null;
   const completed = completedBarFilter("day", work.now);
@@ -82,18 +90,7 @@ export async function screenFormula(
         symbol: security.symbol,
         error: error instanceof Error ? error.message : "行情读取失败",
       });
-      progress?.(
-        Math.round(((index + 1) / securities.length) * 90),
-        "公式选股",
-        workProgress(
-          "公式选股",
-          "证券",
-          index + 1,
-          securities.length,
-          result.errors.length,
-          result.excluded.length,
-        ),
-      );
+      step?.(index + 1, result.errors.length, result.excluded.length);
       continue;
     }
     const bars = snapshot.bars.filter((b) => completed(b.date));
@@ -166,19 +163,75 @@ export async function screenFormula(
       }
     }
     if ((index + 1) % 25 === 0 || index + 1 === securities.length)
-      progress?.(
-        Math.round(((index + 1) / securities.length) * 90),
-        "公式选股",
-        workProgress(
-          "公式选股",
-          "证券",
-          index + 1,
-          securities.length,
-          result.errors.length,
-          result.excluded.length,
-        ),
-      );
+      step?.(index + 1, result.errors.length, result.excluded.length);
   }
+  return { ...result, observed, usageStart };
+}
+
+/** Concatenates range results in range order: identical to one sequential scan. */
+export function mergeFormulaParts(parts: readonly FormulaPart[]) {
+  return {
+    candidates: parts.flatMap((p) => p.candidates),
+    snapshots: parts.flatMap((p) => p.snapshots),
+    errors: parts.flatMap((p) => p.errors),
+    excluded: parts.flatMap((p) => p.excluded),
+    observed: parts.flatMap((p) => p.observed),
+    usageStart: parts.reduce<string | null>(
+      (min, p) =>
+        p.usageStart !== null && (min === null || p.usageStart < min)
+          ? p.usageStart
+          : min,
+      null,
+    ),
+    asOf: parts.reduce<string | null>(
+      (max, p) =>
+        p.asOf !== null && (max === null || p.asOf > max) ? p.asOf : max,
+      null,
+    ),
+  };
+}
+
+/** Full local history is needed by recursive/cumulative formulas. Never truncate
+ * their initial state to the legacy dual-MA tail window. Runs only in worker.
+ * Latest completed local day is explicit, with stale securities excluded.
+ * Large universes are split into contiguous ranges scanned in parallel threads
+ * (formula-shards.ts); the merged result equals a sequential scan.
+ */
+export async function screenFormula(
+  work: FormulaWork,
+  progress?: (n: number, phase: string, counts: WorkProgress) => void,
+): Promise<ScreeningResult> {
+  const formula = validateScreenFormula(work.formula);
+  const started = performance.now();
+  const securities = (await scan(work.root)).securities
+    .filter((s) => s.period === "day")
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const report = (processed: number, errors: number, excluded: number) =>
+    progress?.(
+      Math.round((processed / securities.length) * 90),
+      "公式选股",
+      workProgress(
+        "公式选股",
+        "证券",
+        processed,
+        securities.length,
+        errors,
+        excluded,
+      ),
+    );
+  const parts = await scanFormulaParallel(work, formula, securities, report);
+  const merged = mergeFormulaParts(parts);
+  const usageStart = merged.usageStart;
+  const observed = merged.observed;
+  const result: ScreeningResult = {
+    candidates: merged.candidates,
+    snapshots: merged.snapshots,
+    errors: merged.errors,
+    excluded: merged.excluded,
+    total: securities.length,
+    asOf: merged.asOf,
+    elapsedMs: 0,
+  };
   const stale = new Set(
     observed.filter((s) => s.date !== result.asOf).map((s) => s.symbol),
   );

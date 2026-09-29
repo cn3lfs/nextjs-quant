@@ -6,9 +6,11 @@ import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
 import { backtest } from "../backtest/quant";
 import { screenLocal } from "../screening/screening";
 import {
+  scanFormulaRange,
   screenFormula,
   type FormulaWork,
 } from "../screening/formula-screening";
+import type { FormulaShardWork } from "../screening/formula-shards";
 import type { PackedScreen } from "../screening/screen-wire";
 import {
   evaluateFactorWork,
@@ -26,6 +28,7 @@ import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
   | FormulaWork
+  | FormulaShardWork
   | FactorWork
   | {
       type: "walk-forward";
@@ -66,6 +69,17 @@ async function main(work: Work & { attemptId?: string }) {
   if (work.type === "formula-screen")
     return screenFormula(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),
+    );
+  // A range of a parallel formula screen (a nested thread of its worker).
+  if (work.type === "formula-shard")
+    return scanFormulaRange(
+      work,
+      work.formula,
+      work.securities,
+      (processed, errors, excluded) =>
+        parentPort?.postMessage({
+          shardProgress: { processed, errors, excluded },
+        }),
     );
   if (work.type === "factor-eval")
     return evaluateFactorWork(work, (progress, phase, workProgress) =>
