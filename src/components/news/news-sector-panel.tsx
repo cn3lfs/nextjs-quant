@@ -1,34 +1,38 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import type { NewsAnalysis } from "~/server/news/news-analysis";
 import type { NewsSectorReport } from "~/server/news/news-sector";
 import { Button } from "../ui/button";
 
 export function NewsSectorPanel({ analysis }: { analysis: NewsAnalysis }) {
+  const visible = useTaskVisible();
+  const utils = api.useUtils();
   const industries = [...new Set(analysis.items.map((i) => i.industry))];
   const [industry, setIndustry] = useState(industries[0] ?? ""),
     [jobId, setJobId] = useState("");
-  const history = api.newsSectorReports.useQuery(analysis.id);
+  const history = api.newsSectorReports.useQuery(analysis.id, {
+    enabled: visible,
+    gcTime: 0,
+  });
   const create = api.analyzeNewsSector.useMutation({
     onSuccess: (job) => setJobId(job.id),
   });
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
+      gcTime: 0,
       refetchInterval: (q) =>
-        ["queued", "running"].includes(q.state.data?.status ?? "")
+        visible && ["queued", "running"].includes(q.state.data?.status ?? "")
           ? 2000
           : false,
     },
   );
   const cancel = api.cancel.useMutation({
-    onSuccess: () => void job.refetch(),
+    onSuccess: () => void utils.job.invalidate({ id: jobId }),
   });
-  useEffect(() => {
-    if (job.data?.status === "completed") void history.refetch();
-  }, [job.data?.status]);
   const busy =
     create.isPending || ["queued", "running"].includes(job.data?.status ?? "");
   const report =

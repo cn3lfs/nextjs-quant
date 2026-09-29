@@ -1,32 +1,36 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import type { ThemePrices } from "~/server/news/theme-prices";
 import { Button } from "../ui/button";
 import { ThemePriceExplanation } from "./theme-price-explanation";
 const pct = (n: number | null) => (n === null ? "缺失" : `${n.toFixed(2)}%`);
 export function ThemePricesPanel({ themeId }: { themeId: string }) {
+  const visible = useTaskVisible();
+  const utils = api.useUtils();
   const [jobId, setJobId] = useState("");
-  const history = api.themePrices.useQuery(themeId);
+  const history = api.themePrices.useQuery(themeId, {
+    enabled: visible,
+    gcTime: 0,
+  });
   const create = api.checkThemePrices.useMutation({
     onSuccess: (job) => setJobId(job.id),
   });
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
+      gcTime: 0,
       refetchInterval: (q) =>
-        ["queued", "running"].includes(q.state.data?.status ?? "")
+        visible && ["queued", "running"].includes(q.state.data?.status ?? "")
           ? 1000
           : false,
     },
   );
   const cancel = api.cancel.useMutation({
-    onSuccess: () => void job.refetch(),
+    onSuccess: () => void utils.job.invalidate({ id: jobId }),
   });
-  useEffect(() => {
-    if (job.data?.status === "completed") void history.refetch();
-  }, [job.data?.status]);
   const busy =
     create.isPending || ["queued", "running"].includes(job.data?.status ?? "");
   const report =

@@ -13,6 +13,64 @@ import {
   observationRanking,
 } from "../screening/rps-observation";
 
+/** Read-only guidance; execution rechecks time and all source-dependent rules. */
+export async function clsSampleEligibility(reportId: string) {
+  const store = new ClsReviewStore(sqlite());
+  const now = Date.now();
+  const date = new Date(now + 8 * 3600000).toISOString().slice(0, 10);
+  const report = store.report(reportId);
+  const existing = store.sample(date);
+  const result = (allowed: boolean, reason: string) => ({
+    allowed,
+    reason,
+    date,
+    checkedAt: now,
+    existingReportId: existing?.reportId ?? null,
+  });
+  if (!report) return result(false, "报告不存在或已清理");
+  if (existing)
+    return result(
+      false,
+      `当日已有固定样本，归属 ${existing.reportId === reportId ? "本报告" : "另一报告"}；不能替换或重选`,
+    );
+  if (report.batch && report.batch.phase !== "morning")
+    return result(false, "增量报告不能替换盘前主样本");
+  if (now >= Date.parse(`${date}T09:30:00+08:00`))
+    return result(false, "已过09:30，不能补选盘前样本");
+  if (report.report.reportDate !== date)
+    return result(false, "报告日期不是今天，不能固定今日样本");
+  if (
+    report.importedAt > now ||
+    report.observedAt > now ||
+    report.modifiedAt > now
+  )
+    return result(false, "报告时间晚于当前，不能固定样本");
+  const config = settings();
+  try {
+    const calendar = await monitorCalendar(
+      config.tdxRoot,
+      config.calendar,
+      false,
+      true,
+      now,
+    );
+    if (
+      !calendar.days.includes(date) ||
+      !calendar.days.some((day) => day < date)
+    )
+      return result(false, "尚不能确认当日及上一交易日日历");
+  } catch (error) {
+    return result(
+      false,
+      error instanceof Error ? error.message : "交易日历读取失败",
+    );
+  }
+  return result(
+    true,
+    "可尝试固定；执行时仍须核对候选、上一交易日RPS与实际截止时间",
+  );
+}
+
 export async function fixClsSample(reportId: string) {
   const store = new ClsReviewStore(sqlite());
   const report = store.report(reportId);

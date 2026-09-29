@@ -1,478 +1,628 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
-import { Button } from "../ui/button";
-import type { NewsAnalysis } from "~/server/news/news-analysis";
-import { NewsSectorPanel } from "./news-sector-panel";
-import { NewsThemesPanel } from "./news-themes-panel";
 import {
-  ArrowClockwise,
-  Article,
-  ChartLineUp,
-  DownloadSimple,
-  Hash,
-  Newspaper,
-  Sparkle,
-} from "@phosphor-icons/react/ssr";
-import { BarsPanel, PageGrid, Panel, PanelEmpty } from "../panels";
-const localInput = () =>
-  new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16);
+  newsWorkspaceSchema,
+  newsArchiveIdSchema,
+  type NewsWorkspaceInput,
+} from "~/lib/news/news-workspace";
+import type { NewsAnalysis } from "~/server/news/news-analysis";
+import { PageGrid, Panel } from "../panels";
+import { Button } from "../ui/button";
+import { useTaskVisible } from "../workbench/use-task-visible";
+import { ArchiveText } from "../research/archive-evidence";
+import { useArchiveDownload } from "../research/use-archive-download";
+import {
+  NewsError,
+  NewsPaging,
+  newsTime,
+  readNewsMemory,
+  rememberNews,
+} from "./news-workspace-fields";
+import { NewsAnalysisDetail } from "./news-analysis-detail";
+import { NewsArchiveList } from "./news-archive-list";
+const localInput = (value = Date.now()) =>
+  new Date(value + 8 * 3600000).toISOString().slice(0, 16);
+type Filter = ReturnType<typeof newsWorkspaceSchema.parse>;
+type Cursor = Filter["cursor"];
+const initial = () => ({
+  cutoff: Math.floor(Date.now() / 60000) * 60000,
+  query: "",
+  historical: true,
+});
+const pageKey = (filter: Filter) => `news-pages:${JSON.stringify(filter)}`;
 export function NewsPanel() {
-  const [until, setUntil] = useState(localInput),
-    [page, setPage] = useState(0),
-    [query, setQuery] = useState(""),
-    [historical, setHistorical] = useState(true),
-    [jobId, setJobId] = useState(""),
-    [archiveId, setArchiveId] = useState("");
-  const [scope, setScope] = useState<"page" | "range">("page"),
-    [maxItems, setMaxItems] = useState(200);
-  const utils = api.useUtils();
-  const archives = api.newsAnalyses.useQuery();
-  const aggregate = api.aggregateNewsDay.useMutation({
-    onSuccess: (result) => {
-      setArchiveId(result.id);
-      void utils.newsAnalyses.invalidate();
-    },
+  const visible = useTaskVisible(),
+    utils = api.useUtils();
+  const [filter, setFilter] = useState<Filter>(initial),
+    [draft, setDraft] = useState({
+      until: localInput(),
+      query: "",
+      historical: true,
+    }),
+    [ready, setReady] = useState(false);
+  const [pages, setPages] = useState<Cursor[]>([undefined]),
+    [tab, setTab] = useState<"news" | "history">("news"),
+    [original, setOriginal] = useState<{ id: number; source: string } | null>(
+      null,
+    ),
+    [archive, setArchive] = useState<string | null>(null),
+    [jobId, setJobId] = useState("");
+  const [error, setError] = useState(""),
+    [feedback, setFeedback] = useState(""),
+    [scope, setScope] = useState<"page" | "range">("page"),
+    [maxItems, setMaxItems] = useState(200),
+    [returnTarget, setReturnTarget] = useState<{
+      selector: string;
+      scroll: number;
+    } | null>(null);
+  const handled = useRef("");
+  useEffect(() => {
+    const read = () => {
+      if (location.pathname !== "/news") return;
+      const url = new URL(location.href);
+      try {
+        const raw = url.searchParams.get("newsQuery"),
+          value = newsWorkspaceSchema.parse(raw ? JSON.parse(raw) : initial());
+        delete value.cursor;
+        setFilter(value);
+        setDraft({
+          until: localInput(value.cutoff),
+          query: value.query,
+          historical: value.historical,
+        });
+        const saved = readNewsMemory(pageKey(value));
+        setPages(
+          Array.isArray(saved) &&
+            saved.length &&
+            saved.length <= 1000 &&
+            saved.every(
+              (cursor) =>
+                cursor == null ||
+                newsWorkspaceSchema.safeParse({ ...value, cursor }).success,
+            )
+            ? saved.map((cursor) => cursor ?? undefined)
+            : [undefined],
+        );
+        const id = url.searchParams.get("newsId"),
+          source = url.searchParams.get("newsSource");
+        if (
+          id &&
+          (!Number.isSafeInteger(Number(id)) ||
+            Number(id) < 1 ||
+            !source ||
+            !/^[a-f0-9]{64}$/.test(source))
+        )
+          throw new Error("原文定位无效，请重新选择新闻");
+        setOriginal(id ? { id: Number(id), source: source! } : null);
+        const a = url.searchParams.get("analysis");
+        if (a && !newsArchiveIdSchema.safeParse(a).success)
+          throw new Error("分析档案ID无效");
+        setArchive(a);
+        setTab(
+          url.searchParams.get("newsView") === "history" ? "history" : "news",
+        );
+        setJobId(url.searchParams.get("newsJob") ?? "");
+        setError("");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "查询条件无效");
+        setOriginal(null);
+        setArchive(null);
+      }
+      setReady(true);
+    };
+    read();
+    window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
+  const news = api.newsWorkspace.useQuery(
+    { ...filter, cursor: pages.at(-1) },
+    { enabled: visible && ready && tab === "news" && !original && !archive },
+  );
+  const context = api.newsAnalysisContext.useQuery(undefined, {
+    enabled: visible && ready,
   });
-  const archived = api.newsAnalysis.useQuery(archiveId, {
-    enabled: !!archiveId,
+  const task = api.newsTaskState.useQuery(jobId || "none", {
+    enabled: visible && !!jobId,
+    refetchInterval: (q) =>
+      visible && ["queued", "running"].includes(q.state.data?.status ?? "")
+        ? 2000
+        : false,
+    gcTime: 0,
   });
-  const analysis = api.analyzeNews.useMutation({
+  function urlSelection(
+    a: string | null,
+    o: typeof original,
+    nextTab = tab,
+    nextFilter = filter,
+  ) {
+    const url = new URL(location.href);
+    url.searchParams.set("newsQuery", JSON.stringify(nextFilter));
+    url.searchParams.set("newsView", nextTab);
+    for (const key of ["analysis", "newsId", "newsSource"])
+      url.searchParams.delete(key);
+    if (a) url.searchParams.set("analysis", a);
+    if (o) {
+      url.searchParams.set("newsId", String(o.id));
+      url.searchParams.set("newsSource", o.source);
+    }
+    if (location.pathname === "/news") history.pushState(null, "", url);
+    setArchive(a);
+    setOriginal(o);
+    setTab(nextTab);
+  }
+  function rememberReturn(selector: string) {
+    rememberNews("news-return", { selector, scroll: window.scrollY });
+  }
+  function back() {
+    urlSelection(null, null);
+    const saved = readNewsMemory("news-return");
+    if (
+      saved &&
+      typeof saved === "object" &&
+      "selector" in saved &&
+      typeof saved.selector === "string" &&
+      /^\[data-news-(?:original="[1-9]\d*"|archive="news-analysis-[a-f0-9]{64}")\]$/.test(
+        saved.selector,
+      ) &&
+      "scroll" in saved &&
+      typeof saved.scroll === "number" &&
+      Number.isFinite(saved.scroll) &&
+      saved.scroll >= 0
+    )
+      setReturnTarget({ selector: saved.selector, scroll: saved.scroll });
+  }
+  useEffect(() => {
+    if (!returnTarget || archive || original) return;
+    let timer: ReturnType<typeof setTimeout>;
+    let attempts = 0;
+    const restore = () => {
+      const target = document.querySelector<HTMLElement>(returnTarget.selector);
+      if (target) {
+        target.focus({ preventScroll: true });
+        window.scrollTo(0, returnTarget.scroll);
+        setReturnTarget(null);
+      } else if (++attempts < 50) timer = setTimeout(restore, 100);
+    };
+    restore();
+    return () => clearTimeout(timer);
+  }, [returnTarget, archive, original, news.data]);
+  const analyze = api.analyzeNews.useMutation({
     onSuccess: (job) => {
       setJobId(job.id);
-      setArchiveId("");
+      setFeedback("");
+      const url = new URL(location.href);
+      url.searchParams.set("newsJob", job.id);
+      if (location.pathname === "/news") history.replaceState(null, "", url);
     },
-  });
-  const job = api.job.useQuery(
-    { id: jobId },
-    {
-      enabled: !!jobId,
-      refetchInterval: (q) =>
-        ["queued", "running"].includes(q.state.data?.status ?? "")
-          ? 2000
-          : false,
-    },
-  );
-  const cancel = api.cancel.useMutation({
-    onSuccess: () => void job.refetch(),
   });
   const busy =
-    analysis.isPending ||
-    ["queued", "running"].includes(job.data?.status ?? "");
-  const result = archiveId
-    ? (archived.data ?? undefined)
-    : job.data?.status === "completed"
-      ? (job.data.result as NewsAnalysis)
-      : undefined;
+    analyze.isPending ||
+    ["queued", "running"].includes(task.data?.status ?? "");
+  const cancel = api.cancel.useMutation({
+    onSuccess: (value) => {
+      setFeedback(
+        {
+          accepted: "取消已请求，请等待任务状态确认。",
+          "already-cancelled": "任务已取消。",
+          "already-terminal": "任务已经结束，无需取消。",
+          "not-found": "任务已不存在。",
+        }[value.outcome],
+      );
+      void utils.newsTaskState.invalidate(jobId);
+    },
+  });
   useEffect(() => {
-    if (["completed", "cancelled", "failed"].includes(job.data?.status ?? ""))
-      void utils.newsAnalyses.invalidate();
-  }, [job.data?.status, utils]);
-  function download() {
-    if (!result) return;
-    const url = URL.createObjectURL(
-      new Blob(
-        [
-          JSON.stringify(
-            { format: "quant-news-analysis-export-1", ...result },
-            null,
-            2,
-          ),
-        ],
-        { type: "application/json;charset=utf-8" },
-      ),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `新闻分析-${result.id.slice(-16)}.json`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const value = task.data;
+    if (
+      !visible ||
+      !value ||
+      !["completed", "failed", "cancelled"].includes(value.status)
+    )
+      return;
+    const key = `${value.id}:${value.status}`;
+    if (handled.current === key) return;
+    handled.current = key;
+    void utils.newsArchiveHistory.invalidate();
+    void utils.newsAnalysis.invalidate();
+    if (value.analysisId) urlSelection(value.analysisId, null);
+  }, [visible, task.data?.id, task.data?.status, task.data?.analysisId]);
+  function apply(now = false) {
+    const input = {
+      cutoff: now
+        ? Math.floor(Date.now() / 60000) * 60000
+        : Date.parse(`${draft.until}:00+08:00`),
+      query: draft.query,
+      historical: draft.historical,
+    };
+    const parsed = newsWorkspaceSchema.safeParse(input);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "条件无效");
+      return;
+    }
+    const unchanged =
+      JSON.stringify(parsed.data) === JSON.stringify(filter) &&
+      pages.length === 1;
+    setFilter(parsed.data);
+    setDraft({
+      until: localInput(parsed.data.cutoff),
+      query: parsed.data.query,
+      historical: parsed.data.historical,
+    });
+    setPages([undefined]);
+    rememberNews(pageKey(parsed.data), [null]);
+    setError("");
+    urlSelection(null, null, "news", parsed.data);
+    if (unchanged) void news.refetch();
   }
-  const cutoff = Date.parse(`${until}:00+08:00`),
-    valid = Number.isFinite(cutoff) && cutoff <= Date.now();
-  const news = api.news.useQuery(
-    { cutoff: valid ? cutoff : 0, page, query, historical },
-    { enabled: valid },
-  );
+  function move(next: Cursor[]) {
+    setPages(next);
+    rememberNews(pageKey(filter), next);
+  }
+  const dirty =
+    draft.query.trim() !== filter.query ||
+    draft.historical !== filter.historical ||
+    draft.until !== localInput(filter.cutoff);
+  // The route is prerendered. Current time and URL/session state only become
+  // authoritative after mount; never hydrate a build-time date as today's date.
+  if (!ready)
+    return (
+      <PageGrid>
+        <Panel title="新闻存档与分析">
+          <p role="status">正在恢复新闻查询条件…</p>
+        </Panel>
+      </PageGrid>
+    );
   return (
     <PageGrid>
       <Panel
-        icon={Newspaper}
-        title="财联社新闻存档"
-        tag="本地只读"
-        note="查询截止时间之前七天的存档。新闻发布时间与采集时间分别保留，存档不保证实时或完整。每批25条，成功批次立即保存；达到条数上限时会明确提示。使用设置中选择的模型；默认 Codex。分类与影响方向为模型判断，原文和分类规则版本会保留。"
+        title="新闻存档与分析"
+        note="本地只读存档，不保证实时或完整。发布时间与采集时间分别保留；模型解读不代表实际涨跌。"
       >
-        <div className="form-grid items-end">
-          <label>
-            截止时间（北京时间）
-            <input
-              aria-label="新闻截止时间"
-              type="datetime-local"
-              value={until}
-              onChange={(e) => {
-                setUntil(e.target.value);
-                setPage(0);
-              }}
-            />
-          </label>
-          <label>
-            关键词
-            <input
-              aria-label="新闻关键词"
-              value={query}
-              maxLength={100}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(0);
-              }}
-            />
-          </label>
-          <label>
-            分析范围
-            <select
-              aria-label="新闻分析范围"
-              value={scope}
-              disabled={busy}
-              onChange={(e) => setScope(e.target.value as "page" | "range")}
-            >
-              <option value="page">当前页</option>
-              <option value="range">整个查询范围（设定上限）</option>
-            </select>
-          </label>
-          {scope === "range" && (
-            <label>
-              最多条数
-              <select
-                aria-label="新闻分析上限"
-                value={maxItems}
-                disabled={busy}
-                onChange={(e) => setMaxItems(Number(e.target.value))}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            aria-pressed={tab === "news"}
+            onClick={() => urlSelection(null, null, "news")}
+          >
+            本地新闻
+          </Button>
+          <Button
+            aria-pressed={tab === "history"}
+            onClick={() => urlSelection(null, null, "history")}
+          >
+            分析历史
+          </Button>
+        </div>
+        <NewsError
+          message={error}
+          retry={() => {
+            setError("");
+            apply(true);
+          }}
+        />
+        {jobId && (
+          <div className="mt-3 space-y-2 text-sm" aria-label="新闻分析任务">
+            <p>
+              任务：
+              {task.data
+                ? ({
+                    queued: "排队中",
+                    running: "运行中",
+                    completed: "已完成",
+                    failed: "失败",
+                    cancelled: "已取消",
+                  }[task.data.status] ?? task.data.status)
+                : task.isLoading
+                  ? "读取中"
+                  : "未找到"}{" "}
+              · {task.data?.phase} {task.data?.progress ?? 0}%
+            </p>
+            {task.data?.error && <p role="alert">{task.data.error}</p>}
+            {busy && (
+              <Button
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate(jobId)}
               >
-                {[50, 200, 500, 1000].map((n) => (
-                  <option key={n} value={n}>
-                    {n} 条
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label>
-            历史分析（最近50份）
-            <select
-              aria-label="历史新闻分析"
-              value={archiveId}
-              disabled={busy}
-              onChange={(e) => setArchiveId(e.target.value)}
-            >
-              <option value="">查看本次任务</option>
-              {archives.data?.map((record) => (
-                <option key={record.id} value={record.id}>
-                  {new Date(record.createdAt).toLocaleString("zh-CN")} ·{" "}
-                  {record.count}条 · {record.query || "全部新闻"} ·{" "}
-                  {record.model}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="nc-checks items-center gap-2">
-          <input
-            type="checkbox"
-            checked={historical}
-            onChange={(e) => {
-              setHistorical(e.target.checked);
-              setPage(0);
-            }}
-          />
-          仅显示截止时已经采集的新闻
-        </label>
-        <div className="nc-buttons">
-          <Button
-            disabled={
-              !valid || !news.data?.items.length || news.isFetching || busy
-            }
-            onClick={() =>
-              analysis.mutate({
-                cutoff,
-                page,
-                query,
-                historical,
-                scope,
-                maxItems,
-              })
-            }
-          >
-            <Sparkle size={14} />
-            {busy
-              ? "正在分析新闻…"
-              : scope === "page"
-                ? "AI 分类与影响分析（本页全部）"
-                : "AI 分类与影响分析（查询范围）"}
-          </Button>
-          {jobId && busy && (
-            <Button variant="outline" onClick={() => cancel.mutate(jobId)}>
-              取消分析
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => {
-              setUntil(localInput());
-              setPage(0);
-              void news.refetch();
-            }}
-          >
-            <ArrowClockwise size={14} />
-            刷新至当前时间
-          </Button>
-        </div>
-        {!valid && (
-          <p role="alert" className="nc-text-bad">
-            请选择有效且不晚于当前的时间。
-          </p>
-        )}
-        {news.error && (
-          <p role="alert" className="nc-text-bad">
-            新闻存档读取失败，请检查已保存的数据库路径和格式。
-          </p>
-        )}
-        {(analysis.error || job.data?.error) && (
-          <p role="alert" className="nc-text-bad">
-            {analysis.error?.message ?? job.data?.error}
-          </p>
-        )}
-        {job.data?.status === "cancelled" && (
-          <p>分析已取消，成功批次可在历史分析中继续查看。</p>
-        )}
-        {busy && job.data?.phase && <p>{job.data.phase}</p>}
-        {archived.error && <p role="alert">历史分析读取失败，请重试。</p>}
-        {archiveId && archived.data === null && <p>该分析记录已不存在。</p>}
-      </Panel>
-      {result && (
-        <>
-          <BarsPanel
-            span={5}
-            icon={Hash}
-            title="行业分布"
-            meta={`已完成 ${result.items.length}/${result.news.length} 条${result.status === "partial" ? " · 部分完成" : ""}`}
-            items={Object.entries(result.distribution)
-              .sort((a, b) => b[1] - a[1])
-              .map(([label, count], _, all) => ({
-                key: label,
-                name: label,
-                value: `${count} 条`,
-                pct: (count / Math.max(1, all[0]![1])) * 100,
-              }))}
-            note={`模型：${result.model} · 归档查询截止：${new Date(result.input.cutoff).toLocaleString("zh-CN")} · ${(result.requestCoverage?.scope ?? result.input.scope) === "range" ? `查询范围 ${result.news.length} 条` : `第 ${result.input.page + 1} 页 ${result.news.length} 条`}`}
-          />
-          <Panel
-            span={7}
-            icon={ChartLineUp}
-            title="新闻行业与影响分析"
-            actions={
-              <Button size="sm" variant="outline" onClick={download}>
-                <DownloadSimple size={13} />
-                下载新闻分析与原文
+                取消分析
               </Button>
+            )}
+            <NewsError
+              message={task.error?.message}
+              retry={() => void task.refetch()}
+            />
+            <p>部分完成的成功批次可在分析历史查看。</p>
+          </div>
+        )}
+        {(feedback || analyze.error || cancel.error) && (
+          <p role="status">
+            {feedback || analyze.error?.message || cancel.error?.message}
+          </p>
+        )}
+      </Panel>
+      {archive ? (
+        <NewsAnalysisDetail
+          key={archive}
+          id={archive}
+          busy={busy}
+          onBack={back}
+          onStart={(input) => analyze.mutate(input)}
+          onArchive={(id) => urlSelection(id, null)}
+        />
+      ) : original ? (
+        <Original
+          key={`${original.source}:${original.id}`}
+          filter={filter}
+          selection={original}
+          onBack={back}
+        />
+      ) : tab === "history" ? (
+        <NewsArchiveList
+          onOpen={(id) => {
+            rememberReturn(`[data-news-archive="${id}"]`);
+            urlSelection(id, null);
+          }}
+        />
+      ) : (
+        <>
+          <Panel
+            title="检索新闻"
+            note="默认截止前七天；关键词匹配标题和完整正文。"
+          >
+            <form
+              className="form-grid items-end"
+              onSubmit={(e) => {
+                e.preventDefault();
+                apply();
+              }}
+            >
+              <label>
+                截止时间（北京时间）
+                <input
+                  aria-label="新闻截止时间"
+                  type="datetime-local"
+                  value={draft.until}
+                  onChange={(e) =>
+                    setDraft({ ...draft, until: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                关键词
+                <input
+                  aria-label="新闻关键词"
+                  maxLength={100}
+                  value={draft.query}
+                  onChange={(e) =>
+                    setDraft({ ...draft, query: e.target.value })
+                  }
+                />
+              </label>
+              <Button type="submit">查询新闻</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => apply(true)}
+              >
+                刷新至当前时间
+              </Button>
+            </form>
+            <label className="my-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.historical}
+                onChange={(e) =>
+                  setDraft({ ...draft, historical: e.target.checked })
+                }
+              />
+              仅显示截止时已经采集的新闻
+            </label>
+            {dirty && (
+              <p role="status">条件已修改，提交查询后生效；暂不能分析。</p>
+            )}
+            <p className="text-sm">
+              已应用：{newsTime(filter.cutoff - 7 * 86400000)} 至{" "}
+              {newsTime(filter.cutoff)} · {filter.query || "全部关键词"} ·{" "}
+              {filter.historical ? "截止时已采集" : "包含后续补采"}
+            </p>
+            <NewsError
+              message={news.error?.message}
+              retry={() => void news.refetch()}
+              stale={!!news.data}
+            />
+          </Panel>
+          <Panel
+            title="新闻列表"
+            meta={
+              news.data
+                ? `匹配 ${news.data.total} 条 · 库中最新发布 ${newsTime(news.data.latestPublishedAt)}${news.isFetching ? " · 更新中" : ""}`
+                : undefined
             }
           >
-            {(result.requestCoverage?.hitLimit ?? result.hitLimit) && (
-              <p role="alert" className="notice">
-                本次选择 {result.news.length} 条，查询共{" "}
-                {result.requestCoverage?.totalMatches ?? result.totalMatches}{" "}
-                条；已达到上限，其余新闻未分析。
-              </p>
+            {news.isLoading && <p>正在读取新闻…</p>}
+            {news.data?.total === 0 && (
+              <p>所选范围没有新闻，不代表该时期没有事件。</p>
             )}
-            {result.status === "partial" && (
-              <div className="notice">
-                <p role="alert">
-                  {result.error ?? "任务尚未全部完成，成功批次已保存。"}
-                </p>
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    analysis.mutate({ ...result.input, resumeId: result.id })
-                  }
+            <div className="space-y-2">
+              {news.data?.items.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded border border-nc-border p-3 text-sm"
                 >
-                  继续未完成分析
-                </Button>
-              </div>
-            )}
-            {result.nextInput && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || result.items.length !== result.news.length}
-                  onClick={() => analysis.mutate(result.nextInput!)}
-                >
-                  分析下一批较早新闻
-                </Button>
-                <p className="muted">
-                  下一批沿用本次截止时间和关键词，按发布时间及ID继续向前读取。若源库补录旧新闻，请重新查询，已有分类会复用。
-                </p>
-              </>
-            )}
-            {result.reusedItems !== undefined && (
-              <p className="muted">
-                复用已归档分类 {result.reusedItems} 条；本档案新增模型用量{" "}
-                {result.tokens} tokens。
-              </p>
-            )}
-            <Button
-              size="sm"
-              disabled={busy || aggregate.isPending}
-              onClick={() => aggregate.mutate(result.id)}
-            >
-              汇总当天已分类新闻（不调用模型）
-            </Button>
-            {aggregate.error && <p role="alert">{aggregate.error.message}</p>}
-            {result.aggregation && (
-              <p className="muted">
-                {result.aggregation.day} 已有档案汇总：{result.items.length}{" "}
-                条，冲突隔离 {result.aggregation.conflicts.length}{" "}
-                条。仅覆盖已分类档案，不代表当天全部新闻。冲突 ID：
-                {result.aggregation.conflicts.join("、") || "无"}。
-              </p>
-            )}
-            <details>
-              <summary>逐条分类（{result.items.length}）</summary>
-              {result.items.map((item) => (
-                <details key={item.id} className="list-row my-2 block">
-                  <summary>
-                    {item.industry} ·{" "}
-                    {result.news.find((n) => n.id === item.id)?.title ||
-                      `新闻 ${item.id}`}
-                  </summary>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="min-w-0 break-words">
+                      {item.title ||
+                        item.preview.slice(0, 80) ||
+                        `新闻${item.id}`}
+                    </strong>
+                    <Button
+                      size="sm"
+                      data-news-original={item.id}
+                      onClick={() => {
+                        rememberReturn(`[data-news-original="${item.id}"]`);
+                        urlSelection(null, {
+                          id: item.id,
+                          source: news.data!.source,
+                        });
+                      }}
+                    >
+                      阅读原文
+                    </Button>
+                  </div>
                   <p>
-                    可能影响：
-                    {
-                      {
-                        positive: "偏正面",
-                        negative: "偏负面",
-                        mixed: "正负并存",
-                        neutral: "中性",
-                        uncertain: "未确定",
-                      }[item.impact]
-                    }
+                    {newsTime(item.publishedAt)} · 采集：
+                    {newsTime(item.collectedAt)}
                   </p>
-                  <p>{item.reason}</p>
-                  <p>不确定性：{item.uncertainty}</p>
-                  <p className="whitespace-pre-wrap">
-                    {result.news.find((n) => n.id === item.id)?.content}
+                  <p className="line-clamp-2 break-all text-nc-text-3">
+                    {item.preview}
                   </p>
-                </details>
+                </article>
               ))}
-            </details>
-            <details>
-              <summary>分类版本与来源</summary>
-              <pre>
-                {JSON.stringify(
-                  {
-                    id: result.id,
-                    method: result.method,
-                    sources: result.news.map((n) => ({
-                      id: n.id,
-                      hash: n.hash,
-                      publishedAt: n.publishedAt,
-                      collectedAt: n.collectedAt,
-                    })),
-                  },
-                  null,
-                  2,
-                )}
-              </pre>
-            </details>
-          </Panel>
-          <div className="nc-span-12 min-w-0">
-            <NewsSectorPanel key={result.id} analysis={result} />
-          </div>
-          {result.aggregation && (
-            <div className="nc-span-12 min-w-0">
-              <NewsThemesPanel key={`themes-${result.id}`} id={result.id} />
             </div>
-          )}
+            <NewsPaging
+              label="新闻"
+              page={pages.length}
+              total={news.data?.total ?? 0}
+              next={!!news.data?.nextCursor}
+              busy={news.isFetching}
+              onPrevious={() => move(pages.slice(0, -1))}
+              onNext={() =>
+                news.data?.nextCursor && move([...pages, news.data.nextCursor])
+              }
+            />
+            <div className="flex flex-wrap items-end gap-3">
+              <label>
+                分析范围
+                <select
+                  aria-label="新闻分析范围"
+                  disabled={busy}
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as typeof scope)}
+                >
+                  <option value="page">当前页</option>
+                  <option value="range">整个查询范围（设定上限）</option>
+                </select>
+              </label>
+              {scope === "range" && (
+                <label>
+                  最多条数
+                  <select
+                    aria-label="新闻分析上限"
+                    disabled={busy}
+                    value={maxItems}
+                    onChange={(e) => setMaxItems(Number(e.target.value))}
+                  >
+                    {[50, 200, 500, 1000].map((n) => (
+                      <option key={n} value={n}>
+                        {n}条
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <Button
+                disabled={
+                  busy ||
+                  dirty ||
+                  news.isFetching ||
+                  !news.data?.items.length ||
+                  !!news.error ||
+                  !context.data ||
+                  !!context.error
+                }
+                onClick={() => {
+                  if (!news.data) return;
+                  analyze.mutate({
+                    ...filter,
+                    page: pages.length - 1,
+                    scope,
+                    maxItems,
+                    pageSelection:
+                      scope === "page"
+                        ? {
+                            source: news.data.source,
+                            fingerprint: news.data.fingerprint,
+                            cursor: pages.at(-1),
+                          }
+                        : undefined,
+                  });
+                }}
+              >
+                AI 分类与影响分析（{scope === "page" ? "本页全部" : "查询范围"}
+                ）
+              </Button>
+            </div>
+            <p className="mt-2 text-sm">
+              模型：{context.data?.model ?? "读取中"} · 匹配
+              {news.data?.total ?? 0}条 · 将选择
+              {scope === "page"
+                ? (news.data?.items.length ?? 0)
+                : Math.min(maxItems, news.data?.total ?? 0)}
+              条。每25条保存成功批次；模型每条最多读取2000字符，完整原文保留。
+            </p>
+            <NewsError
+              message={context.error?.message}
+              retry={() => void context.refetch()}
+            />
+          </Panel>
         </>
       )}
-      <Panel
-        icon={Article}
-        title="最新新闻"
-        meta={
-          news.data
-            ? `库中最新发布 ${
-                news.data.latestPublishedAt
-                  ? new Date(news.data.latestPublishedAt).toLocaleString(
-                      "zh-CN",
-                      { timeZone: "Asia/Shanghai" },
-                    )
-                  : "无记录"
-              } · 本次筛选 ${news.data.count} 条${news.isFetching ? " · 更新中" : ""}`
-            : undefined
-        }
-        actions={
-          news.data && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page === 0 || news.isFetching}
-                onClick={() => setPage(page - 1)}
-              >
-                上一页
-              </Button>
-              <span className="text-[11px] text-nc-text-4 tabular-nums">
-                第 {page + 1} / {Math.max(1, Math.ceil(news.data.count / 50))}{" "}
-                页
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={(page + 1) * 50 >= news.data.count || news.isFetching}
-                onClick={() => setPage(page + 1)}
-              >
-                下一页
-              </Button>
-            </>
-          )
-        }
-      >
-        {news.isLoading && valid && <PanelEmpty>正在读取新闻存档…</PanelEmpty>}
-        {news.data && (
-          <div className="flex flex-col gap-2">
-            {news.data.items.map((item) => (
-              <details key={item.id} className="list-row my-0 block">
-                <summary>
-                  <span className="text-nc-text-4 tabular-nums">
-                    {new Date(item.publishedAt).toLocaleString("zh-CN", {
-                      timeZone: "Asia/Shanghai",
-                    })}
-                  </span>{" "}
-                  · {item.title || item.content.slice(0, 80)}
-                </summary>
-                <p className="whitespace-pre-wrap">{item.content}</p>
-                <p className="muted">
-                  采集时间：
-                  {item.collectedAt
-                    ? new Date(item.collectedAt).toLocaleString("zh-CN", {
-                        timeZone: "Asia/Shanghai",
-                      })
-                    : "未知"}{" "}
-                  · ID {item.id}
-                </p>
-                {item.url && (
-                  <a href={item.url} target="_blank" rel="noreferrer">
-                    查看原文
-                  </a>
-                )}
-              </details>
-            ))}
-            {!news.data.items.length && (
-              <PanelEmpty>所选范围没有新闻，不代表该时期没有事件。</PanelEmpty>
-            )}
-          </div>
-        )}
-      </Panel>
     </PageGrid>
+  );
+}
+function Original({
+  filter,
+  selection,
+  onBack,
+}: {
+  filter: NewsWorkspaceInput;
+  selection: { id: number; source: string };
+  onBack: () => void;
+}) {
+  const visible = useTaskVisible(),
+    query = api.newsOriginal.useQuery(
+      { filter, ...selection },
+      { enabled: visible, gcTime: 0, staleTime: 0 },
+    ),
+    download = useArchiveDownload();
+  return (
+    <Panel
+      title="新闻原文"
+      actions={<Button onClick={onBack}>返回新闻列表</Button>}
+    >
+      <NewsError
+        message={query.error?.message}
+        retry={() => void query.refetch()}
+        stale={!!query.data}
+      />
+      {query.isLoading && <p>正在读取原文…</p>}
+      {query.data && (
+        <div className="min-w-0 space-y-3 text-sm">
+          <h2>{query.data.item.title}</h2>
+          <p>
+            发布：{newsTime(query.data.item.publishedAt)} · 采集：
+            {newsTime(query.data.item.collectedAt)} · ID {query.data.item.id}
+          </p>
+          <ArchiveText text={query.data.item.content} />
+          <p className="break-all">原文hash：{query.data.item.hash}</p>
+          {query.data.item.url && (
+            <a href={query.data.item.url} target="_blank" rel="noreferrer">
+              查看来源网页
+            </a>
+          )}
+          <Button
+            onClick={() =>
+              download.save(
+                () => JSON.stringify(query.data, null, 2),
+                `新闻原文-${selection.id}.json`,
+                "application/json;charset=utf-8",
+              )
+            }
+          >
+            下载完整新闻原文
+          </Button>
+          {download.error && <p role="alert">{download.error}</p>}
+        </div>
+      )}
+    </Panel>
   );
 }

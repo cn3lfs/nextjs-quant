@@ -1,9 +1,12 @@
 "use client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import type { Report } from "~/lib/domain";
 import { Button } from "../ui/button";
 export function ThemePriceExplanation({ id }: { id: string }) {
+  const visible = useTaskVisible();
+  const utils = api.useUtils();
   const [jobId, setJobId] = useState("");
   const create = api.explainThemePrices.useMutation({
     onSuccess: (job) => setJobId(job.id),
@@ -11,15 +14,16 @@ export function ThemePriceExplanation({ id }: { id: string }) {
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
+      gcTime: 0,
       refetchInterval: (q) =>
-        ["queued", "running"].includes(q.state.data?.status ?? "")
+        visible && ["queued", "running"].includes(q.state.data?.status ?? "")
           ? 1500
           : false,
     },
   );
   const cancel = api.cancel.useMutation({
-    onSuccess: () => void job.refetch(),
+    onSuccess: () => void utils.job.invalidate({ id: jobId }),
   });
   const busy =
     create.isPending || ["queued", "running"].includes(job.data?.status ?? "");

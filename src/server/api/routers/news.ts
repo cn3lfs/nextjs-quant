@@ -1,13 +1,18 @@
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
+import { clsReviewReportQuery, clsReviewFactQuery, clsReviewVerificationQuery, clsReviewVerificationIdentity } from "~/lib/news/cls-review-workspace";
+import { clsReportPage, clsFactPage, clsFactDetail, clsVerificationPage, clsVerificationDetail, clsReportSamples } from "../../news/cls-review-query";
 import {
   clsReviewConfig,
   clsReviewLastCheck,
   saveClsReviewConfig,
 } from "../../news/cls-review-scheduler";
-import { clsFactReviewSchema, clsFactStatistics } from "~/lib/news/cls-fact-review";
+import {
+  clsFactReviewSchema,
+  clsFactStatistics,
+} from "~/lib/news/cls-fact-review";
 import { clsReportFiles, previewClsReport } from "../../news/cls-report-files";
 import { ClsReviewStore } from "../../news/cls-review-store";
-import { fixClsSample } from "../../news/cls-review-service";
+import { fixClsSample, clsSampleEligibility } from "../../news/cls-review-service";
 import { verifyClsSample } from "../../news/cls-verification";
 import { sqlite as chartSqlite } from "../../db";
 import { newsBudget } from "../../news/news-budget";
@@ -22,14 +27,26 @@ import {
   analyzeNews,
   newsAnalysisInput,
   newsAnalysisView,
+  newsAnalysisPreflight,
   type NewsAnalysis,
 } from "../../news/news-analysis";
 import { z } from "zod";
 import { list } from "../../db";
 import { settings } from "../../infra/settings";
 import { background, updateJob } from "../../jobs/jobs";
+import { taskState } from "../../jobs/task-history";
 import { researchModel } from "../../research/research";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import {
+  newsWorkspaceSchema,
+  newsArchiveQuerySchema,
+  newsArchiveIdSchema,
+} from "~/lib/news/news-workspace";
+import {
+  newsWorkspacePage,
+  newsWorkspaceDetail,
+  newsArchivePage,
+} from "../../news/news-workspace-query";
 function recordOfKind<T>(kind: string, id: string): T | undefined {
   const row = chartSqlite()
     .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
@@ -37,6 +54,56 @@ function recordOfKind<T>(kind: string, id: string): T | undefined {
   return row ? (JSON.parse(row.payload) as T) : undefined;
 }
 export const newsRouter = createTRPCRouter({
+  clsReviewFactDetail: p.input(z.object({ reportId: z.string().min(1).max(200), id: z.string().min(1).max(200) })).query(({ input }) => clsFactDetail(chartSqlite(), input.reportId, input.id)),
+  clsReviewSampleEligibility: p.input(z.string().min(1).max(200)).query(({ input }) => clsSampleEligibility(input)),
+  clsReviewReportPage: p.input(clsReviewReportQuery).query(({ input }) => clsReportPage(chartSqlite(), input)),
+  clsReviewFactPage: p.input(clsReviewFactQuery).query(({ input }) => clsFactPage(chartSqlite(), input)),
+  clsReviewVerificationPage: p.input(clsReviewVerificationQuery).query(({ input }) => clsVerificationPage(chartSqlite(), input)),
+  clsReviewVerificationDetail: p.input(clsReviewVerificationIdentity).query(({ input }) => clsVerificationDetail(chartSqlite(), input)),
+  clsReviewReportSamples: p.input(z.string().min(1).max(200)).query(({ input }) => clsReportSamples(chartSqlite(), input)),
+  newsAnalysisContext: p.query(() => ({ model: researchModel(false) })),
+  newsTaskState: p.input(z.string().min(1).max(200)).query(({ input }) => {
+    const state = taskState(input);
+    const row = chartSqlite()
+      .prepare(
+        "SELECT json_extract(payload,'$.result.id') id FROM records WHERE kind='job' AND id=? AND json_extract(payload,'$.input.kind')='news-analysis'",
+      )
+      .get(input) as { id: string | null } | undefined;
+    return state
+      ? {
+          ...state,
+          analysisId:
+            row?.id && newsArchiveIdSchema.safeParse(row.id).success
+              ? row.id
+              : null,
+        }
+      : null;
+  }),
+  newsWorkspace: p
+    .input(newsWorkspaceSchema)
+    .query(({ input }) => newsWorkspacePage(settings().clsDbPath, input)),
+  newsOriginal: p
+    .input(
+      z.object({
+        filter: newsWorkspaceSchema,
+        id: z.number().int().positive(),
+        source: z.string().regex(/^[a-f0-9]{64}$/),
+      }),
+    )
+    .query(({ input }) =>
+      newsWorkspaceDetail(
+        settings().clsDbPath,
+        input.filter,
+        input.id,
+        input.source,
+      ),
+    ),
+  newsArchiveHistory: p
+    .input(newsArchiveQuerySchema)
+    .query(({ input }) => newsArchivePage(chartSqlite(), input)),
+  newsResumePreflight: p
+    .input(newsArchiveIdSchema)
+    .query(({ input }) => newsAnalysisPreflight(input)),
   clsReviewExportAll: p
     .input(z.string())
     .query(({ input }) =>
@@ -189,13 +256,17 @@ export const newsRouter = createTRPCRouter({
       ),
     ),
   analyzeNews: p.input(newsAnalysisInput).mutation(({ input }) =>
-    background("research", { kind: "news-analysis", ...input }, (job, signal) =>
-      analyzeNews(input, signal, (done, total) =>
-        updateJob(job.id, {
-          progress: Math.round((done / total) * 100),
-          phase: `新闻分析 ${done}/${total}`,
-        }),
-      ),
+    background(
+      "research",
+      { kind: "news-analysis", ...input },
+      (job, signal) =>
+        analyzeNews(input, signal, (done, total) =>
+          updateJob(job.id, {
+            progress: Math.round((done / total) * 100),
+            phase: `新闻分析 ${done}/${total}`,
+          }),
+        ),
+      { kind: "news-analysis", input },
     ),
   ),
   news: p

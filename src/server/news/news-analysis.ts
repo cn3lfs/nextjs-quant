@@ -9,6 +9,8 @@ import { structured, researchModel } from "../research/research";
 import { get, put, sqlite, atomic } from "../db";
 import { sharedRead } from "../infra/shared-read";
 import { keyedSlots } from "../infra/keyed-slots";
+import { newsPageSelectionSchema } from "~/lib/news/news-workspace";
+import { freezeNewsWorkspacePage } from "./news-workspace-query";
 const claimNews = keyedSlots();
 export const newsMethodFiles = ["SKILL.md", "references/sw-industries.md"];
 const sharedAnalysis = sharedRead<NewsAnalysis>();
@@ -24,6 +26,11 @@ export const newsAnalysisInput = z.object({
       time: z.number().int().nonnegative(),
       id: z.number().int().nonnegative(),
     })
+    .optional(),
+  pageSelection: newsPageSelectionSchema.optional(),
+  expectedVersion: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
     .optional(),
   resumeId: z
     .string()
@@ -175,42 +182,7 @@ function saveAnalysis(record: NewsAnalysis) {
     }
   });
 }
-export async function analyzeNews(
-  rawInput: z.input<typeof newsAnalysisInput>,
-  signal?: AbortSignal,
-  onProgress?: (done: number, total: number) => void,
-  priority: "interactive" | "background" = "interactive",
-  beforeModel?: () => void,
-): Promise<NewsAnalysis> {
-  let input = newsAnalysisInput.parse(rawInput);
-  if (input.before && input.scope !== "range")
-    throw new Error("新闻游标仅用于查询范围分析");
-  signal?.throwIfAborted();
-  const frozen = input.resumeId ? get<NewsAnalysis>(input.resumeId) : undefined;
-  if (input.resumeId && !frozen)
-    throw new Error("待继续的新闻分析档案已不存在");
-  if (frozen)
-    input = newsAnalysisInput.parse({ ...frozen.input, resumeId: undefined });
-  const news: NewsAnalysis["news"] = frozen ? [...frozen.news] : [];
-  let totalMatches = frozen?.totalMatches ?? news.length;
-  if (!frozen) {
-    // One read-only SQLite transaction freezes count and all selected rows together.
-    const result = readClsNews(settings().clsDbPath, {
-      ...input,
-      page: input.scope === "range" ? 0 : input.page,
-      limit: input.scope === "range" ? input.maxItems : 50,
-    });
-    totalMatches = result.count ?? result.items.length;
-    news.push(...result.items);
-    if (new Set(news.map((n) => n.id)).size !== news.length)
-      throw new Error("新闻列表包含重复记录");
-    if (
-      input.scope === "range" &&
-      news.length !== Math.min(totalMatches, input.maxItems)
-    )
-      throw new Error("新闻范围未完整冻结");
-  }
-  if (!news.length) throw new Error("当前页没有可分析的新闻");
+async function currentNewsMethod() {
   const root = join(
     process.env.QUANT_SKILLS_DIR ?? join(homedir(), ".agent-skills", "skills"),
     "news-industry-classifier",
@@ -235,6 +207,86 @@ export async function analyzeNews(
     files: files.map(({ file, hash }) => ({ file, hash })),
   };
   const model = researchModel(false);
+  const version = createHash("sha256")
+    .update(JSON.stringify({ method, model }))
+    .digest("hex");
+  return { guide, labels, method, model, version };
+}
+export async function newsAnalysisPreflight(id: string) {
+  const record = get<NewsAnalysis>(id);
+  if (!record) throw new Error("分析档案已不存在");
+  if (record.aggregation) throw new Error("日聚合档案不能作为续作任务");
+  const current = await currentNewsMethod();
+  return {
+    id,
+    version: current.version,
+    model: current.model,
+    method: current.method,
+    previousModel: record.model,
+    previousMethod: record.method,
+    changed:
+      record.model !== current.model ||
+      JSON.stringify(record.method) !== JSON.stringify(current.method),
+    selected: record.news.length,
+    completed: record.items.length,
+  };
+}
+export async function analyzeNews(
+  rawInput: z.input<typeof newsAnalysisInput>,
+  signal?: AbortSignal,
+  onProgress?: (done: number, total: number) => void,
+  priority: "interactive" | "background" = "interactive",
+  beforeModel?: () => void,
+): Promise<NewsAnalysis> {
+  let input = newsAnalysisInput.parse(rawInput);
+  const expectedVersion = input.expectedVersion;
+  if (input.pageSelection && (input.scope !== "page" || input.resumeId))
+    throw new Error("页面身份仅用于新建当前页分析");
+  if (input.before && input.scope !== "range")
+    throw new Error("新闻游标仅用于查询范围分析");
+  signal?.throwIfAborted();
+  const frozen = input.resumeId ? get<NewsAnalysis>(input.resumeId) : undefined;
+  if (input.resumeId && !frozen)
+    throw new Error("待继续的新闻分析档案已不存在");
+  if (frozen)
+    input = newsAnalysisInput.parse({
+      ...frozen.input,
+      resumeId: undefined,
+      pageSelection: undefined,
+      expectedVersion: undefined,
+    });
+  const news: NewsAnalysis["news"] = frozen ? [...frozen.news] : [];
+  let totalMatches = frozen?.totalMatches ?? news.length;
+  if (!frozen) {
+    // One read-only SQLite transaction freezes count and all selected rows together.
+    const selectedPage = input.pageSelection
+      ? freezeNewsWorkspacePage(
+          settings().clsDbPath,
+          input,
+          input.pageSelection,
+        )
+      : undefined;
+    const result = selectedPage
+      ? { items: selectedPage.items, count: selectedPage.total }
+      : readClsNews(settings().clsDbPath, {
+          ...input,
+          page: input.scope === "range" ? 0 : input.page,
+          limit: input.scope === "range" ? input.maxItems : 50,
+        });
+    totalMatches = result.count ?? result.items.length;
+    news.push(...result.items);
+    if (new Set(news.map((n) => n.id)).size !== news.length)
+      throw new Error("新闻列表包含重复记录");
+    if (
+      input.scope === "range" &&
+      news.length !== Math.min(totalMatches, input.maxItems)
+    )
+      throw new Error("新闻范围未完整冻结");
+  }
+  if (!news.length) throw new Error("当前页没有可分析的新闻");
+  const { guide, labels, method, model, version } = await currentNewsMethod();
+  if (expectedVersion && expectedVersion !== version)
+    throw new Error("模型或分类规则已变化，请刷新预检后重试");
   signal?.throwIfAborted();
   const id =
     "news-analysis-" +

@@ -2,10 +2,17 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import Database from "better-sqlite3";
+import {
+  seedNewsSource,
+  newsFixtureCutoff,
+} from "../helpers/news-workspace-fixture";
+import { newsWorkspacePage } from "../../src/server/news/news-workspace-query";
 const state = vi.hoisted(() => ({
   records: new Map<string, unknown>(),
   model: vi.fn(),
   news: vi.fn(),
+  path: "fixture",
 }));
 vi.mock("../../src/server/db/index", () => ({
   get: (id: string) => state.records.get(id),
@@ -32,7 +39,7 @@ vi.mock("../../src/server/data-sources/cls/cls-news", () => ({
   readClsNews: state.news,
 }));
 vi.mock("../../src/server/infra/settings", () => ({
-  settings: () => ({ clsDbPath: "fixture" }),
+  settings: () => ({ clsDbPath: state.path }),
 }));
 vi.mock("../../src/server/research/research", () => ({
   researchModel: () => "codex:default",
@@ -41,12 +48,14 @@ vi.mock("../../src/server/research/research", () => ({
 import {
   analyzeNews,
   newsAnalysisView,
+  newsAnalysisPreflight,
   type NewsAnalysis,
 } from "../../src/server/news/news-analysis";
 const input = { cutoff: 1000, page: 0, query: "", historical: true };
 let guidePath: string, guide: string;
 beforeEach(async () => {
   state.records.clear();
+  state.path = "fixture";
   state.model.mockReset();
   const root = await mkdtemp(join(tmpdir(), "quant-news-method-"));
   vi.stubEnv("QUANT_SKILLS_DIR", root);
@@ -86,6 +95,56 @@ beforeEach(async () => {
   });
 });
 afterEach(() => vi.unstubAllEnvs());
+it("analyzes the exact displayed cursor page and rejects drift before any model call", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-news-page-analysis-"));
+  state.path = join(root, "source.sqlite");
+  const db = new Database(state.path);
+  try {
+    seedNewsSource(db, 121, true);
+    db.prepare("UPDATE news SET content=? WHERE id=49").run("长".repeat(2501));
+    const filter = { cutoff: newsFixtureCutoff, historical: true, query: "" };
+    const first = newsWorkspacePage(state.path, filter);
+    const second = newsWorkspacePage(state.path, {
+      ...filter,
+      cursor: first.nextCursor!,
+    });
+    const selection = {
+      source: second.source,
+      fingerprint: second.fingerprint,
+      cursor: first.nextCursor!,
+    };
+    const result = await analyzeNews({
+      ...filter,
+      page: 0,
+      scope: "page",
+      pageSelection: selection,
+    });
+    expect(result.news.map((n) => [n.id, n.hash])).toEqual(
+      second.items.map((n) => [n.id, n.hash]),
+    );
+    expect(result.items.map((n) => n.id)).toEqual(
+      second.items.map((n) => n.id),
+    );
+    expect(result.news.find((n) => n.id === 49)!.content).toHaveLength(2501);
+    const modelInputs = state.model.mock.calls.flatMap(([prompt]) =>
+      JSON.parse(prompt.slice(prompt.lastIndexOf("\n新闻：") + 4)),
+    );
+    expect(modelInputs.find((n: { id: number }) => n.id === 49)).toMatchObject({
+      content: "长".repeat(2000),
+      truncated: true,
+    });
+    const count = state.model.mock.calls.length;
+    db.prepare("UPDATE news SET content=content || 'changed' WHERE id=?").run(
+      second.items[0]!.id,
+    );
+    await expect(
+      analyzeNews({ ...filter, scope: "page", pageSelection: selection }),
+    ).rejects.toThrow(/改变|变化|刷新/);
+    expect(state.model).toHaveBeenCalledTimes(count);
+  } finally {
+    db.close();
+  }
+});
 it("archives source and rule hashes, aggregates deterministically and invalidates cache on method changes", async () => {
   const result = await analyzeNews(input);
   expect(result).toMatchObject({
@@ -274,6 +333,13 @@ it("budget exhaustion archives the first batch and resumes only the remaining fr
 it("rejects missing, duplicated or invented classifications without saving a fake macro fallback", async () => {
   for (const items of [
     [],
+    [1, 999].map((id) => ({
+      id,
+      industry: "行业0",
+      impact: "neutral",
+      reason: "解释",
+      uncertainty: "未知",
+    })),
     [1, 1].map((id) => ({
       id,
       industry: "行业0",
@@ -507,4 +573,33 @@ it("下一批与历史恢复保留同一查询语境，使用时间及ID边界�
   await expect(
     analyzeNews({ ...original, scope: "page", before: { time: 1, id: 51 } }),
   ).rejects.toThrow("游标仅用于");
+});
+it("续作预检只读且拒绝预检后规则漂移，新版本保留原档案与新闻", async () => {
+  const original = await analyzeNews(input);
+  const first = await newsAnalysisPreflight(original.id);
+  expect(first.changed).toBe(false);
+  expect(state.model).toHaveBeenCalledTimes(1);
+  await writeFile(guidePath, guide + "\n变更规则");
+  await expect(
+    analyzeNews({
+      ...input,
+      resumeId: original.id,
+      expectedVersion: first.version,
+    }),
+  ).rejects.toThrow("刷新预检");
+  expect(state.model).toHaveBeenCalledTimes(1);
+  const changed = await newsAnalysisPreflight(original.id);
+  expect(changed.changed).toBe(true);
+  state.news.mockImplementation(() => {
+    throw new Error("续作不得重读新闻来源");
+  });
+  const next = await analyzeNews({
+    ...input,
+    resumeId: original.id,
+    expectedVersion: changed.version,
+  });
+  expect(next.id).not.toBe(original.id);
+  expect(next.news).toEqual(original.news);
+  expect(state.records.get(original.id)).toBeDefined();
+  expect(state.model).toHaveBeenCalledTimes(2);
 });

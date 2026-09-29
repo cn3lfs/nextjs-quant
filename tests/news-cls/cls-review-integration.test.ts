@@ -36,7 +36,10 @@ import { RpsStore } from "../../src/server/screening/rps-store";
 import { rpsDay } from "../rps-fixture";
 import { previewClsReport } from "../../src/server/news/cls-report-files";
 import { ClsReviewStore } from "../../src/server/news/cls-review-store";
-import { fixClsSample } from "../../src/server/news/cls-review-service";
+import {
+  fixClsSample,
+  clsSampleEligibility,
+} from "../../src/server/news/cls-review-service";
 import { verifyClsSample } from "../../src/server/news/cls-verification";
 
 it("fixes a sector-RPS sample before open and persists matching close evidence without writing source files", async () => {
@@ -73,7 +76,21 @@ it("fixes a sector-RPS sample before open and persists matching close evidence w
     new RpsStore(db).saveDay(rps.day, [
       { symbol: "sh600000", values: rps.rows.at(-1)!.values },
     ]);
+    const rowsBeforePreview = db
+      .prepare("SELECT COUNT(*) count FROM records")
+      .get();
+    expect(await clsSampleEligibility(report.id)).toMatchObject({
+      allowed: true,
+      existingReportId: null,
+    });
+    expect(db.prepare("SELECT COUNT(*) count FROM records").get()).toEqual(
+      rowsBeforePreview,
+    );
     const sample = await fixClsSample(report.id);
+    expect(await clsSampleEligibility(report.id)).toMatchObject({
+      allowed: false,
+      existingReportId: report.id,
+    });
     expect(sample.selected).toMatchObject({
       symbol: "sh600000",
       basis: "sector-rps",
@@ -142,6 +159,18 @@ it("fixes a sector-RPS sample before open and persists matching close evidence w
       basis: "explicit-recommendation",
       rps: null,
     });
+    store.removeReport(explicitReport.id);
+    expect(store.sample(explicitSample.date)?.reason).toContain("日期占位");
+    expect(await clsSampleEligibility(explicitReport.id)).toMatchObject({
+      allowed: false,
+    });
+    const reimported = store.import(
+      explicitPreview,
+      explicitPreview.report.hash,
+    );
+    expect(await fixClsSample(reimported.id)).toEqual(
+      store.sample(explicitSample.date),
+    );
     // g4day 暂停（见 docs/decisions.md WF3）：CLS 校验不再叠加增量，解冻时恢复本段。
     // const incrementId = "cls-increment-fixture";
     // const increment = {
