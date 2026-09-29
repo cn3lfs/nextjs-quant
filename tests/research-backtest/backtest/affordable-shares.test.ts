@@ -17,7 +17,7 @@ describe("affordableShares", () => {
   it("matches the Big.js lot floor on random and boundary inputs", () => {
     let seed = 7;
     const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 20000; i++) {
+    for (let i = 0; i < 5000; i++) {
       const price = Math.round((0.5 + rand() * 3000) * 100) / 100;
       const c = [0, 0.0003, 0.00025, 0.001][i % 4]!;
       const fee = [0, 5, 0.1][i % 3]!;

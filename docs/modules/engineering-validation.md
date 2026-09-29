@@ -18,6 +18,8 @@
 
 测试 setup 会按需建临时 DB 目录；构建写入 `.next`、`runtime` 和桌面 prepare 目录；部分验收脚本可读本机数据或访问网络，必须先看具体脚本。代表结构检查：[src-organization](../../tests/engineering-validation/src-organization.test.ts)、[server-layout](../../tests/engineering-validation/server-layout.test.ts)；执行规则见 [operations](../operations.md)。
 
+Vitest 分两个项目，都是 4 路并行、单测 60 s 超时：`pure`（`scripts/lib/test-projects.ts` 判定不触及可写 IO 的文件）和 `io`（其余文件）。`io` 能并行的前提是 `tests/setup-data-dir.ts` 为每个测试文件单独创建 `QUANT_DATA_DIR`。新增测试若会写入每个文件隔离目录以外的共享位置（固定临时文件名、仓库文件、固定端口、全局进程），必须自行隔离；做不到时，要在 `vitest.config.ts` 中单独加一个串行项目并写明理由，不能改回整组串行。
+
 ## 维护指南
 
 持久用例归 `tests/<module>/` 或相应 package 测试，不因搬迁减少发现数。改变测试路径时同步更新相对 fixture、脚本、覆盖率、CI/命令发现规则和文档。结构护栏保护模块归属、目录公共入口和服务端依赖方向；不建立另一套全语言静态分析器。
