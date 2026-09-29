@@ -9,14 +9,8 @@ import { verifySecurityTradingStatus } from "./market/security-trading-status";
 import { currentTradingStatus } from "~/lib/market/security-trading-status";
 import { sameMonitorRun, sameMonitorBaseline } from "./monitoring/monitor-run";
 import { randomUUID } from "node:crypto";
-import type {
-  Monitor,
-  Signal,
-  Job,
-  Coverage,
-  Period,
-} from "~/lib/domain";
-import { put, get, list, atomic, sqlite } from "./db";
+import type { Monitor, Signal, Job, Coverage, Period } from "~/lib/domain";
+import { put, get, atomic, sqlite } from "./db";
 import { settings } from "./infra/settings";
 import { runWorker, background, recoverJobs, updateJob } from "./jobs/jobs";
 import { metrics } from "~/lib/screening/screening-metrics";
@@ -119,7 +113,15 @@ export async function tick() {
     resuming = !state.lastTick || now - state.lastTick > 120000;
   state.lastTick = now;
   try {
-    const monitors = list<Monitor>("monitor").filter((m) => m.enabled);
+    // Background execution must see every enabled subscription; the generic
+    // history helper defaults to 200 records and is only suitable for UI history.
+    const monitors = (
+      sqlite()
+        .prepare(
+          "SELECT payload FROM records WHERE kind='monitor' AND json_extract(payload,'$.enabled')=1 ORDER BY updated_at DESC,id DESC",
+        )
+        .all() as { payload: string }[]
+    ).map((row) => JSON.parse(row.payload) as Monitor);
     if (!monitors.length) return;
     const config = settings();
     const reference = await monitorCalendar(

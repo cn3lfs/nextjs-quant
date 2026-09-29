@@ -48,6 +48,9 @@ export function projectCzsc(
   configs: readonly number[] = [0, 1100],
   flags = 0,
   nested = false,
+  /** Include the per-bar table (full-history rows); callers that only read
+   * structure and signals pass false to keep IPC small. */
+  bars = true,
 ): Promise<CzscSnapshot> {
   // Queue entire jobs; retain the singleton across Next HMR.
   const message = {
@@ -55,6 +58,7 @@ export function projectCzsc(
     configs: [...configs],
     flags,
     nested,
+    bars,
   };
   const job = (scope.czscQueue ?? Promise.resolve()).then(
     () =>
@@ -335,6 +339,7 @@ export async function analyzeCzsc(
     input,
     [0, 1100],
     research ? CZSC_FLAG_HIGHER : 0,
+    research,
     research,
   );
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {

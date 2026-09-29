@@ -1,5 +1,63 @@
+import {
+  monitorSaveSchema,
+  monitorToggleSchema,
+  deliveryConfirmSchema,
+} from "~/lib/strategy-facts/monitor-workspace-actions";
+import {
+  saveWorkspaceMonitor,
+  toggleWorkspaceMonitor,
+  confirmWorkspaceDelivery,
+  monitorConfigurationVersion,
+} from "../../monitoring/monitor-workspace-actions";
+import {
+  monitorPageSchema,
+  signalPageSchema,
+  deliveryPageSchema,
+  monitorWorkspaceId,
+} from "~/lib/strategy-facts/monitor-workspace";
+import {
+  monitorWorkspacePage,
+  signalWorkspacePage,
+  deliveryWorkspacePage,
+  monitorWorkspaceSummary,
+  monitorWorkspaceExport,
+  monitorWorkspaceDetail,
+  signalWorkspaceDetail,
+  deliveryWorkspaceDetail,
+} from "../../monitoring/monitor-workspace-query";
 import { marketSourceSchema } from "~/lib/market/market-source";
-import { intradayConfigSchema } from "~/lib/strategy-facts/intraday-schedule";
+import { localCalendarReference } from "../../market/data-health";
+import { settings } from "../../infra/settings";
+import {
+  ledgerHistorySchema,
+  ledgerRunsSchema,
+  ledgerDecisionsSchema,
+  ledgerDateSchema,
+  ledgerIdSchema,
+} from "~/lib/strategy-facts/signal-ledger-query";
+import {
+  ledgerHistory,
+  ledgerSummary,
+  ledgerDetail,
+  ledgerRuns,
+  ledgerDecisions,
+  ledgerAnalysis,
+} from "../../monitoring/signal-ledger-query";
+import { SignalLedgerStore } from "../../monitoring/signal-ledger-store";
+import type { NotificationDecision } from "~/lib/strategy-facts/notification-policy";
+import {
+  intradayConfigSchema,
+  intradaySchedule,
+} from "~/lib/strategy-facts/intraday-schedule";
+import {
+  intradayHistorySchema,
+  intradayRunsSchema,
+} from "~/lib/strategy-facts/intraday-history";
+import {
+  intradayHistory,
+  intradayRuns,
+} from "../../monitoring/intraday-history";
+import type { IntradayRun } from "../../monitoring/intraday-job";
 import {
   intradayConfig,
   intradayLastCheck,
@@ -35,6 +93,113 @@ function recordOfKind<T>(kind: string, id: string): T | undefined {
   return row ? (JSON.parse(row.payload) as T) : undefined;
 }
 export const monitoringRouter = createTRPCRouter({
+  monitorWorkspaceSave: p.input(monitorSaveSchema).mutation(({ input }) => {
+    const value = saveWorkspaceMonitor(chartSqlite(), input);
+    return {
+      ...value,
+      configurationVersion: monitorConfigurationVersion(value),
+    };
+  }),
+  monitorWorkspaceToggle: p
+    .input(monitorToggleSchema)
+    .mutation(({ input }) => toggleWorkspaceMonitor(chartSqlite(), input)),
+  deliveryWorkspaceConfirm: p
+    .input(deliveryConfirmSchema)
+    .mutation(({ input }) => confirmWorkspaceDelivery(chartSqlite(), input)),
+  monitorWorkspaceExport: p
+    .input(
+      z.object({
+        kind: z.enum(["monitor", "signal", "delivery"]),
+        id: monitorWorkspaceId,
+      }),
+    )
+    .query(({ input }) =>
+      monitorWorkspaceExport(chartSqlite(), input.kind, input.id),
+    ),
+  monitorWorkspaceSummary: p.query(() =>
+    monitorWorkspaceSummary(chartSqlite()),
+  ),
+  monitorWorkspacePage: p
+    .input(monitorPageSchema)
+    .query(({ input }) => monitorWorkspacePage(chartSqlite(), input)),
+  signalWorkspacePage: p
+    .input(signalPageSchema)
+    .query(({ input }) => signalWorkspacePage(chartSqlite(), input)),
+  deliveryWorkspacePage: p
+    .input(deliveryPageSchema)
+    .query(({ input }) => deliveryWorkspacePage(chartSqlite(), input)),
+  monitorWorkspaceDetail: p
+    .input(monitorWorkspaceId)
+    .query(({ input }) => monitorWorkspaceDetail(chartSqlite(), input)),
+  signalWorkspaceDetail: p
+    .input(monitorWorkspaceId)
+    .query(({ input }) => signalWorkspaceDetail(chartSqlite(), input)),
+  deliveryWorkspaceDetail: p
+    .input(monitorWorkspaceId)
+    .query(({ input }) => deliveryWorkspaceDetail(chartSqlite(), input)),
+  ledgerCalendar: p.query(async () => {
+    const config = settings();
+    const reference = await localCalendarReference(
+      config.tdxRoot,
+      config.calendar,
+    );
+    const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+    const days = [...new Set(reference.days)]
+      .filter((day) => ledgerDateSchema.safeParse(day).success && day <= today)
+      .sort()
+      .slice(-30);
+    return {
+      from: days.length === 30 ? days[0]! : null,
+      to: days.length === 30 ? days.at(-1)! : null,
+      source: reference.source,
+    };
+  }),
+  ledgerSummary: p.query(() => ledgerSummary(chartSqlite())),
+  ledgerHistory: p
+    .input(ledgerHistorySchema)
+    .query(({ input }) => ledgerHistory(chartSqlite(), input)),
+  ledgerDetail: p
+    .input(ledgerIdSchema)
+    .query(({ input }) => ledgerDetail(chartSqlite(), input)),
+  ledgerRuns: p
+    .input(ledgerRunsSchema)
+    .query(({ input }) => ledgerRuns(chartSqlite(), input)),
+  ledgerRunDetail: p.input(ledgerDateSchema).query(({ input }) => {
+    const run = new SignalLedgerStore(chartSqlite()).run(input);
+    if (!run) throw new Error("台账任务不存在");
+    return run;
+  }),
+  ledgerDecisions: p
+    .input(ledgerDecisionsSchema)
+    .query(({ input }) => ledgerDecisions(chartSqlite(), input)),
+  ledgerDecisionDetail: p.input(ledgerIdSchema).query(({ input }) => {
+    const decision = recordOfKind<NotificationDecision>(
+      "notification-decision",
+      input,
+    );
+    if (!decision) throw new Error("投递决策不存在");
+    return decision;
+  }),
+  ledgerAnalysis: p.query(() => ledgerAnalysis(chartSqlite())),
+  intradayRuns: p
+    .input(intradayRunsSchema)
+    .query(({ input }) => intradayRuns(chartSqlite(), input)),
+  intradayRunDetail: p
+    .input(z.string().regex(/^intraday-run:[a-f0-9]{64}$/))
+    .query(({ input }) => {
+      const run = recordOfKind<IntradayRun>("intraday-run", input);
+      if (!run) throw new Error("预选批次不存在");
+      return run;
+    }),
+  intradaySummary: p.query(() => ({
+    config: intradayConfig(),
+    lastCheck: intradayLastCheck(),
+    worker: intradayWorkerStatus(),
+  })),
+  intradayStorage: p.query(() => new IntradayStore(chartSqlite()).usage()),
+  intradayHistory: p
+    .input(intradayHistorySchema)
+    .query(({ input }) => intradayHistory(chartSqlite(), input)),
   intradayStatus: p
     .input(z.object({ offset: z.number().int().min(0).default(0) }))
     .query(({ input }) => {
@@ -86,29 +251,43 @@ export const monitoringRouter = createTRPCRouter({
       new IntradayStore(chartSqlite()).remove(input);
       return { removed: true };
     }),
-  intradayRun: p.mutation(() => {
-    void scheduleIntraday(Date.now(), true);
-    return intradayWorkerStatus();
+  intradayRun: p.mutation(async () => {
+    if (intradayWorkerStatus().running) return { outcome: "running" as const };
+    const config = intradayConfig();
+    if (!config.enabled) return { outcome: "disabled" as const };
+    const dependencies = intradayDependencies((bars) =>
+      analyzeCzsc(bars, true),
+    );
+    const calendar = await dependencies.calendar();
+    const now = Date.now();
+    const schedule = intradaySchedule(config, now, calendar);
+    if (schedule.trading !== "open") return { outcome: schedule.trading };
+    if (!schedule.previousTradingDay) return { outcome: "unknown" as const };
+    const due = schedule.slots.some((slot) => slot.status === "due");
+    const missed = schedule.slots.some((slot) => slot.status === "missed");
+    if (!due && !missed && !schedule.closeDue)
+      return { outcome: "pending" as const };
+    if (intradayWorkerStatus().running) return { outcome: "running" as const };
+    void scheduleIntraday(now, true);
+    return {
+      outcome: due
+        ? ("started" as const)
+        : schedule.closeDue
+          ? ("confirming" as const)
+          : ("missed" as const),
+    };
   }),
   saveChannel: p.input(z.unknown()).mutation(({ input }) => saveChannel(input)),
   testChannel: p.input(z.string()).mutation(({ input }) => testDelivery(input)),
   deliveries: p.query(() => list<Delivery>("delivery", 200)),
   retryDelivery: p.input(z.string()).mutation(({ input }) => {
-    const d = recordOfKind<Delivery>("delivery", input);
-    if (!d) throw new Error("投递不存在");
-    const id = `manual-${randomUUID()}`;
-    return put("delivery", id, {
-      ...d,
-      id,
-      body: `【手动重发历史通知】\n${d.body}`,
-      manualRetry: true,
-      remoteId: undefined,
-      error: undefined,
-      status: "pending",
-      attempts: 0,
-      nextAt: Date.now(),
-      expiresAt: Date.now() + 600000,
-      createdAt: Date.now(),
+    const original = deliveryWorkspaceDetail(chartSqlite(), input);
+    if (!original) throw new Error("投递不存在");
+    if (!original.channel) throw new Error("通知渠道不存在");
+    return confirmWorkspaceDelivery(chartSqlite(), {
+      deliveryId: input,
+      requestId: randomUUID(),
+      expectedChannelVersion: original.channel.destinationVersion,
     });
   }),
   monitors: p.query(() => list<Monitor>("monitor")),

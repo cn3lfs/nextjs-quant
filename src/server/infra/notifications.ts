@@ -77,6 +77,7 @@ export async function saveChannel(input: unknown) {
     target: value.target,
     thread: value.thread,
     configured: true,
+    revision: randomUUID(),
   });
 }
 export function renderSignal(signal: Signal) {

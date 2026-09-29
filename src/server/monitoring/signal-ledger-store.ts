@@ -1,5 +1,9 @@
 import type Database from "better-sqlite3";
-import type { LedgerSignal, LedgerRow, Outcome } from "~/lib/strategy-facts/signal-ledger";
+import type {
+  LedgerSignal,
+  LedgerRow,
+  Outcome,
+} from "~/lib/strategy-facts/signal-ledger";
 import { NotificationPolicyStore } from "../infra/notification-policy-store";
 import type { NotificationDecision } from "~/lib/strategy-facts/notification-policy";
 
@@ -34,12 +38,23 @@ export class SignalLedgerStore {
       .run(run.date, JSON.stringify(run));
   }
   cancel(date: string) {
-    this.db
-      .prepare(
-        `UPDATE signal_ledger_runs SET payload=json_set(payload,'$.cancelRequested',json('true'))
+    return this.db
+      .transaction(() => {
+        const run = this.run(date);
+        if (!run) return { outcome: "not-found" as const, run: null };
+        if (run.status !== "running")
+          return { outcome: "finished" as const, run };
+        if (run.cancelRequested)
+          return { outcome: "already-requested" as const, run };
+        this.db
+          .prepare(
+            `UPDATE signal_ledger_runs SET payload=json_set(payload,'$.cancelRequested',json('true'))
       WHERE date=? AND json_extract(payload,'$.status')='running'`,
-      )
-      .run(date);
+          )
+          .run(date);
+        return { outcome: "requested" as const, run: this.run(date)! };
+      })
+      .immediate();
   }
   baseline(symbol: string): { date: string; keys: string[] } | undefined {
     return this.read(

@@ -1,7 +1,16 @@
-import type { Delivery, Monitor, Signal } from "~/lib/domain";
+import type { Channel, Delivery, Monitor, Signal } from "~/lib/domain";
 import { get } from "../db";
+import { channelDestinationVersion } from "./channel-version";
 
 export function deliveryCancellationReason(delivery: Delivery): string | null {
+  if (delivery.manualRetry && delivery.confirmedChannelVersion) {
+    const channel = get<Channel>(delivery.channelId);
+    if (
+      !channel ||
+      channelDestinationVersion(channel) !== delivery.confirmedChannelVersion
+    )
+      return "渠道目标已变化，请重新核对后确认人工投递";
+  }
   // These are separately initiated user actions, not automatic subscription events.
   if (delivery.kind === "test" || delivery.manualRetry === true) return null;
   if (delivery.kind === "summary") {

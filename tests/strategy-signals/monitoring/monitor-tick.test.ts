@@ -19,7 +19,8 @@ const mocked = vi.hoisted(() => ({
   analyze: vi.fn(),
 }));
 vi.mock("../../../src/server/db/index", async (original) => {
-  const actual = await original<typeof import("../../../src/server/db/index")>();
+  const actual =
+    await original<typeof import("../../../src/server/db/index")>();
   return {
     ...actual,
     atomic: <T>(fn: () => T) => {
@@ -131,6 +132,24 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.useRealTimers());
+it("establishes every enabled subscription baseline beyond the UI history limit", async () => {
+  const original = get<Monitor>("monitor-fixture")!;
+  sqlite().transaction(() => {
+    for (let i = 0; i < 999; i++) {
+      const id = `monitor-many-${i}`;
+      put("monitor", id, { ...original, id });
+    }
+  })();
+  await tick();
+  const checked = sqlite()
+    .prepare(
+      "SELECT count(*) n FROM records WHERE kind='monitor' AND json_extract(payload,'$.lastCheck') IS NOT NULL",
+    )
+    .get() as { n: number };
+  expect(checked.n).toBe(1000);
+  expect(list("signal")).toHaveLength(0);
+  expect(mocked.enqueue).not.toHaveBeenCalled();
+});
 it("persists one fresh transition with calendar provenance and deduplicates the same completed bar", async () => {
   await tick();
   expect(list("signal")).toHaveLength(0);

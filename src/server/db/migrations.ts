@@ -1,4 +1,24 @@
 import type Database from "better-sqlite3";
+/** Cover list metadata without reading immutable, potentially large bar evidence. */
+export const intradaySummaryIndexes = `
+  CREATE INDEX intraday_preview_summary ON records(kind,id,updated_at,
+    jsonb(json_extract(payload,'$.sessionId','$.snapshot.symbol','$.barCutoff','$.rps','$.rpsDate','$.snapshot.source')),
+    COALESCE(json_array_length(payload,'$.signals'),0))
+    WHERE kind='intraday-preview' AND json_valid(payload);
+  CREATE INDEX intraday_close_summary ON records(kind,CAST(json_extract(payload,'$.observationId') AS TEXT),
+    CASE WHEN json_type(payload,'$.close.signalKeys')='array' THEN 1 ELSE 0 END)
+    WHERE kind='intraday-close' AND json_valid(payload);`;
+/** Metadata-only coverage for /signals. Keep expressions aligned with monitor-workspace-query. */
+export const monitorWorkspaceIndexes = `
+ CREATE INDEX monitor_workspace_delivery_history ON records(kind,json_extract(payload,'$.createdAt') DESC,id DESC,
+   json_extract(payload,'$.signalId'),json_extract(payload,'$.channelId'),json_extract(payload,'$.kind'),
+   json_extract(payload,'$.title'),json_extract(payload,'$.status'),json_extract(payload,'$.attempts'),
+   json_extract(payload,'$.nextAt'),json_extract(payload,'$.expiresAt'),json_extract(payload,'$.manualRetry'),
+   json_extract(payload,'$.sourceDeliveryId'),json_extract(payload,'$.summarySignalIds'),substr(json_extract(payload,'$.error'),1,300)) WHERE kind='delivery';
+ CREATE INDEX monitor_workspace_signal_history ON records(kind,json_extract(payload,'$.createdAt') DESC,id DESC) WHERE kind='signal';
+ CREATE INDEX monitor_workspace_delivery_signal ON records(kind,json_extract(payload,'$.signalId'),id,json_extract(payload,'$.status')) WHERE kind='delivery';
+ CREATE INDEX monitor_workspace_summary_members ON records(kind,json_type(payload,'$.summarySignalIds'),json_extract(payload,'$.summarySignalIds'),id,json_extract(payload,'$.status')) WHERE kind='delivery' AND json_type(payload,'$.summarySignalIds')='array';
+`;
 const migrations = [
   `CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL);CREATE INDEX IF NOT EXISTS records_kind ON records(kind,updated_at);`,
   `CREATE INDEX IF NOT EXISTS delivery_status ON records(kind,json_extract(payload,'$.status'),updated_at);`,
@@ -53,6 +73,8 @@ const migrations = [
      batch_id TEXT NOT NULL REFERENCES import_batches(id), payload TEXT NOT NULL);
    CREATE INDEX cash_flows_account_date ON cash_flows(account,flow_date);
    CREATE INDEX cash_flows_batch ON cash_flows(batch_id);`,
+  intradaySummaryIndexes,
+  monitorWorkspaceIndexes,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

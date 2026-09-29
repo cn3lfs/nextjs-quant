@@ -81,6 +81,36 @@ it("preserves previews, retries unavailable closes and never rewrites settled re
     ).toEqual(settled);
     expect(store.observation(first.id)).toEqual(preview);
     expect(store.page()[0]?.attempts).toHaveLength(2);
+    const mixed = store.record({
+      ...preview,
+      sessionId: "mixed",
+      signals: [...preview.signals, { ...preview.signals[0]!, key: "other" }],
+    });
+    expect(
+      store
+        .confirm(mixed.id, {
+          observedAt: now,
+          signalKeys: ["buy"],
+          snapshotHash: "mixed-close",
+          reason: null,
+        })
+        .signals.map((signal) => signal.status),
+    ).toEqual(["confirmed", "withdrawn"]);
+    store.remove(mixed.id);
+    const noSignal = store.record({
+      ...preview,
+      sessionId: "no-signal",
+      signals: [],
+    });
+    expect(
+      store.confirm(noSignal.id, {
+        observedAt: now,
+        signalKeys: [],
+        snapshotHash: "empty-close",
+        reason: null,
+      }).signals,
+    ).toEqual([]);
+    store.remove(noSignal.id);
     db.prepare("INSERT INTO records VALUES ('unrelated','test','{}',0)").run();
     store.remove(first.id);
     expect(store.page()).toEqual([]);

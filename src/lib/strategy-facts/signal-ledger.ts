@@ -105,10 +105,15 @@ export function ledgerOutcome(
   return out;
 }
 
-export function aggregateLedger(rows: readonly LedgerRow[]) {
+type AggregateRow = Pick<LedgerRow, "strategy" | "quality" | "outcomes">;
+export function aggregateLedger(rows: readonly AggregateRow[]) {
   const groups = new Map<
     string,
-    { strategy: LedgerSignal["strategy"]; quality: string; rows: LedgerRow[] }
+    {
+      strategy: LedgerSignal["strategy"];
+      quality: string;
+      rows: AggregateRow[];
+    }
   >();
   for (const row of rows) {
     const key = `${row.strategy}:${row.quality}`;

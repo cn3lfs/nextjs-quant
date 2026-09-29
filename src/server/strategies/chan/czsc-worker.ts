@@ -273,6 +273,8 @@ process.on(
     configs: number[];
     flags: number;
     nested: boolean;
+    /** Per-bar table (MACD, MA, kisses…); omitted when false. */
+    bars?: boolean;
   }) => {
     const handles: unknown[] = [];
     try {
@@ -300,10 +302,27 @@ process.on(
         if (!handle) throw failure("CZSC build failed");
         handles.push(handle);
         byConfig.set(config, handle);
+        // Decode and ship only what the caller uses: the per-bar table is a
+        // row per bar of full history, and recursion/event tables are empty
+        // unless their flags are set. Monitoring and the full-market ledger
+        // call once per security, so this dominates IPC volume.
+        const wanted = (key: string) =>
+          key === "bars"
+            ? message.bars !== false
+            : key === "events"
+              ? (message.flags & 1) !== 0
+              : [
+                    "nodes",
+                    "children",
+                    "recursiveCenters",
+                    "connections",
+                  ].includes(key)
+                ? (message.flags & 2) !== 0
+                : true;
         families[config] = Object.fromEntries(
           Object.entries(tables).map(([key, [fn, type]]) => [
             key,
-            read(fn as never, type, handle),
+            wanted(key) ? read(fn as never, type, handle) : [],
           ]),
         ) as unknown as CzscRawFamily;
       }

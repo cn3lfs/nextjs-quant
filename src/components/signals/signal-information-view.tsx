@@ -1,18 +1,39 @@
 import Link from "next/link";
 import { signalInformation } from "~/lib/strategy-facts/signal-information";
 import type { LedgerRow } from "~/lib/strategy-facts/signal-ledger";
-import { SignalInformationTables } from "./signal-information-tables";
+import {
+  SignalInformationTables,
+  type SignalInformationDisplay,
+} from "./signal-information-tables";
+import { Button } from "../ui/button";
 import { ChartScatter } from "@phosphor-icons/react/ssr";
 import { Panel } from "../panels";
 
 export function SignalInformationView({
-  rows,
+  rows = [],
   page = 1,
+  computed,
+  onPageChange,
 }: {
-  rows: readonly LedgerRow[];
+  rows?: readonly LedgerRow[];
   page?: number;
+  computed?: SignalInformationDisplay;
+  onPageChange?: (page: number) => void;
 }) {
-  const result = signalInformation(rows);
+  // The live ledger supplies the server's full-population summary. Retain the
+  // pure row renderer for fixed-sample callers without duplicating disclosure UI.
+  const calculated = computed ? undefined : signalInformation(rows);
+  const result = computed ?? {
+    decay: calculated!.decay,
+    groups: calculated!.groups.map(({ daily, ...group }) => {
+      const sectionReasons: Record<string, number> = {};
+      for (const section of daily)
+        if (section.reason)
+          sectionReasons[section.reason] =
+            (sectionReasons[section.reason] ?? 0) + 1;
+      return { ...group, sectionReasons };
+    }),
+  };
   const pageCount = Math.max(1, result.decay.length);
   const current = Math.min(pageCount, Math.max(1, Math.trunc(page) || 1));
   const selected = result.decay.slice(current - 1, current);
@@ -27,7 +48,7 @@ export function SignalInformationView({
       aria-label="信息含量"
       icon={ChartScatter}
       title="信息含量"
-      bodyClassName="space-y-4 text-[12px] text-nc-text-2"
+      bodyClassName="min-w-0 space-y-4 overflow-x-auto text-[12px] text-nc-text-2"
     >
       <p className="m-0">
         出处：V3 信号信息含量口径。按策略 × 方向 ×
@@ -55,34 +76,34 @@ export function SignalInformationView({
                 为负。
               </p>
             )}
-            <SignalInformationTables
-              groups={groups.map(({ daily, ...group }) => {
-                const sectionReasons: Record<string, number> = {};
-                for (const section of daily)
-                  if (section.reason)
-                    sectionReasons[section.reason] =
-                      (sectionReasons[section.reason] ?? 0) + 1;
-                return { ...group, sectionReasons };
-              })}
-              decay={[d]}
-            />
+            <SignalInformationTables groups={groups} decay={[d]} />
           </div>
         ))
       )}
       <nav aria-label="信息含量分页" className="flex items-center gap-4">
-        {current > 1 && (
-          <Link href={`?informationPage=${current - 1}#signal-information`}>
-            上一页
-          </Link>
-        )}
+        {current > 1 &&
+          (onPageChange ? (
+            <Button size="sm" onClick={() => onPageChange(current - 1)}>
+              上一组分析
+            </Button>
+          ) : (
+            <Link href={`?informationPage=${current - 1}#signal-information`}>
+              上一页
+            </Link>
+          ))}
         <span>
           第 {current} / {pageCount} 页
         </span>
-        {current < pageCount && (
-          <Link href={`?informationPage=${current + 1}#signal-information`}>
-            下一页
-          </Link>
-        )}
+        {current < pageCount &&
+          (onPageChange ? (
+            <Button size="sm" onClick={() => onPageChange(current + 1)}>
+              下一组分析
+            </Button>
+          ) : (
+            <Link href={`?informationPage=${current + 1}#signal-information`}>
+              下一页
+            </Link>
+          ))}
       </nav>
     </Panel>
   );

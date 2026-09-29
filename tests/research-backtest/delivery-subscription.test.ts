@@ -18,12 +18,18 @@ import {
   drain,
   enqueue,
   recoverDeliveries,
+  saveChannel,
 } from "../../src/server/infra/notifications";
+import {
+  channelDestinationVersion,
+  confirmWorkspaceDelivery,
+} from "../../src/server/monitoring/monitor-workspace-actions";
 import {
   strategySchema,
   type Monitor,
   type Signal,
   type Delivery,
+  type Channel,
 } from "../../src/lib/domain";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-outbox-run-"));
 let monitor: Monitor, signal: Signal;
@@ -81,6 +87,68 @@ beforeEach(() => {
   });
   enqueue(signal, [id], "signal");
 });
+it.each(["before-claim", "after-credentials"])(
+  "binds a confirmed manual delivery to the saved destination version: %s",
+  async (when) => {
+    const original = { ...item(), status: "failed" as const };
+    put("delivery", original.id, original);
+    const channel = get<Channel>(original.channelId)!;
+    const manual = confirmWorkspaceDelivery(sqlite(), {
+      deliveryId: original.id,
+      requestId: crypto.randomUUID(),
+      expectedChannelVersion: channelDestinationVersion(channel),
+    });
+    const changeDestination = () =>
+      put("channel", channel.id, {
+        ...channel,
+        revision: "new-credential-version",
+      });
+    if (when === "before-claim") changeDestination();
+    else
+      mocks.secret.mockImplementationOnce(async () => {
+        changeDestination();
+        return { secret: "fixture-only" };
+      });
+    await drain();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(get<Delivery>(manual.id)).toMatchObject({
+      status: "cancelled",
+      error: "渠道目标已变化，请重新核对后确认人工投递",
+    });
+    expect(get<Delivery>(original.id)).toEqual(original);
+  },
+);
+it("saving the same public destination changes its opaque version without exposing credentials", async () => {
+  const channel = get<Channel>(monitor.channels[0]!)!;
+  const before = channelDestinationVersion(channel);
+  mocks.secret.mockResolvedValue({ secret: "fixture-only" });
+  const saved = await saveChannel({
+    ...channel,
+    name: "saved fixture",
+    enabled: true,
+    secret: "123:fixture_only",
+  });
+  expect(saved.revision).toBeTypeOf("string");
+  expect(channelDestinationVersion(saved)).not.toBe(before);
+  expect(saved).not.toHaveProperty("secret");
+});
+it("sends a newly confirmed manual item through the unchanged destination exactly once", async () => {
+  const original = { ...item(), status: "failed" as const };
+  put("delivery", original.id, original);
+  const channel = get<Channel>(original.channelId)!;
+  const manual = confirmWorkspaceDelivery(sqlite(), {
+    deliveryId: original.id,
+    requestId: crypto.randomUUID(),
+    expectedChannelVersion: channelDestinationVersion(channel),
+  });
+  const send = vi.fn(async () => "fixture-receipt");
+  await drain(send);
+  await drain(send);
+  expect(send).toHaveBeenCalledOnce();
+  expect(get<Delivery>(manual.id)?.status).toBe("sent");
+  expect(get<Delivery>(original.id)).toEqual(original);
+});
+
 function item() {
   const row = sqlite()
     .prepare("SELECT payload FROM records WHERE kind='delivery'")

@@ -94,12 +94,22 @@ function stratify(samples: Sample[], requestedQ: number) {
   };
 }
 
+type InformationRow = Pick<
+  LedgerRow,
+  | "id"
+  | "symbol"
+  | "observedDate"
+  | "strategy"
+  | "direction"
+  | "score"
+  | "outcomes"
+>;
 /** V3 / invariants §5: price returns retain their sign for both directions. */
-export function signalInformation(rows: readonly LedgerRow[], q = 5) {
+export function signalInformation(rows: readonly InformationRow[], q = 5) {
   if (!Number.isInteger(q) || q < 3)
     throw new RangeError("Q 必须为不小于3的整数");
-  const winners = new Map<string, LedgerRow>();
-  const key = (r: LedgerRow) =>
+  const winners = new Map<string, InformationRow>();
+  const key = (r: InformationRow) =>
     JSON.stringify([r.symbol, r.observedDate, r.strategy]);
   for (const row of rows) {
     const previous = winners.get(key(row));
@@ -110,7 +120,7 @@ export function signalInformation(rows: readonly LedgerRow[], q = 5) {
     {
       strategy: LedgerRow["strategy"];
       direction: LedgerRow["direction"];
-      rows: LedgerRow[];
+      rows: InformationRow[];
     }
   >();
   for (const row of rows) {

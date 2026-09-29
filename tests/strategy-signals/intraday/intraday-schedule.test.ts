@@ -48,3 +48,30 @@ it("validates configurable times and supported RPS periods", () => {
     intradayConfigSchema.parse({ noon: "11:25", late: "14:50" }).late,
   ).toBe("14:50");
 });
+
+it("keeps launch and close boundaries exact to a millisecond", () => {
+  const config = intradayConfigSchema.parse({ enabled: true });
+  const calendar = { days: ["2024-03-01", "2024-03-04"] };
+  for (const [slot, time] of [
+    [0, "11:20"],
+    [1, "14:40"],
+  ] as const) {
+    const start = Date.parse(`2024-03-04T${time}:00+08:00`);
+    expect(
+      intradaySchedule(config, start - 1, calendar).slots[slot]?.status,
+    ).toBe("pending");
+    expect(intradaySchedule(config, start, calendar).slots[slot]?.status).toBe(
+      "due",
+    );
+    expect(
+      intradaySchedule(config, start + 300000 - 1, calendar).slots[slot]
+        ?.status,
+    ).toBe("due");
+    expect(
+      intradaySchedule(config, start + 300000, calendar).slots[slot]?.status,
+    ).toBe("missed");
+  }
+  const close = Date.parse("2024-03-04T15:05:00+08:00");
+  expect(intradaySchedule(config, close - 1, calendar).closeDue).toBe(false);
+  expect(intradaySchedule(config, close, calendar).closeDue).toBe(true);
+});

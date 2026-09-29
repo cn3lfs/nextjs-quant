@@ -10,7 +10,7 @@ import { readMarketPool } from "../market/market-pool-files";
 import { readSnapshot } from "../data-sources/tdx/tdx";
 import { barPage } from "../data-sources/tdx/tdx-quotes";
 import {
-  latestRpsObservation,
+  type RpsObservation,
   observationRanking,
 } from "../screening/rps-observation";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
@@ -23,10 +23,32 @@ export async function intradayPool(
 ) {
   const app = settings();
   const store = new RpsStore(sqlite());
-  const observation = latestRpsObservation(app.tdxRoot, availableAt);
+  // Only a completed previous-day observation was available to this preview.
+  // A newer intraday RPS must not be relabeled as yesterday's input.
+  const observations = sqlite()
+    .prepare(
+      `SELECT payload FROM records WHERE kind='rps-observation'
+     AND json_extract(payload,'$.date')=? AND json_extract(payload,'$.phase')='close'
+     AND json_extract(payload,'$.createdAt')<=?
+     ORDER BY json_extract(payload,'$.createdAt') DESC,id DESC`,
+    )
+    .all(previousTradingDay, availableAt) as { payload: string }[];
+  const observation = observations
+    .map((row) => JSON.parse(row.payload) as RpsObservation)
+    .find(
+      (row) =>
+        resolve(row.root) === resolve(app.tdxRoot) &&
+        row.day.date === previousTradingDay,
+    );
   const day = observation?.day ?? store.day(previousTradingDay);
-  if (!day || resolve(day.source.root) !== resolve(app.tdxRoot))
+  if (
+    !day ||
+    day.date !== previousTradingDay ||
+    resolve(day.source.root) !== resolve(app.tdxRoot)
+  )
     throw new Error("缺少当前数据目录上一交易日的RPS，请先计算");
+  if (!Number.isFinite(day.createdAt) || day.createdAt > availableAt)
+    throw new Error("上一交易日RPS在预选截止时点尚不可用，请等待下一预选窗口");
   const pool = config.pool
     ? await readMarketPool(app.industryBlocksRoot, config.pool, app.tdxRoot)
     : null;

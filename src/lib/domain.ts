@@ -195,7 +195,7 @@ export const channelSchema = z.object({
 export type Channel = Omit<
   z.infer<typeof channelSchema>,
   "secret" | "signingSecret" | "id"
-> & { id: string; configured: boolean };
+> & { id: string; configured: boolean; revision?: string };
 export type Signal = {
   breakout?: import("../server/strategies/breakout/breakout").BreakoutResult;
   czsc?: import("./research/methods/chan/czsc").CzscSignalDetails;
@@ -219,6 +219,9 @@ export type Signal = {
   source: string;
 };
 export type Delivery = {
+  sourceDeliveryId?: string;
+  requestId?: string;
+  confirmedChannelVersion?: string;
   policyDecisionIds?: string[];
   summarySignalIds?: string[];
   manualRetry?: boolean;

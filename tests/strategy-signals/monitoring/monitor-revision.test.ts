@@ -59,6 +59,15 @@ it("saving twice at the same millisecond and toggling assigns distinct run versi
 });
 
 it("manual resend creates a separate explicit action without reusing old delivery diagnostics", async () => {
+  put("channel", "no-real-channel", {
+    id: "no-real-channel",
+    name: "fake",
+    type: "feishu",
+    target: "",
+    thread: "",
+    enabled: true,
+    configured: true,
+  });
   put("delivery", "cancelled-fixture", {
     id: "cancelled-fixture",
     signalId: "old-signal",
@@ -85,4 +94,32 @@ it("manual resend creates a separate explicit action without reusing old deliver
   expect(get<{ status: string }>("cancelled-fixture")?.status).toBe(
     "cancelled",
   );
+});
+
+it("legacy resend also rejects disabled channels", async () => {
+  put("channel", "disabled-channel", {
+    id: "disabled-channel",
+    name: "fake",
+    type: "feishu",
+    target: "",
+    thread: "",
+    enabled: false,
+    configured: true,
+  });
+  put("delivery", "disabled-delivery", {
+    id: "disabled-delivery",
+    signalId: "old",
+    channelId: "disabled-channel",
+    kind: "signal",
+    status: "failed",
+    title: "fixture",
+    body: "fixture",
+    attempts: 1,
+    createdAt: 1,
+    expiresAt: 2,
+    nextAt: 1,
+  });
+  await expect(
+    createCaller({ headers: new Headers() }).retryDelivery("disabled-delivery"),
+  ).rejects.toThrow("未启用");
 });

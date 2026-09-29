@@ -271,3 +271,18 @@ test("anchored C4 and zhongyin tables decode from api v5 and prove the trend-end
       .map((o) => o.kind),
   ).toContain("zhongyin-structural-end");
 });
+
+test("the worker ships only the tables a caller needs", async () => {
+  const lean = (await projectCzsc(fixture, [0], 0, false, false)).families[0]!;
+  expect([lean.bars, lean.events, lean.nodes]).toEqual([[], [], []]);
+  expect(lean.signals.length).toBeGreaterThan(0);
+  const full = (
+    await projectCzsc(fixture, [0], CZSC_FLAG_EVENTS | CZSC_FLAG_HIGHER)
+  ).families[0]!;
+  expect(full.bars).toHaveLength(fixture.high.length);
+  expect(full.events.length).toBeGreaterThan(0);
+  expect(full.nodes.length).toBeGreaterThan(0);
+  // Structure and signals do not depend on which tables were shipped.
+  expect(lean.signals).toEqual(full.signals);
+  expect(lean.centers).toEqual(full.centers);
+});
