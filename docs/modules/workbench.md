@@ -63,3 +63,5 @@ newsBudget 与研究技能查询按 PanelVisible 暂停；删除本组件未消�
 壳层初始行情快照在 `/reports` 和其详情路径延后，离开档案再按原逻辑加载一次；阅读、筛选和导出不启动行情/研究任务。证据生产、方法算法、任务调度和MCP不在此次改动范围。验证入口为 `research-archive-history/navigation/evidence.test.ts`、`research-archive-production-browser.mjs`、`research-archive-perf.ts`、`research-archive-perf-browser.mjs`；浏览器/SQL产物均为隔离fixture，不证明真实策略有效。
 
 统一摘要查询在一次SQL内共享过滤结果，COUNT不受当前页边界影响；查询内JSONB只保留七个元数据字段，没有持久化格式变化。SQL和HTTP分别由 `tests/research-archive-perf.ts`、`tests/research-archive-http-perf.mjs`测量，后者在明确隔离库插入临时合成行并在finally恢复原有记录数。最终工程验收与性能波动记录见Documents下本模块交付说明。
+
+常驻面板约定：任何固定间隔的 `refetchInterval`，以及较重的一次性计算（如缠论分析），都必须在 `usePanelVisible()` 为 false 时暂停；只有"任务完成即停"的状态轮询可以例外。回归检查方法见 `docs/optimization-plan-2026-09-29.md` 的 1A。

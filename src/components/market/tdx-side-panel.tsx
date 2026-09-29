@@ -21,6 +21,7 @@ import { useQuoteSession } from "./use-quote-session";
 import { CapitalSection, StockEventsSection } from "./stock-side-cards";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 export const tradableSymbol = (symbol: string) =>
   /^(sh|sz|bj)\d{6}$/.test(symbol) && !isNonAShareChartSymbol(symbol);
@@ -71,10 +72,12 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
   const quotable = tradableSymbol(symbol);
   const index = isMarketIndex(symbol);
   const interval = session === null ? null : quoteRefreshInterval(session);
+  // Kept-alive but hidden panel: no polling.
+  const visible = usePanelVisible();
   const quotes = api.tdxQuotes.useQuery([symbol], {
     ...quoteQueryOptions,
     enabled: quotable,
-    refetchInterval: auto && interval !== null ? interval : false,
+    refetchInterval: visible && auto && interval !== null ? interval : false,
   });
   const local = api.tdxLocalFinancials.useQuery(symbol, {
     ...financeQueryOptions,

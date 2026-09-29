@@ -1,27 +1,48 @@
 "use client";
+import dynamic from "next/dynamic";
 import { Activity, X } from "lucide-react";
 import { ArrowClockwise } from "@phosphor-icons/react/ssr";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode, type SetStateAction } from "react";
-import { NewsPanel } from "../news/news-panel";
 import { TodayOverview } from "../overview/today-overview";
 import { routePanels } from "./route-panels";
 import { Button } from "../ui/button";
 
-import { Connections } from "./connections";
-
-import { BacktestView } from "./backtest-view";
-import { EvidenceAnalysis } from "./evidence-analysis";
-import { MarketView } from "./market-view";
 import { navItemFor, tabHref, type Tab } from "./navigation";
-import { ResearchArchive } from "./research-archive";
 import { PanelCache } from "./keep-alive";
-import { ScreenView } from "./screen-view";
-import { SignalsView } from "./signals-view";
 import { Sidebar } from "./sidebar";
-import { TaskCenter } from "./task-center";
 import { Topbar } from "./topbar";
 import { useWorkbenchState } from "./use-workbench-state";
+
+// Panels load on first visit: the root layout would otherwise ship every
+// page body in one client bundle.
+const NewsPanel = dynamic(() =>
+  import("../news/news-panel").then((m) => m.NewsPanel),
+);
+const Connections = dynamic(() =>
+  import("./connections").then((m) => m.Connections),
+);
+const BacktestView = dynamic(() =>
+  import("./backtest-view").then((m) => m.BacktestView),
+);
+const EvidenceAnalysis = dynamic(() =>
+  import("./evidence-analysis").then((m) => m.EvidenceAnalysis),
+);
+const MarketView = dynamic(() =>
+  import("./market-view").then((m) => m.MarketView),
+);
+const ResearchArchive = dynamic(() =>
+  import("./research-archive").then((m) => m.ResearchArchive),
+);
+const ScreenView = dynamic(() =>
+  import("./screen-view").then((m) => m.ScreenView),
+);
+const SignalsView = dynamic(() =>
+  import("./signals-view").then((m) => m.SignalsView),
+);
+const TaskCenter = dynamic(() =>
+  import("./task-center").then((m) => m.TaskCenter),
+);
 
 export function Workbench({ children }: { children?: ReactNode }) {
   const pathname = usePathname();

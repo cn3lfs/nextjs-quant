@@ -83,6 +83,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
       },
       cancelAnimationFrame: (id: number) => frames.delete(id),
       api: { czsc: { useQuery: czsc }, breakout: { useQuery: breakout } },
+      usePanelVisible: () => true,
     },
   );
   const props = {

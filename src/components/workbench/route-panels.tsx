@@ -1,19 +1,49 @@
 "use client";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Ranking, TestTube } from "@phosphor-icons/react/ssr";
-import { ClsReviewControls } from "../news/cls-review-controls";
-import { ConceptRpsControls } from "../market/concept-rps-controls";
-import { IndustryRpsControls } from "../market/industry-rps-controls";
-import { IntradayControls } from "../intraday/intraday-controls";
-import { ResearchUsageContainer } from "../research/research-usage-container";
-import { RpsControls } from "../market/rps-controls";
-import { RpsOverview } from "../market/rps-overview";
-import { StrategyResearchControls } from "../research/strategy-research-controls";
-import { CryptoView } from "../market/crypto-view";
-import { FuturesView } from "../market/futures-view";
-import { LimitUpView } from "../market/limit-up-view";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { PanelVisibility } from "./keep-alive";
+
+// Panels load on first visit: the root layout would otherwise ship every
+// page body in one client bundle.
+const ClsReviewControls = dynamic(() =>
+  import("../news/cls-review-controls").then((m) => m.ClsReviewControls),
+);
+const ConceptRpsControls = dynamic(() =>
+  import("../market/concept-rps-controls").then((m) => m.ConceptRpsControls),
+);
+const IndustryRpsControls = dynamic(() =>
+  import("../market/industry-rps-controls").then((m) => m.IndustryRpsControls),
+);
+const IntradayControls = dynamic(() =>
+  import("../intraday/intraday-controls").then((m) => m.IntradayControls),
+);
+const ResearchUsageContainer = dynamic(() =>
+  import("../research/research-usage-container").then(
+    (m) => m.ResearchUsageContainer,
+  ),
+);
+const RpsControls = dynamic(() =>
+  import("../market/rps-controls").then((m) => m.RpsControls),
+);
+const RpsOverview = dynamic(() =>
+  import("../market/rps-overview").then((m) => m.RpsOverview),
+);
+const StrategyResearchControls = dynamic(() =>
+  import("../research/strategy-research-controls").then(
+    (m) => m.StrategyResearchControls,
+  ),
+);
+const CryptoView = dynamic(() =>
+  import("../market/crypto-view").then((m) => m.CryptoView),
+);
+const FuturesView = dynamic(() =>
+  import("../market/futures-view").then((m) => m.FuturesView),
+);
+const LimitUpView = dynamic(() =>
+  import("../market/limit-up-view").then((m) => m.LimitUpView),
+);
 
 /**
  * Bodies of the routed workbench pages, shared by the route definitions under

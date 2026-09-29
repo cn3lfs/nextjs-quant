@@ -19,6 +19,7 @@ import {
   SelectContent,
   SelectItem,
 } from "../ui/select";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 const labels: Record<ResearchAttempt["state"], string> = {
   queued: "排队",
@@ -80,6 +81,7 @@ export function ResearchAttemptsContainer() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
   const [state, setState] = useState<ResearchAttempt["state"] | "all">("all");
+  const visible = usePanelVisible();
   const query = api.researchAttempts.useQuery(
     {
       page: pagination.pageIndex + 1,
@@ -87,7 +89,7 @@ export function ResearchAttemptsContainer() {
       state: state === "all" ? undefined : state,
       order,
     },
-    { refetchInterval: 3000 },
+    { refetchInterval: visible ? 3000 : false },
   );
   return (
     <section

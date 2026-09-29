@@ -90,6 +90,7 @@ import {
   czscChartMarkers,
   type IndicatorName,
 } from "~/lib/chart/chart-data";
+import { usePanelVisible } from "../workbench/keep-alive";
 function LegacyChart({
   bars,
   equity,
@@ -484,7 +485,9 @@ export function CzscMarketChart({
       cancelAnimationFrame(secondFrame);
     };
   }, [snapshotId]);
-  const annotationsReady = paintedSnapshot === snapshotId;
+  // A hidden kept-alive panel defers the structure analysis until shown.
+  const visible = usePanelVisible();
+  const annotationsReady = visible && paintedSnapshot === snapshotId;
   const result = api.czsc.useQuery(
     { snapshotId, chartSnapshot },
     {

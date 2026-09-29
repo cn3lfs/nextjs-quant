@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 const DEFAULT = "fuGC00Y";
 
@@ -53,8 +54,9 @@ export function FuturesView() {
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
   usePeriodHotkey(period, setPeriod, load.isPending);
+  const visible = usePanelVisible();
   const quotes = api.futuresQuotes.useQuery(undefined, {
-    refetchInterval: 60_000,
+    refetchInterval: visible ? 60_000 : false,
     refetchOnWindowFocus: false,
   });
   useEffect(() => {

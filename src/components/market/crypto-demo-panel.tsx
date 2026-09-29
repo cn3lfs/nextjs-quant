@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 type Preview = RouterOutputs["previewCryptoDemoOrder"];
 type Outcome = RouterOutputs["confirmCryptoDemoOrder"];
@@ -32,10 +33,11 @@ export function CryptoDemoPanel({ symbol }: { symbol: string }) {
   const credential = status.data?.credential;
   const usable =
     enabled && credential?.configured && credential.network !== "live";
+  const visible = usePanelVisible();
   const account = api.cryptoDemoAccount.useQuery(undefined, {
     enabled: !!usable,
     retry: false,
-    refetchInterval: 15000,
+    refetchInterval: visible ? 15000 : false,
   });
   const trades = api.cryptoDemoTrades.useQuery(symbol, {
     enabled: !!usable,
@@ -147,8 +149,8 @@ export function CryptoDemoPanel({ symbol }: { symbol: string }) {
                   <ul className="tabular-nums">
                     {account.data.openOrders.map((o) => (
                       <li key={o.orderId} className="flex items-center gap-2">
-                        {o.symbol} {o.side === "BUY" ? "买" : "卖"} {o.origQty} @{" "}
-                        {o.price}（已成交 {o.executedQty}）
+                        {o.symbol} {o.side === "BUY" ? "买" : "卖"} {o.origQty}{" "}
+                        @ {o.price}（已成交 {o.executedQty}）
                         <Button
                           size="sm"
                           variant="outline"

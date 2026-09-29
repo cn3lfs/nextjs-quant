@@ -4,6 +4,7 @@ import { api } from "~/trpc/react";
 import { Panel, PanelEmpty } from "../panels";
 import { ReportCard } from "../workbench/reports";
 import { stamp } from "../workbench/shared";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 /**
  * Newest general research report for the loaded security, read from the same
@@ -11,9 +12,11 @@ import { stamp } from "../workbench/shared";
  */
 export function LatestReport({ symbol }: { symbol: string | undefined }) {
   const names = api.securityNames.useQuery(undefined, { staleTime: 60000 });
+  // Kept-alive but hidden panel: no polling.
+  const visible = usePanelVisible();
   const history = api.reportHistory.useQuery(
     { cursor: undefined },
-    { enabled: !!symbol, refetchInterval: 10000 },
+    { enabled: !!symbol, refetchInterval: visible ? 10000 : false },
   );
   const item = history.data?.items.find(
     (entry) => entry.securityContext?.symbol === symbol,

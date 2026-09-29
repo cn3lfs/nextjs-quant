@@ -10,7 +10,10 @@ import {
 } from "~/components/ui/table";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { researchSpecSchema, type ResearchSpec } from "~/lib/research/strategy-research";
+import {
+  researchSpecSchema,
+  type ResearchSpec,
+} from "~/lib/research/strategy-research";
 import {
   ResearchStrategyFields,
   selectResearchStrategy,
@@ -40,6 +43,7 @@ import {
 } from "../ui/select";
 
 import { StrategyRepresentativeCatalog } from "./strategy-representative-catalog";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 const percent = (value: number | null) =>
   value === null ? "—" : `${(value * 100).toFixed(2)}%`;
@@ -123,15 +127,16 @@ export function StrategyResearchControls() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
+  const visible = usePanelVisible();
   const tasks = api.strategyResearchTasks.useQuery(undefined, {
-    refetchInterval: 2000,
+    refetchInterval: visible ? 2000 : false,
   });
   const selectedStatus = tasks.data?.find(
     (task) => task.id === selected,
   )?.status;
   const governance = api.strategyResearchGovernance.useQuery(selected, {
     enabled: !!selected,
-    refetchInterval: 2000,
+    refetchInterval: visible ? 2000 : false,
     retry: false,
   });
   const reveal = api.strategyResearchReveal.useMutation({
