@@ -9,6 +9,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TradeReviewResults } from "../../src/components/portfolio/trade-review-results";
 
 const state = vi.hoisted(() => ({
+  onCalendar: null as (() => void) | null,
+  calendarCalls: 0,
   scale: false,
   db: null as Database.Database | null,
   days: [
@@ -42,16 +44,20 @@ vi.mock("../../src/server/market/data-health", async (importOriginal) => ({
   ...(await importOriginal<
     typeof import("../../src/server/market/data-health")
   >()),
-  fullLocalCalendarReference: async () => ({
-    days: state.days,
-    coverage: {
-      start: state.days[0] ?? null,
-      end: state.days.at(-1) ?? null,
-      count: state.days.length,
-    },
-    source: "合成完整交易日历",
-    hash: "fixture-calendar",
-  }),
+  fullLocalCalendarReference: async () => {
+    state.calendarCalls++;
+    state.onCalendar?.();
+    return {
+      days: state.days,
+      coverage: {
+        start: state.days[0] ?? null,
+        end: state.days.at(-1) ?? null,
+        count: state.days.length,
+      },
+      source: "合成完整交易日历",
+      hash: "fixture-calendar",
+    };
+  },
 }));
 vi.mock("../../src/server/data-sources/tdx/tdx", async (importOriginal) => ({
   ...(await importOriginal<
@@ -89,6 +95,64 @@ const input = {
   account: "合成账户",
   source: "tdx" as const,
 };
+it("frozen preview API returns summary/pages and confirms only its original target", async () => {
+  const started = await caller.deliveryPreviewStart(input);
+  expect(started).not.toHaveProperty("rawRows");
+  const page = await caller.deliveryPreviewPage({ token: started.token });
+  expect(page.items.length).toBeGreaterThan(0);
+  expect(page.items.length).toBeLessThanOrEqual(20);
+  const exported = await caller.deliveryPreviewExport(started.token);
+  expect(exported.identity.account).toBe(input.account);
+  const result = await caller.deliveryPreviewConfirm(started.token);
+  expect(
+    (
+      await caller.deliveryReceipt({
+        account: input.account,
+        fileHash: started.identity.hash,
+      })
+    )?.id,
+  ).toBe(result.batchId);
+  expect(
+    (await caller.deliveryPreviewConfirm(started.token)).alreadyImported,
+  ).toBe(true);
+});
+it("delivery workspace routes preserve evidence and confirm exact revoke impact", async () => {
+  const preview = await caller.deliveryPreview(input);
+  const saved = await caller.deliveryImport({
+    ...input,
+    hash: preview.fileHash,
+  });
+  const page = await caller.deliveryBatchPage({ account: input.account });
+  expect(page.items.map((row) => row.id)).toContain(saved.batchId);
+  expect(JSON.stringify(page)).not.toContain("rawRows");
+  const receipt = await caller.deliveryReceipt({
+    account: input.account,
+    fileHash: preview.fileHash,
+  });
+  expect(receipt?.id).toBe(saved.batchId);
+  const detail = await caller.deliveryBatchDetail(saved.batchId);
+  expect(detail?.ownedFills).toBe(saved.fills);
+  const evidence = await caller.deliveryEvidencePage({
+    id: saved.batchId,
+    section: "rawRows",
+  });
+  const exported = await caller.deliveryBatchExport(saved.batchId);
+  expect(evidence?.items.map((row) => row.value)).toEqual(
+    exported?.evidence.rawRows.slice(0, 20),
+  );
+  expect(exported?.fills).toHaveLength(saved.fills);
+  await expect(
+    caller.deliveryRevokeChecked({ ...detail!, ownedFills: saved.fills + 1 }),
+  ).rejects.toThrow("影响已变化");
+  expect((await caller.deliveryRevokeChecked(detail!)).fills).toBe(saved.fills);
+  expect(
+    await caller.deliveryReceipt({
+      account: input.account,
+      fileHash: preview.fileHash,
+    }),
+  ).toBeNull();
+  expect(await caller.deliveryBatchExport(saved.batchId)).toBeNull();
+});
 it("U4 tRPC pages execution details and exports the complete redacted selection", async () => {
   const preview = await caller.deliveryPreview(input);
   await caller.deliveryImport({ ...input, hash: preview.fileHash });
@@ -163,14 +227,145 @@ it("U2 tRPC pages the held-symbol matrix and rejects invalid pagination", async 
 });
 let temporary = "";
 beforeEach(() => {
+  state.onCalendar = null;
+  state.calendarCalls = 0;
   state.db = new Database(":memory:");
   migrate(state.db);
   temporary = mkdtempSync(join(tmpdir(), "r2b-import-"));
 });
+
+it("cash workspace binds pages, evidence and full export to one immutable identity", async () => {
+  const preview = await caller.deliveryPreview(input);
+  await caller.deliveryImport({ ...input, hash: preview.fileHash });
+  const before = state.db!.prepare("SELECT total_changes() n").get();
+  const first = await caller.cashWorkspace({ account: input.account });
+  const old = await caller.tradeReviewCashReconciliationExport({
+    account: input.account,
+  });
+  expect(first.summary).toEqual(old.summary);
+  expect(first.rows).toHaveLength(old.days.length);
+  expect(first.rows[0]).not.toHaveProperty("evidence");
+  const identity = { account: input.account, version: first.version };
+  const date = first.rows.find((row) => row.sourceCount > 0)!.date;
+  const detail = await caller.cashWorkspaceDate({ ...identity, date });
+  const batchId = detail.sources.rows[0]!.batchId;
+  const evidence = await caller.cashWorkspaceRows({
+    ...identity,
+    date,
+    batchId,
+  });
+  expect(evidence.rows).toEqual(
+    old.days
+      .find((day) => day.date === date)!
+      .evidence.find((source) => source.batchId === batchId)!.rows,
+  );
+  expect((await caller.cashWorkspaceExport(identity)).evidence).toEqual(old);
+  expect((await caller.cashWorkspaceOpening(identity)).total).toBe(
+    old.opening.evidence.length,
+  );
+  expect((await caller.cashWorkspaceDiagnostics(identity)).total).toBe(
+    old.diagnostics.length,
+  );
+  expect(state.db!.prepare("SELECT total_changes() n").get()).toEqual(before);
+  // Same count, same IDs, changed content must still reject the former version.
+  state
+    .db!.prepare("UPDATE import_batches SET file_hash=? WHERE id=?")
+    .run("changed-evidence", batchId);
+  const next = await caller.cashWorkspace({ account: input.account });
+  expect(next.version).not.toBe(first.version);
+  await expect(caller.cashWorkspaceDate({ ...identity, date })).rejects.toThrow(
+    "已更新",
+  );
+  await expect(caller.cashWorkspaceExport(identity)).rejects.toThrow("已更新");
+});
+
+it("rejects publishing a review whose inputs changed during construction", async () => {
+  const preview = await caller.deliveryPreview(input);
+  await caller.deliveryImport({ ...input, hash: preview.fileHash });
+  state.onCalendar = () => {
+    state.onCalendar = null;
+    state
+      .db!.prepare("UPDATE import_batches SET file_name='changed-during-build'")
+      .run();
+  };
+  await expect(
+    caller.cashWorkspace({ account: input.account }),
+  ).rejects.toThrow("构建期间");
+  expect(
+    (await caller.cashWorkspace({ account: input.account })).rows.length,
+  ).toBeGreaterThan(0);
+});
 afterEach(() => {
+  vi.restoreAllMocks();
   state.db?.close();
   state.db = null;
   rmSync(temporary, { recursive: true, force: true });
+});
+
+it("shares concurrent review work, expires it, and invalidates revoked imports", async () => {
+  const preview = await caller.deliveryPreview(input);
+  const batch = await caller.deliveryImport({
+    ...input,
+    hash: preview.fileHash,
+  });
+  const request = { account: input.account };
+  const [first, second] = await Promise.all([
+    caller.tradeReviewExport(request),
+    caller.tradeReviewExport(request),
+  ]);
+  expect(second).toBe(first);
+  expect(state.calendarCalls).toBe(1);
+  const now = Date.now();
+  vi.spyOn(Date, "now").mockReturnValue(now + 60_001);
+  await caller.tradeReviewExport(request);
+  expect(state.calendarCalls).toBe(2);
+  await caller.deliveryRevoke(batch.batchId);
+  await expect(caller.tradeReviewExport(request)).rejects.toThrow("暂无可复盘");
+  await expect(caller.tradeReviewExport(request)).rejects.toThrow("暂无可复盘");
+  expect(state.calendarCalls).toBe(4);
+});
+
+it("does not reuse a snapshot after switching the underlying database", async () => {
+  const preview = await caller.deliveryPreview(input);
+  await caller.deliveryImport({ ...input, hash: preview.fileHash });
+  await caller.tradeReviewExport({ account: input.account });
+  const previous = state.db!;
+  state.db = new Database(":memory:");
+  migrate(state.db);
+  // Copy the same batch identity, but no fills: cache identity must include DB.
+  const batch = previous
+    .prepare("SELECT * FROM import_batches")
+    .get() as Record<string, unknown>;
+  state.db
+    .prepare("INSERT INTO import_batches VALUES (?,?,?,?,?,?,?)")
+    .run(...Object.values(batch));
+  previous.close();
+  await expect(
+    caller.tradeReviewExport({ account: input.account }),
+  ).rejects.toThrow("暂无可复盘");
+  expect(state.calendarCalls).toBe(2);
+});
+
+it("bounds retained accounts and invalidates changed settings", async () => {
+  const preview = await caller.deliveryPreview(input);
+  for (let i = 0; i < 5; i++) {
+    const account = `cache-account-${i}`;
+    await caller.deliveryImport({ ...input, account, hash: preview.fileHash });
+    await caller.tradeReviewExport({ account });
+  }
+  expect(state.calendarCalls).toBe(5);
+  await caller.tradeReviewExport({ account: "cache-account-4" });
+  expect(state.calendarCalls).toBe(5);
+  await caller.tradeReviewExport({ account: "cache-account-0" });
+  expect(state.calendarCalls).toBe(6);
+  const previousDays = state.days;
+  try {
+    state.days = [...previousDays, "2026-01-21"];
+    await caller.tradeReviewExport({ account: "cache-account-0" });
+    expect(state.calendarCalls).toBe(7);
+  } finally {
+    state.days = previousDays;
+  }
 });
 
 it("previews without writes, imports idempotently, lists batches and revokes only the chosen batch", async () => {

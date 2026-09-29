@@ -1,4 +1,6 @@
-import { expect, it, vi } from "vitest";
+import { afterAll, expect, it, vi } from "vitest";
+import { sqlite } from "../../src/server/db/index";
+afterAll(() => sqlite().close());
 
 const state = vi.hoisted(() => ({
   dates: Array.from(
@@ -6,7 +8,15 @@ const state = vi.hoisted(() => ({
     (_, i) => `2026-01-${String(i + 1).padStart(2, "0")}`,
   ),
 }));
-vi.mock("../../src/server/db/index", () => ({ sqlite: () => ({}) }));
+// Use a real isolated SQLite connection for the shared review identity; the
+// downstream snapshot remains the explicit numeric fixture below.
+vi.mock("../../src/server/db/index", async () => {
+  const { default: Database } = await import("better-sqlite3");
+  const { migrate } = await import("../../src/server/db/migrations");
+  const db = new Database(":memory:");
+  migrate(db);
+  return { sqlite: () => db };
+});
 vi.mock("../../src/server/infra/settings", async (original) => ({
   ...(await original<typeof import("../../src/server/infra/settings")>()),
   settings: () => ({ tdxRoot: "fixture", calendar: state.dates }),
@@ -28,42 +38,48 @@ vi.mock("../../src/server/portfolio/delivery-store", () => ({
     }
   },
 }));
-vi.mock("../../src/server/portfolio/trade-review-service", async (original) => ({
-  ...(await original<
-    typeof import("../../src/server/portfolio/trade-review-service")
-  >()),
-  buildTradeReviewSnapshot: async () => ({
-    nav: {
-      days: state.dates.map((date, i) => ({
-        date,
-        positions: { sh600000: i + 1, sz000001: 100 - i },
-        positionValues: {
-          stock: {
+vi.mock(
+  "../../src/server/portfolio/trade-review-service",
+  async (original) => ({
+    ...(await original<
+      typeof import("../../src/server/portfolio/trade-review-service")
+    >()),
+    buildTradeReviewSnapshot: async () => ({
+      nav: {
+        days: state.dates.map((date, i) => ({
+          date,
+          positions: { sh600000: i + 1, sz000001: 100 - i },
+          positionValues: {
+            stock: {
+              value: i === 1 ? null : 10,
+              reason: i === 1 ? "缺行情" : null,
+            },
+          },
+          marketValue: {
             value: i === 1 ? null : 10,
             reason: i === 1 ? "缺行情" : null,
           },
-        },
-        marketValue: {
-          value: i === 1 ? null : 10,
-          reason: i === 1 ? "缺行情" : null,
-        },
-        nav: { value: 100, reason: null },
-        dailyReturn: { value: i === 1 ? null : 0.01 },
-      })),
-    },
-    replayInput: {
-      nav: { tradingDays: state.dates },
-      trades: {
-        bars: Object.fromEntries(
-          ["sh600000", "sz000001"].map((symbol) => [
-            symbol,
-            state.dates.map((date, i) => ({ date, close: i % 2 ? 101 : 100 })),
-          ]),
-        ),
+          nav: { value: 100, reason: null },
+          dailyReturn: { value: i === 1 ? null : 0.01 },
+        })),
       },
-    },
+      replayInput: {
+        nav: { tradingDays: state.dates },
+        trades: {
+          bars: Object.fromEntries(
+            ["sh600000", "sz000001"].map((symbol) => [
+              symbol,
+              state.dates.map((date, i) => ({
+                date,
+                close: i % 2 ? 101 : 100,
+              })),
+            ]),
+          ),
+        },
+      },
+    }),
   }),
-}));
+);
 import { createCaller } from "../../src/server/api/root";
 it("U5账户路由从复盘收盘价取收益，传递分页及20日门槛", async () => {
   const caller = createCaller({ headers: new Headers() });

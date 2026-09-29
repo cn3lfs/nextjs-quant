@@ -368,12 +368,15 @@ it("all three payloads redact primary/duplicate accounts including unresolved ev
   expect(JSON.stringify(preview)).not.toContain("876543210987");
 });
 
-it("migration 10 is repeatable and preserves a genuine version 9 database", () => {
+it("migrations are repeatable and preserve a genuine version 9 database", () => {
   const db = database(false);
   const source = readFileSync("src/server/db/migrations.ts", "utf8");
   const statements = [
     ...source
-      .slice(0, source.indexOf("export function migrate"))
+      .slice(
+        source.indexOf("const migrations = ["),
+        source.indexOf("export function migrate"),
+      )
       .matchAll(/`([^`]+)`/g),
   ].map((match) => match[1]!);
   expect(statements).toHaveLength(10);
@@ -383,7 +386,14 @@ it("migration 10 is repeatable and preserves a genuine version 9 database", () =
   db.prepare("INSERT INTO concept_rps_days VALUES ('2026-01-01','{}')").run();
   migrate(db);
   migrate(db);
-  expect(db.pragma("user_version", { simple: true })).toBe(10);
+  expect(db.pragma("user_version", { simple: true })).toBe(12);
+  expect(
+    db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'intraday_%'",
+      )
+      .all(),
+  ).toHaveLength(2);
   expect(db.prepare("SELECT * FROM records").all()).toEqual([
     { id: "old", kind: "snapshot", payload: "{}", updated_at: 1 },
   ]);

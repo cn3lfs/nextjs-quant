@@ -16,6 +16,9 @@ export type CommitImportInput = ImportOptions & {
   importedAt: number;
   parsed: DeliveryImport;
   rawRows: string[][];
+  sourceHeader?: string[];
+  format?: string;
+  encoding?: string;
 };
 export type ImportResult = {
   batchId: string;
@@ -45,6 +48,10 @@ type BatchPayload = Pick<
   | "counts"
   | "cashFlowSummary"
 > & {
+  receipt?: { fills: number; cashFlows: number; duplicate: number };
+  sourceHeader?: string[];
+  format?: string;
+  encoding?: string;
   scope?: ImportOptions["scope"];
   rawRows: string[][];
   statistics: {
@@ -187,6 +194,9 @@ export class DeliveryStore {
           );
         const batchId = randomUUID();
         const payload: BatchPayload = {
+          ...(input.sourceHeader ? { sourceHeader: input.sourceHeader } : {}),
+          ...(input.format ? { format: input.format } : {}),
+          ...(input.encoding ? { encoding: input.encoding } : {}),
           ...metadata,
           ...(scope ? { scope } : {}),
           mapping: input.parsed.mapping,
@@ -262,6 +272,14 @@ export class DeliveryStore {
         };
         input.parsed.fills.forEach((row) => insert(row, "fill"));
         input.parsed.cashFlows.forEach((row) => insert(row, "cashFlow"));
+        payload.receipt = {
+          fills: result.fills,
+          cashFlows: result.cashFlows,
+          duplicate: result.duplicate,
+        };
+        this.db
+          .prepare("UPDATE import_batches SET payload=? WHERE id=?")
+          .run(JSON.stringify(payload), batchId);
         if (result.duplicate) result.diagnostics = [...payload.diagnostics];
         return result;
       })

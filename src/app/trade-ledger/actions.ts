@@ -19,8 +19,9 @@ import {
 } from "~/server/portfolio/mock/mock-trading-service";
 import { put } from "~/server/db";
 export async function saveTrade(input: unknown) {
-  await recordLocalTrade(input);
+  const id = await recordLocalTrade(input);
   revalidatePath("/trade-ledger");
+  return id;
 }
 export async function saveBonusListing(
   symbol: string,

@@ -59,6 +59,7 @@ import {
   tradeDashboard,
 } from "../../src/server/portfolio/trade-ledger-service";
 import { saveSecret, readSecret } from "../../src/server/vault";
+import { tradeWorkspacePositions } from "../../src/server/portfolio/trade-workspace-service";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "p1-services-"));
 const input = () => ({
   id: crypto.randomUUID(),
@@ -82,6 +83,31 @@ beforeEach(() => {
   stubs.positions.mockReset();
 });
 afterEach(() => vi.useRealTimers());
+it("workspace position pages retain full-book totals and omit archived evidence", async () => {
+  for (let i = 0; i < 22; i++)
+    await recordLocalTrade({ ...input(), symbol: `sh${600100 + i}` });
+  const first = await tradeWorkspacePositions({ page: 1 }),
+    second = await tradeWorkspacePositions({ page: 2 });
+  expect(first.items).toHaveLength(20);
+  expect(second.items).toHaveLength(2);
+  expect(first.summary).toMatchObject({
+    holdings: 22,
+    trades: 22,
+    marketValue: 26400,
+    missingQuotes: 0,
+  });
+  expect(second.summary).toEqual(first.summary);
+  expect(first.count).toBe(22);
+  expect(first.items[0]).not.toHaveProperty("adjustments");
+  expect(first).not.toHaveProperty("trades");
+  expect(
+    new Set([...first.items, ...second.items].map((p) => p.symbol)).size,
+  ).toBe(22);
+  const filtered = await tradeWorkspacePositions({ query: "sh600100" });
+  expect(filtered.items).toHaveLength(1);
+  expect(filtered.summary).toEqual(first.summary);
+  expect(stubs.order).not.toHaveBeenCalled();
+});
 it("local application service persists a fill and displays T+1, quote, float, subsequent ex-cost and provenance offline", async () => {
   expect(mockEnabled()).toBe(false);
   const t = input();

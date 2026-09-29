@@ -120,9 +120,10 @@ it("新增入口精确接线、刷新失效、排序归首页且颜色只取toke
   );
   expect(parent).toContain("utils.tradeReviewPositionRisk.invalidate()");
   expect(parent).toContain("<PositionRiskContainer");
-  expect(parent).toContain(
-    'key={`position-risk:${account}:${batches.data?.map((b) => b.id).join(",")}`}',
-  );
+  expect(parent).toContain("key={`position-risk:${account}:${batchRevision}`}");
+  expect(parent).toContain("if (changedAccount !== account) return;");
+  expect(parent).toContain("setBatchRevision((value) => value + 1)");
+  expect(parent).not.toContain("api.deliveryBatches.useQuery");
   const chart = readFileSync("src/components/market/chart.tsx", "utf8")
     .split("export function PositionRiskChart")[1]!
     .split("export function PriceChart")[0]!;

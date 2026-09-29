@@ -9,7 +9,10 @@ import {
   previewDeliveryImport,
   commitDeliveryImport,
 } from "../../src/server/portfolio/delivery-import-service";
-import { TradeReviewPreview } from "../../src/components/portfolio/trade-review-import";
+import {
+  DeliveryMapping,
+  DeliveryConfirm,
+} from "../../src/components/portfolio/delivery-mapping";
 import {
   TradeReviewCaveats,
   TradeReviewResults,
@@ -133,19 +136,32 @@ it("renders a writable preview, unmapped columns and parser diagnostics before c
   const bytes = readFileSync("tests/fixtures/delivery/eastmoney-statement.csv");
   const preview = previewDeliveryImport(bytes, options, db);
   const html = renderToStaticMarkup(
-    createElement(TradeReviewPreview, {
-      preview,
-      busy: false,
-      onConfirm: () => {},
-    }),
+    createElement(
+      "div",
+      null,
+      createElement(DeliveryMapping, {
+        mapping: preview.mapping,
+        sourceHeader: preview.sourceHeader,
+        diagnostics: preview.diagnostics,
+      }),
+      createElement(DeliveryConfirm, {
+        account: preview.account,
+        conflicts: preview.summary.conflict,
+        busy: false,
+        onConfirm: () => {},
+      }),
+    ),
   );
-  expect(html).toContain(`将写入 ${preview.summary.new} 行`);
+  expect(html).toContain("成交日期");
+  expect(html).toContain("资金发生额");
   expect(html).toContain("列映射结果");
   expect(html).toContain("未映射的列");
   for (const column of preview.unmapped) expect(html).toContain(column.header);
   expect(preview.diagnostics.length).toBeGreaterThan(0);
   for (const message of preview.diagnostics) expect(html).toContain(message);
-  expect(html).toMatch(/<button(?![^>]* disabled="")[^>]*>确认导入<\/button>/);
+  expect(html).toMatch(
+    /<button(?![^>]* disabled="")[^>]*>确认导入到 [^<]+<\/button>/,
+  );
   expect(html).not.toContain("888888888");
 });
 it("renders conflict details and disables confirmation", () => {
@@ -158,16 +174,30 @@ it("renders conflict details and disables confirmation", () => {
     db,
   );
   const html = renderToStaticMarkup(
-    createElement(TradeReviewPreview, {
-      preview,
-      busy: false,
-      onConfirm: () => {},
-    }),
+    createElement(
+      "div",
+      null,
+      createElement(DeliveryMapping, {
+        mapping: preview.mapping,
+        sourceHeader: preview.sourceHeader,
+        diagnostics: preview.diagnostics,
+      }),
+      createElement(DeliveryConfirm, {
+        account: preview.account,
+        conflicts: preview.summary.conflict,
+        busy: false,
+        onConfirm: () => {},
+      }),
+    ),
   );
   expect(preview.summary.conflict).toBe(1);
   expect(html).toContain("存在冲突，禁止导入");
-  expect(html).toContain("差异字段：amount");
-  expect(html).toMatch(/<button[^>]* disabled=""[^>]*>确认导入<\/button>/);
+  expect(
+    preview.rows.find((row) => row.status === "conflict")?.differences,
+  ).toContain("amount");
+  expect(html).toMatch(
+    /<button[^>]* disabled=""[^>]*>确认导入到 [^<]+<\/button>/,
+  );
 });
 it("shows residual, unknown opening explanation and excluded flow amounts independently", () => {
   const html = renderToStaticMarkup(

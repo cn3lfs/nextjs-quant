@@ -107,7 +107,8 @@ export async function recordLocalTrade(input: unknown) {
   );
   return trade.id;
 }
-export async function tradeDashboard() {
+/** Full-book calculation stays separate from history and signal-choice reads. */
+export async function tradePositionState() {
   const context = await tradeContext(),
     store = new TradeLedgerStore(sqlite()),
     trades = store.trades();
@@ -151,12 +152,20 @@ export async function tradeDashboard() {
       return p;
     }),
   );
-  const signals = new SignalLedgerStore(sqlite()).rows();
   return {
     today: context.today,
     calendarSource: context.calendarSource,
     trades,
     positions,
+  };
+}
+/** Compatibility aggregate for existing consumers; the workspace reads parts on demand. */
+export async function tradeDashboard() {
+  const state = await tradePositionState();
+  const store = new TradeLedgerStore(sqlite());
+  const signals = new SignalLedgerStore(sqlite()).rows();
+  return {
+    ...state,
     adjustments: store.adjustments(),
     signals: signals.map((s) => ({
       id: s.id,
@@ -165,6 +174,6 @@ export async function tradeDashboard() {
       strategy: s.strategy,
       invalidation: s.invalidation,
     })),
-    comparison: tradedSignalComparison(signals, trades),
+    comparison: tradedSignalComparison(signals, state.trades),
   };
 }

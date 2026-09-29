@@ -1,4 +1,7 @@
-import type { ParsedCashFlow, ParsedFill } from "../research/evidence/delivery-import";
+import type {
+  ParsedCashFlow,
+  ParsedFill,
+} from "../research/evidence/delivery-import";
 import type { Bar } from "../domain";
 import { researchTradeStatistics } from "../research/strategy-research";
 
@@ -218,6 +221,19 @@ export function reviewTrades(input: TradeReviewInput) {
       "逆回购尚未全部购回或缺实际资金发生额（含方向不可判）",
     ),
   };
+  // Hoisted out of the per-round path: calendar ranks and ex-rights dates by
+  // security (the event list covers the whole market).
+  const calendarRank = input.tradingDays
+    ? new Map([...new Set(input.tradingDays)].sort().map((d, i) => [d, i]))
+    : null;
+  const eventDates = input.exRightsEvents
+    ? input.exRightsEvents.reduce((bySecurity, e) => {
+        const dates = bySecurity.get(e.security);
+        if (dates) dates.push(e.date);
+        else bySecurity.set(e.security, [e.date]);
+        return bySecurity;
+      }, new Map<string, string[]>())
+    : null;
   const results = costMethods.map((costMethod) => {
     const closedRounds: ReviewRound[] = [],
       openPositions: ReviewRound[] = [];
@@ -269,24 +285,22 @@ export function reviewTrades(input: TradeReviewInput) {
           : !closingDate
             ? "未平仓"
             : "实际费用缺失";
-        const events = input.exRightsEvents;
         const crosses =
-          a.openingDate === null || events === undefined
+          a.openingDate === null || eventDates === null
             ? null
-            : events.some(
-                (e) =>
-                  e.security === security &&
-                  e.date > a.openingDate! &&
-                  e.date <= end,
+            : (eventDates.get(security) ?? []).some(
+                (date) => date > a.openingDate! && date <= end,
               );
-        const calendar = input.tradingDays
-          ? [...new Set(input.tradingDays)].sort()
-          : null;
+        // Rank difference on the sorted unique calendar = trading days in
+        // (openingDate, end].
         const holding =
           a.openingDate &&
-          calendar?.includes(a.openingDate) &&
-          calendar.includes(end)
-            ? calendar.filter((d) => d > a.openingDate! && d <= end).length
+          calendarRank?.has(a.openingDate) &&
+          calendarRank.has(end)
+            ? Math.max(
+                0,
+                calendarRank.get(end)! - calendarRank.get(a.openingDate)!,
+              )
             : null;
         const round: ReviewRound = {
           security,
@@ -592,20 +606,41 @@ export function analyzeTradePoints(
   input: TradeReviewInput,
   rounds: readonly ReviewRound[],
 ) {
+  // Per-security bar checks and date ranks, and each fill's first round, are
+  // computed once instead of per fill.
+  const checked = new Map<
+    string,
+    { valid: boolean | undefined; rank: Map<string, number> }
+  >();
+  const barsOf = (security: string) => {
+    let entry = checked.get(security);
+    if (!entry) {
+      const bars = input.bars?.[security];
+      const valid = bars?.every(
+        (b, i) =>
+          (i === 0 || bars[i - 1]!.date < b.date) &&
+          [b.high, b.low, b.close].every((n) => Number.isFinite(n) && n > 0) &&
+          b.high >= b.low &&
+          b.close >= b.low &&
+          b.close <= b.high,
+      );
+      entry = {
+        valid,
+        rank: new Map(valid ? bars!.map((b, i) => [b.date, i]) : []),
+      };
+      checked.set(security, entry);
+    }
+    return entry;
+  };
+  const roundOf = new Map<number, ReviewRound>();
+  for (const round of rounds)
+    for (const fillIndex of round.fillIndices)
+      if (!roundOf.has(fillIndex)) roundOf.set(fillIndex, round);
   return input.fills.flatMap((fill, fillIndex) => {
     if (fill.instrument === "reverseRepo") return [];
     const bars = input.bars?.[key(fill)];
-    const valid = bars?.every(
-      (b, i) =>
-        (i === 0 || bars[i - 1]!.date < b.date) &&
-        [b.high, b.low, b.close].every((n) => Number.isFinite(n) && n > 0) &&
-        b.high >= b.low &&
-        b.close >= b.low &&
-        b.close <= b.high,
-    );
-    const index = valid
-      ? bars!.findIndex((b) => b.date === fill.tradeDate)
-      : -1;
+    const { valid, rank } = barsOf(key(fill));
+    const index = valid ? (rank.get(fill.tradeDate) ?? -1) : -1;
     const reason = !bars?.length
       ? "数据不可得：缺日线"
       : !valid
@@ -622,12 +657,20 @@ export function analyzeTradePoints(
         "区间高低价相同",
       );
     };
-    const round = rounds.find((r) => r.fillIndices.includes(fillIndex));
+    const round = roundOf.get(fillIndex);
     const end = round?.closingDate ?? bars?.at(-1)?.date;
-    const future =
-      usable && end
-        ? bars!.filter((b) => b.date > fill.tradeDate && b.date <= end)
-        : [];
+    // Bars are strictly increasing when usable: (tradeDate, end] is the slice
+    // after the fill's bar up to the last bar on or before end.
+    let stop = index + 1;
+    if (usable && end) {
+      let high = bars!.length;
+      while (stop < high) {
+        const mid = (stop + high) >> 1;
+        if (bars![mid]!.date <= end) stop = mid + 1;
+        else high = mid;
+      }
+    }
+    const future = usable && end ? bars!.slice(index + 1, stop) : [];
     const excursionReason =
       fill.kind !== "buy"
         ? "仅买入成交适用"
@@ -641,7 +684,7 @@ export function analyzeTradePoints(
       usable &&
       round &&
       future.length > 0 &&
-      (!round.closingDate || bars!.some((b) => b.date === round.closingDate));
+      (!round.closingDate || rank.has(round.closingDate));
     return [
       {
         fillIndex,

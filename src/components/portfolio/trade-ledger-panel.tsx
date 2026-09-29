@@ -1,994 +1,966 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
+import { api } from "~/trpc/react";
+import { saveTrade } from "~/app/trade-ledger/actions";
+import {
+  tradeWorkspacePageSchema,
+  type TradeWorkspaceInput,
+} from "~/lib/portfolio/trade-workspace";
+import {
+  newTradeDraft,
+  editTradeDraft,
+  tradeDraftInput,
+  submittedTradeDraft,
+  savedTradeDraft,
+  tradeDraftSessionSchema,
+  type TradeDraft,
+  type TradeAttempt,
+} from "~/lib/portfolio/trade-workspace-draft";
+import type { TradeInput } from "~/lib/portfolio/trade-ledger";
+import { chinaClock } from "~/lib/strategy-facts/notification-policy";
+import { useTaskVisible } from "../workbench/use-task-visible";
+import { PageGrid, Panel } from "../panels";
+import { Button } from "../ui/button";
+import { TradePositions } from "./trade-positions";
+import { TradeComparison } from "./trade-comparison";
+import { TradeEntryEditor } from "./trade-entry-editor";
+import { TradeWorkspaceDetail } from "./trade-workspace-detail";
+import { TradeMockPanel } from "./trade-mock-panel";
+import {
+  TradeInputField,
+  TradeSelect,
+  TradeError,
+  tradeNumber,
+  downloadTradeFile,
+} from "./trade-workspace-fields";
 
-import { Button } from "~/components/ui/button";
-import { DataTable } from "~/components/ui/data-table";
-
-import { Input } from "~/components/ui/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "~/components/ui/select";
-
-import { useRef, useState, useTransition } from "react";
-import {
-  Briefcase,
-  ChartScatter,
-  FloppyDisk,
-  NotePencil,
-  Receipt,
-  Robot,
-  Scales,
-  UploadSimple,
-  Wallet,
-} from "@phosphor-icons/react/ssr";
-import Link from "next/link";
-import {
-  changeTone,
-  GridTable,
-  PageGrid,
-  Panel,
-  PanelEmpty,
-  StatsPanel,
-  toneText,
-  type Stat,
-} from "../panels";
-import { feeLabel } from "~/lib/portfolio/trade-ledger";
-import { mockContract, mockMarketLabel } from "~/lib/contracts/mock-trading-contract";
-import type { tradeDashboard } from "~/server/portfolio/trade-ledger-service";
-import type {
-  reconcileMock,
-  previewMockOrder,
-} from "~/server/portfolio/mock/mock-trading-service";
-import {
-  readMockDiagnostics,
-  readMockMarkets,
-  readMockFunds,
-  readMockTrades,
-  recoverMockAccount,
-  saveTrade,
-  toggleMock,
-  createMockAccount,
-  reconcileAccount,
-  previewOrder,
-  confirmOrder,
-  updateStop,
-  saveBonusListing,
-} from "~/app/trade-ledger/actions";
-type Dashboard = Awaited<ReturnType<typeof tradeDashboard>>;
-const number = (n: number | null | undefined) =>
-  n == null ? "—" : n.toFixed(2);
-export function TradeLedgerPanel({
-  data,
-  enabled,
-}: {
-  data: Dashboard;
-  enabled: boolean;
-}) {
-  const [pending, start] = useTransition(),
-    [message, setMessage] = useState("");
-  const [diff, setDiff] = useState<Awaited<
-    ReturnType<typeof reconcileMock>
-  > | null>(null);
-  const [preview, setPreview] = useState<Awaited<
-    ReturnType<typeof previewMockOrder>
-  > | null>(null);
-  const [diagnostics, setDiagnostics] = useState<Awaited<
-    ReturnType<typeof readMockDiagnostics>
-  > | null>(null);
-  const [markets, setMarkets] = useState<string[]>([]);
-  const [remoteQuery, setRemoteQuery] = useState<unknown>(null);
-  const form = useRef<HTMLFormElement>(null),
-    tradeId = useRef<string | null>(null);
-  const run = (work: () => Promise<void>) =>
-    start(async () => {
-      setMessage("");
+const tabs = ["positions", "history", "adjustments", "comparison"] as const;
+type Tab = (typeof tabs)[number];
+const labels: Record<Tab, string> = {
+  positions: "持仓",
+  history: "交易历史",
+  adjustments: "除权依据",
+  comparison: "信号比较",
+};
+const readOptions = {
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  retry: false,
+};
+const blankFilters = {
+  query: "",
+  symbol: "",
+  from: "",
+  to: "",
+  side: "all",
+  linked: "all",
+};
+const sessionKey = "trade-workspace-draft-v1";
+export function TradeLedgerPanel() {
+  const visible = useTaskVisible(),
+    live = useRef(visible),
+    utils = api.useUtils();
+  live.current = visible;
+  const [ready, setReady] = useState(false),
+    [tab, setTab] = useState<Tab>("positions");
+  const [filter, setFilter] = useState<TradeWorkspaceInput>({ query: "" }),
+    [form, setForm] = useState(blankFilters);
+  const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
+  const historyPageCount = useRef(pages.length);
+  historyPageCount.current = pages.length;
+  const [adjustmentPages, setAdjustmentPages] = useState<
+    (string | undefined)[]
+  >([undefined]);
+  const [adjustmentSymbol, setAdjustmentSymbol] = useState("");
+  const [positionPage, setPositionPage] = useState(1),
+    [positionQuery, setPositionQuery] = useState(""),
+    [positionForm, setPositionForm] = useState("");
+  const [selected, setSelected] = useState({ history: "", adjustments: "" });
+  const [editing, setEditing] = useState(false),
+    [mockOpen, setMockOpen] = useState(false);
+  const [draft, setDraft] = useState<TradeDraft | null>(null),
+    [attempt, setAttempt] = useState<TradeAttempt | null>(null);
+  const currentDraft = useRef(draft);
+  currentDraft.current = draft;
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [filterError, setFilterError] = useState("");
+  const [exporting, setExporting] = useState(false),
+    [exportError, setExportError] = useState("");
+  const saveLock = useRef(false),
+    focus = useRef<HTMLElement | null>(null),
+    scroll = useRef(0);
+  const activeTab = useRef(tab);
+  activeTab.current = tab;
+  const env = api.tradeWorkspaceEnvironment.useQuery(undefined, {
+    ...readOptions,
+    enabled: visible,
+  });
+  useEffect(() => {
+    const read = () => {
+      const url = new URL(location.href),
+        nextTab =
+          tabs.find((value) => value === url.searchParams.get("view")) ??
+          "positions";
+      setTab(nextTab);
       try {
-        await work();
-      } catch (e) {
-        setMessage(e instanceof Error ? e.message : "操作失败，请重试");
+        const parsed = tradeWorkspacePageSchema.parse(
+          JSON.parse(url.searchParams.get("tradeFilter") ?? "{}"),
+        );
+        const { cursor: _cursor, version: _version, ...filters } = parsed;
+        setFilter(filters);
+        setForm({
+          query: filters.query,
+          symbol: filters.symbol ?? "",
+          from: filters.from ?? "",
+          to: filters.to ?? "",
+          side: filters.side ?? "all",
+          linked:
+            filters.linked === undefined
+              ? "all"
+              : filters.linked
+                ? "yes"
+                : "no",
+        });
+      } catch {
+        setFilter({ query: "" });
+        setForm(blankFilters);
+        setFilterError("地址中的筛选无效，已恢复默认条件。");
       }
-    });
-  function input() {
-    if (!form.current?.reportValidity())
-      throw new Error("请填写完整有效的交易信息");
-    const f = new FormData(form.current);
-    tradeId.current ??= crypto.randomUUID();
-    return {
-      id: tradeId.current,
-      symbol: String(f.get("symbol")).trim(),
-      date: String(f.get("date")),
-      side: String(f.get("side")),
-      price: Number(f.get("price")),
-      quantity: Number(f.get("quantity")),
-      lowerLimit: Number(f.get("lowerLimit")),
-      upperLimit: Number(f.get("upperLimit")),
-      limitSource: String(f.get("limitSource")),
-      signalId: String(f.get("signalId")) || null,
-      stop: f.get("stop") ? Number(f.get("stop")) : null,
-      note: String(f.get("note")),
+      const id = url.searchParams.get("record") ?? "";
+      setSelected({
+        history:
+          nextTab === "history" && z.string().uuid().safeParse(id).success
+            ? id
+            : "",
+        adjustments:
+          nextTab === "adjustments" && /^[a-f0-9]{64}$/.test(id) ? id : "",
+      });
+      const symbol = url.searchParams.get("adjustmentSymbol") ?? "";
+      setAdjustmentSymbol(/^(sh|sz|bj)\d{6}$/.test(symbol) ? symbol : "");
+      setPages([undefined]);
+      setAdjustmentPages([undefined]);
+      try {
+        const saved = z
+          .object({
+            url: z.string(),
+            pages: z.array(z.string().max(2048).nullable()).min(1).max(1000),
+            adjustmentPages: z
+              .array(z.string().max(2048).nullable())
+              .min(1)
+              .max(1000),
+            positionPage: z.number().int().min(1),
+            positionQuery: z.string().max(100),
+          })
+          .parse(
+            JSON.parse(
+              sessionStorage.getItem("trade-workspace-view") ?? "null",
+            ),
+          );
+        if (saved.url === url.pathname + url.search) {
+          setPages(saved.pages.map((value) => value ?? undefined));
+          setAdjustmentPages(
+            saved.adjustmentPages.map((value) => value ?? undefined),
+          );
+          setPositionPage(saved.positionPage);
+          setPositionQuery(saved.positionQuery);
+          setPositionForm(saved.positionQuery);
+        }
+      } catch {
+        /* URL still restores the primary view without session storage. */
+      }
+      setReady(true);
     };
+    read();
+    window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current || !env.data) return;
+    restored.current = true;
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      if (raw) {
+        const saved = tradeDraftSessionSchema.parse(JSON.parse(raw));
+        setDraft(saved.draft);
+        setAttempt(saved.attempt);
+        if (saved.draft.dirty) setNotice("已恢复本次会话的未保存草稿。");
+        return;
+      }
+    } catch {
+      setNotice("上次草稿无法校验，未自动使用；请重新核对输入。");
+    }
+    setDraft(newTradeDraft(env.data.today));
+  }, [env.data]);
+  useEffect(() => {
+    if (!draft) return;
+    try {
+      sessionStorage.setItem(
+        sessionKey,
+        JSON.stringify({ schemaVersion: 1, draft, attempt }),
+      );
+    } catch {
+      setNotice("会话存储不可用，请在离开前保存或保留输入。");
+    }
+  }, [draft, attempt]);
+  const selectedId =
+    tab === "history"
+      ? selected.history
+      : tab === "adjustments"
+        ? selected.adjustments
+        : "";
+  const hasDetail = editing || !!selectedId;
+  useEffect(() => {
+    if ((!editing && !selectedId) || !live.current) return;
+    const frame = requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLElement>(
+        editing ? '[aria-label="本地交易草稿"]' : '[aria-label="账本记录详情"]',
+      );
+      element?.focus({ preventScroll: true });
+      element?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editing, selectedId]);
+  useEffect(() => {
+    if (!ready) return;
+    const url = new URL(location.href);
+    url.searchParams.set("view", tab);
+    url.searchParams.set("tradeFilter", JSON.stringify(filter));
+    if (selectedId) url.searchParams.set("record", selectedId);
+    else url.searchParams.delete("record");
+    if (adjustmentSymbol)
+      url.searchParams.set("adjustmentSymbol", adjustmentSymbol);
+    else url.searchParams.delete("adjustmentSymbol");
+    history.replaceState(history.state, "", url);
+    try {
+      sessionStorage.setItem(
+        "trade-workspace-view",
+        JSON.stringify({
+          url: url.pathname + url.search,
+          pages,
+          adjustmentPages,
+          positionPage,
+          positionQuery,
+        }),
+      );
+    } catch {
+      /* no evidence or draft is stored in the URL */
+    }
+  }, [
+    ready,
+    tab,
+    filter,
+    selectedId,
+    adjustmentSymbol,
+    pages,
+    adjustmentPages,
+    positionPage,
+    positionQuery,
+  ]);
+  useEffect(() => {
+    if (!draft?.dirty && attempt?.state !== "pending") return;
+    const unload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const leave = (event: MouseEvent) => {
+      const anchor = (event.target as Element).closest?.("a[href]");
+      if (!anchor || event.defaultPrevented || event.ctrlKey || event.metaKey)
+        return;
+      const target = new URL((anchor as HTMLAnchorElement).href, location.href);
+      if (
+        target.pathname !== location.pathname &&
+        !window.confirm(
+          "有未保存的交易草稿。离开后可在本次会话恢复，仍要离开吗？",
+        )
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", leave, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", leave, true);
+    };
+  }, [draft?.dirty, attempt?.state]);
+  const positions = api.tradeWorkspacePositions.useQuery(
+    { page: positionPage, query: positionQuery },
+    { ...readOptions, enabled: visible && ready },
+  );
+  const historyQuery = api.tradeWorkspacePage.useQuery(
+    { ...filter, cursor: pages.at(-1) },
+    { ...readOptions, enabled: visible && ready && tab === "history" },
+  );
+  const adjustments = api.tradeWorkspaceAdjustments.useQuery(
+    { symbol: adjustmentSymbol || undefined, cursor: adjustmentPages.at(-1) },
+    { ...readOptions, enabled: visible && ready && tab === "adjustments" },
+  );
+  const comparison = api.tradeWorkspaceComparison.useQuery(undefined, {
+    ...readOptions,
+    enabled: visible && ready && tab === "comparison",
+    gcTime: 0,
+  });
+  async function changed(tradeWritten = false) {
+    await Promise.all([
+      utils.tradeWorkspacePositions.invalidate(undefined, {
+        refetchType: "none",
+      }),
+      utils.tradeWorkspaceAdjustments.invalidate(undefined, {
+        refetchType: "none",
+      }),
+      ...(tradeWritten
+        ? [
+            utils.tradeWorkspacePage.invalidate(undefined, {
+              refetchType: "none",
+            }),
+            utils.tradeWorkspaceComparison.invalidate(undefined, {
+              refetchType: "none",
+            }),
+          ]
+        : []),
+    ]);
+    // A local append invalidates every history cursor, including an inactive tab.
+    if (tradeWritten) setPages([undefined]);
+    if (!live.current) return;
+    void positions.refetch();
+    if (activeTab.current === "history" && tradeWritten) {
+      if (historyPageCount.current > 1 && tradeWritten) setPages([undefined]);
+      else void historyQuery.refetch();
+    }
+    if (activeTab.current === "adjustments") void adjustments.refetch();
+    if (activeTab.current === "comparison" && tradeWritten)
+      void comparison.refetch();
   }
+  const remember = () => {
+    focus.current = document.activeElement as HTMLElement;
+    scroll.current = window.scrollY;
+  };
+  const back = () => {
+    setEditing(false);
+    if (tab === "history" || tab === "adjustments")
+      setSelected((p) => ({ ...p, [tab]: "" }));
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scroll.current });
+      if (focus.current?.isConnected)
+        focus.current.focus({ preventScroll: true });
+      else
+        document
+          .querySelector<HTMLElement>(`[data-trade-tab="${tab}"]`)
+          ?.focus({ preventScroll: true });
+    });
+  };
+  const openRecord = (kind: "history" | "adjustments", id: string) => {
+    remember();
+    setEditing(false);
+    setTab(kind);
+    setSelected((p) => ({ ...p, [kind]: id }));
+  };
+  const related = (symbol: string) => {
+    remember();
+    setEditing(false);
+    setTab("adjustments");
+    setAdjustmentSymbol(symbol);
+    setAdjustmentPages([undefined]);
+    setSelected((p) => ({ ...p, adjustments: "" }));
+  };
+  const newDraft = () => {
+    if (draft?.dirty && !window.confirm("放弃当前未保存输入，新增下一笔交易？"))
+      return;
+    setDraft(newTradeDraft(chinaClock(Date.now()).date));
+    setError("");
+    setEditing(true);
+  };
+  async function submit(input: TradeInput) {
+    if (saveLock.current) return;
+    saveLock.current = true;
+    setBusy(true);
+    setError("");
+    setAttempt({ input, state: "pending" });
+    try {
+      const id = await saveTrade(input);
+      setDraft((current) => (current ? savedTradeDraft(current, id) : current));
+      setAttempt({ input, state: "saved" });
+      await changed(true);
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "保存结果未确认，请用同一编号重试";
+      setAttempt({ input, state: "unknown", error: message });
+      if (currentDraft.current?.id === input.id) setError(message);
+    } finally {
+      saveLock.current = false;
+      setBusy(false);
+    }
+  }
+  const save = () => {
+    if (!draft || saveLock.current) return;
+    try {
+      const input = tradeDraftInput(draft);
+      setDraft(submittedTradeDraft(draft));
+      void submit(input);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "输入无效，请核对");
+    }
+  };
+  async function exportHistory(format: "json" | "csv") {
+    if (exporting || !historyQuery.data) return;
+    setExporting(true);
+    setExportError("");
+    const input = {
+      filters: { ...filter, version: historyQuery.data.version },
+      format,
+    };
+    try {
+      const result = await utils.tradeWorkspaceExport.fetch(input, {
+        staleTime: 0,
+        gcTime: 0,
+      });
+      downloadTradeFile(result.filename, result.mime, result.content);
+      setNotice(`已导出全部匹配交易 ${result.count} 笔。`);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "导出失败，可重试");
+    } finally {
+      utils.tradeWorkspaceExport.reset(input);
+      setExporting(false);
+    }
+  }
+  const applyFilters = () => {
+    const result = tradeWorkspacePageSchema.safeParse({
+      query: form.query,
+      symbol: form.symbol || undefined,
+      from: form.from || undefined,
+      to: form.to || undefined,
+      side: form.side === "all" ? undefined : form.side,
+      linked: form.linked === "all" ? undefined : form.linked === "yes",
+    });
+    if (!result.success) {
+      setFilterError(result.error.issues[0]?.message ?? "筛选无效");
+      return;
+    }
+    setFilterError("");
+    setFilter(result.data);
+    setPages([undefined]);
+    setSelected((previous) => ({ ...previous, history: "" }));
+  };
+  const summary = positions.data?.summary;
   return (
     <PageGrid>
-      <StatsPanel
-        icon={Wallet}
-        title="账户"
-        meta="本地账本为事实来源。人工录入、离线计算；模拟盘默认关闭。"
+      <Panel
+        title="本地交易账本"
+        span={12}
         actions={
-          <Button asChild size="sm" variant="outline">
-            <Link href="/trade-review" scroll={false}>
-              <UploadSimple size={13} />
-              交割单与交易复盘
-            </Link>
-          </Button>
-        }
-        items={tradeStats(data, enabled)}
-      />
-      <p
-        role="status"
-        aria-live="polite"
-        className="nc-span-12 m-0 text-[12px] text-nc-text-3 empty:hidden"
-      >
-        {pending ? "正在处理…" : message}
-      </p>
-      {/* Source order keeps the original handler order; `order-*` sets the
-          on-screen order: 持仓 → 交易日志 → 录入 → 除权 → 对比 → 模拟盘. */}
-      <Panel
-        className="order-3"
-        icon={NotePencil}
-        title="录入本地交易"
-        note={`${feeLabel}：cost-experiment-1，佣金3bp / 最低5元、卖出印花税5bp、滑点5bp。成交价保留，滑点作为实验成本另计。`}
-      >
-        <form
-          ref={form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(async () => {
-              await saveTrade(input());
-              tradeId.current = null;
-              setMessage("交易已记入本地账本，未向外部下单");
-            });
-          }}
-        >
-          <fieldset disabled={pending} className="m-0 border-0 p-0">
-            <div className="form-grid">
-              <label>
-                股票代码（如sh600519）
-                <Input name="symbol" required pattern="(sh|sz|bj)[0-9]{6}" />
-              </label>
-              <label>
-                成交日期
-                <Input
-                  name="date"
-                  type="date"
-                  required
-                  defaultValue={data.today}
-                  max={data.today}
-                />
-              </label>
-              <label>
-                买卖
-                <Select name="side" defaultValue="buy">
-                  <SelectTrigger aria-label="买卖" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buy">买入</SelectItem>
-                    <SelectItem value="sell">卖出</SelectItem>
-                  </SelectContent>
-                </Select>
-              </label>
-              <label>
-                成交价格
-                <Input
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </label>
-              <label>
-                数量（100股整数倍）
-                <Input
-                  name="quantity"
-                  type="number"
-                  step="100"
-                  min="100"
-                  required
-                />
-              </label>
-              <label>
-                当日跌停价
-                <Input
-                  name="lowerLimit"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </label>
-              <label>
-                当日涨停价
-                <Input
-                  name="upperLimit"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </label>
-              <label>
-                涨跌停依据（终端及日期）
-                <Input name="limitSource" required maxLength={200} />
-              </label>
-              <label>
-                关联台账信号（可空）
-                <Select name="signalId" defaultValue="">
-                  <SelectTrigger
-                    aria-label="关联台账信号（可空）"
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="手动交易，不关联" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">手动交易，不关联</SelectItem>
-                    {data.signals.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.date} · {s.symbol} · {s.strategy} ·{" "}
-                        {s.id.slice(0, 8)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <label>
-                止损位（可空，可在持仓中更新）
-                <Input name="stop" type="number" min="0.01" step="0.01" />
-              </label>
-              <label>
-                备注
-                <Input name="note" maxLength={500} />
-              </label>
-            </div>
-            <p className="muted">
-              涨跌停上下限按该交易日终端值录入；无普通涨跌幅限制或依据未知时暂不录入，避免套用常规比例。记录只追加，保存后可查原值。
-            </p>
-            <Button type="submit">
-              <FloppyDisk size={14} />
-              仅保存本地交易
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (tab === "positions") void positions.refetch();
+                if (tab === "history") {
+                  if (pages.length > 1) setPages([undefined]);
+                  else void historyQuery.refetch();
+                }
+                if (tab === "adjustments") {
+                  if (adjustmentPages.length > 1)
+                    setAdjustmentPages([undefined]);
+                  else void adjustments.refetch();
+                }
+                if (tab === "comparison") void comparison.refetch();
+              }}
+            >
+              刷新当前视图
             </Button>
-          </fieldset>
-        </form>
-      </Panel>
-      <Panel
-        className="order-1"
-        icon={Briefcase}
-        title="当前持仓"
-        meta={`日历：${data.calendarSource}`}
-        note="本地不复权已完成日线收盘价；日期见各行，非实时行情。止损距离＝（现价－止损位）/现价，负数表示已跌破，不自动卖出。"
+            <Button
+              size="sm"
+              disabled={!draft}
+              onClick={() => {
+                remember();
+                if (draft?.saved)
+                  setDraft(newTradeDraft(chinaClock(Date.now()).date));
+                setEditing(true);
+              }}
+            >
+              新增本地交易 / 恢复草稿
+            </Button>
+          </div>
+        }
       >
-        {!data.positions.length && (
-          <PanelEmpty>暂无持仓，请先录入一笔买入。</PanelEmpty>
-        )}
-        <div style={{ overflowX: "auto" }}>
-          <DataTable
-            label="当前持仓"
-            data={data.positions}
-            columns={[
-              {
-                id: "column-0",
-                header: "标的",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <strong>{p.symbol}</strong>;
-                },
-              },
-              {
-                id: "column-1",
-                header: "持股",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <>{p.quantity}</>;
-                },
-              },
-              {
-                id: "column-2",
-                header: "T+1可卖",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <>{p.sellable}</>;
-                },
-              },
-              {
-                id: "column-3",
-                header: "核对后成本",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <>{number(p.adjustedCost)}</>;
-                },
-              },
-              {
-                id: "column-4",
-                header: "参考成本",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <>{number(p.averageCost)}</>;
-                },
-              },
-              {
-                id: "column-5",
-                header: "本地收盘/日期",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return (
-                    <>
-                      {number(p.quote?.price)} / {p.quote?.date ?? "行情缺失"}
-                    </>
-                  );
-                },
-              },
-              {
-                id: "column-6",
-                header: "浮动盈亏",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return (
-                    <span className={toneText[changeTone(p.floating)]}>
-                      {number(p.floating)}
-                    </span>
-                  );
-                },
-              },
-              {
-                id: "column-7",
-                header: "止损距离",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return (
-                    <span
-                      className={
-                        p.stopDistancePct != null && p.stopDistancePct < 0
-                          ? "nc-text-warn"
-                          : undefined
-                      }
-                    >
-                      {number(p.stopDistancePct)}%
-                    </span>
-                  );
-                },
-              },
-              {
-                id: "column-8",
-                header: "除权状态",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const p = row.original;
-                  return <>{p.adjustmentStatus}</>;
-                },
-              },
-            ]}
-            getRowId={(p) => String(p.symbol)}
-            rowCount={data.positions.length}
-            pagination={{
-              pageIndex: 0,
-              pageSize: Math.max(1, data.positions.length),
-            }}
-            sorting={[]}
-            onPaginationChange={() => {}}
-            onSortingChange={() => {}}
-            showPagination={false}
-            emptyMessage={null}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-3">
-          {data.positions
-            .filter((p) => p.quantity > 0)
-            .map((p) => (
-              <form
-                key={p.symbol}
-                className="flex items-end gap-2 rounded-lg border border-nc-border-soft bg-nc-inset p-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  run(async () => {
-                    await updateStop(p.symbol, Number(f.get("stop")));
-                    setMessage("止损位已更新，仅本地记录");
-                  });
-                }}
-              >
-                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
-                  {p.symbol} 当前止损位
-                  <Input
-                    name="stop"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    defaultValue={p.stop ?? ""}
-                    required
-                  />
-                </label>
-                <Button size="sm" variant="outline" disabled={pending}>
-                  更新止损位
-                </Button>
-              </form>
-            ))}
-        </div>
-      </Panel>
-      <Panel
-        className="order-4"
-        icon={Scales}
-        title="除权调整依据"
-        meta="保留每次观察版本"
-        note="GBBQ不可用时：成本未按除权调整，浮盈留空。配股/缩股依据不足时留空；送转股到账日期未知时暂不计可卖，可按账户显示补录可卖日期。除权后尚无新收盘行情时浮盈留空。参考成本不可当作已核对成本。"
-      >
-        {!data.adjustments.length && (
-          <PanelEmpty>暂无持仓期除权调整记录。</PanelEmpty>
-        )}
-        {data.adjustments.map((a) => (
-          <details key={a.id} className="list-row my-0 block">
-            <summary>
-              {a.symbol} · {a.event.date} · {a.event.name} · 成本{" "}
-              {number(a.beforeCost)} → {number(a.afterCost)}
-            </summary>
-            <p>
-              股数 {a.beforeQuantity} → {a.afterQuantity}；{a.basis}
-            </p>
-            <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-              {JSON.stringify(a.event, null, 2)}
-              {"\n"}
-              {a.source}
-            </pre>
-            {(a.event.bonusRatio ?? 0) > 0 && (
-              <form
-                className="flex flex-wrap items-end gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  run(async () => {
-                    await saveBonusListing(
-                      a.symbol,
-                      a.event.date,
-                      String(f.get("date")),
-                      String(f.get("source")),
-                    );
-                    setMessage("送转股可卖依据已记录，不修改原交易");
-                  });
-                }}
-              >
-                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
-                  账户确认的送转股可卖日期
-                  <Input
-                    type="date"
-                    name="date"
-                    min={a.event.date}
-                    max={data.today}
-                    required
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-[11px] text-nc-text-3">
-                  到账依据
-                  <Input name="source" maxLength={200} required />
-                </label>
-                <Button size="sm" variant="outline" disabled={pending}>
-                  保存可卖依据（只记录一次）
-                </Button>
-              </form>
-            )}
-          </details>
-        ))}
-      </Panel>
-      <Panel
-        className="order-2"
-        icon={Receipt}
-        title="交易日志"
-        meta={`${data.trades.length} 笔 · 只追加`}
-      >
-        <GridTable
-          label="交易日志"
-          minWidth={760}
-          rows={data.trades}
-          rowKey={(t) => t.id}
-          empty="暂无交易。"
-          columns={[
-            {
-              key: "date",
-              header: "日期",
-              width: "0.8fr",
-              cell: (t) => <span className="text-nc-text-3">{t.date}</span>,
-            },
-            {
-              key: "symbol",
-              header: "证券",
-              width: "0.9fr",
-              cell: (t) => <strong className="font-medium">{t.symbol}</strong>,
-            },
-            {
-              key: "side",
-              header: "方向",
-              width: "0.5fr",
-              cell: (t) => (
-                <span className={t.side === "buy" ? "up" : "down"}>
-                  {t.side === "buy" ? "买入" : "卖出"}
-                </span>
-              ),
-            },
-            {
-              key: "price",
-              header: "价格",
-              width: "0.7fr",
-              cell: (t) => <>{t.price}</>,
-            },
-            {
-              key: "quantity",
-              header: "股数",
-              width: "0.6fr",
-              cell: (t) => <>{t.quantity}</>,
-            },
-            {
-              key: "fees",
-              header: "实验费用",
-              width: "0.7fr",
-              cell: (t) => (
-                <span
-                  className="text-nc-text-3"
-                  title={`佣金 ${number(t.fees.commission)} / 税 ${number(t.fees.tax)} / 滑点 ${number(t.fees.slippage)}；${feeLabel}`}
-                >
-                  {number(t.fees.total)}
-                </span>
-              ),
-            },
-            {
-              key: "signal",
-              header: "关联信号",
-              width: "1.6fr",
-              cell: (t) => (
-                <details className="my-0">
-                  <summary
-                    className={t.signalId ? undefined : "text-nc-text-4"}
-                  >
-                    {t.signalId ? t.signalId.slice(0, 12) : "无（手动交易）"}
-                  </summary>
-                  <p>{t.note}</p>
-                  <p>
-                    涨跌停 {t.lowerLimit}–{t.upperLimit}；依据：{t.limitSource}
-                  </p>
-                  <pre
-                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-                  >
-                    {JSON.stringify(t.methods, null, 2)}
-                  </pre>
-                </details>
-              ),
-            },
-          ]}
-        />
-      </Panel>
-      <Panel
-        className="order-5"
-        icon={ChartScatter}
-        title="做过与没做的信号"
-        note="按是否关联任一交易分组，比较同口径 N1 向前收益，非实际交易盈亏、非策略业绩，不代表跟随信号的因果效果。含除权/未到期沿用台账留空规则。"
-      >
-        {!data.comparison.length && (
-          <PanelEmpty>暂无可比较台账信号。</PanelEmpty>
-        )}
-        <div style={{ overflowX: "auto" }}>
-          <DataTable
-            label="做过与没做的信号"
-            data={data.comparison}
-            columns={[
-              {
-                id: "column-0",
-                header: "分组",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{c.group}</>;
-                },
-              },
-              {
-                id: "column-1",
-                header: "策略/质量",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return (
-                    <>
-                      {c.strategy} / {c.quality}
-                    </>
-                  );
-                },
-              },
-              {
-                id: "column-2",
-                header: "期限",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>T+{c.horizon}</>;
-                },
-              },
-              {
-                id: "column-3",
-                header: "样本/有效",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return (
-                    <>
-                      {c.samples}/{c.valid}
-                    </>
-                  );
-                },
-              },
-              {
-                id: "column-4",
-                header: "中位收益%",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{number(c.median)}</>;
-                },
-              },
-              {
-                id: "column-5",
-                header: "胜率%",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{number(c.winRate)}</>;
-                },
-              },
-              {
-                id: "column-6",
-                header: "留空",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{c.blanks}</>;
-                },
-              },
-            ]}
-            getRowId={(c) =>
-              String(`${c.group}-${c.strategy}-${c.quality}-${c.horizon}`)
-            }
-            rowCount={data.comparison.length}
-            pagination={{
-              pageIndex: 0,
-              pageSize: Math.max(1, data.comparison.length),
-            }}
-            sorting={[]}
-            onPaginationChange={() => {}}
-            onSortingChange={() => {}}
-            showPagination={false}
-            emptyMessage={null}
-          />
-        </div>
-      </Panel>
-      <Panel
-        className="order-6"
-        icon={Robot}
-        title="同花顺模拟盘（可选同步层）"
-        tag={enabled ? "已开启" : "已关闭"}
-        note="同花顺问财提供模拟炒股服务"
-      >
-        <details>
-          <summary>文档契约与实测契约差异</summary>
-          <DataTable
-            label="文档契约与实测契约差异"
-            data={[...mockContract]}
-            columns={[
-              {
-                id: "column-0",
-                header: "文档契约",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{c.documented}</>;
-                },
-              },
-              {
-                id: "column-1",
-                header: "实测契约",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{c.observed}</>;
-                },
-              },
-              {
-                id: "column-2",
-                header: "差异与处理",
-                enableSorting: false,
-                cell: ({ row }) => {
-                  const c = row.original;
-                  return <>{c.difference}</>;
-                },
-              },
-            ]}
-            getRowId={(c) => String(c.documented)}
-            rowCount={mockContract.length}
-            pagination={{
-              pageIndex: 0,
-              pageSize: Math.max(1, mockContract.length),
-            }}
-            sorting={[]}
-            onPaginationChange={() => {}}
-            onSortingChange={() => {}}
-            showPagination={false}
-            emptyMessage={null}
-          />
-        </details>
-        <div className="button-row">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending || !enabled}
-            onClick={() => run(async () => setMarkets(await readMockMarkets()))}
-          >
-            查看已保存市场代码（本地）
-          </Button>
-          {markets.map((code) => (
-            <p key={code}>
-              {code}：{mockMarketLabel(code)}
-            </p>
-          ))}
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending || !enabled}
-            onClick={() =>
-              run(async () => setRemoteQuery(await readMockFunds()))
-            }
-          >
-            查询远程资金
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending || !enabled}
-            onClick={() =>
-              run(async () => setRemoteQuery(await readMockTrades()))
-            }
-          >
-            查询当日成交
-          </Button>
-        </div>
-        {remoteQuery !== null && (
-          <pre className="overflow-auto">
-            {JSON.stringify(remoteQuery, null, 2)}
-          </pre>
-        )}
-        <p className="muted">
-          当前{enabled ? "已开启" : "关闭"}
-          。关闭时不读取远程账户、不发送任何远程请求。开启本身也不开户；所有远程操作需点击。
+        <p className="text-xs text-nc-text-3">
+          本地账本为事实来源；只追加、离线核算。实验参数，非历史实际费用。模拟盘操作独立且默认关闭。
         </p>
-        <div className="button-row">
-          <Button
-            size="sm"
-            variant={enabled ? "danger" : "default"}
-            disabled={pending}
-            onClick={() =>
-              run(async () => {
-                await toggleMock(!enabled);
-                setDiff(null);
-                setPreview(null);
-                setMessage(
-                  enabled ? "模拟盘已关闭" : "模拟盘已开启，尚未开户或下单",
-                );
-              })
-            }
+        {positions.isFetching && (
+          <p role="status" className="my-2 text-xs text-nc-text-3">
+            正在核算完整持仓；交易历史可独立查询，已有摘要尚未更新。
+          </p>
+        )}
+        {tab !== "positions" && (
+          <TradeError
+            error={positions.error?.message}
+            onRetry={() => void positions.refetch()}
+          />
+        )}
+        {summary && (
+          <dl
+            aria-label="全部持仓摘要"
+            className="my-4 grid grid-cols-4 gap-4 max-sm:grid-cols-2"
           >
-            {enabled ? "关闭模拟盘" : "开启模拟盘"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending}
-            onClick={() =>
-              run(async () => {
-                setDiagnostics(await readMockDiagnostics());
-              })
-            }
-          >
-            查看最近20次脱敏响应（本地）
-          </Button>
+            <div>
+              <dt>全部持仓</dt>
+              <dd>{summary.holdings}只</dd>
+            </div>
+            <div>
+              <dt>完整账本交易</dt>
+              <dd>{summary.trades}笔</dd>
+            </div>
+            <div>
+              <dt>总市值</dt>
+              <dd>{tradeNumber(summary.marketValue)}</dd>
+              {summary.missingQuotes > 0 && (
+                <small>
+                  缺{summary.missingQuotes}只行情；已知部分
+                  {tradeNumber(summary.knownMarketValue)}
+                </small>
+              )}
+            </div>
+            <div>
+              <dt>浮动盈亏</dt>
+              <dd>{tradeNumber(summary.floating)}</dd>
+              {summary.unknownFloating > 0 && (
+                <small>{summary.unknownFloating}只缺少核对依据</small>
+              )}
+            </div>
+          </dl>
+        )}
+        {positions.data && (
+          <p className="text-xs text-nc-text-3">
+            摘要为完整持仓口径，与历史筛选分开。读取时间：
+            {positions.dataUpdatedAt
+              ? new Date(positions.dataUpdatedAt).toLocaleTimeString("zh-CN", {
+                  timeZone: "Asia/Shanghai",
+                })
+              : "—"}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="my-2 text-sm">
+            {notice}
+          </p>
+        )}
+        <TradeError
+          error={env.error?.message}
+          onRetry={() => void env.refetch()}
+        />
+        <div
+          role="tablist"
+          aria-label="账本视图"
+          className="mt-4 flex flex-wrap gap-2"
+        >
+          {tabs.map((value, index) => (
+            <Button
+              key={value}
+              role="tab"
+              aria-selected={tab === value}
+              tabIndex={tab === value ? 0 : -1}
+              data-trade-tab={value}
+              size="sm"
+              variant={tab === value ? "default" : "outline"}
+              onClick={() => {
+                setTab(value);
+                setEditing(false);
+              }}
+              onKeyDown={(event) => {
+                let next = index;
+                if (event.key === "ArrowRight")
+                  next = (index + 1) % tabs.length;
+                else if (event.key === "ArrowLeft")
+                  next = (index + tabs.length - 1) % tabs.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = tabs.length - 1;
+                else return;
+                event.preventDefault();
+                setTab(tabs[next]!);
+                setEditing(false);
+                document
+                  .querySelector<HTMLElement>(
+                    `[data-trade-tab="${tabs[next]}"]`,
+                  )
+                  ?.focus();
+              }}
+            >
+              {labels[value]}
+            </Button>
+          ))}
         </div>
-        {diagnostics && (
-          <div aria-live="polite">
-            {diagnostics.length === 0
-              ? "尚无响应记录"
-              : diagnostics.map((entry, i) => (
-                  <details key={i}>
-                    <summary>
-                      {entry.path} ·{" "}
-                      {new Date(entry.envelope.fetchedAt).toLocaleString()} ·
-                      HTTP {entry.httpStatus ?? "未收到"}
-                    </summary>
-                    <pre className="overflow-auto">
-                      {JSON.stringify(entry, null, 2)}
-                    </pre>
-                  </details>
+      </Panel>
+      <Panel
+        title={labels[tab]}
+        span={hasDetail ? 5 : 12}
+        className={hasDetail ? "min-w-0 max-[1240px]:hidden" : "min-w-0"}
+      >
+        <div hidden={tab !== "positions"}>
+          <form
+            className="mb-4 flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setPositionQuery(positionForm.trim());
+              setPositionPage(1);
+            }}
+          >
+            <TradeInputField
+              label="持仓证券检索"
+              value={positionForm}
+              onChange={setPositionForm}
+            />
+            <Button type="submit" size="sm" variant="outline">
+              查询持仓
+            </Button>
+          </form>
+          <TradePositions
+            data={positions.data}
+            fetching={positions.isFetching}
+            error={positions.error?.message}
+            page={positionPage}
+            onPage={setPositionPage}
+            onRetry={() => void positions.refetch()}
+            onRelated={related}
+            onChanged={() => void changed()}
+          />
+        </div>
+        {tab === "history" && (
+          <div className="space-y-4">
+            <form
+              className="grid grid-cols-2 gap-3 max-sm:grid-cols-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                applyFilters();
+              }}
+            >
+              {(
+                [
+                  ["query", "备注、证券或交易ID"],
+                  ["symbol", "精确证券代码"],
+                  ["from", "交易起始日期"],
+                  ["to", "交易截止日期"],
+                ] as const
+              ).map(([key, label]) => (
+                <TradeInputField
+                  key={key}
+                  label={label}
+                  type={key === "from" || key === "to" ? "date" : "text"}
+                  value={form[key]}
+                  onChange={(value) => setForm((p) => ({ ...p, [key]: value }))}
+                />
+              ))}
+              <TradeSelect
+                label="方向筛选"
+                value={form.side}
+                onChange={(value) => setForm((p) => ({ ...p, side: value }))}
+                options={[
+                  { value: "all", label: "全部方向" },
+                  { value: "buy", label: "买入" },
+                  { value: "sell", label: "卖出" },
+                ]}
+              />
+              <TradeSelect
+                label="关联状态筛选"
+                value={form.linked}
+                onChange={(value) => setForm((p) => ({ ...p, linked: value }))}
+                options={[
+                  { value: "all", label: "全部关联状态" },
+                  { value: "yes", label: "已关联信号" },
+                  { value: "no", label: "未关联信号" },
+                ]}
+              />
+              <div className="col-span-full flex flex-wrap gap-2">
+                <Button type="submit" size="sm">
+                  查询交易
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setForm(blankFilters);
+                    setFilter({ query: "" });
+                    setPages([undefined]);
+                    setFilterError("");
+                  }}
+                >
+                  重置筛选
+                </Button>
+                {(["json", "csv"] as const).map((format) => (
+                  <Button
+                    key={format}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      exporting || !historyQuery.data || historyQuery.isFetching
+                    }
+                    onClick={() => void exportHistory(format)}
+                  >
+                    导出筛选全集 {format.toUpperCase()}
+                  </Button>
                 ))}
+              </div>
+            </form>
+            <TradeError
+              error={filterError || historyQuery.error?.message}
+              onRetry={() => void historyQuery.refetch()}
+            />
+            <TradeError error={exportError} />
+            {historyQuery.error?.message.includes("账本已更新") && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPages([undefined])}
+              >
+                从第一页重新检索
+              </Button>
+            )}
+            <p className="text-xs text-nc-text-3">
+              已应用：{filter.symbol ?? "全部证券"} · {filter.from ?? "最早"}至
+              {filter.to ?? "最新"} ·{" "}
+              {filter.side === "buy"
+                ? "买入"
+                : filter.side === "sell"
+                  ? "卖出"
+                  : "全部方向"}{" "}
+              ·{" "}
+              {filter.linked === undefined
+                ? "全部关联"
+                : filter.linked
+                  ? "已关联"
+                  : "未关联"}{" "}
+              · 关键词 {filter.query || "无"}
+            </p>
+            {historyQuery.isFetching && <p role="status">正在读取交易历史…</p>}
+            {historyQuery.data && (
+              <p>
+                筛选全部匹配 {historyQuery.data.summary.count}笔；买入{" "}
+                {historyQuery.data.summary.buys} / 卖出{" "}
+                {historyQuery.data.summary.sells}；实验费用合计{" "}
+                {tradeNumber(historyQuery.data.summary.fees)}
+              </p>
+            )}
+            <div aria-label="交易历史列表" className="space-y-2">
+              {historyQuery.data?.items.map((row) => (
+                <Button
+                  key={row.id}
+                  data-trade-row={row.id}
+                  className="h-auto w-full justify-start whitespace-normal p-3 text-left"
+                  variant={selected.history === row.id ? "default" : "outline"}
+                  onClick={() => openRecord("history", row.id)}
+                >
+                  <span className="min-w-0 break-words">
+                    <strong>
+                      {row.date} · {row.symbol} ·{" "}
+                      {row.side === "buy" ? "买入" : "卖出"}
+                    </strong>
+                    <br />
+                    {row.quantity}股 × {tradeNumber(row.price)} · 费用
+                    {tradeNumber(row.fees)}
+                    <br />
+                    {row.signalId ? "已关联信号" : "手动交易"} · {row.note}
+                  </span>
+                </Button>
+              ))}
+              {!historyQuery.isFetching &&
+                !historyQuery.error &&
+                historyQuery.data?.items.length === 0 && (
+                  <p>没有匹配的交易，可重置筛选或新增本地交易。</p>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pages.length === 1 || historyQuery.isFetching}
+                onClick={() => setPages((p) => p.slice(0, -1))}
+              >
+                上一页交易
+              </Button>
+              <span>第{pages.length}页</span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={
+                  !historyQuery.data?.nextCursor || historyQuery.isFetching
+                }
+                onClick={() =>
+                  setPages((p) => [...p, historyQuery.data!.nextCursor!])
+                }
+              >
+                下一页交易
+              </Button>
+            </div>
           </div>
         )}
-        {enabled && (
-          <>
-            <p className="notice">
-              开户将在第三方建立持久账户，用户名以DPAPI加密保存。服务使用HTTP。委托与本地交易互不自动覆盖。
+        {tab === "adjustments" && (
+          <div className="space-y-3">
+            <p>
+              完整除权依据归档 · {adjustmentSymbol || "全部证券"} · 共
+              {adjustments.data?.count ?? "—"}条
             </p>
-            <div className="button-row">
+            {adjustmentSymbol && (
               <Button
                 size="sm"
                 variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await createMockAccount();
-                    setMessage("账户已准备，可手动对账");
-                  })
-                }
+                onClick={() => {
+                  setAdjustmentSymbol("");
+                  setAdjustmentPages([undefined]);
+                }}
               >
-                确认创建或使用模拟账户
+                查看全部证券依据
               </Button>
+            )}
+            <TradeError
+              error={adjustments.error?.message}
+              onRetry={() => void adjustments.refetch()}
+            />
+            {adjustments.isFetching && <p role="status">正在读取除权依据…</p>}
+            <div aria-label="除权依据列表" className="space-y-2">
+              {adjustments.data?.items.map((row) => (
+                <Button
+                  key={row.id}
+                  data-trade-row={row.id}
+                  variant="outline"
+                  className="h-auto w-full justify-start whitespace-normal p-3 text-left"
+                  onClick={() => openRecord("adjustments", row.id)}
+                >
+                  {row.symbol} · {row.date} · {row.name} · 成本
+                  {tradeNumber(row.beforeCost)} → {tradeNumber(row.afterCost)}
+                </Button>
+              ))}
+              {!adjustments.isFetching &&
+                !adjustments.error &&
+                adjustments.data?.items.length === 0 && (
+                  <p>暂无匹配除权依据；缺少归档不代表已核对无除权。</p>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await recoverMockAccount();
-                    setMessage("既有账户股东账号已核验");
-                  })
+                disabled={
+                  adjustmentPages.length === 1 || adjustments.isFetching
                 }
+                onClick={() => setAdjustmentPages((p) => p.slice(0, -1))}
               >
-                查询既有账户股东账号（不开户）
+                上一页依据
               </Button>
+              <span>第{adjustmentPages.length}页</span>
               <Button
                 size="sm"
                 variant="outline"
-                disabled={pending}
+                disabled={
+                  !adjustments.data?.nextCursor || adjustments.isFetching
+                }
                 onClick={() =>
-                  run(async () => {
-                    setDiff(await reconcileAccount());
-                    setMessage("对账完成，未覆盖任何一侧");
-                  })
+                  setAdjustmentPages((p) => [
+                    ...p,
+                    adjustments.data!.nextCursor!,
+                  ])
                 }
               >
-                查询远程并对账
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    setPreview(await previewOrder(input()));
-                    setMessage("请核对委托后点击确认；预览60秒过期");
-                  })
-                }
-              >
-                用上方输入预览模拟委托
+                下一页依据
               </Button>
             </div>
-            {preview && (
-              <div
-                role="group"
-                aria-label="确认模拟委托"
-                className="notice mt-3"
-              >
-                <p>
-                  {preview.input.symbol} ·{" "}
-                  {preview.input.side === "buy" ? "买入" : "卖出"} ·{" "}
-                  {preview.input.quantity}股 × {preview.input.price}
-                  元；确认后发送远程委托。
-                </p>
-                <Button
-                  size="sm"
-                  disabled={pending}
-                  onClick={() =>
-                    run(async () => {
-                      const id = preview.id;
-                      setPreview(null);
-                      setMessage(await confirmOrder(id));
-                    })
-                  }
-                >
-                  确认发送这笔模拟委托
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setPreview(null)}
-                >
-                  取消
-                </Button>
-              </div>
-            )}
-            {diff && (
-              <>
-                <h3>对账差异（本地减远程）</h3>
-                <p>两侧成本参数可能不同，差异不会触发同步覆盖。</p>
-                {!diff.length && <p>两侧均无持仓。</p>}
-                {diff.map((d) => (
-                  <p key={d.symbol}>
-                    {d.symbol}：持股 本地{d.localQuantity} / 远程
-                    {d.remoteQuantity} / 差{d.quantityDifference}；可卖 本地
-                    {d.localSellable} / 远程{d.remoteSellable}；成本 本地
-                    {number(d.localCost)} / 远程{number(d.remoteCost)} / 差
-                    {number(d.costDifference)}
-                  </p>
-                ))}
-              </>
-            )}
-          </>
+          </div>
+        )}
+        {tab === "comparison" && (
+          <TradeComparison
+            data={comparison.data}
+            fetching={comparison.isFetching}
+            error={comparison.error?.message}
+            onRetry={() => void comparison.refetch()}
+          />
+        )}
+      </Panel>
+      {hasDetail && (
+        <Panel
+          title={editing ? "本地交易草稿" : "原始记录与依据"}
+          span={7}
+          className="min-w-0"
+        >
+          <div
+            onKeyDown={(event) => {
+              if (
+                event.key === "Escape" &&
+                !/^(INPUT|TEXTAREA|SELECT)$/.test(
+                  (event.target as HTMLElement).tagName,
+                )
+              ) {
+                event.preventDefault();
+                back();
+              }
+            }}
+          >
+            {editing && draft ? (
+              <TradeEntryEditor
+                draft={draft}
+                attempt={attempt}
+                busy={busy}
+                visible={visible}
+                error={error}
+                onChange={(patch) => {
+                  setDraft((current) =>
+                    current ? editTradeDraft(current, patch) : current,
+                  );
+                  setError("");
+                }}
+                onSave={save}
+                onRetry={() => {
+                  if (attempt) void submit(attempt.input);
+                }}
+                onNew={newDraft}
+                onLocate={(id) => openRecord("history", id)}
+                onClose={back}
+              />
+            ) : selectedId ? (
+              <TradeWorkspaceDetail
+                key={`${tab}:${selectedId}`}
+                id={selectedId}
+                kind={tab === "adjustments" ? "adjustment" : "trade"}
+                visible={visible}
+                onBack={back}
+                onAdjustments={related}
+                onChanged={() => void changed()}
+              />
+            ) : null}
+          </div>
+        </Panel>
+      )}
+      <Panel title="模拟盘（独立操作）" span={12}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setMockOpen(!mockOpen)}
+        >
+          {mockOpen ? "收起" : "展开"}同花顺模拟盘
+        </Button>
+        <p className="mt-2 text-xs text-nc-text-3">
+          展开不开户、不下单；查询与确认均需单独操作，本地交易不自动同步。
+        </p>
+        {mockOpen && (
+          <TradeMockPanel
+            enabled={env.data?.mockEnabled ?? false}
+            input={() => {
+              if (!draft) throw new Error("请先填写本地交易草稿");
+              return tradeDraftInput(draft);
+            }}
+            onChanged={() => {
+              void utils.tradeWorkspaceEnvironment.invalidate(undefined, {
+                refetchType: "none",
+              });
+              if (live.current) void env.refetch();
+            }}
+          />
         )}
       </Panel>
     </PageGrid>
   );
 }
-
-/** Header counts derived from the dashboard rows; nothing is fetched here. */
-const tradeStats = (data: Dashboard, enabled: boolean): Stat[] => {
-  const held = data.positions.filter((p) => p.quantity > 0);
-  const priced = held.filter((p) => p.quote?.price != null);
-  const value = priced.reduce((s, p) => s + p.quantity * p.quote!.price, 0);
-  const floating = held.filter((p) => p.floating != null);
-  const total = floating.reduce((s, p) => s + p.floating!, 0);
-  const breached = held.filter(
-    (p) => p.stopDistancePct != null && p.stopDistancePct < 0,
-  ).length;
-  return [
-    {
-      label: "持仓",
-      value: `${held.length} 只`,
-      note: `T+1 可卖 ${held.filter((p) => p.sellable > 0).length} 只`,
-    },
-    {
-      label: "持仓市值",
-      value: priced.length ? number(value) : "—",
-      note:
-        priced.length < held.length
-          ? `${held.length - priced.length} 只缺本地收盘`
-          : "本地收盘价计",
-    },
-    {
-      label: "浮动盈亏",
-      value: floating.length ? number(total) : "—",
-      note:
-        floating.length < held.length
-          ? `${held.length - floating.length} 只留空（除权或缺价）`
-          : "不含已实现",
-      tone: floating.length ? changeTone(total) : "neutral",
-    },
-    {
-      label: "跌破止损",
-      value: breached,
-      note: "不自动卖出",
-      tone: breached ? "warn" : "neutral",
-    },
-    {
-      label: "交易记录",
-      value: data.trades.length,
-      note: `${data.trades.filter((t) => t.signalId).length} 笔关联信号`,
-    },
-    {
-      label: "模拟盘",
-      value: enabled ? "已开启" : "已关闭",
-      note: "关闭时不发远程请求",
-      tone: enabled ? "accent" : "idle",
-    },
-  ];
-};

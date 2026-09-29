@@ -26,6 +26,9 @@ function prepare(bytes: Uint8Array, options: unknown) {
     fileHash: createHash("sha256").update(bytes).digest("hex"),
     parsed,
     rawRows: table.rows.map((row) => redactRow(row, parsed.mapping)),
+    sourceHeader: table.header,
+    format: table.format,
+    encoding: table.encoding,
   };
 }
 

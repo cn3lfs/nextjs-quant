@@ -2,7 +2,10 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { Bar } from "~/lib/domain";
 import { reviewExecutionQuality } from "~/lib/backtest/execution-quality";
-import { reviewTrades, type TradeReviewInput } from "~/lib/portfolio/trade-review";
+import {
+  reviewTrades,
+  type TradeReviewInput,
+} from "~/lib/portfolio/trade-review";
 import { classifyCode } from "~/lib/research/evidence/delivery-import";
 import {
   extractStatementCashEvidence,
@@ -337,14 +340,11 @@ export async function buildTradeReviewSnapshot(
     ].sort()) {
       try {
         rps[security] = {};
-        for (const day of rpsStore.curve(security)) {
-          if (
-            !ledger.fills.some(
-              (f) =>
-                (f.symbol ?? f.code) === security && f.tradeDate === day.date,
-            )
-          )
-            continue;
+        // Only the security's trade dates are read and decoded.
+        const tradeDates = ledger.fills
+          .filter((f) => (f.symbol ?? f.code) === security)
+          .map((f) => f.tradeDate);
+        for (const day of rpsStore.curve(security, tradeDates)) {
           rps[security]![day.date] =
             day.values[day.periods.indexOf(o.rpsPeriod)]?.rps ?? null;
           sources.push({

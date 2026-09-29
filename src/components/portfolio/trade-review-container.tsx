@@ -4,14 +4,9 @@ import { Scales } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel } from "../panels";
 import { useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
-import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
+import { api, type RouterInputs } from "~/trpc/react";
 import type { CostMethod } from "~/lib/portfolio/trade-review";
-import {
-  TradeReviewImport,
-  type DeliveryDraft,
-  type DeliveryPreview,
-} from "./trade-review-import";
-import { TradeReviewBatches } from "./trade-review-batches";
+import { DeliveryWorkspace } from "./delivery-workspace";
 import { TradeReviewResults } from "./trade-review-results";
 import { KeyTradesResults } from "./key-trades-results";
 import { PositionRiskContainer } from "../backtest/position-risk-container";
@@ -27,20 +22,18 @@ import { Label } from "../ui/label";
 
 export function TradeReviewContainer() {
   const utils = api.useUtils();
-  const [directory, setDirectory] = useState("");
-  const [files, setFiles] = useState<RouterOutputs["deliveryFiles"]>();
-  const [draft, setDraft] = useState<DeliveryDraft>({
-    path: "",
-    account: "",
-    source: "generic",
-  });
-  const [preview, setPreview] = useState<DeliveryPreview>();
+  const [batchRevision, setBatchRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [accountDraft, setAccountDraft] = useState("");
   const [account, setAccount] = useState("");
+  const [cashBatch, setCashBatch] = useState<{
+    id: string;
+    revision: number;
+  } | null>(null);
+  const cashReturn = useRef({ id: "", scroll: 0 });
   const [keyTradesN, setKeyTradesN] = useState(3);
   const [method, setMethod] = useState<CostMethod>("movingAverage");
   const [monthSorting, setMonthSorting] = useState<SortingState>([]);
@@ -81,7 +74,6 @@ export function TradeReviewContainer() {
     setAttributionPagination((p) => ({ ...p, pageIndex: 0 }));
     setMonthPagination((p) => ({ ...p, pageIndex: 0 }));
   };
-  const batches = api.deliveryBatches.useQuery();
   const review = api.tradeReviewSnapshot.useQuery(
     {
       account,
@@ -112,8 +104,6 @@ export function TradeReviewContainer() {
     },
     { enabled: !!account, retry: false },
   );
-  const importMutation = api.deliveryImport.useMutation();
-  const revokeMutation = api.deliveryRevoke.useMutation();
   const run = async (work: () => Promise<void>) => {
     if (lock.current) return false;
     lock.current = true;
@@ -131,10 +121,11 @@ export function TradeReviewContainer() {
       setBusy(false);
     }
   };
-  const refresh = async () => {
-    setPreview(undefined);
+  const refresh = async (changedAccount: string) => {
+    await utils.deliveryBatchPage.invalidate();
+    if (changedAccount !== account) return;
+    setBatchRevision((value) => value + 1);
     await Promise.all([
-      utils.deliveryBatches.invalidate(),
       utils.tradeReviewSnapshot.invalidate(),
       utils.tradeReviewPeriodPerformance.invalidate(),
       utils.tradeReviewRollingPerformance.invalidate(),
@@ -144,6 +135,7 @@ export function TradeReviewContainer() {
       utils.tradeReviewAdmissionExport.invalidate(),
       utils.tradeReviewExecution.invalidate(),
       utils.tradeReviewCashReconciliation.invalidate(),
+      utils.cashWorkspace.invalidate({ account }),
     ]);
   };
   return (
@@ -161,86 +153,31 @@ export function TradeReviewContainer() {
           {message}
         </p>
       )}
-      <TradeReviewImport
-        directory={directory}
-        onDirectoryChange={(value) => {
-          setDirectory(value);
-          setFiles(undefined);
-          setDraft({ ...draft, path: "" });
-          setPreview(undefined);
-        }}
-        onList={() => {
-          void run(async () => {
-            setPreview(undefined);
-            setFiles(await utils.deliveryFiles.fetch(directory));
-          });
-        }}
-        files={files}
-        draft={draft}
-        onDraftChange={(value) => {
-          setDraft(value);
-          setPreview(undefined);
-        }}
-        busy={busy}
-        preview={preview}
-        onPreview={() => {
-          void run(async () => {
-            setPreview(undefined);
-            setPreview(
-              await utils.deliveryPreview.fetch(draft, { staleTime: 0 }),
-            );
-          });
-        }}
-        onConfirm={() => {
-          if (preview && !preview.summary.conflict)
-            void run(async () => {
-              const result = await importMutation.mutateAsync({
-                ...draft,
-                hash: preview.fileHash,
-              });
-              await refresh();
-              setMessage(
-                `导入完成：新增成交 ${result.fills} 笔、现金流 ${result.cashFlows} 笔，跳过重复 ${result.duplicate} 笔${result.alreadyImported ? "；该文件已导入" : ""}。`,
-              );
-              setAccountDraft(draft.account);
-              setAccount(draft.account);
-              resetDetailPages();
-              setMonthPagination((p) => ({ ...p, pageIndex: 0 }));
-              setPagination((p) => ({ ...p, pageIndex: 0 }));
+      <div id="cash-delivery-workspace" className="nc-span-12 min-w-0">
+        <DeliveryWorkspace
+          cashBatch={cashBatch}
+          onReturnToCash={() => {
+            setCashBatch(null);
+            requestAnimationFrame(() => {
+              const target =
+                document.getElementById(cashReturn.current.id) ??
+                document.querySelector<HTMLElement>(
+                  'section[aria-label="现金核对"] h2',
+                );
+              target?.focus({ preventScroll: true });
+              window.scrollTo({ top: cashReturn.current.scroll });
             });
-        }}
-      />
-      {batches.isLoading && (
-        <p role="status" className="nc-span-12 m-0 text-[12px] text-nc-text-4">
-          正在加载批次…
-        </p>
-      )}
-      {batches.error && (
-        <div role="alert">
-          {batches.error.message}
-          <Button variant="outline" onClick={() => void batches.refetch()}>
-            重试批次
-          </Button>
-        </div>
-      )}
-      {batches.data && (
-        <TradeReviewBatches
-          batches={batches.data}
-          busy={busy}
-          onRevoke={async (id) => {
-            const success = await run(async () => {
-              const result = await revokeMutation.mutateAsync(id);
-              await refresh();
-              resetDetailPages();
-              setPagination((p) => ({ ...p, pageIndex: 0 }));
-              setMessage(
-                `撤销完成：删除成交 ${result.fills} 笔、现金流 ${result.cashFlows} 笔。`,
-              );
-            });
-            return success;
+          }}
+          onSaved={refresh}
+          onReview={(next) => {
+            setCashBatch(null);
+            setAccountDraft(next);
+            setAccount(next);
+            resetDetailPages();
+            setPagination((value) => ({ ...value, pageIndex: 0 }));
           }}
         />
-      )}
+      </div>
       <Panel icon={Scales} title="交易复盘" bodyClassName="space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-2">
@@ -257,6 +194,7 @@ export function TradeReviewContainer() {
             disabled={busy || !accountDraft.trim()}
             onClick={() => {
               const next = accountDraft.trim();
+              if (next !== account) setCashBatch(null);
               setPagination((p) => ({ ...p, pageIndex: 0 }));
               setAccount(next);
               resetDetailPages();
@@ -305,6 +243,27 @@ export function TradeReviewContainer() {
             </Button>
           </div>
         )}
+        {account && (
+          <CashReconciliationContainer
+            key={`cash:${account}`}
+            account={account}
+            onBatch={(id) => {
+              cashReturn.current = {
+                id: document.activeElement?.id ?? "",
+                scroll: window.scrollY,
+              };
+              setCashBatch((value) => ({
+                id,
+                revision: (value?.revision ?? 0) + 1,
+              }));
+              requestAnimationFrame(() =>
+                document
+                  .getElementById("cash-delivery-workspace")
+                  ?.scrollIntoView({ block: "start" }),
+              );
+            }}
+          />
+        )}
         {review.data && !review.error && (
           <TradeReviewResults
             periodPerformance={
@@ -315,19 +274,19 @@ export function TradeReviewContainer() {
                   loading={review.isFetching}
                 />
                 <PeriodPerformanceContainer
-                  key={`${account}:${method}:${batches.data?.map((b) => b.id).join(",")}`}
+                  key={`${account}:${method}:${batchRevision}`}
                   source={{ account }}
                 />
                 <RollingPerformanceContainer
-                  key={`rolling:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+                  key={`rolling:${account}:${batchRevision}`}
                   source={{ account }}
                 />
                 <PositionRiskContainer
-                  key={`position-risk:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+                  key={`position-risk:${account}:${batchRevision}`}
                   account={account}
                 />
                 <StrategyAdmissionContainer
-                  key={`admission:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+                  key={`admission:${account}:${batchRevision}`}
                   source={{ account }}
                 />
               </>
@@ -389,20 +348,14 @@ export function TradeReviewContainer() {
           />
         )}
         {review.data && !review.error && (
-          <CashReconciliationContainer
-            key={`cash:${account}:${batches.data?.map((b) => b.id).join(",")}`}
-            account={account}
-          />
-        )}
-        {review.data && !review.error && (
           <ExecutionQualityContainer
-            key={`${account}:${batches.data?.map((b) => b.id).join(",")}`}
+            key={`${account}:${batchRevision}`}
             account={account}
           />
         )}
         {account && (
           <DisciplineContainer
-            key={`discipline:${account}:${batches.data?.map((b) => b.id).join(",")}`}
+            key={`discipline:${account}:${batchRevision}`}
             account={account}
           />
         )}

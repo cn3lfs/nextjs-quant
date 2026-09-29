@@ -1,15 +1,27 @@
-import { expect, it, vi } from "vitest";
+import { afterAll, expect, it, vi } from "vitest";
+import { sqlite } from "../../../src/server/db/index";
+afterAll(() => sqlite().close());
 
 const state = vi.hoisted(() => ({
   dates: ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08"],
 }));
-vi.mock("../../../src/server/db/index", () => ({ sqlite: () => ({}) }));
+// Use a real isolated SQLite connection for the shared review identity; the
+// downstream snapshot remains the explicit numeric fixture below.
+vi.mock("../../../src/server/db/index", async () => {
+  const { default: Database } = await import("better-sqlite3");
+  const { migrate } = await import("../../../src/server/db/migrations");
+  const db = new Database(":memory:");
+  migrate(db);
+  return { sqlite: () => db };
+});
 vi.mock("../../../src/server/infra/settings", async (original) => ({
   ...(await original<typeof import("../../../src/server/infra/settings")>()),
   settings: () => ({ tdxRoot: "fixture", calendar: state.dates }),
 }));
 vi.mock("../../../src/server/market/data-health", async (original) => ({
-  ...(await original<typeof import("../../../src/server/market/data-health")>()),
+  ...(await original<
+    typeof import("../../../src/server/market/data-health")
+  >()),
   fullLocalCalendarReference: async () => ({
     days: state.dates,
     coverage: { start: state.dates[0], end: state.dates.at(-1), count: 4 },
@@ -25,20 +37,23 @@ vi.mock("../../../src/server/portfolio/delivery-store", () => ({
     }
   },
 }));
-vi.mock("../../../src/server/portfolio/trade-review-service", async (original) => ({
-  ...(await original<
-    typeof import("../../../src/server/portfolio/trade-review-service")
-  >()),
-  buildTradeReviewSnapshot: async () => ({
-    nav: {
-      days: state.dates.map((date, i) => ({
-        date,
-        dailyReturn: { value: i === 1 ? null : 0.01 },
-      })),
-    },
-    replayInput: { nav: { tradingDays: state.dates } },
+vi.mock(
+  "../../../src/server/portfolio/trade-review-service",
+  async (original) => ({
+    ...(await original<
+      typeof import("../../../src/server/portfolio/trade-review-service")
+    >()),
+    buildTradeReviewSnapshot: async () => ({
+      nav: {
+        days: state.dates.map((date, i) => ({
+          date,
+          dailyReturn: { value: i === 1 ? null : 0.01 },
+        })),
+      },
+      replayInput: { nav: { tradingDays: state.dates } },
+    }),
   }),
-}));
+);
 vi.mock("../../../src/server/backtest/research-store", () => ({
   ResearchStore: class {
     isResultVisible() {

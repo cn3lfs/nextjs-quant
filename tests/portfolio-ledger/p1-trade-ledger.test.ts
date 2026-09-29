@@ -15,7 +15,8 @@ import {
 import { tradingLedgerMethods } from "../../src/server/research/research-skills";
 import type { SkillUse } from "../../src/server/research/research-skills";
 import type { LedgerRow } from "../../src/lib/strategy-facts/signal-ledger";
-import { TradeLedgerPanel } from "../../src/components/portfolio/trade-ledger-panel";
+import { TradePositions } from "../../src/components/portfolio/trade-positions";
+import { TradeMockPanel } from "../../src/components/portfolio/trade-mock-panel";
 vi.mock("../../src/app/trade-ledger/actions", () => ({
   saveTrade: vi.fn(),
   toggleMock: vi.fn(),
@@ -291,23 +292,46 @@ it("records actual installed skill IDs and hashes without executing tools", asyn
 });
 it("offline UI exposes empty state, unknown cost, provenance and disabled remote operations", () => {
   const html = renderToStaticMarkup(
-    createElement(TradeLedgerPanel, {
-      enabled: false,
+    createElement(TradePositions, {
+      fetching: false,
+      page: 1,
+      onPage: vi.fn(),
+      onRetry: vi.fn(),
+      onRelated: vi.fn(),
+      onChanged: vi.fn(),
       data: {
         today: days[0]!,
         calendarSource: "fixture",
-        trades: [],
-        positions: [],
-        adjustments: [],
-        signals: [],
-        comparison: [],
+        version: "fixture",
+        page: 1,
+        count: 0,
+        hasMore: false,
+        items: [],
+        summary: {
+          holdings: 0,
+          trades: 0,
+          linkedTrades: 0,
+          marketValue: 0,
+          knownMarketValue: 0,
+          missingQuotes: 0,
+          floating: 0,
+          unknownFloating: 0,
+          sellable: 0,
+        },
       },
     }),
   );
   expect(html).toContain("暂无持仓");
   expect(html).toContain("实验参数，非历史实际费用");
   expect(html).toContain("成本未按除权调整");
-  expect(html).toContain("开启模拟盘");
-  expect(html).not.toContain("确认发送这笔模拟委托");
-  expect(html).not.toContain("确认创建或使用模拟账户");
+  const mockHtml = renderToStaticMarkup(
+    createElement(TradeMockPanel, {
+      enabled: false,
+      input: () => input(),
+      onChanged: vi.fn(),
+    }),
+  );
+  expect(mockHtml).toContain("开启模拟盘");
+  expect(mockHtml).not.toContain("确认发送这笔模拟委托");
+  expect(mockHtml).not.toContain("确认创建或使用模拟账户");
 });

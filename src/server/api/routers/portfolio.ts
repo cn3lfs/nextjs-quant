@@ -1,5 +1,42 @@
 import { sortTableRows, tableSortSchema } from "~/lib/common/server-sort";
 import {
+  cashWorkspacePageSchema,
+  cashEvidencePageSchema,
+  cashDateSchema,
+  cashWorkspacePage,
+  cashWorkspaceDate,
+  cashWorkspaceRows,
+  cashWorkspaceOpening,
+  cashWorkspaceDiagnostics,
+} from "~/lib/portfolio/cash-workspace";
+import {
+  cashReviewInputIdentity,
+  cashReviewVersion,
+  assertCashReviewVersion,
+} from "../../portfolio/cash-reconciliation-workspace";
+import {
+  tradeWorkspacePageSchema,
+  tradeWorkspaceId,
+  tradeSignalOptionsSchema,
+  tradePositionPageSchema,
+  tradeAdjustmentPageSchema,
+} from "~/lib/portfolio/trade-workspace";
+import {
+  tradeWorkspacePage,
+  tradeWorkspaceDetail,
+  tradeWorkspaceExport,
+  tradeWorkspaceCsv,
+  tradeSignalOptions,
+  tradeAdjustmentPage,
+  tradeAdjustmentDetail,
+} from "../../portfolio/trade-workspace-query";
+import {
+  tradeWorkspacePositions,
+  tradeWorkspaceComparison,
+} from "../../portfolio/trade-workspace-service";
+import { mockEnabled } from "../../portfolio/mock/mock-trading-service";
+import { chinaClock } from "~/lib/strategy-facts/notification-policy";
+import {
   disciplineRequestSchema,
   startDiscipline,
   disciplineStatus,
@@ -45,6 +82,28 @@ import {
 } from "../../portfolio/delivery-import-service";
 import { DeliveryStore } from "../../portfolio/delivery-store";
 import {
+  deliveryFilePage,
+  deliveryFilePageSchema,
+} from "../../portfolio/delivery-file-page";
+import {
+  deliveryPreviewWorkspace,
+  deliveryPreviewInputSchema,
+  deliveryPreviewPageSchema,
+  deliveryPreviewTokenSchema,
+} from "../../portfolio/delivery-preview-workspace";
+import {
+  deliveryBatchPageSchema,
+  deliveryBatchPage,
+  deliveryBatchReceipt,
+  deliveryBatchIdSchema,
+  deliveryEvidencePageSchema,
+  deliveryRevokeCheckedSchema,
+  deliveryBatchDetail,
+  deliveryEvidencePage,
+  deliveryBatchExport,
+  deliveryRevokeChecked,
+} from "../../portfolio/delivery-workspace-query";
+import {
   buildTradeReviewSnapshot,
   exportTradeReview,
   pageTradeReviewDrawdowns,
@@ -84,7 +143,74 @@ async function deliveryBytes(path: string) {
     throw new Error("仅支持 .xls / .txt / .csv 交割单文件");
   return readFile(path);
 }
-async function accountReview(account: string) {
+// Paging, sorting and the sibling review queries all read one snapshot. Reuse
+// it while account facts, settings and calendar identity are unchanged; the age
+// limit picks up new local bars, RPS days and blocks. Callers only read it.
+const REVIEW_TTL_MS = 60_000;
+const reviewsByDatabase = new WeakMap<
+  ReturnType<typeof chartSqlite>,
+  Map<
+    string,
+    {
+      key: string;
+      at: number;
+      value: ReturnType<typeof versionedAccountReview>;
+    }
+  >
+>();
+function accountReview(account: string) {
+  const db = chartSqlite();
+  let reviews = reviewsByDatabase.get(db);
+  if (!reviews) {
+    reviews = new Map();
+    reviewsByDatabase.set(db, reviews);
+  }
+  const cache = reviews;
+  const now = Date.now();
+  for (const [name, entry] of cache)
+    if (now - entry.at >= REVIEW_TTL_MS) cache.delete(name);
+  const key = cashReviewInputIdentity(db, account, settings());
+  const hit = cache.get(account);
+  if (hit && hit.key === key && now - hit.at < REVIEW_TTL_MS) return hit.value;
+  const value = versionedAccountReview(account, key);
+  cache.delete(account);
+  // A snapshot includes full historical curves; retain only a few accounts.
+  if (cache.size >= 4) cache.delete(cache.keys().next().value!);
+  cache.set(account, { key, at: now, value });
+  // A failed build is not reused.
+  value.catch(() => {
+    if (cache.get(account)?.value === value) cache.delete(account);
+  });
+  return value;
+}
+async function versionedAccountReview(account: string, inputIdentity: string) {
+  const result = await computeAccountReview(account);
+  if (
+    cashReviewInputIdentity(chartSqlite(), account, settings()) !==
+    inputIdentity
+  )
+    throw new Error("现金核对构建期间账户或日历已变化，请重试");
+  return {
+    ...result,
+    cashVersion: cashReviewVersion(
+      inputIdentity,
+      result.calendar.hash,
+      result.snapshot.cashReconciliation,
+    ),
+  };
+}
+const cashAccountSchema = z.object({
+  account: z.string().trim().min(1).max(64),
+});
+const cashVersionSchema = cashAccountSchema.extend({
+  version: z.string().regex(/^[a-f0-9]{64}$/),
+});
+async function cashReviewAt(input: z.infer<typeof cashVersionSchema>) {
+  const result = await accountReview(input.account);
+  assertCashReviewVersion(result.cashVersion, input.version);
+  return result.snapshot.cashReconciliation;
+}
+async function computeAccountReview(account: string) {
   const config = settings();
   const calendar = await fullLocalCalendarReference(
     config.tdxRoot,
@@ -130,6 +256,114 @@ async function accountReview(account: string) {
   };
 }
 export const portfolioRouter = createTRPCRouter({
+  cashWorkspace: p
+    .input(cashWorkspacePageSchema.and(cashAccountSchema))
+    .query(async ({ input }) => {
+      const result = await accountReview(input.account);
+      return {
+        account: input.account,
+        version: result.cashVersion,
+        ...cashWorkspacePage(result.snapshot.cashReconciliation, input),
+      };
+    }),
+  cashWorkspaceDate: p
+    .input(
+      cashVersionSchema
+        .extend({ date: cashDateSchema })
+        .merge(cashEvidencePageSchema),
+    )
+    .query(async ({ input }) => ({
+      account: input.account,
+      version: input.version,
+      ...cashWorkspaceDate(await cashReviewAt(input), input.date, input),
+    })),
+  cashWorkspaceRows: p
+    .input(
+      cashVersionSchema
+        .extend({ date: cashDateSchema, batchId: z.string().min(1).max(200) })
+        .merge(cashEvidencePageSchema),
+    )
+    .query(async ({ input }) => ({
+      account: input.account,
+      version: input.version,
+      ...cashWorkspaceRows(
+        await cashReviewAt(input),
+        input.date,
+        input.batchId,
+        input,
+      ),
+    })),
+  cashWorkspaceOpening: p
+    .input(cashVersionSchema.merge(cashEvidencePageSchema))
+    .query(async ({ input }) => ({
+      account: input.account,
+      version: input.version,
+      ...cashWorkspaceOpening(await cashReviewAt(input), input),
+    })),
+  cashWorkspaceDiagnostics: p
+    .input(cashVersionSchema.merge(cashEvidencePageSchema))
+    .query(async ({ input }) => ({
+      account: input.account,
+      version: input.version,
+      ...cashWorkspaceDiagnostics(await cashReviewAt(input), input),
+    })),
+  cashWorkspaceExport: p.input(cashVersionSchema).query(async ({ input }) => {
+    const evidence = await cashReviewAt(input);
+    return {
+      account: input.account,
+      snapshotVersion: input.version,
+      generatedAt: new Date().toISOString(),
+      evidenceHash: createHash("sha256")
+        .update(JSON.stringify(evidence))
+        .digest("hex"),
+      evidence,
+    };
+  }),
+  tradeWorkspaceEnvironment: p.query(() => ({
+    today: chinaClock(Date.now()).date,
+    mockEnabled: mockEnabled(),
+  })),
+  tradeWorkspacePage: p
+    .input(tradeWorkspacePageSchema)
+    .query(({ input }) => tradeWorkspacePage(chartSqlite(), input)),
+  tradeWorkspaceDetail: p
+    .input(tradeWorkspaceId)
+    .query(({ input }) => tradeWorkspaceDetail(chartSqlite(), input)),
+  tradeWorkspacePositions: p
+    .input(tradePositionPageSchema)
+    .query(({ input }) => tradeWorkspacePositions(input)),
+  tradeWorkspaceSignals: p
+    .input(tradeSignalOptionsSchema)
+    .query(({ input }) => tradeSignalOptions(chartSqlite(), input)),
+  tradeWorkspaceAdjustments: p
+    .input(tradeAdjustmentPageSchema)
+    .query(({ input }) => tradeAdjustmentPage(chartSqlite(), input)),
+  tradeWorkspaceAdjustment: p
+    .input(z.string().regex(/^[a-f0-9]{64}$/))
+    .query(({ input }) => tradeAdjustmentDetail(chartSqlite(), input)),
+  tradeWorkspaceComparison: p.query(() => tradeWorkspaceComparison()),
+  tradeWorkspaceExport: p
+    .input(
+      z.object({
+        filters: tradeWorkspacePageSchema,
+        format: z.enum(["json", "csv"]),
+      }),
+    )
+    .query(({ input }) => {
+      const result = tradeWorkspaceExport(chartSqlite(), input.filters);
+      return {
+        filename: `local-trades-${result.version.slice(0, 12)}.${input.format}`,
+        mime:
+          input.format === "csv"
+            ? "text/csv;charset=utf-8"
+            : "application/json",
+        content:
+          input.format === "csv"
+            ? tradeWorkspaceCsv(result.trades)
+            : JSON.stringify(result, null, 2),
+        count: result.count,
+      };
+    }),
   disciplineStart: p.input(disciplineRequestSchema).mutation(({ input }) => {
     const store = new DeliveryStore(chartSqlite()),
       config = settings();
@@ -202,6 +436,52 @@ export const portfolioRouter = createTRPCRouter({
         chartSqlite(),
       );
     }),
+  deliveryFilePage: p
+    .input(deliveryFilePageSchema)
+    .query(({ input }) => deliveryFilePage(input)),
+  deliveryPreviewStart: p
+    .input(deliveryPreviewInputSchema)
+    .mutation(({ input }) =>
+      deliveryPreviewWorkspace.start(chartSqlite(), input),
+    ),
+  deliveryPreviewPage: p
+    .input(deliveryPreviewPageSchema)
+    .query(({ input }) => deliveryPreviewWorkspace.page(chartSqlite(), input)),
+  deliveryPreviewExport: p
+    .input(deliveryPreviewTokenSchema)
+    .query(({ input }) =>
+      deliveryPreviewWorkspace.export(chartSqlite(), input),
+    ),
+  deliveryPreviewConfirm: p
+    .input(deliveryPreviewTokenSchema)
+    .mutation(({ input }) =>
+      deliveryPreviewWorkspace.confirm(chartSqlite(), input),
+    ),
+  deliveryBatchPage: p
+    .input(deliveryBatchPageSchema)
+    .query(({ input }) => deliveryBatchPage(chartSqlite(), input)),
+  deliveryReceipt: p
+    .input(
+      z.object({
+        account: z.string().trim().min(1).max(64),
+        fileHash: z.string().regex(/^[a-f0-9]{64}$/),
+      }),
+    )
+    .query(({ input }) =>
+      deliveryBatchReceipt(chartSqlite(), input.account, input.fileHash),
+    ),
+  deliveryBatchDetail: p
+    .input(deliveryBatchIdSchema)
+    .query(({ input }) => deliveryBatchDetail(chartSqlite(), input)),
+  deliveryEvidencePage: p
+    .input(deliveryEvidencePageSchema)
+    .query(({ input }) => deliveryEvidencePage(chartSqlite(), input)),
+  deliveryBatchExport: p
+    .input(deliveryBatchIdSchema)
+    .query(({ input }) => deliveryBatchExport(chartSqlite(), input)),
+  deliveryRevokeChecked: p
+    .input(deliveryRevokeCheckedSchema)
+    .mutation(({ input }) => deliveryRevokeChecked(chartSqlite(), input)),
   deliveryBatches: p.query(() =>
     new DeliveryStore(chartSqlite()).batches().map(({ payload, ...batch }) => ({
       ...batch,
@@ -461,14 +741,15 @@ export const portfolioRouter = createTRPCRouter({
         nav: {
           ...s.nav,
           segments: drawdownPage.segments,
-          monthlyReturns: sortTableRows(s.nav.monthlyReturns, input.monthOrder, {
-            month: (m) => m.month,
-            tradingDays: (m) => m.tradingDays,
-            return: (m) => m.return.value,
-          }).slice(
-            input.monthPageIndex * 12,
-            (input.monthPageIndex + 1) * 12,
-          ),
+          monthlyReturns: sortTableRows(
+            s.nav.monthlyReturns,
+            input.monthOrder,
+            {
+              month: (m) => m.month,
+              tradingDays: (m) => m.tradingDays,
+              return: (m) => m.return.value,
+            },
+          ).slice(input.monthPageIndex * 12, (input.monthPageIndex + 1) * 12),
         },
         drawdowns: drawdownPage.drawdowns,
         drawdownCount: drawdownPage.drawdownCount,

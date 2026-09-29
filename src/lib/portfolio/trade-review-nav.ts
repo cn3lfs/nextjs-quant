@@ -1,4 +1,7 @@
-import type { ParsedCashFlow, ParsedFill } from "../research/evidence/delivery-import";
+import type {
+  ParsedCashFlow,
+  ParsedFill,
+} from "../research/evidence/delivery-import";
 import type { ReviewValue } from "./trade-review";
 import { researchNavStatistics } from "../research/strategy-research";
 import { dailyPerformance } from "../backtest/daily-performance";
@@ -103,6 +106,23 @@ function drawdowns(points: Point[]) {
   );
 }
 
+// statistics() runs for many short windows over one benchmark series: index
+// it by date once per series (a date with two bars stays unmatched).
+const closeIndex = new WeakMap<readonly Close[], Map<string, Close[]>>();
+function closesByDate(benchmark: readonly Close[]) {
+  let byDate = closeIndex.get(benchmark);
+  if (!byDate) {
+    byDate = new Map();
+    for (const b of benchmark) {
+      const rows = byDate.get(b.date);
+      if (rows) rows.push(b);
+      else byDate.set(b.date, [b]);
+    }
+    closeIndex.set(benchmark, byDate);
+  }
+  return byDate;
+}
+
 function statistics(
   points: Point[],
   rate: number,
@@ -132,8 +152,9 @@ function statistics(
   // has no benchmark observation and must not be compared against a daily close.
   const benchmarkPoints = includesOpening ? points.slice(1) : points;
   const benchmarkBase = benchmarkPoints[0]!;
+  const byDate = benchmark ? closesByDate(benchmark) : undefined;
   const benchmarkValues = benchmarkPoints.map((p) => {
-    const matches = benchmark?.filter((b) => b.date === p.date);
+    const matches = byDate ? (byDate.get(p.date) ?? []) : undefined;
     return matches?.length === 1 &&
       Number.isFinite(matches[0]!.close) &&
       matches[0]!.close > 0
