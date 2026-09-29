@@ -1,16 +1,16 @@
 {
   "src/app/signal-ledger/error.tsx": "26709bdbd02b77f86d30e9994b78ca560d22b901154218d51b56d6ef3aa2aba0",
   "src/app/trade-ledger/error.tsx": "3df0932dff8e0b3a9c0218a3f7dc0032ffcc32a24ca7b4244280e0ba99877cde",
-  "src/components/market/chart-workspace.tsx": "dfe6a4a935643e2afc9c77e36bf8d6499c76b373cc57872d4abd0190ad116b65",
-  "src/components/screening/formula-screen.tsx": "81c151d22a8b55ddc06e0960587cbc5380108c599f996f06260f56eb259c6920",
+  "src/components/market/chart-workspace.tsx": "b328d04015cdf7d71fb1582d312dcee05a48dfba6b9fc328b88ea5b4f3a461bf",
+  "src/components/screening/formula-screen.tsx": "810e3c026b0569d1fdd86ab6f646e26a11ac9b718e79d0931b5800d4bc905a26",
   "src/components/market/security-select.tsx": "40d4101893778e25e31c9b2a25fa04b5b8a7814159b39397ae89d43318bf5fef",
   "src/components/signals/signal-ledger-controls.tsx": "82398d974e911a6fdd81539bda010c41fc7fb901139d95b65d19d27f9685648b",
   "src/components/portfolio/trade-ledger-panel.tsx": "ece4cdbc6d9475445815dff752d23c5e1c25bc7ca2533f12c6e9b31bc3a5813f",
   "src/components/ui/data-table.tsx": "2f57e6ea175ac31cc0fdc39f0c66b01916e47b2057c24a11226379a52ad03d5e",
-  "src/components/workbench/workbench.tsx": "e7f1ed861ffa6042cfd35db80201207e574cbddc8021a5797e5f255565744be5",
+  "src/components/workbench/workbench.tsx": "c068acbf14d9c02b8ce87be31254f077afd4c9d87d814445d10046178ee209c1",
   "src/components/workbench/evidence-analysis.tsx": "616ecd636b18128ecb24448834f49570b3243f8cb9e993b683a713d8d262e98d",
-  "src/components/workbench/market-view.tsx": "811e6677deb7dde59c8bcc8fcad7954f77a0788db75311c2f7b617bd2e29489f",
+  "src/components/workbench/market-view.tsx": "052b964bbac63185a70c92d21b09ef54fb4707a5abed15d3b30f1de8aeb2ee88",
   "src/components/workbench/reports.tsx": "a1391d9a5eed48ded5919b80deb0b0a164562cf1118335761fc8e3eeb84730fe",
   "src/components/workbench/task-center.tsx": "e235d3bb1334f9161d1c1c09b6b1cc091d0c58fbb4165d4ffa04a16d47eaafae",
-  "src/components/market/chart.tsx": "7469dfacfd41ac83a82a0af75a41a06e1f32092f299487680c12f3390e9e4bfd"
+  "src/components/market/chart.tsx": "afab8f9533d7e03d1500783c04170320d68c5e66f8860c2602711c7c45fc99ba"
 }

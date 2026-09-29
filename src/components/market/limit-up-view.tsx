@@ -1,7 +1,10 @@
 "use client";
 import { Fire, Stairs } from "@phosphor-icons/react/ssr";
 import type { LimitPoolRow } from "~/server/data-sources/eastmoney/em-limit-pool";
-import { useLimitUpStore, type LimitPool as Pool } from "~/lib/stores/limit-up-store";
+import {
+  useLimitUpStore,
+  type LimitPool as Pool,
+} from "~/lib/stores/limit-up-store";
 import { api } from "~/trpc/react";
 import {
   BarsPanel,
@@ -21,6 +24,7 @@ import { usePanelVisible } from "../workbench/keep-alive";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ChartSymbolLink } from "./chart-symbol-link";
+import { BrowseSource } from "./open-chart";
 
 const poolLabels: Record<Pool, string> = {
   zt: "涨停",
@@ -30,7 +34,8 @@ const poolLabels: Record<Pool, string> = {
 };
 const today = () =>
   new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-const yi = (v: number | null) => (v == null ? "—" : `${(v / 1e8).toFixed(2)}亿`);
+const yi = (v: number | null) =>
+  v == null ? "—" : `${(v / 1e8).toFixed(2)}亿`;
 const pct = (v: number | null, suffix = "%") =>
   v == null ? "—" : `${v.toFixed(1)}${suffix}`;
 
@@ -208,26 +213,31 @@ export function LimitUpView() {
               pct: (i.count / data.industries[0]!.count) * 100,
             }))}
           />
-          <TablePanel
-            span={12}
-            title={`${poolLabels[pool]}池`}
-            meta={`${data.pools[pool].length} 只`}
-            actions={
-              <Segmented
-                label="涨停板池"
-                value={pool}
-                onChange={setPool}
-                options={(Object.keys(poolLabels) as Pool[]).map((k) => ({
-                  value: k,
-                  label: `${poolLabels[k]} ${data.pools[k].length}`,
-                }))}
-              />
-            }
-            columns={columns(pool)}
-            rows={data.pools[pool]}
-            rowKey={(r) => r.symbol}
-            minWidth={880}
-          />
+          <BrowseSource
+            label={`${poolLabels[pool]}池`}
+            symbols={data.pools[pool].map((r) => r.symbol)}
+          >
+            <TablePanel
+              span={12}
+              title={`${poolLabels[pool]}池`}
+              meta={`${data.pools[pool].length} 只`}
+              actions={
+                <Segmented
+                  label="涨停板池"
+                  value={pool}
+                  onChange={setPool}
+                  options={(Object.keys(poolLabels) as Pool[]).map((k) => ({
+                    value: k,
+                    label: `${poolLabels[k]} ${data.pools[k].length}`,
+                  }))}
+                />
+              }
+              columns={columns(pool)}
+              rows={data.pools[pool]}
+              rowKey={(r) => r.symbol}
+              minWidth={880}
+            />
+          </BrowseSource>
         </>
       )}
     </PageGrid>

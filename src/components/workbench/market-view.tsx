@@ -33,6 +33,7 @@ import { SymbolRpsBars } from "../market/symbol-rps-bars";
 
 import { Empty } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
+import { useBrowseHotkey } from "../market/use-browse-hotkey";
 
 export function MarketView({
   state,
@@ -52,6 +53,8 @@ export function MarketView({
     | "last"
     | "change"
     | "watchlist"
+    | "browse"
+    | "setBrowse"
   >;
 }) {
   const {
@@ -65,6 +68,8 @@ export function MarketView({
     load,
     watch,
     watchlist,
+    browse,
+    setBrowse,
   } = state;
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
   const [chartAdjustment, setChartAdjustment] =
@@ -75,6 +80,20 @@ export function MarketView({
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
   usePeriodHotkey(chartPeriod, setChartPeriod, load.isPending);
+  const [browseEdge, setBrowseEdge] = useState("");
+  useBrowseHotkey(
+    browse,
+    (next) => {
+      setBrowseEdge("");
+      setBrowse(next);
+      const target = next.symbols[next.index]!;
+      setSymbol(target);
+      load.mutate({ symbol: target, period, source: marketSource });
+    },
+    // Not blocked while a load is in flight: rapid PageDown is how TDX users
+    // skim a list, and only the last mutate call's callbacks apply.
+    (first) => setBrowseEdge(first ? "已是第一只" : "已是最后一只"),
+  );
   return (
     <PageGrid>
       <section className="panel chart-panel nc-span-9">
@@ -98,6 +117,27 @@ export function MarketView({
               });
             }}
           />
+          {browse && (
+            <span
+              role="status"
+              className="flex items-center gap-1 text-xs text-nc-text-3"
+              title="PageUp/PageDown 切换上一只/下一只"
+            >
+              {browse.label} {browse.index + 1}/{browse.symbols.length} ·
+              PgUp/PgDn 换股{browseEdge && ` · ${browseEdge}`}
+              <Button
+                size="sm"
+                variant="plain"
+                aria-label="退出列表翻股"
+                onClick={() => {
+                  setBrowse(null);
+                  setBrowseEdge("");
+                }}
+              >
+                ×
+              </Button>
+            </span>
+          )}
           <MarketSourceSelect
             value={marketSource}
             disabled={load.isPending}

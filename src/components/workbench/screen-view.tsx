@@ -1,5 +1,10 @@
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  monitorPrefillHref,
+  monitorSymbolLimit,
+} from "~/lib/strategy-facts/monitor-workspace-draft";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -12,8 +17,12 @@ import {
 } from "~/components/ui/select";
 import { ArrowUpRight, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
-import { archivedNameHint, securityDisplayName } from "~/lib/market/security-display";
+import {
+  archivedNameHint,
+  securityDisplayName,
+} from "~/lib/market/security-display";
 import { FormulaScreen } from "../screening/formula-screen";
+import { FactorEvaluationPanel } from "../research/factor-evaluation-panel";
 import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
 import {
@@ -46,6 +55,7 @@ export function ScreenView({
     WorkbenchState,
     | "setTab"
     | "setSymbol"
+    | "setBrowse"
     | "period"
     | "setPeriod"
     | "setLoaded"
@@ -96,9 +106,11 @@ export function ScreenView({
     | "symbols"
   >;
 }) {
+  const router = useRouter();
   const {
     setTab,
     setSymbol,
+    setBrowse,
     period,
     setPeriod,
     setLoaded,
@@ -195,6 +207,7 @@ export function ScreenView({
         hidden={entry !== "formula"}
       >
         <FormulaScreen onStarted={state.selectFormulaJob} />
+        <FactorEvaluationPanel />
       </div>
       <div
         id="screen-entry-draft"
@@ -571,6 +584,34 @@ export function ScreenView({
                   : "正在更新候选结果…"}
               </p>
             )}
+            {screenResult.candidates.length > 0 && (
+              <div className="inline-form">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={screened.isPlaceholderData}
+                  onClick={() =>
+                    router.push(
+                      monitorPrefillHref({
+                        name: `选股候选 ${screenResult.asOf ?? ""}`.trim(),
+                        symbols: screenResult.candidates
+                          .slice(0, monitorSymbolLimit)
+                          .map((c) => c.symbol),
+                      }),
+                    )
+                  }
+                >
+                  本页前{" "}
+                  {Math.min(monitorSymbolLimit, screenResult.candidates.length)}{" "}
+                  只加入监控
+                </Button>
+                <span className="text-xs text-nc-text-3">
+                  按当前排序取本页；在信号页选择策略与渠道后保存，保存前不会启用。
+                  {screenResult.candidates.length > monitorSymbolLimit &&
+                    ` 单个订阅最多 ${monitorSymbolLimit} 只。`}
+                </span>
+              </div>
+            )}
             <div
               className="table-wrap"
               aria-busy={!firstScreenPage && screened.isFetching}
@@ -710,6 +751,13 @@ export function ScreenView({
                                 const source = await utils.savedSnapshot.fetch(
                                   c.snapshotId,
                                 );
+                                setBrowse({
+                                  label: "选股候选",
+                                  symbols: screenResult.candidates.map(
+                                    (x) => x.symbol,
+                                  ),
+                                  index: screenResult.candidates.indexOf(c),
+                                });
                                 setTab("market");
                                 setSymbol(c.symbol);
                                 setPeriod(source.period);

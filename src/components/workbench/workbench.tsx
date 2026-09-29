@@ -13,6 +13,8 @@ import { PanelCache } from "./keep-alive";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { useWorkbenchState } from "./use-workbench-state";
+import { OpenChartProvider } from "../market/open-chart";
+import type { BrowseList } from "~/lib/market/browse-list";
 
 // Panels load on first visit: the root layout would otherwise ship every
 // page body in one client bundle.
@@ -62,6 +64,17 @@ export function Workbench({ children }: { children?: ReactNode }) {
       }),
   };
   const { toast, setToast, status, channels, notify, scan } = state;
+  // Chart links in tables switch here without reloading the kept-alive panels.
+  const openChart = (symbol: string, list?: BrowseList) => {
+    base.setBrowse(list ?? null);
+    base.setSymbol(symbol);
+    base.load.mutate({
+      symbol,
+      period: base.period,
+      source: base.marketSource,
+    });
+    router.push("/market", { scroll: false });
+  };
   const failed = state.monitorSummary.data?.failedDeliveries ?? 0;
   const settings = status.data?.settings;
   const model =
@@ -127,9 +140,11 @@ export function Workbench({ children }: { children?: ReactNode }) {
         <div className="page">
           {/* Visited panels stay mounted and hidden: charts, drafts, filters and
               scroll positions survive every route switch. */}
-          <PanelCache active={pathname} panels={panels} />
-          {/* Ledger routes fetch server data per request and keep framework navigation. */}
-          {!(pathname in panels) && children}
+          <OpenChartProvider value={openChart}>
+            <PanelCache active={pathname} panels={panels} />
+            {/* Ledger routes fetch server data per request and keep framework navigation. */}
+            {!(pathname in panels) && children}
+          </OpenChartProvider>
         </div>
         <footer>
           观澜 · 数据驱动研究，证据支持判断{" "}

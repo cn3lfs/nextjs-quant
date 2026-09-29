@@ -101,7 +101,7 @@ it("T2 groups chart controls into two nonwrapping rows and retains parameter and
   expect(workspace).toContain('role="toolbar"');
   expect(workspace).toContain("Object.entries(tools).map");
   expect(workspace).toContain(
-    "←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页 · Home/End · F5 分时 · F8 周期",
+    "←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页（从列表进入时换股） · Home/End · F5 分时 · F8 周期",
   );
   expect(chart).toContain('data-testid="chart-secondary-controls"');
   expect(chart).toContain(

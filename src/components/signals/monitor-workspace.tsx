@@ -11,6 +11,8 @@ import { monitorSaveSchema } from "~/lib/strategy-facts/monitor-workspace-action
 import {
   editMonitorDraft,
   newMonitorDraft,
+  readMonitorPrefill,
+  type MonitorPrefill,
   monitorDraftInput,
   savedMonitorDraft,
   monitorSessionDrafts,
@@ -34,6 +36,7 @@ import {
   deliveryLabels,
   monitorTime,
 } from "./monitor-workspace-fields";
+import { usePathname } from "next/navigation";
 const blankFilters = (): Record<MonitorTab, MonitorFilters> => ({
   monitors: { query: "" },
   signals: { query: "" },
@@ -75,6 +78,7 @@ export function MonitorWorkspace({
     [editing, setEditing] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({}),
     [notice, setNotice] = useState("");
+  const [prefill, setPrefill] = useState<MonitorPrefill | null>(null);
   const [reloadValue, setReloadValue] = useState<MonitorDetailValue | null>(
     null,
   );
@@ -371,6 +375,45 @@ export function MonitorWorkspace({
       }));
     }
   }
+  // A screening list sent here (monitorPrefillHref) opens as an unsaved new
+  // subscription. Read on every arrival: a kept-alive panel does not remount.
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname !== "/signals") return;
+    const url = new URL(location.href);
+    if (!url.searchParams.has("monitorNew")) return;
+    const value = readMonitorPrefill(url.searchParams.get("monitorNew"));
+    url.searchParams.delete("monitorNew");
+    history.replaceState(history.state, "", url);
+    if (value) {
+      setTab("monitors");
+      setPrefill(value);
+    } else
+      setErrors((previous) => ({ ...previous, query: "候选列表参数无效" }));
+  }, [pathname]);
+  useEffect(() => {
+    if (!prefill) return;
+    setPrefill(null);
+    setEditing("new");
+    if (drafts.new?.dirty) {
+      // Never overwrite unsaved work; say what was not applied.
+      setErrors((previous) => ({
+        ...previous,
+        new: `已有未保存的新建订阅，未用候选列表覆盖。候选：${prefill.symbols.join(" ")}`,
+      }));
+      return;
+    }
+    setDrafts((previous) => ({
+      ...previous,
+      new: {
+        ...newMonitorDraft(),
+        name: prefill.name,
+        symbolText: prefill.symbols.join(" "),
+        dirty: true,
+      },
+    }));
+    setErrors((previous) => ({ ...previous, new: "" }));
+  }, [prefill]);
   const currentDraft = editing ? drafts[editing] : undefined;
   function saveDraft() {
     if (!currentDraft || !editing) return;

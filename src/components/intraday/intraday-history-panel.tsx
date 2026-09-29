@@ -24,6 +24,8 @@ import {
   archiveStamp,
 } from "../research/archive-evidence";
 import { useArchiveDownload } from "../research/use-archive-download";
+import { ChartSymbolLink } from "../market/chart-symbol-link";
+import { BrowseSource } from "../market/open-chart";
 
 type Cursor = NonNullable<IntradayHistoryInput["cursor"]>;
 const stateLabels = {
@@ -399,60 +401,69 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
               : `匹配 ${query.data?.total ?? 0} 条 · 有信号 ${stats?.candidates ?? 0} · 未核对 ${stats?.pending ?? 0} · 待重试 ${stats?.retry ?? 0} · 已核对 ${stats?.settled ?? 0}`}
           {query.isFetching && !query.isLoading ? " · 更新中" : ""}
         </p>
-        <div className="space-y-2" aria-label="预选记录">
-          {query.data?.rows.map((row) => (
-            <article
-              key={row.id}
-              className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm md:grid-cols-5"
-            >
-              <div>
-                <strong>{row.symbol.toUpperCase()}</strong>
-                <div className="text-xs text-nc-text-3">
-                  RPS {row.rps.toFixed(2)}
-                </div>
-              </div>
-              <div>
-                {row.signalCount
-                  ? `${row.signalCount} 项预选信号`
-                  : "无预选信号"}
-              </div>
-              <div className="text-xs">
-                截止 {row.barCutoff.slice(5, 16).replace("T", " ")}
-              </div>
-              <div>{stateLabels[row.state]}</div>
-              <Button
-                size="sm"
-                variant="outline"
-                data-observation={row.id}
-                onClick={() => {
-                  savedScroll.current = window.scrollY;
-                  try {
-                    sessionStorage.setItem(
-                      "intraday-return",
-                      JSON.stringify({
-                        id: row.id,
-                        scroll: savedScroll.current,
-                      }),
-                    );
-                  } catch {
-                    /* Optional restoration only. */
-                  }
-                  setSelected(row.id);
-                  address(filter, row.id);
-                }}
+        <BrowseSource
+          label="盘中预选"
+          symbols={[
+            ...new Set(query.data?.rows.map((row) => row.symbol) ?? []),
+          ]}
+        >
+          <div className="space-y-2" aria-label="预选记录">
+            {query.data?.rows.map((row) => (
+              <article
+                key={row.id}
+                className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm md:grid-cols-5"
               >
-                查看依据
-              </Button>
-            </article>
-          ))}
-          {query.data?.rows.length === 0 && (
-            <p className="text-sm text-nc-text-3">
-              {query.data.totalAll === 0
-                ? "尚无观测记录。请先确认配置和行情条件，再查看批次执行结果。"
-                : "当前范围没有观测记录。可切换全部历史；缺少行情或尚未执行的原因请查看批次。"}
-            </p>
-          )}
-        </div>
+                <div>
+                  <strong>
+                    <ChartSymbolLink symbol={row.symbol} />
+                  </strong>
+                  <div className="text-xs text-nc-text-3">
+                    RPS {row.rps.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  {row.signalCount
+                    ? `${row.signalCount} 项预选信号`
+                    : "无预选信号"}
+                </div>
+                <div className="text-xs">
+                  截止 {row.barCutoff.slice(5, 16).replace("T", " ")}
+                </div>
+                <div>{stateLabels[row.state]}</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-observation={row.id}
+                  onClick={() => {
+                    savedScroll.current = window.scrollY;
+                    try {
+                      sessionStorage.setItem(
+                        "intraday-return",
+                        JSON.stringify({
+                          id: row.id,
+                          scroll: savedScroll.current,
+                        }),
+                      );
+                    } catch {
+                      /* Optional restoration only. */
+                    }
+                    setSelected(row.id);
+                    address(filter, row.id);
+                  }}
+                >
+                  查看依据
+                </Button>
+              </article>
+            ))}
+            {query.data?.rows.length === 0 && (
+              <p className="text-sm text-nc-text-3">
+                {query.data.totalAll === 0
+                  ? "尚无观测记录。请先确认配置和行情条件，再查看批次执行结果。"
+                  : "当前范围没有观测记录。可切换全部历史；缺少行情或尚未执行的原因请查看批次。"}
+              </p>
+            )}
+          </div>
+        </BrowseSource>
         <div className="mt-3 flex items-center gap-3">
           <Button
             size="sm"

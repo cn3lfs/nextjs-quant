@@ -3,6 +3,7 @@ import { marketSourceSchema } from "~/lib/market/market-source";
 import {
   defaultStrategy,
   periodSchema,
+  symbolSchema,
   type Monitor,
   type Period,
   type Strategy,
@@ -132,3 +133,32 @@ export const monitorSessionDrafts = z.record(
     dirty: z.boolean(),
   }),
 );
+
+/** Most symbols one subscription may watch (monitorSaveSchema). */
+export const monitorSymbolLimit = 20;
+const monitorPrefillSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  symbols: z.array(symbolSchema).min(1).max(monitorSymbolLimit),
+});
+export type MonitorPrefill = z.infer<typeof monitorPrefillSchema>;
+/**
+ * Link that opens a new, unsaved subscription draft on the signals page with
+ * these symbols — how screening results become a watched list. Nothing is
+ * saved or enabled until the user chooses a strategy and saves.
+ */
+export function monitorPrefillHref(prefill: MonitorPrefill) {
+  const value = monitorPrefillSchema.parse(prefill);
+  const params = new URLSearchParams({
+    monitorTab: "monitors",
+    monitorNew: JSON.stringify(value),
+  });
+  return `/signals?${params}`;
+}
+export function readMonitorPrefill(raw: string | null): MonitorPrefill | null {
+  if (!raw || raw.length > 4000) return null;
+  try {
+    return monitorPrefillSchema.parse(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}

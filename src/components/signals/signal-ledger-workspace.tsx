@@ -23,6 +23,8 @@ import {
 import { LedgerDetail } from "./signal-ledger-detail";
 import { LedgerHistoryPanels } from "./signal-ledger-history-panels";
 import { LedgerAnalysisPanel } from "./signal-ledger-analysis";
+import { ChartSymbolLink } from "../market/chart-symbol-link";
+import { BrowseSource } from "../market/open-chart";
 
 type Cursor = NonNullable<LedgerHistoryInput["cursor"]>;
 const storageKey = (filter: LedgerHistoryInput) =>
@@ -444,49 +446,60 @@ export function SignalLedgerWorkspace() {
                 : "尚无向前信号记录。交易日15:05后保持应用运行并准备当日日线；不补录历史。"}
             </p>
           )}
-          <div className="mt-3 space-y-2">
-            {query.data?.rows.map((row) => (
-              <article
-                key={row.id}
-                className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm lg:grid-cols-6"
-              >
-                <div>
-                  <strong>{row.symbol.toUpperCase()}</strong>
-                  <div className="text-xs">{row.observedDate}</div>
-                </div>
-                <div>
-                  {ledgerStrategyName(row.strategy)} ·{" "}
-                  {row.direction === "long" ? "向上" : "向下"}
-                  <div className="text-xs">
-                    质量 {row.quality} · 评分 {row.score}
-                  </div>
-                </div>
-                {([5, 10, 20] as const).map((h) => {
-                  const out = row.outcomes.find((value) => value.horizon === h);
-                  return (
-                    <div key={h}>
-                      <div className="text-xs text-nc-text-3">T+{h}</div>
-                      <span>
-                        {!out?.settled
-                          ? "待观察"
-                          : out.returnPct === null
-                            ? "已固定·留空"
-                            : `${out.returnPct.toFixed(2)}%`}
-                      </span>
-                    </div>
-                  );
-                })}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  data-ledger-signal={row.id}
-                  onClick={() => open(row.id)}
+          <BrowseSource
+            label="信号台账"
+            symbols={[
+              ...new Set(query.data?.rows.map((row) => row.symbol) ?? []),
+            ]}
+          >
+            <div className="mt-3 space-y-2">
+              {query.data?.rows.map((row) => (
+                <article
+                  key={row.id}
+                  className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm lg:grid-cols-6"
                 >
-                  查看依据
-                </Button>
-              </article>
-            ))}
-          </div>
+                  <div>
+                    <strong>
+                      <ChartSymbolLink symbol={row.symbol} />
+                    </strong>
+                    <div className="text-xs">{row.observedDate}</div>
+                  </div>
+                  <div>
+                    {ledgerStrategyName(row.strategy)} ·{" "}
+                    {row.direction === "long" ? "向上" : "向下"}
+                    <div className="text-xs">
+                      质量 {row.quality} · 评分 {row.score}
+                    </div>
+                  </div>
+                  {([5, 10, 20] as const).map((h) => {
+                    const out = row.outcomes.find(
+                      (value) => value.horizon === h,
+                    );
+                    return (
+                      <div key={h}>
+                        <div className="text-xs text-nc-text-3">T+{h}</div>
+                        <span>
+                          {!out?.settled
+                            ? "待观察"
+                            : out.returnPct === null
+                              ? "已固定·留空"
+                              : `${out.returnPct.toFixed(2)}%`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    data-ledger-signal={row.id}
+                    onClick={() => open(row.id)}
+                  >
+                    查看依据
+                  </Button>
+                </article>
+              ))}
+            </div>
+          </BrowseSource>
           <LedgerPaging
             page={pages.length}
             next={!!query.data?.nextCursor}

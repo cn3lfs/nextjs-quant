@@ -470,7 +470,7 @@ function EditableChart({
                 ? points.length
                   ? `移动鼠标预览，再点击 ${drawingPointCount(tool) - points.length} 次完成${tool === "channel" && points.length === 2 ? "（第三点定通道宽度）" : ""}；Esc 取消`
                   : "移动鼠标自由定位，点击定锚；Esc 取消"
-                : "浏览时点中图形可选中：拖端点改形状、拖线身移动、Delete 删除 · ←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页 · Home/End · F5 分时 · F8 周期"}
+                : "浏览时点中图形可选中：拖端点改形状、拖线身移动、Delete 删除 · ←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页（从列表进入时换股） · Home/End · F5 分时 · F8 周期"}
             </span>
           </div>
         </details>

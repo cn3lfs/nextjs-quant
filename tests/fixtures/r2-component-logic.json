@@ -24,10 +24,11 @@
     "SignalLedgerControls": "522b07fc97b2dbeda74c741a6e02f2e6945b3957c0f9c59d2eab7527971aca4a"
   },
   "src/components/workbench/screen-view.tsx": {
-    "ScreenView": "26a07fecc6016cf23b65ffd6b54da276eab75c2df93ed2b04e2e37d632c680a5"
+    "ScreenView": "017c1e7209c1530d579da8e90614a3bb6e49c64488bdddbf4ef73bad027fa312"
   },
   "src/components/screening/formula-screen.tsx": {
-    "FormulaScreen": "4e50b25d0683df3b2f6cddf056c8482b00b8674bd250e6e972c6b983f22a4cfa",
+    "FormulaScreen": "18fd18f20fe9eac476b5a95789b3bdcc3eef5ce24bbd96bdff8ea3c58a98e4af",
+    "generate": "ad9900f5a7e4f248ab507c3ff5c332e04759e56c28932e56860d4d894eb73403",
     "input": "369b1bf38ddb076097617948b5919278dafa93ddfefad4221d38d77dbe03cec0",
     "error": "e1da808c7d91b6a6d905a3f1c91e54e8d6e21f58bf9e69305d229d773b88acf7"
   },
@@ -36,7 +37,7 @@
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
-    "MarketView": "17e325a28fbfa2b102a7dd70b7ef5d243328a4e7118840899d7c74a7c95e6e78"
+    "MarketView": "f7f6a5c8629ced991111e5e0dd7bafe7a8eaab74d7ab54e04a3f9f2ac1b35ce2"
   },
   "src/components/market/chart-workspace.tsx": {
     "ChartWorkspace": "27d08638a9f36257b0168249f919e3584728b75d0e6e3635a97610b342e5cab9",

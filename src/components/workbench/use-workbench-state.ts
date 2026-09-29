@@ -16,6 +16,7 @@ import { readChartSymbolParam } from "~/lib/chart/chart-symbol";
 import { type ScreenSort } from "~/lib/screening/screen-sort";
 import { api } from "~/trpc/react";
 import type { Tab } from "./navigation";
+import type { BrowseList } from "~/lib/market/browse-list";
 // Keep all original state, effects and queries in one unconditional hook so tab switches
 // retain their original lifetimes. Views only receive the fields they render.
 export function useWorkbenchState() {
@@ -29,6 +30,8 @@ export function useWorkbenchState() {
     ),
     [period, setPeriod] = useState<Period>("day"),
     [loaded, setLoaded] = useState<Snapshot | null>(null),
+    // List the chart was opened from; PageUp/PageDown step through it.
+    [browse, setBrowse] = useState<BrowseList | null>(null),
     [strategy, setStrategy] = useState<Strategy>(defaultStrategy),
     [toast, setToast] = useState(""),
     [onlineQuery, setOnlineQuery] = useState(""),
@@ -317,6 +320,8 @@ export function useWorkbenchState() {
     change,
     watchlist,
     setLoaded,
+    browse,
+    setBrowse,
     setStrategy,
     onlineQuery,
     setOnlineQuery,

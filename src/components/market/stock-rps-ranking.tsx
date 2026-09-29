@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { BrowseSource } from "./open-chart";
 
 /**
  * 个股 RPS 排名。Reuses the市场股票池 service that already ranks the full 沪深 market
@@ -168,25 +169,31 @@ export function StockRpsRanking() {
           : page.data?.rps
             ? "向前数据"
             : "无RPS数据"}
-        。始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。点击股票名跳转到行情图表页查看K线。
+        。始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。点击股票名跳转到行情图表页查看K线，图表中
+        PageUp/PageDown 按本页顺序换股。
       </p>
-      <DataTable
-        columns={columns}
-        data={page.data?.rows ?? []}
-        rowCount={page.data?.total ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
-        sorting={sortingState(order)}
-        onSortingChange={(updater) =>
-          reset(setOrder)(nextTableSort(updater, order))
-        }
-        getRowId={(row) => row.symbol}
-        label="个股RPS排名"
-        loading={page.isPending}
-        error={page.error?.message}
-        onRetry={() => void page.refetch()}
-        emptyMessage="没有符合条件的证券，请调整筛选或先计算RPS。"
-      />
+      <BrowseSource
+        label="RPS排名"
+        symbols={(page.data?.rows ?? []).map((row) => row.symbol)}
+      >
+        <DataTable
+          columns={columns}
+          data={page.data?.rows ?? []}
+          rowCount={page.data?.total ?? 0}
+          pagination={pagination}
+          onPaginationChange={setPagination}
+          sorting={sortingState(order)}
+          onSortingChange={(updater) =>
+            reset(setOrder)(nextTableSort(updater, order))
+          }
+          getRowId={(row) => row.symbol}
+          label="个股RPS排名"
+          loading={page.isPending}
+          error={page.error?.message}
+          onRetry={() => void page.refetch()}
+          emptyMessage="没有符合条件的证券，请调整筛选或先计算RPS。"
+        />
+      </BrowseSource>
     </div>
   );
 }

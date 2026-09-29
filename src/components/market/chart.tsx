@@ -1904,6 +1904,8 @@ export function MarketChart({
         aria-label="行情图：按住鼠标左键拖动；←→ 逐根移动光标，↑↓ 缩放，PageUp/PageDown 翻页，Home/End 到最早/最新，Esc 退出光标"
         onPointerDown={(event) => event.currentTarget.focus()}
         onKeyDown={(event) => {
+          // Already taken (e.g. PageUp/PageDown stepping a browse list).
+          if (event.defaultPrevented) return;
           if (chartKey(event.key)) event.preventDefault();
         }}
         className="price-chart"
