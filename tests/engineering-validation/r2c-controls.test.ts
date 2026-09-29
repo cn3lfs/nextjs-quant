@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import original from "../fixtures/r2c-original-contracts.json";
 import { componentLogic, renderHandlers } from "../r2-contracts";
 
-it("R2c preserves original callbacks, requests, validation and hooks with only Radix event adaptation", () => {
+it("R2c preserves reviewed callbacks, requests, validation and hooks with Radix event adaptation", () => {
   for (const [file, contract] of Object.entries(original)) {
     const source = readFileSync(file, "utf8");
     expect(renderHandlers(source), file).toEqual(contract.handlers);
@@ -106,7 +106,10 @@ it("R2c leaves native controls only in the exact frozen exemption inventory", ()
     "research/financial-growth-panel.tsx": 1,
     "research/financial-quality-panel.tsx": 2,
     "research/fundamental-report-panel.tsx": 4,
-    "news/news-panel.tsx": 6,
+    // News workspace: five source/analysis controls, four archive filters.
+    // Submitted-only queries and pagination are exercised by news browser tests.
+    "news/news-panel.tsx": 5,
+    "news/news-archive-list.tsx": 4,
     "news/news-sector-panel.tsx": 1,
     "research/revenue-reconciliation-panel.tsx": 2,
     "news/theme-prices-panel.tsx": 1,

@@ -1,23 +1,22 @@
 {
   "provenance": "Pre-N3 extraction baseline, with explicitly verified P2/Q2b additions and R2 rendering replacements. R2 original callback and component-logic fingerprints are independently retained in r2-render-contract.test.ts; frozen views and helper fingerprints are unchanged. R2b changes only Button tags and plain variants; r2b-button.test.ts verifies original rendering and component statements independently. T1 updates only the 通达信 MCP panel copy in connections.tsx to state that the token file is read on every connection; the previous baseline ba661f08b3dc168293f047cbd7f40f8e48bf01c024086fff139c30ffe746ce02 was verified to differ from this one solely in that JSX text, with every other structure, prop and handler unchanged. V5 adds only research usage result containers to backtest and formula results; tests/workbench/workbench-refactor.test.ts verifies their exact range and conditional anchors. Free-source switch (2026-09-14): MCP panel and online screening removed, four-source selection and saved default added; market-source-selection.test.ts verifies source isolation and suspended MCP zero network calls. Only affected component fingerprints refreshed. RPS deep link (d68098e, baseline refreshed 2026-09-16): use-workbench-state.ts mount effect now reads the validated `/?symbol=` parameter and falls back to the default security; git diff from 2bb9511 (the commit that last set this hash) to HEAD confirms this six-line change is the only source difference, and readChartSymbolParam has independent coverage in rps-page-boxes.test.ts including rejected traversal input. Only the state fingerprint refreshed; functions, views and connections unchanged. Nocturne redesign (2026-09-23): the user authorized a layout-only rebuild of every page; views market/screen/signals/task-center were re-laid out on the panel grid and only these view fingerprints were refreshed. R2 handler order/payloads and component logic stayed identical for them; chart.tsx/chart-workspace.tsx logic hashes changed only because hex literals became chartColor references (diff reviewed: colors, createNocturneChart and formatting only).",
-  "state": "978e98166b4d920e72233d872bdfa31f2090a75c88a26c55c267abad6086526c",
+  "state": "da018370414c0625bc75204e9b79b6513ed04a144a17d05fe8f909da12894b38",
   "functions": {
     "Field": "eddb7735e945e2958efc427cda99e7e243b4491dead6d7f0e38b6a4c2f5836c8",
     "Empty": "9807530393701ac8f10cacdc370d8ecd8eb3b90600a0bd7b4479434fab049078",
     "CalendarEvidence": "181cc9bab2f47494a403215a581f1a270e950b2a22fd5035b6d12806882c54ed",
-    "ReportArchive": "1b4e1237d0e68b438e1951fdaea2aa1f4844b9af88e36327fe7ffac1fee0b60e",
-    "ReportCard": "00f5b70e2fd25287d3101dd4fe6a330b5ff43c520faeec87dc19cdccdc36d9f4",
+    "ReportCard": "c09c313cd1e3ddaf105c2eb3fd782c62aefdfc2d256e74b91985af19fed620dc",
     "StrategyFields": "13a8d7487f93cde37309771f8bb0b7d6c837d158d18ae25e66855e14c6aa79da",
     "ResultPager": "cf306043633a5191ba8eac3ced1656558d3a79c1a851168deb7fa7c958dac3d5"
   },
   "views": {
-    "market-view.tsx": "63a970f4bd5d52ea0aa8f0d97eceba7d483d4bb6dba9e8ac2ac41866a0c63dbd",
+    "market-view.tsx": "42d53705b4c952e50caa967c133dab95d77e1da5af24033e21368d3cc726eb32",
     "screen-view.tsx": "e25d8ac02bd2919382e426f2906197c3f6d239dac731e7a7d711f8da898ce2e6",
-    "backtest-view.tsx": "4348e32470209d67f899bd5b36f80e325dccd261c18bb13390ccc8ec0638e4ae",
-    "signals-view.tsx": "8764c27cb1ecdb753ba70e1e82d5709134ee02f046dddc1c2aaabe959073a299",
-    "research-archive.tsx": "590ac0172eb0cba2952991d9b2d1e0bc26d99ebc41285bd2aa0d33896cf9b6a6",
+    "backtest-view.tsx": "c94ca22a619d7e65002b9aa7e70e5358c4b833321cc9a266d48be62bc926b98d",
+    "signals-view.tsx": "e13c3e88693bda65d5d4a7ac1d7ef3f8731133acc31b5135533237cd42cb0a4e",
+    "research-archive.tsx": "0a6169dddb036aa8578ac3c4701d0d93c86f7f5f4ed310410209063e597ce233",
     "evidence-analysis.tsx": "8884b4be9081476a16e877cfd3e6abddb83c370f73f852b2074268e21899ddd6",
-    "task-center.tsx": "4dffde0da6c992ebaf9ccbeca52ae9eac96ca39fcd3caffbe21870c4e3396536"
+    "task-center.tsx": "6e709adc7d2eab2cbb54f6e32d10d9acd783d84a680239d73e86c03582429a24"
   },
-  "connections": "a6d48c692b058140abf59efe531729b58502d50da12cc8129230de9372ca391b"
+  "connections": "a899b5df1b9f3f4dd9872f44c4569748573c4a6ca2dc64ead5f2a95e526e02fc"
 }

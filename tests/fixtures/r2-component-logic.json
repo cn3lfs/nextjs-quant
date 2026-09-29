@@ -1,22 +1,27 @@
 {
   "src/components/workbench/connections.tsx": {
-    "Connections": "e6e64e25d0304cfd3d9f9c8991caf8e0cbab5a9fdfb5d19cbc5f31b61bfdb151"
+    "Connections": "76834a22757f7e87ec6dbe86dc1e45bf0ff36243216805351b6bb1155d1c8053"
   },
   "src/components/signals/notification-policy-fields.tsx": {
     "NotificationPolicyFields": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/workbench/signals-view.tsx": {
-    "SignalsView": "edc3b7cc3f7d3f4cfb744e6010f7c50e3bec327571eb80dfc7c9957281445ce0"
+    "SignalsView": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/portfolio/trade-ledger-panel.tsx": {
-    "TradeLedgerPanel": "3ac4c755783668b863012d02d8be4883eb7039e0bb9b27787fc8a05dfd785796",
-    "input": "5c74cf2f1c5f2b729e82cffe096ddf0f4f14422e5567e994ae0fe0bf259778bb"
+    "TradeLedgerPanel": "aae5ca5ba5ef574eb97821699e589a48757458d29ccd31caeaf31bc11dbc8a6d",
+    "changed": "efc487d75b9568c91fa177dd097002a69018334d4bb2a410d507995250eb5c8d",
+    "submit": "8dd8a43982671887c227b198b50358c10af5415aa1529a1786a018a7c2a3cbf2",
+    "exportHistory": "73d5e481843a80030155c4495ecd4a9106b89949213a20a8c83154d3c13025b8"
   },
   "src/components/signals/signal-ledger-view.tsx": {
-    "SignalLedgerView": "dc26b757a8c62712f233f4256f086252f5a7c4b3f8d3e0957015c9965e0d14dc"
+    "LedgerRules": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "LedgerNotification": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "RunEvidence": "c98c639c3f28101875ac6aa10525a350277e13f3c56626e8c71c02bd2cffd23b",
+    "SignalLedgerView": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/signals/signal-ledger-controls.tsx": {
-    "SignalLedgerControls": "b632d439ebc2aaa794b0a2cd1c70dbc4d84deab68d9d61373fc9bf94881c4a31"
+    "SignalLedgerControls": "522b07fc97b2dbeda74c741a6e02f2e6945b3957c0f9c59d2eab7527971aca4a"
   },
   "src/components/workbench/screen-view.tsx": {
     "ScreenView": "26a07fecc6016cf23b65ffd6b54da276eab75c2df93ed2b04e2e37d632c680a5"
@@ -31,11 +36,11 @@
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
-    "MarketView": "a507ed133e823d72fe05815854d9086b07da8a9ba0f37961a87f873689dc8fbf"
+    "MarketView": "17e325a28fbfa2b102a7dd70b7ef5d243328a4e7118840899d7c74a7c95e6e78"
   },
   "src/components/market/chart-workspace.tsx": {
     "ChartWorkspace": "27d08638a9f36257b0168249f919e3584728b75d0e6e3635a97610b342e5cab9",
-    "EditableChart": "26d0ca095fcd1fa2c2eec2e1c420b8c024446f6dc22f86a4a2c385c9e55a88df"
+    "EditableChart": "67dfe417398f4dcf43ae0633573c0674244e141bcbf90d657a9b11fe450bcfc3"
   },
   "src/components/market/chart.tsx": {
     "LegacyChart": "e5a94931984492479f256fcf9b030b5c34ddcfec4ee29f6e00af2d84d5f1b466",
@@ -43,13 +48,13 @@
     "PositionRiskChart": "a02ddf10d68739189aa3e1c50fdd24ae5e151528e63cd0f8031452a6a16bb9ce",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "CzscMarketChart": "36ae1a1fdaec546d5ad22c8ace94c5ba274f9bfc4daae5c294bf9076b48edc79",
-    "MarketChart": "02fa6f82291e0b5f030616c35e0512916cbae9903476cf94abc3103a70839d1b",
+    "MarketChart": "460ab10151c54ef2c0d771fdda98264efe0892b405618ed3f2d98471677bacaf",
     "IndicatorChip": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "IndicatorParameterPanel": "24c9c9de0755c4621b0c94843d1be7bcb01b68bc1eb2f699567f0b2ce07c1f50"
   },
   "src/components/market/security-select.tsx": {
-    "SecuritySelect": "8c83e31baea3c230c5cbbeeb988c91026ce84e88763d929da197200d8ce1d936",
-    "keyboard": "886668cdce76e19c2885c4fc52997774367c268c811b51d3be67267b0757c40a",
-    "select": "764e53ec15907456d5346b9f474230528cf39cc26489e763e011f2fb0bb5fac6"
+    "SecuritySelect": "c7ef8f6b8d5a587bb84b707462891e51d3b9a13a2a5732ce9500dce4bf789636",
+    "keyboard": "f232cfdf7e99d5affa8d28bb0c13cb2f692fdf4bc5d838ff5f6c42d50b77cf87",
+    "select": "de51dbafe5d1d25315a067fc8042c820a4e5c62759f9c2e738aa84a0871a5ae6"
   }
 }

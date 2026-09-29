@@ -93,18 +93,22 @@ it("T2 groups chart controls into two nonwrapping rows and retains parameter and
   expect(workspace.match(/className="relative !my-0"/g)).toHaveLength(1);
   expect(workspace.match(/name="chart-tools"/g)).toHaveLength(1);
   expect(workspace).not.toContain("指标参数</summary>");
-  expect(workspace).toContain("saveView({ symbol: snapshot.symbol, period, view })");
+  expect(workspace).toContain(
+    "saveView({ symbol: snapshot.symbol, period, view })",
+  );
   expect(chart).toContain("<IndicatorParameterPanel");
   expect(workspace).toContain("画线：{tools[tool]}</summary>");
   expect(workspace).toContain('role="toolbar"');
   expect(workspace).toContain("Object.entries(tools).map");
-  expect(workspace).toContain("左右键平移 · 上下键缩放 · 拖拽价格轴缩放");
+  expect(workspace).toContain(
+    "←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页 · Home/End · F5 分时 · F8 周期",
+  );
   expect(chart).toContain('data-testid="chart-secondary-controls"');
   expect(chart).toContain(
     "flex items-center gap-3 overflow-x-auto py-2 text-sm whitespace-nowrap",
   );
   for (const handler of renderHandlers(
-    `<><Button onClick={() => { setTool(id as keyof typeof tools); setAnchor(null); }} /></>`,
+    `<><Button onClick={() => { setTool(id as keyof typeof tools); setPoints([]); }} /></>`,
   ))
     expect(renderHandlers(workspace)).toContain(handler);
   for (const label of [
