@@ -45,7 +45,12 @@ export const staleTimes: Record<string, number> = {
 };
 
 export const persisted = new Set<string>([
-  ...Object.keys(staleTimes),
+  // Full archived evidence can be megabytes; keep it in short-lived memory,
+  // not in every IndexedDB cache snapshot. Archive summaries remain eligible.
+  ...Object.keys(staleTimes).filter(
+    (name) =>
+      !["archivedReport", "newsThemes", "newsSectorReports"].includes(name),
+  ),
   "limitSentiment",
   "marketPoolPage",
   "industryRpsPage",
@@ -62,9 +67,7 @@ const procedureOf = (key: readonly unknown[]) => {
 
 export function shouldPersistQuery(query: Query) {
   const name = procedureOf(query.queryKey);
-  return (
-    !!name && persisted.has(name) && query.state.status === "success"
-  );
+  return !!name && persisted.has(name) && query.state.status === "success";
 }
 
 export function applyCachePolicy(client: QueryClient) {

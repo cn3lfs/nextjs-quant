@@ -2,7 +2,6 @@
 
 import { type QueryClient } from "@tanstack/react-query";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createStore, del, get, set } from "idb-keyval";
 import { httpBatchStreamLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
@@ -12,11 +11,8 @@ import SuperJSON from "superjson";
 
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
-import {
-  applyCachePolicy,
-  PERSIST_MAX_AGE,
-  shouldPersistQuery,
-} from "./cache-policy";
+import { applyCachePolicy } from "./cache-policy";
+import { PersistProvider } from "./persist";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
@@ -96,28 +92,18 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
       {props.children}
     </api.Provider>
   );
-  const storage = getPersister();
+  // Restores the persisted cache once; afterwards only persisted queries'
+  // new data is saved (see PersistProvider).
   return (
-    <PersistQueryClientProvider
+    <PersistProvider
       client={queryClient}
-      persistOptions={{
-        // Without IndexedDB (server render) nothing is restored or written.
-        persister: storage ?? noopPersister,
-        maxAge: PERSIST_MAX_AGE,
-        buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? "dev",
-        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
-      }}
+      persister={getPersister()}
+      buster={process.env.NEXT_PUBLIC_CACHE_BUSTER ?? "dev"}
     >
       {body}
-    </PersistQueryClientProvider>
+    </PersistProvider>
   );
 }
-
-const noopPersister = {
-  persistClient: async () => {},
-  restoreClient: async () => undefined,
-  removeClient: async () => {},
-};
 
 function getBaseUrl() {
   if (typeof window !== "undefined") return window.location.origin;

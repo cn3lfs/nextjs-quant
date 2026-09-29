@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import type { ReactNode } from "react";
+import { useId, useMemo, type ReactNode } from "react";
 
 // State coordination only: no sorted/paginated row-model plugins are registered.
 export const dataTableFeatures = tableFeatures({
@@ -80,9 +80,11 @@ export function DataTable<T extends object>({
   emptyMessage = "暂无数据。",
   showPagination = true,
 }: DataTableProps<T>) {
+  const sortHelpId = useId();
+  const serverColumns = useMemo(() => columns.map(serverSortable), [columns]);
   const table = useTable({
     features: dataTableFeatures,
-    columns: columns.map(serverSortable),
+    columns: serverColumns,
     data,
     rowCount,
     getRowId,
@@ -94,10 +96,21 @@ export function DataTable<T extends object>({
     onSortingChange,
   });
   const busy = loading || !!error;
+  const sortable = table
+    .getAllLeafColumns()
+    .some((column) => column.getCanSort());
   return (
     <section aria-label={label} aria-busy={loading} className="space-y-3">
       <div className="rounded-lg border border-border">
-        <Table aria-label={label}>
+        {sortable && (
+          <p id={sortHelpId} className="sr-only">
+            列标题中的按钮可排序，按 Enter 或空格切换排序方向。
+          </p>
+        )}
+        <Table
+          aria-label={label}
+          aria-describedby={sortable ? sortHelpId : undefined}
+        >
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { Snapshot } from "~/lib/domain";
+import { isCryptoSymbol } from "~/lib/market/crypto";
+import { isFuturesSymbol } from "~/lib/market/futures";
 
 /**
  * Recently viewed chart snapshots, in memory only (bars are too large to
@@ -20,23 +22,45 @@ export const snapshotCacheKey = (r: SnapshotRequest) =>
 const LIMIT = 12;
 
 type SnapshotCacheState = {
+  generation: number;
+  marketGeneration: number;
   entries: Map<string, Snapshot>;
   get: (key: string) => Snapshot | undefined;
   put: (key: string, snapshot: Snapshot) => void;
   clear: () => void;
+  clearMarket: () => void;
 };
 
-export const useSnapshotCache = create<SnapshotCacheState>()((set, getState) => ({
-  entries: new Map(),
-  get: (key) => getState().entries.get(key),
-  put: (key, snapshot) =>
-    set(({ entries }) => {
-      const next = new Map(entries);
-      next.delete(key);
-      next.set(key, snapshot);
-      // Map keeps insertion order: the first key is the least recently used.
-      while (next.size > LIMIT) next.delete(next.keys().next().value!);
-      return { entries: next };
-    }),
-  clear: () => set({ entries: new Map() }),
-}));
+export const useSnapshotCache = create<SnapshotCacheState>()(
+  (set, getState) => ({
+    generation: 0,
+    marketGeneration: 0,
+    entries: new Map(),
+    get: (key) => getState().entries.get(key),
+    put: (key, snapshot) =>
+      set(({ entries }) => {
+        const next = new Map(entries);
+        next.delete(key);
+        next.set(key, snapshot);
+        // Map keeps insertion order: the first key is the least recently used.
+        while (next.size > LIMIT) next.delete(next.keys().next().value!);
+        return { entries: next };
+      }),
+    clear: () =>
+      set((state) => ({
+        entries: new Map(),
+        generation: state.generation + 1,
+      })),
+    clearMarket: () =>
+      set((state) => ({
+        entries: new Map(
+          [...state.entries].filter(
+            ([, snapshot]) =>
+              isCryptoSymbol(snapshot.symbol) ||
+              isFuturesSymbol(snapshot.symbol),
+          ),
+        ),
+        marketGeneration: state.marketGeneration + 1,
+      })),
+  }),
+);

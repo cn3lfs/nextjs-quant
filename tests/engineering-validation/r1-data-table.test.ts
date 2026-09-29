@@ -31,6 +31,18 @@ const render = (overrides: Partial<DataTableProps<Row>> = {}) =>
   );
 
 describe("R1 server-owned DataTable", () => {
+  it("associates keyboard sorting help with sortable tables only", () => {
+    const markup = render();
+    const id = /aria-describedby="([^"]+)"/.exec(markup)?.[1];
+    expect(id).toBeDefined();
+    expect(markup).toContain(`id="${id}"`);
+    expect(markup).toContain("按 Enter 或空格切换排序方向");
+    const unsortable = render({
+      columns: [{ id: "plain", header: "说明", enableSorting: false }],
+    });
+    expect(unsortable).not.toContain("aria-describedby");
+    expect(unsortable).not.toContain("按 Enter");
+  });
   it("R2 can retain the existing external pager and empty-state text without changing row order", () => {
     const markup = render({ showPagination: false, emptyMessage: null });
     expect(markup).not.toContain("下一页");
