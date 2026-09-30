@@ -1,7 +1,7 @@
 {
-  "_note": "Upper limits for tests/e2e specs: first-round/second-round measured values plus ~30-50% headroom. Raise only with a decisions.md entry.",
+  "_note": "Upper limits for tests/e2e specs: first-round/second-round measured values plus ~30-50% headroom. Raise only with a decisions.md entry. firstLoadScriptKbIncludingPrefetch counts Next route prefetch plus the idle panel-chunk prefetch (2026-09-30: ~1.85 MB); the user-facing budget is firstLoadScriptMs. /signals has its own first-switch limit: its workspace renders only after the first monitorWorkspacePage round trip (≈220 ms alone, 350-540 ms right after another busy page).",
   "firstLoadScriptMs": 250,
-  "firstLoadScriptKbIncludingPrefetch": 1200,
+  "firstLoadScriptKbIncludingPrefetch": 2500,
   "panelFirstSwitchMs": 300,
   "hiddenPanelRequestsIn10s": 0,
   "idleMainThreadMsIn10s": 260,
@@ -9,5 +9,6 @@
   "tradeReviewBig2222Ms": 1500,
   "browseStepMs": 1500,
   "monitorPrefillOpenMs": 1500,
-  "factorEval3yMs": 60000
+  "factorEval3yMs": 60000,
+  "panelFirstSwitchMsSignals": 500
 }

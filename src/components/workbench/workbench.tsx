@@ -46,7 +46,52 @@ const TaskCenter = dynamic(() =>
   import("./task-center").then((m) => m.TaskCenter),
 );
 
+/**
+ * Fetches the panel chunks once the first page is idle, so a first visit does
+ * not wait on the network (~70-150 ms measured). Same import() paths as the
+ * dynamic() calls above, so the bundler shares their chunks.
+ */
+function usePanelPrefetch() {
+  useEffect(() => {
+    // One chunk per idle period, the next only after it has loaded, so the
+    // evaluation never blocks a click for long (loading all at once did).
+    const queue = [
+      () => import("./task-center"),
+      () => import("./screen-view"),
+      () => import("./signals-view"),
+      () => import("./backtest-view"),
+      () => import("../news/news-panel"),
+      () => import("./research-archive"),
+      () => import("./evidence-analysis"),
+      () => import("./connections"),
+      // market-view is left out: evaluating the chart library blocks the
+      // main thread for hundreds of ms, and its own first visit is ~130 ms.
+    ];
+    let cancelled = false,
+      handle = 0;
+    const idle = (run: () => void) =>
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(run, { timeout: 5000 })
+        : window.setTimeout(run, 300);
+    const next = () => {
+      const load = queue.shift();
+      if (!load || cancelled) return;
+      handle = idle(() => {
+        if (!cancelled) void load().finally(next);
+      });
+    };
+    next();
+    return () => {
+      cancelled = true;
+      if (typeof window.cancelIdleCallback === "function")
+        window.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, []);
+}
+
 export function Workbench({ children }: { children?: ReactNode }) {
+  usePanelPrefetch();
   const pathname = usePathname();
   const router = useRouter();
   const base = useWorkbenchState();

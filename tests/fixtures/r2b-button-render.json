@@ -7,7 +7,7 @@
   "src/components/signals/signal-ledger-controls.tsx": "82398d974e911a6fdd81539bda010c41fc7fb901139d95b65d19d27f9685648b",
   "src/components/portfolio/trade-ledger-panel.tsx": "ece4cdbc6d9475445815dff752d23c5e1c25bc7ca2533f12c6e9b31bc3a5813f",
   "src/components/ui/data-table.tsx": "2f57e6ea175ac31cc0fdc39f0c66b01916e47b2057c24a11226379a52ad03d5e",
-  "src/components/workbench/workbench.tsx": "c068acbf14d9c02b8ce87be31254f077afd4c9d87d814445d10046178ee209c1",
+  "src/components/workbench/workbench.tsx": "355d203686e6eb1bf379c6ead1cf0d55673e464697a8c3dbc697aba68488f9d4",
   "src/components/workbench/evidence-analysis.tsx": "616ecd636b18128ecb24448834f49570b3243f8cb9e993b683a713d8d262e98d",
   "src/components/workbench/market-view.tsx": "052b964bbac63185a70c92d21b09ef54fb4707a5abed15d3b30f1de8aeb2ee88",
   "src/components/workbench/reports.tsx": "a1391d9a5eed48ded5919b80deb0b0a164562cf1118335761fc8e3eeb84730fe",
