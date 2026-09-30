@@ -10,5 +10,6 @@
   "browseStepMs": 1500,
   "monitorPrefillOpenMs": 1500,
   "factorEval3yMs": 60000,
-  "panelFirstSwitchMsSignals": 500
+  "panelFirstSwitchMsSignals": 500,
+  "linkedCrosshairScriptMsPerStep": 8
 }

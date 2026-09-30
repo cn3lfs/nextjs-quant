@@ -8,6 +8,13 @@ import {
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
@@ -21,12 +28,19 @@ import {
   chartCost,
   chartViewSchema,
   indicatorParametersSchema,
+  chartPeriodSchema,
+  periodLabels,
   type ChartPeriod,
   type ChartView,
   type Drawing,
 } from "~/lib/chart/chart-view";
 import {
+  createCrosshairLink,
+  type CrosshairLink,
+} from "~/lib/chart/crosshair-link";
+import {
   CzscMarketChart,
+  MarketChart,
   compareColors,
   type ChartCompare,
 } from "../market/chart";
@@ -39,6 +53,8 @@ import { isTypingTarget } from "./chart-hotkeys";
 // TDX keeps 分时 or K 线 across symbol switches; the workspace remounts per
 // symbol/period, so the last choice lives at module scope for the session.
 let lastIntraday = false;
+// The linked second period (TDX 多周期同列) is kept the same way.
+let lastSecond: ChartPeriod | null = null;
 import { TdxSnapshotContainer } from "./tdx-snapshot-container";
 const tools = {
   none: "浏览",
@@ -110,6 +126,7 @@ export function ChartWorkspace({
   return (
     <EditableChart
       key={`${snapshot.symbol}:${period}:${adjustment}`}
+      sourceId={snapshot.id}
       snapshot={aggregate.data}
       onHistoryRequest={
         !aggregate.isFetching &&
@@ -154,6 +171,7 @@ export function ChartWorkspace({
   );
 }
 function EditableChart({
+  sourceId,
   onHistoryRequest,
   snapshot,
   period,
@@ -167,6 +185,8 @@ function EditableChart({
   rpsMessage,
   onRpsRetry,
 }: {
+  /** The stored snapshot the aggregate came from (for the second period). */
+  sourceId: string;
   snapshot: import("~/lib/chart/chart-snapshot").ChartSnapshot;
   period: ChartPeriod;
   adjustment: ChartAdjustment;
@@ -186,6 +206,18 @@ function EditableChart({
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [second, setSecondState] = useState<ChartPeriod | null>(() =>
+    lastSecond === period ? null : lastSecond,
+  );
+  const setSecond = (value: ChartPeriod | null) => {
+    lastSecond = value;
+    setSecondState(value);
+  };
+  const hub = useMemo(createCrosshairLink, []);
+  const mainLink = useMemo(
+    () => (second ? { hub, id: "main" } : undefined),
+    [second, hub],
+  );
   const canIntraday = tradableSymbol(snapshot.symbol);
   // TDX 叠加 / TradingView compare: up to three A-share symbols.
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
@@ -525,7 +557,46 @@ function EditableChart({
           chartSnapshot
           annotations
           rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
+          link={mainLink}
         />
+      )}
+      {!showIntraday && (
+        <div className="space-y-2">
+          <div className="flex w-fit items-center gap-2 text-xs whitespace-nowrap">
+            联动周期
+            <Select
+              value={second ?? "off"}
+              onValueChange={(next) =>
+                setSecond(next === "off" ? null : chartPeriodSchema.parse(next))
+              }
+            >
+              <SelectTrigger aria-label="联动周期" className="w-auto min-w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off">关闭</SelectItem>
+                {chartPeriodSchema.options
+                  .filter((p) => p !== period)
+                  .map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {periodLabels[p]}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <span className="text-nc-text-3">十字光标在两图之间按时间对齐</span>
+          </div>
+          {second && (
+            <LinkedPeriodChart
+              key={second}
+              sourceId={sourceId}
+              period={second}
+              adjustment={adjustment}
+              pricePrecision={common.pricePrecision}
+              hub={hub}
+            />
+          )}
+        </div>
       )}
       <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
@@ -618,5 +689,50 @@ function EditableChart({
         </datalist>
       </details>
     </div>
+  );
+}
+
+/** The second period of the same snapshot, crosshair linked to the main chart. */
+function LinkedPeriodChart({
+  sourceId,
+  period,
+  adjustment,
+  pricePrecision,
+  hub,
+}: {
+  sourceId: string;
+  period: ChartPeriod;
+  adjustment: ChartAdjustment;
+  pricePrecision: number;
+  hub: CrosshairLink;
+}) {
+  const bars = api.chartBars.useQuery(
+    { snapshotId: sourceId, period, limit: 2000, adjustment },
+    { retry: false, refetchOnWindowFocus: false },
+  );
+  const link = useMemo(() => ({ hub, id: "second" }), [hub]);
+  if (bars.error)
+    return (
+      <p role="alert">
+        {periodLabels[period]}读取失败：{bars.error.message}{" "}
+        <Button variant="plain" onClick={() => void bars.refetch()}>
+          重试
+        </Button>
+      </p>
+    );
+  if (!bars.data) return <p role="status">正在读取{periodLabels[period]}…</p>;
+  return (
+    <section aria-label={`联动图：${periodLabels[period]}`}>
+      <MarketChart
+        bars={bars.data.bars}
+        period={period}
+        adjustment={adjustment}
+        pricePrecision={pricePrecision}
+        annotations={false}
+        rpsAvailable={false}
+        height={320}
+        link={link}
+      />
+    </section>
   );
 }

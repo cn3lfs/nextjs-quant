@@ -76,6 +76,11 @@ import {
 import type { CzscResult } from "~/lib/research/methods/chan/czsc";
 import type { BreakoutResult } from "~/server/strategies/breakout/breakout";
 import { breakoutChartData } from "~/lib/chart/chart-data";
+import {
+  barInstant,
+  linkedIndex,
+  type CrosshairLink,
+} from "~/lib/chart/crosshair-link";
 import { api } from "~/trpc/react";
 import {
   chartIndicators,
@@ -449,11 +454,17 @@ export function CzscMarketChart({
   annotations = true,
   rpsAvailable = true,
   hotkeys = false,
+  link,
+  height,
 }: {
   bars: Bar[];
   period: Period;
   snapshotId: string;
   hotkeys?: boolean;
+  /** Crosshair shared with the other periods of this symbol. */
+  link?: { hub: CrosshairLink; id: string };
+  /** Fixed canvas height (a secondary chart); default fills the window. */
+  height?: number;
   /** RPS is an A-share ranking; futures, crypto and sectors hide it. */
   rpsAvailable?: boolean;
   /** Chan/breakout overlays; off for charts outside the A-share method scope. */
@@ -533,6 +544,8 @@ export function CzscMarketChart({
       annotations={annotations}
       rpsAvailable={rpsAvailable}
       hotkeys={hotkeys}
+      link={link}
+      height={height}
       czsc={annotations ? result.data : undefined}
       breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
@@ -591,6 +604,8 @@ export function MarketChart({
   annotations = true,
   rpsAvailable = true,
   hotkeys = false,
+  link,
+  height,
 }: {
   bars: Bar[];
   period: Period;
@@ -599,6 +614,10 @@ export function MarketChart({
   /** Page-level TDX keys (arrows, Home/End, PageUp/PageDown, Esc) without
    * first focusing the chart; for the one main chart of a page. */
   hotkeys?: boolean;
+  /** Crosshair shared with the other periods of this symbol. */
+  link?: { hub: CrosshairLink; id: string };
+  /** Fixed canvas height (a secondary chart); default fills the window. */
+  height?: number;
   rpsAvailable?: boolean;
   volumeUnit?: string;
   pricePrecision?: number;
@@ -760,6 +779,47 @@ export function MarketChart({
     /** Range to apply after the next data change; undefined = keep. */
     pendingRange?: LogicalRange | null;
   } | null>(null);
+  const linkRef = useRef(link);
+  linkRef.current = link;
+  /** True while applying a position received from the link. */
+  const linking = useRef(false);
+  useEffect(() => {
+    if (!link) return;
+    return link.hub.subscribe((from, instant) => {
+      const n = native.current;
+      if (from === link.id || !n) return;
+      const index =
+        instant === null ? null : linkedIndex(n.bars, period, instant);
+      linking.current = true;
+      try {
+        if (index === null || index < n.start) {
+          n.chart.clearCrosshairPosition();
+          setHover(null);
+          return;
+        }
+        const bar = n.bars[index]!;
+        // Bring the linked bar into view, keeping the zoom.
+        const scale = n.chart.timeScale();
+        const range = scale.getVisibleLogicalRange();
+        const logical = index - n.start;
+        if (range && (logical < range.from || logical > range.to)) {
+          const half = (range.to - range.from) / 2;
+          scale.setVisibleLogicalRange({
+            from: logical - half,
+            to: logical + half,
+          });
+        }
+        n.chart.setCrosshairPosition(
+          bar.close,
+          chartTime(bar.date, period),
+          n.candles,
+        );
+        setHover({ bars: n.bars, index });
+      } finally {
+        linking.current = false;
+      }
+    });
+  }, [link, period]);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -1044,6 +1104,13 @@ export function MarketChart({
       // Arrow keys continue from wherever the pointer last left the cursor.
       if (index !== undefined) state.cursor = index;
       setHover(index === undefined ? null : { bars: state.bars, index });
+      // Echoes of a position applied from the link are not published again.
+      if (linking.current || !linkRef.current) return;
+      const bar = index === undefined ? undefined : state.bars[index];
+      linkRef.current.hub.publish(
+        linkRef.current.id,
+        bar ? barInstant(bar.date, period) : null,
+      );
     });
     let frame = 0;
     let updating = false;
@@ -1920,11 +1987,13 @@ export function MarketChart({
           // chart is fully visible on a laptop screen and grows on a large one.
           // 660px is the application chrome above and below the canvas; the
           // clamp keeps the main pane usable on short windows.
-          height: `clamp(${
-            visibleSubcharts.length === 0
-              ? 320
-              : 320 + visibleSubcharts.length * 120
-          }px, calc(100dvh - 660px), 1200px)`,
+          height:
+            height ??
+            `clamp(${
+              visibleSubcharts.length === 0
+                ? 320
+                : 320 + visibleSubcharts.length * 120
+            }px, calc(100dvh - 660px), 1200px)`,
           cursor: drawingTool === "none" ? "grab" : "crosshair",
         }}
       />
