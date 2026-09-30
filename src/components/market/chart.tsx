@@ -510,10 +510,21 @@ export function CzscMarketChart({
   const visible = usePanelVisible();
   const annotationsReady = visible && paintedSnapshot === snapshotId;
   const czscSettings = useCzscSettings();
-  const { stroke, strokeEnd, segment, box, showStroke, showSegment } =
-    czscSettings;
+  const {
+    stroke,
+    strokeEnd,
+    segment,
+    segmentEnd,
+    box,
+    showStroke,
+    showSegment,
+  } = czscSettings;
   const result = api.czsc.useQuery(
-    { snapshotId, chartSnapshot, settings: { stroke, strokeEnd, segment } },
+    {
+      snapshotId,
+      chartSnapshot,
+      settings: { stroke, strokeEnd, segment, segmentEnd },
+    },
     {
       enabled: annotationsReady && annotations,
       staleTime: Infinity,

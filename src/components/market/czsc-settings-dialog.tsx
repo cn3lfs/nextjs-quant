@@ -35,6 +35,7 @@ const structureFields = [
   { place: 1, field: "stroke", title: "笔算法" },
   { place: 10, field: "strokeEnd", title: "笔端点" },
   { place: 1000, field: "segment", title: "线段算法" },
+  { place: 10000, field: "segmentEnd", title: "线段分界点" },
 ] as const;
 
 const optionLabel = (o: CzscConfigOption) =>
@@ -156,18 +157,25 @@ export function CzscSettingsDialog() {
               const rows = (options.data ?? []).filter(
                 (o) => o.place === place,
               );
-              const selected = rows.find((o) => o.value === settings[field]);
+              // Boundary display applies to feature-sequence segments only (api v8).
+              const off = field === "segmentEnd" && settings.segment !== 1;
+              const value = off ? 0 : settings[field];
+              const selected = rows.find((o) => o.value === value);
               return (
                 <Row
                   key={field}
                   title={title}
                   notes={rows.map(noteOf)}
                   footer={field === "stroke" ? czscStrokeSample : undefined}
-                  current={selected && czscOptionNotes[selected.key]}
+                  current={
+                    off
+                      ? "仅特征序列线段可选；启发式线段固定画在极值笔。"
+                      : selected && czscOptionNotes[selected.key]
+                  }
                 >
                   <Select
-                    value={String(settings[field])}
-                    disabled={!rows.length}
+                    value={String(value)}
+                    disabled={!rows.length || off}
                     onValueChange={(v) => settings.set({ [field]: Number(v) })}
                   >
                     <SelectTrigger aria-label={title} className="w-56">

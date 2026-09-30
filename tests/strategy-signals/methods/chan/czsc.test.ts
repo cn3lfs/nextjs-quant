@@ -30,14 +30,14 @@ afterAll(closeCzsc);
 
 test("api v7 chart settings: option table drives codes; defaults stay 0/1100", async () => {
   const options = await czscConfigOptions();
-  expect(options).toHaveLength(11);
+  expect(options).toHaveLength(14);
   const at = (place: number) => options.filter((o) => o.place === place);
   expect(at(1).map((o) => o.value)).toEqual([0, 1, 2, 3, 4]);
   expect(at(1).find((o) => o.value === 3)).toMatchObject({
     original: 0,
     lessons: "",
   });
-  for (const place of [1, 10, 100, 1000])
+  for (const place of [1, 10, 100, 1000, 10000])
     expect(at(place).filter((o) => o.isDefault)).toHaveLength(1);
   expect(czscCodes(defaultCzscSettings)).toEqual({ 0: 0, 1100: 1100 });
   const bars = fixture.high.map((high, i) => ({
@@ -49,7 +49,12 @@ test("api v7 chart settings: option table drives codes; defaults stay 0/1100", a
     volume: fixture.volume[i]!,
     amount: 0,
   }));
-  const codes = czscCodes({ stroke: 3, strokeEnd: 1, segment: 0 });
+  const codes = czscCodes({
+    stroke: 3,
+    strokeEnd: 1,
+    segment: 0,
+    segmentEnd: 2,
+  });
   expect(codes).toEqual({ 0: 13, 1100: 113 });
   const result = await analyzeCzsc(
     bars,
@@ -66,6 +71,33 @@ test("api v7 chart settings: option table drives codes; defaults stay 0/1100", a
   ]);
   for (const f of result.families)
     for (const c of f.centers) expect(c.boxEnd).toBeLessThanOrEqual(c.end);
+  // v8 segment boundary: display-only; heuristic segments ignore the digit.
+  const base = await analyzeCzsc(bars);
+  for (const segmentEnd of [1, 2]) {
+    const c = czscCodes({ ...defaultCzscSettings, segmentEnd });
+    expect(c).toEqual({ 0: 0, 1100: 1100 + 10000 * segmentEnd });
+    const shown = await analyzeCzsc(
+      bars,
+      false,
+      undefined,
+      false,
+      undefined,
+      false,
+      c,
+    );
+    const [low, high] = shown.families;
+    expect(low!.points).toEqual(base.families[0]!.points);
+    expect(high!.points).toHaveLength(base.families[1]!.points.length);
+    // SSE: first-stroke moves 3 of 11 segment endpoints, last-stroke moves 1.
+    expect(
+      high!.points.filter(
+        (q, i) => q.index !== base.families[1]!.points[i]!.index,
+      ),
+    ).toHaveLength(segmentEnd === 1 ? 3 : 1);
+    expect(high!.centers).toEqual(base.families[1]!.centers);
+    expect(high!.signals).toEqual(base.families[1]!.signals);
+    expect(high!.divergences).toEqual(base.families[1]!.divergences);
+  }
   await expect(projectCzsc(fixture, [2000])).rejects.toThrow(
     "Unsupported CZSC config 2000",
   );
@@ -210,7 +242,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("a271e5c1ebba");
+  expect(raw.buildCommit).toBe("fb3eb7a2125c");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);

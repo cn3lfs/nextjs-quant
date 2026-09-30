@@ -212,7 +212,8 @@ function decodeFamily(
         }
       : {}),
   }));
-  const pivotIndex = (p: number) => raw.pivots[p]?.index;
+  // Divergence intervals are analysis spans: use the true extreme (api v8).
+  const pivotIndex = (p: number) => raw.pivots[p]?.extremeIndex;
   const divergences: CzscFamily["divergences"] = hindsight.flatMap(
     ({ signal: s }) => {
       const start = pivotIndex(s.divergence.curStart),
@@ -237,7 +238,7 @@ function decodeFamily(
     centers: raw.centers.map((c) => ({
       start: c.start,
       end: c.end,
-      boxEnd: raw.pivots[c.firstPivot + 3]?.index ?? c.end,
+      boxEnd: raw.pivots[c.firstPivot + 3]?.extremeIndex ?? c.end,
       startDate: bars[c.start]!.date,
       endDate: bars[c.end]!.date,
       direction: c.direction,
@@ -287,7 +288,7 @@ function decodeNative(
     (s, row) => {
       if (s.hindsight !== 1 || Math.abs(s.type) !== 1) return [];
       const d = s.divergence;
-      const at = (p: number) => high!.pivots[p]?.index ?? null;
+      const at = (p: number) => high!.pivots[p]?.extremeIndex ?? null;
       return [
         {
           id: row + 1,

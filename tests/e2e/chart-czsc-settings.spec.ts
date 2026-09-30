@@ -42,6 +42,25 @@ test("缠论设置 drives the chart structure from the DLL option table", async 
   );
   expect(stored.state.stroke).toBe(4);
 
+  // Segment boundary (api v8) only applies to feature-sequence segments.
+  await page.getByRole("button", { name: "缠论设置" }).click();
+  const boundary = page.getByRole("combobox", { name: "线段分界点" });
+  await expect(boundary).toBeEnabled();
+  await page.getByRole("combobox", { name: "线段算法" }).click();
+  await page.getByRole("option", { name: /启发式/ }).click();
+  await expect(boundary).toBeDisabled();
+  await page.getByRole("combobox", { name: "线段算法" }).click();
+  await page.getByRole("option", { name: /特征序列/ }).click();
+  await boundary.click();
+  await page.getByRole("option", { name: /合并起始笔/ }).click();
+  await page.keyboard.press("Escape");
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("nq-czsc-settings")!).state.segmentEnd,
+    ),
+  ).toBe(1);
+
   // Persisted across reloads; restore the default for other specs.
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("button", { name: "缠论设置" }).click();

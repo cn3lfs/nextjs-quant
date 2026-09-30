@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** One row of czsc-tdx `czsc_config_options` (api v7). */
 export type CzscConfigOption = {
-  /** Decimal place of the config code: 1 stroke / 10 stroke end / 100 center unit / 1000 segment. */
+  /** Decimal place: 1 stroke / 10 stroke end / 100 center unit / 1000 segment / 10000 segment boundary. */
   place: number;
   value: number;
   isDefault: number;
@@ -21,6 +21,8 @@ export const czscSettingsSchema = z.object({
   stroke: z.number().int().min(0).max(9).default(0),
   strokeEnd: z.number().int().min(0).max(9).default(0),
   segment: z.number().int().min(0).max(9).default(1),
+  /** Segment boundary display (api v8); feature-sequence segments only. */
+  segmentEnd: z.number().int().min(0).max(9).default(0),
 });
 export type CzscSettings = z.infer<typeof czscSettingsSchema>;
 export const defaultCzscSettings: CzscSettings = czscSettingsSchema.parse({});
@@ -31,7 +33,9 @@ export const defaultCzscSettings: CzscSettings = czscSettingsSchema.parse({});
  */
 export function czscCodes(s: CzscSettings): { 0: number; 1100: number } {
   const stroke = s.stroke + 10 * s.strokeEnd;
-  return { 0: stroke, 1100: stroke + 100 + 1000 * s.segment };
+  // The boundary digit is only legal with feature-sequence segments.
+  const boundary = s.segment === 1 ? 10000 * s.segmentEnd : 0;
+  return { 0: stroke, 1100: stroke + 100 + 1000 * s.segment + boundary };
 }
 
 /**
@@ -57,6 +61,12 @@ export const czscOptionNotes: Record<string, string> = {
   "segment.heuristic": "用保护点简化判断线段结束。计算简单，非原文口径。",
   "segment.feature":
     "用特征序列分型判断线段结束，区分有无缺口两种情况（有缺口需反向特征序列确认）。贴近原文。",
+  "segmentEnd.extreme":
+    "分界点画在合并后特征元素中极值所在的那根笔上，即线段的真实最高／最低点。",
+  "segmentEnd.first":
+    "分界点画在合并后特征元素的第一根原始笔起点。只改画线位置，线段划分、中枢、背驰和买卖点仍按真实极值计算。",
+  "segmentEnd.last":
+    "分界点画在合并后特征元素的最后一根原始笔起点。只改画线位置，分析仍按真实极值；未发生包含时与极值笔相同。",
 };
 
 /** Relative sensitivity on the SSE regression sample (czsc-tdx v7 reply). */

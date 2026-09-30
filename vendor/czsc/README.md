@@ -3,11 +3,11 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `a271e5c`（分支 `dev`，`czsc_build_commit()` 返回 `a271e5c1ebba`）：api v7 = v6 + 配置自描述（`czsc_config_valid` / `czsc_config_options`）与社区口径 4K 笔（个位3）、分型笔（个位4）；配置 0/1100 输出与 v6 逐字节一致（czsc-tdx 已比对） |
+| 来源 commit | `fb3eb7a`（分支 `dev`，`czsc_build_commit()` 返回 `fb3eb7a2125c`）：api v8 = v7 + 线段分界点显示（配置万位 0 极值笔 / 1 合并起始笔 / 2 合并最后笔，仅特征序列线段）与 `czsc_pivot.extremeIndex`（size 24→28）；分析始终按真实极值，配置 0/1100 除 pivot 尾部新增字段外与 v7 逐字节一致（czsc-tdx 已比对） |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `955929` 字节 |
-| SHA-256 | `d7ace213d39a1319ca4bb6d0f99246bedd733411f90b4fb749728e7ec74d61bc` |
-| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-09-30 14:29，工作区干净），MinGW-w64 x64 |
+| 大小 | `957537` 字节 |
+| SHA-256 | `2660af993b594572bd86e96e129e46ef3dd2b6f29cfda0c18f17ca75a5815ed2` |
+| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-09-30，工作区干净），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
 ## 为什么是重建的

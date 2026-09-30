@@ -1,4 +1,4 @@
-// Mirrors adapter/czsc_api.h (czsc-tdx, api v7). Bar positions are zero-based
+// Mirrors adapter/czsc_api.h (czsc-tdx, api v8). Bar positions are zero-based
 // raw bar indices; table references are zero-based indices into the same
 // snapshot; -1 means none. confirmedAt is the earliest bar after which the
 // object never changes (-1 = not final yet).
@@ -23,11 +23,15 @@ export type CzscRawDivergence = {
   semantic: number;
 };
 export type CzscRawPivot = {
+  /** v8: display boundary bar (segment 10000s digit); draw only. */
   index: number;
   kind: number;
+  /** High/low of the display bar. */
   price: number;
   fractalAt: number;
   confirmedAt: number;
+  /** v8: analysis endpoint bar (true extreme); equals index by default and for strokes. */
+  extremeIndex: number;
 };
 export type CzscRawCenter = {
   start: number;
