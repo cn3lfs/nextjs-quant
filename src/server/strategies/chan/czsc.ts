@@ -1,6 +1,7 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import type { CzscInput } from "./czsc-input";
+import type { CzscConfigOption } from "~/lib/chart/czsc-settings";
 import type { Bar } from "~/lib/domain";
 import {
   CZSC_CTX,
@@ -26,6 +27,7 @@ const scope = globalThis as typeof globalThis & {
   czscWorker?: ChildProcess;
   czscQueue?: Promise<unknown>;
   czscRequestId?: number;
+  czscOptions?: Promise<CzscConfigOption[]>;
 };
 
 function worker() {
@@ -52,17 +54,30 @@ export function projectCzsc(
    * structure and signals pass false to keep IPC small. */
   bars = true,
 ): Promise<CzscSnapshot> {
-  // Queue entire jobs; retain the singleton across Next HMR.
-  const message = {
+  return dispatch<CzscSnapshot>({
     input: structuredClone(input),
     configs: [...configs],
     flags,
     nested,
     bars,
-  };
+  });
+}
+
+/** v7 option table, read once per worker lifetime. */
+export function czscConfigOptions(): Promise<CzscConfigOption[]> {
+  return (scope.czscOptions ??= dispatch<CzscConfigOption[]>({
+    options: true,
+  }).catch((error: unknown) => {
+    scope.czscOptions = undefined;
+    throw error;
+  }));
+}
+
+function dispatch<T>(message: Record<string, unknown>): Promise<T> {
+  // Queue entire jobs; retain the singleton across Next HMR.
   const job = (scope.czscQueue ?? Promise.resolve()).then(
     () =>
-      new Promise<CzscSnapshot>((resolveResult, reject) => {
+      new Promise<T>((resolveResult, reject) => {
         const child = worker(),
           id = (scope.czscRequestId = (scope.czscRequestId ?? 0) + 1);
         const cleanup = () => {
@@ -78,7 +93,7 @@ export function projectCzsc(
           onError(new Error(`CZSC worker exited (${code})`));
         const onMessage = (reply: {
           id: number;
-          result: CzscSnapshot;
+          result: T;
           error?: string;
         }) => {
           if (reply.id !== id) return;
@@ -222,6 +237,7 @@ function decodeFamily(
     centers: raw.centers.map((c) => ({
       start: c.start,
       end: c.end,
+      boxEnd: raw.pivots[c.firstPivot + 3]?.index ?? c.end,
       startDate: bars[c.start]!.date,
       endDate: bars[c.end]!.date,
       direction: c.direction,
@@ -317,7 +333,11 @@ export async function analyzeCzsc(
   researchStructures = false,
   anchor?: 1 | 2 | 3,
   movements = false,
+  /** DLL codes per family slot; only the chart overrides the pinned 0 / 1100. */
+  codes: { 0: number; 1100: number } = { 0: 0, 1100: 1100 },
 ): Promise<CzscResult> {
+  if (researchStructures && (codes[0] !== 0 || codes[1100] !== 1100))
+    throw new Error("研究结构锁定配置0/1100");
   if (movements && (!anchor || !signalDetails || !researchStructures))
     throw new Error("C4读取必须启用显式锚及完整结构表");
   if (
@@ -337,15 +357,18 @@ export async function analyzeCzsc(
   const research = signalDetails && researchStructures;
   const raw = await project(
     input,
-    [0, 1100],
+    [...new Set([codes[0], codes[1100]])],
     research ? CZSC_FLAG_HIGHER : 0,
     research,
     research,
   );
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
-    const family = raw.families[config];
-    if (!family) throw new Error(`结构缺口：缺少配置${config}快照`);
-    const decoded = decodeFamily(family, config, bars, signalDetails, research);
+    const family = raw.families[codes[config]];
+    if (!family) throw new Error(`结构缺口：缺少配置${codes[config]}快照`);
+    const decoded = {
+      ...decodeFamily(family, config, bars, signalDetails, research),
+      code: codes[config],
+    };
     if (!research) return decoded;
     const lowSignals = raw.families[0]!.signals;
     const nested: CzscNestedStructure[] =

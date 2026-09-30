@@ -3,11 +3,11 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `56d0d8f`（分支 `dev`，`czsc_build_commit()` 返回 `56d0d8f4729b`）：新 core/ + tdx/ 引擎与结构化 C API `adapter/czsc_api.h`（api v6：P0 基础结构、P1 研判语义、走势完成证据、区间套、递归节点/中枢/连接段、中阴、中枢成立时刻、逐根 MA5/MA20、构建 commit）。旧 Func30 接口已删除 |
+| 来源 commit | `a271e5c`（分支 `dev`，`czsc_build_commit()` 返回 `a271e5c1ebba`）：api v7 = v6 + 配置自描述（`czsc_config_valid` / `czsc_config_options`）与社区口径 4K 笔（个位3）、分型笔（个位4）；配置 0/1100 输出与 v6 逐字节一致（czsc-tdx 已比对） |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `954260` 字节 |
-| SHA-256 | `0f98600f7bcddff039d33216e13b5056983c6647c58704fc6f234d68845e807a` |
-| 构建方式 | 来源仓库 `build/CZSC64.dll`（2026-09-27 12:42，make 构建，工作区干净），MinGW-w64 x64 |
+| 大小 | `955929` 字节 |
+| SHA-256 | `d7ace213d39a1319ca4bb6d0f99246bedd733411f90b4fb749728e7ec74d61bc` |
+| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-09-30 14:29，工作区干净），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
 ## 为什么是重建的

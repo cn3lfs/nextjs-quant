@@ -1,4 +1,4 @@
-// Mirrors adapter/czsc_api.h (czsc-tdx, api v6). Bar positions are zero-based
+// Mirrors adapter/czsc_api.h (czsc-tdx, api v7). Bar positions are zero-based
 // raw bar indices; table references are zero-based indices into the same
 // snapshot; -1 means none. confirmedAt is the earliest bar after which the
 // object never changes (-1 = not final yet).

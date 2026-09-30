@@ -96,6 +96,7 @@ import {
   type IndicatorName,
 } from "~/lib/chart/chart-data";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { useCzscSettings } from "~/lib/stores/czsc-settings-store";
 function LegacyChart({
   bars,
   equity,
@@ -508,13 +509,34 @@ export function CzscMarketChart({
   // A hidden kept-alive panel defers the structure analysis until shown.
   const visible = usePanelVisible();
   const annotationsReady = visible && paintedSnapshot === snapshotId;
+  const czscSettings = useCzscSettings();
+  const { stroke, strokeEnd, segment, box, showStroke, showSegment } =
+    czscSettings;
   const result = api.czsc.useQuery(
-    { snapshotId, chartSnapshot },
+    { snapshotId, chartSnapshot, settings: { stroke, strokeEnd, segment } },
     {
       enabled: annotationsReady && annotations,
       staleTime: Infinity,
       retry: false,
     },
+  );
+  // Display-only settings filter the DLL result; structure codes went to the query.
+  const czscView = useMemo(
+    () =>
+      result.data && {
+        ...result.data,
+        families: result.data.families
+          .filter((f) => (f.config === 0 ? showStroke : showSegment))
+          .map((f) =>
+            box === "extended"
+              ? {
+                  ...f,
+                  centers: f.centers.map((c) => ({ ...c, boxEnd: c.end })),
+                }
+              : f,
+          ),
+      },
+    [result.data, box, showStroke, showSegment],
   );
   const breakout = api.breakout.useQuery(
     { snapshotId, chartSnapshot },
@@ -550,7 +572,7 @@ export function CzscMarketChart({
       link={link}
       height={height}
       sharedDrawings={sharedDrawings}
-      czsc={annotations ? result.data : undefined}
+      czsc={annotations ? czscView : undefined}
       breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
         !annotations
@@ -1073,9 +1095,11 @@ export function MarketChart({
                       ? chartColor.series1
                       : chartColor.accent;
                   for (const center of family.centers) {
-                    if (center.end < start) continue;
+                    // Box spans only the first three members (czsc-tdx 98fb604); extension stays in `end`.
+                    const end = center.boxEnd ?? center.end;
+                    if (end < start) continue;
                     const x1 = x(Math.max(start, center.start)),
-                      x2 = x(center.end);
+                      x2 = x(end);
                     const y1 = candles.priceToCoordinate(center.ZG),
                       y2 = candles.priceToCoordinate(center.ZD);
                     if (
@@ -1889,7 +1913,7 @@ export function MarketChart({
                 (czsc?.status === "no-structure"
                   ? "无结构"
                   : czsc
-                    ? `笔 ${Math.max(0, (czsc.families[0]?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families[1]?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
+                    ? `笔 ${Math.max(0, (czsc.families.find((f) => f.config === 0)?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families.find((f) => f.config === 1100)?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
                     : "")}
             </span>
           )}

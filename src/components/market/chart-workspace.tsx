@@ -17,6 +17,7 @@ import {
 } from "~/components/ui/select";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CzscSettingsDialog } from "./czsc-settings-dialog";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import {
@@ -603,6 +604,7 @@ function EditableChart({
               </SelectContent>
             </Select>
             <span className="text-nc-text-3">十字光标在两图之间按时间对齐</span>
+            <CzscSettingsDialog />
           </div>
           {second && (
             <LinkedPeriodChart

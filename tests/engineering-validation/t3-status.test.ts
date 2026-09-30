@@ -84,6 +84,15 @@ it("T3 mounts the same usable chart before annotation requests and fills results
       cancelAnimationFrame: (id: number) => frames.delete(id),
       api: { czsc: { useQuery: czsc }, breakout: { useQuery: breakout } },
       usePanelVisible: () => true,
+      useMemo: (factory: () => unknown) => factory(),
+      useCzscSettings: () => ({
+        stroke: 0,
+        strokeEnd: 0,
+        segment: 1,
+        box: "initial",
+        showStroke: true,
+        showSegment: true,
+      }),
     },
   );
   const props = {
@@ -95,7 +104,11 @@ it("T3 mounts the same usable chart before annotation requests and fills results
   expect(first.type).toBe(MarketChart);
   expect(first.props.bars).toBe(props.bars);
   expect(czsc).toHaveBeenLastCalledWith(
-    { snapshotId: "snapshot-a", chartSnapshot: false },
+    {
+      snapshotId: "snapshot-a",
+      chartSnapshot: false,
+      settings: { stroke: 0, strokeEnd: 0, segment: 1 },
+    },
     { enabled: false, staleTime: Infinity, retry: false },
   );
   expect(breakout).toHaveBeenLastCalledWith(
@@ -114,16 +127,20 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     "双突破标注后台加载中，K 线可正常浏览",
   );
   expect(czsc).toHaveBeenLastCalledWith(
-    { snapshotId: "snapshot-a", chartSnapshot: false },
+    {
+      snapshotId: "snapshot-a",
+      chartSnapshot: false,
+      settings: { stroke: 0, strokeEnd: 0, segment: 1 },
+    },
     { enabled: true, staleTime: Infinity, retry: false },
   );
-  const structure = { status: "ok" },
+  const structure = { status: "ok", families: [] },
     points = { points: [] };
   czsc.mockReturnValue({ isPending: false, data: structure });
   breakout.mockReturnValue({ isPending: false, data: points });
   const ready = Component(props);
   expect(ready.type).toBe(first.type);
-  expect(ready.props.czsc).toBe(structure);
+  expect(ready.props.czsc).toEqual(structure);
   expect(ready.props.breakout).toBe(points);
   expect(ready.props.czscMessage).toBeUndefined();
   expect(ready.props.breakoutMessage).toBeUndefined();

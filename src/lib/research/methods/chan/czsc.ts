@@ -22,7 +22,10 @@ export interface CzscPoint {
 }
 export interface CzscCenter {
   start: number;
+  /** Structural end including extension (lessons 18/20); signals use this. */
   end: number;
+  /** Display end: last bar of the first three members (lessons 17/18), mirrors tdx::CenterHigh. */
+  boxEnd?: number;
   startDate: string;
   endDate: string;
   direction: number;
@@ -37,7 +40,10 @@ export interface CzscCenter {
   lifecycle?: number;
 }
 export interface CzscFamily {
+  /** Family slot: 0 stroke-level / 1100 segment-level (research pins the code to the slot). */
   config: 0 | 1100;
+  /** Actual DLL config code used for this slot (chart settings may differ from `config`). */
+  code?: number;
   points: CzscPoint[];
   centers: CzscCenter[];
   signals: {

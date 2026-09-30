@@ -6,7 +6,12 @@ import {
   closeCzsc,
   analyzeCzsc,
   analyzeChanMovements,
+  czscConfigOptions,
 } from "../../../../src/server/strategies/chan/czsc";
+import {
+  czscCodes,
+  defaultCzscSettings,
+} from "../../../../src/lib/chart/czsc-settings";
 import {
   chanC4Sequence,
   chanC4Trend,
@@ -22,6 +27,52 @@ import {
 
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
+
+test("api v7 chart settings: option table drives codes; defaults stay 0/1100", async () => {
+  const options = await czscConfigOptions();
+  expect(options).toHaveLength(11);
+  const at = (place: number) => options.filter((o) => o.place === place);
+  expect(at(1).map((o) => o.value)).toEqual([0, 1, 2, 3, 4]);
+  expect(at(1).find((o) => o.value === 3)).toMatchObject({
+    original: 0,
+    lessons: "",
+  });
+  for (const place of [1, 10, 100, 1000])
+    expect(at(place).filter((o) => o.isDefault)).toHaveLength(1);
+  expect(czscCodes(defaultCzscSettings)).toEqual({ 0: 0, 1100: 1100 });
+  const bars = fixture.high.map((high, i) => ({
+    date: new Date(Date.UTC(2000, 0, 1 + i)).toISOString().slice(0, 10),
+    open: fixture.close[i]!,
+    high,
+    low: fixture.low[i]!,
+    close: fixture.close[i]!,
+    volume: fixture.volume[i]!,
+    amount: 0,
+  }));
+  const codes = czscCodes({ stroke: 3, strokeEnd: 1, segment: 0 });
+  expect(codes).toEqual({ 0: 13, 1100: 113 });
+  const result = await analyzeCzsc(
+    bars,
+    false,
+    undefined,
+    false,
+    undefined,
+    false,
+    codes,
+  );
+  expect(result.families.map((f) => [f.config, f.code])).toEqual([
+    [0, 13],
+    [1100, 113],
+  ]);
+  for (const f of result.families)
+    for (const c of f.centers) expect(c.boxEnd).toBeLessThanOrEqual(c.end);
+  await expect(projectCzsc(fixture, [2000])).rejects.toThrow(
+    "Unsupported CZSC config 2000",
+  );
+  await expect(
+    analyzeCzsc(bars, true, undefined, true, undefined, false, codes),
+  ).rejects.toThrow("研究结构锁定配置0/1100");
+});
 
 test("runtime preparation preserves a DLL already loaded by the serial owner", async () => {
   const before = await projectCzsc(fixture);
@@ -159,7 +210,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("56d0d8f4729b");
+  expect(raw.buildCommit).toBe("a271e5c1ebba");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);

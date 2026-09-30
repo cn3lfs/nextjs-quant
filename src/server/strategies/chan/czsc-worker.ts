@@ -3,11 +3,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { czscInput, type CzscInput } from "./czsc-input";
+import type { CzscConfigOption } from "../../../lib/chart/czsc-settings";
 import type { CzscRawFamily, CzscSnapshot } from "./czsc-api";
 
 // adapter/czsc_api.h (czsc-tdx) is the single contract; every struct is packed
 // 4-byte fields with a leading size, so koffi's natural layout matches exactly.
-export const czscApiVersion = 6;
+export const czscApiVersion = 7;
 const dllPath = resolve("runtime/czsc/CZSC64.dll");
 const hash = createHash("sha256").update(readFileSync(dllPath)).digest("hex");
 const library = koffi.load(dllPath);
@@ -200,7 +201,22 @@ const input = koffi.struct("czsc_input", {
   config: "int32",
   flags: "int32",
 });
+// v7 config self-description; packed, size 116 on both pointer widths.
+const option = koffi.pack("czsc_config_option", {
+  size: "uint32",
+  place: "int32",
+  value: "int32",
+  isDefault: "int32",
+  original: "int32",
+  key: koffi.array("char", 32, "String"),
+  label: koffi.array("char", 32, "String"),
+  lessons: koffi.array("char", 32, "String"),
+});
 const api = {
+  valid: library.func("int32_t czsc_config_valid(int32_t config)"),
+  options: library.func(
+    "int32_t czsc_config_options(_Out_ czsc_config_option *out, int32_t capacity)",
+  ),
   version: library.func("int32_t czsc_api_version(void)"),
   error: library.func("const char *czsc_last_error(void)"),
   build: library.func("void *czsc_snapshot_build(const czsc_input *input)"),
@@ -261,6 +277,20 @@ function read(
   return rows;
 }
 
+function configOptions(): CzscConfigOption[] {
+  const n = api.options(null, 0) as number;
+  if (n <= 0) return [];
+  const out = Array.from({ length: n }, () => ({}));
+  const written = api.options(out, n) as number;
+  return (out.slice(0, written) as (CzscConfigOption & { size: number })[]).map(
+    ({ size, ...row }) => {
+      if (size !== koffi.sizeof(option))
+        throw new Error("CZSC struct size mismatch");
+      return row;
+    },
+  );
+}
+
 const failure = (what: string) =>
   new Error(`${what}: ${(api.error() as string | null) ?? "unknown"}`);
 
@@ -269,6 +299,8 @@ process.on(
   "message",
   (message: {
     id: number;
+    /** Return the v7 config option table instead of building. */
+    options?: boolean;
     input: CzscInput;
     configs: number[];
     flags: number;
@@ -278,6 +310,10 @@ process.on(
   }) => {
     const handles: unknown[] = [];
     try {
+      if (message.options) {
+        process.send?.({ id: message.id, result: configOptions() });
+        return;
+      }
       const { high, low, close, volume } = czscInput(message.input);
       const n = high.length;
       if (n > 16777216)
@@ -287,8 +323,8 @@ process.on(
       const families: Record<string, CzscRawFamily> = {};
       const byConfig = new Map<number, unknown>();
       for (const config of message.configs) {
-        if (![0, 1100].includes(config))
-          throw new RangeError("Unsupported CZSC config");
+        if (!Number.isInteger(config) || api.valid(config) !== 1)
+          throw new RangeError(`Unsupported CZSC config ${config}`);
         const handle = api.build({
           size: koffi.sizeof(input),
           n,
