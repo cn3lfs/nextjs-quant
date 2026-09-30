@@ -17,6 +17,7 @@ export function ResearchUsageContainer({ range }: { range?: ResearchRange }) {
   const config = api.holdoutSettings.useQuery();
   const utils = api.useUtils();
   const [draft, setDraft] = useState<string | null>(null);
+  const [runsOpen, setRunsOpen] = useState(false);
   const save = api.saveHoldoutStart.useMutation({
     onSuccess: async () => {
       setDraft(null);
@@ -108,7 +109,15 @@ export function ResearchUsageContainer({ range }: { range?: ResearchRange }) {
       )}
       {save.error && <p role="alert">保存失败：{save.error.message}</p>}
       {save.isSuccess && <p role="status">留出集设置已保存</p>}
-      <ResearchAttemptsContainer />
+      {/* The run list (20 rows a page) is opened on demand; mounting it only
+          then also skips its query while closed. */}
+      <details
+        onToggle={(event) => setRunsOpen(event.currentTarget.open)}
+        className="pt-2"
+      >
+        <summary className="cursor-pointer text-sm">研究运行记录</summary>
+        {runsOpen && <ResearchAttemptsContainer />}
+      </details>
     </Panel>
   );
 }

@@ -106,3 +106,19 @@ test("backtest rounds page, open on a candle chart and step with PageDown", asyn
   await expect(status).toContainText("第 2/");
   await expect(page.getByRole("table", { name: "分期收益" })).toBeVisible();
 });
+
+test("the research page shows one usage ledger above the form and folds details", async ({
+  page,
+}) => {
+  await page.goto("/research", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "开始研究" }).waitFor();
+  await expect(page.getByText("研究使用台账", { exact: true })).toHaveCount(1);
+  // The run list and the fixed cost parameters start folded.
+  await expect(page.getByRole("table", { name: /研究运行记录/ })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText(/交易成本与无风险利率（固定实验参数）：佣金/),
+  ).toBeVisible();
+  await expect(page.getByLabel("佣金（基点）")).toBeHidden();
+});

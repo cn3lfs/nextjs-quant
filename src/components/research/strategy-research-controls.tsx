@@ -1,5 +1,4 @@
 "use client";
-import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import {
   Table,
   TableHeader,
@@ -454,20 +453,6 @@ export function StrategyResearchControls() {
             />
           </label>
         ))}
-        <label>
-          年化无风险利率（小数）
-          <Input
-            type="number"
-            step="0.001"
-            value={spec.annualRiskFreeRate}
-            onChange={(event) =>
-              setSpec({
-                ...spec,
-                annualRiskFreeRate: event.target.valueAsNumber,
-              })
-            }
-          />
-        </label>
         {researchStrategies[spec.strategy].signal === "czsc" && (
           <label>
             缠论配置
@@ -487,30 +472,58 @@ export function StrategyResearchControls() {
             </Select>
           </label>
         )}
-        {(
-          [
-            ["commissionBps", "佣金（基点）"],
-            ["minimumCommission", "最低佣金（元）"],
-            ["sellTaxBps", "卖出税费（基点）"],
-            ["slippageBps", "滑点（基点）"],
-          ] as const
-        ).map(([key, label]) => (
-          <label key={key}>
-            {label}
-            <Input
-              required
-              type="number"
-              step="0.1"
-              value={spec.costs[key]}
-              onChange={(event) =>
-                setSpec({
-                  ...spec,
-                  costs: { ...spec.costs, [key]: event.target.valueAsNumber },
-                })
-              }
-            />
-          </label>
-        ))}
+        {/* Fixed experiment parameters: folded, with their values in the summary. */}
+        <details className="sm:col-span-3">
+          <summary className="cursor-pointer text-sm">
+            交易成本与无风险利率（固定实验参数）：佣金{" "}
+            {spec.costs.commissionBps}bp · 最低 {spec.costs.minimumCommission}{" "}
+            元 · 卖出税费 {spec.costs.sellTaxBps}bp · 滑点{" "}
+            {spec.costs.slippageBps}bp · 无风险利率 {spec.annualRiskFreeRate}
+          </summary>
+          <div className="grid gap-4 pt-3 sm:grid-cols-3">
+            <label>
+              年化无风险利率（小数）
+              <Input
+                type="number"
+                step="0.001"
+                value={spec.annualRiskFreeRate}
+                onChange={(event) =>
+                  setSpec({
+                    ...spec,
+                    annualRiskFreeRate: event.target.valueAsNumber,
+                  })
+                }
+              />
+            </label>
+            {(
+              [
+                ["commissionBps", "佣金（基点）"],
+                ["minimumCommission", "最低佣金（元）"],
+                ["sellTaxBps", "卖出税费（基点）"],
+                ["slippageBps", "滑点（基点）"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key}>
+                {label}
+                <Input
+                  required
+                  type="number"
+                  step="0.1"
+                  value={spec.costs[key]}
+                  onChange={(event) =>
+                    setSpec({
+                      ...spec,
+                      costs: {
+                        ...spec.costs,
+                        [key]: event.target.valueAsNumber,
+                      },
+                    })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </details>
         <div className="space-y-2 sm:col-span-3">
           <label>
             历史交易条件 JSON（可选）
@@ -707,7 +720,7 @@ export function StrategyResearchControls() {
           {reveal.error && <p role="alert">揭示失败：{reveal.error.message}</p>}
         </section>
       )}
-      <ResearchUsageContainer />
+      {/* The usage ledger is shown once, above this form (route-panels). */}
       {result.data && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">样本结果</h2>
