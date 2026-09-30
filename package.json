@@ -28,7 +28,8 @@
     "verify:batch": "tsx scripts/verify.ts batch",
     "normalize:eol": "tsx scripts/normalize-eol.ts",
     "trading-strategies:build": "pnpm --filter trading-strategies build",
-    "trading-strategy-core:build": "pnpm --filter trading-strategy-core build"
+    "trading-strategy-core:build": "pnpm --filter trading-strategy-core build",
+    "test:browser": "node scripts/run-browser-harness.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
