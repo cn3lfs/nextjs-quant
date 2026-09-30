@@ -4,6 +4,7 @@ import {
   barInstant,
   createCrosshairLink,
   linkedIndex,
+  remapDrawing,
 } from "../../../src/lib/chart/crosshair-link";
 
 const bar = (date: string): Bar => ({
@@ -82,4 +83,23 @@ it("delivers a position to every chart but its sender", () => {
   off();
   link.publish("second", null);
   expect(b).toHaveBeenCalledTimes(1);
+});
+
+it("places a day drawing on 30-minute bars and skips it outside their data", () => {
+  const d = {
+    a: { date: "2026-09-28", price: 10, offset: 0.4 },
+    b: { date: "2026-09-29", price: 11 },
+  };
+  expect(remapDrawing(d, "day", minutes, "30m")).toEqual({
+    a: { date: "2026-09-28T15:00:00+08:00", price: 10 },
+    b: { date: "2026-09-29T15:00:00+08:00", price: 11 },
+  });
+  expect(
+    remapDrawing(
+      { ...d, b: { date: "2026-09-30", price: 11 } },
+      "day",
+      minutes,
+      "30m",
+    ),
+  ).toBe(null);
 });

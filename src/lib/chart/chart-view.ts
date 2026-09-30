@@ -109,6 +109,8 @@ export const drawingSchema = z
     /** Text label content. */
     text: z.string().min(1).max(80).optional(),
     color: z.string().regex(/^#[\da-fA-F]{6}$/),
+    /** Also shown (read-only, remapped) on the other periods of the symbol. */
+    shared: z.boolean().optional(),
   })
   .strict();
 export type Drawing = z.infer<typeof drawingSchema>;

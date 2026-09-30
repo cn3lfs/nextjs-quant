@@ -456,6 +456,7 @@ export function CzscMarketChart({
   hotkeys = false,
   link,
   height,
+  sharedDrawings,
 }: {
   bars: Bar[];
   period: Period;
@@ -465,6 +466,8 @@ export function CzscMarketChart({
   link?: { hub: CrosshairLink; id: string };
   /** Fixed canvas height (a secondary chart); default fills the window. */
   height?: number;
+  /** Drawings shared from the symbol's other periods, already remapped. */
+  sharedDrawings?: Drawing[];
   /** RPS is an A-share ranking; futures, crypto and sectors hide it. */
   rpsAvailable?: boolean;
   /** Chan/breakout overlays; off for charts outside the A-share method scope. */
@@ -546,6 +549,7 @@ export function CzscMarketChart({
       hotkeys={hotkeys}
       link={link}
       height={height}
+      sharedDrawings={sharedDrawings}
       czsc={annotations ? result.data : undefined}
       breakout={annotations ? breakout.data : undefined}
       breakoutMessage={
@@ -606,6 +610,7 @@ export function MarketChart({
   hotkeys = false,
   link,
   height,
+  sharedDrawings,
 }: {
   bars: Bar[];
   period: Period;
@@ -618,6 +623,8 @@ export function MarketChart({
   link?: { hub: CrosshairLink; id: string };
   /** Fixed canvas height (a secondary chart); default fills the window. */
   height?: number;
+  /** Drawings shared from the symbol's other periods, already remapped. */
+  sharedDrawings?: Drawing[];
   rpsAvailable?: boolean;
   volumeUnit?: string;
   pricePrecision?: number;
@@ -756,6 +763,8 @@ export function MarketChart({
     chart: ReturnType<typeof createChart>;
     candles: ISeriesApi<"Candlestick">;
     setDrawings: ReturnType<typeof attachDrawings>;
+    /** Drawings shared from other periods: dashed and read-only. */
+    setShared: ReturnType<typeof attachDrawings>;
     markers: ISeriesMarkersPluginApi<Time>;
     /** What the structure primitive paints; replaced per content pass. */
     structure: { czsc: CzscResult | null; bars: Bar[]; start: number };
@@ -865,11 +874,13 @@ export function MarketChart({
     });
     const setDrawings = attachDrawings(chart, candles, [], period, []);
     const updatePreview = attachDrawings(chart, candles, [], period, [], true);
+    const setShared = attachDrawings(chart, candles, [], period, [], true);
     const markers = createSeriesMarkers(candles, []);
     const state: NonNullable<typeof native.current> = {
       chart,
       candles,
       setDrawings,
+      setShared,
       markers,
       structure: { czsc: null, bars: [], start: 0 },
       bars: [],
@@ -1230,6 +1241,9 @@ export function MarketChart({
   useEffect(() => {
     native.current?.setDrawings(drawings ?? [], selectedId);
   }, [period, pricePrecision, viewportKey, drawings, selectedId]);
+  useEffect(() => {
+    native.current?.setShared(sharedDrawings ?? [], null);
+  }, [period, viewportKey, sharedDrawings]);
 
   // Content is replaced in place on the existing chart, in two independent
   // layers so an indicator or pane toggle never rewrites the price data:

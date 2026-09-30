@@ -59,3 +59,32 @@ export function createCrosshairLink() {
   };
 }
 export type CrosshairLink = ReturnType<typeof createCrosshairLink>;
+
+type Anchor = { date: string; price: number; offset?: number };
+
+/**
+ * A drawing from another period placed on this chart's bars: each anchor
+ * moves to the bar containing its instant (sub-bar offsets are dropped, they
+ * are in the other period's bar widths). Null when an anchor falls outside
+ * this chart's data, so nothing is drawn at an unrelated date.
+ */
+export function remapDrawing<
+  D extends { a: Anchor; b: Anchor; c?: Anchor | undefined },
+>(
+  drawing: D,
+  origin: ChartPeriod,
+  bars: readonly Bar[],
+  period: ChartPeriod,
+): D | null {
+  const move = (anchor: Anchor): Anchor | null => {
+    const index = linkedIndex(bars, period, barInstant(anchor.date, origin));
+    return index === null
+      ? null
+      : { date: bars[index]!.date, price: anchor.price };
+  };
+  const a = move(drawing.a),
+    b = move(drawing.b),
+    c = drawing.c ? move(drawing.c) : undefined;
+  if (!a || !b || c === null) return null;
+  return { ...drawing, a, b, ...(c ? { c } : {}) };
+}

@@ -41,7 +41,7 @@
   },
   "src/components/market/chart-workspace.tsx": {
     "ChartWorkspace": "27d08638a9f36257b0168249f919e3584728b75d0e6e3635a97610b342e5cab9",
-    "EditableChart": "832020b9d5c367c56aa68fe17f783d30885cc094fb7701ee0181194d5250eb04",
+    "EditableChart": "5d1cdc912a5f97374fc3514f4b8ecf357f4cb05446838d42a5a4635e47745641",
     "LinkedPeriodChart": "6862844067916e9870703c0c7ae203c7a6cf4381c3baf45088ef3067924dd64f"
   },
   "src/components/market/chart.tsx": {
@@ -50,7 +50,7 @@
     "PositionRiskChart": "a02ddf10d68739189aa3e1c50fdd24ae5e151528e63cd0f8031452a6a16bb9ce",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "CzscMarketChart": "6f1f803bedbee3d59f08b232631a86239bc4ab725f09609879d50da2b6f7121e",
-    "MarketChart": "6c9df0da4cff42c78de60c98fbe1466327bd01d7d0c8bcf09fb38f58374fef82",
+    "MarketChart": "a412487d9250f6c07165b7d3feae9f49dd48d535bb991ea4e0e670dd997a3ec3",
     "IndicatorChip": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "IndicatorParameterPanel": "24c9c9de0755c4621b0c94843d1be7bcb01b68bc1eb2f699567f0b2ce07c1f50"
   },

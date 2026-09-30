@@ -36,6 +36,7 @@ import {
 } from "~/lib/chart/chart-view";
 import {
   createCrosshairLink,
+  remapDrawing,
   type CrosshairLink,
 } from "~/lib/chart/crosshair-link";
 import {
@@ -214,6 +215,20 @@ function EditableChart({
     setSecondState(value);
   };
   const hub = useMemo(createCrosshairLink, []);
+  const sharedQuery = api.chartSharedDrawings.useQuery(
+    { symbol: snapshot.symbol, period },
+    { retry: false, refetchOnWindowFocus: false },
+  );
+  const shared = useMemo(
+    () =>
+      (sharedQuery.data ?? []).flatMap(({ origin, drawings }) =>
+        drawings.flatMap((d) => {
+          const moved = remapDrawing(d, origin, bars, period);
+          return moved ? [moved] : [];
+        }),
+      ),
+    [sharedQuery.data, bars, period],
+  );
   const mainLink = useMemo(
     () => (second ? { hub, id: "main" } : undefined),
     [second, hub],
@@ -289,6 +304,8 @@ function EditableChart({
   const save = api.saveChartView.useMutation({
     onSuccess: (saved) => {
       utils.chartView.setData({ symbol: snapshot.symbol, period }, saved);
+      // Other periods of this symbol read the shared drawings afresh.
+      void utils.chartSharedDrawings.invalidate();
       const current = JSON.stringify(saved) === JSON.stringify(view);
       setDirty(!current);
       setMessage(
@@ -558,6 +575,7 @@ function EditableChart({
           annotations
           rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
           link={mainLink}
+          sharedDrawings={shared}
         />
       )}
       {!showIntraday && (
@@ -601,6 +619,12 @@ function EditableChart({
       <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>
+        {shared.length > 0 && (
+          <p className="text-xs text-nc-text-3">
+            另有 {shared.length}{" "}
+            个图形由其他周期共享而来，以虚线显示；请到原周期编辑。
+          </p>
+        )}
         {view.drawings.map((d) => (
           <form
             key={`${d.id}:${JSON.stringify(d)}`}
@@ -679,6 +703,21 @@ function EditableChart({
               }
             >
               删除图形
+            </Button>
+            <Button
+              variant="plain"
+              type="button"
+              aria-pressed={!!d.shared}
+              onClick={() =>
+                change({
+                  ...view,
+                  drawings: view.drawings.map((v) =>
+                    v.id === d.id ? { ...v, shared: !d.shared } : v,
+                  ),
+                })
+              }
+            >
+              {d.shared ? "取消共享到其他周期" : "共享到其他周期"}
             </Button>
           </form>
         ))}

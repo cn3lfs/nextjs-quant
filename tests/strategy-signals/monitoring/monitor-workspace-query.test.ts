@@ -242,7 +242,7 @@ it("migrates metadata indexes without changing records or query results", () => 
     const before = db.prepare("SELECT * FROM records ORDER BY id").all();
     const pageBefore = signalWorkspacePage(db, {});
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(13);
+    expect(db.pragma("user_version", { simple: true })).toBe(14);
     expect(db.prepare("SELECT * FROM records ORDER BY id").all()).toEqual(
       before,
     );

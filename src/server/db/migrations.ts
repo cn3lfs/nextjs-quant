@@ -34,6 +34,21 @@ export const jobTaskIndexes = `
  CREATE INDEX job_task_history ON records(kind,json_extract(payload,'$.createdAt') DESC,id DESC,${jobSummaryColumns}) WHERE kind='job';
  CREATE INDEX job_recent_summary ON records(kind,updated_at DESC,id,${jobSummaryColumns}) WHERE kind='job';
 `;
+/**
+ * 14: chart views for every chart period (15/30/60-minute views could not be
+ * saved under the original CHECK), and drawings shared across periods: the
+ * shared drawings of each (symbol, origin period), mirrored on view save.
+ */
+export const chartViewPeriods = `
+  CREATE TABLE chart_views_v14 (symbol TEXT NOT NULL,
+    period TEXT NOT NULL CHECK(period IN ('day','week','month','5m','15m','30m','60m')),
+    payload TEXT NOT NULL, PRIMARY KEY(symbol,period));
+  INSERT INTO chart_views_v14 SELECT symbol, period, payload FROM chart_views;
+  DROP TABLE chart_views;
+  ALTER TABLE chart_views_v14 RENAME TO chart_views;
+  CREATE TABLE chart_shared_drawings (symbol TEXT NOT NULL,
+    origin TEXT NOT NULL CHECK(origin IN ('day','week','month','5m','15m','30m','60m')),
+    payload TEXT NOT NULL, PRIMARY KEY(symbol,origin));`;
 const migrations = [
   `CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL);CREATE INDEX IF NOT EXISTS records_kind ON records(kind,updated_at);`,
   `CREATE INDEX IF NOT EXISTS delivery_status ON records(kind,json_extract(payload,'$.status'),updated_at);`,
@@ -91,6 +106,7 @@ const migrations = [
   intradaySummaryIndexes,
   monitorWorkspaceIndexes,
   jobTaskIndexes,
+  chartViewPeriods,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

@@ -92,6 +92,9 @@ export const marketRouter = createTRPCRouter({
   saveChartView: p
     .input(chartSaveSchema)
     .mutation(({ input }) => new ChartViewStore(chartSqlite()).save(input)),
+  chartSharedDrawings: p
+    .input(chartKeySchema)
+    .query(({ input }) => new ChartViewStore(chartSqlite()).shared(input)),
   tdxHosts: p.query(() => ({
     hosts: [...configuredHosts()],
     builtin: [...TDX_HOSTS],

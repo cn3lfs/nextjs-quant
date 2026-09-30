@@ -139,6 +139,7 @@ const expectedProcedures = {
   compareBars: "query",
   chartView: "query",
   saveChartView: "mutation",
+  chartSharedDrawings: "query",
   tdxHosts: "query",
   tdxSaveHosts: "mutation",
   limitSentiment: "query",
