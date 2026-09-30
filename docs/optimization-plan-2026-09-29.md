@@ -92,7 +92,7 @@
 
 ## 5. 第四波：模块深化队列（按价值排序，逐个开工）
 
-- **5A 成交执行质量 E0–E3**（2026-09-30 用户澄清：逐笔数据仅有自己的交割单成交；详情只展示交割单字段与日线 VWAP 基准，不引入市场逐笔/盘口数据）（E0 基线已测，2026-09-29：暖请求 10–42 ms，响应 ≤ 27 KB，万笔首开 1.85 s；性能预算基本达标，E1/E2 以功能为主，见 decisions；E1 第一步已完成：真实日期、起止顺序、页码夹紧）：直接采用 Codex 已经写好的专项计划（`C:/Users/jm/Documents/Codex/2026-09-29/nextjs-quant-execution-quality-optimization-plan.md`），不重做规划。
+- **5A 成交执行质量 E0–E3**（2026-09-30 用户澄清：逐笔数据仅有自己的交割单成交；已完成逐笔依据、批次往返、分组精确下钻与导出条件锁定，5A 收口）（E0 基线已测，2026-09-29：暖请求 10–42 ms，响应 ≤ 27 KB，万笔首开 1.85 s；性能预算基本达标，E1/E2 以功能为主，见 decisions；E1 第一步已完成：真实日期、起止顺序、页码夹紧）：直接采用 Codex 已经写好的专项计划（`C:/Users/jm/Documents/Codex/2026-09-29/nextjs-quant-execution-quality-optimization-plan.md`），不重做规划。
 - **5B 回测结果深化**：逐笔 MFE/MAE、分期（月/季/年）相对基准柱状图、交易明细与 K 线联动（依赖 2B）。对标 TradingView Strategy Report。
 - **5C 图表 1E**：多周期联动的多图布局（如日线加 30 分钟）、十字光标联动、跨周期共享画线（`chart_views` schema 需要迁移，要报告 exe 更新需求）。
 - **5D 研究页交互**：`research-management-fields.tsx`（1630 行）和 `strategy-research-controls.tsx`（1036 行）表单过重。做分步向导、预设模板和参数校验提示；首屏 DOM（约 925）只渲染当前步骤。

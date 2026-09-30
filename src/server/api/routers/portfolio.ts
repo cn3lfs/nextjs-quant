@@ -70,6 +70,7 @@ import {
 import {
   executionPageSchema,
   pageExecutionQuality,
+  executionDetail,
   exportExecutionQuality,
 } from "../../portfolio/execution-quality-service";
 import { readFile, readdir, stat } from "node:fs/promises";
@@ -595,6 +596,19 @@ export const portfolioRouter = createTRPCRouter({
     .query(
       async ({ input }) =>
         (await accountReview(input.account)).snapshot.cashReconciliation,
+    ),
+  tradeReviewExecutionDetail: p
+    .input(
+      z.object({
+        account: z.string().trim().min(1),
+        fillId: z.string().min(1).max(200),
+      }),
+    )
+    .query(async ({ input }) =>
+      executionDetail(
+        (await accountReview(input.account)).snapshot,
+        input.fillId,
+      ),
     ),
   tradeReviewExecutionExport: p
     .input(executionPageSchema)

@@ -11,11 +11,14 @@ export function DeliveryWorkspace({
   onReview,
   cashBatch,
   onReturnToCash,
+  returnLabel = "返回现金核对证据",
 }: {
   onSaved: (account: string) => Promise<void>;
   onReview: (account: string) => void;
   cashBatch?: { id: string; revision: number } | null;
   onReturnToCash?: () => void;
+  /** Label of the button that returns to where the batch was opened from. */
+  returnLabel?: string;
 }) {
   const [tab, setTab] = useState<"import" | "batches">("import"),
     [batchId, setBatchId] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export function DeliveryWorkspace({
     >
       {cashBatch && (
         <Button variant="outline" onClick={onReturnToCash}>
-          返回现金核对证据
+          {returnLabel}
         </Button>
       )}
       <div className="flex gap-2" aria-label="交割单工作区视图">

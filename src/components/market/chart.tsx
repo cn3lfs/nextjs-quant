@@ -329,6 +329,9 @@ export function RollingPerformanceChart({
     <div
       ref={ref}
       role="img"
+      // autoSize follows the container: without a fixed height the canvas
+      // grows the container, which grows the canvas again, without end.
+      style={{ height: 540 }}
       aria-label="滚动绩效曲线，从上到下为夏普、最大回撤、年化收益；具体数值和覆盖率见分页表格"
     />
   );
@@ -395,6 +398,9 @@ export function PositionRiskChart({
     <div
       ref={ref}
       role="img"
+      // autoSize follows the container: without a fixed height the canvas
+      // grows the container, which grows the canvas again, without end.
+      style={{ height: 360 }}
       aria-label="持仓集中度曲线，上图等效持仓只数，下图最大单一权重；缺失断线，具体数值见分页表格"
     />
   );

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
 import { ExecutionQualityResults } from "./execution-quality-results";
+import { ExecutionDetail } from "./execution-detail";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -13,7 +14,42 @@ import {
   executionDiagnosticLabels,
 } from "~/lib/backtest/execution-quality";
 
-export function ExecutionQualityContainer({ account }: { account: string }) {
+/** The applied conditions in words, for the export confirmation. */
+function describe(input: {
+  search: string;
+  side: string;
+  diagnostic?: string;
+  adverseOnly: boolean;
+  start: string;
+  end: string;
+  minAmount: number;
+  code: string;
+  month: string;
+}) {
+  const parts = [
+    input.code && `代码 ${input.code}`,
+    input.month && `月份 ${input.month}`,
+    input.search && `搜索“${input.search}”`,
+    input.side !== "all" && (input.side === "buy" ? "买入" : "卖出"),
+    input.diagnostic &&
+      input.diagnostic !== "all" &&
+      `诊断 ${executionDiagnosticLabels[input.diagnostic as keyof typeof executionDiagnosticLabels] ?? input.diagnostic}`,
+    input.adverseOnly && "不利偏差>5BP",
+    (input.start || input.end) &&
+      `${input.start || "…"} 至 ${input.end || "…"}`,
+    input.minAmount > 0 && `成交额≥${input.minAmount}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join("、") : "全部成交";
+}
+
+export function ExecutionQualityContainer({
+  account,
+  onBatch,
+}: {
+  account: string;
+  /** Opens an import batch; the caller brings the user back here. */
+  onBatch?: (batchId: string) => void;
+}) {
   const utils = api.useUtils();
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -35,7 +71,28 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
     end: "",
     minAmount: 0,
     group: "code" as "code" | "kind" | "month",
+    // Exact group drill-down, shown as removable chips.
+    code: "",
+    month: "",
   });
+  const [detail, setDetail] = useState<string | null>(null);
+  const detailReturn = useRef<string | null>(null);
+  // Late export responses must not download into a different account view.
+  const alive = useRef(true);
+  useEffect(() => () => void (alive.current = false), []);
+  const closeDetail = useCallback(() => {
+    const target = detailReturn.current;
+    setDetail(null);
+    requestAnimationFrame(() =>
+      (target ? document.getElementById(target) : null)?.focus(),
+    );
+  }, []);
+  const drill = (groupId: string) => {
+    setDetail(null);
+    if (filters.group === "code") change({ code: groupId });
+    else if (filters.group === "month") change({ month: groupId });
+    else change({ side: groupId as "buy" | "sell" });
+  };
   const [groupSorting, setGroupSorting] = useState<SortingState>([]);
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
@@ -133,9 +190,13 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
             setError("");
             setMessage("");
             try {
-              const csv = await utils.tradeReviewExecutionExport.fetch(input, {
+              // Frozen at the click: later filter edits do not change this file.
+              const frozen = { ...input };
+              const rows = query.data?.rowCount ?? 0;
+              const csv = await utils.tradeReviewExecutionExport.fetch(frozen, {
                 staleTime: 0,
               });
+              if (!alive.current) return;
               const url = URL.createObjectURL(
                 new Blob([csv], { type: "text/csv;charset=utf-8" }),
               );
@@ -145,7 +206,9 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
               try {
                 document.body.appendChild(link);
                 link.click();
-                setMessage("已导出全部筛选成交（不限当前页），账号已脱敏。");
+                setMessage(
+                  `已导出 ${rows} 笔（按点击时的条件：${describe(frozen)}，不限当前页），账号已脱敏。`,
+                );
               } finally {
                 link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -153,7 +216,7 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
             } catch (e) {
               setError(e instanceof Error ? e.message : String(e));
             } finally {
-              setExporting(false);
+              if (alive.current) setExporting(false);
             }
           }}
         >
@@ -197,6 +260,31 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
           <TabsTrigger value="month">按月</TabsTrigger>
         </TabsList>
       </Tabs>
+      {(filters.code || filters.month) && (
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label="精确筛选"
+        >
+          {filters.code && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => change({ code: "" })}
+            >
+              代码 {filters.code} ×
+            </Button>
+          )}
+          {filters.month && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => change({ month: "" })}
+            >
+              月份 {filters.month} ×
+            </Button>
+          )}
+        </div>
+      )}
       {dateError && <p role="alert">{dateError}</p>}
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
@@ -208,29 +296,44 @@ export function ExecutionQualityContainer({ account }: { account: string }) {
         </div>
       ) : (
         query.data && (
-          <ExecutionQualityResults
-            data={query.data}
-            table={{
-              pagination,
-              sorting,
-              onPaginationChange: setPagination,
-              onSortingChange: (value) => {
-                setSorting(value);
-                setPagination((p) => ({ ...p, pageIndex: 0 }));
-              },
-              loading: query.isFetching,
-            }}
-            groupTable={{
-              pagination: groupPagination,
-              sorting: groupSorting,
-              onPaginationChange: setGroupPagination,
-              onSortingChange: (value) => {
-                setGroupSorting(value);
-                setGroupPagination({ pageIndex: 0, pageSize: 10 });
-              },
-              loading: query.isFetching,
-            }}
-          />
+          <>
+            {detail && (
+              <ExecutionDetail
+                account={account}
+                fillId={detail}
+                onClose={closeDetail}
+                onBatch={onBatch}
+              />
+            )}
+            <ExecutionQualityResults
+              onDetail={(fillId, trigger) => {
+                detailReturn.current = trigger.id || null;
+                setDetail(fillId);
+              }}
+              onDrill={drill}
+              data={query.data}
+              table={{
+                pagination,
+                sorting,
+                onPaginationChange: setPagination,
+                onSortingChange: (value) => {
+                  setSorting(value);
+                  setPagination((p) => ({ ...p, pageIndex: 0 }));
+                },
+                loading: query.isFetching,
+              }}
+              groupTable={{
+                pagination: groupPagination,
+                sorting: groupSorting,
+                onPaginationChange: setGroupPagination,
+                onSortingChange: (value) => {
+                  setGroupSorting(value);
+                  setGroupPagination({ pageIndex: 0, pageSize: 10 });
+                },
+                loading: query.isFetching,
+              }}
+            />
+          </>
         )
       )}
     </section>

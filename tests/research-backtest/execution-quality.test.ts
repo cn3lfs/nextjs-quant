@@ -6,7 +6,10 @@ import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ParsedFill, ParsedCashFlow } from "../../src/lib/research/evidence/delivery-import";
+import type {
+  ParsedFill,
+  ParsedCashFlow,
+} from "../../src/lib/research/evidence/delivery-import";
 import type { Bar } from "../../src/lib/domain";
 import {
   executionRows,
@@ -21,6 +24,7 @@ import {
 } from "../../src/server/portfolio/trade-review-service";
 import {
   exportExecutionQuality,
+  executionDetail,
   pageExecutionQuality,
 } from "../../src/server/portfolio/execution-quality-service";
 import { commitDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
@@ -954,3 +958,87 @@ it.each([0, NaN, 1.408, 140.8, 14080])(
     expect(row.vwap.value).toBeCloseTo(1.403596, 10);
   },
 );
+
+it("exact group filters, persistent fill ids and per-fill statement evidence", async () => {
+  const db = new Database(":memory:");
+  try {
+    migrate(db);
+    const csv = [
+      "成交日期,证券代码,证券名称,操作,成交价格,成交数量,成交金额,发生金额,手续费",
+      `${date.replaceAll("-", "")},000001,甲,买入,100,1,100,-105,5`,
+      `${date.replaceAll("-", "")},000011,乙,买入,100,2,200,-205,5`,
+      `${date.replaceAll("-", "")},000001,甲,卖出,101,1,101,96,5`,
+    ].join("\n");
+    commitDeliveryImport(
+      Buffer.from(csv),
+      { account: "detail", source: "generic", fileName: "detail.csv" },
+      db,
+    );
+    const s = await buildTradeReviewSnapshot(
+      { account: "detail", tradingDays: [date], openingCash: 1000 },
+      db,
+      {
+        dimensions: { rps: {} },
+        readSnapshot: async (_root, symbol) => ({
+          id: symbol,
+          symbol,
+          period: "day",
+          source: "fixture",
+          dataRoot: "fixture",
+          adjustment: "none",
+          createdAt: 0,
+          hash: "fixture",
+          bars: [bar()],
+        }),
+      },
+    );
+    // `search` matches substrings (000001 also hits 000011); `code` is exact.
+    expect(
+      pageExecutionQuality(s, { account: "detail", search: "00001" }).rowCount,
+    ).toBe(3);
+    const exact = pageExecutionQuality(s, {
+      account: "detail",
+      code: "000001",
+    });
+    expect(exact.rowCount).toBe(2);
+    expect(
+      pageExecutionQuality(s, { account: "detail", month: date.slice(0, 7) })
+        .rowCount,
+    ).toBe(3);
+    expect(
+      pageExecutionQuality(s, { account: "detail", month: "1999-01" }).rowCount,
+    ).toBe(0);
+    expect(() =>
+      pageExecutionQuality(s, { account: "detail", code: "0001" }),
+    ).toThrow();
+    // Page rows carry the persistent id; the detail resolves it back.
+    const row = exact.rows.find((r) => r.kind === "sell")!;
+    expect(row.fillId).toMatch(/^[a-f0-9]{64}$/);
+    const detail = executionDetail(s, row.fillId!);
+    expect(detail.found).toBe(true);
+    if (!detail.found) return;
+    expect(detail.row?.fillIndex).toBe(row.fillIndex);
+    expect(detail.statement).toMatchObject({
+      code: "000001",
+      kind: "sell",
+      price: 101,
+      quantity: 1,
+      amount: 101,
+    });
+    expect(detail.statement.rowIndex).toBeGreaterThan(0);
+    expect(detail.batch).toMatchObject({
+      fileName: "detail.csv",
+      source: "generic",
+    });
+    // No broker identifiers or fingerprints leave the server.
+    expect(JSON.stringify(detail)).not.toMatch(
+      /orderId|dealId|fingerprintSource|account/,
+    );
+    expect(executionDetail(s, "missing")).toEqual({
+      found: false,
+      reason: "该成交已不在当前账户（可能已撤销导入）",
+    });
+  } finally {
+    db.close();
+  }
+});

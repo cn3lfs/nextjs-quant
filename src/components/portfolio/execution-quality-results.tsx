@@ -7,6 +7,7 @@ import {
   type ExecutionRow,
 } from "~/lib/backtest/execution-quality";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
+import { Button } from "../ui/button";
 import {
   DataTable,
   type DataTableColumn,
@@ -26,6 +27,7 @@ const show = (v: ReviewValue, percent = false) =>
   v.value === null
     ? `—（${v.reason}）`
     : `${(v.value * (percent ? 100 : 1)).toLocaleString("zh-CN", { maximumFractionDigits: 4 })}${percent ? "%" : ""}`;
+type Row = Result["rows"][number];
 const columns: DataTableColumn<ExecutionRow>[] = [
   { accessorKey: "tradeDate", header: "日期" },
   { accessorKey: "code", header: "代码" },
@@ -109,11 +111,62 @@ export function ExecutionQualityResults({
   data,
   table,
   groupTable,
+  onDetail,
+  onDrill,
 }: {
   data: Result;
   table: TableState<ExecutionRow>;
   groupTable: TableState<Group>;
+  /** Opens one fill's evidence by its persistent id. */
+  onDetail?: (fillId: string, trigger: HTMLElement) => void;
+  /** Narrows the fill list to exactly this group. */
+  onDrill?: (groupId: string) => void;
 }) {
+  const rowColumns: DataTableColumn<ExecutionRow>[] = onDetail
+    ? [
+        ...columns,
+        {
+          id: "detail",
+          header: "依据",
+          enableSorting: false,
+          cell: ({ row }) => {
+            const fillId = (row.original as Row).fillId;
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                id={fillId ? `execution-fill-${fillId}` : undefined}
+                disabled={!fillId}
+                onClick={(event) =>
+                  fillId && onDetail(fillId, event.currentTarget)
+                }
+              >
+                详情
+              </Button>
+            );
+          },
+        },
+      ]
+    : columns;
+  const drillColumns: DataTableColumn<Group>[] = onDrill
+    ? [
+        ...groupColumns,
+        {
+          id: "drill",
+          header: "",
+          enableSorting: false,
+          cell: ({ row }) => (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onDrill(row.original.id)}
+            >
+              查看成交
+            </Button>
+          ),
+        },
+      ]
+    : groupColumns;
   const cards = [
     ["费用与偏差折算合计", show(data.summary.totalCost)],
     ["偏差金额折算（元）", show(data.summary.slippageCost)],
@@ -200,7 +253,7 @@ export function ExecutionQualityResults({
         </details>
       )}
       <DataTable
-        columns={columns}
+        columns={rowColumns}
         data={data.rows}
         rowCount={data.rowCount}
         {...table}
@@ -208,7 +261,7 @@ export function ExecutionQualityResults({
         label="逐笔执行质量"
       />
       <DataTable
-        columns={groupColumns}
+        columns={drillColumns}
         data={data.groups}
         rowCount={data.groupCount}
         {...groupTable}

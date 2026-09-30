@@ -32,6 +32,8 @@ export function TradeReviewContainer() {
   const [cashBatch, setCashBatch] = useState<{
     id: string;
     revision: number;
+    /** Where the batch was opened from, for the return button. */
+    from?: "cash" | "execution";
   } | null>(null);
   const cashReturn = useRef({ id: "", scroll: 0 });
   const [keyTradesN, setKeyTradesN] = useState(3);
@@ -156,13 +158,21 @@ export function TradeReviewContainer() {
       <div id="cash-delivery-workspace" className="nc-span-12 min-w-0">
         <DeliveryWorkspace
           cashBatch={cashBatch}
+          returnLabel={
+            cashBatch?.from === "execution"
+              ? "返回执行质量"
+              : "返回现金核对证据"
+          }
           onReturnToCash={() => {
+            const from = cashBatch?.from;
             setCashBatch(null);
             requestAnimationFrame(() => {
               const target =
                 document.getElementById(cashReturn.current.id) ??
                 document.querySelector<HTMLElement>(
-                  'section[aria-label="现金核对"] h2',
+                  from === "execution"
+                    ? 'section[aria-label="成交依据"] h3'
+                    : 'section[aria-label="现金核对"] h2',
                 );
               target?.focus({ preventScroll: true });
               window.scrollTo({ top: cashReturn.current.scroll });
@@ -351,6 +361,22 @@ export function TradeReviewContainer() {
           <ExecutionQualityContainer
             key={`${account}:${batchRevision}`}
             account={account}
+            onBatch={(id) => {
+              cashReturn.current = {
+                id: document.activeElement?.id ?? "",
+                scroll: window.scrollY,
+              };
+              setCashBatch((value) => ({
+                id,
+                revision: (value?.revision ?? 0) + 1,
+                from: "execution",
+              }));
+              requestAnimationFrame(() =>
+                document
+                  .getElementById("cash-delivery-workspace")
+                  ?.scrollIntoView({ block: "start" }),
+              );
+            }}
           />
         )}
         {account && (

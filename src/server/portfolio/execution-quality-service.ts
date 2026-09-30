@@ -50,6 +50,16 @@ export const executionPageSchema = z
     start: filterDate,
     end: filterDate,
     minAmount: z.number().finite().min(0).default(0),
+    // Exact group drill-down (a 6-digit code, a YYYY-MM month); unlike
+    // \`search\` these never match by substring.
+    code: z
+      .string()
+      .regex(/^$|^\d{6}$/)
+      .default(""),
+    month: z
+      .string()
+      .regex(/^$|^\d{4}-\d{2}$/)
+      .default(""),
     group: z.enum(["code", "kind", "month"]).default("code"),
     groupPageIndex: z.number().int().min(0).max(1000000).default(0),
     groupOrder: tableSortSchema,
@@ -73,6 +83,8 @@ function selectedRows(snapshot: Snapshot, input: Options) {
           (r.slippageBp.value !== null && r.slippageBp.value > 5)) &&
         (!input.start || r.tradeDate >= input.start) &&
         (!input.end || r.tradeDate <= input.end) &&
+        (!input.code || r.code === input.code) &&
+        (!input.month || r.tradeDate.startsWith(input.month)) &&
         (input.minAmount === 0 ||
           (r.amount.value !== null && r.amount.value >= input.minAmount)),
     )
@@ -169,10 +181,11 @@ export function pageExecutionQuality(snapshot: Snapshot, raw: unknown) {
     segments: e.segments,
     rowCount: rows.length,
     pageIndex,
-    rows: rows.slice(
-      pageIndex * input.pageSize,
-      (pageIndex + 1) * input.pageSize,
-    ),
+    // Persistent fill ids: a detail opened from this page stays on the same
+    // fill after re-sorting or re-import, unlike the replay-local fillIndex.
+    rows: rows
+      .slice(pageIndex * input.pageSize, (pageIndex + 1) * input.pageSize)
+      .map((row) => ({ ...row, fillId: fillIdOf(snapshot, row.fillIndex) })),
     groupCount: grouped.length,
     groupPageIndex,
     groups: grouped.slice(groupPageIndex * 10, (groupPageIndex + 1) * 10),
@@ -247,4 +260,60 @@ export function exportExecutionQuality(snapshot: Snapshot, raw: unknown) {
       )
       .join("\r\n")
   );
+}
+
+type ProvenancedFill = { id?: string; batchId?: string };
+const fillIdOf = (snapshot: Snapshot, fillIndex: number) =>
+  (snapshot.replayInput.trades.fills[fillIndex] as ProvenancedFill | undefined)
+    ?.id ?? null;
+
+/**
+ * One fill's evidence from the user's own delivery statement: the execution
+ * row (VWAP basis, unit check, fees, diagnostic) plus the statement fields and
+ * the import batch and source row it came from. Broker order/deal numbers are
+ * not returned (same redaction as the CSV). No market tick or order data
+ * exists; none is inferred.
+ */
+export function executionDetail(snapshot: Snapshot, fillId: string) {
+  const fills = snapshot.replayInput.trades.fills;
+  const fillIndex = fills.findIndex(
+    (fill) => (fill as ProvenancedFill).id === fillId,
+  );
+  if (fillIndex < 0)
+    return {
+      found: false as const,
+      reason: "该成交已不在当前账户（可能已撤销导入）",
+    };
+  const fill = fills[fillIndex]! as (typeof fills)[number] & ProvenancedFill;
+  const row = snapshot.execution.rows.find((r) => r.fillIndex === fillIndex);
+  const batch = snapshot.replayInput.batches.find((b) => b.id === fill.batchId);
+  return {
+    found: true as const,
+    fillId,
+    row: row ?? null,
+    excludedReason: row ? null : "逆回购或非股票类成交不进入执行质量统计",
+    statement: {
+      tradeDate: fill.tradeDate,
+      tradeTime: fill.tradeTime,
+      code: fill.code,
+      name: fill.name,
+      kind: fill.kind,
+      price: fill.price,
+      quantity: fill.quantity,
+      amount: fill.amount,
+      netAmount: fill.netAmount,
+      fees: fill.fees,
+      summary: fill.summary,
+      anomalies: fill.anomalies,
+      rowIndex: fill.rowIndex,
+    },
+    batch: batch
+      ? {
+          id: batch.id,
+          fileName: batch.fileName,
+          source: batch.source,
+          importedAt: batch.importedAt,
+        }
+      : null,
+  };
 }
