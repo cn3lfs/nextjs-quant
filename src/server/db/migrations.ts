@@ -19,6 +19,21 @@ export const monitorWorkspaceIndexes = `
  CREATE INDEX monitor_workspace_delivery_signal ON records(kind,json_extract(payload,'$.signalId'),id,json_extract(payload,'$.status')) WHERE kind='delivery';
  CREATE INDEX monitor_workspace_summary_members ON records(kind,json_type(payload,'$.summarySignalIds'),json_extract(payload,'$.summarySignalIds'),id,json_extract(payload,'$.status')) WHERE kind='delivery' AND json_type(payload,'$.summarySignalIds')='array';
 `;
+/**
+ * Task list/overview read job metadata only; without these covering indexes
+ * every query re-parsed every job payload, results included (57 MB after a
+ * few hundred backtests/screens: 150-220 ms per call, growing with history).
+ * Keep expressions aligned with task-history.ts and job-summaries.ts.
+ */
+const jobSummaryColumns = `json_extract(payload,'$.type'), json_extract(payload,'$.status'),
+   json_extract(payload,'$.progress'), json_extract(payload,'$.createdAt'), json_extract(payload,'$.updatedAt'),
+   json_extract(payload,'$.attemptId'), json_extract(payload,'$.auditIncomplete'),
+   substr(json_extract(payload,'$.phase'),1,128), substr(json_extract(payload,'$.error'),1,128),
+   length(json_extract(payload,'$.phase')) > 128, length(json_extract(payload,'$.error')) > 128`;
+export const jobTaskIndexes = `
+ CREATE INDEX job_task_history ON records(kind,json_extract(payload,'$.createdAt') DESC,id DESC,${jobSummaryColumns}) WHERE kind='job';
+ CREATE INDEX job_recent_summary ON records(kind,updated_at DESC,id,${jobSummaryColumns}) WHERE kind='job';
+`;
 const migrations = [
   `CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL);CREATE INDEX IF NOT EXISTS records_kind ON records(kind,updated_at);`,
   `CREATE INDEX IF NOT EXISTS delivery_status ON records(kind,json_extract(payload,'$.status'),updated_at);`,
@@ -75,6 +90,7 @@ const migrations = [
    CREATE INDEX cash_flows_batch ON cash_flows(batch_id);`,
   intradaySummaryIndexes,
   monitorWorkspaceIndexes,
+  jobTaskIndexes,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

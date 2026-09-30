@@ -11,6 +11,16 @@ export const taskStateFields = `
  'status', json_extract(payload, '$.status'), 'progress', json_extract(payload, '$.progress'),
  'createdAt', json_extract(payload, '$.createdAt'), 'updatedAt', json_extract(payload, '$.updatedAt')`;
 const created = "json_extract(payload, '$.createdAt')";
+/**
+ * Plain columns, not json_object(): SQLite serves these from the covering job
+ * indexes only when they are selected directly (migrations.ts jobTaskIndexes).
+ */
+export const taskStateColumns = `id,
+ json_extract(payload, '$.type') AS type, json_extract(payload, '$.status') AS status,
+ json_extract(payload, '$.progress') AS progress, json_extract(payload, '$.createdAt') AS createdAt,
+ json_extract(payload, '$.updatedAt') AS updatedAt,
+ json_extract(payload, '$.attemptId') AS attemptId,
+ json_extract(payload, '$.auditIncomplete') AS auditIncomplete`;
 // Bound text before materializing in JS, then account for JSON escaping in UTF-8.
 export function taskTextPreview(value: string | null, maxBytes = 128) {
   if (value == null) return undefined;
@@ -22,6 +32,15 @@ export function taskTextPreview(value: string | null, maxBytes = 128) {
   }
   return result.length === value.length ? value : result + "…";
 }
+/** One page of task metadata; ordered and covered by job_task_history. */
+export const taskHistorySql = (pageFilter: string) =>
+  `SELECT ${taskStateColumns},
+      substr(json_extract(payload, '$.phase'), 1, 128) AS phase,
+      substr(json_extract(payload, '$.error'), 1, 128) AS error,
+      length(json_extract(payload, '$.phase')) > 128 AS phaseTruncated,
+      length(json_extract(payload, '$.error')) > 128 AS errorTruncated
+    FROM records WHERE ${pageFilter}
+    ORDER BY ${created} DESC, id DESC LIMIT 21`;
 export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
   const { status, type, id, cursor } = taskHistoryInput.parse(input);
   const filter =
@@ -39,22 +58,10 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
   if (cursor) args.push(cursor.createdAt, cursor.createdAt, cursor.id);
   return sqlite().transaction(() => {
     const rows = sqlite()
-      .prepare(
-        `SELECT json_object(${taskStateFields},
-      'attemptId', json_extract(payload, '$.attemptId'),
-      'auditIncomplete', json_extract(payload, '$.auditIncomplete'),
-      'phase', substr(json_extract(payload, '$.phase'), 1, 128),
-      'error', substr(json_extract(payload, '$.error'), 1, 128),
-      'phaseTruncated', length(json_extract(payload, '$.phase')) > 128,
-      'errorTruncated', length(json_extract(payload, '$.error')) > 128
-    ) AS payload FROM records WHERE ${pageFilter}
-    ORDER BY ${created} DESC, id DESC LIMIT 21`,
-      )
-      .all(...args) as { payload: string }[];
+      .prepare(taskHistorySql(pageFilter))
+      .all(...args) as Record<string, unknown>[];
     const items = rows.slice(0, 20).map((row) => {
-      const { attemptId, auditIncomplete, ...value } = JSON.parse(
-        row.payload,
-      ) as TaskState & {
+      const { attemptId, auditIncomplete, ...value } = row as TaskState & {
         phaseTruncated: number;
         errorTruncated: number;
       };
@@ -184,21 +191,21 @@ function taskSourceLink(
   return href ? { href, label: "前往来源页重新配置" } : undefined;
 }
 
+/** Covered by the job_task_history index (migrations.ts jobTaskIndexes). */
+export const taskOverviewSql = `SELECT count(*) total,
+      coalesce(sum(json_extract(payload,'$.status')='running'),0) running,
+      coalesce(sum(json_extract(payload,'$.status')='queued'),0) queued,
+      coalesce(sum(json_extract(payload,'$.status')='failed'),0) failed,
+      coalesce(sum(json_extract(payload,'$.status')='cancelled'),0) cancelled,
+      coalesce(sum(json_extract(payload,'$.status')='completed' AND json_extract(payload,'$.updatedAt')>=? AND json_extract(payload,'$.updatedAt')<?),0) completedToday
+      FROM records WHERE kind='job'`;
 /** Entire persisted Job scope, independent of the recent-80 sidebar contract. */
 export function taskOverview(now = Date.now()) {
   const start =
     Math.floor((now + 8 * 3600000) / 86400000) * 86400000 - 8 * 3600000;
   return sqlite().transaction(() => {
     const row = sqlite()
-      .prepare(
-        `SELECT count(*) total,
-      coalesce(sum(json_extract(payload,'$.status')='running'),0) running,
-      coalesce(sum(json_extract(payload,'$.status')='queued'),0) queued,
-      coalesce(sum(json_extract(payload,'$.status')='failed'),0) failed,
-      coalesce(sum(json_extract(payload,'$.status')='cancelled'),0) cancelled,
-      coalesce(sum(json_extract(payload,'$.status')='completed' AND json_extract(payload,'$.updatedAt')>=? AND json_extract(payload,'$.updatedAt')<?),0) completedToday
-      FROM records WHERE kind='job'`,
-      )
+      .prepare(taskOverviewSql)
       .get(start, start + 86400000) as {
       total: number;
       running: number;
