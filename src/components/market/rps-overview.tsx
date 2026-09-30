@@ -4,6 +4,7 @@ import { usePanelVisible } from "../workbench/keep-alive";
 import { RpsRunStatus } from "./rps-run-status";
 import { RpsWorkflowLog } from "./rps-workflow-log";
 import { Button } from "../ui/button";
+import { rpsPollInterval } from "./rps-status";
 
 /**
  * Page header panels: the singleton job状态 and the batch历史日志 side by side
@@ -14,7 +15,7 @@ export function RpsOverview() {
   const visible = usePanelVisible();
   const status = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
-    refetchInterval: 2000,
+    refetchInterval: rpsPollInterval,
   });
   const log = api.rpsWorkflowLog.useQuery(undefined, {
     enabled: visible,

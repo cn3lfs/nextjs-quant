@@ -4,6 +4,7 @@ import { nextTableSort, sortingState } from "~/lib/common/server-sort";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { symbolSchema } from "~/lib/domain";
+import { rpsPollInterval } from "./rps-status";
 import {
   poolCategoryLabels,
   poolSelectionSchema,
@@ -51,7 +52,7 @@ export function MarketPoolBrowser({
   const utils = api.useUtils();
   const rpsStatus = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
-    refetchInterval: 2000,
+    refetchInterval: rpsPollInterval,
   });
   const rpsStart = api.rpsStart.useMutation({
     onSuccess: () => {

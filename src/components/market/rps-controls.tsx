@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { usePanelVisible } from "../workbench/keep-alive";
-import { RpsStatus } from "./rps-status";
+import { RpsStatus, rpsPollInterval } from "./rps-status";
 import { StockRpsRanking } from "./stock-rps-ranking";
 
 /** Data container; the display component receives data and remains independently renderable. */
@@ -12,7 +12,7 @@ export function RpsControls() {
   const [message, setMessage] = useState("");
   const query = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
-    refetchInterval: 2000,
+    refetchInterval: rpsPollInterval,
   });
   const onSuccess = () => {
     setMessage("请求已处理");

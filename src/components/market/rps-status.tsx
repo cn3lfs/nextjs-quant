@@ -71,3 +71,11 @@ export function RpsStatus({ latest }: { latest: RpsDay | null }) {
     </div>
   );
 }
+
+/**
+ * rpsStatus poll interval: every 2 s while a job runs, otherwise every 30 s
+ * (a scheduled start is still noticed; starts from here invalidate at once).
+ */
+export const rpsPollInterval = (query: {
+  state: { data?: { progress?: { status?: string } | null } | null };
+}) => (query.state.data?.progress?.status === "running" ? 2000 : 30000);
