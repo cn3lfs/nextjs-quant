@@ -75,3 +75,34 @@ test("factor evaluation over three years reports IC and quantiles", async ({
   await expect(result).toContainText("T+20");
   await expect(result).toContainText("Q5");
 });
+
+test("backtest rounds page, open on a candle chart and step with PageDown", async ({
+  page,
+}) => {
+  await page.goto("/backtest", { waitUntil: "networkidle" });
+  // A previous run's result may still be on screen: wait for this run's table.
+  await page
+    .locator('[role="table"][aria-label="交易回合"]')
+    .evaluateAll((els) =>
+      els.forEach((el) => ((el as HTMLElement).dataset.stale = "1")),
+    );
+  await page.getByRole("button", { name: "运行回测" }).click();
+  await page.waitForSelector(
+    '[role="table"][aria-label="交易回合"]:not([data-stale])',
+    { timeout: 5 * 60 * 1000 },
+  );
+  const rounds = page.getByRole("table", { name: "交易回合" });
+  // One page of rounds, not every trade.
+  expect(await rounds.getByRole("row").count()).toBeLessThanOrEqual(21);
+  // The result settles (details load, lists refresh) before it is clicked.
+  await page.waitForLoadState("networkidle");
+  await rounds.getByRole("row").nth(1).click();
+  const status = page
+    .getByRole("status")
+    .filter({ hasText: "回合 · PageUp/PageDown" });
+  await expect(status).toContainText("第 1/");
+  await expect(page.getByRole("img", { name: /回合 K 线：/ })).toBeVisible();
+  await page.keyboard.press("PageDown");
+  await expect(status).toContainText("第 2/");
+  await expect(page.getByRole("table", { name: "分期收益" })).toBeVisible();
+});

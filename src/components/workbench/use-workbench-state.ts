@@ -278,7 +278,17 @@ export function useWorkbenchState() {
     jobs.data?.find((j) => j.type === "backtest");
   const btDetails = api.job.useQuery(
     { id: btJob?.id ?? "", version: btJob?.updatedAt },
-    { enabled: !!btJob?.id && btJob.status === "completed" },
+    {
+      enabled: !!btJob?.id && btJob.status === "completed",
+      // A newer version of the same job keeps showing the result while it
+      // reloads, so the result panel (and its selection/paging) is not torn
+      // down; a different job starts empty.
+      placeholderData: (previous, previousQuery) =>
+        (previousQuery?.queryKey[1] as { input?: { id?: string } } | undefined)
+          ?.input?.id === btJob?.id
+          ? previous
+          : undefined,
+    },
   );
   const bt = btDetails.data?.result as Backtest | undefined;
   const draftJob = jobs.data?.find((j) => j.id === draftId);

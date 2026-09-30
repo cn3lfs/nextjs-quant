@@ -24,6 +24,7 @@ import {
 import { BacktestActionsPanel } from "../backtest/backtest-actions";
 import { DividendLedgerPanel } from "../backtest/cash-dividend-experiment";
 import { EquityChart } from "../backtest/equity-chart";
+import { TradeRoundsPanel } from "../backtest/trade-rounds-panel";
 import { Button } from "../ui/button";
 import { WalkForwardPanel } from "../backtest/walk-forward-panel";
 
@@ -273,35 +274,44 @@ export function BacktestView({
                 无量或一字 K 线 {bt.diagnostics.untradable} 次
               </p>
             )}
-            <details>
-              <summary>成交记录（{bt.trades.length}）</summary>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>日期</th>
-                      <th>方向</th>
-                      <th>价格</th>
-                      <th>股数</th>
-                      <th>费用</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bt.trades.map((t, i) => (
-                      <tr key={i}>
-                        <td>{t.date}</td>
-                        <td className={t.side === "buy" ? "up" : "down"}>
-                          {t.side === "buy" ? "买入" : "卖出"}
-                        </td>
-                        <td>{fmt(t.price)}</td>
-                        <td>{t.shares}</td>
-                        <td>{fmt(t.fee)}</td>
+            {bt.rounds ? (
+              <TradeRoundsPanel
+                rounds={bt.rounds}
+                equity={bt.equity}
+                benchmark={bt.benchmark?.equity}
+                snapshotId={bt.dataRange?.selectedSnapshotId}
+              />
+            ) : (
+              <details>
+                <summary>成交记录（{bt.trades.length}）</summary>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>日期</th>
+                        <th>方向</th>
+                        <th>价格</th>
+                        <th>股数</th>
+                        <th>费用</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </details>
+                    </thead>
+                    <tbody>
+                      {bt.trades.map((t, i) => (
+                        <tr key={i}>
+                          <td>{t.date}</td>
+                          <td className={t.side === "buy" ? "up" : "down"}>
+                            {t.side === "buy" ? "买入" : "卖出"}
+                          </td>
+                          <td>{fmt(t.price)}</td>
+                          <td>{t.shares}</td>
+                          <td>{fmt(t.fee)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
           </Panel>
         </>
       )}

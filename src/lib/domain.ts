@@ -312,6 +312,7 @@ export type Backtest = {
     benchmark: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
   };
   corporateActions?: import("~/server/backtest/backtest-actions").BacktestActions;
+  rounds?: import("./backtest/trade-rounds").TradeRound[];
   benchmark?: {
     version: "buy-hold-1" | "buy-hold-2";
     label: string;

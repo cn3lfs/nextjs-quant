@@ -23,6 +23,7 @@ import { reconciledCashPlan } from "../backtest/cash-dividend-plan";
 import type { reconcileDividends } from "../backtest/dividend-reconciliation";
 import type { CashDividendPlan } from "~/lib/portfolio/cash-dividends";
 import { walkForward } from "../backtest/walk-forward";
+import { tradeRounds } from "~/lib/backtest/trade-rounds";
 import type { WalkForwardOptions } from "~/lib/backtest/walk-forward";
 import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
@@ -190,6 +191,8 @@ async function main(work: Work & { attemptId?: string }) {
       source,
       result: {
         ...result,
+        // Additive: per-round MFE/MAE on the same bars the backtest used.
+        rounds: tradeRounds(result.trades, source.bars),
         corporateActions:
           corporateActions ??
           (await readBacktestActions(source, work.fullRoot ?? source.dataRoot)),
