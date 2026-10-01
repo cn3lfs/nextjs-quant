@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** One row of czsc-tdx `czsc_config_options` (api v7). */
 export type CzscConfigOption = {
-  /** Decimal place: 1 stroke / 10 stroke end / 100 center unit / 1000 segment / 10000 segment boundary. */
+  /** Decimal place: 1 stroke / 10 stroke end / 100 center unit / 1000 segment / 10000 segment boundary / 100000 center formation. */
   place: number;
   value: number;
   isDefault: number;
@@ -23,6 +23,8 @@ export const czscSettingsSchema = z.object({
   segment: z.number().int().min(0).max(9).default(1),
   /** Segment boundary display (api v8); feature-sequence segments only. */
   segmentEnd: z.number().int().min(0).max(9).default(0),
+  /** Stroke-center formation (api v9): 0 by entering stroke / 1 obey parent segment. */
+  centerMode: z.number().int().min(0).max(9).default(0),
 });
 export type CzscSettings = z.infer<typeof czscSettingsSchema>;
 export const defaultCzscSettings: CzscSettings = czscSettingsSchema.parse({});
@@ -33,9 +35,17 @@ export const defaultCzscSettings: CzscSettings = czscSettingsSchema.parse({});
  */
 export function czscCodes(s: CzscSettings): { 0: number; 1100: number } {
   const stroke = s.stroke + 10 * s.strokeEnd;
+  // Parent-segment formation only changes stroke centers (segment centers keep
+  // the entering rule), and must use the displayed segment algorithm as parent.
+  const strokeFamily = s.centerMode
+    ? stroke + 1000 * s.segment + 100000 * s.centerMode
+    : stroke;
   // The boundary digit is only legal with feature-sequence segments.
   const boundary = s.segment === 1 ? 10000 * s.segmentEnd : 0;
-  return { 0: stroke, 1100: stroke + 100 + 1000 * s.segment + boundary };
+  return {
+    0: strokeFamily,
+    1100: stroke + 100 + 1000 * s.segment + boundary,
+  };
 }
 
 /**
@@ -44,6 +54,11 @@ export function czscCodes(s: CzscSettings): { 0: number; 1100: number } {
  * an unknown key simply shows no note.
  */
 export const czscOptionNotes: Record<string, string> = {
+  // `center.segment` names both place 100 and 100000; the latter is suffixed.
+  "center.entry":
+    "中枢方向按进入笔命名，逐笔寻找最先重叠的三笔。上升线段里也可能出现“上下上”的中枢。",
+  "center.segment@100000":
+    "笔中枢服从所属线段：上升段只取“下上下”、下降段只取“上下上”，都取前三笔，三笔须在同一线段内。会改变笔中枢及其买卖点；线段中枢不受影响。社区口径，原文未作此规定。",
   "stroke.strict":
     "顶底分型之间至少隔一根独立K线（包含处理后顶底跨度≥4根）。最严格，笔最少、最稳定。",
   "stroke.new":
@@ -72,3 +87,7 @@ export const czscOptionNotes: Record<string, string> = {
 /** Relative sensitivity on the SSE regression sample (czsc-tdx v7 reply). */
 export const czscStrokeSample =
   "上证指数样本端点数：老笔158 · 新笔180 · czsc笔208 · 4K笔208 · 分型笔718";
+
+/** Note for an option row; keys shared across places are told apart by place. */
+export const czscOptionNote = (o: Pick<CzscConfigOption, "key" | "place">) =>
+  czscOptionNotes[`${o.key}@${o.place}`] ?? czscOptionNotes[o.key];

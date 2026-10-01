@@ -30,14 +30,14 @@ afterAll(closeCzsc);
 
 test("api v7 chart settings: option table drives codes; defaults stay 0/1100", async () => {
   const options = await czscConfigOptions();
-  expect(options).toHaveLength(14);
+  expect(options).toHaveLength(16);
   const at = (place: number) => options.filter((o) => o.place === place);
   expect(at(1).map((o) => o.value)).toEqual([0, 1, 2, 3, 4]);
   expect(at(1).find((o) => o.value === 3)).toMatchObject({
     original: 0,
     lessons: "",
   });
-  for (const place of [1, 10, 100, 1000, 10000])
+  for (const place of [1, 10, 100, 1000, 10000, 100000])
     expect(at(place).filter((o) => o.isDefault)).toHaveLength(1);
   expect(czscCodes(defaultCzscSettings)).toEqual({ 0: 0, 1100: 1100 });
   const bars = fixture.high.map((high, i) => ({
@@ -54,6 +54,7 @@ test("api v7 chart settings: option table drives codes; defaults stay 0/1100", a
     strokeEnd: 1,
     segment: 0,
     segmentEnd: 2,
+    centerMode: 0,
   });
   expect(codes).toEqual({ 0: 13, 1100: 113 });
   const result = await analyzeCzsc(
@@ -98,6 +99,23 @@ test("api v7 chart settings: option table drives codes; defaults stay 0/1100", a
     expect(high!.signals).toEqual(base.families[1]!.signals);
     expect(high!.divergences).toEqual(base.families[1]!.divergences);
   }
+  // v9 parent-segment stroke centers (czsc-tdx v5 reply: SSE 14 -> 18 with
+  // feature segments); segment centers keep the entering rule.
+  const mode = czscCodes({ ...defaultCzscSettings, centerMode: 1 });
+  expect(mode).toEqual({ 0: 101000, 1100: 1100 });
+  const parent = await analyzeCzsc(
+    bars,
+    false,
+    undefined,
+    false,
+    undefined,
+    false,
+    mode,
+  );
+  expect(base.families[0]!.centers).toHaveLength(14);
+  expect(parent.families[0]!.centers).toHaveLength(18);
+  expect(parent.families[0]!.points).toEqual(base.families[0]!.points);
+  expect(parent.families[1]).toEqual(base.families[1]);
   await expect(projectCzsc(fixture, [2000])).rejects.toThrow(
     "Unsupported CZSC config 2000",
   );
@@ -242,7 +260,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("fb3eb7a2125c");
+  expect(raw.buildCommit).toBe("ab31cce06a63");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);

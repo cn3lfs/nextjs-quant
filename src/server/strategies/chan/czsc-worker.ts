@@ -8,7 +8,7 @@ import type { CzscRawFamily, CzscSnapshot } from "./czsc-api";
 
 // adapter/czsc_api.h (czsc-tdx) is the single contract; every struct is packed
 // 4-byte fields with a leading size, so koffi's natural layout matches exactly.
-export const czscApiVersion = 8;
+export const czscApiVersion = 9;
 const dllPath = resolve("runtime/czsc/CZSC64.dll");
 const hash = createHash("sha256").update(readFileSync(dllPath)).digest("hex");
 const library = koffi.load(dllPath);

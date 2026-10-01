@@ -61,6 +61,18 @@ test("缠论设置 drives the chart structure from the DLL option table", async 
     ),
   ).toBe(1);
 
+  // Stroke-center formation (api v9) changes the stroke family's centers.
+  const centersBefore = await status.innerText();
+  await page.getByRole("button", { name: "缠论设置" }).click();
+  await page.getByRole("combobox", { name: "笔中枢构成" }).click();
+  await page.getByRole("option", { name: /服从所在线段/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(status).not.toHaveText(centersBefore, { timeout: 120_000 });
+  await page.getByRole("button", { name: "缠论设置" }).click();
+  await page.getByRole("combobox", { name: "笔中枢构成" }).click();
+  await page.getByRole("option", { name: /按进入段/ }).click();
+  await page.keyboard.press("Escape");
+
   // Persisted across reloads; restore the default for other specs.
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("button", { name: "缠论设置" }).click();

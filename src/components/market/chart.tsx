@@ -515,6 +515,7 @@ export function CzscMarketChart({
     strokeEnd,
     segment,
     segmentEnd,
+    centerMode,
     box,
     showStroke,
     showSegment,
@@ -523,7 +524,7 @@ export function CzscMarketChart({
     {
       snapshotId,
       chartSnapshot,
-      settings: { stroke, strokeEnd, segment, segmentEnd },
+      settings: { stroke, strokeEnd, segment, segmentEnd, centerMode },
     },
     {
       enabled: annotationsReady && annotations,

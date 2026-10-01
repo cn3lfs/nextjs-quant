@@ -23,7 +23,7 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import {
-  czscOptionNotes,
+  czscOptionNote,
   czscStrokeSample,
   type CzscConfigOption,
 } from "~/lib/chart/czsc-settings";
@@ -36,6 +36,7 @@ const structureFields = [
   { place: 10, field: "strokeEnd", title: "笔端点" },
   { place: 1000, field: "segment", title: "线段算法" },
   { place: 10000, field: "segmentEnd", title: "线段分界点" },
+  { place: 100000, field: "centerMode", title: "笔中枢构成" },
 ] as const;
 
 const optionLabel = (o: CzscConfigOption) =>
@@ -94,7 +95,7 @@ function Row({
 
 const noteOf = (o: CzscConfigOption): Note => ({
   label: optionLabel(o),
-  text: czscOptionNotes[o.key] ?? "",
+  text: czscOptionNote(o) ?? "",
 });
 
 const familyNotes = {
@@ -170,7 +171,7 @@ export function CzscSettingsDialog() {
                   current={
                     off
                       ? "仅特征序列线段可选；启发式线段固定画在极值笔。"
-                      : selected && czscOptionNotes[selected.key]
+                      : selected && czscOptionNote(selected)
                   }
                 >
                   <Select

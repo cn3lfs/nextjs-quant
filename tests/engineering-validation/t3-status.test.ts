@@ -90,6 +90,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
         strokeEnd: 0,
         segment: 1,
         segmentEnd: 0,
+        centerMode: 0,
         box: "initial",
         showStroke: true,
         showSegment: true,
@@ -108,7 +109,13 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     {
       snapshotId: "snapshot-a",
       chartSnapshot: false,
-      settings: { stroke: 0, strokeEnd: 0, segment: 1, segmentEnd: 0 },
+      settings: {
+        stroke: 0,
+        strokeEnd: 0,
+        segment: 1,
+        segmentEnd: 0,
+        centerMode: 0,
+      },
     },
     { enabled: false, staleTime: Infinity, retry: false },
   );
@@ -131,7 +138,13 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     {
       snapshotId: "snapshot-a",
       chartSnapshot: false,
-      settings: { stroke: 0, strokeEnd: 0, segment: 1, segmentEnd: 0 },
+      settings: {
+        stroke: 0,
+        strokeEnd: 0,
+        segment: 1,
+        segmentEnd: 0,
+        centerMode: 0,
+      },
     },
     { enabled: true, staleTime: Infinity, retry: false },
   );
