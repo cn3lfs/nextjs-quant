@@ -41,7 +41,7 @@ it("real DLL research decoding preserves plain signal identity and native owners
   ).toBe(true);
   const full = await analyzeCzsc(bars, true, projectCzsc, true);
   expect(full.hash).toBe(
-    "c5c749bc2f6841a1f38a8a737fedec1132051943e245d2095235eabe544d54e7",
+    "297b0ec6f5f372bf0c89e1ad9682760d04bd66bba09f7ec835460cca922927dd",
   );
   for (const [i, f] of full.families.entries()) {
     expect(
