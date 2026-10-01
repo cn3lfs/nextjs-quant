@@ -3,10 +3,10 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `ab31cce`（分支 `dev`，`czsc_build_commit()` 返回 `ab31cce06a63`）：api v9 = v8 + 配置十万位笔中枢构成（0 按进入段 / 1 服从所在线段，社区口径，只改变笔中枢）；结构体布局与 v8 相同；默认 0/1100 与 v8 逐字节一致（czsc-tdx 已比对） |
+| 来源 commit | `bd8e516`（分支 `dev`，`czsc_build_commit()` 返回 `bd8e516479c8`）：api v9（结构化接口与 ab31cce 相同）；本次上游只新增通达信公式 41/42/43 号快速买卖点事件（社区口径），C 接口与默认输出不变 |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `963291` 字节 |
-| SHA-256 | `c3f35a8f02a6d316c3d334349b39f4379904586093881d48af0b457a11156f78` |
+| 大小 | `967050` 字节 |
+| SHA-256 | `c5c749bc2f6841a1f38a8a737fedec1132051943e245d2095235eabe544d54e7` |
 | 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-10-01，工作区干净），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
