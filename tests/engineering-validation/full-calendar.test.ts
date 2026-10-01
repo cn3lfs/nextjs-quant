@@ -131,18 +131,19 @@ it("rejects an actual file append between the before and after checks", async ()
   );
 });
 
-it("keeps historical dates with invalid OHLC while price readers remain strict", async () => {
+it("keeps historical dates with invalid OHLC; price readers drop the unusable record", async () => {
   const { root, path, bytes } = await fixture(2);
   bytes.writeUInt32LE(19910508, 0);
   bytes.writeUInt32LE(19910509, 32);
   bytes.writeUInt32LE(0, 36);
   bytes.writeFloatLE(NaN, 52);
   await fs.writeFile(path, bytes);
-  expect(() => parseBars(bytes, "day")).toThrow("行情记录非法：1991-05-09");
-  expect(await localCalendarReference(root, [])).toEqual({
-    days: [],
-    source: "交易日期参考不可用",
-    hash: null,
+  expect(parseBars(bytes, "day").map((bar) => bar.date)).toEqual([
+    "1991-05-08",
+  ]);
+  expect(await localCalendarReference(root, [])).toMatchObject({
+    days: ["1991-05-08"],
+    source: "本地上证指数最近 400 根已有交易日期（非完整官方日历）",
   });
   expect(await fullLocalCalendarReference(root, [])).toMatchObject({
     days: ["1991-05-08", "1991-05-09"],

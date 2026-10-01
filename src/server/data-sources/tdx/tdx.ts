@@ -107,11 +107,19 @@ function isTradingCalendarDate(year: number, month: number, day: number) {
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   return day <= (month === 2 && leap ? 29 : monthDays[month - 1]!);
 }
+/** Records auto-corrected by `parseBars`; surfaced as a snapshot note. */
+export type ParseRepairs = { fixed: number; dropped: number };
+
+/** Open/close may stray outside high/low by at most this share of the price
+ * and still be repaired by widening; beyond it the record is garbage. */
+const repairableGap = 0.1;
+
 export function parseBars(
   buffer: Buffer,
   period: Period,
   referenceYear = new Date().getFullYear(),
   dailyDecimals = 2,
+  repairs: ParseRepairs = { fixed: 0, dropped: 0 },
 ): Bar[] {
   if (![2, 3].includes(dailyDecimals)) throw new Error("本地日线价格精度无效");
   if (buffer.length % 32 !== 0)
@@ -158,7 +166,10 @@ export function parseBars(
       year = years.get(i)!;
       month = Math.floor(md / 100);
       day = md % 100;
-      if (minutes >= 1440) throw new Error("分钟线时间非法");
+      if (minutes >= 1440) {
+        repairs.dropped++;
+        continue;
+      }
       date = `${year}-${pad2[month]}-${pad2[day]}T${pad2[Math.floor(minutes / 60)]}:${pad2[minutes % 60]}:00+08:00`;
       open = buffer.readFloatLE(i + 4);
       high = buffer.readFloatLE(i + 8);
@@ -167,6 +178,9 @@ export function parseBars(
     }
     const volume = buffer.readUInt32LE(i + 24),
       amount = buffer.readFloatLE(i + 20);
+    // TDX history carries a few dirty records (e.g. SSE 1991-05-09 closes
+    // below its low). One bad record must not void the file: repair small
+    // OHLC slips, drop unusable records, and report both counts.
     if (
       !isTradingCalendarDate(year, month, day) ||
       !(Number.isFinite(open) && open > 0) ||
@@ -175,17 +189,37 @@ export function parseBars(
       !(Number.isFinite(close) && close > 0) ||
       !Number.isFinite(amount) ||
       amount < 0 ||
-      low > Math.min(open, close) ||
-      high < Math.max(open, close) ||
-      high < low
-    )
-      throw new Error(`行情记录非法：${date}`);
-    if (previous && date <= previous) throw new Error("行情时间重复或倒序");
+      (previous && date <= previous)
+    ) {
+      repairs.dropped++;
+      continue;
+    }
+    const top = Math.max(open, close, high),
+      bottom = Math.min(open, close, low);
+    if (top !== high || bottom !== low || high < low) {
+      const gap = Math.max(top - high, low - bottom, low - high);
+      if (gap > repairableGap * Math.max(open, close)) {
+        repairs.dropped++;
+        continue;
+      }
+      high = top;
+      low = bottom;
+      repairs.fixed++;
+    }
     previous = date;
     bars.push({ date, open, high, low, close, volume, amount });
   }
   return bars;
 }
+export function repairNote({ fixed, dropped }: ParseRepairs) {
+  if (!fixed && !dropped) return "";
+  const parts = [
+    fixed ? `修正 ${fixed} 根（开收价超出高低价，已扩展高低价）` : "",
+    dropped ? `剔除 ${dropped} 根（价格/日期无效或时间重复）` : "",
+  ].filter(Boolean);
+  return `本地数据自动纠错：${parts.join("，")}；源文件未修改`;
+}
+
 export async function scan(root: string): Promise<Coverage> {
   const counts: Record<string, number> = {},
     securities: Security[] = [];
@@ -273,11 +307,14 @@ export async function readSnapshot(
       await new Promise((r) => setTimeout(r, 100));
       continue;
     }
-    const bars = parseBars(buffer, period, undefined, fund ? 3 : 2),
+    const repairs = { fixed: 0, dropped: 0 };
+    const bars = parseBars(buffer, period, undefined, fund ? 3 : 2, repairs),
       hash = createHash("sha256").update(buffer).digest("hex");
     if (!bars.length) throw new Error("行情文件为空");
+    const note = repairNote(repairs);
     return {
       id: `snapshot-${symbol}-${period}-${hash.slice(0, 16)}`,
+      ...(note ? { sourceNote: note } : {}),
       symbol,
       name:
         (await securityNames(root, symbol.slice(0, 2))).get(symbol) ??

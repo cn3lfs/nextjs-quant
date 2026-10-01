@@ -60,16 +60,14 @@ describe("本地数据边界", () => {
     ]));
   it("拒绝截断记录（负向控制）", () =>
     expect(() => parseBars(day().subarray(0, 31), "day")).toThrow("不完整"));
-  it("拒绝非法日期和价格", () => {
-    expect(() => parseBars(day(20260230), "day")).toThrow("非法");
+  it("剔除非法日期和离谱价格的记录", () => {
+    expect(parseBars(day(20260230), "day")).toEqual([]);
     const b = day();
     b.writeUInt32LE(1, 8);
-    expect(() => parseBars(b, "day")).toThrow("非法");
+    expect(parseBars(b, "day")).toEqual([]);
   });
-  it("拒绝重复或倒序", () =>
-    expect(() => parseBars(Buffer.concat([day(), day()]), "day")).toThrow(
-      "重复",
-    ));
+  it("剔除重复或倒序的后一根", () =>
+    expect(parseBars(Buffer.concat([day(), day()]), "day")).toHaveLength(1));
   it("独立解码分钟线日期、分钟和浮点价格", () => {
     const b = Buffer.alloc(32);
     b.writeUInt16LE((2026 - 2004) * 2048 + 907, 0);

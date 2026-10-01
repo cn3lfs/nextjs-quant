@@ -3,16 +3,16 @@ import { expect, it } from "vitest";
 import { parseResearchBenchmark } from "../../src/server/backtest/research-dataset";
 import { requireA500Selection } from "../../src/server/research/a500-research";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
-it("ignores unrelated malformed index history while rejecting corruption inside the study warmup", () => {
+it("ignores unrelated malformed index history and drops a corrupt record inside the study window", () => {
   const bytes = readFileSync("tests/fixtures/research-index-window.bin");
   expect(
     parseResearchBenchmark(bytes, "2026-09-10", "2026-09-10"),
   ).toHaveLength(251);
   const corrupt = Buffer.from(bytes);
   corrupt.writeUInt32LE(0, corrupt.length - 32 + 4);
-  expect(() =>
+  expect(
     parseResearchBenchmark(corrupt, "2026-09-10", "2026-09-10"),
-  ).toThrow("非法");
+  ).toHaveLength(250);
   expect(() =>
     parseResearchBenchmark(bytes.subarray(1), "2026-09-10", "2026-09-10"),
   ).toThrow("不完整");

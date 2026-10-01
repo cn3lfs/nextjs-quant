@@ -540,6 +540,11 @@ function EditableChart({
           叠加对比：纵轴为自可见区首根起的涨跌幅，叠加品种为不复权本地数据，按主图日期对齐
         </p>
       )}
+      {snapshot.sourceNote && (
+        <p role="status" className="!my-0 text-xs text-nc-text-3">
+          数据说明：{snapshot.sourceNote}
+        </p>
+      )}
       {aggregateErrors?.map((error) => (
         <p key={error} role="alert" className="!my-0 text-xs">
           数据源错误：{error}

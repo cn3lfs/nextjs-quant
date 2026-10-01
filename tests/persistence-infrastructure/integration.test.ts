@@ -93,7 +93,7 @@ describe("HTTP 与数据适配集成", () => {
         ).toThrow();
     expect(() => normalizeMcpBars({ Rows: [null] }, "day")).toThrow("结构");
   });
-  it("还原 2003→2004 年份字段回绕，仍拒绝真实倒序", () => {
+  it("还原 2003→2004 年份字段回绕，真实倒序的记录被剔除", () => {
     function minute(year: number, md: number) {
       const b = Buffer.alloc(32);
       b.writeUInt16LE(((year - 2004 + 32) % 32) * 2048 + md, 0);
@@ -112,13 +112,13 @@ describe("HTTP 与数据适配集成", () => {
       "2003-12-31",
       "2004-01-02",
     ]);
-    expect(() =>
+    expect(
       parseBars(
         Buffer.concat([minute(2026, 908), minute(2026, 907)]),
         "5m",
         2026,
-      ),
-    ).toThrow("倒序");
+      ).map((b) => b.date.slice(0, 10)),
+    ).toEqual(["2026-09-08"]);
   });
   it("按已验证 360 字节 TNF 记录读取代码和名称", () => {
     const b = Buffer.alloc(410);

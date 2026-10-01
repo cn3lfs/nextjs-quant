@@ -94,6 +94,9 @@ export function useWorkbenchState() {
   // Follow saved defaults until the user explicitly chooses a source on the page.
   const marketSource =
     marketSourceOverride ?? status.data?.settings.marketDataSource ?? "auto";
+  // Read by the deep-link effect, which only re-runs on navigation.
+  const symbolRef = useRef(symbol);
+  symbolRef.current = symbol;
   const load = useSnapshotLoad({
     onSuccess: (s) => {
       setLoaded(s);
@@ -171,14 +174,26 @@ export function useWorkbenchState() {
       pathname.startsWith("/reports/") ||
       pathname === "/intraday" ||
       pathname === "/signal-ledger" ||
-      pathname === "/news" ||
-      initialSnapshotLoaded.current
+      pathname === "/news"
     )
       return;
-    initialSnapshotLoaded.current = true;
     // `/?symbol=` deep link from the RPS page and other tables; the parameter is
     // validated, so an unknown value simply falls back to the default security.
     const requested = readChartSymbolParam(window.location.search);
+    if (initialSnapshotLoaded.current) {
+      // The workbench already loaded a security (e.g. the overview opened
+      // first); a later `/market?symbol=` link must still switch to it.
+      if (
+        pathname === "/market" &&
+        requested &&
+        requested !== symbolRef.current
+      ) {
+        setSymbol(requested);
+        load.mutate({ symbol: requested, period: "day" });
+      }
+      return;
+    }
+    initialSnapshotLoaded.current = true;
     if (requested) setSymbol(requested);
     load.mutate({ symbol: requested ?? "sh600519", period: "day" });
   }, [pathname]);
