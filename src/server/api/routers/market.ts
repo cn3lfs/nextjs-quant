@@ -1,6 +1,7 @@
 import { mxQuerySchema } from "~/lib/market/mx-data";
 import { mxDataStatus, queryMxData } from "../../data-sources/mx/mx-data";
-import { tradeDashboard } from "../../portfolio/trade-ledger-service";
+import { tradePositionState } from "../../portfolio/trade-ledger-service";
+import { TradeLedgerStore } from "../../portfolio/trade-ledger-store";
 import { indexDirectory } from "../../market/index-directory";
 import {
   chartBars,
@@ -75,13 +76,19 @@ export const marketRouter = createTRPCRouter({
   mxDataQuery: p
     .input(mxQuerySchema)
     .mutation(({ input, signal }) => queryMxData(input, signal)),
-  chartPosition: p
-    .input(symbolSchema)
-    .query(
-      async ({ input }) =>
-        (await tradeDashboard()).positions.find((p) => p.symbol === input) ??
-        null,
-    ),
+  chartPosition: p.input(symbolSchema).query(
+    // Runs alongside chartBars on every chart open: skip the book entirely
+    // for an untraded symbol, and never read the signal ledger (the full
+    // dashboard took ~14s and blocked the chart's own requests).
+    async ({ input }) =>
+      new TradeLedgerStore(chartSqlite())
+        .trades()
+        .some((t) => t.symbol === input)
+        ? ((await tradePositionState()).positions.find(
+            (p) => p.symbol === input,
+          ) ?? null)
+        : null,
+  ),
   chartBars: p.input(chartBarsInput).query(({ input }) => chartBars(input)),
   compareBars: p
     .input(compareBarsInput)

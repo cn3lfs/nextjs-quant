@@ -758,9 +758,6 @@ export function MarketChart({
     hover?.bars === bars ? hover.index : bars.length - 1,
     names,
   );
-  const subchartSummary = visibleSubcharts.length
-    ? visibleSubcharts.map((subchart) => subchartLabels[subchart]).join(" + ")
-    : "无副图";
   const subchartOptions = (Object.keys(subchartLabels) as Subchart[]).filter(
     (value) => value !== "rps" || rpsAvailable,
   );
@@ -1904,7 +1901,11 @@ export function MarketChart({
       <div className="flex flex-wrap gap-3 text-sm">
         {annotations &&
           (showBreakout || breakoutMessage?.startsWith("双突破计算失败")) && (
-            <span data-testid="breakout-status">
+            // Only loading/failure is shown; the summary is for screen readers.
+            <span
+              data-testid="breakout-status"
+              className={breakoutMessage ? undefined : "sr-only"}
+            >
               {breakoutMessage ??
                 (breakout
                   ? (() => {
@@ -1920,7 +1921,10 @@ export function MarketChart({
           )}
         {annotations &&
           (showCzsc || czscMessage?.startsWith("缠论计算失败")) && (
-            <span data-testid="czsc-status">
+            <span
+              data-testid="czsc-status"
+              className={czscMessage ? undefined : "sr-only"}
+            >
               {czscMessage ??
                 (czsc?.status === "no-structure"
                   ? "无结构"
@@ -1929,10 +1933,6 @@ export function MarketChart({
                     : "")}
             </span>
           )}
-        <span>
-          {periodLabels[period]} · {chartAdjustmentLabels[adjustment]} ·{" "}
-          {subchartSummary}
-        </span>
       </div>
       <div
         data-testid="chart-legend"

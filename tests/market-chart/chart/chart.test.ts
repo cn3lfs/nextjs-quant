@@ -312,7 +312,8 @@ describe("M2 chart event wiring", () => {
     const input = bars(90);
     let ui = render(input);
     expect(text(ui)).toContain("MA(5,10,20,60)");
-    expect(text(ui)).toContain("· 成交量 + MACD");
+    // The period/subchart summary line was dropped as noise above the chart.
+    expect(text(ui)).not.toContain("成交量 + MACD");
     for (const i of [0, 19, 89]) {
       h.charts.at(-1)!.crosshair!({ time: input[i]!.date });
       ui = render(input);
@@ -383,7 +384,7 @@ it("only renders selected main and secondary indicators in the chart and legend"
     elements(ui).find((e) => e.props["data-testid"] === "chart-legend"),
   );
   expect(text(ui)).not.toContain("MA(5,10,20,60)");
-  expect(text(ui)).toContain("· 无副图");
+  expect(text(ui)).not.toContain("无副图");
   expect(legend).not.toContain("量 ");
   expect(legend).not.toContain("MA");
   expect(legend).not.toContain("MACD");

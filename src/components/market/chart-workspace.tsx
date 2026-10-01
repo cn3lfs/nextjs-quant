@@ -309,9 +309,8 @@ function EditableChart({
       void utils.chartSharedDrawings.invalidate();
       const current = JSON.stringify(saved) === JSON.stringify(view);
       setDirty(!current);
-      setMessage(
-        current ? "视图已保存" : "较早的视图已保存，当前仍有未保存更改",
-      );
+      // Saving is automatic; only an out-of-date save is worth a line.
+      setMessage(current ? "" : "较早的视图已保存，当前仍有未保存更改");
     },
   });
   const change = useCallback((next: ChartView) => {
@@ -525,11 +524,13 @@ function EditableChart({
           </div>
         </details>
       </div>
-      <span role="status" className="block min-h-4 text-xs">
-        {save.error
-          ? `视图自动保存失败：${save.error.message}，下次修改时重试`
-          : message || (dirty ? "正在自动保存视图…" : "")}
-      </span>
+      {(save.error || message) && (
+        <span role="status" className="block text-xs">
+          {save.error
+            ? `视图自动保存失败：${save.error.message}，下次修改时重试`
+            : message}
+        </span>
+      )}
       {compareErrors.map((error) => (
         <p key={error} role="alert" className="!my-0 text-xs">
           叠加品种读取失败（仅支持本地通达信 A 股）：{error}
@@ -540,16 +541,21 @@ function EditableChart({
           叠加对比：纵轴为自可见区首根起的涨跌幅，叠加品种为不复权本地数据，按主图日期对齐
         </p>
       )}
-      {snapshot.sourceNote && (
-        <p role="status" className="!my-0 text-xs text-nc-text-3">
-          数据说明：{snapshot.sourceNote}
-        </p>
+      {(snapshot.sourceNote || aggregateErrors?.length) && (
+        // Provenance details stay one hover away instead of lines of text.
+        <span
+          tabIndex={0}
+          className="w-fit cursor-help text-xs text-nc-text-3"
+          title={[
+            snapshot.sourceNote && `数据说明：${snapshot.sourceNote}`,
+            ...(aggregateErrors ?? []).map((e) => `数据源提示：${e}`),
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        >
+          ⓘ 数据说明
+        </span>
       )}
-      {aggregateErrors?.map((error) => (
-        <p key={error} role="alert" className="!my-0 text-xs">
-          数据源错误：{error}
-        </p>
-      ))}
       {positionMessage && (
         <p role="status" className="!my-0 text-xs">
           {positionMessage}
