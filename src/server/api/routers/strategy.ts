@@ -1,6 +1,6 @@
 import { sqlite as chartSqlite } from "../../db";
-import { analyzeCzsc, czscConfigOptions } from "../../strategies/chan/czsc";
-import { czscCodes, czscSettingsSchema } from "~/lib/chart/czsc-settings";
+import { analyzeCzsc, czscConfigSchema } from "../../strategies/chan/czsc";
+import { czscSettingsSchema } from "~/lib/chart/czsc-settings";
 import { analyzeBreakout } from "../../strategies/breakout/breakout";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { financialGrowth } from "../../strategies/value/financial-growth";
@@ -155,7 +155,7 @@ export const strategyRouter = createTRPCRouter({
       const source = storedSnapshot(input.snapshotId);
       if (!source || !Array.isArray(source.bars))
         throw new Error("行情快照不存在");
-      const codes = input.settings ? czscCodes(input.settings) : undefined;
+
       return analyzeCzsc(
         source.bars,
         false,
@@ -163,10 +163,10 @@ export const strategyRouter = createTRPCRouter({
         false,
         undefined,
         false,
-        codes,
+        input.settings,
       );
     }),
-  czscOptions: p.query(() => czscConfigOptions()),
+  czscSchema: p.query(() => czscConfigSchema()),
   chanAnalyze: p
     .input(
       z.object({

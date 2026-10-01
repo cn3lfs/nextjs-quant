@@ -82,16 +82,16 @@ it("T3 mounts the same usable chart before annotation requests and fills results
         return nextFrame;
       },
       cancelAnimationFrame: (id: number) => frames.delete(id),
-      api: { czsc: { useQuery: czsc }, breakout: { useQuery: breakout } },
+      api: {
+        czsc: { useQuery: czsc },
+        breakout: { useQuery: breakout },
+        czscSchema: { useQuery: () => ({ data: undefined }) },
+      },
+      czscEffectiveSettings: (_schema: unknown, values: unknown) => values,
       usePanelVisible: () => true,
       useMemo: (factory: () => unknown) => factory(),
       useCzscSettings: () => ({
-        stroke: 0,
-        strokeEnd: 0,
-        segment: 1,
-        segmentEnd: 0,
-        centerMode: 0,
-        box: "initial",
+        values: { "projection.centerBox": 0 },
         showStroke: true,
         showSegment: true,
       }),
@@ -109,13 +109,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     {
       snapshotId: "snapshot-a",
       chartSnapshot: false,
-      settings: {
-        stroke: 0,
-        strokeEnd: 0,
-        segment: 1,
-        segmentEnd: 0,
-        centerMode: 0,
-      },
+      settings: { "projection.centerBox": 0 },
     },
     { enabled: false, staleTime: Infinity, retry: false },
   );
@@ -138,13 +132,7 @@ it("T3 mounts the same usable chart before annotation requests and fills results
     {
       snapshotId: "snapshot-a",
       chartSnapshot: false,
-      settings: {
-        stroke: 0,
-        strokeEnd: 0,
-        segment: 1,
-        segmentEnd: 0,
-        centerMode: 0,
-      },
+      settings: { "projection.centerBox": 0 },
     },
     { enabled: true, staleTime: Infinity, retry: false },
   );

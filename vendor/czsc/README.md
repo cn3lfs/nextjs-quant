@@ -3,11 +3,11 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `cf0159c`（分支 `dev`，`czsc_build_commit()` 返回 `cf0159cc7488`）：api v9（结构化接口与 ab31cce 相同）；上游近两次只调整通达信公式与快速买卖点（earlySignals，仅通达信导出启用），C 接口与默认输出不变 |
+| 来源 commit | `bc6f346`（分支 `dev`，`czsc_build_commit()` 返回 `bc6f3460df57`）：**api v20（断代）**——结构化 `czsc_config` 取代十进制配置码；一次 `czsc_build` 产出笔级与线段级（槽位 0 / 1100），区间套同快照读取；显示投影 `czsc_set_projection`；配置自描述 fields/choices/rules；社区口径笔中缺口与区间包络。默认两级与 v9 的 0/1100 在 SSE 上 11 表及区间套逐字节一致（需求方独立复核） |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `972544` 字节 |
-| SHA-256 | `297b0ec6f5f372bf0c89e1ad9682760d04bd66bba09f7ec835460cca922927dd` |
-| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-10-01，工作区干净），MinGW-w64 x64 |
+| 大小 | `398336` 字节 |
+| SHA-256 | `3de9d3b4a117e4de268580a06a1b4f7189f50de910d467aeac690dbcc355f044` |
+| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-10-01，工作区干净，`--strip-all`），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
 ## 为什么是重建的

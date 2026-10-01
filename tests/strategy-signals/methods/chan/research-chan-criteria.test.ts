@@ -13,7 +13,6 @@ import {
   closeCzsc,
   projectCzsc,
 } from "~/server/strategies/chan/czsc";
-import { CZSC_FLAG_HIGHER } from "~/server/strategies/chan/czsc-api";
 import { prepareCzscTestRuntime } from "../../../helpers/czsc-runtime";
 import fixture from "../../../fixtures/czsc-sse.json";
 
@@ -41,7 +40,7 @@ it("real DLL research decoding preserves plain signal identity and native owners
   ).toBe(true);
   const full = await analyzeCzsc(bars, true, projectCzsc, true);
   expect(full.hash).toBe(
-    "297b0ec6f5f372bf0c89e1ad9682760d04bd66bba09f7ec835460cca922927dd",
+    "3de9d3b4a117e4de268580a06a1b4f7189f50de910d467aeac690dbcc355f044",
   );
   for (const [i, f] of full.families.entries()) {
     expect(
@@ -71,13 +70,13 @@ it("real DLL research decoding preserves plain signal identity and native owners
 it("research decoding uses the same serial snapshot owner on successive full prefixes", async () => {
   const sizes: number[] = [];
   let active = 0;
-  const read: typeof projectCzsc = async (input, configs, flags, nested) => {
+  const read: typeof projectCzsc = async (input, request) => {
     expect(active).toBe(0);
     active++;
     sizes.push(input.high.length);
-    expect([flags, nested]).toEqual([CZSC_FLAG_HIGHER, true]);
+    expect([request?.recursion, request?.nested]).toEqual([true, true]);
     try {
-      return await projectCzsc(input, configs, flags, nested);
+      return await projectCzsc(input, request);
     } finally {
       active--;
     }

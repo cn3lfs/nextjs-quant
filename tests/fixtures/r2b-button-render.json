@@ -12,5 +12,5 @@
   "src/components/workbench/market-view.tsx": "052b964bbac63185a70c92d21b09ef54fb4707a5abed15d3b30f1de8aeb2ee88",
   "src/components/workbench/reports.tsx": "a1391d9a5eed48ded5919b80deb0b0a164562cf1118335761fc8e3eeb84730fe",
   "src/components/workbench/task-center.tsx": "e235d3bb1334f9161d1c1c09b6b1cc091d0c58fbb4165d4ffa04a16d47eaafae",
-  "src/components/market/chart.tsx": "7eb85115436b283f2008197c4a290e66fd1322e0f48c5809bfa74250ab5cc56f"
+  "src/components/market/chart.tsx": "92b2d11d9b4dbb4b28ab7db8f4ccc972146b09a413ae4a9d39c23236a67af5a5"
 }

@@ -198,7 +198,7 @@ const expectedProcedures = {
   securities: "query",
   breakout: "query",
   czsc: "query",
-  czscOptions: "query",
+  czscSchema: "query",
   snapshot: "mutation",
   futuresQuotes: "query",
   localDailyAsOf: "query",

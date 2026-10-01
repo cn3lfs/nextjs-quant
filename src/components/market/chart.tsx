@@ -97,6 +97,7 @@ import {
 } from "~/lib/chart/chart-data";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { useCzscSettings } from "~/lib/stores/czsc-settings-store";
+import { czscEffectiveSettings } from "~/lib/chart/czsc-settings";
 function LegacyChart({
   bars,
   equity,
@@ -510,21 +511,19 @@ export function CzscMarketChart({
   const visible = usePanelVisible();
   const annotationsReady = visible && paintedSnapshot === snapshotId;
   const czscSettings = useCzscSettings();
-  const {
-    stroke,
-    strokeEnd,
-    segment,
-    segmentEnd,
-    centerMode,
-    box,
-    showStroke,
-    showSegment,
-  } = czscSettings;
+  const { values: czscValues, showStroke, showSegment } = czscSettings;
+  // The schema's dependency rules fix or drop inapplicable fields before the
+  // DLL sees them, so a stale combination never fails the whole overlay.
+  const czscSchema = api.czscSchema.useQuery(undefined, {
+    enabled: annotations,
+    staleTime: Infinity,
+    retry: false,
+  });
   const result = api.czsc.useQuery(
     {
       snapshotId,
       chartSnapshot,
-      settings: { stroke, strokeEnd, segment, segmentEnd, centerMode },
+      settings: czscEffectiveSettings(czscSchema.data, czscValues),
     },
     {
       enabled: annotationsReady && annotations,
@@ -532,23 +531,16 @@ export function CzscMarketChart({
       retry: false,
     },
   );
-  // Display-only settings filter the DLL result; structure codes went to the query.
+  // Level toggles only filter what is drawn; structure settings went to the query.
   const czscView = useMemo(
     () =>
       result.data && {
         ...result.data,
-        families: result.data.families
-          .filter((f) => (f.config === 0 ? showStroke : showSegment))
-          .map((f) =>
-            box === "extended"
-              ? {
-                  ...f,
-                  centers: f.centers.map((c) => ({ ...c, boxEnd: c.end })),
-                }
-              : f,
-          ),
+        families: result.data.families.filter((f) =>
+          f.config === 0 ? showStroke : showSegment,
+        ),
       },
-    [result.data, box, showStroke, showSegment],
+    [result.data, showStroke, showSegment],
   );
   const breakout = api.breakout.useQuery(
     { snapshotId, chartSnapshot },
@@ -1104,8 +1096,8 @@ export function MarketChart({
                       ? chartColor.series1
                       : chartColor.accent;
                   for (const center of family.centers) {
-                    // Box spans only the first three members (czsc-tdx 98fb604); extension stays in `end`.
-                    const end = center.boxEnd ?? center.end;
+                    // The DLL projection already ends the box at the first three members or the extension.
+                    const end = center.end;
                     if (end < start) continue;
                     const x1 = x(Math.max(start, center.start)),
                       x2 = x(end);

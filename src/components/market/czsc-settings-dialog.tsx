@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,24 +24,29 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import {
-  czscOptionNote,
+  czscBlockingRule,
+  czscFieldValue,
   czscStrokeSample,
-  type CzscConfigOption,
+  type CzscConfigChoice,
+  type CzscConfigField,
 } from "~/lib/chart/czsc-settings";
 import { useCzscSettings } from "~/lib/stores/czsc-settings-store";
 import { api } from "~/trpc/react";
 
-// Config-code places fed by the dialog; place 100 (center unit) is the two family toggles.
-const structureFields = [
-  { place: 1, field: "stroke", title: "笔算法" },
-  { place: 10, field: "strokeEnd", title: "笔端点" },
-  { place: 1000, field: "segment", title: "线段算法" },
-  { place: 10000, field: "segmentEnd", title: "线段分界点" },
-  { place: 100000, field: "centerMode", title: "笔中枢构成" },
-] as const;
+/**
+ * Fields the chart does not expose: signal publication only changes the live
+ * event stream, while the chart draws hindsight signals.
+ */
+const hiddenFields = new Set(["signals.publication"]);
 
-const optionLabel = (o: CzscConfigOption) =>
-  o.original ? `${o.label}（第${o.lessons}课）` : `${o.label}（社区口径）`;
+const choiceLabel = (c: CzscConfigChoice) =>
+  c.original
+    ? `${c.label}${c.lessons ? `（第${c.lessons}课）` : ""}`
+    : `${c.label}（社区口径）`;
+
+/** DLL notes may open with "社区口径：", which the choice label already says. */
+const noteText = (c: CzscConfigChoice) =>
+  c.note.replace(/^社区口径[:：]\s*/, "");
 
 type Note = { label: string; text: string };
 
@@ -55,7 +61,7 @@ function Row({
   /** Every choice of this row, shown in the title tooltip. */
   notes: Note[];
   footer?: string;
-  /** Note of the selected choice, shown under the control. */
+  /** Note of the selected choice (or why the row is disabled), under the control. */
   current?: string;
   children: React.ReactNode;
 }) {
@@ -93,39 +99,76 @@ function Row({
   );
 }
 
-const noteOf = (o: CzscConfigOption): Note => ({
-  label: optionLabel(o),
-  text: czscOptionNote(o) ?? "",
-});
-
-const familyNotes = {
-  stroke: [
-    {
-      label: "笔中枢",
-      text: "三笔重叠构成中枢。原文第63课以线段构成中枢，用笔代替是工程降级，适合看更细的结构。",
-    },
-  ],
-  segment: [
-    {
-      label: "线段中枢",
-      text: "三段重叠构成中枢（第63课），结构更粗、更稳定。",
-    },
-  ],
-};
-
-const boxNotes = {
-  initial: "只画成枢的最初三笔／三段（第17/18课），与通达信公式输出一致。",
-  extended: "框一直画到中枢延伸结束（第18/20课），能看出中枢震荡了多久。",
-};
-
-/** TradingView-style "输入" page for the chart's Chan structure indicator. */
+/** TradingView-style "输入" page, generated from the DLL configuration schema (api v20). */
 export function CzscSettingsDialog() {
   const settings = useCzscSettings();
-  // The DLL option table is the single source of rule names and provenance.
-  const options = api.czscOptions.useQuery(undefined, {
+  const schema = api.czscSchema.useQuery(undefined, {
     staleTime: Infinity,
     retry: false,
   });
+  const values = settings.values;
+  const field = (f: CzscConfigField) => {
+    const choices = (schema.data?.choices ?? []).filter(
+      (c) => c.field === f.key,
+    );
+    // A dependency rule disables the row and says why (text from the DLL).
+    const rule = schema.data && czscBlockingRule(schema.data, f.key, values);
+    const value =
+      rule && rule.onlyValue >= 0 ? rule.onlyValue : czscFieldValue(f, values);
+    const selected = choices.find((c) => c.value === value);
+    return (
+      <Row
+        key={f.key}
+        title={f.label}
+        notes={choices.map((c) => ({
+          label: choiceLabel(c),
+          text: noteText(c),
+        }))}
+        footer={f.key === "stroke.rule" ? czscStrokeSample : undefined}
+        current={rule ? rule.reason : selected && noteText(selected)}
+      >
+        {f.kind === 1 ? (
+          <Input
+            aria-label={f.label}
+            className="w-56"
+            type="number"
+            step={0.001}
+            min={f.minFloat}
+            max={f.maxFloat}
+            disabled={!!rule}
+            // The DLL reports float32 defaults (0.02 → 0.0199999995…).
+            value={Number(value.toPrecision(6))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (next > f.minFloat && next < f.maxFloat)
+                settings.setValue(f.key, next);
+            }}
+          />
+        ) : (
+          <Select
+            value={String(value)}
+            disabled={!choices.length || !!rule}
+            onValueChange={(v) => settings.setValue(f.key, Number(v))}
+          >
+            <SelectTrigger aria-label={f.label} className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {choices.map((c) => (
+                <SelectItem key={c.key} value={String(c.value)}>
+                  {choiceLabel(c)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Row>
+    );
+  };
+  const visible = (layer: number) =>
+    (schema.data?.fields ?? []).filter(
+      (f) => f.layer === layer && !hiddenFields.has(f.key),
+    );
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -143,97 +186,33 @@ export function CzscSettingsDialog() {
         <DialogTitle>缠论结构 · 输入</DialogTitle>
         <DialogDescription>
           只作用于 K
-          线图，跨品种、跨周期共享；研究、监控与信号台账固定使用默认口径（配置 0
-          / 1100）。
+          线图，跨品种、跨周期共享；研究、监控与信号台账固定使用默认口径。
         </DialogDescription>
         <TooltipProvider>
           <div className="space-y-3">
-            <p className="text-xs font-medium text-nc-text-3">结构</p>
-            {options.error && (
+            {schema.error && (
               <p role="alert" className="text-xs">
-                读取配置选项失败：{options.error.message}
+                读取配置选项失败：{schema.error.message}
               </p>
             )}
-            {structureFields.map(({ place, field, title }) => {
-              const rows = (options.data ?? []).filter(
-                (o) => o.place === place,
-              );
-              // Boundary display applies to feature-sequence segments only (api v8).
-              const off = field === "segmentEnd" && settings.segment !== 1;
-              const value = off ? 0 : settings[field];
-              const selected = rows.find((o) => o.value === value);
-              return (
-                <Row
-                  key={field}
-                  title={title}
-                  notes={rows.map(noteOf)}
-                  footer={field === "stroke" ? czscStrokeSample : undefined}
-                  current={
-                    off
-                      ? "仅特征序列线段可选；启发式线段固定画在极值笔。"
-                      : selected && czscOptionNote(selected)
-                  }
-                >
-                  <Select
-                    value={String(value)}
-                    disabled={!rows.length || off}
-                    onValueChange={(v) => settings.set({ [field]: Number(v) })}
-                  >
-                    <SelectTrigger aria-label={title} className="w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rows.map((o) => (
-                        <SelectItem key={o.key} value={String(o.value)}>
-                          {optionLabel(o)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Row>
-              );
-            })}
+            <p className="text-xs font-medium text-nc-text-3">结构</p>
+            {visible(0).map(field)}
             <p className="text-xs font-medium text-nc-text-3">显示</p>
-            <Row title="笔及笔中枢" notes={familyNotes.stroke}>
+            <Row title="笔及笔中枢" notes={[]}>
               <Switch
                 aria-label="显示笔及笔中枢"
                 checked={settings.showStroke}
                 onCheckedChange={(v) => settings.set({ showStroke: v })}
               />
             </Row>
-            <Row title="线段及线段中枢" notes={familyNotes.segment}>
+            <Row title="线段及线段中枢" notes={[]}>
               <Switch
                 aria-label="显示线段及线段中枢"
                 checked={settings.showSegment}
                 onCheckedChange={(v) => settings.set({ showSegment: v })}
               />
             </Row>
-            <Row
-              title="中枢框范围"
-              notes={[
-                { label: "最初三笔／三段", text: boxNotes.initial },
-                { label: "含延伸", text: boxNotes.extended },
-              ]}
-              footer="只影响绘制，买卖点与信号计算不变。"
-              current={boxNotes[settings.box]}
-            >
-              <Select
-                value={settings.box}
-                onValueChange={(v) =>
-                  settings.set({ box: v as "initial" | "extended" })
-                }
-              >
-                <SelectTrigger aria-label="中枢框范围" className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="initial">
-                    最初三笔／三段（第17/18课）
-                  </SelectItem>
-                  <SelectItem value="extended">含延伸</SelectItem>
-                </SelectContent>
-              </Select>
-            </Row>
+            {visible(2).map(field)}
             <Button variant="outline" size="sm" onClick={settings.reset}>
               恢复默认
             </Button>

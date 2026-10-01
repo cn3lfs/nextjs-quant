@@ -3,12 +3,16 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { czscInput, type CzscInput } from "./czsc-input";
-import type { CzscConfigOption } from "../../../lib/chart/czsc-settings";
-import type { CzscRawFamily, CzscSnapshot } from "./czsc-api";
+import type {
+  CzscConfig,
+  CzscConfigSchema,
+  CzscProjection,
+} from "../../../lib/chart/czsc-settings";
+import type { CzscRawFamily, CzscRequest, CzscSnapshot } from "./czsc-api";
 
 // adapter/czsc_api.h (czsc-tdx) is the single contract; every struct is packed
 // 4-byte fields with a leading size, so koffi's natural layout matches exactly.
-export const czscApiVersion = 9;
+export const czscApiVersion = 20;
 const dllPath = resolve("runtime/czsc/CZSC64.dll");
 const hash = createHash("sha256").update(readFileSync(dllPath)).digest("hex");
 const library = koffi.load(dllPath);
@@ -192,6 +196,7 @@ const structs = {
     highCurEndLow: "int32",
   }),
 };
+// v20: input carries only the series; configuration is a separate struct.
 const input = koffi.struct("czsc_input", {
   size: "uint32",
   n: "int32",
@@ -199,61 +204,131 @@ const input = koffi.struct("czsc_input", {
   low: "float *",
   close: "float *",
   volume: "float *",
-  config: "int32",
-  flags: "int32",
 });
-// v7 config self-description; packed, size 116 on both pointer widths.
-const option = koffi.pack("czsc_config_option", {
+const config = koffi.struct("czsc_config", {
   size: "uint32",
-  place: "int32",
-  value: "int32",
-  isDefault: "int32",
-  original: "int32",
-  key: koffi.array("char", 32, "String"),
-  label: koffi.array("char", 32, "String"),
-  lessons: koffi.array("char", 32, "String"),
+  strokeRule: "int32",
+  strokeEndpoint: "int32",
+  strokeGap: "int32",
+  gapThreshold: "float",
+  segmentMethod: "int32",
+  centerStrokeFormation: "int32",
+  signalsPublication: "int32",
 });
+const projection = koffi.struct("czsc_projection", {
+  size: "uint32",
+  segmentBoundary: "int32",
+  centerBox: "int32",
+});
+// Schema rows are packed(1) with fixed UTF-8 char arrays.
+const text = (n: number) => koffi.array("char", n, "String");
+const schemaRows = {
+  fields: koffi.pack("czsc_config_field", {
+    size: "uint32",
+    key: text(32),
+    label: text(32),
+    layer: "int32",
+    kind: "int32",
+    defaultValue: "int32",
+    defaultFloat: "float",
+    minFloat: "float",
+    maxFloat: "float",
+  }),
+  choices: koffi.pack("czsc_config_choice", {
+    size: "uint32",
+    field: text(32),
+    value: "int32",
+    key: text(32),
+    label: text(32),
+    lessons: text(32),
+    original: "int32",
+    note: text(256),
+  }),
+  rules: koffi.pack("czsc_config_rule", {
+    size: "uint32",
+    whenField: text(32),
+    whenValue: "int32",
+    field: text(32),
+    onlyValue: "int32",
+    reason: text(128),
+  }),
+};
+const OUTPUT = { stroke: 1, segment: 2, events: 4, recursion: 8, nested: 16 };
 const api = {
-  valid: library.func("int32_t czsc_config_valid(int32_t config)"),
-  options: library.func(
-    "int32_t czsc_config_options(_Out_ czsc_config_option *out, int32_t capacity)",
-  ),
   version: library.func("int32_t czsc_api_version(void)"),
   error: library.func("const char *czsc_last_error(void)"),
-  build: library.func("void *czsc_snapshot_build(const czsc_input *input)"),
-  free: library.func("void czsc_snapshot_free(void *snapshot)"),
-  nested: library.func("void *czsc_nested_build(void *low, void *high)"),
   commit: library.func("const char *czsc_build_commit(void)"),
+  configDefault: library.func(
+    "int32_t czsc_config_default(_Out_ czsc_config *out)",
+  ),
+  validate: library.func("int32_t czsc_config_validate(const czsc_config *c)"),
+  configId: library.func(
+    "int32_t czsc_config_id(const czsc_config *c, _Out_ uint8_t *out, int32_t cap)",
+  ),
+  projectionDefault: library.func(
+    "int32_t czsc_projection_default(_Out_ czsc_projection *out)",
+  ),
+  build: library.func(
+    "void *czsc_build(const czsc_input *input, const czsc_config *c, uint32_t outputs)",
+  ),
+  setProjection: library.func(
+    "int32_t czsc_set_projection(void *snapshot, const czsc_projection *p)",
+  ),
+  free: library.func("void czsc_snapshot_free(void *snapshot)"),
+  fields: library.func("czsc_config_fields", "int32_t", [
+    koffi.out(koffi.pointer(schemaRows.fields)),
+    "int32_t",
+  ]),
+  choices: library.func("czsc_config_choices", "int32_t", [
+    koffi.out(koffi.pointer(schemaRows.choices)),
+    "int32_t",
+  ]),
+  rules: library.func("czsc_config_rules", "int32_t", [
+    koffi.out(koffi.pointer(schemaRows.rules)),
+    "int32_t",
+  ]),
 };
-const table = (name: string) =>
-  library.func(`const void *${name}(void *snapshot, _Out_ int32_t *count)`);
+const levelTable = (name: string) =>
+  library.func(
+    `const void *${name}(void *snapshot, int32_t level, _Out_ int32_t *count)`,
+  );
 const tables = {
-  pivots: [table("czsc_pivots"), structs.pivot],
-  centers: [table("czsc_centers"), structs.center],
-  movements: [table("czsc_movements"), structs.movement],
-  breakouts: [table("czsc_breakouts"), structs.breakout],
-  signals: [table("czsc_signals"), structs.signal],
-  events: [table("czsc_events"), structs.event],
-  bars: [table("czsc_bars"), structs.bar],
-  nodes: [table("czsc_recursive_nodes"), structs.node],
-  children: [table("czsc_recursive_children"), "int32"],
-  recursiveCenters: [table("czsc_recursive_centers"), structs.recursiveCenter],
-  connections: [table("czsc_recursive_connections"), structs.connection],
+  pivots: [levelTable("czsc_level_pivots"), structs.pivot],
+  centers: [levelTable("czsc_level_centers"), structs.center],
+  movements: [levelTable("czsc_level_movements"), structs.movement],
+  breakouts: [levelTable("czsc_level_breakouts"), structs.breakout],
+  signals: [levelTable("czsc_level_signals"), structs.signal],
+  events: [levelTable("czsc_level_events"), structs.event],
+  bars: [levelTable("czsc_level_bars"), structs.bar],
+  nodes: [levelTable("czsc_level_recursive_nodes"), structs.node],
+  children: [levelTable("czsc_level_recursive_children"), "int32"],
+  recursiveCenters: [
+    levelTable("czsc_level_recursive_centers"),
+    structs.recursiveCenter,
+  ],
+  connections: [
+    levelTable("czsc_level_recursive_connections"),
+    structs.connection,
+  ],
 } as const;
-const nestedRows = table("czsc_nested_rows");
+const nestedRows = library.func(
+  "const void *czsc_nested_rows(void *snapshot, _Out_ int32_t *count)",
+);
 
 const version = api.version() as number;
-if (version < czscApiVersion)
-  throw new Error(`CZSC API v${version} < required v${czscApiVersion}`);
+if (version !== czscApiVersion)
+  throw new Error(`CZSC API v${version} ≠ required v${czscApiVersion}`);
 const buildCommit = (api.commit() as string | null) ?? "unknown";
 
 function read(
-  fn: (handle: unknown, count: number[]) => unknown,
+  fn: (...args: unknown[]) => unknown,
   type: unknown,
   handle: unknown,
+  level?: number,
 ) {
   const count = [0];
-  const pointer = fn(handle, count);
+  const pointer =
+    level === undefined ? fn(handle, count) : fn(handle, level, count);
   const n = count[0]!;
   if (!Number.isInteger(n) || n < 0) throw new Error("CZSC table count");
   if (!n || !pointer) return [];
@@ -278,111 +353,120 @@ function read(
   return rows;
 }
 
-function configOptions(): CzscConfigOption[] {
-  const n = api.options(null, 0) as number;
-  if (n <= 0) return [];
-  const out = Array.from({ length: n }, () => ({}));
-  const written = api.options(out, n) as number;
-  return (out.slice(0, written) as (CzscConfigOption & { size: number })[]).map(
-    ({ size, ...row }) => {
-      if (size !== koffi.sizeof(option))
-        throw new Error("CZSC struct size mismatch");
-      return row;
-    },
-  );
-}
-
 const failure = (what: string) =>
   new Error(`${what}: ${(api.error() as string | null) ?? "unknown"}`);
+
+function schemaRowsOf<T>(
+  fn: (out: unknown, cap: number) => unknown,
+  type: unknown,
+): T[] {
+  const n = fn(null, 0) as number;
+  if (n <= 0) return [];
+  const out = Array.from({ length: n }, () => ({}));
+  const written = fn(out, n) as number;
+  return (out.slice(0, written) as (T & { size?: number })[]).map((row) => {
+    if (row.size !== koffi.sizeof(type as never))
+      throw new Error("CZSC struct size mismatch");
+    delete row.size;
+    return row as T;
+  });
+}
+function schema(): CzscConfigSchema {
+  return {
+    fields: schemaRowsOf(api.fields, schemaRows.fields),
+    choices: schemaRowsOf(api.choices, schemaRows.choices),
+    rules: schemaRowsOf(api.rules, schemaRows.rules),
+  };
+}
+
+/** DLL defaults overlaid with the request; invalid combinations throw the DLL's reason. */
+function resolveConfig(overrides: Partial<CzscConfig> = {}) {
+  const c = {} as CzscConfig & { size: number };
+  if (api.configDefault(c) !== 0) throw failure("CZSC config default");
+  Object.assign(c, overrides, { size: koffi.sizeof(config) });
+  if (api.validate(c) !== 0)
+    throw new RangeError(
+      `缠论配置无效：${(api.error() as string | null) ?? ""}`,
+    );
+  const cap = api.configId(c, null, 0) as number;
+  const buffer = Buffer.alloc(Math.max(cap, 1));
+  if (cap <= 0 || (api.configId(c, buffer, cap) as number) < 0)
+    throw failure("CZSC config id");
+  return { c, id: buffer.toString("utf8", 0, buffer.indexOf(0)) };
+}
 
 // Synchronous IPC handler; handles never outlive one message.
 process.on(
   "message",
   (message: {
     id: number;
-    /** Return the v7 config option table instead of building. */
-    options?: boolean;
+    /** Return the v20 configuration schema instead of building. */
+    schema?: boolean;
     input: CzscInput;
-    configs: number[];
-    flags: number;
-    nested: boolean;
-    /** Per-bar table (MACD, MA, kisses…); omitted when false. */
-    bars?: boolean;
+    request: CzscRequest;
   }) => {
-    const handles: unknown[] = [];
+    let handle: unknown = null;
     try {
-      if (message.options) {
-        process.send?.({ id: message.id, result: configOptions() });
+      if (message.schema) {
+        process.send?.({ id: message.id, result: schema() });
         return;
       }
+      const request = message.request;
       const { high, low, close, volume } = czscInput(message.input);
       const n = high.length;
       if (n > 16777216)
         throw new RangeError("CZSC input exceeds exact index domain");
-      if (!Number.isInteger(message.flags) || message.flags & ~3)
-        throw new RangeError("Invalid CZSC flags");
-      const families: Record<string, CzscRawFamily> = {};
-      const byConfig = new Map<number, unknown>();
-      for (const config of message.configs) {
-        if (!Number.isInteger(config) || api.valid(config) !== 1)
-          throw new RangeError(`Unsupported CZSC config ${config}`);
-        const handle = api.build({
-          size: koffi.sizeof(input),
-          n,
-          high,
-          low,
-          close,
-          volume,
-          config,
-          flags: message.flags,
+      const levels = request.levels ?? [0, 1];
+      if (!levels.length || levels.some((l) => l !== 0 && l !== 1))
+        throw new RangeError("Invalid CZSC levels");
+      const { c, id: configId } = resolveConfig(request.config);
+      const outputs =
+        (levels.includes(0) ? OUTPUT.stroke : 0) |
+        (levels.includes(1) ? OUTPUT.segment : 0) |
+        (request.events ? OUTPUT.events : 0) |
+        (request.recursion ? OUTPUT.recursion : 0) |
+        (request.nested ? OUTPUT.nested : 0);
+      handle = api.build(
+        { size: koffi.sizeof(input), n, high, low, close, volume },
+        c,
+        outputs,
+      );
+      if (!handle) throw failure("CZSC build failed");
+      if (request.projection) {
+        const p = {} as CzscProjection & { size: number };
+        api.projectionDefault(p);
+        Object.assign(p, request.projection, {
+          size: koffi.sizeof(projection),
         });
-        if (!handle) throw failure("CZSC build failed");
-        handles.push(handle);
-        byConfig.set(config, handle);
-        // Decode and ship only what the caller uses: the per-bar table is a
-        // row per bar of full history, and recursion/event tables are empty
-        // unless their flags are set. Monitoring and the full-market ledger
-        // call once per security, so this dominates IPC volume.
-        const wanted = (key: string) =>
-          key === "bars"
-            ? message.bars !== false
-            : key === "events"
-              ? (message.flags & 1) !== 0
-              : [
-                    "nodes",
-                    "children",
-                    "recursiveCenters",
-                    "connections",
-                  ].includes(key)
-                ? (message.flags & 2) !== 0
-                : true;
-        families[config] = Object.fromEntries(
+        if (api.setProjection(handle, p) !== 0)
+          throw failure("缠论显示投影无效");
+      }
+      // Decode and ship only what the caller uses: the per-bar table is a
+      // row per bar of full history. Monitoring and the full-market ledger
+      // call once per security, so this dominates IPC volume.
+      const families: CzscSnapshot["families"] = {};
+      for (const level of levels)
+        families[level === 0 ? 0 : 1100] = Object.fromEntries(
           Object.entries(tables).map(([key, [fn, type]]) => [
             key,
-            wanted(key) ? read(fn as never, type, handle) : [],
+            key !== "bars" || request.bars !== false
+              ? read(fn as never, type, handle, level)
+              : [],
           ]),
         ) as unknown as CzscRawFamily;
-      }
-      let nested: CzscSnapshot["nested"] = [];
-      if (message.nested) {
-        const low = byConfig.get(0),
-          high = byConfig.get(1100);
-        if (!low || !high) throw new Error("区间套需要 0 与 1100 两个快照");
-        const handle = api.nested(low, high);
-        if (!handle) throw failure("CZSC nested failed");
-        handles.push(handle);
-        nested = read(
-          nestedRows as never,
-          structs.nested,
-          handle,
-        ) as CzscSnapshot["nested"];
-      }
       const result: CzscSnapshot = {
         hash,
         apiVersion: version,
         buildCommit,
+        configId,
         families,
-        nested,
+        nested: request.nested
+          ? (read(
+              nestedRows as never,
+              structs.nested,
+              handle,
+            ) as CzscSnapshot["nested"])
+          : [],
       };
       process.send?.({ id: message.id, result });
     } catch (error) {
@@ -391,7 +475,7 @@ process.on(
         error: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      for (const handle of handles) api.free(handle);
+      if (handle) api.free(handle);
     }
   },
 );

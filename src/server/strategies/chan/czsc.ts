@@ -1,7 +1,11 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import type { CzscInput } from "./czsc-input";
-import type { CzscConfigOption } from "~/lib/chart/czsc-settings";
+import {
+  czscOverrides,
+  type CzscConfigSchema,
+  type CzscSettings,
+} from "~/lib/chart/czsc-settings";
 import type { Bar } from "~/lib/domain";
 import {
   CZSC_CTX,
@@ -15,8 +19,8 @@ import {
 } from "~/lib/research/methods/chan/czsc";
 import { decodeCzscMovements, decodeCzscRecursive } from "./czsc-recursive";
 import {
-  CZSC_FLAG_HIGHER,
   type CzscRawDivergence,
+  type CzscRequest,
   type CzscRawFamily,
   type CzscSnapshot,
 } from "./czsc-api";
@@ -27,7 +31,7 @@ const scope = globalThis as typeof globalThis & {
   czscWorker?: ChildProcess;
   czscQueue?: Promise<unknown>;
   czscRequestId?: number;
-  czscOptions?: Promise<CzscConfigOption[]>;
+  czscSchema?: Promise<CzscConfigSchema>;
 };
 
 function worker() {
@@ -44,31 +48,23 @@ function worker() {
   return scope.czscWorker;
 }
 
-/** Build native snapshots (adapter/czsc_api.h) in the serial DLL worker. */
+/** One api v20 build (both levels by default) in the serial DLL worker. */
 export function projectCzsc(
   input: CzscInput,
-  configs: readonly number[] = [0, 1100],
-  flags = 0,
-  nested = false,
-  /** Include the per-bar table (full-history rows); callers that only read
-   * structure and signals pass false to keep IPC small. */
-  bars = true,
+  request: CzscRequest = {},
 ): Promise<CzscSnapshot> {
   return dispatch<CzscSnapshot>({
     input: structuredClone(input),
-    configs: [...configs],
-    flags,
-    nested,
-    bars,
+    request: structuredClone(request),
   });
 }
 
-/** v7 option table, read once per worker lifetime. */
-export function czscConfigOptions(): Promise<CzscConfigOption[]> {
-  return (scope.czscOptions ??= dispatch<CzscConfigOption[]>({
-    options: true,
+/** v20 configuration schema, read once per worker lifetime. */
+export function czscConfigSchema(): Promise<CzscConfigSchema> {
+  return (scope.czscSchema ??= dispatch<CzscConfigSchema>({
+    schema: true,
   }).catch((error: unknown) => {
-    scope.czscOptions = undefined;
+    scope.czscSchema = undefined;
     throw error;
   }));
 }
@@ -238,7 +234,6 @@ function decodeFamily(
     centers: raw.centers.map((c) => ({
       start: c.start,
       end: c.end,
-      boxEnd: raw.pivots[c.firstPivot + 3]?.extremeIndex ?? c.end,
       startDate: bars[c.start]!.date,
       endDate: bars[c.end]!.date,
       direction: c.direction,
@@ -334,11 +329,11 @@ export async function analyzeCzsc(
   researchStructures = false,
   anchor?: 1 | 2 | 3,
   movements = false,
-  /** DLL codes per family slot; only the chart overrides the pinned 0 / 1100. */
-  codes: { 0: number; 1100: number } = { 0: 0, 1100: 1100 },
+  /** Chart-only structure settings (schema keys); research keeps DLL defaults. */
+  settings?: CzscSettings,
 ): Promise<CzscResult> {
-  if (researchStructures && (codes[0] !== 0 || codes[1100] !== 1100))
-    throw new Error("研究结构锁定配置0/1100");
+  if (researchStructures && settings)
+    throw new Error("研究结构锁定默认配置（原0/1100）");
   if (movements && (!anchor || !signalDetails || !researchStructures))
     throw new Error("C4读取必须启用显式锚及完整结构表");
   if (
@@ -356,20 +351,17 @@ export async function analyzeCzsc(
     volume: bars.map((b) => b.volume),
   };
   const research = signalDetails && researchStructures;
-  const raw = await project(
-    input,
-    [...new Set([codes[0], codes[1100]])],
-    research ? CZSC_FLAG_HIGHER : 0,
-    research,
-    research,
-  );
+  const raw = await project(input, {
+    ...(settings ? czscOverrides(settings) : {}),
+    recursion: research,
+    nested: research,
+    bars: research,
+  });
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
-    const family = raw.families[codes[config]];
-    if (!family) throw new Error(`结构缺口：缺少配置${codes[config]}快照`);
-    const decoded = {
-      ...decodeFamily(family, config, bars, signalDetails, research),
-      code: codes[config],
-    };
+    const family = raw.families[config];
+    if (!family)
+      throw new Error(`结构缺口：缺少${config ? "线段" : "笔"}级快照`);
+    const decoded = decodeFamily(family, config, bars, signalDetails, research);
     if (!research) return decoded;
     const lowSignals = raw.families[0]!.signals;
     const nested: CzscNestedStructure[] =
@@ -441,6 +433,7 @@ export async function analyzeCzsc(
       : "no-structure",
     hash: raw.hash,
     sourceCommit: czscSourceCommit,
+    configId: raw.configId,
     families,
   };
 }

@@ -6,12 +6,8 @@ import {
   closeCzsc,
   analyzeCzsc,
   analyzeChanMovements,
-  czscConfigOptions,
+  czscConfigSchema,
 } from "../../../../src/server/strategies/chan/czsc";
-import {
-  czscCodes,
-  defaultCzscSettings,
-} from "../../../../src/lib/chart/czsc-settings";
 import {
   chanC4Sequence,
   chanC4Trend,
@@ -20,26 +16,26 @@ import { chanRecursiveObservations } from "../../../../src/lib/research/methods/
 import { parseBars } from "../../../../src/server/data-sources/tdx/tdx";
 import { toFloat32 } from "../../../../src/server/strategies/chan/czsc-input";
 import { readFileSync } from "node:fs";
-import {
-  CZSC_FLAG_EVENTS,
-  CZSC_FLAG_HIGHER,
-} from "../../../../src/server/strategies/chan/czsc-api";
 
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
 
-test("api v7 chart settings: option table drives codes; defaults stay 0/1100", async () => {
-  const options = await czscConfigOptions();
-  expect(options).toHaveLength(16);
-  const at = (place: number) => options.filter((o) => o.place === place);
-  expect(at(1).map((o) => o.value)).toEqual([0, 1, 2, 3, 4]);
-  expect(at(1).find((o) => o.value === 3)).toMatchObject({
+test("api v20 chart settings: schema drives one build; defaults stay the old 0/1100", async () => {
+  const schema = await czscConfigSchema();
+  expect([
+    schema.fields.length,
+    schema.choices.length,
+    schema.rules.length,
+  ]).toEqual([13, 31, 5]);
+  const keys = schema.choices.map((c) => c.key);
+  expect(new Set(keys).size).toBe(keys.length);
+  const rule = schema.choices.filter((c) => c.field === "stroke.rule");
+  expect(rule.map((c) => c.value)).toEqual([0, 1, 2, 3, 4]);
+  expect(rule.every((c) => c.note.length > 0)).toBe(true);
+  expect(rule.find((c) => c.key === "stroke.rule.4k")).toMatchObject({
     original: 0,
     lessons: "",
   });
-  for (const place of [1, 10, 100, 1000, 10000, 100000])
-    expect(at(place).filter((o) => o.isDefault)).toHaveLength(1);
-  expect(czscCodes(defaultCzscSettings)).toEqual({ 0: 0, 1100: 1100 });
   const bars = fixture.high.map((high, i) => ({
     date: new Date(Date.UTC(2000, 0, 1 + i)).toISOString().slice(0, 10),
     open: fixture.close[i]!,
@@ -49,79 +45,55 @@ test("api v7 chart settings: option table drives codes; defaults stay 0/1100", a
     volume: fixture.volume[i]!,
     amount: 0,
   }));
-  const codes = czscCodes({
-    stroke: 3,
-    strokeEnd: 1,
-    segment: 0,
-    segmentEnd: 2,
-    centerMode: 0,
-  });
-  expect(codes).toEqual({ 0: 13, 1100: 113 });
-  const result = await analyzeCzsc(
-    bars,
-    false,
-    undefined,
-    false,
-    undefined,
-    false,
-    codes,
-  );
-  expect(result.families.map((f) => [f.config, f.code])).toEqual([
-    [0, 13],
-    [1100, 113],
-  ]);
-  for (const f of result.families)
-    for (const c of f.centers) expect(c.boxEnd).toBeLessThanOrEqual(c.end);
-  // v8 segment boundary: display-only; heuristic segments ignore the digit.
+  const chart = (settings: Record<string, number>) =>
+    analyzeCzsc(bars, false, undefined, false, undefined, false, settings);
   const base = await analyzeCzsc(bars);
-  for (const segmentEnd of [1, 2]) {
-    const c = czscCodes({ ...defaultCzscSettings, segmentEnd });
-    expect(c).toEqual({ 0: 0, 1100: 1100 + 10000 * segmentEnd });
-    const shown = await analyzeCzsc(
-      bars,
-      false,
-      undefined,
-      false,
-      undefined,
-      false,
-      c,
-    );
+  expect(base.configId).toMatch(/^stroke\.rule=strict;/);
+  expect(base.families.map((f) => f.points.length)).toEqual([158, 11]);
+  // Display-only segment boundary: SSE first-stroke moves 3 of 11 segment
+  // endpoints, last-stroke moves 1; analysis is untouched.
+  for (const boundary of [1, 2]) {
+    const shown = await chart({ "projection.segmentBoundary": boundary });
     const [low, high] = shown.families;
+    expect(shown.configId).toBe(base.configId);
     expect(low!.points).toEqual(base.families[0]!.points);
-    expect(high!.points).toHaveLength(base.families[1]!.points.length);
-    // SSE: first-stroke moves 3 of 11 segment endpoints, last-stroke moves 1.
     expect(
       high!.points.filter(
         (q, i) => q.index !== base.families[1]!.points[i]!.index,
       ),
-    ).toHaveLength(segmentEnd === 1 ? 3 : 1);
+    ).toHaveLength(boundary === 1 ? 3 : 1);
     expect(high!.centers).toEqual(base.families[1]!.centers);
     expect(high!.signals).toEqual(base.families[1]!.signals);
     expect(high!.divergences).toEqual(base.families[1]!.divergences);
   }
-  // v9 parent-segment stroke centers (czsc-tdx v5 reply: SSE 14 -> 18 with
-  // feature segments); segment centers keep the entering rule.
-  const mode = czscCodes({ ...defaultCzscSettings, centerMode: 1 });
-  expect(mode).toEqual({ 0: 101000, 1100: 1100 });
-  const parent = await analyzeCzsc(
-    bars,
-    false,
-    undefined,
-    false,
-    undefined,
-    false,
-    mode,
+  // Center box at the first three members never extends past the full extension.
+  const boxed = await chart({ "projection.centerBox": 0 });
+  boxed.families.forEach((f, k) =>
+    f.centers.forEach((c, i) => {
+      const full = base.families[k]!.centers[i]!;
+      expect([c.start, c.ZG, c.ZD]).toEqual([full.start, full.ZG, full.ZD]);
+      expect(c.end).toBeLessThanOrEqual(full.end);
+    }),
   );
+  // Parent-segment stroke centers (czsc-tdx v5): SSE 14 -> 18; segment level unchanged.
+  const parent = await chart({ "center.strokeFormation": 1 });
   expect(base.families[0]!.centers).toHaveLength(14);
   expect(parent.families[0]!.centers).toHaveLength(18);
   expect(parent.families[0]!.points).toEqual(base.families[0]!.points);
   expect(parent.families[1]).toEqual(base.families[1]);
-  await expect(projectCzsc(fixture, [2000])).rejects.toThrow(
-    "Unsupported CZSC config 2000",
+  // v7 gaps (strict 158 -> 166) and the v6 bounded endpoint (136, history from bar 10).
+  expect((await chart({ "stroke.gap": 1 })).families[0]!.points).toHaveLength(
+    166,
+  );
+  const bounded = (await chart({ "stroke.endpoint": 2 })).families[0]!.points;
+  expect([bounded.length, bounded[0]!.index]).toEqual([136, 10]);
+  // The DLL rejects invalid combinations with its own reason.
+  await expect(chart({ "stroke.rule": 4, "stroke.gap": 1 })).rejects.toThrow(
+    "分型笔",
   );
   await expect(
-    analyzeCzsc(bars, true, undefined, true, undefined, false, codes),
-  ).rejects.toThrow("研究结构锁定配置0/1100");
+    analyzeCzsc(bars, true, undefined, true, undefined, false, {}),
+  ).rejects.toThrow("研究结构锁定默认配置");
 });
 
 test("runtime preparation preserves a DLL already loaded by the serial owner", async () => {
@@ -223,7 +195,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
     ),
   );
   const input = { ...fixture, close };
-  const raw = await projectCzsc(input, [0, 1100], CZSC_FLAG_EVENTS);
+  const raw = await projectCzsc(input, { events: true });
   const name = (t: number) =>
     `${["一", "二", "三"][Math.abs(t) - 1]}${t > 0 ? "买" : "卖"}`;
   const date = (i: number) => fixture.date[i] ?? "?";
@@ -260,7 +232,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("cf0159cc7488");
+  expect(raw.buildCommit).toBe("bc6f3460df57");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);
@@ -276,8 +248,9 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
     average(5).map((v, i) => [v, average(20)[i]]),
   );
   // The v5 recursion section is rendered with the sample's real close/volume.
-  const recursive = (await projectCzsc(fixture, [0], CZSC_FLAG_HIGHER))
-    .families[0]!;
+  const recursive = (
+    await projectCzsc(fixture, { levels: [0], recursion: true })
+  ).families[0]!;
   const date2 = (i: number) => (i >= 0 ? (fixture.date[i] ?? "?") : "?");
   expect([
     `## 递归 配置 0：节点 ${recursive.nodes.length}，上层中枢 ${recursive.recursiveCenters.length}，上层连接段 ${recursive.connections.length}`,
@@ -374,11 +347,12 @@ test("anchored C4 and zhongyin tables decode from api v5 and prove the trend-end
 });
 
 test("the worker ships only the tables a caller needs", async () => {
-  const lean = (await projectCzsc(fixture, [0], 0, false, false)).families[0]!;
+  const lean = (await projectCzsc(fixture, { levels: [0], bars: false }))
+    .families[0]!;
   expect([lean.bars, lean.events, lean.nodes]).toEqual([[], [], []]);
   expect(lean.signals.length).toBeGreaterThan(0);
   const full = (
-    await projectCzsc(fixture, [0], CZSC_FLAG_EVENTS | CZSC_FLAG_HIGHER)
+    await projectCzsc(fixture, { levels: [0], events: true, recursion: true })
   ).families[0]!;
   expect(full.bars).toHaveLength(fixture.high.length);
   expect(full.events.length).toBeGreaterThan(0);
