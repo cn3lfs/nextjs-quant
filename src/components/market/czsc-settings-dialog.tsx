@@ -99,7 +99,7 @@ function Row({
   );
 }
 
-/** TradingView-style "输入" page, generated from the DLL configuration schema (api v20). */
+/** TradingView-style "输入" page, generated from the DLL configuration schema (api v21). */
 export function CzscSettingsDialog() {
   const settings = useCzscSettings();
   const schema = api.czscSchema.useQuery(undefined, {

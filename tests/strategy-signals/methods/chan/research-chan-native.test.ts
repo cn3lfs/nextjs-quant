@@ -4,7 +4,10 @@ import type { CzscResult } from "../../../../src/lib/research/methods/chan/czsc"
 import { chanNativeCandidates } from "../../../../src/lib/research/methods/chan/research-chan-native";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { analyzeCzsc, closeCzsc } from "../../../../src/server/strategies/chan/czsc";
+import {
+  analyzeCzsc,
+  closeCzsc,
+} from "../../../../src/server/strategies/chan/czsc";
 import { prepareCzscTestRuntime } from "../../../helpers/czsc-runtime";
 import fixture from "../../../fixtures/czsc-sse.json";
 
@@ -198,7 +201,7 @@ it("locked real DLL fixture proves first/third-buy ownership; this fixture has n
   }));
   const result = await analyzeCzsc(b, true);
   expect(result.hash).toBe(
-    "3de9d3b4a117e4de268580a06a1b4f7189f50de910d467aeac690dbcc355f044",
+    "3412dcefe29818599516cb20c37a95532e3d0b59a83b99841358a1991027189c",
   );
   for (const id of chanNativeIds) {
     const selected = chanNativeCandidates(id, result, b, 0);

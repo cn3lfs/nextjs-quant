@@ -4,7 +4,10 @@ import {
   czscOverrides,
   type CzscConfigSchema,
 } from "~/lib/chart/czsc-settings";
-import { migrateLegacy } from "~/lib/stores/czsc-settings-store";
+import {
+  migrateCzscSettings,
+  migrateLegacy,
+} from "~/lib/stores/czsc-settings-store";
 
 const schema: CzscConfigSchema = {
   fields: [
@@ -108,7 +111,6 @@ it("pre-v20 persisted chart settings migrate to schema keys", () => {
   ).toEqual({
     values: {
       "stroke.rule": 3,
-      "stroke.endpoint": 1,
       "segment.method": 1,
       "projection.segmentBoundary": 2,
       "center.strokeFormation": 1,
@@ -119,4 +121,26 @@ it("pre-v20 persisted chart settings migrate to schema keys", () => {
   });
   // An empty legacy state keeps the chart's own default: boxes end at the first three members.
   expect(migrateLegacy({}).values).toEqual({ "projection.centerBox": 0 });
+});
+
+it("v21 retires the old first endpoint without reinterpreting saved settings", () => {
+  const saved = {
+    values: {
+      "stroke.endpoint": 1,
+      "stroke.gap": 2,
+      "projection.centerBox": 1,
+    },
+    showStroke: false,
+    showSegment: true,
+  };
+  expect(migrateCzscSettings(saved, 1)).toEqual({
+    ...saved,
+    values: { "stroke.gap": 2, "projection.centerBox": 1 },
+  });
+  for (const endpoint of [0, 2]) {
+    const state = { ...saved, values: { "stroke.endpoint": endpoint } };
+    expect(migrateCzscSettings(state, 1)).toEqual(state);
+  }
+  expect(migrateCzscSettings(saved, 2)).toEqual(saved);
+  expect(saved.values["stroke.endpoint"]).toBe(1);
 });

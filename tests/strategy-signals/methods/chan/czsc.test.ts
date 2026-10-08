@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs";
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
 
-test("api v20 chart settings: schema drives one build; defaults stay the old 0/1100", async () => {
+test("api v21 chart settings: schema drives one build; defaults stay the old 0/1100", async () => {
   const schema = await czscConfigSchema();
   expect([
     schema.fields.length,
@@ -28,6 +28,15 @@ test("api v20 chart settings: schema drives one build; defaults stay the old 0/1
     schema.rules.length,
   ]).toEqual([13, 31, 5]);
   const keys = schema.choices.map((c) => c.key);
+  expect(keys).not.toContain("stroke.endpoint.first");
+  expect(
+    schema.choices.find((c) => c.key === "stroke.endpoint.second"),
+  ).toMatchObject({
+    value: 1,
+    original: 0,
+    lessons: "",
+    label: "相邻次高次低",
+  });
   expect(new Set(keys).size).toBe(keys.length);
   const rule = schema.choices.filter((c) => c.field === "stroke.rule");
   expect(rule.map((c) => c.value)).toEqual([0, 1, 2, 3, 4]);
@@ -100,6 +109,34 @@ test("runtime preparation preserves a DLL already loaded by the serial owner", a
   const before = await projectCzsc(fixture);
   await prepareCzscTestRuntime();
   expect(await projectCzsc(fixture)).toEqual(before);
+});
+
+test("second endpoints wait for the adjacent fractal confirmation then resume extreme extension", async () => {
+  // Upstream test_second.cpp: the extreme at 4 fails span; adjacent top 6 is legal.
+  const prices = [
+    10, 8, 9, 10, 11, 9, 10, 8.8, 9.5, 11, 10, 9, 8, 9, 10, 9, 11, 10, 8, 7, 8,
+  ];
+  const input = (length: number) => ({
+    high: prices.slice(0, length).map((p) => p + 0.2),
+    low: prices.slice(0, length).map((p) => p - 0.2),
+    close: prices.slice(0, length),
+    volume: prices.slice(0, length).map(() => 1),
+  });
+  const request = { levels: [0 as const], config: { strokeEndpoint: 1 } };
+  expect((await projectCzsc(input(7), request)).families[0]!.pivots).toEqual(
+    [],
+  );
+  const adjacent = await projectCzsc(input(8), request);
+  expect(adjacent.apiVersion).toBe(21);
+  expect(adjacent.configId).toContain("stroke.endpoint=second;");
+  expect(
+    adjacent.families[0]!.pivots.map((p) => [p.index, p.fractalAt]),
+  ).toEqual([
+    [1, 2],
+    [6, 7],
+  ]);
+  const extended = (await projectCzsc(input(11), request)).families[0]!.pivots;
+  expect(extended.map((p) => p.index)).toEqual([1, 9]);
 });
 
 test("concurrent jobs preserve each input's C/V and config projections", async () => {
@@ -232,7 +269,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("bc6f3460df57");
+  expect(raw.buildCommit).toBe("ef5f6180fc69");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);

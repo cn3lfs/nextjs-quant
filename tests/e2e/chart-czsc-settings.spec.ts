@@ -9,7 +9,7 @@ const stored = (page: import("@playwright/test").Page) =>
       },
   );
 
-test("缠论设置 is generated from the DLL schema and drives one v20 build", async ({
+test("缠论设置 is generated from the DLL schema and drives one v21 build", async ({
   page,
 }) => {
   await waitForIdleServer(page);

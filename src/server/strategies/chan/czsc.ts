@@ -48,7 +48,7 @@ function worker() {
   return scope.czscWorker;
 }
 
-/** One api v20 build (both levels by default) in the serial DLL worker. */
+/** One api v21 build (both levels by default) in the serial DLL worker. */
 export function projectCzsc(
   input: CzscInput,
   request: CzscRequest = {},
@@ -59,7 +59,7 @@ export function projectCzsc(
   });
 }
 
-/** v20 configuration schema, read once per worker lifetime. */
+/** v21 configuration schema, read once per worker lifetime. */
 export function czscConfigSchema(): Promise<CzscConfigSchema> {
   return (scope.czscSchema ??= dispatch<CzscConfigSchema>({
     schema: true,

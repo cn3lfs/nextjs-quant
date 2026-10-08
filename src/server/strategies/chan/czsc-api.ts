@@ -1,5 +1,5 @@
 import type { CzscConfig, CzscProjection } from "~/lib/chart/czsc-settings";
-// Mirrors adapter/czsc_api.h (czsc-tdx, api v20). Bar positions are zero-based
+// Mirrors adapter/czsc_api.h (czsc-tdx, api v21). Bar positions are zero-based
 // raw bar indices; table references are zero-based indices into the same
 // snapshot; -1 means none. confirmedAt is the earliest bar after which the
 // object never changes (-1 = not final yet).
@@ -195,7 +195,7 @@ export type CzscSnapshot = {
   apiVersion: number;
   /** Source git commit baked in at build time ("-dirty" / "unknown" possible). */
   buildCommit: string;
-  /** v20 canonical analysis identity (`czsc_config_id`), e.g. "stroke=strict;…". */
+  /** v21 canonical analysis identity (`czsc_config_id`), e.g. "stroke=strict;…". */
   configId: string;
   /**
    * One build, two levels. Slots keep their historical names: "0" = stroke
@@ -207,7 +207,7 @@ export type CzscSnapshot = {
   nested: CzscRawNested[];
 };
 
-/** One `czsc_build` call (api v20). */
+/** One `czsc_build` call (api v21). */
 export type CzscRequest = {
   /** Overrides on the DLL default analysis configuration. */
   config?: Partial<CzscConfig>;

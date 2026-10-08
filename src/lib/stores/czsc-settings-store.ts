@@ -48,12 +48,23 @@ export function migrateLegacy(old: LegacyState) {
   ];
   for (const [from, to] of map)
     if (typeof old[from] === "number") values[to] = old[from];
+  // API v21 retired first; numeric 1 now means a different community rule.
+  if (values["stroke.endpoint"] === 1) delete values["stroke.endpoint"];
   if (old.box) values["projection.centerBox"] = old.box === "initial" ? 0 : 1;
   return {
     values,
     showStroke: old.showStroke ?? true,
     showSegment: old.showSegment ?? true,
   };
+}
+
+export function migrateCzscSettings(persisted: unknown, version: number) {
+  if (version < 1) return migrateLegacy(persisted as LegacyState);
+  const old = persisted as typeof initial;
+  const values = { ...old.values };
+  if (version < 2 && values["stroke.endpoint"] === 1)
+    delete values["stroke.endpoint"];
+  return { ...old, values };
 }
 
 export const useCzscSettings = create<CzscSettingsState>()(
@@ -67,12 +78,9 @@ export const useCzscSettings = create<CzscSettingsState>()(
     }),
     {
       name: "nq-czsc-settings",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
-      migrate: (persisted, version) =>
-        version < 1
-          ? migrateLegacy(persisted as LegacyState)
-          : (persisted as typeof initial),
+      migrate: migrateCzscSettings,
       partialize: ({ values, showStroke, showSegment }) => ({
         values,
         showStroke,

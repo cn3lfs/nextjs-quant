@@ -3,22 +3,25 @@
 | 项 | 值 |
 |---|---|
 | 来源仓库 | `D:\github\czsc-tdx` |
-| 来源 commit | `bc6f346`（分支 `dev`，`czsc_build_commit()` 返回 `bc6f3460df57`）：**api v20（断代）**——结构化 `czsc_config` 取代十进制配置码；一次 `czsc_build` 产出笔级与线段级（槽位 0 / 1100），区间套同快照读取；显示投影 `czsc_set_projection`；配置自描述 fields/choices/rules；社区口径笔中缺口与区间包络。默认两级与 v9 的 0/1100 在 SSE 上 11 表及区间套逐字节一致（需求方独立复核） |
+| 来源 commit | `ef5f6180fc69839b8312c5b8b291b89355f47d5a`（分支 `dev`，`czsc_build_commit()` 返回 `ef5f6180fc69`）：**api v21**——端点值 1 从旧 first 改为相邻次高次低补选 second（社区口径）；结构体布局与 v20 一致，默认极值配置保持原 golden |
 | 文件 | `CZSC64.dll`（x64，静态链接 MinGW 运行时，自包含） |
-| 大小 | `398336` 字节 |
-| SHA-256 | `3de9d3b4a117e4de268580a06a1b4f7189f50de910d467aeac690dbcc355f044` |
-| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-10-01，工作区干净，`--strip-all`），MinGW-w64 x64 |
+| 大小 | `399872` 字节 |
+| SHA-256 | `3412dcefe29818599516cb20c37a95532e3d0b59a83b99841358a1991027189c` |
+| 构建方式 | 来源仓库 WSL `make mingw64` → `build/CZSC64.dll`（2026-10-08，工作区干净，`--strip-all`），MinGW-w64 x64 |
 | 许可 | GNU GPL v3（Copyright 2016, Martin Tang） |
 
-## 为什么是重建的
+## 升级与设置迁移
 
-来源仓库 `build/` 目录已在 commit `b67f3c6` 被加入 .gitignore，其中残留的
-预编译 DLL（SHA-256 `cf560156…1206c`，802,636 字节）**早于**
-`cbd3f91 feat: expand formula packages for full Func30 output surface`，
-导出面与当前源码不符，导致 golden 比对失败。重建后大 46KB。
+来源仓库预置 DLL 虽返回 API v21，但构建标识为 `bc6f3460df57-dirty`。
+本次从干净的 `ef5f618` 源码运行 WSL `make mingw64` 重建，并核对实际 API、构建标识与 hash。
 
-已用 `make sse-result-check` 确认当前源码重新生成的 `czsc_sse_result.txt`
-与仓库已提交版本逐字节一致，即**源码与 golden 自洽**，此前唯一过期的是 DLL。
+API v21 移除旧 `first` 语义；图表持久设置版本升级到 2，旧版端点值 1
+恢复为默认极值延伸，其他设置保留。用户重新选择「相邻次高次低」后才使用新规则：
+极值仅因跨度不足时尝试其后紧邻的次高/次低分型，成笔后恢复正常极值延伸。
+此选项为社区口径，不归为第 62/65 课原文规则。
+
+来源仓库的 SSE golden 与本仓 fixture 逐字节一致，无需更新预期数据。
+历史研究结果按 DLL hash 隔离，不把旧结果改写为新版本结果。
 
 ## 为什么放这里
 

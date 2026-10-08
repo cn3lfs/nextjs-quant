@@ -138,7 +138,7 @@ export interface CzscResult {
   status: "structure" | "no-structure";
   hash: string;
   sourceCommit: typeof czscSourceCommit;
-  /** api v20 canonical analysis identity (`czsc_config_id`); readable and comparable. */
+  /** api v21 canonical analysis identity (`czsc_config_id`); readable and comparable. */
   configId?: string;
   families: CzscFamily[];
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** czsc-tdx api v20 analysis configuration (adapter/czsc_api.h `czsc_config`). */
+/** czsc-tdx api v21 analysis configuration (adapter/czsc_api.h `czsc_config`). */
 export type CzscConfig = {
   strokeRule: number;
   strokeEndpoint: number;
