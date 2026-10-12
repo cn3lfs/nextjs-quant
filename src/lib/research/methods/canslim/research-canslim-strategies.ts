@@ -208,6 +208,7 @@ function priorityDefinition(id: CanslimPriorityId) {
       sources: [
         "canslim-analyst/references/technical-patterns.md",
         "canslim-analyst/references/entry-exit-rules.md",
+        "stop-loss/references/execution.md",
       ],
       description:
         "严格杯柄→平台→碟形突破组合。收盘跌超4%且量至少此前20日均量1.5倍清仓，已完成周线10MA下穿减剩余50%，全退优先、受阻重试、T+1。页面选择时装配固定8%止损、盈利15%保本、20%卖初始一半且成交后抬成本、25%清余仓、自然28天涨幅不足5%退出，最长60交易日。4.1成本版与4.2盈利10%版有冲突，本组合明确采用4.1成本版。组合风控参数独立保存，可改为自定义实验；禁用风控后仅剩周线与大阴退出。次日开盘含滑点须在枢纽至105%，公司行动证明覆盖完整形态前缀。日线工程组合，未含市场连续分布日、明显放量下跌减仓、盘中跳空或14:30动作，不是完整CA08或CANSLIM。",
@@ -249,6 +250,7 @@ function priorityDefinition(id: CanslimPriorityId) {
       sources: [
         "canslim-analyst/references/technical-patterns.md",
         "canslim-analyst/references/entry-exit-rules.md",
+        "stop-loss/references/execution.md",
       ],
       description: `严格杯柄→平台→碟形优先级直接突破入场；收盘较前一研究交易日严格下跌超过4%，且${id.endsWith("previous") ? "成交量严格大于前一日" : "成交量至少为此前20个研究交易日均量1.5倍"}，收盘确认清仓，下一可成交开盘执行。原文未给放量阈值，本版本显式采用此工程定义；4%等号不退出，缺日、零量或无效窗口不造信号，不要求阴线实体或跌破枢纽。退出适用于本股持仓并取消此前未成交买入，价格恢复不撤销已确认退出，受阻按既有规则重试。入场含滑点限枢纽至105%，完整输入前缀及研究期公司行动证明沿用优先级版；最长持有及可选风控有效，不含完整CANSLIM。`,
     };

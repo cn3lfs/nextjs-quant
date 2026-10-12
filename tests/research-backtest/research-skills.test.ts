@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   valuationMethod,
@@ -236,8 +236,11 @@ it("advertises the CANSLIM flow only with the report's complete method file set"
   const root = await mkdtemp(join(tmpdir(), "quant-canslim-catalog-"));
   vi.stubEnv("QUANT_SKILLS_DIR", root);
   await mkdir(join(root, "canslim-analyst", "references"), { recursive: true });
-  for (const file of canslimMethodFiles)
-    await writeFile(join(root, "canslim-analyst", file), `fixture ${file}`);
+  for (const file of canslimMethodFiles) {
+    const path = join(root, "canslim-analyst", file);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, `fixture ${file}`);
+  }
   const item = (await researchSkillCatalog()).find(
     (s) => s.skillId === "canslim-analyst",
   )!;

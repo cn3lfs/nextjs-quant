@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { canslimStageIds } from "../../../../src/server/strategies/canslim/canslim-report-schema";
+import { canslimMethodFiles } from "../../../../src/server/strategies/canslim/canslim-method";
 const state = vi.hoisted(() => ({
   cache: new Map<string, unknown>(),
   calls: 0,
@@ -75,7 +76,7 @@ it("uses selected Codex, persists six stages and reuses the same evidence/method
   const a = await analyzeCanslimDossier(dossier);
   const b = await analyzeCanslimDossier(dossier);
   expect(a.model).toBe("codex:default");
-  expect(a.method.files).toHaveLength(5);
+  expect(a.method.files).toHaveLength(canslimMethodFiles.length);
   expect(a.result.stages.map((s) => s.id)).toEqual(canslimStageIds);
   expect(b.id).toBe(a.id);
   expect(state.calls).toBe(1);

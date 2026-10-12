@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 const { create, localCompletion } = vi.hoisted(() => ({
@@ -39,8 +39,13 @@ describe("LLM 边界与故障", () => {
       "references/screening-criteria.md",
       "references/vcp-pattern.md",
       "references/entry-exit-rules.md",
-    ])
+      "../stop-loss/references/execution.md",
+      "../stop-loss/references/position-sizing.md",
+      "../astock-market-rules/SKILL.md",
+    ]) {
+      mkdirSync(dirname(join(dir, file)), { recursive: true });
       writeFileSync(join(dir, file), "fixture method");
+    }
     vi.stubEnv("QUANT_SKILLS_DIR", root);
     put("settings", "settings", { llmProvider: "codex" });
     const report = {
@@ -88,7 +93,7 @@ describe("LLM 边界与故障", () => {
         "sepa",
       );
       expect(result.stages).toHaveLength(6);
-      expect(result.skills?.[0]?.files).toHaveLength(4);
+      expect(result.skills?.[0]?.files).toHaveLength(7);
       expect(localCompletion).toHaveBeenCalledTimes(2);
       expect(create).not.toHaveBeenCalled();
       await analyze("context", "question", evidence, undefined, "sepa");
