@@ -20,6 +20,8 @@ if (!$AnalyzeMorning) {
     if ($phase -eq 'morning') { exit 0 }
 }
 if (!$env:DEEPSEEK_API_KEY) { $env:DEEPSEEK_API_KEY = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'User') }
+if (!$env:OPENROUTER_API_KEY) { $env:OPENROUTER_API_KEY = [Environment]::GetEnvironmentVariable('OPENROUTER_API_KEY', 'User') }
+foreach ($n in 'LLM_FALLBACK_URL','LLM_FALLBACK_KEY') { if (!(Test-Path "env:$n")) { Set-Item "env:$n" ([Environment]::GetEnvironmentVariable($n, 'User')) } }
 if ($AnalyzeMorning) {
     $receipt = Join-Path $data "cls-collected-$date-morning.json"
     while (!(Test-Path -LiteralPath $receipt)) {
