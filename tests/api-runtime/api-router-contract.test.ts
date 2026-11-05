@@ -32,6 +32,7 @@ const expectedProcedures = {
   newsResumePreflight: "query",
   researchArchiveHistory: "query",
   checkConnection: "mutation",
+  startFiveMinuteImport: "mutation",
   previewFiveMinuteImport: "mutation",
   fiveMinuteImport: "query",
   fiveMinuteImportHistory: "query",

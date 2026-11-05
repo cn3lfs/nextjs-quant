@@ -52,6 +52,29 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 describe("五分钟批次", () => {
+  it("直接导入无需预检或备份，支持无证券资料的代码", async () => {
+    const inputDir = join(root, "direct-source");
+    await mkdir(inputDir);
+    await writeFile(join(inputDir, "SH999999.csv"), csv);
+    const started = await module.startFiveMinuteDirect(
+      { directories: [inputDir], source: "wswdz" },
+      join(root, "tdx"),
+      async () => {},
+    );
+    expect((await completed(started.jobId)).status).toBe("completed");
+    const result = await module.fiveMinuteBatch(started.id, 0, "");
+    expect(result.batch.direct).toBe(true);
+    expect(result.batch.status).toBe("finished");
+    expect(result.summary.written).toBe(1);
+    expect(result.items[0]?.backup).toBeUndefined();
+    expect(
+      (
+        await readFile(
+          join(root, "tdx", "vipdoc", "sh", "fzline", "sh999999.lc5"),
+        )
+      ).length,
+    ).toBe(32);
+  });
   it("使用微盛预设扫描 SH/SZ，指数超限置零并展示准确时间", async () => {
     const parent = join(root, "multi"),
       sh = join(parent, "SH"),
@@ -59,7 +82,7 @@ describe("五分钟批次", () => {
     await mkdir(sh, { recursive: true });
     await mkdir(sz, { recursive: true });
     for (const name of ["SH600000.csv", "SH510300.csv"])
-      await writeFile(join(sh, name), csv);
+      await writeFile(join(sh, name), csv.replace("85125", "60990100"));
     await writeFile(join(sh, "SH000001.csv"), csv.replace("85125", "60990100"));
     await writeFile(join(sz, "SZ000001.csv"), csv);
     const started = await module.startFiveMinutePreview(
@@ -71,11 +94,14 @@ describe("五分钟批次", () => {
     expect(result.total).toBe(4);
     expect(result.items.find((x) => x.symbol === "sh000001")).toMatchObject({
       state: "preview",
-      category: "index",
       added: 1,
       overflowTimes: ["2026-09-01 09:35:00"],
     });
-    expect(result.summary.overflow).toBe(1);
+    expect(result.summary.overflow).toBe(3);
+    for (const symbol of ["sh600000", "sh510300"])
+      expect(
+        result.items.find((x) => x.symbol === symbol)?.overflowTimes,
+      ).toEqual(["2026-09-01 09:35:00"]);
     expect(await module.exportFiveMinuteBatch(started.id)).toContain(
       "2026-09-01 09:35:00",
     );

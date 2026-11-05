@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/build-tdx-import.ps1"], { stdio: "inherit", windowsHide: true });
 import { build } from "esbuild";
 import { createRequire } from "node:module";
 import { copyFile, mkdir, cp } from "node:fs/promises";

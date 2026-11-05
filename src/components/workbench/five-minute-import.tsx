@@ -29,7 +29,6 @@ declare global {
   }
 }
 
-const categoryLabels = { stock: "股票", fund: "基金", index: "指数" } as const;
 const labels: Record<string, string> = {
   previewing: "预检中",
   ready: "预检完成",
@@ -44,6 +43,7 @@ const labels: Record<string, string> = {
   skipped: "已跳过",
   prepared: "待核对",
   written: "已写入",
+  unchanged: "无需更新",
   failed: "失败",
 };
 
@@ -81,7 +81,7 @@ export function FiveMinuteImport({ root }: { root: string }) {
           : false,
     },
   );
-  const preview = api.previewFiveMinuteImport.useMutation({
+  const preview = api.startFiveMinuteImport.useMutation({
     onSuccess: (result) => {
       setId(result.id);
       setActiveJob(result.jobId);
@@ -180,7 +180,7 @@ export function FiveMinuteImport({ root }: { root: string }) {
       !window.confirm(
         restore
           ? `请确认已关闭通达信和其他行情写入程序。恢复目标：${detail.data?.batch.root}。导入后发生变化的文件会跳过。确认恢复？`
-          : `请确认已关闭通达信和其他行情写入程序，并已核对 CSV 为未复权数据。导入目标：${detail.data?.batch.root}。已有时间的冲突记录会保留原值；指数成交量超限预检置零 ${summary?.overflow ?? 0} 条。确认导入？`,
+          : `请确认已关闭通达信和其他行情写入程序，并已核对 CSV 为未复权数据。导入目标：${detail.data?.batch.root}。已有时间的冲突记录会保留原值；成交量超限置零 ${summary?.overflow ?? 0} 条。确认导入？`,
       )
     )
       return;
@@ -191,11 +191,10 @@ export function FiveMinuteImport({ root }: { root: string }) {
       title="五分钟 CSV 导入"
       icon={Database}
       span={12}
-      note="仅适用微盛 WDZ 导出的 CSV。文件可能跨越停牌或缺失日期，工具不会补造。"
+      note="直接更新五分钟行情，不创建备份。操作前关闭通达信；已有时间点保留原记录。"
     >
       <p className="mb-2 text-nc-text-3">
-        股票、基金和指数按手自动换算；指数成交量超过 21.47
-        亿时，按微盛工具规则写成
+        所有品种按手自动换算；成交量超过 21.47 亿时，按微盛工具规则写成
         0，并列出具体时间。导入前请核对来源价格未复权；这里的通达信目录仅用于本批次，不修改终端默认设置。
       </p>
       <Field label="微盛 CSV 数据目录（可填写 samples 上级目录，或每行一个 SH/SZ 目录）">
@@ -237,7 +236,7 @@ export function FiveMinuteImport({ root }: { root: string }) {
           disabled={pending || !directories.trim() || !tdxRoot.trim()}
           onClick={start}
         >
-          开始预检
+          开始导入
         </Button>
         {pending && jobId && (
           <Button variant="ghost" onClick={() => cancel.mutate(jobId)}>
@@ -301,39 +300,18 @@ export function FiveMinuteImport({ root }: { root: string }) {
             新增 {summary.added} 条，相同 {summary.identical} 条，冲突{" "}
             {summary.conflicts} 条，错误 {summary.errors} 个，跳过{" "}
             {summary.skipped} 个，新建 {summary.newFiles} 个，已写入{" "}
-            {summary.written} 个；指数成交量超限预检置零 {summary.overflow} 条。
-          </p>
-          <p>
-            预计备份 {(summary.backupBytes / 1024 / 1024).toFixed(1)}{" "}
-            MiB；备份目录：{detail.data.backupDirectory}。
+            {summary.written} 个；成交量超限置零 {summary.overflow} 条。
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
-            <Button
-              disabled={
-                pending ||
-                detail.data.batch.status !== "ready" ||
-                !summary.added
-              }
-              onClick={() => action(false)}
-            >
-              确认导入
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={
-                pending ||
-                ![
-                  "finished",
-                  "partial",
-                  "interrupted",
-                  "restored",
-                  "restore-partial",
-                ].includes(detail.data.batch.status)
-              }
-              onClick={() => action(true)}
-            >
-              恢复批次
-            </Button>
+            {!detail.data.batch.direct && (
+              <Button
+                variant="ghost"
+                disabled={pending}
+                onClick={() => action(true)}
+              >
+                恢复旧批次
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => void detail.refetch()}>
               刷新结果
             </Button>
@@ -361,7 +339,7 @@ export function FiveMinuteImport({ root }: { root: string }) {
                 <SelectItem value="failed">有错误</SelectItem>
                 <SelectItem value="skipped">跳过</SelectItem>
                 <SelectItem value="conflicts">有冲突</SelectItem>
-                <SelectItem value="overflow">指数超限置零</SelectItem>
+                <SelectItem value="overflow">成交量超限置零</SelectItem>
                 <SelectItem value="prepared">待核对</SelectItem>
                 <SelectItem value="written">已写入</SelectItem>
                 <SelectItem value="restored">已恢复</SelectItem>
@@ -373,7 +351,6 @@ export function FiveMinuteImport({ root }: { root: string }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>代码</TableHead>
-                  <TableHead>类别</TableHead>
                   <TableHead>时间范围</TableHead>
                   <TableHead>新增/相同/冲突</TableHead>
                   <TableHead>状态及说明</TableHead>
@@ -383,9 +360,6 @@ export function FiveMinuteImport({ root }: { root: string }) {
                 {detail.data.items.map((item) => (
                   <TableRow key={item.symbol}>
                     <TableCell>{item.symbol}</TableCell>
-                    <TableCell>
-                      {item.category ? categoryLabels[item.category] : "未知"}
-                    </TableCell>
                     <TableCell>
                       {item.first ?? "—"} 至 {item.last ?? "—"}
                     </TableCell>
@@ -398,9 +372,7 @@ export function FiveMinuteImport({ root }: { root: string }) {
                       {item.error ?? item.restoredError ?? ""}
                       {!!item.overflowTimes?.length && (
                         <details>
-                          <summary>
-                            预检置零 {item.overflowTimes.length} 条
-                          </summary>
+                          <summary>置零 {item.overflowTimes.length} 条</summary>
                           <p>{item.overflowTimes.join("、")}</p>
                         </details>
                       )}

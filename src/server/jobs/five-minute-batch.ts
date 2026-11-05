@@ -14,9 +14,7 @@ import { join, resolve, relative, isAbsolute } from "node:path";
 import { dataDirectory, get, put, sqlite } from "../db";
 import { background, readJob, updateJob } from "./jobs";
 import { processAlive } from "../infra/lease";
-import { securityNames, isAStock } from "../data-sources/tdx/tdx";
-import { isMarketIndex } from "~/lib/market/market-indices";
-import { isPriceScaleThreeFund } from "~/lib/market/security-classification";
+import { securityNames } from "../data-sources/tdx/tdx";
 import {
   fiveMinuteInput,
   type FiveMinuteInput,
@@ -31,13 +29,14 @@ import {
   removeImportedFile,
   restoreImportedFile,
 } from "../data-sources/tdx/five-minute-write";
+import { importFiveMinuteDirect } from "../data-sources/tdx/five-minute-native";
 import type { FiveMinutePreviewItem } from "../data-sources/tdx/five-minute-preview";
 
 type Category = "stock" | "fund" | "index";
 type Item = FiveMinutePreviewItem & {
   category?: Category;
   unit?: ImportVolumeUnit;
-  state: "preview" | "skipped" | "prepared" | "written" | "failed" | "restored";
+  state: "preview" | "skipped" | "prepared" | "written" | "failed" | "restored" | "unchanged";
   backup?: string;
   restoredError?: string;
   bytes?: number;
@@ -50,6 +49,7 @@ type Batch = {
   root: string;
   input: FiveMinuteInput;
   createdAt: number;
+  direct?: boolean;
   count: number;
   previewJob: string;
   operationJob?: string;
@@ -124,11 +124,6 @@ async function targetDirs(root: string) {
   }
   return { base, dirs };
 }
-function categoryOf(symbol: string): Category | undefined {
-  if (isAStock(symbol)) return "stock";
-  if (isPriceScaleThreeFund(symbol)) return "fund";
-  if (isMarketIndex(symbol)) return "index";
-}
 async function checkClientClosed() {
   if (process.platform !== "win32")
     throw new Error("只支持在 Windows 上修改通达信行情");
@@ -160,18 +155,29 @@ function release(id: string) {
   if (current?.id === id && current.pid === process.pid)
     put("tdx-import-lease", "tdx-import-lease", { pid: 0, id: "" });
 }
+export async function startFiveMinuteDirect(
+  raw: FiveMinuteInput,
+  root: string,
+  guard = checkClientClosed,
+) {
+  await guard();
+  return startFiveMinutePreview(raw, root, true);
+}
 export async function startFiveMinutePreview(
   raw: FiveMinuteInput,
   root: string,
+  direct = false,
 ) {
   const input = fiveMinuteInput.parse(raw),
     { base, dirs } = await targetDirs(root);
-  const names = {
-    sh: await securityNames(base, "sh"),
-    sz: await securityNames(base, "sz"),
-  };
+  const names = direct
+    ? null
+    : {
+        sh: await securityNames(base, "sh"),
+        sz: await securityNames(base, "sz"),
+      };
   const id = randomUUID();
-  await mkdir(batchDir(id), { recursive: true });
+  if (!direct) await mkdir(batchDir(id), { recursive: true });
   const files: { symbol: string; source: string }[] = [],
     seen = new Set<string>();
   for (const path of input.directories) {
@@ -199,79 +205,115 @@ export async function startFiveMinutePreview(
   files.sort((a, b) => a.symbol.localeCompare(b.symbol));
   const job = background(
     "tdx-import",
-    { mode: "preview", batchId: id },
+    { mode: direct ? "direct" : "preview", batchId: id },
     async (job, signal) => {
+      const pendingItems: Item[] = [];
+      const flush = () => {
+        sqlite().transaction(() => {
+          for (const item of pendingItems)
+            put("tdx-import-item", itemPrefix(id) + item.symbol, item);
+        })();
+        pendingItems.length = 0;
+      };
+      let failed = false;
       try {
+        if (direct) claim(id);
         for (const [i, file] of files.entries()) {
           signal.throwIfAborted();
-          const market = file.symbol.slice(0, 2) as "sh" | "sz",
-            category = categoryOf(file.symbol);
+          const market = file.symbol.slice(0, 2) as "sh" | "sz";
           const item: Item = {
             ...file,
             target: join(dirs[market]!, `${file.symbol}.lc5`),
-            category,
             state: "preview",
           };
           try {
-            if (!names[market].has(file.symbol))
-              throw new Error("通达信证券资料中未找到此代码");
-            if (!category) throw new Error("证券类别无法确认");
-            {
-              const unit = "lots" as const;
-              item.unit = unit;
-              const source = await readFile(file.source),
-                bars = parseFiveMinuteCsv(
-                  source.toString("utf8"),
-                  unit,
-                  category === "index" ? "zero-signed" : "error",
-                );
-              const original = await optionalFile(item.target),
-                merged = mergeFiveMinuteBars(original ?? Buffer.alloc(0), bars);
-              Object.assign(item, {
-                sourceHash: digest(source),
-                indexVolumeOverflow: category === "index",
-                overflowTimes: merged.insertedOverflowTimes,
-                targetHash: original ? digest(original) : undefined,
-                targetMissing: !original,
-                mergedHash: digest(merged.data),
-                added: merged.added,
-                identical: merged.identical,
-                conflicts: merged.conflicts,
-                bytes: original?.length ?? 0,
-                outputBytes: merged.data.length,
-                first: bars[0]?.time,
-                last: bars.at(-1)?.time,
+            if (direct) {
+              const result = await importFiveMinuteDirect(
+                file.source,
+                item.target,
+              );
+              const { data: _data, ...summary } = result;
+              Object.assign(item, summary, {
+                state: result.added ? "written" : "unchanged",
+                unit: "lots",
               });
+            } else {
+              if (!names![market].has(file.symbol))
+                throw new Error("通达信证券资料中未找到此代码");
+              {
+                const unit = "lots" as const;
+                item.unit = unit;
+                const source = await readFile(file.source),
+                  bars = parseFiveMinuteCsv(
+                    source.toString("utf8"),
+                    unit,
+                    "zero-signed",
+                  );
+                const original = await optionalFile(item.target),
+                  merged = mergeFiveMinuteBars(
+                    original ?? Buffer.alloc(0),
+                    bars,
+                  );
+                Object.assign(item, {
+                  sourceHash: digest(source),
+                  indexVolumeOverflow: true,
+                  overflowTimes: merged.insertedOverflowTimes,
+                  targetHash: original ? digest(original) : undefined,
+                  targetMissing: !original,
+                  mergedHash: digest(merged.data),
+                  added: merged.added,
+                  identical: merged.identical,
+                  conflicts: merged.conflicts,
+                  bytes: original?.length ?? 0,
+                  outputBytes: merged.data.length,
+                  first: bars[0]?.time,
+                  last: bars.at(-1)?.time,
+                });
+              }
             }
           } catch (error) {
+            failed = true;
             item.state = "failed";
             item.error = error instanceof Error ? error.message : String(error);
           }
-          await saveItem(id, item);
+          if (direct) {
+            pendingItems.push(item);
+            if (pendingItems.length >= 100) flush();
+          } else await saveItem(id, item);
           if (i % 10 === 0 || i === files.length - 1)
             updateJob(job.id, {
               progress: Math.round(((i + 1) * 100) / files.length),
-              phase: `预检 ${i + 1}/${files.length} ${file.symbol}`,
+              phase: `${direct ? "导入" : "预检"} ${i + 1}/${files.length} ${file.symbol}${direct ? ` · ${((i + 1) / Math.max(0.001, (Date.now() - job.createdAt) / 1000)).toFixed(0)} 文件/秒` : ""}`,
             });
         }
         const value = batch(id);
-        put("tdx-import", batchKey(id), { ...value, status: "ready" });
+        put("tdx-import", batchKey(id), {
+          ...value,
+          status: direct ? (failed ? "partial" : "finished") : "ready",
+        });
         return { batchId: id };
       } catch (error) {
         const value = batch(id);
         put("tdx-import", batchKey(id), { ...value, status: "interrupted" });
         throw error;
+      } finally {
+        if (direct) {
+          flush();
+          release(id);
+        }
       }
     },
   );
   put("tdx-import", batchKey(id), {
     id,
     root: base,
+    direct,
     input,
     createdAt: Date.now(),
     count: files.length,
     previewJob: job.id,
-    status: "previewing",
+    status: direct ? "running" : "previewing",
+    ...(direct ? { operationJob: job.id } : {}),
   } satisfies Batch);
   return { id, jobId: job.id };
 }
@@ -515,13 +557,12 @@ export async function exportFiveMinuteBatch(id: string) {
   const rows = [
     [
       "证券",
-      "类别",
       "开始",
       "结束",
       "新增",
       "相同",
       "冲突",
-      "指数超限置零时间",
+      "成交量超限置零时间",
       "状态",
       "原因",
       "源文件",
@@ -530,7 +571,6 @@ export async function exportFiveMinuteBatch(id: string) {
     ],
     ...items.map((i) => [
       i.symbol,
-      i.category,
       i.first,
       i.last,
       i.added,

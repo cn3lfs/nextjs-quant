@@ -25,12 +25,18 @@ import { createTRPCRouter, publicProcedure as p } from "../trpc";
 import { fiveMinuteInput } from "~/lib/settings/five-minute-import";
 import {
   startFiveMinutePreview,
+  startFiveMinuteDirect,
   fiveMinuteBatch,
   runFiveMinuteBatch,
   fiveMinuteHistory,
   exportFiveMinuteBatch,
 } from "../../jobs/five-minute-batch";
 export const settingsRouter = createTRPCRouter({
+  startFiveMinuteImport: p
+    .input(
+      fiveMinuteInput.extend({ tdxRoot: z.string().trim().min(1).max(1000) }),
+    )
+    .mutation(({ input }) => startFiveMinuteDirect(input, input.tdxRoot)),
   previewFiveMinuteImport: p
     .input(
       fiveMinuteInput.extend({ tdxRoot: z.string().trim().min(1).max(1000) }),
