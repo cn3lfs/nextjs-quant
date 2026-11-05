@@ -166,7 +166,13 @@ it("retains every extracted view subtree, including handlers and panel props", (
 it("retains the reviewed connection implementation and independent P2 configuration guard", () => {
   const connection = functions("connections.tsx");
   const additions: ts.JsxSelfClosingElement[] = [];
+  const importPanel: ts.JsxSelfClosingElement[] = [];
   const visit = (node: ts.Node) => {
+    if (
+      ts.isJsxSelfClosingElement(node) &&
+      node.tagName.getText() === "FiveMinuteImport"
+    )
+      importPanel.push(node);
     if (
       ts.isJsxSelfClosingElement(node) &&
       node.tagName.getText() === "NotificationPolicyFields"
@@ -187,7 +193,19 @@ it("retains the reviewed connection implementation and independent P2 configurat
   );
   const statement = expected.statements[0] as ts.ExpressionStatement;
   expect(fingerprint(additions)).toBe(fingerprint([statement.expression]));
-  expect(fingerprint(connection, new Set(additions))).toBe(
+  expect(importPanel).toHaveLength(1);
+  const connectionSource = readFileSync(
+    "src/components/workbench/connections.tsx",
+    "utf8",
+  );
+  expect(connectionSource).toContain("五分钟 CSV 导入另需预检、确认和备份");
+  expect(connectionSource.replace(/\s+/g, " ")).toContain(
+    "行情读取与外部 Blocks 目录只读",
+  );
+  expect(importPanel[0]!.getText()).toBe(
+    "<FiveMinuteImport root={draftState.base.tdxRoot} />",
+  );
+  expect(fingerprint(connection, new Set([...additions, ...importPanel]))).toBe(
     baseline.connections,
   );
 });

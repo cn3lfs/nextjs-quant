@@ -39,6 +39,7 @@ import { ConnectionDiagnostics } from "./connection-diagnostics";
 import { connectionConfiguration } from "~/lib/settings/connection-check";
 import { sameSetting } from "~/lib/settings/settings-draft";
 import { useSnapshotCache } from "~/lib/stores/snapshot-cache";
+import { FiveMinuteImport } from "./five-minute-import";
 
 export function Connections({
   value,
@@ -243,7 +244,7 @@ export function Connections({
         span={6}
         icon={FolderOpen}
         title="行情数据配置"
-        note="目录只读。保存后用于新的行情请求，已加载快照保留原始来源；行情页手动选择优先。全市场覆盖由右上角扫描更新。"
+        note="行情请求只读；五分钟 CSV 导入另需预检、确认和备份。保存后用于新请求，已加载快照保留原始来源；行情页手动选择优先。"
       >
         <Field label="通达信安装目录">
           <Input
@@ -284,6 +285,7 @@ export function Connections({
         </details>
       </Panel>
       <ConnectionDiagnostics value={draftState.base} dirty={dirty} />
+      <FiveMinuteImport root={draftState.base.tdxRoot} />
       <StatsPanel
         icon={Database}
         title="本地行情覆盖"
@@ -352,7 +354,8 @@ export function Connections({
         </Field>
         {fieldError("autoNewsDailyBatches")}
         <p className="nc-panel-note">
-          通达信目录与外部 Blocks 目录只读；修改后使用页面顶部“保存设置”。
+          行情读取与外部 Blocks
+          目录只读；五分钟导入按下方流程操作。修改后使用页面顶部“保存设置”。
         </p>
       </Panel>
       <Panel

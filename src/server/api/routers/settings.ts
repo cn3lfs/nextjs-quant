@@ -22,7 +22,38 @@ import {
   setCryptoDemoEnabled,
 } from "../../portfolio/crypto-demo-service";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { fiveMinuteInput } from "~/lib/settings/five-minute-import";
+import {
+  startFiveMinutePreview,
+  fiveMinuteBatch,
+  runFiveMinuteBatch,
+  fiveMinuteHistory,
+  exportFiveMinuteBatch,
+} from "../../jobs/five-minute-batch";
 export const settingsRouter = createTRPCRouter({
+  previewFiveMinuteImport: p
+    .input(
+      fiveMinuteInput.extend({ tdxRoot: z.string().trim().min(1).max(1000) }),
+    )
+    .mutation(({ input }) => startFiveMinutePreview(input, input.tdxRoot)),
+  fiveMinuteImport: p
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        page: z.number().int().min(0).default(0),
+        filter: z.string().max(30).default(""),
+      }),
+    )
+    .query(({ input }) => fiveMinuteBatch(input.id, input.page, input.filter)),
+  fiveMinuteImportHistory: p
+    .input(z.object({ page: z.number().int().min(0).default(0) }))
+    .query(({ input }) => fiveMinuteHistory(input.page)),
+  exportFiveMinuteImport: p
+    .input(z.string().uuid())
+    .mutation(({ input }) => exportFiveMinuteBatch(input)),
+  executeFiveMinuteImport: p
+    .input(z.object({ id: z.string().uuid(), restore: z.boolean() }))
+    .mutation(({ input }) => runFiveMinuteBatch(input.id, null, input.restore)),
   checkConnection: p
     .input(connectionCheckSchema)
     .mutation(({ input, signal }) =>

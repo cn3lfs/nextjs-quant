@@ -83,6 +83,15 @@ await build({
   external: ["electron"],
   target: "node22",
 });
+await build({
+  entryPoints: ["electron/preload.ts"],
+  outfile: "desktop/preload.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  external: ["electron"],
+  target: "node22",
+});
 await sharp(
   Buffer.from(
     '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="14" fill="#287f96"/><path d="M10 38h12l6-20 10 32 6-20h10" fill="none" stroke="white" stroke-width="4"/></svg>',

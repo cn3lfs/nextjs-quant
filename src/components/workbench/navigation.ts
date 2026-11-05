@@ -120,7 +120,8 @@ export const navGroups: readonly NavGroup[] = [
       {
         href: "/crypto",
         label: "数字货币行情",
-        subtitle: "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
+        subtitle:
+          "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
         icon: CurrencyBtc,
       },
     ],
@@ -131,7 +132,8 @@ export const navGroups: readonly NavGroup[] = [
       {
         href: "/futures",
         label: "资源期货行情",
-        subtitle: "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
+        subtitle:
+          "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
         icon: Mountains,
       },
     ],
@@ -212,7 +214,7 @@ export const navGroups: readonly NavGroup[] = [
       {
         href: "/settings",
         label: "数据与连接",
-        subtitle: "只读接入本地行情 · 凭证保存在系统加密存储",
+        subtitle: "本地行情与导入 · 凭证保存在系统加密存储",
         icon: PlugsConnected,
         tab: "settings",
       },

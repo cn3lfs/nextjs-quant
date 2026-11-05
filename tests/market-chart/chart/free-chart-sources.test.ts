@@ -101,25 +101,32 @@ it("validates Tencent OHLC, dates, identity, empty output and structured errors"
     expect(() => parseTencentChart(raw, "sh600000", "day")).toThrow();
 });
 it("requests unadjusted Tencent minute data and never hides the 2000 bar limit", async () => {
-  deps.query.mockResolvedValue([{ ...row, date: "2026-09-14 14:55" }]);
-  const result = await tencentChartHistory("sh600000", "5m", 4000);
-  expect(deps.query.mock.calls[0]?.[1]).toEqual([
-    "kline",
-    "sh600000",
-    "--period",
-    "m5",
-    "--limit",
-    "2000",
-    "--fq",
-    "bfq",
-    "--start",
-    expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-    "--end",
-    expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-  ]);
-  expect(result.bars[0]?.date).toBe("2026-09-14T14:55:00+08:00");
-  expect(result.historyExhausted).toBe(true);
-  expect(result.sourceNote).toContain("2000");
+  const clock = vi
+    .spyOn(Date, "now")
+    .mockReturnValue(Date.parse("2026-09-15T04:00:00Z"));
+  try {
+    deps.query.mockResolvedValue([{ ...row, date: "2026-09-14 14:55" }]);
+    const result = await tencentChartHistory("sh600000", "5m", 4000);
+    expect(deps.query.mock.calls[0]?.[1]).toEqual([
+      "kline",
+      "sh600000",
+      "--period",
+      "m5",
+      "--limit",
+      "2000",
+      "--fq",
+      "bfq",
+      "--start",
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      "--end",
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    ]);
+    expect(result.bars[0]?.date).toBe("2026-09-14T14:55:00+08:00");
+    expect(result.historyExhausted).toBe(true);
+    expect(result.sourceNote).toContain("2000");
+  } finally {
+    clock.mockRestore();
+  }
 });
 it("uses index parsing for indices and rejects empty pytdx data", async () => {
   deps.index.mockResolvedValue([{ ...row, close: row.last }]);

@@ -120,6 +120,7 @@ export type Job = {
     | "walk-forward"
     | "factor-eval"
     | "research"
+    | "tdx-import"
     | "monitor";
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
   progress: number;

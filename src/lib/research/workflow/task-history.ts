@@ -18,6 +18,7 @@ export const taskHistoryInput = z.object({
       "walk-forward",
       "factor-eval",
       "research",
+      "tdx-import",
       "monitor",
     ])
     .optional(),
@@ -52,6 +53,7 @@ export const taskTypeLabels: Record<Job["type"], string> = {
   "walk-forward": "滚动检验",
   "factor-eval": "因子评估",
   research: "AI 研究",
+  "tdx-import": "五分钟行情导入",
   monitor: "策略监控",
 };
 export const taskStatusLabels: Record<Job["status"], string> = {

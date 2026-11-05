@@ -1,4 +1,13 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, session } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  nativeImage,
+  session,
+  dialog,
+  ipcMain,
+} from "electron";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
@@ -89,7 +98,21 @@ async function main() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      preload: join(__dirname, "preload.cjs"),
     },
+  });
+  ipcMain.handle("quant:select-directory", async (event) => {
+    if (
+      !window ||
+      event.sender !== window.webContents ||
+      event.senderFrame !== window.webContents.mainFrame ||
+      !event.senderFrame.url.startsWith(origin + "/")
+    )
+      throw new Error("无权选择目录");
+    const result = await dialog.showOpenDialog(window, {
+      properties: ["openDirectory"],
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
   });
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event, url) => {

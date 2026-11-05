@@ -1,5 +1,7 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+2026-11-05 用户授权在量化终端实现通达信五分钟 CSV 批量导入；仅此入口经预检、确认及备份后写入五分钟行情，其他通达信资料仍只读。设计及验收见 [功能规格](product/specs/tdx-five-minute-import.md)。
+
 2026-09-10 文档收口。入门见 [README](README.md)，接续见 [next-plan](next-plan.md)，具体语义见 [invariants](invariants.md)。M1–M5 已交付，不再保留待执行式清单；历史原因完整保存在 [decisions](decisions.md)。
 
 ## 0. 项目定位
