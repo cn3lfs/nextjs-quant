@@ -11,6 +11,7 @@
     "preview": "pnpm build && pnpm desktop:prepare && pnpm start",
     "start": "node scripts/start.mjs",
     "typecheck": "pnpm trading-strategy-core:build && pnpm trading-strategies:build && pnpm tstdx:build && tsc --noEmit",
+    "tdx:import": "tsx scripts/import-tdx-five-minute.ts",
     "native:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-tdx-import.ps1",
     "runtime:build": "pnpm tstdx:build && node scripts/build-runtime.mjs",
     "test": "pnpm native:build && pnpm trading-strategy-core:build && pnpm trading-strategies:build && pnpm tstdx:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test",

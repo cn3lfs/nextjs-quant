@@ -1,5 +1,6 @@
 import koffi from "koffi";
-import { resolve } from "node:path";
+import { resolve, basename } from "node:path";
+import { commonIndices } from "../../../lib/market/market-indices";
 import { open, readFile, rename, rm, lstat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { encodeFiveMinuteBar, parseFiveMinuteCsv } from "./five-minute-csv";
@@ -34,11 +35,42 @@ export function mergeNative(existing: Buffer, incoming: Buffer) {
 }
 
 /** One parse and write, without preview, backup, or history hashes. */
+export function normalizeFiveMinuteCsv(text: string) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const header = lines.shift() ?? "";
+  const dateColumn = header
+    .split(",")
+    .map((v) => v.trim())
+    .indexOf("Date");
+  if (dateColumn < 0) return text; // The CSV parser reports the header error.
+  const rows = lines
+    .filter((v) => v.trim())
+    .map((line) => {
+      const cells = line.split(",").map((v) => v.trim());
+      return { time: cells[dateColumn] ?? "", line: cells.join(",") };
+    })
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const unique: string[] = [];
+  let previous: (typeof rows)[number] | undefined;
+  for (const row of rows) {
+    if (previous?.time === row.time) {
+      if (previous.line !== row.line)
+        throw new Error(`CSV 同一时间内容冲突：${row.time}`);
+      continue;
+    }
+    unique.push(row.line);
+    previous = row;
+  }
+  return [header, ...unique].join("\n");
+}
 export async function importFiveMinuteDirect(source: string, target: string) {
+  const commonIndex = commonIndices.some(
+    (i) => i.symbol === basename(target).slice(0, 8).toLowerCase(),
+  );
   const bars = parseFiveMinuteCsv(
-    await readFile(source, "utf8"),
-    "lots",
-    "zero-signed",
+    normalizeFiveMinuteCsv(await readFile(source, "utf8")),
+    commonIndex ? "shares" : "lots",
+    commonIndex ? "error" : "zero-signed",
   );
   const incoming = Buffer.concat(bars.map(encodeFiveMinuteBar));
   for (let i = 0; i < bars.length; i++) {
@@ -87,6 +119,7 @@ export async function importFiveMinuteDirect(source: string, target: string) {
         }
         return {
           ...trial,
+          repaired: 0,
           targetMissing,
           overflowTimes: bars
             .filter((b) => b.volumeOverflow)
@@ -97,8 +130,35 @@ export async function importFiveMinuteDirect(source: string, target: string) {
       }
     }
     const original = handle ? await handle.readFile() : Buffer.alloc(0);
+    let repaired = 0;
+    if (commonIndex) {
+      const incomingByTime = new Map<number, Buffer>();
+      for (let p = 0; p < incoming.length; p += 32)
+        incomingByTime.set(
+          incoming.readUInt32LE(p),
+          incoming.subarray(p, p + 32),
+        );
+      for (let p = 0; p < original.length; p += 32) {
+        const replacement = incomingByTime.get(original.readUInt32LE(p));
+        if (
+          !replacement ||
+          !original.subarray(p, p + 24).equals(replacement.subarray(0, 24))
+        )
+          continue;
+        const corrected = replacement.readUInt32LE(24),
+          legacy = corrected * 100;
+        const current = original.readUInt32LE(p + 24);
+        if (
+          current !== corrected &&
+          current === (legacy >= 0x80000000 ? 0 : legacy)
+        ) {
+          original.writeUInt32LE(corrected, p + 24);
+          repaired++;
+        }
+      }
+    }
     const result = mergeNative(original, incoming);
-    if (result.added) {
+    if (result.added || repaired) {
       await handle?.close();
       handle = undefined;
       const temporary = `${target}.quant-${randomUUID()}.tmp`;
@@ -116,6 +176,7 @@ export async function importFiveMinuteDirect(source: string, target: string) {
     }
     return {
       ...result,
+      repaired,
       targetMissing,
       overflowTimes: bars
         .filter((b) => b.volumeOverflow)

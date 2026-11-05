@@ -234,7 +234,7 @@ export async function startFiveMinutePreview(
               );
               const { data: _data, ...summary } = result;
               Object.assign(item, summary, {
-                state: result.added ? "written" : "unchanged",
+                state: result.added || result.repaired ? "written" : "unchanged",
                 unit: "lots",
               });
             } else {
