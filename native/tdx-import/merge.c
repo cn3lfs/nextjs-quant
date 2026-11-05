@@ -15,6 +15,40 @@ static u64 key(const byte *p, int reference) {
     return ((u64)year * 10000 + md) * 1440 + minutes;
 }
 static void copy(byte *to, const byte *from) { for (int i=0;i<32;i++) to[i]=from[i]; }
+static u32 volume(const byte *p) { return word(p+24) | (word(p+26)<<16); }
+static int repairable(const byte *old,const byte *incoming,u32 legacy,const byte *sourceAmount) {
+    if(volume(old)==volume(incoming))return 0;
+    /* A source-confirmed missing volume can also be recovered independently
+     * of which historical exporter originally wrote the zero. */
+    if(volume(old)!=legacy && volume(old)!=0)return 0;
+    for(int i=0;i<20;i++)if(old[i]!=incoming[i])return 0;
+    int sameAmount=1;for(int i=20;i<24;i++)if(old[i]!=incoming[i])sameAmount=0;
+    if(sameAmount)return 1;
+    /* Only a zero can use the alternative exact source amount representation.
+     * No relative tolerance and no change to the existing amount. */
+    if(volume(old) || !sourceAmount)return 0;
+    for(int i=0;i<4;i++)if(old[20+i]!=sourceAmount[i])return 0;
+    return 1;
+}
+/* Compare source identity and exact legacy volume before changing only bytes 24..27. */
+__declspec(dllexport) int lc5_repair_volumes(byte *old,u32 oldCount,
+    const byte *incoming,u32 count,const u32 *legacy,int reference,const byte *sourceAmounts) {
+    u32 a=0,b=0;int repaired=0;
+    /* Validate both histories before making any in-memory change. */
+    u64 previous=0;
+    for(u32 i=0;i<oldCount;i++){u64 k=key(old+i*32,reference);if(!k || k<=previous)return -1;previous=k;}
+    previous=0;
+    for(u32 i=0;i<count;i++){u64 k=key(incoming+i*32,reference);if(!k || k<=previous)return -1;previous=k;}
+    while(a<oldCount && b<count) {
+        u64 ka=key(old+a*32,reference),kb=key(incoming+b*32,reference);
+        if(ka<kb){a++;continue;}if(kb<ka){b++;continue;}
+        if(repairable(old+a*32,incoming+b*32,legacy[b],sourceAmounts?sourceAmounts+b*4:0)) {
+            for(int j=24;j<28;j++)old[a*32+j]=incoming[b*32+j];repaired++;
+        }
+        a++;b++;
+    }
+    return repaired;
+}
 /* stats: added, identical, conflicts. Negative result means no output may be written. */
 __declspec(dllexport) int lc5_merge(const byte *old, u32 oldCount,
     const byte *incoming, u32 count, byte *out, u32 *stats, int reference) {

@@ -1,9 +1,9 @@
 import { commonIndices } from "../src/lib/market/market-indices";
 import { parseArgs } from "node:util";
 import { realpath, readdir, mkdir, writeFile } from "node:fs/promises";
-import { join, relative, isAbsolute } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
+import { tdxImportTargets } from "./lib/tdx-import-paths";
 import { importFiveMinuteDirect } from "../src/server/data-sources/tdx/five-minute-native";
 
 const { values } = parseArgs({
@@ -24,23 +24,8 @@ if (values.help || !values.source || !values["tdx-root"]) {
 const workers = Number(values.workers);
 if (!Number.isInteger(workers) || workers < 1 || workers > 8)
   throw new Error("workers 必须为 1–8");
-if (process.platform !== "win32") throw new Error("此入口仅支持 Windows");
-const processes = execFileSync("tasklist.exe", ["/FO", "CSV", "/NH"], {
-  windowsHide: true,
-  encoding: "utf8",
-});
-if (/^"(?:tdxw|tdxsp|tdxnonsp)\.exe"/im.test(processes))
-  throw new Error("请先关闭通达信");
-const source = await realpath(values.source),
-  root = await realpath(values["tdx-root"]);
-const targets: Record<string, string> = {};
-for (const market of ["sh", "sz"]) {
-  const path = await realpath(join(root, "vipdoc", market, "fzline"));
-  const rel = relative(root, path);
-  if (rel.startsWith("..") || isAbsolute(rel))
-    throw new Error("目标五分钟目录位于安装目录之外");
-  targets[market] = path;
-}
+const source = await realpath(values.source);
+const { root, targets } = await tdxImportTargets(values["tdx-root"]);
 const entries = await readdir(source, { withFileTypes: true });
 const directories = [
   source,

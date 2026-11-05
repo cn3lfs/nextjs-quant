@@ -1,3 +1,7 @@
+import {
+  fiveMinuteVolumePolicy,
+  normalizeFiveMinuteVolume,
+} from "./five-minute-volume";
 /** CSV and lc5 conversion for explicitly requested imports. Timestamps are Shanghai local time. */
 export type ImportVolumeUnit = "shares" | "lots";
 export type CsvBar = {
@@ -9,12 +13,14 @@ export type CsvBar = {
   amount: number;
   volume: number;
   volumeOverflow?: true;
+  sourceVolume?: number;
 };
 
 export function parseFiveMinuteCsv(
   text: string,
   unit: ImportVolumeUnit,
-  overflowPolicy: "error" | "zero-signed" = "error",
+  overflowPolicy: "error" | "zero-signed" | "zero-unsigned" = "error",
+  symbol?: string,
 ): CsvBar[] {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
   const header =
@@ -71,9 +77,19 @@ export function parseFiveMinuteCsv(
       low = number("Low"),
       close = number("Close"),
       amount = number("Amount");
-    const rawVolume = number("Volume") * (unit === "lots" ? 100 : 1);
+    const sourceVolume = number("Volume");
+    const rawVolume = symbol
+      ? normalizeFiveMinuteVolume(
+          sourceVolume,
+          amount,
+          low,
+          high,
+          fiveMinuteVolumePolicy(symbol),
+        )
+      : sourceVolume * (unit === "lots" ? 100 : 1);
     const volumeOverflow =
-      overflowPolicy === "zero-signed" && rawVolume >= 0x80000000;
+      (overflowPolicy === "zero-signed" && rawVolume >= 0x80000000) ||
+      (overflowPolicy === "zero-unsigned" && rawVolume > 0xffffffff);
     const volume = volumeOverflow ? 0 : rawVolume;
     if (
       ![open, high, low, close, amount].every(Number.isFinite) ||
@@ -97,6 +113,7 @@ export function parseFiveMinuteCsv(
       close,
       amount,
       volume,
+      ...(symbol ? { sourceVolume } : {}),
       ...(volumeOverflow ? { volumeOverflow: true as const } : {}),
     });
     previous = time;

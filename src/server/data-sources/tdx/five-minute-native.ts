@@ -1,10 +1,13 @@
 import koffi from "koffi";
 import { resolve, basename } from "node:path";
-import { commonIndices } from "../../../lib/market/market-indices";
+import { legacyFiveMinuteVolume } from "./five-minute-volume";
 import { open, readFile, rename, rm, lstat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { encodeFiveMinuteBar, parseFiveMinuteCsv } from "./five-minute-csv";
+import { probeFiveMinuteFile, repairFiveMinuteFile } from "./five-minute-probe";
 
+let repairVolumes:
+  ReturnType<ReturnType<typeof koffi.load>["func"]> | undefined;
 let merge: ReturnType<ReturnType<typeof koffi.load>["func"]> | undefined;
 export function mergeNative(existing: Buffer, incoming: Buffer) {
   if (existing.length % 32 || incoming.length % 32)
@@ -64,13 +67,19 @@ export function normalizeFiveMinuteCsv(text: string) {
   return [header, ...unique].join("\n");
 }
 export async function importFiveMinuteDirect(source: string, target: string) {
-  const commonIndex = commonIndices.some(
-    (i) => i.symbol === basename(target).slice(0, 8).toLowerCase(),
-  );
+  const symbol = basename(target).slice(0, 8).toLowerCase();
   const bars = parseFiveMinuteCsv(
     normalizeFiveMinuteCsv(await readFile(source, "utf8")),
-    commonIndex ? "shares" : "lots",
-    commonIndex ? "error" : "zero-signed",
+    "shares",
+    "zero-unsigned",
+    symbol,
+  );
+  const legacyVolumes = Buffer.alloc(bars.length * 4);
+  bars.forEach((bar, i) =>
+    legacyVolumes.writeUInt32LE(
+      legacyFiveMinuteVolume(bar.sourceVolume!),
+      i * 4,
+    ),
   );
   const incoming = Buffer.concat(bars.map(encodeFiveMinuteBar));
   for (let i = 0; i < bars.length; i++) {
@@ -79,6 +88,33 @@ export async function importFiveMinuteDirect(source: string, target: string) {
     if (decodedYear !== Number(bars[i]!.time.slice(0, 4)))
       throw new Error("CSV 年份无法无歧义编码到 LC5");
   }
+  return importFiveMinuteBuffer(incoming, target, {
+    legacyVolumes,
+    first: bars[0]!.time,
+    last: bars.at(-1)!.time,
+    overflowTimes: bars.filter((b) => b.volumeOverflow).map((b) => b.time),
+  });
+}
+
+/** Shared writer for validated CSV and native WDZ records. */
+export async function importFiveMinuteBuffer(
+  incoming: Buffer,
+  target: string,
+  details: {
+    first: string;
+    last: string;
+    overflowTimes: string[];
+    legacyVolumes?: Buffer;
+    sourceAmounts?: Buffer;
+  },
+) {
+  if (!incoming.length || incoming.length % 32)
+    throw new Error("LC5 数据长度非法");
+  const { legacyVolumes, sourceAmounts, ...publicDetails } = details;
+  if (legacyVolumes && legacyVolumes.length !== incoming.length / 8)
+    throw new Error("LC5 volume repair metadata length mismatch");
+  if (sourceAmounts && sourceAmounts.length !== incoming.length / 8)
+    throw new Error("LC5 source amount metadata length mismatch");
   let handle;
   try {
     if ((await lstat(target)).isSymbolicLink())
@@ -97,7 +133,7 @@ export async function importFiveMinuteDirect(source: string, target: string) {
       if (read.bytesRead !== 32) throw new Error("读取文件尾失败");
       const trial = mergeNative(tail, incoming);
       if (
-        trial.added === bars.length &&
+        trial.added === incoming.length / 32 &&
         trial.data.subarray(0, 32).equals(tail)
       ) {
         const append = trial.data.subarray(32);
@@ -121,43 +157,55 @@ export async function importFiveMinuteDirect(source: string, target: string) {
           ...trial,
           repaired: 0,
           targetMissing,
-          overflowTimes: bars
-            .filter((b) => b.volumeOverflow)
-            .map((b) => b.time),
-          first: bars[0]!.time,
-          last: bars.at(-1)!.time,
+          ...publicDetails,
         };
+      }
+      {
+        const covered = legacyVolumes
+          ? repairFiveMinuteFile(
+              target,
+              size,
+              incoming,
+              legacyVolumes,
+              sourceAmounts,
+            )
+          : probeFiveMinuteFile(target, size, incoming);
+        if (covered)
+          return {
+            ...publicDetails,
+            ...covered,
+            data: undefined,
+            added: 0,
+            repaired: "repaired" in covered ? (covered.repaired as number) : 0,
+            targetMissing: false,
+            overflowTimes: [],
+          };
       }
     }
     const original = handle ? await handle.readFile() : Buffer.alloc(0);
     let repaired = 0;
-    if (commonIndex) {
-      const incomingByTime = new Map<number, Buffer>();
-      for (let p = 0; p < incoming.length; p += 32)
-        incomingByTime.set(
-          incoming.readUInt32LE(p),
-          incoming.subarray(p, p + 32),
+    if (legacyVolumes && original.length) {
+      repairVolumes ??= koffi
+        .load(resolve("runtime/tdx-import/merge.dll"))
+        .func(
+          "int lc5_repair_volumes(void *, uint32, const void *, uint32, const void *, int, const void *)",
         );
-      for (let p = 0; p < original.length; p += 32) {
-        const replacement = incomingByTime.get(original.readUInt32LE(p));
-        if (
-          !replacement ||
-          !original.subarray(p, p + 24).equals(replacement.subarray(0, 24))
-        )
-          continue;
-        const corrected = replacement.readUInt32LE(24),
-          legacy = corrected * 100;
-        const current = original.readUInt32LE(p + 24);
-        if (
-          current !== corrected &&
-          current === (legacy >= 0x80000000 ? 0 : legacy)
-        ) {
-          original.writeUInt32LE(corrected, p + 24);
-          repaired++;
-        }
-      }
+      repaired = repairVolumes(
+        original,
+        original.length / 32,
+        incoming,
+        incoming.length / 32,
+        legacyVolumes,
+        new Date().getFullYear(),
+        sourceAmounts ?? null,
+      ) as number;
+      if (repaired < 0) throw new Error("LC5 volume repair time order invalid");
     }
     const result = mergeNative(original, incoming);
+    const existingKeys = new Set<number>();
+    if (details.overflowTimes.length)
+      for (let p = 0; p < original.length; p += 32)
+        existingKeys.add(original.readUInt32LE(p));
     if (result.added || repaired) {
       await handle?.close();
       handle = undefined;
@@ -178,17 +226,20 @@ export async function importFiveMinuteDirect(source: string, target: string) {
       ...result,
       repaired,
       targetMissing,
-      overflowTimes: bars
-        .filter((b) => b.volumeOverflow)
-        .filter((b) => {
-          const encoded = encodeFiveMinuteBar(b).subarray(0, 4);
-          for (let p = 0; p < original.length; p += 32)
-            if (original.subarray(p, p + 4).equals(encoded)) return false;
-          return true;
-        })
-        .map((b) => b.time),
-      first: bars[0]!.time,
-      last: bars.at(-1)!.time,
+      overflowTimes: details.overflowTimes.filter((time) => {
+        const encoded = Buffer.allocUnsafe(4);
+        const year = Number(time.slice(0, 4)),
+          month = Number(time.slice(5, 7)),
+          day = Number(time.slice(8, 10));
+        encoded.writeUInt16LE((((year - 2004) & 31) << 11) + month * 100 + day);
+        encoded.writeUInt16LE(
+          Number(time.slice(11, 13)) * 60 + Number(time.slice(14, 16)),
+          2,
+        );
+        return !existingKeys.has(encoded.readUInt32LE());
+      }),
+      first: details.first,
+      last: details.last,
     };
   } finally {
     await handle?.close();
