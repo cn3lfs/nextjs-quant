@@ -15,6 +15,8 @@
 
 做具体修改前还必须读根 [AGENTS.md](../AGENTS.md)；它与当前用户授权决定执行边界。人工确认和历史证据从 [review/README.md](review/README.md) 进入。
 
+通达信五分钟导入：命令、单位和修复边界见[操作手册](wdz-import.md)，今天的正式补齐、历史修复与待补源清单见[2026-11-05交付记录](deliveries/2026-11-05-tdx-import.md)。
+
 ## 当前状态（2026-09-23）
 
 - **已交付**：M1–M5 的指标/图表/缠论/推送/双突破 A 层；N1 信号台账、N3 工作台收口、P2 分级、P1 账本、Q1 图表和 Q2a/Q2b 公式。
@@ -26,23 +28,23 @@
 
 ## docs/ 导航
 
-| 文档/目录                                                                                      | 用途                                               |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| [README.md](README.md)                                                                         | 接手入口与全目录导航                               |
-| [roadmap.md](roadmap.md)                                                                       | 范围唯一事实源，含完成摘要而非旧验收任务           |
-| [architecture.md](architecture.md)                                                             | 模块职责/入口/输入输出/依赖/不变量                 |
-| [modules/](modules/README.md)                                                                   | 按领域查看入口、消费者、副作用与验证               |
-| [invariants.md](invariants.md)                                                                 | 持续有效约束与测试映射，含裁剪抢救的裁定           |
-| [conventions.md](conventions.md)                                                               | 开发规范：风格、命名、UI、服务端、测试、注释、提交 |
-| [next-plan.md](next-plan.md)                                                                   | E0–E4 扩充顺序与验收                               |
-| [operations.md](operations.md)                                                                 | 开发、测试、构建、故障与目录维护                   |
-| [decisions.md](decisions.md)                                                                   | 完整历史决策正文，旧结论按后续修订解释             |
-| [archive-index.md](archive-index.md)                                                           | 中途计划、验收、审计和执行记录的日期归档索引       |
-| [strategy-results-consolidated-2026-09-21.md](strategy-results-consolidated-2026-09-21.md) | 策略代表与已执行回测结果收口登记 |
-| [strategy-consolidation-plan.md](strategy-consolidation-plan.md)                              | 策略独立包、server 分域重构与清理边界                       |
-| [review/README.md](review/README.md)                                                           | 七份核对/实操文档和四组截图/证据的总索引           |
+| 文档/目录                                                                                                    | 用途                                               |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| [README.md](README.md)                                                                                       | 接手入口与全目录导航                               |
+| [roadmap.md](roadmap.md)                                                                                     | 范围唯一事实源，含完成摘要而非旧验收任务           |
+| [architecture.md](architecture.md)                                                                           | 模块职责/入口/输入输出/依赖/不变量                 |
+| [modules/](modules/README.md)                                                                                | 按领域查看入口、消费者、副作用与验证               |
+| [invariants.md](invariants.md)                                                                               | 持续有效约束与测试映射，含裁剪抢救的裁定           |
+| [conventions.md](conventions.md)                                                                             | 开发规范：风格、命名、UI、服务端、测试、注释、提交 |
+| [next-plan.md](next-plan.md)                                                                                 | E0–E4 扩充顺序与验收                               |
+| [operations.md](operations.md)                                                                               | 开发、测试、构建、故障与目录维护                   |
+| [decisions.md](decisions.md)                                                                                 | 完整历史决策正文，旧结论按后续修订解释             |
+| [archive-index.md](archive-index.md)                                                                         | 中途计划、验收、审计和执行记录的日期归档索引       |
+| [strategy-results-consolidated-2026-09-21.md](strategy-results-consolidated-2026-09-21.md)                   | 策略代表与已执行回测结果收口登记                   |
+| [strategy-consolidation-plan.md](strategy-consolidation-plan.md)                                             | 策略独立包、server 分域重构与清理边界              |
+| [review/README.md](review/README.md)                                                                         | 七份核对/实操文档和四组截图/证据的总索引           |
 | [m4-message-samples.md](review/m4-message-samples.md)、[p2-message-samples.md](review/p2-message-samples.md) | 两个旧路径测试兼容副本；人工阅读使用 review 版     |
-| [archive/2026-09-22/research/](archive/2026-09-22/research/)                                   | 外部调研与设计参考归档                           |
+| [archive/2026-09-22/research/](archive/2026-09-22/research/)                                                 | 外部调研与设计参考归档                             |
 
 仓库外层还应知道：[根 README](../README.md) 保留启动、连接与全部免责声明；[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 与 [vendor/czsc/README](../vendor/czsc/README.md) 说明依赖来源。未生成的 `strategy-scorecard.md` 是 N2 交付物，不是缺失文档。已删除 A–H、output、m2-review/n3-review 不再导航；现存中途记录统一见 [日期归档索引](archive-index.md)，不恢复已删除材料。
 
