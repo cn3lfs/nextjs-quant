@@ -14,6 +14,7 @@
     "tdx:import": "tsx scripts/import-tdx-five-minute.ts",
     "tdx:audit": "tsx scripts/audit-tdx-five-minute.ts",
     "tdx:repair-zero-volume": "tsx scripts/repair-tdx-zero-volume.ts",
+    "tdx:estimate-zero-volume": "tsx scripts/estimate-tdx-zero-volume.ts",
     "wdz:extract": "tsx scripts/extract-wdz.ts",
     "wdz:import": "tsx scripts/import-wdz-five-minute.ts",
     "wdz:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-wdz.ps1",
