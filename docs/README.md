@@ -15,7 +15,7 @@
 
 做具体修改前还必须读根 [AGENTS.md](../AGENTS.md)；它与当前用户授权决定执行边界。人工确认和历史证据从 [review/README.md](review/README.md) 进入。
 
-通达信五分钟导入：命令、单位和修复边界见[操作手册](wdz-import.md)，今天的正式补齐、历史修复与待补源清单见[2026-11-05交付记录](deliveries/2026-11-05-tdx-import.md)。
+通达信五分钟导入：命令、单位和修复边界见[操作手册](wdz-import.md)，正式补齐与各阶段修复见[2026-11-05交付记录](deliveries/2026-11-05-tdx-import.md)，最终问题清单状态和估算边界见[看图成交量交付](deliveries/2026-11-05-tdx-visual-volume.md)（2026-11-06整理）。
 
 ## 当前状态（2026-09-23）
 
