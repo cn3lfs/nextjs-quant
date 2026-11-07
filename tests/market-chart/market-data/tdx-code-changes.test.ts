@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { readFile, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseTdxCodeChanges } from "../../../src/server/data-sources/tdx/tdx-code-changes";
+import { parseTdxCodeChanges } from "tstdx/local";
 import { securityDirectory } from "../../../src/server/market/securities";
 import { put } from "../../../src/server/db/index";
 

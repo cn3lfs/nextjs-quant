@@ -12,10 +12,13 @@ import { settings } from "../infra/settings";
 import { readMarketPool } from "../market/market-pool-files";
 import { scan, readSnapshot } from "../data-sources/tdx/tdx";
 import { assertGrowthIntradayWindow } from "~/lib/research/factors/research-growth-intraday";
-import { isOpening, openingMinuteStart } from "~/lib/research/technical/research-opening";
+import {
+  isOpening,
+  openingMinuteStart,
+} from "~/lib/research/technical/research-opening";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
-import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
-import { deriveHistoricalFloatShares } from "../data-sources/tdx/tdx-gbbq";
+import { readGbbq } from "tstdx/local";
+import { deriveHistoricalFloatShares } from "tstdx/local";
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,

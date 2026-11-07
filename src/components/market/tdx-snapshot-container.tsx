@@ -10,6 +10,7 @@ import {
   tradableSymbol,
 } from "./tdx-side-panel";
 import { Button } from "../ui/button";
+import { LocalFinancialWorkbench } from "../financial/local-financial-workbench";
 
 /**
  * 图表下方的基本面详情。五档盘口与关键指标在右栏 TdxSidePanel，这里与它共用
@@ -32,11 +33,9 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
   });
   if (!quotable)
     return isForeignMarketChartSymbol(symbol) ? null : (
-      <p className="text-sm text-muted-foreground">
-        板块与自定义指数没有通达信实时盘口与财务快照，本区块不适用。
-      </p>
+      <LocalFinancialWorkbench key={symbol} symbol={symbol} />
     );
-  if (index) return null;
+  if (index) return <LocalFinancialWorkbench key={symbol} symbol={symbol} />;
   const quote = quotes.data?.[0];
   return (
     <section
@@ -49,6 +48,7 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
           完整指标、报表明细与公司资料
         </span>
       </h3>
+      <LocalFinancialWorkbench key={symbol} symbol={symbol} />
       {local.error && (
         <div role="alert" className="text-sm">
           本地财务包读取失败：{local.error.message}

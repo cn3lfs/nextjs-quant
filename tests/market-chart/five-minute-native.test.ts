@@ -6,12 +6,12 @@ import {
   importFiveMinuteDirect,
   mergeNative,
   normalizeFiveMinuteCsv,
-} from "../../src/server/data-sources/tdx/five-minute-native";
+} from "tstdx/native";
 import {
   parseFiveMinuteCsv,
   encodeFiveMinuteBar,
   mergeFiveMinuteBars,
-} from "../../src/server/data-sources/tdx/five-minute-csv";
+} from "tstdx/local";
 const csv =
   "Date,Open,Low,High,Close,Volume,Amount\n2026-11-04 09:35:00,10,9,11,10,100,10000\n2026-11-04 09:40:00,10,9,11,10,200,20000\n";
 

@@ -12,7 +12,7 @@ import {
   type TmtInput,
 } from "./tmt-crowding";
 import { verifiedIndustry } from "../../research/industry-news-evidence";
-import { isAStock } from "../../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { put } from "../../db";
 import { sharedRead } from "../../infra/shared-read";
 import type { SkillUse } from "../../research/research-skills";

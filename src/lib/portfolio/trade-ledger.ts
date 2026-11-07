@@ -1,9 +1,15 @@
 import { z } from "zod";
-import { defaultBacktestCosts, type BacktestCosts } from "../backtest/backtest-costs";
+import {
+  defaultBacktestCosts,
+  type BacktestCosts,
+} from "../backtest/backtest-costs";
 import { big, bpsOf, moneyMul, toNumber } from "../money";
-import { aggregateLedger, type LedgerRow } from "../strategy-facts/signal-ledger";
+import {
+  aggregateLedger,
+  type LedgerRow,
+} from "../strategy-facts/signal-ledger";
 import type { SkillUse } from "~/server/research/research-skills";
-import type { TdxXdxr } from "~/server/data-sources/tdx/tdx-wire";
+import type { TdxXdxr } from "tstdx/wire";
 
 export const feeLabel = "实验参数，非历史实际费用";
 const positive = z.number().finite().positive();

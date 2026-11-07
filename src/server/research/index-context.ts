@@ -1,5 +1,5 @@
 import type { Snapshot, Evidence, Bar } from "~/lib/domain";
-import { parseBars } from "../data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";

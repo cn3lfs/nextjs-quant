@@ -7,6 +7,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./financial": {
+      "types": "./dist/financial/index.d.ts",
+      "import": "./dist/financial/index.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -53,6 +57,7 @@
   },
   "dependencies": {
     "big.js": "7.0.1",
+    "tstdx": "workspace:*",
     "zod": "^3.24.2"
   }
 }

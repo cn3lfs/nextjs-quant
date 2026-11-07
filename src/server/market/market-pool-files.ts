@@ -8,7 +8,7 @@ import {
 } from "~/lib/market/market-pool";
 import { industryRpsPolicy } from "~/lib/screening/industry-rps";
 import { parseIndustryMembers } from "./industry-blocks";
-import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
+import { readTdxLocalBlocks } from "tstdx/local";
 import { get, put } from "../db";
 import { excludedBlock } from "~/lib/market/block-eligibility";
 import { eligibilityFromTdx } from "./block-eligibility";

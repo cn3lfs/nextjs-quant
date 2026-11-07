@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { request } from "./hithink-context";
-import { isAStock } from "../tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { sharedRead } from "../../infra/shared-read";
 
 const date = z

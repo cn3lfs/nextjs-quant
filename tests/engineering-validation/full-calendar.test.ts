@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import * as fs from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseBars } from "../../src/server/data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { createHash } from "node:crypto";
 import {
   fullLocalCalendarReference,

@@ -5,6 +5,10 @@ import {
 } from "../backtest/ma-baseline-work";
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
+import {
+  executeLocalFinancialWork,
+  type LocalFinancialWork,
+} from "../financial/local-financial-work";
 import { scan } from "../data-sources/tdx/tdx";
 import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
 import { backtest } from "../backtest/quant";
@@ -32,6 +36,7 @@ import type { WalkForwardOptions } from "~/lib/backtest/walk-forward";
 import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
+  | LocalFinancialWork
   | MaBaselineWork
   | FormulaWork
   | FormulaShardWork
@@ -72,6 +77,10 @@ export type Work =
       };
     };
 async function main(work: Work & { attemptId?: string }) {
+  if (work.type === "local-financial")
+    return executeLocalFinancialWork(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
   if (work.type === "ma-baseline") {
     const archive = await executeMaBaseline(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),

@@ -13,7 +13,31 @@ vi.mock("node:fs/promises", () => ({
   stat: async () => ({ size: 32, mtimeMs: 1 }),
   readFile: async () => Buffer.alloc(32),
 }));
-vi.mock("../../src/server/data-sources/tdx/tdx-gbbq", () => ({
+// Selection tests provide a decoded benchmark; file-format races are covered in tstdx.
+vi.mock("../../src/server/data-sources/tdx/tdx-benchmark", () => ({
+  readBenchmarkSnapshot: async () => ({
+    id: "benchmark-fixture",
+    symbol: "sh000001",
+    period: "day",
+    source: "tdx-local",
+    adjustment: "none",
+    createdAt: 1,
+    hash: "fixture",
+    bars: [
+      {
+        date: "2025-01-02",
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10,
+        volume: 100,
+        amount: 1000,
+      },
+    ],
+  }),
+}));
+vi.mock("tstdx/local", async (original) => ({
+  ...(await original<typeof import("tstdx/local")>()),
   readGbbq: async () => {
     throw new Error("missing");
   },

@@ -5,3 +5,4 @@ export * from "./analytics.js";
 export * from "./financial.js";
 export type { RangeOptions, BatchResult } from "./queries.js";
 export { ConnectionPool } from "./connection-pool.js";
+export * from "./financial-series.js";

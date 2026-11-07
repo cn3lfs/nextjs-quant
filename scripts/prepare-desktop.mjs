@@ -47,6 +47,10 @@ export async function prepareDesktop({
     "THIRD_PARTY_NOTICES.md",
     ".next/standalone/third-party-notices/README.md",
   );
+  await cp(
+    "docs/data-sources/public-factors/qlib-v0.9.7/LICENSE",
+    ".next/standalone/third-party-notices/Qlib-LICENSE",
+  );
   await writeFile(marker, buildId);
 }
 

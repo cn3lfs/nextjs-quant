@@ -13,7 +13,7 @@ import {
   chanC4Trend,
 } from "../../../../src/lib/research/methods/chan/research-chan-movements";
 import { chanRecursiveObservations } from "../../../../src/lib/research/methods/chan/research-chan-recursive";
-import { parseBars } from "../../../../src/server/data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { toFloat32 } from "../../../../src/server/strategies/chan/czsc-input";
 import { readFileSync } from "node:fs";
 

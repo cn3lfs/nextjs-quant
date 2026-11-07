@@ -6,7 +6,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { symbolSchema } from "~/lib/domain";
-import { isAStock } from "../tdx/tdx";
+import { isAStock } from "tstdx/local";
 export function parseTencentIdentity(text: string, symbol: string) {
   const rows = text
     .split(/\r?\n/)

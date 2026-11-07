@@ -9,7 +9,7 @@ import {
 import { sharedRead } from "../../infra/shared-read";
 import { get, put, sqlite } from "../../db";
 import { background, updateJob } from "../../jobs/jobs";
-import { isAStock } from "../../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 
 const fields = {
   revenue: "营业收入",
@@ -123,6 +123,14 @@ export function financialQuality(
   now = Date.now(),
 ) {
   const parsed = annualAmounts(symbol, evidence, fields, now);
+  return financialQualityFromAnnual(symbol, parsed);
+}
+export type FinancialAnnualInput = ReturnType<typeof annualAmounts<Key>>;
+/** Shared normalized annual calculation; each provider supplies its own evidence adapter. */
+export function financialQualityFromAnnual(
+  symbol: string,
+  parsed: FinancialAnnualInput,
+) {
   const byPeriod = new Map(parsed.annual.map((row) => [row.period, row]));
   const annual = parsed.annual.map((row) => {
     const previous = byPeriod.get(`${Number(row.period.slice(0, 4)) - 1}1231`);

@@ -4,7 +4,7 @@ import { realpath, readdir, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { tdxImportTargets } from "./lib/tdx-import-paths";
-import { importFiveMinuteDirect } from "../src/server/data-sources/tdx/five-minute-native";
+import { importFiveMinuteDirect } from "tstdx/native";
 
 const { values } = parseArgs({
   options: {

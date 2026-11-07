@@ -14,10 +14,11 @@ import {
   type RpsRequest,
 } from "~/lib/screening/rps";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
-import { parseBars, scan } from "../data-sources/tdx/tdx";
+import { scan } from "../data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
-import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
-import type { TdxXdxr } from "../data-sources/tdx/tdx-wire";
+import { readGbbq } from "tstdx/local";
+import type { TdxXdxr } from "tstdx/wire";
 import {
   calculateRpsDay,
   prepareRpsSecurity,

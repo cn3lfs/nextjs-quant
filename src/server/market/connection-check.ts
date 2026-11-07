@@ -7,7 +7,7 @@ import {
   type ConnectionCheckInput,
   type ConnectionCheckResult,
 } from "~/lib/settings/connection-check";
-import { parseBars } from "../data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { tstdxKlines } from "../data-sources/tstdx/tstdx-adapter";
 import { eastmoneyKlines } from "../data-sources/eastmoney/eastmoney-adapter";
 import { westockKlines } from "../data-sources/westock/westock-adapter";

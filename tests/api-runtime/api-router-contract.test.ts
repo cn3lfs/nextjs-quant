@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  localFinancialView: "query",
+  localFinancialSeries: "query",
+  localFinancialExport: "query",
+  localFinancialAudit: "query",
+  localFinancialAuditStart: "mutation",
+  localFinancialArchiveCreate: "mutation",
+  localFinancialArchiveHistory: "query",
+  localFinancialArchive: "query",
+  localFinancialArchiveDelete: "mutation",
+  localFinancialScreenStart: "mutation",
+  localFinancialScreenHistory: "query",
+  localFinancialScreenPage: "query",
+  localFinancialScreenExport: "query",
+  localFinancialScreenDelete: "mutation",
   strategyLifecycle: "query",
   maBaseline: "mutation",
   maBaselineCoverage: "query",

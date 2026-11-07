@@ -10,11 +10,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  readSnapshot,
-  readTailSnapshot,
-  tailCacheStats,
-} from "~/server/data-sources/tdx/tdx";
+import { readSnapshot, readTailSnapshot } from "~/server/data-sources/tdx/tdx";
+import { tailCacheStats } from "tstdx/local";
 import { screenLocal } from "~/server/screening/screening";
 import { completedBar, completedBarFilter } from "~/lib/completed-bars";
 import { defaultStrategy } from "~/lib/domain";

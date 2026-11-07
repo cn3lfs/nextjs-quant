@@ -13,3 +13,8 @@ const result = calculateFactor(bars, { id: "sma", parameters: { period: 20 } });
 ```
 
 `packages/trading-strategies` 仍是九方向代表策略目录和证据元数据包，不与本包合并；真正的运行编排继续位于 `src/server/strategies`。
+
+
+## 财务计算
+
+`trading-strategy-core/financial` 提供同口径同比、单季、TTM、三年CAGR、质量比率、时间可见性及三值条件。通达信字段、单位、原值投影与源快照类型复用 `tstdx/financial-model`；该入口没有Node依赖，计算核心不读取本地文件或数据库。应用负责准备带来源和可见日期的输入，缺失与不满足分别返回。

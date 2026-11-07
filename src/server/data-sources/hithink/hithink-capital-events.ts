@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Evidence } from "~/lib/domain";
-import { isAStock } from "../tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { request } from "./hithink-context";
 import { validateHithinkColumns } from "./hithink-columns";
 import { evidenceEnvelope } from "../../infra/evidence";

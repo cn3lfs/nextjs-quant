@@ -3,11 +3,7 @@ import { join, resolve } from "node:path";
 import type { Bar } from "../../src/lib/domain";
 import { boll, ema, kdj, ma, macd, rsi } from "../../src/lib/indicators";
 import { readLocalDailySnapshot } from "../../src/server/market/local-daily-snapshot";
-import {
-  adjustmentFactors,
-  applyAdjustment,
-  readGbbq,
-} from "../../src/server/data-sources/tdx/tdx-gbbq";
+import { adjustmentFactors, applyAdjustment, readGbbq } from "tstdx/local";
 
 /**
  * Local half of the SuperMind indicator cross-check.

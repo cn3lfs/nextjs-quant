@@ -15,11 +15,12 @@ export type ReportFields = {
   inventory: number;
   receivables: number;
   currentLiabilities: number;
-  longTermLiabilities: number;
+  nonCurrentLiabilities: number;
+  totalLiabilities: number;
   capitalReserve: number;
-  netAssets: number;
+  parentEquity: number;
   mainRevenue: number;
-  mainProfit: number;
+  operatingCost: number;
   operatingProfit: number;
   investmentIncome: number;
   totalProfit: number;
@@ -29,7 +30,8 @@ export type ReportFields = {
   operatingCashFlow: number;
   shareholders: number;
   totalShares: number;
-  /** 归母每股净资产。与 `netAssets`（股东权益合计）不同口径，不能互相推导。 */
+  reportedEps: number;
+  /** 归母每股净资产源值，可能包含特殊权益调整，不用期末股本重新推断。 */
   bookValuePerShare: number;
 };
 
@@ -67,21 +69,22 @@ export const statementGroups = [
       ["inventory", "存货"],
       ["receivables", "应收账款"],
       ["currentLiabilities", "流动负债"],
-      ["longTermLiabilities", "长期负债"],
+      ["nonCurrentLiabilities", "非流动负债合计"],
+      ["totalLiabilities", "负债合计"],
       ["capitalReserve", "资本公积"],
-      ["netAssets", "净资产"],
+      ["parentEquity", "归母股东权益"],
     ],
   },
   {
     title: "利润",
     fields: [
-      ["mainRevenue", "主营收入"],
-      ["mainProfit", "主营利润"],
+      ["mainRevenue", "营业收入"],
+      ["operatingCost", "营业成本"],
       ["operatingProfit", "营业利润"],
       ["investmentIncome", "投资收益"],
       ["totalProfit", "利润总额"],
-      ["afterTaxProfit", "税后利润"],
-      ["netProfit", "净利润"],
+      ["afterTaxProfit", "合并净利润"],
+      ["netProfit", "归母净利润"],
       ["undistributedProfit", "未分配利润"],
     ],
   },
@@ -201,28 +204,17 @@ export function fundamentalMetrics(input: {
   const capShares = latestTotal ?? reportShares;
   const sharesBasis: ShareBasis | null =
     capShares === null ? null : latestTotal !== null ? "latest" : "report";
-  const equity = positive(report.netAssets),
+  const equity = positive(report.parentEquity),
     assets = positive(report.totalAssets),
     revenue = positive(report.mainRevenue),
     holders = positive(report.shareholders);
   const factor = reportAnnualFactor(reportDate);
-  const eps = over(report.netProfit, reportShares);
+  const eps = Number.isFinite(report.reportedEps) ? report.reportedEps : null;
   const annualEps = eps !== null && factor !== null ? eps * factor : null;
-  /*
-   * 每股净资产直接取财务包的归母口径，不用 netAssets ÷ 总股本自算：
-   * netAssets 是股东权益合计，含少数股东权益与永续债，自算会让银行与券商的
-   * 每股净资产偏高、市净率偏低（sz000001 会从 24.13 变成 28.25）。
-   */
+  // 基本EPS与每股净资产保留报表值，不用期末股本替代源数据口径。
   const perShare = positive(report.bookValuePerShare);
-  /*
-   * 协议对银行股不给流动负债：sz000001 两项都是 0，sh601398 与 sh600036 只有长期负债，
-   * 直接相加会得到 0.05% 这种明显错误的负债率。任何有资产的公司都有流动负债，
-   * 所以流动负债缺失就是明细不全，整体留空。
-   */
-  const liabilities =
-    positive(report.currentLiabilities) === null
-      ? null
-      : positive(report.currentLiabilities + report.longTermLiabilities);
+  // 银行可能没有流动/非流动拆分，但负债合计独立可用。
+  const liabilities = positive(report.totalLiabilities);
   const annualRevenue =
     revenue !== null && factor !== null ? revenue * factor : null;
   return {
@@ -271,12 +263,12 @@ export function fundamentalMetrics(input: {
       "净利润或净资产不可得",
     ),
     netMargin: measure(
-      over(report.netProfit, revenue),
+      over(report.afterTaxProfit, revenue),
       "净利润或主营收入不可得",
     ),
     debtRatio: measure(
       liabilities !== null ? over(liabilities, assets) : null,
-      "财务包未提供流动负债明细或总资产不可得",
+      "总负债或总资产不可得",
     ),
     reservePerShare: measure(
       over(report.capitalReserve, reportShares),

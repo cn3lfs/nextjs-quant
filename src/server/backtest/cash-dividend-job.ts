@@ -4,7 +4,7 @@ import { backtestCostsSchema } from "~/lib/backtest/backtest-costs";
 import { get, put } from "../db";
 import { background, runWorker } from "../jobs/jobs";
 import { settings } from "../infra/settings";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import type { BacktestActions } from "./backtest-actions";
 import type { dividendSchedule } from "../data-sources/hithink/hithink-dividends";
 import { reconcileDividends } from "./dividend-reconciliation";

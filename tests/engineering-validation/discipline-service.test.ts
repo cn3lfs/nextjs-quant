@@ -17,11 +17,11 @@ import { researchUsage } from "../../src/server/research/research-usage";
 import * as usage from "../../src/server/research/research-usage";
 import { readTradeReviewSnapshot } from "../../src/server/portfolio/trade-review-market";
 import { fullLocalCalendarReference } from "../../src/server/market/data-health";
-import { readGbbq } from "../../src/server/data-sources/tdx/tdx-gbbq";
+import { readGbbq } from "tstdx/local";
 
 import * as market from "../../src/server/portfolio/trade-review-market";
 import * as calendarSource from "../../src/server/market/data-health";
-import * as gbbqSource from "../../src/server/data-sources/tdx/tdx-gbbq";
+import * as gbbqSource from "tstdx/local";
 
 const mock = vi.hoisted(() => ({
   workers: [] as (EventEmitter & { terminate: ReturnType<typeof vi.fn> })[],

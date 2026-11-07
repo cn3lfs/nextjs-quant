@@ -1,6 +1,5 @@
-import { parseBars } from "./tdx";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
@@ -9,33 +8,8 @@ import {
   fullDayRepairsSameDate,
 } from "./tdx-full-day-cache";
 
-/** Benchmark returns use a bounded warmup; strategy indicator histories do not. */
-export function parseBenchmarkWindow(
-  bytes: Buffer,
-  start: string,
-  end: string,
-) {
-  historicalDateSchema.parse(start);
-  historicalDateSchema.parse(end);
-  if (start > end) throw new Error("基准日期区间无效");
-  if (bytes.length % 32) throw new Error("研究基准日线记录不完整");
-  const startDate = Number(start.replaceAll("-", ""));
-  const endDate = Number(end.replaceAll("-", ""));
-  let first = 0,
-    last = 0;
-  while (
-    first < bytes.length / 32 &&
-    bytes.readUInt32LE(first * 32) < startDate
-  )
-    first++;
-  while (last < bytes.length / 32 && bytes.readUInt32LE(last * 32) <= endDate)
-    last++;
-  return parseBars(
-    bytes.subarray(Math.max(0, first - 250) * 32, last * 32),
-    "day",
-  );
-}
-
+import { parseBenchmarkWindow, readStableLocalFile } from "tstdx/local";
+export { parseBenchmarkWindow } from "tstdx/local";
 export async function readBenchmarkSnapshot(
   root: string,
   start: string,
@@ -49,7 +23,7 @@ export async function readBenchmarkSnapshot(
   try {
     const path = join(resolve(root), "vipdoc/sh/lday/sh000001.day");
     const before = await stat(path),
-      bytes = await readFile(path),
+      bytes = (await readStableLocalFile(path)).body,
       after = await stat(path);
     if (
       bytes.length !== before.size ||

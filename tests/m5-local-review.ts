@@ -5,11 +5,8 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import {
-  parseBars,
-  isAStock,
-  readSnapshot,
-} from "../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "../src/server/data-sources/tdx/tdx";
+import { parseBars, isAStock } from "tstdx/local";
 import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
 import { breakoutBatch } from "../src/server/strategies/breakout/breakout-batch";
 import { screenLocal } from "../src/server/screening/screening";

@@ -13,7 +13,7 @@ import {
   parseTdxLocalBlocks,
   readTdxLocalBlocks,
   tdxBlockFiles,
-} from "../../../src/server/data-sources/tdx/tdx-local-blocks";
+} from "tstdx/local";
 import {
   marketPoolCatalog,
   readMarketPool,

@@ -122,7 +122,7 @@ export function TdxFundamentalSummary({
         <Stat label="报告期净资产收益率" value={ratio(metrics.reportedRoe)} />
         <Stat label="报告期净利率" value={ratio(metrics.netMargin)} />
         <Stat
-          label="资产负债率（财务包口径下界）"
+          label="资产负债率（总负债/总资产）"
           value={ratio(metrics.debtRatio)}
         />
         <Stat
@@ -144,12 +144,10 @@ export function TdxFundamentalSummary({
       </div>
       <p className="text-xs text-muted-foreground">
         报表数字全部来自本地专业财务包，报告期取自包头，读盘即得、不依赖公共服务器；
-        字段下标已对 30 只标的与协议快照比对锁定。年化是「报告期累计 ×
-        季度倍数」（一季 ×4、半年 ×2、三季 ×4/3、年报 ×1），
+        字段按通达信官方专业财务定义映射。基本每股收益使用报表原值，净利率使用合并净利润。年化是「报告期累计
+        × 季度倍数」（一季 ×4、半年 ×2、三季 ×4/3、年报 ×1），
         <strong>不是 TTM</strong>
-        ，也不做季节性调整。资产负债率的分子只含财务包给出的流动负债与长期负债，
-        实测低于真实总负债（sz000002 为 69.5%，公开口径约
-        75%），只能当下界看；没有流动负债明细的银行股整体留空而不是记 0。
+        ，也不做季节性调整。资产负债率使用负债合计与资产总计，银行无流动负债拆分时仍使用总负债。
         需要可核验的完整财报请走基本面分析与财务质量档案。
       </p>
       {statementGroups.map((group) => (

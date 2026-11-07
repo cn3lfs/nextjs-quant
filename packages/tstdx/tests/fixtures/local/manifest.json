@@ -1,0 +1,64 @@
+[
+  {
+    "fixture": "gpcw20260930.dat",
+    "origin": "E:\\new_tdx64\\vipdoc\\cw\\gpcw20260930.dat",
+    "originSha256": "2c431fe56b733dd01e5dd8aea094da2510e15101ebaf7eb2abf1fd1be8ee9ef2",
+    "note": "Two records selected and index offsets rebuilt; raw float fields unchanged.",
+    "sha256": "bd80e90d64d0966454058b6e94ecdf590ea350bc3282d69509528cf8e894ab93"
+  },
+  {
+    "fixture": "gpsz000001.dat",
+    "origin": "E:\\new_tdx64\\vipdoc\\cw\\gpsz000001.dat",
+    "originSha256": "0f0950e744dffde5dcb6fa02a84d29be3384ea16b4860d96ac9d43df32034576",
+    "groups": [
+      1,
+      3,
+      15,
+      49
+    ],
+    "sha256": "63529e72b71b64bbc18d26714efbecd3a7387bc425aca4ae8bd45117632cc948"
+  },
+  {
+    "fixture": "gpsh880301.dat",
+    "origin": "E:\\new_tdx64\\vipdoc\\cw\\gpsh880301.dat",
+    "originSha256": "6c46611b1e4a52898a84ed4320d8507335f61c5694fab8f08a4a51454fe33cc2",
+    "groups": [
+      5,
+      6,
+      17
+    ],
+    "sha256": "66fda11c93c36a612e12756451f59fba57f86697776952734e2b3b107c7c5c14"
+  },
+  {
+    "fixture": "gpsh999999.dat",
+    "origin": "E:\\new_tdx64\\vipdoc\\cw\\gpsh999999.dat",
+    "originSha256": "304554220b10e774832447ecd94b7a2492440f7e40c390a9da254ffd2b748649",
+    "groups": [
+      1,
+      31,
+      99
+    ],
+    "sha256": "06cbd397ea2fc14c90cd183312d34989526cd0999a17f265d3b1efa1d9c0e78d"
+  },
+  {
+    "fixture": "shs.tnf",
+    "origin": "E:/new_tdx64/T0002/hq_cache/shs.tnf",
+    "originSha256": "4086edaab38225af6bff95513a7be7bc33f5469fd7d6263ce284f669f72ec12f",
+    "sha256": "19a17367b7dd7324783188fcbce58a076b12c2f359082db230194148740a778c",
+    "note": "Header and one 600519 record copied unchanged; read-only binary evidence."
+  },
+  {
+    "fixture": "base.dbf",
+    "origin": "E:\\new_tdx64\\T0002\\hq_cache\\base.dbf",
+    "originSha256": "278373dca5a960367d996f31d8452acfccc49e789b855024b5a27b686f528030",
+    "sha256": "166dd7b5ee3938602b9974a7608a218ef66abad8770505e1c147e2a96141decd",
+    "note": "Original column descriptors and two unchanged records; header count rebuilt. Raw column meanings not certified as GO."
+  },
+  {
+    "fixture": "base.map",
+    "origin": "E:\\new_tdx64\\T0002\\hq_cache\\base.map",
+    "originSha256": "9b6372a0f28fa2fc203e4bc5c1b741e07726a39587230bdaed21aab99de94086",
+    "sha256": "a3be18a113a4a13e600a16bbc51e897f728807b64bb435a2b046da7b76767c45",
+    "note": "First five nonempty text records copied unchanged."
+  }
+]

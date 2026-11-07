@@ -11,7 +11,10 @@ import {
   localLedgerActions,
   type LedgerDependencies,
 } from "../../../src/server/monitoring/signal-ledger-job";
-import { analyzeCzsc, closeCzsc } from "../../../src/server/strategies/chan/czsc";
+import {
+  analyzeCzsc,
+  closeCzsc,
+} from "../../../src/server/strategies/chan/czsc";
 import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
 import { ledgerSignals } from "../../../src/server/monitoring/signal-ledger-engine";
 import {
@@ -432,7 +435,7 @@ it("migration preserves old tables/records and repeated migrations and settled w
 
 it("readable market-wide GBBQ covers symbols with no events; stale and unavailable files remain unknown", async () => {
   const event = { date: "2025-03-14", category: 2, name: "送配股上市" };
-  const module = await import("../../../src/server/data-sources/tdx/tdx-gbbq");
+  const module = await import("tstdx/local");
   const read = vi.spyOn(module, "readGbbq");
   try {
     read.mockResolvedValue({

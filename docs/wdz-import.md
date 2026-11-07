@@ -53,7 +53,7 @@ pnpm wdz:import --source "E:\BaiduNetdiskDownload\SHSZ_5Min_update" --tdx-root "
 
 ## 实现和格式边界
 
-`native/tdx-import/wdz.c` 负责 XOR、紧凑行情解码、数值舍入和 CSV/LC5 编码；Node 复用自带的原生 MD5/zlib，并负责文件 I/O 和调度。`five-minute-native.ts` 是两种数据源共用的 LC5 写入器。已完整覆盖的输入时间段通过 C 二分查找定位后比较；只读映射用于核验，可写映射用于源支持的成交量修复。修复先核验整个输入区间，再仅改量字段并刷新映射；存在缺口时关闭映射，回到历史合并。不对整份多年历史反复复制。Windows接口见 [CreateFileMappingW](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw)、[MapViewOfFile](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile)。
+`packages/tstdx/native/wdz.c` 负责 XOR、紧凑行情解码、数值舍入和 CSV/LC5 编码；Node 复用自带的原生 MD5/zlib，并负责文件 I/O 和调度。`tstdx/native` 是两种数据源共用的 LC5 写入器，应用旧文件为兼容转发。已完整覆盖的输入时间段通过 C 二分查找定位后比较；只读映射用于核验，可写映射用于源支持的成交量修复。修复先核验整个输入区间，再仅改量字段并刷新映射；存在缺口时关闭映射，回到历史合并。不对整份多年历史反复复制。Windows接口见 [CreateFileMappingW](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw)、[MapViewOfFile](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile)。
 
 目前支持已提供的沪深五分钟 `0x105` 格式。块头为两个 LE uint32 `n,m`，加密数据长 `n-4`，下一块位置为当前偏移加 `n+4`。文件尾 uint32 指向索引块；索引每项 32 字节，允许同一品种占多个块，通过“块位置＋块内位置”定位。种子 `WSTOCK`＋LE(n)＋LE(m)＋`.net`，分别在字节 6、8、10 依次累积改成 `X`，四次 MD5 的大写十六进制拼接成 128 字节循环 XOR 密钥，随后 zlib 解压。块长度、zlib 校验、元数据、索引与记录边界属于解析正确性检查。
 

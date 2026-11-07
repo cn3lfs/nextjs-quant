@@ -1,9 +1,6 @@
 import { expect, it } from "vitest";
 import { TdxSession } from "../../../src/server/data-sources/tdx/tdx-quotes";
-import {
-  buildBarsRequest,
-  parseBars,
-} from "../../../src/server/data-sources/tdx/tdx-wire";
+import { buildBarsRequest, parseBars } from "tstdx/wire";
 
 it.skipIf(!process.env.QUANT_TDX_INDEX_AUDIT)(
   "reads index bars directly from TDX",

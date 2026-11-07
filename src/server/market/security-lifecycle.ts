@@ -3,7 +3,7 @@ import { z } from "zod";
 import { symbolSchema } from "~/lib/domain";
 import { get, put } from "../db";
 import { request } from "../data-sources/hithink/hithink-context";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 
 const responseSchema = z.object({
   status_code: z.literal(0),

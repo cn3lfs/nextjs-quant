@@ -134,9 +134,29 @@ it("T4 marks preparation complete only after every copy succeeds and removes obs
       await cp(source, destination, { recursive: true });
   });
   expect(await runPrepare({ root, guard: () => {}, copy })).toBe(0);
-  expect(copy).toHaveBeenCalledTimes(7);
+  expect(copy).toHaveBeenCalledTimes(8);
+  expect(copy).toHaveBeenCalledWith(
+    join(root, "docs/data-sources/public-factors/qlib-v0.9.7/LICENSE"),
+    join(root, ".next/standalone/third-party-notices/Qlib-LICENSE"),
+    undefined,
+  );
   expect(await readFile(marker, "utf8")).toBe("build-current");
   await expect(assertStandaloneReady(root)).resolves.toBeUndefined();
+});
+
+it("does not mark a desktop build prepared when its Qlib license copy fails", async () => {
+  const root = await fixture();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const copy = vi.fn(async (source: string) => {
+    if (source.endsWith(join("qlib-v0.9.7", "LICENSE")))
+      throw Object.assign(new Error("Missing Qlib license"), {
+        code: "ENOENT",
+      });
+  });
+  expect(await runPrepare({ root, guard: () => {}, copy })).toBe(1);
+  await expect(
+    readFile(join(root, ".next/standalone/.next/desktop-prepared-build-id")),
+  ).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 it("T4 allows matching build IDs and static files to launch the server", async () => {

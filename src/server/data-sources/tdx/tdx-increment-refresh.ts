@@ -1,8 +1,5 @@
 import { atomic } from "../../db";
-import {
-  downloadDailyIncrement,
-  extractDailyIncrement,
-} from "./tdx-increment-download";
+import { downloadDailyIncrement, extractDailyIncrement } from "tstdx/local";
 import { publishDailyIncrement } from "./tdx-daily-cache";
 import { symbolSchema } from "~/lib/domain";
 

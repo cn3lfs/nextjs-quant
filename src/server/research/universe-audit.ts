@@ -12,7 +12,7 @@ import type { Coverage } from "~/lib/domain";
 import { get, sqlite } from "../db";
 import { settings } from "../infra/settings";
 import { storedSecurityLifecycle } from "../market/security-lifecycle";
-import { readTdxCodeChanges } from "../data-sources/tdx/tdx-code-changes";
+import { readTdxCodeChanges } from "tstdx/local";
 import { readMarketPool } from "../market/market-pool-files";
 import { fullDaySymbols } from "../data-sources/tdx/tdx-full-day-cache";
 import { ResearchStore } from "../backtest/research-store";

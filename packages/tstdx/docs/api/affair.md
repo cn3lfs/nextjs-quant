@@ -21,6 +21,8 @@ import { parseFinancialReport, parseFinancialFileList } from "tstdx";
 type TdxFinancialReport = {
   sourceFilename?: string;
   sourceSha256: string;
+  contentSha256: string; // DAT内容指纹，ZIP与其原始DAT一致
+  status: "valid" | "placeholder";
   formatVersion: number;
   reportDate: number; // YYYYMMDD，来自包头
   recordCount: number;
@@ -56,6 +58,8 @@ console.log(record?.values.length); // 584
 ```
 
 ZIP 输入会自动解压（只支持内含单个 DAT）。`sourceSha256` 是**输入字节**的哈希，可用于追溯是哪一份文件产出了某个结论。
+
+20字节零记录占位包返回 `placeholder`；不作为有效报告。输入/解压上限64MiB；索引重叠、越界、非有限数、ZIP CRC/目录与文件名报告期冲突均拒绝。字段语义、GP/BK/SC序列、清单与目录读取见[本地客户端数据](local.md)。
 
 ## 02. 解析远程文件清单
 

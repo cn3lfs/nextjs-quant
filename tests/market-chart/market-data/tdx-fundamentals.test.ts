@@ -23,11 +23,13 @@ const report: ReportFields = {
   inventory: 61_317_208_000,
   receivables: 570_895.0625,
   currentLiabilities: 46_645_076_000,
-  longTermLiabilities: 10_842_758_000,
+  nonCurrentLiabilities: 309_358_720,
+  totalLiabilities: 46_954_434_720,
+  reportedEps: 35.57,
   capitalReserve: 1_577_000,
-  netAssets: 251_253_600_000,
+  parentEquity: 251_253_600_000,
   mainRevenue: 90_703_264_000,
-  mainProfit: 9_473_762_000,
+  operatingCost: 9_473_762_000,
   operatingProfit: 61_411_288_000,
   investmentIncome: 1_013_800,
   totalProfit: 61_438_420_000,
@@ -85,17 +87,17 @@ describe("派生指标", () => {
     expect(m.bookValuePerShare.value).toBe(200.99);
     // 1272.75 / 200.99 = 6.3324046
     expect(m.priceToBook.value).toBeCloseTo(1272.75 / 200.99, 10);
-    // 44,516,880,000 / 1,250,081,562.5 = 35.61117；半年报年化 ×2 = 71.22234
-    expect(m.reportedEps.value).toBeCloseTo(35.61117, 4);
-    expect(m.annualizedEps.value).toBeCloseTo(71.22234, 4);
-    expect(m.annualizedPe.value).toBeCloseTo(17.87009, 4);
+    // 44,516,880,000 / 1,250,081,562.5 = 35.57；半年报年化 ×2 = 71.14
+    expect(m.reportedEps.value).toBeCloseTo(35.57, 4);
+    expect(m.annualizedEps.value).toBeCloseTo(71.14, 4);
+    expect(m.annualizedPe.value).toBeCloseTo(1272.75 / 71.14, 4);
     expect(m.priceToSales.value).toBeCloseTo(8.770585, 5);
     // 44,516,880,000 / 251,253,600,000 = 17.718%
     expect(m.reportedRoe.value).toBeCloseTo(0.17718, 5);
-    // 44,516,880,000 / 90,703,264,000 = 49.08%
-    expect(m.netMargin.value).toBeCloseTo(0.4908, 5);
-    // (46,645,076,000 + 10,842,758,000) / 309,050,784,000 = 18.60%
-    expect(m.debtRatio.value).toBeCloseTo(0.18601, 5);
+    // 44,516,880,000 / 90,703,264,000 = 50.75%
+    expect(m.netMargin.value).toBeCloseTo(46_033_328_000 / 90_703_264_000, 5);
+    // (46,645,076,000 + 10,842,758,000) / 309,050,784,000 = 15.19%
+    expect(m.debtRatio.value).toBeCloseTo(46_954_434_720 / 309_050_784_000, 5);
     expect(m.undistributedPerShare.value).toBeCloseTo(159.73615, 5);
     expect(m.sharesPerHolder.value).toBeCloseTo(4217.4922, 4);
   });
@@ -114,8 +116,8 @@ describe("派生指标", () => {
     });
     // 不依赖快照的口径全部照常
     expect(m.priceToBook.value).toBeCloseTo(1272.75 / 200.99, 10);
-    expect(m.reportedEps.value).toBeCloseTo(35.61117, 4);
-    expect(m.debtRatio.value).toBeCloseTo(0.18601, 5);
+    expect(m.reportedEps.value).toBeCloseTo(35.57, 4);
+    expect(m.debtRatio.value).toBeCloseTo(46_954_434_720 / 309_050_784_000, 5);
   });
   it("每股指标用报告期末股本，不因最新股本变动而改变", () => {
     // 报告期后增发一倍：市值翻倍，但每股收益与每股净资产必须不变
@@ -123,7 +125,7 @@ describe("派生指标", () => {
       latestShares: { totalShares: 2_500_163_125, floatShares: 2_500_163_125 },
     });
     expect(m.marketCap.value).toBeCloseTo(2 * 1_591_041_308_671.875, 3);
-    expect(m.reportedEps.value).toBeCloseTo(35.61117, 4);
+    expect(m.reportedEps.value).toBeCloseTo(35.57, 4);
     expect(m.bookValuePerShare.value).toBe(200.99);
     expect(m.undistributedPerShare.value).toBeCloseTo(159.73615, 5);
   });
@@ -136,7 +138,7 @@ describe("派生指标", () => {
     });
     expect(m.annualizedPe.value).toBeNull();
     expect(m.priceToSales.value).toBeNull();
-    expect(m.reportedEps.value).toBeCloseTo(35.61117, 4);
+    expect(m.reportedEps.value).toBeCloseTo(35.57, 4);
     expect(m.reportedRoe.value).toBeCloseTo(0.17718, 5);
   });
   it("实时价不可得时价格相关指标留空并说明，不回退到其他价格", () => {
@@ -149,7 +151,7 @@ describe("派生指标", () => {
     expect(m.annualizedPe.value).toBeNull();
     expect(m.priceToSales.value).toBeNull();
     // 与价格无关的口径仍然可得
-    expect(m.reportedEps.value).toBeCloseTo(35.61117, 4);
+    expect(m.reportedEps.value).toBeCloseTo(35.57, 4);
     expect(m.bookValuePerShare.value).toBe(200.99);
   });
   it("每股净资产取归母口径，不由净资产除总股本自算", () => {
@@ -161,32 +163,38 @@ describe("派生指标", () => {
     const bank = {
       ...report,
       bookValuePerShare: 24.13,
-      netAssets: 548_214_016_000,
+      parentEquity: 548_214_016_000,
       totalShares: 19_405_918_750,
     };
     const m = metricsOf({ report: bank, price: 11.82, latestShares: null });
     expect(m.bookValuePerShare.value).toBe(24.13);
-    expect(bank.netAssets / bank.totalShares).toBeCloseTo(28.25, 2);
+    expect(bank.parentEquity / bank.totalShares).toBeCloseTo(28.25, 2);
     // 11.82 / 24.13 = 0.4899；若改用自算的 28.25 会得到 0.4184
     expect(m.priceToBook.value).toBeCloseTo(0.489847, 5);
     expect(m.priceToBook.value).not.toBeCloseTo(11.82 / 28.25, 4);
   });
-  it("没有流动负债明细时资产负债率留空，不记 0 也不只按长期负债算", () => {
+  it("银行没有流动负债明细时仍按独立总负债计算，不能误用少数股东权益", () => {
     // sz000001 两项均为 0；sh601398 与 sh600036 只有长期负债，
     // 相加会得到 0.05% 这种假数字，必须整体留空。
     for (const bank of [
-      { currentLiabilities: 0, longTermLiabilities: 0 },
-      { currentLiabilities: 0, longTermLiabilities: 288_500_000_000 },
+      { currentLiabilities: 0, nonCurrentLiabilities: 0 },
+      { currentLiabilities: 0, nonCurrentLiabilities: 288_500_000_000 },
     ])
-      expect(metricsOf({ report: { ...report, ...bank } }).debtRatio).toEqual({
-        value: null,
-        reason: "财务包未提供流动负债明细或总资产不可得",
-      });
-    expect(metricsOf().debtRatio.value).toBeCloseTo(0.18601, 5);
+      expect(
+        metricsOf({ report: { ...report, ...bank } }).debtRatio.value,
+      ).toBeCloseTo(report.totalLiabilities / report.totalAssets, 10);
+    expect(
+      metricsOf({ report: { ...report, totalLiabilities: Number.NaN } })
+        .debtRatio,
+    ).toEqual({ value: null, reason: "总负债或总资产不可得" });
+    expect(metricsOf().debtRatio.value).toBeCloseTo(
+      46_954_434_720 / 309_050_784_000,
+      5,
+    );
   });
   it("亏损时年化市盈率留空而不是给出负数", () => {
     const m = metricsOf({
-      report: { ...report, netProfit: -20_000_000_000 },
+      report: { ...report, netProfit: -20_000_000_000, reportedEps: -16 },
     });
     expect(m.annualizedEps.value).toBeLessThan(0);
     expect(m.annualizedPe.value).toBeNull();
@@ -197,7 +205,7 @@ describe("派生指标", () => {
       report: {
         ...report,
         totalShares: 0,
-        netAssets: 0,
+        parentEquity: 0,
         totalAssets: 0,
         mainRevenue: 0,
         shareholders: 0,
@@ -211,8 +219,6 @@ describe("派生指标", () => {
       m.floatRatio,
       m.bookValuePerShare,
       m.priceToBook,
-      m.reportedEps,
-      m.annualizedPe,
       m.priceToSales,
       m.reportedRoe,
       m.netMargin,
@@ -223,6 +229,8 @@ describe("派生指标", () => {
     ])
       expect(metric.value).toBeNull();
     expect(m.sharesBasis).toBeNull();
+    expect(m.reportedEps.value).toBe(35.57);
+    expect(m.annualizedPe.value).toBeCloseTo(1272.75 / 71.14, 10);
   });
 });
 
@@ -233,7 +241,7 @@ describe("字段分区", () => {
     );
     for (const field of [
       "totalAssets",
-      "netAssets",
+      "parentEquity",
       "netProfit",
       "mainRevenue",
       "currentLiabilities",

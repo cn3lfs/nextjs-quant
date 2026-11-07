@@ -46,11 +46,7 @@ import {
   securityQuotes,
   transactionPage,
 } from "../../data-sources/tdx/tdx-quotes";
-import {
-  KLINE,
-  PAGE_LIMIT,
-  QUOTES_BATCH_LIMIT,
-} from "../../data-sources/tdx/tdx-wire";
+import { KLINE, PAGE_LIMIT, QUOTES_BATCH_LIMIT } from "tstdx/wire";
 import { limitSentiment } from "../../market/limit-sentiment";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";

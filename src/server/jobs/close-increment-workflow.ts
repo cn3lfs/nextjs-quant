@@ -1,7 +1,7 @@
 import { get } from "../db";
 import { settings } from "../infra/settings";
 import { completedRpsObservation } from "../screening/rps-observation";
-import { securityNames, isAStock } from "../data-sources/tdx/tdx";
+import { securityNames, isAStock } from "tstdx/local";
 import { isRpsMarketSymbol } from "~/lib/screening/rps";
 import {
   runIncrementJob,

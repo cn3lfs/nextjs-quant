@@ -14,7 +14,7 @@ import {
   type BreakoutPoint,
 } from "../strategies/breakout/breakout";
 import { readSnapshot, scan } from "../data-sources/tdx/tdx";
-import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
+import { readGbbq } from "tstdx/local";
 import {
   localCalendarReference,
   type CalendarReference,

@@ -6,6 +6,8 @@ const componentDomains = [
   "backtest",
   "common",
   "data-sources",
+  "factors",
+  "financial",
   "intraday",
   "market",
   "news",
@@ -45,6 +47,10 @@ it("keeps test suites inside their owning module directories", () => {
     .map(String)
     .filter((entry) => /\.(test|spec)\.tsx?$/.test(entry));
   expect(suites.length).toBeGreaterThan(450);
-  expect(suites.every((entry) => entry.includes("/") || entry.includes("\\"))).toBe(true);
-  expect(suites.some((entry) => /(?:^|[\\/])fixtures[\\/]/.test(entry))).toBe(false);
+  expect(
+    suites.every((entry) => entry.includes("/") || entry.includes("\\")),
+  ).toBe(true);
+  expect(suites.some((entry) => /(?:^|[\\/])fixtures[\\/]/.test(entry))).toBe(
+    false,
+  );
 });

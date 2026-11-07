@@ -1,6 +1,6 @@
 import type { Bar } from "../../domain";
 import type { VolumeEvidence } from "../methods/volume/research-volume-grid";
-import type { TdxXdxr } from "~/server/data-sources/tdx/tdx-wire";
+import type { TdxXdxr } from "tstdx/wire";
 
 export type EventCoverageStatus = "derived" | "unknown";
 export type DailyEventCoverage = {

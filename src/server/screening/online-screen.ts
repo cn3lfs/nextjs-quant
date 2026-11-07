@@ -4,7 +4,7 @@ import { mcpTools, queryMcp } from "../data-sources/tdx/tdx-mcp-disabled";
 import { background } from "../jobs/jobs";
 import { get } from "../db";
 import type { Coverage } from "~/lib/domain";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 const payloadSchema = z.object({
   meta: z.object({
     code: z.number(),

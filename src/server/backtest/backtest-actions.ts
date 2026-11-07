@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
-import { readGbbq } from "../data-sources/tdx/tdx-gbbq";
+import { readGbbq } from "tstdx/local";
 
 const date = z
   .string()

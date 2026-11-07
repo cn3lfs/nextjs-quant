@@ -224,8 +224,7 @@ describe("五分钟批次", () => {
       target = join(tdx, "vipdoc", "sz", "fzline", "sz000001.lc5");
     const extended =
       csv + "2026-09-01 09:40:00,11.78,11.78,11.85,11.85,120947,142908400\n";
-    const format =
-      await import("../../src/server/data-sources/tdx/five-minute-csv");
+    const format = await import("tstdx/local");
     const original = format.encodeFiveMinuteBar(
       format.parseFiveMinuteCsv(csv, "lots")[0]!,
     );

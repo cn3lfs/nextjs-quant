@@ -3,11 +3,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import samples from "../fixtures/vipdoc-source-samples.json";
-import {
-  isLocalFund,
-  readTailSnapshot,
-  parseBars,
-} from "../../src/server/data-sources/tdx/tdx";
+import { readTailSnapshot } from "../../src/server/data-sources/tdx/tdx";
+import { isLocalFund, parseBars } from "tstdx/local";
 import { readVipdocChart as readSnapshot } from "../../src/server/data-sources/tdx/vipdoc-adapter";
 
 it("本地 ETF 日线按三位精度读取，分钟浮点价格不缩放，研究证券池不扩展", async () => {

@@ -7,7 +7,7 @@ import {
   industrySnapshotSchema,
   type IndustrySnapshot,
 } from "~/lib/screening/industry-rps";
-import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
+import { readTdxLocalBlocks } from "tstdx/local";
 import { rpsHash } from "../infra/content-hash";
 import wdzExclusions from "../data/wdz-block-ranking-exclusions.json";
 

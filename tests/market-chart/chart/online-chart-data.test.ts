@@ -5,7 +5,7 @@ import {
   onlineChartSnapshot,
   parseOnlineChart,
 } from "../../../src/server/charts/online-chart-data";
-import { parseBars } from "../../../src/server/data-sources/tdx/tdx-wire";
+import { parseBars } from "tstdx/wire";
 
 afterEach(() => vi.unstubAllGlobals());
 it("validates online symbol and OHLC fields, retaining amounts and original volume units", async () => {

@@ -9,7 +9,7 @@ import {
   eligibilityFromTdx,
   filterBlockSnapshot,
 } from "~/server/market/block-eligibility";
-import { readTdxLocalBlocks } from "~/server/data-sources/tdx/tdx-local-blocks";
+import { readTdxLocalBlocks } from "tstdx/local";
 import { readRpsBlockSource } from "~/server/screening/rps-block-source";
 
 const archive = "docs/data-sources/wdz-blocks/2026-11-07";

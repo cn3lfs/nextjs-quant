@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { get, put, sqlite } from "../db";
 import { settings } from "../infra/settings";
-import { securityNames, isAStock } from "../data-sources/tdx/tdx";
+import { securityNames, isAStock } from "tstdx/local";
 import { storedSecurityLifecycle } from "./security-lifecycle";
 import { storedSecurityTradingStatus } from "./security-trading-status";
 import { exchangeNames } from "./exchange-security-names";
 import type { Coverage } from "~/lib/domain";
-import { readInfoharborNames } from "../data-sources/tdx/tdx-local-names";
-import { readTdxCodeChanges } from "../data-sources/tdx/tdx-code-changes";
+import { readInfoharborNames } from "tstdx/local";
+import { readTdxCodeChanges } from "tstdx/local";
 export type SecurityProfile = {
   symbol: string;
   name: string;

@@ -10,8 +10,8 @@ import {
   type RpsExclusion,
   type RpsRow,
 } from "~/lib/screening/rps";
-import { adjustmentFactors } from "../data-sources/tdx/tdx-gbbq";
-import type { TdxXdxr } from "../data-sources/tdx/tdx-wire";
+import { adjustmentFactors } from "tstdx/local";
+import type { TdxXdxr } from "tstdx/wire";
 
 export type RpsSecurity = {
   symbol: string;

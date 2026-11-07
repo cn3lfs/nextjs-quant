@@ -31,7 +31,7 @@ import {
   adjustmentFactors,
   applyAdjustmentByDate,
   readGbbq,
-} from "../data-sources/tdx/tdx-gbbq";
+} from "tstdx/local";
 
 /** 补齐本地尾部之后所需的在线根数：长假缺口最多约 11 个交易日，另需至少 2 根与本地重叠。 */
 const deltaWindow = 20;

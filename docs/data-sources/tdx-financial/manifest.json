@@ -1,0 +1,42 @@
+[
+  {
+    "namespace": "FN",
+    "url": "https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10m001ic888.html",
+    "retrievedOn": "2026-11-07",
+    "responseSha256": "391d711eb3b6c35d6d2ca4121ada061f48733615f0665716bfdc786f2fd31dd3",
+    "metadataSha256": "c3411b260081e7177f1455306b3925a7bde4f0aadd131c3163621597ee938764",
+    "fields": 478
+  },
+  {
+    "namespace": "GP",
+    "url": "https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10muc82r55k.html",
+    "retrievedOn": "2026-11-07",
+    "responseSha256": "351e28865b19200fc187c67e01632c46b390ef252c45a717c5c5b5d021dcf869",
+    "metadataSha256": "c7cb02b8f2c7d6f8697bef5644647e7a3812930c6c4a2dc76812f51e28545169",
+    "fields": 52
+  },
+  {
+    "namespace": "BK",
+    "url": "https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10p0ncmp5mc.html",
+    "retrievedOn": "2026-11-07",
+    "responseSha256": "77481f28e644e27363a7054b4ce992f7b520a702f435694c2acd8d5b2a6d47dc",
+    "metadataSha256": "e08453add1abe554c0d2f7d6849207559df857d3d0b5d2b7b1e3b17e54cec4c3",
+    "fields": 15
+  },
+  {
+    "namespace": "SC",
+    "url": "https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10p8op6ia9g.html",
+    "retrievedOn": "2026-11-07",
+    "responseSha256": "d59fd4b8fa53f1b5b375e64370f558843998122aabf395b0efafe363bae39c02",
+    "metadataSha256": "67d73b4b60ad76bcda22d9dda68b48ab5fe93e7b2b0bcf61e0c29aab5ac17324",
+    "fields": 42
+  },
+  {
+    "namespace": "GO",
+    "url": "https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10pk3rsg044.html",
+    "retrievedOn": "2026-11-07",
+    "responseSha256": "a40d2c8932a56abfbd832a89581f23e0a9f5990ccff6058f869dad9b1de8e017",
+    "metadataSha256": "1384b30b75b88374b093a1ab7a1475a6d9cfcc560b047f05391952c2e796b403",
+    "fields": 48
+  }
+]

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { symbolSchema } from "~/lib/domain";
 import { atomic, get, put, sqlite } from "../../db";
-import { inspectFullDayPackage } from "./tdx-full-day-import";
-import { isLocalFund } from "./tdx";
+import { inspectFullDayPackage } from "tstdx/local";
+import { isLocalFund } from "tstdx/local";
 const fundDecoderVersion = "tdx-full-day-fund-3-v1";
 
 type Pointer = {

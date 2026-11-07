@@ -10,8 +10,8 @@ import {
 } from "node:fs/promises";
 import { join, basename, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { readWdzLc5 } from "../src/server/data-sources/tdx/wdz-native";
-import { importFiveMinuteBuffer } from "../src/server/data-sources/tdx/five-minute-native";
+import { readWdzLc5 } from "tstdx/native";
+import { importFiveMinuteBuffer } from "tstdx/native";
 import { tdxImportTargets } from "./lib/tdx-import-paths";
 const volumePolicy = "wdz-auto-v4-source-amount";
 

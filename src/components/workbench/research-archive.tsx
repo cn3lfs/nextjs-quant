@@ -1,5 +1,6 @@
 import { FinancialQualityPanel } from "../research/financial-quality-panel";
 import { ValuationPanel } from "../research/valuation-panel";
+import { LocalFinancialWorkbench } from "../financial/local-financial-workbench";
 
 import { ArchiveList } from "./archive-list";
 import { Scales } from "@phosphor-icons/react/ssr";
@@ -22,11 +23,20 @@ export function ResearchArchive({
         bodyClassName="flex flex-col gap-[var(--nc-gap)]"
       >
         <ValuationPanel key={symbol} symbol={symbol} />
-        <FinancialQualityPanel
-          key={`financial-${symbol}`}
+        <LocalFinancialWorkbench
+          key={`local-financial-${symbol}`}
           symbol={symbol}
-          snapshot={loaded ?? undefined}
         />
+        <details>
+          <summary className="cursor-pointer text-sm">
+            同花顺在线财务质量与历史档案
+          </summary>
+          <FinancialQualityPanel
+            key={`financial-${symbol}`}
+            symbol={symbol}
+            snapshot={loaded ?? undefined}
+          />
+        </details>
       </Panel>
     </PageGrid>
   );

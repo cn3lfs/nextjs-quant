@@ -4,10 +4,10 @@ import { get, put } from "../../db";
 import { settings } from "../../infra/settings";
 import { researchModel } from "../../research/research";
 import {
-  isAStock,
   readTailSnapshot,
   readHistoricalSnapshot,
 } from "../../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { localCalendarReference } from "../../market/data-health";
 import { analyzeWyckoff } from "./wyckoff-report";
 import { gatherWyckoffMarket } from "./wyckoff-market";

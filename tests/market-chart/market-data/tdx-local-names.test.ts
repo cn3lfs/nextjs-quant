@@ -2,10 +2,7 @@ import { expect, it } from "vitest";
 import { readFile, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-  parseInfoharborNames,
-  readInfoharborNames,
-} from "../../../src/server/data-sources/tdx/tdx-local-names";
+import { parseInfoharborNames, readInfoharborNames } from "tstdx/local";
 import { securityDirectory } from "../../../src/server/market/securities";
 import { put } from "../../../src/server/db/index";
 

@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import { TdxSession } from "../../../src/server/data-sources/tdx/tdx-quotes";
-import * as wire from "../../../src/server/data-sources/tdx/tdx-wire";
+import * as wire from "tstdx/wire";
 
 it.skipIf(process.env.QUANT_TSTDX_INTERFACES !== "1")(
   "checks the remaining TCP interfaces independently without provider fallback",

@@ -147,6 +147,8 @@ type TdxMinute = { price: number; volume: number };
 
 20 个金额字段：`totalAssets`、`currentAssets`、`fixedAssets`、`intangibleAssets`、`inventory`、`receivables`、`currentLiabilities`、`longTermLiabilities`、`capitalReserve`、`netAssets`、`mainRevenue`、`mainProfit`、`operatingProfit`、`investmentIncome`、`totalProfit`、`afterTaxProfit`、`netProfit`、`undistributedProfit`、`operatingCashFlow`、`totalCashFlow`。
 
+上述是兼容历史协议的键名，金额量级核验不证明业务含义。特别是 `longTermLiabilities`、`mainProfit`、`netAssets`，不能直接据英文名作为长期负债、主营利润或归母权益。已验证的本地财务模型使用 FN62非流动负债、FN63总负债、FN75营业成本、FN72总权益、FN271归母权益；见[本地数据与模型](local.md)。原协议键和原有换算保留，以兼容旧消费者。
+
 > **历史提醒**：本包早期按"万元 ×10000"换算，会让所有金额**放大 10 倍**。升级到修正后的版本时，任何缓存下来的金额都要重算。
 
 ### ❌ 不可用
@@ -173,7 +175,7 @@ type TdxMinute = { price: number; volume: number };
 
 ### 银行股的缺口
 
-协议对银行股不给流动负债：sz000001 的 `currentLiabilities` 与 `longTermLiabilities` 都是 0，sh601398 与 sh600036 只有长期负债。直接相加算资产负债率会得到 0.05% 这类明显错误的值。**流动负债缺失就是明细不全，应当整体留空。**
+旧协议银行样本中，流动负债槽可能为0，而历史 `longTermLiabilities` 标签不能证明它是长期负债。不能将这两个槽直接相加作为总负债。当前本地模型直接使用 FN63总负债/FN40总资产，银行有已验证总额时也能计算；缺少总额或有效性证据时留空并给原因。
 
 ## 证券条目 `TdxSecurity`
 

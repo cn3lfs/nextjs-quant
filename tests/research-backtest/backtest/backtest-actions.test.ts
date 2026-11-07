@@ -1,8 +1,9 @@
 import { expect, it, vi } from "vitest";
-vi.mock("../../../src/server/data-sources/tdx/tdx-gbbq", () => ({
+vi.mock("tstdx/local", async (original) => ({
+  ...(await original<typeof import("tstdx/local")>()),
   readGbbq: vi.fn(),
 }));
-import { readGbbq } from "../../../src/server/data-sources/tdx/tdx-gbbq";
+import { readGbbq } from "tstdx/local";
 import {
   actionReview,
   readBacktestActions,

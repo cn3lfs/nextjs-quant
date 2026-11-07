@@ -34,7 +34,8 @@ vi.mock("../../src/server/market/data-health", () => ({
 vi.mock("../../src/server/data-sources/tdx/tdx", () => ({
   readSnapshot: async () => ({ bars: [{ date: "2026-09-10", close: 12 }] }),
 }));
-vi.mock("../../src/server/data-sources/tdx/tdx-gbbq", () => ({
+vi.mock("tstdx/local", async (original) => ({
+  ...(await original<typeof import("tstdx/local")>()),
   readGbbq: async () => ({
     path: "controlled-gbbq",
     modified: 1,

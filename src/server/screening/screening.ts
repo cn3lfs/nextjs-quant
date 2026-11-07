@@ -2,8 +2,8 @@ import { completedBarFilter } from "~/lib/completed-bars";
 import {
   readTailSnapshot,
   readHistoricalSnapshot,
-  securityNames,
 } from "../data-sources/tdx/tdx";
+import { securityNames } from "tstdx/local";
 import {
   screeningKey,
   screeningManifest,
@@ -11,7 +11,10 @@ import {
   cachePackedScreen,
 } from "./screen-cache";
 import { createHash } from "node:crypto";
-import { workProgress, type WorkProgress } from "~/lib/research/workflow/work-progress";
+import {
+  workProgress,
+  type WorkProgress,
+} from "~/lib/research/workflow/work-progress";
 import {
   summarizePool,
   type PoolContext,

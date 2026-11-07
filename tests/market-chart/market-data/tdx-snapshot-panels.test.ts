@@ -50,11 +50,13 @@ const report: ReportFields = {
   inventory: 61_317_208_000,
   receivables: 570_895.0625,
   currentLiabilities: 46_645_076_000,
-  longTermLiabilities: 10_842_758_000,
+  nonCurrentLiabilities: 309_358_720,
+  totalLiabilities: 46_954_434_720,
+  reportedEps: 35.57,
   capitalReserve: 1_577_000,
-  netAssets: 251_253_600_000,
+  parentEquity: 251_253_600_000,
   mainRevenue: 90_703_264_000,
-  mainProfit: 9_473_762_000,
+  operatingCost: 9_473_762_000,
   operatingProfit: 61_411_288_000,
   investmentIncome: 1_013_800,
   totalProfit: 61_438_420_000,
@@ -153,9 +155,9 @@ describe("基本面快照面板", () => {
     expect(html).toContain("gpcw20260630.dat");
     expect(html).toContain("15910.41 亿"); // 总市值
     expect(html).toContain("6.33"); // PB
-    expect(html).toContain("17.87"); // 年化 PE
-    expect(html).toContain("49.08%"); // 报告期净利率
-    expect(html).toContain("18.60%"); // 资产负债率
+    expect(html).toContain("17.89"); // 年化 PE
+    expect(html).toContain("50.75%"); // 报告期净利率
+    expect(html).toContain("15.19%"); // 资产负债率
     expect(html).toContain("200.990"); // 由净资产自算的每股净资产
     expect(html).toContain("读盘即得、不依赖公共服务器");
     expect(html).toContain("不是 TTM");
@@ -166,7 +168,7 @@ describe("基本面快照面板", () => {
     expect(pending).toContain("不可得：流通占比要等实时快照");
     // 不依赖快照的口径首屏就有
     expect(pending).toContain("6.33");
-    expect(pending).toContain("49.08%");
+    expect(pending).toContain("50.75%");
     // 语义未确认的协议槽位只在快照到达后出现
     expect(pending).not.toContain("语义未确认的协议槽位");
     const ready = render();
@@ -182,14 +184,14 @@ describe("基本面快照面板", () => {
       overlayError: "连接超时",
     });
     expect(failed).toContain("实时快照读取失败：连接超时");
-    expect(failed).toContain("49.08%");
+    expect(failed).toContain("50.75%");
     const lagged = render({ lag: "本地财务包最新一期是 2026-03-31" });
     expect(lagged).toContain("本地财务包最新一期是 2026-03-31");
   });
   it("没有实时价时市值与估值留空并说明，报表口径仍展示", () => {
     const html = render({ price: null });
     expect(html).toContain("不可得：实时价或总股本不可得");
-    expect(html).toContain("49.08%");
+    expect(html).toContain("50.75%");
     expect(html).not.toContain("15910.41 亿");
   });
   it("报表明细按元展示，且不含本地没有的字段", () => {

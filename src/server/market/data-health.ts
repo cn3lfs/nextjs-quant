@@ -1,7 +1,5 @@
-import { open, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { readLocalTradingDates } from "tstdx/local";
 import { createHash } from "node:crypto";
-import { parseBars } from "../data-sources/tdx/tdx";
 import type { Period } from "~/lib/domain";
 export type CalendarReference = {
   days: string[];
@@ -38,45 +36,7 @@ export async function localCalendarReference(
         .digest("hex"),
     };
   try {
-    const path = join(root, "vipdoc", "sh", "lday", "sh000001.day");
-    const handle = await open(path, "r");
-    let bytes: Buffer;
-    try {
-      const before = await handle.stat();
-      if (!before.isFile() || before.size % 32)
-        throw new Error("指数日期记录不完整");
-      const size = Math.min(before.size, 400 * 32);
-      bytes = Buffer.alloc(size);
-      let offset = 0;
-      while (offset < size) {
-        const { bytesRead } = await handle.read(
-          bytes,
-          offset,
-          size - offset,
-          before.size - size + offset,
-        );
-        if (!bytesRead) break;
-        offset += bytesRead;
-      }
-      const after = await handle.stat(),
-        current = await stat(path);
-      const unchanged = (value: typeof before) =>
-        value.dev === before.dev &&
-        value.ino === before.ino &&
-        value.size === before.size &&
-        value.mtimeMs === before.mtimeMs &&
-        value.ctimeMs === before.ctimeMs &&
-        value.birthtimeMs === before.birthtimeMs;
-      if (offset !== size || !unchanged(after) || !unchanged(current))
-        throw new Error("指数日期文件读取期间发生变化");
-    } finally {
-      await handle.close();
-    }
-    return {
-      days: parseBars(bytes, "day").map((bar) => bar.date),
-      source: "本地上证指数最近 400 根已有交易日期（非完整官方日历）",
-      hash: createHash("sha256").update(bytes).digest("hex"),
-    };
+    return await readLocalTradingDates(root, 400);
   } catch {
     return { days: [], source: "交易日期参考不可用", hash: null };
   }
@@ -106,63 +66,8 @@ export async function fullLocalCalendarReference(
         .digest("hex"),
     };
   try {
-    const path = join(root, "vipdoc", "sh", "lday", "sh000001.day");
-    const handle = await open(path, "r");
-    let bytes: Buffer;
-    try {
-      const before = await handle.stat();
-      if (!before.isFile() || before.size % 32)
-        throw new Error("指数日期记录不完整");
-      const size = before.size;
-      bytes = Buffer.alloc(size);
-      let offset = 0;
-      while (offset < size) {
-        const { bytesRead } = await handle.read(
-          bytes,
-          offset,
-          size - offset,
-          offset,
-        );
-        if (!bytesRead) break;
-        offset += bytesRead;
-      }
-      const after = await handle.stat(),
-        current = await stat(path);
-      const unchanged = (value: typeof before) =>
-        value.dev === before.dev &&
-        value.ino === before.ino &&
-        value.size === before.size &&
-        value.mtimeMs === before.mtimeMs &&
-        value.ctimeMs === before.ctimeMs &&
-        value.birthtimeMs === before.birthtimeMs;
-      if (offset !== size || !unchanged(after) || !unchanged(current))
-        throw new Error("指数日期文件读取期间发生变化");
-    } finally {
-      await handle.close();
-    }
-    const days: string[] = [];
-    // Calendar membership depends only on dates, including early records with invalid OHLC.
-    for (let offset = 0; offset < bytes.length; offset += 32) {
-      const raw = String(bytes.readUInt32LE(offset)).padStart(8, "0");
-      const day = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`;
-      const parsed = new Date(day);
-      if (
-        raw.length !== 8 ||
-        raw.slice(0, 4) === "0000" ||
-        !Number.isFinite(+parsed) ||
-        parsed.toISOString().slice(0, 10) !== day
-      )
-        throw new Error(`指数日期非法：${raw}`);
-      if (days.length && day <= days[days.length - 1]!)
-        throw new Error(`指数日期倒序或重复：${day}`);
-      days.push(day);
-    }
-    return {
-      days,
-      coverage: calendarCoverage(days),
-      source: "本地上证指数全部已有交易日期（非完整官方日历）",
-      hash: createHash("sha256").update(bytes).digest("hex"),
-    };
+    const reference = await readLocalTradingDates(root);
+    return { ...reference, coverage: calendarCoverage(reference.days) };
   } catch (error) {
     throw new Error(
       `完整交易日期参考读取失败：${error instanceof Error ? error.message : String(error)}`,

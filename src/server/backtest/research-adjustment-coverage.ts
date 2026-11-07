@@ -7,7 +7,7 @@ import {
   applyVolumeRatiosByDate,
   deriveVolumeRatios,
   type AdjustFactor,
-} from "../data-sources/tdx/tdx-gbbq";
+} from "tstdx/local";
 import type { ResearchDataset } from "./research-dataset";
 
 export type ResearchAdjustedCoverage = {

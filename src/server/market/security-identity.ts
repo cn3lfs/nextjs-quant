@@ -3,7 +3,7 @@ import { searchTencentIdentity } from "../data-sources/tencent/tencent-identity"
 import { get, put } from "../db";
 import { mergeVerifiedSecurityName } from "./securities";
 import { symbolSchema } from "~/lib/domain";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 export function checkTdxIdentity(data: unknown, symbol: string) {
   const rows = (data as { data?: unknown[] })?.data;
   if (!Array.isArray(rows))

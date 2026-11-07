@@ -17,7 +17,7 @@ import { ResearchStore } from "../../src/server/backtest/research-store";
 import { RpsStore } from "../../src/server/screening/rps-store";
 import { industryDay } from "../industry-rps-fixture";
 import { readMarketPool } from "../../src/server/market/market-pool-files";
-import { tdxBlockFiles } from "../../src/server/data-sources/tdx/tdx-local-blocks";
+import { tdxBlockFiles } from "tstdx/local";
 
 const blocked = vi.hoisted(() => ({
   request: vi.fn(() => {

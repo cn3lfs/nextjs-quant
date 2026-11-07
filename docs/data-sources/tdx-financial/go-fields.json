@@ -1,0 +1,242 @@
+[
+  {
+    "code": "GO1",
+    "section": "GO",
+    "label": "发行价(元)"
+  },
+  {
+    "code": "GO2",
+    "section": "GO",
+    "label": "总发行数量(万股)"
+  },
+  {
+    "code": "GO3",
+    "section": "GO",
+    "label": "一致预期目标价(元)[注：一致预期值均为近半年内各家机构预测数值的平均值]"
+  },
+  {
+    "code": "GO4",
+    "section": "GO",
+    "label": "一致预期T年度"
+  },
+  {
+    "code": "GO5",
+    "section": "GO",
+    "label": "一致预期T年每股收益"
+  },
+  {
+    "code": "GO6",
+    "section": "GO",
+    "label": "一致预期T+1年每股收益"
+  },
+  {
+    "code": "GO7",
+    "section": "GO",
+    "label": "一致预期T+2年每股收益"
+  },
+  {
+    "code": "GO8",
+    "section": "GO",
+    "label": "一致预期T年净利润(万元)"
+  },
+  {
+    "code": "GO9",
+    "section": "GO",
+    "label": "一致预期T+1年净利润(万元)"
+  },
+  {
+    "code": "GO10",
+    "section": "GO",
+    "label": "一致预期T+2年净利润(万元)"
+  },
+  {
+    "code": "GO11",
+    "section": "GO",
+    "label": "一致预期T年营业收入(万元)"
+  },
+  {
+    "code": "GO12",
+    "section": "GO",
+    "label": "一致预期T+1年营业收入(万元)"
+  },
+  {
+    "code": "GO13",
+    "section": "GO",
+    "label": "一致预期T+2年营业收入(万元)"
+  },
+  {
+    "code": "GO14",
+    "section": "GO",
+    "label": "一致预期T年营业利润(万元)"
+  },
+  {
+    "code": "GO15",
+    "section": "GO",
+    "label": "一致预期T+1年营业利润(万元)"
+  },
+  {
+    "code": "GO16",
+    "section": "GO",
+    "label": "一致预期T+2年营业利润(万元)"
+  },
+  {
+    "code": "GO17",
+    "section": "GO",
+    "label": "一致预期T年每股净资产(元)"
+  },
+  {
+    "code": "GO18",
+    "section": "GO",
+    "label": "一致预期T+1年每股净资产(元)"
+  },
+  {
+    "code": "GO19",
+    "section": "GO",
+    "label": "一致预期T+2年每股净资产(元)"
+  },
+  {
+    "code": "GO20",
+    "section": "GO",
+    "label": "一致预期T年净资产收益率(%)"
+  },
+  {
+    "code": "GO21",
+    "section": "GO",
+    "label": "一致预期T+1年净资产收益率(%)"
+  },
+  {
+    "code": "GO22",
+    "section": "GO",
+    "label": "一致预期T+2年净资产收益率(%)"
+  },
+  {
+    "code": "GO23",
+    "section": "GO",
+    "label": "一致预期T年PE"
+  },
+  {
+    "code": "GO24",
+    "section": "GO",
+    "label": "一致预期T+1年PE"
+  },
+  {
+    "code": "GO25",
+    "section": "GO",
+    "label": "一致预期T+2年PE"
+  },
+  {
+    "code": "GO26",
+    "section": "GO",
+    "label": "最新解禁日(YYMMDD格式)"
+  },
+  {
+    "code": "GO27",
+    "section": "GO",
+    "label": "最新解禁数量（万股）"
+  },
+  {
+    "code": "GO28",
+    "section": "GO",
+    "label": "下一报告期的预约披露时间"
+  },
+  {
+    "code": "GO29",
+    "section": "GO",
+    "label": "最新持股机构家数"
+  },
+  {
+    "code": "GO30",
+    "section": "GO",
+    "label": "最新机构持股总量（万股）"
+  },
+  {
+    "code": "GO31",
+    "section": "GO",
+    "label": "最新持股基金家数"
+  },
+  {
+    "code": "GO32",
+    "section": "GO",
+    "label": "最新基金持股量（万股）"
+  },
+  {
+    "code": "GO33",
+    "section": "GO",
+    "label": "最新总股本（万股）"
+  },
+  {
+    "code": "GO34",
+    "section": "GO",
+    "label": "最新实际流通A股（万股）"
+  },
+  {
+    "code": "GO35",
+    "section": "GO",
+    "label": "最新业绩预告 报告期(YYMMDD格式)"
+  },
+  {
+    "code": "GO36",
+    "section": "GO",
+    "label": "最新业绩预告 本期归母净利润下限（万元）"
+  },
+  {
+    "code": "GO37",
+    "section": "GO",
+    "label": "最新业绩预告 本期归母净利润上限（万元）"
+  },
+  {
+    "code": "GO38",
+    "section": "GO",
+    "label": "最新业绩预告 本期归母净利润预计同比增减幅下限%"
+  },
+  {
+    "code": "GO39",
+    "section": "GO",
+    "label": "最新业绩预告 本期归母净利润预计同比增减幅上限%"
+  },
+  {
+    "code": "GO40",
+    "section": "GO",
+    "label": "最新业绩快报 报告期"
+  },
+  {
+    "code": "GO41",
+    "section": "GO",
+    "label": "最新业绩快报 归母净利润（万元）"
+  },
+  {
+    "code": "GO42",
+    "section": "GO",
+    "label": "分红募资 派现总额（万元）"
+  },
+  {
+    "code": "GO43",
+    "section": "GO",
+    "label": "分红募资 募资总额（万元）"
+  },
+  {
+    "code": "GO44",
+    "section": "GO",
+    "label": "最新业绩预告 本期扣非净利润下限(万元)"
+  },
+  {
+    "code": "GO45",
+    "section": "GO",
+    "label": "最新业绩预告 本期扣非净利润上限(万元)"
+  },
+  {
+    "code": "GO46",
+    "section": "GO",
+    "label": "最新业绩预告 本期扣非净利润预计同比增减幅下限%"
+  },
+  {
+    "code": "GO47",
+    "section": "GO",
+    "label": "最新业绩预告 本期扣非净利润预计同比增减幅上限%"
+  },
+  {
+    "code": "GO48",
+    "section": "GO",
+    "label": "个股综评 综合评分"
+  }
+]

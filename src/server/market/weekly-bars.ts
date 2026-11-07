@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Bar, Snapshot } from "~/lib/domain";
 import type { CalendarReference } from "./data-health";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 
 const validDate = (day: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(day) &&

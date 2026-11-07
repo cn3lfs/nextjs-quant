@@ -9,16 +9,10 @@ import {
   decodeWdzLc5Bars,
   readWdzFiveMinute,
   readWdzLc5,
-} from "../../src/server/data-sources/tdx/wdz-native";
-import {
-  parseFiveMinuteCsv,
-  encodeFiveMinuteBar,
-} from "../../src/server/data-sources/tdx/five-minute-csv";
-import {
-  importFiveMinuteBuffer,
-  normalizeFiveMinuteCsv,
-} from "../../src/server/data-sources/tdx/five-minute-native";
-import { probeFiveMinuteFile } from "../../src/server/data-sources/tdx/five-minute-probe";
+} from "tstdx/native";
+import { parseFiveMinuteCsv, encodeFiveMinuteBar } from "tstdx/local";
+import { importFiveMinuteBuffer, normalizeFiveMinuteCsv } from "tstdx/native";
+import { probeFiveMinuteFile } from "tstdx/native";
 
 const fixture = "tests/fixtures/wdz/sh000001-20261104.wdz";
 it("all three CLIs handle one symbol split over blocks without a concurrent overwrite", async () => {

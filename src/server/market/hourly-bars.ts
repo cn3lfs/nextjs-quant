@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Bar, Snapshot } from "~/lib/domain";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 
 // A-share continuous-session buckets; source timestamps are five-minute ends.
 const starts = [570, 630, 780, 840];

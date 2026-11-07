@@ -10,9 +10,12 @@ import { queryIndustryContext } from "../data-sources/hithink/hithink-context";
 import { queryPriceRsEvidence } from "./price-rs";
 import { industryNewsEvidence } from "./industry-news-evidence";
 import { tmtCandidateEvidence } from "../strategies/sentiment/tmt-cache";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { stockEvents, stockEventsEvidence } from "./stock-events";
-import { capitalProfile, capitalProfileEvidence } from "../market/capital-profile";
+import {
+  capitalProfile,
+  capitalProfileEvidence,
+} from "../market/capital-profile";
 const setcode = (symbol: string) =>
   symbol.startsWith("sh") ? "1" : symbol.startsWith("sz") ? "0" : "2";
 export async function gatherEvidence(
@@ -96,7 +99,9 @@ export async function gatherEvidence(
   evidence.push(...(await tmtCandidateEvidence(source, evidence, signal)));
   if (isAStock(source.symbol)) {
     try {
-      evidence.push(stockEventsEvidence(await stockEvents(source.symbol, signal)));
+      evidence.push(
+        stockEventsEvidence(await stockEvents(source.symbol, signal)),
+      );
     } catch {
       signal?.throwIfAborted();
       evidence.push({
@@ -107,7 +112,9 @@ export async function gatherEvidence(
       });
     }
     try {
-      evidence.push(capitalProfileEvidence(await capitalProfile(source.symbol, signal)));
+      evidence.push(
+        capitalProfileEvidence(await capitalProfile(source.symbol, signal)),
+      );
     } catch {
       signal?.throwIfAborted();
       evidence.push({

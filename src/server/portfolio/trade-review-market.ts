@@ -6,7 +6,8 @@ import type { Snapshot } from "~/lib/domain";
 import { classifyCode } from "~/lib/research/evidence/delivery-import";
 import { tradeReviewDayVwap } from "~/lib/portfolio/trade-review-vwap";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { parseBars, readSnapshot } from "../data-sources/tdx/tdx";
+import { readSnapshot } from "../data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 
 export type PriceScaleEvidence = {
   divisor: number;

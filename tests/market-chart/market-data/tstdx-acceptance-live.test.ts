@@ -9,7 +9,7 @@ import {
   parseBars,
   buildQuotesRequest,
   parseQuotes,
-} from "../../../src/server/data-sources/tdx/tdx-wire";
+} from "tstdx/wire";
 
 // Explicit opt-in: TCP/handshake success is not a successful market-data read.
 it.skipIf(process.env.QUANT_TSTDX_ACCEPTANCE !== "1")(

@@ -1,4 +1,6 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { projectFinancialSummary } from "tstdx/financial-model";
+import { readStableLocalFile, isAStock } from "tstdx/local";
+import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseFinancialReport } from "tstdx";
 import type { ReportFields } from "~/lib/market/tdx-fundamentals";
@@ -9,48 +11,16 @@ import type { ReportFields } from "~/lib/market/tdx-fundamentals";
  * （实测 `updatedDate` 是快照更新日，20260815 / 20260828 / 20260914 等均非季末），
  * 字段也只有 30 个。
  *
- * 下列字段下标由 2026-09-15 对 30 只标的（沪深主板、创业板、银行、地产、白酒、
- * 新能源等）与协议快照的逐字段比对锁定，括号是命中率。源目录只读，不下载、不写入。
+ * 字段含义以官方专业财务定义为准。协议数值相等不证明协议旧字段名正确。
  */
-const localFieldIndex = {
-  // 30/30：换源不改变任何数字
-  totalAssets: 39,
-  currentAssets: 20,
-  fixedAssets: 26,
-  intangibleAssets: 32,
-  currentLiabilities: 53,
-  longTermLiabilities: 68,
-  netAssets: 270,
-  mainRevenue: 73,
-  mainProfit: 74,
-  operatingProfit: 85,
-  totalProfit: 91,
-  afterTaxProfit: 94,
-  netProfit: 95,
-  undistributedProfit: 67,
-  operatingCashFlow: 106,
-  // 少数标的协议侧与财务包不一致，以财务包为准：它是带报告期的官方专业财务数据
-  inventory: 16, // 23/24（银行等无存货的标的不计入样本）
-  receivables: 10, // 23/24
-  capitalReserve: 64, // 29/30
-  investmentIncome: 82, // 28/30
-  shareholders: 241, // 26/30
-  // 归母每股净资产，12/12 与协议一致。注意它与 netAssets 不同口径：
-  // netAssets 是股东权益合计，含少数股东权益与永续债，两者不能互推。
-  bookValuePerShare: 3,
-  // 报告期末总股本；24/30，差异来自报告期之后的增发与回购，由协议快照叠加最新值
-  totalShares: 237,
-} as const satisfies Record<keyof ReportFields, number>;
-export type LocalFinanceField = keyof typeof localFieldIndex;
+export type LocalFinanceField = keyof ReturnType<
+  typeof projectFinancialSummary
+>;
 /**
  * 财务包里没有对应值的协议字段，本地不提供：
  * `totalCashFlow` 在 584 个槽位里找不到等值项；
- * `bookValuePerShare` 与槽位 3 只有 9/30 一致，口径不同，改为用净资产 ÷ 总股本自算。
  */
-export const localUnavailableFields = [
-  "totalCashFlow",
-  "bookValuePerShare",
-] as const;
+export const localUnavailableFields = ["totalCashFlow"] as const;
 
 /** float32 只有约 7 位有效数字，逐位相等不可能；这是同一数值的判定阈值。 */
 const matchTolerance = 2e-6;
@@ -102,16 +72,16 @@ export const financialReportDirectory = (root: string) =>
   resolve(root, "vipdoc", "cw");
 
 async function loadDigest(path: string): Promise<ReportDigest> {
-  const info = await stat(path);
-  const key = `${info.mtimeMs}:${info.size}`;
+  const source = await readStableLocalFile(path);
+  const key = source.key;
   const cached = digests.get(path);
   if (cached?.key === key) return cached.digest;
-  const report = parseFinancialReport(await readFile(path));
+  const report = parseFinancialReport(source.body);
+  if (report.status === "placeholder")
+    throw new Error("未下载或未来期空占位财务包");
   const values = new Map<string, ReportFields>();
   for (const record of report.records) {
-    const row = {} as ReportFields;
-    for (const [field, index] of Object.entries(localFieldIndex))
-      row[field as LocalFinanceField] = record.values[index] ?? Number.NaN;
+    const row = projectFinancialSummary(record.values);
     values.set(record.code, row);
   }
   const digest: ReportDigest = {
@@ -120,6 +90,8 @@ async function loadDigest(path: string): Promise<ReportDigest> {
     values,
   };
   digests.set(path, { key, digest });
+  while (digests.size > searchPeriods)
+    digests.delete(digests.keys().next().value!);
   return digest;
 }
 
@@ -155,6 +127,11 @@ export async function readLocalFinancials(
   root: string,
   symbol: string,
 ): Promise<LocalFinancialsResult> {
+  if (!isAStock(symbol))
+    return {
+      financials: null,
+      reason: "该标的不是A股公司，不能按六位代码借用其他市场财报",
+    };
   const code = symbol.slice(2);
   let reports: { name: string; path: string }[];
   try {
@@ -206,6 +183,12 @@ export async function resolveFinanceReportPeriod(
   symbol: string,
   finance: FinanceMatchInput,
 ): Promise<FinanceReportPeriodResult> {
+  if (!isAStock(symbol))
+    return {
+      period: null,
+      searched: [],
+      reason: "该标的不是A股公司，不能按六位代码借用其他市场财报",
+    };
   const code = symbol.slice(2);
   let reports: { name: string; path: string }[];
   try {

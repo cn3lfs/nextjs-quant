@@ -35,7 +35,7 @@ pnpm add file:C:\temp\tstdx-0.1.0.tgz
 
 - Node.js >= 22
 - ESM only（`"type": "module"`），不提供 CommonJS 产物
-- 运行依赖只有 `iconv-lite`
+- 普通入口依赖 `iconv-lite`；可选 `tstdx/native` 入口需宿主安装 `koffi`，原生构建说明见[本地客户端数据](api/local.md)
 
 ## 独立开发
 

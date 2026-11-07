@@ -1,7 +1,7 @@
 import { mkdir, writeFile, appendFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseArgs } from "node:util";
-import { readWdzFiveMinute } from "../src/server/data-sources/tdx/wdz-native";
+import { readWdzFiveMinute } from "tstdx/native";
 
 const { values } = parseArgs({
   options: {

@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { previewFiveMinuteDirectory } from "../../src/server/data-sources/tdx/five-minute-preview";
-import {
-  importPreviewItem,
-  restoreImportedFile,
-} from "../../src/server/data-sources/tdx/five-minute-write";
+import { previewFiveMinuteDirectory } from "tstdx/local-import";
+import { importPreviewItem, restoreImportedFile } from "tstdx/local-import";
 import {
   encodeFiveMinuteBar,
   mergeFiveMinuteBars,
   parseFiveMinuteCsv,
-} from "../../src/server/data-sources/tdx/five-minute-csv";
+} from "tstdx/local";
 
 const csv = `Date,Open,Low,High,Close,Volume,Amount
 2026-09-01 09:35:00,11.680,11.650,11.780,11.780,85125,99820580.00

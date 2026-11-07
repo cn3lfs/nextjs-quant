@@ -14,7 +14,7 @@
     "screen-view.tsx": "fadedd30ad2e97a89beb54dd62b35a745ecaadd0995ddef779d97f2c0991df66",
     "backtest-view.tsx": "d459e74b5a15b9daa65a180b7f133cd4df0cb2437f0de0d66bf8d95b3a89563f",
     "signals-view.tsx": "e13c3e88693bda65d5d4a7ac1d7ef3f8731133acc31b5135533237cd42cb0a4e",
-    "research-archive.tsx": "0a6169dddb036aa8578ac3c4701d0d93c86f7f5f4ed310410209063e597ce233",
+    "research-archive.tsx": "eb5e5bb4edd8bed45f3874f6e3bb39101e84323c545d1a5e8424760f8413d581",
     "evidence-analysis.tsx": "8884b4be9081476a16e877cfd3e6abddb83c370f73f852b2074268e21899ddd6",
     "task-center.tsx": "6e709adc7d2eab2cbb54f6e32d10d9acd783d84a680239d73e86c03582429a24"
   },

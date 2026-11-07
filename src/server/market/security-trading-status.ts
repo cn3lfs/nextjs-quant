@@ -6,7 +6,7 @@ import {
   type SecurityTradingStatus,
 } from "~/lib/market/security-trading-status";
 import { get, put } from "../db";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { request } from "../data-sources/hithink/hithink-context";
 
 const table = z.object({

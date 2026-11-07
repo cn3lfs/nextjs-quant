@@ -1,5 +1,5 @@
 import { commonIndices, isMarketIndex } from "~/lib/market/market-indices";
-import { securityNames } from "../data-sources/tdx/tdx";
+import { securityNames } from "tstdx/local";
 import type { Period, Security } from "~/lib/domain";
 
 export async function indexDirectory(

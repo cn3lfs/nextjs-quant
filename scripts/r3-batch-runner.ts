@@ -63,7 +63,7 @@ import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
 } from "../src/lib/research/factors/research-event-coverage";
-import { deriveHistoricalFloatShares } from "../src/server/data-sources/tdx/tdx-gbbq";
+import { deriveHistoricalFloatShares } from "tstdx/local";
 import {
   runStrategyResearch,
   buildNamedResearchSpec,

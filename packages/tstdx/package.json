@@ -2,7 +2,7 @@
   "name": "tstdx",
   "version": "0.1.0",
   "private": true,
-  "description": "Standalone TypeScript TongDaXin TCP market data client",
+  "description": "Standalone TongDaXin TCP client, local file codecs, source models and optional native import",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,13 +14,30 @@
     "./wire": {
       "types": "./dist/wire.d.ts",
       "import": "./dist/wire.js"
+    },
+    "./local": {
+      "types": "./dist/local/index.d.ts",
+      "import": "./dist/local/index.js"
+    },
+    "./native": {
+      "types": "./dist/native/index.d.ts",
+      "import": "./dist/native/index.js"
+    },
+    "./financial-model": {
+      "types": "./dist/financial-data/index.d.ts",
+      "import": "./dist/financial-data/index.js"
+    },
+    "./local-import": {
+      "types": "./dist/local-import/index.d.ts",
+      "import": "./dist/local-import/index.js"
     }
   },
   "files": [
     "dist",
     "src",
     "docs",
-    "README.md"
+    "README.md",
+    "native"
   ],
   "engines": {
     "node": ">=22"
@@ -29,14 +46,24 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "prepack": "pnpm build"
+    "prepack": "pnpm build",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File native/build.ps1"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
     "typescript": "5.9.3",
-    "vitest": "5.0.0"
+    "vitest": "5.0.0",
+    "koffi": "^3.2.1"
   },
   "dependencies": {
     "iconv-lite": "0.7.3"
+  },
+  "peerDependencies": {
+    "koffi": "^3.2.1"
+  },
+  "peerDependenciesMeta": {
+    "koffi": {
+      "optional": true
+    }
   }
 }

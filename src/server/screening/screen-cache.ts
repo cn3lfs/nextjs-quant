@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import type { ScreeningInput, ScreeningResult } from "./screening";
-import { isAStock } from "../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { serialize, deserialize } from "node:v8";
 import { packScreen, unpackScreen, type PackedScreen } from "./screen-wire";
 

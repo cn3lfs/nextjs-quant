@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { readWdzLc5 } from "../../src/server/data-sources/tdx/wdz-native";
-import { encodeFiveMinuteBar } from "../../src/server/data-sources/tdx/five-minute-csv";
+import { readWdzLc5 } from "tstdx/native";
+import { encodeFiveMinuteBar } from "tstdx/local";
 
 const audit = koffi
   .load(resolve("runtime/tdx-import/audit.dll"))

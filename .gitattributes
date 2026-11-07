@@ -31,3 +31,9 @@ tests/fixtures/tdx-local-blocks/*.cfg binary
 docs/trading-skills-source-snapshots/locked/** -text
 docs/trading-skills-source-snapshots/unaligned-current/** -text
 docs/data-sources/public-factors/qlib-v0.9.7/** -text
+
+# Fixed-byte TongDaXin fixtures preserve source layouts and code-page bytes.
+packages/tstdx/tests/fixtures/local/*.dat binary
+packages/tstdx/tests/fixtures/local/*.dbf binary
+packages/tstdx/tests/fixtures/local/*.map binary
+packages/tstdx/tests/fixtures/local/*.tnf binary

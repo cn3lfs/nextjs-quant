@@ -217,6 +217,9 @@ importers:
       big.js:
         specifier: 7.0.1
         version: 7.0.1
+      tstdx:
+        specifier: workspace:*
+        version: link:../tstdx
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -240,6 +243,9 @@ importers:
       '@types/node':
         specifier: 22.20.1
         version: 22.20.1
+      koffi:
+        specifier: ^3.2.1
+        version: 3.2.1
       typescript:
         specifier: 5.9.3
         version: 5.9.3

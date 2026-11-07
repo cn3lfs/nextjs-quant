@@ -863,6 +863,8 @@ const FINANCE_UNSCALED = new Set([
   "bookValuePerShare",
   "reserved",
 ]);
+/** Legacy protocol keys preserve compatibility, not certified statement semantics.
+ * Use tstdx/financial-model for verified local FN subjects and units. */
 export type TdxFinance = Record<(typeof FINANCE_FIELDS)[number], number> & {
   floatShares: number;
   province: number;

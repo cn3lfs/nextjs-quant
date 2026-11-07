@@ -77,7 +77,13 @@ export function financialGrowth(archive: FinancialQualityArchive) {
     ) !== JSON.stringify(archive.facts)
   )
     throw new Error("财务档案内容或计算版本校验失败");
-  const rows = archive.facts.annual,
+  return financialGrowthFromFacts(archive.facts, archive.id);
+}
+export function financialGrowthFromFacts(
+  facts: FinancialQualityArchive["facts"],
+  sourceArchiveId: string,
+) {
+  const rows = facts.annual,
     byPeriod = new Map(rows.map((row) => [row.period, row]));
   const annual = rows.map((row) => {
     const previous = byPeriod.get(`${Number(row.period.slice(0, 4)) - 1}1231`);
@@ -159,8 +165,8 @@ export function financialGrowth(archive: FinancialQualityArchive) {
   };
   const result = {
     version: "financial-growth-1",
-    sourceArchiveId: archive.id,
-    symbol: archive.facts.symbol,
+    sourceArchiveId,
+    symbol: facts.symbol,
     period: latest?.period ?? null,
     annual,
     threeYear: {

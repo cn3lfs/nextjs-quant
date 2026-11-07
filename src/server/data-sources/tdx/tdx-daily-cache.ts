@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { symbolSchema } from "~/lib/domain";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { atomic, get, put, sqlite } from "../../db";
-import { parseTdxDailyIncrement } from "./tdx-daily-increment";
+import { parseTdxDailyIncrement } from "tstdx/local";
 
 type Input = {
   market: "sh" | "sz" | "bj";

@@ -47,7 +47,7 @@ import {
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { get, put } from "../../db";
-import { isAStock } from "../../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import type { ValuationMethod } from "./valuation-method";
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

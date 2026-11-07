@@ -1,9 +1,6 @@
 import { analyzeBreakout, type BreakoutPoint } from "./breakout";
-import {
-  readSnapshot,
-  readTailSnapshot,
-  isAStock,
-} from "../../data-sources/tdx/tdx";
+import { readSnapshot, readTailSnapshot } from "../../data-sources/tdx/tdx";
+import { isAStock } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { screeningKey, screeningManifest } from "../../screening/screen-cache";
 import { strategySchema } from "~/lib/domain";

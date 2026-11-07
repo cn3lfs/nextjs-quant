@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, basename, resolve } from "node:path";
-import { readWdzLc5 } from "../src/server/data-sources/tdx/wdz-native";
-import { repairFiveMinuteFile } from "../src/server/data-sources/tdx/five-minute-probe";
+import { readWdzLc5 } from "tstdx/native";
+import { repairFiveMinuteFile } from "tstdx/native";
 import { tdxImportTargets } from "./lib/tdx-import-paths";
 
 const { values } = parseArgs({

@@ -14,7 +14,7 @@ import { join, resolve, relative, isAbsolute } from "node:path";
 import { dataDirectory, get, put, sqlite } from "../db";
 import { background, readJob, updateJob } from "./jobs";
 import { processAlive } from "../infra/lease";
-import { securityNames } from "../data-sources/tdx/tdx";
+import { securityNames } from "tstdx/local";
 import {
   fiveMinuteInput,
   type FiveMinuteInput,
@@ -23,20 +23,27 @@ import {
   mergeFiveMinuteBars,
   parseFiveMinuteCsv,
   type ImportVolumeUnit,
-} from "../data-sources/tdx/five-minute-csv";
+} from "tstdx/local";
 import {
   importPreviewItem,
   removeImportedFile,
   restoreImportedFile,
-} from "../data-sources/tdx/five-minute-write";
-import { importFiveMinuteDirect } from "../data-sources/tdx/five-minute-native";
-import type { FiveMinutePreviewItem } from "../data-sources/tdx/five-minute-preview";
+} from "tstdx/local-import";
+import { importFiveMinuteDirect } from "tstdx/native";
+import type { FiveMinutePreviewItem } from "tstdx/local-import";
 
 type Category = "stock" | "fund" | "index";
 type Item = FiveMinutePreviewItem & {
   category?: Category;
   unit?: ImportVolumeUnit;
-  state: "preview" | "skipped" | "prepared" | "written" | "failed" | "restored" | "unchanged";
+  state:
+    | "preview"
+    | "skipped"
+    | "prepared"
+    | "written"
+    | "failed"
+    | "restored"
+    | "unchanged";
   backup?: string;
   restoredError?: string;
   bytes?: number;
@@ -234,7 +241,8 @@ export async function startFiveMinutePreview(
               );
               const { data: _data, ...summary } = result;
               Object.assign(item, summary, {
-                state: result.added || result.repaired ? "written" : "unchanged",
+                state:
+                  result.added || result.repaired ? "written" : "unchanged",
                 unit: "lots",
               });
             } else {

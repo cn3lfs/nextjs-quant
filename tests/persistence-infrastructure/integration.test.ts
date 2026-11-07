@@ -6,7 +6,7 @@ import Database from "better-sqlite3";
 import { trustedRequest } from "~/server/infra/access";
 import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
 import { cleanMcpResult } from "~/server/mcp";
-import { parseBars, parseNames } from "~/server/data-sources/tdx/tdx";
+import { parseBars, parseNames } from "tstdx/local";
 import { migrate } from "~/server/db/migrations";
 import { backtest } from "~/server/backtest/quant";
 import { defaultStrategy, type Bar } from "~/lib/domain";

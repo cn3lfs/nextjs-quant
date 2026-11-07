@@ -8,6 +8,7 @@ const MAX_FIELDS = 4096;
 const ZIP_LOCAL_SIGNATURE = 0x04034b50;
 const ZIP_CENTRAL_SIGNATURE = 0x02014b50;
 const ZIP_END_SIGNATURE = 0x06054b50;
+const MAX_REPORT_BYTES = 64 * 1024 * 1024;
 
 export type TdxFinancialFile = {
   filename: string;
@@ -25,6 +26,8 @@ export type TdxFinancialRecord = {
 export type TdxFinancialReport = {
   sourceFilename?: string;
   sourceSha256: string;
+  contentSha256: string;
+  status: "valid" | "placeholder";
   formatVersion: number;
   reportDate: number;
   recordCount: number;
@@ -34,7 +37,7 @@ export type TdxFinancialReport = {
 
 type ParsedFinancialReport = Omit<
   TdxFinancialReport,
-  "sourceFilename" | "sourceSha256"
+  "sourceFilename" | "sourceSha256" | "contentSha256"
 >;
 
 function need(body: Buffer, size: number, label: string) {
@@ -63,7 +66,22 @@ function parseDat(body: Buffer): ParsedFinancialReport {
     reportDate = body.readUInt32LE(2),
     recordCount = body.readUInt16LE(6),
     fieldBytes = body.readUInt32LE(12);
+  if (formatVersion !== 1) throw new Error("不支持的财务文件版本");
   if (!validReportDate(reportDate)) throw new Error("财务报告日期非法");
+  // The client writes a 20-byte sentinel for undownloaded/future periods.
+  if (
+    recordCount === 0 &&
+    body.length === HEADER_BYTES &&
+    (fieldBytes === 0xfffffffc || fieldBytes === 0)
+  )
+    return {
+      status: "placeholder",
+      formatVersion,
+      reportDate,
+      recordCount,
+      fieldCount: 0,
+      records: [],
+    };
   if (recordCount > MAX_RECORDS) throw new Error("财务记录数量超限");
   if (fieldBytes % 4 !== 0) throw new Error("财务字段字节数未按 float 对齐");
   const fieldCount = fieldBytes / 4;
@@ -73,6 +91,7 @@ function parseDat(body: Buffer): ParsedFinancialReport {
   const tableEnd = HEADER_BYTES + recordCount * RECORD_INDEX_BYTES;
   need(body, tableEnd, "财务记录索引");
   const records: TdxFinancialRecord[] = [];
+  const ranges: number[] = [];
   for (let index = 0; index < recordCount; index++) {
     const indexOffset = HEADER_BYTES + index * RECORD_INDEX_BYTES,
       codeBytes = body.subarray(indexOffset, indexOffset + 6),
@@ -85,6 +104,7 @@ function parseDat(body: Buffer): ParsedFinancialReport {
     const end = dataOffset + fieldBytes;
     if (!Number.isSafeInteger(end) || end > body.length)
       throw new Error(`财务记录数据截断：${code}`);
+    ranges.push(dataOffset);
     const values = new Array<number>(fieldCount);
     for (let field = 0; field < fieldCount; field++) {
       const value = body.readFloatLE(dataOffset + field * 4);
@@ -94,7 +114,12 @@ function parseDat(body: Buffer): ParsedFinancialReport {
     }
     records.push({ code, marker, dataOffset, values });
   }
+  ranges.sort((a, b) => a - b);
+  for (let i = 1; i < ranges.length; i++)
+    if (ranges[i]! < ranges[i - 1]! + fieldBytes)
+      throw new Error("财务记录数据区域重叠");
   return {
+    status: "valid",
     formatVersion,
     reportDate,
     recordCount,
@@ -189,6 +214,8 @@ function zipDat(body: Buffer): Buffer {
   if (candidates.length !== 1)
     throw new Error(`财务 ZIP 中应有一个 DAT，实际 ${candidates.length} 个`);
   const entry = candidates[0]!;
+  if (entry.uncompressedBytes > MAX_REPORT_BYTES)
+    throw new Error("财务 ZIP 解压容量超限");
   if (entry.flags & 1) throw new Error("不支持加密财务 ZIP");
   need(body, entry.localOffset + 30, "财务 ZIP 本地文件头");
   if (body.readUInt32LE(entry.localOffset) !== ZIP_LOCAL_SIGNATURE)
@@ -204,7 +231,9 @@ function zipDat(body: Buffer): Buffer {
   if (entry.method === 0) result = Buffer.from(compressed);
   else if (entry.method === 8) {
     try {
-      result = inflateRawSync(compressed);
+      result = inflateRawSync(compressed, {
+        maxOutputLength: MAX_REPORT_BYTES,
+      });
     } catch {
       throw new Error(`财务 ZIP 解压失败：${entry.name}`);
     }
@@ -255,12 +284,19 @@ export function parseFinancialReport(
 ): TdxFinancialReport {
   const body = Buffer.from(bytes),
     isZip = body.length >= 4 && body.readUInt32LE(0) === ZIP_LOCAL_SIGNATURE;
+  if (body.length > MAX_REPORT_BYTES) throw new Error("财务文件容量超限");
   if (filename && !/\.(?:dat|zip)$/i.test(filename))
     throw new Error("财务文件扩展名必须是 .dat 或 .zip");
   if (filename?.toLowerCase().endsWith(".zip") && !isZip)
     throw new Error("财务 ZIP 文件头非法");
+  const content = isZip ? zipDat(body) : body;
+  const parsed = parseDat(content);
+  const dateInName = filename?.match(/gpcw(\d{8})\.(?:dat|zip)$/i)?.[1];
+  if (dateInName && Number(dateInName) !== parsed.reportDate)
+    throw new Error("财务文件名与包头报告期不一致");
   return {
-    ...parseDat(isZip ? zipDat(body) : body),
+    ...parsed,
+    contentSha256: createHash("sha256").update(content).digest("hex"),
     sourceFilename: filename,
     sourceSha256: createHash("sha256").update(body).digest("hex"),
   };

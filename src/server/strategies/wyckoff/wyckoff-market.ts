@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
 import type { Snapshot } from "~/lib/domain";
-import { parseBars } from "../../data-sources/tdx/tdx";
+import { parseBars } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { wyckoffRelativeStrength } from "./wyckoff-relative-strength";
 import type { wyckoffFrames } from "./wyckoff-frames";

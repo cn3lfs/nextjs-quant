@@ -1,5 +1,7 @@
 # tstdx
 
+本地客户端文件、纯财务源模型与可选原生编解码已统一归包内，API和独立使用边界见[本地客户端数据](api/local.md)。
+
 ## 项目概述
 
 tstdx 是一个纯 TypeScript / Node.js 实现的通达信 7709 行情协议客户端。它把通达信客户端使用的 TCP 二进制协议翻译成 Promise 风格的接口，可以在任何 Node 服务、脚本或 Electron 主进程里直接调用。

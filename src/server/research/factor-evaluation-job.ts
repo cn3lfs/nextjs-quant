@@ -16,7 +16,7 @@ import {
   adjustmentFactors,
   applyAdjustmentByDate,
   readGbbq,
-} from "../data-sources/tdx/tdx-gbbq";
+} from "tstdx/local";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const factorEvaluationSchema = z

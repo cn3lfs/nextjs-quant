@@ -2,16 +2,10 @@ import { it, expect } from "vitest";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  decodeWdzBars,
-  decodeWdzLc5Bars,
-} from "../../src/server/data-sources/tdx/wdz-native";
-import {
-  parseFiveMinuteCsv,
-  encodeFiveMinuteBar,
-} from "../../src/server/data-sources/tdx/five-minute-csv";
-import { importFiveMinuteBuffer } from "../../src/server/data-sources/tdx/five-minute-native";
-import { repairFiveMinuteFile } from "../../src/server/data-sources/tdx/five-minute-probe";
+import { decodeWdzBars, decodeWdzLc5Bars } from "tstdx/native";
+import { parseFiveMinuteCsv, encodeFiveMinuteBar } from "tstdx/local";
+import { importFiveMinuteBuffer } from "tstdx/native";
+import { repairFiveMinuteFile } from "tstdx/native";
 
 const samples = [
   ["SZ399379", 1, 2, 50000000, 3000000000, 50000000],

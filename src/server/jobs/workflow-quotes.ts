@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TdxSession } from "../data-sources/tdx/tdx-quotes";
-import { buildQuotesRequest, parseQuotes } from "../data-sources/tdx/tdx-wire";
+import { buildQuotesRequest, parseQuotes } from "tstdx/wire";
 export type WorkflowPrice = {
   symbol: string;
   price: number;

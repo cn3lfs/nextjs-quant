@@ -19,7 +19,7 @@ import { runCloseWorkflowFollowups } from "./close-workflow-followups";
 // import { runIncrementJob } from "./tdx-increment-job";
 // import { readTdxLocalBlocks } from "./tdx-local-blocks";
 import { publishFullDayPackage } from "../data-sources/tdx/tdx-full-day-cache";
-import { inspectFullDayPackage } from "../data-sources/tdx/tdx-full-day-import";
+import { inspectFullDayPackage } from "tstdx/local";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
 // import {
 //   currentIncrementUniverse,

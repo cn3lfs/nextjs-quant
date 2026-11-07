@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { indexDirectory } from "../../../src/server/market/index-directory";
 
-vi.mock("../../../src/server/data-sources/tdx/tdx", () => ({
+vi.mock("tstdx/local", () => ({
   securityNames: async (_root: string, market: string) =>
     new Map(
       market === "sh"
