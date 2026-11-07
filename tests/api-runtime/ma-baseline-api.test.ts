@@ -87,12 +87,15 @@ beforeEach(() => {
   sqlite().prepare("DELETE FROM records").run();
 });
 
-it("actual router rejects old execution and exposes exactly one active strategy", async () => {
+it("actual router rejects old execution and exposes baseline and modular factors", async () => {
   const caller = appRouter.createCaller(
     await createTRPCContext({ headers: new Headers() }),
   );
   const catalog = await caller.strategyLifecycle();
-  expect(catalog.active.map((v) => v.id)).toEqual(["ma-cross-baseline-v1"]);
+  expect(catalog.active.map((v) => v.id)).toEqual([
+    "ma-cross-baseline-v1",
+    "factor-combination-v1",
+  ]);
   expect(catalog.deprecated.every((v) => v.status === "deprecated")).toBe(true);
   await expect(
     caller.backtest({

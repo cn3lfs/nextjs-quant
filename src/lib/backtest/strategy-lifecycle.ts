@@ -1,8 +1,8 @@
 /** All pre-foundation strategies remain readable, but cannot start new work. */
-import { maBaselineId } from "quant-backtest";
+import { maBaselineId, factorStrategyId } from "quant-backtest";
 export { maBaselineId };
 export const deprecatedStrategyMessage =
-  "该策略已弃用，仅保留历史结果与证据。请使用回测页的双均线基线。";
+  "该策略已弃用，仅保留历史结果与证据。请使用回测页的双均线基线或因子组合。";
 
 export const deprecatedStrategyOperations = new Set([
   "backtest",
@@ -21,7 +21,9 @@ export const deprecatedStrategyOperations = new Set([
 export const legacyAutomaticStrategiesEnabled = false;
 
 export function strategyLifecycle(id: string) {
-  return id === maBaselineId ? ("active" as const) : ("deprecated" as const);
+  return id === maBaselineId || id === factorStrategyId
+    ? ("active" as const)
+    : ("deprecated" as const);
 }
 
 export function assertActiveStrategy(id: string) {

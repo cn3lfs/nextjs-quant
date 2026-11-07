@@ -1,4 +1,8 @@
-import { maBaselineInputSchema, type MaBaselineInput } from "./ma-baseline";
+import {
+  strategyExperimentInputSchema,
+  type StrategyExperimentInput,
+  type FactorStrategyInput,
+} from "./strategy-experiment";
 import { defaultBacktestCosts } from "./backtest-costs";
 
 export const costFields = [
@@ -9,6 +13,7 @@ export const costFields = [
 ] as const;
 export type CostField = (typeof costFields)[number][0];
 export type MaDraft = {
+  strategy?: FactorStrategyInput;
   symbol: string;
   start: string;
   end: string;
@@ -33,8 +38,9 @@ export function jobStatusLabel(status: string) {
   };
   return labels[status] ?? status;
 }
-export function draftFromInput(input: MaBaselineInput): MaDraft {
+export function draftFromInput(input: StrategyExperimentInput): MaDraft {
   return {
+    ...(input.strategy ? { strategy: input.strategy } : {}),
     symbol: input.symbol,
     start: input.start,
     end: input.end,
@@ -58,7 +64,9 @@ export function initialMaDraft(symbol: string, end: string): MaDraft {
 }
 export function parseMaDraft(
   draft: MaDraft,
-): { input: MaBaselineInput; error: null } | { input: null; error: string } {
+):
+  | { input: StrategyExperimentInput; error: null }
+  | { input: null; error: string } {
   if (!/^(sh60|sz00)\d{4}$/.test(draft.symbol))
     return {
       input: null,
@@ -88,7 +96,8 @@ export function parseMaDraft(
       return { input: null, error: `${label}须填写 0 至 ${maximum} 的数字。` };
     costs[key] = value;
   }
-  const parsed = maBaselineInputSchema.safeParse({
+  const parsed = strategyExperimentInputSchema.safeParse({
+    ...(draft.strategy ? { strategy: draft.strategy } : {}),
     symbol: draft.symbol,
     start: draft.start,
     end: draft.end,
@@ -96,14 +105,20 @@ export function parseMaDraft(
     costs,
   });
   if (!parsed.success)
-    return { input: null, error: "日期无效，请填写真实的开始和结束日期。" };
+    return {
+      input: null,
+      error: parsed.error.issues[0]?.message ?? "实验配置无效。",
+    };
   return { input: parsed.data, error: null };
 }
-export function draftMatchesInput(draft: MaDraft, input: MaBaselineInput) {
+export function draftMatchesInput(
+  draft: MaDraft,
+  input: StrategyExperimentInput,
+) {
   const parsed = parseMaDraft(draft);
   return (
     parsed.input !== null &&
     JSON.stringify(parsed.input) ===
-      JSON.stringify(maBaselineInputSchema.parse(input))
+      JSON.stringify(strategyExperimentInputSchema.parse(input))
   );
 }

@@ -115,21 +115,19 @@ try {
     1,
   );
   await page.getByRole("tab", { name: "成交与订单", exact: true }).click();
-  const fills = page.getByLabel("双均线逐笔成交", { exact: true }).first();
+  const fills = page.getByLabel("策略逐笔成交", { exact: true }).first();
   assert.equal(await fills.locator("tbody tr").count(), 50);
   await fills.getByRole("button", { name: /下一页/ }).click();
   await page.waitForFunction(() =>
     document
-      .querySelector('[aria-label="双均线逐笔成交"] tbody')
+      .querySelector('[aria-label="策略逐笔成交"] tbody')
       ?.textContent.includes("#111"),
   );
   assert.equal(await fills.locator("tbody tr").count(), 10);
   await page
     .getByRole("button", { name: "订单诊断 · 125", exact: true })
     .click();
-  const ordersTable = page
-    .getByLabel("双均线订单诊断", { exact: true })
-    .first();
+  const ordersTable = page.getByLabel("策略订单诊断", { exact: true }).first();
   await ordersTable.getByText("受控拒单：资金不足一手").first().waitFor();
   await page.getByRole("combobox", { name: "订单状态", exact: true }).click();
   await page.getByRole("option", { name: "已拒绝", exact: true }).click();
@@ -141,7 +139,7 @@ try {
   await ordersTable.getByRole("button", { name: /下一页/ }).click();
   await page.waitForFunction(() =>
     document
-      .querySelector('[aria-label="双均线订单诊断"] tbody')
+      .querySelector('[aria-label="策略订单诊断"] tbody')
       ?.textContent.includes("#51"),
   );
   assert.equal(await ordersTable.locator("tbody tr").count(), 10);
@@ -189,6 +187,27 @@ try {
       .getAttribute("data-state"),
     "active",
   );
+  await page.getByLabel("策略模式", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "模块化因子组合", exact: true })
+    .click();
+  await page.getByRole("button", { name: "放量通道突破", exact: true }).click();
+  const editor = page.getByLabel("模块化技术因子策略", { exact: true });
+  await editor
+    .getByRole("button", { name: "添加条件", exact: true })
+    .first()
+    .click();
+  await page.getByLabel("entry3左侧因子", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "动量 · Qlib MA", exact: true })
+    .click();
+  await page.getByLabel("entry3左侧period", { exact: true }).fill("0");
+  assert.equal(await run.isDisabled(), true);
+  await page.getByLabel("entry3左侧period", { exact: true }).fill("60");
+  assert.equal(await run.isDisabled(), false);
+  await editor
+    .getByRole("link", { name: "Microsoft Qlib Alpha158 · MA", exact: true })
+    .waitFor();
   for (const width of [400, 320]) {
     await page.setViewportSize({ width, height: 860 });
     assert.equal(
@@ -215,6 +234,11 @@ try {
   );
   assert.equal(newRuns.length, 1);
   assert.equal(newRuns[0].input.symbol, "sh600519");
+  assert.equal(newRuns[0].input.strategy.id, "factor-combination-v1");
+  assert.deepEqual(newRuns[0].input.strategy.entry.conditions[2].left, {
+    id: "qlib-MA",
+    parameters: { period: 60 },
+  });
   assert.equal(await page.getByLabel("实验报告", { exact: true }).count(), 0);
   await page.evaluate(() => (window.backtestFixture.removeFail = false));
   await page.getByRole("button", { name: "删除实验", exact: true }).click();
@@ -240,7 +264,7 @@ try {
   await page.getByText("本次已取消，无可用报告。", { exact: false }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "Backtest workspace: draft/report identity, paging/filtering, zero/failed/cancelled, deletion/focus, keyboard, 320/400px and hidden reads passed.",
+    "Backtest workspace: factor editing/validation/provenance/submission, draft/report identity, paging/filtering, zero/failed/cancelled, deletion/focus, keyboard, 320/400px and hidden reads passed.",
   );
 } finally {
   await browser.close();

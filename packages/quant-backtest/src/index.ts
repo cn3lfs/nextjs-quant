@@ -18,3 +18,21 @@ export type {
   SignalSeries,
 } from "./model.js";
 export { engineVersion, maBaselineBuildHash } from "./identity.js";
+export {
+  factorStrategyId,
+  factorStrategySchema,
+  factorStrategyWarmup,
+  factorStrategySignals,
+  factorStrategyPresets,
+} from "./strategies/factor-strategy.js";
+export type {
+  FactorStrategy,
+  FactorStrategyInput,
+  FactorCondition,
+} from "./strategies/factor-strategy.js";
+export {
+  strategyExperimentInputSchema,
+  strategyExperimentWarmup,
+  runStrategyExperiment,
+} from "./strategy-experiment.js";
+export type { StrategyExperimentInput } from "./strategy-experiment.js";

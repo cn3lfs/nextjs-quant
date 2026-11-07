@@ -1,6 +1,6 @@
 {
   "name": "quant-backtest",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Pure TypeScript event-driven cash-equity backtesting engine",
   "type": "module",

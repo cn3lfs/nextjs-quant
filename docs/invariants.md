@@ -2,10 +2,12 @@
 
 ## 独立 TS 回测基线（2026-11-07）
 
-- 当前应用只启用 `ma-cross-baseline-v1`，旧策略/预设/代表方法全部为 deprecated；历史记录不改名、不改版本、不删除。新任务由 RPC 执行入口拒绝，自动策略调度停止。取消、历史查询和导出继续可用。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
+- 当前应用启用 `ma-cross-baseline-v1` 和用户新授权的 `factor-combination-v1`；旧策略/预设/代表方法继续 deprecated，历史记录不改名、不改版本、不删除。旧新建任务由 RPC 拒绝，旧自动策略调度停止；取消、历史查询和导出继续可用。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
 - 回测核心在 `packages/quant-backtest`，无应用/IO 依赖，输入不改写；策略产生信号，只有撮合后的成交可以改变账户，统计不反向影响执行。测试：包内 `engine.test.ts`、`execution.test.ts` 和 `tests/engineering-validation/backtest-package.test.ts`（含错误依赖负对照与应用目录外 ESM 调用）。
 - 已完成五分钟信号最早下一根 open 执行；T+1 当日买入不可卖，受阻退出保留，窗口末尾不虚构平仓。价格/资金/费用明确，初始本金参与收益与回撤；日末曲线与逐根最大回撤分开。测试：包内手算与未来追加用例、应用曲线测试。
-- 应用冻结实际使用的 20 根预热及研究行情、日历与公司行动依据，记录数据/来源/引擎版本与构建摘要；缺时段、前一交易日预热不全、已修复源或已知除权事件拒绝。无完整历史交易状态认证的结果恒为 `rule-check-only`，估算量不作为可成交证明。测试：`tests/research-backtest/backtest/ma-baseline-work.test.ts`。不能据本阶段结果声称可信策略业绩。
+- 应用冻结基线 20 根或因子条件最大 lookback（交叉额外一根）的预热及研究行情、日历与公司行动依据，记录数据/来源/引擎版本与构建摘要；缺时段、跨交易日预热不全、已修复源或已知除权事件拒绝。无完整历史交易状态认证的结果恒为 `rule-check-only`，估算量不作为可成交证明。测试：`tests/research-backtest/backtest/ma-baseline-work.test.ts`。不能据本阶段结果声称可信策略业绩。
+
+- 因子只读取完成行情；因子缺失不填零，退出证据未知不能产生入场；退出优先。归一配置与行情一起冻结，公开来源保留版本和实际覆盖，不能把时序排名冒充横截面排名，也不能把五分钟变体称为原日频平台值。测试：包内 `factors.test.ts`、`factor-strategy.test.ts`，以及 `tests/research-backtest/backtest/public-factor-reference.test.ts`、`factor-workspace.test.ts`。完整口径见[因子规格](product/specs/modular-factors.md)。
 
 这是当前约束入口；理由的演变见 [decisions.md](decisions.md)，范围见 [roadmap.md](roadmap.md)。以下按 2026-09-10 工作区代码与测试核对。测试名表示实际覆盖的范围，不表示自动证明全部工程纪律；未覆盖部分明确标注。终端口径及视觉判断仍见 [人工核对目录](review/README.md)。
 
@@ -322,6 +324,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **为什么**：同一证券的历史成交量单位可能改变；沪深转债 close 也可能是元/手，不能作确定单位的中间参照。成交价只识别数量级，不替代 VWAP。
 - **测试**：[execution-quality.test.ts](../tests/research-backtest/execution-quality.test.ts) 覆盖四条自检、同代码跨日期倍率、close 无关性、区间边界、未知倍率、异常双边排除及完整导出；真实验收保持回合 785 / 50.892857% / 0.891201。
 - **违反会怎样**：十倍/百倍单位错误伪装成执行优势，或者通过选择性分母美化滑点。异常标签不证明一定是单位错误，仍需人工检查行情和当日价格偏离。
+
 
 ### 通达信数据与本地财务（2026-11-07）
 

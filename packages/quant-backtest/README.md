@@ -1,6 +1,8 @@
 # quant-backtest
 
-独立、无 IO 的 TypeScript 现金权益回测包。当前交付只有五分钟双均线交叉基线；应用内其他历史策略统一弃用。包本身不依赖 Next.js、React、数据库、通达信目录、worker 或本项目的 `src/`。
+独立、无 IO 的 TypeScript 现金权益回测包。当前支持五分钟双均线交叉基线和模块化技术因子组合；应用内其他历史策略统一弃用。包本身不依赖 Next.js、React、数据库、通达信目录、worker 或本项目的 `src/`。
+
+`factorStrategySchema` 定义入场/退出的 all/any 条件，支持数值比较和上下穿；左右因子、参数及常数经过验证和默认值归一。`factorStrategySignals` 只生成信号，退出优先，缺失不触发；`runStrategyExperiment` 将可选组合策略接到同一现金权益规则上，不传 strategy 时完全沿用 `runMaBaseline`。`strategyExperimentWarmup` 声明实际预热，应用负责按交易日历验证。来源、公开库覆盖、五分钟迁移和缺失规则见[规格](../../docs/product/specs/modular-factors.md)。
 
 ## 设计参照与当前边界
 
@@ -32,7 +34,9 @@ flowchart LR
 | `costs.ts`               | 固定实验费用契约                             | 佣金、最低佣金、卖出费用、滑点参数 |
 | `account.ts`             | 仅成交后更新现金、股数与买入日，T+1 可卖判断 | 资金和持仓账务                     |
 | `analyzers.ts`           | 逐根回撤、日末净值、相对期初资金收益         | 绩效口径                           |
-| `ma-baseline.ts`         | 组合当前主板实验规则与双均线                 | 当前唯一应用策略的入口             |
+| `ma-baseline.ts`         | 组合当前主板实验规则与双均线                 | 默认兼容基线入口                   |
+| `strategies/factor-strategy.ts` | 参数验证、条件组合、退出优先、因果信号 | 因子条件 schema 与信号规则 |
+| `strategy-experiment.ts` | 将可选因子策略接到同一回放引擎 | 应用当前实验入口与预热声明 |
 
 指标与十进制金额继续依赖 `trading-strategy-core`，不复制 MA 或资金原语。原应用 `research-execution` / `backtest-costs` 改为兼容再导出；历史研究仍使用同一份成交/数量算法。
 

@@ -86,6 +86,17 @@ for (const file of [
     .map((file) => `packages/quant-backtest/src/${file.replaceAll("\\", "/")}`),
   "packages/trading-strategy-core/src/indicators.ts",
   "packages/trading-strategy-core/src/money.ts",
+  ...(
+    await readdir("packages/trading-strategy-core/src/factors", {
+      recursive: true,
+    })
+  )
+    .filter((file) => file.endsWith(".ts"))
+    .sort()
+    .map(
+      (file) =>
+        `packages/trading-strategy-core/src/factors/${file.replaceAll("\\", "/")}`,
+    ),
   "pnpm-lock.yaml",
 ]) {
   maEngineHash.update(file).update(await readFile(file));

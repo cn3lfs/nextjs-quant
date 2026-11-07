@@ -47,9 +47,14 @@ export function MaExperimentConfig({
         <h3 className="text-base font-medium">实验配置</h3>
       </header>
       <div className="mb-4 space-y-2 rounded-lg border border-nc-border bg-nc-inset p-3 text-sm">
-        <p className="font-medium text-nc-accent-light">双均线 SMA 5 / 20</p>
+        <p className="font-medium text-nc-accent-light">
+          {draft.strategy?.name ?? "双均线 SMA 5 / 20"}
+        </p>
         <p className="text-nc-text-2">
-          金叉买入，死叉退出。收盘确认，下一根开盘尝试成交。
+          {draft.strategy
+            ? "按所配置因子条件入场与退出。"
+            : "金叉买入，死叉退出。"}
+          收盘确认，下一根开盘尝试成交。
         </p>
         <p className="text-xs text-nc-text-3">
           5分钟 · 主板单标的 · 100股整手 · T+1

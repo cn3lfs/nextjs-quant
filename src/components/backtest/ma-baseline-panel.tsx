@@ -32,6 +32,7 @@ import {
 } from "./ma-experiment-config";
 import { MaExperimentHistory } from "./ma-experiment-history";
 import { MaExperimentReport } from "./ma-experiment-report";
+import { FactorStrategyEditor } from "./factor-strategy-editor";
 
 const firstPage = { pageIndex: 0, pageSize: 50 };
 export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
@@ -210,7 +211,7 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
         if (!remove.isPending) setDeleteOpen(open);
       }}
     >
-      <section className="min-w-0 space-y-4" aria-label="双均线基线">
+      <section className="min-w-0 space-y-4" aria-label="策略回测实验室">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-xl font-semibold">
@@ -226,13 +227,18 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-lg border border-nc-border bg-nc-card px-3 py-2 text-nc-text-2">
-              双均线 SMA 5 / 20 · 5分钟
+              {draft.strategy?.name ?? "双均线 SMA 5 / 20"} · 5分钟
             </span>
             <span className="rounded-lg border border-nc-warn-edge px-3 py-2 text-nc-warn">
               规则自检
             </span>
           </div>
         </header>
+        <FactorStrategyEditor
+          value={draft.strategy}
+          disabled={busy}
+          onChange={(strategy) => changeDraft({ ...draft, strategy })}
+        />
         <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[19rem_minmax(0,1fr)]">
           <MaExperimentConfig
             draft={draft}

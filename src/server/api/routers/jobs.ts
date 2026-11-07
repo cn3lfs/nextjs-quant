@@ -42,6 +42,10 @@ import { snapshot } from "../../market/snapshot";
 import { backtestJob } from "../../backtest/backtest-job";
 import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
 import {
+  strategyExperimentInputSchema,
+  factorStrategyId,
+} from "~/lib/backtest/strategy-experiment";
+import {
   maBaselineId,
   strategyLifecycle,
 } from "~/lib/backtest/strategy-lifecycle";
@@ -78,6 +82,11 @@ export const jobsRouter = createTRPCRouter({
         label: "双均线交叉 · TS 基线",
         status: strategyLifecycle(maBaselineId),
       },
+      {
+        id: factorStrategyId,
+        label: "模块化技术因子组合",
+        status: strategyLifecycle(factorStrategyId),
+      },
     ],
     deprecated: [
       ...new Set([
@@ -95,7 +104,7 @@ export const jobsRouter = createTRPCRouter({
     })),
   })),
   maBaseline: p
-    .input(maBaselineInputSchema)
+    .input(strategyExperimentInputSchema)
     .mutation(({ input }) => maBaselineJob(input)),
   maBaselineCoverage: p
     .input(maBaselineInputSchema.innerType().shape.symbol)
@@ -139,7 +148,7 @@ export const jobsRouter = createTRPCRouter({
         job.type !== "backtest" ||
         (job.input as { type?: string } | null)?.type !== "ma-baseline"
       )
-        throw new Error("双均线基线任务不存在");
+        throw new Error("策略实验任务不存在");
       if (job.status !== "completed") return null;
       const archive = job.result as MaBaselineArchive;
       const { fills, orders, ...summary } = archive.result;
@@ -168,7 +177,7 @@ export const jobsRouter = createTRPCRouter({
         job.type !== "backtest" ||
         (job.input as { type?: string } | null)?.type !== "ma-baseline"
       )
-        throw new Error("双均线基线任务不存在");
+        throw new Error("策略实验任务不存在");
       if (job.status !== "completed") return null;
       const archive = job.result as MaBaselineArchive;
       const orders = archive.result.orders.filter(
@@ -186,7 +195,7 @@ export const jobsRouter = createTRPCRouter({
       job.status !== "completed" ||
       (job.input as { type?: string } | null)?.type !== "ma-baseline"
     )
-      throw new Error("没有已完成的双均线基线结果");
+      throw new Error("没有已完成的策略实验结果");
     return job.result as MaBaselineArchive;
   }),
   maBaselineRemove: p.input(z.string().min(1)).mutation(({ input }) =>
@@ -196,7 +205,7 @@ export const jobsRouter = createTRPCRouter({
         !job ||
         (job.input as { type?: string } | null)?.type !== "ma-baseline"
       )
-        throw new Error("双均线基线任务不存在");
+        throw new Error("策略实验任务不存在");
       if (["queued", "running"].includes(job.status))
         throw new Error("先取消或等待任务完成，再删除冻结输入与结果");
       remove(input);

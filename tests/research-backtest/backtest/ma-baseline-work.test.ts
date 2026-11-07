@@ -12,6 +12,7 @@ import { readBacktestActions } from "~/server/backtest/backtest-actions";
 import { executeMaBaseline } from "~/server/backtest/ma-baseline-work";
 import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
 import type { Snapshot } from "~/lib/domain";
+import { factorStrategyPresets, factorStrategySchema } from "quant-backtest";
 
 const source: Snapshot = {
   id: "fixture",
@@ -85,6 +86,46 @@ it("freezes exactly 20 warmup bars plus the selected window and source hashes", 
   expect(result.manifest.dataHash).toBe(
     (await executeMaBaseline(work)).manifest.dataHash,
   );
+});
+it("freezes a multi-day factor warmup and rejects a missing warmup slot", async () => {
+  const strategy = structuredClone(factorStrategyPresets[0]!);
+  strategy.entry.conditions[0]!.left = {
+    id: "qlib-MA",
+    parameters: { period: 60 },
+  };
+  const days = ["2026-10-08", "2026-10-09", "2026-10-12"];
+  const extended = {
+    ...source,
+    bars: days.flatMap((day) =>
+      source.bars
+        .slice(0, 48)
+        .map((bar) => ({ ...bar, date: day + bar.date.slice(10) })),
+    ),
+  };
+  vi.mocked(readSnapshot).mockResolvedValue(extended);
+  const calendar = {
+    ...source,
+    bars: days.map((day) => ({ ...source.bars[0]!, date: day })),
+  };
+  vi.mocked(readBenchmarkSnapshot).mockResolvedValue(calendar);
+  const factorWork = {
+    ...work,
+    input: { ...work.input, strategy: factorStrategySchema.parse(strategy) },
+  };
+  const archive = await executeMaBaseline(factorWork);
+  expect(archive.manifest.warmupBars).toBe(60);
+  expect(archive.inputSnapshot.bars).toHaveLength(108);
+  expect(archive.inputSnapshot.warmupCalendar).toEqual([
+    "2026-10-08",
+    "2026-10-09",
+  ]);
+  expect(archive.result.input.strategy).toEqual(factorWork.input.strategy);
+  expect(archive.result.strategyId).toBe("factor-combination-v1");
+  vi.mocked(readSnapshot).mockResolvedValue({
+    ...extended,
+    bars: extended.bars.filter((_, i) => i !== 80),
+  });
+  await expect(executeMaBaseline(factorWork)).rejects.toThrow("预热未完整");
 });
 it("rejects missing days, missing bars and repaired input rather than silently continuing", async () => {
   vi.mocked(readSnapshot).mockResolvedValueOnce({

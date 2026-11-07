@@ -230,6 +230,8 @@ export function MaReportEvidence({
   const { manifest, summary } = data;
   const rows = [
     ["实验编号", id],
+    ["策略", summary.input.strategy?.name ?? "双均线 SMA5/20 基线"],
+    ["策略标识", summary.strategyId],
     ["证券 / 周期 / 复权", `${manifest.symbol.toUpperCase()} / 5分钟 / 不复权`],
     ["请求窗口", `${summary.input.start} 至 ${summary.input.end}`],
     ["实际窗口（北京时间）", `${manifest.start} 至 ${manifest.end}`],
@@ -271,6 +273,14 @@ export function MaReportEvidence({
           </div>
         ))}
       </dl>
+      {summary.input.strategy && (
+        <section>
+          <h4 className="mb-2 text-sm font-medium">冻结的因子与条件配置</h4>
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-nc-inset p-3 text-xs text-nc-text-2">
+            {JSON.stringify(summary.input.strategy, null, 2)}
+          </pre>
+        </section>
+      )}
       <section>
         <h4 className="mb-2 text-sm font-medium">规则与数据假设</h4>
         <ul className="list-disc space-y-2 pl-5 text-sm text-nc-text-2">
@@ -362,7 +372,8 @@ export function MaExperimentReport({
               {data.manifest.end.slice(0, 10)}
             </p>
             <p className="mt-1 text-xs text-nc-text-3">
-              SMA 5 / 20 · 已完成 · 规则自检
+              {data.summary.input.strategy?.name ?? "SMA 5 / 20"} · 已完成 ·
+              规则自检
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -458,7 +469,7 @@ export function MaExperimentReport({
                 onPaginationChange={onFillPaginationChange}
                 onSortingChange={() => {}}
                 getRowId={(row) => String(row.orderId)}
-                label="双均线逐笔成交"
+                label="策略逐笔成交"
                 loading={fillsLoading}
                 error={fillsError}
                 onRetry={onRetryFills}
@@ -474,7 +485,7 @@ export function MaExperimentReport({
                 onPaginationChange={onOrderPaginationChange}
                 onSortingChange={() => {}}
                 getRowId={(row) => String(row.id)}
-                label="双均线订单诊断"
+                label="策略订单诊断"
                 loading={ordersLoading}
                 error={ordersError}
                 onRetry={onRetryOrders}

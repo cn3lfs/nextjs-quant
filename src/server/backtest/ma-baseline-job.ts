@@ -1,13 +1,13 @@
 import {
-  maBaselineInputSchema,
-  type MaBaselineInput,
-} from "~/lib/backtest/ma-baseline";
+  strategyExperimentInputSchema,
+  type StrategyExperimentInput,
+} from "~/lib/backtest/strategy-experiment";
 import { settings } from "../infra/settings";
 import { background, runWorker } from "../jobs/jobs";
 import { type MaBaselineArchive } from "./ma-baseline-work";
 
-export function maBaselineJob(raw: MaBaselineInput) {
-  const input = maBaselineInputSchema.parse(raw);
+export function maBaselineJob(raw: StrategyExperimentInput) {
+  const input = strategyExperimentInputSchema.parse(raw);
   const work = {
     type: "ma-baseline" as const,
     root: settings().tdxRoot,
