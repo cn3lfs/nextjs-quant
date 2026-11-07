@@ -183,6 +183,20 @@ export function Workbench({ children }: { children?: ReactNode }) {
           </Button>
         </Topbar>
         <div className="page">
+          {[
+            "/research",
+            "/signals",
+            "/intraday",
+            "/screen",
+            "/signal-ledger",
+          ].includes(pathname) && (
+            <p
+              role="status"
+              className="mb-3 rounded-md border p-3 text-sm text-muted-foreground"
+            >
+              现有策略已统一弃用，保留历史配置、报告与证据。新策略验证仅在回测页开放双均线基线；旧策略不再启动新任务或自动调度。
+            </p>
+          )}
           {/* Visited panels stay mounted and hidden: charts, drafts, filters and
               scroll positions survive every route switch. */}
           <OpenChartProvider value={openChart}>

@@ -1,5 +1,12 @@
 # 不可违反的约束
 
+## 独立 TS 回测基线（2026-11-07）
+
+- 当前应用只启用 `ma-cross-baseline-v1`，旧策略/预设/代表方法全部为 deprecated；历史记录不改名、不改版本、不删除。新任务由 RPC 执行入口拒绝，自动策略调度停止。取消、历史查询和导出继续可用。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
+- 回测核心在 `packages/quant-backtest`，无应用/IO 依赖，输入不改写；策略产生信号，只有撮合后的成交可以改变账户，统计不反向影响执行。测试：包内 `engine.test.ts`、`execution.test.ts` 和 `tests/engineering-validation/backtest-package.test.ts`（含错误依赖负对照与应用目录外 ESM 调用）。
+- 已完成五分钟信号最早下一根 open 执行；T+1 当日买入不可卖，受阻退出保留，窗口末尾不虚构平仓。价格/资金/费用明确，初始本金参与收益与回撤；日末曲线与逐根最大回撤分开。测试：包内手算与未来追加用例、应用曲线测试。
+- 应用冻结实际使用的 20 根预热及研究行情、日历与公司行动依据，记录数据/来源/引擎版本与构建摘要；缺时段、前一交易日预热不全、已修复源或已知除权事件拒绝。无完整历史交易状态认证的结果恒为 `rule-check-only`，估算量不作为可成交证明。测试：`tests/research-backtest/backtest/ma-baseline-work.test.ts`。不能据本阶段结果声称可信策略业绩。
+
 这是当前约束入口；理由的演变见 [decisions.md](decisions.md)，范围见 [roadmap.md](roadmap.md)。以下按 2026-09-10 工作区代码与测试核对。测试名表示实际覆盖的范围，不表示自动证明全部工程纪律；未覆盖部分明确标注。终端口径及视觉判断仍见 [人工核对目录](review/README.md)。
 
 ## 1. 指标只有一个实现入口

@@ -35,11 +35,22 @@ import {
   type Coverage,
   type Snapshot,
 } from "~/lib/domain";
-import { get, put } from "../../db";
+import { get, put, remove, atomic } from "../../db";
 import { settings } from "../../infra/settings";
 import { scanJob, startRuntime } from "../../runtime";
 import { snapshot } from "../../market/snapshot";
 import { backtestJob } from "../../backtest/backtest-job";
+import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
+import {
+  maBaselineId,
+  strategyLifecycle,
+} from "~/lib/backtest/strategy-lifecycle";
+import { researchStrategyIds } from "~/lib/research/specs/research-strategies";
+import { researchCompositePresetIds } from "~/lib/research/specs/research-composite-presets";
+import { listStrategyRepresentatives } from "trading-strategies";
+import { maBaselineJob } from "../../backtest/ma-baseline-job";
+import type { MaBaselineArchive } from "../../backtest/ma-baseline-work";
+import { readSnapshot as readBaselineSnapshot } from "../../data-sources/tdx/tdx";
 import { cancelJob, readJob } from "../../jobs/jobs";
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
 import { findCli } from "../../infra/local-llm";
@@ -60,6 +71,112 @@ function storedSnapshot(id: string) {
   );
 }
 export const jobsRouter = createTRPCRouter({
+  strategyLifecycle: p.query(() => ({
+    active: [
+      {
+        id: maBaselineId,
+        label: "双均线交叉 · TS 基线",
+        status: strategyLifecycle(maBaselineId),
+      },
+    ],
+    deprecated: [
+      ...new Set([
+        ...researchStrategyIds,
+        ...researchCompositePresetIds,
+        ...listStrategyRepresentatives().flatMap((item) => [
+          item.id,
+          item.methodId,
+          ...(item.presetId ? [item.presetId] : []),
+        ]),
+      ]),
+    ].map((id) => ({
+      id,
+      status: strategyLifecycle(id),
+    })),
+  })),
+  maBaseline: p
+    .input(maBaselineInputSchema)
+    .mutation(({ input }) => maBaselineJob(input)),
+  maBaselineCoverage: p
+    .input(maBaselineInputSchema.innerType().shape.symbol)
+    .query(async ({ input }) => {
+      const source = await readBaselineSnapshot(
+        settings().tdxRoot,
+        input,
+        "5m",
+      );
+      return {
+        symbol: source.symbol,
+        start: source.bars[0]!.date.slice(0, 10),
+        end: source.bars.at(-1)!.date.slice(0, 10),
+        bars: source.bars.length,
+      };
+    }),
+  maBaselineHistory: p.query(
+    () =>
+      chartSqlite()
+        .prepare(
+          "SELECT id, json_extract(payload,'$.status') AS status, json_extract(payload,'$.input.input.symbol') AS symbol, json_extract(payload,'$.createdAt') AS createdAt FROM records WHERE kind='job' AND json_extract(payload,'$.input.type')='ma-baseline' ORDER BY updated_at DESC LIMIT 20",
+        )
+        .all() as {
+        id: string;
+        status: string;
+        symbol: string;
+        createdAt: number;
+      }[],
+  ),
+  maBaselineResult: p
+    .input(
+      z.object({
+        id: z.string().min(1),
+        pageIndex: z.number().int().nonnegative().default(0),
+      }),
+    )
+    .query(({ input }) => {
+      const job = readJob(input.id);
+      if (
+        !job ||
+        job.type !== "backtest" ||
+        (job.input as { type?: string } | null)?.type !== "ma-baseline"
+      )
+        throw new Error("双均线基线任务不存在");
+      if (job.status !== "completed") return null;
+      const archive = job.result as MaBaselineArchive;
+      const { fills, orders, ...summary } = archive.result;
+      return {
+        summary,
+        manifest: archive.manifest,
+        fills: fills.slice(input.pageIndex * 50, (input.pageIndex + 1) * 50),
+        fillCount: fills.length,
+        orderCount: orders.length,
+        rejectedCount: orders.filter((o) => o.status === "rejected").length,
+        pending: orders.filter((o) => o.status === "pending"),
+      };
+    }),
+  maBaselineExport: p.input(z.string().min(1)).query(({ input }) => {
+    const job = readJob(input);
+    if (
+      !job ||
+      job.status !== "completed" ||
+      (job.input as { type?: string } | null)?.type !== "ma-baseline"
+    )
+      throw new Error("没有已完成的双均线基线结果");
+    return job.result as MaBaselineArchive;
+  }),
+  maBaselineRemove: p.input(z.string().min(1)).mutation(({ input }) =>
+    atomic(() => {
+      const job = readJob(input);
+      if (
+        !job ||
+        (job.input as { type?: string } | null)?.type !== "ma-baseline"
+      )
+        throw new Error("双均线基线任务不存在");
+      if (["queued", "running"].includes(job.status))
+        throw new Error("先取消或等待任务完成，再删除冻结输入与结果");
+      remove(input);
+      return { removed: true };
+    }),
+  ),
   status: p.query(async () => {
     startRuntime();
     return {

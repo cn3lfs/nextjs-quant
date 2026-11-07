@@ -11,7 +11,10 @@ export function StrategyFields({
   setStrategy: (value: Strategy) => void;
 }) {
   return (
-    <div className="form-grid">
+    <div className="form-grid" aria-label="已弃用的历史策略参数">
+      <p className="text-sm text-muted-foreground">
+        历史策略已弃用，仅供核对旧配置；新研究请使用回测页的双均线基线。
+      </p>
       <Field label="短均线">
         <Input
           type="number"

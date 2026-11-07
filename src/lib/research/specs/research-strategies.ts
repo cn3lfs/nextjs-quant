@@ -1,17 +1,30 @@
-import { chanC4Strategies, chanC4Ids } from "../methods/chan/research-chan-movements";
+import {
+  chanC4Strategies,
+  chanC4Ids,
+} from "../methods/chan/research-chan-movements";
 import {
   wyckoffHourlyStrategies,
   wyckoffHourlyIds,
 } from "../methods/wyckoff/research-wyckoff-hourly";
-import { chanNativeStrategies, chanNativeIds } from "../methods/chan/research-chan-native";
-import { wyckoffVsaStrategies, wyckoffVsaIds } from "../methods/wyckoff/research-wyckoff-vsa";
-import { wyckoffStrategies, wyckoffIds } from "../methods/wyckoff/research-wyckoff";
+import {
+  chanNativeStrategies,
+  chanNativeIds,
+} from "../methods/chan/research-chan-native";
+import {
+  wyckoffVsaStrategies,
+  wyckoffVsaIds,
+} from "../methods/wyckoff/research-wyckoff-vsa";
+import {
+  wyckoffStrategies,
+  wyckoffIds,
+} from "../methods/wyckoff/research-wyckoff";
 import {
   sepaResearchIds,
   sepaResearchStrategies,
 } from "./research-sepa-strategies";
 import { baseStrategies, baseStrategyIds } from "./research-base-strategies";
 import { z } from "zod";
+import { deprecatedStrategyLabel } from "~/lib/backtest/strategy-lifecycle";
 import {
   canslimResearchIds,
   canslimResearchStrategies,
@@ -25,7 +38,10 @@ import {
   continuationStrategies,
   continuationIds,
 } from "../technical/research-continuation";
-import { candleStrategies, candleStrategyIds } from "../technical/research-candles";
+import {
+  candleStrategies,
+  candleStrategyIds,
+} from "../technical/research-candles";
 import {
   volumeSequenceStrategies,
   volumeSequenceIds,
@@ -38,7 +54,10 @@ import {
   volumeStructureStrategies,
   volumeStructureIds,
 } from "../methods/volume/research-volume-structure";
-import { volumeStrategies, volumeStrategyIds } from "../methods/volume/research-volume";
+import {
+  volumeStrategies,
+  volumeStrategyIds,
+} from "../methods/volume/research-volume";
 import {
   volumeContextStrategies,
   volumeContextIds,
@@ -178,5 +197,5 @@ export const researchRiskSchema = z
   .strict();
 
 export function researchStrategyLabel(id: ResearchStrategyId) {
-  return researchStrategies[id].label;
+  return deprecatedStrategyLabel(researchStrategies[id].label);
 }

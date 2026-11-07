@@ -1,0 +1,159 @@
+import { beforeEach, expect, it } from "vitest";
+import { appRouter } from "~/server/api/root";
+import { createTRPCContext } from "~/server/api/trpc";
+import { get, put, sqlite } from "~/server/db";
+import { maBaselineInputSchema, runMaBaseline } from "quant-backtest";
+import type { Bar } from "quant-backtest";
+import type { MaBaselineArchive } from "~/server/backtest/ma-baseline-work";
+import { defaultStrategy } from "~/lib/domain";
+
+const input = maBaselineInputSchema.parse({
+  symbol: "sh600519",
+  start: "2026-10-12",
+  end: "2026-10-12",
+  costs: {
+    commissionBps: 0,
+    minimumCommission: 0,
+    sellTaxBps: 0,
+    slippageBps: 0,
+  },
+});
+const bars: Bar[] = Array.from({ length: 40 }, (_, i) => {
+  const m = 575 + (i % 20) * 5;
+  return {
+    date: `${i < 20 ? "2026-10-09" : "2026-10-12"}T${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00+08:00`,
+    open: 10,
+    high: 12,
+    low: 9,
+    close: i < 20 ? 10 : 11,
+    volume: 100,
+    amount: 1000,
+  };
+});
+function archiveFixture(): MaBaselineArchive {
+  const result = runMaBaseline(input, bars);
+  // Controlled repeated records exercise paging, not strategy performance.
+  result.fills = Array.from({ length: 60 }, (_, i) => ({
+    ...result.fills[0]!,
+    orderId: i + 1,
+  }));
+  return {
+    result,
+    manifest: {
+      version: "ma-baseline-input-1",
+      symbol: input.symbol,
+      period: "5m",
+      adjustment: "none",
+      sourceFileHash: "source",
+      dataHash: "frozen-window",
+      calendarHash: "calendar",
+      actionHash: "actions",
+      start: bars[20]!.date,
+      end: bars.at(-1)!.date,
+      warmupBars: 20,
+      sourceMs: 1,
+      computeMs: 2,
+    },
+    inputSnapshot: {
+      bars,
+      calendar: [input.start],
+      actions: {
+        version: "backtest-actions-1",
+        status: "partial",
+        symbol: input.symbol,
+        start: "2026-10-09",
+        end: input.end,
+        events: [],
+        warnings: [],
+      },
+    },
+  };
+}
+function save(status = "completed") {
+  const archive = archiveFixture();
+  put("job", "job-baseline-fixture", {
+    id: "job-baseline-fixture",
+    type: "backtest",
+    status,
+    progress: 100,
+    createdAt: 1,
+    updatedAt: 2,
+    input: { type: "ma-baseline", input },
+    result: archive,
+  });
+  return archive;
+}
+beforeEach(() => {
+  sqlite().prepare("DELETE FROM records").run();
+});
+
+it("actual router rejects old execution and exposes exactly one active strategy", async () => {
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  const catalog = await caller.strategyLifecycle();
+  expect(catalog.active.map((v) => v.id)).toEqual(["ma-cross-baseline-v1"]);
+  expect(catalog.deprecated.every((v) => v.status === "deprecated")).toBe(true);
+  await expect(
+    caller.backtest({
+      snapshotId: "missing",
+      strategy: defaultStrategy,
+      initial: 100000,
+    }),
+  ).rejects.toThrow("已弃用");
+  expect(
+    sqlite()
+      .prepare("SELECT count(*) AS n FROM records WHERE kind='job'")
+      .get(),
+  ).toEqual({ n: 0 });
+});
+it("pages fills server-side and exports the exact frozen input only on explicit request", async () => {
+  const archive = save();
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  const first = await caller.maBaselineResult({
+    id: "job-baseline-fixture",
+    pageIndex: 0,
+  });
+  const second = await caller.maBaselineResult({
+    id: "job-baseline-fixture",
+    pageIndex: 1,
+  });
+  expect(first!.fills).toHaveLength(50);
+  expect(first!.fills[0]!.orderId).toBe(1);
+  expect(second!.fills).toHaveLength(10);
+  expect(second!.fills[0]!.orderId).toBe(51);
+  expect(Object.keys(first!)).not.toContain("inputSnapshot");
+  expect(Object.keys(first!.summary)).not.toContain("orders");
+  expect(await caller.maBaselineExport("job-baseline-fixture")).toEqual(
+    archive,
+  );
+  expect((await caller.maBaselineHistory())[0]).toMatchObject({
+    id: "job-baseline-fixture",
+    symbol: input.symbol,
+    createdAt: 1,
+  });
+});
+it("deletion refuses active/foreign work and retains the research audit fact", async () => {
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  save("running");
+  await expect(caller.maBaselineRemove("job-baseline-fixture")).rejects.toThrow(
+    "先取消",
+  );
+  put("job", "foreign", {
+    id: "foreign",
+    status: "completed",
+    input: { type: "backtest" },
+  });
+  await expect(caller.maBaselineRemove("foreign")).rejects.toThrow("不存在");
+  save();
+  put("research-attempt", "audit-fixture", { taskId: "job-baseline-fixture" });
+  expect(await caller.maBaselineRemove("job-baseline-fixture")).toEqual({
+    removed: true,
+  });
+  expect(get("job-baseline-fixture")).toBeUndefined();
+  expect(get("audit-fixture")).toEqual({ taskId: "job-baseline-fixture" });
+});

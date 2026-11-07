@@ -1,4 +1,5 @@
 import { isMarketIndex } from "~/lib/market/market-indices";
+import { legacyAutomaticStrategiesEnabled } from "~/lib/backtest/strategy-lifecycle";
 import { scheduleSignalLedger } from "./monitoring/signal-ledger-client";
 import { scheduleRps } from "./screening/rps-client";
 import { scheduleIntraday } from "./monitoring/intraday-client";
@@ -102,11 +103,13 @@ export function scanJob() {
 }
 export async function tick() {
   if (!schedulerLeader()) return;
-  scheduleSignalLedger(Date.now());
+  if (legacyAutomaticStrategiesEnabled) scheduleSignalLedger(Date.now());
   scheduleRps(Date.now());
-  scheduleIntraday(Date.now());
+  if (legacyAutomaticStrategiesEnabled) scheduleIntraday(Date.now());
   scheduleClsReview();
   scheduleNews();
+  // Preserve stored subscriptions and evidence; deprecated strategies do not execute.
+  if (!legacyAutomaticStrategiesEnabled) return;
   if (state.ticking) return;
   state.ticking = true;
   const now = Date.now(),

@@ -78,6 +78,7 @@ export function newJob(type: Job["type"], input: unknown): Job {
     start?: string;
     end?: string;
     snapshotId?: string;
+    symbol?: string;
   };
   const kind =
     type === "backtest" || type === "walk-forward" || type === "factor-eval"
@@ -99,7 +100,11 @@ export function newJob(type: Job["type"], input: unknown): Job {
           kind,
           config: input,
           requestedRange: range.success ? range.data : null,
-          symbols: snapshot ? [snapshot.symbol] : [],
+          symbols: snapshot
+            ? [snapshot.symbol]
+            : value?.symbol
+              ? [value.symbol]
+              : [],
         }),
       )
     : null;

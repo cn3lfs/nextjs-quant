@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  strategyLifecycle: "query",
+  maBaseline: "mutation",
+  maBaselineCoverage: "query",
+  maBaselineHistory: "query",
+  maBaselineResult: "query",
+  maBaselineExport: "query",
+  maBaselineRemove: "mutation",
   cashWorkspace: "query",
   cashWorkspaceDate: "query",
   cashWorkspaceRows: "query",

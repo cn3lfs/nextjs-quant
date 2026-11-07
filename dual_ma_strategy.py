@@ -1,3 +1,4 @@
+# Deprecated: historical SuperMind example only. The active baseline is in quant-backtest.
 from mindgo_api import *
 
 

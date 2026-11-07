@@ -1,4 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
+// Preserve historical endpoint behavior in isolation from current deprecation admission.
+vi.mock(
+  "../../../../src/lib/backtest/strategy-lifecycle",
+  async (original) => ({
+    ...(await original<
+      typeof import("../../../../src/lib/backtest/strategy-lifecycle")
+    >()),
+    deprecatedStrategyOperations: new Set<string>(),
+  }),
+);
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

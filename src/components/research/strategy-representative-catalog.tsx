@@ -40,7 +40,7 @@ export function StrategyRepresentativeCatalog({
               data-strategy-representative={item.id}
               className="space-y-2 rounded-md border p-3"
             >
-              <h3 className="font-medium">{item.name}</h3>
+              <h3 className="font-medium">{item.name}（已弃用）</h3>
               <p className="text-sm">{item.description}</p>
               <p className="text-sm text-muted-foreground">
                 方法：{item.methodId}
@@ -66,6 +66,7 @@ export function StrategyRepresentativeCatalog({
               </ul>
               {preset ? (
                 <Button
+                  disabled
                   aria-label={`选择${item.name}研究预设`}
                   type="button"
                   variant="outline"

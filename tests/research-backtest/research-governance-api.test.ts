@@ -241,9 +241,7 @@ it("snapshot-shaped research evidence cannot enter snapshot queries or start a d
     Date.now(),
   );
   await expect(caller.savedSnapshot(id)).rejects.toThrow("快照不存在");
-  await expect(caller.breakout({ snapshotId: id })).rejects.toThrow(
-    "快照不存在",
-  );
+  await expect(caller.breakout({ snapshotId: id })).rejects.toThrow("已弃用");
   await expect(caller.czsc({ snapshotId: id })).rejects.toThrow("快照不存在");
   await expect(
     caller.analyze({
@@ -254,27 +252,27 @@ it("snapshot-shaped research evidence cannot enter snapshot queries or start a d
   ).rejects.toThrow("请先加载行情");
   await expect(
     caller.chanAnalyze({ snapshotId: id, question: "test" }),
-  ).rejects.toThrow("请先加载研究行情");
+  ).rejects.toThrow("已弃用");
   await expect(caller.canslimAnalyze({ snapshotId: id })).rejects.toThrow(
-    "请先加载当前研究",
+    "已弃用",
   );
   await expect(
     caller.wyckoffAnalyze({ snapshotId: id, question: "test" }),
-  ).rejects.toThrow("请先加载行情快照");
+  ).rejects.toThrow("已弃用");
   await expect(
     caller.backtest({
       snapshotId: id,
       strategy: defaultStrategy,
       initial: 10000,
     }),
-  ).rejects.toThrow("请先加载行情快照");
+  ).rejects.toThrow("已弃用");
   await expect(
     caller.walkForward({
       snapshotId: id,
       strategy: defaultStrategy,
       initial: 10000,
     }),
-  ).rejects.toThrow("请先加载行情快照");
+  ).rejects.toThrow("已弃用");
   expect(
     state
       .db!.prepare("SELECT count(*) AS count FROM records WHERE kind='job'")

@@ -1,4 +1,8 @@
 import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
+import {
+  executeMaBaseline,
+  type MaBaselineWork,
+} from "../backtest/ma-baseline-work";
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
 import { scan } from "../data-sources/tdx/tdx";
@@ -28,6 +32,7 @@ import type { WalkForwardOptions } from "~/lib/backtest/walk-forward";
 import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
 export type Work =
+  | MaBaselineWork
   | FormulaWork
   | FormulaShardWork
   | FactorWork
@@ -67,6 +72,28 @@ export type Work =
       };
     };
 async function main(work: Work & { attemptId?: string }) {
+  if (work.type === "ma-baseline") {
+    const archive = await executeMaBaseline(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
+    recordResearchUsage(
+      () => ({
+        kind: "backtest",
+        symbols: [work.input.symbol],
+        universeSize: 1,
+        range: { start: work.input.start, end: work.input.end },
+        candidateCount: 1,
+        config: {
+          engineVersion: archive.result.engineVersion,
+          strategyId: archive.result.strategyId,
+          input: work.input,
+          dataHash: archive.manifest.dataHash,
+        },
+      }),
+      work.attemptId,
+    );
+    return archive;
+  }
   if (work.type === "formula-screen")
     return screenFormula(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),

@@ -161,6 +161,19 @@ it("retains every extracted view subtree, including handlers and panel props", (
   for (const [file, hash] of Object.entries(baseline.views)) {
     expect(viewFingerprint(returned(file)), file).toBe(hash);
   }
+  const legacy = functions("backtest-view.tsx").find(
+    (fn) => fn.name?.text === "LegacyBacktestView",
+  )!;
+  const expression = legacy.body!.statements.find(
+    ts.isReturnStatement,
+  )!.expression!;
+  expect(
+    viewFingerprint(
+      ts.isParenthesizedExpression(expression)
+        ? expression.expression
+        : expression,
+    ),
+  ).toBe(baseline.legacyBacktest);
 });
 
 it("retains the reviewed connection implementation and independent P2 configuration guard", () => {

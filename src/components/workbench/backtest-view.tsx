@@ -31,8 +31,24 @@ import { WalkForwardPanel } from "../backtest/walk-forward-panel";
 import { Field, fmt } from "./shared";
 import { StrategyFields } from "./strategy-fields";
 import { type WorkbenchState } from "./use-workbench-state";
+import { MaBaselinePanel } from "../backtest/ma-baseline-panel";
 
 export function BacktestView({
+  state,
+}: Parameters<typeof LegacyBacktestView>[0]) {
+  const [showLegacy, setShowLegacy] = useState(false);
+  return (
+    <div className="space-y-4">
+      <MaBaselinePanel loaded={state.loaded} />
+      <Button variant="outline" onClick={() => setShowLegacy(!showLegacy)}>
+        {showLegacy ? "收起历史策略" : "查看已弃用策略与历史结果"}
+      </Button>
+      {showLegacy && <LegacyBacktestView state={state} />}
+    </div>
+  );
+}
+
+function LegacyBacktestView({
   state,
 }: {
   state: Pick<
@@ -68,7 +84,7 @@ export function BacktestView({
     <PageGrid>
       <Panel
         icon={Flask}
-        title="双均线研究模拟"
+        title="旧双均线趋势模拟（已弃用）"
         tag={loaded?.symbol.toUpperCase() ?? "先加载行情"}
         note={
           loaded
@@ -106,7 +122,7 @@ export function BacktestView({
             </select>
           </Field>
           <Button
-            disabled={!loaded || runBacktest.isPending}
+            disabled
             onClick={() =>
               loaded &&
               runBacktest.mutate({

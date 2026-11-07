@@ -1,4 +1,11 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+// Retired API characterization; default admission is exercised by strategy-lifecycle.test.
+vi.mock("../../../src/lib/backtest/strategy-lifecycle", async (original) => ({
+  ...(await original<
+    typeof import("../../../src/lib/backtest/strategy-lifecycle")
+  >()),
+  deprecatedStrategyOperations: new Set<string>(),
+}));
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";

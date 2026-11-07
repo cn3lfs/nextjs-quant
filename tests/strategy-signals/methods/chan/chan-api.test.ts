@@ -1,14 +1,27 @@
 import { beforeEach, expect, it, vi } from "vitest";
+// Exercise preserved historical behavior behind an explicitly isolated admission fixture.
+vi.mock(
+  "../../../../src/lib/backtest/strategy-lifecycle",
+  async (original) => ({
+    ...(await original<
+      typeof import("../../../../src/lib/backtest/strategy-lifecycle")
+    >()),
+    deprecatedStrategyOperations: new Set<string>(),
+  }),
+);
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const mocks = vi.hoisted(() => ({ analyze: vi.fn() }));
-vi.mock("../../../../src/server/strategies/chan/chan-report", async (original) => ({
-  ...(await original<
-    typeof import("../../../../src/server/strategies/chan/chan-report")
-  >()),
-  analyzeChan: mocks.analyze,
-}));
+vi.mock(
+  "../../../../src/server/strategies/chan/chan-report",
+  async (original) => ({
+    ...(await original<
+      typeof import("../../../../src/server/strategies/chan/chan-report")
+    >()),
+    analyzeChan: mocks.analyze,
+  }),
+);
 import { createCaller } from "../../../../src/server/api/root";
 import { put, get, sqlite } from "../../../../src/server/db/index";
 import type { Job, Snapshot } from "../../../../src/lib/domain";

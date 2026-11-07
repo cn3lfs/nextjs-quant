@@ -1,4 +1,8 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
+import {
+  deprecatedStrategyOperations,
+  deprecatedStrategyMessage,
+} from "~/lib/backtest/strategy-lifecycle";
 import superjson from "superjson";
 import { ZodError } from "zod";
 export const createTRPCContext = async (opts: { headers: Headers }) => opts;
@@ -18,4 +22,12 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
 export const mergeTRPCRouters = t.mergeRouters;
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(async ({ path, next }) => {
+  const name = path.split(".").at(-1)!;
+  if (deprecatedStrategyOperations.has(name))
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: deprecatedStrategyMessage,
+    });
+  return next();
+});

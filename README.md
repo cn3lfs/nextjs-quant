@@ -2,6 +2,8 @@
 
 Next.js / T3 Stack 全栈 TypeScript 应用。Electron 仅提供窗口、托盘和本机 Node 服务生命周期。
 
+2026-11-07：历史策略统一标为弃用，当前仅启用双均线交叉基线。回测框架独立为纯 TypeScript workspace 包 [quant-backtest](packages/quant-backtest/README.md)，架构参照成熟框架，应用只负责数据与任务接入。当前验证与限制见[交付说明](docs/deliveries/2026-11-07-ts-backtest-foundation.md)。
+
 ## 项目现状与文档入口
 
 新接手请从 [docs/README.md](docs/README.md) 按半小时阅读顺序进入：范围、模块地图、不可违反的约束、下一阶段、运行手册与人工核对材料均在那里。

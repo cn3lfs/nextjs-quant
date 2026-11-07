@@ -78,6 +78,8 @@
 
 跨 package 的纯行情、指标和资金能力以 `packages/trading-strategy-core` 为实现源；`src/lib` 只保留应用侧契约、编排和展示计算，不复制 core 实现。
 
+纯回测核心与交易执行/费用能力以 `packages/quant-backtest` 为实现源。该包不得反向依赖应用 `src/`、Next.js、React、数据库、文件或网络；本地数据适配与任务生命周期仍归 `src/server/backtest`。旧应用导入路径可保留兼容再导出，不复制实现。
+
 ## 4. UI
 
 这一节是本次统一的重点。

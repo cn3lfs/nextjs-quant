@@ -2,6 +2,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// Preserve the retired engine's regression coverage in isolation; production
+// admission is tested separately with the real disabled policy.
+vi.mock("../../../src/lib/backtest/strategy-lifecycle", async (original) => ({
+  ...(await original<
+    typeof import("../../../src/lib/backtest/strategy-lifecycle")
+  >()),
+  legacyAutomaticStrategiesEnabled: true,
+}));
 import {
   settingsSchema,
   strategySchema,

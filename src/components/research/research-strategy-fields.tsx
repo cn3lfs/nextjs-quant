@@ -6,7 +6,10 @@ import {
   isWyckoffHourly,
   wyckoffHourlyInputsSchema,
 } from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
-import { isWyckoffVsa, wyckoffInputsSchema } from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
+import {
+  isWyckoffVsa,
+  wyckoffInputsSchema,
+} from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
 import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
   riskExtensionSchema,
@@ -292,7 +295,7 @@ export function ResearchStrategyFields({
           <SelectContent>
             {researchStrategyIds.map((id) => (
               <SelectItem key={id} value={id}>
-                {researchStrategies[id].label}
+                {`${researchStrategies[id].label}（已弃用）`}
               </SelectItem>
             ))}
           </SelectContent>

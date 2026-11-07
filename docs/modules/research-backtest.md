@@ -1,5 +1,9 @@
 # 研究与回测
 
+## 当前单策略基线（2026-11-07）
+
+历史策略统一弃用，只保留查询/导出和兼容代码，新执行入口与自动策略调度停止。当前唯一启用的是回测页双均线交叉基线。纯核心在独立 [quant-backtest 包](../../packages/quant-backtest/README.md)：feed、strategy、engine、execution、account、analyzers；应用读取与核验在 `server/backtest/ma-baseline-work.ts`，任务入口 `ma-baseline-job.ts`，复用通用 worker/任务存储。接口为 `maBaseline*` 与 `strategyLifecycle`，界面 `components/backtest/ma-baseline-panel.tsx`。后续正文描述的旧实现只保留历史职责，不表示仍可启动。
+
 ## 职责与非职责
 
 研究域装配当时可得的数据证据、来源、方法和报告；回测域管理输入快照、模拟执行、公司行动/成本口径、worker 生命周期和结果。它不改写真实账本事实，也不把规则自检升级为正式业绩证明。

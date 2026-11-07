@@ -52,7 +52,9 @@ vi.mock("../../../src/server/market/securities", () => ({
   securityDirectory: async () => ({ entries: {} }),
   securityLabel: (s: string) => s.toUpperCase(),
 }));
-vi.mock("../../../src/server/news/news-scheduler", () => ({ scheduleNews: vi.fn() }));
+vi.mock("../../../src/server/news/news-scheduler", () => ({
+  scheduleNews: vi.fn(),
+}));
 import { tick } from "../../../src/server/runtime";
 import {
   drain,
@@ -555,3 +557,10 @@ it.each([
 ])("rejects invalid strategy %j", (input) => {
   expect(() => strategySchema.parse(input)).toThrow();
 });
+// Historical engine characterization, never an opt-in exposed by the application.
+vi.mock("../../../src/lib/backtest/strategy-lifecycle", async (original) => ({
+  ...(await original<
+    typeof import("../../../src/lib/backtest/strategy-lifecycle")
+  >()),
+  legacyAutomaticStrategiesEnabled: true,
+}));

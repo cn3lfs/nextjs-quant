@@ -1,8 +1,19 @@
 import { execFileSync } from "node:child_process";
-execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/build-tdx-import.ps1"], { stdio: "inherit", windowsHide: true });
+execFileSync(
+  "powershell",
+  [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "scripts/build-tdx-import.ps1",
+  ],
+  { stdio: "inherit", windowsHide: true },
+);
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { copyFile, mkdir, cp } from "node:fs/promises";
+import { copyFile, mkdir, cp, readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 await build({
   entryPoints: ["src/server/data-sources/westock/westock-preload.ts"],
@@ -67,8 +78,23 @@ const require = createRequire(import.meta.url),
   sharp = require(
     require.resolve("sharp", { paths: [require.resolve("next/package.json")] }),
   );
+const maEngineHash = createHash("sha256");
+for (const file of [
+  ...(await readdir("packages/quant-backtest/src", { recursive: true }))
+    .filter((file) => file.endsWith(".ts"))
+    .sort()
+    .map((file) => `packages/quant-backtest/src/${file.replaceAll("\\", "/")}`),
+  "packages/trading-strategy-core/src/indicators.ts",
+  "packages/trading-strategy-core/src/money.ts",
+  "pnpm-lock.yaml",
+]) {
+  maEngineHash.update(file).update(await readFile(file));
+}
 await build({
   entryPoints: ["src/server/jobs/worker.ts"],
+  define: {
+    __MA_BASELINE_BUILD_HASH__: JSON.stringify(maEngineHash.digest("hex")),
+  },
   external: ["better-sqlite3"],
   outfile: "runtime/worker.cjs",
   bundle: true,

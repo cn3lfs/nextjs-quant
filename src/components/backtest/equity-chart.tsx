@@ -20,9 +20,11 @@ import {
 export function EquityChart({
   equity,
   benchmark,
+  initial,
 }: {
   equity: EquityPoint[];
   benchmark?: EquityPoint[];
+  initial?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -62,7 +64,7 @@ export function EquityChart({
         title: "策略",
         priceFormat: percent,
       })
-      .setData(points(returnCurve(equity)));
+      .setData(points(returnCurve(equity, initial)));
     chart
       .addSeries(
         AreaSeries,
@@ -77,7 +79,7 @@ export function EquityChart({
         },
         1,
       )
-      .setData(points(drawdownCurve(equity)));
+      .setData(points(drawdownCurve(equity, initial)));
     chart
       .panes()[1]
       ?.getSeries()[0]
@@ -88,6 +90,6 @@ export function EquityChart({
     chart.panes()[1]?.setHeight(110);
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [equity, benchmark]);
+  }, [equity, benchmark, initial]);
   return <div ref={ref} className="price-chart" data-testid="equity-chart" />;
 }

@@ -18,6 +18,7 @@ import { SelectItem, SelectTrigger } from "../../src/components/ui/select";
 import {
   researchStrategies,
   researchStrategyIds,
+  researchStrategyLabel,
 } from "../../src/lib/research/specs/research-strategies";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { ResearchStore } from "../../src/server/backtest/research-store";
@@ -52,7 +53,7 @@ it("the actual form has exactly the registered IDs and labels in registry order"
       ),
   );
   expect(items.map((e) => [e.props.value, e.props.children])).toEqual(
-    researchStrategyIds.map((id) => [id, researchStrategies[id].label]),
+    researchStrategyIds.map((id) => [id, researchStrategyLabel(id)]),
   );
   const trigger = tree.find(
     (e) => e.type === SelectTrigger && e.props["aria-label"] === "研究策略",
