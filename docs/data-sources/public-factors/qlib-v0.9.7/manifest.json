@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/microsoft/qlib",
+  "revision": "da920b7f954f48ab1bb64117c976710de198373e",
+  "tag": "v0.9.7",
+  "retrievedAt": "2026-11-07",
+  "files": [
+    {
+      "path": "loader.py",
+      "source": "https://raw.githubusercontent.com/microsoft/qlib/da920b7f954f48ab1bb64117c976710de198373e/qlib/contrib/data/loader.py",
+      "sha256": "814b7f7ab3d418ae3c87ce352220080b239eba2670eac9e38376b794be4075cb"
+    },
+    {
+      "path": "LICENSE",
+      "source": "https://raw.githubusercontent.com/microsoft/qlib/da920b7f954f48ab1bb64117c976710de198373e/LICENSE",
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "ops.py",
+      "source": "https://raw.githubusercontent.com/microsoft/qlib/da920b7f954f48ab1bb64117c976710de198373e/qlib/data/ops.py",
+      "sha256": "6f648355725a85a9f17528d864281fc065f8a4f887261a9909f7495d5db42760"
+    }
+  ]
+}

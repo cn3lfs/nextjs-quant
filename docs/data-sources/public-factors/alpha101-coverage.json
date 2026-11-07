@@ -1,0 +1,785 @@
+{
+  "source": "https://arxiv.org/abs/1601.00991v3",
+  "retrievedAt": "2026-11-07",
+  "pdfSha256": "1f9c21afe32dcb3ee77b31548acdaea00451fbfa1c0ee10c907867bcc736fce9",
+  "platformParity": "not-verified-against-JoinQuant",
+  "items": [
+    {
+      "number": 1,
+      "id": "alpha101-1",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 2,
+      "id": "alpha101-2",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 3,
+      "id": "alpha101-3",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 4,
+      "id": "alpha101-4",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 5,
+      "id": "alpha101-5",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 6,
+      "id": "alpha101-6",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 7,
+      "id": "alpha101-7",
+      "status": "requires-additional-context",
+      "dependencies": ["adv-volume-or-dollar-definition-alignment"]
+    },
+    {
+      "number": 8,
+      "id": "alpha101-8",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 9,
+      "id": "alpha101-9",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 10,
+      "id": "alpha101-10",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 11,
+      "id": "alpha101-11",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 12,
+      "id": "alpha101-12",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 13,
+      "id": "alpha101-13",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 14,
+      "id": "alpha101-14",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 15,
+      "id": "alpha101-15",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 16,
+      "id": "alpha101-16",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 17,
+      "id": "alpha101-17",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 18,
+      "id": "alpha101-18",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 19,
+      "id": "alpha101-19",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 20,
+      "id": "alpha101-20",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 21,
+      "id": "alpha101-21",
+      "status": "requires-additional-context",
+      "dependencies": ["adv-volume-or-dollar-definition-alignment"]
+    },
+    {
+      "number": 22,
+      "id": "alpha101-22",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 23,
+      "id": "alpha101-23",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 24,
+      "id": "alpha101-24",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 25,
+      "id": "alpha101-25",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 26,
+      "id": "alpha101-26",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 27,
+      "id": "alpha101-27",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 28,
+      "id": "alpha101-28",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 29,
+      "id": "alpha101-29",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 30,
+      "id": "alpha101-30",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 31,
+      "id": "alpha101-31",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 32,
+      "id": "alpha101-32",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 33,
+      "id": "alpha101-33",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 34,
+      "id": "alpha101-34",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 35,
+      "id": "alpha101-35",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 36,
+      "id": "alpha101-36",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 37,
+      "id": "alpha101-37",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 38,
+      "id": "alpha101-38",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 39,
+      "id": "alpha101-39",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 40,
+      "id": "alpha101-40",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 41,
+      "id": "alpha101-41",
+      "status": "requires-additional-context",
+      "dependencies": ["verified-vwap"]
+    },
+    {
+      "number": 42,
+      "id": "alpha101-42",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 43,
+      "id": "alpha101-43",
+      "status": "requires-additional-context",
+      "dependencies": ["adv-volume-or-dollar-definition-alignment"]
+    },
+    {
+      "number": 44,
+      "id": "alpha101-44",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 45,
+      "id": "alpha101-45",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 46,
+      "id": "alpha101-46",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 47,
+      "id": "alpha101-47",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 48,
+      "id": "alpha101-48",
+      "status": "requires-additional-context",
+      "dependencies": ["historical-industry-classification"]
+    },
+    {
+      "number": 49,
+      "id": "alpha101-49",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 50,
+      "id": "alpha101-50",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 51,
+      "id": "alpha101-51",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 52,
+      "id": "alpha101-52",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 53,
+      "id": "alpha101-53",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 54,
+      "id": "alpha101-54",
+      "status": "implemented",
+      "dependencies": []
+    },
+    {
+      "number": 55,
+      "id": "alpha101-55",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 56,
+      "id": "alpha101-56",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "historical-market-cap"]
+    },
+    {
+      "number": 57,
+      "id": "alpha101-57",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 58,
+      "id": "alpha101-58",
+      "status": "requires-additional-context",
+      "dependencies": ["verified-vwap", "historical-industry-classification"]
+    },
+    {
+      "number": 59,
+      "id": "alpha101-59",
+      "status": "requires-additional-context",
+      "dependencies": ["verified-vwap", "historical-industry-classification"]
+    },
+    {
+      "number": 60,
+      "id": "alpha101-60",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe"]
+    },
+    {
+      "number": 61,
+      "id": "alpha101-61",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 62,
+      "id": "alpha101-62",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 63,
+      "id": "alpha101-63",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 64,
+      "id": "alpha101-64",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 65,
+      "id": "alpha101-65",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 66,
+      "id": "alpha101-66",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 67,
+      "id": "alpha101-67",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 68,
+      "id": "alpha101-68",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 69,
+      "id": "alpha101-69",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 70,
+      "id": "alpha101-70",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 71,
+      "id": "alpha101-71",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 72,
+      "id": "alpha101-72",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 73,
+      "id": "alpha101-73",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 74,
+      "id": "alpha101-74",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 75,
+      "id": "alpha101-75",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 76,
+      "id": "alpha101-76",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 77,
+      "id": "alpha101-77",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 78,
+      "id": "alpha101-78",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 79,
+      "id": "alpha101-79",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 80,
+      "id": "alpha101-80",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 81,
+      "id": "alpha101-81",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 82,
+      "id": "alpha101-82",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "historical-industry-classification"
+      ]
+    },
+    {
+      "number": 83,
+      "id": "alpha101-83",
+      "status": "requires-additional-context",
+      "dependencies": ["cross-sectional-universe", "verified-vwap"]
+    },
+    {
+      "number": 84,
+      "id": "alpha101-84",
+      "status": "requires-additional-context",
+      "dependencies": ["verified-vwap"]
+    },
+    {
+      "number": 85,
+      "id": "alpha101-85",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 86,
+      "id": "alpha101-86",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 87,
+      "id": "alpha101-87",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 88,
+      "id": "alpha101-88",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 89,
+      "id": "alpha101-89",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 90,
+      "id": "alpha101-90",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 91,
+      "id": "alpha101-91",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 92,
+      "id": "alpha101-92",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 93,
+      "id": "alpha101-93",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 94,
+      "id": "alpha101-94",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 95,
+      "id": "alpha101-95",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 96,
+      "id": "alpha101-96",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 97,
+      "id": "alpha101-97",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 98,
+      "id": "alpha101-98",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "verified-vwap",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 99,
+      "id": "alpha101-99",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 100,
+      "id": "alpha101-100",
+      "status": "requires-additional-context",
+      "dependencies": [
+        "cross-sectional-universe",
+        "historical-industry-classification",
+        "adv-volume-or-dollar-definition-alignment"
+      ]
+    },
+    {
+      "number": 101,
+      "id": "alpha101-101",
+      "status": "implemented",
+      "dependencies": []
+    }
+  ]
+}

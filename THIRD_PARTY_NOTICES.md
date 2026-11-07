@@ -1,5 +1,23 @@
 # Third-party notices
 
+## Microsoft Qlib Alpha158
+
+Copyright (c) Microsoft Corporation. MIT License.
+Source: https://github.com/microsoft/qlib at v0.9.7,
+commit `da920b7f954f48ab1bb64117c976710de198373e`.
+Alpha158 definitions are adapted into TypeScript; frozen source, hashes and the full
+MIT license are in `docs/data-sources/public-factors/qlib-v0.9.7/`.
+The license is copied into desktop third-party notices during preparation.
+
+## WorldQuant Alpha101 formulas
+
+Source: Zura Kakushadze, *101 Formulaic Alphas*, arXiv:1601.00991v3,
+Appendix A: https://arxiv.org/abs/1601.00991 .
+WorldQuant LLC retains rights to the published formulas and code, as stated in
+Appendix B. The local OHLCV-only subset is independently implemented in TypeScript;
+no JoinQuant implementation, platform data or third-party Python library is bundled.
+Local formula validation does not establish equivalence to JoinQuant values.
+
 This application uses Next.js, React, T3 Stack, tRPC, Drizzle, Electron, Node.js, SQLite and other packages. Their licenses remain with their respective authors; see installed package license files and Electron's bundled LICENSE / LICENSES.chromium.html.
 
 ## Lightweight Charts

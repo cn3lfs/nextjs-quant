@@ -217,6 +217,9 @@ importers:
       big.js:
         specifier: 7.0.1
         version: 7.0.1
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: 22.20.1
