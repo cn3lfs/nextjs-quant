@@ -1,5 +1,10 @@
 # 不可违反的约束
 
+## 本地数据因子（2026-11-08）
+
+- GP/BK/SC按各自字典和双值侧单位解释，不跨命名空间借值。同日必须恰好一条记录；不前填稀疏、未注明日期、未知组或未认证零值。重复记录保留原输入证据且结果为unknown。测试：`packages/trading-strategy-core/tests/local-data-factors.test.ts`、`tests/market-chart/market-data/local-financial-service.test.ts`。
+- 估值使用同日市值与当时可见财报组成期；Beta不以Qlib价格斜率冒充市场收益回归，不取日期交集后伪装完整窗口。指定板块不代表历史行业归属，市场序列不冒充个股资金流。测试：上述共享用例及`tests/api-runtime/local-financial-api.test.ts`；具体口径见[规格](product/specs/available-data-factors.md)。
+
 ## 独立 TS 回测基线（2026-11-07）
 
 - 当前应用启用 `ma-cross-baseline-v1` 和用户新授权的 `factor-combination-v1`；旧策略/预设/代表方法继续 deprecated，历史记录不改名、不改版本、不删除。旧新建任务由 RPC 拒绝，旧自动策略调度停止；取消、历史查询和导出继续可用。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。

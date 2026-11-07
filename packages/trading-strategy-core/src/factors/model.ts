@@ -11,7 +11,7 @@ export type FactorParameter = {
 export type FactorDefinition = {
   label: string;
   category: "趋势" | "动量" | "波动" | "量价" | "突破";
-  unit: "价格" | "%" | "倍" | "指数" | "成交量" | "比例";
+  unit: "价格" | "%" | "倍" | "指数" | "成交量" | "比例" | "元";
   description: string;
   source?: {
     name: string;

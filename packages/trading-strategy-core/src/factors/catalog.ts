@@ -7,6 +7,7 @@ import { breakoutFactors } from "./breakout.js";
 import { finiteValue, type FactorDefinition } from "./model.js";
 import { qlibFactors } from "./qlib-alpha158.js";
 import { alpha101Factors } from "./alpha101.js";
+import { marketStyleFactors } from "./market-style.js";
 export { qlibAlpha158Variants } from "./qlib-alpha158.js";
 export type { FactorDefinition, FactorParameter } from "./model.js";
 
@@ -18,6 +19,7 @@ const definitions = {
   ...breakoutFactors,
   ...qlibFactors,
   ...alpha101Factors,
+  ...marketStyleFactors,
 };
 export type FactorId = keyof typeof definitions;
 export type FactorSpec = { id: FactorId; parameters?: Record<string, number> };
@@ -56,6 +58,8 @@ export function resolveFactor(spec: FactorSpec) {
   }
   if (parameters.fast !== undefined && parameters.fast >= parameters.slow!)
     throw new Error("MACD 快周期须小于慢周期");
+  if (parameters.skip !== undefined && parameters.skip >= parameters.period!)
+    throw new Error("剔除近期根数须小于动量周期");
   return {
     definition,
     spec: { id: spec.id, parameters },

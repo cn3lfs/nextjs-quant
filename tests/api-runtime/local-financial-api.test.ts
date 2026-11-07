@@ -41,6 +41,52 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 describe("本地财务RPC与任务持久化", () => {
+  it("新增数据因子通过RPC校验、结果分页和完整证据导出，哈希损坏拒绝", async () => {
+    const { root, api } = await setup();
+    const bytes = Buffer.alloc(13);
+    bytes[0] = 16;
+    bytes.writeUInt32LE(20261102, 1);
+    bytes.writeFloatLE(200, 5);
+    await writeFile(join(root, "vipdoc/cw/gpsh600519.dat"), bytes);
+    const screen = await runLocalFinancialScreen({
+      type: "local-financial",
+      operation: "screen",
+      root,
+      input: {
+        asOf: "2026-11-02",
+        strict: true,
+        mode: "all",
+        conditions: [],
+        technical: [],
+        dataFactors: [{ id: "GP16-0", operator: "gt", threshold: 1000000 }],
+      },
+      symbols: ["sh600519"],
+      names: {},
+      rps: null,
+      poolSource: { hash: "pool", description: "test" },
+    });
+    put("local-financial-screen", screen.id, screen);
+    expect(screen.priceBasis).toBe("local-unadjusted-day");
+    expect(
+      (await api.localFinancialScreenPage({ id: screen.id }))?.rows[0]!
+        .dataFactors[0]!.value,
+    ).toBe(2000000);
+    expect(
+      (await api.localFinancialScreenExport(screen.id))?.input.dataFactors,
+    ).toEqual(screen.input.dataFactors);
+    await expect(
+      api.localFinancialScreenStart({
+        asOf: "2026-11-02",
+        conditions: [],
+        dataFactors: [{ id: "unknown", operator: "gt", threshold: 0 }],
+      }),
+    ).rejects.toThrow("未知本地数据因子");
+    screen.rows[0]!.dataFactors[0]!.value = 1;
+    put("local-financial-screen", screen.id, screen);
+    await expect(api.localFinancialScreenExport(screen.id)).rejects.toThrow(
+      "哈希校验失败",
+    );
+  });
   it("查询校验、历史版本、分页与完整导出使用同一份证据", async () => {
     const { root, api } = await setup();
     await expect(

@@ -1,19 +1,39 @@
 import { createHash } from "node:crypto";
-import { calculateFactor } from "trading-strategy-core/factors";
+import {
+  calculateFactor,
+  calculateLocalDataFactors,
+  localDataFactorCatalog,
+  localDataFactorVersion,
+} from "trading-strategy-core/factors";
 import {
   combineFinancialConditions,
   compareFinancialNumber,
   evaluateFinancialConditions,
   financialVersions,
+  type FinancialReportSnapshot,
 } from "trading-strategy-core/financial";
 import {
   financialScreenInput,
   type FinancialScreenInput,
 } from "~/lib/financial/local-financial";
-import { readFinancialPoolHistory } from "../data-sources/tdx/local-financial-files";
+import {
+  readFinancialPoolHistory,
+  readLocalFinancialSeries,
+} from "../data-sources/tdx/local-financial-files";
 import { readSnapshot } from "../data-sources/tdx/tdx";
 import { auditLocalFinancialFiles } from "../data-sources/tdx/local-financial-audit";
 import { buildLocalFinancialArchive } from "./local-financial-archive";
+
+async function optionalSource<T>(read: () => Promise<T>) {
+  try {
+    return { value: await read(), error: null };
+  } catch (error) {
+    return {
+      value: undefined,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 export type LocalFinancialWork =
   | { type: "local-financial"; operation: "audit"; root: string }
@@ -45,6 +65,27 @@ export async function runLocalFinancialScreen(
   signal?: AbortSignal,
 ) {
   const input = financialScreenInput.parse(work.input);
+  const dataDefinitions = (input.dataFactors ?? []).map((condition) =>
+    localDataFactorCatalog.find((f) => f.id === condition.id)!,
+  );
+  const needs = (
+    dependency: (typeof localDataFactorCatalog)[number]["dependencies"][number],
+  ) => dataDefinitions.some((f) => f.dependencies.includes(dependency));
+  const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  const market = needs("market-series")
+    ? await optionalSource(() =>
+        readLocalFinancialSeries(work.root, "sh999999"),
+      )
+    : null;
+  const block =
+    needs("block-series") && input.factorBlockSymbol
+      ? await optionalSource(() =>
+          readLocalFinancialSeries(work.root, input.factorBlockSymbol!),
+        )
+      : null;
+  const benchmark = needs("benchmark")
+    ? await optionalSource(() => readSnapshot(work.root, "sh000300", "day"))
+    : null;
   const ids = [
     1,
     4,
@@ -73,23 +114,27 @@ export async function runLocalFinancialScreen(
       .filter((c) => c.field.startsWith("FN"))
       .map((c) => +c.field.slice(2)),
   ];
-  const needsHistory = input.conditions.some((c) => !c.field.startsWith("FN"));
-  const history = await readFinancialPoolHistory(work.root, work.symbols, {
-    asOf: input.asOf,
-    strict: input.strict,
-    limit: needsHistory
-      ? input.conditions.some((c) => c.field.includes("cagr"))
-        ? 20
-        : 8
-      : 1,
-    fieldIds: ids,
-    signal,
-    progress: (done, total) =>
-      progress(
-        Math.floor((done / total) * 70),
-        `批量读取财报 ${done}/${total}`,
-      ),
-  });
+  const needsHistory =
+    input.conditions.some((c) => !c.field.startsWith("FN")) || needs("reports");
+  const history =
+    input.conditions.length || needs("reports")
+      ? await readFinancialPoolHistory(work.root, work.symbols, {
+          asOf: input.asOf,
+          strict: input.strict,
+          limit: needsHistory
+            ? input.conditions.some((c) => c.field.includes("cagr"))
+              ? 20
+              : 8
+            : 1,
+          fieldIds: ids,
+          signal,
+          progress: (done, total) =>
+            progress(
+              Math.floor((done / total) * 70),
+              `批量读取财报 ${done}/${total}`,
+            ),
+        })
+      : { reports: new Map<string, FinancialReportSnapshot[]>(), issues: [] };
   const rows = [];
   for (let i = 0; i < work.symbols.length; i++) {
     signal?.throwIfAborted();
@@ -100,6 +145,60 @@ export async function runLocalFinancialScreen(
       input.conditions,
       input.mode,
     );
+    const daily =
+      input.technical.length || needs("bars")
+        ? await optionalSource(() => readSnapshot(work.root, symbol, "day"))
+        : null;
+    const stock = needs("stock-series")
+      ? await optionalSource(() => readLocalFinancialSeries(work.root, symbol))
+      : null;
+    const sourceErrors = {
+      "stock-series": stock?.error,
+      "market-series": market?.error,
+      "block-series":
+        block?.error ??
+        (!input.factorBlockSymbol ? "请指定板块因子标的代码" : null),
+      bars: daily?.error ?? daily?.value?.sourceNote,
+      benchmark: benchmark?.error ?? benchmark?.value?.sourceNote,
+      reports: null,
+    };
+    const dataFactors = calculateLocalDataFactors({
+      ids: (input.dataFactors ?? []).map((c) => c.id),
+      asOf: input.asOf,
+      stock: stock?.value,
+      market: market?.value,
+      block: block?.value,
+      reports,
+      bars:
+        daily?.value && !daily.value.sourceNote ? daily.value.bars : undefined,
+      benchmark:
+        benchmark?.value && !benchmark.value.sourceNote
+          ? benchmark.value.bars
+          : undefined,
+      barsHash: daily?.value?.hash,
+      benchmarkHash: benchmark?.value?.hash,
+    }).map((factor, index) => {
+      const condition = input.dataFactors![index]!;
+      const definition = dataDefinitions[index]!;
+      const sourceError = definition.dependencies
+        .map((dependency) => sourceErrors[dependency])
+        .find(Boolean);
+      const value = input.asOf < today && !sourceError ? factor.value : null;
+      return {
+        ...factor,
+        ...condition,
+        value,
+        matched: compareFinancialNumber(
+          value,
+          condition.threshold,
+          condition.operator,
+        ),
+        reason:
+          input.asOf >= today
+            ? "仅使用已结束的历史交易日，不能提前使用当日序列"
+            : sourceError || factor.reason,
+      };
+    });
     const technical: {
       field: string;
       value: number | null;
@@ -109,7 +208,8 @@ export async function runLocalFinancialScreen(
     }[] = [];
     if (input.technical.length) {
       try {
-        const snapshot = await readSnapshot(work.root, symbol, "day");
+        if (!daily?.value) throw new Error(daily?.error ?? "日线来源缺失");
+        const snapshot = daily.value;
         const bars = snapshot.bars.filter(
           (bar) => bar.date.slice(0, 10) <= input.asOf,
         );
@@ -125,9 +225,6 @@ export async function runLocalFinancialScreen(
                     ? condition.right.constant
                     : null,
                 );
-          const today = new Date(Date.now() + 8 * 3600000)
-            .toISOString()
-            .slice(0, 10);
           const value =
             last === input.asOf && input.asOf < today && !snapshot.sourceNote
               ? (values.at(-1) ?? null)
@@ -183,12 +280,14 @@ export async function runLocalFinancialScreen(
         sourceSha256: work.rps?.hash,
       });
     }
-    const matched = technical.length
-      ? combineFinancialConditions(
-          [financial.matched, ...technical.map((c) => c.matched)],
-          "all",
-        )
-      : financial.matched;
+    const matched = combineFinancialConditions(
+      [
+        ...(input.conditions.length ? [financial.matched] : []),
+        ...technical.map((c) => c.matched),
+        ...dataFactors.map((c) => c.matched),
+      ],
+      "all",
+    );
     const latest = reports[0];
     rows.push({
       symbol,
@@ -198,6 +297,7 @@ export async function runLocalFinancialScreen(
       announcementDate: latest?.announcementDate ?? null,
       financial: financial.details,
       technical,
+      dataFactors,
       evidence: reports.map((report) => ({
         reportDate: report.reportDate,
         announcementDate: report.announcementDate,
@@ -213,11 +313,12 @@ export async function runLocalFinancialScreen(
           status,
         })),
       })),
-      reason: !latest
-        ? "没有在所选日期前已披露的有效财报"
-        : matched === null
-          ? "至少一项必要条件缺证据"
-          : null,
+      reason:
+        !latest && input.conditions.length
+          ? "没有在所选日期前已披露的有效财报"
+          : matched === null
+            ? "至少一项必要条件缺证据"
+            : null,
     });
     history.reports.delete(symbol);
     if (i % 20 === 0) {
@@ -231,6 +332,8 @@ export async function runLocalFinancialScreen(
   const content = {
     version: "local-financial-screen-v1",
     versions: financialVersions,
+    dataFactorVersion: localDataFactorVersion,
+    priceBasis: "local-unadjusted-day",
     input,
     symbols: work.symbols,
     poolSource: work.poolSource,
@@ -244,7 +347,7 @@ export async function runLocalFinancialScreen(
       unknown: rows.filter((r) => r.matched === null).length,
     },
     warning:
-      "当前下载版本财报按公告日期过滤，未认证首次披露版本；当前成员证券池不代表历史证券池。",
+      "当前下载版本财报按公告日期过滤，未认证首次披露版本；当前成员证券池不代表历史证券池。本地序列只用同日记录，不前填，未认证源零值与首次公开时点；市场因子不是个股资金流。收益/风险使用未复权日线，除权跳变影响数值；Beta基准为沪深300。",
   };
   const hash = createHash("sha256")
     .update(JSON.stringify(content))

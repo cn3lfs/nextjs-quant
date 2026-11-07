@@ -173,8 +173,60 @@ try {
   );
   await page.getByRole("tab", { name: "财务组合筛选", exact: true }).click();
   await page
+    .getByRole("button", { name: "删除条件", exact: true })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "删除条件", exact: true }).click();
+  await page
+    .getByRole("button", { name: "添加本地数据因子", exact: true })
+    .click();
+  await page.getByLabel("数据因子1字段", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "规模 · 对数总市值 · 指数", exact: true })
+    .click();
+  await page.getByLabel("数据因子1阈值", { exact: true }).fill("20");
+  await page
+    .getByRole("button", { name: "添加本地数据因子", exact: true })
+    .click();
+  await page.getByLabel("数据因子2字段", { exact: true }).click();
+  await page
+    .getByRole("option", {
+      name: "指定板块 · BK5 PE TTM整体法 · 原单位",
+      exact: true,
+    })
+    .click();
+  await page.getByLabel("板块因子标的", { exact: true }).fill("sh880301");
+  await page.getByRole("button", { name: "添加技术条件", exact: true }).click();
+  await page.getByLabel("技术条件1因子", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "波动 · 收益波动率", exact: true })
+    .click();
+  await page.getByLabel("财务筛选基准日期", { exact: true }).fill("2026-11-06");
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+    "因子编辑器窄屏不得溢出",
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
     .getByRole("button", { name: "运行财务组合筛选", exact: true })
     .click();
+  const submitted = await page.evaluate(
+    () =>
+      window.financeFixture.mutations.find(
+        (r) => r.name === "localFinancialScreenStart",
+      ).input,
+  );
+  assert.deepEqual(submitted.conditions, []);
+  assert.deepEqual(
+    submitted.dataFactors.map((f) => f.id),
+    ["log-market-cap", "BK5-0"],
+  );
+  assert.equal(submitted.factorBlockSymbol, "sh880301");
+  assert.equal(submitted.technical[0].left.id, "return-volatility");
   await page.getByRole("button", { name: "取消筛选", exact: true }).click();
   await page.getByRole("tab", { name: "三表与全部字段", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -204,7 +256,7 @@ try {
   await page.getByText("报告期 2026-09-30", { exact: false }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    "财务浏览器：分页/查找/导出/缺失日期/市场未知组/任务取消/窄屏/失败重试/键盘通过",
+    "财务浏览器：分页/查找/导出/缺失日期/市场未知组/新增因子配置提交/指定板块/任务取消/窄屏/失败重试/键盘通过",
   );
 } finally {
   await browser?.close();

@@ -7,6 +7,7 @@ import {
   type FinancialScreenInput,
 } from "~/lib/financial/local-financial";
 import { FactorFields } from "../factors/factor-fields";
+import { LocalDataFactorConditions } from "../factors/local-data-factor-conditions";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
@@ -81,6 +82,27 @@ const columns: DataTableColumn<Row>[] = [
             <li key={`t${i}`}>
               {condition.field}：{condition.value ?? "缺失"} ·{" "}
               {condition.reason ?? (condition.matched ? "满足" : "不满足")}
+            </li>
+          ))}
+          {(row.original.dataFactors ?? []).map((condition, i) => (
+            <li key={`d${i}`}>
+              <details>
+                <summary className="cursor-pointer">
+                  {condition.label}：{condition.value ?? "缺失"}{" "}
+                  {condition.unit} ·{" "}
+                  {condition.reason ?? (condition.matched ? "满足" : "不满足")}
+                </summary>
+                <p>{condition.formula}</p>
+                <ol className="list-inside list-decimal">
+                  {condition.inputs.map((evidence, j) => (
+                    <li key={j} className="break-all">
+                      {evidence.source} · {evidence.date} · {evidence.field} ·{" "}
+                      {evidence.value ?? ""} {evidence.unit} · SHA256{" "}
+                      {evidence.sourceSha256}
+                    </li>
+                  ))}
+                </ol>
+              </details>
             </li>
           ))}
         </ul>
@@ -188,7 +210,7 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
   return (
     <section aria-label="财务与技术组合筛选" className="space-y-4">
       <p className="text-sm">
-        财务条件按“全部/任一”组合；技术条件与RPS作为额外必要条件。历史财报按公告日期过滤，当前成分池与修订版本限制仍保留。
+        财务条件按“全部/任一”组合；技术、本地数据条件与RPS作为额外必要条件。可移除财务条件独立运行。历史财报按公告日期过滤，当前成分池与修订版本限制仍保留。
       </p>
       <div className="flex flex-wrap gap-2">
         <Select disabled={busy} value={poolType} onValueChange={setPoolType}>
@@ -368,7 +390,7 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
           />
           <Button
             variant="outline"
-            disabled={busy || draft.conditions.length === 1}
+            disabled={busy}
             onClick={() =>
               setDraft({
                 ...draft,
@@ -395,6 +417,35 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
       >
         添加财务条件
       </Button>
+      <LocalDataFactorConditions
+        value={draft.dataFactors ?? []}
+        disabled={busy}
+        onChange={(dataFactors) =>
+          setDraft({
+            ...draft,
+            dataFactors,
+            factorBlockSymbol: dataFactors.some((c) => c.id.startsWith("BK"))
+              ? draft.factorBlockSymbol
+              : undefined,
+          })
+        }
+      />
+      {draft.dataFactors?.some((c) => c.id.startsWith("BK")) && (
+        <label className="grid gap-1 text-xs text-muted-foreground">
+          板块因子标的（代码如sh880301，不推断个股历史归属）
+          <Input
+            disabled={busy}
+            aria-label="板块因子标的"
+            value={draft.factorBlockSymbol ?? ""}
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                factorBlockSymbol: event.target.value || undefined,
+              })
+            }
+          />
+        </label>
+      )}
       <div className="space-y-3">
         <h4 className="text-sm font-medium">技术条件（日线）</h4>
         {draft.technical.map((condition, index) => (

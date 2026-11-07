@@ -3,7 +3,10 @@ import {
   financialDate,
   financialCatalog,
 } from "trading-strategy-core/financial";
-import { factorConditionSchema } from "trading-strategy-core/factors";
+import {
+  factorConditionSchema,
+  localDataFactorConditionSchema,
+} from "trading-strategy-core/factors";
 import { poolSelectionSchema } from "../market/market-pool";
 export {
   financialCatalog,
@@ -101,23 +104,38 @@ export const financialConditionSchema = z.object({
   operator: z.enum(["gt", "gte", "lt", "lte"]),
   threshold: z.number().finite(),
 });
-export const financialScreenInput = z.object({
-  symbols: z.array(financialSymbol).min(1).max(8000).optional(),
-  pool: poolSelectionSchema.optional(),
-  asOf: financialIsoDate,
-  strict: z.boolean().default(true),
-  mode: z.enum(["all", "any"]).default("all"),
-  conditions: z.array(financialConditionSchema).min(1).max(12),
-  technical: z.array(factorConditionSchema).max(6).default([]),
-  rps: z
-    .object({
-      period: z
-        .number()
-        .refine((value) => [5, 10, 20, 50, 120, 250].includes(value)),
-      minimum: z.number().min(0).max(100),
-    })
-    .optional(),
-});
+export const financialScreenInput = z
+  .object({
+    symbols: z.array(financialSymbol).min(1).max(8000).optional(),
+    pool: poolSelectionSchema.optional(),
+    asOf: financialIsoDate,
+    strict: z.boolean().default(true),
+    mode: z.enum(["all", "any"]).default("all"),
+    conditions: z.array(financialConditionSchema).max(12),
+    technical: z.array(factorConditionSchema).max(6).default([]),
+    dataFactors: z.array(localDataFactorConditionSchema).max(12).optional(),
+    factorBlockSymbol: z
+      .string()
+      .regex(/^sh88\d{4}$/, "使用sh88开头的通达信板块代码")
+      .optional(),
+    rps: z
+      .object({
+        period: z
+          .number()
+          .refine((value) => [5, 10, 20, 50, 120, 250].includes(value)),
+        minimum: z.number().min(0).max(100),
+      })
+      .optional(),
+  })
+  .refine(
+    (input) =>
+      input.conditions.length +
+        input.technical.length +
+        (input.dataFactors?.length ?? 0) +
+        (input.rps ? 1 : 0) >
+      0,
+    "至少添加一个筛选条件",
+  );
 export type FinancialScreenInput = z.infer<typeof financialScreenInput>;
 export function displayFinancialNumber(value: number | null, unit: string) {
   if (value === null || !Number.isFinite(value)) return "—";

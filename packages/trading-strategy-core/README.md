@@ -4,7 +4,7 @@
 
 当前公开模块：`bars`、`completed-bars`、`indicators`、`money`、`factors`。
 
-`factors` 按趋势/动量/波动/量价/突破分模块，统一目录元数据、参数验证、lookback 与对齐序列。共 76 个原生模块：22 个共享技术指标、41 个 Qlib Alpha158 模块、13 个 Alpha101 时序公式。公开来源、版本和实际缺项见[因子接口](src/factors/README.md)。
+`factors` 按趋势/动量/波动/量价/突破分模块，统一目录元数据、参数验证、lookback 与对齐序列。共94个行情模块：22个共享指标、18个常用行情因子、41个Qlib模块、13个Alpha101时序公式；另有197项本地数据条件，使用显式财报/序列/基准输入。公开来源、版本和实际缺项见[因子接口](src/factors/README.md)。
 
 ```ts
 import { calculateFactor, factorCatalog } from "trading-strategy-core/factors";
@@ -13,7 +13,6 @@ const result = calculateFactor(bars, { id: "sma", parameters: { period: 20 } });
 ```
 
 `packages/trading-strategies` 仍是九方向代表策略目录和证据元数据包，不与本包合并；真正的运行编排继续位于 `src/server/strategies`。
-
 
 ## 财务计算
 

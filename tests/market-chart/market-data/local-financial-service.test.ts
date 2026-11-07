@@ -208,6 +208,69 @@ describe("本地财务查询与冻结", () => {
     archive.reports[0]!.fields[0]!.raw = 999;
     expect(() => verifyLocalFinancialArchive(archive)).toThrow("校验失败");
   });
+  it("同日股票和市场因子可独立筛选，缺源和重复记录冻结为unknown", async () => {
+    const dir = await root();
+    const series = (group: number, value: number) => {
+      const bytes = Buffer.alloc(13);
+      bytes[0] = group;
+      bytes.writeUInt32LE(20261102, 1);
+      bytes.writeFloatLE(value, 5);
+      return bytes;
+    };
+    await writeFile(join(dir, "vipdoc/cw/gpsh600519.dat"), series(16, 200));
+    await writeFile(join(dir, "vipdoc/cw/gpsh999999.dat"), series(3, 15));
+    const input = financialScreenInput.parse({
+      asOf: "2026-11-02",
+      conditions: [],
+      dataFactors: [
+        { id: "GP16-0", operator: "gt", threshold: 1000000 },
+        { id: "SC3-0", operator: "gte", threshold: 10 },
+      ],
+    });
+    const work = {
+      type: "local-financial" as const,
+      operation: "screen" as const,
+      root: dir,
+      input,
+      symbols: ["sh600519", "sz300999"],
+      names: {},
+      rps: null,
+      poolSource: { hash: "pool", description: "test" },
+    };
+    const result = await runLocalFinancialScreen(work);
+    expect(result.counts).toEqual({
+      total: 2,
+      matched: 1,
+      rejected: 0,
+      unknown: 1,
+    });
+    expect(result.rows[0]!.reportDate).toBeNull();
+    expect(result.rows[0]!.dataFactors.map((f) => f.value)).toEqual([
+      2000000, 15,
+    ]);
+    expect(result.rows[0]!.dataFactors[0]!.inputs[0]!.sourceSha256).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
+    expect(result.rows[1]!.dataFactors[0]!.reason).toContain("ENOENT");
+    await writeFile(
+      join(dir, "vipdoc/cw/gpsh600519.dat"),
+      Buffer.concat([series(16, 200), series(16, 300)]),
+    );
+    const duplicate = await runLocalFinancialScreen(work);
+    expect(duplicate.rows[0]!.matched).toBeNull();
+    expect(duplicate.rows[0]!.dataFactors[0]!.reason).toContain("重复");
+    expect(duplicate.hash).not.toBe(result.hash);
+    expect(
+      financialScreenInput.safeParse({ asOf: "2026-11-02", conditions: [] })
+        .success,
+    ).toBe(false);
+    expect(
+      financialScreenInput.safeParse({
+        ...input,
+        dataFactors: [{ id: "GO1", operator: "gt", threshold: 0 }],
+      }).success,
+    ).toBe(false);
+  });
   it("财务批量条件缺失不是不满足，配置冻结且非法因子拒绝", async () => {
     const dir = await root(),
       input = financialScreenInput.parse({

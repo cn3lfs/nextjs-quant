@@ -32,8 +32,8 @@ const values = (id: FactorId, period?: number, input = fixture) =>
 
 describe("modular factor catalog", () => {
   it("registers exact public subsets and standard Alpha158 variants except VWAP0", () => {
-    expect(factorIds).toHaveLength(76);
-    expect(new Set(factorIds).size).toBe(76);
+    expect(factorIds).toHaveLength(94);
+    expect(new Set(factorIds).size).toBe(94);
     expect(
       factorCatalog
         .filter((f) => f.id.startsWith("alpha101-"))

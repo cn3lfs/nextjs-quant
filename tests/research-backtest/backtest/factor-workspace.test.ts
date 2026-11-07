@@ -39,7 +39,7 @@ it("shows editable conditions and public formula provenance without requiring a 
       disabled: false,
     }),
   );
-  expect(html).toContain("76 个因子");
+  expect(html).toContain("94 个因子");
   expect(html).toContain("入场");
   expect(html).toContain("退出");
   expect(html).toContain("Microsoft Qlib Alpha158");
