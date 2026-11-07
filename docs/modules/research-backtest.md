@@ -6,6 +6,8 @@
 
 ## 职责与非职责
 
+回测 UI 采用[工作台规格](../product/specs/backtest-workbench.md)的配置/报告/历史布局。`ma-baseline-panel` 是取数与任务容器；`ma-experiment-config`、`ma-experiment-report`、`ma-experiment-history` 只接受 props；`lib/backtest/ma-workspace` 管理草稿转换/校验与展示名称。`maBaselineOrders` 返回按状态筛选后的 50 条订单与总数，复用已有 job 归档，不新增表或引擎逻辑。报告始终绑定所选任务，费用/实际窗口从归档读取。
+
 研究域装配当时可得的数据证据、来源、方法和报告；回测域管理输入快照、模拟执行、公司行动/成本口径、worker 生命周期和结果。它不改写真实账本事实，也不把规则自检升级为正式业绩证明。
 
 ## 入口与消费者

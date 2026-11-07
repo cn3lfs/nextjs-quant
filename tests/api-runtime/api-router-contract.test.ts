@@ -7,6 +7,7 @@ const expectedProcedures = {
   maBaselineCoverage: "query",
   maBaselineHistory: "query",
   maBaselineResult: "query",
+  maBaselineOrders: "query",
   maBaselineExport: "query",
   maBaselineRemove: "mutation",
   cashWorkspace: "query",

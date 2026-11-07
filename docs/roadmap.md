@@ -1,5 +1,7 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+回测单策略基建之后，按[回测工作台规格](product/specs/backtest-workbench.md)推进产品、Stitch 视觉和 UI 实现，验收配置、运行、报告、订单诊断与历史恢复完整流程。
+
 ## TS 回测单策略基建（2026-11-07）
 
 按用户最新授权，现有策略统一弃用，历史结果与证据保留；当前仅开放新的双均线交叉基线。参考成熟框架划分职责，以独立 TypeScript workspace 包 [quant-backtest](../packages/quant-backtest/README.md)承载纯回测核心，应用管理数据与任务。先把数据时点、订单/账户、费用与可复现输入验证清楚；不接 Python 宿主，不全量重写 C/Rust，性能热点由实测推动。当前范围与验收见 [next-plan](next-plan.md)，旧章节的策略可执行状态不再作为新任务授权。

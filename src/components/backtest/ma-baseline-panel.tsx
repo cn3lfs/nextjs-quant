@@ -1,82 +1,81 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FlaskConical, RefreshCw } from "lucide-react";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
 import {
-  maBaselineInputSchema,
-  type BaselineFill,
-} from "~/lib/backtest/ma-baseline";
-import {
-  defaultBacktestCosts,
-  type BacktestCosts,
-} from "~/lib/backtest/backtest-costs";
+  draftFromInput,
+  draftMatchesInput,
+  initialMaDraft,
+  jobStatusLabel,
+  parseMaDraft,
+  type MaDraft,
+  type OrderFilter,
+  type ReportTab,
+} from "~/lib/backtest/ma-workspace";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-import { DataTable, type DataTableColumn } from "../ui/data-table";
-import { EquityChart } from "./equity-chart";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
 import { activeJobPoll } from "../workbench/job-poll";
 import { usePanelVisible } from "../workbench/keep-alive";
+import {
+  MaExperimentConfig,
+  type BaselineCoverage,
+} from "./ma-experiment-config";
+import { MaExperimentHistory } from "./ma-experiment-history";
+import { MaExperimentReport } from "./ma-experiment-report";
 
-const columns: DataTableColumn<BaselineFill>[] = [
-  {
-    id: "signal",
-    header: "信号确认",
-    cell: ({ row }) => row.original.signalAt.slice(0, 16),
-  },
-  {
-    id: "date",
-    header: "模拟成交",
-    cell: ({ row }) => row.original.executedAt.slice(0, 16),
-  },
-  {
-    id: "side",
-    header: "方向",
-    cell: ({ row }) => (row.original.side === "buy" ? "买入" : "卖出"),
-  },
-  {
-    id: "price",
-    header: "价格",
-    cell: ({ row }) => row.original.price.toFixed(4),
-  },
-  { id: "quantity", header: "股数", cell: ({ row }) => row.original.shares },
-  { id: "fee", header: "费用", cell: ({ row }) => row.original.fee.toFixed(2) },
-  {
-    id: "cash",
-    header: "剩余现金",
-    cell: ({ row }) => row.original.cashAfter.toFixed(2),
-  },
-];
-
+const firstPage = { pageIndex: 0, pageSize: 50 };
 export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
-  const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-  const [symbol, setSymbol] = useState(loaded?.symbol ?? "sh600519");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState(
-    loaded?.bars.at(-1)?.date.slice(0, 10) ?? today,
+  const [draft, setDraft] = useState(() =>
+    initialMaDraft(
+      loaded?.symbol ?? "sz000001",
+      loaded?.bars.at(-1)?.date.slice(0, 10) ??
+        new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
+    ),
   );
-  const [initial, setInitial] = useState(100000);
-  const [costs, setCosts] = useState<BacktestCosts>(defaultBacktestCosts);
   const [id, setId] = useState("");
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
-  const [message, setMessage] = useState("");
+  const [tab, setTab] = useState<ReportTab>("overview");
+  const [activity, setActivity] = useState<"fills" | "orders">("fills");
+  const [pagination, setPagination] = useState(firstPage);
+  const [orderPagination, setOrderPagination] = useState(firstPage);
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
+  const [coverage, setCoverage] = useState<BaselineCoverage | null>(null);
+  const [coverageError, setCoverageError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reading, setReading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const visible = usePanelVisible();
   const utils = api.useUtils();
   const history = api.maBaselineHistory.useQuery(undefined, {
     enabled: visible,
   });
+  function selectExperiment(value: string) {
+    setId(value);
+    setTab("overview");
+    setPagination(firstPage);
+    setOrderPagination(firstPage);
+    setOrderFilter("all");
+    setDeleteOpen(false);
+    setNotice("");
+    setExportError("");
+    create.reset();
+    cancel.reset();
+    remove.reset();
+  }
   const create = api.maBaseline.useMutation({
     onSuccess: (job) => {
-      setId(job.id);
-      setPagination({ pageIndex: 0, pageSize: 50 });
+      selectExperiment(job.id);
       void utils.maBaselineHistory.invalidate();
     },
   });
@@ -87,50 +86,104 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
       refetchInterval: (q) => (visible ? activeJobPoll(q.state.data) : false),
     },
   );
+  const completed = job.data?.status === "completed";
   const result = api.maBaselineResult.useQuery(
+    { id, pageIndex: 0 },
+    { enabled: !!id && visible && completed },
+  );
+  const fills = api.maBaselineResult.useQuery(
     { id, pageIndex: pagination.pageIndex },
     {
-      enabled: !!id && visible && job.data?.status === "completed",
+      enabled:
+        !!id &&
+        visible &&
+        completed &&
+        tab === "activity" &&
+        activity === "fills",
+    },
+  );
+  const orders = api.maBaselineOrders.useQuery(
+    { id, pageIndex: orderPagination.pageIndex, status: orderFilter },
+    {
+      enabled:
+        !!id &&
+        visible &&
+        completed &&
+        tab === "activity" &&
+        activity === "orders",
     },
   );
   const cancel = api.cancel.useMutation({
-    onSuccess: () => void job.refetch(),
-  });
-  const remove = api.maBaselineRemove.useMutation({
     onSuccess: () => {
-      setId("");
+      void job.refetch();
       void utils.maBaselineHistory.invalidate();
     },
   });
+  const remove = api.maBaselineRemove.useMutation({
+    onSuccess: async (_, removedId) => {
+      setDeleteOpen(false);
+      if (id === removedId) setId("");
+      setNotice("实验及其冻结输入已删除，审计事实保留。");
+      await utils.maBaselineHistory.invalidate();
+      await utils.maBaselineResult.invalidate({ id: removedId });
+      await utils.maBaselineOrders.invalidate({ id: removedId });
+    },
+  });
+  useEffect(() => {
+    if (
+      id &&
+      visible &&
+      ["completed", "failed", "cancelled"].includes(job.data?.status ?? "")
+    )
+      void utils.maBaselineHistory.invalidate();
+  }, [id, job.data?.status, visible, utils]);
   const running =
     create.isPending ||
     (!!id && job.isLoading) ||
     ["queued", "running"].includes(job.data?.status ?? "");
-  const data = result.data;
+  const busy = running || reading || exporting || remove.isPending;
+  const parsed = parseMaDraft(draft);
+  const data = completed ? result.data : null;
+  const selectedEntry = history.data?.find((entry) => entry.id === id);
+  function changeDraft(next: MaDraft) {
+    if (next.symbol !== draft.symbol) {
+      setCoverage(null);
+      setCoverageError("");
+    }
+    setDraft(next);
+    setNotice("");
+    create.reset();
+  }
   async function readCoverage() {
     setReading(true);
-    setMessage("");
+    setCoverage(null);
+    setCoverageError("");
     try {
-      const source = await utils.maBaselineCoverage.fetch(symbol);
+      const source = await utils.maBaselineCoverage.fetch(draft.symbol);
       const from = new Date(`${source.end}T00:00:00Z`);
       from.setUTCDate(from.getUTCDate() - 30);
-      setStart(
-        from.toISOString().slice(0, 10) < source.start
-          ? source.start
-          : from.toISOString().slice(0, 10),
-      );
-      setEnd(source.end);
-      setMessage(
-        `本地覆盖 ${source.start} 至 ${source.end}，共 ${source.bars} 根。默认选择末尾约一个月，可自行缩小窗口。`,
-      );
+      setDraft((current) => ({
+        ...current,
+        start:
+          from.toISOString().slice(0, 10) < source.start
+            ? source.start
+            : from.toISOString().slice(0, 10),
+        end: source.end,
+      }));
+      setCoverage(source);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "读取覆盖失败");
+      setCoverageError(
+        error instanceof Error
+          ? error.message
+          : "读取覆盖失败，请检查本地数据设置后重试。",
+      );
     } finally {
       setReading(false);
     }
   }
   async function exportResult() {
-    setMessage("");
+    setExporting(true);
+    setExportError("");
     try {
       const archive = await utils.maBaselineExport.fetch(id);
       const url = URL.createObjectURL(
@@ -141,228 +194,292 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
       link.download = `${archive.manifest.symbol}-${id}.json`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice("已生成完整实验 JSON，包含冻结输入、订单和成交。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "导出失败");
+      setExportError(
+        error instanceof Error ? error.message : "导出失败，请重试。",
+      );
+    } finally {
+      setExporting(false);
     }
   }
   return (
-    <section className="panel space-y-4" aria-label="双均线基线">
-      <h2>双均线交叉 · TS 回测基线</h2>
-      <p className="text-sm text-muted-foreground">
-        当前仅此策略启用。五分钟
-        SMA5/20，金叉买入、死叉退出；收盘确认、下一根开盘、T+1、整手与费用。先核对规则与数据，不作盈利结论。
-      </p>
-      <div className="flex flex-wrap items-end gap-3">
-        <label>
-          沪深主板代码
-          <Input
-            aria-label="基线证券代码"
-            disabled={reading || running}
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value.toLowerCase())}
-          />
-        </label>
-        <Button
-          variant="outline"
-          onClick={() => void readCoverage()}
-          disabled={reading || running}
-        >
-          {reading ? "读取中" : "读取本地覆盖"}
-        </Button>
-        <label>
-          开始日期
-          <Input
-            type="date"
-            aria-label="基线开始日期"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-          />
-        </label>
-        <label>
-          结束日期
-          <Input
-            type="date"
-            aria-label="基线结束日期"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-          />
-        </label>
-        <label>
-          初始资金
-          <Input
-            type="number"
-            aria-label="基线初始资金"
-            value={initial}
-            onChange={(e) => setInitial(Number(e.target.value))}
-          />
-        </label>
-      </div>
-      <details>
-        <summary>固定实验费用</summary>
-        <div className="flex flex-wrap gap-3">
-          {(
-            [
-              ["commissionBps", "佣金（万分之）"],
-              ["minimumCommission", "最低佣金（元）"],
-              ["sellTaxBps", "卖出税费（万分之）"],
-              ["slippageBps", "单边滑点（万分之）"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <Input
-                aria-label={`基线${label}`}
-                type="number"
-                min={0}
-                step="0.1"
-                value={costs[key]}
-                onChange={(e) =>
-                  setCosts({ ...costs, [key]: Number(e.target.value) })
-                }
+    <Dialog
+      open={deleteOpen}
+      onOpenChange={(open) => {
+        if (!remove.isPending) setDeleteOpen(open);
+      }}
+    >
+      <section className="min-w-0 space-y-4" aria-label="双均线基线">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-semibold">
+              <FlaskConical
+                className="size-5 text-nc-accent"
+                aria-hidden="true"
               />
-            </label>
-          ))}
-        </div>
-      </details>
-      <div className="flex flex-wrap gap-3">
-        <Button
-          disabled={
-            running ||
-            reading ||
-            !maBaselineInputSchema.safeParse({
-              symbol,
-              start,
-              end,
-              initial,
-              costs,
-            }).success
-          }
-          onClick={() => {
-            setMessage("");
-            create.mutate({ symbol, start, end, initial, costs });
-          }}
-        >
-          运行双均线基线
-        </Button>
-        {running && (
-          <Button
-            variant="outline"
-            disabled={!id || create.isPending || cancel.isPending}
-            onClick={() => cancel.mutate(id)}
-          >
-            取消任务
-          </Button>
-        )}
-        {history.data && history.data.length > 0 && (
-          <Select
-            value={id}
-            onValueChange={(value) => {
-              setId(value);
-              setPagination({ pageIndex: 0, pageSize: 50 });
+              回测实验室
+            </h2>
+            <p className="mt-1 text-sm text-nc-text-3">
+              从一个可复现的实验开始
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-lg border border-nc-border bg-nc-card px-3 py-2 text-nc-text-2">
+              双均线 SMA 5 / 20 · 5分钟
+            </span>
+            <span className="rounded-lg border border-nc-warn-edge px-3 py-2 text-nc-warn">
+              规则自检
+            </span>
+          </div>
+        </header>
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[19rem_minmax(0,1fr)]">
+          <MaExperimentConfig
+            draft={draft}
+            onChange={changeDraft}
+            reading={reading}
+            running={running}
+            coverage={coverage}
+            coverageError={coverageError}
+            validationError={parsed.error}
+            onReadCoverage={() => void readCoverage()}
+            onRun={() => {
+              if (parsed.input && !busy) {
+                setNotice("");
+                setExportError("");
+                create.mutate(parsed.input);
+              }
             }}
-          >
-            <SelectTrigger aria-label="基线最近任务" className="w-80">
-              <SelectValue placeholder="恢复最近 20 个任务" />
-            </SelectTrigger>
-            <SelectContent>
-              {history.data.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.symbol.toUpperCase()} · {item.status} ·{" "}
-                  {new Date(item.createdAt).toLocaleString("zh-CN")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-      {job.data && (
-        <p role="status">
-          {job.data.phase ?? job.data.status} · {job.data.progress}%
-          {job.data.error ? ` · ${job.data.error}` : ""}
-        </p>
-      )}
-      {(message ||
-        create.error ||
-        result.error ||
-        job.error ||
-        cancel.error ||
-        history.error) && (
-        <p role="alert">
-          {message ||
-            create.error?.message ||
-            result.error?.message ||
-            job.error?.message ||
-            cancel.error?.message ||
-            history.error?.message}
-        </p>
-      )}
-      {data && (
-        <>
-          <h3>
-            {data.manifest.symbol.toUpperCase()} ·{" "}
-            {data.manifest.start.slice(0, 10)} 至{" "}
-            {data.manifest.end.slice(0, 10)}
-          </h3>
-          <p>
-            区间收益 {data.summary.totalReturn.toFixed(2)}% · 五分钟最大回撤{" "}
-            {data.summary.maxDrawdown.toFixed(2)}% · 成交 {data.fillCount} 笔 ·
-            拒单 {data.rejectedCount} · 期末 {data.summary.shares} 股 / 现金{" "}
-            {data.summary.cash.toFixed(2)} 元
-          </p>
-          <EquityChart
-            equity={data.summary.equity}
-            initial={data.summary.input.initial}
+            onCancel={() => {
+              if (id) cancel.mutate(id);
+            }}
+            cancelling={!id || create.isPending || cancel.isPending}
+            startDisabled={exporting || remove.isPending}
           />
-          <DataTable
-            columns={columns}
-            data={data.fills}
-            rowCount={data.fillCount}
-            pagination={pagination}
-            sorting={[]}
-            onPaginationChange={setPagination}
-            onSortingChange={() => {}}
-            getRowId={(row) => String(row.orderId)}
-            label="双均线逐笔成交"
-            loading={result.isFetching}
-          />
-          {data.pending.map((order) => (
-            <p key={order.id}>
-              待执行{order.side === "sell" ? "退出" : "买入"}：{order.signalAt}{" "}
-              · {order.reason ?? "窗口结束，尚无下一根行情"} · 尝试{" "}
-              {order.attempts} 次
+          <div className="min-w-0 space-y-4">
+            {(id || create.isPending) && (
+              <section
+                className="rounded-lg border border-nc-border bg-nc-card p-4"
+                aria-label="实验运行状态"
+              >
+                <div role="status" aria-live="polite">
+                  <p className="text-sm font-medium">
+                    {create.isPending
+                      ? "正在创建实验…"
+                      : job.data
+                        ? jobStatusLabel(job.data.status)
+                        : job.isError
+                          ? "实验状态读取失败"
+                          : job.isLoading
+                            ? "正在恢复实验…"
+                            : "实验已不存在"}
+                  </p>
+                  {job.data && (
+                    <p className="mt-1 break-words text-sm text-nc-text-2">
+                      {job.data.phase ?? jobStatusLabel(job.data.status)} ·{" "}
+                      {job.data.progress}%
+                    </p>
+                  )}
+                  {job.data?.status === "cancelled" && (
+                    <p className="mt-2 text-sm text-nc-text-3">
+                      本次已取消，无可用报告。可以调整配置重新运行，或恢复其他实验。
+                    </p>
+                  )}
+                  {job.data?.error && (
+                    <p
+                      role="alert"
+                      className="mt-2 break-words text-sm text-nc-bad"
+                    >
+                      {job.data.error}
+                    </p>
+                  )}
+                </div>
+                {running && (
+                  <div
+                    role="progressbar"
+                    aria-label="实验进度"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={job.data?.progress ?? 0}
+                    className="mt-3 h-1.5 overflow-hidden rounded-full bg-nc-inset"
+                  >
+                    <div
+                      className="h-full bg-nc-accent"
+                      style={{ width: `${job.data?.progress ?? 0}%` }}
+                    />
+                  </div>
+                )}
+                {job.error && (
+                  <div className="mt-2">
+                    <p role="alert" className="break-words text-sm text-nc-bad">
+                      {job.error.message}
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-2 min-h-10"
+                      onClick={() => void job.refetch()}
+                    >
+                      重试读取实验
+                    </Button>
+                  </div>
+                )}
+              </section>
+            )}
+            {(create.error || cancel.error || exportError) && (
+              <p
+                role="alert"
+                className="rounded-lg border border-nc-bad-edge p-3 text-sm text-nc-bad"
+              >
+                {create.error?.message ?? cancel.error?.message ?? exportError}
+              </p>
+            )}
+            {notice && (
+              <p
+                role="status"
+                className="rounded-lg border border-nc-border p-3 text-sm text-nc-text-2"
+              >
+                {notice}
+              </p>
+            )}
+            {completed && result.isLoading && (
+              <p
+                role="status"
+                className="rounded-lg border border-nc-border p-6 text-sm text-nc-text-3"
+              >
+                正在读取所选实验报告…
+              </p>
+            )}
+            {result.error && completed && (
+              <div className="rounded-lg border border-nc-bad-edge p-4">
+                <p role="alert" className="text-sm text-nc-bad">
+                  报告读取失败：{result.error.message}
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-3 min-h-10"
+                  onClick={() => void result.refetch()}
+                >
+                  <RefreshCw className="size-4" aria-hidden="true" />
+                  重试报告
+                </Button>
+              </div>
+            )}
+            {data ? (
+              <MaExperimentReport
+                id={id}
+                data={{ ...data, fills: fills.data?.fills ?? [] }}
+                modified={!draftMatchesInput(draft, data.summary.input)}
+                tab={tab}
+                onTabChange={setTab}
+                onReuse={() => {
+                  setDraft(draftFromInput(data.summary.input));
+                  setCoverage(null);
+                  setCoverageError("");
+                  create.reset();
+                  setNotice(
+                    "已填入所选实验的原始配置，点击开始回测才会创建新实验。",
+                  );
+                }}
+                onExport={() => void exportResult()}
+                exporting={exporting}
+                fillPagination={pagination}
+                onFillPaginationChange={setPagination}
+                fillsLoading={fills.isFetching}
+                fillsError={fills.error?.message}
+                onRetryFills={() => void fills.refetch()}
+                activity={activity}
+                onActivityChange={setActivity}
+                orderFilter={orderFilter}
+                onOrderFilterChange={(value) => {
+                  setOrderFilter(value);
+                  setOrderPagination(firstPage);
+                }}
+                orders={orders.data}
+                ordersLoading={orders.isFetching}
+                ordersError={orders.error?.message}
+                onRetryOrders={() => void orders.refetch()}
+                orderPagination={orderPagination}
+                onOrderPaginationChange={setOrderPagination}
+                onDelete={() => remove.reset()}
+              />
+            ) : (
+              !id &&
+              !create.isPending && (
+                <section
+                  aria-label="实验报告空状态"
+                  className="flex min-h-80 min-w-0 flex-col items-center justify-center rounded-lg border border-dashed border-nc-border bg-nc-card p-6 text-center"
+                >
+                  <FlaskConical
+                    className="mb-4 size-8 text-nc-accent"
+                    aria-hidden="true"
+                  />
+                  <h3 className="text-base font-medium">准备好第一个实验</h3>
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-nc-text-3">
+                    输入证券代码，读取本地覆盖并确认窗口。运行完成后，这里将展示概览、成交与订单和复现依据。
+                  </p>
+                  <p className="mt-4 text-xs text-nc-text-3">
+                    只有真实完成的实验才显示收益和曲线。
+                  </p>
+                </section>
+              )
+            )}
+            {id && job.data && !running && !data && (
+              <DialogTrigger asChild>
+                <Button
+                  variant="danger"
+                  className="min-h-10"
+                  onClick={() => remove.reset()}
+                >
+                  删除实验
+                </Button>
+              </DialogTrigger>
+            )}
+          </div>
+        </div>
+        <MaExperimentHistory
+          entries={history.data ?? []}
+          selectedId={id}
+          disabled={busy}
+          loading={history.isFetching}
+          error={history.error?.message}
+          onSelect={selectExperiment}
+          onRefresh={() => void history.refetch()}
+        />
+        <DialogContent showCloseButton={!remove.isPending}>
+          <DialogHeader>
+            <DialogTitle>删除所选实验？</DialogTitle>
+            <DialogDescription className="break-all">
+              {data?.manifest.symbol.toUpperCase() ??
+                selectedEntry?.symbol?.toUpperCase() ??
+                "双均线实验"}{" "}
+              · {id}。删除此任务及其冻结输入和结果，审计事实保留。
+            </DialogDescription>
+          </DialogHeader>
+          {remove.error && (
+            <p role="alert" className="text-sm text-nc-bad">
+              {remove.error.message}
             </p>
-          ))}
-          <details>
-            <summary>数据、规则与复现依据</summary>
-            <ul className="list-disc space-y-1 pl-5">
-              {data.summary.assumptions.map((text) => (
-                <li key={text}>{text}</li>
-              ))}
-            </ul>
-            <p className="break-all">
-              引擎 {data.summary.engineVersion} · 数据 {data.manifest.dataHash}
-            </p>
-            <p>
-              读取/校验 {data.manifest.sourceMs.toFixed(1)} ms · 计算{" "}
-              {data.manifest.computeMs.toFixed(1)} ms · 预热{" "}
-              {data.manifest.warmupBars} 根
-            </p>
-          </details>
-          <Button variant="outline" onClick={() => void exportResult()}>
-            导出完整订单、成交与冻结输入
-          </Button>
-        </>
-      )}
-      {id && job.data && !running && (
-        <Button
-          variant="outline"
-          disabled={remove.isPending}
-          onClick={() => remove.mutate(id)}
-        >
-          删除当前基线任务与冻结输入
-        </Button>
-      )}
-      {remove.error && <p role="alert">{remove.error.message}</p>}
-    </section>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="min-h-10"
+              disabled={remove.isPending}
+              onClick={() => setDeleteOpen(false)}
+            >
+              保留实验
+            </Button>
+            <Button
+              variant="danger"
+              className="min-h-10"
+              disabled={remove.isPending || running || exporting}
+              onClick={() => remove.mutate(id)}
+            >
+              {remove.isPending ? "正在删除…" : "确认删除实验"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </section>
+    </Dialog>
   );
 }

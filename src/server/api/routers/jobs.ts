@@ -153,6 +153,32 @@ export const jobsRouter = createTRPCRouter({
         pending: orders.filter((o) => o.status === "pending"),
       };
     }),
+  maBaselineOrders: p
+    .input(
+      z.object({
+        id: z.string().min(1),
+        pageIndex: z.number().int().min(0).max(1000000).default(0),
+        status: z.enum(["all", "filled", "rejected", "pending"]).default("all"),
+      }),
+    )
+    .query(({ input }) => {
+      const job = readJob(input.id);
+      if (
+        !job ||
+        job.type !== "backtest" ||
+        (job.input as { type?: string } | null)?.type !== "ma-baseline"
+      )
+        throw new Error("双均线基线任务不存在");
+      if (job.status !== "completed") return null;
+      const archive = job.result as MaBaselineArchive;
+      const orders = archive.result.orders.filter(
+        (order) => input.status === "all" || order.status === input.status,
+      );
+      return {
+        orders: orders.slice(input.pageIndex * 50, (input.pageIndex + 1) * 50),
+        rowCount: orders.length,
+      };
+    }),
   maBaselineExport: p.input(z.string().min(1)).query(({ input }) => {
     const job = readJob(input);
     if (

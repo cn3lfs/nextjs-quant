@@ -157,3 +157,74 @@ it("deletion refuses active/foreign work and retains the research audit fact", a
   expect(get("job-baseline-fixture")).toBeUndefined();
   expect(get("audit-fixture")).toEqual({ taskId: "job-baseline-fixture" });
 });
+
+it("filters orders before server pagination, preserves reasons and refuses foreign or unfinished results", async () => {
+  const archive = save();
+  archive.result.orders = Array.from({ length: 125 }, (_, i) => ({
+    id: i + 1,
+    side: "buy",
+    signalAt: bars[20]!.date,
+    status: i < 60 ? "rejected" : i < 120 ? "filled" : "pending",
+    attempts: i < 120 ? 1 : 0,
+    reason: i < 60 ? "资金不足以支付一手及费用" : null,
+  }));
+  put("job", "job-baseline-fixture", {
+    id: "job-baseline-fixture",
+    type: "backtest",
+    status: "completed",
+    input: { type: "ma-baseline", input },
+    result: archive,
+  });
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  const first = await caller.maBaselineOrders({
+    id: "job-baseline-fixture",
+    status: "rejected",
+  });
+  const second = await caller.maBaselineOrders({
+    id: "job-baseline-fixture",
+    status: "rejected",
+    pageIndex: 1,
+  });
+  expect(first!.rowCount).toBe(60);
+  expect(first!.orders).toHaveLength(50);
+  expect(first!.orders[0]).toMatchObject({
+    id: 1,
+    status: "rejected",
+    reason: "资金不足以支付一手及费用",
+  });
+  expect(second!.orders.map((order) => order.id)).toEqual(
+    Array.from({ length: 10 }, (_, i) => i + 51),
+  );
+  const pending = await caller.maBaselineOrders({
+    id: "job-baseline-fixture",
+    status: "pending",
+  });
+  expect(pending!.rowCount).toBe(5);
+  expect(pending!.orders[0]!.id).toBe(121);
+  const filled = await caller.maBaselineOrders({
+    id: "job-baseline-fixture",
+    status: "filled",
+  });
+  expect(filled!.orders[0]!.id).toBe(61);
+  expect(Object.keys(first!)).toEqual(["orders", "rowCount"]);
+  await expect(caller.maBaselineOrders({ id: "foreign" })).rejects.toThrow(
+    "不存在",
+  );
+  await expect(
+    caller.maBaselineOrders({ id: "job-baseline-fixture", pageIndex: -1 }),
+  ).rejects.toThrow();
+  await expect(
+    caller.maBaselineOrders({
+      id: "job-baseline-fixture",
+      status: "invalid" as "all",
+    }),
+  ).rejects.toThrow();
+  for (const status of ["queued", "running", "failed", "cancelled"]) {
+    save(status);
+    expect(
+      await caller.maBaselineOrders({ id: "job-baseline-fixture" }),
+    ).toBeNull();
+  }
+});
