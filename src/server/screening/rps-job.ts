@@ -209,7 +209,11 @@ export async function runRpsJob(
         const absent = store
           .latest()
           ?.industry?.snapshot.files.filter(
-            (f) => !industrySnapshot.files.some((n) => n.file === f.file),
+            (f) =>
+              !industrySnapshot.files.some((n) => n.file === f.file) &&
+              !industrySnapshot.selectionPolicy?.removed.some(
+                (removed) => removed.file === f.file && removed.name === f.name,
+              ),
           );
         if (absent?.length)
           throw new Error(

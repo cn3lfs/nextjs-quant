@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { build } from "esbuild";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, cp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sqlite, put } from "../../../src/server/db/index";
@@ -32,6 +32,9 @@ beforeAll(async () => {
   });
   await mkdir(join(root, "vipdoc/sz/lday"), { recursive: true });
   await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
+  await cp("tests/fixtures/tdx-local-blocks", join(root, "T0002/hq_cache"), {
+    recursive: true,
+  });
   await writeFile(
     join(root, "T0002/hq_cache/gbbq"),
     Buffer.from(fixture.gbbqBase64, "base64"),

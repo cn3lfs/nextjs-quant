@@ -1,0 +1,2 @@
+# Source bytes include CRLF; retain them and allow only that end-of-line form.
+Blocks/** -text whitespace=cr-at-eol

@@ -1,5 +1,12 @@
 import { expect, it } from "vitest";
-import { readFile, cp, mkdtemp, writeFile } from "node:fs/promises";
+import {
+  readFile,
+  cp,
+  mkdtemp,
+  writeFile,
+  appendFile,
+  mkdir,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -23,6 +30,51 @@ async function fixture() {
   });
   return root;
 }
+it("excludes fixed region/style definitions before both catalogs and RPS while preserving similarly named concepts", async () => {
+  const root = await fixture();
+  await appendFile(
+    join(root, "T0002/hq_cache/tdxzs.cfg"),
+    "\r\nRegionFixture|880201|3|1|0|1\r\nStyleFixture|880826|5|1|0|StyleFixture\r\n",
+  );
+  await appendFile(
+    join(root, "T0002/hq_cache/infoharbor_block.dat"),
+    "\r\n#GN_RegionFixture,1,880201,0,20260910\r\n0#000001,\r\n#GN_StyleFixture,1,880826,0,20260910\r\n0#000001,\r\n",
+  );
+  const blocks = await readTdxLocalBlocks(root);
+  expect(blocks.excludedBlocks).toContainEqual({
+    name: "RegionFixture",
+    code: "880201",
+    kind: "region",
+  });
+  expect(
+    blocks.blocks.some((block) =>
+      ["880201", "880826"].includes(block.code ?? ""),
+    ),
+  ).toBe(false);
+  const external = join(root, "external");
+  await mkdir(join(external, "概念"), { recursive: true });
+  for (const name of ["RegionFixture", "StyleFixture", "RegionFixtureTech"])
+    await writeFile(join(external, "概念", `${name}.txt`), "SZ000001\n");
+  const catalog = await marketPoolCatalog(external, "concept", root);
+  expect(catalog.names).toContain("RegionFixtureTech");
+  expect(catalog.names).not.toContain("RegionFixture");
+  expect(catalog.names).not.toContain("StyleFixture");
+  const snapshot = await readRpsBlockSource(
+    { source: "blocks", blocksRoot: external, tdxRoot: root },
+    "concept",
+  );
+  expect(snapshot.files.map((file) => file.name)).toEqual([
+    "RegionFixtureTech",
+  ]);
+  expect(snapshot.selectionPolicy!.removed).toHaveLength(2);
+  await expect(
+    readMarketPool(
+      external,
+      { category: "concept", name: "RegionFixture" },
+      root,
+    ),
+  ).rejects.toThrow("已排除");
+});
 it("ranks only top-level TDX industries and refuses damaged sources without fallback", async () => {
   const root = await fixture();
   const options = { source: "tdx" as const, tdxRoot: root, blocksRoot: "" };

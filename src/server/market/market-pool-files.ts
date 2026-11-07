@@ -10,6 +10,8 @@ import { industryRpsPolicy } from "~/lib/screening/industry-rps";
 import { parseIndustryMembers } from "./industry-blocks";
 import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
 import { get, put } from "../db";
+import { excludedBlock } from "~/lib/market/block-eligibility";
+import { eligibilityFromTdx } from "./block-eligibility";
 
 async function directory(
   root: string,
@@ -52,9 +54,14 @@ export async function marketPoolCatalog(
           .filter((row) => row.category === category && row.members.length)
           .map((row) => row.selectionName),
       );
+      const policy = eligibilityFromTdx(local);
+      files = files.filter(
+        (name) => !excludedBlock(name, `${name}.txt`, policy),
+      );
     } catch (error) {
+      files = [];
       warnings.push(
-        `通达信板块资料不可用：${error instanceof Error ? error.message : String(error)}`,
+        `通达信板块资料不可用，无法核验地区/风格分类，暂不提供名单：${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -70,8 +77,14 @@ export async function readMarketPool(
   readOnly = false,
 ) {
   const pool = poolSelectionSchema.parse(input);
-  if (tdxRoot && pool.name.startsWith("通达信·")) {
-    const snapshot = await readTdxLocalBlocks(tdxRoot);
+  const local = tdxRoot ? await readTdxLocalBlocks(tdxRoot) : null;
+  if (local) {
+    const policy = eligibilityFromTdx(local);
+    if (excludedBlock(pool.name, `${pool.name}.txt`, policy))
+      throw new Error("地区板块和风格板块已排除，不能作为当前板块池");
+  }
+  if (local && pool.name.startsWith("通达信·")) {
+    const snapshot = local;
     const block = snapshot.blocks.find(
       (row) =>
         row.category === pool.category && row.selectionName === pool.name,

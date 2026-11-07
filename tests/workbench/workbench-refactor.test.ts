@@ -206,17 +206,16 @@ it("retains the reviewed connection implementation and independent P2 configurat
   );
   const statement = expected.statements[0] as ts.ExpressionStatement;
   expect(fingerprint(additions)).toBe(fingerprint([statement.expression]));
-  expect(importPanel).toHaveLength(1);
+  expect(importPanel).toHaveLength(0);
   const connectionSource = readFileSync(
     "src/components/workbench/connections.tsx",
     "utf8",
   );
-  expect(connectionSource).toContain("五分钟 CSV 导入另需预检、确认和备份");
+  expect(connectionSource).not.toContain("FiveMinuteImport");
+  expect(connectionSource).not.toContain("五分钟 CSV 导入");
+  expect(connectionSource).not.toContain("五分钟导入按下方流程操作");
   expect(connectionSource.replace(/\s+/g, " ")).toContain(
     "行情读取与外部 Blocks 目录只读",
-  );
-  expect(importPanel[0]!.getText()).toBe(
-    "<FiveMinuteImport root={draftState.base.tdxRoot} />",
   );
   expect(fingerprint(connection, new Set([...additions, ...importPanel]))).toBe(
     baseline.connections,

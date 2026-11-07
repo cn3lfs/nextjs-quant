@@ -1,6 +1,7 @@
 import { readFile, lstat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
+import type { BlockExclusion } from "~/lib/market/block-eligibility";
 
 export const tdxBlockFiles = [
   "infoharbor_block.dat",
@@ -39,7 +40,38 @@ function sourceDate(value: string | undefined) {
     throw new Error("板块日期非法");
   return day;
 }
+/** Category 3 is region, 5 and FG are style in the local definition files. */
+export function parseTdxBlockExclusions(files: Files): BlockExclusion[] {
+  const entries = new Map<string, BlockExclusion>();
+  for (const file of ["tdxzs.cfg", "tdxzs3.cfg"] as const) {
+    for (const line of files[file].split(/\r?\n/).filter(Boolean)) {
+      const [name, code, category] = line.split("|");
+      if (!name || !/^\d{6}$/.test(code ?? ""))
+        throw new Error("板块定义格式非法");
+      if (category !== "3" && category !== "5") continue;
+      const kind = category === "3" ? "region" : "style";
+      entries.set(`${kind}:${code}:${name}`, { name, code: code!, kind });
+    }
+  }
+  for (const line of files["infoharbor_block.dat"].split(/\r?\n/)) {
+    if (!line.startsWith("#FG_")) continue;
+    const [name, , code] = line.slice(4).split(",");
+    if (!name || (code && !/^\d{6}$/.test(code)))
+      throw new Error("风格板块定义非法");
+    entries.set(`style:${code ?? ""}:${name}`, {
+      name,
+      code: code || null,
+      kind: "style",
+    });
+  }
+  return [...entries.values()];
+}
 export function parseTdxLocalBlocks(files: Files): TdxLocalBlock[] {
+  const excludedCodes = new Set(
+    parseTdxBlockExclusions(files)
+      .map((item) => item.code)
+      .filter(Boolean),
+  );
   const names = new Map<string, string>(),
     industries = new Map<string, { code: string; name: string }>();
   for (const file of ["tdxzs.cfg", "tdxzs3.cfg"] as const) {
@@ -85,6 +117,7 @@ export function parseTdxLocalBlocks(files: Files): TdxLocalBlock[] {
     )
       throw new Error(`板块成分数量不完整或重复：${current.name}`);
     if (current.type === "FG") return; // Style groups are outside the existing pool categories.
+    if (excludedCodes.has(current.code)) return;
     if (current.type !== "GN" && current.type !== "ZS")
       throw new Error("未知板块分类");
     const category = current.type === "GN" ? "concept" : "index";
@@ -215,6 +248,7 @@ export async function readTdxLocalBlocks(root: string) {
     observedAt: Date.now(),
     files: evidence,
     blocks: parseTdxLocalBlocks(files),
+    excludedBlocks: parseTdxBlockExclusions(files),
     hash: createHash("sha256")
       .update("tdx-blocks-v1:")
       .update(

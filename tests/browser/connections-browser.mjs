@@ -130,6 +130,12 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   const root = page.getByLabel("通达信安装目录", { exact: true });
   await root.waitFor();
+  assert.equal(
+    await page.getByText("五分钟 CSV 导入", { exact: true }).count(),
+    0,
+  );
+  assert.equal(await page.getByText(/微盛 CSV 数据目录/).count(), 0);
+  assert.equal(await page.getByText(/五分钟导入按下方流程操作/).count(), 0);
   const save = page.getByRole("button", { name: "保存设置", exact: true });
   const initialDisabled = await save.isDisabled();
   const savePanel = await save.evaluate((el) =>

@@ -2,6 +2,10 @@ import { industrySnapshotSchema } from "~/lib/screening/industry-rps";
 import { readIndustryBlocks } from "../market/industry-blocks";
 import { readTdxLocalBlocks } from "../data-sources/tdx/tdx-local-blocks";
 import { rpsHash } from "~/server/infra/content-hash";
+import {
+  eligibilityFromTdx,
+  filterBlockSnapshot,
+} from "../market/block-eligibility";
 
 /** One classification per ranking population; never mix parents and children. */
 export async function readRpsBlockSource(
@@ -9,11 +13,15 @@ export async function readRpsBlockSource(
   category: "industry" | "concept" = "industry",
   checkpoint: () => void = () => {},
 ) {
-  if (options.source === "blocks")
-    return readIndustryBlocks(options.blocksRoot, checkpoint, category);
   checkpoint();
   const snapshot = await readTdxLocalBlocks(options.tdxRoot);
   checkpoint();
+  const eligibility = eligibilityFromTdx(snapshot);
+  if (options.source === "blocks")
+    return filterBlockSnapshot(
+      await readIndustryBlocks(options.blocksRoot, checkpoint, category),
+      eligibility,
+    );
   const classification =
     category === "industry" ? "tdx-research-level1" : "tdx-concept";
   const files = snapshot.blocks
@@ -30,12 +38,15 @@ export async function readRpsBlockSource(
       mtimeMs: Math.max(...snapshot.files.map((file) => file.mtimeMs)),
       members: block.members,
     }));
-  return industrySnapshotSchema.parse({
-    ...(category === "concept" ? { category } : {}),
-    classification,
-    sourceHash: snapshot.hash,
-    root: snapshot.root,
-    files,
-    hash: rpsHash({ version: "tdx-rps-membership-1", classification, files }),
-  });
+  return filterBlockSnapshot(
+    industrySnapshotSchema.parse({
+      ...(category === "concept" ? { category } : {}),
+      classification,
+      sourceHash: snapshot.hash,
+      root: snapshot.root,
+      files,
+      hash: rpsHash({ version: "tdx-rps-membership-1", classification, files }),
+    }),
+    eligibility,
+  );
 }

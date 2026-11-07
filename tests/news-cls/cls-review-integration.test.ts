@@ -6,6 +6,7 @@ import {
   writeFile,
   utimes,
   readFile,
+  cp,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { expect, it, vi } from "vitest";
@@ -54,6 +55,11 @@ it("fixes a sector-RPS sample before open and persists matching close evidence w
   const clock = vi.spyOn(Date, "now").mockReturnValue(before);
   try {
     await mkdir(join(state.root, "vipdoc/sh/lday"), { recursive: true });
+    await cp(
+      "tests/fixtures/tdx-local-blocks",
+      join(state.root, "T0002/hq_cache"),
+      { recursive: true },
+    );
     for (const category of ["申万行业", "概念"])
       await mkdir(join(state.blocks, category), { recursive: true });
     await writeFile(join(state.blocks, "申万行业/电子.txt"), "SH600000\n");

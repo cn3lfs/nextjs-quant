@@ -34,6 +34,21 @@ export const industrySnapshotSchema = z
   .object({
     category: z.literal("concept").optional(),
     classification: z.enum(["tdx-research-level1", "tdx-concept"]).optional(),
+    selectionPolicy: z
+      .object({
+        version: z.literal("exclude-region-style-1"),
+        hash: z.string().regex(/^[a-f0-9]{64}$/),
+        sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
+        previousHash: z.string().regex(/^[a-f0-9]{64}$/),
+        removed: z.array(
+          z.object({
+            name: z.string(),
+            file: z.string(),
+            kind: z.enum(["region", "style"]),
+          }),
+        ),
+      })
+      .optional(),
     sourceHash: z
       .string()
       .regex(/^[a-f0-9]{64}$/)

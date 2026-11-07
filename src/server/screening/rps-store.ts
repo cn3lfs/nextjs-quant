@@ -62,6 +62,82 @@ export class RpsStore {
       .get() as { payload: string } | undefined;
     return row ? (JSON.parse(row.payload) as RpsDay) : null;
   }
+  rows(date: string): RpsRow[] {
+    const day = this.day(date);
+    if (!day) return [];
+    return (
+      this.db
+        .prepare(
+          `SELECT symbol,values_blob FROM ${this.valuesTable} WHERE date=? ORDER BY symbol`,
+        )
+        .all(date) as { symbol: string; values_blob: Buffer }[]
+    ).map((row) => decode(row.symbol, row.values_blob, day));
+  }
+  /** Explicit population revision only. Normal forward/backfill publication stays immutable. */
+  replaceBlockDay(day: RpsDay, rows: RpsRow[], expectedInputHash: string) {
+    if (
+      this.target === "stock" ||
+      !day.industry ||
+      (day.industry.snapshot.category ?? "industry") !== this.target
+    )
+      throw new Error("重算仅允许对应板块结果");
+    industrySnapshotSchema.parse(day.industry.snapshot);
+    if (
+      rows.length !== day.total ||
+      rows.some((row) => row.values.length !== day.periods.length)
+    )
+      throw new Error("重算板块向量长度不匹配");
+    return this.db
+      .transaction(() => {
+        const existing = this.db
+          .prepare(`SELECT payload FROM ${this.daysTable} WHERE date=?`)
+          .get(day.date) as { payload: string } | undefined;
+        if (
+          !existing ||
+          (JSON.parse(existing.payload) as RpsDay).inputHash !==
+            expectedInputHash
+        )
+          throw new Error("板块历史已变化，请重新生成重算计划");
+        const oldRows = this.db
+          .prepare(
+            `SELECT symbol,values_blob FROM ${this.valuesTable} WHERE date=? ORDER BY symbol`,
+          )
+          .all(day.date) as { symbol: string; values_blob: Buffer }[];
+        const archiveId = `rps-block-day-archive-${this.target}-${day.date}-${expectedInputHash}`;
+        const archive = JSON.stringify({
+          target: this.target,
+          date: day.date,
+          payload: existing.payload,
+          rows: oldRows.map((row) => ({
+            symbol: row.symbol,
+            values: row.values_blob.toString("base64"),
+          })),
+        });
+        const prior = this.db
+          .prepare("SELECT payload FROM records WHERE id=?")
+          .get(archiveId) as { payload: string } | undefined;
+        if (prior && prior.payload !== archive)
+          throw new Error("板块回滚档案冲突");
+        if (!prior)
+          this.db
+            .prepare(
+              "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,'rps-block-day-archive',?,?)",
+            )
+            .run(archiveId, archive, Date.now());
+        this.db
+          .prepare(`UPDATE ${this.daysTable} SET payload=? WHERE date=?`)
+          .run(JSON.stringify(day), day.date);
+        this.db
+          .prepare(`DELETE FROM ${this.valuesTable} WHERE date=?`)
+          .run(day.date);
+        const insert = this.db.prepare(
+          `INSERT INTO ${this.valuesTable} VALUES(?,?,?)`,
+        );
+        for (const row of rows) insert.run(row.symbol, day.date, encode(row));
+        return archiveId;
+      })
+      .immediate();
+  }
   progress() {
     // Lease recovery also runs on reads, so an abandoned worker never appears live forever.
     this.db

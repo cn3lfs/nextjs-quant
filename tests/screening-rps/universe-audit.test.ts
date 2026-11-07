@@ -176,6 +176,11 @@ async function localRoot() {
   // The suite setup owns creation, crash cleanup and bounded retention of this temp root.
   const root = join(process.env.QUANT_DATA_DIR!, "v4-source");
   await mkdir(join(root, "T0002", "hq_cache"), { recursive: true });
+  for (const file of tdxBlockFiles)
+    await copyFile(
+      `tests/fixtures/tdx-local-blocks/${file}`,
+      join(root, "T0002", "hq_cache", file),
+    );
   await mkdir(join(root, "中证指数"), { recursive: true });
   await copyFile(
     "tests/fixtures/tdx-code-changes.bin",
