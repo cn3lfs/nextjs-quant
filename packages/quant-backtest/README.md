@@ -2,6 +2,8 @@
 
 独立、无 IO 的 TypeScript 现金权益回测包。当前支持五分钟双均线交叉基线和模块化技术因子组合；应用内其他历史策略统一弃用。包本身不依赖 Next.js、React、数据库、通达信目录、worker 或本项目的 `src/`。
 
+0.3.0新增`runClassicStudy`离线日线实验：五类固定策略（双均线、通道突破、趋势回调、布林均值回归、底仓网格）及两项持有基准，复用共享指标、十进制金额和原有成交/整手原语。它独立于原五分钟`runBacktest`契约，不自动注册应用策略。主板10%限制、用户固定费用、分红隔离经济权益等假设与风险见[研究规格](../../docs/product/specs/classic-strategies-maotai.md)。取数冻结和报告由`scripts/backtest-maotai-classics.ts`及`scripts/export-classic-study.ts`负责；包内仍无IO或前端依赖。
+
 `factorStrategySchema` 定义入场/退出的 all/any 条件，支持数值比较和上下穿；左右因子、参数及常数经过验证和默认值归一。`factorStrategySignals` 只生成信号，退出优先，缺失不触发；`runStrategyExperiment` 将可选组合策略接到同一现金权益规则上，不传 strategy 时完全沿用 `runMaBaseline`。`strategyExperimentWarmup` 声明实际预热，应用负责按交易日历验证。来源、公开库覆盖、五分钟迁移和缺失规则见[规格](../../docs/product/specs/modular-factors.md)。
 
 ## 设计参照与当前边界

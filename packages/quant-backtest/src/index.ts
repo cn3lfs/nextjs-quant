@@ -36,3 +36,16 @@ export {
   runStrategyExperiment,
 } from "./strategy-experiment.js";
 export type { StrategyExperimentInput } from "./strategy-experiment.js";
+export {
+  runClassicStudy,
+  studySignalBars,
+  studyStrategies,
+  studyNames,
+  classicStudyDatasetSchema,
+} from "./classic-study.js";
+export type {
+  StudyStrategy,
+  StudyDividend,
+  StudyOptions,
+  StudyFill,
+} from "./classic-study.js";

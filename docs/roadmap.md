@@ -1,5 +1,7 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+2026-11-08：按用户授权设计五类经典策略并运行茅台近十年日线实验；本金100万元，双边佣金万一/最低5元、卖出税费合计万五。纯TS策略与回放归`quant-backtest`，本次为离线研究及现有前端图表导出，不自动开放应用策略或认证可信业绩。见[规则](product/specs/classic-strategies-maotai.md)及[结果](deliveries/2026-11-08-maotai-classic-strategies.md)。
+
 2026-11-08：按用户最新授权接入其余可用数据因子。新增18项行情因子（技术目录94项）及197项本地数据条件（181个已定义序列数值侧、16个派生项），复用组合筛选和证据导出。公式、数据时点与尚缺输入见[规格](product/specs/available-data-factors.md)，验证见[交付](deliveries/2026-11-08-available-data-factors.md)。
 
 2026-11-07：用户已授权执行本地财务模块，并要求通达信客户端数据处理统一封装 `tstdx`。已接入三表/全字段、质量成长、单季/TTM、股本机构、预告快报、股票/板块/市场序列、档案和条件筛选；解析/IO/源字段/原生编解码归包内，应用保留业务编排。阶段与缺口见[财务模块计划](product/specs/local-financial-workbench.md)，真实数据和工程验收见[交付说明](deliveries/2026-11-07-local-financial.md)。GO及未知槽位没有冒充已验证业务数据。
