@@ -91,3 +91,9 @@ pnpm --filter quant-backtest typecheck
 0.5.0新增离线中证800多证券共享资金研究，入口 runCsi800Study / csi800Weights；不是应用策略注册或实盘接口。规则、单命令运行和简化边界见 [规格](../../docs/product/specs/csi800-study.md)。
 
 0.6.0新增经典技术＋财务分家族/分支路评分、合法外部目标、共同覆盖窗口和组合风险预算；复用单一经济收益归一化。另有只读实际仓位价格指数归因，不改变成交。规格、运行与完整边界见 [多因子研发规格](../../docs/product/specs/csi800-multifactor-research.md)和[交付](../../docs/deliveries/2026-11-08-csi800-multifactor.md)。
+
+0.7.0新增中证800可选持仓风险覆盖层：`positionRisk: { execution: "assumed-close-auction", stage: "full" }`。支持单轮8%/账户2%保护、5%保本、30%一次性减仓和入场启用的十日高点减2.5ATR14；公司行动调整及T+1可卖库存独立记账。`initial` / `breakeven` / `partial` / `full`为逐层对照，省略该选项保持原模式。风险成交是用户指定的同收盘理想假设，不是实盘撮合；未注册应用策略。接口与复现命令见[规格](../../docs/product/specs/csi800-position-risk.md)，实验见[交付](../../docs/deliveries/2026-11-08-csi800-position-risk.md)。
+
+0.8.0按用户要求移除上述ATR保护，`full`现为从入场启用的EMA50保护：收盘严格低于当日EMA50强制退出，不取历史最高EMA；共享EMA首个有效收盘初始化，满50个观测后启用。8%/2%、5%保本、30%减仓、费用和T+1继续保留。风控输出版本为`csi800-study-position-risk-2`，旧ATR实验仅保存历史证据，当前无ATR执行分支。现行[规则](../../docs/product/specs/csi800-position-risk.md)及[EMA50交付](../../docs/deliveries/2026-11-08-csi800-ema50-risk.md)。
+
+0.9.0为`full`追加EMA50入场一致性：信号收盘、最后完成收盘、实际开盘均不低于当时可知EMA；开盘线只按已知公司行动调整。所有新买与加仓均检查，不足预热或失守则留现金，不用当天收盘回筛。输出版本3增加`entryChecks`记录资格与价格证据，日内急跌和T+1退出继续如实记录。当前[交付](../../docs/deliveries/2026-11-08-csi800-ema50-entry-filter.md)。

@@ -38,7 +38,7 @@ function Metric({
 }: {
   label: string;
   data: PerformanceMetric;
-  unit?: "percent" | "drawdown" | "ratio" | "days";
+  unit?: "percent" | "drawdown" | "ratio" | "days" | "money" | "rate";
   directional?: boolean;
   note: string;
 }) {
@@ -47,11 +47,13 @@ function Metric({
       ? "—"
       : unit === "percent"
         ? percent(data.value)
-        : unit === "drawdown"
+        : unit === "drawdown" || unit === "rate"
           ? `${(data.value * 100).toFixed(2)}%`
           : unit === "days"
             ? `${data.value} 天`
-            : data.value.toFixed(2);
+            : unit === "money"
+              ? `${data.value.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`
+              : data.value.toFixed(2);
   return (
     <div className="min-w-0 rounded-lg border border-nc-border-soft bg-nc-inset p-3">
       <dt className="text-xs text-nc-text-3">{label}</dt>
@@ -273,6 +275,64 @@ export function PerformanceReport({
           note="此前峰值至修复或截至期末，自然日"
         />
       </dl>
+      {data.trades ? (
+        <section
+          aria-label="全程交易轮次评价"
+          className="space-y-3 rounded-lg border border-nc-border-soft p-3"
+        >
+          <h4 className="text-sm font-medium">全程交易轮次评价</h4>
+          <p className="text-xs text-nc-text-3">
+            已闭合 {data.trades.closedTrades} 轮：盈利{" "}
+            {data.trades.winningTrades}、亏损 {data.trades.losingTrades}、持平{" "}
+            {data.trades.flatTrades}；未平仓 {data.trades.openTrades}{" "}
+            轮不计胜率。
+          </p>
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <Metric
+              label="平均盈利额"
+              data={data.trades.averageWin}
+              unit="money"
+              note="盈利闭合轮次净损益均值"
+            />
+            <Metric
+              label="平均亏损额（绝对值）"
+              data={data.trades.averageLoss}
+              unit="money"
+              note="亏损闭合轮次损失绝对值均值"
+            />
+            <Metric
+              label="交易盈亏比"
+              data={data.trades.payoffRatio}
+              note="平均盈利额 / 平均亏损额"
+            />
+            <Metric
+              label="交易胜率"
+              data={data.trades.winRate}
+              unit="rate"
+              note="盈利轮次 / 全部已闭合轮次（含持平）"
+            />
+            <Metric
+              label="利润因子"
+              data={data.trades.profitFactor}
+              note="总盈利 / 总亏损绝对值；不同于盈亏比"
+            />
+            <Metric
+              label="每轮平均净损益"
+              data={data.trades.expectancy}
+              unit="money"
+              directional
+              note="全部已闭合轮次净损益均值"
+            />
+          </dl>
+          <p className="text-xs text-nc-text-3">
+            同一股票从建仓到清仓算一轮，加减仓合并，含模型已记费用与现金分配；金额不是单笔收益率。未平仓及部分止盈不会独立计为胜笔；不是逐买单FIFO配对。
+          </p>
+        </section>
+      ) : (
+        <p className="text-xs text-nc-text-3">
+          未提供配对交易数据，交易胜率与盈亏比不可用。
+        </p>
+      )}
       <p
         className="rounded-lg border border-nc-border-soft p-3 text-sm leading-relaxed"
         role="status"

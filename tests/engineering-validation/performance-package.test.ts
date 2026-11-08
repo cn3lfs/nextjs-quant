@@ -64,7 +64,7 @@ it("imports the public ESM entry outside the application and returns a report wi
   const url = pathToFileURL(
     resolve("packages/quant-performance/dist/index.js"),
   ).href;
-  const script = `const m=await import(${JSON.stringify(url)});const p=[{date:'2025-01-02',value:110},{date:'2025-01-03',value:88}];const r=m.createPerformanceReport(100,p);process.stdout.write(JSON.stringify({total:r.overview.totalReturn.value,quarter:r.quarter.length}));`;
+  const script = `const m=await import(${JSON.stringify(url)});const p=[{date:'2025-01-02',value:110},{date:'2025-01-03',value:88}];const cycles=m.pairPositionCycles([{date:'2025-01-02',symbol:'A',side:'buy',quantity:1,price:10,fee:1},{date:'2025-01-03',symbol:'A',side:'sell',quantity:1,price:15,fee:1}]);const r=m.createPerformanceReport(100,p,cycles);process.stdout.write(JSON.stringify({total:r.overview.totalReturn.value,quarter:r.quarter.length,win:r.trades.averageWin.value,closed:r.trades.closedTrades}));`;
   const result = JSON.parse(
     execFileSync(process.execPath, ["--input-type=module", "-e", script], {
       cwd: tmpdir(),
@@ -74,4 +74,6 @@ it("imports the public ESM entry outside the application and returns a report wi
   );
   expect(result.total).toBeCloseTo(-0.12);
   expect(result.quarter).toBe(1);
+  expect(result.win).toBe(3);
+  expect(result.closed).toBe(1);
 });

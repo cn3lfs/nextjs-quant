@@ -1,6 +1,6 @@
 {
   "name": "quant-performance",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Pure TypeScript daily performance evaluation and period reports",
   "type": "module",

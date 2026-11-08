@@ -78,6 +78,7 @@ try {
     .click();
   await page.getByRole("tab", { name: "绩效评价", exact: true }).click();
   await page.getByLabel("绩效评价内容").waitFor();
+  await page.getByLabel("全程交易轮次评价").waitFor();
   await page.getByRole("button", { name: "季度", exact: true }).click();
   await page.getByRole("button", { name: "查看 2025-Q1", exact: true }).click();
   await page.getByLabel("选中期间详情").waitFor();
@@ -96,7 +97,22 @@ try {
   await page.getByRole("button", { name: "导出完整实验", exact: true }).click();
   const download = await downloading;
   const exported = JSON.parse(readFileSync(await download.path(), "utf8"));
-  assert.equal(exported.evaluation.version, "performance-report-v1");
+  assert.equal(exported.evaluation.version, "performance-report-v2");
+  assert.equal(exported.evaluation.trades.version, "trade-performance-v1");
+  assert.equal(
+    exported.evaluation.trades.closedTrades,
+    exported.result.fills.filter((f) => f.side === "sell").length,
+  );
+  const winCard = await page
+    .getByLabel("全程交易轮次评价")
+    .getByText("交易胜率", { exact: true })
+    .locator("..")
+    .textContent();
+  assert.ok(
+    winCard.includes(
+      (exported.evaluation.trades.winRate.value * 100).toFixed(2) + "%",
+    ),
+  );
   assert.equal(exported.evaluation.basis.dataHash, "synthetic-fixture");
   assert.equal(
     exported.evaluation.overview.days,

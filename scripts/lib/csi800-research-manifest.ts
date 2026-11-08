@@ -3,12 +3,14 @@ import { csiHash } from "./csi800-factor-data.js";
 export async function classicCodeHashes() {
   const files = [
     "packages/quant-backtest/src/csi800-study.ts",
+    "packages/quant-backtest/src/csi800-position-risk.ts",
     "packages/quant-backtest/src/csi800-signal.ts",
     "packages/quant-backtest/src/csi800-factors.ts",
     "packages/quant-backtest/src/csi800-composite.ts",
     "packages/quant-backtest/package.json",
     "scripts/lib/csi800-factor-data.ts",
     "scripts/lib/csi800-factor-matrix.ts",
+    "scripts/lib/csi800-trade-evaluation.ts",
     "scripts/lib/csi800-factor-diagnostics.ts",
     "scripts/lib/csi800-research-manifest.ts",
     "scripts/research-csi800-factors.ts",
@@ -29,6 +31,9 @@ export async function classicCodeHashes() {
     "packages/tstdx/src/financial-data/catalog-source.ts",
     "packages/tstdx/src/financial-series.ts",
     "packages/quant-performance/src/performance.ts",
+    "packages/quant-performance/src/trades.ts",
+    "packages/quant-performance/src/report.ts",
+    "packages/quant-performance/package.json",
     "pnpm-lock.yaml",
   ];
   return Object.fromEntries(

@@ -13,9 +13,9 @@ import {useQuery} from '@tanstack/react-query';
 import {queryPerformanceEvaluation} from './src/server/performance/backtest-evaluation';
 const equity=[],bars=[];let value=100000,close=10;
 for(let i=0;i<390;i++){const date=new Date(Date.UTC(2024,9,1+i));if([0,6].includes(date.getUTCDay()))continue;const day=date.toISOString().slice(0,10);value*=1+Math.sin(i/8)*.006+.0004;close*=1+Math.cos(i/9)*.005;equity.push({date:day,value});bars.push({date:day+'T15:00:00+08:00',open:10,close});}
-const archive={result:{input:{start:equity[0].date,end:equity.at(-1).date,initial:100000},equity},inputSnapshot:{bars}};
+const archive={result:{input:{symbol:'sh600000',start:equity[0].date,end:equity.at(-1).date,initial:100000},equity,fills:[{executedAt:equity[0].date,side:'buy',shares:10,price:10,fee:1},{executedAt:equity[1].date,side:'sell',shares:10,price:12,fee:1},{executedAt:equity[2].date,side:'buy',shares:10,price:11,fee:1},{executedAt:equity[3].date,side:'sell',shares:10,price:9,fee:1},{executedAt:equity.at(-1).date,side:'buy',shares:10,price:10,fee:1}]},inputSnapshot:{bars}};
 window.evaluationFixture={requests:[],fail:false};
-export const api={maBaselineEvaluation:{useQuery(input,options){return useQuery({queryKey:['evaluation',input],retry:false,...options,queryFn:async()=>{window.evaluationFixture.requests.push(input);await new Promise(r=>setTimeout(r,input.period?.endsWith('01')?200:30));if(window.evaluationFixture.fail)throw Error('受控评价读取失败');return queryPerformanceEvaluation(input.id==='short'?{...archive,result:{...archive.result,equity:[{date:'2026-01-05',value:100000}],input:{initial:100000}},inputSnapshot:{bars:[]}}:archive,input)}})}}};`;
+export const api={maBaselineEvaluation:{useQuery(input,options){return useQuery({queryKey:['evaluation',input],retry:false,...options,queryFn:async()=>{window.evaluationFixture.requests.push(input);await new Promise(r=>setTimeout(r,input.period?.endsWith('01')?200:30));if(window.evaluationFixture.fail)throw Error('受控评价读取失败');return queryPerformanceEvaluation(input.id==='short'?{...archive,result:{...archive.result,equity:[{date:'2026-01-05',value:100000}],fills:[],input:{symbol:'sh600000',initial:100000}},inputSnapshot:{bars:[]}}:archive,input)}})}}};`;
 const bundle = await build({
   stdin: {
     contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {MaEvaluationPanel} from './src/components/backtest/ma-evaluation-panel';import {PanelVisibility} from './src/components/workbench/keep-alive';const client=new QueryClient({defaultOptions:{queries:{retry:false,refetchOnWindowFocus:false}}});function App(){const[id,setId]=useState('long');const[visible,setVisible]=useState(true);window.setEvaluationId=setId;window.setEvaluationVisible=setVisible;window.refreshEvaluation=()=>client.invalidateQueries();return <QueryClientProvider client={client}><PanelVisibility visible={visible}><main style={{padding:16,minWidth:0}}><MaEvaluationPanel key={id} id={id}/></main></PanelVisibility></QueryClientProvider>};createRoot(document.getElementById('root')).render(<App/>);`,
@@ -79,6 +79,17 @@ try {
       .isDisabled(),
     true,
   );
+  const tradeStats = page.getByLabel("全程交易轮次评价");
+  assert.match(await tradeStats.textContent(), /已闭合 2 轮/);
+  for (const label of [
+    "平均盈利额",
+    "平均亏损额（绝对值）",
+    "交易盈亏比",
+    "交易胜率",
+    "利润因子",
+    "每轮平均净损益",
+  ])
+    await tradeStats.getByText(label, { exact: true }).waitFor();
   const november = heatmap.getByRole("button", { name: /^2024-11 / });
   await november.focus();
   await page.keyboard.press("Enter");

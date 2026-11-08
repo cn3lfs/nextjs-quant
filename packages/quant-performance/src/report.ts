@@ -4,6 +4,7 @@ import {
   type PerformanceFrequency,
   type PerformancePoint,
 } from "./performance.js";
+import { evaluateTrades, type TradeCycle } from "./trades.js";
 
 export type PerformanceReportSelection = {
   frequency: PerformanceFrequency;
@@ -14,9 +15,11 @@ export type PerformanceReportSelection = {
 export function createPerformanceReport(
   initial: number,
   points: readonly PerformancePoint[],
+  trades?: readonly TradeCycle[],
 ) {
   return {
-    version: "performance-report-v1" as const,
+    version: "performance-report-v2" as const,
+    trades: trades === undefined ? null : evaluateTrades(trades),
     overview: evaluatePerformance(initial, points),
     year: performancePeriods(initial, points, "year"),
     quarter: performancePeriods(initial, points, "quarter"),
@@ -29,6 +32,7 @@ export function queryPerformanceReport(
   initial: number,
   points: readonly PerformancePoint[],
   input: PerformanceReportSelection,
+  trades?: readonly TradeCycle[],
 ) {
   const overview = evaluatePerformance(initial, points);
   if (!["year", "quarter", "month"].includes(input.frequency))
@@ -50,6 +54,14 @@ export function queryPerformanceReport(
   const months = performancePeriods(initial, points, "month")
     .filter((p) => p.year === year)
     .map((p) => ({ key: p.key, value: p.evaluation.totalReturn.value }));
-  return { overview, years, year, months, periods, selected };
+  return {
+    overview,
+    trades: trades === undefined ? null : evaluateTrades(trades),
+    years,
+    year,
+    months,
+    periods,
+    selected,
+  };
 }
 export type PerformanceReportPage = ReturnType<typeof queryPerformanceReport>;

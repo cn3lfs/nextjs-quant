@@ -1,4 +1,11 @@
 export { evaluatePerformance, performancePeriods } from "./performance.js";
+export { pairPositionCycles, evaluateTrades } from "./trades.js";
+export type {
+  TradeCycle,
+  TradeFill,
+  TradeAction,
+  TradeEvaluation,
+} from "./trades.js";
 export type {
   PerformanceMetric,
   PerformancePoint,

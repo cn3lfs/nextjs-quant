@@ -9,6 +9,7 @@ import {
   type ClassicModel,
 } from "../../packages/quant-backtest/src/csi800-composite.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
+import { csi800TradeEvaluation } from "./csi800-trade-evaluation.js";
 import {
   saveCompressed,
   type ClassicPriceInput,
@@ -67,6 +68,10 @@ export async function runClassicMatrix(
     return {
       id,
       model,
+      tradeEvaluation: csi800TradeEvaluation(
+        result.fills.map((f) => ({ ...f, side: f.side as "buy" | "sell" })),
+        price.stocks,
+      ).evaluation,
       options: result.options,
       evaluation: evaluatePerformance(price.initial, points),
       segments,

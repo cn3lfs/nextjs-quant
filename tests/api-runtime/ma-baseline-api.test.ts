@@ -131,7 +131,12 @@ it("pages fills server-side and exports the exact frozen input only on explicit 
   expect(Object.keys(first!.summary)).not.toContain("orders");
   const exported = await caller.maBaselineExport("job-baseline-fixture");
   expect(exported).toMatchObject(archive);
-  expect(exported.evaluation.version).toBe("performance-report-v1");
+  expect(exported.evaluation.version).toBe("performance-report-v2");
+  expect(exported.evaluation.trades).toMatchObject({
+    closedTrades: 0,
+    openTrades: 1,
+    winRate: { value: null },
+  });
   expect(exported.evaluation.daily).toHaveLength(archive.result.equity.length);
   expect((await caller.maBaselineHistory())[0]).toMatchObject({
     id: "job-baseline-fixture",
@@ -154,6 +159,7 @@ it("evaluates only the selected archive, bounds year/period selection and never 
     expect(result?.months).toHaveLength(1);
     expect(result?.periods).toHaveLength(1);
     expect(result?.overview.days).toBe(1);
+    expect(result?.trades).toMatchObject({ closedTrades: 0, openTrades: 1 });
     const selected = await caller.maBaselineEvaluation({
       id: "job-baseline-fixture",
       frequency,
@@ -179,6 +185,40 @@ it("evaluates only the selected archive, bounds year/period selection and never 
   expect(
     await caller.maBaselineEvaluation({ id: "job-baseline-fixture" }),
   ).toBeNull();
+});
+
+it("returns the same paired trade metrics through evaluation and export without modifying the archive", async () => {
+  save();
+  const record = get<{ result: MaBaselineArchive }>("job-baseline-fixture")!;
+  const archive = record.result;
+  const original = archive.result.fills[0]!;
+  // Controlled read-only evaluation evidence; not an executable A-share path.
+  archive.result.fills = [
+    { ...original, side: "buy", price: 10, shares: 100, fee: 1 },
+    { ...original, side: "sell", price: 12, shares: 100, fee: 1 },
+    { ...original, side: "buy", price: 10, shares: 100, fee: 1 },
+    { ...original, side: "sell", price: 9, shares: 100, fee: 1 },
+    { ...original, side: "buy", price: 10, shares: 100, fee: 1 },
+  ];
+  put("job", "job-baseline-fixture", { ...record, result: archive });
+  const before = get("job-baseline-fixture");
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  const queried = await caller.maBaselineEvaluation({
+    id: "job-baseline-fixture",
+  });
+  const exported = await caller.maBaselineExport("job-baseline-fixture");
+  expect(queried!.trades).toEqual(exported.evaluation.trades);
+  expect(queried!.trades).toMatchObject({
+    closedTrades: 2,
+    openTrades: 1,
+    averageWin: { value: 198 },
+    averageLoss: { value: 102 },
+    winRate: { value: 0.5 },
+    expectancy: { value: 48 },
+  });
+  expect(get("job-baseline-fixture")).toEqual(before);
 });
 it("deletion refuses active/foreign work and retains the research audit fact", async () => {
   const caller = appRouter.createCaller(

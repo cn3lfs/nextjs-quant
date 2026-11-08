@@ -3,8 +3,22 @@ import {
   queryPerformanceReport,
   type PerformanceReportSelection,
   type PerformancePoint,
+  pairPositionCycles,
 } from "quant-performance";
 import type { MaBaselineArchive } from "../backtest/ma-baseline-work";
+
+function archiveTradeCycles(archive: MaBaselineArchive) {
+  return pairPositionCycles(
+    archive.result.fills.map((f) => ({
+      date: f.executedAt.slice(0, 10),
+      symbol: archive.result.input.symbol,
+      side: f.side,
+      quantity: f.shares,
+      price: f.price,
+      fee: f.fee,
+    })),
+  );
+}
 
 /** Reconstruct the passive price comparison only from this experiment's frozen bars. */
 export function archivePerformancePoints(
@@ -48,7 +62,7 @@ export function exportPerformanceEvaluation(archive: MaBaselineArchive) {
   const points = archivePerformancePoints(archive);
   const initial = archive.result.input.initial;
   return {
-    ...createPerformanceReport(initial, points),
+    ...createPerformanceReport(initial, points, archiveTradeCycles(archive)),
     basis: {
       yearlyDays: 252,
       annualRiskFreeRate: 0.02,
@@ -65,5 +79,10 @@ export function queryPerformanceEvaluation(
   input: PerformanceReportSelection,
 ) {
   const points = archivePerformancePoints(archive);
-  return queryPerformanceReport(archive.result.input.initial, points, input);
+  return queryPerformanceReport(
+    archive.result.input.initial,
+    points,
+    input,
+    archiveTradeCycles(archive),
+  );
 }

@@ -77,6 +77,10 @@ export {
 } from "./csi800-composite.js";
 export { csi800SignalBars, csi800ForwardReturn } from "./csi800-signal.js";
 export type {
+  PositionRiskStage,
+  PositionRiskState,
+} from "./csi800-position-risk.js";
+export type {
   ClassicPanelRow,
   ClassicWeek,
   ClassicModel,

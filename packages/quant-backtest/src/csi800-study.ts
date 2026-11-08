@@ -1,5 +1,16 @@
 import { csi800SignalBars } from "./csi800-signal.js";
 import { big, toNumber } from "trading-strategy-core/money";
+import { ema } from "trading-strategy-core/indicators";
+import {
+  createPositionRisk,
+  positionRiskBuy,
+  positionRiskSell,
+  positionRiskAction,
+  positionRiskPlannedLoss,
+  evaluatePositionClose,
+  type PositionRiskState,
+  type PositionRiskStage,
+} from "./csi800-position-risk.js";
 import type { Bar } from "./model.js";
 
 export type Csi800Stock = {
@@ -22,6 +33,10 @@ export type Csi800Options = {
   slippageBps?: number;
   delay?: number;
   mode: "equal-pool" | "momentum" | "risk-weighted" | "regime" | "scheduled";
+  positionRisk?: {
+    execution: "assumed-close-auction";
+    stage: PositionRiskStage;
+  };
 };
 export type Csi800Allocation = {
   date: string;
@@ -72,6 +87,15 @@ export function runCsi800Study(
   const count = options.count ?? 20;
   const slip = (options.slippageBps ?? 10) / 10000;
   const delay = options.delay ?? 1;
+  const riskEnabled = options.positionRisk !== undefined;
+  if (
+    riskEnabled &&
+    (options.positionRisk!.execution !== "assumed-close-auction" ||
+      !["initial", "breakeven", "partial", "full"].includes(
+        options.positionRisk!.stage,
+      ))
+  )
+    throw new Error("持仓风控模式非法");
   if (
     !(initial > 0) ||
     !Number.isInteger(count) ||
@@ -135,11 +159,15 @@ export function runCsi800Study(
       )
     )
       throw new Error("公司行动非法或重复");
-    const signal = csi800SignalBars(s).map((b) => b.close);
+    const adjusted = csi800SignalBars(s);
+    const signal = adjusted.map((b) => b.close);
     return {
       ...s,
       actions,
       signal,
+      ema50: riskEnabled
+        ? ema(adjusted, 50).map((v, i) => (i >= 49 ? v : null))
+        : undefined,
       indices: new Map(s.bars.map((b, i) => [b.date, i])),
     };
   });
@@ -173,6 +201,76 @@ export function runCsi800Study(
   let targetQuantities = new Map<string, number>();
   let pendingSells = new Set<string>();
   let cash = initial;
+  const riskBooks = new Map<string, PositionRiskState>(),
+    lastExit = new Map<string, string>();
+  const riskEvents: {
+    date: string;
+    symbol: string;
+    openedAt: string;
+    entryEquity: number;
+    budget: number;
+    cost: number;
+    capitalPerShare: number;
+    gain: number;
+    pnl: number;
+    protection: number;
+    ema50: number | null;
+    breakEvenStop: number | null;
+    requested: number;
+    executed: number;
+    remaining: number;
+    action: string;
+    reasons: string[];
+    t1Blocked: boolean;
+    trimArmed: boolean;
+    trimRemaining: number;
+    insufficientLot: boolean;
+    triggeredAt: string | null;
+    triggerReasons: string[];
+  }[] = [];
+  const riskTrades: {
+    symbol: string;
+    openedAt: string;
+    closedAt: string;
+    entryEquity: number;
+    budget: number;
+    realizedPnl: number;
+    budgetBreached: boolean;
+    exitTriggeredAt: string | null;
+    exitTriggerReasons: string[];
+    reason: string;
+  }[] = [];
+  const entryChecks: {
+    date: string;
+    signalDate: string;
+    symbol: string;
+    signalClose: number | null;
+    signalEma50: number | null;
+    previousClose: number;
+    previousEma50: number | null;
+    open: number;
+    openingEma50: number | null;
+    eligible: boolean;
+    reason: string;
+  }[] = [];
+  const finishRisk = (symbol: string, date: string, reason: string) => {
+    const state = riskBooks.get(symbol);
+    if (!state) return;
+    riskTrades.push({
+      symbol,
+      openedAt: state.openedAt,
+      closedAt: date,
+      entryEquity: state.entryEquity,
+      budget: state.budget,
+      realizedPnl: state.realized,
+      budgetBreached: state.realized < -state.budget - 1e-8,
+      exitTriggeredAt: state.exitTriggeredAt,
+      exitTriggerReasons: [...state.exitTriggerReasons],
+      reason,
+    });
+    riskBooks.delete(symbol);
+    lastExit.set(symbol, date);
+  };
   const fills: {
     date: string;
     signalDate: string;
@@ -181,6 +279,7 @@ export function runCsi800Study(
     quantity: number;
     price: number;
     fee: number;
+    reason?: string;
   }[] = [];
   const rejected: {
     date: string;
@@ -216,6 +315,8 @@ export function runCsi800Study(
       if (a?.unsupported && h)
         throw new Error(`${s.symbol} ${date} 持仓遇未支持配股/缩股，停止实验`);
       if (a && h) {
+        const risk = riskBooks.get(s.symbol);
+        if (risk) positionRiskAction(risk, a);
         const rightsCost = h.quantity * (a.rights ?? 0) * (a.rightsPrice ?? 0);
         cash = cashAdd(cash, h.quantity * a.dividend - rightsCost);
         if (cash < 0) throw new Error(`${s.symbol} ${date} 配股现金不足`);
@@ -230,6 +331,11 @@ export function runCsi800Study(
           (1 + a.bonus + (a.rights ?? 0));
       }
     }
+    const sellableAtClose = new Map(
+      riskEnabled
+        ? [...holdings].map(([symbol, h]) => [symbol, h.quantity] as const)
+        : [],
+    );
     const due = targets.filter((t) => t.execute === day).at(-1);
     if (due) current = due;
     // Opening valuation only uses today's open; never today's close or amount.
@@ -283,6 +389,8 @@ export function runCsi800Study(
       for (const s of prepared) {
         const h = holdings.get(s.symbol),
           weight = current.weights.get(s.symbol) ?? 0;
+        const risk = riskBooks.get(s.symbol);
+        if (risk?.exitPending) continue;
         if (!due && !pendingSells.has(s.symbol)) continue;
         const i = s.indices.get(date),
           b = i === undefined ? undefined : s.bars[i];
@@ -303,9 +411,81 @@ export function runCsi800Study(
         const target = targetQuantities.get(s.symbol) ?? 0;
         const diff = target - (h?.quantity ?? 0);
         const side = diff < 0 ? "sell" : "buy";
+        if (
+          riskEnabled &&
+          side === "buy" &&
+          (risk?.trimArmed ||
+            (lastExit.has(s.symbol) &&
+              current.signalDate <= lastExit.get(s.symbol)!))
+        ) {
+          rejected.push({
+            date,
+            symbol: s.symbol,
+            side,
+            reason: risk?.trimArmed
+              ? "部分止盈后只减不加"
+              : "退出后需后续独立信号",
+          });
+          continue;
+        }
         if (diff === 0 || (side === "buy" && !due)) continue;
         const prev = s.bars[i - 1]!,
           a = s.actions.get(date);
+        if (side === "buy" && options.positionRisk?.stage === "full") {
+          const si = s.indices.get(current.signalDate),
+            signalBar = si === undefined ? undefined : s.bars[si];
+          const signalEma = si === undefined ? undefined : s.ema50?.[si],
+            previousEma = s.ema50?.[i - 1];
+          const signalEma50 =
+            signalBar && signalEma !== null && signalEma !== undefined
+              ? signalEma / (s.signal[si!]! / signalBar.close)
+              : null;
+          const previousEma50 =
+            previousEma !== null && previousEma !== undefined
+              ? previousEma / (s.signal[i - 1]! / prev.close)
+              : null;
+          let openingEma50 = previousEma50;
+          // Only already-effective actions and the prior completed EMA are known at open.
+          if (openingEma50 !== null)
+            for (const action of [...s.actions.values()]
+              .filter((x) => x.date > prev.date && x.date <= date)
+              .sort((x, y) => x.date.localeCompare(y.date)))
+              openingEma50 =
+                (openingEma50 -
+                  action.dividend +
+                  (action.rights ?? 0) * (action.rightsPrice ?? 0)) /
+                (1 + action.bonus + (action.rights ?? 0));
+          const reason =
+            signalEma50 === null ||
+            previousEma50 === null ||
+            openingEma50 === null
+              ? "EMA50入场：均线缺失或预热不足"
+              : signalBar!.close < signalEma50 - 1e-12
+                ? "EMA50入场：信号收盘低于均线"
+                : prev.close < previousEma50 - 1e-12
+                  ? "EMA50入场：最新收盘低于均线"
+                  : b.open < openingEma50 - 1e-12
+                    ? "EMA50入场：开盘低于已知均线"
+                    : "eligible";
+          const eligible = reason === "eligible";
+          entryChecks.push({
+            date,
+            signalDate: current.signalDate,
+            symbol: s.symbol,
+            signalClose: signalBar?.close ?? null,
+            signalEma50,
+            previousClose: prev.close,
+            previousEma50,
+            open: b.open,
+            openingEma50,
+            eligible,
+            reason,
+          });
+          if (!eligible) {
+            rejected.push({ date, symbol: s.symbol, side, reason });
+            continue;
+          }
+        }
         const ref =
           (prev.close -
             (a?.dividend ?? 0) +
@@ -367,6 +547,12 @@ export function runCsi800Study(
           if (quantity <= 0) continue;
           const fee = feeFor(quantity * price, true);
           cash = cashAdd(cash, quantity * price - fee);
+          if (risk) positionRiskSell(risk, quantity, price, fee);
+          if (riskEnabled)
+            sellableAtClose.set(
+              s.symbol,
+              Math.max(0, (sellableAtClose.get(s.symbol) ?? 0) - quantity),
+            );
           h.quantity -= quantity;
           fills.push({
             date,
@@ -377,7 +563,10 @@ export function runCsi800Study(
             price,
             fee,
           });
-          if (h.quantity < 1e-8) holdings.delete(s.symbol);
+          if (h.quantity < 1e-8) {
+            holdings.delete(s.symbol);
+            if (riskEnabled) finishRisk(s.symbol, date, "ordinary-rebalance");
+          }
         }
       }
     const needed = sum(
@@ -391,13 +580,32 @@ export function runCsi800Study(
       const step = s.symbol.startsWith("sh688") ? 1 : 100;
       const minimum = s.symbol.startsWith("sh688") ? 200 : 100;
       let quantity = Math.floor((buy.quantity * scale) / step) * step;
+      const before = holdings.get(s.symbol)?.quantity ?? 0;
+      const existingRisk = riskBooks.get(s.symbol),
+        entryEquity = nav(),
+        budget = existingRisk?.budget ?? entryEquity * 0.02;
       while (
         quantity >= minimum &&
-        quantity * price + feeFor(quantity * price, false) > cash
+        (quantity * price + feeFor(quantity * price, false) > cash ||
+          (riskEnabled &&
+            positionRiskPlannedLoss(
+              existingRisk,
+              before,
+              quantity,
+              price,
+              feeFor(quantity * price, false),
+              feeFor((before + quantity) * price, true),
+            ) >
+              budget + 1e-8))
       )
         quantity -= step;
       if (quantity < minimum) continue;
       const fee = feeFor(quantity * price, false);
+      if (riskEnabled) {
+        const state = existingRisk ?? createPositionRisk(date, entryEquity);
+        positionRiskBuy(state, before, quantity, price, fee);
+        riskBooks.set(s.symbol, state);
+      }
       cash = cashAdd(cash, -quantity * price - fee);
       const h = holdings.get(s.symbol);
       holdings.set(s.symbol, {
@@ -420,6 +628,106 @@ export function runCsi800Study(
         i = s.indices.get(date);
       if (h && i !== undefined) h.mark = s.bars[i]!.close;
     }
+    if (riskEnabled)
+      for (const s of prepared) {
+        const h = holdings.get(s.symbol),
+          state = riskBooks.get(s.symbol),
+          i = s.indices.get(date);
+        if (!h || !state || i === undefined) continue;
+        const bar = s.bars[i]!,
+          ratio = s.signal[i]! / bar.close;
+        const emaValue = s.ema50?.[i];
+        const ema50 =
+          emaValue !== null && emaValue !== undefined ? emaValue / ratio : null;
+        const step = s.symbol.startsWith("sh688") ? 1 : 100,
+          minimumPartial = s.symbol.startsWith("sh688") ? 200 : 100;
+        const decision = evaluatePositionClose(state, {
+          date,
+          close: bar.close,
+          quantity: h.quantity,
+          exitFee: feeFor(h.quantity * bar.close, true),
+          ema50,
+          stage: options.positionRisk!.stage,
+          sellStep: step,
+          minimumPartial,
+        });
+        const requested = decision.requested,
+          available = sellableAtClose.get(s.symbol) ?? 0;
+        let quantity = Math.min(requested, available);
+        if (quantity < h.quantity - 1e-8)
+          quantity = Math.floor(quantity / step) * step;
+        if (decision.action === "trim" && quantity < minimumPartial)
+          quantity = 0;
+        quantity = Math.max(0, quantity);
+        if (quantity > 0) {
+          const fee = feeFor(quantity * bar.close, true);
+          cash = cashAdd(cash, quantity * bar.close - fee);
+          positionRiskSell(state, quantity, bar.close, fee);
+          h.quantity -= quantity;
+          sellableAtClose.set(s.symbol, Math.max(0, available - quantity));
+          fills.push({
+            date,
+            signalDate:
+              (decision.action === "exit"
+                ? state.exitTriggeredAt
+                : state.trimTriggeredAt) ?? date,
+            symbol: s.symbol,
+            side: "sell",
+            quantity,
+            price: bar.close,
+            fee,
+            reason:
+              decision.action === "exit"
+                ? "position-risk-exit"
+                : "profit-30pct-trim",
+          });
+        }
+        const blocked =
+          requested > quantity + 1e-8 && available < requested - 1e-8;
+        if (blocked)
+          rejected.push({
+            date,
+            symbol: s.symbol,
+            side: "sell",
+            reason: "收盘风控：T+1可卖库存不足",
+          });
+        riskEvents.push({
+          date,
+          symbol: s.symbol,
+          openedAt: state.openedAt,
+          entryEquity: state.entryEquity,
+          budget: state.budget,
+          cost: state.cost,
+          capitalPerShare: state.capitalPerShare,
+          gain: decision.gain,
+          pnl: decision.pnl,
+          protection: decision.protection,
+          ema50,
+          breakEvenStop: state.breakEvenStop,
+          requested,
+          executed: quantity,
+          remaining: h.quantity,
+          action: decision.action,
+          reasons: decision.reasons,
+          t1Blocked: blocked,
+          trimArmed: state.trimArmed,
+          trimRemaining: state.trimRemaining,
+          insufficientLot: decision.insufficientLot,
+          triggeredAt:
+            decision.action === "exit"
+              ? state.exitTriggeredAt
+              : state.trimTriggeredAt,
+          triggerReasons: [...state.exitTriggerReasons],
+        });
+        if (h.quantity < 1e-8) {
+          holdings.delete(s.symbol);
+          finishRisk(
+            s.symbol,
+            date,
+            decision.reasons.join(",") || "profit-trim",
+          );
+        }
+      }
     const equity = nav();
     if (!Number.isFinite(equity) || equity <= 0 || cash < -1e-7)
       throw new Error("账户守恒/净值异常");
@@ -536,7 +844,7 @@ export function runCsi800Study(
     rebalances.push({ date, exposure, weights: Object.fromEntries(map) });
   }
   return {
-    version: "csi800-study-1",
+    version: riskEnabled ? "csi800-study-position-risk-3" : "csi800-study-1",
     options,
     initial,
     curve,
@@ -544,5 +852,20 @@ export function runCsi800Study(
     rejected,
     snapshots,
     rebalances,
+    ...(riskEnabled
+      ? {
+          riskEvents,
+          riskTrades,
+          entryChecks,
+          openRiskPositions: [...riskBooks].map(([symbol, state]) => ({
+            symbol,
+            ...state,
+            quantity: holdings.get(symbol)!.quantity,
+            mark: holdings.get(symbol)!.mark,
+          })),
+          executionAssumption:
+            "risk-confirmed-and-filled-at-same-close; no-slippage-or-capacity-limit; fees-and-T+1-retained",
+        }
+      : {}),
   };
 }
