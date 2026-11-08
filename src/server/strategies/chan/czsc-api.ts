@@ -1,5 +1,5 @@
 import type { CzscConfig, CzscProjection } from "~/lib/chart/czsc-settings";
-// Mirrors adapter/czsc_api.h (czsc-tdx, api v21). Bar positions are zero-based
+// Mirrors adapter/czsc_api.h (czsc-tdx, api v22). Bar positions are zero-based
 // raw bar indices; table references are zero-based indices into the same
 // snapshot; -1 means none. confirmedAt is the earliest bar after which the
 // object never changes (-1 = not final yet).
@@ -207,7 +207,7 @@ export type CzscSnapshot = {
   nested: CzscRawNested[];
 };
 
-/** One `czsc_build` call (api v21). */
+/** One `czsc_build` call (api v22). */
 export type CzscRequest = {
   /** Overrides on the DLL default analysis configuration. */
   config?: Partial<CzscConfig>;

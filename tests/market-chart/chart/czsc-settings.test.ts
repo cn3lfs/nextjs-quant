@@ -86,13 +86,20 @@ it("settings split into analysis config and display projection; unknown keys are
   expect(
     czscOverrides({
       "stroke.rule": 3,
+      "segment.method": 2,
+      "segment.startBreak": 1,
       "center.strokeFormation": 1,
       "projection.segmentBoundary": 2,
       "outputs.events": 1,
       bogus: 9,
     }),
   ).toEqual({
-    config: { strokeRule: 3, centerStrokeFormation: 1 },
+    config: {
+      strokeRule: 3,
+      segmentMethod: 2,
+      segmentStartBreak: 1,
+      centerStrokeFormation: 1,
+    },
     projection: { segmentBoundary: 2 },
   });
 });

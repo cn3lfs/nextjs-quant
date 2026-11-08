@@ -9,7 +9,7 @@ const stored = (page: import("@playwright/test").Page) =>
       },
   );
 
-test("缠论设置 is generated from the DLL schema and drives one v21 build", async ({
+test("缠论设置 is generated from the DLL schema and drives one v22 build", async ({
   page,
 }) => {
   await waitForIdleServer(page);
@@ -42,6 +42,13 @@ test("缠论设置 is generated from the DLL schema and drives one v21 build", a
   await page.getByRole("button", { name: "缠论设置" }).click();
   // Opening must not pop a tooltip by auto-focusing the first info icon.
   await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const startBreak = page.getByRole("combobox", { name: "线段起点被破" });
+  await expect(startBreak).toContainText("不回改");
+  await startBreak.click();
+  await page
+    .getByRole("option", { name: "修正前段（社区口径）", exact: true })
+    .click();
+  expect((await stored(page)).state?.values?.["segment.startBreak"]).toBe(1);
   // Each row explains its choices with the DLL's own notes.
   await page.getByRole("button", { name: "笔算法说明" }).hover();
   const tip = page.getByRole("tooltip");
@@ -87,7 +94,13 @@ test("缠论设置 is generated from the DLL schema and drives one v21 build", a
   await page.getByRole("option", { name: /启发式/ }).click();
   await expect(boundary).toBeDisabled();
   await page.getByRole("combobox", { name: "线段算法" }).click();
-  await page.getByRole("option", { name: /特征序列/ }).click();
+  await page
+    .getByRole("option", {
+      name: "特征序列(连续合并)（社区口径）",
+      exact: true,
+    })
+    .click();
+  expect((await stored(page)).state?.values?.["segment.method"]).toBe(2);
   await boundary.click();
   await page.getByRole("option", { name: /合并首笔/ }).click();
   await page.keyboard.press("Escape");
@@ -110,8 +123,21 @@ test("缠论设置 is generated from the DLL schema and drives one v21 build", a
   await expect(
     page.getByRole("combobox", { name: "笔中枢构成" }),
   ).toContainText("服从所属线段");
+  await expect(startBreak).toContainText("修正前段");
   await page.getByRole("button", { name: "恢复默认" }).click();
   expect((await stored(page)).state?.values).toEqual({
     "projection.centerBox": 0,
   });
+  // The extra schema row must remain usable on a shorter desktop window.
+  await page.setViewportSize({ width: 1100, height: 700 });
+  const dialog = page.getByRole("dialog");
+  // Dialog sizing transitions for 200ms; observe the settled viewport constraint.
+  await expect
+    .poll(async () => {
+      const box = await dialog.boundingBox();
+      return box !== null && box.y >= 0 && box.y + box.height <= 700;
+    })
+    .toBe(true);
+  await page.getByRole("button", { name: "恢复默认" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "恢复默认" })).toBeInViewport();
 });

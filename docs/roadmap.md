@@ -1,5 +1,7 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+2026-11-08：用户授权跟进最新 czsc-tdx 算法。同步 `27de580` / API v22、36 字节配置、更新后的特征序列及起点被破选项，复用单进程串行原生边界和图表 schema；历史档案按 DLL hash 隔离，不启用已弃用策略。范围与检查见 [交付](deliveries/2026-11-08-czsc-v22.md)。
+
 2026-11-08：已按产品梳理→Stitch→开发交付统一主流口径的回测绩效评价、年度/季度/月度复盘。按用户追加要求独立`quant-performance`、服务适配与纯展示，回测与评价事务分离；范围和验收见[绩效评价规格](product/specs/backtest-evaluation.md)，不改变规则自检证据等级。
 
 2026-11-08：用户取消五种策略上限，授权主流策略库及同口径茅台实验。本轮39项日线规则及2项持有对照，流派/数据缺口与变体见[规格](product/specs/mainstream-strategies-maotai.md)，验收见[交付](deliveries/2026-11-08-maotai-mainstream-strategies.md)。原实验保留、本轮独立冻结；单股实验不冒充多资产、横截面或衍生品验证。

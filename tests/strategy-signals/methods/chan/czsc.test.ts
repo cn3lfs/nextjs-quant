@@ -20,13 +20,31 @@ import { readFileSync } from "node:fs";
 beforeAll(prepareCzscTestRuntime);
 afterAll(closeCzsc);
 
-test("api v21 chart settings: schema drives one build; defaults stay the old 0/1100", async () => {
+test("api v22 chart settings: schema drives both levels with the latest segment rules", async () => {
   const schema = await czscConfigSchema();
   expect([
     schema.fields.length,
     schema.choices.length,
     schema.rules.length,
-  ]).toEqual([13, 31, 5]);
+  ]).toEqual([14, 35, 5]);
+  expect(
+    schema.fields.find((f) => f.key === "segment.startBreak"),
+  ).toMatchObject({
+    layer: 0,
+    defaultValue: 0,
+  });
+  expect(
+    schema.choices
+      .filter((c) => c.field === "segment.startBreak")
+      .map((c) => [c.value, c.key, c.original]),
+  ).toEqual([
+    [0, "segment.startBreak.keep", 0],
+    [1, "segment.startBreak.revise", 0],
+    [2, "segment.startBreak.stroke", 0],
+  ]);
+  expect(
+    schema.choices.find((c) => c.key === "segment.method.featureMerged"),
+  ).toMatchObject({ value: 2, original: 0 });
   const keys = schema.choices.map((c) => c.key);
   expect(keys).not.toContain("stroke.endpoint.first");
   expect(
@@ -58,9 +76,10 @@ test("api v21 chart settings: schema drives one build; defaults stay the old 0/1
     analyzeCzsc(bars, false, undefined, false, undefined, false, settings);
   const base = await analyzeCzsc(bars);
   expect(base.configId).toMatch(/^stroke\.rule=strict;/);
-  expect(base.families.map((f) => f.points.length)).toEqual([158, 11]);
-  // Display-only segment boundary: SSE first-stroke moves 3 of 11 segment
-  // endpoints, last-stroke moves 1; analysis is untouched.
+  expect(base.configId).toContain("segment.startBreak=keep;");
+  expect(base.families.map((f) => f.points.length)).toEqual([158, 20]);
+  // v22 feature starts its second element at the turn, so its first-inner
+  // projection equals the extreme. Last-inner may move after inclusion.
   for (const boundary of [1, 2]) {
     const shown = await chart({ "projection.segmentBoundary": boundary });
     const [low, high] = shown.families;
@@ -70,7 +89,7 @@ test("api v21 chart settings: schema drives one build; defaults stay the old 0/1
       high!.points.filter(
         (q, i) => q.index !== base.families[1]!.points[i]!.index,
       ),
-    ).toHaveLength(boundary === 1 ? 3 : 1);
+    ).toHaveLength(boundary === 1 ? 0 : 4);
     expect(high!.centers).toEqual(base.families[1]!.centers);
     expect(high!.signals).toEqual(base.families[1]!.signals);
     expect(high!.divergences).toEqual(base.families[1]!.divergences);
@@ -84,10 +103,10 @@ test("api v21 chart settings: schema drives one build; defaults stay the old 0/1
       expect(c.end).toBeLessThanOrEqual(full.end);
     }),
   );
-  // Parent-segment stroke centers (czsc-tdx v5): SSE 14 -> 18; segment level unchanged.
+  // Updated parent segments change scoped stroke centers: SSE 14 -> 16.
   const parent = await chart({ "center.strokeFormation": 1 });
   expect(base.families[0]!.centers).toHaveLength(14);
-  expect(parent.families[0]!.centers).toHaveLength(18);
+  expect(parent.families[0]!.centers).toHaveLength(16);
   expect(parent.families[0]!.points).toEqual(base.families[0]!.points);
   expect(parent.families[1]).toEqual(base.families[1]);
   // v7 gaps (strict 158 -> 166) and the v6 bounded endpoint (136, history from bar 10).
@@ -127,7 +146,7 @@ test("second endpoints wait for the adjacent fractal confirmation then resume ex
     [],
   );
   const adjacent = await projectCzsc(input(8), request);
-  expect(adjacent.apiVersion).toBe(21);
+  expect(adjacent.apiVersion).toBe(22);
   expect(adjacent.configId).toContain("stroke.endpoint=second;");
   expect(
     adjacent.families[0]!.pivots.map((p) => [p.index, p.fractalAt]),
@@ -152,6 +171,95 @@ test("concurrent jobs preserve each input's C/V and config projections", async (
   expect(await Promise.all(inputs.map((input) => projectCzsc(input)))).toEqual(
     serial,
   );
+});
+
+test("v22 start-break choices reach the DLL and change the segment boundaries", async () => {
+  // Upstream SegmentStartBreakModes: 8->9 breaks the confirmed bottom at 5.
+  // Adjacent fractal strokes expose exactly these pivots; padding confirms both ends.
+  const prices = [
+    99, 100, 80, 90, 70, 85, 60, 75, 65, 95, 50, 99, 70, 80, 60, 75, 74,
+  ];
+  const input = {
+    high: prices,
+    low: prices,
+    close: prices,
+    volume: prices.map(() => 1),
+  };
+  for (const [method, expected] of [
+    [
+      1,
+      [
+        [0, 5, 10],
+        [0, 9],
+        [0, 5, 8, 9],
+      ],
+    ],
+    [
+      0,
+      [
+        [0, 5, 10, 13],
+        [0, 9, 12],
+        [0, 5, 8, 9, 12],
+      ],
+    ],
+  ] as const) {
+    for (const [mode, boundaries] of expected.entries()) {
+      const result = await projectCzsc(input, {
+        levels: [1],
+        config: {
+          strokeRule: 4,
+          segmentMethod: method,
+          segmentStartBreak: mode,
+        },
+      });
+      expect(result.configId).toContain(
+        `segment.startBreak=${["keep", "revise", "stroke"][mode]};`,
+      );
+      expect(
+        result.families[1100]!.pivots.map((p) => p.extremeIndex - 1),
+      ).toEqual(boundaries);
+    }
+  }
+  await expect(
+    projectCzsc(input, { config: { segmentStartBreak: 3 } }),
+  ).rejects.toThrow("线段起点被破处理无效");
+  await expect(
+    projectCzsc(input, { config: { segmentMethod: 3 } }),
+  ).rejects.toThrow("线段");
+});
+
+test("continuous feature merging keeps its own display boundaries and analysis identity", async () => {
+  // Upstream SegmentMergedBoundaryExamples: extreme=7, merged first=3, last=7.
+  const prices = [1, 0, 10, 5, 15, 7, 18, 6, 20, 4, 14, 3, 13, 2, 3];
+  const input = {
+    high: prices,
+    low: prices,
+    close: prices,
+    volume: prices.map(() => 1),
+  };
+  const request = {
+    levels: [1 as const],
+    config: { strokeRule: 4, segmentMethod: 2 },
+  };
+  const base = await projectCzsc(input, request);
+  expect(base.configId).toContain("segment.method=featureMerged;");
+  expect(base.families[1100]!.pivots[1]!.index).toBe(8);
+  for (const [boundary, index] of [
+    [1, 4],
+    [2, 8],
+  ]) {
+    const shown = await projectCzsc(input, {
+      ...request,
+      projection: { segmentBoundary: boundary },
+    });
+    expect(shown.configId).toBe(base.configId);
+    expect(shown.families[1100]!.pivots[1]).toMatchObject({
+      index,
+      extremeIndex: 8,
+    });
+    expect(shown.families[1100]!.centers).toEqual(base.families[1100]!.centers);
+    expect(shown.families[1100]!.signals).toEqual(base.families[1100]!.signals);
+  }
 });
 
 test("insufficient bars return explicit no-structure without artificial endpoints", async () => {
@@ -269,7 +377,7 @@ test("SSE daily matches the upstream czsc-tdx golden for configs 0 and 1100", as
   }
   // api v6: the DLL names its clean source commit; centers carry their
   // formation bar; bars carry the MA5/MA20 pair the kisses use.
-  expect(raw.buildCommit).toBe("ef5f6180fc69");
+  expect(raw.buildCommit).toBe("27de58024474");
   const native = raw.families[0]!;
   for (const c of native.centers)
     expect(c.established).toBe(native.pivots[c.firstPivot + 3]!.fractalAt);

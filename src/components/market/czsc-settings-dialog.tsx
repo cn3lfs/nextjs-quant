@@ -99,7 +99,7 @@ function Row({
   );
 }
 
-/** TradingView-style "输入" page, generated from the DLL configuration schema (api v21). */
+/** TradingView-style "输入" page, generated from the DLL configuration schema (api v22). */
 export function CzscSettingsDialog() {
   const settings = useCzscSettings();
   const schema = api.czscSchema.useQuery(undefined, {
@@ -177,6 +177,7 @@ export function CzscSettingsDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         // Focus the dialog itself; auto-focusing the first info icon would pop its tooltip on open.
         onOpenAutoFocus={(event) => {
           event.preventDefault();
