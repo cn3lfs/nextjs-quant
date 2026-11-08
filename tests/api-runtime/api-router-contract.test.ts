@@ -21,6 +21,7 @@ const expectedProcedures = {
   maBaselineCoverage: "query",
   maBaselineHistory: "query",
   maBaselineResult: "query",
+  maBaselineEvaluation: "query",
   maBaselineOrders: "query",
   maBaselineExport: "query",
   maBaselineRemove: "mutation",

@@ -1,5 +1,9 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+2026-11-08：已按产品梳理→Stitch→开发交付统一主流口径的回测绩效评价、年度/季度/月度复盘。按用户追加要求独立`quant-performance`、服务适配与纯展示，回测与评价事务分离；范围和验收见[绩效评价规格](product/specs/backtest-evaluation.md)，不改变规则自检证据等级。
+
+2026-11-08：用户取消五种策略上限，授权主流策略库及同口径茅台实验。本轮39项日线规则及2项持有对照，流派/数据缺口与变体见[规格](product/specs/mainstream-strategies-maotai.md)，验收见[交付](deliveries/2026-11-08-maotai-mainstream-strategies.md)。原实验保留、本轮独立冻结；单股实验不冒充多资产、横截面或衍生品验证。
+
 2026-11-08：按用户授权设计五类经典策略并运行茅台近十年日线实验；本金100万元，双边佣金万一/最低5元、卖出税费合计万五。纯TS策略与回放归`quant-backtest`，本次为离线研究及现有前端图表导出，不自动开放应用策略或认证可信业绩。见[规则](product/specs/classic-strategies-maotai.md)及[结果](deliveries/2026-11-08-maotai-classic-strategies.md)。
 
 2026-11-08：按用户最新授权接入其余可用数据因子。新增18项行情因子（技术目录94项）及197项本地数据条件（181个已定义序列数值侧、16个派生项），复用组合筛选和证据导出。公式、数据时点与尚缺输入见[规格](product/specs/available-data-factors.md)，验证见[交付](deliveries/2026-11-08-available-data-factors.md)。

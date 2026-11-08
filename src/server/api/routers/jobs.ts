@@ -54,6 +54,10 @@ import { researchCompositePresetIds } from "~/lib/research/specs/research-compos
 import { listStrategyRepresentatives } from "trading-strategies";
 import { maBaselineJob } from "../../backtest/ma-baseline-job";
 import type { MaBaselineArchive } from "../../backtest/ma-baseline-work";
+import {
+  queryPerformanceEvaluation,
+  exportPerformanceEvaluation,
+} from "../../performance/backtest-evaluation";
 import { readSnapshot as readBaselineSnapshot } from "../../data-sources/tdx/tdx";
 import { cancelJob, readJob } from "../../jobs/jobs";
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
@@ -162,6 +166,26 @@ export const jobsRouter = createTRPCRouter({
         pending: orders.filter((o) => o.status === "pending"),
       };
     }),
+  maBaselineEvaluation: p
+    .input(
+      z.object({
+        id: z.string().min(1),
+        frequency: z.enum(["year", "quarter", "month"]).default("year"),
+        year: z.number().int().min(1900).max(9999).optional(),
+        period: z.string().max(10).optional(),
+      }),
+    )
+    .query(({ input }) => {
+      const job = readJob(input.id);
+      if (
+        !job ||
+        job.type !== "backtest" ||
+        (job.input as { type?: string } | null)?.type !== "ma-baseline"
+      )
+        throw new Error("策略实验任务不存在");
+      if (job.status !== "completed") return null;
+      return queryPerformanceEvaluation(job.result as MaBaselineArchive, input);
+    }),
   maBaselineOrders: p
     .input(
       z.object({
@@ -196,7 +220,8 @@ export const jobsRouter = createTRPCRouter({
       (job.input as { type?: string } | null)?.type !== "ma-baseline"
     )
       throw new Error("没有已完成的策略实验结果");
-    return job.result as MaBaselineArchive;
+    const archive = job.result as MaBaselineArchive;
+    return { ...archive, evaluation: exportPerformanceEvaluation(archive) };
   }),
   maBaselineRemove: p.input(z.string().min(1)).mutation(({ input }) =>
     atomic(() => {

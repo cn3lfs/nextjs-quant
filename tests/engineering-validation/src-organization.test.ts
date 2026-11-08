@@ -13,6 +13,7 @@ const componentDomains = [
   "news",
   "overview",
   "panels",
+  "performance",
   "portfolio",
   "research",
   "screening",

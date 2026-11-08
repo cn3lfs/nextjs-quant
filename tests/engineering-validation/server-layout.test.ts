@@ -71,7 +71,7 @@ function upwardDataDependencies(edges: Map<string, string[]>) {
     function visit(p: string) {
       if (seen.has(p)) return;
       seen.add(p);
-      if (/^src\/server\/(strategies|backtest|research)\//.test(p))
+      if (/^src\/server\/(strategies|backtest|research|performance)\//.test(p))
         violations.push(`${file} -> ${p}`);
       for (const target of edges.get(p) ?? []) visit(target);
     }
@@ -105,9 +105,14 @@ it("detects indirect provider dependencies on orchestration", () => {
       ["src/server/infra/helper.ts"],
     ],
     ["src/server/infra/helper.ts", ["src/server/backtest/run.ts"]],
+    [
+      "src/server/data-sources/test/performance-provider.ts",
+      ["src/server/performance/backtest-evaluation.ts"],
+    ],
   ]);
   expect(upwardDataDependencies(bad)).toEqual([
     "src/server/data-sources/test/provider.ts -> src/server/backtest/run.ts",
+    "src/server/data-sources/test/performance-provider.ts -> src/server/performance/backtest-evaluation.ts",
   ]);
 });
 it("keeps every worker source entry resolvable and emitted runtime filenames stable", () => {

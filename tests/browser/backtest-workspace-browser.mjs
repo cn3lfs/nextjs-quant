@@ -10,6 +10,7 @@ import { chromium } from "@playwright/test";
 const transport = `
 import {useMemo} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
+import {queryPerformanceEvaluation} from './src/server/performance/backtest-evaluation';
 const input={symbol:'sz000001',start:'2026-10-08',end:'2026-10-30',initial:100000,costs:{version:'cost-experiment-1',commissionBps:3,minimumCommission:5,sellTaxBps:5,slippageBps:5}};
 const orders=Array.from({length:125},(_,i)=>({id:i+1,side:i%2?'sell':'buy',signalAt:'2026-10-08T10:00:00+08:00',status:i<60?'rejected':i<120?'filled':'pending',attempts:1,reason:i<60?'受控拒单：资金不足一手':i>=120?'T+1：当日买入不可卖出':null}));
 const fills=Array.from({length:60},(_,i)=>({orderId:i+61,side:i%2?'sell':'buy',signalAt:'2026-10-08T10:00:00+08:00',barEnd:'2026-10-08T10:05:00+08:00',executedAt:'2026-10-08T10:00:00+08:00',price:10,shares:100,fee:5,cashAfter:99995,sharesAfter:100}));
@@ -21,6 +22,7 @@ function query(name){return {useQuery(input,options){return useQuery({queryKey:[
 f.requests.push({name,input});if(f.fail===name)throw Error('受控读取失败');
 if(name==='maBaselineHistory')return Object.values(jobs).reverse().map(j=>({...j}));
 if(name==='jobSummary')return jobs[input.id]?{...jobs[input.id]}:null;
+if(name==='maBaselineEvaluation')return queryPerformanceEvaluation({result:report.summary,inputSnapshot:{bars:[]}},input);
 if(name==='maBaselineResult'){const r=structuredClone(report);if(input.id==='zero'){r.manifest.symbol='sh600519';r.summary.input.symbol='sh600519';r.fillCount=0;r.fills=[];return r;}r.fills=r.fills.slice(input.pageIndex*50,(input.pageIndex+1)*50);return r;}
 if(name==='maBaselineOrders'){const filtered=orders.filter(o=>input.status==='all'||o.status===input.status);return {orders:filtered.slice(input.pageIndex*50,(input.pageIndex+1)*50),rowCount:filtered.length};}
 }})}}}
@@ -30,7 +32,7 @@ if(name==='maBaseline'){const id='new-'+(++f.seq);jobs[id]={id,symbol:input.symb
 if(name==='cancel'){jobs[input].status='cancelled';return {ok:true};}
 if(name==='maBaselineRemove'){if(f.removeFail)throw Error('受控删除失败');delete jobs[input];return {removed:true};}
 }})}}}
-export const api={...Object.fromEntries(['maBaselineHistory','jobSummary','maBaselineResult','maBaselineOrders'].map(n=>[n,query(n)])),...Object.fromEntries(['maBaseline','cancel','maBaselineRemove'].map(n=>[n,mutation(n)])),
+export const api={...Object.fromEntries(['maBaselineHistory','jobSummary','maBaselineResult','maBaselineOrders','maBaselineEvaluation'].map(n=>[n,query(n)])),...Object.fromEntries(['maBaseline','cancel','maBaselineRemove'].map(n=>[n,mutation(n)])),
 useUtils(){const client=useQueryClient();return useMemo(()=>({...Object.fromEntries(['maBaselineHistory','maBaselineResult','maBaselineOrders'].map(n=>[n,{invalidate:input=>client.invalidateQueries({queryKey:input?[n,input]:[n]})}])),maBaselineCoverage:{fetch:async symbol=>{if(f.fail==='coverage')throw Error('受控覆盖失败');return {symbol,start:'2026-01-01',end:'2026-10-30',bars:10000}}},maBaselineExport:{fetch:async id=>{if(f.fail==='export')throw Error('受控导出失败');return {result:report,manifest:report.manifest,inputSnapshot:{bars:[]}}}}}),[client]);}};`;
 const bundle = await build({
   stdin: {
@@ -176,6 +178,12 @@ try {
   await page.getByText("本次实验没有成交", { exact: true }).waitFor();
   await page.getByRole("button", { name: "复用此配置", exact: true }).click();
   await page.getByRole("tab", { name: "概览", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page
+    .locator('[role="tab"][data-state="active"]')
+    .filter({ hasText: "绩效评价" })
+    .waitFor();
+  await page.getByLabel("绩效评价内容").waitFor();
   await page.keyboard.press("ArrowRight");
   await page
     .locator('[role="tab"][data-state="active"]')

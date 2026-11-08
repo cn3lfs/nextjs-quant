@@ -80,6 +80,8 @@
 
 纯回测核心与交易执行/费用能力以 `packages/quant-backtest` 为实现源。该包不得反向依赖应用 `src/`、Next.js、React、数据库、文件或网络；本地数据适配与任务生命周期仍归 `src/server/backtest`。旧应用导入路径可保留兼容再导出，不复制实现。
 
+绩效评价独立于回测引擎：日收益指标、回撤及年季月报告归`packages/quant-performance`，公开入口为包根；应用冻结结果适配归`src/server/performance`，展示归`src/components/performance`。新功能先明确业务职责、事实来源及写入事务归属，再划分模块；只读派生不混进撮合/记账事务。按当前职责复用已有包或建立独立模块，不为形式拆包，也不预建通用插件框架。
+
 ## 4. UI
 
 这一节是本次统一的重点。

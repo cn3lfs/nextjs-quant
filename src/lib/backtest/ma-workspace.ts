@@ -20,7 +20,7 @@ export type MaDraft = {
   initial: string;
   costs: Record<CostField, string>;
 };
-export type ReportTab = "overview" | "activity" | "evidence";
+export type ReportTab = "overview" | "evaluation" | "activity" | "evidence";
 export type OrderFilter = "all" | "filled" | "rejected" | "pending";
 export const orderStatusLabels = {
   all: "全部订单",

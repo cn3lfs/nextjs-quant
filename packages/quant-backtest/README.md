@@ -1,5 +1,7 @@
 # quant-backtest
 
+0.4.0将离线日线研究扩展为39项固定规则及2项持有对照，不再限制五种。目录`studyCatalog`声明流派/完整规则，`studyWarmup`声明140/300日预热，`studyCoverageGaps`列出不能用单股日线验证的主流流派。`--suite mainstream`运行全部，`--suite classic`保留原七项。参见[扩展规格](../../docs/product/specs/mainstream-strategies-maotai.md)。纯核心不注册应用策略、IO或实盘。
+
 独立、无 IO 的 TypeScript 现金权益回测包。当前支持五分钟双均线交叉基线和模块化技术因子组合；应用内其他历史策略统一弃用。包本身不依赖 Next.js、React、数据库、通达信目录、worker 或本项目的 `src/`。
 
 0.3.0新增`runClassicStudy`离线日线实验：五类固定策略（双均线、通道突破、趋势回调、布林均值回归、底仓网格）及两项持有基准，复用共享指标、十进制金额和原有成交/整手原语。它独立于原五分钟`runBacktest`契约，不自动注册应用策略。主板10%限制、用户固定费用、分红隔离经济权益等假设与风险见[研究规格](../../docs/product/specs/classic-strategies-maotai.md)。取数冻结和报告由`scripts/backtest-maotai-classics.ts`及`scripts/export-classic-study.ts`负责；包内仍无IO或前端依赖。
@@ -71,6 +73,8 @@ const result = runMaBaseline(input, bars as Bar[]);
 `runBacktest(request, bars, signals, executionRules, progress?)` 是较低层入口：注入信号数组，不依赖 SMA。调用方必须提供可信、因果的策略信号和明确的约束证据；当前引擎仍只建模现金权益 T+1。它不会注册或启用应用策略。
 
 ## 构建与验证
+
+日收盘绩效归独立包[quant-performance](../quant-performance/README.md)。回测引擎仅产出权益与交易事实，不依赖评价包、不参与评价事务；应用层可把冻结结果映射为评价输入。
 
 仓库根先 `pnpm trading-strategy-core:build`，再：
 

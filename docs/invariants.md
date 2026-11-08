@@ -1,5 +1,10 @@
 # 不可违反的约束
 
+## 独立绩效评价模块（2026-11-08）
+
+- `quant-performance`拥有日收益、回撤和年季月报告语义，不能依赖quant-backtest、应用、UI或IO；回测引擎不能反向调用评价。应用只在已完成冻结实验之外做只读映射，评价失败不修改任务、交易或账户。包外消费者只从包根导入。验证：`tests/engineering-validation/performance-package.test.ts`含禁止依赖反例及应用目录外ESM执行，包内`tests/`含权益与单位化净值两类输入。
+- 评价主口径固定为日收盘、252日年化、2%无风险假设和样本标准差；不得混入旧wbt公式。期初本金/上一期末参与首日与分期收益，分期修复不得使用期末后的数据。缺失对照不取交集或补零，未修复为null并附已观察自然日。版本与公式见[规格](product/specs/backtest-evaluation.md)。
+
 ## 本地数据因子（2026-11-08）
 
 - GP/BK/SC按各自字典和双值侧单位解释，不跨命名空间借值。同日必须恰好一条记录；不前填稀疏、未注明日期、未知组或未认证零值。重复记录保留原输入证据且结果为unknown。测试：`packages/trading-strategy-core/tests/local-data-factors.test.ts`、`tests/market-chart/market-data/local-financial-service.test.ts`。

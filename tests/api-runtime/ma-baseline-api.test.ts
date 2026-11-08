@@ -129,14 +129,56 @@ it("pages fills server-side and exports the exact frozen input only on explicit 
   expect(second!.fills[0]!.orderId).toBe(51);
   expect(Object.keys(first!)).not.toContain("inputSnapshot");
   expect(Object.keys(first!.summary)).not.toContain("orders");
-  expect(await caller.maBaselineExport("job-baseline-fixture")).toEqual(
-    archive,
-  );
+  const exported = await caller.maBaselineExport("job-baseline-fixture");
+  expect(exported).toMatchObject(archive);
+  expect(exported.evaluation.version).toBe("performance-report-v1");
+  expect(exported.evaluation.daily).toHaveLength(archive.result.equity.length);
   expect((await caller.maBaselineHistory())[0]).toMatchObject({
     id: "job-baseline-fixture",
     symbol: input.symbol,
     createdAt: 1,
   });
+});
+it("evaluates only the selected archive, bounds year/period selection and never writes its result", async () => {
+  save();
+  const before = get("job-baseline-fixture");
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  for (const frequency of ["year", "quarter", "month"] as const) {
+    const result = await caller.maBaselineEvaluation({
+      id: "job-baseline-fixture",
+      frequency,
+    });
+    expect(result?.year).toBe(2026);
+    expect(result?.months).toHaveLength(1);
+    expect(result?.periods).toHaveLength(1);
+    expect(result?.overview.days).toBe(1);
+    const selected = await caller.maBaselineEvaluation({
+      id: "job-baseline-fixture",
+      frequency,
+      period: result!.periods[0]!.key,
+    });
+    expect(selected?.selected?.key).toBe(result!.periods[0]!.key);
+    expect(JSON.stringify(result)).not.toContain('"bars"');
+  }
+  await expect(
+    caller.maBaselineEvaluation({ id: "job-baseline-fixture", year: 2020 }),
+  ).rejects.toThrow("年份");
+  await expect(
+    caller.maBaselineEvaluation({
+      id: "job-baseline-fixture",
+      period: "2026-01",
+    }),
+  ).rejects.toThrow("期间");
+  await expect(caller.maBaselineEvaluation({ id: "missing" })).rejects.toThrow(
+    "不存在",
+  );
+  expect(get("job-baseline-fixture")).toEqual(before);
+  save("running");
+  expect(
+    await caller.maBaselineEvaluation({ id: "job-baseline-fixture" }),
+  ).toBeNull();
 });
 it("deletion refuses active/foreign work and retains the research audit fact", async () => {
   const caller = appRouter.createCaller(
@@ -159,6 +201,34 @@ it("deletion refuses active/foreign work and retains the research audit fact", a
   });
   expect(get("job-baseline-fixture")).toBeUndefined();
   expect(get("audit-fixture")).toEqual({ taskId: "job-baseline-fixture" });
+});
+it("does not silently intersect mismatched frozen dates or fabricate absent historical comparisons", async () => {
+  const archive = save();
+  const caller = appRouter.createCaller(
+    await createTRPCContext({ headers: new Headers() }),
+  );
+  archive.result.equity[0]!.date = "2026-10-13";
+  put("job", "job-baseline-fixture", {
+    ...get<Record<string, unknown>>("job-baseline-fixture"),
+    result: archive,
+  });
+  await expect(
+    caller.maBaselineEvaluation({ id: "job-baseline-fixture" }),
+  ).rejects.toThrow("日期不一致");
+  const legacy = save();
+  legacy.inputSnapshot.bars = [];
+  put("job", "job-baseline-fixture", {
+    ...get<Record<string, unknown>>("job-baseline-fixture"),
+    result: legacy,
+  });
+  const evaluation = await caller.maBaselineEvaluation({
+    id: "job-baseline-fixture",
+  });
+  expect(evaluation?.overview.benchmarkReturn).toMatchObject({
+    value: null,
+    reason: "缺少完整同窗持有对照",
+  });
+  expect(evaluation?.overview.totalReturn.value).not.toBeNull();
 });
 
 it("filters orders before server pagination, preserves reasons and refuses foreign or unfinished results", async () => {

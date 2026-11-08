@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm trading-strategies:build && pnpm runtime:build && next build",
+    "build": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm performance:build && pnpm trading-strategies:build && pnpm runtime:build && next build",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "dev": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm trading-strategies:build && pnpm runtime:build && next dev --hostname 127.0.0.1",
+    "dev": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm performance:build && pnpm trading-strategies:build && pnpm runtime:build && next dev --hostname 127.0.0.1",
     "preview": "pnpm build && pnpm desktop:prepare && pnpm start",
     "start": "node scripts/start.mjs",
-    "typecheck": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm trading-strategies:build && tsc --noEmit",
+    "typecheck": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm performance:build && pnpm trading-strategies:build && tsc --noEmit",
     "tdx:import": "tsx scripts/import-tdx-five-minute.ts",
     "tdx:audit": "tsx scripts/audit-tdx-five-minute.ts",
     "tdx:repair-zero-volume": "tsx scripts/repair-tdx-zero-volume.ts",
@@ -19,15 +19,15 @@
     "wdz:import": "tsx scripts/import-wdz-five-minute.ts",
     "wdz:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-wdz.ps1",
     "native:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-tdx-import.ps1",
-    "runtime:build": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && node scripts/build-runtime.mjs",
-    "test": "pnpm tstdx:build && pnpm native:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm trading-strategies:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test && pnpm backtest-engine:test",
+    "runtime:build": "pnpm tstdx:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm performance:build && node scripts/build-runtime.mjs",
+    "test": "pnpm tstdx:build && pnpm native:build && pnpm trading-strategy-core:build && pnpm backtest-engine:build && pnpm performance:build && pnpm trading-strategies:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test && pnpm backtest-engine:test && pnpm performance:test",
     "lint": "eslint src",
     "e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:dev": "pnpm build && pnpm desktop:prepare && electron .",
     "desktop:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-desktop.ps1",
-    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml packages/tstdx/src packages/tstdx/tests packages/tstdx/*.ts packages/tstdx/*.json packages/trading-strategies/src packages/trading-strategies/tests packages/trading-strategies/*.ts packages/trading-strategies/*.json packages/trading-strategy-core/src packages/trading-strategy-core/tests packages/trading-strategy-core/*.ts packages/trading-strategy-core/*.json packages/quant-backtest/src packages/quant-backtest/tests packages/quant-backtest/*.ts packages/quant-backtest/*.json",
+    "format:check": "prettier --check src electron scripts tests *.ts *.js *.json *.yml packages/tstdx/src packages/tstdx/tests packages/tstdx/*.ts packages/tstdx/*.json packages/trading-strategies/src packages/trading-strategies/tests packages/trading-strategies/*.ts packages/trading-strategies/*.json packages/trading-strategy-core/src packages/trading-strategy-core/tests packages/trading-strategy-core/*.ts packages/trading-strategy-core/*.json packages/quant-backtest/src packages/quant-backtest/tests packages/quant-backtest/*.ts packages/quant-backtest/*.json packages/quant-performance/src packages/quant-performance/tests packages/quant-performance/*.ts packages/quant-performance/*.json",
     "desktop:smoke": "node scripts/desktop-smoke.mjs",
     "smoke:data": "tsx scripts/smoke.ts",
     "tstdx:build": "pnpm --dir packages/tstdx build",
@@ -39,7 +39,10 @@
     "trading-strategy-core:build": "pnpm --filter trading-strategy-core build",
     "test:browser": "node scripts/run-browser-harness.mjs",
     "backtest-engine:build": "pnpm --filter quant-backtest build",
-    "backtest-engine:test": "pnpm --filter quant-backtest test"
+    "backtest-engine:test": "pnpm --filter quant-backtest test",
+    "performance:build": "pnpm --filter quant-performance build",
+    "performance:test": "pnpm --filter quant-performance test",
+    "performance:typecheck": "pnpm --filter quant-performance typecheck"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -78,7 +81,8 @@
     "undici": "^7.29.1",
     "zod": "^3.24.2",
     "zustand": "^5.0.15",
-    "quant-backtest": "workspace:*"
+    "quant-backtest": "workspace:*",
+    "quant-performance": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

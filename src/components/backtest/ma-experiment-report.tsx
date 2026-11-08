@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { EquityChart } from "./equity-chart";
+import { MaEvaluationPanel } from "./ma-evaluation-panel";
 
 export type BaselineReport = NonNullable<RouterOutputs["maBaselineResult"]>;
 type Pagination = { pageIndex: number; pageSize: number };
@@ -405,6 +406,9 @@ export function MaExperimentReport({
           <TabsTrigger className="min-h-10" value="overview">
             概览
           </TabsTrigger>
+          <TabsTrigger className="min-h-10" value="evaluation">
+            绩效评价
+          </TabsTrigger>
           <TabsTrigger className="min-h-10" value="activity">
             成交与订单
           </TabsTrigger>
@@ -414,6 +418,9 @@ export function MaExperimentReport({
         </TabsList>
         <TabsContent value="overview">
           <MaReportOverview data={data} />
+        </TabsContent>
+        <TabsContent value="evaluation">
+          <MaEvaluationPanel key={id} id={id} />
         </TabsContent>
         <TabsContent value="activity">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
