@@ -87,3 +87,7 @@ pnpm --filter quant-backtest typecheck
 包内测试独立运行，覆盖信号、下一根成交、T+1、整手、最低佣金/卖出费用、现金不足、受阻请求、未来追加和非法输入。根目录 `tests/engineering-validation/backtest-package.test.ts` 另验证公共 ESM 导出可以在应用目录之外执行，并检查包内禁止应用/IO 导入；其负对照能检出错误依赖。
 
 框架自身不创建文件、日志、数据库、任务或缓存。应用拥有原始数据读取、交易日历/公司行动核对、快照 hash、worker 取消、结果持久化、分页和删除。构建脚本把包源码、共享指标/资金原语与 lockfile 的摘要注入 worker 结果；直接从源码运行显示 `source-development`，不能冒充已冻结的构建版本。包/API 有意义的变更须更新版本及对应验证。
+
+0.5.0新增离线中证800多证券共享资金研究，入口 runCsi800Study / csi800Weights；不是应用策略注册或实盘接口。规则、单命令运行和简化边界见 [规格](../../docs/product/specs/csi800-study.md)。
+
+0.6.0新增经典技术＋财务分家族/分支路评分、合法外部目标、共同覆盖窗口和组合风险预算；复用单一经济收益归一化。另有只读实际仓位价格指数归因，不改变成交。规格、运行与完整边界见 [多因子研发规格](../../docs/product/specs/csi800-multifactor-research.md)和[交付](../../docs/deliveries/2026-11-08-csi800-multifactor.md)。

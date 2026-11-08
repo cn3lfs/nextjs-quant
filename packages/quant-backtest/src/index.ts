@@ -55,3 +55,31 @@ export type {
   StudyOptions,
   StudyFill,
 } from "./classic-study.js";
+export { runCsi800Study, csi800Weights } from "./csi800-study.js";
+export type {
+  Csi800Stock,
+  Csi800Options,
+  Csi800Allocation,
+} from "./csi800-study.js";
+export {
+  csi800ClassicFactors,
+  csi800ClassicRecipes,
+  classicFinancialFeatures,
+  classicRanks,
+  classicTechnicalSeries,
+} from "./csi800-factors.js";
+export {
+  buildClassicSchedule,
+  scoreClassicWeek,
+  classicModelScore,
+  classicCommonWindow,
+  classicPortfolioVolatility,
+} from "./csi800-composite.js";
+export { csi800SignalBars, csi800ForwardReturn } from "./csi800-signal.js";
+export type {
+  ClassicPanelRow,
+  ClassicWeek,
+  ClassicModel,
+  ClassicScheduleOptions,
+  ClassicScoredRow,
+} from "./csi800-composite.js";

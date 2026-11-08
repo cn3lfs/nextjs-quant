@@ -376,7 +376,16 @@ export async function readFinancialPoolHistory(
           history = reports.get(symbol)!;
         if (!isAStock(symbol)) continue;
         if (history.length >= options.limit) continue;
-        const row = packageRecord(file, symbol.slice(2));
+        let row: ReturnType<typeof packageRecord>;
+        try {
+          row = packageRecord(file, symbol.slice(2));
+        } catch (error) {
+          issues.push({
+            filename: name,
+            reason: `${symbol}: ${error instanceof Error ? error.message : String(error)}`,
+          });
+          continue;
+        }
         if (!row) continue;
         const announcementDate = financialDate(
           row.values[313] ?? 0,

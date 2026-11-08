@@ -13,7 +13,10 @@ import {
   localFinancialView,
   localFinancialSeriesView,
 } from "../../../src/server/financial/local-financial-service";
-import { readLocalFinancialHistory } from "../../../src/server/data-sources/tdx/local-financial-files";
+import {
+  readLocalFinancialHistory,
+  readFinancialPoolHistory,
+} from "../../../src/server/data-sources/tdx/local-financial-files";
 import {
   buildLocalFinancialArchive,
   verifyLocalFinancialArchive,
@@ -54,6 +57,38 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 describe("本地财务查询与冻结", () => {
+  it("池内单只重复记录不能截断同一期其他正常证券", async () => {
+    const dir = await root(),
+      original = await fixture("gpcw20260930.dat");
+    const fieldBytes = original.readUInt32LE(12),
+      tableEnd = 20 + 3 * 11;
+    const bytes = Buffer.alloc(tableEnd + 3 * fieldBytes);
+    original.copy(bytes, 0, 0, 20);
+    bytes.writeUInt16LE(3, 6);
+    ["600519", "600519", "600036"].forEach((code, i) => {
+      const index = 20 + i * 11,
+        offset = tableEnd + i * fieldBytes;
+      bytes.write(code, index, "ascii");
+      bytes[index + 6] = 0;
+      bytes.writeUInt32LE(offset, index + 7);
+      const source = original.readUInt32LE(27);
+      original.copy(bytes, offset, source, source + fieldBytes);
+    });
+    await writeFile(join(dir, "vipdoc/cw/gpcw20260930.dat"), bytes);
+    const result = await readFinancialPoolHistory(
+      dir,
+      ["sh600519", "sh600036"],
+      { asOf: "2026-11-03", strict: false, limit: 1, fieldIds: [40, 96] },
+    );
+    expect(result.reports.get("sh600519")).toHaveLength(0);
+    expect(result.reports.get("sh600036")).toHaveLength(1);
+    expect(
+      result.issues.some(
+        (issue) =>
+          issue.reason.includes("600519") && issue.reason.includes("重复"),
+      ),
+    ).toBe(true);
+  });
   it("服务器筛选排序分页，全字段保留，未来公告不可提前取数", async () => {
     const dir = await root();
     const data = await localFinancialView(dir, {
