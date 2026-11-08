@@ -4,26 +4,18 @@ import { big, moneyMul, toNumber } from "trading-strategy-core/money";
 import { fillMarketOrder, affordableQuantity } from "./execution.js";
 import { defaultExecutionCosts } from "./costs.js";
 import type { Bar } from "./model.js";
+import { calculateFactor } from "trading-strategy-core/factors";
+import { createExtendedStudyRule } from "./study-rules.js";
+import {
+  studyStrategies,
+  studyNames,
+  studyWarmup,
+  studyCatalog,
+  type StudyStrategy,
+} from "./study-catalog.js";
+export { studyStrategies, studyNames } from "./study-catalog.js";
+export type { StudyStrategy } from "./study-catalog.js";
 
-export const studyStrategies = [
-  "ma",
-  "breakout",
-  "pullback",
-  "range",
-  "grid",
-  "hold",
-  "hold80",
-] as const;
-export type StudyStrategy = (typeof studyStrategies)[number];
-export const studyNames: Record<StudyStrategy, string> = {
-  ma: "双均线5/20",
-  breakout: "唐奇安55/20",
-  pullback: "趋势回调",
-  range: "布林均值回归",
-  grid: "60%底仓+网格",
-  hold: "买入持有100%",
-  hold80: "买入持有80%",
-};
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -156,8 +148,17 @@ export function runClassicStudy(
     bands = boll(signal, 20, 2);
   const first = bars.findIndex((b) => b.date >= o.start),
     last = bars.reduce((n, b, i) => (b.date <= o.end ? i : n), -1);
-  if (first < 140 || last < first)
-    throw new Error("预热至少140日且研究区间非空");
+  const warmup = studyWarmup(o.strategy);
+  if (first < warmup || last < first)
+    throw new Error(`预热至少${warmup}日且研究区间非空`);
+  const extendedRule = createExtendedStudyRule(o.strategy, signal);
+  const volatility =
+    o.strategy === "vol-target"
+      ? calculateFactor(signal, {
+          id: "return-volatility",
+          parameters: { period: 20 },
+        }).values
+      : [];
   const costs = {
     ...defaultExecutionCosts,
     commissionBps: 1,
@@ -182,7 +183,9 @@ export function runClassicStudy(
     sleeveCap = 0,
     initialized = false,
     peak = o.initial,
-    maxDrawdown = 0;
+    maxDrawdown = 0,
+    lastAllocationMonth = "",
+    installments = 0;
   const fills: StudyFill[] = [],
     rejected: { date: string; reason: string; order: Order }[] = [],
     curve: {
@@ -207,6 +210,56 @@ export function runClassicStudy(
       reason: string,
       quantity?: number,
     ): Order => ({ side, reason, quantity, signalDate: b.date });
+    if (["vol-target", "constant-mix", "cppi"].includes(o.strategy)) {
+      const initialDecision = i === first - 1;
+      const month = b.date.slice(0, 7);
+      if (
+        o.strategy === "constant-mix" &&
+        !initialDecision &&
+        month === lastAllocationMonth
+      )
+        return null;
+      if (
+        o.strategy === "vol-target" &&
+        !initialDecision &&
+        new Date(b.date).getUTCDay() !== 5
+      )
+        return null;
+      const investable = cash + shares * bars[i]!.close;
+      let target = 0.8;
+      if (o.strategy === "cppi")
+        target = Math.min(
+          1,
+          (3 * Math.max(investable - o.initial * 0.8, 0)) / investable,
+        );
+      if (o.strategy === "vol-target") {
+        const vol = volatility[i];
+        if (vol === null || vol === undefined) return null;
+        target =
+          vol === 0 ? 1 : Math.min(1, 0.15 / ((vol / 100) * Math.sqrt(252)));
+      }
+      const desired =
+        Math.floor((investable * target) / bars[i]!.close / 100) * 100;
+      const change = desired - shares;
+      // Zero-lot adjustments are a completed observation, not a rejected order.
+      if (change === 0) {
+        lastAllocationMonth = month;
+        return null;
+      }
+      return order(
+        change > 0 ? "buy" : "sell",
+        `目标权重${(target * 100).toFixed(2)}%`,
+        Math.abs(change),
+      );
+    }
+    if (o.strategy === "dca") {
+      if (installments >= 12 || b.date.slice(0, 7) === lastAllocationMonth)
+        return null;
+      return {
+        ...order("buy", `分批建仓第${installments + 1}批`),
+        fraction: 1 / 12,
+      };
+    }
     if (initialMode) {
       if (!initialized)
         return {
@@ -252,6 +305,8 @@ export function runClassicStudy(
         i - entryIndex >= 20 ||
         b.close < entry * 0.92;
     }
+    if (extendedRule)
+      ({ enter, exit } = extendedRule(i, { entry, entryIndex }));
     return shares > 0
       ? exit
         ? order("sell", "规则退出", shares)
@@ -318,7 +373,11 @@ export function runClassicStudy(
           if (cash < -1e-7) throw new Error("现金透支");
           shares += pending.side === "buy" ? quantity : -quantity;
           totalFees = cashAdd(totalFees, fee);
-          if (pending.side === "buy" && o.strategy !== "grid") {
+          if (
+            pending.side === "buy" &&
+            o.strategy !== "grid" &&
+            shares === quantity
+          ) {
             entry = (price * sb.open) / b.open;
             entryIndex = i;
           }
@@ -330,6 +389,8 @@ export function runClassicStudy(
             anchor = (price * sb.open) / b.open;
           }
           initialized = true;
+          lastAllocationMonth = pending.signalDate.slice(0, 7);
+          if (o.strategy === "dca") installments++;
           fills.push({
             signalDate: pending.signalDate,
             date: b.date,
@@ -381,6 +442,8 @@ export function runClassicStudy(
   return {
     strategy: o.strategy,
     name: studyNames[o.strategy],
+    definition: studyCatalog[o.strategy],
+    warmupBars: warmup,
     options: o,
     quality: "rule-check-only" as const,
     start: curve[0]!.date,

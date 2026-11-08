@@ -561,6 +561,218 @@ export function boll(bars: readonly Bar[], n = 20, multiplier = 2) {
   });
 }
 
+/** CCI: typical price and mean absolute deviation, not standard deviation. */
+export function cci(bars: readonly Bar[], n = 20): IndicatorValue[] {
+  period(n, 2);
+  const typical = bars.map((b) => (b.high + b.low + b.close) / 3);
+  return maSeries(typical, n).map((mean, i) => {
+    if (mean === null) return null;
+    const deviation =
+      typical
+        .slice(i + 1 - n, i + 1)
+        .reduce((sum, v) => sum + Math.abs(v - mean), 0) / n;
+    return deviation === 0 ? null : (typical[i]! - mean) / (0.015 * deviation);
+  });
+}
+
+/** MFI uses price-directed raw volume; a flat window has no defined ratio. */
+export function mfi(bars: readonly Bar[], n = 14): IndicatorValue[] {
+  period(n);
+  const typical = bars.map((b) => (b.high + b.low + b.close) / 3);
+  return bars.map((_, i) => {
+    if (i < n) return null;
+    let positive = 0,
+      negative = 0;
+    for (let j = i - n + 1; j <= i; j++) {
+      const flow = typical[j]! * bars[j]!.volume;
+      if (typical[j]! > typical[j - 1]!) positive += flow;
+      if (typical[j]! < typical[j - 1]!) negative += flow;
+    }
+    return positive + negative === 0
+      ? null
+      : (100 * positive) / (positive + negative);
+  });
+}
+
+export function williamsR(bars: readonly Bar[], n = 14): IndicatorValue[] {
+  period(n);
+  return bars.map((b, i) => {
+    if (i + 1 < n) return null;
+    const window = bars.slice(i + 1 - n, i + 1);
+    const high = Math.max(...window.map((v) => v.high));
+    const low = Math.min(...window.map((v) => v.low));
+    return high === low ? null : (-100 * (high - b.close)) / (high - low);
+  });
+}
+
+export function chaikinMoneyFlow(
+  bars: readonly Bar[],
+  n = 20,
+): IndicatorValue[] {
+  period(n);
+  const flows = bars.map((b) =>
+    b.high === b.low
+      ? 0
+      : ((2 * b.close - b.high - b.low) / (b.high - b.low)) * b.volume,
+  );
+  const flowMean = maSeries(flows, n),
+    volumeMean = volumeMa(bars, n);
+  return flowMean.map((v, i) =>
+    v === null || volumeMean[i] === null || volumeMean[i] === 0
+      ? null
+      : v / volumeMean[i]!,
+  );
+}
+
+/** Wilder DMI: full N-value arithmetic seeds, then alpha=1/N smoothing. */
+export function dmi(bars: readonly Bar[], n = 14) {
+  period(n, 2);
+  const tr: IndicatorValue[] = [],
+    plus: IndicatorValue[] = [],
+    minus: IndicatorValue[] = [];
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i]!,
+      p = bars[i - 1];
+    const up = p ? b.high - p.high : 0,
+      down = p ? p.low - b.low : 0;
+    tr.push(
+      p
+        ? Math.max(
+            b.high - b.low,
+            Math.abs(b.high - p.close),
+            Math.abs(b.low - p.close),
+          )
+        : null,
+    );
+    plus.push(p ? (up > down && up > 0 ? up : 0) : null);
+    minus.push(p ? (down > up && down > 0 ? down : 0) : null);
+  }
+  function wilder(values: IndicatorValue[]) {
+    let value: IndicatorValue = null;
+    return values.map((v, i) => {
+      if (v === null) return null;
+      if (value === null) {
+        const window = values.slice(Math.max(0, i + 1 - n), i + 1);
+        if (window.length < n || window.some((x) => x === null)) return null;
+        value = window.reduce<number>((sum, x) => sum + x!, 0) / n;
+      } else value = (value * (n - 1) + v) / n;
+      return value;
+    });
+  }
+  const ranges = wilder(tr),
+    positives = wilder(plus),
+    negatives = wilder(minus);
+  const pdi = ranges.map((v, i) =>
+    v === null || v === 0 ? null : (100 * positives[i]!) / v,
+  );
+  const mdi = ranges.map((v, i) =>
+    v === null || v === 0 ? null : (100 * negatives[i]!) / v,
+  );
+  const dx = pdi.map((v, i) =>
+    v === null || mdi[i] === null || v + mdi[i]! === 0
+      ? null
+      : (100 * Math.abs(v - mdi[i]!)) / (v + mdi[i]!),
+  );
+  const adx = wilder(dx);
+  return bars.map((_, i) => ({ plus: pdi[i]!, minus: mdi[i]!, adx: adx[i]! }));
+}
+
+/** Explicit arithmetic ATR variant; final bands carry only past state. */
+export function supertrend(bars: readonly Bar[], n = 10, multiplier = 3) {
+  period(n);
+  if (!Number.isFinite(multiplier) || multiplier <= 0)
+    throw new RangeError("Invalid multiplier");
+  const ranges = atr(bars, n);
+  let upper: number | null = null,
+    lower: number | null = null,
+    bullish = true;
+  return bars.map((b, i) => {
+    if (ranges[i] === null) return null;
+    const basicUpper = (b.high + b.low) / 2 + multiplier * ranges[i]!;
+    const basicLower = (b.high + b.low) / 2 - multiplier * ranges[i]!;
+    if (upper === null || lower === null) {
+      upper = basicUpper;
+      lower = basicLower;
+    } else {
+      upper =
+        basicUpper < upper || bars[i - 1]!.close > upper ? basicUpper : upper;
+      lower =
+        basicLower > lower || bars[i - 1]!.close < lower ? basicLower : lower;
+      bullish = bullish ? b.close >= lower : b.close > upper;
+    }
+    return { bullish, value: bullish ? lower : upper };
+  });
+}
+
+/** Causal parabolic SAR with two-prior-bar clamps and 0.02/0.20 defaults. */
+export function parabolicSar(bars: readonly Bar[], step = 0.02, maximum = 0.2) {
+  if (!(step > 0 && maximum >= step && maximum <= 1))
+    throw new RangeError("Invalid SAR acceleration");
+  let bullish = true,
+    sar = 0,
+    extreme = 0,
+    acceleration = step;
+  return bars.map((b, i) => {
+    if (i === 0) return null;
+    if (i === 1) {
+      bullish = b.close >= bars[0]!.close;
+      sar = bullish
+        ? Math.min(b.low, bars[0]!.low)
+        : Math.max(b.high, bars[0]!.high);
+      extreme = bullish
+        ? Math.max(b.high, bars[0]!.high)
+        : Math.min(b.low, bars[0]!.low);
+    } else {
+      const projected = sar + acceleration * (extreme - sar);
+      sar = bullish
+        ? Math.min(projected, bars[i - 1]!.low, bars[i - 2]!.low)
+        : Math.max(projected, bars[i - 1]!.high, bars[i - 2]!.high);
+      if ((bullish && b.low < sar) || (!bullish && b.high > sar)) {
+        bullish = !bullish;
+        sar = extreme;
+        extreme = bullish ? b.high : b.low;
+        acceleration = step;
+      } else if (
+        (bullish && b.high > extreme) ||
+        (!bullish && b.low < extreme)
+      ) {
+        extreme = bullish ? b.high : b.low;
+        acceleration = Math.min(maximum, acceleration + step);
+      }
+    }
+    return { bullish, value: sar };
+  });
+}
+
+/** Cloud at t uses spans calculated at t-26. No future Chikou comparisons. */
+export function ichimoku(bars: readonly Bar[]) {
+  function midpoint(i: number, n: number) {
+    if (i + 1 < n) return null;
+    const window = bars.slice(i + 1 - n, i + 1);
+    return (
+      (Math.max(...window.map((b) => b.high)) +
+        Math.min(...window.map((b) => b.low))) /
+      2
+    );
+  }
+  const conversion = bars.map((_, i) => midpoint(i, 9));
+  const base = bars.map((_, i) => midpoint(i, 26));
+  return bars.map((_, i) => {
+    const j = i - 26,
+      spanB = j >= 0 ? midpoint(j, 52) : null;
+    const spanA =
+      j >= 0 && conversion[j] !== null && base[j] !== null
+        ? (conversion[j]! + base[j]!) / 2
+        : null;
+    return {
+      conversion: conversion[i]!,
+      base: base[i]!,
+      upper: spanA === null || spanB === null ? null : Math.max(spanA, spanB),
+      lower: spanA === null || spanB === null ? null : Math.min(spanA, spanB),
+    };
+  });
+}
+
 // Only five named reversal patterns. Context is a three-session directional
 // move before the pattern, not a guessed swing endpoint. Star gaps refer to
 // real bodies; confirmation closes past the first body's midpoint.

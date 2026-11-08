@@ -4,6 +4,8 @@
 
 当前公开模块：`bars`、`completed-bars`、`indicators`、`money`、`factors`。
 
+0.3.0在indicators新增CCI、MFI、Williams %R、Chaikin资金流、Wilder DMI/ADX、算术ATR Supertrend、SAR和因果一目云层，供已校验OHLCV的离线日线策略复用；指标用例及未来隔离见`tests/research-backtest/backtest/mainstream-strategy-study.test.ts`，具体平滑/种子及变体见[规格](../../docs/product/specs/mainstream-strategies-maotai.md)。没有改变原指标或94项因子目录。
+
 `factors` 按趋势/动量/波动/量价/突破分模块，统一目录元数据、参数验证、lookback 与对齐序列。共94个行情模块：22个共享指标、18个常用行情因子、41个Qlib模块、13个Alpha101时序公式；另有197项本地数据条件，使用显式财报/序列/基准输入。公开来源、版本和实际缺项见[因子接口](src/factors/README.md)。
 
 ```ts

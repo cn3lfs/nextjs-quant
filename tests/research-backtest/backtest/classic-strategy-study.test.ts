@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   runClassicStudy,
   studySignalBars,
-  studyStrategies,
+  classicStudyStrategies,
 } from "quant-backtest";
 import type { Bar } from "quant-backtest";
 const bars = (count = 200): Bar[] =>
@@ -57,7 +57,7 @@ it("所有策略追加未来行情和未来分红不改变此前成交或净值"
     const p = 100 + Math.sin(i / 9) * 12 + i * 0.08;
     return { ...b, open: p, close: p + Math.sin(i), high: p + 5, low: p - 5 };
   });
-  for (const strategy of studyStrategies) {
+  for (const strategy of classicStudyStrategies) {
     const short = runClassicStudy(full.slice(0, 200), [], {
       ...options,
       strategy,

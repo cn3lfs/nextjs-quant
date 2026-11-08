@@ -43,6 +43,12 @@ export {
   studyNames,
   classicStudyDatasetSchema,
 } from "./classic-study.js";
+export {
+  classicStudyStrategies,
+  studyCatalog,
+  studyCoverageGaps,
+  studyWarmup,
+} from "./study-catalog.js";
 export type {
   StudyStrategy,
   StudyDividend,

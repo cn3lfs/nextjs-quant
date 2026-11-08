@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import {
   readSnapshot,
   readGbbq,
@@ -12,6 +12,11 @@ import {
   studyStrategies,
   studySignalBars,
   classicStudyDatasetSchema,
+  classicStudyStrategies,
+  studyCatalog,
+  studyCoverageGaps,
+  studyWarmup,
+  type StudyStrategy,
 } from "quant-backtest";
 import { z } from "zod";
 import { ma } from "trading-strategy-core/indicators";
@@ -21,14 +26,20 @@ const args = process.argv.slice(2),
   options = new Map<string, string>();
 for (let i = 0; i < args.length; i += 2) {
   if (
-    !["--out", "--tdx-root", "--replay"].includes(args[i] ?? "") ||
+    !["--out", "--tdx-root", "--replay", "--suite"].includes(args[i] ?? "") ||
     !args[i + 1]
   )
-    throw new Error("参数仅支持 --out/--tdx-root/--replay value");
+    throw new Error("参数仅支持 --out/--tdx-root/--replay/--suite value");
   options.set(args[i]!, args[i + 1]!);
 }
+const suite = z
+  .enum(["classic", "mainstream"])
+  .parse(options.get("--suite") ?? "classic");
+const strategies =
+  suite === "mainstream" ? studyStrategies : classicStudyStrategies;
+const warmup = suite === "mainstream" ? 300 : 140;
 const out = resolve(
-  options.get("--out") ?? join(process.env.QUANT_DATA_DIR, "maotai-classics"),
+  options.get("--out") ?? join(process.env.QUANT_DATA_DIR, `maotai-${suite}`),
 );
 const hash = (body: string | Buffer) =>
   createHash("sha256").update(body).digest("hex");
@@ -69,8 +80,8 @@ async function capture() {
     requestedEnd,
   ].sort()[0]!;
   const first = stock.bars.findIndex((b) => b.date >= requestedStart);
-  if (first < 140) throw new Error("预热不足");
-  const bars = stock.bars.slice(first - 140).filter((b) => b.date <= end);
+  if (first < warmup) throw new Error("预热不足");
+  const bars = stock.bars.slice(first - warmup).filter((b) => b.date <= end);
   const calendarDates = calendar.bars
     .filter((b) => b.date >= bars[0]!.date && b.date <= end)
     .map((b) => b.date);
@@ -135,6 +146,8 @@ if (
   throw new Error("冻结输入与日历不符");
 const sourceFiles = [
   "packages/quant-backtest/src/classic-study.ts",
+  "packages/quant-backtest/src/study-catalog.ts",
+  "packages/quant-backtest/src/study-rules.ts",
   "scripts/backtest-maotai-classics.ts",
   "scripts/export-classic-study.ts",
   "packages/quant-backtest/package.json",
@@ -142,6 +155,11 @@ const sourceFiles = [
   "packages/quant-backtest/src/costs.ts",
   "packages/trading-strategy-core/src/indicators.ts",
   "packages/trading-strategy-core/src/money.ts",
+  "packages/trading-strategy-core/src/factors/catalog.ts",
+  "packages/trading-strategy-core/src/factors/market-style.ts",
+  "packages/trading-strategy-core/src/factors/momentum.ts",
+  "packages/trading-strategy-core/src/factors/statistics.ts",
+  "packages/trading-strategy-core/src/factors/model.ts",
   "packages/tstdx/src/local/quotes.ts",
   "packages/tstdx/src/local/gbbq.ts",
   "pnpm-lock.yaml",
@@ -151,28 +169,38 @@ const codeHashes = Object.fromEntries(
     sourceFiles.map(async (file) => [file, hash(await readFile(file))]),
   ),
 );
-const results = studyStrategies.map((strategy) =>
-  runClassicStudy(input.bars, input.dividends, {
-    strategy,
-    start: input.requestedStart,
-    end: input.end,
-    initial: input.initial,
-  }),
+const firstObservation = input.bars.findIndex(
+  (b) => b.date >= input.requestedStart,
 );
+if (firstObservation < warmup)
+  throw new Error(`本套策略需${warmup}日预热；旧冻结输入请保留并重新只读取数`);
+function run(
+  strategy: StudyStrategy,
+  scenario = { slippageBps: 0, dividendTaxBps: 0 },
+) {
+  // Preserve original recursive seeds and the original seven paths.
+  const bars = input.bars.slice(firstObservation - studyWarmup(strategy));
+  return runClassicStudy(
+    bars,
+    input.dividends.filter((d) => d.date >= bars[0]!.date),
+    {
+      ...scenario,
+      strategy,
+      start: input.requestedStart,
+      end: input.end,
+      initial: input.initial,
+    },
+  );
+}
+const results = strategies.map((strategy) => run(strategy));
 const sensitivity = [
   { slippageBps: 5, dividendTaxBps: 0 },
   { slippageBps: 10, dividendTaxBps: 0 },
   { slippageBps: 0, dividendTaxBps: 2000 },
 ].map((scenario) => ({
   scenario,
-  results: studyStrategies.map((strategy) => {
-    const r = runClassicStudy(input.bars, input.dividends, {
-      ...scenario,
-      strategy,
-      start: input.requestedStart,
-      end: input.end,
-      initial: input.initial,
-    });
+  results: strategies.map((strategy) => {
+    const r = run(strategy, scenario);
     return {
       strategy,
       totalReturn: r.totalReturn,
@@ -233,10 +261,22 @@ const fixedPathStress = results.map((r) => ({
     };
   }),
 }));
-await mkdir(out, { recursive: true });
+await mkdir(dirname(out), { recursive: true });
+await mkdir(out); // Never overwrite a previous frozen experiment.
 const inputText = JSON.stringify(input, null, 2),
   resultText = JSON.stringify(
-    { results, sensitivity, attribution, fixedPathStress },
+    {
+      suite,
+      catalog: strategies.map((strategy) => ({
+        strategy,
+        ...studyCatalog[strategy],
+      })),
+      coverageGaps: studyCoverageGaps,
+      results,
+      sensitivity,
+      attribution,
+      fixedPathStress,
+    },
     null,
     2,
   );
@@ -246,7 +286,10 @@ await writeFile(
   join(out, "manifest.json"),
   JSON.stringify(
     {
-      version: "maotai-classic-study-1",
+      version: "maotai-strategy-study-2",
+      suite,
+      strategies,
+      warmup,
       quality: "rule-check-only",
       inputHash: hash(inputText),
       resultHash: hash(resultText),
@@ -273,15 +316,12 @@ const table = results
   )
   .join("\n");
 const annual =
-  "|年份|" +
-  results.map((r) => r.name).join("|") +
-  "|\n|---|" +
-  results.map(() => "---:").join("|") +
-  "|\n" +
-  results[0]!.annual
-    .map(
-      (a, i) =>
-        `|${a.year}|${results.map((r) => pct(r.annual[i]!.return)).join("|")}|`,
+  "|策略|年份|年度收益|年内最大回撤|\n|---|---|---:|---:|\n" +
+  results
+    .flatMap((r) =>
+      r.annual.map(
+        (a) => `|${r.name}|${a.year}|${pct(a.return)}|${pct(a.maxDrawdown)}|`,
+      ),
     )
     .join("\n");
 const scenarios = sensitivity
@@ -314,7 +354,7 @@ const fixedPathTable =
     .join("\n");
 await writeFile(
   join(out, "report.md"),
-  `# 贵州茅台五类策略十年规则实验\n\n${results[0]!.start} 至 ${results[0]!.end}；${results[0]!.tradingDays}交易日；初始100万元。费用按用户固定口径；分红隔离不复投；规则自检等级。2016及2026为不完整年度。\n\n${header}\n${table}\n\n## 逐年收益\n\n${annual}\n\n## 行情归因\n\n以上一日后复权价格/MA120及MA120的20日斜率±2%分类；其余为盘整/过渡，包含趋势切换。各类当日盈亏/期初本金的加总可还原全期收益，不是分行情独立回测或预测。\n\n${regimeTable}\n\n## 固定成交路径费用压力\n\n保持主结果成交股数与时间，额外从期末财富扣成交额×单边滑点；仅估计费用拖累，不重撮合、不重投资，也不代表资金约束下可执行的另一条路径。\n\n${fixedPathTable}\n\n## 重撮合敏感性\n\n注意：滑点可能导致报价超出日线高低价而拒绝成交，随后持仓与整手数量改变。因此重跑收益可能提高，不能解释为成本提高有利；成交/拒绝笔数一并列出。\n\n${scenarios}\n\n输入SHA256: ${hash(inputText)}\n结果SHA256: ${hash(resultText)}\n`,
+  `# 贵州茅台主流策略十年规则实验\n\n${results.length - 2}项策略及2项持有对照，套件${suite}。${results[0]!.start} 至 ${results[0]!.end}；${results[0]!.tradingDays}交易日；初始100万元。费用按用户固定口径；分红隔离不复投；规则自检等级。2016及2026为不完整年度。\n\n${header}\n${table}\n\n## 固定策略规则\n\n${strategies.map((id) => `- ${studyCatalog[id].name}（${studyCatalog[id].family}）：${studyCatalog[id].rule}`).join("\n")}\n\n## 其他主流流派的数据缺口\n\n${studyCoverageGaps.map((g) => `- ${g.family}：${g.needs}`).join("\n")}\n\n## 逐年收益\n\n${annual}\n\n## 行情归因\n\n以上一日后复权价格/MA120及MA120的20日斜率±2%分类；其余为盘整/过渡，包含趋势切换。各类当日盈亏/期初本金的加总可还原全期收益，不是分行情独立回测或预测。\n\n${regimeTable}\n\n## 固定成交路径费用压力\n\n保持主结果成交股数与时间，额外从期末财富扣成交额×单边滑点；仅估计费用拖累，不重撮合、不重投资，也不代表资金约束下可执行的另一条路径。\n\n${fixedPathTable}\n\n## 重撮合敏感性\n\n注意：滑点可能导致报价超出日线高低价而拒绝成交，随后持仓与整手数量改变。因此重跑收益可能提高，不能解释为成本提高有利；成交/拒绝笔数一并列出。\n\n${scenarios}\n\n输入SHA256: ${hash(inputText)}\n结果SHA256: ${hash(resultText)}\n`,
 );
 const csv = (rows: Record<string, unknown>[]) => {
   if (!rows.length) return "";
@@ -326,6 +366,46 @@ const csv = (rows: Record<string, unknown>[]) => {
     ),
   ].join("\n");
 };
+await writeFile(
+  join(out, "summary.csv"),
+  "\uFEFF" +
+    csv(
+      results.map((r) => ({
+        strategy: r.strategy,
+        name: r.name,
+        family: r.definition.family,
+        totalReturn: r.totalReturn,
+        cagr: r.cagr,
+        maxDrawdown: r.maxDrawdown,
+        finalEquity: r.finalEquity,
+        fills: r.fills.length,
+        rejected: r.rejected.length,
+        fees: r.fees,
+        dividends: r.dividends,
+        averageExposure: r.averageExposure,
+      })),
+    ),
+);
+await writeFile(
+  join(out, "annual.csv"),
+  "\uFEFF" +
+    csv(
+      results.flatMap((r) =>
+        r.annual.map((a) => ({ strategy: r.strategy, name: r.name, ...a })),
+      ),
+    ),
+);
+await writeFile(
+  join(out, "strategies.csv"),
+  "\uFEFF" +
+    csv(
+      strategies.map((strategy) => ({
+        strategy,
+        ...studyCatalog[strategy],
+        warmup: studyWarmup(strategy),
+      })),
+    ),
+);
 for (const r of results) {
   await writeFile(
     join(out, `${r.strategy}-fills.csv`),
