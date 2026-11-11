@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { periodSchema, symbolSchema, type Settings } from "~/lib/domain";
+import {periodSchema,type Settings} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { marketSourceSchema } from "~/lib/market/market-source";
 
 export const connectionCheckSchema = z.object({

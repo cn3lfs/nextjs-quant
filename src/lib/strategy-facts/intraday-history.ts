@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { symbolSchema } from "../domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 
 const day = z
   .string()

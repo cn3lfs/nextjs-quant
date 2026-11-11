@@ -1,10 +1,11 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import * as cupModule from "../../../../src/server/strategies/canslim/canslim-cup";
-import * as flatModule from "../../../../src/server/strategies/canslim/canslim-flat-base";
-import * as saucerModule from "../../../../src/server/strategies/canslim/canslim-saucer";
-import { researchCanslimPriorityPoint } from "../../../../src/server/strategies/canslim/research-canslim-priority";
-import { researchRuleSeries } from "../../../../src/server/strategies/shared/research-rule-series";
+import * as cupModule from "trading-strategies/research/canslim/canslim-cup";
+import * as flatModule from "trading-strategies/research/canslim/canslim-flat-base";
+import * as saucerModule from "trading-strategies/research/canslim/canslim-saucer";
+import { researchCanslimPriorityPoint } from "trading-strategies/research/canslim/research-canslim-priority";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 
@@ -20,48 +21,40 @@ const fixture = (): Bar[] =>
   }));
 
 it("selects real flat geometry, preserves full-prefix evidence and freezes three-day pivot", async () => {
-  const bars = fixture();
-  for (const [strategy, index] of [
-    ["canslim-priority", 69],
-    ["canslim-priority-hold3", 72],
-  ] as const) {
-    const points = researchRuleSeries(strategy, bars);
-    expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
-      bars[index]!.date,
-    ]);
-    expect(points[index]).toMatchObject({
-      candidate: { family: "flat", high: 100 },
-      historyStart: bars[0]!.date,
-    });
-    expect(researchRuleSeries(strategy, bars.slice(0, index + 1))).toEqual(
-      points.slice(0, index + 1),
-    );
-    const spec = researchSpecSchema.parse({
-      strategy,
-      symbols: ["sh600000"],
-      start: bars[61]!.date,
-      end: bars[76]!.date,
-      validationStart: bars[75]!.date,
-      holdingDays: 2,
-    });
-    const events = await researchSignals("sh600000", bars, spec, async () => {
-      throw Error("unexpected native");
-    });
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      observedDate: bars[index]!.date,
-      historyStart: bars[0]!.date,
-      entryPriceRange: { min: 100, max: 105 },
-    });
-  }
-  const missing = bars.filter((_, i) => i !== 71);
-  expect(
-    researchRuleSeries(
-      "canslim-priority-hold3",
-      missing,
-      bars.map((b) => b.date),
-    ).some((p) => p.entry),
-  ).toBe(false);
+    const bars = fixture();
+    for (const [strategy, index] of [
+        ["canslim-priority", 69],
+        ["canslim-priority-hold3", 72],
+    ] as const) {
+        const points = researchRuleSeries(strategy, bars, undefined, undefined, undefined, researchFormulaRuntime);
+        expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
+            bars[index]!.date,
+        ]);
+        expect(points[index]).toMatchObject({
+            candidate: { family: "flat", high: 100 },
+            historyStart: bars[0]!.date,
+        });
+        expect(researchRuleSeries(strategy, bars.slice(0, index + 1), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, index + 1));
+        const spec = researchSpecSchema.parse({
+            strategy,
+            symbols: ["sh600000"],
+            start: bars[61]!.date,
+            end: bars[76]!.date,
+            validationStart: bars[75]!.date,
+            holdingDays: 2,
+        });
+        const events = await researchSignals("sh600000", bars, spec, async () => {
+            throw Error("unexpected native");
+        });
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({
+            observedDate: bars[index]!.date,
+            historyStart: bars[0]!.date,
+            entryPriceRange: { min: 100, max: 105 },
+        });
+    }
+    const missing = bars.filter((_, i) => i !== 71);
+    expect(researchRuleSeries("canslim-priority-hold3", missing, bars.map((b) => b.date), undefined, undefined, researchFormulaRuntime).some((p) => p.entry)).toBe(false);
 });
 
 it("does not hide invalid old history behind a valid recent flat window", () => {

@@ -3,11 +3,11 @@ import {
   CZSC_CTX,
   type CzscResult,
   type CzscSignalStructure,
-} from "~/lib/research/methods/chan/czsc";
+} from "trading-strategies/research/chan/czsc";
 import {
   chanStructureCriterion,
   chanStructureTasks,
-} from "~/lib/research/methods/chan/research-chan-criteria";
+} from "trading-strategies/research/chan/research-chan-criteria";
 import {
   analyzeCzsc,
   closeCzsc,

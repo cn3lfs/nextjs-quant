@@ -4,7 +4,7 @@ import { researchManagementSchema } from "../../src/lib/research/workflow/resear
 import {
   researchRManagementTemplate,
   isResearchRManagementTemplate,
-} from "../../src/lib/research/risk/research-r-management";
+} from "trading-strategies/research/risk/research-r-management";
 import {
   researchSpecSchema,
   type ResearchEvent,

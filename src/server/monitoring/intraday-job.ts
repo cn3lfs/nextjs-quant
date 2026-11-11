@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import { previewBars } from "~/lib/research/analysis/intraday-preview";
 import {
   intradaySchedule,

@@ -1,8 +1,9 @@
-import { structureBenchmarkIdentitySchema } from "~/lib/research/methods/wyckoff/research-wyckoff";
-export { structureBenchmarkIdentitySchema } from "~/lib/research/methods/wyckoff/research-wyckoff";
+import { wyckoffDualRelativeStrength } from "trading-strategies/research/wyckoff/wyckoff-structure-policy";
+import { structureBenchmarkIdentitySchema } from "trading-strategies/research/wyckoff/research-wyckoff";
+export { structureBenchmarkIdentitySchema } from "trading-strategies/research/wyckoff/research-wyckoff";
 import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
-import { researchDateSchema } from "~/lib/research/workflow/research-usage";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { wyckoffRelativeStrength } from "../wyckoff/wyckoff-relative-strength";
 import type { CalendarReference } from "../../market/data-health";
 
@@ -131,8 +132,10 @@ export function researchStructureRs(
     identities: benchmarks.map((b) => b.identity),
     bothStronger: gaps.length
       ? null
-      : results.industry!.changePercent! > 0 &&
-        results.market!.changePercent! > 0,
+      : wyckoffDualRelativeStrength(
+          results.industry!.changePercent,
+          results.market!.changePercent,
+        ),
     reason: gaps.length ? gaps.join("；") : null,
   };
 }

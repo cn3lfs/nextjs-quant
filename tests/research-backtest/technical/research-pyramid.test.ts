@@ -1,22 +1,22 @@
+import { researchExecutor } from "~/lib/backtest/research-executor";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../../src/lib/research/strategy-research";
-import type { ResearchExecutionRules } from "../../../src/lib/research/technical/research-execution";
+import type { ExecutionRules as ResearchExecutionRules } from "quant-backtest/execution";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import {
   researchPlannedProceeds,
   researchPyramidOrder,
-} from "../../../src/lib/research/technical/research-pyramid";
+} from "trading-strategies/research/technical/research-pyramid";
 import {
   researchBookBuy,
   researchPositionBook,
 } from "../../../src/lib/research/analysis/research-position-book";
 import { projectResearchWeights } from "../../../src/lib/backtest/weight-backtest";
-
 const dates = Array.from(
   { length: 8 },
   (_, i) => `2024-01-${String(i + 2).padStart(2, "0")}`,
@@ -86,7 +86,6 @@ function run(
     (_, date) => daily(date),
   );
 }
-
 it("executes 50/30/20 only after closed 1R/2R signals, freezes first R and accounts for a losing gap", () => {
   const result = run();
   const trade = result.trades[0]!;
@@ -118,7 +117,6 @@ it("executes 50/30/20 only after closed 1R/2R signals, freezes first R and accou
   expect(trade.netReturn).toBeCloseTo(-13500 / 103500);
   expect(trade.book!.remainingCost).toBe(0);
 });
-
 it("uses acquired-to-date quantities in historical weights, then FIFO costs for reductions", () => {
   const input = bars();
   const result = run(
@@ -149,7 +147,6 @@ it("uses acquired-to-date quantities in historical weights, then FIFO costs for 
     (700 * 100) / 201000,
   );
 });
-
 it("gives reduction priority over a same-close add signal and never resumes additions", () => {
   const result = run(
     bars(),
@@ -164,7 +161,6 @@ it("gives reduction priority over a same-close add signal and never resumes addi
   expect(result.trades[0]!.entries).toHaveLength(1);
   expect(result.trades[0]!.sales![0]!.quantity).toBe(100);
 });
-
 it("does not average down, does not trigger from highs, and expires blocked additions", () => {
   const input = bars([100, 100, 99, 99, 99], [100, 105, 100, 100, 100]);
   const result = run(input, { ...spec, entryMaxWait: 1 });
@@ -184,7 +180,6 @@ it("does not average down, does not trigger from highs, and expires blocked addi
   }));
   expect(run(highOnly).trades[0]!.entries).toHaveLength(1);
 });
-
 it("enforces total exposure again after an upward gap and retains pending intent on missing rules", () => {
   const input = bars([100, 100, 200], [100, 105, 201]);
   const result = run(input);
@@ -199,22 +194,23 @@ it("enforces total exposure again after an upward gap and retains pending intent
   expect(unavailable.trades[0]!.entries).toHaveLength(1);
   expect(unavailable.pendingAdditions).toHaveLength(1);
 });
-
 it("estimates fees for each future sell chunk and requires independently complete sell rules", () => {
   const costs = { ...spec.costs, minimumCommission: 5, sellTaxBps: 10 };
   expect(
-    researchPlannedProceeds(800, 100, { ...rules, maximumSell: 300 }, costs),
+    researchPlannedProceeds(
+      800,
+      100,
+      researchExecutor({ ...rules, maximumSell: 300 }, costs),
+    ),
   ).toBe(79905);
   expect(
     researchPlannedProceeds(
       800,
       100,
-      { ...rules, minimumSell: undefined },
-      costs,
+      researchExecutor({ ...rules, minimumSell: undefined }, costs),
     ),
   ).toBeNull();
 });
-
 it("preserves old optional shapes and binds the pyramid source and version", () => {
   expect(
     researchSpecSchema.parse({ ...spec, management: {} }).management,
@@ -237,7 +233,6 @@ it("preserves old optional shapes and binds the pyramid source and version", () 
     researchMethodSnapshot({ ...spec, management: undefined }).hash,
   );
 });
-
 it("recomputes remaining-book risk after additions and sizes down instead of enlarging its budget", () => {
   let book = researchBookBuy(researchPositionBook(), {
     date: dates[1]!,
@@ -266,15 +261,13 @@ it("recomputes remaining-book risk after additions and sizes down instead of enl
     riskBudget: 1000,
     maxWeight: 0.8,
     maxTotalWeight: 0.6,
-    rules,
-    costs: spec.costs,
+    execution: researchExecutor(rules, spec.costs),
   });
   expect(result.order!.quantity).toBe(100);
   expect(result.order!.stop).toBe(101.875);
   expect(result.order!.plannedRisk).toBe(812.5);
   expect(book.remainingQuantity).toBe(800);
 });
-
 it("includes actual buy fees and per-chunk exit fees in breakeven, and handles holes in sell quantities", () => {
   const book = researchBookBuy(researchPositionBook(), {
     date: dates[1]!,
@@ -297,8 +290,10 @@ it("includes actual buy fees and per-chunk exit fees in breakeven, and handles h
     riskBudget: 5000,
     maxWeight: 0.8,
     maxTotalWeight: 0.6,
-    rules: { ...rules, maximumSell: 300 },
-    costs: { ...spec.costs, minimumCommission: 5, sellTaxBps: 10 },
+    execution: researchExecutor(
+      { ...rules, maximumSell: 300 },
+      { ...spec.costs, minimumCommission: 5, sellTaxBps: 10 },
+    ),
   };
   const result = researchPyramidOrder(input);
   expect(result.order!.book.remainingCost).toBe(81510);
@@ -308,11 +303,13 @@ it("includes actual buy fees and per-chunk exit fees in breakeven, and handles h
   const holes = researchPyramidOrder({
     ...input,
     desired: 150,
-    rules: { ...rules, minimumBuy: 50, buyStep: 50, sellOddLotAll: false },
+    execution: researchExecutor(
+      { ...rules, minimumBuy: 50, buyStep: 50, sellOddLotAll: false },
+      { ...spec.costs, minimumCommission: 5, sellTaxBps: 10 },
+    ),
   });
   expect(holes.order!.quantity).toBe(100);
 });
-
 it("does not bypass blocked fills or the longest holding deadline when adding", () => {
   const result = run(bars(), spec, (date) =>
     date === dates[2] ? { ...rules, limitUp: 105 } : rules,
@@ -329,7 +326,6 @@ it("does not bypass blocked fills or the longest holding deadline when adding", 
   expect(expired.trades[0]!.entries).toHaveLength(1);
   expect(expired.pendingAdditions).toEqual([]);
 });
-
 it("includes all estimated exit-order fees in the first batch risk gate", () => {
   const result = run(
     bars(),

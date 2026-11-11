@@ -1,11 +1,8 @@
 import { expect, it } from "vitest";
-import {
-  evaluateGrowthFactors,
-  growthFactorMethods,
-  rankGrowthFactors,
-} from "../../../src/server/strategies/canslim/research-growth-factors";
+import {evaluateGrowthFactors,rankGrowthFactors} from "../../../src/server/strategies/canslim/research-growth-factors";
+import {growthFactorMethods} from "trading-strategies/research/growth/growth-factor-engine";
 import { runGrowthFactorResearch } from "../../../src/server/backtest/research-run";
-import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
+import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
 
 import { request, event, fixture } from "../../helpers/growth-factor-fixture";
 function set(

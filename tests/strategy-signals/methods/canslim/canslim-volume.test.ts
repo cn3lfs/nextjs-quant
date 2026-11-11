@@ -2,8 +2,11 @@ import { expect, it } from "vitest";
 import {
   canslimVolume,
   type VolumeContext,
-} from "../../../../src/server/strategies/canslim/canslim-volume";
+} from "trading-strategies/research/canslim/canslim-volume";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 function fixture() {
   const snapshot: Snapshot = {
     id: "volume",
@@ -45,7 +48,9 @@ it("uses nonoverlapping volume windows and inclusive tiers", () => {
     [200, 8],
   ]) {
     snapshot.bars.at(-1)!.volume = volume!;
-    expect(canslimVolume(snapshot, context)).toMatchObject({
+    expect(
+      canslimVolume(snapshot, context, completedFixtureClock),
+    ).toMatchObject({
       status: "computed",
       points,
       mean20: 100,
@@ -56,22 +61,30 @@ it("excludes crash volume and preserves unresolved limit-up exceptions", () => {
   const { snapshot, context } = fixture();
   snapshot.bars.at(-1)!.volume = 300;
   context.days.at(-1)!.marketCrashVolumeDecline = true;
-  expect(canslimVolume(snapshot, context)).toMatchObject({
-    points: 0,
-    rawRatio: 3,
-    ratio: 1,
-  });
+  expect(canslimVolume(snapshot, context, completedFixtureClock)).toMatchObject(
+    {
+      points: 0,
+      rawRatio: 3,
+      ratio: 1,
+    },
+  );
   context.days[0]!.limitUpContraction = true;
-  expect(canslimVolume(snapshot, context).status).toBe("conflict");
+  expect(canslimVolume(snapshot, context, completedFixtureClock).status).toBe(
+    "conflict",
+  );
 });
 it("requires complete same-security daily evidence before scoring", () => {
   const { snapshot, context } = fixture();
-  expect(canslimVolume(snapshot, null)).toMatchObject({
+  expect(canslimVolume(snapshot, null, completedFixtureClock)).toMatchObject({
     status: "missing",
     rawRatio: 1,
   });
   context.days[0]!.evidenceIds = [];
-  expect(canslimVolume(snapshot, context).status).toBe("missing");
+  expect(canslimVolume(snapshot, context, completedFixtureClock).status).toBe(
+    "missing",
+  );
   context.symbol = "sh600000";
-  expect(canslimVolume(snapshot, context).status).toBe("missing");
+  expect(canslimVolume(snapshot, context, completedFixtureClock).status).toBe(
+    "missing",
+  );
 });

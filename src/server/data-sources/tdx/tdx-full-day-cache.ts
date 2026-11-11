@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { atomic, get, put, sqlite } from "../../db";
 import { inspectFullDayPackage } from "tstdx/local";
 import { isLocalFund } from "tstdx/local";

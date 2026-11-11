@@ -5,7 +5,7 @@ import {
   evaluateNewsOctants,
   newsResultSchema,
   eventMarketSchema,
-} from "../../../src/lib/research/factors/research-news-factors";
+} from "trading-strategies/research/factors/research-news-factors";
 import {
   newsFixture,
   newsRows,

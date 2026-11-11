@@ -1,6 +1,6 @@
 import { it, expect, vi, afterEach } from "vitest";
 import { EventEmitter } from "node:events";
-import type { ParsedFill } from "../../src/lib/research/evidence/delivery-import";
+import type {ParsedFill} from "../../src/lib/research/evidence/delivery-import";
 import {
   buildDisciplineSource,
   calculateDiscipline,
@@ -12,7 +12,7 @@ import {
   cancelDiscipline,
   exportDiscipline,
 } from "../../src/server/portfolio/discipline-service";
-import { runDisciplineGrid } from "../../src/lib/research/risk/discipline-counterfactual";
+import {runDisciplineGrid} from "../../src/lib/research/risk/discipline-counterfactual";
 import { researchUsage } from "../../src/server/research/research-usage";
 import * as usage from "../../src/server/research/research-usage";
 import { readTradeReviewSnapshot } from "../../src/server/portfolio/trade-review-market";

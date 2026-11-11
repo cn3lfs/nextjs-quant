@@ -1,7 +1,4 @@
-import {
-  disciplineNotice,
-  disciplineScope,
-} from "~/lib/research/risk/discipline-counterfactual";
+import {disciplineNotice,disciplineScope} from "trading-strategies/research/risk/discipline-policy";
 import type { disciplineStatus } from "~/server/portfolio/discipline-service";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 

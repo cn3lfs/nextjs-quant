@@ -1,10 +1,6 @@
 import { expect, it, vi } from "vitest";
-import {
-  riskRepairTemplate,
-  riskRepairSchema,
-  replayRiskRepair,
-  repairRisk,
-} from "../../../src/lib/research/risk/research-risk-repair";
+import {riskRepairTemplate,riskRepairSchema,repairRisk} from "trading-strategies/research/risk/research-risk-repair";
+import {replayRiskRepair} from "../../../src/lib/research/risk/research-risk-repair";
 import {
   riskRouteNames,
   resolveRiskRoute,
@@ -13,9 +9,9 @@ import {
   diagnosisDecision,
   diagnosisTemplate,
   type StopDiagnosis,
-} from "../../../src/lib/research/risk/research-risk-routing";
-import { swingCalibration } from "../../../src/lib/research/risk/research-risk-scenarios";
-import { growthIntradayTemplate } from "../../../src/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/risk/research-risk-routing";
+import { swingCalibration } from "trading-strategies/research/risk/research-risk-scenarios";
+import { growthIntradayTemplate } from "trading-strategies/research/factors/research-growth-intraday";
 import { researchManagementSchema } from "../../../src/lib/research/workflow/research-management";
 import {
   researchSpecSchema,
@@ -471,7 +467,7 @@ it("real research entry retains repair comparison and refuses missing execution 
   const { runStrategyResearch } =
     await import("../../../src/server/backtest/research-run");
   const { researchMarketEvidenceSchema } =
-    await import("../../../src/lib/research/factors/research-market-evidence");
+    await import("trading-strategies/research/factors/research-market-evidence");
   const { researchSignals } =
     await import("../../../src/server/strategies/shared/research-signals");
   const symbol = "sh600000";
@@ -562,7 +558,7 @@ it("real research entry retains repair comparison and refuses missing execution 
     ),
   ).toBe(true);
   // The initial stop for the full system must be an actual swing low, not any nearby support.
-  const breakout = await import("../../../src/server/strategies/breakout/breakout"),
+  const breakout = await import("trading-strategies/research/breakout/breakout"),
     original = breakout.analyzeBreakout(bars);
   // S4 breakout rewrite: the signal loop calls `analyzeBreakout(bars, 0)` once
   // and reads `points[index]`, so the stub must cover every index instead of

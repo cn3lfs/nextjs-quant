@@ -3,9 +3,9 @@ import type {
   CzscFamily,
   CzscResult,
   CzscSignalStructure,
-} from "../../src/lib/research/methods/chan/czsc";
-import type { CzscMovements } from "../../src/lib/research/methods/chan/czsc-movements";
-import { chanC4Trend } from "../../src/lib/research/methods/chan/research-chan-movements";
+} from "trading-strategies/research/chan/czsc";
+import type { CzscMovements } from "trading-strategies/research/chan/czsc-movements";
+import { chanC4Trend } from "trading-strategies/research/chan/research-chan-movements";
 export function chanMovementFixture() {
   const bars: Bar[] = Array.from({ length: 20 }, (_, i) => ({
     date: `2020-01-${String(i + 1).padStart(2, "0")}`,

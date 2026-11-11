@@ -1,0 +1,33 @@
+{
+  "repository": "https://github.com/OpenSourceAP/CrossSection",
+  "ref": "9f053398c4995651d822e90d81526d0644c6f3e5",
+  "retrievedAt": "2026-11-11",
+  "license": "GPL-2.0",
+  "usage": "Unmodified documented research references only; no source code is imported or ported into runtime. Runtime uses independently implemented ranking of existing project financial feature outputs.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/OpenSourceAP/CrossSection/9f053398c4995651d822e90d81526d0644c6f3e5/LICENSE",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "bytes": 18092
+    },
+    {
+      "path": "Signals/pyCode/Predictors/GP.py",
+      "url": "https://raw.githubusercontent.com/OpenSourceAP/CrossSection/9f053398c4995651d822e90d81526d0644c6f3e5/Signals/pyCode/Predictors/GP.py",
+      "sha256": "6a05de4a5b6ddb47a320e1d95d6392e625bfca3b50091e698be9fd866a6c8576",
+      "bytes": 1363
+    },
+    {
+      "path": "Signals/pyCode/Predictors/Accruals.py",
+      "url": "https://raw.githubusercontent.com/OpenSourceAP/CrossSection/9f053398c4995651d822e90d81526d0644c6f3e5/Signals/pyCode/Predictors/Accruals.py",
+      "sha256": "0d3de33d15eb2eeb14a908fd2333dc55c86f3d06fc73f583ae94797516116ff1",
+      "bytes": 3574
+    },
+    {
+      "path": "Signals/pyCode/Predictors/AssetGrowth.py",
+      "url": "https://raw.githubusercontent.com/OpenSourceAP/CrossSection/9f053398c4995651d822e90d81526d0644c6f3e5/Signals/pyCode/Predictors/AssetGrowth.py",
+      "sha256": "aeec1050ae1e44f446a27e67df47a44075ea558f258da7cb71c2b261fe2aa2c1",
+      "bytes": 2675
+    }
+  ]
+}

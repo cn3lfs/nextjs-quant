@@ -34,6 +34,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
+    "trading-strategies": "workspace:*",
     "trading-strategy-core": "workspace:*",
     "zod": "3.25.76"
   },

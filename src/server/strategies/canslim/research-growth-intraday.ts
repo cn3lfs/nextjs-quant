@@ -1,4 +1,7 @@
-import { analyzeBreakout } from "../breakout/breakout";
+import {
+  researchCostQuote,
+  researchExecutor,
+} from "~/lib/backtest/research-executor";
 import { big, bpsOf, moneyMul, toNumber } from "trading-strategy-core/money";
 import {
   isIntradayExecution,
@@ -6,38 +9,42 @@ import {
   intradayEntryPolicy,
   intradayExitPolicy,
   intradaySessionActive,
-} from "~/lib/research/technical/research-intraday-execution";
+} from "trading-strategies/research/technical/research-intraday-execution";
 import {
   isMarketAdmission,
   marketAdmissionDecision,
-} from "~/lib/research/risk/research-market-admission";
+} from "trading-strategies/research/risk/research-market-admission";
 import {
   isOpening,
   openingDecision,
   type OpeningId,
-} from "~/lib/research/technical/research-opening";
-import { atr, rollingHigh } from "trading-strategy-core/indicators";
-import { researchAccountRisk } from "~/lib/research/risk/research-account-risk";
-import { researchInitialStop } from "~/lib/research/workflow/research-management";
-import { researchLiquidity } from "~/lib/research/factors/research-liquidity";
-import { contextRiskPoint } from "~/lib/research/risk/research-context-risk";
-import { swingCalibration } from "~/lib/research/risk/research-risk-scenarios";
-import { confirmedExtrema } from "trading-strategy-core/indicators";
+} from "trading-strategies/research/technical/research-opening";
+import { researchAccountRisk } from "trading-strategies/research/risk/research-account-risk";
+import { researchInitialStop } from "trading-strategies/research/risk/research-initial-stop";
+import { researchLiquidity } from "trading-strategies/research/factors/research-liquidity";
+import { contextRiskPoint } from "trading-strategies/research/risk/research-context-risk";
+import { swingCalibration } from "trading-strategies/research/risk/research-risk-scenarios";
 import type { Bar } from "~/lib/domain";
-import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
+import type {
+  ResearchEvent,
+  ResearchSpec,
+} from "~/lib/research/strategy-research";
 import {
   researchNavStatistics,
   researchTradeStatistics,
 } from "~/lib/research/strategy-research";
-import { assertGrowthIntradayWindow } from "~/lib/research/factors/research-growth-intraday";
+import { assertGrowthIntradayWindow } from "trading-strategies/research/factors/research-growth-intraday";
 import {
-  researchFill,
-  researchBuyQuantity,
-  researchCommission,
-  researchSellQuantity,
-  type ResearchExecutionRules,
-} from "~/lib/research/technical/research-execution";
-import { researchRiskQuantity, plannedStopRisk } from "~/lib/research/risk/research-risk";
+  fillMarketOrder as researchFill,
+  affordableQuantity as researchBuyQuantity,
+  commissionFor as researchCommission,
+  sellQuantity as researchSellQuantity,
+  type ExecutionRules as ResearchExecutionRules,
+} from "quant-backtest/execution";
+import {
+  researchRiskQuantity,
+  plannedStopRisk,
+} from "trading-strategies/research/risk/research-risk";
 import {
   researchPositionBook,
   researchBookBuy,
@@ -48,7 +55,27 @@ import type {
   researchPortfolio,
   ResearchTrade,
 } from "../../backtest/research-portfolio";
-import { researchSepaSeries } from "./research-sepa";
+import {
+  growthIntradayEntryDecision,
+  growthIntradayGapDecision,
+  growthIntradayLifeLineLost,
+  growthIntradayAuctionQueueDecision,
+  growthIntradayStopDecision,
+  growthIntradayTimeDecision,
+  growthIntradayInitialStop,
+  growthIntradayStopAdmissible,
+  growthIntradayOpeningSpace,
+  growthIntradayPriceInRange,
+  growthIntradayRiskMultiplier,
+  growthIntradayEntryQuantity,
+  growthIntradayAdditionSlot,
+  growthIntradayOpeningAdditionEligible,
+  growthIntradaySwingCloseDecision,
+  growthIntradayReviewDecision,
+  growthIntradayAdditionDecision,
+  growthIntradayScheduledEventReduction,
+  growthIntradaySwingRiskBudget,
+} from "trading-strategies/research/growth/growth-intraday-policy";
 
 export const growthMinuteTimes = Array.from({ length: 48 }, (_, i) => {
   const n = i < 24 ? 575 + i * 5 : 785 + (i - 24) * 5;
@@ -96,56 +123,25 @@ export function growthIntradayEntries(
         volume: partial.volume + b.volume,
         amount: partial.amount + b.amount,
       };
-      // 15:00 cannot create the first intraday leg at a same-close fill.
-      if (j === 47) break;
-      if (spec.management?.growthIntraday === "SW02-last30") {
-        if (j < 41) continue;
-        const point = analyzeBreakout([...daily.slice(0, i), partial]).latest;
-        if (point?.long.status !== "未知") usable = true;
-        if (point?.long.status === "是") {
-          result.push({
-            symbol,
-            observedDate: date,
-            endpointDate: date,
-            intradayAt: b.date,
-            key: `sw-last30-1:${symbol}:${b.date}`,
-            strategyVersion: "sw-last30-1",
-            partition:
-              date >= spec.validationStart ? "validation" : "development",
-            evidence: JSON.stringify({
-              point,
-              completedBars: j + 1,
-              volume: partial.volume,
-            }),
-            historyStart: daily[0]!.date,
-          });
-          break;
-        }
-        continue;
-      }
-      const point = researchSepaSeries(
-        "sepa-vcp-close",
-        [...daily.slice(0, i), partial],
+      const decision = growthIntradayEntryDecision({
+        id: spec.management?.growthIntraday,
+        symbol,
+        priorDaily: daily.slice(0, i),
+        partialDay: partial,
+        observedAt: b.date,
+        completedBars: j + 1,
         calendar,
-        i,
-      ).at(-1)!;
-      if (point.reason === null) usable = true;
-      if (point.entry && point.candidate) {
+      });
+      if (decision.usable) usable = true;
+      if (decision.intent) {
         result.push({
           symbol,
           observedDate: date,
           endpointDate: date,
           intradayAt: b.date,
-          key: `growth-intraday-1:${symbol}:${b.date}`,
-          strategyVersion: "growth-intraday-1",
           partition:
             date >= spec.validationStart ? "validation" : "development",
-          evidence: JSON.stringify(point),
-          historyStart: point.historyStart!,
-          entryPriceRange: {
-            min: point.candidate.high,
-            max: point.maxEntryPrice!,
-          },
+          ...decision.intent,
         });
         break;
       }
@@ -183,12 +179,6 @@ export function researchGrowthIntraday(
     : null;
   if (days.some((d, i) => i > 0 && d <= days[i - 1]!))
     throw new Error("研究日历未严格递增");
-  const fraction =
-    id === "SW02-last30" || admission || id.startsWith("RK-")
-      ? 0.05
-      : id.startsWith("SE-")
-        ? 0.1
-        : 0.08;
   const positions = new Map<
     string,
     {
@@ -307,21 +297,24 @@ export function researchGrowthIntraday(
           const prior = indexed.get(symbol)?.get(days[index - 1]!);
           const open = indexed.get(symbol)!.get(date)!.open;
           if (prior && valid(prior)) {
-            if (id.endsWith("gapup3") && open > prior.close * 1.03 + 1e-10) {
-              state.stop = Math.max(state.stop, t.entryPrice);
+            const decision = growthIntradayGapDecision(
+              id,
+              prior.close,
+              open,
+              t.entryPrice,
+              state.stop,
+            );
+            if (decision.stop != null) {
+              state.stop = decision.stop;
               t.stopHistory!.push({
                 date: at,
                 stop: state.stop,
                 reason: "次日9:30日线开盘高开严格超过3%，9:35起保本",
               });
             }
-            if (
-              id.endsWith("gapdown3") &&
-              open < prior.close * 0.97 - 1e-10 &&
-              !state.pending
-            )
+            if (decision.reduceFraction != null && !state.pending)
               state.pending = {
-                quantity: remaining * 0.5,
+                quantity: remaining * decision.reduceFraction,
                 reason: "次日低开严格超过3%减半",
                 at,
               };
@@ -335,8 +328,7 @@ export function researchGrowthIntraday(
           const decision = decideOpening(symbol, slot);
           const recent = rows.slice(Math.max(0, slot - 2), slot);
           if (
-            recent.length === 2 &&
-            recent.every((b) => b.close < state.stop) &&
+            growthIntradayLifeLineLost(recent, state.stop) &&
             (!state.pending || state.pending.quantity < remaining)
           )
             state.pending = {
@@ -433,12 +425,7 @@ export function researchGrowthIntraday(
             const priorDate = calendar[calendar.indexOf(date) - 1]!,
               prior = indexed.get(symbol)?.get(priorDate),
               priorRule = rules(symbol, priorDate);
-            if (
-              prior &&
-              priorRule?.limitDown != null &&
-              prior.high === prior.low &&
-              prior.close <= priorRule.limitDown
-            )
+            if (growthIntradayAuctionQueueDecision(prior, priorRule?.limitDown))
               state.pending = {
                 quantity: remaining,
                 reason: "一字跌停后次日竞价排队意图，等待成交证明",
@@ -448,38 +435,39 @@ export function researchGrowthIntraday(
           }
         }
         const previous = slot > 0 ? rows[slot - 1] : null;
-        if (
-          previous &&
-          !opening &&
-          !execution &&
-          (swing
-            ? previous.low <= t.entryPrice - 2 * (t.entryPrice - t.initialStop!)
-            : id.startsWith("RK-")
-              ? previous.low <= state.stop
-              : previous.close < state.stop && date > t.entryDate)
-        )
+        const stopReason =
+          previous && !opening && !execution
+            ? growthIntradayStopDecision({
+                id,
+                completed: previous,
+                entry: t.entryPrice,
+                initialStop: t.initialStop!,
+                stop: state.stop,
+                afterEntryDay: date > t.entryDate,
+                closing: false,
+              })
+            : null;
+        if (stopReason)
           state.pending = {
             quantity: remaining,
-            reason: id.startsWith("RK-")
-              ? "完成五分钟最低价触碰止损，下一根开盘"
-              : "五分钟收盘跌破止损",
-            at: previous.date,
+            reason: stopReason,
+            at: previous!.date,
           };
         if (id.startsWith("RK-A-intraday") && previous && !state.timeChecked) {
-          state.completedMinutes += 5;
-          if (state.completedMinutes >= 30) {
-            state.timeChecked = true;
-            if (
-              previous.close <
-                t.entryPrice + 0.5 * (t.entryPrice - t.initialStop!) &&
-              !state.pending
-            )
-              state.pending = {
-                quantity: remaining,
-                reason: "30交易分钟收盘未达0.5R，时间止损",
-                at: previous.date,
-              };
-          }
+          const decision = growthIntradayTimeDecision({
+            completedMinutes: state.completedMinutes,
+            close: previous.close,
+            entry: t.entryPrice,
+            initialStop: t.initialStop!,
+          });
+          state.completedMinutes = decision.completedMinutes;
+          state.timeChecked = decision.checked;
+          if (decision.exitReason && !state.pending)
+            state.pending = {
+              quantity: remaining,
+              reason: decision.exitReason,
+              at: previous.date,
+            };
         }
         if (swing && previous)
           t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - previous.low);
@@ -644,7 +632,7 @@ export function researchGrowthIntraday(
               t.quantity,
               t.entryPrice,
               t.initialStop!,
-              spec.costs,
+              researchCostQuote(spec.costs),
             );
             week!.settle(index, t.profit, risk);
             streak!.settle(index, t.profit, risk);
@@ -671,13 +659,15 @@ export function researchGrowthIntraday(
           positions.delete(symbol);
         }
       }
-      if (slot === 0 || (id === "OP08" && slot >= 6))
+      if (growthIntradayAdditionSlot(id, slot))
         for (const [symbol, state] of positions) {
           const openingAdd =
-            id === "OP08" &&
-            date > state.trade.entryDate &&
-            state.trade.entries!.length === 1 &&
-            !!decideOpening(symbol, slot)?.buy;
+            growthIntradayOpeningAdditionEligible(
+              id,
+              date,
+              state.trade.entryDate,
+              state.trade.entries!.length,
+            ) && !!decideOpening(symbol, slot)?.buy;
           if ((!state.add && !openingAdd) || state.pending || state.reduced)
             continue;
           state.add = false; // A close-confirmed addition has one scheduled next-open attempt.
@@ -697,8 +687,10 @@ export function researchGrowthIntraday(
             !rule ||
             (!openingAdd &&
               (!t.event.entryPriceRange ||
-                fill.price < t.event.entryPriceRange.min ||
-                fill.price > t.event.entryPriceRange.max))
+                !growthIntradayPriceInRange(
+                  fill.price,
+                  t.event.entryPriceRange,
+                )))
           ) {
             t.managementWarnings!.push({
               date,
@@ -717,10 +709,11 @@ export function researchGrowthIntraday(
             equity,
             price: fill.price,
             stop: state.stop,
-            fraction: spec.risk!.fraction * (openingAdd ? 0.5 : 1),
-            maxWeight: spec.risk!.maxWeight * (openingAdd ? 0.5 : 1),
-            rules: rule,
-            costs: spec.costs,
+            fraction:
+              spec.risk!.fraction * growthIntradayRiskMultiplier(openingAdd),
+            maxWeight:
+              spec.risk!.maxWeight * growthIntradayRiskMultiplier(openingAdd),
+            execution: researchExecutor(rule, spec.costs),
           });
           const qty = researchBuyQuantity(
             Math.min(
@@ -882,11 +875,7 @@ export function researchGrowthIntraday(
           if (event.intradayAt) finished.add(event);
           continue;
         }
-        if (
-          event.entryPriceRange &&
-          (fill.price < event.entryPriceRange.min ||
-            fill.price > event.entryPriceRange.max)
-        ) {
+        if (!growthIntradayPriceInRange(fill.price, event.entryPriceRange)) {
           finished.add(event);
           result.excluded.push({ event, reason: "越过冻结枢纽区间" });
           continue;
@@ -895,11 +884,7 @@ export function researchGrowthIntraday(
           const plan = spec.management?.openingPlans?.find(
             (p) => p.symbol === event.symbol && p.date === date,
           );
-          if (
-            !plan ||
-            fill.price <= plan.life ||
-            plan.resistance - fill.price < 2 * (fill.price - plan.life)
-          ) {
+          if (!growthIntradayOpeningSpace(fill.price, plan)) {
             finished.add(event);
             result.excluded.push({
               event,
@@ -957,38 +942,31 @@ export function researchGrowthIntraday(
               (s, p) => s + p.trade.book!.remainingQuantity * p.trade.lastPrice,
               0,
             ),
-          stop = opening
-            ? (openingCheck?.stop ?? NaN)
-            : swing
-              ? (researchInitialStop(spec.management!, fill.price, event) ??
-                NaN)
-              : id === "RK-A-intraday-points30"
-                ? fill.price - 0.5
-                : id === "RK-A-intraday-structure30"
-                  ? (() => {
-                      const previousDate = calendar
-                        .filter((d) => d < date)
-                        .at(-1);
-                      const prefix = previousDate
-                        ? growthMinuteDay(
-                            minutes.get(event.symbol) ?? [],
-                            previousDate,
-                          )
-                        : null;
-                      return prefix
-                        ? (confirmedExtrema(prefix)
-                            .extrema.filter((p) => p.kind === "low")
-                            .at(-1)?.price ?? NaN)
-                        : NaN;
-                    })()
-                  : fill.price * (1 - fraction);
+          stop = growthIntradayInitialStop({
+            id,
+            price: fill.price,
+            opening,
+            openingStop: openingCheck?.stop,
+            swingStop: swing
+              ? researchInitialStop(spec.management!, fill.price, event)
+              : undefined,
+            priorMinutes:
+              id === "RK-A-intraday-structure30"
+                ? (() => {
+                    const previousDate = calendar
+                      .filter((d) => d < date)
+                      .at(-1);
+                    return previousDate
+                      ? growthMinuteDay(
+                          minutes.get(event.symbol) ?? [],
+                          previousDate,
+                        )
+                      : null;
+                  })()
+                : null,
+          });
         if (
-          !Number.isFinite(stop) ||
-          stop <= 0 ||
-          stop >= fill.price ||
-          (swing &&
-            (event.stopAtr == null ||
-              fill.price - stop > 2 * event.stopAtr + 1e-10))
+          !growthIntradayStopAdmissible(id, fill.price, stop, event.stopAtr)
         ) {
           finished.add(event);
           result.excluded.push({
@@ -1016,25 +994,25 @@ export function researchGrowthIntraday(
           fraction:
             spec.risk!.fraction *
             (admissionCheck?.multiplier ?? 1) *
-            (opening ? 0.5 : 1) *
+            growthIntradayRiskMultiplier(opening) *
             (streak?.multiplier() ?? 1),
           maxWeight: Math.min(
             executionPolicy?.maxWeight ?? 1,
             spec.risk!.maxWeight *
               (admissionCheck?.multiplier ?? 1) *
-              (opening ? 0.5 : 1) *
+              growthIntradayRiskMultiplier(opening) *
               (streak?.multiplier() ?? 1),
             liquidity?.maxPositionValue != null
               ? liquidity.maxPositionValue / equity
               : 1,
           ),
-          rules: rule,
-          costs: spec.costs,
+          execution: researchExecutor(rule, spec.costs),
         });
-        const desired =
-          id === "SE-E-intraday50" || id === "OP08"
-            ? planned / 2
-            : Math.min(planned, rotationCaps.get(event.key) ?? Infinity);
+        const desired = growthIntradayEntryQuantity(
+          id,
+          planned,
+          rotationCaps.get(event.key) ?? Infinity,
+        );
         const qty =
           desired < rule.minimumBuy
             ? 0
@@ -1074,7 +1052,12 @@ export function researchGrowthIntraday(
           lastPrice: fill.price,
           initialStop: stop,
           ...(swing
-            ? { riskBudget: equity * 0.01 * streak!.multiplier() }
+            ? {
+                riskBudget: growthIntradaySwingRiskBudget(
+                  equity,
+                  streak!.multiplier(),
+                ),
+              }
             : {}),
           book,
           remainingQuantity: qty,
@@ -1089,7 +1072,12 @@ export function researchGrowthIntraday(
               price: fill.price,
               commission,
               plannedRisk: swing
-                ? plannedStopRisk(qty, fill.price, stop, spec.costs)
+                ? plannedStopRisk(
+                    qty,
+                    fill.price,
+                    stop,
+                    researchCostQuote(spec.costs),
+                  )
                 : null,
               stop,
             },
@@ -1129,7 +1117,7 @@ export function researchGrowthIntraday(
       t.lastPrice = rows[47]!.close;
       if (opening) {
         if (
-          rows.slice(-2).every((b) => b.close < state.stop) &&
+          growthIntradayLifeLineLost(rows, state.stop) &&
           (!state.pending || state.pending.quantity < t.book!.remainingQuantity)
         )
           state.pending = {
@@ -1158,21 +1146,22 @@ export function researchGrowthIntraday(
           };
         }
       }
-      if (
-        !opening &&
-        !execution &&
-        (swing
-          ? t.lastPrice < state.stop ||
-            rows[47]!.low <= t.entryPrice - 2 * (t.entryPrice - t.initialStop!)
-          : id.startsWith("RK-")
-            ? rows[47]!.low <= state.stop
-            : t.lastPrice < state.stop)
-      )
+      const stopReason =
+        !opening && !execution
+          ? growthIntradayStopDecision({
+              id,
+              completed: rows[47]!,
+              entry: t.entryPrice,
+              initialStop: t.initialStop!,
+              stop: state.stop,
+              afterEntryDay: date > t.entryDate,
+              closing: true,
+            })
+          : null;
+      if (stopReason)
         state.pending = {
           quantity: t.book!.remainingQuantity,
-          reason: id.startsWith("RK-")
-            ? "15:00完成五分钟触碰，下一交易日开盘"
-            : "15:00收盘跌破止损",
+          reason: stopReason,
           at: rows[47]!.date,
         };
       if (execution) {
@@ -1218,44 +1207,33 @@ export function researchGrowthIntraday(
       }
       if (swing) {
         t.swingMae = Math.max(t.swingMae ?? 0, t.entryPrice - rows[47]!.low);
-        const distance = t.entryPrice - t.initialStop!,
-          r = (t.lastPrice - t.entryPrice) / distance;
-        state.maxR = Math.max(state.maxR, r);
-        if (
-          index - t.entryIndex + 1 >= 10 &&
-          state.maxR < 0.5 &&
-          !state.pending
-        )
-          state.pending = {
-            quantity: t.book!.remainingQuantity,
-            reason: "10日未达0.5R时间止损",
-            at: rows[47]!.date,
-          };
         const oldStop = state.stop;
-        if (r >= 1) state.stop = Math.max(state.stop, t.entryPrice);
-        if (r >= 2 && !state.scaled && !state.pending) {
-          state.scaled = true;
-          state.stop = Math.max(state.stop, t.entryPrice + distance);
+        const decision = growthIntradaySwingCloseDecision({
+          entry: t.entryPrice,
+          initialStop: t.initialStop!,
+          close: t.lastPrice,
+          stop: state.stop,
+          heldDays: index - t.entryIndex + 1,
+          maxR: state.maxR,
+          scaled: state.scaled,
+          pending: state.pending != null,
+          tailReady: state.tailReady,
+          dailyPrefix: (daily.get(symbol) ?? []).filter((b) => b.date <= date),
+        });
+        state.maxR = decision.maxR;
+        state.stop = decision.stop;
+        state.scaled = decision.scaled;
+        if (decision.sale)
           state.pending = {
-            quantity: t.quantity * 0.5,
-            reason: "2R减原始半仓并抬1R",
+            quantity:
+              (decision.sale.originalQuantity
+                ? t.quantity
+                : t.book!.remainingQuantity) * decision.sale.fraction,
+            reason: decision.sale.reason,
             at: rows[47]!.date,
           };
-        }
-        if (state.tailReady) {
-          const prefix = (daily.get(symbol) ?? []).filter(
-            (b) => b.date <= date,
-          );
-          const a = atr(prefix, 22).at(-1),
-            h = rollingHigh(prefix, 22).at(-1);
-          if (a != null && h != null)
-            state.stop = Math.max(state.stop, h - 3 * a);
-          else
-            t.managementWarnings!.push({
-              date,
-              reason: "尾仓22日ATR/最高价缺失",
-            });
-        }
+        if (decision.warning)
+          t.managementWarnings!.push({ date, reason: decision.warning });
         if (state.stop > oldStop)
           t.stopHistory!.push({
             date: rows[47]!.date,
@@ -1274,18 +1252,18 @@ export function researchGrowthIntraday(
             date,
             reason: check.reason ?? "缺事件日历",
           });
-        const e = check.evidence?.scheduledEvent;
-        if (
-          check.status === "available" &&
-          !check.allow &&
-          e &&
-          !state.eventIds.has(e.id) &&
-          !state.pending
-        ) {
-          state.eventIds.add(e.id);
+        const reduction = growthIntradayScheduledEventReduction({
+          available: check.status === "available",
+          allow: check.allow,
+          eventId: check.evidence?.scheduledEvent?.id,
+          reducedEventIds: state.eventIds,
+          pending: state.pending != null,
+        });
+        if (reduction) {
+          state.eventIds.add(reduction.eventId);
           state.pending = {
-            quantity: t.book!.remainingQuantity * 0.5,
-            reason: "已知事件前三交易日减半",
+            quantity: t.book!.remainingQuantity * reduction.fraction,
+            reason: reduction.reason,
             at: rows[47]!.date,
           };
         }
@@ -1295,10 +1273,14 @@ export function researchGrowthIntraday(
           .get(symbol)
           ?.get(calendar[calendar.indexOf(date) - 1]!);
         const review = rows[41]!;
-        if (prior && valid(prior) && review.close < prior.close * 0.98 - 1e-10)
+        const decision =
+          prior && valid(prior)
+            ? growthIntradayReviewDecision(id, review.close, prior.close)
+            : null;
+        if (decision)
           state.pending = {
-            quantity: t.book!.remainingQuantity * 0.5,
-            reason: "14:30较昨收跌超2%异常减半",
+            quantity: t.book!.remainingQuantity * decision.fraction,
+            reason: decision.reason,
             at: review.date,
           };
       }
@@ -1308,15 +1290,14 @@ export function researchGrowthIntraday(
         t.entryDate === date &&
         !state.pending
       ) {
-        const prefix = (daily.get(symbol) ?? []).filter((b) => b.date < date);
-        const average = prefix
-          .slice(-20)
-          .reduce((s, b) => s + b.volume / 20, 0);
-        state.add =
-          !!t.event.entryPriceRange &&
-          t.lastPrice > t.event.entryPriceRange.min * 1.01 &&
-          t.lastPrice <= t.event.entryPriceRange.max &&
-          rows.reduce((s, b) => s + b.volume, 0) >= average * 1.5;
+        state.add = growthIntradayAdditionDecision({
+          id,
+          intradayEntry: eventIsHalf(t.event),
+          range: t.event.entryPriceRange,
+          close: t.lastPrice,
+          completedDay: rows,
+          priorDaily: (daily.get(symbol) ?? []).filter((b) => b.date < date),
+        });
       }
     }
     const closingValue =

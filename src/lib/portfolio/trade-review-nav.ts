@@ -1,7 +1,4 @@
-import type {
-  ParsedCashFlow,
-  ParsedFill,
-} from "../research/evidence/delivery-import";
+import type {ParsedCashFlow,ParsedFill} from "../research/evidence/delivery-import";
 import type { ReviewValue } from "./trade-review";
 import { researchNavStatistics } from "../research/strategy-research";
 import { dailyPerformance } from "../backtest/daily-performance";

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../../../../src/lib/domain";
-import { vcpFacts } from "../../../../src/server/strategies/canslim/vcp";
+import { vcpFacts } from "trading-strategies/research/canslim/vcp";
 function fixture(): Snapshot {
   const points = [
     [0, 90],

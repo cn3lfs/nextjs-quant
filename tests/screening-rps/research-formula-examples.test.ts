@@ -1,12 +1,7 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
 import type { Bar } from "../../src/lib/domain";
-import {
-  formulaExampleIds,
-  formulaExamples,
-  formulaOriginalStatus,
-  researchFormulaExampleSeries,
-  type FormulaExampleId,
-} from "../../src/lib/research/specs/research-formula-examples";
+import { formulaExampleIds, formulaExamples, formulaOriginalStatus, researchFormulaExampleSeries, type FormulaExampleId, } from "trading-strategies/research/technical/research-formula-examples";
 
 function bars(closes: number[], volumes: number[] = []): Bar[] {
   return closes.map((close, i) => ({
@@ -148,99 +143,63 @@ const capital = (input: Bar[]) =>
     floatShares: 10000,
     volumeUnit: "share" as const,
   }));
-it.each(formulaExampleIds)(
-  "%s preserves an independently constructed positive and threshold/equality negative",
-  (id) => {
+it.each(formulaExampleIds)("%s preserves an independently constructed positive and threshold/equality negative", (id) => {
     const { yes, no } = fixture(id);
-    expect(
-      researchFormulaExampleSeries(id, yes, capital(yes)).at(-1)!.values
-        .formula,
-    ).toBe(1);
-    expect(
-      researchFormulaExampleSeries(id, no, capital(no)).at(-1)!.values.formula,
-    ).toBe(0);
-  },
-);
+    expect(researchFormulaExampleSeries(id, yes, capital(yes), researchFormulaRuntime).at(-1)!.values
+        .formula).toBe(1);
+    expect(researchFormulaExampleSeries(id, no, capital(no), researchFormulaRuntime).at(-1)!.values.formula).toBe(0);
+});
 it("retains unsupported originals and exposes a separate runnable expression", () => {
-  for (const id of [
-    "tdx-macd-zero",
-    "tdx-boll-reentry",
-    "tdx-price-seven",
-    "tdx-price-ma-rise",
-    "tdx-price-high",
-    "tdx-base-breakout",
-    "tdx-volume-capital-high",
-    "tdx-volume-capital-low",
-  ] as const) {
-    expect(formulaOriginalStatus(id).runnable).toBe(false);
-    expect(formulaExamples[id].original).not.toBe(formulaExamples[id].formula);
-    expect(formulaExamples[id].revision).toBeTruthy();
-  }
-  expect(formulaExamples["tdx-price-ma-rise"].original).toContain("REE");
-  expect(formulaExamples["tdx-price-seven"].original).toContain(";;");
+    for (const id of [
+        "tdx-macd-zero",
+        "tdx-boll-reentry",
+        "tdx-price-seven",
+        "tdx-price-ma-rise",
+        "tdx-price-high",
+        "tdx-base-breakout",
+        "tdx-volume-capital-high",
+        "tdx-volume-capital-low",
+    ] as const) {
+        expect(formulaOriginalStatus(id, researchFormulaRuntime).runnable).toBe(false);
+        expect(formulaExamples[id].original).not.toBe(formulaExamples[id].formula);
+        expect(formulaExamples[id].revision).toBeTruthy();
+    }
+    expect(formulaExamples["tdx-price-ma-rise"].original).toContain("REE");
+    expect(formulaExamples["tdx-price-seven"].original).toContain(";;");
 });
 it("does not claim the two gap examples use the same anchor", () => {
-  const input = bars([90, 100, 104, 104]);
-  // Yesterday's low is above the high two days ago in the fixed-anchor rule;
-  // change only the older high: the moving COUNT rule must now disagree.
-  input[0]!.high = 110;
-  expect(
-    researchFormulaExampleSeries("tdx-gap-unfilled", input).at(-1)!.values
-      .formula,
-  ).toBe(1);
-  expect(
-    researchFormulaExampleSeries("tdx-gap-count-original", input).at(-1)!.values
-      .formula,
-  ).toBe(0);
+    const input = bars([90, 100, 104, 104]);
+    // Yesterday's low is above the high two days ago in the fixed-anchor rule;
+    // change only the older high: the moving COUNT rule must now disagree.
+    input[0]!.high = 110;
+    expect(researchFormulaExampleSeries("tdx-gap-unfilled", input, undefined, researchFormulaRuntime).at(-1)!.values
+        .formula).toBe(1);
+    expect(researchFormulaExampleSeries("tdx-gap-count-original", input, undefined, researchFormulaRuntime).at(-1)!.values
+        .formula).toBe(0);
 });
 it("uses the experts' two named outputs and the base breakout's final boolean output", () => {
-  const macd = researchFormulaExampleSeries(
-    "tdx-macd-zero",
-    bars([...Array<number>(30).fill(100), 110, 90]),
-  );
-  expect(macd[30]).toMatchObject({ entry: true, exit: false });
-  expect(macd[31]).toMatchObject({ entry: false, exit: true });
-  const boll = researchFormulaExampleSeries(
-    "tdx-boll-reentry",
-    bars([...Array<number>(20).fill(100), 90, 100, 110]),
-  );
-  expect(boll[21]).toMatchObject({ entry: true, exit: false });
-  expect(boll[22]).toMatchObject({ entry: false, exit: true });
-  expect(
-    researchFormulaExampleSeries(
-      "tdx-base-breakout",
-      fixture("tdx-base-breakout").no,
-    ).at(-1)!.values.formula,
-  ).toBe(0);
+    const macd = researchFormulaExampleSeries("tdx-macd-zero", bars([...Array<number>(30).fill(100), 110, 90]), undefined, researchFormulaRuntime);
+    expect(macd[30]).toMatchObject({ entry: true, exit: false });
+    expect(macd[31]).toMatchObject({ entry: false, exit: true });
+    const boll = researchFormulaExampleSeries("tdx-boll-reentry", bars([...Array<number>(20).fill(100), 90, 100, 110]), undefined, researchFormulaRuntime);
+    expect(boll[21]).toMatchObject({ entry: true, exit: false });
+    expect(boll[22]).toMatchObject({ entry: false, exit: true });
+    expect(researchFormulaExampleSeries("tdx-base-breakout", fixture("tdx-base-breakout").no, undefined, researchFormulaRuntime).at(-1)!.values.formula).toBe(0);
 });
 it("requires exact-day as-of capital, unique evidence and compatible volume units", () => {
-  const input = fixture("tdx-volume-capital-high").yes,
-    proof = capital(input),
-    last = proof.at(-1)!;
-  for (const changed of [
-    [],
-    [...proof, last],
-    proof.map((e) => ({ ...e, availableDate: "2099-01-01" })),
-    proof.map((e) => ({ ...e, source: "" })),
-    proof.map((e) => ({ ...e, floatShares: NaN })),
-  ]) {
-    expect(
-      researchFormulaExampleSeries(
-        "tdx-volume-capital-high",
-        input,
-        changed,
-      ).at(-1),
-    ).toMatchObject({
-      entry: false,
-      reason: expect.stringContaining("待数据"),
-    });
-  }
-  const lots = input.map((b) => ({ ...b, volume: b.volume / 100 }));
-  expect(
-    researchFormulaExampleSeries(
-      "tdx-volume-capital-high",
-      lots,
-      proof.map((e) => ({ ...e, volumeUnit: "lot100" as const })),
-    ).at(-1)!.values.formula,
-  ).toBe(1);
+    const input = fixture("tdx-volume-capital-high").yes, proof = capital(input), last = proof.at(-1)!;
+    for (const changed of [
+        [],
+        [...proof, last],
+        proof.map((e) => ({ ...e, availableDate: "2099-01-01" })),
+        proof.map((e) => ({ ...e, source: "" })),
+        proof.map((e) => ({ ...e, floatShares: NaN })),
+    ]) {
+        expect(researchFormulaExampleSeries("tdx-volume-capital-high", input, changed, researchFormulaRuntime).at(-1)).toMatchObject({
+            entry: false,
+            reason: expect.stringContaining("待数据"),
+        });
+    }
+    const lots = input.map((b) => ({ ...b, volume: b.volume / 100 }));
+    expect(researchFormulaExampleSeries("tdx-volume-capital-high", lots, proof.map((e) => ({ ...e, volumeUnit: "lot100" as const })), researchFormulaRuntime).at(-1)!.values.formula).toBe(1);
 });

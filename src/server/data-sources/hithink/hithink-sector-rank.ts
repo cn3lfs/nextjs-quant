@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Snapshot, Evidence } from "~/lib/domain";
 import { request } from "./hithink-context";
 import { sharedRead } from "../../infra/shared-read";
-import { canslimSectorRank } from "../../../lib/strategy-facts/canslim-sector-rank";
+import { canslimSectorRank } from "~/lib/strategy-facts/canslim-sector-rank";
 import { evidenceEnvelope } from "../../infra/evidence";
 const shared = sharedRead<unknown>();
 const basicSchema = z.object({

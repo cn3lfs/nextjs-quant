@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Period, Snapshot } from "~/lib/domain";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { eastmoneyKlines } from "../data-sources/eastmoney/eastmoney-adapter";
 export { parseOnlineChart } from "../data-sources/eastmoney/eastmoney-bars";
 

@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { type Evidence, symbolSchema } from "~/lib/domain";
+import {type Evidence} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import {
   canslimFloat,
   floatResponseSchema,
-} from "../../../lib/strategy-facts/canslim-float";
+} from "~/lib/strategy-facts/canslim-float";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { request } from "./hithink-context";
 import { sharedRead } from "../../infra/shared-read";

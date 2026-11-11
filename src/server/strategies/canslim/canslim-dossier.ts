@@ -11,16 +11,16 @@ import { queryRsMembershipEvidence } from "../../research/rs-membership";
 import { queryPriceRsEvidence } from "../../research/price-rs";
 import { canslimRs } from "./canslim-rs";
 import { queryInstitutions } from "../../data-sources/hithink/hithink-institutions";
-import { canslimInstitutions } from "../../../lib/strategy-facts/canslim-institutions";
+import { canslimInstitutions } from "~/lib/strategy-facts/canslim-institutions";
 import type { Evidence, Snapshot } from "~/lib/domain";
 import {
   gatherCanslimFinance,
   mergeCanslimFinance,
 } from "./canslim-finance-bundle";
 import { gatherCanslimMarket } from "./canslim-market-data";
-import { canslimMarket } from "./canslim-market";
-import { canslimTechnical } from "./canslim-technical";
-import { canslimScorecard, type CanslimScoreInput } from "./canslim-scorecard";
+import { canslimMarket } from "trading-strategies/research/canslim/canslim-market";
+import { canslimTechnical } from "trading-strategies/research/canslim/canslim-technical";
+import { canslimScorecard, type CanslimScoreInput } from "trading-strategies/research/canslim/canslim-scorecard";
 import { evidenceEnvelope } from "../../infra/evidence";
 // Historical callers must provide versioned publication evidence through the
 // separate input-only path. The current-query guards below remain intentional.

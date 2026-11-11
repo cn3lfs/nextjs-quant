@@ -1,129 +1,32 @@
-import { structureBarBytes } from "~/lib/research/methods/wyckoff/research-wyckoff";
+import { structureBarBytes } from "trading-strategies/research/wyckoff/research-wyckoff";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult, CzscFamily } from "~/lib/research/methods/chan/czsc";
-import type { ChanAnchor } from "~/lib/research/methods/chan/czsc-movements";
-import { chanAnchorDateCodes } from "~/lib/research/methods/chan/czsc-movements";
+import type {
+  CzscResult,
+  CzscFamily,
+} from "trading-strategies/research/chan/czsc";
+import type { ChanAnchor } from "trading-strategies/research/chan/czsc-movements";
+import { chanAnchorDateCodes } from "trading-strategies/research/chan/czsc-movements";
 import type {
   ResearchEvent,
   ResearchSpec,
 } from "~/lib/research/strategy-research";
-import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
-import { chanAnchorVersions } from "~/lib/research/methods/chan/research-chan-recursive";
-import { chanNativeCandidates } from "~/lib/research/methods/chan/research-chan-native";
+import type { ResearchStructureObservation } from "trading-strategies/research/technical/research-structure-events";
+import { chanAnchorVersions } from "trading-strategies/research/chan/research-chan-recursive";
+import { chanNativeCandidates } from "trading-strategies/research/chan/research-chan-native";
 import {
   chanC4Presets,
   chanC4Boundary,
   chanC4Trend,
   chanC4Decomposition,
   chanC4MonthlyBottom,
-  chanC4SmallTurn,
+  chanC4SmallTurnSignalDecisions,
   chanC4Observations,
   chanMovementKey,
-} from "~/lib/research/methods/chan/research-chan-movements";
+} from "trading-strategies/research/chan/research-chan-movements";
 import { researchChanMonthlyInput } from "./research-chan-monthly";
 
 type Signal = CzscFamily["signals"][number];
 type Verdict = ReturnType<typeof chanC4Trend>;
-const missing = (reason: string): Verdict => ({
-  status: "missing",
-  action: "observe",
-  reason,
-  evidence: null,
-});
-
-/** Resolve only explicit association/member/successor references in this snapshot. */
-export function chanC4SmallTurnFromSignal(
-  result: CzscResult,
-  bars: readonly Bar[],
-  config: 0 | 1100,
-  signal: Signal,
-): Verdict {
-  const family = result.families.find((f) => f.config === config),
-    table = family?.native?.recursiveMovements;
-  if (!table || !family || signal.kind !== 3)
-    return missing("小转大缺当前前缀三买必要条件");
-  const movement = (s: Signal | undefined) =>
-    table.movements.find(
-      (m) =>
-        m.id ===
-        table.associations.find(
-          (a) =>
-            a.status === "verified" && a.structureId === s?.structure?.trendId,
-        )?.movementId,
-    );
-  const trend = movement(signal),
-    meta = signal.structure;
-  const point = (id: number | undefined) => family.points[(id ?? 0) - 1];
-  const leave = point(meta?.leavePointId),
-    retest = point(meta?.retestPointId);
-  const last = table.centers.find((c) => c.id === trend?.centerIds.at(-1));
-  const association = table.associations.find(
-    (a) => a.status === "verified" && a.structureId === meta?.trendId,
-  );
-  const old = family.native!.trends.find(
-    (t) => t.id === association?.structureId,
-  );
-  const linkedCenter =
-    old && association
-      ? association.centerIds[old.memberCenterIds.indexOf(signal.centerId!)]
-      : undefined;
-  const refs = table.movements.filter(
-    (m) =>
-      m.level === (trend?.level ?? 0) - 1 &&
-      m.start === leave?.index &&
-      m.end === retest?.index,
-  );
-  if (
-    !trend ||
-    !last ||
-    last.id !== linkedCenter ||
-    refs.length !== 1 ||
-    !chanNativeCandidates(
-      "chan-third-native",
-      result,
-      bars,
-      config,
-    ).signals.includes(signal)
-  )
-    return missing(
-      "缺108最后中枢关联与原三买回试段两端完全一致引用；不以时间包含猜测",
-    );
-  const reference = refs[0]!;
-  let answer: Verdict = missing("缺已关联小级别顶背驰及其显式后继下跌");
-  for (const top of family.signals.filter((s) => s.kind === -1)) {
-    const small = movement(top);
-    if (!small || small.level >= trend.level || small.start < reference.end)
-      continue;
-    const necessary = chanC4Trend(result, bars, config, top);
-    const down = table.movements.find((m) => m.id === small.successorId);
-    if (!down) continue;
-    answer = chanC4SmallTurn(table, {
-      trendId: trend.id,
-      referenceId: reference.id,
-      downId: down.id,
-      thirdBuyMovementId: reference.id,
-      smallDivergenceMovementId: small.id,
-      ...(down.successorId ? { pullbackId: down.successorId } : {}),
-      necessary,
-    });
-    if (answer.status === "matched" && answer.action === "exit")
-      return {
-        ...answer,
-        evidence: {
-          details: answer.evidence,
-          referenceIds: [
-            trend.id,
-            reference.id,
-            small.id,
-            down.id,
-            down.successorId,
-          ],
-        },
-      };
-  }
-  return answer;
-}
-
 /** One prefix observer for all nine presets; the existing portfolio owns fills/T+1. */
 export async function researchChanMovements(
   symbol: string,
@@ -357,49 +260,16 @@ export async function researchChanMovements(
       const association = mapped(signal),
         m = table.movements.find((m) => m.id === association?.movementId);
       if (preset.method === "CH18-small-to-large") {
-        if (signal.kind !== 3) continue;
-        if (m && m.level !== preset.level) continue;
-        const v = chanC4SmallTurnFromSignal(
-          result,
-          prefix,
-          spec.czscConfig,
-          signal,
-        );
-        const refs =
-          (v.evidence as { referenceIds?: number[] } | null)?.referenceIds ??
-          [];
-        if (
-          !refs.some((id) =>
-            observations.some(
-              (o) => o.evidence?.id === id && o.state === "revised",
-            ),
-          )
-        )
-          decisions.push({
-            verdict: v,
-            key: `small:${signal.date}`,
-            endpoint: signal.date,
-          });
-        if (
-          m &&
-          valid(m.id) &&
-          chanNativeCandidates(
-            "chan-third-native",
+        decisions.push(
+          ...chanC4SmallTurnSignalDecisions(
             result,
             prefix,
             spec.czscConfig,
-          ).signals.includes(signal)
-        )
-          decisions.push({
-            verdict: {
-              status: "matched",
-              action: "enter",
-              reason: "已关联三买入场基线，小转大只控制退出",
-              evidence: signal,
-            },
-            key: `third:${signal.date}`,
-            endpoint: signal.date,
-          });
+            preset.level,
+            signal,
+            observations,
+          ),
+        );
         continue;
       }
       if (Math.abs(signal.kind) !== 1) continue;

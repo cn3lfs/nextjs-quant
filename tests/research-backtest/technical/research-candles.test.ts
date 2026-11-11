@@ -1,12 +1,12 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
 import { candlePatterns } from "../../../src/lib/indicators";
-import { breakoutPatterns } from "../../../src/server/strategies/breakout/breakout";
+import { breakoutPatterns } from "trading-strategies/research/breakout/breakout";
 import {
   candleStrategyIds,
   researchCandleSeries,
   type CandleStrategyId,
-} from "../../../src/lib/research/technical/research-candles";
+} from "trading-strategies/research/technical/research-candles";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
@@ -16,7 +16,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const native = vi.fn(async (): Promise<never> => {
   throw new Error("native must not run");

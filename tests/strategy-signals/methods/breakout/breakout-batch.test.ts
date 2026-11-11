@@ -7,7 +7,7 @@ import fake from "../../../fixtures/breakout-false.json";
 import short from "../../../fixtures/breakout-insufficient.json";
 import type { Bar } from "../../../../src/lib/domain";
 import { breakoutBatch } from "../../../../src/server/strategies/breakout/breakout-batch";
-import { analyzeBreakout } from "../../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 
 function bytes(bars: Bar[]) {
   const buffer = Buffer.alloc(bars.length * 32);

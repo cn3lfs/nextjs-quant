@@ -3,7 +3,7 @@ import { maParamsSchema, type Bar } from "../../../src/lib/domain";
 import {
   growthDailyExitIds,
   growthDailyExitTemplate,
-} from "../../../src/lib/research/factors/research-growth-exits";
+} from "trading-strategies/research/factors/research-growth-exits";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";

@@ -10,8 +10,8 @@ import {
   researchExitPresetTemplate,
   type ResearchExitPreset,
 } from "../../src/lib/research/specs/research-exit-presets";
-import { researchRManagementTemplate } from "../../src/lib/research/risk/research-r-management";
-import { swingExitTemplate } from "../../src/lib/research/methods/swing/research-swing-exits";
+import { researchRManagementTemplate } from "trading-strategies/research/risk/research-r-management";
+import { swingExitTemplate } from "trading-strategies/research/swing/research-swing-exits";
 import {
   researchSpecSchema,
   type ResearchEvent,

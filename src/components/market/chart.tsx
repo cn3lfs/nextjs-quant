@@ -73,8 +73,8 @@ import {
   chartAdjustmentLabels,
   type ChartAdjustment,
 } from "~/lib/chart/chart-adjustment";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
-import type { BreakoutResult } from "~/server/strategies/breakout/breakout";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
+import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
 import { breakoutChartData } from "~/lib/chart/chart-data";
 import {
   barInstant,

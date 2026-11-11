@@ -1,4 +1,4 @@
-import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
+import { isChanC4 } from "trading-strategies/research/chan/research-chan-movements";
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort, workerData } from "node:worker_threads";
 import { sqlite } from "../db";

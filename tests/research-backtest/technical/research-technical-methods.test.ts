@@ -8,7 +8,7 @@ import {
   researchTechnicalMethodSeries,
   type TechnicalMethodFacts as F,
   type TechnicalMethodId,
-} from "../../../src/lib/research/technical/research-technical-methods";
+} from "trading-strategies/research/technical/research-technical-methods";
 const f = (patch: Partial<F> = {}): F => ({
   close: 100,
   open: 100,

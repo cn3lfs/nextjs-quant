@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import { researchCanslimVolumeTier } from "../../../../src/server/strategies/canslim/research-canslim-volume-tier";
+import { researchCanslimVolumeTier } from "trading-strategies/research/canslim/research-canslim-volume-tier";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 const fixture = (): Bar[] =>

@@ -7,11 +7,11 @@ import {
 import type { Bar } from "../../src/lib/domain";
 const state = vi.hoisted(() => ({ fraction: 1, reduce: true }));
 vi.mock(
-  "../../src/server/strategies/shared/research-rule-series",
+  "trading-strategies/research/composition/research-rule-series",
   async (importOriginal) => {
     const actual =
       await importOriginal<
-        typeof import("../../src/server/strategies/shared/research-rule-series")
+        typeof import("trading-strategies/research/composition/research-rule-series")
       >();
     return {
       ...actual,

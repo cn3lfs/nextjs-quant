@@ -1,8 +1,5 @@
 import type { Bar } from "../src/lib/domain";
-import {
-  researchCommission,
-  type ResearchExecutionRules,
-} from "../src/lib/research/technical/research-execution";
+import {commissionFor as researchCommission,type ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 import {
   researchSpecSchema,
   type ResearchEvent,

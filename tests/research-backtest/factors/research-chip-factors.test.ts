@@ -4,7 +4,7 @@ import {
   chipFactorRules,
   chipHistorySchema,
   evaluateChipFactor,
-} from "../../../src/lib/research/factors/research-chip-factors";
+} from "trading-strategies/research/factors/research-chip-factors";
 import { request } from "../../helpers/growth-factor-fixture";
 
 function panel() {

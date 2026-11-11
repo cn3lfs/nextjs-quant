@@ -6,7 +6,7 @@ import {
   sseMarginRows,
   type SseMarginArchive,
 } from "../../data-sources/sse/sse-margin";
-import { tmtCrowding, type TmtInput } from "./tmt-crowding";
+import { tmtCrowding, type TmtInput } from "trading-strategies/research/factors/tmt-crowding";
 import { sharedRead } from "../../infra/shared-read";
 
 const digest = (v: unknown) =>

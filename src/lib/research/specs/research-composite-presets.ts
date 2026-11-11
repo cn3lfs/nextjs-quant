@@ -2,12 +2,12 @@ import {
   contextRiskMaxPositions,
   contextRiskTemplate,
   type ContextRiskId,
-} from "../risk/research-context-risk";
+} from "trading-strategies/research/risk/research-context-risk";
 import {
   growthIntradayBase,
   growthIntradayTemplate,
   type GrowthIntradayId,
-} from "../factors/research-growth-intraday";
+} from "trading-strategies/research/factors/research-growth-intraday";
 import {
   researchManagementSchema,
   type ResearchManagement,
@@ -19,14 +19,14 @@ import {
   riskPresetTemplate,
   riskProfiles,
   type RiskPresetId,
-} from "../risk/research-risk-presets";
+} from "trading-strategies/research/risk/research-risk-presets";
 import {
   volatilityStopTemplate,
   type VolatilityStopId,
-} from "../risk/research-volatility-stops";
+} from "trading-strategies/research/risk/research-volatility-stops";
 import { researchSpecSchema, type ResearchSpec } from "../strategy-research";
-import { riskExtensionTemplate } from "../risk/research-risk-extensions";
-import { diagnosisTemplate } from "../risk/research-risk-routing";
+import { riskExtensionTemplate } from "trading-strategies/research/risk/research-risk-extensions";
+import { diagnosisTemplate } from "trading-strategies/research/risk/research-risk-routing";
 
 const b2MethodIds = [
   "RK-A1-percent",

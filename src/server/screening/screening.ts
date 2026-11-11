@@ -20,7 +20,7 @@ import {
   type PoolContext,
   type PoolObservation,
 } from "../market/pool-context";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { screeningMetrics } from "./metrics-cache";
 import { packScreen, unpackScreen, type PackedScreen } from "./screen-wire";
 import type { Strategy, Candidate, Snapshot, Period, Bar } from "~/lib/domain";

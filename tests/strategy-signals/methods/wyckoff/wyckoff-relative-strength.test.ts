@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "~/lib/domain";
 import { wyckoffRelativeStrength } from "~/server/strategies/wyckoff/wyckoff-relative-strength";
+import { wyckoffRelativeStrengthFacts } from "trading-strategies/research/wyckoff/wyckoff-relative-strength-facts";
 const dates = ["2026-09-01", "2026-09-02", "2026-09-03"];
 const series = (symbol: string, prices: number[]): Snapshot => ({
   id: symbol,
@@ -36,6 +37,14 @@ it("normalizes ratios to 100 and preserves prices without substituting excess re
   expect(result.rows[2]!.rs).toBeCloseTo(110);
   expect(result.changePercent).toBeCloseTo(10);
   expect(result.changePercent).not.toBeCloseTo(21 - 10);
+  // Characterized from the pre-extraction server implementation at 874456eb9f59.
+  expect(result.hash).toBe(
+    "de9de9743b635474bba6e5f555c34367fd67f4c89f706f913a5470648beaec45",
+  );
+  const { hash: _hash, ...facts } = result;
+  expect(
+    wyckoffRelativeStrengthFacts(stock, benchmark, dates[0]!, dates[2]!),
+  ).toEqual(facts);
   expect(stock).toEqual(before);
 });
 it("refuses to rebase or interpolate missing endpoints and interior dates", () => {

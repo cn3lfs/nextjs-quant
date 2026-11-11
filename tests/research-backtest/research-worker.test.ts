@@ -8,7 +8,7 @@ import { migrate } from "../../src/server/db/migrations";
 import { projectCzsc, closeCzsc } from "../../src/server/strategies/chan/czsc";
 import { ResearchStore } from "../../src/server/backtest/research-store";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import {
   researchHash,
   type ResearchDataset,

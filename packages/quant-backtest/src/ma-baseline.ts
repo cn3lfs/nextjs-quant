@@ -4,7 +4,7 @@ import {
   type MaBaselineInput,
   type Bar,
 } from "./model.js";
-import { maCrossStrategy } from "./strategies/ma-cross.js";
+import { maCrossStrategy } from "trading-strategies";
 
 /** The first strategy is a composition of the engine's stable boundaries. */
 export function runMaBaseline(

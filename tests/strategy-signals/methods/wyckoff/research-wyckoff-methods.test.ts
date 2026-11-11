@@ -1,16 +1,17 @@
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { migrate } from "../../../../src/server/db/migrations";
 import { ResearchStore } from "../../../../src/server/backtest/research-store";
 import type { Bar } from "../../../../src/lib/domain";
-import type { WyckoffHourlyInput } from "../../../../src/lib/research/methods/wyckoff/research-wyckoff-hourly";
+import type { WyckoffHourlyInput } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import {
   researchWyckoffSeries,
   wyckoffStructureInputsSchema,
   wyckoffScore,
   type WyckoffStructureInput,
-} from "../../../../src/lib/research/methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import { researchWyckoffStructureSeries as series } from "../../../../src/server/strategies/shared/research-structure-weekly";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
@@ -312,6 +313,16 @@ it("WY20 weighted stage scores preserve source hypotheses and exact 70 threshold
   expect(
     series("wy-score-half-kelly", bars, days, "sh600000", [r]).at(-1)!.entry,
   ).toBe(true);
+  // Complete old output, including original point/target/evidence order, frozen before extraction.
+  expect(
+    createHash("sha256")
+      .update(
+        JSON.stringify(
+          series("wy-score-half-kelly", bars, days, "sh600000", [r]).at(-1),
+        ),
+      )
+      .digest("hex"),
+  ).toBe("d3801b2f48dbdbf96a1f8c9d45d23d544793aa60825cae23c5a42b47e75b5452");
   for (const mutate of [
     (a: NonNullable<WyckoffStructureInput["assessment"]>) => {
       a.tr = 69.99;

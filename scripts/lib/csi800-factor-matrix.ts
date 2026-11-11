@@ -1,13 +1,13 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runCsi800Study } from "../../packages/quant-backtest/src/csi800-study.js";
-import { csi800ClassicRecipes } from "../../packages/quant-backtest/src/csi800-factors.js";
+import { csi800ClassicRecipes } from "../../packages/trading-strategies/src/csi800-factors.js";
 import {
   buildClassicSchedule,
   type ClassicWeek,
   type ClassicScheduleOptions,
   type ClassicModel,
-} from "../../packages/quant-backtest/src/csi800-composite.js";
+} from "../../packages/trading-strategies/src/csi800-composite.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
 import { csi800TradeEvaluation } from "./csi800-trade-evaluation.js";
 import {

@@ -9,7 +9,7 @@ import {
   WESTOCK_ADAPTER_VERSION,
 } from "../../data-sources/westock/westock-adapter";
 import { completedBar } from "trading-strategy-core/completed-bars";
-import { canslimMarket } from "./canslim-market";
+import { canslimMarket } from "trading-strategies/research/canslim/canslim-market";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { sharedRead } from "../../infra/shared-read";
 import type { Snapshot } from "~/lib/domain";

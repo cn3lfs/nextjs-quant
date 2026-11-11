@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { valuationScenarioSchema } from "~/lib/research/factors/valuation-scenario";
-import { calculateValuation } from "~/lib/research/factors/valuation";
+import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
+import { calculateValuation } from "trading-strategies/research/factors/valuation";
 import { get, put, sqlite } from "../../db";
 
 /** All inputs remain explicit user assumptions, never promoted to verified facts. */

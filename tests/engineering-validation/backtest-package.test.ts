@@ -29,7 +29,9 @@ function forbiddenImports(
         ? [id]
         : [];
     }
-    return id === "zod" || /^trading-strategy-core(?:\/.*)?$/.test(id)
+    return id === "zod" ||
+      id === "trading-strategies" ||
+      /^trading-strategy-core(?:\/.*)?$/.test(id)
       ? []
       : [id];
   });

@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  strategyCenterCatalog: "query",
+  strategyCenterCompare: "query",
+  strategyCenterEvaluation: "query",
+  strategyCenterPortfolio: "mutation",
+  strategyCenterMethods: "query",
+  strategyCenterLocalWeights: "mutation",
+  strategyCenterEvaluate: "mutation",
+  strategyCenterRun: "mutation",
+  strategyCenterHistory: "query",
+  strategyCenterExport: "query",
   localFinancialView: "query",
   localFinancialSeries: "query",
   localFinancialExport: "query",

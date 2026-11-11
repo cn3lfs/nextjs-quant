@@ -34,6 +34,14 @@
     "./money": {
       "types": "./dist/money.d.ts",
       "import": "./dist/money.js"
+    },
+    "./security": {
+      "types": "./dist/security.d.ts",
+      "import": "./dist/security.js"
+    },
+    "./calendar": {
+      "types": "./dist/calendar.d.ts",
+      "import": "./dist/calendar.js"
     }
   },
   "files": [

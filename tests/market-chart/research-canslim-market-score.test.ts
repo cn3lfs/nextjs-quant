@@ -3,16 +3,16 @@ import type { Bar } from "../../src/lib/domain";
 import {
   canslimMarketBinaryIds as canslimMarketIds,
   type CanslimMarketId,
-} from "../../src/lib/research/methods/canslim/research-canslim-market-strategies";
-import { researchCanslimMarketScore } from "../../src/server/strategies/canslim/research-canslim-market-score";
+} from "trading-strategies/research/canslim/research-canslim-market-strategies";
+import { researchCanslimMarketScore } from "trading-strategies/research/canslim/research-canslim-market-score";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { researchSignals } from "../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";
 import { runStrategyResearch } from "../../src/server/backtest/research-run";
 import type { ResearchDataset } from "../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
-import { canslimMarketTierIds } from "../../src/lib/research/methods/canslim/research-canslim-market-strategies";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
+import { canslimMarketTierIds } from "trading-strategies/research/canslim/research-canslim-market-strategies";
 
 const bars = (): Bar[] =>
   Array.from({ length: 300 }, (_, i) => ({

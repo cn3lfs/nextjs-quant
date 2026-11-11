@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { symbolSchema, type Evidence } from "~/lib/domain";
+import {type Evidence} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import {
   canslimInstitutions,
   institutionResponseSchema,
-} from "../../../lib/strategy-facts/canslim-institutions";
+} from "~/lib/strategy-facts/canslim-institutions";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { sharedRead } from "../../infra/shared-read";
 export function institutionsEvidence(

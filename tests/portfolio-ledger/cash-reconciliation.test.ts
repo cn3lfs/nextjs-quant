@@ -6,7 +6,7 @@ import {
   reconcileCashDays,
   type CashEvidenceBatch,
 } from "~/lib/portfolio/cash-reconciliation";
-import { mapDeliveryColumns } from "~/lib/research/evidence/delivery-import";
+import {mapDeliveryColumns} from "~/lib/research/evidence/delivery-import";
 import { parseDeliveryTable } from "~/lib/research/evidence/delivery-table";
 
 const fixture = parseDeliveryTable(

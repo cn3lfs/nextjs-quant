@@ -1,14 +1,12 @@
 import { expect, it } from "vitest";
-import {
-  researchInitialStop,
-  researchManagementSchema,
-} from "../../../src/lib/research/workflow/research-management";
+import {researchManagementSchema} from "../../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import { selectResearchStrategy } from "../../../src/components/research/research-strategy-fields";
 import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
-import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { atr } from "../../../src/lib/indicators";
 const management = researchManagementSchema.parse({
   stop: { kind: "structure-atr", period: 14, multiple: 0.3 },

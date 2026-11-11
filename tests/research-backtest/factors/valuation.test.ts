@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { calculateValuation } from "~/lib/research/factors/valuation";
+import { calculateValuation } from "trading-strategies/research/factors/valuation";
 const fcff = {
   method: "fcff-wacc",
   cashFlowBasis: "fcff",

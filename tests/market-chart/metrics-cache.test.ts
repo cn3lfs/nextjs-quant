@@ -1,9 +1,15 @@
 import { expect, it, vi } from "vitest";
-vi.mock("~/lib/screening/screening-metrics", async (original) => {
-  const module = await original<typeof import("~/lib/screening/screening-metrics")>();
-  return { ...module, metrics: vi.fn(module.metrics) };
-});
-import { metrics } from "~/lib/screening/screening-metrics";
+vi.mock(
+  "trading-strategies/research/technical/screening-metrics",
+  async (original) => {
+    const module =
+      await original<
+        typeof import("trading-strategies/research/technical/screening-metrics")
+      >();
+    return { ...module, metrics: vi.fn(module.metrics) };
+  },
+);
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { MetricsCache } from "~/server/screening/metrics-cache";
 import { defaultStrategy, type Snapshot } from "~/lib/domain";
 

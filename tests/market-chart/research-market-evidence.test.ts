@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   researchEvidenceLookup,
   researchMarketEvidenceSchema,
-} from "../../src/lib/research/factors/research-market-evidence";
+} from "trading-strategies/research/factors/research-market-evidence";
 const row = {
   symbol: "sh600000",
   date: "2024-01-02",

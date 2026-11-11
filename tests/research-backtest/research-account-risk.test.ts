@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   researchAccountRisk,
   accountRiskRules,
-} from "../../src/lib/research/risk/research-account-risk";
+} from "trading-strategies/research/risk/research-account-risk";
 const dates = (n = 50) =>
   Array.from({ length: n }, (_, i) =>
     new Date(Date.UTC(2021, 0, i + 1)).toISOString().slice(0, 10),

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { get, put } from "../../db";
 import { claimWorkflow } from "../../jobs/workflow-lease";
 import { refreshDailyIncrement } from "./tdx-increment-refresh";

@@ -1,5 +1,6 @@
 import type { Candidate, Period, Job } from "~/lib/domain";
-import { strategySchema, periodSchema, symbolSchema } from "~/lib/domain";
+import {strategySchema,periodSchema} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { z } from "zod";
 import type { ScreenDataHealth } from "../market/data-health";
 import { historicalScreenSchema } from "~/lib/screening/historical-screen";

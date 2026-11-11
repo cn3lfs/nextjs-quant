@@ -1,3 +1,7 @@
+import {
+  researchCostQuote,
+  researchExecutor,
+} from "~/lib/backtest/research-executor";
 import { expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -15,14 +19,13 @@ import { researchPortfolio } from "../../src/server/backtest/research-portfolio"
 import {
   plannedStopRisk,
   researchRiskQuantity,
-} from "../../src/lib/research/risk/research-risk";
+} from "trading-strategies/research/risk/research-risk";
 import { backtestCostsSchema } from "../../src/lib/backtest/backtest-costs";
 import {
   ResearchStrategyFields,
   selectResearchStrategy,
 } from "../../src/components/research/research-strategy-fields";
 import { researchParamsFingerprint } from "../../src/server/backtest/research-store";
-
 const days = [
   "2024-01-02",
   "2024-01-03",
@@ -78,7 +81,6 @@ const series: Bar[] = days.map((date, i) => ({
   volume: 1000,
   amount: 10000,
 }));
-
 it("preserves old spec shape, validates strategy-specific parameters and removes stale fields on selection", () => {
   expect(base).not.toHaveProperty("risk");
   expect(base).not.toHaveProperty("maParams");
@@ -107,7 +109,6 @@ it("preserves old spec shape, validates strategy-specific parameters and removes
     }),
   );
 });
-
 it("reuses the existing MA trend conditions without calling native code or reading future bars", async () => {
   const bars = Array.from({ length: 66 }, (_, i) => ({
     date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
@@ -154,7 +155,6 @@ it("reuses the existing MA trend conditions without calling native code or readi
   );
   expect(another[0]!.strategyVersion).not.toBe(events[0]!.strategyVersion);
 });
-
 it("includes both minimum commissions and sell tax in the risk cap, then rounds down to valid lots", () => {
   const costs = backtestCostsSchema.parse({ slippageBps: 0 });
   const quantity = researchRiskQuantity({
@@ -164,13 +164,16 @@ it("includes both minimum commissions and sell tax in the risk cap, then rounds 
     stop: 9,
     fraction: 0.05,
     maxWeight: 1,
-    rules,
-    costs,
+    execution: researchExecutor(rules, costs),
   });
   // 400 * (10-9) + 5 + 5 + 400*9*0.0005 = 411.8; the next lot costs 512.25 risk.
   expect(quantity).toBe(400);
-  expect(plannedStopRisk(quantity, 10, 9, costs)).toBeCloseTo(411.8);
-  expect(plannedStopRisk(quantity + 100, 10, 9, costs)).toBeGreaterThan(500);
+  expect(
+    plannedStopRisk(quantity, 10, 9, researchCostQuote(costs)),
+  ).toBeCloseTo(411.8);
+  expect(
+    plannedStopRisk(quantity + 100, 10, 9, researchCostQuote(costs)),
+  ).toBeGreaterThan(500);
   expect(
     researchRiskQuantity({
       cash: 10000,
@@ -179,8 +182,7 @@ it("includes both minimum commissions and sell tax in the risk cap, then rounds 
       stop: 9,
       fraction: 0.001,
       maxWeight: 1,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     }),
   ).toBe(0);
   expect(
@@ -191,12 +193,10 @@ it("includes both minimum commissions and sell tax in the risk cap, then rounds 
       stop: 11,
       fraction: 0.05,
       maxWeight: 1,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     }),
   ).toBe(0);
 });
-
 it("does not stop out a new A-share position on its buy day; sells the next open including an overnight gap", () => {
   const result = researchPortfolio(
     managed,
@@ -219,7 +219,6 @@ it("does not stop out a new A-share position on its buy day; sells the next open
   expect(result.nav.at(-1)).toMatchObject({ cash: 8500, value: 8500 });
   expect(result.openPositions).toBe(0);
 });
-
 it("retains a triggered exit until tradable, and does not cancel it when the price later recovers", () => {
   const changed = structuredClone(series);
   changed[2] = { ...changed[2]!, open: 10, high: 12, close: 11 };
@@ -245,7 +244,6 @@ it("retains a triggered exit until tradable, and does not cancel it when the pri
     },
   ]);
 });
-
 it("rejects missing structure or an entry gap below it rather than quietly falling back to equal weight", () => {
   const missing = researchPortfolio(
     managed,
@@ -268,7 +266,6 @@ it("rejects missing structure or an entry gap below it rather than quietly falli
   expect(gap.trades).toEqual([]);
   expect(gap.excluded).toHaveLength(1);
 });
-
 it("keeps fixed-hold behavior when risk management is not selected and caps managed position value", () => {
   const legacy = researchPortfolio(
     { ...base, holdingDays: 1 },
@@ -294,7 +291,6 @@ it("keeps fixed-hold behavior when risk management is not selected and caps mana
   );
   expect(capped.trades[0]!.quantity).toBe(200);
 });
-
 it("renders the actual selected rule and matching parameters, without implying a crossover-only MA signal", () => {
   const managedHtml = renderToStaticMarkup(
     createElement(ResearchStrategyFields, {

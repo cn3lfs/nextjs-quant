@@ -7,7 +7,7 @@ import {
   type WyckoffInput,
   type VsaContext,
   wyckoffVsaIds,
-} from "../../../../src/lib/research/methods/wyckoff/research-wyckoff-vsa";
+} from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { selectResearchStrategy } from "../../../../src/components/research/research-strategy-fields";

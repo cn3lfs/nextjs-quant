@@ -4,8 +4,8 @@ import type {
   CzscFamily,
   CzscHighCandidate,
   CzscResult,
-} from "../../../../src/lib/research/methods/chan/czsc";
-import { chanNativeCandidates } from "../../../../src/lib/research/methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/czsc";
+import { chanNativeCandidates } from "trading-strategies/research/chan/research-chan-native";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({

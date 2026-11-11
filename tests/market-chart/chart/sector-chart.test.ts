@@ -4,7 +4,7 @@ import {
   chartPricePrecision,
   normalizeChartSymbol,
 } from "../../../src/lib/chart/chart-symbol";
-import { symbolSchema } from "../../../src/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { chartKeySchema } from "../../../src/lib/chart/chart-view";
 it("沪深基金图表保留三位价格，股票和指数保留两位", () => {
   for (const symbol of [

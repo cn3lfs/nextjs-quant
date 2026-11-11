@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import type { LedgerSignal } from "~/lib/strategy-facts/signal-ledger";
-import type { BreakoutPoint } from "../strategies/breakout/breakout";
+import type { BreakoutPoint } from "trading-strategies/research/breakout/breakout";
 
 export const ledgerHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

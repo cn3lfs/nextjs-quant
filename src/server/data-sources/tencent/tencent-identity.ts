@@ -5,7 +5,7 @@ import {
 } from "../westock/westock-adapter";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { isAStock } from "tstdx/local";
 export function parseTencentIdentity(text: string, symbol: string) {
   const rows = text

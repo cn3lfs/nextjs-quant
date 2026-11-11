@@ -6,8 +6,8 @@ import type { Bar } from "../../../../src/lib/domain";
 import {
   researchWyckoffSeries as series,
   wyckoffIds,
-} from "../../../../src/lib/research/methods/wyckoff/research-wyckoff";
-import { structureEventMachine } from "../../../../src/lib/research/technical/research-structure-events";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
+import { structureEventMachine } from "trading-strategies/research/technical/research-structure-events";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";

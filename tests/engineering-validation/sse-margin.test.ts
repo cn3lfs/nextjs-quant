@@ -12,7 +12,7 @@ import {
 import {
   tmtCrowding,
   type TmtInput,
-} from "~/server/strategies/sentiment/tmt-crowding";
+} from "trading-strategies/research/factors/tmt-crowding";
 import { get, put, sqlite } from "~/server/db";
 const now = Date.parse("2026-09-09T12:00:00+08:00");
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-sse-test-"));

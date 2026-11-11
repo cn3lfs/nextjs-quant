@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
-import { canslimTechnical } from "../../../../src/server/strategies/canslim/canslim-technical";
+import { canslimTechnical } from "trading-strategies/research/canslim/canslim-technical";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
 
 it("joins qualified geometry to its own pivot without inventing market evidence", () => {
   const snapshot: Snapshot = {
@@ -62,5 +64,5 @@ it("joins qualified geometry to its own pivot without inventing market evidence"
     }).marketContext,
   ).toBeNull();
   snapshot.bars[0]!.volume = 0;
-  expect(canslimTechnical(snapshot).entries).toEqual([]);
+  expect(canslimTechnical(snapshot, completedFixtureClock).entries).toEqual([]);
 });

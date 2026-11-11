@@ -1,19 +1,8 @@
 import { expect, it } from "vitest";
-import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
-import {
-  growthHistorySchema,
-  growthCrossSectionSchema,
-  growthSectorsSchema,
-  growthEntrySchema,
-  growthSecuritySchema,
-  growthEarningsSchema,
-} from "../../../src/lib/research/evidence/as-of-inputs";
-import {
-  evaluateGrowthFactors,
-  growthCombinationRules,
-  growthFactorMethods,
-  rankGrowthFactors,
-} from "../../../src/server/strategies/canslim/research-growth-factors";
+import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
+import {growthHistorySchema,growthCrossSectionSchema,growthSectorsSchema,growthEntrySchema,growthSecuritySchema,growthEarningsSchema} from "trading-strategies/research/contracts/growth-inputs";
+import {evaluateGrowthFactors,rankGrowthFactors} from "../../../src/server/strategies/canslim/research-growth-factors";
+import {growthCombinationRules,growthFactorMethods} from "trading-strategies/research/growth/growth-factor-engine";
 import {
   request,
   completeFixture,
@@ -21,9 +10,9 @@ import {
   growthShapedFixture as shaped,
 } from "../../helpers/growth-factor-fixture";
 import { runGrowthFactorResearch } from "../../../src/server/backtest/research-run";
-import { researchCanslimCupPoint } from "../../../src/server/strategies/canslim/research-canslim-cup";
-import { researchCanslimFlatPoint } from "../../../src/server/strategies/canslim/research-canslim-flat";
-import { researchCanslimSaucerPoint } from "../../../src/server/strategies/canslim/research-canslim-saucer";
+import { researchCanslimCupPoint } from "trading-strategies/research/canslim/research-canslim-cup";
+import { researchCanslimFlatPoint } from "trading-strategies/research/canslim/research-canslim-flat";
+import { researchCanslimSaucerPoint } from "trading-strategies/research/canslim/research-canslim-saucer";
 
 const set = (rows: AsOfObservation[], field: string, value: unknown) =>
   rows.map((r) => (r.field === field ? { ...r, value } : r));

@@ -2,10 +2,7 @@
 import { useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
-import {
-  disciplineNotice,
-  disciplineScope,
-} from "~/lib/research/risk/discipline-counterfactual";
+import {disciplineNotice,disciplineScope} from "trading-strategies/research/risk/discipline-policy";
 import { DisciplineResults } from "./discipline-results";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";

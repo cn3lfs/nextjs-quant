@@ -23,7 +23,7 @@ it("reports registration absent from map, and claimed implementation without cod
     ...evidence,
     owners: new Map([
       ...evidence.owners,
-      ["flag-unmapped", "src/lib/research/technical/research-channels.ts"],
+      ["flag-unmapped", "packages/trading-strategies/src/research/technical/research-channels.ts"],
     ]),
   };
   expect(reconcileMethodEvidence(map, unknown).errors).toContain(
@@ -52,7 +52,7 @@ it("backfills stale fields deterministically but never infers semantic completen
   const result = reconcileMethodEvidence(changed, evidence);
   const fixed = result.map.methods.find((m) => m.id === row.id)!;
   expect(fixed.status).toBe("implemented-variant");
-  expect(fixed.implementation).toContain("src/lib/research/technical/research-channels.ts");
+  expect(fixed.implementation).toContain("packages/trading-strategies/src/research/technical/research-channels.ts");
   expect(fixed.tests).toContain("tests/research-backtest/research-contracts.test.ts");
   expect(result.changes.map((c) => c.id)).toContain(row.id);
   expect(reconcileMethodEvidence(result.map, evidence).changes).toEqual([]);

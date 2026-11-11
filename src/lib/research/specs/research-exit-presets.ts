@@ -1,3 +1,4 @@
+import { canslimFixedExitPolicy } from "trading-strategies/research/canslim/research-canslim-management";
 import type { ResearchManagement } from "../workflow/research-management";
 
 export const researchExitPresetVersion = "research-exit-presets-1";
@@ -226,12 +227,8 @@ export function researchExitPresetTemplate(
     };
   if (isCanslimExitPreset(kind))
     return {
+      ...canslimFixedExitPolicy,
       exitPreset: kind,
-      stop: { kind: "percent", fraction: 0.08 },
-      confirmations: 1,
-      stressBuffer: 0,
-      trail: { kind: "fixed" },
-      timeExit: null,
       ...(kind === "canslim-8-fixed"
         ? {}
         : {

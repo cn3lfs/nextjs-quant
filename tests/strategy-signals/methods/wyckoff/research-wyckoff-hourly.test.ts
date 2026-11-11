@@ -7,8 +7,8 @@ import {
   researchWyckoffHourlySeries as series,
   wyckoffHourlyInputsSchema,
   type WyckoffHourlyInput,
-} from "../../../../src/lib/research/methods/wyckoff/research-wyckoff-hourly";
-import { researchWyckoffSeries } from "../../../../src/lib/research/methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
+import { researchWyckoffSeries } from "trading-strategies/research/wyckoff/research-wyckoff";
 import { hourlyBars } from "../../../../src/server/market/hourly-bars";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";

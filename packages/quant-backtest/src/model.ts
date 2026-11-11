@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { executionCostsSchema } from "./costs.js";
 export type { Bar } from "trading-strategy-core/bars";
-export const maBaselineId = "ma-cross-baseline-v1" as const;
+import { maBaselineId } from "trading-strategies";
 export const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)

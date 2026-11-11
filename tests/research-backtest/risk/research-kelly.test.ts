@@ -2,14 +2,14 @@ import { expect, it } from "vitest";
 import {
   researchKellyLimit,
   researchKellySchema,
-} from "../../../src/lib/research/risk/research-kelly";
+} from "trading-strategies/research/risk/research-kelly";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../../src/lib/research/strategy-research";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import { researchKellyQuality } from "../../../src/lib/research/risk/research-kelly-quality";
+import { researchKellyQuality } from "trading-strategies/research/risk/research-kelly-quality";
 import { selectResearchStrategy } from "../../../src/components/research/research-strategy-fields";
 const assumption = {
   winRate: 0.5,

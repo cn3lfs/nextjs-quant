@@ -125,6 +125,23 @@ it("rejects modified source calculations even with a recomputed content hash", (
   archive.id = `financial-quality-${archive.hash}`;
   expect(() => financialGrowth(archive)).toThrow(/校验/);
 });
+it("revalidates raw evidence and the original archive clock before invoking pure growth mathematics", () => {
+  const tampered = fixture();
+  tampered.evidence[0]!.text = tampered.evidence[0]!.text.replace(
+    "133.1",
+    "999",
+  );
+  tampered.hash = hash({
+    facts: tampered.facts,
+    evidence: tampered.evidence,
+    missingProfiles: tampered.missingProfiles,
+  });
+  tampered.id = `financial-quality-${tampered.hash}`;
+  expect(() => financialGrowth(tampered)).toThrow(/哈希/);
+  const earlier = fixture();
+  earlier.createdAt = Date.parse("2025-06-01T10:00:00+08:00");
+  expect(() => financialGrowth(earlier)).toThrow(/校验/);
+});
 it("serves deterministic growth separately without modifying the original financial archive", async () => {
   const archive = fixture(),
     before = JSON.stringify(archive),

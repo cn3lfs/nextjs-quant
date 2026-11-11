@@ -4,7 +4,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../src/lib/research/strategy-research";
-import type { ResearchExecutionRules } from "../../src/lib/research/technical/research-execution";
+import type {ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 const days = ["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"];
 const spec = researchSpecSchema.parse({
   strategy: "dual-breakout",

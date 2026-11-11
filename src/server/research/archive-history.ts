@@ -6,7 +6,7 @@ import {
   archiveKinds,
   type ArchiveFilter,
 } from "~/lib/research/workflow/archive-history";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { taskTextPreview } from "../jobs/task-history";
 
 /** SQL projection only. Original report bodies never enter the list response.

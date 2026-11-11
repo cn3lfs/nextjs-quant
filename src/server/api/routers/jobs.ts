@@ -28,13 +28,8 @@ import {
   type StoredScreenResult,
 } from "../../screening/screen-results";
 import { z } from "zod";
-import {
-  strategySchema,
-  symbolSchema,
-  periodSchema,
-  type Coverage,
-  type Snapshot,
-} from "~/lib/domain";
+import {strategySchema,periodSchema,type Coverage,type Snapshot} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { get, put, remove, atomic } from "../../db";
 import { settings } from "../../infra/settings";
 import { scanJob, startRuntime } from "../../runtime";

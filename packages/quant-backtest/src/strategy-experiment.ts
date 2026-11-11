@@ -7,7 +7,7 @@ import {
   factorStrategySchema,
   factorStrategySignals,
   factorStrategyWarmup,
-} from "./strategies/factor-strategy.js";
+} from "trading-strategies";
 import { runBacktest } from "./engine.js";
 import { runMaBaseline, type MaBaselineResult } from "./ma-baseline.js";
 import { z } from "zod";

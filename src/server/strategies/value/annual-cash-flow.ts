@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { symbolSchema, type Evidence } from "~/lib/domain";
+import {type Evidence} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { queryFinance } from "../../data-sources/hithink/hithink-finance";
 import { sharedRead } from "../../infra/shared-read";
 const cashFlowFields = {

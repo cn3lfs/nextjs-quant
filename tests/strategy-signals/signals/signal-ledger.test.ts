@@ -15,7 +15,7 @@ import {
   analyzeCzsc,
   closeCzsc,
 } from "../../../src/server/strategies/chan/czsc";
-import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { ledgerSignals } from "../../../src/server/monitoring/signal-ledger-engine";
 import {
   aggregateLedger,
@@ -25,7 +25,7 @@ import {
 } from "../../../src/lib/strategy-facts/signal-ledger";
 import { SignalLedgerView } from "../../../src/components/signals/signal-ledger-view";
 import type { Bar } from "../../../src/lib/domain";
-import type { CzscResult } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 
 const databases: Database.Database[] = [];
 // Own the existing M3 runtime prerequisite so this case also runs independently

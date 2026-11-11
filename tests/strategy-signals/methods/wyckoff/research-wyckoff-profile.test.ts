@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { wyckoffDailyProfile } from "../../../../src/lib/research/methods/wyckoff/research-wyckoff-profile";
-import { researchWyckoffSeries } from "../../../../src/lib/research/methods/wyckoff/research-wyckoff";
+import { wyckoffDailyProfile } from "trading-strategies/research/wyckoff/research-wyckoff-profile";
+import { researchWyckoffSeries } from "trading-strategies/research/wyckoff/research-wyckoff";
 import type { Bar } from "../../../../src/lib/domain";
 
 function fixture(highVolume = true): Bar[] {

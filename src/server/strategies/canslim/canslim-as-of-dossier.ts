@@ -1,34 +1,19 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
-import { symbolSchema } from "~/lib/domain";
-import { researchDateSchema } from "~/lib/research/workflow/research-usage";
 import {
   asOfDomains,
-  asOfTimestampSchema,
-  createAsOfAdapter,
   type AsOfDomain,
-} from "~/lib/research/evidence/as-of";
+} from "trading-strategies/research/contracts/as-of-domain";
+import { createAsOfAdapter } from "~/lib/research/evidence/as-of";
 import {
   asOfInputDefinitions,
   readAsOfInput,
   type AsOfInputQuery,
 } from "~/lib/research/evidence/as-of-inputs";
 
-export const canslimAsOfRequestSchema = z
-  .object({
-    symbol: symbolSchema,
-    asOf: asOfTimestampSchema,
-    capturedBy: asOfTimestampSchema.optional(),
-    observationDate: researchDateSchema,
-    // Explicit expected periods: absent disclosures produce visible missing rows.
-    financialPeriods: z.array(researchDateSchema).min(1).max(100),
-    annualPeriods: z.array(researchDateSchema).min(1).max(100),
-    institutionPeriods: z.array(researchDateSchema).min(1).max(100),
-    universeId: z.string().trim().min(1),
-    benchmarkId: z.string().trim().min(1),
-  })
-  .strict();
-export type CanslimAsOfRequest = z.infer<typeof canslimAsOfRequestSchema>;
+import {
+  canslimAsOfRequestSchema,
+  type CanslimAsOfRequest,
+} from "trading-strategies/research/contracts/canslim-request";
 
 /** Historical input dossier, deliberately separate from the current-market
  * scorecard/report. B6a provides data contracts only; B6b owns factor methods.

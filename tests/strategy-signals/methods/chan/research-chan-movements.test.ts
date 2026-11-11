@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import type { ChanMovement } from "../../../../src/lib/research/methods/chan/czsc-movements";
+import type { ChanMovement } from "trading-strategies/research/chan/czsc-movements";
 import {
   chanC4Presets,
   chanC4Trend,
@@ -8,7 +8,7 @@ import {
   chanC4MonthlyBottom,
   chanC4SmallTurn,
   chanC4Observations,
-} from "../../../../src/lib/research/methods/chan/research-chan-movements";
+} from "trading-strategies/research/chan/research-chan-movements";
 
 import { chanMovementFixture as fixture } from "../../../helpers/chan-movements";
 

@@ -1,5 +1,5 @@
-import { researchCanslimWeekly } from "../../../../src/server/strategies/canslim/research-canslim-weekly";
-import { researchCanslimPriorityPoint } from "../../../../src/server/strategies/canslim/research-canslim-priority";
+import { researchCanslimWeekly } from "trading-strategies/research/canslim/research-canslim-weekly";
+import { researchCanslimPriorityPoint } from "trading-strategies/research/canslim/research-canslim-priority";
 import { selectResearchStrategy } from "../../../../src/components/research/research-strategy-fields";
 import { researchManagementSchema } from "../../../../src/lib/research/workflow/research-management";
 import { expect, it } from "vitest";
@@ -8,7 +8,7 @@ import { researchSpecSchema } from "../../../../src/lib/research/strategy-resear
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 function weekdays(count: number) {
   return Array.from(

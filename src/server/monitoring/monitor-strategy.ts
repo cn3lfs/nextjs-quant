@@ -1,14 +1,9 @@
-import {
-  strategySchema,
-  type Bar,
-  type Metrics,
-  type Monitor,
-  type Strategy,
-} from "~/lib/domain";
-import type { CzscSignalDetails } from "~/lib/research/methods/chan/czsc";
+import {strategySchema,type Bar,type Monitor,type Strategy} from "~/lib/domain";
+import {type Metrics} from "trading-strategies/research/technical/screening-metrics";
+import type { CzscSignalDetails } from "trading-strategies/research/chan/czsc";
 import { analyzeCzsc } from "../strategies/chan/czsc";
-import { metrics } from "~/lib/screening/screening-metrics";
-import { analyzeBreakout } from "../strategies/breakout/breakout";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 
 export async function monitorStrategy(
   bars: Bar[],

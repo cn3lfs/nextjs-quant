@@ -5,7 +5,7 @@ import {
   volumeIntradayFacts,
   volumeIntradayIds,
   type VolumeIntradayEvidence,
-} from "../../src/lib/research/methods/volume/research-volume-intraday";
+} from "trading-strategies/research/volume/research-volume-intraday";
 const bars = (): Bar[] =>
   Array.from({ length: 25 }, (_, i) => ({
     date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),

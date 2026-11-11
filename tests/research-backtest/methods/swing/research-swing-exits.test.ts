@@ -4,7 +4,7 @@ import { researchManagementSchema } from "../../../../src/lib/research/workflow/
 import {
   swingExitTemplate,
   swingExitKind,
-} from "../../../../src/lib/research/methods/swing/research-swing-exits";
+} from "trading-strategies/research/swing/research-swing-exits";
 import {
   researchSpecSchema,
   type ResearchEvent,

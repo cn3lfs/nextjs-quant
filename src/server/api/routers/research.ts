@@ -1,7 +1,5 @@
-import {
-  researchRangeSchema,
-  researchDateSchema,
-} from "~/lib/research/workflow/research-usage";
+import {researchRangeSchema} from "~/lib/research/workflow/research-usage";
+import {researchDateSchema} from "trading-strategies/research/contracts/date";
 import { researchUsage } from "../../research/research-usage";
 import { researchAttemptsQuerySchema } from "~/lib/research/workflow/research-governance";
 import { ResearchAttempts } from "../../research/research-governance";
@@ -17,7 +15,7 @@ import { readMarketPool } from "../../market/market-pool-files";
 import { admissionPageSchema } from "../../research/performance/strategy-admission-service";
 import { requireA500Selection } from "../../research/a500-research";
 import { researchSpecSchema } from "~/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "~/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { ResearchStore } from "../../backtest/research-store";
 import {
   periodPageSchema,

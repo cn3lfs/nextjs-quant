@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
-import { researchKellyTraining } from "../../../src/lib/research/risk/research-kelly-training";
-import { researchKellyNetPayoff } from "../../../src/lib/research/risk/research-kelly-payoff";
+import { researchKellyTraining } from "trading-strategies/research/risk/research-kelly-training";
+import { researchKellyNetPayoff } from "trading-strategies/research/risk/research-kelly-payoff";
 import {
   researchKellyLimit,
   researchKellySchema,
-} from "../../../src/lib/research/risk/research-kelly";
+} from "trading-strategies/research/risk/research-kelly";
 
 function train(profits: number[]) {
   return researchKellyTraining(

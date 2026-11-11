@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { chanAnchorDateCodes } from "../../../../src/lib/research/methods/chan/czsc-movements";
+import { chanAnchorDateCodes } from "trading-strategies/research/chan/czsc-movements";
 
 it("monthly anchor is independent, with calendar-complete input owned by monthly adapter", () => {
   expect(

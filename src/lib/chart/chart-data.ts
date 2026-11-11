@@ -11,8 +11,8 @@ import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "../indicators";
 import { bias, cci, ema, obv, williams } from "./chart-extra-indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
-import type { CzscPoint, CzscResult } from "../research/methods/chan/czsc";
-import type { BreakoutResult } from "../../server/strategies/breakout/breakout";
+import type { CzscPoint, CzscResult } from "trading-strategies/research/chan/czsc";
+import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
 
 /** Render as-of evidence only; no chart-side fitting or indicator formulas. */
 export function breakoutChartData(

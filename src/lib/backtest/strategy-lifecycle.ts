@@ -1,5 +1,6 @@
 /** All pre-foundation strategies remain readable, but cannot start new work. */
-import { maBaselineId, factorStrategyId } from "quant-backtest";
+import { maBaselineId } from "trading-strategies";
+import { factorStrategyId } from "trading-strategies";
 export { maBaselineId };
 export const deprecatedStrategyMessage =
   "该策略已弃用，仅保留历史结果与证据。请使用回测页的双均线基线或因子组合。";

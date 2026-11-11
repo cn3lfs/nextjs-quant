@@ -1,13 +1,18 @@
-import { czscSourceCommit } from "~/lib/research/methods/chan/czsc";
-import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
+import {
+  breakoutEntryIntent,
+  legacyCzscQualifiedSignals,
+} from "trading-strategies/research/technical/research-entry-policy";
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
+import { czscSourceCommit } from "trading-strategies/research/chan/czsc";
+import { isChanC4 } from "trading-strategies/research/chan/research-chan-movements";
 import { researchChanMovements } from "../chan/research-chan-movements";
 import { researchChanZhongyin } from "../chan/research-chan-zhongyin";
-import { isChanZhongyin } from "~/lib/research/methods/chan/research-chan-native";
+import { isChanZhongyin } from "trading-strategies/research/chan/research-chan-native";
 import {
   structureBarBytes,
   isWyckoffStructure,
   type WyckoffId,
-} from "~/lib/research/methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import {
   researchStructureWeekly,
   researchWyckoffStructureSeries,
@@ -15,8 +20,8 @@ import {
 import {
   isWyckoffHourly,
   researchWyckoffHourlySeries,
-} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
-import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
+import type { ResearchStructureObservation } from "trading-strategies/research/technical/research-structure-events";
 import {
   chanWolfPoint,
   isChanMa,
@@ -24,35 +29,40 @@ import {
   compactChanMaMethodPoint,
   isChanNative,
   chanNativeCandidates,
-} from "~/lib/research/methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/research-chan-native";
 import {
   isWyckoffVsa,
   researchWyckoffVsaSeries,
-} from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
-import { crowdedStop } from "~/lib/research/risk/research-risk-scenarios";
-import { riskPresetEvolution } from "~/lib/research/risk/research-risk-presets";
-import { chanStopLine } from "~/lib/research/risk/research-stop-calibration";
-import { riskPresetAdmission } from "~/lib/research/risk/research-risk-presets";
-import { isVolumePollution } from "~/lib/research/methods/volume/research-volume-pollution";
-import { isVolumeAdapted } from "~/lib/research/methods/volume/research-volume-adapted";
-import { isSwingCore } from "~/lib/research/methods/swing/research-swing-core";
-import { researchBreakoutStopLocation } from "~/lib/research/technical/research-breakout-stops";
-import type { CanslimResearchMarket } from "../canslim/research-canslim-market-score";
+} from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
+import { chanStopLine } from "trading-strategies/research/risk/research-stop-calibration";
+import { isVolumePollution } from "trading-strategies/research/volume/research-volume-pollution";
+import { isVolumeAdapted } from "trading-strategies/research/volume/research-volume-adapted";
+import { isSwingCore } from "trading-strategies/research/swing/research-swing-core";
+import type { CanslimResearchMarket } from "trading-strategies/research/canslim/research-canslim-market-score";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
-import type { ResearchEvent, ResearchSpec } from "~/lib/research/strategy-research";
-import { analyzeBreakout } from "../breakout/breakout";
-import { metrics } from "~/lib/screening/screening-metrics";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
+import type {
+  ResearchEvent,
+  ResearchSpec,
+} from "~/lib/research/strategy-research";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { researchStrategies } from "~/lib/research/specs/research-strategies";
 import { atr } from "trading-strategy-core/indicators";
-import { isVolumeGrid } from "~/lib/research/methods/volume/research-volume-grid";
-import { isFormulaExample } from "~/lib/research/specs/research-formula-examples";
-import { isExternalFormula } from "~/lib/research/specs/research-formula-external";
-import { isSwingMarket } from "~/lib/research/methods/swing/research-swing-market";
-import { isVolumeIntraday } from "~/lib/research/methods/volume/research-volume-intraday";
-import type { VolumeEvidence } from "~/lib/research/methods/volume/research-volume-grid";
-import { isResearchRule, researchRuleSeries } from "./research-rule-series";
+import { isVolumeGrid } from "trading-strategies/research/volume/research-volume-grid";
+import { isFormulaExample } from "trading-strategies/research/technical/research-formula-examples";
+import { isExternalFormula } from "trading-strategies/research/technical/research-formula-external";
+import { isSwingMarket } from "trading-strategies/research/swing/research-swing-market";
+import { isVolumeIntraday } from "trading-strategies/research/volume/research-volume-intraday";
+import type { VolumeEvidence } from "trading-strategies/research/volume/research-volume-grid";
+import {
+  isResearchRule,
+  researchRuleSeries,
+} from "trading-strategies/research/composition/research-rule-series";
 
+/** Full-prefix replay: native structures may revise endpoints, so a result
+ * computed over the final range must never be used to label earlier dates.
+ */
 /** Full-prefix replay: native structures may revise endpoints, so a result
  * computed over the final range must never be used to label earlier dates.
  */
@@ -191,7 +201,10 @@ export async function researchSignals(
       if (identity && identity !== version)
         throw new Error("回放期间DLL版本变化");
       identity = version;
-      if (result.status !== "structure" || result.sourceCommit !== czscSourceCommit) {
+      if (
+        result.status !== "structure" ||
+        result.sourceCommit !== czscSourceCommit
+      ) {
         ready = false;
         recordStructure?.({
           symbol,
@@ -310,6 +323,7 @@ export async function researchSignals(
               calendar,
               market,
               volumeEvidence,
+              researchFormulaRuntime,
             )
           : null;
   if (technical && recordStructure)
@@ -406,14 +420,7 @@ export async function researchSignals(
       }
       return found.signals;
     }
-    return result.status === "structure"
-      ? (result.families
-          .find((family) => family.config === spec.czscConfig)
-          ?.signals.filter(
-            (point) =>
-              [1, 2, 3].includes(point.kind) && [1, 2].includes(point.quality),
-          ) ?? [])
-      : [];
+    return legacyCzscQualifiedSignals(result, spec.czscConfig);
   };
   const key = (point: { date: string; kind: number }) =>
     `czsc:${spec.czscConfig}:${point.date}:${point.kind}`;
@@ -434,11 +441,11 @@ export async function researchSignals(
   //
   // Causality (both halves read only data at or before the evaluated bar, so a
   // prefix and the full series agree on that bar):
-  //   - `prepare` (src/server/strategies/breakout/breakout.ts:143-152) is macd/kdj/rsi/boll/ma60;
+  //   - `prepare` (packages/trading-strategies/src/research/breakout/breakout.ts:143-152) is macd/kdj/rsi/boll/ma60;
   //     src/lib/indicators.ts computes every one of them from trailing windows
   //     only (`bars.slice(i + 1 - n, i + 1)` at :426 and :475, `bars[i - 1]` at
   //     :520), so values[i] depends on bars[0..i].
-  //   - `point` (src/server/strategies/breakout/breakout.ts:153-393) reads bars[i], bars[i - 1],
+  //   - `point` (packages/trading-strategies/src/research/breakout/breakout.ts:153-393) reads bars[i], bars[i - 1],
   //     `bars.slice(max(0, i - 60), i)`, `bars.slice(0, i + 1)`, `bars.slice(j - 9, j + 1)`
   //     with every loop bounded by `j < i` (:241), and `values.*[i]` / `.*[i - 1]`;
   //     nothing reads an index above `i`.
@@ -519,7 +526,6 @@ export async function researchSignals(
       const result = metrics(bars.slice(0, index + 1), {
         ...spec.maParams!,
         type: "ma-cross",
-        params: spec.maParams!,
       });
       if (result?.matched && bar.volume > 0)
         events.push({
@@ -531,79 +537,34 @@ export async function researchSignals(
         });
     } else if (definition.signal === "dual-breakout") {
       const result = breakoutPoints![index]!;
-      const crowd = riskPresetEvolution(spec.management?.riskPreset)?.crowded;
-      const crowded = crowd
-        ? crowdedStop(
-            result,
-            crowd.anchor,
-            stopAtr?.[index] ?? null,
-            crowd.multiple,
-          )
-        : null;
-      const location =
-        stop?.kind === "breakout-candle" || stop?.kind === "platform-upper"
-          ? researchBreakoutStopLocation(
-              stop.kind,
-              bar,
-              bars[index - 1]!,
-              result?.levels ?? [],
-            )
-          : undefined;
-      if (result?.long.status === "是" && bar.volume > 0)
+      const intent = breakoutEntryIntent(
+        result,
+        bar,
+        bars[index - 1]!,
+        {
+          strategy: spec.strategy,
+          stopDiagnosis: !!spec.stopDiagnosis,
+          stopKind: spec.management?.stop.kind,
+          contextRisk: spec.management?.contextRisk,
+          swingDiscipline: spec.management?.swingDiscipline,
+          riskPreset: spec.management?.riskPreset,
+          pyramidKind: spec.management?.pyramid?.kind,
+          growthIntraday: spec.management?.growthIntraday,
+          riskScenario: spec.riskRoute?.scenario,
+        },
+        stopAtr?.[index] ?? null,
+      );
+      if (intent) {
+        const { evidence, ...policy } = intent;
         events.push({
           ...common,
           key: `${definition.version}:${bar.date}:long`,
           endpointDate: bar.date,
           strategyVersion: definition.version,
-          evidence: JSON.stringify(
-            location === undefined
-              ? result.long
-              : { ...result.long, stopLocation: location },
-          ),
-          ...(spec.management?.contextRisk === "sw-preflight" ||
-          spec.management?.swingDiscipline === "sw-min-rr2" ||
-          (spec.management?.riskPreset &&
-            riskPresetAdmission(spec.management.riskPreset) === "rr2")
-            ? { entryTarget: result.long.risk.target1?.price ?? null }
-            : {}),
-          ...(crowd ? { initialStop: crowded?.price ?? null } : {}),
-          ...(location !== undefined
-            ? { initialStop: location?.price ?? null }
-            : {}),
-          ...(spec.management?.pyramid?.kind === "pullback-50-50"
-            ? {
-                pullbackLevel:
-                  result.long.keyLevel && result.long.line
-                    ? Math.max(
-                        result.long.keyLevel.price,
-                        result.long.line.value,
-                      )
-                    : null,
-              }
-            : {}),
-          ...(!!spec.stopDiagnosis ||
-          spec.strategy === "dual-breakout-structure" ||
-          spec.management?.stop.kind === "structure" ||
-          spec.management?.stop.kind === "structure-atr" ||
-          spec.management?.stop.kind === "max-distance" ||
-          spec.management?.stop.kind === "nearest-stop" ||
-          spec.management?.stop.kind === "structure-auto"
-            ? {
-                initialStop:
-                  spec.management?.growthIntraday === "RK-C-swing-system" ||
-                  spec.riskRoute?.scenario === "pullback"
-                    ? (result.levels
-                        .filter(
-                          (l) =>
-                            l.source === "swing-low" &&
-                            l.confirmedAt <= bar.date &&
-                            l.price < bar.close,
-                        )
-                        .sort((a, b) => b.index - a.index)[0]?.price ?? null)
-                    : (result.long.risk.stop?.price ?? null),
-              }
-            : {}),
+          evidence: JSON.stringify(evidence),
+          ...policy,
         });
+      }
     } else {
       const result = await czsc(bars.slice(0, index + 1));
       if (

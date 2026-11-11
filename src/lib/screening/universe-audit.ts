@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { tableSortSchema } from "../common/server-sort";
-import { symbolSchema } from "../domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { historicalDateSchema } from "./historical-screen";
 import { poolSelectionSchema } from "../market/market-pool";
 

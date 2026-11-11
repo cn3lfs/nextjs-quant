@@ -1,3 +1,4 @@
+import { canslimSectorObservationPoints } from "trading-strategies/research/canslim/canslim-sector-score";
 import { z } from "zod";
 const table = z.object({
   status_code: z.literal(0),
@@ -116,8 +117,6 @@ export function canslimSectorRank(
     1 + pool.filter((p) => p.changePercent > sector.changePercent).length;
   const stockRank =
     1 + stocks.filter((p) => p.changePercent > stock.changePercent).length;
-  const base =
-    stockRank === 1 ? 6 : stockRank <= 3 ? 5 : stockRank <= 10 ? 3 : 0;
   return {
     version: "canslim-sector-rank-2",
     id: "L2",
@@ -141,7 +140,11 @@ export function canslimSectorRank(
     sectorCount: pool.length,
     stockRank,
     memberCount: stocks.length,
-    observationPoints: sectorRank > pool.length / 2 ? Math.min(3, base) : base,
+    observationPoints: canslimSectorObservationPoints(
+      sectorRank,
+      pool.length,
+      stockRank,
+    ),
     warnings: [
       startDate
         ? "指定日期端点自算收益；未核验企业行动与交易日连续性，不是完整L2评分。"

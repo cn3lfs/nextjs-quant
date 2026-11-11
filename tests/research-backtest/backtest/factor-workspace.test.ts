@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
-import { factorStrategyPresets, factorStrategySchema } from "quant-backtest";
+import { factorStrategyPresets, factorStrategySchema } from "trading-strategies";
 import { FactorStrategyEditor } from "~/components/backtest/factor-strategy-editor";
 import {
   draftFromInput,

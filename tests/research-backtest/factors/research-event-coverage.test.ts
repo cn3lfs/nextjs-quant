@@ -3,7 +3,7 @@ import type { Bar } from "~/lib/domain";
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
-} from "../../../src/lib/research/factors/research-event-coverage";
+} from "trading-strategies/research/factors/research-event-coverage";
 
 const bar = (date: string, close: number, volume = 100): Bar => ({
   date,

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import { researchCanslimVolumeScore } from "../../../../src/server/strategies/canslim/research-canslim-volume-score";
+import { researchCanslimVolumeScore } from "trading-strategies/research/canslim/research-canslim-volume-score";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";

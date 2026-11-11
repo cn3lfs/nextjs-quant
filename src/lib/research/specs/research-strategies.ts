@@ -1,105 +1,110 @@
+import { researchFormulaRuntime } from "../technical/research-formula-runtime";
 import {
   chanC4Strategies,
   chanC4Ids,
-} from "../methods/chan/research-chan-movements";
+} from "trading-strategies/research/chan/research-chan-movements";
 import {
   wyckoffHourlyStrategies,
   wyckoffHourlyIds,
-} from "../methods/wyckoff/research-wyckoff-hourly";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import {
   chanNativeStrategies,
   chanNativeIds,
-} from "../methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/research-chan-native";
 import {
   wyckoffVsaStrategies,
   wyckoffVsaIds,
-} from "../methods/wyckoff/research-wyckoff-vsa";
+} from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
 import {
   wyckoffStrategies,
   wyckoffIds,
-} from "../methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import {
   sepaResearchIds,
   sepaResearchStrategies,
-} from "./research-sepa-strategies";
+} from "trading-strategies/research/canslim/research-sepa-strategies";
 import { baseStrategies, baseStrategyIds } from "./research-base-strategies";
 import { z } from "zod";
 import { deprecatedStrategyLabel } from "~/lib/backtest/strategy-lifecycle";
 import {
   canslimResearchIds,
   canslimResearchStrategies,
-} from "../methods/canslim/research-canslim-strategies";
+} from "trading-strategies/research/canslim/research-canslim-strategies";
 import {
   breakoutRuleIds,
   breakoutRuleStrategies,
-} from "../technical/research-breakout-rules";
-import { channelStrategies, channelIds } from "../technical/research-channels";
+} from "trading-strategies/research/technical/research-breakout-rules";
+import {
+  channelStrategies,
+  channelIds,
+} from "trading-strategies/research/technical/research-channels";
 import {
   continuationStrategies,
   continuationIds,
-} from "../technical/research-continuation";
+} from "trading-strategies/research/technical/research-continuation";
 import {
   candleStrategies,
   candleStrategyIds,
-} from "../technical/research-candles";
+} from "trading-strategies/research/technical/research-candles";
 import {
   volumeSequenceStrategies,
   volumeSequenceIds,
-} from "../methods/volume/research-volume-sequence";
+} from "trading-strategies/research/volume/research-volume-sequence";
 import {
   volumeFailureStrategies,
   volumeFailureIds,
-} from "../methods/volume/research-volume-failure";
+} from "trading-strategies/research/volume/research-volume-failure";
 import {
   volumeStructureStrategies,
   volumeStructureIds,
-} from "../methods/volume/research-volume-structure";
+} from "trading-strategies/research/volume/research-volume-structure";
 import {
   volumeStrategies,
   volumeStrategyIds,
-} from "../methods/volume/research-volume";
+} from "trading-strategies/research/volume/research-volume";
 import {
   volumeContextStrategies,
   volumeContextIds,
-} from "../methods/volume/research-volume-context";
+} from "trading-strategies/research/volume/research-volume-context";
 import {
   volumeReversalStrategies,
   volumeReversalIds,
-} from "../methods/volume/research-volume-reversals";
+} from "trading-strategies/research/volume/research-volume-reversals";
 import {
-  technicalStrategies,
+  buildTechnicalStrategies,
   technicalStrategyIds,
-} from "../technical/research-technical";
+} from "trading-strategies/research/technical/research-technical";
 
 // Only executable families belong here. Definitions drive form options and method snapshots.
+const technicalStrategies = buildTechnicalStrategies(researchFormulaRuntime);
 export const researchStrategyFamilies = [
   {
-    file: "src/lib/research/methods/chan/research-chan-movements.ts",
+    file: "packages/trading-strategies/src/research/chan/research-chan-movements.ts",
     strategies: chanC4Strategies,
     ids: chanC4Ids,
   },
   {
-    file: "src/lib/research/methods/wyckoff/research-wyckoff-hourly.ts",
+    file: "packages/trading-strategies/src/research/wyckoff/research-wyckoff-hourly.ts",
     strategies: wyckoffHourlyStrategies,
     ids: wyckoffHourlyIds,
   },
   {
-    file: "src/lib/research/methods/chan/research-chan-native.ts",
+    file: "packages/trading-strategies/src/research/chan/research-chan-native.ts",
     strategies: chanNativeStrategies,
     ids: chanNativeIds,
   },
   {
-    file: "src/lib/research/methods/wyckoff/research-wyckoff-vsa.ts",
+    file: "packages/trading-strategies/src/research/wyckoff/research-wyckoff-vsa.ts",
     strategies: wyckoffVsaStrategies,
     ids: wyckoffVsaIds,
   },
   {
-    file: "src/lib/research/methods/wyckoff/research-wyckoff.ts",
+    file: "packages/trading-strategies/src/research/wyckoff/research-wyckoff.ts",
     strategies: wyckoffStrategies,
     ids: wyckoffIds,
   },
   {
-    file: "src/lib/research/specs/research-sepa-strategies.ts",
+    file: "packages/trading-strategies/src/research/canslim/research-sepa-strategies.ts",
     strategies: sepaResearchStrategies,
     ids: sepaResearchIds,
   },
@@ -109,62 +114,62 @@ export const researchStrategyFamilies = [
     ids: baseStrategyIds,
   },
   {
-    file: "src/lib/research/technical/research-technical.ts",
+    file: "packages/trading-strategies/src/research/technical/research-technical.ts",
     strategies: technicalStrategies,
     ids: technicalStrategyIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume.ts",
     strategies: volumeStrategies,
     ids: volumeStrategyIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume-reversals.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume-reversals.ts",
     strategies: volumeReversalStrategies,
     ids: volumeReversalIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume-context.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume-context.ts",
     strategies: volumeContextStrategies,
     ids: volumeContextIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume-structure.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume-structure.ts",
     strategies: volumeStructureStrategies,
     ids: volumeStructureIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume-failure.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume-failure.ts",
     strategies: volumeFailureStrategies,
     ids: volumeFailureIds,
   },
   {
-    file: "src/lib/research/methods/volume/research-volume-sequence.ts",
+    file: "packages/trading-strategies/src/research/volume/research-volume-sequence.ts",
     strategies: volumeSequenceStrategies,
     ids: volumeSequenceIds,
   },
   {
-    file: "src/lib/research/technical/research-candles.ts",
+    file: "packages/trading-strategies/src/research/technical/research-candles.ts",
     strategies: candleStrategies,
     ids: candleStrategyIds,
   },
   {
-    file: "src/lib/research/technical/research-continuation.ts",
+    file: "packages/trading-strategies/src/research/technical/research-continuation.ts",
     strategies: continuationStrategies,
     ids: continuationIds,
   },
   {
-    file: "src/lib/research/technical/research-channels.ts",
+    file: "packages/trading-strategies/src/research/technical/research-channels.ts",
     strategies: channelStrategies,
     ids: channelIds,
   },
   {
-    file: "src/lib/research/technical/research-breakout-rules.ts",
+    file: "packages/trading-strategies/src/research/technical/research-breakout-rules.ts",
     strategies: breakoutRuleStrategies,
     ids: breakoutRuleIds,
   },
   {
-    file: "src/lib/research/methods/canslim/research-canslim-strategies.ts",
+    file: "packages/trading-strategies/src/research/canslim/research-canslim-strategies.ts",
     strategies: canslimResearchStrategies,
     ids: canslimResearchIds,
   },

@@ -9,9 +9,9 @@ import { correlation } from "../../packages/trading-strategy-core/src/factors/st
 import {
   csi800ClassicFactors,
   classicRanks,
-} from "../../packages/quant-backtest/src/csi800-factors.js";
-import { csi800ForwardReturn } from "../../packages/quant-backtest/src/csi800-signal.js";
-import type { ClassicWeek } from "../../packages/quant-backtest/src/csi800-composite.js";
+} from "../../packages/trading-strategies/src/csi800-factors.js";
+import { csi800ForwardReturn } from "../../packages/trading-strategies/src/csi800-signal.js";
+import type { ClassicWeek } from "../../packages/trading-strategies/src/csi800-composite.js";
 import type { ClassicPriceInput } from "./csi800-factor-data.js";
 
 const mean = (values: number[]) =>

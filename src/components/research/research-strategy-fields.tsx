@@ -1,30 +1,30 @@
 import {
   isWyckoffStructure,
   wyckoffStructureInputsSchema,
-} from "~/lib/research/methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import {
   isWyckoffHourly,
   wyckoffHourlyInputsSchema,
-} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import {
   isWyckoffVsa,
   wyckoffInputsSchema,
-} from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
+} from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
 import { ResearchRiskCompositionFields } from "./research-risk-composition-fields";
 import {
   riskExtensionSchema,
   riskExtensionTemplate,
   evaluateRiskExtension,
   riskExtensionBoundary,
-} from "~/lib/research/risk/research-risk-extensions";
+} from "trading-strategies/research/risk/research-risk-extensions";
 import { Textarea } from "../ui/textarea";
-import { contextRiskMaxPositions } from "~/lib/research/risk/research-context-risk";
+import { contextRiskMaxPositions } from "trading-strategies/research/risk/research-context-risk";
 import {
   riskPresetParameters,
   riskPresetBase,
-} from "~/lib/research/risk/research-risk-presets";
-import { growthIntradayBase } from "~/lib/research/factors/research-growth-intraday";
-import { growthDailyBase } from "~/lib/research/factors/research-growth-daily";
+} from "trading-strategies/research/risk/research-risk-presets";
+import { growthIntradayBase } from "trading-strategies/research/factors/research-growth-intraday";
+import { growthDailyBase } from "trading-strategies/research/factors/research-growth-daily";
 import { maParamsSchema } from "~/lib/domain";
 import type { ResearchSpec } from "~/lib/research/strategy-research";
 import {
@@ -39,12 +39,12 @@ import { ResearchManagementFields } from "./research-management-fields";
 import { researchManagementSchema } from "~/lib/research/workflow/research-management";
 import type { ResearchManagement } from "~/lib/research/workflow/research-management";
 import { isCanslimProgressPreset } from "~/lib/research/specs/research-exit-presets";
-import { isCanslimResearch } from "~/lib/research/methods/canslim/research-canslim-strategies";
-import { canslimRiskTemplate } from "~/lib/research/methods/canslim/research-canslim-management";
+import { isCanslimResearch } from "trading-strategies/research/canslim/research-canslim-strategies";
+import { canslimRiskTemplate } from "trading-strategies/research/canslim/research-canslim-management";
 import {
   growthDailyExitTemplate,
   isGrowthDailyExit,
-} from "~/lib/research/factors/research-growth-exits";
+} from "trading-strategies/research/factors/research-growth-exits";
 import {
   Select,
   SelectTrigger,

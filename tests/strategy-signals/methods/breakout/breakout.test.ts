@@ -6,9 +6,9 @@ import short from "../../../fixtures/breakout-insufficient.json";
 import {
   analyzeBreakout,
   breakoutPatterns,
-} from "../../../../src/server/strategies/breakout/breakout";
+} from "trading-strategies/research/breakout/breakout";
 import { breakoutMethod } from "../../../../src/server/research/research-skills";
-import { vcpFacts } from "../../../../src/server/strategies/canslim/vcp";
+import { vcpFacts } from "trading-strategies/research/canslim/vcp";
 import { boll, kdj, macd, rsi } from "../../../../src/lib/indicators";
 import { breakoutChartData } from "../../../../src/lib/chart/chart-data";
 import { monitorStrategy } from "../../../../src/server/monitoring/monitor-strategy";

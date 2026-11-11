@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import type { CzscResult } from "../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { researchSignals } from "../../src/server/strategies/shared/research-signals";
 

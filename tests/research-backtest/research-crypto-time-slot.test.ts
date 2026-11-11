@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { evaluateCryptoTimeSlot } from "../../src/lib/research/factors/research-crypto-time-slot";
+import { evaluateCryptoTimeSlot } from "trading-strategies/research/factors/research-crypto-time-slot";
 import { runCryptoTimeSlotResearch } from "../../src/server/backtest/research-run";
 
 function fixture() {

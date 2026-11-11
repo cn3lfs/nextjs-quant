@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { canslimEntry } from "../../../../src/server/strategies/canslim/canslim-entry";
+import { canslimEntry } from "trading-strategies/research/canslim/canslim-entry";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "entry",
   symbol: "sh600519",
@@ -21,30 +24,43 @@ const fixture = (): Snapshot => ({
 });
 it("requires strict price confirmation and uses the prior 20-bar volume", () => {
   const s = fixture();
-  expect(canslimEntry(s, 100, -1, false)).toMatchObject({
+  expect(canslimEntry(s, 100, -1, false, completedFixtureClock)).toMatchObject({
     volume20: 100,
     strength: "strong",
   });
   s.bars.at(-1)!.close = 101;
-  expect(canslimEntry(s, 100, -1, false).checks.closeAboveConfirmation).toBe(
-    false,
-  );
+  expect(
+    canslimEntry(s, 100, -1, false, completedFixtureClock).checks
+      .closeAboveConfirmation,
+  ).toBe(false);
   s.bars.at(-1)!.close = 105;
-  expect(canslimEntry(s, 100, -1, false).checks.withinFivePercent).toBe(true);
+  expect(
+    canslimEntry(s, 100, -1, false, completedFixtureClock).checks
+      .withinFivePercent,
+  ).toBe(true);
   s.bars.at(-1)!.close = 105.001;
-  expect(canslimEntry(s, 100, -1, false).strength).toBe("weak");
+  expect(canslimEntry(s, 100, -1, false, completedFixtureClock).strength).toBe(
+    "weak",
+  );
 });
 it("keeps unknown context separate from failed context", () => {
   const s = fixture();
-  expect(canslimEntry(s, 100, null, null).strength).toBe("missing");
-  expect(canslimEntry(s, 100, -2, false)).toMatchObject({
+  expect(canslimEntry(s, 100, null, null, completedFixtureClock).strength).toBe(
+    "missing",
+  );
+  expect(canslimEntry(s, 100, -2, false, completedFixtureClock)).toMatchObject({
     strength: "medium",
     checks: { marketConfirmed: false },
   });
-  expect(canslimEntry(s, 100, null, true).strength).toBe("strong");
-  expect(canslimEntry(s, null, 1, true).strength).toBe("missing");
+  expect(canslimEntry(s, 100, null, true, completedFixtureClock).strength).toBe(
+    "strong",
+  );
+  expect(canslimEntry(s, null, 1, true, completedFixtureClock).strength).toBe(
+    "missing",
+  );
   expect(
-    canslimEntry(s, 100, Infinity, false).checks.marketConfirmed,
+    canslimEntry(s, 100, Infinity, false, completedFixtureClock).checks
+      .marketConfirmed,
   ).toBeNull();
 });
 it("rejects unfinished and zero-volume histories", () => {
@@ -54,5 +70,7 @@ it("rejects unfinished and zero-volume histories", () => {
       .strength,
   ).toBe("missing");
   s.bars[0]!.volume = 0;
-  expect(canslimEntry(s, 100, 1, true).checks.volumeConfirmed).toBeNull();
+  expect(
+    canslimEntry(s, 100, 1, true, completedFixtureClock).checks.volumeConfirmed,
+  ).toBeNull();
 });

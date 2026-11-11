@@ -1,12 +1,13 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchRuleSeries } from "../../../../src/server/strategies/shared/research-rule-series";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const rules = {
   evidence: "fixture",
@@ -121,100 +122,85 @@ const ids = [
 ] as const;
 
 it("uses a strict four-percent close loss and independent volume comparators", () => {
-  for (const strategy of ids) {
-    const { bars, calendar } = setup(strategy);
-    const average =
-      bars.slice(50, 70).reduce((sum, b) => sum + b.volume, 0) / 20;
-    const threshold = strategy.endsWith("ma20")
-      ? average * 1.5
-      : bars[69]!.volume;
-    drop(bars, 70, 102 * 0.96, threshold + 1);
-    expect(researchRuleSeries(strategy, bars, calendar)[70]!.exit).toBe(false);
-    bars[70]!.close -= 0.001;
-    bars[70]!.volume = threshold;
-    expect(researchRuleSeries(strategy, bars, calendar)[70]!.exit).toBe(
-      strategy.endsWith("ma20"),
-    );
-    bars[70]!.volume = threshold + 0.001;
-    const points = researchRuleSeries(strategy, bars, calendar);
-    expect(points[70]).toMatchObject({
-      exit: true,
-      bearExit: {
-        previousClose: 102,
-        referenceVolume: strategy.endsWith("ma20") ? average : 70,
-        triggered: true,
-      },
-    });
-    expect(researchRuleSeries(strategy, bars.slice(0, 71), calendar)).toEqual(
-      points.slice(0, 71),
-    );
-    bars[70]!.volume = threshold - 0.001;
-    expect(researchRuleSeries(strategy, bars, calendar)[70]!.exit).toBe(false);
-  }
+    for (const strategy of ids) {
+        const { bars, calendar } = setup(strategy);
+        const average = bars.slice(50, 70).reduce((sum, b) => sum + b.volume, 0) / 20;
+        const threshold = strategy.endsWith("ma20")
+            ? average * 1.5
+            : bars[69]!.volume;
+        drop(bars, 70, 102 * 0.96, threshold + 1);
+        expect(researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
+        bars[70]!.close -= 0.001;
+        bars[70]!.volume = threshold;
+        expect(researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(strategy.endsWith("ma20"));
+        bars[70]!.volume = threshold + 0.001;
+        const points = researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime);
+        expect(points[70]).toMatchObject({
+            exit: true,
+            bearExit: {
+                previousClose: 102,
+                referenceVolume: strategy.endsWith("ma20") ? average : 70,
+                triggered: true,
+            },
+        });
+        expect(researchRuleSeries(strategy, bars.slice(0, 71), calendar, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, 71));
+        bars[70]!.volume = threshold - 0.001;
+        expect(researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
+    }
 });
 
 it("does not require a bearish candle body or a pivot breach", () => {
-  const { bars, calendar } = setup();
-  drop(bars, 70, 97, 100);
-  bars[70]!.open = 96;
-  bars[70]!.low = 95;
-  expect(researchRuleSeries(ids[0], bars, calendar)[70]!.exit).toBe(true);
-  // The trigger compares consecutive closes, not the intraday candle color.
-  bars[70]!.close = 102;
-  bars[70]!.low = 90;
-  expect(researchRuleSeries(ids[0], bars, calendar)[70]!.exit).toBe(false);
-  Object.assign(bars[70]!, {
-    open: 110,
-    high: 111,
-    low: 109,
-    close: 110,
-    volume: 70,
-  });
-  Object.assign(bars[71]!, {
-    open: 104,
-    high: 106,
-    low: 103,
-    close: 105,
-    volume: 100,
-  });
-  expect(researchRuleSeries(ids[0], bars, calendar)[71]).toMatchObject({
-    entry: false,
-    exit: true,
-  });
+    const { bars, calendar } = setup();
+    drop(bars, 70, 97, 100);
+    bars[70]!.open = 96;
+    bars[70]!.low = 95;
+    expect(researchRuleSeries(ids[0], bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(true);
+    // The trigger compares consecutive closes, not the intraday candle color.
+    bars[70]!.close = 102;
+    bars[70]!.low = 90;
+    expect(researchRuleSeries(ids[0], bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
+    Object.assign(bars[70]!, {
+        open: 110,
+        high: 111,
+        low: 109,
+        close: 110,
+        volume: 70,
+    });
+    Object.assign(bars[71]!, {
+        open: 104,
+        high: 106,
+        low: 103,
+        close: 105,
+        volume: 100,
+    });
+    expect(researchRuleSeries(ids[0], bars, calendar, undefined, undefined, researchFormulaRuntime)[71]).toMatchObject({
+        entry: false,
+        exit: true,
+    });
 });
 
 it("rejects gaps, invalid prices/volumes and incomplete prior-twenty windows", () => {
-  for (const strategy of ids) {
-    const { bars, calendar } = setup(strategy);
-    drop(bars, 70, 97, 100);
-    for (const field of ["close", "volume"] as const) {
-      const original = bars[70]![field];
-      bars[70]![field] = NaN;
-      expect(researchRuleSeries(strategy, bars, calendar)[70]!.exit).toBe(
-        false,
-      );
-      bars[70]![field] = original;
+    for (const strategy of ids) {
+        const { bars, calendar } = setup(strategy);
+        drop(bars, 70, 97, 100);
+        for (const field of ["close", "volume"] as const) {
+            const original = bars[70]![field];
+            bars[70]![field] = NaN;
+            expect(researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
+            bars[70]![field] = original;
+        }
+        const missing = bars.filter((_, i) => i !== 69);
+        expect(researchRuleSeries(strategy, missing, calendar, undefined, undefined, researchFormulaRuntime).find((p) => p.date === bars[70]!.date)!.exit).toBe(false);
+        bars[69]!.volume = 0;
+        expect(researchRuleSeries(strategy, bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
     }
-    const missing = bars.filter((_, i) => i !== 69);
-    expect(
-      researchRuleSeries(strategy, missing, calendar).find(
-        (p) => p.date === bars[70]!.date,
-      )!.exit,
-    ).toBe(false);
-    bars[69]!.volume = 0;
-    expect(researchRuleSeries(strategy, bars, calendar)[70]!.exit).toBe(false);
-  }
-  const { bars, calendar } = setup(ids[1]);
-  drop(bars, 70, 97, 100);
-  bars[52]!.volume = 0;
-  expect(researchRuleSeries(ids[1], bars, calendar)[70]!.exit).toBe(false);
-  expect(researchRuleSeries(ids[0], bars, calendar)[70]!.exit).toBe(true);
-  const missing = bars.filter((_, i) => i !== 52);
-  expect(
-    researchRuleSeries(ids[1], missing, calendar).find(
-      (p) => p.date === bars[70]!.date,
-    )!.exit,
-  ).toBe(false);
+    const { bars, calendar } = setup(ids[1]);
+    drop(bars, 70, 97, 100);
+    bars[52]!.volume = 0;
+    expect(researchRuleSeries(ids[1], bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(false);
+    expect(researchRuleSeries(ids[0], bars, calendar, undefined, undefined, researchFormulaRuntime)[70]!.exit).toBe(true);
+    const missing = bars.filter((_, i) => i !== 52);
+    expect(researchRuleSeries(ids[1], missing, calendar, undefined, undefined, researchFormulaRuntime).find((p) => p.date === bars[70]!.date)!.exit).toBe(false);
 });
 
 it.each(ids)(

@@ -4,7 +4,7 @@ import { obv } from "../../../../src/lib/indicators";
 import {
   researchVolumeContextSeries,
   type VolumeContextId,
-} from "../../../../src/lib/research/methods/volume/research-volume-context";
+} from "trading-strategies/research/volume/research-volume-context";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
@@ -14,7 +14,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 function fixture(
   tail: { close: number; volume: number }[],

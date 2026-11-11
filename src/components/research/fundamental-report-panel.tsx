@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
-import { fundamentalStageLabels } from "~/lib/research/factors/fundamental-research";
+import { fundamentalStageLabels } from "trading-strategies/research/factors/fundamental-research";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { RevenueReconciliationPanel } from "./revenue-reconciliation-panel";

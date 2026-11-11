@@ -5,7 +5,7 @@ import {
   growthIntradayTemplate,
   growthIntradayBase,
   type GrowthIntradayId,
-} from "../../src/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/factors/research-growth-intraday";
 import {
   researchSpecSchema,
   type ResearchEvent,

@@ -12,7 +12,7 @@ import {
   type Signal,
   type Snapshot,
 } from "../../../src/lib/domain";
-import type { CzscResult } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 const mocks = vi.hoisted(() => ({
   worker: vi.fn(),
   engine: vi.fn(),

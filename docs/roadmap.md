@@ -1,5 +1,7 @@
 # 观澜 · 路线图（范围唯一事实源）
 
+2026-11-11：统一策略结构与可用数据基础接入已完成规则归属验收。128个整文件路径及成长/年度财务/盘中/原生/周线纯政策集中到策略包，真实公式执行、证据、DLL与账本各归其责。目录91项（57日线、25权重、3研究、6缺口）与695条方法共用15分类；已有6代表恢复执行，新增经典/财务/RPS/风险平价，ETF可本地权重而历史撮合不冒用股票模型。最终类型与全仓测试通过，生产/浏览器终验见[本批交付](deliveries/2026-11-11-strategy-factor-native.md)。
+
 2026-11-08：用户授权将交易胜率、平均盈亏及盈亏比结构化并提交。独立评价包新增完整股票轮次配对、含费/公司行动交易指标，研究基线与风控模式、现有评价API/完整导出/页面共用；旧净值公式与冻结事实保留。范围、复现及验证见[交付](deliveries/2026-11-08-trade-performance.md)。
 
 2026-11-08：用户进一步要求解决买入当天已低于EMA50的问题。完整风控加入信号收盘、买入前最后收盘及实际开盘均不低于已知EMA50的入场/加仓门槛；开盘均线只用此前已完成行情并做已发生公司行动换算，不用当天收盘倒筛交易。被过滤资金留现金，日内急跌的剩余T+1风险单列。当前[规则](product/specs/csi800-position-risk.md)及[入场过滤交付](deliveries/2026-11-08-csi800-ema50-entry-filter.md)。
@@ -56,7 +58,11 @@
 
 ### 1.2 指标本地计算
 
-本地通达信行情由 TypeScript 计算，指标共享实现位于 `packages/trading-strategy-core`，`src/lib/research/methods/chan/czsc/README.md)。koffi 从 RegisterTdxFunc 注册表读取 Func30/40 指针；先真实 C/V 注册，再按配置投影。不能按旧描述直接寻找 Func30 导出符号。
+本地通达信行情由 TypeScript 计算，共享指标位于 `packages/trading-strategy-core`，规则维护于 `packages/trading-strategies`。应用负责来源与可知时点，回测及绩效分别复用独立包；运行约束见 [invariants](invariants.md)。
+
+### 1.3 缠论原生边界
+
+应用现有专用 worker 使用 koffi 绑定 czsc-tdx 的 API v22，冻结实际 DLL 摘要及配置；契约与验证见 [v22交付](deliveries/2026-11-08-czsc-v22.md)。策略包只消费中性结构事实，不加载 DLL。
 
 每个应用宿主使用单一专用子进程串行 DLL 调用，台账任务线程转发到同一队列；不得并发进入或另开 DLL 工作池。Float32Array、库对象存活与 golden 权威规则见 [invariants §6](invariants.md#6-缠论原生边界)。无法加载则汇报，不换 FFI、不移植算法。
 

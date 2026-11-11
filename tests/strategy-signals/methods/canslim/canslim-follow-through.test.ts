@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../../../../src/lib/domain";
-import { canslimFollowThrough } from "../../../../src/server/strategies/canslim/canslim-follow-through";
+import { canslimFollowThrough } from "trading-strategies/research/canslim/canslim-follow-through";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "follow",
   hash: "hash",
@@ -21,27 +24,31 @@ const fixture = (): Snapshot => ({
 });
 it("confirms fourth-day price and strict volume conditions and retains dates", () => {
   const s = fixture();
-  expect(canslimFollowThrough(s)).toMatchObject({
+  expect(canslimFollowThrough(s, completedFixtureClock)).toMatchObject({
     status: "computed",
     points: 8,
     selectedDate: s.bars[34]!.date,
   });
-  expect(canslimFollowThrough(s).candidates[0]).toMatchObject({
+  expect(
+    canslimFollowThrough(s, completedFixtureClock).candidates[0],
+  ).toMatchObject({
     reboundDay: 4,
     bottomDate: s.bars[30]!.date,
     reboundStart: s.bars[31]!.date,
   });
   s.bars[34]!.volume = 150;
-  expect(canslimFollowThrough(s).points).toBe(4);
+  expect(canslimFollowThrough(s, completedFixtureClock).points).toBe(4);
 });
 it("invalidates a later low break but allows equality", () => {
   const s = fixture();
-  expect(canslimFollowThrough(s).points).toBe(8);
+  expect(canslimFollowThrough(s, completedFixtureClock).points).toBe(8);
   s.bars[37]!.low = 94;
-  expect(canslimFollowThrough(s)).toMatchObject({ points: 0 });
-  expect(canslimFollowThrough(s).candidates[0]!.invalidatedAt).toBe(
-    s.bars[37]!.date,
-  );
+  expect(canslimFollowThrough(s, completedFixtureClock)).toMatchObject({
+    points: 0,
+  });
+  expect(
+    canslimFollowThrough(s, completedFixtureClock).candidates[0]!.invalidatedAt,
+  ).toBe(s.bars[37]!.date);
 });
 it("does not confirm out-of-window volume spikes or missing input", () => {
   const s = fixture();
@@ -49,10 +56,10 @@ it("does not confirm out-of-window volume spikes or missing input", () => {
   s.bars[34]!.close = 100;
   s.bars[33]!.volume = 200;
   expect(
-    canslimFollowThrough(s).candidates.every(
+    canslimFollowThrough(s, completedFixtureClock).candidates.every(
       (c) => c.date !== s.bars[33]!.date,
     ),
   ).toBe(true);
   s.symbol = "sh600519";
-  expect(canslimFollowThrough(s).status).toBe("missing");
+  expect(canslimFollowThrough(s, completedFixtureClock).status).toBe("missing");
 });

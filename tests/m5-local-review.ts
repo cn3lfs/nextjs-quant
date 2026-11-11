@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { readSnapshot } from "../src/server/data-sources/tdx/tdx";
 import { parseBars, isAStock } from "tstdx/local";
-import { analyzeBreakout } from "../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { breakoutBatch } from "../src/server/strategies/breakout/breakout-batch";
 import { screenLocal } from "../src/server/screening/screening";
 import { defaultStrategy } from "../src/lib/domain";

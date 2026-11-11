@@ -1,8 +1,6 @@
 import { expect, it } from "vitest";
-import {
-  researchInitialStop,
-  researchManagementSchema,
-} from "../../src/lib/research/workflow/research-management";
+import {researchManagementSchema} from "../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import {
   researchSpecSchema,
   type ResearchEvent,

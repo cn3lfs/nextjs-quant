@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Evidence, Snapshot } from "~/lib/domain";
-import { calculateValuation } from "~/lib/research/factors/valuation";
+import { calculateValuation } from "trading-strategies/research/factors/valuation";
 import {
   financialQuality,
   type FinancialQualityArchive,

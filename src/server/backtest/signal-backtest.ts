@@ -1,11 +1,11 @@
-import { czscSourceCommit } from "~/lib/research/methods/chan/czsc";
+import { czscSourceCommit } from "trading-strategies/research/chan/czsc";
 import type { Bar } from "~/lib/domain";
 import {
   horizons,
   ledgerOutcome,
   type ActionEvidence,
 } from "~/lib/strategy-facts/signal-ledger";
-import { analyzeBreakout } from "../strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { ledgerSignals } from "../monitoring/signal-ledger-engine";
 import {
   bonusAdjustedSignals,

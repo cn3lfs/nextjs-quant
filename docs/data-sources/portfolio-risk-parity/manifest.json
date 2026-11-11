@@ -1,0 +1,22 @@
+{
+  "paper": "https://arxiv.org/abs/1311.4057",
+  "license": "MIT",
+  "files": [
+    {
+      "file": "upstream-README.md",
+      "bytes": 3854,
+      "url": "https://raw.githubusercontent.com/convexfi/riskparity.py/eed1bb3ee92c06bdfa65c9536ec148f9e38c9221/README.md",
+      "sha256": "1fb820bbd3385440de30d83bdbb2b486e943592a541a6d8c028b32f9215be12e"
+    },
+    {
+      "file": "upstream-LICENSE",
+      "bytes": 1068,
+      "url": "https://raw.githubusercontent.com/convexfi/riskparity.py/eed1bb3ee92c06bdfa65c9536ec148f9e38c9221/LICENSE",
+      "sha256": "d3690684474b62fa161d49401702d5b8ee350c4e06f9663daef6da377c1ee7c8"
+    }
+  ],
+  "commit": "eed1bb3ee92c06bdfa65c9536ec148f9e38c9221",
+  "retrievedAt": "2026-11-11",
+  "repository": "https://github.com/convexfi/riskparity.py",
+  "usage": "Algorithm reference only. No upstream source code is copied or imported into runtime."
+}

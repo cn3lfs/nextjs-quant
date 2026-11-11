@@ -6,8 +6,8 @@ import {
 } from "../../../src/lib/research/strategy-research";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import { researchPullbackConfirmation } from "../../../src/lib/research/technical/research-pullback";
-import { researchBookSellable } from "../../../src/lib/research/analysis/research-position-book";
+import { researchPullbackConfirmation } from "trading-strategies/research/technical/research-pullback";
+import {researchBookSellable} from "../../../src/lib/research/analysis/research-position-book";
 import { projectResearchWeights } from "../../../src/lib/backtest/weight-backtest";
 import { selectResearchStrategy } from "../../../src/components/research/research-strategy-fields";
 import { researchSignals } from "../../../src/server/strategies/shared/research-signals";

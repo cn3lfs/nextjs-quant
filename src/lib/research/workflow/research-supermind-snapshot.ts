@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { asOfObservationSchema } from "../evidence/as-of";
-import { researchDateSchema } from "./research-usage";
-import { symbolSchema } from "../../domain";
+import {asOfObservationSchema} from "../evidence/as-of";
+import {researchDateSchema} from "trading-strategies/research/contracts/date";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 
 /**
  * Frozen SuperMind cloud snapshots.

@@ -15,7 +15,7 @@ import {
   futuresContracts,
   isFuturesSymbol,
 } from "../../../src/lib/market/futures";
-import { symbolSchema } from "../../../src/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import {
   parseSinaFuturesDaily,
   parseSinaFuturesQuotes,

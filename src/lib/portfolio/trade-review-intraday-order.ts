@@ -1,4 +1,4 @@
-import type { ParsedCashFlow, ParsedFill } from "../research/evidence/delivery-import";
+import type {ParsedCashFlow,ParsedFill} from "../research/evidence/delivery-import";
 
 type CashEvent = {
   date: string;

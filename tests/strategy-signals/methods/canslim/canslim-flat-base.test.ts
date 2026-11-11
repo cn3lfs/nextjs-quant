@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { canslimFlatBase } from "../../../../src/server/strategies/canslim/canslim-flat-base";
+import { canslimFlatBase } from "trading-strategies/research/canslim/canslim-flat-base";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "test",
   symbol: "sh600519",
@@ -20,7 +23,7 @@ const fixture = (): Snapshot => ({
   })),
 });
 it("excludes the test day from the base and volume references", () => {
-  const result = canslimFlatBase(fixture());
+  const result = canslimFlatBase(fixture(), completedFixtureClock);
   expect(result.applicable).toBe(true);
   if (!result.applicable) return;
   expect(result.candidates.find((c) => c.length === 20)).toMatchObject({
@@ -55,7 +58,7 @@ it("rejects unfinished, malformed and zero-volume bars", () => {
   ]) {
     const s = fixture();
     mutate(s);
-    expect(canslimFlatBase(s).applicable).toBe(false);
+    expect(canslimFlatBase(s, completedFixtureClock).applicable).toBe(false);
   }
   const s = fixture();
   expect(
@@ -68,7 +71,7 @@ it("enforces strict breakout, inclusive chase limit and real contraction", () =>
   const s = fixture();
   const last = s.bars.at(-1)!;
   const check = () => {
-    const result = canslimFlatBase(s);
+    const result = canslimFlatBase(s, completedFixtureClock);
     if (!result.applicable) throw new Error("fixture invalid");
     return result.candidates.find((c) => c.length === 20)!;
   };

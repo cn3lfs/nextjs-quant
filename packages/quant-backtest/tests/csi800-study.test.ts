@@ -1,9 +1,7 @@
+import type { Csi800Stock } from "trading-strategies";
+import { csi800Weights } from "trading-strategies";
 import { describe, it, expect } from "vitest";
-import {
-  runCsi800Study,
-  csi800Weights,
-  type Csi800Stock,
-} from "../src/csi800-study.js";
+import { runCsi800Study } from "../src/csi800-study.js";
 import type { Bar } from "../src/model.js";
 function fixture(length = 330) {
   const dates: string[] = [];
@@ -37,6 +35,56 @@ function fixture(length = 330) {
   };
 }
 describe("CSI800 shared cash study", () => {
+  it("retains the default scheduled cap and admits explicit full-weight strategies at the next opening", () => {
+    const f = fixture();
+    const first = f.benchmark.findIndex((bar) => bar.date === f.options.start);
+    const signalDate = f.benchmark[first - 1]!.date;
+    const symbol = f.stocks[0]!.symbol;
+    const schedule = [{ date: signalDate, weights: { [symbol]: 1 } }];
+    const options = {
+      ...f.options,
+      mode: "scheduled" as const,
+      slippageBps: 0,
+    };
+    expect(() =>
+      runCsi800Study(f.stocks, f.benchmark, options, schedule),
+    ).toThrow("权重非法");
+    const result = runCsi800Study(
+      f.stocks,
+      f.benchmark,
+      { ...options, maximumWeight: 1 },
+      schedule,
+    );
+    expect(result.options.maximumWeight).toBe(1);
+    const buy = result.fills.find((fill) => fill.side === "buy")!;
+    expect(buy.signalDate).toBe(signalDate);
+    expect(buy.date).toBe(f.options.start);
+    expect(buy.price).toBe(f.stocks[0]!.bars[first]!.open);
+    expect(result.curve.every((row) => row.cash >= 0)).toBe(true);
+    expect(result.curve[0]!.exposure).toBeGreaterThan(0.9);
+  });
+  it("rejects invalid scheduled caps without changing built-in allocation limits", () => {
+    const f = fixture();
+    for (const maximumWeight of [
+      0,
+      -0.1,
+      1.01,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ])
+      expect(() =>
+        runCsi800Study(f.stocks, f.benchmark, { ...f.options, maximumWeight }),
+      ).toThrow("最大权重");
+    const result = runCsi800Study(f.stocks, f.benchmark, {
+      ...f.options,
+      maximumWeight: 1,
+    });
+    expect(
+      result.rebalances.every((row) =>
+        Object.values(row.weights).every((weight) => weight <= 0.15 + 1e-12),
+      ),
+    ).toBe(true);
+  });
   it("uses the registered transfer-fee and stamp-tax date boundaries", () => {
     const f = fixture(1000),
       symbol = f.stocks[0]!.symbol;

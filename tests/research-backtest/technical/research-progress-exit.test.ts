@@ -7,7 +7,7 @@ import { researchManagementSchema } from "../../../src/lib/research/workflow/res
 import {
   researchProgressCheck,
   researchProgressExitDescription,
-} from "../../../src/lib/research/technical/research-progress-exit";
+} from "trading-strategies/research/technical/research-progress-exit";
 import { applyResearchManagement } from "../../../src/components/research/research-strategy-fields";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
@@ -15,7 +15,7 @@ import { researchSpecSchema } from "../../../src/lib/research/strategy-research"
 import { runStrategyResearch } from "../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const rules = {
   evidence: "fixture",

@@ -1,16 +1,9 @@
 import type { Bar } from "../../src/lib/domain";
-import {
-  buildCanslimAsOfDossier,
-  type CanslimAsOfRequest,
-} from "../../src/server/strategies/canslim/canslim-as-of-dossier";
-import {
-  growthHistorySchema,
-  growthCrossSectionSchema,
-  growthSectorsSchema,
-  growthEntrySchema,
-  asOfInputDefinitions,
-} from "../../src/lib/research/evidence/as-of-inputs";
-import type { AsOfObservation } from "../../src/lib/research/evidence/as-of";
+import {buildCanslimAsOfDossier} from "../../src/server/strategies/canslim/canslim-as-of-dossier";
+import {type CanslimAsOfRequest} from "trading-strategies/research/contracts/canslim-request";
+import {asOfInputDefinitions} from "../../src/lib/research/evidence/as-of-inputs";
+import {growthHistorySchema,growthCrossSectionSchema,growthSectorsSchema,growthEntrySchema} from "trading-strategies/research/contracts/growth-inputs";
+import type {AsOfObservation} from "../../src/lib/research/evidence/as-of";
 export const request: CanslimAsOfRequest = {
   symbol: "sh600000",
   asOf: "2024-05-01T15:00:00+08:00",

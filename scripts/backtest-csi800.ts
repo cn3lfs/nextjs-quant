@@ -1,10 +1,10 @@
+import type { Csi800Stock } from "trading-strategies";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { readSnapshot, readGbbq } from "tstdx/local";
 import {
   runCsi800Study,
-  type Csi800Stock,
   type Csi800Options,
 } from "../packages/quant-backtest/src/csi800-study.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
@@ -134,6 +134,9 @@ await mkdir(out, { recursive: true });
 const body = JSON.stringify(input);
 await writeFile(join(out, "input.json"), body);
 const codeFiles = [
+  "packages/trading-strategies/src/study-decision.ts",
+  "packages/trading-strategies/src/csi800-model.ts",
+  "packages/trading-strategies/src/ma-cross.ts",
   "packages/quant-backtest/src/csi800-study.ts",
   "scripts/backtest-csi800.ts",
   "pnpm-lock.yaml",

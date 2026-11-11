@@ -7,7 +7,7 @@ import {
   queryPanelSchema,
   queryRebalance,
   queryTemplateAliases,
-} from "../../src/lib/research/workflow/research-query-templates";
+} from "trading-strategies/research/query/research-query-templates";
 import { researchStrategies } from "../../src/lib/research/specs/research-strategies";
 import { evaluateGrowthFactors } from "../../src/server/strategies/canslim/research-growth-factors";
 import { request } from "../helpers/growth-factor-fixture";

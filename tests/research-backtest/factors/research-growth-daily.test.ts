@@ -7,7 +7,7 @@ import {
   growthDistributionReduction,
   growthAddConfirmation,
   type GrowthDailyId,
-} from "../../../src/lib/research/factors/research-growth-daily";
+} from "trading-strategies/research/factors/research-growth-daily";
 import {
   researchSpecSchema,
   type ResearchEvent,

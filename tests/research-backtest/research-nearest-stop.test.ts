@@ -1,11 +1,8 @@
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 import type { ResearchEvent } from "../../src/lib/research/strategy-research";
 import { expect, it } from "vitest";
-import {
-  researchInitialStop,
-  researchStopComparison,
-  researchManagementSchema,
-} from "../../src/lib/research/workflow/research-management";
+import {researchManagementSchema} from "../../src/lib/research/workflow/research-management";
+import {researchInitialStop,researchStopComparison} from "trading-strategies/research/risk/research-initial-stop";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { selectResearchStrategy } from "../../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";

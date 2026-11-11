@@ -2,25 +2,10 @@ import { big, moneyMul, toNumber } from "../../money";
 
 /** Research-only FIFO cost allocation. Prices are actual simulated fills;
  * commission is supplied once per order by the execution layer. */
-export type ResearchPositionLot = {
-  date: string;
-  quantity: number;
-  price: number;
-  cost: number;
-  remainingQuantity: number;
-  remainingCost: number;
-};
-
-export type ResearchPositionBook = {
-  lots: ResearchPositionLot[];
-  totalQuantity: number;
-  totalCost: number;
-  remainingQuantity: number;
-  remainingCost: number;
-  realizedProceeds: number;
-  realizedProfit: number;
-  lastDate: string | null;
-};
+import type {
+  ResearchPositionLot,
+  ResearchPositionBook,
+} from "trading-strategies/research/contracts/position-book";
 
 export function researchPositionBook(): ResearchPositionBook {
   return {
@@ -142,7 +127,9 @@ export function researchBookSell(
       .minus(fill.tax),
   );
   const remainingQuantity = book.remainingQuantity - fill.quantity;
-  const realizedProceeds = toNumber(big(book.realizedProceeds).plus(netProceeds));
+  const realizedProceeds = toNumber(
+    big(book.realizedProceeds).plus(netProceeds),
+  );
   const remainingCost =
     remainingQuantity === 0
       ? 0

@@ -1,3 +1,4 @@
+import type { Csi800Stock } from "trading-strategies";
 import { describe, expect, it } from "vitest";
 import {
   createPositionRisk,
@@ -7,12 +8,9 @@ import {
   positionRiskPlannedLoss,
   evaluatePositionClose,
   type PositionRiskStage,
-} from "../src/csi800-position-risk.js";
-import {
-  runCsi800Study,
-  type Csi800Allocation,
-  type Csi800Stock,
-} from "../src/csi800-study.js";
+} from "trading-strategies";
+import { runCsi800Study } from "../src/csi800-study.js";
+import type { Csi800Allocation } from "trading-strategies";
 
 function book(quantity = 1000, equity = 1_000_000) {
   const s = createPositionRisk("2025-01-02", equity);

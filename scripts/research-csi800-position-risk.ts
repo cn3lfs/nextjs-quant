@@ -9,10 +9,10 @@ import {
 } from "./lib/csi800-factor-data.js";
 import { classicCodeHashes } from "./lib/csi800-research-manifest.js";
 import { csi800TradeEvaluation } from "./lib/csi800-trade-evaluation.js";
-import { buildClassicSchedule } from "../packages/quant-backtest/src/csi800-composite.js";
-import { csi800SignalBars } from "../packages/quant-backtest/src/csi800-signal.js";
+import { buildClassicSchedule } from "../packages/trading-strategies/src/csi800-composite.js";
+import { csi800SignalBars } from "../packages/trading-strategies/src/csi800-signal.js";
 import { runCsi800Study } from "../packages/quant-backtest/src/csi800-study.js";
-import type { PositionRiskStage } from "../packages/quant-backtest/src/csi800-position-risk.js";
+import type { PositionRiskStage } from "../packages/trading-strategies/src/csi800-position-risk.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
 
 // Only reads frozen research inputs. No application/DB imports or external data fetch.

@@ -6,13 +6,13 @@ import {
   volumeSequenceIds,
   hasVolumePulses,
   type VolumeSequenceId,
-} from "../../../../src/lib/research/methods/volume/research-volume-sequence";
-import { researchVolumeContextSeries } from "../../../../src/lib/research/methods/volume/research-volume-context";
+} from "trading-strategies/research/volume/research-volume-sequence";
+import { researchVolumeContextSeries } from "trading-strategies/research/volume/research-volume-context";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import {
   researchHash,

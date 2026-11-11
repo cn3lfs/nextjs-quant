@@ -12,11 +12,11 @@ import {
 } from "~/lib/domain";
 import { get, put } from "../db";
 import { settings } from "../infra/settings";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { localCompletion } from "../infra/local-llm";
 import { evidenceEnvelope } from "../infra/evidence";
-import { sepaTrendFacts } from "../strategies/canslim/sepa-trend";
-import { vcpFacts } from "../strategies/canslim/vcp";
+import { sepaTrendFacts } from "trading-strategies/research/canslim/sepa-trend";
+import { vcpFacts } from "trading-strategies/research/canslim/vcp";
 import { sepaMethod } from "./research-skills";
 import {
   sepaSupportPolicy,

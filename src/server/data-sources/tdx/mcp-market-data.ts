@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Bar, Period, Snapshot } from "~/lib/domain";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { queryMcp } from "~/server/data-sources/tdx/tdx-mcp-disabled";
 export interface MarketDataProvider {
   readonly name: string;

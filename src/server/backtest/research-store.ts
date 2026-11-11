@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ResearchSpec } from "~/lib/research/strategy-research";
-import type { ResearchMarketEvidence } from "~/lib/research/factors/research-market-evidence";
+import type { ResearchMarketEvidence } from "trading-strategies/research/factors/research-market-evidence";
 import type { ResearchDataset } from "./research-dataset";
 import type { runStrategyResearch } from "./research-run";
 import type { ResearchMode } from "~/lib/research/workflow/research-governance";

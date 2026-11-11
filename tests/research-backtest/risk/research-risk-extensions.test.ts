@@ -3,7 +3,7 @@ import {
   riskExtensionTemplate,
   riskExtensionSchema,
   evaluateRiskExtension,
-} from "../../../src/lib/research/risk/research-risk-extensions";
+} from "trading-strategies/research/risk/research-risk-extensions";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";

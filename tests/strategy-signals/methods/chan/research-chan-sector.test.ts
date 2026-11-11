@@ -3,7 +3,7 @@ import {
   evaluateChanSectorRotation,
   evaluateChanSectorCurrentMembership,
   chanSectorAdmission,
-} from "../../../../src/lib/research/methods/chan/research-chan-sector";
+} from "trading-strategies/research/chan/research-chan-sector";
 const calendar = Array.from(
   { length: 20 },
   (_, i) => `2020-01-${String(i + 1).padStart(2, "0")}`,

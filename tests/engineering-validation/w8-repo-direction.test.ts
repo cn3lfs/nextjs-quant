@@ -2,10 +2,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
-import {
-  importDeliveryTable,
-  type ParsedFill,
-} from "../../src/lib/research/evidence/delivery-import";
+import {importDeliveryTable,type ParsedFill} from "../../src/lib/research/evidence/delivery-import";
 import { reviewTrades } from "../../src/lib/portfolio/trade-review";
 const parsed = importDeliveryTable(
   parseDeliveryTable(

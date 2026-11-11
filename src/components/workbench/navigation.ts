@@ -166,6 +166,12 @@ export const navGroups: readonly NavGroup[] = [
     label: "研究",
     items: [
       {
+        href: "/strategies",
+        label: "策略中心",
+        subtitle: "统一策略分类、规则、输入检查与可复现实验",
+        icon: Compass,
+      },
+      {
         href: "/analysis",
         label: "证据分析",
         subtitle: "多看一层，少猜一步 · 数据来源与时间可追溯",

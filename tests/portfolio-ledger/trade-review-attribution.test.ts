@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
-import { importDeliveryTable } from "../../src/lib/research/evidence/delivery-import";
+import {importDeliveryTable} from "../../src/lib/research/evidence/delivery-import";
 import { reviewTrades, type ReviewRound } from "../../src/lib/portfolio/trade-review";
 import { reviewAttribution } from "../../src/lib/portfolio/trade-review-attribution";
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 
 export const archiveKinds = [
   "report",

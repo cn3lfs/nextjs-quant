@@ -9,7 +9,7 @@ import {
 import { intradayConfigSchema } from "../../../src/lib/strategy-facts/intraday-schedule";
 import { previewSlots } from "../../../src/lib/research/analysis/intraday-preview";
 import { rpsDay } from "../../rps-fixture";
-import type { CzscResult } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 
 it("runs a partial batch, retries only failures, and closes against the captured prefix", async () => {
   const db = new Database(":memory:");

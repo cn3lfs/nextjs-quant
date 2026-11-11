@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { historicalDateSchema } from "~/lib/screening/historical-screen";
 import { atomic, get, put, sqlite } from "../../db";
 import { parseTdxDailyIncrement } from "tstdx/local";

@@ -74,15 +74,8 @@ import { sqlite as chartSqlite } from "../../db";
 import { analyzeCzsc } from "../../strategies/chan/czsc";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import {
-  strategySchema,
-  symbolSchema,
-  periodSchema,
-  type Channel,
-  type Monitor,
-  type Delivery,
-  type Signal,
-} from "~/lib/domain";
+import {strategySchema,periodSchema,type Channel,type Monitor,type Delivery,type Signal} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { list, put } from "../../db";
 import { saveChannel, testDelivery } from "../../infra/notifications";
 import { createTRPCRouter, publicProcedure as p } from "../trpc";

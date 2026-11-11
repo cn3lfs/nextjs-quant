@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../src/lib/domain";
-import { researchSepaElite } from "../../src/lib/research/specs/research-sepa-elite";
-import { growthDailyExitTemplate } from "../../src/lib/research/factors/research-growth-exits";
+import { researchSepaElite } from "trading-strategies/research/canslim/research-sepa-elite";
+import { growthDailyExitTemplate } from "trading-strategies/research/factors/research-growth-exits";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 

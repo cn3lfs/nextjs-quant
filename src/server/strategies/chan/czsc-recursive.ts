@@ -1,13 +1,13 @@
 import type {
   CzscRecursive,
   CzscRecursiveNode,
-} from "~/lib/research/methods/chan/czsc";
+} from "trading-strategies/research/chan/czsc";
 import type {
   ChanAnchor,
   ChanConnection,
   ChanMovement,
   CzscMovements,
-} from "~/lib/research/methods/chan/czsc-movements";
+} from "trading-strategies/research/chan/czsc-movements";
 import type { CzscRawFamily } from "./czsc-api";
 
 // C4 level numbering keeps its original meaning: level 0 is the unit

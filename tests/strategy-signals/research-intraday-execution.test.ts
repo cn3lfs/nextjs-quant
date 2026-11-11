@@ -6,8 +6,8 @@ import {
   intradayExitPolicy,
   intradaySessionActive,
   type IntradayExecutionId,
-} from "../../src/lib/research/technical/research-intraday-execution";
-import { growthIntradayTemplate } from "../../src/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/technical/research-intraday-execution";
+import { growthIntradayTemplate } from "trading-strategies/research/factors/research-growth-intraday";
 import {
   researchGrowthIntraday,
   growthMinuteTimes,
@@ -21,7 +21,7 @@ import { researchPortfolio } from "../../src/server/backtest/research-portfolio"
 import breakout from "../fixtures/breakout-valid.json";
 import { runStrategyResearch } from "../../src/server/backtest/research-run";
 import type { ResearchDataset } from "../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";
 
 function fixture(id: IntradayExecutionId) {

@@ -1,11 +1,12 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import { researchRuleSeries } from "../../../../src/server/strategies/shared/research-rule-series";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 function fixture(confirm = 72): Bar[] {
   return Array.from({ length: 80 }, (_, i) => ({
@@ -23,112 +24,100 @@ const ids = [
   "canslim-priority-volume-wait5",
 ] as const;
 
-it.each(ids)(
-  "%s freezes the original pivot and confirms only within the explicit calendar deadline",
-  (id) => {
+it.each(ids)("%s freezes the original pivot and confirms only within the explicit calendar deadline", (id) => {
     const max = id.endsWith("3") ? 3 : 5;
     for (const elapsed of [1, max, max + 1]) {
-      const bars = fixture(69 + elapsed);
-      const points = researchRuleSeries(id, bars);
-      expect(points[69]).toMatchObject({
-        entry: false,
-        volumeWait: {
-          status: "waiting",
-          breakoutDate: bars[69]!.date,
-          pivot: 100,
-          initialVolume20: 40,
-        },
-      });
-      expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual(
-        elapsed <= max ? [bars[69 + elapsed]!.date] : [],
-      );
-      if (elapsed <= max)
-        expect(points[69 + elapsed]).toMatchObject({
-          candidate: { family: "flat", high: 100 },
-          historyStart: bars[0]!.date,
-          volumeWait: {
-            status: "confirmed",
-            confirmationDate: bars[69 + elapsed]!.date,
-            elapsed,
-          },
+        const bars = fixture(69 + elapsed);
+        const points = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
+        expect(points[69]).toMatchObject({
+            entry: false,
+            volumeWait: {
+                status: "waiting",
+                breakoutDate: bars[69]!.date,
+                pivot: 100,
+                initialVolume20: 40,
+            },
         });
-      else
-        expect(points[69 + max]).toMatchObject({
-          volumeWait: { status: "expired" },
-        });
-      expect(researchRuleSeries(id, bars.slice(0, 70 + elapsed))).toEqual(
-        points.slice(0, 70 + elapsed),
-      );
+        expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual(elapsed <= max ? [bars[69 + elapsed]!.date] : []);
+        if (elapsed <= max)
+            expect(points[69 + elapsed]).toMatchObject({
+                candidate: { family: "flat", high: 100 },
+                historyStart: bars[0]!.date,
+                volumeWait: {
+                    status: "confirmed",
+                    confirmationDate: bars[69 + elapsed]!.date,
+                    elapsed,
+                },
+            });
+        else
+            expect(points[69 + max]).toMatchObject({
+                volumeWait: { status: "expired" },
+            });
+        expect(researchRuleSeries(id, bars.slice(0, 70 + elapsed), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, 70 + elapsed));
     }
-  },
-);
+});
 
 it("uses strict initial volume below one mean and inclusive confirmation at 1.5 means", () => {
-  for (const volume of [39.99, 40, 50, 60]) {
-    const bars = fixture(70);
-    bars[69]!.volume = volume;
-    const average = bars
-      .slice(50, 70)
-      .reduce((sum, b) => sum + b.volume / 20, 0);
-    bars[70]!.volume = average * 1.5;
-    const points = researchRuleSeries(ids[0], bars);
-    expect(points.some((p) => p.entry)).toBe(volume < 40);
-    if (volume < 40) {
-      expect(points[70]!.entry).toBe(true);
-      bars[70]!.volume -= 0.0001;
-      expect(researchRuleSeries(ids[0], bars)[70]!.entry).toBe(false);
+    for (const volume of [39.99, 40, 50, 60]) {
+        const bars = fixture(70);
+        bars[69]!.volume = volume;
+        const average = bars
+            .slice(50, 70)
+            .reduce((sum, b) => sum + b.volume / 20, 0);
+        bars[70]!.volume = average * 1.5;
+        const points = researchRuleSeries(ids[0], bars, undefined, undefined, undefined, researchFormulaRuntime);
+        expect(points.some((p) => p.entry)).toBe(volume < 40);
+        if (volume < 40) {
+            expect(points[70]!.entry).toBe(true);
+            bars[70]!.volume -= 0.0001;
+            expect(researchRuleSeries(ids[0], bars, undefined, undefined, undefined, researchFormulaRuntime)[70]!.entry).toBe(false);
+        }
     }
-  }
 });
 
 it("cancels close breaches, chase, missing days and invalid bars without replacing the pending shape", () => {
-  for (const patch of [
-    { low: 98, close: 99 },
-    { high: 107, close: 106 },
-    { volume: 0 },
-  ]) {
-    const bars = fixture(72);
-    Object.assign(bars[70]!, patch);
-    const points = researchRuleSeries(ids[0], bars);
-    expect(points[70]).toMatchObject({
-      entry: false,
-      volumeWait: { status: "cancelled", pivot: 100 },
+    for (const patch of [
+        { low: 98, close: 99 },
+        { high: 107, close: 106 },
+        { volume: 0 },
+    ]) {
+        const bars = fixture(72);
+        Object.assign(bars[70]!, patch);
+        const points = researchRuleSeries(ids[0], bars, undefined, undefined, undefined, researchFormulaRuntime);
+        expect(points[70]).toMatchObject({
+            entry: false,
+            volumeWait: { status: "cancelled", pivot: 100 },
+        });
+        expect(points.some((p) => p.entry)).toBe(false);
+    }
+    const bars = fixture(72), calendar = bars.map((b) => b.date);
+    const points = researchRuleSeries(ids[0], bars.filter((_, i) => i !== 70), calendar, undefined, undefined, researchFormulaRuntime);
+    expect(points.find((p) => p.date === bars[71]!.date)).toMatchObject({
+        volumeWait: { status: "cancelled" },
     });
     expect(points.some((p) => p.entry)).toBe(false);
-  }
-  const bars = fixture(72),
-    calendar = bars.map((b) => b.date);
-  const points = researchRuleSeries(
-    ids[0],
-    bars.filter((_, i) => i !== 70),
-    calendar,
-  );
-  expect(points.find((p) => p.date === bars[71]!.date)).toMatchObject({
-    volumeWait: { status: "cancelled" },
-  });
-  expect(points.some((p) => p.entry)).toBe(false);
 });
 
 it("allows intraday pivot touches and close equality while waiting, but confirmation must exceed 101 percent", () => {
-  const bars = fixture(72);
-  Object.assign(bars[70]!, { low: 99, close: 100 });
-  Object.assign(bars[71]!, { close: 101, volume: 100 });
-  const points = researchRuleSeries(ids[0], bars);
-  expect(points[70]).toMatchObject({
-    entry: false,
-    volumeWait: { status: "waiting" },
-  });
-  expect(points[71]).toMatchObject({
-    entry: false,
-    volumeWait: { status: "waiting" },
-  });
-  expect(points[72]).toMatchObject({
-    entry: true,
-    volumeWait: {
-      breakoutDate: bars[69]!.date,
-      confirmationDate: bars[72]!.date,
-    },
-  });
+    const bars = fixture(72);
+    Object.assign(bars[70]!, { low: 99, close: 100 });
+    Object.assign(bars[71]!, { close: 101, volume: 100 });
+    const points = researchRuleSeries(ids[0], bars, undefined, undefined, undefined, researchFormulaRuntime);
+    expect(points[70]).toMatchObject({
+        entry: false,
+        volumeWait: { status: "waiting" },
+    });
+    expect(points[71]).toMatchObject({
+        entry: false,
+        volumeWait: { status: "waiting" },
+    });
+    expect(points[72]).toMatchObject({
+        entry: true,
+        volumeWait: {
+            breakoutDate: bars[69]!.date,
+            confirmationDate: bars[72]!.date,
+        },
+    });
 });
 
 it.each(ids)(

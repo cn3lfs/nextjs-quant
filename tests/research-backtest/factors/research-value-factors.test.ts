@@ -6,16 +6,8 @@ import {
 import {
   valueFactorRules,
   valueThesisMetrics,
-} from "../../../src/lib/research/factors/research-value-factors";
-import {
-  valueQualitySchema,
-  valueMarketSchema,
-  valuePolicySchema,
-  valueGuoSchema,
-  valueRiskSchema,
-  valueThesisSchema,
-  valueThesisObservationSchema,
-} from "../../../src/lib/research/evidence/as-of-inputs";
+} from "trading-strategies/research/factors/research-value-factors";
+import {valueQualitySchema,valueMarketSchema,valuePolicySchema,valueGuoSchema,valueRiskSchema,valueThesisSchema,valueThesisObservationSchema} from "trading-strategies/research/contracts/value-inputs";
 import { z } from "zod";
 import {
   valueFixture,

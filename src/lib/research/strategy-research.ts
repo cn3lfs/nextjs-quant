@@ -1,30 +1,30 @@
 import {
   wyckoffStructureInputsSchema,
   isWyckoffStructure,
-} from "./methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import {
   wyckoffHourlyInputsSchema,
   isWyckoffHourly,
-} from "./methods/wyckoff/research-wyckoff-hourly";
-import { wyckoffInputsSchema, isWyckoffVsa } from "./methods/wyckoff/research-wyckoff-vsa";
-import { riskRepairSchema } from "./risk/research-risk-repair";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
+import { wyckoffInputsSchema, isWyckoffVsa } from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
+import {riskRepairSchema} from "trading-strategies/research/risk/research-risk-repair";
 import {
   riskRouteSchema,
   resolveRiskRoute,
   stopDiagnosisSchema,
   diagnosisTemplate,
-} from "./risk/research-risk-routing";
-import { riskExtensionSchema } from "./risk/research-risk-extensions";
-import { contextRiskMaxPositions } from "~/lib/research/risk/research-context-risk";
+} from "trading-strategies/research/risk/research-risk-routing";
+import { riskExtensionSchema } from "trading-strategies/research/risk/research-risk-extensions";
+import { contextRiskMaxPositions } from "trading-strategies/research/risk/research-context-risk";
 import { z } from "zod";
-import { riskPresetParameters, riskPresetBase } from "./risk/research-risk-presets";
-import { growthIntradayBase } from "./factors/research-growth-intraday";
-import { growthDailyBase } from "./factors/research-growth-daily";
+import { riskPresetParameters, riskPresetBase } from "trading-strategies/research/risk/research-risk-presets";
+import { growthIntradayBase } from "trading-strategies/research/factors/research-growth-intraday";
+import { growthDailyBase } from "trading-strategies/research/factors/research-growth-daily";
 import { poolSelectionSchema } from "../market/market-pool";
 import { backtestCostsSchema } from "../backtest/backtest-costs";
 import { maParamsSchema } from "../domain";
 import { researchManagementSchema } from "./workflow/research-management";
-import type { RuleStop } from "./methods/volume/research-volume";
+import type { RuleStop } from "trading-strategies/research/volume/research-volume";
 import {
   researchRiskSchema,
   researchStrategySchema,

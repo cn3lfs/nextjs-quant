@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { canslimCup } from "../../../../src/server/strategies/canslim/canslim-cup";
+import { canslimCup } from "trading-strategies/research/canslim/canslim-cup";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "cup",
   symbol: "sh600519",
@@ -31,7 +34,7 @@ const fixture = (): Snapshot => ({
 });
 it("records confirmed rims and a rounded cup with a shrinking upper-half handle", () => {
   const s = fixture(),
-    result = canslimCup(s);
+    result = canslimCup(s, completedFixtureClock);
   expect(result.applicable).toBe(true);
   if (!result.applicable) return;
   expect(result.candidates).toHaveLength(1);
@@ -49,19 +52,19 @@ it("records confirmed rims and a rounded cup with a shrinking upper-half handle"
 it("cannot use the test bar to confirm a rim or turn a deep handle into a valid one", () => {
   const s = fixture();
   s.bars = s.bars.slice(0, 47);
-  const early = canslimCup(s);
+  const early = canslimCup(s, completedFixtureClock);
   expect(early.applicable && early.candidates.length).toBe(0);
   const deep = fixture();
   deep.bars[48]!.low = 80;
-  const result = canslimCup(deep);
+  const result = canslimCup(deep, completedFixtureClock);
   expect(result.applicable && result.candidates[0]!.qualified).toBe(false);
 });
 it("changing the test day does not change cup geometry", () => {
   const s = fixture(),
-    before = canslimCup(s);
+    before = canslimCup(s, completedFixtureClock);
   s.bars.at(-1)!.high = 200;
   s.bars.at(-1)!.close = 199;
-  const after = canslimCup(s);
+  const after = canslimCup(s, completedFixtureClock);
   if (!before.applicable || !after.applicable)
     throw new Error("fixture invalid");
   expect(after.candidates).toEqual(before.candidates);
@@ -88,7 +91,7 @@ it("classifies a confirmed double bottom as W with traceable low dates", () => {
       close: high - 0.2,
     });
   }
-  const result = canslimCup(s);
+  const result = canslimCup(s, completedFixtureClock);
   if (!result.applicable) throw new Error("fixture invalid");
   const target = result.candidates.find(
     (c) => c.left === s.bars[3]!.date && c.right === s.bars[43]!.date,
@@ -116,7 +119,7 @@ it("does not classify a single sharp low as a double bottom", () => {
       close: high - 0.2,
     });
   }
-  const result = canslimCup(s);
+  const result = canslimCup(s, completedFixtureClock);
   if (!result.applicable) throw new Error("fixture invalid");
   const target = result.candidates.find(
     (c) => c.left === s.bars[3]!.date && c.right === s.bars[43]!.date,

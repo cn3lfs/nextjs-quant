@@ -1,8 +1,8 @@
 import { expect, it, vi } from "vitest";
 import type { ResearchDataset } from "../../src/server/backtest/research-dataset";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
-import { growthIntradayTemplate } from "../../src/lib/research/factors/research-growth-intraday";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
+import { growthIntradayTemplate } from "trading-strategies/research/factors/research-growth-intraday";
 import { growthMinuteTimes } from "../../src/server/strategies/canslim/research-growth-intraday";
 import { runStrategyResearch } from "../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";

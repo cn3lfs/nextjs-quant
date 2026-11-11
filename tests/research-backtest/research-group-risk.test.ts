@@ -1,16 +1,17 @@
+import { researchCostQuote } from "~/lib/backtest/research-executor";
 import { expect, it, vi } from "vitest";
-import * as breakout from "../../src/server/strategies/breakout/breakout";
+import * as breakout from "trading-strategies/research/breakout/breakout";
 import { runStrategyResearch } from "../../src/server/backtest/research-run";
 import type { ResearchDataset } from "../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
-import { researchGroupRisk } from "../../src/lib/research/risk/research-group-risk";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
+import { researchGroupRisk } from "trading-strategies/research/risk/research-group-risk";
 import {
   contextRiskTemplate,
   contextRiskPoint,
   type ContextRiskInput,
-} from "../../src/lib/research/risk/research-context-risk";
-import { riskPresetTemplate } from "../../src/lib/research/risk/research-risk-presets";
-import { researchKellyTraining } from "../../src/lib/research/risk/research-kelly-training";
+} from "trading-strategies/research/risk/research-context-risk";
+import { riskPresetTemplate } from "trading-strategies/research/risk/research-risk-presets";
+import { researchKellyTraining } from "trading-strategies/research/risk/research-kelly-training";
 import { applyResearchManagement } from "../../src/components/research/research-strategy-fields";
 import {
   researchSpecSchema,
@@ -102,7 +103,7 @@ it("sector sums nonnegative risk, caps equality at 3%, includes fees and does no
     inputs,
     held,
     1000000,
-    costs,
+    researchCostQuote(costs),
   );
   expect(check).toMatchObject({
     used: 30000,
@@ -120,7 +121,7 @@ it("sector sums nonnegative risk, caps equality at 3%, includes fees and does no
       inputs,
       held,
       1000000,
-      costs,
+      researchCostQuote(costs),
     ).used,
   ).toBe(20000);
   expect(
@@ -132,7 +133,7 @@ it("sector sums nonnegative risk, caps equality at 3%, includes fees and does no
       [],
       held,
       1000000,
-      costs,
+      researchCostQuote(costs),
     ).fraction,
   ).toBeNull();
 });
@@ -153,7 +154,7 @@ it("different sectors still connect on 60-return correlation; future data cannot
       rows,
       held,
       1000000,
-      costs,
+      researchCostQuote(costs),
     );
   expect(run(map).members).toEqual(symbols.slice(0, 2));
   const future = new Map(
@@ -172,7 +173,7 @@ it("different sectors still connect on 60-return correlation; future data cannot
       rows,
       held,
       1000000,
-      costs,
+      researchCostQuote(costs),
     ).reason,
   ).toContain("零方差");
 });
@@ -295,7 +296,6 @@ it("month boundary rebalance sells only frozen overweight quantity and does not 
   });
   expect(result.trades[0]!.remainingQuantity).toBe(1500);
 });
-
 it.each(["rk-sector-risk", "rk-diversify"] as const)(
   "%s refuses research-period-only action proof for its historical correlation inputs",
   async (id) => {

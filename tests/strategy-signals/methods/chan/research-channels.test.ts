@@ -6,7 +6,7 @@ import {
   researchChannelSeries,
   channelWarmupBars,
   type ChannelId,
-} from "../../../../src/lib/research/technical/research-channels";
+} from "trading-strategies/research/technical/research-channels";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
@@ -16,7 +16,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 const native = vi.fn(async (): Promise<never> => {
   throw new Error("native must not run");
 });

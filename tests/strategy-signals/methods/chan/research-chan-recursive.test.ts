@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { chanRecursiveObservations } from "../../../../src/lib/research/methods/chan/research-chan-recursive";
-import type { CzscRecursive, CzscResult } from "../../../../src/lib/research/methods/chan/czsc";
+import { chanRecursiveObservations } from "trading-strategies/research/chan/research-chan-recursive";
+import type { CzscRecursive, CzscResult } from "trading-strategies/research/chan/czsc";
 import type { Bar } from "../../../../src/lib/domain";
 import { researchChanZhongyin } from "../../../../src/server/strategies/chan/research-chan-zhongyin";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";

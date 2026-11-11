@@ -6,9 +6,9 @@ import {
   runClassicDiagnostics,
   classicFactorInventory,
 } from "../../scripts/lib/csi800-factor-diagnostics";
-import { csi800ClassicFactors } from "../../packages/quant-backtest/src/csi800-factors";
+import { csi800ClassicFactors } from "../../packages/trading-strategies/src/csi800-factors";
 import type { ClassicPriceInput } from "../../scripts/lib/csi800-factor-data";
-import type { ClassicWeek } from "../../packages/quant-backtest/src/csi800-composite";
+import type { ClassicWeek } from "../../packages/trading-strategies/src/csi800-composite";
 
 it("IC diagnostics respect direction, tied ranks, label maturity and actual non-overlap", async () => {
   const out = await mkdtemp(join(tmpdir(), "csi800-diagnostic-"));

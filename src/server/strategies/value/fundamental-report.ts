@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   fundamentalResearchInput,
   fundamentalStageLabels,
-} from "~/lib/research/factors/fundamental-research";
+} from "trading-strategies/research/factors/fundamental-research";
 import type { Snapshot } from "~/lib/domain";
 import {
   buildFundamentalDossier,

@@ -1,10 +1,7 @@
 import { expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import {
-  marketSentiment,
-  marketSentimentEvidence,
-  type MarketSentimentInput,
-} from "~/server/strategies/sentiment/market-sentiment";
+import {marketSentimentEvidence} from "~/server/strategies/sentiment/market-sentiment";
+import {marketSentiment,type MarketSentimentInput} from "trading-strategies/research/factors/market-sentiment";
 
 function fixture(): MarketSentimentInput {
   const provenance = (id: string, asOf = "2026-09-08") => ({

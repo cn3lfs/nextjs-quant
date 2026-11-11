@@ -1,11 +1,7 @@
 import { expect, it } from "vitest";
 import { z } from "zod";
-import {
-  asOfObservationSchema,
-  createAsOfAdapter,
-  type AsOfObservation,
-} from "../../src/lib/research/evidence/as-of";
-import { readAsOfInput } from "../../src/lib/research/evidence/as-of-inputs";
+import {asOfObservationSchema,createAsOfAdapter,type AsOfObservation} from "../../src/lib/research/evidence/as-of";
+import {readAsOfInput} from "../../src/lib/research/evidence/as-of-inputs";
 
 const asOf = "2024-05-01T15:00:00+08:00";
 const query = {

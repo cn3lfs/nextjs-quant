@@ -1,13 +1,14 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { confirmedExtrema } from "../../../../src/lib/indicators";
-import { researchRuleSeries, isResearchRule } from "../../../../src/lib/research/specs/research-rules";
+import { researchRuleSeries, isResearchRule } from "trading-strategies/research/composition/research-local-rules";
 import {
   researchVolumeStructureSeries as series,
   volumeStructureIds,
-} from "../../../../src/lib/research/methods/volume/research-volume-structure";
+} from "trading-strategies/research/volume/research-volume-structure";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
@@ -128,15 +129,15 @@ it("confirmed extrema require all three right bars and reject ties", () => {
   );
 });
 it("registers structural breakouts and rejects insufficient volume", () => {
-  for (const [id, bars] of [
-    ["vp-structure-up", fixture()],
-    ["vp-structure-range", fixture(true)],
-  ] as const) {
-    expect(isResearchRule(id)).toBe(true);
-    expect(researchRuleSeries(id, bars)[90]!.entry).toBe(true);
-    bars[90]!.volume = 100;
-    expect(series(id, bars)[90]!.entry).toBe(false);
-  }
+    for (const [id, bars] of [
+        ["vp-structure-up", fixture()],
+        ["vp-structure-range", fixture(true)],
+    ] as const) {
+        expect(isResearchRule(id)).toBe(true);
+        expect(researchRuleSeries(id, bars, undefined, researchFormulaRuntime)[90]!.entry).toBe(true);
+        bars[90]!.volume = 100;
+        expect(series(id, bars)[90]!.entry).toBe(false);
+    }
 });
 it("waits for an actual retest and cancels a broken frozen level", () => {
   const bars = fixture();

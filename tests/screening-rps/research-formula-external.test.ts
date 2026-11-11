@@ -1,17 +1,10 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
 import type { Bar } from "../../src/lib/domain";
-import { researchTechnicalSeries } from "../../src/lib/research/technical/research-technical";
+import { researchTechnicalSeries } from "trading-strategies/research/technical/research-technical";
 import { researchSignals } from "../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
-import {
-  externalFormulaIds,
-  externalFormulaProfiles,
-  externalFormulaOriginals,
-  externalFormulaDecision,
-  formulaPsyRank,
-  researchExternalFormulaSeries,
-  type ExternalFormulaEvidence,
-} from "../../src/lib/research/specs/research-formula-external";
+import { externalFormulaIds, externalFormulaProfiles, externalFormulaOriginals, externalFormulaDecision, formulaPsyRank, researchExternalFormulaSeries, type ExternalFormulaEvidence, } from "trading-strategies/research/technical/research-formula-external";
 const bars = (n = 30): Bar[] =>
   Array.from({ length: n }, (_, i) => ({
     date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
@@ -49,28 +42,24 @@ it("reports requested interval and concrete missing fields at the real research 
 });
 
 it("executes the full old-duck formula with positive evidence and rejects a missing volume confirmation", () => {
-  const closes = [
-    ...Array.from({ length: 160 }, (_, i) => 100 + i * 0.5),
-    ...Array.from({ length: 7 }, (_, i) => 179.5 - 0.5 * (i + 1)),
-    177,
-  ];
-  const input = bars(closes.length).map((b, i) => ({
-    ...b,
-    open: closes[i]! - 0.1,
-    close: closes[i]!,
-    high: closes[i]! + 1,
-    low: closes[i]! - 1,
-    volume: i === closes.length - 1 ? 3000 : 1000,
-  }));
-  const rows = proof(input).map((e) => ({ ...e, listedDate: "2020-01-01" }));
-  expect(
-    researchExternalFormulaSeries("tdx-duck-asof", input, rows).at(-1),
-  ).toMatchObject({ entry: true, values: { formula: 1 } });
-  input.at(-1)!.volume = 1000;
-  expect(
-    researchExternalFormulaSeries("tdx-duck-asof", input, rows).at(-1)!.values
-      .formula,
-  ).toBe(0);
+    const closes = [
+        ...Array.from({ length: 160 }, (_, i) => 100 + i * 0.5),
+        ...Array.from({ length: 7 }, (_, i) => 179.5 - 0.5 * (i + 1)),
+        177,
+    ];
+    const input = bars(closes.length).map((b, i) => ({
+        ...b,
+        open: closes[i]! - 0.1,
+        close: closes[i]!,
+        high: closes[i]! + 1,
+        low: closes[i]! - 1,
+        volume: i === closes.length - 1 ? 3000 : 1000,
+    }));
+    const rows = proof(input).map((e) => ({ ...e, listedDate: "2020-01-01" }));
+    expect(researchExternalFormulaSeries("tdx-duck-asof", input, rows, researchFormulaRuntime).at(-1)).toMatchObject({ entry: true, values: { formula: 1 } });
+    input.at(-1)!.volume = 1000;
+    expect(researchExternalFormulaSeries("tdx-duck-asof", input, rows, researchFormulaRuntime).at(-1)!.values
+        .formula).toBe(0);
 });
 it("keeps every unsupported or board-inappropriate original, without substituting repaired expressions", () => {
   expect(externalFormulaOriginals["SW12-old-duck"]).toContain("FINANCE(42)");
@@ -257,23 +246,17 @@ it("PSY second output uses the entire historical pool, tied competition ranks an
   universe.complete = false;
   expect(formulaPsyRank(universe, dates)).toBeNull();
 });
-it.each(externalFormulaIds)(
-  "%s keeps absent/future/duplicate data unavailable in its executable adapter",
-  (id) => {
-    const input = bars(),
-      rows = proof(input);
-    expect(researchTechnicalSeries(id, input)).toEqual(
-      researchExternalFormulaSeries(id, input),
-    );
+it.each(externalFormulaIds)("%s keeps absent/future/duplicate data unavailable in its executable adapter", (id) => {
+    const input = bars(), rows = proof(input);
+    expect(researchTechnicalSeries(id, input, undefined, researchFormulaRuntime)).toEqual(researchExternalFormulaSeries(id, input, undefined, researchFormulaRuntime));
     for (const evidence of [
-      [],
-      rows.map((e) => ({ ...e, availableDate: "2099-01-01" })),
-      [...rows, ...rows],
+        [],
+        rows.map((e) => ({ ...e, availableDate: "2099-01-01" })),
+        [...rows, ...rows],
     ]) {
-      const point = researchExternalFormulaSeries(id, input, evidence).at(-1)!;
-      expect(point.entry).toBe(false);
-      expect(point.values.formula).toBeNull();
-      expect(point.reason).toContain("待数据");
+        const point = researchExternalFormulaSeries(id, input, evidence, researchFormulaRuntime).at(-1)!;
+        expect(point.entry).toBe(false);
+        expect(point.values.formula).toBeNull();
+        expect(point.reason).toContain("待数据");
     }
-  },
-);
+});

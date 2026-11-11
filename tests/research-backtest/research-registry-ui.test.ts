@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import {
   isGrowthDailyExit,
   growthDailyExitTemplate,
-} from "../../src/lib/research/factors/research-growth-exits";
+} from "trading-strategies/research/factors/research-growth-exits";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   Children,

@@ -1,20 +1,12 @@
 import { z } from "zod";
-import { researchDateSchema } from "../workflow/research-usage";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 
-export const asOfDomains = [
-  "finance",
-  "capital",
-  "institutions",
-  "catalysts",
-  "rs",
-  "benchmarkCalendar",
-] as const;
-export type AsOfDomain = (typeof asOfDomains)[number];
+import {
+  asOfDomains,
+  type AsOfDomain,
+} from "trading-strategies/research/contracts/as-of-domain";
 const text = z.string().trim().min(1);
-export const asOfTimestampSchema = z
-  .string()
-  .datetime({ offset: true })
-  .refine((value) => Number.isFinite(Date.parse(value)), "时间或时区偏移无效");
+import { asOfTimestampSchema } from "trading-strategies/research/contracts/time";
 // A date-only effectiveAt denotes a business date (Shanghai midnight), never
 // a publication time. availableAt/capturedAt always require an explicit offset.
 export const asOfEffectiveSchema = z.union([

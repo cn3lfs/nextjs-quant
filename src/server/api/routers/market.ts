@@ -20,7 +20,8 @@ import {
   type IdentityCheck,
 } from "../../market/security-identity";
 import { z } from "zod";
-import { symbolSchema, periodSchema, type Coverage } from "~/lib/domain";
+import {periodSchema,type Coverage} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { get } from "../../db";
 import { settings } from "../../infra/settings";
 import {

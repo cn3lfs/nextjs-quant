@@ -3,13 +3,13 @@ import type { Bar } from "../../../../src/lib/domain";
 import {
   canslimHighIds,
   canslimHighWarmupStart,
-} from "../../../../src/lib/research/methods/canslim/research-canslim-strategies";
-import { researchCanslimHighSeries } from "../../../../src/server/strategies/canslim/research-canslim-high";
+} from "trading-strategies/research/canslim/research-canslim-strategies";
+import { researchCanslimHighSeries } from "trading-strategies/research/canslim/research-canslim-high";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const bars = (): Bar[] =>
   Array.from({ length: 380 }, (_, i) => ({

@@ -2,7 +2,7 @@
   "name": "trading-strategies",
   "version": "0.1.0",
   "private": true,
-  "description": "Auditable representative strategy catalog for the Guanlan A-share research workbench",
+  "description": "Pure classified strategy rules, research methods and auditable source catalog",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,6 +14,10 @@
     "./catalog": {
       "types": "./dist/catalog.d.ts",
       "import": "./dist/catalog.js"
+    },
+    "./research/*": {
+      "types": "./dist/research/*.d.ts",
+      "import": "./dist/research/*.js"
     }
   },
   "files": [
@@ -24,8 +28,12 @@
   "engines": {
     "node": ">=22"
   },
+  "dependencies": {
+    "trading-strategy-core": "workspace:*",
+    "zod": "3.25.76"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node build-identity.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "prepack": "pnpm build"

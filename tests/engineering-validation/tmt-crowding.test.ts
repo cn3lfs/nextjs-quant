@@ -7,7 +7,7 @@ import {
   swIndustries,
   tmtCodes,
   type TmtInput,
-} from "~/server/strategies/sentiment/tmt-crowding";
+} from "trading-strategies/research/factors/tmt-crowding";
 import {
   parseTmtCsv,
   tmtCsvInput,

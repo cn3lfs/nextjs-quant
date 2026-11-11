@@ -8,7 +8,7 @@ import {
   volumePollutionIds,
   type PollutionEvidence,
   type VolumePollutionId,
-} from "../../../../src/lib/research/methods/volume/research-volume-pollution";
+} from "trading-strategies/research/volume/research-volume-pollution";
 function fixture(n = 65) {
   const bars = Array.from({ length: n }, (_, i) => ({
     date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),

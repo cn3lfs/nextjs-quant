@@ -3,7 +3,7 @@ import {
   evaluateTrades,
   type TradeFill,
 } from "quant-performance";
-import type { Csi800Stock } from "../../packages/quant-backtest/src/csi800-study.js";
+import type { Csi800Stock } from "trading-strategies";
 
 /** Independent of the optional stop-loss ledger; also covers the no-overlay baseline. */
 export function csi800TradeEvaluation(

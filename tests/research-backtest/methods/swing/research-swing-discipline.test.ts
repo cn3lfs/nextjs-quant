@@ -1,14 +1,16 @@
+import { researchExecutor } from "~/lib/backtest/research-executor";
+import { commissionFor as researchCommission } from "quant-backtest/execution";
+import { researchPlannedProceeds } from "trading-strategies/research/technical/research-pyramid";
+import { big, toNumber } from "trading-strategy-core/money";
 import { expect, it } from "vitest";
 import {
   swingDisciplineIds,
   swingDisciplineTemplate,
   swingRewardAdmission,
   type SwingDisciplineId,
-} from "../../../../src/lib/research/methods/swing/research-swing-discipline";
-import {
-  researchInitialStop,
-  researchManagementSchema,
-} from "../../../../src/lib/research/workflow/research-management";
+} from "trading-strategies/research/swing/research-swing-discipline";
+import {researchManagementSchema} from "../../../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import {
   researchSpecSchema,
@@ -149,22 +151,23 @@ it("2R admission includes fees, sell chunks, missing target and actual opening g
     stop: 90,
     target: 120,
     quantity: 100,
-    rules,
-    costs,
+    quote: quote(costs, rules),
   };
   expect(swingRewardAdmission(input)).toMatchObject({ allow: true, ratio: 2 });
   expect(
     swingRewardAdmission({
       ...input,
-      costs: { ...costs, minimumCommission: 5 },
+      quote: quote({ ...costs, minimumCommission: 5 }, rules),
     }).allow,
   ).toBe(false);
   expect(
     swingRewardAdmission({
       ...input,
       target: 121,
-      costs: { ...costs, minimumCommission: 5 },
-      rules: { ...rules, maximumSell: 100 },
+      quote: quote(
+        { ...costs, minimumCommission: 5 },
+        { ...rules, maximumSell: 100 },
+      ),
       quantity: 300,
     }).allow,
   ).toBe(true);
@@ -183,3 +186,11 @@ it("strict no-average template keeps profitable-only second tranche instead of w
   expect(r.trades).toHaveLength(1);
   expect(r.trades[0]!.entries).toHaveLength(1);
 });
+function quote(c: typeof costs, r: typeof rules) {
+  return {
+    entryCost: (amount: number) =>
+      toNumber(big(amount).plus(researchCommission(amount, c))),
+    sellProceeds: (quantity: number, price: number) =>
+      researchPlannedProceeds(quantity, price, researchExecutor(r, c)),
+  };
+}

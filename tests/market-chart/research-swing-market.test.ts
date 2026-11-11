@@ -1,3 +1,4 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
 import type { Bar } from "../../src/lib/domain";
 import {
@@ -6,8 +7,8 @@ import {
   swingMarketDecision,
   researchSwingMarketSeries,
   type SwingMarketEvidence,
-} from "../../src/lib/research/methods/swing/research-swing-market";
-import { researchTechnicalSeries } from "../../src/lib/research/technical/research-technical";
+} from "trading-strategies/research/swing/research-swing-market";
+import { researchTechnicalSeries } from "trading-strategies/research/technical/research-technical";
 
 it.each(["sw-market-holiday", "sw-market-event"] as const)(
   "%s uses known trading-day distances rather than weekday guesses",
@@ -154,27 +155,19 @@ const proof = (input: Bar[]): SwingMarketEvidence[] =>
     holiday: { distance: 3, complete: true, calendarSource: "exchange" },
     event: { distance: null, complete: true, calendarSource: "known-notices" },
   }));
-it.each(swingMarketIds)(
-  "%s is wired to execution and refuses unavailable/future/duplicate market evidence",
-  (id) => {
-    const input = bars(),
-      rows = proof(input);
-    expect(researchTechnicalSeries(id, input)).toEqual(
-      researchSwingMarketSeries(id, input),
-    );
+it.each(swingMarketIds)("%s is wired to execution and refuses unavailable/future/duplicate market evidence", (id) => {
+    const input = bars(), rows = proof(input);
+    expect(researchTechnicalSeries(id, input, undefined, researchFormulaRuntime)).toEqual(researchSwingMarketSeries(id, input));
     for (const evidence of [
-      [],
-      [...rows, ...rows],
-      rows.map((e) => ({ ...e, availableDate: "2099-01-01" })),
+        [],
+        [...rows, ...rows],
+        rows.map((e) => ({ ...e, availableDate: "2099-01-01" })),
     ])
-      expect(
-        researchSwingMarketSeries(id, input, evidence).at(-1),
-      ).toMatchObject({
-        entry: false,
-        reason: expect.stringContaining("待数据"),
-      });
-  },
-);
+        expect(researchSwingMarketSeries(id, input, evidence).at(-1)).toMatchObject({
+            entry: false,
+            reason: expect.stringContaining("待数据"),
+        });
+});
 it("uses market evidence on an actual baseline cross and does not use stock direction as the index", () => {
   const input = bars(),
     rows = proof(input);

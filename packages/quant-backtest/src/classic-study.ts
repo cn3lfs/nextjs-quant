@@ -1,20 +1,24 @@
 import { z } from "zod";
-import { ma, rsi, boll } from "trading-strategy-core/indicators";
 import { big, moneyMul, toNumber } from "trading-strategy-core/money";
 import { fillMarketOrder, affordableQuantity } from "./execution.js";
 import { defaultExecutionCosts } from "./costs.js";
 import type { Bar } from "./model.js";
-import { calculateFactor } from "trading-strategy-core/factors";
-import { createExtendedStudyRule } from "./study-rules.js";
+import {
+  createStudyDecision,
+  type StudyOrder as Order,
+} from "trading-strategies";
 import {
   studyStrategies,
   studyNames,
   studyWarmup,
   studyCatalog,
   type StudyStrategy,
-} from "./study-catalog.js";
-export { studyStrategies, studyNames } from "./study-catalog.js";
-export type { StudyStrategy } from "./study-catalog.js";
+  nativeStudyStrategies,
+  nativeStudyDefinition,
+  isNativeStudyStrategy,
+  type NativeStudyStrategy,
+  type FrozenChanObservation,
+} from "trading-strategies";
 
 const date = z
   .string()
@@ -40,14 +44,21 @@ export const classicStudyDatasetSchema = z.object({
   dividends: z.array(dividendSchema),
 });
 export type StudyDividend = z.infer<typeof dividendSchema>;
-export type StudyOptions = {
+type StudyCommonOptions = {
   start: string;
   end: string;
   initial: number;
-  strategy: StudyStrategy;
   slippageBps?: number;
   dividendTaxBps?: number;
 };
+export type StudyOptions = StudyCommonOptions &
+  (
+    | { strategy: StudyStrategy; nativeObservations?: never }
+    | {
+        strategy: NativeStudyStrategy;
+        nativeObservations: readonly FrozenChanObservation[];
+      }
+  );
 export type StudyFill = {
   signalDate: string;
   date: string;
@@ -58,13 +69,6 @@ export type StudyFill = {
   cash: number;
   holding: number;
   reason: string;
-};
-type Order = {
-  side: "buy" | "sell";
-  quantity?: number;
-  fraction?: number;
-  reason: string;
-  signalDate: string;
 };
 const rules = {
   evidence: "explicit-mainboard-scenario-not-certified-history",
@@ -111,7 +115,7 @@ export function runClassicStudy(
       start: date,
       end: date,
       initial: z.number().positive().finite(),
-      strategy: z.enum(studyStrategies),
+      strategy: z.enum([...studyStrategies, ...nativeStudyStrategies]),
       slippageBps: z.number().min(0).max(100).default(0),
       dividendTaxBps: z.number().int().min(0).max(10000).default(0),
     })
@@ -139,26 +143,15 @@ export function runClassicStudy(
     )
   )
     throw new Error("分红日缺少行情");
-  const signal = studySignalBars(bars, dividends),
-    fast = ma(signal, 5),
-    mid = ma(signal, 20),
-    slow = ma(signal, 60),
-    long = ma(signal, 120),
-    strength = rsi(signal),
-    bands = boll(signal, 20, 2);
+  const signal = studySignalBars(bars, dividends);
   const first = bars.findIndex((b) => b.date >= o.start),
     last = bars.reduce((n, b, i) => (b.date <= o.end ? i : n), -1);
-  const warmup = studyWarmup(o.strategy);
+  const native = isNativeStudyStrategy(o.strategy);
+  const warmup = native
+    ? nativeStudyDefinition.warmupBars
+    : studyWarmup(o.strategy as StudyStrategy);
   if (first < warmup || last < first)
     throw new Error(`预热至少${warmup}日且研究区间非空`);
-  const extendedRule = createExtendedStudyRule(o.strategy, signal);
-  const volatility =
-    o.strategy === "vol-target"
-      ? calculateFactor(signal, {
-          id: "return-volatility",
-          parameters: { period: 20 },
-        }).values
-      : [];
   const costs = {
     ...defaultExecutionCosts,
     commissionBps: 1,
@@ -198,122 +191,30 @@ export function runClassicStudy(
       drawdown: number;
     }[] = [];
   const events = new Map(dividends.map((d) => [d.date, d.perShare]));
-  const extrema = (i: number, n: number, key: "high" | "low") => {
-    const values = signal.slice(i - n, i).map((b) => b[key]);
-    return key === "high" ? Math.max(...values) : Math.min(...values);
-  };
+  const decision = createStudyDecision(
+    o.strategy,
+    native ? bars.slice(0, last + 1) : bars,
+    native ? signal.slice(0, last + 1) : signal,
+    o.initial,
+    first,
+    options.nativeObservations,
+  );
   function decide(i: number): Order | null {
-    const b = signal[i]!,
-      initialMode = ["hold", "hold80", "grid"].includes(o.strategy);
-    const order = (
-      side: "buy" | "sell",
-      reason: string,
-      quantity?: number,
-    ): Order => ({ side, reason, quantity, signalDate: b.date });
-    if (["vol-target", "constant-mix", "cppi"].includes(o.strategy)) {
-      const initialDecision = i === first - 1;
-      const month = b.date.slice(0, 7);
-      if (
-        o.strategy === "constant-mix" &&
-        !initialDecision &&
-        month === lastAllocationMonth
-      )
-        return null;
-      if (
-        o.strategy === "vol-target" &&
-        !initialDecision &&
-        new Date(b.date).getUTCDay() !== 5
-      )
-        return null;
-      const investable = cash + shares * bars[i]!.close;
-      let target = 0.8;
-      if (o.strategy === "cppi")
-        target = Math.min(
-          1,
-          (3 * Math.max(investable - o.initial * 0.8, 0)) / investable,
-        );
-      if (o.strategy === "vol-target") {
-        const vol = volatility[i];
-        if (vol === null || vol === undefined) return null;
-        target =
-          vol === 0 ? 1 : Math.min(1, 0.15 / ((vol / 100) * Math.sqrt(252)));
-      }
-      const desired =
-        Math.floor((investable * target) / bars[i]!.close / 100) * 100;
-      const change = desired - shares;
-      // Zero-lot adjustments are a completed observation, not a rejected order.
-      if (change === 0) {
-        lastAllocationMonth = month;
-        return null;
-      }
-      return order(
-        change > 0 ? "buy" : "sell",
-        `目标权重${(target * 100).toFixed(2)}%`,
-        Math.abs(change),
-      );
-    }
-    if (o.strategy === "dca") {
-      if (installments >= 12 || b.date.slice(0, 7) === lastAllocationMonth)
-        return null;
-      return {
-        ...order("buy", `分批建仓第${installments + 1}批`),
-        fraction: 1 / 12,
-      };
-    }
-    if (initialMode) {
-      if (!initialized)
-        return {
-          ...order("buy", "期初建仓"),
-          fraction: o.strategy === "hold" ? 1 : 0.8,
-        };
-      if (o.strategy !== "grid") return null;
-      if (b.close >= anchor * 1.04 && shares > core)
-        return order("sell", "网格上涨4%", Math.min(100, shares - core));
-      if (b.close <= anchor * 0.96 && shares - core < sleeveCap)
-        return order("buy", "网格下跌4%", 100);
-      return null;
-    }
-    let enter = false,
-      exit = false;
-    if (o.strategy === "ma") {
-      enter = fast[i]! > mid[i]!;
-      exit = fast[i]! < mid[i]!;
-    }
-    if (o.strategy === "breakout") {
-      enter = b.close > extrema(i, 55, "high");
-      exit = b.close < extrema(i, 20, "low");
-    }
-    if (o.strategy === "pullback") {
-      enter =
-        b.close > long[i]! &&
-        mid[i]! > slow[i]! &&
-        b.close < mid[i]! &&
-        strength[i]!.rsi6 !== null &&
-        strength[i]!.rsi6! < 40;
-      exit =
-        (strength[i]!.rsi6 !== null && strength[i]!.rsi6! > 70) ||
-        b.close < long[i]! ||
-        b.close < entry * 0.92;
-    }
-    if (o.strategy === "range") {
-      enter =
-        Math.abs(slow[i]! / slow[i - 20]! - 1) <= 0.03 &&
-        bands[i]!.upper! > bands[i]!.lower! &&
-        b.close <= bands[i]!.lower!;
-      exit =
-        b.close >= bands[i]!.mid! ||
-        i - entryIndex >= 20 ||
-        b.close < entry * 0.92;
-    }
-    if (extendedRule)
-      ({ enter, exit } = extendedRule(i, { entry, entryIndex }));
-    return shares > 0
-      ? exit
-        ? order("sell", "规则退出", shares)
-        : null
-      : enter
-        ? order("buy", "规则入场")
-        : null;
+    const state = {
+      cash,
+      shares,
+      entry,
+      entryIndex,
+      anchor,
+      core,
+      sleeveCap,
+      initialized,
+      lastAllocationMonth,
+      installments,
+    };
+    const order = decision(i, state);
+    lastAllocationMonth = state.lastAllocationMonth;
+    return order;
   }
   let pending = decide(first - 1);
   for (let i = first; i <= last; i++) {
@@ -441,8 +342,12 @@ export function runClassicStudy(
   }
   return {
     strategy: o.strategy,
-    name: studyNames[o.strategy],
-    definition: studyCatalog[o.strategy],
+    name: native
+      ? nativeStudyDefinition.name
+      : studyNames[o.strategy as StudyStrategy],
+    definition: native
+      ? nativeStudyDefinition
+      : studyCatalog[o.strategy as StudyStrategy],
     warmupBars: warmup,
     options: o,
     quality: "rule-check-only" as const,

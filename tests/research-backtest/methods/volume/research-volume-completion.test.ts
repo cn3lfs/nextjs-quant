@@ -1,4 +1,4 @@
-import { researchVolumeSeries } from "../../../../src/lib/research/methods/volume/research-volume";
+import { researchVolumeSeries } from "trading-strategies/research/volume/research-volume";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import {
@@ -6,8 +6,8 @@ import {
   washComposite,
   researchVolumeCompletionSeries,
   type WashEvidence,
-} from "../../../../src/lib/research/methods/volume/research-volume-completion";
-import { pivotDivergenceSeries } from "../../../../src/lib/research/technical/research-pivot-divergence";
+} from "trading-strategies/research/volume/research-volume-completion";
+import { pivotDivergenceSeries } from "trading-strategies/research/technical/research-pivot-divergence";
 const bar: Bar = {
   date: "2020-01-02",
   open: 100,

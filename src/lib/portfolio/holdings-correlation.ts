@@ -1,4 +1,4 @@
-import { classifyCode } from "../research/evidence/delivery-import";
+import {classifyCode} from "../research/evidence/delivery-import";
 import type { ReviewValue } from "./trade-review";
 import type { NavDay } from "./trade-review-nav";
 

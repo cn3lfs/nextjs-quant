@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 const rowSchema = z.object({
   股票代码: z.string(),
   名称: z.string().trim().min(1),

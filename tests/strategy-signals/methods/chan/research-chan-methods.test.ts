@@ -4,17 +4,17 @@ import {
   CZSC_CTX,
   type CzscResult,
   type CzscSignalStructure,
-} from "../../../../src/lib/research/methods/chan/czsc";
+} from "trading-strategies/research/chan/czsc";
 import {
   chanNativeCandidates,
   chanMaMethodPoint,
   compactChanMaMethodPoint,
   chanWolfPoint,
-} from "../../../../src/lib/research/methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/research-chan-native";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import type { WyckoffStructureInput } from "../../../../src/lib/research/methods/wyckoff/research-wyckoff";
+import type { WyckoffStructureInput } from "trading-strategies/research/wyckoff/research-wyckoff";
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),
   open: 11,

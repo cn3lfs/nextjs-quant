@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { canslimNewHigh } from "../../../../src/server/strategies/canslim/canslim-new-high";
+import { canslimNewHigh } from "trading-strategies/research/canslim/canslim-new-high";
 import type { Snapshot } from "../../../../src/lib/domain";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "high",
   hash: "hash",
@@ -30,19 +33,21 @@ it("uses calendar weeks, excludes the left boundary and keeps tier equalities", 
     [100, 9],
   ]) {
     s.bars.at(-1)!.close = close!;
-    expect(canslimNewHigh(s)).toMatchObject({
+    expect(canslimNewHigh(s, completedFixtureClock)).toMatchObject({
       status: "computed",
       points,
       high52Weeks: 100,
       windowBars: 364,
     });
   }
-  expect(canslimNewHigh(s).breakoutVolumeConfirmed).toBe(true);
+  expect(canslimNewHigh(s, completedFixtureClock).breakoutVolumeConfirmed).toBe(
+    true,
+  );
 });
 it("does not replace a full year with a shorter history or unfinished bar", () => {
   const s = fixture();
   s.bars.shift();
-  expect(canslimNewHigh(s)).toMatchObject({
+  expect(canslimNewHigh(s, completedFixtureClock)).toMatchObject({
     status: "missing",
     points: 0,
     high52Weeks: null,

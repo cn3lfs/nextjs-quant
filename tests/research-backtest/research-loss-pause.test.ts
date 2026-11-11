@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { researchLossPause } from "../../src/lib/research/risk/research-loss-pause";
+import { researchLossPause } from "trading-strategies/research/risk/research-loss-pause";
 import {
   researchSpecSchema,
   type ResearchEvent,

@@ -1,48 +1,55 @@
 import {
+  initialStopPolicySchema,
+  stopOverridePolicySchema,
+} from "trading-strategies/research/contracts/initial-stop";
+import {
+  marketChopPolicySchema,
+  marketRegimePolicySchema,
+} from "trading-strategies/research/contracts/market-policy";
+import {
   isIntradayExecution,
   intradayExecutionInputsSchema,
-} from "../technical/research-intraday-execution";
+} from "trading-strategies/research/technical/research-intraday-execution";
 import {
   isMarketAdmission,
   marketAdmissionInputsSchema,
-} from "../risk/research-market-admission";
-import { openingPlansSchema, isOpening } from "../technical/research-opening";
+} from "trading-strategies/research/risk/research-market-admission";
 import {
-  riskPresetInitialStop,
-  riskPresetEvolution,
-} from "../risk/research-risk-presets";
+  openingPlansSchema,
+  isOpening,
+} from "trading-strategies/research/technical/research-opening";
 import {
   contextRiskIds,
   contextRiskTemplate,
   contextRiskInputsSchema,
-} from "../risk/research-context-risk";
+} from "trading-strategies/research/risk/research-context-risk";
 import {
   isExternalVolatility,
   volatilityInputsSchema,
-} from "../factors/research-volatility-input";
-import { riskPresetIds, riskPresetTemplate } from "../risk/research-risk-presets";
+} from "trading-strategies/research/factors/research-volatility-input";
+import {
+  riskPresetIds,
+  riskPresetTemplate,
+} from "trading-strategies/research/risk/research-risk-presets";
 import {
   volatilityStopIds,
   volatilityStopTemplate,
-} from "../risk/research-volatility-stops";
+} from "trading-strategies/research/risk/research-volatility-stops";
 import {
   swingDisciplineIds,
   swingDisciplineTemplate,
-} from "../methods/swing/research-swing-discipline";
-import { growthDailyIds, growthDailyTemplate } from "../factors/research-growth-daily";
+} from "trading-strategies/research/swing/research-swing-discipline";
+import {
+  growthDailyIds,
+  growthDailyTemplate,
+} from "trading-strategies/research/factors/research-growth-daily";
 import {
   growthIntradayIds,
   growthIntradayTemplate,
-} from "../factors/research-growth-intraday";
-import { researchKellySchema } from "../risk/research-kelly";
-import {
-  isGrowthPivotStop,
-  researchGrowthPivotStop,
-} from "../factors/research-growth-stops";
+} from "trading-strategies/research/factors/research-growth-intraday";
+import { researchKellySchema } from "trading-strategies/research/risk/research-kelly";
 import { z } from "zod";
-import { symbolSchema } from "../../domain";
-import { researchDateSchema } from "./research-usage";
-import { researchProgressExitSchema } from "../technical/research-progress-exit";
+import { researchProgressExitSchema } from "trading-strategies/research/technical/research-progress-exit";
 import {
   researchExitPresetIds,
   matchesResearchExitPreset,
@@ -79,108 +86,14 @@ export const researchManagementSchema = z
     progressExit: researchProgressExitSchema.optional(),
     kelly: researchKellySchema.optional(),
     exitPreset: z.enum(researchExitPresetIds).optional(),
-    stopOverride: z
-      .object({
-        symbol: symbolSchema,
-        observedDate: researchDateSchema,
-        price: z.number().finite().positive(),
-        provenance: z.literal("manual-scenario").default("manual-scenario"),
-      })
-      .strict()
-      .optional(),
+    stopOverride: stopOverridePolicySchema.optional(),
     liquidityCap: z.literal(true).optional(),
-    marketChop: z
-      .object({
-        window: z.number().int().min(3).max(60),
-        minCrosses: z.number().int().min(2).max(59),
-        nearBand: z.number().finite().min(0.001).max(0.1),
-      })
-      .strict()
-      .refine((v) => v.minCrosses < v.window, "穿越次数必须小于观察交易日数")
-      .optional(),
+    marketChop: marketChopPolicySchema.optional(),
     lossPauseDays: z.union([z.literal(1), z.literal(2)]).optional(),
     maxInitialStopDistance: z.number().finite().min(0.001).max(0.5).optional(),
     maxTotalWeight: z.number().finite().min(0.01).max(1).optional(),
-    marketRegime: z
-      .object({
-        kind: z.literal("ma20"),
-        neutralBand: z.number().finite().min(0).max(0.05),
-        weakWeight: z.union([z.literal(0), z.literal(0.3)]),
-      })
-      .strict()
-      .optional(),
-    stop: z
-      .discriminatedUnion("kind", [
-        z.object({ kind: z.literal("sepa-pivot-min") }).strict(),
-        z.object({ kind: z.literal("sepa-pivot-max") }).strict(),
-        z.object({ kind: z.literal("canslim-pivot-max") }).strict(),
-        z
-          .object({
-            kind: z.literal("breakout-candle"),
-            buffer: z.number().finite().min(0).max(0.1),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("platform-upper"),
-            buffer: z.number().finite().min(0).max(0.1),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("structure-auto"),
-            atrPeriod: z.number().int().min(2).max(120).optional(),
-            atrMultiple: z.number().finite().min(0).max(10),
-            percentBuffer: z.number().finite().min(0).max(0.1),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("nearest-stop"),
-            fraction: z.number().finite().min(0.001).max(0.5),
-            period: z.number().int().min(2).max(120),
-            multiple: z.number().finite().min(0.1).max(10),
-            structureBuffer: z.number().finite().min(0).max(10),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("max-distance"),
-            fraction: z.number().finite().min(0.001).max(0.5),
-            period: z.number().int().min(2).max(120),
-            multiple: z.number().finite().min(0.1).max(10),
-            structureBuffer: z.number().finite().min(0).max(10),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("structure-atr"),
-            maxDistanceAtr: z.literal(2).optional(),
-            period: z.number().int().min(2).max(120),
-            multiple: z.number().finite().min(0.1).max(10),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("percent"),
-            fraction: z.number().finite().min(0.001).max(0.5),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("atr"),
-            period: z.number().int().min(2).max(120),
-            multiple: z.number().finite().min(0.1).max(10),
-          })
-          .strict(),
-        z
-          .object({
-            kind: z.literal("structure"),
-            buffer: z.number().finite().min(0).max(0.1),
-          })
-          .strict(),
-      ])
-      .default({ kind: "percent", fraction: 0.05 }),
+    marketRegime: marketRegimePolicySchema.optional(),
+    stop: initialStopPolicySchema,
     confirmations: z.union([z.literal(1), z.literal(2)]).default(1),
     // Explicit stress scenario, not an estimated future worst close.
     stressBuffer: z.number().finite().min(0).max(0.5).default(0),
@@ -453,150 +366,3 @@ export const researchManagementSchema = z
       });
   });
 export type ResearchManagement = z.infer<typeof researchManagementSchema>;
-
-export function researchStopOverride(
-  management: ResearchManagement | undefined,
-  evidence: { symbol?: string; observedDate?: string },
-) {
-  const override = management?.stopOverride;
-  return override &&
-    override.symbol === evidence.symbol &&
-    override.observedDate === evidence.observedDate
-    ? override
-    : null;
-}
-
-export function researchStopComparison(
-  stop: ResearchManagement["stop"],
-  entry: number,
-  evidence: { initialStop?: number | null; stopAtr?: number | null },
-) {
-  if (stop.kind !== "max-distance" && stop.kind !== "nearest-stop") return null;
-  const { initialStop: structure, stopAtr: atr } = evidence;
-  if (
-    !Number.isFinite(entry) ||
-    entry <= 0 ||
-    structure == null ||
-    !Number.isFinite(structure) ||
-    structure <= 0 ||
-    atr == null ||
-    !Number.isFinite(atr) ||
-    atr <= 0
-  )
-    return null;
-  const candidates = [
-    { kind: "percent" as const, price: entry * (1 - stop.fraction) },
-    { kind: "atr" as const, price: entry - stop.multiple * atr },
-    {
-      kind: "structure" as const,
-      price: structure - stop.structureBuffer * atr,
-    },
-  ];
-  if (
-    candidates.some(
-      (c) => !Number.isFinite(c.price) || c.price <= 0 || c.price >= entry,
-    )
-  )
-    return null;
-  return {
-    candidates,
-    selected: (stop.kind === "nearest-stop" ? Math.max : Math.min)(
-      ...candidates.map((c) => c.price),
-    ),
-  };
-}
-
-export function researchMaximumDistance(
-  stop: ResearchManagement["stop"],
-  entry: number,
-  evidence: { initialStop?: number | null; stopAtr?: number | null },
-) {
-  return stop.kind === "max-distance"
-    ? researchStopComparison(stop, entry, evidence)
-    : null;
-}
-
-export function researchInitialStop(
-  management: ResearchManagement,
-  entry: number,
-  evidence: {
-    initialStop?: number | null;
-    stopAtr?: number | null;
-    symbol?: string;
-    observedDate?: string;
-    entryPriceRange?: { min: number; max: number };
-  },
-) {
-  if (management.riskPreset) {
-    if (
-      management.riskPreset === "rk-chan-line" ||
-      riskPresetEvolution(management.riskPreset)?.crowded
-    ) {
-      const line = evidence.initialStop;
-      return line != null && Number.isFinite(line) && line > 0 && line < entry
-        ? line
-        : null;
-    }
-    const selected = riskPresetInitialStop(
-      management.riskPreset,
-      entry,
-      evidence,
-    );
-    if (selected !== undefined) return selected;
-  }
-  const override = researchStopOverride(management, evidence);
-  if (override)
-    return Number.isFinite(entry) &&
-      Number.isFinite(override.price) &&
-      override.price > 0 &&
-      override.price < entry
-      ? override.price
-      : null;
-  if (management.swingDiscipline === "sw-stop-volatility") {
-    const a = evidence.stopAtr;
-    return a != null && Number.isFinite(a) && a > 0 && entry > 0
-      ? entry * (1 - (a / entry >= 0.02 ? 0.03 : 0.02))
-      : null;
-  }
-  const stop = management.stop;
-  if (isGrowthPivotStop(stop.kind))
-    return researchGrowthPivotStop(
-      stop.kind,
-      entry,
-      evidence.entryPriceRange?.min,
-    );
-  if (stop.kind === "max-distance" || stop.kind === "nearest-stop")
-    return researchStopComparison(stop, entry, evidence)?.selected ?? null;
-  const value =
-    stop.kind === "structure-auto"
-      ? evidence.initialStop != null &&
-        Number.isFinite(evidence.initialStop) &&
-        evidence.initialStop > 0
-        ? stop.atrPeriod == null
-          ? evidence.initialStop * (1 - stop.percentBuffer)
-          : evidence.stopAtr != null &&
-              Number.isFinite(evidence.stopAtr) &&
-              evidence.stopAtr > 0
-            ? evidence.initialStop - stop.atrMultiple * evidence.stopAtr
-            : null
-        : null
-      : stop.kind === "percent"
-        ? entry * (1 - stop.fraction)
-        : stop.kind === "structure-atr"
-          ? evidence.initialStop != null &&
-            evidence.stopAtr != null &&
-            Number.isFinite(evidence.stopAtr) &&
-            evidence.stopAtr > 0
-            ? evidence.initialStop - stop.multiple * evidence.stopAtr
-            : null
-          : stop.kind === "atr"
-            ? evidence.stopAtr != null && evidence.stopAtr > 0
-              ? entry - stop.multiple * evidence.stopAtr
-              : null
-            : evidence.initialStop != null && "buffer" in stop
-              ? evidence.initialStop * (1 - stop.buffer)
-              : null;
-  return value != null && Number.isFinite(value) && value > 0 && value < entry
-    ? value
-    : null;
-}

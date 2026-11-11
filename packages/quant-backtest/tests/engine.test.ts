@@ -1,9 +1,9 @@
+import { maBaselineSignals } from "trading-strategies";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   baselineBarOpenTime,
   maBaselineInputSchema,
-  maBaselineSignals,
   runMaBaseline,
 } from "../src/index.js";
 import { defaultExecutionCosts as defaultBacktestCosts } from "../src/costs.js";

@@ -1,7 +1,6 @@
 export {
   runMaBaseline,
   maBaselineInputSchema,
-  maBaselineSignals,
   baselineBarOpenTime,
   maBaselineBuildHash,
 } from "quant-backtest";
@@ -11,3 +10,5 @@ export type {
   BaselineOrder,
   BaselineFill,
 } from "quant-backtest";
+
+export { maBaselineSignals } from "trading-strategies";

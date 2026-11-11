@@ -2,17 +2,17 @@ import {
   isIntradayExecution,
   intradayExecutionInputsSchema,
   intradayExecutionBoundary,
-} from "~/lib/research/technical/research-intraday-execution";
+} from "trading-strategies/research/technical/research-intraday-execution";
 import {
   isMarketAdmission,
   marketAdmissionInputsSchema,
   marketAdmissionBoundary,
-} from "~/lib/research/risk/research-market-admission";
+} from "trading-strategies/research/risk/research-market-admission";
 import {
   isOpening,
   openingPlansSchema,
   openingBoundary,
-} from "~/lib/research/technical/research-opening";
+} from "trading-strategies/research/technical/research-opening";
 import { Textarea } from "../ui/textarea";
 import {
   contextRiskIds,
@@ -20,51 +20,51 @@ import {
   contextRiskTemplate,
   contextRiskInputsSchema,
   contextRiskBoundary,
-} from "~/lib/research/risk/research-context-risk";
+} from "trading-strategies/research/risk/research-context-risk";
 import {
   isExternalVolatility,
   volatilityInputsSchema,
-} from "~/lib/research/factors/research-volatility-input";
+} from "trading-strategies/research/factors/research-volatility-input";
 import {
   riskPresetIds,
   riskProfiles,
   riskPresetTemplate,
   riskPresetBoundary,
-} from "~/lib/research/risk/research-risk-presets";
+} from "trading-strategies/research/risk/research-risk-presets";
 import {
   volatilityStopIds,
   volatilityStopProfiles,
   volatilityStopTemplate,
   volatilityStopBoundary,
-} from "~/lib/research/risk/research-volatility-stops";
+} from "trading-strategies/research/risk/research-volatility-stops";
 import {
   swingDisciplineIds,
   swingDisciplineLabels,
   swingDisciplineTemplate,
   swingDisciplineBoundary,
-} from "~/lib/research/methods/swing/research-swing-discipline";
+} from "trading-strategies/research/swing/research-swing-discipline";
 import type { ResearchManagement } from "~/lib/research/workflow/research-management";
 import {
   growthIntradayIds,
   growthIntradayLabels,
   growthIntradayTemplate,
   growthIntradayDescription,
-} from "~/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/factors/research-growth-intraday";
 import {
   growthDailyIds,
   growthDailyLabels,
   growthDailyTemplate,
   growthDailyDescription,
-} from "~/lib/research/factors/research-growth-daily";
+} from "trading-strategies/research/factors/research-growth-daily";
 import {
   growthPivotStopIds,
   isGrowthPivotStop,
   growthPivotStopLabels,
   growthPivotStopTemplate,
   growthPivotStopDescription,
-} from "~/lib/research/factors/research-growth-stops";
+} from "trading-strategies/research/factors/research-growth-stops";
 import { researchScaleOutPreset } from "~/lib/research/workflow/research-management";
-import { swingExitTemplate, swingExitKind } from "~/lib/research/methods/swing/research-swing-exits";
+import { swingExitTemplate, swingExitKind } from "trading-strategies/research/swing/research-swing-exits";
 import {
   clearStaleExitPreset,
   researchExitPresetIds,
@@ -76,11 +76,11 @@ import {
   isSepaExitPreset,
   sepaExitDescription,
 } from "~/lib/research/specs/research-exit-presets";
-import { researchProgressExitDescription } from "~/lib/research/technical/research-progress-exit";
+import { researchProgressExitDescription } from "trading-strategies/research/technical/research-progress-exit";
 import {
   researchRManagementTemplate,
   isResearchRManagementTemplate,
-} from "~/lib/research/risk/research-r-management";
+} from "trading-strategies/research/risk/research-r-management";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {

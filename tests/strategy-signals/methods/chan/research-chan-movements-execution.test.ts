@@ -1,9 +1,14 @@
 import { expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { chanMovementFixture } from "../../../helpers/chan-movements";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import type { CzscResult } from "../../../../src/lib/research/methods/chan/czsc";
-import { chanC4SmallTurnFromSignal } from "../../../../src/server/strategies/chan/research-chan-movements";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
+import {
+  chanC4SmallTurnFromSignal,
+  chanC4SmallTurnSignalDecisions,
+  type ChanC4DecisionObservation,
+} from "trading-strategies/research/chan/research-chan-movements";
 
 it.each([
   "chan-trend-completed-daily-c4",
@@ -297,6 +302,74 @@ it("CH18 resolves original third-buy retest outside the center, small top and su
     status: "matched",
     action: "exit",
   });
+  // Frozen independently from the pre-extraction server implementation and this fixed native fixture.
+  expect(
+    createHash("sha256")
+      .update(
+        JSON.stringify(chanC4SmallTurnFromSignal(f.result, f.bars, 0, third)),
+      )
+      .digest("hex"),
+  ).toBe("2437031d295842f9e7a3799364dbd2ba3dcb6be22fcf49df65e1c60c460e6dbe");
+  const observations: ChanC4DecisionObservation[] = f.table.movements.map(
+    (movement) => ({ state: "confirmed", evidence: { id: movement.id } }),
+  );
+  const originalInput = JSON.stringify(f.result);
+  const decisions = chanC4SmallTurnSignalDecisions(
+    f.result,
+    f.bars,
+    0,
+    2,
+    third,
+    observations,
+  );
+  expect(
+    decisions.map((decision) => [
+      decision.verdict.action,
+      decision.key,
+      decision.endpoint,
+    ]),
+  ).toEqual([
+    ["exit", `small:${third.date}`, third.date],
+    ["enter", `third:${third.date}`, third.date],
+  ]);
+  expect(decisions[0]!.verdict).toEqual(
+    chanC4SmallTurnFromSignal(f.result, f.bars, 0, third),
+  );
+  expect(JSON.stringify(f.result)).toBe(originalInput);
+  expect(
+    chanC4SmallTurnSignalDecisions(f.result, f.bars, 0, 1, third, observations),
+  ).toEqual([]);
+  expect(
+    chanC4SmallTurnSignalDecisions(
+      f.result,
+      f.bars,
+      0,
+      2,
+      f.signal,
+      observations,
+    ),
+  ).toEqual([]);
+  const revised = observations.map((row) =>
+    row.evidence?.id === 4 ? { ...row, state: "revised" as const } : row,
+  );
+  expect(
+    chanC4SmallTurnSignalDecisions(f.result, f.bars, 0, 2, third, revised).map(
+      (decision) => decision.verdict.action,
+    ),
+  ).toEqual(["enter"]);
+  const candidateOnly = observations.map((row) =>
+    row.evidence?.id === 2 ? { ...row, state: "candidate" as const } : row,
+  );
+  expect(
+    chanC4SmallTurnSignalDecisions(
+      f.result,
+      f.bars,
+      0,
+      2,
+      third,
+      candidateOnly,
+    ).map((decision) => decision.verdict.action),
+  ).toEqual(["exit"]);
   f.table.movements.find((m) => m.id === 4)!.low = 40;
   expect(chanC4SmallTurnFromSignal(f.result, f.bars, 0, third)).toMatchObject({
     status: "not-matched",

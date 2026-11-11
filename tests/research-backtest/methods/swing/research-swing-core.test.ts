@@ -4,7 +4,7 @@ import {
   analyzeBreakout,
   type BreakoutPoint,
   type TrendLine,
-} from "../../../../src/server/strategies/breakout/breakout";
+} from "trading-strategies/research/breakout/breakout";
 import {
   researchSwingCoreSeries,
   selectSwingLevel,
@@ -13,7 +13,7 @@ import {
   swingStrengthFraction,
   type SwingCoreEvidence,
   type SwingLevel,
-} from "../../../../src/lib/research/methods/swing/research-swing-core";
+} from "trading-strategies/research/swing/research-swing-core";
 const bars = (n = 125): Bar[] =>
   Array.from({ length: n }, (_, i) => ({
     date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),

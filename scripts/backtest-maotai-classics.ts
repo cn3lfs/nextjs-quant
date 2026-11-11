@@ -9,15 +9,17 @@ import {
 } from "tstdx/local";
 import {
   runClassicStudy,
-  studyStrategies,
   studySignalBars,
   classicStudyDatasetSchema,
+} from "quant-backtest";
+import {
+  studyStrategies,
   classicStudyStrategies,
   studyCatalog,
   studyCoverageGaps,
   studyWarmup,
   type StudyStrategy,
-} from "quant-backtest";
+} from "trading-strategies";
 import { z } from "zod";
 import { ma } from "trading-strategy-core/indicators";
 
@@ -145,9 +147,15 @@ if (
 )
   throw new Error("冻结输入与日历不符");
 const sourceFiles = [
+  "packages/trading-strategies/src/study-decision.ts",
+  "packages/trading-strategies/src/csi800-model.ts",
+  "packages/trading-strategies/src/ma-cross.ts",
   "packages/quant-backtest/src/classic-study.ts",
-  "packages/quant-backtest/src/study-catalog.ts",
-  "packages/quant-backtest/src/study-rules.ts",
+  "packages/trading-strategies/src/study-catalog.ts",
+  "packages/trading-strategies/src/study-rules.ts",
+  "packages/trading-strategies/src/classics/index.ts",
+  "packages/trading-strategies/src/classics/definitions.ts",
+  "packages/trading-strategies/src/classics/rules.ts",
   "scripts/backtest-maotai-classics.ts",
   "scripts/export-classic-study.ts",
   "packages/quant-backtest/package.json",

@@ -8,8 +8,8 @@ import {
   openingRows,
   type OpeningContext,
   type OpeningId,
-} from "../../../src/lib/research/technical/research-opening";
-import { growthIntradayTemplate } from "../../../src/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/technical/research-opening";
+import { growthIntradayTemplate } from "trading-strategies/research/factors/research-growth-intraday";
 import {
   growthMinuteTimes,
   researchGrowthIntraday,

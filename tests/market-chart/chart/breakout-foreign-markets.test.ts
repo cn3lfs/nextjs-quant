@@ -3,7 +3,7 @@ import type { Bar } from "../../../src/lib/domain";
 import {
   analyzeBreakout,
   roundStep,
-} from "../../../src/server/strategies/breakout/breakout";
+} from "trading-strategies/research/breakout/breakout";
 
 describe("breakout round-number ladder", () => {
   it("keeps the A-share ladder and scales outside it", () => {

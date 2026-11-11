@@ -3,7 +3,7 @@ import {
   classicFinancialFeatures,
   classicRanks,
   csi800ClassicFactors,
-} from "../src/csi800-factors.js";
+} from "trading-strategies";
 import {
   classicModelScore,
   scoreClassicWeek,
@@ -12,10 +12,10 @@ import {
   buildClassicSchedule,
   type ClassicWeek,
   type ClassicScoredRow,
-} from "../src/csi800-composite.js";
-import { csi800ForwardReturn, csi800SignalBars } from "../src/csi800-signal.js";
+} from "trading-strategies";
+import { csi800ForwardReturn, csi800SignalBars } from "trading-strategies";
 import type { FinancialReportSnapshot } from "trading-strategy-core/financial";
-import type { Csi800Stock } from "../src/csi800-study.js";
+import type { Csi800Stock } from "trading-strategies";
 
 function report(
   date: string,

@@ -8,7 +8,7 @@ import {
 import {
   researchStructureTargets,
   structurePfColumns,
-} from "~/lib/research/technical/research-structure-targets";
+} from "trading-strategies/research/technical/research-structure-targets";
 
 const dates = Array.from(
   { length: 28 },

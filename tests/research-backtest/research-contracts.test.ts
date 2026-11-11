@@ -1,12 +1,13 @@
-import { chanC4Ids } from "../../src/lib/research/methods/chan/research-chan-movements";
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
+import { chanC4Ids } from "trading-strategies/research/chan/research-chan-movements";
 import {
   chanNativeIds,
   isChanZhongyin,
   isChanFiveMinute,
-} from "../../src/lib/research/methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/research-chan-native";
 import { describe, expect, it } from "vitest";
 import { maParamsSchema, type Bar } from "../../src/lib/domain";
-import type { CzscResult } from "../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import {
   researchStrategyIds,
   researchStrategies,
@@ -17,11 +18,8 @@ import {
   type ResearchSpec,
 } from "../../src/lib/research/strategy-research";
 import { researchSignals as actualResearchSignals } from "../../src/server/strategies/shared/research-signals";
-import {
-  isResearchRule,
-  researchRuleSeries,
-} from "../../src/server/strategies/shared/research-rule-series";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import { isResearchRule, researchRuleSeries, } from "trading-strategies/research/composition/research-rule-series";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 import {
   buildNamedResearchSpec,
@@ -31,18 +29,10 @@ import {
   findResearchCompositePreset,
   researchCompositePresetIds,
 } from "../../src/lib/research/specs/research-composite-presets";
-import { isExternalVolatility } from "../../src/lib/research/factors/research-volatility-input";
+import { isExternalVolatility } from "trading-strategies/research/factors/research-volatility-input";
 import type { ResearchDataset } from "../../src/server/backtest/research-dataset";
-import {
-  researchSellQuantity,
-  type ResearchExecutionRules,
-} from "../../src/lib/research/technical/research-execution";
-import {
-  researchPositionBook,
-  researchBookBuy,
-  researchBookSell,
-  researchBookSellable,
-} from "../../src/lib/research/analysis/research-position-book";
+import {sellQuantity as researchSellQuantity,type ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
+import {researchPositionBook,researchBookBuy,researchBookSell,researchBookSellable} from "../../src/lib/research/analysis/research-position-book";
 
 export const structureExceptions = {
   ...Object.fromEntries(
@@ -195,319 +185,258 @@ it("requires an executable signal adapter for every registered preset", () => {
 });
 
 describe.each(researchStrategyIds)("registered contracts: %s", (id) => {
-  const bars = prices(
-    isChanFiveMinute(id)
-      ? 7
-      : id.startsWith("canslim-high") ||
-          id.startsWith("sepa-") ||
-          id.endsWith("window120")
-        ? 370
-        : id === "czsc"
-          ? 67
-          : 85,
-  );
-  if (isChanZhongyin(id) || isChanFiveMinute(id))
-    for (const bar of bars) bar.date = bar.date.replace("2023-", "2020-");
-  const first = bars.length - 5;
-  const spec = researchSpecSchema.parse({
-    strategy: id,
-    ...(id === "dual-breakout-structure"
-      ? { risk: { fraction: 0.01, maxWeight: 0.2 } }
-      : {}),
-    ...(id === "ma-cross" ? { maParams: maParamsSchema.parse({}) } : {}),
-    start: bars[first]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars.at(-2)!.date,
-  });
-  const execution = researchSpecSchema.parse({
-    ...spec,
-    start: days[0],
-    end: days.at(-1),
-    validationStart: days[5],
-    initialCapital: 10000,
-    maxPositions: 1,
-    holdingDays: 60,
-    risk: { fraction: 0.05, maxWeight: 1 },
-    ...(id === "dual-breakout-structure"
-      ? {}
-      : { management: { stop: { kind: "percent", fraction: 0.1 } } }),
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-  const event: ResearchEvent = {
-    symbol: "sh600000",
-    observedDate: days[0]!,
-    endpointDate: days[0]!,
-    key: `contract:${id}`,
-    strategyVersion: researchStrategies[id].version,
-    partition: "development",
-    evidence: "synthetic confirmed execution input",
-    initialStop: 9,
-  };
-  const portfolio = (
-    events = [event],
-    ruleForDate = (_symbol: string, _date: string) => rules,
-    input = executionBars,
-  ) =>
-    researchPortfolio(
-      execution,
-      events,
-      days,
-      new Map(
-        [...events]
-          .sort((a, b) => a.symbol.localeCompare(b.symbol))
-          .map((e) => [e.symbol, input]),
-      ),
-      ruleForDate,
-    );
-  it("full historical prefix agrees at every research observation", async () => {
-    if (isResearchRule(id)) {
-      const full = researchRuleSeries(id, bars);
-      expect(full).toHaveLength(bars.length);
-      for (let end = first + 1; end <= bars.length; end++)
-        expect(researchRuleSeries(id, bars.slice(0, end))).toEqual(
-          full.slice(0, end),
-        );
-    } else {
-      const full = await researchSignals(event.symbol, bars, spec, native);
-      for (let end = first + 1; end <= bars.length; end++)
-        expect(
-          await researchSignals(
-            event.symbol,
-            bars.slice(0, end),
-            { ...spec, end: bars[end - 1]!.date },
-            native,
-          ),
-        ).toEqual(full.filter((e) => e.observedDate <= bars[end - 1]!.date));
-    }
-  });
-  it("appending extreme future observations never changes past outputs", async () => {
-    const future = [
-      ...bars,
-      {
-        ...bars.at(-1)!,
-        date: "2026-01-01",
-        open: 10000,
-        close: 10000,
-        high: 11000,
-        low: 9000,
-      },
-    ];
-    if (isResearchRule(id))
-      expect(researchRuleSeries(id, future).slice(0, bars.length)).toEqual(
-        researchRuleSeries(id, bars),
-      );
-    else
-      expect(await researchSignals(event.symbol, future, spec, native)).toEqual(
-        await researchSignals(event.symbol, bars, spec, native),
-      );
-  });
-  it.each(["missing", "zero-volume", "invalid-ohlc"])(
-    "does not fabricate entry on %s observation",
-    async (kind) => {
-      const changed = structuredClone(bars);
-      const target = changed.at(-1)!.date;
-      if (kind === "missing") changed.pop();
-      else if (kind === "zero-volume") changed.at(-1)!.volume = 0;
-      else changed.at(-1)!.high = changed.at(-1)!.low - 1;
-      if (isResearchRule(id))
-        expect(
-          researchRuleSeries(id, changed).filter(
-            (p) => p.date === target && p.entry,
-          ),
-        ).toEqual([]);
-      else {
-        const events = await researchSignals(
-          event.symbol,
-          changed,
-          spec,
-          native,
-        );
-        expect(events.filter((e) => e.observedDate === target)).toEqual([]);
-      }
-    },
-  );
-  it("executes only at the next available open", () => {
-    const result = portfolio(
-      [event],
-      (_s, date) => ({
-        ...rules,
-        tradable: date !== days[1],
-      }),
-      executionBars.map((bar) => ({
-        ...bar,
-        open: 10,
-        close: 10,
-        high: 11,
-        low: 9,
-      })),
-    );
-    expect(result.trades).toHaveLength(1);
-    expect(result.trades[0]!.entryDate).toBe(days[2]);
-  });
-  it("keeps old lots sellable while rejecting same-day added shares", () => {
-    let book = researchBookBuy(researchPositionBook(), {
-      date: days[0]!,
-      quantity: 500,
-      price: 10,
-      commission: 5,
+    const bars = prices(isChanFiveMinute(id)
+        ? 7
+        : id.startsWith("canslim-high") ||
+            id.startsWith("sepa-") ||
+            id.endsWith("window120")
+            ? 370
+            : id === "czsc"
+                ? 67
+                : 85);
+    if (isChanZhongyin(id) || isChanFiveMinute(id))
+        for (const bar of bars)
+            bar.date = bar.date.replace("2023-", "2020-");
+    const first = bars.length - 5;
+    const spec = researchSpecSchema.parse({
+        strategy: id,
+        ...(id === "dual-breakout-structure"
+            ? { risk: { fraction: 0.01, maxWeight: 0.2 } }
+            : {}),
+        ...(id === "ma-cross" ? { maParams: maParamsSchema.parse({}) } : {}),
+        start: bars[first]!.date,
+        end: bars.at(-1)!.date,
+        validationStart: bars.at(-2)!.date,
     });
-    book = researchBookBuy(book, {
-      date: days[1]!,
-      quantity: 300,
-      price: 11,
-      commission: 5,
-    });
-    expect(researchBookSellable(book, days[1]!)).toBe(500);
-    expect(() =>
-      researchBookSell(book, {
-        date: days[1]!,
-        quantity: 501,
-        price: 12,
-        commission: 5,
-        tax: 0,
-      }),
-    ).toThrow("可卖");
-    const sold = researchBookSell(book, {
-      date: days[1]!,
-      quantity: 500,
-      price: 12,
-      commission: 5,
-      tax: 0,
-    }).book;
-    expect(researchBookSellable(sold, days[1]!)).toBe(0);
-    expect(researchBookSellable(sold, days[2]!)).toBe(300);
-  });
-  it("retains a confirmed stop through blockage and price recovery", () => {
-    const result = portfolio([event], (_s, date) => ({
-      ...rules,
-      tradable: date !== days[2],
-    }));
-    expect(result.trades).toHaveLength(1);
-    expect(result.trades[0]).toMatchObject({
-      entryDate: days[1],
-      exitDate: days[3],
-      exitPrice: 11,
-    });
-    expect(result.attempts).toEqual([
-      expect.objectContaining({ date: days[2], side: "sell" }),
-    ]);
-  });
-  it("refuses transaction simulation without corporate-action proof", async () => {
-    const dataset: ResearchDataset = {
-      version: "research-dataset-1",
-      source: "tdx-local",
-      root: "synthetic",
-      adjustment: "none",
-      membership: {
-        mode: "current-snapshot",
-        symbols: [event.symbol],
-        source: null,
-        warning: "synthetic",
-      },
-      benchmark: { symbol: "sh000001", bars },
-      calendar: bars.map((b) => b.date),
-      stocks: [
-        {
-          symbol: event.symbol,
-          name: "synthetic",
-          bars,
-          hash: "fixture",
-          ...(isChanFiveMinute(id) ? { minuteBars: minuteFixture(bars) } : {}),
-          actions: [],
+    const execution = researchSpecSchema.parse({
+        ...spec,
+        start: days[0],
+        end: days.at(-1),
+        validationStart: days[5],
+        initialCapital: 10000,
+        maxPositions: 1,
+        holdingDays: 60,
+        risk: { fraction: 0.05, maxWeight: 1 },
+        ...(id === "dual-breakout-structure"
+            ? {}
+            : { management: { stop: { kind: "percent", fraction: 0.1 } } }),
+        costs: {
+            commissionBps: 0,
+            minimumCommission: 0,
+            sellTaxBps: 0,
+            slippageBps: 0,
         },
-      ],
-      excluded: [],
-      actionCoverage: "missing",
-      actionSource: null,
-      capturedAt: 0,
-      hash: "fixture",
-    };
-    const result = await runStrategyResearch(spec, dataset, null, native);
-    expect(result.partitions).toHaveLength(2);
-    expect(result.partitions.map((p) => p.simulation)).toEqual([null, null]);
-    const dailyEvidence = researchMarketEvidenceSchema.parse({
-      version: "research-market-evidence-1",
-      source: "synthetic-contract",
-      exportedAt: 0,
-      adjustment: "none",
-      corporateActionFree: [],
-      rows: bars
-        .map((bar) => ({
-          symbol: event.symbol,
-          date: bar.date,
-          ...rules,
-          evidenceId: "synthetic-contract",
-        }))
-        .map(({ evidence: _evidence, ...row }) => row),
     });
-    const withoutActionProof = await runStrategyResearch(
-      spec,
-      dataset,
-      dailyEvidence,
-      native,
-    );
-    expect(
-      withoutActionProof.partitions.map((p) => p.simulation!.trades),
-    ).toEqual([[], []]);
-    if (id === "czsc") {
-      expect(withoutActionProof.events).toHaveLength(1);
-      const proven = await runStrategyResearch(
-        spec,
-        dataset,
-        {
-          ...dailyEvidence,
-          corporateActionFree: [
+    const event: ResearchEvent = {
+        symbol: "sh600000",
+        observedDate: days[0]!,
+        endpointDate: days[0]!,
+        key: `contract:${id}`,
+        strategyVersion: researchStrategies[id].version,
+        partition: "development",
+        evidence: "synthetic confirmed execution input",
+        initialStop: 9,
+    };
+    const portfolio = (events = [event], ruleForDate = (_symbol: string, _date: string) => rules, input = executionBars) => researchPortfolio(execution, events, days, new Map([...events]
+        .sort((a, b) => a.symbol.localeCompare(b.symbol))
+        .map((e) => [e.symbol, input])), ruleForDate);
+    it("full historical prefix agrees at every research observation", async () => {
+        if (isResearchRule(id)) {
+            const full = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
+            expect(full).toHaveLength(bars.length);
+            for (let end = first + 1; end <= bars.length; end++)
+                expect(researchRuleSeries(id, bars.slice(0, end), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(full.slice(0, end));
+        }
+        else {
+            const full = await researchSignals(event.symbol, bars, spec, native);
+            for (let end = first + 1; end <= bars.length; end++)
+                expect(await researchSignals(event.symbol, bars.slice(0, end), { ...spec, end: bars[end - 1]!.date }, native)).toEqual(full.filter((e) => e.observedDate <= bars[end - 1]!.date));
+        }
+    });
+    it("appending extreme future observations never changes past outputs", async () => {
+        const future = [
+            ...bars,
             {
-              symbol: event.symbol,
-              start: bars[0]!.date,
-              end: spec.end,
-              evidenceId: "synthetic-no-action",
+                ...bars.at(-1)!,
+                date: "2026-01-01",
+                open: 10000,
+                close: 10000,
+                high: 11000,
+                low: 9000,
             },
-          ],
-        },
-        native,
-      );
-      expect(
-        proven.partitions.flatMap((p) => p.simulation!.trades),
-      ).toHaveLength(1);
-    }
-  });
-  it("enforces sell minima, steps, maximum and complete odd-lot remainder", () => {
-    expect(researchSellQuantity(299, 1000, rules)).toBe(200);
-    expect(researchSellQuantity(99, 1000, rules)).toBe(0);
-    expect(
-      researchSellQuantity(1000, 1000, { ...rules, maximumSell: 300 }),
-    ).toBe(300);
-    expect(researchSellQuantity(37, 37, rules)).toBe(37);
-    expect(
-      researchSellQuantity(37, 37, { ...rules, sellOddLotAll: false }),
-    ).toBe(0);
-    expect(
-      researchSellQuantity(100, 100, { ...rules, sellStep: undefined }),
-    ).toBeNull();
-  });
-  it("conserves cash and values actual holdings", () => {
-    const result = portfolio();
-    expect(result.trades).toHaveLength(1);
-    expect(result.trades[0]!.profit).toBe(500);
-    expect(result.nav.at(-1)).toMatchObject({ cash: 10500, value: 10500 });
-    expect(result.nav[1]).toMatchObject({ cash: 5000, value: 9000 });
-  });
-  it("has stable selection under reversed candidate input", () => {
-    const another = {
-      ...event,
-      symbol: "sh600001",
-      key: `${event.key}:second`,
-    };
-    const first = portfolio([event, another]);
-    expect(first.trades[0]!.event.symbol).toBe("sh600000");
-    expect(portfolio([another, event])).toEqual(first);
-  });
+        ];
+        if (isResearchRule(id))
+            expect(researchRuleSeries(id, future, undefined, undefined, undefined, researchFormulaRuntime).slice(0, bars.length)).toEqual(researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime));
+        else
+            expect(await researchSignals(event.symbol, future, spec, native)).toEqual(await researchSignals(event.symbol, bars, spec, native));
+    });
+    it.each(["missing", "zero-volume", "invalid-ohlc"])("does not fabricate entry on %s observation", async (kind) => {
+        const changed = structuredClone(bars);
+        const target = changed.at(-1)!.date;
+        if (kind === "missing")
+            changed.pop();
+        else if (kind === "zero-volume")
+            changed.at(-1)!.volume = 0;
+        else
+            changed.at(-1)!.high = changed.at(-1)!.low - 1;
+        if (isResearchRule(id))
+            expect(researchRuleSeries(id, changed, undefined, undefined, undefined, researchFormulaRuntime).filter((p) => p.date === target && p.entry)).toEqual([]);
+        else {
+            const events = await researchSignals(event.symbol, changed, spec, native);
+            expect(events.filter((e) => e.observedDate === target)).toEqual([]);
+        }
+    });
+    it("executes only at the next available open", () => {
+        const result = portfolio([event], (_s, date) => ({
+            ...rules,
+            tradable: date !== days[1],
+        }), executionBars.map((bar) => ({
+            ...bar,
+            open: 10,
+            close: 10,
+            high: 11,
+            low: 9,
+        })));
+        expect(result.trades).toHaveLength(1);
+        expect(result.trades[0]!.entryDate).toBe(days[2]);
+    });
+    it("keeps old lots sellable while rejecting same-day added shares", () => {
+        let book = researchBookBuy(researchPositionBook(), {
+            date: days[0]!,
+            quantity: 500,
+            price: 10,
+            commission: 5,
+        });
+        book = researchBookBuy(book, {
+            date: days[1]!,
+            quantity: 300,
+            price: 11,
+            commission: 5,
+        });
+        expect(researchBookSellable(book, days[1]!)).toBe(500);
+        expect(() => researchBookSell(book, {
+            date: days[1]!,
+            quantity: 501,
+            price: 12,
+            commission: 5,
+            tax: 0,
+        })).toThrow("可卖");
+        const sold = researchBookSell(book, {
+            date: days[1]!,
+            quantity: 500,
+            price: 12,
+            commission: 5,
+            tax: 0,
+        }).book;
+        expect(researchBookSellable(sold, days[1]!)).toBe(0);
+        expect(researchBookSellable(sold, days[2]!)).toBe(300);
+    });
+    it("retains a confirmed stop through blockage and price recovery", () => {
+        const result = portfolio([event], (_s, date) => ({
+            ...rules,
+            tradable: date !== days[2],
+        }));
+        expect(result.trades).toHaveLength(1);
+        expect(result.trades[0]).toMatchObject({
+            entryDate: days[1],
+            exitDate: days[3],
+            exitPrice: 11,
+        });
+        expect(result.attempts).toEqual([
+            expect.objectContaining({ date: days[2], side: "sell" }),
+        ]);
+    });
+    it("refuses transaction simulation without corporate-action proof", async () => {
+        const dataset: ResearchDataset = {
+            version: "research-dataset-1",
+            source: "tdx-local",
+            root: "synthetic",
+            adjustment: "none",
+            membership: {
+                mode: "current-snapshot",
+                symbols: [event.symbol],
+                source: null,
+                warning: "synthetic",
+            },
+            benchmark: { symbol: "sh000001", bars },
+            calendar: bars.map((b) => b.date),
+            stocks: [
+                {
+                    symbol: event.symbol,
+                    name: "synthetic",
+                    bars,
+                    hash: "fixture",
+                    ...(isChanFiveMinute(id) ? { minuteBars: minuteFixture(bars) } : {}),
+                    actions: [],
+                },
+            ],
+            excluded: [],
+            actionCoverage: "missing",
+            actionSource: null,
+            capturedAt: 0,
+            hash: "fixture",
+        };
+        const result = await runStrategyResearch(spec, dataset, null, native);
+        expect(result.partitions).toHaveLength(2);
+        expect(result.partitions.map((p) => p.simulation)).toEqual([null, null]);
+        const dailyEvidence = researchMarketEvidenceSchema.parse({
+            version: "research-market-evidence-1",
+            source: "synthetic-contract",
+            exportedAt: 0,
+            adjustment: "none",
+            corporateActionFree: [],
+            rows: bars
+                .map((bar) => ({
+                symbol: event.symbol,
+                date: bar.date,
+                ...rules,
+                evidenceId: "synthetic-contract",
+            }))
+                .map(({ evidence: _evidence, ...row }) => row),
+        });
+        const withoutActionProof = await runStrategyResearch(spec, dataset, dailyEvidence, native);
+        expect(withoutActionProof.partitions.map((p) => p.simulation!.trades)).toEqual([[], []]);
+        if (id === "czsc") {
+            expect(withoutActionProof.events).toHaveLength(1);
+            const proven = await runStrategyResearch(spec, dataset, {
+                ...dailyEvidence,
+                corporateActionFree: [
+                    {
+                        symbol: event.symbol,
+                        start: bars[0]!.date,
+                        end: spec.end,
+                        evidenceId: "synthetic-no-action",
+                    },
+                ],
+            }, native);
+            expect(proven.partitions.flatMap((p) => p.simulation!.trades)).toHaveLength(1);
+        }
+    });
+    it("enforces sell minima, steps, maximum and complete odd-lot remainder", () => {
+        expect(researchSellQuantity(299, 1000, rules)).toBe(200);
+        expect(researchSellQuantity(99, 1000, rules)).toBe(0);
+        expect(researchSellQuantity(1000, 1000, { ...rules, maximumSell: 300 })).toBe(300);
+        expect(researchSellQuantity(37, 37, rules)).toBe(37);
+        expect(researchSellQuantity(37, 37, { ...rules, sellOddLotAll: false })).toBe(0);
+        expect(researchSellQuantity(100, 100, { ...rules, sellStep: undefined })).toBeNull();
+    });
+    it("conserves cash and values actual holdings", () => {
+        const result = portfolio();
+        expect(result.trades).toHaveLength(1);
+        expect(result.trades[0]!.profit).toBe(500);
+        expect(result.nav.at(-1)).toMatchObject({ cash: 10500, value: 10500 });
+        expect(result.nav[1]).toMatchObject({ cash: 5000, value: 9000 });
+    });
+    it("has stable selection under reversed candidate input", () => {
+        const another = {
+            ...event,
+            symbol: "sh600001",
+            key: `${event.key}:second`,
+        };
+        const first = portfolio([event, another]);
+        expect(first.trades[0]!.event.symbol).toBe("sh600000");
+        expect(portfolio([another, event])).toEqual(first);
+    });
 });
 
 /**

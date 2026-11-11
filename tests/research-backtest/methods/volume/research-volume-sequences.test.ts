@@ -3,7 +3,7 @@ import type { Bar } from "../../../../src/lib/domain";
 import {
   researchVolumeContextSeries,
   type VolumeContextId,
-} from "../../../../src/lib/research/methods/volume/research-volume-context";
+} from "trading-strategies/research/volume/research-volume-context";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";

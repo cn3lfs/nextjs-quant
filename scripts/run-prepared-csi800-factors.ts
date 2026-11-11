@@ -7,8 +7,8 @@ import {
   csiPriceSchema,
   csiHash,
 } from "./lib/csi800-factor-data.js";
-import { csi800SignalBars } from "../packages/quant-backtest/src/csi800-signal.js";
-import { classicCommonWindow } from "../packages/quant-backtest/src/csi800-composite.js";
+import { csi800SignalBars } from "../packages/trading-strategies/src/csi800-signal.js";
+import { classicCommonWindow } from "../packages/trading-strategies/src/csi800-composite.js";
 import { runClassicMatrix } from "./lib/csi800-factor-matrix.js";
 import { runClassicDiagnostics } from "./lib/csi800-factor-diagnostics.js";
 import { classicCodeHashes } from "./lib/csi800-research-manifest.js";

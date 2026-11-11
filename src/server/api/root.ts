@@ -9,6 +9,7 @@ import { jobsRouter } from "./routers/jobs";
 import { settingsRouter } from "./routers/settings";
 import { integrationsRouter } from "./routers/integrations";
 import { financialRouter } from "./routers/financial";
+import { strategyCenterRouter } from "./routers/strategy-center";
 import { createCallerFactory, mergeTRPCRouters } from "./trpc";
 
 export const appRouter = mergeTRPCRouters(
@@ -23,6 +24,7 @@ export const appRouter = mergeTRPCRouters(
   settingsRouter,
   integrationsRouter,
   financialRouter,
+  strategyCenterRouter,
 );
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);

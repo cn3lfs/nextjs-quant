@@ -2,12 +2,12 @@ import { expect, it } from "vitest";
 import {
   swingSystemDecision,
   researchSwingSystemSeries,
-} from "../../../../src/lib/research/methods/swing/research-swing-system";
+} from "trading-strategies/research/swing/research-swing-system";
 import {
   swingMarketIds,
   type SwingMarketEvidence,
-} from "../../../../src/lib/research/methods/swing/research-swing-market";
-import { analyzeBreakout } from "../../../../src/server/strategies/breakout/breakout";
+} from "trading-strategies/research/swing/research-swing-market";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 const market = Object.fromEntries(
   swingMarketIds.map((id) => [id, "bull" as const]),
 );

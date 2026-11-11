@@ -1,11 +1,11 @@
 import { expect, it } from "vitest";
-import { researchKellySwitch } from "../../../src/lib/research/risk/research-kelly-switch";
+import { researchKellySwitch } from "trading-strategies/research/risk/research-kelly-switch";
 import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../../src/lib/research/strategy-research";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
-import { researchKellySchema } from "../../../src/lib/research/risk/research-kelly";
+import { researchKellySchema } from "trading-strategies/research/risk/research-kelly";
 
 const evidence = JSON.stringify({
   checks: {

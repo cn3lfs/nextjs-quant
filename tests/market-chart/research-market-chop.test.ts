@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { researchMarketChop } from "../../src/lib/research/risk/research-market-chop";
+import { researchMarketChop } from "trading-strategies/research/risk/research-market-chop";
 import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
 import {
   researchSpecSchema,

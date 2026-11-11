@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/bukosabino/ta",
+  "ref": "a890410710a6e483c9ba08da7f3dd5089e4b9dff",
+  "retrievedAt": "2026-11-11",
+  "license": "MIT",
+  "usage": "Negative Volume Index formula reference; independent TypeScript baseline.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/bukosabino/ta/a890410710a6e483c9ba08da7f3dd5089e4b9dff/LICENSE",
+      "sha256": "f4be1f16528123c4f41c55b91d52b7c07c12022f6acd75a7c4b3e461434600f0",
+      "bytes": 1096
+    },
+    {
+      "path": "ta/volume.py",
+      "url": "https://raw.githubusercontent.com/bukosabino/ta/a890410710a6e483c9ba08da7f3dd5089e4b9dff/ta/volume.py",
+      "sha256": "a9fc634050ef81defcb2fe37284fa5310242dbee80ae381ab26f225ac74f8984",
+      "bytes": 24693
+    }
+  ]
+}

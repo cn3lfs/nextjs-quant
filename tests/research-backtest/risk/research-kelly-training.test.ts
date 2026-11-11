@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import { researchKellyTraining } from "../../../src/lib/research/risk/research-kelly-training";
-import { researchKellyLimit } from "../../../src/lib/research/risk/research-kelly";
+import { researchKellyTraining } from "trading-strategies/research/risk/research-kelly-training";
+import { researchKellyLimit } from "trading-strategies/research/risk/research-kelly";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { maParamsSchema } from "../../../src/lib/domain";
-import { researchMarketEvidenceSchema } from "../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { runStrategyResearch } from "../../../src/server/backtest/research-run";
 import {
   researchHash,

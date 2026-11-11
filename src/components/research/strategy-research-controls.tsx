@@ -24,7 +24,7 @@ import {
 import {
   researchMarketEvidenceSchema,
   type ResearchMarketEvidence,
-} from "~/lib/research/factors/research-market-evidence";
+} from "trading-strategies/research/factors/research-market-evidence";
 import { Button } from "../ui/button";
 import { RollingPerformanceContainer } from "../backtest/rolling-performance-container";
 import { PeriodPerformanceContainer } from "../backtest/period-performance-container";

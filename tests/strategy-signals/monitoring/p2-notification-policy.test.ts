@@ -48,9 +48,9 @@ import { SignalLedgerStore } from "../../../src/server/monitoring/signal-ledger-
 import { ledgerSignals } from "../../../src/server/monitoring/signal-ledger-engine";
 import { SignalLedgerView } from "../../../src/components/signals/signal-ledger-view";
 import { NotificationPolicyFields } from "../../../src/components/signals/notification-policy-fields";
-import type { CzscResult } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import valid from "../../fixtures/breakout-valid.json";
-import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-p2-"));
 const date = "2026-09-10";

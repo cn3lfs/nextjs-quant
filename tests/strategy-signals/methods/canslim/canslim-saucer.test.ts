@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import type { Snapshot } from "../../../../src/lib/domain";
-import { canslimSaucer } from "../../../../src/server/strategies/canslim/canslim-saucer";
+import { canslimSaucer } from "trading-strategies/research/canslim/canslim-saucer";
+// Fixtures contain only 2024/2025 completed daily bars.
+const completedFixtureClock = Date.parse("2025-12-31T16:00:00+08:00");
+
 const fixture = (): Snapshot => ({
   id: "test",
   symbol: "sh600519",
@@ -25,7 +28,7 @@ const fixture = (): Snapshot => ({
 });
 it("recognizes a shallow rounded base and excludes the test day", () => {
   const s = fixture(),
-    result = canslimSaucer(s);
+    result = canslimSaucer(s, completedFixtureClock);
   if (!result.applicable) throw new Error("fixture invalid");
   const target = result.candidates.find((c) => c.length === 30);
   expect(target).toMatchObject({
@@ -37,19 +40,19 @@ it("recognizes a shallow rounded base and excludes the test day", () => {
   });
   s.bars.at(-1)!.high = 200;
   s.bars.at(-1)!.close = 199;
-  const after = canslimSaucer(s);
+  const after = canslimSaucer(s, completedFixtureClock);
   expect(after.applicable && after.candidates).toEqual(result.candidates);
 });
 it("rejects volume expansion and a trough at the edge", () => {
   const s = fixture();
   for (const bar of s.bars.slice(20, 50)) bar.volume = 100;
-  const result = canslimSaucer(s);
+  const result = canslimSaucer(s, completedFixtureClock);
   expect(
     result.applicable &&
       result.candidates.find((c) => c.length === 30)?.qualified,
   ).toBe(false);
   s.bars[20]!.low = 85;
-  const edge = canslimSaucer(s);
+  const edge = canslimSaucer(s, completedFixtureClock);
   expect(
     edge.applicable && edge.candidates.find((c) => c.length === 30)?.rounded,
   ).toBe(false);
@@ -79,7 +82,7 @@ it("scores a confirmed W saucer separately from a rounded bottom", () => {
       close: high - 0.2,
     });
   }
-  const result = canslimSaucer(s);
+  const result = canslimSaucer(s, completedFixtureClock);
   if (!result.applicable) throw new Error("fixture invalid");
   expect(result.candidates.find((c) => c.length === 30)).toMatchObject({
     shape: "W",

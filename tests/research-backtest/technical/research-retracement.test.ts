@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { researchRetracementStop } from "../../../src/lib/research/technical/research-retracement";
+import { researchRetracementStop } from "trading-strategies/research/technical/research-retracement";
 import { researchManagementSchema } from "../../../src/lib/research/workflow/research-management";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import {

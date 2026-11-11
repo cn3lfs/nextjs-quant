@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../src/lib/domain";
 import { maParamsSchema } from "../../src/lib/domain";
-import { researchMarketEnvironment } from "../../src/lib/research/risk/research-market-regime";
+import { researchMarketEnvironment } from "trading-strategies/research/risk/research-market-regime";
 import {
   researchSpecSchema,
   type ResearchEvent,
@@ -14,7 +14,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 const config = {
   kind: "ma20" as const,
   neutralBand: 0.01,

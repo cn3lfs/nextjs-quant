@@ -6,10 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { migrate } from "../src/server/db/migrations";
 import { parseDeliveryTable } from "../src/lib/research/evidence/delivery-table";
-import {
-  importDeliveryTable,
-  redactRow,
-} from "../src/lib/research/evidence/delivery-import";
+import {importDeliveryTable,redactRow} from "../src/lib/research/evidence/delivery-import";
 import { DeliveryStore } from "../src/server/portfolio/delivery-store";
 const fixture = JSON.parse(
   readFileSync(

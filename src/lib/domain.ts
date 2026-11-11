@@ -1,13 +1,14 @@
+import type { Metrics } from "trading-strategies/research/technical/screening-metrics";
 import type { CryptoSource } from "./market/crypto";
 import { marketSourceSchema, type MarketSource } from "./market/market-source";
 import type { FuturesSource } from "./market/futures";
-import { researchDateSchema } from "./research/workflow/research-usage";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { z } from "zod";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
 import type { SecurityTradingStatus } from "./market/security-trading-status";
 import type { Bar, Period } from "trading-strategy-core/bars";
 export type { Bar, Period } from "trading-strategy-core/bars";
-export const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 export const periodSchema = z.enum(["day", "5m"]);
 export type Security = {
   symbol: string;
@@ -90,16 +91,6 @@ export const defaultStrategy: Strategy = {
   minChange: -10,
   maxChange: 10,
   minVolumeRatio: 0,
-};
-export type Metrics = {
-  close: number;
-  change: number;
-  fast: number;
-  slow: number;
-  volumeRatio: number;
-  matched: boolean;
-  date: string;
-  score: number;
 };
 export type Candidate = {
   symbol: string;
@@ -199,8 +190,8 @@ export type Channel = Omit<
   "secret" | "signingSecret" | "id"
 > & { id: string; configured: boolean; revision?: string };
 export type Signal = {
-  breakout?: import("../server/strategies/breakout/breakout").BreakoutResult;
-  czsc?: import("./research/methods/chan/czsc").CzscSignalDetails;
+  breakout?: import("trading-strategies/research/breakout/breakout").BreakoutResult;
+  czsc?: import("trading-strategies/research/chan/czsc").CzscSignalDetails;
   monitorRun?: { createdAt: number; revision: string | null };
   tradingStatusEvidence?: SecurityTradingStatus;
   calendarEvidence?: {

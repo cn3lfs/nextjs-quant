@@ -1,9 +1,6 @@
 import { expect, it } from "vitest";
-import {
-  runClassicStudy,
-  studySignalBars,
-  classicStudyStrategies,
-} from "quant-backtest";
+import { runClassicStudy, studySignalBars } from "quant-backtest";
+import { classicStudyStrategies } from "trading-strategies";
 import type { Bar } from "quant-backtest";
 const bars = (count = 200): Bar[] =>
   Array.from({ length: count }, (_, i) => ({

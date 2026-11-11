@@ -3,7 +3,7 @@ import type { Bar } from "../../src/lib/domain";
 import {
   researchSepaSeries,
   sepaVcpScore,
-} from "../../src/server/strategies/canslim/research-sepa";
+} from "trading-strategies/research/canslim/research-sepa";
 import { researchSignals } from "../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 const fixture = (): Bar[] => {

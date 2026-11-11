@@ -4,8 +4,8 @@ import { expect, it } from "vitest";
 import {
   externalVolatilityPoint,
   type VolatilityInput,
-} from "../../../src/lib/research/factors/research-volatility-input";
-import { volatilityStopTemplate } from "../../../src/lib/research/risk/research-volatility-stops";
+} from "trading-strategies/research/factors/research-volatility-input";
+import { volatilityStopTemplate } from "trading-strategies/research/risk/research-volatility-stops";
 import { researchManagementSchema } from "../../../src/lib/research/workflow/research-management";
 import {
   researchSpecSchema,
@@ -175,7 +175,7 @@ function run(
   input = bars,
   inputs: VolatilityInput[] = [],
 ) {
-  const management = volatilityStopTemplate(id);
+  const management = researchManagementSchema.parse(volatilityStopTemplate(id));
   if (inputs.length) management.volatilityInputs = inputs;
   const spec = researchSpecSchema.parse(
     applyResearchManagement(base, management),

@@ -1,13 +1,17 @@
-import { riskDisasterTriggered } from "../../../src/lib/research/risk/research-risk-presets";
-import { riskPresetInitialStop } from "../../../src/lib/research/risk/research-risk-presets";
-import { researchKellyTraining } from "../../../src/lib/research/risk/research-kelly-training";
+import {
+  researchCostQuote,
+  researchExecutor,
+} from "~/lib/backtest/research-executor";
+import { riskDisasterTriggered } from "trading-strategies/research/risk/research-risk-presets";
+import { riskPresetInitialStop } from "trading-strategies/research/risk/research-risk-presets";
+import { researchKellyTraining } from "trading-strategies/research/risk/research-kelly-training";
 import { expect, it } from "vitest";
 import {
   riskPresetIds,
   riskPresetParameters,
   riskPresetTemplate,
   riskPresetBudget,
-} from "../../../src/lib/research/risk/research-risk-presets";
+} from "trading-strategies/research/risk/research-risk-presets";
 import { researchManagementSchema } from "../../../src/lib/research/workflow/research-management";
 import {
   researchSpecSchema,
@@ -15,9 +19,8 @@ import {
 } from "../../../src/lib/research/strategy-research";
 import { applyResearchManagement } from "../../../src/components/research/research-strategy-fields";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
-import { researchRiskQuantity } from "../../../src/lib/research/risk/research-risk";
+import { researchRiskQuantity } from "trading-strategies/research/risk/research-risk";
 import type { Bar } from "../../../src/lib/domain";
-
 const costs = {
   version: "cost-experiment-1" as const,
   commissionBps: 0,
@@ -76,14 +79,32 @@ it.each(riskPresetIds)(
   },
 );
 it("initial/current equity controls diverge after losses without changing current market-value cap", () => {
-  expect(riskPresetBudget("rk-equity-current", 100000, 80000, [], costs)).toBe(
-    0.01,
-  );
-  expect(riskPresetBudget("rk-equity-initial", 100000, 80000, [], costs)).toBe(
-    0.0125,
-  );
   expect(
-    riskPresetBudget("rk-equity-current", 100000, NaN, [], costs),
+    riskPresetBudget(
+      "rk-equity-current",
+      100000,
+      80000,
+      [],
+      researchCostQuote(costs),
+    ),
+  ).toBe(0.01);
+  expect(
+    riskPresetBudget(
+      "rk-equity-initial",
+      100000,
+      80000,
+      [],
+      researchCostQuote(costs),
+    ),
+  ).toBe(0.0125);
+  expect(
+    riskPresetBudget(
+      "rk-equity-current",
+      100000,
+      NaN,
+      [],
+      researchCostQuote(costs),
+    ),
   ).toBeNull();
   // 20% of current 80,000 remains 16,000, even with initial risk budget.
   expect(
@@ -94,8 +115,7 @@ it("initial/current equity controls diverge after losses without changing curren
       stop: 9.5,
       fraction: 0.0125,
       maxWeight: 0.2,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     }),
   ).toBe(1600);
 });
@@ -104,26 +124,62 @@ it("aggregate risk consumes costs, never nets protected profits against other lo
     { quantity: 1000, entry: 10, stop: 7 },
     { quantity: 1000, entry: 10, stop: 12 },
   ];
-  expect(riskPresetBudget("rk-total4", 100000, 100000, held, costs)).toBe(0.01);
-  expect(riskPresetBudget("rk-total4", 100000, 80000, held, costs)).toBe(
-    0.0025,
-  );
-  expect(riskPresetBudget("rk-total6", 100000, 80000, held, costs)).toBe(0.01);
-  expect(riskPresetBudget("rk-total4", 100000, 75000, held, costs)).toBe(0);
+  expect(
+    riskPresetBudget(
+      "rk-total4",
+      100000,
+      100000,
+      held,
+      researchCostQuote(costs),
+    ),
+  ).toBe(0.01);
+  expect(
+    riskPresetBudget(
+      "rk-total4",
+      100000,
+      80000,
+      held,
+      researchCostQuote(costs),
+    ),
+  ).toBe(0.0025);
+  expect(
+    riskPresetBudget(
+      "rk-total6",
+      100000,
+      80000,
+      held,
+      researchCostQuote(costs),
+    ),
+  ).toBe(0.01);
+  expect(
+    riskPresetBudget(
+      "rk-total4",
+      100000,
+      75000,
+      held,
+      researchCostQuote(costs),
+    ),
+  ).toBe(0);
   expect(
     riskPresetBudget(
       "rk-total4",
       100000,
       100000,
       [{ quantity: 100, entry: 10, stop: null }],
-      costs,
+      researchCostQuote(costs),
     ),
   ).toBeNull();
   expect(
-    riskPresetBudget("rk-total4", 100000, 80000, held, {
-      ...costs,
-      minimumCommission: 5,
-    }),
+    riskPresetBudget(
+      "rk-total4",
+      100000,
+      80000,
+      held,
+      researchCostQuote({
+        ...costs,
+        minimumCommission: 5,
+      }),
+    ),
   ).toBeCloseTo(0.002375, 12);
 });
 it("source no-cost A/B sizing examples remain exact and five risk tiers are independent", () => {
@@ -135,8 +191,7 @@ it("source no-cost A/B sizing examples remain exact and five risk tiers are inde
       stop: 75.8,
       fraction: 0.01,
       maxWeight: 0.2,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     }),
   ).toBe(2300);
   expect(
@@ -147,8 +202,7 @@ it("source no-cost A/B sizing examples remain exact and five risk tiers are inde
       stop: 24.4,
       fraction: 0.01,
       maxWeight: 0.2,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     }),
   ).toBe(8000);
   expect(
@@ -207,7 +261,6 @@ it("10-day progress exits without replacing the protective price stop", () => {
   const equal = input([100, 100, ...Array(14).fill(102.5)]);
   expect(run("rk-time10", equal).trades[0]!.exitDate).toBeNull();
 });
-
 it("the portfolio recomputes aggregate risk after each same-open fill without today's close", () => {
   const bars = input([100, 200]);
   const events: ResearchEvent[] = Array.from({ length: 6 }, (_, i) => ({
@@ -237,7 +290,6 @@ it("the portfolio recomputes aggregate risk after each same-open fill without to
     result.attempts.some((a) => a.reason.includes("组合在险预算不足")),
   ).toBe(true);
 });
-
 it("five-day time discipline and direct budget reduction change actual fills", () => {
   const flat = input(Array(12).fill(100));
   expect(run("sw-time5", flat).trades[0]!.exitDate).toBe(flat[6]!.date);
@@ -280,7 +332,6 @@ it("account close loss prevents the next opening buy, while a control fills it",
     true,
   );
 });
-
 it("half Kelly, risk sizing and 30-percent total exposure constrain actual simultaneous fills", () => {
   const bars = input([100, 100, 100]);
   const training = researchKellyTraining(
@@ -330,7 +381,6 @@ it("half Kelly, risk sizing and 30-percent total exposure constrain actual simul
   });
   expect(result.nav[1]!.cash).toBe(70000);
 });
-
 it("RR2 accepts equality at the real opening and rejects a gap that destroys the frozen ratio", () => {
   const bars = input([100, 100, 100]);
   const e: ResearchEvent = {
@@ -356,7 +406,6 @@ it("RR2 accepts equality at the real opening and rejects a gap that destroys the
   bars[1]!.high = 102;
   expect(simulate().trades).toHaveLength(0);
 });
-
 it("ATR price bands preserve both exact boundaries and reject missing ATR", () => {
   const stop = (a: number | null) =>
     riskPresetInitialStop("rk-atr-bands", 100, { stopAtr: a });
@@ -393,8 +442,7 @@ it("farther structure/volatility stop widens initial risk and therefore reduces 
       stop,
       fraction: 0.01,
       maxWeight: 1,
-      rules,
-      costs,
+      execution: researchExecutor(rules, costs),
     });
   expect(q(94.4)).toBeLessThan(q(96));
 });
@@ -429,7 +477,6 @@ it("3% planned cap records real gap loss above the budget rather than clipping r
   const unclosed = run("sw-riskcap3", input([100, 100, 100]));
   expect(unclosed.riskCap3?.[0]?.actualLoss).toBeNull();
 });
-
 it("disaster input refuses illegal OHLC/zero volume rather than manufacturing a trigger", () => {
   const bar = input([100])[0]!;
   bar.low = 90;
@@ -439,7 +486,6 @@ it("disaster input refuses illegal OHLC/zero volume rather than manufacturing a 
     riskDisasterTriggered({ ...bar, volume: 0 }, 100, 95, "2r"),
   ).toBeNull();
 });
-
 it("risk-cap evidence does not overwrite another symbol with an identical event key", () => {
   const bars = input([100, 100, 100]);
   const events: ResearchEvent[] = ["sh600000", "sh600001"].map((symbol) => ({

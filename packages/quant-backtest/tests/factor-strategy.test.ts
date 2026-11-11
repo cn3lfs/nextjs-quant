@@ -1,10 +1,12 @@
-import { expect, it } from "vitest";
+import { maBaselineSignals } from "trading-strategies";
 import {
   factorStrategyPresets,
   factorStrategySchema,
   factorStrategySignals,
   factorStrategyWarmup,
-  maBaselineSignals,
+} from "trading-strategies";
+import { expect, it } from "vitest";
+import {
   runMaBaseline,
   runStrategyExperiment,
   strategyExperimentInputSchema,

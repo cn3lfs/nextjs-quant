@@ -11,8 +11,8 @@ import {
 import {
   chanC4Sequence,
   chanC4Trend,
-} from "../../../../src/lib/research/methods/chan/research-chan-movements";
-import { chanRecursiveObservations } from "../../../../src/lib/research/methods/chan/research-chan-recursive";
+} from "trading-strategies/research/chan/research-chan-movements";
+import { chanRecursiveObservations } from "trading-strategies/research/chan/research-chan-recursive";
 import { parseBars } from "tstdx/local";
 import { toFloat32 } from "../../../../src/server/strategies/chan/czsc-input";
 import { readFileSync } from "node:fs";

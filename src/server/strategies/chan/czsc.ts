@@ -16,7 +16,7 @@ import {
   type CzscNestedStructure,
   type CzscResult,
   type CzscSignalStructure,
-} from "~/lib/research/methods/chan/czsc";
+} from "trading-strategies/research/chan/czsc";
 import { decodeCzscMovements, decodeCzscRecursive } from "./czsc-recursive";
 import {
   type CzscRawDivergence,
@@ -232,6 +232,7 @@ function decodeFamily(
       confirmedAt: p.confirmedAt,
     })),
     centers: raw.centers.map((c) => ({
+      established: c.established,
       start: c.start,
       end: c.end,
       startDate: bars[c.start]!.date,

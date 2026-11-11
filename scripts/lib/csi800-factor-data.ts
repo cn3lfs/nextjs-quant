@@ -18,13 +18,13 @@ import {
   classicFinancialFeatures,
   classicTechnicalSeries,
   csi800ClassicFactors,
-} from "../../packages/quant-backtest/src/csi800-factors.js";
+} from "../../packages/trading-strategies/src/csi800-factors.js";
 import {
   classicCommonWindow,
   type ClassicWeek,
-} from "../../packages/quant-backtest/src/csi800-composite.js";
-import type { Csi800Stock } from "../../packages/quant-backtest/src/csi800-study.js";
-import { csi800SignalBars } from "../../packages/quant-backtest/src/csi800-signal.js";
+} from "../../packages/trading-strategies/src/csi800-composite.js";
+import type { Csi800Stock } from "trading-strategies";
+import { csi800SignalBars } from "../../packages/trading-strategies/src/csi800-signal.js";
 
 export const csiHash = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");

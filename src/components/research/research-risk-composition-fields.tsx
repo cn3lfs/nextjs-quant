@@ -10,12 +10,8 @@ import {
   diagnosisTemplate,
   stopDiagnosisBoundary,
   type RiskRoute,
-} from "~/lib/research/risk/research-risk-routing";
-import {
-  riskRepairSchema,
-  riskRepairTemplate,
-  riskRepairBoundary,
-} from "~/lib/research/risk/research-risk-repair";
+} from "trading-strategies/research/risk/research-risk-routing";
+import {riskRepairSchema,riskRepairTemplate,riskRepairBoundary} from "trading-strategies/research/risk/research-risk-repair";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 export function ResearchRiskCompositionFields({

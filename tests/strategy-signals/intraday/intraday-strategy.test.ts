@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import type { CzscResult, CzscFamily } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult, CzscFamily } from "trading-strategies/research/chan/czsc";
 import valid from "../../fixtures/breakout-valid.json";
 import {
   evaluateIntraday,

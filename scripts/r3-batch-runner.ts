@@ -52,7 +52,7 @@ import {
   researchSpecSchema,
   type ResearchSpec,
 } from "../src/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import {
   captureResearchDataset,
   needsVolumeEvidence,
@@ -62,7 +62,7 @@ import {
 import {
   buildDailyEventCoverage,
   mergeVolumeEvidence,
-} from "../src/lib/research/factors/research-event-coverage";
+} from "trading-strategies/research/factors/research-event-coverage";
 import { deriveHistoricalFloatShares } from "tstdx/local";
 import {
   runStrategyResearch,
@@ -75,12 +75,12 @@ import { readMarketPool } from "../src/server/market/market-pool-files";
 import { saveSettings } from "../src/server/infra/settings";
 import { settingsSchema } from "../src/lib/domain";
 import { analyzeCzsc } from "../src/server/strategies/chan/czsc";
-import { isChanC4 } from "../src/lib/research/methods/chan/research-chan-movements";
+import { isChanC4 } from "trading-strategies/research/chan/research-chan-movements";
 import {
   isChanNative,
   isChanFiveMinute,
-} from "../src/lib/research/methods/chan/research-chan-native";
-import { isWyckoffHourly } from "../src/lib/research/methods/wyckoff/research-wyckoff-hourly";
+} from "trading-strategies/research/chan/research-chan-native";
+import { isWyckoffHourly } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import { writeResearchJsonFile } from "../src/server/backtest/research-json";
 
 // Isolation guard (executor-brief.md §7 / next-round-plan.md §7): this driver

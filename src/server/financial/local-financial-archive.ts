@@ -4,11 +4,12 @@ import {
   financialVersions,
   type FinancialReportSnapshot,
 } from "trading-strategy-core/financial";
-import {
-  financialQualityFromAnnual,
-  type FinancialAnnualInput,
-} from "../strategies/value/financial-quality";
-import { financialGrowthFromFacts } from "../strategies/value/financial-growth";
+import { financialQualityFromAnnual } from "trading-strategies/research/value/financial-quality";
+import { financialGrowthFromFacts } from "trading-strategies/research/value/financial-growth";
+import type {
+  FinancialAnnualInput,
+  QualityFacts,
+} from "trading-strategies/research/contracts/financial-annual";
 import { readLocalFinancialHistory } from "../data-sources/tdx/local-financial-files";
 
 const annualFields = {
@@ -82,6 +83,11 @@ export function localFinancialAnnualInput(
 }
 const digest = (content: unknown) =>
   createHash("sha256").update(JSON.stringify(content)).digest("hex");
+// Archive identity belongs to the application; the package returns only facts.
+function archivedGrowth(facts: QualityFacts, sourceArchiveId: string) {
+  const result = financialGrowthFromFacts(facts, sourceArchiveId);
+  return { id: `financial-growth-${digest(result)}`, ...result };
+}
 export async function buildLocalFinancialArchive(
   root: string,
   symbol: string,
@@ -120,7 +126,7 @@ export async function buildLocalFinancialArchive(
     hash,
     createdAt: Date.now(),
     ...content,
-    growth: financialGrowthFromFacts(quality, id),
+    growth: archivedGrowth(quality, id),
   };
 }
 export type LocalFinancialArchive = Awaited<
@@ -137,7 +143,7 @@ export function verifyLocalFinancialArchive(archive: LocalFinancialArchive) {
         localFinancialAnnualInput(archive.reports),
       ),
     ) !== JSON.stringify(archive.quality) ||
-    JSON.stringify(financialGrowthFromFacts(archive.quality, id)) !==
+    JSON.stringify(archivedGrowth(archive.quality, id)) !==
       JSON.stringify(growth)
   )
     throw new Error("本地财务档案内容或计算版本校验失败");

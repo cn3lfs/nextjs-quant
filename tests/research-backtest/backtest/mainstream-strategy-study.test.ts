@@ -1,12 +1,6 @@
 import { expect, it } from "vitest";
-import {
-  runClassicStudy,
-  studyStrategies,
-  classicStudyStrategies,
-  studyCatalog,
-  studyWarmup,
-  type Bar,
-} from "quant-backtest";
+import { runClassicStudy, type Bar } from "quant-backtest";
+import { studyStrategies, classicStudyStrategies, studyCatalog, studyWarmup } from "trading-strategies";
 import {
   cci,
   mfi,

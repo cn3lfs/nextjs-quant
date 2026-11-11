@@ -20,7 +20,7 @@ import {
   cryptoAssets,
   cryptoBarDate,
 } from "../../../src/lib/market/crypto";
-import { symbolSchema } from "../../../src/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { wallClockLabel } from "../../../src/lib/chart/chart-data";
 
 const DAY = 86400000;

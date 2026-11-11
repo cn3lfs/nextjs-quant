@@ -1,22 +1,22 @@
-import { volumeCompletionIds } from "../../../../src/lib/research/methods/volume/research-volume-completion";
+import { volumeCompletionIds } from "trading-strategies/research/volume/research-volume-completion";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { volumeMa } from "../../../../src/lib/indicators";
-import { volumeGridIds } from "../../../../src/lib/research/methods/volume/research-volume-grid";
+import { volumeGridIds } from "trading-strategies/research/volume/research-volume-grid";
 import {
   classifyVolumePrice,
   researchVolumeSeries,
   volumeStrategyIds,
   volumeWarmupStart,
   type VolumeStrategyId,
-} from "../../../../src/lib/research/methods/volume/research-volume";
+} from "trading-strategies/research/volume/research-volume";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import type { ResearchExecutionRules } from "../../../../src/lib/research/technical/research-execution";
+import type {ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import {
   researchHash,
   type ResearchDataset,

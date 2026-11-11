@@ -7,7 +7,7 @@ import {
   contextRiskTemplate,
   type ContextRiskInput,
   type ContextRiskId,
-} from "../../src/lib/research/risk/research-context-risk";
+} from "trading-strategies/research/risk/research-context-risk";
 import {
   researchSpecSchema,
   type ResearchEvent,

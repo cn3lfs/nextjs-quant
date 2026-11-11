@@ -10,7 +10,7 @@ import {
   swIndustries,
   tmtVersion,
   type TmtInput,
-} from "./tmt-crowding";
+} from "trading-strategies/research/factors/tmt-crowding";
 import { verifiedIndustry } from "../../research/industry-news-evidence";
 import { isAStock } from "tstdx/local";
 import { put } from "../../db";

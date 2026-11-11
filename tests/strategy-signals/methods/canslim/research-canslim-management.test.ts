@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import { canslimRiskTemplate } from "../../../../src/lib/research/methods/canslim/research-canslim-management";
+import { canslimRiskTemplate } from "trading-strategies/research/canslim/research-canslim-management";
 import {
   canslimExitPresetIds,
   canslimExitDescription,
@@ -38,7 +38,7 @@ function setup(kind: (typeof canslimExitPresetIds)[number]) {
       slippageBps: 0,
     },
   });
-  const spec = canslimRiskTemplate(base);
+  const spec = researchSpecSchema.parse(canslimRiskTemplate(base));
   spec.management = researchExitPresetTemplate(spec.management!, kind);
   const rules = {
     evidence: "fixture",

@@ -1,15 +1,13 @@
 import { expect, it } from "vitest";
-import { researchBreakoutStopLocation } from "../../../../src/lib/research/technical/research-breakout-stops";
-import {
-  researchInitialStop,
-  researchManagementSchema,
-} from "../../../../src/lib/research/workflow/research-management";
+import { researchBreakoutStopLocation } from "trading-strategies/research/technical/research-breakout-stops";
+import {researchManagementSchema} from "../../../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { selectResearchStrategy } from "../../../../src/components/research/research-strategy-fields";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import type { Level } from "../../../../src/server/strategies/breakout/breakout";
+import type { Level } from "trading-strategies/research/breakout/breakout";
 const candle = {
   date: "2024-05-20",
   open: 99,

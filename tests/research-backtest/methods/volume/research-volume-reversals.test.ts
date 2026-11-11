@@ -6,7 +6,7 @@ import {
   volumeReversalIds,
   volumeReversalWarmupStart,
   type VolumeReversalId,
-} from "../../../../src/lib/research/methods/volume/research-volume-reversals";
+} from "trading-strategies/research/volume/research-volume-reversals";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
@@ -16,7 +16,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 function fixture(tail: Partial<Bar>[]): Bar[] {
   return [

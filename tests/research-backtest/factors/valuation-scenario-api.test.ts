@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCaller } from "../../../src/server/api/root";
 import { get, sqlite } from "../../../src/server/db/index";
-import { valuationScenarioSchema } from "../../../src/lib/research/factors/valuation-scenario";
+import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-valuation-api-"),
 );

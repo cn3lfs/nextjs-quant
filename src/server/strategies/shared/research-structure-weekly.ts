@@ -1,16 +1,21 @@
-import { researchStructureTargets } from "~/lib/research/technical/research-structure-targets";
-import { confirmedExtrema } from "trading-strategy-core/indicators";
+import {
+  applyWyckoffStructurePolicy,
+  wyckoffWeeklyAlignment,
+  wyckoffScoreEntry,
+  wyckoffStructureWeeklyCount,
+  wyckoffStructureRsPeriod,
+  type WyckoffStructureCriterion,
+} from "trading-strategies/research/wyckoff/wyckoff-structure-policy";
 import {
   researchWyckoffSeries,
   structureBarBytes,
-  wyckoffScore,
   type WyckoffId,
   type WyckoffStructureInput,
-} from "~/lib/research/methods/wyckoff/research-wyckoff";
+} from "trading-strategies/research/wyckoff/research-wyckoff";
 import {
   researchWyckoffHourlySeries,
   type WyckoffHourlyInput,
-} from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
+} from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import { researchStructureRs } from "./research-structure-rs";
 import type { Bar } from "~/lib/domain";
 import type { Snapshot } from "~/lib/domain";
@@ -194,7 +199,7 @@ export function researchWyckoffStructureSeries(
     let pass = false;
     let evidence: unknown = null;
     let scoreStop: number | undefined;
-    let scoreTarget: ReturnType<typeof researchStructureTargets> | undefined;
+    let scoreTarget: WyckoffStructureCriterion["scoreTarget"];
     if (row && !reason) {
       if (id === "wy-week-day-hour") {
         // Friday's close cannot qualify an earlier Friday intraday Spring.
@@ -209,18 +214,12 @@ export function researchWyckoffStructureSeries(
           row.stock,
           row.calendar,
           asOf,
-          52,
+          wyckoffStructureWeeklyCount,
         );
-        const extrema = confirmedExtrema(weekly.weeks.map((w) => w.bar));
-        const barrier = extrema.ambiguousIndices.at(-1) ?? -1;
-        const points = extrema.extrema.filter((p) => p.index - 3 > barrier);
-        const highs = points.filter((p) => p.kind === "high").slice(-2),
-          lows = points.filter((p) => p.kind === "low").slice(-2);
-        pass =
-          highs.length === 2 &&
-          lows.length === 2 &&
-          highs[1]!.price > highs[0]!.price &&
-          lows[1]!.price > lows[0]!.price;
+        const { highs, lows, aligned } = wyckoffWeeklyAlignment(
+          weekly.weeks.map((week) => week.bar),
+        );
+        pass = aligned;
         reason = weekly.reason;
         const weeklyKnown = Date.parse(row.weeklyAvailableAt ?? ""),
           completed = Date.parse(weekly.weeks.at(-1)?.completedAt ?? "");
@@ -234,7 +233,8 @@ export function researchWyckoffStructureSeries(
           reason = "缺少候选前已知且不早于周完成的weeklyAvailableAt";
         evidence = { weekly, highs, lows, aligned: pass };
       } else if (id === "wy-dual-rs") {
-        const start = calendar[calendar.indexOf(point.date) - 20];
+        const start =
+          calendar[calendar.indexOf(point.date) - wyckoffStructureRsPeriod];
         if (!start) reason = "双RS需要此前20个研究交易日";
         else {
           const rs = researchStructureRs(
@@ -250,64 +250,24 @@ export function researchWyckoffStructureSeries(
           evidence = rs;
         }
       } else {
-        const score = wyckoffScore(row.assessment);
-        if (!score || !row.assessment || !known(row.assessment.availableAt))
+        if (!row.assessment || !known(row.assessment.availableAt))
           reason = "缺少当时已知的阶段/五项评分证据";
         else {
-          const match = point.events.find(
-            (e) => e.kind === "jac" && e.state === "confirmed",
-          );
-          if (match && "index" in match.facts) {
-            const f = match.facts;
-            scoreTarget = researchStructureTargets({
-              model: "source-width-123",
-              bars: bars.slice(f.rangeStart, f.index),
-              low: f.support,
-              high: f.resistance,
-              boxSize: (f.resistance - f.support) * 0.1,
-              direction: 1,
-              breakoutPrice: f.close,
-              confirmedAt: point.date,
-            });
-            const stop = f.support * 0.999;
-            scoreStop = stop;
-            const payoff =
-              scoreTarget.status === "computed"
-                ? (scoreTarget.targets.at(-1)! - bars[i]!.close) /
-                  (bars[i]!.close - stop)
-                : null;
-            pass =
-              score.value >= 70 &&
-              ["accumulation", "markup"].includes(score.phase) &&
-              payoff !== null &&
-              payoff >= 2;
-            evidence = { ...score, payoff, target: scoreTarget, stop };
-            if (scoreTarget.status === "missing") reason = scoreTarget.reason;
-          } else evidence = score;
+          const criterion = wyckoffScoreEntry(point, bars, i, row.assessment);
+          pass = criterion.pass;
+          evidence = criterion.evidence;
+          scoreStop = criterion.scoreStop;
+          scoreTarget = criterion.scoreTarget;
+          if (scoreTarget?.status === "missing") reason = criterion.reason;
         }
       }
     }
-    return {
-      ...point,
-      ...(id === "wy-score-half-kelly" && scoreStop
-        ? {
-            ruleStop: {
-              price: scoreStop,
-              days: 60,
-              reason: "冻结TR下沿下方0.1%",
-            },
-          }
-        : {}),
-      ...(scoreTarget ? { targetPlan: scoreTarget } : {}),
-      entry: point.entry && !reason && pass,
+    return applyWyckoffStructurePolicy(id, point, row, {
+      pass,
       reason,
-      inputEvidence: evidence,
-      values: {
-        ...point.values,
-        structureInput: row ?? null,
-        criterion: evidence,
-      },
-      decision: reason ?? (pass ? "共享输入判据通过" : "共享输入判据过滤"),
-    };
+      evidence,
+      scoreStop,
+      scoreTarget,
+    });
   });
 }

@@ -8,7 +8,7 @@ import {
   researchVolumeAdaptedSeries,
   type VolumeAdaptedEvidence,
   type VolumeAdaptedId,
-} from "../../../../src/lib/research/methods/volume/research-volume-adapted";
+} from "trading-strategies/research/volume/research-volume-adapted";
 function fixture(n = 65) {
   const b: Bar[] = Array.from({ length: n }, (_, i) => ({
     date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),

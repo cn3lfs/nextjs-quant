@@ -1,5 +1,6 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it } from "vitest";
-import { researchCanslimFlatPoint } from "../../../../src/server/strategies/canslim/research-canslim-flat";
+import { researchCanslimFlatPoint } from "trading-strategies/research/canslim/research-canslim-flat";
 import type { Bar } from "../../../../src/lib/domain";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
@@ -7,8 +8,8 @@ import { researchPortfolio } from "../../../../src/server/backtest/research-port
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
-import { researchRuleSeries } from "../../../../src/server/strategies/shared/research-rule-series";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 
 const bars = (): Bar[] =>
   Array.from({ length: 70 }, (_, i) => ({
@@ -183,35 +184,32 @@ it("runs a registered signal with executable price bounds and prior action cover
   );
 });
 it("waits exactly three calendar entries, rejecting low breaches, missing days and future influence", () => {
-  const input = bars();
-  for (let i = 70; i < 76; i++)
-    input.push({
-      ...input[69]!,
-      date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
-      open: 102,
-      close: 102,
-      high: 103,
-      low: 100,
-    });
-  const calendar = input.map((b) => b.date);
-  const run = (series = input) =>
-    researchRuleSeries("canslim-flat-hold3", series, calendar);
-  const points = run();
-  expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
-    input[72]!.date,
-  ]);
-  expect(run(input.slice(0, 72)).some((p) => p.entry)).toBe(false);
-  for (const patch of [{ low: 99.99 }, { volume: 0 }]) {
-    const changed = structuredClone(input);
-    Object.assign(changed[71]!, patch);
-    expect(run(changed).some((p) => p.entry)).toBe(false);
-  }
-  expect(run(input.filter((_, i) => i !== 71)).some((p) => p.entry)).toBe(
-    false,
-  );
-  const future = structuredClone(input);
-  future[74]!.low = 90;
-  expect(run(future).slice(0, 74)).toEqual(points.slice(0, 74));
+    const input = bars();
+    for (let i = 70; i < 76; i++)
+        input.push({
+            ...input[69]!,
+            date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
+            open: 102,
+            close: 102,
+            high: 103,
+            low: 100,
+        });
+    const calendar = input.map((b) => b.date);
+    const run = (series = input) => researchRuleSeries("canslim-flat-hold3", series, calendar, undefined, undefined, researchFormulaRuntime);
+    const points = run();
+    expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
+        input[72]!.date,
+    ]);
+    expect(run(input.slice(0, 72)).some((p) => p.entry)).toBe(false);
+    for (const patch of [{ low: 99.99 }, { volume: 0 }]) {
+        const changed = structuredClone(input);
+        Object.assign(changed[71]!, patch);
+        expect(run(changed).some((p) => p.entry)).toBe(false);
+    }
+    expect(run(input.filter((_, i) => i !== 71)).some((p) => p.entry)).toBe(false);
+    const future = structuredClone(input);
+    future[74]!.low = 90;
+    expect(run(future).slice(0, 74)).toEqual(points.slice(0, 74));
 });
 it("reuses a prior-only platform and freezes the next-entry ceiling", () => {
   const result = researchCanslimFlatPoint(bars());

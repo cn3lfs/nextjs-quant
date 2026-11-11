@@ -3,13 +3,13 @@ import {
   crowdedStop,
   scriptSlipSizing,
   chopFrequency,
-} from "../../../src/lib/research/risk/research-risk-scenarios";
-import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
+} from "trading-strategies/research/risk/research-risk-scenarios";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import {
   researchPortfolio,
   type ResearchTrade,
 } from "../../../src/server/backtest/research-portfolio";
-import { riskPresetTemplate } from "../../../src/lib/research/risk/research-risk-presets";
+import { riskPresetTemplate } from "trading-strategies/research/risk/research-risk-presets";
 import { applyResearchManagement } from "../../../src/components/research/research-strategy-fields";
 import {
   researchSpecSchema,

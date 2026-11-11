@@ -1,4 +1,4 @@
-import { riskPresetTemplate } from "../../src/lib/research/risk/research-risk-presets";
+import { riskPresetTemplate } from "trading-strategies/research/risk/research-risk-presets";
 import { applyResearchManagement } from "../../src/components/research/research-strategy-fields";
 import { expect, it } from "vitest";
 import type { Bar } from "../../src/lib/domain";
@@ -10,7 +10,7 @@ import {
   researchManagementSchema,
   researchScaleOutPreset,
 } from "../../src/lib/research/workflow/research-management";
-import { researchHigherLow } from "../../src/server/strategies/shared/research-protection";
+import { researchHigherLow } from "trading-strategies/research/risk/research-protection";
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 import {
   researchMethodSnapshot,

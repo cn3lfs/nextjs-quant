@@ -3,8 +3,8 @@ import {
   researchRiskAdmission,
   riskAdmissionNeedsTraining,
   type RiskAdmissionRule,
-} from "../../../src/lib/research/risk/research-risk-admission";
-import { researchKellyTraining } from "../../../src/lib/research/risk/research-kelly-training";
+} from "trading-strategies/research/risk/research-risk-admission";
+import { researchKellyTraining } from "trading-strategies/research/risk/research-kelly-training";
 const train = (profits: number[]) =>
   researchKellyTraining(
     profits.map((profit, i) => ({
@@ -142,10 +142,10 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../../src/lib/research/strategy-research";
-import { riskPresetTemplate } from "../../../src/lib/research/risk/research-risk-presets";
+import { riskPresetTemplate } from "trading-strategies/research/risk/research-risk-presets";
 import { applyResearchManagement } from "../../../src/components/research/research-strategy-fields";
 import type { ResearchDataset } from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 it("run entrypoint trains a real reference ledger without admission and never learns from validation prices", async () => {
   const bars = Array.from({ length: 106 }, (_, i) => ({
     date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),

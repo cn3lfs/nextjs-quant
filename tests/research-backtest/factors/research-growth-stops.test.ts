@@ -3,11 +3,9 @@ import {
   growthPivotStopIds,
   growthPivotStopTemplate,
   researchGrowthPivotStop,
-} from "../../../src/lib/research/factors/research-growth-stops";
-import {
-  researchInitialStop,
-  researchManagementSchema,
-} from "../../../src/lib/research/workflow/research-management";
+} from "trading-strategies/research/factors/research-growth-stops";
+import {researchManagementSchema} from "../../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";

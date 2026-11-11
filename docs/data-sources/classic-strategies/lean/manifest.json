@@ -1,0 +1,69 @@
+{
+  "repository": "https://github.com/QuantConnect/Lean",
+  "ref": "054ec0596a66f0ad09ca5101df424cf6697060a7",
+  "retrievedAt": "2026-11-11",
+  "license": "Apache-2.0",
+  "usage": "Formula reference and independent TypeScript implementation; indicator baselines are explicit local adaptations.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/LICENSE",
+      "sha256": "522cf0a716ce03f67d46f8fceb5bf78c5b84400ec5cd8d14bf9f02cddc1cb6ba",
+      "bytes": 10737
+    },
+    {
+      "path": "Indicators/ConnorsRelativeStrengthIndex.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/ConnorsRelativeStrengthIndex.cs",
+      "sha256": "a6bb826a79f772436e8e9abfba20b436b70c9a9dbbe254d7bfc2c554cd3708e2",
+      "bytes": 7725
+    },
+    {
+      "path": "Indicators/InternalBarStrength.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/InternalBarStrength.cs",
+      "sha256": "5d91f2f8de34f2dfa62b4a84666bd3bee4b1a38422ec025668504664024e3fd0",
+      "bytes": 2690
+    },
+    {
+      "path": "Indicators/KaufmanAdaptiveMovingAverage.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/KaufmanAdaptiveMovingAverage.cs",
+      "sha256": "e3a459e05cb4688037edf8fc109dd8179d96e33337f62b76f94675bb7a49465f",
+      "bytes": 4571
+    },
+    {
+      "path": "Indicators/AroonOscillator.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/AroonOscillator.cs",
+      "sha256": "8cf27e37a92044c601cbd6cb0b4e1a77ea8bc930419c830dc504814ecd88eaca",
+      "bytes": 5735
+    },
+    {
+      "path": "Indicators/Trix.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/Trix.cs",
+      "sha256": "1ebfc1d9acccbbf1f4ccaf7b8822961a3babca0fc3e8ab0f07ef6306e1b6bc33",
+      "bytes": 3939
+    },
+    {
+      "path": "Indicators/ForceIndex.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/ForceIndex.cs",
+      "sha256": "e1c1c8074c6fd2b9ef04b008b9c24705b585f837761eeb9fb52e1a16473a9393",
+      "bytes": 4243
+    },
+    {
+      "path": "Indicators/CoppockCurve.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/CoppockCurve.cs",
+      "sha256": "174487e5960f86f018f32818fc67c3d18e8bde3aeca39a51b9890ea71c4c1b2d",
+      "bytes": 4603
+    },
+    {
+      "path": "Indicators/StochasticRelativeStrengthIndex.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/StochasticRelativeStrengthIndex.cs",
+      "sha256": "179febc4d045b97aa272aae39012bb78d0a236a38000712861917997581f5f77",
+      "bytes": 5722
+    },
+    {
+      "path": "Indicators/Vortex.cs",
+      "url": "https://raw.githubusercontent.com/QuantConnect/Lean/054ec0596a66f0ad09ca5101df424cf6697060a7/Indicators/Vortex.cs",
+      "sha256": "92c76822a6011395d463c87daed67588616dd8dadff95726cb6f270bfc8b3df1",
+      "bytes": 4907
+    }
+  ]
+}

@@ -1,12 +1,13 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import { analyzeBreakout } from "../../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import {
   legacyBreakoutRuleIds,
   breakoutRuleDecision,
   type BreakoutRuleId,
-} from "../../../../src/lib/research/technical/research-breakout-rules";
-import { researchRuleSeries } from "../../../../src/server/strategies/shared/research-rule-series";
+} from "trading-strategies/research/technical/research-breakout-rules";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
@@ -16,7 +17,7 @@ import {
   researchHash,
   type ResearchDataset,
 } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 const native = vi.fn(async (): Promise<never> => {
   throw new Error("native must not run");
 });
@@ -90,36 +91,21 @@ function settings(strategy: BreakoutRuleId, bars: Bar[]) {
     },
   });
 }
-it.each(legacyBreakoutRuleIds)(
-  "%s reuses confirmed historical geometry and trades at the next open",
-  async (id) => {
-    const bars = fixture(),
-      spec = settings(id, bars),
-      series = researchRuleSeries(id, bars);
+it.each(legacyBreakoutRuleIds)("%s reuses confirmed historical geometry and trades at the next open", async (id) => {
+    const bars = fixture(), spec = settings(id, bars), series = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
     expect(series[140]!.entry).toBe(true);
     expect(series[182]!.exit).toBe(true);
-    expect(researchRuleSeries(id, bars.slice(0, 141))).toEqual(
-      series.slice(0, 141),
-    );
+    expect(researchRuleSeries(id, bars.slice(0, 141), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(series.slice(0, 141));
     const events = await researchSignals("sh600000", bars, spec, native);
-    const result = researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      () => rules,
-    );
-    const trade = result.trades.find(
-      (t) => t.event.observedDate === bars[140]!.date,
-    );
+    const result = researchPortfolio(spec, events, bars.map((b) => b.date), new Map([["sh600000", bars]]), () => rules);
+    const trade = result.trades.find((t) => t.event.observedDate === bars[140]!.date);
     expect(trade).toBeDefined();
     expect(trade!.entryDate).toBe(bars[141]!.date);
     expect(trade!.exitDate).toBe(bars[183]!.date);
     expect(trade!.signalExit).toEqual(series[182]);
     expect(researchMethodSnapshot(spec).ruleVersion).toBe(`${id}-1`);
     expect(native).not.toHaveBeenCalled();
-  },
-);
+});
 it("distinguishes reverse-line and three-check exits without requiring auxiliary votes", () => {
   const bars = fixture(),
     points = analyzeBreakout(bars, 0).points;

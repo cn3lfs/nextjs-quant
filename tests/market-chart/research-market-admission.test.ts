@@ -3,7 +3,7 @@ import {
   marketAdmissionDecision,
   marketAdmissionInputsSchema,
   type MarketAdmissionId,
-} from "../../src/lib/research/risk/research-market-admission";
+} from "trading-strategies/research/risk/research-market-admission";
 
 function fixture() {
   const calendar = Array.from({ length: 90 }, (_, i) =>

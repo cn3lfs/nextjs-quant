@@ -1,10 +1,8 @@
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../src/lib/domain";
 import { atr } from "../../src/lib/indicators";
-import {
-  researchManagementSchema,
-  researchInitialStop,
-} from "../../src/lib/research/workflow/research-management";
+import {researchManagementSchema} from "../../src/lib/research/workflow/research-management";
+import {researchInitialStop} from "trading-strategies/research/risk/research-initial-stop";
 import {
   researchSpecSchema,
   type ResearchEvent,

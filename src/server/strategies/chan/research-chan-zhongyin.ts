@@ -1,19 +1,20 @@
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import { chanZhongyinSignals } from "trading-strategies/research/chan/research-chan-zhongyin";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import type {
   ResearchEvent,
   ResearchSpec,
 } from "~/lib/research/strategy-research";
-import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
+import type { ResearchStructureObservation } from "trading-strategies/research/technical/research-structure-events";
 import {
   chanRecursiveObservations,
   chanAnchorVersions,
-} from "~/lib/research/methods/chan/research-chan-recursive";
+} from "trading-strategies/research/chan/research-chan-recursive";
 import {
   chanNativeCandidates,
   isChanFiveMinute,
   chanZhongyinBoundary,
-} from "~/lib/research/methods/chan/research-chan-native";
+} from "trading-strategies/research/chan/research-chan-native";
 
 export async function researchChanZhongyin(
   symbol: string,
@@ -106,12 +107,6 @@ export async function researchChanZhongyin(
     if (!table || table.anchor !== anchor || table.config !== spec.czscConfig)
       throw new Error("结构缺口：缺中阴递归表");
     const observations = ledger.observe(prefix, table);
-    const ended = observations.some(
-      (e) =>
-        e.facts.level === 0 &&
-        e.kind ===
-          (variant === 1 ? "zhongyin-structural-end" : "zhongyin-boll20-end"),
-    );
     const found = chanNativeCandidates(
       "chan-hold-cash-native",
       result,
@@ -151,8 +146,7 @@ export async function researchChanZhongyin(
       bar.high < Math.max(bar.open, bar.close)
     )
       continue;
-    for (const point of fresh) {
-      if (point.kind > 0 && !ended) continue;
+    for (const point of chanZhongyinSignals(fresh, observations, variant)) {
       events.push({
         symbol,
         key: `${version.name}:${variant}:${point.date}:${point.kind}`,

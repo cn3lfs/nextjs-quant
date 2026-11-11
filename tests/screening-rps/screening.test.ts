@@ -15,7 +15,7 @@ import { tailCacheStats } from "tstdx/local";
 import { screenLocal } from "~/server/screening/screening";
 import { completedBar, completedBarFilter } from "~/lib/completed-bars";
 import { defaultStrategy } from "~/lib/domain";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import * as tdx from "~/server/data-sources/tdx/tdx";
 import { createHash } from "node:crypto";
 function data(count: number, year = 2025) {

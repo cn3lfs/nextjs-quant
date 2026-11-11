@@ -5,7 +5,7 @@ import {
   retrospectiveSignals,
   type SignalBacktestInput,
 } from "../../../src/server/backtest/signal-backtest";
-import { analyzeBreakout } from "../../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { ledgerSignals } from "../../../src/server/monitoring/signal-ledger-engine";
 import { horizons, ledgerOutcome } from "../../../src/lib/strategy-facts/signal-ledger";
 import { sqlite } from "../../../src/server/db/index";

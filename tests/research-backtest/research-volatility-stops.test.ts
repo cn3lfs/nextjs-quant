@@ -4,7 +4,7 @@ import {
   volatilityStopIds,
   volatilityStopSeries,
   volatilityStopTemplate,
-} from "../../src/lib/research/risk/research-volatility-stops";
+} from "trading-strategies/research/risk/research-volatility-stops";
 import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
 import {
   researchSpecSchema,

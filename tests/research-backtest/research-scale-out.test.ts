@@ -8,14 +8,11 @@ import {
   researchScaleOutPreset,
   researchManagementSchema,
 } from "../../src/lib/research/workflow/research-management";
-import {
-  researchSellQuantity,
-  type ResearchExecutionRules,
-} from "../../src/lib/research/technical/research-execution";
+import {sellQuantity as researchSellQuantity,type ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 import {
   researchMarketEvidenceSchema,
   researchEvidenceLookup,
-} from "../../src/lib/research/factors/research-market-evidence";
+} from "trading-strategies/research/factors/research-market-evidence";
 import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
 import { projectResearchWeights } from "../../src/lib/backtest/weight-backtest";
 import {

@@ -1,4 +1,4 @@
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import {
   bonusAdjustmentAssumptions,
   researchAdjustmentSchema,

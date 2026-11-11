@@ -1,4 +1,4 @@
-import { canslimEarnings } from "./canslim-earnings";
+import { canslimEarnings } from "trading-strategies/research/canslim/canslim-earnings";
 type Column = { key: string; unit?: string; timestamp?: string };
 const fields = {
   quarterlyEps: ["单季度_基本每股收益", "元", false],

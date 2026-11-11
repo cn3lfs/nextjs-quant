@@ -109,7 +109,12 @@ export function collectMethodEvidence(
 ): MethodEvidence {
   const slash = (s: string) => s.replaceAll("\\", "/");
   const files = new Set(
-    ["src", "tests"].flatMap((dir) =>
+    [
+      "src",
+      "tests",
+      "packages/trading-strategies/src",
+      "packages/quant-backtest/src",
+    ].flatMap((dir) =>
       readdirSync(resolve(root, dir), { recursive: true })
         .map(String)
         .filter((f) => /\.tsx?$/.test(f))
@@ -133,11 +138,20 @@ export function collectMethodEvidence(
         const id = node.moduleSpecifier.text;
         const base = id.startsWith("~/")
           ? resolve(root, "src", id.slice(2))
-          : id.startsWith(".")
-            ? resolve(root, dirname(file), id)
-            : null;
+          : id === "trading-strategies"
+            ? resolve(root, "packages/trading-strategies/src/index")
+            : id.startsWith("trading-strategies/")
+              ? resolve(
+                  root,
+                  "packages/trading-strategies/src",
+                  id.slice("trading-strategies/".length),
+                )
+              : id.startsWith(".")
+                ? resolve(root, dirname(file), id)
+                : null;
         if (base) {
           const target = [
+            base.replace(/\.js$/, ".ts"),
             base,
             `${base}.ts`,
             `${base}.tsx`,
@@ -177,7 +191,8 @@ export function collectMethodEvidence(
     owners: new Map([
       ...families.flatMap((f) => f.ids.map((id) => [id, f.file] as const)),
       ...researchCompositePresetIds.map(
-        (id) => [id, "src/lib/research/specs/research-composite-presets.ts"] as const,
+        (id) =>
+          [id, "src/lib/research/specs/research-composite-presets.ts"] as const,
       ),
     ]),
   };
@@ -255,13 +270,17 @@ export function reconcileMethodEvidence(
     if (
       bindings.presets.length &&
       owners.includes("src/lib/research/specs/research-composite-presets.ts") &&
-      evidence.tests.has("tests/research-backtest/research-composite-presets.test.ts") &&
+      evidence.tests.has(
+        "tests/research-backtest/research-composite-presets.test.ts",
+      ) &&
       reaches(
         "tests/research-backtest/research-composite-presets.test.ts",
         "src/lib/research/specs/research-composite-presets.ts",
       )
     )
-      discovered.push("tests/research-backtest/research-composite-presets.test.ts");
+      discovered.push(
+        "tests/research-backtest/research-composite-presets.test.ts",
+      );
     for (const test of method.tests)
       if (!evidence.tests.has(test))
         errors.push(`${method.id}: declared test missing/empty: ${test}`);

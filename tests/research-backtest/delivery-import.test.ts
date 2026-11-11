@@ -6,16 +6,7 @@ import {
   decodeDeliveryBytes,
   parseDeliveryTable,
 } from "~/lib/research/evidence/delivery-table";
-import {
-  classifyCode,
-  classifyRow,
-  importDeliveryTable,
-  mapDeliveryColumns,
-  parseDeliveryDate,
-  parseDeliveryNumber,
-  parseDeliveryTime,
-  redactRow,
-} from "~/lib/research/evidence/delivery-import";
+import {classifyCode,classifyRow,importDeliveryTable,mapDeliveryColumns,parseDeliveryDate,parseDeliveryNumber,parseDeliveryTime,redactRow} from "~/lib/research/evidence/delivery-import";
 
 const fixture = (name: string) =>
   readFileSync(join(process.cwd(), "tests/fixtures/delivery", name));

@@ -1,24 +1,20 @@
+import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
-import {
-  technicalDecision,
-  technicalStrategyIds,
-  researchTechnicalSeries,
-  type TechnicalValues,
-  type LegacyTechnicalStrategyId,
-} from "../../../src/lib/research/technical/research-technical";
+import {technicalDecision,type TechnicalValues,type LegacyTechnicalStrategyId} from "trading-strategies/research/technical/research-legacy-technical";
+import { technicalStrategyIds, researchTechnicalSeries } from "trading-strategies/research/technical/research-technical";
 import { ma, macd, kdj, rsi, boll } from "../../../src/lib/indicators";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
 import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import type { ResearchExecutionRules } from "../../../src/lib/research/technical/research-execution";
+import type {ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 import { runStrategyResearch } from "../../../src/server/backtest/research-run";
 import {
   researchHash,
   type ResearchDataset,
 } from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const values = (input: Partial<TechnicalValues>): TechnicalValues => ({
   close: null,
@@ -228,24 +224,19 @@ const oscillating = bars(
   ),
 );
 it("uses the shared indicators and preserves every past decision under prefix replay and a future outlier", () => {
-  for (const id of technicalStrategyIds) {
-    const whole = researchTechnicalSeries(id, oscillating);
-    for (const end of [62, 80, 101])
-      expect(researchTechnicalSeries(id, oscillating.slice(0, end))).toEqual(
-        whole.slice(0, end),
-      );
-    const future = bars([...oscillating.map((bar) => bar.close), 10000]);
-    expect(researchTechnicalSeries(id, future).slice(0, 160)).toEqual(whole);
-  }
-  const at = 80,
-    point = researchTechnicalSeries("ma-golden-5-10", oscillating)[at]!.values;
-  expect(point.ma5).toBe(ma(oscillating, 5)[at]);
-  expect(point.dif).toBe(macd(oscillating)[at]!.dif);
-  expect("k" in point ? point.k : undefined).toBe(kdj(oscillating)[at]!.k);
-  expect(point.rsi6).toBe(rsi(oscillating)[at]!.rsi6);
-  expect("upper" in point ? point.upper : undefined).toBe(
-    boll(oscillating)[at]!.upper,
-  );
+    for (const id of technicalStrategyIds) {
+        const whole = researchTechnicalSeries(id, oscillating, undefined, researchFormulaRuntime);
+        for (const end of [62, 80, 101])
+            expect(researchTechnicalSeries(id, oscillating.slice(0, end), undefined, researchFormulaRuntime)).toEqual(whole.slice(0, end));
+        const future = bars([...oscillating.map((bar) => bar.close), 10000]);
+        expect(researchTechnicalSeries(id, future, undefined, researchFormulaRuntime).slice(0, 160)).toEqual(whole);
+    }
+    const at = 80, point = researchTechnicalSeries("ma-golden-5-10", oscillating, undefined, researchFormulaRuntime)[at]!.values;
+    expect(point.ma5).toBe(ma(oscillating, 5)[at]);
+    expect(point.dif).toBe(macd(oscillating)[at]!.dif);
+    expect("k" in point ? point.k : undefined).toBe(kdj(oscillating)[at]!.k);
+    expect(point.rsi6).toBe(rsi(oscillating)[at]!.rsi6);
+    expect("upper" in point ? point.upper : undefined).toBe(boll(oscillating)[at]!.upper);
 });
 
 const native = vi.fn(async () => {
@@ -357,29 +348,14 @@ it("keeps an unfilled exit despite later recovery and cancels a blocked buy afte
 });
 
 it("rejects unavailable evidence rather than treating it as an indicator crossing", async () => {
-  const invalid = input.map((bar, i) =>
-    i === 61 ? { ...bar, volume: 0 } : bar,
-  );
-  const rows = researchTechnicalSeries("ma-golden-5-10", invalid);
-  expect(rows[61]!.reason).toContain("停牌");
-  expect(rows[62]!.reason).toContain("停牌");
-  expect(rows[61]!.entry).toBe(false);
-  const result = researchPortfolio(
-    spec,
-    [],
-    input.map((b) => b.date),
-    new Map([["sh600000", invalid]]),
-    () => rules,
-  );
-  expect(result.signalGaps).toHaveLength(2);
-  await expect(
-    researchSignals(
-      "sh600000",
-      bars(Array<number>(71).fill(100)),
-      { ...spec, strategy: "rsi-recovery" },
-      native,
-    ),
-  ).rejects.toThrow("没有可用技术指标");
+    const invalid = input.map((bar, i) => i === 61 ? { ...bar, volume: 0 } : bar);
+    const rows = researchTechnicalSeries("ma-golden-5-10", invalid, undefined, researchFormulaRuntime);
+    expect(rows[61]!.reason).toContain("停牌");
+    expect(rows[62]!.reason).toContain("停牌");
+    expect(rows[61]!.entry).toBe(false);
+    const result = researchPortfolio(spec, [], input.map((b) => b.date), new Map([["sh600000", invalid]]), () => rules);
+    expect(result.signalGaps).toHaveLength(2);
+    await expect(researchSignals("sh600000", bars(Array<number>(71).fill(100)), { ...spec, strategy: "rsi-recovery" }, native)).rejects.toThrow("没有可用技术指标");
 });
 
 it("runs technical entries and exits through independent research partitions, isolating a bad stock", async () => {

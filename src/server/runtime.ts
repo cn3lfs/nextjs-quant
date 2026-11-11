@@ -14,7 +14,7 @@ import type { Monitor, Signal, Job, Coverage, Period } from "~/lib/domain";
 import { put, get, atomic, sqlite } from "./db";
 import { settings } from "./infra/settings";
 import { runWorker, background, recoverJobs, updateJob } from "./jobs/jobs";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { monitorStrategy } from "./monitoring/monitor-strategy";
 import { analyzeCzscSignal } from "./strategies/chan/czsc-signal-analysis";
 import { analyze, snapshotEvidence } from "./research/research";

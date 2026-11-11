@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   canslimScorecard,
   type CanslimScoreInput,
-} from "../../../../src/server/strategies/canslim/canslim-scorecard";
+} from "trading-strategies/research/canslim/canslim-scorecard";
 const input = (): CanslimScoreInput => ({
   id: "C1",
   maxPoints: 8,

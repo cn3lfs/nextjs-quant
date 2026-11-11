@@ -35,7 +35,8 @@ import {
   type StoredScreenResult,
 } from "../../screening/screen-results";
 import { z } from "zod";
-import { strategySchema, symbolSchema, periodSchema } from "~/lib/domain";
+import { strategySchema, periodSchema } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { settings, saveSettings } from "../../infra/settings";
 import { screenJob } from "../../screening/screen-job";
 import { snapshot } from "../../market/snapshot";

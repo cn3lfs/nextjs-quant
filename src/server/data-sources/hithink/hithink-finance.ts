@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { symbolSchema, type Evidence } from "~/lib/domain";
+import {type Evidence} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { evidenceEnvelope } from "../../infra/evidence";
-import { sepaFinanceFacts } from "../../../lib/strategy-facts/sepa-finance";
-import { canslimFinanceFacts } from "../../../lib/strategy-facts/canslim-finance";
+import { sepaFinanceFacts } from "~/lib/strategy-facts/sepa-finance";
+import { canslimFinanceFacts } from "~/lib/strategy-facts/canslim-finance";
 
 export const annualFinanceMetrics = {
   "annual-revenue": "营业收入",

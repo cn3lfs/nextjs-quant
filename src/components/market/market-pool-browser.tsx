@@ -3,7 +3,7 @@
 import { nextTableSort, sortingState } from "~/lib/common/server-sort";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { symbolSchema } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { rpsPollInterval } from "./rps-status";
 import {
   poolCategoryLabels,

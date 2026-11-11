@@ -1,5 +1,5 @@
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import {
   horizons,
   ledgerOutcome,
@@ -12,7 +12,7 @@ import { breakoutBatch } from "../strategies/breakout/breakout-batch";
 import {
   analyzeBreakout,
   type BreakoutPoint,
-} from "../strategies/breakout/breakout";
+} from "trading-strategies/research/breakout/breakout";
 import { readSnapshot, scan } from "../data-sources/tdx/tdx";
 import { readGbbq } from "tstdx/local";
 import {

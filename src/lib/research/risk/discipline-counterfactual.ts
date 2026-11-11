@@ -1,28 +1,28 @@
+import {
+  disciplineRulesSchema,
+  disciplineGrid,
+  disciplineNotice,
+  disciplineScope,
+  disciplineAddOnAllowed,
+  disciplineStopTriggered,
+  type DisciplineRules,
+} from "trading-strategies/research/risk/discipline-policy";
 import { z } from "zod";
-import type { ParsedFill } from "../evidence/delivery-import";
+import type {ParsedFill} from "../evidence/delivery-import";
 import type { Bar } from "../../domain";
 import { backtestCostsSchema } from "../../backtest/backtest-costs";
-import { researchDateSchema } from "../workflow/research-usage";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { researchTradeStatistics } from "../strategy-research";
-import { reviewTrades, type TradeReviewInput } from "../../portfolio/trade-review";
-import { reviewTradeNav, type TradeReviewNavInput } from "../../portfolio/trade-review-nav";
+import {
+  reviewTrades,
+  type TradeReviewInput,
+} from "../../portfolio/trade-review";
+import {
+  reviewTradeNav,
+  type TradeReviewNavInput,
+} from "../../portfolio/trade-review-nav";
 import { big, bpsOf, moneyMul, toNumber } from "../../money";
 
-export const disciplineNotice = "参数在已知结果后选定，本对照不构成可交易结论";
-export const disciplineScope =
-  "本对照针对加仓次数与止损，不涉及开仓决策；首笔买入在盈亏回合间无显著差异。已证实的是亏损回合加仓更多，未证实加仓时点处于浮亏。";
-export const disciplineRulesSchema = z.object({
-  maxAddOns: z.number().int().min(0).max(2).nullable(),
-  stopLossPct: z.number().finite().positive().lt(1).nullable(),
-});
-export type DisciplineRules = z.infer<typeof disciplineRulesSchema>;
-export const disciplineGrid: DisciplineRules[] = [0, 1, 2, null].flatMap(
-  (maxAddOns) =>
-    [0.03, 0.05, 0.08, 0.1, null].map((stopLossPct) => ({
-      maxAddOns,
-      stopLossPct,
-    })),
-);
 export type DisciplineInput = Omit<TradeReviewNavInput, "bars"> & {
   bars: Readonly<Record<string, readonly Bar[]>>;
   exRightsEvents: TradeReviewInput["exRightsEvents"];
@@ -245,7 +245,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
       if (f.kind === "buy") {
         s.original += f.quantity;
         const buyNumber = s.buys++;
-        if (rules.maxAddOns !== null && buyNumber > rules.maxAddOns) continue;
+        if (!disciplineAddOnAllowed(rules.maxAddOns, buyNumber)) continue;
         let quantity = f.quantity;
         const debit = -delta(f);
         if (!(debit > 0)) throw new Error(`${date} 买入资金发生额无效`);
@@ -299,11 +299,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
           continue;
         // Compare amounts: 9.5/10-1 falls slightly below -0.05 in binary.
         // Ignore only a few arithmetic ulps, not any meaningful price movement.
-        const threshold = s.cost * (1 - rules.stopLossPct);
-        if (
-          threshold - s.held * b.close >
-          Number.EPSILON * 8 * Math.max(1, Math.abs(threshold))
-        )
+        if (disciplineStopTriggered(s.cost, s.held, b.close, rules.stopLossPct))
           s.pending = date;
       }
   }

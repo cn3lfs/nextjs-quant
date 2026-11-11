@@ -1,13 +1,13 @@
 import { expect, it, vi } from "vitest";
-import * as breakout from "../../../src/server/strategies/breakout/breakout";
+import * as breakout from "trading-strategies/research/breakout/breakout";
 import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
 import {
   chanStopLine,
   indicatorRespect,
   indicatorStopLines,
   researchMaeTraining,
-} from "../../../src/lib/research/risk/research-stop-calibration";
-import { riskPresetTemplate } from "../../../src/lib/research/risk/research-risk-presets";
+} from "trading-strategies/research/risk/research-stop-calibration";
+import { riskPresetTemplate } from "trading-strategies/research/risk/research-risk-presets";
 import {
   researchPortfolio,
   type ResearchTrade,
@@ -17,7 +17,7 @@ import {
   researchSpecSchema,
   type ResearchEvent,
 } from "../../../src/lib/research/strategy-research";
-import type { CzscResult } from "../../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import type { Bar } from "../../../src/lib/domain";
 const bars: Bar[] = Array.from({ length: 190 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),

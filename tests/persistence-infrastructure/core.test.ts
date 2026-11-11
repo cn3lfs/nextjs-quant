@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseBars, isAStock } from "tstdx/local";
 import { backtest } from "~/server/backtest/quant";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import {
   defaultStrategy,
   strategySchema,

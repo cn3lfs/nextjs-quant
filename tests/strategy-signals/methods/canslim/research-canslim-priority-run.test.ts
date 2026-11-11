@@ -6,7 +6,7 @@ import { researchPortfolio } from "../../../../src/server/backtest/research-port
 import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "../../../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 const bars = (): Bar[] =>
   Array.from({ length: 70 }, (_, i) => ({

@@ -14,7 +14,7 @@ import {
 import { readSnapshot, scan } from "../data-sources/tdx/tdx";
 import { type ScreeningResult } from "./screening";
 import { completedBarFilter } from "~/lib/completed-bars";
-import { metrics } from "~/lib/screening/screening-metrics";
+import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { sqlite } from "../db";
 import { RpsStore } from "./rps-store";
 import { usesRpsFields } from "~/lib/formula/tdx-formula-check";

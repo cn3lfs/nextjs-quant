@@ -1,7 +1,7 @@
-import { isChanC4 } from "~/lib/research/methods/chan/research-chan-movements";
-import { isOpening } from "~/lib/research/technical/research-opening";
-import { isMarketAdmission } from "~/lib/research/risk/research-market-admission";
-import { isIntradayExecution } from "~/lib/research/technical/research-intraday-execution";
+import { isChanC4 } from "trading-strategies/research/chan/research-chan-movements";
+import { isOpening } from "trading-strategies/research/technical/research-opening";
+import { isMarketAdmission } from "trading-strategies/research/risk/research-market-admission";
+import { isIntradayExecution } from "trading-strategies/research/technical/research-intraday-execution";
 import { researchChanMonthlyInput } from "../strategies/chan/research-chan-monthly";
 import { researchK13Report, type K13ReportInput } from "~/lib/research/specs/research-k13";
 
@@ -14,7 +14,7 @@ export async function runChanMonthlyInput(
 ) {
   return researchChanMonthlyInput(...args);
 }
-import { chanSectorAdmission } from "~/lib/research/methods/chan/research-chan-sector";
+import { chanSectorAdmission } from "trading-strategies/research/chan/research-chan-sector";
 /** CH11 engineering comparison uses current-membership-v1 and exposes its bias. */
 export function runChanSectorResearch(
   raw: unknown,
@@ -31,13 +31,13 @@ export function runChanSectorResearch(
   );
 }
 import { researchManagementSchema } from "~/lib/research/workflow/research-management";
-import { evaluateCryptoTimeSlot } from "~/lib/research/factors/research-crypto-time-slot";
+import { evaluateCryptoTimeSlot } from "trading-strategies/research/factors/research-crypto-time-slot";
 
 export function runCryptoTimeSlotResearch(raw: unknown) {
   return evaluateCryptoTimeSlot(raw);
 }
 import { evaluateGrowthFactors } from "../strategies/canslim/research-growth-factors";
-import type { CanslimAsOfRequest } from "../strategies/canslim/canslim-as-of-dossier";
+import type {CanslimAsOfRequest} from "trading-strategies/research/contracts/canslim-request";
 
 /** B6b waiting-data research: scores and evidence only, never simulated trades. */
 export function runGrowthFactorResearch(
@@ -48,47 +48,47 @@ export function runGrowthFactorResearch(
   return evaluateGrowthFactors(request, observations, methods);
 }
 import { wyckoffHourlyFromMinutes } from "../strategies/wyckoff/research-wyckoff-hourly";
-import { isWyckoffHourly } from "~/lib/research/methods/wyckoff/research-wyckoff-hourly";
-import { isChanNative } from "~/lib/research/methods/chan/research-chan-native";
-import type { ResearchStructureObservation } from "~/lib/research/technical/research-structure-events";
-import { isWyckoffVsa } from "~/lib/research/methods/wyckoff/research-wyckoff-vsa";
-import { isWyckoff } from "~/lib/research/methods/wyckoff/research-wyckoff";
-import { replayRiskRepair } from "~/lib/research/risk/research-risk-repair";
-import { diagnoseStops } from "~/lib/research/risk/research-risk-routing";
-import { evaluateRiskExtension } from "~/lib/research/risk/research-risk-extensions";
+import { isWyckoffHourly } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
+import { isChanNative } from "trading-strategies/research/chan/research-chan-native";
+import type { ResearchStructureObservation } from "trading-strategies/research/technical/research-structure-events";
+import { isWyckoffVsa } from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
+import { isWyckoff } from "trading-strategies/research/wyckoff/research-wyckoff";
+import {replayRiskRepair} from "~/lib/research/risk/research-risk-repair";
+import { diagnoseStops } from "trading-strategies/research/risk/research-risk-routing";
+import { evaluateRiskExtension } from "trading-strategies/research/risk/research-risk-extensions";
 import {
   researchMaeTraining,
   type ResearchMaeTraining,
-} from "~/lib/research/risk/research-stop-calibration";
-import { contextRiskPoint } from "~/lib/research/risk/research-context-risk";
+} from "trading-strategies/research/risk/research-stop-calibration";
+import { contextRiskPoint } from "trading-strategies/research/risk/research-context-risk";
 import {
   externalVolatilityPoint,
   isExternalVolatility,
-} from "~/lib/research/factors/research-volatility-input";
-import { riskPresetAdmission } from "~/lib/research/risk/research-risk-presets";
-import { riskAdmissionNeedsTraining } from "~/lib/research/risk/research-risk-admission";
-import { isVolumePollution } from "~/lib/research/methods/volume/research-volume-pollution";
-import { isVolumeAdapted } from "~/lib/research/methods/volume/research-volume-adapted";
-import { isIndicatorCombination } from "~/lib/research/technical/research-indicator-combinations";
-import { isSwingCore } from "~/lib/research/methods/swing/research-swing-core";
-import { isSwingMarket } from "~/lib/research/methods/swing/research-swing-market";
-import { isVolumeIntraday } from "~/lib/research/methods/volume/research-volume-intraday";
-import { isExternalFormula } from "~/lib/research/specs/research-formula-external";
-import { isFormulaExample } from "~/lib/research/specs/research-formula-examples";
-import { isPatternCombination } from "~/lib/research/technical/research-pattern-combinations";
-import { isTechnicalMethod } from "~/lib/research/technical/research-technical-methods";
+} from "trading-strategies/research/factors/research-volatility-input";
+import { riskPresetAdmission } from "trading-strategies/research/risk/research-risk-presets";
+import { riskAdmissionNeedsTraining } from "trading-strategies/research/risk/research-risk-admission";
+import { isVolumePollution } from "trading-strategies/research/volume/research-volume-pollution";
+import { isVolumeAdapted } from "trading-strategies/research/volume/research-volume-adapted";
+import { isIndicatorCombination } from "trading-strategies/research/technical/research-indicator-combinations";
+import { isSwingCore } from "trading-strategies/research/swing/research-swing-core";
+import { isSwingMarket } from "trading-strategies/research/swing/research-swing-market";
+import { isVolumeIntraday } from "trading-strategies/research/volume/research-volume-intraday";
+import { isExternalFormula } from "trading-strategies/research/technical/research-formula-external";
+import { isFormulaExample } from "trading-strategies/research/technical/research-formula-examples";
+import { isPatternCombination } from "trading-strategies/research/technical/research-pattern-combinations";
+import { isTechnicalMethod } from "trading-strategies/research/technical/research-technical-methods";
 import {
   assertGrowthIntradayWindow,
   growthIntradayDescription,
-} from "~/lib/research/factors/research-growth-intraday";
+} from "trading-strategies/research/factors/research-growth-intraday";
 import {
   growthIntradayEntries,
   researchGrowthIntraday,
 } from "../strategies/canslim/research-growth-intraday";
-import { isSepaResearch } from "~/lib/research/specs/research-sepa-strategies";
-import { isCanslimMarket } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
-import { isCanslimMarketCombination } from "~/lib/research/methods/canslim/research-canslim-market-strategies";
-import { researchCanslimMarketWarnings } from "../strategies/canslim/research-canslim-market-combination";
+import { isSepaResearch } from "trading-strategies/research/canslim/research-sepa-strategies";
+import { isCanslimMarket } from "trading-strategies/research/canslim/research-canslim-market-strategies";
+import { isCanslimMarketCombination } from "trading-strategies/research/canslim/research-canslim-market-strategies";
+import { researchCanslimMarketWarnings } from "trading-strategies/research/canslim/research-canslim-market-combination";
 import {
   isCanslimResearch,
   isCanslimHigh,
@@ -96,14 +96,14 @@ import {
   canslimShapeWarmup,
   isCanslimCup,
   isCanslimPriority,
-} from "~/lib/research/methods/canslim/research-canslim-strategies";
-import { researchKellyNetPayoff } from "~/lib/research/risk/research-kelly-payoff";
+} from "trading-strategies/research/canslim/research-canslim-strategies";
+import { researchKellyNetPayoff } from "trading-strategies/research/risk/research-kelly-payoff";
 import {
   researchKellyTraining,
   type ResearchKellyTraining,
-} from "~/lib/research/risk/research-kelly-training";
+} from "trading-strategies/research/risk/research-kelly-training";
 import type { Bar } from "~/lib/domain";
-import type { CzscResult } from "~/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import {
   researchTradeStatistics,
   type ResearchEvent,
@@ -112,33 +112,33 @@ import {
 import {
   researchEvidenceLookup,
   type ResearchMarketEvidence,
-} from "~/lib/research/factors/research-market-evidence";
+} from "trading-strategies/research/factors/research-market-evidence";
 import { researchSignals } from "../strategies/shared/research-signals";
 import { researchOutcomes } from "./research-outcomes";
 import { researchPortfolio } from "./research-portfolio";
 import { researchHash, type ResearchDataset } from "./research-dataset";
 import { prepareResearchAdjustedCoverage } from "./research-adjustment-coverage";
 import { validateResearchMethod } from "../research/research-method";
-import { isVolumeStrategy, volumeWarmupStart } from "~/lib/research/methods/volume/research-volume";
-import { isVolumeContext } from "~/lib/research/methods/volume/research-volume-context";
-import { isContinuation } from "~/lib/research/technical/research-continuation";
-import { isBreakoutRule } from "~/lib/research/technical/research-breakout-rules";
+import { isVolumeStrategy, volumeWarmupStart } from "trading-strategies/research/volume/research-volume";
+import { isVolumeContext } from "trading-strategies/research/volume/research-volume-context";
+import { isContinuation } from "trading-strategies/research/technical/research-continuation";
+import { isBreakoutRule } from "trading-strategies/research/technical/research-breakout-rules";
 import {
   isChannelStrategy,
   channelWarmupStart,
   channelWarmupBars,
-} from "~/lib/research/technical/research-channels";
-import { isCandleStrategy, candleWarmupStart } from "~/lib/research/technical/research-candles";
-import { isVolumeSequence } from "~/lib/research/methods/volume/research-volume-sequence";
-import { isVolumeFailure } from "~/lib/research/methods/volume/research-volume-failure";
+} from "trading-strategies/research/technical/research-channels";
+import { isCandleStrategy, candleWarmupStart } from "trading-strategies/research/technical/research-candles";
+import { isVolumeSequence } from "trading-strategies/research/volume/research-volume-sequence";
+import { isVolumeFailure } from "trading-strategies/research/volume/research-volume-failure";
 import {
   isVolumeStructure,
   volumeStructureWarmupStart,
-} from "~/lib/research/methods/volume/research-volume-structure";
+} from "trading-strategies/research/volume/research-volume-structure";
 import {
   isVolumeReversal,
   volumeReversalWarmupStart,
-} from "~/lib/research/methods/volume/research-volume-reversals";
+} from "trading-strategies/research/volume/research-volume-reversals";
 import {
   buildResearchCompositeSpec,
   researchCompositePresetIds,

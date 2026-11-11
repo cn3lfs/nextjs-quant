@@ -1,4 +1,4 @@
-import { analyzeBreakout, type BreakoutPoint } from "./breakout";
+import { analyzeBreakout, type BreakoutPoint } from "trading-strategies/research/breakout/breakout";
 import { readSnapshot, readTailSnapshot } from "../../data-sources/tdx/tdx";
 import { isAStock } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";

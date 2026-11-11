@@ -2,12 +2,12 @@ import { expect, it, vi } from "vitest";
 import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { maParamsSchema } from "../../src/lib/domain";
-import { researchMarketEvidenceSchema } from "../../src/lib/research/factors/research-market-evidence";
+import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import {
   createResearchCzscCache,
   runStrategyResearch,
 } from "../../src/server/backtest/research-run";
-import type { CzscResult } from "../../src/lib/research/methods/chan/czsc";
+import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";
 import {
   researchHash,

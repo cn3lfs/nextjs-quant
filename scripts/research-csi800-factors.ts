@@ -57,10 +57,13 @@ await writeFile(
   ),
 );
 const files = [
+  "packages/trading-strategies/src/study-decision.ts",
+  "packages/trading-strategies/src/csi800-model.ts",
+  "packages/trading-strategies/src/ma-cross.ts",
   "packages/quant-backtest/src/csi800-study.ts",
-  "packages/quant-backtest/src/csi800-signal.ts",
-  "packages/quant-backtest/src/csi800-factors.ts",
-  "packages/quant-backtest/src/csi800-composite.ts",
+  "packages/trading-strategies/src/csi800-signal.ts",
+  "packages/trading-strategies/src/csi800-factors.ts",
+  "packages/trading-strategies/src/csi800-composite.ts",
   "scripts/lib/csi800-factor-data.ts",
   "scripts/lib/csi800-factor-matrix.ts",
   "scripts/lib/csi800-factor-diagnostics.ts",

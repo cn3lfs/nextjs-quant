@@ -5,7 +5,7 @@ import {
   researchVolumeSeries,
   volumeWarmupStart,
   type VolumePoint,
-} from "../../../../src/lib/research/methods/volume/research-volume";
+} from "trading-strategies/research/volume/research-volume";
 import {
   evaluateVolumeGrid,
   volumeGridFacts,
@@ -17,7 +17,7 @@ import {
   type PositionFacts,
   type VolumeGridId,
   type VolumeEvidence,
-} from "../../../../src/lib/research/methods/volume/research-volume-grid";
+} from "trading-strategies/research/volume/research-volume-grid";
 import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 

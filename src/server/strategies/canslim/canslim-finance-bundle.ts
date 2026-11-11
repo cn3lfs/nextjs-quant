@@ -1,7 +1,8 @@
-import { symbolSchema, type Evidence } from "~/lib/domain";
+import {type Evidence} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { queryFinance } from "../../data-sources/hithink/hithink-finance";
-import { canslimFinanceFacts } from "../../../lib/strategy-facts/canslim-finance";
-import { canslimEarnings } from "../../../lib/strategy-facts/canslim-earnings";
+import { canslimFinanceFacts } from "~/lib/strategy-facts/canslim-finance";
+import { canslimEarnings } from "trading-strategies/research/canslim/canslim-earnings";
 import { sharedRead } from "../../infra/shared-read";
 type Series = ReturnType<typeof canslimFinanceFacts>["series"];
 export function mergeCanslimFinance(symbol: string, evidence: Evidence[]) {

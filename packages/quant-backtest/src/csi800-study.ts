@@ -1,4 +1,4 @@
-import { csi800SignalBars } from "./csi800-signal.js";
+import { csi800SignalBars } from "trading-strategies";
 import { big, toNumber } from "trading-strategy-core/money";
 import { ema } from "trading-strategy-core/indicators";
 import {
@@ -10,21 +10,10 @@ import {
   evaluatePositionClose,
   type PositionRiskState,
   type PositionRiskStage,
-} from "./csi800-position-risk.js";
+} from "trading-strategies";
 import type { Bar } from "./model.js";
 
-export type Csi800Stock = {
-  symbol: string;
-  bars: Bar[];
-  actions: {
-    date: string;
-    dividend: number;
-    bonus: number;
-    rights?: number;
-    rightsPrice?: number;
-    unsupported: boolean;
-  }[];
-};
+import type { Csi800Stock } from "trading-strategies";
 export type Csi800Options = {
   start: string;
   end: string;
@@ -32,50 +21,20 @@ export type Csi800Options = {
   count?: number;
   slippageBps?: number;
   delay?: number;
+  /** Admission cap for externally scheduled weights; built-in models retain their 15% cap. */
+  maximumWeight?: number;
   mode: "equal-pool" | "momentum" | "risk-weighted" | "regime" | "scheduled";
   positionRisk?: {
     execution: "assumed-close-auction";
     stage: PositionRiskStage;
   };
 };
-export type Csi800Allocation = {
-  date: string;
-  weights: Record<string, number>;
-};
+import type { Csi800Allocation } from "trading-strategies";
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const mean = (xs: number[]) => sum(xs) / xs.length;
 const cashAdd = (a: number, b: number) => toNumber(big(a).plus(b));
 
-/** Iterative capped allocation. Unallocatable capital stays in cash. */
-export function csi800Weights(scores: number[], exposure: number) {
-  if (
-    !Number.isFinite(exposure) ||
-    exposure < 0 ||
-    exposure > 1 ||
-    scores.some((v) => !Number.isFinite(v) || v <= 0)
-  )
-    throw new Error("权重输入非法");
-  const weights = scores.map(() => 0);
-  let remaining = exposure;
-  let active = scores.map((_, i) => i);
-  while (active.length && remaining > 1e-12) {
-    const total = sum(active.map((i) => scores[i]!));
-    const capped = active.filter(
-      (i) => (remaining * scores[i]!) / total >= 0.15,
-    );
-    if (!capped.length) {
-      for (const i of active) weights[i] = (remaining * scores[i]!) / total;
-      break;
-    }
-    for (const i of capped) {
-      weights[i] = 0.15;
-      remaining -= 0.15;
-    }
-    active = active.filter((i) => !capped.includes(i));
-  }
-  return weights;
-}
-
+import { csi800Weights } from "trading-strategies";
 /** Simplified daily OHLC scenario; never labelled certified execution history. */
 export function runCsi800Study(
   stocks: Csi800Stock[],
@@ -87,6 +46,13 @@ export function runCsi800Study(
   const count = options.count ?? 20;
   const slip = (options.slippageBps ?? 10) / 10000;
   const delay = options.delay ?? 1;
+  const maximumWeight = options.maximumWeight ?? 0.15;
+  if (
+    !Number.isFinite(maximumWeight) ||
+    maximumWeight <= 0 ||
+    maximumWeight > 1
+  )
+    throw new Error("单证券最大权重必须大于0且不超过1");
   const riskEnabled = options.positionRisk !== undefined;
   if (
     riskEnabled &&
@@ -136,7 +102,7 @@ export function runCsi800Study(
           !symbols.has(symbol) ||
           !Number.isFinite(w) ||
           w < 0 ||
-          w > 0.15 + 1e-12,
+          w > maximumWeight + 1e-12,
       ) ||
       Object.values(row.weights).reduce((a, b) => a + b, 0) > 1 + 1e-12
     )

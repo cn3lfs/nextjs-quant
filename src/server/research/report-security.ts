@@ -1,5 +1,5 @@
 import { sqlite } from "../db";
-import { symbolSchema } from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 
 /** Resolve only application-owned context links, never model prose or citations. */
 export function reportSecurityContext(contextId: string) {

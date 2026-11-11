@@ -1,10 +1,10 @@
 import { sqlite as chartSqlite } from "../../db";
 import { analyzeCzsc, czscConfigSchema } from "../../strategies/chan/czsc";
 import { czscSettingsSchema } from "~/lib/chart/czsc-settings";
-import { analyzeBreakout } from "../../strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { financialGrowth } from "../../strategies/value/financial-growth";
-import { fundamentalResearchInput } from "~/lib/research/factors/fundamental-research";
+import { fundamentalResearchInput } from "trading-strategies/research/factors/fundamental-research";
 import {
   fundamentalResearchJob,
   type FundamentalReport,
@@ -14,7 +14,7 @@ import {
   financialQualityHistory,
   type FinancialQualityArchive,
 } from "../../strategies/value/financial-quality";
-import { valuationScenarioSchema } from "~/lib/research/factors/valuation-scenario";
+import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
 import {
   saveValuationScenario,
   valuationScenarioHistory,
@@ -34,7 +34,8 @@ import {
   type CanslimResearchReport,
 } from "../../strategies/canslim/canslim-report";
 import { z } from "zod";
-import { symbolSchema, type Snapshot, type Channel } from "~/lib/domain";
+import {type Snapshot,type Channel} from "~/lib/domain";
+import {symbolSchema} from "trading-strategies/research/contracts/security";
 import { list } from "../../db";
 import { background, updateJob } from "../../jobs/jobs";
 import { researchModel } from "../../research/research";

@@ -1,3 +1,4 @@
+import { isoWeek } from "trading-strategy-core/calendar";
 import {
   dailyPerformance,
   type DailyPerformanceInput,
@@ -100,19 +101,6 @@ export function periodPerformance(input: PeriodInput) {
       ...dailyPerformance({ ...input, returns }),
     };
   });
-}
-
-export function isoWeek(date: string): readonly [number, number] {
-  validateDates([date]);
-  const [y, m, d] = date.split("-").map(Number);
-  const t = new Date(Date.UTC(y!, m! - 1, d!));
-  const dayNum = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
-  const isoYear = t.getUTCFullYear();
-  const week = Math.ceil(
-    ((t.getTime() - Date.UTC(isoYear, 0, 1)) / 86400000 + 1) / 7,
-  );
-  return [isoYear, week];
 }
 
 export const naturalPeriods = ["week", "month", "quarter", "year"] as const;

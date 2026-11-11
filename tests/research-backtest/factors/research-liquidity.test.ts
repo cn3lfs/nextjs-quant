@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
-import { researchLiquidity } from "../../../src/lib/research/factors/research-liquidity";
+import { researchLiquidity } from "trading-strategies/research/factors/research-liquidity";
 import {
   researchSpecSchema,
   type ResearchEvent,

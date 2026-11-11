@@ -12,7 +12,7 @@ import {
   actionReview,
   type BacktestActions,
 } from "../../src/server/backtest/backtest-actions";
-import { analyzeBreakout } from "../../src/server/strategies/breakout/breakout";
+import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { ledgerOutcome, type LedgerRow } from "../../src/lib/strategy-facts/signal-ledger";
 import { benchmarkStratification } from "../../src/server/backtest/signal-backtest-benchmark";
 import { signalInformation } from "../../src/lib/strategy-facts/signal-information";

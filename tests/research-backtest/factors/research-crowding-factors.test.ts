@@ -5,8 +5,8 @@ import {
   crowdingFactorRules,
   tmtIndustries,
   crowdingPanelSchema,
-} from "../../../src/lib/research/factors/research-crowding-factors";
-import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
+} from "trading-strategies/research/factors/research-crowding-factors";
+import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
 import { request } from "../../helpers/growth-factor-fixture";
 
 const req = { ...request, observationDate: "2024-05-01" };
