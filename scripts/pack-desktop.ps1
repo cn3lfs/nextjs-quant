@@ -39,6 +39,14 @@ try {
     & pnpm exec electron-builder --win --dir '--config.directories.output=release/_next'
     if ($LASTEXITCODE -ne 0) { throw 'Desktop packaging failed; existing releases preserved.' }
     if (-not (Test-Path -LiteralPath (Join-Path $stagingRoot 'win-unpacked\GuanlanQuant.exe'))) { throw 'Packaged executable missing.' }
+    $packagedServer = Join-Path $stagingRoot 'win-unpacked\resources\server'
+    foreach ($dependency in @('next', 'react', 'react-dom')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $packagedServer "node_modules\$dependency\package.json"))) {
+            throw "Packaged server dependency missing: $dependency. Existing releases preserved."
+        }
+    }
+    $packagedLinks = @(Get-ChildItem -LiteralPath $packagedServer -Recurse -Force -Attributes ReparsePoint)
+    if ($packagedLinks.Count) { throw 'Packaged server still contains links; existing releases preserved.' }
     Assert-AppClosed
     $oldOutputs = @(Get-ChildItem -LiteralPath $releaseRoot -Force | Where-Object { $_.FullName -ne $stagingRoot })
     foreach ($entry in $oldOutputs) { Assert-ReleaseChild $entry.FullName }

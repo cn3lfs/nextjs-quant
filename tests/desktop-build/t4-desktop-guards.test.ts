@@ -259,3 +259,39 @@ it("refuses native alias targets outside the build workspace", async () => {
     "build-current",
   );
 });
+
+it("materializes pnpm server entry links and nested peer dependencies", async () => {
+  const root = await fixture(),
+    modules = join(root, ".next/standalone/node_modules");
+  const source = join(root, "node_modules/next");
+  await mkdir(source, { recursive: true });
+  await writeFile(
+    join(source, "package.json"),
+    '{"name":"next","main":"index.js"}',
+  );
+  await writeFile(join(source, "index.js"), 'module.exports="next-fixture"');
+  await mkdir(modules, { recursive: true });
+  await mkdir(join(modules, ".pnpm/peer/node_modules"), { recursive: true });
+  const alias = join(modules, "next"),
+    peer = join(modules, ".pnpm/peer/node_modules/next");
+  await symlink(
+    source,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  await symlink(
+    source,
+    peer,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  await materializeStandaloneModules(root);
+  await rm(source, { recursive: true, force: true });
+  expect((await lstat(alias)).isSymbolicLink()).toBe(false);
+  expect((await lstat(peer)).isSymbolicLink()).toBe(false);
+  expect(await readFile(join(alias, "index.js"), "utf8")).toContain(
+    "next-fixture",
+  );
+  expect(await readFile(join(peer, "index.js"), "utf8")).toContain(
+    "next-fixture",
+  );
+});
