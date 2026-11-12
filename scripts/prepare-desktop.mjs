@@ -81,6 +81,15 @@ export async function prepareDesktop({
   });
   await cp("public", ".next/standalone/public", { recursive: true });
   await cp("runtime", ".next/standalone/runtime", { recursive: true });
+  // Koffi loads its platform binary relative to its own package directory.
+  // Turbopack's hashed aliases live in .next/node_modules, outside the worker
+  // dependency tree; tracing only includes the native package manifest.
+  for (const modules of ["node_modules", ".next/node_modules"])
+    await cp(
+      "runtime/node_modules/@koromix/koffi-win32-x64",
+      `.next/standalone/${modules}/@koromix/koffi-win32-x64`,
+      { recursive: true, dereference: true },
+    );
   await mkdir(".next/standalone/node-runtime", { recursive: true });
   await cp(process.execPath, ".next/standalone/node-runtime/node.exe");
   await mkdir(".next/standalone/third-party-notices", { recursive: true });

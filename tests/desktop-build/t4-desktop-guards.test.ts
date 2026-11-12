@@ -136,13 +136,26 @@ it("T4 marks preparation complete only after every copy succeeds and removes obs
     "old",
   );
   const { cp } = await import("node:fs/promises");
+  const native = "runtime/node_modules/@koromix/koffi-win32-x64";
+  await mkdir(join(root, native, "win32_x64"), { recursive: true });
+  await writeFile(join(root, native, "win32_x64/koffi.node"), "native-fixture");
   const copy = vi.fn(async (source: string, destination: string) => {
     await expect(readFile(marker)).rejects.toMatchObject({ code: "ENOENT" });
-    if (source === join(root, ".next/static"))
+    if (source === join(root, ".next/static") || source === join(root, native))
       await cp(source, destination, { recursive: true });
   });
   expect(await runPrepare({ root, guard: () => {}, copy })).toBe(0);
-  expect(copy).toHaveBeenCalledTimes(8);
+  expect(copy).toHaveBeenCalledTimes(10);
+  for (const modules of ["node_modules", ".next/node_modules"])
+    expect(
+      await readFile(
+        join(
+          root,
+          `.next/standalone/${modules}/@koromix/koffi-win32-x64/win32_x64/koffi.node`,
+        ),
+        "utf8",
+      ),
+    ).toBe("native-fixture");
   expect(copy).toHaveBeenCalledWith(
     join(root, "docs/data-sources/public-factors/qlib-v0.9.7/LICENSE"),
     join(root, ".next/standalone/third-party-notices/Qlib-LICENSE"),
