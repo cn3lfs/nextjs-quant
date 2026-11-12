@@ -30,6 +30,11 @@ function Retry-OutputOperation([scriptblock] $Operation) {
 Push-Location $projectRoot
 try {
     Assert-AppClosed
+    $modulesManifest = Join-Path $projectRoot 'node_modules\.modules.yaml'
+    if (-not (Test-Path -LiteralPath $modulesManifest) -or
+        (Get-Content -LiteralPath $modulesManifest -Raw) -notmatch '(?m)^nodeLinker: hoisted\s*$') {
+        throw 'Desktop packaging requires hoisted dependencies. Run pnpm install --frozen-lockfile first. Existing releases preserved.'
+    }
     Assert-ReleaseChild $stagingRoot
     if (Test-Path -LiteralPath $stagingRoot) { Remove-Item -LiteralPath $stagingRoot -Recurse -Force }
     & pnpm build
