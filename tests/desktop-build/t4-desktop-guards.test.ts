@@ -1,4 +1,12 @@
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  symlink,
+  lstat,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,7 +19,7 @@ const {
   prepareAdvice,
   startAdvice,
 } = await import(guardsPath);
-const { runPrepare } = await import(preparePath);
+const { runPrepare, materializeStandaloneModules } = await import(preparePath);
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -206,4 +214,48 @@ it.each([
   expect(result.status).toBe(1);
   expect(result.stdout).not.toContain("SERVER_STARTED");
   expect(result.stderr.trim()).toBe(startAdvice);
+});
+
+it("materializes absolute native aliases and stays usable after source modules disappear", async () => {
+  const root = await fixture(),
+    source = join(root, "node_modules", "native-fixture"),
+    aliases = join(root, ".next/standalone/.next/node_modules");
+  await mkdir(source, { recursive: true });
+  await mkdir(aliases, { recursive: true });
+  await writeFile(join(source, "binding.node"), "fixture-native-bytes");
+  const alias = join(aliases, "native-fixture-hash");
+  await symlink(
+    source,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  expect((await lstat(alias)).isSymbolicLink()).toBe(true);
+  await materializeStandaloneModules(root);
+  expect((await lstat(alias)).isSymbolicLink()).toBe(false);
+  expect(await readFile(join(source, "binding.node"), "utf8")).toBe(
+    "fixture-native-bytes",
+  );
+  await rm(source, { recursive: true, force: true });
+  expect(await readFile(join(alias, "binding.node"), "utf8")).toBe(
+    "fixture-native-bytes",
+  );
+});
+it("refuses native alias targets outside the build workspace", async () => {
+  const root = await fixture(),
+    outside = await fixture(),
+    aliases = join(root, ".next/standalone/.next/node_modules");
+  await mkdir(aliases, { recursive: true });
+  const alias = join(aliases, "external-fixture");
+  await symlink(
+    outside,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  await expect(materializeStandaloneModules(root)).rejects.toThrow(
+    "超出构建目录",
+  );
+  expect((await lstat(alias)).isSymbolicLink()).toBe(true);
+  expect(await readFile(join(outside, ".next/BUILD_ID"), "utf8")).toBe(
+    "build-current",
+  );
 });

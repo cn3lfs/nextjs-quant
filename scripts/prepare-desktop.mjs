@@ -1,13 +1,52 @@
 import {
   cp as copyTree,
   mkdir as makeDirectory,
+  readdir,
+  realpath,
+  lstat,
+  rename,
   readFile,
   rm,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertDesktopClosed, preparationError } from "./desktop-guards.mjs";
+
+/** Turbopack native aliases can be absolute junctions into the checkout.
+ * Ship real module files so moving the desktop folder cannot break resolution. */
+export async function materializeStandaloneModules(root) {
+  const workspace = resolve(root);
+  const directory = join(workspace, ".next/standalone/.next/node_modules");
+  let entries;
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  for (const entry of entries) {
+    const alias = join(directory, entry);
+    if (!(await lstat(alias)).isSymbolicLink()) continue;
+    const source = await realpath(alias);
+    const sourceRelative = relative(workspace, source);
+    if (sourceRelative.startsWith("..") || isAbsolute(sourceRelative))
+      throw new Error(`原生模块链接超出构建目录：${entry}`);
+    const temporary = join(directory, `${entry}.preparing`);
+    // Both mutation targets are fixed children of the standalone alias directory.
+    if (dirname(alias) !== directory || dirname(temporary) !== directory)
+      throw new Error("原生模块输出路径无效");
+    await rm(temporary, { recursive: true, force: true });
+    try {
+      await copyTree(source, temporary, { recursive: true, dereference: true });
+      // rm removes the junction itself; it does not traverse its target.
+      await rm(alias, { recursive: true, force: true });
+      await rename(temporary, alias);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  }
+}
 
 export async function prepareDesktop({
   root = process.cwd(),
@@ -51,6 +90,7 @@ export async function prepareDesktop({
     "docs/data-sources/public-factors/qlib-v0.9.7/LICENSE",
     ".next/standalone/third-party-notices/Qlib-LICENSE",
   );
+  await materializeStandaloneModules(root);
   await writeFile(marker, buildId);
 }
 
