@@ -37,3 +37,5 @@ export * from "./portfolio-rps/index.js";
 
 export * from "./portfolio-risk-parity.js";
 export * from "./native-study.js";
+
+export * from "./crypto-dual-ma.js";

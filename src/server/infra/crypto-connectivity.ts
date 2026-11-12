@@ -1,11 +1,6 @@
 import { fetch as undiciFetch } from "undici";
 import { z } from "zod";
-import { readSecret, saveSecret } from "../vault";
 import { proxyDispatcher, resetOutboundRoutes } from "./outbound";
-import type {
-  BinanceSimCredential,
-  BinanceSimNetwork,
-} from "../data-sources/binance/binance-private";
 import { saveSettings, settings } from "./settings";
 
 /**
@@ -36,13 +31,29 @@ export function preserveCryptoSettings<T extends object>(input: T) {
 }
 
 export const CONNECTIVITY_HOSTS = [
-  { host: "data-api.binance.vision", use: "币安公开行情", path: "/api/v3/time" },
-  { host: "api.binance.com", use: "币安实盘（仅行情备用）", path: "/api/v3/time" },
-  { host: "demo-api.binance.com", use: "币安 Demo 模拟盘", path: "/api/v3/time" },
+  {
+    host: "data-api.binance.vision",
+    use: "币安公开行情",
+    path: "/api/v3/time",
+  },
+  {
+    host: "api.binance.com",
+    use: "币安实盘（仅行情备用）",
+    path: "/api/v3/time",
+  },
+  {
+    host: "demo-api.binance.com",
+    use: "币安 Demo 模拟盘",
+    path: "/api/v3/time",
+  },
   { host: "testnet.binance.vision", use: "币安测试网", path: "/api/v3/time" },
   { host: "www.okx.com", use: "OKX 公开行情", path: "/api/v5/public/time" },
   { host: "api.gateio.ws", use: "Gate.io 公开行情", path: "/api/v4/spot/time" },
-  { host: "api.exchange.coinbase.com", use: "Coinbase 公开行情", path: "/time" },
+  {
+    host: "api.exchange.coinbase.com",
+    use: "Coinbase 公开行情",
+    path: "/time",
+  },
   { host: "api.bybit.com", use: "Bybit 公开行情", path: "/v5/market/time" },
 ] as const;
 
@@ -103,63 +114,4 @@ export async function checkCryptoConnectivity(
     })),
   );
   return { proxy, checkedAt: Date.now(), rows };
-}
-
-/**
- * Binance HMAC API key pair for simulated trading (Demo Mode or Spot
- * Testnet), stored with Windows DPAPI; never returned. Live keys are not
- * accepted: the private client only knows the two simulated hosts.
- */
-const SECRET_ID = "binance-api";
-export const binanceCredentialSchema = z.object({
-  apiKey: z
-    .string()
-    .trim()
-    .regex(/^[A-Za-z0-9]{16,128}$/, "API Key 格式无效"),
-  apiSecret: z
-    .string()
-    .trim()
-    .regex(/^[A-Za-z0-9]{16,128}$/, "Secret 格式无效（目前只支持 HMAC 密钥）"),
-  network: z.enum(["demo", "testnet"]),
-});
-type StoredCredential = {
-  apiKey: string;
-  apiSecret: string;
-  /** Present on keys saved before simulated networks were split. */
-  testnet?: boolean;
-  network?: BinanceSimNetwork;
-  savedAt: number;
-};
-export async function saveBinanceCredential(input: unknown) {
-  const value = binanceCredentialSchema.parse(input);
-  await saveSecret(SECRET_ID, { ...value, savedAt: Date.now() });
-  return { configured: true };
-}
-export async function clearBinanceCredential() {
-  await saveSecret(SECRET_ID, null);
-  return { configured: false };
-}
-/** Network of a stored key; a legacy live key maps to `live` and is refused. */
-const networkOf = (value: StoredCredential): BinanceSimNetwork | "live" =>
-  value.network ?? (value.testnet === false ? "live" : "testnet");
-/** The simulated-trading credential, or an explanation of why there is none. */
-export async function readBinanceSimCredential(): Promise<BinanceSimCredential> {
-  const value = await readSecret<StoredCredential | null>(SECRET_ID);
-  if (!value) throw new Error("尚未保存币安模拟盘 Key");
-  const network = networkOf(value);
-  if (network === "live")
-    throw new Error("已保存的是实盘 Key，模拟盘不使用实盘 Key，请改存 Demo 或测试网 Key");
-  return { apiKey: value.apiKey, apiSecret: value.apiSecret, network };
-}
-/** Public status only: whether a key exists, for which network, and a masked key. */
-export async function binanceCredentialStatus() {
-  const value = await readSecret<StoredCredential | null>(SECRET_ID);
-  return value
-    ? {
-        configured: true as const,
-        network: networkOf(value),
-        keyHint: `…${value.apiKey.slice(-4)}`,
-        savedAt: value.savedAt,
-      }
-    : { configured: false as const };
 }

@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
-import { CryptoDemoPanel } from "./crypto-demo-panel";
+import { CryptoBotPanel } from "./crypto-bot-panel";
 
 /** Pair from `?pair=BTCUSDT` (or a legacy `?symbol=cxBTCUSDT` deep link). */
 function initialPair() {
@@ -45,7 +45,7 @@ function initialPair() {
 
 /**
  * 数字货币: a page of its own, apart from the A-share market view. It keeps
- * its own pair and period state and only ever loads Binance spot data.
+ * its own pair and period state. Automatic trading selects its own venue explicitly.
  */
 export function CryptoView() {
   const [symbol, setSymbol] = useState("cxBTCUSDT");
@@ -172,7 +172,6 @@ export function CryptoView() {
             ),
           }))}
         />
-        <CryptoDemoPanel symbol={symbol} />
         <Panel
           icon={Globe}
           title="其他交易对"
@@ -203,6 +202,9 @@ export function CryptoView() {
             </Button>
           </form>
         </Panel>
+      </div>
+      <div className="nc-span-12 min-w-0">
+        <CryptoBotPanel />
       </div>
     </PageGrid>
   );

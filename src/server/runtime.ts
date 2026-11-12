@@ -1,3 +1,4 @@
+import { tickCryptoBots } from "./crypto-trading/service";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { legacyAutomaticStrategiesEnabled } from "~/lib/backtest/strategy-lifecycle";
 import { scheduleSignalLedger } from "./monitoring/signal-ledger-client";
@@ -24,6 +25,7 @@ import { acquireScheduler } from "./infra/lease";
 import { scheduleNews } from "./news/news-scheduler";
 import { snapshot } from "./market/snapshot";
 const scope = globalThis as typeof globalThis & {
+  quantCryptoTicking?: boolean;
   quantRuntime?: {
     started: boolean;
     ticking: boolean;
@@ -54,6 +56,22 @@ export function startRuntime() {
     outbox = setInterval(() => {
       if (schedulerLeader()) void drain().catch(() => {});
     }, 3000);
+  // Crypto runs 24/7 independently of the A-share trading calendar.
+  const cryptoTick = async () => {
+    if (scope.quantCryptoTicking) return;
+    scope.quantCryptoTicking = true;
+    try {
+      await tickCryptoBots();
+    } finally {
+      scope.quantCryptoTicking = false;
+    }
+  };
+  const cryptoTimer = setInterval(
+    () => void cryptoTick().catch(() => {}),
+    10000,
+  );
+  cryptoTimer.unref();
+  void cryptoTick().catch(() => {});
   timer.unref();
   outbox.unref();
   void tick().catch(() => {});

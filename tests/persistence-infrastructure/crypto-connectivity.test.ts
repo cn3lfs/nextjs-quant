@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const store = new Map<string, unknown>();
 vi.mock("../../src/server/vault", () => ({
@@ -8,80 +8,10 @@ vi.mock("../../src/server/vault", () => ({
   readSecret: async (id: string) => store.get(id),
 }));
 
-const {
-  binanceCredentialStatus,
-  clearBinanceCredential,
-  preserveCryptoSettings,
-  readBinanceSimCredential,
-  saveBinanceCredential,
-  saveCryptoSettings,
-} = await import("../../src/server/infra/crypto-connectivity");
+const { preserveCryptoSettings, saveCryptoSettings } =
+  await import("../../src/server/infra/crypto-connectivity");
 const { settings, saveSettings } =
   await import("../../src/server/infra/settings");
-
-const key = "A".repeat(60) + "WXYZ";
-const secret = "b".repeat(64);
-
-beforeEach(() => store.clear());
-
-describe("Binance credentials", () => {
-  it("stores the pair through the vault and only exposes a masked hint", async () => {
-    await saveBinanceCredential({
-      apiKey: key,
-      apiSecret: secret,
-      network: "demo",
-    });
-    const status = await binanceCredentialStatus();
-    expect(status).toMatchObject({
-      configured: true,
-      network: "demo",
-      keyHint: "…WXYZ",
-    });
-    expect(JSON.stringify(status)).not.toContain(secret);
-    expect(JSON.stringify(status)).not.toContain(key);
-  });
-
-  it("rejects malformed keys and non-HMAC secrets", async () => {
-    await expect(
-      saveBinanceCredential({
-        apiKey: "short",
-        apiSecret: secret,
-        network: "testnet",
-      }),
-    ).rejects.toThrow();
-    await expect(
-      saveBinanceCredential({
-        apiKey: key,
-        apiSecret: "-----BEGIN PRIVATE KEY-----",
-        network: "testnet",
-      }),
-    ).rejects.toThrow();
-    expect(await binanceCredentialStatus()).toEqual({ configured: false });
-  });
-
-  it("clearing leaves no usable credential", async () => {
-    await saveBinanceCredential({
-      apiKey: key,
-      apiSecret: secret,
-      network: "testnet",
-    });
-    await clearBinanceCredential();
-    expect(await binanceCredentialStatus()).toEqual({ configured: false });
-    await expect(readBinanceSimCredential()).rejects.toThrow("尚未保存");
-  });
-
-  it("accepts only simulated networks and refuses a legacy live key", async () => {
-    await expect(
-      saveBinanceCredential({ apiKey: key, apiSecret: secret, network: "live" }),
-    ).rejects.toThrow();
-    // Saved before networks were split: testnet=false meant a live key.
-    store.set("binance-api", { apiKey: key, apiSecret: secret, testnet: false, savedAt: 1 });
-    expect(await binanceCredentialStatus()).toMatchObject({ network: "live" });
-    await expect(readBinanceSimCredential()).rejects.toThrow("实盘 Key");
-    store.set("binance-api", { apiKey: key, apiSecret: secret, testnet: true, savedAt: 1 });
-    await expect(readBinanceSimCredential()).resolves.toMatchObject({ network: "testnet" });
-  });
-});
 
 describe("crypto settings ownership", () => {
   it("the generic settings save cannot overwrite the proxy set by the crypto panel", () => {

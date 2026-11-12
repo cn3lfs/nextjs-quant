@@ -51,3 +51,9 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 - worker 构建清单以 `scripts/build-runtime.mjs` 为准；生成到 `runtime/` 的 tracked 文件并非源码归属依据。
 - 此轮未声称字符串拼接路径、所有 `import()`/`require()`、第三方 Electron 行为或每个脚本的数据副作用均已穷尽。具体迁移前需对相关目标执行路径级复核。
 - `src/server/mcp.ts` 和相关 UI 文案由用户维护，不在当前重构触碰范围；已有 server 分域也不重复搬迁。
+
+## 数字货币自动交易
+
+`src/server/crypto-trading` 独立拥有模拟交易账户、订单意图、成交和持仓投影。`trading-strategies/crypto-dual-ma` 为纯信号；交易所实现统一 SpotAdapter。入口为 `/crypto` 与 `cryptoTradingRouter`，后台由 runtime 10秒调度，账户隔离为平台+环境。规格与恢复见[现货模拟交易架构](../product/specs/crypto-auto-trading.md)。旧手动交易API已退休，历史记录不改写。
+
+数字货币账户只读模型见[账户持仓与成交](../product/specs/crypto-account-history.md)：`account-service.ts`、`account-store.ts`负责平台余额快照、独立账户成交副本与SQL分页，按账户/凭证版本隔离，不参与策略持仓投影或下单。

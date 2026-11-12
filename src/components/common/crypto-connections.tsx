@@ -1,24 +1,11 @@
 "use client";
 import { useState } from "react";
-import { CurrencyBtc, Globe, Key } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
+import { Globe } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
-import { GridTable, Panel, Pill } from "../panels";
+import { GridTable, Panel } from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-
-const networkLabels = {
-  demo: "Demo 模拟盘",
-  testnet: "测试网",
-  live: "实盘 Key（模拟盘不使用，请重新保存）",
-} as const;
-
 type Probe = { ok: boolean; status?: number; ms: number; message: string };
 const ProbeCell = ({ value }: { value: Probe | null }) =>
   value === null ? (
@@ -32,13 +19,12 @@ const ProbeCell = ({ value }: { value: Probe | null }) =>
 
 /**
  * 数字货币 connections: the outbound proxy used when a direct connection
- * fails, a live reachability check, and the Binance API key (DPAPI). Kept
+ * fails and a live reachability check. Trading credentials belong to /crypto. Kept
  * apart from the A-share data settings above.
  */
 export function CryptoConnections() {
   const utils = api.useUtils();
   const current = api.cryptoSettings.useQuery();
-  const credential = api.binanceCredentialStatus.useQuery();
   const [proxyDraft, setProxyDraft] = useState<string | null>(null);
   const proxy = proxyDraft ?? current.data?.outboundProxy ?? "";
   const saveProxy = api.saveCryptoSettings.useMutation({
@@ -48,25 +34,6 @@ export function CryptoConnections() {
     },
   });
   const check = api.cryptoConnectivity.useMutation();
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
-  const [network, setNetwork] = useState<"demo" | "testnet">("demo");
-  const [clearing, setClearing] = useState(false);
-  const refreshCredential = () =>
-    void utils.binanceCredentialStatus.invalidate();
-  const saveKey = api.saveBinanceCredential.useMutation({
-    onSuccess: () => {
-      setApiKey("");
-      setApiSecret("");
-      refreshCredential();
-    },
-  });
-  const clearKey = api.clearBinanceCredential.useMutation({
-    onSuccess: () => {
-      setClearing(false);
-      refreshCredential();
-    },
-  });
   return (
     <>
       <Panel
@@ -151,109 +118,13 @@ export function CryptoConnections() {
       </Panel>
       <Panel
         span={6}
-        icon={Key}
-        title="币安 API"
-        actions={
-          credential.data?.configured ? (
-            <Pill tone={credential.data.network === "live" ? "warn" : "accent"}>
-              已配置 {credential.data.keyHint} ·{" "}
-              {networkLabels[credential.data.network]}
-            </Pill>
-          ) : (
-            <Pill tone="idle">未配置</Pill>
-          )
-        }
-        note="只接受模拟盘 Key：Demo Key 在币安账户的 Demo Trading → API 管理创建，测试网 Key 在 testnet.binance.vision 用 GitHub 登录生成；两种 Key 不能互用，也不接受实盘 Key。Key 与 Secret 用 Windows DPAPI 加密保存在本机，界面只显示末 4 位。应用不会自动下单。"
+        icon={Globe}
+        title="模拟自动交易账户"
+        note="币安、OKX、Bybit 的模拟账户凭证与双均线策略统一在数字货币页面管理。"
       >
-        <form
-          className="form-grid"
-          onSubmit={(event) => {
-            event.preventDefault();
-            saveKey.mutate({ apiKey, apiSecret, network });
-          }}
-        >
-          <label>
-            API Key
-            <Input
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-            />
-          </label>
-          <label>
-            Secret Key
-            <Input
-              type="password"
-              autoComplete="new-password"
-              value={apiSecret}
-              onChange={(event) => setApiSecret(event.target.value)}
-            />
-          </label>
-          <label className="col-span-full">
-            Key 所属网络
-            <Select
-              value={network}
-              onValueChange={(value) => setNetwork(value as typeof network)}
-            >
-              <SelectTrigger aria-label="Key 所属网络">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="demo">
-                  Demo 模拟盘（demo-api.binance.com，贴近实盘行情）
-                </SelectItem>
-                <SelectItem value="testnet">
-                  现货测试网（testnet.binance.vision，独立行情）
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-          <div className="button-row col-span-full">
-            <Button
-              type="submit"
-              disabled={!apiKey || !apiSecret || saveKey.isPending}
-            >
-              <CurrencyBtc size={14} />
-              保存 Key
-            </Button>
-            {credential.data?.configured &&
-              (clearing ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    disabled={clearKey.isPending}
-                    onClick={() => clearKey.mutate()}
-                  >
-                    确认删除已保存的 Key
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setClearing(false)}
-                  >
-                    取消
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setClearing(true)}
-                >
-                  删除 Key
-                </Button>
-              ))}
-          </div>
-        </form>
-        {(saveKey.error || clearKey.error || credential.error) && (
-          <p role="alert" className="nc-text-bad">
-            {saveKey.error?.message ??
-              clearKey.error?.message ??
-              credential.error?.message}
-          </p>
-        )}
+        <Link href="/crypto" className="underline">
+          打开数字货币模拟自动交易
+        </Link>
       </Panel>
     </>
   );

@@ -1,5 +1,13 @@
 # 个人交易工作台扩充计划
 
+## 数字货币账户持仓与历史成交（2026-11-12，本地验收完成）
+
+用户要求同步已成交明细并增加平台当前持仓与历史成交阅读。按product-delivery产品定义、keel架构设计后实施，三Agent分工、主Agent集中验收。平台读模型与策略账本分开，三模拟平台/BTCUSDT/ETHUSDT；范围、版本隔离、失败语义和验收见[功能规格](product/specs/crypto-account-history.md)。主工程12138项/包194项基线、最终71项相关回归、类型、构建/runtime、desktop:prepare及隔离页面通过，真实账户未联调；详见[交付记录](deliveries/2026-11-12-crypto-account-history.md)。不推算缺失历史成本/盈亏，不扩展实盘。
+
+## 数字货币模拟自动交易（2026-11-11，本地验收完成）
+
+用户授权 BTCUSDT/ETHUSDT 现货双均线，币安/OKX/Bybit 三平台模拟账户自动执行。按 keel 架构设计、三 Agent 分工实现，主 Agent 集中验收；新接口直接替换旧手动入口，历史证据保留。架构、契约、恢复与验收见[交易模块规格](product/specs/crypto-auto-trading.md)。主工程12109项及包级194项测试、类型、构建/runtime、desktop:prepare与隔离页面检查通过，三平台真实模拟账户联调未执行。结果与限制见[交付记录](deliveries/2026-11-11-crypto-auto-trading.md)。不开放实盘、合约、转账或自动通知；不打包。
+
 ## 统一策略模块（2026-11-11，规则归属已验收）
 
 本轮按最新授权完成独立策略结构和可用数据基础接入，源码128整路径迁移（127TS/1JSON）及成长215方法、年度财务、盘中/周线/原生选择等部分拆分；消费者直达真实owner，无旧路径转发。策略包维护规则/定义/参数/权重，应用保留来源与时点证据、公式实际运行、DLL、任务和账本。精确映射见[strategy-module-migration.json](strategy-module-migration.json)。

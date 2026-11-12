@@ -1,3 +1,4 @@
+import { cryptoTradingRouter } from "./routers/crypto-trading";
 import { marketRouter } from "./routers/market";
 import { screeningRouter } from "./routers/screening";
 import { strategyRouter } from "./routers/strategy";
@@ -25,6 +26,7 @@ export const appRouter = mergeTRPCRouters(
   integrationsRouter,
   financialRouter,
   strategyCenterRouter,
+  cryptoTradingRouter,
 );
 export type AppRouter = typeof appRouter;
 export const createCaller = createCallerFactory(appRouter);
