@@ -510,6 +510,7 @@ it("paginates and sorts on the server for both methods without hidden full-round
     const html = renderToStaticMarkup(
       createElement(TradeReviewResults, {
         data: first,
+        section: "rounds",
         method,
         onMethodChange: () => {},
         drawdownsOpen: false,
@@ -632,6 +633,7 @@ it("R13 bounds both table payloads and preserves 2543 fills and dated diagnostic
     const html = renderToStaticMarkup(
       createElement(TradeReviewResults, {
         data: first,
+        section: "rounds",
         method: "movingAverage",
         onMethodChange: () => {},
         pagination: { pageIndex: 0, pageSize: 20 },

@@ -56,6 +56,7 @@ it.each(["explicit", "previousClose"] as const)(
     });
     const html = renderToStaticMarkup(
       createElement(TradeReviewResults, {
+        section: "overview",
         data: {
           ...data,
           nav: {
