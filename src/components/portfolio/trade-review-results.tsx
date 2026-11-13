@@ -22,6 +22,7 @@ import {
 } from "../ui/collapsible";
 import { Badge } from "../ui/badge";
 import { PagedDetail } from "./paged-detail";
+import { PanelVisibility } from "../workbench/keep-alive";
 
 export type TradeReviewData = RouterOutputs["tradeReviewSnapshot"];
 type Round = TradeReviewData["rounds"][number];
@@ -116,7 +117,7 @@ export function TradeReviewCaveats({
           元
         </p>
         <p>
-          残差独立展示，不自动平账，不生成补造流水。逐事件检查可能受日内顺序影响，日末账目请查看下方现金逐日对账。
+          残差独立展示，不自动平账，不生成补造流水。逐事件检查可能受日内顺序影响，日末账目请查看现金核对工作区。
         </p>
         <p>
           openingUnknown：中签建仓等证据不足的回合，开仓成本与收益留空；不按零成本计算利润。
@@ -237,10 +238,12 @@ export function TradeReviewResults({
   drawdownTable,
   drawdownsOpen,
   onDrawdownsOpenChange,
-  periodPerformance,
+  section,
+  roundExtras,
 }: {
   data: TradeReviewData;
-  periodPerformance?: ReactNode;
+  section: "overview" | "rounds";
+  roundExtras?: ReactNode;
   drawdownsOpen: boolean;
   onDrawdownsOpenChange: (open: boolean) => void;
   drawdownTable: Pick<
@@ -329,331 +332,355 @@ export function TradeReviewResults({
     />
   );
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <h2 className="text-xl font-semibold">{data.account} · 交易复盘</h2>
       <p className="text-sm text-muted-foreground">
         交易日历：{data.calendar.source} · {data.calendar.start} —{" "}
         {data.calendar.end}。复盘截止账户最后一笔流水；未平仓头寸不延伸到今天。
       </p>
-      <TradeReviewCaveats data={data} />
-      <Tabs
-        value={method}
-        onValueChange={(value) => onMethodChange(value as CostMethod)}
-      >
-        <TabsList aria-label="成本口径">
-          <TabsTrigger disabled={loading} value="movingAverage">
-            移动加权
-          </TabsTrigger>
-          <TabsTrigger disabled={loading} value="fifo">
-            FIFO
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <DataTable
-        label="交易回合"
-        columns={roundColumns}
-        data={data.rounds}
-        rowCount={data.rowCount}
-        pagination={pagination}
-        sorting={sorting}
-        onPaginationChange={onPaginationChange}
-        onSortingChange={onSortingChange}
-        getRowId={(row) => row.id}
-        loading={loading}
-      />
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold">费用来源</h3>
-        <PagedDetail
-          account={data.account}
-          method={method}
-          kind="feeSources"
-          first={nav.details.feeSources}
-          label="费用来源"
-          empty={<p>无成交费用记录。</p>}
-          render={(fill) => (
-            <p key={fill.index}>
-              {fill.date} · {fill.security} ·{" "}
-              {fill.sources
-                .map(
-                  (source) =>
-                    `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : source.amount.toFixed(2)} 元；${source.warnings.join("；")}`,
-                )
-                .join("；") || "不可得：该成交未进入可分析回合"}
-            </p>
-          )}
-        />
-      </section>
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold">
-          买卖点（按移动加权回合确定区间）
-        </h3>
-        <DataTable
-          label="买卖点"
-          data={data.tradePoints}
-          rowCount={data.pointCount}
-          {...pointTable}
-          loading={loading}
-          getRowId={(row) => String(row.fillIndex)}
-          columns={[
-            { accessorKey: "security", header: "标的" },
-            {
-              accessorKey: "fillIndex",
-              header: "成交序号",
-              cell: (c) => c.row.original.fillIndex + 1,
-            },
-            {
-              id: "metrics",
-              header: "买卖点分析",
-              enableSorting: false,
-              cell: ({ row: { original: point } }) => (
-                <div className="space-y-1">
-                  <p>{point.basis}</p>
-                  <p>
-                    日内位置：{metric(point.intradayPosition, true)} · MFE：
-                    {metric(point.mfe, true)} · MAE：{metric(point.mae, true)}
-                  </p>
-                  <p>
-                    区间位置：
-                    {Object.entries(point.intervalPositions)
-                      .map(([period, v]) => `${period} 日：${metric(v, true)}`)
-                      .join("；")}
-                  </p>
-                  <p>
-                    卖后走势：
-                    {Object.entries(point.afterSale)
-                      .map(([period, v]) => `${period} 日：${metric(v, true)}`)
-                      .join("；")}
-                  </p>
-                  {point.warnings.map((w, i) => (
-                    <p key={i}>{w}</p>
-                  ))}
-                </div>
-              ),
-            },
-          ]}
-        />
-        <h4 className="font-medium">因缺行情无法分析</h4>
-        <ReviewDisclosure
-          label={`缺行情明细，共 ${data.missingMarketData.length} 项`}
-        >
-          {data.missingMarketData.length ? (
-            data.missingMarketData.map((row) => (
-              <p key={row.security}>
-                {row.security}：{row.details.join("；")}
-              </p>
-            ))
-          ) : (
-            <p>无缺行情标的。</p>
-          )}
-        </ReviewDisclosure>
-      </section>
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold">资金曲线与风险</h3>
-        <NavCurve days={nav.days} />
-        {periodPerformance}
-        <p>TWR：{metric(nav.twr, true)}</p>
-        {nav.flowValuationNote && <p role="note">{nav.flowValuationNote}</p>}
-        {nav.twr.groups.slice(0, 3).map((text) => (
-          <p key={text}>{text}</p>
-        ))}
-        <PagedDetail
-          account={data.account}
-          method={method}
-          kind="twrReasons"
-          first={nav.details.twrReasons}
-          label={`TWR 逐日原因（${nav.twr.groups.length} 类）`}
-          render={(row, i) => (
-            <p key={i}>
-              {row.date} · {row.reason}
-            </p>
-          )}
-        />
-        <p>
-          实际使用的交易日数：{nav.usedTradingDays}；每日收益观察数：
-          {nav.usedReturnObservations}；年化因子：{nav.basis.annualization}
-          ；无风险年利率：{(nav.basis.annualRiskFreeRate * 100).toFixed(2)}%。
-        </p>
-        {nav.skippedIntervals.length > 0 && (
-          <div role="note" className="rounded-lg border p-3">
-            <p className="font-semibold">
-              净值/收益中断：全区间夏普、最大回撤、Sortino、Calmar
-              不可得；以下仅展示连续段结果。
-            </p>
-            <ReviewDisclosure
-              label={`净值/收益中断区间，共 ${nav.skippedIntervals.length} 段`}
-            >
-              {nav.skippedIntervals.map((gap, i) => (
+      <PanelVisibility visible={section === "overview"}>
+        <div hidden={section !== "overview"} className="space-y-6">
+          <TradeReviewCaveats data={data} />
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">资金曲线与风险</h3>
+            <NavCurve days={nav.days} />
+
+            <p>TWR：{metric(nav.twr, true)}</p>
+            {nav.flowValuationNote && (
+              <p role="note">{nav.flowValuationNote}</p>
+            )}
+            {nav.twr.groups.slice(0, 3).map((text) => (
+              <p key={text}>{text}</p>
+            ))}
+            <PagedDetail
+              account={data.account}
+              method={method}
+              kind="twrReasons"
+              first={nav.details.twrReasons}
+              label={`TWR 逐日原因（${nav.twr.groups.length} 类）`}
+              render={(row, i) => (
                 <p key={i}>
-                  {gap.start} — {gap.end}：{gap.reason}
+                  {row.date} · {row.reason}
+                </p>
+              )}
+            />
+            <p>
+              实际使用的交易日数：{nav.usedTradingDays}；每日收益观察数：
+              {nav.usedReturnObservations}；年化因子：{nav.basis.annualization}
+              ；无风险年利率：{(nav.basis.annualRiskFreeRate * 100).toFixed(2)}
+              %。
+            </p>
+            {nav.skippedIntervals.length > 0 && (
+              <div role="note" className="rounded-lg border p-3">
+                <p className="font-semibold">
+                  净值/收益中断：全区间夏普、最大回撤、Sortino、Calmar
+                  不可得；以下仅展示连续段结果。
+                </p>
+                <ReviewDisclosure
+                  label={`净值/收益中断区间，共 ${nav.skippedIntervals.length} 段`}
+                >
+                  {nav.skippedIntervals.map((gap, i) => (
+                    <p key={i}>
+                      {gap.start} — {gap.end}：{gap.reason}
+                    </p>
+                  ))}
+                </ReviewDisclosure>
+              </div>
+            )}
+            {!nav.details.segments.total && (
+              <p>
+                最大回撤、夏普、Sortino、Calmar 不可得：没有连续有效净值段。
+              </p>
+            )}
+            <PagedDetail
+              account={data.account}
+              method={method}
+              kind="segments"
+              first={nav.details.segments}
+              preview={1}
+              label="连续段风险指标（最大回撤、夏普、Sortino、Calmar）"
+              render={(segment, i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <CardTitle>
+                      {segment.start} — {segment.end} · {segment.tradingDays}{" "}
+                      个交易日 / {segment.returnObservations} 个收益观察
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p>分段 TWR：{metric(segment.totalReturn, true)}</p>
+                    <p>
+                      最大回撤：{metric(segment.maxDrawdown, true)} · 夏普：
+                      {metric(segment.sharpe)} · Sortino：
+                      {metric(segment.sortino)} · Calmar：
+                      {metric(segment.calmar)}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            />
+            <h4 className="font-medium">回撤明细</h4>
+            <p className="text-sm text-muted-foreground">
+              未修复段始终优先；默认按回撤幅度从深到浅，每页 10
+              段。各连续段独立计算，不跨缺口连接；复利为比例，单利为绝对值。
+            </p>
+
+            <Collapsible
+              open={drawdownsOpen}
+              onOpenChange={onDrawdownsOpenChange}
+            >
+              <CollapsibleTrigger asChild>
+                <Button variant="outline">
+                  共 {data.drawdownCount} 段，
+                  {drawdownsOpen ? "收起" : "展开查看"}
+                </Button>
+              </CollapsibleTrigger>
+              {!drawdownsOpen && drawdownDetails}
+              <CollapsibleContent>
+                {drawdownsOpen && drawdownDetails}
+              </CollapsibleContent>
+            </Collapsible>
+            <h4 className="font-medium">月度收益表</h4>
+            <DataTable
+              label="月度收益"
+              data={nav.monthlyReturns}
+              rowCount={data.monthCount}
+              pagination={monthPagination}
+              onPaginationChange={onMonthPaginationChange}
+              sorting={monthSorting}
+              onSortingChange={onMonthSortingChange}
+              getRowId={(row) => row.month}
+              loading={loading}
+              columns={[
+                { accessorKey: "month", header: "月份" },
+                { accessorKey: "tradingDays", header: "交易日数" },
+                {
+                  accessorKey: "return",
+                  header: "月度收益率",
+                  cell: (cell) => (
+                    <>
+                      <p>{metric(cell.row.original.return, true)}</p>
+                      <ReviewDisclosure label="月度收益原因">
+                        <ReviewDiagnostics
+                          rows={cell.row.original.return.reasons}
+                        />
+                      </ReviewDisclosure>
+                    </>
+                  ),
+                },
+              ]}
+            />
+            <PagedDetail
+              account={data.account}
+              method={method}
+              kind="days"
+              first={nav.details.days}
+              label="每日资金与净值明细"
+              render={(day) => (
+                <p key={day.date}>
+                  {day.date} · 现金 {metric(day.cash)} · 市值{" "}
+                  {metric(day.marketValue)} · 净值 {metric(day.nav)} · 日收益{" "}
+                  {metric(day.dailyReturn, true)}
+                </p>
+              )}
+            />
+            <PagedDetail
+              account={data.account}
+              method={method}
+              kind="warnings"
+              first={nav.details.warnings}
+              label="净值诊断"
+              render={(w, i) => <p key={i}>{w}</p>}
+            />
+          </section>
+          <section className="space-y-2">
+            <h3 className="text-lg font-semibold">诊断与待核对证据</h3>
+            <ReviewDisclosure
+              label={`诊断与待核对，共 ${data.warnings.length + data.exceptions.length + data.pendingRows.length} 条`}
+            >
+              {data.warnings.map((w, i) => (
+                <p key={i}>{w}</p>
+              ))}
+              {data.exceptions.map((row, i) => (
+                <p key={i}>
+                  第 {row.fill.rowIndex} 行 · {row.reason}
                 </p>
               ))}
-            </ReviewDisclosure>
-          </div>
-        )}
-        {!nav.details.segments.total && (
-          <p>最大回撤、夏普、Sortino、Calmar 不可得：没有连续有效净值段。</p>
-        )}
-        <PagedDetail
-          account={data.account}
-          method={method}
-          kind="segments"
-          first={nav.details.segments}
-          preview={1}
-          label="连续段风险指标（最大回撤、夏普、Sortino、Calmar）"
-          render={(segment, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <CardTitle>
-                  {segment.start} — {segment.end} · {segment.tradingDays}{" "}
-                  个交易日 / {segment.returnObservations} 个收益观察
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p>分段 TWR：{metric(segment.totalReturn, true)}</p>
-                <p>
-                  最大回撤：{metric(segment.maxDrawdown, true)} · 夏普：
-                  {metric(segment.sharpe)} · Sortino：{metric(segment.sortino)}{" "}
-                  · Calmar：{metric(segment.calmar)}
+              {data.pendingRows.map((row, i) => (
+                <p key={i}>
+                  第 {row.rowIndex} 行 · {row.reason}
                 </p>
-              </CardContent>
-            </Card>
-          )}
-        />
-        <h4 className="font-medium">回撤明细</h4>
-        <p className="text-sm text-muted-foreground">
-          未修复段始终优先；默认按回撤幅度从深到浅，每页 10
-          段。各连续段独立计算，不跨缺口连接；复利为比例，单利为绝对值。
-        </p>
-
-        <Collapsible open={drawdownsOpen} onOpenChange={onDrawdownsOpenChange}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline">
-              共 {data.drawdownCount} 段，{drawdownsOpen ? "收起" : "展开查看"}
-            </Button>
-          </CollapsibleTrigger>
-          {!drawdownsOpen && drawdownDetails}
-          <CollapsibleContent>
-            {drawdownsOpen && drawdownDetails}
-          </CollapsibleContent>
-        </Collapsible>
-        <h4 className="font-medium">月度收益表</h4>
-        <DataTable
-          label="月度收益"
-          data={nav.monthlyReturns}
-          rowCount={data.monthCount}
-          pagination={monthPagination}
-          onPaginationChange={onMonthPaginationChange}
-          sorting={monthSorting}
-          onSortingChange={onMonthSortingChange}
-          getRowId={(row) => row.month}
-          loading={loading}
-          columns={[
-            { accessorKey: "month", header: "月份" },
-            { accessorKey: "tradingDays", header: "交易日数" },
-            {
-              accessorKey: "return",
-              header: "月度收益率",
-              cell: (cell) => (
-                <>
-                  <p>{metric(cell.row.original.return, true)}</p>
-                  <ReviewDisclosure label="月度收益原因">
-                    <ReviewDiagnostics
-                      rows={cell.row.original.return.reasons}
-                    />
-                  </ReviewDisclosure>
-                </>
-              ),
-            },
-          ]}
-        />
-        <PagedDetail
-          account={data.account}
-          method={method}
-          kind="days"
-          first={nav.details.days}
-          label="每日资金与净值明细"
-          render={(day) => (
-            <p key={day.date}>
-              {day.date} · 现金 {metric(day.cash)} · 市值{" "}
-              {metric(day.marketValue)} · 净值 {metric(day.nav)} · 日收益{" "}
-              {metric(day.dailyReturn, true)}
-            </p>
-          )}
-        />
-        <PagedDetail
-          account={data.account}
-          method={method}
-          kind="warnings"
-          first={nav.details.warnings}
-          label="净值诊断"
-          render={(w, i) => <p key={i}>{w}</p>}
-        />
-      </section>
-      <section className="space-y-3">
-        <h3 className="text-lg font-semibold">
-          归因 · {method === "fifo" ? "FIFO" : "移动加权"}
-        </h3>
-        <p className="font-medium">分组是描述性的，不代表因果。</p>
-        <DataTable
-          label="归因分组"
-          data={data.attribution}
-          rowCount={data.attributionCount}
-          {...attributionTable}
-          loading={loading}
-          getRowId={(row) => row.id}
-          columns={[
-            {
-              accessorKey: "dimension",
-              header: "分组维度",
-              cell: (c) =>
-                dimensions[c.row.original.dimension] ??
-                c.row.original.dimension,
-            },
-            { accessorKey: "name", header: "分组" },
-            { accessorKey: "sampleCount", header: "有效样本" },
-            {
-              accessorKey: "netProfitTotal",
-              header: "净收益合计",
-              cell: (c) =>
-                c.row.original.netProfitTotal?.toFixed(2) ??
-                "不可得：无有效已平仓收益样本",
-            },
-            {
-              id: "note",
-              header: "样本说明",
-              enableSorting: false,
-              cell: (c) => (
-                <>
-                  {c.row.original.sampleNote} {c.row.original.warning}
-                </>
-              ),
-            },
-          ]}
-        />
-      </section>
-      <section className="space-y-2">
-        <h3 className="text-lg font-semibold">诊断与待核对证据</h3>
-        <ReviewDisclosure
-          label={`诊断与待核对，共 ${data.warnings.length + data.exceptions.length + data.pendingRows.length} 条`}
-        >
-          {data.warnings.map((w, i) => (
-            <p key={i}>{w}</p>
-          ))}
-          {data.exceptions.map((row, i) => (
-            <p key={i}>
-              第 {row.fill.rowIndex} 行 · {row.reason}
-            </p>
-          ))}
-          {data.pendingRows.map((row, i) => (
-            <p key={i}>
-              第 {row.rowIndex} 行 · {row.reason}
-            </p>
-          ))}
-          {!data.warnings.length &&
-            !data.exceptions.length &&
-            !data.pendingRows.length && <p>无额外诊断。</p>}
-        </ReviewDisclosure>
-      </section>
+              ))}
+              {!data.warnings.length &&
+                !data.exceptions.length &&
+                !data.pendingRows.length && <p>无额外诊断。</p>}
+            </ReviewDisclosure>
+          </section>
+        </div>
+      </PanelVisibility>
+      <PanelVisibility visible={section === "rounds"}>
+        <div hidden={section !== "rounds"} className="space-y-6">
+          <Tabs
+            value={method}
+            onValueChange={(value) => onMethodChange(value as CostMethod)}
+          >
+            <TabsList aria-label="成本口径">
+              <TabsTrigger disabled={loading} value="movingAverage">
+                移动加权
+              </TabsTrigger>
+              <TabsTrigger disabled={loading} value="fifo">
+                FIFO
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <DataTable
+            label="交易回合"
+            columns={roundColumns}
+            data={data.rounds}
+            rowCount={data.rowCount}
+            pagination={pagination}
+            sorting={sorting}
+            onPaginationChange={onPaginationChange}
+            onSortingChange={onSortingChange}
+            getRowId={(row) => row.id}
+            loading={loading}
+          />
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">费用来源</h3>
+            <PagedDetail
+              account={data.account}
+              method={method}
+              kind="feeSources"
+              first={nav.details.feeSources}
+              label="费用来源"
+              empty={<p>无成交费用记录。</p>}
+              render={(fill) => (
+                <p key={fill.index}>
+                  {fill.date} · {fill.security} ·{" "}
+                  {fill.sources
+                    .map(
+                      (source) =>
+                        `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : source.amount.toFixed(2)} 元；${source.warnings.join("；")}`,
+                    )
+                    .join("；") || "不可得：该成交未进入可分析回合"}
+                </p>
+              )}
+            />
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">
+              买卖点（按移动加权回合确定区间）
+            </h3>
+            <DataTable
+              label="买卖点"
+              data={data.tradePoints}
+              rowCount={data.pointCount}
+              {...pointTable}
+              loading={loading}
+              getRowId={(row) => String(row.fillIndex)}
+              columns={[
+                { accessorKey: "security", header: "标的" },
+                {
+                  accessorKey: "fillIndex",
+                  header: "成交序号",
+                  cell: (c) => c.row.original.fillIndex + 1,
+                },
+                {
+                  id: "metrics",
+                  header: "买卖点分析",
+                  enableSorting: false,
+                  cell: ({ row: { original: point } }) => (
+                    <div className="space-y-1">
+                      <p>{point.basis}</p>
+                      <p>
+                        日内位置：{metric(point.intradayPosition, true)} · MFE：
+                        {metric(point.mfe, true)} · MAE：
+                        {metric(point.mae, true)}
+                      </p>
+                      <p>
+                        区间位置：
+                        {Object.entries(point.intervalPositions)
+                          .map(
+                            ([period, v]) => `${period} 日：${metric(v, true)}`,
+                          )
+                          .join("；")}
+                      </p>
+                      <p>
+                        卖后走势：
+                        {Object.entries(point.afterSale)
+                          .map(
+                            ([period, v]) => `${period} 日：${metric(v, true)}`,
+                          )
+                          .join("；")}
+                      </p>
+                      {point.warnings.map((w, i) => (
+                        <p key={i}>{w}</p>
+                      ))}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+            <h4 className="font-medium">因缺行情无法分析</h4>
+            <ReviewDisclosure
+              label={`缺行情明细，共 ${data.missingMarketData.length} 项`}
+            >
+              {data.missingMarketData.length ? (
+                data.missingMarketData.map((row) => (
+                  <p key={row.security}>
+                    {row.security}：{row.details.join("；")}
+                  </p>
+                ))
+              ) : (
+                <p>无缺行情标的。</p>
+              )}
+            </ReviewDisclosure>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">
+              归因 · {method === "fifo" ? "FIFO" : "移动加权"}
+            </h3>
+            <p className="font-medium">分组是描述性的，不代表因果。</p>
+            <DataTable
+              label="归因分组"
+              data={data.attribution}
+              rowCount={data.attributionCount}
+              {...attributionTable}
+              loading={loading}
+              getRowId={(row) => row.id}
+              columns={[
+                {
+                  accessorKey: "dimension",
+                  header: "分组维度",
+                  cell: (c) =>
+                    dimensions[c.row.original.dimension] ??
+                    c.row.original.dimension,
+                },
+                { accessorKey: "name", header: "分组" },
+                { accessorKey: "sampleCount", header: "有效样本" },
+                {
+                  accessorKey: "netProfitTotal",
+                  header: "净收益合计",
+                  cell: (c) =>
+                    c.row.original.netProfitTotal?.toFixed(2) ??
+                    "不可得：无有效已平仓收益样本",
+                },
+                {
+                  id: "note",
+                  header: "样本说明",
+                  enableSorting: false,
+                  cell: (c) => (
+                    <>
+                      {c.row.original.sampleNote} {c.row.original.warning}
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </section>
+          {roundExtras}
+        </div>
+      </PanelVisibility>
     </div>
   );
 }

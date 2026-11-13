@@ -1,5 +1,6 @@
 "use client";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { PanelVisibility } from "../workbench/keep-alive";
 import { Input } from "../ui/input";
 import {
   Select,
@@ -136,12 +137,22 @@ export function LedgerOptional({
   onToggle: () => void;
   children: ReactNode;
 }) {
+  const [visited, setVisited] = useState(open);
+  useEffect(() => {
+    if (open) setVisited(true);
+  }, [open]);
   return (
     <section className="nc-span-12 min-w-0 rounded border border-nc-border p-3">
       <Button variant="outline" aria-expanded={open} onClick={onToggle}>
         {title}
       </Button>
-      {open && <div className="mt-3 min-w-0">{children}</div>}
+      {(open || visited) && (
+        <PanelVisibility visible={open}>
+          <div hidden={!open} className="mt-3 min-w-0">
+            {children}
+          </div>
+        </PanelVisibility>
+      )}
     </section>
   );
 }

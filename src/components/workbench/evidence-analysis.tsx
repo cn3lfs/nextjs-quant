@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { PanelVisibility } from "./keep-alive";
 import {
   Select,
   SelectTrigger,
@@ -13,7 +15,7 @@ import { Button } from "../ui/button";
 import { WyckoffPanel } from "../research/wyckoff-panel";
 import { LatestReport } from "../research/latest-report";
 import { Sparkle, Stack } from "@phosphor-icons/react/ssr";
-import { PageGrid, Panel } from "../panels";
+import { PageGrid, Panel, Segmented } from "../panels";
 
 import { Field } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
@@ -45,6 +47,9 @@ export function EvidenceAnalysis({
     status,
     analyze,
   } = state;
+  const [methodView, setMethodView] = useState<"canslim" | "chan" | "wyckoff">(
+    "canslim",
+  );
   return (
     <PageGrid>
       <Panel
@@ -61,7 +66,7 @@ export function EvidenceAnalysis({
         }
         note="研究结果写入研究档案，可导出 Markdown。"
       >
-        <p className="m-0 mb-3 text-[12px] text-nc-text-2">
+        <p className="m-0 mb-3 text-[13px] text-nc-text-2">
           {loaded
             ? `快照：${loaded.name ?? loaded.symbol.toUpperCase()} · ${loaded.period} · 截至 ${loaded.bars.at(-1)?.date ?? "—"}`
             : "先在行情图表加载一只证券，研究基于当前行情与计算指标。"}
@@ -128,9 +133,31 @@ export function EvidenceAnalysis({
         meta="CAN SLIM · 缠论 · 威科夫"
         bodyClassName="flex flex-col gap-[var(--nc-gap)]"
       >
-        <CanslimPanel snapshot={loaded ?? undefined} />
-        <ChanPanel snapshot={loaded ?? undefined} />
-        <WyckoffPanel snapshot={loaded ?? undefined} />
+        <Segmented
+          label="证据方法"
+          value={methodView}
+          onChange={setMethodView}
+          options={[
+            { value: "canslim", label: "CAN SLIM" },
+            { value: "chan", label: "缠论" },
+            { value: "wyckoff", label: "威科夫" },
+          ]}
+        />
+        <PanelVisibility visible={methodView === "canslim"}>
+          <div hidden={methodView !== "canslim"}>
+            <CanslimPanel snapshot={loaded ?? undefined} />
+          </div>
+        </PanelVisibility>
+        <PanelVisibility visible={methodView === "chan"}>
+          <div hidden={methodView !== "chan"}>
+            <ChanPanel snapshot={loaded ?? undefined} />
+          </div>
+        </PanelVisibility>
+        <PanelVisibility visible={methodView === "wyckoff"}>
+          <div hidden={methodView !== "wyckoff"}>
+            <WyckoffPanel snapshot={loaded ?? undefined} />
+          </div>
+        </PanelVisibility>
       </Panel>
     </PageGrid>
   );

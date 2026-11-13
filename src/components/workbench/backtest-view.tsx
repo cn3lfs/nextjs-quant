@@ -1,3 +1,5 @@
+import { PanelVisibility } from "./keep-alive";
+import { Segmented } from "../panels";
 import { useState } from "react";
 import {
   AdjustmentControl,
@@ -37,13 +39,33 @@ export function BacktestView({
   state,
 }: Parameters<typeof LegacyBacktestView>[0]) {
   const [showLegacy, setShowLegacy] = useState(false);
+  const [legacyVisited, setLegacyVisited] = useState(false);
   return (
     <div className="space-y-4">
-      <MaBaselinePanel loaded={state.loaded} />
-      <Button variant="outline" onClick={() => setShowLegacy(!showLegacy)}>
-        {showLegacy ? "收起历史策略" : "查看已弃用策略与历史结果"}
-      </Button>
-      {showLegacy && <LegacyBacktestView state={state} />}
+      <Segmented
+        label="策略实验工作区"
+        value={showLegacy ? "legacy" : "current"}
+        onChange={(value) => {
+          setShowLegacy(value === "legacy");
+          if (value === "legacy") setLegacyVisited(true);
+        }}
+        options={[
+          { value: "current", label: "实验室" },
+          { value: "legacy", label: "历史策略与结果" },
+        ]}
+      />
+      <PanelVisibility visible={!showLegacy}>
+        <div hidden={showLegacy}>
+          <MaBaselinePanel loaded={state.loaded} />
+        </div>
+      </PanelVisibility>
+      {legacyVisited && (
+        <PanelVisibility visible={showLegacy}>
+          <div hidden={!showLegacy}>
+            <LegacyBacktestView state={state} />
+          </div>
+        </PanelVisibility>
+      )}
     </div>
   );
 }

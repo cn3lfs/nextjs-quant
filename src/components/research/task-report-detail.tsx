@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ReadingLayout } from "../common/reading-layout";
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { archiveReturnHref } from "~/lib/research/workflow/archive-navigation";
 import { api } from "~/trpc/react";
@@ -44,7 +45,7 @@ export function TaskReportDetail({ kind, id }: { kind: string; id: string }) {
   const [returnHref, setReturnHref] = useState("/reports");
   useEffect(() => setReturnHref(archiveReturnHref(window.location.search)), []);
   return (
-    <section className="mx-auto w-full min-w-0 max-w-6xl space-y-4 break-words p-4 sm:p-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-all">
+    <section className="mx-auto w-full min-w-0 max-w-full space-y-4 break-words p-4 sm:p-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-all">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">研究报告详情</h1>
         <Button asChild variant="outline">
@@ -53,21 +54,28 @@ export function TaskReportDetail({ kind, id }: { kind: string; id: string }) {
           </Link>
         </Button>
       </div>
-      <p className="break-all text-sm text-nc-text-3">
-        报告 ID：{id} · 历史产物，生成时间不代表数据时点。
-      </p>
-      <ArchiveReadBoundary key={`${kind}:${id}`}>
-        {kind === "report" && <GeneralReport id={id} />}
-        {kind === "chan-report" && (
-          <ChanPanel key={id} archive initialReportId={id} />
-        )}
-        {kind === "canslim-report" && (
-          <CanslimPanel key={id} archive initialReportId={id} />
-        )}
-        {kind === "wyckoff-report" && (
-          <WyckoffPanel key={id} archive initialReportId={id} />
-        )}
-      </ArchiveReadBoundary>
+      <details className="rounded-lg border border-nc-border bg-nc-card p-3">
+        <summary className="cursor-pointer text-sm text-nc-text-3">
+          报告身份与时间口径
+        </summary>
+        <p className="mt-2 break-all text-sm text-nc-text-3">
+          类型：{kind} · 报告 ID：{id} · 历史产物，生成时间不代表数据时点。
+        </p>
+      </details>
+      <ReadingLayout>
+        <ArchiveReadBoundary key={`${kind}:${id}`}>
+          {kind === "report" && <GeneralReport id={id} />}
+          {kind === "chan-report" && (
+            <ChanPanel key={id} archive initialReportId={id} />
+          )}
+          {kind === "canslim-report" && (
+            <CanslimPanel key={id} archive initialReportId={id} />
+          )}
+          {kind === "wyckoff-report" && (
+            <WyckoffPanel key={id} archive initialReportId={id} />
+          )}
+        </ArchiveReadBoundary>
+      </ReadingLayout>
     </section>
   );
 }

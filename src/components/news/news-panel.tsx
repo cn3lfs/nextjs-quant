@@ -7,7 +7,7 @@ import {
   type NewsWorkspaceInput,
 } from "~/lib/news/news-workspace";
 import type { NewsAnalysis } from "~/server/news/news-analysis";
-import { PageGrid, Panel } from "../panels";
+import { PageGrid, Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { ArchiveText } from "../research/archive-evidence";
@@ -279,20 +279,15 @@ export function NewsPanel() {
         title="新闻存档与分析"
         note="本地只读存档，不保证实时或完整。发布时间与采集时间分别保留；模型解读不代表实际涨跌。"
       >
-        <div className="flex flex-wrap gap-2">
-          <Button
-            aria-pressed={tab === "news"}
-            onClick={() => urlSelection(null, null, "news")}
-          >
-            本地新闻
-          </Button>
-          <Button
-            aria-pressed={tab === "history"}
-            onClick={() => urlSelection(null, null, "history")}
-          >
-            分析历史
-          </Button>
-        </div>
+        <Segmented
+          label="新闻工作区"
+          value={tab}
+          onChange={(value) => urlSelection(null, null, value)}
+          options={[
+            { value: "news", label: "本地新闻" },
+            { value: "history", label: "分析历史" },
+          ]}
+        />
         <NewsError
           message={error}
           retry={() => {
@@ -596,14 +591,19 @@ function Original({
       />
       {query.isLoading && <p>正在读取原文…</p>}
       {query.data && (
-        <div className="min-w-0 space-y-3 text-sm">
+        <div className="mx-auto min-w-0 max-w-[840px] space-y-4 text-sm leading-7">
           <h2>{query.data.item.title}</h2>
           <p>
             发布：{newsTime(query.data.item.publishedAt)} · 采集：
             {newsTime(query.data.item.collectedAt)} · ID {query.data.item.id}
           </p>
           <ArchiveText text={query.data.item.content} />
-          <p className="break-all">原文hash：{query.data.item.hash}</p>
+          <details>
+            <summary className="cursor-pointer text-sm text-nc-text-3">
+              原文指纹
+            </summary>
+            <p className="mt-2 break-all">{query.data.item.hash}</p>
+          </details>
           {query.data.item.url && (
             <a href={query.data.item.url} target="_blank" rel="noreferrer">
               查看来源网页

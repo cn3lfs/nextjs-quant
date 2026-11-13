@@ -7,12 +7,16 @@ import { useTaskVisible } from "../workbench/use-task-visible";
 import { DeliveryImportWorkspace } from "./delivery-import-workspace";
 import { DeliveryBatchWorkspace } from "./delivery-batch-workspace";
 export function DeliveryWorkspace({
+  view: tab,
+  onViewChange: setTab,
   onSaved,
   onReview,
   cashBatch,
   onReturnToCash,
   returnLabel = "返回现金核对证据",
 }: {
+  view: "import" | "batches";
+  onViewChange: (view: "import" | "batches") => void;
   onSaved: (account: string) => Promise<void>;
   onReview: (account: string) => void;
   cashBatch?: { id: string; revision: number } | null;
@@ -20,8 +24,7 @@ export function DeliveryWorkspace({
   /** Label of the button that returns to where the batch was opened from. */
   returnLabel?: string;
 }) {
-  const [tab, setTab] = useState<"import" | "batches">("import"),
-    [batchId, setBatchId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
   const [batchChange, setBatchChange] = useState({ account: "", revision: 0 });
   const [openRevision, setOpenRevision] = useState(0);
   const visible = useTaskVisible();
@@ -42,20 +45,7 @@ export function DeliveryWorkspace({
           {returnLabel}
         </Button>
       )}
-      <div className="flex gap-2" aria-label="交割单工作区视图">
-        <Button
-          variant={tab === "import" ? "default" : "outline"}
-          onClick={() => setTab("import")}
-        >
-          导入文件
-        </Button>
-        <Button
-          variant={tab === "batches" ? "default" : "outline"}
-          onClick={() => setTab("batches")}
-        >
-          历史批次
-        </Button>
-      </div>
+
       <div hidden={tab !== "import"}>
         <DeliveryImportWorkspace
           active={visible && tab === "import"}

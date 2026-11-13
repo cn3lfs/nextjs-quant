@@ -30,6 +30,7 @@ import { ClsError, clsTime, clsPct } from "./cls-review-fields";
 import { ClsReviewReportList } from "./cls-review-report-list";
 import { ClsReviewImport } from "./cls-review-import";
 import { ClsReviewSchedule } from "./cls-review-schedule";
+import { ClsReviewText } from "./cls-review-text";
 import { ClsReviewFacts } from "./cls-review-facts";
 import { ClsReviewPrices } from "./cls-review-prices";
 
@@ -44,7 +45,7 @@ export function ClsReviewWorkspace() {
   });
   const [draftFilter, setDraftFilter] = useState(filter);
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
-  const [tab, setTab] = useState<"facts" | "prices" | "info">("facts");
+  const [tab, setTab] = useState<"text" | "facts" | "prices" | "info">("text");
   const [drafts, setDrafts] = useState<Record<string, ClsFactDraft>>({});
   const [utility, setUtility] = useState<"import" | "schedule" | null>(null);
   const [removing, setRemoving] = useState<{
@@ -71,9 +72,11 @@ export function ClsReviewWorkspace() {
         setSelected(id);
         const currentTab = url.searchParams.get("clsTab");
         setTab(
-          currentTab === "prices" || currentTab === "info"
+          currentTab === "prices" ||
+            currentTab === "info" ||
+            currentTab === "facts"
             ? currentTab
-            : "facts",
+            : "text",
         );
         const stored = sessionStorage.getItem(
           `cls-pages:${JSON.stringify(value)}`,
@@ -348,16 +351,19 @@ export function ClsReviewWorkspace() {
                 <h2 className="text-base font-semibold">
                   {report.data.report.title}
                 </h2>
-                <p className="break-all text-xs text-nc-text-3">
+                <div className="break-all text-xs text-nc-text-3">
                   报告日 {report.data.report.reportDate ?? "未识别"} · 版本
                   {report.data.versionNumber} · 导入{" "}
                   {clsTime(report.data.importedAt)}
-                  <br />
-                  hash {report.data.report.hash}
-                </p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer">完整报告指纹</summary>
+                    <span className="break-all">{report.data.report.hash}</span>
+                  </details>
+                </div>
                 <div className="flex flex-wrap gap-2" aria-label="报告视图">
                   {(
                     [
+                      ["text", "报告原文"],
                       ["facts", "事实核对"],
                       ["prices", "固定样本与价格观察"],
                       ["info", "报告信息"],
@@ -374,11 +380,21 @@ export function ClsReviewWorkspace() {
                     </Button>
                   ))}
                 </div>
-                {tab === "facts" && (
+                <div
+                  key={`text-${selected}`}
+                  hidden={tab !== "text"}
+                  className="mx-auto max-w-[840px] space-y-3 leading-7"
+                >
+                  <ClsReviewText
+                    text={report.data.report.markdown}
+                    label="报告完整原文"
+                  />
+                </div>
+                <div hidden={tab !== "facts"}>
                   <ClsReviewFacts
                     key={selected}
                     report={report.data}
-                    visible={visible}
+                    visible={visible && tab === "facts"}
                     draft={draft}
                     change={changeDraft}
                     saved={(id, revision) =>
@@ -387,14 +403,14 @@ export function ClsReviewWorkspace() {
                       )
                     }
                   />
-                )}
-                {tab === "prices" && (
+                </div>
+                <div hidden={tab !== "prices"}>
                   <ClsReviewPrices
                     key={selected}
                     reportId={selected}
-                    visible={visible}
+                    visible={visible && tab === "prices"}
                   />
-                )}
+                </div>
                 {tab === "info" && (
                   <div className="space-y-3 text-sm">
                     <p className="break-all">

@@ -938,6 +938,8 @@ export function TradeLedgerPanel() {
         <Button
           size="sm"
           variant="outline"
+          aria-expanded={mockOpen}
+          aria-controls="trade-mock-workspace"
           onClick={() => setMockOpen(!mockOpen)}
         >
           {mockOpen ? "收起" : "展开"}同花顺模拟盘
@@ -946,19 +948,24 @@ export function TradeLedgerPanel() {
           展开不开户、不下单；查询与确认均需单独操作，本地交易不自动同步。
         </p>
         {mockOpen && (
-          <TradeMockPanel
-            enabled={env.data?.mockEnabled ?? false}
-            input={() => {
-              if (!draft) throw new Error("请先填写本地交易草稿");
-              return tradeDraftInput(draft);
-            }}
-            onChanged={() => {
-              void utils.tradeWorkspaceEnvironment.invalidate(undefined, {
-                refetchType: "none",
-              });
-              if (live.current) void env.refetch();
-            }}
-          />
+          <div
+            id="trade-mock-workspace"
+            className="mt-4 rounded-lg border border-nc-border p-4"
+          >
+            <TradeMockPanel
+              enabled={env.data?.mockEnabled ?? false}
+              input={() => {
+                if (!draft) throw new Error("请先填写本地交易草稿");
+                return tradeDraftInput(draft);
+              }}
+              onChanged={() => {
+                void utils.tradeWorkspaceEnvironment.invalidate(undefined, {
+                  refetchType: "none",
+                });
+                if (live.current) void env.refetch();
+              }}
+            />
+          </div>
         )}
       </Panel>
     </PageGrid>

@@ -1,10 +1,12 @@
 "use client";
+import { usePanelVisible } from "../workbench/keep-alive";
 import { useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api } from "~/trpc/react";
 import { HoldingsCorrelationResults } from "./holdings-correlation-results";
 import { Button } from "../ui/button";
 export function HoldingsCorrelationContainer({ account }: { account: string }) {
+  const visible = usePanelVisible();
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -14,7 +16,7 @@ export function HoldingsCorrelationContainer({ account }: { account: string }) {
   ]);
   const query = api.tradeReviewHoldingsCorrelation.useQuery(
     { account, ...pagination, desc: sorting[0]?.desc ?? false },
-    { enabled: !!account, retry: false },
+    { enabled: !!account && visible, retry: false },
   );
   if (query.error)
     return (

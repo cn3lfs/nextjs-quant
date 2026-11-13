@@ -495,7 +495,7 @@ export function MonitorWorkspace({
       {/* Match panels.css: below 1240px, selection replaces the single-column list. */}
       <Panel
         title={`${labels[tab]}历史`}
-        span={5}
+        span={hasDetail ? 5 : 12}
         className={hasDetail ? "max-[1240px]:hidden" : undefined}
       >
         <MonitorFiltersForm
@@ -695,72 +695,80 @@ export function MonitorWorkspace({
           }}
         />
       </Panel>
-      <Panel
-        title={editing ? "订阅配置" : "记录详情"}
-        span={7}
-        className="min-w-0"
-      >
-        {editing && currentDraft ? (
-          <>
-            <MonitorEditor
-              draft={currentDraft}
-              channels={channels.data ?? []}
-              watchlist={watchlist}
-              busy={save.isPending}
-              error={errors[editing]}
-              onChange={(patch) =>
-                setDrafts((previous) => ({
-                  ...previous,
-                  [editing]: {
-                    ...previous[editing]!,
-                    ...patch,
-                    dirty: true,
-                    revision: (previous[editing]?.revision ?? 0) + 1,
-                  },
-                }))
-              }
-              onSave={saveDraft}
-              onClose={back}
-              onReload={currentDraft.id ? () => void reloadDraft() : undefined}
-            />
-            {reloadValue && reloadValue.id === currentDraft.id && (
-              <MonitorEvidence
-                value={reloadValue}
-                label="最新服务端配置（核对草稿）"
+      {hasDetail ? (
+        <Panel
+          title={editing ? "订阅配置" : "记录详情"}
+          span={7}
+          className="min-w-0"
+        >
+          {editing && currentDraft ? (
+            <>
+              <MonitorEditor
+                draft={currentDraft}
+                channels={channels.data ?? []}
+                watchlist={watchlist}
+                busy={save.isPending}
+                error={errors[editing]}
+                onChange={(patch) =>
+                  setDrafts((previous) => ({
+                    ...previous,
+                    [editing]: {
+                      ...previous[editing]!,
+                      ...patch,
+                      dirty: true,
+                      revision: (previous[editing]?.revision ?? 0) + 1,
+                    },
+                  }))
+                }
+                onSave={saveDraft}
+                onClose={back}
+                onReload={
+                  currentDraft.id ? () => void reloadDraft() : undefined
+                }
               />
-            )}
-          </>
-        ) : selected[tab] ? (
-          <MonitorDetail
-            key={`${tab}:${selected[tab]}`}
-            kind={kinds[tab]}
-            id={selected[tab]}
-            onBack={back}
-            onEdit={edit}
-            onChanged={() => void changed()}
-            onRelated={(signalId) => {
-              setFilters((previous) => ({
-                ...previous,
-                deliveries: { query: "", signalId },
-              }));
-              setDraftFilters((previous) => ({
-                ...previous,
-                deliveries: { query: "", signalId },
-              }));
-              setPages((previous) => ({
-                ...previous,
-                deliveries: [undefined],
-              }));
-              setSelected((previous) => ({ ...previous, deliveries: "" }));
-              setTab("deliveries");
-            }}
-          />
-        ) : (
-          <p className="text-sm text-nc-text-3">
-            选择一条记录查看完整证据，或在订阅页创建监控。
-          </p>
-        )}
-      </Panel>
+              {reloadValue && reloadValue.id === currentDraft.id && (
+                <MonitorEvidence
+                  value={reloadValue}
+                  label="最新服务端配置（核对草稿）"
+                />
+              )}
+            </>
+          ) : selected[tab] ? (
+            <MonitorDetail
+              key={`${tab}:${selected[tab]}`}
+              kind={kinds[tab]}
+              id={selected[tab]}
+              onBack={back}
+              onEdit={edit}
+              onChanged={() => void changed()}
+              onRelated={(signalId) => {
+                setFilters((previous) => ({
+                  ...previous,
+                  deliveries: { query: "", signalId },
+                }));
+                setDraftFilters((previous) => ({
+                  ...previous,
+                  deliveries: { query: "", signalId },
+                }));
+                setPages((previous) => ({
+                  ...previous,
+                  deliveries: [undefined],
+                }));
+                setSelected((previous) => ({ ...previous, deliveries: "" }));
+                setTab("deliveries");
+              }}
+            />
+          ) : (
+            <p className="text-sm text-nc-text-3">
+              选择一条记录查看完整证据，或在订阅页创建监控。
+            </p>
+          )}
+        </Panel>
+      ) : (
+        <p className="nc-span-12 m-0 text-sm text-nc-text-3">
+          选择记录后查看完整证据；创建或编辑订阅不会自动执行交易。
+        </p>
+      )}
     </PageGrid>
   );
 }
