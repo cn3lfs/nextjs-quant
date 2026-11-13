@@ -1,6 +1,6 @@
-import { Segmented } from "../panels";
-("use client");
+"use client";
 
+import { Segmented } from "../panels";
 import { useState } from "react";
 import {
   studyStrategies,

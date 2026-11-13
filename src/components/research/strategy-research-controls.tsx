@@ -1,5 +1,6 @@
+"use client";
+
 import { Segmented } from "../panels";
-("use client");
 import {
   Table,
   TableHeader,
