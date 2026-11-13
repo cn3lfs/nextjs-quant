@@ -1,62 +1,40 @@
 # Design
 
-preset: custom (existing Nocturne workbench)
-mode: dark
-density: compact
+preset: custom (观澜清晰研究工作台)
+mode: light
+density: comfortable
+fonts: Segoe UI, Microsoft YaHei, Inter, system-ui
 token-source: src/styles/tokens.css
-fonts: Inter, Segoe UI, Microsoft YaHei, system-ui
 
-## Existing style lock
+## 状态与授权
 
-This records the existing application theme; it does not introduce another theme.
-The original handoff is [the workbench design](docs/design_handoff_quant_workbench/README.md).
-All colors, fonts and shape values come from `src/styles/tokens.css`, mapped by
-`src/styles/globals.css`. Use existing `nc-*` utilities and shadcn primitives.
+2026-11-12用户明确授权全站浅色重设计，本规范取代原深色设计锁。2026-11-13已完成本轮前端实施，真实落点与验证边界见开发交付；设计画板不代替运行验收。
+历史设计见 docs/design_handoff_quant_workbench/README.md；旧单策略限制不再适用，当前能力以源码与roadmap为准。
 
-## Palette for design tools
+## 语义颜色
 
-| Role           | Existing token  | Reference value |
-| -------------- | --------------- | --------------- |
-| Canvas         | nc-bg           | #161826         |
-| Chrome         | nc-chrome       | #1b1d2c         |
-| Panel          | nc-card         | #1f2130         |
-| Inset          | nc-inset        | #232532         |
-| Border         | nc-border       | #3f424d         |
-| Text           | nc-text         | #e9e9ed         |
-| Secondary text | nc-text-2       | #cfd3e5         |
-| Muted text     | nc-text-3       | #9397ab         |
-| Accent         | nc-accent       | #9184d9         |
-| Active text    | nc-accent-light | #d2cefd         |
-| Success        | nc-ok           | #7fc2a0         |
-| Warning        | nc-warn         | #e0b07c         |
-| Error          | nc-bad          | #e0897c         |
+背景 #F5F7FA，内容 #FFFFFF，浅层 #EEF2F6，正文 #172B4D，次要文字 #475569，辅助文字 #5B677A，边框 #D8E0EA。
+主操作 #2457C5 / 白字；选中 #EAF0FF / 深蓝字；焦点 #2457C5。
+A股上涨 #D92D42、下跌 #147D64，带正负号；成功 #147D64、警告 #9A5B00、错误 #B42332，配文字与图标。任务与投资状态独立。
+禁止黑底图表、炫光、低对比浅灰文字、大面积红绿底。设计数据注明示例。
 
-Reference hex values are for design tools only. Components use semantic tokens.
-A-share market gains use `nc-up` (red); losses use `nc-down` (green).
-Success/error colors describe task state independently of investment returns.
+## 排版与布局
 
-## Components and layout
+正文与表格14px/22px，辅助13px/20px，标题24px/32px，章节18px/26px，关键数值28px。数字等宽对齐。
+1440桌面主稿；侧栏216px、顶栏56px、内容边距24px、分区间距24px、圆角8px、表格行44px；阅读列最大840px。
+品牌统一为蓝底白字“观”的32px方标及“观澜”文字，不在各页重新发明图标、版本或副品牌。
+顶部搜索沿用现有页面导航搜索，标签与占位均为“搜索页面”；不假装跨报告、证券、问题或内容的全局检索。业务检索留在各页已有查询区。
+1024折叠导航；小窗口纵向堆叠，宽表格内部横滚，不缩字号硬塞数据。
+内容宽度按当前窗口扣除导航和边距计算，子列允许收缩与换行；不将居中固定宽容器与固定左侧栏混用，不以整页隐藏横向溢出来掩盖裁切。
 
-- Existing React + Tailwind + shadcn/Radix; Lucide icons for new surfaces.
-- Panel radius uses the existing 8px scale; 14px workbench gutters, standard
-  Tailwind spacing inside panels. Do not add global CSS or another token file.
-- Body 13–14px, section headings 14–16px, page title 20–24px. Numbers use
-  tabular figures; hashes wrap and are confined to evidence details.
-- Page hierarchy: short title and scope, primary work area, supporting history.
-  Desktop configuration rail and flexible report; below desktop use stacked
-  panels. At 320px no page-level horizontal overflow; wide tables scroll inside.
-- Report values require real results. Empty/loading/error/cancelled and zero-fill
-  states contain explanatory text, never fabricated charts or placeholder returns.
-- Use existing DataTable with server pagination, existing Tabs, Button, Input,
-  Badge and Dialog. Destructive actions require a named target and confirmation.
-- Visible focus, associated labels, keyboard-operable tabs/dialogs, status live
-  region; text contrast at least 4.5:1, controls at least 24px and primary touch
-  actions 40px. Avoid decorative glow, new fonts and broad animations.
+## 组件与交互
 
-## Backtest workbench
+复用React、Tailwind、Radix/shadcn和现有图表，统一映射现有语义tokens，不引入第二套样式系统。
+标题含对象、时点、范围；一个最突出主操作。过滤条紧邻表格；复杂配置渐进展开；证据抽屉或连续阅读正文。
+平行视图用标签，任务阶段用步骤。表单标明草稿/已生效，保存能力依据现有服务。
+空态给下一步，错误给原因与恢复，旧数据标时点；取消请求与已取消不同。
+可见焦点、关联标签、键盘可达、对话框焦点归还；主要操作40px，控件至少32px；不用颜色单独传达信息。
 
-One enabled SMA5/20 strategy. Configuration, selected archived report and task
-history are visibly distinct. Show actual/requested dates, costs and initial
-capital from the selected report. Use tabs for overview, orders/fills and
-reproducibility; keep the rule-check-only qualifier visible. The existing global
-navigation is retained. No new trading, optimization or strategy marketplace UI.
+## 关联
+
+产品规格：docs/product/full-site-redesign/README.md。Stitch稿为参考，不代表接口或运行验证完成。

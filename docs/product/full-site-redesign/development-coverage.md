@@ -1,0 +1,36 @@
+# 24页开发落点
+
+设计已按每路由最多3次调用封板；本轮不再调用Stitch生成或修改。24个入口已完成本轮前端结构实施与源码核对，单页内容见下表；不把共享换色当单页交互改造。
+
+共享层为浅色主题、216px分组导航、仅页面搜索、56px顶栏、14px正文/13px辅助、白底图表和统一控件。实际修改文件清单见[development-files.json](development-files.json)，交付与验证见[开发交付](../../deliveries/2026-11-13-full-site-light-redesign.md)。
+
+**验收边界：仅语法、格式与静态diff检查。没有类型、构建、运行、浏览器或行为验收；表中“实施”不表示这些检查已经通过。**
+
+| 页面                 | 路由                   | 实际落点（src/components下）                                                         | 已实施与保留                                                                                                   |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| L01 今日总览         | `/`                    | overview/today-overview.tsx                                                          | 待办/信号提前，首项待办强调；数据状态和调度窗口可展开，原来源与理由保留。                                      |
+| L02 数据与连接       | `/settings`            | workbench/connections.tsx                                                            | 数据/新闻/研究/通知/模拟账户5区；草稿与保存保留，扫描已保存目录移到数据区，连接诊断独立展开。                  |
+| L03 RPS 数据         | `/rps`                 | market/rps-overview.tsx、market/rps-controls.tsx                                     | 保留原个股/行业/概念及排名；活跃任务常显，历史日志及个股覆盖细节可展开，排名不被说明淹没。                     |
+| L04 任务中心         | `/tasks`               | workbench/task-history.tsx                                                           | 状态/类型/编号统一提交；已应用条件与未应用草稿可区分，原游标、取消竞态、详情和来源入口保留。                   |
+| L05 行情图表         | `/market`              | workbench/market-view.tsx                                                            | 240px来源候选/自选栏、50条候选页及连续翻股；主图优先，盘口/基本面/RPS展开；读取失败/等待保留旧快照身份。       |
+| L06 条件选股         | `/screen`              | workbench/screen-view.tsx                                                            | 三入口保留，公式筛选/单因子评估次级分区；公式与本地筛选仍使用原共享候选表，因子区独立；草稿/任务/结果不混。    |
+| L07 打板情绪         | `/limit-up`            | market/limit-up-view.tsx                                                             | 日期提交后生效；关键指标前置，真实价格/行业与连板筛选、四池各自排序/50条分页；全局统计不随成分筛选变动。       |
+| L08 策略中心         | `/strategies`          | research/strategy-center.tsx                                                         | 目录/方法登记/运行比较3区；真实空错态、缺数据不显示零；选2–12项后显式比较，已提交比较身份保留。                |
+| L09 策略实验         | `/backtest`            | workbench/backtest-view.tsx                                                          | 实验室/历史策略分区并保留已访问草稿；复用已有四报告标签、真实实验及规则自检口径，未重写回放或撮合。            |
+| L10 策略样本研究     | `/research`            | research/strategy-research-controls.tsx                                              | 准备/历史/治理与结果3阶段，创建或选择后进入对应结果；原名单、冻结/揭示确认、错误、事件/模拟数据完整保留。      |
+| L11 研究数据指南     | `/research/data-guide` | research/research-data-guide.tsx、common/reading-layout.tsx                          | 按实际正文章节生成目录，840px阅读列；原文件格式、条件和指标说明连续保留，不新增假校验。                        |
+| L12 证据分析         | `/analysis`            | workbench/evidence-analysis.tsx                                                      | 通用研究问题与真实最新报告保留；CAN SLIM/缠论/威科夫改为可切换方法区，已挂载输入保留。                         |
+| L13 研究档案         | `/reports`             | workbench/research-archive.tsx                                                       | 报告档案/估值假设/本地财务/在线财务质量4区；各自草稿与源身份保留，不改财务查询或筛选契约。                     |
+| L14 研究报告详情     | `/reports/[kind]/[id]` | research/task-report-detail.tsx、common/reading-layout.tsx                           | 实际章节目录和840px正文；完整ID/类型收进身份区，原返回、四类报告、错误边界及各自导出保留。                     |
+| L15 新闻／主题       | `/news`                | news/news-panel.tsx                                                                  | 新闻/分析历史统一分区控件；原文840px连续阅读，指纹展开；原查询、采集口径、冻结分析与返回位置保留。             |
+| L16 财联社复盘       | `/cls-review`          | news/cls-review-workspace.tsx                                                        | 原文/事实核对/价格观察/档案信息4视图；核对与价格面板切换时保留状态、按各区可见性查询；导入/调度独立。          |
+| L17 盘中预选         | `/intraday`            | intraday/intraday-controls.tsx                                                       | 已生效参数与批次先读、结果优先、参数默认展开式编辑；保留已有RPS周期脏改、草稿保存保护及窗口执行语义。          |
+| L18 信号与通知       | `/signals`             | signals/monitor-workspace.tsx                                                        | 无选择时全宽历史列表，选择后原列表/详情或订阅编辑分区；复用原三域、筛选、草稿、冲突和投递证据。                |
+| L19 信号台账         | `/signal-ledger`       | signals/ledger-fields.tsx                                                            | 保留原完整查询、详情和返回；附加分析/任务/投递历史首次展开后保持挂载，收起保留输入且传递隐藏可见性。           |
+| L20 持仓与交易日志   | `/trade-ledger`        | portfolio/trade-ledger-panel.tsx                                                     | 保留已具备的四域、本地追加事实和冻结提交尝试；模拟盘默认关闭、独立边界与展开状态明确，未改交易记账。           |
+| L21 交割单与交易复盘 | `/trade-review`        | portfolio/trade-review-container.tsx、portfolio/trade-review-results.tsx             | 导入/历史批次/账户复盘3工作区，8分析区；风险再分集中度/相关性；成本范围、批次原位返回及迟到导出保护明确。      |
+| L22 数字货币         | `/crypto`              | market/crypto-view.tsx、market/crypto-bot-panel.tsx、market/crypto-account-panel.tsx | 行情/策略模拟/平台账户3区，共享同一4账户选择且与行情独立；配置边界校验，未知不补0，成交时间与日期范围统一UTC。 |
+| L23 资源期货         | `/futures`             | market/futures-view.tsx、market/macro-rates-panel.tsx                                | 15固定品种左栏/窄窗弹层与主图，宏观3源独立日期；真实回退与失败说明、旧图身份保留，仅浏览。                     |
+| L24 公共组件参考     | `/ui-gallery`          | common/ui-gallery.tsx                                                                | 5类参考目录、浅色/可读字号与流式布局；原3行2页、滚动、排序、浮层和本地状态样例保留。                           |
+
+历史画板的冻结问题仍保留在[frozen-issues](frozen-issues.md)。开发没有照搬设计数字、无能力按钮或错误口径；没有添加服务器接口或改动指标、撮合、账本计算内核。

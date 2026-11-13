@@ -1,0 +1,682 @@
+{
+  "projectId": "8346105525528703944",
+  "designSystem": "assets/5a5a9ddb1a7640ceaa23a7539e785b7a",
+  "pages": [
+    {
+      "page": "01",
+      "route": "/",
+      "screenId": "7c29d20881e945bd8da0640d3d673aea",
+      "rejectedScreenIds": ["62e4593060b441dc97576a8e18fe21b1"],
+      "status": "frozen-with-open-issues",
+      "note": "已视觉审阅；后续实现移除总览横幅的技术解释；未验证实际浏览器行为。"
+    },
+    {
+      "page": "02",
+      "route": "/settings",
+      "screenId": "5a0798102824478599b57fbb42fab1ad",
+      "rejectedScreenIds": ["23e5d61604444b31b9749f97540623fe"],
+      "status": "frozen-with-open-issues",
+      "note": "已查看截图；字段白名单、未保存诊断、旧结果、覆盖分区符合；需清理工程标注及来源就绪汇总。"
+    },
+    {
+      "page": "03",
+      "route": "/rps",
+      "screenId": "901ebbddfdec40fdbd1f75ceea2cfa16",
+      "rejectedScreenIds": [
+        "0d7199edf29c4b8bb981fe73f9bcd001",
+        "ab4beee9debe4e12ac2ed018335a8c66"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "主布局和维护状态已审；个股/概念/完成状态尚未形成独立审阅闭环。2026-11-13进度审计纠正此前reviewed标记；整页不能计完成。"
+    },
+    {
+      "page": "04",
+      "route": "/tasks",
+      "screenId": "79ca69d8cb1f4b3592a03408792ca20f",
+      "rejectedScreenIds": ["72d73e15089e45e1b7cdc4456225ad2d"],
+      "status": "frozen-with-open-issues",
+      "note": "已视觉审阅；查询与列表一致，任务类型及审计来源修正；后续清理不保证自动回填措辞为不会自动回填。"
+    },
+    {
+      "page": "05",
+      "route": "/market",
+      "screenId": "d4913d87783c4d069f30717a6b337025",
+      "rejectedScreenIds": [
+        "81f2fca1eb0a451f83396d4cff48eaaa",
+        "15e56b1b56cd4994a99c7b3dac9ef5b2"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "双栏、白底、周期和口径已审；图形仍有几何刻度及右侧裁切，未通过。后续需重做图表画板，不直接复用示意SVG。"
+    },
+    {
+      "page": "06",
+      "route": "/screen",
+      "screenId": "ac94fce81a9046368b25d3eacc939382",
+      "rejectedScreenIds": [
+        "049891ce49ae4bb384f510cba5ee6f6b",
+        "5e5f8650a6d843309b85b54ab4d5798f"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "三轮；单编辑区与公式选择名称恢复，规则及真假输出纠正。最后统一去重复图标，补完整附加状态审阅。"
+    },
+    {
+      "page": "07",
+      "route": "/limit-up",
+      "screenId": "584a861c60aa4bf4bfa625dba329caf5",
+      "screenshotFile": "projects/8346105525528703944/files/9c54777984c649939f70d2ee468e48cc",
+      "htmlFile": "projects/8346105525528703944/files/54381abcbc7f4693bd61d533e54dffeb",
+      "rejectedScreenIds": [
+        "4ef9544a574942cfa563502757d68204",
+        "a869185e313b45269291d73e1fd23cf9"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "已下载新稿全图查看：6列、行业/梯队合计与例子匹配，源口径/样例错误纠正。收口清理附加状态NODATA码，晋级率定义移为完整小字。"
+    },
+    {
+      "page": "08",
+      "route": "/strategies",
+      "screenId": "7c9dee9610b747ccbb21776d92e2248c",
+      "screenshotFile": "projects/8346105525528703944/files/7761779587874ed6bc5107f1c5491631",
+      "htmlFile": "projects/8346105525528703944/files/acc62d44d3994e4cacb3293dab0ae2e6",
+      "rejectedScreenIds": ["3f6db7308e0840d5b0c17f65c0ac15c4"],
+      "status": "frozen-with-open-issues",
+      "note": "已查看新截图，ma身份、整数版本示例、输入待任务核验、JSON输出、比较最少2项与权重/历史分离已修正；日期显示仍为美式，收口改ISO，移除附加状态工程词。"
+    },
+    {
+      "page": "09",
+      "route": "/backtest",
+      "screenId": "5a8d49d1cae543b3a5bed8f057c229f7",
+      "screenshotFile": "projects/8346105525528703944/files/2e1d4581ce204b1199a8935858aa5c42",
+      "htmlFile": "projects/8346105525528703944/files/f033e9c45c8d43a39296ada568369174",
+      "rejectedScreenIds": [
+        "08339c4178214774b72acd13b47bdfee",
+        "76f935f1d2cb48eebb799fbc88ffb80e"
+      ],
+      "status": "reviewed",
+      "note": "三轮新截图审阅；草稿和历史分离，ISO日期，净值100000→97000→102000与3%/2%相符；4笔/2轮、5000/3000=1.67一致，中文错误、因子退出及弃用历史修正。"
+    },
+    {
+      "page": "10",
+      "route": "/research",
+      "screenId": "9a2fb8820a9842ca9505e87f202f2348",
+      "screenshotFile": "projects/8346105525528703944/files/6c2caca355304009813f6f140b58e990",
+      "htmlFile": "projects/8346105525528703944/files/b49c8035cabd40b2b816b294185b4830",
+      "rejectedScreenIds": [
+        "364c1ac23168440bbab4926510a8d9df",
+        "0855235270d54809976cf571dcf699bf",
+        "b799dfed1c34406fad5c2efc9897840e"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "已下载完整截图：宽度与ISO、6列表、实色遮蔽/确认前禁用修正；仍有无依据v2.4、健康状态/只读参数、历史完成日早于样本结束日、价格观察误称超额，未通过。详见reviews，最终必须收口。"
+    },
+    {
+      "page": "11",
+      "route": "/research/data-guide",
+      "screenId": "5d5395eab1164803ac02d858ee9e4eaa",
+      "screenshotFile": "projects/8346105525528703944/files/367e1259646748eeb0663cca4b6c4bdf",
+      "htmlFile": "projects/8346105525528703944/files/b6bd27d2496043ccbd5c6ff7d0c27b8d",
+      "rejectedScreenIds": ["4589aa5cb73e4c8a98114410e8a2ccfa"],
+      "status": "frozen-with-open-issues",
+      "note": "修订图已下载查看并对照HTML：23段源码说明22段逐字保留，另1段仅去引号；格式/252/预设口径纠正。收口须恢复全局壳、删除v2.4/假就绪/快照来源/纠正过程用语等。"
+    },
+    {
+      "page": "12",
+      "route": "/analysis",
+      "screenId": "2bf6d3496b6b4854ad39bda33bdcb5d1",
+      "screenshotFile": "projects/8346105525528703944/files/2a97e66315044a109e371becec76e98b",
+      "htmlFile": "projects/8346105525528703944/files/2dc9df59dbee4b1d90156b3c2298d61e",
+      "rejectedScreenIds": ["5d47ff64e150462abf71a707fa31b3ec"],
+      "status": "frozen-with-open-issues",
+      "note": "二稿截图和HTML已审：Codex/未记录、当前输入与旧报告分开、CANSLIM主态可用且无虚构问题、无手动归档。收口简化模型/隔离工程说明与重复示例标注，补完整无快照禁用及方法差异附加状态。"
+    },
+    {
+      "page": "13",
+      "route": "/reports",
+      "screenId": "f2a175137332400fa03b537bdf8c0ef4",
+      "screenshotFile": "projects/8346105525528703944/files/418d2609725a41fb8dd1ad57f2722ede",
+      "htmlFile": "projects/8346105525528703944/files/d9133eb23df34c109189de4f0dd2c19f",
+      "rejectedScreenIds": ["578f7d81d6754ff7864f7580e7eec222"],
+      "status": "frozen-with-open-issues",
+      "note": "二稿图/HTML已审：搜索页面、完整ISO日期、5列表无虚构证据时点、20条游标分页、人工DCF表单及缺值纠正。收口改真实kind缩略ID、无选中估值时导出禁用/隐藏、郭法提示精确字段与强制范围、局部目录原名及残留工程说明。"
+    },
+    {
+      "page": "14",
+      "route": "/reports/[kind]/[id]",
+      "screenId": "eea41162002b40678be282bac5f926aa",
+      "screenshotFile": "projects/8346105525528703944/files/498f9aa5c539469d99e5391bb2aa28d1",
+      "htmlFile": "projects/8346105525528703944/files/20e410c4a0ec48daa29afa5309bfb1ce",
+      "stateScreens": [
+        {
+          "name": "证据展开、方法差异与错误恢复",
+          "screenId": "f0abfe5d45c64a75960d92101d99b922",
+          "screenshotFile": "projects/8346105525528703944/files/d9b3c9defd3d4105b7ed8cc57491d923",
+          "htmlFile": "projects/8346105525528703944/files/95c77403af2342fda3d8d86918e549a7",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "936d5a85569a4c468296fff92c50a454",
+        "f744ed2b501747609736db33c0b19017",
+        "c167e03b549a4c4d887fc0dcde1358d1"
+      ],
+      "rejectedStateScreenIds": ["a5c50788494b4d978111c6665748bb4d"],
+      "status": "reviewed",
+      "note": "主阅读与独立状态板均下载完整截图和HTML审阅。恢复标题/六研究导航；纯来源示例无金融伪数；E1浅底/1段禁用分页/无单独导出；三方法JSON及四错态清楚，无指派/核验保证。未运行应用交互测试。"
+    },
+    {
+      "page": "15",
+      "route": "/news",
+      "screenId": "7f4d6ce2e5eb4d5c9ce60157bb4990ab",
+      "screenshotFile": "projects/8346105525528703944/files/528e0831eea44e60b7daba1ccbee7697",
+      "htmlFile": "projects/8346105525528703944/files/7aca7e8f5b1e40e893b123499a5d0172",
+      "stateScreens": [
+        {
+          "name": "冻结分析、续作与运行状态",
+          "screenId": "38445f73dc7344bf85f4bb33ad41f887",
+          "screenshotFile": "projects/8346105525528703944/files/df6be1ef0c1646128d691983b58442da",
+          "htmlFile": "projects/8346105525528703944/files/5b049e7635e1439d9f18fddc617fb4ea",
+          "status": "reviewed"
+        },
+        {
+          "name": "行业主题与价格缺失",
+          "screenId": "bf6afd1a1e4c4aba8da1b9e67e531feb",
+          "screenshotFile": "projects/8346105525528703944/files/755bb8ce4b0a47b89a2ead5552e85e46",
+          "htmlFile": "projects/8346105525528703944/files/5e7ea2fe10854866b98f480d45b18b3c",
+          "status": "reviewed"
+        },
+        {
+          "name": "历史查询、补采与异常恢复",
+          "screenId": "c81d9a3fd230460896c4476aa0bdad8f",
+          "screenshotFile": "projects/8346105525528703944/files/c186fb758e274d5aaed7b48b6133751c",
+          "htmlFile": "projects/8346105525528703944/files/b8fc7db503e44f51859a31c2e745a0d2",
+          "status": "reviewed"
+        },
+        {
+          "name": "行业与零共同主题报告阅读",
+          "screenId": "6ebd0248f7444e77834112eb4d9e8ce3",
+          "screenshotFile": "projects/8346105525528703944/files/bc1395da68ff4dc994c537872350911c",
+          "htmlFile": "projects/8346105525528703944/files/b59a88eb8ea1404da5ed81afb94c47de",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "171aff349d5d44baba398dc5eebc769a",
+        "2ce5a6013cd846038337f501958c9455"
+      ],
+      "rejectedStateScreenIds": [
+        "a9e32f3f59e24693b323a7a33998205f",
+        "6c22b44a538f4b62b16dae80d9348baf",
+        "b5f62389c85a4fd9aa60f27a73cb0d60",
+        "86930e6fa099409ba194e74c42107fd0",
+        "62510da4eb664f77b3c0c680c3ef1194",
+        "19fe7961924a4dfdb8015b2240d2d76b",
+        "a42fbd676a3e426a969620777fea7eda",
+        "80b06c769538459699ebe858c46c351a",
+        "d971d03443454a3489bd8916c017c825"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "主查询及4张独立状态板均下载完整截图和HTML核对。50/20页数、冻结任务、版本预检、日汇总和后续批次不同条件、缺价可解读、补采时点、行业与零共同主题完整阅读已收口。仅设计静态审阅。 主查询指纹缩略尾4b1c与折叠全文尾bcde不一致，统一收口改7d2f9a…bcde（64位全文与冻结分析一致）；不改实际数据。"
+    },
+    {
+      "page": "16",
+      "route": "/cls-review",
+      "screenId": "00f3813039814e3a8c92387ecbf9920f",
+      "screenshotFile": "projects/8346105525528703944/files/a9ec892654ff4b2d9e0064dadd471243",
+      "htmlFile": "projects/8346105525528703944/files/6b865592d13146449459f77b100ec1bf",
+      "stateScreens": [
+        {
+          "name": "固定样本与价格观察",
+          "screenId": "518d2b6657564157a53f4fcbad3a0e0f",
+          "screenshotFile": "projects/8346105525528703944/files/a504b14615bd4cbca8e442437842a566",
+          "htmlFile": "projects/8346105525528703944/files/4e4d56c56c69480e9192f301f6c225ba",
+          "status": "reviewed"
+        },
+        {
+          "name": "导入、调度与异常恢复",
+          "screenId": "fd40278b464e43468d81fdd709e19ad9",
+          "screenshotFile": "projects/8346105525528703944/files/94d5eac5153846a4b5b8340671c0e88a",
+          "htmlFile": "projects/8346105525528703944/files/55ef145f81a6472e8785fcb5551cfb66",
+          "status": "frozen-with-open-issues"
+        }
+      ],
+      "rejectedScreenIds": [
+        "74a95c405d0c4f75b5fd860509fcaabe",
+        "d01867276c154f908aba4db74f56b21f"
+      ],
+      "rejectedStateScreenIds": [
+        "dd55f45f44714f5b9952f84969ec5c79",
+        "52d07155c02c45e58642d0c0c958db60",
+        "19ab4c60f25b4b3f86a567fe062cee28",
+        "c2803a86153c491aa9c6c7fd7bca868a"
+      ],
+      "status": "frozen-with-open-issues",
+      "note": "三图均下载完整图/HTML审阅；同源4章节、明确偏多与推荐行、事实草稿和历史、核对版本/分页/7列表、独立累计统计、完成标记调度/恢复已纠正。导入状态板品牌仍放在侧栏顶栏下一行，待公共外框统一收口；未运行应用。"
+    },
+    {
+      "page": "17",
+      "route": "/intraday",
+      "screenId": "1ca4e3455bbf47668b6d617ef4852c4f",
+      "screenshotFile": "projects/8346105525528703944/files/5a65c68426e4496b821138231a96f25f",
+      "htmlFile": "projects/8346105525528703944/files/5065a4ba5a1d48a0a926a468ed6cbc42",
+      "stateScreens": [
+        {
+          "name": "参数草稿与历史批次",
+          "screenId": "f7b85b40a7c040d19aaea4092a34d0d2",
+          "screenshotFile": "projects/8346105525528703944/files/d54487d281b64168b63bc613bc378b84",
+          "htmlFile": "projects/8346105525528703944/files/8d9abd34c3ba4f979ce8dc54b61b51ae",
+          "status": "reviewed"
+        },
+        {
+          "name": "原始依据、收盘核对和清理状态",
+          "screenId": "d87a02e06077468cab47bbaf90e38a18",
+          "screenshotFile": "projects/8346105525528703944/files/a68723a9ebba48a7af9da0d8571cbb01",
+          "htmlFile": "projects/8346105525528703944/files/921c288de6a84ca68bcbb550406d366a",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "59291e8a5f12463490e226abe0e9c9d1",
+        "33051e190a3a40d9949153f01993d3ed"
+      ],
+      "rejectedStateScreenIds": [
+        "124ebe17811b4d59844135f58f985e0c",
+        "6f182df2d8bb40a484cba59be8713ad9",
+        "a146db8e59e54877978315a95ec1a0b2",
+        "1410689b42f6482c9981f4cd55f752f0"
+      ],
+      "status": "reviewed",
+      "note": "主观测、参数批次、原始依据3图均下载完整截图/HTML审阅。窗口与批次分开、原日RPS/完整5m、全筛选3观测1候选、检查资格、草稿与原配置、核对五态无收益、清理禁用但取消可用、容量失败已补；仅设计静态审阅。"
+    },
+    {
+      "page": "18",
+      "route": "/signals",
+      "screenId": "28eb21a4ac394fd28c68e19f41d6d3fe",
+      "screenshotFile": "projects/8346105525528703944/files/eab7771081c04f3e96cfa47eda06cb57",
+      "htmlFile": "projects/8346105525528703944/files/ef8620ec28254adda2f05077e208eced",
+      "status": "frozen-with-open-issues",
+      "note": "5张主稿/状态板均下载截图和HTML审阅；列表/完整表单分开、20证券快照、五来源、信号未知证据、投递6状态与全部筛选、原渠道脱敏确认/同请求重试/恢复控件已核对。编辑状态HTML仍max-w-[1224px]，公共收口去最大宽度并确认全宽；未运行应用或发送。",
+      "stateScreens": [
+        {
+          "name": "完整新建订阅表单",
+          "screenId": "42d5cdbd6ef6458eba49093a2f7fd732",
+          "screenshotFile": "projects/8346105525528703944/files/f59b4b783abf4b63bad2ad6f1e492182",
+          "htmlFile": "projects/8346105525528703944/files/9bb02a7653454bbfa409a18b750e1ca3",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "信号原始依据",
+          "screenId": "8b421e1110e043eea72bb30d7cb21b8b",
+          "screenshotFile": "projects/8346105525528703944/files/18ff8683df0a440e9310700135c820cb",
+          "htmlFile": "projects/8346105525528703944/files/4f47a05914cd4c59a93aef87fd0003cc",
+          "status": "reviewed"
+        },
+        {
+          "name": "投递与人工重发确认",
+          "screenId": "56cf47e8b47c424fbd85e0871b26f97f",
+          "screenshotFile": "projects/8346105525528703944/files/df5b9c44fc05499eb346196f651d02a9",
+          "htmlFile": "projects/8346105525528703944/files/5f447aad03f04a6abf7ec00f04de8994",
+          "status": "reviewed"
+        },
+        {
+          "name": "保存、重发、读取及订阅恢复",
+          "screenId": "d4ecea81c6c54efc9f2227f829bdd272",
+          "screenshotFile": "projects/8346105525528703944/files/ab74b333d4ab44b6ba6d056238f83958",
+          "htmlFile": "projects/8346105525528703944/files/22835ed8eb104eb8b440dd92e98b70c8",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "fcf2be4d82fe487ebe21231c00fe1bb4",
+        "799af2647da44666b4b6a0fce3a0cd14",
+        "8776eecb545e4207942dbb653ff3f576",
+        "d7c697e6c85549cabf5c880a79d5a43a"
+      ],
+      "rejectedStateScreenIds": [
+        "48702f40446e45dfbb00808637b7586e",
+        "135e1b034839492d881d5bb4daf53748",
+        "8659023fab2b46b88abaf87e137f253e",
+        "3de4436dc8d24880afbf992ff40ed760",
+        "e82d50ae306f413bafa7b7a3e7d4da0a",
+        "6919df2cc31747c2a8db2f8ce3881adf",
+        "5600a2d7db1f4f8bba7879c7b29240b0",
+        "85338204459e4d2d8faa9c7897a3a0c0",
+        "b4c07c97eb424381afaacdbab62e99ea"
+      ]
+    },
+    {
+      "page": "19",
+      "route": "/signal-ledger",
+      "screenId": "4728531605ed408ea582e019a807a502",
+      "screenshotFile": "projects/8346105525528703944/files/e2244cecaecc462faabf23a12f1c9764",
+      "htmlFile": "projects/8346105525528703944/files/10115513264066824668",
+      "status": "reviewed",
+      "stateScreens": [
+        {
+          "name": "原始依据",
+          "screenId": "c793a67b87be4860b11b85e7bb6a5b5b",
+          "screenshotFile": "projects/8346105525528703944/files/d1497c4e48cc412fa9671aa77de1d9f6",
+          "htmlFile": "projects/8346105525528703944/files/ad8aec6b6675446282128839601f46b6",
+          "status": "reviewed"
+        },
+        {
+          "name": "全样本分析",
+          "screenId": "97b5d970c8914567b9acdf7bc1b34b47",
+          "screenshotFile": "projects/8346105525528703944/files/56688522c5ac443595d58122b2bb1f8e",
+          "htmlFile": "projects/8346105525528703944/files/a99fa90aec7549a1b54d0763059a97a2",
+          "status": "reviewed"
+        },
+        {
+          "name": "每日任务",
+          "screenId": "522039a2ea5a44d1b287e1966bf2ae4e",
+          "screenshotFile": "projects/8346105525528703944/files/91c2a938167b46aabd97f3a9a5409454",
+          "htmlFile": "projects/8346105525528703944/files/c02a2d1d0fcc454cade8ed8387e4c6b3",
+          "status": "reviewed"
+        },
+        {
+          "name": "投递决策与取消反馈",
+          "screenId": "b28141a974664ecd85679ce9e6cc77fc",
+          "screenshotFile": "projects/8346105525528703944/files/5afc4dbd358849d4aaf677375ea0a403",
+          "htmlFile": "projects/8346105525528703944/files/26803a4ef21d401f95362e342ee9b321",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "610e68d384014d5694e3f0e9cba2e98c",
+        "a3cfd26d966743f3b97e57af52864f78",
+        "9edce692eb964af893d08a05ca3ee3f2"
+      ],
+      "rejectedStateScreenIds": [
+        "f93e3b0b16a2479ba98aa669397a819e",
+        "31f26831547d40bc8cc87799761e5c71",
+        "8000d26023e043bdb3504f1870a861c2",
+        "dbb1a114204743bfb20e29267c3a1c47",
+        "c6fe71cc921946359760f53ea65a1d8f",
+        "9de3405b66084bdc91789ac9c2bf077c",
+        "2cf58d5e01af48abb2e45e552e252e71",
+        "2f7e2237c42e4fd4b9c2057883eb9dc8"
+      ],
+      "note": "历史/依据/分析/任务/决策五图完整下载图HTML审阅；期限单选、完整日期、聚合与方向/截面分母、未知版本/证据、独立分页/任务/未匹配决策及取消反馈均核对。A方向隐藏选项精确更新并复读，闭合态截图未变。仅静态设计审阅，未启动/取消/导出/投递或运行计算。"
+    },
+    {
+      "page": "20",
+      "route": "/trade-ledger",
+      "screenId": "663cfd340e6f4c1ead334e939f1f049c",
+      "screenshotFile": "projects/8346105525528703944/files/0e0fce521c4049c8ba91b3f9c580bd3d",
+      "htmlFile": "projects/8346105525528703944/files/48517163cb3240bca97d93d4515631ab",
+      "status": "frozen-with-open-issues",
+      "stateScreens": [
+        {
+          "name": "交易历史与原记录",
+          "screenId": "e3b16a5d036542ab9d722504055b2e25",
+          "screenshotFile": "projects/8346105525528703944/files/00f6cc058e104569b1b1ed7321a09f3e",
+          "htmlFile": "projects/8346105525528703944/files/aecf70c640f64f42a08c46d55abb7421",
+          "status": "reviewed"
+        },
+        {
+          "name": "新增草稿与提交恢复",
+          "screenId": "e38b851baafd4fa6b9f377472180c386",
+          "screenshotFile": "projects/8346105525528703944/files/7375a954a492470b84ae3eeb3d02637f",
+          "htmlFile": "projects/8346105525528703944/files/9e8b66f6c3e8447ba52affa06fbce060",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "独立送转事件与可卖依据",
+          "screenId": "54c1f3ad660c49689c2372a57bae3d08",
+          "screenshotFile": "projects/8346105525528703944/files/b95fe4bf36d046fba3ed9da035eb1f4a",
+          "htmlFile": "projects/8346105525528703944/files/7c600dee040b46648d488db89c0959de",
+          "status": "reviewed"
+        },
+        {
+          "name": "信号比较",
+          "screenId": "72506ece9cbd430c9b322a4eb16498fd",
+          "screenshotFile": "projects/8346105525528703944/files/f850944c06224dc287d47259e518b3cf",
+          "htmlFile": "projects/8346105525528703944/files/c06f52a27dc74d41b256b6db819706c4",
+          "status": "reviewed"
+        },
+        {
+          "name": "同花顺模拟盘独立确认",
+          "screenId": "905383abe7de49d785aecd8bd820c803",
+          "screenshotFile": "projects/8346105525528703944/files/b35a8a9122ff430aa6d65179f6c48ab6",
+          "htmlFile": "projects/8346105525528703944/files/05500694295d49be9f7dce3c4d3adaff",
+          "status": "reviewed"
+        }
+      ],
+      "rejectedScreenIds": [
+        "7e1e06d4cbf246fabc221b69f204c100",
+        "19e4d94dd2a0469ebe9aba11717592a8"
+      ],
+      "rejectedStateScreenIds": [
+        "2799c70a57274721880f3353d1207390",
+        "84cc142960a04d89aab3a0089ff5d805",
+        "962db0d663f446499d4a94f87992ce7c",
+        "499cdb783cdc4cea8306bf52a58c092c",
+        "e6fb89d3e7f2467daa20242afe99df2a",
+        "79ac7b281bf44ceb9b2033629251badd",
+        "7980a84f6456469aab584078e1aa2664"
+      ],
+      "note": "六张完整图/HTML逐项审阅：持仓、历史、录入、独立送转、比较、可选模拟盘；保留单一本地账本、原UUID提交与同编号未明重试、实验费用与未知核对、只追加事实、一次可卖依据、N1比较非实际盈亏、模拟盘独立确认。录入C少量12px辅助与过程话待公共收口；其精修调用300秒超时无新ID，原图复读未变，不重复该调用。其他五图已审阅通过，整页尚不算完全收口。"
+    },
+    {
+      "page": "21",
+      "route": "/trade-review",
+      "screenId": "849f75b481fe4af0a8140611aed11fa5",
+      "screenshotFile": "projects/8346105525528703944/files/dc3073e6dc634321a5d0ba60f29f4f30",
+      "htmlFile": "projects/8346105525528703944/files/7e44f8c517714dd59339af689f3c4108",
+      "status": "frozen-with-open-issues",
+      "stateScreens": [
+        {
+          "name": "冻结预览核对",
+          "screenId": "e84b9ad7ab634444888c78351c330f29",
+          "screenshotFile": "projects/8346105525528703944/files/a071b64401134ebd80f8d106286c92c5",
+          "htmlFile": "projects/8346105525528703944/files/d4c6e0bdced442f2b5d993b8e2194330",
+          "status": "reviewed"
+        },
+        {
+          "name": "历史批次",
+          "screenId": "fd8cb797c80142cb8ea5a30e9740b7cb",
+          "screenshotFile": "projects/8346105525528703944/files/e0f3143e045645d58fec7703a15b0348",
+          "htmlFile": "projects/8346105525528703944/files/e3138e04ba534e3498b1a3429558077f",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "撤销与提交恢复",
+          "screenId": "e1e59c7d4ad543e586fc90b1b516a963",
+          "screenshotFile": "projects/8346105525528703944/files/624e0e0e8885405490ebf1152bf66790",
+          "htmlFile": "projects/8346105525528703944/files/86dcf41318d64967b30c28327b0d7b73",
+          "status": "reviewed"
+        },
+        {
+          "name": "账户复盘概览",
+          "screenId": "6217eb7a87a64537b9f5ab30107d0f70",
+          "screenshotFile": "projects/8346105525528703944/files/fcb4e59826cf42ffbe5ed226c48ef66c",
+          "htmlFile": "projects/8346105525528703944/files/c0f0a8ba0f404bf7a7c81cfd7f299fb7",
+          "status": "reviewed"
+        },
+        {
+          "name": "交易轮次与费用",
+          "screenId": "5c776146b9a14d6e8100dd5cf830c584",
+          "screenshotFile": "projects/8346105525528703944/files/35d35c748de84537a2664585d3e6572d",
+          "htmlFile": "projects/8346105525528703944/files/9cae6760fe8d415899684ee1c850df56",
+          "status": "reviewed"
+        },
+        {
+          "name": "买卖点",
+          "screenId": "beb5142916544034afce1ac94f587dff",
+          "screenshotFile": "projects/8346105525528703944/files/d3b22b4f5d0e41c8aeea0d70006a90ac",
+          "htmlFile": "projects/8346105525528703944/files/c56e106843464c4b8401da557ce2f4e0",
+          "status": "reviewed"
+        },
+        {
+          "name": "描述性归因",
+          "screenId": "da575358d0ed4783acc0f0e5f18c7c34",
+          "screenshotFile": "projects/8346105525528703944/files/93de81001ac94f7e8c975e9069d541b9",
+          "htmlFile": "projects/8346105525528703944/files/df7f599a04334718aa9455fbd4d066d1",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "关键交易",
+          "screenId": "66e1b3dd792447779331222cb326259e",
+          "screenshotFile": "projects/8346105525528703944/files/dc357eac18e0484e9f1126dabc84cf51",
+          "htmlFile": "projects/8346105525528703944/files/b187184e3c254986a4b2796f41252ce4",
+          "status": "reviewed"
+        },
+        {
+          "name": "分段时间窗与自然周期汇总",
+          "screenId": "9d05e7532f5d40178df0256bbd17603c",
+          "screenshotFile": "projects/8346105525528703944/files/d807b0f5856d4e98b27bf1530eb458ae",
+          "htmlFile": "projects/8346105525528703944/files/1a7709484b2c44c9ae743f2e02b2d39f",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "分段17项指标详情",
+          "screenId": "f3d65d7e267c473fabaa56bac3e02bc8",
+          "screenshotFile": "projects/8346105525528703944/files/bc35ef06a7384d919e7e24757ee8be67",
+          "htmlFile": "projects/8346105525528703944/files/bcea8ec9244f4515a4119a2e2e2548bf",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "当前持仓收益矩阵",
+          "screenId": "e2ce69f485984db6a0d9c5e36c2a90df",
+          "screenshotFile": "projects/8346105525528703944/files/0c71533e348b45a1a687ce20a8d6341b",
+          "htmlFile": "projects/8346105525528703944/files/f12fcf5a7f7c4d558c2810fa8f8e2478",
+          "status": "reviewed"
+        },
+        {
+          "name": "滚动默认配置与输入状态",
+          "screenId": "6d7502a855004e3d95354ac425007e5a",
+          "screenshotFile": "projects/8346105525528703944/files/0b7f404e4fb94d4bac7087bbe9b7a831",
+          "htmlFile": "projects/8346105525528703944/files/e5d483cd13f545a6b5b8add797e8fedc",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "滚动三曲线",
+          "screenId": "d53f674584654d31a843ff30837b7351",
+          "screenshotFile": "projects/8346105525528703944/files/0fd1b4a3d9ba4260bbbde6525650ddb8",
+          "htmlFile": "projects/8346105525528703944/files/47c43e6ac50f4da0bdf7c6a02b1f2ec5",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "滚动窗口明细与17指标",
+          "screenId": "f7ee472a6540429d956ab9a1d3f6955e",
+          "screenshotFile": "projects/8346105525528703944/files/30d8be4d0ebc49d5bcab7b45142b25aa",
+          "htmlFile": "projects/8346105525528703944/files/3a1d23c3dec6489b94ad78746534a46c",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "持仓集中度",
+          "screenId": "632272c1e75e4578931bb88f786d09ae",
+          "screenshotFile": "projects/8346105525528703944/files/daa06c08f59d42e2aa8d6c9335a4ba65",
+          "htmlFile": "projects/8346105525528703944/files/8b61605c6f214dd3a39b554e17742a6c",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "持仓相关性",
+          "screenId": "4aa6a3b95be04f178c09f40a2399bda6",
+          "screenshotFile": "projects/8346105525528703944/files/0492073a783145008c7b7bcb1f016c57",
+          "htmlFile": "projects/8346105525528703944/files/26aa4f0dcd234d4083f9b547310165ab",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "执行质量",
+          "screenId": "fb49bb6befe942019fc2a07e4f755f5a",
+          "screenshotFile": "projects/8346105525528703944/files/43bf7ce5b5434ad382a0def8c2920321",
+          "htmlFile": "projects/8346105525528703944/files/49129c5db0d248529511bcc4fa8248b7",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "现金核对",
+          "screenId": "130631bd8de949f188eccb60cc8355e1",
+          "screenshotFile": "projects/8346105525528703944/files/bb67130592874f018d86815bf8882b81",
+          "htmlFile": "projects/8346105525528703944/files/29e54da390214b65811b90d489deefb6",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "准入判定",
+          "screenId": "e53cd10603414835a4e1519a716ec038",
+          "screenshotFile": "projects/8346105525528703944/files/b8c1200b0aff4a2c8ed23fdf6bc7bc5f",
+          "htmlFile": "projects/8346105525528703944/files/e9907f70539b44a4a2adbb490936da39",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "纪律反事实",
+          "screenId": "d5006620ec3c447ba556753e3bdd3dfd",
+          "screenshotFile": "projects/8346105525528703944/files/e9a87587e3d541818b8671a353e1a358",
+          "htmlFile": "projects/8346105525528703944/files/60c4571b82c242c0a42d1eb34f90761e",
+          "status": "frozen-with-open-issues"
+        }
+      ],
+      "rejectedScreenIds": ["a9642fc937ba4a5ca5967c254c622cd1"],
+      "rejectedStateScreenIds": [
+        "f1d1a7dc49cf40b8bffad0b301582d32",
+        "ec11be930b7c410fadbae7cb283788f5",
+        "363de85f5c1644b884ed917974544d32",
+        "66c7cd1ba7f14d53940c2582676fb7a9",
+        "88471f8a8be847c681cada981ca6b8f8",
+        "57d3dd2f55654b8887a24ea87a170e97",
+        "4279780c59054976a34c9f87f85c0639",
+        "48d884cefa9743c5bbee794ccd63e61f",
+        "01c938a8afb94d27810f147ce5e648f7",
+        "758acfac732b4f3f9f9f293d04060094",
+        "674869d915734a14b0078ab8bfb9df89",
+        "13ee64aaaccd41e3a95112632be13bd6",
+        "c277ecbb5f164770a972dd9b9e4afb76",
+        "a7acfb761f8b48edb2a5dfef9947262c",
+        "d0b653812d2545b7ad473aaad0531223",
+        "a406d75916634d8980c1398a2ad2ff53",
+        "dc2f08316d9f450b8562d70259cc0963",
+        "9806d4ad50e34b1894df1c588351d1be",
+        "d37f70a32c8e4cdf9a709fd606a596f5",
+        "c154b9688db049aa8a6b216449a1490c",
+        "c209acc3217a402faeb010e7fadb1bac",
+        "03d587cc05824ded8fba50d5ef320794",
+        "7d8e0031014d476db22274af82a01748"
+      ],
+      "note": "用户限制次数后冻结。A–O均有设计资料，新增7状态已静态审阅。J曲线左轴裁字/J明细整体横溢；K1缺失说明错误及空态多余按钮；L选中组把总费5错填佣金5；M/O截图2048截断，M还有ZIP伪操作/错误导航；N恢复默认/模拟按钮/503原因等无能力控件。仅参考布局，开发按产品规格和真实字段，禁止照抄上述错误；不再Stitch修L21。"
+    },
+    {
+      "page": "22",
+      "route": "/crypto",
+      "screenId": "8291987b325d472ea7613510629dd640",
+      "screenshotFile": "projects/8346105525528703944/files/f3bd446b3525407592871c704c50622a",
+      "htmlFile": "projects/8346105525528703944/files/2eaa1c8d86c14d5e870f96a6977ff403",
+      "status": "frozen-with-open-issues",
+      "stateScreens": [
+        {
+          "name": "策略模拟",
+          "screenId": "f00299da0150476d9c7d7ad4a16f2b9d",
+          "screenshotFile": "projects/8346105525528703944/files/e0fde935f20a4964b47e6135b0223c5a",
+          "htmlFile": "projects/8346105525528703944/files/7c20e415e9b242b88903348b5953bbb8",
+          "status": "frozen-with-open-issues"
+        },
+        {
+          "name": "平台账户与历史成交",
+          "screenId": "7f1af6661d14451dac5b93162829d7be",
+          "screenshotFile": "projects/8346105525528703944/files/bf698a65f1ec4e74b0dcb3d1e6560f83",
+          "htmlFile": "projects/8346105525528703944/files/c52fdc3f521743e2afb5c41d9fe13149",
+          "status": "frozen-with-open-issues"
+        }
+      ],
+      "note": "3/3调用已用完，三工作区完整截图和HTML均静态查看并冻结。布局/50分页/UTC日期与北京时间/资产和策略分离可用作参考；A遗漏测量、加垂直线及未冻结报价。B伪密钥占位、前后诊断矛盾及强制重查/伪错误码不照抄。C下拉Spot Testnet/bybit-testnet身份不正确，逐ETH重试/更新凭证按钮/冻结是待成交推断/外部来源措辞不照抄；真实身份按4项源码，平台成交不推断手工。无账户查询/下单/执行。"
+    },
+    {
+      "page": "23",
+      "route": "/futures",
+      "screenId": "7db020f648d046fc8d060ec554bb35bf",
+      "screenshotFile": "projects/8346105525528703944/files/b89d132a753443d28a954a5e3d47bf01",
+      "htmlFile": "projects/8346105525528703944/files/c62c6328c036433a83cf362a9f46df37",
+      "status": "frozen-with-open-issues",
+      "stateScreens": [],
+      "note": "1/3调用后停止修订，完整图与HTML静态查看。15固定品种4组、JMM/JM、来源链与手动不回退、3宏观各自时点/50BP/最近1条均值、来源失败状态已覆盖；主图右侧横溢裁切、假涨跌报价、工程口号/额外全局刷新/假L21渲染身份不采用。共享设置HTML列全MAEMA BOLL/非RPS副图/画线/联动，真实实现复用现有ChartWorkspace，宏观重试能力按实际接口，不造服务。"
+    },
+    {
+      "page": "24",
+      "route": "/ui-gallery",
+      "screenId": "ecdcea66022e4801a34eac4590eb2815",
+      "screenshotFile": "projects/8346105525528703944/files/4b0a1ae36db24663b1b400c5e1249c82",
+      "htmlFile": "projects/8346105525528703944/files/4b8055d9691140a5b5be4b5e2d4216f1",
+      "status": "frozen-with-open-issues",
+      "stateScreens": [],
+      "note": "1次后冻结，长图及HTML已查看。配色/表单/浮层/表格2条分页/3样本/交互状态与响应规则均有参考；但额外价格涨跌/第4证券卡/复制字段菜单/网络503/版本footer及WCAG已通过暗示不采用，组件只本地样例不加业务API；图里两侧某些副标签12px，以14/13实际规范为准。"
+    }
+  ]
+}
