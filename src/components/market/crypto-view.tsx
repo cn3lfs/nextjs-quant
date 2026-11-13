@@ -21,7 +21,14 @@ import {
 } from "~/lib/market/crypto";
 import { marketSourceLabel } from "~/lib/market/market-source";
 import { useSnapshotLoad } from "./use-snapshot-load";
-import { ListPanel, PageGrid, Panel, PanelEmpty, Pill } from "../panels";
+import {
+  ListPanel,
+  PageGrid,
+  Panel,
+  PanelEmpty,
+  Pill,
+  Segmented,
+} from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -33,6 +40,7 @@ import {
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
 import { CryptoBotPanel } from "./crypto-bot-panel";
+import { PanelVisibility } from "../workbench/keep-alive";
 
 /** Pair from `?pair=BTCUSDT` (or a legacy `?symbol=cxBTCUSDT` deep link). */
 function initialPair() {
@@ -48,6 +56,38 @@ function initialPair() {
  * its own pair and period state. Automatic trading selects its own venue explicitly.
  */
 export function CryptoView() {
+  const [workspace, setWorkspace] = useState<"quotes" | "strategy" | "account">(
+    "quotes",
+  );
+  return (
+    <div className="space-y-4">
+      <Segmented
+        label="数字货币工作区"
+        value={workspace}
+        onChange={setWorkspace}
+        options={[
+          { value: "quotes", label: "行情" },
+          { value: "strategy", label: "策略模拟" },
+          { value: "account", label: "平台账户" },
+        ]}
+      />
+      <PanelVisibility visible={workspace === "quotes"}>
+        <div hidden={workspace !== "quotes"}>
+          <CryptoQuotes />
+        </div>
+      </PanelVisibility>
+      <PanelVisibility visible={workspace !== "quotes"}>
+        <div hidden={workspace === "quotes"}>
+          <CryptoBotPanel
+            view={workspace === "account" ? "account" : "strategy"}
+          />
+        </div>
+      </PanelVisibility>
+    </div>
+  );
+}
+
+function CryptoQuotes() {
   const [symbol, setSymbol] = useState("cxBTCUSDT");
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [draft, setDraft] = useState("");
@@ -121,7 +161,7 @@ export function CryptoView() {
           </div>
         </div>
         {load.error && !load.isPending ? (
-          <div role="alert" className="p-4 text-[12px] text-nc-bad">
+          <div role="alert" className="p-4 text-[13px] text-nc-bad">
             数字货币行情读取失败：{load.error.message}
             <Button
               size="sm"
@@ -202,9 +242,6 @@ export function CryptoView() {
             </Button>
           </form>
         </Panel>
-      </div>
-      <div className="nc-span-12 min-w-0">
-        <CryptoBotPanel />
       </div>
     </PageGrid>
   );

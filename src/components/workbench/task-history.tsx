@@ -220,6 +220,10 @@ export function TaskHistory({
 } = {}) {
   const [status, setStatus] = useState<TaskState["status"] | "all">("all");
   const [type, setType] = useState<TaskState["type"] | "all">("all");
+  const [statusDraft, setStatusDraft] = useState<TaskState["status"] | "all">(
+    "all",
+  );
+  const [typeDraft, setTypeDraft] = useState<TaskState["type"] | "all">("all");
   const [idDraft, setIdDraft] = useState("");
   const [id, setId] = useState("");
   const [cursors, setCursors] = useState<(Cursor | undefined)[]>([undefined]);
@@ -335,15 +339,23 @@ export function TaskHistory({
         条；时间均为北京时间。点击任务展开详情，再次点击收起。
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <form
+          className="flex flex-wrap items-center gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setStatus(statusDraft);
+            setType(typeDraft);
+            setId(idDraft.trim());
+            setCursors([undefined]);
+            close();
+          }}
+        >
           <span className="text-sm">任务状态</span>
           <Select
-            value={status}
-            onValueChange={(value) => {
-              setStatus(value as typeof status);
-              setCursors([undefined]);
-              close();
-            }}
+            value={statusDraft}
+            onValueChange={(value) =>
+              setStatusDraft(value as typeof statusDraft)
+            }
           >
             <SelectTrigger aria-label="历史任务状态">
               <SelectValue />
@@ -358,12 +370,8 @@ export function TaskHistory({
             </SelectContent>
           </Select>
           <Select
-            value={type}
-            onValueChange={(value) => {
-              setType(value as typeof type);
-              setCursors([undefined]);
-              close();
-            }}
+            value={typeDraft}
+            onValueChange={(value) => setTypeDraft(value as typeof typeDraft)}
           >
             <SelectTrigger aria-label="任务类型">
               <SelectValue />
@@ -377,15 +385,7 @@ export function TaskHistory({
               ))}
             </SelectContent>
           </Select>
-          <form
-            className="flex flex-wrap gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setId(idDraft.trim());
-              setCursors([undefined]);
-              close();
-            }}
-          >
+          <div className="flex flex-wrap gap-2">
             <Input
               aria-label="精确任务编号"
               placeholder="输入完整任务编号"
@@ -395,7 +395,7 @@ export function TaskHistory({
               className="min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <Button type="submit" variant="outline">
-              查找
+              查询任务
             </Button>
             <Button
               type="button"
@@ -404,6 +404,8 @@ export function TaskHistory({
                 setIdDraft("");
                 setId("");
                 setStatus("all");
+                setStatusDraft("all");
+                setTypeDraft("all");
                 setType("all");
                 setCursors([undefined]);
                 close();
@@ -411,8 +413,8 @@ export function TaskHistory({
             >
               清除筛选
             </Button>
-          </form>
-        </div>
+          </div>
+        </form>
         <Button
           variant="outline"
           disabled={history.isFetching}
@@ -422,6 +424,14 @@ export function TaskHistory({
           刷新任务
         </Button>
       </div>
+      <p className="text-sm text-muted-foreground" role="status">
+        已应用：{status === "all" ? "全部状态" : taskStatusLabels[status]} ·{" "}
+        {type === "all" ? "全部类型" : taskTypeLabels[type]}
+        {id ? ` · 编号 ${id}` : ""}
+        {statusDraft !== status || typeDraft !== type || idDraft.trim() !== id
+          ? "；有未应用条件，请查询。"
+          : ""}
+      </p>
       {(cursors.length > 1 ||
         (overview && seenTotal != null && overview.total > seenTotal)) && (
         <Button variant="outline" onClick={latest}>

@@ -54,7 +54,7 @@ const statusTone = (value?: string): Tone =>
         : value === "running" || value === "due" || value === "pending"
           ? "accent"
           : "neutral";
-const field = "flex flex-col gap-[5px] text-[11px] text-nc-text-3";
+const field = "flex flex-col gap-[5px] text-[13px] text-nc-text-3";
 const fieldNames: Record<string, string> = {
   noon: "午盘时刻",
   late: "尾盘时刻",
@@ -126,7 +126,7 @@ export function IntradayControls() {
   return (
     <PageGrid>
       {error && (
-        <p role="alert" className="nc-span-12 m-0 text-[12px] text-nc-bad">
+        <p role="alert" className="nc-span-12 m-0 text-[13px] text-nc-bad">
           {error}
           {status.error && (
             <Button
@@ -142,7 +142,7 @@ export function IntradayControls() {
       )}
       <StatsPanel
         icon={Crosshair}
-        title="批次"
+        title="已生效参数与批次"
         meta={
           status.data?.lastCheck
             ? `最近检查 ${new Date(status.data.lastCheck.checkedAt).toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" })} · ${status.data.lastCheck.calendarSource}`
@@ -197,6 +197,7 @@ export function IntradayControls() {
           },
         ]}
       />
+      <IntradayHistoryPanel running={status.data?.worker.running ?? false} />
       <Panel
         span={12}
         icon={SlidersHorizontal}
@@ -208,7 +209,7 @@ export function IntradayControls() {
             编辑参数{dirty ? " · 有未保存修改" : ""}
           </summary>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="flex items-center gap-2 text-[12px] text-nc-text-2">
+            <label className="flex items-center gap-2 text-[13px] text-nc-text-2">
               <Checkbox
                 checked={config.enabled}
                 onCheckedChange={(checked) =>
@@ -338,7 +339,7 @@ export function IntradayControls() {
               </label>
             )}
             {catalog.error && config.pool && (
-              <p role="alert" className="m-0 text-[11.5px] text-nc-bad">
+              <p role="alert" className="m-0 text-[13px] text-nc-bad">
                 {catalog.error.message}
                 <Button
                   size="sm"
@@ -396,7 +397,7 @@ export function IntradayControls() {
               </Button>
             </div>
             {dirty && (
-              <div className="text-[12px] text-nc-warn" role="status">
+              <div className="text-[13px] text-nc-warn" role="status">
                 有未保存修改，请先保存或放弃后再检查时段。
                 <Button
                   size="sm"
@@ -415,7 +416,7 @@ export function IntradayControls() {
                 <p
                   key={issue.path.join(".")}
                   role="alert"
-                  className="m-0 text-[12px] text-nc-bad"
+                  className="m-0 text-[13px] text-nc-bad"
                 >
                   {fieldNames[String(issue.path[0])] ?? "设置"}：{issue.message}
                 </p>
@@ -437,14 +438,13 @@ export function IntradayControls() {
               </p>
             )}
             {saved && (
-              <p role="status" className="m-0 text-[11.5px] text-nc-ok">
+              <p role="status" className="m-0 text-[13px] text-nc-ok">
                 设置已保存
               </p>
             )}
           </div>
         </details>
       </Panel>
-      <IntradayHistoryPanel running={status.data?.worker.running ?? false} />
     </PageGrid>
   );
 }

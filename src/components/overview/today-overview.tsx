@@ -143,12 +143,11 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
   if (now === null) return null;
   const clock = beijingClock(now);
   const schedule = intraday.data?.lastCheck?.schedule;
-  const session = marketSession(
-    now,
+  const trading =
     schedule?.date === clock.date
       ? (schedule.trading as "open" | "closed" | "unknown")
-      : "unknown",
-  );
+      : "unknown";
+  const session = marketSession(now, trading);
   const todayRows =
     intraday.data?.rows.filter((row) =>
       row.value.barCutoff.startsWith(clock.date),
@@ -197,145 +196,20 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
   return (
     <div className="flex flex-col gap-[var(--nc-gap)]">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[12px] text-nc-text-3">
+        <span className="text-[13px] text-nc-text-3">
           {dateLine(now)} ·{" "}
-          {session.kind === "closed-day" ? "非交易日" : "交易日"}
+          {trading === "unknown"
+            ? "交易日历待核验"
+            : trading === "closed"
+              ? "已核验休市"
+              : "已核验交易日"}
         </span>
-        <Pill tone="accent">
-          {session.label} · {clock.hhmm}
+        <Pill tone={trading === "unknown" ? "warn" : "accent"}>
+          {session.label}
+          {trading === "unknown" ? "（仅时钟参考）" : ""} · {clock.hhmm}
         </Pill>
-        <span className="text-[11px] text-nc-text-4">当前阶段：{phase}</span>
+        <span className="text-[13px] text-nc-text-4">当前阶段：{phase}</span>
       </div>
-
-      <MarketPulse bySymbol={quotes.bySymbol} error={quotes.error} />
-
-      <Panel
-        icon={Timer}
-        title="今日调度时间轴"
-        meta="窗口只在应用运行时触发 · 休眠或退出会漏批次"
-        actions={
-          <span className="text-[11px] text-nc-accent">
-            {scheduleSummary(input)}
-          </span>
-        }
-      >
-        <div className="nc-timeline" aria-label="调度时间轴">
-          <span className="nc-timeline-rail" />
-          <span
-            className="nc-timeline-lunch"
-            style={{
-              left: `${axisPct(LUNCH_START)}%`,
-              width: `${axisPct(LUNCH_END) - axisPct(LUNCH_START)}%`,
-            }}
-            title="午休 11:30–13:00"
-          />
-          {session.kind !== "closed-day" && (
-            <span
-              className="nc-timeline-done"
-              style={{ width: `${nowPct}%` }}
-            />
-          )}
-          {session.kind !== "closed-day" &&
-            clock.minutes >= AXIS_START &&
-            clock.minutes <= AXIS_END && (
-              <span className="nc-timeline-now" style={{ left: `${nowPct}%` }}>
-                <em
-                  style={{
-                    transform: `translateX(${nowPct < 4 ? -10 : nowPct > 96 ? -90 : -50}%)`,
-                  }}
-                >
-                  现在 {clock.hhmm}
-                </em>
-                <i />
-              </span>
-            )}
-          {slots.map((slot, index) => {
-            // Close neighbours lean apart so every label stays on one row.
-            const near = (other?: { pct: number }) =>
-              other !== undefined && Math.abs(other.pct - slot.pct) < 9;
-            const align = near(slots[index + 1])
-              ? "end"
-              : near(slots[index - 1])
-                ? "start"
-                : "center";
-            const passed = axisPct(clock.minutes) >= slot.pct;
-            return (
-              <div
-                key={slot.key}
-                className="nc-timeline-slot"
-                data-align={align}
-                data-passed={passed || undefined}
-                data-active={
-                  slot.tone === "accent" && passed ? true : undefined
-                }
-                style={{ left: `${slot.pct}%` }}
-              >
-                <span
-                  className="nc-timeline-dot"
-                  style={{ "--dot": dot[slot.tone] } as CSSProperties}
-                />
-                <span className="nc-timeline-text">
-                  <span className="text-[11px] text-nc-text-3 tabular-nums">
-                    {slot.time}
-                  </span>
-                  <span className="text-[12px] text-nc-text">{slot.label}</span>
-                </span>
-                <span
-                  className={cn(
-                    "text-[10.5px] whitespace-nowrap",
-                    toneText[slot.tone === "neutral" ? "ok" : slot.tone],
-                  )}
-                >
-                  {slot.status}
-                </span>
-              </div>
-            );
-          })}
-          {session.kind === "closed-day" && (
-            <span className="nc-timeline-closed">今日休市 · 调度不运行</span>
-          )}
-        </div>
-      </Panel>
-
-      <div className="nc-health">
-        {health(input).map((card) => {
-          const CardIcon = healthIcon[card.key]!;
-          return (
-            <div
-              key={card.key}
-              className={cn(
-                "nc-health-card",
-                card.tone !== "neutral" &&
-                  card.tone !== "idle" &&
-                  toneEdge[card.tone],
-              )}
-            >
-              <div className="flex items-center gap-[7px] text-[11px] whitespace-nowrap text-nc-text-3">
-                <CardIcon size={14} />
-                {card.name}
-                <span
-                  className="ml-auto size-1.5 rounded-full"
-                  style={{ background: dot[card.tone] }}
-                />
-              </div>
-              <strong
-                className={cn(
-                  "text-[14px] font-medium tabular-nums",
-                  card.tone === "neutral" || card.tone === "idle"
-                    ? "text-nc-text"
-                    : toneText[card.tone],
-                )}
-              >
-                {card.value}
-              </strong>
-              <span className="text-[10.5px] leading-[1.45] text-nc-text-4">
-                {card.note}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
       <PageGrid>
         <div className="nc-span-7 flex min-w-0 flex-col gap-[var(--nc-gap)]">
           <Panel title="下一步" meta="按当前时段排序，每条给出理由与证据">
@@ -347,10 +221,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
             title="今日信号"
             meta="最近20条 · 完整历史见订阅信号"
             actions={
-              <Link
-                href="/signals?monitorTab=signals"
-                className="text-[11.5px]"
-              >
+              <Link href="/signals?monitorTab=signals" className="text-[13px]">
                 全部订阅信号 →
               </Link>
             }
@@ -410,7 +281,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                       ? tradingLabel[s.tradingStatus]
                       : (["未记录核验", "idle"] as const);
                     return (
-                      <span className={cn("text-[11.5px]", toneText[tone])}>
+                      <span className={cn("text-[13px]", toneText[tone])}>
                         {label}
                       </span>
                     );
@@ -437,7 +308,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                           ? "ok"
                           : "idle";
                     return (
-                      <span className={cn("text-[11.5px]", toneText[tone])}>
+                      <span className={cn("text-[13px]", toneText[tone])}>
                         {label}
                       </span>
                     );
@@ -454,7 +325,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
             icon={Crosshair}
             title={`盘中预选${batch ? ` · ${batch.slot === "noon" ? "午盘" : "尾盘"}批次` : ""}`}
             actions={
-              <Link href="/intraday" className="text-[11px]">
+              <Link href="/intraday" className="text-[13px]">
                 {intraday.data?.config.enabled ? "查看批次 →" : "去设置 →"}
               </Link>
             }
@@ -488,7 +359,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
                           : "未出现买入信号"
                       }
                     />
-                    <span className="ml-auto flex-none text-right text-[10.5px] text-nc-text-4 tabular-nums">
+                    <span className="ml-auto flex-none text-right text-[13px] text-nc-text-4 tabular-nums">
                       RPS {row.value.rps.toFixed(0)}
                       <br />
                       {row.attempts.length ? "已核对" : "待核对"}
@@ -535,7 +406,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
             icon={Star}
             title="自选"
             actions={
-              <span className="text-[11px] text-nc-text-4">
+              <span className="text-[13px] text-nc-text-4">
                 {watch.length} 个标的
               </span>
             }
@@ -562,8 +433,155 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
           </Panel>
         </div>
       </PageGrid>
+      <MarketPulse bySymbol={quotes.bySymbol} error={quotes.error} />
+      <details className="rounded-lg border border-nc-border bg-nc-card p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          数据与调度状态 · 展开查看各自时点
+        </summary>
+        <div className="mt-4">
+          <div className="nc-health">
+            {health(input).map((card) => {
+              const CardIcon = healthIcon[card.key]!;
+              return (
+                <div
+                  key={card.key}
+                  className={cn(
+                    "nc-health-card",
+                    card.tone !== "neutral" &&
+                      card.tone !== "idle" &&
+                      toneEdge[card.tone],
+                  )}
+                >
+                  <div className="flex items-center gap-[7px] text-[13px] whitespace-nowrap text-nc-text-3">
+                    <CardIcon size={14} />
+                    {card.name}
+                    <span
+                      className="ml-auto size-1.5 rounded-full"
+                      style={{ background: dot[card.tone] }}
+                    />
+                  </div>
+                  <strong
+                    className={cn(
+                      "text-[14px] font-medium tabular-nums",
+                      card.tone === "neutral" || card.tone === "idle"
+                        ? "text-nc-text"
+                        : toneText[card.tone],
+                    )}
+                  >
+                    {card.value}
+                  </strong>
+                  <span className="text-[13px] leading-[1.45] text-nc-text-4">
+                    {card.note}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </details>
+      <details className="rounded-lg border border-nc-border bg-nc-card p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          今日调度窗口 · {scheduleSummary(input)}
+        </summary>
+        <div className="mt-4">
+          <Panel
+            icon={Timer}
+            title="今日调度时间轴"
+            meta="窗口只在应用运行时触发 · 休眠或退出会漏批次"
+            actions={
+              <span className="text-[13px] text-nc-accent">
+                {scheduleSummary(input)}
+              </span>
+            }
+          >
+            <div className="nc-timeline" aria-label="调度时间轴">
+              <span className="nc-timeline-rail" />
+              <span
+                className="nc-timeline-lunch"
+                style={{
+                  left: `${axisPct(LUNCH_START)}%`,
+                  width: `${axisPct(LUNCH_END) - axisPct(LUNCH_START)}%`,
+                }}
+                title="午休 11:30–13:00"
+              />
+              {session.kind !== "closed-day" && (
+                <span
+                  className="nc-timeline-done"
+                  style={{ width: `${nowPct}%` }}
+                />
+              )}
+              {session.kind !== "closed-day" &&
+                clock.minutes >= AXIS_START &&
+                clock.minutes <= AXIS_END && (
+                  <span
+                    className="nc-timeline-now"
+                    style={{ left: `${nowPct}%` }}
+                  >
+                    <em
+                      style={{
+                        transform: `translateX(${nowPct < 4 ? -10 : nowPct > 96 ? -90 : -50}%)`,
+                      }}
+                    >
+                      现在 {clock.hhmm}
+                    </em>
+                    <i />
+                  </span>
+                )}
+              {slots.map((slot, index) => {
+                // Close neighbours lean apart so every label stays on one row.
+                const near = (other?: { pct: number }) =>
+                  other !== undefined && Math.abs(other.pct - slot.pct) < 9;
+                const align = near(slots[index + 1])
+                  ? "end"
+                  : near(slots[index - 1])
+                    ? "start"
+                    : "center";
+                const passed = axisPct(clock.minutes) >= slot.pct;
+                return (
+                  <div
+                    key={slot.key}
+                    className="nc-timeline-slot"
+                    data-align={align}
+                    data-passed={passed || undefined}
+                    data-active={
+                      slot.tone === "accent" && passed ? true : undefined
+                    }
+                    style={{ left: `${slot.pct}%` }}
+                  >
+                    <span
+                      className="nc-timeline-dot"
+                      style={{ "--dot": dot[slot.tone] } as CSSProperties}
+                    />
+                    <span className="nc-timeline-text">
+                      <span className="text-[13px] text-nc-text-3 tabular-nums">
+                        {slot.time}
+                      </span>
+                      <span className="text-[13px] text-nc-text">
+                        {slot.label}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[13px] whitespace-nowrap",
+                        toneText[slot.tone === "neutral" ? "ok" : slot.tone],
+                      )}
+                    >
+                      {slot.status}
+                    </span>
+                  </div>
+                );
+              })}
+              {session.kind === "closed-day" && (
+                <span className="nc-timeline-closed">
+                  今日休市 · 调度不运行
+                </span>
+              )}
+            </div>
+          </Panel>
+        </div>
+      </details>
       {!cls.data?.config.enabled && cls.data && (
-        <p className="flex items-center gap-2 text-[11px] text-nc-text-4">
+        <p className="flex items-center gap-2 text-[13px] text-nc-text-4">
           <Newspaper size={13} />{" "}
           财联社盘前报告扫描未启用，可在财联社复盘中配置报告目录。
         </p>
@@ -578,7 +596,7 @@ function NextSteps({ items }: { items: ReturnType<typeof todos> }) {
     return <PanelEmpty>当前时段没有待处理事项</PanelEmpty>;
   return (
     <div className="flex flex-col gap-[9px]">
-      {items.map((todo) => {
+      {items.map((todo, index) => {
         const TodoIcon = todoIcon[todo.tone];
         const tone = todo.tone === "neutral" ? "ok" : todo.tone;
         return (
@@ -586,6 +604,7 @@ function NextSteps({ items }: { items: ReturnType<typeof todos> }) {
             key={todo.key}
             className={cn(
               "nc-todo",
+              index === 0 && "border-l-4 bg-nc-accent-900",
               toneEdge[tone === "idle" ? "neutral" : tone],
             )}
           >
@@ -600,7 +619,7 @@ function NextSteps({ items }: { items: ReturnType<typeof todos> }) {
                 </strong>
                 <Pill tone={tone}>{todo.tag}</Pill>
               </div>
-              <span className="text-[11.5px] leading-[1.55] text-nc-text-3">
+              <span className="text-[13px] leading-[1.55] text-nc-text-3">
                 {todo.detail}
               </span>
             </div>

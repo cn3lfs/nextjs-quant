@@ -39,7 +39,7 @@ export function RpsWorkflowLog({
       className="h-full"
     >
       {error ? (
-        <p role="alert" className="m-0 mb-2 text-[12px] text-nc-bad">
+        <p role="alert" className="m-0 mb-2 text-[13px] text-nc-bad">
           读取失败：{error}
           {onRetry && (
             <Button
@@ -59,14 +59,14 @@ export function RpsWorkflowLog({
             读取历史日志…
           </p>
         ) : entries.length ? (
-          <ul className="m-0 list-none divide-y divide-nc-border-soft p-0 text-[12px]">
+          <ul className="m-0 list-none divide-y divide-nc-border-soft p-0 text-[13px]">
             {entries.map((entry) => (
               <li
                 key={entry.id}
                 role={entry.status === "failed" ? "alert" : undefined}
                 className="flex flex-wrap items-center gap-2 px-3 py-2"
               >
-                <span className="text-[11px] text-nc-text-4 tabular-nums">
+                <span className="text-[13px] text-nc-text-4 tabular-nums">
                   {rpsLogTime(entry.at)}
                 </span>
                 <span>
@@ -76,7 +76,7 @@ export function RpsWorkflowLog({
                   {rpsStatusLabel(entry.status)}
                 </Pill>
                 {entry.error && (
-                  <span className="w-full text-[11px] text-nc-bad">
+                  <span className="w-full text-[13px] text-nc-bad">
                     {entry.error}
                   </span>
                 )}

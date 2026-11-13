@@ -7,9 +7,7 @@ import { Button } from "../ui/button";
 import { rpsPollInterval } from "./rps-status";
 
 /**
- * Page header panels: the singleton job状态 and the batch历史日志 side by side
- * on the page grid. Both stay above the ranking panel so a running task remains
- * visible whichever population is open.
+ * Keep the active job visible; historical evidence opens when it is needed.
  */
 export function RpsOverview() {
   const visible = usePanelVisible();
@@ -24,14 +22,21 @@ export function RpsOverview() {
   return (
     <>
       <RpsRunStatus progress={status.data?.progress ?? null} />
-      <RpsWorkflowLog
-        entries={log.data ?? []}
-        loading={log.isPending}
-        error={log.error?.message}
-        onRetry={() => void log.refetch()}
-      />
+      <details className="nc-span-6 m-0 rounded-lg border bg-card p-4">
+        <summary className="text-sm font-medium">
+          历史运行日志{log.error ? " · 读取失败，展开重试" : ""}
+        </summary>
+        <div className="mt-3">
+          <RpsWorkflowLog
+            entries={log.data ?? []}
+            loading={log.isPending}
+            error={log.error?.message}
+            onRetry={() => void log.refetch()}
+          />
+        </div>
+      </details>
       {status.isError && (
-        <p role="alert" className="nc-span-12 m-0 text-[12px] text-nc-bad">
+        <p role="alert" className="nc-span-12 m-0 text-[13px] text-nc-bad">
           读取RPS任务状态失败：{status.error.message}
           <Button
             size="sm"

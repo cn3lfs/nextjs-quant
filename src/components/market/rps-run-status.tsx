@@ -13,7 +13,7 @@ const tone = {
 function Bar({ label, percent }: { label: string; percent: number }) {
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-[11px] text-nc-text-3 tabular-nums">
+      <div className="flex justify-between text-[13px] text-nc-text-3 tabular-nums">
         <span>{label}</span>
         <span>{percent}%</span>
       </div>
@@ -55,7 +55,7 @@ export function RpsRunStatus({ progress }: { progress: RpsProgress | null }) {
       }
     >
       {view && progress ? (
-        <div className="space-y-3 text-[12px] text-nc-text-2" role="status">
+        <div className="space-y-3 text-[13px] text-nc-text-2" role="status">
           <p className="m-0">
             {view.target}任务 · {view.mode} · 阶段 {view.phase}
           </p>
@@ -67,18 +67,18 @@ export function RpsRunStatus({ progress }: { progress: RpsProgress | null }) {
             label={`提交 ${progress.completedDays}/${progress.totalDays} 日`}
             percent={view.dayPercent}
           />
-          <p className="m-0 text-[11px] text-nc-text-4">
+          <p className="m-0 text-[13px] text-nc-text-4">
             开始 {rpsLogTime(progress.startedAt)} · 更新{" "}
             {rpsLogTime(progress.updatedAt)}
           </p>
           {view.error && (
-            <p role="alert" className="m-0 text-[12px] text-nc-bad">
+            <p role="alert" className="m-0 text-[13px] text-nc-bad">
               {view.error}
             </p>
           )}
         </div>
       ) : (
-        <p className="m-0 text-[12px] text-nc-text-3">
+        <p className="m-0 text-[13px] text-nc-text-3">
           尚未运行RPS任务。个股、行业、概念共用同一队列，同一时间只有一个任务在跑。
         </p>
       )}

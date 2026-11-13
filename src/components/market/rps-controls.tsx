@@ -59,7 +59,12 @@ export function RpsControls() {
           </Button>
         </div>
       )}
-      {query.data && <RpsStatus latest={query.data.latest} />}
+      <details className="rounded-lg border border-nc-border p-3">
+        <summary className="cursor-pointer text-sm">计算批次与数据覆盖</summary>
+        <div className="mt-3">
+          {query.data && <RpsStatus latest={query.data.latest} />}
+        </div>
+      </details>
       <StockRpsRanking />
     </section>
   );

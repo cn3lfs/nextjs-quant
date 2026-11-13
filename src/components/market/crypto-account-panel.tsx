@@ -36,7 +36,9 @@ const initialFilters = (): Filters => ({
   to: utcDay(),
 });
 const dateTime = (value: number | null | undefined) =>
-  value == null ? "尚无" : new Date(value).toLocaleString();
+  value == null
+    ? "尚无"
+    : `${new Date(value).toLocaleString("zh-CN", { hour12: false, timeZone: "UTC" })} UTC`;
 function range(filters: Pick<Filters, "from" | "to">) {
   const from = filters.from
     ? Date.parse(`${filters.from}T00:00:00.000Z`)
@@ -250,7 +252,7 @@ export function CryptoAccountPanel({
   return (
     <section
       aria-label="平台账户持仓与历史成交"
-      className="min-w-0 space-y-4 rounded-lg border border-nc-border p-3 text-xs"
+      className="min-w-0 space-y-4 text-sm"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -260,7 +262,7 @@ export function CryptoAccountPanel({
           </h3>
           <p className="mt-1 text-nc-text-3">
             账户内全部
-            BTC、ETH、USDT，与下方策略持仓数量分开；读取账户不启动策略，也不接管原有资产。
+            BTC、ETH、USDT，与策略模拟工作区的持仓数量分开；读取账户不启动策略，也不接管原有资产。
           </p>
         </div>
         <Button
@@ -476,7 +478,7 @@ export function CryptoAccountPanel({
         平台历史成交
       </h3>
       <p className="text-nc-text-3">
-        日期筛选与补同步按UTC自然日，结束日期含当日，今天只查询至当前时刻；显示时间按浏览器本地时区。包含本策略以外的
+        日期筛选与补同步按UTC自然日，结束日期含当日，今天只查询至当前时刻；显示时间统一为UTC。包含本策略以外的
         BTCUSDT / ETHUSDT
         成交；仅匹配本系统订单的记录标记“本策略”，其他标记“平台成交”，不推断为手动交易。
       </p>
