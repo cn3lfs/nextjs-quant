@@ -90,23 +90,35 @@ export default function UiGallery() {
     pages[sorting[0]?.desc ? "desc" : "asc"][pagination.pageIndex] ?? empty;
   return (
     <TooltipProvider>
-      <main className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
+      <main className="min-w-0 space-y-6 p-4 md:p-6">
         <header className="space-y-2">
           <a href="/">← 返回工作台</a>
-          <h1 className="text-2xl font-semibold">UI 组件画廊</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold">UI组件参考</h1>
+            <Badge variant="outline">设计示例</Badge>
+          </div>
           <p className="text-muted-foreground">
-            R1 · 18
-            个新组件与既有按钮共存。所有内容均为展示样例，不连接行情、账本或通知。
+            对照表单、表格与浮层的交互状态。所有内容均为本地展示样例，不连接行情、账本或通知。
           </p>
         </header>
         <Alert>
-          <AlertTitle>配色与阅读体验待你确认</AlertTitle>
+          <AlertTitle>浅色与阅读规范</AlertTitle>
           <AlertDescription>
-            查看表单、浮层和表格的间距、文字及焦点。本页只展示浅色应用配色，图表暗色设置保持独立。
+            正文14px、辅助文字13px、表格行高44px。页面与图表采用浅色，可通过Tab查看焦点，以Esc关闭浮层。
           </AlertDescription>
         </Alert>
+        <nav
+          aria-label="组件目录"
+          className="sticky top-0 z-10 flex flex-wrap gap-3 rounded-lg border bg-card p-3 text-sm"
+        >
+          <a href="#gallery-form">表单</a>
+          <a href="#gallery-feedback">状态与操作</a>
+          <a href="#gallery-overlays">对话框与菜单</a>
+          <a href="#gallery-content">内容组织</a>
+          <a href="#gallery-table">分页与数据状态</a>
+        </nav>
         <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+          <Card id="gallery-form" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>表单 · Input / Textarea / Label</CardTitle>
               <CardDescription>默认、占位、禁用与错误提示</CardDescription>
@@ -155,10 +167,12 @@ export default function UiGallery() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card id="gallery-feedback" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>状态与操作 · Card / Badge / Alert</CardTitle>
-              <CardDescription>沿用工作台蓝灰底色与青色主色</CardDescription>
+              <CardDescription>
+                白底内容、蓝色操作；状态同时显示文字
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex flex-wrap gap-2">
@@ -198,7 +212,7 @@ export default function UiGallery() {
               </Collapsible>
             </CardContent>
           </Card>
-          <Card>
+          <Card id="gallery-overlays" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>浮层 · Dialog / DropdownMenu / Tooltip</CardTitle>
               <CardDescription>可用键盘打开，以 Escape 关闭</CardDescription>
@@ -246,7 +260,7 @@ export default function UiGallery() {
               </span>
             </CardContent>
           </Card>
-          <Card>
+          <Card id="gallery-content" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>内容组织 · Tabs / ScrollArea / Separator</CardTitle>
             </CardHeader>
@@ -277,7 +291,7 @@ export default function UiGallery() {
             </CardContent>
           </Card>
         </div>
-        <Card>
+        <Card id="gallery-table" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>分页表格 · Table / DataTable</CardTitle>
             <CardDescription>
@@ -317,6 +331,9 @@ export default function UiGallery() {
             />
           </CardContent>
         </Card>
+        <p className="text-[13px] text-muted-foreground">
+          窄窗中控件按行排列，宽表只在表格内部横向滚动；对话框关闭后焦点返回触发按钮。
+        </p>
       </main>
     </TooltipProvider>
   );

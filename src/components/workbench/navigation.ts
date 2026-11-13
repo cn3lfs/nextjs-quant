@@ -76,7 +76,7 @@ export const navGroups: readonly NavGroup[] = [
     ],
   },
   {
-    label: "分析",
+    label: "发现",
     items: [
       {
         href: "/market",
@@ -93,18 +93,68 @@ export const navGroups: readonly NavGroup[] = [
         tab: "screen",
       },
       {
-        href: "/rps",
-        label: "RPS 数据",
-        title: "RPS 数据管理",
-        subtitle: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列",
-        icon: Ranking,
-      },
-      {
         href: "/limit-up",
         label: "打板情绪",
         subtitle: "涨停 / 炸板 / 跌停 / 昨涨停四池 · 炸板率、连板梯队与晋级率",
         icon: Fire,
       },
+    ],
+  },
+  {
+    label: "研究",
+    items: [
+      {
+        href: "/strategies",
+        label: "策略中心",
+        subtitle: "统一策略分类、规则、输入检查与可复现实验",
+        icon: Compass,
+      },
+      {
+        href: "/backtest",
+        label: "策略实验",
+        subtitle: "把策略想法变成可以复现的实验 · 研究模拟，不作为正式策略业绩",
+        icon: Flask,
+        tab: "backtest",
+      },
+      {
+        href: "/research",
+        label: "策略样本研究",
+        subtitle: "多策略批量样本 · 准入评估与多重检验",
+        icon: TestTube,
+      },
+      {
+        href: "/analysis",
+        label: "证据分析",
+        subtitle: "多看一层，少猜一步 · 数据来源与时间可追溯",
+        icon: Sparkle,
+        tab: "analysis",
+      },
+      {
+        href: "/news",
+        label: "新闻 / 主题",
+        subtitle: "财联社新闻 AI 归纳为主题，并对照主题成分价格",
+        icon: Hash,
+        tab: "news",
+      },
+      {
+        href: "/reports",
+        label: "研究档案",
+        subtitle: "保存每一次研究，以及支撑判断的证据",
+        icon: Books,
+        tab: "reports",
+      },
+      {
+        href: "/research/data-guide",
+        label: "研究数据指南",
+        subtitle: "研究输入、指标口径与数据边界",
+        icon: Books,
+        hidden: true,
+      },
+    ],
+  },
+  {
+    label: "追踪",
+    items: [
       {
         href: "/signals",
         label: "信号与通知",
@@ -112,35 +162,6 @@ export const navGroups: readonly NavGroup[] = [
         icon: Broadcast,
         tab: "signals",
       },
-    ],
-  },
-  {
-    label: "数字货币",
-    items: [
-      {
-        href: "/crypto",
-        label: "数字货币行情",
-        subtitle:
-          "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
-        icon: CurrencyBtc,
-      },
-    ],
-  },
-  {
-    label: "资源期货",
-    items: [
-      {
-        href: "/futures",
-        label: "资源期货行情",
-        subtitle:
-          "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
-        icon: Mountains,
-      },
-    ],
-  },
-  {
-    label: "台账",
-    items: [
       {
         href: "/signal-ledger",
         label: "信号台账",
@@ -158,52 +179,25 @@ export const navGroups: readonly NavGroup[] = [
         label: "交割单与交易复盘",
         subtitle: "导入券商交割单 · 现金对账 · 纪律与执行质量复盘",
         icon: Receipt,
-        hidden: true,
       },
     ],
   },
   {
-    label: "研究",
+    label: "其他市场",
     items: [
       {
-        href: "/strategies",
-        label: "策略中心",
-        subtitle: "统一策略分类、规则、输入检查与可复现实验",
-        icon: Compass,
+        href: "/crypto",
+        label: "数字货币",
+        subtitle:
+          "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
+        icon: CurrencyBtc,
       },
       {
-        href: "/analysis",
-        label: "证据分析",
-        subtitle: "多看一层，少猜一步 · 数据来源与时间可追溯",
-        icon: Sparkle,
-        tab: "analysis",
-      },
-      {
-        href: "/backtest",
-        label: "策略实验",
-        subtitle: "把策略想法变成可以复现的实验 · 研究模拟，不作为正式策略业绩",
-        icon: Flask,
-        tab: "backtest",
-      },
-      {
-        href: "/research",
-        label: "策略样本研究",
-        subtitle: "多策略批量样本 · 准入评估与多重检验",
-        icon: TestTube,
-      },
-      {
-        href: "/news",
-        label: "新闻 / 主题",
-        subtitle: "财联社新闻 AI 归纳为主题，并对照主题成分价格",
-        icon: Hash,
-        tab: "news",
-      },
-      {
-        href: "/reports",
-        label: "研究档案",
-        subtitle: "保存每一次研究，以及支撑判断的证据",
-        icon: Books,
-        tab: "reports",
+        href: "/futures",
+        label: "资源期货",
+        subtitle:
+          "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
+        icon: Mountains,
       },
     ],
   },
@@ -211,18 +205,25 @@ export const navGroups: readonly NavGroup[] = [
     label: "系统",
     items: [
       {
-        href: "/tasks",
-        label: "任务中心",
-        subtitle: "选股、RPS、AI 研究共用本机后台队列",
-        icon: ListChecks,
-        tab: "tasks",
-      },
-      {
         href: "/settings",
         label: "数据与连接",
         subtitle: "本地行情与导入 · 凭证保存在系统加密存储",
         icon: PlugsConnected,
         tab: "settings",
+      },
+      {
+        href: "/rps",
+        label: "RPS 管理",
+        title: "RPS 数据管理",
+        subtitle: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列",
+        icon: Ranking,
+      },
+      {
+        href: "/tasks",
+        label: "任务中心",
+        subtitle: "选股、RPS、AI 研究共用本机后台队列",
+        icon: ListChecks,
+        tab: "tasks",
       },
     ],
   },
@@ -250,19 +251,13 @@ export function navItemFor(pathname: string) {
   );
 }
 
-/** Match a sidebar search query against labels, titles and routes. */
+/** Navigation search matches page names, titles and routes only. */
 export function searchNav(query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const has = (...texts: string[]) =>
-    texts.some((text) => text.toLowerCase().includes(q));
-  // Name and route matches rank ahead of group and description matches.
-  return [
-    ...navItems.filter((item) => has(item.label, item.title ?? "", item.href)),
-    ...navItems.filter(
-      (item) =>
-        !has(item.label, item.title ?? "", item.href) &&
-        has(item.group, item.subtitle),
+  const term = query.trim().toLowerCase();
+  if (!term) return [];
+  return navItems.filter((item) =>
+    [item.label, item.title ?? "", item.href].some((text) =>
+      text.toLowerCase().includes(term),
     ),
-  ];
+  );
 }

@@ -26,10 +26,10 @@ export type PanelProps = {
   meta?: ReactNode;
   /** Right side of the title row: segmented control, buttons. */
   actions?: ReactNode;
-  /** 11px footnote under the body. */
+  /** Secondary explanation under the body. */
   note?: ReactNode;
   span?: Span;
-  /** accent: highlighted panel (gradient ground, accent edge). */
+  /** accent: highlighted edge on the same readable card ground. */
   tone?: "neutral" | "accent" | "ok" | "warn" | "bad";
   className?: string;
   bodyClassName?: string;
@@ -132,7 +132,32 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="nc-segmented">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="nc-segmented"
+      onKeyDown={(event) => {
+        if (!options.length || event.altKey || event.ctrlKey || event.metaKey)
+          return;
+        const current = Math.max(
+          0,
+          options.findIndex((option) => option.value === value),
+        );
+        let next: number;
+        if (event.key === "ArrowRight" || event.key === "ArrowDown")
+          next = (current + 1) % options.length;
+        else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+          next = (current + options.length - 1) % options.length;
+        else if (event.key === "Home") next = 0;
+        else if (event.key === "End") next = options.length - 1;
+        else return;
+        event.preventDefault();
+        onChange(options[next]!.value);
+        event.currentTarget
+          .querySelectorAll<HTMLButtonElement>('button[role="radio"]')
+          [next]?.focus();
+      }}
+    >
       {options.map((option) => (
         <Button
           key={option.value}
@@ -140,6 +165,7 @@ export function Segmented<T extends string>({
           type="button"
           role="radio"
           aria-checked={option.value === value}
+          tabIndex={option.value === value ? 0 : -1}
           className={cn(option.value === value && "selected")}
           onClick={() => onChange(option.value)}
         >
@@ -164,7 +190,7 @@ export function SecurityCell({
     <div className="flex min-w-0 flex-col gap-px">
       <strong className="truncate font-medium">{name}</strong>
       {(code || extra) && (
-        <span className="truncate text-[10.5px] text-nc-text-4 tabular-nums">
+        <span className="truncate text-[13px] text-nc-text-4 tabular-nums">
           {code}
           {code && extra && " · "}
           {extra}

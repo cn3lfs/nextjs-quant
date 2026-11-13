@@ -1,7 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
 import { Activity, X } from "lucide-react";
-import { ArrowClockwise } from "@phosphor-icons/react/ssr";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode, type SetStateAction } from "react";
 import { TodayOverview } from "../overview/today-overview";
@@ -108,7 +107,7 @@ export function Workbench({ children }: { children?: ReactNode }) {
         scroll: false,
       }),
   };
-  const { toast, setToast, status, channels, notify, scan } = state;
+  const { toast, setToast, status, channels, notify } = state;
   // Chart links in tables switch here without reloading the kept-alive panels.
   const openChart = (symbol: string, list?: BrowseList) => {
     base.setBrowse(list ?? null);
@@ -121,15 +120,6 @@ export function Workbench({ children }: { children?: ReactNode }) {
     router.push("/market", { scroll: false });
   };
   const failed = state.monitorSummary.data?.failedDeliveries ?? 0;
-  const settings = status.data?.settings;
-  const model =
-    settings?.llmProvider === "deepseek"
-      ? status.data?.deepseek
-        ? "DeepSeek 已配置"
-        : "DeepSeek 未配置"
-      : settings?.llmProvider === "claude"
-        ? `Claude Code · ${status.data?.localModels.claude ? "已安装" : "未安装"}`
-        : `Codex · ${status.data?.localModels.codex ? "已安装" : "未安装"}`;
   const panels: Record<string, ReactNode> = {
     "/": <TodayOverview state={state} />,
     "/market": <MarketView state={state} />,
@@ -146,6 +136,8 @@ export function Workbench({ children }: { children?: ReactNode }) {
         channels={channels.data ?? []}
         coverage={status.data.coverage}
         notify={notify}
+        onScan={() => state.scan.mutate()}
+        scanning={state.scan.isPending}
       />
     ),
     ...Object.fromEntries(
@@ -159,7 +151,6 @@ export function Workbench({ children }: { children?: ReactNode }) {
     <div className="app-shell">
       <Sidebar
         active={item?.href}
-        model={model}
         badges={{
           "/signals": { count: failed, bad: true },
           "/tasks": { count: state.activeJobs.length },
@@ -170,33 +161,8 @@ export function Workbench({ children }: { children?: ReactNode }) {
           crumb={item?.group ?? ""}
           title={item?.title ?? item?.label ?? ""}
           subtitle={item?.subtitle}
-        >
-          <Button
-            variant="plain"
-            className="icon-button"
-            title="扫描本地数据"
-            aria-label="扫描本地数据"
-            onClick={() => scan.mutate()}
-            disabled={scan.isPending}
-          >
-            <ArrowClockwise size={16} />
-          </Button>
-        </Topbar>
+        />
         <div className="page">
-          {[
-            "/research",
-            "/signals",
-            "/intraday",
-            "/screen",
-            "/signal-ledger",
-          ].includes(pathname) && (
-            <p
-              role="status"
-              className="mb-3 rounded-md border p-3 text-sm text-muted-foreground"
-            >
-              现有策略已统一弃用，保留历史配置、报告与证据。新策略验证仅在回测页开放双均线基线；旧策略不再启动新任务或自动调度。
-            </p>
-          )}
           {/* Visited panels stay mounted and hidden: charts, drafts, filters and
               scroll positions survive every route switch. */}
           <OpenChartProvider value={openChart}>
@@ -205,10 +171,6 @@ export function Workbench({ children }: { children?: ReactNode }) {
             {!(pathname in panels) && children}
           </OpenChartProvider>
         </div>
-        <footer>
-          观澜 · 数据驱动研究，证据支持判断{" "}
-          <span>本地数据不会因扫描而被修改</span>
-        </footer>
       </main>
       {toast && (
         <div role="status" className="toast">

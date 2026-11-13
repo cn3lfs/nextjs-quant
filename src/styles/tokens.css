@@ -1,61 +1,61 @@
-/* Nocturne design tokens (docs/design_handoff_quant_workbench/README.md).
+/* Light workbench design tokens (docs/product/full-site-redesign/README.md).
    The single source of color, type, radius and spacing for the workbench:
    components reference these variables (or the matching Tailwind `nc-*`
    utilities), never raw hex values. Chart canvases read them at runtime. */
 :root {
   /* grounds */
-  --nc-bg: #161826;
-  --nc-chrome: #1b1d2c; /* sidebar and topbar */
-  --nc-card: #1f2130;
-  --nc-inset: #232532; /* rows and cards inside a panel, table hover */
-  --nc-field: #1b1d2c; /* form inputs */
-  --nc-border: #3f424d;
-  --nc-border-soft: #292b31;
+  --nc-bg: #f5f7fa;
+  --nc-chrome: #ffffff;
+  --nc-card: #ffffff;
+  --nc-inset: #f0f4f8;
+  --nc-field: #ffffff;
+  --nc-border: #d8e0ea;
+  --nc-border-soft: #e8edf3;
 
   /* text */
-  --nc-text: #e9e9ed;
-  --nc-text-2: #cfd3e5;
-  --nc-text-3: #9397ab;
-  --nc-text-4: #75798c;
-  --nc-text-5: #595d6c;
-  --nc-nav: #b2b6ca;
-  --nc-neutral-700: #595d6c;
+  --nc-text: #172b4d;
+  --nc-text-2: #334155;
+  --nc-text-3: #475569;
+  --nc-text-4: #5b677a;
+  --nc-text-5: #64748b;
+  --nc-nav: #475569;
+  --nc-neutral-700: #94a3b8;
 
   /* accent ramp */
-  --nc-accent: #9184d9;
-  --nc-accent-light: #d2cefd;
-  --nc-accent-100: #f5f4ff;
-  --nc-accent-400: #b5abfc;
-  --nc-accent-600: #796cbf;
-  --nc-accent-700: #5d5294;
-  --nc-accent-800: #423a6a;
-  --nc-accent-900: #2b2741;
-  --nc-accent-glow: #232132; /* top stop of the highlighted panel gradient */
+  --nc-accent: #2457c5;
+  --nc-accent-light: #2457c5;
+  --nc-accent-100: #ffffff;
+  --nc-accent-400: #1e46a4;
+  --nc-accent-600: #1e46a4;
+  --nc-accent-700: #1e40af;
+  --nc-accent-800: #bfd0f0;
+  --nc-accent-900: #eaf0ff;
+  --nc-accent-glow: #f5f8ff;
 
   /* semantic */
-  --nc-ok: #7fc2a0;
-  --nc-warn: #e0b07c;
-  --nc-bad: #e0897c;
-  --nc-ok-edge: #2f4a3c;
-  --nc-warn-edge: #5c4a33;
-  --nc-bad-edge: #5c3a38;
+  --nc-ok: #147d64;
+  --nc-warn: #9a5b00;
+  --nc-bad: #b42332;
+  --nc-ok-edge: #a7d7c8;
+  --nc-warn-edge: #e8ce9c;
+  --nc-bad-edge: #e9bac0;
   /* A-share convention: red rises, green falls. */
-  --nc-up: #e0897c;
-  --nc-down: #7fc2a0;
+  --nc-up: #d92d42;
+  --nc-down: #147d64;
   /* categorical chart lines (MA, MACD, RPS periods); mirrored in chart-theme.ts */
-  --nc-series-1: #e0b07c;
-  --nc-series-2: #b5abfc;
-  --nc-series-3: #7ab8d6;
-  --nc-series-4: #d58fbf;
+  --nc-series-1: #9a6700;
+  --nc-series-2: #635bbd;
+  --nc-series-3: #247b94;
+  --nc-series-4: #a14480;
 
   /* type */
   --nc-font: "Inter", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  --nc-text-base: 13px;
+  --nc-text-base: 14px;
 
   /* shape and layout */
   --nc-radius: 8px;
   --nc-pill: 999px;
   --nc-gap: 14px;
-  --nc-sidebar-width: 206px;
-  --nc-shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, 0.55);
+  --nc-sidebar-width: 216px;
+  --nc-shadow-md: 0 8px 28px rgba(23, 43, 77, 0.12);
 }

@@ -12,8 +12,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Primary: accent outline on a transparent ground (Nocturne).
-        default: `${styled} border-nc-accent! bg-transparent text-nc-accent-light! hover:bg-nc-accent-900`,
+        default: `${styled} border-primary! bg-primary! text-primary-foreground! hover:bg-nc-accent-600!`,
         outline: `${styled} border-nc-border! bg-transparent text-nc-text-2! hover:border-nc-accent-600! hover:bg-nc-inset`,
         ghost: `${styled} bg-transparent text-nc-accent-light! hover:bg-nc-accent-900`,
         danger: `${styled} border-nc-bad-edge! bg-transparent text-nc-bad! hover:bg-[color-mix(in_srgb,var(--nc-bad)_10%,transparent)]`,
@@ -25,14 +24,12 @@ const buttonVariants = cva(
       {
         variant: ["default", "outline", "ghost", "danger"],
         size: "default",
-        className:
-          "px-[12px] py-[6px] text-[12px]! max-[700px]:[.page-heading>&]:text-[0px]!",
+        className: "min-h-10 px-4 py-2 text-sm!",
       },
       {
         variant: ["default", "outline", "ghost", "danger"],
         size: "sm",
-        className:
-          "px-[10px] py-[4px] text-[11.5px]! max-[700px]:[.page-heading>&]:text-[0px]!",
+        className: "min-h-8 px-3 py-1.5 text-[13px]!",
       },
     ],
     defaultVariants: { variant: "default", size: "default" },

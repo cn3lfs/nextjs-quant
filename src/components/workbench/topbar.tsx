@@ -1,62 +1,41 @@
 "use client";
-import { Circle, MagnifyingGlass } from "@phosphor-icons/react/ssr";
+import { MagnifyingGlass } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { marketSession } from "~/lib/market/market-session";
-import { cn } from "~/lib/common/classnames";
+import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "../ui/input";
 import { searchNav } from "./navigation";
-import { useNow } from "./use-now";
 
 export function Topbar({
-  crumb,
   title,
-  subtitle,
-  children,
 }: {
   crumb: string;
   title: string;
   subtitle?: string;
-  children?: ReactNode;
 }) {
   return (
     <header className="topbar">
-      <span className="breadcrumb">{crumb}</span>
       <div className="topbar-title">
         <h1>{title}</h1>
-        {subtitle && <p title={subtitle}>{subtitle}</p>}
       </div>
       <div className="top-status">
-        {children}
         <NavSearch />
-        <SessionPill />
       </div>
     </header>
   );
 }
 
-/** Current A-share session; weekends count as closed without a calendar. */
-export function SessionPill() {
-  const now = useNow();
-  if (now === null) return <span className="session-pill idle">—</span>;
-  const session = marketSession(now);
-  const live = ["auction", "morning", "afternoon"].includes(session.kind);
-  return (
-    <span className={cn("session-pill", !live && "idle")}>
-      <Circle size={7} weight="fill" />
-      {session.label} · {session.hhmm}
-    </span>
-  );
-}
-
-/** Page search: Ctrl K focuses, arrows choose, Enter opens. */
+/** Page navigation only; business searches stay in their own workspaces. */
 export function NavSearch() {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const listId = useId();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
+  const [opened, setOpened] = useState(false);
   const results = searchNav(query);
+  const visible = opened && query.trim().length > 0;
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
@@ -68,47 +47,83 @@ export function NavSearch() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const open = (href: string) => {
+
+  const close = () => {
     setQuery("");
+    setCursor(0);
+    setOpened(false);
+  };
+  const open = (href: string) => {
+    close();
     input.current?.blur();
     router.push(href, { scroll: false });
   };
+
   return (
-    <div className="nav-search">
-      <MagnifyingGlass size={13} />
+    <div
+      className="nav-search"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setOpened(false);
+      }}
+    >
+      <MagnifyingGlass size={16} aria-hidden="true" />
       <Input
         ref={input}
-        className="h-7 w-[200px] pr-12 pl-7 text-xs md:text-xs"
+        className="h-9 w-[280px] pr-14 pl-8 text-[13px]"
+        role="combobox"
         aria-label="搜索页面"
+        aria-autocomplete="list"
+        aria-controls={listId}
+        aria-expanded={visible}
+        aria-activedescendant={
+          visible && results[cursor] ? listId + "-" + cursor : undefined
+        }
         placeholder="搜索页面"
+        autoComplete="off"
         value={query}
+        onFocus={() => setOpened(true)}
         onChange={(event) => {
           setQuery(event.target.value);
           setCursor(0);
+          setOpened(true);
         }}
         onKeyDown={(event) => {
-          if (event.key === "ArrowDown")
-            setCursor((c) => Math.min(c + 1, results.length - 1));
-          else if (event.key === "ArrowUp")
-            setCursor((c) => Math.max(c - 1, 0));
-          else if (event.key === "Enter" && results[cursor])
+          if (event.key === "ArrowDown") {
+            setOpened(true);
+            setCursor((value) =>
+              Math.max(0, Math.min(value + 1, results.length - 1)),
+            );
+          } else if (event.key === "ArrowUp") {
+            setCursor((value) => Math.max(value - 1, 0));
+          } else if (event.key === "Enter" && results[cursor]) {
             open(results[cursor].href);
-          else if (event.key === "Escape") setQuery("");
-          else return;
+          } else if (event.key === "Escape") {
+            close();
+          } else return;
           event.preventDefault();
         }}
       />
       <kbd>Ctrl K</kbd>
-      {results.length > 0 && (
-        <ul role="listbox" aria-label="页面">
+      {visible && (
+        <ul id={listId} role="listbox" aria-label="页面">
+          {results.length === 0 && (
+            <li role="presentation">
+              <p role="status" className="nav-search-empty">
+                没有匹配的页面
+              </p>
+            </li>
+          )}
           {results.map((item, index) => (
-            <li key={item.href}>
+            <li key={item.href} role="presentation">
               <Link
+                id={listId + "-" + index}
                 href={item.href}
                 scroll={false}
                 role="option"
                 aria-selected={index === cursor}
-                onClick={() => setQuery("")}
+                onMouseEnter={() => setCursor(index)}
+                onClick={close}
               >
                 {item.label}
                 <small>{item.group}</small>

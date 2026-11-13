@@ -52,7 +52,7 @@
 }
 .nc-panel-accent {
   border-color: var(--nc-accent-800);
-  background: linear-gradient(180deg, var(--nc-accent-glow), var(--nc-card));
+  background: var(--nc-card);
 }
 .nc-panel-head {
   display: flex;
@@ -63,12 +63,12 @@
 }
 .nc-panel-head h3 {
   margin: 0;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--nc-text);
 }
 .nc-panel-meta {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--nc-text-4);
 }
 .nc-panel-actions {
@@ -81,7 +81,7 @@
 .nc-panel-note,
 .nc-panel-foot {
   margin: 10px 0 0;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--nc-text-4);
 }
@@ -89,7 +89,7 @@
   margin: 0;
   padding: 18px 4px;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nc-text-4);
 }
 .nc-pill {
@@ -100,7 +100,7 @@
   border: 1px solid;
   border-radius: var(--nc-pill);
   padding: 0 7px;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 16px;
   white-space: nowrap;
 }
@@ -110,12 +110,13 @@
   gap: 6px;
 }
 .nc-segmented > button {
+  min-height: 36px;
   border: 1px solid var(--nc-border);
   background: transparent;
   color: var(--nc-text-3);
   border-radius: var(--nc-radius);
   padding: 4px 11px;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .nc-segmented > button:hover {
@@ -144,7 +145,7 @@
   background: var(--nc-inset);
 }
 .nc-stat-label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--nc-text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -158,7 +159,7 @@
   overflow-wrap: anywhere;
 }
 .nc-stat-note {
-  font-size: 10.5px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--nc-text-4);
 }
@@ -169,6 +170,7 @@
 }
 .nc-table-head,
 .nc-table-row {
+  min-height: 44px;
   display: grid;
   gap: 8px;
   align-items: center;
@@ -176,14 +178,14 @@
 .nc-table-head {
   padding: 0 4px 7px;
   border-bottom: 1px solid var(--nc-border-soft);
-  font-size: 10.5px;
+  font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--nc-text-4);
 }
 .nc-table-row {
   padding: 9px 4px;
   border-bottom: 1px solid var(--nc-inset);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .nc-table-row:hover {
@@ -219,11 +221,11 @@
   min-width: 0;
 }
 .nc-field > span {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--nc-text-3);
 }
 .nc-field > small {
-  font-size: 10.5px;
+  font-size: 13px;
   color: var(--nc-text-4);
 }
 .nc-checks {
@@ -231,7 +233,7 @@
   flex-wrap: wrap;
   gap: 8px 18px;
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nc-text-2);
 }
 .nc-buttons {
@@ -251,7 +253,7 @@
 .nc-bar-name {
   width: 96px;
   flex: none;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nc-text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -272,7 +274,7 @@
 .nc-bar-value {
   min-width: 34px;
   text-align: right;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--nc-text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -296,7 +298,7 @@
 }
 .nc-report-summary {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--nc-text-3);
 }
@@ -363,7 +365,7 @@
   bottom: 12px;
   left: 0;
   font-style: normal;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--nc-accent-100);
   background: var(--nc-accent-700);
@@ -436,7 +438,7 @@
   position: absolute;
   right: 0;
   top: -22px;
-  font-size: 10.5px;
+  font-size: 13px;
   color: var(--nc-text-4);
 }
 .nc-health {
@@ -488,7 +490,7 @@
   border-radius: 6px;
   background: var(--nc-accent-900);
   color: var(--nc-accent-light);
-  font-size: 10px;
+  font-size: 13px;
 }
 
 /* Tones — declared last so they override the base panel rules above. */

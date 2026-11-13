@@ -13,36 +13,36 @@ import {
  */
 export const chartColor = {
   /** --nc-card: the panel ground the chart sits on. */
-  ground: "#1f2130",
+  ground: "#ffffff",
   /** --nc-bg: deeper ground for the 加深背景 view option. */
-  groundDeep: "#161826",
+  groundDeep: "#f5f7fa",
   /** --nc-text-3 */
-  text: "#9397ab",
+  text: "#475569",
   /** --nc-text-2 */
-  textStrong: "#cfd3e5",
+  textStrong: "#334155",
   /** --nc-border-soft */
-  grid: "#292b31",
+  grid: "#e8edf3",
   /** --nc-inset */
-  gridDeep: "#232532",
+  gridDeep: "#f0f4f8",
   /** --nc-border */
-  border: "#3f424d",
+  border: "#d8e0ea",
   /** --nc-text-4 */
-  muted: "#75798c",
+  muted: "#5b677a",
   /** --nc-up / --nc-down: red rises, green falls. */
-  up: "#e0897c",
-  down: "#7fc2a0",
-  upSoft: "#e0897c33",
-  downSoft: "#7fc2a033",
-  upFaint: "#e0897c20",
-  downFaint: "#7fc2a020",
+  up: "#d92d42",
+  down: "#147d64",
+  upSoft: "#d92d4233",
+  downSoft: "#147d6433",
+  upFaint: "#d92d4220",
+  downFaint: "#147d6420",
   /** --nc-accent / --nc-accent-light */
-  accent: "#9184d9",
-  accentLight: "#d2cefd",
+  accent: "#2457c5",
+  accentLight: "#2457c5",
   /** --nc-series-1…4: categorical indicator lines. */
-  series1: "#e0b07c",
-  series2: "#b5abfc",
-  series3: "#7ab8d6",
-  series4: "#d58fbf",
+  series1: "#9a6700",
+  series2: "#635bbd",
+  series3: "#247b94",
+  series4: "#a14480",
 } as const;
 
 /** CSS variable behind each mirrored color (tested against tokens.css). */
@@ -67,11 +67,12 @@ export const chartColorTokens: Partial<
   series4: "--nc-series-4",
 };
 
-/** Nocturne defaults for every chart; explicit options still win. */
+/** Shared light defaults for every chart; explicit options still win. */
 export const nocturneChartOptions: DeepPartial<ChartOptions> = {
   layout: {
     background: { type: ColorType.Solid, color: chartColor.ground },
     textColor: chartColor.text,
+    fontSize: 13,
     fontFamily: '"Inter", "Segoe UI", "Microsoft YaHei", sans-serif',
   },
   grid: {
@@ -110,7 +111,7 @@ function merge<T extends object>(base: T, extra: T): T {
   return out as T;
 }
 
-/** `createChart` with the Nocturne palette underneath the caller's options. */
+/** `createChart` with the workbench palette underneath the caller's options. */
 export function createNocturneChart(
   container: HTMLElement,
   options: Options = {},
