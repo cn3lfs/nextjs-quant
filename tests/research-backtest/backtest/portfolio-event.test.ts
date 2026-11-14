@@ -90,6 +90,37 @@ function request(
 }
 
 describe("one portfolio event engine", () => {
+  it("indexes structure prices without hiding duplicate, future, or invalid observed levels", () => {
+    const s = strategy();
+    s.exit = { stop: { kind: "structure", field: "support" } };
+    const bars = dates.map((d) => bar(d));
+    const level = {
+      date: dates[1]!,
+      availableAt: dates[1]!,
+      field: "support",
+      value: 8,
+    };
+    const prepare = (levels: (typeof level)[]) =>
+      prepareStrategy(s, bars, { levels });
+    const base = prepare([level]);
+    expect(base.evaluate(0).stopLevel).toBeNull();
+    expect(base.evaluate(1).stopLevel).toBe(8);
+    expect(prepare([level, { ...level, field: "other" }]).evaluate(1)).toEqual(
+      base.evaluate(1),
+    );
+    const duplicate = prepare([level, level]);
+    expect(duplicate.evaluate(0).stopLevel).toBeNull();
+    expect(() => duplicate.evaluate(1)).toThrow("Duplicate structure levels");
+    expect(() =>
+      prepare([{ ...level, availableAt: dates[2]! }]).evaluate(1),
+    ).toThrow("Non-causal / invalid structure level");
+    expect(() => prepare([{ ...level, value: NaN }]).evaluate(1)).toThrow(
+      "Non-causal / invalid structure level",
+    );
+    expect(() => prepare([{ ...level, value: 0 }]).evaluate(1)).toThrow(
+      "Non-causal / invalid structure level",
+    );
+  });
   it("buys exactly one affordable lot at the fee boundary without binary64 under-sizing", () => {
     const input = request(),
       s = strategy();

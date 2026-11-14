@@ -1,4 +1,11 @@
-import { mkdir, writeFile, readFile, stat, utimes } from "node:fs/promises";
+import {
+  mkdir,
+  writeFile,
+  readFile,
+  stat,
+  utimes,
+  truncate,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import samples from "../../fixtures/vipdoc-source-samples.json";
@@ -20,6 +27,7 @@ import {
 import type { Bar } from "~/lib/domain";
 import { createHash } from "node:crypto";
 import { contentDigest } from "~/server/market/bar-store/content-digest";
+import { crc32 } from "node:zlib";
 
 const directory = process.env.QUANT_DATA_DIR!;
 it("matches the old TDX codec bar-for-bar, cold/warm, stock/index/fund and day/5m", async () => {
@@ -76,6 +84,34 @@ const rows: Bar[] = [10, 9, 10].map((close, i) => ({
   volume: i * 100,
   amount: i * 1000,
 }));
+it("rejects both smaller and larger checksum-valid counts before returning a decoded generation", async () => {
+  const key = "cache-decoded-count";
+  writeColumnCache(key, rows, "count-input", { source: "fixture" });
+  const file = cachePath(key),
+    original = await readFile(file);
+  for (const count of [rows.length - 1, rows.length + 1]) {
+    const body = Buffer.from(original);
+    const metadata = JSON.parse(
+      body.toString("utf8", 16, 16 + body.readUInt32LE(12)),
+    );
+    metadata.count = count;
+    const json = Buffer.from(JSON.stringify(metadata));
+    body.fill(0, 16, 16384);
+    body.writeUInt32LE(json.length, 12);
+    json.copy(body, 16);
+    body.writeUInt32LE(crc32(json), 16380);
+    await writeFile(file, body);
+    expect(() => readColumnCache(key)).toThrow("缓存记录数不符");
+  }
+  await writeFile(file, original);
+  expect(readColumnCache(key)?.bars).toEqual(rows);
+});
+it("rejects an oversized sparse cache before allocating its body", async () => {
+  const key = "cache-oversized-file";
+  writeColumnCache(key, rows, "bounded-input", { source: "fixture" });
+  await truncate(cachePath(key), 128 * 1024 ** 2 + 1);
+  expect(() => readColumnCache(key)).toThrow("单文件容量超限");
+});
 it("probes every byte even when the entire filesystem identity remains identical", () => {
   const bytes = Buffer.alloc(16384, 7);
   const identity = "same-path-inode-size-mtime-ctime-birthtime";

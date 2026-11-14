@@ -25,7 +25,7 @@ export function cryptoPeriodEnd(date: string, period: ChartPeriod) {
  * Missing components invalidate a bucket; a forming bucket needs a full prefix. */
 export function aggregateCryptoBars(
   bars: Bar[],
-  base: "day" | "5m" | "1h",
+  base: "day" | "5m" | "15m" | "1h",
   target: ChartPeriod,
   now: number,
   sourceForming: readonly string[] = [],

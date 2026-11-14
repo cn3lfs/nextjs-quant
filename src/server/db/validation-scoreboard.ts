@@ -22,6 +22,7 @@ export function saveValidationScoreboard(value: ValidationScoreboard) {
       status: row.status,
       inputHash: value.inputHash,
       reasons: row.reasons,
+      biasTags: row.biasTags ?? [],
     });
   return put(
     "validation-scoreboard",

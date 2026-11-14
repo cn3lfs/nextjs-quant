@@ -76,6 +76,22 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     trades: i,
     oosWindows: 6,
     positiveWindows: 2,
+    biasTags: [
+      {
+        code: "historical-universe-incomplete",
+        severity: "high",
+        detail: "QA免费数据缺口",
+      },
+    ],
+    riskAdjusted: {
+      sharpe: 1.2,
+      benchmarkSharpe: 1,
+      sharpeDifference: i === 0 ? null : 0.2,
+      calmar: 0.5,
+      benchmarkCalmar: 0.6,
+      calmarDifference: i === 0 ? null : -0.1,
+      basis: "QA同窗252观测/2%无风险，非策略业绩",
+    },
     bias: {
       universe: "历史证券池不完整",
       adjustment: "信号前复权，成交原价",
@@ -112,6 +128,22 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
       exact: true,
     });
     await expect(region).toContainText("历史证券池不完整");
+    await expect(region).toContainText("历史成交未核验");
+    await expect(region).toContainText("偏差（高）：QA免费数据缺口");
+    await expect(region).toContainText("夏普差 0.200");
+    await expect(region).toContainText("Calmar 差 -0.100");
+    const firstRow = region.getByRole("row").filter({ hasText: `${prefix}00` });
+    await expect(firstRow).toContainText("夏普差 —");
+    await expect(firstRow).toContainText("Calmar 差 —");
+    await expect(firstRow).not.toContainText("夏普差 0.000");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await region
+      .getByText(/夏普差 0\.200/)
+      .first()
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath("r2a2-scoreboard-populated-1024.png"),
+    });
     await expect(
       region.getByText(`${prefix}00`, { exact: true }),
     ).toBeVisible();
@@ -325,6 +357,42 @@ test("current backtest reports missing warmup, recovers, restores and exports re
   await expect(
     page.getByRole("button", { name: "运行回测", exact: true }),
   ).toHaveCount(0);
+});
+
+test("formula editor waits for hydration before accepting edits or checking future functions", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/_next\/static\/.*\.js(?:\?|$)/, async (route) => {
+    await ready;
+    await route.continue();
+  });
+  try {
+    await page.goto("/screen", { waitUntil: "commit" });
+    const source = page.getByLabel("公式源码", { exact: true });
+    const check = page.getByRole("button", {
+      name: "语法检查与未来函数门禁",
+      exact: true,
+    });
+    const run = page.getByRole("button", {
+      name: "全市场执行公式",
+      exact: true,
+    });
+    await expect(source).toBeDisabled();
+    await expect(check).toBeDisabled();
+    release();
+    await expect(source).toBeEnabled();
+    await source.fill("选股:REF(C,-1)>0;");
+    await check.click();
+    await expect(source).toHaveValue("选股:REF(C,-1)>0;");
+    await expect(run).toBeDisabled();
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
 });
 
 test("formula save and execution open a clean candidate chart with real breakout data", async ({

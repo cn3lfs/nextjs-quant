@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { validationDefaults } from "quant-backtest";
+import type { ValidationScore } from "quant-backtest";
 
 export const validationInputSchema = z
   .object({
@@ -60,6 +61,8 @@ export const scoreboardQuerySchema = z
   })
   .strict();
 export type ScoreboardRow = {
+  riskAdjusted?: ValidationScore["riskAdjusted"];
+  biasTags?: { code: string; severity: "high" | "medium"; detail: string }[];
   id: string;
   level: "strategy" | "sleeve" | "market";
   market: "cn-equity" | "crypto";

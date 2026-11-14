@@ -11,7 +11,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { api } from "~/trpc/react";
 import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
 import {
@@ -19,12 +19,21 @@ import {
   futureFunctions,
 } from "trading-strategies/formula/tdx-formula-check";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
+const subscribeToReady = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 export function FormulaScreen({
   onStarted,
 }: {
   onStarted: (id: string) => void;
 }) {
   const visible = usePanelVisible();
+  // Static HTML must not accept edits before React owns the controlled values.
+  const ready = useSyncExternalStore(
+    subscribeToReady,
+    clientReady,
+    serverReady,
+  );
   const [id, setId] = useState<string | undefined>();
   const [name, setName] = useState("均线金叉");
   const [source, setSource] = useState("选股:CROSS(MA(C,N1),MA(C,N2));");
@@ -42,7 +51,7 @@ export function FormulaScreen({
     lines: { line: string; meaning: string }[];
     unsupported: string[];
   } | null>(null);
-  const busy = save.isPending || run.isPending || draft.isPending;
+  const busy = !ready || save.isPending || run.isPending || draft.isPending;
   async function generate() {
     setChecked(null);
     setExplained(null);
@@ -89,7 +98,7 @@ export function FormulaScreen({
     setMessage(e instanceof Error ? e.message : "操作失败");
   }
   return (
-    <section className="panel" aria-label="通达信公式选股">
+    <section className="panel" aria-label="通达信公式选股" aria-busy={!ready}>
       <h3>通达信公式选股</h3>
       <p>
         本地全 A 股 · 已完成日线 · 不复权。参数使用
@@ -99,6 +108,7 @@ export function FormulaScreen({
         <label>
           已保存公式
           <Select
+            disabled={!ready}
             value={id ?? ""}
             onValueChange={(selected) => {
               const f = formulas.data?.find((f) => f.id === selected);
@@ -129,6 +139,7 @@ export function FormulaScreen({
           公式名称
           <Input
             aria-label="公式名称"
+            disabled={!ready}
             value={name}
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
@@ -149,6 +160,7 @@ export function FormulaScreen({
           一句话选股
           <Input
             aria-label="一句话选股"
+            disabled={!ready}
             value={request}
             maxLength={500}
             placeholder="例如：MACD 金叉、RPS120 大于 90、近 5 日放量"
@@ -189,6 +201,7 @@ export function FormulaScreen({
       <label>
         公式源码
         <Textarea
+          disabled={!ready}
           className="field-sizing-fixed"
           aria-label="公式源码"
           rows={10}
@@ -202,6 +215,7 @@ export function FormulaScreen({
         参数 JSON
         <Input
           aria-label="公式参数 JSON"
+          disabled={!ready}
           value={params}
           onChange={(e) => setParams(e.target.value)}
           style={{ width: "100%" }}

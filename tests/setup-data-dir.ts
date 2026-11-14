@@ -14,3 +14,5 @@ import { join } from "node:path";
 const testDataParent = process.env.QUANT_DATA_DIR ?? tmpdir();
 mkdirSync(testDataParent, { recursive: true });
 process.env.QUANT_DATA_DIR = mkdtempSync(join(testDataParent, "quant-test-"));
+// Real research may share a hot cache. Test files must keep their own inputs.
+delete process.env.QUANT_RESEARCH_BAR_STORE_DIR;

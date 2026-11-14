@@ -6,14 +6,16 @@ import {
   renameSync,
   rmSync,
   openSync,
+  fstatSync,
   closeSync,
+  readSync,
   writeSync,
   fsyncSync,
   statSync,
   truncateSync,
   rmdirSync,
 } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, isAbsolute, resolve, relative, sep } from "node:path";
 import { z } from "zod";
 import { crc32 } from "node:zlib";
 import { dataDirectory } from "../../db";
@@ -35,10 +37,26 @@ const metadataSchema = z.object({
 });
 export type CacheMetadata = z.infer<typeof metadataSchema>;
 export type CachedBars = { bars: Bar[]; metadata: CacheMetadata };
+let researchDirectory:
+  { value: string; cwd: string; directory: string } | undefined;
+export function columnCacheDirectory() {
+  const shared = process.env.QUANT_RESEARCH_BAR_STORE_DIR;
+  if (!shared) return join(dataDirectory(), "bar-store");
+  const cwd = process.cwd();
+  if (researchDirectory?.value === shared && researchDirectory.cwd === cwd)
+    return researchDirectory.directory;
+  const directory = resolve(shared);
+  const [owner, child] = relative(cwd, directory).split(sep);
+  if (!isAbsolute(shared) || owner !== ".test-data" || !child)
+    throw new Error(
+      "Research BarStore cache must be absolute and inside .test-data",
+    );
+  researchDirectory = { value: shared, cwd, directory };
+  return directory;
+}
 export function cachePath(key: string) {
   return join(
-    dataDirectory(),
-    "bar-store",
+    columnCacheDirectory(),
     createHash("sha256").update(key).digest("hex") + ".bars",
   );
 }
@@ -187,8 +205,27 @@ export function readColumnCache(key: string): CachedBars | null {
   let body: Buffer;
   let current: string;
   try {
-    current = signature(path);
-    body = readFileSync(path);
+    // Bind identity, size bound and bytes to one open generation. Avoid the
+    // duplicate path stat plus readFileSync's own open/fstat on every hit.
+    const handle = openSync(path, "r");
+    try {
+      const s = fstatSync(handle, { bigint: true });
+      if (s.size > BigInt(maximumFileBytes))
+        throw new Error("BarStore 单文件容量超限");
+      current = `${s.ino}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`;
+      body = Buffer.allocUnsafe(Number(s.size));
+      let read = 0;
+      while (read < body.length) {
+        const n = readSync(handle, body, read, body.length - read, read);
+        if (!n) {
+          body = body.subarray(0, read);
+          break;
+        }
+        read += n;
+      }
+    } finally {
+      closeSync(handle);
+    }
     // A complete checksummed header/payload is a committed generation, even
     // if an appender commits a newer header after this read. Torn reads fail
     // the header/body checks below; trailing uncommitted bytes stay ignored.

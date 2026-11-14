@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   binanceKlines,
   mergeKlinePages,
   parseBinanceKlines,
+  BinanceNoKlinesError,
 } from "../../../src/server/data-sources/binance/binance-klines";
 import {
   outboundFetch,
@@ -42,6 +43,22 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status });
 
 afterEach(() => resetOutboundRoutes());
+
+it("reports a validated empty public page without retrying a different host", async () => {
+  const fetcher = vi.fn(async () => json([]));
+  await expect(
+    binanceKlines(
+      {
+        symbol: "cxBTCUSDT",
+        period: "day",
+        limit: 1,
+        before: Date.parse("2010-01-01"),
+      },
+      { fetcher, proxy: "" },
+    ),
+  ).rejects.toBeInstanceOf(BinanceNoKlinesError);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
 
 describe("crypto symbols stay apart from A-share codes", () => {
   it("accepts cx pairs in charts only and bypasses A-share paths", () => {

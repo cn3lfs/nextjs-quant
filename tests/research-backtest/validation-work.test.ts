@@ -194,7 +194,7 @@ describe("research validation application boundary", () => {
       "2026-04-17T23:59:59.999Z",
     );
   });
-  it("replays reproducibly, retains cost/overfit/missing inputs, and promotes nothing with unverified evidence", () => {
+  it("replays reproducibly, retains statistical gates, and labels unverified free-data evidence", () => {
     vi.stubGlobal("fetch", network);
     const frozen = fixture(),
       before = validationHash(frozen);
@@ -204,6 +204,28 @@ describe("research validation application boundary", () => {
     expect(result.rows.filter((r) => r.level === "strategy")).toHaveLength(18);
     expect(result.promoted).toEqual([]);
     expect(result.rows.every((r) => r.status === "research")).toBe(true);
+    for (const row of result.rows.filter((r) => r.level === "strategy")) {
+      expect(row.biasTags?.map((t) => [t.code, t.severity])).toEqual([
+        ["historical-universe-incomplete", "high"],
+        ["historical-venue-filters-and-liquidity-unverified", "high"],
+      ]);
+      expect(row.reasons).not.toContain("historical-universe-incomplete");
+      expect(row.reasons).not.toContain(
+        "historical-venue-filters-and-liquidity-unverified",
+      );
+      expect(row.reasons.length).toBeGreaterThan(0);
+    }
+    // Evidence flags change labels only. They cannot rescue a failing statistical gate.
+    const verified = fixture();
+    verified.evidence.universeComplete = true;
+    verified.evidence.executionVerified = true;
+    expect(
+      replayValidationInput(verified).rows.map((r) => [
+        r.id,
+        r.status,
+        r.reasons,
+      ]),
+    ).toEqual(result.rows.map((r) => [r.id, r.status, r.reasons]));
     expect(result.suites[0]!.suite.rows[0]!.windows).toHaveLength(6);
     expect(result.missing.some((r) => r.id.includes("15m"))).toBe(true);
     expect(result.suites[0]!.diagnostics).toHaveProperty("cscv");
@@ -235,12 +257,20 @@ describe("research validation application boundary", () => {
     const score = scoreValidationResult(result, request, dataset);
     expect(score.return).toBe(0);
     expect(score.excess).toBeCloseTo(-(bars[1]!.close / bars[0]!.open - 1), 12);
+    expect(score.riskAdjusted?.benchmarkSharpe).not.toBeNull();
+    expect(score.riskAdjusted?.benchmarkCalmar).toBeNull();
     expect(
       scoreValidationResult(result, request, {
         ...dataset,
         benchmark: [bars[0]!],
       }).excess,
     ).toBeNull();
+    const missing = scoreValidationResult(result, request, {
+      ...dataset,
+      benchmark: [bars[0]!],
+    });
+    expect(missing.riskAdjusted?.sharpeDifference).toBeNull();
+    expect(missing.riskAdjusted?.calmarDifference).toBeNull();
   });
   it("projects completed 4h decisions to the common clock without early entry and preserves stop duration", () => {
     const frozen = fixture(),

@@ -372,6 +372,14 @@ export function runPortfolio(
   );
   const orders: PortfolioOrder[] = [],
     fills: PortfolioFill[] = [];
+  // Completed orders remain in the audit log, never in the active-order index.
+  const pendingOrders = new Map<string, Set<PortfolioOrder>>();
+  const removePending = (order: PortfolioOrder) => {
+    const key = keyFor(order.strategyId, order.symbol);
+    const active = pendingOrders.get(key);
+    active?.delete(order);
+    if (!active?.size) pendingOrders.delete(key);
+  };
   const rejections: { orderId: number; date: string; reason: string }[] = [];
   const transfers: { date: string; sleeve: string; amount: number }[] = [];
   const observations: {
@@ -421,12 +429,19 @@ export function runPortfolio(
       trigger,
     };
     orders.push(order);
+    const key = keyFor(strategy.id, symbol);
+    const active = pendingOrders.get(key) ?? new Set<PortfolioOrder>();
+    active.add(order);
+    pendingOrders.set(key, active);
     return order;
   };
   const reject = (order: PortfolioOrder, date: string, reason: string) => {
     order.reason = reason;
     rejections.push({ orderId: order.id, date, reason });
-    if (order.side === "buy") order.status = "rejected";
+    if (order.side === "buy") {
+      order.status = "rejected";
+      removePending(order);
+    }
   };
   const execute = (
     order: PortfolioOrder,
@@ -596,6 +611,7 @@ export function runPortfolio(
     const remaining = account.positions.get(key)?.quantity ?? 0;
     order.status =
       remaining > 0 && order.side === "sell" ? "pending" : "filled";
+    if (order.status !== "pending") removePending(order);
     order.reason = null;
     if (!remaining) controls.delete(key);
     fills.push({
@@ -653,7 +669,8 @@ export function runPortfolio(
           const i = source.indices.get(date);
           if (i !== undefined) p.mark = source.instrument.bars[i]!.open;
         }
-      const pending = orders
+      const pending = [...pendingOrders.values()]
+        .flatMap((active) => [...active])
         .filter(
           (o) =>
             o.status === "pending" &&
@@ -683,12 +700,8 @@ export function runPortfolio(
             const protection = strategyProtection(strategy, bar, c);
             if (
               protection &&
-              !orders.some(
-                (o) =>
-                  o.strategyId === strategy.id &&
-                  o.symbol === symbol &&
-                  o.side === "sell" &&
-                  o.status === "pending",
+              ![...(pendingOrders.get(key) ?? [])].some(
+                (o) => o.side === "sell",
               )
             ) {
               const order = pushOrder(
@@ -716,15 +729,7 @@ export function runPortfolio(
             symbol,
             decision,
           });
-          if (
-            orders.some(
-              (o) =>
-                o.status === "pending" &&
-                o.strategyId === strategy.id &&
-                o.symbol === symbol,
-            )
-          )
-            continue;
+          if (pendingOrders.has(key)) continue;
           let eligible: boolean;
           if (strategy.universe.kind === "symbols")
             eligible = strategy.universe.symbols.includes(symbol);

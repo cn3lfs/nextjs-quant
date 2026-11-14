@@ -150,7 +150,11 @@ try {
 console.log(`P0 fixture: ${directory}`);
 const server = spawn(process.execPath, [resolve("scripts/start.mjs")], {
   stdio: "inherit",
-  env: { ...process.env, QUANT_DATA_DIR: directory },
+  env: {
+    ...process.env,
+    QUANT_DATA_DIR: directory,
+    QUANT_RESEARCH_BAR_STORE_DIR: "",
+  },
 });
 for (const event of ["SIGINT", "SIGTERM"] as const)
   process.on(event, () => server.kill());

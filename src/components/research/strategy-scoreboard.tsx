@@ -59,8 +59,21 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
         </p>
         <p>
           {row.original.bias.universe}；{row.original.bias.adjustment}；
-          {row.original.bias.financial}
+          {row.original.bias.financial}；{row.original.bias.execution}
         </p>
+        {row.original.biasTags?.map((tag) => (
+          <p key={tag.code}>
+            偏差（{tag.severity === "high" ? "高" : "中"}）：{tag.detail}
+          </p>
+        ))}
+        {row.original.riskAdjusted && (
+          <p title={row.original.riskAdjusted.basis}>
+            夏普差{" "}
+            {row.original.riskAdjusted.sharpeDifference?.toFixed(3) ?? "—"}；
+            Calmar 差{" "}
+            {row.original.riskAdjusted.calmarDifference?.toFixed(3) ?? "—"}
+          </p>
+        )}
         <p>{row.original.reasons.join("；")}</p>
       </div>
     ),

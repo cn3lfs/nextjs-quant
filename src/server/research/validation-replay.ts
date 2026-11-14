@@ -53,7 +53,33 @@ export function scoreValidationResult(
     return { date: p.date, value: p.equity, benchmarkReturn };
   });
   const evaluation = evaluatePerformance(request.initial, points);
+  let benchmarkNav = request.initial;
+  const benchmarkEvaluation = points.every(
+    (p) => p.benchmarkReturn !== undefined,
+  )
+    ? evaluatePerformance(
+        request.initial,
+        points.map((p) => ({
+          date: p.date,
+          value: (benchmarkNav *= 1 + p.benchmarkReturn!),
+        })),
+      )
+    : null;
+  const difference = (a: number | null, b: number | null) =>
+    a === null || b === null ? null : a - b;
+  const benchmarkSharpe = benchmarkEvaluation?.sharpe.value ?? null;
+  const benchmarkCalmar = benchmarkEvaluation?.calmar.value ?? null;
   return {
+    riskAdjusted: {
+      sharpe: evaluation.sharpe.value,
+      benchmarkSharpe,
+      sharpeDifference: difference(evaluation.sharpe.value, benchmarkSharpe),
+      calmar: evaluation.calmar.value,
+      benchmarkCalmar,
+      calmarDifference: difference(evaluation.calmar.value, benchmarkCalmar),
+      basis:
+        "quant-performance: daily close, 252 observations/year, 2% risk-free; same-window benchmark; crypto comparison is a common convention, not 365-day annualization",
+    },
     return: evaluation.totalReturn.value,
     excess: evaluation.excessReturn.value,
     drawdown: evaluation.maxDrawdown.value,
@@ -92,8 +118,10 @@ function projectCandidate(
     );
   if (!instruments.length) return null;
   const universe = frozen.universe;
+  const members = new Map(universe?.members.map((m) => [m.symbol, m]));
   const strategies: StrategyObjectInput[] = [];
   const projected = instruments.map((source) => {
+    const member = members.get(source.symbol);
     const capture = frozen.native.find(
       (n) => n.symbol === source.symbol,
     )?.capture;
@@ -151,15 +179,8 @@ function projectCandidate(
       availableAt: b.date,
       entry:
         decisions![i]!.entry === true &&
-        (!universe ||
-          ((!universe.members.find((m) => m.symbol === source.symbol)
-            ?.listingDate ||
-            universe.members.find((m) => m.symbol === source.symbol)!
-              .listingDate! <= b.date) &&
-            (!universe.members.find((m) => m.symbol === source.symbol)
-              ?.delistingDate ||
-              universe.members.find((m) => m.symbol === source.symbol)!
-                .delistingDate! > b.date))),
+        (!member?.listingDate || member.listingDate <= b.date) &&
+        (!member?.delistingDate || member.delistingDate > b.date),
       exit: decisions![i]!.exit === true,
     }));
     const levels =
@@ -361,6 +382,21 @@ export function replayValidationInput(
         ...bar,
         date: bar.date.slice(0, 10),
       });
+    const benchmarkBars = [...benchmarkDaily.values()];
+    const regimeByDate = new Map(
+      dataset.dates.map((date) => {
+        const facts = indexFacts(benchmarkBars, date);
+        const regime =
+          facts.close === null || facts.ma20 === null || facts.ma60 === null
+            ? "unknown"
+            : facts.close > facts.ma60 && facts.ma20 > facts.ma60
+              ? "rising"
+              : facts.close < facts.ma60 && facts.ma20 < facts.ma60
+                ? "falling"
+                : "mixed";
+        return [date, regime];
+      }),
+    );
     const regimes = suite.rows.map((r) => ({
       id: r.id,
       groups: ["rising", "falling", "mixed", "unknown"].map((regime) => {
@@ -371,15 +407,7 @@ export function replayValidationInput(
           );
           window.base.daily.forEach((value, i) => {
             if (value === null || !dates[i]) return;
-            const facts = indexFacts([...benchmarkDaily.values()], dates[i]!);
-            const actual =
-              facts.close === null || facts.ma20 === null || facts.ma60 === null
-                ? "unknown"
-                : facts.close > facts.ma60 && facts.ma20 > facts.ma60
-                  ? "rising"
-                  : facts.close < facts.ma60 && facts.ma20 < facts.ma60
-                    ? "falling"
-                    : "mixed";
+            const actual = regimeByDate.get(dates[i]!);
             if (actual === regime) values.push(value);
           });
         });
@@ -431,8 +459,6 @@ export function replayValidationInput(
         .result.selected.dsr.value;
       if (overfit === null || overfit < frozen.input.policy.minimumDsr)
         reasons.push(`multiple-testing-dsr-${frozen.input.policy.minimumDsr}`);
-      if (!frozen.evidence.universeComplete)
-        reasons.push("historical-universe-incomplete");
       if (
         candidate.strategy.sleeve === "low-zone" &&
         frozen.lowZones.some((l) =>
@@ -442,13 +468,9 @@ export function replayValidationInput(
         )
       )
         reasons.push("low-zone-input-confidence");
-      if (!frozen.evidence.executionVerified)
-        reasons.push(
-          frozen.input.market === "cn-equity"
-            ? "historical-execution-unverified"
-            : "historical-venue-filters-and-liquidity-unverified",
-        );
       boards.push({
+        riskAdjusted: row.holdout.base.riskAdjusted,
+        biasTags: validationBiasTags(frozen),
         id: row.id,
         level: "strategy",
         market: candidate.strategy.market,
@@ -546,6 +568,34 @@ export function replayValidationInput(
       .filter((r) => r.status === "live-candidate")
       .map((r) => r.id),
   };
+}
+
+export function validationBiasTags(
+  frozen: FrozenValidationInput,
+): NonNullable<ScoreboardRow["biasTags"]> {
+  const tags: NonNullable<ScoreboardRow["biasTags"]> = [];
+  if (!frozen.evidence.universeComplete)
+    tags.push({
+      code: "historical-universe-incomplete",
+      severity: "high",
+      detail:
+        "可枚举历史证券池不完整，退市覆盖未知；免费数据研究偏差，不阻断统计晋级",
+    });
+  if (!frozen.evidence.executionVerified)
+    tags.push(
+      frozen.input.market === "cn-equity"
+        ? {
+            code: "historical-execution-unverified",
+            severity: "high",
+            detail: "历史ST/IPO/队列、成交及现金到账采用未认证情景",
+          }
+        : {
+            code: "historical-venue-filters-and-liquidity-unverified",
+            severity: "high",
+            detail: "历史平台数量步长、最小金额和流动性容量未认证",
+          },
+    );
+  return tags;
 }
 
 function biasLabels(
@@ -686,6 +736,8 @@ function combinedBook(
     };
   });
   const rows: ScoreboardRow[] = variants.map((v) => ({
+    riskAdjusted: v.score.riskAdjusted,
+    biasTags: validationBiasTags(frozen),
     id: `book-${frozen.input.market}-${dataset.period}-${v.name}`,
     market: frozen.input.market,
     level: "market",

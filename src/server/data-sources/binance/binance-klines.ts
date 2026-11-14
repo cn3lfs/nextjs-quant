@@ -21,6 +21,12 @@ export const BINANCE_MARKET_HOSTS = [
   "https://api.binance.com",
 ] as const;
 const PAGE = 1000;
+export class BinanceNoKlinesError extends Error {
+  constructor() {
+    super("币安没有该交易对的 K 线");
+    this.name = "BinanceNoKlinesError";
+  }
+}
 
 const inputSchema = z
   .object({
@@ -140,7 +146,7 @@ export async function binanceKlines(
         endTime = page[0]!.openTime - 1;
       }
       const rows = mergeKlinePages(pages).slice(-limit);
-      if (!rows.length) throw new Error("币安没有该交易对的 K 线");
+      if (!rows.length) throw new BinanceNoKlinesError();
       const current = now();
       return {
         version: BINANCE_KLINES_VERSION,
@@ -159,6 +165,8 @@ export async function binanceKlines(
         sourceErrors: errors,
       };
     } catch (error) {
+      // A validated empty page is source evidence, not a transport failure.
+      if (error instanceof BinanceNoKlinesError) throw error;
       errors.push(
         `${new URL(host).host}：${error instanceof Error ? error.message : "读取失败"}`,
       );

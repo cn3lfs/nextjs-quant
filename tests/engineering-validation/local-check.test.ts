@@ -37,6 +37,7 @@ function fixture() {
 
 it("uses fresh data and temp directories, preserves the caller's data, and includes the requested build", () => {
   const { root, production } = fixture();
+  vi.stubEnv("QUANT_RESEARCH_BAR_STORE_DIR", join(production, "shared-cache"));
   const steps: string[] = [];
   const envs: NodeJS.ProcessEnv[] = [];
   const options = {
@@ -76,6 +77,9 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
     ),
   ).toBe(true);
   expect(runLocalChecks(options).dataDirectory).not.toBe(first.dataDirectory);
+  expect(
+    envs.every((env) => env.QUANT_RESEARCH_BAR_STORE_DIR === undefined),
+  ).toBe(true);
   expect(existsSync(join(production, "child-write"))).toBe(false);
   expect(readFileSync(join(production, "sentinel"), "utf8")).toBe("preserve");
   expect(process.env.QUANT_DATA_DIR).toBe(production);

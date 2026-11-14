@@ -46,6 +46,7 @@ export function runLocalChecks({
         "TMP",
         "TMPDIR",
         "QUANT_CHECK_ACTIVE",
+        "QUANT_RESEARCH_BAR_STORE_DIR",
       ].includes(key.toUpperCase())
     )
       delete inherited[key];

@@ -2,6 +2,15 @@ import { runPortfolio, type PortfolioRequest } from "./portfolio-engine.js";
 import { marketRules } from "trading-strategy-core/market-rules";
 
 export type ValidationScore = {
+  riskAdjusted?: {
+    sharpe: number | null;
+    benchmarkSharpe: number | null;
+    sharpeDifference: number | null;
+    calmar: number | null;
+    benchmarkCalmar: number | null;
+    calmarDifference: number | null;
+    basis: string;
+  };
   return: number | null;
   excess: number | null;
   drawdown: number | null;

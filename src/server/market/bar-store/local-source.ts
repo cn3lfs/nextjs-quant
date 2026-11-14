@@ -1,6 +1,5 @@
 import { statSync, readFileSync } from "node:fs";
-import { join, relative, resolve, isAbsolute } from "node:path";
-import { dataDirectory } from "../../db";
+import { join, relative, isAbsolute } from "node:path";
 import {
   readSnapshot,
   resolveTdxRoot,
@@ -15,6 +14,7 @@ import {
   CacheBusyError,
   readColumnCache,
   writeColumnCache,
+  columnCacheDirectory,
 } from "./column-cache";
 import { readFullDaySnapshot, fullDayRepairsSameDate } from "./package-import";
 import { contentDigest } from "./content-digest";
@@ -55,7 +55,7 @@ export async function localBars(
   if (root.trim()) {
     const cacheRelative = relative(
       resolveTdxRoot(root),
-      resolve(dataDirectory(), "bar-store"),
+      columnCacheDirectory(),
     );
     if (
       !cacheRelative ||

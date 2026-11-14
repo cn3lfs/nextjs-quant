@@ -23,6 +23,12 @@ import type { ValidationInput } from "./validation-model";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
 import { validationBuildHash } from "./validation-identity";
 import { cryptoSymbol, isCryptoSymbol, cryptoPair } from "~/lib/market/crypto";
+import {
+  readResearchCryptoWindow,
+  readCachedResearchCryptoWindow,
+} from "./validation-crypto-history";
+import { readColumnCache } from "../market/bar-store/column-cache";
+import { readFinancialPoolHistory } from "../data-sources/tdx/local-financial-files";
 
 export const validationHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -129,6 +135,17 @@ export async function captureValidationInput(
   const periods: Period[] =
     input.market === "cn-equity" ? ["day"] : ["day", "4h", "1h", "15m"];
   const actions = universe ? await corporateActions(root) : null;
+  const financialHistory = universe
+    ? await readFinancialPoolHistory(root, requested, {
+        asOf: input.end,
+        strict: true,
+        limit: 160,
+        fieldIds: [96, 271],
+        signal,
+        progress: (done, total) =>
+          progress(4, `冻结财务组成期 ${done}/${total}`),
+      })
+    : undefined;
   const rpsAudit: {
     date: string;
     pool: number;
@@ -158,45 +175,84 @@ export async function captureValidationInput(
         `冻结 ${symbol} ${period}`,
       );
       try {
-        const from =
-          input.market === "crypto"
-            ? new Date(
-                Math.max(
-                  Date.parse(input.start) - 30 * 86400000,
-                  period === "day" ? 0 : Date.parse(input.end) - 210 * 86400000,
-                ),
-              )
-                .toISOString()
-                .slice(0, 10)
-            : undefined;
-        const read = (to: string) =>
-          readBars({
+        const from = input.market === "crypto" ? "1970-01-01" : undefined;
+        const quarantine = new Map<string, Bar>();
+        const read = async (to: string) => {
+          const query = {
             instrument: { market: input.market, symbol },
             root,
             period,
-            adjustment: input.market === "crypto" ? "none" : "forward",
+            adjustment:
+              input.market === "crypto"
+                ? ("none" as const)
+                : ("forward" as const),
             freezeRaw: true,
             to,
             ...(input.market === "crypto"
-              ? { from, cryptoSource: input.cryptoSource, limit: 200000 }
+              ? { from, cryptoSource: input.cryptoSource, limit: 2000000 }
               : {}),
-          });
+          };
+          if (input.market !== "crypto") return readBars(query);
+          const result = await readResearchCryptoWindow(query);
+          for (const bar of result.quarantined) quarantine.set(bar.date, bar);
+          return result.snapshot;
+        };
         let snapshot = await read(input.end);
         if (input.market === "crypto") {
           // BarStore owns source/cache/pagination. Extend the same public venue
           // backwards in bounded windows, never splice prices from two venues.
           let oldest = snapshot.bars[0]?.date;
-          for (let page = 0; page < 20 && oldest; page++) {
+          for (let page = 0; oldest; page++) {
             signal?.throwIfAborted();
             const before = researchHistoryBefore(oldest, period, from!);
             if (!before) break;
-            const earlier = await read(before);
+            const base = period === "4h" ? "1h" : period;
+            if (
+              readColumnCache(`crypto:${symbol}:${base}:${input.cryptoSource}`)
+                ?.metadata.source.historyExhausted === true
+            )
+              break;
+            // Each page adds at most 5,000 source bars. Keep the existing
+            // BarStore two-million-bar budget; never truncate a research window.
+            if (page >= 400)
+              throw new Error(
+                "Crypto source exceeds existing two-million-bar budget",
+              );
+            let earlier: Awaited<ReturnType<typeof read>>;
+            try {
+              earlier = await read(before);
+            } catch (error) {
+              gaps.push(
+                `${symbol}/${period} earlier history before ${oldest} unavailable: ${error instanceof Error ? error.message : "source unavailable"}`,
+              );
+              break;
+            }
             const next = earlier.bars[0]?.date;
             if (!next || next >= oldest) break;
             oldest = next;
           }
-          snapshot = await read(input.end);
+          if (input.cryptoSource === "binance") {
+            const cached = await readCachedResearchCryptoWindow({
+              instrument: { market: "crypto", symbol },
+              period,
+              adjustment: "none",
+              cryptoSource: "binance",
+              from,
+              to: input.end,
+              limit: 2000000,
+            });
+            if (!cached)
+              throw new Error(
+                "Observed crypto cache disappeared before freeze",
+              );
+            snapshot = cached.snapshot;
+            for (const bar of cached.quarantined) quarantine.set(bar.date, bar);
+          } else snapshot = await read(input.end);
         }
+        for (const bar of quarantine.values())
+          gaps.push(
+            `${symbol}/${period} quarantined off-grid raw source bar: ${JSON.stringify(bar)}`,
+          );
         const completed = snapshot.bars.filter(
           (b) => !snapshot.barStore.formingDates.includes(b.date),
         );
@@ -269,6 +325,7 @@ export async function captureValidationInput(
               root,
               symbol,
               completed.map((b) => b.date),
+              financialHistory,
             );
             financials.push({ symbol, capture });
             lowZone = capture.facts;

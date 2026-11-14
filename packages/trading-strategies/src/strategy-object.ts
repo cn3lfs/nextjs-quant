@@ -458,6 +458,19 @@ export function prepareStrategy(
   const enter = compile(strategy.entry),
     leave = strategy.exit.rule ? compile(strategy.exit.rule) : () => false;
   const stop = strategy.exit.stop;
+  // Index once per prepared rule; retain lazy validation at the observed bar.
+  // Repeated filtering here made ATR research quadratic in history length.
+  const structureLevels = new Map<
+    string,
+    NonNullable<StrategyExternalInputs["levels"]>[number][]
+  >();
+  if (stop?.kind === "structure")
+    for (const level of external.levels ?? []) {
+      if (level.field !== stop.field) continue;
+      const rows = structureLevels.get(level.date) ?? [];
+      rows.push(level);
+      structureLevels.set(level.date, rows);
+    }
   const atr =
     stop?.kind === "atr"
       ? calculateFactor(bars, {
@@ -478,10 +491,7 @@ export function prepareStrategy(
       if (stop?.kind === "atr" && atr?.[index] != null)
         stopLevel = bars[index]!.close - atr[index]! * stop.multiple;
       if (stop?.kind === "structure") {
-        const levels =
-          external.levels?.filter(
-            (x) => x.field === stop.field && x.date === bars[index]!.date,
-          ) ?? [];
+        const levels = structureLevels.get(bars[index]!.date) ?? [];
         if (levels.length > 1) throw new Error("Duplicate structure levels");
         const level = levels[0];
         if (

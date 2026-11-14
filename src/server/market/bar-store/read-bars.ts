@@ -23,6 +23,10 @@ import { localBars } from "./local-source";
 import { corporateActions } from "./corporate-actions";
 import { readColumnCache, writeColumnCache } from "./column-cache";
 import { cryptoKlines } from "./crypto-source";
+import {
+  BinanceNoKlinesError,
+  BINANCE_KLINES_VERSION,
+} from "../../data-sources/binance/binance-klines";
 import { settings } from "../../infra/settings";
 import { freeChartHistory } from "../free-chart-sources";
 import { mergeOnlineDailyTail } from "../chart-online-delta";
@@ -48,6 +52,8 @@ export const readBarsInput = z
     freezeRaw: z.boolean().default(false),
     source: marketSourceSchema.optional(),
     cryptoSource: cryptoSourceSchema.default("auto"),
+    /** Research can fetch Binance's own 15m candles instead of 3x as many 5m rows. */
+    cryptoNative15m: z.boolean().default(false),
     now: z.number().finite().optional(),
     calendar: z
       .object({
@@ -60,6 +66,14 @@ export const readBarsInput = z
   .refine(
     (v) => !v.from || !v.to || Date.parse(v.from) <= Date.parse(v.to),
     "行情区间非法",
+  )
+  .refine(
+    (v) =>
+      !v.cryptoNative15m ||
+      (v.instrument.market === "crypto" &&
+        v.period === "15m" &&
+        v.cryptoSource === "binance"),
+    "Native 15m research requires Binance crypto 15m",
   );
 export type ReadBarsInput = z.input<typeof readBarsInput>;
 export type BarSeries = Omit<Snapshot, "period"> & {
@@ -113,7 +127,7 @@ function completedDailySource(bars: Bar[], now: number, adjusted: boolean) {
 
 async function cryptoBars(
   input: z.infer<typeof readBarsInput>,
-  base: "day" | "5m" | "1h",
+  base: "day" | "5m" | "15m" | "1h",
   now: number,
 ): Promise<SourceSeries> {
   const { symbol } = input.instrument;
@@ -132,7 +146,7 @@ async function cryptoBars(
         ? 7
         : input.period === "month"
           ? 31
-          : input.period === "15m"
+          : input.period === "15m" && base !== "15m"
             ? 3
             : input.period === "30m"
               ? 6
@@ -168,13 +182,42 @@ async function cryptoBars(
     !historical && cached && cached.bars.length >= needed && elapsed < needed
       ? elapsed
       : needed;
-  const result = await cryptoKlines(
-    symbol,
-    base,
-    Math.min(5000, count),
-    input.cryptoSource,
-    end,
-  );
+  let result: Awaited<ReturnType<typeof cryptoKlines>>;
+  try {
+    result = await cryptoKlines(
+      symbol,
+      base,
+      Math.min(5000, count),
+      input.cryptoSource,
+      end,
+    );
+  } catch (error) {
+    const first = cached?.bars[0];
+    const firstOpening = first
+      ? Date.parse(first.date) - (base === "day" ? 0 : step)
+      : null;
+    if (
+      !(error instanceof BinanceNoKlinesError) ||
+      input.cryptoSource !== "binance" ||
+      !cached ||
+      firstOpening === null ||
+      end === undefined ||
+      end > firstOpening ||
+      cached.metadata.source.source !== "binance-spot" ||
+      !Array.isArray(cached.metadata.source.sourceVersions) ||
+      !cached.metadata.source.sourceVersions.includes(BINANCE_KLINES_VERSION)
+    )
+      throw error;
+    // Empty before an already observed series proves a lower boundary. Keep
+    // the cached prices intact; empty inside coverage or unknown pairs fail.
+    const metadata: typeof cached.metadata.source = {
+      ...cached.metadata.source,
+      historyExhausted: true,
+      historicalFetchedAt: now,
+    };
+    writeColumnCache(key, cached.bars, cached.metadata.fingerprint, metadata);
+    return { ...metadata, bars: cached.bars } as SourceSeries;
+  }
   const sameVenue =
     cached?.metadata.source.source === result.source &&
     (cached.metadata.source.sourceVersions as string[] | undefined)?.includes(
@@ -238,7 +281,7 @@ export async function readBars<const T extends ReadBarsInput>(
     throw new Error("期货沿用现有合约来源，尚未接入 BarStore");
   if (market !== "cn-equity" && input.adjustment !== "none")
     throw new Error("数字货币不支持复权");
-  const base = basePeriod(market, input.period);
+  const base = input.cryptoNative15m ? "15m" : basePeriod(market, input.period);
   const root = input.root ?? (market === "cn-equity" ? settings().tdxRoot : "");
   let raw: SourceSeries;
   if (frozen) {
@@ -252,7 +295,7 @@ export async function readBars<const T extends ReadBarsInput>(
   } else if (market === "crypto") raw = await cryptoBars(input, base, now);
   else {
     const local = () =>
-      localBars(root, symbol, base === "1h" ? "5m" : base, input.chartFunds);
+      localBars(root, symbol, base === "day" ? "day" : "5m", input.chartFunds);
     if (input.source && input.source !== "local") {
       try {
         if (input.source !== "auto") throw new Error("selected remote source");
@@ -334,7 +377,7 @@ export async function readBars<const T extends ReadBarsInput>(
           ? aggregateCryptoBars(bars, base, input.period, now, raw.formingDates)
           : aggregateChartBars(
               bars,
-              base === "1h" ? "5m" : base,
+              base === "day" ? "day" : "5m",
               input.period,
               now,
               input.calendar,
@@ -353,7 +396,7 @@ export async function readBars<const T extends ReadBarsInput>(
       : [...marketPeriods["cn-equity"], "month"];
   if (market === "cn-equity" && (!input.source || input.source === "local")) {
     try {
-      statSync(
+      const available = statSync(
         join(
           resolveTdxRoot(root),
           "vipdoc",
@@ -361,7 +404,9 @@ export async function readBars<const T extends ReadBarsInput>(
           "fzline",
           `${symbol}.lc5`,
         ),
+        { throwIfNoEntry: false },
       );
+      if (!available) supported = ["day", "week", "month"];
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT" || !root.trim())
         supported = ["day", "week", "month"];
