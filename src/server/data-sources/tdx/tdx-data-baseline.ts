@@ -1,5 +1,6 @@
 import type { Snapshot } from "~/lib/domain";
-import { readSnapshot } from "./tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 
 /** Observed gaps are not trading-status judgments: suspended sessions stay unknown. */
 export function summarizeTdxSnapshot(snapshot: Snapshot, targetDate: string) {
@@ -58,7 +59,12 @@ export async function captureTdxBaseline(
         observations.push({
           status: "read" as const,
           ...summarizeTdxSnapshot(
-            await readSnapshot(root, symbol, period),
+            await readBars({
+              instrument: { market: "cn-equity", symbol: symbol },
+              root: root,
+              period: period,
+              adjustment: "none",
+            }),
             targetDate,
           ),
         });

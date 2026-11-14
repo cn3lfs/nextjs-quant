@@ -7,9 +7,9 @@ import {
   type TdxClient,
 } from "tstdx";
 import {
-  chartPeriodSchema,
+  cnChartPeriodSchema as chartPeriodSchema,
   isMinutePeriod,
-  type ChartPeriod,
+  type CnChartPeriod as ChartPeriod,
 } from "~/lib/chart/chart-view";
 import type { Bar } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";

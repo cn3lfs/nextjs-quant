@@ -1,12 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
-vi.mock("~/server/data-sources/tdx/tdx", () => ({ readSnapshot: vi.fn() }));
+vi.mock("~/server/market/bar-store/read-bars", () => ({ readBars: vi.fn() }));
 vi.mock("~/server/data-sources/tdx/tdx-benchmark", () => ({
   readBenchmarkSnapshot: vi.fn(),
 }));
 vi.mock("~/server/backtest/backtest-actions", () => ({
   readBacktestActions: vi.fn(),
 }));
-import { readSnapshot } from "~/server/data-sources/tdx/tdx";
+import { readBars } from "~/server/market/bar-store/read-bars";
+const readSnapshot = readBars as (
+  input: import("~/server/market/bar-store/read-bars").ReadBarsInput,
+) => Promise<Snapshot>;
 import { readBenchmarkSnapshot } from "~/server/data-sources/tdx/tdx-benchmark";
 import { readBacktestActions } from "~/server/backtest/backtest-actions";
 import { executeMaBaseline } from "~/server/backtest/ma-baseline-work";

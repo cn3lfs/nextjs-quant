@@ -16,7 +16,7 @@ import { RpsStore } from "../db/rps-store";
 import { exchangeNames } from "./exchange-security-names";
 import { observationRanking } from "../screening/rps-observation";
 import { latestRpsObservation } from "../db/rps-observations";
-import { fullDaySymbols } from "../data-sources/tdx/tdx-full-day-cache";
+import { fullDaySymbols } from "~/server/market/bar-store/package-import";
 
 export async function marketPoolRows(input: unknown) {
   const query = marketPoolQuerySchema.parse(input);

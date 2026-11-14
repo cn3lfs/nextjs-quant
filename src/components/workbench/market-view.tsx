@@ -100,10 +100,19 @@ export function MarketView({
       ? "none"
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
+  const availableChartPeriods = chartPeriodSchema.options.filter(
+    (p) =>
+      p !== "4h" &&
+      p !== "1h" &&
+      (marketSource !== "local" ||
+        !loaded?.barStore?.availablePeriods ||
+        loaded.barStore.availablePeriods.includes(p)),
+  );
   usePeriodHotkey(
     chartPeriod,
     setChartPeriod,
     !visible || load.isPending || marketView === "financial",
+    availableChartPeriods,
   );
   const [browseEdge, setBrowseEdge] = useState("");
   const [listSource, setListSource] = useState<"candidates" | "watch">(
@@ -335,7 +344,9 @@ export function MarketView({
               }
               period={period}
               disabled={load.isPending}
-              onPeriod={setChartPeriod}
+              onPeriod={(next) => {
+                if (availableChartPeriods.includes(next)) setChartPeriod(next);
+              }}
               onSelect={(next) => {
                 setSymbol(next);
                 load.mutate({
@@ -412,7 +423,7 @@ export function MarketView({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {chartPeriodSchema.options.map((p) => (
+                {availableChartPeriods.map((p) => (
                   <SelectItem key={p} value={p}>
                     {p === "day" ? "日 K" : periodLabels[p]}
                   </SelectItem>

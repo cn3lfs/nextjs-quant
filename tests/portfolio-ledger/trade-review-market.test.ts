@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { readTradeReviewSnapshot } from "../../src/server/portfolio/trade-review-market";
-import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
 import { parseBars } from "tstdx/local";
 import { classifyCode } from "../../src/lib/research/evidence/delivery-import";
 import { migrate } from "../../src/server/db/migrations";

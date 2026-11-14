@@ -30,6 +30,11 @@ async function localSample(
   symbol: string,
   period: ConnectionCheckInput["period"],
 ) {
+  if (period !== "day" && period !== "5m")
+    throw new CheckFailure(
+      "unavailable",
+      "诊断样本仅支持基础日线/5分钟，请使用图表读取派生周期",
+    );
   try {
     root = resolveTdxRoot(root);
   } catch (error) {
@@ -115,6 +120,8 @@ async function onlineSample(
   const start = new Date(Date.parse(today) - 21 * 86400000)
     .toISOString()
     .slice(0, 10);
+  if (input.period === "4h" || input.period === "1h")
+    throw new CheckFailure("unavailable", "该来源不支持此周期");
   const request = {
     symbols: [input.symbol],
     period: input.period,

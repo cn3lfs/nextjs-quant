@@ -27,6 +27,7 @@ const inputSchema = z
     symbol: cryptoSymbolSchema,
     period: chartPeriodSchema,
     limit: z.number().int().min(1).max(5000).default(2000),
+    before: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -101,13 +102,14 @@ export async function binanceKlines(
   input: z.input<typeof inputSchema>,
   options: OutboundOptions & { now?: () => number } = {},
 ) {
-  const { symbol, period, limit } = inputSchema.parse(input);
+  const { symbol, period, limit, before } = inputSchema.parse(input);
   const now = options.now ?? Date.now;
   const errors: string[] = [];
   for (const host of BINANCE_MARKET_HOSTS) {
     const pages: Page[] = [];
     const routes = new Set<OutboundRoute>();
-    let endTime: number | undefined;
+    let endTime: number | undefined =
+      before === undefined ? undefined : before - 1;
     let exhausted = false;
     try {
       for (

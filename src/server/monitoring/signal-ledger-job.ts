@@ -13,7 +13,8 @@ import {
   analyzeBreakout,
   type BreakoutPoint,
 } from "trading-strategies/research/breakout/breakout";
-import { readSnapshot, scan } from "../data-sources/tdx/tdx";
+import { scan } from "../data-sources/tdx/tdx";
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readGbbq } from "tstdx/local";
 import {
   localCalendarReference,
@@ -47,7 +48,15 @@ export function localLedgerDependencies(
       (await scan(root)).securities
         .filter((s) => s.period === "day")
         .map((s) => s.symbol),
-    bars: async (symbol) => (await readSnapshot(root, symbol, "day")).bars,
+    bars: async (symbol) =>
+      (
+        await readBars({
+          instrument: { market: "cn-equity", symbol: symbol },
+          root: root,
+          period: "day",
+          adjustment: "none",
+        })
+      ).bars,
     czsc: (bars) => analyzeCzsc(bars, true),
     breakout: (symbols, now) => breakoutBatch(root, symbols, now),
     actions: () => localLedgerActions(root),

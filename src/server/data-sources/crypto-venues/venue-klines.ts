@@ -60,6 +60,8 @@ const periodMs: Partial<Record<ChartPeriod, number>> = {
   "15m": 15 * minute,
   "30m": 30 * minute,
   "60m": 60 * minute,
+  "1h": 60 * minute,
+  "4h": 240 * minute,
   day: 1440 * minute,
   week: 7 * 1440 * minute,
 };
@@ -101,7 +103,12 @@ function checked(row: VenueRow, name: string) {
 
 export async function venueKlines(
   spec: VenueSpec,
-  input: { symbol: string; period: ChartPeriod; limit: number },
+  input: {
+    symbol: string;
+    period: ChartPeriod;
+    limit: number;
+    before?: number;
+  },
   options: OutboundOptions & { now?: () => number } = {},
 ) {
   const { symbol, period, limit } = input;
@@ -111,7 +118,7 @@ export async function venueKlines(
   if (!interval) throw new Error(`${spec.name}不提供该周期 K 线，请换数据源`);
   const byOpen = new Map<number, VenueRow>();
   const routes = new Set<OutboundRoute>();
-  let before: number | undefined;
+  let before: number | undefined = input.before;
   let exhausted = false;
   while (byOpen.size < limit) {
     const size = Math.min(spec.pageSize, limit - byOpen.size);

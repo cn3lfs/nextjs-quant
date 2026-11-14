@@ -95,6 +95,7 @@ export const useMarketSession = create<MarketSession>((set) => ({
       symbol: loaded.symbol,
       period: loaded.period,
       chartPeriod: loaded.period,
+      adjustment: loaded.adjustment ?? "none",
       snapshotSource: source,
       marketSource: source ?? state.marketSource,
       marketView: "chart",

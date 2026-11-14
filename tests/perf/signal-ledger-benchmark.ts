@@ -11,7 +11,8 @@ import { sqlite } from "../../src/server/db";
 import { SignalLedgerStore } from "../../src/server/db/signal-ledger-store";
 import { SignalLedgerWorker } from "../../src/server/monitoring/signal-ledger-client";
 import { localLedgerDependencies } from "../../src/server/monitoring/signal-ledger-job";
-import { readSnapshot, scan } from "../../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
+import { scan } from "../../src/server/data-sources/tdx/tdx";
 import {
   horizons,
   ledgerOutcome,

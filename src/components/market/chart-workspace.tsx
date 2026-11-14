@@ -639,7 +639,15 @@ function EditableChart({
               <SelectContent>
                 <SelectItem value="off">关闭</SelectItem>
                 {chartPeriodSchema.options
-                  .filter((p) => p !== period)
+                  .filter(
+                    (p) =>
+                      p !== period &&
+                      (snapshot.requestedSource !== "local" ||
+                        !snapshot.barStore?.availablePeriods ||
+                        snapshot.barStore.availablePeriods.includes(p)) &&
+                      (snapshot.symbol.startsWith("cx") ||
+                        (p !== "4h" && p !== "1h")),
+                  )
                   .map((p) => (
                     <SelectItem key={p} value={p}>
                       {periodLabels[p]}

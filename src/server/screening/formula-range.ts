@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { strategySchema, type Snapshot } from "~/lib/domain";
 import { evaluateFormula, FormulaError } from "~/lib/formula/tdx-formula";
 import type { ScreeningFormula } from "~/lib/formula/formula-screen";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import type { ScreeningResult } from "./screening-result";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
@@ -57,9 +58,14 @@ export async function scanFormulaRange(
   const read = (i: number) => {
     const security = securities[i];
     if (security)
-      pending[i] = readSnapshot(work.root, security.symbol, "day").catch(
-        (error: unknown) => ({ error }),
-      );
+      pending[i] = readBars({
+        instrument: { market: "cn-equity", symbol: security.symbol },
+        root: work.root,
+        period: "day",
+        adjustment: "forward",
+        freezeRaw: true,
+        to: new Date(work.now + 8 * 3600000).toISOString().slice(0, 10),
+      }).catch((error: unknown) => ({ error }));
   };
   for (let i = 0; i < PREFETCH; i++) read(i);
   for (const [index, security] of securities.entries()) {
@@ -129,11 +135,21 @@ export async function scanFormulaRange(
           });
         else {
           const hash = createHash("sha256")
-            .update(JSON.stringify(bars))
+            .update(
+              JSON.stringify({
+                bars,
+                adjustment: snapshot.adjustment,
+                reference: snapshot.barStore?.adjustmentReference,
+              }),
+            )
             .digest("hex");
           const selected = {
             ...snapshot,
+            requestedSource: "local" as const,
             bars,
+            ...(snapshot.rawBars
+              ? { rawBars: snapshot.rawBars.filter((b) => completed(b.date)) }
+              : {}),
             hash,
             id: `snapshot-formula-${security.symbol}-${hash.slice(0, 16)}`,
           };

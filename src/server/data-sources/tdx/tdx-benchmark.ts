@@ -7,7 +7,7 @@ import type { Snapshot } from "~/lib/domain";
 import {
   readFullDaySnapshot,
   fullDayRepairsSameDate,
-} from "./tdx-full-day-cache";
+} from "~/server/market/bar-store/package-import";
 
 import { parseBenchmarkWindow, readStableLocalFile } from "tstdx/local";
 export { parseBenchmarkWindow } from "tstdx/local";

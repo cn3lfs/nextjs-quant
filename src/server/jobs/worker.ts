@@ -9,7 +9,8 @@ import {
   type LocalFinancialWork,
 } from "../financial/local-financial-work";
 import { scan } from "../data-sources/tdx/tdx";
-import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import type { FormulaWork } from "../screening/formula-screening";
 import { executeFormulaScreen } from "../screening/formula-screen-work";
 import { scanFormulaRange } from "../screening/formula-range";
@@ -104,7 +105,13 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
     );
   if (work.type === "scan") return scan(work.root);
   if (work.type === "snapshot")
-    return readVipdocChart(work.root, work.symbol, work.period);
+    return readBars({
+      instrument: { market: "cn-equity", symbol: work.symbol },
+      root: work.root,
+      period: work.period,
+      adjustment: "none",
+      chartFunds: true,
+    });
   throw new Error("不支持的计算任务类型");
 }
 parentPort?.on("message", (work: Work | { progressAck: number }) => {

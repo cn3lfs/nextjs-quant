@@ -1,5 +1,6 @@
 import { closeMcp } from "../src/server/mcp";
-import { readSnapshot, scan } from "../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
+import { scan } from "../src/server/data-sources/tdx/tdx";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { defaultStrategy } from "../src/lib/domain";
 import { importLocalMcp, mcpTools } from "../src/server/mcp";

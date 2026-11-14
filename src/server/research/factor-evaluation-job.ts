@@ -10,7 +10,8 @@ import {
   workProgress,
   type WorkProgress,
 } from "~/lib/research/workflow/work-progress";
-import { readSnapshot, scan } from "../data-sources/tdx/tdx";
+import { scan } from "../data-sources/tdx/tdx";
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { recordResearchUsage } from "./research-usage";
 import {
   adjustmentFactors,
@@ -80,14 +81,27 @@ export async function evaluateFactorWork(
   };
   const PREFETCH = 8;
   const pending: Promise<
-    Awaited<ReturnType<typeof readSnapshot>> | { error: unknown }
+    | Awaited<
+        ReturnType<
+          (
+            root: string,
+            symbol: string,
+            period: "day" | "5m",
+            options?: { chartFunds?: boolean },
+          ) => Promise<import("~/lib/domain").Snapshot>
+        >
+      >
+    | { error: unknown }
   >[] = [];
   const read = (i: number) => {
     const security = securities[i];
     if (security)
-      pending[i] = readSnapshot(work.root, security.symbol, "day").catch(
-        (error: unknown) => ({ error }),
-      );
+      pending[i] = readBars({
+        instrument: { market: "cn-equity", symbol: security.symbol },
+        root: work.root,
+        period: "day",
+        adjustment: "none",
+      }).catch((error: unknown) => ({ error }));
   };
   for (let i = 0; i < PREFETCH; i++) read(i);
   for (const [index, security] of securities.entries()) {

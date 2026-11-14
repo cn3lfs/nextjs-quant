@@ -45,6 +45,7 @@ export async function mcpChartHistory(
   limit: number,
   query = queryMcp,
 ) {
+  if (period === "4h" || period === "1h") throw new Error("A股不支持该周期");
   const collected = new Map<string, Bar>();
   let exhausted = false;
   for (let offset = 0; offset < limit; offset += 700) {
@@ -95,6 +96,7 @@ export async function mcpLatestBars(
 ) {
   if (!Number.isInteger(count) || count < 1 || count > 1000)
     throw new Error("MCP 尾段 K 线数量必须在 1..1000");
+  if (period === "4h" || period === "1h") throw new Error("A股不支持该周期");
   const raw = await query("tdx_kline", {
     code: symbol.slice(2),
     setcode: symbol.startsWith("sh") ? "1" : "0",
@@ -117,6 +119,7 @@ export async function onlinePeriodHistory(
   limit: number,
   beg = "0",
 ) {
+  if (period === "4h" || period === "1h") throw new Error("A股不支持该周期");
   const result = await eastmoneyKlines({
     symbols: [symbol],
     period,

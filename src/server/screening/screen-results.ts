@@ -6,6 +6,7 @@ import type { ScreenSort } from "~/lib/screening/screen-sort";
 
 export type StoredScreenResult = Omit<ScreeningResult, "snapshots"> & {
   formula: ScreeningFormula;
+  adjustment?: "none" | "forward" | "backward";
   period: "day";
   researchMode: "latest-local";
   universeSource: string;
@@ -64,6 +65,7 @@ export function pageScreenResults(
   return {
     sort,
     formula: result.formula,
+    adjustment: result.adjustment ?? "none",
     direction,
     total: result.total,
     asOf: result.asOf,

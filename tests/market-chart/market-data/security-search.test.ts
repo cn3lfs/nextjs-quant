@@ -5,7 +5,8 @@ const stocks: Security[] = [
   {
     symbol: "sh600519",
     name: "贵州茅台",
-    market: "sh",
+    market: "cn-equity",
+    exchange: "sh",
     period: "day",
     bytes: 32,
     modified: 0,
@@ -13,7 +14,8 @@ const stocks: Security[] = [
   {
     symbol: "sz000001",
     name: "平安银行",
-    market: "sz",
+    market: "cn-equity",
+    exchange: "sz",
     period: "day",
     bytes: 32,
     modified: 0,

@@ -20,7 +20,8 @@ import {
   readFinancialPoolHistory,
   readLocalFinancialSeries,
 } from "../data-sources/tdx/local-financial-files";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { auditLocalFinancialFiles } from "../data-sources/tdx/local-financial-audit";
 import { buildLocalFinancialArchive } from "./local-financial-archive";
 
@@ -84,7 +85,14 @@ export async function runLocalFinancialScreen(
         )
       : null;
   const benchmark = needs("benchmark")
-    ? await optionalSource(() => readSnapshot(work.root, "sh000300", "day"))
+    ? await optionalSource(() =>
+        readBars({
+          instrument: { market: "cn-equity", symbol: "sh000300" },
+          root: work.root,
+          period: "day",
+          adjustment: "none",
+        }),
+      )
     : null;
   const ids = [
     1,
@@ -147,7 +155,14 @@ export async function runLocalFinancialScreen(
     );
     const daily =
       input.technical.length || needs("bars")
-        ? await optionalSource(() => readSnapshot(work.root, symbol, "day"))
+        ? await optionalSource(() =>
+            readBars({
+              instrument: { market: "cn-equity", symbol: symbol },
+              root: work.root,
+              period: "day",
+              adjustment: "none",
+            }),
+          )
         : null;
     const stock = needs("stock-series")
       ? await optionalSource(() => readLocalFinancialSeries(work.root, symbol))

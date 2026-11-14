@@ -21,7 +21,8 @@ import {
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { scan } from "../data-sources/tdx/tdx";
 import { parseBars } from "tstdx/local";
-import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readGbbq } from "tstdx/local";
 import type { TdxXdxr } from "tstdx/wire";
 import { calculateRpsDay, prepareRpsSecurity } from "./rps-adapter";
@@ -34,7 +35,7 @@ import { RpsPrerequisiteError } from "./rps-prerequisite";
 import {
   fullDaySymbols,
   readFullDaySnapshot,
-} from "../data-sources/tdx/tdx-full-day-cache";
+} from "~/server/market/bar-store/package-import";
 
 export type RpsDependencies = {
   incrementSnapshots?: () => string[];
@@ -138,7 +139,12 @@ export function localRpsDependencies(
     },
     bars: async (symbol) => {
       // g4day 暂停（见 docs/decisions.md WF3）：只读本地日线，不叠加通达信增量。
-      const snapshot = await readLocalDailySnapshot(root, symbol);
+      const snapshot = await readBars({
+        instrument: { market: "cn-equity", symbol: symbol },
+        root: root,
+        period: "day",
+        adjustment: "none",
+      });
       return snapshot.bars;
     },
     actions: async () => {

@@ -3,9 +3,17 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import samples from "../fixtures/vipdoc-source-samples.json";
-import { readTailSnapshot } from "../../src/server/data-sources/tdx/tdx";
+import { readTailSnapshot } from "tstdx/local";
 import { isLocalFund, parseBars } from "tstdx/local";
-import { readVipdocChart as readSnapshot } from "../../src/server/data-sources/tdx/vipdoc-adapter";
+import { readBars } from "../../src/server/market/bar-store/read-bars";
+const readSnapshot = (root: string, symbol: string, period: "day" | "5m") =>
+  readBars({
+    instrument: { market: "cn-equity", symbol },
+    root,
+    period,
+    adjustment: "none",
+    chartFunds: true,
+  });
 
 it("本地 ETF 日线按三位精度读取，分钟浮点价格不缩放，研究证券池不扩展", async () => {
   const root = await mkdtemp(join(tmpdir(), "vipdoc-source-"));

@@ -44,6 +44,8 @@ export const binanceInterval: Record<ChartPeriod, string> = {
   "15m": "15m",
   "30m": "30m",
   "60m": "1h",
+  "1h": "1h",
+  "4h": "4h",
   day: "1d",
   week: "1w",
   month: "1M",
@@ -79,7 +81,7 @@ export const cryptoSourceLabels: Record<CryptoSource, string> = {
   binance: "币安",
   okx: "OKX",
   gate: "Gate.io",
-  coinbase: "Coinbase（无 30 分钟/周/月）",
+  coinbase: "Coinbase",
   bybit: "Bybit",
 };
 

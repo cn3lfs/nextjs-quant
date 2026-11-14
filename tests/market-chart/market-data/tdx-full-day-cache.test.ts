@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { get } from "../../../src/server/db/index";
-import { readLocalDailySnapshot } from "../../../src/server/market/local-daily-snapshot";
+import { readBars } from "../../../src/server/market/bar-store/read-bars";
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
 import { readBenchmarkSnapshot } from "../../../src/server/data-sources/tdx/tdx-benchmark";
@@ -8,7 +8,7 @@ import { localRpsDependencies } from "../../../src/server/screening/rps-job";
 import {
   publishFullDayPackage,
   readFullDaySnapshot,
-} from "../../../src/server/data-sources/tdx/tdx-full-day-cache";
+} from "../../../src/server/market/bar-store/package-import";
 const file = "tests/fixtures/tdx-full-day/valid.zip";
 it
   .skipIf(process.platform !== "win32")
@@ -81,7 +81,14 @@ it.skipIf(process.platform !== "win32")(
     } finally {
       await worker.terminate();
     }
-    expect(await readLocalDailySnapshot(root, "sh600000")).toMatchObject({
+    expect(
+      await readBars({
+        instrument: { market: "cn-equity", symbol: "sh600000" },
+        root,
+        period: "day",
+        adjustment: "none",
+      }),
+    ).toMatchObject({
       source: "tdx-full-package",
       dataRoot: root,
       hash: first?.hash,
@@ -102,7 +109,7 @@ it.skipIf(process.platform !== "win32")(
     await expect(publishFullDayPackage(file, ["sh600000"], 99)).rejects.toThrow(
       "更新",
     );
-    expect(get(first!.id)).toEqual(first);
+    expect(get(first!.id)).toBeUndefined(); // New imports persist columns, not bars JSON records.
     expect(readFullDaySnapshot("sh600000")?.id).toBe(first?.id);
   },
 );

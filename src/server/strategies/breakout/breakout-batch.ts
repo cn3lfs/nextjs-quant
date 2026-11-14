@@ -3,7 +3,8 @@ import {
   analyzeBreakout,
   type BreakoutPoint,
 } from "trading-strategies/research/breakout/breakout";
-import { readSnapshot, readTailSnapshot } from "../../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { isAStock } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { breakoutSourceManifest } from "./breakout-source-manifest";
@@ -64,7 +65,14 @@ export async function breakoutBatch(
       while (cursor < universe.length) {
         const symbol = universe[cursor++]!;
         try {
-          const tail = await readTailSnapshot(root, symbol, "day", 62);
+          const tail = await readBars({
+            instrument: { market: "cn-equity", symbol: symbol },
+            root: root,
+            period: "day",
+            limit: 62,
+            adjustment: "forward",
+            to: local.slice(0, 10),
+          });
           const preliminary = analyzeBreakout(
             tail.bars.filter((b) => completed(b.date)),
           ).latest;
@@ -79,7 +87,13 @@ export async function breakoutBatch(
           )
             continue;
           result.fullHistoryReads++;
-          const source = await readSnapshot(root, symbol, "day");
+          const source = await readBars({
+            instrument: { market: "cn-equity", symbol: symbol },
+            root: root,
+            period: "day",
+            adjustment: "forward",
+            to: local.slice(0, 10),
+          });
           const point = analyzeBreakout(
             source.bars.filter((b) => completed(b.date)),
           ).latest;

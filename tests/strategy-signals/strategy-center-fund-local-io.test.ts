@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { evaluateStrategy } from "trading-strategies";
-import { readSnapshot } from "~/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
 import { captureStrategyCandidates } from "~/server/strategies/strategy-center-candidates";
 
 const roots: string[] = [];

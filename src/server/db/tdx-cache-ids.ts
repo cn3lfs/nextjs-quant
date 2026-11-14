@@ -2,6 +2,31 @@ import { sqlite } from "./index";
 import { readSnapshot } from "./snapshot";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
+import type Database from "better-sqlite3";
+
+export type FullDayCachePointer = {
+  snapshotId: string;
+  importedAt: number;
+  repairSameDate?: boolean;
+};
+const pointerStatements = new WeakMap<Database.Database, Database.Statement>();
+
+/** Reuse query preparation, never its result: imports in another connection
+ * must be visible to the next BarStore read. */
+export function fullDayCachePointer(
+  symbol: string,
+): FullDayCachePointer | undefined {
+  symbolSchema.parse(symbol);
+  const database = sqlite();
+  let statement = pointerStatements.get(database);
+  if (!statement) {
+    statement = database.prepare("SELECT payload FROM records WHERE id=?");
+    pointerStatements.set(database, statement);
+  }
+  const row = statement.get(`tdx-full-day-current-${symbol}`) as
+    { payload: string } | undefined;
+  return row ? (JSON.parse(row.payload) as FullDayCachePointer) : undefined;
+}
 
 export function fullDayCacheIds() {
   return readSnapshot(() =>

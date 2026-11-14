@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Bar } from "../../src/lib/domain";
 import { boll, ema, kdj, ma, macd, rsi } from "../../src/lib/indicators";
-import { readLocalDailySnapshot } from "../../src/server/market/local-daily-snapshot";
+import { readBars } from "../../src/server/market/bar-store/read-bars";
 import { adjustmentFactors, applyAdjustment, readGbbq } from "tstdx/local";
 
 /**
@@ -147,7 +147,12 @@ async function main() {
   const formulaFixture: Record<string, unknown> = {};
 
   for (const symbol of SYMBOLS) {
-    const snapshot = await readLocalDailySnapshot(tdxRoot, symbol);
+    const snapshot = await readBars({
+      instrument: { market: "cn-equity", symbol },
+      root: tdxRoot,
+      period: "day",
+      adjustment: "none",
+    });
     const raw = snapshot.bars;
     // `parseGbbq` keys by the lowercase `sh600000` form, the same shape the
     // TDX snapshot uses, so no case folding is needed here.

@@ -274,9 +274,16 @@ export function maSeries(
   period(n);
   return values.map((_, i) => {
     if (i + 1 < n) return null;
-    const window = values.slice(i + 1 - n, i + 1);
-    if (window.some((v) => v === null || !Number.isFinite(v))) return null;
-    return finite((window as number[]).reduce((sum, v) => sum + v, 0) / n);
+    // Preserve each window's left-to-right addition (including overflow and
+    // cancellation). A rolling sum would change rounding at CROSS boundaries.
+    let sum = 0;
+    for (let at = i + 1 - n; at <= i; at++) {
+      const value = values[at];
+      if (value === undefined && !(at in values)) continue;
+      if (value == null || !Number.isFinite(value)) return null;
+      sum += value;
+    }
+    return finite(sum / n);
   });
 }
 

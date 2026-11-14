@@ -36,7 +36,8 @@ import {
   queryPerformanceEvaluation,
   exportPerformanceEvaluation,
 } from "../../performance/backtest-evaluation";
-import { readSnapshot as readBaselineSnapshot } from "../../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { cancelJob } from "../../jobs/jobs";
 
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
@@ -53,11 +54,12 @@ export const jobsRouter = createTRPCRouter({
   maBaselineCoverage: p("backtest", "read")
     .input(maBaselineInputSchema.innerType().shape.symbol)
     .query(async ({ input }) => {
-      const source = await readBaselineSnapshot(
-        settings().tdxRoot,
-        input,
-        "5m",
-      );
+      const source = await readBars({
+        instrument: { market: "cn-equity", symbol: input },
+        root: settings().tdxRoot,
+        period: "5m",
+        adjustment: "none",
+      });
       return {
         symbol: source.symbol,
         start: source.bars[0]!.date.slice(0, 10),

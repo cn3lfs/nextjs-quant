@@ -15,7 +15,7 @@ import { settings } from "../infra/settings";
 import { storedSecurityLifecycle } from "../market/security-lifecycle";
 import { readTdxCodeChanges } from "tstdx/local";
 import { readMarketPool } from "../market/market-pool-files";
-import { fullDaySymbols } from "../data-sources/tdx/tdx-full-day-cache";
+import { fullDaySymbols } from "~/server/market/bar-store/package-import";
 import { RpsStore } from "../db/rps-store";
 import { latestRpsObservation } from "../db/rps-observations";
 

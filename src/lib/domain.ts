@@ -8,13 +8,16 @@ import { newsSourceSettingsSchema } from "./settings/news-source-settings";
 import { localDirectorySchema } from "./settings/local-source-settings";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
 import type { SecurityTradingStatus } from "./market/security-trading-status";
-import type { Bar, Period } from "trading-strategy-core/bars";
-export type { Bar, Period } from "trading-strategy-core/bars";
-export const periodSchema = z.enum(["day", "5m"]);
+import type { Bar } from "trading-strategy-core/bars";
+import type { Period } from "./market/periods";
+export type { Bar } from "trading-strategy-core/bars";
+export type { Period } from "./market/periods";
+export { periodSchema } from "./market/periods";
 export type Security = {
   symbol: string;
   name: string;
-  market: string;
+  market: import("./market/instrument").Market;
+  exchange?: string;
   bytes: number;
   modified: number;
   period: Period;
@@ -31,9 +34,13 @@ export type Snapshot = {
   name?: string;
   period: Period;
   source: string;
-  adjustment: "none";
+  adjustment: "none" | "forward" | "backward";
+  market?: import("./market/instrument").Market;
+  barStore?: import("./market/bar-metadata").BarMetadata;
   createdAt: number;
   bars: Bar[];
+  /** Frozen raw prices for an adjusted candidate, never inferred from rounded signal prices. */
+  rawBars?: Bar[];
   hash: string;
   historicalAsOf?: string;
   dataRoot?: string;

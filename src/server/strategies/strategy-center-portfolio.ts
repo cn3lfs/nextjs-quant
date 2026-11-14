@@ -12,7 +12,8 @@ import {
   strategyCenterCandidateFields,
   captureStrategyCandidates,
 } from "./strategy-center-candidates";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readBacktestActions } from "../backtest/backtest-actions";
 import { isStudyStockSymbol } from "~/lib/research/strategy-center-input";
 import {
@@ -102,7 +103,14 @@ export async function executeStrategyCenterPortfolio(
   raw: z.input<typeof strategyCenterPortfolioSchema>,
   root: string,
   readers: Readers = {
-    readSnapshot,
+    readSnapshot: (root, symbol, period, options) =>
+      readBars({
+        instrument: { market: "cn-equity", symbol },
+        root,
+        period,
+        adjustment: "none",
+        ...options,
+      }),
     readBacktestActions,
     readLocalFinancialHistory,
     readLocalFinancialSeries,
@@ -147,7 +155,11 @@ export async function executeStrategyCenterPortfolio(
     },
   };
   const benchmarkSource = await cached.readSnapshot(root, "sh000300", "day");
-  if (benchmarkSource.sourceNote) throw new Error("基准行情含修复或丢弃");
+  if (
+    benchmarkSource.barStore?.priceRepaired ??
+    Boolean(benchmarkSource.sourceNote)
+  )
+    throw new Error("基准行情含修复或丢弃");
   const first = benchmarkSource.bars.findIndex((b) => b.date >= input.start);
   if (first < 270) throw new Error("指数预热不足270日");
   if (benchmarkSource.bars.at(-1)!.date < input.end)
@@ -167,7 +179,8 @@ export async function executeStrategyCenterPortfolio(
   for (const symbol of input.symbols) {
     signal?.throwIfAborted();
     const source = await cached.readSnapshot(root, symbol, "day");
-    if (source.sourceNote) throw new Error(`${symbol}行情含修复或丢弃`);
+    if (source.barStore?.priceRepaired ?? Boolean(source.sourceNote))
+      throw new Error(`${symbol}行情含修复或丢弃`);
     const bars = source.bars.filter(
       (b) => b.date >= dates[0]! && b.date <= input.end,
     );

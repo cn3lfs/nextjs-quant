@@ -22,7 +22,8 @@ import {
   type StrategyCandidate,
 } from "trading-strategies";
 import type { Snapshot } from "~/lib/domain";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import {
   readLocalFinancialHistory,
   readLocalFinancialSeries,
@@ -149,7 +150,14 @@ export async function captureStrategyCandidates(
   raw: z.input<typeof strategyCenterCandidatesSchema>,
   root: string,
   readers: Readers = {
-    readSnapshot,
+    readSnapshot: (root, symbol, period, options) =>
+      readBars({
+        instrument: { market: "cn-equity", symbol },
+        root,
+        period,
+        adjustment: "none",
+        ...options,
+      }),
     readLocalFinancialHistory,
     readLocalFinancialSeries,
   },

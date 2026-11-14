@@ -15,7 +15,8 @@ export async function indexDirectory(
   return [...names].map(([symbol, name]) => ({
     symbol,
     name,
-    market: symbol.slice(0, 2),
+    market: "cn-equity",
+    exchange: symbol.slice(0, 2),
     period,
     bytes: 0,
     modified: 0,

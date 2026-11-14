@@ -155,6 +155,17 @@ try {
     }),
   );
   await page.waitForFunction(() => window.market.loaded.id === "restored");
+  await page.evaluate(() =>
+    window.market.load.acceptSnapshot({
+      id: "adjusted-candidate",
+      symbol: "sh600001",
+      period: "day",
+      adjustment: "forward",
+      bars: [],
+    }),
+  );
+  await page.waitForFunction(() => window.market.adjustment === "forward");
+  assert.equal(new URL(page.url()).searchParams.get("adjustment"), "forward");
   console.log(
     "Market state: no implicit IO, exact cold candidate, source/period preservation, no duplicate navigation, late response rejected",
   );

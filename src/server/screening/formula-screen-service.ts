@@ -29,7 +29,7 @@ export function exportFormulaScreen(job: Job) {
       now: z.number().finite(),
       period: z.literal("day").optional(),
       source: z.literal("tdx-local").optional(),
-      adjustment: z.literal("none").optional(),
+      adjustment: z.enum(["none", "forward", "backward"]).optional(),
     })
     .parse(job.input);
   const result = job.result as StoredScreenResult;
@@ -40,7 +40,7 @@ export function exportFormulaScreen(job: Job) {
     createdAt: job.createdAt,
     completedAt: job.updatedAt,
     source: "tdx-local",
-    adjustment: "none",
+    adjustment: input.adjustment ?? "none",
     parameters: { ...input, formula },
     formula,
     candidates: result.candidates,
@@ -101,18 +101,19 @@ export function formulaScreenJob(input: unknown) {
   };
   return background(
     "screen",
-    { ...work, period: "day", source: "tdx-local", adjustment: "none" },
+    { ...work, period: "day", source: "tdx-local", adjustment: "forward" },
     async (job, signal) => {
       const result = await runWorker<FormulaScreenOutput>(work, job.id);
       signal.throwIfAborted();
       return {
         ...result,
         formula,
+        adjustment: "forward",
         period: "day",
         researchMode: "latest-local",
         universeSource: "当前本地通达信全 A 股日线",
         researchWarnings: [
-          "使用最新已完成本地日线，不承诺数据为当前交易日；不复权。候选表均线/量比为既有默认描述指标，不参与公式判定。",
+          "使用最新已完成本地日线，不承诺数据为当前交易日；前复权信号价（成交/账户保留原价）。候选表均线/量比为既有默认描述指标，不参与公式判定。",
         ],
       } satisfies StoredScreenResult;
     },

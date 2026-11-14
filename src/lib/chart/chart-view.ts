@@ -1,7 +1,7 @@
 import { rpsPeriods } from "quant-rps";
 import { z } from "zod";
 import { chartSymbolSchema } from "./chart-symbol";
-export const chartPeriodSchema = z.enum([
+export const cnChartPeriodSchema = z.enum([
   "day",
   "week",
   "month",
@@ -10,8 +10,14 @@ export const chartPeriodSchema = z.enum([
   "30m",
   "60m",
 ]);
+export type CnChartPeriod = z.infer<typeof cnChartPeriodSchema>;
+export const chartPeriodSchema = z.enum([
+  ...cnChartPeriodSchema.options,
+  "4h",
+  "1h",
+]);
 export type ChartPeriod = z.infer<typeof chartPeriodSchema>;
-export const isMinutePeriod = (period: ChartPeriod) => period.endsWith("m");
+export const isMinutePeriod = (period: ChartPeriod) => /^\d+[mh]$/.test(period);
 export const periodLabels = {
   day: "日线",
   week: "周线",
@@ -20,6 +26,8 @@ export const periodLabels = {
   "15m": "15 分钟",
   "30m": "30 分钟",
   "60m": "60 分钟",
+  "4h": "4 小时",
+  "1h": "1 小时",
 };
 export const subchartSchema = z.enum([
   "volume",

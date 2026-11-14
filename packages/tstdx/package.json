@@ -30,6 +30,10 @@
     "./local-import": {
       "types": "./dist/local-import/index.d.ts",
       "import": "./dist/local-import/index.js"
+    },
+    "./market-rules": {
+      "types": "./dist/market-rules.d.ts",
+      "import": "./dist/market-rules.js"
     }
   },
   "files": [

@@ -1,3 +1,10 @@
+import { readBars } from "~/server/market/bar-store/read-bars";
+import type { ReadBarsInput } from "~/server/market/bar-store/read-bars";
+import type { Snapshot as PriceSnapshot } from "~/lib/domain";
+vi.mock("~/server/market/bar-store/read-bars", () => ({ readBars: vi.fn() }));
+const readSnapshot = readBars as (
+  input: ReadBarsInput,
+) => Promise<PriceSnapshot>;
 import { expect, it, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -5,9 +12,8 @@ import { join } from "node:path";
 import type { Bar } from "../../src/lib/domain";
 vi.mock("../../src/server/data-sources/tdx/tdx", () => ({
   scan: vi.fn(),
-  readSnapshot: vi.fn(),
 }));
-import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
+
 import {
   mergeFormulaParts,
   scanFormulaRange,
@@ -23,33 +29,35 @@ const securities = Array.from({ length: 40 }, (_, i) => ({
   symbol: `sz${String(i).padStart(6, "0")}`,
   name: `S${i}`,
 }));
-vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => {
-  const i = Number(symbol.slice(2));
-  if (i % 11 === 3) throw new Error(`读取失败 ${symbol}`);
-  const days = i % 13 === 5 ? 0 : i % 7 === 2 ? 25 : 30;
-  const bars: Bar[] = Array.from({ length: days }, (_, d) => {
-    const close = 10 + (i % 2 ? d : -d * 0.1) + (i % 5);
+vi.mocked(readSnapshot).mockImplementation(
+  async ({ instrument: { symbol } }) => {
+    const i = Number(symbol.slice(2));
+    if (i % 11 === 3) throw new Error(`读取失败 ${symbol}`);
+    const days = i % 13 === 5 ? 0 : i % 7 === 2 ? 25 : 30;
+    const bars: Bar[] = Array.from({ length: days }, (_, d) => {
+      const close = 10 + (i % 2 ? d : -d * 0.1) + (i % 5);
+      return {
+        date: `2026-01-${String(d + 1).padStart(2, "0")}`,
+        open: close,
+        close,
+        high: close + 1,
+        low: close - 1,
+        volume: 100 + i,
+        amount: 1000,
+      };
+    });
     return {
-      date: `2026-01-${String(d + 1).padStart(2, "0")}`,
-      open: close,
-      close,
-      high: close + 1,
-      low: close - 1,
-      volume: 100 + i,
-      amount: 1000,
+      id: symbol,
+      symbol,
+      period: "day",
+      source: "tdx-local",
+      adjustment: "none",
+      createdAt: 0,
+      hash: symbol,
+      bars,
     };
-  });
-  return {
-    id: symbol,
-    symbol,
-    period: "day",
-    source: "tdx-local",
-    adjustment: "none",
-    createdAt: 0,
-    hash: symbol,
-    bars,
-  };
-});
+  },
+);
 const formula = {
   name: "测试",
   source: "选股:C>MA(C,N1);",

@@ -30,7 +30,7 @@ import {
 import { commitDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
 import { migrate } from "../../src/server/db/migrations";
 import { ExecutionQualityResults } from "../../src/components/portfolio/execution-quality-results";
-import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
 
 const date = "2026-01-05";
 const bar = (extra: Partial<Bar> = {}): Bar => ({

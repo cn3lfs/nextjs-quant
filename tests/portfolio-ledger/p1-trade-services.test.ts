@@ -31,8 +31,8 @@ vi.mock("../../src/server/market/data-health", () => ({
     source: "controlled-local-calendar",
   }),
 }));
-vi.mock("../../src/server/data-sources/tdx/tdx", () => ({
-  readSnapshot: async () => ({ bars: [{ date: "2026-09-10", close: 12 }] }),
+vi.mock("../../src/server/market/bar-store/read-bars", () => ({
+  readBars: async () => ({ bars: [{ date: "2026-09-10", close: 12 }] }),
 }));
 vi.mock("tstdx/local", async (original) => ({
   ...(await original<typeof import("tstdx/local")>()),

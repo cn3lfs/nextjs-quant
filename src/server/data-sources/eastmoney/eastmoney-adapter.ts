@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { Bar } from "~/lib/domain";
-import { chartPeriodSchema, isMinutePeriod } from "~/lib/chart/chart-view";
+import {
+  cnChartPeriodSchema as chartPeriodSchema,
+  isMinutePeriod,
+} from "~/lib/chart/chart-view";
 import {
   eastmoneyIdentity,
   eastmoneySymbolSchema,

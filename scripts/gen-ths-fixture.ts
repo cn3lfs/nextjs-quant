@@ -13,7 +13,7 @@ import { writeFileSync } from "node:fs";
 
 if (!process.env.QUANT_DATA_DIR) throw new Error("请设置隔离的 QUANT_DATA_DIR");
 const { settings } = await import("~/server/infra/settings");
-const { readSnapshot } = await import("~/server/data-sources/tdx/tdx");
+const { readSnapshot } = await import("tstdx/local");
 const root = settings().tdxRoot;
 const symbols = process.env.SYMBOLS?.split(",") ?? [
   "sh600519",

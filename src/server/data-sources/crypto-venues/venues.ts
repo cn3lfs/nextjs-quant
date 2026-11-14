@@ -24,6 +24,8 @@ export const okx: VenueSpec = {
     "15m": "15m",
     "30m": "30m",
     "60m": "1H",
+    "1h": "1H",
+    "4h": "4H",
     day: "1Dutc",
     week: "1Wutc",
     month: "1Mutc",
@@ -79,6 +81,8 @@ export const gate: VenueSpec = {
     "15m": "15m",
     "30m": "30m",
     "60m": "1h",
+    "1h": "1h",
+    "4h": "4h",
     day: "1d",
   }),
   url: (pair, interval, size, _period, before) => {
@@ -132,7 +136,13 @@ export const coinbase: VenueSpec = {
   version: "coinbase-candles-1",
   host: "https://api.exchange.coinbase.com",
   pageSize: 300,
-  interval: table({ "5m": "300", "15m": "900", "60m": "3600", day: "86400" }),
+  interval: table({
+    "5m": "300",
+    "15m": "900",
+    "60m": "3600",
+    "1h": "3600",
+    day: "86400",
+  }),
   url: (pair, interval, size, period, before) => {
     const step = periodSeconds(period) * 1000;
     // Windows tile backwards from `before`, so a gap never re-reads a window.
@@ -184,6 +194,8 @@ export const bybit: VenueSpec = {
     "15m": "15",
     "30m": "30",
     "60m": "60",
+    "1h": "60",
+    "4h": "240",
     day: "D",
     week: "W",
     month: "M",

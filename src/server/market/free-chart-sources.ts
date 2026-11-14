@@ -40,6 +40,7 @@ export async function pytdxChartHistory(
   period: ChartPeriod,
   limit: number,
 ): Promise<FreeChartHistoryResult> {
+  if (period === "4h" || period === "1h") throw new Error("A股不支持该周期");
   const result = await tstdxKlines({ symbols: [symbol], period, limit });
   const item = result.items[0]!;
   if (item.status !== "ok") throw new Error(item.message);
@@ -101,6 +102,7 @@ export async function freeChartSnapshot(
     ...result,
     id: `snapshot-free-${hash}`,
     symbol,
+    market: "cn-equity",
     period,
     hash,
     adjustment: "none",

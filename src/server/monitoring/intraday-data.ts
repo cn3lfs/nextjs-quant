@@ -9,11 +9,11 @@ import { settings } from "../infra/settings";
 import { sqlite } from "../db";
 import { RpsStore } from "../db/rps-store";
 import { readMarketPool } from "../market/market-pool-files";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { barPage } from "../data-sources/tdx/tdx-quotes";
 import { observationRanking } from "../screening/rps-observation";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
-import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
 
 export async function intradayPool(
   config: IntradayConfig,
@@ -96,8 +96,18 @@ export async function intradayHistory(
   if (source === "tdx-local") {
     const root = settings().tdxRoot;
     const [daily, minutes] = await Promise.all([
-      readLocalDailySnapshot(root, symbol),
-      readSnapshot(root, symbol, "5m"),
+      readBars({
+        instrument: { market: "cn-equity", symbol: symbol },
+        root: root,
+        period: "day",
+        adjustment: "none",
+      }),
+      readBars({
+        instrument: { market: "cn-equity", symbol: symbol },
+        root: root,
+        period: "5m",
+        adjustment: "none",
+      }),
     ]);
     // g4day 暂停（见 docs/decisions.md WF3）：只读本地日线，不叠加通达信增量。
     const merged = daily;

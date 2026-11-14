@@ -6,7 +6,7 @@ export type GrowthPriceInput = {
   hash: string;
   symbol: string;
   period: Period;
-  adjustment: "none";
+  adjustment: "none" | "forward" | "backward";
   historicalAsOf?: string;
   bars: readonly Bar[];
 };

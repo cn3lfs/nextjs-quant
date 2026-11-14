@@ -2,6 +2,8 @@ import { resolveTdxRoot } from "tstdx/local";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { get } from "../../db";
+import { sourceFingerprint } from "../../market/bar-store/local-source";
 import { isAStock } from "tstdx/local";
 
 export async function breakoutSourceManifest(
@@ -11,6 +13,14 @@ export async function breakoutSourceManifest(
   const universe = [...new Set(symbols)].sort();
   if (universe.some((symbol) => !isAStock(symbol))) return null;
   const signatures: string[] = [];
+  let actionVersion: string;
+  try {
+    actionVersion = await sourceFingerprint(
+      join(resolveTdxRoot(root), "T0002/hq_cache/gbbq"),
+    );
+  } catch {
+    return null;
+  }
   let cursor = 0,
     failed = false;
   await Promise.all(
@@ -33,7 +43,7 @@ export async function breakoutSourceManifest(
             continue;
           }
           signatures[index] =
-            `${symbol}:${info.dev}:${info.ino}:${info.size}:${info.mtimeMs}:${info.ctimeMs}:${info.birthtimeMs}`;
+            `${symbol}:${info.dev}:${info.ino}:${info.size}:${info.mtimeMs}:${info.ctimeMs}:${info.birthtimeMs}:${JSON.stringify(get(`tdx-full-day-current-${symbol}`) ?? null)}`;
         } catch {
           failed = true;
         }
@@ -42,5 +52,7 @@ export async function breakoutSourceManifest(
   );
   return failed
     ? null
-    : createHash("sha256").update(signatures.join("\n")).digest("hex");
+    : createHash("sha256")
+        .update(actionVersion + signatures.join("\n"))
+        .digest("hex");
 }

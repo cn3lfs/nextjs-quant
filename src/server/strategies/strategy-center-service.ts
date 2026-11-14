@@ -14,7 +14,8 @@ import {
   nativeStudyDefinition,
   isNativeStudyStrategy,
 } from "trading-strategies";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readBacktestActions } from "../backtest/backtest-actions";
 import { settings } from "../infra/settings";
 import { background, updateJob } from "../jobs/jobs";
@@ -55,10 +56,25 @@ export async function executeStrategyCenterStudy(
   raw: z.input<typeof strategyCenterRunSchema>,
   root: string,
   readers: {
-    readSnapshot: typeof readSnapshot;
+    readSnapshot: (
+      root: string,
+      symbol: string,
+      period: "day" | "5m",
+      options?: { chartFunds?: boolean },
+    ) => Promise<import("~/lib/domain").Snapshot>;
     readBacktestActions: typeof readBacktestActions;
     projectCzsc?: typeof projectCzsc;
-  } = { readSnapshot, readBacktestActions },
+  } = {
+    readSnapshot: (root, symbol, period, options) =>
+      readBars({
+        instrument: { market: "cn-equity", symbol },
+        root,
+        period,
+        adjustment: "none",
+        ...options,
+      }),
+    readBacktestActions,
+  },
   signal?: AbortSignal,
   nativeProgress?: (done: number, total: number) => void,
 ) {
@@ -72,8 +88,10 @@ export async function executeStrategyCenterStudy(
   signal?.throwIfAborted();
   const calendar = await readers.readSnapshot(root, "sh000001", "day");
   signal?.throwIfAborted();
-  if (source.sourceNote) throw new Error("源行情含修复或丢弃，需先核验");
-  if (calendar.sourceNote) throw new Error("日历源含修复或丢弃，需先核验");
+  if (source.barStore?.priceRepaired ?? Boolean(source.sourceNote))
+    throw new Error("源行情含修复或丢弃，需先核验");
+  if (calendar.barStore?.priceRepaired ?? Boolean(calendar.sourceNote))
+    throw new Error("日历源含修复或丢弃，需先核验");
   const native = isNativeStudyStrategy(input.strategyId);
   const warmup = native
     ? nativeStudyDefinition.warmupBars

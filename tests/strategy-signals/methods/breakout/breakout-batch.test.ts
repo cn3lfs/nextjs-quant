@@ -24,6 +24,8 @@ function bytes(bars: Bar[]) {
 }
 it("tail rejection/full-history confirmation equals direct engine, and cache validates files without sharing objects", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-breakout-batch-"));
+  await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
+  await writeFile(join(root, "T0002/hq_cache/gbbq"), Buffer.alloc(4)); // Explicit no-action fixture.
   for (const f of [valid, fake, short]) {
     const directory = join(root, "vipdoc", f.symbol.slice(0, 2), "lday");
     await mkdir(directory, { recursive: true });
@@ -55,6 +57,8 @@ it("tail rejection/full-history confirmation equals direct engine, and cache val
 });
 it("does not confirm an unfinished daily breakout before 15:05", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-breakout-clock-"));
+  await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
+  await writeFile(join(root, "T0002/hq_cache/gbbq"), Buffer.alloc(4));
   await mkdir(join(root, "vipdoc", "bj", "lday"), { recursive: true });
   await writeFile(
     join(root, "vipdoc", "bj", "lday", `${valid.symbol}.day`),

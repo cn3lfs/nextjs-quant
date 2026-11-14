@@ -94,7 +94,7 @@ function CryptoQuotes() {
   const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
-  usePeriodHotkey(period, setPeriod, load.isPending);
+  usePeriodHotkey(period, setPeriod, load.isPending, chartPeriodSchema.options);
   useEffect(() => {
     const first = initialPair();
     setSymbol(first);

@@ -100,6 +100,7 @@ export function readScreenResultPage(
       `${sourceSql}${filteredSql}
     SELECT json_object(
       'formula',json_extract(document,'$.result.formula'),
+      'adjustment',coalesce(json_extract(document,'$.result.adjustment'),'none'),
       'total',json_extract(document,'$.result.total'),
       'asOf',json_extract(document,'$.result.asOf'),
       'elapsedMs',json_extract(document,'$.result.elapsedMs'),

@@ -24,6 +24,8 @@ it("runs captured intraday signals through the actual worker and host DLL queue,
   migrate(db);
   const workers: Worker[] = [];
   try {
+    await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
+    await writeFile(join(root, "T0002/hq_cache/gbbq"), Buffer.alloc(4));
     await mkdir(join(root, "vipdoc/sh/lday"), { recursive: true });
     await mkdir(join(root, "vipdoc/sh/fzline"), { recursive: true });
     const bars = valid.bars;
@@ -162,6 +164,7 @@ it("runs captured intraday signals through the actual worker and host DLL queue,
         .at(-1)
         ?.signals.find((signal) => signal.key.startsWith("dual-breakout"))
         ?.status,
+      JSON.stringify(store.attempts(row!.id)),
     ).toBe("confirmed");
     expect(
       db

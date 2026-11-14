@@ -17,7 +17,7 @@ import { runCloseWorkflowFollowups } from "./close-workflow-followups";
 // g4day 暂停（见 docs/decisions.md WF3）：增量任务入口一并停用，函数本身保留。
 // import { runIncrementJob } from "./tdx-increment-job";
 // import { readTdxLocalBlocks } from "./tdx-local-blocks";
-import { publishFullDayPackage } from "../data-sources/tdx/tdx-full-day-cache";
+import { publishFullDayPackage } from "~/server/market/bar-store/package-import";
 import { inspectFullDayPackage } from "tstdx/local";
 // import {
 //   currentIncrementUniverse,

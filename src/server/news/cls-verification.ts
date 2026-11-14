@@ -4,7 +4,8 @@ import { settings } from "../infra/settings";
 import { sqlite } from "../db";
 import { ClsReviewStore } from "../db/cls-review-store";
 import { clsOutcomes } from "./cls-outcomes";
-import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readBenchmarkSnapshot } from "../data-sources/tdx/tdx-benchmark";
 import type { Bar } from "~/lib/domain";
 import { monitorCalendar } from "../monitoring/monitor-calendar";
@@ -45,7 +46,12 @@ export async function verifyClsSample(date: string) {
   if (sample.selected) {
     try {
       // g4day 暂停（见 docs/decisions.md WF3）：直接读本地日线，不叠加通达信增量。
-      const stock = await readLocalDailySnapshot(root, sample.selected.symbol);
+      const stock = await readBars({
+        instrument: { market: "cn-equity", symbol: sample.selected.symbol },
+        root: root,
+        period: "day",
+        adjustment: "none",
+      });
       stock.sourceVersions?.forEach((id) => versions.add(id));
       bars = stock.bars.filter((bar) => bar.date >= date && bar.date <= today);
     } catch (error) {

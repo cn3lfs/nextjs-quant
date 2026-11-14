@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateChartBars } from "../../../src/server/market/chart-aggregation";
+import { aggregateChartBars } from "../../../src/lib/market/bar-aggregation";
 import { chartTime } from "../../../src/lib/chart/chart-data";
 import { mcpChartHistory } from "../../../src/server/market/chart-history";
 const rows = (minutes: number[]) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { chartPeriodSchema, type ChartPeriod } from "~/lib/chart/chart-view";
+import { cnChartPeriodSchema, type ChartPeriod } from "~/lib/chart/chart-view";
 
 /** Whether a key event belongs to a text field or an open popup, where
  * page-level terminal keys must not fire. */
@@ -28,8 +28,11 @@ export function periodFromCode(query: string) {
 }
 
 /** F8 cycles the chart period, as in TDX. */
-export function nextPeriod(period: ChartPeriod) {
-  const all = chartPeriodSchema.options;
+export function nextPeriod(
+  period: ChartPeriod,
+  all: readonly ChartPeriod[] = cnChartPeriodSchema.options,
+) {
+  if (!all.length) return period;
   return all[(all.indexOf(period) + 1) % all.length]!;
 }
 
@@ -37,12 +40,13 @@ export function usePeriodHotkey(
   period: ChartPeriod,
   setPeriod: (period: ChartPeriod) => void,
   disabled = false,
+  allowed: readonly ChartPeriod[] = cnChartPeriodSchema.options,
 ) {
-  const latest = useRef({ period, setPeriod, disabled });
-  latest.current = { period, setPeriod, disabled };
+  const latest = useRef({ period, setPeriod, disabled, allowed });
+  latest.current = { period, setPeriod, disabled, allowed };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const { period, setPeriod, disabled } = latest.current;
+      const { period, setPeriod, disabled, allowed } = latest.current;
       if (
         event.key !== "F8" ||
         disabled ||
@@ -54,7 +58,7 @@ export function usePeriodHotkey(
       )
         return;
       event.preventDefault();
-      setPeriod(nextPeriod(period));
+      setPeriod(nextPeriod(period, allowed));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

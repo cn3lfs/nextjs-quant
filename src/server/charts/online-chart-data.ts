@@ -9,6 +9,7 @@ export async function onlineChartSnapshot(
   period: Period,
 ): Promise<Snapshot> {
   symbolSchema.parse(symbol);
+  if (period === "4h" || period === "1h") throw new Error("A股不支持该周期");
   const result = await eastmoneyKlines({
     symbols: [symbol],
     period,
@@ -30,6 +31,7 @@ export async function onlineChartSnapshot(
   return {
     id: `snapshot-online-${symbol}-${period}-${hash.slice(0, 16)}`,
     symbol,
+    market: "cn-equity",
     name: item.name,
     period,
     source: result.source,

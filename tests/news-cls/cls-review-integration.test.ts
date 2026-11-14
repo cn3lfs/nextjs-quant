@@ -12,6 +12,7 @@ import { join, resolve } from "node:path";
 import { expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ db: null as unknown, root: "", blocks: "" }));
 vi.mock("../../src/server/db/index", () => ({
+  dataDirectory: () => process.env.QUANT_DATA_DIR!,
   sqlite: () => state.db,
   get: (id: string) => {
     const row = (state.db as Database.Database)

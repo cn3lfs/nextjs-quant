@@ -10,7 +10,8 @@ import {
 import { sqlite, get, put } from "../db";
 import { z } from "zod";
 import { settings } from "../infra/settings";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readGbbq } from "tstdx/local";
 import { localCalendarReference } from "../market/data-health";
 import { tradingLedgerMethods } from "../research/research-skills";
@@ -117,8 +118,14 @@ export async function tradePositionState() {
     symbols.map(async (symbol) => {
       let quote: Position["quote"] = null;
       try {
-        const bars = (await readSnapshot(settings().tdxRoot, symbol, "day"))
-          .bars;
+        const bars = (
+          await readBars({
+            instrument: { market: "cn-equity", symbol: symbol },
+            root: settings().tdxRoot,
+            period: "day",
+            adjustment: "none",
+          })
+        ).bars;
         // Only completed local daily closes, with the quote date always visible.
         const clock = chinaClock(Date.now());
         const last = bars

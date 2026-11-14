@@ -12,8 +12,8 @@ vi.mock("../../../src/server/data-sources/tdx/tdx-daily-cache", () => ({
 vi.mock("../../../src/server/data-sources/tdx/tdx-quotes", () => ({
   barPage: mocks.page,
 }));
-vi.mock("../../../src/server/data-sources/tdx/tdx", () => ({
-  readSnapshot: mocks.snapshot,
+vi.mock("../../../src/server/market/bar-store/read-bars", () => ({
+  readBars: mocks.snapshot,
 }));
 vi.mock("../../../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: "isolated-root" }),

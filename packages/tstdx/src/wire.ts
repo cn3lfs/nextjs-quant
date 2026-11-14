@@ -11,7 +11,8 @@ import { inflateSync } from "node:zlib";
  */
 
 /** 协议内的市场编号。本仓库对外一律使用 sh/sz/bj 符号前缀。 */
-export const MARKET = { sz: 0, sh: 1, bj: 2 } as const;
+import { MARKET, splitSymbol } from "./market-rules.js";
+export { MARKET, splitSymbol } from "./market-rules.js";
 const MARKET_NAMES = ["sz", "sh", "bj"] as const;
 
 export type TdxQuote = {
@@ -89,12 +90,6 @@ export function inflateBody(header: FrameHeader, rawBody: Buffer): Buffer {
   return body;
 }
 
-export function splitSymbol(symbol: string) {
-  if (typeof symbol !== "string" || !/^(sh|sz|bj)\d{6}$/.test(symbol))
-    throw new Error("证券代码须为 sh/sz/bj 加六位数字");
-  const market = MARKET[symbol.slice(0, 2) as keyof typeof MARKET];
-  return { market, code: symbol.slice(2) };
-}
 function joinSymbol(market: number, code: string) {
   const name = MARKET_NAMES[market];
   if (!name) throw new Error(`行情响应包含未知市场编号 ${market}`);

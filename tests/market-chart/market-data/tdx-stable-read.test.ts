@@ -5,7 +5,7 @@ vi.mock("node:fs/promises", async (original) => ({
   open: io.open,
   stat: io.stat,
 }));
-import { readSnapshot } from "../../../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
 afterEach(() => vi.resetAllMocks());
 const state = {
   dev: 1,

@@ -1,4 +1,9 @@
-import { fullDayCacheIds } from "../../db/tdx-cache-ids";
+import { readColumnCache, writeColumnCache } from "./column-cache";
+import {
+  fullDayCacheIds,
+  fullDayCachePointer,
+  type FullDayCachePointer,
+} from "../../db/tdx-cache-ids";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
@@ -7,15 +12,10 @@ import { inspectFullDayPackage } from "tstdx/local";
 import { isLocalFund } from "tstdx/local";
 const fundDecoderVersion = "tdx-full-day-fund-3-v1";
 
-type Pointer = {
-  snapshotId: string;
-  importedAt: number;
-  repairSameDate?: boolean;
-};
 const pointerId = (symbol: string) => `tdx-full-day-current-${symbol}`;
 export function fullDayRepairsSameDate(symbol: string) {
   symbolSchema.parse(symbol);
-  return get<Pointer>(pointerId(symbol))?.repairSameDate === true;
+  return fullDayCachePointer(symbol)?.repairSameDate === true;
 }
 export function fullDaySymbols() {
   return fullDayCacheIds().map((id) =>
@@ -25,9 +25,26 @@ export function fullDaySymbols() {
 
 export function readFullDaySnapshot(symbol: string) {
   symbolSchema.parse(symbol);
-  const pointer = get<Pointer>(pointerId(symbol));
+  const pointer = fullDayCachePointer(symbol);
   if (!pointer) return null;
-  const snapshot = get<Snapshot>(pointer.snapshotId);
+  const key = `full-package:${pointer.snapshotId}`;
+  const column = readColumnCache(key);
+  // Existing records are evidence: migrate on read without deleting or updating them.
+  const legacy = column ? null : get<Snapshot>(pointer.snapshotId);
+  if (
+    legacy &&
+    isLocalFund(symbol) &&
+    !legacy.sourceVersions?.includes(fundDecoderVersion)
+  )
+    return null;
+  if (legacy?.bars) {
+    const { bars, ...metadata } = legacy;
+    writeColumnCache(key, bars, legacy.hash, metadata);
+  }
+  const cached = column ?? readColumnCache(key);
+  const snapshot = cached
+    ? ({ ...cached.metadata.source, bars: cached.bars } as Snapshot)
+    : undefined;
   if (
     !snapshot ||
     snapshot.symbol !== symbol ||
@@ -60,7 +77,7 @@ export async function publishFullDayPackage(
   return atomic(() => {
     const snapshots: Snapshot[] = [];
     for (const record of parsed.records) {
-      const previousPointer = get<Pointer>(pointerId(record.symbol));
+      const previousPointer = fullDayCachePointer(record.symbol);
       const previous = readFullDaySnapshot(record.symbol);
       const hash = createHash("sha256")
         .update(
@@ -77,27 +94,31 @@ export async function publishFullDayPackage(
         previousPointer.snapshotId !== id
       )
         throw new Error(`${record.symbol}同一导入时点出现冲突版本`);
-      const snapshot =
-        get<Snapshot>(id) ??
-        put("tdx-full-day-snapshot", id, {
-          id,
-          symbol: record.symbol,
-          period: "day",
-          adjustment: "none",
-          source: "tdx-full-package",
-          createdAt: importedAt,
-          hash,
-          bars: record.bars,
-          sourceVersions: isLocalFund(record.symbol)
-            ? [id, fundDecoderVersion]
-            : [id],
-          volumeUnit: "通达信原始单位",
-        } satisfies Snapshot);
+      const existing = readColumnCache(`full-package:${id}`);
+      const snapshot: Snapshot = existing
+        ? ({ ...existing.metadata.source, bars: existing.bars } as Snapshot)
+        : ({
+            id,
+            symbol: record.symbol,
+            period: "day",
+            adjustment: "none",
+            source: "tdx-full-package",
+            createdAt: importedAt,
+            hash,
+            bars: record.bars,
+            sourceVersions: isLocalFund(record.symbol)
+              ? [id, fundDecoderVersion]
+              : [id],
+            volumeUnit: "通达信原始单位",
+          } satisfies Snapshot);
+      const { bars, ...metadata } = snapshot;
+      if (!existing)
+        writeColumnCache(`full-package:${id}`, bars, hash, metadata);
       put("tdx-full-day-current", pointerId(record.symbol), {
         snapshotId: id,
         importedAt,
         repairSameDate,
-      } satisfies Pointer);
+      } satisfies FullDayCachePointer);
       snapshots.push(snapshot);
     }
     return snapshots;

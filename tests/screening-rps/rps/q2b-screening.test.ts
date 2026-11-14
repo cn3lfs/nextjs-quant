@@ -1,3 +1,10 @@
+import { readBars } from "~/server/market/bar-store/read-bars";
+import type { ReadBarsInput } from "~/server/market/bar-store/read-bars";
+import type { Snapshot as PriceSnapshot } from "~/lib/domain";
+vi.mock("~/server/market/bar-store/read-bars", () => ({ readBars: vi.fn() }));
+const readSnapshot = readBars as (
+  input: ReadBarsInput,
+) => Promise<PriceSnapshot>;
 import { beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -6,13 +13,12 @@ import { settingsSchema } from "../../../src/lib/domain";
 import { validateScreenFormula } from "../../../src/lib/formula/formula-screen";
 vi.mock("../../../src/server/data-sources/tdx/tdx", () => ({
   scan: vi.fn(),
-  readSnapshot: vi.fn(),
 }));
 vi.mock("../../../src/server/jobs/jobs", async (original) => ({
   ...(await original<typeof import("../../../src/server/jobs/jobs")>()),
   runWorker: vi.fn(),
 }));
-import { scan, readSnapshot } from "../../../src/server/data-sources/tdx/tdx";
+import { scan } from "../../../src/server/data-sources/tdx/tdx";
 import { screenFormula } from "../../../src/server/screening/formula-screening";
 import { executeFormulaScreen } from "../../../src/server/screening/formula-screen-work";
 import {
@@ -70,7 +76,8 @@ beforeEach(() => {
         symbol: "sh600519",
         name: "fixture",
         period: "day",
-        market: "sh",
+        market: "cn-equity",
+        exchange: "sh",
         bytes: 960,
         modified: 0,
       },
@@ -246,10 +253,12 @@ it("cancellation after a committed batch prevents every later batch", async () =
       symbol: `sh${600000 + i}`,
     })),
   });
-  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
-    ...source,
-    symbol,
-  }));
+  vi.mocked(readSnapshot).mockImplementation(
+    async ({ instrument: { symbol } }) => ({
+      ...source,
+      symbol,
+    }),
+  );
   let batches = 0;
   await expect(
     executeFormulaScreen(work, "cancel-between-batches", (_n, phase) => {
@@ -284,10 +293,12 @@ it("does not write the next batch until the host acknowledges the preceding batc
       symbol: `sh${600000 + i}`,
     })),
   });
-  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
-    ...source,
-    symbol,
-  }));
+  vi.mocked(readSnapshot).mockImplementation(
+    async ({ instrument: { symbol } }) => ({
+      ...source,
+      symbol,
+    }),
+  );
   let release!: () => void;
   const acknowledged = new Promise<void>((resolve) => {
     release = resolve;
@@ -370,11 +381,13 @@ it("final progress includes stale-date exclusions computed after the scan", asyn
       { ...coverage.securities[0]!, symbol: "sh600000" },
     ],
   });
-  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
-    ...source,
-    symbol,
-    bars: symbol === "sh600000" ? bars.slice(0, -1) : bars,
-  }));
+  vi.mocked(readSnapshot).mockImplementation(
+    async ({ instrument: { symbol } }) => ({
+      ...source,
+      symbol,
+      bars: symbol === "sh600000" ? bars.slice(0, -1) : bars,
+    }),
+  );
   const progress = vi.fn();
   const result = await screenFormula(
     {

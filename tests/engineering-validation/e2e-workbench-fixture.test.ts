@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { migrate } from "../../src/server/db/migrations";
-import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
+import { readSnapshot } from "tstdx/local";
 import { seedWorkbenchFixture } from "../e2e/workbench-fixture";
 
 it("seeds the declared workload with real import rows and readable local bars, and refuses reseeding", async () => {

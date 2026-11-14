@@ -144,7 +144,7 @@
 
 ## 2. 通达信认定公式与预热
 
-- **是什么**：输入为时间升序、不复权的只读 Bar 数组；输出与输入逐点对齐，不排序、不修改输入、不在中间舍入。MA 默认 20；图表 MA 默认 5/10/20/60；以下是默认口径，参数可调。
+- **是什么**：输入为时间升序、显式声明价格口径的只读 Bar 数组（R1a：公式/双突破前复权，RPS 后复权，成交与账户原价）；输出与输入逐点对齐，不排序、不修改输入、不在中间舍入。MA 默认 20；图表 MA 默认 5/10/20/60；以下是默认口径，参数可调。
 
 ```text
 EMA(X,N) = (2*X + (N-1)*前值)/(N+1)，首个有效 X 初始化
@@ -187,7 +187,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 4. 因果性与完整历史
 
-- **是什么**：固定截止点后追加未来 bar，不改变该截止点的指标、双突破、公式输出/候选快照与已结算台账。图表先算完整快照再裁显示窗口；双突破尾窗只能否决，候选必须重新读完整历史确认；公式递推和累计也不能套用旧均线尾窗。
+- **是什么**：固定截止点及价格基准后追加未来 bar，不改变该截止点的指标、双突破、公式输出/候选快照与已结算台账。前复权须固定该截止日分母，不能用未来除权因子重标历史信号。图表先算完整快照再裁显示窗口；双突破尾窗只能否决，候选必须重新读完整历史确认；公式递推和累计也不能套用旧均线尾窗。
 - **为什么**：递推起点和可用证据时点属于结果契约。缠论未确认结构本身可以演化，不能将此约束误写成“DLL 全历史结构永不重绘”；台账用实际观察日固定证据，另存历史端点日。
 - **测试**：[indicators.test.ts](../tests/engineering-validation/indicators.test.ts)、[chart-data.test.ts](../tests/market-chart/chart/chart-data.test.ts)、[breakout.test.ts](../tests/strategy-signals/methods/breakout/breakout.test.ts)、[breakout-batch.test.ts](../tests/strategy-signals/methods/breakout/breakout-batch.test.ts)、[q2a-formula.test.ts](../tests/screening-rps/rps/q2a-formula.test.ts)、[q2b-functions.test.ts](../tests/screening-rps/rps/q2b-functions.test.ts)、[q2b-screening.test.ts](../tests/screening-rps/rps/q2b-screening.test.ts)、[signal-ledger.test.ts](../tests/strategy-signals/signals/signal-ledger.test.ts)。
 - **违反会怎样**：向左滚图、补数据或追加行情都会改写过去的“事实”。
@@ -247,7 +247,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 11. 图表不能画错周期或假成本
 
-- **是什么**：week/month 仅为 ChartPeriod；复用完成周/月聚合，缺日、冲突、未完成周期排除。缺口的判定收在「能证明」的范围内：只有日历证明当天开市、而本品种缺这一根（或该日被标记休市）才算缺口，日历覆盖不到的日期不作为缺口——兜底日历只有最近约 400 个交易日且不含休市名单，按「工作日不在日历里即为缺口」的旧口径，每个节假日都会让整块周/月行情作废。周/月缠论和双突破明确不可用，5 分钟缠论图与日线监控分开，双突破只日线。视图/画线按标的×周期隔离增量落库，锚点存日期/价格，不存屏幕坐标。指标参数保存不改变策略参数；仅已核对成本可画成本线。保留 TradingView 归属标识，null 区间不画零、不跨缺口连线。
+- **是什么**：R1a 的 week 已进入通用 Period，month 仍仅为 ChartPeriod；复用完成周/月聚合，缺日、冲突、未完成周期排除。缺口的判定收在「能证明」的范围内：只有日历证明当天开市、而本品种缺这一根（或该日被标记休市）才算缺口，日历覆盖不到的日期不作为缺口——兜底日历只有最近约 400 个交易日且不含休市名单，按「工作日不在日历里即为缺口」的旧口径，每个节假日都会让整块周/月行情作废。周/月缠论和双突破明确不可用，5 分钟缠论图与日线监控分开，双突破只日线。视图/画线按标的×周期隔离增量落库，锚点存日期/价格，不存屏幕坐标。指标参数保存不改变策略参数；仅已核对成本可画成本线。保留 TradingView 归属标识，null 区间不画零、不跨缺口连线。
 - **为什么**：把日线结构画到周线或把未核对成本画成确定线都会误导操作。
 - **测试**：[q1-chart.test.ts](../tests/market-chart/chart/q1-chart.test.ts)、[chart-data.test.ts](../tests/market-chart/chart/chart-data.test.ts)、[chart.test.ts](../tests/market-chart/chart/chart.test.ts)、[weekly-bars.test.ts](../tests/market-chart/market-data/weekly-bars.test.ts)。真实交互体验由用户确认。
 - **违反会怎样**：结构错级别、跨证券画线污染、未完成周期提前产生历史形态。
@@ -259,6 +259,13 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **为什么**：默认目录是共享生产库，旧 exe 拒绝高版本库是保护数据的设计。
 - **测试**：[core.test.ts](../tests/persistence-infrastructure/core.test.ts)、[integration.test.ts](../tests/persistence-infrastructure/integration.test.ts)、[tdx-gbbq.test.ts](../tests/market-chart/market-data/tdx-gbbq.test.ts)、[tail-cache-codec.test.ts](../tests/engineering-validation/tail-cache-codec.test.ts)、[signal-ledger.test.ts](../tests/strategy-signals/signals/signal-ledger.test.ts)、[q1-chart.test.ts](../tests/market-chart/chart/q1-chart.test.ts) 覆盖解析、快照及迁移保留。setup 文件是隔离机制，其正确挂载/不指向生产、每次重打包纪律：**无专门测试保护**。
 - **违反会怎样**：损坏源数据、丢失研究证据、生产库升级后旧 exe“服务启动超时”。
+
+### BarStore 来源代际与完整性
+
+- **是什么**：不能只凭文件时间戳复用行情。稳定读取完整源文件，以全内容探针识别同尺寸、相同时间戳的修订；进程首次或探针改变时计算 SHA256。列文件 v2 对完整头部与已提交内容作 CRC32 损坏检查，v1 验证 SHA256 后只升级头部。完整的已提交缓存代际可作为本次稳定源读取的快照，后来的源写入由下次调用观察；重建发布仍复核来源。本地派生缓存损坏从只读源重建，导入的持久输入损坏明确失败，不补造数据。
+- **为什么**：Windows 连续写入可能保留全部时间戳；仅检查尾部也会漏掉历史首部/中部修订。CRC32 用于本地意外损坏检测，不是抗恶意篡改认证。缓存不共享可变 bars，来源身份与日期标签缓存有数量上限。
+- **测试**：[bar-store.test.ts](../tests/market-chart/market-data/bar-store.test.ts) 覆盖完整身份相同、长文件首/中/尾修订、v1 头升级、元数据/列损坏重建、返回值修改隔离与逐 bar 对拍；[bar-store-actions.test.ts](../tests/market-chart/market-data/bar-store-actions.test.ts) 覆盖 GBBQ 并发解析复用、变化失效和失败恢复。
+- **违反会怎样**：旧价格被误标为新来源、坏缓存进入信号计算，或一次读取的修改污染其他调用。
 
 ## 13. 批处理与结构护栏
 

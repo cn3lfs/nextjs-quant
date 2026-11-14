@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { readBenchmarkSnapshot } from "../data-sources/tdx/tdx-benchmark";
 import { readBacktestActions } from "./backtest-actions";
 import {
@@ -27,8 +28,13 @@ export async function executeMaBaseline(
   const input = strategyExperimentInputSchema.parse(work.input);
   const warmupBars = strategyExperimentWarmup(input);
   progress(0, "读取本地五分钟行情与交易日历");
-  const source = await readSnapshot(work.root, input.symbol, "5m");
-  if (source.sourceNote)
+  const source = await readBars({
+    instrument: { market: "cn-equity", symbol: input.symbol },
+    root: work.root,
+    period: "5m",
+    adjustment: "none",
+  });
+  if (source.barStore?.priceRepaired ?? Boolean(source.sourceNote))
     throw new Error(`源行情存在修复或丢弃，基线拒绝使用：${source.sourceNote}`);
   const first = source.bars.findIndex(
     (b) => b.date.slice(0, 10) >= input.start,

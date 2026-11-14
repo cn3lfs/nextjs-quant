@@ -1,28 +1,13 @@
+import { uint, dateNumber } from "./market-rules.js";
+export { uint, dateNumber } from "./market-rules.js";
 import { readAmount, splitSymbol } from "./wire.js";
 import iconv from "iconv-lite";
 
 export type TdxMarket = "sz" | "sh" | "bj";
 const markets = { sz: 0, sh: 1, bj: 2 } as const;
-export function uint(value: number, name: string, max = 65535, min = 0) {
-  if (!Number.isSafeInteger(value) || value < min || value > max)
-    throw new Error(`${name} 必须在 ${min}..${max} 范围内`);
-  return value;
-}
 export function marketId(market: TdxMarket) {
   if (!Object.hasOwn(markets, market)) throw new Error("未知证券市场");
   return markets[market];
-}
-export function dateNumber(date: number): string {
-  uint(date, "date", 21001231, 19900101);
-  const s = String(date),
-    iso = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}`;
-  const parsed = new Date(`${iso}T00:00:00Z`);
-  if (
-    !Number.isFinite(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== iso
-  )
-    throw new Error("非法交易日期");
-  return iso;
 }
 function need(body: Buffer, size: number, name: string) {
   if (body.length < size)

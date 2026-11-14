@@ -41,8 +41,8 @@ export function evaluateFormula(
   const params = checkFormula(program, parameters);
   const rpsByDate = new Map(rps.map((point) => [point.date, point]));
   const variables = new Map<string, Series>();
-  const constant = (n: number): Series =>
-    Array.from({ length: bars.length }, () => n);
+  const fields = new Map<string, Series>();
+  const constant = (n: number): Series => Array<number>(bars.length).fill(n);
   for (const [name, value] of params) variables.set(name, constant(value));
   const map = (a: Series, f: (x: number) => number): Series =>
     a.map((x) => (x === null ? null : finite(f(x))));
@@ -86,7 +86,13 @@ export function evaluateFormula(
       const field = Object.hasOwn(marketFields, e.name)
         ? marketFields[e.name]
         : undefined;
-      return field ? bars.map((b) => finite(b[field])) : variables.get(e.name)!;
+      if (!field) return variables.get(e.name)!;
+      let values = fields.get(field);
+      if (!values) {
+        values = bars.map((b) => finite(b[field]));
+        fields.set(field, values);
+      }
+      return values;
     }
     if (e.kind === "unary")
       return map(evaluate(e.value), (x) => unary(e.op, x));

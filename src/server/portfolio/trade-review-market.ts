@@ -7,7 +7,8 @@ import type { Snapshot } from "~/lib/domain";
 import { classifyCode } from "~/lib/research/evidence/delivery-import";
 import { tradeReviewDayVwap } from "~/lib/portfolio/trade-review-vwap";
 import { isMarketIndex } from "~/lib/market/market-indices";
-import { readSnapshot } from "../data-sources/tdx/tdx";
+
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { parseBars } from "tstdx/local";
 
 export type PriceScaleEvidence = {
@@ -98,13 +99,24 @@ export async function readTradeReviewSnapshot(
   if (classification.instrument === "reverseRepo")
     throw new Error("逆回购排除市值：报价为年化利率，资金占用已体现在现金流中");
   // Index points are not tradable prices; turnover/volume cannot validate them.
-  if (isMarketIndex(symbol)) return readSnapshot(root, symbol, period);
+  if (isMarketIndex(symbol))
+    return readBars({
+      instrument: { market: "cn-equity", symbol: symbol },
+      root: root,
+      period: period,
+      adjustment: "none",
+    });
   if (
     classification.instrument !== "fund" &&
     classification.instrument !== "convertible"
   )
     return validatePrices(
-      await readSnapshot(root, symbol, period),
+      await readBars({
+        instrument: { market: "cn-equity", symbol: symbol },
+        root: root,
+        period: period,
+        adjustment: "none",
+      }),
       100,
       "元/股",
     );

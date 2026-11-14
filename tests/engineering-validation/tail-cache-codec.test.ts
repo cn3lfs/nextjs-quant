@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { serialize } from "node:v8";
 import { encodeTail, decodeTail } from "tstdx/local";
-import type { Snapshot } from "~/lib/domain";
+import type { TdxLocalSnapshot as Snapshot } from "tstdx/local";
 it("preserves all TDX bar precision and metadata without sharing returned objects", () => {
   const source: Snapshot = {
     id: "snapshot",

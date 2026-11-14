@@ -39,7 +39,11 @@ type Attempt = {
   id: Exclude<FuturesSource, "auto">;
   name: string;
   applies: (c: FuturesContract, period: ChartPeriod) => boolean;
-  load: (symbol: string, period: ChartPeriod, limit: number) => Promise<Klines>;
+  load: (
+    symbol: string,
+    period: import("~/lib/chart/chart-view").CnChartPeriod,
+    limit: number,
+  ) => Promise<Klines>;
 };
 
 /**
@@ -90,6 +94,8 @@ export async function futuresKlines(
   limit: number,
   pick: FuturesSource = "auto",
 ) {
+  if (period === "4h" || period === "1h")
+    throw new Error("该期货来源不支持此周期");
   const contract = futuresContract(symbol);
   if (!contract) throw new Error("不支持的期货品种");
   // A manual pick runs only that source, with no backoff and no fallback.
@@ -147,6 +153,7 @@ export async function futuresSnapshot(
   return {
     id: `snapshot-futures-${hash}`,
     symbol,
+    market: "futures",
     name: futuresContract(symbol)!.name,
     period,
     source: result.source,

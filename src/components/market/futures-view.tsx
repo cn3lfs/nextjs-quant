@@ -62,7 +62,14 @@ export function FuturesView() {
   const [source, setSource] = useState<FuturesSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
-  usePeriodHotkey(period, setPeriod, load.isPending);
+  usePeriodHotkey(
+    period,
+    setPeriod,
+    load.isPending,
+    chartPeriodSchema.options.filter(
+      (p) => p !== "4h" && p !== "1h" && (source !== "sina" || p === "day"),
+    ),
+  );
   const visible = usePanelVisible();
   const quotes = api.futuresQuotes.useQuery(undefined, {
     refetchInterval: visible ? 60_000 : false,
@@ -241,17 +248,24 @@ export function FuturesView() {
             </SelectContent>
           </Select>
           <div className="segmented">
-            {chartPeriodSchema.options.map((p) => (
-              <Button
-                variant="plain"
-                key={p}
-                className={period === p ? "selected" : ""}
-                disabled={load.isPending}
-                onClick={() => setPeriod(p)}
-              >
-                {p === "day" ? "日 K" : periodLabels[p]}
-              </Button>
-            ))}
+            {chartPeriodSchema.options
+              .filter(
+                (p) =>
+                  p !== "4h" &&
+                  p !== "1h" &&
+                  (source !== "sina" || p === "day"),
+              )
+              .map((p) => (
+                <Button
+                  variant="plain"
+                  key={p}
+                  className={period === p ? "selected" : ""}
+                  disabled={load.isPending}
+                  onClick={() => setPeriod(p)}
+                >
+                  {p === "day" ? "日 K" : periodLabels[p]}
+                </Button>
+              ))}
           </div>
         </div>
         {sourceNotice && (

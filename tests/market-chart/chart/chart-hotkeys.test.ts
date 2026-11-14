@@ -78,3 +78,9 @@ it("PageUp/PageDown shift one screen; Home/End pin to the loaded ends", () => {
   expect(keyboardPage(range, "End", 180)).toEqual({ from: 129, to: 179 });
   expect(keyboardPage(range, "Enter", 180)).toBeNull();
 });
+
+it("cycles only periods supported by the selected data source", () => {
+  expect(nextPeriod("day", ["day"])).toBe("day");
+  expect(nextPeriod("week", ["day", "week"])).toBe("day");
+  expect(nextPeriod("1h", ["day", "1h", "4h"])).toBe("4h");
+});

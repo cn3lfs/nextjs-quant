@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { Snapshot } from "~/lib/domain";
 import type { ChartSnapshot } from "~/lib/chart/chart-snapshot";
 import {
-  chartAdjustmentLabels,
   chartAdjustmentSchema,
   type ChartAdjustment,
 } from "~/lib/chart/chart-adjustment";
@@ -19,36 +18,13 @@ import { cryptoChartSnapshot } from "../market/crypto-chart";
 import { isFuturesSymbol } from "~/lib/market/futures";
 import { futuresChartSnapshot } from "../market/futures-chart";
 import { settings } from "../infra/settings";
-import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
+import { readBars } from "../market/bar-store/read-bars";
 import {
   aggregateChartBars,
   chartPeriodEnd,
-} from "../market/chart-aggregation";
+} from "~/lib/market/bar-aggregation";
 import { localCalendarReference } from "../market/data-health";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
-import { mergeOnlineDailyTail } from "../market/chart-online-delta";
-import {
-  adjustmentFactors,
-  applyAdjustmentByDate,
-  readGbbq,
-} from "tstdx/local";
-
-/** 补齐本地尾部之后所需的在线根数：长假缺口最多约 11 个交易日，另需至少 2 根与本地重叠。 */
-const deltaWindow = 20;
-/** 尾段的起始日期：本地尾部再往前留 180 个自然日，够覆盖长假并保证有重叠。 */
-function deltaSince(date: string) {
-  return new Date(Date.parse(`${date}T00:00:00Z`) - 180 * 86400000)
-    .toISOString()
-    .slice(0, 10);
-}
-/** Online tails remain unadjusted; cross-source units are checked by the merger. */
-async function onlineDailyTail(symbol: string, _since: string) {
-  const remote = await freeChartHistory(symbol, "day", deltaWindow);
-  if (remote.source === "tencent/westock-data")
-    throw new Error("腾讯成交量单位未核验，不能拼接本地尾段");
-  return { bars: remote.bars, source: remote.source };
-}
-
 /**
  * Chart data remains raw until its final source is known. Adjustments use the
  * local GBBQ event file and a full local daily series when available, so a
@@ -62,34 +38,31 @@ async function adjustChartSeries<
     bars: Snapshot["bars"];
   },
 >(series: T, mode: ChartAdjustment, root: string): Promise<T> {
-  if (mode === "none") return series;
-  let reference = { bars: series.bars };
-  if (series.period !== "day" || series.source !== "tdx-local") {
-    try {
-      reference = await readVipdocChart(root, series.symbol, "day");
-    } catch (error) {
-      if (series.period !== "day")
-        throw new Error(
-          `${chartAdjustmentLabels[mode]}需要本地完整日线作为复权基准：${error instanceof Error ? error.message : "本地日线不可用"}`,
-        );
-    }
-  }
-  let corporateActions: Awaited<ReturnType<typeof readGbbq>>;
-  try {
-    corporateActions = await readGbbq(root);
-  } catch (error) {
-    throw new Error(
-      `${chartAdjustmentLabels[mode]}需要本地 GBBQ 分红信息：${error instanceof Error ? error.message : "读取失败"}`,
-    );
-  }
-  const factors = adjustmentFactors(
-    reference.bars,
-    corporateActions.events.get(series.symbol) ?? [],
+  if ("adjustment" in series && series.adjustment === mode) return series;
+  const resolved = await readBars(
+    {
+      instrument: { market: "cn-equity", symbol: series.symbol },
+      root,
+      period: series.period,
+      adjustment: mode,
+      chartFunds: true,
+    },
+    {
+      ...series,
+      adjustment: "none",
+      id: "chart-input",
+      hash: "hash" in series ? String(series.hash) : "",
+      createdAt: Date.now(),
+    },
   );
   return {
     ...series,
-    bars: applyAdjustmentByDate(series.bars, factors, mode),
-  } as T;
+    bars: resolved.bars,
+    barStore: {
+      ...resolved.barStore,
+      overlay: (series as unknown as Snapshot).barStore?.overlay ?? null,
+    },
+  };
 }
 
 export const chartBarsInput = z.object({
@@ -113,6 +86,7 @@ export async function chartBars(
     if (!get(chart.id)) put("chart-snapshot", chart.id, chart);
     return chart;
   }
+  if (["4h", "1h"].includes(parsed.period)) throw new Error("A股不支持该周期");
   const now = Date.now(),
     period = parsed.period,
     { limit, adjustment } = parsed;
@@ -133,22 +107,30 @@ export async function chartBars(
     try {
       local =
         source.source === "tdx-local" && source.period === base
-          ? source
-          : await readVipdocChart(
-              source.dataRoot ?? settings().tdxRoot,
-              source.symbol,
-              base,
-            );
+          ? source.adjustment !== "none" &&
+            source.rawBars &&
+            adjustment !== source.adjustment
+            ? { ...source, bars: source.rawBars, adjustment: "none" as const }
+            : source
+          : await readBars({
+              instrument: { market: "cn-equity", symbol: source.symbol },
+              root: source.dataRoot ?? settings().tdxRoot,
+              period: base,
+              adjustment: "none",
+              chartFunds: true,
+            });
     } catch (error) {
       if (base !== "day") throw error;
       const minutes =
         source.period === "5m"
           ? source
-          : await readVipdocChart(
-              source.dataRoot ?? settings().tdxRoot,
-              source.symbol,
-              "5m",
-            );
+          : await readBars({
+              instrument: { market: "cn-equity", symbol: source.symbol },
+              root: source.dataRoot ?? settings().tdxRoot,
+              period: "5m",
+              adjustment: "none",
+              chartFunds: true,
+            });
       const daily = aggregateChartBars(minutes.bars, "5m", "day", now);
       local = { ...minutes, period: "day", bars: daily.bars };
       if (daily.excluded.length) {
@@ -191,15 +173,18 @@ export async function chartBars(
     ) {
       // 本地日线齐备、只差当日那一根：一次小的在线尾段，不重取整段历史。
       try {
-        const tail = await onlineDailyTail(
-          source.symbol,
-          deltaSince(dayTail.date),
+        series = await readBars(
+          {
+            instrument: { market: "cn-equity", symbol: source.symbol },
+            root: source.dataRoot ?? settings().tdxRoot,
+            period: "day",
+            adjustment: "none",
+            live: true,
+            now,
+            chartFunds: true,
+          },
+          series,
         );
-        const merged = mergeOnlineDailyTail(series, tail.bars, {
-          source: tail.source,
-          requests: 1,
-        });
-        if (merged.added) series = merged.snapshot;
       } catch (error) {
         reasons.push(
           `当日增量不可用：${error instanceof Error ? error.message : "读取失败"}`,
@@ -316,6 +301,27 @@ export async function chartBars(
     historyExhausted:
       resolved.historyExhausted && resolved.bars.length <= limit,
     bars,
+    ...(resolved.barStore
+      ? {
+          barStore: {
+            ...resolved.barStore,
+            adjustment,
+            adjustmentReference:
+              adjustment === "none"
+                ? null
+                : resolved.barStore.adjustmentReference,
+            coverage: {
+              from: bars[0]?.date ?? null,
+              to: bars.at(-1)?.date ?? null,
+              count: bars.length,
+              historyExhausted:
+                resolved.historyExhausted && resolved.bars.length <= limit,
+            },
+            formingDates: resolved.formingDates,
+            excluded: resolved.excluded,
+          },
+        }
+      : {}),
     hash,
     id: `chart-snapshot-${source.symbol}-${period}-${hash.slice(0, 20)}`,
   };
@@ -337,7 +343,13 @@ export const compareBarsInput = z.object({
 export async function compareBars(input: z.input<typeof compareBarsInput>) {
   const { symbol, period, limit } = compareBarsInput.parse(input);
   const base = isMinutePeriod(period) ? "5m" : "day";
-  const local = await readVipdocChart(settings().tdxRoot, symbol, base);
+  const local = await readBars({
+    instrument: { market: "cn-equity", symbol },
+    root: settings().tdxRoot,
+    period: base,
+    adjustment: "none",
+    chartFunds: true,
+  });
   const bars =
     period === base
       ? local.bars
