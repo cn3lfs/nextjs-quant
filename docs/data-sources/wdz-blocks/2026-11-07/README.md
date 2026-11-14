@@ -25,7 +25,7 @@
 $env:CSI800_POOL_FILE = 'D:\quant-data\wdz-blocks\2026-11-07\Blocks\市场分类\中证800.txt'
 ```
 
-日常 RPS 继续使用连接设置中的 Blocks 目录。分类测试仅使用 `tests/fixtures/wdz-block-definitions` 的 41 个固定原始样本，逐个对照同一 manifest，不依赖外部归档；完整快照校验由迁出脚本负责。2026-11-14 已执行迁出：唯一正式归档位于 `D:\quant-data\wdz-blocks6-11-07`，2,319 个文件逐个按 manifest 校验并完成恢复核验，仓库副本已移除（提交 f73f7db）；原 `D:\wsWDZ\Blocks` 未改动。
+日常 RPS 继续使用连接设置中的 Blocks 目录。分类测试仅使用 `tests/fixtures/wdz-block-definitions` 的 41 个固定原始样本，逐个对照同一 manifest，不依赖外部归档；完整快照校验由迁出脚本负责。2026-11-14 已执行迁出：唯一正式归档位于 `D:\quant-data\wdz-blocks\2026-11-07`，2,319 个文件逐个按 manifest 校验并完成恢复核验，仓库副本已移除（提交 f73f7db）；原 `D:\wsWDZ\Blocks` 未改动。
 
 ## 排行口径
 
