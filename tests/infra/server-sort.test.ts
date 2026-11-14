@@ -20,7 +20,9 @@ const keys = {
 describe("server-side table sort", () => {
   it("sorts numbers, keeps missing values last and ties stable", () => {
     expect(
-      sortTableRows(rows, { id: "value", desc: false }, keys).map((r) => r.name),
+      sortTableRows(rows, { id: "value", desc: false }, keys).map(
+        (r) => r.name,
+      ),
     ).toEqual(["乙", "丁", "丙", "甲"]);
     expect(
       sortTableRows(rows, { id: "value", desc: true }, keys).map((r) => r.name),

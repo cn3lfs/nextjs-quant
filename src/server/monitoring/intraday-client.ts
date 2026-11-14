@@ -1,7 +1,9 @@
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
 import { projectCzsc } from "../strategies/chan/czsc";
 import { intradayConfig } from "./intraday-service";
+import { capabilityAllows } from "~/lib/common/capabilities";
 
 const scope = globalThis as typeof globalThis & {
   intradayActive?: Promise<void>;
@@ -16,6 +18,7 @@ export function intradayWorkerStatus() {
   };
 }
 export function scheduleIntraday(now: number, force = false) {
+  if (!capabilityAllows("intraday", "schedule")) return;
   if (scope.intradayActive) return scope.intradayActive;
   if (
     !intradayConfig().enabled ||
@@ -83,6 +86,8 @@ export function scheduleIntraday(now: number, force = false) {
     scope.intradayActive = undefined;
   });
   // Automatic ticks retain a visible error without an unhandled rejection.
-  void scope.intradayActive.catch(() => {});
+  void scope.intradayActive.catch((error) => {
+    recordRuntimeError("intraday-worker", error);
+  });
   return scope.intradayActive;
 }

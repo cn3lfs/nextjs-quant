@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 import { evaluateCryptoTimeSlot } from "trading-strategies/research/factors/research-crypto-time-slot";
-import { runCryptoTimeSlotResearch } from "../../src/server/backtest/research-run";
 
 function fixture() {
   const at = Date.parse("2024-05-01T08:00:00Z"),
@@ -29,7 +28,7 @@ function fixture() {
   };
 }
 it("seasonal hourly baselines are independent and never stock trading signals", () => {
-  const r = runCryptoTimeSlotResearch(fixture());
+  const r = evaluateCryptoTimeSlot(fixture());
   expect(r.status).toBe("computed");
   expect(r.variants.map((v) => v.ratio)).toEqual([2, 2]);
   expect(r).toMatchObject({

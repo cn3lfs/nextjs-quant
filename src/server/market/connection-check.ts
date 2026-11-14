@@ -7,7 +7,7 @@ import {
   type ConnectionCheckInput,
   type ConnectionCheckResult,
 } from "~/lib/settings/connection-check";
-import { parseBars } from "tstdx/local";
+import { parseBars, resolveTdxRoot } from "tstdx/local";
 import { tstdxKlines } from "../data-sources/tstdx/tstdx-adapter";
 import { eastmoneyKlines } from "../data-sources/eastmoney/eastmoney-adapter";
 import { westockKlines } from "../data-sources/westock/westock-adapter";
@@ -30,6 +30,11 @@ async function localSample(
   symbol: string,
   period: ConnectionCheckInput["period"],
 ) {
+  try {
+    root = resolveTdxRoot(root);
+  } catch (error) {
+    throw new CheckFailure("unavailable", (error as Error).message, "error");
+  }
   if (!(await stat(root)).isDirectory())
     throw new CheckFailure("unavailable", "配置路径不是目录", "error");
   await access(root, constants.R_OK);

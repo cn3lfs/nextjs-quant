@@ -10,8 +10,16 @@ import {
   RPS_PUBLISH_BATCH,
 } from "../../../src/server/screening/rps-job";
 import { industryRpsPage } from "../../../src/server/screening/industry-rps-query";
-import { industrySnapshot, industryDay } from "../../industry-rps-fixture";
-import { rpsDate, rpsDay, rpsDeps, rpsProgress } from "../../rps-fixture";
+import {
+  industrySnapshot,
+  industryDay,
+} from "../../helpers/industry-rps-fixture";
+import {
+  rpsDate,
+  rpsDay,
+  rpsDeps,
+  rpsProgress,
+} from "../../helpers/rps-fixture";
 
 const dbs: Database.Database[] = [];
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));
@@ -39,7 +47,7 @@ it("industry backfill reuses the S1 job and stores independent immutable results
   const result = await runRpsJob(store, deps(), request, progress, now);
   expect(result.status).toBe("complete");
   expect(result.completedDays).toBe(3);
-  expect(store.latest()!.counts).toEqual([3, 3, 3, 3, 3, 3]);
+  expect(store.latest()!.counts).toEqual([3, 3, 3, 3, 3, 3, 3]);
   expect(store.latest()!.industry!.snapshot).toEqual(industrySnapshot());
   expect(stockStore.day(rpsDate)).toEqual(stock.day);
   const saved = store.curve("甲");
@@ -67,7 +75,7 @@ it("industry backfill reuses the S1 job and stores independent immutable results
         "SELECT count(*) n, min(length(values_blob)) bytes FROM industry_rps_values",
       )
       .get(),
-  ).toEqual({ n: 9, bytes: 96 });
+  ).toEqual({ n: 9, bytes: 112 });
 });
 it("industry cancellation preserves committed days and resumption fills only missing dates", async () => {
   const { store, progress } = setup();
@@ -98,7 +106,7 @@ it("whole empty industry set publishes explicit null audit without a false zero 
       )
     ).status,
   ).toBe("complete");
-  expect(store.latest()!.counts).toEqual([0, 0, 0, 0, 0, 0]);
+  expect(store.latest()!.counts).toEqual([0, 0, 0, 0, 0, 0, 0]);
   expect(store.ranking(rpsDate, 20)).toEqual([]);
   expect(industryRpsPage(store, { period: 20 }).rows[0]!.reason).toBe(
     "empty-list",
@@ -221,7 +229,7 @@ it("server query orders by rank, paginates, exposes file evidence and retains em
     total: 0,
   });
 });
-it("UI explicitly warns of incomparable Tongdaxin weighting, drift, six periods, exclusions and separate forward/backfill tags", () => {
+it("UI explicitly warns of incomparable Tongdaxin weighting, drift, all periods, exclusions and separate forward/backfill tags", () => {
   const fixture = industryDay().day;
   const latest = { ...fixture, excluded: fixture.industry!.excluded };
   const html = renderToStaticMarkup(
@@ -235,12 +243,14 @@ it("UI explicitly warns of incomparable Tongdaxin weighting, drift, six periods,
     "生存者偏差",
     "回填",
     "向前新增",
+    "当日",
+    "RPS1",
+    "RPS3",
     "RPS5",
     "RPS10",
     "RPS20",
     "RPS50",
     "RPS120",
-    "RPS250",
     "20/50/120",
     "750",
   ])

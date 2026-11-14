@@ -22,6 +22,7 @@ import {
   type Column,
 } from "../panels";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { useNow } from "../workbench/use-now";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -140,7 +141,12 @@ function columns(pool: Pool): Column<LimitPoolRow>[] {
 /** 打板情绪：东方财富涨停板行情中心四池 + 炸板率、连板梯队、晋级率。 */
 export function LimitUpView() {
   const visible = usePanelVisible();
-  const date = useLimitUpStore((s) => s.date) ?? today();
+  const now = useNow(60000);
+  const date =
+    useLimitUpStore((s) => s.date) ??
+    (now === null
+      ? ""
+      : new Date(now + 8 * 3600000).toISOString().slice(0, 10));
   const setDate = useLimitUpStore((s) => s.setDate);
   const pool = useLimitUpStore((s) => s.pool);
   const setPool = useLimitUpStore((s) => s.setPool);
@@ -148,6 +154,7 @@ export function LimitUpView() {
   const [poolFilters, setPoolFilters] = useState(blankPoolFilters);
   useEffect(() => {
     setPoolFilters(blankPoolFilters());
+    if (date) setDateDraft((draft) => draft || date);
   }, [date]);
   const current = poolFilters[pool];
   function changePoolFilter(patch: Partial<PoolFilter>, target: Pool = pool) {
@@ -163,7 +170,7 @@ export function LimitUpView() {
   const query = api.limitSentiment.useQuery(
     { date },
     {
-      enabled: visible,
+      enabled: visible && now !== null,
       refetchInterval: date === today() ? 60000 : false,
       retry: false,
     },
@@ -189,6 +196,8 @@ export function LimitUpView() {
     });
   const pageCount = Math.max(1, Math.ceil(rows.length / 50));
   const page = Math.min(current.page, pageCount);
+  // Client wall-clock dates must not enter server or hydration markup.
+  if (now === null) return <p role="status">正在确定查询日期…</p>;
   return (
     <PageGrid>
       <Panel

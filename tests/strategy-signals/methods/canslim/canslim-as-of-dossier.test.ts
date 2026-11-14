@@ -10,10 +10,10 @@ import { expect, it, vi } from "vitest";
 import {
   buildCanslimAsOfDossier,
   gatherCanslimAsOfDossier,
-} from "../../../../src/server/strategies/canslim/canslim-dossier";
+} from "../../../../src/server/strategies/canslim/canslim-as-of-dossier";
 import { asOfDomains } from "trading-strategies/research/contracts/as-of-domain";
 import { type AsOfObservation } from "../../../../src/lib/research/evidence/as-of";
-import type {CanslimAsOfRequest} from "trading-strategies/research/contracts/canslim-request";
+import type { CanslimAsOfRequest } from "trading-strategies/research/contracts/canslim-request";
 
 const request: CanslimAsOfRequest = {
   symbol: "sh600000",

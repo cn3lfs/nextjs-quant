@@ -14,7 +14,8 @@ const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 )("playwright");
 const baseline = process.env.CONNECTIONS_BASELINE === "1";
-const logDir = join(tmpdir(), "logs", "quant-connections");
+const logDir =
+  process.env.TASK_SHOT_DIR ?? join(tmpdir(), "logs", "quant-connections");
 mkdirSync(logDir, { recursive: true });
 const stub = `
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
@@ -28,6 +29,11 @@ function mutation(name) {return {useMutation(options) {return useMutation({...op
   if(window.failCheck) throw Error('合成诊断请求失败');
   return {...input,checkedAt:Date.now(),elapsedMs:10,connection:'ok',data:'ok',freshness:'unknown',dataAsOf:'2026-09-25',referenceAsOf:null,referenceSource:'合成参考',sampleCount:2,message:'样本读取成功；仅代表所选证券与周期',nextAction:'核对交易日历'};
  }
+ if(name === 'checkNewsSources') {
+  await new Promise(resolve=>window.resolveNewsCheck=resolve);
+  if(window.failNewsCheck) throw Error('合成新闻检查失败');
+  return {configuration:input,checkedAt:Date.now(),database:{ok:Boolean(input.clsDbPath),message:input.clsDbPath?'合成数据库可读':'尚未配置财联社数据库'},python:{ok:true,message:'Python 3.12.0'}};
+ }
  if(name !== 'saveSettings') throw Error('Unexpected side effect: '+name);
  await new Promise(resolve=>window.resolveSave=resolve);
  if(window.failSave) throw Error('合成保存失败，请重试');
@@ -35,7 +41,7 @@ function mutation(name) {return {useMutation(options) {return useMutation({...op
  return input;
 }})}}}
 export const api={...Object.fromEntries(Object.keys(fixtures).map(name=>[name,query(name)])),
- snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),checkConnection:mutation('checkConnection'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),
+ snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),checkConnection:mutation('checkConnection'),checkNewsSources:mutation('checkNewsSources'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),
  useUtils(){const client=useQueryClient();return Object.fromEntries(['status','securityProfile','securityNames','securities','channels'].map(name=>[name,{invalidate(){window.invalidations.push(name);return client.invalidateQueries({queryKey:[name]})}}]))}
 };`;
 const bundle = await build({
@@ -51,7 +57,7 @@ import {useSnapshotCache} from './src/lib/stores/snapshot-cache';
 window.requests=[];window.mutations=[];window.invalidations=[];
 const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
 function SnapshotProbe(){const options={onSuccess:s=>(window.published??=[]).push(s.symbol)};const stock=useSnapshotLoad(options),crypto=useSnapshotLoad(options),futures=useSnapshotLoad(options);window.startSnapshot=()=>{stock.mutate({symbol:'sh600000',period:'day',source:'local'});crypto.mutate({symbol:'cxBTCUSDT',period:'day'});futures.mutate({symbol:'fuGC00Y',period:'day'})};window.snapshotCacheSize=()=>useSnapshotCache.getState().entries.size;return null}
-function App(){const [visible,setVisible]=useState(true); const [value,setValue]=useState(settingsSchema.parse({tdxRoot:'C:/fixture/tdx',autoAnalysis:false}));
+function App(){const [visible,setVisible]=useState(true); const [value,setValue]=useState(settingsSchema.parse({tdxRoot:'C:/fixture/tdx'}));
 window.setVisible=setVisible;window.setSettings=(patch)=>setValue(v=>({...v,...patch}));
 return <QueryClientProvider client={client}><SnapshotProbe/><PanelVisibility visible={visible}><div hidden={!visible}><Connections value={value} channels={[]} coverage={null} notify={message=>window.lastNotice=message}/></div></PanelVisibility></QueryClientProvider>}
 createRoot(document.getElementById('root')).render(<App/>);`,
@@ -63,7 +69,9 @@ createRoot(document.getElementById('root')).render(<App/>);`,
   format: "iife",
   jsx: "automatic",
   alias: { "~": "./src" },
-  define: { "process.env.NODE_ENV": '"production"' },
+  // Next replaces build-time environment flags; this standalone bundle has no
+  // Next compiler. Keep the real Link component and supply the same boundary.
+  define: { "process.env.NODE_ENV": '"production"', "process.env": "{}" },
   plugins: [
     {
       name: "fixtures",
@@ -114,7 +122,9 @@ const server = createServer((req, res) => {
       ? bundle.outputFiles[0].text
       : asset === "css"
         ? css.css
-        : '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/style.css"><div class="page" id="root"></div><script src="/bundle.js"></script>',
+        : // Match Workbench's Topbar + page flow: settings' sticky top-14 offset
+          // otherwise overlaps the section radios in a headerless fixture.
+          '<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/style.css"><header class="topbar"><div class="topbar-title"><h1>数据与连接</h1></div></header><div class="page" id="root"></div><script src="/bundle.js"></script>',
   );
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -125,7 +135,10 @@ try {
     viewport: { width: 1440, height: 1000 },
   });
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    errors.push(e.message);
+    console.error(e.message);
+  });
   await page.clock.install();
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   const root = page.getByLabel("通达信安装目录", { exact: true });
@@ -207,22 +220,27 @@ try {
     );
     // Clean remote changes are adopted; dirty local fields survive updates.
     await page.evaluate(() =>
-      window.setSettings({ tdxRoot: "C:/fixture/remote", analysisLimit: 4 }),
+      window.setSettings({
+        tdxRoot: "C:/fixture/remote",
+        autoNewsDailyBatches: 4,
+      }),
     );
     await page.waitForFunction(() =>
       document.querySelector('input[value="C:/fixture/remote"]'),
     );
     await root.fill("C:/fixture/draft");
-    await page.evaluate(() => window.setSettings({ analysisLimit: 6 }));
+    await page.evaluate(() => window.setSettings({ autoNewsDailyBatches: 6 }));
     assert.equal(await root.inputValue(), "C:/fixture/draft");
     await page.getByRole("button", { name: "撤销修改" }).click();
     assert.equal(await root.inputValue(), "C:/fixture/remote");
     const mutationsBeforeInvalid = await page.evaluate(
       () => window.mutations.length,
     );
-    await root.fill("");
+    await root.fill("relative/tdx");
     await save.click();
-    await page.getByText("请输入通达信安装目录。", { exact: true }).waitFor();
+    await page
+      .getByText("请检查此项的格式或允许范围。", { exact: true })
+      .waitFor();
     assert.equal(await root.getAttribute("aria-invalid"), "true");
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
@@ -233,6 +251,28 @@ try {
       mutationsBeforeInvalid,
     );
     await page.getByRole("button", { name: "撤销修改" }).click();
+    await root.fill("");
+    await save.click();
+    await page.evaluate(() => window.resolveSave());
+    await page.waitForFunction(() => window.saved.tdxRoot === "");
+    assert.equal(await root.inputValue(), "");
+    await page.evaluate(() => window.setSettings(window.saved));
+    assert.equal(
+      await page
+        .getByRole("button", { name: "扫描已保存目录", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await page.screenshot({
+      path: join(logDir, "unconfigured.png"),
+      fullPage: true,
+    });
+    // The remaining diagnostic race cases use a configured source. The real
+    // server's unconfigured failure is covered by connection-check.test.ts.
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/remote" }),
+    );
+    await page.getByText("连接诊断 · 基于已保存设置", { exact: true }).click();
     const diagnostic = page.getByRole("button", { name: "检查已保存配置" });
     await diagnostic.focus();
     await page.keyboard.press("Enter");
@@ -269,6 +309,73 @@ try {
     await diagnostic.click();
     await page.evaluate(() => window.resolveCheck());
     await page.getByText("连接：可访问", { exact: true }).waitFor();
+    await page.mouse.wheel(0, -10000);
+    await page.waitForFunction(() => window.scrollY === 0);
+    await page.getByRole("radio", { name: "新闻采集", exact: true }).click();
+    const python = page.getByLabel("新闻 Python 可执行文件", { exact: true });
+    assert.equal(await python.inputValue(), "python");
+    const newsCheck = page.getByRole("button", {
+      name: "检查已保存新闻配置",
+      exact: true,
+    });
+    await newsCheck.click();
+    await page.evaluate(() => window.resolveNewsCheck());
+    await page.getByText("数据库：待处理", { exact: true }).waitFor();
+    await page.getByText("Python：可用", { exact: true }).waitFor();
+    await python.fill("C:/custom python/python.exe");
+    assert.equal(
+      await newsCheck.isDisabled(),
+      true,
+      "Unsaved news paths cannot be diagnosed as saved configuration",
+    );
+    await save.click();
+    await python.fill("C:/newer/python.exe");
+    await page.evaluate(() => window.resolveSave());
+    await page.waitForFunction(
+      () => window.saved.newsPythonExecutable === "C:/custom python/python.exe",
+    );
+    assert.equal(
+      await python.inputValue(),
+      "C:/newer/python.exe",
+      "A late save preserves newer Python edits",
+    );
+    await page.evaluate(() => window.setSettings(window.saved));
+    await page.getByRole("button", { name: "撤销修改" }).click();
+    await page
+      .getByText("新闻配置已变化，以下结果已过期，请重新检查。", {
+        exact: true,
+      })
+      .waitFor();
+    await newsCheck.click();
+    await page.evaluate(() =>
+      window.setSettings({ newsPythonExecutable: "C:/remote/python.exe" }),
+    );
+    await page.evaluate(() => window.resolveNewsCheck());
+    await page
+      .getByText("新闻配置已变化，以下结果已过期，请重新检查。", {
+        exact: true,
+      })
+      .waitFor();
+    await page.evaluate(() => (window.failNewsCheck = true));
+    await newsCheck.click();
+    await page.evaluate(() => window.resolveNewsCheck());
+    await page
+      .getByRole("alert")
+      .filter({ hasText: "合成新闻检查失败" })
+      .waitFor();
+    assert.equal(
+      await page.getByText("Python：可用", { exact: true }).count(),
+      0,
+      "Failed checks clear old successful results",
+    );
+    await page.evaluate(() => (window.failNewsCheck = false));
+    await newsCheck.click();
+    await page.evaluate(() => window.resolveNewsCheck());
+    await page.getByText("Python：可用", { exact: true }).waitFor();
+    await page.screenshot({
+      path: join(logDir, "news-wide.png"),
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 640, height: 800 });
     assert.equal(
       await page.evaluate(
@@ -278,6 +385,23 @@ try {
       "Narrow layout does not overflow",
     );
     await page.screenshot({ path: join(logDir, "narrow.png"), fullPage: true });
+    await page.getByRole("radio", { name: "本地行情", exact: true }).click();
+    const blocksLink = page.getByRole("link", {
+      name: "在 RPS → 行业中管理成分来源和目录",
+      exact: true,
+    });
+    await blocksLink.waitFor();
+    assert.equal(await blocksLink.getAttribute("href"), "/rps");
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await page.screenshot({
+      path: join(logDir, "local-narrow.png"),
+      fullPage: true,
+    });
   }
   assert.deepEqual(errors, []);
   const result = {

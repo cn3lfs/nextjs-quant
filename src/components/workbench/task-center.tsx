@@ -2,34 +2,13 @@
 import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { TaskHistory } from "./task-history";
 import { PageGrid, Panel, StatsPanel } from "../panels";
-import { type WorkbenchState } from "./use-workbench-state";
-import { api } from "~/trpc/react";
 import { taskStamp } from "~/lib/research/workflow/task-history";
-import { useTaskVisible } from "./use-task-visible";
+import { useTaskOverview } from "./use-task-overview";
 import { Button } from "../ui/button";
+import { RecentErrors } from "./recent-errors";
 
-export function TaskCenter({
-  state,
-}: {
-  state: Pick<WorkbenchState, "selectFormulaJob" | "setTab" | "jobs">;
-}) {
-  const visible = useTaskVisible();
-  const sharedActive = state.jobs.data?.some(
-    (j) => j.status === "running" || j.status === "queued",
-  );
-  const overview = api.taskOverview.useQuery(undefined, {
-    enabled: visible,
-    retry: false,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchInterval: (query) =>
-      visible
-        ? sharedActive ||
-          (query.state.data?.running ?? 0) + (query.state.data?.queued ?? 0) > 0
-          ? 2000
-          : 30000
-        : false,
-  });
+export function TaskCenter() {
+  const overview = useTaskOverview();
   const counts = overview.data;
   return (
     <PageGrid>
@@ -83,12 +62,9 @@ export function TaskCenter({
         <TaskHistory
           overview={counts}
           refreshOverview={() => void overview.refetch()}
-          onOpenScreen={(id) => {
-            state.selectFormulaJob(id);
-            state.setTab("screen");
-          }}
         />
       </Panel>
+      <RecentErrors />
     </PageGrid>
   );
 }

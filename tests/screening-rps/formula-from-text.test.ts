@@ -23,13 +23,13 @@ function model(...replies: FormulaDraft[]) {
   };
 }
 const macdCross =
-  "DIF:=EMA(C,12)-EMA(C,26);\nDEA:=EMA(DIF,9);\nCROSS(DIF,DEA) AND RPS250>90;";
+  "DIF:=EMA(C,12)-EMA(C,26);\nDEA:=EMA(DIF,9);\nCROSS(DIF,DEA) AND RPS120>90;";
 
 describe("formulaFromText", () => {
   it("returns a draft that passes the screening gate on the first try", async () => {
     const m = model(draft(macdCross));
     const result = await formulaFromText(
-      "MACD金叉且RPS250大于90",
+      "MACD金叉且RPS120大于90",
       undefined,
       m.complete,
     );
@@ -90,7 +90,7 @@ describe("formulaPrompt", () => {
     for (const name of Object.keys(arities))
       expect(prompt).toContain(`${name}/`);
     for (const name of futureFunctions) expect(prompt).toContain(name);
-    expect(prompt).toContain("RPS250");
+    expect(prompt).toContain("RPS120");
     expect(prompt).not.toContain("未通过校验");
   });
 });

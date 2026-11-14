@@ -1,10 +1,8 @@
+import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
+import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { researchCanslimVolumeScore } from "trading-strategies/research/canslim/research-canslim-volume-score";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 
 const bars = (): Bar[] =>
   Array.from({ length: 80 }, (_, i) => ({
@@ -81,7 +79,7 @@ it("rejects unknown previous score, incomplete calendar, zero volume and invalid
   );
 });
 
-it("uses the registered source snapshot, real signal and next-open fixed-hold transaction", async () => {
+it("keeps the volume rule source snapshot", () => {
   const input = bars();
   const spec = researchSpecSchema.parse({
     strategy: "canslim-volume-entry-binary",
@@ -94,33 +92,4 @@ it("uses the registered source snapshot, real signal and next-open fixed-hold tr
   expect(JSON.stringify(researchMethodSnapshot(spec))).toContain(
     "canslim-analyst/SKILL.md",
   );
-  const events = await researchSignals("sh600000", input, spec, async () => {
-    throw Error("unexpected native");
-  });
-  expect(events).toHaveLength(1);
-  expect(events[0]!.observedDate).toBe(input[65]!.date);
-  expect(events[0]).not.toHaveProperty("entryPriceRange");
-  const result = researchPortfolio(
-    spec,
-    events,
-    input.map((b) => b.date),
-    new Map([["sh600000", input]]),
-    () => ({
-      evidence: "fixture",
-      tradable: true,
-      limitUp: null,
-      limitDown: null,
-      minimumBuy: 100,
-      buyStep: 100,
-      maximumOrder: 100000,
-      minimumSell: 100,
-      sellStep: 100,
-      maximumSell: 100000,
-      sellOddLotAll: true,
-    }),
-  );
-  expect(result.trades[0]).toMatchObject({
-    entryDate: input[66]!.date,
-    exitDate: input[68]!.date,
-  });
 });

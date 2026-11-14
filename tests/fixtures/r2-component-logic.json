@@ -9,10 +9,10 @@
     "SignalsView": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "src/components/portfolio/trade-ledger-panel.tsx": {
-    "TradeLedgerPanel": "aae5ca5ba5ef574eb97821699e589a48757458d29ccd31caeaf31bc11dbc8a6d",
+    "TradeLedgerPanel": "2323ff51cd4ed0ca470658a3489c01310bae4cb1270f99a8d3f89b517cc3dd9a",
     "changed": "efc487d75b9568c91fa177dd097002a69018334d4bb2a410d507995250eb5c8d",
     "submit": "8dd8a43982671887c227b198b50358c10af5415aa1529a1786a018a7c2a3cbf2",
-    "exportHistory": "73d5e481843a80030155c4495ecd4a9106b89949213a20a8c83154d3c13025b8"
+    "exportHistory": "6f6a2acdaff79fd87b2579bb32957b43376a1beaa6df6173b42c993311d23676"
   },
   "src/components/signals/signal-ledger-view.tsx": {
     "LedgerRules": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -33,29 +33,29 @@
     "error": "e1da808c7d91b6a6d905a3f1c91e54e8d6e21f58bf9e69305d229d773b88acf7"
   },
   "src/components/screening/online-screen.tsx": {
-    "OnlineScreen": "b507c10ad1a7192083aca5aebe79a05bc213263fb066c36f0a1bc0782b5cc139",
+    "OnlineScreen": "847ddf5cdcda51801cd01f286ad19ba7eb2e9bcd57872d5603f6f846044b2c8b",
     "exportResult": "ca6de8d356427261f0d0247ec7c8a3d475593c6b0a974bf28e8d808e5ede44fe"
   },
   "src/components/workbench/market-view.tsx": {
-    "MarketView": "f7f6a5c8629ced991111e5e0dd7bafe7a8eaab74d7ab54e04a3f9f2ac1b35ce2"
+    "MarketView": "e5eb9997dd9c3aafddd053b61ac77d42c81be85f21fab41962f100dc403a2a37"
   },
   "src/components/market/chart-workspace.tsx": {
-    "ChartWorkspace": "27d08638a9f36257b0168249f919e3584728b75d0e6e3635a97610b342e5cab9",
-    "EditableChart": "5d53614f7b8bd1352f271bcac4e946271e43e52b409653622d5ef0999bff1ddd",
-    "LinkedPeriodChart": "6862844067916e9870703c0c7ae203c7a6cf4381c3baf45088ef3067924dd64f"
+    "ChartWorkspace": "14015fb2a8e876bd4eb975e96c60fb86d993c6224075dd2fe8872d70edae3c3e",
+    "EditableChart": "78bb01a02be369d493bb987ada065ea7420ef43abfa44bd184f0cbfd30cd8a84",
+    "LinkedPeriodChart": "7181b13816c5b55fef1d0524617dbd811db7f5f70c5a05d20416c49f4120b040"
   },
   "src/components/market/chart.tsx": {
     "LegacyChart": "e5a94931984492479f256fcf9b030b5c34ddcfec4ee29f6e00af2d84d5f1b466",
     "RollingPerformanceChart": "4c3e2e5727b4461f7737bb7d4bf9531aea6f0788e99e535d18cdaeb03dc2f02c",
     "PositionRiskChart": "a02ddf10d68739189aa3e1c50fdd24ae5e151528e63cd0f8031452a6a16bb9ce",
     "PriceChart": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    "CzscMarketChart": "4e11b743f630d8cfd84dac1668a35fbee963c37017ba7ace6dc2852509a98269",
-    "MarketChart": "69d9369c3a9be73003fb324e6d23c0ea51c9f4f3dec2b3925e8cdd5cf679ae3b",
+    "CzscMarketChart": "ce67f7b2985538803473141f1fadabc26b4df181c23b299701545ddf7257823b",
+    "MarketChart": "809e5bbb5470a12b82c19669815ea4f0ac4a608c8f1ffbcf34e76aed5380ca45",
     "IndicatorChip": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "IndicatorParameterPanel": "24c9c9de0755c4621b0c94843d1be7bcb01b68bc1eb2f699567f0b2ce07c1f50"
   },
   "src/components/market/security-select.tsx": {
-    "SecuritySelect": "c7ef8f6b8d5a587bb84b707462891e51d3b9a13a2a5732ce9500dce4bf789636",
+    "SecuritySelect": "1eca0607f192c63b7623a526c9ab2d5625cf4189c1a91666b75c8df9ad53c0ce",
     "keyboard": "f232cfdf7e99d5affa8d28bb0c13cb2f692fdf4bc5d838ff5f6c42d50b77cf87",
     "select": "de51dbafe5d1d25315a067fc8042c820a4e5c62759f9c2e738aa84a0871a5ae6"
   }

@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { openClsNewsDatabase } from "./cls-database";
 import { createHash } from "node:crypto";
 import type { Evidence } from "~/lib/domain";
 import { settings } from "../../infra/settings";
@@ -64,10 +64,7 @@ export function readClsNews(
     )
   )
     throw new Error("新闻时间范围或分页参数非法");
-  const connection = new Database(path, {
-    readonly: true,
-    fileMustExist: true,
-  });
+  const connection = openClsNewsDatabase(path);
   try {
     return connection.transaction(() => {
       const where = ["ctime >= ?", "ctime <= ?"],

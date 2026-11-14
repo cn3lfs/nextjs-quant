@@ -7,8 +7,8 @@ import {
   industrySnapshotSchema,
   aggregateIndustryRps,
 } from "../../src/lib/screening/industry-rps";
-import { industrySnapshot, industryDay } from "../industry-rps-fixture";
-import { rpsDay, rpsDate, rpsDeps, rpsProgress } from "../rps-fixture";
+import { industrySnapshot, industryDay } from "../helpers/industry-rps-fixture";
+import { rpsDay, rpsDate, rpsDeps, rpsProgress } from "../helpers/rps-fixture";
 import { industryRpsPage } from "../../src/server/screening/industry-rps-query";
 
 const dbs: Database.Database[] = [];
@@ -45,7 +45,7 @@ it("stores independent concept rankings with unchanged stock and industry snapsh
   );
   expect(result.status).toBe("complete");
   expect(store.latest()?.industry?.snapshot.category).toBe("concept");
-  expect(store.latest()?.counts).toEqual([3, 3, 3, 3, 3, 3]);
+  expect(store.latest()?.counts).toEqual([3, 3, 3, 3, 3, 3, 3]);
   expect(stockStore.day(stock.day.date)).toEqual(stock.day);
   expect(industryStore.day(industry.day.date)).toEqual(industry.day);
   expect(
@@ -73,7 +73,7 @@ it("supports more than 256 concepts while retaining the existing industry limit 
   });
   expect(result.rows).toHaveLength(452);
   expect(result.rows[0]!.values[0]!.rank).toBe(226.5);
-  expect(result.counts).toEqual([452, 452, 452, 452, 452, 452]);
+  expect(result.counts).toEqual([452, 452, 452, 452, 452, 452, 452]);
 });
 it("rejects industry snapshots in concept tasks and publishes nothing on cancellation", async () => {
   const { store, progress } = setup();

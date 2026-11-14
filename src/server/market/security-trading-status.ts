@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import {
   chinaDate,
   type SecurityTradingStatus,

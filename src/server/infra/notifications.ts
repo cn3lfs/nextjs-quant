@@ -1,4 +1,5 @@
 import { securityLabel } from "../market/securities";
+import { recordRuntimeError } from "./runtime-errors";
 import { createHmac, randomUUID } from "node:crypto";
 import { fetch as proxyFetch, ProxyAgent } from "undici";
 import {
@@ -8,7 +9,7 @@ import {
   type Signal,
   type Report,
 } from "~/lib/domain";
-import { get, put, list, sqlite, atomic } from "../db";
+import { get, put, sqlite, atomic } from "../db";
 import { deliveryCancellationReason } from "./delivery-authorization";
 import { saveSecret, readSecret } from "../vault";
 import { settings } from "./settings";
@@ -610,6 +611,9 @@ export async function drain(sendFn = send, now = Date.now()) {
           });
           continue;
         }
+        recordRuntimeError("notification-send", error, {
+          retryCount: Math.max(0, current.attempts - 1),
+        });
         const permanent = error instanceof SendError && error.permanent,
           delay =
             error instanceof SendError && error.retryAfter > 0

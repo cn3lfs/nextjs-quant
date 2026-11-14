@@ -18,13 +18,21 @@ const rows = (name: keyof typeof fixture) => parseDatacenter(fixture[name]);
 
 it("「返回数据为空」视为空表，其他失败抛出", () => {
   expect(rows("RPTA_WEB_GETHGLIST_NEW")).toEqual([]);
-  expect(() => parseDatacenter({ success: false, message: "参数错误" })).toThrow("参数错误");
+  expect(() =>
+    parseDatacenter({ success: false, message: "参数错误" }),
+  ).toThrow("参数错误");
 });
 
 it("查询参数带 reportName / filter / 排序", async () => {
-  const fetcher = vi.fn<typeof fetch>(async () => Response.json(fixture.RPT_LIFT_STAGE));
+  const fetcher = vi.fn<typeof fetch>(async () =>
+    Response.json(fixture.RPT_LIFT_STAGE),
+  );
   const got = await datacenterQuery(
-    { report: "RPT_LIFT_STAGE", filter: '(SECURITY_CODE="002475")', sortColumns: "FREE_DATE" },
+    {
+      report: "RPT_LIFT_STAGE",
+      filter: '(SECURITY_CODE="002475")',
+      sortColumns: "FREE_DATE",
+    },
     undefined,
     fetcher,
   );
@@ -37,7 +45,11 @@ it("查询参数带 reportName / filter / 排序", async () => {
 
 it("事件映射：预告、调研、增减持、质押、解禁", () => {
   const f = forecastEvents(rows("RPT_PUBLIC_OP_NEWPREDICT"));
-  expect(f[0]).toMatchObject({ date: "2026-08-25", type: "forecast", tone: "positive" });
+  expect(f[0]).toMatchObject({
+    date: "2026-08-25",
+    type: "forecast",
+    tone: "positive",
+  });
   expect(f[0]!.title).toContain("略增");
   expect(surveyEvents(rows("RPT_ORG_SURVEYNEW"))[0]).toMatchObject({
     date: "2026-08-27",
@@ -48,7 +60,11 @@ it("事件映射：预告、调研、增减持、质押、解禁", () => {
     title: expect.stringContaining("减持 13,870.84 万股"),
   });
   expect(pledgeEvents(rows("RPT_CSDC_LIST"))).toEqual([
-    expect.objectContaining({ date: "2026-09-18", title: "股权质押比例 14.07%", tone: "neutral" }),
+    expect.objectContaining({
+      date: "2026-09-18",
+      title: "股权质押比例 14.07%",
+      tone: "neutral",
+    }),
   ]);
   expect(unlockEvents(rows("RPT_LIFT_STAGE"))[0]).toMatchObject({
     date: "2017-10-24",

@@ -25,9 +25,11 @@ export function industryRpsPage(
   if (!day?.industry) return { day: null, rows: [], total: 0 };
   const index = day.periods.indexOf(query.period);
   const ranks = new Map(
-    (group
-      ? observationRanking(group, query.period)
-      : store.ranking(day.date, query.period)
+    (index < 0
+      ? []
+      : group
+        ? observationRanking(group, query.period)
+        : store.ranking(day.date, query.period)
     ).map((r) => [r.symbol, r]),
   );
   const files = new Map(day.industry.snapshot.files.map((f) => [f.name, f]));
@@ -35,9 +37,9 @@ export function industryRpsPage(
     .map((m) => ({
       ...m,
       value: ranks.get(m.name) ?? null,
-      valid: m.included[index]!,
-      endpointMissing: m.missing[index]!,
-      reason: m.empty[index]!,
+      valid: m.included[index] ?? null,
+      endpointMissing: m.missing[index] ?? null,
+      reason: index < 0 ? ("period-unavailable" as const) : m.empty[index]!,
       file: files.get(m.name)!,
     }))
     .sort(
@@ -62,7 +64,7 @@ export function industryRpsPage(
     day: {
       date: day.date,
       mode: day.mode,
-      count: day.counts[index]!,
+      count: day.counts[index] ?? null,
       hash: day.industry.snapshot.hash,
       root: day.industry.snapshot.root,
       classification:

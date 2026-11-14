@@ -1,0 +1,4 @@
+#!/bin/sh
+# Optional: git config --local core.hooksPath .githooks
+# Checks run in fresh isolated data. This hook never pushes or packages an exe.
+exec pnpm check

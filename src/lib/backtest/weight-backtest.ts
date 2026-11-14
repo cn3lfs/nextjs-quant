@@ -1,6 +1,5 @@
 import type { BacktestCosts } from "./backtest-costs";
 import type { Bar } from "../domain";
-import type { researchPortfolio } from "../../server/backtest/research-portfolio";
 
 export type WeightRow = { dt: string; symbol: string; weight: number | null };
 export type ReturnRow = { dt: string; symbol: string; value: number | null };
@@ -86,74 +85,6 @@ export function weightBacktest(
         grossReturn === null || cost === null ? null : grossReturn - cost,
     };
   });
-}
-
-/** E3 trades do not retain historical marks: bars are required, lastPrice is
- * only the final mark and must never be backfilled into historical weights.
- */
-export function projectResearchWeights(
-  simulation: Pick<ReturnType<typeof researchPortfolio>, "trades" | "nav">,
-  series: ReadonlyMap<string, readonly Bar[]>,
-) {
-  const symbols = [
-    ...new Set(simulation.trades.map((trade) => trade.event.symbol)),
-  ];
-  const marks = new Map(
-    [...series].map(([symbol, bars]) => {
-      const indexed = new Map<string, number | null>();
-      for (const bar of bars)
-        indexed.set(bar.date, indexed.has(bar.date) ? null : bar.close);
-      return [symbol, indexed] as const;
-    }),
-  );
-  const rows: WeightRow[] = [];
-  const unavailable: { dt: string; symbol: string; reason: string }[] = [];
-  for (const point of simulation.nav) {
-    for (const symbol of symbols) {
-      const held = simulation.trades.filter(
-        (trade) =>
-          trade.event.symbol === symbol &&
-          trade.entryDate <= point.date &&
-          (!trade.exitDate || trade.exitDate > point.date),
-      );
-      const quantity = held.reduce(
-        (sum, trade) =>
-          sum +
-          (trade.entries
-            ? trade.entries
-                .filter((entry) => entry.date <= point.date)
-                .reduce((bought, entry) => bought + entry.quantity, 0)
-            : trade.quantity) -
-          (trade.sales ?? [])
-            .filter((sale) => sale.date <= point.date)
-            .reduce((sold, sale) => sold + sale.quantity, 0),
-        0,
-      );
-      const close = marks.get(symbol)?.get(point.date);
-      const valid =
-        Number.isFinite(point.value) &&
-        point.value > 0 &&
-        !point.stale.length &&
-        (quantity === 0 ||
-          (close != null && Number.isFinite(close) && close > 0));
-      if (!valid)
-        unavailable.push({
-          dt: point.date,
-          symbol,
-          reason: "净值或当日持仓价格不可得",
-        });
-      rows.push({
-        dt: point.date,
-        symbol,
-        weight: valid
-          ? quantity === 0
-            ? 0
-            : (quantity * close!) / point.value
-          : null,
-      });
-    }
-  }
-  return { rows, unavailable };
 }
 
 export function closeReturns(

@@ -6,12 +6,7 @@ import {
   wyckoffInputsSchema,
   type WyckoffInput,
   type VsaContext,
-  wyckoffVsaIds,
 } from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { selectResearchStrategy } from "../../../../src/components/research/research-strategy-fields";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 
 function fixture(down = true): Bar[] {
   const anchors = [
@@ -276,34 +271,4 @@ it("missing, late, duplicate, small-cap and flagged historical evidence are unav
   e.push(e.at(-1)!);
   expect(wyckoffInputsSchema.safeParse(e).success).toBe(false);
   expect(run("wy-stopping-volume", bars, e).at(-1)!.reason).toContain("缺少");
-});
-it("VSA evidence survives spec/snapshot, is removed on strategy switch, and live signals retain endpoint/observation dates", async () => {
-  const bars = fixture();
-  add(bars, { open: 96, low: 95.5, high: 98, close: 97, volume: 400 });
-  add(bars, { open: 96.4, low: 95.5, high: 96.5, close: 95.8, volume: 20 });
-  const spec = researchSpecSchema.parse({
-    strategy: "wy-stopping-volume",
-    start: bars[90]!.date,
-    end: bars[91]!.date,
-    validationStart: bars[91]!.date,
-    wyckoffInputs: inputs(bars),
-  });
-  expect(researchMethodSnapshot(spec).wyckoffInputs).toEqual(
-    spec.wyckoffInputs,
-  );
-  expect(
-    selectResearchStrategy(spec, "ma-cross").wyckoffInputs,
-  ).toBeUndefined();
-  const events = await researchSignals("sh600000", bars, spec, async () => {
-    throw new Error("must not use DLL");
-  });
-  expect(events).toHaveLength(1);
-  expect(events[0]).toMatchObject({
-    endpointDate: bars[90]!.date,
-    observedDate: bars[91]!.date,
-  });
-  for (const id of wyckoffVsaIds)
-    expect(
-      researchSpecSchema.safeParse({ ...spec, strategy: id }).success,
-    ).toBe(true);
 });

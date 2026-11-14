@@ -108,10 +108,14 @@ it("links only completed research to the exact persisted report, with no result 
       ...base,
       result: kind === "report" ? { id } : { reportId: id },
     });
-    expect(taskState(base.id)?.resultLink).toEqual({
-      href: `/reports/${kind}/${encodeURIComponent(id)}`,
-      label: "查看研究报告",
-    });
+    if (kind === "report") {
+      expect(taskState(base.id)?.resultLink).toEqual({
+        href: `/reports/${kind}/${encodeURIComponent(id)}`,
+        label: "查看研究报告",
+      });
+    } else {
+      expect(taskState(base.id)?.resultLink).toBeUndefined();
+    }
     expect(taskState(base.id)).not.toHaveProperty("result");
     for (const status of [
       "running",
@@ -140,7 +144,7 @@ it("opens persisted screening results only after completion", () => {
     progress: 100,
     createdAt: 1,
     updatedAt: 2,
-    input: {},
+    input: { type: "formula-screen" },
     result: { selected: [] },
   };
   put("job", job.id, job);
@@ -151,7 +155,7 @@ it("opens persisted screening results only after completion", () => {
   expect(taskState(job.id)?.screenResultId).toBeUndefined();
 });
 
-it("routes batch quick reviews to their exact existing screening result", () => {
+it("does not route retired batch reviews to a screening result", () => {
   put("job", "batch-screen", {
     id: "batch-screen",
     type: "screen",
@@ -165,7 +169,7 @@ it("routes batch quick reviews to their exact existing screening result", () => 
     input: { mode: "quick-review", contextId: "batch-screen" },
     result: { reportIds: ["report-a"] },
   });
-  expect(taskState("batch-review")?.screenResultId).toBe("batch-screen");
+  expect(taskState("batch-review")?.screenResultId).toBeUndefined();
   put("job", "batch-screen", {
     id: "batch-screen",
     type: "screen",

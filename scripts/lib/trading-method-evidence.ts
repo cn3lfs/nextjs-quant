@@ -113,6 +113,7 @@ export function collectMethodEvidence(
       "src",
       "tests",
       "packages/trading-strategies/src",
+      "packages/trading-strategies/tests",
       "packages/quant-backtest/src",
     ].flatMap((dir) =>
       readdirSync(resolve(root, dir), { recursive: true })
@@ -235,10 +236,12 @@ export function reconcileMethodEvidence(
     for (const binding of bindings.exports) {
       if (
         !evidence.exports.get(binding.file)?.has(binding.name) ||
-        !reaches("src/server/backtest/research-run.ts", binding.file)
+        !method.tests.some(
+          (test) => evidence.tests.has(test) && reaches(test, binding.file),
+        )
       )
         errors.push(
-          `${method.id}: executable export missing/unreachable: ${binding.file}#${binding.name}`,
+          `${method.id}: implementation export missing/uncovered: ${binding.file}#${binding.name}`,
         );
       else owners.push(binding.file);
     }
@@ -259,7 +262,6 @@ export function reconcileMethodEvidence(
     if (bindings.presets.length)
       for (const test of [
         "tests/research-backtest/research-contracts.test.ts",
-        "tests/research-backtest/research-registry-ui.test.ts",
       ]) {
         if (
           evidence.tests.has(test) &&

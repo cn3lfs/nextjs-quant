@@ -43,8 +43,13 @@ describe("chart extra indicators (TDX formulas)", () => {
 
 describe("chart view compatibility", () => {
   it("fills new indicator parameters for views saved before they existed", () => {
-    const { ema: _e, wr: _w, bias: _b, cci: _c, ...legacy } =
-      defaultChartView.parameters;
+    const {
+      ema: _e,
+      wr: _w,
+      bias: _b,
+      cci: _c,
+      ...legacy
+    } = defaultChartView.parameters;
     const view = chartViewSchema.parse({
       ...defaultChartView,
       parameters: legacy,
@@ -52,7 +57,10 @@ describe("chart view compatibility", () => {
     expect(view.parameters).toEqual(defaultChartView.parameters);
   });
   it("labels numbered lines and parameter groups from current parameters", () => {
-    const p = { ...defaultChartView.parameters, wr: [14, 7] as [number, number] };
+    const p = {
+      ...defaultChartView.parameters,
+      wr: [14, 7] as [number, number],
+    };
     expect(indicatorLabel("WR1", p)).toBe("WR14");
     expect(indicatorLabel("EMA3", p)).toBe("EMA50");
     expect(parameterSummary("wr", p)).toBe("WR(14,7)");

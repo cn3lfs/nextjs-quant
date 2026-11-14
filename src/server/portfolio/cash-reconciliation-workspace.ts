@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "tstdx/local";
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { statSync } from "node:fs";
@@ -59,7 +60,7 @@ export function cashReviewInputIdentity(
   if (!config.calendar.length) {
     try {
       const info = statSync(
-        join(config.tdxRoot, "vipdoc/sh/lday/sh000001.day"),
+        join(resolveTdxRoot(config.tdxRoot), "vipdoc/sh/lday/sh000001.day"),
       );
       calendarFile = [
         info.dev,

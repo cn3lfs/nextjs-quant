@@ -8,8 +8,6 @@ import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
 import { cleanMcpResult } from "~/server/mcp";
 import { parseBars, parseNames } from "tstdx/local";
 import { migrate } from "~/server/db/migrations";
-import { backtest } from "~/server/backtest/quant";
-import { defaultStrategy, type Bar } from "~/lib/domain";
 describe("HTTP 与数据适配集成", () => {
   it("拒绝非本机 Host、跨站 Origin、缺少客户端头和错误桌面令牌", () => {
     expect(
@@ -181,20 +179,5 @@ describe("HTTP 与数据适配集成", () => {
     } finally {
       db.close();
     }
-  });
-  it("资金不足与无信号是不同的零交易原因", () => {
-    const bars: Bar[] = Array.from({ length: 50 }, (_, i) => ({
-      date: new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10),
-      open: 1000 + i,
-      high: 1002 + i,
-      low: 999 + i,
-      close: 1001 + i,
-      volume: 100,
-      amount: 100000,
-    }));
-    const result = backtest(bars, defaultStrategy, "s", 10000);
-    expect(result.trades).toHaveLength(0);
-    expect(result.diagnostics.insufficientCash).toBeGreaterThan(0);
-    expect(result.diagnostics.entrySignals).toBeGreaterThan(0);
   });
 });

@@ -1,4 +1,7 @@
 "use client";
+import Link from "next/link";
+import { rpsGroupExclusions, rpsPeriods } from "quant-rps";
+
 import { useEffect, useRef, useState } from "react";
 import {
   nextTableSort,
@@ -6,8 +9,8 @@ import {
   type TableSort,
 } from "~/lib/common/server-sort";
 import { api } from "~/trpc/react";
-import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
-import { rpsPeriods } from "~/lib/screening/rps";
+import { industryEmptyLabels } from "~/lib/screening/industry-rps";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import {
   IndustryRpsStatus,
   industryExclusionLabels,
@@ -52,14 +55,14 @@ const columns: DataTableColumn<Row>[] = [
     enableSorting: true,
     header: "成分 / 本周期有效 / 端点不足",
     cell: ({ row }) =>
-      `${row.original.total} / ${row.original.valid} / ${row.original.endpointMissing}`,
+      `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
   },
   {
     id: "excluded",
     enableSorting: true,
     header: "剔除原因及数量",
     cell: ({ row }) =>
-      industryExclusions
+      rpsGroupExclusions
         .filter((k) => row.original.excluded[k])
         .map((k) => `${industryExclusionLabels[k]} ${row.original.excluded[k]}`)
         .join("；") || "无",
@@ -133,6 +136,14 @@ export function IndustryRpsControls() {
     sourceConfigure.isPending;
   return (
     <section className="space-y-4" aria-label="行业RPS数据管理">
+      {status.data?.tdxConfigured === false && (
+        <p className="text-sm text-muted-foreground">
+          行业和概念 RPS 需要通达信本地行情与证券范围。
+          <Link href="/settings" className="underline">
+            配置通达信目录
+          </Link>
+        </p>
+      )}
       <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="font-medium">板块成分来源</span>
@@ -161,7 +172,7 @@ export function IndustryRpsControls() {
           <span className="font-medium">外部 Blocks 根目录</span>
           <Input
             value={root ?? status.data?.root ?? ""}
-            placeholder="D:\wsWDZ\Blocks"
+            placeholder="外部 Blocks 根目录（绝对路径）"
             onChange={(e) => setRoot(e.target.value)}
           />
           <span className="block text-xs text-muted-foreground">
@@ -258,7 +269,7 @@ export function IndustryRpsControls() {
           <SelectContent>
             {rpsPeriods.map((p) => (
               <SelectItem key={p} value={String(p)}>
-                RPS{p}
+                {rpsPeriodLabel(p)}
               </SelectItem>
             ))}
           </SelectContent>

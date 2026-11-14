@@ -1,8 +1,8 @@
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
 import type { ScreeningFormula } from "~/lib/formula/formula-screen";
-import type { FormulaPart, FormulaWork } from "./formula-screening";
-import { scanFormulaRange } from "./formula-screening";
+import type { FormulaPart, FormulaRangeWork } from "./formula-range";
+import { scanFormulaRange } from "./formula-range";
 
 type Security = { symbol: string; name: string };
 /** One contiguous range, scanned in a nested thread of the formula worker. */
@@ -44,7 +44,7 @@ function workerEntry(): string | null {
 }
 
 export async function scanFormulaParallel(
-  work: Pick<FormulaWork, "root" | "now">,
+  work: FormulaRangeWork,
   formula: ScreeningFormula,
   securities: readonly Security[],
   step?: Step,

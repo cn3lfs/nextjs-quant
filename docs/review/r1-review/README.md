@@ -4,9 +4,9 @@
 
 ## 画廊
 
-- [完整画廊](gallery.png)：18 个新组件（Table 通过 DataTable 渲染）与原 Button。
-- [对话框](gallery-dialog.png)、[菜单](gallery-menu.png)、[提示](gallery-tooltip.png)、[错误与重试](gallery-error.png)、[390px 窄屏](gallery-mobile.png)。
-- [交互记录](gallery-checks.json)：键盘复选/开关、对话框 Escape 与焦点返回、菜单、分页/排序、空/加载/失败/重试、窄屏溢出及浏览器异常检查。
+- 完整画廊（历史产物已清理）：18 个新组件（Table 通过 DataTable 渲染）与原 Button。
+- 对话框（历史产物已清理）、菜单（历史产物已清理）、提示（历史产物已清理）、错误与重试（历史产物已清理）、390px 窄屏（历史产物已清理）。
+- 交互记录（历史产物已清理）：键盘复选/开关、对话框 Escape 与焦点返回、菜单、分页/排序、空/加载/失败/重试、窄屏溢出及浏览器异常检查。
 
 ## 六页视觉对照
 
@@ -14,14 +14,14 @@
 
 | 页面 | 原 CSS / R1 CSS 截图 | 变化像素 |
 |---|---|---:|
-| 行情图表 | [原](before/market.png) / [R1](after/market.png) | 0 |
-| 条件选股 | [原](before/screen.png) / [R1](after/screen.png) | 0 |
-| 信号与通知 | [原](before/signals.png) / [R1](after/signals.png) | 0 |
-| 数据与连接 | [原](before/connections.png) / [R1](after/connections.png) | 0 |
-| 信号台账 | [原](before/signal-ledger.png) / [R1](after/signal-ledger.png) | 0 |
-| 持仓账本 | [原](before/trade-ledger.png) / [R1](after/trade-ledger.png) | 0 |
+| 行情图表 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
+| 条件选股 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
+| 信号与通知 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
+| 数据与连接 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
+| 信号台账 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
+| 持仓账本 | 原（历史产物已清理） / R1（历史产物已清理） | 0 |
 
-[逐页像素及样式结果](comparison.json)，before/after 下 JSON 留存原始 CSSOM 与元素几何。行情页“已显示 360 / 6001 根”容器及子 span 的 text-slate-500，独立编译为 `oklch(0.554 0.046 257.417)`，Next 编译为 `lab(48.0876 -2.03595 -16.5814)`；比较时经浏览器归一化为 RGBA，原始值保留，两者实际截图像素完全一致。其余五页 CSSOM 本身也相同。结论只覆盖本轮截图状态，不代替所有业务状态或 B 层审美判断。
+逐页像素及样式结果（历史产物已清理），before/after 下 JSON 留存原始 CSSOM 与元素几何。行情页“已显示 360 / 6001 根”容器及子 span 的 text-slate-500，独立编译为 `oklch(0.554 0.046 257.417)`，Next 编译为 `lab(48.0876 -2.03595 -16.5814)`；比较时经浏览器归一化为 RGBA，原始值保留，两者实际截图像素完全一致。其余五页 CSSOM 本身也相同。结论只覆盖本轮截图状态，不代替所有业务状态或 B 层审美判断。
 
 ### 与 Q1 / Q2b 历史截图的差异逐项说明
 

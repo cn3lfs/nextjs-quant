@@ -20,6 +20,7 @@ import {
   type CalendarReference,
 } from "../market/data-health";
 import { completedBarFilter } from "~/lib/completed-bars";
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 
 export type LedgerDependencies = {
   calendar: () => Promise<CalendarReference>;
@@ -85,6 +86,8 @@ export async function runSignalLedger(
   now: number,
   onProgress: (run: LedgerRun) => void = () => {},
 ) {
+  if (!capabilityAllows("signalLedger", "compute"))
+    throw new Error(capabilities.signalLedger.reason);
   const local = new Date(now + 8 * 3600000).toISOString();
   const today = local.slice(0, 10);
   if (local.slice(11, 16) < "15:05") return;

@@ -8,8 +8,6 @@ import {
   type RollingPerformanceInput,
   type RollingCurvePoint,
 } from "~/lib/backtest/rolling-performance";
-import { researchDailyReturns } from "./period-performance-service";
-import type { ResearchStore } from "../../backtest/research-store";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";
 
 const rollingSortKeys = [
@@ -101,34 +99,5 @@ export function tradeReviewRollingPage(
     },
     page,
     "账户日度 TWR，截止最后流水日；缺失由 U1 剔除并披露覆盖，不代表跨中断连续业绩。夏普固定 rf=0；滚动结果只供观察，不驱动准入或自动调参。",
-  );
-}
-
-export function researchRollingPage(
-  store: ResearchStore,
-  id: string,
-  partition: "development" | "validation",
-  page: RollingPageInput,
-) {
-  const result = store.result(id),
-    dataset = store.dataset(id);
-  if (!result || !dataset) throw new Error("研究结果或冻结交易日历尚不可得");
-  const dates = dataset.calendar.filter(
-    (date) =>
-      date >= result.spec.start &&
-      date <= result.spec.end &&
-      (partition === "development"
-        ? date < result.spec.validationStart
-        : date >= result.spec.validationStart),
-  );
-  return pageRollingPerformance(
-    {
-      dates,
-      tradingDays: dataset.calendar,
-      returns: researchDailyReturns(result, partition, dates),
-      annualRiskFreeRate: result.spec.annualRiskFreeRate,
-    },
-    page,
-    `当前任务${partition === "development" ? "开发期" : "保留验证期"}模拟净值派生日收益；两期本金独立，不拼接。缺价日及缺价后首日留空；不是可信策略业绩。与三段样本并存，不用于 U8 判定。夏普固定 rf=0。`,
   );
 }

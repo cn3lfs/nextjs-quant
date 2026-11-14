@@ -74,11 +74,18 @@ import { sqlite as chartSqlite } from "../../db";
 import { analyzeCzsc } from "../../strategies/chan/czsc";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import {strategySchema,periodSchema,type Channel,type Monitor,type Delivery,type Signal} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
-import { list, put } from "../../db";
+import {
+  strategySchema,
+  periodSchema,
+  type Channel,
+  type Monitor,
+  type Delivery,
+  type Signal,
+} from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
+import { list, put, readRecordSnapshot } from "../../db";
 import { saveChannel, testDelivery } from "../../infra/notifications";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 function recordOfKind<T>(kind: string, id: string): T | undefined {
   const row = chartSqlite()
     .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
@@ -86,20 +93,22 @@ function recordOfKind<T>(kind: string, id: string): T | undefined {
   return row ? (JSON.parse(row.payload) as T) : undefined;
 }
 export const monitoringRouter = createTRPCRouter({
-  monitorWorkspaceSave: p.input(monitorSaveSchema).mutation(({ input }) => {
-    const value = saveWorkspaceMonitor(chartSqlite(), input);
-    return {
-      ...value,
-      configurationVersion: monitorConfigurationVersion(value),
-    };
-  }),
-  monitorWorkspaceToggle: p
+  monitorWorkspaceSave: p("signalMonitor", "configure")
+    .input(monitorSaveSchema)
+    .mutation(({ input }) => {
+      const value = saveWorkspaceMonitor(chartSqlite(), input);
+      return {
+        ...value,
+        configurationVersion: monitorConfigurationVersion(value),
+      };
+    }),
+  monitorWorkspaceToggle: p("signalMonitor", "configure")
     .input(monitorToggleSchema)
     .mutation(({ input }) => toggleWorkspaceMonitor(chartSqlite(), input)),
-  deliveryWorkspaceConfirm: p
+  deliveryWorkspaceConfirm: p("notifications", "compute")
     .input(deliveryConfirmSchema)
     .mutation(({ input }) => confirmWorkspaceDelivery(chartSqlite(), input)),
-  monitorWorkspaceExport: p
+  monitorWorkspaceExport: p("signalMonitor", "read")
     .input(
       z.object({
         kind: z.enum(["monitor", "signal", "delivery"]),
@@ -109,28 +118,28 @@ export const monitoringRouter = createTRPCRouter({
     .query(({ input }) =>
       monitorWorkspaceExport(chartSqlite(), input.kind, input.id),
     ),
-  monitorWorkspaceSummary: p.query(() =>
+  monitorWorkspaceSummary: p("signalMonitor", "read").query(() =>
     monitorWorkspaceSummary(chartSqlite()),
   ),
-  monitorWorkspacePage: p
+  monitorWorkspacePage: p("signalMonitor", "read")
     .input(monitorPageSchema)
     .query(({ input }) => monitorWorkspacePage(chartSqlite(), input)),
-  signalWorkspacePage: p
+  signalWorkspacePage: p("signalMonitor", "read")
     .input(signalPageSchema)
     .query(({ input }) => signalWorkspacePage(chartSqlite(), input)),
-  deliveryWorkspacePage: p
+  deliveryWorkspacePage: p("notifications", "read")
     .input(deliveryPageSchema)
     .query(({ input }) => deliveryWorkspacePage(chartSqlite(), input)),
-  monitorWorkspaceDetail: p
+  monitorWorkspaceDetail: p("signalMonitor", "read")
     .input(monitorWorkspaceId)
     .query(({ input }) => monitorWorkspaceDetail(chartSqlite(), input)),
-  signalWorkspaceDetail: p
+  signalWorkspaceDetail: p("signalMonitor", "read")
     .input(monitorWorkspaceId)
     .query(({ input }) => signalWorkspaceDetail(chartSqlite(), input)),
-  deliveryWorkspaceDetail: p
+  deliveryWorkspaceDetail: p("notifications", "read")
     .input(monitorWorkspaceId)
     .query(({ input }) => deliveryWorkspaceDetail(chartSqlite(), input)),
-  ledgerCalendar: p.query(async () => {
+  ledgerCalendar: p("signalLedger", "read").query(async () => {
     const config = settings();
     const reference = await localCalendarReference(
       config.tdxRoot,
@@ -147,53 +156,63 @@ export const monitoringRouter = createTRPCRouter({
       source: reference.source,
     };
   }),
-  ledgerSummary: p.query(() => ledgerSummary(chartSqlite())),
-  ledgerHistory: p
+  ledgerSummary: p("signalLedger", "read").query(() =>
+    ledgerSummary(chartSqlite()),
+  ),
+  ledgerHistory: p("signalLedger", "read")
     .input(ledgerHistorySchema)
     .query(({ input }) => ledgerHistory(chartSqlite(), input)),
-  ledgerDetail: p
+  ledgerDetail: p("signalLedger", "read")
     .input(ledgerIdSchema)
     .query(({ input }) => ledgerDetail(chartSqlite(), input)),
-  ledgerRuns: p
+  ledgerRuns: p("signalLedger", "read")
     .input(ledgerRunsSchema)
     .query(({ input }) => ledgerRuns(chartSqlite(), input)),
-  ledgerRunDetail: p.input(ledgerDateSchema).query(({ input }) => {
-    const run = new SignalLedgerStore(chartSqlite()).run(input);
-    if (!run) throw new Error("台账任务不存在");
-    return run;
-  }),
-  ledgerDecisions: p
+  ledgerRunDetail: p("signalLedger", "read")
+    .input(ledgerDateSchema)
+    .query(({ input }) => {
+      const run = new SignalLedgerStore(chartSqlite()).run(input);
+      if (!run) throw new Error("台账任务不存在");
+      return run;
+    }),
+  ledgerDecisions: p("signalLedger", "read")
     .input(ledgerDecisionsSchema)
     .query(({ input }) => ledgerDecisions(chartSqlite(), input)),
-  ledgerDecisionDetail: p.input(ledgerIdSchema).query(({ input }) => {
-    const decision = recordOfKind<NotificationDecision>(
-      "notification-decision",
-      input,
-    );
-    if (!decision) throw new Error("投递决策不存在");
-    return decision;
-  }),
-  ledgerAnalysis: p.query(() => ledgerAnalysis(chartSqlite())),
-  intradayRuns: p
+  ledgerDecisionDetail: p("signalLedger", "read")
+    .input(ledgerIdSchema)
+    .query(({ input }) => {
+      const decision = recordOfKind<NotificationDecision>(
+        "notification-decision",
+        input,
+      );
+      if (!decision) throw new Error("投递决策不存在");
+      return decision;
+    }),
+  ledgerAnalysis: p("signalLedger", "read").query(() =>
+    ledgerAnalysis(chartSqlite()),
+  ),
+  intradayRuns: p("intraday", "read")
     .input(intradayRunsSchema)
     .query(({ input }) => intradayRuns(chartSqlite(), input)),
-  intradayRunDetail: p
+  intradayRunDetail: p("intraday", "read")
     .input(z.string().regex(/^intraday-run:[a-f0-9]{64}$/))
     .query(({ input }) => {
       const run = recordOfKind<IntradayRun>("intraday-run", input);
       if (!run) throw new Error("预选批次不存在");
       return run;
     }),
-  intradaySummary: p.query(() => ({
+  intradaySummary: p("intraday", "read").query(() => ({
     config: intradayConfig(),
     lastCheck: intradayLastCheck(),
     worker: intradayWorkerStatus(),
   })),
-  intradayStorage: p.query(() => new IntradayStore(chartSqlite()).usage()),
-  intradayHistory: p
+  intradayStorage: p("intraday", "read").query(() =>
+    new IntradayStore(chartSqlite()).usage(),
+  ),
+  intradayHistory: p("intraday", "read")
     .input(intradayHistorySchema)
     .query(({ input }) => intradayHistory(chartSqlite(), input)),
-  intradayStatus: p
+  intradayStatus: p("intraday", "read")
     .input(z.object({ offset: z.number().int().min(0).default(0) }))
     .query(({ input }) => {
       const store = new IntradayStore(chartSqlite());
@@ -220,7 +239,7 @@ export const monitoringRouter = createTRPCRouter({
         })),
       };
     }),
-  intradayExport: p
+  intradayExport: p("intraday", "read")
     .input(z.string().regex(/^intraday-preview:[a-f0-9]{64}$/))
     .query(({ input }) => {
       const store = new IntradayStore(chartSqlite());
@@ -233,10 +252,10 @@ export const monitoringRouter = createTRPCRouter({
         run: recordOfKind("intraday-run", observation.sessionId),
       };
     }),
-  intradaySave: p
+  intradaySave: p("intraday", "configure")
     .input(intradayConfigSchema)
     .mutation(({ input }) => saveIntradayConfig(input)),
-  intradayRemove: p
+  intradayRemove: p("intraday", "configure")
     .input(z.string().regex(/^intraday-preview:[a-f0-9]{64}$/))
     .mutation(({ input }) => {
       if (intradayWorkerStatus().running)
@@ -244,7 +263,7 @@ export const monitoringRouter = createTRPCRouter({
       new IntradayStore(chartSqlite()).remove(input);
       return { removed: true };
     }),
-  intradayRun: p.mutation(async () => {
+  intradayRun: p("intraday", "compute").mutation(async () => {
     if (intradayWorkerStatus().running) return { outcome: "running" as const };
     const config = intradayConfig();
     if (!config.enabled) return { outcome: "disabled" as const };
@@ -270,21 +289,31 @@ export const monitoringRouter = createTRPCRouter({
           : ("missed" as const),
     };
   }),
-  saveChannel: p.input(z.unknown()).mutation(({ input }) => saveChannel(input)),
-  testChannel: p.input(z.string()).mutation(({ input }) => testDelivery(input)),
-  deliveries: p.query(() => list<Delivery>("delivery", 200)),
-  retryDelivery: p.input(z.string()).mutation(({ input }) => {
-    const original = deliveryWorkspaceDetail(chartSqlite(), input);
-    if (!original) throw new Error("投递不存在");
-    if (!original.channel) throw new Error("通知渠道不存在");
-    return confirmWorkspaceDelivery(chartSqlite(), {
-      deliveryId: input,
-      requestId: randomUUID(),
-      expectedChannelVersion: original.channel.destinationVersion,
-    });
-  }),
-  monitors: p.query(() => list<Monitor>("monitor")),
-  saveMonitor: p
+  saveChannel: p("notifications", "configure")
+    .input(z.unknown())
+    .mutation(({ input }) => saveChannel(input)),
+  testChannel: p("notifications", "compute")
+    .input(z.string())
+    .mutation(({ input }) => testDelivery(input)),
+  deliveries: p("notifications", "read").query(() =>
+    list<Delivery>("delivery", 200),
+  ),
+  retryDelivery: p("notifications", "compute")
+    .input(z.string())
+    .mutation(({ input }) => {
+      const original = deliveryWorkspaceDetail(chartSqlite(), input);
+      if (!original) throw new Error("投递不存在");
+      if (!original.channel) throw new Error("通知渠道不存在");
+      return confirmWorkspaceDelivery(chartSqlite(), {
+        deliveryId: input,
+        requestId: randomUUID(),
+        expectedChannelVersion: original.channel.destinationVersion,
+      });
+    }),
+  monitors: p("signalMonitor", "read").query(() =>
+    readRecordSnapshot("monitor", (rows: Iterable<Monitor>) => [...rows]),
+  ),
+  saveMonitor: p("signalMonitor", "configure")
     .input(
       z.object({
         id: z.string().optional(),
@@ -323,7 +352,7 @@ export const monitoringRouter = createTRPCRouter({
         createdAt: Date.now(),
       });
     }),
-  toggleMonitor: p
+  toggleMonitor: p("signalMonitor", "configure")
     .input(z.object({ id: z.string(), enabled: z.boolean() }))
     .mutation(({ input }) => {
       const m = recordOfKind<Monitor>("monitor", input.id);
@@ -335,5 +364,5 @@ export const monitoringRouter = createTRPCRouter({
         revision: randomUUID(),
       });
     }),
-  signals: p.query(() => list<Signal>("signal", 100)),
+  signals: p("signalMonitor", "read").query(() => list<Signal>("signal", 100)),
 });

@@ -1,6 +1,6 @@
 import { PrioritySlots } from "../infra/priority-slots";
 import OpenAI from "openai";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   reportSchema,

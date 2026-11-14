@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type SetStateAction } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   ArrowUpRight,
@@ -31,8 +32,16 @@ import { Input } from "../ui/input";
 import { WorkProgressView } from "../screening/screen-task-progress";
 import { useTaskVisible } from "./use-task-visible";
 import type { RouterOutputs } from "~/trpc/react";
+import {
+  readTaskHistoryLocation,
+  taskHistoryHref,
+  type TaskHistoryFilter,
+} from "~/lib/research/workflow/task-history-location";
+import {
+  useTaskHistorySession,
+  useTaskSession,
+} from "~/lib/stores/task-history-session";
 
-type Cursor = { createdAt: number; id: string };
 const stamp = taskStamp;
 const active = (status: string) => status === "running" || status === "queued";
 const statusIcons = {
@@ -52,7 +61,6 @@ export function TaskDetails({
   cancelling,
   cancelError,
   cancelNotice,
-  onOpenScreen,
 }: {
   data?: TaskState | null;
   pending: boolean;
@@ -62,7 +70,6 @@ export function TaskDetails({
   cancelling: boolean;
   cancelError?: string;
   cancelNotice?: string;
-  onOpenScreen?: (id: string) => void;
 }) {
   return (
     <div className="space-y-3 text-sm">
@@ -91,16 +98,17 @@ export function TaskDetails({
                   </Link>
                 </Button>
               )}
-              {data.screenResultId && onOpenScreen && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenScreen(data.screenResultId!)}
-                >
-                  {data.type === "research"
-                    ? "查看选股与快评结果"
-                    : "查看选股结果"}
-                  <ArrowUpRight size={14} />
+              {data.screenResultId && (
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={`/screen?job=${encodeURIComponent(data.screenResultId)}`}
+                    prefetch={false}
+                  >
+                    {data.type === "research"
+                      ? "查看选股与快评结果"
+                      : "查看选股结果"}
+                    <ArrowUpRight size={14} />
+                  </Link>
                 </Button>
               )}
               {!active(data.status) && data.sourceLink && (
@@ -210,29 +218,26 @@ export function TaskDetails({
 }
 
 export function TaskHistory({
-  onOpenScreen,
   overview,
   refreshOverview,
 }: {
-  onOpenScreen?: (id: string) => void;
   overview?: RouterOutputs["taskOverview"];
   refreshOverview?: () => void;
 } = {}) {
-  const [status, setStatus] = useState<TaskState["status"] | "all">("all");
-  const [type, setType] = useState<TaskState["type"] | "all">("all");
-  const [statusDraft, setStatusDraft] = useState<TaskState["status"] | "all">(
-    "all",
-  );
-  const [typeDraft, setTypeDraft] = useState<TaskState["type"] | "all">("all");
-  const [idDraft, setIdDraft] = useState("");
-  const [id, setId] = useState("");
-  const [cursors, setCursors] = useState<(Cursor | undefined)[]>([undefined]);
+  const search = useSearchParams();
+  const location = readTaskHistoryLocation(search.toString());
+  const { filter } = location;
+  const status = filter.status ?? "all",
+    type = filter.type ?? "all",
+    id = filter.id ?? "";
+  const session = useTaskHistorySession(filter);
+  const { statusDraft, typeDraft, idDraft, cursors } = session;
+  const setCursors = (value: SetStateAction<typeof cursors>) =>
+    session.update("cursors", value);
   const [selected, setSelected] = useState("");
   const [notice, setNotice] = useState("");
-  const [cancelStates, setCancelStates] = useState<
-    Record<string, { pending?: boolean; error?: string; notice?: string }>
-  >({});
-  const inFlight = useRef(new Set<string>());
+  const cancelStates = useTaskSession((state) => state.cancellations);
+  const { beginCancel, finishCancel } = useTaskSession.getState();
   const title = useRef<HTMLParagraphElement>(null);
   const seenRevision = useRef<number | undefined>(undefined);
   const [seenTotal, setSeenTotal] = useState<number | undefined>(undefined);
@@ -245,7 +250,7 @@ export function TaskHistory({
     cursor: cursors.at(-1),
   };
   const history = api.taskHistory.useQuery(input, {
-    enabled: visible,
+    enabled: visible && !location.error,
     refetchOnWindowFocus: true,
     staleTime: 0,
     retry: false,
@@ -253,17 +258,19 @@ export function TaskHistory({
   const detail = api.taskState.useQuery(
     { id: selected },
     {
-      enabled: visible && !!selected,
+      enabled: visible && !location.error && !!selected,
       staleTime: 0,
       refetchOnWindowFocus: true,
       retry: false,
       refetchInterval: (query) =>
-        visible && active(query.state.data?.status ?? "") ? 2000 : false,
+        visible && !location.error && active(query.state.data?.status ?? "")
+          ? 2000
+          : false,
     },
   );
-  // A job revision includes older active jobs, unlike the sidebar's recent-80 window.
+  // A job revision includes older active jobs outside the recent-results window.
   useEffect(() => {
-    if (!visible || overview == null) return;
+    if (!visible || location.error || overview == null) return;
     if (
       seenRevision.current !== undefined &&
       seenRevision.current !== overview.revision
@@ -287,9 +294,7 @@ export function TaskHistory({
   }, [selected, history.data, history.isFetching, history.error]);
   const cancel = api.cancel.useMutation();
   async function cancelTask(taskId: string) {
-    if (inFlight.current.has(taskId)) return;
-    inFlight.current.add(taskId);
-    setCancelStates((value) => ({ ...value, [taskId]: { pending: true } }));
+    if (!beginCancel(taskId)) return;
     try {
       const result = await cancel.mutateAsync(taskId);
       const messages = {
@@ -298,35 +303,34 @@ export function TaskHistory({
         "already-terminal": "任务已经结束，保留实际最终状态。",
         "not-found": "任务不存在，请刷新列表。",
       };
-      setCancelStates((value) => ({
-        ...value,
-        [taskId]: { notice: messages[result.outcome] },
-      }));
+      finishCancel(taskId, { notice: messages[result.outcome] });
       void utils.taskState.invalidate({ id: taskId });
       void utils.taskHistory.invalidate(input);
       void utils.taskOverview.invalidate();
       void utils.jobs.invalidate();
     } catch (error) {
-      setCancelStates((value) => ({
-        ...value,
-        [taskId]: {
-          error: error instanceof Error ? error.message : "请求失败",
-        },
-      }));
-    } finally {
-      inFlight.current.delete(taskId);
+      finishCancel(taskId, {
+        error: error instanceof Error ? error.message : "请求失败",
+      });
     }
   }
   function close() {
     setSelected("");
     setNotice("");
   }
+  function applyFilter(next: TaskHistoryFilter) {
+    session.reset(next);
+    close();
+    window.history.pushState(null, "", taskHistoryHref(next));
+  }
   function refresh() {
+    if (location.error) return;
     void history.refetch();
     if (selected) void detail.refetch();
     refreshOverview?.();
   }
   function latest() {
+    if (location.error) return;
     setCursors([undefined]);
     close();
     setSeenTotal(overview?.total);
@@ -343,18 +347,18 @@ export function TaskHistory({
           className="flex flex-wrap items-center gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            setStatus(statusDraft);
-            setType(typeDraft);
-            setId(idDraft.trim());
-            setCursors([undefined]);
-            close();
+            applyFilter({
+              status: statusDraft === "all" ? undefined : statusDraft,
+              type: typeDraft === "all" ? undefined : typeDraft,
+              id: idDraft.trim() || undefined,
+            });
           }}
         >
           <span className="text-sm">任务状态</span>
           <Select
             value={statusDraft}
             onValueChange={(value) =>
-              setStatusDraft(value as typeof statusDraft)
+              session.update("statusDraft", value as typeof statusDraft)
             }
           >
             <SelectTrigger aria-label="历史任务状态">
@@ -371,7 +375,9 @@ export function TaskHistory({
           </Select>
           <Select
             value={typeDraft}
-            onValueChange={(value) => setTypeDraft(value as typeof typeDraft)}
+            onValueChange={(value) =>
+              session.update("typeDraft", value as typeof typeDraft)
+            }
           >
             <SelectTrigger aria-label="任务类型">
               <SelectValue />
@@ -391,7 +397,9 @@ export function TaskHistory({
               placeholder="输入完整任务编号"
               maxLength={200}
               value={idDraft}
-              onChange={(event) => setIdDraft(event.target.value)}
+              onChange={(event) =>
+                session.update("idDraft", event.target.value)
+              }
               className="min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <Button type="submit" variant="outline">
@@ -400,16 +408,7 @@ export function TaskHistory({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => {
-                setIdDraft("");
-                setId("");
-                setStatus("all");
-                setStatusDraft("all");
-                setTypeDraft("all");
-                setType("all");
-                setCursors([undefined]);
-                close();
-              }}
+              onClick={() => applyFilter({})}
             >
               清除筛选
             </Button>
@@ -417,37 +416,41 @@ export function TaskHistory({
         </form>
         <Button
           variant="outline"
-          disabled={history.isFetching}
+          disabled={history.isFetching || !!location.error}
           onClick={refresh}
         >
           <RefreshCw size={14} />
           刷新任务
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground" role="status">
-        已应用：{status === "all" ? "全部状态" : taskStatusLabels[status]} ·{" "}
-        {type === "all" ? "全部类型" : taskTypeLabels[type]}
-        {id ? ` · 编号 ${id}` : ""}
-        {statusDraft !== status || typeDraft !== type || idDraft.trim() !== id
-          ? "；有未应用条件，请查询。"
-          : ""}
-      </p>
-      {(cursors.length > 1 ||
-        (overview && seenTotal != null && overview.total > seenTotal)) && (
-        <Button variant="outline" onClick={latest}>
-          {overview && seenTotal != null && overview.total > seenTotal
-            ? "有新任务，回到最新"
-            : "回到最新"}
-        </Button>
+      {location.error && <p role="alert">{location.error}</p>}
+      {!location.error && (
+        <p className="text-sm text-muted-foreground" role="status">
+          已应用：{status === "all" ? "全部状态" : taskStatusLabels[status]} ·{" "}
+          {type === "all" ? "全部类型" : taskTypeLabels[type]}
+          {id ? ` · 编号 ${id}` : ""}
+          {statusDraft !== status || typeDraft !== type || idDraft.trim() !== id
+            ? "；有未应用条件，请查询。"
+            : ""}
+        </p>
       )}
+      {!location.error &&
+        (cursors.length > 1 ||
+          (overview && seenTotal != null && overview.total > seenTotal)) && (
+          <Button variant="outline" onClick={latest}>
+            {overview && seenTotal != null && overview.total > seenTotal
+              ? "有新任务，回到最新"
+              : "回到最新"}
+          </Button>
+        )}
       {notice && <p role="status">{notice}</p>}
-      {history.dataUpdatedAt > 0 && (
+      {!location.error && history.dataUpdatedAt > 0 && (
         <p className="text-xs text-muted-foreground">
           列表更新于 {stamp(history.dataUpdatedAt)}
           {history.error ? "；当前为上次读取的数据，尚未刷新。" : ""}
         </p>
       )}
-      {history.error && (
+      {!location.error && history.error && (
         <p role="alert">
           任务列表读取失败：{history.error.message}{" "}
           <Button variant="outline" onClick={() => void history.refetch()}>
@@ -455,10 +458,10 @@ export function TaskHistory({
           </Button>
         </p>
       )}
-      {history.isFetching && !history.data && (
+      {!location.error && history.isFetching && !history.data && (
         <p role="status">正在读取任务列表…</p>
       )}
-      {history.data && (
+      {!location.error && history.data && (
         <>
           <p
             ref={title}
@@ -551,7 +554,6 @@ export function TaskHistory({
                         cancelling={!!cancelStates[job.id]?.pending}
                         cancelError={cancelStates[job.id]?.error}
                         cancelNotice={cancelStates[job.id]?.notice}
-                        onOpenScreen={onOpenScreen}
                       />
                     )}
                   </section>

@@ -1,12 +1,15 @@
 /** Real-browser check of symbol comparison (TDX 叠加) on the actual
  * ChartWorkspace with a stubbed tRPC client (synthetic bars, no network).
- * Usage: node tests/chart-compare-browser.mjs
+ * Usage: node tests/browser/chart-compare-browser.mjs
  */
 import assert from "node:assert/strict";
 import { build } from "esbuild";
+import postcss from "postcss";
+import tailwind from "@tailwindcss/postcss";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
@@ -60,6 +63,10 @@ createRoot(document.getElementById('root')).render(<ChartWorkspace snapshot={sna
     },
   ],
 });
+const css = await postcss([tailwind()]).process(
+  readFileSync("src/styles/globals.css", "utf8"),
+  { from: resolve("src/styles/globals.css") },
+);
 const server = createServer((req, res) => {
   res.setHeader(
     "Content-Type",
@@ -81,28 +88,36 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
+  await page.addStyleTag({ content: css.css });
   const plot = page.getByRole("application");
   await plot.waitFor();
   await page.waitForTimeout(300);
-  // Status lines above the plot may appear (no app CSS in this page), so
+  // Status lines above the plot may appear, so
   // chart-relative points are resolved against the plot's current position.
   // Pick a comparison symbol from the compare picker (not the page sprite).
+  const compare = page.getByRole("button", { name: /^叠加对比（/ });
+  await compare.click();
   await page.getByLabel("叠加对比品种").click();
   await page.getByRole("option", { name: /平安银行/ }).click();
   await page.waitForTimeout(300);
   const chip = page.getByRole("button", { name: "平安银行 ×" });
   await chip.waitFor();
+  await compare.click();
   const box = await plot.boundingBox();
   await page.mouse.move(box.x + 400, box.y + 150);
   await page.waitForTimeout(100);
   const legend = await page.locator('[data-testid="chart-legend"]').innerText();
   assert.match(legend, /平安银行 \d+\.\d{2}/, legend);
   // The price axis switches to percent from the first visible bar.
-  await page.screenshot({ path: join(tmpdir(), "chart-compare.png") });
+  if (process.env.CHART_SHOT_DIR)
+    await page.screenshot({
+      path: join(process.env.CHART_SHOT_DIR, "chart-compare.png"),
+    });
   const axis = await page.evaluate(
     () => [...document.querySelectorAll("div.tv-lightweight-charts td")].length,
   );
   assert.ok(axis > 0);
+  await compare.click();
   await chip.click();
   await page.getByLabel("叠加对比品种").waitFor();
   assert.equal(

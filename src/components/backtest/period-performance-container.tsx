@@ -1,4 +1,5 @@
 "use client";
+import { useTaskVisible } from "../workbench/use-task-visible";
 
 import { useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
@@ -8,13 +9,8 @@ import { Button } from "../ui/button";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import type { PerformanceBasis } from "~/lib/backtest/daily-performance";
 
-export function PeriodPerformanceContainer({
-  source,
-}: {
-  source:
-    | { account: string }
-    | { id: string; partition: "development" | "validation" };
-}) {
+export function PeriodPerformanceContainer({ account }: { account: string }) {
+  const visible = useTaskVisible();
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -31,20 +27,10 @@ export function PeriodPerformanceContainer({
       "id") as RouterInputs["tradeReviewPeriodPerformance"]["sort"],
     desc: sorting[0]?.desc ?? false,
   };
-  const account = "account" in source;
-  const trade = api.tradeReviewPeriodPerformance.useQuery(
-    { ...page, account: account ? source.account : "" },
-    { enabled: account, retry: false },
+  const query = api.tradeReviewPeriodPerformance.useQuery(
+    { ...page, account },
+    { enabled: visible && !!account, retry: false },
   );
-  const research = api.strategyResearchPeriodPerformance.useQuery(
-    {
-      ...page,
-      id: account ? "" : source.id,
-      partition: account ? "development" : source.partition,
-    },
-    { enabled: !account, retry: false },
-  );
-  const query = account ? trade : research;
   return (
     <section className="space-y-3" aria-label="分段与收益矩阵">
       <Tabs

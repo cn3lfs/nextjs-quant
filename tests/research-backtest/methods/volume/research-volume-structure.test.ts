@@ -1,56 +1,15 @@
 import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { confirmedExtrema } from "../../../../src/lib/indicators";
-import { researchRuleSeries, isResearchRule } from "trading-strategies/research/composition/research-local-rules";
+import {
+  researchRuleSeries,
+  isResearchRule,
+} from "trading-strategies/research/composition/research-local-rules";
 import {
   researchVolumeStructureSeries as series,
   volumeStructureIds,
 } from "trading-strategies/research/volume/research-volume-structure";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../../src/server/backtest/research-dataset";
-
-const native = vi.fn(async () => {
-  throw new Error("must not call CZSC");
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
-function specFor(id: (typeof volumeStructureIds)[number], bars: Bar[]) {
-  return researchSpecSchema.parse({
-    strategy: id,
-    symbols: ["sh600000"],
-    start: bars[90]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars.at(-1)!.date,
-    holdingDays: 1,
-    initialCapital: 100000,
-    maxPositions: 1,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-}
 function delayedRetest(index: number): Bar[] {
   const bars = fixture();
   for (let i = 91; i < bars.length; i++) {
@@ -129,15 +88,18 @@ it("confirmed extrema require all three right bars and reject ties", () => {
   );
 });
 it("registers structural breakouts and rejects insufficient volume", () => {
-    for (const [id, bars] of [
-        ["vp-structure-up", fixture()],
-        ["vp-structure-range", fixture(true)],
-    ] as const) {
-        expect(isResearchRule(id)).toBe(true);
-        expect(researchRuleSeries(id, bars, undefined, researchFormulaRuntime)[90]!.entry).toBe(true);
-        bars[90]!.volume = 100;
-        expect(series(id, bars)[90]!.entry).toBe(false);
-    }
+  for (const [id, bars] of [
+    ["vp-structure-up", fixture()],
+    ["vp-structure-range", fixture(true)],
+  ] as const) {
+    expect(isResearchRule(id)).toBe(true);
+    expect(
+      researchRuleSeries(id, bars, undefined, researchFormulaRuntime)[90]!
+        .entry,
+    ).toBe(true);
+    bars[90]!.volume = 100;
+    expect(series(id, bars)[90]!.entry).toBe(false);
+  }
 });
 it("waits for an actual retest and cancels a broken frozen level", () => {
   const bars = fixture();
@@ -197,45 +159,6 @@ it("accepts the last allowed retest bar, expires one-bar waiting and does not re
   expect(series("vp-retest-5", outside)[93]!.entry).toBe(true);
 });
 
-it.each(volumeStructureIds)(
-  "%s confirms before next-open execution and preserves frozen evidence",
-  async (id) => {
-    const input =
-      id === "vp-structure-range"
-        ? fixture(true)
-        : id === "vp-retest-5"
-          ? delayedRetest(93)
-          : fixture();
-    if (id === "vp-retest-1")
-      Object.assign(input[91]!, {
-        open: 151,
-        close: 151,
-        high: 151.5,
-        low: 150.5,
-        volume: 200,
-      });
-    const at = id === "vp-retest-5" ? 93 : id === "vp-retest-1" ? 91 : 90;
-    const points = series(id, input);
-    for (let n = 89; n <= input.length; n++)
-      expect(series(id, input.slice(0, n))).toEqual(points.slice(0, n));
-    const spec = specFor(id, input),
-      events = await researchSignals("sh600000", input, spec, native);
-    expect(events).toHaveLength(1);
-    expect(events[0]!.observedDate).toBe(input[at]!.date);
-    const result = researchPortfolio(
-      spec,
-      events,
-      input.map((b) => b.date),
-      new Map([["sh600000", input]]),
-      () => rules,
-    );
-    expect(result.trades).toHaveLength(1);
-    expect(result.trades[0]!.entryDate).toBe(input[at + 1]!.date);
-    expect(result.trades[0]!.exitDate).toBe(input[at + 2]!.date);
-    expect(native).not.toHaveBeenCalled();
-  },
-);
-
 it("isolates ambiguous extrema and invalidates pending retests on unavailable input", () => {
   const ambiguous = fixture();
   Object.assign(ambiguous[80]!, { high: 200, low: 1 });
@@ -252,102 +175,25 @@ it("isolates ambiguous extrema and invalidates pending retests on unavailable in
   }
 });
 
-it("requires the new 90-bar corporate-action coverage and excludes known splits in that window", async () => {
-  const input = fixture(),
-    spec = specFor("vp-structure-up", input);
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic-fixture",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "合成池",
-    },
-    benchmark: { symbol: "sh000001", bars: input },
-    calendar: input.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "合成",
-        bars: input,
-        hash: researchHash(input),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixed-structure",
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: input[0]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: input.map((b) => ({
-      ...rules,
-      evidence: undefined,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.statistics.count).toBe(1);
-  expect(result.warnings[0]).toContain("90根价格");
-  const short = await runStrategyResearch(
-    spec,
-    dataset,
-    {
-      ...evidence,
-      corporateActionFree: evidence.corporateActionFree.map((r) => ({
-        ...r,
-        start: input[9]!.date,
-      })),
-    },
-    native,
-  );
-  // corporateActionFree is legacy evidence metadata the engine no longer
-  // consumes; admission runs on prepareResearchAdjustedCoverage instead,
-  // which this actions-free dataset satisfies regardless of the window.
-  expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual(
-    result.partitions[0]!.simulation!.trades,
-  );
-  const split = await runStrategyResearch(
-    spec,
-    {
-      ...dataset,
-      stocks: dataset.stocks.map((s) => ({
-        ...s,
-        actions: [
-          {
-            date: input[5]!.date,
-            category: 1,
-            name: "合成除权",
-            bonusRatio: 1,
-          },
-        ],
-      })),
-    },
-    evidence,
-    native,
-  );
-  // A category-1 bonus event without floatSharesBefore/After is a real
-  // share-count change GBBQ cannot quantify, so volume comparability stays
-  // missing — the reason now names that specifically.
-  expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("量能可比性无法判定");
-});
+it.each(volumeStructureIds)(
+  "%s calculates confirmed volume structure and stable evidence",
+  (id) => {
+    const input =
+      id === "vp-structure-range"
+        ? fixture(true)
+        : id === "vp-retest-5"
+          ? delayedRetest(93)
+          : fixture();
+    if (id === "vp-retest-1")
+      Object.assign(input[91]!, {
+        open: 151,
+        close: 151,
+        high: 151.5,
+        low: 150.5,
+        volume: 200,
+      });
+    const points = series(id, input);
+    for (let n = 89; n <= input.length; n++)
+      expect(series(id, input.slice(0, n))).toEqual(points.slice(0, n));
+  },
+);

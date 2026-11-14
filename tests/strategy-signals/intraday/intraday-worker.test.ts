@@ -3,9 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
-import Database from "better-sqlite3";
+import { existsSync } from "node:fs";
+import { capabilities } from "~/lib/common/capabilities";
 
-it("starts the bundled worker with isolated storage and leaves disabled scans untouched", async () => {
+it("production worker rejects paused scans without opening storage", async () => {
   const directory = await mkdtemp(join(tmpdir(), "intraday-worker-"));
   const worker = new Worker(resolve("runtime/intraday-worker.cjs"), {
     env: { ...process.env, QUANT_DATA_DIR: directory },
@@ -26,18 +27,12 @@ it("starts the bundled worker with isolated storage and leaves disabled scans un
       });
       worker.postMessage({ type: "run" });
     });
-    expect(response).toEqual({ type: "done" });
-    await worker.terminate();
-    const db = new Database(join(directory, "quant.sqlite"), {
-      readonly: true,
+    expect(response).toEqual({
+      type: "done",
+      error: capabilities.intraday.reason,
     });
-    try {
-      expect(db.prepare("SELECT COUNT(*) AS count FROM records").get()).toEqual(
-        { count: 0 },
-      );
-    } finally {
-      db.close();
-    }
+    await worker.terminate();
+    expect(existsSync(join(directory, "quant.sqlite"))).toBe(false);
   } finally {
     await worker.terminate();
     await rm(directory, { recursive: true, force: true });

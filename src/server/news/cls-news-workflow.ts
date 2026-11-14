@@ -1,10 +1,14 @@
-import { spawn } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
+import { openClsNewsDatabase } from "../data-sources/cls/cls-database";
+import { settings } from "../infra/settings";
+import { runNewsPython } from "./news-python";
 import { z } from "zod";
-import { clsBatchReceiptSchema, type ClsBatchReceipt } from "~/lib/news/cls-batch";
+import {
+  clsBatchReceiptSchema,
+  type ClsBatchReceipt,
+} from "~/lib/news/cls-batch";
 import { get, put, sqlite } from "../db";
 import { claimWorkflow } from "../jobs/workflow-lease";
 import { parseClsReport } from "./cls-report-parser";
@@ -14,29 +18,6 @@ import { runClsReviewTick } from "./cls-review-scheduler";
 
 export const clsWorkflowDirectory = () =>
   join(homedir(), "Documents", "QuantWorkbench", "CLS");
-function runPython(script: string, args: string[], timeout: number) {
-  return new Promise<void>((resolve, reject) => {
-    const child = spawn("C:\\Python312\\python.exe", [script, ...args], {
-      windowsHide: true,
-      stdio: "ignore",
-      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
-    });
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error("新闻分析超时，未发布完成标记"));
-    }, timeout);
-    child.once("error", () => {
-      clearTimeout(timer);
-      reject(new Error("新闻技能脚本启动失败"));
-    });
-    child.once("exit", (code) => {
-      clearTimeout(timer);
-      code === 0
-        ? resolve()
-        : reject(new Error(`新闻技能脚本退出异常（${code}）`));
-    });
-  });
-}
 const newsSchema = z
   .object({
     id: z.union([z.string(), z.number()]),
@@ -96,17 +77,15 @@ export async function runClsNewsBatch(
   const lease = claimWorkflow("cls-analysis", 30 * 60000);
   if (!lease) throw new Error("另一个新闻批次正在执行");
   try {
+    // Freeze configuration for this batch; saving settings affects the next run.
+    const config = settings();
     const directory = reportDirectory,
       work = join(directory, "work", `${date}-${phase}`);
-    await mkdir(work, { recursive: true });
     const checkpoint = get<{ newsIds: string[]; windowTo: number }>(
       "cls-news-checkpoint",
     );
     const windowFrom = now - 5 * 86400000;
-    const db = new Database("E:/pythonPrj/cls_news_collector/cls_news.db", {
-      readonly: true,
-      fileMustExist: true,
-    });
+    const db = openClsNewsDatabase(config.clsDbPath);
     let rows: unknown[];
     try {
       rows = db
@@ -130,6 +109,7 @@ export async function runClsNewsBatch(
       return empty;
     }
     const newsIds = news.map((row) => String(row.id));
+    await mkdir(work, { recursive: true });
     const input = join(work, "news_raw.json"),
       classified = join(work, "news_raw_classified.json");
     await writeFile(
@@ -146,8 +126,11 @@ export async function runClsNewsBatch(
       }),
       "utf8",
     );
-    const skills = join(homedir(), ".agent-skills", "skills");
-    await runPython(
+    const skills =
+      process.env.QUANT_SKILLS_DIR ??
+      join(homedir(), ".agent-skills", "skills");
+    await runNewsPython(
+      config.newsPythonExecutable,
       join(skills, "news-industry-classifier", "scripts", "classify.py"),
       [input],
       8 * 60000,
@@ -158,7 +141,8 @@ export async function runClsNewsBatch(
     );
     lease.assert();
     const rawReport = join(work, "analysis.md");
-    await runPython(
+    await runNewsPython(
+      config.newsPythonExecutable,
       join(skills, "news-sector-analyzer", "scripts", "analyze.py"),
       [input, classified, "--out", rawReport],
       15 * 60000,

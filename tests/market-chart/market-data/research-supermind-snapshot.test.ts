@@ -14,7 +14,7 @@ import {
   toLocalSymbol,
   type SupermindDisclosureRaw,
 } from "../../../src/lib/research/workflow/research-supermind-snapshot";
-import {createAsOfAdapter} from "../../../src/lib/research/evidence/as-of";
+import { createAsOfAdapter } from "../../../src/lib/research/evidence/as-of";
 import {
   captureDirectory,
   freezeSupermindSnapshot,

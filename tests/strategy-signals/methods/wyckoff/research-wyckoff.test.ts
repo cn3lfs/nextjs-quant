@@ -1,6 +1,3 @@
-import Database from "better-sqlite3";
-import { migrate } from "../../../../src/server/db/migrations";
-import { ResearchStore } from "../../../../src/server/backtest/research-store";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import {
@@ -8,11 +5,6 @@ import {
   wyckoffIds,
 } from "trading-strategies/research/wyckoff/research-wyckoff";
 import { structureEventMachine } from "trading-strategies/research/technical/research-structure-events";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
 
 function fixture(): Bar[] {
   const anchors = [
@@ -277,120 +269,4 @@ describe("pending-state specific barriers", () => {
         events: [],
       });
   });
-});
-
-it("WY06 actual JAC holding reaches LPSY and sells half rather than being preempted by the baseline MA stop", async () => {
-  const bars = jac();
-  append(bars, { open: 105.5, low: 105, high: 106, close: 105.8 });
-  append(bars, { open: 105.5, high: 106, low: 98, close: 99, volume: 200 });
-  append(bars, { open: 99, high: 100, low: 98.5, close: 99, volume: 100 });
-  append(bars, { open: 99.2, high: 100, low: 99, close: 99.5, volume: 40 });
-  append(bars, { open: 99, high: 99.8, low: 98, close: 98.5, volume: 100 });
-  append(bars, { open: 99, high: 100, low: 98, close: 99, volume: 100 });
-  const spec = researchSpecSchema.parse({
-    strategy: "wy-sow-lpsy-daily",
-    start: bars[90]!.date,
-    end: bars[97]!.date,
-    validationStart: bars[97]!.date,
-    holdingDays: 60,
-    maxPositions: 1,
-    initialCapital: 100000,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-  const events = await researchSignals("sh600000", bars, spec, async () => {
-    throw new Error("unexpected native");
-  });
-  expect(events).toHaveLength(1);
-  const rules = {
-    evidence: "fixture",
-    minimumBuy: 100,
-    buyStep: 100,
-    maximumOrder: 100000,
-    minimumSell: 100,
-    sellStep: 100,
-    maximumSell: 100000,
-    sellOddLotAll: true,
-    tradable: true,
-    limitUp: null,
-    limitDown: null,
-  };
-  const result = researchPortfolio(
-    spec,
-    events,
-    bars.map((b) => b.date),
-    new Map([["sh600000", bars]]),
-    () => rules,
-  );
-  const t = result.trades[0]!;
-  expect(t.entryDate).toBe(bars[92]!.date);
-  expect(t.sales).toHaveLength(1);
-  expect(t.sales![0]).toMatchObject({ date: bars[97]!.date, quantity: 400 });
-  expect(t.quantity).toBe(900);
-  expect(t.remainingQuantity).toBe(500);
-  expect(t.exitDate).toBeNull();
-});
-
-it("saved research result retains untraded candidates and cancellations, not only entry evidence", async () => {
-  const bars = jac();
-  bars[91]!.low = 101;
-  const spec = researchSpecSchema.parse({
-    strategy: "wy-sos-jac-daily",
-    symbols: ["sh600000"],
-    start: bars[90]!.date,
-    end: bars[91]!.date,
-    validationStart: bars[91]!.date,
-  });
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: ["sh600000"],
-      source: null,
-      warning: "fixed fixture",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      { symbol: "sh600000", name: "fixed", bars, hash: "fixed", actions: [] },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixed",
-  };
-  const result = await runStrategyResearch(spec, dataset, null, async () => {
-    throw new Error("unexpected native");
-  });
-  expect(result.events).toEqual([]);
-  const rows = result
-    .structureObservations!.flatMap((r) => r.events)
-    .filter((e) => e.kind === "jac");
-  expect(rows).toHaveLength(2);
-  expect(
-    rows.map((e) => [e.state, e.candidateAt, e.observedAt, e.confirmedAt]),
-  ).toEqual([
-    ["candidate", bars[90]!.date, bars[90]!.date, null],
-    ["cancelled", bars[90]!.date, bars[91]!.date, null],
-  ]);
-  const db = new Database(":memory:");
-  try {
-    migrate(db);
-    const store = new ResearchStore(db),
-      task = store.create(spec, null);
-    store.finish(task.id, result);
-    expect(store.result(task.id)!.structureObservations).toEqual(
-      result.structureObservations,
-    );
-  } finally {
-    db.close();
-  }
 });

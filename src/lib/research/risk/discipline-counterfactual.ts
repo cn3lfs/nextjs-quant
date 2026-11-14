@@ -8,7 +8,7 @@ import {
   type DisciplineRules,
 } from "trading-strategies/research/risk/discipline-policy";
 import { z } from "zod";
-import type {ParsedFill} from "../evidence/delivery-import";
+import type { ParsedFill } from "../evidence/delivery-import";
 import type { Bar } from "../../domain";
 import { backtestCostsSchema } from "../../backtest/backtest-costs";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";

@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import type {ParsedFill} from "../../src/lib/research/evidence/delivery-import";
-import { reviewTradeNav, type NavDay } from "../../src/lib/portfolio/trade-review-nav";
+import type { ParsedFill } from "../../src/lib/research/evidence/delivery-import";
+import {
+  reviewTradeNav,
+  type NavDay,
+} from "../../src/lib/portfolio/trade-review-nav";
 import {
   positionRisk,
   positionRiskMetrics,

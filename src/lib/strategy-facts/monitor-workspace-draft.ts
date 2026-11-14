@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { marketSourceSchema } from "~/lib/market/market-source";
-import {defaultStrategy,periodSchema,type Monitor,type Period,type Strategy} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import {
+  defaultStrategy,
+  periodSchema,
+  type Monitor,
+  type Period,
+  type Strategy,
+} from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import type { MarketSource } from "~/lib/market/market-source";
 export type MonitorDraft = {
   id?: string;

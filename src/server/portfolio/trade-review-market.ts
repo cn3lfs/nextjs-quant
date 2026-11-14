@@ -1,9 +1,10 @@
+import { resolveTdxRoot } from "tstdx/local";
 import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { Stats } from "node:fs";
 import type { Snapshot } from "~/lib/domain";
-import {classifyCode} from "~/lib/research/evidence/delivery-import";
+import { classifyCode } from "~/lib/research/evidence/delivery-import";
 import { tradeReviewDayVwap } from "~/lib/portfolio/trade-review-vwap";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { readSnapshot } from "../data-sources/tdx/tdx";
@@ -116,7 +117,7 @@ export async function readTradeReviewSnapshot(
         ? "元/手（10张）"
         : "元/张";
   const file = join(
-    resolve(root),
+    resolveTdxRoot(root),
     "vipdoc",
     symbol.slice(0, 2),
     "lday",
@@ -157,7 +158,7 @@ export async function readTradeReviewSnapshot(
         symbol,
         period: "day",
         source: "tdx-local",
-        dataRoot: resolve(root),
+        dataRoot: resolveTdxRoot(root),
         adjustment: "none",
         createdAt: Date.now(),
         bars,

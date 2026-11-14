@@ -8,10 +8,6 @@ import {
   type PeriodInput,
 } from "~/lib/backtest/period-performance";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";
-import type {
-  ResearchResult,
-  ResearchStore,
-} from "../../backtest/research-store";
 
 export const periodPageSchema = z.object({
   pageIndex: z.number().int().min(0).max(1000000).default(0),
@@ -132,82 +128,5 @@ export function tradeReviewPeriodPage(
     series,
     page,
     "账户分段来自日度 TWR；缺失按 U1 剔除并披露覆盖，不代表跨中断连续业绩。矩阵为截止日持仓标的未复权收盘涨跌幅，不是个人持仓盈亏；缺前一交易日价格留空，截止最后流水日。",
-  );
-}
-
-export function researchDailyReturns(
-  result: ResearchResult,
-  partition: "development" | "validation",
-  dates: readonly string[],
-) {
-  const nav = result.partitions.find((part) => part.partition === partition)
-    ?.simulation?.nav;
-  const points = new Map(nav?.map((point) => [point.date, point]));
-  const indices = new Map(nav?.map((point, i) => [point.date, i]));
-  return dates.map((date, i) => {
-    const current = points.get(date);
-    const previous = i > 0 ? points.get(dates[i - 1]!) : undefined;
-    // 任务书 §2.3 假定已有策略日收益，与事实不符；仅从独立分区模拟净值派生，不拼接两期或使用事件收益替代。
-    const base = i === 0 ? result.spec.initialCapital : previous?.value;
-    if (
-      !current ||
-      (i === 0 && nav?.[0]?.date !== date) ||
-      (i > 0 && indices.get(date) !== (indices.get(dates[i - 1]!) ?? -2) + 1) ||
-      current.stale.length ||
-      (i > 0 && (!previous || previous.stale.length)) ||
-      base === undefined ||
-      base <= 0 ||
-      !Number.isFinite(base) ||
-      !Number.isFinite(current.value)
-    )
-      return null;
-    const value = current.value / base - 1;
-    return Number.isFinite(value) ? value : null;
-  });
-}
-
-export function researchPeriodPage(
-  store: ResearchStore,
-  id: string,
-  partition: "development" | "validation",
-  page: PeriodPageInput,
-) {
-  const result = store.result(id),
-    dataset = store.dataset(id);
-  if (!result || !dataset) throw new Error("研究结果或冻结交易日历尚不可得");
-  const dates = dataset.calendar.filter(
-    (date) =>
-      date >= result.spec.start &&
-      date <= result.spec.end &&
-      (partition === "development"
-        ? date < result.spec.validationStart
-        : date >= result.spec.validationStart),
-  );
-  // 不使用 tasks() 的最近 100 条 UI 上限；全部匹配任务参与列汇总，响应只投影一页。
-  const candidates = store.db
-    .prepare(
-      "SELECT id FROM records WHERE kind='research-task' AND json_extract(payload,'$.status')='complete' AND json_extract(payload,'$.spec.start')=? AND json_extract(payload,'$.spec.end')=? AND json_extract(payload,'$.spec.validationStart')=? ORDER BY id",
-    )
-    .all(result.spec.start, result.spec.end, result.spec.validationStart) as {
-    id: string;
-  }[];
-  const series: Record<string, readonly (number | null)[]> = {};
-  for (const candidate of candidates) {
-    const other = candidate.id === id ? result : store.result(candidate.id);
-    if (!other) continue;
-    const label = `${other.spec.strategy} · 持有${other.spec.holdingDays}日 / 仓位${other.spec.maxPositions} / 配置${other.spec.czscConfig} · ${candidate.id}`;
-    series[label] = researchDailyReturns(other, partition, dates);
-  }
-  return performancePage(
-    {
-      dates,
-      tradingDays: dataset.calendar,
-      returns: researchDailyReturns(result, partition, dates),
-      basis: page.basis,
-      annualRiskFreeRate: result.spec.annualRiskFreeRate,
-    },
-    series,
-    page,
-    `分段为当前任务${partition === "development" ? "开发期" : "保留验证期"}，两期本金独立。矩阵按同起止日期及分期的已完成策略/参数任务比较（含重试），共享当前任务冻结日历；证券池、费用和数据版本可能不同，详见任务导出。无模拟净值、缺价及缺价后首日留空；不是可信策略业绩。`,
   );
 }

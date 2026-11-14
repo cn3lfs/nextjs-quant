@@ -2,7 +2,6 @@ import { expect, it } from "vitest";
 import {
   screenDataHealth,
   localCalendarReference,
-  requireCurrentScreen,
 } from "../../src/server/market/data-health";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,41 +13,6 @@ const calendar = {
   hash: "fixture",
 };
 const at = (time: string) => Date.parse(`2026-09-08T${time}:00+08:00`);
-it("strict current screening refuses stale and unverified data and permits aligned completed bars", () => {
-  expect(() =>
-    requireCurrentScreen(
-      screenDataHealth("2026-09-07", "day", at("16:00"), calendar),
-    ),
-  ).toThrow("落后");
-  expect(() =>
-    requireCurrentScreen(
-      screenDataHealth("2026-09-08", "day", at("16:00"), {
-        ...calendar,
-        days: [],
-      }),
-    ),
-  ).toThrow("无法核验");
-  expect(() =>
-    requireCurrentScreen(
-      screenDataHealth("2026-09-08", "day", at("16:00"), calendar),
-    ),
-  ).not.toThrow();
-  expect(() =>
-    requireCurrentScreen(
-      screenDataHealth("2026-09-07", "day", at("10:00"), calendar),
-    ),
-  ).not.toThrow();
-  expect(() =>
-    requireCurrentScreen(
-      screenDataHealth(
-        "2026-09-08T11:30:00+08:00",
-        "5m",
-        at("12:00"),
-        calendar,
-      ),
-    ),
-  ).not.toThrow();
-});
 it("uses a declared recent calendar window without rewriting invalid ancient source records", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-calendar-"));
   const directory = join(root, "vipdoc", "sh", "lday");

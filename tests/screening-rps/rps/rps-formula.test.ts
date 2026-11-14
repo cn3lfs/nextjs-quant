@@ -1,10 +1,13 @@
 import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
-import { evaluateFormula, futureFunctions } from "../../../src/lib/formula/tdx-formula";
+import {
+  evaluateFormula,
+  futureFunctions,
+} from "../../../src/lib/formula/tdx-formula";
 import { rpsFields } from "../../../src/lib/formula/tdx-formula-check";
 import { RpsStore } from "../../../src/server/screening/rps-store";
 import { migrate } from "../../../src/server/db/migrations";
-import { rpsBars, rpsDay } from "../../rps-fixture";
+import { rpsBars, rpsDay } from "../../helpers/rps-fixture";
 
 const connections: Database.Database[] = [];
 afterEach(() => connections.splice(0).forEach((db) => db.close()));

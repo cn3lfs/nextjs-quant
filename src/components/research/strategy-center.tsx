@@ -9,10 +9,21 @@ import {
   type NativeStudyStrategy,
   type StrategyCandidate,
   strategyCategories,
+  isNativeStudyStrategy,
 } from "trading-strategies";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { SecuritySelect } from "../market/security-select";
+import { usePanelVisible } from "../workbench/keep-alive";
+import { useNow } from "../workbench/use-now";
+import { chinaDate } from "~/lib/market/security-trading-status";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
+import {
+  defaultStudyStart,
+  isStudyStockSymbol,
+  studyDateError,
+} from "~/lib/research/strategy-center-input";
 import {
   Table,
   TableHeader,
@@ -37,6 +48,14 @@ const states = {
   "missing-data": "缺少输入",
 };
 export function StrategyCenter() {
+  const panelVisible = usePanelVisible();
+  const now = useNow(60000);
+  const daily = api.localDailyAsOf.useQuery(undefined, {
+    enabled: panelVisible,
+  });
+  const names = api.securityNames.useQuery(undefined, {
+    enabled: panelVisible,
+  });
   const catalog = api.strategyCenterCatalog.useQuery();
   const history = api.strategyCenterHistory.useQuery(undefined, {
     refetchInterval: 3000,
@@ -48,8 +67,11 @@ export function StrategyCenter() {
   );
   const [selectedId, setSelectedId] = useState("ma");
   const [symbol, setSymbol] = useState("sh600519");
-  const [start, setStart] = useState("2025-01-01");
-  const [end, setEnd] = useState("2026-11-06");
+  const [startDraft, setStart] = useState<string | null>(null);
+  const [endDraft, setEnd] = useState<string | null>(null);
+  const end = endDraft ?? daily.data?.historicalAsOf ?? "";
+  const start = startDraft ?? defaultStudyStart(end);
+  const latestAllowed = now === null ? undefined : chinaDate(now - 86400000);
   const [initial, setInitial] = useState(1000000);
   const [candidateText, setCandidateText] = useState("[]");
   const [symbols, setSymbols] = useState("sh600519,sz000858");
@@ -112,6 +134,41 @@ export function StrategyCenter() {
         .includes(query.toLowerCase()),
   );
   const selected = visible.find((item) => item.id === selectedId) ?? visible[0];
+  const dateError = studyDateError(
+    start,
+    end,
+    now,
+    selected && isNativeStudyStrategy(selected.id) ? 366 : undefined,
+  );
+  const capitalValid =
+    Number.isFinite(initial) && initial > 0 && initial <= 1e10;
+  const weightDateError = studyDateError(end, end, now);
+  const portfolioDateError = studyDateError(start, end, now, 732);
+  const dateNote = (
+    <div className="text-xs text-muted-foreground sm:col-span-2">
+      {daily.isPending ? (
+        <p role="status">正在读取本地历史日期…</p>
+      ) : daily.isError ? (
+        <p role="alert">
+          本地历史日期读取失败，可手动填写。
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void daily.refetch()}
+          >
+            重试日期
+          </Button>
+        </p>
+      ) : (
+        <p>
+          {daily.data?.historicalAsOf
+            ? `本地最近已结束交易日：${daily.data.historicalAsOf}。默认区间依据上证指数日历，个股覆盖与预热在运行时校验。`
+            : "本地日历没有今天之前的日期，请补齐日线或手动填写。"}
+        </p>
+      )}
+    </div>
+  );
   async function exportResult(id: string) {
     try {
       const result = await utils.strategyCenterExport.fetch(id);
@@ -271,6 +328,12 @@ export function StrategyCenter() {
                   className="grid gap-3 sm:grid-cols-2"
                   onSubmit={(event) => {
                     event.preventDefault();
+                    if (
+                      dateError ||
+                      !capitalValid ||
+                      !isStudyStockSymbol(symbol)
+                    )
+                      return;
                     run.mutate({
                       strategyId: selected.id as
                         StudyStrategy | NativeStudyStrategy,
@@ -281,14 +344,23 @@ export function StrategyCenter() {
                     });
                   }}
                 >
-                  <label>
-                    证券代码
-                    <Input
-                      value={symbol}
-                      onChange={(event) => setSymbol(event.target.value)}
-                      required
+                  <div>
+                    <span>实验证券</span>
+                    <SecuritySelect
+                      symbol={symbol}
+                      name={names.data?.[symbol]}
+                      period="day"
+                      disabled={run.isPending}
+                      onSelect={setSymbol}
+                      captureKeys={false}
+                      acceptSymbol={isStudyStockSymbol}
+                      label="搜索实验证券"
+                      placeholder="搜索沪深股票名称、代码或拼音"
                     />
-                  </label>
+                    <p className="text-xs text-muted-foreground">
+                      仅限当前撮合支持的沪深100股整手股票。
+                    </p>
+                  </div>
                   <label>
                     期初本金
                     <Input
@@ -306,6 +378,7 @@ export function StrategyCenter() {
                     <Input
                       type="date"
                       value={start}
+                      max={end || latestAllowed}
                       onChange={(event) => setStart(event.target.value)}
                       required
                     />
@@ -315,17 +388,27 @@ export function StrategyCenter() {
                     <Input
                       type="date"
                       value={end}
+                      max={latestAllowed}
                       onChange={(event) => setEnd(event.target.value)}
                       required
                     />
                   </label>
+                  {dateNote}
+                  {dateError && (
+                    <p role="status" className="text-xs sm:col-span-2">
+                      {dateError}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground sm:col-span-2">
                     日线只做多，收盘决策、下一交易日开盘撮合。佣金双边万一/最低5元，卖出税费万五；100股整手。存在不支持的公司行动或行情缺口时任务拒绝运行。
                     {selected.id === "research-chan"
                       ? " 原生缠论最多366自然日，固定开始日前140根起点，逐收盘重新确认；基线旧点不买，DLL身份变化或结构元数据缺失时拒绝。"
                       : ""}
                   </p>
-                  <Button disabled={run.isPending} type="submit">
+                  <Button
+                    disabled={run.isPending || !!dateError || !capitalValid}
+                    type="submit"
+                  >
                     创建本地日线实验
                   </Button>
                 </form>
@@ -336,6 +419,7 @@ export function StrategyCenter() {
                   onSubmit={(event) => {
                     event.preventDefault();
                     try {
+                      if (!researchDateSchema.safeParse(end).success) return;
                       const candidates = JSON.parse(
                         candidateText,
                       ) as StrategyCandidate[];
@@ -360,8 +444,10 @@ export function StrategyCenter() {
                       type="date"
                       value={end}
                       onChange={(event) => setEnd(event.target.value)}
+                      required
                     />
                   </label>
+                  {dateNote}
                   <label className="block">
                     本地证券池（最多200只，逗号分隔）
                     <Input
@@ -371,7 +457,7 @@ export function StrategyCenter() {
                   </label>
                   <Button
                     type="button"
-                    disabled={localWeights.isPending}
+                    disabled={localWeights.isPending || !!weightDateError}
                     onClick={() =>
                       localWeights.mutate({
                         strategyId: selected.id,
@@ -382,6 +468,11 @@ export function StrategyCenter() {
                   >
                     读取本地因子并计算权重
                   </Button>
+                  {weightDateError && (
+                    <p role="status" className="text-xs">
+                      {weightDateError}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     自动读取截至决策日的行情、严格可见财报及所需本地序列，缺失逐项披露。输出目标权重，未模拟历史组合成交。
                   </p>
@@ -408,7 +499,11 @@ export function StrategyCenter() {
                   </div>
                   <Button
                     type="button"
-                    disabled={portfolioRun.isPending}
+                    disabled={
+                      portfolioRun.isPending ||
+                      !!portfolioDateError ||
+                      !capitalValid
+                    }
                     onClick={() =>
                       portfolioRun.mutate({
                         strategyId: selected.id,
@@ -421,6 +516,11 @@ export function StrategyCenter() {
                   >
                     创建历史组合实验
                   </Button>
+                  {portfolioDateError && (
+                    <p role="status" className="text-xs">
+                      {portfolioDateError}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     历史组合限50只、两年；每周最后交易日决策，下一开盘使用共享资金撮合。固定证券池含幸存者偏差，缺失候选剔除并披露，现金保留；费用与滑点见冻结参数。
                   </p>
@@ -439,7 +539,13 @@ export function StrategyCenter() {
                       "风险平价还需 returns：完全对齐的60条 {date,value} 日收益，value 为比例。"}
                     这里只生成目标权重，不模拟组合成交。
                   </p>
-                  <Button type="submit" disabled={evaluate.isPending}>
+                  <Button
+                    type="submit"
+                    disabled={
+                      evaluate.isPending ||
+                      !researchDateSchema.safeParse(end).success
+                    }
+                  >
                     计算目标权重
                   </Button>
                 </form>

@@ -15,9 +15,10 @@ import {
 } from "@phosphor-icons/react/ssr";
 import { type Icon } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, type CSSProperties } from "react";
 import { cn } from "~/lib/common/classnames";
+import { capabilityAllows } from "~/lib/common/capabilities";
 import {
   beijingClock,
   dateLine,
@@ -38,9 +39,8 @@ import {
   type Tone,
 } from "../panels";
 import { Button } from "../ui/button";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { MarketPulse, useOverviewQuotes, WatchQuote } from "./market-pulse";
-import type { WorkbenchState } from "../workbench/use-workbench-state";
 import { useNow } from "../workbench/use-now";
 import {
   axisPct,
@@ -107,28 +107,64 @@ const tradingLabel = {
  * 今日总览: the landing page. Everything shown comes from existing status
  * endpoints; the phase and next steps are derived from the current time.
  */
-export function TodayOverview({ state }: { state: WorkbenchState }) {
+export function TodayOverview() {
   useLegacyMarketLink();
-  const visible = usePanelVisible();
-  const now = useNow(15000);
-  const [rpsTarget, setRpsTarget] = useState<"industry" | "concept">(
-    "industry",
+  const visible = useTaskVisible();
+  const search = useSearchParams();
+  const rpsTarget = search.get("rank") === "concept" ? "concept" : "industry";
+  function setRpsTarget(target: "industry" | "concept") {
+    const url = new URL(window.location.href);
+    if (target === "concept") url.searchParams.set("rank", target);
+    else url.searchParams.delete("rank");
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }
+  // Configuration/coverage refresh belongs to this visible page. Activity
+  // summaries retain the sidebar's independent polling policy.
+  const status = api.status.useQuery(undefined, {
+    enabled: visible,
+    staleTime: 30000,
+    refetchInterval: visible ? 30000 : false,
+    select: ({ coverage, watchlist }) => ({ coverage, watchlist }),
+  });
+  const directory = api.securityNames.useQuery(undefined, {
+    enabled: visible,
+    staleTime: 60000,
+  });
+  const monitorSummary = api.monitorWorkspaceSummary.useQuery(undefined, {
+    enabled: visible,
+    staleTime: 30000,
+  });
+  const channels = api.channels.useQuery(undefined, { enabled: visible });
+  const signalPage = api.signalWorkspacePage.useQuery(
+    {
+      from: monitorSummary.data?.today,
+      to: monitorSummary.data?.today,
+    },
+    {
+      enabled: visible && !!monitorSummary.data,
+      refetchInterval: visible ? 10000 : false,
+    },
   );
+  const now = useNow(15000);
   const daily = api.localDailyAsOf.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 60000 : false,
   });
   const intraday = api.intradayStatus.useQuery(
     { offset: 0 },
-    { enabled: visible, refetchInterval: 15000 },
+    { enabled: visible, refetchInterval: visible ? 15000 : false },
   );
   const cls = api.clsReviewSchedule.useQuery(undefined, {
     enabled: visible,
-    refetchInterval: 60000,
+    refetchInterval: visible ? 60000 : false,
   });
   const rps = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
-    refetchInterval: 30000,
+    refetchInterval: visible ? 30000 : false,
   });
   const industry = api.industryRpsPage.useQuery(
     { period: 20, page: 0 },
@@ -139,7 +175,7 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
     { enabled: visible && rpsTarget === "concept" },
   );
   // Hooks stay above the early return below.
-  const quotes = useOverviewQuotes(state.status.data?.watchlist ?? []);
+  const quotes = useOverviewQuotes(status.data?.watchlist ?? []);
   if (now === null) return null;
   const clock = beijingClock(now);
   const schedule = intraday.data?.lastCheck?.schedule;
@@ -167,22 +203,26 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
       enabled: cls.data.config.enabled,
       lastCheck: cls.data.lastCheck,
     },
-    coverage: state.status.data?.coverage ?? null,
+    coverage: status.data?.coverage ?? null,
     daily: daily.data ?? null,
     rps: rps.data && {
       latestDate: rps.data.latest?.date ?? null,
       running: rps.data.progress?.status === "running",
+      waiting:
+        rps.data.progress?.status === "waiting"
+          ? rps.data.progress.waiting?.message
+          : null,
       error:
         rps.data.progress?.status === "failed" ? rps.data.progress.error : null,
     },
-    channels: state.channels.data ?? [],
-    failedDeliveries: state.monitorSummary.data?.failedDeliveries ?? 0,
+    channels: channels.data ?? [],
+    failedDeliveries: monitorSummary.data?.failedDeliveries ?? 0,
   };
   const phase = phaseOf(input);
   const slots = timeline(input);
   const nowPct = axisPct(clock.minutes);
-  const names = state.names;
-  const signals = state.signals.data?.items ?? [];
+  const names = directory.data ?? {};
+  const signals = signalPage.data?.items ?? [];
   const batch =
     intraday.data?.runs.find(
       (run) => run.date === clock.date && run.slot === "late",
@@ -190,8 +230,10 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
     intraday.data?.runs.find(
       (run) => run.date === clock.date && run.slot === "noon",
     );
-  const sectors = (rpsTarget === "industry" ? industry : concept).data;
-  const watch = state.status.data?.watchlist ?? [];
+  const sectorQuery = rpsTarget === "industry" ? industry : concept;
+  const sectors = sectorQuery.data;
+  const intradayPaused = !capabilityAllows("intraday", "schedule");
+  const watch = status.data?.watchlist ?? [];
   const name = (symbol: string) => names[symbol] ?? symbol.toUpperCase();
   return (
     <div className="flex flex-col gap-[var(--nc-gap)]">
@@ -227,95 +269,112 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
             }
             note="历史导入与回测不会发送通知；未知或停牌的证券暂停信号。"
           >
-            <GridTable
-              label="今日信号"
-              minWidth={520}
-              empty="今日还没有新信号"
-              rows={signals}
-              rowKey={(s) => s.id}
-              columns={[
-                {
-                  key: "security",
-                  header: "证券",
-                  width: "1.5fr",
-                  cell: (s) => (
-                    <SecurityCell
-                      name={name(s.symbol)}
-                      code={s.symbol.toUpperCase()}
-                      extra={
-                        s.close === undefined
-                          ? undefined
-                          : `收 ${s.close.toFixed(2)}`
-                      }
-                    />
-                  ),
-                },
-                {
-                  key: "strategy",
-                  header: "策略",
-                  width: "1.2fr",
-                  cell: (s) => (
-                    <span className="text-nc-text-2">{s.strategyName}</span>
-                  ),
-                },
-                {
-                  key: "time",
-                  header: "触发",
-                  width: "0.7fr",
-                  cell: (s) => (
-                    <span className="text-nc-text-3">
-                      {new Date(s.createdAt).toLocaleTimeString("zh-CN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })}
-                    </span>
-                  ),
-                },
-                {
-                  key: "check",
-                  header: "核验",
-                  width: "1fr",
-                  cell: (s) => {
-                    const [label, tone] = s.tradingStatus
-                      ? tradingLabel[s.tradingStatus]
-                      : (["未记录核验", "idle"] as const);
-                    return (
-                      <span className={cn("text-[13px]", toneText[tone])}>
-                        {label}
-                      </span>
-                    );
+            {monitorSummary.error || signalPage.error ? (
+              <ReadError
+                label="今日信号"
+                message={(monitorSummary.error ?? signalPage.error)!.message}
+                retry={() => {
+                  if (monitorSummary.error) void monitorSummary.refetch();
+                  else void signalPage.refetch();
+                }}
+              />
+            ) : (
+              <GridTable
+                label="今日信号"
+                minWidth={520}
+                empty={
+                  monitorSummary.isLoading || signalPage.isLoading
+                    ? "正在读取信号…"
+                    : !capabilityAllows("signalMonitor", "schedule")
+                      ? "今日没有信号记录；信号监控已暂停。"
+                      : "今日还没有新信号"
+                }
+                rows={signals}
+                rowKey={(s) => s.id}
+                columns={[
+                  {
+                    key: "security",
+                    header: "证券",
+                    width: "1.5fr",
+                    cell: (s) => (
+                      <SecurityCell
+                        name={name(s.symbol)}
+                        code={s.symbol.toUpperCase()}
+                        extra={
+                          s.close === undefined
+                            ? undefined
+                            : `收 ${s.close.toFixed(2)}`
+                        }
+                      />
+                    ),
                   },
-                },
-                {
-                  key: "send",
-                  header: "投递",
-                  width: "0.9fr",
-                  cell: (s) => {
-                    const label =
-                      Object.entries(s.deliveries)
-                        .filter(([, count]) => count > 0)
-                        .map(
-                          ([status, count]) =>
-                            `${deliveryLabel[status as keyof typeof deliveryLabel][0]} ${count}`,
-                        )
-                        .join(" / ") || "未找到投递记录";
-                    const tone = s.deliveries.failed
-                      ? "bad"
-                      : s.deliveries.pending || s.deliveries.sending
-                        ? "accent"
-                        : s.deliveries.sent
-                          ? "ok"
-                          : "idle";
-                    return (
-                      <span className={cn("text-[13px]", toneText[tone])}>
-                        {label}
-                      </span>
-                    );
+                  {
+                    key: "strategy",
+                    header: "策略",
+                    width: "1.2fr",
+                    cell: (s) => (
+                      <span className="text-nc-text-2">{s.strategyName}</span>
+                    ),
                   },
-                },
-              ]}
-            />
+                  {
+                    key: "time",
+                    header: "触发",
+                    width: "0.7fr",
+                    cell: (s) => (
+                      <span className="text-nc-text-3">
+                        {new Date(s.createdAt).toLocaleTimeString("zh-CN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "check",
+                    header: "核验",
+                    width: "1fr",
+                    cell: (s) => {
+                      const [label, tone] = s.tradingStatus
+                        ? tradingLabel[s.tradingStatus]
+                        : (["未记录核验", "idle"] as const);
+                      return (
+                        <span className={cn("text-[13px]", toneText[tone])}>
+                          {label}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "send",
+                    header: "投递",
+                    width: "0.9fr",
+                    cell: (s) => {
+                      const label =
+                        Object.entries(s.deliveries)
+                          .filter(([, count]) => count > 0)
+                          .map(
+                            ([status, count]) =>
+                              `${deliveryLabel[status as keyof typeof deliveryLabel][0]} ${count}`,
+                          )
+                          .join(" / ") || "未找到投递记录";
+                      const tone = s.deliveries.failed
+                        ? "bad"
+                        : s.deliveries.pending || s.deliveries.sending
+                          ? "accent"
+                          : s.deliveries.sent
+                            ? "ok"
+                            : "idle";
+                      return (
+                        <span className={cn("text-[13px]", toneText[tone])}>
+                          {label}
+                        </span>
+                      );
+                    },
+                  },
+                ]}
+              />
+            )}
           </Panel>
         </div>
 
@@ -324,18 +383,33 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
             tone="accent"
             icon={Crosshair}
             title={`盘中预选${batch ? ` · ${batch.slot === "noon" ? "午盘" : "尾盘"}批次` : ""}`}
+            meta={intradayPaused ? "已暂停" : undefined}
             actions={
               <Link href="/intraday" className="text-[13px]">
-                {intraday.data?.config.enabled ? "查看批次 →" : "去设置 →"}
+                {intradayPaused || intraday.data?.config.enabled
+                  ? "查看记录 →"
+                  : "去设置 →"}
               </Link>
             }
-            note="预选使用截至该时点的行情，收盘后另行确认或撤销，不覆盖原始记录。"
+            note={
+              intradayPaused
+                ? "预选与收盘核对已暂停；可查看记录和保存参数，保存设置不会恢复调度。"
+                : "预选使用截至该时点的行情，收盘后另行确认或撤销，不覆盖原始记录。"
+            }
           >
-            {todayRows.length === 0 ? (
+            {intraday.error ? (
+              <ReadError
+                label="预选记录"
+                message={intraday.error.message}
+                retry={() => void intraday.refetch()}
+              />
+            ) : todayRows.length === 0 ? (
               <PanelEmpty>
                 {intraday.isLoading
                   ? "正在读取预选记录…"
-                  : "今日暂无预选候选。缺少当日行情不会生成候选。"}
+                  : intradayPaused
+                    ? "今日没有预选记录；暂停期间不生成新候选。"
+                    : "今日暂无预选候选。缺少当日行情不会生成候选。"}
               </PanelEmpty>
             ) : (
               <div className="flex flex-col gap-[7px]">
@@ -388,18 +462,30 @@ export function TodayOverview({ state }: { state: WorkbenchState }) {
               />
             }
           >
-            <BarRows
-              empty="尚未计算板块 RPS"
-              items={(sectors?.rows ?? [])
-                .filter((row) => row.value)
-                .slice(0, 6)
-                .map((row) => ({
-                  key: row.name,
-                  name: row.name,
-                  value: row.value!.rps.toFixed(0),
-                  pct: row.value!.rps,
-                }))}
-            />
+            {sectorQuery.error ? (
+              <ReadError
+                label="板块 RPS"
+                message={sectorQuery.error.message}
+                retry={() => void sectorQuery.refetch()}
+              />
+            ) : (
+              <BarRows
+                empty={
+                  sectorQuery.isLoading
+                    ? "正在读取板块 RPS…"
+                    : "尚未计算板块 RPS"
+                }
+                items={(sectors?.rows ?? [])
+                  .filter((row) => row.value)
+                  .slice(0, 6)
+                  .map((row) => ({
+                    key: row.name,
+                    name: row.name,
+                    value: row.value!.rps.toFixed(0),
+                    pct: row.value!.rps,
+                  }))}
+              />
+            )}
           </Panel>
 
           <Panel
@@ -625,6 +711,7 @@ function NextSteps({ items }: { items: ReturnType<typeof todos> }) {
             </div>
             <Button
               size="sm"
+              variant={index === 0 ? "default" : "outline"}
               className="flex-none"
               onClick={() => router.push(todo.href, { scroll: false })}
             >
@@ -633,6 +720,30 @@ function NextSteps({ items }: { items: ReturnType<typeof todos> }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ReadError({
+  label,
+  message,
+  retry,
+}: {
+  label: string;
+  message: string;
+  retry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-3 text-sm text-nc-bad"
+    >
+      <span>
+        {label}读取失败：{message}
+      </span>
+      <Button size="sm" variant="outline" onClick={retry}>
+        重新加载
+      </Button>
     </div>
   );
 }

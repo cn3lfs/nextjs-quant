@@ -26,9 +26,11 @@ import { Checkbox } from "../ui/checkbox";
 import { SecuritySelect } from "../market/security-select";
 import { usePanelVisible } from "./keep-alive";
 import { archiveStamp as stamp } from "../research/archive-evidence";
+import { useSecurityNames } from "../market/use-security-names";
 
 const sessionKey = "quant-research-archive-navigation-v1";
-export function ArchiveList({ names }: { names: Record<string, string> }) {
+export function ArchiveList() {
+  const names = useSecurityNames().data ?? {};
   const visible = usePanelVisible();
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<ArchiveFilter>({});
@@ -159,9 +161,9 @@ export function ArchiveList({ names }: { names: Record<string, string> }) {
       meta={
         history.data
           ? `匹配 ${history.data.filteredTotal} 份 · 第 ${cursors.length} 页`
-          : "四类研究档案"
+          : "通用研究档案"
       }
-      note="检索通用研究、CAN SLIM、缠论与威科夫报告。生成时间与证据数据时点分别显示。"
+      note="检索证据分析生成的通用研究报告。生成时间与证据数据时点分别显示；策略实验结果在各自工作区查看。"
       actions={
         <>
           <Button
@@ -313,7 +315,16 @@ export function ArchiveList({ names }: { names: Record<string, string> }) {
                 ? "当前页已没有报告，可回到上一页或最新报告。"
                 : Object.values(filter).some(Boolean)
                   ? "无匹配结果，请调整或清空条件。"
-                  : "暂无四类研究报告。估值与财务质量在下方独立区域。"}
+                  : "暂无通用研究报告。估值与财务资料可通过上方工作区切换查看。"}
+              {!history.data.filteredTotal &&
+                !Object.values(filter).some(Boolean) && (
+                  <>
+                    {" "}
+                    <Link href="/analysis" className="text-primary underline">
+                      前往证据分析
+                    </Link>
+                  </>
+                )}
             </p>
           )}
           <ul aria-label="研究报告列表" className="divide-y divide-nc-border">

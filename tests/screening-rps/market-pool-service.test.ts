@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
 import { RpsStore } from "../../src/server/screening/rps-store";
-import { rpsDay } from "../rps-fixture";
+import { rpsDay } from "../helpers/rps-fixture";
 import {
   marketPoolPage,
   marketPoolRows,
@@ -12,16 +12,23 @@ const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
   root: "fixture",
   coverageRoot: "fixture",
+  coverage: "ready" as "ready" | "empty" | "missing",
 }));
 vi.mock("../../src/server/db/index", () => ({
   sqlite: () => state.db,
-  get: () => ({
-    root: state.coverageRoot,
-    securities: [
-      { symbol: "sz000009", period: "day" },
-      { symbol: "sh600001", period: "day" },
-    ],
-  }),
+  get: () =>
+    state.coverage === "missing"
+      ? null
+      : {
+          root: state.coverageRoot,
+          securities:
+            state.coverage === "empty"
+              ? []
+              : [
+                  { symbol: "sz000009", period: "day" },
+                  { symbol: "sh600001", period: "day" },
+                ],
+        },
 }));
 vi.mock("../../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: state.root, industryBlocksRoot: "blocks" }),
@@ -51,6 +58,7 @@ vi.mock("../../src/server/market/market-pool-files", () => ({
 
 beforeEach(() => {
   state.root = state.coverageRoot = "fixture";
+  state.coverage = "ready";
   state.db = new Database(":memory:");
   migrate(state.db);
   const { day, rows } = rpsDay();
@@ -95,6 +103,8 @@ it("paged results concatenate to export ordering without reranking the selected 
   });
   expect([...first.rows, ...second.rows]).toEqual(exported.rows);
   expect(first.rps?.count).toBe(10);
+  expect(first.period).toBe(50);
+  expect(first.availability).toEqual({ rps: "ready", dailyIndex: "ready" });
   const subset = await marketPoolPage({
     pool: { category: "index", name: "中证A500" },
   });
@@ -110,6 +120,42 @@ it("explicit threshold excludes missing values and filtering agrees with export"
   const page = await marketPoolPage(query);
   expect(page.rows.map((r) => r.symbol)).toEqual(["sz000009"]);
   expect(page.rows).toEqual((await marketPoolRows(query)).rows);
+});
+it("shows new 1/3-day ranks and keeps their unavailable legacy history explicit", async () => {
+  for (const period of [1, 3]) {
+    const current = await marketPoolPage({ period, minimumRps: 90 });
+    expect(current.rps?.count).toBe(10);
+    expect(current.rows.map((row) => row.symbol)).toEqual(["sz000009"]);
+  }
+  const { day, rows } = rpsDay();
+  // Replace only this in-memory fixture with an authentic six-column layout.
+  state.db!.exec("DELETE FROM rps_values; DELETE FROM rps_days;");
+  new RpsStore(state.db!).saveDay(
+    {
+      ...day,
+      periods: [5, 10, 20, 50, 120, 250],
+      counts: Array(6).fill(10),
+      missing: Array(6).fill(0),
+    },
+    rows.map((row) => ({
+      ...row,
+      values: [...row.values.slice(2), row.values.at(-1)!],
+    })),
+  );
+  for (const period of [1, 3]) {
+    const legacy = await marketPoolPage({ period });
+    expect(legacy.rps?.count).toBeNull();
+    expect(legacy.period).toBe(period);
+    expect(legacy.availability.rps).toBe("period-missing");
+    expect(
+      legacy.rows.every(
+        (row) =>
+          row.value === null &&
+          row.reason === "该历史批次未计算此周期，等待新批次",
+      ),
+    ).toBe(true);
+  }
+  expect((await marketPoolPage({ period: 50 })).rows[0]!.value?.rps).toBe(90);
 });
 it("navigates across page boundaries using the same server ordering and stops at pool edges", async () => {
   const all = await marketPoolRows({});
@@ -129,6 +175,46 @@ it("changing the configured data root does not present old coverage or old RPS a
   state.root = "other-root";
   const page = await marketPoolPage({});
   expect(page.rps).toBeNull();
+  expect(page.availability).toEqual({
+    rps: "missing",
+    dailyIndex: "not-scanned",
+  });
   expect(page.rows.every((r) => !r.localDay && r.value === null)).toBe(true);
   expect(page.rows[0]!.reason).toContain("当前数据源");
+});
+
+it("keeps batch availability independent of filters, pages and individual missing ranks", async () => {
+  const empty = await marketPoolPage({ search: "no-match" });
+  const beyond = await marketPoolPage({ page: 100 });
+  const unranked = await marketPoolPage({ search: "sz000020" });
+  expect(empty.rows).toEqual([]);
+  expect(beyond.rows).toEqual([]);
+  expect(unranked.rows[0]).toMatchObject({
+    value: null,
+    reason: "该周期数据不足或未覆盖",
+  });
+  for (const page of [empty, beyond, unranked])
+    expect(page.availability).toEqual({ rps: "ready", dailyIndex: "ready" });
+});
+
+it("distinguishes no scan from an empty scan without changing exported reasons", async () => {
+  state.db!.exec("DELETE FROM rps_values; DELETE FROM rps_days;");
+  for (const [coverage, dailyIndex] of [
+    ["missing", "not-scanned"],
+    ["empty", "empty"],
+    ["ready", "ready"],
+  ] as const) {
+    state.coverage = coverage;
+    const exported = await marketPoolRows({});
+    const page = await marketPoolPage({});
+    expect(page.availability).toEqual({ rps: "missing", dailyIndex });
+    expect(exported.availability).toEqual(page.availability);
+    expect(
+      exported.rows.every(
+        (row) =>
+          row.value === null && row.reason === "尚无当前数据源的RPS，请先计算",
+      ),
+    ).toBe(true);
+    expect(page.rows).toEqual(exported.rows.slice(0, 20));
+  }
 });

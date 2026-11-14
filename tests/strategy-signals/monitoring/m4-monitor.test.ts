@@ -188,7 +188,6 @@ beforeEach(() => {
     // M4 verifies transport/content independently of P2's conservative defaults.
     // Keep every original assertion using explicitly permissive configurable tiers.
     settingsSchema.parse({
-      autoAnalysis: false,
       autoNewsAnalysis: false,
       notificationPolicy: {
         czsc: { confirmed: "immediate" },
@@ -235,11 +234,11 @@ afterEach(() => {
 });
 async function signal(kinds = [3]) {
   await tick(); // 15:04: yesterday's completed bars establish a baseline.
-  expect(list("signal")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
   vi.setSystemTime(at("15:05"));
   mocks.engine.mockResolvedValue(result(kinds));
   await tick();
-  return list<Signal>("signal")[0]!;
+  return list<Signal>("signal", 200)[0]!;
 }
 it("M5 real dual-breakout calculation reaches the existing four-channel outbox at 15:05 only", async () => {
   const historical = breakoutFixture.cutoff;
@@ -257,11 +256,13 @@ it("M5 real dual-breakout calculation reaches the existing four-channel outbox a
   });
   mocks.worker.mockResolvedValue({ ...source(), bars: breakoutFixture.bars });
   await tick();
-  expect(list("signal")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
   vi.setSystemTime(at("15:05", historical));
   await tick();
-  expect(list<Signal>("signal")[0]?.breakout?.latest?.long.status).toBe("是");
-  const items = list<Delivery>("delivery");
+  expect(list<Signal>("signal", 200)[0]?.breakout?.latest?.long.status).toBe(
+    "是",
+  );
+  const items = list<Delivery>("delivery", 200);
   expect(items).toHaveLength(4);
   for (const d of items) {
     expect(d.body).toContain("策略：双突破");
@@ -272,7 +273,7 @@ it("M5 real dual-breakout calculation reaches the existing four-channel outbox a
   }
   vi.setSystemTime(at("15:06", historical));
   await tick();
-  expect(list("delivery")).toHaveLength(4);
+  expect(list("delivery", 200)).toHaveLength(4);
   expect(mocks.engine).not.toHaveBeenCalled();
   expect(mocks.background).not.toHaveBeenCalled();
 });
@@ -280,11 +281,11 @@ it("P2 default policy: actual monitor generation keeps the signal, waits for one
   put(
     "settings",
     "settings",
-    settingsSchema.parse({ autoAnalysis: false, autoNewsAnalysis: false }),
+    settingsSchema.parse({ autoNewsAnalysis: false }),
   );
   await signal([3]);
-  expect(list("signal")).toHaveLength(1);
-  expect(list("delivery")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(1);
+  expect(list("delivery", 200)).toHaveLength(0);
   const send = vi.fn(async () => "fake-summary-accepted");
   await drain(send);
   expect(send).not.toHaveBeenCalled();
@@ -292,16 +293,16 @@ it("P2 default policy: actual monitor generation keeps the signal, waits for one
   await drain(send);
   expect(send).toHaveBeenCalledTimes(4);
   expect(
-    list<Delivery>("delivery").every(
+    list<Delivery>("delivery", 200).every(
       (d) => d.kind === "summary" && d.status === "sent",
     ),
   ).toBe(true);
-  expect(list("signal")).toHaveLength(1);
+  expect(list("signal", 200)).toHaveLength(1);
 });
 it("A1/A2: six point types reach real outbox/four formatters, fake delivery only; snapshots are reviewable", async () => {
   await signal([1, 2, 3, -1, -2, -3]);
-  expect(list("signal")).toHaveLength(1);
-  const items = list<Delivery>("delivery");
+  expect(list("signal", 200)).toHaveLength(1);
+  const items = list<Delivery>("delivery", 200);
   expect(items).toHaveLength(24);
   for (const item of items) {
     for (const label of [
@@ -329,9 +330,9 @@ it("A1/A2: six point types reach real outbox/four formatters, fake delivery only
   const send = vi.fn(async () => "fake-accepted");
   for (let i = 0; i < 6; i++) await drain(send, Date.now() + i * 3001);
   expect(send).toHaveBeenCalledTimes(24);
-  expect(list<Delivery>("delivery").every((d) => d.status === "sent")).toBe(
-    true,
-  );
+  expect(
+    list<Delivery>("delivery", 200).every((d) => d.status === "sent"),
+  ).toBe(true);
   const texts = items
     .filter((d) => get<Channel>(d.channelId)!.type === "feishu")
     .map((d) => d.body)
@@ -340,7 +341,7 @@ it("A1/A2: six point types reach real outbox/four formatters, fake delivery only
     (p) =>
       p.file.includes("05-trading") && p.heading.includes("第三类买卖点定理"),
   )!;
-  const rule = list<Signal>("signal")[0]!;
+  const rule = list<Signal>("signal", 200)[0]!;
   mocks.structured.mockImplementation(async (_prompt, schema) => ({
     data: schema.parse({
       explanations: [
@@ -372,7 +373,7 @@ it("accepts strong quality and leaves missing native evidence explicitly unknown
   native.families[0]!.signals[0]!.divergence = undefined;
   mocks.engine.mockResolvedValue(native);
   await tick();
-  const body = list<Delivery>("delivery")[0]!.body;
+  const body = list<Delivery>("delivery", 200)[0]!.body;
   expect(body).toContain("信号质量：强质量");
   expect(body).toContain("未知（DLL未关联中枢）");
   expect(body).toContain("不推断成立");
@@ -398,8 +399,8 @@ it("A3: persisted legacy and tagged MA subscriptions produce identical transitio
     await tick();
     vi.setSystemTime(at("15:05"));
     await tick();
-    expect(list("signal")).toHaveLength(1);
-    outputs.push(list<Delivery>("delivery")[0]!.body);
+    expect(list("signal", 200)).toHaveLength(1);
+    outputs.push(list<Delivery>("delivery", 200)[0]!.body);
   }
   expect(outputs[0]).toBe(outputs[1]);
   expect(mocks.engine).not.toHaveBeenCalled();
@@ -455,14 +456,14 @@ it.each([
       period: "5m",
     });
   await tick();
-  expect(list("signal")).toHaveLength(0);
-  expect(list("delivery")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
+  expect(list("delivery", 200)).toHaveLength(0);
 });
 it("A4: repeated endpoints never re-send, but a different confirmed point on the next day does", async () => {
   await signal();
   vi.setSystemTime(at("15:06"));
   await tick();
-  expect(list("signal")).toHaveLength(1);
+  expect(list("signal", 200)).toHaveLength(1);
   const runtime = (
     globalThis as typeof globalThis & { quantRuntime: { lastTick: number } }
   ).quantRuntime;
@@ -474,9 +475,9 @@ it("A4: repeated endpoints never re-send, but a different confirmed point on the
   mocks.worker.mockResolvedValue(s);
   mocks.engine.mockResolvedValue(result([3, -2]));
   await tick();
-  expect(list("signal")).toHaveLength(2);
+  expect(list("signal", 200)).toHaveLength(2);
   expect(
-    list<Signal>("signal")
+    list<Signal>("signal", 200)
       .find((s) => s.date === "2026-09-10")!
       .czsc!.points.map((p) => p.kind),
   ).toEqual([-2]);
@@ -490,9 +491,9 @@ it("A5: LLM failure leaves rules sent and creates no analysis delivery", async (
   await expect(
     mocks.background.mock.calls[0]![2]({}, new AbortController().signal),
   ).rejects.toThrow("controlled LLM failure");
-  expect(list<Delivery>("delivery")).toHaveLength(4);
+  expect(list<Delivery>("delivery", 200)).toHaveLength(4);
   expect(
-    list<Delivery>("delivery").every(
+    list<Delivery>("delivery", 200).every(
       (d) => d.kind === "signal" && d.status === "sent",
     ),
   ).toBe(true);
@@ -521,7 +522,7 @@ it("validates skill passage IDs and appends trusted lesson locations; invalid ci
   expect(report.summary).toContain(`第${passage.lessons.join("、")}课`);
   expect(report.summary).toContain(passage.quote);
   expect(
-    list<Delivery>("delivery").filter((d) => d.kind === "analysis"),
+    list<Delivery>("delivery", 200).filter((d) => d.kind === "analysis"),
   ).toHaveLength(4);
   mocks.structured.mockImplementation(async (_prompt, schema) => ({
     data: schema.parse({
@@ -538,14 +539,14 @@ it("reuses outbox retries without any network request", async () => {
   const send = vi.fn().mockRejectedValue(new SendError("fake transient"));
   await drain(send);
   expect(
-    list<Delivery>("delivery").every(
+    list<Delivery>("delivery", 200).every(
       (d) => d.status === "pending" && d.attempts === 1,
     ),
   ).toBe(true);
   send.mockResolvedValue("fake-retry-accepted");
   await drain(send, Date.now() + 6000);
   expect(
-    list<Delivery>("delivery").every(
+    list<Delivery>("delivery", 200).every(
       (d) => d.status === "sent" && d.attempts === 2,
     ),
   ).toBe(true);
@@ -558,9 +559,7 @@ it.each([
   expect(() => strategySchema.parse(input)).toThrow();
 });
 // Historical engine characterization, never an opt-in exposed by the application.
-vi.mock("../../../src/lib/backtest/strategy-lifecycle", async (original) => ({
-  ...(await original<
-    typeof import("../../../src/lib/backtest/strategy-lifecycle")
-  >()),
-  legacyAutomaticStrategiesEnabled: true,
+vi.mock("../../../src/lib/common/capabilities", async (original) => ({
+  ...(await original<typeof import("../../../src/lib/common/capabilities")>()),
+  capabilityAllows: () => true,
 }));

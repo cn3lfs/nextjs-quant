@@ -1,7 +1,8 @@
 "use client";
+import { usePanelVisible } from "../workbench/keep-alive";
 import { useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { displayFinancialNumber } from "~/lib/financial/local-financial";
+import { displayFinancialNumber } from "~/lib/financial/financial-display";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Button } from "../ui/button";
 import {
@@ -51,6 +52,7 @@ const columns: DataTableColumn<Row>[] = [
   },
 ];
 export function FinancialSeriesPanel({ symbol }: { symbol: string }) {
+  const visible = usePanelVisible();
   const [source, setSource] = useState(symbol),
     [group, setGroup] = useState("all"),
     [start, setStart] = useState(""),
@@ -68,7 +70,7 @@ export function FinancialSeriesPanel({ symbol }: { symbol: string }) {
       ...pagination,
       descending: sorting[0]?.desc ?? true,
     },
-    { staleTime: 30000, retry: false },
+    { enabled: visible, staleTime: 30000, retry: false },
   );
   const reset = () => setPagination((p) => ({ ...p, pageIndex: 0 }));
   return (

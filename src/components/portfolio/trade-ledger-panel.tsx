@@ -424,8 +424,15 @@ export function TradeLedgerPanel() {
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "导出失败，可重试");
     } finally {
-      utils.tradeWorkspaceExport.reset(input);
-      setExporting(false);
+      try {
+        await utils.tradeWorkspaceExport.reset(input);
+      } catch {
+        setExportError(
+          (current) => current || "导出缓存清理失败，请刷新页面后重试。",
+        );
+      } finally {
+        setExporting(false);
+      }
     }
   }
   const applyFilters = () => {

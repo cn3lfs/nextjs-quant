@@ -6,7 +6,7 @@ import { sqlite } from "../../../src/server/db";
 import { RpsStore } from "../../../src/server/screening/rps-store";
 import { intradayPool } from "../../../src/server/monitoring/intraday-data";
 import { intradayConfigSchema } from "../../../src/lib/strategy-facts/intraday-schedule";
-import { rpsDay } from "../../rps-fixture";
+import { rpsDay } from "../../helpers/rps-fixture";
 
 it("uses only an available previous-day close and rejects newer intraday or future evidence", async () => {
   const db = sqlite(),

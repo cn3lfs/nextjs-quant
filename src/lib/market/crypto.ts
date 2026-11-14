@@ -90,7 +90,8 @@ export const cryptoSourceLabels: Record<CryptoSource, string> = {
  */
 export function venueSymbol(venue: CryptoVenue, symbol: string) {
   const { base, quote } = cryptoAssets(symbol);
-  if (!quote) return venue === "binance" || venue === "bybit" ? cryptoPair(symbol) : null;
+  if (!quote)
+    return venue === "binance" || venue === "bybit" ? cryptoPair(symbol) : null;
   switch (venue) {
     case "binance":
     case "bybit":

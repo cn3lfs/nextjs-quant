@@ -50,7 +50,7 @@
 
 ## 批量计时
 
-`batch.json` 记录同进程、同本地根、同6145只A股集合的冷/热对比，分别与既有screenLocal冷/热计时比较。冷跑包括读盘、尾窗否决及候选完整历史确认，热跑包含文件清单重新校验；不与裸MA计算函数或不同证券池比较。执行命令：`pnpm exec tsx tests/m5-local-review.ts --benchmark`。
+`batch.json` 记录同进程、同本地根、同6145只A股集合的冷/热对比，分别与既有screenLocal冷/热计时比较。冷跑包括读盘、尾窗否决及候选完整历史确认，热跑包含文件清单重新校验；不与裸MA计算函数或不同证券池比较。执行命令：`pnpm exec tsx tests/manual/m5-local-review.ts --benchmark`。
 
 桌面原生冒烟和打包由管理者执行，本轮未运行。人工复核结果请补充到表格，不以自动断言或截图生成代替目视确认。
 
@@ -62,7 +62,7 @@
 - 图表与订阅：修改 `src/components/market/chart.tsx`、`src/lib/chart/chart-data.ts`、`src/components/workbench/workbench.tsx`。
 - 测试：新增 `tests/strategy-signals/methods/breakout/breakout.test.ts`、`tests/strategy-signals/methods/breakout/breakout-batch.test.ts`；增补 `tests/strategy-signals/monitoring/m4-monitor.test.ts` 的双突破outbox案例及策略schema断言。
 - 固定数据：新增 `tests/fixtures/breakout-valid.json`、`breakout-false.json`、`breakout-insufficient.json`。
-- 可重复复核入口：新增 `tests/m5-local-review.ts`、`tests/m5-visual-review.mjs`。
+- 可重复复核入口：新增 `tests/manual/m5-local-review.ts`、`tests/m5-visual-review.mjs`。
 - 文档：仅追加一条M5决策至 `docs/decisions.md`；新增本目录README、batch.json、capture.json和三个案例PNG。
 
 本轮开始时M1–M4交付已存在大量未提交文件，以上清单仅描述M5增补；没有把原有差异重置、提交或推送。

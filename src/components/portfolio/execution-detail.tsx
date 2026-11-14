@@ -5,6 +5,8 @@ import { executionDiagnosticLabels } from "~/lib/backtest/execution-quality";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
+import { usePanelVisible } from "../workbench/keep-alive";
+import { useTaskVisible } from "../workbench/use-task-visible";
 
 const show = (v: ReviewValue | null | undefined, digits = 4) =>
   !v
@@ -40,19 +42,24 @@ export function ExecutionDetail({
   onClose: () => void;
   onBatch?: (batchId: string) => void;
 }) {
+  const panelVisible = usePanelVisible();
+  const visible = useTaskVisible();
   const heading = useRef<HTMLHeadingElement>(null);
   const detail = api.tradeReviewExecutionDetail.useQuery(
     { account, fillId },
-    { retry: false, gcTime: 0 },
+    { enabled: visible, retry: false, gcTime: 0 },
   );
-  useEffect(() => heading.current?.focus({ preventScroll: false }), [fillId]);
   useEffect(() => {
+    if (panelVisible) heading.current?.focus({ preventScroll: false });
+  }, [fillId, panelVisible]);
+  useEffect(() => {
+    if (!panelVisible) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, panelVisible]);
   const d = detail.data;
   return (
     <section

@@ -74,10 +74,7 @@ export function spotTests(
     )
   )
     throw new Error("Pass explicit tests/<module>/*.test.ts paths");
-  const suites = [
-    "tests/research-backtest/research-contracts.test.ts",
-    "tests/research-backtest/research-registry-ui.test.ts",
-  ];
+  const suites = ["tests/research-backtest/research-contracts.test.ts"];
   function dependencies(file: string, seen = new Set<string>()) {
     if (seen.has(file)) return seen;
     seen.add(file);

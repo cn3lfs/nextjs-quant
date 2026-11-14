@@ -1,13 +1,50 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
   coverageAllowsPublication,
   estimateRpsSecurity,
+  runRpsObservation,
 } from "../../src/server/screening/rps-observation-job";
 import { parseWorkflowQuote } from "../../src/server/jobs/workflow-quotes";
 import { claimWorkflow } from "../../src/server/jobs/workflow-lease";
 import { latestRpsObservation } from "../../src/server/screening/rps-observation";
 import { requiresDownloadReceipt } from "../../src/server/jobs/workflow-scheduler";
-import { put } from "../../src/server/db/index";
+import { get, put } from "../../src/server/db/index";
+import * as rpsJob from "../../src/server/screening/rps-job";
+import { rpsDeps } from "../helpers/rps-fixture";
+
+it("observation persists waiting separately from faults and releases its lease on both", async () => {
+  const deps = rpsDeps();
+  deps.calendar = async () => ({ days: ["2031-07-01"], source: "short" });
+  const spy = vi.spyOn(rpsJob, "localRpsDependencies").mockReturnValue(deps);
+  const now = Date.parse("2031-07-01T16:00:00+08:00");
+  const id = "rps-observation-check-2031-07-01-close";
+  try {
+    await expect(runRpsObservation("close", now)).rejects.toMatchObject({
+      reason: { code: "calendar-history" },
+    });
+    expect(get(id)).toMatchObject({
+      status: "waiting",
+      waiting: { code: "calendar-history" },
+    });
+    expect(get(id)).not.toHaveProperty("error");
+    deps.calendar = async () => {
+      throw new Error("corrupt index bytes");
+    };
+    await expect(runRpsObservation("close", now)).rejects.toThrow(
+      "corrupt index bytes",
+    );
+    expect(get(id)).toMatchObject({
+      status: "failed",
+      error: "corrupt index bytes",
+    });
+    expect(get(id)).not.toHaveProperty("waiting");
+    const lease = claimWorkflow("rps-observation");
+    expect(lease).not.toBeNull();
+    lease!.release();
+  } finally {
+    spy.mockRestore();
+  }
+});
 it("waits for a download receipt only for the close batch", () => {
   // Noon and late estimate today's bar from online quotes, so a redundant noon
   // download must not be able to block them.

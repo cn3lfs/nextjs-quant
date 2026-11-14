@@ -5,7 +5,7 @@ import {
   scheduleRps,
 } from "../../../src/server/screening/rps-client";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { rpsDate, rpsDay, rpsProgress } from "../../rps-fixture";
+import { rpsDate, rpsDay, rpsProgress } from "../../helpers/rps-fixture";
 import type { RpsProgress } from "../../../src/lib/screening/rps";
 
 const scope = globalThis as typeof globalThis & {
@@ -79,6 +79,23 @@ it("empty configured directory disables automatic industry work without stopping
   scheduleRps(now);
   expect(worker).toHaveBeenCalledTimes(1);
   expect(worker.mock.calls[0]![0].target).toBe("stock");
+});
+it("waiting releases the shared queue without automatically retrying the same target today", () => {
+  const worker = mockWorker(),
+    store = new RpsStore(sqlite());
+  scheduleRps(now);
+  store.finish({
+    ...store.progress()!,
+    status: "waiting",
+    waiting: {
+      code: "calendar-current",
+      message: "等待今日收盘数据",
+    },
+  });
+  delete scope.rpsAttempt;
+  scheduleRps(now);
+  expect(worker).toHaveBeenCalledTimes(2);
+  expect(worker.mock.calls[1]![0].target).toBe("industry");
 });
 it("an already stored stock day does not suppress industry; persisted industry failure is not retried after restart", () => {
   const fixture = rpsDay(),

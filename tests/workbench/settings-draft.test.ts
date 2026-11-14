@@ -13,11 +13,11 @@ describe("settings draft ownership and save races", () => {
     const state = { base, draft: { ...base, tdxRoot: "C:/draft" } };
     const next = reconcileSettings(state, {
       ...base,
-      analysisLimit: 3,
+      autoNewsDailyBatches: 3,
       tdxRoot: "C:/remote",
     });
     expect(next.draft.tdxRoot).toBe("C:/draft");
-    expect(next.draft.analysisLimit).toBe(3);
+    expect(next.draft.autoNewsDailyBatches).toBe(3);
     expect(changedSettings(next)).toEqual(["tdxRoot"]);
   });
   it("acknowledges only the submitted edit and retains a newer edit", () => {

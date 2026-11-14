@@ -1,17 +1,19 @@
 "use client";
+import { rpsPeriods } from "quant-rps";
 
 import { nextTableSort, sortingState } from "~/lib/common/server-sort";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SetStateAction } from "react";
 import { api } from "~/trpc/react";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { rpsPollInterval } from "./rps-status";
+import { MarketPoolAvailabilityNote } from "./market-pool-availability";
 import {
   poolCategoryLabels,
-  poolSelectionSchema,
   type MarketPoolQuery,
   type MarketPoolRow,
 } from "~/lib/market/market-pool";
-import { rpsPeriods } from "~/lib/screening/rps";
+import type { MarketPoolLocation } from "~/lib/market/market-pool-location";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
@@ -27,27 +29,22 @@ import {
 } from "../ui/select";
 
 export function MarketPoolBrowser({
-  symbol,
-  disabled,
+  location,
+  onLocationChange,
   onSelect,
 }: {
-  symbol: string;
-  disabled: boolean;
+  location: MarketPoolLocation;
+  onLocationChange: (action: SetStateAction<MarketPoolLocation>) => void;
   onSelect: (symbol: string) => void;
 }) {
   const visible = usePanelVisible();
-  const [category, setCategory] = useState<
-    "all" | keyof typeof poolCategoryLabels
-  >("all");
-  const [query, setQuery] = useState<MarketPoolQuery>({
-    pool: null,
-    search: "",
-    period: 50,
-    minimumRps: null,
-    sort: "rps",
-    order: null,
-    page: 0,
-  });
+  const { category, query } = location;
+  const symbol = query.selected ?? "";
+  const setQuery = (action: SetStateAction<MarketPoolQuery>) =>
+    onLocationChange((current) => ({
+      ...current,
+      query: typeof action === "function" ? action(current.query) : action,
+    }));
   const [message, setMessage] = useState("");
   const utils = api.useUtils();
   const rpsStatus = api.rpsStatus.useQuery(undefined, {
@@ -65,17 +62,6 @@ export function MarketPoolBrowser({
     if (rpsProgress?.status === "complete")
       void utils.marketPoolPage.invalidate();
   }, [rpsProgress?.status, rpsProgress?.updatedAt, utils]);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pool = poolSelectionSchema.safeParse({
-      category: params.get("poolCategory"),
-      name: params.get("poolName"),
-    });
-    if (pool.success) {
-      setCategory(pool.data.category);
-      setQuery((q) => ({ ...q, pool: pool.data, page: 0 }));
-    }
-  }, []);
   const catalog = api.marketPoolCatalog.useQuery(
     category === "all" ? "industry" : category,
     { enabled: category !== "all", staleTime: 60000 },
@@ -126,7 +112,7 @@ export function MarketPoolBrowser({
       cell: ({ row }) => (
         <Button
           variant={row.original.symbol === symbol ? "default" : "ghost"}
-          disabled={disabled || page.isFetching}
+          disabled={page.isFetching}
           onClick={() => onSelect(row.original.symbol)}
         >
           {row.original.name} · {row.original.symbol.toUpperCase()}
@@ -165,11 +151,13 @@ export function MarketPoolBrowser({
               : "完整包缓存日线可用"
             : row.original.localDay
               ? "已扫描到日线"
-              : "未扫描到日线",
-          row.original.reason,
+              : page.data?.availability.dailyIndex === "ready"
+                ? "未扫描到日线"
+                : null,
+          page.data?.availability.rps === "ready" ? row.original.reason : null,
         ]
           .filter(Boolean)
-          .join("；"),
+          .join("；") || "—",
     },
   ];
   return (
@@ -177,7 +165,7 @@ export function MarketPoolBrowser({
       className="rounded-lg border border-border bg-card p-4 space-y-3"
       aria-label="股票池浏览"
     >
-      <IndexBrowser onSelect={onSelect} disabled={disabled} />
+      <IndexBrowser onSelect={onSelect} disabled={false} />
       <h3 className="font-semibold">股票池与强势股浏览</h3>
       {ready && page.data && (
         <UniverseAuditContainer
@@ -190,13 +178,17 @@ export function MarketPoolBrowser({
           value={category}
           onValueChange={(value) => {
             const next = value as typeof category;
-            setCategory(next);
-            change({
-              pool:
-                next === "index"
-                  ? { category: "index", name: "中证A500" }
-                  : null,
-            });
+            onLocationChange((current) => ({
+              category: next,
+              query: {
+                ...current.query,
+                page: 0,
+                pool:
+                  next === "index"
+                    ? { category: "index", name: "中证A500" }
+                    : null,
+              },
+            }));
           }}
         >
           <SelectTrigger aria-label="股票池分类">
@@ -249,7 +241,7 @@ export function MarketPoolBrowser({
           <SelectContent>
             {rpsPeriods.map((period) => (
               <SelectItem key={period} value={String(period)}>
-                RPS{period}
+                {rpsPeriodLabel(period)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -358,7 +350,14 @@ export function MarketPoolBrowser({
             ` 当前成分：${page.data.membershipCount}，非沪深A股排除${page.data.excludedMarket}；名单不是历史成分。`}
         </p>
       )}
-      {!page.data?.rps && (
+      {ready && page.data && (
+        <MarketPoolAvailabilityNote
+          availability={page.data.availability}
+          period={query.period}
+          showDailyIndex
+        />
+      )}
+      {ready && page.data && !page.data.rps && (
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Button
             type="button"
@@ -367,7 +366,7 @@ export function MarketPoolBrowser({
           >
             计算最近交易日RPS
           </Button>
-          <span>使用本地日线和除权数据计算六个周期。</span>
+          <span>使用本地日线和除权数据计算 {rpsPeriods.length} 个周期。</span>
         </div>
       )}
       {rpsProgress?.status === "running" && (
@@ -377,6 +376,9 @@ export function MarketPoolBrowser({
       )}
       {rpsProgress?.status === "failed" && (
         <p role="alert">RPS计算失败：{rpsProgress.error}</p>
+      )}
+      {rpsProgress?.status === "waiting" && (
+        <p role="status">RPS等待条件：{rpsProgress.waiting?.message}</p>
       )}
       {page.data?.source && ready && (
         <details className="text-sm text-muted-foreground">
@@ -404,16 +406,14 @@ export function MarketPoolBrowser({
       <div className="flex gap-2">
         <Button
           variant="outline"
-          disabled={
-            disabled || !ready || page.isFetching || !page.data?.previous
-          }
+          disabled={!ready || page.isFetching || !page.data?.previous}
           onClick={() => navigate(page.data?.previous)}
         >
           上一只
         </Button>
         <Button
           variant="outline"
-          disabled={disabled || !ready || page.isFetching || !page.data?.next}
+          disabled={!ready || page.isFetching || !page.data?.next}
           onClick={() => navigate(page.data?.next)}
         >
           下一只

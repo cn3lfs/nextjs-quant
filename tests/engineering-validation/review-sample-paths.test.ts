@@ -11,7 +11,10 @@ it.each([
   const legacy = `docs/${milestone}-message-samples.md`;
   expect(existsSync(canonical)).toBe(true);
   expect(existsSync(legacy)).toBe(false);
-  const test = readFileSync(`tests/strategy-signals/monitoring/${suite}.test.ts`, "utf8");
+  const test = readFileSync(
+    `tests/strategy-signals/monitoring/${suite}.test.ts`,
+    "utf8",
+  );
   expect(test).toContain(`writeFileSync("${canonical}",`);
   expect(test).toContain(`readFileSync("${canonical}", "utf8")`);
   expect(test).not.toContain(legacy);

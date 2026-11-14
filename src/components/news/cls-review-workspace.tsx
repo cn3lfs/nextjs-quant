@@ -188,8 +188,15 @@ export function ClsReviewWorkspace() {
       setError(cause instanceof Error ? cause.message : "导出失败");
     } finally {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
-      utils.clsReviewExportAll.reset(id);
-      setDownloading(false);
+      try {
+        await utils.clsReviewExportAll.reset(id);
+      } catch {
+        setError(
+          (current) => current || "导出缓存清理失败，请刷新页面后重试。",
+        );
+      } finally {
+        setDownloading(false);
+      }
     }
   }
   if (!ready)

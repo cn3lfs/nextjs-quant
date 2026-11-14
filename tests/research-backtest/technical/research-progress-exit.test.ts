@@ -1,38 +1,12 @@
 import {
   canslimProgressPresetIds,
   researchExitPresetTemplate,
-  clearStaleExitPreset,
 } from "../../../src/lib/research/specs/research-exit-presets";
 import { researchManagementSchema } from "../../../src/lib/research/workflow/research-management";
-import {
-  researchProgressCheck,
-  researchProgressExitDescription,
-} from "trading-strategies/research/technical/research-progress-exit";
-import { applyResearchManagement } from "../../../src/components/research/research-strategy-fields";
+import { researchProgressCheck } from "trading-strategies/research/technical/research-progress-exit";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
-import { runStrategyResearch } from "../../../src/server/backtest/research-run";
-import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import type { ResearchDataset } from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-
-const rules = {
-  evidence: "fixture",
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-};
-const native = async (): Promise<never> => {
-  throw Error("unexpected native");
-};
 function setup(
   kind: (typeof canslimProgressPresetIds)[number] = "canslim-time4-calendar",
 ) {
@@ -74,56 +48,7 @@ function setup(
   );
   spec.risk = { fraction: 0.015, maxWeight: 0.25 };
   const calendar = bars.map((b) => b.date);
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "fixture",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "fixture",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar,
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "fixture",
-        bars,
-        hash: "fixture",
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixture",
-    method: researchMethodSnapshot(spec),
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[0]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      symbol: "sh600000",
-      date: b.date,
-      ...rules,
-      evidenceId: "fixture",
-    })),
-  });
-  return { bars, spec, calendar, dataset, evidence };
+  return { bars, spec, calendar };
 }
 
 function dueIndex(
@@ -172,127 +97,4 @@ it("keeps the two clocks distinct and compares the five-percent boundary directl
   expect(
     researchProgressCheck(rule, entry, bars[due]!, due, calendar),
   ).toBeNull();
-});
-
-it("stores source/configuration, rejects stale names and raises the UI holding horizon only on selection", () => {
-  for (const kind of canslimProgressPresetIds) {
-    const { spec } = setup(kind);
-    const management = spec.management!;
-    expect(researchSpecSchema.safeParse(spec).success).toBe(true);
-    expect(researchMethodSnapshot(spec)).toHaveProperty(
-      "progressExit.interpretation",
-      researchProgressExitDescription,
-    );
-    expect(
-      researchMethodSnapshot(spec).sources.some(
-        (s) => s.path === "canslim-analyst/references/entry-exit-rules.md",
-      ),
-    ).toBe(true);
-    const stale = {
-      ...management,
-      progressExit: { ...management.progressExit!, minimumGain: 0.1 },
-    };
-    expect(researchManagementSchema.safeParse(stale).success).toBe(false);
-    const custom = clearStaleExitPreset(stale);
-    expect(custom).not.toHaveProperty("exitPreset");
-    expect(
-      researchMethodSnapshot({ ...spec, management: custom }),
-    ).toHaveProperty("progressExit.configuration.minimumGain", 0.1);
-    expect(
-      applyResearchManagement(
-        { ...spec, management: undefined, holdingDays: 5 },
-        management,
-      ).holdingDays,
-    ).toBe(60);
-    expect(
-      applyResearchManagement({ ...spec, holdingDays: 5 }, management)
-        .holdingDays,
-    ).toBe(5);
-  }
-});
-
-it.each(canslimProgressPresetIds)(
-  "%s checks once from the actual entry and exits next sellable open",
-  async (kind) => {
-    const { bars, spec, dataset, evidence } = setup(kind);
-    const due = dueIndex(bars, kind);
-    const result = await runStrategyResearch(spec, dataset, evidence, native);
-    expect(result.events).toHaveLength(1);
-    const trade = result.partitions[0]!.simulation!.trades[0]!;
-    expect(trade).toMatchObject({
-      entryDate: bars[70]!.date,
-      exitDate: bars[due + 1]!.date,
-      progressExitCheck: {
-        checkedDate: bars[due]!.date,
-        entryPrice: 102,
-        triggered: true,
-      },
-    });
-    expect(trade.exitReason).toContain("涨幅不足5%");
-    evidence.rows.find((r) => r.date === bars[due + 1]!.date)!.tradable = false;
-    evidence.rows.find((r) => r.date === bars[due + 2]!.date)!.tradable = false;
-    price(bars, due + 1, 108);
-    price(bars, due + 2, 108);
-    const delayed = await runStrategyResearch(spec, dataset, evidence, native);
-    expect(delayed.partitions[0]!.simulation!.trades[0]).toMatchObject({
-      exitDate: bars[due + 3]!.date,
-      progressExitCheck: trade.progressExitCheck,
-    });
-  },
-);
-
-it("defers an unavailable deadline close and preserves the original calendar deadline", async () => {
-  const { bars, spec, dataset, evidence } = setup();
-  const due = dueIndex(bars, "canslim-time4-calendar");
-  const scheduled = new Date(Date.parse(bars[70]!.date) + 28 * 86400000)
-    .toISOString()
-    .slice(0, 10);
-  bars[due]!.volume = 0;
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.trades[0]).toMatchObject({
-    exitDate: bars[due + 2]!.date,
-    progressExitCheck: {
-      scheduledDate: scheduled,
-      checkedDate: bars[due + 1]!.date,
-    },
-  });
-});
-
-it("a passed checkpoint is frozen even when a later close falls below five percent", async () => {
-  const { bars, spec, dataset, evidence } = setup();
-  const due = dueIndex(bars, "canslim-time4-calendar");
-  price(bars, due, 107.1);
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  const trade = result.partitions[0]!.simulation!.trades[0]!;
-  expect(trade.progressExitCheck).toMatchObject({
-    checkedDate: bars[due]!.date,
-    triggered: false,
-  });
-  expect(trade.exitReason ?? "").not.toContain("涨幅不足");
-  expect(trade.exitDate === null || trade.exitDate > bars[due + 2]!.date).toBe(
-    true,
-  );
-});
-
-it("anchors a delayed buy to its fill and leaves early exits without a fabricated check", async () => {
-  const { bars, spec, dataset, evidence } = setup();
-  for (const i of [70, 71])
-    evidence.rows.find((r) => r.date === bars[i]!.date)!.tradable = false;
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.trades[0]).toMatchObject({
-    entryDate: bars[72]!.date,
-    progressExitCheck: {
-      entryDate: bars[72]!.date,
-      checkedDate: bars[dueIndex(bars, "canslim-time4-calendar", 72)]!.date,
-    },
-  });
-  const early = await runStrategyResearch(
-    { ...spec, holdingDays: 5 },
-    dataset,
-    evidence,
-    native,
-  );
-  expect(early.partitions[0]!.simulation!.trades[0]).not.toHaveProperty(
-    "progressExitCheck",
-  );
 });

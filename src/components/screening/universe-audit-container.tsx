@@ -8,7 +8,7 @@ import {
   type UniverseAuditMetric,
   type UniverseAuditSource,
 } from "~/lib/screening/universe-audit";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { UniverseAuditResults } from "./universe-audit-results";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -35,13 +35,13 @@ export function UniverseAuditContainer({
   const [page, setPage] = useState(0);
   const [order, setOrder] = useState<TableSort>(null);
   const valid =
-    historicalDateSchema.safeParse(range.start).success &&
-    historicalDateSchema.safeParse(range.end).success &&
+    researchDateSchema.safeParse(range.start).success &&
+    researchDateSchema.safeParse(range.end).success &&
     range.start <= range.end;
   const audit = api.universeAuditPage.useQuery(
     { source, ...range, metric, page, order },
     {
-      enabled: valid && (open || source.kind === "research"),
+      enabled: valid && open,
       retry: false,
       staleTime: 60000,
     },
@@ -66,37 +66,35 @@ export function UniverseAuditContainer({
       </Button>
       {open && (
         <>
-          {source.kind !== "research" && (
-            <div className="flex flex-wrap gap-3">
-              <label>
-                审计开始
-                <Input
-                  type="date"
-                  value={range.start}
-                  onChange={(e) => {
-                    setRange({ ...range, start: e.target.value });
-                    setPage(0);
-                  }}
-                />
-              </label>
-              <label>
-                审计结束
-                <Input
-                  type="date"
-                  value={range.end}
-                  disabled={source.kind === "concept"}
-                  onChange={(e) => {
-                    setRange({ ...range, end: e.target.value });
-                    setPage(0);
-                  }}
-                />
-              </label>
-              <p className="text-sm">
-                自选审计区间；不按 RPS
-                周期推算自然日起点。只读缓存与本地名单，不刷新证据。
-              </p>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-3">
+            <label>
+              审计开始
+              <Input
+                type="date"
+                value={range.start}
+                onChange={(e) => {
+                  setRange({ ...range, start: e.target.value });
+                  setPage(0);
+                }}
+              />
+            </label>
+            <label>
+              审计结束
+              <Input
+                type="date"
+                value={range.end}
+                disabled={source.kind === "concept"}
+                onChange={(e) => {
+                  setRange({ ...range, end: e.target.value });
+                  setPage(0);
+                }}
+              />
+            </label>
+            <p className="text-sm">
+              自选审计区间；不按 RPS
+              周期推算自然日起点。只读缓存与本地名单，不刷新证据。
+            </p>
+          </div>
           {!valid && (
             <p role="status">请选择有效审计区间，开始不能晚于结束。</p>
           )}

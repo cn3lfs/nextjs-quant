@@ -1,4 +1,5 @@
 "use client";
+import { useTaskVisible } from "../workbench/use-task-visible";
 
 import { useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
@@ -21,13 +22,8 @@ const fields = [
   ["minHistoryDays", "历史段最少交易日（0关闭）"],
   ["yearlyDays", "年化天数"],
 ] as const;
-export function StrategyAdmissionContainer({
-  source,
-}: {
-  source:
-    | { account: string }
-    | { id: string; partition: "development" | "validation" };
-}) {
+export function StrategyAdmissionContainer({ account }: { account: string }) {
+  const visible = useTaskVisible();
   const utils = api.useUtils();
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -54,7 +50,6 @@ export function StrategyAdmissionContainer({
       ]),
     ),
   );
-  const account = "account" in source;
   // 无效编辑立即显示错误并停算，不使用默认值展示一个不同参数的判定。
   const page = {
     ...pagination,
@@ -63,34 +58,19 @@ export function StrategyAdmissionContainer({
       "year") as RouterInputs["tradeReviewAdmission"]["sort"],
     desc: sorting[0]?.desc ?? false,
   };
-  const trade = api.tradeReviewAdmission.useQuery(
-    { ...page, account: account ? source.account : "" },
-    { enabled: account && parsed.success, retry: false },
+  const query = api.tradeReviewAdmission.useQuery(
+    { ...page, account },
+    { enabled: visible && !!account && parsed.success, retry: false },
   );
-  const research = api.strategyResearchAdmission.useQuery(
-    {
-      ...page,
-      id: account ? "" : source.id,
-      partition: account ? "development" : source.partition,
-    },
-    { enabled: !account && parsed.success, retry: false },
-  );
-  const query = account ? trade : research;
   async function download() {
     if (!parsed.success) return;
     setExporting(true);
     setMessage("");
     try {
-      const result = account
-        ? await utils.tradeReviewAdmissionExport.fetch({
-            account: source.account,
-            params: parsed.data,
-          })
-        : await utils.strategyResearchAdmissionExport.fetch({
-            id: source.id,
-            partition: source.partition,
-            params: parsed.data,
-          });
+      const result = await utils.tradeReviewAdmissionExport.fetch({
+        account,
+        params: parsed.data,
+      });
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(result, null, 2)], {
           type: "application/json",

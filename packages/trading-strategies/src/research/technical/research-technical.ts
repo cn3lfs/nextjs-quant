@@ -18,7 +18,7 @@ import {
   isIndicatorCombination,
   indicatorCombinationDefinition,
   researchIndicatorCombinationSeries,
-} from "../technical/research-indicator-combinations.js";
+} from "./research-indicator-combinations.js";
 import {
   volumeIntradayIds,
   isVolumeIntraday,
@@ -48,19 +48,19 @@ import {
   isPatternCombination,
   patternCombinationDefinition,
   researchPatternCombinationSeries,
-} from "../technical/research-pattern-combinations.js";
+} from "./research-pattern-combinations.js";
 import {
   technicalMethodIds,
   isTechnicalMethod,
   technicalMethodDefinition,
   researchTechnicalMethodSeries,
-} from "../technical/research-technical-methods.js";
+} from "./research-technical-methods.js";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   legacyTechnicalStrategyIds,
   legacyTechnicalRules as rules,
   researchLegacyTechnicalSeries,
-} from "../technical/research-legacy-technical.js";
+} from "./research-legacy-technical.js";
 
 export const technicalStrategyIds = [
   ...legacyTechnicalStrategyIds,

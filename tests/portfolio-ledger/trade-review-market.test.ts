@@ -6,7 +6,7 @@ import { afterEach, expect, it } from "vitest";
 import { readTradeReviewSnapshot } from "../../src/server/portfolio/trade-review-market";
 import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
 import { parseBars } from "tstdx/local";
-import {classifyCode} from "../../src/lib/research/evidence/delivery-import";
+import { classifyCode } from "../../src/lib/research/evidence/delivery-import";
 import { migrate } from "../../src/server/db/migrations";
 import { commitDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
 import {

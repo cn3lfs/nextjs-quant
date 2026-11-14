@@ -192,24 +192,11 @@ it("非法或重复价格不补零，区间之外的收益不计样本", () => {
   ).toBeNull();
 });
 
-it("U5嵌入集中度同卡，导入撤销刷新使相关性缓存失效", () => {
+it("导入撤销刷新使相关性缓存失效", () => {
   const parent = readFileSync(
     "src/components/portfolio/trade-review-container.tsx",
     "utf8",
   );
   expect(parent).toContain("utils.tradeReviewHoldingsCorrelation.invalidate()");
-  const container = readFileSync(
-    "src/components/backtest/position-risk-container.tsx",
-    "utf8",
-  );
-  expect(container).toMatch(
-    /<PositionRiskResults[\s\S]*<HoldingsCorrelationContainer account=\{account\} \/>[\s\S]*<\/PositionRiskResults>/,
-  );
-  const result = readFileSync(
-    "src/components/backtest/position-risk-results.tsx",
-    "utf8",
-  );
-  expect(result.indexOf("{children}")).toBeGreaterThan(
-    result.indexOf("summary.medianEffectivePositions?.toFixed(2)"),
-  );
+  // Risk tabs and account-scoped query visibility: position-risk-views.test.ts.
 });

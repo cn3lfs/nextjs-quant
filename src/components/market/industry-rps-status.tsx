@@ -1,9 +1,9 @@
+import { rpsGroupExclusions, rpsExclusionLabels, rpsPolicy } from "quant-rps";
 import {
-  industryExclusions,
   industryRpsPolicy,
   type IndustryRpsAudit,
 } from "~/lib/screening/industry-rps";
-import { rpsExclusionLabels, rpsPeriods, rpsPolicy } from "~/lib/screening/rps";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 
 export const industryExclusionLabels = {
   ...rpsExclusionLabels,
@@ -16,6 +16,7 @@ export function IndustryRpsStatus({
     date: string;
     mode: "backfill" | "forward";
     counts: number[];
+    periods: number[];
     total: number;
     excluded: IndustryRpsAudit["excluded"];
   } | null;
@@ -49,7 +50,7 @@ export function IndustryRpsStatus({
             各原因剔除数按行业成分出现次数统计，同一股票跨行业分别计数。
           </p>
           <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            {industryExclusions.map((key) => (
+            {rpsGroupExclusions.map((key) => (
               <p key={key} className="flex justify-between gap-2">
                 <span className="text-muted-foreground">
                   {industryExclusionLabels[key]}
@@ -59,8 +60,10 @@ export function IndustryRpsStatus({
             ))}
           </div>
           <p className="text-sm text-muted-foreground">
-            {rpsPeriods
-              .map((p, i) => `RPS${p} 排名基数 ${latest.counts[i]}`)
+            {latest.periods
+              .map(
+                (p, i) => `${rpsPeriodLabel(p)} 排名基数 ${latest.counts[i]}`,
+              )
               .join("；")}
           </p>
         </div>

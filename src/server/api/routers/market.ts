@@ -20,8 +20,8 @@ import {
   type IdentityCheck,
 } from "../../market/security-identity";
 import { z } from "zod";
-import {periodSchema,type Coverage} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { periodSchema, type Coverage } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { get } from "../../db";
 import { settings } from "../../infra/settings";
 import {
@@ -29,7 +29,6 @@ import {
   readLocalFinancials,
   resolveFinanceReportPeriod,
 } from "../../data-sources/tdx/tdx-financial-reports";
-import { snapshot } from "../../market/snapshot";
 import { searchSecurities } from "../../market/security-search";
 import { securityDirectory, securityNameMap } from "../../market/securities";
 import {
@@ -52,7 +51,7 @@ import { limitSentiment } from "../../market/limit-sentiment";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
 import { macroRates } from "../../data-sources/macro/macro-rates";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 const klineSchema = z.enum(
   Object.keys(KLINE) as [keyof typeof KLINE, ...(keyof typeof KLINE)[]],
 );
@@ -69,45 +68,49 @@ function recordOfKind<T>(kind: string, id: string): T | undefined {
   return row ? (JSON.parse(row.payload) as T) : undefined;
 }
 export const marketRouter = createTRPCRouter({
-  mxDataStatus: p.query(() => mxDataStatus()),
-  mxDataQuery: p
+  mxDataStatus: p("market", "read").query(() => mxDataStatus()),
+  mxDataQuery: p("market", "compute")
     .input(mxQuerySchema)
     .mutation(({ input, signal }) => queryMxData(input, signal)),
-  chartPosition: p.input(symbolSchema).query(
-    // Runs alongside chartBars on every chart open: skip the book entirely
-    // for an untraded symbol, and never read the signal ledger (the full
-    // dashboard took ~14s and blocked the chart's own requests).
-    async ({ input }) =>
-      new TradeLedgerStore(chartSqlite())
-        .trades()
-        .some((t) => t.symbol === input)
-        ? ((await tradePositionState()).positions.find(
-            (p) => p.symbol === input,
-          ) ?? null)
-        : null,
-  ),
-  chartBars: p.input(chartBarsInput).query(({ input }) => chartBars(input)),
-  compareBars: p
+  chartPosition: p("portfolio", "read")
+    .input(symbolSchema)
+    .query(
+      // Runs alongside chartBars on every chart open: skip the book entirely
+      // for an untraded symbol, and never read the signal ledger (the full
+      // dashboard took ~14s and blocked the chart's own requests).
+      async ({ input }) =>
+        new TradeLedgerStore(chartSqlite())
+          .trades()
+          .some((t) => t.symbol === input)
+          ? ((await tradePositionState()).positions.find(
+              (p) => p.symbol === input,
+            ) ?? null)
+          : null,
+    ),
+  chartBars: p("market", "read")
+    .input(chartBarsInput)
+    .query(({ input }) => chartBars(input)),
+  compareBars: p("market", "read")
     .input(compareBarsInput)
     .query(({ input }) => compareBars(input)),
-  chartView: p
+  chartView: p("market", "read")
     .input(chartKeySchema)
     .query(({ input }) => new ChartViewStore(chartSqlite()).read(input)),
-  saveChartView: p
+  saveChartView: p("market", "configure")
     .input(chartSaveSchema)
     .mutation(({ input }) => new ChartViewStore(chartSqlite()).save(input)),
-  chartSharedDrawings: p
+  chartSharedDrawings: p("market", "read")
     .input(chartKeySchema)
     .query(({ input }) => new ChartViewStore(chartSqlite()).shared(input)),
-  tdxHosts: p.query(() => ({
+  tdxHosts: p("market", "read").query(() => ({
     hosts: [...configuredHosts()],
     builtin: [...TDX_HOSTS],
     fromEnv: Boolean(process.env.TDX_HOSTS),
   })),
-  tdxSaveHosts: p
+  tdxSaveHosts: p("settings", "configure")
     .input(z.array(z.string().trim().max(253)).max(50))
     .mutation(({ input }) => ({ hosts: saveHosts(input) })),
-  tdxQuotes: p
+  tdxQuotes: p("market", "read")
     .input(
       z
         .array(symbolSchema)
@@ -115,7 +118,7 @@ export const marketRouter = createTRPCRouter({
         .max(QUOTES_BATCH_LIMIT * 10),
     )
     .query(({ input }) => securityQuotes(input)),
-  tdxBars: p
+  tdxBars: p("market", "read")
     .input(
       z.object({
         symbol: symbolSchema,
@@ -133,7 +136,7 @@ export const marketRouter = createTRPCRouter({
         input.count,
       ),
     ),
-  tdxMinutes: p
+  tdxMinutes: p("market", "read")
     .input(
       z.object({ symbol: symbolSchema, date: tradingDateSchema.optional() }),
     )
@@ -142,7 +145,7 @@ export const marketRouter = createTRPCRouter({
         ? minutes(input.symbol)
         : historyMinutes(input.symbol, input.date),
     ),
-  tdxTransactions: p
+  tdxTransactions: p("market", "read")
     .input(pageSchema.extend({ date: tradingDateSchema.optional() }))
     .query(({ input }) =>
       input.date === undefined
@@ -154,24 +157,26 @@ export const marketRouter = createTRPCRouter({
             input.count,
           ),
     ),
-  tdxLocalFinancials: p
+  tdxLocalFinancials: p("market", "read")
     .input(symbolSchema)
     .query(({ input }) => readLocalFinancials(settings().tdxRoot, input)),
-  tdxFinance: p.input(symbolSchema).query(async ({ input }) => {
-    const snapshot = await finance(input);
-    const root = settings().tdxRoot;
-    const period = await resolveFinanceReportPeriod(root, input, snapshot);
-    const local = await readLocalFinancials(root, input);
-    return {
-      finance: snapshot,
-      period,
-      lag: localReportLag(local.financials, period),
-    };
-  }),
-  tdxCompanyInfo: p
+  tdxFinance: p("market", "read")
+    .input(symbolSchema)
+    .query(async ({ input }) => {
+      const snapshot = await finance(input);
+      const root = settings().tdxRoot;
+      const period = await resolveFinanceReportPeriod(root, input, snapshot);
+      const local = await readLocalFinancials(root, input);
+      return {
+        finance: snapshot,
+        period,
+        lag: localReportLag(local.financials, period),
+      };
+    }),
+  tdxCompanyInfo: p("market", "read")
     .input(symbolSchema)
     .query(({ input }) => companyInfoCategories(input)),
-  tdxCompanyInfoContent: p
+  tdxCompanyInfoContent: p("market", "read")
     .input(
       z.object({
         symbol: symbolSchema,
@@ -192,18 +197,20 @@ export const marketRouter = createTRPCRouter({
         input.length,
       ),
     ),
-  securityNames: p.query(() => securityNameMap()),
-  securityProfile: p
+  securityNames: p("market", "read").query(() => securityNameMap()),
+  securityProfile: p("market", "read")
     .input(symbolSchema)
     .query(({ input }) => securityProfile(input)),
-  verifySecurityLifecycle: p
+  verifySecurityLifecycle: p("market", "compute")
     .input(symbolSchema)
     .mutation(({ input }) => verifySecurityLifecycle(input)),
-  verifySecurityTradingStatus: p
+  verifySecurityTradingStatus: p("market", "compute")
     .input(symbolSchema)
     .mutation(({ input }) => verifySecurityTradingStatus(input)),
-  indexDirectory: p.query(() => indexDirectory(settings().tdxRoot)),
-  securities: p
+  indexDirectory: p("market", "read").query(() =>
+    indexDirectory(settings().tdxRoot),
+  ),
+  securities: p("market", "read")
     .input(
       z.object({
         query: z.string().default(""),
@@ -224,24 +231,24 @@ export const marketRouter = createTRPCRouter({
         input.period,
       );
     }),
-  securityIdentity: p
+  securityIdentity: p("market", "compute")
     .input(symbolSchema)
     .mutation(({ input }) => verifySecurityIdentity(input)),
-  identityRecord: p
+  identityRecord: p("market", "read")
     .input(symbolSchema)
     .query(
       ({ input }) =>
         recordOfKind<IdentityCheck>("security-identity", `identity-${input}`) ??
         null,
     ),
-  limitSentiment: p
+  limitSentiment: p("market", "read")
     .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
     .query(({ input, signal }) => limitSentiment(input.date, signal)),
-  stockEvents: p
+  stockEvents: p("market", "read")
     .input(symbolSchema)
     .query(({ input, signal }) => stockEvents(input, signal)),
-  capitalProfile: p
+  capitalProfile: p("market", "read")
     .input(symbolSchema)
     .query(({ input, signal }) => capitalProfile(input, signal)),
-  macroRates: p.query(({ signal }) => macroRates(signal)),
+  macroRates: p("market", "read").query(({ signal }) => macroRates(signal)),
 });

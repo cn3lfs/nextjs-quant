@@ -25,7 +25,6 @@ import {
 } from "trading-strategies/research/canslim/research-sepa-strategies";
 import { baseStrategies, baseStrategyIds } from "./research-base-strategies";
 import { z } from "zod";
-import { deprecatedStrategyLabel } from "~/lib/backtest/strategy-lifecycle";
 import {
   canslimResearchIds,
   canslimResearchStrategies,
@@ -200,7 +199,3 @@ export const researchRiskSchema = z
     maxWeight: z.number().finite().min(0.01).max(1).default(0.2),
   })
   .strict();
-
-export function researchStrategyLabel(id: ResearchStrategyId) {
-  return deprecatedStrategyLabel(researchStrategies[id].label);
-}

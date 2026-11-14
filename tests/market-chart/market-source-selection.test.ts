@@ -162,6 +162,8 @@ it("keeps the chart tab focused and renders the task center only as a tab", () =
     "src/components/workbench/workbench.tsx",
     "utf8",
   );
-  expect(workbench).toContain('"/tasks": <TaskCenter state={state} />');
-  expect(workbench.match(/<TaskCenter/g)).toHaveLength(1);
+  // Tasks have a framework route, not a duplicate hidden panel in the shell.
+  expect(workbench).not.toContain("<TaskCenter");
+  const taskPage = readFileSync("src/app/tasks/page.tsx", "utf8");
+  expect(taskPage.match(/<TaskCenter/g)).toHaveLength(1);
 });

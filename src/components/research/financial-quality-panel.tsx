@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
-import type { Snapshot } from "~/lib/domain";
-import { FundamentalReportPanel } from "./fundamental-report-panel";
 import { FinancialGrowthPanel } from "./financial-growth-panel";
 const labels: Record<string, string> = {
   "roa-positive": "ROA为正",
@@ -20,13 +18,7 @@ const fmt = (value: number | null, percent = false) =>
   value === null
     ? "缺失"
     : `${(value * (percent ? 100 : 1)).toLocaleString("zh-CN", { maximumFractionDigits: 3 })}${percent ? "%" : ""}`;
-export function FinancialQualityPanel({
-  symbol,
-  snapshot,
-}: {
-  symbol: string;
-  snapshot?: Snapshot;
-}) {
+export function FinancialQualityPanel({ symbol }: { symbol: string }) {
   const utils = api.useUtils();
   const [jobId, setJobId] = useState("");
   const [reportId, setReportId] = useState("");
@@ -236,11 +228,6 @@ export function FinancialQualityPanel({
           </ul>
         </article>
       )}
-      <FundamentalReportPanel
-        symbol={symbol}
-        financeId={data?.id}
-        snapshot={snapshot}
-      />
     </section>
   );
 }

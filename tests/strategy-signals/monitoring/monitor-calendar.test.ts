@@ -12,7 +12,9 @@ vi.mock("../../../src/server/data-sources/gf/gf-calendar", () => ({
   gfCalendarReference: mocks.gf,
 }));
 vi.mock("../../../src/server/market/data-health", async (original) => ({
-  ...(await original<typeof import("../../../src/server/market/data-health")>()),
+  ...(await original<
+    typeof import("../../../src/server/market/data-health")
+  >()),
   localCalendarReference: mocks.local,
 }));
 vi.mock("../../../src/server/market/preferred-online-chart", () => ({

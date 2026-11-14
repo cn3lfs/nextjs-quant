@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { chartColor, chartColorTokens } from "../../../src/lib/chart/chart-theme";
+import {
+  chartColor,
+  chartColorTokens,
+} from "../../../src/lib/chart/chart-theme";
 
 it("chart canvas colors mirror the Nocturne tokens", () => {
   const css = readFileSync("src/styles/tokens.css", "utf8");

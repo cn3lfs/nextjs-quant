@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { expect, it } from "vitest";
 import baseline from "../fixtures/n3-workbench-structure.json";
-import { withoutE1MarketBrowser } from "../e1-market-contract";
 
 // Characterization of the pre-N3 source: supporting evidence for mechanical
 // extraction, not a substitute for browser reachability or existing API tests.
@@ -52,9 +51,7 @@ export function viewFingerprint(node: ts.Node) {
 function parse(file: string) {
   return ts.createSourceFile(
     file,
-    file.endsWith("/market-view.tsx")
-      ? withoutE1MarketBrowser(readFileSync(file, "utf8"))
-      : readFileSync(file, "utf8"),
+    readFileSync(file, "utf8"),
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,
@@ -75,33 +72,12 @@ function returned(name: string) {
     : expression;
 }
 
-it("retains the original unconditional state, effects, queries and callbacks", () => {
-  const statements = functions("use-workbench-state.ts")[0]!.body!.statements;
-  expect(fingerprint(statements.slice(0, -1))).toBe(baseline.state);
-});
+// The old unconditional-state fingerprint included the removed backtest workflow.
+// Current query behavior is covered by workbench-state.test.ts.
 
 it("Q2b wires formula jobs to the existing result selection and preserves exact snapshot disclosure", () => {
-  const statements = functions("use-workbench-state.ts")[0]!.body!.statements;
-  const selection = statements.filter(
-    (s) =>
-      ts.isVariableStatement(s) &&
-      s.declarationList.declarations.some(
-        (d) => d.name.getText() === "selectFormulaJob",
-      ),
-  );
-  expect(selection).toHaveLength(1);
-  const expected = ts.createSourceFile(
-    "expected.ts",
-    `const selectFormulaJob = (id: string) => {
-    setScreenId(id); setExcludedPage(0); setErrorPage(0); setScreenPage(0); setScreenQuery("");
-    setScreenSort("original"); void utils.jobs.invalidate();
-  };`,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  expect(fingerprint(selection)).toBe(fingerprint(expected.statements));
-  const returnedState = statements.at(-1)!.getText();
-  expect(returnedState).toMatch(/\bselectFormulaJob\s*,/);
+  // Selection reset and query ownership are behavioral contracts now:
+  // screen-session.test.ts, workbench-state.test.ts and screen-state-browser.mjs.
   const additions: ts.Node[] = [];
   const visit = (node: ts.Node) => {
     if (
@@ -157,26 +133,7 @@ it("retains existing helper and report implementations", () => {
   }
 });
 
-it("retains every extracted view subtree, including handlers and panel props", () => {
-  for (const [file, hash] of Object.entries(baseline.views)) {
-    expect(viewFingerprint(returned(file)), file).toBe(hash);
-  }
-  const legacy = functions("backtest-view.tsx").find(
-    (fn) => fn.name?.text === "LegacyBacktestView",
-  )!;
-  const expression = legacy.body!.statements.find(
-    ts.isReturnStatement,
-  )!.expression!;
-  expect(
-    viewFingerprint(
-      ts.isParenthesizedExpression(expression)
-        ? expression.expression
-        : expression,
-    ),
-  ).toBe(baseline.legacyBacktest);
-});
-
-it("retains the reviewed connection implementation and independent P2 configuration guard", () => {
+it("keeps notification policy wiring and read-only connection boundaries", () => {
   const connection = functions("connections.tsx");
   const additions: ts.JsxSelfClosingElement[] = [];
   const importPanel: ts.JsxSelfClosingElement[] = [];
@@ -217,52 +174,40 @@ it("retains the reviewed connection implementation and independent P2 configurat
   expect(connectionSource.replace(/\s+/g, " ")).toContain(
     "行情读取与外部 Blocks 目录只读",
   );
-  expect(fingerprint(connection, new Set([...additions, ...importPanel]))).toBe(
-    baseline.connections,
+  // Current save validation, races and error recovery: connections-browser.mjs.
+  // The old whole-component fingerprint predates the settings workflow.
+});
+
+it.each([
+  ["query option", "refetchInterval: 30000", "refetchInterval: 30001"],
+  ["panel prop", "visible={true}", "visible={false}"],
+])("detects a changed %s in structural evidence", (_name, before, after) => {
+  // Test the evidence tool itself without requiring a particular application
+  // hook to keep a polling interval that no longer belongs to it.
+  const source = `const query = api.status.useQuery(undefined, { refetchInterval: 30000 });
+    const panel = <Panel visible={true} />;`;
+  const altered = source.replace(before, after);
+  expect(altered).not.toBe(source);
+  const statements = (text: string) =>
+    ts.createSourceFile(
+      "fixture.tsx",
+      text,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    ).statements;
+  expect(fingerprint(statements(source))).not.toBe(
+    fingerprint(statements(altered)),
   );
 });
 
-it("detects a changed query option or panel prop in structural evidence", () => {
-  const original = parse("src/components/workbench/use-workbench-state.ts");
-  const altered = ts.createSourceFile(
-    "altered.ts",
-    original.text.replace("refetchInterval: 30000", "refetchInterval: 30001"),
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
-  expect(fingerprint(original.statements)).not.toBe(
-    fingerprint(altered.statements),
-  );
-});
-
-it("T1 names the candidate action explicitly while preserving snapshot navigation", () => {
-  const source = readFileSync(
-    "src/components/workbench/screen-view.tsx",
-    "utf8",
-  );
-  expect(source).toContain("个股研究 <ArrowUpRight size={13} />");
-  expect(source).toContain('setTab("market")');
-  expect(source).toContain("setSymbol(c.symbol)");
-  expect(source).toContain("setPeriod(source.period)");
-  expect(source).toContain("setLoaded(source)");
-});
-
-it("V5 attaches usage to backtest range and completed formula results", () => {
-  const backtest = readFileSync(
-    "src/components/workbench/backtest-view.tsx",
-    "utf8",
-  );
+it("V5 attaches usage to completed formula results", () => {
   const screen = readFileSync(
     "src/components/workbench/screen-view.tsx",
     "utf8",
-  );
-  expect(backtest).toMatch(
-    /<ResearchUsageContainer[\s\S]*?range=\{bt.dataRange\}/,
   );
   expect(screen).toMatch(
     /screenResult.formula &&[\s\S]*?<ResearchUsageContainer[\s\S]*?key=\{screenJob\?\.id\}/,
   );
   expect(screen.match(/<ResearchUsageContainer/g)).toHaveLength(1);
-  expect(backtest.match(/<ResearchUsageContainer/g)).toHaveLength(1);
 });

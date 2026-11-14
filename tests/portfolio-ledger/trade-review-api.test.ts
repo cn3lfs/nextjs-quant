@@ -88,7 +88,7 @@ vi.mock("../../src/server/data-sources/tdx/tdx", async (importOriginal) => ({
   },
 }));
 import { createCaller } from "../../src/server/api/root";
-import { r13Days, r13Statement } from "../r13-scale-fixture";
+import { r13Days, r13Statement } from "../helpers/r13-scale-fixture";
 import { DeliveryStore } from "../../src/server/portfolio/delivery-store";
 const caller = createCaller({ headers: new Headers() });
 const input = {
@@ -212,19 +212,6 @@ it("U2 tRPC pages the held-symbol matrix and rejects invalid pagination", async 
       pageSize: 101,
     }),
   ).rejects.toThrow();
-  await expect(
-    caller.strategyResearchPeriodPerformance({
-      id: "missing",
-      partition: "validation",
-      pageSize: 0,
-    }),
-  ).rejects.toThrow();
-  await expect(
-    caller.strategyResearchPeriodPerformance({
-      id: "missing",
-      partition: "validation",
-    }),
-  ).rejects.toThrow("尚不可得");
 });
 let temporary = "";
 beforeEach(() => {

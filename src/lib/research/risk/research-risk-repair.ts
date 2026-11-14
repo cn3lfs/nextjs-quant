@@ -10,15 +10,18 @@ import {
 import { z } from "zod";
 import type { Bar } from "../../domain";
 import { backtestCostsSchema } from "../../backtest/backtest-costs";
-import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import {
   researchBookBuy,
   researchBookSell,
   researchBookSellable,
   researchPositionBook,
 } from "../analysis/research-position-book";
-import { type ResearchPositionBook } from "trading-strategies/research/contracts/position-book";
-import {fillMarketOrder as researchFill,sellQuantity as researchSellQuantity,commissionFor as researchCommission,type ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
+import {
+  fillMarketOrder as researchFill,
+  sellQuantity as researchSellQuantity,
+  commissionFor as researchCommission,
+  type ExecutionRules as ResearchExecutionRules,
+} from "quant-backtest/execution";
 import { big, bpsOf, moneyMul, toNumber } from "../../money";
 const validBar = (b: Bar | undefined): b is Bar =>
   !!b &&
@@ -76,7 +79,6 @@ export function replayRiskRepair(
   const targetStop = input.kind === "cycle-switch" ? input.proposedStop : stop;
   const {
     budget,
-    eligible,
     initialRisk,
     pending: repairPending,
   } = initialRepairPlan(

@@ -3,7 +3,7 @@ import {
   sourceAcceptanceSamples,
   sourceAcceptancePeriods,
   validateWestockBatch,
-} from "../data-source-acceptance";
+} from "../helpers/data-source-acceptance";
 const rows = ["2026-09-10", "2026-09-11", "2026-09-14"].map((date) => ({
   symbol: "sh000001",
   date,

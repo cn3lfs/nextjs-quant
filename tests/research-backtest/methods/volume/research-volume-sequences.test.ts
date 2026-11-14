@@ -1,13 +1,7 @@
+import { type VolumeContextId } from "trading-strategies/research/volume/research-volume-context";
 import { expect, it, vi } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
-import {
-  researchVolumeContextSeries,
-  type VolumeContextId,
-} from "trading-strategies/research/volume/research-volume-context";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
+import { researchVolumeContextSeries } from "trading-strategies/research/volume/research-volume-context";
 
 function fixture(tail: { close: number; volume: number }[]): Bar[] {
   return [
@@ -50,88 +44,9 @@ const lowVolume = fixture([
   { close: 120, volume: 100 },
   { close: 121, volume: 100 },
 ]);
-const cases: [VolumeContextId, Bar[], number, number, number][] = [
-  ["vp-interval-3", interval, 96, 97, 98],
-  ["vp-isolated-filter", isolated, 91, 92, 93],
-  ["vp-stall-exit", stall, 90, 91, 93],
-  ["vp-high-low-volume-exit", lowVolume, 90, 91, 92],
-];
 const native = vi.fn(async () => {
   throw new Error("unexpected native");
 });
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
-it.each(cases)(
-  "%s preserves event timing, independent exits and causal evidence",
-  async (id, input, signalIndex, entryIndex, exitIndex) => {
-    const points = researchVolumeContextSeries(id, input);
-    expect(points.flatMap((p, i) => (p.entry && i >= 90 ? [i] : []))).toEqual([
-      signalIndex,
-    ]);
-    const spec = researchSpecSchema.parse({
-      strategy: id,
-      start: input[90]!.date,
-      end: input.at(-1)!.date,
-      validationStart: input.at(-1)!.date,
-      holdingDays: id.endsWith("exit") ? 60 : 1,
-      initialCapital: 100000,
-      maxPositions: 1,
-      costs: {
-        commissionBps: 0,
-        minimumCommission: 0,
-        sellTaxBps: 0,
-        slippageBps: 0,
-      },
-    });
-    const events = await researchSignals("sh600000", input, spec, native);
-    expect(events).toHaveLength(1);
-    expect(events[0]!.observedDate).toBe(input[signalIndex]!.date);
-    const result = researchPortfolio(
-      spec,
-      events,
-      input.map((b) => b.date),
-      new Map([["sh600000", input]]),
-      () => rules,
-    );
-    expect(result.trades[0]!.entryDate).toBe(input[entryIndex]!.date);
-    expect(result.trades[0]!.exitDate).toBe(input[exitIndex]!.date);
-    expect(result.trades[0]!.profit).toBeGreaterThan(0);
-    if (id.endsWith("exit"))
-      expect(result.trades[0]!.signalExit).toEqual(points[exitIndex - 1]);
-    expect(researchMethodSnapshot(id).sources).toHaveLength(
-      id === "vp-interval-3" ? 4 : 5,
-    );
-    for (let length = 87; length <= input.length; length++)
-      expect(researchVolumeContextSeries(id, input.slice(0, length))).toEqual(
-        points.slice(0, length),
-      );
-    expect(
-      researchVolumeContextSeries(id, [
-        ...input,
-        {
-          ...input.at(-1)!,
-          date: "2025-12-01",
-          close: 1,
-          open: 1,
-          high: 2,
-          low: 0.5,
-          volume: 999999,
-        },
-      ]).slice(0, input.length),
-    ).toEqual(points);
-  },
-);
 
 it("identifies an isolated pulse only after its next bar and retains non-risk baseline entries", () => {
   const rows = researchVolumeContextSeries("vp-isolated-filter", isolated);
@@ -196,3 +111,19 @@ it("rejects a malformed interval, a missing bar and rising rather than contracti
   ).toBe(false);
   expect(native).not.toHaveBeenCalled();
 });
+
+const cases: [VolumeContextId, Bar[], number, number, number][] = [
+  ["vp-interval-3", interval, 96, 97, 98],
+  ["vp-isolated-filter", isolated, 91, 92, 93],
+  ["vp-stall-exit", stall, 90, 91, 93],
+  ["vp-high-low-volume-exit", lowVolume, 90, 91, 92],
+];
+it.each(cases)(
+  "%s calculates volume sequence confirmation timing",
+  (id, input, signalIndex) => {
+    const points = researchVolumeContextSeries(id, input);
+    expect(points.flatMap((p, i) => (p.entry && i >= 90 ? [i] : []))).toEqual([
+      signalIndex,
+    ]);
+  },
+);

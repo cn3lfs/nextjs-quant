@@ -12,7 +12,7 @@ execFileSync(
 );
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { copyFile, mkdir, cp, readFile, readdir } from "node:fs/promises";
+import { copyFile, mkdir, cp, readFile, readdir, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 await build({
@@ -165,12 +165,7 @@ await build({
   target: "node22",
 });
 
-await build({
-  entryPoints: ["src/server/backtest/research-worker.ts"],
-  outfile: "runtime/research-worker.cjs",
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  external: ["better-sqlite3", "koffi"],
-  target: "node22",
+// Do not carry the retired sample-research executor into an incremental package.
+await rm(new URL("../runtime/research-worker.cjs", import.meta.url), {
+  force: true,
 });

@@ -1,6 +1,7 @@
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
+import { resolveTdxRoot } from "tstdx/local";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import {
@@ -15,13 +16,13 @@ export async function readBenchmarkSnapshot(
   start: string,
   end: string,
 ): Promise<Snapshot> {
-  historicalDateSchema.parse(start);
-  historicalDateSchema.parse(end);
+  researchDateSchema.parse(start);
+  researchDateSchema.parse(end);
   if (start > end) throw new Error("基准日期区间无效");
   let local: Snapshot | undefined;
   let failure: unknown;
   try {
-    const path = join(resolve(root), "vipdoc/sh/lday/sh000001.day");
+    const path = join(resolveTdxRoot(root), "vipdoc/sh/lday/sh000001.day");
     const before = await stat(path),
       bytes = (await readStableLocalFile(path)).body,
       after = await stat(path);
@@ -64,7 +65,7 @@ export async function readBenchmarkSnapshot(
       return {
         ...cached,
         bars,
-        dataRoot: resolve(root),
+        dataRoot: root.trim() ? resolveTdxRoot(root) : "",
         sourceNote: "上证基准使用完整包缓存",
       };
   }

@@ -1,4 +1,5 @@
 "use client";
+import { capabilityAllows, capabilities } from "~/lib/common/capabilities";
 import { useEffect, useRef, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { useTaskVisible } from "../workbench/use-task-visible";
@@ -82,7 +83,11 @@ export function MonitorDetail({
     onSuccess: async () => {
       onChanged();
       if (live.current) await monitor.refetch();
-      setNotice("订阅状态已保存；恢复后重新建立基线。");
+      setNotice(
+        capabilityAllows("signalMonitor", "schedule")
+          ? "订阅状态已保存；恢复后重新建立基线。"
+          : "订阅设置已保存，调度仍暂停。",
+      );
     },
     onError: (cause) => setError(cause.message),
   });
@@ -169,8 +174,12 @@ export function MonitorDetail({
         <>
           <h3 className="text-lg font-medium">{m.name}</h3>
           <p className="text-sm">
-            {m.enabled ? "已启用" : "已暂停"} · {m.strategy.name} · {m.period} ·{" "}
-            {m.source}
+            {!capabilityAllows("signalMonitor", "schedule")
+              ? "调度已暂停"
+              : m.enabled
+                ? "已启用"
+                : "已暂停"}{" "}
+            · {m.strategy.name} · {m.period} · {m.source}
           </p>
           <p className="break-words text-sm">证券：{m.symbols.join("、")}</p>
           <p className="text-sm">最近检查：{monitorTime(m.lastCheck)}</p>
@@ -178,7 +187,7 @@ export function MonitorDetail({
             <p className="text-sm text-nc-bad">最近检查异常：{m.error}</p>
           )}
           <p className="text-xs text-nc-text-3">
-            启用状态不代表行情或后台健康。本机退出、休眠后监控停止。
+            {capabilities.signalMonitor.reason}
           </p>
           {m.source === "mcp" && (
             <p className="text-sm text-nc-warn">
@@ -189,7 +198,10 @@ export function MonitorDetail({
             <Button onClick={() => onEdit(m)}>编辑订阅</Button>
             <Button
               variant="outline"
-              disabled={toggle.isPending}
+              disabled={
+                toggle.isPending ||
+                (!m.enabled && !capabilityAllows("signalMonitor", "schedule"))
+              }
               onClick={() => {
                 setError("");
                 toggle.mutate({

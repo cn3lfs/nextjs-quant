@@ -4,7 +4,7 @@ import {
   riskParityMaximumCandidates,
   isNativeStudyStrategy,
 } from "trading-strategies";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import {
   strategyCenterJob,
   strategyCenterRunSchema,
@@ -47,8 +47,10 @@ function verifyStrategyArchive(result: unknown) {
 }
 
 export const strategyCenterRouter = createTRPCRouter({
-  strategyCenterCatalog: p.query(() => unifiedStrategyCatalog),
-  strategyCenterCompare: p
+  strategyCenterCatalog: p("strategyCenter", "read").query(
+    () => unifiedStrategyCatalog,
+  ),
+  strategyCenterCompare: p("strategyCenter", "read")
     .input(z.array(z.string().min(1)).min(2).max(12))
     .query(({ input }) => {
       let baseline: string | undefined;
@@ -151,37 +153,39 @@ export const strategyCenterRouter = createTRPCRouter({
         };
       });
     }),
-  strategyCenterEvaluation: p.input(z.string().min(1)).query(({ input }) => {
-    const job = readJob(input);
-    if (
-      !job ||
-      (job.input as { type?: string })?.type !== "strategy-center" ||
-      job.status !== "completed"
-    )
-      throw new Error("策略任务尚未完成");
-    verifyStrategyArchive(job.result);
-    const archive = z
-      .object({
-        frozen: z.object({
-          input: z.object({ initial: z.number().positive() }),
-        }),
-        result: z.object({
-          curve: z.array(
-            z.object({ date: z.string(), equity: z.number().finite() }),
-          ),
-        }),
-      })
-      .parse(job.result);
-    const { daily: _daily, ...report } = createPerformanceReport(
-      archive.frozen.input.initial,
-      archive.result.curve.map((point) => ({
-        date: point.date,
-        value: point.equity,
-      })),
-    );
-    return report;
-  }),
-  strategyCenterPortfolio: p
+  strategyCenterEvaluation: p("strategyCenter", "read")
+    .input(z.string().min(1))
+    .query(({ input }) => {
+      const job = readJob(input);
+      if (
+        !job ||
+        (job.input as { type?: string })?.type !== "strategy-center" ||
+        job.status !== "completed"
+      )
+        throw new Error("策略任务尚未完成");
+      verifyStrategyArchive(job.result);
+      const archive = z
+        .object({
+          frozen: z.object({
+            input: z.object({ initial: z.number().positive() }),
+          }),
+          result: z.object({
+            curve: z.array(
+              z.object({ date: z.string(), equity: z.number().finite() }),
+            ),
+          }),
+        })
+        .parse(job.result);
+      const { daily: _daily, ...report } = createPerformanceReport(
+        archive.frozen.input.initial,
+        archive.result.curve.map((point) => ({
+          date: point.date,
+          value: point.equity,
+        })),
+      );
+      return report;
+    }),
+  strategyCenterPortfolio: p("strategyCenter", "compute")
     .input(strategyCenterPortfolioSchema)
     .mutation(({ input }) => {
       const root = settings().tdxRoot;
@@ -200,7 +204,7 @@ export const strategyCenterRouter = createTRPCRouter({
         },
       );
     }),
-  strategyCenterLocalWeights: p
+  strategyCenterLocalWeights: p("strategyCenter", "compute")
     .input(strategyCenterCandidatesSchema)
     .mutation(async ({ input }) => {
       const snapshot = await captureStrategyCandidates(
@@ -220,7 +224,7 @@ export const strategyCenterRouter = createTRPCRouter({
         result,
       };
     }),
-  strategyCenterMethods: p
+  strategyCenterMethods: p("strategyCenter", "read")
     .input(
       z.object({
         query: z.string().max(200).default(""),
@@ -261,7 +265,7 @@ export const strategyCenterRouter = createTRPCRouter({
           })),
       };
     }),
-  strategyCenterEvaluate: p
+  strategyCenterEvaluate: p("strategyCenter", "compute")
     .input(
       z
         .object({
@@ -303,10 +307,10 @@ export const strategyCenterRouter = createTRPCRouter({
         { asOf: input.asOf, candidates: input.candidates },
       ),
     ),
-  strategyCenterRun: p
+  strategyCenterRun: p("strategyCenter", "compute")
     .input(strategyCenterRunSchema)
     .mutation(({ input }) => strategyCenterJob(input)),
-  strategyCenterHistory: p.query(
+  strategyCenterHistory: p("strategyCenter", "read").query(
     () =>
       sqlite()
         .prepare(
@@ -319,15 +323,17 @@ export const strategyCenterRouter = createTRPCRouter({
         symbol: string;
       }[],
   ),
-  strategyCenterExport: p.input(z.string().min(1)).query(({ input }) => {
-    const job = readJob(input);
-    if (
-      !job ||
-      (job.input as { type?: string })?.type !== "strategy-center" ||
-      job.status !== "completed"
-    )
-      throw new Error("策略中心任务尚未完成或不存在");
-    verifyStrategyArchive(job.result);
-    return job.result;
-  }),
+  strategyCenterExport: p("strategyCenter", "read")
+    .input(z.string().min(1))
+    .query(({ input }) => {
+      const job = readJob(input);
+      if (
+        !job ||
+        (job.input as { type?: string })?.type !== "strategy-center" ||
+        job.status !== "completed"
+      )
+        throw new Error("策略中心任务尚未完成或不存在");
+      verifyStrategyArchive(job.result);
+      return job.result;
+    }),
 });

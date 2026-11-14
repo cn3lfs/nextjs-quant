@@ -1,10 +1,10 @@
 import { poolMembersHref } from "~/lib/market/market-pool";
 import type { poolCategorySchema } from "~/lib/market/market-pool";
 import type { z } from "zod";
+import Link from "next/link";
 
 /**
- * A full navigation on purpose: the pool browser reads the deep-link parameters
- * once on mount, so a cached client-side panel would ignore a new selection.
+ * The destination reads the current URL, so client navigation updates membership.
  */
 export function PoolMembersLink({
   category,
@@ -14,12 +14,12 @@ export function PoolMembersLink({
   name: string;
 }) {
   return (
-    <a
+    <Link
       className="text-primary underline underline-offset-2 hover:no-underline"
       href={poolMembersHref(category, name)}
       title={`查看 ${name} 的成分股`}
     >
       {name}
-    </a>
+    </Link>
   );
 }

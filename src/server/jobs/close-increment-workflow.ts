@@ -1,8 +1,9 @@
+import { isRpsMarketSymbol } from "quant-rps";
 import { get } from "../db";
 import { settings } from "../infra/settings";
 import { completedRpsObservation } from "../screening/rps-observation";
 import { securityNames, isAStock } from "tstdx/local";
-import { isRpsMarketSymbol } from "~/lib/screening/rps";
+
 import {
   runIncrementJob,
   type IncrementJob,

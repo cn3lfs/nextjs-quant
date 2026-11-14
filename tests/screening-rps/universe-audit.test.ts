@@ -13,9 +13,8 @@ import { UniverseAuditResults } from "../../src/components/screening/universe-au
 import { universeAuditPage } from "../../src/server/research/universe-audit";
 import { get, put, sqlite } from "../../src/server/db/index";
 import { settings, saveSettings } from "../../src/server/infra/settings";
-import { ResearchStore } from "../../src/server/backtest/research-store";
 import { RpsStore } from "../../src/server/screening/rps-store";
-import { industryDay } from "../industry-rps-fixture";
+import { industryDay } from "../helpers/industry-rps-fixture";
 import { readMarketPool } from "../../src/server/market/market-pool-files";
 import { tdxBlockFiles } from "tstdx/local";
 
@@ -271,39 +270,10 @@ it("TDX read-only roster never creates content-addressed snapshots", async () =>
   );
   expect(get(`market-pool-snapshot-${pool.hash}`)).toBeUndefined();
 });
-it("research audits frozen members including failed stocks, its own root and original interval", async () => {
-  const root = await localRoot();
-  put("research-task", "research-v4", { id: "research-v4", spec: range });
-  put("research-dataset", "research-v4:dataset", {
-    root,
-    hash: "frozen",
-    capturedAt: 1000,
-    membership: {
-      symbols: ["sz000006", "sz000007"],
-      source: { name: "原名单" },
-    },
-    stocks: [
-      { symbol: "sz000006", hash: "stock", bars: [{ date: "2020-03-01" }] },
-    ],
-  });
-  expect(new ResearchStore(sqlite()).dataset("research-v4")).not.toBeNull();
-  const result = await universeAuditPage({
-    source: { kind: "research", id: "research-v4" },
-    ...range,
-  });
-  expect(result.summary.total).toBe(2);
-  expect(result.summary.noEvidence).toBe(2);
-  expect(result.summary.notListedAtStart).toBe(0);
-  expect(result.summary.localCoverageStartsAfter).toBe(1);
-  expect(result.summary.localCoverageUnknown).toBe(1);
-  expect(result.summary.rosterAsOf).toBe("1970-01-01T00:00:01.000Z");
+it("rejects the removed sample-research source before reading or refreshing data", async () => {
   await expect(
-    universeAuditPage({
-      source: { kind: "research", id: "research-v4" },
-      ...range,
-      start: "2019-01-01",
-    }),
-  ).rejects.toThrow("原研究一致");
+    universeAuditPage({ source: { kind: "research", id: "old" }, ...range }),
+  ).rejects.toThrow();
   expect(blocked.verify).not.toHaveBeenCalled();
   expect(blocked.request).not.toHaveBeenCalled();
 });
@@ -336,7 +306,7 @@ it("concept audits stored result membership, deduplicates overlapping constituen
   expect(blocked.verify).not.toHaveBeenCalled();
   expect(blocked.request).not.toHaveBeenCalled();
 });
-it("renders delisting as a lower bound, including zero, and all three pages share the same audit entry", async () => {
+it("renders delisting as a lower bound, including zero, and current market and concept pages share the same audit entry", async () => {
   const { details, ...summary } = auditUniverse(fixture());
   const html = renderToStaticMarkup(
     createElement(UniverseAuditResults, {
@@ -375,7 +345,6 @@ it("renders delisting as a lower bound, including zero, and all three pages shar
   ).toContain("≥ 0 只");
   for (const file of [
     "market/market-pool-browser",
-    "research/strategy-research-controls",
     "market/concept-rps-controls",
   ])
     expect(await readFile(`src/components/${file}.tsx`, "utf8")).toContain(

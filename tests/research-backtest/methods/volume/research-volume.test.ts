@@ -1,5 +1,5 @@
 import { volumeCompletionIds } from "trading-strategies/research/volume/research-volume-completion";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { volumeMa } from "../../../../src/lib/indicators";
 import { volumeGridIds } from "trading-strategies/research/volume/research-volume-grid";
@@ -10,17 +10,7 @@ import {
   volumeWarmupStart,
   type VolumeStrategyId,
 } from "trading-strategies/research/volume/research-volume";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import type {ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../../src/server/backtest/research-dataset";
 
 function bars(
   tail: { close: number; volume: number; open?: number }[],
@@ -239,74 +229,6 @@ it("expires an unconfirmed plateau, rejects high-location entries, and blocks on
   ).toBe(false);
 });
 
-const native = vi.fn(async () => {
-  throw new Error("no native");
-});
-const rules: ResearchExecutionRules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 10000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 10000,
-  sellOddLotAll: true,
-  limitUp: null,
-  limitDown: null,
-  tradable: true,
-};
-it("freezes the candidate stop, rejects a failed opening gap and exits a false confirmation on the next open", async () => {
-  const input = bars([
-    { close: 115.36, volume: 300 },
-    { close: 116, volume: 200 },
-    { close: 117, volume: 100 },
-    { close: 114, volume: 100 },
-    { close: 113, volume: 100 },
-  ]);
-  const spec = researchSpecSchema.parse({
-    strategy: "vp-up-expanded-confirm",
-    start: input[61]!.date,
-    end: input[65]!.date,
-    validationStart: input[64]!.date,
-    holdingDays: 60,
-    initialCapital: 100000,
-    maxPositions: 1,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-  const events = await researchSignals("sh600000", input, spec, native);
-  expect(events[0]!.observedDate).toBe(input[62]!.date);
-  expect(events[0]!.ruleStop!.price).toBeCloseTo(114.86);
-  const result = researchPortfolio(
-    spec,
-    events,
-    input.map((bar) => bar.date),
-    new Map([["sh600000", input]]),
-    () => rules,
-  );
-  expect(result.trades[0]!.entryDate).toBe(input[63]!.date);
-  expect(result.trades[0]!.ruleStopTriggeredAt).toBe(input[64]!.date);
-  expect(result.trades[0]!.exitDate).toBe(input[65]!.date);
-  expect(result.trades[0]!.profit).toBe(-3200);
-  const gap = input.map((bar, i) =>
-    i === 63 ? { ...bar, open: 110, low: 109 } : bar,
-  );
-  const rejected = researchPortfolio(
-    spec,
-    events,
-    input.map((bar) => bar.date),
-    new Map([["sh600000", gap]]),
-    () => rules,
-  );
-  expect(rejected.trades).toEqual([]);
-  expect(rejected.excluded[0]!.reason).toContain("确认位");
-  expect(native).not.toHaveBeenCalled();
-});
-
 it("extends the volume history coverage boundary past a long suspension", () => {
   const input = bars(
     Array.from({ length: 100 }, (_, i) => ({
@@ -336,123 +258,4 @@ it("attributes a volume average exit without claiming a candidate stop", () => {
   expect(points[61]!.ruleStop).toBeUndefined();
   const exit = points.find((point) => point.exit);
   expect(exit?.decision).toBe("有效成交记录VMA5下穿VMA10");
-});
-
-it("requires action evidence for candidate warmup and rejects a known pre-period split", async () => {
-  const input = bars([
-    { close: 115.36, volume: 300 },
-    { close: 116, volume: 200 },
-    { close: 117, volume: 100 },
-    { close: 118, volume: 100 },
-    { close: 119, volume: 100 },
-    { close: 120, volume: 100 },
-  ]);
-  const spec = researchSpecSchema.parse({
-    strategy: "vp-up-expanded-confirm",
-    symbols: ["sh600000"],
-    start: input[61]!.date,
-    end: input[66]!.date,
-    validationStart: input[65]!.date,
-    holdingDays: 1,
-    initialCapital: 100000,
-    maxPositions: 1,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic-fixture",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "合成池",
-    },
-    benchmark: { symbol: "sh000001", bars: input },
-    calendar: input.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "合成",
-        bars: input,
-        hash: researchHash(input),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixed-volume",
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: input[0]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: input.map((b) => ({
-      ...rules,
-      evidence: undefined,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.events).toHaveLength(1);
-  expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
-    input[64]!.date,
-  );
-  const shortCoverage = {
-    ...evidence,
-    corporateActionFree: evidence.corporateActionFree.map((row) => ({
-      ...row,
-      start: spec.start,
-    })),
-  };
-  const missing = await runStrategyResearch(
-    spec,
-    dataset,
-    shortCoverage,
-    native,
-  );
-  // corporateActionFree is legacy evidence metadata the engine no longer
-  // consumes; admission runs on prepareResearchAdjustedCoverage instead,
-  // which this actions-free dataset satisfies regardless of the window.
-  expect(missing.events).toEqual(result.events);
-  expect(missing.partitions[0]!.simulation!.trades).toEqual(
-    result.partitions[0]!.simulation!.trades,
-  );
-  const split = {
-    ...dataset,
-    stocks: dataset.stocks.map((stock) => ({
-      ...stock,
-      actions: [
-        { date: input[50]!.date, category: 1, name: "合成送转", bonusRatio: 1 },
-      ],
-    })),
-  };
-  const rejected = await runStrategyResearch(spec, split, evidence, native);
-  // A category-1 bonus event without floatSharesBefore/After is a real
-  // share-count change GBBQ cannot quantify, so volume comparability stays
-  // missing — the reason now names that specifically.
-  expect(rejected.events).toEqual([]);
-  expect(rejected.exclusions[0]!.reason).toContain("量能可比性无法判定");
-  expect(
-    rejected.partitions.every((p) => p.simulation!.trades.length === 0),
-  ).toBe(true);
 });

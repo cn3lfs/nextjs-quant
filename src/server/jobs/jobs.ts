@@ -1,7 +1,7 @@
 import { Worker } from "node:worker_threads";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
-import { get, put, list, sqlite } from "../db";
+import { get, put, sqlite } from "../db";
 import type { Job } from "~/lib/domain";
 import type { Work } from "./worker";
 import {
@@ -10,12 +10,12 @@ import {
 } from "~/lib/research/workflow/work-progress";
 import { processAlive } from "../infra/lease";
 import { PrioritySlots } from "../infra/priority-slots";
-import { unpackScreen, type PackedScreen } from "../screening/screen-wire";
 import {
   ResearchAttempts,
   bestEffortAudit,
 } from "../research/research-governance";
 import { researchRangeSchema } from "~/lib/research/workflow/research-usage";
+import { recordRuntimeError } from "../infra/runtime-errors";
 const scope = globalThis as typeof globalThis & {
   quantJobs?: {
     workers: Map<string, Worker>;
@@ -47,8 +47,8 @@ function watchCancellation() {
           controller.abort();
           void workers.get(id)?.terminate();
         }
-      } catch {
-        /* A transient database lock is retried on the next tick. */
+      } catch (error) {
+        recordRuntimeError("job-cancellation-watch", error, { jobId: id });
       }
     }
   }, 250);
@@ -186,18 +186,37 @@ export function cancelJob(id: string) {
 }
 export function recoverJobs() {
   bestEffortAudit(() => new ResearchAttempts(sqlite()).recover(processAlive));
-  for (const job of list<Job>("job", 10000))
+  const db = sqlite();
+  const page = db.prepare(`
+    SELECT id FROM records
+    WHERE kind='job' AND json_extract(payload,'$.status') IN ('running','queued')
+      AND (@after IS NULL OR id > @after)
+    ORDER BY id LIMIT 500
+  `);
+  const recover = db.transaction((id: string) => {
+    // Recheck under the write lock: another host may have finished or claimed
+    // the job since the page was read. Recovery never starts a worker.
+    const job = readJob(id);
     if (
+      job &&
       ["running", "queued"].includes(job.status) &&
       (!job.ownerPid || !processAlive(job.ownerPid))
     )
-      updateJob(job.id, {
+      updateJob(id, {
         status: "failed",
         error: "应用重启中断了任务，可重新运行",
       });
+  });
+  let after: string | null = null;
+  for (;;) {
+    const rows = page.all({ after }) as { id: string }[];
+    if (!rows.length) break;
+    for (const row of rows) recover.immediate(row.id);
+    // Use stable IDs, not offsets into a set that shrinks after each update.
+    after = rows.at(-1)!.id;
+  }
 }
 export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
-  const requestStarted = performance.now();
   const controller = new AbortController();
   if (jobId) {
     if (state.computeControllers.has(jobId))
@@ -231,7 +250,11 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
         ),
       ]) as Worker;
       const created = worker;
-      created.on("error", () => {}); // Active requests have their own error handler.
+      created.on("error", (error) => {
+        // Active requests are recorded by their owning job/request, once.
+        if (state.idle.includes(created))
+          recordRuntimeError("worker-idle", error);
+      });
       created.on("exit", () => {
         const index = state.idle.indexOf(created);
         if (index >= 0) state.idle.splice(index, 1);
@@ -250,7 +273,6 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       }
     }
     return await new Promise<T>((resolve, reject) => {
-      let postedAt = 0;
       const cleanup = () => {
         current.off("message", onMessage);
         current.off("error", onError);
@@ -266,10 +288,10 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       const onExit = () => onError(new Error("计算任务已中止"));
       const onMessage = (message: {
         progress?: number;
+        progressId?: number;
         phase?: string;
         workProgress?: WorkProgress;
         result?: T;
-        screenResult?: PackedScreen;
         error?: string;
       }) => {
         const counts = message.workProgress
@@ -279,29 +301,22 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
           onError(new Error("计算线程返回的阶段计数非法"));
           return;
         }
-        if (message.progress !== undefined && jobId)
-          updateJob(jobId, {
-            progress: message.progress,
-            phase: message.phase,
-            ...(counts?.success ? { workProgress: counts.data } : {}),
-          });
+        try {
+          if (message.progress !== undefined && jobId)
+            updateJob(jobId, {
+              progress: message.progress,
+              phase: message.phase,
+              ...(counts?.success ? { workProgress: counts.data } : {}),
+            });
+          if (message.progressId !== undefined)
+            current.postMessage({ progressAck: message.progressId });
+        } catch (error) {
+          onError(error instanceof Error ? error : new Error(String(error)));
+          return;
+        }
         if (message.error) {
           cleanup();
           reject(new Error(message.error));
-        } else if (message.screenResult) {
-          try {
-            const receivedAt = performance.now();
-            const result = unpackScreen(message.screenResult, true);
-            result.workerTiming = {
-              queueMs: postedAt - requestStarted,
-              responseWaitMs: receivedAt - postedAt,
-              unpackMs: performance.now() - receivedAt,
-            };
-            cleanup();
-            resolve(result as T);
-          } catch (error) {
-            onError(error as Error);
-          }
         } else if ("result" in message) {
           cleanup();
           resolve(message.result as T);
@@ -311,15 +326,21 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       current.once("error", onError);
       current.once("exit", onExit);
       try {
-        postedAt = performance.now();
         current.postMessage({
           ...work,
-          ...(jobId ? { attemptId: readJob(jobId)?.attemptId } : {}),
+          ...(jobId ? { jobId, attemptId: readJob(jobId)?.attemptId } : {}),
         });
       } catch (error) {
         onError(error as Error);
       }
     });
+  } catch (error) {
+    if (!jobId)
+      recordRuntimeError("worker-request", error, {
+        requestId: randomUUID(),
+        cancelled: controller.signal.aborted,
+      });
+    throw error;
   } finally {
     if (worker && healthy && worker.threadId !== -1) {
       worker.unref();
@@ -382,11 +403,18 @@ export function background(
         });
     })
     .catch((error) => {
-      if (readJob(job.id)?.status !== "cancelled")
-        updateJob(job.id, {
-          status: "failed",
-          error: error instanceof Error ? error.message : "任务失败",
-        });
+      let cancelled = controller.signal.aborted;
+      try {
+        cancelled ||= readJob(job.id)?.status === "cancelled";
+        if (!cancelled)
+          updateJob(job.id, {
+            status: "failed",
+            error: error instanceof Error ? error.message : "任务失败",
+          });
+      } catch (stateError) {
+        recordRuntimeError("job-state-write", stateError, { jobId: job.id });
+      }
+      recordRuntimeError("job-run", error, { jobId: job.id, cancelled });
     })
     .finally(() => {
       controllers.delete(job.id);

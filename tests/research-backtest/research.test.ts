@@ -194,7 +194,7 @@ describe("LLM 边界与故障", () => {
       structured("json", z.object({ ok: z.boolean() }), "model"),
     ).rejects.toThrow("连续两次");
     expect(create).toHaveBeenCalledTimes(2);
-    expect(list("report")).toHaveLength(0);
+    expect(list("report", 200)).toHaveLength(0);
   });
   it("模型虚构证据 ID 不能入库（负向控制）", async () => {
     create.mockResolvedValue(
@@ -216,7 +216,7 @@ describe("LLM 边界与故障", () => {
         { id: "actual", source: "test", asOf: "2026-09-08", text: "data" },
       ]),
     ).rejects.toThrow("引用");
-    expect(list("report")).toHaveLength(0);
+    expect(list("report", 200)).toHaveLength(0);
   });
   it("同证据、参数与模型命中缓存，不重复推理", async () => {
     create.mockResolvedValue(

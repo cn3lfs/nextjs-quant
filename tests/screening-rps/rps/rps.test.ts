@@ -1,16 +1,21 @@
+import { rankRps, rpsPeriods, rpsPoolExclusion } from "quant-rps";
 import { expect, it } from "vitest";
-import { rankRps, rpsPeriods } from "../../../src/lib/screening/rps";
+
 import {
   calculateRpsDay,
   prepareRpsSecurity,
-  rpsPoolExclusion,
-} from "../../../src/server/screening/rps-engine";
-import { rpsBars, rpsCalendar, rpsDate, tenStocks } from "../../rps-fixture";
+} from "../../../src/server/screening/rps-adapter";
+import {
+  rpsBars,
+  rpsCalendar,
+  rpsDate,
+  tenStocks,
+} from "../../helpers/rps-fixture";
 
-it("10 calculator-checkable stocks rank identically across all six parameterized periods", () => {
+it("10 calculator-checkable stocks rank identically across all configured periods", () => {
   const result = calculateRpsDay(tenStocks(), rpsCalendar, rpsDate);
-  expect(result.counts).toEqual([10, 10, 10, 10, 10, 10]);
-  // All six base closes=10; final closes=10,11,...,19.
+  expect(result.counts).toEqual([10, 10, 10, 10, 10, 10, 10]);
+  // All period base closes=10; final closes=10,11,...,19.
   // Gain_i=(10+i)/10-1=i/10; descending rank=10-i;
   // RPS_i=(1-(10-i)/10)*100=10*i. Thus best=90, worst=0.
   result.rows.forEach((row, i) =>
@@ -25,7 +30,7 @@ it("10 calculator-checkable stocks rank identically across all six parameterized
   );
   expect(
     calculateRpsDay(tenStocks(), rpsCalendar, rpsDate, [10]).rows[9]!.values,
-  ).toEqual([result.rows[9]!.values[1]]);
+  ).toEqual([result.rows[9]!.values[3]]);
 });
 
 it("10-for-10 bonus: backward-adjusted strong stock ranks FIRST; raw prices rank LAST", () => {
@@ -170,7 +175,7 @@ it("20 consecutive no-trade sessions excludes; 19 does not; no endpoint price fi
   for (const d of rpsCalendar.slice(502, 521)) stock.closes.delete(d);
   expect(rpsPoolExclusion(stock, rpsCalendar, 520, 250)).toBeNull();
   expect(calculateRpsDay([stock], rpsCalendar, rpsDate).missing).toEqual([
-    1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1,
   ]);
   stock.closes.get(rpsCalendar[501]!)!.volume = 0;
   expect(rpsPoolExclusion(stock, rpsCalendar, 520, 250)).toBe("suspended");
@@ -179,8 +184,8 @@ it("missing endpoints only reduce that period's denominator", () => {
   const stocks = tenStocks();
   stocks[0]!.closes.delete(rpsCalendar[515]!);
   const result = calculateRpsDay(stocks, rpsCalendar, rpsDate);
-  expect(result.counts).toEqual([9, 10, 10, 10, 10, 10]);
-  expect(result.rows[0]!.values[0]).toBeNull();
+  expect(result.counts).toEqual([10, 10, 9, 10, 10, 10, 10]);
+  expect(result.rows[0]!.values[2]).toBeNull();
 });
 it("ties use mean occupied 1-based ranks; all tied and singleton never become 100", () => {
   // Returns 30%,20%,20%,0% occupy ranks 1,2.5,2.5,4 => 75,37.5,37.5,0.

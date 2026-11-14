@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "tstdx/local";
 import {
   readStableLocalFile,
   parseLocalBaseDbf,
@@ -239,7 +240,7 @@ export async function auditLocalFinancialFiles(
   const candidates = [];
   for (const name of ["base.dbf", "base.map", "fundinfo.dat"]) {
     try {
-      const path = resolve(root, "T0002", "hq_cache", name),
+      const path = resolve(resolveTdxRoot(root), "T0002", "hq_cache", name),
         info = await stat(path);
       const body = (await readStableLocalFile(path)).body;
       const parsed =
@@ -263,7 +264,7 @@ export async function auditLocalFinancialFiles(
   }
   return {
     version: financialMappingVersion,
-    root: resolve(root),
+    root: resolveTdxRoot(root),
     observedAt: Date.now(),
     counts,
     files,

@@ -1,10 +1,13 @@
 import { expect, it } from "vitest";
-import {evaluateGrowthFactors} from "../../../src/server/strategies/canslim/research-growth-factors";
-import {growthDisciplineRules} from "trading-strategies/research/growth/growth-factor-engine";
-import { request, growthShapedFixture } from "../../helpers/growth-factor-fixture";
-import {asOfInputDefinitions} from "../../../src/lib/research/evidence/as-of-inputs";
-import {growthEntrySchema} from "trading-strategies/research/contracts/growth-inputs";
-import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
+import { evaluateGrowthFactors } from "../../../src/server/strategies/canslim/research-growth-factors";
+import { growthDisciplineRules } from "trading-strategies/research/growth/growth-factor-engine";
+import {
+  request,
+  growthShapedFixture,
+} from "../../helpers/growth-factor-fixture";
+import { asOfInputDefinitions } from "../../../src/lib/research/evidence/as-of-inputs";
+import { growthEntrySchema } from "trading-strategies/research/contracts/growth-inputs";
+import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
 const set = (rows: AsOfObservation[], field: string, value: unknown) =>
   rows.map((r) => (r.field === field ? { ...r, value } : r));
 function fixture(kind: "flat" | "sepa" = "flat") {

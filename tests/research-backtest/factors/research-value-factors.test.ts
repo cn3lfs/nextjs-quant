@@ -7,7 +7,15 @@ import {
   valueFactorRules,
   valueThesisMetrics,
 } from "trading-strategies/research/factors/research-value-factors";
-import {valueQualitySchema,valueMarketSchema,valuePolicySchema,valueGuoSchema,valueRiskSchema,valueThesisSchema,valueThesisObservationSchema} from "trading-strategies/research/contracts/value-inputs";
+import {
+  valueQualitySchema,
+  valueMarketSchema,
+  valuePolicySchema,
+  valueGuoSchema,
+  valueRiskSchema,
+  valueThesisSchema,
+  valueThesisObservationSchema,
+} from "trading-strategies/research/contracts/value-inputs";
 import { z } from "zod";
 import {
   valueFixture,

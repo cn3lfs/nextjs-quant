@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseBars, isAStock } from "tstdx/local";
-import { backtest } from "~/server/backtest/quant";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import {
   defaultStrategy,
@@ -96,25 +95,6 @@ describe("确定性策略", () => {
     const bars = series();
     bars.at(-1)!.close = 1;
     expect(metrics(bars, defaultStrategy)?.matched).toBe(false);
-  });
-  it("同快照同参数得到相同收益，未来变化不能修改过去成交", () => {
-    const bars = series(),
-      a = backtest(bars, defaultStrategy, "snap"),
-      b = backtest(bars, defaultStrategy, "snap");
-    expect(a).toEqual(b);
-    expect(a.trades[0]?.date).toBe(bars[21]?.date);
-    const altered = series();
-    altered[70]!.close = 1;
-    const c = backtest(altered, defaultStrategy, "snap");
-    expect(c.trades.filter((t) => t.date < bars[70]!.date)).toEqual(
-      a.trades.filter((t) => t.date < bars[70]!.date),
-    );
-    expect(a.cash).toBeGreaterThanOrEqual(0);
-    expect(a.trades.every((t) => t.shares % 100 === 0)).toBe(true);
-  });
-  it("无量及一字行情不成交", () => {
-    const bars = series().map((b) => ({ ...b, volume: 0 }));
-    expect(backtest(bars, defaultStrategy, "s").trades).toHaveLength(0);
   });
 });
 describe("信号时间与去重", () => {
@@ -283,7 +263,7 @@ describe("持久化投递", () => {
     } satisfies Signal;
     enqueue(signal, ["c"], "signal");
     enqueue(signal, ["c"], "signal");
-    expect(list("delivery")).toHaveLength(1);
+    expect(list("delivery", 200)).toHaveLength(1);
   });
   it("原子写入失败时事件和通知一起回滚", () => {
     expect(() =>

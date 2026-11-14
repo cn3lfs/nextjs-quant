@@ -3,8 +3,8 @@ import {
   summarizePool,
   type PoolObservation,
 } from "../../src/server/market/pool-context";
-import {defaultStrategy} from "../../src/lib/domain";
-import {type Metrics} from "trading-strategies/research/technical/screening-metrics";
+import { defaultStrategy } from "../../src/lib/domain";
+import { type Metrics } from "trading-strategies/research/technical/screening-metrics";
 const row = (
   symbol: string,
   change: number,

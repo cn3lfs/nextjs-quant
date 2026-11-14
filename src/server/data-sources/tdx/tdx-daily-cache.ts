@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { atomic, get, put, sqlite } from "../../db";
 import { parseTdxDailyIncrement } from "tstdx/local";
 
@@ -88,7 +88,7 @@ export function publishDailyIncrement(input: Input) {
 
 export function readDailyIncrement(symbol: string, date: string) {
   symbolSchema.parse(symbol);
-  historicalDateSchema.parse(date);
+  researchDateSchema.parse(date);
   const pointer = get<Pointer>(pointerId(symbol, date));
   if (!pointer) return null;
   const snapshot = get<DailyIncrementSnapshot>(pointer.snapshotId);
@@ -103,8 +103,8 @@ export function readDailyIncrementRange(
   end: string,
 ) {
   symbolSchema.parse(symbol);
-  historicalDateSchema.parse(start);
-  historicalDateSchema.parse(end);
+  researchDateSchema.parse(start);
+  researchDateSchema.parse(end);
   if (start > end) throw new Error("日线增量日期范围非法");
   const rows = sqlite()
     .prepare(

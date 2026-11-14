@@ -94,11 +94,14 @@ export function PanelCache({
   active: string;
   panels: Record<string, ReactNode>;
 }) {
+  const cachedRoute = Object.hasOwn(panels, active);
   const [cache, setCache] = useState<PanelCacheState>({
-    mounted: [active],
-    recent: [active],
+    mounted: cachedRoute ? [active] : [],
+    recent: cachedRoute ? [active] : [],
   });
-  const next = nextPanelCache(cache, active);
+  // Framework-rendered children have no cached panel. Hide existing panels,
+  // without consuming a slot or changing their eviction order.
+  const next = cachedRoute ? nextPanelCache(cache, active) : cache;
   if (next !== cache) setCache(next);
   return (
     <>{next.mounted.map((key) => slot(key, active, panels[key] ?? null))}</>

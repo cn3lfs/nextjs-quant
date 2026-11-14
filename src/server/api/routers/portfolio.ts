@@ -76,7 +76,7 @@ import {
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 import { createHash } from "node:crypto";
-import {importOptionsSchema} from "~/lib/research/evidence/delivery-import";
+import { importOptionsSchema } from "~/lib/research/evidence/delivery-import";
 import { costMethods, type ReviewRound } from "~/lib/portfolio/trade-review";
 import {
   cashReconciliationPage,
@@ -122,8 +122,7 @@ import {
 import { sqlite as chartSqlite } from "../../db";
 import { z } from "zod";
 import { settings } from "../../infra/settings";
-import { snapshot } from "../../market/snapshot";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 const deliveryPathSchema = z.string().trim().min(1).max(2048);
 const deliveryInputSchema = importOptionsSchema.extend({
   path: deliveryPathSchema,
@@ -262,7 +261,7 @@ async function computeAccountReview(account: string) {
   };
 }
 export const portfolioRouter = createTRPCRouter({
-  cashWorkspace: p
+  cashWorkspace: p("portfolio", "read")
     .input(cashWorkspacePageSchema.and(cashAccountSchema))
     .query(async ({ input }) => {
       const result = await accountReview(input.account);
@@ -272,7 +271,7 @@ export const portfolioRouter = createTRPCRouter({
         ...cashWorkspacePage(result.snapshot.cashReconciliation, input),
       };
     }),
-  cashWorkspaceDate: p
+  cashWorkspaceDate: p("portfolio", "read")
     .input(
       cashVersionSchema
         .extend({ date: cashDateSchema })
@@ -283,7 +282,7 @@ export const portfolioRouter = createTRPCRouter({
       version: input.version,
       ...cashWorkspaceDate(await cashReviewAt(input), input.date, input),
     })),
-  cashWorkspaceRows: p
+  cashWorkspaceRows: p("portfolio", "read")
     .input(
       cashVersionSchema
         .extend({ date: cashDateSchema, batchId: z.string().min(1).max(200) })
@@ -299,56 +298,60 @@ export const portfolioRouter = createTRPCRouter({
         input,
       ),
     })),
-  cashWorkspaceOpening: p
+  cashWorkspaceOpening: p("portfolio", "read")
     .input(cashVersionSchema.merge(cashEvidencePageSchema))
     .query(async ({ input }) => ({
       account: input.account,
       version: input.version,
       ...cashWorkspaceOpening(await cashReviewAt(input), input),
     })),
-  cashWorkspaceDiagnostics: p
+  cashWorkspaceDiagnostics: p("portfolio", "read")
     .input(cashVersionSchema.merge(cashEvidencePageSchema))
     .query(async ({ input }) => ({
       account: input.account,
       version: input.version,
       ...cashWorkspaceDiagnostics(await cashReviewAt(input), input),
     })),
-  cashWorkspaceExport: p.input(cashVersionSchema).query(async ({ input }) => {
-    const evidence = await cashReviewAt(input);
-    return {
-      account: input.account,
-      snapshotVersion: input.version,
-      generatedAt: new Date().toISOString(),
-      evidenceHash: createHash("sha256")
-        .update(JSON.stringify(evidence))
-        .digest("hex"),
-      evidence,
-    };
-  }),
-  tradeWorkspaceEnvironment: p.query(() => ({
+  cashWorkspaceExport: p("portfolio", "read")
+    .input(cashVersionSchema)
+    .query(async ({ input }) => {
+      const evidence = await cashReviewAt(input);
+      return {
+        account: input.account,
+        snapshotVersion: input.version,
+        generatedAt: new Date().toISOString(),
+        evidenceHash: createHash("sha256")
+          .update(JSON.stringify(evidence))
+          .digest("hex"),
+        evidence,
+      };
+    }),
+  tradeWorkspaceEnvironment: p("portfolio", "read").query(() => ({
     today: chinaClock(Date.now()).date,
     mockEnabled: mockEnabled(),
   })),
-  tradeWorkspacePage: p
+  tradeWorkspacePage: p("portfolio", "read")
     .input(tradeWorkspacePageSchema)
     .query(({ input }) => tradeWorkspacePage(chartSqlite(), input)),
-  tradeWorkspaceDetail: p
+  tradeWorkspaceDetail: p("portfolio", "read")
     .input(tradeWorkspaceId)
     .query(({ input }) => tradeWorkspaceDetail(chartSqlite(), input)),
-  tradeWorkspacePositions: p
+  tradeWorkspacePositions: p("portfolio", "read")
     .input(tradePositionPageSchema)
     .query(({ input }) => tradeWorkspacePositions(input)),
-  tradeWorkspaceSignals: p
+  tradeWorkspaceSignals: p("portfolio", "read")
     .input(tradeSignalOptionsSchema)
     .query(({ input }) => tradeSignalOptions(chartSqlite(), input)),
-  tradeWorkspaceAdjustments: p
+  tradeWorkspaceAdjustments: p("portfolio", "read")
     .input(tradeAdjustmentPageSchema)
     .query(({ input }) => tradeAdjustmentPage(chartSqlite(), input)),
-  tradeWorkspaceAdjustment: p
+  tradeWorkspaceAdjustment: p("portfolio", "read")
     .input(z.string().regex(/^[a-f0-9]{64}$/))
     .query(({ input }) => tradeAdjustmentDetail(chartSqlite(), input)),
-  tradeWorkspaceComparison: p.query(() => tradeWorkspaceComparison()),
-  tradeWorkspaceExport: p
+  tradeWorkspaceComparison: p("portfolio", "read").query(() =>
+    tradeWorkspaceComparison(),
+  ),
+  tradeWorkspaceExport: p("portfolio", "read")
     .input(
       z.object({
         filters: tradeWorkspacePageSchema,
@@ -370,56 +373,60 @@ export const portfolioRouter = createTRPCRouter({
         count: result.count,
       };
     }),
-  disciplineStart: p.input(disciplineRequestSchema).mutation(({ input }) => {
-    const store = new DeliveryStore(chartSqlite()),
-      config = settings();
-    const ledger = store.db.transaction(() => ({
-      fills: store.fills(input.account),
-      cashFlows: store.cashFlows(input.account),
-    }))();
-    return startDiscipline(input.account, {
-      ...ledger,
-      openingCash: input.openingCash,
-      stopCosts: input.stopCosts,
-      tdxRoot: config.tdxRoot,
-      calendar: config.calendar,
-    });
-  }),
-  disciplineStatus: p
+  disciplineStart: p("portfolio", "compute")
+    .input(disciplineRequestSchema)
+    .mutation(({ input }) => {
+      const store = new DeliveryStore(chartSqlite()),
+        config = settings();
+      const ledger = store.db.transaction(() => ({
+        fills: store.fills(input.account),
+        cashFlows: store.cashFlows(input.account),
+      }))();
+      return startDiscipline(input.account, {
+        ...ledger,
+        openingCash: input.openingCash,
+        stopCosts: input.stopCosts,
+        tdxRoot: config.tdxRoot,
+        calendar: config.calendar,
+      });
+    }),
+  disciplineStatus: p("portfolio", "read")
     .input(z.string().uuid())
     .query(({ input }) => disciplineStatus(input)),
-  disciplineCancel: p
+  disciplineCancel: p("portfolio", "configure")
     .input(z.string().uuid())
     .mutation(({ input }) => cancelDiscipline(input)),
-  disciplineExport: p
+  disciplineExport: p("portfolio", "read")
     .input(z.string().uuid())
     .query(({ input }) => exportDiscipline(input)),
-  deliveryFiles: p.input(deliveryPathSchema).query(async ({ input }) => {
-    const directory = resolve(input);
-    const entries = await readdir(directory, { withFileTypes: true });
-    return Promise.all(
-      entries
-        .filter(
-          (entry) =>
-            entry.isFile() &&
-            [".xls", ".txt", ".csv"].includes(
-              extname(entry.name).toLowerCase(),
-            ),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(async (entry) => {
-          const path = resolve(directory, entry.name);
-          const info = await stat(path);
-          return {
-            name: entry.name,
-            path,
-            size: info.size,
-            modifiedAt: info.mtimeMs,
-          };
-        }),
-    );
-  }),
-  deliveryPreview: p
+  deliveryFiles: p("portfolio", "read")
+    .input(deliveryPathSchema)
+    .query(async ({ input }) => {
+      const directory = resolve(input);
+      const entries = await readdir(directory, { withFileTypes: true });
+      return Promise.all(
+        entries
+          .filter(
+            (entry) =>
+              entry.isFile() &&
+              [".xls", ".txt", ".csv"].includes(
+                extname(entry.name).toLowerCase(),
+              ),
+          )
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(async (entry) => {
+            const path = resolve(directory, entry.name);
+            const info = await stat(path);
+            return {
+              name: entry.name,
+              path,
+              size: info.size,
+              modifiedAt: info.mtimeMs,
+            };
+          }),
+      );
+    }),
+  deliveryPreview: p("portfolio", "read")
     .input(deliveryInputSchema)
     .query(async ({ input }) =>
       previewDeliveryImport(
@@ -428,7 +435,7 @@ export const portfolioRouter = createTRPCRouter({
         chartSqlite(),
       ),
     ),
-  deliveryImport: p
+  deliveryImport: p("portfolio", "configure")
     .input(
       deliveryInputSchema.extend({ hash: z.string().regex(/^[a-f0-9]{64}$/) }),
     )
@@ -442,31 +449,31 @@ export const portfolioRouter = createTRPCRouter({
         chartSqlite(),
       );
     }),
-  deliveryFilePage: p
+  deliveryFilePage: p("portfolio", "read")
     .input(deliveryFilePageSchema)
     .query(({ input }) => deliveryFilePage(input)),
-  deliveryPreviewStart: p
+  deliveryPreviewStart: p("portfolio", "compute")
     .input(deliveryPreviewInputSchema)
     .mutation(({ input }) =>
       deliveryPreviewWorkspace.start(chartSqlite(), input),
     ),
-  deliveryPreviewPage: p
+  deliveryPreviewPage: p("portfolio", "read")
     .input(deliveryPreviewPageSchema)
     .query(({ input }) => deliveryPreviewWorkspace.page(chartSqlite(), input)),
-  deliveryPreviewExport: p
+  deliveryPreviewExport: p("portfolio", "read")
     .input(deliveryPreviewTokenSchema)
     .query(({ input }) =>
       deliveryPreviewWorkspace.export(chartSqlite(), input),
     ),
-  deliveryPreviewConfirm: p
+  deliveryPreviewConfirm: p("portfolio", "configure")
     .input(deliveryPreviewTokenSchema)
     .mutation(({ input }) =>
       deliveryPreviewWorkspace.confirm(chartSqlite(), input),
     ),
-  deliveryBatchPage: p
+  deliveryBatchPage: p("portfolio", "read")
     .input(deliveryBatchPageSchema)
     .query(({ input }) => deliveryBatchPage(chartSqlite(), input)),
-  deliveryReceipt: p
+  deliveryReceipt: p("portfolio", "read")
     .input(
       z.object({
         account: z.string().trim().min(1).max(64),
@@ -476,19 +483,19 @@ export const portfolioRouter = createTRPCRouter({
     .query(({ input }) =>
       deliveryBatchReceipt(chartSqlite(), input.account, input.fileHash),
     ),
-  deliveryBatchDetail: p
+  deliveryBatchDetail: p("portfolio", "read")
     .input(deliveryBatchIdSchema)
     .query(({ input }) => deliveryBatchDetail(chartSqlite(), input)),
-  deliveryEvidencePage: p
+  deliveryEvidencePage: p("portfolio", "read")
     .input(deliveryEvidencePageSchema)
     .query(({ input }) => deliveryEvidencePage(chartSqlite(), input)),
-  deliveryBatchExport: p
+  deliveryBatchExport: p("portfolio", "read")
     .input(deliveryBatchIdSchema)
     .query(({ input }) => deliveryBatchExport(chartSqlite(), input)),
-  deliveryRevokeChecked: p
+  deliveryRevokeChecked: p("portfolio", "configure")
     .input(deliveryRevokeCheckedSchema)
     .mutation(({ input }) => deliveryRevokeChecked(chartSqlite(), input)),
-  deliveryBatches: p.query(() =>
+  deliveryBatches: p("portfolio", "read").query(() =>
     new DeliveryStore(chartSqlite()).batches().map(({ payload, ...batch }) => ({
       ...batch,
       statistics: payload.statistics,
@@ -499,12 +506,12 @@ export const portfolioRouter = createTRPCRouter({
       ...(payload.counts ? { counts: payload.counts } : {}),
     })),
   ),
-  deliveryRevoke: p
+  deliveryRevoke: p("portfolio", "configure")
     .input(z.string().min(1).max(128))
     .mutation(({ input }) =>
       new DeliveryStore(chartSqlite()).revokeBatch(input),
     ),
-  tradeReviewAdmission: p
+  tradeReviewAdmission: p("portfolio", "read")
     .input(admissionPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
       const review = await accountReview(input.account);
@@ -514,7 +521,7 @@ export const portfolioRouter = createTRPCRouter({
         false,
       );
     }),
-  tradeReviewAdmissionExport: p
+  tradeReviewAdmissionExport: p("portfolio", "read")
     .input(
       admissionPageSchema
         .pick({ params: true })
@@ -528,7 +535,7 @@ export const portfolioRouter = createTRPCRouter({
         false,
       );
     }),
-  tradeReviewHoldingsCorrelation: p
+  tradeReviewHoldingsCorrelation: p("portfolio", "read")
     .input(
       holdingsCorrelationPageSchema.extend({
         account: z.string().trim().min(1),
@@ -545,13 +552,13 @@ export const portfolioRouter = createTRPCRouter({
         input,
       );
     }),
-  tradeReviewPositionRisk: p
+  tradeReviewPositionRisk: p("portfolio", "read")
     .input(positionRiskPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
       const review = await accountReview(input.account);
       return pagePositionRisk(review.snapshot.nav.days, input);
     }),
-  tradeReviewRollingPerformance: p
+  tradeReviewRollingPerformance: p("portfolio", "read")
     .input(rollingPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
       const review = await accountReview(input.account);
@@ -561,7 +568,7 @@ export const portfolioRouter = createTRPCRouter({
         review.fullTradingDays,
       );
     }),
-  tradeReviewPeriodPerformance: p
+  tradeReviewPeriodPerformance: p("portfolio", "read")
     .input(periodPageSchema.extend({ account: z.string().trim().min(1) }))
     .query(async ({ input }) => {
       const review = await accountReview(input.account);
@@ -571,7 +578,7 @@ export const portfolioRouter = createTRPCRouter({
         review.fullTradingDays,
       );
     }),
-  tradeReviewExecution: p
+  tradeReviewExecution: p("portfolio", "read")
     .input(executionPageSchema)
     .query(async ({ input }) =>
       pageExecutionQuality(
@@ -579,7 +586,7 @@ export const portfolioRouter = createTRPCRouter({
         input,
       ),
     ),
-  tradeReviewCashReconciliation: p
+  tradeReviewCashReconciliation: p("portfolio", "read")
     .input(
       cashReconciliationPageSchema.extend({
         account: z.string().trim().min(1),
@@ -591,13 +598,13 @@ export const portfolioRouter = createTRPCRouter({
         input,
       ),
     ),
-  tradeReviewCashReconciliationExport: p
+  tradeReviewCashReconciliationExport: p("portfolio", "read")
     .input(z.object({ account: z.string().trim().min(1) }))
     .query(
       async ({ input }) =>
         (await accountReview(input.account)).snapshot.cashReconciliation,
     ),
-  tradeReviewExecutionDetail: p
+  tradeReviewExecutionDetail: p("portfolio", "read")
     .input(
       z.object({
         account: z.string().trim().min(1),
@@ -610,7 +617,7 @@ export const portfolioRouter = createTRPCRouter({
         input.fillId,
       ),
     ),
-  tradeReviewExecutionExport: p
+  tradeReviewExecutionExport: p("portfolio", "read")
     .input(executionPageSchema)
     .query(async ({ input }) =>
       exportExecutionQuality(
@@ -618,7 +625,7 @@ export const portfolioRouter = createTRPCRouter({
         input,
       ),
     ),
-  tradeReviewSnapshot: p
+  tradeReviewSnapshot: p("portfolio", "read")
     .input(
       reviewInputSchema.extend({
         method: z.enum(costMethods).default("movingAverage"),
@@ -787,7 +794,7 @@ export const portfolioRouter = createTRPCRouter({
       };
     }),
   // Further pages of the long review details (first pages ship with the snapshot).
-  tradeReviewNavPage: p
+  tradeReviewNavPage: p("portfolio", "read")
     .input(navPageSchema)
     .query(async ({ input }) =>
       navDetailPage(
@@ -797,7 +804,7 @@ export const portfolioRouter = createTRPCRouter({
         input.pageIndex,
       ),
     ),
-  tradeReviewExport: p
+  tradeReviewExport: p("portfolio", "read")
     .input(reviewInputSchema)
     .query(async ({ input }) =>
       exportTradeReview((await accountReview(input.account)).snapshot),

@@ -2,8 +2,6 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import { chanNativeCandidates } from "trading-strategies/research/chan/research-chan-native";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import {
   analyzeCzsc,
   closeCzsc,
@@ -121,70 +119,6 @@ it("native Float32 equality cannot become a false above-ZG third buy", () => {
     chanNativeCandidates("chan-third-native", { ...r, families: [] }, input, 0)
       .gaps[0],
   ).toContain("结构缺口");
-});
-it.each(chanNativeIds)(
-  "%s observes delayed endpoints through serial complete prefixes and does not relabel the past",
-  async (id) => {
-    const kind = chanNativeIds.indexOf(id) + 1,
-      calls: number[] = [],
-      spec = researchSpecSchema.parse({
-        strategy: id,
-        start: bars[61]!.date,
-        end: bars[65]!.date,
-        validationStart: bars[64]!.date,
-      });
-    let active = 0,
-      maxActive = 0;
-    const read = async (prefix: readonly Bar[]) => {
-      active++;
-      maxActive = Math.max(maxActive, active);
-      calls.push(prefix.length);
-      await Promise.resolve();
-      active--;
-      const r = native(kind);
-      if (prefix.length < 63) r.families[0]!.signals = [];
-      return r;
-    };
-    const e = await researchSignals("sh600000", bars, spec, read);
-    expect(calls).toEqual([61, 62, 63, 64, 65, 66]);
-    expect(maxActive).toBe(1);
-    expect(e).toHaveLength(1);
-    expect(e[0]).toMatchObject({
-      endpointDate: bars[30]!.date,
-      observedDate: bars[62]!.date,
-      strategyVersion: `${id}-engineering-1/czsc-api-v4/fixture-native`,
-    });
-    expect(
-      await researchSignals(
-        "sh600000",
-        bars.slice(0, 62),
-        { ...spec, end: bars[61]!.date, validationStart: bars[61]!.date },
-        read,
-      ),
-    ).toEqual([]);
-    await expect(
-      researchSignals("sh600000", bars, spec, async (p) => {
-        const r = await read(p);
-        if (p.length === 64) r.hash = "changed";
-        return r;
-      }),
-    ).rejects.toThrow("DLL版本变化");
-  },
-);
-it("missing native metadata is a structural gap, not a silent zero-signal result", async () => {
-  const spec = researchSpecSchema.parse({
-    strategy: "chan-third-native",
-    start: bars[61]!.date,
-    end: bars[65]!.date,
-    validationStart: bars[64]!.date,
-  });
-  await expect(
-    researchSignals("sh600000", bars, spec, async () => {
-      const r = native(3);
-      delete r.families[0]!.signals[0]!.centerId;
-      return r;
-    }),
-  ).rejects.toThrow("结构缺口");
 });
 
 beforeAll(prepareCzscTestRuntime);

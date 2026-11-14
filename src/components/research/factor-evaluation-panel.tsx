@@ -68,7 +68,7 @@ export function FactorEvaluationPanel() {
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
       refetchInterval: (q) => (visible ? activeJobPoll(q.state.data) : false),
     },
   );

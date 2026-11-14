@@ -18,7 +18,9 @@ describe("breakout round-number ladder", () => {
 const utcBars: Bar[] = Array.from({ length: 120 }, (_, i) => {
   const close = 80000 + Math.sin(i / 6) * 2000 + i * 20;
   return {
-    date: new Date(Date.UTC(2026, 0, 1, i + 1)).toISOString().replace(/\.\d{3}Z$/, "+00:00"),
+    date: new Date(Date.UTC(2026, 0, 1, i + 1))
+      .toISOString()
+      .replace(/\.\d{3}Z$/, "+00:00"),
     open: close - 50,
     high: close + 300,
     low: close - 350,

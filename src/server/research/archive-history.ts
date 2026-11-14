@@ -6,25 +6,21 @@ import {
   archiveKinds,
   type ArchiveFilter,
 } from "~/lib/research/workflow/archive-history";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { taskTextPreview } from "../jobs/task-history";
 
 /** SQL projection only. Original report bodies never enter the list response.
- * The transient JSONB tuple contains only: time, context ID, general title,
- * method title, Chan symbol, CAN SLIM symbol, Wyckoff symbol. No evidence bodies.
+ * The transient JSONB tuple contains only time, context ID and title.
  */
 const projection = `WITH source AS MATERIALIZED (
- SELECT id, kind, jsonb_extract(CASE WHEN json_valid(payload) THEN payload ELSE '{}' END, '$.createdAt', '$.contextId', '$.title', '$.result.title', '$.evidence.symbol', '$.dossier.symbol', '$.frames.symbol') AS body,
- json_valid(payload) AS valid FROM records WHERE kind IN ('report','chan-report','canslim-report','wyckoff-report')
+ SELECT id, kind, jsonb_extract(CASE WHEN json_valid(payload) THEN payload ELSE '{}' END, '$.createdAt', '$.contextId', '$.title') AS body,
+ json_valid(payload) AS valid FROM records WHERE kind='report'
 ), projected AS (
  SELECT r.id,r.kind,r.valid,
  CASE WHEN json_type(r.body,'$[0]') IN ('integer','real') AND json_extract(r.body,'$[0]') BETWEEN 0 AND 8640000000000000
  THEN json_extract(r.body,'$[0]') ELSE -1 END AS createdAt,
- CASE WHEN r.kind='report' THEN json_extract(r.body,'$[2]') ELSE json_extract(r.body,'$[3]') END AS title,
- CASE WHEN r.kind='chan-report' THEN json_extract(r.body,'$[4]')
- WHEN r.kind='canslim-report' THEN json_extract(r.body,'$[5]')
- WHEN r.kind='wyckoff-report' THEN json_extract(r.body,'$[6]')
- WHEN c.kind='snapshot' THEN json_extract(c.payload,'$.symbol')
+ json_extract(r.body,'$[2]') AS title,
+ CASE WHEN c.kind='snapshot' THEN json_extract(c.payload,'$.symbol')
  WHEN c.kind='signal' AND (json_extract(s.payload,'$.symbol') IS NULL OR json_extract(s.payload,'$.symbol')=json_extract(c.payload,'$.symbol')) THEN json_extract(c.payload,'$.symbol')
  WHEN c.kind='job' AND json_extract(c.payload,'$.type') IN ('backtest','walk-forward') THEN json_extract(s.payload,'$.symbol') END AS symbol,
  CASE WHEN c.kind='snapshot' THEN json_extract(c.payload,'$.name') ELSE json_extract(s.payload,'$.name') END AS archivedName
@@ -115,12 +111,7 @@ export function researchArchiveHistory(
     );
     const items = rows.slice(0, 20).map((row) => {
       const symbol = symbolSchema.safeParse(row.symbol);
-      const readable =
-        !!row.valid &&
-        row.titleType === "text" &&
-        !!row.title &&
-        (row.kind === "report" ||
-          new RegExp(`^${row.kind}-[a-f0-9]{64}$`).test(row.id));
+      const readable = !!row.valid && row.titleType === "text" && !!row.title;
       return {
         id: row.id,
         kind: row.kind,

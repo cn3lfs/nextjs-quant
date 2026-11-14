@@ -96,7 +96,13 @@ export function parseLimitPool(
     turnover: r.hs ?? null,
     industry: r.hybk ?? "",
     streak:
-      kind === "zt" ? (r.lbc ?? null) : kind === "yzt" ? (r.ylbc ?? null) : kind === "dt" ? (r.days ?? null) : null,
+      kind === "zt"
+        ? (r.lbc ?? null)
+        : kind === "yzt"
+          ? (r.ylbc ?? null)
+          : kind === "dt"
+            ? (r.days ?? null)
+            : null,
     firstSeal: clock(kind === "yzt" ? r.yfbt : r.fbt),
     lastSeal: clock(r.lbt),
     sealFund: r.fund ?? null,

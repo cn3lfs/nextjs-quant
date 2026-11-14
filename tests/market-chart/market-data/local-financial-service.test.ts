@@ -23,6 +23,7 @@ import {
   localFinancialAnnualInput,
 } from "../../../src/server/financial/local-financial-archive";
 import { financialScreenInput } from "../../../src/lib/financial/local-financial";
+import { financialDirectoryPrerequisite } from "../../../src/server/data-sources/tdx/financial-prerequisite";
 import { runLocalFinancialScreen } from "../../../src/server/financial/local-financial-work";
 import {
   readLocalFinancials,
@@ -57,6 +58,43 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 describe("本地财务查询与冻结", () => {
+  it("缺财务目录是待准备，创建目录并下载后立即恢复，不吞掉目录类型错误", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quant-financial-missing-"));
+    roots.push(dir);
+    const missing = await localFinancialView(dir, { symbol: "sh600519" });
+    expect(missing.prerequisite?.code).toBe("financial-directory-missing");
+    expect(missing.selected).toBeNull();
+    expect(missing.rows).toEqual([]);
+    const summary = await readLocalFinancials(dir, "sh600519");
+    expect(summary.reason).toContain("本地财务数据尚未准备好");
+    expect(summary.reason).not.toContain("ENOENT");
+    for (const [code, path] of [
+      ["EACCES", join(dir, "vipdoc/cw")],
+      ["ENOENT", join(dir, "vipdoc/cw/gpcw20260930.dat")],
+    ]) {
+      expect(
+        financialDirectoryPrerequisite(
+          Object.assign(new Error("IO failure"), { code, path }),
+          dir,
+        ),
+      ).toBeNull();
+    }
+    await mkdir(join(dir, "vipdoc"));
+    await writeFile(join(dir, "vipdoc/cw"), "not a directory");
+    await expect(
+      localFinancialView(dir, { symbol: "sh600519" }),
+    ).rejects.toThrow();
+    await rm(join(dir, "vipdoc/cw"));
+    await mkdir(join(dir, "vipdoc/cw"));
+    await writeFile(
+      join(dir, "vipdoc/cw/gpcw20260930.dat"),
+      await fixture("gpcw20260930.dat"),
+    );
+    const restored = await localFinancialView(dir, { symbol: "sh600519" });
+    expect(restored.prerequisite).toBeNull();
+    expect(restored.rowCount).toBe(658);
+  });
+
   it("池内单只重复记录不能截断同一期其他正常证券", async () => {
     const dir = await root(),
       original = await fixture("gpcw20260930.dat");

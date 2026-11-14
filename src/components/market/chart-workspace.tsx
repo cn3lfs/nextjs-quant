@@ -8,6 +8,8 @@ import {
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
+import { PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { PanelPopover as Popover } from "../workbench/panel-popover";
 import {
   Select,
   SelectContent,
@@ -28,7 +30,6 @@ import { api } from "~/trpc/react";
 import {
   chartCost,
   chartViewSchema,
-  indicatorParametersSchema,
   chartPeriodSchema,
   periodLabels,
   type ChartPeriod,
@@ -40,12 +41,9 @@ import {
   remapDrawing,
   type CrosshairLink,
 } from "~/lib/chart/crosshair-link";
-import {
-  CzscMarketChart,
-  MarketChart,
-  compareColors,
-  type ChartCompare,
-} from "../market/chart";
+import { CzscMarketChart, MarketChart } from "./chart";
+import type { ChartCompare } from "./market-chart-state";
+import { compareColors } from "./market-chart-palette";
 import { SecuritySelect } from "./security-select";
 import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
@@ -57,7 +55,7 @@ import { isTypingTarget } from "./chart-hotkeys";
 let lastIntraday = false;
 // The linked second period (TDX 多周期同列) is kept the same way.
 let lastSecond: ChartPeriod | null = null;
-import { TdxSnapshotContainer } from "./tdx-snapshot-container";
+import { usePanelVisible } from "../workbench/keep-alive";
 const tools = {
   none: "浏览",
   trend: "趋势线",
@@ -79,13 +77,14 @@ export function ChartWorkspace({
   adjustment: ChartAdjustment;
 }) {
   const [limit, setLimit] = useState(2000);
+  const visible = usePanelVisible();
   const requestMore = useCallback(
     () => setLimit((value) => Math.min(20000, value + 2000)),
     [],
   );
   const view = api.chartView.useQuery(
     { symbol: snapshot.symbol, period },
-    { retry: false, refetchOnWindowFocus: false },
+    { enabled: visible, retry: false, refetchOnWindowFocus: false },
   );
   const aggregate = api.chartBars.useQuery(
     { snapshotId: snapshot.id, period, limit, adjustment },
@@ -93,15 +92,20 @@ export function ChartWorkspace({
       retry: false,
       refetchOnWindowFocus: false,
       placeholderData: (previous) => previous,
+      enabled: visible,
     },
   );
   const rps = api.rpsCurve.useQuery(snapshot.symbol, {
-    enabled: period === "day" && !isNonAShareChartSymbol(snapshot.symbol),
+    enabled:
+      visible && period === "day" && !isNonAShareChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
   const position = api.chartPosition.useQuery(snapshot.symbol, {
-    enabled: adjustment === "none" && !isNonAShareChartSymbol(snapshot.symbol),
+    enabled:
+      visible &&
+      adjustment === "none" &&
+      !isNonAShareChartSymbol(snapshot.symbol),
     retry: false,
     refetchOnWindowFocus: true,
   });
@@ -207,6 +211,7 @@ function EditableChart({
     [points, setPoints] = useState<Drawing["a"][]>([]),
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
+  const visible = usePanelVisible();
   const [dirty, setDirty] = useState(false);
   const [second, setSecondState] = useState<ChartPeriod | null>(() =>
     lastSecond === period ? null : lastSecond,
@@ -218,7 +223,7 @@ function EditableChart({
   const hub = useMemo(createCrosshairLink, []);
   const sharedQuery = api.chartSharedDrawings.useQuery(
     { symbol: snapshot.symbol, period },
-    { retry: false, refetchOnWindowFocus: false },
+    { enabled: visible, retry: false, refetchOnWindowFocus: false },
   );
   const shared = useMemo(
     () =>
@@ -238,7 +243,7 @@ function EditableChart({
   // TDX 叠加 / TradingView compare: up to three A-share symbols.
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   const names = api.securityNames.useQuery(undefined, {
-    enabled: compareSymbols.length > 0,
+    enabled: visible && compareSymbols.length > 0,
     staleTime: Infinity,
     retry: false,
   });
@@ -250,7 +255,12 @@ function EditableChart({
           period,
           limit: Math.min(20000, Math.max(100, bars.length)),
         },
-        { retry: false, refetchOnWindowFocus: false, staleTime: 60000 },
+        {
+          enabled: visible,
+          retry: false,
+          refetchOnWindowFocus: false,
+          staleTime: 60000,
+        },
       ),
     ),
   );
@@ -284,7 +294,7 @@ function EditableChart({
   };
   // F5 switches between K 线 and 分时 (TDX).
   useEffect(() => {
-    if (!canIntraday) return;
+    if (!canIntraday || !visible) return;
     const onKey = (event: KeyboardEvent) => {
       if (
         event.key !== "F5" ||
@@ -300,7 +310,7 @@ function EditableChart({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canIntraday]);
+  }, [canIntraday, visible]);
   const utils = api.useUtils();
   const save = api.saveChartView.useMutation({
     onSuccess: (saved) => {
@@ -391,14 +401,20 @@ function EditableChart({
     <div
       data-testid="chart-workspace"
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        if (
+          event.key === "Escape" &&
+          !(
+            event.target instanceof Element &&
+            event.target.closest('[role="dialog"]')
+          )
+        ) {
           setPoints([]);
           setTool("none");
         }
       }}
     >
       <div
-        className="relative flex items-center gap-3 py-1 whitespace-nowrap"
+        className="relative flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-sm"
         data-testid="chart-primary-controls"
       >
         {canIntraday && (
@@ -442,87 +458,114 @@ function EditableChart({
           加深背景
         </label>
         {canIntraday && !showIntraday && (
-          <span
-            className="flex items-center gap-2"
-            role="group"
-            aria-label="叠加对比"
-          >
-            {compareSymbols.length < 3 && (
-              <span className="w-44">
-                <SecuritySelect
-                  symbol=""
-                  period="day"
-                  disabled={false}
-                  captureKeys={false}
-                  label="叠加对比品种"
-                  placeholder="叠加对比…"
-                  onSelect={(symbol) =>
-                    setCompareSymbols((current) =>
-                      symbol === snapshot.symbol ||
-                      current.includes(symbol) ||
-                      !tradableSymbol(symbol)
-                        ? current
-                        : [...current, symbol],
-                    )
-                  }
-                />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                叠加对比（{compareSymbols.length}/3）
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent aria-label="叠加对比">
+              <span
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label="叠加对比"
+              >
+                {compareSymbols.length < 3 && (
+                  <span className="w-44">
+                    <SecuritySelect
+                      symbol=""
+                      period="day"
+                      disabled={false}
+                      captureKeys={false}
+                      label="叠加对比品种"
+                      placeholder="叠加对比…"
+                      onSelect={(symbol) =>
+                        setCompareSymbols((current) =>
+                          symbol === snapshot.symbol ||
+                          current.includes(symbol) ||
+                          !tradableSymbol(symbol)
+                            ? current
+                            : [...current, symbol],
+                        )
+                      }
+                    />
+                  </span>
+                )}
+                {compareSymbols.map((symbol, i) => (
+                  <Button
+                    key={symbol}
+                    variant="plain"
+                    title="移除叠加"
+                    style={{ color: compareColors[i % compareColors.length] }}
+                    onClick={() =>
+                      setCompareSymbols((current) =>
+                        current.filter((item) => item !== symbol),
+                      )
+                    }
+                  >
+                    {names.data?.[symbol] ?? symbol.toUpperCase()} ×
+                  </Button>
+                ))}
               </span>
-            )}
-            {compareSymbols.map((symbol, i) => (
-              <Button
-                key={symbol}
-                variant="plain"
-                title="移除叠加"
-                style={{ color: compareColors[i % compareColors.length] }}
-                onClick={() =>
-                  setCompareSymbols((current) =>
-                    current.filter((item) => item !== symbol),
-                  )
-                }
-              >
-                {names.data?.[symbol] ?? symbol.toUpperCase()} ×
-              </Button>
-            ))}
-          </span>
+            </PopoverContent>
+          </Popover>
         )}
-        <details className="relative !my-0" name="chart-tools">
-          <summary className="cursor-pointer">画线：{tools[tool]}</summary>
-          <div
-            className="absolute right-0 top-full z-20 flex w-80 flex-wrap gap-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md whitespace-normal"
-            role="toolbar"
-            aria-label="画线工具"
-          >
-            {Object.entries(tools).map(([id, label]) => (
-              <Button
-                variant="plain"
-                key={id}
-                aria-pressed={tool === id}
-                onClick={() => {
-                  setTool(id as keyof typeof tools);
-                  setPoints([]);
-                }}
-              >
-                {label}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm">
+              画线：{tools[tool]}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent aria-label="画线工具设置">
+            <div
+              className="flex flex-wrap gap-2 text-sm"
+              role="toolbar"
+              aria-label="画线工具"
+            >
+              {Object.entries(tools).map(([id, label]) => (
+                <Button
+                  variant="plain"
+                  key={id}
+                  aria-pressed={tool === id}
+                  onClick={() => {
+                    setTool(id as keyof typeof tools);
+                    setPoints([]);
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+              {tool === "text" && (
+                <Input
+                  aria-label="标注文字"
+                  className="w-full"
+                  maxLength={80}
+                  value={label}
+                  onChange={(event) => setLabel(event.target.value)}
+                />
+              )}
+              <span>
+                {tool !== "none"
+                  ? points.length
+                    ? `移动鼠标预览，再点击 ${drawingPointCount(tool) - points.length} 次完成${tool === "channel" && points.length === 2 ? "（第三点定通道宽度）" : ""}；Esc 取消`
+                    : "移动鼠标自由定位，点击定锚；Esc 取消"
+                  : "浏览时点中图形可选中：拖端点改形状、拖线身移动、Delete 删除 · ←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页（从列表进入时换股） · Home/End · F5 分时 · F8 周期"}
+              </span>
+            </div>
+          </PopoverContent>
+        </Popover>
+        {snapshot.sourceNote && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm">
+                数据说明
               </Button>
-            ))}
-            {tool === "text" && (
-              <Input
-                aria-label="标注文字"
-                className="w-full"
-                maxLength={80}
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-              />
-            )}
-            <span>
-              {tool !== "none"
-                ? points.length
-                  ? `移动鼠标预览，再点击 ${drawingPointCount(tool) - points.length} 次完成${tool === "channel" && points.length === 2 ? "（第三点定通道宽度）" : ""}；Esc 取消`
-                  : "移动鼠标自由定位，点击定锚；Esc 取消"
-                : "浏览时点中图形可选中：拖端点改形状、拖线身移动、Delete 删除 · ←→ 光标 · ↑↓ 缩放 · PageUp/PageDown 翻页（从列表进入时换股） · Home/End · F5 分时 · F8 周期"}
-            </span>
-          </div>
-        </details>
+            </PopoverTrigger>
+            <PopoverContent aria-label="数据说明">
+              {snapshot.sourceNote}
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       {(save.error || message) && (
         <span role="status" className="block text-xs">
@@ -541,21 +584,11 @@ function EditableChart({
           叠加对比：纵轴为自可见区首根起的涨跌幅，叠加品种为不复权本地数据，按主图日期对齐
         </p>
       )}
-      {(snapshot.sourceNote || aggregateErrors?.length) && (
-        // Provenance details stay one hover away instead of lines of text.
-        <span
-          tabIndex={0}
-          className="w-fit cursor-help text-xs text-nc-text-3"
-          title={[
-            snapshot.sourceNote && `数据说明：${snapshot.sourceNote}`,
-            ...(aggregateErrors ?? []).map((e) => `数据源提示：${e}`),
-          ]
-            .filter(Boolean)
-            .join("\n")}
-        >
-          ⓘ 数据说明
-        </span>
-      )}
+      {aggregateErrors?.map((error) => (
+        <p key={error} role="alert" className="!my-0 text-xs">
+          数据源提示：{error}
+        </p>
+      ))}
       {positionMessage && (
         <p role="status" className="!my-0 text-xs">
           {positionMessage}
@@ -581,7 +614,7 @@ function EditableChart({
         <CzscMarketChart
           {...common}
           compare={compare}
-          hotkeys
+          hotkeys={visible}
           snapshotId={snapshot.id}
           chartSnapshot
           annotations
@@ -592,7 +625,7 @@ function EditableChart({
       )}
       {!showIntraday && (
         <div className="space-y-2">
-          <div className="flex w-fit items-center gap-2 text-xs whitespace-nowrap">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             联动周期
             <Select
               value={second ?? "off"}
@@ -629,7 +662,6 @@ function EditableChart({
           )}
         </div>
       )}
-      <TdxSnapshotContainer symbol={snapshot.symbol} />
       <details open={view.drawings.length > 0}>
         <summary>已画图形（{view.drawings.length}）· 编辑端点 / 删除</summary>
         {shared.length > 0 && (
@@ -758,9 +790,10 @@ function LinkedPeriodChart({
   pricePrecision: number;
   hub: CrosshairLink;
 }) {
+  const visible = usePanelVisible();
   const bars = api.chartBars.useQuery(
     { snapshotId: sourceId, period, limit: 2000, adjustment },
-    { retry: false, refetchOnWindowFocus: false },
+    { enabled: visible, retry: false, refetchOnWindowFocus: false },
   );
   const link = useMemo(() => ({ hub, id: "second" }), [hub]);
   if (bars.error)

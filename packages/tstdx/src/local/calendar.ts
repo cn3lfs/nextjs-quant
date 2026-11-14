@@ -1,5 +1,6 @@
+import { resolveTdxRoot } from "./root.js";
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { open, stat } from "node:fs/promises";
 import { parseBars } from "./quotes.js";
 import { validateLocalDate } from "./types.js";
@@ -8,7 +9,7 @@ import { validateLocalDate } from "./types.js";
 export async function readLocalTradingDates(root: string, limit?: number) {
   if (limit !== undefined && (!Number.isInteger(limit) || limit < 1))
     throw new Error("交易日期窗口非法");
-  const path = join(resolve(root), "vipdoc/sh/lday/sh000001.day"),
+  const path = join(resolveTdxRoot(root), "vipdoc/sh/lday/sh000001.day"),
     handle = await open(path, "r");
   let bytes: Buffer;
   try {

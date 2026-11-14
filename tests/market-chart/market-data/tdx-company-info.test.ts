@@ -24,10 +24,10 @@ describe("F10 公司资料", () => {
       "src/components/market/tdx-company-info.tsx",
       "utf8",
     );
-    // 展开折叠区才拉栏目清单
-    expect(source).toContain("enabled: open");
-    // 选中某个非空栏目才拉正文
-    expect(source).toContain("enabled: Boolean(category?.length)");
+    // 财务子视图可见且展开折叠区才拉栏目清单
+    expect(source).toContain("enabled: visible && open");
+    // 隐藏子视图不继续读取已经选中的栏目
+    expect(source).toContain("enabled: visible && Boolean(category?.length)");
     expect(source).toContain("onToggle");
     const html = render();
     expect(html).toContain("公司资料 F10");

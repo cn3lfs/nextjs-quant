@@ -1,12 +1,9 @@
 import { pathToFileURL } from "node:url";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { format } from "prettier";
-import { admissionResearchFixture } from "../tests/strategy-admission-fixture";
-import { researchAdmissionSource } from "../src/server/research/performance/strategy-admission-service";
 import {
   strategyAdmission,
-  defaultAdmissionParams,
   type StrategyAdmissionInput,
 } from "../src/lib/strategy-facts/strategy-admission";
 import type { ReviewValue } from "../src/lib/portfolio/trade-review";
@@ -69,39 +66,6 @@ export function summarizeDistributions(results: readonly AdmissionResult[]) {
   );
 }
 
-export async function admissionCalibrationDistribution() {
-  const { result, dataset } = await admissionResearchFixture();
-  const inputs: StrategyAdmissionInput[] = (
-    ["development", "validation"] as const
-  ).flatMap((partition) => {
-    const source = researchAdmissionSource(result, dataset, partition);
-    return (["history", "recent"] as const).map((mode) => ({
-      ...source.input,
-      evidenceLevel: "合成/受控样本",
-      mode,
-      params: defaultAdmissionParams,
-    }));
-  });
-  const results = inputs.map(strategyAdmission);
-  const distributions = summarizeDistributions(results);
-  return {
-    version: "u8-calibration-distribution-1",
-    scope: "A 股",
-    calibrationStatus: "未标定",
-    thresholdDecision: "未获管理者确认；不自动调整阈值，不解除页面限制",
-    source:
-      "复用 tests/e3-browser-fixture.ts 与 tests/research-backtest/research-worker.test.ts 的合成双突破样本；tests/fixtures/breakout-valid.json + 同样10日续接；无真实账户数据",
-    limitation:
-      "仅开发期8日、验证期4日，两期独立，样本不代表市场分布；完整年和剔除252日近期后的历史段均不足。null 不补零，不能据此标定账户阈值。",
-    datasetHash: dataset.hash,
-    resultHash: result.hash,
-    params: defaultAdmissionParams,
-    distributions,
-    inputs,
-    results,
-  };
-}
-
 /** 从页面导出的 `strategy-admission-export-1` JSON 还原分布。
  *
  * 脚本**不连数据库**：真实账户数据由 `/trade-review` 的准入卡片导出成文件后喂进来，
@@ -143,35 +107,45 @@ export async function admissionCalibrationFromExport(path: string) {
   };
 }
 
-// 固定一个可复现报告文件；显式执行覆盖该文件，无数据库、临时目录或累积档案。
+/** Account calibration requires an explicit exported input and an external output. */
+export function calibrationPaths(
+  argv: readonly string[],
+  root = process.cwd(),
+) {
+  const args = new Map<string, string>();
+  for (let i = 0; i < argv.length; i += 2) {
+    const key = argv[i],
+      value = argv[i + 1];
+    if (
+      !key ||
+      !["--from", "--out"].includes(key) ||
+      !value ||
+      value.startsWith("--") ||
+      args.has(key)
+    )
+      throw new Error(
+        "用法：--from <账户准入导出.json> --out <仓库外分布.json>",
+      );
+    args.set(key, value);
+  }
+  if (!args.has("--from") || !args.has("--out"))
+    throw new Error("必须同时指定 --from 和 --out；旧样本研究合成报告已移除");
+  const from = resolve(root, args.get("--from")!);
+  const target = resolve(root, args.get("--out")!);
+  const rel = relative(resolve(root), target);
+  if (!(isAbsolute(rel) || rel === ".." || rel.startsWith(".." + sep)))
+    throw new Error("--out 必须指向仓库外，账户派生数据不进版本库");
+  if (relative(from, target) === "")
+    throw new Error("输出不能覆盖输入导出文件");
+  return { from, target };
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  const argv = process.argv.slice(2);
-  const arg = (name: string) => {
-    const i = argv.indexOf(name);
-    return i >= 0 ? argv[i + 1] : undefined;
-  };
-  const from = arg("--from");
-  const fallback = "docs/review/u8-calibration-distribution.json";
-  const target = resolve(arg("--out") ?? fallback);
-  // 先校验落点再读账户数据：护栏放到计算之后就形同虚设。
-  // 真实账户导出派生的分布不得落进被 git 跟踪的目录，那是账户私有数据。
-  if (from && !arg("--out"))
-    throw new Error(
-      `--from 必须同时给 --out，且指向仓库外的路径；${fallback} 是合成样本报告，不能被账户数据覆盖`,
-    );
-  // 跨盘符时 relative() 返回绝对路径（D:\repo → C:\Users\… 得到 C:\Users\…），
-  // 它不以 ".." 开头，只判前缀会把仓库外的合法路径误当成仓库内。
-  const rel = relative(resolve("."), target);
-  if (from && rel !== "" && !rel.startsWith("..") && !isAbsolute(rel))
-    throw new Error(
-      `--out 指向仓库内 (${target})，账户派生数据不进版本库；请写到仓库外，例如 %USERPROFILE%\\Documents`,
-    );
-  const report = from
-    ? await admissionCalibrationFromExport(resolve(from))
-    : await admissionCalibrationDistribution();
+  const { from, target } = calibrationPaths(process.argv.slice(2));
+  const report = await admissionCalibrationFromExport(from);
   await writeFile(
     target,
     await format(JSON.stringify(report), { parser: "json" }),

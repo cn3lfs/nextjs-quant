@@ -1,3 +1,4 @@
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
 import { get, put, sqlite } from "../db";
 import { clsReportFiles, previewClsReport } from "./cls-report-files";
@@ -27,11 +28,17 @@ export function scheduleClsReview() {
   if (scope.clsReviewTick || !clsReviewConfig().enabled) return;
   scope.clsReviewTick = runClsReviewTick()
     .catch((error: unknown) => {
-      put("cls-review-check", "cls-review-check", {
-        checkedAt: Date.now(),
-        status: "failed",
-        message: error instanceof Error ? error.message : "财联社复盘检查失败",
-      } satisfies ClsReviewCheck);
+      recordRuntimeError("cls-review", error);
+      try {
+        put("cls-review-check", "cls-review-check", {
+          checkedAt: Date.now(),
+          status: "failed",
+          message:
+            error instanceof Error ? error.message : "财联社复盘检查失败",
+        } satisfies ClsReviewCheck);
+      } catch (stateError) {
+        recordRuntimeError("cls-review-state", stateError);
+      }
     })
     .finally(() => {
       scope.clsReviewTick = undefined;
@@ -65,6 +72,7 @@ export async function runClsReviewTick() {
           )
             previews.push(preview);
         } catch (error) {
+          recordRuntimeError("cls-review", error);
           errors.push(
             `${file.name}：${error instanceof Error ? error.message : "读取失败"}`,
           );
@@ -112,6 +120,7 @@ export async function runClsReviewTick() {
         await verifyClsSample(sample.date);
         count++;
       } catch (error) {
+        recordRuntimeError("cls-review", error);
         errors.push(
           `${sample.date}：${error instanceof Error ? error.message : "核对失败"}`,
         );

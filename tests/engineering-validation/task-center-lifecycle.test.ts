@@ -1,10 +1,7 @@
 import { expect, it } from "vitest";
 import { put, get } from "../../src/server/db";
-import {
-  taskHistory,
-  taskState,
-  taskOverview,
-} from "../../src/server/jobs/task-history";
+import { taskHistory, taskState } from "../../src/server/jobs/task-history";
+import { taskOverview } from "../../src/server/db/task-overview";
 import { cancelJob, updateJob } from "../../src/server/jobs/jobs";
 import { jobSummaries } from "../../src/server/jobs/job-summaries";
 import {
@@ -41,10 +38,33 @@ it("counts all jobs, not the recent 80, and uses Beijing day boundaries", () => 
     cancelled: 1,
     completedToday: 90,
     total: 96,
+    latestCompletedScan: null,
   });
   expect(taskAge(now - 2000, now)).toBe("昨天");
   expect(taskAge(now + 86400000, now)).toBe("未来日期");
   expect(taskStamp(now)).toContain("2026/9/28");
+});
+it("finds the latest completed scan outside the recent window, with stable identity and no payload", () => {
+  seed("scan-old", "completed", { type: "scan", updatedAt: 100 });
+  seed("scan-a", "completed", {
+    type: "scan",
+    updatedAt: 200,
+    input: { secret: "never-return" },
+    result: { rows: "x".repeat(100000) },
+  });
+  seed("scan-b", "completed", { type: "scan", updatedAt: 200 });
+  seed("scan-running", "running", { type: "scan", updatedAt: 300 });
+  seed("scan-failed", "failed", { type: "scan", updatedAt: 400 });
+  for (let i = 0; i < 100; i++) seed(`later-${i}`, "completed");
+  expect(jobSummaries().some((job) => job.type === "scan")).toBe(false);
+  expect(taskOverview(now)).toMatchObject({
+    latestCompletedScan: { id: "scan-b", updatedAt: 200 },
+  });
+  expect(JSON.stringify(taskOverview(now))).not.toContain("never-return");
+  seed("scan-a", "completed", { type: "scan", updatedAt: 500 });
+  expect(taskOverview(now)).toMatchObject({
+    latestCompletedScan: { id: "scan-a", updatedAt: 500 },
+  });
 });
 it("combines type/status/exact-id filters without leaking input or result", () => {
   seed("typed", "failed", {

@@ -1,20 +1,18 @@
-import type { Bar } from "~/lib/domain";
 import {
   isRpsMarketSymbol,
   rpsPeriods,
   rpsPolicy,
-  type RpsDay,
-} from "~/lib/screening/rps";
+  type RpsSecurity,
+} from "quant-rps";
+import type { Bar } from "~/lib/domain";
+import { type RpsDay } from "~/lib/screening/rps";
 import { aggregateIndustryRps } from "~/lib/screening/industry-rps";
 import { get, put, sqlite } from "../db";
 import { settings } from "../infra/settings";
+import { RpsPrerequisiteError } from "./rps-prerequisite";
 import { securityDirectory } from "../market/securities";
 import { localRpsDependencies } from "./rps-job";
-import {
-  calculateRpsDay,
-  prepareRpsSecurity,
-  type RpsSecurity,
-} from "./rps-engine";
+import { calculateRpsDay, prepareRpsSecurity } from "./rps-adapter";
 import { rpsHash } from "~/server/infra/content-hash";
 import { readRpsBlockSource } from "./rps-block-source";
 import { RpsStore } from "./rps-store";
@@ -99,16 +97,26 @@ export async function runRpsObservation(
     const reference = await deps.calendar();
     const historyDays = reference.days.filter((d) => d < date);
     const baseline = historyDays.at(-1);
-    if (!baseline || historyDays.length < 250)
-      throw new Error("RPS缺少250个参考交易日预热");
+    if (!baseline || historyDays.length < Math.max(...rpsPeriods))
+      throw new RpsPrerequisiteError(
+        "calendar-history",
+        "RPS缺少120个参考交易日预热，请补齐历史日线。",
+      );
     if (phase === "close") {
       if (reference.days.at(-1) !== date)
-        throw new Error("下载数据尚未包含今日收盘，保留上一批排名");
+        throw new RpsPrerequisiteError(
+          "calendar-current",
+          "下载数据尚未包含今日收盘，保留上一批排名；请更新收盘数据。",
+        );
     } else {
       const confirmed = (await workflowQuotes(["sh000001"], date)).has(
         "sh000001",
       );
-      if (!confirmed) throw new Error("当前交易日未由在线指数确认");
+      if (!confirmed)
+        throw new RpsPrerequisiteError(
+          "calendar-current",
+          "当前交易日未由在线指数确认，等待当日指数行情。",
+        );
     }
     const calendar = [...historyDays, date];
     const directory = await securityDirectory();
@@ -117,8 +125,12 @@ export async function runRpsObservation(
     ]
       .filter(isRpsMarketSymbol)
       .sort();
-    if (!symbols.length || symbols.length > 10000)
-      throw new Error("沪深证券名录不可用");
+    if (!symbols.length)
+      throw new RpsPrerequisiteError(
+        "universe",
+        "沪深证券名录为空，请更新证券名录。",
+      );
+    if (symbols.length > 10000) throw new Error("沪深证券名录不可用");
     const actions = await deps.actions();
     const prices =
       phase === "close"
@@ -128,7 +140,7 @@ export async function runRpsObservation(
       reused: string[] = [],
       missing: string[] = [];
     let fresh = 0;
-    const keepFrom = calendar[calendar.length - 251]!;
+    const keepFrom = calendar[calendar.length - Math.max(...rpsPeriods) - 1]!;
     for (const symbol of symbols) {
       lease.assert();
       const name = directory.entries[symbol]?.name ?? "名称未核实";
@@ -287,8 +299,12 @@ export async function runRpsObservation(
     put("workflow-check", statusId, {
       phase,
       date,
-      status: "failed",
-      error: error instanceof Error ? error.message : "RPS批次失败",
+      ...(error instanceof RpsPrerequisiteError
+        ? { status: "waiting", waiting: error.reason }
+        : {
+            status: "failed",
+            error: error instanceof Error ? error.message : "RPS批次失败",
+          }),
       checkedAt: Date.now(),
     });
     throw error;

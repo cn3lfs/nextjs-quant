@@ -25,10 +25,10 @@ N1 的真实交易日积累不是人工签收，不加入本清单；N2/P3 不�
 
 ## 目录内原始证据导航
 
-- [m3-review/capture.json](m3-review/capture.json)：三股截图元数据；图片入口在 M3 核对表。
-- [m5-review/batch.json](m5-review/batch.json)、[capture.json](m5-review/capture.json)：批量运行和三案例截图元数据；PNG 在该目录 README 中逐项链接。
-- [q1-review/capture.json](q1-review/capture.json)、[initial-aria.txt](q1-review/initial-aria.txt)：浏览器记录与可访问树；六张图在该目录 README。
-- [q2b-review/browser-evidence.json](q2b-review/browser-evidence.json)、[local-evidence.json](q2b-review/local-evidence.json)、[q0-reconciliation.json](q2b-review/q0-reconciliation.json)：浏览器、本地 worker 与模拟对账脱敏证据；图见对应 README。
+- m3-review/capture.json（历史产物已清理）：三股截图元数据；图片入口在 M3 核对表。
+- m5-review/batch.json（历史产物已清理）、capture.json（历史产物已清理）：批量运行和三案例截图元数据；PNG 在该目录 README 中逐项链接。
+- q1-review/capture.json（历史产物已清理）、[initial-aria.txt](q1-review/initial-aria.txt)：浏览器记录与可访问树；六张图在该目录 README。
+- q2b-review/browser-evidence.json（历史产物已清理）、local-evidence.json（历史产物已清理）、q0-reconciliation.json（历史产物已清理）：浏览器、本地 worker 与模拟对账脱敏证据；图见对应 README。
 
 ## 旧路径与已删除材料
 

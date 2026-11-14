@@ -3,11 +3,16 @@ import { aggregateIndustryRps } from "../../../src/lib/screening/industry-rps";
 import {
   calculateRpsDay,
   prepareRpsSecurity,
-} from "../../../src/server/screening/rps-engine";
-import { rpsBars, rpsCalendar, rpsDate, tenStocks } from "../../rps-fixture";
-import { industrySnapshot } from "../../industry-rps-fixture";
+} from "../../../src/server/screening/rps-adapter";
+import {
+  rpsBars,
+  rpsCalendar,
+  rpsDate,
+  tenStocks,
+} from "../../helpers/rps-fixture";
+import { industrySnapshot } from "../../helpers/industry-rps-fixture";
 
-it("three industries have calculator-verifiable equal-weight returns and ranks in all six periods", () => {
+it("three industries have calculator-verifiable equal-weight returns and ranks in all all periods", () => {
   const gains = [1.25, 3.75, 5, 5, -2.5, 0];
   const stocks = gains.map((gain, i) =>
     prepareRpsSecurity(
@@ -27,7 +32,7 @@ it("three industries have calculator-verifiable equal-weight returns and ranks i
     snapshot,
     calculateRpsDay(stocks, rpsCalendar, rpsDate),
   );
-  // Six base closes are all 10. A=((11.25/10-1)+(13.75/10-1))/2=0.25;
+  // All period base closes are all 10. A=((11.25/10-1)+(13.75/10-1))/2=0.25;
   // B=((15/10-1)+(15/10-1))/2=0.5; C=((7.5/10-1)+(10/10-1))/2=-0.125.
   // Descending ranks: B=1,A=2,C=3. RPS=(1-rank/3)*100: 66.6667,33.3333,0.
   for (const [i, row] of result.rows.entries()) {
@@ -37,9 +42,9 @@ it("three industries have calculator-verifiable equal-weight returns and ranks i
       expect(value!.rps).toBeCloseTo([100 / 3, 200 / 3, 0][i]!, 12);
     }
   }
-  expect(result.counts).toEqual([3, 3, 3, 3, 3, 3]);
+  expect(result.counts).toEqual([3, 3, 3, 3, 3, 3, 3]);
   expect(result.industry.members.map((m) => m.included)).toEqual(
-    Array.from({ length: 3 }, () => [2, 2, 2, 2, 2, 2]),
+    Array.from({ length: 3 }, () => [2, 2, 2, 2, 2, 2, 2]),
   );
 });
 
@@ -55,12 +60,12 @@ it("ST, young, long-suspended and Beijing components are excluded before averagi
   );
   // Remaining members 0 and 5: ((10/10-1)+(15/10-1))/2=0.25.
   expect(result.rows[0]!.values.map((v) => v!.return)).toEqual([
-    0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
+    0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
   ]);
   expect(result.industry.members[0]).toMatchObject({
     total: 6,
     eligible: 2,
-    included: [2, 2, 2, 2, 2, 2],
+    included: [2, 2, 2, 2, 2, 2, 2],
     excluded: { st: 1, young: 1, suspended: 1, market: 1 },
   });
   expect(result.industry.excluded).toEqual({
@@ -88,18 +93,18 @@ it("empty and fully filtered industries never become zero-return ranked members"
     }),
     calculateRpsDay(stocks, rpsCalendar, rpsDate),
   );
-  expect(result.counts).toEqual([1, 1, 1, 1, 1, 1]);
+  expect(result.counts).toEqual([1, 1, 1, 1, 1, 1, 1]);
   expect(result.rows[0]!.values.map((v) => v!.rank)).toEqual([
-    1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1,
   ]);
   expect(
     result.rows.slice(1).every((r) => r.values.every((v) => v === null)),
   ).toBe(true);
   expect(result.industry.members[1]!.empty).toEqual(
-    Array(6).fill("empty-list"),
+    Array(7).fill("empty-list"),
   );
   expect(result.industry.members[2]!.empty).toEqual(
-    Array(6).fill("all-filtered"),
+    Array(7).fill("all-filtered"),
   );
   expect(result.industry.excluded.unavailable).toBe(1);
   expect(result.industry.excluded.market).toBe(1);
@@ -118,16 +123,17 @@ it("missing endpoints are period-specific; unsupported actions and unknown names
     }),
     calculateRpsDay(stocks, rpsCalendar, rpsDate),
   );
-  expect(result.counts).toEqual([0, 1, 1, 1, 1, 1]);
+  expect(result.counts).toEqual([1, 1, 0, 1, 1, 1, 1]);
   expect(result.industry.members[0]!.empty).toEqual([
+    null,
+    null,
     "missing-endpoints",
     null,
     null,
     null,
     null,
-    null,
   ]);
-  expect(result.industry.members[0]!.missing).toEqual([1, 0, 0, 0, 0, 0]);
+  expect(result.industry.members[0]!.missing).toEqual([0, 0, 1, 0, 0, 0, 0]);
   expect(result.industry.excluded).toMatchObject({
     nameUnknown: 1,
     unsupportedAction: 1,

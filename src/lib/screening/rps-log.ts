@@ -1,5 +1,9 @@
 import { z } from "zod";
 import type { RpsProgress } from "./rps";
+import {
+  rpsPrerequisiteSchema,
+  type RpsPrerequisite,
+} from "./rps-prerequisite";
 
 /**
  * Presentation vocabulary and pure helpers shared by the RPS data management
@@ -21,6 +25,7 @@ export const rpsRunStatusLabels = {
   complete: "已完成",
   failed: "失败",
   cancelled: "已取消",
+  waiting: "等待条件",
 } as const;
 export const rpsObservationPhaseLabels = {
   noon: "午盘",
@@ -36,6 +41,7 @@ export const rpsLogPayloadSchema = z.object({
   date: z.string().min(1).max(32),
   status: z.string().min(1).max(32),
   error: z.string().max(2048).optional(),
+  waiting: rpsPrerequisiteSchema.optional(),
   startedAt: z.number().optional(),
   completedAt: z.number().optional(),
   checkedAt: z.number().optional(),
@@ -46,6 +52,7 @@ export type RpsLogEntry = {
   phase: string;
   status: string;
   error?: string;
+  waiting?: RpsPrerequisite;
   at: number;
 };
 
@@ -60,14 +67,23 @@ export function toRpsLogEntry(row: {
 }): RpsLogEntry | null {
   const parsed = rpsLogPayloadSchema.safeParse(row.payload);
   if (!parsed.success) return null;
-  const { phase, date, status, error, completedAt, checkedAt, startedAt } =
-    parsed.data;
+  const {
+    phase,
+    date,
+    status,
+    error,
+    waiting,
+    completedAt,
+    checkedAt,
+    startedAt,
+  } = parsed.data;
   return {
     id: row.id,
     date,
     phase,
     status,
     ...(error ? { error } : {}),
+    ...(waiting ? { waiting } : {}),
     at: completedAt ?? checkedAt ?? startedAt ?? row.updatedAt,
   };
 }
@@ -100,6 +116,7 @@ export function summarizeRpsProgress(progress: RpsProgress | null) {
     running: progress.status === "running",
     scanPercent: rpsPercent(progress.scanned, progress.total),
     dayPercent: rpsPercent(progress.completedDays, progress.totalDays),
-    error: progress.error,
+    error: progress.status === "failed" ? progress.error : undefined,
+    waiting: progress.status === "waiting" ? progress.waiting : undefined,
   };
 }

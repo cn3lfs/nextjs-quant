@@ -28,7 +28,8 @@ export function sortTableRows<T>(
     .sort((a, b) => {
       const x = a.value,
         y = b.value;
-      const missingX = x == null || (typeof x === "number" && !Number.isFinite(x)),
+      const missingX =
+          x == null || (typeof x === "number" && !Number.isFinite(x)),
         missingY = y == null || (typeof y === "number" && !Number.isFinite(y));
       if (missingX || missingY)
         return missingX === missingY ? a.index - b.index : missingX ? 1 : -1;

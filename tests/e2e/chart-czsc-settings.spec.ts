@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { waitForIdleServer } from "./helpers";
 
 const stored = (page: import("@playwright/test").Page) =>
@@ -11,7 +11,7 @@ const stored = (page: import("@playwright/test").Page) =>
 
 test("缠论设置 is generated from the DLL schema and drives one v22 build", async ({
   page,
-}) => {
+}, testInfo) => {
   await waitForIdleServer(page);
   // A pre-v20 persisted shape must migrate to schema keys on load.
   await page.addInitScript(() => {
@@ -26,7 +26,7 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
       );
     }
   });
-  await page.goto("/market", { waitUntil: "networkidle" });
+  await page.goto("/market?symbol=sh000905", { waitUntil: "networkidle" });
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
   const status = page.getByTestId("czsc-status").first();
@@ -55,7 +55,9 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   await expect(tip).toContainText("独立K线");
   await expect(tip).toContainText("分型笔");
   await expect(tip).toContainText("上证指数样本端点数");
-  await page.screenshot({ path: "test-results/czsc-settings-tooltip.png" });
+  await page.screenshot({
+    path: testInfo.outputPath("czsc-settings-tooltip.png"),
+  });
   // Radix closes on pointermove outside its grace area; hover() jumps without moves.
   const away = (await page
     .getByRole("combobox", { name: "线段算法" })
@@ -71,8 +73,12 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   await expect(page.getByRole("dialog")).toContainText("分型笔");
   await page.keyboard.press("Escape");
 
-  await expect(status).not.toHaveText(before, { timeout: 120_000 });
-  await expect(status).toContainText(/笔 \d+/);
+  await expect
+    .poll(async () => {
+      const current = await status.innerText();
+      return /笔 \d+/.test(current) && current !== before;
+    })
+    .toBe(true);
   expect((await stored(page)).state?.values?.["stroke.rule"]).toBe(4);
 
   // Gaps (v7) apply to span-based strokes.
@@ -109,13 +115,18 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
     "projection.segmentBoundary": 1,
   });
 
-  // Stroke-center formation changes the stroke level's centers.
-  const centersBefore = await status.innerText();
+  // Compare center formation independently from the gap/segment variants above.
+  // The fixed last-2000-bar native input has 14+4 vs 18+4 centers at defaults;
+  // the preceding featureMerged/gap variant can legitimately have equal counts.
+  await page.getByRole("button", { name: "缠论设置" }).click();
+  await page.getByRole("button", { name: "恢复默认" }).click();
+  await page.keyboard.press("Escape");
+  await expect(status).toContainText("中枢 18");
   await page.getByRole("button", { name: "缠论设置" }).click();
   await page.getByRole("combobox", { name: "笔中枢构成" }).click();
   await page.getByRole("option", { name: /服从所属线段/ }).click();
   await page.keyboard.press("Escape");
-  await expect(status).not.toHaveText(centersBefore, { timeout: 120_000 });
+  await expect(status).toContainText("中枢 22");
 
   // Persisted across reloads; restore the default for other specs.
   await page.reload({ waitUntil: "networkidle" });
@@ -123,7 +134,7 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   await expect(
     page.getByRole("combobox", { name: "笔中枢构成" }),
   ).toContainText("服从所属线段");
-  await expect(startBreak).toContainText("修正前段");
+  await expect(startBreak).toContainText("不回改");
   await page.getByRole("button", { name: "恢复默认" }).click();
   expect((await stored(page)).state?.values).toEqual({
     "projection.centerBox": 0,

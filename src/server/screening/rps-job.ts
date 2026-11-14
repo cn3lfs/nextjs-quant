@@ -1,31 +1,33 @@
+import { resolveTdxRoot } from "tstdx/local";
+import {
+  rpsPeriods,
+  rpsPolicy,
+  type RpsSecurity,
+  isRpsMarketSymbol,
+} from "quant-rps";
 import {
   aggregateIndustryRps,
   type IndustrySnapshot,
 } from "~/lib/screening/industry-rps";
 import { readRpsBlockSource } from "./rps-block-source";
 import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { Bar } from "~/lib/domain";
 import {
-  rpsPeriods,
-  rpsPolicy,
   type RpsDay,
   type RpsProgress,
   type RpsRequest,
 } from "~/lib/screening/rps";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { scan } from "../data-sources/tdx/tdx";
 import { parseBars } from "tstdx/local";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
 import { readGbbq } from "tstdx/local";
 import type { TdxXdxr } from "tstdx/wire";
-import {
-  calculateRpsDay,
-  prepareRpsSecurity,
-  type RpsSecurity,
-} from "./rps-engine";
+import { calculateRpsDay, prepareRpsSecurity } from "./rps-adapter";
 import { rpsHash } from "~/server/infra/content-hash";
 import { RpsStore } from "./rps-store";
+import { RpsPrerequisiteError } from "./rps-prerequisite";
 // g4day 暂停（见 docs/decisions.md WF3）：
 // import { overlayDailyIncrements } from "./tdx-daily-overlay";
 // import { readDailyIncrementRange } from "./tdx-daily-cache";
@@ -33,7 +35,6 @@ import {
   fullDaySymbols,
   readFullDaySnapshot,
 } from "../data-sources/tdx/tdx-full-day-cache";
-import { isRpsMarketSymbol } from "~/lib/screening/rps";
 
 export type RpsDependencies = {
   incrementSnapshots?: () => string[];
@@ -63,24 +64,27 @@ export function localRpsDependencies(
         category,
         checkpoint,
       ),
-    root: resolve(root),
+    root: root.trim() ? resolveTdxRoot(root) : "",
     calendar: async () => {
       if (overrides.length)
         return {
-          days: overrides.map((d) => historicalDateSchema.parse(d)),
+          days: overrides.map((d) => researchDateSchema.parse(d)),
           source: "用户确认的交易日期",
         };
       // 750 retained days plus 250 warmup sessions. Older index records can contain
       // invalid prices; they are outside this product's date horizon, not silently repaired.
-      const path = join(root, "vipdoc/sh/lday/sh000001.day");
       let days: string[] = [];
       let localFailure: unknown;
       try {
+        const path = join(resolveTdxRoot(root), "vipdoc/sh/lday/sh000001.day");
         const before = await stat(path),
           bytes = await readFile(path),
           after = await stat(path);
         if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
-          throw new Error("RPS参考日历正在更新");
+          throw new RpsPrerequisiteError(
+            "calendar-updating",
+            "参考日历正在更新，请等待下载完成后重新计算。",
+          );
         if (bytes.length % 32) throw new Error("RPS参考日历记录不完整");
         days = parseBars(
           bytes.subarray(Math.max(0, bytes.length - 1000 * 32)),
@@ -97,7 +101,14 @@ export function localRpsDependencies(
           versions.add(version);
         usedFull = true;
       }
-      if (!days.length && localFailure) throw localFailure;
+      if (!days.length && localFailure) {
+        if ((localFailure as NodeJS.ErrnoException).code === "ENOENT")
+          throw new RpsPrerequisiteError(
+            "calendar-history",
+            "缺少上证指数日线，请下载参考日历后重新计算。",
+          );
+        throw localFailure;
+      }
       // g4day 暂停（见 docs/decisions.md WF3）：参考日历只取本地与完整包缓存已有日期。
       // const increments = days.length
       //   ? readDailyIncrementRange("sh000001", days[0]!, today())
@@ -166,19 +177,30 @@ export async function runRpsJob(
       (d) => d < today || (d === today && local.slice(11, 16) >= "15:05"),
     );
     if (
-      days.some(
+      calendar.days.some(
         (d, i) =>
-          !historicalDateSchema.safeParse(d).success ||
-          (i > 0 && d <= days[i - 1]!),
+          !researchDateSchema.safeParse(d).success ||
+          (i > 0 && d <= calendar.days[i - 1]!),
       )
     )
       throw new Error("RPS交易日历无效、重复或倒序");
+    if (request.mode === "forward" && local.slice(11, 16) < "15:05")
+      throw new RpsPrerequisiteError(
+        "close-time",
+        "向前新增需等待交易日15:05后，请届时重新计算。",
+      );
     if (request.mode === "forward" && days.at(-1) !== today)
-      throw new Error("向前RPS仅接受今天15:05后且参考日历已确认的交易日");
+      throw new RpsPrerequisiteError(
+        "calendar-current",
+        "参考日历尚未确认今天为已完成交易日。请在交易日更新收盘数据后重新计算。",
+      );
     const targets =
       request.mode === "forward" ? [today] : days.slice(-request.days);
     if (!targets.length || days.indexOf(targets[0]!) < Math.max(...rpsPeriods))
-      throw new Error("RPS日历不足：回填前需要250个参考交易日");
+      throw new RpsPrerequisiteError(
+        "calendar-history",
+        "RPS日历不足：首个计算日前需要120个参考交易日。请补齐历史日线或缩短回填范围后重新计算。",
+      );
     const pending = targets.filter((d) => !store.day(d));
     progress.totalDays = pending.length;
     if (pending.length) {
@@ -196,7 +218,8 @@ export async function runRpsJob(
         (request.target === "industry" || request.target === "concept") &&
         !industrySnapshot
       )
-        throw new Error(
+        throw new RpsPrerequisiteError(
+          "block-source",
           request.target === "concept"
             ? "缺少概念成分数据源"
             : "缺少申万行业成分数据源",
@@ -225,12 +248,16 @@ export async function runRpsJob(
       const universe = (await deps.universe()).sort((a, b) =>
         a.symbol.localeCompare(b.symbol),
       );
+      if (!universe.length)
+        throw new RpsPrerequisiteError(
+          "universe",
+          "本地证券池为空，请导入沪深日线数据后重新计算。",
+        );
       if (
-        !universe.length ||
         universe.length > rpsPolicy.maxSymbols ||
         new Set(universe.map((s) => s.symbol)).size !== universe.length
       )
-        throw new Error("RPS本地证券池为空、重复或超过10000只上限");
+        throw new Error("RPS本地证券池重复或超过10000只上限");
       const actions = await deps.actions();
       const actionEntries = [...actions.events].sort(([a], [b]) =>
         a.localeCompare(b),
@@ -240,7 +267,10 @@ export async function runRpsJob(
         .sort()
         .at(-1);
       if (!coverage || coverage < pending.at(-1)!)
-        throw new Error("GBBQ事件覆盖不足；禁止降级为不复权RPS");
+        throw new RpsPrerequisiteError(
+          "actions-coverage",
+          "GBBQ事件覆盖不足，请更新复权数据后重新计算；不会降级为不复权RPS。",
+        );
       const source: RpsDay["source"] = {
         root: deps.root,
         calendar: calendar.source,
@@ -329,9 +359,15 @@ export async function runRpsJob(
     checkpoint("完成");
     progress.status = "complete";
   } catch (error) {
-    progress.error = error instanceof Error ? error.message : "RPS任务失败";
-    progress.status =
-      progress.error === "rps-cancelled" ? "cancelled" : "failed";
+    if (error instanceof RpsPrerequisiteError) {
+      progress.status = "waiting";
+      progress.waiting = error.reason;
+      delete progress.error;
+    } else {
+      progress.error = error instanceof Error ? error.message : "RPS任务失败";
+      progress.status =
+        progress.error === "rps-cancelled" ? "cancelled" : "failed";
+    }
   }
   progress.updatedAt = Date.now();
   store.finish(progress);

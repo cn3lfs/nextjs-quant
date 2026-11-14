@@ -37,6 +37,8 @@ it("terminates an active CLI lookup when cancelled", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-sector-cancel-"));
   const scripts = join(root, "westock-data", "scripts");
   await mkdir(scripts, { recursive: true });
+  // This fixture can live beneath the ESM workspace's isolated temp directory.
+  await writeFile(join(root, "package.json"), '{"type":"commonjs"}');
   await writeFile(
     join(scripts, "index.js"),
     'require("fs").writeFileSync(__dirname+"/started",String(process.pid));setInterval(()=>{},1000);',

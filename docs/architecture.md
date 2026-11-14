@@ -1,160 +1,116 @@
-# 模块地图
+# 系统架构与模块入口
 
-面向第一次接手的人：先看流向，再按需要打开文件。模块语义沿用既有实现，路径按 2026-09-22 分域整理更新；范围裁定见 [roadmap](roadmap.md)，不可改动的语义见 [invariants](invariants.md)。关键路径均为相对仓库根的真实文件。
-
-## 服务端职责目录（2026-09-22）
-
-| 目录 | 职责 |
-| --- | --- |
-| `src/server/strategies/` | 按流派组织的策略服务，以及跨流派信号与规则分发 |
-| `src/server/data-sources/` | 按供应商组织的行情、财务、新闻读取与协议适配 |
-| `src/server/market/` | 证券、证券池、日历、来源聚合与通用行情处理 |
-| `src/server/backtest/` | 输入快照、交易模拟、研究 worker、组合与结果存储 |
-| `src/server/research/` | 证据组装、方法来源、研究治理与绩效查询 |
-| `src/server/screening/`、`monitoring/` | RPS/公式筛选；盘中监控和信号台账 |
-| `src/server/portfolio/` | 实际成交账本、账户复盘与显式模拟交易 |
-| `src/server/news/`、`charts/` | 新闻复盘与图表服务 |
-| `src/server/jobs/`、`infra/` | 通用任务编排；并发、设置、通知、LLM 与证据封装 |
-| `src/server/api/`、`db/`、`data/` | API 入口、共享数据库底座与静态资产 |
-
-专用 worker 与业务 store 跟随所属域；根目录只保留 `runtime.ts` 组合入口，以及 `mcp.ts`、`connection-pool.ts`、`mcp-session.ts`、`mcp-health.ts`、`vault.ts` 五个受保护文件。新增业务代码放入职责目录，不新增根目录转发镜像。
-
-数据源不得反向加载策略、回测或研究编排；纯事实转换共享于 `src/lib/strategy-facts/`。`src/lib/completed-bars.ts` 与 `src/lib/screening/screening-metrics.ts` 保持纯函数，避免完成时点或筛选指标把整个回测服务引入调用方。`packages/trading-strategies` 只持有九方向代表与证据元数据，执行仍由工作台原实现负责。
-
-迁移清单和验证进度见 [整理计划](strategy-consolidation-plan.md)；目录与依赖护栏见 [server-layout.test.ts](../tests/engineering-validation/server-layout.test.ts)。
+核对日期：2026-11-13。本页描述当前工作树，实施范围见 [roadmap](roadmap.md)，剩余工作见 [next-plan](next-plan.md)，正确性约束见 [invariants](invariants.md)。模块细节按 [模块索引](modules/README.md) 查阅；不把目录存在、方法登记或构建通过当作实际功能验收。
 
 ## 总体结构与数据流
 
-Next.js/React 页面通过 tRPC 调用 TypeScript 服务；SQLite 保存设置、快照、任务、报告与账本。Electron 只负责窗口/托盘、打包 Node 服务的启动退出。`src/components/workbench/workbench.tsx` 组合页面（侧边栏与顶栏见 `sidebar.tsx` / `topbar.tsx`，一层分组导航与页面标题见 `navigation.ts`），`src/components/workbench/` 放壳层、路由面板、视图和状态；`src/components/panels/` 是设计交接的面板与 12 列网格，`src/components/overview/` 是今日总览；业务组件按领域分布在 `market/`、`screening/`、`research/`、`backtest/`、`portfolio/`、`news/`、`signals/` 等目录。服务路由组合入口是 [api/root.ts](../src/server/api/root.ts)，各业务 router 位于 `src/server/api/routers/`，调度入口是 [runtime.ts](../src/server/runtime.ts)。
-
-```text
-通达信本地目录（只读）
- ├─ vipdoc/{sh,sz,bj}/lday/*.day ─┐
- ├─ vipdoc/{sh,sz,bj}/fzline/*.lc5 ├→ tdx.ts → Bar[] / Snapshot(hash,来源,周期,不复权)
- ├─ T0002/hq_cache/*.tnf ─────────┘             │
- │                      └→ securities.ts → 证券主档/搜索名称
- └─ T0002/hq_cache/gbbq → tdx-gbbq.ts → 除权证据 ───────────────┐
-                                             │               │
- 快照 → trading-strategy-core/indicators.ts → chart-data → market/chart.tsx │
-   ├→ czsc.ts → IPC串行队列 → czsc-worker → koffi → CZSC64.dll │
-   ├→ breakout-batch → 尾窗否决 → 完整历史 → breakout.ts       │
-   └→ 公式解析/静态门禁 → jobs/worker → formula-screening      │
-                                             │               │
- 策略 → monitor（订阅/基线/新鲜度）→ 信号 → 分级 → outbox → 四渠道
-                    └→ LLM证据校验 → 追加解读（不决定交易）
- 全市场每日两策略 → signal-ledger worker → 信号台账 → T+N回填 ←┘
- 手工成交 + 可选信号关联 → trade-ledger → 持仓/成本/可卖/除权审计
- 用户确认 → mock-trading TS适配器 → 同花顺模拟盘 → 显式差异对账
+```mermaid
+flowchart LR
+  UI[Next.js / React 工作台] --> RPC[tRPC 能力声明与校验]
+  RPC --> Services[领域服务 / 任务编排]
+  Services --> Sources[本地文件与外部数据适配]
+  Services --> DB[(SQLite / 文件快照)]
+  Services --> Workers[Node workers]
+  Workers --> Rules[纯计算包]
+  Workers --> Native[串行 CZSC 子进程 / DLL]
+  Host[Electron 宿主] --> Node[Bundled Node / standalone 服务]
+  Node --> RPC
 ```
 
-两条信号路线刻意分开：monitor 面向订阅投递，signal-ledger 面向全市场观察。台账不直接给四渠道发消息；分级审计可以关联台账。公式选股产出候选表，不自动接成第三个监控策略。
+[根布局](../src/app/layout.tsx) 安装客户端 provider 和工作台；[API root](../src/server/api/root.ts) 组合业务 router；[runtime](../src/server/runtime.ts) 组合服务生命周期与调度。Electron 管理宿主窗口和 bundled Node，计算与数据访问仍在服务端。开发运行、生产 standalone 验收与正式桌面打包是不同交付范围。
 
-## 数据层：行情文件、快照、尾窗与缓存
+## 页面模型与状态归属
 
-- **职责**：解析本地二进制、扫描 A 股覆盖、生成可复核快照，向调用者提供完整历史或明确的尾窗。
-- **关键文件**：[tdx.ts](../src/server/data-sources/tdx/tdx.ts)、[domain.ts](../src/lib/domain.ts)、[tail-cache-codec.ts](../src/server/data-sources/tdx/tail-cache-codec.ts)、[screen-cache.ts](../src/server/screening/screen-cache.ts)、[metrics-cache.ts](../src/server/screening/metrics-cache.ts)、[data-health.ts](../src/server/market/data-health.ts)。
-- **输入输出**：配置的 tdxRoot + symbol + day/5m → Bar[]/Snapshot/Coverage。day/lc5 均为 32 字节记录；日线 OHLC 整数除 100，5 分钟 OHLC float32，分钟时间解包并处理 32 年回绕；volume 为股、amount 为元。拒绝截断、非法价时、重复/倒序。快照保留 source、adjustment、hash 和数据根等元信息。
-- **依赖**：Node 文件系统、domain schema、hash；上层筛选依赖完成时点和日历健康检查。`readTailSnapshot` 缓存以文件签名、周期、窗口等区分，受时间/容量限制；`screen-cache` 缓存序列化结果，`metrics-cache` 为有界内存缓存。
-- **不变量**：不写源目录；源文件变化不能混成一次可信读数；尾窗不能改变递推最终确认语义。通达信需要用户更新，扫描成功不等于最新行情，普通公式基准日也不等于官方当前交易日证明。
+当前仍有两种页面承载方式，不能称为路由统一已完成：
 
-## 数据层：TNF 名称、证券主档与 GBBQ
+- [Workbench](../src/components/workbench/workbench.tsx) 按路径装配行情、筛选、研究、设置等面板；[routePanels](../src/components/workbench/route-panels.tsx) 补充 RPS、新闻复盘及其他市场面板。部分 `page.tsx` 返回 null，部分虽然返回组件，实际仍由外壳命中的面板呈现。判断归属需同时看路径映射，不能只数 null 页面。
+- 未命中面板映射时渲染 Next 的 children，例如首页、证券池、策略中心、任务中心、账本、报告详情与研究数据指南。URL/刷新/前进后退由框架导航承载。
+- [PanelCache](../src/components/workbench/keep-alive.tsx) 当前最多保留六个注册面板，行情固定保留；其余按最近访问淘汰。普通路由只使缓存面板隐藏，不占缓存位置或改变淘汰顺序。隐藏通过可见性上下文通知查询，淘汰会卸载组件。组件局部状态不能天然跨淘汰保留；切页也不等于取消服务端任务。
 
-- **职责**：TNF 为本地证券名称源，主档整合本地覆盖与核实过的外部别名；GBBQ 提供公司行动事件及复权工具。
-- **关键文件**：[tdx.ts](../src/server/data-sources/tdx/tdx.ts) 的 parseNames/securityNames、[securities.ts](../src/server/market/securities.ts)、[security-search.ts](../src/server/market/security-search.ts)、[security-identity.ts](../src/server/market/security-identity.ts)、[tdx-gbbq.ts](../src/server/data-sources/tdx/tdx-gbbq.ts)。
-- **输入输出**：TNF 为 50 字节头+360 字节记录，以 gb18030 解码代码/名称；主档输出 symbol/name/来源/别名及周期覆盖。GBBQ 解密记录→按证券分组的事件；`adjustmentFactors`/`applyAdjustment` 接受行情与事件，提供显式 none/forward/backward 换算，量不调整。主路径仍不复权，信号台账用事件三态，持仓账本用成本审计。
-- **依赖**：SQLite records 保存目录及身份核验；身份核验路径使用受限 westock-data Node 搜索与通达信 lookup，主档优先本地名称。GBBQ 从 `T0002/hq_cache/gbbq` 读，读取前后核验文件状态。
-- **不变量**：身份冲突不能自动补主档；名称核实不等于停复牌核实；复权能力存在不代表默认策略已经复权。覆盖期由全文件最大有效事件日期认定，不用 mtime 冒充无事件证明。
+[useWorkbenchState](../src/components/workbench/use-workbench-state.ts) 只保留导航、提示和共享行情会话组合；status 仅选择行情默认来源，并只在行情页主动读取。设置/覆盖、自选列表和模型选择由各可见页面订阅，更新不会因完整 status 透传而重渲染外壳；自选 mutation 属于行情页。任务和通知摘要由 [WorkbenchSidebar](../src/components/workbench/workbench-sidebar.tsx) 订阅，更新不再驱动根组件渲染。侧栏与任务中心共享 taskOverview 全量统计；筛选的 jobs 最近 80 条查询仅用于默认结果发现及显式任务查询的初始信息，不再拿该窗口推算全部活动数。消费者可见且窗口聚焦时才读取/轮询。侧栏观察最新完成扫描的 ID/更新时间刷新覆盖，避免遗漏轮询间快速完成或已移出最近窗口的扫描。
 
-## 指标层
+[任务概览仓储](../src/server/db/task-overview.ts) 在同一读取事务内返回全量计数、任务修订号及最新完成扫描的 ID/更新时间；扫描按完成更新时间倒序、ID 倒序确定唯一结果，无扫描时返回 null。统计使用现有任务元数据覆盖索引，不解析输入或大结果，不新增 schema；TaskCenter 和侧栏复用相同查询策略。其余任务历史读取仍在 jobs/task-history，仓储收敛尚未全部完成。
 
-- **职责**：纯函数计算 MA/EMA/MACD/KDJ/RSI/BOLL 和公式共享序列基元。
-- **关键文件**：[core indicators](../packages/trading-strategy-core/src/indicators.ts)，应用图表消费入口 [chart-data.ts](../src/lib/chart/chart-data.ts)。
-- **输入输出**：readonly Bar[] + 参数 → 同长度指标数组（number/null）；序列基元接收 number/null 数组。
-- **依赖**：domain 的 Bar 类型，无 IO/远程服务；具体认定公式见 [invariants §2](invariants.md#2-通达信认定公式与预热)。
-- **不变量**：唯一共享实现、完整历史递推、窗口不足 null、状态不因缺口重置、内部不舍入。
+证券名称目录由行情、筛选、档案列表自行订阅，同一查询缓存共享；可见且聚焦时才读取/刷新，不再由外壳透传或驱动外壳重渲染。[行情状态](../src/components/market/use-market-state.ts) 管理证券/周期/来源及快照；筛选、首页、设置、研究分别拥有页面查询和操作。筛选控件与研究问题/方法使用独立会话 store；任务中心已独立为常规路由，通过 connection() 按请求 URL 渲染筛选控件，避免整页静态 Suspense 退为客户端渲染；任务查询仍由客户端缓存负责。已应用筛选由 URL 驱动，草稿/分页与取消反馈由本域会话保留；可分享的任务身份、证券池筛选分页使用 URL；业务实体仍由服务端持久化。
 
-## 图表层
+[useTaskVisible](../src/components/workbench/use-task-visible.ts) 合并面板可见性与窗口焦点，供已接入查询停用隐藏轮询。它不是全应用自动拦截器：其余页面生命周期、共享轮询和最终页面模型仍在 P2 范围内。当前状态恢复验收见 [优化交付](deliveries/2026-11-13-optimization.md)。
 
-- **职责**：K 线/指标/缠论与双突破证据展示，周月聚合、视图设置和四种画线工具。
-- **关键文件**：[chart.tsx](../src/components/market/chart.tsx) 管图表实例、pane、事件及绘制；[chart-data.ts](../src/lib/chart/chart-data.ts) 做指标/结构适配；[chart-drawings.ts](../src/lib/chart/chart-drawings.ts) 做画线几何；[chart-view.ts](../src/lib/chart/chart-view.ts) 定义参数与视图 schema；[chart-view-store.ts](../src/server/charts/chart-view-store.ts) 持久化；[chart-bars.ts](../src/server/charts/chart-bars.ts)、[weekly-bars.ts](../src/server/market/weekly-bars.ts)、[monthly-bars.ts](../src/server/market/monthly-bars.ts) 聚合。
-- **输入输出**：快照、ChartPeriod、策略结果、已核对成本、保存的视图 → 图形与 legend；用户保存→chart_views 表（标的×周期）。工具为趋势线、水平线、矩形、斐波那契。
-- **依赖**：lightweight-charts、共享 indicators、交易日历、P1 成本；week/month 从日线快照聚合，不扩展底层策略 Period。
-- **不变量**：先全量计算再按 180 根展开显示；null 不补零连线；周/月策略结构明确不可用，5m 缠论图不等于 5m 通知开放。无仓或成本未知不画成本线。主图对数不改变副图线性与斐波那契价格回撤。
+## 能力与执行边界
 
-## 缠论计算层
+[capabilities](../src/lib/common/capabilities.ts) 统一定义能力状态、原因及 read/configure/compute/schedule 操作；[tRPC 边界](../src/server/api/trpc.ts) 要求显式声明并按操作校验。导航/页面使用同一产品策略；直接服务、worker 和调度还须在实际执行入口遵守该策略，不能只隐藏按钮。
 
-- **职责**：封装现有原生缠论引擎，组装端点、中枢、买卖点、质量与背驰证据；不移植核心算法。
-- **关键文件**：[vendor/czsc/README.md](../vendor/czsc/README.md)、`vendor/czsc/CZSC64.dll`、[czsc.ts](../src/server/strategies/chan/czsc.ts)、[czsc-input.ts](../src/server/strategies/chan/czsc-input.ts)、[czsc-worker.ts](../src/server/strategies/chan/czsc-worker.ts)、[czsc-structures.ts](../src/server/strategies/chan/czsc-structures.ts)、[czsc-signal-analysis.ts](../src/server/strategies/chan/czsc-signal-analysis.ts)。
-- **输入输出**：有序行情→Float32Array H/L/C/V→czsc-tdx 结构化 C API（`adapter/czsc_api.h`）快照表（端点/中枢/走势/突破/信号/事件/逐根/递归节点/区间套）→CzscResult，含配置、引擎版本（czsc-api-v4）、DLL hash；运行副本在 runtime/czsc。
-- **依赖**：koffi、专用 Node 子进程 IPC、vendor 二进制、runtime 构建；台账线程的 DLL 请求由主进程转交相同队列。
-- **不变量**：宿主进程内单一串行所有者，整任务原子排队，库对象保持存活，float32 容差；golden 与二进制同源。对外捆绑许可由用户决定，不能把已有 exe 当成许可已确认。
+- 公式选股、双突破及原生缠论图表可用；输入缺失、计算失败与产品暂停分别表达。
+- 旧选股/回测执行、旧样本研究、walk-forward 和四类旧 LLM 分析入口已退役，不提供兼容转发；现行策略中心、研究与回测各自保留。
+- 信号监控、信号台账、盘中预选暂停 compute/schedule，可读取现存记录及保存允许的配置；保存设置不恢复调度，重启不补跑、不补发。
+- 数字货币模拟账户和新闻复盘按各自既有授权运行，不能从“三个旧调度器暂停”推断全部调度都停用；能力可用也不替代订阅、凭证与交易授权。
 
-## 双突破
+能力声明覆盖与退役/暂停边界的实现证据见 [P0 验收表](deliveries/2026-11-13-optimization.md#p0-验收对应表)。
 
-- **职责**：确定性地识别趋势线+关键价位+放量三要素，给五项评分和结构止损/两个目标。
-- **关键文件**：[breakout.ts](../src/server/strategies/breakout/breakout.ts)、[breakout-batch.ts](../src/server/strategies/breakout/breakout-batch.ts)、[vcp.ts](../src/server/strategies/canslim/vcp.ts)、[breakout-method.json](../src/lib/strategy-facts/breakout-method.json)。
-- **输入输出**：已完成不复权日线→每时点 long/short 的 是/否/数据不足、x/5、结构依据及 1:X；批量输入股票池→候选、读取错误、hash/耗时等。
-- **依赖**：vcpFacts 已确认摆动、indicators、固定方法 hash；批量层读 62 根尾窗做否决，候选用全历史复核，缓存文件清单未变的单次结果。
-- **不变量**：尾窗不确认信号；短历史/缺指标/缺目标不能凑数；评分不覆盖三核心条件；仅日线，向下信号不是自动做空指令。
+## 服务端职责目录
 
-## 通达信公式选股
+| 目录                                  | 当前职责                                                     |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `src/server/data-sources/`            | 本地及供应商数据 IO、协议适配，不承载策略编排                |
+| `src/server/market/`、`charts/`       | 证券身份、证券池、日历、行情聚合、图表快照与视图存储         |
+| `src/server/screening/`               | RPS/公式任务与候选结果，纯计算委托包或共享规则               |
+| `src/server/strategies/`、`research/` | 规则输入/来源适配、原生调用、研究证据与报告编排              |
+| `src/server/backtest/`                | 当前回测输入、任务与结果适配，撮合规则由 quant-backtest 提供 |
+| `src/server/portfolio/`               | 成交账本、账户与复盘、已授权模拟交易                         |
+| `src/server/monitoring/`、`news/`     | 监控/投递边界与新闻复盘；实际调度服从能力策略                |
+| `src/server/jobs/`、`infra/`          | 任务与 worker 编排、并发、配置及外部集成基础设施             |
+| `src/server/api/`、`db/`、`data/`     | API、共享 SQLite 底座和静态资产                              |
 
-- **职责**：本地受限公式语言的解析、静态安全检查、序列求值、保存与全市场任务。
-- **关键文件**：[tdx-formula-syntax.ts](../src/lib/formula/tdx-formula-syntax.ts)、[tdx-formula-check.ts](../src/lib/formula/tdx-formula-check.ts)、[tdx-formula.ts](../src/lib/formula/tdx-formula.ts)、[formula-screen.ts](../src/lib/formula/formula-screen.ts)、[formula-screen-service.ts](../src/server/screening/formula-screen-service.ts)、[formula-screening.ts](../src/server/screening/formula-screening.ts)。
-- **输入输出**：命名公式、参数→AST/问题（函数及行号）→整列输出；筛选要求单输出，最新完成日非零为候选。保存公式版本、参数、行情快照，结果进入既有候选分页/JSON 导出；过旧证券从最终基准日结果隔离。
-- **依赖**：共享指标基元、本地全历史日线、jobs/worker、SQLite records。候选表均线/量列是描述列，不能误读为额外公式条件；缺候选表指标历史也会列入隔离。
-- **不变量**：31 项未来函数全语句硬拒绝；未知函数不替代；60 函数不算行情别名；错误使任务失败、取消丢弃迟到结果。无 JS eval，无远程财务函数支持。
+专用 worker/store 随业务域放置。数据源不反向依赖研究或交易编排；客户端不直接导入 server。`src/server/mcp.ts` 及用户维护文案仍按项目指导保护。规则与目录护栏见 [server-layout.test.ts](../tests/engineering-validation/server-layout.test.ts) 和 [策略归属计划](strategy-consolidation-plan.md)。
 
-## 信号与四渠道推送
+## 六个计算与数据包
 
-- **职责**：周期监控、基线/新鲜度门禁、策略事件、分级静默及可靠投递；规则通知成功后可追加 LLM 解读。
-- **关键文件**：[runtime.ts](../src/server/runtime.ts)、[monitor-strategy.ts](../src/server/monitoring/monitor-strategy.ts)、[monitor-run.ts](../src/server/monitoring/monitor-run.ts)、[monitor-calendar.ts](../src/server/monitoring/monitor-calendar.ts)、[notification-policy.ts](../src/lib/strategy-facts/notification-policy.ts)、[notification-policy-store.ts](../src/server/infra/notification-policy-store.ts)、[notifications.ts](../src/server/infra/notifications.ts)、[delivery-authorization.ts](../src/server/infra/delivery-authorization.ts)、[lease.ts](../src/server/infra/lease.ts)。
-- **输入输出**：启用的订阅+新完成行情→规则事件→立即/汇总/仅台账策略→每渠道 outbox 状态→飞书、企业微信、Telegram、Discord。monitor 每 60 秒 tick，投递轮询每 3 秒；调度租约控制共享库的活跃调度者。
-- **依赖**：策略引擎、交易日历/证券状态、SQLite、vault、官方渠道 HTTP 适配；AI 追加依赖研究编排。
-- **不变量**：无订阅不投递；日线两策略 15:05 后才监控；重新检查配置修订、静默、限额与授权。网络结果不确定可能重试重复，“平台接受”不等于已读。自动测试真实第三方投递 0。
+下表依据各包当前 package.json 的工作区依赖；“声明依赖”不表示每个导出都会运行该依赖的 IO。
 
-## 信号台账与持仓账本（两种事实）
+| 包                                                                      | 责任                                          | 声明的内部依赖                            |
+| ----------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| [tstdx](../packages/tstdx/package.json)                                 | 通达信协议、本地二进制/财务模型与原生导入边界 | 无                                        |
+| [trading-strategy-core](../packages/trading-strategy-core/package.json) | 行情事实、指标、因子与共享规则基础            | tstdx                                     |
+| [trading-strategies](../packages/trading-strategies/package.json)       | 策略目录、方法定义/参数、纯策略与研究规则     | trading-strategy-core                     |
+| [quant-backtest](../packages/quant-backtest/package.json)               | 回放、撮合、费用、账户与订单执行模型          | trading-strategies、trading-strategy-core |
+| [quant-performance](../packages/quant-performance/package.json)         | 独立收益/风险、交易轮次和分期绩效评价         | 无                                        |
+| [quant-rps](../packages/quant-rps/package.json)                         | 多周期横截面强度排名                          | 无                                        |
 
-- **职责**：信号台账记录市场观察及向前收益；持仓账本记录用户实际填入的成交、成本/可卖与除权审计。
-- **关键文件**：信号侧 [signal-ledger.ts](../src/lib/strategy-facts/signal-ledger.ts)、[signal-ledger-client.ts](../src/server/monitoring/signal-ledger-client.ts)、[signal-ledger-worker.ts](../src/server/monitoring/signal-ledger-worker.ts)、[signal-ledger-job.ts](../src/server/monitoring/signal-ledger-job.ts)、[signal-ledger-engine.ts](../src/server/monitoring/signal-ledger-engine.ts)、[signal-ledger-store.ts](../src/server/monitoring/signal-ledger-store.ts)；成交侧 [trade-ledger.ts](../src/lib/portfolio/trade-ledger.ts)、[trade-ledger-service.ts](../src/server/portfolio/trade-ledger-service.ts)、[trade-ledger-store.ts](../src/server/portfolio/trade-ledger-store.ts)。
-- **输入输出**：全市场当日两策略+日历+GBBQ→不可变观察、T+5/10/20 结果、分组事实；手工成交/限价依据/可选信号 ID→持仓、移动加权成本、T+1、浮盈、成本调整轨迹。
-- **依赖**：增量 SQLite 表、完整行情、GBBQ、同一 CZSC 投影所有者；N1 为常驻 worker 线程，主线程转发 DLL，支持进度和取消。P1 成本复用既有实验参数。
-- **不变量**：落库不依赖订阅、不做历史回放；信号收益不是成交绩效。含除权/未知收益空，P1 依据不足成本空；后续修订不覆盖已结算信号结果，对账不覆盖本地交易。
+例如 core 的 financial 子路径目前转出 tstdx/financial-model；这层现状不等于已完成下一轮包边界清理。纯策略包不反向导入应用、服务端、撮合包或 IO。绩效评价与撮合事务分开，评价失败不改写已完成交易。`packages:build` 通过 pnpm 依赖图编排六包，共用构建器对源码、工具链、依赖产物和输出校验后跳过未变包。策略身份生成器另外声明源码输入；runtime worker 仍重新打包，不凭包缓存跳过。
 
-## 模拟盘
+## 数据源、持久化与任务
 
-- **职责**：可选的同花顺模拟账户开户、查询、用户确认委托与差异对账。
-- **关键文件**：[mock-trading-contract.ts](../src/lib/contracts/mock-trading-contract.ts)、[mock-trading.ts](../src/server/portfolio/mock/mock-trading.ts)、[mock-trading-service.ts](../src/server/portfolio/mock/mock-trading-service.ts)、[vault.ts](../src/server/vault.ts)。
-- **输入输出**：显式操作/一次性确认→`http://trade.10jqka.com.cn:8088`→已校验响应、脱敏诊断、与本地持仓差异。最近 20 次诊断含原始脱敏文本与证据 envelope，文档及实测契约同时可查。
-- **依赖**：undici、Zod、Windows DPAPI、手工账本/交易日历；技能只读契约，TS 执行请求。
-- **不变量**：默认零请求；身份不写业务库；未知结果不重试；接受委托不自动写成交；9/8/: 含义未确认；不用模拟盘对账结果暗中覆盖任一侧。Q0 买入已核实，T+1 卖出未完成，见 [实操记录](review/q0-mock-trading-log.md)。
+本地行情由 [TDX 服务](../src/server/data-sources/tdx/tdx.ts) 调用 tstdx 读取，证券主档、GBBQ 公司行动、财务与板块分别由所属适配器提供。行情快照明确来源、周期、复权和身份；尾窗可用于筛除，不能代替依赖完整历史的最终确认。原通达信与外部 WDZ Blocks 只读。WDZ 定义快照正在迁出 docs，路径和手动迁出状态见 [数据源说明](data-sources/wdz-blocks/2026-11-07/README.md)。
 
-## LLM 研究编排
+[SQLite 入口](../src/server/db/index.ts) 从 QUANT_DATA_DIR（未设置时使用本地应用数据目录）打开 quant.sqlite，启用 WAL 并应用 [迁移](../src/server/db/migrations.ts)。当前同时存在通用 records JSON 表及 RPS、图表视图/共享画线、账本等专表；不能将整个数据层描述成仅一张表。通用 `list(kind, limit)` 明确读取最近若干条，必须指定 1–1000 的整数上限，按更新时间和 ID 倒序；不再提供默认 200 或 -1 无上限语义。
 
-- **职责**：把确定性结果与可追溯证据交给模型解释，保存报告与历史；不是策略引擎或交易执行层。
-- **关键文件**：[research.ts](../src/server/research/research.ts)、[local-llm.ts](../src/server/infra/local-llm.ts)、[research-skills.ts](../src/server/research/research-skills.ts)、[quick-research.ts](../src/server/research/quick-research.ts)、[evidence.ts](../src/server/infra/evidence.ts)、[market-data.ts](../src/server/research/gather-evidence.ts)、[jobs.ts](../src/server/jobs/jobs.ts)、[research-history.ts](../src/server/research/research-history.ts)。
-- **输入输出**：快照/规则/技能文件 hash/来源与时点明确的证据→受限提示→Zod 与引用校验后的报告；失败/取消作为任务状态保留，规则通知不被撤回。
-- **依赖**：Codex/Claude 本机 CLI 或 DeepSeek API、优先级并发槽、证据缓存、SQLite；CLI 不随桌面包分发，登录仍由 CLI 管理。具体连接前提保留在 [根 README](../README.md)。
-- **不变量**：模型输出不执行，证据 ID 必须存在，历史与当前证据不能混淆；技能安装不等于对应模块实现完整。以下为历史范围记录，当前开发授权以 roadmap 和本轮计划为准。
+`recordPage` 按稳定 ID 顺序返回 items/nextCursor，游标绑定 kind。独立调用读取当时的数据，游标之前的新 ID 不会补入；总计/完整遍历使用 `readRecordSnapshot`，在同一个同步只读事务中每批消费 200 条（另读一条判断后续页），其他连接在扫描中新增、删除或更新的内容留到下次扫描。回调不得写入或异步执行，迭代器不能逃逸事务。渠道、监控定义和公式目录已用完整扫描，仍返回原数组形态；研究使用统计单遍聚合，只保留计数和去重配置集合。目录数组和去重集合仍随规模增长，不能宣称整条链路恒定内存。按类型仓储、其余 raw SQL 和大结果摘要投影仍待 P3 继续整理。
 
-## 历史冻结记录（已由后续授权调整，范围以 roadmap §2 为准）
+新闻日批次使用启动时固定的已保存 CLS 数据库路径和 Python 可执行文件。新安装不默认连接开发机新闻库，Python 默认从 PATH 查找；设置页分别只读检查数据库字段和解释器版本，不运行模型。技能目录沿用 QUANT_SKILLS_DIR 优先、用户技能目录兜底；现有有效路径不改写。通达信安装目录默认空配置：本地文件读取边界要求明确的绝对路径，不将空字符串解析为工作目录；可选证券元数据返回不可用。已导入完整日线包仍能在未配置安装目录时使用，保留空来源身份，不伪造磁盘目录。行情诊断与财务视图提示配置前置条件；行业/概念 RPS 需要通达信证券范围，缺目录时不开放启动。Blocks 成分来源和目录仍由 RPS 行业页管理，设置页展示并链接，工作流启用不再改写数据源设置。具体边界见[新闻模块](modules/news-cls.md)。
 
-- 回测、滚动检验、现金分红回测与成本实验：**已冻结**。
-- CANSLIM：**已冻结**。
-- 威科夫：**已冻结**。
-- 基本面、价值、估值、财务：**已冻结**。
-- 市场情绪、TMT：**已冻结**。
-- 新闻行业链：**已冻结**。
-- 旧缠论 LLM 解读链路的合并改造：**已冻结**。
-- 其余未接入技能、性能优化、组合/风控/归因、多品种扩展：**已冻结**。
+任务详情摘要 `jobSummary` 复用任务元数据投影，按需与首屏结果在同一只读事务返回，不再先解析完整 input/result。[选股结果仓储](../src/server/db/screen-result-pages.ts) 在单条 SQL 内取得总数及候选/隔离/错误各最多 50 条，先搜索排序再分页，显式返回元数据。名称目录一次展开并按证券代码关联，Unicode 大小写和当前/归档名称回退沿用共同规则。SQLite 仍解析存储的 JSON；限制的是返回 JavaScript 的结果行数，不能声称底层零解析或任意行内容恒定字节。完整导出保持独立全量读取，其他大结果与 raw SQL 仍待整理。
 
-## 核实边界
+SQLite 文件格式与应用 user_version 分开管理：较旧应用拒绝高于自身迁移版本的库。仓储整理不必修改 schema，确需迁移时保留版本保护；开发/测试必须先指定隔离 QUANT_DATA_DIR，不能打开默认用户库来验证迁移。
 
-本图核对了上述入口、导入关系、schema 与关键分支；没有对冻结模块追加验收。DLL 源码版本依据仓库 vendor 清单与 golden fixture，未重编译外部 C++。第三方线上当前状态、实际生产库版本、最新 exe 是否重打包、用户人工签收均未在本次文档任务中核实。
+[jobs](../src/server/jobs/jobs.ts) 管任务提交、取消、进度及重启恢复，[worker](../src/server/jobs/worker.ts) 执行受支持任务。恢复按稳定 ID 分页检查活动任务，保留存活宿主和终态，对中断工作记录状态，不自动补跑旧任务。公式结果按任务身份读取、分页与导出，不能回退到另一成功任务来掩盖失败或缺失。
 
-## E1 股票池与概念排名（2026-09-10）
+## 图表与原生缠论
 
-- 股票池：market-pool-browser.tsx → marketPoolCatalog/marketPoolPage/marketPoolExport → market-pool-files.ts 与 market-pool-service.ts。名单分类为申万行业、概念、中证A500；全沪深来自当前证券主档/本地覆盖。筛选、排序、分页、跨页邻居及导出共用服务端选择逻辑，RPS保持全沪深基数。
-- 概念：rps-client 按stock/industry/concept串行调度，rps-worker向localRpsDependencies传递分类，industry-blocks按分类读取，aggregateIndustryRps复用等权收益与排名。概念快照有category=concept，RpsStore拒绝分类混写，结果落concept_rps_days/concept_rps_values。
-- 页面：/rps 的 ConceptRpsControls 查询独立概念结果；查看成分链接经URL参数进入股票池，客户端schema校验分类与名称。概念排名来源是当前成分快照，不是供应商指数或历史成分；缺值与被剔除数量保留。
-- 生命周期：股票池读取不新增缓存/表，导出Blob下载后回收URL；概念结果沿用750个交易结果日保留与事务清理，新迁移为版本9。开发验证只在隔离目录应用迁移。
+[chart.tsx](../src/components/market/chart.tsx) 保留 React 控件与 effect 编排；实例/资源释放、画线事件、结构投影、基础价格/比较/双突破层、指标层与图例已分为独立模块，入口和生命周期见 [行情图表模块](modules/market-chart.md)。数据、主题和副图切换按层更新；周期、价格精度或视口身份需要重建时恢复共享画线。卸载释放事件、observer、十字线订阅与待执行历史加载帧。
+
+[原生接口](../src/server/strategies/chan/czsc-api.ts) 与 [worker](../src/server/strategies/chan/czsc-worker.ts) 对应 CZSC API v22，配置结构 36 字节；[vendor 清单](../vendor/czsc/README.md) 记录来源 commit 27de580、DLL hash 与 GPLv3 许可。Node 专用子进程通过 koffi 调用 DLL，沿用单一串行所有者，不因图表拆分增加并行原生实例。算法实现留在 DLL；图表负责投影和展示，不能将 TS 近似结果冒作原生结果。
+
+双突破纯规则及来源元数据归 [trading-strategies/research/breakout](../packages/trading-strategies/src/research/breakout/breakout-method.json)，[批量服务](../src/server/strategies/breakout/breakout-batch.ts) 负责文件输入、尾窗筛除及完整确认。公式的解析、静态检查与序列求值归 src/lib/formula，服务编排归 [formula-screen-service](../src/server/screening/formula-screen-service.ts)；不执行生成的 JS，不因恢复入口重新启用旧自动策略。
+
+公式的[计算工作流](../src/server/screening/formula-screen-work.ts)在计算 worker 内保存完整候选快照，只把候选/排除/错误和统计返回应用线程，避免全市场日线对象的结构化克隆阻塞 HTTP。保存每批 50 个快照，事务内检查所属任务仍在运行；取消后不写后续批次。每批提交后等待主进程确认进度，再取得下一批写锁，避免进度和取消操作被连续写入阻塞；进度保存失败会终止 worker 并使任务失败。主进程持有任务终态，快照格式和完整历史不变；分段计算的 worker 内存仍随命中数量增长。
+
+## 验证与尚未完成的边界
+
+当前验证命令、实际覆盖和未验证项集中于 [优化交付](deliveries/2026-11-13-optimization.md)，不在架构说明重复维护测试数量。图表与页面 fixture 测试不等于真实账户联调、生产库升级或桌面发布。
+
+`pnpm check` 在新建隔离数据和临时目录中执行格式、依赖图、runtime、类型、lint、完整测试；可加 `--build` 验证生产构建，遇错停止并保留结果摘要。可选 pre-push 不自动安装。运行错误在所属恢复边界进入独立 `logs/runtime-errors.sqlite`，滚动保留 128 组并限制为 512 KiB；任务中心通过 `recentErrors` 的 tasks/read 能力读取最近 30 组。事件摘要/代码白名单隔离原始供应商异常，任务编号可跳回任务筛选；重复计数、首次/最近时间与已知重试数保留，日志不可读和漏记不伪装成无错误。此文件不改变业务库 schema。
+
+ESLint 使用现有 tsconfig 的类型信息，在 src 检查 Hooks、Promise 与未使用变量。静态 ESM 导入限制 components/lib 执行 server、server 执行 UI 模块，跨层类型引用必须显式声明；另由依赖图检查固定路径的动态 import/require、未解析路径和运行时模块循环；包级图聚合实际源码与声明的构建依赖，检查跨文件/子目录的包循环。ESLint 要求应用和包内动态加载使用固定路径；自定义加载器仍需显式接入规则。研究配置哈希和公式单段扫描已分别归独立模块，记录/尝试服务与总流程/分段调度不再相互导入。显式 void 表示后台意图，不替代异常处理。具体约定见 [conventions](conventions.md)。
+
+测试根目录原有的 66 个支持文件已按职责归入 perf、fixtures/seed、manual、helpers 与 browser/fixtures，所有调用者直接使用新路径，不保留转发入口。固定输入仍保持字节，造数脚本单独参与格式检查；现行入口与人工运行前置见 [测试说明](../tests/README.md)。通用 E2E 的旧场景与预算覆盖仍需按当前业务和隔离要求整理。
+
+页面模型统一、其余状态生命周期、仓储与分页契约及 E2E/性能预算仍按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。

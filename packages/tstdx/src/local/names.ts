@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "./root.js";
 import { open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -44,8 +45,13 @@ export function parseInfoharborNames(bytes: Buffer) {
 }
 
 export async function readInfoharborNames(root: string) {
-  const path = join(root, "T0002", "hq_cache", "infoharbor_ex.code");
   try {
+    const path = join(
+      resolveTdxRoot(root),
+      "T0002",
+      "hq_cache",
+      "infoharbor_ex.code",
+    );
     const handle = await open(path, "r");
     try {
       const before = await handle.stat();

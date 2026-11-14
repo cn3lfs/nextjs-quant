@@ -44,12 +44,13 @@ export const futureFunctions = [
 ] as const;
 const future = new Set<string>(futureFunctions);
 export const rpsFields = {
+  RPS1: 1,
+  RPS3: 3,
   RPS5: 5,
   RPS10: 10,
   RPS20: 20,
   RPS50: 50,
   RPS120: 120,
-  RPS250: 250,
 } as const;
 export function isRpsField(name: string): name is keyof typeof rpsFields {
   return Object.hasOwn(rpsFields, name);

@@ -1,20 +1,16 @@
 import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
-import {technicalDecision,type TechnicalValues,type LegacyTechnicalStrategyId} from "trading-strategies/research/technical/research-legacy-technical";
-import { technicalStrategyIds, researchTechnicalSeries } from "trading-strategies/research/technical/research-technical";
-import { ma, macd, kdj, rsi, boll } from "../../../src/lib/indicators";
-import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import type {ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
-import { runStrategyResearch } from "../../../src/server/backtest/research-run";
 import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
+  technicalDecision,
+  type TechnicalValues,
+  type LegacyTechnicalStrategyId,
+} from "trading-strategies/research/technical/research-legacy-technical";
+import {
+  technicalStrategyIds,
+  researchTechnicalSeries,
+} from "trading-strategies/research/technical/research-technical";
+import { ma, macd, kdj, rsi, boll } from "../../../src/lib/indicators";
 
 const values = (input: Partial<TechnicalValues>): TechnicalValues => ({
   close: null,
@@ -224,37 +220,48 @@ const oscillating = bars(
   ),
 );
 it("uses the shared indicators and preserves every past decision under prefix replay and a future outlier", () => {
-    for (const id of technicalStrategyIds) {
-        const whole = researchTechnicalSeries(id, oscillating, undefined, researchFormulaRuntime);
-        for (const end of [62, 80, 101])
-            expect(researchTechnicalSeries(id, oscillating.slice(0, end), undefined, researchFormulaRuntime)).toEqual(whole.slice(0, end));
-        const future = bars([...oscillating.map((bar) => bar.close), 10000]);
-        expect(researchTechnicalSeries(id, future, undefined, researchFormulaRuntime).slice(0, 160)).toEqual(whole);
-    }
-    const at = 80, point = researchTechnicalSeries("ma-golden-5-10", oscillating, undefined, researchFormulaRuntime)[at]!.values;
-    expect(point.ma5).toBe(ma(oscillating, 5)[at]);
-    expect(point.dif).toBe(macd(oscillating)[at]!.dif);
-    expect("k" in point ? point.k : undefined).toBe(kdj(oscillating)[at]!.k);
-    expect(point.rsi6).toBe(rsi(oscillating)[at]!.rsi6);
-    expect("upper" in point ? point.upper : undefined).toBe(boll(oscillating)[at]!.upper);
+  for (const id of technicalStrategyIds) {
+    const whole = researchTechnicalSeries(
+      id,
+      oscillating,
+      undefined,
+      researchFormulaRuntime,
+    );
+    for (const end of [62, 80, 101])
+      expect(
+        researchTechnicalSeries(
+          id,
+          oscillating.slice(0, end),
+          undefined,
+          researchFormulaRuntime,
+        ),
+      ).toEqual(whole.slice(0, end));
+    const future = bars([...oscillating.map((bar) => bar.close), 10000]);
+    expect(
+      researchTechnicalSeries(
+        id,
+        future,
+        undefined,
+        researchFormulaRuntime,
+      ).slice(0, 160),
+    ).toEqual(whole);
+  }
+  const at = 80,
+    point = researchTechnicalSeries(
+      "ma-golden-5-10",
+      oscillating,
+      undefined,
+      researchFormulaRuntime,
+    )[at]!.values;
+  expect(point.ma5).toBe(ma(oscillating, 5)[at]);
+  expect(point.dif).toBe(macd(oscillating)[at]!.dif);
+  expect("k" in point ? point.k : undefined).toBe(kdj(oscillating)[at]!.k);
+  expect(point.rsi6).toBe(rsi(oscillating)[at]!.rsi6);
+  expect("upper" in point ? point.upper : undefined).toBe(
+    boll(oscillating)[at]!.upper,
+  );
 });
 
-const native = vi.fn(async () => {
-  throw new Error("native must not run");
-});
-const rules: ResearchExecutionRules = {
-  evidence: "synthetic",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 10000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 10000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
 const input = bars([
   ...Array<number>(61).fill(100),
   110,
@@ -268,210 +275,17 @@ const input = bars([
   90,
   90,
 ]);
-const spec = researchSpecSchema.parse({
-  strategy: "ma-golden-5-10",
-  start: input[61]!.date,
-  end: input[70]!.date,
-  validationStart: input[69]!.date,
-  holdingDays: 60,
-  maxPositions: 1,
-  initialCapital: 100000,
-  costs: {
-    commissionBps: 0,
-    minimumCommission: 0,
-    sellTaxBps: 0,
-    slippageBps: 0,
-  },
-});
-
-it("executes actual cross events and completed-close exits on the next open, retaining reverse evidence", async () => {
-  const events = await researchSignals("sh600000", input, spec, native);
-  expect(events[0]!.observedDate).toBe(input[61]!.date);
-  expect(JSON.parse(events[0]!.evidence).values.ma5).toBe(102);
-  const result = researchPortfolio(
-    spec,
-    events,
-    input.map((b) => b.date),
-    new Map([["sh600000", input]]),
-    () => rules,
+it("rejects unavailable evidence rather than treating it as an indicator crossing", () => {
+  const invalid = input.map((bar, i) =>
+    i === 61 ? { ...bar, volume: 0 } : bar,
   );
-  const trade = result.trades[0]!;
-  expect(trade.entryDate).toBe(input[62]!.date);
-  expect(trade.entryPrice).toBe(111);
-  expect(trade.signalExit!.date).toBe(input[67]!.date);
-  const exitValues = trade.signalExit!.values;
-  if (!("ma5" in exitValues)) throw new Error("wrong rule family");
-  expect(exitValues.ma5).toBe(98);
-  expect(trade.exitDate).toBe(input[68]!.date);
-  expect(trade.exitPrice).toBe(70);
-  expect(trade.exitReason).toContain("技术指标退出");
-  expect(trade.profit).toBe(-36900);
-  expect(native).not.toHaveBeenCalled();
-  expect(researchMethodSnapshot(spec).sources[0]!.path).toBe(
-    "swing-trader/references/technical-indicators.md",
+  const rows = researchTechnicalSeries(
+    "ma-golden-5-10",
+    invalid,
+    undefined,
+    researchFormulaRuntime,
   );
-});
-
-it("keeps an unfilled exit despite later recovery and cancels a blocked buy after a reverse signal", async () => {
-  const events = await researchSignals("sh600000", input, spec, native);
-  const pending = researchPortfolio(
-    { ...spec, end: input[68]!.date },
-    events,
-    input.map((b) => b.date),
-    new Map([["sh600000", input]]),
-    (_, date) =>
-      date === input[68]!.date ? { ...rules, limitDown: 70 } : rules,
-  );
-  expect(pending.trades[0]!.exitDate).toBeNull();
-  expect(pending.pendingSales).toHaveLength(1);
-  const later = researchPortfolio(
-    spec,
-    events,
-    input.map((b) => b.date),
-    new Map([["sh600000", input]]),
-    (_, date) =>
-      date === input[68]!.date ? { ...rules, limitDown: 70 } : rules,
-  );
-  expect(later.trades[0]!.exitDate).toBe(input[69]!.date);
-  expect(later.trades[0]!.signalExit!.date).toBe(input[67]!.date);
-  const blocked = researchPortfolio(
-    { ...spec, entryMaxWait: 20 },
-    events,
-    input.map((b) => b.date),
-    new Map([["sh600000", input]]),
-    (_, date) => (date < input[68]!.date ? { ...rules, limitUp: 10 } : rules),
-  );
-  expect(blocked.trades).toEqual([]);
-  expect(
-    blocked.excluded.some((row) => row.reason.includes("反向指标信号")),
-  ).toBe(true);
-});
-
-it("rejects unavailable evidence rather than treating it as an indicator crossing", async () => {
-    const invalid = input.map((bar, i) => i === 61 ? { ...bar, volume: 0 } : bar);
-    const rows = researchTechnicalSeries("ma-golden-5-10", invalid, undefined, researchFormulaRuntime);
-    expect(rows[61]!.reason).toContain("停牌");
-    expect(rows[62]!.reason).toContain("停牌");
-    expect(rows[61]!.entry).toBe(false);
-    const result = researchPortfolio(spec, [], input.map((b) => b.date), new Map([["sh600000", invalid]]), () => rules);
-    expect(result.signalGaps).toHaveLength(2);
-    await expect(researchSignals("sh600000", bars(Array<number>(71).fill(100)), { ...spec, strategy: "rsi-recovery" }, native)).rejects.toThrow("没有可用技术指标");
-});
-
-it("runs technical entries and exits through independent research partitions, isolating a bad stock", async () => {
-  const fullSpec = researchSpecSchema.parse({
-    ...spec,
-    start: oscillating[61]!.date,
-    validationStart: oscillating[110]!.date,
-    end: oscillating[159]!.date,
-    symbols: ["sh600000", "sh600001"],
-    management: { stop: { kind: "percent", fraction: 0.5 } },
-    risk: { fraction: 0.1, maxWeight: 1 },
-  });
-  const invalid = oscillating.map((bar, i) =>
-    i === 90 ? { ...bar, date: oscillating[89]!.date } : bar,
-  );
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: fullSpec.symbols!,
-      source: null,
-      warning: "synthetic",
-    },
-    benchmark: { symbol: "sh000001", bars: oscillating },
-    calendar: oscillating.map((bar) => bar.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "fixture",
-        bars: oscillating,
-        hash: researchHash(oscillating),
-        actions: [],
-      },
-      {
-        symbol: "sh600001",
-        name: "invalid fixture",
-        bars: invalid,
-        hash: researchHash(invalid),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixture",
-    method: researchMethodSnapshot(fullSpec),
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: fullSpec.symbols!.map((symbol) => ({
-      symbol,
-      start: fullSpec.start,
-      end: fullSpec.end,
-      evidenceId: "fixture",
-    })),
-    rows: fullSpec.symbols!.flatMap((symbol) =>
-      oscillating.map((bar) => ({
-        symbol,
-        date: bar.date,
-        ...rules,
-        evidenceId: "fixture",
-      })),
-    ),
-  });
-  const result = await runStrategyResearch(fullSpec, dataset, evidence, native);
-  expect(
-    result.exclusions.some(
-      (row) => row.symbol === "sh600001" && row.reason.includes("日期"),
-    ),
-  ).toBe(true);
-  for (const partition of result.partitions) {
-    expect(
-      partition.simulation!.trades.some(
-        (trade) => trade.signalExit && trade.exitDate,
-      ),
-    ).toBe(true);
-    expect(
-      partition.simulation!.trades.every(
-        (trade) => trade.event.symbol === "sh600000",
-      ),
-    ).toBe(true);
-    expect(partition.simulation!.nav[0]!.cash).toBe(fullSpec.initialCapital);
-  }
-  expect(result.method).toEqual(dataset.method);
-  expect(native).not.toHaveBeenCalled();
-});
-
-it("respects independent sell limits across days and rejects absent sell evidence before entry", async () => {
-  const events = await researchSignals("sh600000", input, spec, native);
-  const limited = researchPortfolio(
-    spec,
-    events,
-    input.map((bar) => bar.date),
-    new Map([["sh600000", input]]),
-    () => ({ ...rules, maximumSell: 100 }),
-  );
-  expect(limited.trades[0]!.sales!.map((sale) => sale.quantity)).toEqual([
-    100, 100, 100,
-  ]);
-  expect(limited.trades[0]!.remainingQuantity).toBe(600);
-  expect(limited.trades[0]!.exitDate).toBeNull();
-  expect(limited.pendingSales![0]!.remainingQuantity).toBe(600);
-  const missing = researchPortfolio(
-    spec,
-    events,
-    input.map((bar) => bar.date),
-    new Map([["sh600000", input]]),
-    () => ({ ...rules, minimumSell: undefined }),
-  );
-  expect(missing.trades).toEqual([]);
-  expect(missing.excluded[0]!.reason).toContain("卖出数量规则");
+  expect(rows[61]!.reason).toContain("停牌");
+  expect(rows[62]!.reason).toContain("停牌");
+  expect(rows[61]!.entry).toBe(false);
 });

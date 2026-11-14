@@ -11,7 +11,7 @@ import { readSnapshot } from "../../src/server/data-sources/tdx/tdx";
 import {
   mergeFormulaParts,
   scanFormulaRange,
-} from "../../src/server/screening/formula-screening";
+} from "../../src/server/screening/formula-range";
 import {
   formulaRanges,
   formulaThreads,

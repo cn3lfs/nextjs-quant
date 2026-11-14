@@ -1,7 +1,8 @@
+import { resolveTdxRoot } from "./root.js";
 import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { readStableLocalFile } from "./files.js";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { TdxLocalBar as Bar } from "./types.js";
 import type { TdxLocalAdjustment as ChartAdjustment } from "./types.js";
 import { GBBQ_KEY_BASE64 } from "./gbbq-key.js";
@@ -200,7 +201,7 @@ let parsed:
   | undefined;
 
 export async function readGbbq(root: string) {
-  const path = join(resolve(root), "T0002", "hq_cache", "gbbq"),
+  const path = join(resolveTdxRoot(root), "T0002", "hq_cache", "gbbq"),
     before = await stat(path),
     source = await readStableLocalFile(path),
     key = `${path}:${source.key}`;

@@ -1,5 +1,5 @@
 import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import {
   canslimCupIds,
@@ -9,12 +9,6 @@ import { researchCanslimCupPoint } from "trading-strategies/research/canslim/res
 import { researchCanslimPriorityPoint } from "trading-strategies/research/canslim/research-canslim-priority";
 import { canslimCup } from "trading-strategies/research/canslim/canslim-cup";
 import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import * as signals from "../../../../src/server/strategies/shared/research-signals";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 
 function fixture(shape: "U" | "W" | "V"): Bar[] {
   return Array.from({ length: 138 }, (_, index) => {
@@ -148,113 +142,163 @@ it("an unclassified bottom can score zero without bypassing upper-half geometry"
   expect(researchCanslimCupPoint("U", bars, "score-total").entry).toBe(false);
 });
 
-it.each(["U", "W"] as const)("%s right-rim rule accepts inclusive 95/100 percent and rejects higher rims before entry", (shape) => {
+it.each(["U", "W"] as const)(
+  "%s right-rim rule accepts inclusive 95/100 percent and rejects higher rims before entry",
+  (shape) => {
     const withRight = (right: number) => {
-        const bars = fixture(shape);
-        for (let i = 104; i <= 113; i++) {
-            const high = bars[i]!.high + ((right - 100) * (i - 103)) / 10;
-            Object.assign(bars[i]!, {
-                high,
-                low: high - 1,
-                open: high - 0.5,
-                close: high - 0.2,
-            });
-        }
-        for (let i = 114; i <= 119; i++)
-            Object.assign(bars[i]!, {
-                high: right - 2,
-                low: right - 5,
-                open: right - 2.5,
-                close: right - 2.2,
-            });
-        for (let i = 120; i < bars.length; i++)
-            Object.assign(bars[i]!, {
-                high: right * 1.03,
-                low: right * (i === 120 ? 0.99 : 1.01),
-                open: right * 1.02,
-                close: right * 1.028,
-            });
-        return bars;
+      const bars = fixture(shape);
+      for (let i = 104; i <= 113; i++) {
+        const high = bars[i]!.high + ((right - 100) * (i - 103)) / 10;
+        Object.assign(bars[i]!, {
+          high,
+          low: high - 1,
+          open: high - 0.5,
+          close: high - 0.2,
+        });
+      }
+      for (let i = 114; i <= 119; i++)
+        Object.assign(bars[i]!, {
+          high: right - 2,
+          low: right - 5,
+          open: right - 2.5,
+          close: right - 2.2,
+        });
+      for (let i = 120; i < bars.length; i++)
+        Object.assign(bars[i]!, {
+          high: right * 1.03,
+          low: right * (i === 120 ? 0.99 : 1.01),
+          open: right * 1.02,
+          close: right * 1.028,
+        });
+      return bars;
     };
     for (const [right, allowed] of [
-        [94.99, false],
-        [95, true],
-        [100, true],
-        [100.01, false],
-        [105, false],
-        [105.01, false],
+      [94.99, false],
+      [95, true],
+      [100, true],
+      [100.01, false],
+      [105, false],
+      [105.01, false],
     ] as const) {
-        const bars = withRight(right);
-        const prefix = bars.slice(0, 121);
-        const base = researchCanslimCupPoint(shape, prefix);
-        expect(base).toEqual(researchCanslimCupPoint(shape, prefix, "strict", "symmetric"));
-        if (right >= 95 && right <= 105)
-            expect(base.entry).toBe(true);
-        const restricted = researchCanslimCupPoint(shape, prefix, "strict", "not-higher");
-        expect(restricted.entry).toBe(allowed);
-        expect(restricted.rimRule).toBe("right-not-higher-than-left");
-        const direct = shape === "U"
-            ? "canslim-cup-u-right-not-higher"
-            : "canslim-cup-w-right-not-higher";
-        const held = shape === "U"
-            ? "canslim-cup-u-right-not-higher-hold3"
-            : "canslim-cup-w-right-not-higher-hold3";
-        for (const strategy of [direct, held] as const) {
-            const points = researchRuleSeries(strategy, bars, undefined, undefined, undefined, researchFormulaRuntime);
-            const index = strategy.endsWith("-hold3") ? 123 : 120;
-            expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual(allowed ? [bars[index]!.date] : []);
-            if (allowed)
-                expect(points[index]).toMatchObject({
-                    candidate: { pivot: right },
-                    historyStart: bars[70]!.date,
-                });
-            expect(researchRuleSeries(strategy, bars.slice(0, index + 1), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, index + 1));
-        }
+      const bars = withRight(right);
+      const prefix = bars.slice(0, 121);
+      const base = researchCanslimCupPoint(shape, prefix);
+      expect(base).toEqual(
+        researchCanslimCupPoint(shape, prefix, "strict", "symmetric"),
+      );
+      if (right >= 95 && right <= 105) expect(base.entry).toBe(true);
+      const restricted = researchCanslimCupPoint(
+        shape,
+        prefix,
+        "strict",
+        "not-higher",
+      );
+      expect(restricted.entry).toBe(allowed);
+      expect(restricted.rimRule).toBe("right-not-higher-than-left");
+      const direct =
+        shape === "U"
+          ? "canslim-cup-u-right-not-higher"
+          : "canslim-cup-w-right-not-higher";
+      const held =
+        shape === "U"
+          ? "canslim-cup-u-right-not-higher-hold3"
+          : "canslim-cup-w-right-not-higher-hold3";
+      for (const strategy of [direct, held] as const) {
+        const points = researchRuleSeries(
+          strategy,
+          bars,
+          undefined,
+          undefined,
+          undefined,
+          researchFormulaRuntime,
+        );
+        const index = strategy.endsWith("-hold3") ? 123 : 120;
+        expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual(
+          allowed ? [bars[index]!.date] : [],
+        );
+        if (allowed)
+          expect(points[index]).toMatchObject({
+            candidate: { pivot: right },
+            historyStart: bars[70]!.date,
+          });
+        expect(
+          researchRuleSeries(
+            strategy,
+            bars.slice(0, index + 1),
+            undefined,
+            undefined,
+            undefined,
+            researchFormulaRuntime,
+          ),
+        ).toEqual(points.slice(0, index + 1));
+      }
     }
-});
+  },
+);
 
-it.each(["U", "W", "V"] as const)("priority scoring combines disjoint two/one-point %s handles with frozen confirmation", (shape) => {
+it.each(["U", "W", "V"] as const)(
+  "priority scoring combines disjoint two/one-point %s handles with frozen confirmation",
+  (shape) => {
     for (const grade of [1, 2]) {
-        const bars = fixture(shape);
-        if (grade === 1)
-            for (let i = 114; i < 120; i++)
-                Object.assign(bars[i]!, { low: 92, volume: 30 });
-        const prefix = bars.slice(0, 121);
-        const strict = researchCanslimPriorityPoint(prefix);
-        expect(strict).toEqual(researchCanslimPriorityPoint(prefix, "strict"));
-        const scored = researchCanslimPriorityPoint(prefix, "scored-handles");
-        expect(scored).toMatchObject({
-            entry: true,
-            historyStart: bars[0]!.date,
-            candidate: {
-                family: "cup",
-                shape,
-                high: 100,
-                handleQualification: grade === 1 ? "steady-half" : "shrinking-third",
-            },
+      const bars = fixture(shape);
+      if (grade === 1)
+        for (let i = 114; i < 120; i++)
+          Object.assign(bars[i]!, { low: 92, volume: 30 });
+      const prefix = bars.slice(0, 121);
+      const strict = researchCanslimPriorityPoint(prefix);
+      expect(strict).toEqual(researchCanslimPriorityPoint(prefix, "strict"));
+      const scored = researchCanslimPriorityPoint(prefix, "scored-handles");
+      expect(scored).toMatchObject({
+        entry: true,
+        historyStart: bars[0]!.date,
+        candidate: {
+          family: "cup",
+          shape,
+          high: 100,
+          handleQualification: grade === 1 ? "steady-half" : "shrinking-third",
+        },
+      });
+      if (shape === "V" || grade === 1)
+        expect(strict.candidate?.family).not.toBe("cup");
+      for (const strategy of [
+        "canslim-priority-scored-handles",
+        "canslim-priority-scored-handles-hold3",
+      ] as const) {
+        const points = researchRuleSeries(
+          strategy,
+          bars,
+          undefined,
+          undefined,
+          undefined,
+          researchFormulaRuntime,
+        );
+        const date = strategy.endsWith("-hold3") ? 123 : 120;
+        expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
+          bars[date]!.date,
+        ]);
+        expect(points[date]).toMatchObject({
+          historyStart: bars[0]!.date,
+          candidate: scored.candidate,
         });
-        if (shape === "V" || grade === 1)
-            expect(strict.candidate?.family).not.toBe("cup");
-        for (const strategy of [
-            "canslim-priority-scored-handles",
-            "canslim-priority-scored-handles-hold3",
-        ] as const) {
-            const points = researchRuleSeries(strategy, bars, undefined, undefined, undefined, researchFormulaRuntime);
-            const date = strategy.endsWith("-hold3") ? 123 : 120;
-            expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
-                bars[date]!.date,
-            ]);
-            expect(points[date]).toMatchObject({
-                historyStart: bars[0]!.date,
-                candidate: scored.candidate,
-            });
-            expect(researchRuleSeries(strategy, bars.slice(0, date + 1), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, date + 1));
-        }
-        prefix[120]!.close = 100.5;
-        prefix[120]!.low = 100;
-        expect(researchCanslimPriorityPoint(prefix, "scored-handles")).toMatchObject({ entry: false, candidate: { family: "cup", shape } });
+        expect(
+          researchRuleSeries(
+            strategy,
+            bars.slice(0, date + 1),
+            undefined,
+            undefined,
+            undefined,
+            researchFormulaRuntime,
+          ),
+        ).toEqual(points.slice(0, date + 1));
+      }
+      prefix[120]!.close = 100.5;
+      prefix[120]!.low = 100;
+      expect(
+        researchCanslimPriorityPoint(prefix, "scored-handles"),
+      ).toMatchObject({ entry: false, candidate: { family: "cup", shape } });
     }
-});
+  },
+);
 
 it("scoring priority retains handle and volume gates even with a passing total", () => {
   const bars = fixture("V").slice(0, 121);
@@ -422,204 +466,65 @@ it("half-depth equality is allowed when upper-half positioning independently pas
     },
   });
 });
-
-const native = async (): Promise<never> => {
-  throw Error("unexpected native");
-};
 function setup(strategy: (typeof canslimCupIds)[number]) {
   const bars = fixture(canslimCupShape(strategy));
   if (strategy.includes("-half-handle"))
     for (const bar of bars.slice(114, 120))
       Object.assign(bar, { low: 92, volume: 30 });
-  const spec = researchSpecSchema.parse({
-    strategy,
-    symbols: ["sh600000"],
-    start: bars[111]!.date,
-    end: bars[137]!.date,
-    validationStart: bars[130]!.date,
-    holdingDays: 2,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "fixture",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "fixture",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "fixture",
-        bars,
-        hash: "fixture",
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixture",
-    method: researchMethodSnapshot(spec),
-  };
-  const rules = {
-    tradable: true,
-    limitUp: null,
-    limitDown: null,
-    minimumBuy: 100,
-    buyStep: 100,
-    maximumOrder: 100000,
-    minimumSell: 100,
-    sellStep: 100,
-    maximumSell: 100000,
-    sellOddLotAll: true,
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[70]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      symbol: "sh600000",
-      date: b.date,
-      ...rules,
-      evidenceId: "fixture",
-    })),
-  });
-  return { bars, spec, dataset, evidence };
+  return { bars };
 }
 
-it("executes total-score V at six points and freezes its failed strict checks through hold confirmation", async () => {
-  for (const strategy of [
-    "canslim-cup-total-score",
-    "canslim-cup-total-score-hold3",
-  ] as const) {
-    const { bars, spec, dataset, evidence } = setup(strategy);
-    bars.splice(0, bars.length, ...fixture("V"));
-    for (const bar of bars.slice(114, 120)) bar.volume = 100;
-    const result = await runStrategyResearch(spec, dataset, evidence, native);
-    const index = strategy.endsWith("-hold3") ? 123 : 120;
-    expect(result.events).toHaveLength(1);
-    expect(JSON.parse(result.events[0]!.evidence)).toMatchObject({
-      candidate: {
-        shape: "V",
-        points: 6,
-        hardChecks: { volumeBelow80: false, contracting: false },
-      },
-    });
-    expect(result.events[0]).toMatchObject({
-      observedDate: bars[index]!.date,
-      historyStart: bars[70]!.date,
-    });
-    expect(result.partitions[0]!.simulation!.trades[0]).toMatchObject({
-      entryDate: bars[index + 1]!.date,
-      exitDate: bars[index + 3]!.date,
-    });
-    bars[118]!.low = 92;
-    expect(
-      (await runStrategyResearch(spec, dataset, evidence, native)).events,
-    ).toEqual([]);
-  }
-});
-
-it("executes both scoring priority presets across all shapes and handle grades with full-prefix proof", async () => {
-  const native = async (): Promise<never> => {
-    throw Error("unexpected native");
-  };
-  for (const seed of [
-    "canslim-cup-u",
-    "canslim-cup-w",
-    "canslim-cup-v-score",
-    "canslim-cup-u-half-handle",
-    "canslim-cup-w-half-handle",
-    "canslim-cup-v-half-handle",
-  ] as const) {
-    for (const strategy of [
-      "canslim-priority-scored-handles",
-      "canslim-priority-scored-handles-hold3",
-    ] as const) {
-      const { bars, spec: original, dataset, evidence } = setup(seed);
-      const spec = researchSpecSchema.parse({ ...original, strategy });
-      dataset.method = researchMethodSnapshot(spec);
-      evidence.corporateActionFree[0]!.start = bars[0]!.date;
-      const result = await runStrategyResearch(spec, dataset, evidence, native);
-      const index = strategy.endsWith("-hold3") ? 123 : 120;
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]).toMatchObject({
-        observedDate: bars[index]!.date,
-        historyStart: bars[0]!.date,
-      });
-      expect(result.partitions[0]!.simulation!.trades[0]).toMatchObject({
-        entryDate: bars[index + 1]!.date,
-        exitDate: bars[index + 3]!.date,
-      });
-      // Cup transactionEvents admission still requires
-      // marketEvidence.corporateActionFree to cover this event's own
-      // historyStart..spec.end window (GBBQ coverage alone cannot express a
-      // per-event, dynamically-varying window) — see the longer comment in
-      // "runs all cup presets..." below. Shrinking it past historyStart
-      // withholds trade admission even though the signal is unaffected.
-      evidence.corporateActionFree[0]!.start = bars[1]!.date;
-      const missing = await runStrategyResearch(
-        spec,
-        dataset,
-        evidence,
-        native,
-      );
-      expect(missing.events).toHaveLength(1);
-      expect(missing.partitions[0]!.simulation!.trades).toEqual([]);
-    }
-  }
-});
-
-it.each(["U", "W"] as const)("%s preserves confirmed rims, shape and the left rim's earlier peers", (shape) => {
+it.each(["U", "W"] as const)(
+  "%s preserves confirmed rims, shape and the left rim's earlier peers",
+  (shape) => {
     const bars = fixture(shape);
     const point = researchCanslimCupPoint(shape, bars.slice(0, 121));
     expect(point).toMatchObject({
-        entry: true,
-        historyStart: bars[70]!.date,
-        maxEntryPrice: 105,
-        candidate: {
-            shape,
-            pivot: 100,
-            high: 100,
-            duration: 40,
-            handleLength: 6,
-            left: bars[73]!.date,
-            right: bars[113]!.date,
-            rightConfirmedAt: bars[116]!.date,
-            points: shape === "U" ? 10 : 9,
-        },
+      entry: true,
+      historyStart: bars[70]!.date,
+      maxEntryPrice: 105,
+      candidate: {
+        shape,
+        pivot: 100,
+        high: 100,
+        duration: 40,
+        handleLength: 6,
+        left: bars[73]!.date,
+        right: bars[113]!.date,
+        rightConfirmedAt: bars[116]!.date,
+        points: shape === "U" ? 10 : 9,
+      },
     });
-    expect(researchCanslimCupPoint(shape === "U" ? "W" : "U", bars.slice(0, 121))
-        .entry).toBe(false);
-    expect(researchCanslimCupPoint(shape, bars.slice(0, 120)).entry).toBe(false);
+    expect(
+      researchCanslimCupPoint(shape === "U" ? "W" : "U", bars.slice(0, 121))
+        .entry,
+    ).toBe(false);
+    expect(researchCanslimCupPoint(shape, bars.slice(0, 120)).entry).toBe(
+      false,
+    );
     const id = shape === "U" ? "canslim-cup-u" : "canslim-cup-w";
-    const points = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
+    const points = researchRuleSeries(
+      id,
+      bars,
+      undefined,
+      undefined,
+      undefined,
+      researchFormulaRuntime,
+    );
     const future = structuredClone(bars);
     future[128]!.high = 1000;
-    expect(researchRuleSeries(id, future, undefined, undefined, undefined, researchFormulaRuntime).slice(0, 128)).toEqual(points.slice(0, 128));
-});
+    expect(
+      researchRuleSeries(
+        id,
+        future,
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      ).slice(0, 128),
+    ).toEqual(points.slice(0, 128));
+  },
+);
 
 it("does not impose a new upper bound on the handle or truncate an older valid cup", () => {
   const input = fixture("U");
@@ -662,138 +567,111 @@ it("rejects deep handles, missing volume and prices outside the breakout interva
 });
 
 it.each([
-    "canslim-cup-u-hold3",
-    "canslim-cup-w-hold3",
-    "canslim-cup-v-score-hold3",
-    "canslim-cup-u-half-handle-hold3",
-    "canslim-cup-w-half-handle-hold3",
-    "canslim-cup-v-half-handle-hold3",
-] as const)("%s freezes the original historical window through three-day confirmation", (id) => {
-    const bars = setup(id).bars, calendar = bars.map((b) => b.date);
-    const run = (input = bars) => researchRuleSeries(id, input, calendar, undefined, undefined, researchFormulaRuntime);
+  "canslim-cup-u-hold3",
+  "canslim-cup-w-hold3",
+  "canslim-cup-v-score-hold3",
+  "canslim-cup-u-half-handle-hold3",
+  "canslim-cup-w-half-handle-hold3",
+  "canslim-cup-v-half-handle-hold3",
+] as const)(
+  "%s freezes the original historical window through three-day confirmation",
+  (id) => {
+    const bars = setup(id).bars,
+      calendar = bars.map((b) => b.date);
+    const run = (input = bars) =>
+      researchRuleSeries(
+        id,
+        input,
+        calendar,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      );
     const points = run();
     expect(points.filter((p) => p.entry).map((p) => p.date)).toEqual([
-        bars[123]!.date,
+      bars[123]!.date,
     ]);
     expect(points[123]).toMatchObject({
-        historyStart: bars[70]!.date,
-        hold: {
-            breakoutDate: bars[120]!.date,
-            confirmationDate: bars[123]!.date,
-        },
-        candidate: { left: bars[73]!.date, pivot: 100 },
+      historyStart: bars[70]!.date,
+      hold: {
+        breakoutDate: bars[120]!.date,
+        confirmationDate: bars[123]!.date,
+      },
+      candidate: { left: bars[73]!.date, pivot: 100 },
     });
-    expect(run(bars.filter((_, i) => i !== 122)).some((p) => p.entry)).toBe(false);
+    expect(run(bars.filter((_, i) => i !== 122)).some((p) => p.entry)).toBe(
+      false,
+    );
     bars[122]!.low = 99.99;
     expect(run().some((p) => p.entry)).toBe(false);
-});
-
-it("runs all cup presets with exact shape coverage and rejects actions inside, not before, that window", async () => {
-  for (const strategy of canslimCupIds) {
-    const { bars, spec, dataset, evidence } = setup(strategy);
-    const index = strategy.endsWith("-hold3") ? 123 : 120;
-    const run = () => runStrategyResearch(spec, dataset, evidence, native);
-    const result = await run();
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0]).toMatchObject({
-      observedDate: bars[index]!.date,
-      historyStart: bars[70]!.date,
-      entryPriceRange: { min: 100, max: 105 },
-    });
-    expect(result.partitions[0]!.simulation!.trades[0]).toMatchObject({
-      entryDate: bars[index + 1]!.date,
-      exitDate: bars[index + 3]!.date,
-    });
-    // Unlike the stock-wide candle/volume admission gate (which now runs
-    // purely on GBBQ-derived coverage), the cup transactionEvents filter
-    // still needs marketEvidence.corporateActionFree: it is the only
-    // per-event-window proof available, since GBBQ coverage is computed once
-    // for the whole bars array and cannot express "this specific
-    // [historyStart, spec.end] slice is proven action-free" for a
-    // dynamically varying window. Shrinking it below historyStart keeps the
-    // signal (events) but withholds trade admission.
-    evidence.corporateActionFree[0]!.start = bars[71]!.date;
-    const missing = await run();
-    expect(missing.events).toHaveLength(1);
-    expect(
-      missing.partitions.every((p) => p.simulation!.trades.length === 0),
-    ).toBe(true);
-    expect(
-      missing.exclusions.some((e) => e.reason.includes("保留事件观察")),
-    ).toBe(true);
-    evidence.corporateActionFree[0]!.start = bars[70]!.date;
-    dataset.stocks[0]!.actions.push({
-      date: bars[69]!.date,
-      category: 1,
-      name: "fixture除权",
-    });
-    expect((await run()).partitions[0]!.simulation!.trades).toHaveLength(1);
-    dataset.stocks[0]!.actions[0]!.date = bars[70]!.date;
-    expect((await run()).events).toHaveLength(0);
-    dataset.stocks[0]!.actions = [];
-    Object.assign(bars[index + 1]!, { open: 106, high: 106 });
-    expect(
-      (await run()).partitions.every((p) => p.simulation!.trades.length === 0),
-    ).toBe(true);
-  }
-});
-
-it("a later event needing older unproven history cannot revoke an earlier covered trade or its exit", async () => {
-  const { bars, spec, dataset, evidence } = setup("canslim-cup-u");
-  const original = await signals.researchSignals(
-    "sh600000",
-    bars,
-    spec,
-    native,
-  );
-  const baseline = await runStrategyResearch(spec, dataset, evidence, native);
-  const later = {
-    ...original[0]!,
-    key: "later-uncovered",
-    observedDate: bars[122]!.date,
-    endpointDate: bars[122]!.date,
-    historyStart: bars[69]!.date,
-  };
-  const spy = vi
-    .spyOn(signals, "researchSignals")
-    .mockResolvedValue([...original, later]);
-  try {
-    const result = await runStrategyResearch(spec, dataset, evidence, native);
-    expect(result.events).toHaveLength(2);
-    expect(result.partitions[0]!.simulation!.trades).toEqual(
-      baseline.partitions[0]!.simulation!.trades,
-    );
-    expect(
-      result.exclusions.some(
-        (e) =>
-          e.reason.includes(bars[122]!.date) &&
-          e.reason.includes("保留事件观察"),
-      ),
-    ).toBe(true);
-  } finally {
-    spy.mockRestore();
-  }
-});
+  },
+);
 
 it("120-bar variants require the complete window, reuse geometry and ignore older bars", () => {
-    for (const shape of ["U", "W"] as const) {
-        const id = shape === "U" ? "canslim-cup-u-window120" : "canslim-cup-w-window120";
-        const bars = fixture(shape);
-        const points = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
-        expect(points.slice(0, 119).every((p) => !p.entry)).toBe(true);
-        expect(points[120]).toMatchObject({ entry: true, candidate: { shape } });
-        expect(points[120]).toEqual(researchCanslimCupPoint(shape, bars.slice(1, 121)));
-        expect(researchRuleSeries(id, bars.slice(0, 121), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(points.slice(0, 121));
-        const changed = structuredClone(bars);
-        changed[0]!.high = 99999;
-        expect(researchRuleSeries(id, changed, undefined, undefined, undefined, researchFormulaRuntime)[120]).toEqual(points[120]);
-        const short = bars.slice(2, 121);
-        expect(researchRuleSeries(id, short, undefined, undefined, undefined, researchFormulaRuntime).at(-1)).toMatchObject({
-            entry: false,
-            reason: "120根观察窗口未满",
-        });
-        const noVolume = structuredClone(bars);
-        noVolume[120]!.volume = 1;
-        expect(researchRuleSeries(id, noVolume, undefined, undefined, undefined, researchFormulaRuntime)[120]!.entry).toBe(false);
-    }
+  for (const shape of ["U", "W"] as const) {
+    const id =
+      shape === "U" ? "canslim-cup-u-window120" : "canslim-cup-w-window120";
+    const bars = fixture(shape);
+    const points = researchRuleSeries(
+      id,
+      bars,
+      undefined,
+      undefined,
+      undefined,
+      researchFormulaRuntime,
+    );
+    expect(points.slice(0, 119).every((p) => !p.entry)).toBe(true);
+    expect(points[120]).toMatchObject({ entry: true, candidate: { shape } });
+    expect(points[120]).toEqual(
+      researchCanslimCupPoint(shape, bars.slice(1, 121)),
+    );
+    expect(
+      researchRuleSeries(
+        id,
+        bars.slice(0, 121),
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      ),
+    ).toEqual(points.slice(0, 121));
+    const changed = structuredClone(bars);
+    changed[0]!.high = 99999;
+    expect(
+      researchRuleSeries(
+        id,
+        changed,
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      )[120],
+    ).toEqual(points[120]);
+    const short = bars.slice(2, 121);
+    expect(
+      researchRuleSeries(
+        id,
+        short,
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      ).at(-1),
+    ).toMatchObject({
+      entry: false,
+      reason: "120根观察窗口未满",
+    });
+    const noVolume = structuredClone(bars);
+    noVolume[120]!.volume = 1;
+    expect(
+      researchRuleSeries(
+        id,
+        noVolume,
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      )[120]!.entry,
+    ).toBe(false);
+  }
 });

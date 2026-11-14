@@ -1,5 +1,6 @@
+import { resolveTdxRoot } from "./root.js";
 import { readdir, stat, readFile, open } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
 import type {
@@ -68,8 +69,9 @@ export async function securityNames(
   refresh = false,
 ) {
   if (!["sh", "sz", "bj"].includes(market)) throw new Error("证券名称市场非法");
+  if (!root.trim()) return new Map<string, string>();
   const key = join(
-      root,
+      resolveTdxRoot(root),
       "T0002",
       "hq_cache",
       `${market === "bj" ? "bjs" : market + "s"}.tnf`,
@@ -238,7 +240,7 @@ export async function scan(root: string): Promise<Coverage> {
   for (const market of ["sh", "sz", "bj"])
     for (const period of ["day", "5m"] as const) {
       const dir = join(
-        resolve(root),
+        resolveTdxRoot(root),
         "vipdoc",
         market,
         period === "day" ? "lday" : "fzline",
@@ -291,7 +293,7 @@ export async function readSnapshot(
   )
     throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
   const file = join(
-    resolve(root),
+    resolveTdxRoot(root),
     "vipdoc",
     symbol.slice(0, 2),
     period === "day" ? "lday" : "fzline",
@@ -331,7 +333,7 @@ export async function readSnapshot(
       name: (await securityNames(root, symbol.slice(0, 2))).get(symbol),
       period,
       source: "tdx-local",
-      dataRoot: resolve(root),
+      dataRoot: resolveTdxRoot(root),
       adjustment: "none",
       createdAt: Date.now(),
       bars,
@@ -354,7 +356,7 @@ export async function readTailSnapshot(
   if (!Number.isInteger(count) || count < 2 || count > 10000)
     throw new Error("行情窗口长度非法");
   const file = join(
-    resolve(root),
+    resolveTdxRoot(root),
     "vipdoc",
     symbol.slice(0, 2),
     period === "day" ? "lday" : "fzline",
@@ -425,7 +427,7 @@ export async function readTailSnapshot(
         name: (await securityNames(root, symbol.slice(0, 2))).get(symbol),
         period,
         source: "tdx-local",
-        dataRoot: resolve(root),
+        dataRoot: resolveTdxRoot(root),
         adjustment: "none",
         createdAt: Date.now(),
         bars,

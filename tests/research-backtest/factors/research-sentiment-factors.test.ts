@@ -4,7 +4,7 @@ import {
   sentimentFactorRules,
   sentimentMetrics,
 } from "trading-strategies/research/factors/research-sentiment-factors";
-import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
+import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
 import { request } from "../../helpers/growth-factor-fixture";
 const metrics = {
   amountTrillion: 1,

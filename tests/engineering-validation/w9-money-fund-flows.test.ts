@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
-import {importDeliveryTable} from "../../src/lib/research/evidence/delivery-import";
+import { importDeliveryTable } from "../../src/lib/research/evidence/delivery-import";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
 import { reviewTrades } from "../../src/lib/portfolio/trade-review";
 import { reviewTradeNav } from "../../src/lib/portfolio/trade-review-nav";

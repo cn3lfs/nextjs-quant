@@ -9,7 +9,10 @@ vi.mock("../../src/server/db/index", () => ({
 vi.mock("../../src/server/infra/settings", () => ({
   settings: () => ({ autoNewsDailyBatches: 2 }),
 }));
-import { newsBudget, reserveNewsBatch } from "../../src/server/news/news-budget";
+import {
+  newsBudget,
+  reserveNewsBatch,
+} from "../../src/server/news/news-budget";
 afterEach(() => {
   vi.useRealTimers();
   state.records.clear();

@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { withoutTdxSnapshotPanel } from "../../tdx-snapshot-contract";
 import { TdxQuoteBook } from "../../../src/components/market/tdx-quote-book";
 import { TdxFundamentalSummary } from "../../../src/components/market/tdx-fundamental-summary";
 import type { QuoteSnapshot } from "../../../src/lib/market/tdx-quote-view";
@@ -201,41 +199,5 @@ describe("基本面快照面板", () => {
     expect(html).toContain("445.17 亿"); // 净利润
     expect(html).toContain("经营现金流");
     expect(html).not.toContain("现金流合计");
-  });
-});
-
-describe("图表工作区挂载契约", () => {
-  const file = "src/components/market/chart-workspace.tsx";
-  const source = readFileSync(file, "utf8");
-  it("按当前图表快照的证券唯一挂载，并从既有渲染指纹中摘除", () => {
-    expect(source).toContain(
-      "<TdxSnapshotContainer symbol={snapshot.symbol} />",
-    );
-    expect(withoutTdxSnapshotPanel(source)).not.toContain(
-      "<TdxSnapshotContainer",
-    );
-  });
-  it("换成写死代码、重复挂载或删除挂载都会被拒绝", () => {
-    expect(() =>
-      withoutTdxSnapshotPanel(
-        source.replace(
-          "<TdxSnapshotContainer symbol={snapshot.symbol} />",
-          '<TdxSnapshotContainer symbol="sh600519" />',
-        ),
-      ),
-    ).toThrow("唯一挂载");
-    expect(() =>
-      withoutTdxSnapshotPanel(
-        source.replace(
-          "<TdxSnapshotContainer symbol={snapshot.symbol} />",
-          "<TdxSnapshotContainer symbol={snapshot.symbol} /><TdxSnapshotContainer symbol={snapshot.symbol} />",
-        ),
-      ),
-    ).toThrow("唯一挂载");
-    expect(() =>
-      withoutTdxSnapshotPanel(
-        source.replace("<TdxSnapshotContainer symbol={snapshot.symbol} />", ""),
-      ),
-    ).toThrow("唯一挂载");
   });
 });

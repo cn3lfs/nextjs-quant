@@ -1,3 +1,4 @@
+import { type RpsValue } from "quant-rps";
 import type { Bar } from "../domain";
 import {
   emaSeries,
@@ -14,7 +15,7 @@ import {
   isRpsField,
   rpsFields,
 } from "./tdx-formula-check";
-import type { RpsValue } from "../screening/rps";
+
 import { FormulaError, parseFormula, type Expr } from "./tdx-formula-syntax";
 export { FormulaError, parseFormula } from "./tdx-formula-syntax";
 export { futureFunctions } from "./tdx-formula-check";

@@ -2,26 +2,27 @@
 import dynamic from "next/dynamic";
 import { Activity, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode, type SetStateAction } from "react";
-import { TodayOverview } from "../overview/today-overview";
+import { Suspense, useEffect, type ReactNode } from "react";
+import { MarketRouteSelection } from "../market/market-route-selection";
 import { routePanels } from "./route-panels";
 import { Button } from "../ui/button";
 
-import { navItemFor, tabHref, type Tab } from "./navigation";
+import { navItemFor } from "./navigation";
 import { PanelCache } from "./keep-alive";
-import { Sidebar } from "./sidebar";
+import { WorkbenchSidebar } from "./workbench-sidebar";
 import { Topbar } from "./topbar";
 import { useWorkbenchState } from "./use-workbench-state";
 import { OpenChartProvider } from "../market/open-chart";
 import type { BrowseList } from "~/lib/market/browse-list";
+import { chartSymbolHref } from "~/lib/chart/chart-symbol";
 
 // Panels load on first visit: the root layout would otherwise ship every
 // page body in one client bundle.
 const NewsPanel = dynamic(() =>
   import("../news/news-panel").then((m) => m.NewsPanel),
 );
-const Connections = dynamic(() =>
-  import("./connections").then((m) => m.Connections),
+const SettingsPanel = dynamic(() =>
+  import("./settings-panel").then((m) => m.SettingsPanel),
 );
 const BacktestView = dynamic(() =>
   import("./backtest-view").then((m) => m.BacktestView),
@@ -35,14 +36,11 @@ const MarketView = dynamic(() =>
 const ResearchArchive = dynamic(() =>
   import("./research-archive").then((m) => m.ResearchArchive),
 );
-const ScreenView = dynamic(() =>
-  import("./screen-view").then((m) => m.ScreenView),
+const ScreenWorkspace = dynamic(() =>
+  import("../screening/screen-workspace").then((m) => m.ScreenWorkspace),
 );
 const SignalsView = dynamic(() =>
   import("./signals-view").then((m) => m.SignalsView),
-);
-const TaskCenter = dynamic(() =>
-  import("./task-center").then((m) => m.TaskCenter),
 );
 
 /**
@@ -55,14 +53,13 @@ function usePanelPrefetch() {
     // One chunk per idle period, the next only after it has loaded, so the
     // evaluation never blocks a click for long (loading all at once did).
     const queue = [
-      () => import("./task-center"),
-      () => import("./screen-view"),
+      () => import("../screening/screen-workspace"),
       () => import("./signals-view"),
       () => import("./backtest-view"),
       () => import("../news/news-panel"),
       () => import("./research-archive"),
       () => import("./evidence-analysis"),
-      () => import("./connections"),
+      () => import("./settings-panel"),
       // market-view is left out: evaluating the chart library blocks the
       // main thread for hundreds of ms, and its own first visit is ~130 ms.
     ];
@@ -95,51 +92,54 @@ export function Workbench({ children }: { children?: ReactNode }) {
   const router = useRouter();
   const base = useWorkbenchState();
   const item = navItemFor(pathname);
-  // The route is the source of truth; panel state follows it so tab-gated
-  // queries keep their original conditions.
-  useEffect(() => {
-    if (item?.tab && item.tab !== base.tab) base.setTab(item.tab);
-  }, [item?.tab]);
-  const state = {
-    ...base,
-    setTab: (next: SetStateAction<Tab>) =>
-      router.push(tabHref(typeof next === "function" ? next(base.tab) : next), {
-        scroll: false,
-      }),
-  };
-  const { toast, setToast, status, channels, notify } = state;
+  const state = base;
+  const { toast, setToast, notify } = state;
   // Chart links in tables switch here without reloading the kept-alive panels.
   const openChart = (symbol: string, list?: BrowseList) => {
-    base.setBrowse(list ?? null);
-    base.setSymbol(symbol);
-    base.load.mutate({
-      symbol,
-      period: base.period,
-      source: base.marketSource,
-    });
-    router.push("/market", { scroll: false });
+    const href = chartSymbolHref(symbol);
+    if (href.startsWith("/market?")) {
+      base.setBrowse(list ?? null);
+      base.selectMarketSymbol(symbol);
+    }
+    router.push(href, { scroll: false });
   };
-  const failed = state.monitorSummary.data?.failedDeliveries ?? 0;
   const panels: Record<string, ReactNode> = {
-    "/": <TodayOverview state={state} />,
-    "/market": <MarketView state={state} />,
-    "/screen": <ScreenView state={state} />,
-    "/backtest": <BacktestView state={state} />,
-    "/signals": <SignalsView state={state} />,
-    "/tasks": <TaskCenter state={state} />,
-    "/reports": <ResearchArchive state={state} />,
-    "/analysis": <EvidenceAnalysis state={state} />,
-    "/news": <NewsPanel />,
-    "/settings": status.data && (
-      <Connections
-        value={status.data.settings}
-        channels={channels.data ?? []}
-        coverage={status.data.coverage}
+    "/market": (
+      <MarketView
         notify={notify}
-        onScan={() => state.scan.mutate()}
-        scanning={state.scan.isPending}
+        state={{
+          marketSource: state.marketSource,
+          marketView: state.marketView,
+          setMarketView: state.setMarketView,
+          setMarketSource: state.setMarketSource,
+          symbol: state.symbol,
+          setSymbol: state.setSymbol,
+          period: state.period,
+          loaded: state.loaded,
+          load: state.load,
+          browse: state.browse,
+          setBrowse: state.setBrowse,
+        }}
       />
     ),
+    "/screen": (
+      <ScreenWorkspace
+        notify={notify}
+        market={{
+          setTab: state.setTab,
+          setSymbol: state.setSymbol,
+          setBrowse: state.setBrowse,
+          setPeriod: state.setPeriod,
+          load: state.load,
+        }}
+      />
+    ),
+    "/backtest": <BacktestView loaded={state.loaded} />,
+    "/signals": <SignalsView />,
+    "/reports": <ResearchArchive state={{ symbol: state.symbol }} />,
+    "/analysis": <EvidenceAnalysis loaded={state.loaded} notify={notify} />,
+    "/news": <NewsPanel />,
+    "/settings": <SettingsPanel notify={notify} />,
     ...Object.fromEntries(
       Object.entries(routePanels).map(([href, Panel]) => [
         href,
@@ -149,13 +149,12 @@ export function Workbench({ children }: { children?: ReactNode }) {
   };
   return (
     <div className="app-shell">
-      <Sidebar
-        active={item?.href}
-        badges={{
-          "/signals": { count: failed, bad: true },
-          "/tasks": { count: state.activeJobs.length },
-        }}
-      />
+      {pathname === "/market" && (
+        <Suspense fallback={null}>
+          <MarketRouteSelection enterMarket={base.enterMarket} />
+        </Suspense>
+      )}
+      <WorkbenchSidebar active={item?.href} />
       <main className="main">
         <Topbar
           crumb={item?.group ?? ""}
@@ -163,11 +162,11 @@ export function Workbench({ children }: { children?: ReactNode }) {
           subtitle={item?.subtitle}
         />
         <div className="page">
-          {/* Visited panels stay mounted and hidden: charts, drafts, filters and
-              scroll positions survive every route switch. */}
+          {/* Cached domain panels retain local UI until eviction. Ordinary
+              routes own their content and explicit session state. */}
           <OpenChartProvider value={openChart}>
             <PanelCache active={pathname} panels={panels} />
-            {/* Ledger routes fetch server data per request and keep framework navigation. */}
+            {/* Framework routes render their own content. */}
             {!(pathname in panels) && children}
           </OpenChartProvider>
         </div>
@@ -184,9 +183,6 @@ export function Workbench({ children }: { children?: ReactNode }) {
             <X size={15} />
           </Button>
         </div>
-      )}
-      {status.error && (
-        <div className="toast error">连接失败：{status.error.message}</div>
       )}
     </div>
   );

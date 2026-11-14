@@ -1,19 +1,8 @@
 import { z } from "zod";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 
-export const archiveKinds = [
-  "report",
-  "chan-report",
-  "canslim-report",
-  "wyckoff-report",
-] as const;
-export const archiveKindLabels: Record<(typeof archiveKinds)[number], string> =
-  {
-    report: "通用研究",
-    "chan-report": "缠论",
-    "canslim-report": "CAN SLIM",
-    "wyckoff-report": "威科夫",
-  };
+export const archiveKinds = ["report"] as const;
+export const archiveKindLabels = { report: "通用研究" };
 const day = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -35,7 +24,7 @@ export const archiveHistoryInput = z
     kinds: z
       .array(z.enum(archiveKinds))
       .min(1, "至少选择一种报告类型")
-      .max(4)
+      .max(1)
       .optional(),
     symbol: symbolSchema.optional(),
     keyword: z.string().trim().max(100).optional(),

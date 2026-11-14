@@ -9,7 +9,7 @@ import {
 } from "~/lib/research/workflow/research-governance";
 import type { z } from "zod";
 import type { ResearchRange } from "~/lib/research/workflow/research-usage";
-import { usageConfigHash } from "./research-usage";
+import { usageConfigHash } from "./research-config-hash";
 
 /** Separate from successful candidate counts. Audit writes never fabricate successes. */
 export class ResearchAttempts {
@@ -99,9 +99,26 @@ export class ResearchAttempts {
       .immediate();
   }
   recover(isAlive: (pid: number) => boolean) {
-    for (const row of this.all())
-      if (!isAttemptTerminal(row.state) && !isAlive(row.ownerPid))
-        this.update(row.id, { state: "interrupted", error: "执行宿主已退出" });
+    const page = this.db.prepare(`
+      SELECT id FROM records
+      WHERE kind='research-attempt' AND json_extract(payload,'$.state') IN ('queued','running')
+        AND (@after IS NULL OR id > @after)
+      ORDER BY id LIMIT 500
+    `);
+    const recover = this.db.transaction((id: string) => {
+      const row = this.read(id);
+      if (row && !isAttemptTerminal(row.state) && !isAlive(row.ownerPid))
+        this.update(id, { state: "interrupted", error: "执行宿主已退出" });
+    });
+    // Terminal results are never decoded; stable IDs keep updates from
+    // shifting the next page and skipping active attempts.
+    let after: string | null = null;
+    for (;;) {
+      const rows = page.all({ after }) as { id: string }[];
+      if (!rows.length) break;
+      for (const row of rows) recover.immediate(row.id);
+      after = rows.at(-1)!.id;
+    }
   }
   all() {
     return (

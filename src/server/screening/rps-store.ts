@@ -1,14 +1,10 @@
+import { rpsPolicy, type RpsRow } from "quant-rps";
 import {
   industryRpsPolicy,
   industrySnapshotSchema,
 } from "~/lib/screening/industry-rps";
 import type Database from "better-sqlite3";
-import {
-  rpsPolicy,
-  type RpsDay,
-  type RpsProgress,
-  type RpsRow,
-} from "~/lib/screening/rps";
+import { type RpsDay, type RpsProgress } from "~/lib/screening/rps";
 
 // One vector per security/day, NOT one row per period/value. Return and average rank
 // use float64; RPS is reconstructed from the day's immutable period denominators.

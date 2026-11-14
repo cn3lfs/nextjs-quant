@@ -13,7 +13,12 @@ function clock() {
 
 it("串行执行并按最小间隔加抖动排开", async () => {
   const c = clock();
-  const gate = rateGate({ minIntervalMs: 500, jitterMs: 500, random: () => 0.5, ...c });
+  const gate = rateGate({
+    minIntervalMs: 500,
+    jitterMs: 500,
+    random: () => 0.5,
+    ...c,
+  });
   const starts: number[] = [];
   let running = 0;
   await Promise.all(

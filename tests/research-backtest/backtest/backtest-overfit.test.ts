@@ -1,17 +1,13 @@
 import { defaultStrategy } from "../../../src/lib/domain";
-import { backtest } from "../../../src/server/backtest/quant";
 import { equityDailyReturns } from "../../../src/lib/backtest/multiple-testing";
 import { describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   combinatoriallySymmetricCv,
   selectionPerformance,
   cscvCombinations,
   performanceDegradation,
 } from "../../../src/lib/backtest/backtest-overfit";
-import { sharpeDaily, multipleTesting } from "../../../src/lib/backtest/multiple-testing";
-import { MultipleTestingPanel } from "../../../src/components/backtest/multiple-testing-panel";
+import { sharpeDaily } from "../../../src/lib/backtest/multiple-testing";
 
 // V2 既有用例显式保留夏普口径：默认改为 selection，不改变原算法预期。
 const cv = (input: Parameters<typeof combinatoriallySymmetricCv>[0]) =>
@@ -225,62 +221,6 @@ describe("缺失与退化", () => {
   });
 });
 
-it("页面 PBO 三档与边界、原始原因和 V1 旧档案", () => {
-  const result = multipleTesting(
-    [-0.01, 0.02, 0.03],
-    [
-      { value: 1, reason: null },
-      { value: 2, reason: null },
-    ],
-  );
-  const overfit = cv({ returns: stable });
-  for (const [pbo, label] of [
-    [0, "基本保持排序"],
-    [0.2, "基本保持排序"],
-    [0.21, "部分失效"],
-    [0.49, "部分失效"],
-    [0.5, "不优于随机"],
-    [1, "不优于随机"],
-  ] as const) {
-    const html = renderToStaticMarkup(
-      createElement(MultipleTestingPanel, {
-        result: {
-          ...result,
-          overfit: {
-            bySelectionRule: { ...overfit, pbo: { value: pbo, reason: null } },
-            bySharpe: overfit,
-          },
-        },
-      }),
-    );
-    expect(html).toContain(label);
-    expect(html).toContain("仅限当前");
-    expect(html).toContain("夏普口径对照");
-    expect(html).toContain("2015");
-    expect(html).toContain("性能衰减斜率");
-    expect(html).not.toContain("lambdas");
-  }
-  expect(
-    renderToStaticMarkup(createElement(MultipleTestingPanel, { result })),
-  ).toContain("旧档案未记录 PBO");
-  expect(
-    renderToStaticMarkup(
-      createElement(MultipleTestingPanel, {
-        result: {
-          ...result,
-          overfit: {
-            bySelectionRule: {
-              ...overfit,
-              pbo: { value: null, reason: "精确缺失原因" },
-            },
-            bySharpe: overfit,
-          },
-        },
-      }),
-    ),
-  ).toContain("无法判定：精确缺失原因");
-});
-
 const candidates = [
   { ...defaultStrategy, fast: 4, slow: 12 },
   { ...defaultStrategy, fast: 2, slow: 12 },
@@ -291,28 +231,15 @@ const pulses = (segments: number[][]) =>
   segments.flatMap((r) => [...r, ...Array(20 - r.length).fill(0)]);
 
 describe("V2b 实际选参规则", () => {
-  it("收益复用锚点：同一回测日收益复利与 totalReturn 统一单位后相等", () => {
-    const bars = Array.from({ length: 120 }, (_, i) => {
-      const close = 100 + 10 * Math.sin(i / 9) + i * 0.02;
-      return {
-        date: new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10),
-        open: close - 0.2,
-        close,
-        high: close + 1,
-        low: close - 1,
-        volume: 100000,
-        amount: 10000000,
-      };
-    });
-    // 仅固定单测运行引擎建立锚点；生产 CSCV 不增加任何 backtest 调用。
-    const result = backtest(bars, candidates[0]!, "v2b-anchor", 100000);
-    expect(result.trades.length).toBeGreaterThan(0);
-    const score = selectionPerformance(
-      equityDailyReturns(result.equity, 100000),
-    );
-    // quant.ts 存百分数；U1 及 selection 存小数比例，不能直接比。
-    expect(score.totalReturn.value).toBeCloseTo(result.totalReturn / 100, 12);
-    expect(score.maxDrawdown.value).toBeCloseTo(result.maxDrawdown / 100, 12);
+  it("equity returns preserve decimal units, initial capital and drawdown", () => {
+    // Principal 100000 -> 99000 -> 102000 -> 101000: +1%, maximum drawdown 1%.
+    const equity = [99000, 102000, 101000].map((value, index) => ({
+      date: `2026-01-0${index + 1}`,
+      value,
+    }));
+    const score = selectionPerformance(equityDailyReturns(equity, 100000));
+    expect(score.totalReturn.value).toBeCloseTo(0.01, 12);
+    expect(score.maxDrawdown.value).toBeCloseTo(0.01, 12);
   });
   it("首日下跌从本金起算回撤，净收益按顺序复利", () => {
     const score = selectionPerformance([-0.5, 0.5]);
@@ -408,23 +335,5 @@ describe("V2b 实际选参规则", () => {
       expect(result.pbo.value).toBeNull();
       expect(result.lambdas).toEqual([]);
     }
-  });
-  it("旧V2夏普只作对照，不借用其值给实际选参规则下结论", () => {
-    const result = multipleTesting(
-      [-0.01, 0.02, 0.03],
-      [
-        { value: 1, reason: null },
-        { value: 2, reason: null },
-      ],
-    );
-    const html = renderToStaticMarkup(
-      createElement(MultipleTestingPanel, {
-        result: { ...result, overfit: cv({ returns: stable }) },
-      }),
-    );
-    expect(html).toContain("旧档案未记录 PBO");
-    expect(html).toContain("夏普口径对照：PBO = 0.00%");
-    expect(html).not.toContain("基本保持排序");
-    expect(html).not.toContain("不优于随机");
   });
 });

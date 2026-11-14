@@ -2,7 +2,7 @@
 
 ## 职责与非职责
 
-`src/app/` 声明 Next App Router 页面/API 入口；`src/components/workbench/` 负责导航、工作台布局和面板装配，`overview/`、`panels/` 分别提供总览和可组合面板。业务规则、数据访问和持久化归领域模块。根页目前返回 `null`，总览由根布局内的工作台面板缓存呈现。
+`src/app/` 声明 Next App Router 页面/API 入口；`src/components/workbench/` 负责导航、工作台布局和面板装配，`overview/`、`panels/` 分别提供总览和可组合面板。业务规则、数据访问和持久化归领域模块。首页与任务中心已由常规 Next 路由直接承载；其余页面当前仍有面板缓存与框架 children 两种方式，具体边界见[架构说明](../architecture.md#页面模型与状态归属)。
 
 ## 入口与消费者
 
@@ -20,15 +20,21 @@
 
 ## 状态、副作用与验证
 
+首页直接订阅现有 status、securityNames、monitorWorkspaceSummary 查询缓存，不新增这三项的轮询；排名选择保存在 URL 的 rank 参数。外壳仍持有服务其他全局消费者的查询，不能把首页迁移称作共享查询拆分完成。
+
+PanelCache 仅记录 panels 中注册的路径；普通路由不生成空缓存位置，也不改变已有面板的 LRU 顺序。普通路由显示时，已有面板全部收到不可见状态。六面板上限、行情固定保留及正常淘汰仍有效，生命周期回归见 [panel-cache-browser](../../tests/browser/panel-cache-browser.mjs)。
+
 路由 query/path 与 client query cache 影响导航和刷新；工作台壳不应自行持久化业务实体。代表性验证：[workbench-refactor.test.ts](../../tests/workbench/workbench-refactor.test.ts)、[t4-desktop-guards.test.ts](../../tests/desktop-build/t4-desktop-guards.test.ts)。涉及真实页面交互时再按受影响路径做浏览器验收；结构指纹失败需精确更新并增加行为断言。
 
 **客户端缓存持久化**（[persist.ts](../../src/trpc/persist.ts)）：`PersistProvider` 与库自带 `PersistQueryClientProvider` 同一契约（启动恢复一次、恢复期间 `useIsRestoring`），但保存只由"需持久化查询拿到新数据"触发并 2 秒节流。库自带实现在任何查询缓存事件（包括每 4 秒的投递轮询）上 dehydrate，而 `dehydrate.serializeData` 为 SuperJSON，每次都序列化整个证券名录等持久化数据，空闲页面因此长期占用主线程。投递列表只在总览/信号页 4 秒轮询，其他页 30 秒（仅用于侧栏失败角标）。
 
 **今日总览行情**（[market-pulse.tsx](../../src/components/overview/market-pulse.tsx)）：上证/深成/创业板/沪深300/科创50 与自选的现价、涨跌幅、指数成交额，一次批量 `tdxQuotes`，按交易时段刷新（`useQuoteRefreshInterval`，与行情侧栏、分时图共用），总览被切走时暂停。
 
-**基线与验证**：[workbench-perf-browser.mjs](../../tests/workbench-perf-browser.mjs) 需先以隔离数据目录启动生产服务（`QUANT_DATA_DIR=... PORT=3217 node scripts/start.mjs`），输出冷启动 JS 体积/时间、侧栏导航耗时与空闲主线程开销（`PROFILE=1` 附热点）；[persist-cache-browser.mjs](../../tests/persist-cache-browser.mjs) 核对持久化写入集合。
+**当前验证**：[page-state](../../tests/browser/page-state-browser.mjs) 与 [screen-state](../../tests/browser/screen-state-browser.mjs) 核对页面查询归属、草稿与缓存淘汰恢复；[p0-workflow](../../tests/e2e/p0-workflow.spec.ts) 在隔离生产服务核对实际导航。已移除脚本的历史性能结论不作为当前基线；本批实测范围见[优化交付](../deliveries/2026-11-13-optimization.md)。
 
 ## 维护指南
+
+桌面导航默认展开现行分组，仍可手动折叠。宽度不超过 1024px 时隐藏分组开关并显示全部页面图标，图标保留 title；“全部页面”按钮打开带文字的分组导航，Escape 关闭归还焦点、选页关闭弹窗。窄屏不继承桌面分组折叠导致入口消失；暂停能力的标识继续来自能力表。
 
 新页面只解析路由输入、提供数据入口并装配对应领域组件；新增业务状态归所属领域。改 URL、导航、缓存或 server/client 边界时同步更新此页与 [模块地图](README.md)。
 
@@ -42,15 +48,21 @@ newsBudget 与研究技能查询按 PanelVisible 暂停；删除本组件未消�
 
 行为验证入口为 `tests/connections-browser.mjs`（真实组件、查询缓存、合成传输），`tests/connections-production-browser.mjs`（仅允许显式隔离服务，真实设置/诊断 API），`tests/connections-perf-browser.mjs`（生产服务冷开/交互/隐藏请求测量）。合成传输结果不能称为实源可用性验证。
 
-## 任务中心的状态与恢复（2026-09-28）
+## 任务中心的状态与恢复（2026-11-13）
 
-任务中心使用 `taskOverview` 对全部已记录 Job 聚合计数，今日完成按北京时间日界；失败和取消为历史累计，统计独立于列表筛选。壳层 `jobs` 最近 80 条契约保留。历史列表继续 20 条游标分页，增加类型和精确编号；输入编号提交后才请求。列表和详情不返回原始 input/result。
+任务中心由 [tasks/page.tsx](../../src/app/tasks/page.tsx) 直接承载，已移出外壳面板缓存及预加载队列，不接收 WorkbenchState。`taskOverview` 对全部已记录 Job 聚合计数，今日完成按北京时间日界；失败和取消为历史累计，统计独立于列表筛选。壳层 `jobs` 最近 80 条继续服务侧栏等消费者，任务中心的刷新频率由自身概览决定。历史列表仍为 20 条游标分页；列表和详情不返回原始 input/result。
+
+[最近错误](../../src/components/workbench/recent-errors.tsx) 通过 `recentErrors` 只读查询展示最近 30 组诊断，显示模块/阶段、固定摘要、错误码、次数、首次/最近时间及已知重试次数；有效任务编号链接到 `/tasks?id=...`。页面可见且聚焦时每 30 秒读取，隐藏停止、返回恢复，手动刷新失败保留上次结果并注明。空记录、日志不可读和本进程漏记分别提示。存储与敏感信息边界见[工程约定](../conventions.md)，不展示供应商原始请求/响应；组件浏览器回归使用受控传输，不代替真实渠道/账户联调。
+
+状态、类型和精确任务编号由 URL 的 status/type/id 保存，校验复用 taskHistoryInput；未知值显示链接错误，不发起无条件列表查询。输入草稿提交后才更新 URL/请求。具名 task-history-session 按筛选保留草稿与分页游标，以及跨卸载的取消状态；服务端结果仍在 query cache。离开路由卸载，返回同一筛选恢复会话位置；浏览器刷新恢复 URL 条件，从第一页重新读取，不持久化草稿。临时展开项不跨卸载保留。
+
+公式结果通过 `/screen?job=<任务编号>` 打开。新提交与任务中心选择都写入该 URL；刷新、书签及浏览器历史按明确编号读取，不能在编号不存在时回退到最新任务。无编号进入仍沿用会话中的选择或最新结果。切换任务重置结果分页/筛选并关闭旧报告，重复进入同一编号保持已有状态；缺失、非选股任务和读取失败分别提示。应用验收见 `tests/e2e/p0-workflow.spec.ts`，使用真实公式 worker 的两条不同结果核对选择、刷新、后退与导出身份，并检查失败任务不沿用成功结果。
 
 `use-task-visible.ts` 合并 PanelVisible、document 可见性与窗口焦点。概览有活动任务时 2 秒、否则 30 秒校验；读取既有 Job revision，变化时只失效当前列表。旧活动任务不依赖最近 80 条窗口发现。展开的活动详情每 2 秒核对，终态停止周期读取；隐藏或失焦不启动页面专属查询，回来立即核对。传输失败保留旧列表并标注未刷新。详情仅首次无数据时显示加载 live region，周期核对不反复插入加载提示。
 
 普通刷新保留游标和展开任务，“回到最新”单独回首页；历史页不会被新任务自动顶回首页。当前任务退出筛选/当前页时给出说明并将焦点移回列表计数。取消按任务编号独立控制在途操作，显示服务端实际 outcome。取消受理不等于外部请求撤回或资源全部退出。来源链接是白名单导航，不自动填参或重新执行；没有可确认映射时明确提示。结果链接继续核对真实持久化结果。
 
-行为验证入口：`tests/task-center-browser.mjs` 保留原交互回归；`tests/task-center-query-browser.mjs` 使用真实 TanStack Query 与合成传输验证自动更新/隐藏/失焦/重复操作；`tests/task-center-production-browser.mjs` 使用隔离服务真实 API 和合成持久任务。性能分别由 `tests/task-center-perf.ts` 和 `tests/task-center-perf-browser.mjs` 测量，不把合成任务当作真实模型或计算任务业绩。
+行为验证入口：[task-center-browser](../../tests/browser/task-center-browser.mjs) 保留原交互回归；[task-center-query-browser](../../tests/browser/task-center-query-browser.mjs) 使用真实 TanStack Query 与合成传输验证更新/隐藏/失焦、卸载恢复和跨挂载取消去重；[p0-workflow](../../tests/e2e/p0-workflow.spec.ts) 在隔离生产服务核验框架路由、URL、刷新与返回。以上不属于真实模型调用或交易业绩验证。
 
 ## 研究档案的检索与阅读（2026-09-28）
 
@@ -62,6 +74,6 @@ newsBudget 与研究技能查询按 PanelVisible 暂停；删除本组件未消�
 
 壳层初始行情快照在 `/reports` 和其详情路径延后，离开档案再按原逻辑加载一次；阅读、筛选和导出不启动行情/研究任务。证据生产、方法算法、任务调度和MCP不在此次改动范围。验证入口为 `research-archive-history/navigation/evidence.test.ts`、`research-archive-production-browser.mjs`、`research-archive-perf.ts`、`research-archive-perf-browser.mjs`；浏览器/SQL产物均为隔离fixture，不证明真实策略有效。
 
-统一摘要查询在一次SQL内共享过滤结果，COUNT不受当前页边界影响；查询内JSONB只保留七个元数据字段，没有持久化格式变化。SQL和HTTP分别由 `tests/research-archive-perf.ts`、`tests/research-archive-http-perf.mjs`测量，后者在明确隔离库插入临时合成行并在finally恢复原有记录数。最终工程验收与性能波动记录见Documents下本模块交付说明。
+统一摘要查询在一次SQL内共享过滤结果，COUNT不受当前页边界影响；查询内JSONB只保留七个元数据字段，没有持久化格式变化。SQL和HTTP分别由 `tests/perf/research-archive-perf.ts`、`tests/perf/research-archive-http-perf.mjs`测量，后者在明确隔离库插入临时合成行并在finally恢复原有记录数。最终工程验收与性能波动记录见Documents下本模块交付说明。
 
 常驻面板约定：任何固定间隔的 `refetchInterval`，以及较重的一次性计算（如缠论分析），都必须在 `usePanelVisible()` 为 false 时暂停；只有"任务完成即停"的状态轮询可以例外。回归检查方法见 `docs/optimization-plan-2026-09-29.md` 的 1A。

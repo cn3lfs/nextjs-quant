@@ -1,34 +1,33 @@
 # 研究与回测
 
-## 当前单策略基线（2026-11-07）
+更新：2026-11-13。现行入口为回测工作台和策略中心，旧选股/回测、样本研究、walk-forward 与旧 LLM 分析链已退役，不保留只读兼容页面或旧执行协议。三个旧自动调度器保持暂停。范围见[优化方案](../optimization-plan-2026-11-13.md)和[统一策略中心规格](../product/specs/unified-strategy-center.md)。
 
-历史策略统一弃用，只保留查询/导出和兼容代码，新执行入口与自动策略调度停止。当前唯一启用的是回测页双均线交叉基线。纯核心在独立 [quant-backtest 包](../../packages/quant-backtest/README.md)：feed、strategy、engine、execution、account、analyzers；应用读取与核验在 `server/backtest/ma-baseline-work.ts`，任务入口 `ma-baseline-job.ts`，复用通用 worker/任务存储。接口为 `maBaseline*` 与 `strategyLifecycle`，界面 `components/backtest/ma-baseline-panel.tsx`。后续正文描述的旧实现只保留历史职责，不表示仍可启动。
+## 职责与边界
 
-## 职责与非职责
+- trading-strategies 负责策略纯规则，quant-backtest 负责执行/撮合/账户，quant-performance 负责评价；统计不能反向改变成交，规则不能直接写账户。
+- 应用负责数据读取与输入核验、任务/worker 生命周期、冻结输入与结果、查询和导出。数据源、时间、证券池、复权和证据等级必须明确；工程测试通过不等于可信策略业绩。
+- 用户真实账户与交易账本不由研究任务改写。当前数字货币模拟账户属于独立授权范围，不因旧回测退役停掉或扩展它。
+- 旧 quant.ts、专用分红/复权模拟、历史信号回溯、交易轮次面板和旧 Backtest/Trade 结果类型已经移除。不要以修复旧导入为由重建它们。
 
-回测 UI 采用[工作台规格](../product/specs/backtest-workbench.md)的配置/报告/历史布局。`ma-baseline-panel` 是取数与任务容器；`ma-experiment-config`、`ma-experiment-report`、`ma-experiment-history` 只接受 props；`lib/backtest/ma-workspace` 管理草稿转换/校验与展示名称。`maBaselineOrders` 返回按状态筛选后的 50 条订单与总数，复用已有 job 归档，不新增表或引擎逻辑。报告始终绑定所选任务，费用/实际窗口从归档读取。
+## 入口与实现
 
-研究域装配当时可得的数据证据、来源、方法和报告；回测域管理输入快照、模拟执行、公司行动/成本口径、worker 生命周期和结果。它不改写真实账本事实，也不把规则自检升级为正式业绩证明。
+| 边界       | 当前实现                                                                                                                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 回测工作台 | [页面容器](../../src/components/backtest/ma-baseline-panel.tsx)，配置、报告、历史分离；报告身份绑定所选任务，费用/窗口从冻结结果读取                                                                           |
+| 五分钟任务 | [ma-baseline-job](../../src/server/backtest/ma-baseline-job.ts) → 通用 worker → [ma-baseline-work](../../src/server/backtest/ma-baseline-work.ts)；执行协议为 ma-baseline，旧 backtest worker 消息不能重新运行 |
+| 回测 API   | [jobs router](../../src/server/api/routers/jobs.ts) 中的 maBaseline、Coverage、History、Result、Evaluation、Orders、Export、Remove；订单查询按状态分页，复用现有 job 存储                                      |
+| 策略中心   | [strategy-center router](../../src/server/api/routers/strategy-center.ts)；日线、横截面等能力以现行注册/输入契约为准，不把 695 项方法目录数当作可执行数量                                                      |
+| 数据输入   | [公司行动](../../src/server/backtest/backtest-actions.ts)、[分红对账](../../src/server/backtest/dividend-reconciliation.ts)以及独立 TDX 数据源保留；旧研究数据集采集/流式写入封装已移除                        |
+| 构建       | [统一 worker 构建](../../scripts/build-runtime.mjs)与根 packages:build；没有旧 research-worker 构建入口                                                                                                        |
 
-## 入口与消费者
+UI 详见[回测工作台规格](../product/specs/backtest-workbench.md)。图表价格、计算价格、估值和实际成交的时点/单位必须分开，不用旧回测的百分数或公司行动假设覆盖新引擎契约。
 
-- UI：`src/app/research/page.tsx`、`src/app/backtest/page.tsx`、`src/components/research/`、`src/components/backtest/`。
-- 服务：`src/server/research/`、`src/server/backtest/`；分析包括方法证据和绩效查询，回测包括 worker、动作、分红和 walk-forward。
-- API：`strategyResearch*`、`backtest`、`walkForward*`、`researchUsage/Attempts`、`reports/reportHistory/archivedReport` 等目前在 `api/root.ts`。
-- runtime worker 构建入口见 `scripts/build-runtime.mjs`，目前包括 `research-worker.ts` 与通用 `worker.ts`。
+## 验证与维护
 
-## 契约与依赖
+- 回放：[ma-baseline-work](../../tests/research-backtest/backtest/ma-baseline-work.test.ts)、[公司行动读取](../../tests/research-backtest/backtest/backtest-actions.test.ts)、[包边界](../../tests/engineering-validation/backtest-package.test.ts)以及 quant-backtest 包内手算/未来前缀用例。
+- 退役：[API 与模块边界](../../tests/api-runtime/retired-sample-research.test.ts)。不存在的旧入口不能被重试、开机恢复或 CLI 再次激活。
+- 独立计算：[每日绩效](../../tests/research-backtest/backtest/daily-performance.test.ts)、[CSCV/选参](../../tests/research-backtest/backtest/backtest-overfit.test.ts)。CSCV 继续复用曲线/夏普计算，不为采样组合重复运行整个回测。
+- 使用记录：[台账隔离](../../tests/research-backtest/research-usage-ledger-isolation.test.ts)验证写入研究使用记录不会修改信号台账。
+- 真实应用场景：pnpm e2e:p0 覆盖现行回测恢复/导出和公式/图表等关键路径；按[约定](../conventions.md)先构建与准备 standalone，并设置隔离数据目录。
 
-纯规则位于 `src/lib/research/` 与 `src/lib/backtest/`。研究入口 schema 保留在 `src/lib/research/strategy-research.ts`；研究按 `methods/`、`risk/`、`factors/`、`technical/`、`evidence/`、`specs/`、`workflow/` 和 `analysis/` 分域。各策略家族实现位于 `methods/{canslim,chan,volume,swing,wyckoff}/`。研究结果应回显证券池、数据时点、复权、来源和证据等级；回测输入快照不可被之后的数据静默替换。输入验证、任务取消/进度、持久结果 ID 和错误状态属于 API/worker 契约。研究调用行情、财务新闻源与模型；回测依赖纯规则/core、数据源、jobs 和 SQLite。
-
-## 状态、副作用与验证
-
-持久化任务、样本、快照、结果与报告；长任务使用 worker，模型/外部查询会有网络效果。API 验证请求后由 [backtest-job.ts](../../src/server/backtest/backtest-job.ts) 执行回测任务；隔离数据库要求见 [operations](../operations.md)。代表测试：[research-worker](../../tests/research-backtest/research-worker.test.ts)、[backtest-actions](../../tests/research-backtest/backtest/backtest-actions.test.ts)、[backtest-adjustment](../../tests/research-backtest/backtest/backtest-adjustment.test.ts)、[daily-performance](../../tests/research-backtest/backtest/daily-performance.test.ts)、[walk-forward](../../tests/research-backtest/backtest/walk-forward.test.ts)。
-
-回测结果净值图（`components/backtest/equity-chart.tsx`）同时画策略与买入持有两条收益率线和策略回撤面板，纯计算在 `lib/backtest/equity-drawdown.ts`。浏览器基线脚本：`tests/backtest-perf-browser.mjs`。CSCV 每个组合只调 `curvePerformance`/`sharpeWbt`，不要换回完整 `dailyPerformance`；买入手数统一用 `affordableShares`；`readGbbq` 有进程内缓存，调用方不得修改返回的事件。
-
-## 维护指南
-
-新增研究因子要绑定证据来源与时点并归入 `factors/`；方法家族代码放入对应 `methods/` 子目录，跨家族技术规则放 `technical/`，共用风险参数放 `risk/`，固定输入 schema 与策略目录放 `specs/`。新增执行规则要分离信号价格与成交假设，并明确交易规则、费用和公司行动。只有定义了数据覆盖和执行条件的结果才可作业绩主张；参见 [roadmap §1.1](../roadmap.md#11-策略验证分层) 与 [invariants](../invariants.md)。
-
-因子评估：纯计算在 `lib/research/factor-evaluation.ts`（alphalens 口径，列式存储），worker 任务在 `server/research/factor-evaluation-job.ts`，界面在 `components/research/factor-evaluation-panel.tsx`（条件选股页）。任务种类 `factor-eval` 会计入研究尝试台账。
+新增规则放策略包对应领域，新增执行行为放独立回测包；应用数据契约变化要验证来源和失败语义。保持 native、worker、输入格式及当前账户边界，不把旧专用测试的删除当作取消现行能力的验证。

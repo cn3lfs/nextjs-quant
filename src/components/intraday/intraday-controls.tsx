@@ -1,4 +1,9 @@
 "use client";
+import { rpsPeriods } from "quant-rps";
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
+import { CapabilityNotice } from "../common/capability-notice";
+
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { useState } from "react";
 import {
   Crosshair,
@@ -110,7 +115,6 @@ export function IntradayControls() {
     { enabled: visible && config.pool !== null },
   );
   const [slot, setSlot] = useState<"noon" | "late">("noon");
-  const today = status.data?.lastCheck?.schedule.date;
   const scheduled = status.data?.lastCheck?.schedule.slots.find(
     (item) => item.slot === slot,
   );
@@ -125,6 +129,7 @@ export function IntradayControls() {
           : null;
   return (
     <PageGrid>
+      <CapabilityNotice id="intraday" />
       {error && (
         <p role="alert" className="nc-span-12 m-0 text-[13px] text-nc-bad">
           {error}
@@ -142,7 +147,7 @@ export function IntradayControls() {
       )}
       <StatsPanel
         icon={Crosshair}
-        title="已生效参数与批次"
+        title="已保存参数与批次"
         meta={
           status.data?.lastCheck
             ? `最近检查 ${new Date(status.data.lastCheck.checkedAt).toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" })} · ${status.data.lastCheck.calendarSource}`
@@ -164,15 +169,19 @@ export function IntradayControls() {
         items={[
           {
             label: "状态",
-            value: !status.data
-              ? "尚未读取"
-              : !savedConfig.enabled
-                ? "未启用"
-                : scheduled
-                  ? labels[scheduled.status]
-                  : "尚未检查",
-            note: "上次检查的窗口状态；实际进度见批次记录",
-            tone: statusTone(scheduled?.status),
+            value: !capabilityAllows("intraday", "schedule")
+              ? "已暂停"
+              : !status.data
+                ? "尚未读取"
+                : !savedConfig.enabled
+                  ? "未启用"
+                  : scheduled
+                    ? labels[scheduled.status]
+                    : "尚未检查",
+            note: "调度状态独立于已保存的订阅设置",
+            tone: capabilityAllows("intraday", "schedule")
+              ? statusTone(scheduled?.status)
+              : "neutral",
           },
           {
             label: "后台执行",
@@ -181,7 +190,7 @@ export function IntradayControls() {
               : status.data.worker.running
                 ? "执行中"
                 : "空闲",
-            note: "隐藏页面不影响后台调度",
+            note: capabilities.intraday.reason,
           },
           {
             label: "RPS 条件",
@@ -192,7 +201,9 @@ export function IntradayControls() {
           },
           {
             label: "收盘核对",
-            value: "15:05 后",
+            value: capabilityAllows("intraday", "compute")
+              ? "15:05 后"
+              : "已暂停",
             note: "未核对与待重试数量见结果列表",
           },
         ]}
@@ -202,7 +213,7 @@ export function IntradayControls() {
         span={12}
         icon={SlidersHorizontal}
         title="参数"
-        note="预选使用上一交易日 RPS 和当日完整5分钟线。应用需保持运行；错过时段会留记录。盘中结果在收盘后另行核对。"
+        note={capabilities.intraday.reason}
       >
         <details>
           <summary className="cursor-pointer text-sm">
@@ -211,12 +222,13 @@ export function IntradayControls() {
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="flex items-center gap-2 text-[13px] text-nc-text-2">
               <Checkbox
+                disabled={!capabilityAllows("intraday", "schedule")}
                 checked={config.enabled}
                 onCheckedChange={(checked) =>
                   change({ enabled: checked === true })
                 }
               />
-              启用自动预选
+              自动预选订阅设置（调度暂停期间不生效）
             </label>
             <label className={field}>
               行情来源
@@ -266,9 +278,9 @@ export function IntradayControls() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[5, 10, 20, 50, 120, 250].map((period) => (
+                    {rpsPeriods.map((period) => (
                       <SelectItem key={period} value={String(period)}>
-                        {period}日
+                        {rpsPeriodLabel(period)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -384,6 +396,7 @@ export function IntradayControls() {
               <Button
                 variant="outline"
                 disabled={
+                  !capabilityAllows("intraday", "compute") ||
                   !status.data ||
                   dirty ||
                   !savedConfig.enabled ||
@@ -398,7 +411,7 @@ export function IntradayControls() {
             </div>
             {dirty && (
               <div className="text-[13px] text-nc-warn" role="status">
-                有未保存修改，请先保存或放弃后再检查时段。
+                有未保存修改，请保存或放弃参数修改。
                 <Button
                   size="sm"
                   variant="outline"

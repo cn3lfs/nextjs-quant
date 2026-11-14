@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
-import {evaluateGrowthFactors,rankGrowthFactors} from "../../../src/server/strategies/canslim/research-growth-factors";
-import {growthFactorMethods} from "trading-strategies/research/growth/growth-factor-engine";
-import { runGrowthFactorResearch } from "../../../src/server/backtest/research-run";
-import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
+import {
+  evaluateGrowthFactors,
+  rankGrowthFactors,
+} from "../../../src/server/strategies/canslim/research-growth-factors";
+import { growthFactorMethods } from "trading-strategies/research/growth/growth-factor-engine";
+import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
 
 import { request, event, fixture } from "../../helpers/growth-factor-fixture";
 function set(
@@ -20,7 +22,7 @@ function set(
 const one = (id: string, rows = fixture(), req = request) =>
   evaluateGrowthFactors(req, rows, [id]).results[0]!;
 
-it("34 named waiting-data methods execute through research entry, with missing rather than fabricated scores", () => {
+it("34 named waiting-data methods execute through the factor evaluator, with missing rather than fabricated scores", () => {
   expect(
     Object.keys(growthFactorMethods).filter((id) =>
       ["finance", "capital", "institution", "catalyst"].includes(
@@ -28,7 +30,7 @@ it("34 named waiting-data methods execute through research entry, with missing r
       ),
     ),
   ).toHaveLength(34);
-  const all = runGrowthFactorResearch(
+  const all = evaluateGrowthFactors(
     request,
     fixture(),
     Object.keys(growthFactorMethods).filter((id) =>
@@ -44,13 +46,13 @@ it("34 named waiting-data methods execute through research entry, with missing r
     coverage: { start: null, end: null },
   });
   expect(all.counts).toEqual({ rule: 34, human: 0, llm: 0 });
-  expect(runGrowthFactorResearch(request, []).counts).toEqual({
+  expect(evaluateGrowthFactors(request, []).counts).toEqual({
     rule: 0,
     human: 0,
     llm: 0,
   });
   expect(
-    runGrowthFactorResearch(request, []).results.every(
+    evaluateGrowthFactors(request, []).results.every(
       (r) => r.points === null && r.dataGaps.length > 0,
     ),
   ).toBe(true);

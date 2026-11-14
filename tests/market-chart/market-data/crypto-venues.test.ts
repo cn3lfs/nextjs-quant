@@ -56,7 +56,11 @@ describe("venue symbols and periods", () => {
   it("fails clearly for a period the venue lacks, without a request", async () => {
     const r = recorder(() => json([]));
     await expect(
-      venueKlines(gate, { symbol: "cxBTCUSDT", period: "week", limit: 10 }, r.options),
+      venueKlines(
+        gate,
+        { symbol: "cxBTCUSDT", period: "week", limit: 10 },
+        r.options,
+      ),
     ).rejects.toThrow("不提供该周期");
     expect(r.urls).toHaveLength(0);
   });
@@ -64,7 +68,15 @@ describe("venue symbols and periods", () => {
 
 describe("OKX", () => {
   const candle = (open: number, confirm = "1") => [
-    String(open), "100", "102", "99", "101", "5", "500", "505", confirm,
+    String(open),
+    "100",
+    "102",
+    "99",
+    "101",
+    "5",
+    "500",
+    "505",
+    confirm,
   ];
   it("pages backwards with `after`, merges ascending and marks the forming bar", async () => {
     const r = recorder((url) => {
@@ -90,31 +102,62 @@ describe("OKX", () => {
       "2026-01-09",
       "2026-01-10",
     ]);
-    expect(result.bars[0]).toMatchObject({ open: 100, close: 101, volume: 5, amount: 505 });
+    expect(result.bars[0]).toMatchObject({
+      open: 100,
+      close: 101,
+      volume: 5,
+      amount: 505,
+    });
     expect(result.formingDates).toEqual(["2026-01-10"]);
     expect(result.source).toBe("okx-spot");
   });
   it("rejects an error body and malformed prices instead of repairing them", async () => {
     await expect(
-      venueKlines(okx, { symbol: "cxBTCUSDT", period: "day", limit: 5 },
-        recorder(() => json({ code: "51001", msg: "Instrument ID does not exist", data: [] })).options),
+      venueKlines(
+        okx,
+        { symbol: "cxBTCUSDT", period: "day", limit: 5 },
+        recorder(() =>
+          json({
+            code: "51001",
+            msg: "Instrument ID does not exist",
+            data: [],
+          }),
+        ).options,
+      ),
     ).rejects.toThrow("Instrument ID does not exist");
     const bad = [String(T0), "100", "90", "99", "101", "5", "500", "505", "1"];
     await expect(
-      venueKlines(okx, { symbol: "cxBTCUSDT", period: "day", limit: 5 },
-        recorder(() => json({ code: "0", data: [bad] })).options),
+      venueKlines(
+        okx,
+        { symbol: "cxBTCUSDT", period: "day", limit: 5 },
+        recorder(() => json({ code: "0", data: [bad] })).options,
+      ),
     ).rejects.toThrow("价格或时间无效");
   });
 });
 
 describe("Gate.io", () => {
   const candle = (open: number, closed = "true") => [
-    String(open / 1000), "500", "101", "102", "99", "100", "5", closed,
+    String(open / 1000),
+    "500",
+    "101",
+    "102",
+    "99",
+    "100",
+    "5",
+    closed,
   ];
   it("reads its column order and ends normally at the 10000-point limit", async () => {
     const r = recorder((url) =>
       url.searchParams.get("to")
-        ? json({ label: "INVALID_PARAM_VALUE", message: "Candlestick too long ago. Maximum 10000 points ago are allowed" }, 400)
+        ? json(
+            {
+              label: "INVALID_PARAM_VALUE",
+              message:
+                "Candlestick too long ago. Maximum 10000 points ago are allowed",
+            },
+            400,
+          )
         : json([candle(T0 + 8 * DAY), candle(T0 + 9 * DAY, "false")]),
     );
     const result = await venueKlines(
@@ -122,9 +165,18 @@ describe("Gate.io", () => {
       { symbol: "cxBTCUSDT", period: "day", limit: 10 },
       r.options,
     );
-    expect(r.urls[1]!.searchParams.get("to")).toBe(String((T0 + 8 * DAY) / 1000 - 1));
+    expect(r.urls[1]!.searchParams.get("to")).toBe(
+      String((T0 + 8 * DAY) / 1000 - 1),
+    );
     expect(result.bars).toHaveLength(2);
-    expect(result.bars[1]).toMatchObject({ open: 100, high: 102, low: 99, close: 101, volume: 5, amount: 500 });
+    expect(result.bars[1]).toMatchObject({
+      open: 100,
+      high: 102,
+      low: 99,
+      close: 101,
+      volume: 5,
+      amount: 500,
+    });
     expect(result.historyExhausted).toBe(true);
     expect(result.formingDates).toEqual(["2026-01-10"]);
   });
@@ -136,8 +188,10 @@ describe("Coinbase", () => {
     const r = recorder(() => {
       call += 1;
       // [time, low, high, open, close, volume], newest first.
-      if (call === 1) return json([[ (T0 + 9 * DAY) / 1000, 99, 102, 100, 101, 3 ]]);
-      if (call === 2) return json([[ (T0 + 8 * DAY) / 1000, 99, 102, 100, 101, 3 ]]);
+      if (call === 1)
+        return json([[(T0 + 9 * DAY) / 1000, 99, 102, 100, 101, 3]]);
+      if (call === 2)
+        return json([[(T0 + 8 * DAY) / 1000, 99, 102, 100, 101, 3]]);
       return json([]);
     });
     const result = await venueKlines(
@@ -149,7 +203,10 @@ describe("Coinbase", () => {
     expect(r.urls[1]!.searchParams.get("end")).toBe(
       new Date(T0 + 9 * DAY - 1000).toISOString(),
     );
-    expect(result.bars.map((b) => b.date)).toEqual(["2026-01-09", "2026-01-10"]);
+    expect(result.bars.map((b) => b.date)).toEqual([
+      "2026-01-09",
+      "2026-01-10",
+    ]);
     expect(result.bars[0]!.amount).toBe(0);
     expect(result.sourceNote).toContain("不提供成交额");
   });
@@ -158,8 +215,13 @@ describe("Coinbase", () => {
 describe("Bybit", () => {
   it("surfaces a region block as an error", async () => {
     await expect(
-      venueKlines(bybit, { symbol: "cxBTCUSDT", period: "day", limit: 5 },
-        recorder(() => new Response("blocked from your country", { status: 403 })).options),
+      venueKlines(
+        bybit,
+        { symbol: "cxBTCUSDT", period: "day", limit: 5 },
+        recorder(
+          () => new Response("blocked from your country", { status: 403 }),
+        ).options,
+      ),
     ).rejects.toThrow("Bybit HTTP 403");
   });
 });

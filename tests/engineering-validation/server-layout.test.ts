@@ -120,7 +120,7 @@ it("keeps every worker source entry resolvable and emitted runtime filenames sta
   const entries = [...source.matchAll(/entryPoints: \["([^"]+)"\]/g)].map(
     (m) => m[1]!,
   );
-  expect(entries.length).toBeGreaterThanOrEqual(9);
+  expect(entries.length).toBeGreaterThanOrEqual(8);
   for (const entry of entries) expect(existsSync(entry), entry).toBe(true);
   const outputs = [...source.matchAll(/outfile: "(runtime\/[^\"]+)"/g)]
     .map((m) => m[1]!)
@@ -129,7 +129,6 @@ it("keeps every worker source entry resolvable and emitted runtime filenames sta
     "runtime/czsc-worker.cjs",
     "runtime/discipline-worker.cjs",
     "runtime/intraday-worker.cjs",
-    "runtime/research-worker.cjs",
     "runtime/rps-worker.cjs",
     "runtime/signal-ledger-worker.cjs",
     "runtime/westock-preload.mjs",

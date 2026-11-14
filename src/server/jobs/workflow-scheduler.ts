@@ -8,6 +8,7 @@ import {
 } from "../screening/rps-observation";
 import { runRpsObservation } from "../screening/rps-observation-job";
 import { settings } from "../infra/settings";
+import { recordRuntimeError } from "../infra/runtime-errors";
 export const workflowEnabled = () =>
   get<{ enabled: boolean }>("workflow-config")?.enabled === true;
 const receipt = z.object({
@@ -67,8 +68,8 @@ export function scheduleWorkflowRps(now: number) {
     if (requiresDownloadReceipt(phase) && !(await downloadReady(date))) return;
     await runRpsObservation(phase, now);
   })()
-    .catch(() => {
-      /* Persistent workflow-check exposes failure; old ranking remains visible. */
+    .catch((error) => {
+      recordRuntimeError("workflow-rps", error);
     })
     .finally(() => {
       scope.workflowTick = undefined;

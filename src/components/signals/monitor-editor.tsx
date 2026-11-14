@@ -1,4 +1,5 @@
 "use client";
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 import type { Channel } from "~/lib/domain";
 import type { MonitorDraft } from "~/lib/strategy-facts/monitor-workspace-draft";
 import { Button } from "../ui/button";
@@ -42,7 +43,7 @@ export function MonitorEditor({
         </Button>
       </div>
       <p className="text-xs text-nc-text-3">
-        修改配置或恢复订阅会重新建立基线，不补发历史信号。本机退出或休眠时监控停止。
+        {capabilities.signalMonitor.reason}
       </p>
       <form
         className="space-y-4"
@@ -170,12 +171,13 @@ export function MonitorEditor({
         </label>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
+            disabled={!capabilityAllows("signalMonitor", "schedule")}
             checked={draft.enabled}
             onCheckedChange={(checked) =>
               onChange({ enabled: checked === true })
             }
           />
-          保存后启用监控
+          自动监控订阅设置（调度暂停期间不生效）
         </label>
         {error && (
           <div role="alert" className="space-y-2 text-sm text-nc-bad">
@@ -193,7 +195,7 @@ export function MonitorEditor({
           </div>
         )}
         <Button type="submit" disabled={busy}>
-          {busy ? "正在保存…" : draft.enabled ? "保存并启用" : "保存订阅"}
+          {busy ? "正在保存…" : "保存订阅设置"}
         </Button>
       </form>
     </section>

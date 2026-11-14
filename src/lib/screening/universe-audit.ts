@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { tableSortSchema } from "../common/server-sort";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
-import { historicalDateSchema } from "./historical-screen";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { poolSelectionSchema } from "../market/market-pool";
 
 export const universeAuditLabels = {
@@ -18,10 +18,9 @@ export const universeBiasWarning =
   "本次结果的证券池含生存者偏差，幅度未知且不可由本地数据估计";
 export const universeAuditSourceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("market"), pool: poolSelectionSchema.nullable() }),
-  z.object({ kind: z.literal("research"), id: z.string().min(1) }),
   z.object({
     kind: z.literal("concept"),
-    date: historicalDateSchema,
+    date: researchDateSchema,
     hash: z.string().min(1),
   }),
 ]);
@@ -29,8 +28,8 @@ export type UniverseAuditSource = z.infer<typeof universeAuditSourceSchema>;
 export const universeAuditQuerySchema = z
   .object({
     source: universeAuditSourceSchema,
-    start: historicalDateSchema,
-    end: historicalDateSchema,
+    start: researchDateSchema,
+    end: researchDateSchema,
     metric: z
       .enum(
         Object.keys(universeAuditLabels) as [
@@ -70,8 +69,8 @@ export type UniverseAuditInput = {
 
 /** V4: dates are evidence, never inferred from price history or file timestamps. */
 export function auditUniverse(input: UniverseAuditInput) {
-  const start = historicalDateSchema.parse(input.start),
-    end = historicalDateSchema.parse(input.end);
+  const start = researchDateSchema.parse(input.start),
+    end = researchDateSchema.parse(input.end);
   if (start > end) throw new Error("审计开始日期不能晚于结束日期");
   const symbols = [
     ...new Set(input.symbols.map((s) => symbolSchema.parse(s))),
@@ -92,7 +91,7 @@ export function auditUniverse(input: UniverseAuditInput) {
   for (const symbol of symbols) {
     const row = evidence.get(symbol);
     const date = (value: string | null | undefined) =>
-      value == null ? null : historicalDateSchema.parse(value);
+      value == null ? null : researchDateSchema.parse(value);
     const listed = date(row?.listingDate),
       delisted = date(row?.delistingDate),
       first = date(row?.localFirstDate);

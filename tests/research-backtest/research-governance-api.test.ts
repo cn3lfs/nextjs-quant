@@ -1,8 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
-import { ResearchStore } from "../../src/server/backtest/research-store";
-import { admissionResearchFixture } from "../strategy-admission-fixture";
 import { defaultStrategy } from "../../src/lib/domain";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
@@ -37,116 +35,45 @@ afterEach(() => {
   state.db = null;
 });
 
-it("blocks every result, derivative and export route until an explicit durable reveal", async () => {
-  const { dataset, result } = await admissionResearchFixture();
-  const store = new ResearchStore(state.db!);
-  const task = store.create(result.spec, null, "final-validation");
-  store.saveDataset(task.id, dataset);
-  store.freeze(task.id);
-  store.finish(task.id, result);
-  for (const id of [
-    task.id,
-    `${task.id}:result`,
-    `${task.id}:dataset`,
-    `${task.id}:evidence`,
-    store.task(task.id)!.freezeId!,
-  ]) {
+it("generic jobs and monitors cannot read or overwrite unrelated record kinds", async () => {
+  const kinds = [
+    "research-task",
+    "research-result",
+    "research-dataset",
+    "research-evidence",
+    "research-freeze",
+  ];
+  for (const kind of kinds) {
+    const id = `${kind}-private`;
+    state
+      .db!.prepare("INSERT INTO records VALUES (?,?,?,?)")
+      .run(id, kind, JSON.stringify({ secret: "private" }), 1);
     expect(await caller.job({ id })).toBeNull();
     expect(await caller.jobSummary({ id })).toBeNull();
     await expect(caller.retryDelivery(id)).rejects.toThrow("投递不存在");
     await expect(caller.toggleMonitor({ id, enabled: false })).rejects.toThrow(
       "监控不存在",
     );
-    if (state.db!.prepare("SELECT id FROM records WHERE id=?").get(id))
-      await expect(
-        caller.saveMonitor({
-          id,
-          name: "不能覆盖研究",
-          symbols: ["sh600000"],
-          strategy: defaultStrategy,
-          period: "day",
-          channels: [],
-          ai: false,
-          enabled: false,
-        }),
-      ).rejects.toThrow("不能覆盖其他类型记录");
+    await expect(
+      caller.saveMonitor({
+        id,
+        name: "不能覆盖其他记录",
+        symbols: ["sh600000"],
+        strategy: defaultStrategy,
+        period: "day",
+        channels: [],
+        ai: false,
+        enabled: false,
+      }),
+    ).rejects.toThrow("不能覆盖其他类型记录");
   }
-  expect(store.task(task.id)?.mode).toBe("final-validation");
   expect(
     state
       .db!.prepare(
-        "SELECT count(*) AS count FROM records WHERE kind IN ('delivery','monitor')",
+        "SELECT count(*) n FROM records WHERE kind IN ('monitor','delivery','job')",
       )
       .get(),
-  ).toEqual({ count: 0 });
-  expect(await caller.strategyResearchResult(task.id)).toBeNull();
-  for (const partition of ["development", "validation"] as const) {
-    await expect(
-      caller.strategyResearchAdmission({ id: task.id, partition }),
-    ).rejects.toThrow("尚未揭示");
-    await expect(
-      caller.strategyResearchAdmissionExport({ id: task.id, partition }),
-    ).rejects.toThrow("尚未揭示");
-    await expect(
-      caller.strategyResearchRollingPerformance({ id: task.id, partition }),
-    ).rejects.toThrow("尚未揭示");
-    await expect(
-      caller.strategyResearchPeriodPerformance({ id: task.id, partition }),
-    ).rejects.toThrow("尚未揭示");
-  }
-  await expect(caller.strategyResearchSegments(task.id)).rejects.toThrow(
-    "尚未揭示",
-  );
-  await expect(caller.strategyResearchExport(task.id)).rejects.toThrow(
-    "尚未揭示",
-  );
-  await expect(
-    caller.universeAuditPage({
-      source: { kind: "research", id: task.id },
-      start: result.spec.start,
-      end: result.spec.end,
-    }),
-  ).rejects.toThrow("尚未揭示");
-  const metadata = (await caller.strategyResearchTasks()).find(
-    (row) => row.id === task.id,
-  )!;
-  expect(metadata.phase).toContain("等待显式揭示");
-  expect(metadata.total).toBe(0);
-  state.db!.exec(
-    "CREATE TRIGGER reject_reveal BEFORE INSERT ON records WHEN NEW.kind='research-reveal' BEGIN SELECT RAISE(FAIL,'read only audit'); END",
-  );
-  await expect(caller.strategyResearchReveal(task.id)).rejects.toThrow(
-    "read only audit",
-  );
-  expect(await caller.strategyResearchResult(task.id)).toBeNull();
-  state.db!.exec("DROP TRIGGER reject_reveal");
-  const revealed = await caller.strategyResearchReveal(task.id);
-  expect(revealed?.resultVisible).toBe(true);
-  expect(await caller.strategyResearchReveal(task.id)).toEqual(revealed);
-  expect((await caller.strategyResearchResult(task.id))?.hash).toBe(
-    result.hash,
-  );
-  expect((await caller.strategyResearchExport(task.id)).dataset?.hash).toBe(
-    dataset.hash,
-  );
-});
-
-it("ordinary legacy-compatible research remains visible without freezing", async () => {
-  const { dataset, result } = await admissionResearchFixture();
-  const store = new ResearchStore(state.db!);
-  const task = store.create(result.spec, null);
-  store.saveDataset(task.id, dataset);
-  store.finish(task.id, result);
-  expect((await caller.strategyResearchResult(task.id))?.hash).toBe(
-    result.hash,
-  );
-  expect((await caller.strategyResearchExport(task.id)).dataset?.hash).toBe(
-    dataset.hash,
-  );
-  expect((await caller.researchAttempts({ page: 1, pageSize: 1 })).total).toBe(
-    1,
-  );
-  await expect(caller.researchAttempts({ pageSize: 101 })).rejects.toThrow();
+  ).toEqual({ n: 0 });
 });
 
 const reportReaders: {
@@ -154,11 +81,6 @@ const reportReaders: {
   id: string;
   read: (id: string) => Promise<unknown>;
 }[] = [
-  {
-    name: "fundamental",
-    id: `fundamental-report-${"a".repeat(64)}`,
-    read: (id) => caller.fundamentalReport(id),
-  },
   {
     name: "financial quality",
     id: `financial-quality-${"a".repeat(64)}`,
@@ -173,31 +95,6 @@ const reportReaders: {
     name: "valuation",
     id: `valuation-scenario-${"a".repeat(64)}`,
     read: (id) => caller.valuationReport(id),
-  },
-  {
-    name: "wyckoff",
-    id: `wyckoff-report-${"a".repeat(64)}`,
-    read: (id) => caller.wyckoffReport(id),
-  },
-  {
-    name: "walk forward page",
-    id: "walk-forward-00000000-0000-0000-0000-000000000000",
-    read: (id) => caller.walkForwardResult(id),
-  },
-  {
-    name: "walk forward export",
-    id: "walk-forward-00000000-0000-0000-0000-000000000000",
-    read: (id) => caller.walkForwardExport(id),
-  },
-  {
-    name: "chan",
-    id: `chan-report-${"a".repeat(64)}`,
-    read: (id) => caller.chanReport(id),
-  },
-  {
-    name: "canslim",
-    id: `canslim-report-${"a".repeat(64)}`,
-    read: (id) => caller.canslimReport(id),
   },
   {
     name: "news",
@@ -241,7 +138,9 @@ it("snapshot-shaped research evidence cannot enter snapshot queries or start a d
     Date.now(),
   );
   await expect(caller.savedSnapshot(id)).rejects.toThrow("快照不存在");
-  await expect(caller.breakout({ snapshotId: id })).rejects.toThrow("已弃用");
+  await expect(caller.breakout({ snapshotId: id })).rejects.toThrow(
+    "快照不存在",
+  );
   await expect(caller.czsc({ snapshotId: id })).rejects.toThrow("快照不存在");
   await expect(
     caller.analyze({
@@ -251,28 +150,14 @@ it("snapshot-shaped research evidence cannot enter snapshot queries or start a d
     }),
   ).rejects.toThrow("请先加载行情");
   await expect(
-    caller.chanAnalyze({ snapshotId: id, question: "test" }),
-  ).rejects.toThrow("已弃用");
-  await expect(caller.canslimAnalyze({ snapshotId: id })).rejects.toThrow(
-    "已弃用",
-  );
-  await expect(
-    caller.wyckoffAnalyze({ snapshotId: id, question: "test" }),
-  ).rejects.toThrow("已弃用");
-  await expect(
-    caller.backtest({
+    (
+      caller as unknown as { backtest: (input: unknown) => Promise<unknown> }
+    ).backtest({
       snapshotId: id,
       strategy: defaultStrategy,
       initial: 10000,
     }),
-  ).rejects.toThrow("已弃用");
-  await expect(
-    caller.walkForward({
-      snapshotId: id,
-      strategy: defaultStrategy,
-      initial: 10000,
-    }),
-  ).rejects.toThrow("已弃用");
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
   expect(
     state
       .db!.prepare("SELECT count(*) AS count FROM records WHERE kind='job'")
@@ -299,15 +184,15 @@ it.each(["snapshot", "chart-snapshot"])(
 );
 
 it("properly typed report, delivery and monitor records remain usable in isolated storage", async () => {
-  const reportId = `fundamental-report-${"b".repeat(64)}`;
+  const reportId = "report-fixture";
   const insert = state.db!.prepare("INSERT INTO records VALUES (?,?,?,?)");
   insert.run(
     reportId,
-    "fundamental-report",
+    "report",
     JSON.stringify({ id: reportId, title: "fixture" }),
     Date.now(),
   );
-  expect(await caller.fundamentalReport(reportId)).toMatchObject({
+  expect(await caller.archivedReport(reportId)).toMatchObject({
     title: "fixture",
   });
   insert.run(

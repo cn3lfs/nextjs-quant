@@ -20,6 +20,7 @@ import { settings } from "../infra/settings";
 import { background, updateJob } from "../jobs/jobs";
 import { captureNativeChanObservations } from "./strategy-center-native";
 import type { projectCzsc } from "./chan/czsc";
+import { isStudyStockSymbol } from "~/lib/research/strategy-center-input";
 
 const day = z
   .string()
@@ -34,7 +35,9 @@ const day = z
 export const strategyCenterRunSchema = z
   .object({
     strategyId: z.enum([...studyStrategies, ...nativeStudyStrategies]),
-    symbol: z.string().regex(/^(sh60|sz00|sz30)\d{4}$/),
+    symbol: z
+      .string()
+      .refine(isStudyStockSymbol, "当前日线实验仅支持沪深100股整手股票"),
     start: day,
     end: day,
     initial: z.number().positive().finite().max(1e10).default(1000000),

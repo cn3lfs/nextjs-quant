@@ -6,8 +6,45 @@ import { spawnSync } from "node:child_process";
 import { background, cancelJob, updateJob } from "../../src/server/jobs/jobs";
 import { sqlite, get } from "../../src/server/db/index";
 import type { Job } from "../../src/lib/domain";
+import { recentRuntimeErrors } from "~/server/infra/runtime-errors";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-job-tests-"));
 beforeEach(() => sqlite().prepare("DELETE FROM records").run());
+
+it("records a failed background task once and links its real task identifier", async () => {
+  const job = background("research", {}, async () => {
+    throw Object.assign(new Error("secret provider payload"), {
+      code: "ETIMEDOUT",
+    });
+  });
+  await vi.waitFor(() => expect(get<Job>(job.id)?.status).toBe("failed"));
+  const entries = recentRuntimeErrors().entries.filter(
+    (entry) => entry.jobId === job.id,
+  );
+  expect(entries).toEqual([
+    expect.objectContaining({ event: "job-run", code: "ETIMEDOUT", count: 1 }),
+  ]);
+  expect(JSON.stringify(entries)).not.toContain("secret provider payload");
+});
+
+it("does not record a late rejection after accepted cancellation", async () => {
+  let reject!: (error: Error) => void;
+  const job = background(
+    "research",
+    {},
+    async () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      }),
+  );
+  await vi.waitFor(() => expect(reject).toBeTypeOf("function"));
+  cancelJob(job.id);
+  reject(new Error("worker terminated after cancellation"));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(get<Job>(job.id)?.status).toBe("cancelled");
+  expect(
+    recentRuntimeErrors().entries.some((entry) => entry.jobId === job.id),
+  ).toBe(false);
+});
 
 it("cancellation written by another process reaches the owner's signal and late results cannot replace it", async () => {
   let started!: () => void;

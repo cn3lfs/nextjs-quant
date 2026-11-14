@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { signalInformation } from "~/lib/strategy-facts/signal-information";
-import { horizons, aggregateLedger, type LedgerRow } from "~/lib/strategy-facts/signal-ledger";
+import {
+  horizons,
+  aggregateLedger,
+  type LedgerRow,
+} from "~/lib/strategy-facts/signal-ledger";
 import { SignalInformationView } from "~/components/signals/signal-information-view";
 function rows(
   values: number[],

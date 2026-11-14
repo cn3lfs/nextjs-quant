@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { rpsChartSegments, type RpsCurve } from "../../../src/lib/chart/chart-data";
-import { chartViewSchema, defaultChartView } from "../../../src/lib/chart/chart-view";
+import {
+  rpsChartSegments,
+  type RpsCurve,
+} from "../../../src/lib/chart/chart-data";
+import {
+  chartViewSchema,
+  defaultChartView,
+} from "../../../src/lib/chart/chart-view";
 const bars = Array.from({ length: 7 }, (_, i) => ({
   date: `2026-09-0${i + 1}`,
   open: 10,
@@ -54,7 +60,7 @@ describe("S3b persisted RPS chart", () => {
   it("loads old views with default windows and validates the reference range", () => {
     const { rps: _, ...old } = defaultChartView;
     expect(chartViewSchema.parse(old).rps).toEqual({
-      periods: [50, 120, 250],
+      periods: [20, 50, 120],
       threshold: 90,
     });
     expect(
@@ -80,15 +86,23 @@ it("wires persisted curves from the workspace and fixes the RPS pane range", asy
   );
   expect(workspace).toContain("api.rpsCurve.useQuery(snapshot.symbol, {");
   expect(workspace).toMatch(
-    /enabled: period === "day" && !isNonAShareChartSymbol\(snapshot.symbol\),\s*retry: false/,
+    /enabled:\s*visible && period === "day" && !isNonAShareChartSymbol\(snapshot.symbol\),\s*retry: false/,
   );
   expect(workspace).toContain('rps={period === "day" ? rps.data : undefined}');
   expect(workspace).toContain("onRpsRetry={() => void rps.refetch()}");
   const chart = readFileSync("src/components/market/chart.tsx", "utf8");
-  expect(chart).toContain("rpsChartSegments(");
-  expect(chart).toContain('lineStyle: segment.mode === "backfill" ? 2 : 0');
-  expect(chart).toContain("pointMarkersVisible: segment.data.length === 1");
-  expect(chart).toContain("priceRange: { minValue: 0, maxValue: 100 }");
-  expect(chart).toContain("price: rpsOptions.threshold");
+  const indicators = readFileSync(
+    "src/components/market/market-chart-indicators.ts",
+    "utf8",
+  );
+  expect(indicators).toContain("rpsChartSegments(");
+  expect(indicators).toContain(
+    'lineStyle: segment.mode === "backfill" ? 2 : 0',
+  );
+  expect(indicators).toContain(
+    "pointMarkersVisible: segment.data.length === 1",
+  );
+  expect(indicators).toContain("priceRange: { minValue: 0, maxValue: 100 }");
+  expect(indicators).toContain("price: rpsOptions.threshold");
   expect(chart).toContain("RPS仅支持日线，当前周期不可用");
 });

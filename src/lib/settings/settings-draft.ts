@@ -4,6 +4,7 @@ import type { Settings } from "~/lib/domain";
 export const connectionSettingKeys = [
   "tdxRoot",
   "clsDbPath",
+  "newsPythonExecutable",
   "marketDataSource",
   "calendar",
   "llmProvider",
@@ -11,8 +12,6 @@ export const connectionSettingKeys = [
   "claudeModel",
   "fastModel",
   "deepModel",
-  "analysisLimit",
-  "autoAnalysis",
   "autoNewsAnalysis",
   "autoNewsDailyBatches",
   "proxy",

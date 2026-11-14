@@ -1,12 +1,15 @@
 import { tradeReviewDayVwap } from "../../src/lib/portfolio/trade-review-vwap";
-import {classifyCode} from "../../src/lib/research/evidence/delivery-import";
+import { classifyCode } from "../../src/lib/research/evidence/delivery-import";
 import { expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type {ParsedFill,ParsedCashFlow} from "../../src/lib/research/evidence/delivery-import";
+import type {
+  ParsedFill,
+  ParsedCashFlow,
+} from "../../src/lib/research/evidence/delivery-import";
 import type { Bar } from "../../src/lib/domain";
 import {
   executionRows,

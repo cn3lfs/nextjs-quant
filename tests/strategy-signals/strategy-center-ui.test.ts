@@ -5,11 +5,6 @@ import { unifiedStrategyCatalog } from "trading-strategies";
 
 const selection = vi.hoisted(() => ({
   id: "ma",
-  evaluation: null as {
-    strategyId: string;
-    asOf: string;
-    result: unknown;
-  } | null,
 }));
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof import("react")>();
@@ -17,11 +12,7 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useState: ((initial: unknown) =>
       react.useState(
-        initial === "ma"
-          ? selection.id
-          : initial === null
-            ? selection.evaluation
-            : initial,
+        initial === "ma" ? selection.id : initial,
       )) as typeof react.useState,
   };
 });
@@ -33,6 +24,11 @@ vi.mock("~/trpc/react", async () => {
   };
   return {
     api: {
+      localDailyAsOf: {
+        useQuery: () => ({ data: { historicalAsOf: "2026-10-12" } }),
+      },
+      securityNames: { useQuery: () => ({ data: {} }) },
+      securities: { useQuery: () => ({ data: [] }) },
       strategyCenterCatalog: {
         useQuery: () => ({ data: catalog, error: null }),
       },
@@ -58,25 +54,11 @@ import { StrategyCenter } from "../../src/components/research/strategy-center";
 
 beforeEach(() => {
   selection.id = "ma";
-  selection.evaluation = null;
 });
 const render = () => renderToStaticMarkup(createElement(StrategyCenter));
 
-it("keeps completed weights tied to their strategy and date across manual or automatic selection", () => {
-  selection.evaluation = {
-    strategyId: "allocation-risk-parity",
-    asOf: "2025-03-01",
-    result: { proof: "completed-risk-parity-weights" },
-  };
-  for (const id of ["research-breakout", "no-longer-visible"]) {
-    selection.id = id;
-    expect(render()).not.toContain("completed-risk-parity-weights");
-  }
-  selection.id = "allocation-risk-parity";
-  const html = render();
-  expect(html).toContain("completed-risk-parity-weights");
-  expect(html).toContain("截至 2025-03-01");
-});
+// Result identity across selection is tested through real interactions in
+// route-visual.spec.ts, without injecting a result into every null useState.
 
 it("renders the entire unified catalog with separate historical method inventory", () => {
   const html = render();

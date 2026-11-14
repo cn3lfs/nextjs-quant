@@ -1,6 +1,6 @@
 import { z } from "zod";
-import {periodSchema,strategySchema} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { periodSchema, strategySchema } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { monitorWorkspaceId } from "./monitor-workspace";
 

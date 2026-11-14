@@ -1,12 +1,16 @@
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
 import { projectCzsc } from "../strategies/chan/czsc";
 import type { LedgerRun } from "./signal-ledger-store";
+import { capabilityAllows, capabilities } from "~/lib/common/capabilities";
 
 export class SignalLedgerWorker {
   private worker?: Worker;
   private active?: Promise<LedgerRun | undefined>;
   run(now: number, progress: (run: LedgerRun) => void = () => {}) {
+    if (!capabilityAllows("signalLedger", "compute"))
+      return Promise.reject(new Error(capabilities.signalLedger.reason));
     if (this.active) return this.active;
     const worker = (this.worker ??= new Worker(
       resolve("runtime/signal-ledger-worker.cjs"),
@@ -28,6 +32,7 @@ export class SignalLedgerWorker {
       const message = (value: {
         type: string;
         run?: LedgerRun;
+        error?: string;
         id?: number;
         args?: Parameters<typeof projectCzsc>;
       }) => {
@@ -49,7 +54,8 @@ export class SignalLedgerWorker {
         if (value.type === "progress" && value.run) progress(value.run);
         if (value.type === "done") {
           cleanup();
-          done(value.run);
+          if (value.error) reject(new Error(value.error));
+          else done(value.run);
         }
       };
       worker.on("message", message).once("error", failed).once("exit", exited);
@@ -73,6 +79,9 @@ const scope = globalThis as typeof globalThis & {
 };
 /** Scheduling only posts work; computation and SQLite bookkeeping stay off the monitor loop. */
 export function scheduleSignalLedger(now: number) {
+  if (!capabilityAllows("signalLedger", "schedule")) return;
   scope.ledgerWorker ??= new SignalLedgerWorker();
-  void scope.ledgerWorker.run(now).catch(() => {});
+  void scope.ledgerWorker.run(now).catch((error) => {
+    recordRuntimeError("signal-ledger", error);
+  });
 }

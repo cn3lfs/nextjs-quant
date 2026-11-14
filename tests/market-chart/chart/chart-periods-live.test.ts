@@ -1,7 +1,10 @@
 import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { analyzeCzsc, closeCzsc } from "../../../src/server/strategies/chan/czsc";
+import {
+  analyzeCzsc,
+  closeCzsc,
+} from "../../../src/server/strategies/chan/czsc";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { closeMcp } from "../../../src/server/mcp";
 import { mcpChartHistory } from "../../../src/server/market/chart-history";

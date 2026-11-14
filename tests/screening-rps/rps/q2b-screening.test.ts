@@ -1,6 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Bar, Job, Snapshot } from "../../../src/lib/domain";
 import { settingsSchema } from "../../../src/lib/domain";
@@ -15,6 +14,7 @@ vi.mock("../../../src/server/jobs/jobs", async (original) => ({
 }));
 import { scan, readSnapshot } from "../../../src/server/data-sources/tdx/tdx";
 import { screenFormula } from "../../../src/server/screening/formula-screening";
+import { executeFormulaScreen } from "../../../src/server/screening/formula-screen-work";
 import {
   saveFormula,
   savedFormulas,
@@ -23,11 +23,15 @@ import {
 } from "../../../src/server/screening/formula-screen-service";
 import { runWorker, cancelJob } from "../../../src/server/jobs/jobs";
 import { get, list, put, sqlite } from "../../../src/server/db/index";
+import { screeningRouter } from "~/server/api/routers/screening";
 import {
   pageScreenResults,
   type StoredScreenResult,
 } from "../../../src/server/screening/screen-results";
-process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "q2b-screen-"));
+process.env.QUANT_DATA_DIR = mkdtempSync(
+  join(process.env.QUANT_DATA_DIR!, "q2b-screen-"),
+);
+const fixtureRoot = join(process.env.QUANT_DATA_DIR, "fixture");
 const bars: Bar[] = Array.from({ length: 30 }, (_, i) => ({
   date: `2026-01-${String(i + 1).padStart(2, "0")}`,
   open: i + 1,
@@ -56,13 +60,9 @@ const formula = {
 beforeEach(() => {
   vi.clearAllMocks();
   sqlite().prepare("DELETE FROM records").run();
-  put(
-    "settings",
-    "settings",
-    settingsSchema.parse({ tdxRoot: "fixture", autoAnalysis: false }),
-  );
+  put("settings", "settings", settingsSchema.parse({ tdxRoot: fixtureRoot }));
   vi.mocked(scan).mockResolvedValue({
-    root: "fixture",
+    root: fixtureRoot,
     scannedAt: 0,
     counts: {},
     securities: [
@@ -77,6 +77,14 @@ beforeEach(() => {
     ],
   });
   vi.mocked(readSnapshot).mockResolvedValue(structuredClone(source));
+});
+it("formula RPC still rejects future-looking input before creating a task", async () => {
+  const caller = screeningRouter.createCaller({ headers: new Headers() });
+  await expect(
+    caller.formulaScreen({ ...formula, source: "REF(C,-1)>C;" }),
+  ).rejects.toThrow("REF");
+  expect(runWorker).not.toHaveBeenCalled();
+  expect(list<Job>("job", 200)).toEqual([]);
 });
 it.each([
   ["q2b-buffett", "FINANCE", 1, { N1: 10, N2: 10, N3: 10 }],
@@ -95,14 +103,14 @@ it.each([
     await expect(
       screenFormula({
         type: "formula-screen",
-        root: "fixture",
+        root: fixtureRoot,
         formula: input as typeof formula,
         now: Date.now(),
       }),
     ).rejects.toThrow(`第${line}行 ${name}`);
     expect(scan).not.toHaveBeenCalled();
     expect(runWorker).not.toHaveBeenCalled();
-    expect(list<Job>("job")).toEqual([]);
+    expect(list<Job>("job", 200)).toEqual([]);
     expect(savedFormulas()).toEqual([]);
   },
 );
@@ -121,22 +129,25 @@ it("name and parameter persistence round-trips; editing updates only this formul
   ).toThrow("REF");
   expect(savedFormulas()[0]!.name).toBe("新名字");
 });
-it("worker selection goes into existing candidate paging and export with immutable formula provenance", async () => {
+it("formula RPC validates, saves and executes through paging/export without automatic side effects", async () => {
+  const caller = screeningRouter.createCaller({ headers: new Headers() });
+  await expect(caller.checkFormula(formula)).resolves.toEqual({ ok: true });
+  const saved = await caller.saveFormula(formula);
+  expect(await caller.formulas()).toEqual([saved]);
   const progress = vi.fn();
   const result = await screenFormula(
     {
       type: "formula-screen",
-      root: "fixture",
+      root: fixtureRoot,
       formula,
       now: Date.parse("2026-02-01"),
     },
     progress,
   );
   expect(result.candidates.map((c) => c.symbol)).toEqual(["sh600519"]);
-  const usage = list<import("../../../src/lib/research/workflow/research-usage").ResearchUsage>(
-    "research-usage",
-    -1,
-  );
+  const usage = list<
+    import("../../../src/lib/research/workflow/research-usage").ResearchUsage
+  >("research-usage", 200);
   expect(usage).toHaveLength(1);
   expect(usage[0]).toMatchObject({
     kind: "formula-screen",
@@ -150,10 +161,14 @@ it("worker selection goes into existing candidate paging and export with immutab
     "公式选股",
     expect.objectContaining({ processed: 1, total: 1 }),
   );
-  vi.mocked(runWorker).mockResolvedValue(result);
-  const job = formulaScreenJob(formula);
+  vi.mocked(runWorker).mockImplementation(async (work, jobId) => {
+    if (work.type !== "formula-screen") throw new Error("Unexpected work");
+    return executeFormulaScreen(work, jobId);
+  });
+  const job = await caller.formulaScreen(formula);
   await vi.waitFor(() => expect(get<Job>(job.id)?.status).toBe("completed"));
   const finished = get<Job>(job.id)!;
+  expect(finished.result).not.toHaveProperty("snapshots");
   expect(get<Snapshot>(result.snapshots[0]!.id)?.bars).toEqual(bars);
   expect(
     pageScreenResults(finished.result as StoredScreenResult, {
@@ -164,12 +179,141 @@ it("worker selection goes into existing candidate paging and export with immutab
     }).count,
   ).toBe(1);
   expect(exportFormulaScreen(finished).parameters.formula).toEqual(formula);
-  expect(list<Job>("job")).toHaveLength(1); // no automatic analysis / notification jobs
+  expect(list<Job>("job", 200)).toHaveLength(1); // no automatic analysis / notification jobs
 });
+
+it("worker rejects a missing or terminal task before reading or saving snapshots", async () => {
+  const work = {
+    type: "formula-screen" as const,
+    root: fixtureRoot,
+    formula,
+    now: Date.now(),
+  };
+  await expect(executeFormulaScreen(work, undefined)).rejects.toThrow(
+    "任务身份",
+  );
+  await expect(executeFormulaScreen(work, "missing")).rejects.toThrow(
+    "不再运行",
+  );
+  for (const status of ["cancelled", "failed", "completed"]) {
+    put("job", "inactive", { type: "screen", input: work, status });
+    await expect(executeFormulaScreen(work, "inactive")).rejects.toThrow(
+      "不再运行",
+    );
+  }
+  expect(readSnapshot).not.toHaveBeenCalled();
+  expect(list("snapshot", 200)).toEqual([]);
+});
+
+it("cancellation while the worker reads history prevents late snapshot writes", async () => {
+  const work = {
+    type: "formula-screen" as const,
+    root: fixtureRoot,
+    formula,
+    now: Date.now(),
+  };
+  const job = { type: "screen", input: work, status: "running" };
+  put("job", "cancel-during-read", job);
+  let finish!: (value: Snapshot) => void;
+  vi.mocked(readSnapshot).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const pending = executeFormulaScreen(work, "cancel-during-read");
+  const rejected = expect(pending).rejects.toThrow("不再运行");
+  await vi.waitFor(() => expect(readSnapshot).toHaveBeenCalledOnce());
+  put("job", "cancel-during-read", { ...job, status: "cancelled" });
+  finish(source);
+  await rejected;
+  expect(list("snapshot", 200)).toEqual([]);
+});
+
+it("cancellation after a committed batch prevents every later batch", async () => {
+  const work = {
+    type: "formula-screen" as const,
+    root: fixtureRoot,
+    formula,
+    now: Date.now(),
+  };
+  const job = { type: "screen", input: work, status: "running" };
+  put("job", "cancel-between-batches", job);
+  const coverage = await scan(fixtureRoot);
+  vi.mocked(scan).mockResolvedValue({
+    ...coverage,
+    securities: Array.from({ length: 51 }, (_, i) => ({
+      ...coverage.securities[0]!,
+      symbol: `sh${600000 + i}`,
+    })),
+  });
+  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
+    ...source,
+    symbol,
+  }));
+  let batches = 0;
+  await expect(
+    executeFormulaScreen(work, "cancel-between-batches", (_n, phase) => {
+      if (phase !== "保存公式候选快照") return;
+      batches++;
+      put("job", "cancel-between-batches", { ...job, status: "cancelled" });
+    }),
+  ).rejects.toThrow("不再运行");
+  expect(batches).toBe(1);
+  const snapshots = list<Snapshot>("snapshot", 200);
+  expect(snapshots).toHaveLength(50);
+  expect(
+    snapshots.every((snapshot) => snapshot.bars.length === bars.length),
+  ).toBe(true);
+  expect(snapshots.some((snapshot) => snapshot.symbol === "sh600050")).toBe(
+    false,
+  );
+});
+it("does not write the next batch until the host acknowledges the preceding batch", async () => {
+  const work = {
+    type: "formula-screen" as const,
+    root: fixtureRoot,
+    formula,
+    now: Date.now(),
+  };
+  put("job", "await-batch", { type: "screen", input: work, status: "running" });
+  const coverage = await scan(fixtureRoot);
+  vi.mocked(scan).mockResolvedValue({
+    ...coverage,
+    securities: Array.from({ length: 51 }, (_, i) => ({
+      ...coverage.securities[0]!,
+      symbol: `sh${600000 + i}`,
+    })),
+  });
+  vi.mocked(readSnapshot).mockImplementation(async (_root, symbol) => ({
+    ...source,
+    symbol,
+  }));
+  let release!: () => void;
+  const acknowledged = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let batches = 0;
+  const pending = executeFormulaScreen(work, "await-batch", undefined, () => {
+    batches++;
+    return batches === 1 ? acknowledged : Promise.resolve();
+  });
+  try {
+    await vi.waitFor(() => expect(batches).toBe(1));
+    expect(list("snapshot", 200)).toHaveLength(50);
+  } finally {
+    release();
+  }
+  const result = await pending;
+  expect(result.candidates).toHaveLength(51);
+  expect(result).not.toHaveProperty("snapshots");
+  expect(list("snapshot", 200)).toHaveLength(51);
+  expect(batches).toBe(2);
+});
+
 it("appending future bars cannot change the fixed-cutoff candidate or snapshot hash", async () => {
   const work = {
     type: "formula-screen" as const,
-    root: "fixture",
+    root: fixtureRoot,
     formula,
     now: Date.parse("2026-01-30T08:00:00Z"),
   };
@@ -187,7 +331,7 @@ it("appending future bars cannot change the fixed-cutoff candidate or snapshot h
 it("cancellation discards late worker results and saves no snapshots", async () => {
   const result = await screenFormula({
     type: "formula-screen",
-    root: "fixture",
+    root: fixtureRoot,
     formula,
     now: Date.now(),
   });
@@ -204,13 +348,13 @@ it("cancellation discards late worker results and saves no snapshots", async () 
   await new Promise((resolve) => setTimeout(resolve, 30));
   expect(get<Job>(job.id)?.status).toBe("cancelled");
   expect(get<Job>(job.id)?.result).toBeUndefined();
-  expect(list("snapshot")).toEqual([]);
+  expect(list("snapshot", 200)).toEqual([]);
 });
 it("runtime function errors fail the whole task with symbol/function/line instead of skipping a stock", async () => {
   await expect(
     screenFormula({
       type: "formula-screen",
-      root: "fixture",
+      root: fixtureRoot,
       formula: { ...formula, source: "DMA(C,C/2)>0;" },
       now: Date.now(),
     }),
@@ -218,7 +362,7 @@ it("runtime function errors fail the whole task with symbol/function/line instea
 });
 
 it("final progress includes stale-date exclusions computed after the scan", async () => {
-  const coverage = await scan("fixture");
+  const coverage = await scan(fixtureRoot);
   vi.mocked(scan).mockResolvedValue({
     ...coverage,
     securities: [
@@ -235,7 +379,7 @@ it("final progress includes stale-date exclusions computed after the scan", asyn
   const result = await screenFormula(
     {
       type: "formula-screen",
-      root: "fixture",
+      root: fixtureRoot,
       formula,
       now: Date.parse("2026-02-01"),
     },
@@ -270,7 +414,7 @@ it("zero/multiple outputs and dead-branch future calls never launch work", () =>
 
 it("formula screening consumes persisted RPS and distinguishes missing from weak", async () => {
   const { RpsStore } = await import("../../../src/server/screening/rps-store");
-  const { rpsDay } = await import("../../rps-fixture");
+  const { rpsDay } = await import("../../helpers/rps-fixture");
   const store = new RpsStore(sqlite());
   const { day, rows } = rpsDay();
   store.saveDay({ ...day, date: bars.at(-1)!.date }, [
@@ -278,7 +422,7 @@ it("formula screening consumes persisted RPS and distinguishes missing from weak
   ]);
   const work = {
     type: "formula-screen" as const,
-    root: "fixture",
+    root: fixtureRoot,
     now: Date.parse("2026-02-01T08:00:00Z"),
     formula: { name: "RPS", source: "RPS50>85;", parameters: {} },
   };
@@ -294,7 +438,7 @@ it("formula screening consumes persisted RPS and distinguishes missing from weak
 it("V5 formula calculation still returns unchanged results when usage put fails", async () => {
   const work = {
     type: "formula-screen" as const,
-    root: "fixture",
+    root: fixtureRoot,
     formula,
     now: Date.parse("2026-02-01"),
   };
@@ -310,7 +454,7 @@ it("V5 formula calculation still returns unchanged results when usage put fails"
     expect(warn).toHaveBeenCalledWith(
       "研究使用台账写入失败，本次运行可能未记录",
     );
-    expect(list("research-usage", -1)).toHaveLength(1);
+    expect(list("research-usage", 200)).toHaveLength(1);
   } finally {
     sqlite().exec("DROP TRIGGER reject_usage");
     warn.mockRestore();

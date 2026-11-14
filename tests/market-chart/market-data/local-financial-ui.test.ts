@@ -36,6 +36,8 @@ it("真实财报的概览、字段、诊断和错误状态均可阅读，未知�
     expect(overview).toContain("2026-09-30");
     expect(overview).toContain("2026-10-31");
     expect(overview).toContain("未认证首次披露版本");
+    expect(overview).toContain("11.90%");
+    expect(overview).not.toContain("0.119 比例");
     const table = renderToStaticMarkup(
       createElement(FinancialFieldTable, {
         data,
@@ -54,6 +56,7 @@ it("真实财报的概览、字段、诊断和错误状态均可阅读，未知�
       createElement(FinancialMetricView, { data }),
     );
     expect(metrics).toContain("上年年报+本期累计-上年同期累计");
+    expect(metrics).toContain("11.90%");
     const source = renderToStaticMarkup(
       createElement(FinancialSourceView, {
         data,

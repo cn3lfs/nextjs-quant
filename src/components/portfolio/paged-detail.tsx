@@ -7,6 +7,7 @@ import type {
   NavPageKind,
 } from "~/server/portfolio/trade-review-nav-page";
 import { api } from "~/trpc/react";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { Button } from "../ui/button";
 import {
   Collapsible,
@@ -114,9 +115,10 @@ function RemotePage<K extends NavPageKind>({
   pageIndex: number;
   render: (row: NavDetailRow<K>, index: number) => ReactNode;
 }) {
+  const visible = useTaskVisible();
   const page = api.tradeReviewNavPage.useQuery(
     { account, method, kind, pageIndex },
-    { staleTime: 60000 },
+    { enabled: visible, staleTime: 60000 },
   );
   const data = page.data as Page<K> | undefined;
   return (

@@ -1,24 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import baseline from "../fixtures/r2-render-handlers.json";
-import { renderHandlers, componentLogic } from "../r2-contracts";
-import logic from "../fixtures/r2-component-logic.json";
-import { withoutE1MarketBrowser } from "../e1-market-contract";
+import { componentLogic } from "../helpers/r2-contracts";
 
-it("R2 preserves every original form and action handler, including request payloads and page resets", () => {
-  for (const [file, handlers] of Object.entries(baseline)) {
-    const source = readFileSync(file, "utf8");
-    expect(
-      renderHandlers(
-        file.endsWith("/market-view.tsx")
-          ? withoutE1MarketBrowser(source)
-          : source,
-      ),
-      file,
-    ).toEqual(handlers);
-  }
-});
-
+// Current settings/formula/task behavior is covered by the corresponding
+// browser harnesses. Frozen pre-R2 callback and hook inventories are obsolete.
 it("R2 precisely wires the connection components and preserves validation attributes", () => {
   const connection = readFileSync(
     "src/components/workbench/connections.tsx",
@@ -28,9 +13,12 @@ it("R2 precisely wires the connection components and preserves validation attrib
     "src/components/signals/notification-policy-fields.tsx",
     "utf8",
   );
+  // Retired automatic-screen review no longer has a limit or enable control.
   expect(connection.match(/<Input\b/g)).toHaveLength(13);
   expect(connection.match(/<Textarea\b/g)).toHaveLength(1);
-  expect(connection.match(/<Checkbox\b/g)).toHaveLength(3);
+  expect(connection.match(/<Checkbox\b/g)).toHaveLength(2);
+  expect(connection).not.toContain("config.analysisLimit");
+  expect(connection).not.toContain("config.autoAnalysis");
   expect(connection).toContain(
     '<SelectTrigger aria-label="平台" className="w-full">',
   );
@@ -59,11 +47,6 @@ it("R2 handler evidence rejects changed submitted settings", () => {
   ).not.toEqual(componentLogic(original));
 });
 
-it("R2 preserves component hooks, queries, local validation and computation outside rendering", () => {
-  for (const [file, expected] of Object.entries(logic))
-    expect(componentLogic(readFileSync(file, "utf8")), file).toEqual(expected);
-});
-
 it("R2 tables receive original result arrays and leave existing pagination and sorting in charge", () => {
   const screen = readFileSync(
     "src/components/workbench/screen-view.tsx",
@@ -77,7 +60,8 @@ it("R2 tables receive original result arrays and leave existing pagination and s
   expect(screen).toContain("pageIndex: excludedPage");
   expect(screen.match(/showPagination={false}/g)).toHaveLength(2);
   // Candidate columns backed by the server screen sort keys are sortable.
-  expect(screen.match(/enableSorting: false/g)).toHaveLength(6);
+  expect(screen.match(/enableSorting: false/g)).toHaveLength(5);
+  expect(screen).not.toContain('header: "AI 快评"');
   expect(screen.match(/enableSorting: true/g)).toHaveLength(5);
   const ledger = readFileSync(
     "src/components/signals/signal-ledger-analysis.tsx",

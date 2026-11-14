@@ -23,7 +23,7 @@
 
 ## 独立 TS 回测基线（2026-11-07）
 
-- 当前应用启用 `ma-cross-baseline-v1` 和用户新授权的 `factor-combination-v1`；旧策略/预设/代表方法继续 deprecated，历史记录不改名、不改版本、不删除。旧新建任务由 RPC 拒绝，旧自动策略调度停止；取消、历史查询和导出继续可用。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
+- 当前应用启用 `ma-cross-baseline-v1` 和用户新授权的 `factor-combination-v1`。2026-11-13 优化决定优先：公式选股与双突破图表恢复，旧选股/回测、四套旧 LLM 和 walk-forward 接口直接移除；不用的历史衍生记录按已授权清理范围处理，保留数据源和现行依赖。三个自动策略调度由统一能力策略保持暂停，旧样本研究页面/API/worker 启动链已移除，残留服务继续清理；不为旧协议增加兼容层。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
 - 回测核心在 `packages/quant-backtest`，无应用/IO 依赖，输入不改写；策略产生信号，只有撮合后的成交可以改变账户，统计不反向影响执行。测试：包内 `engine.test.ts`、`execution.test.ts` 和 `tests/engineering-validation/backtest-package.test.ts`（含错误依赖负对照与应用目录外 ESM 调用）。
 - 已完成五分钟信号最早下一根 open 执行；T+1 当日买入不可卖，受阻退出保留，窗口末尾不虚构平仓。价格/资金/费用明确，初始本金参与收益与回撤；日末曲线与逐根最大回撤分开。测试：包内手算与未来追加用例、应用曲线测试。
 - 应用冻结基线 20 根或因子条件最大 lookback（交叉额外一根）的预热及研究行情、日历与公司行动依据，记录数据/来源/引擎版本与构建摘要；缺时段、跨交易日预热不全、已修复源或已知除权事件拒绝。无完整历史交易状态认证的结果恒为 `rule-check-only`，估算量不作为可成交证明。测试：`tests/research-backtest/backtest/ma-baseline-work.test.ts`。不能据本阶段结果声称可信策略业绩。
@@ -106,7 +106,7 @@
 - **是什么（边界与退化）**：全样本超额回撤 ≤ 阈值、Sharpe > 阈值；逐年/近期第三路回撤严格 < 阈值。归一化 scale 只由全样本计算，recent 历史段严格剔除尾部窗口。long/bench 任一年化波动率 < 1e-12、非有限收益或溢出均令 alpha 退化，所有超额派生值为 `ReviewValue` 空值，不能通过超额条件或总体判定。缺失路径也不能补零；绝对收益缺失的窗口留空，long/bench 缺失时整段超额不可认定。
 - **是什么（证据与用途）**：可选 `longDaily` 默认取策略腿，不实现多空拆分。全部参数和输入随完整 JSON 导出，`evidenceLevel` 原样带出；未有管理者标定决定前，页面总判定固定为“未标定”，只展示分指标与条件。`isGood` 不驱动交易、参数选择或淘汰；输入收益 NaN/Inf 是任务书 §2.1 明确的退化特判，其他非法输入均抛错，JSON 导出拒绝不能无损表达的 NaN/Inf。
 - **为什么**：wbt 阈值在单利收益空间标定，切为复利会改变阈值含义；空值变零会制造零风险，近期重新缩放或重叠窗口会改变“近期更稳”的问题。
-- **测试**：[strategy-admission.test.ts](../tests/strategy-signals/strategy-admission.test.ts)、[strategy-admission-service.test.ts](../tests/strategy-signals/strategy-admission-service.test.ts)。真实账户与浏览器由管理者验收；[合成分布](review/u8-calibration-distribution.json) 不代表账户阈值已标定。
+- **测试**：[strategy-admission.test.ts](../tests/strategy-signals/strategy-admission.test.ts)、[strategy-admission-service.test.ts](../tests/strategy-signals/strategy-admission-service.test.ts)。真实账户与浏览器由管理者验收；退役研究样本的合成分布不再作为当前验收依据；账户导出重放见 `scripts/u8-calibration-distribution.ts --from <导出.json> --out <仓库外分布.json>`，摘要不代表账户阈值已标定。
 - **违反会怎样**：边界倒置、退化策略误获准入、默认值冒充账户结论，或用未经核验的样本宣称可信业绩。
 
 ### U6 三段样本治理
@@ -297,13 +297,13 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **测试**：[universe-audit.test.ts](../tests/screening-rps/universe-audit.test.ts) 保护手算、边界、空池、零核验/外呼、只读名单、原快照成员、分页与下界展示。真实数据与浏览器验收尚待管理者执行。
 - **违反会怎样**：审计触发外呼、伪造上市日期、把退市下界宣称为精确总量或把今天名单当历史名单。
 
-## W1 研究送转口径
+## 公司行动与执行模型边界
 
-- **是什么**：`adjustment` 省略或 `none` 时保持全部原数值与现金实验路径。`backward` 仅送转因子：`1 + bonusRatio`，不含现金/配股；信号用调整价，成交估值用原始价，策略及买入持有股数跟送转，现金分红只计数、不入现金。碎股向下取整到整股并按生效观测日原始开盘价折现。
-- **是什么（拒绝）**：类别1且配股比例为正，以及11/12/13/14，或来源缺失/未覆盖/事件非法，整段不可用并返回原因与诊断；先检查整个输入，禁止候选、预热和尾部绕过拒绝。类别2至10按 W1 §8 总股本/上市流通变动假设处理，不重复增股，必须披露判断来源及可卖性未建模。
-- **为什么**：现金信号复权但现金不入账会混用口径；因子调股会误计现金/配股。仅送转仍残留除息跳空，未还原登记日、送股可卖日、现金到账、退市、历史税制和成交量调整，不构成可信业绩。
-- **测试**：[backtest-adjustment.test.ts](../tests/research-backtest/backtest/backtest-adjustment.test.ts) 保护手算净值、现金不入账、碎股、拒绝清单、默认完整结果哈希、信号反例、日期对齐与候选/fold透传。实际证券与浏览器验收由管理者执行，无自动化真实数据证明。
-- **违反会怎样**：假暴跌进入风险统计，信号与持仓口径不一致，或不可用事件被当零收益参与选参。
+读取公司行动、复权信号价格和处理账户权益是不同契约，不能因为取得 GBBQ 或价格因子就声称已完整模拟登记、到账、可卖和税费。来源缺失不能当作无事件，未支持的行动不能静默参与收益计算。
+
+旧 W1 送转/现金实验模拟器及其界面已经退役，不保留旧结果类型和兼容执行。现行执行与评价分别归 quant-backtest 和 quant-performance；具体输入拒绝、时点与证据边界按当前应用 schema 和上文独立回测引擎约束执行，不继承旧模拟器的现金忽略或碎股折现假设。
+
+现行验证：[公司行动读取](../tests/research-backtest/backtest/backtest-actions.test.ts)、[应用回放边界](../tests/research-backtest/backtest/ma-baseline-work.test.ts)、[独立回测包契约](../tests/engineering-validation/backtest-package.test.ts)。这些工程检查不等同于真实历史成交认证。
 
 ## W4 出入金前估值
 

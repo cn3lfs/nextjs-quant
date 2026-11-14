@@ -24,7 +24,9 @@ it("默认带浏览器 UA 与 Referer", async () => {
 });
 
 it("403 后该组冷却、另一组不受影响", async () => {
-  const fetcher = vi.fn<typeof fetch>(async () => new Response("", { status: 403 }));
+  const fetcher = vi.fn<typeof fetch>(
+    async () => new Response("", { status: 403 }),
+  );
   await expect(
     emFetch("https://push2.eastmoney.com/x", {}, fetcher),
   ).rejects.toBeInstanceOf(EastmoneyBlockedError);

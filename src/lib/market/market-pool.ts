@@ -1,6 +1,6 @@
+import { isRpsMarketSymbol, rpsPeriods, type RpsValue } from "quant-rps";
 import { z } from "zod";
 import { sortTableRows, tableSortSchema } from "../common/server-sort";
-import { isRpsMarketSymbol, rpsPeriods, type RpsValue } from "../screening/rps";
 
 export const poolCategorySchema = z.enum(["industry", "concept", "index"]);
 export const poolCategoryLabels = {
@@ -17,14 +17,14 @@ export const poolSelectionSchema = z.object({
     .refine((s) => !/[\\/\x00-\x1f]/.test(s), "名单名称非法"),
 });
 /**
- * Deep link into the stock pool browser, which reads these parameters on mount.
+ * Deep link into the standalone stock pool route.
  * Used by the板块 RPS tables so a ranked name opens its成分股.
  */
 export function poolMembersHref(
   category: z.infer<typeof poolCategorySchema>,
   name: string,
 ) {
-  return `/market?poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
+  return `/stock-pool?poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
 }
 export const marketPoolQuerySchema = z.object({
   pool: poolSelectionSchema.nullable().default(null),
@@ -44,6 +44,10 @@ export const marketPoolQuerySchema = z.object({
     .optional(),
 });
 export type MarketPoolQuery = z.infer<typeof marketPoolQuerySchema>;
+export type MarketPoolAvailability = {
+  rps: "missing" | "period-missing" | "ready";
+  dailyIndex: "not-scanned" | "empty" | "ready";
+};
 export type MarketPoolRow = {
   symbol: string;
   name: string;

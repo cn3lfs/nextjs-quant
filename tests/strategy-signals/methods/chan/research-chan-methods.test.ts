@@ -11,10 +11,27 @@ import {
   compactChanMaMethodPoint,
   chanWolfPoint,
 } from "trading-strategies/research/chan/research-chan-native";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import type { WyckoffStructureInput } from "trading-strategies/research/wyckoff/research-wyckoff";
+
+it("CH14 rejects a symmetric sell that has no associated center", () => {
+  const { result } = context();
+  const family = result.families[0]!;
+  family.centers.push({ ...family.centers[0]!, ZD: 13, ZG: 14 });
+  const sell = {
+    index: 50,
+    date: bars[50]!.date,
+    kind: -3,
+    quality: 1,
+    centerId: 2,
+  };
+  family.signals = [sell];
+  expect(
+    chanNativeCandidates("chan-hold-cash-native", result, bars, 0).signals,
+  ).toHaveLength(1);
+  sell.centerId = 0;
+  expect(
+    chanNativeCandidates("chan-hold-cash-native", result, bars, 0).gaps[0],
+  ).toContain("结构缺口");
+});
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),
   open: 11,
@@ -219,71 +236,6 @@ it("CHAN-MA research observations compact repeated diagnostics without changing 
   expect(compact.evidence).not.toHaveProperty("rows");
   expect(compact.evidence).not.toHaveProperty("chunks");
 });
-it("CH14 symmetric native sell belongs to its center; actual long holding exits after sell confirmation and no short is opened", async () => {
-  const spec = researchSpecSchema.parse({
-    strategy: "chan-hold-cash-native",
-    start: bars[61]!.date,
-    end: bars[65]!.date,
-    validationStart: bars[65]!.date,
-    holdingDays: 60,
-  });
-  const native = async (prefix: readonly Bar[]) => {
-    const { result } = context();
-    const f = result.families[0]!;
-    f.signals = [];
-    if (prefix.length >= 63)
-      f.signals.push({
-        index: 40,
-        date: bars[40]!.date,
-        kind: 2,
-        quality: 1,
-        centerId: 1,
-      });
-    if (prefix.length >= 64) {
-      f.centers.push({ ...f.centers[0]!, ZD: 13, ZG: 14 });
-      f.signals.push({
-        index: 50,
-        date: bars[50]!.date,
-        kind: -3,
-        quality: 1,
-        centerId: 2,
-      });
-    }
-    return result;
-  };
-  const events = await researchSignals("sh600000", bars, spec, native);
-  expect(events.map((e) => e.side ?? "entry")).toEqual(["entry", "exit"]);
-  const rules = {
-    evidence: "fixture",
-    minimumBuy: 100,
-    buyStep: 100,
-    maximumOrder: 100000,
-    minimumSell: 100,
-    sellStep: 100,
-    maximumSell: 100000,
-    sellOddLotAll: true,
-    tradable: true,
-    limitUp: null,
-    limitDown: null,
-  };
-  const result = researchPortfolio(
-    spec,
-    events,
-    bars.map((b) => b.date),
-    new Map([["sh600000", bars]]),
-    (_s, d) => ({ ...rules, tradable: d !== bars[64]!.date }),
-  );
-  expect(result.trades).toHaveLength(1);
-  expect(result.trades[0]!.exitDate).toBe(bars[65]!.date);
-  expect(result.attempts).toContainEqual(
-    expect.objectContaining({ date: bars[64]!.date, side: "sell" }),
-  );
-  const fake = await native(bars);
-  fake.families[0]!.signals[1]!.centerId = 0;
-  expect(
-    chanNativeCandidates("chan-hold-cash-native", fake, bars, 0).gaps[0],
-  ).toContain("结构缺口");
-});
 it("CH15 daily stock MACD zero-axis filter uses strict both-lines signs", () => {
   const trend = (dir: number) =>
     bars.map((b, i) => ({
@@ -311,92 +263,4 @@ it("CH15 daily stock MACD zero-axis filter uses strict both-lines signs", () => 
     entryAllowed: false,
     exit: false,
   });
-});
-it("CH05 calls serial full completed-week prefixes and confirms only newly proved semantic2 A/C; never feeds daily bars to DLL", async () => {
-  const input: Bar[] = [];
-  for (let t = Date.UTC(2020, 0, 6); input.length < 310; t += 86400000) {
-    const d = new Date(t);
-    if (![0, 6].includes(d.getUTCDay()))
-      input.push({ ...bars[0]!, date: d.toISOString().slice(0, 10) });
-  }
-  const row = (i: number): WyckoffStructureInput => ({
-    symbol: "sh600000",
-    date: input[i]!.date,
-    source: "fixture",
-    availableAt: `${input[i]!.date}T15:00:00+08:00`,
-    stock: {
-      id: "weekly-raw",
-      symbol: "sh600000",
-      period: "day",
-      source: "fixture",
-      adjustment: "none",
-      hash: "fixture",
-      createdAt: 0,
-      bars: input.slice(0, i + 1),
-    },
-    calendar: {
-      days: input.map((b) => b.date),
-      closedDays: [],
-      source: "fixture",
-      hash: "fixture",
-      availableAt: "2019-01-01T00:00:00+08:00",
-    },
-  });
-  const rows = [row(299), row(304), row(309)],
-    sizes: number[] = [];
-  const native = async (prefix: readonly Bar[]) => {
-    sizes.push(prefix.length);
-    const { result } = context();
-    const f = result.families[0]!;
-    f.points.forEach((p) => (p.date = prefix[p.index]!.date));
-    f.centers.forEach((c) => {
-      c.startDate = prefix[c.start]!.date;
-      c.endDate = prefix[c.end]!.date;
-    });
-    const s = f.signals[0]!;
-    s.date = prefix[s.index]!.date;
-    s.kind = 1;
-    s.divergence!.semantic = 2;
-    s.structure!.previousStartPointId = 2;
-    s.structure!.previousEndPointId = 3;
-    if (prefix.length === 60) f.signals = [];
-    return result;
-  };
-  const spec = researchSpecSchema.parse({
-    strategy: "chan-consolidation-weekly-native",
-    start: rows[1]!.date,
-    end: rows[2]!.date,
-    validationStart: rows[2]!.date,
-    wyckoffStructureInputs: rows,
-  });
-  const observations: unknown[] = [];
-  const events = await researchSignals(
-    "sh600000",
-    input,
-    spec,
-    native,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    (r) => observations.push(r),
-  );
-  expect(sizes, JSON.stringify(observations)).toEqual([60, 61, 62]);
-  expect(events).toHaveLength(1);
-  expect(events[0]!.observedDate).toBe(rows[1]!.date);
-  const crossed = async (prefix: readonly Bar[]) => {
-    const r = await native(prefix);
-    r.families[0]!.signals.forEach((s) => {
-      s.structure!.previousStartPointId = 1;
-      s.structure!.previousEndPointId = 2;
-    });
-    return r;
-  };
-  expect(await researchSignals("sh600000", input, spec, crossed)).toEqual([]);
-  const wrong = async (prefix: readonly Bar[]) => {
-    const r = await native(prefix);
-    r.families[0]!.signals.forEach((s) => (s.divergence!.semantic = 1));
-    return r;
-  };
-  expect(await researchSignals("sh600000", input, spec, wrong)).toEqual([]);
 });

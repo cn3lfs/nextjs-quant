@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type {ParsedCashFlow,ParsedFill} from "../../src/lib/research/evidence/delivery-import";
+import type {
+  ParsedCashFlow,
+  ParsedFill,
+} from "../../src/lib/research/evidence/delivery-import";
 import type { Bar } from "../../src/lib/domain";
 import { reviewTrades } from "../../src/lib/portfolio/trade-review";
 

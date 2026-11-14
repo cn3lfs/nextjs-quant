@@ -113,8 +113,7 @@ export const gate: VenueSpec = {
         close: c,
         volume: base,
         amount: quote,
-        closed:
-          closed === undefined ? undefined : String(closed) === "true",
+        closed: closed === undefined ? undefined : String(closed) === "true",
       };
     });
   },
@@ -147,24 +146,24 @@ export const coinbase: VenueSpec = {
     return url;
   },
   parse: (raw) => {
-    const rows = z.array(z.tuple([num, num, num, num, num, num])).safeParse(raw);
+    const rows = z
+      .array(z.tuple([num, num, num, num, num, num]))
+      .safeParse(raw);
     if (!rows.success) {
       const error = z.object({ message: z.string() }).safeParse(raw);
       throw new Error(
         `Coinbase：${error.success ? error.data.message : "未返回有效 K 线"}`,
       );
     }
-    return rows.data.map(
-      ([t, low, high, open, close, volume]): VenueRow => ({
-        openTime: t * 1000,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        amount: null,
-      }),
-    );
+    return rows.data.map(([t, low, high, open, close, volume]): VenueRow => ({
+      openTime: t * 1000,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      amount: null,
+    }));
   },
   shortPages: true,
   note: "Coinbase 不提供成交额（记 0）",
@@ -212,17 +211,15 @@ export const bybit: VenueSpec = {
       .parse(raw);
     if (body.retCode !== 0 || !body.result)
       throw new Error(`Bybit：${body.retMsg || body.retCode}`);
-    return body.result.list.map(
-      ([t, o, h, l, c, vol, turnover]): VenueRow => ({
-        openTime: Number(t),
-        open: Number(o),
-        high: Number(h),
-        low: Number(l),
-        close: Number(c),
-        volume: Number(vol),
-        amount: Number(turnover),
-      }),
-    );
+    return body.result.list.map(([t, o, h, l, c, vol, turnover]): VenueRow => ({
+      openTime: Number(t),
+      open: Number(o),
+      high: Number(h),
+      low: Number(l),
+      close: Number(c),
+      volume: Number(vol),
+      amount: Number(turnover),
+    }));
   },
 };
 

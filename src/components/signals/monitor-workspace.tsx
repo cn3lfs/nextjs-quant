@@ -1,4 +1,6 @@
 "use client";
+import { capabilityAllows } from "~/lib/common/capabilities";
+import { CapabilityNotice } from "../common/capability-notice";
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { api } from "~/trpc/react";
@@ -282,7 +284,7 @@ export function MonitorWorkspace({
       if (context)
         setErrors((previous) => ({ ...previous, [context.key]: "" }));
       setNotice(
-        `已保存订阅“${value.name}”${value.enabled ? "，将重新建立基线" : "，当前暂停"}。`,
+        `已保存订阅“${value.name}”${!capabilityAllows("signalMonitor", "schedule") ? "，调度仍暂停" : value.enabled ? "，将重新建立基线" : "，当前暂停"}。`,
       );
       void changed();
     },
@@ -432,6 +434,7 @@ export function MonitorWorkspace({
   const hasDetail = !!selected[tab] || !!editing;
   return (
     <PageGrid>
+      <CapabilityNotice id="signalMonitor" />
       <Panel
         title="策略监控与通知"
         note="订阅配置、规则触发与消息投递分别记录。先核对原因，再决定操作。"
@@ -608,8 +611,12 @@ export function MonitorWorkspace({
                     {drafts[row.id]?.dirty ? " · 未保存草稿" : ""}
                   </strong>
                   <span className="block text-xs">
-                    {row.enabled ? "已启用" : "已暂停"} · {row.strategyName} ·{" "}
-                    {row.symbols.join("、")}
+                    {!capabilityAllows("signalMonitor", "schedule")
+                      ? "调度已暂停"
+                      : row.enabled
+                        ? "已启用"
+                        : "已暂停"}{" "}
+                    · {row.strategyName} · {row.symbols.join("、")}
                   </span>
                   <span className="block text-xs text-nc-text-3">
                     最近检查 {monitorTime(row.lastCheck)}

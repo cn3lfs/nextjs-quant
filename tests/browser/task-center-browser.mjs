@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
@@ -13,7 +13,7 @@ const { chromium } = createRequire(
 let negativeApplied = false;
 const bundle = await build({
   stdin: {
-    contents: `import React, {useState} from 'react'; import {createRoot} from 'react-dom/client'; import {TaskCenter} from './src/components/workbench/task-center'; import {PanelVisibility} from './src/components/workbench/keep-alive'; function Fixture(){const [visible,setVisible]=useState(true); window.setTaskVisible=setVisible;return <PanelVisibility visible={visible}><TaskCenter state={{jobs:{data:[]},selectFormulaJob:id=>window.openedScreen=id,setTab:tab=>window.openedTab=tab}}/></PanelVisibility>}; createRoot(document.getElementById('root')).render(<Fixture/>);`,
+    contents: `import React, {useState} from 'react'; import {createRoot} from 'react-dom/client'; import {TaskCenter} from './src/components/workbench/task-center'; import {PanelVisibility} from './src/components/workbench/keep-alive'; function Fixture(){const [visible,setVisible]=useState(true); window.setTaskVisible=setVisible;return <PanelVisibility visible={visible}><TaskCenter/></PanelVisibility>}; createRoot(document.getElementById('root')).render(<Fixture/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
   },
@@ -26,6 +26,9 @@ const bundle = await build({
     {
       name: "isolated-task-fixture",
       setup(b) {
+        b.onResolve({ filter: /^next\/navigation$/ }, () => ({
+          path: resolve("tests/fixtures/browser/task-navigation.ts"),
+        }));
         b.onResolve({ filter: /^next\/link$/ }, () => ({
           path: "link",
           namespace: "fixture",
@@ -47,6 +50,7 @@ const bundle = await build({
       const items=Array.from({length:22},(_,i)=>({id:'task-'+String(i).padStart(3,'0'),type:i===18?'screen':'research',status:i===19?'running':i%2?'failed':'completed',progress:i===19?45:100,phase:'阶段摘要 '+i,createdAt:1700000000000+i,updatedAt:1700000001000+i})).reverse();
       const full=id=>{const value=items.find(j=>j.id===id);return {...value,phase:'完整阶段 '+id,error:value.status==='failed'?'完整错误：证据缺失\\n'+ 'LONG_ERROR_'.repeat(80):undefined,resultLink:id==='task-020'?{href:'/reports/report/report-020',label:'查看研究报告'}:undefined,screenResultId:id==='task-018'?id:undefined,auditIncomplete:id==='task-021',attemptId:id==='task-021'?'attempt-021':undefined}};
       export const api={
+        recentErrors:{useQuery(){return {data:{entries:[],available:true,unrecordedInThisProcess:0},refetch:()=>bump()}}},
         taskOverview:{useQuery(){return {data:{running:1,queued:0,completedToday:10,failed:11,cancelled:0,total:22,revision:1,checkedAt:Date.now()},refetch:()=>bump()}}},
         taskHistory:{useQuery(input){useRevision();const filtered=items.filter(j=>(!input.status||j.status===input.status)&&(!input.type||j.type===input.type)&&(!input.id||j.id===input.id));const start=input.cursor?filtered.findIndex(j=>j.id===input.cursor.id)+1:0;const page=filtered.slice(start,start+20);return {data:f.listError?undefined:{items:page,total:filtered.length,nextCursor:start+20<filtered.length?{id:page.at(-1).id,createdAt:page.at(-1).createdAt}:null},isFetching:false,error:f.listError?{message:'列表离线'}:null,refetch:()=>{f.listError=false;bump()}}}},
         taskState:{useQuery({id},options){useRevision();f.detailEnabled=options.enabled;f.interval=options.refetchInterval({state:{data:items.find(j=>j.id===id)}});useEffect(()=>{if(options.enabled)f.queries.push(id)},[id,options.enabled]);return {data:!options.enabled||f.mode==='loading'||f.mode==='error'?undefined:f.mode==='missing'?null:full(id),isFetching:options.enabled&&f.mode==='loading',error:options.enabled&&f.mode==='error'?{message:'详情离线'}:null,refetch:()=>{f.mode='ok';bump()}}}},
@@ -143,9 +147,12 @@ try {
   );
   assert.equal(await panel("task-021").isVisible(), false);
   await trigger("task-018").click();
-  await panel("task-018").getByRole("button", { name: "查看选股结果" }).click();
-  assert.equal(await page.evaluate(() => window.openedScreen), "task-018");
-  assert.equal(await page.evaluate(() => window.openedTab), "screen");
+  assert.equal(
+    await panel("task-018")
+      .getByRole("link", { name: "查看选股结果" })
+      .getAttribute("href"),
+    "/screen?job=task-018",
+  );
   await trigger("task-019").click();
   assert.equal(await page.evaluate(() => window.fixture.interval), 2000);
   await page.evaluate(() => window.setTaskVisible(false));
@@ -184,9 +191,21 @@ try {
   await page.getByRole("button", { name: "上一页任务" }).click();
   await page.getByLabel("历史任务状态", { exact: true }).click();
   await page.getByRole("option", { name: "失败", exact: true }).click();
+  assert.equal(
+    await rows.count(),
+    20,
+    "draft filters must not query before submission",
+  );
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
   assert.equal(await rows.count(), 10);
   await page.getByLabel("历史任务状态", { exact: true }).click();
   await page.getByRole("option", { name: "全部", exact: true }).click();
+  assert.equal(
+    await rows.count(),
+    10,
+    "the applied filter stays visible while editing",
+  );
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
   assert.equal(await rows.count(), 20);
   await trigger("task-021").click();
   await page.evaluate(() => window.fixture.set({ mode: "loading" }));
@@ -204,13 +223,15 @@ try {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   );
-  await page.screenshot({
-    path: join(tmpdir(), "quant-task-center-mobile.png"),
-  });
+  if (process.env.TASK_SHOT_DIR)
+    await page.screenshot({
+      path: join(process.env.TASK_SHOT_DIR, "quant-task-center-mobile.png"),
+    });
   await page.setViewportSize({ width: 1100, height: 900 });
-  await page.screenshot({
-    path: join(tmpdir(), "quant-task-center-desktop.png"),
-  });
+  if (process.env.TASK_SHOT_DIR)
+    await page.screenshot({
+      path: join(process.env.TASK_SHOT_DIR, "quant-task-center-desktop.png"),
+    });
   await page.getByRole("button", { name: "刷新任务", exact: true }).click();
   assert.equal(
     await page

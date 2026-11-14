@@ -234,6 +234,7 @@ vi.mock("lightweight-charts", () => ({
 }));
 import { defaultChartView } from "../../../src/lib/chart/chart-view";
 import { MarketChart, PriceChart } from "../../../src/components/market/chart";
+import { MarketChartLegend } from "../../../src/components/market/market-chart-legend";
 function render(bars: Bar[], period: Period = "day") {
   h.cursor = 0;
   const element = PriceChart({ bars, period }) as ReactElement<{
@@ -251,10 +252,25 @@ function elements(node: ReactNode): ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!("props" in node)) return [];
   const element = node as ReactElement<Record<string, unknown>>;
+  if (element.type === MarketChartLegend)
+    return elements(
+      MarketChartLegend(
+        element.props as Parameters<typeof MarketChartLegend>[0],
+      ),
+    );
   return [element, ...elements(element.props.children as ReactNode)];
 }
 function text(node: ReactNode): string {
   if (Array.isArray(node)) return node.map(text).join("");
+  if (
+    node &&
+    typeof node === "object" &&
+    "type" in node &&
+    node.type === MarketChartLegend
+  )
+    return text(
+      MarketChartLegend(node.props as Parameters<typeof MarketChartLegend>[0]),
+    );
   if (node && typeof node === "object" && "props" in node)
     return text((node as ReactElement<{ children: ReactNode }>).props.children);
   return node == null ? "" : String(node);
@@ -284,6 +300,24 @@ beforeEach(() => {
   vi.stubGlobal("cancelAnimationFrame", () => {});
 });
 describe("M2 chart event wiring", () => {
+  it("cancels a queued history reveal when the chart unmounts", () => {
+    const cancel = vi.fn();
+    vi.stubGlobal("cancelAnimationFrame", cancel);
+    render(bars(1000));
+    const chart = h.charts.at(-1)!;
+    chart.rangeChanged?.({ from: 0, to: 20 });
+    const pending = h.frames.length;
+    expect(pending).toBeGreaterThan(0);
+    // The hook harness retains the actual effect disposers, including the
+    // native instance owner; invoke them as React does during unmount.
+    for (const slot of h.slots) {
+      if (slot && typeof slot === "object" && "cleanup" in slot)
+        (slot.cleanup as (() => void) | undefined)?.();
+    }
+    expect(cancel).toHaveBeenCalledWith(pending);
+    expect(chart.removed).toBe(true);
+  });
+
   it("keeps the native drag intact and reveals history only after pointer release", () => {
     render(bars(601));
     const chart = h.charts.at(-1)!;

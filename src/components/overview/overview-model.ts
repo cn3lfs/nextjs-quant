@@ -1,3 +1,4 @@
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 import type { Tone } from "../panels/tone";
 import {
   dayPhase,
@@ -55,7 +56,12 @@ export type OverviewInput = {
   } | null;
   /** Local daily bars' last day and the day they should reach (server-side). */
   daily?: { asOf: string | null; expected: string | null } | null;
-  rps?: { latestDate: string | null; running: boolean; error?: string | null };
+  rps?: {
+    latestDate: string | null;
+    running: boolean;
+    error?: string | null;
+    waiting?: string | null;
+  };
   channels: { enabled: boolean }[];
   failedDeliveries: number;
 };
@@ -162,6 +168,8 @@ export function timeline(input: OverviewInput): TimelineSlot[] {
   const slot = (
     key: "noon" | "late",
   ): Pick<TimelineSlot, "status" | "tone"> => {
+    if (!capabilityAllows("intraday", "schedule"))
+      return { status: "已暂停", tone: "idle" };
     if (!config?.enabled) return { status: "未启用", tone: "idle" };
     if (closedDay) return { status: "休市", tone: "idle" };
     const run = todayRun(input, key);
@@ -217,23 +225,26 @@ export function timeline(input: OverviewInput): TimelineSlot[] {
       time: "15:05",
       label: "收盘复盘核对",
       pct: axisPct(15 * 60 + 5),
-      ...(!config?.enabled
-        ? { status: "未启用", tone: "idle" as const }
-        : closedDay
-          ? { status: "休市", tone: "idle" as const }
-          : m < 15 * 60 + 5
-            ? { status: until(m, 15 * 60 + 5), tone: "accent" as const }
-            : input.intraday!.unconfirmed > 0
-              ? {
-                  status: `${input.intraday!.unconfirmed} 个待核对`,
-                  tone: "accent" as const,
-                }
-              : { status: "已核对", tone: "ok" as const }),
+      ...(!capabilityAllows("intraday", "schedule")
+        ? { status: "已暂停", tone: "idle" as const }
+        : !config?.enabled
+          ? { status: "未启用", tone: "idle" as const }
+          : closedDay
+            ? { status: "休市", tone: "idle" as const }
+            : m < 15 * 60 + 5
+              ? { status: until(m, 15 * 60 + 5), tone: "accent" as const }
+              : input.intraday!.unconfirmed > 0
+                ? {
+                    status: `${input.intraday!.unconfirmed} 个待核对`,
+                    tone: "accent" as const,
+                  }
+                : { status: "已核对", tone: "ok" as const }),
     },
   ];
 }
 
 export function scheduleSummary(input: OverviewInput) {
+  if (!capabilityAllows("intraday", "schedule")) return "盘中预选已暂停";
   const done = (["noon", "late"] as const).filter((slot) =>
     ["complete", "partial"].includes(todayRun(input, slot)?.status ?? ""),
   ).length;
@@ -299,14 +310,18 @@ export function health(input: OverviewInput): HealthCard[] {
       name: "RPS 数据",
       value: input.rps?.running
         ? "计算中"
-        : input.rps?.latestDate
-          ? `截至 ${input.rps.latestDate.slice(5)}`
-          : "尚未计算",
+        : input.rps?.waiting
+          ? "等待条件"
+          : input.rps?.latestDate
+            ? `截至 ${input.rps.latestDate.slice(5)}`
+            : "尚未计算",
       note: input.rps?.error
         ? input.rps.error
-        : rpsStale
-          ? `落后于上一交易日 ${previous}`
-          : "个股 RPS 最近批次",
+        : input.rps?.waiting
+          ? input.rps.waiting
+          : rpsStale
+            ? `落后于上一交易日 ${previous}`
+            : "个股 RPS 最近批次",
       tone: input.rps?.error
         ? "bad"
         : input.rps?.running
@@ -318,23 +333,29 @@ export function health(input: OverviewInput): HealthCard[] {
     {
       key: "schedule",
       name: "调度",
-      value: !input.intraday?.config.enabled
-        ? "未启用"
-        : input.intraday.worker.error
-          ? "异常"
-          : input.intraday.worker.running
-            ? "执行中"
-            : "运行中",
-      note: input.intraday?.worker.error
-        ? input.intraday.worker.error
-        : check
-          ? `最近检查 ${hhmm(check.checkedAt)} · 休眠会停止`
-          : "应用运行时每分钟检查",
-      tone: input.intraday?.worker.error
-        ? "bad"
-        : input.intraday?.config.enabled
-          ? "neutral"
-          : "idle",
+      value: !capabilityAllows("intraday", "schedule")
+        ? "已暂停"
+        : !input.intraday?.config.enabled
+          ? "未启用"
+          : input.intraday.worker.error
+            ? "异常"
+            : input.intraday.worker.running
+              ? "执行中"
+              : "运行中",
+      note: !capabilityAllows("intraday", "schedule")
+        ? capabilities.intraday.reason
+        : input.intraday?.worker.error
+          ? input.intraday.worker.error
+          : check
+            ? `最近检查 ${hhmm(check.checkedAt)} · 休眠会停止`
+            : "应用运行时每分钟检查",
+      tone: !capabilityAllows("intraday", "schedule")
+        ? "idle"
+        : input.intraday?.worker.error
+          ? "bad"
+          : input.intraday?.config.enabled
+            ? "neutral"
+            : "idle",
     },
     {
       key: "channels",
@@ -426,7 +447,21 @@ export function todos(input: OverviewInput): Todo[] {
       action: "查看",
       href: "/intraday",
     });
-  if (intraday && !intraday.config.enabled)
+  if (!capabilityAllows("intraday", "schedule"))
+    list.push({
+      key: "intraday-paused",
+      tone: "idle",
+      tag: "已暂停",
+      title: "盘中预选已暂停",
+      detail: capabilities.intraday.reason,
+      action: "查看记录",
+      href: "/intraday",
+    });
+  if (
+    capabilityAllows("intraday", "schedule") &&
+    intraday &&
+    !intraday.config.enabled
+  )
     list.push({
       key: "intraday-off",
       tone: "idle",
@@ -437,6 +472,7 @@ export function todos(input: OverviewInput): Todo[] {
       href: "/intraday",
     });
   if (
+    capabilityAllows("intraday", "schedule") &&
     intraday?.config.enabled &&
     intraday.lastCheck?.schedule.trading !== "closed"
   )
@@ -479,7 +515,12 @@ export function todos(input: OverviewInput): Todo[] {
           href: "/intraday",
         });
     }
-  if (intraday && intraday.unconfirmed > 0 && m >= 15 * 60 + 5)
+  if (
+    capabilityAllows("intraday", "compute") &&
+    intraday &&
+    intraday.unconfirmed > 0 &&
+    m >= 15 * 60 + 5
+  )
     list.push({
       key: "confirm",
       tone: "accent",

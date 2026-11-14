@@ -1,5 +1,10 @@
-import {strategySchema,type Bar,type Monitor,type Strategy} from "~/lib/domain";
-import {type Metrics} from "trading-strategies/research/technical/screening-metrics";
+import {
+  strategySchema,
+  type Bar,
+  type Monitor,
+  type Strategy,
+} from "~/lib/domain";
+import { type Metrics } from "trading-strategies/research/technical/screening-metrics";
 import type { CzscSignalDetails } from "trading-strategies/research/chan/czsc";
 import { analyzeCzsc } from "../strategies/chan/czsc";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";

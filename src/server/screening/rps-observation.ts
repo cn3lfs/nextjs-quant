@@ -1,5 +1,6 @@
+import { type RpsRow } from "quant-rps";
 import { resolve } from "node:path";
-import type { RpsDay, RpsRow } from "~/lib/screening/rps";
+import type { RpsDay } from "~/lib/screening/rps";
 import { get, sqlite } from "../db";
 
 export type RpsObservation = {

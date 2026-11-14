@@ -1,7 +1,10 @@
 "use client";
 import { createContext, useContext } from "react";
 import type { RouterOutputs } from "~/trpc/react";
-import { displayFinancialNumber } from "~/lib/financial/local-financial";
+import {
+  displayFinancialNumber,
+  displayFinancialMetric,
+} from "~/lib/financial/financial-display";
 import {
   DataTable,
   type DataTableColumn,
@@ -11,6 +14,14 @@ import { Button } from "../ui/button";
 
 export type FinancialViewData = RouterOutputs["localFinancialView"];
 export const FinancialDisplayUnit = createContext("元");
+function FinancialMetricValue({
+  metric,
+}: {
+  metric: FinancialViewData["metrics"][number];
+}) {
+  const display = useContext(FinancialDisplayUnit);
+  return <>{displayFinancialMetric(metric, display)}</>;
+}
 function FinancialValue({
   value,
   unit,
@@ -165,7 +176,7 @@ export function FinancialOverview({ data }: { data: FinancialViewData }) {
                     {metric.label}
                   </p>
                   <p className="tabular-nums">
-                    <FinancialValue value={metric.value} unit={metric.unit} />
+                    <FinancialMetricValue metric={metric} />
                   </p>
                   {metric.reason && (
                     <p className="text-xs text-muted-foreground">
@@ -214,7 +225,7 @@ export function FinancialMetricView({ data }: { data: FinancialViewData }) {
         <details key={metric.id} className="rounded border border-border p-2">
           <summary className="cursor-pointer text-sm">
             {metric.label}：
-            <FinancialValue value={metric.value} unit={metric.unit} />
+            <FinancialMetricValue metric={metric} />
           </summary>
           <p className="text-xs text-muted-foreground">
             {metric.formula} · {metric.reason ?? "计算输入齐全"}
@@ -247,12 +258,12 @@ const timelineColumns: DataTableColumn<TimelineRow>[] = [
   {
     id: "value",
     header: "指标值",
-    cell: ({ row }) => (
-      <FinancialValue
-        value={row.original.metric?.value ?? null}
-        unit={row.original.metric?.unit ?? ""}
-      />
-    ),
+    cell: ({ row }) =>
+      row.original.metric ? (
+        <FinancialMetricValue metric={row.original.metric} />
+      ) : (
+        "—"
+      ),
   },
   {
     id: "basis",

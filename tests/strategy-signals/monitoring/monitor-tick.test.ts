@@ -4,11 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 // Preserve the retired engine's regression coverage in isolation; production
 // admission is tested separately with the real disabled policy.
-vi.mock("../../../src/lib/backtest/strategy-lifecycle", async (original) => ({
-  ...(await original<
-    typeof import("../../../src/lib/backtest/strategy-lifecycle")
-  >()),
-  legacyAutomaticStrategiesEnabled: true,
+vi.mock("../../../src/lib/common/capabilities", async (original) => ({
+  ...(await original<typeof import("../../../src/lib/common/capabilities")>()),
+  capabilityAllows: () => true,
 }));
 import {
   settingsSchema,
@@ -155,16 +153,16 @@ it("establishes every enabled subscription baseline beyond the UI history limit"
     )
     .get() as { n: number };
   expect(checked.n).toBe(1000);
-  expect(list("signal")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
   expect(mocked.enqueue).not.toHaveBeenCalled();
 });
 it("persists one fresh transition with calendar provenance and deduplicates the same completed bar", async () => {
   await tick();
-  expect(list("signal")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
   vi.setSystemTime(at("10:05"));
   mocked.worker.mockResolvedValue(source("10:05", true));
   await tick();
-  const signals = list<Signal>("signal");
+  const signals = list<Signal>("signal", 200);
   expect(signals).toHaveLength(1);
   expect(signals[0]).toMatchObject({
     monitorRun: { createdAt: 1, revision: null },
@@ -192,7 +190,7 @@ it("persists one fresh transition with calendar provenance and deduplicates the 
   });
   vi.setSystemTime(at("10:06"));
   await tick();
-  expect(list("signal")).toHaveLength(1);
+  expect(list("signal", 200)).toHaveLength(1);
   expect(mocked.enqueue).toHaveBeenCalledOnce();
 });
 it.each(["holiday", "resuming", "disabled"])(
@@ -216,7 +214,7 @@ it.each(["holiday", "resuming", "disabled"])(
         enabled: false,
       });
     await tick();
-    expect(list("signal")).toHaveLength(0);
+    expect(list("signal", 200)).toHaveLength(0);
     expect(mocked.enqueue).not.toHaveBeenCalled();
     if (reason !== "disabled")
       expect(get<Monitor>("monitor-fixture")?.states.sh600519?.matched).toBe(
@@ -246,7 +244,7 @@ it.each(["unknown", "suspended", "stale", "wrong-day", "failed"])(
         evidenceHash: "fixture",
       });
     await tick();
-    expect(list("signal")).toHaveLength(0);
+    expect(list("signal", 200)).toHaveLength(0);
     expect(mocked.enqueue).not.toHaveBeenCalled();
     expect(get<Monitor>("monitor-fixture")?.states.sh600519).toEqual({
       date: `${day}T10:00:00+08:00`,
@@ -255,7 +253,7 @@ it.each(["unknown", "suspended", "stale", "wrong-day", "failed"])(
     expect(get<Monitor>("monitor-fixture")?.error).toContain("交易状态");
     vi.setSystemTime(at("10:06"));
     await tick();
-    expect(list("signal")).toHaveLength(1);
+    expect(list("signal", 200)).toHaveLength(1);
     expect(mocked.enqueue).toHaveBeenCalledOnce();
   },
 );
@@ -285,7 +283,7 @@ it.each(["disabled", "strategy", "expired"])(
       };
     });
     await tick();
-    expect(list("signal")).toHaveLength(0);
+    expect(list("signal", 200)).toHaveLength(0);
     expect(mocked.enqueue).not.toHaveBeenCalled();
   },
 );
@@ -335,7 +333,7 @@ it("does not carry a pending signal across disable and re-enable of the same sub
     };
   });
   await tick();
-  expect(list("signal")).toHaveLength(0);
+  expect(list("signal", 200)).toHaveLength(0);
   expect(mocked.enqueue).not.toHaveBeenCalled();
   expect(get("monitor-fixture")).toEqual(replacement);
 });
@@ -361,7 +359,7 @@ it.each(["revision", "baseline"])(
       put("monitor", previous.id, replacement);
     });
     await tick();
-    expect(list("signal")).toHaveLength(0);
+    expect(list("signal", 200)).toHaveLength(0);
     expect(mocked.enqueue).not.toHaveBeenCalled();
     expect(get("monitor-fixture")).toEqual(replacement!);
   },

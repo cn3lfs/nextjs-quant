@@ -1,9 +1,12 @@
-import { analyzeBreakout, type BreakoutPoint } from "trading-strategies/research/breakout/breakout";
+import { resolveTdxRoot } from "tstdx/local";
+import {
+  analyzeBreakout,
+  type BreakoutPoint,
+} from "trading-strategies/research/breakout/breakout";
 import { readSnapshot, readTailSnapshot } from "../../data-sources/tdx/tdx";
 import { isAStock } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
-import { screeningKey, screeningManifest } from "../../screening/screen-cache";
-import { strategySchema } from "~/lib/domain";
+import { breakoutSourceManifest } from "./breakout-source-manifest";
 
 type Batch = {
   total: number;
@@ -13,8 +16,7 @@ type Batch = {
   elapsedMs: number;
   cacheHit: boolean;
 };
-// One result only, bounded by the A-share universe. Same manifest and completion
-// cutoff as the existing screener. No mutation of the screener/cache modules.
+// One result only, bounded by the A-share universe and revalidated against source files.
 let cached: { key: string; manifest: string; result: Batch } | undefined;
 
 /** Daily universe entry. A 61-bar tail can DISPROVE a core condition because
@@ -32,14 +34,14 @@ export async function breakoutBatch(
   const universe = [...new Set(symbols)].sort();
   if (universe.some((s) => !isAStock(s)))
     throw new Error("双突破批量仅支持A股日线");
-  const input = {
-    root,
-    symbols: universe,
-    period: "day" as const,
-    strategy: strategySchema.parse({ type: "dual-breakout", params: {} }),
-  };
-  const key = screeningKey(input, now),
-    manifest = await screeningManifest(input);
+  const local = new Date(now + 8 * 3600000).toISOString();
+  const key = JSON.stringify([
+    resolveTdxRoot(root),
+    universe,
+    local.slice(0, 10),
+    local.slice(11, 16) >= "15:05",
+  ]);
+  const manifest = await breakoutSourceManifest(root, universe);
   if (manifest && cached?.key === key && cached.manifest === manifest) {
     return {
       ...structuredClone(cached.result),
@@ -92,7 +94,7 @@ export async function breakoutBatch(
   result.candidates.sort((a, b) => a.symbol.localeCompare(b.symbol));
   result.errors.sort((a, b) => a.symbol.localeCompare(b.symbol));
   // Do not memoize a mixed generation if TDX updates during the scan.
-  const after = await screeningManifest(input);
+  const after = await breakoutSourceManifest(root, universe);
   if (manifest && manifest !== after)
     result.errors.push({ symbol: "*", error: "扫描期间行情文件变化，请重跑" });
   result.elapsedMs = performance.now() - started;

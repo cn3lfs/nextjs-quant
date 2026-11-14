@@ -1,3 +1,4 @@
+import { rpsPeriods } from "quant-rps";
 import { z } from "zod";
 import {
   financialDate,
@@ -122,7 +123,7 @@ export const financialScreenInput = z
       .object({
         period: z
           .number()
-          .refine((value) => [5, 10, 20, 50, 120, 250].includes(value)),
+          .refine((value) => (rpsPeriods as readonly number[]).includes(value)),
         minimum: z.number().min(0).max(100),
       })
       .optional(),
@@ -137,11 +138,3 @@ export const financialScreenInput = z
     "至少添加一个筛选条件",
   );
 export type FinancialScreenInput = z.infer<typeof financialScreenInput>;
-export function displayFinancialNumber(value: number | null, unit: string) {
-  if (value === null || !Number.isFinite(value)) return "—";
-  if (unit === "日期" || unit === "时间" || unit === "枚举")
-    return String(value);
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 4 }).format(
-    value,
-  );
-}

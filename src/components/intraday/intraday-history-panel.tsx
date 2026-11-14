@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
+import { capabilityAllows } from "~/lib/common/capabilities";
 import {
   intradayHistorySchema,
   type IntradayHistoryInput,
@@ -458,7 +459,9 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
             {query.data?.rows.length === 0 && (
               <p className="text-sm text-nc-text-3">
                 {query.data.totalAll === 0
-                  ? "尚无观测记录。请先确认配置和行情条件，再查看批次执行结果。"
+                  ? !capabilityAllows("intraday", "schedule")
+                    ? "尚无观测记录；预选已暂停，不会生成新记录。可调整日期查看已有记录。"
+                    : "尚无观测记录。请先确认配置和行情条件，再查看批次执行结果。"
                   : "当前范围没有观测记录。可切换全部历史；缺少行情或尚未执行的原因请查看批次。"}
               </p>
             )}
@@ -809,7 +812,9 @@ function IntradayBatches({
       {query.isLoading && <p role="status">正在读取批次…</p>}
       {query.data?.total === 0 && (
         <p className="text-sm">
-          暂无匹配批次。尚未启用或未到窗口时不会产生预选。
+          {capabilityAllows("intraday", "schedule")
+            ? "暂无匹配批次。尚未启用或未到窗口时不会产生预选。"
+            : "暂无匹配批次；预选已暂停，不会生成新批次。"}
         </p>
       )}
       <div className="mt-3 flex items-center gap-3">

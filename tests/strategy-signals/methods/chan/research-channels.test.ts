@@ -1,38 +1,11 @@
-import { expect, it, vi } from "vitest";
+import { channelIds } from "trading-strategies/research/technical/research-channels";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { priceChannel } from "../../../../src/lib/indicators";
 import {
-  channelIds,
   researchChannelSeries,
-  channelWarmupBars,
   type ChannelId,
 } from "trading-strategies/research/technical/research-channels";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-const native = vi.fn(async (): Promise<never> => {
-  throw new Error("native must not run");
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
 const lengthOf = (id: ChannelId) => Number(id.split("-")[1]);
 function put(
   bars: Bar[],
@@ -86,63 +59,6 @@ function fixture(id: ChannelId) {
   shape(bars, id, 140, true);
   return bars;
 }
-function settings(id: ChannelId, bars: Bar[]) {
-  return researchSpecSchema.parse({
-    strategy: id,
-    start: bars[61]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars[149]!.date,
-    symbols: ["sh600000"],
-    initialCapital: 200000,
-    holdingDays: 60,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-}
-it.each(channelIds)(
-  "%s freezes a pre-break channel and completes next-open trades",
-  async (id) => {
-    const bars = fixture(id),
-      spec = settings(id, bars),
-      series = researchChannelSeries(id, bars);
-    expect(series[90]!.entry).toBe(true);
-    expect(series[89]!.entry).toBe(false);
-    expect(series[140]!.exit).toBe(true);
-    expect(series[90]!.channel.end).toBe(bars[89]!.date);
-    expect(series[90]!.ruleStop!.price).toBe(
-      series[90]!.channel.geometry!.lower.next,
-    );
-    expect(researchChannelSeries(id, bars.slice(0, 91))).toEqual(
-      series.slice(0, 91),
-    );
-    const changed = structuredClone(bars);
-    changed[90]!.high = 10000;
-    expect(researchChannelSeries(id, changed)[90]!.channel).toEqual(
-      series[90]!.channel,
-    );
-    const events = await researchSignals("sh600000", bars, spec, native);
-    const result = researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      () => rules,
-    );
-    const trade = result.trades.find(
-      (t) => t.event.observedDate === bars[90]!.date,
-    );
-    expect(trade).toBeDefined();
-    expect(trade!.entryDate).toBe(bars[91]!.date);
-    expect(trade!.exitDate).toBe(bars[141]!.date);
-    expect(trade!.signalExit).toEqual(series[140]);
-    expect(researchMethodSnapshot(spec).ruleVersion).toBe(`${id}-1`);
-    expect(native).not.toHaveBeenCalled();
-  },
-);
 it("fits outward lines with hand-computable widths, slopes and distributed touches", () => {
   const bars = fixture("triangle-15"),
     window = bars.slice(75, 90),
@@ -218,144 +134,22 @@ it("rejects missing or invalid pole/consolidation data and never creates a one-p
     ),
   ).toBeNull();
 });
-it("rejects entry below the frozen floor and preserves a queued exit through a tradability block", async () => {
-  const id = "flag-10",
-    bars = fixture(id),
-    spec = settings(id, bars),
-    events = await researchSignals("sh600000", bars, spec, native);
-  const run = (input: Bar[], lookup: Parameters<typeof researchPortfolio>[4]) =>
-    researchPortfolio(
-      spec,
-      events,
-      input.map((b) => b.date),
-      new Map([["sh600000", input]]),
-      lookup,
-    );
-  const gap = structuredClone(bars);
-  put(gap, 91, 100, 101);
-  expect(
-    run(gap, () => rules).trades.some(
-      (t) => t.event.observedDate === bars[90]!.date,
-    ),
-  ).toBe(false);
-  const delayed = run(bars, (_s, date) => ({
-    ...rules,
-    tradable: date !== bars[141]!.date,
-  }));
-  expect(delayed.trades[0]!.exitDate).toBe(bars[142]!.date);
-  expect(delayed.trades[0]!.signalExit!.date).toBe(bars[140]!.date);
-  const broken = structuredClone(bars);
-  put(broken, 92, 110, 100, 111, 99);
-  const stopped = run(broken, () => rules);
-  expect(stopped.trades[0]!.exitDate).toBe(bars[93]!.date);
-  expect(stopped.trades[0]!.ruleStopTriggeredAt).toBe(bars[92]!.date);
+it.each(channelIds)("%s calculates a causal pre-break channel", (id) => {
+  const bars = fixture(id),
+    series = researchChannelSeries(id, bars);
+  expect(series[90]!.entry).toBe(true);
+  expect(series[89]!.entry).toBe(false);
+  expect(series[140]!.exit).toBe(true);
+  expect(series[90]!.channel.end).toBe(bars[89]!.date);
+  expect(series[90]!.ruleStop!.price).toBe(
+    series[90]!.channel.geometry!.lower.next,
+  );
+  expect(researchChannelSeries(id, bars.slice(0, 91))).toEqual(
+    series.slice(0, 91),
+  );
+  const changed = structuredClone(bars);
+  changed[90]!.high = 10000;
+  expect(researchChannelSeries(id, changed)[90]!.channel).toEqual(
+    series[90]!.channel,
+  );
 });
-it.each(["flag-20", "triangle-30"] as const)(
-  "%s requires its own action warmup in the full runner",
-  async (id) => {
-    const bars = fixture(id),
-      spec = settings(id, bars),
-      warmup = channelWarmupBars(id);
-    const dataset: ResearchDataset = {
-      version: "research-dataset-1",
-      source: "tdx-local",
-      root: "synthetic",
-      adjustment: "none",
-      membership: {
-        mode: "current-snapshot",
-        symbols: spec.symbols!,
-        source: null,
-        warning: "合成",
-      },
-      benchmark: { symbol: "sh000001", bars },
-      calendar: bars.map((b) => b.date),
-      stocks: [
-        {
-          symbol: "sh600000",
-          name: "合成",
-          bars,
-          hash: researchHash(bars),
-          actions: [],
-        },
-      ],
-      excluded: [],
-      actionCoverage: "partial",
-      actionSource: { path: "fixture", modified: 0 },
-      capturedAt: 0,
-      hash: "channel-fixture",
-      method: researchMethodSnapshot(spec),
-    };
-    const evidence = researchMarketEvidenceSchema.parse({
-      version: "research-market-evidence-1",
-      source: "fixture",
-      exportedAt: 0,
-      adjustment: "none",
-      corporateActionFree: [
-        {
-          symbol: "sh600000",
-          start: bars[61 - warmup]!.date,
-          end: spec.end,
-          evidenceId: "fixture",
-        },
-      ],
-      rows: bars.map((b) => ({
-        ...rules,
-        evidence: undefined,
-        symbol: "sh600000",
-        date: b.date,
-        evidenceId: "fixture",
-      })),
-    });
-    const result = await runStrategyResearch(spec, dataset, evidence, native);
-    expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
-      bars[141]!.date,
-    );
-    expect(result.warnings[0]).toContain(`前${warmup}根`);
-    const short = await runStrategyResearch(
-      spec,
-      dataset,
-      {
-        ...evidence,
-        corporateActionFree: evidence.corporateActionFree.map((row) => ({
-          ...row,
-          start: bars[50]!.date,
-        })),
-      },
-      native,
-    );
-    // corporateActionFree is legacy evidence metadata the engine no longer
-    // consumes: admission is decided purely by prepareResearchAdjustedCoverage
-    // (a complete GBBQ-derived price-factor prefix), which this dataset has
-    // regardless of the asserted window. Shrinking the window must not
-    // change anything.
-    expect(short.events).toEqual(result.events);
-    expect(short.partitions[0]!.simulation!.trades).toEqual(
-      result.partitions[0]!.simulation!.trades,
-    );
-    const split = await runStrategyResearch(
-      spec,
-      {
-        ...dataset,
-        stocks: dataset.stocks.map((stock) => ({
-          ...stock,
-          actions: [
-            {
-              date: bars[61 - warmup]!.date,
-              category: 1,
-              name: "合成除权",
-              bonusRatio: 1,
-            },
-          ],
-        })),
-      },
-      evidence,
-      native,
-    );
-    // A category-1 bonus event still yields a complete price-factor prefix
-    // (adjustmentFactors handles it directly), and channel/continuation
-    // patterns only require price coverage, not volume comparability — so
-    // admission now succeeds where the old "any action in window" gate used
-    // to reject it wholesale.
-    expect(split.events.length).toBeGreaterThan(0);
-  },
-);

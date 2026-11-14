@@ -11,25 +11,33 @@ import {
 } from "./tdx-side-panel";
 import { Button } from "../ui/button";
 import { LocalFinancialWorkbench } from "../financial/local-financial-workbench";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 /**
- * 图表下方的基本面详情。五档盘口与关键指标在右栏 TdxSidePanel，这里与它共用
+ * 所选证券的财务子视图。五档盘口与关键指标在 TdxSidePanel，这里与它共用
  * 查询缓存，只展开右栏放不下的完整口径、报表明细与 F10 公司资料。
  */
-export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
+export function TdxSnapshotContainer({
+  symbol,
+  companyRequest = 0,
+}: {
+  symbol: string;
+  companyRequest?: number;
+}) {
+  const visible = usePanelVisible();
   const quotable = tradableSymbol(symbol);
   const index = isMarketIndex(symbol);
   const quotes = api.tdxQuotes.useQuery([symbol], {
     ...quoteQueryOptions,
-    enabled: quotable,
+    enabled: visible && quotable,
   });
   const local = api.tdxLocalFinancials.useQuery(symbol, {
     ...financeQueryOptions,
-    enabled: quotable && !index,
+    enabled: visible && quotable && !index,
   });
   const finance = api.tdxFinance.useQuery(symbol, {
     ...financeQueryOptions,
-    enabled: quotable && !index,
+    enabled: visible && quotable && !index,
   });
   if (!quotable)
     return isForeignMarketChartSymbol(symbol) ? null : (
@@ -86,7 +94,11 @@ export function TdxSnapshotContainer({ symbol }: { symbol: string }) {
               : null
           }
         >
-          <TdxCompanyInfo key={symbol} symbol={symbol} />
+          <TdxCompanyInfo
+            key={symbol}
+            symbol={symbol}
+            openRequest={companyRequest}
+          />
         </TdxFundamentalSummary>
       )}
     </section>

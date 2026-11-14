@@ -3,16 +3,39 @@ import { useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "./chart-hotkeys";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 /**
  * F10 公司资料是公共服务器上的 GBK 文本栏目，取一次要走 TCP，所以两级按需加载：
  * 展开折叠区才拉栏目清单，点某个栏目才拉它的正文。默认什么都不请求。
  */
-export function TdxCompanyInfo({ symbol }: { symbol: string }) {
+export function TdxCompanyInfo({
+  symbol,
+  openRequest = 0,
+}: {
+  symbol: string;
+  openRequest?: number;
+}) {
+  const visible = usePanelVisible();
   const [open, setOpen] = useState(false);
   const details = useRef<HTMLDetailsElement>(null);
+  const handledRequest = useRef(0);
+  useEffect(() => {
+    if (
+      !visible ||
+      !openRequest ||
+      openRequest === handledRequest.current ||
+      !details.current
+    )
+      return;
+    handledRequest.current = openRequest;
+    details.current.open = true;
+    setOpen(true);
+    details.current.scrollIntoView({ block: "start" });
+  }, [openRequest, visible]);
   // F10 opens the company profile and brings it into view, as in TDX.
   useEffect(() => {
+    if (!visible) return;
     const onKey = (event: KeyboardEvent) => {
       if (
         event.key !== "F10" ||
@@ -31,11 +54,11 @@ export function TdxCompanyInfo({ symbol }: { symbol: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [visible]);
   // 同一证券的所有栏目共用一个文件、按偏移切分，所以用 start 区分栏目。
   const [selected, setSelected] = useState<number | null>(null);
   const categories = api.tdxCompanyInfo.useQuery(symbol, {
-    enabled: open,
+    enabled: visible && open,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 3600000,
@@ -49,7 +72,7 @@ export function TdxCompanyInfo({ symbol }: { symbol: string }) {
       length: category?.length ?? 1,
     },
     {
-      enabled: Boolean(category?.length),
+      enabled: visible && Boolean(category?.length),
       retry: false,
       refetchOnWindowFocus: false,
       staleTime: 3600000,

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { waitForIdleServer } from "./helpers";
 
 test("an overview index opens that index even after the default chart loaded", async ({

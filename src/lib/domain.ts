@@ -4,11 +4,12 @@ import { marketSourceSchema, type MarketSource } from "./market/market-source";
 import type { FuturesSource } from "./market/futures";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { z } from "zod";
+import { newsSourceSettingsSchema } from "./settings/news-source-settings";
+import { localDirectorySchema } from "./settings/local-source-settings";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
 import type { SecurityTradingStatus } from "./market/security-trading-status";
 import type { Bar, Period } from "trading-strategy-core/bars";
 export type { Bar, Period } from "trading-strategy-core/bars";
-import { symbolSchema } from "trading-strategies/research/contracts/security";
 export const periodSchema = z.enum(["day", "5m"]);
 export type Security = {
   symbol: string;
@@ -266,15 +267,10 @@ export const settingsSchema = z.object({
   claudeModel: z.string().trim().max(100).default(""),
   industryBlocksRoot: z.string().trim().max(2048).default(""),
   industryMembershipSource: z.enum(["blocks", "tdx"]).default("blocks"),
-  tdxRoot: z.string().min(1).default("E:\\new_tdx64"),
-  clsDbPath: z
-    .string()
-    .min(1)
-    .default("E:/pythonPrj/cls_news_collector/cls_news.db"),
-  autoAnalysis: z.boolean().default(true),
+  tdxRoot: localDirectorySchema.default(""),
+  ...newsSourceSettingsSchema.shape,
   autoNewsAnalysis: z.boolean().default(false),
   autoNewsDailyBatches: z.number().int().min(1).max(100).default(8),
-  analysisLimit: z.number().int().min(1).max(10).default(10),
   fastModel: z.string().default("deepseek-v4-flash"),
   deepModel: z.string().default("deepseek-v4-pro"),
   proxy: z.string().default(""),
@@ -289,59 +285,3 @@ export const settingsSchema = z.object({
   calendar: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
 });
 export type Settings = z.infer<typeof settingsSchema>;
-export type Trade = {
-  date: string;
-  side: "buy" | "sell";
-  price: number;
-  shares: number;
-  fee: number;
-};
-export type Backtest = {
-  adjustment?: import("./research/evidence/research-adjustment").ResearchAdjustment;
-  signalAdjustment?: import("~/server/backtest/cash-adjusted-signals").CashSignalAdjustment;
-  dividends?: {
-    strategy: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
-    benchmark: import("~/server/backtest/dividend-ledger").DividendLedgerResult;
-  };
-  corporateActions?: import("~/server/backtest/backtest-actions").BacktestActions;
-  rounds?: import("./backtest/trade-rounds").TradeRound[];
-  benchmark?: {
-    version: "buy-hold-1" | "buy-hold-2";
-    label: string;
-    equity: { date: string; value: number }[];
-    trade: Trade | null;
-    totalReturn: number;
-    maxDrawdown: number;
-    excessReturnPoints: number;
-    cash: number;
-    shares: number;
-  };
-  evaluationStart?: number;
-  engineVersion?: string;
-  costs?: import("./backtest/backtest-costs").BacktestCosts;
-  dataRange?: {
-    scope: "full" | "window";
-    warmupBars?: number;
-    start: string;
-    end: string;
-    bars: number;
-    selectedSnapshotId: string;
-  };
-  snapshotId: string;
-  strategy: Strategy;
-  equity: { date: string; value: number }[];
-  trades: Trade[];
-  totalReturn: number;
-  maxDrawdown: number;
-  cash: number;
-  shares: number;
-  diagnostics: Partial<
-    import("./research/evidence/research-adjustment").AdjustmentDiagnostics
-  > & {
-    entrySignals: number;
-    insufficientCash: number;
-    untradable: number;
-    initial: number;
-  };
-  assumptions: string[];
-};

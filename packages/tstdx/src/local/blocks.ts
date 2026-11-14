@@ -1,5 +1,6 @@
+import { resolveTdxRoot } from "./root.js";
 import { readFile, lstat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 export type BlockExclusion = {
   name: string;
@@ -19,7 +20,7 @@ type Files = Record<(typeof tdxBlockFiles)[number], string>;
 export async function readTdxBlockDefinitionNames(root: string) {
   const result = new Map<string, string>();
   for (const file of ["tdxzs.cfg", "tdxzs3.cfg"]) {
-    const path = join(resolve(root), "T0002", "hq_cache", file),
+    const path = join(resolveTdxRoot(root), "T0002", "hq_cache", file),
       before = await lstat(path);
     if (
       !before.isFile() ||
@@ -238,7 +239,7 @@ export function parseTdxLocalBlocks(files: Files): TdxLocalBlock[] {
 }
 
 export async function readTdxLocalBlocks(root: string) {
-  const directory = join(resolve(root), "T0002", "hq_cache");
+  const directory = join(resolveTdxRoot(root), "T0002", "hq_cache");
   const files = {} as Files;
   const evidence = [];
   for (const file of tdxBlockFiles) {
@@ -282,7 +283,7 @@ export async function readTdxLocalBlocks(root: string) {
       throw new Error("板块资料读取期间变化");
   }
   return {
-    root: resolve(root),
+    root: resolveTdxRoot(root),
     observedAt: Date.now(),
     files: evidence,
     blocks: parseTdxLocalBlocks(files),

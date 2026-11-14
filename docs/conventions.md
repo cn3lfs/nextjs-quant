@@ -10,7 +10,7 @@
 
 ## 1. 工具链
 
-- **Prettier 是唯一格式化权威**，无 ESLint。提交前 `pnpm format:check` 必须通过。
+- **Prettier 是唯一格式化权威**。当前已安装 ESLint，`pnpm lint` 检查 src 和六包源码；类型感知规则用于 src，固定动态路径规则也覆盖包内源码。提交前 `pnpm format:check` 必须通过。
   2026-09-12 起该命令**确实通过**；在此之前它长期为红，原因不是风格漂移：
 
   `core.autocrlf=true` 设在用户全局 `.gitconfig` 里，仓库又没有 `.gitattributes`
@@ -33,8 +33,22 @@
   于是开的药（`prettier --write`）注定无效，规则也就红了两天。
   定规则前不仅要跑一遍，还要确认失败的**根因**，别对着症状反复用同一副药。
 
-- 不引入新的 lint / 格式化工具。风格争议由 Prettier 裁决，Prettier 管不到的看本文。
+- 复用已安装的 ESLint 与 Prettier，不另建并行工具链。风格争议由 Prettier 裁决，Prettier 管不到的看本文。
+- `pnpm lint` 对 `src` 启用项目类型信息：Hooks 调用规则、未处理的 Promise、TypeScript 未使用变量均为错误。未使用的回调参数/捕获错误可明确命名为 `_...`；对象 rest 排除字段允许省略。显式 `void` 表达后台调用意图，但不处理拒绝；Query 刷新由查询状态展示失败，其他后台任务应等待或接入已有错误记录，不能为过 lint 批量补 `void`。
+- 导入边界：components/lib 不执行 server 模块，server 不执行 components/app 模块；跨层类型必须使用 `import type` / `export type`。ESLint 保留快速静态检查，并要求 import()/require()/module.require() 使用固定字符串或无插值模板；变量路径应改为显式加载器映射。
+- `pnpm check:dependencies` 使用 dependency-cruiser 扫描 src 与各工作区包的源码，解析别名、公开导出、重导出、固定动态导入和 CommonJS；不递归第三方 node_modules，不用 dist 代替源码。未解析路径、包对宿主的依赖和运行时模块循环均失败；显式类型引用不当作运行时边。包级图按归属聚合实际依赖，并纳入 dependencies/devDependencies/optionalDependencies 的内部构建依赖，用 graphlib 检查不同文件/子目录形成的循环；包级类型依赖也必须单向。两项工具只作为锁定版本的开发依赖，不进入应用运行链。静态检查不执行代码，也不推断自定义加载器或运行时拼接字符串；新增间接加载方式必须补规则及正反例。
 - **优先复用已有依赖**。确需新增先说明用途与影响，依据当前授权和环境处理；安装受阻报告实际原因，不手写替代品绕过。
+
+- 六个内部包通过根 `packages:build` 按 pnpm workspace 依赖顺序构建，各包共用 `scripts/build-package.mjs`。源码、配置、工具链、依赖包产物和输出内容均匹配缓存凭据时跳过编译；缺失/改变的产物会重建，删除源码不会遗留旧输出。策略身份生成器及额外源码输入在 `quantBuild` 声明。`runtime:build` 先构建包再生成 worker；`build` / `dev` 经由它，不额外重复调用包构建。`typecheck` / `test` 共用此入口，测试仍执行原生构建与各包测试；runtime/native 不因包缓存而跳过。
+- `pnpm check` 顺序执行全仓 `format:check`、依赖检查、runtime 构建、类型检查、lint 和完整测试，`pnpm check --build` 再执行生产构建；首个失败立即返回非零退出码。每次在 `.test-data/checks/check-*` 新建数据和临时目录，覆盖调用者的数据库/TEMP 设置；`QUANT_CHECK_ROOT` 只能指定本仓库 `.test-data` 下无目录链接的路径。结果写入该目录的 `check-result.json`，数据由用户审阅后手动清理。门禁拒绝递归启动，不自动打包或推送。可选 pre-push 已提供于 `.githooks/pre-push`，需要时执行 `git config --local core.hooksPath .githooks` 安装；仓库不会替用户修改 hooks 配置。2026-11-13 已收敛 140 个内容格式差异，沿用既有行尾设置和 fixture 排除，不扩大忽略范围；格式检查现为门禁首步。
+- 后台错误通过 `recordRuntimeError` 在拥有恢复/用户反馈责任的边界记录，不在每层重复复制异常。事件摘要使用固定目录，错误码使用白名单；禁止传入原始请求、响应、认证信息或把 `error.message/stack/cause` 写入诊断文件。日志为当前 `QUANT_DATA_DIR/logs/runtime-errors.sqlite` 的独立文件，复用已有 SQLite 依赖，不打开或迁移业务库；滚动保留 128 组、文件上限 512 KiB，任务中心只读最近 30 组。同一分钟同事件/错误码/任务合并次数，跨进程事务更新最早/最近时间；取消和正常关闭不记录。25 毫秒内无法取得写锁、空间/权限不足等写入失败返回 false，不抛出或递归记录；任务原有失败语义保留，本进程漏记数量在查询中明确提示。
+
+- `pnpm e2e:p0` 在当前生产构建上运行固定 fixture 的完整应用验收，先执行 `pnpm build`、`pnpm desktop:prepare`。专用配置启动新服务，每次创建独立 SQLite 与 TDX fixture，不复用已有端口。默认产物集中在 `.test-data/p0-acceptance`；`E2E_DATA_DIR` 可指定 `.test-data` 下的任务子目录，路径和链接在写入/清理测试输出前校验。覆盖现行回测失败恢复/导出、公式保存/执行/候选跳转/双突破、退役页面与暂停提示；其他大数据性能场景仍使用原 `pnpm e2e` 配置，各自独立运行。此命令不代表全路由或桌面交互验收。任务结束后核实服务退出，再清理本次生成的 fixture 和临时截图。
+- `pnpm test:browser [name-filter]` 运行 tests/browser 中匹配名称的实际 .mjs 文件；只接收一个可选筛选词。无匹配、空目录、多余参数与子进程失败都返回非零退出码；零用例不能当作验收通过。
+- `pnpm e2e:p1` 复用上述隔离启动器与同样的构建/准备要求，追加 41 个合成证券名和一个图表日线文件，验证证券池→第三页选股→图表→返回/刷新，检查筛选/分页、快照来源及请求次数，并输出 1440/1024 参考截图。执行时将 `E2E_DATA_DIR` 设为当前任务的独立子目录；清理遵循用户手动脚本要求，不写正式包或用户数据库。
+  同一套场景覆盖 RPS 前置条件等待与恢复入口，以及非行情页面冷启动不请求默认快照、行情证券参数变化/历史返回和会话选择保留。浏览器 hook 检查 `pnpm test:browser market-state` 覆盖候选快照首次交接、来源/周期保留及迟到响应；`snapshot-load` 检查缓存/错误恢复。真实公式候选的先前错误恢复仍由 `e2e:p0` 验证。
+  财务子视图场景覆盖首次按需挂载、图表设置保留、F10 切换、证券切换不读取隐藏图表、财务 URL 刷新及 1024 布局；`pnpm test:browser local-financial` 使用真实财务组件和解析 fixture，验证隐藏后缓存失效不发请求、恢复时保留筛选草稿并恢复查询，以及字段单位、阈值和导出。
+  窄屏检查自选/候选列表默认收起、可展开/收起及行情区域首屏位置，宽屏侧栏保持可见；缺财务目录显示数据准备提示和连接设置入口，不能出现 ENOENT 原始错误。财务服务测试另覆盖补齐目录后恢复与其他 IO 错误不被误判。
 
 ## 2. TypeScript
 
@@ -68,19 +82,25 @@
 **目录职责**
 
 - `src/lib/` — 纯函数、类型、无 IO。可被服务端与客户端同时引用。
-- `src/server/` — 有 IO：文件、数据库、网络、worker、FFI。按策略、数据源、回测、研究等职责分域，目录归属见 [architecture](architecture.md#服务端职责目录2026-09-22)；专用 worker/store 跟随业务域，根目录只保留组合入口与明确受保护文件。
+- `src/server/` — 有 IO：文件、数据库、网络、worker、FFI。按策略、数据源、回测、研究等职责分域，目录归属见 [architecture](architecture.md#服务端职责目录)；专用 worker/store 跟随业务域，根目录只保留组合入口与明确受保护文件。
 - `src/components/` — React 组件。
 - `src/components/ui/` — **只放 shadcn 组件与其薄封装**，不放业务组件。
 - `src/app/` — 路由与页面。
-- `tests/` — 全部测试与其 fixture；`tests/fixtures/` 放固定数据。
+- `tests/` — 根目录只保留全局测试设置与说明；业务回归留在对应目录。`tests/perf/` 放性能测量，`tests/fixtures/seed/` 放隔离造数脚本，`tests/manual/` 放人工审计与专用维护工具，`tests/helpers/` 放共享输入生成器/断言，`tests/browser/fixtures/` 放组件页面入口。固定数据仍在 `tests/fixtures/`，只有 seed 子目录作为代码参与格式检查。命令和运行前置见 [测试入口](../tests/README.md)。移动路径不代表人工脚本已自动验收，不整目录执行造数、网络或清理工具。
 
 `src/components/` 的业务组件按 `workbench`、`market`、`screening`、`research`、`backtest`、`portfolio`、`news`、`signals`、`intraday`、`overview`、`common` 分域；`ui/`、`panels/`（设计交接的八种面板与 12 列网格）与 workbench 壳层是基础层。页面样式取自 `src/styles/tokens.css` 的 `--nc-*` 变量或对应 Tailwind `nc-*` 工具类，不直接写 hex；图表画布颜色取自 `src/lib/chart/chart-theme.ts`。纯函数按同一领域归档，通用样式合并入口为 `src/lib/common/classnames.ts`，不再新增无归属的 `utils.ts`。
 
 跨 package 的纯行情、指标和资金能力以 `packages/trading-strategy-core` 为实现源；`src/lib` 只保留应用侧契约、编排和展示计算，不复制 core 实现。
 
-纯回测核心与交易执行/费用能力以 `packages/quant-backtest` 为实现源。该包不得反向依赖应用 `src/`、Next.js、React、数据库、文件或网络；本地数据适配与任务生命周期仍归 `src/server/backtest`。旧应用导入路径可保留兼容再导出，不复制实现。
+纯回测核心与交易执行/费用能力以 `packages/quant-backtest` 为实现源。该包不得反向依赖应用 `src/`、Next.js、React、数据库、文件或网络；本地数据适配与任务生命周期仍归 `src/server/backtest`。按当前优化决定删除旧执行与兼容导入，不复制实现。
+
+API 统一通过 `capabilityProcedure(capability, operation)` 创建，能力取自 `src/lib/common/capabilities.ts`，没有默认能力或无声明的公共 builder。每个 query/mutation 都显式声明：`read` 读取/投影现有数据，`configure` 保存设置或管理本地记录，`compute` 启动分析/采集/导入等工作，`schedule` 控制自动执行。操作按业务含义选择，不从 HTTP 或 query/mutation 类型推断；例如原生缠论 query 是 compute，证券池导出 mutation 是 read。
+
+能力仅表达产品开放策略，不代替数据就绪、凭证、订阅及交易约束。暂停能力可保留 read/configure，compute/schedule 在处理器之前拒绝；通知和模拟账户仍使用自身已授权边界。`api-capability-contract.test.ts` 遍历实际注册的全部接口，新增未声明 query/mutation 会失败；`capability-policy.test.ts` 覆盖缺失/非法声明、同名独立能力及暂停保护。新增能力需同时检查页面/导航和实际 worker、CLI、调度入口，不能只依赖导航隐藏。
 
 绩效评价独立于回测引擎：日收益指标、回撤及年季月报告归`packages/quant-performance`，公开入口为包根；应用冻结结果适配归`src/server/performance`，展示归`src/components/performance`。新功能先明确业务职责、事实来源及写入事务归属，再划分模块；只读派生不混进撮合/记账事务。按当前职责复用已有包或建立独立模块，不为形式拆包，也不预建通用插件框架。
+
+RPS 的收益、排名、资格和板块等权聚合以 `packages/quant-rps` 为唯一实现源，公开入口为包根；应用负责 IO、后复权准备、成分快照校验、证据哈希、任务和发布存储。计算模块不反向依赖应用、宿主或 UI。
 
 ## 4. UI
 

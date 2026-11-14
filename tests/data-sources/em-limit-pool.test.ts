@@ -22,7 +22,12 @@ it("涨停池：价格 ÷1000、封板时间补零、市场前缀", () => {
     stat: "1天1板",
   });
   const y = parseLimitPool(fixture.yzt, "yzt")!;
-  expect(y[0]).toMatchObject({ symbol: "sh600743", streak: 3, limitPrice: 3.1, firstSeal: "09:30:10" });
+  expect(y[0]).toMatchObject({
+    symbol: "sh600743",
+    streak: 3,
+    limitPrice: 3.1,
+    firstSeal: "09:30:10",
+  });
 });
 
 it("非交易日 data=null 返回 null，格式错误抛出", () => {
@@ -41,9 +46,21 @@ it("请求参数：日期去横线、各池排序", async () => {
 
 it("情绪汇总：炸板率、梯队、晋级率", () => {
   const row = (symbol: string, streak: number, changePct = 10) => ({
-    symbol, name: symbol, price: 1, changePct, amount: null, floatCap: null, turnover: null,
-    industry: "银行", streak, firstSeal: null, lastSeal: null, sealFund: null, breaks: null,
-    limitPrice: null, stat: null,
+    symbol,
+    name: symbol,
+    price: 1,
+    changePct,
+    amount: null,
+    floatCap: null,
+    turnover: null,
+    industry: "银行",
+    streak,
+    firstSeal: null,
+    lastSeal: null,
+    sealFund: null,
+    breaks: null,
+    limitPrice: null,
+    stat: null,
   });
   const s = summarizeLimitPools("2026-09-24", {
     zt: [row("a", 3), row("b", 1), row("c", 1)],
@@ -51,7 +68,14 @@ it("情绪汇总：炸板率、梯队、晋级率", () => {
     dt: [],
     yzt: [row("a", 2, 10), row("x", 1, -4)],
   });
-  expect(s.stats).toMatchObject({ limitUp: 3, broken: 1, breakRate: 25, maxHeight: 3, promotionRate: 50, yesterdayAvgChange: 3 });
+  expect(s.stats).toMatchObject({
+    limitUp: 3,
+    broken: 1,
+    breakRate: 25,
+    maxHeight: 3,
+    promotionRate: 50,
+    yesterdayAvgChange: 3,
+  });
   expect(s.ladder).toEqual([
     { height: 3, count: 1, names: ["a"] },
     { height: 1, count: 2, names: ["b", "c"] },

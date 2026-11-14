@@ -12,7 +12,7 @@ import {
   replayTradeReview,
 } from "../../src/server/portfolio/trade-review-service";
 import type { Snapshot } from "../../src/lib/domain";
-import {importDeliveryTable} from "../../src/lib/research/evidence/delivery-import";
+import { importDeliveryTable } from "../../src/lib/research/evidence/delivery-import";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
 
 it("R7 清仓恢复不改变残差，openingUnknown 与离线分段证据保留", () => {

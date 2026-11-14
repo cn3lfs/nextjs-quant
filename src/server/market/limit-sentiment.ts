@@ -54,7 +54,9 @@ export function summarizeLimitPools(
     if (row.industry)
       industries.set(row.industry, (industries.get(row.industry) ?? 0) + 1);
   const today = new Set(zt.map((r) => r.symbol));
-  const changes = yzt.flatMap((r) => (r.changePct == null ? [] : [r.changePct]));
+  const changes = yzt.flatMap((r) =>
+    r.changePct == null ? [] : [r.changePct],
+  );
   return {
     stats: {
       limitUp: zt.length,
@@ -66,7 +68,9 @@ export function summarizeLimitPools(
           : null,
       maxHeight: Math.max(0, ...zt.map((r) => r.streak ?? 1)),
       promotionRate: yzt.length
-        ? round((yzt.filter((r) => today.has(r.symbol)).length / yzt.length) * 100)
+        ? round(
+            (yzt.filter((r) => today.has(r.symbol)).length / yzt.length) * 100,
+          )
         : null,
       yesterdayAvgChange: changes.length
         ? round(changes.reduce((a, b) => a + b, 0) / changes.length, 2)
@@ -106,7 +110,8 @@ export async function limitSentiment(
   const kinds: LimitPoolKind[] = ["zt", "zb", "dt", "yzt"];
   // emFetch serialises these anyway; sequential keeps abort handling simple.
   const raw: Partial<Record<LimitPoolKind, LimitPoolRow[] | null>> = {};
-  for (const kind of kinds) raw[kind] = await fetchLimitPool(kind, date, signal);
+  for (const kind of kinds)
+    raw[kind] = await fetchLimitPool(kind, date, signal);
   const available = kinds.every((k) => raw[k] != null);
   const pools = Object.fromEntries(
     kinds.map((k) => [k, raw[k] ?? []]),

@@ -8,7 +8,7 @@ Button 的尺寸、圆角、排列、背景、边框、阴影、悬停、禁用�
 
 新增 plain variant 只提供共同的光标、禁用与焦点行为，不添加底色、边框、间距或 .button 标记。40 处原生按钮全部选择 plain/default，保留原本的导航、链接样式、表单动作、表头排序、分段选项与绘图工具外观；没有把它们改成大号主按钮。分段和证券选项的 role、aria-selected、selected、键盘处理器未改，仍渲染 button 元素。
 
-源码 JSX 开始标签统计（src/**/*.tsx，不含测试、不按运行时循环展开）：原生共 41 处 → 1 处；非冻结 40 → **0**。唯一残留为 [backtest-actions.tsx:26](../../../src/components/backtest/backtest-actions.tsx#L26)，按 conventions §9.5 明确豁免。Button 实现内部的字符串 "button" 是底层宿主，不是原生 JSX 消费者。
+当时的源码 JSX 开始标签统计（src/**/*.tsx，不含测试、不按运行时循环展开）：原生共 41 处 → 1 处；非冻结 40 → **0**。当时唯一残留为旧 BacktestActionsPanel，按当时 conventions §9.5 豁免；该无消费者组件已在 2026-11-13 优化 P0 删除，对应豁免同步移除。Button 实现内部的字符串 "button" 是底层宿主，不是原生 JSX 消费者。
 
 全 src 的 Button variant/size 分布（含未修改的既有调用与画廊）：default/default 51、default/sm 1；outline/default 39、outline/sm 12；ghost/default 12、ghost/sm 5；danger/default 1；plain/default 40；合计 161。
 
@@ -35,16 +35,16 @@ Button 的尺寸、圆角、排列、背景、边框、阴影、悬停、禁用�
 
 Chrome，1840×1350，Asia/Shanghai，fullPage；窄屏附图 650×900。使用 SQLite backup 从既有 R2 **隔离**库复制到 .test-data/r2b/browser；未读取生产库，未写原通达信数据。留存的 R2 隔离库已经包含 R2 截图之后的交互记录，不能声称它与历史 after 是同一数据状态。
 
-每页均与历史 R2 after 做像素对照；另存 same-data-r2.png：在当前同一 DOM/数据上移除 Button 工具类、恢复提交基线 8ee88dabdea64166127ce41cf8dca2fb425baaea 里的原 .button CSS，用于隔离本次样式影响。它不是重新拍到的历史截图。精确渲染指纹测试独立证明 plain 替换未改原属性/子节点/事件/组件逻辑。原始计算样式、逐按钮差异、历史和同数据像素计数见 [comparison.json](comparison.json)。像素差异计数不是 B 层结论。
+每页均与历史 R2 after 做像素对照；另存 same-data-r2.png：在当前同一 DOM/数据上移除 Button 工具类、恢复提交基线 8ee88dabdea64166127ce41cf8dca2fb425baaea 里的原 .button CSS，用于隔离本次样式影响。它不是重新拍到的历史截图。精确渲染指纹测试独立证明 plain 替换未改原属性/子节点/事件/组件逻辑。原始计算样式、逐按钮差异、历史和同数据像素计数见 comparison.json（历史产物已清理）。像素差异计数不是 B 层结论。
 
 | 页面       | R2 历史 after                                | 本轮 after                      | 同数据旧按钮                             | 同数据差异像素 / 比例 |
 | ---------- | -------------------------------------------- | ------------------------------- | ---------------------------------------- | --------------------- |
-| 数据与连接 | [历史](../r2-review/connections/after.png)   | [本轮](connections/after.png)   | [同数据](connections/same-data-r2.png)   | 8243 / 0.1610%        |
-| 信号与通知 | [历史](../r2-review/signals/after.png)       | [本轮](signals/after.png)       | [同数据](signals/same-data-r2.png)       | 5257 / 0.1677%        |
-| 持仓账本   | [历史](../r2-review/trade-ledger/after.png)  | [本轮](trade-ledger/after.png)  | [同数据](trade-ledger/same-data-r2.png)  | 0 / 0.0000%           |
-| 信号台账   | [历史](../r2-review/signal-ledger/after.png) | [本轮](signal-ledger/after.png) | [同数据](signal-ledger/same-data-r2.png) | 0 / 0.0000%           |
-| 条件选股   | [历史](../r2-review/screen/after.png)        | [本轮](screen/after.png)        | [同数据](screen/same-data-r2.png)        | 24388 / 0.2518%       |
-| 行情图表   | [历史](../r2-review/market/after.png)        | [本轮](market/after.png)        | [同数据](market/same-data-r2.png)        | 2268 / 0.0610%        |
+| 数据与连接 | 历史（历史产物已清理）   | 本轮（历史产物已清理）   | 同数据（历史产物已清理）   | 8243 / 0.1610%        |
+| 信号与通知 | 历史（历史产物已清理）       | 本轮（历史产物已清理）       | 同数据（历史产物已清理）       | 5257 / 0.1677%        |
+| 持仓账本   | 历史（历史产物已清理）  | 本轮（历史产物已清理）  | 同数据（历史产物已清理）  | 0 / 0.0000%           |
+| 信号台账   | 历史（历史产物已清理） | 本轮（历史产物已清理） | 同数据（历史产物已清理） | 0 / 0.0000%           |
+| 条件选股   | 历史（历史产物已清理）        | 本轮（历史产物已清理）        | 同数据（历史产物已清理）        | 24388 / 0.2518%       |
+| 行情图表   | 历史（历史产物已清理）        | 本轮（历史产物已清理）        | 同数据（历史产物已清理）        | 2268 / 0.0610%        |
 
 ### 本次按钮差异逐处
 
@@ -57,7 +57,7 @@ Chrome，1840×1350，Asia/Shanghai，fullPage；窄屏附图 650×900。使用 
 - **条件选股**：“扫描本地数据”、“在线查询”、“本页 2 只填入本地池”、“导出本页与来源”、“上一页”（2 处）、“下一页”（2 处）、“生成条件草案”、“运行选股”、“导出本次完整结果”、“研究”（50 处）有上述文字/边框/背景或阴影色差。 所有被匹配按钮的坐标、宽高、font、padding、圆角均一致。
 - **行情图表**：“扫描本地数据”、“MCP 最新行情”、“核验证券身份”、“加入自选”有上述文字/边框/背景或阴影色差。 所有被匹配按钮的坐标、宽高、font、padding、圆角均一致。
 
-以下悬停配色为源码核对，未另存逐状态配对截图。悬停仍为同类浅底/深青色：primary 用 primary/foreground 混色；outline 用 secondary/muted-surface 混色；ghost 用 7% primary 与 card 混色。danger 保持浅红底红字，使用 10% destructive/card 与 destructive 文字；旧红字 (182,77,92) 与 token (174,83,100)、旧浅红底与混色底略有不同。六页截图未出现 danger 操作，此项在 [交互夹具](interactions.png) 留样，不冒充六页覆盖。
+以下悬停配色为源码核对，未另存逐状态配对截图。悬停仍为同类浅底/深青色：primary 用 primary/foreground 混色；outline 用 secondary/muted-surface 混色；ghost 用 7% primary 与 card 混色。danger 保持浅红底红字，使用 10% destructive/card 与 destructive 文字；旧红字 (182,77,92) 与 token (174,83,100)、旧浅红底与混色底略有不同。六页截图未出现 danger 操作，此项在 交互夹具（历史产物已清理） 留样，不冒充六页覆盖。
 
 ### 历史 R2 截图的额外状态差异
 
@@ -70,7 +70,7 @@ Chrome，1840×1350，Asia/Shanghai，fullPage；窄屏附图 650×900。使用 
 
 ## 交互与验证
 
-持久脚本为 tests/r2b-browser-review.mjs、tests/r2b-browser-fixture.tsx（只注入测试页，不新增应用路由）。验证真实 React Button 的点击、Space、禁用 click 无效、Tab 跳过禁用按钮、2px focus-visible、asChild 单一 anchor/合并事件/Enter 导航、plain 点击和隐式 form submit；六页导航也通过 Button plain 实际点击。未触发通知/模拟交易；浏览器非本机请求记录为空，pageerror 为空。源码对照保持 40 处原有处理器及所有其余组件语句；负控能检出处理器改写。
+持久脚本为 tests/r2b-browser-review.mjs、tests/browser/fixtures/r2b-browser-fixture.tsx（只注入测试页，不新增应用路由）。验证真实 React Button 的点击、Space、禁用 click 无效、Tab 跳过禁用按钮、2px focus-visible、asChild 单一 anchor/合并事件/Enter 导航、plain 点击和隐式 form submit；六页导航也通过 Button plain 实际点击。未触发通知/模拟交易；浏览器非本机请求记录为空，pageerror 为空。源码对照保持 40 处原有处理器及所有其余组件语句；负控能检出处理器改写。
 
 全部原测试保留，只更新确受标签替换影响的 N3 ReportArchive、MarketView、EvidenceAnalysis、TaskCenter 指纹；冻结回测指纹未改。验收命令结果另存 validation.json。
 

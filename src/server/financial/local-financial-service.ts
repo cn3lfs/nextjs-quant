@@ -4,6 +4,7 @@ import {
   financialMetrics,
   financialDate,
   financialVersions,
+  financialMappingVersion,
   seriesValueDefinition,
   type FinancialReportSnapshot,
 } from "trading-strategy-core/financial";
@@ -15,6 +16,7 @@ import {
   readLocalFinancialHistory,
   readLocalFinancialSeries,
 } from "../data-sources/tdx/local-financial-files";
+import { financialDirectoryPrerequisite } from "../data-sources/tdx/financial-prerequisite";
 function reportMetadata({
   fields: _fields,
   ...metadata
@@ -37,10 +39,27 @@ const sourceManifest = (reports: readonly FinancialReportSnapshot[]) =>
 
 export async function localFinancialView(root: string, input: unknown) {
   const query = localFinancialQuery.parse(input);
-  const history = await readLocalFinancialHistory(root, query.symbol, {
-    ...query,
-    reportDate: undefined,
-  });
+  let history: Awaited<ReturnType<typeof readLocalFinancialHistory>>;
+  let prerequisite: ReturnType<typeof financialDirectoryPrerequisite> = null;
+  try {
+    history = await readLocalFinancialHistory(root, query.symbol, {
+      ...query,
+      reportDate: undefined,
+    });
+  } catch (error) {
+    prerequisite = financialDirectoryPrerequisite(error, root);
+    if (!prerequisite) throw error;
+    // Reading is unavailable, not a successful report. Calculation/export paths
+    // keep their strict source handling; no placeholder values are synthesized.
+    history = {
+      symbol: query.symbol,
+      reports: [],
+      issues: [],
+      financialCompany: null,
+      version: financialMappingVersion,
+      warning: "",
+    };
+  }
   const selected = query.reportDate
     ? history.reports.find((r) => r.reportDate === query.reportDate)
     : history.reports[0];
@@ -83,6 +102,7 @@ export async function localFinancialView(root: string, input: unknown) {
   }));
   return {
     symbol: query.symbol,
+    prerequisite,
     sourceManifestHash: sourceManifest(history.reports),
     selected: selected ? reportMetadata(selected) : null,
     periods: history.reports.map(({ fields, ...report }) => ({

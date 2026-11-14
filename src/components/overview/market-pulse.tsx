@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { useQuoteRefreshInterval } from "../market/use-quote-session";
 
 /** Headline A-share indices, as on a broker terminal's home screen. */
@@ -36,10 +36,10 @@ const signed = (change: number) =>
  */
 export function useOverviewQuotes(watch: readonly string[]) {
   const interval = useQuoteRefreshInterval();
-  // Kept-alive but hidden overview: no polling.
-  const visible = usePanelVisible();
+  const visible = useTaskVisible();
   const symbols = [...pulseIndices.map(([symbol]) => symbol), ...watch];
   const quotes = api.tdxQuotes.useQuery(symbols, {
+    enabled: visible,
     retry: false,
     refetchOnWindowFocus: false,
     refetchInterval: visible ? interval : false,

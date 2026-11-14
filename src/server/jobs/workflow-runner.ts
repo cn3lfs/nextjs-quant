@@ -10,7 +10,6 @@ import { saveClsReviewConfig } from "../news/cls-review-scheduler";
 import { closeCzsc } from "../strategies/chan/czsc";
 import { z } from "zod";
 import { get, put } from "../db";
-import { settings, saveSettings } from "../infra/settings";
 import { runRpsObservation } from "../screening/rps-observation-job";
 import { downloadReady, requiresDownloadReceipt } from "./workflow-scheduler";
 import { closeMcp } from "../data-sources/tdx/tdx-mcp-disabled";
@@ -20,7 +19,6 @@ import { runCloseWorkflowFollowups } from "./close-workflow-followups";
 // import { readTdxLocalBlocks } from "./tdx-local-blocks";
 import { publishFullDayPackage } from "../data-sources/tdx/tdx-full-day-cache";
 import { inspectFullDayPackage } from "tstdx/local";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
 // import {
 //   currentIncrementUniverse,
 //   incrementalReferenceIndices,
@@ -66,11 +64,6 @@ async function main() {
     return;
   }
   if (args[0] === "--configure") {
-    const config = settings();
-    saveSettings({
-      ...config,
-      industryBlocksRoot: config.industryBlocksRoot || "D:\\wsWDZ\\Blocks",
-    });
     saveClsReviewConfig({ enabled: true, directory: clsWorkflowDirectory() });
     put("workflow-config", "workflow-config", {
       enabled: true,
@@ -91,7 +84,7 @@ async function main() {
   //   return;
   // }
   // if (args[0] === "--increment-hs") {
-  //   const date = historicalDateSchema.parse(
+  //   const date = researchDateSchema.parse(
   //     args[1] ?? new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
   //   );
   //   const symbols = [
@@ -107,7 +100,7 @@ async function main() {
   //   return;
   // }
   // if (args[0] === "--increment-a500") {
-  //   const date = historicalDateSchema.parse(
+  //   const date = researchDateSchema.parse(
   //     args[1] ?? new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
   //   );
   //   const blocks = await readTdxLocalBlocks(settings().tdxRoot);

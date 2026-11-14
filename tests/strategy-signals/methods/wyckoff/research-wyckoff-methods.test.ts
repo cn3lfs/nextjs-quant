@@ -1,25 +1,22 @@
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
 import { expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import Database from "better-sqlite3";
-import { migrate } from "../../../../src/server/db/migrations";
-import { ResearchStore } from "../../../../src/server/backtest/research-store";
 import type { Bar } from "../../../../src/lib/domain";
 import type { WyckoffHourlyInput } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import {
-  researchWyckoffSeries,
-  wyckoffStructureInputsSchema,
   wyckoffScore,
+  researchWyckoffSeries,
   type WyckoffStructureInput,
 } from "trading-strategies/research/wyckoff/research-wyckoff";
 import { researchWyckoffStructureSeries as series } from "../../../../src/server/strategies/shared/research-structure-weekly";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { selectResearchStrategy } from "../../../../src/components/research/research-strategy-fields";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import type { ResearchDataset } from "../../../../src/server/backtest/research-dataset";
+
+it("WY19 rejects a pre-breakout range invalidated by an extreme close", () => {
+  const bars = jac();
+  bars[80]!.close = 200;
+  expect(researchWyckoffSeries("wy-target-width", bars).at(-1)!.entry).toBe(
+    false,
+  );
+});
+
 function fixture(): Bar[] {
   const anchors = [
     [0, 80],
@@ -232,75 +229,6 @@ function raw(bars: Bar[], i = bars.length - 1): WyckoffStructureInput {
     },
   };
 }
-const noNative = async () => {
-  throw new Error("unexpected DLL");
-};
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
-function specFor(bars: Bar[], strategy = "wy-dual-rs") {
-  return researchSpecSchema.parse({
-    strategy,
-    start: bars[90]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars.at(-1)!.date,
-    holdingDays: 60,
-    maxPositions: 1,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-}
-it("WY11 dual historical RS consumes raw inputs; equality, late membership and mismatched raw bars cannot enter", async () => {
-  const bars = jac(),
-    days = bars.map((b) => b.date),
-    input = raw(bars);
-  expect(
-    series("wy-dual-rs", bars, days, "sh600000", [input]).at(-1)!.entry,
-  ).toBe(true);
-  for (const mutate of [
-    (r: WyckoffStructureInput) => {
-      r.benchmarks![0]!.snapshot.bars = structuredClone(r.stock.bars);
-    },
-    (r: WyckoffStructureInput) => {
-      r.benchmarks![0]!.identity.availableAt = `${r.date}T15:00:00+08:00`;
-    },
-    (r: WyckoffStructureInput) => {
-      r.stock.bars[0]!.close += 0.01;
-    },
-  ]) {
-    const r = structuredClone(input);
-    mutate(r);
-    expect(
-      series("wy-dual-rs", bars, days, "sh600000", [r]).at(-1)!.entry,
-    ).toBe(false);
-  }
-  const spec = { ...specFor(bars), wyckoffStructureInputs: [input] };
-  expect(await researchSignals("sh600000", bars, spec, noNative)).toHaveLength(
-    1,
-  );
-  await expect(
-    researchSignals(
-      "sh600000",
-      bars,
-      { ...spec, wyckoffStructureInputs: [] },
-      noNative,
-    ),
-  ).rejects.toThrow();
-});
 it("WY20 weighted stage scores preserve source hypotheses and exact 70 threshold; distribution and late assessments veto", () => {
   const bars = jac(),
     days = bars.map((b) => b.date),
@@ -340,77 +268,6 @@ it("WY20 weighted stage scores preserve source hypotheses and exact 70 threshold
       series("wy-score-half-kelly", bars, days, "sh600000", [n]).at(-1)!.entry,
     ).toBe(false);
   }
-});
-it("WY19 named targets freeze the pre-breakout range and sell initial thirds through the existing portfolio", async () => {
-  const bars = jac();
-  for (const price of [106, 113.5, 114, 122.5, 123, 131.5, 132])
-    append(bars, {
-      open: price,
-      close: price,
-      low: price - 0.1,
-      high: price + 0.1,
-    });
-  for (const id of [
-    "wy-target-pf",
-    "wy-target-time",
-    "wy-target-width",
-  ] as const) {
-    const spec = specFor(bars, id),
-      events = await researchSignals("sh600000", bars, spec, noNative);
-    expect(events.length).toBeGreaterThan(0);
-    expect(events[0]!.structureTargets?.targets.length).toBe(
-      id === "wy-target-pf" ? 1 : 3,
-    );
-    expect(JSON.parse(events[0]!.evidence).targetPlan.end).toBe(bars[89]!.date);
-    if (id === "wy-target-width") {
-      expect(events[0]!.structureTargets?.targets).toEqual([
-        113.5, 122.5, 131.5,
-      ]);
-      const result = researchPortfolio(
-        spec,
-        events,
-        bars.map((b) => b.date),
-        new Map([["sh600000", bars]]),
-        () => rules,
-      );
-      expect(result.trades[0]!.sales?.map((s) => s.quantity)).toEqual([
-        300, 300, 300,
-      ]);
-      expect(result.trades[0]!.remainingQuantity).toBe(0);
-    }
-  }
-  const bad = jac();
-  bad[80]!.close = 200;
-  expect(researchWyckoffSeries("wy-target-width", bad).at(-1)!.entry).toBe(
-    false,
-  );
-});
-it("raw input schema, UI switching, method snapshot and persisted task preserve complete evidence and explicit empty input", () => {
-  const bars = jac(),
-    r = raw(bars),
-    s = { ...specFor(bars), wyckoffStructureInputs: [r] };
-  expect(researchSpecSchema.parse(s).wyckoffStructureInputs).toEqual([r]);
-  expect(
-    wyckoffStructureInputsSchema.safeParse([{ ...r, availableAt: undefined }])
-      .success,
-  ).toBe(false);
-  expect(researchMethodSnapshot(s).wyckoffStructureInputs).toEqual([r]);
-  expect(
-    selectResearchStrategy(s, "wy-score-half-kelly").wyckoffStructureInputs,
-  ).toEqual([r]);
-  expect(
-    selectResearchStrategy(s, "ma-cross").wyckoffStructureInputs,
-  ).toBeUndefined();
-  expect(
-    researchMethodSnapshot({ ...s, wyckoffStructureInputs: [] })
-      .wyckoffStructureInputs,
-  ).toEqual([]);
-  const db = new Database(":memory:");
-  migrate(db);
-  const store = new ResearchStore(db);
-  const task = store.create(s, null);
-  expect(store.task(task.id)!.spec.wyckoffStructureInputs).toEqual([r]);
-  db.close();
 });
 it("WY10 requires completed weekly HH/HL plus the existing daily/hourly Spring, never substitutes daily bars", () => {
   const f = hourlyFixture();
@@ -458,85 +315,28 @@ it("WY10 requires completed weekly HH/HL plus the existing daily/hourly Spring, 
   ).toBe(false);
 });
 
-it("WY20 run persists raw evidence and uses B2 training admission; a source .48 hypothesis cannot open validation trades with fewer than 30 closed samples", async () => {
-  const bars = jac();
-  for (let i = 0; i < 5; i++)
-    append(bars, { open: 106, close: 106, high: 107, low: 105 });
-  const spec = researchSpecSchema.parse({
-    ...specFor(bars, "wy-score-half-kelly"),
-    validationStart: bars[91]!.date,
-    wyckoffStructureInputs: bars.slice(90).map((_, i) => raw(bars, 90 + i)),
-  });
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: ["sh600000"],
-      source: null,
-      warning: "fixture",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "fixture",
-        bars,
-        hash: "fixture",
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "fixture",
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[0]!.date,
-        end: bars.at(-1)!.date,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      ...rules,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, noNative);
-  expect(result.events.filter((e) => !e.side)).toHaveLength(1);
-  expect(result.kellyTraining).toMatchObject({
-    minimumTrades: 30,
-    winRate: null,
-    reason: "开发期不足30笔完整闭合交易",
-  });
-  const validation = result.partitions.find(
-    (p) => p.partition === "validation",
-  )!;
-  expect(validation.simulation!.trades).toEqual([]);
+it("WY11 dual historical RS consumes raw inputs; equality, late membership and mismatched raw bars cannot enter", () => {
+  const bars = jac(),
+    days = bars.map((b) => b.date),
+    input = raw(bars);
   expect(
-    validation.simulation!.attempts.some((a) => a.reason.includes("开发期")),
+    series("wy-dual-rs", bars, days, "sh600000", [input]).at(-1)!.entry,
   ).toBe(true);
-  expect(result.wyckoffStructureInputs).toEqual(spec.wyckoffStructureInputs);
-  const db = new Database(":memory:");
-  migrate(db);
-  const store = new ResearchStore(db),
-    task = store.create(spec, evidence);
-  store.finish(task.id, result);
-  expect(store.result(task.id)!.wyckoffStructureInputs).toEqual(
-    spec.wyckoffStructureInputs,
-  );
-  db.close();
+  for (const mutate of [
+    (r: WyckoffStructureInput) => {
+      r.benchmarks![0]!.snapshot.bars = structuredClone(r.stock.bars);
+    },
+    (r: WyckoffStructureInput) => {
+      r.benchmarks![0]!.identity.availableAt = `${r.date}T15:00:00+08:00`;
+    },
+    (r: WyckoffStructureInput) => {
+      r.stock.bars[0]!.close += 0.01;
+    },
+  ]) {
+    const r = structuredClone(input);
+    mutate(r);
+    expect(
+      series("wy-dual-rs", bars, days, "sh600000", [r]).at(-1)!.entry,
+    ).toBe(false);
+  }
 });

@@ -107,20 +107,12 @@ export function taskState(id: string): TaskState | null {
     'phase', json_extract(payload, '$.phase'), 'error', json_extract(payload, '$.error'),
     'workProgress', json_extract(payload, '$.workProgress'),
     'inputType', json_extract(payload, '$.input.type'),
-    'inputMode', json_extract(payload, '$.input.mode'),
     'inputKind', json_extract(payload, '$.input.kind'),
     'inputMethod', json_extract(payload, '$.input.method'),
     'screenResultId', CASE WHEN json_extract(payload, '$.type') = 'screen'
+      AND json_extract(payload, '$.input.type') = 'formula-screen'
       AND json_extract(payload, '$.status') = 'completed'
       AND json_type(payload, '$.result') = 'object' THEN id
-      WHEN json_extract(payload, '$.type') = 'research'
-        AND json_extract(payload, '$.status') = 'completed'
-        AND json_extract(payload, '$.input.mode') = 'quick-review'
-      THEN (SELECT s.id FROM records s WHERE s.kind = 'job'
-        AND s.id = json_extract(records.payload, '$.input.contextId')
-        AND json_extract(s.payload, '$.type') = 'screen'
-        AND json_extract(s.payload, '$.status') = 'completed'
-        AND json_type(s.payload, '$.result') = 'object')
       ELSE NULL END
     ) AS payload FROM records WHERE kind = 'job' AND id = ?`,
     )
@@ -130,7 +122,6 @@ export function taskState(id: string): TaskState | null {
     attemptId,
     auditIncomplete,
     inputType,
-    inputMode,
     inputKind,
     inputMethod,
     ...value
@@ -146,33 +137,23 @@ export function taskState(id: string): TaskState | null {
     phase: value.phase ?? undefined,
     error: value.error ?? undefined,
     screenResultId: value.screenResultId ?? undefined,
+    isFormulaScreen: value.type === "screen" && inputType === "formula-screen",
     resultLink: taskResultLink(id),
-    sourceLink: taskSourceLink(
-      value.type,
-      inputType,
-      inputMode,
-      inputKind,
-      inputMethod,
-    ),
+    sourceLink: taskSourceLink(value.type, inputType, inputKind, inputMethod),
   };
 }
 
 function taskSourceLink(
   type: string,
   inputType: unknown,
-  mode: unknown,
   kind: unknown,
   method: unknown,
 ): TaskState["sourceLink"] {
   let href: string | undefined;
   if (type === "scan") href = "/settings";
-  else if (
-    type === "screen" &&
-    (inputType == null || inputType === "formula-screen")
-  )
+  else if (type === "screen" && inputType === "formula-screen")
     href = "/screen";
-  else if (type === "backtest" || type === "walk-forward") href = "/backtest";
-  else if (type === "research" && mode === "quick-review") href = "/screen";
+  else if (type === "backtest") href = "/backtest";
   else if (
     type === "research" &&
     typeof kind === "string" &&
@@ -191,41 +172,6 @@ function taskSourceLink(
   return href ? { href, label: "前往来源页重新配置" } : undefined;
 }
 
-/** Covered by the job_task_history index (migrations.ts jobTaskIndexes). */
-export const taskOverviewSql = `SELECT count(*) total,
-      coalesce(sum(json_extract(payload,'$.status')='running'),0) running,
-      coalesce(sum(json_extract(payload,'$.status')='queued'),0) queued,
-      coalesce(sum(json_extract(payload,'$.status')='failed'),0) failed,
-      coalesce(sum(json_extract(payload,'$.status')='cancelled'),0) cancelled,
-      coalesce(sum(json_extract(payload,'$.status')='completed' AND json_extract(payload,'$.updatedAt')>=? AND json_extract(payload,'$.updatedAt')<?),0) completedToday
-      FROM records WHERE kind='job'`;
-/** Entire persisted Job scope, independent of the recent-80 sidebar contract. */
-export function taskOverview(now = Date.now()) {
-  const start =
-    Math.floor((now + 8 * 3600000) / 86400000) * 86400000 - 8 * 3600000;
-  return sqlite().transaction(() => {
-    const row = sqlite()
-      .prepare(taskOverviewSql)
-      .get(start, start + 86400000) as {
-      total: number;
-      running: number;
-      queued: number;
-      failed: number;
-      cancelled: number;
-      completedToday: number;
-    };
-    const revision =
-      (
-        sqlite()
-          .prepare(
-            "SELECT revision FROM record_kind_revisions WHERE kind='job'",
-          )
-          .get() as { revision: number } | undefined
-      )?.revision ?? 0;
-    return { ...row, revision, checkedAt: now };
-  })();
-}
-
 // Only expose a destination for a persisted report, never infer one from status
 // or materialize the job result (which can contain a whole screening universe).
 function taskResultLink(id: string): TaskState["resultLink"] {
@@ -237,32 +183,17 @@ function taskResultLink(id: string): TaskState["resultLink"] {
     WHERE j.kind = 'job' AND j.id = ?
       AND json_extract(j.payload, '$.type') = 'research'
       AND json_extract(j.payload, '$.status') = 'completed'
-      AND r.kind IN ('report', 'chan-report', 'canslim-report', 'wyckoff-report')
+      AND r.kind='report'
   `,
     )
     .get(id) as { id: string; kind: string } | undefined;
   if (!report || report.id.length > 200) return undefined;
-  if (
-    report.kind !== "report" &&
-    !new RegExp(`^${report.kind}-[a-f0-9]{64}$`).test(report.id)
-  )
-    return undefined;
   return {
     href: `/reports/${report.kind}/${encodeURIComponent(report.id)}`,
     label: "查看研究报告",
   };
 }
 export function screenTaskProgress(id: string) {
-  const rule = taskState(id);
-  if (!rule || rule.type !== "screen") return null;
-  const related = sqlite()
-    .prepare(
-      `SELECT id FROM records WHERE kind='job'
-    AND json_extract(payload,'$.type')='research'
-    AND json_extract(payload,'$.input.contextId')=?
-    AND json_extract(payload,'$.input.mode')='quick-review'
-    ORDER BY json_extract(payload,'$.createdAt') DESC,id DESC LIMIT 1`,
-    )
-    .get(id) as { id: string } | undefined;
-  return { rule, research: related ? taskState(related.id) : null };
+  const task = taskState(id);
+  return task?.isFormulaScreen ? task : null;
 }

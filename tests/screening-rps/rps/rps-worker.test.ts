@@ -1,3 +1,4 @@
+import { rpsPeriods } from "quant-rps";
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { build } from "esbuild";
 import { mkdtemp, mkdir, writeFile, rm, cp } from "node:fs/promises";
@@ -6,7 +7,7 @@ import { join } from "node:path";
 import { sqlite, put } from "../../../src/server/db/index";
 import { RpsWorkerClient } from "../../../src/server/screening/rps-client";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { rpsPeriods } from "../../../src/lib/screening/rps";
+
 import fixture from "../../fixtures/tdx-gbbq.json";
 import { readIndustryBlocks } from "../../../src/server/market/industry-blocks";
 
@@ -71,6 +72,28 @@ afterAll(async () => {
     retryDelay: 100,
   });
 });
+it("real worker persists waiting, exits, and accepts a completed-data retry", async () => {
+  const clock = Date.parse(`${calendar.at(-1)}T15:05:00+08:00`);
+  put("settings", "settings", { tdxRoot: root, calendar: calendar.slice(-2) });
+  try {
+    const result = await client.start({ mode: "backfill", days: 1 }, clock)
+      .done;
+    expect(result).toMatchObject({
+      status: "waiting",
+      waiting: { code: "calendar-history" },
+    });
+    expect(result.error).toBeUndefined();
+    expect(new RpsStore(sqlite()).progress()).toMatchObject({
+      status: "waiting",
+    });
+  } finally {
+    put("settings", "settings", { tdxRoot: root, calendar });
+  }
+  const retry = await client.start({ mode: "backfill", days: 1 }, clock).done;
+  expect(retry.status).toBe("complete");
+  expect(retry.waiting).toBeUndefined();
+  expect(new RpsStore(sqlite()).latest()?.date).toBe(calendar.at(-1));
+});
 it("real worker leaves the caller responsive, reports progress, cancels, then accepts another run", async () => {
   let ticks = 0,
     reports = 0;
@@ -98,7 +121,7 @@ it("real worker leaves the caller responsive, reports progress, cancels, then ac
   }
 });
 
-it("industry uses the real shared worker, cancellation and independent six-period storage", async () => {
+it("industry uses the real shared worker, cancellation and independent multi-period storage", async () => {
   const blocksRoot = join(directory, "blocks");
   await mkdir(join(blocksRoot, "申万行业"), { recursive: true });
   await writeFile(
@@ -134,9 +157,10 @@ it("industry uses the real shared worker, cancellation and independent six-perio
     expect(result.target).toBe("industry");
     expect(ticks).toBeGreaterThan(0);
     const store = new RpsStore(sqlite(), "industry");
-    expect(store.latest()!.counts).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(store.latest()!.counts).toEqual([2, 2, 2, 2, 2, 2, 2]);
     expect(store.latest()!.industry!.snapshot.files).toHaveLength(3);
     expect(store.curve("空")[0]!.values).toEqual([
+      null,
       null,
       null,
       null,
@@ -150,7 +174,7 @@ it("industry uses the real shared worker, cancellation and independent six-perio
   }
 });
 
-it("real concept worker uses its own category and publishes independent six-period ranks", async () => {
+it("real concept worker uses its own category and publishes independent multi-period ranks", async () => {
   const blocks = join(directory, "concept-blocks");
   await mkdir(join(blocks, "概念"), { recursive: true });
   await writeFile(join(blocks, "概念/低.txt"), "SZ000000\r\nSZ000001\r\n");
@@ -168,7 +192,7 @@ it("real concept worker uses its own category and publishes independent six-peri
   expect(result.error).toBeUndefined();
   expect(result.status).toBe("complete");
   const store = new RpsStore(sqlite(), "concept");
-  expect(store.latest()!.counts).toEqual([2, 2, 2, 2, 2, 2]);
+  expect(store.latest()!.counts).toEqual([2, 2, 2, 2, 2, 2, 2]);
   expect(store.latest()!.industry!.snapshot.category).toBe("concept");
   expect(store.ranking(calendar.at(-1)!, 50).map((r) => r.symbol)).toEqual([
     "高",
@@ -183,7 +207,7 @@ if (
   process.env.INDUSTRY_RPS_MEASURE_ROOT &&
   process.env.INDUSTRY_RPS_BLOCKS_ROOT
 )
-  it("S2 local 250-day backfill measures all industries, component exclusions and six distributions", async () => {
+  it("S2 local 250-day backfill measures all industries, component exclusions and all period distributions", async () => {
     // Remove only the synthetic industry rows in this test-owned database.
     sqlite().exec(
       "DELETE FROM industry_rps_values; DELETE FROM industry_rps_days",
@@ -271,7 +295,7 @@ if (
 // Explicit opt-in evidence case: no real local-data scan in the ordinary unit suite.
 // Uses the same isolated, finally-cleaned database and actual production worker.
 if (process.env.RPS_MEASURE_ROOT)
-  it("full-market S1 acceptance with 250-day backfill and six distributions", async () => {
+  it("full-market S1 acceptance with 250-day backfill and all period distributions", async () => {
     put("settings", "settings", {
       tdxRoot: process.env.RPS_MEASURE_ROOT,
       calendar: [],

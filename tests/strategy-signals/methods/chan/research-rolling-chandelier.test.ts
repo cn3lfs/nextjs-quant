@@ -1,10 +1,6 @@
 import { expect, it } from "vitest";
 import { rollingHigh } from "../../../../src/lib/indicators";
-import {
-  researchSpecSchema,
-  type ResearchEvent,
-} from "../../../../src/lib/research/strategy-research";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
+import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 const dates = Array.from(
   { length: 7 },
@@ -32,7 +28,7 @@ it("uses only complete windows and drops the old peak without forward access", (
   ).toEqual([null, null, null]);
   expect(() => rollingHigh(bars, 0)).toThrow();
 });
-it("never loosens the stop when the rolling high falls, and records its own version", () => {
+it("calculates the rolling high and records the distinct chandelier version", () => {
   const spec = researchSpecSchema.parse({
     strategy: "dual-breakout",
     start: dates[0],
@@ -52,15 +48,6 @@ it("never loosens the stop when the rolling high falls, and records its own vers
       slippageBps: 0,
     },
   });
-  const event: ResearchEvent = {
-    symbol: "sh600000",
-    observedDate: dates[1]!,
-    endpointDate: dates[1]!,
-    key: "fixture",
-    strategyVersion: "fixture",
-    evidence: "{}",
-    partition: "development",
-  };
   const input = bars.map((b, i) => ({
     ...b,
     open: 120,
@@ -68,33 +55,7 @@ it("never loosens the stop when the rolling high falls, and records its own vers
     high: i === 3 ? 150 : 130,
     low: 90,
   }));
-  const run = (selected = spec, data = input) =>
-    researchPortfolio(
-      selected,
-      [event],
-      dates,
-      new Map([[event.symbol, data]]),
-      () => ({
-        evidence: "fixture",
-        minimumBuy: 100,
-        buyStep: 100,
-        maximumOrder: 100000,
-        tradable: true,
-        limitUp: null,
-        limitDown: null,
-      }),
-    );
-  const result = run();
-  const history = result.trades[0]!.stopHistory!;
-  expect(history[0]!.stop).toBe(96);
-  expect(
-    history.every((r, i) => i === 0 || r.stop > history[i - 1]!.stop),
-  ).toBe(true);
-  expect(history).toHaveLength(2);
-  expect(history[1]!.date).toBe(dates[3]);
-  expect(history[1]!.stop).toBeCloseTo(150 - 140 / 3);
   expect(rollingHigh(input, 3)[6]).toBe(130);
-  expect(result.trades[0]!.exitDate).toBeNull();
   const legacy = researchSpecSchema.parse({
     ...spec,
     management: {
@@ -102,29 +63,8 @@ it("never loosens the stop when the rolling high falls, and records its own vers
       trail: { kind: "chandelier", period: 3, multiple: 1 },
     },
   });
-  expect(run(legacy).trades[0]!.stopHistory!.at(-1)!.stop).toBe(110);
   expect(researchMethodSnapshot(legacy)).not.toHaveProperty(
     "rollingChandelier",
-  );
-  const invalid = run(
-    spec,
-    input.map((b, i) => (i === 5 ? { ...b, volume: 0 } : b)),
-  ).trades[0]!;
-  expect(invalid.stopHistory).toEqual(history);
-  expect(
-    invalid.managementWarnings!.some(
-      (w) => w.date === dates[6] && w.reason.includes("窗口最高价"),
-    ),
-  ).toBe(true);
-  const preEntryHigh = input.map((b, i) => ({
-    ...b,
-    high: i === 1 ? 150 : 130,
-  }));
-  expect(
-    run(spec, preEntryHigh).trades[0]!.stopHistory!.at(-1)!.stop,
-  ).toBeCloseTo(150 - 140 / 3);
-  expect(run(legacy, preEntryHigh).trades[0]!.stopHistory!.at(-1)!.stop).toBe(
-    96,
   );
   expect(researchMethodSnapshot(spec)).toHaveProperty(
     "rollingChandelier.version",

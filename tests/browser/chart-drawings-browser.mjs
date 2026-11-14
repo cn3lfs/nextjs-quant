@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
@@ -22,7 +22,7 @@ const view = { ...defaultChartView, mainIndicators: [], subchart: ['volume'] };
 const fixed = { chartView: view, chartBars: snapshot };
 const query = (name) => ({ useQuery: () => ({ data: fixed[name], isLoading: false, isFetching: false, error: null, refetch() {} }) });
 export const api = new Proxy({
-  useUtils: () => ({ chartView: { setData() {} } }),
+  useUtils: () => ({ chartView: { setData() {} }, chartSharedDrawings: { invalidate() { window.sharedInvalidations = (window.sharedInvalidations ?? 0) + 1; return Promise.resolve(); } } }),
   saveChartView: { useMutation: (options) => ({ mutate: (input) => { window.savedView = input.view; options?.onSuccess?.(input.view); }, error: null }) },
   useQueries: () => [],
 }, { get: (target, name) => (name in target ? target[name] : query(name)) });`;
@@ -100,12 +100,8 @@ try {
     return page.evaluate(() => window.savedView?.drawings ?? []);
   };
   const tool = async (name) => {
-    const summary = page.locator("summary", { hasText: "画线：" });
-    if (
-      !(await page
-        .locator('details[name="chart-tools"]')
-        .evaluate((d) => d.open))
-    )
+    const summary = page.getByRole("button", { name: /^画线：/ });
+    if ((await summary.getAttribute("aria-expanded")) !== "true")
       await summary.click();
     await page
       .getByRole("toolbar", { name: "画线工具" })
@@ -136,13 +132,13 @@ try {
   const channel = drawings[0];
 
   // 2) Text label with the typed content.
-  await page.locator("summary", { hasText: "画线：" }).click();
+  await page.getByRole("button", { name: /^画线：/ }).click();
   await page
     .getByRole("toolbar", { name: "画线工具" })
     .getByRole("button", { name: "文字", exact: true })
     .click();
   await page.getByLabel("标注文字").fill("突破位");
-  await page.locator("summary", { hasText: "画线：" }).click();
+  await page.getByRole("button", { name: /^画线：/ }).click();
   await click(700, 250);
   drawings = await saved();
   assert.equal(drawings.length, 2);
@@ -171,7 +167,10 @@ try {
     dateBefore,
     "dragging a drawing does not pan the chart",
   );
-  await page.screenshot({ path: join(tmpdir(), "chart-drawings.png") });
+  if (process.env.CHART_SHOT_DIR)
+    await page.screenshot({
+      path: join(process.env.CHART_SHOT_DIR, "chart-drawings.png"),
+    });
 
   // 5) The drawing stays selected after the drag; Delete removes it.
   await page.keyboard.press("Delete");
@@ -185,6 +184,10 @@ try {
   await click(1000, 60);
   await page.keyboard.press("Delete");
   assert.equal((await saved()).length, 1);
+  assert.ok(
+    await page.evaluate(() => window.sharedInvalidations > 0),
+    "saving drawings refreshes the shared drawing query",
+  );
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({ ok: true, channel: moved.kind, text: drawings[0]?.text }),

@@ -17,9 +17,13 @@
 
 ## 状态、副作用与验证
 
-控件只持有短暂交互状态，不拥有业务持久化；UI Gallery 中的表单、对话框和表格为演示数据，不请求 API。代表验证：[UI Gallery route 结构](../../src/app/ui-gallery/page.tsx)、[组件交互](../../tests/engineering-validation/t2-page-density.test.ts)、[组件域边界](../../tests/engineering-validation/src-organization.test.ts)。
+控件只持有短暂交互状态，不拥有业务持久化；UI Gallery 中的表单、对话框和表格为演示数据，不请求 API。代表验证：[UI Gallery route 结构](../../src/app/ui-gallery/page.tsx)、[弹层与导航交互](../../tests/browser/market-toolbar-browser.mjs)、[组件域边界](../../tests/engineering-validation/src-organization.test.ts)。
 
 ## 维护指南
+
+`Popover` 复用已有 Radix，提供视口碰撞避让、可用高度限制、Escape 关闭和焦点归还；调用方提供可辨识的名称。图表指标、RPS、叠加对比和画线配置采用此控件；错误与重试仍留在图表旁，不能随设置弹层隐藏。
+
+缓存页面使用 `workbench/panel-popover.tsx` 包装此控件：观察 `PanelVisibility`，页面/子视图隐藏时立即关闭 portal 并清除打开状态；受控参数弹层也收到关闭回调。通用 UI 不依赖工作台状态。跳转链接用 `PopoverClose` 关闭，避免进入常规路由后留下悬浮内容。
 
 DataTable 通过唯一 `aria-describedby` 关联键盘排序说明，只给可排序表格提供；现有按钮与表头 `aria-sort` 保持。列适配以调用方 columns 引用为 memo 边界，不接入客户端排序或分页。Gallery 已有正常/加载/空/失败/重试和排序样例；`r1-data-table.test.ts` 与 `news-shared-ui-browser.mjs` 分别验证语义标记和实际 Enter/空格交互。
 

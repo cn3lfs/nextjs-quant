@@ -12,6 +12,7 @@ const tone = {
   running: "accent",
   complete: "ok",
   failed: "bad",
+  waiting: "idle",
 } as const;
 
 /**
@@ -75,7 +76,12 @@ export function RpsWorkflowLog({
                 <Pill tone={tone[entry.status as keyof typeof tone] ?? "idle"}>
                   {rpsStatusLabel(entry.status)}
                 </Pill>
-                {entry.error && (
+                {entry.status === "waiting" && entry.waiting && (
+                  <span className="w-full text-[13px] text-nc-text-3">
+                    {entry.waiting.message}
+                  </span>
+                )}
+                {entry.status === "failed" && entry.error && (
                   <span className="w-full text-[13px] text-nc-bad">
                     {entry.error}
                   </span>

@@ -6,17 +6,10 @@ import {
   pageRollingPerformance,
   rollingPageSchema,
   tradeReviewRollingPage,
-  researchRollingPage,
 } from "../../../src/server/research/performance/rolling-performance-service";
 import { rollingPerformance } from "../../../src/lib/backtest/rolling-performance";
 import { replayTradeReview } from "../../../src/server/portfolio/trade-review-service";
 import { RollingPerformanceResults } from "../../../src/components/backtest/rolling-performance-results";
-import type {
-  ResearchStore,
-  ResearchResult,
-} from "../../../src/server/backtest/research-store";
-import type { ResearchDataset } from "../../../src/server/backtest/research-dataset";
-import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 
 vi.mock("../../../src/components/market/chart", () => ({
   RollingPerformanceChart: () =>
@@ -170,78 +163,19 @@ it("account adapter forwards TWR nulls and the supplied calendar", () => {
   expect(html).toContain("insufficientCoverage：覆盖不足");
 });
 
-it("research uses frozen partition dates without bridging independent capital or stale prices", () => {
-  const spec = researchSpecSchema.parse({
-    strategy: "dual-breakout",
-    start: dates[0],
-    end: dates[5],
-    validationStart: dates[3],
-  });
-  // 只提供适配器消费的字段；测试不触碰数据库或迁移。
-  const result = {
-    spec,
-    partitions: ["development", "validation"].map((partition, j) => ({
-      partition,
-      simulation: {
-        nav: dates.slice(j * 3, j * 3 + 3).map((date, i) => ({
-          date,
-          value: spec.initialCapital * (1 + (i + 1) / 10),
-          cash: 0,
-          stale: i === 1 ? ["sh600000"] : [],
-        })),
-      },
-    })),
-  } as ResearchResult;
-  const store = {
-    result: () => result,
-    dataset: () => ({ calendar: dates }) as ResearchDataset,
-  } as unknown as ResearchStore;
-  for (const partition of ["development", "validation"] as const) {
-    const data = researchRollingPage(
-      store,
-      "fixture",
-      partition,
-      rollingPageSchema.parse({ window: 3 }),
-    );
-    expect(data.rows[0]!.totalReturn.value).toBeCloseTo(0.1);
-    expect(data.rows[0]!.coverage.nullDays).toBe(2);
-    expect(data.rows[0]!.startDate).toBe(
-      dates[partition === "development" ? 0 : 3],
-    );
-  }
-  expect(() =>
-    researchRollingPage(
-      { result: () => null, dataset: () => null } as unknown as ResearchStore,
-      "missing",
-      "validation",
-      rollingPageSchema.parse({}),
-    ),
-  ).toThrow("尚不可得");
-});
-
-it("both containers wire rolling separately from the existing U2/U6/U8 paths", () => {
+it("account review keeps independent rolling queries and pagination", () => {
   const trade = readFileSync(
     "src/components/portfolio/trade-review-container.tsx",
     "utf8",
   );
-  const research = readFileSync(
-    "src/components/research/strategy-research-controls.tsx",
-    "utf8",
-  );
-  for (const source of [trade, research])
-    expect(source).toContain("<RollingPerformanceContainer");
+  expect(trade).toContain("<RollingPerformanceContainer");
   expect(trade).toContain("utils.tradeReviewRollingPerformance.invalidate()");
-  expect(research).toContain(
-    "utils.strategyResearchRollingPerformance.invalidate()",
-  );
   const container = readFileSync(
     "src/components/backtest/rolling-performance-container.tsx",
     "utf8",
   );
   expect(container).toContain("api.tradeReviewRollingPerformance.useQuery");
-  expect(container).toContain(
-    "api.strategyResearchRollingPerformance.useQuery",
-  );
+  expect(container).not.toContain("strategyResearch");
   expect(container).toContain("...pagination");
   expect(container).toContain("resetPage()");
 });

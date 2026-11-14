@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 
-import {
-  asOfDomains,
-  type AsOfDomain,
-} from "trading-strategies/research/contracts/as-of-domain";
+import { asOfDomains } from "trading-strategies/research/contracts/as-of-domain";
 const text = z.string().trim().min(1);
 import { asOfTimestampSchema } from "trading-strategies/research/contracts/time";
 // A date-only effectiveAt denotes a business date (Shanghai midnight), never

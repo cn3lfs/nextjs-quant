@@ -1,7 +1,11 @@
 "use client";
+import { usePanelVisible } from "../workbench/keep-alive";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { displayFinancialNumber } from "~/lib/financial/local-financial";
+import {
+  displayAnnualFinancialRatio,
+  displayFinancialRatio,
+} from "~/lib/financial/financial-display";
 import { Button } from "../ui/button";
 import {
   Select,
@@ -18,18 +22,22 @@ export function FinancialArchivePanel({
   symbol: string;
   reportDate?: string;
 }) {
+  const visible = usePanelVisible();
   const [jobId, setJobId] = useState(""),
     [archiveId, setArchiveId] = useState("");
   const utils = api.useUtils();
-  const history = api.localFinancialArchiveHistory.useQuery();
+  const history = api.localFinancialArchiveHistory.useQuery(undefined, {
+    enabled: visible,
+  });
   const create = api.localFinancialArchiveCreate.useMutation({
     onSuccess: (job) => setJobId(job.id),
   });
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
       refetchInterval: (query) =>
+        visible &&
         ["queued", "running"].includes(query.state.data?.status ?? "")
           ? 500
           : false,
@@ -44,7 +52,7 @@ export function FinancialArchivePanel({
   }, [job.data?.status, job.data?.result, utils]);
   const archive = api.localFinancialArchive.useQuery(
     archiveId || `local-financial-${"0".repeat(64)}`,
-    { enabled: !!archiveId, retry: false },
+    { enabled: visible && !!archiveId, retry: false },
   );
   const cancel = api.cancel.useMutation();
   const remove = api.localFinancialArchiveDelete.useMutation({
@@ -140,23 +148,15 @@ export function FinancialArchivePanel({
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               收入三年CAGR：
-              {displayFinancialNumber(
-                archive.data.growth.threeYear.revenueCagr.value === null
-                  ? null
-                  : archive.data.growth.threeYear.revenueCagr.value * 100,
-                "%",
+              {displayFinancialRatio(
+                archive.data.growth.threeYear.revenueCagr.value,
               )}
-              %
             </div>
             <div>
               合并利润三年CAGR：
-              {displayFinancialNumber(
-                archive.data.growth.threeYear.profitCagr.value === null
-                  ? null
-                  : archive.data.growth.threeYear.profitCagr.value * 100,
-                "%",
+              {displayFinancialRatio(
+                archive.data.growth.threeYear.profitCagr.value,
               )}
-              %
             </div>
           </div>
           {archive.data.quality.annual.map((row) => (
@@ -168,7 +168,7 @@ export function FinancialArchivePanel({
                 {Object.entries(row.ratios).map(([key, metric]) => (
                   <li key={key}>
                     {metric.formula}：
-                    {displayFinancialNumber(metric.value, "比例")}{" "}
+                    {displayAnnualFinancialRatio(key, metric.value)}{" "}
                     {metric.missing.join("；")}
                   </li>
                 ))}

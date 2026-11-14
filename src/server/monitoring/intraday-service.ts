@@ -9,6 +9,7 @@ import { intradayPool, intradayHistory } from "./intraday-data";
 import { IntradayJob } from "./intraday-job";
 import { IntradayStore } from "./intraday-store";
 import type { IntradayDependencies } from "./intraday-job";
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 
 export function intradayConfig() {
   return intradayConfigSchema.parse(get("intraday-config") ?? {});
@@ -53,6 +54,8 @@ export function intradayDependencies(
  * No subscription or delivery API is involved in preselection.
  */
 export async function runIntradayTick(deps: IntradayDependencies) {
+  if (!capabilityAllows("intraday", "compute"))
+    throw new Error(capabilities.intraday.reason);
   const config = intradayConfig();
   if (!config.enabled) return;
   const store = new IntradayStore(sqlite());

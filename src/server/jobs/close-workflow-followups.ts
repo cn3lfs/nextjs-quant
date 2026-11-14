@@ -4,15 +4,17 @@ import {
   runIntradayTick,
 } from "../monitoring/intraday-service";
 import { runClsReviewTick } from "../news/cls-review-scheduler";
+import { capabilityAllows } from "~/lib/common/capabilities";
 
-/** Both download paths retain the same close confirmation and news review.
- * Each service owns its enabled setting and completed-item retry rules.
+/** Both download paths honor capability policy before close followups.
+ * Enabled services own their setting and completed-item retry rules.
  */
 export async function runCloseWorkflowFollowups() {
   // A failure in signal confirmation must not prevent independent news review.
   const failures: unknown[] = [];
   try {
-    await runIntradayTick(intradayDependencies(analyzeCzsc));
+    if (capabilityAllows("intraday", "schedule"))
+      await runIntradayTick(intradayDependencies(analyzeCzsc));
   } catch (error) {
     failures.push(error);
   }

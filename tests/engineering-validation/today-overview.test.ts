@@ -1,4 +1,10 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+// Active-policy time-window behavior remains distinct from the production
+// pause policy exercised in paused-overview.test.ts.
+vi.mock("~/lib/common/capabilities", async (original) => ({
+  ...(await original<typeof import("~/lib/common/capabilities")>()),
+  capabilityAllows: () => true,
+}));
 import {
   health,
   phaseOf,
@@ -36,6 +42,23 @@ const base = (
   channels: [{ enabled: true }],
   failedDeliveries: 0,
   ...patch,
+});
+
+it("RPS prerequisite waiting shows its next step without red failure health", () => {
+  const row = health(
+    base(960, {
+      rps: {
+        latestDate: null,
+        running: false,
+        waiting: "补齐历史日线后重新计算",
+      },
+    }),
+  ).find((item) => item.key === "rps");
+  expect(row).toMatchObject({
+    value: "等待条件",
+    note: "补齐历史日线后重新计算",
+  });
+  expect(row?.tone).not.toBe("bad");
 });
 
 it("derives the phase and the next window from the clock and the saved cutoffs", () => {

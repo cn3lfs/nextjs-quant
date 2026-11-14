@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { resolveTdxRoot } from "tstdx/local";
 import { readSnapshot } from "../data-sources/tdx/tdx";
 import {
   readFullDaySnapshot,
@@ -32,7 +32,7 @@ export async function readLocalDailySnapshot(
   )
     return {
       ...cached,
-      dataRoot: resolve(root),
+      dataRoot: root.trim() ? resolveTdxRoot(root) : "",
       name: local?.name ?? cached.name,
       sourceNote: repair
         ? "已明确选择完整包修复同日期日线"

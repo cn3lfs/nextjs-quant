@@ -82,21 +82,29 @@ it("keeps KDJ 80 inclusive, RSI [40,60] excluded, MACD RSI50 strict and MA equal
       .entry,
   ).toBe(false);
 });
-it.each(indicatorCombinationIds)("%s preserves every named child in executable evidence", (id) => {
+it.each(indicatorCombinationIds)(
+  "%s preserves every named child in executable evidence",
+  (id) => {
     const bars = Array.from({ length: 80 }, (_, i) => ({
-        date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),
-        open: 100 + i / 2,
-        close: 101 + i / 2,
-        high: 102 + i / 2,
-        low: 99 + i / 2,
-        volume: 100,
-        amount: 10000,
+      date: new Date(Date.UTC(2022, 0, i + 1)).toISOString().slice(0, 10),
+      open: 100 + i / 2,
+      close: 101 + i / 2,
+      high: 102 + i / 2,
+      low: 99 + i / 2,
+      volume: 100,
+      amount: 10000,
     }));
-    const result = researchTechnicalSeries(id, bars, undefined, researchFormulaRuntime);
+    const result = researchTechnicalSeries(
+      id,
+      bars,
+      undefined,
+      researchFormulaRuntime,
+    );
     expect(result).toHaveLength(bars.length);
     const last = result.at(-1)!;
     expect("members" in last && last.members.map((m) => m.id)).toEqual([
-        ...indicatorCombinationProfiles[id].legacy,
-        ...indicatorCombinationProfiles[id].methods,
+      ...indicatorCombinationProfiles[id].legacy,
+      ...indicatorCombinationProfiles[id].methods,
     ]);
-});
+  },
+);

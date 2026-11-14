@@ -2,10 +2,7 @@ import { big, moneyMul, toNumber } from "../../money";
 
 /** Research-only FIFO cost allocation. Prices are actual simulated fills;
  * commission is supplied once per order by the execution layer. */
-import type {
-  ResearchPositionLot,
-  ResearchPositionBook,
-} from "trading-strategies/research/contracts/position-book";
+import type { ResearchPositionBook } from "trading-strategies/research/contracts/position-book";
 
 export function researchPositionBook(): ResearchPositionBook {
   return {

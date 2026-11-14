@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { ExecutionQualityResults } from "./execution-quality-results";
 import { ExecutionDetail } from "./execution-detail";
 import { Button } from "../ui/button";
@@ -50,6 +51,7 @@ export function ExecutionQualityContainer({
   /** Opens an import batch; the caller brings the user back here. */
   onBatch?: (batchId: string) => void;
 }) {
+  const visible = useTaskVisible();
   const utils = api.useUtils();
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -120,7 +122,7 @@ export function ExecutionQualityContainer({
       : "";
   const query = api.tradeReviewExecution.useQuery(input, {
     retry: false,
-    enabled: !dateError,
+    enabled: visible && !!account && !dateError,
   });
   // The server clamps out-of-range pages (e.g. after a revoke); follow it.
   useEffect(() => {

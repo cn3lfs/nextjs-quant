@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
 import { boll, kdj, ma, macd, rsi } from "../../../src/lib/indicators";
-import { chartViewSchema, defaultChartView } from "../../../src/lib/chart/chart-view";
+import {
+  chartViewSchema,
+  defaultChartView,
+} from "../../../src/lib/chart/chart-view";
 import {
   chartIndicators,
   chartLegend,

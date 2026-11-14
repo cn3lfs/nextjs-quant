@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "./root.js";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, relative, isAbsolute } from "node:path";
 const signature = (
@@ -50,7 +51,7 @@ export async function readStableLocalFile(
 
 /** Read-only root-relative client data; reject traversal and absolute caller paths. */
 export async function readLocalClientFile(root: string, name: string) {
-  const directory = resolve(root),
+  const directory = resolveTdxRoot(root),
     target = resolve(directory, name),
     path = relative(directory, target);
   if (!path || path.startsWith("..") || isAbsolute(path))

@@ -25,6 +25,7 @@ import {
 import { useQuoteRefreshInterval } from "./use-quote-session";
 import { Button } from "../ui/button";
 import { isTypingTarget } from "./chart-hotkeys";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 const dayChoices = [1, 2, 3, 4, 5] as const;
 const beijingDate = (now: number) =>
@@ -48,23 +49,26 @@ export function IntradayChart({
   dark?: boolean;
 }) {
   const [days, setDays] = useState<number>(1);
+  const visible = usePanelVisible();
   const interval = useQuoteRefreshInterval();
   const today = api.tdxMinutes.useQuery(
     { symbol },
     {
       retry: false,
       refetchOnWindowFocus: false,
-      refetchInterval: interval,
+      enabled: visible,
+      refetchInterval: visible ? interval : false,
     },
   );
   const quote = api.tdxQuotes.useQuery([symbol], {
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: interval,
+    enabled: visible,
+    refetchInterval: visible ? interval : false,
   });
   const daily = api.chartBars.useQuery(
     { snapshotId, period: "day", limit: 100, adjustment: "none" },
-    { retry: false, refetchOnWindowFocus: false },
+    { enabled: visible, retry: false, refetchOnWindowFocus: false },
   );
   const bars = daily.data?.bars ?? [];
   const quotedPreClose =
@@ -86,7 +90,12 @@ export function IntradayChart({
     historyDates.map((date) =>
       t.tdxMinutes(
         { symbol, date: Number(date.replaceAll("-", "")) },
-        { retry: false, refetchOnWindowFocus: false, staleTime: Infinity },
+        {
+          enabled: visible,
+          retry: false,
+          refetchOnWindowFocus: false,
+          staleTime: Infinity,
+        },
       ),
     ),
   );
@@ -294,6 +303,7 @@ export function IntradayChart({
 
   // TDX Alt+1…5: number of days shown.
   useEffect(() => {
+    if (!visible) return;
     const onKey = (event: KeyboardEvent) => {
       const n = Number(event.key);
       if (
@@ -309,7 +319,7 @@ export function IntradayChart({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [visible]);
 
   const error = today.error ?? quote.error ?? daily.error;
   const change =

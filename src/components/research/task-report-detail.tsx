@@ -6,9 +6,6 @@ import { archiveReturnHref } from "~/lib/research/workflow/archive-navigation";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { ReportCard } from "../workbench/reports";
-import { ChanPanel } from "./chan-panel";
-import { CanslimPanel } from "./canslim-panel";
-import { WyckoffPanel } from "./wyckoff-panel";
 
 function GeneralReport({ id }: { id: string }) {
   const detail = api.archivedReport.useQuery(id, {
@@ -65,15 +62,6 @@ export function TaskReportDetail({ kind, id }: { kind: string; id: string }) {
       <ReadingLayout>
         <ArchiveReadBoundary key={`${kind}:${id}`}>
           {kind === "report" && <GeneralReport id={id} />}
-          {kind === "chan-report" && (
-            <ChanPanel key={id} archive initialReportId={id} />
-          )}
-          {kind === "canslim-report" && (
-            <CanslimPanel key={id} archive initialReportId={id} />
-          )}
-          {kind === "wyckoff-report" && (
-            <WyckoffPanel key={id} archive initialReportId={id} />
-          )}
         </ArchiveReadBoundary>
       </ReadingLayout>
     </section>

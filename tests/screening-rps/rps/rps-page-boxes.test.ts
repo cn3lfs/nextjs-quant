@@ -10,7 +10,10 @@ import {
   type RpsLogEntry,
 } from "../../../src/lib/screening/rps-log";
 import { poolMembersHref } from "../../../src/lib/market/market-pool";
-import { chartSymbolHref, readChartSymbolParam } from "../../../src/lib/chart/chart-symbol";
+import {
+  chartSymbolHref,
+  readChartSymbolParam,
+} from "../../../src/lib/chart/chart-symbol";
 import { ChartSymbolLink } from "../../../src/components/market/chart-symbol-link";
 import { RpsRunStatus } from "../../../src/components/market/rps-run-status";
 import { RpsWorkflowLog } from "../../../src/components/market/rps-workflow-log";
@@ -35,6 +38,32 @@ const record = (
   payload: Record<string, unknown>,
   updatedAt = Date.UTC(2026, 0, 5, 7, 5, 0),
 ) => ({ id, payload, updatedAt });
+
+it("waiting conditions remain visible without a failure alert in both status and workflow log", () => {
+  const waiting = {
+    code: "calendar-history" as const,
+    message: "请补齐120个参考交易日",
+  };
+  const current = { ...progress, status: "waiting" as const, waiting };
+  const entry = toRpsLogEntry(
+    record("waiting", {
+      phase: "close",
+      date: "2026-01-05",
+      status: "waiting",
+      waiting,
+    }),
+  );
+  expect(entry?.waiting).toEqual(waiting);
+  for (const markup of [
+    renderToStaticMarkup(createElement(RpsRunStatus, { progress: current })),
+    renderToStaticMarkup(createElement(RpsWorkflowLog, { entries: [entry!] })),
+  ]) {
+    expect(markup).toContain("等待条件");
+    expect(markup).toContain(waiting.message);
+    expect(markup).not.toContain('role="alert"');
+    expect(markup).not.toContain("text-nc-bad");
+  }
+});
 
 describe("RPS 历史日志记录", () => {
   it("只保留可解析的RPS批次并按可用时间戳定位", () => {
@@ -170,7 +199,7 @@ describe("历史日志框", () => {
 describe("板块成分股入口", () => {
   it("行业与概念都链接到股票池深链，名称编码后传递", () => {
     expect(poolMembersHref("industry", "电力设备")).toBe(
-      "/market?poolCategory=industry&poolName=%E7%94%B5%E5%8A%9B%E8%AE%BE%E5%A4%87",
+      "/stock-pool?poolCategory=industry&poolName=%E7%94%B5%E5%8A%9B%E8%AE%BE%E5%A4%87",
     );
     const html = renderToStaticMarkup(
       createElement(PoolMembersLink, {

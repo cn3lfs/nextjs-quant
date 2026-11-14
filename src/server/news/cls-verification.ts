@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { resolveTdxRoot } from "tstdx/local";
 import { createHash } from "node:crypto";
 import { settings } from "../infra/settings";
 import { sqlite } from "../db";
@@ -33,7 +33,7 @@ export async function verifyClsSample(date: string) {
   const sample = store.sample(date);
   if (!sample) throw new Error("该日尚无固定样本");
   const config = settings();
-  const root = resolve(config.tdxRoot);
+  const root = config.tdxRoot.trim() ? resolveTdxRoot(config.tdxRoot) : "";
   const checkedAt = Date.now();
   const today = new Date(checkedAt + 8 * 3600000).toISOString().slice(0, 10);
   const warnings = [

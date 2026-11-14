@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Ranking, TestTube } from "@phosphor-icons/react/ssr";
+import { Ranking } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { PanelVisibility } from "./keep-alive";
 
@@ -19,21 +19,11 @@ const IndustryRpsControls = dynamic(() =>
 const IntradayControls = dynamic(() =>
   import("../intraday/intraday-controls").then((m) => m.IntradayControls),
 );
-const ResearchUsageContainer = dynamic(() =>
-  import("../research/research-usage-container").then(
-    (m) => m.ResearchUsageContainer,
-  ),
-);
 const RpsControls = dynamic(() =>
   import("../market/rps-controls").then((m) => m.RpsControls),
 );
 const RpsOverview = dynamic(() =>
   import("../market/rps-overview").then((m) => m.RpsOverview),
-);
-const StrategyResearchControls = dynamic(() =>
-  import("../research/strategy-research-controls").then(
-    (m) => m.StrategyResearchControls,
-  ),
 );
 const CryptoView = dynamic(() =>
   import("../market/crypto-view").then((m) => m.CryptoView),
@@ -107,17 +97,6 @@ export function RpsPanel() {
   );
 }
 
-export function ResearchPanel() {
-  return (
-    <PageGrid>
-      <ResearchUsageContainer />
-      <Panel icon={TestTube} title="策略样本研究">
-        <StrategyResearchControls />
-      </Panel>
-    </PageGrid>
-  );
-}
-
 export function ClsReviewPanel() {
   return <ClsReviewControls />;
 }
@@ -125,7 +104,6 @@ export function ClsReviewPanel() {
 export const routePanels = {
   "/intraday": IntradayPanel,
   "/rps": RpsPanel,
-  "/research": ResearchPanel,
   "/cls-review": ClsReviewPanel,
   "/crypto": CryptoView,
   "/futures": FuturesView,

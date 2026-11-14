@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { get, put } from "../../db";
 import { claimWorkflow } from "../../jobs/workflow-lease";
 import { refreshDailyIncrement } from "./tdx-increment-refresh";
@@ -33,7 +33,7 @@ export async function runIncrementJob(
     allowUnavailable?: boolean;
   } = {},
 ) {
-  historicalDateSchema.parse(date);
+  researchDateSchema.parse(date);
   symbols = [
     ...new Set(symbols.map((symbol) => symbolSchema.parse(symbol))),
   ].sort();

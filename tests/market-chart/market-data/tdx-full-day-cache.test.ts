@@ -10,30 +10,34 @@ import {
   readFullDaySnapshot,
 } from "../../../src/server/data-sources/tdx/tdx-full-day-cache";
 const file = "tests/fixtures/tdx-full-day/valid.zip";
-it.skipIf(process.platform !== "win32")(
+it
+  .skipIf(process.platform !== "win32")
+  .each(["", resolve(process.env.QUANT_DATA_DIR!, "missing-source-root")])(
   "uses the imported benchmark when no local index file exists",
-  async () => {
+  async (root) => {
     const [source] = await publishFullDayPackage(
       "tests/fixtures/tdx-full-day/with-index.zip",
       ["sh000001"],
       100,
     );
     const result = await readBenchmarkSnapshot(
-      "missing-source-root",
+      root,
       "2026-09-11",
       "2026-09-11",
     );
     expect(result.source).toBe("tdx-full-package");
+    expect(result.dataRoot).toBe(root);
     expect(result.bars[0]?.close).toBe(11);
     expect(result.sourceVersions).toEqual([source!.id]);
     await expect(
-      readBenchmarkSnapshot("missing-source-root", "2026-09-12", "2026-09-11"),
+      readBenchmarkSnapshot(root, "2026-09-12", "2026-09-11"),
     ).rejects.toThrow("区间");
   },
 );
 it.skipIf(process.platform !== "win32")(
   "publishes immutable histories and preserves the current batch on missing symbols or stale attempts",
   async () => {
+    const root = "";
     const [first] = await publishFullDayPackage(file, ["sh600000"], 100);
     expect(first?.bars[0]?.close).toBe(11);
     await publishFullDayPackage(
@@ -41,7 +45,8 @@ it.skipIf(process.platform !== "win32")(
       ["sh000001"],
       100,
     );
-    const deps = localRpsDependencies("missing-source-root", []);
+    const deps = localRpsDependencies(root, []);
+    expect(deps.root).toBe(root);
     expect(await deps.universe()).toContainEqual({
       symbol: "sh600000",
       name: "sh600000",
@@ -63,22 +68,22 @@ it.skipIf(process.platform !== "win32")(
         );
         worker.postMessage({
           type: "snapshot",
-          root: "missing-source-root",
+          root: root,
           symbol: "sh600000",
           period: "day",
         });
       });
       expect(result).toMatchObject({
         source: "tdx-full-package",
+        dataRoot: root,
         hash: first?.hash,
       });
     } finally {
       await worker.terminate();
     }
-    expect(
-      await readLocalDailySnapshot("missing-source-root", "sh600000"),
-    ).toMatchObject({
+    expect(await readLocalDailySnapshot(root, "sh600000")).toMatchObject({
       source: "tdx-full-package",
+      dataRoot: root,
       hash: first?.hash,
       bars: first?.bars,
     });

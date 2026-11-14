@@ -17,12 +17,6 @@ export type ScreenDataHealth = {
   tradingStatus: "unknown";
   warnings: string[];
 };
-export function requireCurrentScreen(health: ScreenDataHealth) {
-  if (health.status !== "aligned")
-    throw new Error(
-      `严格当前模式未通过：行情 ${health.dataAsOf ?? "未知"}，参考 ${health.referenceAsOf ?? "未知"}；${health.status === "lagging" ? "本地行情落后，请更新通达信数据" : "无法核验当前应有时点，请核对交易日历和行情"}。可切换本地最近时点作研究。`,
-    );
-}
 export async function localCalendarReference(
   root: string,
   overrides: string[],

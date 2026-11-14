@@ -1,14 +1,10 @@
 [
   "announcement-search",
-  "canslim-analyst",
-  "chan-theory",
   "cls-news",
-  "fundamental-analyst",
   "gf-etf-rank",
   "gf-lhb",
   "gf-quant",
   "gf-windmill",
-  "guo-yongqing-valuation",
   "hithink-astock-selector",
   "hithink-basicinfo-query",
   "hithink-business-query",
@@ -50,8 +46,6 @@
   "tdx-doc",
   "tdx-finance-skill",
   "tmt-crowding",
-  "value-investing",
   "volume-price-analysis",
-  "westock-data",
-  "wyckoff-trader"
+  "westock-data"
 ]

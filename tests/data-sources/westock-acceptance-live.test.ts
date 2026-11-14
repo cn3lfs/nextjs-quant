@@ -3,7 +3,7 @@ import { westockKlines } from "../../src/server/data-sources/westock/westock-ada
 import {
   sourceAcceptanceSamples,
   sourceAcceptancePeriods,
-} from "../data-source-acceptance";
+} from "../helpers/data-source-acceptance";
 
 // The adapter, not raw CLI nonemptiness, is the application acceptance boundary.
 it.skipIf(process.env.QUANT_WESTOCK_ACCEPTANCE !== "1")(

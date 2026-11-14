@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 const day = (value: unknown): string | null => {
   if (typeof value !== "string" || !/^\d{8}$/.test(value)) return null;
   const date = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`,

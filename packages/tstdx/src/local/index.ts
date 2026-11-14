@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./root.js";
 export * from "./quotes.js";
 export * from "./tail-cache-codec.js";
 export * from "./blocks.js";

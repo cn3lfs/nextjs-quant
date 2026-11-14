@@ -6,8 +6,8 @@ import {
 import { expect, it } from "vitest";
 import { evaluateGrowthFactors } from "../../../src/server/strategies/canslim/research-growth-factors";
 import { indexFactorRules } from "trading-strategies/research/factors/research-index-factors";
-import {asOfInputDefinitions} from "../../../src/lib/research/evidence/as-of-inputs";
-import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
+import { asOfInputDefinitions } from "../../../src/lib/research/evidence/as-of-inputs";
+import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
 import { request } from "../../helpers/growth-factor-fixture";
 
 function alter(

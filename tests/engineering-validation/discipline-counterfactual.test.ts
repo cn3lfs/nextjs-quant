@@ -1,9 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type {ParsedFill,ParsedCashFlow} from "../../src/lib/research/evidence/delivery-import";
-import {disciplineCounterfactual,runDisciplineGrid,type DisciplineInput} from "../../src/lib/research/risk/discipline-counterfactual";
-import {disciplineGrid,disciplineNotice,disciplineScope} from "trading-strategies/research/risk/discipline-policy";
+import type {
+  ParsedFill,
+  ParsedCashFlow,
+} from "../../src/lib/research/evidence/delivery-import";
+import {
+  disciplineCounterfactual,
+  runDisciplineGrid,
+  type DisciplineInput,
+} from "../../src/lib/research/risk/discipline-counterfactual";
+import {
+  disciplineGrid,
+  disciplineNotice,
+  disciplineScope,
+} from "trading-strategies/research/risk/discipline-policy";
 import * as navSource from "../../src/lib/portfolio/trade-review-nav";
 import { reviewTradeNav } from "../../src/lib/portfolio/trade-review-nav";
 import { DisciplineResults } from "../../src/components/portfolio/discipline-results";

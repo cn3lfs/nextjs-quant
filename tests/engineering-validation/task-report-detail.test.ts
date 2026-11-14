@@ -26,23 +26,10 @@ vi.mock("../../src/trpc/react", () => {
       };
     },
   });
-  const mutation = { useMutation: () => ({}) };
   return {
     api: {
-      useUtils: () => ({}),
       archivedReport: query("archivedReport"),
       securityNames: query("securityNames"),
-      chanReport: query("chanReport"),
-      canslimReport: query("canslimReport"),
-      wyckoffReport: query("wyckoffReport"),
-      chanHistory: query("chanHistory"),
-      canslimHistory: query("canslimHistory"),
-      wyckoffHistory: query("wyckoffHistory"),
-      job: query("job"),
-      chanAnalyze: mutation,
-      canslimAnalyze: mutation,
-      wyckoffAnalyze: mutation,
-      cancel: mutation,
     },
   };
 });
@@ -51,41 +38,41 @@ beforeEach(() => {
   queries.missing = false;
 });
 
-it.each([
-  ["report", "archivedReport"],
-  ["chan-report", "chanReport"],
-  ["canslim-report", "canslimReport"],
-  ["wyckoff-report", "wyckoffReport"],
-])("opens %s by exact ID without fetching an archive list", (kind, query) => {
-  const id = `${kind}-${"a".repeat(64)}`;
-  const html = renderToStaticMarkup(
-    createElement(TaskReportDetail, { kind: kind!, id }),
-  );
-  expect(html).toContain("正在读取");
-  expect(queries.calls.find((call) => call.name === query)?.input).toBe(id);
-  for (const call of queries.calls.filter((call) =>
-    call.name.endsWith("History"),
-  ))
-    expect(call.options).toEqual({ enabled: false });
-  expect(html).not.toContain("<select");
-});
-it.each(["report", "chan-report", "canslim-report", "wyckoff-report"])(
-  "shows a missing %s without a stale result",
-  (kind) => {
-    queries.missing = true;
+it.each([["report", "archivedReport"]])(
+  "opens %s by exact ID without fetching an archive list",
+  (kind, query) => {
+    const id = `${kind}-${"a".repeat(64)}`;
     const html = renderToStaticMarkup(
-      createElement(TaskReportDetail, {
-        kind,
-        id: `${kind}-${"a".repeat(64)}`,
-      }),
+      createElement(TaskReportDetail, { kind: kind!, id }),
     );
-    expect(html).toContain("不存在");
+    expect(html).toContain("正在读取");
+    expect(queries.calls.find((call) => call.name === query)?.input).toBe(id);
+    for (const call of queries.calls.filter((call) =>
+      call.name.endsWith("History"),
+    ))
+      expect(call.options).toEqual({ enabled: false });
+    expect(html).not.toContain("<select");
   },
 );
+it.each(["report"])("shows a missing %s without a stale result", (kind) => {
+  queries.missing = true;
+  const html = renderToStaticMarkup(
+    createElement(TaskReportDetail, {
+      kind,
+      id: `${kind}-${"a".repeat(64)}`,
+    }),
+  );
+  expect(html).toContain("不存在");
+});
 it("rejects unsupported and malformed destinations before a detail request", async () => {
   for (const params of [
     { kind: "final-validation", id: "sealed" },
-    { kind: "chan-report", id: "wrong" },
+    ...[
+      "chan-report",
+      "canslim-report",
+      "wyckoff-report",
+      "fundamental-report",
+    ].map((kind) => ({ kind, id: `${kind}-${"a".repeat(64)}` })),
     { kind: "report", id: "x".repeat(201) },
   ])
     await expect(

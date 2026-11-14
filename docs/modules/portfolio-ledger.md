@@ -17,7 +17,7 @@ portfolio 持有用户导入/录入的成交、现金流和组合复盘；trade 
 
 ## 状态、副作用与验证
 
-SQLite 表包括 `trade_ledger`、`trade_adjustments`、`trade_fills`、`cash_flows`、`import_batches` 等；模拟盘会产生第三方请求，仅在用户明确动作中发生。代表测试：[p1-trade-ledger](../../tests/portfolio-ledger/p1-trade-ledger.test.ts)、[delivery-store](../../tests/research-backtest/delivery-store.test.ts)、[trade-review-service](../../tests/portfolio-ledger/trade-review-service.test.ts)、[cash-adjusted-signals](../../tests/portfolio-ledger/cash-adjusted-signals.test.ts)。
+SQLite 表包括 `trade_ledger`、`trade_adjustments`、`trade_fills`、`cash_flows`、`import_batches` 等；模拟盘会产生第三方请求，仅在用户明确动作中发生。代表测试：[p1-trade-ledger](../../tests/portfolio-ledger/p1-trade-ledger.test.ts)、[delivery-store](../../tests/research-backtest/delivery-store.test.ts)、[trade-review-service](../../tests/portfolio-ledger/trade-review-service.test.ts)、[cash-reconciliation](../../tests/portfolio-ledger/cash-reconciliation.test.ts)。
 
 ## 维护指南
 

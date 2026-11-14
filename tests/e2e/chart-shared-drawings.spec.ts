@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { trpcHeaders, waitForIdleServer } from "./helpers";
 
 const call = async (page: Page, name: string, input: unknown, post = false) => {
@@ -19,13 +20,10 @@ test("a drawing shared from the day chart shows on the week chart", async ({
   page,
 }) => {
   await waitForIdleServer(page);
-  await page.goto("/market", { waitUntil: "networkidle" });
+  await page.goto("/market?symbol=sh600000", { waitUntil: "networkidle" });
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
-  const code = await page
-    .getByText(/^(SH|SZ)\d{6}$/)
-    .first()
-    .innerText();
+  const code = await page.locator(".chart-panel .eyebrow").first().innerText();
   const symbol = code.toLowerCase();
   const day = await call(page, "chartView", { symbol, period: "day" });
   const bars = await chart
@@ -52,7 +50,8 @@ test("a drawing shared from the day chart shows on the week chart", async ({
     true,
   );
   try {
-    await page.getByRole("button", { name: "周线", exact: true }).click();
+    await page.getByRole("combobox", { name: "行情周期", exact: true }).click();
+    await page.getByRole("option", { name: "周线", exact: true }).click();
     await page.getByText("已画图形", { exact: false }).first().click();
     await expect(
       page.getByText("另有 1 个图形由其他周期共享而来", { exact: false }),

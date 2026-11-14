@@ -1,3 +1,4 @@
+import { isRpsMarketSymbol } from "quant-rps";
 import { sortTableRows } from "~/lib/common/server-sort";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -6,8 +7,8 @@ import {
   universeAuditQuerySchema,
   type UniverseAuditInput,
 } from "~/lib/screening/universe-audit";
-import { historicalDateSchema } from "~/lib/screening/historical-screen";
-import { isRpsMarketSymbol } from "~/lib/screening/rps";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
+
 import type { Coverage } from "~/lib/domain";
 import { get, sqlite } from "../db";
 import { settings } from "../infra/settings";
@@ -15,7 +16,6 @@ import { storedSecurityLifecycle } from "../market/security-lifecycle";
 import { readTdxCodeChanges } from "tstdx/local";
 import { readMarketPool } from "../market/market-pool-files";
 import { fullDaySymbols } from "../data-sources/tdx/tdx-full-day-cache";
-import { ResearchStore } from "../backtest/research-store";
 import { RpsStore } from "../screening/rps-store";
 import { latestRpsObservation } from "../screening/rps-observation";
 
@@ -29,8 +29,8 @@ const cachedLifecycleSchema = z
       .finite()
       .refine((value) => Number.isFinite(new Date(value).getTime())),
     evidenceHash: z.string().min(1),
-    listingDate: historicalDateSchema.nullable(),
-    delistingDate: historicalDateSchema.nullable(),
+    listingDate: researchDateSchema.nullable(),
+    delistingDate: researchDateSchema.nullable(),
   })
   .refine(
     (row) =>
@@ -46,45 +46,13 @@ export async function universeAuditPage(input: unknown) {
   let root = config.tdxRoot;
   let symbols: string[];
   let source: string;
-  let rosterAsOf: string | null = null;
-  const coverage = new Map<string, { date: string | null; source: string }>();
   const warnings = [
     "退市统计按退市日 ≤ 区间终点，包含起点以前已退市的池内标的；不是全市场退市总数。",
     "代码映射仅覆盖 addedcode_bj.cfg 的北交所记录，记录日期不代表已核验的生效日期；沪深代码变更未知。",
     "无法枚举的是已被移除的证券；本地仍可能保留退市证券行情，不假定所有退市证券均已消失。",
     "上市/退市日期来自审计时既有缓存，不代表研究当时已知，缓存缺失或格式/版本不可信时不刷新。",
   ];
-  if (query.source.kind === "research") {
-    const store = new ResearchStore(sqlite());
-    if (!store.isResultVisible(query.source.id))
-      throw new Error("最终验证尚未揭示，不能读取冻结名单审计");
-    const task = store.task(query.source.id),
-      dataset = store.dataset(query.source.id);
-    if (!task || !dataset) throw new Error("研究任务或冻结名单快照不存在");
-    if (query.start !== task.spec.start || query.end !== task.spec.end)
-      throw new Error("审计区间必须与原研究一致");
-    root = dataset.root;
-    symbols = dataset.membership.symbols;
-    source = `研究冻结名单 ${dataset.hash} / ${dataset.membership.source?.name ?? "所选证券"}`;
-    if (
-      Number.isFinite(dataset.capturedAt) &&
-      Number.isFinite(new Date(dataset.capturedAt).getTime())
-    )
-      rosterAsOf = new Date(dataset.capturedAt).toISOString();
-    for (const stock of dataset.stocks) {
-      const first = stock.bars.reduce<string | null>(
-        (value, bar) => (value === null || bar.date < value ? bar.date : value),
-        null,
-      );
-      coverage.set(stock.symbol, {
-        date: first,
-        source: `研究保存行情 ${stock.hash}（仅该快照覆盖，不是上市日）`,
-      });
-    }
-    warnings.push(
-      "名单时间为系统冻结研究快照时间，不是官方成分生效日；行情覆盖仅指保存的研究快照。",
-    );
-  } else if (query.source.kind === "concept") {
+  if (query.source.kind === "concept") {
     const selected = query.source;
     const saved = new RpsStore(sqlite(), "concept").day(query.source.date);
     const observation = latestRpsObservation(root)?.groups.concept?.day;
@@ -140,10 +108,9 @@ export async function universeAuditPage(input: unknown) {
       "审计既有全部沪深名单，不随搜索或 RPS 阈值筛选缩小；不刷新证券主档。",
     );
   }
-  if (query.source.kind !== "research")
-    warnings.push(
-      "既有证券主档与覆盖表未保存行情首日，覆盖未知；本次不扫描行情补齐，也不用名单或文件时间替代。",
-    );
+  warnings.push(
+    "既有证券主档与覆盖表未保存行情首日，覆盖未知；本次不扫描行情补齐，也不用名单或文件时间替代。",
+  );
   const changes = await readTdxCodeChanges(root);
   if (changes.status === "unavailable")
     warnings.push(`代码变更证据不可用：${changes.error}`);
@@ -161,10 +128,8 @@ export async function universeAuditPage(input: unknown) {
       lifecycleSource: lifecycle
         ? `${lifecycle.source} / 缓存时间 ${new Date(lifecycle.fetchedAt).toISOString()} / ${lifecycle.evidenceHash}`
         : "无可信既有上市/退市日期缓存（不外部核验）",
-      localFirstDate: coverage.get(symbol)?.date ?? null,
-      localSource:
-        coverage.get(symbol)?.source ??
-        "既有主档/覆盖表未记录行情首日，不扫描补齐",
+      localFirstDate: null,
+      localSource: "既有主档/覆盖表未记录行情首日，不扫描补齐",
       codeChanges: Object.entries(changes.changes)
         .filter(
           ([old, change]) =>
@@ -181,7 +146,7 @@ export async function universeAuditPage(input: unknown) {
     source,
     start: query.start,
     end: query.end,
-    rosterAsOf,
+    rosterAsOf: null,
     rosterAsOfReason: "名单未记录可信快照时间；mtime 与本次读取时间均不采用",
     rosterIsCurrentSnapshot: true,
     evidence,

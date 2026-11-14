@@ -7,20 +7,22 @@ export const chartPricePrecision = (symbol: string, price?: number): number =>
   isFuturesSymbol(symbol)
     ? futuresContract(symbol)!.precision
     : isCryptoSymbol(symbol)
-    ? price === undefined || price >= 100
-      ? 2
-      : price >= 1
-        ? 4
-        : price >= 0.01
-          ? 6
-          : 8
-    : isPriceScaleThreeFund(symbol)
-      ? 3
-      : 2;
+      ? price === undefined || price >= 100
+        ? 2
+        : price >= 1
+          ? 4
+          : price >= 0.01
+            ? 6
+            : 8
+      : isPriceScaleThreeFund(symbol)
+        ? 3
+        : 2;
 /** 仅用于图表；交易、研究证券池和身份核验仍使用 domain.symbolSchema。 */
 export const chartSymbolSchema = z
   .string()
-  .regex(/^(?:(?:sh|sz|bj)\d{6}|pt[0-9A-Z]{6,12}|emBK\d{4}|cx[A-Z0-9]{5,20}|fu[A-Z0-9]{2,10})$/);
+  .regex(
+    /^(?:(?:sh|sz|bj)\d{6}|pt[0-9A-Z]{6,12}|emBK\d{4}|cx[A-Z0-9]{5,20}|fu[A-Z0-9]{2,10})$/,
+  );
 export const isSectorChartSymbol = (symbol: string) =>
   /^(pt|emBK)/.test(symbol);
 export { isCryptoSymbol as isCryptoChartSymbol };
@@ -39,8 +41,8 @@ export function chartSymbolHref(symbol: string) {
   return isCryptoSymbol(symbol)
     ? `/crypto?pair=${encodeURIComponent(symbol.slice(2))}`
     : isFuturesSymbol(symbol)
-    ? `/futures?code=${encodeURIComponent(symbol.slice(2))}`
-    : `/market?symbol=${encodeURIComponent(symbol)}`;
+      ? `/futures?code=${encodeURIComponent(symbol.slice(2))}`
+      : `/market?symbol=${encodeURIComponent(symbol)}`;
 }
 export function readChartSymbolParam(search: string): string | null {
   return normalizeChartSymbol(new URLSearchParams(search).get("symbol") ?? "");

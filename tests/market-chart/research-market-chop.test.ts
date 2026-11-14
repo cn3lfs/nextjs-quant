@@ -1,11 +1,7 @@
 import { expect, it } from "vitest";
 import { researchMarketChop } from "trading-strategies/research/risk/research-market-chop";
 import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
-import {
-  researchSpecSchema,
-  type ResearchEvent,
-} from "../../src/lib/research/strategy-research";
-import { researchPortfolio } from "../../src/server/backtest/research-portfolio";
+import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../src/server/research/research-method";
 
 const calendar = Array.from({ length: 45 }, (_, i) =>
@@ -94,60 +90,8 @@ const spec = researchSpecSchema.parse({
     slippageBps: 0,
   },
 });
-const event = (symbol: string, index: number): ResearchEvent => ({
-  symbol,
-  observedDate: calendar[index]!,
-  endpointDate: calendar[index]!,
-  strategyVersion: "fixture",
-  key: symbol,
-  evidence: "{}",
-  partition: "development",
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
 
-it("exits held positions, retains blocked sells after regime recovery, and waits before new entry", () => {
-  const events = [event("sh600000", 29), event("sh600001", 33)];
-  const result = researchPortfolio(
-    spec,
-    events,
-    calendar,
-    new Map(events.map((e) => [e.symbol, bars(() => 10)])),
-    (symbol, date) => ({
-      ...rules,
-      tradable: !(
-        symbol === "sh600000" &&
-        date >= calendar[34]! &&
-        date <= calendar[37]!
-      ),
-    }),
-    benchmark,
-  );
-  expect(result.trades[0]!.entryDate).toBe(calendar[30]);
-  expect(result.trades[0]!.exitDate).toBe(calendar[38]);
-  expect(result.trades[0]!.exitReason).toContain("反复穿越");
-  const eligible = result.marketChop!.find(
-    (r) => r.date >= calendar[34]! && r.state === "clear",
-  )!.date;
-  expect(result.trades[1]!.entryDate).toBe(eligible);
-  expect(
-    result.attempts.some(
-      (a) => a.side === "buy" && a.reason?.includes("反复穿越"),
-    ),
-  ).toBe(true);
-  expect(
-    result.attempts.some((a) => a.side === "sell" && a.date === calendar[37]),
-  ).toBe(true);
-});
-
-it("preserves disabled shape and binds the new method version only when enabled", () => {
+it("binds the market-chop version only when its configuration is enabled", () => {
   expect(researchManagementSchema.parse({})).not.toHaveProperty("marketChop");
   expect(
     researchManagementSchema.safeParse({
@@ -160,7 +104,4 @@ it("preserves disabled shape and binds the new method version only when enabled"
   );
   const disabled = researchSpecSchema.parse({ ...spec, management: {} });
   expect(researchMethodSnapshot(disabled)).not.toHaveProperty("marketChop");
-  expect(
-    researchPortfolio(disabled, [], calendar, new Map(), () => rules),
-  ).not.toHaveProperty("marketChop");
 });

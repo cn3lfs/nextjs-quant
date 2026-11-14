@@ -1,9 +1,10 @@
+import { rpsPolicy } from "quant-rps";
 import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../../../src/server/db/migrations";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { rpsPolicy } from "../../../src/lib/screening/rps";
-import { rpsDay, rpsProgress } from "../../rps-fixture";
+
+import { rpsDay, rpsProgress } from "../../helpers/rps-fixture";
 
 const connections: Database.Database[] = [];
 function database() {
@@ -15,7 +16,7 @@ function database() {
 afterEach(() => {
   for (const db of connections.splice(0)) db.close();
 });
-it("new migration preserves existing records; packed queries match the six-period calculation exactly", () => {
+it("new migration preserves existing records; packed queries match the multi-period calculation exactly", () => {
   const db = database(),
     store = new RpsStore(db),
     { day, rows } = rpsDay();
@@ -31,7 +32,7 @@ it("new migration preserves existing records; packed queries match the six-perio
         "SELECT count(*) n, min(length(values_blob)) bytes FROM rps_values",
       )
       .get(),
-  ).toEqual({ n: 10, bytes: 96 });
+  ).toEqual({ n: 10, bytes: 112 });
   for (const [i, p] of day.periods.entries())
     expect(store.ranking(day.date, p)).toEqual(
       [...rows].reverse().map((r) => ({ symbol: r.symbol, ...r.values[i]! })),
@@ -75,6 +76,7 @@ it("curve includes null vectors for excluded dates instead of joining across gap
   store.saveDay(day, rows);
   store.saveDay({ ...day, date: "2030-01-01" }, []);
   expect(store.curve("sz000009")[1]!.values).toEqual([
+    null,
     null,
     null,
     null,

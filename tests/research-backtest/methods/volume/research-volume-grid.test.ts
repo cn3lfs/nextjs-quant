@@ -1,9 +1,9 @@
+import { volumeWarmupStart } from "trading-strategies/research/volume/research-volume";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import {
   classifyVolumePrice,
   researchVolumeSeries,
-  volumeWarmupStart,
   type VolumePoint,
 } from "trading-strategies/research/volume/research-volume";
 import {
@@ -18,8 +18,6 @@ import {
   type VolumeGridId,
   type VolumeEvidence,
 } from "trading-strategies/research/volume/research-volume-grid";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 
 const position: PositionFacts = {
   higher: true,
@@ -647,31 +645,6 @@ it("the runnable daily adapter confirms an actual two-touch range breakout and r
   ).toBe(false);
 });
 
-it("all-history proof starts at input origin and missing float errors expose the requested interval", async () => {
-  const input = bars();
-  const start = input[100]!.date,
-    end = input.at(-1)!.date;
-  expect(volumeWarmupStart(input, start, "vp-extreme-history")).toBe(
-    input[0]!.date,
-  );
-  const spec = researchSpecSchema.parse({
-    strategy: "vp-turnover-bands",
-    start,
-    end,
-    validationStart: input[110]!.date,
-  });
-  await expect(
-    researchSignals("sh600000", input, spec, async () => {
-      throw new Error("not used");
-    }),
-  ).rejects.toThrow(`研究区间${start}至${end}没有可用量价输入`);
-  await expect(
-    researchSignals("sh600000", input, spec, async () => {
-      throw new Error("not used");
-    }),
-  ).rejects.toThrow("流通股本");
-});
-
 it("historical turnover filters are computed from raw bars with exact 2% and 1% boundaries", () => {
   const input = bars().map((b, i) => {
     const c = 100 + i * 0.5;
@@ -728,4 +701,12 @@ it("multi-day flags are calculated from measured volume sequences rather than as
   expect(flags([100, 90, 90]).decreasing).toBe(false);
   expect(flags([20, 20, 20, 300]).isolated).toBe(true);
   expect(flags([20, 100, 20, 300]).isolated).toBe(false);
+});
+
+it("all-history volume proof starts at input origin", () => {
+  const input = bars();
+  const start = input[100]!.date;
+  expect(volumeWarmupStart(input, start, "vp-extreme-history")).toBe(
+    input[0]!.date,
+  );
 });

@@ -1,124 +1,116 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { budgets, trpcHeaders, waitForIdleServer } from "./helpers";
+import { workbenchFixturePeriod } from "./workbench-fixture";
 
-// A finished backtest triggers an AI write-up when autoAnalysis is on: a real
-// model call on the user's quota. The e2e data directory must have it off.
+// These historical-data scenarios must keep automatic model calls disabled.
 test.beforeAll(async ({ request }) => {
   const status = await request.get("/api/trpc/status", {
     headers: trpcHeaders,
   });
   const settings = (await status.json()).result.data.json.settings as {
-    autoAnalysis: boolean;
+    autoNewsAnalysis: boolean;
   };
-  expect(settings.autoAnalysis, "关闭 E2E 数据目录的回测后自动 AI 解读").toBe(
+  expect(settings.autoNewsAnalysis, "关闭 E2E 数据目录的自动新闻分析").toBe(
     false,
   );
+  expect(settings).not.toHaveProperty("autoAnalysis");
 });
 
-test("a full-history backtest renders its equity chart promptly", async ({
+test("current baseline backtest renders a real worker report within budget", async ({
   page,
-}) => {
+}, testInfo) => {
+  await waitForIdleServer(page);
   await page.goto("/backtest", { waitUntil: "networkidle" });
-  // Warm once: the first run pays worker start and gbbq decoding.
-  for (const warm of [true, false]) {
-    await page
-      .locator("[data-testid=equity-chart] > div")
-      .evaluateAll((els) =>
-        els.forEach((el) => ((el as HTMLElement).dataset.stale = "1")),
-      );
-    const started = Date.now();
-    await page.getByRole("button", { name: "运行回测" }).click();
-    await page.waitForSelector(
-      "[data-testid=equity-chart] > div:not([data-stale])",
-      {
-        timeout: 5 * 60 * 1000,
-      },
-    );
-    if (!warm)
-      expect(Date.now() - started).toBeLessThanOrEqual(
-        budgets.backtestClickToResultMs,
-      );
-  }
+  await page.getByLabel("基线证券代码").fill("sh600000");
+  await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
+  await expect(page.getByLabel("基线结束日期")).toHaveValue("2026-10-12");
+  await page.getByLabel("基线开始日期").fill("2026-10-12");
+  const started = Date.now();
+  await page.getByRole("button", { name: "开始回测", exact: true }).click();
+  const report = page.getByRole("region", { name: "实验报告", exact: true });
+  await expect(report).toContainText("SMA 5 / 20 · 已完成");
+  const elapsedMs = Date.now() - started;
+  await testInfo.attach("baseline-result-ms", {
+    body: String(elapsedMs),
+    contentType: "text/plain",
+  });
+  expect(elapsedMs).toBeLessThanOrEqual(budgets.backtestClickToResultMs);
+  await expect(report).toContainText("规则自检");
+  await expect(report).toContainText("1 笔");
 });
 
 test("trade review of 2222 fills (account big) computes within budget", async ({
   page,
-}) => {
+}, testInfo) => {
   // Warm the server process on another account (module load, calendar,
   // gbbq); the budget is for a review computed by a running app.
-  await page.request.get(
+  const warm = await page.request.get(
     `/api/trpc/tradeReviewExecution?input=${encodeURIComponent(JSON.stringify({ json: { account: "big10k" } }))}`,
     { headers: trpcHeaders, timeout: 5 * 60 * 1000 },
   );
+  expect(warm.ok()).toBe(true);
+  expect((await warm.json()).error).toBeUndefined();
   await waitForIdleServer(page);
   await page.goto("/trade-review", { waitUntil: "networkidle" });
+  await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
   await page.getByLabel("复盘账户别名").fill("big");
   const started = Date.now();
   await page.getByRole("button", { name: "查看复盘" }).click();
-  const busy = page.getByText("正在读取行情并计算复盘…");
-  await busy.waitFor({ timeout: 5000 }).catch(() => {});
-  await busy.waitFor({ state: "detached", timeout: 5 * 60 * 1000 });
-  expect(Date.now() - started).toBeLessThanOrEqual(
-    budgets.tradeReviewBig2222Ms,
-  );
+  await expect(
+    page
+      .getByRole("table", { name: "月度收益", exact: true })
+      .getByRole("row")
+      .nth(1),
+  ).toBeVisible();
+  const elapsedMs = Date.now() - started;
+  await testInfo.attach("trade-review-result-ms", {
+    body: String(elapsedMs),
+    contentType: "text/plain",
+  });
+  expect(elapsedMs).toBeLessThanOrEqual(budgets.tradeReviewBig2222Ms);
 });
 
-test("factor evaluation over three years reports IC and quantiles", async ({
+test("factor evaluation over three years and 6154 securities reports IC and quantiles", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/screen", { waitUntil: "networkidle" });
+  await page.getByRole("radio", { name: "单因子评估", exact: true }).click();
+  await page
+    .getByLabel("因子评估开始日期")
+    .fill(workbenchFixturePeriod.factorStart);
+  await page.getByLabel("因子评估结束日期").fill(workbenchFixturePeriod.end);
   const started = Date.now();
   await page.getByRole("button", { name: "评估因子" }).click();
   const result = page.getByLabel("因子评估结果");
-  await result.waitFor({ timeout: 5 * 60 * 1000 });
-  expect(Date.now() - started).toBeLessThanOrEqual(budgets.factorEval3yMs);
+  await result.waitFor({ timeout: budgets.factorEval3yMs });
+  const elapsedMs = Date.now() - started;
+  await testInfo.attach("factor-evaluation", {
+    body: JSON.stringify({
+      elapsedMs,
+      summary: await result.locator("p").first().innerText(),
+    }),
+    contentType: "application/json",
+  });
+  expect(elapsedMs).toBeLessThanOrEqual(budgets.factorEval3yMs);
+  await expect(result).toContainText("证券池 6154 只（有效 6154");
+  await expect(result).toContainText("读取失败 0");
+  await expect(
+    result
+      .getByRole("table", { name: "因子IC统计" })
+      .getByRole("row")
+      .nth(1)
+      .getByRole("cell")
+      .nth(1),
+  ).toHaveText(/^-?\d+\.\d+$/);
   await expect(result).toContainText("T+20");
   await expect(result).toContainText("Q5");
 });
 
-test("backtest rounds page, open on a candle chart and step with PageDown", async ({
+test("retired sample research has no page or navigation entry", async ({
   page,
 }) => {
-  await page.goto("/backtest", { waitUntil: "networkidle" });
-  // A previous run's result may still be on screen: wait for this run's table.
-  await page
-    .locator('[role="table"][aria-label="交易回合"]')
-    .evaluateAll((els) =>
-      els.forEach((el) => ((el as HTMLElement).dataset.stale = "1")),
-    );
-  await page.getByRole("button", { name: "运行回测" }).click();
-  await page.waitForSelector(
-    '[role="table"][aria-label="交易回合"]:not([data-stale])',
-    { timeout: 5 * 60 * 1000 },
-  );
-  const rounds = page.getByRole("table", { name: "交易回合" });
-  // One page of rounds, not every trade.
-  expect(await rounds.getByRole("row").count()).toBeLessThanOrEqual(21);
-  // The result settles (details load, lists refresh) before it is clicked.
-  await page.waitForLoadState("networkidle");
-  await rounds.getByRole("row").nth(1).click();
-  const status = page
-    .getByRole("status")
-    .filter({ hasText: "回合 · PageUp/PageDown" });
-  await expect(status).toContainText("第 1/");
-  await expect(page.getByRole("img", { name: /回合 K 线：/ })).toBeVisible();
-  await page.keyboard.press("PageDown");
-  await expect(status).toContainText("第 2/");
-  await expect(page.getByRole("table", { name: "分期收益" })).toBeVisible();
-});
-
-test("the research page shows one usage ledger above the form and folds details", async ({
-  page,
-}) => {
-  await page.goto("/research", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "开始研究" }).waitFor();
-  await expect(page.getByText("研究使用台账", { exact: true })).toHaveCount(1);
-  // The run list and the fixed cost parameters start folded.
-  await expect(page.getByRole("table", { name: /研究运行记录/ })).toHaveCount(
-    0,
-  );
-  await expect(
-    page.getByText(/交易成本与无风险利率（固定实验参数）：佣金/),
-  ).toBeVisible();
-  await expect(page.getByLabel("佣金（基点）")).toBeHidden();
+  const response = await page.goto("/research", { waitUntil: "networkidle" });
+  expect(response?.status()).toBe(404);
+  await page.goto("/strategies", { waitUntil: "networkidle" });
+  await expect(page.locator('a[href="/research"]')).toHaveCount(0);
 });

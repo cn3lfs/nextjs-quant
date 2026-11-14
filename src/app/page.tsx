@@ -1,4 +1,10 @@
-// 今日总览 is rendered by the workbench panel cache in the root layout.
+import { Suspense } from "react";
+import { TodayOverview } from "~/components/overview/today-overview";
+
 export default function Home() {
-  return null;
+  return (
+    <Suspense fallback={<p role="status">正在读取今日总览…</p>}>
+      <TodayOverview />
+    </Suspense>
+  );
 }

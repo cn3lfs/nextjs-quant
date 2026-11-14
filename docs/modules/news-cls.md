@@ -16,6 +16,16 @@
 
 ## 状态、副作用与验证
 
+### 新闻路径与只读检查
+
+“数据与连接设置 → 新闻采集”保存 `clsDbPath` 与 `newsPythonExecutable`。已有数据库路径保持有效；新设置的数据库路径默认为空，不自动连接开发机目录或创建源库。Python 默认命令为 `python`，通过当前服务进程的 PATH 解析，也可填写不带引号的完整可执行文件路径。普通新闻阅读不依赖 Python；该解释器设置用于新闻技能脚本批次。
+
+`checkNewsSources` 使用已保存配置，配置与请求不一致时拒绝检查。数据库检查只读打开并验证 news 表所需字段；Python 检查只运行 `--version`，有 5 秒超时和输出上限，不运行分类、模型分析或通知。结果分别展示，配置变化后标记过期；未保存修改时不能发起检查。通过检查不代表模型凭证、技能依赖或新闻内容已验收。
+
+日批次启动时固定一份设置，分类和分析均使用该解释器；保存新设置不改变在途批次。技能目录优先使用现有 `QUANT_SKILLS_DIR`，未设置时使用用户目录下 `.agent-skills/skills`，与研究技能读取约定一致。执行使用可执行文件和参数数组，无 shell 拼接；找不到脚本或解释器时给出配置入口。`readClsNews` 与日批次共用只读源库校验，现代新闻工作台原有源代际/事务读取仍由 `news-workspace-query.ts` 管理。
+
+验证：[新闻配置](../../tests/news-cls/news-source-settings.test.ts)、[批次配置冻结](../../tests/news-cls/cls-workflow-settings.test.ts)、[进程参数与错误](../../tests/news-cls/news-python.test.ts)，以及 `tests/browser/connections-browser.mjs` 的保存竞态、检查过期/失败恢复和宽窄屏场景。
+
 保存分析/复核结果、调度与预算使用状态；运行可能读取本地报告文件、访问新闻数据源或调用模型。代表测试：[cls-review-integration](../../tests/news-cls/cls-review-integration.test.ts)、[cls-report-parser](../../tests/news-cls/cls-report-parser.test.ts)、[news-analysis](../../tests/news-cls/news-analysis.test.ts)、[news-scheduler](../../tests/news-cls/news-scheduler.test.ts)。
 
 ## 维护指南

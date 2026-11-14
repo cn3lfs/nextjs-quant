@@ -1,4 +1,5 @@
 import { fork, type ChildProcess } from "node:child_process";
+import { recordRuntimeError } from "../../infra/runtime-errors";
 import { resolve } from "node:path";
 import type { CzscInput } from "./czsc-input";
 import {
@@ -106,7 +107,9 @@ function dispatch<T>(message: Record<string, unknown>): Promise<T> {
         });
       }),
   );
-  scope.czscQueue = job.catch(() => {});
+  scope.czscQueue = job.catch((error) => {
+    recordRuntimeError("czsc-worker", error);
+  });
   return job;
 }
 

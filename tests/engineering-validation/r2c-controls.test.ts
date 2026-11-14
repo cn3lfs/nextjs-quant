@@ -1,17 +1,11 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
-import original from "../fixtures/r2c-original-contracts.json";
-import { componentLogic, renderHandlers } from "../r2-contracts";
+import { renderHandlers } from "../helpers/r2-contracts";
 
-it("R2c preserves reviewed callbacks, requests, validation and hooks with Radix event adaptation", () => {
-  for (const [file, contract] of Object.entries(original)) {
-    const source = readFileSync(file, "utf8");
-    expect(renderHandlers(source), file).toEqual(contract.handlers);
-    expect(componentLogic(source), file).toEqual(contract.logic);
-  }
-});
-
-it("R2c precisely connects controlled values and keeps server cursor pagination", () => {
+// Radix migration source hashes are retired; settings save/races/validation
+// are exercised in connections-browser.mjs. Research form selection, submission
+// and draft lifetime are exercised in page-state-browser.mjs.
+it("connects current strategy, connection and evidence controls", () => {
   const strategy = readFileSync(
     "src/components/workbench/strategy-fields.tsx",
     "utf8",
@@ -30,8 +24,9 @@ it("R2c precisely connects controlled values and keeps server cursor pagination"
     "src/components/workbench/connections.tsx",
     "utf8",
   );
-  for (const field of ["autoNewsAnalysis", "autoAnalysis"])
-    expect(connection).toContain(`checked={config.${field}}`);
+  expect(connection).toContain("checked={config.autoNewsAnalysis}");
+  expect(connection).not.toContain("config.autoAnalysis");
+  expect(connection).not.toContain("选股和回测完成后自动分析");
   expect(connection).toContain('aria-label="模型提供方"');
   for (const value of ["codex", "claude", "deepseek"])
     expect(connection).toContain(`<SelectItem value="${value}">`);
@@ -42,39 +37,15 @@ it("R2c precisely connects controlled values and keeps server cursor pagination"
   expect(evidence).toContain('className="field-sizing-fixed"');
   expect(evidence).toContain("rows={4}");
   expect(evidence).toContain("value={question}");
-  expect(evidence).toContain("value={researchMethod}");
+  expect(evidence).toContain('aria-label="研究方法"');
   expect(evidence).toContain(
     '<SelectItem value="general">通用证据分析</SelectItem>',
   );
   expect(evidence).toContain(
     '<SelectItem value="sepa">SEPA 分阶段研究</SelectItem>',
   );
-  const history = readFileSync(
-    "src/components/workbench/task-history.tsx",
-    "utf8",
-  );
-  for (const prop of [
-    "history.data.items.map((summary)",
-    "history.data.total",
-    'aria-label="任务分页"',
-    "value={status}",
-    '<SelectItem value="all">全部</SelectItem>',
-    "aria-expanded={expanded}",
-    "aria-controls={panelId}",
-    "hidden={!expanded}",
-    'setSelected(expanded ? "" : job.id)',
-    "setCursors([undefined])",
-    "setCursors((p) => p.slice(0, -1))",
-    "history.data!.nextCursor!",
-    "taskTypeLabels[job.type]",
-    "taskStatusLabels[job.status]",
-    "stamp(job.createdAt)",
-    "job.error || job.phase",
-  ])
-    expect(history).toContain(prop);
-  expect(history).not.toMatch(
-    /\.sort\(|getSortedRowModel|getPaginationRowModel/,
-  );
+  // Submitted filters, cursor reset and detail selection are exercised in
+  // task-center-query-browser.mjs against the real TaskHistory component.
 });
 
 it("R2c evidence rejects changed strategy conversion and task page reset", () => {
@@ -99,13 +70,8 @@ it("R2c evidence rejects changed strategy conversion and task page reset", () =>
 
 it("R2c leaves native controls only in the exact frozen exemption inventory", () => {
   const exempt: Record<string, number> = {
-    "backtest/backtest-actions.tsx": 3,
-    "research/canslim-panel.tsx": 2,
-    "backtest/cash-dividend-experiment.tsx": 4,
-    "research/chan-panel.tsx": 2,
     "research/financial-growth-panel.tsx": 1,
     "research/financial-quality-panel.tsx": 2,
-    "research/fundamental-report-panel.tsx": 4,
     // News workspace: five source/analysis controls, four archive filters.
     // Submitted-only queries and pagination are exercised by news browser tests.
     "news/news-panel.tsx": 5,
@@ -114,9 +80,6 @@ it("R2c leaves native controls only in the exact frozen exemption inventory", ()
     "research/revenue-reconciliation-panel.tsx": 2,
     "news/theme-prices-panel.tsx": 1,
     "research/valuation-panel.tsx": 7,
-    "backtest/walk-forward-panel.tsx": 4,
-    "workbench/backtest-view.tsx": 4,
-    "research/wyckoff-panel.tsx": 2,
   };
   const remaining: Record<string, number> = {};
   for (const file of readdirSync("src", { recursive: true })) {

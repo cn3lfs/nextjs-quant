@@ -4,10 +4,7 @@ import {
   strategyAdmission,
   type StrategyAdmissionInput,
 } from "~/lib/strategy-facts/strategy-admission";
-import type { ResearchDataset } from "../../backtest/research-dataset";
-import type { ResearchResult } from "../../backtest/research-store";
 import type { replayTradeReview } from "../../portfolio/trade-review-service";
-import { researchDailyReturns } from "./period-performance-service";
 
 export const admissionPageSchema = z.object({
   params: admissionParamsSchema.default({}),
@@ -83,36 +80,6 @@ export function tradeReviewAdmissionSource(
       evidenceLevel: "真实账户交割单",
     },
     note: "账户日收益沿用日度 TWR，基准沿用复盘快照指数（默认沪深300）。真实账户交割单仅标记来源，不代表估值/现金流已独立核对；缺失不拼接、不补零。",
-  };
-}
-
-export function researchAdmissionSource(
-  result: ResearchResult,
-  dataset: ResearchDataset,
-  partition: "development" | "validation",
-): AdmissionSource {
-  const dates = dataset.calendar.filter(
-    (date) =>
-      date >= result.spec.start &&
-      date <= result.spec.end &&
-      (partition === "development"
-        ? date < result.spec.validationStart
-        : date >= result.spec.validationStart),
-  );
-  return {
-    input: {
-      dates,
-      strategyDaily: researchDailyReturns(result, partition, dates),
-      benchDaily: admissionBenchmarkReturns(
-        dates,
-        dataset.calendar,
-        dataset.benchmark.bars,
-      ),
-      // 任务书 §3.4 与事实不符：E3 没有 evidenceLevel 枚举；沿用其警示口径，
-      // 不从自由文本猜测“合成”或把外部条件导入视为独立核验。
-      evidenceLevel: "本地模拟未独立核验",
-    },
-    note: `${partition === "development" ? "开发期" : "保留验证期"}独立判定；基准 ${dataset.benchmark.symbol}，来自冻结快照 ${result.datasetHash}。不拼接两期本金，不使用事件收益替代模拟净值。`,
   };
 }
 

@@ -16,14 +16,14 @@
 
 ## 截图
 
-- [日线默认](01-day-light.png)
-- [暗色、对数、四类画线与自定义参数](02-day-dark-log-drawings.png)
-- [周线](03-week.png)
-- [月线](04-month.png)
-- [5 分钟](05-five-minute.png)
-- [受控持仓成本线](06-controlled-position-cost.png)：仅为浏览器视觉 fixture，数量 100、成本 1400；不是远程成交，不写入本地账本。真实隔离账本为空，浏览器另行断言不显示成本线。
+- 日线默认（历史产物已清理）
+- 暗色、对数、四类画线与自定义参数（历史产物已清理）
+- 周线（历史产物已清理）
+- 月线（历史产物已清理）
+- 5 分钟（历史产物已清理）
+- 受控持仓成本线（历史产物已清理）：仅为浏览器视觉 fixture，数量 100、成本 1400；不是远程成交，不写入本地账本。真实隔离账本为空，浏览器另行断言不显示成本线。
 
-原始浏览器检查结果见 [capture.json](capture.json)，初始可访问树见 [initial-aria.txt](initial-aria.txt)。
+原始浏览器检查结果见 capture.json（历史产物已清理），初始可访问树见 [initial-aria.txt](initial-aria.txt)。
 
 ## 明确边界与待用户确认
 
@@ -35,4 +35,4 @@
 - 键盘每次平移可见宽度 10%；向上缩小到 80%、向下扩大到 125%；只在图表聚焦时生效，输入框保留原生按键。
 - 数据库新增 v6 迁移，仅建 chart_views 表。共享生产库未运行迁移；旧桌面包需管理者重新打包。
 
-重现：先设置 `QUANT_DATA_DIR=D:\github\nextjs-quant\.test-data\q1\browser`，运行 `pnpm exec tsx tests/q1-review-seed.ts`，在该隔离环境启动端口 3211 的已构建服务，再运行 `node tests/q1-visual-review.mjs`。seed 只重置这个隔离目录的图表视图。
+重现：先设置 `QUANT_DATA_DIR=D:\github\nextjs-quant\.test-data\q1\browser`，运行 `pnpm exec tsx tests/fixtures/seed/q1-review-seed.ts`，在该隔离环境启动端口 3211 的已构建服务，再运行 `node tests/q1-visual-review.mjs`。seed 只重置这个隔离目录的图表视图。

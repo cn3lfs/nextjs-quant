@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type {Period,Strategy} from "~/lib/domain";
-import type {Metrics} from "trading-strategies/research/technical/screening-metrics";
+import type { Period, Strategy } from "~/lib/domain";
+import type { Metrics } from "trading-strategies/research/technical/screening-metrics";
 export type PoolObservation = {
   symbol: string;
   metrics: Metrics;

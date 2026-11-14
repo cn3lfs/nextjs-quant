@@ -1,8 +1,13 @@
 import { settings } from "../infra/settings";
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { Worker } from "node:worker_threads";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { rpsRequestSchema, type RpsRequest, type RpsProgress } from "~/lib/screening/rps";
+import {
+  rpsRequestSchema,
+  type RpsRequest,
+  type RpsProgress,
+} from "~/lib/screening/rps";
 import { sqlite } from "../db";
 import { RpsStore } from "./rps-store";
 import {
@@ -43,6 +48,7 @@ export class RpsWorkerClient {
         workerData: { request, now, progress, cancel },
       });
     } catch (error) {
+      recordRuntimeError("rps-worker", error, { requestId: progress.id });
       store.finish({
         ...progress,
         status: "failed",
@@ -76,6 +82,8 @@ export class RpsWorkerClient {
             error: "RPS worker异常退出",
           };
         progress.updatedAt = Date.now();
+        if (progress.status === "failed")
+          recordRuntimeError("rps-worker", null, { requestId: progress.id });
         store.finish(progress);
         this.worker = undefined;
         this.cancellation = undefined;
@@ -138,8 +146,8 @@ export function scheduleRps(now: number) {
       continue;
     try {
       rpsClient().start({ target, mode: "forward", days: 1 }, now);
-    } catch {
-      /* Persisted failure remains inspectable; no retry loop. */
+    } catch (error) {
+      recordRuntimeError("rps-schedule", error);
     }
     return;
   }

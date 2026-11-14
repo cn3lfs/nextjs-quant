@@ -1,3 +1,4 @@
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { Worker } from "node:worker_threads";
@@ -7,10 +8,8 @@ import type {
   calculateDiscipline,
   DisciplineSource,
 } from "./discipline-source";
-import {
-  recordResearchUsage,
-  usageConfigHash,
-} from "../research/research-usage";
+import { recordResearchUsage } from "../research/research-usage";
+import { usageConfigHash } from "../research/research-config-hash";
 import {
   ResearchAttempts,
   bestEffortAudit,
@@ -73,6 +72,7 @@ export function startDiscipline(account: string, source: DisciplineSource) {
       { workerData: source },
     );
   } catch (error) {
+    recordRuntimeError("discipline-worker", error);
     if (attempt)
       bestEffortAudit(() =>
         new ResearchAttempts(sqlite()).update(attempt.id, {
@@ -105,6 +105,7 @@ export function startDiscipline(account: string, source: DisciplineSource) {
   const finish = (status: Job["status"], error: string | null = null) => {
     if (job.status !== "running") return;
     job.status = status;
+    if (status === "failed") recordRuntimeError("discipline-worker", null);
     job.error = error;
     if (
       job.attemptId &&

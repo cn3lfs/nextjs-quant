@@ -17,8 +17,9 @@ const replay = process.argv[2];
 const hash = (v: string | Buffer) =>
   createHash("sha256").update(v).digest("hex");
 async function capture() {
-  const poolPath =
-    "docs/data-sources/wdz-blocks/2026-11-07/Blocks/市场分类/中证800.txt";
+  const poolPath = process.env.CSI800_POOL_FILE;
+  if (!poolPath)
+    throw new Error("请设置 CSI800_POOL_FILE，指向已核验的中证800成分文件");
   const pool = await readFile(poolPath, "utf8");
   const symbols = [
     ...new Set(pool.match(/(?:SH|SZ)\d{6}/g)?.map((s) => s.toLowerCase())),

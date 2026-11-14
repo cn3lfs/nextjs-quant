@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import type {ParsedFill} from "../../src/lib/research/evidence/delivery-import";
-import { reviewTrades, type ReviewRound } from "../../src/lib/portfolio/trade-review";
+import type { ParsedFill } from "../../src/lib/research/evidence/delivery-import";
+import {
+  reviewTrades,
+  type ReviewRound,
+} from "../../src/lib/portfolio/trade-review";
 import { keyTrades } from "../../src/lib/research/analysis/key-trades";
 const fill = (
   kind: "buy" | "sell",

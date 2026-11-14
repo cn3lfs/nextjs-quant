@@ -1,5 +1,10 @@
 import { expect, it } from "vitest";
-import {researchPositionBook,researchBookBuy,researchBookSell,researchBookSellable} from "../../src/lib/research/analysis/research-position-book";
+import {
+  researchPositionBook,
+  researchBookBuy,
+  researchBookSell,
+  researchBookSellable,
+} from "../../src/lib/research/analysis/research-position-book";
 
 const first = () =>
   researchBookBuy(researchPositionBook(), {

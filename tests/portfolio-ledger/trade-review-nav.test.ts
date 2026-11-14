@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {importDeliveryTable,type ParsedCashFlow,type ParsedFill} from "../../src/lib/research/evidence/delivery-import";
+import {
+  importDeliveryTable,
+  type ParsedCashFlow,
+  type ParsedFill,
+} from "../../src/lib/research/evidence/delivery-import";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
 import { pageTradeReviewDrawdowns } from "../../src/server/portfolio/trade-review-service";
 import { dailyPerformance } from "../../src/lib/backtest/daily-performance";

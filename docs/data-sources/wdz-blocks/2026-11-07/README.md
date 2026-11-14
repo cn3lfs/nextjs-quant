@@ -1,8 +1,31 @@
 # WDZ Blocks 原始定义快照
 
-按用户指定从 `D:\wsWDZ\Blocks` 保存，原目录只读。`Blocks/` 保留原目录、文件名和字节，包括原说明图；不是应用数据缓存，也不表示文件中每个分组均应进入概念排行。
+按用户指定从 `D:\wsWDZ\Blocks` 保存，原目录只读。快照保留原目录、文件名和字节，包括原说明图；不是应用数据缓存，也不表示文件中每个分组均应进入概念排行。2026-11-13 已准备迁出脚本，实际迁移待用户手动执行；仓库长期只保留本说明和 manifest。
 
 本次共 2,319 个文件、3,703,787 字节，其中 452 个概念、132 个申万行业；其余为指数、市场分类、其它板块及自定义板块等。逐文件原始修改时间、长度、SHA-256 与复制时点见 [manifest.json](manifest.json)。目录的 `.gitattributes` 禁止 Git 换行转换，保证原始字节可复核。归档哈希为 `3f45ff4acf69f67daff5dde9d354b604cfbcb0133e68c498ed6f71b762d87be8`。
+
+## 手动迁出与恢复
+
+从仓库根执行，`ArchiveDirectory` 必须是仓库和原始数据源之外的独立本地目录。下列路径是建议位置，可替换；脚本没有隐式默认归档目录。
+
+```powershell
+# 只预演，逐个列出 2,319 个已核验目标，不创建或删除文件。
+.\scripts\relocate-wdz-snapshot.ps1 -ArchiveDirectory 'D:\quant-data\wdz-blocks\2026-11-07'
+# 核对预演后，自己执行迁出。
+.\scripts\relocate-wdz-snapshot.ps1 -ArchiveDirectory 'D:\quant-data\wdz-blocks\2026-11-07' -Apply
+```
+
+执行时先核对清单身份、文件数量/长度/哈希、Git 差异、路径边界及目录链接，然后复制 `Blocks/`、manifest 和说明。归档逐文件校验通过后，再从归档恢复到 `.test-data/optimization-20261113/wdz-restore-check` 并核验；最后清除恢复验证副本和仓库原始副本。删除只针对已核验的清单文件，目录只在空时移除。原 `D:\wsWDZ\Blocks` 不移动、不修改，不暂存、不提交、不重写 Git 历史。
+
+源数据、归档或元数据不匹配时停止。中途中断可能留下部分复制/删除，不能直接忽略错误重试：先根据 manifest 核对保留下来的完整副本，恢复缺失文件或清理自己确认的一次性不完整副本，再重跑预演。恢复验证目录存在时也会停止，避免覆盖其他内容。不要删除唯一完整归档。迁出后原文件的 Git 删除由用户单独审查和提交，忽略规则防止再次误加入。
+
+新机器取得外部归档后，用保留的 manifest 对照 `Blocks/` 内全部文件。需要运行中证 800 离线采集时，显式设置下面的输入，再按原脚本要求设置隔离 `QUANT_DATA_DIR` 和 `TDX_ROOT`；重放已有冻结输入不需要重新读取成分文件。
+
+```powershell
+$env:CSI800_POOL_FILE = 'D:\quant-data\wdz-blocks\2026-11-07\Blocks\市场分类\中证800.txt'
+```
+
+日常 RPS 继续使用连接设置中的 Blocks 目录。分类测试仅使用 `tests/fixtures/wdz-block-definitions` 的 41 个固定原始样本，逐个对照同一 manifest，不依赖外部归档；完整快照校验由迁出脚本负责。当前已验证默认预演与路径/内容拒绝逻辑，尚未执行实际迁出和删除。
 
 ## 排行口径
 

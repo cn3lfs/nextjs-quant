@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import postcss from "postcss";
@@ -10,8 +10,8 @@ import tailwind from "@tailwindcss/postcss";
 const { chromium } = createRequire(
   join(homedir(), ".agent-tools/playwright/package.json"),
 )("playwright");
-const dir = join(tmpdir(), "logs", "quant-task-center");
-mkdirSync(dir, { recursive: true });
+const dir = process.env.TASK_SHOT_DIR;
+if (dir) mkdirSync(dir, { recursive: true });
 const stub = `
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 const items=Array.from({length:85},(_,i)=>({id:'query-'+String(i).padStart(3,'0'),type:i%2?'research':'screen',status:i===0?'running':'completed',progress:i===0?40:100,phase:'阶段'+i,createdAt:1700000000000+i,updatedAt:1700000000000+i})).reverse();
@@ -20,17 +20,18 @@ const f=window.taskFixture;
 function query(name){return {useQuery(input,options){return useQuery({queryKey:[name,input],retry:false,...options,queryFn:async()=>{
  f.requests.push({name,input,at:Date.now()});
  if(f.fail===name)throw Error('受控离线');
+ if(name==='recentErrors')return structuredClone(f.recentErrors??{entries:[],available:true,unrecordedInThisProcess:0});
  if(name==='taskOverview')return {total:items.length,running:items.filter(i=>i.status==='running').length,queued:items.filter(i=>i.status==='queued').length,failed:items.filter(i=>i.status==='failed').length,cancelled:items.filter(i=>i.status==='cancelled').length,completedToday:0,revision:f.revision,checkedAt:Date.now()};
  if(name==='taskHistory'){const filtered=items.filter(i=>(!input.status||i.status===input.status)&&(!input.type||i.type===input.type)&&(!input.id||i.id===input.id));const list=filtered.filter(i=>!input.cursor||i.createdAt<input.cursor.createdAt||(i.createdAt===input.cursor.createdAt&&i.id<input.cursor.id));const page=list.slice(0,20);return structuredClone({items:page,total:filtered.length,nextCursor:list.length>20?{createdAt:page.at(-1).createdAt,id:page.at(-1).id}:null})}
  if(name==='taskState'){const row=items.find(i=>i.id===input.id);return row?structuredClone({...row,sourceLink:{href:'/screen',label:'前往来源页重新配置'}}):null}
 }})}}}
-export const api={taskOverview:query('taskOverview'),taskHistory:query('taskHistory'),taskState:query('taskState'),
+export const api={recentErrors:query('recentErrors'),taskOverview:query('taskOverview'),taskHistory:query('taskHistory'),taskState:query('taskState'),
  cancel:{useMutation(){return useMutation({mutationFn:async id=>{f.calls.push(id);if(f.holdCancel)await new Promise(resolve=>f.releaseCancel=resolve);if(f.cancelFail)throw Error('受控取消失败');f.change(id,'cancelled');return {ok:true,outcome:'accepted',status:'cancelled'}}})}},
  useUtils(){const client=useQueryClient();return Object.fromEntries(['taskOverview','taskHistory','taskState','jobs'].map(name=>[name,{invalidate(input){return client.invalidateQueries({queryKey:input?[name,input]:[name]})}}]))}
 };`;
 const bundle = await build({
   stdin: {
-    contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {TaskCenter} from './src/components/workbench/task-center';import {PanelVisibility} from './src/components/workbench/keep-alive';const client=new QueryClient({defaultOptions:{queries:{retry:false}}});function App(){const [visible,setVisible]=useState(true);window.setTaskVisible=setVisible;return <QueryClientProvider client={client}><PanelVisibility visible={visible}><div hidden={!visible}><TaskCenter state={{jobs:{data:[]},selectFormulaJob(){},setTab(){}}}/></div></PanelVisibility></QueryClientProvider>};createRoot(document.getElementById('root')).render(<App/>);`,
+    contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {TaskCenter} from './src/components/workbench/task-center';import {PanelVisibility} from './src/components/workbench/keep-alive';const client=new QueryClient({defaultOptions:{queries:{retry:false}}});function App(){const [visible,setVisible]=useState(true);const [mounted,setMounted]=useState(true);window.setTaskVisible=setVisible;window.setTaskMounted=setMounted;return <QueryClientProvider client={client}><PanelVisibility visible={visible}><div hidden={!visible}>{mounted && <TaskCenter/>}</div></PanelVisibility></QueryClientProvider>};createRoot(document.getElementById('root')).render(<App/>);`,
     loader: "tsx",
     resolveDir: process.cwd(),
   },
@@ -43,6 +44,30 @@ const bundle = await build({
     {
       name: "transport",
       setup(b) {
+        if (process.env.TASK_SESSION_NEGATIVE === "1") {
+          b.onLoad({ filter: /task-history-session\.ts$/ }, (args) => {
+            const source = readFileSync(args.path, "utf8");
+            const anchor = "const key = taskHistoryHref(filter);";
+            assert.ok(source.includes(anchor));
+            return {
+              loader: "ts",
+              contents: source
+                .replace("import { useMemo,", "import { useEffect, useMemo,")
+                .replace(
+                  anchor,
+                  `${anchor}
+                  useEffect(() => () => {
+                    const views = {...useTaskSession.getState().views};
+                    delete views[key];
+                    useTaskSession.setState({views});
+                  }, [key]);`,
+                ),
+            };
+          });
+        }
+        b.onResolve({ filter: /^next\/navigation$/ }, () => ({
+          path: resolve("tests/fixtures/browser/task-navigation.ts"),
+        }));
         b.onLoad({ filter: /trpc[\\/]react\.tsx$/ }, () => ({
           contents: stub,
           loader: "tsx",
@@ -130,6 +155,32 @@ try {
   const oldIds = await rows
     .locator("button[aria-expanded]")
     .evaluateAll((nodes) => nodes.map((n) => n.id));
+  await page.getByLabel("精确任务编号").fill("unapplied-draft");
+  await page.evaluate(() => window.setTaskMounted(false));
+  await page.waitForFunction(
+    () => !document.querySelector('[aria-label="任务列表"]'),
+  );
+  await page.waitForTimeout(80);
+  const unmountedAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.clock.runFor(65000);
+  assert.equal(
+    await page.evaluate(() => window.taskFixture.requests.length),
+    unmountedAt,
+  );
+  await page.evaluate(() => window.setTaskMounted(true));
+  await rows.first().waitFor();
+  assert.equal(
+    await page.getByLabel("精确任务编号").inputValue(),
+    "unapplied-draft",
+  );
+  assert.deepEqual(
+    await rows
+      .locator("button[aria-expanded]")
+      .evaluateAll((nodes) => nodes.map((n) => n.id)),
+    oldIds,
+  );
   await page.evaluate(() => window.taskFixture.add());
   await advance();
   assert.deepEqual(
@@ -154,7 +205,7 @@ try {
     ),
     beforeTyping,
   );
-  await page.getByRole("button", { name: "查找", exact: true }).click();
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
   await page.waitForFunction(
     () =>
       document.querySelectorAll('[aria-label="任务列表"] article').length === 1,
@@ -166,6 +217,12 @@ try {
   await page.evaluate(() => (window.taskFixture.holdCancel = true));
   await cancel.click();
   await page.waitForFunction(() => window.taskFixture.calls.length === 1);
+  await page.evaluate(() => window.setTaskMounted(false));
+  await page.waitForFunction(
+    () => !document.querySelector('[aria-label="任务列表"]'),
+  );
+  await page.evaluate(() => window.setTaskMounted(true));
+  await page.locator("#task-trigger-query-000").click();
   assert.equal(
     await page.getByRole("button", { name: "正在提交取消…" }).isDisabled(),
     true,
@@ -223,10 +280,11 @@ try {
       ),
       true,
     );
-    await page.screenshot({
-      path: join(dir, `query-${width}.png`),
-      fullPage: true,
-    });
+    if (dir)
+      await page.screenshot({
+        path: join(dir, `query-${width}.png`),
+        fullPage: true,
+      });
   }
   // Simulated window blur independent of cached-panel hiding.
   await page.evaluate(() => {
@@ -259,26 +317,48 @@ try {
     );
     await page.evaluate(() => window.setTaskVisible(true));
     await page.waitForTimeout(50);
+    const refreshed = await page.evaluate(
+      (before) =>
+        window.taskFixture.requests
+          .slice(before)
+          .map((request) => request.name),
+      before,
+    );
     assert.ok(
-      (await page.evaluate(() => window.taskFixture.requests.length)) -
-        before <=
-        3,
-      "Only overview/current page/selected detail may refresh on return",
+      refreshed.length <= 4,
+      "Only overview/current page/selected detail/recent errors may refresh on return",
+    );
+    assert.equal(
+      new Set(refreshed).size,
+      refreshed.length,
+      "Returning must not duplicate any query",
+    );
+    assert.ok(
+      refreshed.every((name) =>
+        ["taskOverview", "taskHistory", "taskState", "recentErrors"].includes(
+          name,
+        ),
+      ),
     );
   }
   await page.getByRole("button", { name: "清除筛选" }).click();
   await page.getByLabel("任务类型", { exact: true }).click();
   await page.getByRole("option", { name: "AI 研究", exact: true }).click();
-  await page.waitForFunction(() =>
-    [
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
+  await page.waitForFunction(() => {
+    const labels = [
       ...document.querySelectorAll('[aria-label="任务列表"] article strong'),
-    ].every((n) => n.textContent === "AI 研究"),
-  );
+    ];
+    return (
+      labels.length > 0 && labels.every((n) => n.textContent === "AI 研究")
+    );
+  });
   assert.ok((await rows.count()) > 0);
   await page.evaluate(() => window.taskFixture.change("query-083", "running"));
   await page.getByRole("button", { name: "刷新任务", exact: true }).click();
   await page.getByLabel("历史任务状态", { exact: true }).click();
   await page.getByRole("option", { name: "运行中", exact: true }).click();
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
   await page.locator("#task-trigger-query-083").click();
   await page
     .locator("#task-detail-query-083")
@@ -298,13 +378,127 @@ try {
   await page.getByText("统计未刷新：受控离线", { exact: false }).waitFor();
   await page.evaluate(() => (window.taskFixture.fail = null));
   await page.getByRole("button", { name: "重试统计" }).click();
-  assert.deepEqual(errors, []);
-  writeFileSync(
-    join(dir, "query-result.json"),
-    JSON.stringify({ passed: true, hiddenRequests: 0, errors }, null, 2),
+  await page.getByRole("button", { name: "清除筛选", exact: true }).click();
+  await rows.first().waitFor();
+  await page.evaluate(() => (window.taskFixture.fail = "taskHistory"));
+  await page.getByRole("button", { name: "刷新任务", exact: true }).click();
+  await page
+    .getByText("任务列表读取失败：受控离线", { exact: false })
+    .waitFor();
+  await page.evaluate(() =>
+    history.pushState(null, "", "/tasks?status=unknown"),
   );
+  await page.getByText("任务筛选链接无效，请清除筛选后重试。").waitFor();
+  assert.equal(await rows.count(), 0);
+  assert.equal(await page.getByRole("button", { name: "重试列表" }).count(), 0);
+  const invalidAt = await page.evaluate(
+    () =>
+      window.taskFixture.requests.filter((r) => r.name === "taskHistory")
+        .length,
+  );
+  await page.clock.runFor(65000);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.taskFixture.requests.filter((r) => r.name === "taskHistory")
+          .length,
+    ),
+    invalidAt,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "刷新任务", exact: true })
+      .isDisabled(),
+    true,
+  );
+  await page.evaluate(() => (window.taskFixture.fail = null));
+  await page.getByRole("button", { name: "清除筛选", exact: true }).click();
+  await rows.first().waitFor();
+  await page.evaluate(() => {
+    window.taskFixture.recentErrors = {
+      available: true,
+      unrecordedInThisProcess: 0,
+      entries: [
+        {
+          id: "error-1",
+          event: "job-run",
+          module: "后台任务",
+          stage: "执行",
+          summary: "任务执行失败，可打开任务查看状态及来源。",
+          code: "SQLITE_BUSY",
+          firstSeen: 1700000000000,
+          lastSeen: 1700000020000,
+          count: 3,
+          retryCount: 2,
+          jobId: "query-019",
+          requestId: null,
+        },
+      ],
+    };
+  });
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  const recent = page.getByRole("list", { name: "最近错误记录" });
+  await recent.getByText("3 次", { exact: true }).waitFor();
+  assert.match(await recent.innerText(), /SQLITE_BUSY/);
+  assert.equal(
+    await recent
+      .getByRole("link", { name: "查看关联任务" })
+      .getAttribute("href"),
+    "/tasks?id=query-019",
+  );
+  await page.setViewportSize({ width: 640, height: 900 });
+  await recent.scrollIntoViewIfNeeded();
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+    true,
+  );
+  if (dir) await page.screenshot({ path: join(dir, "recent-errors-640.png") });
+  await page.evaluate(() => (window.taskFixture.fail = "recentErrors"));
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await page
+    .getByText("错误记录未刷新，请稍后重试。下方保留上次读取结果。", {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(await recent.getByText("3 次", { exact: true }).count(), 1);
+  await page.evaluate(() => {
+    window.taskFixture.fail = null;
+    window.taskFixture.recentErrors = {
+      entries: [],
+      available: false,
+      unrecordedInThisProcess: 1,
+    };
+  });
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await page
+    .getByText("错误记录暂不可读，请检查数据目录的空间和权限。", {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(
+    await page.getByText("暂无已记录的后台错误。", { exact: true }).count(),
+    0,
+  );
+  await page.evaluate(
+    () =>
+      (window.taskFixture.recentErrors = {
+        entries: [],
+        available: true,
+        unrecordedInThisProcess: 0,
+      }),
+  );
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await page.getByText("暂无已记录的后台错误。", { exact: true }).waitFor();
+  assert.deepEqual(errors, []);
+  if (dir)
+    writeFileSync(
+      join(dir, "query-result.json"),
+      JSON.stringify({ passed: true, hiddenRequests: 0, errors }, null, 2),
+    );
   console.log(
-    "PASS actual Query: lifecycle, terminal stop, stable page, no typing requests, cancellation guard, hidden 610s, stale errors, responsive",
+    "PASS actual Query: lifecycle, terminal stop, stable page, no typing requests, unmount/remount drafts and cursors, cancellation guard across remount, invalid URL, hidden 610s, stale errors, responsive",
   );
 } finally {
   await browser.close();

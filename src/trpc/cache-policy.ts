@@ -34,12 +34,7 @@ export const staleTimes: Record<string, number> = {
   rpsCurve: 10 * MIN,
   archivedReport: HOUR,
   reportHistory: 5 * MIN,
-  fundamentalHistory: 5 * MIN,
   financialQualityHistory: 5 * MIN,
-  chanHistory: 5 * MIN,
-  canslimHistory: 5 * MIN,
-  wyckoffHistory: 5 * MIN,
-  walkForwardHistory: 5 * MIN,
   newsThemes: 5 * MIN,
   newsSectorReports: 5 * MIN,
 };

@@ -1,6 +1,13 @@
 import { expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdtemp,
+  readFile,
+  readdir,
+  mkdir,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import wdzExclusions from "~/server/data/wdz-block-ranking-exclusions.json";
@@ -11,8 +18,10 @@ import {
 } from "~/server/market/block-eligibility";
 import { readTdxLocalBlocks } from "tstdx/local";
 import { readRpsBlockSource } from "~/server/screening/rps-block-source";
+import { excludedBlock } from "~/lib/market/block-eligibility";
 
 const archive = "docs/data-sources/wdz-blocks/2026-11-07";
+const fixture = "tests/fixtures/wdz-block-definitions";
 const oldStyleNames = [
   "中字头",
   "低市盈率",
@@ -35,7 +44,7 @@ async function tdxFixture() {
   });
   return root;
 }
-it("keeps every supplied definition byte-exact and fingerprints the reviewed snapshot", async () => {
+it("keeps the reviewed manifest identity and byte-exact classification fixtures", async () => {
   const manifest = JSON.parse(
     await readFile(join(archive, "manifest.json"), "utf8"),
   ) as {
@@ -47,11 +56,16 @@ it("keeps every supplied definition byte-exact and fingerprints the reviewed sna
   expect(manifest.fileCount).toBe(2319);
   expect(manifest.files).toHaveLength(manifest.fileCount);
   expect(manifest.bytes).toBe(3703787);
-  for (const file of manifest.files) {
-    const bytes = await readFile(join(archive, "Blocks", file.path));
-    expect(bytes.length, file.path).toBe(file.bytes);
-    expect(createHash("sha256").update(bytes).digest("hex"), file.path).toBe(
-      file.sha256,
+  const files = await readdir(join(fixture, "概念"));
+  expect(files).toHaveLength(41);
+  for (const name of files) {
+    const path = `概念/${name}`;
+    const original = manifest.files.find((file) => file.path === path);
+    expect(original, path).toBeDefined();
+    const bytes = await readFile(join(fixture, path));
+    expect(bytes.length, path).toBe(original!.bytes);
+    expect(createHash("sha256").update(bytes).digest("hex"), path).toBe(
+      original!.sha256,
     );
   }
   const identities = manifest.files.map(({ path, bytes, sha256 }) => ({
@@ -64,7 +78,7 @@ it("keeps every supplied definition byte-exact and fingerprints the reviewed sna
   ).toBe(manifest.sha256);
   expect(wdzExclusions.snapshotHash).toBe(manifest.sha256);
 });
-it("finds the styles missed by exact TDX labels in the real archived concept definitions", async () => {
+it("finds all reviewed style aliases while retaining sampled industry themes", async () => {
   const local = await readTdxLocalBlocks(await tdxFixture());
   const policy = eligibilityFromTdx({
     ...local,
@@ -74,12 +88,24 @@ it("finds the styles missed by exact TDX labels in the real archived concept def
       kind: "style" as const,
     })),
   });
-  const raw = await readIndustryBlocks(
-    join(archive, "Blocks"),
-    undefined,
-    "concept",
-  );
-  expect(raw.files).toHaveLength(452);
+  // Full source names remain in the manifest: preserve the 452 -> 416 classification check
+  // without requiring all membership files to stay in Git.
+  const manifest = JSON.parse(
+    await readFile(join(archive, "manifest.json"), "utf8"),
+  ) as { files: { path: string }[] };
+  const conceptFiles = manifest.files
+    .filter(
+      (file) => file.path.startsWith("概念/") && file.path.endsWith(".txt"),
+    )
+    .map((file) => file.path.slice("概念/".length));
+  expect(conceptFiles).toHaveLength(452);
+  expect(
+    conceptFiles.filter(
+      (file) => !excludedBlock(file.slice(0, -4), file, policy),
+    ),
+  ).toHaveLength(416);
+  const raw = await readIndustryBlocks(fixture, undefined, "concept");
+  expect(raw.files).toHaveLength(41);
   // Known violations in the unfiltered source prove that exclusion is exercised.
   expect(raw.files.map((file) => file.name)).toEqual(
     expect.arrayContaining([
@@ -92,7 +118,7 @@ it("finds the styles missed by exact TDX labels in the real archived concept def
     ]),
   );
   const filtered = filterBlockSnapshot(raw, policy);
-  expect(filtered.files).toHaveLength(416);
+  expect(filtered.files).toHaveLength(5);
   expect(filtered.selectionPolicy!.removed).toHaveLength(36);
   expect(
     new Set(wdzExclusions.groups.flatMap((group) => group.names)).size,

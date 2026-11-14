@@ -32,7 +32,7 @@ import {
   observationRanking,
 } from "../../screening/rps-observation";
 import { RpsStore } from "../../screening/rps-store";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 
 const archiveId = z.string().regex(/^local-financial-[a-f0-9]{64}$/);
 const screenId = z.string().regex(/^local-financial-screen-[a-f0-9]{64}$/);
@@ -56,13 +56,13 @@ function history(kind: string) {
   }[];
 }
 export const financialRouter = createTRPCRouter({
-  localFinancialView: p
+  localFinancialView: p("financial", "read")
     .input(localFinancialQuery)
     .query(({ input }) => localFinancialView(settings().tdxRoot, input)),
-  localFinancialSeries: p
+  localFinancialSeries: p("financial", "read")
     .input(localSeriesQuery)
     .query(({ input }) => localFinancialSeriesView(settings().tdxRoot, input)),
-  localFinancialExport: p
+  localFinancialExport: p("financial", "read")
     .input(
       z.object({
         query: localFinancialQuery,
@@ -78,7 +78,7 @@ export const financialRouter = createTRPCRouter({
         input.expectedManifestHash,
       ),
     ),
-  localFinancialAudit: p.query(() => {
+  localFinancialAudit: p("financial", "read").query(() => {
     const result = get<Audit>("local-financial-audit-latest");
     if (!result || resolve(result.root) !== resolve(settings().tdxRoot))
       return null;
@@ -90,7 +90,7 @@ export const financialRouter = createTRPCRouter({
       ),
     };
   }),
-  localFinancialAuditStart: p.mutation(() => {
+  localFinancialAuditStart: p("financial", "compute").mutation(() => {
     const work: LocalFinancialWork = {
       type: "local-financial",
       operation: "audit",
@@ -108,7 +108,7 @@ export const financialRouter = createTRPCRouter({
       work,
     );
   }),
-  localFinancialArchiveCreate: p
+  localFinancialArchiveCreate: p("financial", "compute")
     .input(
       z.object({
         symbol: financialSymbol,
@@ -138,21 +138,25 @@ export const financialRouter = createTRPCRouter({
         work,
       );
     }),
-  localFinancialArchiveHistory: p.query(() =>
+  localFinancialArchiveHistory: p("financial", "read").query(() =>
     history("local-financial-archive"),
   ),
-  localFinancialArchive: p.input(archiveId).query(({ input }) => {
-    const archive = stored<LocalFinancialArchive>(
-      "local-financial-archive",
-      input,
-    );
-    return archive ? verifyLocalFinancialArchive(archive) : null;
-  }),
-  localFinancialArchiveDelete: p.input(archiveId).mutation(({ input }) => {
-    if (stored("local-financial-archive", input)) remove(input);
-    return { deleted: true };
-  }),
-  localFinancialScreenStart: p
+  localFinancialArchive: p("financial", "read")
+    .input(archiveId)
+    .query(({ input }) => {
+      const archive = stored<LocalFinancialArchive>(
+        "local-financial-archive",
+        input,
+      );
+      return archive ? verifyLocalFinancialArchive(archive) : null;
+    }),
+  localFinancialArchiveDelete: p("financial", "configure")
+    .input(archiveId)
+    .mutation(({ input }) => {
+      if (stored("local-financial-archive", input)) remove(input);
+      return { deleted: true };
+    }),
+  localFinancialScreenStart: p("financial", "compute")
     .input(financialScreenInput)
     .mutation(async ({ input }) => {
       const config = settings(),
@@ -241,8 +245,10 @@ export const financialRouter = createTRPCRouter({
         work,
       );
     }),
-  localFinancialScreenHistory: p.query(() => history("local-financial-screen")),
-  localFinancialScreenPage: p
+  localFinancialScreenHistory: p("financial", "read").query(() =>
+    history("local-financial-screen"),
+  ),
+  localFinancialScreenPage: p("financial", "read")
     .input(
       z.object({
         id: screenId,
@@ -292,23 +298,27 @@ export const financialRouter = createTRPCRouter({
         ),
       };
     }),
-  localFinancialScreenExport: p.input(screenId).query(({ input }) => {
-    const result = stored<LocalFinancialScreen>(
-      "local-financial-screen",
-      input,
-    );
-    if (!result) return null;
-    const { id, hash, createdAt: _createdAt, ...content } = result;
-    if (
-      createHash("sha256").update(JSON.stringify(content)).digest("hex") !==
-        hash ||
-      id !== `local-financial-screen-${hash}`
-    )
-      throw new Error("财务筛选档案哈希校验失败");
-    return result;
-  }),
-  localFinancialScreenDelete: p.input(screenId).mutation(({ input }) => {
-    if (stored("local-financial-screen", input)) remove(input);
-    return { deleted: true };
-  }),
+  localFinancialScreenExport: p("financial", "read")
+    .input(screenId)
+    .query(({ input }) => {
+      const result = stored<LocalFinancialScreen>(
+        "local-financial-screen",
+        input,
+      );
+      if (!result) return null;
+      const { id, hash, createdAt: _createdAt, ...content } = result;
+      if (
+        createHash("sha256").update(JSON.stringify(content)).digest("hex") !==
+          hash ||
+        id !== `local-financial-screen-${hash}`
+      )
+        throw new Error("财务筛选档案哈希校验失败");
+      return result;
+    }),
+  localFinancialScreenDelete: p("financial", "configure")
+    .input(screenId)
+    .mutation(({ input }) => {
+      if (stored("local-financial-screen", input)) remove(input);
+      return { deleted: true };
+    }),
 });

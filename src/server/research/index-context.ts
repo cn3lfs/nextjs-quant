@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "tstdx/local";
 import type { Snapshot, Evidence, Bar } from "~/lib/domain";
 import { parseBars } from "tstdx/local";
 import { readFile } from "node:fs/promises";
@@ -92,7 +93,7 @@ export async function localIndexEvidence(
   const cutoff = source.bars.at(-1)!.date;
   try {
     const bytes = await readFile(
-      join(root, "vipdoc", "sh", "lday", "sh000300.day"),
+      join(resolveTdxRoot(root), "vipdoc", "sh", "lday", "sh000300.day"),
     );
     const bars = parseBars(bytes, "day")
       .filter((b) => b.date <= cutoff)

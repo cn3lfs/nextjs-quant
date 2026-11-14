@@ -7,7 +7,10 @@ import {
 
 describe("table display-value sorting", () => {
   it("parses broker-style numbers with units and signs", () => {
-    expect(parseSortValue("1,234.5")).toEqual({ kind: "number", value: 1234.5 });
+    expect(parseSortValue("1,234.5")).toEqual({
+      kind: "number",
+      value: 1234.5,
+    });
     expect(parseSortValue("+3.21%")).toEqual({ kind: "number", value: 3.21 });
     expect(parseSortValue("-0.5%")).toEqual({ kind: "number", value: -0.5 });
     expect(parseSortValue("12.3亿")).toEqual({ kind: "number", value: 1.23e9 });
@@ -38,8 +41,9 @@ describe("table display-value sorting", () => {
     ]);
   });
   it("orders Chinese text and dates as text", () => {
-    expect(sortGroups(["2026-09-02", "2026-10-01", "2026-09-10"], (v) => v, "asc"))
-      .toEqual(["2026-09-02", "2026-09-10", "2026-10-01"]);
+    expect(
+      sortGroups(["2026-09-02", "2026-10-01", "2026-09-10"], (v) => v, "asc"),
+    ).toEqual(["2026-09-02", "2026-09-10", "2026-10-01"]);
     expect(
       compareSortValues(parseSortValue("1"), parseSortValue("甲"), "desc"),
     ).toBeLessThan(0);

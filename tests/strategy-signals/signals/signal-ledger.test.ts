@@ -1,4 +1,9 @@
 import { beforeAll, afterAll, expect, it, vi } from "vitest";
+// Exercise retained ledger rules independently of the production pause.
+vi.mock("~/lib/common/capabilities", async (original) => ({
+  ...(await original<typeof import("~/lib/common/capabilities")>()),
+  capabilityAllows: () => true,
+}));
 import { prepareCzscTestRuntime } from "../../helpers/czsc-runtime";
 import Database from "better-sqlite3";
 import { createElement } from "react";

@@ -1,6 +1,6 @@
 import { tickCryptoBots } from "./crypto-trading/service";
-import { isMarketIndex } from "~/lib/market/market-indices";
-import { legacyAutomaticStrategiesEnabled } from "~/lib/backtest/strategy-lifecycle";
+import { recordRuntimeError } from "./infra/runtime-errors";
+import { capabilityAllows } from "~/lib/common/capabilities";
 import { scheduleSignalLedger } from "./monitoring/signal-ledger-client";
 import { scheduleRps } from "./screening/rps-client";
 import { scheduleIntraday } from "./monitoring/intraday-client";
@@ -10,15 +10,13 @@ import { monitorCalendar } from "./monitoring/monitor-calendar";
 import { verifySecurityTradingStatus } from "./market/security-trading-status";
 import { currentTradingStatus } from "~/lib/market/security-trading-status";
 import { sameMonitorRun, sameMonitorBaseline } from "./monitoring/monitor-run";
-import { randomUUID } from "node:crypto";
-import type { Monitor, Signal, Job, Coverage, Period } from "~/lib/domain";
+import type { Monitor, Signal, Coverage, Period } from "~/lib/domain";
 import { put, get, atomic, sqlite } from "./db";
 import { settings } from "./infra/settings";
-import { runWorker, background, recoverJobs, updateJob } from "./jobs/jobs";
-import { metrics } from "trading-strategies/research/technical/screening-metrics";
+import { runWorker, background, recoverJobs } from "./jobs/jobs";
 import { monitorStrategy } from "./monitoring/monitor-strategy";
 import { analyzeCzscSignal } from "./strategies/chan/czsc-signal-analysis";
-import { analyze, snapshotEvidence } from "./research/research";
+import { analyze } from "./research/research";
 import { enqueue, drain, recoverDeliveries } from "./infra/notifications";
 import { gatherEvidence } from "./research/gather-evidence";
 import { acquireScheduler } from "./infra/lease";
@@ -51,10 +49,24 @@ function schedulerLeader() {
 export function startRuntime() {
   if (state.started) return;
   state.started = true;
-  recoverJobs();
-  const timer = setInterval(() => void tick().catch(() => {}), 60000),
+  try {
+    recoverJobs();
+  } catch (error) {
+    state.started = false;
+    recordRuntimeError("runtime-start", error);
+    throw error;
+  }
+  const onTickError = (error: unknown) => {
+    recordRuntimeError("scheduler-tick", error);
+  };
+  const outboxTick = async () => {
+    if (schedulerLeader()) await drain();
+  };
+  const timer = setInterval(() => void tick().catch(onTickError), 60000),
     outbox = setInterval(() => {
-      if (schedulerLeader()) void drain().catch(() => {});
+      void outboxTick().catch((error) => {
+        recordRuntimeError("notification-drain", error);
+      });
     }, 3000);
   // Crypto runs 24/7 independently of the A-share trading calendar.
   const cryptoTick = async () => {
@@ -66,15 +78,18 @@ export function startRuntime() {
       scope.quantCryptoTicking = false;
     }
   };
+  const onCryptoError = (error: unknown) => {
+    recordRuntimeError("crypto-tick", error);
+  };
   const cryptoTimer = setInterval(
-    () => void cryptoTick().catch(() => {}),
+    () => void cryptoTick().catch(onCryptoError),
     10000,
   );
   cryptoTimer.unref();
-  void cryptoTick().catch(() => {});
+  void cryptoTick().catch(onCryptoError);
   timer.unref();
   outbox.unref();
-  void tick().catch(() => {});
+  void tick().catch(onTickError);
 }
 export function freshCompleted(
   date: string,
@@ -121,13 +136,17 @@ export function scanJob() {
 }
 export async function tick() {
   if (!schedulerLeader()) return;
-  if (legacyAutomaticStrategiesEnabled) scheduleSignalLedger(Date.now());
+  if (capabilityAllows("signalLedger", "schedule"))
+    scheduleSignalLedger(Date.now());
   scheduleRps(Date.now());
-  if (legacyAutomaticStrategiesEnabled) scheduleIntraday(Date.now());
+  if (capabilityAllows("intraday", "schedule"))
+    void scheduleIntraday(Date.now())?.catch((error) => {
+      recordRuntimeError("intraday-worker", error);
+    });
   scheduleClsReview();
   scheduleNews();
-  // Preserve stored subscriptions and evidence; deprecated strategies do not execute.
-  if (!legacyAutomaticStrategiesEnabled) return;
+  // Pausing execution must not rewrite saved subscription preferences.
+  if (!capabilityAllows("signalMonitor", "schedule")) return;
   if (state.ticking) return;
   state.ticking = true;
   const now = Date.now(),
@@ -229,7 +248,8 @@ export async function tick() {
                 tradingStatusEvidence =
                   await verifySecurityTradingStatus(symbol);
                 updated.tradingStatusChecks[symbol] = tradingStatusEvidence;
-              } catch {
+              } catch (error) {
+                recordRuntimeError("monitor-trading-status", error);
                 updated.error = `${symbol} 交易状态核验失败，已暂停该证券新信号；请检查问财连接`;
                 continue;
               }
@@ -327,7 +347,8 @@ export async function tick() {
             updated.error = "交易日历不可用，已暂停新信号推送";
           else if (!freshCompleted(value.date, monitor.period, now, calendar))
             updated.error = "等待本交易日已完成行情；旧数据不会推送";
-        } catch {
+        } catch (error) {
+          recordRuntimeError("monitor-data", error);
           updated.error = `${symbol} 数据读取失败，请检查本地数据`;
         }
       }

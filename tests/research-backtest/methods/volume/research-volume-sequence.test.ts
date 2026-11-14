@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { linearSlope, volumeMa } from "../../../../src/lib/indicators";
 import {
@@ -8,33 +8,6 @@ import {
   type VolumeSequenceId,
 } from "trading-strategies/research/volume/research-volume-sequence";
 import { researchVolumeContextSeries } from "trading-strategies/research/volume/research-volume-context";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../../src/server/backtest/research-dataset";
-
-const native = vi.fn(async () => {
-  throw Error("no native callback");
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
 function fixture(tail: { close: number; volume: number }[]): Bar[] {
   return [
     ...Array.from({ length: 90 }, (_, i) => ({
@@ -119,48 +92,6 @@ it("uses least-squares slope with no fabricated values or overflow", () => {
   for (const values of [[], [1], [1, null, 2], [1, NaN, 2], [1, Infinity]])
     expect(linearSlope(values)).toBeNull();
 });
-it.each(volumeSequenceIds)(
-  "%s enters and exits through the research pipeline with causal evidence",
-  async (id) => {
-    const { bars, signal, exit } = forId(id),
-      points = series(id, bars);
-    expect(points.flatMap((p, i) => (p.entry ? [i] : []))).toEqual([signal]);
-    const spec = researchSpecSchema.parse({
-      strategy: id,
-      start: bars[90]!.date,
-      end: bars.at(-1)!.date,
-      validationStart: bars.at(-1)!.date,
-      holdingDays: id.startsWith("vp-center") ? 20 : 1,
-      initialCapital: 100000,
-      maxPositions: 1,
-      costs: {
-        commissionBps: 0,
-        minimumCommission: 0,
-        sellTaxBps: 0,
-        slippageBps: 0,
-      },
-    });
-    const events = await researchSignals("sh600000", bars, spec, native);
-    expect(events).toHaveLength(1);
-    expect(events[0]!.observedDate).toBe(bars[signal]!.date);
-    const result = researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      () => rules,
-    );
-    expect(result.trades).toHaveLength(1);
-    expect(result.trades[0]!.entryDate).toBe(bars[signal + 1]!.date);
-    expect(result.trades[0]!.exitDate).toBe(bars[exit]!.date);
-    if (id.startsWith("vp-center"))
-      expect(result.trades[0]!.signalExit).toEqual(points[exit - 1]);
-    for (let n = 89; n <= bars.length; n++)
-      expect(series(id, bars.slice(0, n))).toEqual(points.slice(0, n));
-    expect(researchMethodSnapshot(id).sources).toHaveLength(4);
-    expect(native).not.toHaveBeenCalled();
-  },
-);
 it("retains the existing gap-two three-pulse strategy and rejects malformed rhythm", () => {
   for (const gap of [1, 2, 3])
     for (const count of [2, 3]) {
@@ -249,114 +180,11 @@ it("allows the tenth confirmation bar but never revives the expired contraction"
   expect(series("vp-contract-5", extend(105)).some((p) => p.entry)).toBe(false);
 });
 
-it("applies extended action coverage to the full sequence research family", async () => {
-  const bars = forId("vp-center-20").bars;
-  const spec = researchSpecSchema.parse({
-    strategy: "vp-center-20",
-    symbols: ["sh600000"],
-    start: bars[90]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars.at(-1)!.date,
-    holdingDays: 20,
-    initialCapital: 100000,
-    maxPositions: 1,
-  });
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "合成",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "合成",
-        bars,
-        hash: researchHash(bars),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "sequence-fixture",
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[9]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      ...rules,
-      evidence: undefined,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.statistics.count).toBe(1);
-  expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
-    bars[97]!.date,
-  );
-  expect(result.warnings[0]).toContain("81根价格");
-  const short = await runStrategyResearch(
-    spec,
-    dataset,
-    {
-      ...evidence,
-      corporateActionFree: evidence.corporateActionFree.map((r) => ({
-        ...r,
-        start: bars[19]!.date,
-      })),
-    },
-    native,
-  );
-  // corporateActionFree is legacy evidence metadata the engine no longer
-  // consumes; admission runs on prepareResearchAdjustedCoverage instead,
-  // which this actions-free dataset satisfies regardless of the window.
-  expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual(
-    result.partitions[0]!.simulation!.trades,
-  );
-  const split = await runStrategyResearch(
-    spec,
-    {
-      ...dataset,
-      stocks: dataset.stocks.map((s) => ({
-        ...s,
-        actions: [
-          {
-            date: bars[10]!.date,
-            category: 1,
-            name: "合成除权",
-            bonusRatio: 1,
-          },
-        ],
-      })),
-    },
-    evidence,
-    native,
-  );
-  // A category-1 bonus event without floatSharesBefore/After is a real
-  // share-count change GBBQ cannot quantify, so volume comparability stays
-  // missing — the reason now names that specifically.
-  expect(split.events).toEqual([]);
-  expect(split.exclusions[0]!.reason).toContain("量能可比性无法判定");
-});
+it.each(volumeSequenceIds)(
+  "%s calculates volume sequence entry at confirmation",
+  (id) => {
+    const { bars, signal } = forId(id),
+      points = series(id, bars);
+    expect(points.flatMap((p, i) => (p.entry ? [i] : []))).toEqual([signal]);
+  },
+);

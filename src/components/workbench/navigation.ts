@@ -1,3 +1,4 @@
+import { capabilities, type CapabilityId } from "~/lib/common/capabilities";
 import {
   Books,
   Mountains,
@@ -17,7 +18,6 @@ import {
   Ranking,
   Receipt,
   Sparkle,
-  TestTube,
   Wallet,
 } from "@phosphor-icons/react/ssr";
 import { type Icon } from "@phosphor-icons/react";
@@ -44,6 +44,7 @@ export type NavItem = {
   tab?: Tab;
   /** Reachable by link and search, but not listed in the sidebar. */
   hidden?: boolean;
+  capability?: CapabilityId;
 };
 export type NavGroup = { label: string; items: readonly NavItem[] };
 
@@ -51,7 +52,7 @@ export type NavGroup = { label: string; items: readonly NavItem[] };
  * One navigation layer: every page is a route, grouped as in the design
  * handoff. Former tabs keep their panel state through `tab`.
  */
-export const navGroups: readonly NavGroup[] = [
+const routeGroups: readonly NavGroup[] = [
   {
     label: "今日",
     items: [
@@ -63,6 +64,7 @@ export const navGroups: readonly NavGroup[] = [
       },
       {
         href: "/intraday",
+        capability: "intraday",
         label: "盘中预选",
         subtitle: "午尾盘预选与收盘确认 · 截至时点行情，不覆盖原始记录",
         icon: Crosshair,
@@ -84,6 +86,19 @@ export const navGroups: readonly NavGroup[] = [
         subtitle: "从真实行情出发，把判断建立在证据上",
         icon: ChartLine,
         tab: "market",
+      },
+      {
+        href: "/stock-pool",
+        label: "证券池",
+        subtitle: "按行业、概念和指数筛选标的 · 保留筛选与排序，再进入行情图表",
+        icon: ListChecks,
+      },
+      {
+        href: "/rps",
+        label: "RPS 排名",
+        title: "RPS 排名与数据管理",
+        subtitle: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列",
+        icon: Ranking,
       },
       {
         href: "/screen",
@@ -115,12 +130,6 @@ export const navGroups: readonly NavGroup[] = [
         subtitle: "把策略想法变成可以复现的实验 · 研究模拟，不作为正式策略业绩",
         icon: Flask,
         tab: "backtest",
-      },
-      {
-        href: "/research",
-        label: "策略样本研究",
-        subtitle: "多策略批量样本 · 准入评估与多重检验",
-        icon: TestTube,
       },
       {
         href: "/analysis",
@@ -157,6 +166,7 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       {
         href: "/signals",
+        capability: "signalMonitor",
         label: "信号与通知",
         subtitle: "规则触发 → 交易状态核验 → 渠道投递",
         icon: Broadcast,
@@ -164,6 +174,7 @@ export const navGroups: readonly NavGroup[] = [
       },
       {
         href: "/signal-ledger",
+        capability: "signalLedger",
         label: "信号台账",
         subtitle: "每条信号的后续表现 · 原始记录只追加不覆盖",
         icon: Notebook,
@@ -212,13 +223,6 @@ export const navGroups: readonly NavGroup[] = [
         tab: "settings",
       },
       {
-        href: "/rps",
-        label: "RPS 管理",
-        title: "RPS 数据管理",
-        subtitle: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列",
-        icon: Ranking,
-      },
-      {
         href: "/tasks",
         label: "任务中心",
         subtitle: "选股、RPS、AI 研究共用本机后台队列",
@@ -228,6 +232,19 @@ export const navGroups: readonly NavGroup[] = [
     ],
   },
 ];
+
+export const navGroups: readonly NavGroup[] = routeGroups.map((group) => ({
+  ...group,
+  items: group.items.map((item) => {
+    if (!item.capability || capabilities[item.capability].state === "active")
+      return item;
+    return {
+      ...item,
+      label: `${item.label}（暂停）`,
+      subtitle: capabilities[item.capability].reason,
+    };
+  }),
+}));
 
 export const navItems = navGroups.flatMap((group) =>
   group.items.map((item) => ({ ...item, group: group.label })),

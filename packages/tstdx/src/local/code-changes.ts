@@ -1,3 +1,4 @@
+import { resolveTdxRoot } from "./root.js";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -50,7 +51,12 @@ export function parseTdxCodeChanges(bytes: Buffer) {
 
 export async function readTdxCodeChanges(root: string) {
   try {
-    const path = join(root, "T0002", "hq_cache", "addedcode_bj.cfg");
+    const path = join(
+      resolveTdxRoot(root),
+      "T0002",
+      "hq_cache",
+      "addedcode_bj.cfg",
+    );
     const before = await stat(path);
     if (!before.isFile() || before.size > 1024 * 1024)
       throw new Error("代码映射文件大小非法");

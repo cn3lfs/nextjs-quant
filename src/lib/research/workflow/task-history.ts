@@ -43,6 +43,7 @@ export type TaskState = Pick<
 > & {
   resultLink?: { href: string; label: string };
   screenResultId?: string;
+  isFormulaScreen?: boolean;
   sourceLink?: { href: string; label: string };
 };
 export const taskTypeLabels: Record<Job["type"], string> = {

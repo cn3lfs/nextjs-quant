@@ -7,15 +7,6 @@ export default async function TaskReportPage({
   params: Promise<{ kind: string; id: string }>;
 }) {
   const { kind, id } = await params;
-  if (
-    !["report", "chan-report", "canslim-report", "wyckoff-report"].includes(
-      kind,
-    ) ||
-    !id ||
-    id.length > 200
-  )
-    notFound();
-  if (kind !== "report" && !new RegExp(`^${kind}-[a-f0-9]{64}$`).test(id))
-    notFound();
+  if (kind !== "report" || !id || id.length > 200) notFound();
   return <TaskReportDetail kind={kind} id={id} />;
 }

@@ -6,16 +6,11 @@ import {
   archiveKinds,
   type ArchiveCursor,
 } from "../../src/lib/research/workflow/archive-history";
-import { researchHistory } from "../../src/server/research/research-history";
 
 beforeEach(() => {
   sqlite().prepare("DELETE FROM records").run();
 });
-function seed(
-  kind: (typeof archiveKinds)[number],
-  i: number,
-  extra: Record<string, unknown> = {},
-) {
+function seed(kind: string, i: number, extra: Record<string, unknown> = {}) {
   const id = `${kind}-${i.toString(16).padStart(64, "0")}`;
   put(kind, id, {
     id,
@@ -30,10 +25,9 @@ function seed(
   });
   return id;
 }
-it("reaches every report across four kinds beyond the old 100 limit with stable equal-time ordering", () => {
+it("reaches every report beyond the old 100 limit with stable equal-time ordering", () => {
   put("snapshot", "source", { symbol: "sh600519", name: "归档名" });
-  for (const kind of archiveKinds) for (let i = 0; i < 125; i++) seed(kind, i);
-  expect(researchHistory("chan-report")).toHaveLength(100); // observed pre-change negative control
+  for (const kind of archiveKinds) for (let i = 0; i < 500; i++) seed(kind, i);
   let cursor: ArchiveCursor | undefined;
   const ids: string[] = [];
   do {
@@ -50,26 +44,26 @@ it("reaches every report across four kinds beyond the old 100 limit with stable 
   expect(ids).toEqual([...ids].sort().reverse());
 });
 it("filters before pagination, treats wildcard characters literally and validates filter-bound cursors", () => {
-  for (let i = 0; i < 45; i++) seed("chan-report", i);
-  seed("wyckoff-report", 50, { result: { title: "other" } });
+  for (let i = 0; i < 45; i++) seed("report", i);
+  seed("report", 50, { title: "other" });
   expect(researchArchiveHistory({ keyword: "%_" }).filteredTotal).toBe(45);
   expect(researchArchiveHistory({ keyword: "%x" }).filteredTotal).toBe(0);
   expect(researchArchiveHistory({ symbol: "sz000001" }).filteredTotal).toBe(0);
-  const page = researchArchiveHistory({ kinds: ["chan-report"] });
+  const page = researchArchiveHistory({ kinds: ["report"] });
   expect(() =>
     researchArchiveHistory({ cursor: page.nextCursor!, keyword: "other" }),
   ).toThrow("筛选条件");
   expect(
     researchArchiveHistory({
-      kinds: ["chan-report", "chan-report"],
+      kinds: ["report"],
       cursor: page.nextCursor!,
     }).items,
   ).toHaveLength(20);
 });
 it("retains cursor boundary when newer records arrive and counts all matching records", () => {
-  for (let i = 0; i < 30; i++) seed("chan-report", i);
+  for (let i = 0; i < 30; i++) seed("report", i);
   const page = researchArchiveHistory({});
-  seed("chan-report", 100, { createdAt: 2 });
+  seed("report", 100, { createdAt: 2 });
   const next = researchArchiveHistory({ cursor: page.nextCursor! });
   expect(next.filteredTotal).toBe(31);
   expect(next.items).toHaveLength(10);
@@ -78,16 +72,16 @@ it("retains cursor boundary when newer records arrive and counts all matching re
   );
 });
 it("uses Beijing generation dates and keeps unknown dates explicit and outside date filters", () => {
-  seed("chan-report", 1, { createdAt: Date.parse("2026-09-27T16:00:00Z") });
-  seed("chan-report", 2, { createdAt: Date.parse("2026-09-28T16:00:00Z") });
-  seed("chan-report", 3, { createdAt: null });
-  seed("chan-report", 4, { createdAt: "invalid" });
+  seed("report", 1, { createdAt: Date.parse("2026-09-27T16:00:00Z") });
+  seed("report", 2, { createdAt: Date.parse("2026-09-28T16:00:00Z") });
+  seed("report", 3, { createdAt: null });
+  seed("report", 4, { createdAt: "invalid" });
   const filtered = researchArchiveHistory({
     from: "2026-09-28",
     to: "2026-09-28",
   });
   expect(filtered.items.map((x) => x.id)).toEqual([
-    `chan-report-${"1".padStart(64, "0")}`,
+    `report-${"1".padStart(64, "0")}`,
   ]);
   expect(
     researchArchiveHistory({ to: "2026-09-28" }).items.map((x) => x.id),
@@ -125,4 +119,24 @@ it("does not infer security from report prose or conflicting contexts, keeps inc
   expect(page.filteredTotal).toBe(1);
   expect(page.items[0]?.readable).toBe(false);
   expect(page.items[0]?.title).toBe("报告元数据不完整");
+});
+
+it("excludes retired reports and rejects their filters without deleting stored data", () => {
+  const retired = [
+    "chan-report",
+    "canslim-report",
+    "wyckoff-report",
+    "fundamental-report",
+  ];
+  for (const kind of retired) {
+    seed(kind, 1);
+    expect(archiveHistoryInput.safeParse({ kinds: [kind] }).success).toBe(
+      false,
+    );
+  }
+  const id = seed("report", 1);
+  expect(researchArchiveHistory({}).items.map((row) => row.id)).toEqual([id]);
+  expect(sqlite().prepare("SELECT count(*) n FROM records").get()).toEqual({
+    n: 5,
+  });
 });

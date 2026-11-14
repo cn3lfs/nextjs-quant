@@ -27,6 +27,17 @@ it("renders only the active panel of a cached slot", () => {
   expect(html).toBe("<div>选股</div>");
 });
 
+it("does not create an empty cache slot for a framework route", () => {
+  expect(
+    renderToStaticMarkup(
+      createElement(PanelCache, {
+        active: "/tasks",
+        panels: { "/market": "行情" },
+      }),
+    ),
+  ).toBe("");
+});
+
 it("reports hidden panels as not visible", () => {
   function Probe({ label }: { label: string }) {
     return createElement("span", null, `${label}:${usePanelVisible()}`);

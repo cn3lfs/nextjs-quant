@@ -1,4 +1,5 @@
 import { MarketSourceSelect } from "../market/market-source-select";
+import Link from "next/link";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
@@ -37,6 +38,7 @@ import { Field, stamp } from "./shared";
 import { NotificationPolicyFields } from "../signals/notification-policy-fields";
 import { CryptoConnections } from "../common/crypto-connections";
 import { ConnectionDiagnostics } from "./connection-diagnostics";
+import { NewsSourceDiagnostics } from "./news-source-diagnostics";
 import { connectionConfiguration } from "~/lib/settings/connection-check";
 import { sameSetting } from "~/lib/settings/settings-draft";
 import { useSnapshotCache } from "~/lib/stores/snapshot-cache";
@@ -164,9 +166,6 @@ export function Connections({
     if (!parsed.success)
       for (const issue of parsed.error.issues)
         errors[String(issue.path[0])] = "请检查此项的格式或允许范围。";
-    if (!config.tdxRoot.trim()) errors.tdxRoot = "请输入通达信安装目录。";
-    if (!config.clsDbPath.trim())
-      errors.clsDbPath = "请输入财联社新闻数据库路径。";
     if (
       config.calendar.some(
         (day) =>
@@ -271,7 +270,9 @@ export function Connections({
               actions={
                 <Button
                   variant="outline"
-                  disabled={scanning || dirty || save.isPending}
+                  disabled={
+                    scanning || dirty || save.isPending || !value.tdxRoot.trim()
+                  }
                   onClick={onScan}
                 >
                   {scanning ? "正在扫描…" : "扫描已保存目录"}
@@ -294,6 +295,20 @@ export function Connections({
                 />
               </Field>
               {fieldError("tdxRoot")}
+              <p className="text-[13px] text-nc-text-3">
+                填写通达信安装目录的绝对路径。留空表示尚未配置，读取该目录内的数据前需配置；
+                在线行情和已导入日线包可独立使用。
+              </p>
+              <p className="text-[13px] text-nc-text-3">
+                板块成分来源：
+                {value.industryMembershipSource === "tdx"
+                  ? "通达信"
+                  : "外部 Blocks"}
+                ； 外部目录：{value.industryBlocksRoot || "尚未配置"}。
+                <Link href="/rps" className="underline">
+                  在 RPS → 行业中管理成分来源和目录
+                </Link>
+              </p>
               <Field label="默认行情数据源">
                 <MarketSourceSelect
                   value={config.marketDataSource}
@@ -371,6 +386,31 @@ export function Connections({
                 />
               </Field>
               {fieldError("clsDbPath")}
+              <p className="mb-3 text-[13px] text-nc-text-3">
+                填写已有新闻数据库的绝对路径；留空表示尚未接入，不会自动创建数据库。
+              </p>
+              <Field label="新闻 Python 可执行文件">
+                <Input
+                  {...fieldProps("newsPythonExecutable")}
+                  value={config.newsPythonExecutable}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      newsPythonExecutable: e.target.value,
+                    })
+                  }
+                  placeholder="python 或 Python 可执行文件的完整路径"
+                />
+              </Field>
+              {fieldError("newsPythonExecutable")}
+              <p className="mb-3 text-[13px] text-nc-text-3">
+                用于新闻技能脚本批次，普通新闻阅读无需 Python。默认从 PATH 查找
+                python；填写完整路径时无需加引号。
+              </p>
+              <NewsSourceDiagnostics
+                value={value}
+                dirty={dirty || save.isPending}
+              />
               <Field label="新闻自动研究">
                 <span className="flex items-center gap-2 text-[13px] text-nc-text-2">
                   <Checkbox
@@ -498,33 +538,6 @@ export function Connections({
                     )}
                   </Field>
                 )}
-                <Field label="自动分析候选数（1–10）">
-                  <Input
-                    {...fieldProps("analysisLimit")}
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={config.analysisLimit}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        analysisLimit: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                {fieldError("analysisLimit")}
-              </div>
-              <div className="check-row">
-                <label>
-                  <Checkbox
-                    checked={config.autoAnalysis}
-                    onCheckedChange={(checked) =>
-                      setConfig({ ...config, autoAnalysis: checked === true })
-                    }
-                  />
-                  选股和回测完成后自动分析
-                </label>
               </div>
               <Field label="聊天渠道出站代理（可选）">
                 <Input
@@ -540,7 +553,7 @@ export function Connections({
               icon={Books}
               title="研究技能"
               meta={`已登记 ${skillCatalog.data?.length ?? 0} 项`}
-              note="自动快评按量价方法每批分析最多 5 只。其他已登记技能会在对应研究模块接入后开放，登记不代表已执行完整流程。"
+              note="已登记技能在对应研究模块中使用；登记不代表已执行完整流程。"
             >
               <details className="my-0">
                 <summary>

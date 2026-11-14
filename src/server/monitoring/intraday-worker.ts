@@ -1,4 +1,5 @@
 import { parentPort } from "node:worker_threads";
+import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 import {
   analyzeCzsc,
   type projectCzsc,
@@ -27,6 +28,13 @@ const project: typeof projectCzsc = (...args) =>
 let active = false;
 parentPort!.on("message", async (message: { type: string }) => {
   if (message.type !== "run" || active) return;
+  if (!capabilityAllows("intraday", "compute")) {
+    parentPort!.postMessage({
+      type: "done",
+      error: capabilities.intraday.reason,
+    });
+    return;
+  }
   active = true;
   try {
     await runIntradayTick(

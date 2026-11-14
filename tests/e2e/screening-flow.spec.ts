@@ -1,25 +1,32 @@
-import { expect, test } from "@playwright/test";
-import { budgets, newJob, waitForJob } from "./helpers";
+import { expect, test } from "./workbench-test";
+import { budgets, waitForJob } from "./helpers";
 
-/** Runs the default formula screen (均线金叉) and waits for *this* run. */
+/** Runs a fixed formula on synthetic local securities and waits for this run. */
 async function screen(page: import("@playwright/test").Page) {
   await page.goto("/screen", { waitUntil: "networkidle" });
+  await page.getByLabel("公式源码", { exact: true }).fill("选股:C>0;");
   await page.getByRole("button", { name: "语法检查与未来函数门禁" }).click();
-  const since = Date.now() - 1000;
   await page.getByRole("button", { name: "全市场执行公式" }).click();
-  const id = await newJob(page, "screen", since);
-  expect((await waitForJob(page, id)).status).toBe("completed");
+  await expect(page).toHaveURL((url) => !!url.searchParams.get("job"));
+  const id = new URL(page.url()).searchParams.get("job")!;
+  const job = await waitForJob(page, id);
+  expect(job.type).toBe("screen");
+  expect(job.isFormulaScreen).toBe(true);
+  expect(job.status, job.error).toBe("completed");
   // The table re-renders with this run's candidates.
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /只加入监控/ }).waitFor();
 }
 const candidateSymbols = (page: import("@playwright/test").Page) =>
-  page.getByRole("row").evaluateAll((rows) =>
-    rows
-      .map((r) => (r as HTMLElement).innerText.match(/(bj|sh|sz)\d{6}/i)?.[0])
-      .filter((s): s is string => !!s)
-      .map((s) => s.toLowerCase()),
-  );
+  page
+    .getByRole("table", { name: "候选结果", exact: true })
+    .getByRole("row")
+    .evaluateAll((rows) =>
+      rows
+        .map((r) => (r as HTMLElement).innerText.match(/(bj|sh|sz)\d{6}/i)?.[0])
+        .filter((s): s is string => !!s)
+        .map((s) => s.toLowerCase()),
+    );
 
 test("screening candidates open as an unsaved monitor draft", async ({
   page,

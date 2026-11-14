@@ -12,7 +12,10 @@ import { readBacktestActions } from "~/server/backtest/backtest-actions";
 import { executeMaBaseline } from "~/server/backtest/ma-baseline-work";
 import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
 import type { Snapshot } from "~/lib/domain";
-import { factorStrategyPresets, factorStrategySchema } from "trading-strategies";
+import {
+  factorStrategyPresets,
+  factorStrategySchema,
+} from "trading-strategies";
 
 const source: Snapshot = {
   id: "fixture",

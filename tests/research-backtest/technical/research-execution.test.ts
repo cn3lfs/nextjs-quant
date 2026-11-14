@@ -1,5 +1,9 @@
 import { expect, it } from "vitest";
-import {affordableQuantity as researchBuyQuantity,fillMarketOrder as researchFill,type ExecutionRules as ResearchExecutionRules} from "quant-backtest/execution";
+import {
+  affordableQuantity as researchBuyQuantity,
+  fillMarketOrder as researchFill,
+  type ExecutionRules as ResearchExecutionRules,
+} from "quant-backtest/execution";
 import { defaultBacktestCosts } from "../../../src/lib/backtest/backtest-costs";
 
 const rules: ResearchExecutionRules = {

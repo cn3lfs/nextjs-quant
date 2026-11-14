@@ -6,8 +6,6 @@ import type {
   CzscResult,
 } from "trading-strategies/research/chan/czsc";
 import { chanNativeCandidates } from "trading-strategies/research/chan/research-chan-native";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
 const bars: Bar[] = Array.from({ length: 66 }, (_, i) => ({
   date: new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10),
   open: 10,
@@ -218,44 +216,3 @@ it("CH12 includes confirmed low third buys inside the high divergence interval, 
     chanNativeCandidates("chan-rebound-native", r, bars, 0).signals,
   ).toEqual([]);
 });
-it.each(["chan-nested-native", "chan-rebound-native"] as const)(
-  "%s freezes the first prefix that establishes containment, not the historical endpoint",
-  async (id) => {
-    const spec = researchSpecSchema.parse({
-      strategy: id,
-      start: bars[61]!.date,
-      end: bars[65]!.date,
-      validationStart: bars[64]!.date,
-    });
-    const calls: number[] = [];
-    const read = async (prefix: readonly Bar[]) => {
-      calls.push(prefix.length);
-      const r = context();
-      if (prefix.length < 63) {
-        r.families[1]!.native!.highCandidates = [];
-        r.families[0]!.diagnostics!.nested = [];
-      }
-      return r;
-    };
-    const events = await researchSignals("sh600000", bars, spec, read);
-    expect(calls).toEqual([61, 62, 63, 64, 65, 66]);
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      endpointDate: bars[40]!.date,
-      observedDate: bars[62]!.date,
-    });
-    expect(JSON.parse(events[0]!.evidence!)).toMatchObject({
-      candidateAt: bars[40]!.date,
-      confirmedAt: bars[62]!.date,
-      point: { containment: { highCandidate: { id: 7 } } },
-    });
-    expect(
-      await researchSignals(
-        "sh600000",
-        bars.slice(0, 62),
-        { ...spec, end: bars[61]!.date, validationStart: bars[61]!.date },
-        read,
-      ),
-    ).toEqual([]);
-  },
-);

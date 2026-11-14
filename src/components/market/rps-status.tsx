@@ -3,8 +3,8 @@ import {
   rpsExclusionLabels,
   rpsPeriods,
   rpsPolicy,
-  type RpsDay,
-} from "~/lib/screening/rps";
+} from "quant-rps";
+import { rpsPeriodLabel, type RpsDay } from "~/lib/screening/rps";
 
 /**
  * Latest 个股 result and the口径 behind it. The running job is reported by the
@@ -20,7 +20,7 @@ export function RpsStatus({ latest }: { latest: RpsDay | null }) {
         <div className="mt-2 space-y-2 text-muted-foreground">
           <p>{rpsPolicy.description}</p>
           <p>
-            周期：{rpsPeriods.join(" / ")}
+            周期：{rpsPeriods.map(rpsPeriodLabel).join(" / ")}
             ；每日工作流按午盘、尾盘、收盘更新；收盘等待下载完成。手工历史计算保留最近
             {rpsPolicy.retentionDays}
             个结果日；更早数据自动删除。取消保留已完整提交日期，重试跳过已有结果。
@@ -51,7 +51,9 @@ export function RpsStatus({ latest }: { latest: RpsDay | null }) {
           <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
             {latest.periods.map((period, i) => (
               <p key={period} className="flex justify-between gap-2">
-                <span className="text-muted-foreground">RPS{period}</span>
+                <span className="text-muted-foreground">
+                  {rpsPeriodLabel(period)}
+                </span>
                 <span>
                   基数 {latest.counts[i]} · 端点不足 {latest.missing[i]}
                 </span>

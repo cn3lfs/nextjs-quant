@@ -1,9 +1,11 @@
+import { resolveTdxRoot } from "tstdx/local";
 import { projectFinancialSummary } from "tstdx/financial-model";
 import { readStableLocalFile, isAStock } from "tstdx/local";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseFinancialReport } from "tstdx";
 import type { ReportFields } from "~/lib/market/tdx-fundamentals";
+import { financialDirectoryPrerequisite } from "./financial-prerequisite";
 
 /**
  * 基本面的主数据源是本地专业财务包 `vipdoc/cw/gpcw<YYYYMMDD>.dat`：包头写明报告期，
@@ -69,7 +71,7 @@ type ReportDigest = {
 const digests = new Map<string, { key: string; digest: ReportDigest }>();
 
 export const financialReportDirectory = (root: string) =>
-  resolve(root, "vipdoc", "cw");
+  resolve(resolveTdxRoot(root), "vipdoc", "cw");
 
 async function loadDigest(path: string): Promise<ReportDigest> {
   const source = await readStableLocalFile(path);
@@ -139,7 +141,9 @@ export async function readLocalFinancials(
   } catch (error) {
     return {
       financials: null,
-      reason: `读取本地财务包目录失败：${describe(error)}`,
+      reason:
+        financialDirectoryPrerequisite(error, root)?.message ??
+        `读取本地财务包目录失败：${describe(error)}`,
     };
   }
   const skipped: string[] = [];

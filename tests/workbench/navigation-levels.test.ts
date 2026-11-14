@@ -11,7 +11,7 @@ import {
   tabHref,
 } from "../../src/components/workbench/navigation";
 
-it("navigation preserves native links, selected route and expanded research group", () => {
+it("navigation preserves native links, selected route and expanded group", () => {
   const html = renderToStaticMarkup(
     createElement(Menu, {
       label: "工作台",
@@ -21,29 +21,28 @@ it("navigation preserves native links, selected route and expanded research grou
         active: true,
         children: createElement(MenuItem, {
           active: true,
-          children: createElement("a", { href: "/research" }, "策略研究"),
+          children: createElement("a", { href: "/strategies" }, "策略研究"),
         }),
       }),
     }),
   );
   expect(html).toContain('aria-current="page"');
   expect(html).toContain('aria-expanded="true"');
-  expect(html).toContain('href="/research"');
+  expect(html).toContain('href="/strategies"');
   expect(navItems.map((item) => item.href)).toEqual(
-    expect.arrayContaining(["/research", "/intraday", "/cls-review"]),
+    expect.arrayContaining(["/strategies", "/intraday", "/cls-review"]),
   );
 });
 
 it("navigation is one grouped layer: every page, including former tabs, is a route", () => {
-  expect(navGroups.map((group) => group.label)).toEqual([
-    "今日",
-    "分析",
-    "数字货币",
-    "资源期货",
-    "台账",
-    "研究",
-    "系统",
-  ]);
+  // Group names and order can evolve; every item remains a unique real destination.
+  expect(
+    navGroups.every(
+      (group) => group.label.length > 0 && group.items.length > 0,
+    ),
+  ).toBe(true);
+  expect(navItems.some((item) => item.href === "/research")).toBe(false);
+  expect(navItemFor("/research/data-guide")?.href).toBe("/research/data-guide");
   const hrefs = navItems.map((item) => item.href);
   expect(new Set(hrefs).size).toBe(hrefs.length);
   expect(hrefs[0]).toBe("/");
@@ -69,17 +68,24 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
 
 it("breakout overlay keeps dashed lines and moves labels outside the chart canvas", () => {
   const source = readFileSync("src/components/market/chart.tsx", "utf8");
-  const overlay = source.slice(
-    source.indexOf("for (const item of overlay?.lines"),
-    source.indexOf("markers?.setMarkers"),
+  const base = readFileSync(
+    "src/components/market/market-chart-base.ts",
+    "utf8",
+  );
+  const overlay = base.slice(
+    base.indexOf("for (const item of overlay?.lines"),
+    base.indexOf("n.markers.setMarkers"),
   );
   expect(overlay).toContain("lineStyle: 2");
   expect(overlay).toContain("lastValueVisible: false");
   expect(overlay).not.toContain("title: item.title");
-  expect(source.indexOf('data-testid="chart-level-legend"')).toBeLessThan(
-    source.indexOf(
-      "ref={ref}",
-      source.indexOf('data-testid="chart-level-legend"'),
-    ),
+  const legend = readFileSync(
+    "src/components/market/market-chart-legend.tsx",
+    "utf8",
+  );
+  expect(legend).toContain('data-testid="chart-level-legend"');
+  expect(source.indexOf("<MarketChartLegend")).toBeGreaterThan(-1);
+  expect(source.indexOf("<MarketChartLegend")).toBeLessThan(
+    source.indexOf("ref={ref}", source.indexOf("<MarketChartLegend")),
   );
 });

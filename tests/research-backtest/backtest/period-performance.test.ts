@@ -1,7 +1,12 @@
 import { expect, it } from "vitest";
 import { dailyPerformance } from "../../../src/lib/backtest/daily-performance";
-import {aSharePeriodTradingDays,naturalPeriodWinRates,periodPerformance,periodicReturns} from "../../../src/lib/backtest/period-performance";
-import {isoWeek} from "trading-strategy-core/calendar";
+import {
+  aSharePeriodTradingDays,
+  naturalPeriodWinRates,
+  periodPerformance,
+  periodicReturns,
+} from "../../../src/lib/backtest/period-performance";
+import { isoWeek } from "trading-strategy-core/calendar";
 import {
   pagePeriodicReturns,
   periodPageSchema,

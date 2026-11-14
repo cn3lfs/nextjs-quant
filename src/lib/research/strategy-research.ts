@@ -6,8 +6,11 @@ import {
   wyckoffHourlyInputsSchema,
   isWyckoffHourly,
 } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
-import { wyckoffInputsSchema, isWyckoffVsa } from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
-import {riskRepairSchema} from "trading-strategies/research/risk/research-risk-repair";
+import {
+  wyckoffInputsSchema,
+  isWyckoffVsa,
+} from "trading-strategies/research/wyckoff/research-wyckoff-vsa";
+import { riskRepairSchema } from "trading-strategies/research/risk/research-risk-repair";
 import {
   riskRouteSchema,
   resolveRiskRoute,
@@ -17,7 +20,10 @@ import {
 import { riskExtensionSchema } from "trading-strategies/research/risk/research-risk-extensions";
 import { contextRiskMaxPositions } from "trading-strategies/research/risk/research-context-risk";
 import { z } from "zod";
-import { riskPresetParameters, riskPresetBase } from "trading-strategies/research/risk/research-risk-presets";
+import {
+  riskPresetParameters,
+  riskPresetBase,
+} from "trading-strategies/research/risk/research-risk-presets";
 import { growthIntradayBase } from "trading-strategies/research/factors/research-growth-intraday";
 import { growthDailyBase } from "trading-strategies/research/factors/research-growth-daily";
 import { poolSelectionSchema } from "../market/market-pool";

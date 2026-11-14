@@ -6,7 +6,7 @@ import {
 } from "../../src/lib/research/workflow/archive-navigation";
 it("round trips committed filters and constrains return destinations to reports", () => {
   const filter = {
-    kinds: ["chan-report" as const],
+    kinds: ["report" as const],
     keyword: "中文 %_ &",
     symbol: "sh600519",
     from: "2026-09-28",

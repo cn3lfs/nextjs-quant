@@ -1,6 +1,3 @@
-import type { Bar } from "../../domain";
-import type { ResearchTrade } from "../../../server/backtest/research-portfolio";
-
 export const k13MethodIds = [
   "SW-P-review",
   "RK-MAE-q80",
@@ -120,28 +117,6 @@ export const k13SensitivityGrid = {
 export const k13Boundary =
   "K13统一回测工程v1：所有候选共享证券池、可知时点、区间、复权/公司行动、成本、现金及成交规则；现金、买入持有、双突破、均线基线不因候选失败删除。信号观察固定持有期收益/超额/MAE/MFE，交易观察净值、回撤、换手、费用、仓位、胜率、盈亏比、持有期和未平仓。分位只使用同策略同周期已闭合训练样本，线性n-minus-one算法、有效样本数和策略版本冻结，参数只作用于下一批；q100仍按风险预算缩仓。放宽/收紧诊断不改当前批次，受单股、总仓和容量约束。MAE重叠仅说明当前样本证据不足以区分，不证明普遍无效；MFE回吐分别登记吊灯和回撤止损，不自动归因。波动分组不跨状态补样本；策略版本改变后循环校准旧样本失效；少于50笔不出结论，50至99笔不满足100笔校准；情绪比例必须有真实退出原因分类，缺失不填非情绪。固定输入验证不等于真实历史业绩。";
 
-type K13TradeWithCategory = ResearchTrade & {
-  exitCategory?: K13ExitCategory | null;
-};
-
-const isFinitePositive = (value: number | null | undefined) =>
-  value != null && Number.isFinite(value) && value > 0;
-
-function validBar(bar: Bar | undefined) {
-  return (
-    !!bar &&
-    [bar.open, bar.high, bar.low, bar.close, bar.volume].every(
-      (value) => Number.isFinite(value) && value > 0,
-    ) &&
-    bar.high >= Math.max(bar.open, bar.close) &&
-    bar.low <= Math.min(bar.open, bar.close)
-  );
-}
-
-function categoryOf(trade: K13TradeWithCategory): K13ExitCategory | null {
-  return trade.exitCategory ?? null;
-}
-
 function quantile(values: readonly number[], p: number) {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -167,106 +142,6 @@ function labelForProfit(profit: number | null, count: number): K13ResultLabel {
     : profit < 0
       ? "当前样本表现较差"
       : "不稳定";
-}
-
-function tradeReason(
-  trade: ResearchTrade,
-  bars: readonly Bar[],
-  calendar: readonly string[],
-) {
-  const t = trade as K13TradeWithCategory;
-  if (
-    !isFinitePositive(t.entryPrice) ||
-    !Number.isFinite(t.quantity) ||
-    t.quantity <= 0 ||
-    !t.exitDate ||
-    !isFinitePositive(t.exitPrice) ||
-    !Number.isFinite(t.profit) ||
-    !Number.isFinite(t.netReturn)
-  )
-    return "未闭合或缺少完整成交/收益字段";
-  if (t.exitDate <= t.entryDate) return "退出日期不晚于入场日期";
-  const heldDates = calendar.filter(
-    (date) => date >= t.entryDate && date < t.exitDate!,
-  );
-  const held = bars.filter(
-    (bar) => bar.date >= t.entryDate && bar.date < t.exitDate!,
-  );
-  if (
-    !heldDates.length ||
-    held.length !== heldDates.length ||
-    heldDates.some((date, i) => held[i]?.date !== date) ||
-    held.some((bar) => !validBar(bar))
-  )
-    return "持仓窗口缺日或OHLCV无效";
-  if (
-    t.initialStop != null &&
-    (!Number.isFinite(t.initialStop) ||
-      t.initialStop <= 0 ||
-      t.initialStop >= t.entryPrice)
-  )
-    return "初始止损无效";
-  return null;
-}
-
-/** Derive the common K13 record without using any bar after the actual exit. */
-export function researchK13Records(
-  trades: readonly ResearchTrade[],
-  series: ReadonlyMap<string, readonly Bar[]>,
-  calendar: readonly string[],
-): K13TradeRecord[] {
-  return trades.map((trade, index) => {
-    const t = trade as K13TradeWithCategory;
-    const bars = series.get(t.event.symbol) ?? [];
-    const reason = tradeReason(t, bars, calendar);
-    const held =
-      t.exitDate == null
-        ? []
-        : bars.filter(
-            (bar) => bar.date >= t.entryDate && bar.date < t.exitDate!,
-          );
-    const distance =
-      t.initialStop == null ? null : t.entryPrice - t.initialStop;
-    const low = reason
-      ? null
-      : Math.min(t.entryPrice, t.exitPrice!, ...held.map((bar) => bar.low));
-    const high = reason
-      ? null
-      : Math.max(t.entryPrice, t.exitPrice!, ...held.map((bar) => bar.high));
-    const entryAtr =
-      t.event.stopAtr != null && Number.isFinite(t.event.stopAtr)
-        ? t.event.stopAtr
-        : null;
-    return {
-      id: `${t.event.symbol}:${t.event.key}:${t.entryDate}:${index}`,
-      symbol: t.event.symbol,
-      eventKey: t.event.key,
-      strategyVersion: t.event.strategyVersion,
-      observedDate: t.event.observedDate,
-      entryDate: t.entryDate,
-      exitDate: t.exitDate,
-      entryPrice: t.entryPrice,
-      exitPrice: t.exitPrice,
-      quantity: t.quantity,
-      entryTarget: t.event.entryTarget ?? null,
-      evidence: t.event.evidence,
-      initialStop: t.initialStop ?? null,
-      initialR: reason || distance == null ? null : distance * t.quantity,
-      entryAtr,
-      finalR:
-        reason || distance == null || t.profit == null
-          ? null
-          : t.profit / (distance * t.quantity),
-      profit: reason ? null : t.profit,
-      netReturn: reason ? null : t.netReturn,
-      mae: low == null ? null : (t.entryPrice - low) / t.entryPrice,
-      mfe: high == null ? null : (high - t.entryPrice) / t.entryPrice,
-      exitReason: t.exitReason ?? null,
-      exitCategory: categoryOf(t),
-      complete: !reason,
-      reason,
-    };
-  });
 }
 
 export function compareK13Contracts(contracts: readonly K13Contract[]) {
@@ -816,21 +691,14 @@ export function researchK13Review(
 
 export type K13ReportInput = {
   contract: K13Contract;
-  records?: readonly K13TradeRecord[];
-  trades?: readonly ResearchTrade[];
-  series?: ReadonlyMap<string, readonly Bar[]>;
-  calendar?: readonly string[];
+  records: readonly K13TradeRecord[];
   dataStatus?: "available" | "fixed-input" | "data-insufficient";
   dataReason?: string;
   mfeAlternatives?: readonly K13MfeAlternative[];
 };
 
 export function researchK13Report(input: K13ReportInput) {
-  const records =
-    input.records ??
-    (input.trades && input.series && input.calendar
-      ? researchK13Records(input.trades, input.series, input.calendar)
-      : []);
+  const records = input.records;
   const availabilityReason =
     input.dataStatus === "data-insufficient"
       ? (input.dataReason ?? "研究输入不足，未执行历史回测")

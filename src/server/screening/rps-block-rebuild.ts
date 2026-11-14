@@ -1,6 +1,7 @@
+import { rpsGroupExclusions, rankRps, type RpsRow } from "quant-rps";
 import type { BlockEligibility } from "~/lib/market/block-eligibility";
-import { industryExclusions } from "~/lib/screening/industry-rps";
-import { rankRps, type RpsDay, type RpsRow } from "~/lib/screening/rps";
+
+import { type RpsDay } from "~/lib/screening/rps";
 import { filterBlockSnapshot } from "../market/block-eligibility";
 import { rpsHash } from "../infra/content-hash";
 
@@ -51,7 +52,7 @@ export function rebuildBlockRps(
   )
     throw new Error("历史板块审计不完整，拒绝重算");
   const excluded = { ...day.industry.excluded };
-  for (const reason of industryExclusions)
+  for (const reason of rpsGroupExclusions)
     excluded[reason] = members.reduce(
       (sum, member) => sum + member.excluded[reason],
       0,

@@ -1,7 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
-import { admissionResearchFixture } from "../strategy-admission-fixture";
 import {
   admissionConclusion,
   strategyAdmission,
@@ -11,47 +10,31 @@ import {
   admissionPageSchema,
   admissionBenchmarkReturns,
   tradeReviewAdmissionSource,
-  researchAdmissionSource,
   pageStrategyAdmission,
   exportStrategyAdmission,
 } from "../../src/server/research/performance/strategy-admission-service";
 import { replayTradeReview } from "../../src/server/portfolio/trade-review-service";
 import { StrategyAdmissionResults } from "../../src/components/research/strategy-admission-results";
-import { admissionCalibrationDistribution } from "../../scripts/u8-calibration-distribution";
+import { summarizeDistributions } from "../../scripts/u8-calibration-distribution";
 
-it("E3 真实计算结果接入两种模式，分区独立并保留缺失", async () => {
-  const { result, dataset } = await admissionResearchFixture();
-  const development = researchAdmissionSource(result, dataset, "development");
-  const validation = researchAdmissionSource(result, dataset, "validation");
-  expect(development.input.dates).toHaveLength(8);
-  expect(validation.input.dates).toHaveLength(4);
-  expect(development.input.dates.at(-1)! < validation.input.dates[0]!).toBe(
-    true,
-  );
-  expect(validation.input.strategyDaily[0]).toBe(
-    result.partitions[1]!.simulation!.nav[0]!.value /
-      result.spec.initialCapital -
-      1,
-  );
-  expect(validation.input.evidenceLevel).toBe("本地模拟未独立核验");
-  const page = pageStrategyAdmission(
-    development,
-    admissionPageSchema.parse({}),
-    true,
-  );
-  expect(page.history.mode).toBe("history");
-  expect(page.recent!.mode).toBe("recent");
-  expect(page.history.evidenceLevel).toBe(development.input.evidenceLevel);
-  result.partitions[0]!.simulation = null;
-  const missing = pageStrategyAdmission(
-    researchAdmissionSource(result, dataset, "development"),
-    admissionPageSchema.parse({}),
-    true,
-  );
-  expect(missing.history.alphaDegenerate).toBe(true);
-  expect(missing.history.isGood).toBe(false);
-  expect(missing.history.coverage.strategyMissingDays).toBe(8);
-});
+function controlledSource() {
+  return {
+    note: "受控数值输入，不使用退役研究执行器",
+    input: {
+      dates: [
+        "2023-01-02",
+        "2023-01-03",
+        "2024-01-02",
+        "2024-01-03",
+        "2025-01-02",
+        "2025-01-03",
+      ],
+      strategyDaily: [0.01, -0.02, 0.03, -0.01, 0.02, 0.04],
+      benchDaily: [-0.01, 0.01, -0.01, 0.01, -0.02, 0.01],
+      evidenceLevel: "合成/受控样本" as const,
+    },
+  };
+}
 
 it("账户沿用真实重放日度TWR、完整日历和基准，首日缺前价不补零", () => {
   const dates = ["2026-01-05", "2026-01-06", "2026-01-07"];
@@ -186,10 +169,9 @@ it("年度分页在服务端排序，汇总与完整重放导出不随翻页变�
   ).toThrow("无法生成可独立重放");
 });
 
-it("结论带出处，可信度同字号，指标条件和参数仍可查看", async () => {
-  const { result, dataset } = await admissionResearchFixture();
+it("结论带出处，可信度同字号，指标条件和参数仍可查看", () => {
   const data = pageStrategyAdmission(
-    researchAdmissionSource(result, dataset, "development"),
+    controlledSource(),
     admissionPageSchema.parse({}),
     true,
   );
@@ -221,7 +203,7 @@ it("结论带出处，可信度同字号，指标条件和参数仍可查看", a
   expect(html).toContain("minYearDays");
   expect(html).not.toContain("isGood");
   expect(html).toMatch(
-    /<p class="text-base font-medium">history：通过（在该数据前提下；行业通行口径，未按本账户标定） · 数据可信度：本地模拟未独立核验<\/p>/,
+    /<p class="text-base font-medium">history：通过（在该数据前提下；行业通行口径，未按本账户标定） · 数据可信度：合成\/受控样本<\/p>/,
   );
   // 真实账户去掉「在该数据前提下」，但出处标注一个字都不能少。
   expect(
@@ -232,10 +214,26 @@ it("结论带出处，可信度同字号，指标条件和参数仍可查看", a
   ).toBe("未通过（行业通行口径，未按本账户标定）");
 });
 
-it("既有合成样本标定分布输出 min/中位数/max，缺失保留原因而非零", async () => {
-  const report = await admissionCalibrationDistribution();
-  expect(report.scope).toBe("A 股");
-  expect(report.calibrationStatus).toBe("未标定"); // 合成分布报告本身仍未标定，与页面阈值口径无关
+it("分布摘要输出 min/中位数/max，缺失保留原因而非零", () => {
+  const source = controlledSource();
+  const exports = [
+    source,
+    {
+      ...source,
+      input: {
+        ...source.input,
+        strategyDaily: source.input.strategyDaily.map((v) => v / 2),
+      },
+    },
+  ].map((input) =>
+    exportStrategyAdmission(input, admissionPageSchema.parse({}).params, true),
+  );
+  const results = exports.flatMap((item) => item.results);
+  const report = {
+    inputs: exports.flatMap((item) => item.inputs),
+    results,
+    distributions: summarizeDistributions(results),
+  };
   expect(report.inputs).toHaveLength(4);
   expect(report.results.every((r) => r.evidenceLevel === "合成/受控样本")).toBe(
     true,

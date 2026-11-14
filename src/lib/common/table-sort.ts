@@ -5,10 +5,13 @@
  * what the user sees. Pure helpers are exported for tests.
  */
 export type SortDirection = "asc" | "desc";
-type SortValue = { kind: "empty" } | { kind: "number"; value: number } | {
-  kind: "text";
-  value: string;
-};
+type SortValue =
+  | { kind: "empty" }
+  | { kind: "number"; value: number }
+  | {
+      kind: "text";
+      value: string;
+    };
 
 const units: [RegExp, number][] = [
   [/万亿$/, 1e12],
@@ -70,7 +73,11 @@ export function sortGroups<T>(
   direction: SortDirection,
 ) {
   return groups
-    .map((group, index) => ({ group, index, value: parseSortValue(valueOf(group)) }))
+    .map((group, index) => ({
+      group,
+      index,
+      value: parseSortValue(valueOf(group)),
+    }))
     .sort(
       (a, b) =>
         compareSortValues(a.value, b.value, direction) || a.index - b.index,
@@ -103,7 +110,12 @@ function gridOf(header: HTMLElement): { grid: Grid; column: number } | null {
     const table = header.closest("table");
     const headRow = header.parentElement;
     const body = table?.tBodies[0];
-    if (!table || !headRow || !body || headRow.parentElement?.tagName !== "THEAD")
+    if (
+      !table ||
+      !headRow ||
+      !body ||
+      headRow.parentElement?.tagName !== "THEAD"
+    )
       return null;
     // Only the last header row maps one-to-one onto body cells.
     const thead = headRow.parentElement as HTMLTableSectionElement;
@@ -113,7 +125,10 @@ function gridOf(header: HTMLElement): { grid: Grid; column: number } | null {
       if (cell === header) break;
       column += (cell as HTMLTableCellElement).colSpan;
     }
-    if (header.getAttribute("colspan") && Number(header.getAttribute("colspan")) > 1)
+    if (
+      header.getAttribute("colspan") &&
+      Number(header.getAttribute("colspan")) > 1
+    )
       return null;
     const cells = (row: HTMLElement) =>
       Array.from((row as HTMLTableRowElement).cells) as HTMLElement[];
@@ -122,7 +137,9 @@ function gridOf(header: HTMLElement): { grid: Grid; column: number } | null {
       grid: {
         table,
         body,
-        headers: Array.from((headRow as HTMLTableRowElement).cells) as HTMLElement[],
+        headers: Array.from(
+          (headRow as HTMLTableRowElement).cells,
+        ) as HTMLElement[],
         rows: Array.from(body.rows) as HTMLElement[],
         cells,
       },
@@ -130,7 +147,9 @@ function gridOf(header: HTMLElement): { grid: Grid; column: number } | null {
   }
   if (header.getAttribute("role") === "columnheader") {
     const headRow = header.closest("[role='row']") as HTMLElement | null;
-    const table = header.closest("[role='table'],[role='grid']") as HTMLElement | null;
+    const table = header.closest(
+      "[role='table'],[role='grid']",
+    ) as HTMLElement | null;
     if (!headRow || !table || headRow.parentElement !== table) return null;
     const headers = Array.from(
       headRow.querySelectorAll(":scope > [role='columnheader']"),
@@ -145,7 +164,9 @@ function gridOf(header: HTMLElement): { grid: Grid; column: number } | null {
           (row) => row !== headRow && row.getAttribute("role") === "row",
         ),
         cells: (row) =>
-          Array.from(row.querySelectorAll(":scope > [role='cell']")) as HTMLElement[],
+          Array.from(
+            row.querySelectorAll(":scope > [role='cell']"),
+          ) as HTMLElement[],
       },
     };
   }
@@ -205,7 +226,11 @@ function apply(grid: Grid, state: State) {
     offset += (header as HTMLTableCellElement).colSpan || 1;
     header.setAttribute(
       "aria-sort",
-      active ? (state.direction === "asc" ? "ascending" : "descending") : "none",
+      active
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : "none",
     );
     if (active) header.dataset.sortDirection = state.direction;
     else delete header.dataset.sortDirection;
@@ -249,12 +274,12 @@ export function toggleHeaderSort(header: HTMLElement) {
       requestAnimationFrame(() => {
         const live = states.get(grid.table);
         const refreshed = gridOf(header);
-        if (live && refreshed && grid.table.isConnected) apply(refreshed.grid, live);
+        if (live && refreshed && grid.table.isConnected)
+          apply(refreshed.grid, live);
       });
     }),
   };
-  state.direction =
-    current && current.column === column ? "desc" : "asc";
+  state.direction = current && current.column === column ? "desc" : "asc";
   state.column = column;
   states.set(grid.table, state);
   apply(grid, state);

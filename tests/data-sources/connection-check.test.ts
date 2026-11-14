@@ -62,6 +62,48 @@ describe("read-only connection diagnostics", () => {
     buffer.writeUInt32LE(1000, 24);
     return buffer;
   }
+  it("explains unconfigured local data while allowing a separate online check", async () => {
+    const settings = settingsSchema.parse({});
+    const input: ConnectionCheckInput = {
+      source: "local",
+      symbol: "sh600000",
+      period: "day",
+      configuration: connectionConfiguration(settings),
+    };
+    expect(await checkConnection(settings, input)).toMatchObject({
+      connection: "error",
+      data: "unavailable",
+      message: "通达信安装目录尚未配置",
+    });
+    expect(access).not.toHaveBeenCalled();
+    vi.mocked(eastmoneyKlines).mockResolvedValueOnce({
+      version: "fixture",
+      source: "eastmoney-online",
+      period: "day",
+      adjustment: "none",
+      volumeUnit: "手",
+      startedAt: 0,
+      completedAt: 0,
+      warnings: [],
+      items: [
+        {
+          status: "ok",
+          symbol: "sh600000",
+          name: "fixture",
+          bars: [],
+          sourceUrl: "",
+          historyExhausted: true,
+          returnedCount: 0,
+        },
+      ],
+    });
+    expect(
+      await checkConnection(settings, { ...input, source: "eastmoney" }),
+    ).toMatchObject({
+      connection: "ok",
+      data: "empty",
+    });
+  });
   it("uses a bounded tail and preserves the source bytes", async () => {
     const { settings, input, path } = await fixture();
     const bytes = Buffer.concat(

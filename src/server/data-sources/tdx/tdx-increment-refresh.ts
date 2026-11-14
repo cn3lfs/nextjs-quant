@@ -1,7 +1,7 @@
 import { atomic } from "../../db";
 import { downloadDailyIncrement, extractDailyIncrement } from "tstdx/local";
 import { publishDailyIncrement } from "./tdx-daily-cache";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 
 /** All selected markets publish together; download/extraction never touch TDX files. */
 export async function refreshDailyIncrement(

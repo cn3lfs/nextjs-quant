@@ -18,13 +18,43 @@
   position: sticky;
   top: 72px;
 }
+.nc-market-list-toggle {
+  display: none;
+}
+.nc-market-workspace .panel-toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding-block: 8px;
+}
+.nc-market-workspace .panel-toolbar > * {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.nc-market-workspace .panel-toolbar .security-select {
+  flex: 1 0 200px;
+}
+.nc-market-workspace .panel-toolbar button {
+  white-space: nowrap;
+}
 @media (max-width: 1100px) {
   .nc-market-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
   .nc-market-candidates {
     position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .nc-market-list-toggle {
+    display: inline-flex;
+  }
+  .nc-market-list-content {
     max-height: 220px;
+    overflow: auto;
+    margin-top: 8px;
+  }
+  .nc-market-list-content[data-expanded="false"] {
+    display: none;
   }
 }
 /* Opt-in component utilities stay available; the unlayered CSS below styles the
@@ -1212,12 +1242,12 @@ details ul {
   }
   .brand > div:last-child,
   .nav-label,
-  .nav-badge,
+  .sidebar .nav-badge,
   .sidebar-bottom,
-  .nav-item span {
+  .sidebar .nav-item span {
     display: none;
   }
-  .nav-item {
+  .sidebar .nav-item {
     justify-content: center;
     padding: 8px;
   }
@@ -1367,14 +1397,27 @@ table:not([data-sortable="false"]) > thead > tr:last-child > th,
   padding: 0 0 0 10px;
   list-style: none;
 }
-.nav-group-items[hidden] {
+.nav-group-items[data-collapsed="true"] {
   display: none;
 }
 .nav-search-empty {
   padding: 12px;
   color: var(--nc-text-3);
 }
+.sidebar .sidebar-page-menu {
+  display: none;
+}
+
 @media (max-width: 1024px) {
+  .sidebar .sidebar-page-menu {
+    display: inline-flex;
+  }
+  .sidebar .nav-group-toggle {
+    display: none;
+  }
+  .sidebar .nav-group-items[data-collapsed="true"] {
+    display: block;
+  }
   .sidebar {
     width: 64px;
     padding: 12px 8px;
@@ -1386,12 +1429,12 @@ table:not([data-sortable="false"]) > thead > tr:last-child > th,
   .brand strong,
   .nav-group-toggle > span,
   .nav-caret,
-  .nav-item > span,
-  .nav-badge {
+  .sidebar .nav-item > span,
+  .sidebar .nav-badge {
     display: none;
   }
-  .nav-group-toggle,
-  .nav-item {
+  .sidebar .nav-group-toggle,
+  .sidebar .nav-item {
     justify-content: center;
   }
   .nav-group-items {

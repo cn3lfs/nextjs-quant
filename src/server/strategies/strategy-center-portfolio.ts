@@ -14,6 +14,7 @@ import {
 } from "./strategy-center-candidates";
 import { readSnapshot } from "../data-sources/tdx/tdx";
 import { readBacktestActions } from "../backtest/backtest-actions";
+import { isStudyStockSymbol } from "~/lib/research/strategy-center-input";
 import {
   readLocalFinancialHistory,
   readLocalFinancialSeries,
@@ -26,7 +27,7 @@ export const strategyCenterPortfolioSchema = z
     symbols: strategyCenterCandidateFields.symbols
       .refine((v) => v.length <= 50, "组合最多50只股票")
       .refine(
-        (v) => v.every((s) => /^(sh60|sz00|sz30)\d{4}$/.test(s)),
+        (v) => v.every(isStudyStockSymbol),
         "当前组合撮合只支持100股整手股票",
       ),
     start: day,

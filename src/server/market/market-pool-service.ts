@@ -1,10 +1,12 @@
+import { isRpsMarketSymbol, rpsExclusionLabels } from "quant-rps";
 import { resolve } from "node:path";
 import {
   marketPoolQuerySchema,
   selectMarketPoolRows,
   type MarketPoolRow,
+  type MarketPoolAvailability,
 } from "~/lib/market/market-pool";
-import { isRpsMarketSymbol, rpsExclusionLabels } from "~/lib/screening/rps";
+
 import type { Coverage } from "~/lib/domain";
 import { get, sqlite } from "../db";
 import { settings } from "../infra/settings";
@@ -31,9 +33,13 @@ export async function marketPoolRows(input: unknown) {
   const directory = await securityDirectory();
   const imported = new Set(fullDaySymbols());
   const coverage = get<Coverage>("coverage");
-  const local = new Set(
+  const currentCoverage =
     coverage && resolve(coverage.root) === resolve(config.tdxRoot)
-      ? coverage.securities
+      ? coverage
+      : null;
+  const local = new Set(
+    currentCoverage
+      ? currentCoverage.securities
           .filter((s) => s.period === "day")
           .map((s) => s.symbol)
       : [],
@@ -55,7 +61,7 @@ export async function marketPoolRows(input: unknown) {
       ? latest
       : null;
   const ranks = new Map(
-    day
+    day?.periods.includes(query.period)
       ? (observation
           ? observationRanking(observation, query.period)
           : store.ranking(day.date, query.period)
@@ -93,10 +99,24 @@ export async function marketPoolRows(input: unknown) {
       ? null
       : !day
         ? "尚无当前数据源的RPS，请先计算"
-        : (reasons.get(symbol) ?? "该周期数据不足或未覆盖"),
+        : !day.periods.includes(query.period)
+          ? "该历史批次未计算此周期，等待新批次"
+          : (reasons.get(symbol) ?? "该周期数据不足或未覆盖"),
   }));
   return {
     query,
+    availability: {
+      rps: !day
+        ? "missing"
+        : day.periods.includes(query.period)
+          ? "ready"
+          : "period-missing",
+      dailyIndex: !currentCoverage
+        ? "not-scanned"
+        : local.size
+          ? "ready"
+          : "empty",
+    } satisfies MarketPoolAvailability,
     source: source ? { ...source, members: undefined } : null,
     membershipCount: members.length,
     unmatchedLocalCount,
@@ -105,7 +125,7 @@ export async function marketPoolRows(input: unknown) {
       ? {
           date: day.date,
           mode: day.mode,
-          count: day.counts[day.periods.indexOf(query.period)]!,
+          count: day.counts[day.periods.indexOf(query.period)] ?? null,
           inputHash: day.inputHash,
           observation: observation
             ? {
@@ -132,6 +152,7 @@ export async function marketPoolPage(input: unknown) {
       : null;
   return {
     ...metadata,
+    period: query.period,
     total: rows.length,
     previous: selected > 0 ? neighbor(selected - 1) : null,
     next: selected >= 0 ? neighbor(selected + 1) : null,

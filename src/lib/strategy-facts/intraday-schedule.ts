@@ -1,6 +1,7 @@
+import { rpsPeriods } from "quant-rps";
 import { z } from "zod";
 import { poolSelectionSchema } from "../market/market-pool";
-import { rpsPeriods } from "../screening/rps";
+
 import { previewSlots } from "../research/analysis/intraday-preview";
 
 const cutoffSchema = z.string().refine((value) => {

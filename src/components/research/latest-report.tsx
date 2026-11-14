@@ -4,25 +4,27 @@ import { api } from "~/trpc/react";
 import { Panel, PanelEmpty } from "../panels";
 import { ReportCard } from "../workbench/reports";
 import { stamp } from "../workbench/shared";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useTaskVisible } from "../workbench/use-task-visible";
 
 /**
  * Newest general research report for the loaded security, read from the same
  * report history the archive pages through. Shows nothing it cannot find.
  */
 export function LatestReport({ symbol }: { symbol: string | undefined }) {
-  const names = api.securityNames.useQuery(undefined, { staleTime: 60000 });
-  // Kept-alive but hidden panel: no polling.
-  const visible = usePanelVisible();
+  const visible = useTaskVisible();
+  const names = api.securityNames.useQuery(undefined, {
+    enabled: visible,
+    staleTime: 60000,
+  });
   const history = api.reportHistory.useQuery(
     { cursor: undefined },
-    { enabled: !!symbol, refetchInterval: visible ? 10000 : false },
+    { enabled: visible && !!symbol, refetchInterval: visible ? 10000 : false },
   );
   const item = history.data?.items.find(
     (entry) => entry.securityContext?.symbol === symbol,
   );
   const detail = api.archivedReport.useQuery(item?.id ?? "", {
-    enabled: !!item,
+    enabled: visible && !!item,
     staleTime: Infinity,
   });
   return (

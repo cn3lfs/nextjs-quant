@@ -3,6 +3,7 @@
 import { Scales } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { PanelVisibility } from "../workbench/keep-alive";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { useEffect, useRef, useState } from "react";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
 import { api, type RouterInputs } from "~/trpc/react";
@@ -33,6 +34,7 @@ const reviewSections = [
 ] as const;
 type ReviewSection = (typeof reviewSections)[number]["value"];
 export function TradeReviewContainer() {
+  const visible = useTaskVisible();
   const [workspace, setWorkspace] = useState<"import" | "batches" | "review">(
     "import",
   );
@@ -135,7 +137,7 @@ export function TradeReviewContainer() {
       sort: sorting[0]?.id as RouterInputs["tradeReviewSnapshot"]["sort"],
       desc: sorting[0]?.desc ?? false,
     },
-    { enabled: !!account, retry: false },
+    { enabled: visible && workspace === "review" && !!account, retry: false },
   );
   const run = async (work: () => Promise<void>) => {
     if (lock.current) return false;
@@ -434,7 +436,7 @@ export function TradeReviewContainer() {
                   >
                     <PeriodPerformanceContainer
                       key={`${account}:${batchRevision}`}
-                      source={{ account }}
+                      account={account}
                     />
                   </div>
                 </PanelVisibility>
@@ -445,7 +447,7 @@ export function TradeReviewContainer() {
                   >
                     <RollingPerformanceContainer
                       key={`rolling:${account}:${batchRevision}`}
-                      source={{ account }}
+                      account={account}
                     />
                   </div>
                 </PanelVisibility>
@@ -539,7 +541,7 @@ export function TradeReviewContainer() {
                       <div hidden={disciplineView !== "admission"}>
                         <StrategyAdmissionContainer
                           key={`admission:${account}:${batchRevision}`}
-                          source={{ account }}
+                          account={account}
                         />
                       </div>
                     </PanelVisibility>

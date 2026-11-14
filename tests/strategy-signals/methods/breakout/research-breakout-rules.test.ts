@@ -1,39 +1,10 @@
+import { legacyBreakoutRuleIds } from "trading-strategies/research/technical/research-breakout-rules";
+import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
 import { researchFormulaRuntime } from "~/lib/research/technical/research-formula-runtime";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
-import {
-  legacyBreakoutRuleIds,
-  breakoutRuleDecision,
-  type BreakoutRuleId,
-} from "trading-strategies/research/technical/research-breakout-rules";
-import { researchRuleSeries } from "trading-strategies/research/composition/research-rule-series";
-import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
-import { runStrategyResearch } from "../../../../src/server/backtest/research-run";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-const native = vi.fn(async (): Promise<never> => {
-  throw new Error("native must not run");
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
+import { breakoutRuleDecision } from "trading-strategies/research/technical/research-breakout-rules";
 function fixture(): Bar[] {
   const bars = Array.from({ length: 190 }, (_, i) => {
     let high =
@@ -74,38 +45,6 @@ function fixture(): Bar[] {
   });
   return bars;
 }
-function settings(strategy: BreakoutRuleId, bars: Bar[]) {
-  return researchSpecSchema.parse({
-    strategy,
-    start: bars[140]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars[188]!.date,
-    symbols: ["sh600000"],
-    initialCapital: 200000,
-    holdingDays: 60,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-}
-it.each(legacyBreakoutRuleIds)("%s reuses confirmed historical geometry and trades at the next open", async (id) => {
-    const bars = fixture(), spec = settings(id, bars), series = researchRuleSeries(id, bars, undefined, undefined, undefined, researchFormulaRuntime);
-    expect(series[140]!.entry).toBe(true);
-    expect(series[182]!.exit).toBe(true);
-    expect(researchRuleSeries(id, bars.slice(0, 141), undefined, undefined, undefined, researchFormulaRuntime)).toEqual(series.slice(0, 141));
-    const events = await researchSignals("sh600000", bars, spec, native);
-    const result = researchPortfolio(spec, events, bars.map((b) => b.date), new Map([["sh600000", bars]]), () => rules);
-    const trade = result.trades.find((t) => t.event.observedDate === bars[140]!.date);
-    expect(trade).toBeDefined();
-    expect(trade!.entryDate).toBe(bars[141]!.date);
-    expect(trade!.exitDate).toBe(bars[183]!.date);
-    expect(trade!.signalExit).toEqual(series[182]);
-    expect(researchMethodSnapshot(spec).ruleVersion).toBe(`${id}-1`);
-    expect(native).not.toHaveBeenCalled();
-});
 it("distinguishes reverse-line and three-check exits without requiring auxiliary votes", () => {
   const bars = fixture(),
     points = analyzeBreakout(bars, 0).points;
@@ -165,130 +104,29 @@ it("keeps touch, span and body filters independent and rejects invalid prices", 
       }),
     ).toMatchObject({ entry: false, exit: false, reason: expect.any(String) });
 });
-it("preserves blocked reverse intent and requires independent sell rules", async () => {
-  const bars = fixture(),
-    spec = settings("breakout-down-exit", bars),
-    events = await researchSignals("sh600000", bars, spec, native);
-  const run = (lookup: Parameters<typeof researchPortfolio>[4]) =>
-    researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      lookup,
-    );
-  const delayed = run((_s, date) => ({
-    ...rules,
-    tradable: date !== bars[183]!.date,
-  }));
-  expect(delayed.trades[0]!.exitDate).toBe(bars[184]!.date);
-  expect(delayed.trades[0]!.signalExit!.date).toBe(bars[182]!.date);
-  const buyOnly = {
-    ...rules,
-    minimumSell: undefined,
-    sellStep: undefined,
-    maximumSell: undefined,
-    sellOddLotAll: undefined,
-  };
-  expect(run(() => buyOnly).trades).toEqual([]);
-});
-it("requires sixty preceding bars of action evidence in the full runner", async () => {
-  const bars = fixture(),
-    spec = settings("breakout-down-exit", bars);
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "合成",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "合成",
+it.each(legacyBreakoutRuleIds)(
+  "%s calculates breakout entry, exit and stable prefixes",
+  (id) => {
+    const bars = fixture(),
+      series = researchRuleSeries(
+        id,
         bars,
-        hash: researchHash(bars),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "breakout-fixture",
-    method: researchMethodSnapshot(spec),
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[80]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      ...rules,
-      evidence: undefined,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
-    bars[183]!.date,
-  );
-  expect(result.warnings).toContain(
-    "双突破信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。",
-  );
-  const short = await runStrategyResearch(
-    spec,
-    dataset,
-    {
-      ...evidence,
-      corporateActionFree: evidence.corporateActionFree.map((row) => ({
-        ...row,
-        start: spec.start,
-      })),
-    },
-    native,
-  );
-  expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual(
-    result.partitions[0]!.simulation!.trades,
-  );
-  const split = await runStrategyResearch(
-    spec,
-    {
-      ...dataset,
-      stocks: dataset.stocks.map((stock) => ({
-        ...stock,
-        actions: [
-          {
-            date: bars[80]!.date,
-            category: 1,
-            name: "合成除权",
-            bonusRatio: 1,
-          },
-        ],
-      })),
-    },
-    evidence,
-    native,
-  );
-  expect(split.events.length).toBeGreaterThan(0);
-  expect(split.warnings).toContain(
-    "双突破信号使用后复权价格；交易模拟使用原始价格，且仅纳入复权覆盖完整的证券。",
-  );
-});
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      );
+    expect(series[140]!.entry).toBe(true);
+    expect(series[182]!.exit).toBe(true);
+    expect(
+      researchRuleSeries(
+        id,
+        bars.slice(0, 141),
+        undefined,
+        undefined,
+        undefined,
+        researchFormulaRuntime,
+      ),
+    ).toEqual(series.slice(0, 141));
+  },
+);

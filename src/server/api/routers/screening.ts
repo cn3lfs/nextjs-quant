@@ -19,27 +19,15 @@ import { industryRpsPage } from "../../screening/industry-rps-query";
 import { readRpsBlockSource } from "../../screening/rps-block-source";
 import { sqlite as chartSqlite } from "../../db";
 import { screenSortSchema } from "~/lib/screening/screen-sort";
-import {
-  screenReviews,
-  screenReviewsInput,
-} from "../../screening/screen-reviews";
 import { screenTaskProgress } from "../../jobs/task-history";
-import { historicalScreenSchema } from "~/lib/screening/historical-screen";
 import {
   onlineScreenJob,
   type OnlineScreenResult,
 } from "../../screening/online-screen";
-import {
-  pageScreenResults,
-  exportScreenResults,
-  type StoredScreenResult,
-} from "../../screening/screen-results";
+import { readScreenResultPage } from "../../db/screen-result-pages";
 import { z } from "zod";
-import { strategySchema, periodSchema } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { settings, saveSettings } from "../../infra/settings";
-import { screenJob } from "../../screening/screen-job";
-import { snapshot } from "../../market/snapshot";
 import { readJob } from "../../jobs/jobs";
 import { securityNameMap } from "../../market/securities";
 import {
@@ -52,18 +40,20 @@ import {
   formulaScreenJob,
   exportFormulaScreen,
 } from "../../screening/formula-screen-service";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { formulaFromText } from "../../screening/formula-from-text";
 export const screeningRouter = createTRPCRouter({
-  conceptRpsStatus: p.query(() => {
+  conceptRpsStatus: p("rps", "read").query(() => {
     const store = new RpsStore(chartSqlite(), "concept");
     const latest = store.latest();
     return {
       root: settings().industryBlocksRoot,
       membershipSource: settings().industryMembershipSource,
+      tdxConfigured: !!settings().tdxRoot,
       ready:
-        settings().industryMembershipSource === "tdx" ||
-        !!settings().industryBlocksRoot,
+        !!settings().tdxRoot &&
+        (settings().industryMembershipSource === "tdx" ||
+          !!settings().industryBlocksRoot),
       progress: store.progress(),
       latest: latest
         ? {
@@ -71,12 +61,13 @@ export const screeningRouter = createTRPCRouter({
             mode: latest.mode,
             total: latest.total,
             counts: latest.counts,
+            periods: latest.periods,
             hash: latest.industry!.snapshot.hash,
           }
         : null,
     };
   }),
-  conceptRpsPage: p
+  conceptRpsPage: p("rps", "read")
     .input(industryPageSchema)
     .query(({ input }) =>
       industryRpsPage(
@@ -85,7 +76,7 @@ export const screeningRouter = createTRPCRouter({
         latestRpsObservation(settings().tdxRoot),
       ),
     ),
-  marketPoolCatalog: p
+  marketPoolCatalog: p("market", "read")
     .input(poolCategorySchema)
     .query(({ input }) =>
       marketPoolCatalog(
@@ -94,50 +85,53 @@ export const screeningRouter = createTRPCRouter({
         settings().tdxRoot,
       ),
     ),
-  marketPoolPage: p
+  marketPoolPage: p("market", "read")
     .input(marketPoolQuerySchema)
     .query(({ input }) => marketPoolPage(input)),
-  universeAuditPage: p
+  universeAuditPage: p("market", "read")
     .input(universeAuditQuerySchema)
     .query(({ input }) => universeAuditPage(input)),
-  marketPoolExport: p
+  marketPoolExport: p("market", "read")
     .input(marketPoolQuerySchema)
     .mutation(({ input }) => marketPoolRows(input)),
-  industryRpsStatus: p.query(() => {
+  industryRpsStatus: p("rps", "read").query(() => {
     const store = new RpsStore(chartSqlite(), "industry");
     const latest = store.latest();
     // Full membership evidence stays on disk; status polling returns only summary counts.
     return {
       root: settings().industryBlocksRoot,
       membershipSource: settings().industryMembershipSource,
+      tdxConfigured: !!settings().tdxRoot,
       ready:
-        settings().industryMembershipSource === "tdx" ||
-        !!settings().industryBlocksRoot,
+        !!settings().tdxRoot &&
+        (settings().industryMembershipSource === "tdx" ||
+          !!settings().industryBlocksRoot),
       progress: store.progress(),
       latest: latest
         ? {
             date: latest.date,
             mode: latest.mode,
             counts: latest.counts,
+            periods: latest.periods,
             total: latest.total,
             excluded: latest.industry!.excluded,
           }
         : null,
     };
   }),
-  industryRpsSourceConfigure: p
+  industryRpsSourceConfigure: p("rps", "configure")
     .input(z.enum(["blocks", "tdx"]))
     .mutation(({ input }) => {
       saveSettings({ ...settings(), industryMembershipSource: input });
       return { source: input };
     }),
-  industryRpsConfigure: p
+  industryRpsConfigure: p("rps", "configure")
     .input(z.string().trim().max(2048))
     .mutation(({ input }) => {
       saveSettings({ ...settings(), industryBlocksRoot: input });
       return { root: input };
     }),
-  industryRpsInspect: p.mutation(async () => {
+  industryRpsInspect: p("rps", "read").mutation(async () => {
     const config = settings();
     const snapshot = await readRpsBlockSource({
       source: config.industryMembershipSource,
@@ -166,7 +160,7 @@ export const screeningRouter = createTRPCRouter({
           .map((f) => f.file) ?? [],
     };
   }),
-  industryRpsPage: p
+  industryRpsPage: p("rps", "read")
     .input(industryPageSchema)
     .query(({ input }) =>
       industryRpsPage(
@@ -175,7 +169,7 @@ export const screeningRouter = createTRPCRouter({
         latestRpsObservation(settings().tdxRoot),
       ),
     ),
-  rpsWorkflowLog: p.query(() => {
+  rpsWorkflowLog: p("rps", "read").query(() => {
     const rows = chartSqlite()
       .prepare(
         "SELECT id, payload, updated_at AS updatedAt FROM records WHERE kind='workflow-check' AND id LIKE ? ORDER BY updated_at DESC LIMIT 50",
@@ -195,54 +189,47 @@ export const screeningRouter = createTRPCRouter({
       )
       .filter((entry) => entry !== null);
   }),
-  rpsStatus: p.query(() => {
+  rpsStatus: p("rps", "read").query(() => {
     const store = new RpsStore(chartSqlite());
     return { progress: store.progress(), latest: store.latest() };
   }),
-  rpsStart: p
+  rpsStart: p("rps", "compute")
     .input(rpsRequestSchema)
     .mutation(({ input }) => ({ id: rpsClient().start(input).id })),
-  rpsCancel: p.mutation(() => {
+  rpsCancel: p("rps", "configure").mutation(() => {
     rpsClient().cancel();
     return { cancelled: true };
   }),
-  rpsRanking: p.input(rpsQuerySchema).query(({ input }) => {
-    const store = new RpsStore(chartSqlite());
-    return {
-      day: store.day(input.date),
-      rows: store.ranking(input.date, input.period),
-    };
-  }),
-  rpsCurve: p
+  rpsRanking: p("rps", "read")
+    .input(rpsQuerySchema)
+    .query(({ input }) => {
+      const store = new RpsStore(chartSqlite());
+      return {
+        day: store.day(input.date),
+        rows: store.ranking(input.date, input.period),
+      };
+    }),
+  rpsCurve: p("rps", "read")
     .input(symbolSchema)
     .query(({ input }) => new RpsStore(chartSqlite()).curve(input)),
-  screen: p
-    .input(
-      historicalScreenSchema.extend({
-        strategy: strategySchema,
-        period: periodSchema,
-        symbols: z.array(symbolSchema).max(10000).optional(),
-      }),
-    )
-    .mutation(({ input }) =>
-      screenJob(input.strategy, input.period, input.symbols, input),
-    ),
-  formulas: p.query(() => savedFormulas()),
-  saveFormula: p
+  formulas: p("formulaScreen", "read").query(() => savedFormulas()),
+  saveFormula: p("formulaScreen", "configure")
     .input(formulaSchema)
     .mutation(({ input }) => saveFormula(input)),
-  checkFormula: p.input(formulaSchema).mutation(({ input }) => {
-    validateScreenFormula(input);
-    return { ok: true };
-  }),
+  checkFormula: p("formulaScreen", "compute")
+    .input(formulaSchema)
+    .mutation(({ input }) => {
+      validateScreenFormula(input);
+      return { ok: true };
+    }),
   // Drafts a formula from a sentence; the draft is checked, never launched here.
-  formulaFromText: p
+  formulaFromText: p("formulaScreen", "compute")
     .input(z.string().trim().min(2).max(500))
     .mutation(({ input, signal }) => formulaFromText(input, signal)),
-  formulaScreen: p
+  formulaScreen: p("formulaScreen", "compute")
     .input(formulaSchema)
     .mutation(({ input }) => formulaScreenJob(input)),
-  onlineScreen: p
+  onlineScreen: p("onlineScreen", "compute")
     .input(
       z.object({
         query: z.string().trim().min(2).max(2000),
@@ -250,7 +237,7 @@ export const screeningRouter = createTRPCRouter({
       }),
     )
     .mutation(({ input }) => onlineScreenJob(input.query, input.page)),
-  onlineScreenResult: p
+  onlineScreenResult: p("onlineScreen", "read")
     .input(z.object({ id: z.string(), version: z.number().optional() }))
     .query(({ input }) => {
       const job = readJob(input.id);
@@ -258,10 +245,10 @@ export const screeningRouter = createTRPCRouter({
         ? (job.result as OnlineScreenResult)
         : null;
     }),
-  screenTaskProgress: p
+  screenTaskProgress: p("tasks", "read")
     .input(z.object({ id: z.string().min(1).max(200) }))
     .query(({ input }) => screenTaskProgress(input.id)),
-  screenResults: p
+  screenResults: p("formulaScreen", "read")
     .input(
       z.object({
         id: z.string(),
@@ -274,26 +261,18 @@ export const screeningRouter = createTRPCRouter({
         errorPage: z.number().int().min(0).default(0),
       }),
     )
-    .query(async ({ input }) => {
-      const job = readJob(input.id);
-      if (job?.type !== "screen" || !job.result) return null;
-      return {
-        jobId: job.id,
-        ...pageScreenResults(
-          job.result as StoredScreenResult,
-          input,
-          input.query.trim() ? await securityNameMap() : {},
-        ),
-      };
-    }),
-  screenReviews: p
-    .input(screenReviewsInput)
-    .query(({ input }) => screenReviews(input)),
-  screenExport: p.input(z.string()).query(({ input }) => {
-    const job = readJob(input);
-    if (!job) throw new Error("任务不存在");
-    if ((job.input as { type?: string })?.type === "formula-screen")
+    .query(async ({ input }) =>
+      readScreenResultPage(
+        input.id,
+        input,
+        input.query.trim() ? await securityNameMap() : {},
+      ),
+    ),
+  screenExport: p("formulaScreen", "read")
+    .input(z.string())
+    .query(({ input }) => {
+      const job = readJob(input);
+      if (!job) throw new Error("任务不存在");
       return exportFormulaScreen(job);
-    return exportScreenResults(job);
-  }),
+    }),
 });

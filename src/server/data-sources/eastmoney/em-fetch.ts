@@ -51,7 +51,8 @@ export async function emThrottle<T>(
   const group = emGroup(url);
   const check = () => {
     const until = cooldowns.get(group);
-    if (until && until > Date.now()) throw new EastmoneyBlockedError(group, until);
+    if (until && until > Date.now())
+      throw new EastmoneyBlockedError(group, until);
   };
   check();
   return gates[group](async () => {

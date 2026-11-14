@@ -1,5 +1,6 @@
 "use client";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
+import { displayFinancialRatio } from "~/lib/financial/financial-display";
 import {
   compactNumber,
   fundamentalMetrics,
@@ -23,9 +24,7 @@ const missing = (metric: ReviewValue) =>
 const fixed = (metric: ReviewValue, digits = 2) =>
   metric.value === null ? missing(metric) : metric.value.toFixed(digits);
 const ratio = (metric: ReviewValue) =>
-  metric.value === null
-    ? missing(metric)
-    : `${(metric.value * 100).toFixed(2)}%`;
+  metric.value === null ? missing(metric) : displayFinancialRatio(metric.value);
 const amount = (metric: ReviewValue) =>
   metric.value === null
     ? missing(metric)

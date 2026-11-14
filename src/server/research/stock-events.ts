@@ -17,12 +17,7 @@ import {
 export const STOCK_EVENTS_VERSION = "stock-events-1";
 
 export type StockEventType =
-  | "forecast"
-  | "survey"
-  | "holder"
-  | "buyback"
-  | "pledge"
-  | "unlock";
+  "forecast" | "survey" | "holder" | "buyback" | "pledge" | "unlock";
 export type StockEvent = {
   date: string;
   type: StockEventType;
@@ -62,7 +57,9 @@ const BUYBACK_PROGRESS: Record<string, string> = {
   "006": "完成实施",
 };
 const fmt = (v: number | null, digits = 2) =>
-  v == null ? "—" : v.toLocaleString("zh-CN", { maximumFractionDigits: digits });
+  v == null
+    ? "—"
+    : v.toLocaleString("zh-CN", { maximumFractionDigits: digits });
 const yi = (v: number | null) => (v == null ? "—" : `${fmt(v / 1e8)}亿`);
 
 export function forecastEvents(rows: DatacenterRow[]): StockEvent[] {
@@ -74,8 +71,9 @@ export function forecastEvents(rows: DatacenterRow[]): StockEvent[] {
   }
   return [...groups.values()].flatMap((group) => {
     const row =
-      group.find((r) => /^归属.*净利润$|^净利润$/.test(dcText(r, "PREDICT_FINANCE") ?? "")) ??
-      group[0]!;
+      group.find((r) =>
+        /^归属.*净利润$|^净利润$/.test(dcText(r, "PREDICT_FINANCE") ?? ""),
+      ) ?? group[0]!;
     const date = dcDay(row, "NOTICE_DATE");
     if (!date) return [];
     const kind = dcText(row, "PREDICT_TYPE") ?? "预告";
@@ -125,7 +123,8 @@ export function holderEvents(rows: DatacenterRow[]): StockEvent[] {
         title: `${dcText(row, "HOLDER_NAME") ?? "股东"}${direction} ${fmt(shares == null ? null : Math.abs(shares))} 万股`,
         // 东财 AFTER_CHANGE_RATE 实为本次变动占总股本比例。
         detail: `占总股本 ${fmt(dcNum(row, "AFTER_CHANGE_RATE"))}%；方式 ${dcText(row, "MARKET") ?? "—"}；变动后持股 ${fmt(dcNum(row, "HOLD_RATIO"))}%`,
-        tone: direction === "增持" ? ("positive" as const) : ("negative" as const),
+        tone:
+          direction === "增持" ? ("positive" as const) : ("negative" as const),
       },
     ];
   });
@@ -143,7 +142,10 @@ export function buybackEvents(rows: DatacenterRow[]): StockEvent[] {
         type: "buyback" as const,
         title: `股票回购：${progress}`,
         detail: `计划金额 ${yi(dcNum(row, "REPURAMOUNTLOWER"))}~${yi(dcNum(row, "REPURAMOUNTLIMIT"))}；价格上限 ${fmt(dcNum(row, "REPURPRICECAP"))}；已回购 ${yi(dcNum(row, "REPURAMOUNT"))}`,
-        tone: progress === "股东大会否决" || progress === "停止实施" ? ("neutral" as const) : ("positive" as const),
+        tone:
+          progress === "股东大会否决" || progress === "停止实施"
+            ? ("neutral" as const)
+            : ("positive" as const),
       },
     ];
   });
@@ -176,7 +178,10 @@ export function unlockEvents(rows: DatacenterRow[]): StockEvent[] {
         type: "unlock" as const,
         title: `限售解禁：${dcText(row, "FREE_SHARES_TYPE") ?? "类型未知"}`,
         detail: `实际可流通 ${fmt(dcNum(row, "ABLE_FREE_SHARES"))} 万股，占总股本 ${fmt(ratio == null ? null : ratio * 100)}%`,
-        tone: ratio != null && ratio >= 0.05 ? ("negative" as const) : ("neutral" as const),
+        tone:
+          ratio != null && ratio >= 0.05
+            ? ("negative" as const)
+            : ("neutral" as const),
       },
     ];
   });
@@ -193,7 +198,8 @@ export async function stockEvents(
   signal?: AbortSignal,
   options: { lookbackDays?: number; forwardDays?: number } = {},
 ): Promise<StockEvents> {
-  if (!/^(sh|sz|bj)\d{6}$/.test(symbol)) throw new Error("仅支持沪深北 A 股代码");
+  if (!/^(sh|sz|bj)\d{6}$/.test(symbol))
+    throw new Error("仅支持沪深北 A 股代码");
   const id = `stock-events:${symbol}`;
   const cached = get<StockEvents>(id);
   if (
@@ -331,14 +337,20 @@ export async function stockEvents(
 
 /** 研究证据：事件时间线压成一条文本证据，失败的类型显式标注不可推断。 */
 export function stockEventsEvidence(data: StockEvents): Evidence {
-  const today = new Date(data.fetchedAt + 8 * 3600000).toISOString().slice(0, 10);
+  const today = new Date(data.fetchedAt + 8 * 3600000)
+    .toISOString()
+    .slice(0, 10);
   const lines = data.events.map(
     (e) =>
       `${e.date}${e.date > today ? "（未来）" : ""} [${eventTypeLabels[e.type]}] ${e.title}${e.detail ? `；${e.detail.slice(0, 160)}` : ""}`,
   );
   for (const f of data.failures)
-    lines.push(`${eventTypeLabels[f.type]} 查询失败，不得推断该类事件是否存在。`);
-  const text = lines.length ? lines.join("\n") : `${data.since} 以来无记录事件。`;
+    lines.push(
+      `${eventTypeLabels[f.type]} 查询失败，不得推断该类事件是否存在。`,
+    );
+  const text = lines.length
+    ? lines.join("\n")
+    : `${data.since} 以来无记录事件。`;
   const envelope = evidenceEnvelope(data.events, {
     source: "eastmoney/datacenter-events",
     symbol: data.symbol,

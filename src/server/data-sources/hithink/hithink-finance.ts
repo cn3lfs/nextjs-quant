@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import {type Evidence} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { type Evidence } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { evidenceEnvelope } from "../../infra/evidence";
 import { sepaFinanceFacts } from "~/lib/strategy-facts/sepa-finance";
 import { canslimFinanceFacts } from "~/lib/strategy-facts/canslim-finance";

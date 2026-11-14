@@ -1,4 +1,8 @@
 "use client";
+import { usePanelVisible } from "../workbench/keep-alive";
+import { rpsPeriods } from "quant-rps";
+
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { useEffect, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
@@ -24,7 +28,7 @@ import { downloadFinancialJson } from "./financial-download";
 const metricOptions = [
   { code: "debt-ratio", label: "资产负债率（比例0–1）" },
   { code: "gross-margin", label: "非金融毛利率（比例0–1）" },
-  { code: "cash-to-profit", label: "经营现金流/合并利润（比例）" },
+  { code: "cash-to-profit", label: "经营现金流/合并利润（倍）" },
   ...[74, 96, 206, 107].flatMap((id) =>
     ["yoy", "quarter", "ttm"].map((mode) => ({
       code: `${id}-${mode}`,
@@ -115,6 +119,7 @@ const columns: DataTableColumn<Row>[] = [
   },
 ];
 export function FinancialScreenPanel({ symbol }: { symbol: string }) {
+  const visible = usePanelVisible();
   const [draft, setDraft] = useState<FinancialScreenInput>({
     asOf: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
     strict: true,
@@ -140,9 +145,11 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 30 }),
     [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
   const utils = api.useUtils(),
-    history = api.localFinancialScreenHistory.useQuery();
+    history = api.localFinancialScreenHistory.useQuery(undefined, {
+      enabled: visible,
+    });
   const catalog = api.marketPoolCatalog.useQuery(poolCategory, {
-    enabled: poolType === "pool",
+    enabled: visible && poolType === "pool",
   });
   const start = api.localFinancialScreenStart.useMutation({
       onSuccess: (job) => setJobId(job.id),
@@ -151,8 +158,9 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
   const job = api.job.useQuery(
     { id: jobId },
     {
-      enabled: !!jobId,
+      enabled: visible && !!jobId,
       refetchInterval: (query) =>
+        visible &&
         ["queued", "running"].includes(query.state.data?.status ?? "")
           ? 500
           : false,
@@ -178,7 +186,7 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
       sort: sorting[0]?.id === "reportDate" ? "reportDate" : "symbol",
       descending: sorting[0]?.desc ?? false,
     },
-    { enabled: !!reportId, retry: false },
+    { enabled: visible && !!reportId, retry: false },
   );
   const remove = api.localFinancialScreenDelete.useMutation({
     onSuccess: () => {
@@ -298,7 +306,7 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
         </Select>
       </div>
       <p className="text-xs text-muted-foreground">
-        阈值按字段显示单位输入：金额为元、增长率为百分数，资产负债率等派生比例为0–1。代码应包含sh/sz。技术日线使用已结束的历史交易日；当日日线不提前使用。
+        阈值使用计算原单位：金额为元、增长率为百分数；资产负债率等派生比例输入小数（例如30%输入0.3），现金利润比输入倍数。概览的百分比展示不改变筛选单位。代码应包含sh/sz。技术日线使用已结束的历史交易日；当日日线不提前使用。
       </p>
       {draft.conditions.map((condition, index) => (
         <div key={index} className="flex flex-wrap items-center gap-2">
@@ -645,9 +653,9 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[5, 10, 20, 50, 120, 250].map((period) => (
+                {rpsPeriods.map((period) => (
                   <SelectItem key={period} value={String(period)}>
-                    {period}日
+                    {rpsPeriodLabel(period)}
                   </SelectItem>
                 ))}
               </SelectContent>

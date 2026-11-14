@@ -79,7 +79,7 @@ try {
   `;
   const bundle = await build({
     stdin: {
-      contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {LocalFinancialWorkbench} from './src/components/financial/local-financial-workbench';const client=new QueryClient({defaultOptions:{queries:{retry:false,refetchOnWindowFocus:false}}});createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><LocalFinancialWorkbench symbol="sh600519"/></QueryClientProvider>);`,
+      contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';import {LocalFinancialWorkbench} from './src/components/financial/local-financial-workbench';import {PanelVisibility} from './src/components/workbench/keep-alive';const client=new QueryClient({defaultOptions:{queries:{retry:false,refetchOnWindowFocus:false}}});window.invalidateFinance=()=>client.invalidateQueries();function Fixture(){const [visible,setVisible]=useState(true);return <><button onClick={()=>setVisible(v=>!v)}>{visible?'隐藏财务':'显示财务'}</button><div hidden={!visible}><PanelVisibility visible={visible}><LocalFinancialWorkbench symbol="sh600519"/></PanelVisibility></div></>;}createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><Fixture/></QueryClientProvider>);`,
       loader: "tsx",
       resolveDir: process.cwd(),
     },
@@ -122,9 +122,33 @@ try {
   await page.addStyleTag({ content: css.css });
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   await page.getByText("报告期 2026-09-30", { exact: false }).waitFor();
+  const debt = fixture.view.metrics.find(
+    (metric) => metric.id === "debt-ratio",
+  );
+  assert.equal(typeof debt.value, "number");
+  assert.match(
+    await page
+      .getByText("资产负债率", { exact: true })
+      .locator("..")
+      .innerText(),
+    new RegExp(`${(debt.value * 100).toFixed(2).replace(".", "\\.")}%`),
+    "财务概览的资产负债率应与行情摘要使用相同百分比口径",
+  );
   assert.equal(
     await page.evaluate(() => window.financeFixture.mutations.length),
     0,
+  );
+  await page.getByRole("tab", { name: "成长/单季/TTM", exact: true }).click();
+  assert.match(
+    await page.locator("summary").filter({ hasText: "资产负债率" }).innerText(),
+    /11\.90%/,
+  );
+  const currentRatio = fixture.view.metrics.find(
+    (metric) => metric.id === "current-ratio",
+  );
+  assert.match(
+    await page.locator("summary").filter({ hasText: "流动比率" }).innerText(),
+    new RegExp(`${currentRatio.value.toFixed(2).replace(".", "\\.")}倍`),
   );
   await page.getByRole("tab", { name: "三表与全部字段", exact: true }).click();
   const table = page.getByLabel("本地财务字段", { exact: true }).first();
@@ -142,9 +166,14 @@ try {
   await page
     .getByRole("button", { name: "导出本期全部字段", exact: true })
     .click();
-  assert.match(
-    (await download).suggestedFilename(),
-    /2026-09-30-financial\.json$/,
+  const exported = await download;
+  assert.match(exported.suggestedFilename(), /2026-09-30-financial\.json$/);
+  const chunks = [];
+  for await (const chunk of await exported.createReadStream())
+    chunks.push(chunk);
+  assert.deepEqual(
+    JSON.parse(Buffer.concat(chunks).toString("utf8")).rows,
+    fixture.view.rows,
   );
   await page.evaluate(
     () => (window.financeFixture.fail = "localFinancialExport"),
@@ -176,7 +205,11 @@ try {
     .getByRole("button", { name: "删除条件", exact: true })
     .first()
     .click();
-  await page.getByRole("button", { name: "删除条件", exact: true }).click();
+  await page.getByLabel("财务条件1字段", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "资产负债率（比例0–1）", exact: true })
+    .click();
+  await page.getByLabel("财务条件1阈值", { exact: true }).fill("0.3");
   await page
     .getByRole("button", { name: "添加本地数据因子", exact: true })
     .click();
@@ -202,6 +235,30 @@ try {
     .getByRole("option", { name: "波动 · 收益波动率", exact: true })
     .click();
   await page.getByLabel("财务筛选基准日期", { exact: true }).fill("2026-11-06");
+  await page.getByRole("button", { name: "隐藏财务", exact: true }).click();
+  await page.getByRole("button", { name: "显示财务", exact: true }).waitFor();
+  const hiddenRequests = await page.evaluate(
+    () => window.financeFixture.requests.length,
+  );
+  await page.evaluate(() => window.invalidateFinance());
+  assert.equal(
+    await page.evaluate(() => window.financeFixture.requests.length),
+    hiddenRequests,
+    "隐藏财务时失效缓存不能触发查询",
+  );
+  await page.getByRole("button", { name: "显示财务", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("财务条件1阈值", { exact: true }).inputValue(),
+    "0.3",
+  );
+  assert.equal(
+    await page.getByLabel("板块因子标的", { exact: true }).inputValue(),
+    "sh880301",
+  );
+  await page.waitForFunction(
+    (count) => window.financeFixture.requests.length > count,
+    hiddenRequests,
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(
@@ -220,7 +277,9 @@ try {
         (r) => r.name === "localFinancialScreenStart",
       ).input,
   );
-  assert.deepEqual(submitted.conditions, []);
+  assert.deepEqual(submitted.conditions, [
+    { field: "debt-ratio", operator: "gt", threshold: 0.3 },
+  ]);
   assert.deepEqual(
     submitted.dataFactors.map((f) => f.id),
     ["log-market-cap", "BK5-0"],

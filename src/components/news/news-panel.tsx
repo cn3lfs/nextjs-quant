@@ -6,7 +6,6 @@ import {
   newsArchiveIdSchema,
   type NewsWorkspaceInput,
 } from "~/lib/news/news-workspace";
-import type { NewsAnalysis } from "~/server/news/news-analysis";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { useTaskVisible } from "../workbench/use-task-visible";

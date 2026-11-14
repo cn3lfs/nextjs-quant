@@ -1,4 +1,7 @@
-import type {ColumnMapping,DeliveryField} from "~/lib/research/evidence/delivery-import";
+import type {
+  ColumnMapping,
+  DeliveryField,
+} from "~/lib/research/evidence/delivery-import";
 import { Button } from "../ui/button";
 export const deliveryFieldLabels: Record<DeliveryField, string> = {
   tradeDate: "成交日期",

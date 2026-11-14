@@ -1,17 +1,80 @@
-import { expect, test } from "@playwright/test";
-import { waitForIdleServer } from "./helpers";
+import { expect, test } from "./workbench-test";
+import { trpcCalls, waitForIdleServer } from "./helpers";
 
-/** Opens the review of the synthetic `big` account (2222 fills, ths-big.txt). */
+const sectionReads = new Set([
+  "tradeReviewExecution",
+  "tradeReviewPeriodPerformance",
+  "tradeReviewRollingPerformance",
+  "tradeReviewAdmission",
+]);
+
+test("review reads only the selected section and preserves hidden section drafts", async ({
+  page,
+}) => {
+  await page.goto("/trade-review", { waitUntil: "networkidle" });
+  await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
+  await page.getByLabel("复盘账户别名").fill("big10k");
+  const calls = await trpcCalls(page, async () => {
+    await page.getByRole("button", { name: "查看复盘" }).click();
+    await expect(
+      page
+        .getByRole("table", { name: "月度收益", exact: true })
+        .getByRole("row")
+        .nth(1),
+    ).toBeVisible({ timeout: 30000 });
+    await page.waitForLoadState("networkidle");
+  });
+  expect(calls).toContain("tradeReviewSnapshot");
+  expect(
+    calls.filter((name) => sectionReads.has(name)),
+    "Hidden sections must not fetch after selecting an account",
+  ).toEqual([]);
+  const executionCalls = await trpcCalls(page, async () => {
+    await page.getByRole("radio", { name: "执行质量", exact: true }).click();
+    await expect(
+      page.getByRole("table", { name: "逐笔执行质量" }).getByRole("row").nth(1),
+    ).toBeVisible();
+  });
+  expect(executionCalls).toContain("tradeReviewExecution");
+  await page.getByLabel("标的搜索", { exact: true }).fill("600001");
+  await page.getByRole("radio", { name: "概览", exact: true }).click();
+  await page.getByRole("radio", { name: "执行质量", exact: true }).click();
+  await expect(page.getByLabel("标的搜索", { exact: true })).toHaveValue(
+    "600001",
+  );
+  await page.waitForLoadState("networkidle");
+  for (const [label, procedure, table] of [
+    ["分段表现", "tradeReviewPeriodPerformance", "分段表现"],
+    ["滚动表现", "tradeReviewRollingPerformance", "滚动绩效完整指标"],
+    ["纪律与准入", "tradeReviewAdmission", "准入年度分指标"],
+  ] as const) {
+    const selectedCalls = await trpcCalls(page, async () => {
+      await page.getByRole("radio", { name: label, exact: true }).click();
+      await expect(
+        page.getByRole("table", { name: table, exact: true }),
+      ).toBeVisible();
+      await page.waitForLoadState("networkidle");
+    });
+    expect(
+      new Set(selectedCalls.filter((name) => sectionReads.has(name))),
+      label,
+    ).toEqual(new Set([procedure]));
+  }
+});
+
+/** Uses big10k (9418 fills); big remains uncached for the 2222-fill budget. */
 async function openReview(page: import("@playwright/test").Page) {
   await waitForIdleServer(page);
   await page.goto("/trade-review", { waitUntil: "networkidle" });
-  await page.getByLabel("复盘账户别名").fill("big");
+  await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
+  await page.getByLabel("复盘账户别名").fill("big10k");
   await page.getByRole("button", { name: "查看复盘" }).click();
+  await page.getByRole("radio", { name: "执行质量", exact: true }).click();
   await page
     .getByRole("table", { name: "逐笔执行质量" })
-    .or(page.locator('[aria-label="逐笔执行质量"]'))
-    .first()
-    .waitFor({ timeout: 5 * 60 * 1000 });
+    .getByRole("row")
+    .nth(1)
+    .waitFor({ timeout: 30000 });
 }
 
 test("a fill's evidence comes from the delivery statement and round-trips to its batch", async ({
@@ -25,17 +88,23 @@ test("a fill's evidence comes from the delivery statement and round-trips to its
   const detail = page.locator('section[aria-label="成交依据"]');
   await expect(detail).toContainText("交割单记录");
   await expect(detail).toContainText(
-    /ths-big\.txt · 导入于 .* · 原始第 \d+ 行/,
+    /ths-big10k\.txt · 导入于 .* · 原始第 \d+ 行/,
   );
   await expect(detail).toContainText("当日日线原始 VWAP");
   await expect(detail).toContainText("费用分项");
   await expect(detail.getByRole("heading", { level: 3 })).toBeFocused();
+  // Escape on another section must not close or focus the hidden detail.
+  await page.getByRole("radio", { name: "概览", exact: true }).click();
+  await expect(detail).toBeHidden();
+  await page.keyboard.press("Escape");
+  await page.getByRole("radio", { name: "执行质量", exact: true }).click();
+  await expect(detail).toBeVisible();
   // To the import batch and back.
   await detail.getByRole("button", { name: "在导入批次中查看" }).click();
   const back = page.getByRole("button", { name: "返回执行质量" });
   await expect(back).toBeVisible();
   await expect(page.locator("#cash-delivery-workspace")).toContainText(
-    "ths-big.txt",
+    "ths-big10k.txt",
   );
   await back.click();
   await expect(detail.getByRole("heading", { level: 3 })).toBeFocused();

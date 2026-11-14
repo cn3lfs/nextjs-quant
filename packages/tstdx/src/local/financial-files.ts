@@ -1,10 +1,11 @@
+import { resolveTdxRoot } from "./root.js";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseFinancialReport, type TdxFinancialReport } from "../financial.js";
 import { readStableLocalFile as readStableFinancialFile } from "./files.js";
 export { readStableLocalFile as readStableFinancialFile } from "./files.js";
 export const financialDirectory = (root: string) =>
-  resolve(root, "vipdoc", "cw");
+  resolve(resolveTdxRoot(root), "vipdoc", "cw");
 const indexes = new WeakMap<
   Buffer,
   Omit<TdxFinancialReport, "records"> & {

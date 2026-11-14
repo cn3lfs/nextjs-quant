@@ -21,7 +21,10 @@ export function RpsOverview() {
   });
   return (
     <>
-      <RpsRunStatus progress={status.data?.progress ?? null} />
+      <RpsRunStatus
+        progress={status.data?.progress ?? null}
+        readState={status.isError ? "error" : status.data ? "ready" : "loading"}
+      />
       <details className="nc-span-6 m-0 rounded-lg border bg-card p-4">
         <summary className="text-sm font-medium">
           历史运行日志{log.error ? " · 读取失败，展开重试" : ""}

@@ -56,6 +56,9 @@ it("handles loading, missing, failed reads and failed cancellation explicitly", 
   expect(html).toContain("取消失败：任务已结束");
 });
 it("exposes exact report destinations and disables duplicate cancellation", () => {
+  expect(render({ data: { ...data, screenResultId: "job?a&b" } })).toContain(
+    'href="/screen?job=job%3Fa%26b"',
+  );
   expect(
     render({
       data: {

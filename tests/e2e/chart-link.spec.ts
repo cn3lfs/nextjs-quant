@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { budgets, waitForIdleServer } from "./helpers";
 
 const legendDate = (chart: import("@playwright/test").Locator) =>

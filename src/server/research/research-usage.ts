@@ -1,5 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
-import { list, put, sqlite } from "../db";
+import { randomUUID } from "node:crypto";
+import { usageConfigHash } from "./research-config-hash";
+import { readRecordSnapshot, put, sqlite } from "../db";
 import { ResearchAttempts, bestEffortAudit } from "./research-governance";
 import { settings } from "../infra/settings";
 import {
@@ -9,21 +10,6 @@ import {
   type ResearchRange,
 } from "~/lib/research/workflow/research-usage";
 
-export function usageConfigHash(config: unknown): string {
-  function canonical(value: unknown): unknown {
-    if (Array.isArray(value)) return value.map(canonical);
-    if (value !== null && typeof value === "object")
-      return Object.fromEntries(
-        Object.entries(value)
-          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-          .map(([key, entry]) => [key, canonical(entry)]),
-      );
-    return value;
-  }
-  return createHash("sha256")
-    .update(JSON.stringify(canonical(config)))
-    .digest("hex");
-}
 type UsageInput = Pick<
   ResearchUsage,
   "kind" | "symbols" | "universeSize" | "range" | "candidateCount"
@@ -78,14 +64,13 @@ function markAuditIncomplete(attemptId: string) {
   );
 }
 export function researchUsage(range: ResearchRange) {
-  // SQLite LIMIT -1 means unlimited, unlike the shared list default of 200.
-  return summarizeResearchUsage(
-    list<unknown>("research-usage", -1).map((row) =>
-      researchUsageSchema.parse(row),
-    ),
-    range,
-    settings().holdoutStart,
-  );
+  const holdoutStart = settings().holdoutStart;
+  return readRecordSnapshot("research-usage", (rows: Iterable<unknown>) => {
+    function* validated() {
+      for (const row of rows) yield researchUsageSchema.parse(row);
+    }
+    return summarizeResearchUsage(validated(), range, holdoutStart);
+  });
 }
 export function recordedResearchTrials(
   range: ResearchRange,

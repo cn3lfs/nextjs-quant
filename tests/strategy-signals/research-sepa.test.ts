@@ -4,8 +4,6 @@ import {
   researchSepaSeries,
   sepaVcpScore,
 } from "trading-strategies/research/canslim/research-sepa";
-import { researchSignals } from "../../src/server/strategies/shared/research-signals";
-import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 const fixture = (): Bar[] => {
   const knots = [
     [0, 90],
@@ -42,7 +40,7 @@ const fixture = (): Bar[] => {
     };
   });
 };
-it("uses confirmed pre-breakout VCP and six price-only trend checks", async () => {
+it("uses confirmed pre-breakout VCP and six price-only trend checks", () => {
   const bars = fixture(),
     points = researchSepaSeries("sepa-vcp-close", bars);
   expect(sepaVcpScore(bars.slice(0, 370))).toMatchObject({ score: 11 });
@@ -56,20 +54,6 @@ it("uses confirmed pre-breakout VCP and six price-only trend checks", async () =
   expect(researchSepaSeries("sepa-vcp-close", bars.slice(0, 371))).toEqual(
     points.slice(0, 371),
   );
-  const spec = researchSpecSchema.parse({
-    strategy: "sepa-vcp-close",
-    start: bars[369]!.date,
-    end: bars[372]!.date,
-    validationStart: bars[372]!.date,
-  });
-  const events = await researchSignals("sh600000", bars, spec, async () => {
-    throw Error("unexpected native");
-  });
-  expect(events).toHaveLength(1);
-  expect(events[0]).toMatchObject({
-    observedDate: bars[370]!.date,
-    entryPriceRange: { min: 114, max: 119.7 },
-  });
 });
 it("keeps volume variants and exact close/volume thresholds separate", () => {
   const bars = fixture();

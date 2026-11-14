@@ -3,22 +3,6 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import ids from "~/lib/strategy-facts/trading-skill-ids.json";
-import {
-  canslimMethodFiles,
-  canslimMethodVersion,
-} from "../strategies/canslim/canslim-method";
-import {
-  chanMethodFiles,
-  chanMethodVersion,
-} from "../strategies/chan/chan-method";
-import {
-  wyckoffMethodFiles,
-  wyckoffMethodVersion,
-} from "../strategies/wyckoff/wyckoff-method";
-import {
-  valuationMethodFiles,
-  valuationMethodVersions,
-} from "../strategies/value/valuation-method";
 import type { Snapshot } from "~/lib/domain";
 const activeIds = ids.filter((id) => id !== "tdx-finance-skill");
 const root = () =>
@@ -39,17 +23,6 @@ const sepaFiles = [
   "../stop-loss/references/position-sizing.md",
   "../astock-market-rules/SKILL.md",
 ];
-const valuationCatalogFiles: Record<string, readonly string[]> = {
-  "fundamental-analyst": valuationMethodFiles.fundamental.map((file) =>
-    file.slice("fundamental-analyst/".length),
-  ),
-  "guo-yongqing-valuation": valuationMethodFiles.guo.map((file) =>
-    file.slice("guo-yongqing-valuation/".length),
-  ),
-  "value-investing": valuationMethodFiles.value.map((file) =>
-    file.slice("value-investing/".length),
-  ),
-};
 const integrations: Record<
   string,
   { scope: string; requirements: string[]; output: string; budget: string }
@@ -99,40 +72,6 @@ const integrations: Record<
     output: "gf-windmill-1",
     budget:
       "最多20页每页10条、45秒总预算；30分钟缓存；每批候选共用一次，不触发模型或交易",
-  },
-  "fundamental-analyst": {
-    scope:
-      "标准基本面五阶段独立资料复核；财务质量、增长、收入口径与人工估值情景，不提供完整评分或自动交易信号",
-    requirements: [
-      "标准基本面方法与三个参考文件",
-      "同一A股已归档连续年度财务与当前不复权日线",
-      "财务口径、排雷与重构缺项必须披露；估值参数取显式人工场景",
-    ],
-    output: "fundamentalReportSchema：基本面五阶段",
-    budget:
-      "背景最多两路并发、30分钟缓存；每报告1次模型请求及最多1次结构修复，同资料/方法/问题/提示版本/模型复用",
-  },
-  "guo-yongqing-valuation": {
-    scope:
-      "郭永清七步骤独立资料复核；保全性支出、股权资本成本与现金流五状态，不混用标准DCF-WACC",
-    requirements: [
-      "独立SKILL.md与四个参考文件",
-      "排雷、重构、行业开关与现金流缺项必须披露",
-    ],
-    output: "fundamentalReportSchema：郭永清七步骤",
-    budget: "同方法与证据版本复用；每报告1次模型请求及最多1次结构修复",
-  },
-  "value-investing": {
-    scope:
-      "价值投资八步骤资料复核；每股价值命题、反方与核验计划，隐含预期及市场分歧缺证时保留缺失，不产生混合评分",
-    requirements: [
-      "主方法与philosophy两个完整文件",
-      "同一A股年度财务、增长和当前日线",
-      "人工估值场景与事实分开，不自行补目标价或交易动作",
-    ],
-    output: "fundamentalReportSchema：价值投资八步骤",
-    budget:
-      "与基本面路径共享背景资料缓存；每报告1次模型请求及最多1次结构修复，同证据及方法版本复用",
   },
   "hithink-business-query": {
     scope:
@@ -188,40 +127,6 @@ const integrations: Record<
     ],
     output: "capital-events-1",
     budget: "每类最多20页、60秒；同请求合并，基本面背景缓存30分钟",
-  },
-  "wyckoff-trader": {
-    scope:
-      "八阶段多周期研究假设；已接入本地沪深300与同日相对强弱，行业及P&F计算证据尚缺，不提供综合评分、目标价或自动信号",
-    requirements: [
-      "11个方法文件",
-      "A股不复权日线、参考交易日历及可选五分钟资料",
-      "周线缺口、陈旧小时及不足30根的周期必须披露",
-    ],
-    output: wyckoffMethodVersion,
-    budget:
-      "每报告1次模型请求及最多1次结构修复；同证据、问题、方法、提示版本及模型复用报告",
-  },
-  "chan-theory": {
-    scope:
-      "五阶段缠论假设标注与课文引用；仅供人工核验，笔、线段及中枢算法未验收，不开放自动扫描或信号",
-    requirements: [
-      "五个方法文件及可定位课文引文",
-      "至少三根已完成的不复权日线或五分钟K线，最多使用末尾300根",
-      "图周期不等于走势级别，结构假设及缺口必须披露",
-    ],
-    output: chanMethodVersion,
-    budget:
-      "每报告1次模型请求及最多1次结构修复；同窗口、问题、方法及模型复用报告",
-  },
-  "canslim-analyst": {
-    scope: "七因子17分项证据与六阶段研究；未核验项不构成完整评级或交易授权",
-    requirements: [
-      "五个方法文件",
-      "日线、财务、市场及机构等证据",
-      "资料覆盖、形态、账户与历史时点缺口必须披露",
-    ],
-    output: canslimMethodVersion,
-    budget: "每报告1次模型请求及最多1次结构修复；同档案、方法及模型复用报告",
   },
   "sepa-strategy-analyst": {
     scope: "六阶段证据研究报告，不等于完整实盘决策",
@@ -368,29 +273,21 @@ export async function researchSkillCatalog() {
     activeIds.map(async (skillId) => {
       const integration = integrations[skillId];
       const files = await Promise.all(
-        (
-          valuationCatalogFiles[skillId] ??
-          (skillId === "swing-trader"
-            ? [
-                "SKILL.md",
-                "references/trading-system.md",
-                "references/technical-indicators.md",
-              ]
-            : skillId === "tmt-crowding"
-              ? ["SKILL.md", "scripts/tmt_crowding.py"]
-              : skillId === "volume-price-analysis"
-                ? volumePriceFiles
-                : skillId === "sepa-strategy-analyst"
-                  ? sepaFiles
-                  : skillId === "canslim-analyst"
-                    ? canslimMethodFiles
-                    : skillId === "chan-theory"
-                      ? chanMethodFiles
-                      : skillId === "wyckoff-trader"
-                        ? wyckoffMethodFiles
-                        : skillId === "news-industry-classifier"
-                          ? ["SKILL.md", "references/sw-industries.md"]
-                          : ["SKILL.md"])
+        (skillId === "swing-trader"
+          ? [
+              "SKILL.md",
+              "references/trading-system.md",
+              "references/technical-indicators.md",
+            ]
+          : skillId === "tmt-crowding"
+            ? ["SKILL.md", "scripts/tmt_crowding.py"]
+            : skillId === "volume-price-analysis"
+              ? volumePriceFiles
+              : skillId === "sepa-strategy-analyst"
+                ? sepaFiles
+                : skillId === "news-industry-classifier"
+                  ? ["SKILL.md", "references/sw-industries.md"]
+                  : ["SKILL.md"]
         ).map(async (file) => {
           try {
             const text = await readFile(join(root(), skillId, file), "utf8");
@@ -425,13 +322,7 @@ export async function researchSkillCatalog() {
             ? "incomplete"
             : skillId === "volume-price-analysis"
               ? "quick-review"
-              : skillId === "sepa-strategy-analyst" ||
-                  skillId === "canslim-analyst" ||
-                  skillId === "chan-theory" ||
-                  skillId === "wyckoff-trader" ||
-                  skillId === "fundamental-analyst" ||
-                  skillId === "guo-yongqing-valuation" ||
-                  skillId === "value-investing"
+              : skillId === "sepa-strategy-analyst"
                 ? "staged-research"
                 : integration
                   ? "adapter"
@@ -443,29 +334,17 @@ export async function researchSkillCatalog() {
                 ? "tmt-crowding-1"
                 : skillId === "gf-windmill"
                   ? "gf-windmill-1"
-                  : skillId === "fundamental-analyst"
-                    ? valuationMethodVersions.fundamental
-                    : skillId === "guo-yongqing-valuation"
-                      ? valuationMethodVersions.guo
-                      : skillId === "value-investing"
-                        ? valuationMethodVersions.value
-                        : skillId === "volume-price-analysis"
-                          ? "vp-app-1"
-                          : skillId === "sepa-strategy-analyst"
-                            ? "sepa-report-3"
-                            : skillId === "canslim-analyst"
-                              ? canslimMethodVersion
-                              : skillId === "chan-theory"
-                                ? chanMethodVersion
-                                : skillId === "wyckoff-trader"
-                                  ? wyckoffMethodVersion
-                                  : skillId === "news-industry-classifier"
-                                    ? "news-classification-1"
-                                    : skillId === "news-sector-analyzer"
-                                      ? "news-sector-1"
-                                      : skillId === "mx-ds-mcp-skill"
-                                        ? "mx-data-1"
-                                        : null,
+                  : skillId === "volume-price-analysis"
+                    ? "vp-app-1"
+                    : skillId === "sepa-strategy-analyst"
+                      ? "sepa-report-3"
+                      : skillId === "news-industry-classifier"
+                        ? "news-classification-1"
+                        : skillId === "news-sector-analyzer"
+                          ? "news-sector-1"
+                          : skillId === "mx-ds-mcp-skill"
+                            ? "mx-data-1"
+                            : null,
         };
       } catch {
         return {

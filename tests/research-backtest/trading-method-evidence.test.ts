@@ -4,10 +4,55 @@ import { tradingMethodMapSchema } from "../../scripts/lib/trading-method-map";
 import {
   collectMethodEvidence,
   reconcileMethodEvidence,
+  type MethodEvidence,
 } from "../../scripts/lib/trading-method-evidence";
 import { researchStrategyFamilies } from "../../src/lib/research/specs/research-strategies";
 const map = tradingMethodMapSchema.parse(raw);
 const evidence = collectMethodEvidence(researchStrategyFamilies);
+it("includes package-owned rule tests and resolves their source imports", () => {
+  const test =
+    "packages/trading-strategies/tests/growth-intraday-policy.test.ts";
+  expect(evidence.tests.has(test)).toBe(true);
+  expect(evidence.imports.get(test)).toContain(
+    "packages/trading-strategies/src/research/growth/growth-intraday-policy.ts",
+  );
+});
+it("requires a declared test consumer for each library export without a retired application entrypoint", () => {
+  const file = "src/lib/example.ts";
+  const test = "tests/example.test.ts";
+  const fixture = {
+    ...map,
+    methods: [
+      {
+        ...map.methods[0]!,
+        id: "RK-export-fixture",
+        implementation: [file],
+        tests: [test],
+        bindings: {
+          presets: [],
+          exports: [{ file, name: "compute" }],
+          completion: "implemented-variant" as const,
+        },
+      },
+    ],
+  };
+  const covered: MethodEvidence = {
+    owners: new Map(),
+    exports: new Map([[file, new Set(["compute"])]]),
+    imports: new Map([[test, new Set([file])]]),
+    tests: new Set([test]),
+    files: new Set([file, test]),
+  };
+  expect(reconcileMethodEvidence(fixture, covered).errors).toEqual([]);
+  const disconnected = { ...covered, imports: new Map<string, Set<string>>() };
+  expect(reconcileMethodEvidence(fixture, disconnected).errors).toContain(
+    `RK-export-fixture: implementation export missing/uncovered: ${file}#compute`,
+  );
+  const absent = { ...covered, exports: new Map<string, Set<string>>() };
+  expect(reconcileMethodEvidence(fixture, absent).errors).toContain(
+    `RK-export-fixture: implementation export missing/uncovered: ${file}#compute`,
+  );
+});
 it("discovers every executable preset and consumes real test modules without manual counts", () => {
   const result = reconcileMethodEvidence(map, evidence);
   expect(result.errors).toEqual([]);
@@ -23,7 +68,10 @@ it("reports registration absent from map, and claimed implementation without cod
     ...evidence,
     owners: new Map([
       ...evidence.owners,
-      ["flag-unmapped", "packages/trading-strategies/src/research/technical/research-channels.ts"],
+      [
+        "flag-unmapped",
+        "packages/trading-strategies/src/research/technical/research-channels.ts",
+      ],
     ]),
   };
   expect(reconcileMethodEvidence(map, unknown).errors).toContain(
@@ -52,8 +100,12 @@ it("backfills stale fields deterministically but never infers semantic completen
   const result = reconcileMethodEvidence(changed, evidence);
   const fixed = result.map.methods.find((m) => m.id === row.id)!;
   expect(fixed.status).toBe("implemented-variant");
-  expect(fixed.implementation).toContain("packages/trading-strategies/src/research/technical/research-channels.ts");
-  expect(fixed.tests).toContain("tests/research-backtest/research-contracts.test.ts");
+  expect(fixed.implementation).toContain(
+    "packages/trading-strategies/src/research/technical/research-channels.ts",
+  );
+  expect(fixed.tests).toContain(
+    "tests/research-backtest/research-contracts.test.ts",
+  );
   expect(result.changes.map((c) => c.id)).toContain(row.id);
   expect(reconcileMethodEvidence(result.map, evidence).changes).toEqual([]);
 });

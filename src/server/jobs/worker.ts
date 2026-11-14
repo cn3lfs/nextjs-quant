@@ -1,4 +1,3 @@
-import type { ResearchAdjustment } from "~/lib/research/evidence/research-adjustment";
 import {
   executeMaBaseline,
   type MaBaselineWork,
@@ -11,72 +10,49 @@ import {
 } from "../financial/local-financial-work";
 import { scan } from "../data-sources/tdx/tdx";
 import { readVipdocChart } from "../data-sources/tdx/vipdoc-adapter";
-import { backtest } from "../backtest/quant";
-import { screenLocal } from "../screening/screening";
-import {
-  scanFormulaRange,
-  screenFormula,
-  type FormulaWork,
-} from "../screening/formula-screening";
+import type { FormulaWork } from "../screening/formula-screening";
+import { executeFormulaScreen } from "../screening/formula-screen-work";
+import { scanFormulaRange } from "../screening/formula-range";
 import type { FormulaShardWork } from "../screening/formula-shards";
-import type { PackedScreen } from "../screening/screen-wire";
 import {
   evaluateFactorWork,
   type FactorWork,
 } from "../research/factor-evaluation-job";
-import { fullBacktestSource } from "../backtest/backtest-source";
-import { readBacktestActions } from "../backtest/backtest-actions";
-import { cashDividendWindow } from "../backtest/cash-dividend-window";
-import { reconciledCashPlan } from "../backtest/cash-dividend-plan";
-import type { reconcileDividends } from "../backtest/dividend-reconciliation";
-import type { CashDividendPlan } from "~/lib/portfolio/cash-dividends";
-import { walkForward } from "../backtest/walk-forward";
-import { tradeRounds } from "~/lib/backtest/trade-rounds";
-import type { WalkForwardOptions } from "~/lib/backtest/walk-forward";
-import type { BacktestCosts } from "~/lib/backtest/backtest-costs";
-import type { Strategy, Candidate, Snapshot, Period } from "~/lib/domain";
+import type { Period } from "~/lib/domain";
+let progressId = 0;
+/** Yield SQLite's writer slot until the host has committed this batch's progress. */
+function reportSavedBatch() {
+  const port = parentPort;
+  if (!port) throw new Error("公式快照保存需要计算线程");
+  const id = ++progressId;
+  return new Promise<void>((resolve, reject) => {
+    const acknowledged = (message: { progressAck?: number }) => {
+      if (message.progressAck !== id) return;
+      port.off("message", acknowledged);
+      resolve();
+    };
+    port.on("message", acknowledged);
+    try {
+      port.postMessage({
+        progress: 95,
+        phase: "保存公式候选快照",
+        progressId: id,
+      });
+    } catch (error) {
+      port.off("message", acknowledged);
+      reject(error);
+    }
+  });
+}
 export type Work =
   | LocalFinancialWork
   | MaBaselineWork
   | FormulaWork
   | FormulaShardWork
   | FactorWork
-  | {
-      type: "walk-forward";
-      snapshot: Snapshot;
-      strategy: Strategy;
-      initial: number;
-      costs: BacktestCosts;
-      options: WalkForwardOptions;
-      fullRoot?: string;
-    }
   | { type: "scan"; root: string }
-  | { type: "snapshot"; root: string; symbol: string; period: Period }
-  | {
-      type: "screen";
-      root: string;
-      symbols: string[];
-      names?: Record<string, string>;
-      period: Period;
-      strategy: Strategy;
-      asOf?: string;
-    }
-  | {
-      type: "backtest";
-      adjustment?: ResearchAdjustment;
-      snapshot: Snapshot;
-      strategy: Strategy;
-      initial: number;
-      fullRoot?: string;
-      costs?: BacktestCosts;
-      cashDividends?: {
-        plan: CashDividendPlan;
-        start: string;
-        end: string;
-        review: ReturnType<typeof reconcileDividends>;
-      };
-    };
-async function main(work: Work & { attemptId?: string }) {
+  | { type: "snapshot"; root: string; symbol: string; period: Period };
+async function main(work: Work & { attemptId?: string; jobId?: string }) {
   if (work.type === "local-financial")
     return executeLocalFinancialWork(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),
@@ -104,8 +80,12 @@ async function main(work: Work & { attemptId?: string }) {
     return archive;
   }
   if (work.type === "formula-screen")
-    return screenFormula(work, (progress, phase, workProgress) =>
-      parentPort?.postMessage({ progress, phase, workProgress }),
+    return executeFormulaScreen(
+      work,
+      work.jobId,
+      (progress, phase, workProgress) =>
+        parentPort?.postMessage({ progress, phase, workProgress }),
+      reportSavedBatch,
     );
   // A range of a parallel formula screen (a nested thread of its worker).
   if (work.type === "formula-shard")
@@ -122,151 +102,15 @@ async function main(work: Work & { attemptId?: string }) {
     return evaluateFactorWork(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),
     );
-  if (work.type === "walk-forward") {
-    const source = work.fullRoot
-      ? await fullBacktestSource(work.snapshot, work.fullRoot)
-      : work.snapshot;
-    const corporateActions =
-      work.options.adjustment === "backward"
-        ? await readBacktestActions(source, work.fullRoot ?? source.dataRoot)
-        : undefined;
-    return {
-      source,
-      result: {
-        ...walkForward(
-          source,
-          work.strategy,
-          work.initial,
-          work.costs,
-          work.options,
-          (done, total) =>
-            parentPort?.postMessage({
-              progress: Math.round((done / total) * 100),
-              phase: `滚动检验 ${done}/${total}`,
-            }),
-          corporateActions,
-        ),
-        corporateActions:
-          corporateActions ??
-          (await readBacktestActions(source, work.fullRoot ?? source.dataRoot)),
-      },
-    };
-  }
   if (work.type === "scan") return scan(work.root);
   if (work.type === "snapshot")
     return readVipdocChart(work.root, work.symbol, work.period);
-  if (work.type === "backtest") {
-    let source = work.fullRoot
-      ? await fullBacktestSource(work.snapshot, work.fullRoot)
-      : work.snapshot;
-    let evaluationStart = work.strategy.slow;
-    let dividendPlan = work.cashDividends?.plan;
-    if (work.cashDividends) {
-      const window = cashDividendWindow(
-        source,
-        work.cashDividends.start,
-        work.cashDividends.end,
-        work.strategy.slow,
-      );
-      source = window.source;
-      evaluationStart = window.evaluationStart;
-      dividendPlan = reconciledCashPlan(
-        work.cashDividends.review,
-        work.cashDividends.plan.taxBps,
-        work.cashDividends.start,
-        work.cashDividends.end,
-        source.bars[Math.max(0, evaluationStart - work.strategy.slow - 2)]!
-          .date,
-      );
-    }
-    if (
-      work.adjustment === "backward" &&
-      (source.period !== "day" || source.adjustment !== "none")
-    )
-      throw new Error("送转研究需要不复权日线快照");
-    const corporateActions =
-      work.adjustment === "backward"
-        ? await readBacktestActions(source, work.fullRoot ?? source.dataRoot)
-        : undefined;
-    const result = backtest(
-      source.bars,
-      work.strategy,
-      source.id,
-      work.initial,
-      work.costs,
-      evaluationStart,
-      dividendPlan,
-      { adjustment: work.adjustment, corporateActions },
-    );
-    recordResearchUsage(
-      () => ({
-        kind: "backtest",
-        symbols: [source.symbol],
-        universeSize: 1,
-        range: {
-          start: source.bars[0]!.date.slice(0, 10),
-          end: source.bars.at(-1)!.date.slice(0, 10),
-        },
-        candidateCount: 1,
-        config: {
-          kind: "backtest",
-          symbol: source.symbol,
-          period: source.period,
-          strategy: work.strategy,
-          initial: work.initial,
-          costs: work.costs,
-          ...(work.adjustment ? { adjustment: work.adjustment } : {}),
-          cashDividends: dividendPlan
-            ? { taxBps: dividendPlan.taxBps, mode: "cash-dividend" }
-            : null,
-        },
-      }),
-      work.attemptId,
-    );
-    return {
-      source,
-      result: {
-        ...result,
-        // Additive: per-round MFE/MAE on the same bars the backtest used.
-        rounds: tradeRounds(result.trades, source.bars),
-        corporateActions:
-          corporateActions ??
-          (await readBacktestActions(source, work.fullRoot ?? source.dataRoot)),
-        dataRange: {
-          scope: work.cashDividends
-            ? "window"
-            : work.fullRoot
-              ? "full"
-              : "window",
-          ...(work.cashDividends ? { warmupBars: evaluationStart } : {}),
-          start: source.bars[work.cashDividends ? evaluationStart : 0]!.date,
-          end: source.bars.at(-1)!.date,
-          bars: source.bars.length - (work.cashDividends ? evaluationStart : 0),
-          selectedSnapshotId: work.snapshot.id,
-        },
-      },
-    };
-  }
-  return screenLocal(
-    work,
-    (progress, phase, workProgress) =>
-      parentPort?.postMessage({ progress, phase, workProgress }),
-    true,
-  );
+  throw new Error("不支持的计算任务类型");
 }
-parentPort?.on("message", (work: Work) => {
+parentPort?.on("message", (work: Work | { progressAck: number }) => {
+  if ("progressAck" in work) return;
   void main(work)
-    .then((result) => {
-      if (work.type === "screen") {
-        const screenResult = result as PackedScreen;
-        parentPort?.postMessage({ screenResult }, [
-          ...new Set([
-            screenResult.values.buffer,
-            screenResult.dateIndexes.buffer,
-          ]),
-        ]);
-      } else parentPort?.postMessage({ result });
-    })
+    .then((result) => parentPort?.postMessage({ result }))
     .catch((error) =>
       parentPort?.postMessage({
         error: error instanceof Error ? error.message : "计算失败",

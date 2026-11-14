@@ -1,4 +1,30 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
+const fixture = vi.hoisted(() => ({ workerPath: "" }));
+vi.mock("node:worker_threads", async (original) => {
+  const actual = await original<typeof import("node:worker_threads")>();
+  return {
+    ...actual,
+    Worker: class extends actual.Worker {
+      constructor(
+        filename: string | URL,
+        options?: import("node:worker_threads").WorkerOptions,
+      ) {
+        super(
+          String(filename).endsWith("signal-ledger-worker.cjs")
+            ? fixture.workerPath
+            : filename,
+          options,
+        );
+      }
+    },
+  };
+});
+// Exercise worker lifecycle under an enabled fixture policy; the actual paused
+// policy is covered through real entrypoints in paused-capability-boundaries.
+vi.mock("~/lib/common/capabilities", async (original) => ({
+  ...(await original<typeof import("~/lib/common/capabilities")>()),
+  capabilityAllows: () => true,
+}));
 import { build } from "esbuild";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
@@ -10,17 +36,24 @@ import { SignalLedgerWorker } from "../../../src/server/monitoring/signal-ledger
 import valid from "../../fixtures/breakout-valid.json";
 
 it("resident ledger worker reports progress while the caller ticks, cancels and accepts another job", async () => {
+  const directory = await mkdtemp(
+    join(process.env.QUANT_DATA_DIR!, "ledger-worker-"),
+  );
+  fixture.workerPath = join(directory, "signal-ledger-worker.cjs");
   await build({
     entryPoints: ["src/server/monitoring/signal-ledger-worker.ts"],
-    outfile: "runtime/signal-ledger-worker.cjs",
+    outfile: fixture.workerPath,
     bundle: true,
     platform: "node",
     format: "cjs",
     external: ["better-sqlite3", "koffi"],
     target: "node22",
+    alias: {
+      "~/lib/common/capabilities": resolve(
+        "tests/helpers/enabled-capabilities.ts",
+      ),
+    },
   });
-  await mkdir(".test-data", { recursive: true });
-  const directory = await mkdtemp(resolve(".test-data/n1-worker-"));
   const prior = process.env.QUANT_DATA_DIR;
   process.env.QUANT_DATA_DIR = directory;
   const root = join(directory, "tdx");

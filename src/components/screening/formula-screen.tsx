@@ -15,11 +15,13 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { validateScreenFormula } from "~/lib/formula/formula-screen";
 import { arities, futureFunctions } from "~/lib/formula/tdx-formula-check";
+import { usePanelVisible } from "~/components/workbench/keep-alive";
 export function FormulaScreen({
   onStarted,
 }: {
   onStarted: (id: string) => void;
 }) {
+  const visible = usePanelVisible();
   const [id, setId] = useState<string | undefined>();
   const [name, setName] = useState("均线金叉");
   const [source, setSource] = useState("选股:CROSS(MA(C,N1),MA(C,N2));");
@@ -28,7 +30,7 @@ export function FormulaScreen({
   const [message, setMessage] = useState("");
   const key = JSON.stringify([name, source, params]);
   const utils = api.useUtils();
-  const formulas = api.formulas.useQuery();
+  const formulas = api.formulas.useQuery(undefined, { enabled: visible });
   const save = api.saveFormula.useMutation();
   const run = api.formulaScreen.useMutation();
   const draft = api.formulaFromText.useMutation();
@@ -146,7 +148,7 @@ export function FormulaScreen({
             aria-label="一句话选股"
             value={request}
             maxLength={500}
-            placeholder="例如：MACD 金叉、RPS250 大于 90、近 5 日放量"
+            placeholder="例如：MACD 金叉、RPS120 大于 90、近 5 日放量"
             onChange={(e) => setRequest(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && request.trim().length >= 2 && !busy)

@@ -2,8 +2,11 @@ import { expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { join } from "node:path";
 import { sqlite } from "~/server/db";
-import { industryDay, industrySnapshot } from "../../industry-rps-fixture";
-import { rpsDay } from "../../rps-fixture";
+import {
+  industryDay,
+  industrySnapshot,
+} from "../../helpers/industry-rps-fixture";
+import { rpsDay } from "../../helpers/rps-fixture";
 import { rpsHash } from "~/server/infra/content-hash";
 import { rebuildBlockRps } from "~/server/screening/rps-block-rebuild";
 import {

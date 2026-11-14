@@ -1,4 +1,5 @@
 "use client";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Ranking } from "@phosphor-icons/react/ssr";
 import { isNonAShareChartSymbol } from "~/lib/chart/chart-symbol";
 import { api } from "~/trpc/react";
@@ -41,7 +42,7 @@ export function SymbolRpsBars({ symbol }: { symbol: string }) {
                 ? [
                     {
                       key: String(period),
-                      name: `RPS ${period}`,
+                      name: rpsPeriodLabel(period),
                       value: value.rps.toFixed(0),
                       pct: value.rps,
                     },

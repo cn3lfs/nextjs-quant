@@ -504,7 +504,7 @@ S0—S5 已完成，原 308 个根文件迁移 302 个，根保留 6 个有明�
 | `online-screen.ts` | 2 | 迁移；同批更新消费者 |
 | `rps-block-source.ts` | 4 | 迁移；同批更新消费者 |
 | `rps-client.ts` | 4 | 迁移；同批更新消费者 |
-| `rps-engine.ts` | 9 | 迁移；同批更新消费者 |
+| `rps-adapter.ts`            | 9              | 迁移；同批更新消费者 |
 | `rps-job.ts` | 10 | 迁移；同批更新消费者 |
 | `rps-observation-job.ts` | 4 | 迁移；同批更新消费者 |
 | `rps-observation.ts` | 11 | 迁移；同批更新消费者 |

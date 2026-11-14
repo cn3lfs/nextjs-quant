@@ -21,6 +21,7 @@ export function SecuritySelect({
   captureKeys = true,
   placeholder = "名称 / 代码 / 拼音，支持 pt 或 emBK 板块代码",
   label = "搜索品种名称或代码",
+  acceptSymbol,
 }: {
   symbol: string;
   name?: string;
@@ -33,6 +34,8 @@ export function SecuritySelect({
   captureKeys?: boolean;
   placeholder?: string;
   label?: string;
+  /** Restrict a non-chart consumer to its execution contract. */
+  acceptSymbol?: (symbol: string) => boolean;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -69,8 +72,15 @@ export function SecuritySelect({
     { query, period },
     { enabled: open, staleTime: 0 },
   );
-  const directSymbol = normalizeChartSymbol(query);
-  const existing = results.data ?? [];
+  const normalized = normalizeChartSymbol(query);
+  const directSymbol =
+    normalized && (!acceptSymbol || acceptSymbol(normalized))
+      ? normalized
+      : null;
+  // A security's source period is data, not a keyboard period command.
+  const existing = (results.data ?? [])
+    .filter((item) => !acceptSymbol || acceptSymbol(item.symbol))
+    .map(({ symbol, name }) => ({ symbol, name }));
   const codePeriod = onPeriod ? periodFromCode(query) : null;
   const items = [
     // An exact period code is offered first, as in the TDX keyboard sprite;
@@ -158,9 +168,9 @@ export function SecuritySelect({
                 .getElementById(`${id}-${next}`)
                 ?.scrollIntoView({ block: "nearest" });
             }
-            if (event.key === "Enter" && open && items[index]) {
+            if (event.key === "Enter" && open) {
               event.preventDefault();
-              select(items[index]);
+              if (items[index]) select(items[index]);
             }
           }}
         />

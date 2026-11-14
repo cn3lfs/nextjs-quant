@@ -87,23 +87,27 @@ beforeEach(() => {
   sqlite().prepare("DELETE FROM records").run();
 });
 
-it("actual router rejects old execution and exposes baseline and modular factors", async () => {
+it("actual router removes old execution and exposes the current strategy catalog", async () => {
   const caller = appRouter.createCaller(
     await createTRPCContext({ headers: new Headers() }),
   );
-  const catalog = await caller.strategyLifecycle();
-  expect(catalog.active.map((v) => v.id)).toEqual([
-    "ma-cross-baseline-v1",
-    "factor-combination-v1",
-  ]);
-  expect(catalog.deprecated.every((v) => v.status === "deprecated")).toBe(true);
-  await expect(
-    caller.backtest({
-      snapshotId: "missing",
-      strategy: defaultStrategy,
-      initial: 100000,
-    }),
-  ).rejects.toThrow("已弃用");
+  const catalog = await caller.strategyCenterCatalog();
+  expect(catalog.map((v) => v.id)).toEqual(
+    expect.arrayContaining(["ma", "research-breakout", "research-chan"]),
+  );
+  for (const name of ["backtest", "screen", "interpret"]) {
+    const removed = caller as unknown as Record<
+      string,
+      (input: unknown) => Promise<unknown>
+    >;
+    await expect(
+      removed[name]!({
+        snapshotId: "missing",
+        strategy: defaultStrategy,
+        initial: 100000,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  }
   expect(
     sqlite()
       .prepare("SELECT count(*) AS n FROM records WHERE kind='job'")

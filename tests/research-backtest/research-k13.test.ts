@@ -1,6 +1,4 @@
 import { expect, it } from "vitest";
-import type { Bar } from "../../src/lib/domain";
-import type { ResearchTrade } from "../../src/server/backtest/research-portfolio";
 import {
   compareK13Contracts,
   researchK13Cycle100,
@@ -8,7 +6,6 @@ import {
   researchK13MaeQuantile,
   researchK13MfeTail,
   researchK13Overlap,
-  researchK13Records,
   researchK13Regime,
   researchK13Report,
   researchK13Review,
@@ -96,54 +93,6 @@ it("compares only candidates sharing the complete frozen contract", () => {
       { ...contract("q90"), costs: { ...contract().costs, slippageBps: 3 } },
     ]).comparable,
   ).toBe(false);
-});
-
-it("derives MAE/MFE only through the actual exit date", () => {
-  const calendar = Array.from({ length: 6 }, (_, index) => date(index));
-  const bars: Bar[] = calendar.map((day, index) => ({
-    date: day,
-    open: 100,
-    high: index === 3 ? 1000 : 103,
-    low: index === 3 ? 1 : index === 1 ? 99 : 98,
-    close: 101,
-    volume: 1000,
-    amount: 100000,
-  }));
-  const trade: ResearchTrade = {
-    event: {
-      symbol: "sh600000",
-      key: "one",
-      observedDate: calendar[0]!,
-      endpointDate: calendar[0]!,
-      strategyVersion: "v1",
-      partition: "development",
-      evidence: "fixture",
-      stopAtr: 2,
-    },
-    entryDate: calendar[1]!,
-    entryIndex: 1,
-    entryPrice: 100,
-    quantity: 100,
-    entryCost: 10000,
-    exitDate: calendar[3]!,
-    exitPrice: 102,
-    profit: 200,
-    netReturn: 0.02,
-    lastPrice: 102,
-    initialStop: 98,
-    exitReason: "止盈",
-  };
-  const derived = researchK13Records(
-    [trade],
-    new Map([[trade.event.symbol, bars]]),
-    calendar,
-  )[0]!;
-  expect(derived).toMatchObject({
-    complete: true,
-    mae: 0.02,
-    mfe: 0.03,
-    entryAtr: 2,
-  });
 });
 
 it.each([
@@ -325,6 +274,7 @@ it("keeps complete trade review and monthly realized-profit evidence together", 
 it("downgrades every report method when historical data is unavailable", () => {
   const report = researchK13Report({
     contract: contract(),
+    records: [],
     dataStatus: "data-insufficient",
     dataReason: "缺少历史可知证券池与完整公司行动证据",
   });

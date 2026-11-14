@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import type { Bar } from "../../../src/lib/domain";
 import { candlePatterns } from "../../../src/lib/indicators";
 import { breakoutPatterns } from "trading-strategies/research/breakout/breakout";
@@ -7,33 +7,6 @@ import {
   researchCandleSeries,
   type CandleStrategyId,
 } from "trading-strategies/research/technical/research-candles";
-import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
-import { researchSignals } from "../../../src/server/strategies/shared/research-signals";
-import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
-import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import { runStrategyResearch } from "../../../src/server/backtest/research-run";
-import {
-  researchHash,
-  type ResearchDataset,
-} from "../../../src/server/backtest/research-dataset";
-import { researchMarketEvidenceSchema } from "trading-strategies/research/factors/research-market-evidence";
-
-const native = vi.fn(async (): Promise<never> => {
-  throw new Error("native must not run");
-});
-const rules = {
-  evidence: "fixture",
-  minimumBuy: 100,
-  buyStep: 100,
-  maximumOrder: 100000,
-  minimumSell: 100,
-  sellStep: 100,
-  maximumSell: 100000,
-  sellOddLotAll: true,
-  tradable: true,
-  limitUp: null,
-  limitDown: null,
-};
 function fixture(id: CandleStrategyId): Bar[] {
   const bars = Array.from({ length: 102 }, (_, i) => {
     const close = i >= 61 && i <= 81 ? 80 + (i - 61) : 100;
@@ -88,53 +61,6 @@ function fixture(id: CandleStrategyId): Bar[] {
   }
   return bars;
 }
-function specFor(id: CandleStrategyId, bars: Bar[]) {
-  return researchSpecSchema.parse({
-    strategy: id,
-    start: bars[61]!.date,
-    end: bars.at(-1)!.date,
-    validationStart: bars[100]!.date,
-    symbols: ["sh600000"],
-    initialCapital: 200000,
-    holdingDays: 60,
-    costs: {
-      commissionBps: 0,
-      minimumCommission: 0,
-      sellTaxBps: 0,
-      slippageBps: 0,
-    },
-  });
-}
-it.each(candleStrategyIds)(
-  "%s has causal signals and a next-open complete trade",
-  async (id) => {
-    const bars = fixture(id),
-      spec = specFor(id, bars),
-      series = researchCandleSeries(id, bars),
-      point = series[90]!;
-    expect(point.reason).toBeNull();
-    expect(id.endsWith("-exit") ? point.exit : point.entry).toBe(true);
-    expect(researchCandleSeries(id, bars.slice(0, 91))).toEqual(
-      series.slice(0, 91),
-    );
-    const events = await researchSignals("sh600000", bars, spec, native);
-    const result = researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      () => rules,
-    );
-    const trade = id.endsWith("-exit")
-      ? result.trades.find((t) => t.exitDate === bars[91]!.date)
-      : result.trades.find((t) => t.entryDate === bars[91]!.date);
-    expect(trade).toBeDefined();
-    expect(trade!.exitDate).toBe(bars[id.endsWith("-exit") ? 91 : 97]!.date);
-    expect(trade!.signalExit).toEqual(series[id.endsWith("-exit") ? 90 : 96]);
-    expect(researchMethodSnapshot(spec).ruleVersion).toBe(`${id}-1`);
-    expect(native).not.toHaveBeenCalled();
-  },
-);
 
 it("keeps the five legacy diagnostic patterns and distinguishes doji, gaps, shadows and engulfing", () => {
   for (const id of candleStrategyIds) {
@@ -192,132 +118,16 @@ it("rejects invalid background and does not treat a one-price suspension as a do
   rising[87]!.low = 100;
   expect(researchCandleSeries("candle-hammer", rising)[90]!.entry).toBe(false);
 });
-
-it("keeps a confirmed candle exit pending through a blocked open and requires independent sell rules", async () => {
-  const bars = fixture("candle-hammer"),
-    spec = specFor("candle-hammer", bars);
-  const events = await researchSignals("sh600000", bars, spec, native);
-  const simulate = (lookup: Parameters<typeof researchPortfolio>[4]) =>
-    researchPortfolio(
-      spec,
-      events,
-      bars.map((b) => b.date),
-      new Map([["sh600000", bars]]),
-      lookup,
+it.each(candleStrategyIds)(
+  "%s calculates causal candle entry and exit",
+  (id) => {
+    const bars = fixture(id),
+      series = researchCandleSeries(id, bars),
+      point = series[90]!;
+    expect(point.reason).toBeNull();
+    expect(id.endsWith("-exit") ? point.exit : point.entry).toBe(true);
+    expect(researchCandleSeries(id, bars.slice(0, 91))).toEqual(
+      series.slice(0, 91),
     );
-  const delayed = simulate((_symbol, date) => ({
-    ...rules,
-    tradable: date !== bars[97]!.date,
-  }));
-  expect(delayed.trades[0]!.exitDate).toBe(bars[98]!.date);
-  expect(delayed.trades[0]!.signalExit!.date).toBe(bars[96]!.date);
-  const {
-    minimumSell: _a,
-    sellStep: _b,
-    maximumSell: _c,
-    sellOddLotAll: _d,
-    ...buyOnly
-  } = rules;
-  expect(simulate(() => buyOnly).trades).toEqual([]);
-});
-
-it("requires prehistory action evidence and rejects known ex-rights in the complete research runner", async () => {
-  const bars = fixture("candle-hammer"),
-    spec = specFor("candle-hammer", bars);
-  const dataset: ResearchDataset = {
-    version: "research-dataset-1",
-    source: "tdx-local",
-    root: "synthetic",
-    adjustment: "none",
-    membership: {
-      mode: "current-snapshot",
-      symbols: spec.symbols!,
-      source: null,
-      warning: "合成",
-    },
-    benchmark: { symbol: "sh000001", bars },
-    calendar: bars.map((b) => b.date),
-    stocks: [
-      {
-        symbol: "sh600000",
-        name: "合成",
-        bars,
-        hash: researchHash(bars),
-        actions: [],
-      },
-    ],
-    excluded: [],
-    actionCoverage: "partial",
-    actionSource: { path: "fixture", modified: 0 },
-    capturedAt: 0,
-    hash: "candle-fixture",
-    method: researchMethodSnapshot(spec),
-  };
-  const evidence = researchMarketEvidenceSchema.parse({
-    version: "research-market-evidence-1",
-    source: "fixture",
-    exportedAt: 0,
-    adjustment: "none",
-    corporateActionFree: [
-      {
-        symbol: "sh600000",
-        start: bars[50]!.date,
-        end: spec.end,
-        evidenceId: "fixture",
-      },
-    ],
-    rows: bars.map((b) => ({
-      ...rules,
-      evidence: undefined,
-      symbol: "sh600000",
-      date: b.date,
-      evidenceId: "fixture",
-    })),
-  });
-  const result = await runStrategyResearch(spec, dataset, evidence, native);
-  expect(result.partitions[0]!.simulation!.trades[0]!.entryDate).toBe(
-    bars[91]!.date,
-  );
-  expect(result.partitions[0]!.simulation!.trades[0]!.exitDate).toBe(
-    bars[97]!.date,
-  );
-  const short = await runStrategyResearch(
-    spec,
-    dataset,
-    {
-      ...evidence,
-      corporateActionFree: evidence.corporateActionFree.map((row) => ({
-        ...row,
-        start: spec.start,
-      })),
-    },
-    native,
-  );
-  expect(short.events).toEqual(result.events);
-  expect(short.partitions[0]!.simulation!.trades).toEqual(
-    result.partitions[0]!.simulation!.trades,
-  );
-  const split = await runStrategyResearch(
-    spec,
-    {
-      ...dataset,
-      stocks: dataset.stocks.map((stock) => ({
-        ...stock,
-        actions: [
-          {
-            date: bars[55]!.date,
-            category: 1,
-            name: "合成除权",
-            bonusRatio: 1,
-          },
-        ],
-      })),
-    },
-    evidence,
-    native,
-  );
-  expect(split.events.length).toBeGreaterThan(0);
-  expect(split.warnings.some((warning) => warning.includes("后复权"))).toBe(
-    true,
-  );
-});
+  },
+);

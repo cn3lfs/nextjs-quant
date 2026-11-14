@@ -1,6 +1,18 @@
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
-import { clsReviewReportQuery, clsReviewFactQuery, clsReviewVerificationQuery, clsReviewVerificationIdentity } from "~/lib/news/cls-review-workspace";
-import { clsReportPage, clsFactPage, clsFactDetail, clsVerificationPage, clsVerificationDetail, clsReportSamples } from "../../news/cls-review-query";
+import {
+  clsReviewReportQuery,
+  clsReviewFactQuery,
+  clsReviewVerificationQuery,
+  clsReviewVerificationIdentity,
+} from "~/lib/news/cls-review-workspace";
+import {
+  clsReportPage,
+  clsFactPage,
+  clsFactDetail,
+  clsVerificationPage,
+  clsVerificationDetail,
+  clsReportSamples,
+} from "../../news/cls-review-query";
 import {
   clsReviewConfig,
   clsReviewLastCheck,
@@ -12,7 +24,10 @@ import {
 } from "~/lib/news/cls-fact-review";
 import { clsReportFiles, previewClsReport } from "../../news/cls-report-files";
 import { ClsReviewStore } from "../../news/cls-review-store";
-import { fixClsSample, clsSampleEligibility } from "../../news/cls-review-service";
+import {
+  fixClsSample,
+  clsSampleEligibility,
+} from "../../news/cls-review-service";
 import { verifyClsSample } from "../../news/cls-verification";
 import { sqlite as chartSqlite } from "../../db";
 import { newsBudget } from "../../news/news-budget";
@@ -36,7 +51,7 @@ import { settings } from "../../infra/settings";
 import { background, updateJob } from "../../jobs/jobs";
 import { taskState } from "../../jobs/task-history";
 import { researchModel } from "../../research/research";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import {
   newsWorkspaceSchema,
   newsArchiveQuerySchema,
@@ -54,35 +69,60 @@ function recordOfKind<T>(kind: string, id: string): T | undefined {
   return row ? (JSON.parse(row.payload) as T) : undefined;
 }
 export const newsRouter = createTRPCRouter({
-  clsReviewFactDetail: p.input(z.object({ reportId: z.string().min(1).max(200), id: z.string().min(1).max(200) })).query(({ input }) => clsFactDetail(chartSqlite(), input.reportId, input.id)),
-  clsReviewSampleEligibility: p.input(z.string().min(1).max(200)).query(({ input }) => clsSampleEligibility(input)),
-  clsReviewReportPage: p.input(clsReviewReportQuery).query(({ input }) => clsReportPage(chartSqlite(), input)),
-  clsReviewFactPage: p.input(clsReviewFactQuery).query(({ input }) => clsFactPage(chartSqlite(), input)),
-  clsReviewVerificationPage: p.input(clsReviewVerificationQuery).query(({ input }) => clsVerificationPage(chartSqlite(), input)),
-  clsReviewVerificationDetail: p.input(clsReviewVerificationIdentity).query(({ input }) => clsVerificationDetail(chartSqlite(), input)),
-  clsReviewReportSamples: p.input(z.string().min(1).max(200)).query(({ input }) => clsReportSamples(chartSqlite(), input)),
-  newsAnalysisContext: p.query(() => ({ model: researchModel(false) })),
-  newsTaskState: p.input(z.string().min(1).max(200)).query(({ input }) => {
-    const state = taskState(input);
-    const row = chartSqlite()
-      .prepare(
-        "SELECT json_extract(payload,'$.result.id') id FROM records WHERE kind='job' AND id=? AND json_extract(payload,'$.input.kind')='news-analysis'",
-      )
-      .get(input) as { id: string | null } | undefined;
-    return state
-      ? {
-          ...state,
-          analysisId:
-            row?.id && newsArchiveIdSchema.safeParse(row.id).success
-              ? row.id
-              : null,
-        }
-      : null;
-  }),
-  newsWorkspace: p
+  clsReviewFactDetail: p("news", "read")
+    .input(
+      z.object({
+        reportId: z.string().min(1).max(200),
+        id: z.string().min(1).max(200),
+      }),
+    )
+    .query(({ input }) =>
+      clsFactDetail(chartSqlite(), input.reportId, input.id),
+    ),
+  clsReviewSampleEligibility: p("news", "read")
+    .input(z.string().min(1).max(200))
+    .query(({ input }) => clsSampleEligibility(input)),
+  clsReviewReportPage: p("news", "read")
+    .input(clsReviewReportQuery)
+    .query(({ input }) => clsReportPage(chartSqlite(), input)),
+  clsReviewFactPage: p("news", "read")
+    .input(clsReviewFactQuery)
+    .query(({ input }) => clsFactPage(chartSqlite(), input)),
+  clsReviewVerificationPage: p("news", "read")
+    .input(clsReviewVerificationQuery)
+    .query(({ input }) => clsVerificationPage(chartSqlite(), input)),
+  clsReviewVerificationDetail: p("news", "read")
+    .input(clsReviewVerificationIdentity)
+    .query(({ input }) => clsVerificationDetail(chartSqlite(), input)),
+  clsReviewReportSamples: p("news", "read")
+    .input(z.string().min(1).max(200))
+    .query(({ input }) => clsReportSamples(chartSqlite(), input)),
+  newsAnalysisContext: p("news", "read").query(() => ({
+    model: researchModel(false),
+  })),
+  newsTaskState: p("news", "read")
+    .input(z.string().min(1).max(200))
+    .query(({ input }) => {
+      const state = taskState(input);
+      const row = chartSqlite()
+        .prepare(
+          "SELECT json_extract(payload,'$.result.id') id FROM records WHERE kind='job' AND id=? AND json_extract(payload,'$.input.kind')='news-analysis'",
+        )
+        .get(input) as { id: string | null } | undefined;
+      return state
+        ? {
+            ...state,
+            analysisId:
+              row?.id && newsArchiveIdSchema.safeParse(row.id).success
+                ? row.id
+                : null,
+          }
+        : null;
+    }),
+  newsWorkspace: p("news", "read")
     .input(newsWorkspaceSchema)
     .query(({ input }) => newsWorkspacePage(settings().clsDbPath, input)),
-  newsOriginal: p
+  newsOriginal: p("news", "read")
     .input(
       z.object({
         filter: newsWorkspaceSchema,
@@ -98,54 +138,56 @@ export const newsRouter = createTRPCRouter({
         input.source,
       ),
     ),
-  newsArchiveHistory: p
+  newsArchiveHistory: p("news", "read")
     .input(newsArchiveQuerySchema)
     .query(({ input }) => newsArchivePage(chartSqlite(), input)),
-  newsResumePreflight: p
+  newsResumePreflight: p("news", "read")
     .input(newsArchiveIdSchema)
     .query(({ input }) => newsAnalysisPreflight(input)),
-  clsReviewExportAll: p
+  clsReviewExportAll: p("news", "read")
     .input(z.string())
     .query(({ input }) =>
       new ClsReviewStore(chartSqlite()).exportReport(input),
     ),
-  clsReviewRemove: p
+  clsReviewRemove: p("news", "configure")
     .input(z.string())
     .mutation(({ input }) =>
       new ClsReviewStore(chartSqlite()).removeReport(input),
     ),
-  clsReviewSummary: p.query(() =>
+  clsReviewSummary: p("news", "read").query(() =>
     new ClsReviewStore(chartSqlite()).outcomeSummary(),
   ),
-  clsReviewSchedule: p.query(() => ({
+  clsReviewSchedule: p("news", "read").query(() => ({
     config: clsReviewConfig(),
     lastCheck: clsReviewLastCheck(),
   })),
-  clsReviewSaveSchedule: p
+  clsReviewSaveSchedule: p("news", "configure")
     .input(clsReviewConfigSchema)
     .mutation(({ input }) => saveClsReviewConfig(input)),
-  clsReviewSaveFact: p
+  clsReviewSaveFact: p("news", "configure")
     .input(clsFactReviewSchema)
     .mutation(({ input }) => new ClsReviewStore(chartSqlite()).saveFact(input)),
-  clsReviewFacts: p.input(z.string()).query(({ input }) => {
-    const rows = new ClsReviewStore(chartSqlite()).facts(input);
-    return { rows, statistics: clsFactStatistics(rows) };
-  }),
-  clsReviewVerify: p
+  clsReviewFacts: p("news", "read")
+    .input(z.string())
+    .query(({ input }) => {
+      const rows = new ClsReviewStore(chartSqlite()).facts(input);
+      return { rows, statistics: clsFactStatistics(rows) };
+    }),
+  clsReviewVerify: p("news", "compute")
     .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
     .mutation(({ input }) => verifyClsSample(input)),
-  clsReviewVerifications: p
+  clsReviewVerifications: p("news", "read")
     .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
     .query(({ input }) =>
       new ClsReviewStore(chartSqlite()).verifications(input),
     ),
-  clsReviewFiles: p
+  clsReviewFiles: p("news", "read")
     .input(z.string().min(1).max(2048))
     .query(({ input }) => clsReportFiles(input)),
-  clsReviewPreview: p
+  clsReviewPreview: p("news", "read")
     .input(z.string().min(1).max(2048))
     .query(({ input }) => previewClsReport(input)),
-  clsReviewImport: p
+  clsReviewImport: p("news", "configure")
     .input(
       z.object({
         path: z.string().min(1).max(2048),
@@ -158,7 +200,7 @@ export const newsRouter = createTRPCRouter({
         input.hash,
       ),
     ),
-  clsReviewReports: p
+  clsReviewReports: p("news", "read")
     .input(z.number().int().min(0).default(0))
     .query(({ input }) =>
       new ClsReviewStore(chartSqlite()).reports(input).map((report) => ({
@@ -173,17 +215,17 @@ export const newsRouter = createTRPCRouter({
         },
       })),
     ),
-  clsReviewExport: p
+  clsReviewExport: p("news", "read")
     .input(z.string())
     .query(({ input }) => new ClsReviewStore(chartSqlite()).report(input)),
-  clsReviewFixSample: p
+  clsReviewFixSample: p("news", "compute")
     .input(z.string())
     .mutation(({ input }) => fixClsSample(input)),
-  clsReviewSample: p
+  clsReviewSample: p("news", "read")
     .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
     .query(({ input }) => new ClsReviewStore(chartSqlite()).sample(input)),
-  newsBudget: p.query(() => newsBudget()),
-  newsAnalyses: p.query(() => {
+  newsBudget: p("news", "read").query(() => newsBudget()),
+  newsAnalyses: p("news", "read").query(() => {
     const seen = new Set<string>();
     return list<NewsAnalysis>("news-analysis", 50)
       .filter((record) => {
@@ -204,22 +246,22 @@ export const newsRouter = createTRPCRouter({
         query: input.query,
       }));
   }),
-  newsAnalysis: p
+  newsAnalysis: p("news", "read")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .query(({ input }) => {
       const record = recordOfKind<NewsAnalysis>("news-analysis", input);
       return record ? newsAnalysisView(record) : null;
     }),
-  newsSectorReports: p
+  newsSectorReports: p("news", "read")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .query(({ input }) => newsSectorHistory(input)),
-  explainThemePrices: p
+  explainThemePrices: p("news", "compute")
     .input(z.string().regex(/^theme-prices-[a-f0-9]{64}$/))
     .mutation(({ input }) => explainThemePricesJob(input)),
-  themePrices: p
+  themePrices: p("news", "read")
     .input(z.string().regex(/^news-themes-[a-f0-9]{64}$/))
     .query(({ input }) => latestThemePrices(input)),
-  checkThemePrices: p
+  checkThemePrices: p("news", "compute")
     .input(z.string().regex(/^news-themes-[a-f0-9]{64}$/))
     .mutation(({ input }) =>
       background(
@@ -229,10 +271,10 @@ export const newsRouter = createTRPCRouter({
         { kind: "theme-prices", input },
       ),
     ),
-  newsThemes: p
+  newsThemes: p("news", "read")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .query(({ input }) => latestNewsThemes(input)),
-  analyzeNewsThemes: p
+  analyzeNewsThemes: p("news", "compute")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .mutation(({ input }) => {
       const model = researchModel(false);
@@ -243,10 +285,10 @@ export const newsRouter = createTRPCRouter({
         { kind: "news-themes", input, model },
       );
     }),
-  aggregateNewsDay: p
+  aggregateNewsDay: p("news", "compute")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .mutation(({ input }) => aggregateNewsDay(input)),
-  analyzeNewsSector: p
+  analyzeNewsSector: p("news", "compute")
     .input(newsSectorInput)
     .mutation(({ input }) =>
       background(
@@ -255,21 +297,23 @@ export const newsRouter = createTRPCRouter({
         (_job, signal) => analyzeNewsSector(input, signal),
       ),
     ),
-  analyzeNews: p.input(newsAnalysisInput).mutation(({ input }) =>
-    background(
-      "research",
-      { kind: "news-analysis", ...input },
-      (job, signal) =>
-        analyzeNews(input, signal, (done, total) =>
-          updateJob(job.id, {
-            progress: Math.round((done / total) * 100),
-            phase: `新闻分析 ${done}/${total}`,
-          }),
-        ),
-      { kind: "news-analysis", input },
+  analyzeNews: p("news", "compute")
+    .input(newsAnalysisInput)
+    .mutation(({ input }) =>
+      background(
+        "research",
+        { kind: "news-analysis", ...input },
+        (job, signal) =>
+          analyzeNews(input, signal, (done, total) =>
+            updateJob(job.id, {
+              progress: Math.round((done / total) * 100),
+              phase: `新闻分析 ${done}/${total}`,
+            }),
+          ),
+        { kind: "news-analysis", input },
+      ),
     ),
-  ),
-  news: p
+  news: p("news", "read")
     .input(
       z.object({
         cutoff: z.number().int().nonnegative(),

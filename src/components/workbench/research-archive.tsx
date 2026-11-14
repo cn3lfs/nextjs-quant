@@ -12,9 +12,9 @@ import { type WorkbenchState } from "./use-workbench-state";
 export function ResearchArchive({
   state,
 }: {
-  state: Pick<WorkbenchState, "symbol" | "loaded" | "names" | "activeJobs">;
+  state: Pick<WorkbenchState, "symbol">;
 }) {
-  const { symbol, loaded, names } = state;
+  const { symbol } = state;
   const [workspace, setWorkspace] = useState<
     "archive" | "valuation" | "local" | "quality"
   >("archive");
@@ -35,7 +35,7 @@ export function ResearchArchive({
       </div>
       <PanelVisibility visible={workspace === "archive"}>
         <div className="nc-span-12" hidden={workspace !== "archive"}>
-          <ArchiveList names={names} />
+          <ArchiveList />
         </div>
       </PanelVisibility>
       <div className="nc-span-12" hidden={workspace === "archive"}>
@@ -72,7 +72,6 @@ export function ResearchArchive({
               <FinancialQualityPanel
                 key={`financial-${symbol}`}
                 symbol={symbol}
-                snapshot={loaded ?? undefined}
               />
             </div>
           </PanelVisibility>

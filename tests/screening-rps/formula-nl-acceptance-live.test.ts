@@ -21,7 +21,7 @@ const cases: { text: string; expect?: RegExp[]; unsupported?: true }[] = [
   { text: "KDJ的J值小于0", expect: [/LLV/, /HHV/] },
   { text: "RSI6低于20", expect: [/SMA|EMA/] },
   { text: "布林带下轨附近", expect: [/STD/] },
-  { text: "RPS250大于90", expect: [/RPS250\s*>\s*90/] },
+  { text: "RPS120大于90", expect: [/RPS120\s*>\s*90/] },
   { text: "RPS50和RPS120都大于85", expect: [/RPS50/, /RPS120/] },
   { text: "放量上涨", expect: [/VOL|\bV\b/] },
   {
@@ -46,7 +46,7 @@ const cases: { text: string; expect?: RegExp[]; unsupported?: true }[] = [
   { text: "长下影线", expect: [/L|LOW/] },
   { text: "年线上方且距离年线不超过10%", expect: [/250/] },
   { text: "底部放量突破平台", expect: [/HHV|VOL/] },
-  { text: "RPS250大于90且MACD金叉且放量", expect: [/RPS250/, /CROSS/] },
+  { text: "RPS120大于90且MACD金叉且放量", expect: [/RPS120/, /CROSS/] },
   { text: "连续5日缩量", expect: [/VOL|\bV\b/] },
   { text: "缩量回调到20日均线", expect: [/MA/, /20/] },
   { text: "主力资金净流入超过5000万", unsupported: true },

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./workbench-test";
 import { waitForIdleServer } from "./helpers";
 
 /** TDX keys work with focus on the page, not only on the chart (was

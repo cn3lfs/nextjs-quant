@@ -7,18 +7,23 @@ import {
   periodLabels,
   type ChartPeriod,
 } from "~/lib/chart/chart-view";
-import {
-  chartAdjustmentLabels,
-  type ChartAdjustment,
-} from "~/lib/chart/chart-adjustment";
+import { type ChartAdjustment } from "~/lib/chart/chart-adjustment";
 import { securityDisplayName } from "~/lib/market/security-display";
-import { ChartWorkspace } from "../market/chart-workspace";
+import { MarketSecurityViews } from "../market/market-security-views";
 import { SecuritySelect } from "../market/security-select";
 import { usePeriodHotkey } from "../market/chart-hotkeys";
-import { MarketPoolBrowser } from "../market/market-pool-browser";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { Button } from "../ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "../ui/select";
+import { PopoverTrigger, PopoverContent, PopoverClose } from "../ui/popover";
+import { PanelPopover as Popover } from "./panel-popover";
 import Link from "next/link";
 import {
   ArrowClockwise,
@@ -34,43 +39,58 @@ import { SymbolRpsBars } from "../market/symbol-rps-bars";
 import { Empty } from "./shared";
 import { type WorkbenchState } from "./use-workbench-state";
 import { useBrowseHotkey } from "../market/use-browse-hotkey";
+import { useSecurityNames } from "../market/use-security-names";
+import { api } from "~/trpc/react";
+import { useTaskVisible } from "./use-task-visible";
 
 export function MarketView({
   state,
+  notify,
 }: {
+  notify: (text: string) => void;
   state: Pick<
     WorkbenchState,
     | "marketSource"
+    | "marketView"
+    | "setMarketView"
     | "setMarketSource"
     | "symbol"
     | "setSymbol"
     | "period"
-    | "setPeriod"
     | "loaded"
-    | "names"
     | "load"
-    | "watch"
-    | "last"
-    | "change"
-    | "watchlist"
     | "browse"
     | "setBrowse"
   >;
 }) {
   const {
     marketSource,
+    marketView,
+    setMarketView,
     setMarketSource,
     symbol,
     setSymbol,
     period,
     loaded,
-    names,
     load,
-    watch,
-    watchlist,
     browse,
     setBrowse,
   } = state;
+  const visible = useTaskVisible();
+  const savedWatchlist = api.status.useQuery(undefined, {
+    enabled: visible,
+    refetchInterval: visible ? 30000 : false,
+    select: (value) => value.watchlist,
+  });
+  const watchlist = savedWatchlist.data ?? [];
+  const utils = api.useUtils();
+  const watch = api.watchlist.useMutation({
+    onSuccess: () => void utils.status.invalidate(),
+    onError: (error) => notify(error.message),
+  });
+  const watchUnavailable =
+    !savedWatchlist.data || !!savedWatchlist.error || watch.isPending;
+  const names = useSecurityNames().data ?? {};
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
   const [chartAdjustment, setChartAdjustment] =
     useState<ChartAdjustment>("none");
@@ -80,12 +100,17 @@ export function MarketView({
       ? "none"
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
-  usePeriodHotkey(chartPeriod, setChartPeriod, load.isPending);
+  usePeriodHotkey(
+    chartPeriod,
+    setChartPeriod,
+    load.isPending || marketView === "financial",
+  );
   const [browseEdge, setBrowseEdge] = useState("");
   const [listSource, setListSource] = useState<"candidates" | "watch">(
     "candidates",
   );
   const [candidatePage, setCandidatePage] = useState(1);
+  const [listsOpen, setListsOpen] = useState(false);
   useEffect(() => {
     setCandidatePage(Math.floor((browse?.index ?? 0) / 50) + 1);
   }, [browse?.index, browse?.label]);
@@ -110,7 +135,20 @@ export function MarketView({
   return (
     <div className="nc-market-workspace">
       <aside className="nc-market-candidates">
-        <div className="space-y-3">
+        <Button
+          variant="outline"
+          className="nc-market-list-toggle"
+          aria-expanded={listsOpen}
+          aria-controls="market-candidate-lists"
+          onClick={() => setListsOpen((open) => !open)}
+        >
+          自选与候选
+        </Button>
+        <div
+          id="market-candidate-lists"
+          className="nc-market-list-content space-y-3"
+          data-expanded={listsOpen}
+        >
           {browse && (
             <Segmented
               label="行情候选来源"
@@ -200,13 +238,37 @@ export function MarketView({
               span={8}
               icon={Star}
               title="我的自选"
-              actions={<span className="muted">{watchlist.length} 个标的</span>}
+              actions={
+                <span className="muted">
+                  {savedWatchlist.data
+                    ? `${watchlist.length} 个标的`
+                    : "尚未读取"}
+                </span>
+              }
             >
+              {savedWatchlist.error && (
+                <p role="alert">
+                  自选列表未刷新：{savedWatchlist.error.message}{" "}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void savedWatchlist.refetch()}
+                  >
+                    重试自选列表
+                  </Button>
+                </p>
+              )}
               <GridTable
                 label="我的自选"
                 rows={watchlist}
                 rowKey={(s) => s}
-                empty="在上方加载证券后加入自选"
+                empty={
+                  savedWatchlist.error
+                    ? "暂时无法读取自选列表"
+                    : !savedWatchlist.data
+                      ? "正在读取自选列表…"
+                      : "在上方加载证券后加入自选"
+                }
                 columns={[
                   {
                     key: "security",
@@ -246,6 +308,7 @@ export function MarketView({
                         variant="plain"
                         className="icon-button"
                         aria-label={`移除 ${s}`}
+                        disabled={watchUnavailable}
                         onClick={() =>
                           watch.mutate(watchlist.filter((v) => v !== s))
                         }
@@ -334,63 +397,29 @@ export function MarketView({
               <ArrowClockwise size={13} />
               刷新行情
             </Button>
-            <div className="segmented">
-              {chartPeriodSchema.options.map((p) => (
-                <Button
-                  variant="plain"
-                  className={displayedPeriod === p ? "selected" : ""}
-                  key={p}
-                  disabled={load.isPending}
-                  onClick={() => {
-                    setChartPeriod(p);
-                  }}
-                >
-                  {p === "day" ? "日 K" : periodLabels[p]}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-3 pb-1">
-            <h2 className="text-[15px] font-medium">
-              {loaded
-                ? securityDisplayName(loaded.symbol, names, loaded.name)
-                : "加载行情"}
-            </h2>
-            <div className="eyebrow">
-              {loaded?.symbol.toUpperCase() ?? "本地行情"}{" "}
-              <span className="tag">
-                {chartAdjustmentLabels[effectiveAdjustment]}
-              </span>
-              {loaded?.historicalAsOf && (
-                <span className="tag">
-                  历史快照 · 截至 {loaded.historicalAsOf}
-                </span>
-              )}
-            </div>
-            {loaded && (
-              <nav
-                aria-label="继续研究"
-                className="ml-auto flex items-center gap-1 text-[13px] text-nc-text-4"
+            <Select
+              value={displayedPeriod}
+              disabled={load.isPending}
+              onValueChange={(value) =>
+                setChartPeriod(chartPeriodSchema.parse(value))
+              }
+            >
+              <SelectTrigger
+                aria-label="行情周期"
+                title="F8 切换周期"
+                className="w-auto min-w-28"
               >
-                继续研究
-                {(
-                  [
-                    ["/analysis", Sparkle, "证据分析"],
-                    ["/backtest", Flask, "策略回测"],
-                    ["/signals", Broadcast, "监控配置"],
-                  ] as const
-                ).map(([href, Glyph, label]) => (
-                  <Button key={href} asChild size="sm" variant="ghost">
-                    <Link href={href} scroll={false}>
-                      <Glyph size={12} />
-                      {label}
-                    </Link>
-                  </Button>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {chartPeriodSchema.options.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p === "day" ? "日 K" : periodLabels[p]}
+                  </SelectItem>
                 ))}
-              </nav>
-            )}
+              </SelectContent>
+            </Select>
           </div>
-
           {load.error && !load.isPending ? (
             <div role="alert" className="p-4 text-[13px] text-nc-bad">
               所选数据源读取失败：{load.error.message}
@@ -412,11 +441,54 @@ export function MarketView({
             </p>
           )}
           {loaded ? (
-            <ChartWorkspace
-              key={`${loaded.id}:${displayedPeriod}:${effectiveAdjustment}`}
+            <MarketSecurityViews
               snapshot={loaded}
               period={displayedPeriod}
               adjustment={effectiveAdjustment}
+              view={marketView}
+              onViewChange={setMarketView}
+              heading={
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <h2 className="text-[15px] font-medium">
+                    {securityDisplayName(loaded.symbol, names, loaded.name)}
+                  </h2>
+                  <span className="eyebrow">{loaded.symbol.toUpperCase()}</span>
+                  {loaded.historicalAsOf && (
+                    <span className="tag">
+                      历史快照 · 截至 {loaded.historicalAsOf}
+                    </span>
+                  )}
+                </div>
+              }
+              actions={
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="ghost" className="ml-auto">
+                      继续研究
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent aria-label="继续研究">
+                    <nav aria-label="继续研究" className="flex flex-col gap-2">
+                      {(
+                        [
+                          ["/analysis", Sparkle, "证据分析"],
+                          ["/backtest", Flask, "策略回测"],
+                          ["/signals", Broadcast, "监控配置"],
+                        ] as const
+                      ).map(([href, Glyph, label]) => (
+                        <PopoverClose key={href} asChild>
+                          <Button asChild size="sm" variant="ghost">
+                            <Link href={href} scroll={false}>
+                              <Glyph size={12} />
+                              {label}
+                            </Link>
+                          </Button>
+                        </PopoverClose>
+                      ))}
+                    </nav>
+                  </PopoverContent>
+                </Popover>
+              }
             />
           ) : (
             <Empty>
@@ -439,6 +511,7 @@ export function MarketView({
               }
               disabled={
                 !loaded ||
+                watchUnavailable ||
                 load.isPending ||
                 isSectorChartSymbol(loaded.symbol) ||
                 watchlist.includes(loaded.symbol)
@@ -474,16 +547,6 @@ export function MarketView({
             <SymbolRpsBars symbol={loaded?.symbol ?? symbol} />
           </PageGrid>
         </details>
-      </div>
-      <div className="nc-span-12 min-w-0">
-        <MarketPoolBrowser
-          symbol={symbol}
-          disabled={load.isPending}
-          onSelect={(next) => {
-            setSymbol(next);
-            load.mutate({ symbol: next, period, source: marketSource });
-          }}
-        />
       </div>
     </div>
   );

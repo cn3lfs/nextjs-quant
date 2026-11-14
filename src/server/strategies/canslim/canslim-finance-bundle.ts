@@ -1,5 +1,5 @@
-import {type Evidence} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { type Evidence } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { queryFinance } from "../../data-sources/hithink/hithink-finance";
 import { canslimFinanceFacts } from "~/lib/strategy-facts/canslim-finance";
 import { canslimEarnings } from "trading-strategies/research/canslim/canslim-earnings";

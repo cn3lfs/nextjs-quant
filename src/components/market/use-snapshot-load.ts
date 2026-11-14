@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Snapshot } from "~/lib/domain";
 import {
   snapshotCacheKey,
@@ -25,10 +25,12 @@ export function useSnapshotLoad(
   } = {},
 ) {
   const mutation = api.snapshot.useMutation();
+  const selection = useRef(0);
   // True from showing a cached snapshot until the next cold request, so a
   // failed revalidation neither shows loading nor replaces the chart.
   const [servedFromCache, setServedFromCache] = useState(false);
   const mutate = (input: Input, call: { fresh?: boolean } = {}) => {
+    const request = ++selection.current;
     // Read the store imperatively; subscribing would re-render on every put.
     const cache = useSnapshotCache.getState();
     const generation = cache.generation;
@@ -39,6 +41,7 @@ export function useSnapshotLoad(
     const isCurrent = () => {
       const current = useSnapshotCache.getState();
       return (
+        selection.current === request &&
         current.generation === generation &&
         (marketGeneration === null ||
           current.marketGeneration === marketGeneration)
@@ -63,6 +66,14 @@ export function useSnapshotLoad(
   };
   return {
     mutate,
+    /** Selecting a saved candidate replaces the previous request and its error.
+     * It is not a cache refresh: retain the candidate's recorded snapshot. */
+    acceptSnapshot: (snapshot: Snapshot) => {
+      selection.current++;
+      mutation.reset();
+      setServedFromCache(false);
+      options.onSuccess?.(snapshot);
+    },
     isPending: mutation.isPending && !servedFromCache,
     /** A cached snapshot is shown while the server confirms it. */
     isRevalidating: mutation.isPending && servedFromCache,

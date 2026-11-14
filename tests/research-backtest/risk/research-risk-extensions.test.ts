@@ -6,7 +6,6 @@ import {
 } from "trading-strategies/research/risk/research-risk-extensions";
 import { researchSpecSchema } from "../../../src/lib/research/strategy-research";
 import { researchMethodSnapshot } from "../../../src/server/research/research-method";
-import { researchPortfolio } from "../../../src/server/backtest/research-portfolio";
 it("protective put pays only intrinsic at expiry and includes premium and fees", () => {
   const v = evaluateRiskExtension(riskExtensionTemplate("protective-put"));
   expect(v).toMatchObject({
@@ -76,7 +75,7 @@ it("short script reflects upper stop and lower R targets without manufacturing b
   ).toBe(false);
 });
 it.each(["protective-put", "collar", "short-script"] as const)(
-  "%s is saved and snapshotted separately, never changes A-share portfolio",
+  "%s is recorded as an analysis-only risk extension",
   (kind) => {
     const base = researchSpecSchema.parse({
       strategy: "dual-breakout",
@@ -92,9 +91,5 @@ it.each(["protective-put", "collar", "short-script"] as const)(
       includedInSimulation: false,
       input: { kind },
     });
-    const calendar = ["2021-01-01", "2021-01-04", "2021-01-05"];
-    expect(
-      researchPortfolio(spec, [], calendar, new Map(), () => null),
-    ).toEqual(researchPortfolio(base, [], calendar, new Map(), () => null));
   },
 );

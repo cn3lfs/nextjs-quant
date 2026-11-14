@@ -8,17 +8,17 @@
 
 | 页面 | input | select | textarea | table → DataTable | 合计 | 对照 |
 |---|---:|---:|---:|---:|---:|---|
-| 数据与连接（含通知策略字段） | 17 | 3 | 2 | 0 | 22 | [前](connections/before.png) / [后](connections/after.png) |
-| 信号与通知 | 4 | 3 | 0 | 0 | 7 | [前](signals/before.png) / [后](signals/after.png) |
-| 持仓账本 | 12 | 2 | 0 | 3 | 17 | [前](trade-ledger/before.png) / [后](trade-ledger/after.png) |
-| 信号台账 | 0 | 0 | 0 | 1 | 1 | [前](signal-ledger/before.png) / [后](signal-ledger/after.png) |
-| 条件选股（含公式、在线结果） | 8 | 3 | 2 | 3 | 16 | [前](screen/before.png) / [后](screen/after.png) |
-| 行情图表（含搜索、图表工具栏） | 9 | 2 | 0 | 0 | 11 | [前](market/before.png) / [后](market/after.png) |
+| 数据与连接（含通知策略字段） | 17 | 3 | 2 | 0 | 22 | 前（历史产物已清理） / 后（历史产物已清理） |
+| 信号与通知 | 4 | 3 | 0 | 0 | 7 | 前（历史产物已清理） / 后（历史产物已清理） |
+| 持仓账本 | 12 | 2 | 0 | 3 | 17 | 前（历史产物已清理） / 后（历史产物已清理） |
+| 信号台账 | 0 | 0 | 0 | 1 | 1 | 前（历史产物已清理） / 后（历史产物已清理） |
+| 条件选股（含公式、在线结果） | 8 | 3 | 2 | 3 | 16 | 前（历史产物已清理） / 后（历史产物已清理） |
+| 行情图表（含搜索、图表工具栏） | 9 | 2 | 0 | 0 | 11 | 前（历史产物已清理） / 后（历史产物已清理） |
 | 总计 | 50 | 13 | 4 | 7 | 74 | button 替换 0 |
 
 ## 截图条件与数据范围
 
-同一 Chrome、1840×1350 视口、Asia/Shanghai 时区、完整页面截图，只隐藏 Next 开发指示器。每页截图在交互验证写入隔离记录之前捕获。`before.json` / `after.json` 保存控件的原始计算样式与几何；[comparison.json](comparison.json) 保存元素数量、重叠区域逐像素差异数、额外高度与匹配控件的样式差异。页面高度变化会使下方未修改内容整体位移，像素数量不是独立缺陷数量，也不是视觉验收结论。
+同一 Chrome、1840×1350 视口、Asia/Shanghai 时区、完整页面截图，只隐藏 Next 开发指示器。每页截图在交互验证写入隔离记录之前捕获。`before.json` / `after.json` 保存控件的原始计算样式与几何；comparison.json（历史产物已清理） 保存元素数量、重叠区域逐像素差异数、额外高度与匹配控件的样式差异。页面高度变化会使下方未修改内容整体位移，像素数量不是独立缺陷数量，也不是视觉验收结论。
 
 - 数据与连接：首次隔离默认配置，没有渠道；日历与 MCP 工具查询在总览截图中折叠。后续对这些折叠 textarea 的 `field-sizing-fixed` 修正不影响这张总览；MCP 工具选择器只在已有工具结果时出现，未连接远程服务去制造结果。
 - 信号页：无订阅的配对截图；随后的交互只创建并暂停 `channels=[]`、`source=local`、`ai=false` 的隔离订阅。
@@ -42,7 +42,7 @@
 - **信号与通知**：首行名称、证券池、策略、周期，第二处数据源与 AI/渠道复选变化。首面板缩短，后续订阅/信号/投递/任务区域整体上移，全文高度 1660px → 1654px；原有空提示、通知说明和按钮内容未变。双均线参数仍是共享旧控件。
 - **持仓账本**：成交字段、止损和送转依据输入框变化；“买卖”“关联台账信号”增加 chevron，空关联文字呈 placeholder 色，窄列中的截断仍可通过展开下拉阅读。当前持仓表、做过与没做的信号表、折叠的模拟盘契约表采用新表头/单元格/外框；前两张见总览，第三张展开交互已验证。总高 1592px → 1586px，后续面板位移来自表单及表格尺寸。持仓数量、T+1 可卖、参考成本、留空破折号和日志文字保持原值。
 - **信号台账**：唯一变化区域为聚合统计表：新增外框，表头颜色/字号和数字字体变化，三条行更紧凑，各列横向位置重新分配；下方每日任务、决策、明细面板上移。页高仍为视口最低 1350px。T+5/T+10/T+20 顺序、样本/有效/留空数字、等待回填原因保持相同。
-- **条件选股**：公式名称/参数、两个 textarea、草案/日期/证券池/候选搜索及下拉改变样式；公式源码仍是 10 行，最终实测 218px，原为 235.938px，差值来自字体行高和 padding。在线、候选与隔离三表采用统一表样式，50 行候选累计高度缩短，使底部折叠区和任务中心上移；总高 5520px → 5263px。排序触发器明确为 160px，页码保持不折行，搜索占余下空间。这是避免迁移后的挤压所作的局部布局决定，排序/翻页仍为原 API 与处理器。可看 [表单前](screen/before-forms.png) / [表单后](screen/after-forms.png)、[结果区前](screen/before-table.png) / [结果区后](screen/after-table.png)，这些裁剪使用固定坐标，上方高度改变会导致裁剪起点内容不同。
+- **条件选股**：公式名称/参数、两个 textarea、草案/日期/证券池/候选搜索及下拉改变样式；公式源码仍是 10 行，最终实测 218px，原为 235.938px，差值来自字体行高和 padding。在线、候选与隔离三表采用统一表样式，50 行候选累计高度缩短，使底部折叠区和任务中心上移；总高 5520px → 5263px。排序触发器明确为 160px，页码保持不折行，搜索占余下空间。这是避免迁移后的挤压所作的局部布局决定，排序/翻页仍为原 API 与处理器。可看 表单前（历史产物已清理） / 表单后（历史产物已清理）、结果区前（历史产物已清理） / 结果区后（历史产物已清理），这些裁剪使用固定坐标，上方高度改变会导致裁剪起点内容不同。
 - **行情图表**：品种搜索从约 176.797×34px 变为 191.438×36px，12px 等宽字变为 14px 正文字体；相邻顶部操作随搜索宽度移动。对数/图表暗色、双突破/BOLL/缠论复选改为组件外观；观察日及副图触发器根据当前文本收窄，周围状态说明横向位置变化。参数框约 82px 宽变为 80px，39.797px 高变为 36px。图表总页高保持 2022px，K 线、结构、图例数值、TradingView 标识及已有容器未改；没有以截图宣称全状态绘图像素恒等。
 
 ### 发现并修正的非预期差异
@@ -53,7 +53,7 @@
 
 ## 交互、投递与保留项
 
-[interactions.json](interactions.json) 是逐页检查与最终隔离库审计；[server-queries.json](screen/server-queries.json) 保存实际候选请求参数。验证覆盖配置保存、静默禁用联动、平台字段切换、订阅保存/暂停、原生 required/FormData、空值选项、合成成交保存、明细开关、候选服务端排序与翻页、公式拒绝/保存、图表参数/副图/复选/保存、搜索 Escape。
+interactions.json（历史产物已清理） 是逐页检查与最终隔离库审计；server-queries.json（历史产物已清理） 保存实际候选请求参数。验证覆盖配置保存、静默禁用联动、平台字段切换、订阅保存/暂停、原生 required/FormData、空值选项、合成成交保存、明细开关、候选服务端排序与翻页、公式拒绝/保存、图表参数/副图/复选/保存、搜索 Escape。
 
 最终渠道记录 0、delivery 记录 0、尝试数 0，**实际网络投递 0**。未点击测试通知、手动重发、模拟盘远程账户/委托；浏览器还阻止非本机请求。没有把未运行的外部操作列为通过。六页原本未使用 dialog；details 的展开/收起按适用页面检查。原布尔控件是 checkbox，没有为此引入 Switch 或新对话框。
 
@@ -66,7 +66,7 @@
 
 ## 复现与验收
 
-脚本为持久验证用例，不在 output 下创建材料：`tests/r2-browser-review.mjs`、`tests/r2-seed-review.ts`、`tests/r2-review-report.mjs`。它们校验浏览器数据目录必须为仓库 `.test-data/r2/browser`。原版 before 须在迁移前源码下采集；不能在当前源码上调用 before 并冒充原版。按本节顺序使用独立干净夹具复现，截图后交互会写入这个隔离库。
+脚本为持久验证用例，不在 output 下创建材料：`tests/r2-browser-review.mjs`、`tests/fixtures/seed/r2-seed-review.ts`、`tests/manual/r2-review-report.mjs`。它们校验浏览器数据目录必须为仓库 `.test-data/r2/browser`。原版 before 须在迁移前源码下采集；不能在当前源码上调用 before 并冒充原版。按本节顺序使用独立干净夹具复现，截图后交互会写入这个隔离库。
 
 ```powershell
 $env:QUANT_DATA_DIR = Join-Path $PWD '.test-data/r2/browser'
@@ -75,15 +75,15 @@ pnpm dev --port 3215
 node tests/r2-browser-review.mjs connections after
 node tests/r2-browser-review.mjs signals after
 node tests/r2-browser-review.mjs trade-ledger after
-pnpm exec tsx tests/r2-seed-review.ts
+pnpm exec tsx tests/fixtures/seed/r2-seed-review.ts
 node tests/r2-browser-review.mjs signal-ledger after
-pnpm exec tsx tests/r2-seed-review.ts screen
+pnpm exec tsx tests/fixtures/seed/r2-seed-review.ts screen
 node tests/r2-browser-review.mjs screen after
-pnpm exec tsx tests/r2-seed-review.ts market
+pnpm exec tsx tests/fixtures/seed/r2-seed-review.ts market
 node tests/r2-browser-review.mjs market after
-node tests/r2-review-report.mjs
+node tests/manual/r2-review-report.mjs
 ```
 
 首次持仓 before 脚本先通过原表单录入一笔合成交易再重载截图；直接在空库跳到 after 无法复现已存在持仓的断言。单元测试运行前移除外层 `QUANT_DATA_DIR`，让既有 setup 为测试创建自己的临时目录；不要继承浏览器库。构建前停止本次 dev 服务、等待测试退出，避免重建正在使用的 koffi runtime。
 
-最终命令与结果另见 [validation.json](validation.json)。不运行 desktop:smoke / desktop:pack，不 commit/push。B 层仍需用户看六组截图，确认控件字体/密度、表格字体和空值触发器颜色；本报告没有自行裁定视觉达标。
+最终命令与结果另见 validation.json（历史产物已清理）。不运行 desktop:smoke / desktop:pack，不 commit/push。B 层仍需用户看六组截图，确认控件字体/密度、表格字体和空值触发器颜色；本报告没有自行裁定视觉达标。

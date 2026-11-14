@@ -23,6 +23,7 @@ export function OnlineScreen({
     onSuccess: (job) => {
       setId(job.id);
       void utils.jobs.invalidate();
+      void utils.taskOverview.invalidate();
     },
   });
   const job =

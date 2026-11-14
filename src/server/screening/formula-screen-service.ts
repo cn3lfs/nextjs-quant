@@ -1,17 +1,37 @@
+import { z } from "zod";
+import { isFormulaScreenJob } from "~/lib/screening/formula-job";
 import { randomUUID } from "node:crypto";
-import { validateScreenFormula, type SavedFormula } from "~/lib/formula/formula-screen";
-import { get, list, put, putChangedBatch } from "../db";
+import {
+  validateScreenFormula,
+  type SavedFormula,
+} from "~/lib/formula/formula-screen";
+import { readRecordSnapshot, put } from "../db";
 import type { Job } from "~/lib/domain";
 import { settings } from "../infra/settings";
-import { background, runWorker, updateJob } from "../jobs/jobs";
-import type { ScreeningResult } from "./screening";
-import { serializeSnapshot } from "./snapshot-serializer";
+import { background, runWorker } from "../jobs/jobs";
+import type { FormulaScreenOutput } from "./formula-screen-work";
 import type { StoredScreenResult } from "./screen-results";
-export const savedFormulas = () => list<SavedFormula>("tdx-formula", 1000);
+export const savedFormulas = () =>
+  readRecordSnapshot("tdx-formula", (rows: Iterable<SavedFormula>) =>
+    [...rows].sort(
+      (a, b) => b.updatedAt - a.updatedAt || b.id.localeCompare(a.id),
+    ),
+  );
 export function exportFormulaScreen(job: Job) {
-  if (job.type !== "screen" || job.status !== "completed" || !job.result)
+  if (!isFormulaScreenJob(job) || job.status !== "completed" || !job.result)
     throw new Error("只能导出已完成的公式选股任务");
-  const input = job.input as { formula: unknown; root: string; now: number };
+  const input = z
+    .object({
+      type: z.literal("formula-screen"),
+      formula: z.unknown(),
+      root: z.string(),
+      now: z.number().finite(),
+      period: z.literal("day").optional(),
+      source: z.literal("tdx-local").optional(),
+      adjustment: z.literal("none").optional(),
+    })
+    .parse(job.input);
+  const result = job.result as StoredScreenResult;
   const formula = validateScreenFormula(input.formula);
   return {
     format: "quant-formula-screen-export-1",
@@ -21,7 +41,17 @@ export function exportFormulaScreen(job: Job) {
     source: "tdx-local",
     adjustment: "none",
     parameters: { ...input, formula },
-    ...(job.result as StoredScreenResult),
+    formula,
+    candidates: result.candidates,
+    excluded: result.excluded,
+    errors: result.errors,
+    total: result.total,
+    asOf: result.asOf,
+    elapsedMs: result.elapsedMs,
+    period: result.period,
+    researchMode: result.researchMode,
+    universeSource: result.universeSource,
+    researchWarnings: result.researchWarnings,
   };
 }
 export function saveFormula(input: unknown) {
@@ -45,23 +75,10 @@ export function formulaScreenJob(input: unknown) {
     "screen",
     { ...work, period: "day", source: "tdx-local", adjustment: "none" },
     async (job, signal) => {
-      const result = await runWorker<ScreeningResult>(work, job.id);
-      for (let i = 0; i < result.snapshots.length; i += 50) {
-        signal.throwIfAborted();
-        if (get<Job>(job.id)?.status !== "running")
-          throw new Error("公式选股已取消");
-        updateJob(job.id, { phase: "保存公式候选快照", progress: 95 });
-        putChangedBatch(
-          "snapshot",
-          result.snapshots.slice(i, i + 50),
-          serializeSnapshot,
-        );
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
+      const result = await runWorker<FormulaScreenOutput>(work, job.id);
       signal.throwIfAborted();
-      const { snapshots: _snapshots, ...stored } = result;
       return {
-        ...stored,
+        ...result,
         formula,
         period: "day",
         researchMode: "latest-local",
@@ -69,7 +86,7 @@ export function formulaScreenJob(input: unknown) {
         researchWarnings: [
           "使用最新已完成本地日线，不承诺数据为当前交易日；不复权。候选表均线/量比为既有默认描述指标，不参与公式判定。",
         ],
-      };
+      } satisfies StoredScreenResult;
     },
     work,
   );

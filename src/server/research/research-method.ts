@@ -1,7 +1,7 @@
 import { isOpening } from "trading-strategies/research/technical/research-opening";
 import { isMarketAdmission } from "trading-strategies/research/risk/research-market-admission";
 import { isIntradayExecution } from "trading-strategies/research/technical/research-intraday-execution";
-import {riskRepairBoundary} from "trading-strategies/research/risk/research-risk-repair";
+import { riskRepairBoundary } from "trading-strategies/research/risk/research-risk-repair";
 import {
   riskRoutingBoundary,
   stopDiagnosisBoundary,
@@ -51,7 +51,10 @@ import { researchLossPauseVersion } from "trading-strategies/research/risk/resea
 import { researchRetracementVersion } from "trading-strategies/research/technical/research-retracement";
 import { researchMarketChopVersion } from "trading-strategies/research/risk/research-market-chop";
 import { researchMarketRegimeVersion } from "trading-strategies/research/risk/research-market-regime";
-import { swingExitKind, swingExitVersion } from "trading-strategies/research/swing/research-swing-exits";
+import {
+  swingExitKind,
+  swingExitVersion,
+} from "trading-strategies/research/swing/research-swing-exits";
 import {
   researchManagementSources,
   researchManagementVersion,

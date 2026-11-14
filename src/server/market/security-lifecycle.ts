@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { get, put } from "../db";
 import { request } from "../data-sources/hithink/hithink-context";
 import { isAStock } from "tstdx/local";

@@ -55,21 +55,31 @@ const bars = (): Bar[] =>
     amount: 100000,
   }));
 it("combines actual reversal geometry and does not take the bearish preset's baseline MA entry", () => {
-    const input = bars();
-    for (let i = 70; i < 75; i++)
-        Object.assign(input[i]!, {
-            open: 90 + i - 70,
-            close: 91 + i - 70,
-            high: 92 + i - 70,
-            low: 89 + i - 70,
-        });
-    Object.assign(input[75]!, { open: 100, close: 101, high: 104, low: 99.9 });
-    const point = researchPatternCombinationSeries("sw-reversal-confirmed", input)[75]!;
-    expect(point.exit).toBe(true);
-    expect(point.pattern.bearish).toContain("candle-shooting-star-exit");
-    expect(point.pattern.bearish.every((id) => id.endsWith("-exit"))).toBe(true);
-    expect(point.entry).toBe(false);
-    expect(researchTechnicalSeries("sw-reversal-confirmed", input, undefined, researchFormulaRuntime)[75]).toEqual(point);
+  const input = bars();
+  for (let i = 70; i < 75; i++)
+    Object.assign(input[i]!, {
+      open: 90 + i - 70,
+      close: 91 + i - 70,
+      high: 92 + i - 70,
+      low: 89 + i - 70,
+    });
+  Object.assign(input[75]!, { open: 100, close: 101, high: 104, low: 99.9 });
+  const point = researchPatternCombinationSeries(
+    "sw-reversal-confirmed",
+    input,
+  )[75]!;
+  expect(point.exit).toBe(true);
+  expect(point.pattern.bearish).toContain("candle-shooting-star-exit");
+  expect(point.pattern.bearish.every((id) => id.endsWith("-exit"))).toBe(true);
+  expect(point.entry).toBe(false);
+  expect(
+    researchTechnicalSeries(
+      "sw-reversal-confirmed",
+      input,
+      undefined,
+      researchFormulaRuntime,
+    )[75],
+  ).toEqual(point);
 });
 it("confirms a real three-methods continuation and freezes its structural stop", () => {
   const input = bars();

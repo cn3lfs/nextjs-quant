@@ -1,4 +1,6 @@
 "use client";
+import { rpsPeriods, rpsGroupExclusions } from "quant-rps";
+
 import { useEffect, useRef, useState } from "react";
 import {
   nextTableSort,
@@ -8,8 +10,8 @@ import {
 import { api, type RouterOutputs } from "~/trpc/react";
 import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import { usePanelVisible } from "../workbench/keep-alive";
-import { rpsPeriods } from "~/lib/screening/rps";
-import { industryEmptyLabels, industryExclusions } from "~/lib/screening/industry-rps";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
+import { industryEmptyLabels } from "~/lib/screening/industry-rps";
 import { industryExclusionLabels } from "./industry-rps-status";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -47,14 +49,14 @@ const columns: DataTableColumn<Row>[] = [
     enableSorting: true,
     header: "成分 / 有效 / 端点不足",
     cell: ({ row }) =>
-      `${row.original.total} / ${row.original.valid} / ${row.original.endpointMissing}`,
+      `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
   },
   {
     id: "excluded",
     enableSorting: true,
     header: "剔除原因",
     cell: ({ row }) =>
-      industryExclusions
+      rpsGroupExclusions
         .filter((reason) => row.original.excluded[reason])
         .map(
           (reason) =>
@@ -125,7 +127,10 @@ export function ConceptRpsControls() {
         当前名单不是历史成分；回填有成分漂移和生存者偏差。每日按工作流设置与个股、行业串行批处理；行情或日历不齐则失败。保留最近750个结果日，清理与写入同事务；取消保留已完成日期，重试补缺。
       </p>
       {!status.data?.ready && (
-        <p>请先在上方选择通达信来源，或配置只读 Blocks 根目录。</p>
+        <p>
+          请先配置通达信目录，再在上方选择板块成分来源；外部来源还需配置只读
+          Blocks 根目录。
+        </p>
       )}
       <div className="flex flex-wrap gap-3">
         <Button
@@ -184,7 +189,7 @@ export function ConceptRpsControls() {
           <SelectContent>
             {rpsPeriods.map((p) => (
               <SelectItem key={p} value={String(p)}>
-                RPS{p}
+                {rpsPeriodLabel(p)}
               </SelectItem>
             ))}
           </SelectContent>

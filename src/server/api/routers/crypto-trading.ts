@@ -16,25 +16,25 @@ import {
   controlCryptoBot,
   cancelCryptoBotOrder,
 } from "../../crypto-trading/service";
-import { createTRPCRouter, publicProcedure as p } from "../trpc";
+import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 
 const accountId = z
   .string()
   .regex(/^(binance-(demo|testnet)|okx-demo|bybit-demo)$/);
 export const cryptoTradingRouter = createTRPCRouter({
-  cryptoAccountView: p
+  cryptoAccountView: p("cryptoSimulation", "read")
     .input(accountViewSchema)
     .query(({ input }) => cryptoAccountView(input)),
-  syncCryptoAccount: p
+  syncCryptoAccount: p("cryptoSimulation", "compute")
     .input(accountSyncSchema)
     .mutation(({ input }) => syncCryptoAccount(input)),
-  cryptoBotStatus: p
+  cryptoBotStatus: p("cryptoSimulation", "read")
     .input(accountId)
     .query(({ input }) => cryptoBotStatus(input)),
-  saveCryptoBot: p
+  saveCryptoBot: p("cryptoSimulation", "configure")
     .input(configSchema)
     .mutation(({ input }) => saveCryptoBot(input)),
-  saveCryptoBotCredential: p
+  saveCryptoBotCredential: p("cryptoSimulation", "configure")
     .input(
       z
         .object({
@@ -46,17 +46,17 @@ export const cryptoTradingRouter = createTRPCRouter({
         .strict(),
     )
     .mutation(({ input }) => saveCryptoBotCredential(input)),
-  diagnoseCryptoBot: p
+  diagnoseCryptoBot: p("cryptoSimulation", "compute")
     .input(accountId)
     .mutation(({ input }) => diagnoseCryptoBot(input)),
-  controlCryptoBot: p
+  controlCryptoBot: p("cryptoSimulation", "schedule")
     .input(
       z
         .object({ id: accountId, action: z.enum(["start", "pause", "stop"]) })
         .strict(),
     )
     .mutation(({ input }) => controlCryptoBot(input)),
-  cancelCryptoBotOrder: p
+  cancelCryptoBotOrder: p("cryptoSimulation", "compute")
     .input(
       z.object({ id: accountId, clientId: z.string().min(1).max(64) }).strict(),
     )

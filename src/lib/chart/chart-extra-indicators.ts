@@ -1,10 +1,5 @@
 import type { Bar } from "../domain";
-import {
-  ema,
-  maSeries,
-  obv,
-  type IndicatorValue,
-} from "../indicators";
+import { ema, maSeries, obv, type IndicatorValue } from "../indicators";
 
 // Broker-standard (TDX) formulas for chart-only indicators. Null inputs or
 // incomplete windows stay null; no filling or rounding.
@@ -21,7 +16,9 @@ export function williams(bars: readonly Bar[], n: number): IndicatorValue[] {
     if (!w) return null;
     const high = Math.max(...w.map((b) => b.high)),
       low = Math.min(...w.map((b) => b.low));
-    return high === low ? null : finite((100 * (high - bar.close)) / (high - low));
+    return high === low
+      ? null
+      : finite((100 * (high - bar.close)) / (high - low));
   });
 }
 
@@ -45,7 +42,9 @@ export function cci(bars: readonly Bar[], n: number): IndicatorValue[] {
     if (!w) return null;
     const mean = w.reduce((s, v) => s + v, 0) / n,
       deviation = w.reduce((s, v) => s + Math.abs(v - mean), 0) / n;
-    return deviation === 0 ? null : finite((value - mean) / (0.015 * deviation));
+    return deviation === 0
+      ? null
+      : finite((value - mean) / (0.015 * deviation));
   });
 }
 

@@ -47,6 +47,7 @@ it("preserves task identity and status within the response budget, with full tex
     const expectedCore = expected[i]!;
     expect(core).toEqual({
       id: expectedCore.id,
+      isFormulaScreen: false,
       type: expectedCore.type,
       status: expectedCore.status,
       progress: expectedCore.progress,

@@ -7,18 +7,9 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import ts from "typescript";
-import { componentLogic, renderHandlers } from "../tests/r2-contracts";
-import { withoutE1MarketBrowser } from "../tests/e1-market-contract";
-import { withoutTdxSnapshotPanel } from "../tests/tdx-snapshot-contract";
+import { componentLogic, renderHandlers } from "../tests/helpers/r2-contracts";
 
-const read = (file: string) => {
-  const source = readFileSync(file, "utf8");
-  return file.endsWith("/market-view.tsx")
-    ? withoutE1MarketBrowser(source)
-    : file.endsWith("/chart-workspace.tsx")
-      ? withoutTdxSnapshotPanel(source)
-      : source;
-};
+const read = (file: string) => readFileSync(file, "utf8");
 const files = process.argv.slice(2);
 if (!files.length)
   throw new Error(
@@ -39,7 +30,7 @@ function update(path: string, compute: (file: string) => unknown) {
   }
   if (changed) writeFileSync(path, JSON.stringify(json, null, 2) + "\n");
 }
-// r2-render-contract: render handlers (market-view without E1 browser).
+// r2-render-contract: render handlers.
 update("tests/fixtures/r2-render-handlers.json", (file) =>
   renderHandlers(read(file)),
 );

@@ -1,4 +1,5 @@
 "use client";
+import { CapabilityNotice } from "../common/capability-notice";
 import { useEffect, useRef, useState } from "react";
 import { Notebook, ListBullets } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
@@ -192,6 +193,7 @@ export function SignalLedgerWorkspace() {
   const current = summary.data?.run;
   return (
     <PageGrid>
+      <CapabilityNotice id="signalLedger" />
       <Panel
         icon={Notebook}
         title="信号台账"
@@ -443,7 +445,7 @@ export function SignalLedgerWorkspace() {
             <p className="my-4">
               {query.data.totalAll
                 ? "当前筛选没有匹配信号，请调整条件。"
-                : "尚无向前信号记录。交易日15:05后保持应用运行并准备当日日线；不补录历史。"}
+                : "尚无信号记录；台账生成已暂停，不会自动产生新记录。"}
             </p>
           )}
           <BrowseSource

@@ -54,37 +54,9 @@ vi.mock(
     }),
   }),
 );
-vi.mock("../../../src/server/backtest/research-store", () => ({
-  ResearchStore: class {
-    isResultVisible() {
-      return true;
-    }
-    result() {
-      return {
-        spec: {
-          start: state.dates[0],
-          end: state.dates[3],
-          validationStart: state.dates[2],
-          initialCapital: 100,
-        },
-        partitions: ["development", "validation"].map((partition, p) => ({
-          partition,
-          simulation: {
-            nav: state.dates
-              .slice(p * 2, p * 2 + 2)
-              .map((date, i) => ({ date, value: 100 + i, stale: [] })),
-          },
-        })),
-      };
-    }
-    dataset() {
-      return { calendar: state.dates };
-    }
-  },
-}));
 import { createCaller } from "../../../src/server/api/root";
 
-it("both tRPC routes validate and forward window, minPeriods, basis and pagination", async () => {
+it("account tRPC route validates and forward window, minPeriods, basis and pagination", async () => {
   const caller = createCaller({ headers: new Headers() });
   const params = {
     window: 3,
@@ -108,26 +80,12 @@ it("both tRPC routes validate and forward window, minPeriods, basis and paginati
     coverage: { nullDays: 1 },
     insufficientCoverage: true,
   });
-  const research = await caller.strategyResearchRollingPerformance({
-    ...params,
-    id: "fixture",
-    partition: "validation",
-  });
-  expect(research.rowCount).toBe(2);
-  expect(research.rows).toHaveLength(1);
-  expect(research.rows[0]).toMatchObject({
-    startDate: state.dates[2],
-    endDate: state.dates[3],
-    tradingDays: 2,
-    basis: "simple",
-  });
   await expect(
     caller.tradeReviewRollingPerformance({ account: "fixture", pageSize: 101 }),
   ).rejects.toThrow();
   await expect(
-    caller.strategyResearchRollingPerformance({
-      id: "fixture",
-      partition: "development",
+    caller.tradeReviewRollingPerformance({
+      account: "fixture",
       window: 2,
       minPeriods: 3,
     }),

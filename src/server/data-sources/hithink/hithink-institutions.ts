@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import {type Evidence} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { type Evidence } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import {
   canslimInstitutions,
   institutionResponseSchema,

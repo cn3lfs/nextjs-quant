@@ -1,28 +1,31 @@
-import type { Candidate, Period, Job } from "~/lib/domain";
-import {strategySchema,periodSchema} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
-import { z } from "zod";
-import type { ScreenDataHealth } from "../market/data-health";
-import { historicalScreenSchema } from "~/lib/screening/historical-screen";
-import type { PoolContext } from "../market/pool-context";
+import type { ScreeningFormula } from "~/lib/formula/formula-screen";
+import type { ScreeningResult } from "./screening-result";
+import type { Candidate } from "~/lib/domain";
 import { securityDisplayName } from "~/lib/market/security-display";
 import type { ScreenSort } from "~/lib/screening/screen-sort";
-export type StoredScreenResult = {
-  formula?: import("~/lib/formula/formula-screen").ScreeningFormula;
-  candidates: Candidate[];
-  errors: { symbol: string; error: string }[];
-  excluded?: { symbol: string; name?: string; date?: string; reason: string }[];
-  total: number;
-  asOf?: string | null;
-  elapsedMs?: number;
-  period?: Period;
-  dataHealth?: ScreenDataHealth;
-  researchMode?: string;
-  requestedAsOf?: string | null;
-  universeSource?: string;
-  researchWarnings?: string[];
-  poolContext?: PoolContext;
+
+export type StoredScreenResult = Omit<ScreeningResult, "snapshots"> & {
+  formula: ScreeningFormula;
+  period: "day";
+  researchMode: "latest-local";
+  universeSource: string;
+  researchWarnings: string[];
 };
+/** Shared by in-memory paging and the SQLite search predicate. Query is normalized. */
+export function matchesScreenCandidate(
+  candidate: Pick<Candidate, "symbol" | "name">,
+  query: string,
+  currentNames: Record<string, string>,
+) {
+  return (
+    !query ||
+    candidate.symbol.includes(query) ||
+    candidate.name.toLowerCase().includes(query) ||
+    securityDisplayName(candidate.symbol, currentNames, candidate.name)
+      .toLowerCase()
+      .includes(query)
+  );
+}
 export function pageScreenResults(
   result: StoredScreenResult,
   input: {
@@ -36,14 +39,8 @@ export function pageScreenResults(
   currentNames: Record<string, string> = {},
 ) {
   const query = input.query.trim().toLowerCase();
-  const candidates = result.candidates.filter(
-    (c) =>
-      !query ||
-      c.symbol.includes(query) ||
-      c.name.toLowerCase().includes(query) ||
-      securityDisplayName(c.symbol, currentNames, c.name)
-        .toLowerCase()
-        .includes(query),
+  const candidates = result.candidates.filter((c) =>
+    matchesScreenCandidate(c, query, currentNames),
   );
   const slice = <T>(rows: T[], page: number) =>
     rows.slice(page * 50, (page + 1) * 50);
@@ -66,62 +63,21 @@ export function pageScreenResults(
   // Explicit fields prevent future stored snapshots/evidence from leaking into list responses.
   return {
     sort,
-    formula: result.formula ?? null,
+    formula: result.formula,
     direction,
     total: result.total,
     asOf: result.asOf,
     elapsedMs: result.elapsedMs,
     period: result.period,
-    dataHealth: result.dataHealth ?? null,
-    poolContext: result.poolContext ?? null,
-    researchMode: result.researchMode ?? "latest-local",
-    requestedAsOf: result.requestedAsOf ?? null,
-    universeSource: result.universeSource ?? "旧任务未记录",
-    researchWarnings: result.researchWarnings ?? [],
+    researchMode: result.researchMode,
+    universeSource: result.universeSource,
+    researchWarnings: result.researchWarnings,
     candidates: slice(candidates, input.page),
     count: candidates.length,
     candidateTotal: result.candidates.length,
-    excluded: slice(result.excluded ?? [], input.excludedPage),
-    excludedTotal: result.excluded?.length ?? 0,
+    excluded: slice(result.excluded, input.excludedPage),
+    excludedTotal: result.excluded.length,
     errors: slice(result.errors, input.errorPage),
     errorTotal: result.errors.length,
-  };
-}
-export function exportScreenResults(job: Job) {
-  if (job.type !== "screen" || job.status !== "completed" || !job.result)
-    throw new Error("只能导出已完成的本地选股任务");
-  const input = historicalScreenSchema
-    .extend({
-      strategy: strategySchema,
-      period: periodSchema,
-      symbols: z.array(symbolSchema),
-      root: z.string().optional(),
-    })
-    .parse(job.input);
-  const result = job.result as StoredScreenResult;
-  return {
-    format: "quant-screen-export-1",
-    jobId: job.id,
-    createdAt: job.createdAt,
-    completedAt: job.updatedAt,
-    source: "tdx-local",
-    adjustment: "none",
-    parameters: input,
-    asOf: result.asOf ?? null,
-    elapsedMs: result.elapsedMs ?? null,
-    dataHealth: result.dataHealth ?? null,
-    poolContext: result.poolContext ?? null,
-    researchMode: result.researchMode ?? "latest-local",
-    requestedAsOf: result.requestedAsOf ?? null,
-    universeSource: result.universeSource ?? "旧任务未记录",
-    researchWarnings: result.researchWarnings ?? [],
-    total: result.total,
-    candidateTotal: result.candidates.length,
-    candidates: result.candidates,
-    excluded: result.excluded ?? [],
-    errors: result.errors,
-    warnings: !result.asOf
-      ? ["旧任务未记录统一基准日，不能据此证明候选同时点有效"]
-      : [],
   };
 }

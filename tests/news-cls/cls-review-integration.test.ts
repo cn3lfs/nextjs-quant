@@ -34,7 +34,7 @@ vi.mock("../../src/server/market/securities", () => ({
 }));
 import { migrate } from "../../src/server/db/migrations";
 import { RpsStore } from "../../src/server/screening/rps-store";
-import { rpsDay } from "../rps-fixture";
+import { rpsDay } from "../helpers/rps-fixture";
 import { previewClsReport } from "../../src/server/news/cls-report-files";
 import { ClsReviewStore } from "../../src/server/news/cls-review-store";
 import {

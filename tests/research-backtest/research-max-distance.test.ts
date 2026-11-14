@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import {researchManagementSchema} from "../../src/lib/research/workflow/research-management";
-import {researchInitialStop,researchMaximumDistance} from "trading-strategies/research/risk/research-initial-stop";
-import { researchSpecSchema } from "../../src/lib/research/strategy-research";
-import { selectResearchStrategy } from "../../src/components/research/research-strategy-fields";
-import { researchMethodSnapshot } from "../../src/server/research/research-method";
+import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
+import {
+  researchInitialStop,
+  researchMaximumDistance,
+} from "trading-strategies/research/risk/research-initial-stop";
 const management = researchManagementSchema.parse({
   stop: {
     kind: "max-distance",
@@ -64,42 +64,4 @@ it("rejects any missing or invalid candidate instead of silently comparing a sma
         stopAtr: 2.5,
       }),
     ).toBeNull();
-});
-it("versions the complete comparison and clears unsupported structure configuration", () => {
-  const spec = researchSpecSchema.parse({
-    strategy: "dual-breakout",
-    start: "2024-01-01",
-    end: "2024-12-31",
-    validationStart: "2024-10-01",
-    risk: { fraction: 0.01, maxWeight: 0.2 },
-    management,
-  });
-  expect(
-    researchSpecSchema.safeParse({ ...spec, strategy: "ma-cross" }).success,
-  ).toBe(false);
-  expect(selectResearchStrategy(spec, "ma-cross").management!.stop).toEqual({
-    kind: "percent",
-    fraction: 0.05,
-  });
-  const method = researchMethodSnapshot(spec);
-  expect(method).toHaveProperty(
-    "maxDistance.version",
-    "research-max-distance-1",
-  );
-  expect(
-    method.sources.some(
-      (s) => s.path === "stop-loss/scripts/stop_loss_calc.py",
-    ),
-  ).toBe(true);
-  expect(
-    researchMethodSnapshot({
-      ...spec,
-      management: researchManagementSchema.parse({}),
-    }),
-  ).not.toHaveProperty("maxDistance");
-  expect(
-    researchManagementSchema.safeParse({
-      stop: { ...management.stop, multiple: 0 },
-    }).success,
-  ).toBe(false);
 });

@@ -3,6 +3,7 @@ import {
   type AccountReadContext,
 } from "./account-model";
 import Big from "big.js";
+import { recordRuntimeError } from "../infra/runtime-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { cryptoDualMa } from "trading-strategies";
@@ -519,6 +520,7 @@ async function evaluate(
     );
   } catch (error) {
     // An intent remains unresolved even on a local error. Only exchange facts resolve it.
+    recordRuntimeError("crypto-order", error);
     const message = error instanceof Error ? error.message : "下单失败";
     const outcomeUnknown = !(
       error instanceof Error &&
@@ -562,6 +564,7 @@ export async function tickCryptoBots() {
             if (!snapshot) break;
           }
         } catch (error) {
+          recordRuntimeError("crypto-tick", error);
           atomic(() => {
             value = bot(saved.id);
             persist({

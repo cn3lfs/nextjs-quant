@@ -1,14 +1,19 @@
 "use client";
+import { useTaskVisible } from "../workbench/use-task-visible";
 import { useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
-import {disciplineNotice,disciplineScope} from "trading-strategies/research/risk/discipline-policy";
+import {
+  disciplineNotice,
+  disciplineScope,
+} from "trading-strategies/research/risk/discipline-policy";
 import { DisciplineResults } from "./discipline-results";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
 export function DisciplineContainer({ account }: { account: string }) {
+  const visible = useTaskVisible();
   const utils = api.useUtils(),
     start = api.disciplineStart.useMutation(),
     cancel = api.disciplineCancel.useMutation();
@@ -18,9 +23,10 @@ export function DisciplineContainer({ account }: { account: string }) {
     [exporting, setExporting] = useState(false);
   const lock = useRef(false);
   const state = api.disciplineStatus.useQuery(id, {
-    enabled: !!id,
+    enabled: visible && !!id,
     retry: false,
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 1000 : false),
+    refetchInterval: (q) =>
+      visible && q.state.data?.status === "running" ? 1000 : false,
   });
   const busy = start.isPending || state.data?.status === "running";
   return (

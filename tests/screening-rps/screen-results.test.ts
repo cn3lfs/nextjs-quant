@@ -1,12 +1,23 @@
+import { exportFormulaScreen } from "../../src/server/screening/formula-screen-service";
 import { expect, it } from "vitest";
 import {
   pageScreenResults,
-  exportScreenResults,
   type StoredScreenResult,
 } from "../../src/server/screening/screen-results";
 import type { Candidate } from "../../src/lib/domain";
-import { defaultStrategy, type Job } from "../../src/lib/domain";
+import { type Job } from "../../src/lib/domain";
 import { securityDisplayName } from "../../src/lib/market/security-display";
+const formula = { name: "测试公式", source: "选股:C>0;", parameters: {} };
+const metadata = {
+  formula,
+  period: "day" as const,
+  researchMode: "latest-local" as const,
+  asOf: null,
+  elapsedMs: 12,
+  universeSource: "当前本地通达信全 A 股日线",
+  researchWarnings: [],
+  excluded: [],
+};
 it("sorts the entire filtered pool before pagination without changing archived order", () => {
   const rows = Array.from(
     { length: 123 },
@@ -18,7 +29,12 @@ it("sorts the entire filtered pool before pagination without changing archived o
         snapshotId: `s-${i}`,
       }) as Candidate,
   );
-  const result = { candidates: rows, errors: [], total: rows.length };
+  const result = {
+    ...metadata,
+    candidates: rows,
+    errors: [],
+    total: rows.length,
+  };
   const before = structuredClone(result);
   const page = (
     page: number,
@@ -55,6 +71,7 @@ it("breaks metric ties by code and keeps missing or nonfinite values last in eit
   for (const direction of ["asc", "desc"] as const) {
     const page = pageScreenResults(
       {
+        ...metadata,
         candidates: rows.map((c) => ({ ...c, name: c.symbol })),
         errors: [],
         total: 4,
@@ -83,7 +100,7 @@ it("finds both current and archived names without replacing stored evidence", ()
     snapshotId: "original",
     metrics: { close: 123 },
   } as Candidate;
-  const result = { candidates: [row], errors: [], total: 1 };
+  const result = { ...metadata, candidates: [row], errors: [], total: 1 };
   const before = structuredClone(result),
     names = { sh600519: "主档新名" };
   for (const query of ["主档新名", "归档旧名", "sh600519"]) {
@@ -113,13 +130,16 @@ it("full export includes every row and original parameters without internal snap
     createdAt: 1,
     updatedAt: 2,
     input: {
-      strategy: defaultStrategy,
+      type: "formula-screen",
+      formula,
+      now: 100,
       period: "day",
       symbols: rows.map((row) => row.symbol),
       root: "fixture",
       apiKey: "not-for-export",
     },
     result: {
+      ...metadata,
       candidates: rows,
       total: 369,
       excluded: rows.map((row) => ({ symbol: row.symbol, reason: "旧行情" })),
@@ -127,16 +147,16 @@ it("full export includes every row and original parameters without internal snap
       snapshots: ["internal"],
     },
   };
-  const exported = exportScreenResults(job);
+  const exported = exportFormulaScreen(job);
   expect(exported.candidates).toHaveLength(123);
   expect(exported.excluded).toHaveLength(123);
   expect(exported.errors).toHaveLength(123);
-  expect(exported.parameters.strategy).toEqual(defaultStrategy);
-  expect(exported.parameters.symbols).toHaveLength(123);
+  expect(exported.parameters.formula).toEqual(formula);
+  expect(exported.parameters).not.toHaveProperty("symbols");
   expect(exported.parameters).not.toHaveProperty("apiKey");
   expect(exported).not.toHaveProperty("snapshots");
-  expect(exported.warnings[0]).toContain("旧任务");
-  expect(() => exportScreenResults({ ...job, status: "running" })).toThrow(
+  expect(exported.asOf).toBeNull();
+  expect(() => exportFormulaScreen({ ...job, status: "running" })).toThrow(
     "已完成",
   );
 });
@@ -147,6 +167,7 @@ it("pages every category without truncating totals or exposing stored snapshots"
     name: `证券${i}`,
   }));
   const stored = {
+    ...metadata,
     candidates: rows as Candidate[],
     excluded: rows.map((row) => ({ ...row, reason: "旧行情" })),
     errors: rows.map((row) => ({ symbol: row.symbol, error: "读取失败" })),
@@ -175,8 +196,9 @@ it("pages every category without truncating totals or exposing stored snapshots"
   });
   expect(results[0]).not.toHaveProperty("snapshots");
 });
-it("searches all candidates before paging and supports legacy results", () => {
+it("searches all current formula candidates before paging", () => {
   const stored: StoredScreenResult = {
+    ...metadata,
     candidates: [{ symbol: "sh600519", name: "贵州茅台" } as Candidate],
     errors: [],
     total: 1,

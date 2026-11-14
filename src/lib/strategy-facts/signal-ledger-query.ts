@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { deliveryTierSchema } from "./notification-policy";
 
 export const ledgerDateSchema = z

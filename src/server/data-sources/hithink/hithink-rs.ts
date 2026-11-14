@@ -1,6 +1,6 @@
 import { z } from "zod";
-import {type Evidence} from "~/lib/domain";
-import {symbolSchema} from "trading-strategies/research/contracts/security";
+import { type Evidence } from "~/lib/domain";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { request } from "./hithink-context";
 import { validateHithinkColumns } from "./hithink-columns";
 import { evidenceEnvelope } from "../../infra/evidence";

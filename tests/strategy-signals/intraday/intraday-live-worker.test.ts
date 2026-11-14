@@ -7,10 +7,13 @@ import { expect, it } from "vitest";
 import valid from "../../fixtures/breakout-valid.json";
 import { migrate } from "../../../src/server/db/migrations";
 import { RpsStore } from "../../../src/server/screening/rps-store";
-import { rpsDay } from "../../rps-fixture";
+import { rpsDay } from "../../helpers/rps-fixture";
 import { intradayConfigSchema } from "../../../src/lib/strategy-facts/intraday-schedule";
 import { previewSlots } from "../../../src/lib/research/analysis/intraday-preview";
-import { projectCzsc, closeCzsc } from "../../../src/server/strategies/chan/czsc";
+import {
+  projectCzsc,
+  closeCzsc,
+} from "../../../src/server/strategies/chan/czsc";
 import { IntradayStore } from "../../../src/server/monitoring/intraday-store";
 
 it("runs captured intraday signals through the actual worker and host DLL queue, then confirms at close", async () => {
@@ -87,6 +90,11 @@ it("runs captured intraday signals through the actual worker and host DLL queue,
         format: "cjs",
         external: ["better-sqlite3", "koffi"],
         target: "node22",
+        alias: {
+          "~/lib/common/capabilities": resolve(
+            "tests/helpers/enabled-capabilities.ts",
+          ),
+        },
         banner: { js: `Date.now = () => ${now};` },
       });
       const worker = new Worker(path, {

@@ -8,7 +8,6 @@ import {
 } from "~/lib/strategy-facts/monitor-workspace-draft";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
-import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
   SelectTrigger,
@@ -16,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "~/components/ui/select";
-import { ArrowUpRight, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
 import {
   archivedNameHint,
@@ -26,19 +25,11 @@ import { FormulaScreen } from "../screening/formula-screen";
 import { FactorEvaluationPanel } from "../research/factor-evaluation-panel";
 import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
-import {
-  DownloadSimple,
-  Funnel,
-  Gauge,
-  ListDashes,
-  Sparkle,
-} from "@phosphor-icons/react/ssr";
+import { DownloadSimple, Gauge, ListDashes } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Segmented, StatsPanel } from "../panels";
 
-import { ReportCard } from "./reports";
-import { Empty, Field, fmt, ResultPager } from "./shared";
-import { StrategyFields } from "./strategy-fields";
-import { type WorkbenchState } from "./use-workbench-state";
+import { Empty, fmt, ResultPager } from "./shared";
+import type { ScreenViewState } from "../screening/screen-workspace";
 
 /** Candidate table column → server-side screen sort key. */
 const screenSortColumn: Record<Exclude<ScreenSort, "original">, string> = {
@@ -49,86 +40,14 @@ const screenSortColumn: Record<Exclude<ScreenSort, "original">, string> = {
   score: "column-5",
 };
 
-export function ScreenView({
-  state,
-}: {
-  state: Pick<
-    WorkbenchState,
-    | "setTab"
-    | "setSymbol"
-    | "setBrowse"
-    | "period"
-    | "setPeriod"
-    | "setLoaded"
-    | "strategy"
-    | "setStrategy"
-    | "onlineQuery"
-    | "setOnlineQuery"
-    | "prompt"
-    | "setPrompt"
-    | "universe"
-    | "setUniverse"
-    | "historicalDate"
-    | "setHistoricalDate"
-    | "universeSource"
-    | "setUniverseSource"
-    | "requireCurrent"
-    | "setRequireCurrent"
-    | "screenPage"
-    | "setScreenPage"
-    | "excludedPage"
-    | "setExcludedPage"
-    | "errorPage"
-    | "setErrorPage"
-    | "screenQuery"
-    | "setScreenQuery"
-    | "screenReportId"
-    | "setScreenReportId"
-    | "screenSort"
-    | "setScreenSort"
-    | "screenDirection"
-    | "setScreenDirection"
-    | "names"
-    | "utils"
-    | "jobs"
-    | "notify"
-    | "screen"
-    | "selectFormulaJob"
-    | "interpret"
-    | "screenJob"
-    | "firstScreenPage"
-    | "screened"
-    | "exportingScreen"
-    | "exportScreen"
-    | "screenResult"
-    | "reviews"
-    | "screenReport"
-    | "draft"
-    | "symbols"
-  >;
-}) {
+export function ScreenView({ state }: { state: ScreenViewState }) {
   const router = useRouter();
   const {
     setTab,
     setSymbol,
     setBrowse,
-    period,
     setPeriod,
-    setLoaded,
-    strategy,
-    setStrategy,
-    onlineQuery,
-    setOnlineQuery,
-    prompt,
-    setPrompt,
-    universe,
-    setUniverse,
-    historicalDate,
-    setHistoricalDate,
-    universeSource,
-    setUniverseSource,
-    requireCurrent,
-    setRequireCurrent,
+    load,
     screenPage,
     setScreenPage,
     excludedPage,
@@ -137,77 +56,27 @@ export function ScreenView({
     setErrorPage,
     screenQuery,
     setScreenQuery,
-    screenReportId,
-    setScreenReportId,
     screenSort,
     setScreenSort,
     screenDirection,
     setScreenDirection,
     names,
     utils,
-    jobs,
     notify,
-    screen,
-    interpret,
     screenJob,
+    screenId,
+    selectedScreen,
     firstScreenPage,
     screened,
     exportingScreen,
     exportScreen,
     screenResult,
-    reviews,
-    screenReport,
-    draft,
-    symbols,
   } = state;
-  const [entry, setEntry] = useState("formula");
   const [formulaView, setFormulaView] = useState<"screen" | "factor">("screen");
-  const entries = [
-    [
-      "formula",
-      "通达信公式选股",
-      "使用通达信公式筛选本地全 A 股已完成日线，采用不复权口径。",
-    ],
-    [
-      "draft",
-      "本地条件草案（双均线）",
-      "将自然语言需求转为双均线条件草案，确认应用后再运行本地筛选。",
-    ],
-    [
-      "local",
-      "本地可复现条件",
-      "按双均线、涨幅与量比规则筛选本地数据，覆盖范围只反映最近扫描索引。",
-    ],
-  ] as const;
   return (
     <PageGrid>
-      <Panel
-        icon={Funnel}
-        title="选股入口"
-        note={entries.find(([id]) => id === entry)?.[2]}
-        actions={
-          <div className="nc-segmented" role="group" aria-label="选股入口">
-            {entries.map(([id, label]) => (
-              <Button
-                key={id}
-                variant="plain"
-                className={entry === id ? "selected" : ""}
-                aria-pressed={entry === id}
-                aria-controls={`screen-entry-${id}`}
-                onClick={() => setEntry(id)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        }
-      />
       {/* Keep forms mounted so switching preserves drafts, validation and pending submissions. */}
-      <div
-        id="screen-entry-formula"
-        className="nc-span-12 min-w-0"
-        hidden={entry !== "formula"}
-      >
+      <div id="screen-entry-formula" className="nc-span-12 min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Segmented
             label="公式工作区"
@@ -222,149 +91,49 @@ export function ScreenView({
             <a href="/reports">财务研究与筛选 →</a>
           </Button>
         </div>
-        <PanelVisibility
-          visible={entry === "formula" && formulaView === "screen"}
-        >
+        <PanelVisibility visible={formulaView === "screen"}>
           <div hidden={formulaView !== "screen"}>
             <FormulaScreen onStarted={state.selectFormulaJob} />
           </div>
         </PanelVisibility>
-        <PanelVisibility
-          visible={entry === "formula" && formulaView === "factor"}
-        >
+        <PanelVisibility visible={formulaView === "factor"}>
           <div hidden={formulaView !== "factor"}>
             <FactorEvaluationPanel />
           </div>
         </PanelVisibility>
       </div>
       <div
-        id="screen-entry-draft"
-        className="nc-span-12 min-w-0"
-        hidden={entry !== "draft"}
-      >
-        <Panel icon={Sparkle} title="本地条件草案（双均线）">
-          <div className="inline-form">
-            <Input
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              aria-label="自然语言选股条件"
-            />
-            <Button
-              onClick={() => interpret.mutate(prompt)}
-              disabled={interpret.isPending}
-            >
-              <Sparkles size={15} />
-              生成条件草案
-            </Button>
-          </div>
-          {draft && (
-            <div className="notice">
-              <p>{draft.explanation}</p>
-              {draft.unsupported.length > 0 && (
-                <div>
-                  <p>本地不支持：{draft.unsupported.join("、")}</p>
-                </div>
-              )}
-              <Button
-                size="sm"
-                disabled={draft.unsupported.length > 0}
-                onClick={() => {
-                  setStrategy(draft.strategy);
-                  setEntry("local");
-                  notify("草案已应用，请核对后运行");
-                }}
-              >
-                确认并应用草案
-              </Button>
-            </div>
-          )}
-        </Panel>
-      </div>
-      <div
-        id="screen-entry-local"
-        className="nc-span-12 min-w-0"
-        hidden={entry !== "local"}
-      >
-        <Panel
-          icon={SlidersHorizontal}
-          title="本地可复现条件"
-          tag="双均线趋势"
-          note={`收盘价高于短均线，短均线高于长均线，并满足涨幅与量比条件。采用 ${period === "day" ? "日线" : "五分钟线"}，按均线差排序。`}
-        >
-          <StrategyFields strategy={strategy} setStrategy={setStrategy} />
-          <label className="nc-checks mt-0 mb-3 items-center gap-2">
-            <Checkbox
-              checked={requireCurrent}
-              disabled={!!historicalDate}
-              onCheckedChange={(checked) => setRequireCurrent(checked === true)}
-            />
-            严格当前模式：时点落后或无法核验时停止，不生成候选分析
-          </label>
-          <div className="form-grid">
-            <Field label="历史研究截止日（留空使用本地最近时点）">
-              <Input
-                type="date"
-                value={historicalDate}
-                onChange={(e) => {
-                  setHistoricalDate(e.target.value);
-                  if (e.target.value) setRequireCurrent(false);
-                }}
-              />
-            </Field>
-            {historicalDate && (
-              <Field label="历史证券池来源">
-                <Input
-                  value={universeSource}
-                  onChange={(e) => setUniverseSource(e.target.value)}
-                  placeholder="例如：某日期指数成分股存档；含退市证券的自建名单"
-                />
-              </Field>
-            )}
-          </div>
-          {historicalDate && (
-            <p className="muted">
-              历史研究必须填写证券池及来源。按截止日过滤完整历史后计算；分钟历史首次读取可能较慢，可在任务中心取消。当前简称不能证明当时身份，复权及历史事件仍需核验。
-            </p>
-          )}
-          <div className="inline-form">
-            <Field label="证券池（留空扫描全部本地 A 股；代码以逗号分隔）">
-              <Input
-                value={universe}
-                onChange={(e) => setUniverse(e.target.value)}
-                placeholder="sh600519,sz000001,sz300750"
-              />
-            </Field>
-            <Button
-              onClick={() =>
-                screen.mutate({
-                  strategy,
-                  period,
-                  symbols: symbols(),
-                  asOf: historicalDate || undefined,
-                  requireCurrent,
-                  universeSource: historicalDate ? universeSource : undefined,
-                })
-              }
-              disabled={screen.isPending}
-            >
-              <Play size={15} />
-              运行选股
-            </Button>
-          </div>
-        </Panel>
-      </div>
-      <div
         className="nc-span-12 min-w-0 space-y-4"
-        hidden={entry === "formula" && formulaView === "factor"}
+        hidden={formulaView === "factor"}
       >
+        {screenId && selectedScreen?.isLoading && (
+          <p role="status">正在读取选中的公式任务…</p>
+        )}
+        {selectedScreen?.error && (
+          <p role="alert">
+            历史任务读取失败：{selectedScreen.error.message}{" "}
+            <Button
+              variant="outline"
+              onClick={() => void selectedScreen.refetch()}
+            >
+              重试读取任务
+            </Button>
+          </p>
+        )}
+        {screenId && selectedScreen?.data === null && (
+          <p role="alert">任务不存在，可能已被清理。请到任务中心重新选择。</p>
+        )}
+        {selectedScreen?.data && !selectedScreen.data.isFormulaScreen && (
+          <p role="alert">所选任务不是公式选股任务，请到任务中心重新选择。</p>
+        )}
         {screenResult && (
           <StatsPanel
             icon={Gauge}
             title="本次运行"
-            meta={`基准日 ${screenResult.asOf ?? "旧任务未记录"} · ${
+            meta={`基准日 ${screenResult.asOf ?? "无可用基准日"} · ${
               screenResult.elapsedMs !== undefined
                 ? `本地计算 ${(screenResult.elapsedMs / 1000).toFixed(2)} 秒`
-                : "旧版结果"
+                : "耗时未记录"
             }`}
             items={[
               {
@@ -386,21 +155,9 @@ export function ScreenView({
                 tone: screenResult.errorTotal ? "bad" : "neutral",
               },
               {
-                label: "数据时效",
-                value: !screenResult.dataHealth
-                  ? "未记录"
-                  : screenResult.dataHealth.status === "aligned"
-                    ? "已对齐"
-                    : screenResult.dataHealth.status === "lagging"
-                      ? "已落后"
-                      : "未核验",
-                note: screenResult.dataHealth?.referenceAsOf ?? undefined,
-                tone:
-                  screenResult.dataHealth?.status === "aligned"
-                    ? "ok"
-                    : screenResult.dataHealth
-                      ? "warn"
-                      : "neutral",
+                label: "数据模式",
+                value: "本地已完成日线",
+                note: "不承诺为当前交易日",
               },
             ]}
           />
@@ -478,64 +235,15 @@ export function ScreenView({
               )}
               <p className="muted">
                 选股基准日：
-                {screenResult.asOf ?? "旧任务未记录统一基准日"} ·{" "}
+                {screenResult.asOf ?? "无可用基准日"} ·{" "}
                 {screenResult.elapsedMs !== undefined
                   ? `本地计算 ${(screenResult.elapsedMs / 1000).toFixed(2)} 秒`
-                  : "旧版结果"}
-                。本地数据可能落后于今天；AI 研究在独立后台任务中执行。
+                  : "耗时未记录"}
+                。本地数据可能落后于今天，不自动生成分析。
               </p>
-              {screenResult.dataHealth && (
-                <div className="notice">
-                  <strong>
-                    数据时效：
-                    {screenResult.dataHealth.status === "aligned"
-                      ? "与已知交易时点对齐"
-                      : screenResult.dataHealth.status === "lagging"
-                        ? "行情已落后"
-                        : "当前时效未核验"}
-                  </strong>
-                  <p>
-                    参考时点：
-                    {screenResult.dataHealth.referenceAsOf ?? "未知"} ·{" "}
-                    {screenResult.dataHealth.referenceSource}
-                  </p>
-                  <p>{screenResult.dataHealth.warnings.join("；")}</p>
-                </div>
-              )}
-              {screenResult.poolContext && (
-                <details>
-                  <summary>
-                    本次证券池分布：有效 {screenResult.poolContext.observed}/
-                    {screenResult.poolContext.requested}，上涨{" "}
-                    {screenResult.poolContext.up}、下跌{" "}
-                    {screenResult.poolContext.down}、持平{" "}
-                    {screenResult.poolContext.flat}
-                  </summary>
-                  <p>
-                    高于 {screenResult.poolContext.fastBars} 根均线：
-                    {screenResult.poolContext.aboveFast}；高于{" "}
-                    {screenResult.poolContext.slowBars} 根均线：
-                    {screenResult.poolContext.aboveSlow}。相邻 K 线涨跌中位数：
-                    {screenResult.poolContext.medianChange === null
-                      ? "未知"
-                      : `${fmt(screenResult.poolContext.medianChange)}%`}
-                    。
-                  </p>
-                  <p>{screenResult.poolContext.warnings.join("；")}</p>
-                </details>
-              )}
-              {screenResult.researchMode === "historical" && (
-                <p className="notice">
-                  历史研究截止日：{screenResult.requestedAsOf}
-                  ；证券池来源：{screenResult.universeSource}。
-                  {screenResult.researchWarnings.join("；")}
-                </p>
-              )}
-              {screenResult.researchMode === "current" && (
-                <p className="notice">
-                  严格当前模式：本次行情已对齐已知参考时点。个股交易状态和缺失区间仍需核验。
-                </p>
-              )}
+              <p className="muted">
+                {screenResult.researchWarnings.join("；")}
+              </p>
               <div className="inline-form">
                 <Input
                   aria-label="筛选候选名称或代码"
@@ -725,50 +433,6 @@ export function ScreenView({
                       },
                     },
                     {
-                      id: "column-6",
-                      header: "AI 快评",
-                      enableSorting: false,
-                      cell: ({ row }) => {
-                        const c = row.original;
-                        return (
-                          <>
-                            {(() => {
-                              const review = reviews.data?.items.find(
-                                (r) => r.snapshotId === c.snapshotId,
-                              );
-                              return review ? (
-                                <div>
-                                  <p>{review.summary}</p>
-                                  <span className="tag">
-                                    风险 {review.riskCount} 项 · 缺口{" "}
-                                    {review.missingCount} 项
-                                  </span>
-                                  {review.risks.map((risk, i) => (
-                                    <p key={i}>{risk}</p>
-                                  ))}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() =>
-                                      setScreenReportId(review.reportId)
-                                    }
-                                  >
-                                    查看完整快评
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="muted">
-                                  {reviews.isFetching
-                                    ? "正在读取快评…"
-                                    : "暂无本任务快评"}
-                                </span>
-                              );
-                            })()}
-                          </>
-                        );
-                      },
-                    },
-                    {
                       id: "column-7",
                       header: "",
                       enableSorting: false,
@@ -799,7 +463,7 @@ export function ScreenView({
                                   setTab("market");
                                   setSymbol(c.symbol);
                                   setPeriod(source.period);
-                                  setLoaded(source);
+                                  load.acceptSnapshot(source);
                                 } catch (error) {
                                   notify(
                                     error instanceof Error
@@ -856,42 +520,6 @@ export function ScreenView({
                   emptyMessage={null}
                 />
               </div>
-              {reviews.error && (
-                <p role="alert">
-                  快评读取失败：{reviews.error.message}
-                  <Button onClick={() => void reviews.refetch()}>
-                    重试快评
-                  </Button>
-                </p>
-              )}
-              {screenReportId && (
-                <section>
-                  <Button
-                    variant="outline"
-                    onClick={() => setScreenReportId("")}
-                  >
-                    收起完整快评
-                  </Button>
-                  {screenReport.isLoading && (
-                    <p role="status">正在读取完整快评…</p>
-                  )}
-                  {screenReport.error && (
-                    <p role="alert">
-                      {screenReport.error.message}
-                      <Button onClick={() => void screenReport.refetch()}>
-                        重试报告
-                      </Button>
-                    </p>
-                  )}
-                  {screenReport.data && (
-                    <ReportCard
-                      report={screenReport.data}
-                      securityContext={screenReport.data.securityContext}
-                      names={names}
-                    />
-                  )}
-                </section>
-              )}
               {!!screenResult.excludedTotal && (
                 <details>
                   <summary>
@@ -979,8 +607,7 @@ export function ScreenView({
           ) : (
             screenJob?.status !== "completed" && (
               <Empty>
-                运行规则筛选，结果会附带数据时间；前 10 个候选默认自动进行 AI
-                分析。
+                运行公式筛选，结果会附带数据时间。公式计算不会自动生成分析、通知或交易。
               </Empty>
             )
           )}

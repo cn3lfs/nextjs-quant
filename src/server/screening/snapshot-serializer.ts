@@ -1,5 +1,4 @@
 import type { Snapshot } from "~/lib/domain";
-import { packedSnapshotBars } from "./screen-wire";
 
 const fields = ["open", "high", "low", "close", "volume", "amount"] as const;
 function canonicalBar(bar: Snapshot["bars"][number]) {
@@ -32,42 +31,6 @@ export class SnapshotSerializer {
   constructor(private readonly limit = 256 * 1024 * 1024) {}
 
   stringify(snapshot: Snapshot): string {
-    const packed = packedSnapshotBars(snapshot);
-    if (packed) {
-      const old = this.entries.get(snapshot.id);
-      const metadata = JSON.stringify([
-        Object.keys(snapshot),
-        Object.fromEntries(
-          Object.keys(snapshot)
-            .filter((key) => key !== "bars")
-            .map((key) => [key, snapshot[key as keyof Snapshot]]),
-        ),
-      ]);
-      let same =
-        !!old && old.metadata === metadata && old.dates.length === packed.count;
-      if (same)
-        for (let i = 0; i < packed.count; i++) {
-          const row = packed.offset + i;
-          if (old!.dates[i] !== packed.dates[packed.dateIndexes[row]!]) {
-            same = false;
-            break;
-          }
-          for (let j = 0; j < 6; j++) {
-            if (
-              !Object.is(old!.values[i * 6 + j], packed.values[row * 6 + j])
-            ) {
-              same = false;
-              break;
-            }
-          }
-          if (!same) break;
-        }
-      if (same && old) {
-        this.entries.delete(snapshot.id);
-        this.entries.set(snapshot.id, old);
-        return old.json;
-      }
-    }
     const { bars, ...rest } = snapshot;
     const metadata = JSON.stringify([Object.keys(snapshot), rest]);
     const old = this.entries.get(snapshot.id);

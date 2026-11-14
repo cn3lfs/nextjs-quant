@@ -101,7 +101,12 @@ export function TdxQuoteBook({
           aria-label="五档盘口（挂单量为源单位）"
         >
           <div className="flex justify-between px-1 pb-1 text-[11px] text-nc-text-4">
-            <span>委比 <span className={tone(imbalance.ratio)}>{signedPercent(imbalance.ratio)}</span></span>
+            <span>
+              委比{" "}
+              <span className={tone(imbalance.ratio)}>
+                {signedPercent(imbalance.ratio)}
+              </span>
+            </span>
             <span>
               委差{" "}
               {imbalance.difference.value === null
@@ -171,7 +176,9 @@ export function TdxQuoteBook({
           <span className="up">{compactNumber(quote.outerVolume) ?? "—"}</span>
         </Stat>
         <Stat label="内盘">
-          <span className="down">{compactNumber(quote.innerVolume) ?? "—"}</span>
+          <span className="down">
+            {compactNumber(quote.innerVolume) ?? "—"}
+          </span>
         </Stat>
         <Stat label="外盘占比">{percent(activeBuyRatio(quote))}</Stat>
       </div>

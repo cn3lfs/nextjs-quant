@@ -1,15 +1,26 @@
 import { expect, it } from "vitest";
-import type {AsOfObservation} from "../../../src/lib/research/evidence/as-of";
-import {growthHistorySchema,growthCrossSectionSchema,growthSectorsSchema,growthEntrySchema,growthSecuritySchema,growthEarningsSchema} from "trading-strategies/research/contracts/growth-inputs";
-import {evaluateGrowthFactors,rankGrowthFactors} from "../../../src/server/strategies/canslim/research-growth-factors";
-import {growthCombinationRules,growthFactorMethods} from "trading-strategies/research/growth/growth-factor-engine";
+import type { AsOfObservation } from "../../../src/lib/research/evidence/as-of";
+import {
+  growthHistorySchema,
+  growthCrossSectionSchema,
+  growthSectorsSchema,
+  growthEntrySchema,
+  growthSecuritySchema,
+  growthEarningsSchema,
+} from "trading-strategies/research/contracts/growth-inputs";
+import {
+  evaluateGrowthFactors,
+  rankGrowthFactors,
+} from "../../../src/server/strategies/canslim/research-growth-factors";
+import {
+  growthCombinationRules,
+  growthFactorMethods,
+} from "trading-strategies/research/growth/growth-factor-engine";
 import {
   request,
   completeFixture,
-  alignPrices,
   growthShapedFixture as shaped,
 } from "../../helpers/growth-factor-fixture";
-import { runGrowthFactorResearch } from "../../../src/server/backtest/research-run";
 import { researchCanslimCupPoint } from "trading-strategies/research/canslim/research-canslim-cup";
 import { researchCanslimFlatPoint } from "trading-strategies/research/canslim/research-canslim-flat";
 import { researchCanslimSaucerPoint } from "trading-strategies/research/canslim/research-canslim-saucer";
@@ -21,12 +32,12 @@ const value = (rows: AsOfObservation[], field: string) =>
 const one = (id: string, rows = completeFixture(), req = request) =>
   evaluateGrowthFactors(req, rows, [id]).results[0]!;
 
-it("31 new named methods are wired to the existing offline entry and all remain waiting-data", () => {
+it("31 new named methods are covered by the factor evaluator and all remain waiting-data", () => {
   expect(Object.keys(growthCombinationRules)).toHaveLength(31);
   expect(Object.keys(growthFactorMethods)).toEqual(
     expect.arrayContaining(Object.keys(growthCombinationRules)),
   );
-  const all = runGrowthFactorResearch(
+  const all = evaluateGrowthFactors(
     request,
     completeFixture(),
     Object.keys(growthCombinationRules),

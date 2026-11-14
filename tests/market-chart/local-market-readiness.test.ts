@@ -6,7 +6,7 @@ import {
   runRpsJob,
 } from "../../src/server/screening/rps-job";
 import { RpsStore } from "../../src/server/screening/rps-store";
-import { rpsProgress } from "../rps-fixture";
+import { rpsProgress } from "../helpers/rps-fixture";
 import { scan } from "../../src/server/data-sources/tdx/tdx";
 
 it.skipIf(!process.env.QUANT_TDX_AUDIT_ROOT)(

@@ -1,4 +1,6 @@
 "use client";
+import { rpsPeriods } from "quant-rps";
+
 import {
   nextTableSort,
   sortingState,
@@ -6,7 +8,7 @@ import {
 } from "~/lib/common/server-sort";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
-import { rpsPeriods } from "~/lib/screening/rps";
+import { rpsPeriodLabel } from "~/lib/screening/rps";
 import type { MarketPoolRow } from "~/lib/market/market-pool";
 import { ChartSymbolLink } from "./chart-symbol-link";
 import { Button } from "../ui/button";
@@ -21,6 +23,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { BrowseSource } from "./open-chart";
+import { MarketPoolAvailabilityNote } from "./market-pool-availability";
 
 /**
  * 个股 RPS 排名。Reuses the市场股票池 service that already ranks the full 沪深 market
@@ -53,7 +56,9 @@ export function StockRpsRanking() {
     {
       enabled: visible,
       refetchInterval: running ? 10000 : false,
-      placeholderData: (previous) => previous,
+      // Pagination can retain the current ranking; a different period cannot.
+      placeholderData: (previous) =>
+        previous?.period === period ? previous : undefined,
     },
   );
   const wasRunning = useRef(false);
@@ -100,12 +105,16 @@ export function StockRpsRanking() {
           ? `${(row.original.value.return * 100).toFixed(2)}%`
           : "—",
     },
-    {
-      id: "reason",
-      enableSorting: true,
-      header: "未排名原因",
-      cell: ({ row }) => row.original.reason ?? "—",
-    },
+    ...(page.data?.availability.rps === "ready"
+      ? [
+          {
+            id: "reason",
+            enableSorting: true,
+            header: "未排名原因",
+            cell: ({ row }) => row.original.reason ?? "—",
+          } satisfies DataTableColumn<MarketPoolRow>,
+        ]
+      : []),
   ];
   return (
     <div className="space-y-3">
@@ -130,7 +139,7 @@ export function StockRpsRanking() {
           <SelectContent>
             {rpsPeriods.map((p) => (
               <SelectItem key={p} value={String(p)}>
-                RPS{p}
+                {rpsPeriodLabel(p)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -172,6 +181,12 @@ export function StockRpsRanking() {
         。始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。点击股票名跳转到行情图表页查看K线，图表中
         PageUp/PageDown 按本页顺序换股。
       </p>
+      {page.data && (
+        <MarketPoolAvailabilityNote
+          availability={page.data.availability}
+          period={period}
+        />
+      )}
       <BrowseSource
         label="RPS排名"
         symbols={(page.data?.rows ?? []).map((row) => row.symbol)}
