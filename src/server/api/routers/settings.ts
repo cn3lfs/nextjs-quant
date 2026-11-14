@@ -17,9 +17,9 @@ import {
   startFiveMinuteDirect,
   fiveMinuteBatch,
   runFiveMinuteBatch,
-  fiveMinuteHistory,
   exportFiveMinuteBatch,
 } from "../../jobs/five-minute-batch";
+import { fiveMinuteHistoryPage as fiveMinuteHistory } from "~/server/db/five-minute-imports";
 export const settingsRouter = createTRPCRouter({
   startFiveMinuteImport: p("dataImport", "compute")
     .input(

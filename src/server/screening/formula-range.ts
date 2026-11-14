@@ -7,7 +7,7 @@ import type { ScreeningResult } from "./screening-result";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { sqlite } from "../db";
-import { RpsStore } from "./rps-store";
+import { RpsStore } from "../db/rps-store";
 import { usesRpsFields } from "~/lib/formula/tdx-formula-check";
 import { parseFormula } from "~/lib/formula/tdx-formula-syntax";
 

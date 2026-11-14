@@ -11,10 +11,7 @@ import {
 } from "~/lib/research/workflow/work-progress";
 import { processAlive } from "../infra/lease";
 import { PrioritySlots } from "../infra/priority-slots";
-import {
-  ResearchAttempts,
-  bestEffortAudit,
-} from "../research/research-governance";
+import { ResearchAttempts, bestEffortAudit } from "../db/research-governance";
 import { researchRangeSchema } from "~/lib/research/workflow/research-usage";
 import { recordRuntimeError } from "../infra/runtime-errors";
 const scope = globalThis as typeof globalThis & {

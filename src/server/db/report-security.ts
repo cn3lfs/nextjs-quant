@@ -1,4 +1,4 @@
-import { sqlite } from "../db";
+import { sqlite } from ".";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 
 /** Resolve only application-owned context links, never model prose or citations. */

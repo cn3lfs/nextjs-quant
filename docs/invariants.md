@@ -115,7 +115,7 @@
 - `trackingStart` 只能来自精确相同策略版本的前向台账 observedDate 与盘中信号所属 observedAt（北京时间日期），两处取更早者；不使用结构端点、研究回测产物、手工日期或版本别名。无前向记录返回 null 和原因，不补 end/今天；早于 validationStart 如实报告重叠，不出第三段指标。
 - 三段日收益从完整原分区净值先生成再切片，17 项全部调用 U1，不重置跟踪首日本金。跟踪日期可得不意味着参数已冻结或存在真实成交，页面必须披露来源限制。
 - U8 history 分别使用开发段、保留验证段，recent 使用跟踪段；无法获得合法跟踪段时标 `trackingSegmentAvailable: false`，并显示「近期窗口是按尾部天数截的，不是真实上线跟踪段」。不拼接两段独立本金，recent 历史比较沿用验证净值前缀。衰减只提示，不驱动操作。
-- 测试：[three-segment-sample.test.ts](../tests/research-backtest/backtest/three-segment-sample.test.ts)。字段与版本差异及快照边界处理见 [decisions](decisions.md)。
+- 测试：`three-segment-sample.test.ts`（已退役；此处仅记历史实现）。字段与版本差异及快照边界处理见 [decisions](decisions.md)。
 
 ### V1 多重检验与同频夏普
 
@@ -123,7 +123,7 @@
 - **是什么（试验与样本）**：N 为本次候选数，是实际尝试次数下界，不是经相关性估计的有效独立试验数。候选矩阵在相同预热、全部预热后行情及成本上计算；DSR 对象只取各 fold 独立本金下测试日收益的时间顺序拼接。全窗方差是事后诊断，不参与原训练排名。
 - **是什么（缺失）**：不足三日、非有限数、零收益方差、缺失候选夏普、试验不足、零试验方差、非正 PSR 分母均返回 null 和原因；候选数组保持同序，不丢候选、不补零。旧档案缺少 multipleTesting 时显示未记录，不追溯伪造。
 - **为什么**：防止年化与日频混用、把空仓说成零风险、把未记录尝试或相关候选视为已完成独立性校正。N 下界与不构成业绩证据同时在 assumptions 和页面披露。
-- **测试**：[multiple-testing.test.ts](../tests/research-backtest/backtest/multiple-testing.test.ts) 保护分位点、手算、单调性、偏度惩罚、U1 同源、退化、矩阵、拼接和页面；[walk-forward.test.ts](../tests/research-backtest/backtest/walk-forward.test.ts) 固定接入前 summary 全部数值。真实浏览器及统计适用性人工验收尚未执行。
+- **测试**：[multiple-testing.test.ts](../tests/research-backtest/backtest/multiple-testing.test.ts) 保护分位点、手算、单调性、偏度惩罚、U1 同源、退化、矩阵、拼接和页面；`walk-forward.test.ts`（已退役；此处仅记历史实现） 固定接入前 summary 全部数值。真实浏览器及统计适用性人工验收尚未执行。
 - **违反会怎样**：选择偏差诊断被夸大为策略证据，或既有选参与汇总路径发生漂移。
 
 ### V2 CSCV 子段与并列
@@ -131,7 +131,7 @@
 - **是什么**：复用 V1 全窗候选同期矩阵，默认 S=10，等长切段，末尾余数丢弃；每段至少 20 日。任一候选含 null 的子段全体共同作废，剩余段数为奇数再丢最后有效段，不重切。`discardedPeriods` 为总丢弃日数，`nullPeriods` 为缺失段日数（不重复计算），`oddPeriods` 为奇数补丢日数；`splits` 为有效段数，`requestedSplits` 回显请求。
 - **是什么（排名）**：完整枚举 C(S,S/2)，补集按时间顺序作样本外。默认 metric="selection"，复用 U1 dailyPerformance 的复利净收益与含本金回撤，训练按净收益降序→回撤升序→fast升序→slow升序；候选参数与矩阵逐行对应，缺失或长度不符整份留空。metric="sharpe" 直接复用 V1，训练最佳并列取小序号；两口径仅在各自完整训练排序无法区分全部候选时整份无效。样本外仅按对应主指标（净收益或夏普），不含回撤和参数，并列取平均升序排名，ω=rank/(N+1)，PBO 为 λ≤0 比例。任一候选绩效缺失或非有限，整份 null + reason，不丢候选或组合。OLS 含截距，训练零方差回归留空；样本外零方差仅 R² 留空，不抹掉可计算的 PBO。
 - **为什么**：不同样本排名、余数拉伸和挑选有效组合都会偏置 PBO。PBO 必须绑定所检验的选择动作，bySelectionRule 与 bySharpe 分列不合成，结论只挂前者；旧V2单份结果仅属夏普对照，不补算、不冒充实际规则。矩阵子段不重置持仓，并非独立重跑，也不是策略有效的证据；仅限当前候选集合，未记录人工试验不可观测。
-- **测试**：[backtest-overfit.test.ts](../tests/research-backtest/backtest/backtest-overfit.test.ts) 保护组合、双并列、缺失奇偶、退化和手算回归；[backtest-overfit-api.test.ts](../tests/research-backtest/backtest/backtest-overfit-api.test.ts) 保护普通响应剥离 λ 与按需完整导出；既有 walk-forward 数值护栏保持。
+- **测试**：[backtest-overfit.test.ts](../tests/research-backtest/backtest/backtest-overfit.test.ts) 保护组合、双并列、缺失奇偶、退化和手算回归；`backtest-overfit-api.test.ts`（已退役；此处仅记历史实现） 保护普通响应剥离 λ 与按需完整导出；既有 walk-forward 数值护栏保持。
 - **违反会怎样**：假缺失、假样本外排名或页面载荷膨胀，或将不同选择规则误说成同一流程已验证。
 
 ### V5 研究使用台账与留出集
@@ -214,7 +214,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 7. 双突破不足即未知
 
-- **是什么**：[breakout.ts](../src/server/strategies/breakout/breakout.ts) 复用 vcpFacts 的确认摆动/歧义屏障和共享指标；至少 61 根日线，前 60 根结构窗口，趋势线至少两触，触及容差 0.5%，缩量平台 10 根；放量基准是此前 20 根均量×1.5。趋势、关键位、放量三项与五项质量评分分开，不能用评分覆盖核心失败。目标二缺失时 1:X 留空，不外推凑数；向下仅为破位观察。形态限评分所需，不扩完整形态库。
+- **是什么**：[breakout.ts](../packages/trading-strategies/src/research/breakout/breakout.ts) 复用 vcpFacts 的确认摆动/歧义屏障和共享指标；至少 61 根日线，前 60 根结构窗口，趋势线至少两触，触及容差 0.5%，缩量平台 10 根；放量基准是此前 20 根均量×1.5。趋势、关键位、放量三项与五项质量评分分开，不能用评分覆盖核心失败。目标二缺失时 1:X 留空，不外推凑数；向下仅为破位观察。形态限评分所需，不扩完整形态库。
 - **为什么**：结构及目标必须有当时证据，方法来源保存 swing-trader 文件 hash。
 - **测试**：[breakout.test.ts](../tests/strategy-signals/methods/breakout/breakout.test.ts)、[breakout-batch.test.ts](../tests/strategy-signals/methods/breakout/breakout-batch.test.ts)；阈值合理性需 [M5 人工确认](review/m5-review/README.md)，**无自动测试保护**。
 - **违反会怎样**：短历史拼出买点、虚构目标，评分被误读为完整交易准入。
@@ -278,7 +278,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 - **是什么**：M1–M5 为历史交付记录，新增需求按 E0–E4 推进。A 层机器验证与 B 层人工确认分开；历史模块可按授权修改，研究按数据与交易证据分层，小样本只作描述，不声称有效。局部边界自行决定并记录；仅范围、架构、不可逆动作、许可事项升级。历史“不动某文件”与已授权交付冲突时以交付为准并记录，不能拿它越过当前用户限制。
 - **为什么**：防止把已完成工作重做、把小样本/机器核对冒充有效性结论。GPL 对外捆绑决定仍交用户；这里只记录项目分发门禁，不作法律结论。
-- **测试**：**无测试保护**（工程与授权纪律）。当前范围见 [roadmap §2](roadmap.md#2-当前范围与待议)，E0–E4 规格见 [next-plan.md](next-plan.md)。
+- **测试**：**无测试保护**（工程与授权纪律）。当前范围见 [roadmap §2](roadmap.md#当前范围与决定)，E0–E4 规格见 [next-plan.md](next-plan.md)。
 - **违反会怎样**：范围失控、错误业绩宣传、未经授权分发；README“不能用作正式策略业绩”的限定在具备相应交易与数据验证证据前保留，不因新增研究功能自动移除。
 
 ### V3 信号信息含量

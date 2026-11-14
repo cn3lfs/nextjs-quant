@@ -1,9 +1,9 @@
 import { tradePositionState } from "./trade-ledger-service";
-import { tradeWorkspaceVersion } from "./trade-workspace-query";
+import { tradeWorkspaceVersion } from "../db/trade-workspace-query";
 import { tradePositionPageSchema } from "~/lib/portfolio/trade-workspace";
 import { tradedSignalComparison } from "~/lib/portfolio/trade-ledger";
-import { TradeLedgerStore } from "./trade-ledger-store";
-import { SignalLedgerStore } from "../monitoring/signal-ledger-store";
+import { TradeLedgerStore } from "../db/trade-ledger-store";
+import { SignalLedgerStore } from "../db/signal-ledger-store";
 import { sqlite } from "../db";
 
 export async function tradeWorkspacePositions(raw: unknown) {

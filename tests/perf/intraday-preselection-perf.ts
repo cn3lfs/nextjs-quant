@@ -5,9 +5,9 @@ import { tmpdir, cpus } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { intradaySummaryIndexes } from "../../src/server/db/migrations";
-import { IntradayStore } from "../../src/server/monitoring/intraday-store";
-import { intradayHistory } from "../../src/server/monitoring/intraday-history";
-import type { IntradayObservation } from "../../src/server/monitoring/intraday-store";
+import { IntradayStore } from "../../src/server/db/intraday-store";
+import { intradayHistory } from "../../src/server/db/intraday-history";
+import type { IntradayObservation } from "../../src/server/db/intraday-store";
 
 const db = new Database(":memory:");
 db.exec(

@@ -60,7 +60,7 @@ CREATE INDEX cash_flows_batch ON cash_flows(batch_id);
 `symbol` 必须可空——这是 R1 已确立的语义（非沪深北品种计入资金、不进个股分析）。
 不要为了"整齐"给它 NOT NULL 或填空串。
 
-### 1.2 `src/server/portfolio/delivery-store.ts`
+### 1.2 `src/server/db/delivery-store.ts`
 
 导出 `class DeliveryStore { constructor(readonly db: Database.Database) }`，
 构造只接收连接，不自己打开数据库（与 `TradeLedgerStore`、`RpsStore` 一致）。

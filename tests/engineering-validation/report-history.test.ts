@@ -7,7 +7,7 @@ import { put, get } from "../../src/server/db/index";
 import {
   reportHistory,
   archivedReport,
-} from "../../src/server/research/report-history";
+} from "../../src/server/db/report-history";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-report-history-"),
 );

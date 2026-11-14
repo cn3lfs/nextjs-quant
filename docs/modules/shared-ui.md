@@ -1,5 +1,7 @@
 # 共享 UI 与样式原语
 
+核对：2026-11-14；本页描述当前实现，验收边界见[当前优化交付](../deliveries/2026-11-13-optimization.md)。
+
 ## 职责与非职责
 
 `src/components/ui/` 保存基于 Radix/shadcn 的基础控件，`src/components/common/` 保存跨业务复用的视觉/交互组件与 UI Gallery，`src/lib/common/` 保存纯展示辅助。业务流程组件不归 common：任务历史、通知策略字段、选股池链接和数据源查询面板分别归 workbench、signals、market、data-sources。

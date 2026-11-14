@@ -7,7 +7,7 @@ import {
   notificationPolicySchema,
   type NotificationDecision,
 } from "../../src/lib/strategy-facts/notification-policy";
-import type { LedgerRun } from "../../src/server/monitoring/signal-ledger-store";
+import type { LedgerRun } from "../../src/server/db/signal-ledger-store";
 
 /** Deterministic read-model fixtures; never run a scan or enqueue a notification. */
 export function seedLedger(db: Database.Database, count: number) {

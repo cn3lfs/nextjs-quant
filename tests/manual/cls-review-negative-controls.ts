@@ -6,8 +6,8 @@ import { writeFileSync } from "node:fs";
 import {
   clsReportPage,
   clsFactPage,
-} from "../../src/server/news/cls-review-query";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+} from "../../src/server/db/cls-review-query";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 assert.ok(directory.startsWith(resolve(tmpdir()) + "\\quant-cls-review-"));
 const db = new Database(join(directory, "quant.sqlite"));

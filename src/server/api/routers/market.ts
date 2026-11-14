@@ -1,7 +1,8 @@
+import { readArchiveRecord } from "../../db/archive-records";
 import { mxQuerySchema } from "~/lib/market/mx-data";
 import { mxDataStatus, queryMxData } from "../../data-sources/mx/mx-data";
 import { tradePositionState } from "../../portfolio/trade-ledger-service";
-import { TradeLedgerStore } from "../../portfolio/trade-ledger-store";
+import { TradeLedgerStore } from "../../db/trade-ledger-store";
 import { indexDirectory } from "../../market/index-directory";
 import {
   chartBars,
@@ -9,16 +10,13 @@ import {
   compareBars,
   compareBarsInput,
 } from "../../charts/chart-bars";
-import { ChartViewStore } from "../../charts/chart-view-store";
+import { ChartViewStore } from "../../db/chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart/chart-view";
 import { sqlite as chartSqlite } from "../../db";
 import { securityProfile } from "../../market/securities";
 import { verifySecurityLifecycle } from "../../market/security-lifecycle";
 import { verifySecurityTradingStatus } from "../../market/security-trading-status";
-import {
-  verifySecurityIdentity,
-  type IdentityCheck,
-} from "../../market/security-identity";
+import { verifySecurityIdentity } from "../../market/security-identity";
 import { z } from "zod";
 import { periodSchema, type Coverage } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
@@ -61,12 +59,6 @@ const pageSchema = z.object({
   count: z.number().int().min(1).max(PAGE_LIMIT).default(PAGE_LIMIT),
 });
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
-function recordOfKind<T>(kind: string, id: string): T | undefined {
-  const row = chartSqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : undefined;
-}
 export const marketRouter = createTRPCRouter({
   mxDataStatus: p("market", "read").query(() => mxDataStatus()),
   mxDataQuery: p("market", "compute")
@@ -238,8 +230,7 @@ export const marketRouter = createTRPCRouter({
     .input(symbolSchema)
     .query(
       ({ input }) =>
-        recordOfKind<IdentityCheck>("security-identity", `identity-${input}`) ??
-        null,
+        readArchiveRecord("security-identity", `identity-${input}`) ?? null,
     ),
   limitSentiment: p("market", "read")
     .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))

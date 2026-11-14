@@ -11,7 +11,7 @@ import {
 import {
   deliveryAccountVersion,
   deliveryBatchReceipt,
-} from "./delivery-workspace-query";
+} from "../db/delivery-workspace-query";
 
 export const deliveryPreviewInputSchema = importOptionsSchema.extend({
   path: z.string().trim().min(1).max(2048),

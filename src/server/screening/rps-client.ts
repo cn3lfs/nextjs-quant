@@ -9,7 +9,7 @@ import {
   type RpsProgress,
 } from "~/lib/screening/rps";
 import { sqlite } from "../db";
-import { RpsStore } from "./rps-store";
+import { RpsStore } from "../db/rps-store";
 import {
   scheduleWorkflowRps,
   workflowEnabled,

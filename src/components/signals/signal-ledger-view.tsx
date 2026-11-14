@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { horizons, type LedgerRow } from "~/lib/strategy-facts/signal-ledger";
-import type { LedgerRun } from "~/server/monitoring/signal-ledger-store";
+import type { LedgerRun } from "~/server/db/signal-ledger-store";
 import {
   tierLabels,
   type NotificationDecision,

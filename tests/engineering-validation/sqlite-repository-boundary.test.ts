@@ -64,4 +64,24 @@ it("recognizes real SQLite methods, aliases and bracket access without rejecting
     "repositories/no-raw-sqlite",
   ]);
   expect(result!.messages.map((message) => message.line)).toEqual([4, 5, 6, 9]);
+  const orchestration = new ESLint({
+    overrideConfigFile: true,
+    overrideConfig: [
+      {
+        files: ["**/*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: { programs: [program] },
+        },
+        plugins: {
+          repositories: { rules: { "no-raw-sqlite": sqliteBoundaryRule } },
+        },
+        rules: {
+          "repositories/no-raw-sqlite": ["error", { allowTransactions: true }],
+        },
+      },
+    ],
+  });
+  const [allowed] = await orchestration.lintText(code, { filePath: file });
+  expect(allowed!.messages.map((message) => message.line)).toEqual([4, 5, 9]);
 });

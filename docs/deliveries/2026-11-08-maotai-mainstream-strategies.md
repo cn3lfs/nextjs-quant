@@ -1,6 +1,6 @@
 # 贵州茅台主流策略十年对比
 
-已取消五种限制：独立TS回测包现有39项固定日线规则及2项持有对照，34项为本轮新增，逐项规则与数据边界见[规格](../product/specs/mainstream-strategies-maotai.md)和[代码目录](../../packages/quant-backtest/src/study-catalog.ts)。覆盖趋势、突破、时序动量、回调/反转、量价、仓位和季节性。多标的、衍生品、盘口及披露时点证据不足的主流流派均列出缺口，没有宣称单股日线已经覆盖所有量化策略。
+已取消五种限制：独立TS回测包现有39项固定日线规则及2项持有对照，34项为本轮新增，逐项规则与数据边界见[规格](../product/specs/mainstream-strategies-maotai.md)和[代码目录](../../packages/trading-strategies/src/study-catalog.ts)。覆盖趋势、突破、时序动量、回调/反转、量价、仓位和季节性。多标的、衍生品、盘口及披露时点证据不足的主流流派均列出缺口，没有宣称单股日线已经覆盖所有量化策略。
 
 ## 沿用的实验条件
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
 import { migrate } from "../../src/server/db/migrations";
-import { SignalLedgerStore } from "../../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerStore } from "../../src/server/db/signal-ledger-store";
 import { aggregateLedger } from "../../src/lib/strategy-facts/signal-ledger";
 import { signalInformation } from "../../src/lib/strategy-facts/signal-information";
 import { seedLedger } from "../helpers/signal-ledger-fixture";
@@ -12,7 +12,7 @@ import {
   ledgerHistory,
   ledgerAnalysis,
   ledgerDetail,
-} from "../../src/server/monitoring/signal-ledger-query";
+} from "../../src/server/db/signal-ledger-query";
 
 const logs = join(tmpdir(), "logs", "quant-signal-ledger");
 mkdirSync(logs, { recursive: true });

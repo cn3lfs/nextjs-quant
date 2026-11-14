@@ -1,5 +1,6 @@
+import { newsAnalysesThrough } from "../db/news-analysis-history";
 import { createHash } from "node:crypto";
-import { get, put, sqlite } from "../db";
+import { get, put } from "../db";
 import type { NewsAnalysis } from "./news-analysis";
 
 export function mergeNewsDay(
@@ -128,14 +129,9 @@ export function mergeNewsDay(
 export function aggregateNewsDay(baseId: string) {
   const base = get<NewsAnalysis>(baseId);
   if (!base) throw new Error("新闻分类档案不存在");
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='news-analysis' AND json_extract(payload,'$.model')=? AND json_extract(payload,'$.input.cutoff')<=?",
-    )
-    .all(base.model, base.input.cutoff) as { payload: string }[];
   const result = mergeNewsDay(
     base,
-    rows.map((row) => JSON.parse(row.payload) as NewsAnalysis),
+    newsAnalysesThrough(base.model, base.input.cutoff),
   );
   return (
     get<NewsAnalysis>(result.id) ?? put("news-analysis", result.id, result)

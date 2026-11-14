@@ -12,12 +12,10 @@ import { get, sqlite } from "../db";
 import { settings } from "../infra/settings";
 import { securityDirectory } from "./securities";
 import { readMarketPool } from "./market-pool-files";
-import { RpsStore } from "../screening/rps-store";
+import { RpsStore } from "../db/rps-store";
 import { exchangeNames } from "./exchange-security-names";
-import {
-  latestRpsObservation,
-  observationRanking,
-} from "../screening/rps-observation";
+import { observationRanking } from "../screening/rps-observation";
+import { latestRpsObservation } from "../db/rps-observations";
 import { fullDaySymbols } from "../data-sources/tdx/tdx-full-day-cache";
 
 export async function marketPoolRows(input: unknown) {

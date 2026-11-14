@@ -18,7 +18,7 @@ import {
   cashReviewInputIdentity,
   cashReviewVersion,
   assertCashReviewVersion,
-} from "../../portfolio/cash-reconciliation-workspace";
+} from "../../db/cash-reconciliation-workspace";
 import {
   tradeWorkspacePageSchema,
   tradeWorkspaceId,
@@ -34,7 +34,7 @@ import {
   tradeSignalOptions,
   tradeAdjustmentPage,
   tradeAdjustmentDetail,
-} from "../../portfolio/trade-workspace-query";
+} from "../../db/trade-workspace-query";
 import {
   tradeWorkspacePositions,
   tradeWorkspaceComparison,
@@ -86,7 +86,7 @@ import {
   previewDeliveryImport,
   commitDeliveryImport,
 } from "../../portfolio/delivery-import-service";
-import { DeliveryStore } from "../../portfolio/delivery-store";
+import { DeliveryStore } from "../../db/delivery-store";
 import {
   deliveryFilePage,
   deliveryFilePageSchema,
@@ -108,7 +108,7 @@ import {
   deliveryEvidencePage,
   deliveryBatchExport,
   deliveryRevokeChecked,
-} from "../../portfolio/delivery-workspace-query";
+} from "../../db/delivery-workspace-query";
 import {
   buildTradeReviewSnapshot,
   exportTradeReview,
@@ -378,10 +378,7 @@ export const portfolioRouter = createTRPCRouter({
     .mutation(({ input }) => {
       const store = new DeliveryStore(chartSqlite()),
         config = settings();
-      const ledger = store.db.transaction(() => ({
-        fills: store.fills(input.account),
-        cashFlows: store.cashFlows(input.account),
-      }))();
+      const ledger = store.accountSnapshot(input.account);
       return startDiscipline(input.account, {
         ...ledger,
         openingCash: input.openingCash,

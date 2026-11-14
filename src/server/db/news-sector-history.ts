@@ -1,5 +1,5 @@
-import { sqlite } from "../db";
-import type { NewsSectorReport } from "./news-sector";
+import { sqlite } from ".";
+import type { NewsSectorReport } from "../news/news-sector";
 
 export function latestIndustryNewsReport(
   industry: string,

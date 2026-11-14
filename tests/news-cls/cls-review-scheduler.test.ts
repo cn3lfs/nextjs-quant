@@ -26,12 +26,15 @@ vi.mock("../../src/server/news/cls-review-service", () => ({
 vi.mock("../../src/server/news/cls-verification", () => ({
   verifyClsSample: state.verify,
 }));
-vi.mock("../../src/server/news/cls-review-store", () => ({
+vi.mock("../../src/server/db/cls-review-store", () => ({
   ClsReviewStore: class {
     sample = state.sample;
     import = state.archive;
     verifications = state.latest;
-    db = { prepare: () => ({ all: () => state.rows }) };
+    sampleIdentities = () =>
+      state.rows.map(
+        (row) => JSON.parse(row.payload) as { date: string; reportId: string },
+      );
   },
 }));
 import { runClsReviewTick } from "../../src/server/news/cls-review-scheduler";

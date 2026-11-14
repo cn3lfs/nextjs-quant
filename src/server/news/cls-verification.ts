@@ -2,7 +2,7 @@ import { resolveTdxRoot } from "tstdx/local";
 import { createHash } from "node:crypto";
 import { settings } from "../infra/settings";
 import { sqlite } from "../db";
-import { ClsReviewStore } from "./cls-review-store";
+import { ClsReviewStore } from "../db/cls-review-store";
 import { clsOutcomes } from "./cls-outcomes";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
 import { readBenchmarkSnapshot } from "../data-sources/tdx/tdx-benchmark";

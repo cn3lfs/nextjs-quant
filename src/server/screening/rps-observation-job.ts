@@ -15,13 +15,11 @@ import { localRpsDependencies } from "./rps-job";
 import { calculateRpsDay, prepareRpsSecurity } from "./rps-adapter";
 import { rpsHash } from "~/server/infra/content-hash";
 import { readRpsBlockSource } from "./rps-block-source";
-import { RpsStore } from "./rps-store";
-import { claimWorkflow } from "../jobs/workflow-lease";
+import { RpsStore } from "../db/rps-store";
+import { claimWorkflow } from "../db/workflow-lease";
 import { workflowQuotes, type WorkflowPrice } from "../jobs/workflow-quotes";
-import {
-  completedRpsObservation,
-  type RpsObservation,
-} from "./rps-observation";
+import { type RpsObservation } from "./rps-observation";
+import { completedRpsObservation } from "../db/rps-observations";
 
 export function estimateRpsSecurity(
   symbol: string,

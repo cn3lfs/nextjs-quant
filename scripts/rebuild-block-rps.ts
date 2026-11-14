@@ -5,7 +5,7 @@ import { readBlockEligibility } from "../src/server/market/block-eligibility";
 import {
   applyBlockRebuild,
   planBlockRebuild,
-} from "../src/server/screening/rps-block-maintenance";
+} from "../src/server/db/rps-block-maintenance";
 
 // Operational database is explicit; imported adapters must never acquire the default application DB.
 if (!process.env.QUANT_DATA_DIR) throw new Error("先设置隔离 QUANT_DATA_DIR");

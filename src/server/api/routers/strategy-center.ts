@@ -1,4 +1,4 @@
-import { sqlite } from "../../db";
+import { strategyCenterHistory } from "../../db/workflow-history";
 import { readJob } from "../../db/jobs";
 import {
   unifiedStrategyCatalog,
@@ -311,18 +311,8 @@ export const strategyCenterRouter = createTRPCRouter({
   strategyCenterRun: p("strategyCenter", "compute")
     .input(strategyCenterRunSchema)
     .mutation(({ input }) => strategyCenterJob(input)),
-  strategyCenterHistory: p("strategyCenter", "read").query(
-    () =>
-      sqlite()
-        .prepare(
-          "SELECT id, json_extract(payload,'$.status') AS status, json_extract(payload,'$.input.strategyId') AS strategyId, json_extract(payload,'$.input.symbol') AS symbol FROM records WHERE kind='job' AND json_extract(payload,'$.input.type')='strategy-center' ORDER BY updated_at DESC LIMIT 30",
-        )
-        .all() as {
-        id: string;
-        status: string;
-        strategyId: string;
-        symbol: string;
-      }[],
+  strategyCenterHistory: p("strategyCenter", "read").query(() =>
+    strategyCenterHistory(),
   ),
   strategyCenterExport: p("strategyCenter", "read")
     .input(z.string().min(1))

@@ -16,7 +16,7 @@ import {
   tradeContext,
   tradeDashboard,
 } from "../../src/server/portfolio/trade-ledger-service";
-import { TradeLedgerStore } from "../../src/server/portfolio/trade-ledger-store";
+import { TradeLedgerStore } from "../../src/server/db/trade-ledger-store";
 import { sqlite } from "../../src/server/db";
 import { tradingLedgerMethods } from "../../src/server/research/research-skills";
 import { reconcilePositions } from "../../src/server/portfolio/mock/mock-trading";

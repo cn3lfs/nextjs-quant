@@ -1,35 +1,22 @@
-import { sqlite as chartSqlite } from "../../db";
+import { readArchiveRecord } from "../../db/archive-records";
 import { analyzeCzsc, czscConfigSchema } from "../../strategies/chan/czsc";
 import { czscSettingsSchema } from "~/lib/chart/czsc-settings";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { financialGrowth } from "../../strategies/value/financial-growth";
-import {
-  financialQualityJob,
-  financialQualityHistory,
-  type FinancialQualityArchive,
-} from "../../strategies/value/financial-quality";
+import { financialQualityJob } from "../../strategies/value/financial-quality";
+import { financialQualityHistory } from "~/server/db/financial-quality-history";
 import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
-import {
-  saveValuationScenario,
-  valuationScenarioHistory,
-  type ValuationScenario,
-} from "../../strategies/value/valuation-scenario";
+import { saveValuationScenario } from "../../strategies/value/valuation-scenario";
+import { valuationScenarioHistory } from "~/server/db/valuation-scenario-history";
 import { z } from "zod";
-import { type Snapshot, type Channel } from "~/lib/domain";
+import { type Channel } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { readRecordSnapshot } from "../../db";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
-function recordOfKind<T>(kind: string, id: string): T | undefined {
-  const row = chartSqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : undefined;
-}
 function storedSnapshot(id: string) {
   return (
-    recordOfKind<Snapshot>("snapshot", id) ??
-    recordOfKind<Snapshot>("chart-snapshot", id)
+    readArchiveRecord("snapshot", id) ?? readArchiveRecord("chart-snapshot", id)
   );
 }
 export const strategyRouter = createTRPCRouter({
@@ -42,17 +29,12 @@ export const strategyRouter = createTRPCRouter({
   financialQualityReport: p("financial", "read")
     .input(z.string().regex(/^financial-quality-[a-f0-9]{64}$/))
     .query(
-      ({ input }) =>
-        recordOfKind<FinancialQualityArchive>("financial-quality", input) ??
-        null,
+      ({ input }) => readArchiveRecord("financial-quality", input) ?? null,
     ),
   financialGrowthReport: p("financial", "read")
     .input(z.string().regex(/^financial-quality-[a-f0-9]{64}$/))
     .query(({ input }) => {
-      const archive = recordOfKind<FinancialQualityArchive>(
-        "financial-quality",
-        input,
-      );
+      const archive = readArchiveRecord("financial-quality", input);
       return archive ? financialGrowth(archive) : null;
     }),
   valuationSave: p("financial", "configure")
@@ -64,8 +46,7 @@ export const strategyRouter = createTRPCRouter({
   valuationReport: p("financial", "read")
     .input(z.string().regex(/^valuation-scenario-[a-f0-9]{64}$/))
     .query(
-      ({ input }) =>
-        recordOfKind<ValuationScenario>("valuation-scenario", input) ?? null,
+      ({ input }) => readArchiveRecord("valuation-scenario", input) ?? null,
     ),
   breakout: p("breakout", "compute")
     .input(

@@ -1,7 +1,7 @@
 /** Synthetic UI sample, never a real SH600000 signal or RPS measurement. */
 import { resolve } from "node:path";
 import { sqlite, put } from "../../../src/server/db";
-import { IntradayStore } from "../../../src/server/monitoring/intraday-store";
+import { IntradayStore } from "../../../src/server/db/intraday-store";
 import { evaluateIntraday } from "../../../src/server/monitoring/intraday-strategy";
 import {
   analyzeCzsc,

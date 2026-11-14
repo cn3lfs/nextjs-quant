@@ -2,18 +2,18 @@
 
 ## 职责与非职责
 
-tRPC API 验证输入并调用用例，client/server adapter 负责传输；jobs 提供通用生命周期/队列，领域 worker 执行长任务；`runtime.ts` 汇总应用启动后的定时调度、恢复和通知 drain。领域计算和持久化归领域服务/store，API root 不应成为实现层。
+tRPC API 验证输入并调用用例，client/server adapter 负责传输；jobs 提供通用生命周期/队列，领域 worker 执行长任务；`runtime.ts` 汇总应用启动后的定时调度、恢复和通知 drain。领域计算归领域服务，业务持久化归 db 类型仓储，API root 不应成为实现层。
 
 ## 入口与消费者
 
 - tRPC procedure 按域位于 `src/server/api/routers/`；[src/server/api/root.ts](../../src/server/api/root.ts) 只合并平面子路由并导出 `AppRouter` / caller，context/序列化在 `src/server/api/trpc.ts`。
 - HTTP handler：[src/app/api/trpc/[trpc]/route.ts](../../src/app/api/trpc/%5Btrpc%5D/route.ts)；健康入口 `src/app/api/health/route.ts`。
 - 浏览器 caller：[src/trpc/react.tsx](../../src/trpc/react.tsx)；RSC caller：[src/trpc/server.ts](../../src/trpc/server.ts)。
-- 通用 jobs 在 `src/server/jobs/`；`src/server/runtime.ts` 负责启动、恢复及周期调度。领域用例放在 owner 域：行情快照为 `src/server/market/snapshot.ts`，回测任务为 `src/server/backtest/backtest-job.ts`，选股任务为 `src/server/screening/screen-job.ts`。专用 workers 跟随业务域；`scripts/build-runtime.mjs` 显式列出 bundle 入口。
+- 通用 jobs 在 `src/server/jobs/`；`src/server/runtime.ts` 负责启动、恢复及周期调度。领域用例放在 owner 域：行情快照为 `src/server/market/snapshot.ts`，回测任务为 `src/server/backtest/ma-baseline-job.ts`，公式选股任务为 `src/server/screening/formula-screen-service.ts`。专用 workers 跟随业务域；`scripts/build-runtime.mjs` 显式列出 bundle 入口。
 
 ## 契约与依赖
 
-R0–R6 重构时合并后的 root router 导出 186 个顶层 procedure；当前清单以 `tests/api-runtime/api-router-contract.test.ts` 为准。`mergeTRPCRouters` 平面合并，保持名称、输入输出 schema、错误语义、授权检查位置与客户端推断；禁止将域 router 嵌套导致 wire path 改名。运行依赖方向为 transport → API/domain use case → store/data-source；runtime 只做生命周期组装。
+root router 平面合并当前 procedure；当前清单以 `tests/api-runtime/api-router-contract.test.ts` 为准。`mergeTRPCRouters` 平面合并，保持名称、输入输出 schema、错误语义、授权检查位置与客户端推断；禁止将域 router 嵌套导致 wire path 改名。运行依赖方向为 transport → API/domain use case → db repository/data-source；runtime 只做生命周期组装。
 
 ## 状态、副作用与验证
 

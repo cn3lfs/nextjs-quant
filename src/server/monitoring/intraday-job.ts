@@ -7,7 +7,7 @@ import {
   type IntradayConfig,
   type IntradaySlot,
 } from "~/lib/strategy-facts/intraday-schedule";
-import { IntradayStore } from "./intraday-store";
+import { IntradayStore } from "../db/intraday-store";
 import { evaluateIntraday } from "./intraday-strategy";
 import type { intradayPool } from "./intraday-data";
 
@@ -61,34 +61,13 @@ export class IntradayJob {
     readonly dependencies: IntradayDependencies,
   ) {}
   runs() {
-    const rows = this.store.db
-      .prepare(
-        "SELECT payload FROM records WHERE kind='intraday-run' ORDER BY updated_at DESC LIMIT 100",
-      )
-      .all() as { payload: string }[];
-    return rows.map((row) => JSON.parse(row.payload) as IntradayRun);
+    return this.store.runs();
   }
   private read(id: string) {
-    const row = this.store.db
-      .prepare("SELECT payload FROM records WHERE id=? AND kind='intraday-run'")
-      .get(id) as { payload: string } | undefined;
-    return row ? (JSON.parse(row.payload) as IntradayRun) : undefined;
+    return this.store.readRun(id);
   }
   private save(run: IntradayRun, claim = false) {
-    run.updatedAt = this.dependencies.now();
-    run.leaseUntil = run.updatedAt + 15 * 60000;
-    const written = this.store.db
-      .prepare(
-        "INSERT INTO records VALUES (?,'intraday-run',?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at WHERE ?=1 OR json_extract(records.payload,'$.owner')=?",
-      )
-      .run(
-        run.id,
-        JSON.stringify(run),
-        run.updatedAt,
-        Number(claim),
-        run.owner,
-      );
-    if (!written.changes) throw new Error("预选任务已由另一执行者接管");
+    this.store.saveRun(run, this.dependencies.now(), claim);
   }
 
   async preview(config: IntradayConfig, slot: IntradaySlot) {

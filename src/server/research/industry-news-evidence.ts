@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Evidence, Snapshot } from "~/lib/domain";
 import { evidenceEnvelope } from "../infra/evidence";
-import { latestIndustryNewsReport } from "../news/news-sector-history";
+import { latestIndustryNewsReport } from "../db/news-sector-history";
 
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

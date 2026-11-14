@@ -5,7 +5,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
 import { commitDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
-import { DeliveryStore } from "../../src/server/portfolio/delivery-store";
+import { DeliveryStore } from "../../src/server/db/delivery-store";
 import {
   buildTradeReviewSnapshot,
   exportTradeReview,

@@ -716,3 +716,99 @@ test("strategy weight results keep their date and identity across automatic and 
   await expect(detail.locator("pre")).toHaveCount(0);
   expect([...api.unknown]).toEqual([]);
 });
+
+test("E form lifecycle: ordinary strategy page resets drafts and errors without replaying a pending submit", async ({
+  page,
+}) => {
+  const audit = await installOfflineVisualApi(page);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let submissions = 0;
+  await page.route("**/api/trpc/strategyCenterRun**", async (route) => {
+    submissions++;
+    await held;
+    await route.abort("failed");
+  });
+  await page.goto("/strategies");
+  const search = page.getByRole("textbox", { name: "搜索策略", exact: true });
+  const start = page.getByLabel("开始日期", { exact: true });
+  const end = page.getByLabel("结束日期", { exact: true });
+  const submit = page.getByRole("button", {
+    name: "创建本地日线实验",
+    exact: true,
+  });
+  await expect(submit).toBeEnabled();
+  const initialStart = await start.inputValue();
+  await start.fill("2099-01-01");
+  await expect(submit).toBeDisabled();
+  await page.locator('a[href="/tasks"]').first().click();
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(
+    page.getByRole("heading", { name: "任务中心", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(start).toHaveValue(initialStart);
+  await expect(submit).toBeEnabled();
+  await search.fill("ma");
+  await start.fill("2026-10-01");
+  await end.fill("2026-10-09");
+  await submit.click();
+  await expect.poll(() => submissions).toBe(1);
+  await expect(submit).toBeDisabled();
+  await page.locator('a[href="/tasks"]').first().click();
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(
+    page.getByRole("heading", { name: "任务中心", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(search).toHaveValue("");
+  await expect(start).toHaveValue(initialStart);
+  await expect(submit).toBeEnabled();
+  expect(submissions).toBe(1);
+  release();
+  await search.fill("temporary");
+  await page.reload();
+  await expect(search).toHaveValue("");
+  expect(submissions).toBe(1);
+  expect([...audit.unknown]).toEqual([]);
+});
+
+test("E form lifecycle: valuation draft and validation are local to the reports route", async ({
+  page,
+}) => {
+  const audit = await installOfflineVisualApi(page);
+  await page.goto("/reports");
+  const open = async () => {
+    await page.getByRole("radio", { name: "估值假设", exact: true }).click();
+    await page.getByText("创建估值情景", { exact: true }).click();
+  };
+  await open();
+  const title = page.getByRole("textbox", { name: "报告名称", exact: true });
+  await title.fill("E 未提交估值草稿");
+  await title.evaluate((element) => {
+    element.closest("form")!.noValidate = true;
+  });
+  await page.getByRole("button", { name: "计算并保存", exact: true }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "请填写全部金额" }),
+  ).toBeVisible();
+  await page.locator('a[href="/tasks"]').first().click();
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(
+    page.getByRole("heading", { name: "任务中心", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await open();
+  await expect(title).toHaveValue("");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "请填写全部金额" }),
+  ).toHaveCount(0);
+  await title.fill("E 刷新草稿");
+  await page.reload();
+  await open();
+  await expect(title).toHaveValue("");
+  expect(audit.calls.has("valuationSave")).toBe(false);
+  expect([...audit.unknown]).toEqual([]);
+});

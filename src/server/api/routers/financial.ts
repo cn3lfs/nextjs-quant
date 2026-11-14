@@ -1,3 +1,7 @@
+import {
+  readArchiveRecord,
+  localFinancialHistory,
+} from "../../db/archive-records";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
@@ -27,34 +31,14 @@ import { get, put, remove, sqlite } from "../../db";
 import { background, runWorker } from "../../jobs/jobs";
 import { isAStock, securityNames } from "tstdx/local";
 import { readMarketPool } from "../../market/market-pool-files";
-import {
-  latestRpsObservation,
-  observationRanking,
-} from "../../screening/rps-observation";
-import { RpsStore } from "../../screening/rps-store";
+import { observationRanking } from "../../screening/rps-observation";
+import { latestRpsObservation } from "../../db/rps-observations";
+import { RpsStore } from "../../db/rps-store";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 
 const archiveId = z.string().regex(/^local-financial-[a-f0-9]{64}$/);
 const screenId = z.string().regex(/^local-financial-screen-[a-f0-9]{64}$/);
 type Audit = Awaited<ReturnType<typeof auditLocalFinancialFiles>>;
-function stored<T>(kind: string, id: string) {
-  const row = sqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : null;
-}
-function history(kind: string) {
-  return sqlite()
-    .prepare(
-      "SELECT id,json_extract(payload,'$.symbol') AS symbol,json_extract(payload,'$.createdAt') AS createdAt,json_extract(payload,'$.reports[0].reportDate') AS reportDate FROM records WHERE kind=? ORDER BY updated_at DESC LIMIT 100",
-    )
-    .all(kind) as {
-    id: string;
-    symbol: string | null;
-    createdAt: number;
-    reportDate: string | null;
-  }[];
-}
 export const financialRouter = createTRPCRouter({
   localFinancialView: p("financial", "read")
     .input(localFinancialQuery)
@@ -139,21 +123,18 @@ export const financialRouter = createTRPCRouter({
       );
     }),
   localFinancialArchiveHistory: p("financial", "read").query(() =>
-    history("local-financial-archive"),
+    localFinancialHistory("local-financial-archive"),
   ),
   localFinancialArchive: p("financial", "read")
     .input(archiveId)
     .query(({ input }) => {
-      const archive = stored<LocalFinancialArchive>(
-        "local-financial-archive",
-        input,
-      );
+      const archive = readArchiveRecord("local-financial-archive", input);
       return archive ? verifyLocalFinancialArchive(archive) : null;
     }),
   localFinancialArchiveDelete: p("financial", "configure")
     .input(archiveId)
     .mutation(({ input }) => {
-      if (stored("local-financial-archive", input)) remove(input);
+      if (readArchiveRecord("local-financial-archive", input)) remove(input);
       return { deleted: true };
     }),
   localFinancialScreenStart: p("financial", "compute")
@@ -246,7 +227,7 @@ export const financialRouter = createTRPCRouter({
       );
     }),
   localFinancialScreenHistory: p("financial", "read").query(() =>
-    history("local-financial-screen"),
+    localFinancialHistory("local-financial-screen"),
   ),
   localFinancialScreenPage: p("financial", "read")
     .input(
@@ -262,10 +243,7 @@ export const financialRouter = createTRPCRouter({
       }),
     )
     .query(({ input }) => {
-      const result = stored<LocalFinancialScreen>(
-        "local-financial-screen",
-        input.id,
-      );
+      const result = readArchiveRecord("local-financial-screen", input.id);
       if (!result) return null;
       const rows = result.rows.filter(
         (row) =>
@@ -301,10 +279,7 @@ export const financialRouter = createTRPCRouter({
   localFinancialScreenExport: p("financial", "read")
     .input(screenId)
     .query(({ input }) => {
-      const result = stored<LocalFinancialScreen>(
-        "local-financial-screen",
-        input,
-      );
+      const result = readArchiveRecord("local-financial-screen", input);
       if (!result) return null;
       const { id, hash, createdAt: _createdAt, ...content } = result;
       if (
@@ -318,7 +293,7 @@ export const financialRouter = createTRPCRouter({
   localFinancialScreenDelete: p("financial", "configure")
     .input(screenId)
     .mutation(({ input }) => {
-      if (stored("local-financial-screen", input)) remove(input);
+      if (readArchiveRecord("local-financial-screen", input)) remove(input);
       return { deleted: true };
     }),
 });

@@ -294,7 +294,7 @@ it("restricts history lookup to strategy-center jobs and bounded newest-first re
   expect(store.sql).toContain(
     "json_extract(payload,'$.input.type')='strategy-center'",
   );
-  expect(store.sql).toContain("ORDER BY updated_at DESC LIMIT 30");
+  expect(store.sql).toContain("ORDER BY updated_at DESC,id DESC LIMIT 30");
 });
 
 it("classifies every recorded method and filters categories without promoting tools to executable rules", async () => {

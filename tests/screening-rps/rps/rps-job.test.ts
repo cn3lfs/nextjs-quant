@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { RpsStatus } from "../../../src/components/market/rps-status";
 import { migrate } from "../../../src/server/db/migrations";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import {
   runRpsJob,
   RPS_PUBLISH_BATCH,

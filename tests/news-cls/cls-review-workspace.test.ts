@@ -6,9 +6,9 @@ import {
   clsVerificationPage,
   clsVerificationDetail,
   clsFactDetail,
-} from "../../src/server/news/cls-review-query";
+} from "../../src/server/db/cls-review-query";
 import { seedClsReview } from "../helpers/cls-review-fixture";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 import { clsFactStatistics } from "../../src/lib/news/cls-fact-review";
 import {
   clearSubmittedClsDraft,

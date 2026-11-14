@@ -11,7 +11,7 @@ import { setup } from "../global-setup";
 import { settingsSchema } from "../../src/lib/domain";
 import { type RpsProgress } from "../../src/lib/screening/rps";
 import { sqlite } from "../../src/server/db";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import {
   localRpsDependencies,
   runRpsJob,

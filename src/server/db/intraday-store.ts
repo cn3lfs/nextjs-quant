@@ -1,6 +1,7 @@
+import type { IntradayRun } from "../monitoring/intraday-job";
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import type { evaluateIntraday } from "./intraday-strategy";
+import type { evaluateIntraday } from "../monitoring/intraday-strategy";
 import { previewConfirmation } from "~/lib/research/analysis/intraday-preview";
 
 export type IntradayObservation = Awaited<
@@ -33,6 +34,51 @@ export class IntradayStore {
     readonly maxEvidenceBytes = 512 * 1024 * 1024,
   ) {}
 
+  runs() {
+    const rows = this.db
+      .prepare(
+        "SELECT payload FROM records WHERE kind='intraday-run' ORDER BY updated_at DESC,id DESC LIMIT 100",
+      )
+      .all() as { payload: string }[];
+    return rows.map((row) => JSON.parse(row.payload) as IntradayRun);
+  }
+  readRun(id: string) {
+    const row = this.db
+      .prepare("SELECT payload FROM records WHERE id=? AND kind='intraday-run'")
+      .get(id) as { payload: string } | undefined;
+    return row ? (JSON.parse(row.payload) as IntradayRun) : undefined;
+  }
+  saveRun(run: IntradayRun, now: number, claim = false) {
+    run.updatedAt = now;
+    run.leaseUntil = run.updatedAt + 15 * 60000;
+    const written = this.db
+      .prepare(
+        "INSERT INTO records VALUES (?,'intraday-run',?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at WHERE ?=1 OR json_extract(records.payload,'$.owner')=?",
+      )
+      .run(
+        run.id,
+        JSON.stringify(run),
+        run.updatedAt,
+        Number(claim),
+        run.owner,
+      );
+    if (!written.changes) throw new Error("预选任务已由另一执行者接管");
+  }
+
+  pendingCloseIds(cutoff: string, retryAfter: number) {
+    return this.db
+      .prepare(
+        `SELECT p.id FROM records p WHERE p.kind='intraday-preview'
+    AND json_extract(p.payload,'$.barCutoff') <= ?
+    AND NOT EXISTS (SELECT 1 FROM records c WHERE c.kind='intraday-close'
+      AND json_extract(c.payload,'$.observationId')=p.id
+      AND (json_type(c.payload,'$.close.signalKeys')='array' OR c.updated_at>?))
+    ORDER BY p.updated_at DESC,p.id`,
+      )
+      .all(cutoff, retryAfter) as {
+      id: string;
+    }[];
+  }
   usage() {
     const row = this.db
       .prepare(

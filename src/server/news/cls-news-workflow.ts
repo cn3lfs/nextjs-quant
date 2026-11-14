@@ -10,10 +10,10 @@ import {
   type ClsBatchReceipt,
 } from "~/lib/news/cls-batch";
 import { get, put, sqlite } from "../db";
-import { claimWorkflow } from "../jobs/workflow-lease";
+import { claimWorkflow } from "../db/workflow-lease";
 import { parseClsReport } from "./cls-report-parser";
 import { previewClsReport } from "./cls-report-files";
-import { ClsReviewStore } from "./cls-review-store";
+import { ClsReviewStore } from "../db/cls-review-store";
 import { runClsReviewTick } from "./cls-review-scheduler";
 
 export const clsWorkflowDirectory = () =>

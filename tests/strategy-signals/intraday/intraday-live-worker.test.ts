@@ -6,7 +6,7 @@ import { build } from "esbuild";
 import { expect, it } from "vitest";
 import valid from "../../fixtures/breakout-valid.json";
 import { migrate } from "../../../src/server/db/migrations";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import { rpsDay } from "../../helpers/rps-fixture";
 import { intradayConfigSchema } from "../../../src/lib/strategy-facts/intraday-schedule";
 import { previewSlots } from "../../../src/lib/research/analysis/intraday-preview";
@@ -14,7 +14,7 @@ import {
   projectCzsc,
   closeCzsc,
 } from "../../../src/server/strategies/chan/czsc";
-import { IntradayStore } from "../../../src/server/monitoring/intraday-store";
+import { IntradayStore } from "../../../src/server/db/intraday-store";
 
 it("runs captured intraday signals through the actual worker and host DLL queue, then confirms at close", async () => {
   await mkdir(".test-data", { recursive: true });

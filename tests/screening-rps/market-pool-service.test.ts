@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import { rpsDay } from "../helpers/rps-fixture";
 import {
   marketPoolPage,

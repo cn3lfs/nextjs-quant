@@ -25,7 +25,7 @@ vi.mock("../../src/server/market/data-health", async (original) => ({
     coverage: { start: state.dates[0], end: state.dates.at(-1), count: 4 },
   }),
 }));
-vi.mock("../../src/server/portfolio/delivery-store", () => ({
+vi.mock("../../src/server/db/delivery-store", () => ({
   DeliveryStore: class {
     fills() {
       return state.dates.map((tradeDate) => ({ tradeDate }));

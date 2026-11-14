@@ -3,7 +3,7 @@ vi.mock("../../../src/server/infra/settings", () => ({
   settings: () => ({ tdxRoot: "fixture" }),
 }));
 import { sqlite } from "../../../src/server/db";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import { intradayPool } from "../../../src/server/monitoring/intraday-data";
 import { intradayConfigSchema } from "../../../src/lib/strategy-facts/intraday-schedule";
 import { rpsDay } from "../../helpers/rps-fixture";

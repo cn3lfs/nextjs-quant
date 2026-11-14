@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { runIncrementJob } from "../../../src/server/data-sources/tdx/tdx-increment-job";
 import { refreshDailyIncrement } from "../../../src/server/data-sources/tdx/tdx-increment-refresh";
-import { claimWorkflow } from "../../../src/server/jobs/workflow-lease";
+import { claimWorkflow } from "../../../src/server/db/workflow-lease";
 
 it("persists publication wait and throttles retries without declaring success", async () => {
   const refresh = vi.fn<typeof refreshDailyIncrement>().mockResolvedValue({

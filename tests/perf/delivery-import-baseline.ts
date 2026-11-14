@@ -4,9 +4,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir, cpus, totalmem } from "node:os";
 import { join } from "node:path";
 import { migrate } from "../../src/server/db/migrations";
-import { DeliveryStore } from "../../src/server/portfolio/delivery-store";
+import { DeliveryStore } from "../../src/server/db/delivery-store";
 import { previewDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
-import { deliveryBatchPage } from "../../src/server/portfolio/delivery-workspace-query";
+import { deliveryBatchPage } from "../../src/server/db/delivery-workspace-query";
 
 // In-memory only: importing this benchmark never opens the application database.
 const db = new Database(":memory:");

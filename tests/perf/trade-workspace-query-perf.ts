@@ -8,7 +8,7 @@ import {
   tradeWorkspacePage,
   tradeWorkspaceExport,
   tradeSignalOptions,
-} from "../../src/server/portfolio/trade-workspace-query";
+} from "../../src/server/db/trade-workspace-query";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 const child = relative(resolve(tmpdir()), directory);
 assert.ok(

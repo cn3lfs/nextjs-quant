@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
 import { migrate } from "../../src/server/db/migrations";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 import { seedClsReview } from "../helpers/cls-review-fixture";
 
 const logs = join(tmpdir(), "logs", "quant-cls-review");

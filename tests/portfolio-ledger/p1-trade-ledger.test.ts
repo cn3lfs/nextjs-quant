@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { migrate } from "../../src/server/db/migrations";
-import { TradeLedgerStore } from "../../src/server/portfolio/trade-ledger-store";
+import { TradeLedgerStore } from "../../src/server/db/trade-ledger-store";
 import {
   positionFor,
   tradeInputSchema,

@@ -7,7 +7,7 @@ import { expect, it } from "vitest";
 import {
   intradayHistory,
   intradayRuns,
-} from "../../../src/server/monitoring/intraday-history";
+} from "../../../src/server/db/intraday-history";
 
 it("counts all matching observations, distinguishes no signal and retry, and pages without evidence", () => {
   const db = new Database(":memory:");

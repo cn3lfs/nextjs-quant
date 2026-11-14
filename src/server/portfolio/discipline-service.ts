@@ -10,10 +10,7 @@ import type {
 } from "./discipline-source";
 import { recordResearchUsage } from "../research/research-usage";
 import { usageConfigHash } from "../research/research-config-hash";
-import {
-  ResearchAttempts,
-  bestEffortAudit,
-} from "../research/research-governance";
+import { ResearchAttempts, bestEffortAudit } from "../db/research-governance";
 import { sqlite } from "../db";
 import { processAlive } from "../infra/lease";
 

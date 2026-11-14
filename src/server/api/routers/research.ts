@@ -1,21 +1,22 @@
+import { readArchiveRecord } from "../../db/archive-records";
 import { researchRangeSchema } from "~/lib/research/workflow/research-usage";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { researchUsage } from "../../research/research-usage";
 import { researchAttemptsQuerySchema } from "~/lib/research/workflow/research-governance";
-import { ResearchAttempts } from "../../research/research-governance";
+import { ResearchAttempts } from "../../db/research-governance";
 import { sqlite as chartSqlite } from "../../db";
-import { reportSecurityContext } from "../../research/report-security";
+import { reportSecurityContext } from "../../db/report-security";
 import {
   reportHistory,
   reportHistoryInput,
   archivedReport,
-} from "../../research/report-history";
+} from "../../db/report-history";
 import { researchSkillCatalog } from "../../research/research-skills";
 import { exportRsArchive } from "../../research/rs-export";
 import { z } from "zod";
 import { archiveHistoryInput } from "~/lib/research/workflow/archive-history";
-import { researchArchiveHistory } from "../../research/archive-history";
-import { strategySchema, type Snapshot, type Report } from "~/lib/domain";
+import { researchArchiveHistory } from "../../db/archive-history";
+import { strategySchema, type Report } from "~/lib/domain";
 import { list } from "../../db";
 import { settings, saveSettings } from "../../infra/settings";
 import { background, runWorker } from "../../jobs/jobs";
@@ -26,16 +27,9 @@ import {
 import { analyze } from "../../research/research";
 import { gatherEvidence } from "../../research/gather-evidence";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
-function recordOfKind<T>(kind: string, id: string): T | undefined {
-  const row = chartSqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : undefined;
-}
 function storedSnapshot(id: string) {
   return (
-    recordOfKind<Snapshot>("snapshot", id) ??
-    recordOfKind<Snapshot>("chart-snapshot", id)
+    readArchiveRecord("snapshot", id) ?? readArchiveRecord("chart-snapshot", id)
   );
 }
 export const researchRouter = createTRPCRouter({

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { get, put } from "../../db";
-import { claimWorkflow } from "../../jobs/workflow-lease";
+import { claimWorkflow } from "../../db/workflow-lease";
 import { refreshDailyIncrement } from "./tdx-increment-refresh";
 
 export type IncrementJob = {

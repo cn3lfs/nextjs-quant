@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { defaultChartView, type Drawing } from "~/lib/chart/chart-view";
-import { ChartViewStore } from "~/server/charts/chart-view-store";
+import { ChartViewStore } from "~/server/db/chart-view-store";
 import { migrate } from "~/server/db/migrations";
 
 const drawing = (id: string, shared?: boolean): Drawing => ({

@@ -2,12 +2,12 @@
 
 ## 职责与非职责
 
-`scripts/` 为构建、迁移、数据校验、桌面准备和受控操作入口；`tests/` 为行为、契约、worker 和结构边界证据；workspace packages 各自维护独立源码、构建和测试。验证目录不拥有生产逻辑，也不能清理/重建正式输出或历史证据档案。
+`scripts/` 为构建、迁移、数据校验、桌面准备和受控操作入口；`tests/` 为行为、契约、worker 和结构边界证据；六个 workspace packages 各自维护独立源码、构建和测试。验证目录不拥有生产逻辑；历史衍生结果按已授权清理范围处理，不能删除原始输入或正式包。
 
 ## 入口与消费者
 
 - 根命令以 [package.json](../../package.json) scripts 为准：`typecheck`、`test`、`build`、`runtime:build`、`desktop:prepare`、`desktop:smoke`、`format:check`。
-- `tests/<module>/` 按领域保存 487 个 `.test/.spec` suites；`fixtures/`、共享 helpers、snapshots 与 setup 留在 `tests/` 公共层。
+- `tests/<module>/` 按领域保存持久 `.test/.spec` 用例；`fixtures/`、共享 helpers、snapshots 与 setup 留在 `tests/` 公共层。
 - `src-organization.test.ts`、`server-layout.test.ts` 保护已裁定的目录约束；workspace packages 各有 README 与测试命令。
 
 ## 契约与依赖

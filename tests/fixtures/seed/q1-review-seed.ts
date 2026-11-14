@@ -15,7 +15,7 @@ console.log(
 
 const { sqlite } = await import("../../../src/server/db");
 const { ChartViewStore } =
-  await import("../../../src/server/charts/chart-view-store");
+  await import("../../../src/server/db/chart-view-store");
 const { defaultChartView, chartPeriodSchema } =
   await import("../../../src/lib/chart/chart-view");
 for (const period of chartPeriodSchema.options)

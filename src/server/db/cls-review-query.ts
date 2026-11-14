@@ -8,7 +8,7 @@ import {
   clsReviewVerificationIdentity,
 } from "~/lib/news/cls-review-workspace";
 import type { ClsFactReview } from "~/lib/news/cls-fact-review";
-import type { ClsVerification } from "./cls-verification";
+import type { ClsVerification } from "../news/cls-verification";
 
 const cursorSchema = z.object({
   key: z.string(),

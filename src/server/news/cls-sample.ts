@@ -1,4 +1,4 @@
-import type { ClsReportArchive } from "./cls-review-store";
+import type { ClsReportArchive } from "../db/cls-review-store";
 import type { ClsDirection } from "./cls-report-parser";
 
 export type ClsSampleCandidate = {

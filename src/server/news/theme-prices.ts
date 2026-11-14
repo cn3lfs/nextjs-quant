@@ -1,5 +1,6 @@
+import { latestThemePrices } from "../db/theme-prices";
 import { createHash } from "node:crypto";
-import { get, put, sqlite } from "../db";
+import { get, put } from "../db";
 import {
   fetchSectorPrices,
   type SectorPriceData,
@@ -16,14 +17,6 @@ export type ThemePrices = {
   data: SectorPriceData;
   envelope: ReturnType<typeof evidenceEnvelope>;
 };
-export function latestThemePrices(themeId: string): ThemePrices | null {
-  const row = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='theme-prices' AND json_extract(payload,'$.themeId')=? ORDER BY updated_at DESC,id DESC LIMIT 1",
-    )
-    .get(themeId) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as ThemePrices) : null;
-}
 const shared = sharedRead<ThemePrices>();
 export async function checkThemePrices(themeId: string, signal?: AbortSignal) {
   signal?.throwIfAborted();

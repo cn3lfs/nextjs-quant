@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { usageConfigHash } from "./research-config-hash";
 import { readRecordSnapshot, put, sqlite } from "../db";
-import { ResearchAttempts, bestEffortAudit } from "./research-governance";
+import { ResearchAttempts, bestEffortAudit } from "../db/research-governance";
 import { settings } from "../infra/settings";
 import {
   researchUsageSchema,
@@ -56,11 +56,7 @@ function markAuditIncomplete(attemptId: string) {
     new ResearchAttempts(sqlite()).update(attemptId, { auditIncomplete: true }),
   );
   bestEffortAudit(() =>
-    sqlite()
-      .prepare(
-        "UPDATE records SET payload=json_set(payload,'$.auditIncomplete',json('true')) WHERE kind IN ('job','research-task') AND json_extract(payload,'$.attemptId')=?",
-      )
-      .run(attemptId),
+    new ResearchAttempts(sqlite()).markTaskAuditIncomplete(attemptId),
   );
 }
 export function researchUsage(range: ResearchRange) {

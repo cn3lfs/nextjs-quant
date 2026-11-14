@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { sqlite } from "~/server/db";
 import { recoverJobs } from "~/server/jobs/jobs";
 
-import { ResearchAttempts } from "~/server/research/research-governance";
+import { ResearchAttempts } from "~/server/db/research-governance";
 
 const { spawnWorker } = vi.hoisted(() => ({ spawnWorker: vi.fn() }));
 vi.mock("node:worker_threads", () => ({ Worker: spawnWorker }));

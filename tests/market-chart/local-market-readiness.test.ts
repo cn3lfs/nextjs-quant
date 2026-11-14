@@ -5,7 +5,7 @@ import {
   localRpsDependencies,
   runRpsJob,
 } from "../../src/server/screening/rps-job";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import { rpsProgress } from "../helpers/rps-fixture";
 import { scan } from "../../src/server/data-sources/tdx/tdx";
 

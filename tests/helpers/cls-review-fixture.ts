@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { parseClsReport } from "../../src/server/news/cls-report-parser";
-import type { ClsReportArchive } from "../../src/server/news/cls-review-store";
+import type { ClsReportArchive } from "../../src/server/db/cls-review-store";
 import type { ClsSample } from "../../src/server/news/cls-sample";
 import type { ClsVerification } from "../../src/server/news/cls-verification";
 

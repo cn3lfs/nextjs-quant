@@ -2,7 +2,7 @@ import { parentPort } from "node:worker_threads";
 import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 import { sqlite } from "../db";
 import { settings } from "../infra/settings";
-import { SignalLedgerStore } from "./signal-ledger-store";
+import { SignalLedgerStore } from "../db/signal-ledger-store";
 import { localLedgerDependencies, runSignalLedger } from "./signal-ledger-job";
 import {
   analyzeCzsc,

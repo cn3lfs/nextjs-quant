@@ -1,31 +1,19 @@
 # 观澜 — Diagnosis and Optimization Plan (2026-11-13)
 
-## 定稿摘要与当前进度（2026-11-13）
+## 定稿摘要与当前进度（2026-11-14，A–E）
 
-执行状态：派单 B 已收口页面模型与共享行情归属，交管理者验收/提交；后续依据见 [当前计划](next-plan.md)，本轮不自动推进下一批。
+产品选择已确认；执行依据本摘要、§6、§10–§12 与用户最新授权。§1–§3 是原诊断快照，不当作当前代码状态。当前检查见[优化交付](deliveries/2026-11-13-optimization.md)，后续见[当前计划](next-plan.md)。
 
-**方案已定稿，产品选择已确认；P0 代码与隔离应用验收已完成，暂停前推进 P1/P2 界面与状态拆分，P3 已开始读取契约整理，P4 构建缓存、隔离门禁、运行错误诊断与类型感知 lint 已验收，其余工作仍待推进。** §1–§3 是原诊断快照，执行以本摘要、§6 和 §12 的最新决定为准。
+| 阶段 | A–E 实际结果 | 剩余与边界 |
+| --- | --- | --- |
+| P0 | 已完成能力声明、公式/双突破恢复、旧执行退役、三个调度器暂停及隔离验收 | 不补跑/补发，不扩展模拟账户授权 |
+| P1 | A 前序修正主路径；C 以 6,154 只合成证券检查 24 入口、有数据流程、标签/弹窗、键盘与缩放，保留代表基线 | 外部成功态、缺档案/板块源的有数据状态仍 deferred；不宣称全部真实状态完成 |
+| P2 | B 定稿 24 路由，只有行情/筛选/回测保留实例；E 逐页核对普通路由表单草稿/校验/pending，补齐设置、策略与估值恢复验证 | 表单归属按 architecture 表；真实外部提交与 Electron 原生焦点没有用合成测试代替 |
+| P3 | D 收拢 11 类仓储、任务摘要和有界结果导出；E 继续迁入图表/RPS/盘中历史/信号/新闻/账本/账户/档案查询，API 无直接 SQL，边界守卫覆盖服务端业务代码 | 外部只读源、独立日志及跨域原子事务逐条登记保留原因；未改 schema。热表迁移须实测证明必要，不能预设升级 |
+| P4 | A 稳定包构建、隔离门禁和错误诊断；D 完整测试 6,319+194 通过，同样 10 项全规模页面通过，PageUp/PageDown 与 ENOSPC 缺口关闭 | E 完整门禁七阶段全部退出 0，主工程 6,328+包级194 通过、27 既有跳过；独立 build/prepare 与表单正负对照完成，不沿用早期失败作豁免 |
+| P5 | E 将 roadmap 范围/决定置顶，逐份核对模块说明、架构和相对引用，不新建文档 | 管理者 f73f7db 已记录 WDZ 外部归档/恢复核验及仓库副本移除，7d10995 已删除退役合成标定输出；受保护 WDZ README 旧文字仍交管理者同步。E 生成测试输入的清理被自动审批拒绝，保留约 296.3 MiB 及任务目录默认预演脚本，本单未执行 -Apply |
 
-| 顺序 | 最终交付内容                                                        | 当前状态                                                                                                                                                                                                                                                               |
-| ---- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 清理 | 删除项目不用的历史结果/证据/日志，保留数据源及现行依赖              | 已清理 3,176 个文件，约 2.11 GiB；用户另执行脚本清除 4 个临时工具文件，目录已复核不存在                                                                                                                                                                                |
-| P0 | 恢复公式选股、双突破；删除旧入口/API/执行及兼容分支；三个调度器暂停 | 已完成代码与隔离应用验收：280 个 API 显式声明能力；旧执行、结果兼容、自动快评与冲突的旧策略目录退役；worker/服务/下载跟进遵守暂停；活动任务完整分页恢复，不补跑。逐项证据见交付说明，不代表全路由视觉或桌面交付完成 |
-| P1   | 整理首页、行情、证券池/RPS、筛选流程；统一状态、单位和浅色视觉验收  | 进行中：统一财务百分比/倍数展示，区分 RPS 读取中、读取失败与空闲；证券池迁至 `/stock-pool` 并以 URL 保留筛选/分页，RPS 迁入发现。RPS 等待/故障、财务子视图、窄屏列表收起及财务缺目录状态已通过应用验收；图表工具区、导航及行情上方信息区已整理；固定 1440×900 应用用例首屏可见图表至少 540px 通过，周期/F8/共享画线与隐藏弹层回归通过；首页/盘中暂停文案与首页读取失败/空态已修正；现行24入口双尺寸初始状态已检查；证券池/RPS批次缺失提示已收拢，保留个股原因/缓存/身份及导出，周期切换不暂用旧数值，6项定向应用验收通过；策略中心按本地历史日历默认日期、名称/代码搜索与输入校验已通过 6 项定向应用验收；档案/台账提示与现行研究指南已通过 7 项定向应用验收；完整状态/交互/缩放待推进         |
-| P2 | 拆分全局状态、明确页面状态生命周期、拆分图表职责 | 进行中：行情选择/快照独立；筛选、首页、设置和研究各自拥有查询/操作，面板仅接收所需字段。筛选控件与研究草稿使用独立会话状态；浏览器验证编辑不重渲染外壳、隐藏输入变化/失效不请求、缓存淘汰后恢复。图表已拆为实例、画线事件、结构/价格/指标层及图例；首页/任务中心迁入常规路由，URL 保存排名/筛选，任务草稿/游标与取消状态独立；普通路由不占面板缓存。名称目录已改为消费页面订阅；任务/通知摘要已归侧栏，筛选自行订阅任务缓存，更新不重渲染外壳，失焦停止轮询，快速完成扫描正确刷新覆盖。前批12项页面与4项流程验收保留；设置/覆盖、自选和模型选择已归可见页面，新增故障恢复与自选跨页同步后12项核心流程通过，B-page-model 将保留范围收敛为行情/筛选/回测，其他页面交给常规路由；行情选择归 market-session/URL，加载归行情页，外壳不订阅行情；其余细粒度状态与全站视觉仍待推进 |
-| P3   | 仓储/分页契约、外部路径配置；按实测决定是否迁移热表                 | 进行中：通用 list 显式限量、稳定 ID 分页和同事务批量读取；渠道/监控/公式完整目录与研究使用统计已迁移。CLS/Python 配置与只读检查已实现；通达信空配置保护与 Blocks 设置入口已整理，移除工作流硬编码兜底；任务概览已移入类型仓储，侧栏使用全量计数，最新完成扫描不受最近 80 条限制；其余类型仓储、大结果摘要待推进；未改 schema                                                                                                                                                                                                                 |
-| P4   | 统一构建入口、工程检查与错误诊断                                    | 六包按 workspace 依赖图构建，输入/输出内容校验实现未变包跳过；隔离检查门禁与可选 pre-push 已提供，前批完整门禁曾通过、hook 未安装。限额错误记录与任务中心最近错误已接入并验收；类型感知 Promise/未使用变量与静态 ESM 导入边界已启用，修复导出清理与调度拒绝处理；140 项格式差异已收敛并接入门禁首步；固定动态依赖、模块/包循环已接入门禁并拆除两处服务层循环；修正浏览器检查零用例成功问题；66 个测试支持文件已按职责归位并更新引用；主 E2E 已改为独立服务和全规模合成负载，既有预算保持；前批两项全量选股失败已修复，6,154 只全量选股两项回归与现行回测通过，服务日志无锁异常；任务页请求时渲染已验收，两轮独立首访 115.9/157.6ms，均低于 300ms；Zod 安装冲突与并行技能文件格式仍阻挡完整门禁                                                                                                                                         |
-| P5   | 当前计划/交付/架构说明精简，WDZ 迁出并更新消费者                    | 当前计划和 AGENTS 目标已同步，交付收敛为单一说明；架构已更新页面模型、能力策略、六包依赖与 CZSC v22，其余旧文档待核对。WDZ 脚本和消费者已准备，2,319 文件预演通过；实际迁出待用户执行                                                                                                                               |
-
-执行记录集中于[当前优化交付](deliveries/2026-11-13-optimization.md)，接续任务见[当前计划](next-plan.md)。B 批完整 pnpm run test 已退出 0：主工程 6,299 项、包级 194 项通过，27 项既有跳过；typecheck、lint、format:check 与生产构建通过。管理者修复 Zod 安装后原冲突未复现；新增暴露的来源目录 URL 夹具已修复并重跑全套，不登记失败豁免。页面模型、隐藏请求、候选/证券池往返与 URL 恢复的当前证据见交付说明；临时夹具删除被自动审批拒绝，保留默认预演脚本。66 个测试支持文件归位及固定输入校验已完成。本批修复复盘隐藏标签取数和隐藏详情 Escape 监听；主 E2E 使用 6,154 只合成证券、2,222/9,418 笔成交独立造数，前批完整规模 15 项通过、2 项选股失败；两项选股阻塞现已修复并复验通过。完整快照在 worker 分批保存，主进程确认每批进度后才继续；同规模主线程最大心跳间隔由约 19,649ms 降至 70.4ms，6,154 个快照/12,628,008 根 K 线完整核对，日志无锁异常。任务页改为按请求渲染筛选表单，两轮独立首访中位数 115.9/157.6ms，原始 HTML 与返回/刷新回归通过，该预算缺口已关闭；不缩小证券池或放宽阈值掩盖失败。前批 49 项定向测试、包级 194 项、依赖扫描、lint、独立生产构建与资源准备，以及 3 项真实 worker 应用流程证据保留。24 个现行入口在 1440/1024px 的初始状态、首页故障恢复与离线边界共 50 项应用检查通过；打板情绪跨日默认日期修复后，宽窄屏及跨日 3 项定向复验通过。前批固定行情用例首屏图表可见高度 60%、五套图表专项及导航/弹层检查保留。证券池/RPS重复说明已修正，另通过6项定向应用检查；策略中心历史日期与证券搜索已修正，另通过 6 项定向应用验收；档案/台账提示与研究指南已修正，7 项定向应用验收通过；有数据状态、完整标签/弹窗、键盘与缩放验收仍未完成。未安装 hook、正式打包或真实渠道/账户联调。P1–P5 恢复后按完整范围继续推进。
-
-P3 本批补充任务摘要与公式结果页投影：摘要明确字段，候选/隔离/错误各最多 50 行，搜索与排序先于取页，完整导出保持全量。名称目录一次展开并关联，避免反复遍历 JSON；不修改 schema。摘要和首屏改善了 JS 解析量及本机耗时，搜索排序耗时增加，详细测量与验收边界见交付说明；其他大结果和导出读取仍待推进。
-
-历史文件清理与 WDZ 迁出由用户手动执行，脚本入口及范围见交付说明；WDZ 的默认预演通过不等于实际迁出完成。数据源、现行输入、业务数据库和正式包不做顺手删除。
-
-Scope: architecture, UI, functionality, engineering and documentation of the whole repository.
-This document records the optimization plan and the user decisions in §6 and §12. P0 code and isolated application acceptance are complete; P1–P5 remain in progress. WDZ relocation awaits the user; schema migration is conditional on a demonstrated need. Historical artifact cleanup is complete within the reviewed scope; see the status table above. Existing explicitly authorized product scope remains valid; commits, packaging and production database operations remain separate.
-
-补全说明（2026-11-12 本地复核，保留原文件名）：§1 的运行结果是原诊断记录，本轮未重跑；本轮只读核对当前代码、项目约束与交付文档，修正判断并补充 §7–§12。数量和耗时是原诊断快照，不作为当前基线或排期承诺。随后用户明确：恢复公式与双突破，旧功能直接由新流程替代且不保留兼容，三调度器暂停，WDZ 迁出；以下执行章节已同步，不再保留这些事项的二选一。
+历史已核验清理范围为 3,176 文件、约 2.11 GiB；后续手动清理与 WDZ 预演不冒称实际完成。本批隔离数据集中在 `.test-data/optimization-20261113/e-final/`，不访问生产库、真实通知/交易/模型或外部行情，不提交/推送/正式打包。
 
 ## 1. How this was checked
 
@@ -207,7 +195,7 @@ Done when: profiler and request traces show no unnecessary cross-domain work fro
 ### Phase 3 — Data layer (L, isolated work packages)
 
 1. **Repository per kind.** Introduce typed accessors (`jobs`, `monitors`, `signals`, `deliveries`, `settings`, …) and move raw SQL behind them, starting with the five kinds that have expression indexes. Lint-forbid `prepare(` outside `server/db` and the repositories once migrated.
-2. **Promote hot kinds to real tables** in new migrations (jobs with a separate results table first, then signals and deliveries), copying data forward; `records` remains for low-volume configuration. Each migration makes older executables unable to open the database, so batch them into one release.
+2. **Consider hot-kind tables only after measurement** of call frequency, payload growth and query plans (§10). Keep low-volume configuration in records; this repository batch does not change schema. Any justified migration must be independently designed and released with a matching executable.
 3. **Replace implicit truncation** with explicit paged reads and bounded full iteration. Requiring a limit alone does not prevent a caller from treating one page as the whole set; define cursor/order semantics and audit all callers (§10).
 4. **Settings for external paths**: Python executable, CLS database, block directory, with a diagnostics row in 数据与连接 for each. No machine path in source.
 5. **Decide on Drizzle**: either use it for the new tables or remove it and `drizzle-kit`; today it is carried but not used.
@@ -266,7 +254,7 @@ Done when: `grep prepare(` outside the data layer is empty for migrated kinds; a
 | [路线图](roadmap.md)、[当前计划](next-plan.md) | 加密资产模拟交易及账户历史保持原授权范围 | 不扩展实盘、合约或外发权限 |
 | [浏览器 runner](../scripts/run-browser-harness.mjs)、[P0 E2E](../playwright.p0.config.ts) | 组件浏览器测试与生产页面验收分别覆盖交互和真实 API/worker | 使用隔离数据与明确端口；测试通过不等于完整桌面或视觉验收 |
 | [工程约定](conventions.md)、[package.json](../package.json) | lint 约定已校正、六包构建入口已统一 | 增量构建、检查门禁和规则扩充仍待 P4 |
-| [WDZ 快照说明](data-sources/wdz-blocks/2026-11-07/README.md) | 2,319 原文件与哈希已预演，迁出待用户执行 | 保留原始数据，按 manifest 和精确目录操作，不按文件数量删除 |
+| [WDZ 快照说明](data-sources/wdz-blocks/2026-11-07/README.md) | 管理者 f73f7db 已记录 2,319 原文件外部归档/恢复核验及仓库副本移除；受保护说明旧文字待管理者同步 | 保留原始数据，按 manifest 和精确目录操作，不按文件数量删除 |
 
 “已实现规则”“当前可执行”“数据齐备”“通过真实业务验收”分别判断。策略目录的实现登记不自动授予旧 API 执行权限，暂停执行也不否定独立纯规则的存在。
 

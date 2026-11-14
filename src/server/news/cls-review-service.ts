@@ -2,16 +2,14 @@ import { resolve } from "node:path";
 import { settings } from "../infra/settings";
 import { sqlite } from "../db";
 import { monitorCalendar } from "../monitoring/monitor-calendar";
-import { RpsStore } from "../screening/rps-store";
+import { RpsStore } from "../db/rps-store";
 import { securityDirectory } from "../market/securities";
 import { marketPoolCatalog, readMarketPool } from "../market/market-pool-files";
-import { ClsReviewStore } from "./cls-review-store";
+import { ClsReviewStore } from "../db/cls-review-store";
 import { clsCandidates } from "./cls-candidates";
 import { buildClsSample } from "./cls-sample";
-import {
-  completedRpsObservation,
-  observationRanking,
-} from "../screening/rps-observation";
+import { observationRanking } from "../screening/rps-observation";
+import { completedRpsObservation } from "../db/rps-observations";
 
 /** Read-only guidance; execution rechecks time and all source-dependent rules. */
 export async function clsSampleEligibility(reportId: string) {

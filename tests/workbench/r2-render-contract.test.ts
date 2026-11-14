@@ -72,7 +72,7 @@ it("R2 tables receive original result arrays and leave existing pagination and s
   expect(ledger).toContain("api.ledgerAnalysis.useQuery");
   expect(ledger).toContain("<SignalLedgerSummaryTable groups={data.groups} />");
   const ledgerQuery = readFileSync(
-    "src/server/monitoring/signal-ledger-query.ts",
+    "src/server/db/signal-ledger-query.ts",
     "utf8",
   );
   expect(ledgerQuery).toContain("groups: aggregateLedger(rows)");

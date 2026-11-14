@@ -78,6 +78,13 @@ export function deliveryRowId(account: string, fingerprintSource: string) {
 export class DeliveryStore {
   constructor(readonly db: Database.Database) {}
 
+  accountSnapshot(account: string) {
+    return this.db.transaction(() => ({
+      fills: this.fills(account),
+      cashFlows: this.cashFlows(account),
+    }))();
+  }
+
   inspect(account: string, parsed: DeliveryImport): ImportRowStatus[] {
     const seen = new Map<string, ParsedFill | ParsedCashFlow>();
     const inspect = (

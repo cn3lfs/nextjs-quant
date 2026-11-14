@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { get, put, sqlite } from "../db";
+import { get, put } from "../db";
 import { structured, researchModel } from "../research/research";
 import { sharedRead } from "../infra/shared-read";
 import type { NewsAnalysis } from "./news-analysis";
@@ -103,14 +103,6 @@ export type NewsThemesReport = {
   result: z.infer<typeof newsThemesSchema>;
 };
 const shared = sharedRead<NewsThemesReport>();
-export function latestNewsThemes(analysisId: string): NewsThemesReport | null {
-  const row = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='news-themes' AND json_extract(payload,'$.analysisId')=? ORDER BY updated_at DESC,id DESC LIMIT 1",
-    )
-    .get(analysisId) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as NewsThemesReport) : null;
-}
 export async function analyzeNewsThemes(
   analysisId: string,
   signal?: AbortSignal,

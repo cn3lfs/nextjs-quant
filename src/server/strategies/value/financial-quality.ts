@@ -7,7 +7,7 @@ import {
   queryFinance,
 } from "../../data-sources/hithink/hithink-finance";
 import { sharedRead } from "../../infra/shared-read";
-import { get, put, sqlite } from "../../db";
+import { get, put } from "../../db";
 import { background, updateJob } from "../../jobs/jobs";
 import { isAStock } from "tstdx/local";
 
@@ -111,13 +111,4 @@ export function financialQualityJob(symbol: string) {
     },
     { method: "financial-quality", symbol },
   );
-}
-export function financialQualityHistory() {
-  return sqlite()
-    .prepare(
-      `SELECT id, json_extract(payload,'$.createdAt') AS createdAt,
-    json_extract(payload,'$.facts.symbol') AS symbol FROM records
-    WHERE kind='financial-quality' ORDER BY updated_at DESC,id LIMIT 100`,
-    )
-    .all() as { id: string; createdAt: number; symbol: string }[];
 }

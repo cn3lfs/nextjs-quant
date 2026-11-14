@@ -7,7 +7,7 @@ import {
   updateJob,
 } from "../../src/server/jobs/jobs";
 import { get, sqlite } from "../../src/server/db/index";
-import { ResearchAttempts } from "../../src/server/research/research-governance";
+import { ResearchAttempts } from "../../src/server/db/research-governance";
 import { recordResearchUsage } from "../../src/server/research/research-usage";
 import type { Job } from "../../src/lib/domain";
 

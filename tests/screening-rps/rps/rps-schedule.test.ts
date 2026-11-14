@@ -4,7 +4,7 @@ import {
   RpsWorkerClient,
   scheduleRps,
 } from "../../../src/server/screening/rps-client";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import { rpsDate, rpsDay, rpsProgress } from "../../helpers/rps-fixture";
 import type { RpsProgress } from "../../../src/lib/screening/rps";
 

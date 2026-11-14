@@ -7,7 +7,7 @@ import {
   seedNewsSource,
   newsFixtureCutoff,
 } from "../helpers/news-workspace-fixture";
-import { newsWorkspacePage } from "../../src/server/news/news-workspace-query";
+import { newsWorkspacePage } from "../../src/server/db/news-workspace-query";
 const state = vi.hoisted(() => ({
   records: new Map<string, unknown>(),
   model: vi.fn(),
@@ -19,21 +19,24 @@ vi.mock("../../src/server/db/index", () => ({
   put: (_kind: string, id: string, value: unknown) =>
     state.records.set(id, value),
   atomic: (fn: () => unknown) => fn(),
-  sqlite: () => ({
-    prepare: () => ({
-      iterate: (model: string, method: string) =>
-        [...state.records.entries()]
-          .filter(([id, raw]) => {
-            const value = raw as { model?: string; method?: unknown };
-            return (
-              id.startsWith("news-analysis-") &&
-              value.model === model &&
-              JSON.stringify(value.method) === method
-            );
-          })
-          .map(([, value]) => ({ payload: JSON.stringify(value) })),
-    }),
-  }),
+}));
+vi.mock("../../src/server/db/news-analysis-history", () => ({
+  visitNewsAnalyses: (
+    model: string,
+    method: unknown,
+    visit: (archive: unknown) => boolean | void,
+  ) => {
+    for (const [id, raw] of state.records) {
+      const value = raw as { model?: string; method?: unknown };
+      if (
+        id.startsWith("news-analysis-") &&
+        value.model === model &&
+        JSON.stringify(value.method) === JSON.stringify(method)
+      ) {
+        if (visit(raw) === false) break;
+      }
+    }
+  },
 }));
 vi.mock("../../src/server/data-sources/cls/cls-news", () => ({
   readClsNews: state.news,

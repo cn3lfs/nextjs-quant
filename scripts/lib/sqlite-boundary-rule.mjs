@@ -4,7 +4,13 @@ import { sqliteMethod } from "./sqlite-calls.mjs";
 export const sqliteBoundaryRule = {
   meta: {
     type: "problem",
-    schema: [],
+    schema: [
+      {
+        type: "object",
+        properties: { allowTransactions: { type: "boolean" } },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       repository:
         "此范围已迁入类型仓储；SQLite 调用必须放在 src/server/db 中。",
@@ -21,7 +27,11 @@ export const sqliteBoundaryRule = {
       /** @param {import("estree").CallExpression} node */
       CallExpression(node) {
         const source = services.esTreeNodeToTSNodeMap.get(node);
-        if (sqliteMethod(checker, source))
+        const method = sqliteMethod(checker, source);
+        if (
+          method &&
+          !(method === "transaction" && context.options[0]?.allowTransactions)
+        )
           context.report({ node, messageId: "repository" });
       },
     };

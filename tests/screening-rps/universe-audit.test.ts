@@ -13,7 +13,7 @@ import { UniverseAuditResults } from "../../src/components/screening/universe-au
 import { universeAuditPage } from "../../src/server/research/universe-audit";
 import { get, put, sqlite } from "../../src/server/db/index";
 import { settings, saveSettings } from "../../src/server/infra/settings";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import { industryDay } from "../helpers/industry-rps-fixture";
 import { readMarketPool } from "../../src/server/market/market-pool-files";
 import { tdxBlockFiles } from "tstdx/local";

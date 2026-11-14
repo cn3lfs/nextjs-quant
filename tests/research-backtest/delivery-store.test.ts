@@ -6,7 +6,7 @@ import { migrate } from "../../src/server/db/migrations";
 import {
   DeliveryStore,
   deliveryRowId,
-} from "../../src/server/portfolio/delivery-store";
+} from "../../src/server/db/delivery-store";
 import {
   commitDeliveryImport,
   previewDeliveryImport,

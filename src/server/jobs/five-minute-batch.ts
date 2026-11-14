@@ -1,3 +1,7 @@
+import {
+  fiveMinuteItemsPage,
+  loadFiveMinuteItems as loadItems,
+} from "../db/five-minute-imports";
 import { readJob } from "../db/jobs";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -35,7 +39,7 @@ import { importFiveMinuteDirect } from "tstdx/native";
 import type { FiveMinutePreviewItem } from "tstdx/local-import";
 
 type Category = "stock" | "fund" | "index";
-type Item = FiveMinutePreviewItem & {
+export type Item = FiveMinutePreviewItem & {
   category?: Category;
   unit?: ImportVolumeUnit;
   state:
@@ -53,7 +57,7 @@ type Item = FiveMinutePreviewItem & {
   first?: string;
   last?: string;
 };
-type Batch = {
+export type Batch = {
   id: string;
   root: string;
   input: FiveMinuteInput;
@@ -99,15 +103,6 @@ function batch(id: string): Batch {
 const itemPrefix = (id: string) => `tdx-import-item-${id}-`;
 async function saveItem(id: string, item: Item) {
   put("tdx-import-item", itemPrefix(id) + item.symbol, item);
-}
-async function loadItems(id: string): Promise<Item[]> {
-  const prefix = itemPrefix(id);
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='tdx-import-item' AND id >= ? AND id < ? ORDER BY id",
-    )
-    .all(prefix, prefix + "\uffff") as { payload: string }[];
-  return rows.map((row) => JSON.parse(row.payload) as Item);
 }
 async function optionalFile(path: string) {
   try {
@@ -332,76 +327,12 @@ export async function fiveMinuteBatch(
   page: number,
   filter: string,
 ) {
-  const value = batch(id),
-    prefix = itemPrefix(id);
-  const where = "kind='tdx-import-item' AND id >= ? AND id < ?";
-  const filters: Record<string, string> = {
-    failed:
-      "json_extract(payload, '$.state') = 'failed' OR json_extract(payload, '$.restoredError') IS NOT NULL",
-    skipped: "json_extract(payload, '$.state') = 'skipped'",
-    conflicts: "json_extract(payload, '$.conflicts') > 0",
-    overflow: "json_array_length(payload, '$.overflowTimes') > 0",
-    prepared: "json_extract(payload, '$.state') = 'prepared'",
-    written: "json_extract(payload, '$.state') = 'written'",
-    restored: "json_extract(payload, '$.state') = 'restored'",
-  };
-  if (filter && !filters[filter]) throw new Error("明细筛选无效");
-  const selectedWhere = where + (filter ? ` AND (${filters[filter]})` : "");
-  const args = [prefix, prefix + "\uffff"];
-  const rows = sqlite()
-    .prepare(
-      `SELECT payload FROM records WHERE ${selectedWhere} ORDER BY id LIMIT 50 OFFSET ?`,
-    )
-    .all(...args, page * 50) as { payload: string }[];
-  const count = sqlite()
-    .prepare(`SELECT count(*) AS n FROM records WHERE ${selectedWhere}`)
-    .get(...args) as { n: number };
-  const summary = sqlite()
-    .prepare(
-      `SELECT
-    coalesce(sum(json_extract(payload,'$.added')),0) AS added,
-    coalesce(sum(json_extract(payload,'$.conflicts')),0) AS conflicts,
-    coalesce(sum(json_extract(payload,'$.identical')),0) AS identical,
-    coalesce(sum(CASE WHEN json_extract(payload,'$.state')='failed' OR json_extract(payload,'$.restoredError') IS NOT NULL THEN 1 ELSE 0 END),0) AS errors,
-    coalesce(sum(CASE WHEN json_extract(payload,'$.state')='skipped' THEN 1 ELSE 0 END),0) AS skipped,
-    coalesce(sum(CASE WHEN json_extract(payload,'$.state')='written' THEN 1 ELSE 0 END),0) AS written,
-    coalesce(sum(CASE WHEN json_extract(payload,'$.targetMissing')=1 THEN 1 ELSE 0 END),0) AS newFiles,
-    coalesce(sum(json_array_length(payload,'$.overflowTimes')),0) AS overflow,
-    coalesce(sum(CASE WHEN json_extract(payload,'$.added')>0 THEN coalesce(json_extract(payload,'$.bytes'),0) ELSE 0 END),0) AS backupBytes
-    FROM records WHERE ${where}`,
-    )
-    .get(...args) as {
-    added: number;
-    conflicts: number;
-    identical: number;
-    errors: number;
-    skipped: number;
-    written: number;
-    newFiles: number;
-    overflow: number;
-    backupBytes: number;
-  };
+  const value = batch(id);
   return {
     batch: value,
     backupDirectory: batchDir(id),
     job: readJob(value.operationJob ?? value.previewJob) ?? null,
-    total: count.n,
-    items: rows.map((row) => JSON.parse(row.payload) as Item),
-    summary,
-  };
-}
-export function fiveMinuteHistory(page: number) {
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind = 'tdx-import' ORDER BY updated_at DESC, id DESC LIMIT 50 OFFSET ?",
-    )
-    .all(page * 50) as { payload: string }[];
-  const total = sqlite()
-    .prepare("SELECT count(*) AS n FROM records WHERE kind = 'tdx-import'")
-    .get() as { n: number };
-  return {
-    items: rows.map((row) => JSON.parse(row.payload) as Batch),
-    total: total.n,
+    ...fiveMinuteItemsPage(id, page, filter),
   };
 }
 export async function runFiveMinuteBatch(

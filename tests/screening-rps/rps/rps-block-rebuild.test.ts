@@ -13,8 +13,8 @@ import {
   applyBlockRebuild,
   planBlockRebuild,
   stockRpsFingerprint,
-} from "~/server/screening/rps-block-maintenance";
-import { RpsStore } from "~/server/screening/rps-store";
+} from "~/server/db/rps-block-maintenance";
+import { RpsStore } from "~/server/db/rps-store";
 import {
   blockEligibilityVersion,
   excludedBlock,

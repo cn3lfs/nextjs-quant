@@ -1,7 +1,8 @@
+import { fullDayCacheIds } from "../../db/tdx-cache-ids";
 import { createHash } from "node:crypto";
 import type { Snapshot } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
-import { atomic, get, put, sqlite } from "../../db";
+import { atomic, get, put } from "../../db";
 import { inspectFullDayPackage } from "tstdx/local";
 import { isLocalFund } from "tstdx/local";
 const fundDecoderVersion = "tdx-full-day-fund-3-v1";
@@ -17,12 +18,7 @@ export function fullDayRepairsSameDate(symbol: string) {
   return get<Pointer>(pointerId(symbol))?.repairSameDate === true;
 }
 export function fullDaySymbols() {
-  const rows = sqlite()
-    .prepare(
-      "SELECT id FROM records WHERE kind='tdx-full-day-current' ORDER BY id",
-    )
-    .all() as { id: string }[];
-  return rows.map(({ id }) =>
+  return fullDayCacheIds().map((id) =>
     symbolSchema.parse(id.slice("tdx-full-day-current-".length)),
   );
 }

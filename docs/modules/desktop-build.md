@@ -1,5 +1,7 @@
 # 桌面与构建交付
 
+核对：2026-11-14；本页描述当前实现，验收边界见[当前优化交付](../deliveries/2026-11-13-optimization.md)。
+
 ## 职责与非职责
 
 Electron 主进程创建窗口/托盘、分配本地端口、启动并停止 standalone Node server；Node server 承载 Next 与数据库/领域服务；runtime 目录是 worker 和原生依赖的构建产物来源。桌面宿主不承载业务逻辑，生成产物不作为源码编辑点。

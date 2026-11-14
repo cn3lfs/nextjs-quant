@@ -1,5 +1,7 @@
 # 策略与信号
 
+当前：监控、信号台账、盘中预选的 compute/schedule 均暂停，只保留 read/configure。下文算法、调度窗口与投递契约说明存量实现，不能据此重新启用自动生成、补跑或补发。公式与双突破独立开放，数字货币模拟交易遵守自身授权。
+
 ## 策略监控与通知投递 /signals（2026-09-29）
 
 页面入口为 signals-view → MonitorWorkspace；模块草稿不再复用行情/筛选页参数。monitor-workspace-query 提供摘要、三类20+1历史、精确kind/id详情和单项完整导出，schema位于 lib/strategy-facts/monitor-workspace。monitor-workspace-actions 提供保存、启停及人工确认；原后台全量读取与规则执行入口保持独立。
@@ -20,14 +22,14 @@ runtime直接读取所有enabled订阅，不使用默认限制200条的通用lis
 
 迁移v12增加4个监控元数据索引：历史投影、信号历史、直接信号关联、汇总成员覆盖查询。它不改业务payload；旧exe不能打开v12数据库，部署需同步新版本，不降版本绕过检查。默认生产库未参与验证。
 
-维护测试：tests/strategy-signals/monitoring/monitor-workspace*.test.ts、monitor-revision/monitor-tick/m4-monitor、通知策略和delivery-subscription；浏览器验证为 tests/signals-workspace-browser.mjs、signals-recovery-browser.mjs、signals-refresh-browser.mjs、signals-lifecycle-browser.mjs、signals-memory-browser.mjs。完整遍历和性能分别见 signals-completeness.ts、signals-query-perf.ts、signals-perf-browser.mjs。脚本仅用于quant-signals隔离fixture，业务变更在finally恢复；实际结果与限制以Documents专项交付说明为准。
+维护测试：tests/strategy-signals/monitoring/monitor-workspace*.test.ts、monitor-revision/monitor-tick/m4-monitor、通知策略和delivery-subscription；浏览器验证为 tests/strategy-signals/monitoring/monitor-workspace.test.ts、signals-recovery-browser.mjs、signals-refresh-browser.mjs、signals-lifecycle-browser.mjs、signals-memory-browser.mjs。完整遍历和性能分别见 signals-completeness.ts、signals-query-perf.ts、signals-perf-browser.mjs。脚本仅用于quant-signals隔离fixture，业务变更在finally恢复；实际结果与限制以Documents专项交付说明为准。
 
 
 窄窗详情切换与共享 PageGrid 的 1240px 断点保持一致；1440px 并排，1024/390px 选中详情时隐藏列表，返回恢复位置和焦点，避免详情沉到长列表下方。修改共享断点时需同步复验三个宽度。
 
 ## 职责与非职责
 
-策略域按流派运行研究或确定性规则；监控域比较订阅策略与基线、判断新鲜度并产生订阅信号；全市场 signal ledger 形成每日观察样本。它们不拥有原始行情解析或账本成交事实，也不自动下单。两条信号路线保持分离：监控可走已授权通知 outbox，signal ledger 只记录与回填。
+策略域按流派运行研究或确定性规则；监控域比较订阅策略与基线、判断新鲜度并产生订阅信号；全市场 signal ledger 保存历史每日观察样本；当前不生成新样本。它们不拥有原始行情解析或账本成交事实，也不自动下单。两条信号路线保持分离：监控可走已授权通知 outbox，signal ledger 只记录与回填。
 
 ## 入口与消费者
 
@@ -35,7 +37,7 @@ Workbench 的监控连接表单通过 `src/components/signals/notification-polic
 
 - UI：策略/信号页面，`src/components/signals/`、`src/components/intraday/`。
 - 服务：`src/server/strategies/{breakout,chan,canslim,wyckoff,value,...}/`、`src/server/monitoring/`。
-- API：`breakout`、`czsc`、`chanAnalyze/History/Report`、`canslimAnalyze/History/Report`、`wyckoff*`、`monitors`、`signals`、`intraday*`、`signal-ledger*` 等 procedure 目前位于总 router。
+- API：`breakout`、`czsc`、`monitors`、`signals`、`intraday*`、`signal-ledger*` 等现行 procedure 装配在 api/routers/monitoring.ts 与 strategy.ts。
 - 包边界：`packages/trading-strategy-core` 仅放无 IO 核心；`packages/trading-strategies` 放九方向代表与证据元数据。完整运行编排仍在 server。
 
 ## 契约与依赖
@@ -56,7 +58,7 @@ Workbench 的监控连接表单通过 `src/components/signals/notification-polic
 
 入口：[IntradayControls](../../src/components/intraday/intraday-controls.tsx) 负责生效设置与草稿、手动检查反馈；[IntradayHistoryPanel](../../src/components/intraday/intraday-history-panel.tsx) 负责筛选、分页、批次与按需证据。页面读取既有观测，不触发工作台初始行情快照；离开至行情等消费者时仍执行原有首次加载。
 
-读取契约在 [intraday-history](../../src/lib/strategy-facts/intraday-history.ts)；服务端 [intraday-history](../../src/server/monitoring/intraday-history.ts) 直接投影元数据，观测按 updated_at/id、批次按 startedAt/id 稳定游标分页，游标绑定筛选。API 分为 intradaySummary、intradayStorage、intradayHistory、intradayRuns、intradayRunDetail 和既有完整 intradayExport；旧 intradayStatus 为兼容保留，当前页面不再消费。
+读取契约在 [intraday-history](../../src/lib/strategy-facts/intraday-history.ts)；服务端 [intraday-history](../../src/server/db/intraday-history.ts) 直接投影元数据，观测按 updated_at/id、批次按 startedAt/id 稳定游标分页，游标绑定筛选。API 分为 intradaySummary、intradayStorage、intradayHistory、intradayRuns、intradayRunDetail 和既有完整 intradayExport；intradayStatus 供现有概览消费者读取，不能由此恢复计算。
 
 统计覆盖当前筛选全部观测，候选要求 signals 非空；无尝试为未核对，仅失败尝试为待重试，有有效 signalKeys 数组为已核对。详情按各 signal.key 显示成立/撤销，数据不足不等于撤销。完整 JSON 导出保持 schemaVersion=1；原始证据按需展开、分段显示，不持久缓存。批次逐证券原因每20条分组展示，完整配置和证券池依据仍可展开核对。
 
@@ -66,11 +68,11 @@ Workbench 的监控连接表单通过 `src/components/signals/notification-polic
 
 第11次[迁移](../../src/server/db/migrations.ts) 增加两个局部表达式覆盖索引。索引与读取投影表达式须同步维护；kind 首列使 SQLite 能选择覆盖路径，确认关联键显式 TEXT 避免关联全扫描。原始证据不重写，写入配额仍事务内精确检查。升级后的库不能由旧 exe 打开，不得降低 user_version；本次没有打包或替换 release。
 
-验证入口：`tests/strategy-signals/intraday/`、迁移集成与 API 契约测试；生产浏览器脚本 `tests/intraday-preselection-browser.mjs`、`intraday-preselection-acceptance.mjs`；测量脚本 `intraday-preselection-perf.ts`、`intraday-preselection-http-perf.mjs`、`intraday-preselection-perf-browser.mjs`。脚本仅使用隔离 QUANT_DATA_DIR，数据库写入 fixture 在 finally 恢复；SQL基准使用内存库。`tests/intraday-browser.mjs` 是分时图测试，与本模块区分。最终数字与验证范围见 Documents 中本模块交付说明，fixture 不代表实源执行效果。
+验证入口：`tests/strategy-signals/intraday/`、迁移集成与 API 契约测试；生产浏览器脚本 `tests/strategy-signals/intraday/intraday-history.test.ts`、`intraday-preselection-acceptance.mjs`；测量脚本 `intraday-preselection-perf.ts`、`intraday-preselection-http-perf.mjs`、`intraday-preselection-perf-browser.mjs`。脚本仅使用隔离 QUANT_DATA_DIR，数据库写入 fixture 在 finally 恢复；SQL基准使用内存库。`tests/browser/intraday-browser.mjs` 是分时图测试，与本模块区分。最终数字与验证范围见 Documents 中本模块交付说明，fixture 不代表实源执行效果。
 
 ## 信号台账 `/signal-ledger`（2026-09-28）
 
-入口 `src/app/signal-ledger/page.tsx` 渲染 `SignalLedgerWorkspace`；UI 查询由 `src/server/monitoring/signal-ledger-query.ts` 提供，schema 位于 `src/lib/strategy-facts/signal-ledger-query.ts`，tRPC 装配在 monitoring router。摘要、20条列表、单条详情、每日任务、通知决策与全样本分析分别读取。后台回填继续使用 store.rows 的完整集合，禁止把 UI 分页应用到后台输入。
+入口 `src/app/signal-ledger/page.tsx` 渲染 `SignalLedgerWorkspace`；UI 查询由 `src/server/db/signal-ledger-query.ts` 提供，schema 位于 `src/lib/strategy-facts/signal-ledger-query.ts`，tRPC 装配在 monitoring router。摘要、20条列表、单条详情、每日任务、通知决策与全样本分析分别读取。后台回填继续使用 store.rows 的完整集合，禁止把 UI 分页应用到后台输入。
 
 列表按观察日期降序、证券和 ID 升序，游标绑定规范筛选；任务按日期、决策按创建时间及 ID 分页。总数和状态统计在同一事务内覆盖全部匹配信号，不受当前页影响。期限状态分为未固定、已固定有效、已固定留空；0%是有效结果。pendingSignals 按仍有未固定期限的信号去重。最近30交易日快捷范围依赖实际已知日历，不足时禁用。
 
@@ -80,4 +82,4 @@ Workbench 的监控连接表单通过 `src/components/signals/notification-polic
 
 URL保存筛选和选中信号，sessionStorage只保存分页栈、返回位置；重证据详情不进入持久缓存。ArchiveEvidence/ArchiveText 分段显示，导出保留完整信号、outcomes、关联通知决策与版本。任务错误20条分组显示。详情关联先缩小候选再复用 ledgerDecisions 全部谓词，不改变投递策略，也不把决策记录当成发送成功。
 
-验证入口为 `tests/strategy-signals/signals/signal-ledger-query.test.ts`、既有 ledger/information/worker 测试，以及 `tests/signal-ledger-browser.mjs`、`signal-ledger-refresh-browser.mjs`、`signal-ledger-memory-browser.mjs`。SQL、HTTP、浏览器性能脚本与 query-plan 脚本均在 tests/；仅使用隔离目录，fixture 修改 finally 恢复。本模块没有新增迁移或索引。最终验收状态以 next-plan 与 Documents 中专项交付说明为准。
+验证入口为 `tests/strategy-signals/signals/signal-ledger-query.test.ts`、既有 ledger/information/worker 测试，以及 `tests/strategy-signals/signals/signal-ledger-query.test.ts`、`signal-ledger-refresh-browser.mjs`、`signal-ledger-memory-browser.mjs`。SQL、HTTP、浏览器性能脚本与 query-plan 脚本均在 tests/；仅使用隔离目录，fixture 修改 finally 恢复。本模块没有新增迁移或索引。最终验收状态以 next-plan 与 Documents 中专项交付说明为准。

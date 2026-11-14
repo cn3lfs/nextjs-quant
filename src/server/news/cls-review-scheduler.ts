@@ -2,7 +2,7 @@ import { recordRuntimeError } from "../infra/runtime-errors";
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
 import { get, put, sqlite } from "../db";
 import { clsReportFiles, previewClsReport } from "./cls-report-files";
-import { ClsReviewStore } from "./cls-review-store";
+import { ClsReviewStore } from "../db/cls-review-store";
 import { fixClsSample } from "./cls-review-service";
 import { verifyClsSample } from "./cls-verification";
 
@@ -97,17 +97,9 @@ export async function runClsReviewTick() {
     message = "今日未固定盘前样本，不补选";
   }
   if (time >= "15:05") {
-    const rows = store.db
-      .prepare(
-        "SELECT payload FROM records WHERE kind='cls-review-sample' ORDER BY updated_at ASC",
-      )
-      .all() as { payload: string }[];
+    const samples = store.sampleIdentities();
     let count = 0;
-    for (const row of rows) {
-      const sample = JSON.parse(row.payload) as {
-        date: string;
-        reportId: string;
-      };
+    for (const sample of samples) {
       if (sample.reportId && !store.report(sample.reportId)) continue;
       const latest = store.verifications(sample.date)[0];
       if (

@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, expect, it, vi } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
-import { ResearchAttempts } from "../../src/server/research/research-governance";
+import { ResearchAttempts } from "../../src/server/db/research-governance";
 const connections: Database.Database[] = [];
 function setup() {
   const db = new Database(":memory:");

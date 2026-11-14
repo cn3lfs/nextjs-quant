@@ -7,7 +7,7 @@ import {
   redactRow,
 } from "~/lib/research/evidence/delivery-import";
 import { parseDeliveryTable } from "~/lib/research/evidence/delivery-table";
-import { DeliveryStore } from "./delivery-store";
+import { DeliveryStore } from "../db/delivery-store";
 
 const optionsSchema = importOptionsSchema.extend({
   fileName: z.string().trim().min(1).max(255).default("交割单"),

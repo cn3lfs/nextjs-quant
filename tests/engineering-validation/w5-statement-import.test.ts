@@ -11,7 +11,7 @@ import {
   commitDeliveryImport,
   previewDeliveryImport,
 } from "~/server/portfolio/delivery-import-service";
-import { DeliveryStore } from "~/server/portfolio/delivery-store";
+import { DeliveryStore } from "~/server/db/delivery-store";
 
 // Entirely synthetic statement; no real account or source records.
 const header =

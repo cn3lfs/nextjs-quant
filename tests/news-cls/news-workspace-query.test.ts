@@ -13,7 +13,7 @@ import {
   newsWorkspaceDetail,
   freezeNewsWorkspacePage,
   newsArchivePage,
-} from "../../src/server/news/news-workspace-query";
+} from "../../src/server/db/news-workspace-query";
 import { readClsNews } from "../../src/server/data-sources/cls/cls-news";
 import {
   newsArchiveQuerySchema,

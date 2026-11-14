@@ -26,7 +26,7 @@ import { readGbbq } from "tstdx/local";
 import type { TdxXdxr } from "tstdx/wire";
 import { calculateRpsDay, prepareRpsSecurity } from "./rps-adapter";
 import { rpsHash } from "~/server/infra/content-hash";
-import { RpsStore } from "./rps-store";
+import { RpsStore } from "../db/rps-store";
 import { RpsPrerequisiteError } from "./rps-prerequisite";
 // g4day 暂停（见 docs/decisions.md WF3）：
 // import { overlayDailyIncrements } from "./tdx-daily-overlay";

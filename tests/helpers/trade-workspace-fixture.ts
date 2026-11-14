@@ -6,7 +6,7 @@ import {
   tradeInputSchema,
   type Trade,
 } from "../../src/lib/portfolio/trade-ledger";
-import { TradeLedgerStore } from "../../src/server/portfolio/trade-ledger-store";
+import { TradeLedgerStore } from "../../src/server/db/trade-ledger-store";
 import { seedLedger } from "./signal-ledger-fixture";
 
 /** Synthetic, deterministic local facts. No credentials, provider calls or orders. */

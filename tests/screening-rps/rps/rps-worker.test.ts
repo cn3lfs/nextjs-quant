@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sqlite, put } from "../../../src/server/db/index";
 import { RpsWorkerClient } from "../../../src/server/screening/rps-client";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 
 import fixture from "../../fixtures/tdx-gbbq.json";
 import { readIndustryBlocks } from "../../../src/server/market/industry-blocks";

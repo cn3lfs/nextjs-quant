@@ -12,7 +12,7 @@
 
 ## 契约与依赖
 
-输入包括证券、周期、行情来源和可选复权/显示状态；输出保留数据日期、来源、覆盖和缺失语义。周/月图由日线聚合，不新增策略周期；主策略路径维持不复权，复权必须显式标识。SQLite `chart_views` 以证券×周期保存用户视图。
+输入包括证券、周期、行情来源和可选复权/显示状态；输出保留数据日期、来源、覆盖和缺失语义。周/月图由日线聚合，不新增策略周期；主策略路径维持不复权，复权必须显式标识。SQLite `chart_views` 由 db/chart-view-store 按证券×周期保存用户视图。
 
 方向为 UI → API → market/chart service → data-source；纯规则依赖 `src/lib`/core，供应商适配不依赖策略或回测编排。
 
@@ -30,7 +30,7 @@
 
 价格精度改变会重建实例，保存画线与跨周期共享画线都必须重新应用；主题、数据、指标开关继续原地更新。卸载移除窗口事件、取消待执行历史加载帧并销毁 chart，十字光标订阅由对应 effect 释放。[生命周期浏览器检查](../../tests/browser/chart-lifecycle-browser.mjs) 覆盖精度/视口身份变化和连续卸载重挂；缺失清理及旧共享画线依赖均有已复现负例。
 
-**键盘操作**（对齐通达信常用键位）：图表内与行情/加密/期货页（`hotkeys`，焦点不在输入框或弹层时）均可用 ←/→ 逐根移动光标（首按落在最后可见根，出界时最小滚动）、↑/↓ 以右边界为锚缩放、PageUp/PageDown 翻一屏、Home/End 到最早/最新、Esc 退出光标；F8 轮换周期（`usePeriodHotkey`），F10 展开并定位公司资料；行情页键盘精灵识别周期码 D/W/MO/M5/M15/M3/M6（精确匹配，列在证券结果之前）。纯逻辑在 `keyboardCursor`/`keyboardPage`/`keyboardRange`（chart-view.ts）与 [chart-hotkeys.ts](../../src/components/market/chart-hotkeys.ts)；键位与事件接线测试见 [chart.test.ts](../../tests/market-chart/chart/chart.test.ts)。F5 在 K 线与分时之间切换（A 股证券；跨证券切换保持所选模式）。
+**键盘操作**（对齐通达信常用键位）：图表内与行情/加密/期货页（`hotkeys`，焦点不在输入框或弹层时）均可用 ←/→ 逐根移动光标（首按落在最后可见根，出界时最小滚动）、↑/↓ 以右边界为锚缩放、PageUp/PageDown 在已有导航列表中换股；没有换股列表时由图表翻屏、Home/End 到最早/最新、Esc 退出光标；F8 轮换周期（`usePeriodHotkey`），F10 展开并定位公司资料；行情页键盘精灵识别周期码 D/W/MO/M5/M15/M3/M6（精确匹配，列在证券结果之前）。纯逻辑在 `keyboardCursor`/`keyboardPage`/`keyboardRange`（chart-view.ts）与 [chart-hotkeys.ts](../../src/components/market/chart-hotkeys.ts)；键位与事件接线测试见 [chart.test.ts](../../tests/market-chart/chart/chart.test.ts)。F5 在 K 线与分时之间切换（A 股证券；跨证券切换保持所选模式）。
 
 **分时图**（[intraday-chart.tsx](../../src/components/market/intraday-chart.tsx)，纯逻辑 [intraday.ts](../../src/lib/chart/intraday.ts)）：价格线、均价线（累计 价×量 / 累计量；TDX 均价为 成交额/成交量，分钟点无成交额，属近似并在界面注明）、昨收虚线、左涨跌幅/右价格两轴以昨收为中心对称、分钟成交量按与上一分钟比较着色；横轴固定 240 个交易分钟（09:31–11:30、13:01–15:00，按分钟收盘时刻标注），当日未走完的分钟留空；1–5 日（Alt+1…5）。数据：当日 `tdxMinutes`/`tdxQuotes` 按交易时段刷新，历史日 `tdxMinutes(date)`，昨收与交易日来自日线。**实时分时与快照都不带日期，时段时钟也没有节假日日历**，因此实时分时所属交易日由"实时昨收 = 前一交易日日线收盘"推出（`liveIntradayDay`）；日线尚未包含该日时按今天标注并显示"?"。浏览器验证 [intraday-browser.mjs](../../tests/browser/intraday-browser.mjs)（桩 tRPC、合成数据）。
 

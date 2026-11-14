@@ -4,10 +4,10 @@ import {
   type ClsFactReview,
 } from "~/lib/news/cls-fact-review";
 import type Database from "better-sqlite3";
-import type { ClsReportPreview } from "./cls-report-files";
-import type { ClsSample } from "./cls-sample";
-import type { ClsVerification } from "./cls-verification";
-import { clsOutcomeStatistics } from "./cls-outcomes";
+import type { ClsReportPreview } from "../news/cls-report-files";
+import type { ClsSample } from "../news/cls-sample";
+import type { ClsVerification } from "../news/cls-verification";
+import { clsOutcomeStatistics } from "../news/cls-outcomes";
 
 export type ClsReportArchive = ClsReportPreview & {
   id: string;
@@ -19,6 +19,13 @@ export class ClsReviewStore {
     readonly db: Database.Database,
     readonly limitBytes = 256 * 1024 * 1024,
   ) {}
+  sampleIdentities() {
+    return this.db
+      .prepare(
+        "SELECT json_extract(payload,'$.date') date,json_extract(payload,'$.reportId') reportId FROM records WHERE kind='cls-review-sample' ORDER BY updated_at ASC,id ASC",
+      )
+      .all() as { date: string; reportId: string }[];
+  }
   report(id: string) {
     const row = this.db
       .prepare(

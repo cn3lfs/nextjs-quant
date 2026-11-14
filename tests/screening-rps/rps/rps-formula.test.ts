@@ -5,7 +5,7 @@ import {
   futureFunctions,
 } from "../../../src/lib/formula/tdx-formula";
 import { rpsFields } from "../../../src/lib/formula/tdx-formula-check";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import { migrate } from "../../../src/server/db/migrations";
 import { rpsBars, rpsDay } from "../../helpers/rps-fixture";
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sqlite } from "../db";
+import { sqlite } from ".";
 
 /** A shared SQLite lease covers desktop and headless processes. */
 export function claimWorkflow(key: string, duration = 15 * 60000) {

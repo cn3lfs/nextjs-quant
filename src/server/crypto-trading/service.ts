@@ -1,3 +1,4 @@
+import { cryptoOrders as orders } from "../db/crypto-orders";
 import {
   credentialRevisionKey,
   type AccountReadContext,
@@ -7,7 +8,7 @@ import { recordRuntimeError } from "../infra/runtime-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { cryptoDualMa } from "trading-strategies";
-import { atomic, get, list, put, remove, sqlite } from "../db";
+import { atomic, get, list, put, remove } from "../db";
 import { acquireScheduler, processAlive } from "../infra/lease";
 import { readSecret, saveSecret } from "../vault";
 import { createSpotAdapter } from "./adapter";
@@ -79,16 +80,6 @@ function bot(id: string): BotState {
 function persist(value: BotState) {
   value.updatedAt = Date.now();
   return put(botKind, botKey(value.id), value);
-}
-function orders(id: string): Execution[] {
-  // Recovery must see every unresolved intent, not a UI history limit.
-  return (
-    sqlite()
-      .prepare(
-        "SELECT payload FROM records WHERE kind=? ORDER BY updated_at ASC, id ASC",
-      )
-      .all(`crypto-orders-${id}`) as { payload: string }[]
-  ).map((row) => JSON.parse(row.payload) as Execution);
 }
 function saveOrder(id: string, order: Execution) {
   order.updatedAt = Date.now();

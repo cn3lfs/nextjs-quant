@@ -57,9 +57,9 @@ import {useSnapshotCache} from './src/lib/stores/snapshot-cache';
 window.requests=[];window.mutations=[];window.invalidations=[];
 const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
 function SnapshotProbe(){const options={onSuccess:s=>(window.published??=[]).push(s.symbol)};const stock=useSnapshotLoad(options),crypto=useSnapshotLoad(options),futures=useSnapshotLoad(options);window.startSnapshot=()=>{stock.mutate({symbol:'sh600000',period:'day',source:'local'});crypto.mutate({symbol:'cxBTCUSDT',period:'day'});futures.mutate({symbol:'fuGC00Y',period:'day'})};window.snapshotCacheSize=()=>useSnapshotCache.getState().entries.size;return null}
-function App(){const [visible,setVisible]=useState(true); const [value,setValue]=useState(settingsSchema.parse({tdxRoot:'C:/fixture/tdx'}));
+function App(){const [mounted,setMounted]=useState(true);window.setMounted=setMounted;const [visible,setVisible]=useState(true); const [value,setValue]=useState(settingsSchema.parse({tdxRoot:'C:/fixture/tdx'}));
 window.setVisible=setVisible;window.setSettings=(patch)=>setValue(v=>({...v,...patch}));
-return <QueryClientProvider client={client}><SnapshotProbe/><PanelVisibility visible={visible}><div hidden={!visible}><Connections value={value} channels={[]} coverage={null} notify={message=>window.lastNotice=message}/></div></PanelVisibility></QueryClientProvider>}
+return <QueryClientProvider client={client}><SnapshotProbe/><PanelVisibility visible={visible}><div hidden={!visible}>${process.env.FORM_LIFECYCLE_NEGATIVE === "1" ? "<div hidden={!mounted}>" : "{mounted && <div>"}<Connections value={value} channels={[]} coverage={null} notify={message=>window.lastNotice=message}/>${process.env.FORM_LIFECYCLE_NEGATIVE === "1" ? "</div>" : "</div>}"}</div></PanelVisibility></QueryClientProvider>}
 createRoot(document.getElementById('root')).render(<App/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
@@ -206,8 +206,54 @@ try {
     await page.evaluate(() => window.resolveSave());
     await page.getByRole("alert").filter({ hasText: "合成保存失败" }).waitFor();
     assert.equal(await root.inputValue(), "C:/fixture/newer");
+    const beforeRemount = await page.evaluate(() => window.mutations.length);
+    await page.evaluate(() => window.setMounted(false));
+    await root.waitFor({ state: "hidden" });
+    await page.evaluate(() => window.setMounted(true));
+    await root.waitFor();
+    assert.equal(
+      await root.inputValue(),
+      "C:/fixture/newer",
+      "memory draft survives a normal route remount",
+    );
+    assert.equal(
+      await page.getByRole("alert").filter({ hasText: "合成保存失败" }).count(),
+      0,
+      "route-local save error resets after leaving",
+    );
+    assert.equal(
+      await page.evaluate(() => window.mutations.length),
+      beforeRemount,
+      "returning never replays a submit",
+    );
     await page.evaluate(() => (window.failSave = false));
     await save.click();
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll("button")].find((button) =>
+          button.textContent.includes("保存设置"),
+        )?.disabled,
+    );
+    assert.equal(
+      await save.isDisabled(),
+      true,
+      "submission disables the current form",
+    );
+    const pendingCount = await page.evaluate(() => window.mutations.length);
+    await page.evaluate(() => window.setMounted(false));
+    await root.waitFor({ state: "hidden" });
+    await page.evaluate(() => window.setMounted(true));
+    await root.waitFor();
+    assert.equal(await root.inputValue(), "C:/fixture/newer");
+    assert.equal(
+      await save.isDisabled(),
+      false,
+      "pending feedback is local to the unmounted page",
+    );
+    assert.equal(
+      await page.evaluate(() => window.mutations.length),
+      pendingCount,
+    );
     await page.evaluate(() => window.resolveSave());
     await page.waitForFunction(
       () => window.saved.tdxRoot === "C:/fixture/newer",
@@ -403,6 +449,18 @@ try {
       fullPage: true,
     });
   }
+  await page.reload();
+  await root.waitFor();
+  assert.equal(
+    await root.inputValue(),
+    "C:/fixture/tdx",
+    "refresh discards memory-only drafts",
+  );
+  assert.equal(
+    await page.evaluate(() => window.mutations.length),
+    0,
+    "refresh never submits the old draft",
+  );
   assert.deepEqual(errors, []);
   const result = {
     mode: baseline ? "baseline" : "optimized",

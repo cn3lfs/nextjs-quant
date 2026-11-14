@@ -1,7 +1,8 @@
+import { dailyCacheIds } from "../../db/tdx-cache-ids";
 import { createHash } from "node:crypto";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
-import { atomic, get, put, sqlite } from "../../db";
+import { atomic, get, put } from "../../db";
 import { parseTdxDailyIncrement } from "tstdx/local";
 
 type Input = {
@@ -106,10 +107,7 @@ export function readDailyIncrementRange(
   researchDateSchema.parse(start);
   researchDateSchema.parse(end);
   if (start > end) throw new Error("日线增量日期范围非法");
-  const rows = sqlite()
-    .prepare(
-      "SELECT id FROM records WHERE kind = 'tdx-daily-current' AND id >= ? AND id <= ? ORDER BY id",
-    )
-    .all(pointerId(symbol, start), pointerId(symbol, end)) as { id: string }[];
-  return rows.map(({ id }) => readDailyIncrement(symbol, id.slice(-10))!);
+  return dailyCacheIds(symbol, start, end).map((id) =>
+    readDailyIncrement(symbol, id.slice(-10))!,
+  );
 }

@@ -6,7 +6,7 @@
 
 数量不作为永久上限。当前实现39项规则和2项持有对照，覆盖趋势、通道突破、时序动量、趋势回调、超卖反转、量价、仓位管理和季节性。每项为固定可复现的代表实现，不声称所有历史策略存在一个有限清单，也不把不同均线参数算成不同流派。
 
-完整名称、公式、参数及预热声明见[策略目录](../../../packages/quant-backtest/src/study-catalog.ts)，信号见[规则模块](../../../packages/quant-backtest/src/study-rules.ts)。报告逐项输出规则及缺口表，并导出strategies.csv。
+完整名称、公式、参数及预热声明见[策略目录](../../../packages/trading-strategies/src/study-catalog.ts)，信号见[规则模块](../../../packages/trading-strategies/src/study-rules.ts)。报告逐项输出规则及缺口表，并导出strategies.csv。
 
 | 流派 | 本轮规则 |
 | --- | --- |

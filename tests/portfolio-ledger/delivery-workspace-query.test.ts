@@ -9,7 +9,7 @@ import {
   deliveryEvidencePage,
   deliveryBatchExport,
   deliveryRevokeChecked,
-} from "../../src/server/portfolio/delivery-workspace-query";
+} from "../../src/server/db/delivery-workspace-query";
 
 let db: Database.Database;
 beforeEach(() => {

@@ -2,7 +2,7 @@ import { recordRuntimeError } from "../infra/runtime-errors";
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
 import { projectCzsc } from "../strategies/chan/czsc";
-import type { LedgerRun } from "./signal-ledger-store";
+import type { LedgerRun } from "../db/signal-ledger-store";
 import { capabilityAllows, capabilities } from "~/lib/common/capabilities";
 
 export class SignalLedgerWorker {

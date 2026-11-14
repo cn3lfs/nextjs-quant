@@ -22,7 +22,7 @@ import { settings } from "./settings";
 import {
   NotificationPolicyStore,
   renderSummary,
-} from "./notification-policy-store";
+} from "../db/notification-policy-store";
 import {
   chinaClock,
   minutes,

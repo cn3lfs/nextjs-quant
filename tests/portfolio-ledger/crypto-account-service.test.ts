@@ -64,7 +64,7 @@ const { put, sqlite } = await import("../../src/server/db");
 const { credentialRevisionKey } =
   await import("../../src/server/crypto-trading/account-model");
 const { appendAccountTrades } =
-  await import("../../src/server/crypto-trading/account-store");
+  await import("../../src/server/db/account-store");
 const service = await import("../../src/server/crypto-trading/account-service");
 const day = 86400000,
   id = "binance-demo";

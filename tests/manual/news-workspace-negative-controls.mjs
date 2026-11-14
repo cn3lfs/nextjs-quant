@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
-const file = "src/server/news/news-workspace-query.ts";
+const file = "src/server/db/news-workspace-query.ts";
 const original = readFileSync(file);
 const source = original.toString("utf8");
 const controls = [

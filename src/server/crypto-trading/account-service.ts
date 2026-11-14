@@ -25,7 +25,7 @@ import {
   saveAccountSync,
   snapshotKey,
   syncKey,
-} from "./account-store";
+} from "../db/account-store";
 
 const day = 86400000;
 const leaseKey = (id: string) => `crypto-account-sync-lease-${id}`;

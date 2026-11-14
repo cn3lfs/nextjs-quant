@@ -10,7 +10,7 @@ import { scheduleSignalLedger } from "./monitoring/signal-ledger-client";
 import { scheduleRps } from "./screening/rps-client";
 import { scheduleIntraday } from "./monitoring/intraday-client";
 import { scheduleClsReview } from "./news/cls-review-scheduler";
-import { NotificationPolicyStore } from "./infra/notification-policy-store";
+import { NotificationPolicyStore } from "./db/notification-policy-store";
 import { monitorCalendar } from "./monitoring/monitor-calendar";
 import { verifySecurityTradingStatus } from "./market/security-trading-status";
 import { currentTradingStatus } from "~/lib/market/security-trading-status";

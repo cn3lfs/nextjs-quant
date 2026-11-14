@@ -1,7 +1,5 @@
 import { type RpsRow } from "quant-rps";
-import { resolve } from "node:path";
 import type { RpsDay } from "~/lib/screening/rps";
-import { get, sqlite } from "../db";
 
 export type RpsObservation = {
   id: string;
@@ -22,30 +20,6 @@ export type RpsObservation = {
     Record<"industry" | "concept", { day: RpsDay; rows: RpsRow[] }>
   >;
 };
-export function latestRpsObservation(
-  root: string,
-  now = Date.now(),
-): RpsObservation | null {
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='rps-observation' AND json_extract(payload,'$.createdAt')<=? ORDER BY updated_at DESC LIMIT 20",
-    )
-    .all(now) as { payload: string }[];
-  return (
-    rows
-      .map((row) => JSON.parse(row.payload) as RpsObservation)
-      .find((row) => resolve(row.root) === resolve(root)) ?? null
-  );
-}
-export function completedRpsObservation(
-  root: string,
-  date: string,
-  phase: RpsObservation["phase"],
-) {
-  const id = get<{ id: string }>(`rps-observation-index-${date}-${phase}`)?.id;
-  const value = id ? get<RpsObservation>(id) : undefined;
-  return value && resolve(value.root) === resolve(root) ? value : null;
-}
 export function observationRanking(
   observation: Pick<RpsObservation, "rows" | "day">,
   period: number,

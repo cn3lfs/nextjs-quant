@@ -10,7 +10,7 @@ import {
   importDeliveryTable,
   redactRow,
 } from "../../src/lib/research/evidence/delivery-import";
-import { DeliveryStore } from "../../src/server/portfolio/delivery-store";
+import { DeliveryStore } from "../../src/server/db/delivery-store";
 const fixture = JSON.parse(
   readFileSync(
     join(tmpdir(), "logs/quant-delivery-import/fixture.json"),

@@ -77,20 +77,37 @@ export default [
     },
   },
   {
-    // This batch's migrated callers only; other domains remain inventoried.
-    files: [
-      "src/server/jobs/jobs.ts",
-      "src/server/api/routers/jobs.ts",
-      "src/server/api/routers/monitoring.ts",
-      "src/server/runtime.ts",
-      "src/server/infra/notifications.ts",
-      "src/server/infra/delivery-authorization.ts",
-      "src/server/screening/formula-screen-work.ts",
+    // Business SQL belongs to db; source-owned external databases and the
+    // independent bounded diagnostics store keep their own connection lifecycle.
+    files: ["src/server/**/*.ts"],
+    ignores: [
+      "src/server/db/**",
+      "src/server/data-sources/cls/cls-news.ts",
+      "src/server/infra/runtime-errors.ts",
+      "src/server/news/cls-news-workflow.ts",
     ],
     plugins: {
       repositories: { rules: { "no-raw-sqlite": sqliteBoundaryRule } },
     },
     rules: { "repositories/no-raw-sqlite": "error" },
+  },
+  {
+    // These use cases own multi-repository atomicity or a process-identity claim.
+    // Only transaction callbacks are allowed; prepare/exec remain forbidden.
+    files: [
+      "src/server/mcp-health.ts",
+      "src/server/monitoring/intraday-job.ts",
+      "src/server/infra/lease.ts",
+      "src/server/market/securities.ts",
+      "src/server/screening/rps-observation-job.ts",
+      "src/server/portfolio/trade-review-service.ts",
+      "src/server/portfolio/mock/mock-trading-service.ts",
+      "src/server/portfolio/delivery-preview-workspace.ts",
+      "src/server/jobs/five-minute-batch.ts",
+    ],
+    rules: {
+      "repositories/no-raw-sqlite": ["error", { allowTransactions: true }],
+    },
   },
   {
     files: ["src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],

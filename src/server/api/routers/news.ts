@@ -1,3 +1,5 @@
+import { newsAnalysisIdForTask } from "../../db/workflow-history";
+import { readArchiveRecord } from "../../db/archive-records";
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
 import {
   clsReviewReportQuery,
@@ -12,7 +14,7 @@ import {
   clsVerificationPage,
   clsVerificationDetail,
   clsReportSamples,
-} from "../../news/cls-review-query";
+} from "../../db/cls-review-query";
 import {
   clsReviewConfig,
   clsReviewLastCheck,
@@ -23,7 +25,7 @@ import {
   clsFactStatistics,
 } from "~/lib/news/cls-fact-review";
 import { clsReportFiles, previewClsReport } from "../../news/cls-report-files";
-import { ClsReviewStore } from "../../news/cls-review-store";
+import { ClsReviewStore } from "../../db/cls-review-store";
 import {
   fixClsSample,
   clsSampleEligibility,
@@ -32,11 +34,13 @@ import { verifyClsSample } from "../../news/cls-verification";
 import { sqlite as chartSqlite } from "../../db";
 import { newsBudget } from "../../news/news-budget";
 import { readClsNews } from "../../data-sources/cls/cls-news";
-import { newsSectorHistory } from "../../news/news-sector-history";
+import { newsSectorHistory } from "../../db/news-sector-history";
 import { aggregateNewsDay } from "../../news/news-day";
-import { checkThemePrices, latestThemePrices } from "../../news/theme-prices";
+import { checkThemePrices } from "../../news/theme-prices";
+import { latestThemePrices } from "../../db/theme-prices";
 import { explainThemePricesJob } from "../../news/theme-price-explanation";
-import { analyzeNewsThemes, latestNewsThemes } from "../../news/news-themes";
+import { analyzeNewsThemes } from "../../news/news-themes";
+import { latestNewsThemes } from "../../db/news-themes";
 import { analyzeNewsSector, newsSectorInput } from "../../news/news-sector";
 import {
   analyzeNews,
@@ -61,13 +65,7 @@ import {
   newsWorkspacePage,
   newsWorkspaceDetail,
   newsArchivePage,
-} from "../../news/news-workspace-query";
-function recordOfKind<T>(kind: string, id: string): T | undefined {
-  const row = chartSqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : undefined;
-}
+} from "../../db/news-workspace-query";
 export const newsRouter = createTRPCRouter({
   clsReviewFactDetail: p("news", "read")
     .input(
@@ -104,17 +102,13 @@ export const newsRouter = createTRPCRouter({
     .input(z.string().min(1).max(200))
     .query(({ input }) => {
       const state = taskState(input);
-      const row = chartSqlite()
-        .prepare(
-          "SELECT json_extract(payload,'$.result.id') id FROM records WHERE kind='job' AND id=? AND json_extract(payload,'$.input.kind')='news-analysis'",
-        )
-        .get(input) as { id: string | null } | undefined;
+      const analysisId = newsAnalysisIdForTask(input);
       return state
         ? {
             ...state,
             analysisId:
-              row?.id && newsArchiveIdSchema.safeParse(row.id).success
-                ? row.id
+              analysisId && newsArchiveIdSchema.safeParse(analysisId).success
+                ? analysisId
                 : null,
           }
         : null;
@@ -249,7 +243,7 @@ export const newsRouter = createTRPCRouter({
   newsAnalysis: p("news", "read")
     .input(z.string().regex(/^news-analysis-[a-f0-9]{64}$/))
     .query(({ input }) => {
-      const record = recordOfKind<NewsAnalysis>("news-analysis", input);
+      const record = readArchiveRecord("news-analysis", input);
       return record ? newsAnalysisView(record) : null;
     }),
   newsSectorReports: p("news", "read")

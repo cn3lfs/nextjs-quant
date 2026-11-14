@@ -2,8 +2,11 @@ import { createHash } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { BlockEligibility } from "~/lib/market/block-eligibility";
 import { rpsHash } from "../infra/content-hash";
-import { rebuildBlockRps, type BlockRpsGroup } from "./rps-block-rebuild";
-import type { RpsObservation } from "./rps-observation";
+import {
+  rebuildBlockRps,
+  type BlockRpsGroup,
+} from "../screening/rps-block-rebuild";
+import type { RpsObservation } from "../screening/rps-observation";
 import { RpsStore } from "./rps-store";
 
 type StoredRecord = { id: string; payload: string; updated_at: number };

@@ -14,7 +14,7 @@ import {
   cashReviewInputIdentity,
   cashReviewVersion,
   assertCashReviewVersion,
-} from "../../src/server/portfolio/cash-reconciliation-workspace";
+} from "../../src/server/db/cash-reconciliation-workspace";
 
 it("invalidates a cached account when the local calendar file changes without a database write", () => {
   const directory = mkdtempSync(join(tmpdir(), "quant-cash-calendar-version-"));

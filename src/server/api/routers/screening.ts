@@ -1,5 +1,5 @@
 import { readJob } from "../../db/jobs";
-import { latestRpsObservation } from "../../screening/rps-observation";
+import { latestRpsObservation } from "../../db/rps-observations";
 import {
   marketPoolQuerySchema,
   poolCategorySchema,
@@ -11,10 +11,10 @@ import {
 } from "../../market/market-pool-service";
 import { universeAuditQuerySchema } from "~/lib/screening/universe-audit";
 import { universeAuditPage } from "../../research/universe-audit";
-import { RpsStore } from "../../screening/rps-store";
+import { RpsStore } from "../../db/rps-store";
 import { rpsClient } from "../../screening/rps-client";
 import { rpsRequestSchema, rpsQuerySchema } from "~/lib/screening/rps";
-import { rpsLogIdPrefix, toRpsLogEntry } from "~/lib/screening/rps-log";
+import { rpsWorkflowHistory } from "../../db/workflow-history";
 import { industryPageSchema } from "~/lib/screening/industry-rps";
 import { industryRpsPage } from "../../screening/industry-rps-query";
 import { readRpsBlockSource } from "../../screening/rps-block-source";
@@ -170,26 +170,7 @@ export const screeningRouter = createTRPCRouter({
         latestRpsObservation(settings().tdxRoot),
       ),
     ),
-  rpsWorkflowLog: p("rps", "read").query(() => {
-    const rows = chartSqlite()
-      .prepare(
-        "SELECT id, payload, updated_at AS updatedAt FROM records WHERE kind='workflow-check' AND id LIKE ? ORDER BY updated_at DESC LIMIT 50",
-      )
-      .all(`${rpsLogIdPrefix}%`) as {
-      id: string;
-      payload: string;
-      updatedAt: number;
-    }[];
-    return rows
-      .map((row) =>
-        toRpsLogEntry({
-          id: row.id,
-          payload: JSON.parse(row.payload),
-          updatedAt: row.updatedAt,
-        }),
-      )
-      .filter((entry) => entry !== null);
-  }),
+  rpsWorkflowLog: p("rps", "read").query(() => rpsWorkflowHistory()),
   rpsStatus: p("rps", "read").query(() => {
     const store = new RpsStore(chartSqlite());
     return { progress: store.progress(), latest: store.latest() };

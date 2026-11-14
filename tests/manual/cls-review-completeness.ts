@@ -6,7 +6,7 @@ import { writeFileSync } from "node:fs";
 import {
   clsReportPage,
   clsFactPage,
-} from "../../src/server/news/cls-review-query";
+} from "../../src/server/db/cls-review-query";
 import { seedClsReview } from "../helpers/cls-review-fixture";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 assert.ok(directory.startsWith(resolve(tmpdir()) + "\\quant-cls-review-"));

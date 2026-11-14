@@ -3,14 +3,15 @@ import {
   checkIncrementCoverage,
   runCloseIncrementWorkflow,
 } from "../../src/server/jobs/close-increment-workflow";
-import * as observations from "../../src/server/screening/rps-observation";
+import type { RpsObservation } from "../../src/server/screening/rps-observation";
+import * as observations from "../../src/server/db/rps-observations";
 import * as increments from "../../src/server/data-sources/tdx/tdx-increment-job";
 import * as tdx from "../../src/server/data-sources/tdx/tdx";
 import { settings } from "../../src/server/infra/settings";
 afterEach(() => vi.restoreAllMocks());
 
 it("reuses a published close before reading securities or downloading again", async () => {
-  const existing = { id: "immutable-close" } as observations.RpsObservation;
+  const existing = { id: "immutable-close" } as RpsObservation;
   const lookup = vi
     .spyOn(observations, "completedRpsObservation")
     .mockReturnValue(existing);

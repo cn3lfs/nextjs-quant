@@ -89,7 +89,7 @@ vi.mock("../../src/server/data-sources/tdx/tdx", async (importOriginal) => ({
 }));
 import { createCaller } from "../../src/server/api/root";
 import { r13Days, r13Statement } from "../helpers/r13-scale-fixture";
-import { DeliveryStore } from "../../src/server/portfolio/delivery-store";
+import { DeliveryStore } from "../../src/server/db/delivery-store";
 const caller = createCaller({ headers: new Headers() });
 const input = {
   path: resolve("tests/fixtures/delivery/tdx-statement.txt"),

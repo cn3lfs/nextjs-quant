@@ -31,7 +31,7 @@ import { resolve, join } from "node:path";
 import Database from "better-sqlite3";
 import { closeCzsc } from "../../../src/server/strategies/chan/czsc";
 import { migrate } from "../../../src/server/db/migrations";
-import { SignalLedgerStore } from "../../../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerStore } from "../../../src/server/db/signal-ledger-store";
 import { SignalLedgerWorker } from "../../../src/server/monitoring/signal-ledger-client";
 import valid from "../../fixtures/breakout-valid.json";
 

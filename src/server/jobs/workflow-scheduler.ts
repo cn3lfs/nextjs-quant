@@ -2,10 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { dataDirectory, get } from "../db";
-import {
-  completedRpsObservation,
-  type RpsObservation,
-} from "../screening/rps-observation";
+import { type RpsObservation } from "../screening/rps-observation";
+import { completedRpsObservation } from "../db/rps-observations";
 import { runRpsObservation } from "../screening/rps-observation-job";
 import { settings } from "../infra/settings";
 import { recordRuntimeError } from "../infra/runtime-errors";

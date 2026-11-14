@@ -7,8 +7,8 @@
 ## 入口与消费者
 
 - `src/server/data-sources/` 按 `tdx/`、`cls/`、`hithink/`、`gf/`、`mx/`、`tstdx/` 等来源分组；实际目录以仓库为准。
-- `packages/tstdx/` 是纯 TypeScript/Node 协议 package，本身不读通达信磁盘路径；工作台适配在 server data-sources。
-- `src/components/data-sources/mx-data-query.tsx` 是供应商查询面板，目前没有活跃 route consumer；挂接页面前需确认调用额度与结果展示语义。
+- `packages/tstdx/` 拥有通达信协议、本地文件 IO/解析、财务源模型和原生编解码；应用侧数据选择与任务编排在 server/data-sources 及消费领域。
+- `src/components/data-sources/mx-data-query.tsx` 是供应商查询面板，当前没有活跃 route consumer；挂接前需确认调用额度与结果展示语义。
 - `vendor/czsc/` 提供受版本/hash约束的 DLL，CZSC worker 经专用队列调用，不属于通用行情 adapter。
 - 消费者为 market、screening、research、strategies、news；这些领域通过具名适配接口取数。
 

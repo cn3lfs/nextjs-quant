@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { cashReviewInputIdentity } from "../../src/server/portfolio/cash-reconciliation-workspace";
+import { cashReviewInputIdentity } from "../../src/server/db/cash-reconciliation-workspace";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 assert.equal(
   directory,

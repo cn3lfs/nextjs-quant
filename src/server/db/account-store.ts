@@ -1,6 +1,8 @@
 import Big from "big.js";
+import { z } from "zod";
+import { readSnapshot } from "./snapshot";
 import { createHash } from "node:crypto";
-import { atomic, get, put, sqlite } from "../db";
+import { atomic, get, put, sqlite } from ".";
 import {
   credentialRevisionKey,
   type AccountSnapshot,
@@ -8,7 +10,7 @@ import {
   type AccountTradeRow,
   type AccountViewInput,
   type PlatformTrade,
-} from "./account-model";
+} from "../crypto-trading/account-model";
 
 export const snapshotKey = (id: string, revision: string) =>
   `crypto-account-snapshot-${id}-${revision}`;
@@ -75,32 +77,37 @@ export function queryAccountTrades(
   input: AccountViewInput & { page: number; pageSize: number },
   revision: string,
 ) {
-  const conditions: string[] = [],
-    params: (string | number)[] = [
-      `crypto-orders-${input.id}`,
-      tradeKind(input.id, revision),
-    ];
-  for (const [field, value] of [
-    ["symbol", input.symbol],
-    ["side", input.side],
-  ] as const)
-    if (value !== undefined) {
-      conditions.push(`json_extract(payload,'$.${field}')=?`);
-      params.push(value);
+  z.object({
+    page: z.number().int().min(1),
+    pageSize: z.number().int().min(1).max(200),
+  }).parse(input);
+  return readSnapshot(() => {
+    const conditions: string[] = [],
+      params: (string | number)[] = [
+        `crypto-orders-${input.id}`,
+        tradeKind(input.id, revision),
+      ];
+    for (const [field, value] of [
+      ["symbol", input.symbol],
+      ["side", input.side],
+    ] as const)
+      if (value !== undefined) {
+        conditions.push(`json_extract(payload,'$.${field}')=?`);
+        params.push(value);
+      }
+    if (input.source) {
+      conditions.push("source=?");
+      params.push(input.source);
     }
-  if (input.source) {
-    conditions.push("source=?");
-    params.push(input.source);
-  }
-  if (input.from !== undefined) {
-    conditions.push("CAST(json_extract(payload,'$.time') AS INTEGER)>=?");
-    params.push(input.from);
-  }
-  if (input.to !== undefined) {
-    conditions.push("CAST(json_extract(payload,'$.time') AS INTEGER)<?");
-    params.push(input.to);
-  }
-  const cte = `WITH projected AS (
+    if (input.from !== undefined) {
+      conditions.push("CAST(json_extract(payload,'$.time') AS INTEGER)>=?");
+      params.push(input.from);
+    }
+    if (input.to !== undefined) {
+      conditions.push("CAST(json_extract(payload,'$.time') AS INTEGER)<?");
+      params.push(input.to);
+    }
+    const cte = `WITH projected AS (
     SELECT t.payload, CASE WHEN EXISTS (
       SELECT 1 FROM records o WHERE o.kind=?
       AND json_extract(o.payload,'$.symbol')=json_extract(t.payload,'$.symbol')
@@ -109,24 +116,25 @@ export function queryAccountTrades(
     ) THEN 'strategy' ELSE 'platform' END source
     FROM records t WHERE t.kind=?
   )`;
-  const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
-  const total = (
-    sqlite()
-      .prepare(`${cte} SELECT count(*) total FROM projected${where}`)
-      .get(...params) as { total: number }
-  ).total;
-  const rows = (
-    sqlite()
-      .prepare(
-        `${cte} SELECT payload,source FROM projected${where} ORDER BY CAST(json_extract(payload,'$.time') AS INTEGER) DESC,json_extract(payload,'$.symbol') ASC,json_extract(payload,'$.id') ASC,json_extract(payload,'$.orderId') ASC LIMIT ? OFFSET ?`,
-      )
-      .all(...params, input.pageSize, (input.page - 1) * input.pageSize) as {
-      payload: string;
-      source: "strategy" | "platform";
-    }[]
-  ).map((row): AccountTradeRow => ({
-    ...(JSON.parse(row.payload) as PlatformTrade),
-    source: row.source,
-  }));
-  return { rows, total };
+    const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+    const total = (
+      sqlite()
+        .prepare(`${cte} SELECT count(*) total FROM projected${where}`)
+        .get(...params) as { total: number }
+    ).total;
+    const rows = (
+      sqlite()
+        .prepare(
+          `${cte} SELECT payload,source FROM projected${where} ORDER BY CAST(json_extract(payload,'$.time') AS INTEGER) DESC,json_extract(payload,'$.symbol') ASC,json_extract(payload,'$.id') ASC,json_extract(payload,'$.orderId') ASC LIMIT ? OFFSET ?`,
+        )
+        .all(...params, input.pageSize, (input.page - 1) * input.pageSize) as {
+        payload: string;
+        source: "strategy" | "platform";
+      }[]
+    ).map((row): AccountTradeRow => ({
+      ...(JSON.parse(row.payload) as PlatformTrade),
+      source: row.source,
+    }));
+    return { rows, total };
+  });
 }

@@ -20,7 +20,7 @@ import {
   localLedgerDependencies,
   runSignalLedger,
 } from "~/server/monitoring/signal-ledger-job";
-import { SignalLedgerStore } from "~/server/monitoring/signal-ledger-store";
+import { SignalLedgerStore } from "~/server/db/signal-ledger-store";
 import {
   scheduleSignalLedger,
   SignalLedgerWorker,

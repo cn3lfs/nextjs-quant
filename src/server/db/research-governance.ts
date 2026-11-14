@@ -9,7 +9,7 @@ import {
 } from "~/lib/research/workflow/research-governance";
 import type { z } from "zod";
 import type { ResearchRange } from "~/lib/research/workflow/research-usage";
-import { usageConfigHash } from "./research-config-hash";
+import { usageConfigHash } from "../research/research-config-hash";
 
 /** Separate from successful candidate counts. Audit writes never fabricate successes. */
 export class ResearchAttempts {
@@ -22,10 +22,17 @@ export class ResearchAttempts {
       .get(id) as { payload: string } | undefined;
     return row ? researchAttemptSchema.parse(JSON.parse(row.payload)) : null;
   }
+  markTaskAuditIncomplete(attemptId: string) {
+    this.db
+      .prepare(
+        "UPDATE records SET payload=json_set(payload,'$.auditIncomplete',json('true')) WHERE kind IN ('job','research-task') AND json_extract(payload,'$.attemptId')=?",
+      )
+      .run(attemptId);
+  }
   forTask(taskId: string) {
     const row = this.db
       .prepare(
-        "SELECT payload FROM records WHERE kind='research-attempt' AND json_extract(payload,'$.taskId')=? ORDER BY updated_at DESC LIMIT 1",
+        "SELECT payload FROM records WHERE kind='research-attempt' AND json_extract(payload,'$.taskId')=? ORDER BY updated_at DESC,id DESC LIMIT 1",
       )
       .get(taskId) as { payload: string } | undefined;
     return row ? researchAttemptSchema.parse(JSON.parse(row.payload)) : null;

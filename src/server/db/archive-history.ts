@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { sqlite } from "../db";
+import { sqlite } from ".";
 import {
   archiveHistoryInput,
   archiveKinds,
   type ArchiveFilter,
 } from "~/lib/research/workflow/archive-history";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
-import { taskTextPreview } from "../db/task-history";
+import { taskTextPreview } from "./task-history";
 
 /** SQL projection only. Original report bodies never enter the list response.
  * The transient JSONB tuple contains only time, context ID and title.

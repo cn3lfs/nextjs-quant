@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import {
   newsWorkspacePage,
   newsArchivePage,
-} from "../../src/server/news/news-workspace-query";
+} from "../../src/server/db/news-workspace-query";
 import {
   seedNewsAnalyses,
   newsFixtureCutoff,

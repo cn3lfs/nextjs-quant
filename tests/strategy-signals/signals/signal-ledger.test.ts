@@ -10,7 +10,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import valid from "../../fixtures/breakout-valid.json";
 import { migrate } from "../../../src/server/db/migrations";
-import { SignalLedgerStore } from "../../../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerStore } from "../../../src/server/db/signal-ledger-store";
 import {
   runSignalLedger,
   localLedgerActions,

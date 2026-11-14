@@ -25,7 +25,7 @@ import {
 import {
   NotificationPolicyStore,
   renderSummary,
-} from "../../../src/server/infra/notification-policy-store";
+} from "../../../src/server/db/notification-policy-store";
 import {
   chinaClock,
   grade,
@@ -44,7 +44,7 @@ import {
   type Monitor,
   type Signal,
 } from "../../../src/lib/domain";
-import { SignalLedgerStore } from "../../../src/server/monitoring/signal-ledger-store";
+import { SignalLedgerStore } from "../../../src/server/db/signal-ledger-store";
 import { ledgerSignals } from "../../../src/server/monitoring/signal-ledger-engine";
 import { SignalLedgerView } from "../../../src/components/signals/signal-ledger-view";
 import { NotificationPolicyFields } from "../../../src/components/signals/notification-policy-fields";

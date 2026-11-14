@@ -413,7 +413,7 @@ it("zero/multiple outputs and dead-branch future calls never launch work", () =>
 });
 
 it("formula screening consumes persisted RPS and distinguishes missing from weak", async () => {
-  const { RpsStore } = await import("../../../src/server/screening/rps-store");
+  const { RpsStore } = await import("../../../src/server/db/rps-store");
   const { rpsDay } = await import("../../helpers/rps-fixture");
   const store = new RpsStore(sqlite());
   const { day, rows } = rpsDay();

@@ -5,8 +5,8 @@ import {
   runRpsObservation,
 } from "../../src/server/screening/rps-observation-job";
 import { parseWorkflowQuote } from "../../src/server/jobs/workflow-quotes";
-import { claimWorkflow } from "../../src/server/jobs/workflow-lease";
-import { latestRpsObservation } from "../../src/server/screening/rps-observation";
+import { claimWorkflow } from "../../src/server/db/workflow-lease";
+import { latestRpsObservation } from "../../src/server/db/rps-observations";
 import { requiresDownloadReceipt } from "../../src/server/jobs/workflow-scheduler";
 import { get, put } from "../../src/server/db/index";
 import * as rpsJob from "../../src/server/screening/rps-job";

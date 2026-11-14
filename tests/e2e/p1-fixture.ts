@@ -16,7 +16,7 @@ import {
   calculateRpsDay,
   prepareRpsSecurity,
 } from "../../src/server/screening/rps-adapter";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import { rpsHash } from "../../src/server/infra/content-hash";
 
 // Compose existing generators; market data and account fills continue to come

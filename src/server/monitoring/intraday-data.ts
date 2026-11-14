@@ -1,3 +1,4 @@
+import { previousCloseRpsObservation } from "../db/rps-observations";
 import { isRpsMarketSymbol } from "quant-rps";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -6,14 +7,11 @@ import type { Bar } from "~/lib/domain";
 
 import { settings } from "../infra/settings";
 import { sqlite } from "../db";
-import { RpsStore } from "../screening/rps-store";
+import { RpsStore } from "../db/rps-store";
 import { readMarketPool } from "../market/market-pool-files";
 import { readSnapshot } from "../data-sources/tdx/tdx";
 import { barPage } from "../data-sources/tdx/tdx-quotes";
-import {
-  type RpsObservation,
-  observationRanking,
-} from "../screening/rps-observation";
+import { observationRanking } from "../screening/rps-observation";
 // g4day 暂停：import { overlayDailyIncrements } from "./tdx-daily-overlay";
 import { readLocalDailySnapshot } from "../market/local-daily-snapshot";
 
@@ -26,21 +24,11 @@ export async function intradayPool(
   const store = new RpsStore(sqlite());
   // Only a completed previous-day observation was available to this preview.
   // A newer intraday RPS must not be relabeled as yesterday's input.
-  const observations = sqlite()
-    .prepare(
-      `SELECT payload FROM records WHERE kind='rps-observation'
-     AND json_extract(payload,'$.date')=? AND json_extract(payload,'$.phase')='close'
-     AND json_extract(payload,'$.createdAt')<=?
-     ORDER BY json_extract(payload,'$.createdAt') DESC,id DESC`,
-    )
-    .all(previousTradingDay, availableAt) as { payload: string }[];
-  const observation = observations
-    .map((row) => JSON.parse(row.payload) as RpsObservation)
-    .find(
-      (row) =>
-        resolve(row.root) === resolve(app.tdxRoot) &&
-        row.day.date === previousTradingDay,
-    );
+  const observation = previousCloseRpsObservation(
+    app.tdxRoot,
+    previousTradingDay,
+    availableAt,
+  );
   const day = observation?.day ?? store.day(previousTradingDay);
   if (
     !day ||

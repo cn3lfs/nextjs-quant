@@ -5,7 +5,7 @@
 
 先读 `AGENTS.md`、`docs/conventions.md`（**§4 UI 规范是硬性的**）、
 `docs/invariants.md`，以及 `src/server/portfolio/trade-review-service.ts`、
-`src/server/portfolio/delivery-import-service.ts`、`src/server/portfolio/delivery-store.ts`。
+`src/server/portfolio/delivery-import-service.ts`、`src/server/db/delivery-store.ts`。
 
 ## 0. 不可越界
 

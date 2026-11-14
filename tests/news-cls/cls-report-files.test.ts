@@ -7,7 +7,7 @@ import {
   clsReportFiles,
   previewClsReport,
 } from "../../src/server/news/cls-report-files";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 
 it("previews read-only files, rejects stale approval and archives revisions idempotently", async () => {
   await mkdir(".test-data", { recursive: true });

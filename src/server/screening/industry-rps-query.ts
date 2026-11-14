@@ -1,6 +1,6 @@
 import { sortTableRows } from "~/lib/common/server-sort";
 import { industryPageSchema } from "~/lib/screening/industry-rps";
-import { RpsStore } from "./rps-store";
+import { RpsStore } from "../db/rps-store";
 import { observationRanking, type RpsObservation } from "./rps-observation";
 
 /** All ordering and pagination stay server-side, including unranked industries. */

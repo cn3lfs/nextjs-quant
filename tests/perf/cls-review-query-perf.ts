@@ -3,12 +3,12 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 import {
   clsReportPage,
   clsFactPage,
   clsVerificationPage,
-} from "../../src/server/news/cls-review-query";
+} from "../../src/server/db/cls-review-query";
 const directory = process.env.QUANT_DATA_DIR;
 const stress = process.argv.includes("--stress");
 if (!directory?.includes("quant-cls-review"))

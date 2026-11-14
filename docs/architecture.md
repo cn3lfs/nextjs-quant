@@ -38,9 +38,9 @@ flowchart LR
 | `/cls-review` | 常规路由 | 报告选择/筛选 URL；现有复盘会话记忆；报告事实 query cache/服务端 |
 | `/rps` | 常规路由 | 任务、排名 query cache/服务端；内部口径/筛选/分页为本页临时状态，跨页找标的使用 `/stock-pool` 的 URL 流程 |
 | `/intraday` | 常规路由 | 配置和记录 query cache/服务端；操作临时状态本页；compute/schedule 继续暂停 |
-| `/signals` | 常规路由 | 订阅/渠道 query cache/服务端；未提交弹窗本页；compute/schedule 继续暂停 |
-| `/signal-ledger` | 常规路由 | 台账事实与查询结果 query cache/服务端；本页筛选与展示状态不进外壳 |
-| `/trade-ledger` | 常规路由 | 账户、持仓、成交事实 query cache/服务端；账户表单本页 |
+| `/signals` | 常规路由 | 订阅/渠道 query cache/服务端；未提交订阅草稿按 ID/revision 写 sessionStorage，弹窗打开及错误本页；compute/schedule 继续暂停 |
+| `/signal-ledger` | 常规路由 | 台账事实 query cache/服务端；筛选/选择 URL，分页及返回位置 sessionStorage；不进外壳 |
+| `/trade-ledger` | 常规路由 | 账户、持仓、成交事实 query cache/服务端；交易草稿和提交身份 sessionStorage，刷新将 pending 还原为 unknown 供查询核对 |
 | `/trade-review` | 常规路由 | 已导入交割单/复盘事实 query cache/服务端；本页展示控制与账户独立 |
 | `/strategies` | 常规路由 | 方法目录、输入检查/实验 query cache/服务端；选择与展开本页 |
 | `/research/data-guide` | 常规路由 | 文档内容；无跨页草稿 |
@@ -49,6 +49,36 @@ flowchart LR
 | `/futures` | 常规路由 | code URL；该市场独立来源/周期本页；快照缓存复用，不消费 A 股选择 |
 | `/tasks` | 常规请求时路由 | 已应用筛选 URL；草稿/游标/取消反馈 task-history-session；任务结果 query cache |
 | `/ui-gallery` | 常规路由 | UI 示例；无业务状态 |
+
+### 常规页面表单生命周期（E 批核对）
+
+离开指常规路由组件卸载；仅切换本页隐藏子视图仍可能保留该子视图。刷新建立新的内存会话；服务端已受理的任务或写入继续存在，页面返回不会自动重放提交。查询错误由重新读取重新判断，不能把清除提示当作服务端成功。
+
+| 页面 | 草稿：离开/返回/刷新 | 校验错误与提交中状态 | 当前所有者 |
+| --- | --- | --- | --- |
+| `/` | 排名 URL；无编辑提交 | 不持久化表单状态 | [today-overview.tsx](../src/components/overview/today-overview.tsx) |
+| `/stock-pool` | 已应用筛选/分页 URL；未提交搜索回到已应用值 | 无写入提交 | [stock-pool-view.tsx](../src/components/market/stock-pool-view.tsx) |
+| `/analysis` | 问题/方法仅内存，离开返回保留；刷新恢复默认 | 提交中与错误本页；离开不取消服务器任务，不自动重提 | [evidence-analysis.tsx](../src/components/workbench/evidence-analysis.tsx) |
+| `/reports` | 已应用档案查询 URL/分页会话；估值、财务筛选草稿在离开/刷新后重置 | 估值校验/提交反馈本页；保存档案由服务端恢复 | [research-archive.tsx](../src/components/workbench/research-archive.tsx) |
+| `/reports/[kind]/[id]` | 身份路径 URL；无编辑草稿 | 读取故障可重试，不触发计算 | [page.tsx](../src/app/reports/[kind]/[id]/page.tsx) |
+| `/settings` | 设置草稿仅内存，离开返回保留、刷新读已保存值；渠道/凭证草稿离开清空 | 字段/保存错误和 pending 本页；迟到保存按提交快照确认、不清新输入；返回不自动重提 | [connections.tsx](../src/components/workbench/connections.tsx) |
+| `/news` | 已应用查询/任务/档案 URL；翻页返回会话；未应用草稿离开/刷新重置 | 本页错误/提交反馈重置；在途任务按 URL 重新读取，不重新创建 | [news-panel.tsx](../src/components/news/news-panel.tsx) |
+| `/cls-review` | 已应用报告/筛选 URL，分页 sessionStorage；事实/导入草稿离开或刷新清空 | 校验/保存错误/pending 本页；版本控制迟到保存 | [cls-review-workspace.tsx](../src/components/news/cls-review-workspace.tsx) |
+| `/rps` | 口径/分页/输入本页，离开或刷新重置；已保存配置/排名重新读取 | 校验/操作反馈本页，已有服务端任务继续 | [page.tsx](../src/app/rps/page.tsx) |
+| `/intraday` | 未保存配置本页，离开或刷新读已保存配置 | 错误/提交反馈本页；compute/schedule 暂停 | [intraday-controls.tsx](../src/components/intraday/intraday-controls.tsx) |
+| `/signals` | 订阅草稿 sessionStorage，离开/刷新按版本恢复；未应用筛选重置 | 弹窗/校验错误/pending 本页；恢复草稿不是恢复提交，计算调度暂停 | [monitor-workspace.tsx](../src/components/signals/monitor-workspace.tsx) |
+| `/signal-ledger` | 已应用筛选和选中项 URL，分页/位置 sessionStorage；未提交筛选重置 | 本页读取/导出反馈；计算调度暂停 | [signal-ledger-workspace.tsx](../src/components/signals/signal-ledger-workspace.tsx) |
+| `/trade-ledger` | 交易草稿及提交身份 sessionStorage，离开/刷新恢复；UI 展开本页 | 存储解析把 pending 恢复成 unknown；先按原提交 ID 查询，拒绝自动重放 | [trade-ledger-panel.tsx](../src/components/portfolio/trade-ledger-panel.tsx) |
+| `/trade-review` | 账户/展示与导入会话按原领域约定恢复，未提交临时展示不进外壳 | 预览提交身份与文件 hash/账户版本绑定；未知响应查收据，不自动重导 | [trade-review-container.tsx](../src/components/portfolio/trade-review-container.tsx) |
+| `/strategies` | 选择/实验输入/搜索本页，离开或刷新重置；目录/已保存实验重新读取 | 日期/资金校验及 pending 本页；离开不取消实验，不自动重提 | [strategy-center.tsx](../src/components/research/strategy-center.tsx) |
+| `/research/data-guide` | 静态说明，无草稿 | 无提交 | [research-data-guide.tsx](../src/components/research/research-data-guide.tsx) |
+| `/limit-up` | 池持久化、日期仅内存会话；弹层/输入本页，刷新恢复既有池 | 校验/请求反馈本页；读取失败不造结果 | [limit-up-store.ts](../src/lib/stores/limit-up-store.ts) |
+| `/crypto` | pair URL；独立周期/来源、策略/凭证输入本页；离开或刷新清空 | 提交/故障本页；保存成功清凭证；账户事实服务端，不以 UI pending 推断成交 | [crypto-bot-panel.tsx](../src/components/market/crypto-bot-panel.tsx) |
+| `/futures` | code URL；来源/周期/选择器本页，离开或刷新重置 | 读取故障本页，无交易提交 | [futures-view.tsx](../src/components/market/futures-view.tsx) |
+| `/tasks` | 已应用筛选 URL；草稿/游标 task-history-session，刷新回 URL 首页 | 取消中状态按 ID 跨卸载保留；刷新查服务器，不自动重提取消 | [task-history-session.ts](../src/lib/stores/task-history-session.ts) |
+| `/ui-gallery` | 示例草稿本页，离开/刷新重置 | 示例校验/反馈无业务提交 | [ui-gallery.tsx](../src/components/common/ui-gallery.tsx) |
+
+逐页代码核对覆盖以上普通路由；新增实际组件验证覆盖设置草稿/校验/提交/卸载/刷新，负对照故意保留组件后在“错误必须清除”断言失败。策略和估值的框架路由验证见 route-visual，研究/设置/任务的既有路由恢复用例保留。该覆盖不代表每个真实外部提交均已联调。
 
 [market-session](../src/lib/stores/market-session.ts) 是共享行情选择的具名所有者；可分享字段以当前行情 URL 为导航权威，写入使用原生 history 与 Next 的 search params 同步，刷新重新解析。跨页选择命令通过 [ChartNavigationProvider](../src/components/market/open-chart.tsx) 读取当前字段并导航，不在外壳订阅，也不在来源页提前加载。筛选接受已保存候选快照时推进选择修订号，旧请求的迟到成功、失败与加载状态不能覆盖新候选。候选列表/精确快照留在当前内存会话，刷新行情恢复选择并重新读取；要重开原始候选证据从带任务身份的筛选页进入。
 
@@ -104,17 +134,17 @@ flowchart LR
 
 ## 数据源、持久化与任务
 
-本地行情由 [TDX 服务](../src/server/data-sources/tdx/tdx.ts) 调用 tstdx 读取，证券主档、GBBQ 公司行动、财务与板块分别由所属适配器提供。行情快照明确来源、周期、复权和身份；尾窗可用于筛除，不能代替依赖完整历史的最终确认。原通达信与外部 WDZ Blocks 只读。WDZ 定义快照正在迁出 docs，路径和手动迁出状态见 [数据源说明](data-sources/wdz-blocks/2026-11-07/README.md)。
+本地行情由 [TDX 服务](../src/server/data-sources/tdx/tdx.ts) 调用 tstdx 读取，证券主档、GBBQ 公司行动、财务与板块分别由所属适配器提供。行情快照明确来源、周期、复权和身份；尾窗可用于筛除，不能代替依赖完整历史的最终确认。原通达信与外部 WDZ Blocks 只读。管理者提交 f73f7db 已记录 WDZ 定义快照归档至 D:/quant-data/wdz-blocks/2026-11-07，并在核验后移除仓库副本；仓库保留 manifest。受保护[数据源说明](data-sources/wdz-blocks/2026-11-07/README.md)的获取/恢复流程仍可使用，但其旧“尚未执行”文字留给管理者同步，本轮不修改该目录。
 
 [SQLite 入口](../src/server/db/index.ts) 从 QUANT_DATA_DIR（未设置时使用本地应用数据目录）打开 quant.sqlite，启用 WAL 并应用 [迁移](../src/server/db/migrations.ts)。当前同时存在通用 records JSON 表及 RPS、图表视图/共享画线、账本等专表；不能将整个数据层描述成仅一张表。通用 `list(kind, limit)` 明确读取最近若干条，必须指定 1–1000 的整数上限，按更新时间和 ID 倒序；不再提供默认 200 或 -1 无上限语义。
 
-`recordPage` 按稳定 ID 顺序返回 items/nextCursor，游标绑定 kind。独立调用读取当时的数据，游标之前的新 ID 不会补入；总计/完整遍历使用 `readRecordSnapshot`，在同一个同步只读事务中每批消费 200 条（另读一条判断后续页），其他连接在扫描中新增、删除或更新的内容留到下次扫描。回调不得写入或异步执行，迭代器不能逃逸事务。渠道、监控定义和公式目录已用完整扫描，仍返回原数组形态；研究使用统计单遍聚合，只保留计数和去重配置集合。目录数组和去重集合仍随规模增长，不能宣称整条链路恒定内存。任务读写/历史/侧栏及监控、信号、投递工作区已归 `src/server/db/` 类型仓储；原路径移除，调用者直接依赖仓储。其余领域与跨域查询仍按派单盘点逐批迁移，不能据此宣称全部 SQL 已收拢。
+`recordPage` 按稳定 ID 顺序返回 items/nextCursor，游标绑定 kind。独立调用读取当时的数据，游标之前的新 ID 不会补入；总计/完整遍历使用 `readRecordSnapshot`，在同一个同步只读事务中每批消费 200 条（另读一条判断后续页），其他连接在扫描中新增、删除或更新的内容留到下次扫描。回调不得写入或异步执行，迭代器不能逃逸事务。渠道、监控定义和公式目录已用完整扫描，仍返回原数组形态；研究使用统计单遍聚合，只保留计数和去重配置集合。目录数组和去重集合仍随规模增长，不能宣称整条链路恒定内存。任务读写/历史/侧栏及监控、信号、投递工作区已归 `src/server/db/` 类型仓储；原路径移除，调用者直接依赖仓储。E 批把图表、RPS、盘中历史、信号台账、新闻、交易/交割、数字货币账户、研究档案与治理仓储继续迁入 db；API 处理器不再直接执行 SQL。源库读取、独立诊断日志与跨域原子用例的保留调用逐条登记在 delivery.json，不宣称 db 以外零 SQLite 调用。
 
 新闻日批次使用启动时固定的已保存 CLS 数据库路径和 Python 可执行文件。新安装不默认连接开发机新闻库，Python 默认从 PATH 查找；设置页分别只读检查数据库字段和解释器版本，不运行模型。技能目录沿用 QUANT_SKILLS_DIR 优先、用户技能目录兜底；现有有效路径不改写。通达信安装目录默认空配置：本地文件读取边界要求明确的绝对路径，不将空字符串解析为工作目录；可选证券元数据返回不可用。已导入完整日线包仍能在未配置安装目录时使用，保留空来源身份，不伪造磁盘目录。行情诊断与财务视图提示配置前置条件；行业/概念 RPS 需要通达信证券范围，缺目录时不开放启动。Blocks 成分来源和目录仍由 RPS 行业页管理，设置页展示并链接，工作流启用不再改写数据源设置。具体边界见[新闻模块](modules/news-cls.md)。
 
 任务详情摘要 `jobSummary` 复用任务元数据投影，按需与首屏结果在同一只读事务返回，不再先解析完整 input/result。[选股结果仓储](../src/server/db/screen-result-pages.ts) 在单条 SQL 内取得总数及候选/隔离/错误各最多 50 条，先搜索排序再分页，显式返回元数据。名称目录一次展开并按证券代码关联，Unicode 大小写和当前/归档名称回退沿用共同规则。SQLite 仍解析存储的 JSON；限制的是返回 JavaScript 的结果行数，不能声称底层零解析或任意行内容恒定字节。公式完整导出由 `job-results` 在同步只读快照内逐行组装，单次 DB→JS 载荷最多 256 KiB；超大行按 UTF-8 字节分块，迭代器随快照关闭，外部并发提交留到下次读取。回测结果页只投影摘要及每页最多 50 笔成交/订单，待执行订单与权益曲线沿现行详情契约按需返回，冻结行情按完整评价/导出请求读取；完整回测档案也按数组迭代/字节分块组装。最终导出对象与 HTTP/浏览器序列化仍随总结果增长，SQLite 内部解析/排序内存也没有恒定上界；此处保证跨边界读取有界，并非端到端流式下载。
 
-任务、监控、信号和投递的分页顺序都有唯一 ID/数组位置作为 tie-breaker，返回 `items/nextCursor/hasMore`；恢复任务及投递先冻结 ID 集再更新，新增 ID 留到下次。新任务完整校验，更新不补造历史记录缺字段；类型仓储在立即事务内检查 ID 不跨 kind 覆盖。ESLint 通过 TypeScript 方法声明识别真实 SQLite 调用，当前仅守卫已迁移调用范围；其他对象的同名方法不受影响。
+任务、监控、信号和投递的分页顺序都有唯一 ID/数组位置作为 tie-breaker，返回 `items/nextCursor/hasMore`；恢复任务及投递先冻结 ID 集再更新，新增 ID 留到下次。新任务完整校验，更新不补造历史记录缺字段；类型仓储在立即事务内检查 ID 不跨 kind 覆盖。ESLint 通过 TypeScript 方法声明识别真实 SQLite 调用，覆盖全部服务端业务代码；源库/独立日志按所有者保留，列明的跨域用例只允许 transaction，仍禁止 prepare/exec；其他对象的同名方法不受影响。
 
 SQLite 文件格式与应用 user_version 分开管理：较旧应用拒绝高于自身迁移版本的库。仓储整理不必修改 schema，确需迁移时保留版本保护；开发/测试必须先指定隔离 QUANT_DATA_DIR，不能打开默认用户库来验证迁移。
 
@@ -138,6 +168,6 @@ SQLite 文件格式与应用 user_version 分开管理：较旧应用拒绝高�
 
 ESLint 使用现有 tsconfig 的类型信息，在 src 检查 Hooks、Promise 与未使用变量。静态 ESM 导入限制 components/lib 执行 server、server 执行 UI 模块，跨层类型引用必须显式声明；另由依赖图检查固定路径的动态 import/require、未解析路径和运行时模块循环；包级图聚合实际源码与声明的构建依赖，检查跨文件/子目录的包循环。ESLint 要求应用和包内动态加载使用固定路径；自定义加载器仍需显式接入规则。研究配置哈希和公式单段扫描已分别归独立模块，记录/尝试服务与总流程/分段调度不再相互导入。显式 void 表示后台意图，不替代异常处理。具体约定见 [conventions](conventions.md)。
 
-测试根目录原有的 66 个支持文件已按职责归入 perf、fixtures/seed、manual、helpers 与 browser/fixtures，所有调用者直接使用新路径，不保留转发入口。固定输入仍保持字节，造数脚本单独参与格式检查；现行入口与人工运行前置见 [测试说明](../tests/README.md)。通用 E2E 的旧场景与预算覆盖仍需按当前业务和隔离要求整理。
+测试根目录原有的 66 个支持文件已按职责归入 perf、fixtures/seed、manual、helpers 与 browser/fixtures，所有调用者直接使用新路径，不保留转发入口。固定输入仍保持字节，造数脚本单独参与格式检查；现行入口与人工运行前置见 [测试说明](../tests/README.md)。通用 E2E 已改为独立隔离生产服务与 6,154 只合成证券负载，仍沿用原预算；D 批 10 项全规模通过的证据见交付，不能外推到真实账户和所有数据源。
 
-本批页面模型和共享行情归属已收拢；其余状态生命周期、仓储与分页契约及 E2E/性能预算仍按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。
+本批页面模型和共享行情归属已收拢；常规页面表单已按下表核对，仍未关闭的真实外部状态与最终验收按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。

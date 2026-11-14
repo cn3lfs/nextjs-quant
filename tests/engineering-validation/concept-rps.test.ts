@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
-import { RpsStore } from "../../src/server/screening/rps-store";
+import { RpsStore } from "../../src/server/db/rps-store";
 import { runRpsJob } from "../../src/server/screening/rps-job";
 import {
   industrySnapshotSchema,

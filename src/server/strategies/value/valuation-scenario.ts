@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
 import { calculateValuation } from "trading-strategies/research/factors/valuation";
-import { get, put, sqlite } from "../../db";
+import { get, put } from "../../db";
 
 /** All inputs remain explicit user assumptions, never promoted to verified facts. */
 export function saveValuationScenario(value: unknown) {
@@ -54,20 +54,3 @@ export type ValuationScenario = {
   scenarios: (ReturnType<typeof calculateValuation> & { name: string })[];
   range: { min: number; max: number; currency: string; unit: string };
 };
-
-export function valuationScenarioHistory() {
-  return sqlite()
-    .prepare(
-      `SELECT id,
-    json_extract(payload, '$.createdAt') AS createdAt,
-    json_extract(payload, '$.symbol') AS symbol,
-    json_extract(payload, '$.title') AS title,
-    json_extract(payload, '$.method') AS method
-    FROM records WHERE kind = 'valuation-scenario'
-    ORDER BY updated_at DESC, id LIMIT 100`,
-    )
-    .all() as Pick<
-    ValuationScenario,
-    "id" | "createdAt" | "symbol" | "title" | "method"
-  >[];
-}

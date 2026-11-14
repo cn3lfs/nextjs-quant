@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { expect, it, vi } from "vitest";
 import { migrate } from "../../../src/server/db/migrations";
-import { IntradayStore } from "../../../src/server/monitoring/intraday-store";
+import { IntradayStore } from "../../../src/server/db/intraday-store";
 import {
   IntradayJob,
   type IntradayDependencies,

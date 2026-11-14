@@ -4,7 +4,7 @@ import { ClsReviewText } from "./cls-review-text";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import type { ClsFactDraft } from "~/lib/news/cls-review-workspace";
-import type { ClsReportArchive } from "~/server/news/cls-review-store";
+import type { ClsReportArchive } from "~/server/db/cls-review-store";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { ClsError, ClsPages, clsPct, clsTime } from "./cls-review-fields";

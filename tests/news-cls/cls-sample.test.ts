@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "../../src/server/db/migrations";
-import { ClsReviewStore } from "../../src/server/news/cls-review-store";
+import { ClsReviewStore } from "../../src/server/db/cls-review-store";
 import { parseClsReport } from "../../src/server/news/cls-report-parser";
 import {
   buildClsSample,

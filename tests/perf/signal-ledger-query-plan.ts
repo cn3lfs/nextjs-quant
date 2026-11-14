@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { migrate } from "../../src/server/db/migrations";
 import { seedLedger } from "../helpers/signal-ledger-fixture";
-import { ledgerHistory } from "../../src/server/monitoring/signal-ledger-query";
+import { ledgerHistory } from "../../src/server/db/signal-ledger-query";
 let capture = false;
 const statements = new Set<string>();
 const db = new Database(":memory:", {

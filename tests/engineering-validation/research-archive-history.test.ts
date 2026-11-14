@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from "vitest";
 import { put, sqlite } from "../../src/server/db";
-import { researchArchiveHistory } from "../../src/server/research/archive-history";
+import { researchArchiveHistory } from "../../src/server/db/archive-history";
 import {
   archiveHistoryInput,
   archiveKinds,

@@ -1,3 +1,4 @@
+import { visitNewsAnalyses } from "../db/news-analysis-history";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -6,11 +7,11 @@ import { z } from "zod";
 import { readClsNews } from "../data-sources/cls/cls-news";
 import { settings } from "../infra/settings";
 import { structured, researchModel } from "../research/research";
-import { get, put, sqlite, atomic } from "../db";
+import { get, put, atomic } from "../db";
 import { sharedRead } from "../infra/shared-read";
 import { keyedSlots } from "../infra/keyed-slots";
 import { newsPageSelectionSchema } from "~/lib/news/news-workspace";
-import { freezeNewsWorkspacePage } from "./news-workspace-query";
+import { freezeNewsWorkspacePage } from "../db/news-workspace-query";
 const claimNews = keyedSlots();
 export const newsMethodFiles = ["SKILL.md", "references/sw-industries.md"];
 const sharedAnalysis = sharedRead<NewsAnalysis>();
@@ -142,13 +143,7 @@ function reusableItems(
   for (const key of [...pending.keys()]) accept(key, get<CachedItem>(key));
   if (!pending.size) return found;
   // Migrate prior completed batches lazily, without an arbitrary history limit.
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='news-analysis' AND json_extract(payload,'$.model')=? AND json_extract(payload,'$.method')=? ORDER BY updated_at DESC",
-    )
-    .iterate(model, JSON.stringify(method)) as Iterable<{ payload: string }>;
-  for (const row of rows) {
-    const archive = JSON.parse(row.payload) as NewsAnalysis;
+  visitNewsAnalyses(model, method, (archive) => {
     const sources = new Map(archive.news.map((n) => [n.id, n]));
     const origins = new Map(
       archive.itemOrigins?.map((origin) => [origin.newsId, origin]),
@@ -162,8 +157,8 @@ function reusableItems(
           archivedAt: origins.get(item.id)?.archivedAt ?? archive.createdAt,
         });
     }
-    if (!pending.size) break;
-  }
+    return pending.size > 0;
+  });
   return found;
 }
 function saveAnalysis(record: NewsAnalysis) {

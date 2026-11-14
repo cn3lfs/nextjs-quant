@@ -21,7 +21,7 @@ import { marketPoolQuerySchema } from "~/lib/market/market-pool";
 import { evaluateFormula } from "~/lib/formula/tdx-formula";
 import { rpsFields } from "~/lib/formula/tdx-formula-check";
 import { migrate } from "~/server/db/migrations";
-import { RpsStore } from "~/server/screening/rps-store";
+import { RpsStore } from "~/server/db/rps-store";
 import { industryRpsPage } from "~/server/screening/industry-rps-query";
 import { calculateRpsDay } from "~/server/screening/rps-adapter";
 import { rpsHash } from "~/server/infra/content-hash";

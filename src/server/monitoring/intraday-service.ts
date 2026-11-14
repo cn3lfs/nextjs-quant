@@ -7,7 +7,7 @@ import { settings } from "../infra/settings";
 import { monitorCalendar } from "./monitor-calendar";
 import { intradayPool, intradayHistory } from "./intraday-data";
 import { IntradayJob } from "./intraday-job";
-import { IntradayStore } from "./intraday-store";
+import { IntradayStore } from "../db/intraday-store";
 import type { IntradayDependencies } from "./intraday-job";
 import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 
@@ -75,17 +75,9 @@ export async function runIntradayTick(deps: IntradayDependencies) {
   if (!schedule.closeDue) return;
   // Keyset over pending observations so old missing inputs do not starve newer
   // dates. A close retry is throttled to fifteen minutes per observation.
-  const rows = store.db
-    .prepare(
-      `SELECT p.id FROM records p WHERE p.kind='intraday-preview'
-    AND json_extract(p.payload,'$.barCutoff') <= ?
-    AND NOT EXISTS (SELECT 1 FROM records c WHERE c.kind='intraday-close'
-      AND json_extract(c.payload,'$.observationId')=p.id
-      AND (json_type(c.payload,'$.close.signalKeys')='array' OR c.updated_at>?))
-    ORDER BY p.updated_at DESC,p.id`,
-    )
-    .all(`${schedule.date}T15:00:00+08:00`, deps.now() - 15 * 60000) as {
-    id: string;
-  }[];
+  const rows = store.pendingCloseIds(
+    `${schedule.date}T15:00:00+08:00`,
+    deps.now() - 15 * 60000,
+  );
   for (const row of rows) await job.confirm(row.id);
 }

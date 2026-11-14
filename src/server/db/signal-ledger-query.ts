@@ -15,7 +15,7 @@ import { signalInformation } from "~/lib/strategy-facts/signal-information";
 import type { NotificationDecision } from "~/lib/strategy-facts/notification-policy";
 import type { z } from "zod";
 import type { LedgerRun } from "./signal-ledger-store";
-import { NotificationPolicyStore } from "../infra/notification-policy-store";
+import { NotificationPolicyStore } from "./notification-policy-store";
 
 const fingerprint = (filter: object) =>
   createHash("sha256").update(JSON.stringify(filter)).digest("hex");

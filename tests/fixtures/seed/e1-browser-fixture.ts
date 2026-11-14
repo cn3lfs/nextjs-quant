@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { settingsSchema } from "../../../src/lib/domain";
 import { put, sqlite } from "../../../src/server/db";
-import { RpsStore } from "../../../src/server/screening/rps-store";
+import { RpsStore } from "../../../src/server/db/rps-store";
 import { scan } from "../../../src/server/data-sources/tdx/tdx";
 import { rpsBars, rpsDay } from "../../helpers/rps-fixture";
 import { readIndustryBlocks } from "../../../src/server/market/industry-blocks";

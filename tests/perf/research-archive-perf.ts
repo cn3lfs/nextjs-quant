@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { sqlite } from "../../src/server/db";
-import { reportHistory } from "../../src/server/research/report-history";
+import { reportHistory } from "../../src/server/db/report-history";
 
 assert.ok(process.env.QUANT_DATA_DIR);
 assert.ok(

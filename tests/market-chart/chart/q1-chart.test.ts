@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import type { Snapshot } from "../../../src/lib/domain";
 import { monthlyBars } from "../../../src/server/market/monthly-bars";
 import { weeklyBars } from "../../../src/server/market/weekly-bars";
-import { ChartViewStore } from "../../../src/server/charts/chart-view-store";
+import { ChartViewStore } from "../../../src/server/db/chart-view-store";
 import { migrate } from "../../../src/server/db/migrations";
 import {
   chartCost,

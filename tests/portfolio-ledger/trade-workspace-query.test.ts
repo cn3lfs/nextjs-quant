@@ -12,7 +12,7 @@ import {
   tradeSignalOptions,
   tradeAdjustmentPage,
   tradeAdjustmentDetail,
-} from "../../src/server/portfolio/trade-workspace-query";
+} from "../../src/server/db/trade-workspace-query";
 let db: Database.Database;
 const trade = (i: number): Trade => ({
   id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
