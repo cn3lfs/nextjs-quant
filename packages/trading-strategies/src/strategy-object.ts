@@ -6,6 +6,11 @@ import {
   factorStrategySignals,
 } from "./factor-strategy.js";
 import { cryptoDualMa } from "./crypto-dual-ma.js";
+import {
+  historicalLowConfigSchema,
+  historicalLowSeries,
+  type LowZoneFact,
+} from "./historical-low.js";
 import { analyzeBreakout } from "./research/breakout/breakout.js";
 import { metrics } from "./research/technical/screening-metrics.js";
 import {
@@ -30,6 +35,13 @@ function validDate(date: string) {
   return true;
 }
 export const strategyRuleSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("historical-low"),
+      side: z.enum(["entry", "exit"]),
+      config: historicalLowConfigSchema,
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("formula"),
@@ -198,6 +210,7 @@ export type StrategyObject = z.infer<typeof strategyObjectSchema>;
 export type StrategyObjectInput = z.input<typeof strategyObjectSchema>;
 export type StrategyRule = z.infer<typeof strategyRuleSchema>;
 export type StrategyExternalInputs = {
+  lowZone?: readonly LowZoneFact[];
   monitorCzsc?: {
     observations: readonly MonitorCzscObservation[];
     seenKeys?: readonly string[];
@@ -322,6 +335,7 @@ export function prepareStrategy(
   )
     throw new Error("Duplicate RPS observations");
   const breakoutCache = new Map<number, ReturnType<typeof analyzeBreakout>>();
+  const lowCache = new Map<string, ReturnType<typeof historicalLowSeries>>();
   const breakoutAt = (i: number) => {
     if (!breakoutCache.has(i)) {
       // Only one point is retained; historical playback must not retain O(n²) analyses.
@@ -332,6 +346,22 @@ export function prepareStrategy(
   };
   const compile = (rule: StrategyRule): ((index: number) => boolean | null) => {
     switch (rule.kind) {
+      case "historical-low": {
+        const key = JSON.stringify(rule.config);
+        if (!lowCache.has(key))
+          lowCache.set(
+            key,
+            historicalLowSeries(bars, rule.config, external.lowZone),
+          );
+        const rows = lowCache.get(key)!;
+        return (i) =>
+          rule.side === "exit"
+            ? rows[i]!.recovery
+            : rows[i]!.depth === null
+              ? null
+              : rows[i]!.depth! > 0 &&
+                rows[i]!.depth! > (rows[i - 1]?.depth ?? 0);
+      }
       case "constant":
         return () => rule.value;
       case "czsc-monitor":

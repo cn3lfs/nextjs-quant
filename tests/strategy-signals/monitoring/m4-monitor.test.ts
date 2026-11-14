@@ -65,6 +65,7 @@ import { get, list, put, sqlite } from "../../../src/server/db/index";
 import { chanMethod } from "../../../src/server/strategies/chan/chan-method";
 import { analyzeCzscSignal } from "../../../src/server/strategies/chan/czsc-signal-analysis";
 import breakoutFixture from "../../fixtures/breakout-valid.json";
+import { rpsClient } from "../../../src/server/screening/rps-client";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-m4-"));
 const today = "2026-09-09";
 const at = (time: string, date = today) =>
@@ -233,7 +234,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 // This file owns its temporary DB; release the native handle before global cleanup.
-afterAll(() => sqlite().close());
+afterAll(async () => {
+  // The frozen runtime also starts RPS; its exit callback writes final progress.
+  // Drain it before closing this fixture's connection, including under CPU load.
+  await rpsClient().close();
+  sqlite().close();
+});
 async function signal(kinds = [3]) {
   await tick(); // 15:04: yesterday's completed bars establish a baseline.
   expect(list("signal", 200)).toHaveLength(0);

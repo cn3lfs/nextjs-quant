@@ -25,7 +25,12 @@ import {
   executeStrategyCenterPortfolio,
   strategyCenterPortfolioSchema,
 } from "../../strategies/strategy-center-portfolio";
-import { background } from "../../jobs/jobs";
+import { background, runWorker } from "../../jobs/jobs";
+import {
+  validationInputSchema,
+  scoreboardQuerySchema,
+} from "../../research/validation-model";
+import { validationScoreboardPage } from "../../db/validation-scoreboard";
 import { createPerformanceReport } from "quant-performance";
 import {
   strategyCategories,
@@ -48,6 +53,37 @@ function verifyStrategyArchive(result: unknown) {
 }
 
 export const strategyCenterRouter = createTRPCRouter({
+  strategyValidationRun: p("strategyCenter", "compute")
+    .input(validationInputSchema)
+    .mutation(({ input }) =>
+      background("backtest", { type: "strategy-validation", ...input }, (job) =>
+        runWorker(
+          { type: "strategy-validation", root: settings().tdxRoot, input },
+          job.id,
+        ),
+      ),
+    ),
+  strategyValidationReplay: p("strategyCenter", "compute")
+    .input(z.string().regex(/^[a-f0-9]{64}$/))
+    .mutation(({ input }) =>
+      background(
+        "backtest",
+        { type: "strategy-validation-replay", frozenHash: input },
+        (job) =>
+          runWorker(
+            {
+              type: "strategy-validation",
+              root: "",
+              input: {},
+              frozenHash: input,
+            },
+            job.id,
+          ),
+      ),
+    ),
+  strategyScoreboard: p("strategyCenter", "read")
+    .input(scoreboardQuerySchema)
+    .query(({ input }) => validationScoreboardPage(input)),
   strategyCenterCatalog: p("strategyCenter", "read").query(
     () => unifiedStrategyCatalog,
   ),

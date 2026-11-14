@@ -1,6 +1,7 @@
 "use client";
 
 import { Segmented } from "../panels";
+import { StrategyScoreboard } from "./strategy-scoreboard";
 import { useState } from "react";
 import {
   studyStrategies,
@@ -59,9 +60,9 @@ export function StrategyCenter() {
   const catalog = api.strategyCenterCatalog.useQuery();
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("");
-  const [workspace, setWorkspace] = useState<"catalog" | "methods" | "history">(
-    "catalog",
-  );
+  const [workspace, setWorkspace] = useState<
+    "catalog" | "methods" | "history" | "scoreboard"
+  >("catalog");
   const history = api.strategyCenterHistory.useQuery(undefined, {
     enabled: panelVisible && workspace === "history",
     refetchInterval: panelVisible && workspace === "history" ? 3000 : false,
@@ -200,9 +201,13 @@ export function StrategyCenter() {
           { value: "catalog", label: "策略目录" },
           { value: "methods", label: "方法登记" },
           { value: "history", label: "运行与比较" },
+          { value: "scoreboard", label: "研究成绩单" },
         ]}
       />
       {message && <p role="status">{message}</p>}
+      {workspace === "scoreboard" && (
+        <StrategyScoreboard enabled={panelVisible} />
+      )}
       <div hidden={workspace !== "catalog"} className="space-y-5">
         <p className="text-sm text-muted-foreground">
           国内外公开策略，统一用于沪深研究。规则实现、当前输入和历史验证分别核对；实验结果仅作规则自检。

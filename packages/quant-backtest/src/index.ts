@@ -31,6 +31,7 @@ export { replayAllocationStudy } from "./allocation-profile.js";
 export type { Csi800Options } from "./allocation-profile.js";
 
 export * from "./portfolio-engine.js";
+export * from "./validation-suite.js";
 
 export type {
   MaBaselineResult,

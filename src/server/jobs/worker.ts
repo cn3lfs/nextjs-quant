@@ -20,6 +20,10 @@ import {
   type FactorWork,
 } from "../research/factor-evaluation-job";
 import type { Period } from "~/lib/domain";
+import {
+  executeValidationWork,
+  type ValidationWork,
+} from "../research/validation-work";
 let progressId = 0;
 /** Yield SQLite's writer slot until the host has committed this batch's progress. */
 function reportSavedBatch() {
@@ -46,6 +50,7 @@ function reportSavedBatch() {
   });
 }
 export type Work =
+  | ValidationWork
   | LocalFinancialWork
   | MaBaselineWork
   | FormulaWork
@@ -54,6 +59,10 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "strategy-validation")
+    return executeValidationWork(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
   if (work.type === "local-financial")
     return executeLocalFinancialWork(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),

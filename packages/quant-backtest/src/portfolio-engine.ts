@@ -70,6 +70,14 @@ export type PortfolioRequest = {
   sleeves: readonly PortfolioSleeve[];
   costs?: ExecutionCosts;
   rebalance?: { everyBars?: number; drift?: number };
+  /** Completed-bar targets; only idle cash is transferred, never forced sales. */
+  sleeveTargets?: readonly {
+    date: string;
+    availableAt: string;
+    shares: Readonly<Record<string, number>>;
+  }[];
+  /** Stress discretionary entry/exit signals; standing protection remains active. */
+  signalDelayBars?: 0 | 1;
   /** PIT memberships for rule universes. Missing is unknown, never all-market. */
   memberships?: readonly {
     strategyId: string;
@@ -223,7 +231,7 @@ export function runPortfolio(
       (s) =>
         !s.id ||
         !Number.isFinite(s.share) ||
-        s.share <= 0 ||
+        s.share < 0 ||
         s.share > 1 ||
         !Number.isFinite(s.riskPerTrade) ||
         s.riskPerTrade <= 0 ||
@@ -234,6 +242,30 @@ export function runPortfolio(
     Math.abs(sleeves.reduce((n, s) => n + s.share, 0) - 1) > 1e-10
   )
     throw new Error("Invalid sleeves");
+  if (
+    request.signalDelayBars !== undefined &&
+    ![0, 1].includes(request.signalDelayBars)
+  )
+    throw new Error("Invalid signal delay");
+  if (
+    new Set(request.sleeveTargets?.map((t) => t.date)).size !==
+      (request.sleeveTargets?.length ?? 0) ||
+    request.sleeveTargets?.some(
+      (t) =>
+        t.availableAt > t.date ||
+        !Number.isFinite(Date.parse(t.availableAt)) ||
+        Object.keys(t.shares).length !== sleeves.length ||
+        sleeves.some(
+          (s) =>
+            !Number.isFinite(t.shares[s.id]) ||
+            t.shares[s.id]! < 0 ||
+            t.shares[s.id]! > 1,
+        ) ||
+        Math.abs(sleeves.reduce((sum, s) => sum + t.shares[s.id]!, 0) - 1) >
+          1e-10,
+    )
+  )
+    throw new Error("Invalid / non-causal sleeve targets");
   if (
     request.rebalance &&
     ((request.rebalance.everyBars !== undefined &&
@@ -320,7 +352,11 @@ export function runPortfolio(
     }),
   );
   const accounts = new Map(
-    sleeves.map((s) => [s.id, new PortfolioAccount(initial * s.share)]),
+    sleeves.map((s) => {
+      const account = new PortfolioAccount(initial);
+      account.transfer(initial * s.share - initial);
+      return [s.id, account] as const;
+    }),
   );
   const controls = new Map<string, PositionControl>();
   const identities = new Map(
@@ -721,8 +757,10 @@ export function runPortfolio(
                 : null;
           if (side) {
             const next =
-              calendar[index + 1] ??
-              (market === "crypto" ? nextBar(date, strategy.period) : null);
+              calendar[index + 1 + (request.signalDelayBars ?? 0)] ??
+              (market === "crypto" && !request.signalDelayBars
+                ? nextBar(date, strategy.period)
+                : null);
             pushOrder(
               strategy,
               symbol,
@@ -734,20 +772,28 @@ export function runPortfolio(
           }
         }
       if (request.rebalance) {
+        const target = request.sleeveTargets
+          ?.filter((t) => t.date <= date)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .at(-1);
+        const targets = sleeves.map((s) => ({
+          ...s,
+          share: target?.shares[s.id] ?? s.share,
+        }));
         const total = [...accounts.values()].reduce((n, a) => n + a.equity, 0);
         const due =
           request.rebalance.everyBars !== undefined &&
           (index + 1) % request.rebalance.everyBars === 0;
         const drift =
           request.rebalance.drift !== undefined &&
-          sleeves.some(
+          targets.some(
             (s) =>
               Math.abs(accounts.get(s.id)!.equity / total - s.share) >=
               request.rebalance!.drift!,
           );
-        if (due || drift) {
+        if (due || drift || target?.date === date) {
           let pool = 0;
-          for (const s of sleeves) {
+          for (const s of targets) {
             const a = accounts.get(s.id)!,
               amount = Math.min(
                 a.cash,
@@ -759,7 +805,7 @@ export function runPortfolio(
               transfers.push({ date, sleeve: s.id, amount: -amount });
             }
           }
-          const needs = sleeves.map((s) => ({
+          const needs = targets.map((s) => ({
             s,
             need: Math.max(0, total * s.share - accounts.get(s.id)!.equity),
           }));

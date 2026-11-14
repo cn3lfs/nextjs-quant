@@ -3,6 +3,7 @@ import { resolve, sep } from "node:path";
 import Database from "better-sqlite3";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { trpcHeaders } from "./helpers";
+import type { ScoreboardRow } from "../../src/server/research/validation-model";
 
 function procedure(response: Response, name: string) {
   return (
@@ -44,6 +45,106 @@ test.beforeAll(async ({ request }) => {
   expect(settings.tdxRoot.replaceAll("\\", "/")).toMatch(
     /\/\.test-data\/.+\/fixture-[^/]+\/tdx$/,
   );
+});
+
+test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and zero delivery", async ({
+  page,
+}, testInfo) => {
+  const response = await page.request.get("/api/trpc/status", {
+    headers: trpcHeaders,
+  });
+  const settings = (await response.json()).result.data.json.settings;
+  const parent = await realpath(
+    resolve(process.env.E2E_DATA_DIR ?? ".test-data/p0-acceptance"),
+  );
+  const directory = await realpath(resolve(settings.tdxRoot, ".."));
+  expect(directory.startsWith(parent + sep)).toBe(true);
+  const database = new Database(resolve(directory, "quant.sqlite"), {
+    fileMustExist: true,
+  });
+  const prefix = "r2a-ui-fixture-";
+  const rows: ScoreboardRow[] = Array.from({ length: 25 }, (_, i) => ({
+    id: `${prefix}${String(i).padStart(2, "0")}`,
+    level: "strategy",
+    market: "cn-equity",
+    sleeve: "swing",
+    rule: `固定输入候选 ${i}`,
+    status: "research",
+    return: 0.01,
+    excess: i / 100,
+    drawdown: 0.1,
+    trades: i,
+    oosWindows: 6,
+    positiveWindows: 2,
+    bias: {
+      universe: "历史证券池不完整",
+      adjustment: "信号前复权，成交原价",
+      financial: "未使用财务",
+      execution: "历史成交未核验",
+    },
+    reasons: ["oos-positive-excess-majority"],
+  }));
+  try {
+    database
+      .prepare(
+        "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,'validation-scoreboard',?,?)",
+      )
+      .run(
+        "validation-scoreboard-cn-equity",
+        JSON.stringify({
+          market: "cn-equity",
+          inputHash: "a".repeat(64),
+          resultHash: "b".repeat(64),
+          buildHash: "c".repeat(64),
+          rows,
+          missing: [],
+          createdAt: 1,
+          runtimeMs: 1,
+          universe: "QA固定输入",
+          gaps: ["历史池缺口"],
+        }),
+        1,
+      );
+    await page.goto("/strategies");
+    await page.getByRole("radio", { name: "研究成绩单", exact: true }).click();
+    const region = page.getByRole("region", {
+      name: "策略研究成绩单",
+      exact: true,
+    });
+    await expect(region).toContainText("历史证券池不完整");
+    await expect(
+      region.getByText(`${prefix}00`, { exact: true }),
+    ).toBeVisible();
+    await expect(region.getByText(`${prefix}20`, { exact: true })).toHaveCount(
+      0,
+    );
+    await region.getByRole("button", { name: /下一页/ }).click();
+    await expect(
+      region.getByText(`${prefix}20`, { exact: true }),
+    ).toBeVisible();
+    await expect(region.getByText(`${prefix}00`, { exact: true })).toHaveCount(
+      0,
+    );
+    const market = region.getByRole("radiogroup", { name: "研究市场" });
+    await market.getByRole("radio", { name: "A 股", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(region).toContainText("尚无已完成的研究成绩单");
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.screenshot({
+      path: testInfo.outputPath("r2a-scoreboard-1024.png"),
+      fullPage: true,
+    });
+    expect(
+      database
+        .prepare("SELECT count(*) n FROM records WHERE kind='delivery'")
+        .get(),
+    ).toEqual({ n: 0 });
+  } finally {
+    database
+      .prepare("DELETE FROM records WHERE id='validation-scoreboard-cn-equity'")
+      .run();
+    database.close();
+  }
 });
 
 test("sidebar counts old active tasks beyond the recent list and refreshes their completion", async ({

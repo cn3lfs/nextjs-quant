@@ -12,7 +12,15 @@ execFileSync(
 );
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { copyFile, mkdir, cp, readFile, readdir, rm } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  cp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 await build({
@@ -109,10 +117,43 @@ for (const file of [
 ]) {
   maEngineHash.update(file).update(await readFile(file));
 }
+const validationIdentity = createHash("sha256");
+for (const directory of [
+  "packages/quant-performance/src",
+  "src/server/research",
+]) {
+  const files = (await readdir(directory, { recursive: true }))
+    .filter(
+      (file) =>
+        file.endsWith(".ts") &&
+        (directory.startsWith("packages/") || file.startsWith("validation-")),
+    )
+    .sort();
+  for (const file of files) {
+    const path = `${directory}/${file.replaceAll("\\", "/")}`;
+    validationIdentity.update(path).update(await readFile(path));
+  }
+}
+for (const file of [
+  "src/lib/backtest/backtest-overfit.ts",
+  "src/lib/backtest/multiple-testing.ts",
+  "src/lib/backtest/daily-performance.ts",
+  "src/server/research/index-context.ts",
+  "src/server/strategies/strategy-center-native.ts",
+  "src/server/data-sources/tdx/local-financial-files.ts",
+  "pnpm-lock.yaml",
+])
+  validationIdentity.update(file).update(await readFile(file));
+const validationBuildHash = validationIdentity.digest("hex");
+await writeFile(
+  "runtime/research-validation-identity.json",
+  JSON.stringify({ hash: validationBuildHash }),
+);
 await build({
   entryPoints: ["src/server/jobs/worker.ts"],
   define: {
     __MA_BASELINE_BUILD_HASH__: JSON.stringify(maEngineHash.digest("hex")),
+    __RESEARCH_VALIDATION_BUILD_HASH__: JSON.stringify(validationBuildHash),
   },
   external: ["better-sqlite3"],
   outfile: "runtime/worker.cjs",
