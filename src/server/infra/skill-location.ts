@@ -35,7 +35,9 @@ const moved: Record<string, Location> = {
   "tmt-crowding": guide("market-analyst/references/tmt-crowding"),
   "message-analyst": guide("event-researcher/references/message"),
   "industry-chain-analyst": guide("event-researcher/references/industry-chain"),
-  "guo-yongqing-valuation": guide("fundamental-analyst/references/guo-yongqing"),
+  "guo-yongqing-valuation": guide(
+    "fundamental-analyst/references/guo-yongqing",
+  ),
   "value-investing": guide("fundamental-analyst/references/value-investing"),
   "announcement-search": guide("hithink-wencai/references/announcement-search"),
   "news-search": guide("hithink-wencai/references/news-search"),
