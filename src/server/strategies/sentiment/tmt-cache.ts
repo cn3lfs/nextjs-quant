@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { skillFile } from "~/server/infra/skill-location";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -284,11 +285,7 @@ export async function tmtCandidateEvidence(
     const documents = await Promise.all(
       ["SKILL.md", "scripts/tmt_crowding.py"].map(async (file) => {
         const text = await readFile(
-          /* turbopackIgnore: true */ join(
-            /* turbopackIgnore: true */ skills,
-            "tmt-crowding",
-            file,
-          ),
+          /* turbopackIgnore: true */ skillFile("tmt-crowding", file),
           "utf8",
         );
         if (!text.trim()) throw new Error("TMT方法缺失");

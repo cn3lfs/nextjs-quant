@@ -5,15 +5,15 @@
   "files": [
     {
       "file": "SKILL.md",
-      "hash": "12cd34f2395968909804c04ba0dc74be240c15a7ae6f73cf93a6948f080ba40d"
+      "hash": "ea2c572c8b5bca3b3b9d425d06fbce26e6788c84e14784a8b3a560b0f282e959"
     },
     {
       "file": "references/trading-system.md",
-      "hash": "99d35dfe20112fbc3ecaffba938e34ad641ff067ce161b16f65dad4658556b30"
+      "hash": "63c0004cbcbbba0bd2a0d556afa0bba8b4ff5651204a489393ea436a386a81f4"
     },
     {
       "file": "references/technical-indicators.md",
-      "hash": "da71d77cfdc3f02b400d5feb99cc475a7c31f4913e491c3ee3c254e75703201e"
+      "hash": "71e472809c84c234f9736a8f2804cef93550f406bab7602d316732271e282b07"
     }
   ],
   "prerequisites": [

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { skillFile } from "~/server/infra/skill-location";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -188,15 +189,7 @@ export function windmillEvidence(
 }
 
 async function method() {
-  const text = await readFile(
-    join(
-      process.env.QUANT_SKILLS_DIR ??
-        join(homedir(), ".agent-skills", "skills"),
-      "gf-windmill",
-      "SKILL.md",
-    ),
-    "utf8",
-  );
+  const text = await readFile(skillFile("gf-windmill"), "utf8");
   if (!text.trim()) throw new Error("指数估值方法文件为空");
   return {
     text,

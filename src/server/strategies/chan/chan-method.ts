@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { homedir } from "node:os";
+import { skillFile } from "~/server/infra/skill-location";
 import { createHash } from "node:crypto";
 
 export const chanMethodVersion = "chan-annotation-3";
@@ -76,13 +75,9 @@ export function chanPassages(file: string, text: string): ChanPassage[] {
 }
 
 export async function chanMethod() {
-  const root = join(
-    process.env.QUANT_SKILLS_DIR ?? join(homedir(), ".agent-skills", "skills"),
-    "chan-theory",
-  );
   const files = await Promise.all(
     chanMethodFiles.map(async (file) => {
-      const text = await readFile(join(root, file), "utf8");
+      const text = await readFile(skillFile("chan-theory", file), "utf8");
       return { file, hash: hash(text), text };
     }),
   );

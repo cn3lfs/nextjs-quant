@@ -15,6 +15,7 @@ vi.mock("openai", () => ({
 }));
 import { structured, analyze, researchModel } from "~/server/research/research";
 import { get, list, sqlite, put } from "~/server/db";
+import { skillFile } from "~/server/infra/skill-location";
 process.env.QUANT_DATA_DIR = mkdtempSync(
   join(tmpdir(), "quant-research-tests-"),
 );
@@ -32,21 +33,19 @@ beforeEach(() => {
 describe("LLM 边界与故障", () => {
   it("SEPA requires all six stages, validates citations and archives method files", async () => {
     const root = mkdtempSync(join(tmpdir(), "quant-sepa-method-"));
-    const dir = join(root, "sepa-strategy-analyst");
-    mkdirSync(join(dir, "references"), { recursive: true });
+    vi.stubEnv("QUANT_SKILLS_DIR", root);
     for (const file of [
       "SKILL.md",
-      "references/screening-criteria.md",
       "references/vcp-pattern.md",
-      "references/entry-exit-rules.md",
+      "../stop-loss/references/method-profiles.md",
       "../stop-loss/references/execution.md",
       "../stop-loss/references/position-sizing.md",
       "../astock-market-rules/SKILL.md",
     ]) {
-      mkdirSync(dirname(join(dir, file)), { recursive: true });
-      writeFileSync(join(dir, file), "fixture method");
+      const path = skillFile("sepa-strategy-analyst", file);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, "fixture method");
     }
-    vi.stubEnv("QUANT_SKILLS_DIR", root);
     put("settings", "settings", { llmProvider: "codex" });
     const report = {
       title: "fixture",
@@ -93,7 +92,7 @@ describe("LLM 边界与故障", () => {
         "sepa",
       );
       expect(result.stages).toHaveLength(6);
-      expect(result.skills?.[0]?.files).toHaveLength(7);
+      expect(result.skills?.[0]?.files).toHaveLength(6);
       expect(localCompletion).toHaveBeenCalledTimes(2);
       expect(create).not.toHaveBeenCalled();
       await analyze("context", "question", evidence, undefined, "sepa");

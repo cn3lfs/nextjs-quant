@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   tmtCrowding,
   swIndustries,
@@ -18,6 +18,7 @@ import {
 import { contextEvidence } from "~/server/data-sources/hithink/hithink-context";
 import type { Snapshot } from "~/lib/domain";
 import { get } from "~/server/db";
+import { skillFile } from "~/server/infra/skill-location";
 vi.mock("../../src/server/data-sources/sse/sse-margin", async (original) => ({
   ...(await original<
     typeof import("../../src/server/data-sources/sse/sse-margin")
@@ -249,11 +250,13 @@ it("only attaches current TMT backgrounds to verified A-stock industry; historic
   vi.stubEnv("QUANT_SKILLS_DIR", skills);
   vi.stubEnv("TMT_CROWDING_DATA_DIR", data);
   vi.stubEnv("QUANT_DATA_DIR", join(root, "db"));
-  await mkdir(join(skills, "tmt-crowding", "scripts"), { recursive: true });
+  await mkdir(dirname(skillFile("tmt-crowding", "scripts/tmt_crowding.py")), {
+    recursive: true,
+  });
   await mkdir(data);
-  await writeFile(join(skills, "tmt-crowding", "SKILL.md"), "fixture method");
+  await writeFile(skillFile("tmt-crowding"), "fixture method");
   await writeFile(
-    join(skills, "tmt-crowding", "scripts", "tmt_crowding.py"),
+    skillFile("tmt-crowding", "scripts/tmt_crowding.py"),
     "reference only",
   );
   const texts = csv(fixture());

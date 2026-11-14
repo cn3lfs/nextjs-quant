@@ -1,24 +1,20 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import ids from "~/lib/strategy-facts/trading-skill-ids.json";
+import { skillFile } from "../infra/skill-location";
 import type { Snapshot } from "~/lib/domain";
 const activeIds = ids.filter((id) => id !== "tdx-finance-skill");
-const root = () =>
-  process.env.QUANT_SKILLS_DIR ?? join(homedir(), ".agent-skills", "skills");
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const volumePriceFiles = [
   "SKILL.md",
   "references/vp-indicators.md",
   "references/vp-patterns.md",
-  "references/vp-astock-caveats.md",
+  "../technical-toolkit/astock-ta-caveats.md",
 ];
 const sepaFiles = [
   "SKILL.md",
-  "references/screening-criteria.md",
   "references/vcp-pattern.md",
-  "references/entry-exit-rules.md",
+  "../stop-loss/references/method-profiles.md",
   "../stop-loss/references/execution.md",
   "../stop-loss/references/position-sizing.md",
   "../astock-market-rules/SKILL.md",
@@ -232,7 +228,7 @@ export async function tradingLedgerMethods(): Promise<SkillUse[]> {
         names.map(async (file) => {
           // User-installed method sources are read at runtime outside the bundle.
           // Do not trace the repository as a fallback for this external path.
-          const path = join(/* turbopackIgnore: true */ root(), skillId, file);
+          const path = skillFile(skillId, file);
           const text = await readFile(/* turbopackIgnore: true */ path, "utf8");
           if (!text.trim()) throw new Error(`交易规则文件为空：${file}`);
           return { file, hash: hash(text) };
@@ -251,7 +247,7 @@ export async function breakoutMethod(): Promise<SkillUse> {
       "references/trading-system.md",
       "references/technical-indicators.md",
     ].map(async (file) => {
-      const text = await readFile(join(root(), skillId, file), "utf8");
+      const text = await readFile(skillFile(skillId, file), "utf8");
       if (!text.trim()) throw new Error(`双突破方法文件为空：${file}`);
       return { file, hash: hash(text) };
     }),
@@ -290,7 +286,7 @@ export async function researchSkillCatalog() {
                   : ["SKILL.md"]
         ).map(async (file) => {
           try {
-            const text = await readFile(join(root(), skillId, file), "utf8");
+            const text = await readFile(skillFile(skillId, file), "utf8");
             if (!text.trim()) throw new Error("方法文件为空");
             return { file, hash: hash(text) };
           } catch {
@@ -312,7 +308,7 @@ export async function researchSkillCatalog() {
         implemented: !!integration,
       };
       try {
-        const text = await readFile(join(root(), skillId, "SKILL.md"), "utf8");
+        const text = await readFile(skillFile(skillId), "utf8");
         return {
           ...metadata,
           skillId,
@@ -363,7 +359,7 @@ export async function sepaMethod() {
   const skillId = "sepa-strategy-analyst";
   const files = await Promise.all(
     sepaFiles.map(async (file) => {
-      const text = await readFile(join(root(), skillId, file), "utf8");
+      const text = await readFile(skillFile(skillId, file), "utf8");
       return { file, text, hash: hash(text) };
     }),
   );
@@ -392,7 +388,7 @@ export async function volumePriceMethod(): Promise<{
   const files = volumePriceFiles;
   const documents = await Promise.all(
     files.map(async (file) => {
-      const text = await readFile(join(root(), skillId, file), "utf8");
+      const text = await readFile(skillFile(skillId, file), "utf8");
       return { file, text, hash: hash(text) };
     }),
   );

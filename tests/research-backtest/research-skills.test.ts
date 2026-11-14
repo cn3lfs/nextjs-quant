@@ -1,11 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   researchSkillCatalog,
   volumePriceMethod,
 } from "../../src/server/research/research-skills";
+import { skillFile } from "../../src/server/infra/skill-location";
 afterEach(() => vi.unstubAllEnvs());
 it("registers new partial data adapters without claiming configured credentials or complete coverage", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-data-catalog-"));
@@ -18,8 +19,8 @@ it("registers new partial data adapters without claiming configured credentials 
     "hithink-event-query",
   ];
   for (const id of ids) {
-    await mkdir(join(root, id));
-    await writeFile(join(root, id, "SKILL.md"), "fixture");
+    await mkdir(dirname(skillFile(id)), { recursive: true });
+    await writeFile(skillFile(id), "fixture");
   }
   vi.stubEnv("IWENCAI_API_KEY", "");
   const catalog = await researchSkillCatalog();
@@ -39,19 +40,20 @@ it("registers new partial data adapters without claiming configured credentials 
 it("does not advertise a complete quick review when reference files are missing", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-skills-"));
   vi.stubEnv("QUANT_SKILLS_DIR", root);
-  const directory = join(root, "volume-price-analysis");
-  await mkdir(join(directory, "references"), { recursive: true });
-  await writeFile(
-    join(directory, "SKILL.md"),
-    "### Phase 2: fixture\n## 参考文件",
-  );
+  const id = "volume-price-analysis";
+  await mkdir(dirname(skillFile(id, "references/vp-patterns.md")), {
+    recursive: true,
+  });
+  await writeFile(skillFile(id), "### Phase 2: fixture\n## 参考文件");
   let item = (await researchSkillCatalog()).find(
     (s) => s.skillId === "volume-price-analysis",
   )!;
   expect(item.status).toBe("incomplete");
   expect(item.missingFiles).toHaveLength(3);
-  for (const file of item.missingFiles)
-    await writeFile(join(directory, file), "fixture");
+  for (const file of item.missingFiles) {
+    await mkdir(dirname(skillFile(id, file)), { recursive: true });
+    await writeFile(skillFile(id, file), "fixture");
+  }
   item = (await researchSkillCatalog()).find(
     (s) => s.skillId === "volume-price-analysis",
   )!;
@@ -60,17 +62,14 @@ it("does not advertise a complete quick review when reference files are missing"
   const previous = item.files.find((f) =>
     f.file.endsWith("vp-patterns.md"),
   )!.hash;
-  await writeFile(
-    join(directory, "references/vp-patterns.md"),
-    "changed rules",
-  );
+  await writeFile(skillFile(id, "references/vp-patterns.md"), "changed rules");
   item = (await researchSkillCatalog()).find(
     (s) => s.skillId === "volume-price-analysis",
   )!;
   expect(
     item.files.find((f) => f.file.endsWith("vp-patterns.md"))!.hash,
   ).not.toBe(previous);
-  await unlink(join(directory, "references/vp-patterns.md"));
+  await unlink(skillFile(id, "references/vp-patterns.md"));
   expect(
     (await researchSkillCatalog()).find(
       (s) => s.skillId === "volume-price-analysis",
@@ -93,8 +92,8 @@ it("does not advertise deleted LLM workflows even when their source instructions
     "hithink-finance-query",
     "announcement-search",
   ]) {
-    await mkdir(join(root, id));
-    await writeFile(join(root, id, "SKILL.md"), "fixture");
+    await mkdir(dirname(skillFile(id)), { recursive: true });
+    await writeFile(skillFile(id), "fixture");
   }
   const catalog = await researchSkillCatalog();
   for (const id of retired)
