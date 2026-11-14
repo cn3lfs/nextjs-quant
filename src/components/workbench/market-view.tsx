@@ -2,12 +2,7 @@ import { MarketSourceSelect } from "../market/market-source-select";
 import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
 import { ArrowUpRight, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  chartPeriodSchema,
-  periodLabels,
-  type ChartPeriod,
-} from "~/lib/chart/chart-view";
-import { type ChartAdjustment } from "~/lib/chart/chart-adjustment";
+import { chartPeriodSchema, periodLabels } from "~/lib/chart/chart-view";
 import { securityDisplayName } from "~/lib/market/security-display";
 import { MarketSecurityViews } from "../market/market-security-views";
 import { SecuritySelect } from "../market/security-select";
@@ -37,7 +32,7 @@ import { TdxSidePanel } from "../market/tdx-side-panel";
 import { SymbolRpsBars } from "../market/symbol-rps-bars";
 
 import { Empty } from "./shared";
-import { type WorkbenchState } from "./use-workbench-state";
+import { type MarketState } from "../market/use-market-state";
 import { useBrowseHotkey } from "../market/use-browse-hotkey";
 import { useSecurityNames } from "../market/use-security-names";
 import { api } from "~/trpc/react";
@@ -49,7 +44,7 @@ export function MarketView({
 }: {
   notify: (text: string) => void;
   state: Pick<
-    WorkbenchState,
+    MarketState,
     | "marketSource"
     | "marketView"
     | "setMarketView"
@@ -61,6 +56,10 @@ export function MarketView({
     | "load"
     | "browse"
     | "setBrowse"
+    | "chartPeriod"
+    | "setChartPeriod"
+    | "adjustment"
+    | "setAdjustment"
   >;
 }) {
   const {
@@ -75,6 +74,10 @@ export function MarketView({
     load,
     browse,
     setBrowse,
+    chartPeriod,
+    setChartPeriod,
+    adjustment: chartAdjustment,
+    setAdjustment: setChartAdjustment,
   } = state;
   const visible = useTaskVisible();
   const savedWatchlist = api.status.useQuery(undefined, {
@@ -91,9 +94,6 @@ export function MarketView({
   const watchUnavailable =
     !savedWatchlist.data || !!savedWatchlist.error || watch.isPending;
   const names = useSecurityNames().data ?? {};
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>(period);
-  const [chartAdjustment, setChartAdjustment] =
-    useState<ChartAdjustment>("none");
   const chartSymbol = loaded?.symbol ?? symbol;
   const effectiveAdjustment =
     isMarketIndex(chartSymbol) || isSectorChartSymbol(chartSymbol)
@@ -103,7 +103,7 @@ export function MarketView({
   usePeriodHotkey(
     chartPeriod,
     setChartPeriod,
-    load.isPending || marketView === "financial",
+    !visible || load.isPending || marketView === "financial",
   );
   const [browseEdge, setBrowseEdge] = useState("");
   const [listSource, setListSource] = useState<"candidates" | "watch">(

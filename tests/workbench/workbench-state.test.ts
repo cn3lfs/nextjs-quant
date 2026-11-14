@@ -133,7 +133,6 @@ it("does not register screening result queries from the shared shell", () => {
   for (const mutation of ["analyze", "scan", "cancel"])
     expect(rpc.mutations).not.toContain(mutation);
   expect(rpc.mutations).not.toContain("watchlist");
-  expect(rpc.queries.find((query) => query.name === "status")?.enabled).toBe(
-    false,
-  );
+  expect(rpc.queries.map((query) => query.name)).not.toContain("status");
+  expect(rpc.mutations).not.toContain("snapshot");
 });

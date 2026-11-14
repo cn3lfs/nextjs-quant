@@ -22,7 +22,7 @@ function query(name){return {useQuery(input,options){return useQuery({queryKey:[
 f.requests.push({name,input});if(f.fail===name)throw Error('受控读取失败');
 if(name==='maBaselineHistory')return Object.values(jobs).reverse().map(j=>({...j}));
 if(name==='jobSummary')return jobs[input.id]?{...jobs[input.id]}:null;
-if(name==='maBaselineEvaluation')return queryPerformanceEvaluation({result:report.summary,inputSnapshot:{bars:[]}},input);
+if(name==='maBaselineEvaluation')return queryPerformanceEvaluation({result:{...report.summary,input:{...report.summary.input,symbol:jobs[input.id].symbol},fills:input.id==='zero'?[]:report.fills},inputSnapshot:{bars:[]}},input);
 if(name==='maBaselineResult'){const r=structuredClone(report);if(input.id==='zero'){r.manifest.symbol='sh600519';r.summary.input.symbol='sh600519';r.fillCount=0;r.fills=[];return r;}r.fills=r.fills.slice(input.pageIndex*50,(input.pageIndex+1)*50);return r;}
 if(name==='maBaselineOrders'){const filtered=orders.filter(o=>input.status==='all'||o.status===input.status);return {orders:filtered.slice(input.pageIndex*50,(input.pageIndex+1)*50),rowCount:filtered.length};}
 }})}}}

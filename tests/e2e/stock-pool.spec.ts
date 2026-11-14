@@ -1,5 +1,125 @@
 import { expect, test } from "@playwright/test";
 import { trpcHeaders } from "./helpers";
+import { writeFile } from "node:fs/promises";
+
+test("page models retain only chart/editors and restore full market selection", async ({
+  page,
+}, testInfo) => {
+  const requests: string[] = [];
+  const timings: { route: string; elapsedMs: number }[] = [];
+  const nav = page.getByRole("navigation", { name: "工作台导航", exact: true });
+  async function visit(href: string, ready: () => Promise<void>) {
+    const start = performance.now();
+    await nav.locator(`a[href="${href}"]`).click();
+    await ready();
+    timings.push({ route: href, elapsedMs: performance.now() - start });
+  }
+  page.on("request", (request) => {
+    const names = new URL(request.url()).pathname.split("/api/trpc/")[1];
+    if (names) requests.push(...names.split(","));
+  });
+  await page.goto("/");
+  await visit("/stock-pool", () =>
+    expect(page.getByRole("region", { name: "股票池浏览" })).toBeVisible(),
+  );
+  const chartStart = performance.now();
+  await page
+    .getByRole("button", { name: "P0_FIXTURE · SH600000", exact: true })
+    .click();
+  const chart = page.getByTestId("market-chart").first();
+  await expect(chart).toBeVisible();
+  timings.push({ route: "/market", elapsedMs: performance.now() - chartStart });
+  await page.getByRole("combobox", { name: "行情周期", exact: true }).click();
+  await page.getByRole("option", { name: "周线", exact: true }).click();
+  await page.getByRole("combobox", { name: "复权方式", exact: true }).click();
+  await page.getByRole("option", { name: "前复权", exact: true }).click();
+  await expect(chart).toHaveAttribute("data-period", "week");
+  await chart.evaluate((el) => {
+    el.setAttribute("data-lifecycle-marker", "original");
+  });
+  await page.getByRole("tab", { name: "财务资料", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "本地财务工作台" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/stock-pool/);
+  const returnStart = performance.now();
+  await page.goForward();
+  await expect(
+    page.getByRole("region", { name: "本地财务工作台" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "行情图表", exact: true }).click();
+  await expect(chart).toHaveAttribute("data-lifecycle-marker", "original");
+  timings.push({
+    route: "/market:return",
+    elapsedMs: performance.now() - returnStart,
+  });
+  await page.reload();
+  await expect(chart).toHaveAttribute("data-period", "week");
+  await expect(
+    page.getByRole("combobox", { name: "复权方式", exact: true }),
+  ).toContainText("前复权");
+  expect(new URL(page.url()).searchParams.get("source")).toBe("local");
+  await visit("/screen", () =>
+    expect(page.getByLabel("公式名称", { exact: true })).toBeVisible(),
+  );
+  await page.waitForLoadState("networkidle");
+  requests.length = 0;
+  await page.getByLabel("公式名称", { exact: true }).fill("B 页面草稿");
+  await page.getByLabel("公式源码", { exact: true }).fill("选股:C>1;");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("F8");
+  await page.waitForTimeout(250);
+  expect(
+    requests.filter(
+      (name) => !["taskOverview", "monitorWorkspaceSummary"].includes(name),
+    ),
+  ).toEqual([]);
+  await visit("/backtest", () =>
+    expect(page.getByLabel("基线证券代码")).toBeVisible(),
+  );
+  await page.getByLabel("基线证券代码").fill("sh600040");
+  await visit("/reports", () =>
+    expect(
+      page.getByRole("radiogroup", { name: "研究档案工作区" }),
+    ).toBeVisible(),
+  );
+  await visit("/news", () =>
+    expect(
+      page.getByRole("heading", { name: "新闻 / 主题", exact: true }),
+    ).toBeVisible(),
+  );
+  await visit("/settings", () =>
+    expect(page.getByLabel("通达信安装目录", { exact: true })).toBeVisible(),
+  );
+  await visit("/rps", () =>
+    expect(page.getByRole("region", { name: "个股RPS数据管理" })).toBeVisible(),
+  );
+  await visit("/screen", () =>
+    expect(page.getByLabel("公式名称", { exact: true })).toHaveValue(
+      "B 页面草稿",
+    ),
+  );
+  await expect(page.getByLabel("公式源码", { exact: true })).toHaveValue(
+    "选股:C>1;",
+  );
+  await visit("/backtest", () =>
+    expect(page.getByLabel("基线证券代码")).toHaveValue("sh600040"),
+  );
+  expect(
+    await page
+      .locator("[data-retained-route]")
+      .evaluateAll((els) =>
+        els.map((el) => el.getAttribute("data-retained-route")).sort(),
+      ),
+  ).toEqual(["/backtest", "/market", "/screen"]);
+  const costFile = testInfo.outputPath("page-model-switch-cost.json");
+  await writeFile(costFile, JSON.stringify(timings, null, 2));
+  await testInfo.attach("page-model-switch-cost", {
+    path: costFile,
+    contentType: "application/json",
+  });
+});
 
 test("chart settings persist and compact text navigation reaches real pages", async ({
   page,
@@ -434,7 +554,7 @@ test("pool route keeps filters and pagination through chart navigation, back and
   await table
     .getByRole("button", { name: "P1_POOL_40 · SH600040", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600040$/);
+  await expect(page).toHaveURL(/\/market\?symbol=sh600040(?:&|$)/);
   await expect(
     page.getByRole("checkbox", { name: "双突破", exact: true }),
   ).toBeChecked();

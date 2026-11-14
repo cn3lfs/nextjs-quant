@@ -279,7 +279,7 @@ test("formula save and execution open a clean candidate chart with real breakout
     procedure(response, "breakout"),
   );
   await candidates.getByRole("button", { name: "个股研究" }).click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600000$/);
+  await expect(page).toHaveURL(/\/market\?symbol=sh600000(?:&|$)/);
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
   ).toHaveCount(0);
@@ -605,12 +605,15 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   await page.getByRole("button", { name: "新建订阅", exact: true }).click();
   await expect(page.getByText(/本次将使用自选快照/)).toContainText("sh600000");
   await page.locator('a[href="/market"]').first().click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600000$/);
+  await expect(page).toHaveURL(/\/market\?symbol=sh600000(?:&|$)/);
   await page
     .getByRole("button", { name: "移除 sh600000", exact: true })
     .click();
   await expect(add).toBeEnabled();
   await page.locator('a[href="/signals"]').first().click();
+  // Ordinary routes close page-local dialogs when leaving. Reopen the form to
+  // verify the fresh shared watchlist, rather than relying on hidden page DOM.
+  await page.getByRole("button", { name: "新建订阅", exact: true }).click();
   await expect(page.getByText(/本次将使用自选快照/)).not.toContainText(
     "sh600000",
   );

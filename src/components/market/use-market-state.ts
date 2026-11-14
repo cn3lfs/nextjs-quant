@@ -1,100 +1,130 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { Period, Snapshot } from "~/lib/domain";
-import type { BrowseList } from "~/lib/market/browse-list";
+import { useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { MarketSource } from "~/lib/market/market-source";
+import { marketSourceSchema } from "~/lib/market/market-source";
+import type { Period } from "~/lib/domain";
+import {
+  rememberMarketUrl,
+  useMarketSession,
+  type MarketSelection,
+} from "~/lib/stores/market-session";
 import { useSnapshotLoad } from "./use-snapshot-load";
 
-/** Session chart selection survives navigation; mounting the state performs no IO. */
+/** Mounted by the retained market page only. Selection itself performs no IO. */
 export function useMarketState(defaultSource?: MarketSource) {
-  const [symbol, setSymbol] = useState("sh600519");
-  const [period, setPeriod] = useState<Period>("day");
-  const [loaded, setLoaded] = useState<Snapshot | null>(null);
-  const [browse, setBrowse] = useState<BrowseList | null>(null);
-  const [marketView, setView] = useState<"chart" | "financial">("chart");
-  const [sourceOverride, setMarketSource] = useState<MarketSource | null>(null);
-  const selectedSymbol = useRef<string | null>(null);
-  const requestSource = sourceOverride ?? defaultSource;
-  const marketSource = requestSource ?? "auto";
+  const state = useMarketSession(
+    useShallow((s) => ({
+      symbol: s.symbol,
+      period: s.period,
+      loaded: s.loaded,
+      browse: s.browse,
+      marketView: s.marketView,
+      chartPeriod: s.chartPeriod,
+      adjustment: s.adjustment,
+      sourceOverride: s.marketSource,
+      revision: s.revision,
+      setSymbol: s.setSymbol,
+      setPeriod: s.setPeriod,
+      setBrowse: s.setBrowse,
+      setMarketView: s.setMarketView,
+      setChartPeriod: s.setChartPeriod,
+      setAdjustment: s.setAdjustment,
+      setMarketSource: s.setMarketSource,
+    })),
+  );
+  const request = useRef<{
+    key: string;
+    revision: number;
+    source: MarketSource;
+  } | null>(null);
   const snapshotLoad = useSnapshotLoad({
-    onSuccess: (snapshot) => {
-      setLoaded(snapshot);
-      setSymbol(snapshot.symbol);
+    onSuccess: (loaded) => {
+      if (request.current?.revision !== useMarketSession.getState().revision)
+        return;
+      useMarketSession.setState({
+        loaded,
+        snapshotSource: request.current.source,
+      });
     },
-    // Chart errors belong to the chart's inline error/retry state, not a global toast.
   });
-  function rememberSelection(next: string) {
-    selectedSymbol.current = next;
-    setSymbol(next);
-    if (window.location.pathname !== "/market") return;
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("symbol") === next) return;
-    url.searchParams.set("symbol", next);
-    window.history.replaceState(
-      null,
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-  }
+  const marketSource = state.sourceOverride ?? defaultSource ?? "auto";
   const load = {
     ...snapshotLoad,
+    // A candidate selected on another page also supersedes a failed/pending
+    // chart request. Its status must not leak onto the newly selected evidence.
+    isPending:
+      request.current?.revision === state.revision && snapshotLoad.isPending,
+    isRevalidating:
+      request.current?.revision === state.revision &&
+      snapshotLoad.isRevalidating,
+    error:
+      request.current?.revision === state.revision ? snapshotLoad.error : null,
     mutate: (...[input, options]: Parameters<typeof snapshotLoad.mutate>) => {
-      rememberSelection(input.symbol);
-      snapshotLoad.mutate(
-        { ...input, source: input.source ?? requestSource },
-        options,
-      );
+      const source = input.source
+        ? marketSourceSchema.parse(input.source)
+        : marketSource;
+      const revision = useMarketSession.getState().revision + 1;
+      request.current = {
+        key: JSON.stringify([input.symbol, input.period, source]),
+        revision,
+        source,
+      };
+      useMarketSession.setState({
+        symbol: input.symbol,
+        period: input.period,
+        marketSource: source,
+        revision,
+      });
+      rememberMarketUrl();
+      snapshotLoad.mutate({ ...input, source }, options);
     },
-    acceptSnapshot: (snapshot: Snapshot) => {
-      rememberSelection(snapshot.symbol);
-      setPeriod(snapshot.period);
-      snapshotLoad.acceptSnapshot(snapshot);
-    },
+    acceptSnapshot: useMarketSession.getState().acceptSnapshot,
   };
-  function setMarketView(view: "chart" | "financial") {
-    setView(view);
-    if (window.location.pathname !== "/market") return;
-    const url = new URL(window.location.href);
-    if (view === "financial") url.searchParams.set("view", view);
-    else url.searchParams.delete("view");
-    window.history.replaceState(
-      null,
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-  }
-  function enterMarket(requested: string | null, view?: "chart" | "financial") {
-    setMarketView(view ?? marketView);
+  function enterMarket(
+    requested: string | null,
+    view?: "chart" | "financial",
+    selection: Partial<MarketSelection> & { period?: Period } = {},
+  ) {
+    const current = useMarketSession.getState();
+    const symbol = requested ?? current.symbol;
+    const source =
+      selection.marketSource ?? current.marketSource ?? defaultSource ?? "auto";
+    const period = selection.period ?? current.period;
+    useMarketSession.setState({
+      ...selection,
+      symbol,
+      marketSource: source,
+      marketView: view ?? current.marketView,
+    });
+    rememberMarketUrl();
+    const key = JSON.stringify([symbol, period, source]);
+    const selected = current.loaded;
+    // A saved candidate owns its recorded snapshot. Returning must not replace
+    // that evidence with today's data or replay an in-flight load.
+    const sameSnapshot =
+      selected?.symbol === symbol &&
+      selected.period === period &&
+      (current.snapshotSource === null || current.snapshotSource === source);
+    const activeRequest = request.current?.revision === current.revision;
+    const conflictingRequest = activeRequest && request.current?.key !== key;
     if (
-      !selectedSymbol.current ||
-      (requested && requested !== selectedSymbol.current)
-    ) {
-      load.mutate({ symbol: requested ?? symbol, period });
-    } else {
-      // A saved candidate or cross-page selection already owns the snapshot.
-      rememberSelection(selectedSymbol.current);
-    }
+      (!sameSnapshot || conflictingRequest) &&
+      !(
+        request.current?.key === key &&
+        request.current.revision === current.revision
+      )
+    )
+      load.mutate({ symbol, period, source });
   }
-  const last = loaded?.bars.at(-1);
-  const previous = loaded?.bars.at(-2);
   return {
-    symbol,
-    setSymbol,
-    period,
-    setPeriod,
-    loaded,
-    browse,
-    setBrowse,
-    marketView,
-    setMarketView,
+    ...state,
     marketSource,
-    setMarketSource,
     load,
     enterMarket,
-    selectMarketSymbol: (next: string) => load.mutate({ symbol: next, period }),
-    last,
-    change:
-      last && previous ? (last.close / previous.close - 1) * 100 : undefined,
+    selectMarketSymbol: (symbol: string) =>
+      load.mutate({ symbol, period: useMarketSession.getState().period }),
   };
 }
+export type MarketState = ReturnType<typeof useMarketState>;

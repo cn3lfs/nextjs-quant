@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
+import { RetainedPage } from "~/components/workbench/retained-routes";
+
 export default function ScreenPage() {
-  return null;
+  return <RetainedPage route="/screen" />;
 }

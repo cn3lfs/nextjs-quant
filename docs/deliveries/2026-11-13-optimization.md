@@ -78,9 +78,12 @@
 
 ## 当前验证
 
-本轮 A-stabilize 于 2026-11-14 收口，证据在 `.test-data/optimization-20261113/a-stabilize/`，逐项根因与交接见 `.codex-runs/delivery.json`。L3 各执行一次：`pnpm typecheck`、`pnpm lint`、`pnpm format:check` 退出码均为 0；`pnpm run test` 退出码 1，主工程 6,278 通过、21 失败、27 跳过，后续包级测试未运行，完整输出为 `test.log`。
-21 项失败仍为价值因子 15 项、CANSLIM 6 项，文件与断言名称和原 Zod 冲突完全一致；字段/业务规则/断言未改，三个旧 Zod junction 的修复脚本仅预演、未 Apply，共享技能缺失与格式问题均未复现。
-临时 worker 显式解析工作区原生依赖，合成构建夹具提供真实私有编译器；4 文件/18 项定向通过，worker 与编译器负对照均失败。local-check 原报 3 项失败未复现，原 7 项检查保持不变且通过；已知失败登记仍为空。
+B-page-model 于 2026-11-14 收口：B0 只改夹具位置，默认 TEMP/任务 TEMP 各 7 项通过；目录守卫及退出码断言不变。24 路由归属见 architecture，仅行情/筛选/回测显式保留；共享选择归 market-session/URL，加载归行情页，P2 其余细粒度状态与全站视觉仍待推进。
+负对照：旧行情来源变化使外壳渲染 21→22，新断言失败；修复后通过。另补快速返回拒绝迟到响应、候选覆盖旧错误、完整 URL 刷新/前进后退与隐藏无请求回归；21 文件/75 项定向、10 个组件浏览器文件、隔离核心 12 项和证券池/图表 7 项通过。
+L3：typecheck、lint、format:check、完整 pnpm run test 退出码均 0；主工程 6,299 通过/27 跳过，包级 194 通过。全套未改父进程 TEMP，完整输出为 b-page-model/test.log。完整 pnpm build 一次及修复后的两次 Next 重建均退出 0，最终 desktop:prepare 退出 0；未正式打包。
+首轮包级来源检查因目录 URL 缺尾部 / 失败，修夹具后重跑全套；回测组件夹具遗漏 fills 已补齐；普通监控页回归重新打开已卸载弹窗再核对自选；RPS 自动任务竞态以造数父进程持有现有调度租约隔离，不改生产调度/业务规则、不放宽原断言。
+切换耗时仅为本机小型合成 fixture 单次导航（含加载/渲染），详见 switch-cost.json；证明图表节点及筛选/回测草稿返回保留，不替代完整规模预算验收。未改 schema、默认用户库、MCP、真实通知/交易或模型调用。
+证据集中于 .test-data/optimization-20261113/b-page-model/，实际退出码、保留项大小及清理结果写入 .codex-runs/delivery.json；已核验的 1,262 个夹具目录（231,212,051 字节）删除被自动审批以 blocked by policy 拒绝；保留精确清单及 PowerShell 7 默认预演脚本，未执行 -Apply。
 
 ### 前批 P2 设置、覆盖与自选读取
 

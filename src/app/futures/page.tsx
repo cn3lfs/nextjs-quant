@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache (route-panels.tsx).
-export default function FuturesPage() {
-  return null;
+import { FuturesView } from "~/components/market/futures-view";
+
+export default function Page() {
+  return <FuturesView />;
 }

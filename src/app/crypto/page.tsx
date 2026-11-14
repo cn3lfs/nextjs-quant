@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache (route-panels.tsx).
-export default function CryptoPage() {
-  return null;
+import { CryptoView } from "~/components/market/crypto-view";
+
+export default function Page() {
+  return <CryptoView />;
 }

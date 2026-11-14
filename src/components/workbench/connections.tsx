@@ -42,6 +42,8 @@ import { NewsSourceDiagnostics } from "./news-source-diagnostics";
 import { connectionConfiguration } from "~/lib/settings/connection-check";
 import { sameSetting } from "~/lib/settings/settings-draft";
 import { useSnapshotCache } from "~/lib/stores/snapshot-cache";
+import { useSettingsSession } from "~/lib/stores/settings-session";
+import type { SettingsDraftState } from "~/lib/settings/settings-draft";
 
 const connectionSections = [
   { value: "data", label: "本地行情" },
@@ -80,7 +82,12 @@ export function Connections({
     enabled: visible,
     staleTime: 60000,
   });
-  const [draftState, setDraftState] = useState({ base: value, draft: value });
+  const savedDraft = useSettingsSession((state) => state.draft);
+  const draftState = savedDraft ?? { base: value, draft: value };
+  const setDraftState = (
+    change: (state: SettingsDraftState) => SettingsDraftState,
+  ) =>
+    useSettingsSession.getState().update({ base: value, draft: value }, change);
   const [saveError, setSaveError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const saving = useRef(false);

@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import { ScreenView } from "../workbench/screen-view";
 import { usePanelVisible } from "../workbench/keep-alive";
 import type { WorkbenchState } from "../workbench/use-workbench-state";
+import type { MarketState } from "../market/use-market-state";
 import { ScreenRouteSelection } from "./screen-route-selection";
 import { useScreenResults } from "./use-screen-results";
 import { useSecurityNames } from "../market/use-security-names";
 
 export type ScreenWorkspaceProps = {
-  market: Pick<
-    WorkbenchState,
-    "setTab" | "setSymbol" | "setBrowse" | "setPeriod" | "load"
-  >;
+  market: Pick<MarketState, "setSymbol" | "setBrowse" | "setPeriod"> &
+    Pick<WorkbenchState, "setTab"> & {
+      load: Pick<MarketState["load"], "acceptSnapshot">;
+    };
 } & Pick<WorkbenchState, "notify">;
 export type ScreenViewState = ReturnType<typeof useScreenResults> &
   ScreenWorkspaceProps["market"] & {

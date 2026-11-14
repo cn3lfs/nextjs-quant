@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { PanelVisibility } from "./keep-alive";
 import { FinancialQualityPanel } from "../research/financial-quality-panel";
@@ -7,14 +9,10 @@ import { LocalFinancialWorkbench } from "../financial/local-financial-workbench"
 import { ArchiveList } from "./archive-list";
 import { Scales } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Segmented } from "../panels";
-import { type WorkbenchState } from "./use-workbench-state";
+import { useMarketSession } from "~/lib/stores/market-session";
 
-export function ResearchArchive({
-  state,
-}: {
-  state: Pick<WorkbenchState, "symbol">;
-}) {
-  const { symbol } = state;
+export function ResearchArchive() {
+  const symbol = useMarketSession((state) => state.symbol);
   const [workspace, setWorkspace] = useState<
     "archive" | "valuation" | "local" | "quality"
   >("archive");

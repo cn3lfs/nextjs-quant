@@ -34,14 +34,20 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
   expect(sidebar).toContain("navGroups.map((group, index)");
   expect(sidebar).toContain("href={item.href}");
   expect(sidebar).toContain("scroll={false}");
-  expect(source).toContain("router.push(");
-  expect(source).toContain("scroll: false");
+  const chartNavigation = readFileSync(
+    "src/components/market/open-chart.tsx",
+    "utf8",
+  );
+  expect(chartNavigation).toContain("router.push(");
+  expect(chartNavigation).toContain("scroll: false");
   expect(source).not.toContain("<a ");
   expect(sidebar).not.toContain("<a ");
-  // Visited tab and route panels stay mounted; only cached routes skip the
-  // framework children so a panel never renders twice.
-  expect(source).toContain("<PanelCache active={pathname} panels={panels} />");
-  expect(source).toContain("{!(pathname in panels) && children}");
+  // Only the three explicitly retained routes skip framework children; ordinary
+  // routes must render their actual page content instead of an unrelated cache.
+  expect(source).toContain(
+    "<PanelCache active={pathname} panels={retainedPanels} />",
+  );
+  expect(source).toContain("{!(pathname in retainedPanels) && children}");
   const navigation = readFileSync(
     "src/components/workbench/navigation.ts",
     "utf8",
@@ -49,15 +55,21 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
   for (const href of ["/signal-ledger", "/trade-ledger", "/rps"])
     expect(navigation.split(`href: "${href}"`)).toHaveLength(2);
   const panels = readFileSync(
-    "src/components/workbench/route-panels.tsx",
+    "src/components/workbench/retained-routes.tsx",
     "utf8",
   );
-  for (const href of ["/intraday", "/rps", "/cls-review"])
+  for (const href of ["/market", "/screen", "/backtest"])
     expect(panels).toContain(`"${href}":`);
   expect(panels).not.toContain('"/research":');
   // The two ledger routes fetch server data per request; caching them would
   // change that data path, so they must stay out of the panel cache.
-  for (const href of ["/signal-ledger", "/trade-ledger"])
+  for (const href of [
+    "/signal-ledger",
+    "/trade-ledger",
+    "/intraday",
+    "/rps",
+    "/cls-review",
+  ])
     expect(panels).not.toContain(`"${href}":`);
   expect(readFileSync("src/app/layout.tsx", "utf8")).toContain(
     "<WorkbenchLayout>{children}</WorkbenchLayout>",

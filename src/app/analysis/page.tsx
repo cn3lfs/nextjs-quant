@@ -1,4 +1,10 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
+"use client";
+import { EvidenceAnalysis } from "~/components/workbench/evidence-analysis";
+import { useWorkbenchNotify } from "~/components/workbench/workbench-notify";
+import { useMarketSession } from "~/lib/stores/market-session";
+
 export default function AnalysisPage() {
-  return null;
+  const loaded = useMarketSession((state) => state.loaded);
+  const notify = useWorkbenchNotify();
+  return <EvidenceAnalysis loaded={loaded} notify={notify} />;
 }

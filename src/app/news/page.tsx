@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
-export default function NewsPage() {
-  return null;
+import { NewsPanel } from "~/components/news/news-panel";
+
+export default function Page() {
+  return <NewsPanel />;
 }

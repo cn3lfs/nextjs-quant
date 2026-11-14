@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
-export default function SignalsPage() {
-  return null;
+import { SignalsView } from "~/components/workbench/signals-view";
+
+export default function Page() {
+  return <SignalsView />;
 }

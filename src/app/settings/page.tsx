@@ -1,4 +1,8 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
+"use client";
+import { SettingsPanel } from "~/components/workbench/settings-panel";
+import { useWorkbenchNotify } from "~/components/workbench/workbench-notify";
+
 export default function SettingsPage() {
-  return null;
+  const notify = useWorkbenchNotify();
+  return <SettingsPanel notify={notify} />;
 }

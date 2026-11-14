@@ -102,6 +102,59 @@ try {
     "next-candidate",
   );
   assert.equal(new URL(page.url()).searchParams.get("symbol"), "sh600001");
+  await page.evaluate(() => window.market.selectMarketSymbol("sh600002"));
+  await page.waitForFunction(() => window.requests.length === 2);
+  await page.evaluate(() =>
+    window.requests[1].reject(new Error("failed chart")),
+  );
+  await page.waitForFunction(
+    () => window.market.load.error?.message === "failed chart",
+  );
+  await page.evaluate(() =>
+    window.market.load.acceptSnapshot({
+      id: "recovery-candidate",
+      symbol: "sh600001",
+      period: "day",
+      bars: [],
+    }),
+  );
+  await page.waitForFunction(
+    () => window.market.loaded?.id === "recovery-candidate",
+  );
+  assert.equal(await page.evaluate(() => window.market.load.error), null);
+  assert.equal(await page.evaluate(() => window.market.load.isPending), false);
+  // Navigate back before a different security's request resolves. The old
+  // displayed snapshot alone must not let the in-flight request keep ownership.
+  await page.evaluate(() => window.market.selectMarketSymbol("sh600002"));
+  await page.waitForFunction(() => window.requests.length === 3);
+  await page.evaluate(() => window.market.enterMarket("sh600001"));
+  await page.waitForFunction(() => window.requests.length === 4);
+  assert.equal(
+    await page.evaluate(() => window.requests[3].input.symbol),
+    "sh600001",
+  );
+  await page.evaluate(() =>
+    window.requests[2].resolve({
+      id: "wrong-late",
+      symbol: "sh600002",
+      period: "day",
+      bars: [],
+    }),
+  );
+  await page.waitForTimeout(100);
+  assert.equal(
+    await page.evaluate(() => window.market.loaded.symbol),
+    "sh600001",
+  );
+  await page.evaluate(() =>
+    window.requests[3].resolve({
+      id: "restored",
+      symbol: "sh600001",
+      period: "day",
+      bars: [],
+    }),
+  );
+  await page.waitForFunction(() => window.market.loaded.id === "restored");
   console.log(
     "Market state: no implicit IO, exact cold candidate, source/period preservation, no duplicate navigation, late response rejected",
   );

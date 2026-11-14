@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache (route-panels.tsx).
-export default function LimitUpPage() {
-  return null;
+import { LimitUpView } from "~/components/market/limit-up-view";
+
+export default function Page() {
+  return <LimitUpView />;
 }

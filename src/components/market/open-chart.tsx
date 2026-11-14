@@ -2,6 +2,12 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { BrowseList } from "~/lib/market/browse-list";
+import { useRouter } from "next/navigation";
+import { chartSymbolHref } from "~/lib/chart/chart-symbol";
+import {
+  marketSelectionHref,
+  useMarketSession,
+} from "~/lib/stores/market-session";
 
 type OpenChart = (symbol: string, list?: BrowseList) => void;
 /** Provided by the workbench: switch to the chart without a page reload. */
@@ -13,6 +19,21 @@ const BrowseSourceContext = createContext<{
 } | null>(null);
 
 export const OpenChartProvider = OpenChartContext.Provider;
+
+/** Navigation commands read the current selection without subscribing the shell. */
+export function ChartNavigationProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const openChart: OpenChart = (symbol, list) => {
+    let href = chartSymbolHref(symbol);
+    if (href.startsWith("/market?")) {
+      const session = useMarketSession.getState();
+      session.setBrowse(list ?? null);
+      href = marketSelectionHref({ ...session, symbol, marketView: "chart" });
+    }
+    router.push(href, { scroll: false });
+  };
+  return <OpenChartProvider value={openChart}>{children}</OpenChartProvider>;
+}
 
 export function BrowseSource({
   label,

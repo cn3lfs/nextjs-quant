@@ -295,7 +295,7 @@ it("empty common samples stay in cash, duplicate symbols and invalid asOf are re
 });
 it("preserves unmodified GPL research-source snapshots and full license outside runtime", () => {
   const base = new URL(
-    "../../../docs/data-sources/portfolio-classics/open-source-ap",
+    "../../../docs/data-sources/portfolio-classics/open-source-ap/",
     import.meta.url,
   );
   const manifest = JSON.parse(

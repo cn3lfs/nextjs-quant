@@ -3,22 +3,42 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { readChartSymbolParam } from "~/lib/chart/chart-symbol";
+import { chartPeriodSchema } from "~/lib/chart/chart-view";
+import { chartAdjustmentSchema } from "~/lib/chart/chart-adjustment";
+import { marketSourceSchema } from "~/lib/market/market-source";
+import type { MarketState } from "./use-market-state";
 
 /** Mounted only on /market, inside Suspense so the shared shell stays prerenderable. */
 export function MarketRouteSelection({
   enterMarket,
 }: {
-  enterMarket: (symbol: string | null, view?: "chart" | "financial") => void;
+  enterMarket: MarketState["enterMarket"];
 }) {
   const search = useSearchParams();
   const symbol = readChartSymbolParam(search.toString());
   const view = search.get("view") === "financial" ? "financial" : "chart";
+  const period = chartPeriodSchema.safeParse(search.get("period")).data;
+  const source = marketSourceSchema.safeParse(search.get("source")).data;
+  const adjustment = chartAdjustmentSchema.safeParse(
+    search.get("adjustment"),
+  ).data;
+  const base =
+    search.get("base") === "5m"
+      ? "5m"
+      : search.has("period")
+        ? "day"
+        : undefined;
   const enter = useRef(enterMarket);
   enter.current = enterMarket;
   // Only navigation initiates a load. A pending response or local edit must not
   // replay an older URL while Next is committing the replacement search params.
   useEffect(() => {
-    enter.current(symbol, view);
-  }, [symbol, view]);
+    enter.current(symbol, view, {
+      ...(period ? { chartPeriod: period } : {}),
+      ...(source ? { marketSource: source } : {}),
+      ...(adjustment ? { adjustment } : {}),
+      ...(base ? { period: base } : {}),
+    });
+  }, [symbol, view, period, source, adjustment, base]);
   return null;
 }

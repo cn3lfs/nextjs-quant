@@ -10,6 +10,7 @@ import { api } from "~/trpc/react";
 import type { Period } from "~/lib/domain";
 import { periodLabels, type ChartPeriod } from "~/lib/chart/chart-view";
 import { periodFromCode } from "./chart-hotkeys";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 export function SecuritySelect({
   symbol,
@@ -38,6 +39,7 @@ export function SecuritySelect({
   acceptSymbol?: (symbol: string) => boolean;
 }) {
   const id = useId();
+  const visible = usePanelVisible();
   const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -46,6 +48,7 @@ export function SecuritySelect({
     function keyboard(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (
+        !visible ||
         !captureKeys ||
         disabled ||
         event.isComposing ||
@@ -67,10 +70,10 @@ export function SecuritySelect({
     }
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
-  }, [disabled, captureKeys]);
+  }, [disabled, captureKeys, visible]);
   const results = api.securities.useQuery(
     { query, period },
-    { enabled: open, staleTime: 0 },
+    { enabled: visible && open, staleTime: 0 },
   );
   const normalized = normalizeChartSymbol(query);
   const directSymbol =

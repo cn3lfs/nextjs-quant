@@ -97,6 +97,17 @@ await writeFile(
 const db = new Database(join(directory, "quant.sqlite"));
 try {
   migrate(db);
+  // Reserve the existing scheduler lease for this fixture parent. Child web
+  // processes still execute explicitly requested local tasks, while wall-clock
+  // schedulers cannot race assertions or initiate unrelated background work.
+  db.prepare(
+    "INSERT INTO records (id,kind,payload,updated_at) VALUES (?,?,?,?)",
+  ).run(
+    "scheduler-owner",
+    "lease",
+    JSON.stringify({ owner: "e2e-fixture", pid: process.pid }),
+    Date.now(),
+  );
   const settings = settingsSchema.parse({
     tdxRoot: root,
     marketDataSource: "local",

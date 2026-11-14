@@ -1,6 +1,6 @@
 # 系统架构与模块入口
 
-核对日期：2026-11-13。本页描述当前工作树，实施范围见 [roadmap](roadmap.md)，剩余工作见 [next-plan](next-plan.md)，正确性约束见 [invariants](invariants.md)。模块细节按 [模块索引](modules/README.md) 查阅；不把目录存在、方法登记或构建通过当作实际功能验收。
+核对日期：2026-11-14。本页描述当前工作树，实施范围见 [roadmap](roadmap.md)，剩余工作见 [next-plan](next-plan.md)，正确性约束见 [invariants](invariants.md)。模块细节按 [模块索引](modules/README.md) 查阅；不把目录存在、方法登记或构建通过当作实际功能验收。
 
 ## 总体结构与数据流
 
@@ -21,19 +21,44 @@ flowchart LR
 
 ## 页面模型与状态归属
 
-当前仍有两种页面承载方式，不能称为路由统一已完成：
+页面默认使用常规 Next 路由；仅 `/market`、`/screen`、`/backtest` 由 [retainedRoutes](../src/components/workbench/retained-routes.tsx) 显式登记并保留已访问的组件。三个路由文件均返回同一注册表的真实页面组件，不再返回 null；[Workbench](../src/components/workbench/workbench.tsx) 只对注册路径使用缓存，其余直接呈现框架 children。普通页面离开即交由框架管理，不占应用面板缓存，也没有外壳的另一份页面副本。
 
-- [Workbench](../src/components/workbench/workbench.tsx) 按路径装配行情、筛选、研究、设置等面板；[routePanels](../src/components/workbench/route-panels.tsx) 补充 RPS、新闻复盘及其他市场面板。部分 `page.tsx` 返回 null，部分虽然返回组件，实际仍由外壳命中的面板呈现。判断归属需同时看路径映射，不能只数 null 页面。
-- 未命中面板映射时渲染 Next 的 children，例如首页、证券池、策略中心、任务中心、账本、报告详情与研究数据指南。URL/刷新/前进后退由框架导航承载。
-- [PanelCache](../src/components/workbench/keep-alive.tsx) 当前最多保留六个注册面板，行情固定保留；其余按最近访问淘汰。普通路由只使缓存面板隐藏，不占缓存位置或改变淘汰顺序。隐藏通过可见性上下文通知查询，淘汰会卸载组件。组件局部状态不能天然跨淘汰保留；切页也不等于取消服务端任务。
+| 路由 | 页面模型 | 保留的状态与归属 |
+| --- | --- | --- |
+| `/` | 常规路由 | 排名口径 URL；首页数据 query cache |
+| `/stock-pool` | 常规路由 | 池、搜索、排序、周期、分页 URL；成分 query cache；翻股列表交给 market-session |
+| `/market` | 显式保留 | 证券、图表周期、来源、复权、图表/财务视图 URL；基础快照周期 `base=5m`；选择/已选快照/候选列表 market-session；图表设置、画线仍按证券×周期经 query cache/服务端保存；图表实例与视窗留在保留组件 |
+| `/screen` | 显式保留 | 任务身份 URL；任务、搜索、排序、分页 screen-session；公式/因子未保存编辑留在保留组件；已保存公式/结果 query cache/服务端 |
+| `/backtest` | 显式保留 | 实验草稿、当前实验 ID、报告分页留在保留组件；已提交实验/结果 query cache/服务端，刷新后显式恢复实验 |
+| `/analysis` | 常规路由 | 问题/方法 research-session；只订阅 market-session.loaded；报告 query cache，提交状态属本页 |
+| `/reports` | 常规路由 | 只订阅 market-session.symbol；报告/财务数据 query cache；工作区切换和未提交估值表单为本页临时状态 |
+| `/reports/[kind]/[id]` | 常规路由 | 报告身份路径 URL；报告事实服务端 |
+| `/settings` | 常规路由 | 未保存设置及对账基准 settings-session（仅内存）；保存结果 query cache/服务端；渠道凭证编辑不持久化 |
+| `/news` | 常规路由 | newsQuery/新闻档案身份 URL；现有新闻会话记忆保存翻页/返回上下文；数据 query cache |
+| `/cls-review` | 常规路由 | 报告选择/筛选 URL；现有复盘会话记忆；报告事实 query cache/服务端 |
+| `/rps` | 常规路由 | 任务、排名 query cache/服务端；内部口径/筛选/分页为本页临时状态，跨页找标的使用 `/stock-pool` 的 URL 流程 |
+| `/intraday` | 常规路由 | 配置和记录 query cache/服务端；操作临时状态本页；compute/schedule 继续暂停 |
+| `/signals` | 常规路由 | 订阅/渠道 query cache/服务端；未提交弹窗本页；compute/schedule 继续暂停 |
+| `/signal-ledger` | 常规路由 | 台账事实与查询结果 query cache/服务端；本页筛选与展示状态不进外壳 |
+| `/trade-ledger` | 常规路由 | 账户、持仓、成交事实 query cache/服务端；账户表单本页 |
+| `/trade-review` | 常规路由 | 已导入交割单/复盘事实 query cache/服务端；本页展示控制与账户独立 |
+| `/strategies` | 常规路由 | 方法目录、输入检查/实验 query cache/服务端；选择与展开本页 |
+| `/research/data-guide` | 常规路由 | 文档内容；无跨页草稿 |
+| `/limit-up` | 常规路由 | 日期/所选池 limit-up-store（池持久化，日期仅会话）、池数据 query cache；弹层本页 |
+| `/crypto` | 常规路由 | pair URL；该市场独立来源/周期及未提交表单本页；账户事实 query cache/服务端，不消费 A 股选择 |
+| `/futures` | 常规路由 | code URL；该市场独立来源/周期本页；快照缓存复用，不消费 A 股选择 |
+| `/tasks` | 常规请求时路由 | 已应用筛选 URL；草稿/游标/取消反馈 task-history-session；任务结果 query cache |
+| `/ui-gallery` | 常规路由 | UI 示例；无业务状态 |
 
-[useWorkbenchState](../src/components/workbench/use-workbench-state.ts) 只保留导航、提示和共享行情会话组合；status 仅选择行情默认来源，并只在行情页主动读取。设置/覆盖、自选列表和模型选择由各可见页面订阅，更新不会因完整 status 透传而重渲染外壳；自选 mutation 属于行情页。任务和通知摘要由 [WorkbenchSidebar](../src/components/workbench/workbench-sidebar.tsx) 订阅，更新不再驱动根组件渲染。侧栏与任务中心共享 taskOverview 全量统计；筛选的 jobs 最近 80 条查询仅用于默认结果发现及显式任务查询的初始信息，不再拿该窗口推算全部活动数。消费者可见且窗口聚焦时才读取/轮询。侧栏观察最新完成扫描的 ID/更新时间刷新覆盖，避免遗漏轮询间快速完成或已移出最近窗口的扫描。
+[market-session](../src/lib/stores/market-session.ts) 是共享行情选择的具名所有者；可分享字段以当前行情 URL 为导航权威，写入使用原生 history 与 Next 的 search params 同步，刷新重新解析。跨页选择命令通过 [ChartNavigationProvider](../src/components/market/open-chart.tsx) 读取当前字段并导航，不在外壳订阅，也不在来源页提前加载。筛选接受已保存候选快照时推进选择修订号，旧请求的迟到成功、失败与加载状态不能覆盖新候选。候选列表/精确快照留在当前内存会话，刷新行情恢复选择并重新读取；要重开原始候选证据从带任务身份的筛选页进入。
 
-[任务概览仓储](../src/server/db/task-overview.ts) 在同一读取事务内返回全量计数、任务修订号及最新完成扫描的 ID/更新时间；扫描按完成更新时间倒序、ID 倒序确定唯一结果，无扫描时返回 null。统计使用现有任务元数据覆盖索引，不解析输入或大结果，不新增 schema；TaskCenter 和侧栏复用相同查询策略。其余任务历史读取仍在 jobs/task-history，仓储收敛尚未全部完成。
+[useMarketState](../src/components/market/use-market-state.ts) 只由行情页面安装加载器，默认来源与自选也由可见行情页读取。档案仅订阅证券，研究和回测仅订阅已加载快照，筛选只持有选中候选的命令。外壳保留导航、toast，任务/通知摘要继续由侧栏消费；共享查询结果仍归现有 query cache，未搬入大 store。
 
-证券名称目录由行情、筛选、档案列表自行订阅，同一查询缓存共享；可见且聚焦时才读取/刷新，不再由外壳透传或驱动外壳重渲染。[行情状态](../src/components/market/use-market-state.ts) 管理证券/周期/来源及快照；筛选、首页、设置、研究分别拥有页面查询和操作。筛选控件与研究问题/方法使用独立会话 store；任务中心已独立为常规路由，通过 connection() 按请求 URL 渲染筛选控件，避免整页静态 Suspense 退为客户端渲染；任务查询仍由客户端缓存负责。已应用筛选由 URL 驱动，草稿/分页与取消反馈由本域会话保留；可分享的任务身份、证券池筛选分页使用 URL；业务实体仍由服务端持久化。
+生命周期：三个登记页面首次访问才挂载，之后在当前工作台会话内保留（注册数三，不发生 LRU 淘汰）；普通路由不改变缓存顺序。离开时 [PanelVisibility/useTaskVisible](../src/components/workbench/keep-alive.tsx) 停止页面查询/轮询与键盘捕获，切页不取消已提交服务端任务；已在途请求可结束。返回恢复视窗和草稿；刷新、工作台卸载或错误边界重建会重新挂载，选择从 URL、已保存内容从服务端、具名内存草稿从当前会话恢复，未保存的筛选/回测组件草稿不承诺跨刷新保留。图表卸载沿用既有实例清理，释放订阅、observer 与引用，不改变 CZSC 单进程串行边界。
 
-[useTaskVisible](../src/components/workbench/use-task-visible.ts) 合并面板可见性与窗口焦点，供已接入查询停用隐藏轮询。它不是全应用自动拦截器：其余页面生命周期、共享轮询和最终页面模型仍在 P2 范围内。当前状态恢复验收见 [优化交付](deliveries/2026-11-13-optimization.md)。
+本机小型合成 fixture 单次实测：行情首开 498.2ms，财务往返恢复原图表节点 127.0ms；筛选首开/返回 156.3/45.6ms，回测 119.8/50.3ms。时间包含导航、模块和数据读取，不是单独的挂载成本，也不代表完整规模性能。
+
+保留范围由图表实例/视窗及公式、因子、回测未保存编辑的实际存活需求决定；其余页面使用显式状态与 query cache。切换成本、挂载存活、负对照和恢复实测见 [当前交付](deliveries/2026-11-13-optimization.md#当前验证)，不以缓存本身或代码行数宣称性能收益。全站视觉和其余细粒度状态整理仍按 P2 继续。
 
 ## 能力与执行边界
 
@@ -113,4 +138,4 @@ ESLint 使用现有 tsconfig 的类型信息，在 src 检查 Hooks、Promise �
 
 测试根目录原有的 66 个支持文件已按职责归入 perf、fixtures/seed、manual、helpers 与 browser/fixtures，所有调用者直接使用新路径，不保留转发入口。固定输入仍保持字节，造数脚本单独参与格式检查；现行入口与人工运行前置见 [测试说明](../tests/README.md)。通用 E2E 的旧场景与预算覆盖仍需按当前业务和隔离要求整理。
 
-页面模型统一、其余状态生命周期、仓储与分页契约及 E2E/性能预算仍按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。
+本批页面模型和共享行情归属已收拢；其余状态生命周期、仓储与分页契约及 E2E/性能预算仍按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。

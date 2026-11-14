@@ -6,16 +6,28 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { runLocalChecks } from "../../scripts/lib/local-check.mjs";
 
+const roots: string[] = [];
 afterEach(() => {
   vi.unstubAllEnvs();
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true });
 });
 function fixture() {
-  const root = mkdtempSync(join(process.env.QUANT_DATA_DIR!, "check-fixture-"));
+  // The real CLI derives workspaceRoot from scripts/check.mjs. Its fixtures
+  // must therefore live under the real workspace, regardless of system TEMP.
+  const workspaceTests = resolve(".test-data");
+  const requested = resolve(process.env.QUANT_DATA_DIR!);
+  const rel = relative(workspaceTests, requested);
+  const parent =
+    rel.startsWith("..") || isAbsolute(rel) ? workspaceTests : requested;
+  mkdirSync(parent, { recursive: true });
+  const root = mkdtempSync(join(parent, "check-fixture-"));
+  roots.push(root);
   const production = join(root, "production");
   mkdirSync(production);
   writeFileSync(join(production, "sentinel"), "preserve");

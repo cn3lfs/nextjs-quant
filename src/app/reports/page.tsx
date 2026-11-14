@@ -1,4 +1,5 @@
-// Rendered by the workbench panel cache in the root layout; see navigation.ts.
-export default function ReportsPage() {
-  return null;
+import { ResearchArchive } from "~/components/workbench/research-archive";
+
+export default function Page() {
+  return <ResearchArchive />;
 }

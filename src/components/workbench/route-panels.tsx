@@ -25,23 +25,10 @@ const RpsControls = dynamic(() =>
 const RpsOverview = dynamic(() =>
   import("../market/rps-overview").then((m) => m.RpsOverview),
 );
-const CryptoView = dynamic(() =>
-  import("../market/crypto-view").then((m) => m.CryptoView),
-);
-const FuturesView = dynamic(() =>
-  import("../market/futures-view").then((m) => m.FuturesView),
-);
-const LimitUpView = dynamic(() =>
-  import("../market/limit-up-view").then((m) => m.LimitUpView),
-);
 
 /**
- * Bodies of the routed workbench pages, shared by the route definitions under
- * `src/app` and by the workbench panel cache. The workbench keeps a visited panel
- * mounted so switching pages does not discard drafts, pagination or scroll state.
- * Ledger routes own their query/navigation state and stay on framework
- * navigation rather than this panel cache. Page titles live in
- * the workbench topbar (navigation.ts).
+ * Bodies owned by ordinary Next routes. Only the RPS page's internal tabs
+ * remain mounted; leaving the route unmounts the entire page.
  */
 export function IntradayPanel() {
   return <IntradayControls />;
@@ -100,12 +87,3 @@ export function RpsPanel() {
 export function ClsReviewPanel() {
   return <ClsReviewControls />;
 }
-
-export const routePanels = {
-  "/intraday": IntradayPanel,
-  "/rps": RpsPanel,
-  "/cls-review": ClsReviewPanel,
-  "/crypto": CryptoView,
-  "/futures": FuturesView,
-  "/limit-up": LimitUpView,
-} as const;

@@ -412,6 +412,21 @@ try {
     [],
     "hidden settings/home/research must not refetch configuration or channels",
   );
+  await navigate("/market");
+  await idle();
+  const beforeSource = await page.evaluate(() => window.shellRenders);
+  await page.evaluate(() =>
+    window.client.setQueryData(["status", undefined], (old) => ({
+      ...old,
+      settings: { ...old.settings, marketDataSource: "tencent" },
+    })),
+  );
+  await page.waitForTimeout(150);
+  assert.equal(
+    await page.evaluate(() => window.shellRenders),
+    beforeSource,
+    "market source selection must not rerender the shell",
+  );
   assert.deepEqual(errors, []);
   console.log(
     "PASS: cold route, research draft isolation/eviction/submission/failure, hidden report/settings requests, overview route unmount and URL rank, current watch quotes and scan invalidation",
