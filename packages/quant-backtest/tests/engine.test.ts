@@ -1,4 +1,4 @@
-import { maBaselineSignals } from "trading-strategies";
+import { maBaselineSignals } from "../../../tests/helpers/legacy-ma-signals.js";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "trading-strategy-core/bars";
 import {

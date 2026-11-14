@@ -9,6 +9,13 @@ import type { CzscSignalDetails } from "trading-strategies/research/chan/czsc";
 import { analyzeCzsc } from "../strategies/chan/czsc";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
+import {
+  prepareStrategy,
+  selectCzscMonitorSignals,
+  type StrategyObjectInput,
+} from "trading-strategies";
+import { watchStrategy } from "../strategies/drivers/watch";
+import { breakoutStrategy } from "../strategies/drivers/strategy-definitions";
 
 export async function monitorStrategy(
   bars: Bar[],
@@ -16,8 +23,32 @@ export async function monitorStrategy(
   previous: Monitor["states"][string] | undefined,
 ) {
   const parsed = strategySchema.parse(strategy);
+  const series = { symbol: "monitor", market: "cn-equity" as const, bars };
+  const definition: StrategyObjectInput = {
+    id: "monitor-metrics",
+    version: 1,
+    market: "cn-equity",
+    period: "day",
+    universe: { kind: "symbols", symbols: [series.symbol] },
+    entry: {
+      kind: "screening-metrics",
+      fast: parsed.fast,
+      slow: parsed.slow,
+      minChange: parsed.minChange,
+      maxChange: parsed.maxChange,
+      minVolumeRatio: parsed.minVolumeRatio,
+    },
+    exit: {},
+    sizing: { kind: "weight", weight: 1 },
+    sleeve: "swing",
+  };
   if (parsed.type === "dual-breakout") {
-    const breakout = analyzeBreakout(bars),
+    const prepared = bars.length
+      ? prepareStrategy(breakoutStrategy([series.symbol]), bars)
+      : null;
+    const breakout = prepared
+        ? prepared.breakoutAt(bars.length - 1)
+        : analyzeBreakout(bars),
       p = breakout.latest;
     const qualified = p
       ? [p.long, p.short].filter((s) => s.status === "是")
@@ -39,7 +70,16 @@ export async function monitorStrategy(
             slow: 0,
             volumeRatio: p.volumeRatio ?? 0,
             score: Math.max(p.long.score ?? 0, p.short.score ?? 0),
-            matched: fresh.length > 0 && bars.at(-1)!.volume > 0,
+            matched:
+              fresh.length > 0 &&
+              bars.at(-1)!.volume > 0 &&
+              (watchStrategy(breakoutStrategy([series.symbol]), series, p.date)
+                .length > 0 ||
+                watchStrategy(
+                  breakoutStrategy([series.symbol], "exit"),
+                  series,
+                  p.date,
+                ).length > 0),
           } satisfies Metrics)
         : null,
       previous: previous ? { ...previous, matched: false } : undefined,
@@ -48,35 +88,53 @@ export async function monitorStrategy(
       breakout,
     };
   }
-  if (parsed.type !== "czsc")
+  if (parsed.type !== "czsc") {
+    const value = metrics(bars, parsed);
     return {
-      value: metrics(bars, parsed),
+      value: value
+        ? {
+            ...value,
+            matched: watchStrategy(definition, series, value.date).length > 0,
+          }
+        : null,
       previous,
       details: undefined,
       keys: undefined,
     };
+  }
   const last = bars.at(-1);
   if (!last)
     return { value: null, previous, details: undefined, keys: undefined };
   const result = await analyzeCzsc(bars, true);
   const family = result.families.find((f) => f.config === parsed.params.config);
-  const qualified =
-    result.status === "structure"
-      ? (family?.signals.filter(
-          (s) =>
-            [1, 2].includes(s.quality) && [1, 2, 3].includes(Math.abs(s.kind)),
-        ) ?? [])
-      : [];
-  const key = (s: (typeof qualified)[number]) =>
+  const signals = result.status === "structure" ? (family?.signals ?? []) : [];
+  const key = (s: (typeof signals)[number]) =>
     `${parsed.params.config}:${s.date}:${s.kind}`;
+  const observations = signals.map((s) => ({
+    date: last.date,
+    availableAt: last.date,
+    endpointDate: s.date,
+    config: parsed.params.config,
+    key: key(s),
+    kind: s.kind,
+    quality: s.quality,
+  }));
+  const selection = selectCzscMonitorSignals(
+    observations,
+    parsed.params.config,
+    last.date,
+    previous?.signalKeys,
+  );
   const keys = [
-    ...new Set([...(previous?.signalKeys ?? []), ...qualified.map(key)]),
+    ...new Set([
+      ...(previous?.signalKeys ?? []),
+      ...selection.qualified.map((s) => s.key),
+    ]),
   ];
   // A newly confirmed historical endpoint is an event observed on today's completed
   // bar. First run/resume still establishes a baseline via the existing transition.
-  const fresh = previous?.signalKeys
-    ? qualified.filter((s) => !previous.signalKeys!.includes(key(s)))
-    : [];
+  const freshKeys = new Set(selection.fresh.map((s) => s.key));
+  const fresh = signals.filter((s) => freshKeys.has(key(s)));
   const details: CzscSignalDetails = {
     strategyVersion: "czsc-monitor-1",
     dllVersion: result.hash.slice(0, 8),
@@ -112,7 +170,22 @@ export async function monitorStrategy(
     slow: 0,
     volumeRatio: 0,
     score: 0,
-    matched: fresh.length > 0 && last.volume > 0,
+    matched:
+      last.volume > 0 &&
+      watchStrategy(
+        {
+          ...definition,
+          id: "monitor-czsc",
+          entry: { kind: "czsc-monitor", config: parsed.params.config },
+        },
+        {
+          ...series,
+          external: {
+            monitorCzsc: { observations, seenKeys: previous?.signalKeys },
+          },
+        },
+        last.date,
+      ).length > 0,
   };
   return {
     value,

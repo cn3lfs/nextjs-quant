@@ -12,6 +12,9 @@ import { background, runWorker } from "../jobs/jobs";
 import type { FormulaScreenOutput } from "./formula-screen-work";
 import type { StoredScreenResult } from "./screen-results";
 import { readJobResultSnapshot } from "../db/job-results";
+import { formulaStrategy } from "../strategies/drivers/strategy-definitions";
+import { strategyObjectSchema } from "trading-strategies";
+import { StrategyRepository } from "../db/strategy-repository";
 export const savedFormulas = () =>
   readRecordSnapshot("tdx-formula", (rows: Iterable<SavedFormula>) =>
     [...rows].sort(
@@ -30,6 +33,7 @@ export function exportFormulaScreen(job: Job) {
       period: z.literal("day").optional(),
       source: z.literal("tdx-local").optional(),
       adjustment: z.enum(["none", "forward", "backward"]).optional(),
+      strategy: strategyObjectSchema.optional(),
     })
     .parse(job.input);
   const result = job.result as StoredScreenResult;
@@ -98,6 +102,7 @@ export function formulaScreenJob(input: unknown) {
     root: settings().tdxRoot,
     formula,
     now: Date.now(),
+    strategy: new StrategyRepository().saveStrategy(formulaStrategy(formula)),
   };
   return background(
     "screen",

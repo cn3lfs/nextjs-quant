@@ -14,6 +14,7 @@ export {
   strategyExperimentWarmup,
   replayFiveMinute,
   replaySignalSeries,
+  fiveMinuteStrategy,
 } from "./five-minute-profile.js";
 export type { StrategyExperimentInput } from "./five-minute-profile.js";
 export {

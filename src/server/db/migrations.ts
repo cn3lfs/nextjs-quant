@@ -107,6 +107,26 @@ const migrations = [
   monitorWorkspaceIndexes,
   jobTaskIndexes,
   chartViewPeriods,
+  `CREATE TABLE strategies (
+    id TEXT NOT NULL, version INTEGER NOT NULL CHECK(version>0),
+    market TEXT NOT NULL CHECK(market IN ('cn-equity','crypto')),
+    payload TEXT NOT NULL CHECK(json_valid(payload)), created_at INTEGER NOT NULL,
+    PRIMARY KEY(id,version));
+   CREATE TABLE trade_plans (
+    id TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL,
+    symbol TEXT NOT NULL, sleeve TEXT NOT NULL, trigger_key TEXT NOT NULL,
+    expires_at TEXT, status TEXT NOT NULL CHECK(status IN ('open','closed','expired')),
+    payload TEXT NOT NULL CHECK(json_valid(payload)), created_at INTEGER NOT NULL,
+    FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version));
+   CREATE INDEX trade_plans_strategy ON trade_plans(strategy_id,strategy_version,symbol,id);
+   CREATE TABLE watch_events (
+    dedupe_key TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL,
+    symbol TEXT NOT NULL, bar TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('entry','exit','stop','target')),
+    price REAL NOT NULL CHECK(price>0), status TEXT NOT NULL CHECK(status IN ('new','planned','handled')),
+    plan_id TEXT REFERENCES trade_plans(id), payload TEXT NOT NULL CHECK(json_valid(payload)),
+    FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version));
+   CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

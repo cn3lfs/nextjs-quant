@@ -7,6 +7,8 @@ import { readBars } from "~/server/market/bar-store/read-bars";
 import { evaluateFormula } from "trading-strategies/formula/tdx-formula";
 import { settings } from "~/server/infra/settings";
 import type { Bar } from "~/lib/domain";
+import { evaluateStrategySeries } from "~/server/strategies/drivers/evaluation";
+import { formulaStrategy } from "~/server/strategies/drivers/strategy-definitions";
 
 const parent = resolve(process.env.QUANT_BENCH_ROOT ?? ".test-data/r1a");
 if (!parent.startsWith(resolve(".test-data") + "\\"))
@@ -39,10 +41,15 @@ if (!root) {
     .filter((s) => s.period === "day")
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
   const formula = "选股:CROSS(MA(C,5),MA(C,20));";
+  const strategy = formulaStrategy({
+    name: "benchmark",
+    source: formula,
+    parameters: {},
+  });
   let phase = 0;
   const measure = async (
     reader: (symbol: string) => Promise<{ bars: Bar[] }>,
-    evaluate: boolean,
+    evaluate: boolean | "strategy",
   ) => {
     const start = performance.now();
     let cursor = 0,
@@ -58,9 +65,21 @@ if (!root) {
             bars += result.bars.length;
             if (
               evaluate &&
-              evaluateFormula(formula, result.bars, {}).outputs[0]?.values.at(
-                -1,
-              )
+              (evaluate === "strategy"
+                ? evaluateStrategySeries(
+                    strategy,
+                    {
+                      market: "cn-equity",
+                      symbol,
+                      bars: result.bars,
+                    },
+                    result.bars.at(-1)!.date,
+                  )?.decision.entry
+                : evaluateFormula(
+                    formula,
+                    result.bars,
+                    {},
+                  ).outputs[0]?.values.at(-1))
             )
               matches++;
           } catch (error) {
@@ -99,7 +118,7 @@ if (!root) {
   const after = {
     coldLoad: await measure(afterReader, false),
     warmLoad: await measure(afterReader, false),
-    warmScan: await measure(afterReader, true),
+    warmScan: await measure(afterReader, "strategy"),
     forwardScan: await measure(
       (symbol) =>
         readBars({
@@ -108,7 +127,7 @@ if (!root) {
           period: "day",
           adjustment: "forward",
         }),
-      true,
+      "strategy",
     ),
   };
   await writeFile(

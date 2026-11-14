@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { executionCostsSchema } from "trading-strategy-core/costs";
 export type { Bar } from "trading-strategy-core/bars";
-import { maBaselineId } from "trading-strategies";
 export const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { strategySchema, type Snapshot } from "~/lib/domain";
-import {
-  evaluateFormula,
-  FormulaError,
-} from "trading-strategies/formula/tdx-formula";
+import { FormulaError } from "trading-strategies/formula/tdx-formula";
+import { evaluateStrategySeries } from "../strategies/drivers/evaluation";
+import { formulaStrategy } from "../strategies/drivers/strategy-definitions";
+import type { StrategyObjectInput } from "trading-strategies";
 import type { ScreeningFormula } from "trading-strategies/formula/formula-screen";
 
 import { readBars } from "~/server/market/bar-store/read-bars";
@@ -15,7 +15,11 @@ import { RpsStore } from "../db/rps-store";
 import { usesRpsFields } from "trading-strategies/formula/tdx-formula-check";
 import { parseFormula } from "trading-strategies/formula/tdx-formula-syntax";
 
-export type FormulaRangeWork = { root: string; now: number };
+export type FormulaRangeWork = {
+  root: string;
+  now: number;
+  strategy?: StrategyObjectInput;
+};
 
 /** Raw results of one contiguous range of securities (in symbol order). */
 export type FormulaPart = {
@@ -53,6 +57,7 @@ export async function scanFormulaRange(
   const completed = completedBarFilter("day", work.now);
   const observed: { symbol: string; name: string; date: string }[] = [];
   const strategy = strategySchema.parse({});
+  const definition = work.strategy ?? formulaStrategy(formula);
   // Reads run up to PREFETCH files ahead while earlier ones are evaluated;
   // results are still consumed strictly in order, so outputs, errors and
   // progress are identical to a sequential scan.
@@ -105,14 +110,18 @@ export async function scanFormulaRange(
       if (result.asOf === null || last.date > result.asOf)
         result.asOf = last.date;
       // Formula errors are task failures, not per-security skips or approximations.
-      let value: number | null | undefined;
+      let value: boolean | null | undefined;
       try {
-        value = evaluateFormula(
-          formula.source,
-          bars,
-          formula.parameters,
-          rps?.curve(security.symbol),
-        ).outputs[0]!.values.at(-1);
+        value = evaluateStrategySeries(
+          definition,
+          {
+            symbol: security.symbol,
+            market: "cn-equity",
+            bars,
+            external: { rps: rps?.curve(security.symbol) },
+          },
+          last.date,
+        )?.decision.entry;
       } catch (e) {
         if (e instanceof FormulaError)
           throw new Error(`${security.symbol}：${e.message}`);
@@ -126,7 +135,7 @@ export async function scanFormulaRange(
             ? "公式输出无效：RPS缺失、历史不足或计算定义域为空"
             : "公式输出无效：历史不足或计算定义域为空",
         });
-      else if (value !== 0) {
+      else if (value) {
         const detail = metrics(bars, strategy);
         // Candidate table's default MA/volume columns are descriptive only.
         // Short histories have unavailable metrics, not fabricated zeros.

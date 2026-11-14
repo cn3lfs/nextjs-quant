@@ -1,0 +1,186 @@
+import type Database from "better-sqlite3";
+import { z } from "zod";
+import {
+  strategyObjectSchema,
+  type StrategyObjectInput,
+} from "trading-strategies";
+import type { WatchEvent } from "../strategies/drivers/watch";
+import { sqlite } from "./index";
+
+const positive = z.number().finite().positive();
+const eventSchema = z
+  .object({
+    key: z.string().min(1),
+    strategyId: z.string().min(1),
+    version: z.number().int().positive(),
+    market: z.enum(["cn-equity", "crypto"]),
+    symbol: z.string().min(1),
+    bar: z.string().refine((v) => Number.isFinite(Date.parse(v))),
+    type: z.enum(["entry", "exit", "stop", "target"]),
+    price: positive,
+    sleeve: z.string().min(1),
+    stop: positive.nullable(),
+    target: positive.nullable(),
+  })
+  .strict();
+export const tradePlanSchema = z
+  .object({
+    id: z.string().min(1),
+    strategyId: z.string().min(1),
+    strategyVersion: z.number().int().positive(),
+    symbol: z.string().min(1),
+    sleeve: z.string().min(1),
+    triggerKey: z.string().min(1),
+    entry: positive,
+    tranches: z.number().int().min(1).max(100),
+    quantity: positive.nullable(),
+    stop: positive.nullable(),
+    target: positive.nullable(),
+    expiresAt: z
+      .string()
+      .refine((v) => Number.isFinite(Date.parse(v)))
+      .nullable(),
+    status: z.enum(["open", "closed", "expired"]),
+  })
+  .strict();
+export type TradePlan = z.infer<typeof tradePlanSchema>;
+
+/** Immutable definitions and deduped observations. No scheduling or delivery side effects.
+ * Local records live until the owner explicitly deletes them; never evict trading evidence.
+ */
+export class StrategyRepository {
+  constructor(private readonly connection: Database.Database = sqlite()) {}
+  saveStrategy(raw: StrategyObjectInput) {
+    const strategy = strategyObjectSchema.parse(raw);
+    const payload = JSON.stringify(strategy);
+    return this.connection
+      .transaction(() => {
+        const existing = this.connection
+          .prepare("SELECT payload FROM strategies WHERE id=? AND version=?")
+          .get(strategy.id, strategy.version) as
+          { payload: string } | undefined;
+        if (existing && existing.payload !== payload)
+          throw new Error("Strategy version is immutable");
+        if (!existing)
+          this.connection
+            .prepare("INSERT INTO strategies VALUES(?,?,?,?,?)")
+            .run(
+              strategy.id,
+              strategy.version,
+              strategy.market,
+              payload,
+              Date.now(),
+            );
+        return strategy;
+      })
+      .immediate();
+  }
+  strategy(id: string, version: number) {
+    const row = this.connection
+      .prepare("SELECT payload FROM strategies WHERE id=? AND version=?")
+      .get(id, version) as { payload: string } | undefined;
+    return row ? strategyObjectSchema.parse(JSON.parse(row.payload)) : null;
+  }
+  /** Event and optional plan commit together; replay never overwrites first-seen evidence. */
+  record(
+    raw: StrategyObjectInput,
+    eventInput: WatchEvent,
+    planInput?: TradePlan,
+  ) {
+    const event = eventSchema.parse(eventInput);
+    const plan = planInput ? tradePlanSchema.parse(planInput) : undefined;
+    return this.connection
+      .transaction(() => {
+        const strategy = this.saveStrategy(raw);
+        if (
+          event.strategyId !== strategy.id ||
+          event.version !== strategy.version ||
+          event.market !== strategy.market ||
+          event.sleeve !== strategy.sleeve ||
+          event.key !==
+            JSON.stringify([
+              strategy.id,
+              strategy.version,
+              strategy.market,
+              event.symbol,
+              event.bar,
+            ])
+        )
+          throw new Error("Event strategy identity mismatch");
+        if (
+          plan &&
+          (plan.triggerKey !== event.key ||
+            plan.strategyId !== strategy.id ||
+            plan.strategyVersion !== strategy.version ||
+            plan.symbol !== event.symbol ||
+            plan.sleeve !== strategy.sleeve)
+        )
+          throw new Error("Plan trigger mismatch");
+        if (
+          this.connection
+            .prepare("SELECT 1 FROM watch_events WHERE dedupe_key=?")
+            .get(event.key)
+        )
+          return false;
+        if (plan)
+          this.connection
+            .prepare("INSERT INTO trade_plans VALUES(?,?,?,?,?,?,?,?,?,?)")
+            .run(
+              plan.id,
+              plan.strategyId,
+              plan.strategyVersion,
+              plan.symbol,
+              plan.sleeve,
+              plan.triggerKey,
+              plan.expiresAt,
+              plan.status,
+              JSON.stringify(plan),
+              Date.now(),
+            );
+        this.connection
+          .prepare("INSERT INTO watch_events VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .run(
+            event.key,
+            strategy.id,
+            strategy.version,
+            event.symbol,
+            event.bar,
+            event.type,
+            event.price,
+            plan ? "planned" : "new",
+            plan?.id ?? null,
+            JSON.stringify(event),
+          );
+        return true;
+      })
+      .immediate();
+  }
+  events(limit: number, after?: { bar: string; key: string }) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200)
+      throw new Error("Invalid event page size");
+    const rows = this.connection
+      .prepare(
+        `SELECT bar,dedupe_key,payload FROM watch_events ${after ? "WHERE (bar,dedupe_key)>(?,?)" : ""} ORDER BY bar,dedupe_key LIMIT ?`,
+      )
+      .all(...(after ? [after.bar, after.key, limit + 1] : [limit + 1])) as {
+      bar: string;
+      dedupe_key: string;
+      payload: string;
+    }[];
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    return {
+      items: page.map((row) => eventSchema.parse(JSON.parse(row.payload))),
+      next:
+        rows.length > limit && last
+          ? { bar: last.bar, key: last.dedupe_key }
+          : null,
+    };
+  }
+  plan(id: string) {
+    const row = this.connection
+      .prepare("SELECT payload FROM trade_plans WHERE id=?")
+      .get(id) as { payload: string } | undefined;
+    return row ? tradePlanSchema.parse(JSON.parse(row.payload)) : null;
+  }
+}

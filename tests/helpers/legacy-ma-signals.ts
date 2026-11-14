@@ -1,6 +1,6 @@
 import { ma } from "trading-strategy-core/indicators";
 import type { Bar } from "trading-strategy-core/bars";
-import type { SignalSeries } from "./factor-strategy.js";
+import type { SignalSeries } from "trading-strategies";
 export const maBaselineId = "ma-cross-baseline-v1" as const;
 /** Shared indicator core is the only MA implementation. */
 export function maBaselineSignals(bars: readonly Bar[]) {

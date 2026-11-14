@@ -8,6 +8,8 @@ import { readBars } from "~/server/market/bar-store/read-bars";
 import { isAStock } from "tstdx/local";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import { breakoutSourceManifest } from "./breakout-source-manifest";
+import { prepareStrategy } from "trading-strategies";
+import { breakoutStrategy } from "../drivers/strategy-definitions";
 
 type Batch = {
   total: number;
@@ -94,10 +96,17 @@ export async function breakoutBatch(
             adjustment: "forward",
             to: local.slice(0, 10),
           });
-          const point = analyzeBreakout(
-            source.bars.filter((b) => completed(b.date)),
-          ).latest;
-          if (point && [point.long, point.short].some((s) => s.status === "是"))
+          const bars = source.bars.filter((b) => completed(b.date));
+          const long = prepareStrategy(breakoutStrategy([symbol]), bars);
+          const short = prepareStrategy(
+            breakoutStrategy([symbol], "exit"),
+            bars,
+          );
+          const matched =
+            long.evaluate(bars.length - 1).entry === true ||
+            short.evaluate(bars.length - 1).entry === true;
+          const point = long.breakoutAt(bars.length - 1).latest;
+          if (point && matched)
             result.candidates.push({ symbol, hash: source.hash, point });
         } catch (error) {
           result.errors.push({ symbol, error: String(error) });

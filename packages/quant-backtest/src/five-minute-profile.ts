@@ -2,8 +2,7 @@ import { z } from "zod";
 import {
   factorStrategySchema,
   factorStrategyWarmup,
-  factorStrategySignals,
-  maCrossStrategy,
+  type StrategyObjectInput,
 } from "trading-strategies";
 import {
   backtestRequestSchema,
@@ -102,13 +101,21 @@ export function replaySignalSeries(
     },
     progress,
   );
+  return projectFiveMinute(input, result, signals.id);
+}
+
+function projectFiveMinute(
+  input: BacktestRequest,
+  result: ReturnType<typeof runPortfolio>,
+  strategyId: string,
+) {
   const analyzer = new EquityAnalyzer(input.initial);
   for (const row of result.curve)
     analyzer.observe(row.date.slice(0, 10), row.equity);
   return {
     engineVersion,
     engineHash: maBaselineBuildHash,
-    strategyId: signals.id,
+    strategyId,
     quality: "rule-check-only" as const,
     input,
     cash: result.curve.at(-1)!.cash,
@@ -148,6 +155,7 @@ export function replayFiveMinute(
   bars: readonly Bar[],
   progress?: (done: number, total: number) => void,
   signalBars: readonly Bar[] = bars,
+  definition: StrategyObjectInput = fiveMinuteStrategy(raw),
 ) {
   const input = strategyExperimentInputSchema.parse(raw);
   const { strategy, ...request } = input;
@@ -156,23 +164,40 @@ export function replayFiveMinute(
     signalBars.some((b, i) => b.date !== bars[i]!.date)
   )
     throw new Error("信号与原价行情未对齐");
-  const signals = strategy
-    ? factorStrategySignals(signalBars, strategy)
-    : maCrossStrategy(signalBars);
-  const result = replaySignalSeries(
+  validateFiveMinuteFeed(input, bars, strategyExperimentWarmup(input));
+  const result = projectFiveMinute(
     request,
-    bars,
-    signals,
-    {
-      evidence: "ohlcv-conservative-experiment-1：非历史交易状态认证",
-      minimumBuy: 100,
-      buyStep: 100,
-      maximumOrder: 100000000,
-      limitUp: null,
-      limitDown: null,
-      tradable: true,
-    },
-    progress,
+    runPortfolio(
+      {
+        market: "cn-equity",
+        initial: input.initial,
+        start: input.start,
+        end: input.end,
+        costs: input.costs,
+        calendar: bars.map((b) => b.date),
+        instruments: [
+          {
+            symbol: input.symbol,
+            market: "cn-equity",
+            bars,
+            signalBars,
+            execution: {
+              evidence: "ohlcv-conservative-experiment-1：非历史交易状态认证",
+              minimum: 100,
+              step: 100,
+              maximum: 100000000,
+              limitUp: null,
+              limitDown: null,
+              tradable: true,
+            },
+          },
+        ],
+        strategies: [definition],
+        sleeves: [{ id: "main", share: 1, riskPerTrade: 1, maxPositions: 1 }],
+      },
+      progress,
+    ),
+    definition.id,
   );
   return {
     ...result,
@@ -196,6 +221,28 @@ export function replayFiveMinute(
           "佣金、最低佣金、卖出税费、滑点为固定实验参数；过户费及历史费率变化未还原。",
           "净值按日末显示；最大回撤在逐根五分钟估值上计算，含初始本金。",
         ],
+  };
+}
+export function fiveMinuteStrategy(
+  input: StrategyExperimentInput,
+): StrategyObjectInput {
+  const factor = input.strategy;
+  return {
+    id: factor?.id ?? "ma-cross-baseline-v1",
+    version: 1,
+    market: "cn-equity",
+    period: "5m",
+    universe: { kind: "symbols", symbols: [input.symbol] },
+    entry: factor
+      ? { kind: "factor", strategy: factor, side: "entry" }
+      : { kind: "formula", source: "选股:CROSS(MA(C,5),MA(C,20));" },
+    exit: {
+      rule: factor
+        ? { kind: "factor", strategy: factor, side: "exit" }
+        : { kind: "formula", source: "选股:CROSS(MA(C,20),MA(C,5));" },
+    },
+    sizing: { kind: "weight", weight: 1 },
+    sleeve: "main",
   };
 }
 export type MaBaselineResult = ReturnType<typeof replayFiveMinute>;

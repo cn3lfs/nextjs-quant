@@ -43,7 +43,7 @@ const bars: Bar[] = Array.from({ length: 30 }, (_, i) => ({
   open: i + 1,
   close: i + 2,
   high: i + 3,
-  low: i,
+  low: i + 0.5,
   volume: 100,
   amount: 1000,
 }));

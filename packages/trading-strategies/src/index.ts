@@ -24,7 +24,6 @@ export * from "./csi800-position-risk.js";
 export * from "./csi800-model.js";
 export * from "./study-decision.js";
 export * from "./csi800-composite.js";
-export * from "./ma-cross.js";
 export * from "./build-identity.js";
 
 export * from "./taxonomy.js";

@@ -64,7 +64,7 @@ it("keeps existing views when upgrading from version 13", () => {
   const full = new Database(":memory:");
   migrate(full);
   const version = full.pragma("user_version", { simple: true }) as number;
-  db.pragma(`user_version = ${version - 1}`);
+  db.pragma("user_version = 13");
   migrate(db);
   expect(db.pragma("user_version", { simple: true })).toBe(version);
   expect(db.prepare("SELECT symbol, period FROM chart_views").all()).toEqual([

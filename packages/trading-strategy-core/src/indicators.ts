@@ -272,6 +272,24 @@ export function maSeries(
   n: number,
 ): IndicatorValue[] {
   period(n);
+  // Dense finite price histories are the full-market scan hot path. Prove the
+  // property once, then retain each window's exact left-to-right arithmetic.
+  // Sparse/null/nonfinite formula inputs keep the original per-window semantics.
+  let finiteDense = true;
+  for (const value of values)
+    if (value == null || !Number.isFinite(value)) {
+      finiteDense = false;
+      break;
+    }
+  if (finiteDense) {
+    const result: IndicatorValue[] = Array(values.length).fill(null);
+    for (let i = n - 1; i < values.length; i++) {
+      let sum = 0;
+      for (let at = i + 1 - n; at <= i; at++) sum += values[at]!;
+      result[i] = finite(sum / n);
+    }
+    return result;
+  }
   return values.map((_, i) => {
     if (i + 1 < n) return null;
     // Preserve each window's left-to-right addition (including overflow and

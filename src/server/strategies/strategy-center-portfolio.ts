@@ -1,13 +1,21 @@
 import { createHash } from "node:crypto";
 import type { FinancialReportSnapshot } from "trading-strategy-core/financial";
 import { z } from "zod";
-import { replayAllocationStudy, engineVersion } from "quant-backtest";
+import {
+  replayAllocationStudy,
+  engineVersion,
+  studySignalBars,
+} from "quant-backtest";
 import {
   evaluateStrategy,
   strategyBuildHash,
   type Csi800Stock,
   type Csi800Allocation,
+  strategyObjectSchema,
 } from "trading-strategies";
+import { backtestStrategy } from "./drivers/backtest";
+import { equityResearchRules } from "trading-strategy-core/market-rules";
+import { defaultExecutionCosts } from "trading-strategy-core/costs";
 import {
   strategyCenterCandidateFields,
   captureStrategyCandidates,
@@ -32,6 +40,7 @@ export const strategyCenterPortfolioSchema = z
     start: day,
     end: day,
     initial: z.number().positive().finite().max(1e10).default(1000000),
+    strategy: strategyObjectSchema.optional(),
   })
   .refine((v) => v.start <= v.end, "开始日期不能晚于结束日期");
 type CandidateReaders = NonNullable<
@@ -118,6 +127,11 @@ export async function executeStrategyCenterPortfolio(
 ) {
   signal?.throwIfAborted();
   const input = strategyCenterPortfolioSchema.parse(raw);
+  if (
+    input.strategy &&
+    (input.strategy.market !== "cn-equity" || input.strategy.period !== "day")
+  )
+    throw new Error("当前策略中心组合入口仅支持A股日线策略对象");
   if (
     input.end >= new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10)
   )
@@ -262,7 +276,7 @@ export async function executeStrategyCenterPortfolio(
     capture: ReturnType<typeof compactCapture>;
   }[] = [];
   const reportArchive: Record<string, FinancialReportSnapshot> = {};
-  for (const date of decisionDates) {
+  for (const date of input.strategy ? [] : decisionDates) {
     signal?.throwIfAborted();
     const capture = await captureStrategyCandidates(
       { strategyId: input.strategyId, symbols: input.symbols, asOf: date },
@@ -304,20 +318,131 @@ export async function executeStrategyCenterPortfolio(
     decisions,
     reportArchive,
     options,
+    ...(input.strategy ? { strategyObject: input.strategy } : {}),
   };
   const inputHash = createHash("sha256")
     .update(JSON.stringify(frozen))
     .digest("hex");
   signal?.throwIfAborted();
-  const result = replayAllocationStudy(stocks, benchmark, options, schedule);
+  const portfolio = input.strategy
+    ? backtestStrategy({
+        market: "cn-equity",
+        initial: input.initial,
+        costs: { ...defaultExecutionCosts, slippageBps: options.slippageBps },
+        start: input.start,
+        end: input.end,
+        calendar: dates,
+        strategies: [input.strategy],
+        sleeves: [
+          {
+            id: input.strategy.sleeve,
+            share: 1,
+            riskPerTrade: 0.02,
+            maxPositions: input.symbols.length,
+          },
+        ],
+        memberships: dates.map((date) => ({
+          strategyId: input.strategy!.id,
+          date,
+          availableAt: date,
+          symbols: input.symbols,
+        })),
+        instruments: stocks.map((stock) => ({
+          symbol: stock.symbol,
+          market: "cn-equity" as const,
+          bars: stock.bars,
+          signalBars:
+            stock.signalBars ??
+            studySignalBars(
+              stock.bars,
+              stock.actions.map((a) => ({
+                date: a.date,
+                perShare: a.dividend,
+              })),
+            ),
+          execution: Object.fromEntries(
+            stock.bars.map((b, i) => {
+              const rules = equityResearchRules(stock.symbol, b.date);
+              const action = stock.actions.find((a) => a.date === b.date);
+              const reference =
+                (stock.bars[i - 1]?.close ?? b.close) - (action?.dividend ?? 0);
+              return [
+                b.date,
+                {
+                  evidence:
+                    "explicit-non-ST-board-scenario-not-certified-history",
+                  minimum: rules.minimum,
+                  step: rules.step,
+                  limitUp:
+                    Math.round(reference * (1 + rules.limit) * 100) / 100,
+                  limitDown:
+                    Math.round(reference * (1 - rules.limit) * 100) / 100,
+                  tradable: true,
+                },
+              ];
+            }),
+          ),
+          actions: stock.actions.map((a) => ({
+            date: a.date,
+            availableAt: a.date,
+            evidence: "frozen-gbbq-scenario",
+            dividend: a.dividend,
+            bonus: 0,
+          })),
+        })),
+      })
+    : null;
+  const holdingCounts = new Map<string, number>();
+  for (const p of portfolio?.positionSnapshots ?? [])
+    holdingCounts.set(p.date, (holdingCounts.get(p.date) ?? 0) + 1);
+  const result = portfolio
+    ? {
+        version: "strategy-object-portfolio-1",
+        options,
+        initial: input.initial,
+        curve: portfolio.curve.map((row) => ({
+          date: row.date,
+          cash: row.cash,
+          equity: row.equity,
+          exposure: 1 - row.cash / row.equity,
+          holdings: holdingCounts.get(row.date) ?? 0,
+        })),
+        fills: portfolio.fills.map((fill) => ({
+          date: fill.date,
+          signalDate: fill.signalAt,
+          symbol: fill.symbol,
+          side: fill.side,
+          quantity: fill.quantity,
+          price: fill.price,
+          fee: fill.fee,
+        })),
+        rejected: portfolio.rejections.map((rejection) => ({
+          date: rejection.date,
+          symbol: portfolio.orders.find((o) => o.id === rejection.orderId)!
+            .symbol,
+          side: portfolio.orders.find((o) => o.id === rejection.orderId)!.side,
+          reason: rejection.reason,
+        })),
+        snapshots: portfolio.positionSnapshots.map((p) => ({
+          date: p.date,
+          symbol: p.symbol,
+          quantity: p.quantity,
+          weight: p.weight,
+        })),
+        rebalances: [],
+      }
+    : replayAllocationStudy(stocks, benchmark, options, schedule);
   return {
     frozen,
     inputHash,
     result,
+    ...(portfolio ? { portfolio } : {}),
     quality: "rule-check-only" as const,
     limitations: [
       "用户显式固定证券池，存在幸存者偏差，不代表历史全市场证券池。",
-      "每ISO周最后交易日收盘决策，下一交易日开盘撮合；使用共享现金、100股整手、T+1及现有费用。",
+      input.strategy
+        ? "策略对象逐完成日线求值，按策略分批与退出，下一交易日开盘撮合；sleeve风险上限2%，100股整手、T+1及固定实验费用。"
+        : "每ISO周最后交易日收盘决策，下一交易日开盘撮合；使用共享现金、100股整手、T+1及现有费用。",
       "单股目标权重上限为100%，不额外叠加中证800旧15%限制；未成交资金留现金。",
       "排序因子使用BarStore前复权行情、成交使用对应原价；财报采用当前下载版本的严格公告可见日期，不保证首次披露版本。",
       "历史交易状态、成交容量、排队、分红实际到账日尚未认证；结果仅为规则自检。",

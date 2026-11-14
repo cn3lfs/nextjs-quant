@@ -10,11 +10,13 @@ import {
   replayFiveMinute,
   type StrategyExperimentInput,
 } from "quant-backtest";
+import type { StrategyObjectInput } from "trading-strategies";
 
 export type MaBaselineWork = {
   type: "ma-baseline";
   root: string;
   input: StrategyExperimentInput;
+  strategy?: StrategyObjectInput;
 };
 
 /** Reuses the LC5 parser, freezes only the requested window and its warmup.
@@ -112,6 +114,7 @@ export async function executeMaBaseline(
     (done, total) =>
       progress(30 + Math.floor((done / total) * 65), `回放 ${done}/${total}`),
     signalBars,
+    work.strategy,
   );
   const computeMs = performance.now() - started - sourceMs;
   const manifest = {

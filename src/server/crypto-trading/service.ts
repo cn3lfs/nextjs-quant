@@ -8,6 +8,9 @@ import { recordRuntimeError } from "../infra/runtime-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { cryptoDualMa } from "trading-strategies";
+import { paperStrategy } from "../strategies/drivers/paper";
+import { cryptoBotStrategy } from "../strategies/drivers/strategy-definitions";
+import { StrategyRepository } from "../db/strategy-repository";
 import { atomic, get, list, put, remove } from "../db";
 import { acquireScheduler, processAlive } from "../infra/lease";
 import { readSecret, saveSecret } from "../vault";
@@ -393,6 +396,22 @@ async function evaluate(
     config.slow,
   );
   if (!indicator) return;
+  // Venue candles expose closes only. The dual-MA rule consumes no intrabar data.
+  const strategy = cryptoBotStrategy(config, value.id);
+  const series = {
+    symbol,
+    market: "crypto" as const,
+    bars: selected.map((c) => ({
+      date: new Date(c.time).toISOString(),
+      open: c.close,
+      high: c.close,
+      low: c.close,
+      close: c.close,
+      volume: 0,
+      amount: 0,
+    })),
+  };
+  const intent = paperStrategy(strategy, series, series.bars.at(-1)!.date)[0];
   const prior = value.lastCandles[symbol];
   atomic(() => {
     const current = bot(value.id);
@@ -411,7 +430,7 @@ async function evaluate(
     prior === undefined ||
     prior === latest ||
     latest - prior !== duration ||
-    indicator.signal === "HOLD"
+    !intent
   )
     return;
   const holding = new Big(value.positions[symbol]);
@@ -423,8 +442,8 @@ async function evaluate(
     quantizedHolding.times(price).gte(rules.minValue) &&
     quantizedHolding.gt(0);
   if (
-    (indicator.signal === "BUY" && tradable) ||
-    (indicator.signal === "SELL" && !tradable)
+    (intent.side === "BUY" && tradable) ||
+    (intent.side === "SELL" && !tradable)
   ) {
     if (holding.gt(0) && !tradable)
       atomic(() => {
@@ -451,14 +470,11 @@ async function evaluate(
     : new Big(free(snapshot, "USDT")).times("0.99");
   const quoteBudget = availableBudget.round(2, 0).toFixed(2);
   const amount =
-    indicator.signal === "BUY" ? new Big(quoteBudget).div(price) : holding;
-  if (
-    indicator.signal === "SELL" &&
-    amount.gt(free(snapshot, symbol.slice(0, -4)))
-  )
+    intent.side === "BUY" ? new Big(quoteBudget).div(price) : holding;
+  if (intent.side === "SELL" && amount.gt(free(snapshot, symbol.slice(0, -4))))
     throw new Error("可用持仓不足，账户可能被外部操作");
   if (
-    indicator.signal === "BUY" &&
+    intent.side === "BUY" &&
     (new Big(quoteBudget).lt(rules.minValue) ||
       (rules.maxValue !== undefined && new Big(quoteBudget).gt(rules.maxValue)))
   )
@@ -467,15 +483,15 @@ async function evaluate(
   const clientId =
     "qm" +
     createHash("sha256")
-      .update(`${value.id}:${symbol}:${latest}:${indicator.signal}`)
+      .update(`${value.id}:${symbol}:${latest}:${intent.side}`)
       .digest("hex")
       .slice(0, 30);
   const order: Execution = {
     clientId,
     symbol,
-    side: indicator.signal,
+    side: intent.side,
     quantity,
-    ...(indicator.signal === "BUY" ? { quoteBudget } : {}),
+    ...(intent.side === "BUY" ? { quoteBudget } : {}),
     state: "INTENT",
     fills: [],
     createdAt: now,
@@ -495,6 +511,8 @@ async function evaluate(
       get(`crypto-order-${value.id}-${clientId}`)
     )
       return false;
+    const { side: _side, ...event } = intent;
+    new StrategyRepository().record(strategy, event);
     saveOrder(value.id, order);
     return true;
   });

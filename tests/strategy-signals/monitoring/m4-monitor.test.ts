@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -232,6 +232,8 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+// This file owns its temporary DB; release the native handle before global cleanup.
+afterAll(() => sqlite().close());
 async function signal(kinds = [3]) {
   await tick(); // 15:04: yesterday's completed bars establish a baseline.
   expect(list("signal", 200)).toHaveLength(0);

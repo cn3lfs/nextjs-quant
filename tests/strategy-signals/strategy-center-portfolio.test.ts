@@ -296,3 +296,44 @@ it("rejects excessive symbol-decision work before capturing thousands of stock h
   expect(f.readers.readSnapshot).toHaveBeenCalledTimes(1);
   expect(f.readers.readBacktestActions).not.toHaveBeenCalled();
 });
+
+it("the existing portfolio entry accepts a strategy object and replays its signals through runPortfolio", async () => {
+  const f = fixture();
+  const strategy = {
+    id: "fixed-formula",
+    version: 1,
+    market: "cn-equity" as const,
+    period: "day" as const,
+    universe: { kind: "symbols" as const, symbols: f.input.symbols },
+    entry: { kind: "formula" as const, source: "选股:C>0;" },
+    exit: { stop: { kind: "fixed" as const, fraction: 0.1 } },
+    sizing: { kind: "equal" as const, positions: 2, tranches: 2 },
+    sleeve: "swing",
+  };
+  const result = await executeStrategyCenterPortfolio(
+    { ...f.input, strategy },
+    "fixture",
+    f.readers,
+  );
+  expect(result.frozen.strategyObject).toMatchObject(strategy);
+  expect(result.frozen.schedule).toEqual([]);
+  expect(result.result.version).toBe("strategy-object-portfolio-1");
+  expect(result.portfolio?.observations[0]).toMatchObject({
+    strategyId: "fixed-formula",
+    decision: { entry: true, exit: false },
+  });
+  expect(result.result.fills.length).toBeGreaterThan(0);
+  expect(result.result.fills.every((fill) => fill.date > fill.signalDate)).toBe(
+    true,
+  );
+  expect(result.result.snapshots.length).toBeGreaterThan(0);
+  expect(result.result.curve.every((row) => row.cash >= 0)).toBe(true);
+  expect(f.readers.readLocalFinancialHistory).not.toHaveBeenCalled();
+  await expect(
+    executeStrategyCenterPortfolio(
+      { ...f.input, strategy: { ...strategy, market: "crypto" } },
+      "fixture",
+      f.readers,
+    ),
+  ).rejects.toThrow("A股日线");
+});

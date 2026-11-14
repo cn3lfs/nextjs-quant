@@ -1,5 +1,6 @@
 import {
   prepareStrategy,
+  strategyProtection,
   strategyObjectSchema,
   type StrategyObjectInput,
   type StrategyExternalInputs,
@@ -349,6 +350,14 @@ export function runPortfolio(
     equity: number;
     sleeves: { id: string; cash: number; equity: number }[];
   }[] = [];
+  const positionSnapshots: {
+    date: string;
+    symbol: string;
+    quantity: number;
+    weight: number;
+    strategyId: string;
+    sleeve: string;
+  }[] = [];
   const daily = new Map<string, (typeof curve)[number]>();
   const calendar = request.calendar.filter(
     (d) => dayOf(d, market) >= request.start && dayOf(d, market) <= request.end,
@@ -635,14 +644,9 @@ export function runPortfolio(
           const p = account.positions.get(key),
             c = controls.get(key);
           if (p && c) {
-            const trail = strategy.exit.trailing
-              ? c.high * (1 - strategy.exit.trailing)
-              : null;
-            const stop = Math.max(c.stop ?? 0, trail ?? 0);
-            const stopHit = stop > 0 && bar.low <= stop;
-            const targetHit = c.target !== null && bar.high >= c.target;
+            const protection = strategyProtection(strategy, bar, c);
             if (
-              (stopHit || targetHit) &&
+              protection &&
               !orders.some(
                 (o) =>
                   o.strategyId === strategy.id &&
@@ -651,23 +655,15 @@ export function runPortfolio(
                   o.status === "pending",
               )
             ) {
-              const trigger = stopHit
-                ? trail !== null && trail > (c.stop ?? 0)
-                  ? "trailing"
-                  : "stop"
-                : "target";
-              const reference = stopHit
-                ? Math.min(bar.open, stop)
-                : Math.max(bar.open, c.target!);
               const order = pushOrder(
                 strategy,
                 symbol,
                 date,
                 date,
                 "sell",
-                trigger,
+                protection.trigger,
               );
-              execute(order, date, reference);
+              execute(order, date, protection.price);
             }
           }
           const current = account.positions.get(key),
@@ -794,6 +790,18 @@ export function runPortfolio(
         sleeves: rows,
       };
       curve.push(row);
+      for (const [sleeve, account] of accounts)
+        for (const [key, position] of account.positions) {
+          const identity = identities.get(key)!;
+          positionSnapshots.push({
+            date,
+            symbol: identity.symbol,
+            strategyId: identity.strategyId,
+            sleeve,
+            quantity: position.quantity,
+            weight: (position.quantity * position.mark) / row.equity,
+          });
+        }
       daily.set(dayOf(date, market), { ...row, date: dayOf(date, market) });
       if (index % 4096 === 0) progress(index + 1, calendar.length);
     },
@@ -816,6 +824,7 @@ export function runPortfolio(
     ),
     equity: [...daily.values()],
     curve,
+    positionSnapshots,
     observations,
     transfers,
   };

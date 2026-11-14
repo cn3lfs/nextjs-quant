@@ -7,11 +7,11 @@ import {
   replayAllocationStudy,
 } from "quant-backtest";
 import {
-  maCrossStrategy,
   factorStrategyPresets,
   factorStrategySchema,
   studyStrategies,
 } from "trading-strategies";
+import { maCrossStrategy } from "../../helpers/legacy-ma-signals";
 import {
   parityFiveMinute,
   parityDaily,

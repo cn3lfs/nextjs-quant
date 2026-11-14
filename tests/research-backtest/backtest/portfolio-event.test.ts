@@ -458,7 +458,7 @@ describe("strategy serialization and causal decisions", () => {
     s.entry = { kind: "formula", source: "X:=REFX(C,1);选股:C>0;" };
     expect(() => prepareStrategy(s, [])).toThrow("REFX");
     expect(
-      strategyObjectSchema.safeParse({ ...strategy(), version: 2 }).success,
+      strategyObjectSchema.safeParse({ ...strategy(), version: 0 }).success,
     ).toBe(false);
     s.entry = { kind: "external", id: "native", side: "entry" };
     expect(() =>

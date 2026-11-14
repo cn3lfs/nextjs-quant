@@ -25,7 +25,18 @@ it("keeps exact per-window arithmetic, missing values and overflow without rolli
     ...Array.from({ length: 200 }, (_, i) => Math.sin(i) * 100),
   ];
   const sparse = [1, , 3] as IndicatorValue[];
-  for (const values of [input, sparse]) {
+  const dense = [
+    1e16,
+    1,
+    -1e16,
+    Number.MAX_VALUE,
+    Number.MAX_VALUE,
+    -Number.MAX_VALUE,
+    0,
+    -0,
+    ...Array.from({ length: 1000 }, (_, i) => Math.sin(i / 3) * 100 + i / 7),
+  ];
+  for (const values of [input, sparse, dense]) {
     for (const n of [1, 2, 5, 20, 250]) {
       // Frozen pre-optimization definition: each complete window independently
       // reduces from zero, left to right, then divides by its full length.

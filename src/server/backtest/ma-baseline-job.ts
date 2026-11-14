@@ -1,6 +1,7 @@
 import {
   strategyExperimentInputSchema,
   type StrategyExperimentInput,
+  fiveMinuteStrategy,
 } from "quant-backtest";
 import { settings } from "../infra/settings";
 import { background, runWorker } from "../jobs/jobs";
@@ -12,6 +13,7 @@ export function maBaselineJob(raw: StrategyExperimentInput) {
     type: "ma-baseline" as const,
     root: settings().tdxRoot,
     input,
+    strategy: fiveMinuteStrategy(input),
   };
   return background(
     "backtest",

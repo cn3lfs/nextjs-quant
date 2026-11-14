@@ -18,12 +18,19 @@ let receipts: WriteReceipts;
 export function sqlite() {
   if (connection) return connection;
   mkdirSync(dataDirectory(), { recursive: true });
-  connection = new Database(join(dataDirectory(), "quant.sqlite"));
-  connection.pragma("journal_mode = WAL");
-  connection.pragma("busy_timeout = 5000");
-  migrate(connection);
-  receipts = new WriteReceipts(connection);
-  return connection;
+  const opened = new Database(join(dataDirectory(), "quant.sqlite"));
+  try {
+    opened.pragma("journal_mode = WAL");
+    opened.pragma("busy_timeout = 5000");
+    migrate(opened);
+    receipts = new WriteReceipts(opened);
+    // A rejected migration must never publish a connection that a retry can reuse.
+    connection = opened;
+    return opened;
+  } catch (error) {
+    opened.close();
+    throw error;
+  }
 }
 export const db = () => drizzle(sqlite(), { schema });
 export function put<T>(kind: string, id: string, value: T) {

@@ -1,6 +1,7 @@
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
 import type { ScreeningFormula } from "trading-strategies/formula/formula-screen";
+import type { StrategyObjectInput } from "trading-strategies";
 import type { FormulaPart, FormulaRangeWork } from "./formula-range";
 import { scanFormulaRange } from "./formula-range";
 
@@ -12,6 +13,7 @@ export type FormulaShardWork = {
   now: number;
   formula: ScreeningFormula;
   securities: Security[];
+  strategy?: StrategyObjectInput;
 };
 type Step = (processed: number, errors: number, excluded: number) => void;
 
@@ -96,6 +98,7 @@ export async function scanFormulaParallel(
               type: "formula-shard",
               root: work.root,
               now: work.now,
+              strategy: work.strategy,
               formula,
               securities: range.map(({ symbol, name }) => ({ symbol, name })),
             };

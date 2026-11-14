@@ -7,6 +7,7 @@ import {
 } from "./factor-strategy.js";
 import { cryptoDualMa } from "./crypto-dual-ma.js";
 import { analyzeBreakout } from "./research/breakout/breakout.js";
+import { metrics } from "./research/technical/screening-metrics.js";
 import {
   evaluateFormula,
   type FormulaRpsPoint,
@@ -18,6 +19,16 @@ import {
 } from "./native-study.js";
 
 const fraction = z.number().finite().gt(0).max(1);
+// Full-market scans repeat the same immutable date labels millions of times.
+// Cache only validation of strings, never a caller's mutable bars or decisions.
+const validDates = new Set<string>();
+function validDate(date: string) {
+  if (validDates.has(date)) return true;
+  if (!Number.isFinite(Date.parse(date))) return false;
+  if (validDates.size >= 65536) validDates.clear();
+  validDates.add(date);
+  return true;
+}
 export const strategyRuleSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -63,6 +74,22 @@ export const strategyRuleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("constant"), value: z.boolean() }).strict(),
   z
     .object({
+      kind: z.literal("czsc-monitor"),
+      config: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("screening-metrics"),
+      fast: z.number().int().positive(),
+      slow: z.number().int().positive(),
+      minChange: z.number().finite(),
+      maxChange: z.number().finite(),
+      minVolumeRatio: z.number().finite().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("external"),
       id: z.string().min(1),
       side: z.enum(["entry", "exit"]),
@@ -72,7 +99,7 @@ export const strategyRuleSchema = z.discriminatedUnion("kind", [
 export const strategyObjectSchema = z
   .object({
     id: z.string().min(1).max(100),
-    version: z.literal(1),
+    version: z.number().int().positive(),
     market: z.enum(["cn-equity", "crypto"]),
     period: z.enum(periods),
     universe: z.discriminatedUnion("kind", [
@@ -171,6 +198,10 @@ export type StrategyObject = z.infer<typeof strategyObjectSchema>;
 export type StrategyObjectInput = z.input<typeof strategyObjectSchema>;
 export type StrategyRule = z.infer<typeof strategyRuleSchema>;
 export type StrategyExternalInputs = {
+  monitorCzsc?: {
+    observations: readonly MonitorCzscObservation[];
+    seenKeys?: readonly string[];
+  };
   signals?: readonly {
     id: string;
     date: string;
@@ -187,11 +218,70 @@ export type StrategyExternalInputs = {
     value: number;
   }[];
 };
+export type MonitorCzscObservation = {
+  date: string;
+  availableAt: string;
+  endpointDate: string;
+  config: number;
+  key: string;
+  kind: number;
+  quality: number;
+};
+/** Observation date is the completed bar; the native endpoint may be historical. */
+export function selectCzscMonitorSignals(
+  observations: readonly MonitorCzscObservation[],
+  config: number,
+  asOf: string,
+  seenKeys?: readonly string[],
+) {
+  if (
+    observations.some(
+      (row) =>
+        !Number.isFinite(Date.parse(row.availableAt)) ||
+        row.availableAt > row.date ||
+        row.endpointDate > row.date,
+    )
+  )
+    throw new Error("Invalid / non-causal native monitor observation");
+  const qualified = observations.filter(
+    (row) =>
+      row.date === asOf &&
+      row.config === config &&
+      [1, 2].includes(row.quality) &&
+      [1, 2, 3].includes(Math.abs(row.kind)),
+  );
+  const seen = new Set(seenKeys);
+  return {
+    qualified,
+    fresh: seenKeys ? qualified.filter((row) => !seen.has(row.key)) : [],
+  };
+}
 export type StrategyDecision = {
   entry: boolean | null;
   exit: boolean | null;
   stopLevel: number | null;
 };
+
+/** Protection was known before this completed bar; stop wins an ambiguous OHLC path. */
+export function strategyProtection(
+  strategy: StrategyObjectInput,
+  bar: Bar,
+  position: { stop: number | null; target: number | null; high: number },
+): { trigger: "stop" | "trailing" | "target"; price: number } | null {
+  const trail = strategy.exit.trailing
+    ? position.high * (1 - strategy.exit.trailing)
+    : null;
+  const stop = Math.max(position.stop ?? 0, trail ?? 0);
+  if (stop > 0 && bar.low <= stop)
+    return {
+      trigger:
+        trail !== null && trail > (position.stop ?? 0) ? "trailing" : "stop",
+      price: Math.min(bar.open, stop),
+    };
+  if (position.target !== null && bar.high >= position.target)
+    return { trigger: "target", price: Math.max(bar.open, position.target) };
+  return null;
+}
 
 /** Compile once per frozen series. Formula static checks run even with no bars.
  * Point evaluation never sees a future prefix in a native rule or structural input.
@@ -207,11 +297,19 @@ export function prepareStrategy(
   for (const b of bars) {
     if (
       b.date <= previous ||
-      !Number.isFinite(Date.parse(b.date)) ||
-      ![b.open, b.high, b.low, b.close].every(
-        (v) => Number.isFinite(v) && v > 0,
-      ) ||
-      ![b.volume, b.amount].every((v) => Number.isFinite(v) && v >= 0) ||
+      !validDate(b.date) ||
+      !Number.isFinite(b.open) ||
+      b.open <= 0 ||
+      !Number.isFinite(b.high) ||
+      b.high <= 0 ||
+      !Number.isFinite(b.low) ||
+      b.low <= 0 ||
+      !Number.isFinite(b.close) ||
+      b.close <= 0 ||
+      !Number.isFinite(b.volume) ||
+      b.volume < 0 ||
+      !Number.isFinite(b.amount) ||
+      b.amount < 0 ||
       b.high < Math.max(b.open, b.close) ||
       b.low > Math.min(b.open, b.close)
     )
@@ -223,10 +321,35 @@ export function prepareStrategy(
     (external.rps?.length ?? 0)
   )
     throw new Error("Duplicate RPS observations");
+  const breakoutCache = new Map<number, ReturnType<typeof analyzeBreakout>>();
+  const breakoutAt = (i: number) => {
+    if (!breakoutCache.has(i)) {
+      // Only one point is retained; historical playback must not retain O(n²) analyses.
+      breakoutCache.clear();
+      breakoutCache.set(i, analyzeBreakout(bars.slice(0, i + 1)));
+    }
+    return breakoutCache.get(i)!;
+  };
   const compile = (rule: StrategyRule): ((index: number) => boolean | null) => {
     switch (rule.kind) {
       case "constant":
         return () => rule.value;
+      case "czsc-monitor":
+        return (i) => {
+          const facts = external.monitorCzsc;
+          if (!facts) throw new Error("Missing native monitor observations");
+          return (
+            bars[i]!.volume > 0 &&
+            selectCzscMonitorSignals(
+              facts.observations,
+              rule.config,
+              bars[i]!.date,
+              facts.seenKeys,
+            ).fresh.length > 0
+          );
+        };
+      case "screening-metrics":
+        return (i) => metrics(bars.slice(0, i + 1), rule)?.matched ?? null;
       case "external": {
         const rows = external.signals?.filter((s) => s.id === rule.id) ?? [];
         if (
@@ -272,7 +395,7 @@ export function prepareStrategy(
         };
       case "double-breakout":
         return (i) => {
-          const result = analyzeBreakout(bars.slice(0, i + 1)).latest;
+          const result = breakoutAt(i).latest;
           const status =
             rule.side === "entry" ? result?.long.status : result?.short.status;
           return status === undefined || status === "未知"
@@ -314,6 +437,7 @@ export function prepareStrategy(
       : undefined;
   return {
     strategy,
+    breakoutAt,
     evaluate(index: number): StrategyDecision {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
