@@ -1,7 +1,7 @@
 import {
   strategyExperimentInputSchema,
   type StrategyExperimentInput,
-} from "~/lib/backtest/strategy-experiment";
+} from "quant-backtest";
 import { settings } from "../infra/settings";
 import { background, runWorker } from "../jobs/jobs";
 import { type MaBaselineArchive } from "./ma-baseline-work";

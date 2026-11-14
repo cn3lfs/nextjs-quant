@@ -4,7 +4,7 @@ import { resolve, relative } from "node:path";
 import { expect, it, vi } from "vitest";
 import type { Snapshot } from "~/lib/domain";
 import type { BacktestActions } from "~/server/backtest/backtest-actions";
-import { runClassicStudy } from "quant-backtest";
+import { replayDailyStudy } from "quant-backtest";
 import {
   classicDefinitions,
   classicIds,
@@ -118,11 +118,11 @@ it.each(classicIds)(
   (id) => {
     const { source, options } = fixture();
     const before = structuredClone(source.bars);
-    const short = runClassicStudy(source.bars.slice(0, 500), [], {
+    const short = replayDailyStudy(source.bars.slice(0, 500), [], {
       ...options,
       strategy: id,
     });
-    const full = runClassicStudy(
+    const full = replayDailyStudy(
       source.bars,
       [{ date: source.bars[520]!.date, perShare: 5 }],
       { ...options, strategy: id },
@@ -141,7 +141,7 @@ it.each(classicIds)(
     }
     const warmup = studyWarmup(id);
     expect(() =>
-      runClassicStudy(source.bars.slice(301 - warmup), [], {
+      replayDailyStudy(source.bars.slice(301 - warmup), [], {
         ...options,
         strategy: id,
       }),
@@ -167,7 +167,7 @@ it("all ten task captures freeze the exact source inputs and built strategy iden
     expect(run.frozen.sourceHash).toBe("source-hash");
     expect(run.frozen.calendarHash).toBe("calendar-hash");
     expect(run.result).toEqual(
-      runClassicStudy(run.frozen.bars, [], { ...options, strategy: id }),
+      replayDailyStudy(run.frozen.bars, [], { ...options, strategy: id }),
     );
     expect(run.inputHash).toBe(
       createHash("sha256").update(JSON.stringify(run.frozen)).digest("hex"),

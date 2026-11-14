@@ -9,7 +9,7 @@ import {
   evaluatePositionClose,
   type PositionRiskStage,
 } from "trading-strategies";
-import { runCsi800Study } from "../src/csi800-study.js";
+import { replayAllocationStudy } from "../src/allocation-profile.js";
 import type { Csi800Allocation } from "trading-strategies";
 
 function book(quantity = 1000, equity = 1_000_000) {
@@ -62,7 +62,7 @@ function fixture(
     { date: dates[279]!, weights: { sh600000: 0.15 } },
   ];
   const run = (stage: PositionRiskStage = "full") =>
-    runCsi800Study(
+    replayAllocationStudy(
       stocks,
       bars,
       {
@@ -228,7 +228,7 @@ describe("CSI800 assumed closing-auction integration", () => {
   it("rechecks the latest completed close when a signal has delayed execution", () => {
     const f = fixture([99, 101, 101]);
     f.stocks[0]!.bars[281]!.open = 101;
-    const r = runCsi800Study(
+    const r = replayAllocationStudy(
       f.stocks,
       f.bars,
       {

@@ -2,6 +2,7 @@ import type { Bar } from "trading-strategy-core/bars";
 export type Csi800Stock = {
   symbol: string;
   bars: Bar[];
+  signalBars?: Bar[];
   actions: {
     date: string;
     dividend: number;

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateFormula,
   futureFunctions,
-} from "../../../src/lib/formula/tdx-formula";
-import { arities } from "../../../src/lib/formula/tdx-formula-check";
+} from "trading-strategies/formula/tdx-formula";
+import { arities } from "trading-strategies/formula/tdx-formula-check";
 import type { Bar } from "../../../src/lib/domain";
 const bars = [1, 2, 3, 4].map((close, i): Bar => ({
   date: `2026-01-0${i + 1}`,

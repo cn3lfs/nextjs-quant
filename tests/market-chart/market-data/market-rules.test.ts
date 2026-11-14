@@ -1,9 +1,6 @@
 import { expect, it } from "vitest";
-import {
-  marketRules,
-  sessionFor,
-  priceLimitsFor,
-} from "~/lib/market/market-rules";
+import { marketRules } from "trading-strategy-core/market-rules";
+import { sessionFor, priceLimitsFor } from "~/lib/market/market-rules";
 import { instrumentFor } from "~/lib/market/instrument";
 import { availablePeriods, periodSchema } from "~/lib/market/periods";
 import { aggregateChartBars } from "~/lib/market/bar-aggregation";

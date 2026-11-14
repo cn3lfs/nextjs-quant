@@ -45,7 +45,7 @@ it("keeps the performance module independent from backtest, UI and all host IO; 
     ).toEqual([]);
   for (const source of [
     'import {readFile} from "node:fs";',
-    'export {runBacktest} from "quant-backtest";',
+    'export {replaySignalSeries} from "quant-backtest";',
     'import {db} from "../../src/server/db";',
     'import React from "react";',
     'const fs = import("node:fs");',

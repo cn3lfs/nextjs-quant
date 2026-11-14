@@ -13,8 +13,11 @@ import { Textarea } from "~/components/ui/textarea";
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
-import { validateScreenFormula } from "~/lib/formula/formula-screen";
-import { arities, futureFunctions } from "~/lib/formula/tdx-formula-check";
+import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
+import {
+  arities,
+  futureFunctions,
+} from "trading-strategies/formula/tdx-formula-check";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
 export function FormulaScreen({
   onStarted,

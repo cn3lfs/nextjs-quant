@@ -6,7 +6,7 @@
 
 `unifiedStrategyCatalog` 包含91项：56项纯行情日线、1项原生结构日线、25项目标权重预设、3项研究和6项输入/模型缺口。`getStrategyDefinition`读取定义，`checkStrategyAvailability`检查能力前置条件，不把工程已实现当作可信业绩。既有九方向代表的历史证据索引独立保留。
 
-`evaluateStrategy`接收`strategyId`和截至`asOf`的已完成行情或候选因子。信号输出`signal`，横截面输出`weights`；原始账户型日线策略输出`order`，要求显式传入`account`状态。它不改变持仓或现金。完整日线回放由`quant-backtest.runClassicStudy`调用`createStudyDecision`执行。
+`evaluateStrategy`接收`strategyId`和截至`asOf`的已完成行情或候选因子。信号输出`signal`，横截面输出`weights`；原始账户型日线策略输出`order`，要求显式传入`account`状态。它不改变持仓或现金。完整日线回放由`quant-backtest.replayDailyStudy`调用`createStudyDecision`执行。
 
 横截面输入为`{symbol,availableAt,values}`，未到可见时间及缺因子样本排除，不补零；按固定因子方向排序、并列按证券代码，默认前10只等权。`strategyCandidateFactors`明确因子单位、窗口、跳过窗口和基准；财务因子由应用按当时可见报告计算。等权和反波动配置使用全部有效候选，反波动配置不是含协方差的风险平价。
 
@@ -52,9 +52,10 @@ pnpm --filter trading-strategies build
 
 共享指标及财务原语位于 `trading-strategy-core`。本包不反向依赖 `src` 或回测包；运行编排继续由应用服务负责。历史代表条目仅为原始证据索引，不表示统一执行规则已恢复启用。
 
-
 ## 2026-11-11 可执行目录与职责
 
 统一目录现有91项（57日线、25目标权重预设、3研究、6输入/模型缺口），与原九方向历史证据索引分开维护。六个既有代表已进入统一回放，其历史证据级别保持原样；RPS七周期是同一家族预设，不计作七种独立alpha。财务4项与协方差风险平价来源见[前批交付](../../docs/deliveries/2026-11-11-strategy-module-boundaries.md)，成长/年度财务、组合/公式、盘中/周线政策和原生逐日执行见[本批交付](../../docs/deliveries/2026-11-11-strategy-factor-native.md)。
 
 research子路径维护策略政策、形态、筛选与中性事实契约；原始供应商列解析、数据读取、证据hash与任务留应用。费用/数量报价由执行器注入，成交原语复用quant-backtest，回放与持仓账本由实际执行层维护。累计128条完整旧路径映射见[迁移台账](../../docs/strategy-module-migration.json)；另有部分文件仅拆策略语义，不登记整文件搬迁。包只依赖中性FormulaRuntime，应用唯一实现执行既有DSL；原生观察由应用逐收盘固定前缀生成，包消费冻结结构并决定信号。
+
+版本化策略对象使用包根strategyObjectSchema/prepareStrategy；纯公式通过trading-strategies/formula/*直接使用。方法目录execution字段由scripts/audit-strategy-objects.ts --write生成，精确绑定才标runnable，其他方法保留reference。

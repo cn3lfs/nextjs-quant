@@ -1,11 +1,11 @@
 import { expect, it } from "vitest";
-import { runBacktest } from "../src/index.js";
+import { replaySignalSeries } from "../src/index.js";
 import {
   fillMarketOrder,
   affordableQuantity,
   type ExecutionRules,
 } from "../src/execution.js";
-import { defaultExecutionCosts } from "../src/costs.js";
+import { defaultExecutionCosts } from "trading-strategy-core/costs";
 
 const rules: ExecutionRules = {
   evidence: "fixture historical limits",
@@ -56,7 +56,7 @@ it("event engine consumes a signal series independently of the MA strategy", () 
     initial: 100000,
     costs: defaultExecutionCosts,
   };
-  const result = runBacktest(
+  const result = replaySignalSeries(
     input,
     bars,
     { id: "injected-test-only", warmupBars: 0, values: Int8Array.from([1, 0]) },
@@ -67,7 +67,7 @@ it("event engine consumes a signal series independently of the MA strategy", () 
   expect(result.fills[0]!.signalAt).toBe(bar.date);
   expect(result.fills[0]!.shares).toBe(2000);
   expect(() =>
-    runBacktest(
+    replaySignalSeries(
       input,
       bars,
       { id: "bad", warmupBars: 0, values: Int8Array.from([2, 0]) },
@@ -75,7 +75,7 @@ it("event engine consumes a signal series independently of the MA strategy", () 
     ),
   ).toThrow("信号");
   expect(() =>
-    runBacktest(
+    replaySignalSeries(
       input,
       bars,
       { id: "bad", warmupBars: 0, values: Int8Array.from([1]) },

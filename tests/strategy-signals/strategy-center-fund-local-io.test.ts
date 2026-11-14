@@ -1,3 +1,5 @@
+import gbbq from "../fixtures/tdx-gbbq.json";
+import { readBars } from "~/server/market/bar-store/read-bars";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -51,6 +53,11 @@ async function fixture() {
     prices.set(symbol, closes);
     bytes.set(symbol, body);
   }
+  await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
+  await writeFile(
+    join(root, "T0002/hq_cache/gbbq"),
+    Buffer.from(gbbq.gbbqBase64, "base64"),
+  );
   return { root, symbols, dates, prices, bytes, asOf: dates[280]! };
 }
 const hash = (body: Buffer) => createHash("sha256").update(body).digest("hex");
@@ -76,7 +83,17 @@ it("reads actual two-market ETF .day files through default candidate IO with thr
     const evidence = capture.evidence.find(
       (row) => row.symbol === candidate.symbol,
     )!;
-    expect(evidence.barsHash).toBe(hash(f.bytes.get(candidate.symbol)!));
+    expect(evidence.sourceHash).toBe(hash(f.bytes.get(candidate.symbol)!));
+    const adjusted = await readBars({
+      root: f.root,
+      instrument: { market: "cn-equity", symbol: candidate.symbol },
+      period: "day",
+      adjustment: "forward",
+      chartFunds: candidate.symbol !== "sh600000",
+      freezeRaw: true,
+      to: f.asOf,
+    });
+    expect(evidence.barsHash).toBe(adjusted.hash);
     expect(evidence.bars!.at(-1)!.date).toBe(f.asOf);
   }
   expect(
@@ -90,7 +107,7 @@ it("reads actual two-market ETF .day files through default candidate IO with thr
     (await readSnapshot(f.root, "sz159915", "day", { chartFunds: true }))
       .bars[0]!.close,
   ).toBe(3.005);
-  expect(capture.benchmarkHash).toBe(hash(f.bytes.get("sh000300")!));
+  expect(capture.benchmarkSourceHash).toBe(hash(f.bytes.get("sh000300")!));
   const result = evaluateStrategy(
     { strategyId: "portfolio-rps-5", parameters: { topK: 3 } },
     { asOf: f.asOf, candidates: capture.candidates },

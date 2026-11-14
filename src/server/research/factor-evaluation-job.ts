@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { completedBarFilter } from "~/lib/completed-bars";
-import { evaluateFormula, FormulaError } from "~/lib/formula/tdx-formula";
-import { validateScreenFormula } from "~/lib/formula/formula-screen";
+import {
+  evaluateFormula,
+  FormulaError,
+} from "trading-strategies/formula/tdx-formula";
+import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
 import {
   evaluateFactor,
   type FactorSeries,

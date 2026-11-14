@@ -16,11 +16,11 @@ const env = {
 };
 const seed = `
 import {put,sqlite} from './src/server/db/index.ts';
-import {runMaBaseline,maBaselineInputSchema} from 'quant-backtest';
+import {replayFiveMinute,maBaselineInputSchema} from 'quant-backtest';
 const bars=[],calendar=[];
 for(let i=0;i<390;i++){const date=new Date(Date.UTC(2024,8,30+i));if([0,6].includes(date.getUTCDay()))continue;const day=date.toISOString().slice(0,10);calendar.push(day);for(let j=0;j<48;j++){const m=j<24?575+j*5:785+(j-24)*5;const p=10+Math.sin((i*48+j)/41)*.8+i*.001;bars.push({date:day+'T'+String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':00+08:00',open:p,high:p+.05,low:p-.05,close:p,volume:10000,amount:100000});}}
 const input=maBaselineInputSchema.parse({symbol:'sh600000',start:calendar[1],end:calendar.at(-1),initial:100000});
-const result=runMaBaseline(input,bars);
+const result=replayFiveMinute(input,bars);
 const archive={result,manifest:{version:'ma-baseline-input-1',symbol:input.symbol,period:'5m',adjustment:'none',sourceFileHash:'synthetic-fixture',dataHash:'synthetic-fixture',calendarHash:'synthetic-fixture',actionHash:null,start:input.start+'T09:35:00+08:00',end:input.end+'T15:00:00+08:00',warmupBars:20,sourceMs:0,computeMs:0},inputSnapshot:{bars,calendar:calendar.slice(1),actions:{version:'backtest-actions-1',status:'partial',symbol:input.symbol,start:input.start,end:input.end,events:[],warnings:['Synthetic browser fixture, not actual market data']}}};
 put('job','evaluation-production-fixture',{id:'evaluation-production-fixture',type:'backtest',status:'completed',progress:100,createdAt:Date.now(),updatedAt:Date.now(),input:{type:'ma-baseline',input},result:archive});sqlite().close();`;
 execFileSync(

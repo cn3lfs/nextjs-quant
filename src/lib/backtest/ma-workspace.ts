@@ -1,8 +1,8 @@
 import {
   strategyExperimentInputSchema,
   type StrategyExperimentInput,
-  type FactorStrategyInput,
-} from "./strategy-experiment";
+} from "quant-backtest";
+import { type FactorStrategyInput } from "trading-strategies";
 import { defaultBacktestCosts } from "./backtest-costs";
 
 export const costFields = [

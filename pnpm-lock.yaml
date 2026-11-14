@@ -241,6 +241,9 @@ importers:
 
   packages/trading-strategies:
     dependencies:
+      quant-rps:
+        specifier: workspace:*
+        version: link:../quant-rps
       trading-strategy-core:
         specifier: workspace:*
         version: link:../trading-strategy-core

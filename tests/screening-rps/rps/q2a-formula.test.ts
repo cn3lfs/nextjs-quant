@@ -5,7 +5,7 @@ import {
   parseFormula,
   FormulaError,
   futureFunctions,
-} from "../../../src/lib/formula/tdx-formula";
+} from "trading-strategies/formula/tdx-formula";
 import {
   boll,
   ema,

@@ -41,8 +41,8 @@
 | 行情接口           | [market.ts](../../src/server/api/routers/market.ts) 的 `tdxLocalFinancials`                                                                             | 本地包是个股展示主源，7709 协议财务快照用于最新股本等叠加                     |
 | 界面与派生         | [tdx-fundamentals.ts](../../src/lib/market/tdx-fundamentals.ts)、[tdx-fundamental-summary.tsx](../../src/components/market/tdx-fundamental-summary.tsx) | 已有财务明细及 PB、简单年化 PE 等，存在下述字段语义问题                       |
 | 年度财务质量档案   | [financial-quality.ts](../../src/server/strategies/value/financial-quality.ts)                                                                          | 走同花顺财务查询与证据链，并未统一到本地财务服务                              |
-| 当前模块化因子回测 | [共享因子接口](../../packages/trading-strategy-core/src/factors/README.md)、[ma-baseline-work.ts](../../src/server/backtest/ma-baseline-work.ts)                                       | 输入为单证券五分钟行情与公司行动，现有因子以量价为基础；没有财报可见时点输入  |
-| 公式选股           | `src/lib/formula/`、公式选股界面                                                                                                                        | 财务条件目前不在支持范围，不能直接写 FINVALUE/FINONE 就获得本地执行能力       |
+| 当前模块化因子回测 | [共享因子接口](../../packages/trading-strategy-core/src/factors/README.md)、[ma-baseline-work.ts](../../src/server/backtest/ma-baseline-work.ts)        | 输入为单证券五分钟行情与公司行动，现有因子以量价为基础；没有财报可见时点输入  |
+| 公式选股           | `packages/trading-strategies/src/formula/`、公式选股界面                                                                                                | 财务条件目前不在支持范围，不能直接写 FINVALUE/FINONE 就获得本地执行能力       |
 
 所以准确的现状是：**本地财务已用于单股展示，尚未进入当前模块化技术因子的策略输入和批量财务筛选流程**。
 

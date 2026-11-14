@@ -9,3 +9,22 @@ export const executionCostsSchema = z.object({
 });
 export type ExecutionCosts = z.infer<typeof executionCostsSchema>;
 export const defaultExecutionCosts = executionCostsSchema.parse({});
+
+const historicalFeeScenarios = [
+  { from: "2023-08-28", transfer: 0.00001, sellTax: 0.0005 },
+  { from: "2022-04-29", transfer: 0.00001, sellTax: 0.001 },
+  { from: "", transfer: 0.00002, sellTax: 0.001 },
+] as const;
+/** Original allocation-study fee experiment; no broker-history certification. */
+export function historicalEquityResearchFee(
+  date: string,
+  amount: number,
+  sell: boolean,
+) {
+  const rule = historicalFeeScenarios.find((row) => date >= row.from)!;
+  return (
+    Math.max(5, amount * 0.0003) +
+    amount * rule.transfer +
+    (sell ? amount * rule.sellTax : 0)
+  );
+}

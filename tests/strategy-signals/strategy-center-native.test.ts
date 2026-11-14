@@ -18,7 +18,7 @@ import type {
 } from "~/server/strategies/chan/czsc-api";
 import { closeCzsc, projectCzsc } from "~/server/strategies/chan/czsc";
 import { captureNativeChanObservations } from "~/server/strategies/strategy-center-native";
-import { runClassicStudy, studySignalBars } from "quant-backtest";
+import { replayDailyStudy, studySignalBars } from "quant-backtest";
 import {
   executeStrategyCenterStudy,
   strategyCenterRunSchema,
@@ -195,7 +195,7 @@ it("captures serial full prefixes, freezes raw DLL identity and never replays ba
     initial: 1000000,
     nativeObservations: capture.observations,
   };
-  const result = runClassicStudy(input, [], options);
+  const result = replayDailyStudy(input, [], options);
   expect(
     result.fills.map((fill) => [fill.side, fill.signalDate, fill.date]),
   ).toEqual([
@@ -208,7 +208,7 @@ it("captures serial full prefixes, freezes raw DLL identity and never replays ba
     ...input,
     { ...input[159]!, date: "2020-06-10", close: 100000, high: 100001 },
   ];
-  expect(runClassicStudy(future, [], options)).toEqual(result);
+  expect(replayDailyStudy(future, [], options)).toEqual(result);
 });
 
 it("rejects missing metadata, version changes, structural timing gaps, malformed feeds and bars overrides", async () => {
@@ -244,7 +244,7 @@ it("rejects missing metadata, version changes, structural timing gaps, malformed
     initial: 1000000,
   };
   expect(() =>
-    runClassicStudy(input, [], {
+    replayDailyStudy(input, [], {
       ...common,
       strategy: "research-chan",
       nativeObservations: capture.observations.slice(1),
@@ -252,14 +252,14 @@ it("rejects missing metadata, version changes, structural timing gaps, malformed
   ).toThrow("完整覆盖");
   // Deliberately exercise runtime callers, where compile-time discriminated unions cannot protect the boundary.
   expect(() =>
-    runClassicStudy(input, [], {
+    replayDailyStudy(input, [], {
       ...common,
       strategy: "ma",
       nativeObservations: capture.observations,
     } as never),
   ).toThrow("不得覆盖");
   expect(() =>
-    runClassicStudy(input, [], {
+    replayDailyStudy(input, [], {
       ...common,
       strategy: "research-chan",
     } as never),
@@ -316,7 +316,7 @@ it("executes a confirmed CH03 against a currently established center before its 
     confirmedAt: -1,
   });
   expect(capture.pending).toEqual([]);
-  const result = runClassicStudy(input, [], {
+  const result = replayDailyStudy(input, [], {
     strategy: "research-chan",
     start: input[140]!.date,
     end: input[159]!.date,
@@ -473,7 +473,7 @@ it("replays actual DLL complete prefixes through the same cash engine with pinne
         input.findIndex((bar) => bar.date === earlyConfirmed!.date),
     ),
   ).toBe(true);
-  const result = runClassicStudy(input, [], {
+  const result = replayDailyStudy(input, [], {
     strategy: "research-chan",
     start: input[140]!.date,
     end: input[449]!.date,

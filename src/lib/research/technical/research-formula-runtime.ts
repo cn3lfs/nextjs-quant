@@ -1,5 +1,5 @@
 import type { FormulaRuntime } from "trading-strategies/research/contracts/formula-runtime";
-import { evaluateFormula } from "~/lib/formula/tdx-formula";
+import { evaluateFormula } from "trading-strategies/formula/tdx-formula";
 
 /** Binds the existing interpreted DSL; strategy packages never import its app graph. */
 export const researchFormulaRuntime: FormulaRuntime = {

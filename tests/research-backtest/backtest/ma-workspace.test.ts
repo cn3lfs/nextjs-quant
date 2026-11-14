@@ -25,7 +25,7 @@ const input = {
 const report: BaselineReport = {
   summary: {
     strategy: { fast: 5, slow: 20, period: "5m" },
-    engineVersion: "ts-backtest-foundation-1",
+    engineVersion: "ts-portfolio-event-1",
     engineHash: "engine-fixture",
     strategyId: "ma-cross-baseline-v1",
     quality: "rule-check-only",
@@ -43,6 +43,8 @@ const report: BaselineReport = {
     symbol: input.symbol,
     period: "5m",
     adjustment: "none",
+    executionAdjustment: "none",
+    adjustmentReference: null,
     sourceFileHash: "source-fixture",
     dataHash: "data-fixture",
     calendarHash: "calendar-fixture",

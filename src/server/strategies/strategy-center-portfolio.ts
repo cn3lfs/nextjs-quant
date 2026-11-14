@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { FinancialReportSnapshot } from "trading-strategy-core/financial";
 import { z } from "zod";
-import { runCsi800Study, engineVersion } from "quant-backtest";
+import { replayAllocationStudy, engineVersion } from "quant-backtest";
 import {
   evaluateStrategy,
   strategyBuildHash,
@@ -25,21 +25,15 @@ const day = strategyCenterCandidateFields.asOf;
 export const strategyCenterPortfolioSchema = z
   .object({
     strategyId: strategyCenterCandidateFields.strategyId,
-    symbols: strategyCenterCandidateFields.symbols
-      .refine((v) => v.length <= 50, "组合最多50只股票")
-      .refine(
-        (v) => v.every(isStudyStockSymbol),
-        "当前组合撮合只支持100股整手股票",
-      ),
+    symbols: strategyCenterCandidateFields.symbols.refine(
+      (v) => v.every(isStudyStockSymbol),
+      "当前组合撮合只支持100股整手股票",
+    ),
     start: day,
     end: day,
     initial: z.number().positive().finite().max(1e10).default(1000000),
   })
-  .refine((v) => v.start <= v.end, "开始日期不能晚于结束日期")
-  .refine(
-    (v) => (Date.parse(v.end) - Date.parse(v.start)) / 86400000 <= 731,
-    "组合研究区间最多两年",
-  );
+  .refine((v) => v.start <= v.end, "开始日期不能晚于结束日期");
 type CandidateReaders = NonNullable<
   Parameters<typeof captureStrategyCandidates>[2]
 >;
@@ -108,7 +102,12 @@ export async function executeStrategyCenterPortfolio(
         instrument: { market: "cn-equity", symbol },
         root,
         period,
-        adjustment: "none",
+        adjustment: "forward",
+        freezeRaw: true,
+        to: raw.end,
+        from: new Date(Date.parse(raw.start) - 540 * 86400000)
+          .toISOString()
+          .slice(0, 10),
         ...options,
       }),
     readBacktestActions,
@@ -135,7 +134,23 @@ export async function executeStrategyCenterPortfolio(
   const cached: CandidateReaders = {
     readSnapshot: (dir, symbol, period) => {
       if (!snapshots.has(symbol))
-        snapshots.set(symbol, readers.readSnapshot(dir, symbol, period));
+        snapshots.set(
+          symbol,
+          readers.readSnapshot(dir, symbol, period).then((snapshot) => {
+            // BarStore keeps the raw base history for chart consumers. This job
+            // retains only its bounded warmup/window, rather than every raw bar.
+            if (!snapshot.rawBars) return snapshot;
+            const from = new Date(Date.parse(input.start) - 540 * 86400000)
+              .toISOString()
+              .slice(0, 10);
+            return {
+              ...snapshot,
+              rawBars: snapshot.rawBars.filter(
+                (b) => b.date >= from && b.date <= input.end,
+              ),
+            };
+          }),
+        );
       return snapshots.get(symbol)!;
     },
     readLocalFinancialSeries: (dir, symbol) => {
@@ -170,20 +185,39 @@ export async function executeStrategyCenterPortfolio(
   if (!benchmark.some((b) => b.date >= input.start))
     throw new Error("研究区间没有交易日");
   const dates = benchmark.map((b) => b.date);
+  const decisionDates = benchmarkSource.bars
+    .filter(
+      (b, i, all) =>
+        b.date >= input.start &&
+        b.date <= input.end &&
+        ((all[i + 1] && isoWeek(all[i + 1]!.date) !== isoWeek(b.date)) ||
+          (!all[i + 1] && new Date(`${b.date}T00:00:00Z`).getUTCDay() === 5)),
+    )
+    .map((b) => b.date);
+  if (decisionDates.length * input.symbols.length > 100_000)
+    throw new Error(
+      "组合资源边界：最多10万标的×决策观察（控制财务证据与排序成本）",
+    );
   const stocks: Csi800Stock[] = [];
   const sources: {
     symbol: string;
     hash: string;
     actions: Awaited<ReturnType<typeof readBacktestActions>>;
   }[] = [];
+  let totalBars = benchmark.length;
   for (const symbol of input.symbols) {
     signal?.throwIfAborted();
     const source = await cached.readSnapshot(root, symbol, "day");
     if (source.barStore?.priceRepaired ?? Boolean(source.sourceNote))
       throw new Error(`${symbol}行情含修复或丢弃`);
-    const bars = source.bars.filter(
+    const bars = (source.rawBars ?? source.bars).filter(
       (b) => b.date >= dates[0]! && b.date <= input.end,
     );
+    totalBars += bars.length;
+    if (totalBars > 2_000_000)
+      throw new Error(
+        "组合资源边界：最多200万根冻结行情（控制Node堆与导出载荷）",
+      );
     if (JSON.stringify(bars.map((b) => b.date)) !== JSON.stringify(dates))
       throw new Error(`${symbol}行情与基准日历不一致，不能补造停牌行情`);
     const actions = await readers.readBacktestActions(
@@ -204,6 +238,13 @@ export async function executeStrategyCenterPortfolio(
     stocks.push({
       symbol,
       bars,
+      ...(source.adjustment === "forward"
+        ? {
+            signalBars: source.bars.filter(
+              (b) => b.date >= dates[0]! && b.date <= input.end,
+            ),
+          }
+        : {}),
       actions: actions.events
         .filter((e) => e.category === 1)
         .map((e) => ({
@@ -215,16 +256,6 @@ export async function executeStrategyCenterPortfolio(
     });
     sources.push({ symbol, hash: source.hash, actions });
   }
-  const decisionDates = benchmarkSource.bars
-    .filter(
-      (b, i, all) =>
-        b.date >= input.start &&
-        b.date <= input.end &&
-        ((all[i + 1] && isoWeek(all[i + 1]!.date) !== isoWeek(b.date)) ||
-          (!all[i + 1] && new Date(`${b.date}T00:00:00Z`).getUTCDay() === 5)),
-    )
-    .map((b) => b.date);
-  if (decisionDates.length > 104) throw new Error("组合研究最多104个周度决策");
   const schedule: Csi800Allocation[] = [];
   const decisions: {
     date: string;
@@ -278,7 +309,7 @@ export async function executeStrategyCenterPortfolio(
     .update(JSON.stringify(frozen))
     .digest("hex");
   signal?.throwIfAborted();
-  const result = runCsi800Study(stocks, benchmark, options, schedule);
+  const result = replayAllocationStudy(stocks, benchmark, options, schedule);
   return {
     frozen,
     inputHash,
@@ -288,7 +319,7 @@ export async function executeStrategyCenterPortfolio(
       "用户显式固定证券池，存在幸存者偏差，不代表历史全市场证券池。",
       "每ISO周最后交易日收盘决策，下一交易日开盘撮合；使用共享现金、100股整手、T+1及现有费用。",
       "单股目标权重上限为100%，不额外叠加中证800旧15%限制；未成交资金留现金。",
-      "排序因子使用未复权行情，除权跳变影响排名；财报采用当前下载版本的严格公告可见日期，不保证首次披露版本。",
+      "排序因子使用BarStore前复权行情、成交使用对应原价；财报采用当前下载版本的严格公告可见日期，不保证首次披露版本。",
       "历史交易状态、成交容量、排队、分红实际到账日尚未认证；结果仅为规则自检。",
     ],
   };

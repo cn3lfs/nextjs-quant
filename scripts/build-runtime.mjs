@@ -92,6 +92,8 @@ for (const file of [
     ),
   "packages/trading-strategy-core/src/indicators.ts",
   "packages/trading-strategy-core/src/money.ts",
+  "packages/trading-strategy-core/src/costs.ts",
+  "packages/trading-strategy-core/src/market-rules.ts",
   ...(
     await readdir("packages/trading-strategy-core/src/factors", {
       recursive: true,

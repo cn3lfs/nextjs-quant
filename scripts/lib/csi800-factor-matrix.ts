@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { runCsi800Study } from "../../packages/quant-backtest/src/csi800-study.js";
+import { replayAllocationStudy } from "../../packages/quant-backtest/src/allocation-profile.js";
 import { csi800ClassicRecipes } from "../../packages/trading-strategies/src/csi800-factors.js";
 import {
   buildClassicSchedule,
@@ -33,7 +33,7 @@ export async function runClassicMatrix(
   function summarize(
     id: string,
     model: ClassicModel,
-    result: ReturnType<typeof runCsi800Study>,
+    result: ReturnType<typeof replayAllocationStudy>,
   ) {
     const points = result.curve.map((p) => {
       const i = benchmarkIndex.get(p.date)!;
@@ -99,7 +99,7 @@ export async function runClassicMatrix(
       riskAt,
     );
     try {
-      const result = runCsi800Study(
+      const result = replayAllocationStudy(
         price.stocks,
         price.benchmark,
         {

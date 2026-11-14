@@ -2,7 +2,7 @@ import { recordResearchUsage } from "../research/research-usage";
 import {
   validateScreenFormula,
   type ScreeningFormula,
-} from "~/lib/formula/formula-screen";
+} from "trading-strategies/formula/formula-screen";
 import {
   workProgress,
   type WorkProgress,

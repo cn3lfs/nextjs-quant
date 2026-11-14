@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import { list, sqlite } from "../../src/server/db/index";
 import { defaultStrategy } from "../../src/lib/domain";
-import { maBaselineInputSchema } from "../../src/lib/backtest/ma-baseline";
+import { maBaselineInputSchema } from "quant-backtest";
 import type { MaBaselineArchive } from "../../src/server/backtest/ma-baseline-work";
 import type { ResearchUsage } from "../../src/lib/research/workflow/research-usage";
 import { encodeFiveMinuteBar } from "tstdx/local";
@@ -74,6 +74,11 @@ it("bundled current backtest records the evaluated window and survives usage-onl
   );
   await writeFile(
     join(root, "vipdoc/sh/lday/sh000001.day"),
+    Buffer.concat(calendar),
+  );
+  // Forward-adjusted intraday signals require the corresponding daily factor basis.
+  await writeFile(
+    join(root, "vipdoc/sh/lday/sh600000.day"),
     Buffer.concat(calendar),
   );
   await writeFile(

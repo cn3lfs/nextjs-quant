@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { researchMaCrossOutputs } from "../../packages/trading-strategies/src/research/technical/research-ma-cross";
-import { evaluateFormula } from "../../src/lib/formula/tdx-formula";
+import { evaluateFormula } from "trading-strategies/formula/tdx-formula";
 import type { Bar } from "trading-strategy-core/bars";
 
 it("preserves fixed MA5/10 formula CROSS semantics through equality, missing bars and future append", () => {

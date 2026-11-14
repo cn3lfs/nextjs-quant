@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   validateScreenFormula,
   type SavedFormula,
-} from "~/lib/formula/formula-screen";
+} from "trading-strategies/formula/formula-screen";
 import { readRecordSnapshot, put } from "../db";
 import type { Job } from "~/lib/domain";
 import { settings } from "../infra/settings";

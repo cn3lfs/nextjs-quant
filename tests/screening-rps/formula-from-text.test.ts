@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   formulaPrompt,
   type FormulaDraft,
-} from "~/lib/formula/formula-from-text";
-import { arities, futureFunctions } from "~/lib/formula/tdx-formula-check";
+} from "trading-strategies/formula/formula-from-text";
+import {
+  arities,
+  futureFunctions,
+} from "trading-strategies/formula/tdx-formula-check";
 import { formulaFromText } from "~/server/screening/formula-from-text";
 
 const draft = (source: string, unsupported: string[] = []): FormulaDraft => ({

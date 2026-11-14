@@ -3,12 +3,12 @@ import {
   formulaDraftSchema,
   formulaPrompt,
   type FormulaDraft,
-} from "~/lib/formula/formula-from-text";
-import { validateScreenFormula } from "~/lib/formula/formula-screen";
+} from "trading-strategies/formula/formula-from-text";
+import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
 import {
   FormulaError,
   type FormulaIssue,
-} from "~/lib/formula/tdx-formula-syntax";
+} from "trading-strategies/formula/tdx-formula-syntax";
 import { researchModel, structured } from "../research/research";
 
 type Complete = (

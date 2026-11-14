@@ -1,5 +1,6 @@
 import type { Bar } from "trading-strategy-core/bars";
-import type { ExecutionCosts } from "./costs.js";
+import type { ExecutionCosts } from "trading-strategy-core/costs";
+import { openingQuoteProfiles } from "trading-strategy-core/market-rules";
 import {
   big,
   bpsOf,
@@ -13,6 +14,7 @@ import {
  * labelled scenario. Current ST/IPO status is not a historical substitute.
  */
 export type ExecutionRules = {
+  quoteProfile?: keyof typeof openingQuoteProfiles;
   evidence: string;
   minimumBuy: number;
   buyStep: number;
@@ -74,28 +76,35 @@ export function fillMarketOrder(
     bar.low > Math.min(bar.open, bar.close)
   )
     return { price: null, reason: "成交行情无效" };
+  const profile = openingQuoteProfiles[rules.quoteProfile ?? "conservative"];
   // Daily bars cannot establish queue priority at a limit price.
   if (
     side === "buy" &&
     rules.limitUp !== null &&
-    bar.open >= rules.limitUp - 0.000001
+    bar.open >= rules.limitUp - profile.limitTolerance
   )
     return { price: null, reason: "开盘涨停，无法证明买入成交" };
   if (
     side === "sell" &&
     rules.limitDown !== null &&
-    bar.open <= rules.limitDown + 0.000001
+    bar.open <= rules.limitDown + profile.limitTolerance
   )
     return { price: null, reason: "开盘跌停，无法证明卖出成交" };
-  if (bar.high === bar.low)
+  if (profile.rejectOnePrice && bar.high === bar.low)
     return { price: null, reason: "一字行情，保守不成交" };
   const price =
     bar.open * (1 + ((side === "buy" ? 1 : -1) * costs.slippageBps) / 10000);
   if (
     price > bar.high ||
     price < bar.low ||
-    (rules.limitUp !== null && price > rules.limitUp) ||
-    (rules.limitDown !== null && price < rules.limitDown)
+    (rules.limitUp !== null &&
+      (profile.exclusiveLimit
+        ? price >= rules.limitUp
+        : price > rules.limitUp)) ||
+    (rules.limitDown !== null &&
+      (profile.exclusiveLimit
+        ? price <= rules.limitDown
+        : price < rules.limitDown))
   )
     return { price: null, reason: "滑点成交价超出可观察价格范围" };
   return { price, reason: null };

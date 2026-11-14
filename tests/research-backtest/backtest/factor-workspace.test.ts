@@ -11,7 +11,7 @@ import {
   draftMatchesInput,
   parseMaDraft,
 } from "~/lib/backtest/ma-workspace";
-import { strategyExperimentInputSchema } from "~/lib/backtest/strategy-experiment";
+import { strategyExperimentInputSchema } from "quant-backtest";
 
 it("persists and restores the complete strategy and detects an edited factor parameter", () => {
   const input = strategyExperimentInputSchema.parse({

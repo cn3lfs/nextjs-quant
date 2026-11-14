@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { executionCostsSchema } from "./costs.js";
+import { executionCostsSchema } from "trading-strategy-core/costs";
 export type { Bar } from "trading-strategy-core/bars";
 import { maBaselineId } from "trading-strategies";
 export const dateSchema = z

@@ -18,6 +18,10 @@
     "./research/*": {
       "types": "./dist/research/*.d.ts",
       "import": "./dist/research/*.js"
+    },
+    "./formula/*": {
+      "types": "./dist/formula/*.d.ts",
+      "import": "./dist/formula/*.js"
     }
   },
   "files": [
@@ -30,7 +34,8 @@
   },
   "dependencies": {
     "trading-strategy-core": "workspace:*",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "quant-rps": "workspace:*"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",

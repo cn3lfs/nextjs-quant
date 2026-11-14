@@ -42,6 +42,14 @@
     "./calendar": {
       "types": "./dist/calendar.d.ts",
       "import": "./dist/calendar.js"
+    },
+    "./costs": {
+      "types": "./dist/costs.d.ts",
+      "import": "./dist/costs.js"
+    },
+    "./market-rules": {
+      "types": "./dist/market-rules.d.ts",
+      "import": "./dist/market-rules.js"
     }
   },
   "files": [

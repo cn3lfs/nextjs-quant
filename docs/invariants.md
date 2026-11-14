@@ -1,6 +1,5 @@
 # 不可违反的约束
 
-
 ## 策略规则维护边界（2026-11-11）
 
 - `trading-strategies`拥有纯策略规则、方法自有ID/定义/参数和中性事实契约；按研究家族直接使用`trading-strategies/research/*`。不能从包内反向导入应用、服务端、撮合包或IO，包括type import、动态import和re-export。执行器的费用、卖出步长及现金约束通过显式报价事实注入，不在策略包复制撮合算法。
@@ -164,7 +163,7 @@ BOLL(20,2)：MID=MA(C,20)，上下轨=MID±2*STD(C,20)，STD 分母为 N−1
 
 ## 3. 未来函数必须硬拒绝
 
-- **是什么**：[tdx-formula-check.ts](../src/lib/formula/tdx-formula-check.ts) 在求值前检查全部语句，含未使用赋值和死分支。命中以下 **31 项**即拒绝执行并给函数名/行号，不能“警告后继续”：
+- **是什么**：[tdx-formula-check.ts](../packages/trading-strategies/src/formula/tdx-formula-check.ts) 在求值前检查全部语句，含未使用赋值和死分支。命中以下 **31 项**即拒绝执行并给函数名/行号，不能“警告后继续”：
 
 ```text
 ZIG ZIGA PEAK PEAKBARS TROUGH TROUGHBARS BACKSET BARSNEXT REFX REFXV
@@ -353,7 +352,6 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **测试**：[execution-quality.test.ts](../tests/research-backtest/execution-quality.test.ts) 覆盖四条自检、同代码跨日期倍率、close 无关性、区间边界、未知倍率、异常双边排除及完整导出；真实验收保持回合 785 / 50.892857% / 0.891201。
 - **违反会怎样**：十倍/百倍单位错误伪装成执行优势，或者通过选择性分母美化滑点。异常标签不证明一定是单位错误，仍需人工检查行情和当日价格偏离。
 
-
 ### 通达信数据与本地财务（2026-11-07）
 
 - 通达信专用协议、文件IO、格式解码、原始字段/单位和原生编解码归tstdx；应用保留查询、策略/财务计算、任务与研究持久化。纯财务源模型入口不导入Node能力；调用方直接导入数据拥有方，应用仅保留真实业务适配，不保留纯转发兼容层。
@@ -362,7 +360,6 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - 严格研究默认公告后下一观测交易日起可见；缺公告、可疑公告和交易日期缺证据不得补造。当前下载版本可能包含修订，不能认证首次披露版本或可信策略业绩。
 - 财报导出同时检查当前与计算组成期的来源指纹；档案冻结输入、公式/字段版本及来源，后续下载不改变旧结果。取消不发布成功档案，缺失与不满足分开统计。
 - 固定字节fixture随tstdx包维护；非法输入、包边界、缓存变动和调用方迁移有对应测试，详见[交付说明](deliveries/2026-11-07-local-financial.md)。
-
 
 ### 统一候选单位与风险平价（2026-11-11）
 

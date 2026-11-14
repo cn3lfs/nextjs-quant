@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { Bar } from "trading-strategy-core/bars";
-import { runClassicStudy } from "quant-backtest";
+import { replayDailyStudy } from "quant-backtest";
 import {
   createExtendedStudyRule,
   getStrategyDefinition,
@@ -23,7 +23,7 @@ it("runs the 98% price-only crossing then requests exit after exactly five held 
   });
   expect(rule(371, { entry: 100, entryIndex: 367 }).exit).toBe(false);
   expect(rule(372, { entry: 100, entryIndex: 367 }).exit).toBe(true);
-  const result = runClassicStudy(bars, [], {
+  const result = replayDailyStudy(bars, [], {
     strategy: "research-growth",
     start: bars[300]!.date,
     end: bars.at(-1)!.date,
@@ -89,7 +89,7 @@ it("runs the existing SOS candidate/confirmation and real exit policy through ne
   const rule = createExtendedStudyRule("research-wyckoff", bars)!;
   expect(rule(150, { entry: 0, entryIndex: 0 }).enter).toBe(false);
   expect(rule(151, { entry: 0, entryIndex: 0 }).enter).toBe(true);
-  const result = runClassicStudy(bars, [], {
+  const result = replayDailyStudy(bars, [], {
     strategy: "research-wyckoff",
     start: bars[140]!.date,
     end: bars.at(-1)!.date,

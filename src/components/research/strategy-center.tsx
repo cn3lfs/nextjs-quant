@@ -147,7 +147,7 @@ export function StrategyCenter() {
   const capitalValid =
     Number.isFinite(initial) && initial > 0 && initial <= 1e10;
   const weightDateError = studyDateError(end, end, now);
-  const portfolioDateError = studyDateError(start, end, now, 732);
+  const portfolioDateError = studyDateError(start, end, now);
   const dateNote = (
     <div className="text-xs text-muted-foreground sm:col-span-2">
       {daily.isPending ? (
@@ -453,7 +453,7 @@ export function StrategyCenter() {
                   </label>
                   {dateNote}
                   <label className="block">
-                    本地证券池（最多200只，逗号分隔）
+                    本地证券池（最多6000只，逗号分隔）
                     <Input
                       value={symbols}
                       onChange={(event) => setSymbols(event.target.value)}
@@ -526,7 +526,7 @@ export function StrategyCenter() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    历史组合限50只、两年；每周最后交易日决策，下一开盘使用共享资金撮合。固定证券池含幸存者偏差，缺失候选剔除并披露，现金保留；费用与滑点见冻结参数。
+                    历史组合按规模限制：最多6000只、200万根冻结行情和10万标的×周度决策；每周最后交易日决策，下一开盘使用共享资金撮合。固定证券池含幸存者偏差，缺失候选剔除并披露，现金保留；费用与滑点见冻结参数。
                   </p>
                   <label className="block">
                     时点候选快照JSON

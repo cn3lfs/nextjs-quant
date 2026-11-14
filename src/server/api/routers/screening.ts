@@ -34,7 +34,7 @@ import { securityNameMap } from "../../market/securities";
 import {
   formulaSchema,
   validateScreenFormula,
-} from "~/lib/formula/formula-screen";
+} from "trading-strategies/formula/formula-screen";
 import {
   savedFormulas,
   saveFormula,

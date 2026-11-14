@@ -87,10 +87,26 @@ function fixture() {
   };
   return { dates, benchmark, stock, second, actions, readers, input };
 }
-it("validates two-year horizon, real dates, duplicate symbols, capital and asset range", () => {
+
+it("admits more than 50 stocks and more than two years while bounding the symbol count", () => {
+  const symbols = Array.from({ length: 51 }, (_, i) => `sh${600000 + i}`);
+  const input = {
+    strategyId: "allocation-equal",
+    symbols,
+    start: "2016-01-04",
+    end: "2026-01-05",
+  };
+  expect(strategyCenterPortfolioSchema.parse(input).symbols).toEqual(symbols);
+  expect(
+    strategyCenterPortfolioSchema.safeParse({
+      ...input,
+      symbols: Array.from({ length: 6001 }, (_, i) => `sh${600000 + i}`),
+    }).success,
+  ).toBe(false);
+});
+it("validates real dates, duplicate symbols, capital and asset range", () => {
   const { input } = fixture();
   for (const change of [
-    { end: "2026-01-01" },
     { start: "2024-02-30" },
     { end: "2020-01-01" },
     { initial: 0 },
@@ -263,4 +279,20 @@ it("checks cancellation before IO and between stock captures", async () => {
     executeStrategyCenterPortfolio(f.input, "fixture", f.readers, mid.signal),
   ).rejects.toThrow();
   expect(f.readers.readBacktestActions).toHaveBeenCalledTimes(1);
+});
+
+it("rejects excessive symbol-decision work before capturing thousands of stock histories", async () => {
+  const f = fixture();
+  await expect(
+    executeStrategyCenterPortfolio(
+      {
+        ...f.input,
+        symbols: Array.from({ length: 6000 }, (_, i) => `sh${600000 + i}`),
+      },
+      "fixture",
+      f.readers,
+    ),
+  ).rejects.toThrow("10万标的×决策");
+  expect(f.readers.readSnapshot).toHaveBeenCalledTimes(1);
+  expect(f.readers.readBacktestActions).not.toHaveBeenCalled();
 });

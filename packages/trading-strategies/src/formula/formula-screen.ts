@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { checkFormula } from "./tdx-formula-check";
-import { FormulaError, parseFormula } from "./tdx-formula-syntax";
+import { checkFormula } from "./tdx-formula-check.js";
+import { FormulaError, parseFormula } from "./tdx-formula-syntax.js";
 export const formulaSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(80),

@@ -1,14 +1,10 @@
+import { readBars } from "../src/server/market/bar-store/read-bars";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
+import { readGbbq, readStableLocalFile, parseBars } from "tstdx/local";
 import {
-  readSnapshot,
-  readGbbq,
-  readStableLocalFile,
-  parseBars,
-} from "tstdx/local";
-import {
-  runClassicStudy,
+  replayDailyStudy,
   studySignalBars,
   classicStudyDatasetSchema,
 } from "quant-backtest";
@@ -48,8 +44,18 @@ const hash = (body: string | Buffer) =>
 async function capture() {
   const root = options.get("--tdx-root") ?? "E:/new_tdx64";
   const [stock, calendar, actions] = await Promise.all([
-    readSnapshot(root, "sh600519", "day"),
-    readSnapshot(root, "sh000001", "day"),
+    readBars({
+      root,
+      instrument: { market: "cn-equity", symbol: "sh600519" },
+      period: "day",
+      adjustment: "none",
+    }),
+    readBars({
+      root,
+      instrument: { market: "cn-equity", symbol: "sh000001" },
+      period: "day",
+      adjustment: "none",
+    }),
     readGbbq(root),
   ]);
   if (stock.sourceNote) throw new Error("股票源行情含自动修复，需先核验");
@@ -100,6 +106,15 @@ async function capture() {
     )
       throw new Error("存在未支持的非现金公司行动");
   }
+  const adjusted = await readBars({
+    root,
+    instrument: { market: "cn-equity", symbol: "sh600519" },
+    period: "day",
+    adjustment: "forward",
+    to: end,
+  });
+  const barDates = new Set(bars.map((b) => b.date));
+  const signalBars = adjusted.bars.filter((b) => barDates.has(b.date));
   const dividends = events
     .filter((e) => e.category === 1)
     .map((e) => ({ date: e.date, perShare: e.dividend! }));
@@ -112,12 +127,16 @@ async function capture() {
     end,
     initial: 1000000,
     bars,
+    signalBars,
     dividends,
     events,
     calendarDates,
     source: {
       root,
       stockHash: stock.hash,
+      signalHash: adjusted.hash,
+      signalAdjustment: "forward",
+      signalReference: adjusted.barStore.adjustmentReference,
       calendarHash: calendar.hash,
       calendarRepairs,
       gbbqHash: hash(await readFile(actions.path)),
@@ -150,7 +169,11 @@ const sourceFiles = [
   "packages/trading-strategies/src/study-decision.ts",
   "packages/trading-strategies/src/csi800-model.ts",
   "packages/trading-strategies/src/ma-cross.ts",
-  "packages/quant-backtest/src/classic-study.ts",
+  "packages/quant-backtest/src/daily-profile.ts",
+  "packages/quant-backtest/src/portfolio-account.ts",
+  "packages/quant-backtest/src/execution.ts",
+  "packages/trading-strategy-core/src/costs.ts",
+  "packages/trading-strategy-core/src/market-rules.ts",
   "packages/trading-strategies/src/study-catalog.ts",
   "packages/trading-strategies/src/study-rules.ts",
   "packages/trading-strategies/src/classics/index.ts",
@@ -188,12 +211,13 @@ function run(
 ) {
   // Preserve original recursive seeds and the original seven paths.
   const bars = input.bars.slice(firstObservation - studyWarmup(strategy));
-  return runClassicStudy(
+  return replayDailyStudy(
     bars,
     input.dividends.filter((d) => d.date >= bars[0]!.date),
     {
       ...scenario,
       strategy,
+      signalBars: input.signalBars,
       start: input.requestedStart,
       end: input.end,
       initial: input.initial,

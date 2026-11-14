@@ -4,7 +4,7 @@ import { gunzipSync } from "node:zlib";
 import { evaluatePerformance } from "quant-performance";
 import { matchCsi800Exposure } from "../packages/quant-backtest/src/csi800-exposure.js";
 import { csiHash, csiPriceSchema } from "./lib/csi800-factor-data.js";
-import type { runCsi800Study } from "../packages/quant-backtest/src/csi800-study.js";
+import type { replayAllocationStudy } from "../packages/quant-backtest/src/allocation-profile.js";
 
 if (!process.env.QUANT_DATA_DIR) throw new Error("先设置隔离QUANT_DATA_DIR");
 const out = resolve(process.argv[2] ?? process.env.QUANT_DATA_DIR);
@@ -21,9 +21,8 @@ const raw = await readFile(manifest.inputs.pricePath),
 if (csiHash(raw) !== manifest.inputs.priceHash)
   throw new Error("价格输入hash错误");
 const price = csiPriceSchema.parse(JSON.parse(raw.toString("utf8")));
-const { result }: { result: ReturnType<typeof runCsi800Study> } = JSON.parse(
-  gunzipSync(archive).toString("utf8"),
-);
+const { result }: { result: ReturnType<typeof replayAllocationStudy> } =
+  JSON.parse(gunzipSync(archive).toString("utf8"));
 const points = matchCsi800Exposure({
   initial: price.initial,
   curve: result.curve,

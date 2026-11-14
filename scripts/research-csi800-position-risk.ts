@@ -11,7 +11,7 @@ import { classicCodeHashes } from "./lib/csi800-research-manifest.js";
 import { csi800TradeEvaluation } from "./lib/csi800-trade-evaluation.js";
 import { buildClassicSchedule } from "../packages/trading-strategies/src/csi800-composite.js";
 import { csi800SignalBars } from "../packages/trading-strategies/src/csi800-signal.js";
-import { runCsi800Study } from "../packages/quant-backtest/src/csi800-study.js";
+import { replayAllocationStudy } from "../packages/quant-backtest/src/allocation-profile.js";
 import type { PositionRiskStage } from "../packages/trading-strategies/src/csi800-position-risk.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
 
@@ -138,7 +138,7 @@ for (const stage of [
   "full",
 ] as const) {
   console.log("position-risk stage", stage);
-  const result = runCsi800Study(
+  const result = replayAllocationStudy(
     price.stocks,
     price.benchmark,
     {

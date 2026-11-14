@@ -1,7 +1,7 @@
 import type { Csi800Stock } from "trading-strategies";
 import { csi800Weights } from "trading-strategies";
 import { describe, it, expect } from "vitest";
-import { runCsi800Study } from "../src/csi800-study.js";
+import { replayAllocationStudy } from "../src/allocation-profile.js";
 import type { Bar } from "../src/model.js";
 function fixture(length = 330) {
   const dates: string[] = [];
@@ -47,9 +47,9 @@ describe("CSI800 shared cash study", () => {
       slippageBps: 0,
     };
     expect(() =>
-      runCsi800Study(f.stocks, f.benchmark, options, schedule),
+      replayAllocationStudy(f.stocks, f.benchmark, options, schedule),
     ).toThrow("权重非法");
-    const result = runCsi800Study(
+    const result = replayAllocationStudy(
       f.stocks,
       f.benchmark,
       { ...options, maximumWeight: 1 },
@@ -73,9 +73,12 @@ describe("CSI800 shared cash study", () => {
       Number.POSITIVE_INFINITY,
     ])
       expect(() =>
-        runCsi800Study(f.stocks, f.benchmark, { ...f.options, maximumWeight }),
+        replayAllocationStudy(f.stocks, f.benchmark, {
+          ...f.options,
+          maximumWeight,
+        }),
       ).toThrow("最大权重");
-    const result = runCsi800Study(f.stocks, f.benchmark, {
+    const result = replayAllocationStudy(f.stocks, f.benchmark, {
       ...f.options,
       maximumWeight: 1,
     });
@@ -95,7 +98,7 @@ describe("CSI800 shared cash study", () => {
       "2023-08-28",
     ]) {
       const i = f.benchmark.findIndex((b) => b.date === date);
-      const r = runCsi800Study(
+      const r = replayAllocationStudy(
         f.stocks,
         f.benchmark,
         { start: f.benchmark[i - 1]!.date, end: date, mode: "scheduled" },
@@ -120,7 +123,7 @@ describe("CSI800 shared cash study", () => {
       first = f.benchmark.findIndex((b) => b.date === f.options.start);
     const signalDate = f.benchmark[first - 1]!.date,
       symbol = f.stocks[0]!.symbol;
-    const result = runCsi800Study(
+    const result = replayAllocationStudy(
       f.stocks,
       f.benchmark,
       { ...f.options, mode: "scheduled" },
@@ -128,7 +131,7 @@ describe("CSI800 shared cash study", () => {
     );
     expect(result.fills[0]!.date).toBe(f.options.start);
     expect(result.fills[0]!.signalDate).toBe(signalDate);
-    const delayed = runCsi800Study(
+    const delayed = replayAllocationStudy(
       f.stocks,
       f.benchmark,
       { ...f.options, mode: "scheduled", delay: 2 },
@@ -136,7 +139,7 @@ describe("CSI800 shared cash study", () => {
     );
     expect(delayed.fills[0]!.date).toBe(f.benchmark[first + 1]!.date);
     expect(() =>
-      runCsi800Study(
+      replayAllocationStudy(
         f.stocks,
         f.benchmark,
         { ...f.options, mode: "scheduled" },
@@ -144,7 +147,7 @@ describe("CSI800 shared cash study", () => {
       ),
     ).toThrow("权重非法");
     expect(() =>
-      runCsi800Study(f.stocks, f.benchmark, {
+      replayAllocationStudy(f.stocks, f.benchmark, {
         ...f.options,
         mode: "scheduled",
       }),
@@ -159,7 +162,7 @@ describe("CSI800 shared cash study", () => {
   });
   it("credits cash dividends and bonus shares without creating trading cash", () => {
     const f = fixture(),
-      original = runCsi800Study(f.stocks, f.benchmark, f.options);
+      original = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     const buy = original.fills.find((x) => x.side === "buy")!;
     const i = f.benchmark.findIndex((b) => b.date === buy.date);
     const date = f.benchmark[i + 1]!.date;
@@ -169,7 +172,7 @@ describe("CSI800 shared cash study", () => {
       if (b.date >= date)
         for (const key of ["open", "close", "high", "low"] as const)
           b[key] = (b[key] - 0.2) / 1.1;
-    const r = runCsi800Study(f.stocks, f.benchmark, f.options);
+    const r = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     const h = r.snapshots.find(
       (p) => p.date === date && p.symbol === buy.symbol,
     )!;
@@ -185,7 +188,7 @@ describe("CSI800 shared cash study", () => {
   });
   it("funds all stocks from one account and only trades after signals", () => {
     const f = fixture(),
-      r = runCsi800Study(f.stocks, f.benchmark, f.options);
+      r = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     expect(r.fills.length).toBeGreaterThan(10);
     expect(r.fills.every((x) => x.date > x.signalDate)).toBe(true);
     expect(
@@ -209,7 +212,7 @@ describe("CSI800 shared cash study", () => {
   });
   it("future price mutations cannot rewrite earlier signals or fills", () => {
     const f = fixture(),
-      original = runCsi800Study(f.stocks, f.benchmark, f.options);
+      original = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     const date = f.benchmark[310]!.date;
     const altered = structuredClone(f.stocks);
     for (const s of altered)
@@ -217,7 +220,7 @@ describe("CSI800 shared cash study", () => {
         if (b.date > date)
           for (const key of ["open", "high", "low", "close"] as const)
             b[key] *= 1.2;
-    const r = runCsi800Study(altered, f.benchmark, f.options);
+    const r = replayAllocationStudy(altered, f.benchmark, f.options);
     expect(r.curve.filter((p) => p.date <= date)).toEqual(
       original.curve.filter((p) => p.date <= date),
     );
@@ -228,22 +231,26 @@ describe("CSI800 shared cash study", () => {
   it("negative controls reject duplicates and malformed prices", () => {
     const f = fixture();
     expect(() =>
-      runCsi800Study([...f.stocks, f.stocks[0]!], f.benchmark, f.options),
+      replayAllocationStudy(
+        [...f.stocks, f.stocks[0]!],
+        f.benchmark,
+        f.options,
+      ),
     ).toThrow("证券重复");
     f.stocks[0]!.bars[280]!.close = NaN;
-    expect(() => runCsi800Study(f.stocks, f.benchmark, f.options)).toThrow(
-      "行情",
-    );
+    expect(() =>
+      replayAllocationStudy(f.stocks, f.benchmark, f.options),
+    ).toThrow("行情");
   });
   it("rejects buys locked at the upper limit", () => {
     const f = fixture();
-    const r = runCsi800Study(f.stocks, f.benchmark, f.options);
+    const r = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     const buy = r.fills.find((x) => x.side === "buy")!;
     const stock = f.stocks.find((s) => s.symbol === buy.symbol)!;
     const i = stock.bars.findIndex((b) => b.date === buy.date);
     const p = Math.round(stock.bars[i - 1]!.close * 1.1 * 100) / 100;
     Object.assign(stock.bars[i]!, { open: p, close: p, high: p, low: p });
-    const altered = runCsi800Study(f.stocks, f.benchmark, f.options);
+    const altered = replayAllocationStudy(f.stocks, f.benchmark, f.options);
     expect(
       altered.fills.some(
         (x) =>
@@ -258,7 +265,7 @@ describe("CSI800 shared cash study", () => {
   });
   it("stops rather than inventing accounting for held unsupported actions", () => {
     const f = fixture(),
-      r = runCsi800Study(f.stocks, f.benchmark, f.options),
+      r = replayAllocationStudy(f.stocks, f.benchmark, f.options),
       buy = r.fills[0]!;
     const i = f.benchmark.findIndex((b) => b.date === buy.date);
     f.stocks
@@ -269,8 +276,8 @@ describe("CSI800 shared cash study", () => {
         bonus: 0,
         unsupported: true,
       });
-    expect(() => runCsi800Study(f.stocks, f.benchmark, f.options)).toThrow(
-      "未支持",
-    );
+    expect(() =>
+      replayAllocationStudy(f.stocks, f.benchmark, f.options),
+    ).toThrow("未支持");
   });
 });

@@ -4,7 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import {
   factorStrategyPresets,
   type FactorStrategyInput,
-} from "~/lib/backtest/strategy-experiment";
+} from "trading-strategies";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {

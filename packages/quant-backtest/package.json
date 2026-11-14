@@ -11,10 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./costs": {
-      "types": "./dist/costs.d.ts",
-      "import": "./dist/costs.js"
-    },
     "./execution": {
       "types": "./dist/execution.d.ts",
       "import": "./dist/execution.js"

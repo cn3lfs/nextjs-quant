@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import fixture from "../../fixtures/breakout-valid.json";
-import { runClassicStudy } from "quant-backtest";
+import { replayDailyStudy } from "quant-backtest";
 import {
   createExtendedStudyRule,
   evaluateStrategy,
@@ -84,7 +84,7 @@ it.each(ids)(
       },
       { ...last, date: "2025-03-11", open: 20, close: 20, high: 21, low: 19 },
     ];
-    const result = runClassicStudy(bars, [], {
+    const result = replayDailyStudy(bars, [], {
       strategy,
       start: bars[140]!.date,
       end: bars.at(-1)!.date,

@@ -60,17 +60,17 @@ it("built package executes from outside the app directory through public ESM exp
   const url = pathToFileURL(
     resolve("packages/quant-backtest/dist/index.js"),
   ).href;
-  const code = `import { runMaBaseline,maBaselineInputSchema } from ${JSON.stringify(url)};
+  const code = `import { replayFiveMinute,maBaselineInputSchema } from ${JSON.stringify(url)};
   const input=maBaselineInputSchema.parse({symbol:'sh600519',start:'2026-10-12',end:'2026-10-12',costs:{commissionBps:0,minimumCommission:0,sellTaxBps:0,slippageBps:0}});
   const bars=Array.from({length:40},(_,i)=>{const m=575+(i%20)*5;const close=i<20?10:11;return {date:(i<20?'2026-10-09':'2026-10-12')+'T'+String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':00+08:00',open:10,high:12,low:9,close,volume:100,amount:1000};});
-  const result=runMaBaseline(input,bars);console.log(JSON.stringify({version:result.engineVersion,fills:result.fills.length,shares:result.shares}));`;
+  const result=replayFiveMinute(input,bars);console.log(JSON.stringify({version:result.engineVersion,fills:result.fills.length,shares:result.shares}));`;
   const result = execFileSync(
     process.execPath,
     ["--input-type=module", "-e", code],
     { cwd: tmpdir(), encoding: "utf8", windowsHide: true },
   );
   expect(JSON.parse(result)).toEqual({
-    version: "ts-backtest-foundation-1",
+    version: "ts-portfolio-event-1",
     fills: 1,
     shares: 10000,
   });

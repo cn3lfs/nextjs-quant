@@ -39,3 +39,7 @@ export * from "./portfolio-risk-parity.js";
 export * from "./native-study.js";
 
 export * from "./crypto-dual-ma.js";
+
+export * from "./strategy-object.js";
+
+export * from "./method-strategy.js";

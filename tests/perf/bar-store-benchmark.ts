@@ -4,13 +4,15 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { readSnapshot as oldRead, scan } from "tstdx/local";
 import { readBars } from "~/server/market/bar-store/read-bars";
-import { evaluateFormula } from "~/lib/formula/tdx-formula";
+import { evaluateFormula } from "trading-strategies/formula/tdx-formula";
 import { settings } from "~/server/infra/settings";
 import type { Bar } from "~/lib/domain";
 
-const parent = resolve(".test-data/r1a");
+const parent = resolve(process.env.QUANT_BENCH_ROOT ?? ".test-data/r1a");
+if (!parent.startsWith(resolve(".test-data") + "\\"))
+  throw new Error("Benchmark root must be inside .test-data");
 if (resolve(process.env.QUANT_DATA_DIR ?? "") !== join(parent, "data"))
-  throw new Error("Set QUANT_DATA_DIR=.test-data/r1a/data");
+  throw new Error(`Set QUANT_DATA_DIR=${join(parent, "data")}`);
 await mkdir(parent, { recursive: true });
 const root =
   process.env.TDX_ROOT ?? process.env.QUANT_TDX_ROOT ?? settings().tdxRoot;

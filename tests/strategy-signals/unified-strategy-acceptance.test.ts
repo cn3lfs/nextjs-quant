@@ -24,7 +24,11 @@ function forbiddenStrategyImports(source: string, file: string): string[] {
         boundary.startsWith("..\\")
       )
         forbidden.push(id);
-    } else if (id !== "zod" && !/^trading-strategy-core(?:\/.*)?$/.test(id)) {
+    } else if (
+      id !== "zod" &&
+      id !== "quant-rps" &&
+      !/^trading-strategy-core(?:\/.*)?$/.test(id)
+    ) {
       forbidden.push(id);
     }
   }

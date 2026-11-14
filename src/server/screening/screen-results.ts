@@ -1,4 +1,4 @@
-import type { ScreeningFormula } from "~/lib/formula/formula-screen";
+import type { ScreeningFormula } from "trading-strategies/formula/formula-screen";
 import type { ScreeningResult } from "./screening-result";
 import type { Candidate } from "~/lib/domain";
 import { securityDisplayName } from "~/lib/market/security-display";

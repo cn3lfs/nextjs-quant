@@ -7,7 +7,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { RouterOutputs } from "~/trpc/react";
-import type { BaselineFill, BaselineOrder } from "~/lib/backtest/ma-baseline";
+import type { BaselineFill, BaselineOrder } from "quant-backtest";
 import {
   orderStatusLabels,
   type OrderFilter,

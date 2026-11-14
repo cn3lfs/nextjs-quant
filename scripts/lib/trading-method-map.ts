@@ -56,6 +56,15 @@ export const tradingMethodMapSchema = z
           implementation: z.array(path),
           tests: z.array(path),
           boundary: z.string().min(1),
+          execution: z
+            .object({
+              status: z.enum(["runnable", "reference"]),
+              rule: z.string().optional(),
+              variant: z.string().optional(),
+              reason: z.string().min(1),
+            })
+            .strict()
+            .optional(),
           delivery: delivery.optional(),
           bindings: z
             .object({

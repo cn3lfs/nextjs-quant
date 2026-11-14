@@ -1,7 +1,3 @@
-export { runBacktest } from "./engine.js";
-export type { BacktestResult } from "./engine.js";
-export { runMaBaseline } from "./ma-baseline.js";
-export type { MaBaselineResult } from "./ma-baseline.js";
 export { baselineBarOpenTime } from "./data-feed.js";
 export { maBaselineInputSchema, backtestRequestSchema } from "./model.js";
 export type {
@@ -16,18 +12,27 @@ export { engineVersion, maBaselineBuildHash } from "./identity.js";
 export {
   strategyExperimentInputSchema,
   strategyExperimentWarmup,
-  runStrategyExperiment,
-} from "./strategy-experiment.js";
-export type { StrategyExperimentInput } from "./strategy-experiment.js";
+  replayFiveMinute,
+  replaySignalSeries,
+} from "./five-minute-profile.js";
+export type { StrategyExperimentInput } from "./five-minute-profile.js";
 export {
-  runClassicStudy,
+  replayDailyStudy,
   studySignalBars,
   classicStudyDatasetSchema,
-} from "./classic-study.js";
+} from "./daily-profile.js";
 export type {
   StudyDividend,
   StudyOptions,
   StudyFill,
-} from "./classic-study.js";
-export { runCsi800Study } from "./csi800-study.js";
-export type { Csi800Options } from "./csi800-study.js";
+} from "./daily-profile.js";
+export { replayAllocationStudy } from "./allocation-profile.js";
+export type { Csi800Options } from "./allocation-profile.js";
+
+export * from "./portfolio-engine.js";
+
+export type {
+  MaBaselineResult,
+  StrategyExperimentResult,
+  BacktestResult,
+} from "./five-minute-profile.js";

@@ -1,7 +1,11 @@
+import {
+  PortfolioAccount,
+  replayPortfolioEvents,
+} from "./portfolio-account.js";
 import { z } from "zod";
 import { big, moneyMul, toNumber } from "trading-strategy-core/money";
 import { fillMarketOrder, affordableQuantity } from "./execution.js";
-import { defaultExecutionCosts } from "./costs.js";
+import { defaultExecutionCosts } from "trading-strategy-core/costs";
 import type { Bar } from "./model.js";
 import {
   createStudyDecision,
@@ -41,6 +45,7 @@ const dividendSchema = z.object({
 });
 export const classicStudyDatasetSchema = z.object({
   bars: z.array(barSchema).min(142),
+  signalBars: z.array(barSchema).min(142).optional(),
   dividends: z.array(dividendSchema),
 });
 export type StudyDividend = z.infer<typeof dividendSchema>;
@@ -50,6 +55,7 @@ type StudyCommonOptions = {
   initial: number;
   slippageBps?: number;
   dividendTaxBps?: number;
+  signalBars?: readonly Bar[];
 };
 export type StudyOptions = StudyCommonOptions &
   (
@@ -105,7 +111,7 @@ export function studySignalBars(
   });
 }
 
-export function runClassicStudy(
+export function replayDailyStudy(
   rawBars: readonly Bar[],
   rawDividends: readonly StudyDividend[],
   options: StudyOptions,
@@ -143,7 +149,14 @@ export function runClassicStudy(
     )
   )
     throw new Error("分红日缺少行情");
-  const signal = studySignalBars(bars, dividends);
+  const signal = options.signalBars
+    ? z.array(barSchema).parse(options.signalBars)
+    : studySignalBars(bars, dividends);
+  if (
+    signal.length !== bars.length ||
+    signal.some((b, i) => b.date !== bars[i]!.date)
+  )
+    throw new Error("信号与原价行情未对齐");
   const first = bars.findIndex((b) => b.date >= o.start),
     last = bars.reduce((n, b, i) => (b.date <= o.end ? i : n), -1);
   const native = isNativeStudyStrategy(o.strategy);
@@ -165,7 +178,8 @@ export function runClassicStudy(
         side === "sell" ? big(amount).times(0.0005) : 0,
       ),
     );
-  let cash = o.initial,
+  const account = new PortfolioAccount(o.initial);
+  let cash = account.cash,
     shares = 0,
     dividendAccount = 0,
     totalFees = 0,
@@ -217,112 +231,130 @@ export function runClassicStudy(
     return order;
   }
   let pending = decide(first - 1);
-  for (let i = first; i <= last; i++) {
-    const b = bars[i]!,
-      sb = signal[i]!;
-    // Entitlement is based on the prior close, before today's open transaction.
-    const perShare = events.get(b.date);
-    if (perShare)
-      dividendAccount = cashAdd(
-        dividendAccount,
-        moneyMul(shares, perShare * (1 - o.dividendTaxBps / 10000)),
-      );
-    if (pending) {
-      const reference = bars[i - 1]!.close - (perShare ?? 0);
-      const quote = fillMarketOrder(
-        b,
-        pending.side,
-        {
-          ...rules,
-          limitUp: Math.round(reference * 1.1 * 100) / 100,
-          limitDown: Math.round(reference * 0.9 * 100) / 100,
-        },
-        costs,
-      );
-      if (quote.price === null)
-        rejected.push({ date: b.date, reason: quote.reason, order: pending });
-      else {
-        const price = quote.price;
-        const maxBuy = affordableQuantity(
-          pending.fraction === undefined
-            ? cash
-            : Math.min(cash, o.initial * pending.fraction),
-          price,
-          rules,
-          costs,
-        );
-        const quantity =
-          pending.side === "sell"
-            ? Math.min(shares, pending.quantity ?? shares)
-            : pending.quantity === undefined
-              ? maxBuy
-              : Math.min(pending.quantity, maxBuy);
-        if (quantity < 100)
-          rejected.push({
-            date: b.date,
-            reason: "资金或可卖整手不足",
-            order: pending,
-          });
-        else {
-          const amount = moneyMul(quantity, price),
-            fee = fees(amount, pending.side);
-          cash = toNumber(
-            big(cash)
-              .plus(pending.side === "buy" ? -amount : amount)
-              .minus(fee),
+  replayPortfolioEvents(
+    bars.slice(first, last + 1).map((b) => b.date),
+    {
+      open: (offset) => {
+        const i = first + offset;
+        const b = bars[i]!,
+          sb = signal[i]!;
+        // Entitlement is based on the prior close, before today's open transaction.
+        const perShare = events.get(b.date);
+        if (perShare)
+          dividendAccount = cashAdd(
+            dividendAccount,
+            moneyMul(shares, perShare * (1 - o.dividendTaxBps / 10000)),
           );
-          if (cash < -1e-7) throw new Error("现金透支");
-          shares += pending.side === "buy" ? quantity : -quantity;
-          totalFees = cashAdd(totalFees, fee);
-          if (
-            pending.side === "buy" &&
-            o.strategy !== "grid" &&
-            shares === quantity
-          ) {
-            entry = (price * sb.open) / b.open;
-            entryIndex = i;
-          }
-          if (o.strategy === "grid") {
-            if (!initialized) {
-              core = Math.floor((quantity * 0.75) / 100) * 100;
-              sleeveCap = (quantity - core) * 2;
+        if (pending) {
+          const reference = bars[i - 1]!.close - (perShare ?? 0);
+          const quote = fillMarketOrder(
+            b,
+            pending.side,
+            {
+              ...rules,
+              limitUp: Math.round(reference * 1.1 * 100) / 100,
+              limitDown: Math.round(reference * 0.9 * 100) / 100,
+            },
+            costs,
+          );
+          if (quote.price === null)
+            rejected.push({
+              date: b.date,
+              reason: quote.reason,
+              order: pending,
+            });
+          else {
+            const price = quote.price;
+            const maxBuy = affordableQuantity(
+              pending.fraction === undefined
+                ? cash
+                : Math.min(cash, o.initial * pending.fraction),
+              price,
+              rules,
+              costs,
+            );
+            const quantity =
+              pending.side === "sell"
+                ? Math.min(shares, pending.quantity ?? shares)
+                : pending.quantity === undefined
+                  ? maxBuy
+                  : Math.min(pending.quantity, maxBuy);
+            if (quantity < 100)
+              rejected.push({
+                date: b.date,
+                reason: "资金或可卖整手不足",
+                order: pending,
+              });
+            else {
+              const amount = moneyMul(quantity, price),
+                fee = fees(amount, pending.side);
+              account.fill(
+                "main",
+                b.date,
+                pending.side,
+                quantity,
+                price,
+                fee,
+                1,
+              );
+              cash = account.cash;
+              shares = account.positions.get("main")?.quantity ?? 0;
+              totalFees = cashAdd(totalFees, fee);
+              if (
+                pending.side === "buy" &&
+                o.strategy !== "grid" &&
+                shares === quantity
+              ) {
+                entry = (price * sb.open) / b.open;
+                entryIndex = i;
+              }
+              if (o.strategy === "grid") {
+                if (!initialized) {
+                  core = Math.floor((quantity * 0.75) / 100) * 100;
+                  sleeveCap = (quantity - core) * 2;
+                }
+                anchor = (price * sb.open) / b.open;
+              }
+              initialized = true;
+              lastAllocationMonth = pending.signalDate.slice(0, 7);
+              if (o.strategy === "dca") installments++;
+              fills.push({
+                signalDate: pending.signalDate,
+                date: b.date,
+                side: pending.side,
+                price,
+                shares: quantity,
+                fee,
+                cash,
+                holding: shares,
+                reason: pending.reason,
+              });
             }
-            anchor = (price * sb.open) / b.open;
           }
-          initialized = true;
-          lastAllocationMonth = pending.signalDate.slice(0, 7);
-          if (o.strategy === "dca") installments++;
-          fills.push({
-            signalDate: pending.signalDate,
-            date: b.date,
-            side: pending.side,
-            price,
-            shares: quantity,
-            fee,
-            cash,
-            holding: shares,
-            reason: pending.reason,
-          });
         }
-      }
-    }
-    const equity = toNumber(
-      big(cash).plus(big(shares).times(b.close)).plus(dividendAccount),
-    );
-    peak = Math.max(peak, equity);
-    const drawdown = 1 - equity / peak;
-    maxDrawdown = Math.max(maxDrawdown, drawdown);
-    curve.push({
-      date: b.date,
-      equity,
-      cash,
-      shares,
-      dividends: dividendAccount,
-      exposure: (shares * b.close) / equity,
-      drawdown,
-    });
-    pending = decide(i);
-  }
+      },
+      close: (offset) => {
+        const i = first + offset;
+        const b = bars[i]!;
+        const equity = toNumber(
+          big(cash).plus(big(shares).times(b.close)).plus(dividendAccount),
+        );
+        peak = Math.max(peak, equity);
+        const drawdown = 1 - equity / peak;
+        maxDrawdown = Math.max(maxDrawdown, drawdown);
+        curve.push({
+          date: b.date,
+          equity,
+          cash,
+          shares,
+          dividends: dividendAccount,
+          exposure: (shares * b.close) / equity,
+          drawdown,
+        });
+        pending = decide(i);
+      },
+    },
+  );
   const final = curve.at(-1)!,
     years =
       (Date.parse(final.date) - Date.parse(curve[0]!.date)) / 86400000 / 365.25;

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
-  runClassicStudy,
+  replayDailyStudy,
   studySignalBars,
   engineVersion,
 } from "quant-backtest";
@@ -70,7 +70,9 @@ export async function executeStrategyCenterStudy(
         instrument: { market: "cn-equity", symbol },
         root,
         period,
-        adjustment: "none",
+        adjustment: "forward",
+        freezeRaw: true,
+        to: raw.end,
         ...options,
       }),
     readBacktestActions,
@@ -98,7 +100,7 @@ export async function executeStrategyCenterStudy(
     : studyWarmup(input.strategyId as (typeof studyStrategies)[number]);
   const first = source.bars.findIndex((bar) => bar.date >= input.start);
   if (first < warmup) throw new Error(`历史行情不足 ${warmup} 根预热`);
-  const bars = source.bars
+  const bars = (source.rawBars ?? source.bars)
     .slice(first - warmup)
     .filter((bar) => bar.date <= input.end);
   const dates = calendar.bars
@@ -127,9 +129,14 @@ export async function executeStrategyCenterStudy(
   const dividends = actions.events
     .filter((event) => event.category === 1)
     .map((event) => ({ date: event.date, perShare: event.dividend! }));
+  const barDates = new Set(bars.map((b) => b.date));
+  const signalBars =
+    source.adjustment === "forward"
+      ? source.bars.filter((b) => barDates.has(b.date))
+      : studySignalBars(bars, dividends);
   const nativeCapture = native
     ? await captureNativeChanObservations(
-        studySignalBars(bars, dividends),
+        signalBars,
         warmup,
         signal,
         readers.projectCzsc,
@@ -143,6 +150,7 @@ export async function executeStrategyCenterStudy(
     strategy: getStrategyDefinition(input.strategyId),
     input,
     bars,
+    signalBars,
     dividends,
     actions,
     sourceHash: source.hash,
@@ -154,13 +162,15 @@ export async function executeStrategyCenterStudy(
     .digest("hex");
   signal?.throwIfAborted();
   const result = isNativeStudyStrategy(input.strategyId)
-    ? runClassicStudy(bars, dividends, {
+    ? replayDailyStudy(bars, dividends, {
         ...input,
+        signalBars,
         strategy: input.strategyId,
         nativeObservations: nativeCapture!.observations,
       })
-    : runClassicStudy(bars, dividends, {
+    : replayDailyStudy(bars, dividends, {
         ...input,
+        signalBars,
         strategy: input.strategyId,
       });
   return {

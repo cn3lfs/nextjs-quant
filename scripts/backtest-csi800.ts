@@ -1,12 +1,13 @@
+import { readBars } from "../src/server/market/bar-store/read-bars";
 import type { Csi800Stock } from "trading-strategies";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
-import { readSnapshot, readGbbq } from "tstdx/local";
+import { readGbbq } from "tstdx/local";
 import {
-  runCsi800Study,
+  replayAllocationStudy,
   type Csi800Options,
-} from "../packages/quant-backtest/src/csi800-study.js";
+} from "../packages/quant-backtest/src/allocation-profile.js";
 import { evaluatePerformance, performancePeriods } from "quant-performance";
 import { z } from "zod";
 
@@ -26,7 +27,12 @@ async function capture() {
   ];
   if (symbols.length !== 800) throw new Error(`成分数量异常 ${symbols.length}`);
   const [index, actions] = await Promise.all([
-    readSnapshot(root, "sh000906", "day"),
+    readBars({
+      root,
+      instrument: { market: "cn-equity", symbol: "sh000906" },
+      period: "day",
+      adjustment: "none",
+    }),
     readGbbq(root),
   ]);
   const benchmark = index.bars.map((b) => ({
@@ -40,7 +46,14 @@ async function capture() {
   for (let offset = 0; offset < symbols.length; offset += 16) {
     const batch = await Promise.allSettled(
       symbols.slice(offset, offset + 16).map(async (symbol) => {
-        const snapshot = await readSnapshot(root, symbol, "day");
+        const snapshot = await readBars({
+          root,
+          instrument: { market: "cn-equity", symbol },
+          period: "day",
+          adjustment: "forward",
+          freezeRaw: true,
+          to: end,
+        });
         if (snapshot.sourceNote) throw new Error(snapshot.sourceNote);
         const events = (actions.events.get(symbol) ?? []).filter(
           (e) => e.date >= "2014-01-01" && e.date <= end,
@@ -48,7 +61,8 @@ async function capture() {
         sources[symbol] = snapshot.hash;
         return {
           symbol,
-          bars: snapshot.bars
+          signalBars: snapshot.bars.filter((b) => b.date >= "2014-01-01"),
+          bars: (snapshot.rawBars ?? snapshot.bars)
             .filter((b) => b.date >= "2014-01-01")
             .map((b) => ({ ...b, date: b.date.slice(0, 10) })),
           actions: events
@@ -111,6 +125,7 @@ const inputSchema = z
         z.object({
           symbol: z.string().regex(/^(sh|sz)\d{6}$/),
           bars: z.array(barSchema),
+          signalBars: z.array(barSchema).optional(),
           actions: z.array(
             z.object({
               date: z.string(),
@@ -138,7 +153,11 @@ const codeFiles = [
   "packages/trading-strategies/src/study-decision.ts",
   "packages/trading-strategies/src/csi800-model.ts",
   "packages/trading-strategies/src/ma-cross.ts",
-  "packages/quant-backtest/src/csi800-study.ts",
+  "packages/quant-backtest/src/allocation-profile.ts",
+  "packages/quant-backtest/src/portfolio-account.ts",
+  "packages/quant-backtest/src/execution.ts",
+  "packages/trading-strategy-core/src/costs.ts",
+  "packages/trading-strategy-core/src/market-rules.ts",
   "scripts/backtest-csi800.ts",
   "pnpm-lock.yaml",
 ];
@@ -165,7 +184,7 @@ for (const slippageBps of [10, 20, 30])
   for (const mode of modes) {
     console.log(`回测 ${mode} 滑点${slippageBps}bp`);
     try {
-      const result = runCsi800Study(input.stocks, input.benchmark, {
+      const result = replayAllocationStudy(input.stocks, input.benchmark, {
         start: input.start,
         end: input.end,
         initial: input.initial,

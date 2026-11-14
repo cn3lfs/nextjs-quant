@@ -90,7 +90,7 @@ export const strategyCenterCandidateFields = {
         ),
     )
     .min(1)
-    .max(200)
+    .max(6000)
     .refine((v) => new Set(v).size === v.length, "证券代码重复"),
   asOf: day,
 };
@@ -155,7 +155,9 @@ export async function captureStrategyCandidates(
         instrument: { market: "cn-equity", symbol },
         root,
         period,
-        adjustment: "none",
+        adjustment: "forward",
+        freezeRaw: true,
+        to: raw.asOf,
         ...options,
       }),
     readLocalFinancialHistory,
@@ -196,6 +198,7 @@ export async function captureStrategyCandidates(
   const evidence: {
     symbol: string;
     barsHash?: string;
+    sourceHash?: string;
     bars?: Snapshot["bars"];
     reportInputs?: FinancialReportSnapshot[];
     seriesHash?: string;
@@ -241,6 +244,8 @@ export async function captureStrategyCandidates(
           throw new Error("行情收盘或日期顺序非法");
         snapshot = { ...snapshot, bars };
         record.barsHash = snapshot.hash;
+        record.sourceHash =
+          snapshot.barStore?.sourceFingerprint ?? snapshot.hash;
         record.bars = bars;
         if (input.strategyId === "allocation-risk-parity") {
           const window = bars.slice(-61);
@@ -389,12 +394,14 @@ export async function captureStrategyCandidates(
     exclusions,
     factors,
     evidence,
+    benchmarkSourceHash:
+      benchmark?.barStore?.sourceFingerprint ?? benchmark?.hash,
     benchmarkHash: benchmark?.hash ?? null,
     benchmarkBars:
       benchmark?.bars.filter((b) => b.date <= input.asOf).slice(-251) ?? [],
     limitations: [
       "输入为用户显式证券集合，不代表历史全市场证券池。",
-      "行情因子使用本地未复权价格，除权跳变影响收益及风险因子；仅用于规则研究。",
+      "行情因子使用BarStore前复权价格并固定历史截止分母；成交另取原价，仅用于规则研究。",
       "财报严格按公告后可见口径；当前下载版本不保证首次披露版本。",
       "只生成时点候选，不撮合组合交易。",
       ...(input.symbols.some(isExchangeFund)

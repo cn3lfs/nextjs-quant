@@ -29,8 +29,8 @@ import { get, put, remove, atomic } from "../../db";
 import { settings } from "../../infra/settings";
 import { scanJob, startRuntime } from "../../runtime";
 import { snapshot } from "../../market/snapshot";
-import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
-import { strategyExperimentInputSchema } from "~/lib/backtest/strategy-experiment";
+import { maBaselineInputSchema } from "quant-backtest";
+import { strategyExperimentInputSchema } from "quant-backtest";
 import { maBaselineJob } from "../../backtest/ma-baseline-job";
 import {
   queryPerformanceEvaluation,

@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { strategySchema, type Snapshot } from "~/lib/domain";
-import { evaluateFormula, FormulaError } from "~/lib/formula/tdx-formula";
-import type { ScreeningFormula } from "~/lib/formula/formula-screen";
+import {
+  evaluateFormula,
+  FormulaError,
+} from "trading-strategies/formula/tdx-formula";
+import type { ScreeningFormula } from "trading-strategies/formula/formula-screen";
 
 import { readBars } from "~/server/market/bar-store/read-bars";
 import type { ScreeningResult } from "./screening-result";
@@ -9,8 +12,8 @@ import { completedBarFilter } from "~/lib/completed-bars";
 import { metrics } from "trading-strategies/research/technical/screening-metrics";
 import { sqlite } from "../db";
 import { RpsStore } from "../db/rps-store";
-import { usesRpsFields } from "~/lib/formula/tdx-formula-check";
-import { parseFormula } from "~/lib/formula/tdx-formula-syntax";
+import { usesRpsFields } from "trading-strategies/formula/tdx-formula-check";
+import { parseFormula } from "trading-strategies/formula/tdx-formula-syntax";
 
 export type FormulaRangeWork = { root: string; now: number };
 

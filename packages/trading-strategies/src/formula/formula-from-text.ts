@@ -4,8 +4,8 @@ import {
   futureFunctions,
   marketFields,
   rpsFields,
-} from "./tdx-formula-check";
-import type { FormulaIssue } from "./tdx-formula-syntax";
+} from "./tdx-formula-check.js";
+import type { FormulaIssue } from "./tdx-formula-syntax.js";
 
 /** What the model must return; the formula is text for our own DSL, never code. */
 export const formulaDraftSchema = z.object({

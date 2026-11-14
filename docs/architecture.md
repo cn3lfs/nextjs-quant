@@ -23,60 +23,60 @@ flowchart LR
 
 页面默认使用常规 Next 路由；仅 `/market`、`/screen`、`/backtest` 由 [retainedRoutes](../src/components/workbench/retained-routes.tsx) 显式登记并保留已访问的组件。三个路由文件均返回同一注册表的真实页面组件，不再返回 null；[Workbench](../src/components/workbench/workbench.tsx) 只对注册路径使用缓存，其余直接呈现框架 children。普通页面离开即交由框架管理，不占应用面板缓存，也没有外壳的另一份页面副本。
 
-| 路由 | 页面模型 | 保留的状态与归属 |
-| --- | --- | --- |
-| `/` | 常规路由 | 排名口径 URL；首页数据 query cache |
-| `/stock-pool` | 常规路由 | 池、搜索、排序、周期、分页 URL；成分 query cache；翻股列表交给 market-session |
-| `/market` | 显式保留 | 证券、图表周期、来源、复权、图表/财务视图 URL；基础快照周期 `base=5m`；选择/已选快照/候选列表 market-session；图表设置、画线仍按证券×周期经 query cache/服务端保存；图表实例与视窗留在保留组件 |
-| `/screen` | 显式保留 | 任务身份 URL；任务、搜索、排序、分页 screen-session；公式/因子未保存编辑留在保留组件；已保存公式/结果 query cache/服务端 |
-| `/backtest` | 显式保留 | 实验草稿、当前实验 ID、报告分页留在保留组件；已提交实验/结果 query cache/服务端，刷新后显式恢复实验 |
-| `/analysis` | 常规路由 | 问题/方法 research-session；只订阅 market-session.loaded；报告 query cache，提交状态属本页 |
-| `/reports` | 常规路由 | 只订阅 market-session.symbol；报告/财务数据 query cache；工作区切换和未提交估值表单为本页临时状态 |
-| `/reports/[kind]/[id]` | 常规路由 | 报告身份路径 URL；报告事实服务端 |
-| `/settings` | 常规路由 | 未保存设置及对账基准 settings-session（仅内存）；保存结果 query cache/服务端；渠道凭证编辑不持久化 |
-| `/news` | 常规路由 | newsQuery/新闻档案身份 URL；现有新闻会话记忆保存翻页/返回上下文；数据 query cache |
-| `/cls-review` | 常规路由 | 报告选择/筛选 URL；现有复盘会话记忆；报告事实 query cache/服务端 |
-| `/rps` | 常规路由 | 任务、排名 query cache/服务端；内部口径/筛选/分页为本页临时状态，跨页找标的使用 `/stock-pool` 的 URL 流程 |
-| `/intraday` | 常规路由 | 配置和记录 query cache/服务端；操作临时状态本页；compute/schedule 继续暂停 |
-| `/signals` | 常规路由 | 订阅/渠道 query cache/服务端；未提交订阅草稿按 ID/revision 写 sessionStorage，弹窗打开及错误本页；compute/schedule 继续暂停 |
-| `/signal-ledger` | 常规路由 | 台账事实 query cache/服务端；筛选/选择 URL，分页及返回位置 sessionStorage；不进外壳 |
-| `/trade-ledger` | 常规路由 | 账户、持仓、成交事实 query cache/服务端；交易草稿和提交身份 sessionStorage，刷新将 pending 还原为 unknown 供查询核对 |
-| `/trade-review` | 常规路由 | 已导入交割单/复盘事实 query cache/服务端；本页展示控制与账户独立 |
-| `/strategies` | 常规路由 | 方法目录、输入检查/实验 query cache/服务端；选择与展开本页 |
-| `/research/data-guide` | 常规路由 | 文档内容；无跨页草稿 |
-| `/limit-up` | 常规路由 | 日期/所选池 limit-up-store（池持久化，日期仅会话）、池数据 query cache；弹层本页 |
-| `/crypto` | 常规路由 | pair URL；该市场独立来源/周期及未提交表单本页；账户事实 query cache/服务端，不消费 A 股选择 |
-| `/futures` | 常规路由 | code URL；该市场独立来源/周期本页；快照缓存复用，不消费 A 股选择 |
-| `/tasks` | 常规请求时路由 | 已应用筛选 URL；草稿/游标/取消反馈 task-history-session；任务结果 query cache |
-| `/ui-gallery` | 常规路由 | UI 示例；无业务状态 |
+| 路由                   | 页面模型       | 保留的状态与归属                                                                                                                                                                               |
+| ---------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                    | 常规路由       | 排名口径 URL；首页数据 query cache                                                                                                                                                             |
+| `/stock-pool`          | 常规路由       | 池、搜索、排序、周期、分页 URL；成分 query cache；翻股列表交给 market-session                                                                                                                  |
+| `/market`              | 显式保留       | 证券、图表周期、来源、复权、图表/财务视图 URL；基础快照周期 `base=5m`；选择/已选快照/候选列表 market-session；图表设置、画线仍按证券×周期经 query cache/服务端保存；图表实例与视窗留在保留组件 |
+| `/screen`              | 显式保留       | 任务身份 URL；任务、搜索、排序、分页 screen-session；公式/因子未保存编辑留在保留组件；已保存公式/结果 query cache/服务端                                                                       |
+| `/backtest`            | 显式保留       | 实验草稿、当前实验 ID、报告分页留在保留组件；已提交实验/结果 query cache/服务端，刷新后显式恢复实验                                                                                            |
+| `/analysis`            | 常规路由       | 问题/方法 research-session；只订阅 market-session.loaded；报告 query cache，提交状态属本页                                                                                                     |
+| `/reports`             | 常规路由       | 只订阅 market-session.symbol；报告/财务数据 query cache；工作区切换和未提交估值表单为本页临时状态                                                                                              |
+| `/reports/[kind]/[id]` | 常规路由       | 报告身份路径 URL；报告事实服务端                                                                                                                                                               |
+| `/settings`            | 常规路由       | 未保存设置及对账基准 settings-session（仅内存）；保存结果 query cache/服务端；渠道凭证编辑不持久化                                                                                             |
+| `/news`                | 常规路由       | newsQuery/新闻档案身份 URL；现有新闻会话记忆保存翻页/返回上下文；数据 query cache                                                                                                              |
+| `/cls-review`          | 常规路由       | 报告选择/筛选 URL；现有复盘会话记忆；报告事实 query cache/服务端                                                                                                                               |
+| `/rps`                 | 常规路由       | 任务、排名 query cache/服务端；内部口径/筛选/分页为本页临时状态，跨页找标的使用 `/stock-pool` 的 URL 流程                                                                                      |
+| `/intraday`            | 常规路由       | 配置和记录 query cache/服务端；操作临时状态本页；compute/schedule 继续暂停                                                                                                                     |
+| `/signals`             | 常规路由       | 订阅/渠道 query cache/服务端；未提交订阅草稿按 ID/revision 写 sessionStorage，弹窗打开及错误本页；compute/schedule 继续暂停                                                                    |
+| `/signal-ledger`       | 常规路由       | 台账事实 query cache/服务端；筛选/选择 URL，分页及返回位置 sessionStorage；不进外壳                                                                                                            |
+| `/trade-ledger`        | 常规路由       | 账户、持仓、成交事实 query cache/服务端；交易草稿和提交身份 sessionStorage，刷新将 pending 还原为 unknown 供查询核对                                                                           |
+| `/trade-review`        | 常规路由       | 已导入交割单/复盘事实 query cache/服务端；本页展示控制与账户独立                                                                                                                               |
+| `/strategies`          | 常规路由       | 方法目录、输入检查/实验 query cache/服务端；选择与展开本页                                                                                                                                     |
+| `/research/data-guide` | 常规路由       | 文档内容；无跨页草稿                                                                                                                                                                           |
+| `/limit-up`            | 常规路由       | 日期/所选池 limit-up-store（池持久化，日期仅会话）、池数据 query cache；弹层本页                                                                                                               |
+| `/crypto`              | 常规路由       | pair URL；该市场独立来源/周期及未提交表单本页；账户事实 query cache/服务端，不消费 A 股选择                                                                                                    |
+| `/futures`             | 常规路由       | code URL；该市场独立来源/周期本页；快照缓存复用，不消费 A 股选择                                                                                                                               |
+| `/tasks`               | 常规请求时路由 | 已应用筛选 URL；草稿/游标/取消反馈 task-history-session；任务结果 query cache                                                                                                                  |
+| `/ui-gallery`          | 常规路由       | UI 示例；无业务状态                                                                                                                                                                            |
 
 ### 常规页面表单生命周期（E 批核对）
 
 离开指常规路由组件卸载；仅切换本页隐藏子视图仍可能保留该子视图。刷新建立新的内存会话；服务端已受理的任务或写入继续存在，页面返回不会自动重放提交。查询错误由重新读取重新判断，不能把清除提示当作服务端成功。
 
-| 页面 | 草稿：离开/返回/刷新 | 校验错误与提交中状态 | 当前所有者 |
-| --- | --- | --- | --- |
-| `/` | 排名 URL；无编辑提交 | 不持久化表单状态 | [today-overview.tsx](../src/components/overview/today-overview.tsx) |
-| `/stock-pool` | 已应用筛选/分页 URL；未提交搜索回到已应用值 | 无写入提交 | [stock-pool-view.tsx](../src/components/market/stock-pool-view.tsx) |
-| `/analysis` | 问题/方法仅内存，离开返回保留；刷新恢复默认 | 提交中与错误本页；离开不取消服务器任务，不自动重提 | [evidence-analysis.tsx](../src/components/workbench/evidence-analysis.tsx) |
-| `/reports` | 已应用档案查询 URL/分页会话；估值、财务筛选草稿在离开/刷新后重置 | 估值校验/提交反馈本页；保存档案由服务端恢复 | [research-archive.tsx](../src/components/workbench/research-archive.tsx) |
-| `/reports/[kind]/[id]` | 身份路径 URL；无编辑草稿 | 读取故障可重试，不触发计算 | [page.tsx](../src/app/reports/[kind]/[id]/page.tsx) |
-| `/settings` | 设置草稿仅内存，离开返回保留、刷新读已保存值；渠道/凭证草稿离开清空 | 字段/保存错误和 pending 本页；迟到保存按提交快照确认、不清新输入；返回不自动重提 | [connections.tsx](../src/components/workbench/connections.tsx) |
-| `/news` | 已应用查询/任务/档案 URL；翻页返回会话；未应用草稿离开/刷新重置 | 本页错误/提交反馈重置；在途任务按 URL 重新读取，不重新创建 | [news-panel.tsx](../src/components/news/news-panel.tsx) |
-| `/cls-review` | 已应用报告/筛选 URL，分页 sessionStorage；事实/导入草稿离开或刷新清空 | 校验/保存错误/pending 本页；版本控制迟到保存 | [cls-review-workspace.tsx](../src/components/news/cls-review-workspace.tsx) |
-| `/rps` | 口径/分页/输入本页，离开或刷新重置；已保存配置/排名重新读取 | 校验/操作反馈本页，已有服务端任务继续 | [page.tsx](../src/app/rps/page.tsx) |
-| `/intraday` | 未保存配置本页，离开或刷新读已保存配置 | 错误/提交反馈本页；compute/schedule 暂停 | [intraday-controls.tsx](../src/components/intraday/intraday-controls.tsx) |
-| `/signals` | 订阅草稿 sessionStorage，离开/刷新按版本恢复；未应用筛选重置 | 弹窗/校验错误/pending 本页；恢复草稿不是恢复提交，计算调度暂停 | [monitor-workspace.tsx](../src/components/signals/monitor-workspace.tsx) |
-| `/signal-ledger` | 已应用筛选和选中项 URL，分页/位置 sessionStorage；未提交筛选重置 | 本页读取/导出反馈；计算调度暂停 | [signal-ledger-workspace.tsx](../src/components/signals/signal-ledger-workspace.tsx) |
-| `/trade-ledger` | 交易草稿及提交身份 sessionStorage，离开/刷新恢复；UI 展开本页 | 存储解析把 pending 恢复成 unknown；先按原提交 ID 查询，拒绝自动重放 | [trade-ledger-panel.tsx](../src/components/portfolio/trade-ledger-panel.tsx) |
-| `/trade-review` | 账户/展示与导入会话按原领域约定恢复，未提交临时展示不进外壳 | 预览提交身份与文件 hash/账户版本绑定；未知响应查收据，不自动重导 | [trade-review-container.tsx](../src/components/portfolio/trade-review-container.tsx) |
-| `/strategies` | 选择/实验输入/搜索本页，离开或刷新重置；目录/已保存实验重新读取 | 日期/资金校验及 pending 本页；离开不取消实验，不自动重提 | [strategy-center.tsx](../src/components/research/strategy-center.tsx) |
-| `/research/data-guide` | 静态说明，无草稿 | 无提交 | [research-data-guide.tsx](../src/components/research/research-data-guide.tsx) |
-| `/limit-up` | 池持久化、日期仅内存会话；弹层/输入本页，刷新恢复既有池 | 校验/请求反馈本页；读取失败不造结果 | [limit-up-store.ts](../src/lib/stores/limit-up-store.ts) |
-| `/crypto` | pair URL；独立周期/来源、策略/凭证输入本页；离开或刷新清空 | 提交/故障本页；保存成功清凭证；账户事实服务端，不以 UI pending 推断成交 | [crypto-bot-panel.tsx](../src/components/market/crypto-bot-panel.tsx) |
-| `/futures` | code URL；来源/周期/选择器本页，离开或刷新重置 | 读取故障本页，无交易提交 | [futures-view.tsx](../src/components/market/futures-view.tsx) |
-| `/tasks` | 已应用筛选 URL；草稿/游标 task-history-session，刷新回 URL 首页 | 取消中状态按 ID 跨卸载保留；刷新查服务器，不自动重提取消 | [task-history-session.ts](../src/lib/stores/task-history-session.ts) |
-| `/ui-gallery` | 示例草稿本页，离开/刷新重置 | 示例校验/反馈无业务提交 | [ui-gallery.tsx](../src/components/common/ui-gallery.tsx) |
+| 页面                   | 草稿：离开/返回/刷新                                                  | 校验错误与提交中状态                                                             | 当前所有者                                                                           |
+| ---------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `/`                    | 排名 URL；无编辑提交                                                  | 不持久化表单状态                                                                 | [today-overview.tsx](../src/components/overview/today-overview.tsx)                  |
+| `/stock-pool`          | 已应用筛选/分页 URL；未提交搜索回到已应用值                           | 无写入提交                                                                       | [stock-pool-view.tsx](../src/components/market/stock-pool-view.tsx)                  |
+| `/analysis`            | 问题/方法仅内存，离开返回保留；刷新恢复默认                           | 提交中与错误本页；离开不取消服务器任务，不自动重提                               | [evidence-analysis.tsx](../src/components/workbench/evidence-analysis.tsx)           |
+| `/reports`             | 已应用档案查询 URL/分页会话；估值、财务筛选草稿在离开/刷新后重置      | 估值校验/提交反馈本页；保存档案由服务端恢复                                      | [research-archive.tsx](../src/components/workbench/research-archive.tsx)             |
+| `/reports/[kind]/[id]` | 身份路径 URL；无编辑草稿                                              | 读取故障可重试，不触发计算                                                       | [page.tsx](../src/app/reports/[kind]/[id]/page.tsx)                                  |
+| `/settings`            | 设置草稿仅内存，离开返回保留、刷新读已保存值；渠道/凭证草稿离开清空   | 字段/保存错误和 pending 本页；迟到保存按提交快照确认、不清新输入；返回不自动重提 | [connections.tsx](../src/components/workbench/connections.tsx)                       |
+| `/news`                | 已应用查询/任务/档案 URL；翻页返回会话；未应用草稿离开/刷新重置       | 本页错误/提交反馈重置；在途任务按 URL 重新读取，不重新创建                       | [news-panel.tsx](../src/components/news/news-panel.tsx)                              |
+| `/cls-review`          | 已应用报告/筛选 URL，分页 sessionStorage；事实/导入草稿离开或刷新清空 | 校验/保存错误/pending 本页；版本控制迟到保存                                     | [cls-review-workspace.tsx](../src/components/news/cls-review-workspace.tsx)          |
+| `/rps`                 | 口径/分页/输入本页，离开或刷新重置；已保存配置/排名重新读取           | 校验/操作反馈本页，已有服务端任务继续                                            | [page.tsx](../src/app/rps/page.tsx)                                                  |
+| `/intraday`            | 未保存配置本页，离开或刷新读已保存配置                                | 错误/提交反馈本页；compute/schedule 暂停                                         | [intraday-controls.tsx](../src/components/intraday/intraday-controls.tsx)            |
+| `/signals`             | 订阅草稿 sessionStorage，离开/刷新按版本恢复；未应用筛选重置          | 弹窗/校验错误/pending 本页；恢复草稿不是恢复提交，计算调度暂停                   | [monitor-workspace.tsx](../src/components/signals/monitor-workspace.tsx)             |
+| `/signal-ledger`       | 已应用筛选和选中项 URL，分页/位置 sessionStorage；未提交筛选重置      | 本页读取/导出反馈；计算调度暂停                                                  | [signal-ledger-workspace.tsx](../src/components/signals/signal-ledger-workspace.tsx) |
+| `/trade-ledger`        | 交易草稿及提交身份 sessionStorage，离开/刷新恢复；UI 展开本页         | 存储解析把 pending 恢复成 unknown；先按原提交 ID 查询，拒绝自动重放              | [trade-ledger-panel.tsx](../src/components/portfolio/trade-ledger-panel.tsx)         |
+| `/trade-review`        | 账户/展示与导入会话按原领域约定恢复，未提交临时展示不进外壳           | 预览提交身份与文件 hash/账户版本绑定；未知响应查收据，不自动重导                 | [trade-review-container.tsx](../src/components/portfolio/trade-review-container.tsx) |
+| `/strategies`          | 选择/实验输入/搜索本页，离开或刷新重置；目录/已保存实验重新读取       | 日期/资金校验及 pending 本页；离开不取消实验，不自动重提                         | [strategy-center.tsx](../src/components/research/strategy-center.tsx)                |
+| `/research/data-guide` | 静态说明，无草稿                                                      | 无提交                                                                           | [research-data-guide.tsx](../src/components/research/research-data-guide.tsx)        |
+| `/limit-up`            | 池持久化、日期仅内存会话；弹层/输入本页，刷新恢复既有池               | 校验/请求反馈本页；读取失败不造结果                                              | [limit-up-store.ts](../src/lib/stores/limit-up-store.ts)                             |
+| `/crypto`              | pair URL；独立周期/来源、策略/凭证输入本页；离开或刷新清空            | 提交/故障本页；保存成功清凭证；账户事实服务端，不以 UI pending 推断成交          | [crypto-bot-panel.tsx](../src/components/market/crypto-bot-panel.tsx)                |
+| `/futures`             | code URL；来源/周期/选择器本页，离开或刷新重置                        | 读取故障本页，无交易提交                                                         | [futures-view.tsx](../src/components/market/futures-view.tsx)                        |
+| `/tasks`               | 已应用筛选 URL；草稿/游标 task-history-session，刷新回 URL 首页       | 取消中状态按 ID 跨卸载保留；刷新查服务器，不自动重提取消                         | [task-history-session.ts](../src/lib/stores/task-history-session.ts)                 |
+| `/ui-gallery`          | 示例草稿本页，离开/刷新重置                                           | 示例校验/反馈无业务提交                                                          | [ui-gallery.tsx](../src/components/common/ui-gallery.tsx)                            |
 
 逐页代码核对覆盖以上普通路由；新增实际组件验证覆盖设置草稿/校验/提交/卸载/刷新，负对照故意保留组件后在“错误必须清除”断言失败。策略和估值的框架路由验证见 route-visual，研究/设置/任务的既有路由恢复用例保留。该覆盖不代表每个真实外部提交均已联调。
 
@@ -134,7 +134,7 @@ flowchart LR
 
 ## 数据源、持久化与任务
 
-行情序列统一经 [BarStore](../src/server/market/bar-store/read-bars.ts) 读取；标的具有 `cn-equity/crypto/futures` 市场身份，客户端可用的 [市场规则](../src/lib/market/market-rules.ts) 集中提供交易时段、结算、数量、涨跌停、费用模板与做空能力。期货合约时段/费用与数字货币数量步长没有凭据时为未知，不赋予执行授权；期货行情本单继续使用原有合约适配。
+行情序列统一经 [BarStore](../src/server/market/bar-store/read-bars.ts) 读取；标的具有 `cn-equity/crypto/futures` 市场身份，客户端与回测共用的 [市场规则表](../packages/trading-strategy-core/src/market-rules.ts) 集中提供交易时段、结算、数量、涨跌停、费用模板与做空能力。期货合约时段/费用与数字货币数量步长没有凭据时为未知，不赋予执行授权；期货行情本单继续使用原有合约适配。
 
 BarStore 在 QUANT_DATA_DIR/bar-store 保存原价 QBARCOL1 文件：16 KiB 版本/来源头、Float64/Int32 列块，前缀不变时追加，修订时替换。v2 头部与完整列内容使用 CRC32 检查损坏，写入仍记录 SHA256；v1 文件先验证 SHA256，再在写锁内只升级头部，不重写列数据。来源指纹保留 inode/size/mtime/ctime/birthtime 与 SHA256：稳定读取整份源文件后以全内容 CRC32 探测变化，进程首次或探针改变时求 SHA256，最多保留 32768 个小型身份记录。即使 Windows 保留相同时间戳，首部、中部与尾部修订也进入变化检测；这是本地意外损坏检测，不是恶意篡改认证。列文件每次读取并校验，单文件上限 128 MiB；不共享可变 bars，只复用最多各 65536 个日线/盘中日期标签。已校验基础日线只标完成状态，不重新分组/合成；复权价格仍检查溢出与下溢。读取时使用 tstdx 的 GBBQ 因子，进程按来源身份共享一次解析（包括并发首次读取），历史截止先于前复权分母选择；分红文件缺失即失败，不降级。公式与双突破的信号使用前复权，RPS 的资格/事件校验后使用后复权；回测成交与账户仍取原价。公式候选冻结信号 bars 与对应原价供图表重开，不能拿今天的新历史替换原候选。
 
@@ -164,7 +164,7 @@ SQLite 文件格式与应用 user_version 分开管理：较旧应用拒绝高�
 
 [原生接口](../src/server/strategies/chan/czsc-api.ts) 与 [worker](../src/server/strategies/chan/czsc-worker.ts) 对应 CZSC API v22，配置结构 36 字节；[vendor 清单](../vendor/czsc/README.md) 记录来源 commit 27de580、DLL hash 与 GPLv3 许可。Node 专用子进程通过 koffi 调用 DLL，沿用单一串行所有者，不因图表拆分增加并行原生实例。算法实现留在 DLL；图表负责投影和展示，不能将 TS 近似结果冒作原生结果。
 
-双突破纯规则及来源元数据归 [trading-strategies/research/breakout](../packages/trading-strategies/src/research/breakout/breakout-method.json)，[批量服务](../src/server/strategies/breakout/breakout-batch.ts) 负责文件输入、尾窗筛除及完整确认。公式的解析、静态检查与序列求值归 src/lib/formula，服务编排归 [formula-screen-service](../src/server/screening/formula-screen-service.ts)；不执行生成的 JS，不因恢复入口重新启用旧自动策略。
+双突破纯规则及来源元数据归 [trading-strategies/research/breakout](../packages/trading-strategies/src/research/breakout/breakout-method.json)，[批量服务](../src/server/strategies/breakout/breakout-batch.ts) 负责文件输入、尾窗筛除及完整确认。公式的解析、静态检查与序列求值归 packages/trading-strategies/src/formula，服务编排归 [formula-screen-service](../src/server/screening/formula-screen-service.ts)；不执行生成的 JS，不因恢复入口重新启用旧自动策略。
 
 公式的[计算工作流](../src/server/screening/formula-screen-work.ts)在计算 worker 内保存完整候选快照，只把候选/排除/错误和统计返回应用线程，避免全市场日线对象的结构化克隆阻塞 HTTP。保存每批 50 个快照，事务内检查所属任务仍在运行；取消后不写后续批次。每批提交后等待主进程确认进度，再取得下一批写锁，避免进度和取消操作被连续写入阻塞；进度保存失败会终止 worker 并使任务失败。主进程持有任务终态，快照格式和完整历史不变；分段计算的 worker 内存仍随命中数量增长。
 
@@ -179,3 +179,11 @@ ESLint 使用现有 tsconfig 的类型信息，在 src 检查 Hooks、Promise �
 测试根目录原有的 66 个支持文件已按职责归入 perf、fixtures/seed、manual、helpers 与 browser/fixtures，所有调用者直接使用新路径，不保留转发入口。固定输入仍保持字节，造数脚本单独参与格式检查；现行入口与人工运行前置见 [测试说明](../tests/README.md)。通用 E2E 已改为独立隔离生产服务与 6,154 只合成证券负载，仍沿用原预算；D 批 10 项全规模通过的证据见交付，不能外推到真实账户和所有数据源。
 
 本批页面模型和共享行情归属已收拢；常规页面表单已按下表核对，仍未关闭的真实外部状态与最终验收按 [最终优化方案](optimization-plan-2026-11-13.md) 推进。本次未升级用户数据库、调用真实通知/交易或制作正式 exe。
+
+## R1b 策略与回放
+
+`trading-strategies/strategy-object`（包根导出）拥有 id/version/market/period/universe/entry/exit/sizing/sleeve。`prepareStrategy`编译纯规则并按完成bar索引求值；原生CZSC只消费服务端已有串行worker冻结的观察，禁止DLL进入包。公式解释器已整体迁入包，所有消费者直接导入公开formula子路径，无旧路径转发。
+
+`quant-backtest.runPortfolio`提供多证券、市场规则、分仓现金、分批、次根开盘、bar内保护单和订单/成交/权益/拒单记录。`portfolio-account.ts`拥有共同账本和事件时钟；五分钟、经典日线及中证800研究保留具名输入/决策/结果投影，成交记账通过共同账本，旧五个run入口及私有账户实现移除。显式中证800收盘集合竞价实验仍按冻结假设回放，不当作次开盘或可信历史成交；绩效归独立quant-performance。
+
+应用历史信号通过readBars前复权读取并冻结分母，成交使用对应rawBars。旧离线冻结输入缺signalBars时按其已记录的因果分红/经济权益口径读取，不改写历史输入。组合任务最多6000标的、200万根冻结行情（含基准）、10万标的×周度决策；边界控制Node堆、证据与导出载荷，区间与证券数不再独立限50只/两年。超预算明确拒绝，不截断研究。分仓再平衡只划转闲置现金，持仓超配待资金释放，不强制平仓。

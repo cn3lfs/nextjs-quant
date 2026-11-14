@@ -32,7 +32,11 @@ function dependencyViolations(text: string, file: string) {
         violations.push(value);
       return;
     }
-    if (value !== "zod" && !/^trading-strategy-core(?:\/.*)?$/.test(value))
+    if (
+      value !== "zod" &&
+      value !== "quant-rps" &&
+      !/^trading-strategy-core(?:\/.*)?$/.test(value)
+    )
       violations.push(value);
   }
   function visit(node: ts.Node) {

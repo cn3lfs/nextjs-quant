@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Bar, Job, Snapshot } from "../../../src/lib/domain";
 import { settingsSchema } from "../../../src/lib/domain";
-import { validateScreenFormula } from "../../../src/lib/formula/formula-screen";
+import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
 vi.mock("../../../src/server/data-sources/tdx/tdx", () => ({
   scan: vi.fn(),
 }));

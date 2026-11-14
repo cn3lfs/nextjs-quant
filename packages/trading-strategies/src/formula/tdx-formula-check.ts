@@ -3,7 +3,7 @@ import {
   type Expr,
   type FormulaIssue,
   type Statement,
-} from "./tdx-formula-syntax";
+} from "./tdx-formula-syntax.js";
 
 // Sources: tdx-doc functions/{引用函数,形态函数,序列行情函数,绘图函数}.md.
 // The first group is explicitly marked future by the dictionary. The second

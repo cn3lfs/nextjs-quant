@@ -4,7 +4,7 @@ import {
   commissionFor,
   type ExecutionRules,
 } from "quant-backtest/execution";
-import type { ExecutionCosts } from "quant-backtest/costs";
+import type { ExecutionCosts } from "trading-strategy-core/costs";
 import type {
   ResearchCostQuote,
   ResearchExecutor,

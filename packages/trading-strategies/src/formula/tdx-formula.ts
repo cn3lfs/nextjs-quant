@@ -1,12 +1,12 @@
 import { type RpsValue } from "quant-rps";
-import type { Bar } from "../domain";
+import type { Bar } from "trading-strategy-core/bars";
 import {
   emaSeries,
   maSeries,
   smaSeries,
   stdSeries,
   type IndicatorValue,
-} from "../indicators";
+} from "trading-strategy-core/indicators";
 import {
   binary,
   checkFormula,
@@ -14,11 +14,11 @@ import {
   unary,
   isRpsField,
   rpsFields,
-} from "./tdx-formula-check";
+} from "./tdx-formula-check.js";
 
-import { FormulaError, parseFormula, type Expr } from "./tdx-formula-syntax";
-export { FormulaError, parseFormula } from "./tdx-formula-syntax";
-export { futureFunctions } from "./tdx-formula-check";
+import { FormulaError, parseFormula, type Expr } from "./tdx-formula-syntax.js";
+export { FormulaError, parseFormula } from "./tdx-formula-syntax.js";
+export { futureFunctions } from "./tdx-formula-check.js";
 type Series = IndicatorValue[];
 export type FormulaRpsPoint = {
   date: string;
@@ -27,7 +27,7 @@ export type FormulaRpsPoint = {
 };
 const finite = (n: number): IndicatorValue => (Number.isFinite(n) ? n : null);
 
-/** Pure language core. Explicit, ascending, completed, unadjusted input bars.
+/** Pure language core. Ascending completed bars on an explicit frozen price basis.
  * No I/O, eval or generated JS. Q2b worker consumes this exact evaluator.
  * Validation always precedes reading bars, even for an empty input.
  */

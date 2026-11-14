@@ -92,7 +92,7 @@ function report(
     warnings: [],
   };
 }
-it("validates explicit dates, known ranking strategy, unique symbols and max200", () => {
+it("validates explicit dates, known ranking strategy, unique symbols and max6000", () => {
   const { input } = fixture();
   for (const change of [
     { asOf: "2024-02-30" },
@@ -101,7 +101,7 @@ it("validates explicit dates, known ranking strategy, unique symbols and max200"
     { symbols: ["sh600519", "sh600519"] },
     {
       symbols: Array.from(
-        { length: 201 },
+        { length: 6001 },
         (_, i) => `sh60${String(i).padStart(4, "0")}`,
       ),
     },

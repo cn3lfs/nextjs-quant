@@ -5,6 +5,20 @@ import type { Bar } from "trading-strategy-core/bars";
  * Scaled OHLC is for completed-bar indicators only, never open-to-open labels.
  */
 export function csi800SignalBars(stock: Csi800Stock): Bar[] {
+  if (stock.signalBars) {
+    if (
+      stock.signalBars.length !== stock.bars.length ||
+      stock.signalBars.some(
+        (b, i) =>
+          b.date !== stock.bars[i]!.date ||
+          ![b.open, b.high, b.low, b.close].every(
+            (v) => Number.isFinite(v) && v > 0,
+          ),
+      )
+    )
+      throw new Error("前复权信号与原价行情未对齐");
+    return stock.signalBars.map((b) => ({ ...b }));
+  }
   const ordered = [...stock.actions].sort((a, b) =>
     a.date.localeCompare(b.date),
   );

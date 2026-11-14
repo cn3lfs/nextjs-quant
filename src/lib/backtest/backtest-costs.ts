@@ -1,5 +1,5 @@
 export {
   executionCostsSchema as backtestCostsSchema,
   defaultExecutionCosts as defaultBacktestCosts,
-} from "quant-backtest/costs";
-export type { ExecutionCosts as BacktestCosts } from "quant-backtest/costs";
+} from "trading-strategy-core/costs";
+export type { ExecutionCosts as BacktestCosts } from "trading-strategy-core/costs";

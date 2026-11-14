@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { runClassicStudy, type Bar } from "quant-backtest";
+import { replayDailyStudy, type Bar } from "quant-backtest";
 import {
   studyStrategies,
   classicStudyStrategies,
@@ -45,7 +45,7 @@ it("主流目录保留原七项并显式声明规则与预热，长周期缺历�
     expect(studyCatalog[strategy].rule.length).toBeGreaterThan(10);
     if (studyWarmup(strategy) === 300) {
       expect(() =>
-        runClassicStudy(data.slice(160), [], { ...options, strategy }),
+        replayDailyStudy(data.slice(160), [], { ...options, strategy }),
       ).toThrow("预热至少300日");
     }
   }
@@ -54,17 +54,17 @@ it("主流目录保留原七项并显式声明规则与预热，长周期缺历�
 it("全部策略追加未来行情与现金事件不改变过去净值、成交、拒单及pending", () => {
   const before = structuredClone(data);
   for (const strategy of studyStrategies) {
-    const short = runClassicStudy(data.slice(0, 500), [], {
+    const short = replayDailyStudy(data.slice(0, 500), [], {
       ...options,
       strategy,
     });
-    const sameWindow = runClassicStudy(
+    const sameWindow = replayDailyStudy(
       data,
       [{ date: data[520]!.date, perShare: 5 }],
       { ...options, strategy },
     );
     expect(sameWindow).toEqual(short);
-    const longer = runClassicStudy(
+    const longer = replayDailyStudy(
       data,
       [{ date: data[520]!.date, perShare: 5 }],
       { ...options, strategy, end: data.at(-1)!.date },
@@ -100,7 +100,10 @@ it("200日趋势只用已完成收盘，跌破后的下一开盘卖，仍按日�
     high: 105,
     low: 95,
   }));
-  const result = runClassicStudy(input, [], { ...options, strategy: "sma200" });
+  const result = replayDailyStudy(input, [], {
+    ...options,
+    strategy: "sma200",
+  });
   expect(
     result.fills.map((f) => [f.side, f.signalDate, f.date, f.price]),
   ).toEqual([
@@ -117,7 +120,7 @@ it("仓位管理不使用隔离分红，分批建仓不注资、每月最多一�
     high: 101,
     low: 99,
   }));
-  const result = runClassicStudy(
+  const result = replayDailyStudy(
     flat,
     [{ date: flat[350]!.date, perShare: 1 }],
     { ...options, end: flat.at(-1)!.date, strategy: "dca" },
@@ -130,9 +133,12 @@ it("仓位管理不使用隔离分红，分批建仓不注资、每月最多一�
     true,
   );
   expect(result.curve.at(-1)!.cash).toBeCloseTo(39904);
-  const cppi = runClassicStudy(flat, [], { ...options, strategy: "cppi" });
+  const cppi = replayDailyStudy(flat, [], { ...options, strategy: "cppi" });
   expect(cppi.fills[0]!.shares).toBe(6000);
-  const vol = runClassicStudy(flat, [], { ...options, strategy: "vol-target" });
+  const vol = replayDailyStudy(flat, [], {
+    ...options,
+    strategy: "vol-target",
+  });
   expect(vol.fills[0]!.shares).toBe(9900);
 });
 
@@ -158,7 +164,7 @@ it("无定义的平盘指标不虚构反转信号，零资金流窗口保留null
     "rsi2",
     "cmf",
   ] as const) {
-    expect(runClassicStudy(flat, [], { ...options, strategy }).fills).toEqual(
+    expect(replayDailyStudy(flat, [], { ...options, strategy }).fills).toEqual(
       [],
     );
   }
@@ -173,7 +179,7 @@ it("再平衡数量来自信号日收盘，目标波动按252日样本波动率�
     low: 99,
   }));
   flat[300] = { ...flat[300]!, open: 105 };
-  const mix = runClassicStudy(flat, [], {
+  const mix = replayDailyStudy(flat, [], {
     ...options,
     strategy: "constant-mix",
   });
@@ -193,14 +199,14 @@ it("再平衡数量来自信号日收盘，目标波动按252日样本波动率�
   const expectedShares =
     Math.floor((1000000 * 0.15) / (dailyVol * Math.sqrt(252)) / 100 / 100) *
     100;
-  const vol = runClassicStudy(varied, [], {
+  const vol = replayDailyStudy(varied, [], {
     ...options,
     strategy: "vol-target",
   });
   expect(vol.fills[0]!.shares).toBe(expectedShares);
   expect(expectedShares).toBe(4600);
   flat[300] = { ...flat[300]!, volume: 0 };
-  const retry = runClassicStudy(flat, [], { ...options, strategy: "dca" });
+  const retry = replayDailyStudy(flat, [], { ...options, strategy: "dca" });
   expect(retry.rejected[0]!.date).toBe(flat[300]!.date);
   expect(retry.fills[0]!.date).toBe(flat[301]!.date);
   expect(

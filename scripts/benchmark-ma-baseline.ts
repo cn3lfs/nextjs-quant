@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { maBaselineInputSchema } from "../src/lib/backtest/ma-baseline";
+import { maBaselineInputSchema } from "quant-backtest";
 import { executeMaBaseline } from "../src/server/backtest/ma-baseline-work";
 
 // Explicit isolation remains required if future adapters acquire persistence.

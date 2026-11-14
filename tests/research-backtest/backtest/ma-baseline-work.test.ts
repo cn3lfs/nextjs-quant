@@ -13,7 +13,7 @@ const readSnapshot = readBars as (
 import { readBenchmarkSnapshot } from "~/server/data-sources/tdx/tdx-benchmark";
 import { readBacktestActions } from "~/server/backtest/backtest-actions";
 import { executeMaBaseline } from "~/server/backtest/ma-baseline-work";
-import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
+import { maBaselineInputSchema } from "quant-backtest";
 import type { Snapshot } from "~/lib/domain";
 import {
   factorStrategyPresets,

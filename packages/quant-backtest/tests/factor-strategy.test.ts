@@ -7,8 +7,7 @@ import {
 } from "trading-strategies";
 import { expect, it } from "vitest";
 import {
-  runMaBaseline,
-  runStrategyExperiment,
+  replayFiveMinute,
   strategyExperimentInputSchema,
   type Bar,
 } from "../src/index.js";
@@ -40,11 +39,11 @@ it("modular SMA5/20 is signal- and execution-equivalent to the baseline", () => 
   expect(factorStrategySignals(data, strategy).values).toEqual(
     maBaselineSignals(data),
   );
-  const modular = runStrategyExperiment(
+  const modular = replayFiveMinute(
       { ...input, strategy: factorStrategySchema.parse(strategy) },
       data,
     ),
-    baseline = runMaBaseline(input, data);
+    baseline = replayFiveMinute(input, data);
   for (const key of [
     "fills",
     "orders",
@@ -55,7 +54,7 @@ it("modular SMA5/20 is signal- and execution-equivalent to the baseline", () => 
     "equity",
   ] as const)
     expect(modular[key]).toEqual(baseline[key]);
-  expect(runStrategyExperiment(input, data)).toEqual(baseline);
+  expect(replayFiveMinute(input, data)).toEqual(baseline);
 });
 it("applies level/any/all rules, propagates missing evidence, and prioritizes exit", () => {
   const strategy = structuredClone(factorStrategyPresets[0]!);

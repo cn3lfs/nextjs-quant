@@ -180,7 +180,7 @@ it.each([
   },
 );
 
-it("uses shared fund kind and exchange identity while retaining duplicate and max200 guards", () => {
+it("uses shared fund kind and exchange identity while retaining duplicate and max6000 guards", () => {
   const f = fixture(),
     input = { strategyId: "portfolio-rps-5", symbols: f.symbols, asOf: f.asOf };
   expect(strategyCenterCandidatesSchema.safeParse(input).success).toBe(true);
@@ -194,7 +194,7 @@ it("uses shared fund kind and exchange identity while retaining duplicate and ma
     ["sz184801"],
     ["sh510300", "sh510300"],
     Array.from(
-      { length: 201 },
+      { length: 6001 },
       (_, index) => `sh60${String(index).padStart(4, "0")}`,
     ),
   ])

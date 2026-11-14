@@ -1,6 +1,6 @@
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
-import type { ScreeningFormula } from "~/lib/formula/formula-screen";
+import type { ScreeningFormula } from "trading-strategies/formula/formula-screen";
 import type { FormulaPart, FormulaRangeWork } from "./formula-range";
 import { scanFormulaRange } from "./formula-range";
 

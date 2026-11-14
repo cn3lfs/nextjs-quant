@@ -4,9 +4,9 @@ import type { Bar } from "trading-strategy-core/bars";
 import {
   baselineBarOpenTime,
   maBaselineInputSchema,
-  runMaBaseline,
+  replayFiveMinute,
 } from "../src/index.js";
-import { defaultExecutionCosts as defaultBacktestCosts } from "../src/costs.js";
+import { defaultExecutionCosts as defaultBacktestCosts } from "trading-strategy-core/costs";
 
 const zeroCosts = {
   ...defaultBacktestCosts,
@@ -51,7 +51,7 @@ describe("TS 双均线基线账户", () => {
   it("uses next open, 100-share lots, and retains T+1 exit until next date", () => {
     const bars = fixture(),
       before = structuredClone(bars);
-    const partial = runMaBaseline(input, bars.slice(0, 23));
+    const partial = replayFiveMinute(input, bars.slice(0, 23));
     expect(partial.fills.map((f) => [f.side, f.price, f.shares])).toEqual([
       ["buy", 12, 8300],
     ]);
@@ -60,7 +60,7 @@ describe("TS 双均线基线账户", () => {
       reason: "T+1：当日买入不可卖出",
       attempts: 1,
     });
-    const result = runMaBaseline(input, bars);
+    const result = replayFiveMinute(input, bars);
     expect(result.fills.map((f) => [f.side, f.price, f.shares])).toEqual([
       ["buy", 12, 8300],
       ["sell", 10, 8300],
@@ -78,7 +78,7 @@ describe("TS 双均线基线账户", () => {
   it("minimum commission is max(rate,min), sell tax adds separately", () => {
     const bars = fixture();
     bars[21]!.open = 9;
-    const result = runMaBaseline(
+    const result = replayFiveMinute(
       {
         ...input,
         initial: 1000,
@@ -100,17 +100,17 @@ describe("TS 双均线基线账户", () => {
     const bars = fixture();
     bars[21]!.open = 200;
     bars[21]!.high = 201;
-    const rejected = runMaBaseline({ ...input, initial: 1000 }, bars);
+    const rejected = replayFiveMinute({ ...input, initial: 1000 }, bars);
     expect(rejected.fills).toEqual([]);
     expect(rejected.orders[0]!.status).toBe("rejected");
-    const held = runMaBaseline(input, fixture().slice(0, 22));
+    const held = replayFiveMinute(input, fixture().slice(0, 22));
     expect(held.fills).toHaveLength(1);
     expect(held.shares).toBe(8300);
   });
   it("rejects blocked buy, retains blocked sell, never assigns previous signal close as fill", () => {
     const bars = fixture();
     bars[21]!.volume = 0;
-    const result = runMaBaseline(input, bars);
+    const result = replayFiveMinute(input, bars);
     expect(result.fills).toEqual([]);
     expect(result.orders[0]!.reason).toContain("停牌");
     const blocked = fixture();
@@ -119,7 +119,7 @@ describe("TS 双均线基线账户", () => {
       blocked[23]!.open =
       blocked[23]!.close =
         10;
-    expect(runMaBaseline(input, blocked).orders[1]).toMatchObject({
+    expect(replayFiveMinute(input, blocked).orders[1]).toMatchObject({
       status: "pending",
       reason: "一字行情，保守不成交",
     });
@@ -132,8 +132,8 @@ describe("TS 双均线基线账户", () => {
     expect([...maBaselineSignals(altered)].slice(0, 23)).toEqual(
       [...maBaselineSignals(bars)].slice(0, 23),
     );
-    expect(runMaBaseline(input, altered).fills[0]).toEqual(
-      runMaBaseline(input, bars).fills[0],
+    expect(replayFiveMinute(input, altered).fills[0]).toEqual(
+      replayFiveMinute(input, bars).fills[0],
     );
   });
   it("right-end timestamps cross lunch/overnight without inventing a session", () => {
@@ -154,11 +154,11 @@ describe("TS 双均线基线账户", () => {
     for (const bad of [NaN, Infinity, -1]) {
       const bars = fixture();
       bars[21]!.open = bad;
-      expect(() => runMaBaseline(input, bars)).toThrow();
+      expect(() => replayFiveMinute(input, bars)).toThrow();
     }
     const duplicate = fixture();
     duplicate[22]!.date = duplicate[21]!.date;
-    expect(() => runMaBaseline(input, duplicate)).toThrow("顺序");
-    expect(() => runMaBaseline(input, fixture().slice(20))).toThrow("预热");
+    expect(() => replayFiveMinute(input, duplicate)).toThrow("顺序");
+    expect(() => replayFiveMinute(input, fixture().slice(20))).toThrow("预热");
   });
 });

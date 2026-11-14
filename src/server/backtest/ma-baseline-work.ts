@@ -7,9 +7,9 @@ import { readBacktestActions } from "./backtest-actions";
 import {
   strategyExperimentInputSchema,
   strategyExperimentWarmup,
-  runStrategyExperiment,
+  replayFiveMinute,
   type StrategyExperimentInput,
-} from "~/lib/backtest/strategy-experiment";
+} from "quant-backtest";
 
 export type MaBaselineWork = {
   type: "ma-baseline";
@@ -32,13 +32,14 @@ export async function executeMaBaseline(
     instrument: { market: "cn-equity", symbol: input.symbol },
     root: work.root,
     period: "5m",
-    adjustment: "none",
+    adjustment: "forward",
+    freezeRaw: true,
+    to: input.end,
   });
   if (source.barStore?.priceRepaired ?? Boolean(source.sourceNote))
     throw new Error(`源行情存在修复或丢弃，基线拒绝使用：${source.sourceNote}`);
-  const first = source.bars.findIndex(
-    (b) => b.date.slice(0, 10) >= input.start,
-  );
+  const rawBars = source.rawBars ?? source.bars;
+  const first = rawBars.findIndex((b) => b.date.slice(0, 10) >= input.start);
   if (first < warmupBars)
     throw new Error(`开始日期超出历史覆盖或不足 ${warmupBars} 根预热行情`);
   const benchmark = await readBenchmarkSnapshot(
@@ -56,7 +57,7 @@ export async function executeMaBaseline(
       source.bars.at(-1)!.date.slice(0, 10) < input.end)
   )
     throw new Error("结束日期超出本地行情/日历覆盖，请缩短研究窗口");
-  const bars = source.bars
+  const bars = rawBars
     .slice(first - warmupBars)
     .filter((b) => b.date.slice(0, 10) <= input.end);
   const byDay = new Map<string, string[]>();
@@ -90,6 +91,8 @@ export async function executeMaBaseline(
     throw new Error(
       "研究窗口存在缺日、缺五分钟时段或日历冲突；不补造行情，也不静默顺延",
     );
+  const datesForSignals = new Set(bars.map((b) => b.date));
+  const signalBars = source.bars.filter((b) => datesForSignals.has(b.date));
   const frozen = { ...source, bars };
   const actions = await readBacktestActions(frozen, work.root);
   if (actions.status === "missing")
@@ -103,15 +106,21 @@ export async function executeMaBaseline(
     .digest("hex");
   const sourceMs = performance.now() - started;
   progress(30, "计算策略因子与逐根回放订单");
-  const result = runStrategyExperiment(input, bars, (done, total) =>
-    progress(30 + Math.floor((done / total) * 65), `回放 ${done}/${total}`),
+  const result = replayFiveMinute(
+    input,
+    bars,
+    (done, total) =>
+      progress(30 + Math.floor((done / total) * 65), `回放 ${done}/${total}`),
+    signalBars,
   );
   const computeMs = performance.now() - started - sourceMs;
   const manifest = {
     version: "ma-baseline-input-1" as const,
     symbol: source.symbol,
     period: "5m" as const,
-    adjustment: "none" as const,
+    adjustment: source.adjustment,
+    executionAdjustment: "none" as const,
+    adjustmentReference: source.barStore?.adjustmentReference ?? null,
     sourceFileHash: source.hash,
     dataHash,
     calendarHash: benchmark.hash,
@@ -124,10 +133,17 @@ export async function executeMaBaseline(
   };
   const inputSnapshot: {
     bars: typeof bars;
+    signalBars?: typeof bars;
     calendar: string[];
     warmupCalendar?: string[];
     actions: typeof actions;
-  } = { bars, calendar: days, warmupCalendar: previousDays, actions };
+  } = {
+    bars,
+    signalBars,
+    calendar: days,
+    warmupCalendar: previousDays,
+    actions,
+  };
   return { result, manifest, inputSnapshot };
 }
 export type MaBaselineArchive = Awaited<ReturnType<typeof executeMaBaseline>>;

@@ -2,7 +2,7 @@ import { beforeEach, expect, it } from "vitest";
 import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { get, put, sqlite } from "~/server/db";
-import { maBaselineInputSchema, runMaBaseline } from "quant-backtest";
+import { maBaselineInputSchema, replayFiveMinute } from "quant-backtest";
 import type { Bar } from "quant-backtest";
 import type { MaBaselineArchive } from "~/server/backtest/ma-baseline-work";
 import { defaultStrategy } from "~/lib/domain";
@@ -31,7 +31,7 @@ const bars: Bar[] = Array.from({ length: 40 }, (_, i) => {
   };
 });
 function archiveFixture(): MaBaselineArchive {
-  const result = runMaBaseline(input, bars);
+  const result = replayFiveMinute(input, bars);
   // Controlled repeated records exercise paging, not strategy performance.
   result.fills = Array.from({ length: 60 }, (_, i) => ({
     ...result.fills[0]!,
@@ -44,6 +44,8 @@ function archiveFixture(): MaBaselineArchive {
       symbol: input.symbol,
       period: "5m",
       adjustment: "none",
+      executionAdjustment: "none",
+      adjustmentReference: null,
       sourceFileHash: "source",
       dataHash: "frozen-window",
       calendarHash: "calendar",

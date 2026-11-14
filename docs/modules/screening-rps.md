@@ -8,7 +8,7 @@
 
 - UI：`src/app/rps/page.tsx`、`src/app/screen/page.tsx`、`src/components/screening/`。
 - RPS 纯计算：`packages/quant-rps`，默认当日（1）/3/5/10/20/50/120 交易日；证券资格、涨幅、排名与板块等权聚合只在包内实现。应用 `rps-adapter.ts` 负责复权准备与哈希，`industry-rps.ts` 负责快照校验和应用元数据；旧结果按自身周期读取。
-- 纯规则：`src/lib/formula/`、`src/lib/screening/`、`src/lib/screening/rps.ts` 等具名契约。
+- 纯规则：`packages/trading-strategies/src/formula/`、`src/lib/screening/`、`src/lib/screening/rps.ts` 等具名契约。
 - 服务与任务：`src/server/screening/`；API procedure 当前包括 `rpsStatus/Start/Cancel/Ranking/Curve`、`conceptRps*`、`industryRps*`、`formulas/saveFormula/checkFormula/formulaScreen`、`screenResults/screenTaskProgress/screenExport`、`onlineScreen*`。
 - workers 由 `scripts/build-runtime.mjs` 指定的 `rps-worker.ts`、通用 `worker.ts` 承载；页面通过 tRPC 消费状态与结果。
 

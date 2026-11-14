@@ -3,8 +3,8 @@ import { afterEach, expect, it } from "vitest";
 import {
   evaluateFormula,
   futureFunctions,
-} from "../../../src/lib/formula/tdx-formula";
-import { rpsFields } from "../../../src/lib/formula/tdx-formula-check";
+} from "trading-strategies/formula/tdx-formula";
+import { rpsFields } from "trading-strategies/formula/tdx-formula-check";
 import { RpsStore } from "../../../src/server/db/rps-store";
 import { migrate } from "../../../src/server/db/migrations";
 import { rpsBars, rpsDay } from "../../helpers/rps-fixture";
