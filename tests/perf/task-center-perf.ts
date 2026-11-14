@@ -4,9 +4,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { sqlite } from "../../src/server/db";
-import * as tasks from "../../src/server/jobs/task-history";
+import * as tasks from "../../src/server/db/task-history";
 import { taskOverview } from "../../src/server/db/task-overview";
-import { jobSummaries } from "../../src/server/jobs/job-summaries";
+import { jobSummaries } from "../../src/server/db/job-summaries";
 
 assert.ok(process.env.QUANT_DATA_DIR);
 assert.ok(

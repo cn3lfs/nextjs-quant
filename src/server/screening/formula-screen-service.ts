@@ -11,6 +11,7 @@ import { settings } from "../infra/settings";
 import { background, runWorker } from "../jobs/jobs";
 import type { FormulaScreenOutput } from "./formula-screen-work";
 import type { StoredScreenResult } from "./screen-results";
+import { readJobResultSnapshot } from "../db/job-results";
 export const savedFormulas = () =>
   readRecordSnapshot("tdx-formula", (rows: Iterable<SavedFormula>) =>
     [...rows].sort(
@@ -53,6 +54,33 @@ export function exportFormulaScreen(job: Job) {
     universeSource: result.universeSource,
     researchWarnings: result.researchWarnings,
   };
+}
+/** Complete export assembled from bounded batches within one read snapshot. */
+export function exportStoredFormulaScreen(id: string) {
+  const value = readJobResultSnapshot(id, ({ job, json, array }) => {
+    const input = json<Job["input"]>("$.input");
+    if (!isFormulaScreenJob({ ...job, input }) || job.status !== "completed")
+      throw new Error("只能导出已完成的公式选股任务");
+    const result = json<StoredScreenResult>("$.result", [
+      "$.candidates",
+      "$.excluded",
+      "$.errors",
+      "$.snapshots",
+    ]);
+    if (!result) throw new Error("只能导出已完成的公式选股任务");
+    result.candidates = [
+      ...array<StoredScreenResult["candidates"][number]>("$.result.candidates"),
+    ];
+    result.excluded = [
+      ...array<StoredScreenResult["excluded"][number]>("$.result.excluded"),
+    ];
+    result.errors = [
+      ...array<StoredScreenResult["errors"][number]>("$.result.errors"),
+    ];
+    return exportFormulaScreen({ ...job, progress: 100, input, result });
+  });
+  if (!value) throw new Error("任务不存在");
+  return value;
 }
 export function saveFormula(input: unknown) {
   const formula = validateScreenFormula(input);

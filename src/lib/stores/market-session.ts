@@ -85,13 +85,18 @@ export const useMarketSession = create<MarketSession>((set) => ({
     rememberMarketUrl();
   },
   acceptSnapshot: (loaded) => {
+    // Formula candidates predate requestedSource. Their recorded local origin
+    // must own list browsing even before the settings query has completed.
+    const source =
+      loaded.requestedSource ??
+      (loaded.source === "tdx-local" ? "local" : null);
     set((state) => ({
       loaded,
       symbol: loaded.symbol,
       period: loaded.period,
       chartPeriod: loaded.period,
-      snapshotSource: loaded.requestedSource ?? null,
-      marketSource: loaded.requestedSource ?? state.marketSource,
+      snapshotSource: source,
+      marketSource: source ?? state.marketSource,
       marketView: "chart",
       revision: state.revision + 1,
     }));

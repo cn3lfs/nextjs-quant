@@ -78,6 +78,15 @@
 
 ## 当前验证
 
+D-repositories / D2（2026-11-14）：任务/监控仓储与按需结果页已验证；数据层外真实 SQLite 调用 315→277，已有仓储之外 126→88；剩余见 delivery.json，schema/user_version 不变。
+L3：typecheck、lint、format:check、check:dependencies、完整 pnpm run test、build/runtime 与 desktop:prepare 均退出 0；主工程 6,319 + 包级 194 项通过，27 项既有跳过，未改系统 TEMP。
+在干净的 67f3e33 隔离构建复现 PageUp/PageDown 原断言失败；候选缺 requestedSource 时将明确 tdx-local 来源固定为 local，避免设置未就绪时回退 auto；修复后 3 项单测、原行情浏览器回归与同一页面断言通过。
+全新 6,154 只合成证券的同样 10 项 Playwright 全通过，预算/断言/基线截图未改；任务首访中位数 156.3ms（≤300）、回测 457ms 与 2,222 笔复盘 1,482ms（各≤1,500）；ENOSPC 缺口已关闭。
+分页/并发/有界导出原验证保留；6,154 行导出最大单次 JSON.parse 5,493,156→213 字节、中位耗时 37.4→152.6ms，最终对象内存随总量增长；存储条件有差异，不单独归因于代码。
+基线失败/最终通过报告及大小见 delivery.json；临时基线 worktree、依赖与构建已清理并注销，D 盘任务夹具保留供审阅；cleanup-d-repositories.ps1 更新固定清单并默认预演，未执行 -Apply、提交、推送或正式打包。
+
+### 前批 C 页面验收
+
 C-p1-acceptance（2026-11-14）：复用主 E2E 的 6,154 只合成证券、2,222/9,418 笔成交和既有新闻/CLS/信号/财务夹具；覆盖 24 入口及本地公式、因子、回测、复盘、策略比较的有数据状态。
 修复 11 类问题：键盘 tooltip、参数/CLS 弹层焦点、隐藏策略读取、部分完成数量、财务错误颜色与旧数据身份、缩放弹窗/筛选/期货布局、窄屏 Ctrl+K，以及 worker 取消夹具的时间竞态；各类负对照见 delivery.json。
 L3：typecheck、lint、format:check、完整 pnpm run test、pnpm build、desktop:prepare 均退出 0；主工程 6,299 通过/27 既有跳过，包级 194 通过，未改父进程 TEMP，未正式打包。

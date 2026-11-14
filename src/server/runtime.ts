@@ -1,3 +1,8 @@
+import {
+  readMonitorRecord,
+  writeMonitorRecord,
+  enabledMonitorIds,
+} from "./db/monitor-records";
 import { tickCryptoBots } from "./crypto-trading/service";
 import { recordRuntimeError } from "./infra/runtime-errors";
 import { capabilityAllows } from "~/lib/common/capabilities";
@@ -10,7 +15,7 @@ import { monitorCalendar } from "./monitoring/monitor-calendar";
 import { verifySecurityTradingStatus } from "./market/security-trading-status";
 import { currentTradingStatus } from "~/lib/market/security-trading-status";
 import { sameMonitorRun, sameMonitorBaseline } from "./monitoring/monitor-run";
-import type { Monitor, Signal, Coverage, Period } from "~/lib/domain";
+import type { Signal, Coverage, Period } from "~/lib/domain";
 import { put, get, atomic, sqlite } from "./db";
 import { settings } from "./infra/settings";
 import { runWorker, background, recoverJobs } from "./jobs/jobs";
@@ -155,13 +160,10 @@ export async function tick() {
   try {
     // Background execution must see every enabled subscription; the generic
     // history helper defaults to 200 records and is only suitable for UI history.
-    const monitors = (
-      sqlite()
-        .prepare(
-          "SELECT payload FROM records WHERE kind='monitor' AND json_extract(payload,'$.enabled')=1 ORDER BY updated_at DESC,id DESC",
-        )
-        .all() as { payload: string }[]
-    ).map((row) => JSON.parse(row.payload) as Monitor);
+    const monitors = enabledMonitorIds().flatMap((id) => {
+      const value = readMonitorRecord("monitor", id);
+      return value?.enabled ? [value] : [];
+    });
     if (!monitors.length) return;
     const config = settings();
     const reference = await monitorCalendar(
@@ -227,7 +229,7 @@ export async function tick() {
               matched: value.matched,
               ...(evaluated.keys ? { signalKeys: evaluated.keys } : {}),
             };
-          const live = get<Monitor>(monitor.id);
+          const live = readMonitorRecord("monitor", monitor.id);
           if (
             !sameMonitorRun(monitor, live) ||
             !sameMonitorBaseline(monitor, live)
@@ -254,7 +256,7 @@ export async function tick() {
                 continue;
               }
               const checkedAt = Date.now();
-              const latest = get<Monitor>(monitor.id);
+              const latest = readMonitorRecord("monitor", monitor.id);
               if (
                 !sameMonitorRun(monitor, latest) ||
                 !sameMonitorBaseline(monitor, latest)
@@ -295,7 +297,7 @@ export async function tick() {
                 tradingStatusEvidence,
               };
               const committed = atomic(() => {
-                const active = get<Monitor>(monitor.id);
+                const active = readMonitorRecord("monitor", monitor.id);
                 const commitTime = Date.now();
                 if (
                   !sameMonitorRun(monitor, active) ||
@@ -314,7 +316,7 @@ export async function tick() {
                   )
                 )
                   return null;
-                put("signal", id, signal);
+                writeMonitorRecord("signal", signal);
                 enqueue(signal, active.channels, "signal");
                 return active;
               });
@@ -334,7 +336,7 @@ export async function tick() {
                         abort,
                       );
                   atomic(() => {
-                    const latest = get<Monitor>(monitor.id);
+                    const latest = readMonitorRecord("monitor", monitor.id);
                     if (sameMonitorRun(monitor, latest) && latest.ai)
                       enqueue(signal, latest.channels, "analysis", report);
                   });
@@ -354,13 +356,13 @@ export async function tick() {
       }
       // Preserve edits made while awaiting I/O, including disabling the subscription.
       atomic(() => {
-        const latest = get<Monitor>(monitor.id);
+        const latest = readMonitorRecord("monitor", monitor.id);
         if (
           !sameMonitorRun(monitor, latest) ||
           !sameMonitorBaseline(monitor, latest)
         )
           return;
-        put("monitor", monitor.id, {
+        writeMonitorRecord("monitor", {
           ...latest,
           states: updated.states,
           tradingStatusChecks: updated.tradingStatusChecks,

@@ -49,7 +49,7 @@ import { z } from "zod";
 import { list } from "../../db";
 import { settings } from "../../infra/settings";
 import { background, updateJob } from "../../jobs/jobs";
-import { taskState } from "../../jobs/task-history";
+import { taskState } from "../../db/task-history";
 import { researchModel } from "../../research/research";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import {

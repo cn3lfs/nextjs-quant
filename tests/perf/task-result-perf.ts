@@ -1,9 +1,10 @@
+import { readJob } from "../../src/server/db/jobs";
 /** Isolated query/JSON materialization benchmark; stdout is the only artifact. */
 import assert from "node:assert/strict";
 import { resolve, sep } from "node:path";
 import { sqlite, put } from "../../src/server/db";
-import { readJob } from "../../src/server/jobs/jobs";
-import { taskState } from "../../src/server/jobs/task-history";
+
+import { taskState } from "../../src/server/db/task-history";
 import { readScreenResultPage } from "../../src/server/db/screen-result-pages";
 import {
   pageScreenResults,

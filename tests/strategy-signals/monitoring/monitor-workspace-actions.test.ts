@@ -11,7 +11,7 @@ import {
   monitorConfigurationVersion,
   saveWorkspaceMonitor,
   toggleWorkspaceMonitor,
-} from "../../../src/server/monitoring/monitor-workspace-actions";
+} from "../../../src/server/db/monitor-workspace-actions";
 function fixture() {
   const db = new Database(":memory:");
   db.exec(

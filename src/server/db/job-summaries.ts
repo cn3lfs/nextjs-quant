@@ -9,7 +9,7 @@ export const jobSummariesSql = `
       substr(json_extract(payload, '$.phase'), 1, 128) AS phase,
       substr(json_extract(payload, '$.error'), 1, 128) AS error
     FROM records INDEXED BY job_recent_summary
-    WHERE kind = 'job' ORDER BY updated_at DESC LIMIT 80
+    WHERE kind = 'job' ORDER BY updated_at DESC, id DESC LIMIT 80
   `;
 type SummaryRow = Omit<
   Job,

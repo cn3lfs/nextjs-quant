@@ -1,4 +1,11 @@
 import {
+  readMonitorRecord,
+  writeMonitorRecord,
+  monitorDefinitions,
+  recentDeliveryRecords,
+  recentSignalRecords,
+} from "../../db/monitor-records";
+import {
   monitorSaveSchema,
   monitorToggleSchema,
   deliveryConfirmSchema,
@@ -8,7 +15,7 @@ import {
   toggleWorkspaceMonitor,
   confirmWorkspaceDelivery,
   monitorConfigurationVersion,
-} from "../../monitoring/monitor-workspace-actions";
+} from "../../db/monitor-workspace-actions";
 import {
   monitorPageSchema,
   signalPageSchema,
@@ -24,7 +31,7 @@ import {
   monitorWorkspaceDetail,
   signalWorkspaceDetail,
   deliveryWorkspaceDetail,
-} from "../../monitoring/monitor-workspace-query";
+} from "../../db/monitor-workspace-query";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { localCalendarReference } from "../../market/data-health";
 import { settings } from "../../infra/settings";
@@ -44,7 +51,6 @@ import {
   ledgerAnalysis,
 } from "../../monitoring/signal-ledger-query";
 import { SignalLedgerStore } from "../../monitoring/signal-ledger-store";
-import type { NotificationDecision } from "~/lib/strategy-facts/notification-policy";
 import {
   intradayConfigSchema,
   intradaySchedule,
@@ -57,7 +63,6 @@ import {
   intradayHistory,
   intradayRuns,
 } from "../../monitoring/intraday-history";
-import type { IntradayRun } from "../../monitoring/intraday-job";
 import {
   intradayConfig,
   intradayLastCheck,
@@ -74,24 +79,10 @@ import { sqlite as chartSqlite } from "../../db";
 import { analyzeCzsc } from "../../strategies/chan/czsc";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import {
-  strategySchema,
-  periodSchema,
-  type Channel,
-  type Monitor,
-  type Delivery,
-  type Signal,
-} from "~/lib/domain";
+import { strategySchema, periodSchema } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
-import { list, put, readRecordSnapshot } from "../../db";
 import { saveChannel, testDelivery } from "../../infra/notifications";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
-function recordOfKind<T>(kind: string, id: string): T | undefined {
-  const row = chartSqlite()
-    .prepare("SELECT payload FROM records WHERE kind=? AND id=?")
-    .get(kind, id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as T) : undefined;
-}
 export const monitoringRouter = createTRPCRouter({
   monitorWorkspaceSave: p("signalMonitor", "configure")
     .input(monitorSaveSchema)
@@ -181,10 +172,7 @@ export const monitoringRouter = createTRPCRouter({
   ledgerDecisionDetail: p("signalLedger", "read")
     .input(ledgerIdSchema)
     .query(({ input }) => {
-      const decision = recordOfKind<NotificationDecision>(
-        "notification-decision",
-        input,
-      );
+      const decision = readMonitorRecord("notification-decision", input);
       if (!decision) throw new Error("投递决策不存在");
       return decision;
     }),
@@ -197,7 +185,7 @@ export const monitoringRouter = createTRPCRouter({
   intradayRunDetail: p("intraday", "read")
     .input(z.string().regex(/^intraday-run:[a-f0-9]{64}$/))
     .query(({ input }) => {
-      const run = recordOfKind<IntradayRun>("intraday-run", input);
+      const run = readMonitorRecord("intraday-run", input);
       if (!run) throw new Error("预选批次不存在");
       return run;
     }),
@@ -249,7 +237,7 @@ export const monitoringRouter = createTRPCRouter({
         schemaVersion: 1,
         observation,
         attempts: store.attempts(input),
-        run: recordOfKind("intraday-run", observation.sessionId),
+        run: readMonitorRecord("intraday-run", observation.sessionId),
       };
     }),
   intradaySave: p("intraday", "configure")
@@ -295,9 +283,7 @@ export const monitoringRouter = createTRPCRouter({
   testChannel: p("notifications", "compute")
     .input(z.string())
     .mutation(({ input }) => testDelivery(input)),
-  deliveries: p("notifications", "read").query(() =>
-    list<Delivery>("delivery", 200),
-  ),
+  deliveries: p("notifications", "read").query(() => recentDeliveryRecords()),
   retryDelivery: p("notifications", "compute")
     .input(z.string())
     .mutation(({ input }) => {
@@ -310,9 +296,7 @@ export const monitoringRouter = createTRPCRouter({
         expectedChannelVersion: original.channel.destinationVersion,
       });
     }),
-  monitors: p("signalMonitor", "read").query(() =>
-    readRecordSnapshot("monitor", (rows: Iterable<Monitor>) => [...rows]),
-  ),
+  monitors: p("signalMonitor", "read").query(() => monitorDefinitions()),
   saveMonitor: p("signalMonitor", "configure")
     .input(
       z.object({
@@ -334,17 +318,10 @@ export const monitoringRouter = createTRPCRouter({
       )
         throw new Error("缠论/双突破监控仅支持日线");
       for (const id of input.channels)
-        if (!recordOfKind<Channel>("channel", id))
+        if (!readMonitorRecord("channel", id))
           throw new Error("通知渠道不存在");
-      if (
-        input.id &&
-        chartSqlite()
-          .prepare("SELECT id FROM records WHERE id=? AND kind<>'monitor'")
-          .get(input.id)
-      )
-        throw new Error("不能覆盖其他类型记录");
       const id = input.id ?? `monitor-${randomUUID()}`;
-      return put<Monitor>("monitor", id, {
+      return writeMonitorRecord("monitor", {
         ...input,
         id,
         states: {},
@@ -355,14 +332,14 @@ export const monitoringRouter = createTRPCRouter({
   toggleMonitor: p("signalMonitor", "configure")
     .input(z.object({ id: z.string(), enabled: z.boolean() }))
     .mutation(({ input }) => {
-      const m = recordOfKind<Monitor>("monitor", input.id);
+      const m = readMonitorRecord("monitor", input.id);
       if (!m) throw new Error("监控不存在");
-      return put("monitor", m.id, {
+      return writeMonitorRecord("monitor", {
         ...m,
         enabled: input.enabled,
         states: {},
         revision: randomUUID(),
       });
     }),
-  signals: p("signalMonitor", "read").query(() => list<Signal>("signal", 100)),
+  signals: p("signalMonitor", "read").query(() => recentSignalRecords()),
 });

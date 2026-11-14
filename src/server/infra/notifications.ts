@@ -1,3 +1,9 @@
+import {
+  readMonitorRecord,
+  writeMonitorRecord,
+  pendingDeliveryIds,
+  sendingDeliveryIds,
+} from "../db/monitor-records";
 import { securityLabel } from "../market/securities";
 import { recordRuntimeError } from "./runtime-errors";
 import { createHmac, randomUUID } from "node:crypto";
@@ -198,7 +204,7 @@ export function enqueue(
         }
       }
       if (decision && decision.tier !== "immediate") continue;
-      put<Delivery>("delivery", id, {
+      writeMonitorRecord("delivery", {
         id,
         signalId: signal.id,
         ...(decision ? { policyDecisionIds: [decision.id] } : {}),
@@ -218,7 +224,7 @@ export function enqueue(
 export function testDelivery(channelId: string) {
   if (!get<Channel>(channelId)) throw new Error("渠道不存在");
   const id = `test-${randomUUID()}`;
-  return put<Delivery>("delivery", id, {
+  return writeMonitorRecord("delivery", {
     id,
     signalId: id,
     channelId,
@@ -280,7 +286,7 @@ export function flushSummaries(now = Date.now()) {
     }
     for (const [channelId, items] of groups) {
       const id = `delivery-summary-${clock.date}-${channelId}`;
-      const existing = get<Delivery>(id);
+      const existing = readMonitorRecord("delivery", id);
       if (
         existing &&
         (existing.attempts > 0 || existing.status !== "pending")
@@ -298,7 +304,7 @@ export function flushSummaries(now = Date.now()) {
       );
       for (const d of decisions)
         store.save("notification-decision", d.id, { ...d, summaryId: id });
-      put<Delivery>("delivery", id, {
+      writeMonitorRecord("delivery", {
         id,
         signalId: id,
         channelId,
@@ -328,7 +334,7 @@ function adoptQueuedPolicy(
     !["signal", "analysis"].includes(item.kind)
   )
     return;
-  const signal = get<Signal>(item.signalId);
+  const signal = readMonitorRecord("signal", item.signalId);
   if (!signal) return;
   let units = notificationUnits(signal);
   if (!units.length) return;
@@ -544,20 +550,14 @@ export async function drain(sendFn = send, now = Date.now()) {
   try {
     flushSummaries(now);
     const policyStore = new NotificationPolicyStore(sqlite());
-    const pending = sqlite()
-      .prepare(
-        "SELECT payload FROM records WHERE kind='delivery' AND json_extract(payload,'$.status')='pending' ORDER BY updated_at ASC LIMIT 500",
-      )
-      .all() as { payload: string }[];
-    for (const row of pending) {
-      const queued = JSON.parse(row.payload) as Delivery;
+    for (const id of pendingDeliveryIds()) {
       const claim = atomic(() => {
-        const item = get<Delivery>(queued.id);
+        const item = readMonitorRecord("delivery", id);
         if (!item) return null;
         if (item.status !== "pending") return null;
         if (adoptQueuedPolicy(item, policyStore, now) === false) return null;
         if (item.expiresAt <= now) {
-          put("delivery", item.id, { ...item, status: "expired" });
+          writeMonitorRecord("delivery", { ...item, status: "expired" });
           for (const id of item.policyDecisionIds ?? []) {
             const d = policyStore.read<NotificationDecision>(id);
             if (d) policyStore.update(d, "ledger", "通知已过期，不补推");
@@ -571,7 +571,7 @@ export async function drain(sendFn = send, now = Date.now()) {
             const d = policyStore.read<NotificationDecision>(id);
             if (d) policyStore.update(d, "ledger", reason);
           }
-          put("delivery", item.id, {
+          writeMonitorRecord("delivery", {
             ...item,
             status: "cancelled",
             error: reason,
@@ -588,7 +588,7 @@ export async function drain(sendFn = send, now = Date.now()) {
           status: "sending" as const,
           attempts: item.attempts + 1,
         };
-        put("delivery", item.id, current);
+        writeMonitorRecord("delivery", current);
         return { channel, current };
       });
       if (!claim) continue;
@@ -596,7 +596,7 @@ export async function drain(sendFn = send, now = Date.now()) {
       state.lastSent.set(channel.id, now);
       try {
         const remoteId = await sendFn(channel, current);
-        put("delivery", current.id, {
+        writeMonitorRecord("delivery", {
           ...current,
           status: "sent",
           remoteId,
@@ -604,7 +604,7 @@ export async function drain(sendFn = send, now = Date.now()) {
         });
       } catch (error) {
         if (error instanceof DeliveryStopped) {
-          put("delivery", current.id, {
+          writeMonitorRecord("delivery", {
             ...current,
             status: error.status,
             error: error.message,
@@ -619,7 +619,7 @@ export async function drain(sendFn = send, now = Date.now()) {
             error instanceof SendError && error.retryAfter > 0
               ? error.retryAfter
               : Math.min(300000, 5000 * 2 ** (current.attempts - 1));
-        put("delivery", current.id, {
+        writeMonitorRecord("delivery", {
           ...current,
           status: permanent || current.attempts >= 5 ? "failed" : "pending",
           nextAt: now + delay,
@@ -635,23 +635,24 @@ export async function drain(sendFn = send, now = Date.now()) {
   }
 }
 export function recoverDeliveries() {
-  const rows = sqlite()
-    .prepare(
-      "SELECT payload FROM records WHERE kind='delivery' AND json_extract(payload,'$.status')='sending'",
-    )
-    .all() as { payload: string }[];
-  for (const row of rows) {
-    const item = JSON.parse(row.payload) as Delivery;
-    const reason = deliveryCancellationReason(item);
-    if (reason) {
-      put("delivery", item.id, { ...item, status: "cancelled", error: reason });
-      continue;
-    }
-    put("delivery", item.id, {
-      ...item,
-      status: item.attempts >= 5 ? "failed" : "pending",
-      error: "上次发送结果不确定，重试可能重复",
-      nextAt: Date.now(),
+  for (const id of sendingDeliveryIds())
+    atomic(() => {
+      const item = readMonitorRecord("delivery", id);
+      if (!item || item.status !== "sending") return;
+      const reason = deliveryCancellationReason(item);
+      if (reason) {
+        writeMonitorRecord("delivery", {
+          ...item,
+          status: "cancelled",
+          error: reason,
+        });
+        return;
+      }
+      writeMonitorRecord("delivery", {
+        ...item,
+        status: item.attempts >= 5 ? "failed" : "pending",
+        error: "上次发送结果不确定，重试可能重复",
+        nextAt: Date.now(),
+      });
     });
-  }
 }

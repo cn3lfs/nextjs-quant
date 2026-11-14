@@ -9,7 +9,7 @@ import {
   monitorWorkspacePage,
   signalWorkspacePage,
   deliveryWorkspacePage,
-} from "../../src/server/monitoring/monitor-workspace-query";
+} from "../../src/server/db/monitor-workspace-query";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 assert.ok(directory.startsWith(resolve(tmpdir()) + "\\quant-signals-"));
 const db = new Database(join(directory, "quant.sqlite"));

@@ -95,6 +95,7 @@ export function taskHistory(input: z.infer<typeof taskHistoryInput>) {
         rows.length > 20 && last
           ? { createdAt: last.createdAt, id: last.id }
           : null,
+      hasMore: rows.length > 20,
     };
   })();
 }

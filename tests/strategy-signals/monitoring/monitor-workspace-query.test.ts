@@ -12,7 +12,7 @@ import {
   deliveryWorkspaceDetail,
   monitorWorkspaceExport,
   signalWorkspaceDetail,
-} from "../../../src/server/monitoring/monitor-workspace-query";
+} from "../../../src/server/db/monitor-workspace-query";
 import { deliveryOutcomeCounts } from "../../../src/lib/strategy-facts/monitor-workspace";
 it("detects injected body, current-page statistics and first-channel reductions", () => {
   const db = fixture();

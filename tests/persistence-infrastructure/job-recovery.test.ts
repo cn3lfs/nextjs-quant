@@ -1,6 +1,8 @@
+import { readJob } from "../../src/server/db/jobs";
 import { beforeEach, expect, it, vi } from "vitest";
 import { sqlite } from "~/server/db";
-import { readJob, recoverJobs } from "~/server/jobs/jobs";
+import { recoverJobs } from "~/server/jobs/jobs";
+
 import { ResearchAttempts } from "~/server/research/research-governance";
 
 const { spawnWorker } = vi.hoisted(() => ({ spawnWorker: vi.fn() }));

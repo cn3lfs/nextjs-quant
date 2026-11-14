@@ -3,8 +3,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { createPerformanceReport } from "quant-performance";
 
 const store = vi.hoisted(() => ({ jobs: new Map<string, unknown>(), sql: "" }));
-vi.mock("~/server/jobs/jobs", () => ({
+vi.mock("~/server/db/jobs", () => ({
   readJob: (id: string) => store.jobs.get(id),
+}));
+vi.mock("~/server/jobs/jobs", () => ({
   background: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({

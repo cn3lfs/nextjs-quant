@@ -8,11 +8,12 @@ const csv =
 let root: string, dataRoot: string, source: string;
 let module: typeof import("../../src/server/jobs/five-minute-batch");
 let jobs: typeof import("../../src/server/jobs/jobs");
+let jobRepository: typeof import("../../src/server/db/jobs");
 let db: typeof import("../../src/server/db");
 const previous = process.env.QUANT_DATA_DIR;
 async function completed(id: string) {
   for (let i = 0; i < 200; i++) {
-    const job = jobs.readJob(id);
+    const job = jobRepository.readJob(id);
     if (job && ["completed", "failed", "cancelled"].includes(job.status))
       return job;
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -43,6 +44,7 @@ beforeAll(async () => {
   await writeFile(join(source, "SZ000001.csv"), csv);
   module = await import("../../src/server/jobs/five-minute-batch");
   jobs = await import("../../src/server/jobs/jobs");
+  jobRepository = await import("../../src/server/db/jobs");
   db = await import("../../src/server/db");
 });
 afterAll(async () => {

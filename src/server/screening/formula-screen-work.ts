@@ -1,4 +1,5 @@
-import { sqlite, putChangedBatch } from "../db";
+import { requireRunningFormulaJob } from "../db/jobs";
+import { putChangedBatch } from "../db";
 import { screenFormula, type FormulaWork } from "./formula-screening";
 import { serializeSnapshot } from "./snapshot-serializer";
 import type { WorkProgress } from "~/lib/research/workflow/work-progress";
@@ -17,16 +18,7 @@ export async function executeFormulaScreen(
   batchSaved?: () => Promise<void>,
 ): Promise<FormulaScreenOutput> {
   if (!jobId) throw new Error("公式选股缺少任务身份");
-  const connection = sqlite();
-  const running = connection.prepare(`
-    SELECT 1 FROM records WHERE id = ? AND kind = 'job'
-      AND json_extract(payload, '$.type') = 'screen'
-      AND json_extract(payload, '$.input.type') = 'formula-screen'
-      AND json_extract(payload, '$.status') = 'running'
-  `);
-  const requireRunning = () => {
-    if (!running.get(jobId)) throw new Error("公式选股任务已取消或不再运行");
-  };
+  const requireRunning = () => requireRunningFormulaJob(jobId);
   requireRunning();
   const result = await screenFormula(work, progress);
   for (let i = 0; i < result.snapshots.length; i += 50) {

@@ -1,7 +1,8 @@
+import { readJob, createJob, saveJob, activeJobIds } from "../db/jobs";
 import { Worker } from "node:worker_threads";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
-import { get, put, sqlite } from "../db";
+import { get, put, sqlite, atomic } from "../db";
 import type { Job } from "~/lib/domain";
 import type { Work } from "./worker";
 import {
@@ -64,12 +65,6 @@ function stopCancellationWatchIfIdle() {
     state.cancellationTimer = undefined;
   }
 }
-export function readJob(id: string): Job | undefined {
-  const row = sqlite()
-    .prepare("SELECT payload FROM records WHERE id=? AND kind='job'")
-    .get(id) as { payload: string } | undefined;
-  return row ? (JSON.parse(row.payload) as Job) : undefined;
-}
 export function newJob(type: Job["type"], input: unknown): Job {
   const id = `job-${randomUUID()}`,
     now = Date.now();
@@ -108,7 +103,7 @@ export function newJob(type: Job["type"], input: unknown): Job {
         }),
       )
     : null;
-  return put("job", id, {
+  return createJob({
     ownerPid: process.pid,
     id,
     type,
@@ -122,61 +117,57 @@ export function newJob(type: Job["type"], input: unknown): Job {
   });
 }
 export function updateJob(id: string, patch: Partial<Job>) {
-  return sqlite()
-    .transaction(() => {
-      const job = readJob(id);
-      if (!job) return;
-      if (["cancelled", "completed", "failed"].includes(job.status)) {
-        if (job.attemptId)
-          bestEffortAudit(() =>
-            new ResearchAttempts(sqlite()).update(job.attemptId!, {
-              state:
-                job.status === "completed"
-                  ? "succeeded"
-                  : (job.status as "cancelled" | "failed"),
-              error: job.error ?? null,
-            }),
-          );
-        return job;
-      }
-      const next = { ...job, ...patch, updatedAt: Date.now() };
-      if (job.attemptId && patch.status) {
-        const audited = bestEffortAudit(() =>
+  return atomic(() => {
+    const job = readJob(id);
+    if (!job) return;
+    if (["cancelled", "completed", "failed"].includes(job.status)) {
+      if (job.attemptId)
+        bestEffortAudit(() =>
           new ResearchAttempts(sqlite()).update(job.attemptId!, {
-            state: patch.status === "completed" ? "succeeded" : patch.status,
-            error: patch.error ?? null,
-            resultId: patch.status === "completed" ? id : null,
+            state:
+              job.status === "completed"
+                ? "succeeded"
+                : (job.status as "cancelled" | "failed"),
+            error: job.error ?? null,
           }),
         );
-        if (!audited) next.auditIncomplete = true;
-        if (audited?.auditIncomplete) next.auditIncomplete = true;
-      }
-      return put("job", id, next);
-    })
-    .immediate();
+      return job;
+    }
+    const next = { ...job, ...patch, updatedAt: Date.now() };
+    if (job.attemptId && patch.status) {
+      const audited = bestEffortAudit(() =>
+        new ResearchAttempts(sqlite()).update(job.attemptId!, {
+          state: patch.status === "completed" ? "succeeded" : patch.status,
+          error: patch.error ?? null,
+          resultId: patch.status === "completed" ? id : null,
+        }),
+      );
+      if (!audited) next.auditIncomplete = true;
+      if (audited?.auditIncomplete) next.auditIncomplete = true;
+    }
+    return saveJob(next);
+  });
 }
 export function cancelJob(id: string) {
-  const result = sqlite()
-    .transaction(() => {
-      const before = readJob(id);
-      if (!before)
-        return { ok: true, outcome: "not-found" as const, status: null };
-      if (before.status === "cancelled")
-        return {
-          ok: true,
-          outcome: "already-cancelled" as const,
-          status: before.status,
-        };
-      if (before.status === "completed" || before.status === "failed")
-        return {
-          ok: true,
-          outcome: "already-terminal" as const,
-          status: before.status,
-        };
-      const job = updateJob(id, { status: "cancelled", phase: "已取消" })!;
-      return { ok: true, outcome: "accepted" as const, status: job.status };
-    })
-    .immediate();
+  const result = atomic(() => {
+    const before = readJob(id);
+    if (!before)
+      return { ok: true, outcome: "not-found" as const, status: null };
+    if (before.status === "cancelled")
+      return {
+        ok: true,
+        outcome: "already-cancelled" as const,
+        status: before.status,
+      };
+    if (before.status === "completed" || before.status === "failed")
+      return {
+        ok: true,
+        outcome: "already-terminal" as const,
+        status: before.status,
+      };
+    const job = updateJob(id, { status: "cancelled", phase: "已取消" })!;
+    return { ok: true, outcome: "accepted" as const, status: job.status };
+  });
   if (result.status === "cancelled") {
     void workers.get(id)?.terminate();
     controllers.get(id)?.abort();
@@ -186,35 +177,22 @@ export function cancelJob(id: string) {
 }
 export function recoverJobs() {
   bestEffortAudit(() => new ResearchAttempts(sqlite()).recover(processAlive));
-  const db = sqlite();
-  const page = db.prepare(`
-    SELECT id FROM records
-    WHERE kind='job' AND json_extract(payload,'$.status') IN ('running','queued')
-      AND (@after IS NULL OR id > @after)
-    ORDER BY id LIMIT 500
-  `);
-  const recover = db.transaction((id: string) => {
-    // Recheck under the write lock: another host may have finished or claimed
-    // the job since the page was read. Recovery never starts a worker.
-    const job = readJob(id);
-    if (
-      job &&
-      ["running", "queued"].includes(job.status) &&
-      (!job.ownerPid || !processAlive(job.ownerPid))
-    )
-      updateJob(id, {
-        status: "failed",
-        error: "应用重启中断了任务，可重新运行",
-      });
-  });
-  let after: string | null = null;
-  for (;;) {
-    const rows = page.all({ after }) as { id: string }[];
-    if (!rows.length) break;
-    for (const row of rows) recover.immediate(row.id);
-    // Use stable IDs, not offsets into a set that shrinks after each update.
-    after = rows.at(-1)!.id;
-  }
+  const recover = (id: string) =>
+    atomic(() => {
+      // Recheck under the write lock: another host may have finished or claimed
+      // the job since the page was read. Recovery never starts a worker.
+      const job = readJob(id);
+      if (
+        job &&
+        ["running", "queued"].includes(job.status) &&
+        (!job.ownerPid || !processAlive(job.ownerPid))
+      )
+        updateJob(id, {
+          status: "failed",
+          error: "应用重启中断了任务，可重新运行",
+        });
+    });
+  for (const id of activeJobIds()) recover(id);
 }
 export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
   const controller = new AbortController();
@@ -361,25 +339,23 @@ export function background(
   const claim =
     dedupe === undefined
       ? { job: newJob(type, input), created: true }
-      : sqlite()
-          .transaction(() => {
-            const key = `job-key-${createHash("sha256")
-              .update(JSON.stringify([type, canonical(dedupe)]))
-              .digest("hex")}`;
-            const previous = get<{ jobId: string }>(key);
-            const existing = previous && readJob(previous.jobId);
-            if (
-              existing &&
-              ["queued", "running"].includes(existing.status) &&
-              existing.ownerPid &&
-              processAlive(existing.ownerPid)
-            )
-              return { job: existing, created: false };
-            const job = newJob(type, input);
-            put("job-key", key, { jobId: job.id });
-            return { job, created: true };
-          })
-          .immediate();
+      : atomic(() => {
+          const key = `job-key-${createHash("sha256")
+            .update(JSON.stringify([type, canonical(dedupe)]))
+            .digest("hex")}`;
+          const previous = get<{ jobId: string }>(key);
+          const existing = previous && readJob(previous.jobId);
+          if (
+            existing &&
+            ["queued", "running"].includes(existing.status) &&
+            existing.ownerPid &&
+            processAlive(existing.ownerPid)
+          )
+            return { job: existing, created: false };
+          const job = newJob(type, input);
+          put("job-key", key, { jobId: job.id });
+          return { job, created: true };
+        });
   if (!claim.created) return claim.job;
   const job = claim.job,
     controller = new AbortController();

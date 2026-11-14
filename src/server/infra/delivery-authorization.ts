@@ -1,10 +1,10 @@
-import type { Channel, Delivery, Monitor, Signal } from "~/lib/domain";
-import { get } from "../db";
+import { readMonitorRecord } from "../db/monitor-records";
+import type { Delivery } from "~/lib/domain";
 import { channelDestinationVersion } from "./channel-version";
 
 export function deliveryCancellationReason(delivery: Delivery): string | null {
   if (delivery.manualRetry && delivery.confirmedChannelVersion) {
-    const channel = get<Channel>(delivery.channelId);
+    const channel = readMonitorRecord("channel", delivery.channelId);
     if (
       !channel ||
       channelDestinationVersion(channel) !== delivery.confirmedChannelVersion
@@ -25,10 +25,10 @@ export function deliveryCancellationReason(delivery: Delivery): string | null {
     }
     return null;
   }
-  const signal = get<Signal>(delivery.signalId);
+  const signal = readMonitorRecord("signal", delivery.signalId);
   if (!signal?.monitorRun || typeof signal.monitorId !== "string")
     return "缺少原信号的订阅版本，已取消自动发送";
-  const monitor = get<Monitor>(signal.monitorId);
+  const monitor = readMonitorRecord("monitor", signal.monitorId);
   if (!monitor?.enabled) return "订阅已停用或删除，已取消自动发送";
   if (
     monitor.createdAt !== signal.monitorRun.createdAt ||

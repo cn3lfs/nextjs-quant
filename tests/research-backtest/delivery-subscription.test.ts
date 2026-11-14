@@ -23,7 +23,7 @@ import {
 import {
   channelDestinationVersion,
   confirmWorkspaceDelivery,
-} from "../../src/server/monitoring/monitor-workspace-actions";
+} from "../../src/server/db/monitor-workspace-actions";
 import {
   strategySchema,
   type Monitor,

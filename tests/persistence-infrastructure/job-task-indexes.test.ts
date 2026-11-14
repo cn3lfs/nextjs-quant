@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { migrate } from "~/server/db/migrations";
-import { jobSummariesSql } from "~/server/jobs/job-summaries";
-import { taskHistorySql } from "~/server/jobs/task-history";
+import { jobSummariesSql } from "~/server/db/job-summaries";
+import { taskHistorySql } from "~/server/db/task-history";
 import {
   taskOverviewSql,
   latestCompletedScanSql,

@@ -1,3 +1,4 @@
+import { readJob } from "../../src/server/db/jobs";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -180,16 +181,14 @@ describe("本地财务RPC与任务持久化", () => {
     await vi.waitFor(() => expect(spy).toHaveBeenCalled());
     await api.cancel(job.id);
     release!(archive);
-    await vi.waitFor(() =>
-      expect(jobs.readJob(job.id)?.status).toBe("cancelled"),
-    );
+    await vi.waitFor(() => expect(readJob(job.id)?.status).toBe("cancelled"));
     expect(get(archive.id)).toBeUndefined();
     spy.mockResolvedValue(archive as never);
     const completed = await api.localFinancialArchiveCreate({
       symbol: "sh600519",
     });
     await vi.waitFor(() =>
-      expect(jobs.readJob(completed.id)?.status).toBe("completed"),
+      expect(readJob(completed.id)?.status).toBe("completed"),
     );
     expect(get<LocalFinancialArchive>(archive.id)?.hash).toBe(archive.hash);
     // No hidden online provider request or fallback is involved in the local job.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sqlite } from "../db";
-import { taskTextPreview } from "../jobs/task-history";
+import { taskTextPreview } from "../db/task-history";
 import { reportSecurityContext } from "./report-security";
 import type { Report } from "~/lib/domain";
 

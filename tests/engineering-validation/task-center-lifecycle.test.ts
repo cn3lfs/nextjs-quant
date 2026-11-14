@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import { put, get } from "../../src/server/db";
-import { taskHistory, taskState } from "../../src/server/jobs/task-history";
+import { taskHistory, taskState } from "../../src/server/db/task-history";
 import { taskOverview } from "../../src/server/db/task-overview";
 import { cancelJob, updateJob } from "../../src/server/jobs/jobs";
-import { jobSummaries } from "../../src/server/jobs/job-summaries";
+import { jobSummaries } from "../../src/server/db/job-summaries";
 import {
   taskAge,
   taskStamp,

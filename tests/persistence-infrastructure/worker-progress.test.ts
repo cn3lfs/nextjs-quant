@@ -1,7 +1,8 @@
+import { readJob } from "../../src/server/db/jobs";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { EventEmitter } from "node:events";
 import { sqlite } from "~/server/db";
-import { newJob, readJob, runWorker } from "~/server/jobs/jobs";
+import { newJob, runWorker } from "~/server/jobs/jobs";
 
 const control = vi.hoisted(() => ({
   messages: [] as Record<string, unknown>[],

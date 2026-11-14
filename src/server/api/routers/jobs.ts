@@ -1,18 +1,24 @@
+import {
+  readMaBaselineResultPage,
+  readMaBaselineOrderPage,
+  readMaBaselineArchive,
+} from "../../db/backtest-results";
+import { readJob, maBaselineHistory } from "../../db/jobs";
 import { recentRuntimeErrors } from "../../infra/runtime-errors";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { chartSymbolSchema } from "~/lib/chart/chart-symbol";
 import { futuresQuotes } from "../../market/futures-chart";
 import { futuresSourceSchema } from "~/lib/market/futures";
 import { cryptoSourceSchema } from "~/lib/market/crypto";
-import { sqlite as chartSqlite } from "../../db";
+import { readSnapshot } from "../../db/snapshot";
 import { queryDividendSchedule } from "../../data-sources/hithink/hithink-dividends";
 import {
   readBacktestActions,
   validateActionRange,
 } from "../../backtest/backtest-actions";
 import { reconcileDividends } from "../../backtest/dividend-reconciliation";
-import { jobSummaries } from "../../jobs/job-summaries";
-import { taskHistory, taskState } from "../../jobs/task-history";
+import { jobSummaries } from "../../db/job-summaries";
+import { taskHistory, taskState } from "../../db/task-history";
 import { taskOverview } from "../../db/task-overview";
 import { taskHistoryInput } from "~/lib/research/workflow/task-history";
 import { readScreenResultPage } from "../../db/screen-result-pages";
@@ -26,13 +32,13 @@ import { snapshot } from "../../market/snapshot";
 import { maBaselineInputSchema } from "~/lib/backtest/ma-baseline";
 import { strategyExperimentInputSchema } from "~/lib/backtest/strategy-experiment";
 import { maBaselineJob } from "../../backtest/ma-baseline-job";
-import type { MaBaselineArchive } from "../../backtest/ma-baseline-work";
 import {
   queryPerformanceEvaluation,
   exportPerformanceEvaluation,
 } from "../../performance/backtest-evaluation";
 import { readSnapshot as readBaselineSnapshot } from "../../data-sources/tdx/tdx";
-import { cancelJob, readJob } from "../../jobs/jobs";
+import { cancelJob } from "../../jobs/jobs";
+
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
 import { findCli } from "../../infra/local-llm";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
@@ -59,19 +65,7 @@ export const jobsRouter = createTRPCRouter({
         bars: source.bars.length,
       };
     }),
-  maBaselineHistory: p("backtest", "read").query(
-    () =>
-      chartSqlite()
-        .prepare(
-          "SELECT id, json_extract(payload,'$.status') AS status, json_extract(payload,'$.input.input.symbol') AS symbol, json_extract(payload,'$.createdAt') AS createdAt FROM records WHERE kind='job' AND json_extract(payload,'$.input.type')='ma-baseline' ORDER BY updated_at DESC LIMIT 20",
-        )
-        .all() as {
-        id: string;
-        status: string;
-        symbol: string;
-        createdAt: number;
-      }[],
-  ),
+  maBaselineHistory: p("backtest", "read").query(() => maBaselineHistory()),
   maBaselineResult: p("backtest", "read")
     .input(
       z.object({
@@ -79,27 +73,7 @@ export const jobsRouter = createTRPCRouter({
         pageIndex: z.number().int().nonnegative().default(0),
       }),
     )
-    .query(({ input }) => {
-      const job = readJob(input.id);
-      if (
-        !job ||
-        job.type !== "backtest" ||
-        (job.input as { type?: string } | null)?.type !== "ma-baseline"
-      )
-        throw new Error("策略实验任务不存在");
-      if (job.status !== "completed") return null;
-      const archive = job.result as MaBaselineArchive;
-      const { fills, orders, ...summary } = archive.result;
-      return {
-        summary,
-        manifest: archive.manifest,
-        fills: fills.slice(input.pageIndex * 50, (input.pageIndex + 1) * 50),
-        fillCount: fills.length,
-        orderCount: orders.length,
-        rejectedCount: orders.filter((o) => o.status === "rejected").length,
-        pending: orders.filter((o) => o.status === "pending"),
-      };
-    }),
+    .query(({ input }) => readMaBaselineResultPage(input.id, input.pageIndex)),
   maBaselineEvaluation: p("backtest", "read")
     .input(
       z.object({
@@ -110,15 +84,8 @@ export const jobsRouter = createTRPCRouter({
       }),
     )
     .query(({ input }) => {
-      const job = readJob(input.id);
-      if (
-        !job ||
-        job.type !== "backtest" ||
-        (job.input as { type?: string } | null)?.type !== "ma-baseline"
-      )
-        throw new Error("策略实验任务不存在");
-      if (job.status !== "completed") return null;
-      return queryPerformanceEvaluation(job.result as MaBaselineArchive, input);
+      const archive = readMaBaselineArchive(input.id);
+      return archive ? queryPerformanceEvaluation(archive, input) : null;
     }),
   maBaselineOrders: p("backtest", "read")
     .input(
@@ -128,35 +95,14 @@ export const jobsRouter = createTRPCRouter({
         status: z.enum(["all", "filled", "rejected", "pending"]).default("all"),
       }),
     )
-    .query(({ input }) => {
-      const job = readJob(input.id);
-      if (
-        !job ||
-        job.type !== "backtest" ||
-        (job.input as { type?: string } | null)?.type !== "ma-baseline"
-      )
-        throw new Error("策略实验任务不存在");
-      if (job.status !== "completed") return null;
-      const archive = job.result as MaBaselineArchive;
-      const orders = archive.result.orders.filter(
-        (order) => input.status === "all" || order.status === input.status,
-      );
-      return {
-        orders: orders.slice(input.pageIndex * 50, (input.pageIndex + 1) * 50),
-        rowCount: orders.length,
-      };
-    }),
+    .query(({ input }) =>
+      readMaBaselineOrderPage(input.id, input.pageIndex, input.status),
+    ),
   maBaselineExport: p("backtest", "read")
     .input(z.string().min(1))
     .query(({ input }) => {
-      const job = readJob(input);
-      if (
-        !job ||
-        job.status !== "completed" ||
-        (job.input as { type?: string } | null)?.type !== "ma-baseline"
-      )
-        throw new Error("没有已完成的策略实验结果");
-      const archive = job.result as MaBaselineArchive;
+      const archive = readMaBaselineArchive(input);
+      if (!archive) throw new Error("没有已完成的策略实验结果");
       return { ...archive, evaluation: exportPerformanceEvaluation(archive) };
     }),
   maBaselineRemove: p("backtest", "configure")
@@ -299,7 +245,7 @@ export const jobsRouter = createTRPCRouter({
       z.object({ id: z.string(), screenFirstPage: z.boolean().optional() }),
     )
     .query(({ input }) =>
-      chartSqlite().transaction(() => {
+      readSnapshot(() => {
         const summary = taskState(input.id);
         if (!summary) return null;
         return {
@@ -316,7 +262,7 @@ export const jobsRouter = createTRPCRouter({
                 })
               : null,
         };
-      })(),
+      }),
     ),
   cancel: p("tasks", "configure")
     .input(z.string())

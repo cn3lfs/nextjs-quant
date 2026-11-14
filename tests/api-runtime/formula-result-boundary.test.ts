@@ -3,8 +3,8 @@ import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 import { get, put } from "~/server/db";
 import { defaultStrategy, type Job } from "~/lib/domain";
-import { taskState } from "~/server/jobs/task-history";
-import { jobSummaries } from "~/server/jobs/job-summaries";
+import { taskState } from "~/server/db/task-history";
+import { jobSummaries } from "~/server/db/job-summaries";
 
 const formula = { name: "当前公式", source: "选股:C>0;", parameters: {} };
 function seed(id: string, input: unknown, status: Job["status"] = "completed") {

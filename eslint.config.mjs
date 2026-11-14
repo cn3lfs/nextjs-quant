@@ -5,6 +5,7 @@
 // behaviour.
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import { sqliteBoundaryRule } from "./scripts/lib/sqlite-boundary-rule.mjs";
 
 export default [
   {
@@ -74,6 +75,22 @@ export default [
         },
       ],
     },
+  },
+  {
+    // This batch's migrated callers only; other domains remain inventoried.
+    files: [
+      "src/server/jobs/jobs.ts",
+      "src/server/api/routers/jobs.ts",
+      "src/server/api/routers/monitoring.ts",
+      "src/server/runtime.ts",
+      "src/server/infra/notifications.ts",
+      "src/server/infra/delivery-authorization.ts",
+      "src/server/screening/formula-screen-work.ts",
+    ],
+    plugins: {
+      repositories: { rules: { "no-raw-sqlite": sqliteBoundaryRule } },
+    },
+    rules: { "repositories/no-raw-sqlite": "error" },
   },
   {
     files: ["src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],

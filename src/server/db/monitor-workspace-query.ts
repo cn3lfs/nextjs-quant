@@ -326,13 +326,14 @@ function decisions(
   where: string,
   params: Record<string, string>,
 ) {
-  return (
+  return Array.from(
     db
       .prepare(
         `SELECT payload FROM records WHERE kind='notification-decision' AND ${where} ORDER BY updated_at,id`,
       )
-      .all(params) as { payload: string }[]
-  ).map((row) => JSON.parse(row.payload) as NotificationDecision);
+      .iterate(params) as Iterable<{ payload: string }>,
+    (row) => JSON.parse(row.payload) as NotificationDecision,
+  );
 }
 export function signalWorkspaceDetail(db: Database.Database, id: unknown) {
   const value = detail<Signal>(db, "signal", id);
@@ -390,15 +391,16 @@ export function monitorWorkspaceExport(
       };
     const value = signalWorkspaceDetail(db, id);
     const deliveries = value
-      ? (
+      ? Array.from(
           db
             .prepare(
               `SELECT payload FROM records WHERE kind='delivery' AND
    (json_extract(payload,'$.signalId')=@id OR EXISTS(SELECT 1 FROM json_each(json_extract(records.payload,'$.summarySignalIds')) WHERE value=@id))
    ORDER BY json_extract(payload,'$.createdAt'),id`,
             )
-            .all({ id }) as { payload: string }[]
-        ).map((row) => JSON.parse(row.payload) as Delivery)
+            .iterate({ id }) as Iterable<{ payload: string }>,
+          (row) => JSON.parse(row.payload) as Delivery,
+        )
       : [];
     return { schemaVersion: 1 as const, kind, value, deliveries };
   })();

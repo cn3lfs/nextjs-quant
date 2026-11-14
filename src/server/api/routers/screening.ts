@@ -1,3 +1,4 @@
+import { readJob } from "../../db/jobs";
 import { latestRpsObservation } from "../../screening/rps-observation";
 import {
   marketPoolQuerySchema,
@@ -19,7 +20,7 @@ import { industryRpsPage } from "../../screening/industry-rps-query";
 import { readRpsBlockSource } from "../../screening/rps-block-source";
 import { sqlite as chartSqlite } from "../../db";
 import { screenSortSchema } from "~/lib/screening/screen-sort";
-import { screenTaskProgress } from "../../jobs/task-history";
+import { screenTaskProgress } from "../../db/task-history";
 import {
   onlineScreenJob,
   type OnlineScreenResult,
@@ -28,7 +29,7 @@ import { readScreenResultPage } from "../../db/screen-result-pages";
 import { z } from "zod";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { settings, saveSettings } from "../../infra/settings";
-import { readJob } from "../../jobs/jobs";
+
 import { securityNameMap } from "../../market/securities";
 import {
   formulaSchema,
@@ -38,7 +39,7 @@ import {
   savedFormulas,
   saveFormula,
   formulaScreenJob,
-  exportFormulaScreen,
+  exportStoredFormulaScreen,
 } from "../../screening/formula-screen-service";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { formulaFromText } from "../../screening/formula-from-text";
@@ -270,9 +271,5 @@ export const screeningRouter = createTRPCRouter({
     ),
   screenExport: p("formulaScreen", "read")
     .input(z.string())
-    .query(({ input }) => {
-      const job = readJob(input);
-      if (!job) throw new Error("任务不存在");
-      return exportFormulaScreen(job);
-    }),
+    .query(({ input }) => exportStoredFormulaScreen(input)),
 });

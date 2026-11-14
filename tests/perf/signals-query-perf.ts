@@ -8,7 +8,7 @@ import {
   signalWorkspacePage,
   deliveryWorkspacePage,
   monitorWorkspaceSummary,
-} from "../../src/server/monitoring/monitor-workspace-query";
+} from "../../src/server/db/monitor-workspace-query";
 import { signalsFixtureTime } from "../helpers/signals-fixture";
 const directory = resolve(process.env.QUANT_DATA_DIR ?? "");
 assert.ok(directory.startsWith(resolve(tmpdir()) + "\\quant-signals-"));

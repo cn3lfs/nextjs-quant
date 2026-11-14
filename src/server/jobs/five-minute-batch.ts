@@ -1,3 +1,4 @@
+import { readJob } from "../db/jobs";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -12,7 +13,8 @@ import {
 } from "node:fs/promises";
 import { join, resolve, relative, isAbsolute } from "node:path";
 import { dataDirectory, get, put, sqlite } from "../db";
-import { background, readJob, updateJob } from "./jobs";
+import { background, updateJob } from "./jobs";
+
 import { processAlive } from "../infra/lease";
 import { securityNames } from "tstdx/local";
 import {
