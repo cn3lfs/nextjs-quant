@@ -14,7 +14,7 @@ it.each(["intraday", "signalMonitor", "signalLedger"] as const)(
       router.createCaller({ headers: new Headers() }).renamedExecution(),
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
-      message: expect.stringContaining("暂停"),
+      message: expect.stringContaining("统一"),
     });
     expect(effect).not.toHaveBeenCalled();
   },

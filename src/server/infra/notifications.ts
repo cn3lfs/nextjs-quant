@@ -19,6 +19,11 @@ import { get, put, sqlite, atomic } from "../db";
 import { deliveryCancellationReason } from "./delivery-authorization";
 import { saveSecret, readSecret } from "../vault";
 import { settings } from "./settings";
+import type {
+  AlertEvent,
+  AlertSubscription,
+} from "~/lib/strategy-facts/alerts";
+import { createHash } from "node:crypto";
 import {
   NotificationPolicyStore,
   renderSummary,
@@ -27,11 +32,98 @@ import {
   chinaClock,
   minutes,
   customQuiet,
+  quiet,
   summaryWindow,
   type NotificationDecision,
   type PolicyUnit,
 } from "~/lib/strategy-facts/notification-policy";
 type Credential = { secret: string; signingSecret?: string };
+/** Uses the same policy, durable outbox, claim, sender and retry path as other notifications. */
+export function enqueueAlert(event: AlertEvent) {
+  const store = new NotificationPolicyStore(sqlite());
+  const subscriptions = store
+    .all<AlertSubscription>("alert-subscription")
+    .filter(
+      (s) =>
+        s.enabled &&
+        s.market === event.market &&
+        s.kinds.includes(event.type) &&
+        (!s.symbols.length || s.symbols.includes(event.symbol)) &&
+        (!s.strategyIds.length || s.strategyIds.includes(event.strategyId)),
+    );
+  for (const subscription of subscriptions) {
+    const signalId = `alert-${createHash("sha256")
+      .update(event.key + subscription.id)
+      .digest("hex")}`;
+    store.save("alert-authorization", `alert-authorization:${signalId}`, {
+      subscriptionId: subscription.id,
+      revision: subscription.revision,
+      mode: event.mode,
+      registration:
+        store.read(`alerts:strategy:${event.strategyId}:${event.version}`) ??
+        null,
+      registrationId: `alerts:strategy:${event.strategyId}:${event.version}`,
+    });
+    for (const channelId of subscription.channels) {
+      const id = `delivery-alert-${createHash("sha256")
+        .update(signalId + channelId)
+        .digest("hex")}`;
+      const body = `提醒 · ${event.type} · ${event.symbol}\n策略 ${event.strategyId} v${event.version} · ${event.sleeve}\n完成行情 ${event.bar} · 参考价 ${event.price ?? "不适用"}\n${event.reason}\n${event.source}\n仅提醒，不自动下单；前瞻收益不是策略业绩。`;
+      const decision = store.decide(
+        {
+          symbol: event.symbol,
+          strategy: event.strategyId,
+          date: chinaClock(event.observedAt).date,
+          endpointDate: event.bar,
+          direction:
+            event.type === "entry" || event.type === "plan-entry"
+              ? "long"
+              : "short",
+          score: 1,
+          market: event.market,
+          postClose: event.postClose,
+        },
+        signalId,
+        channelId,
+        id,
+        body,
+        event.observedAt,
+      );
+      if (
+        event.mode !== "live" ||
+        event.status === "missed" ||
+        !get<Channel>(channelId)?.enabled
+      ) {
+        store.update(
+          decision,
+          "ledger",
+          event.status === "missed"
+            ? "错过窗口不补发"
+            : event.mode === "shadow"
+              ? `影子模式，本应${decision.tier}，零投递`
+              : "渠道未启用",
+        );
+        continue;
+      }
+      if (decision.tier !== "immediate") continue;
+      writeMonitorRecord("delivery", {
+        id,
+        alertKey: event.key,
+        signalId,
+        channelId,
+        kind: "signal",
+        title: "统一提醒",
+        body,
+        policyDecisionIds: [decision.id],
+        status: "pending",
+        attempts: 0,
+        nextAt: event.observedAt,
+        createdAt: event.observedAt,
+        expiresAt: event.observedAt + 10 * 60000,
+      });
+    }
+  }
+}
 export function validateDestination(type: Channel["type"], secret: string) {
   if (type === "telegram") {
     if (!/^\d+:[\w-]+$/.test(secret))
@@ -502,6 +594,16 @@ async function send(channel: Channel, delivery: Delivery) {
     const now = Date.now(),
       policy = policyStore.policy(),
       days = policyStore.days();
+    if (
+      delivery.alertKey &&
+      delivery.policyDecisionIds.some(
+        (id) =>
+          policyStore.read<NotificationDecision>(id)?.market === "cn-equity" &&
+          !policyStore.read<NotificationDecision>(id)?.postClose,
+      ) &&
+      quiet(now, days, policy)
+    )
+      throw new DeliveryStopped("提醒发送前进入静默时段，不补发");
     if (
       delivery.kind === "summary"
         ? !summaryWindow(now, days, policy)

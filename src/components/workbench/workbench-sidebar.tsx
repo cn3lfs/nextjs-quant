@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { api } from "~/trpc/react";
 import { Sidebar } from "./sidebar";
+import { AlertStatus } from "../signals/alert-status";
 import { useTaskOverview } from "./use-task-overview";
 import { useTaskVisible } from "./use-task-visible";
 
@@ -24,6 +25,7 @@ export function WorkbenchSidebar({ active }: { active: string | undefined }) {
     (overview.data?.running ?? 0) + (overview.data?.queued ?? 0);
   return (
     <Sidebar
+      alerts={<AlertStatus compact />}
       active={active}
       badges={{
         "/signals": {

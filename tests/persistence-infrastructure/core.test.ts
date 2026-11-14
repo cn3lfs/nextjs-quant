@@ -12,7 +12,7 @@ import {
   type Delivery,
   type Signal,
 } from "~/lib/domain";
-import { freshCompleted, transition } from "~/server/runtime";
+import { freshCompleted, transition } from "../helpers/legacy-monitor-runtime";
 import {
   notificationRequest,
   validateDestination,

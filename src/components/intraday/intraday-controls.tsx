@@ -1,4 +1,5 @@
 "use client";
+import { AlertStatus } from "../signals/alert-status";
 import { rpsPeriods } from "quant-rps";
 import { capabilities, capabilityAllows } from "~/lib/common/capabilities";
 import { CapabilityNotice } from "../common/capability-notice";
@@ -129,6 +130,9 @@ export function IntradayControls() {
           : null;
   return (
     <PageGrid>
+      <div className="nc-span-12">
+        <AlertStatus />
+      </div>
       <CapabilityNotice id="intraday" />
       {error && (
         <p role="alert" className="nc-span-12 m-0 text-[13px] text-nc-bad">

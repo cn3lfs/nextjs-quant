@@ -2,6 +2,7 @@
 import { CaretDown, List } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { cn } from "~/lib/common/classnames";
 import { navGroups } from "./navigation";
 import { Button } from "../ui/button";
@@ -23,9 +24,11 @@ import {
 export function Sidebar({
   active,
   badges,
+  alerts,
 }: {
   active: string | undefined;
   badges: Record<string, { count: number; bad?: boolean }>;
+  alerts?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map((group) => [group.label, true])),
@@ -41,6 +44,7 @@ export function Sidebar({
   return (
     <TooltipProvider>
       <aside className="sidebar">
+        {alerts}
         <Link href="/" className="brand" aria-label="观澜首页">
           <span className="brand-symbol" aria-hidden="true">
             观

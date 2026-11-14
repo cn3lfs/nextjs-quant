@@ -1,0 +1,325 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import Database from "better-sqlite3";
+import { migrate } from "~/server/db/migrations";
+import { AlertRepository } from "~/server/db/alert-repository";
+import { settingsSchema, type Bar } from "~/lib/domain";
+import { put, get } from "~/server/db";
+import { alertsRouter } from "~/server/api/routers/alerts";
+import { evaluateAlertInputs } from "~/server/alerts/inputs";
+import { AlertEngine } from "~/server/alerts/engine";
+import type { StrategyObjectInput } from "trading-strategies";
+const fixture = vi.hoisted(() => ({
+  bars: [] as Bar[],
+  positions: [] as { symbol: string; quantity: number; stop: number | null }[],
+  tradingStatus: "trading" as "trading" | "unknown" | "suspended",
+  onStatus: () => {},
+}));
+vi.mock("~/server/market/security-trading-status", () => ({
+  verifySecurityTradingStatus: vi.fn(async (symbol: string) => {
+    fixture.onStatus();
+    return {
+      version: "security-trading-status-1",
+      symbol,
+      status: fixture.tradingStatus,
+      asOf: "2026-11-13",
+      fetchedAt: Date.parse("2026-11-13T02:00:00Z"),
+      source: "QA status",
+      reason: "fixture",
+      evidence: { row: {}, columns: [] },
+      evidenceHash: "qa",
+    };
+  }),
+}));
+vi.mock("~/server/market/bar-store/read-bars", () => ({
+  readBars: vi.fn(async () => ({
+    bars: fixture.bars,
+    source: "fixed",
+    adjustment: "none",
+    hash: "QA",
+    barStore: { formingDates: [] },
+  })),
+}));
+vi.mock("~/server/portfolio/trade-ledger-service", () => ({
+  tradePositionState: async () => ({ positions: fixture.positions }),
+}));
+vi.mock("~/server/strategies/chan/czsc", () => ({ analyzeCzsc: vi.fn() }));
+vi.mock("~/server/strategies/strategy-center-native", () => ({
+  captureNativeChanObservations: vi.fn(),
+}));
+let db: Database.Database;
+let repo: AlertRepository;
+const now = Date.parse("2026-11-13T02:00:00Z");
+const strategy: StrategyObjectInput = {
+  id: "source-golden",
+  version: 1,
+  market: "cn-equity",
+  period: "5m",
+  universe: { kind: "symbols", symbols: ["sh600000"] },
+  entry: { kind: "constant", value: true },
+  exit: {},
+  sizing: { kind: "weight", weight: 1 },
+  sleeve: "swing",
+};
+beforeEach(() => {
+  db = new Database(":memory:");
+  migrate(db);
+  repo = new AlertRepository(db);
+  fixture.positions = [];
+  fixture.tradingStatus = "trading";
+  fixture.onStatus = () => {};
+  fixture.bars = [
+    {
+      date: new Date(now).toISOString(),
+      open: 10,
+      high: 10,
+      low: 10,
+      close: 10,
+      volume: 100,
+      amount: 1000,
+    },
+  ];
+  put(
+    "settings",
+    "settings",
+    settingsSchema.parse({
+      tdxRoot: "D:\\fixed-fixture",
+      calendar: ["2026-11-13"],
+    }),
+  );
+  put("watchlist", "watchlist", ["sh600000"]);
+});
+afterEach(() => db.close());
+it("production input path feeds live registered strategy and real saved holding stop into one engine", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+  fixture.positions = [{ symbol: "sh600000", quantity: 100, stop: 11 }];
+  const delivered = vi.fn();
+  const engine = new AlertEngine({
+    clock: { now: () => now },
+    repository: repo,
+    mode: () => "shadow",
+    leader: () => true,
+    calendar: async () => ["2026-11-13"],
+    receipt: async () => true,
+    evaluate: (phase, at) => evaluateAlertInputs(phase, at, repo),
+    deliver: delivered,
+    outcomes: async () => {},
+    error: (e) => {
+      throw e;
+    },
+  });
+  await engine.tick();
+  await engine.tick();
+  const history = repo.history({
+    page: 0,
+    size: 20,
+    symbol: "",
+    strategyId: "",
+  });
+  expect(history.items.map((e) => e.type).sort()).toEqual(["entry", "stop"]);
+  expect(history.items.every((e) => e.mode === "shadow")).toBe(true);
+  expect(delivered).toHaveBeenCalledTimes(2);
+});
+it("production plan source triggers staged entries once then closes only after all stages", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.savePlan(
+    {
+      id: "source-plan",
+      strategyId: strategy.id,
+      strategyVersion: 1,
+      symbol: "sh600000",
+      market: "cn-equity",
+      sleeve: "swing",
+      triggerKey: "QA",
+      entry: 9,
+      stages: [
+        { entry: 9, quantity: 100 },
+        { entry: 11, quantity: 100 },
+      ],
+      quantity: 200,
+      tranches: 2,
+      stop: 8,
+      target: 13,
+      expiresAt: "2026-11-14T00:00:00Z",
+      status: "open",
+      createdAt: now - 300000,
+    },
+    now - 300000,
+  );
+  const run = async (at: number) => {
+    const engine = new AlertEngine({
+      clock: { now: () => at },
+      repository: repo,
+      mode: () => "shadow",
+      leader: () => true,
+      calendar: async () => ["2026-11-13"],
+      receipt: async () => true,
+      evaluate: (phase, t) => evaluateAlertInputs(phase, t, repo),
+      deliver: () => {},
+      outcomes: async () => {},
+      error: (e) => {
+        throw e;
+      },
+    });
+    await engine.tick();
+  };
+  await run(now);
+  expect(repo.strategies.plan("source-plan")?.status).toBe("open");
+  fixture.bars = [
+    {
+      ...fixture.bars[0]!,
+      date: new Date(now + 300000).toISOString(),
+      close: 12,
+      high: 12,
+    },
+  ];
+  await run(now + 300000);
+  await run(now + 300000);
+  expect(repo.strategies.plan("source-plan")).toMatchObject({
+    status: "closed",
+    closeReason: "triggered",
+  });
+  expect(
+    repo
+      .history({ page: 0, size: 20, symbol: "", strategyId: "" })
+      .items.map((e) => e.type),
+  ).toEqual(["plan-entry", "plan-entry"]);
+});
+
+it.each(["unknown", "suspended"] as const)(
+  "new engine rejects %s status and retries the same fresh bar without losing it",
+  async (status) => {
+    repo.strategies.saveStrategy(strategy);
+    repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+    fixture.tradingStatus = status;
+    const deps = {
+      clock: { now: () => now },
+      repository: repo,
+      mode: () => "shadow" as const,
+      leader: () => true,
+      calendar: async () => ["2026-11-13"],
+      receipt: async () => true,
+      evaluate: (phase: "close" | "intraday" | "crypto", at: number) =>
+        evaluateAlertInputs(phase, at, repo),
+      deliver: vi.fn(),
+      outcomes: async () => {},
+      error: (e: unknown) => {
+        throw e;
+      },
+    };
+    await new AlertEngine(deps).tick();
+    expect(
+      repo.history({ page: 0, size: 20, symbol: "", strategyId: "" }).total,
+    ).toBe(0);
+    fixture.tradingStatus = "trading";
+    await new AlertEngine(deps).tick();
+    expect(
+      repo.history({ page: 0, size: 20, symbol: "", strategyId: "" }).total,
+    ).toBe(1);
+  },
+);
+it("strategy disabled and re-enabled during awaited status cannot commit the old registration", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true, revision: "old" });
+  fixture.onStatus = () => {
+    repo.saveState(`strategy:${strategy.id}:1`, {
+      live: false,
+      revision: "off",
+    });
+    repo.saveState(`strategy:${strategy.id}:1`, {
+      live: true,
+      revision: "new",
+    });
+  };
+  const delivery = vi.fn();
+  await new AlertEngine({
+    clock: { now: () => now },
+    repository: repo,
+    mode: () => "shadow",
+    leader: () => true,
+    calendar: async () => ["2026-11-13"],
+    receipt: async () => true,
+    evaluate: (p, t) => evaluateAlertInputs(p, t, repo),
+    deliver: delivery,
+    outcomes: async () => {},
+    error: (e) => {
+      throw e;
+    },
+  }).tick();
+  expect(delivery).not.toHaveBeenCalled();
+  expect(
+    repo.history({ page: 0, size: 20, symbol: "", strategyId: "" }).total,
+  ).toBe(0);
+  expect(repo.state(`strategy:${strategy.id}:1`)).toEqual({
+    live: true,
+    revision: "new",
+  });
+});
+it("freshness is rechecked after asynchronous source verification", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+  let clock = now;
+  fixture.onStatus = () => {
+    clock = now + 60000;
+  };
+  const delivery = vi.fn();
+  await new AlertEngine({
+    clock: { now: () => clock },
+    repository: repo,
+    mode: () => "shadow",
+    leader: () => true,
+    calendar: async () => ["2026-11-13"],
+    receipt: async () => true,
+    evaluate: (p, t) => evaluateAlertInputs(p, t, repo),
+    deliver: delivery,
+    outcomes: async () => {},
+    error: (e) => {
+      throw e;
+    },
+  }).tick();
+  expect(delivery).not.toHaveBeenCalled();
+  expect(
+    repo.history({ page: 0, size: 20, symbol: "", strategyId: "" }).total,
+  ).toBe(0);
+});
+
+it("A-share protection configuration shares the existing saved stop owner", async () => {
+  const caller = alertsRouter.createCaller({ headers: new Headers() });
+  await caller.saveHoldingAlert({
+    market: "cn-equity",
+    symbol: "sh600000",
+    account: "",
+    sleeve: "swing",
+    stop: 9,
+    target: 12,
+    trailing: 0.1,
+  });
+  expect(get("trade-stop-sh600000")).toEqual({ stop: 9 });
+  await caller.saveHoldingAlert({
+    market: "cn-equity",
+    symbol: "sh600000",
+    account: "",
+    sleeve: "swing",
+    stop: null,
+    target: 12,
+    trailing: null,
+  });
+  expect(get("trade-stop-sh600000")).toEqual({ stop: null });
+});
+it("later edits from the original position stop form override no stale alert copy", async () => {
+  fixture.positions = [{ symbol: "sh600000", quantity: 100, stop: 9 }];
+  repo.saveState("protection:cn-equity:sh600000", {
+    stop: 11,
+    target: null,
+    trailing: null,
+    sleeve: "swing",
+  });
+  const result = await evaluateAlertInputs("intraday", now, repo);
+  expect(result.proposals.filter((p) => p.event.type === "stop")).toEqual([]);
+  fixture.positions = [{ symbol: "sh600000", quantity: 100, stop: 11 }];
+  const changed = await evaluateAlertInputs("intraday", now, repo);
+  expect(changed.proposals.filter((p) => p.event.type === "stop")).toHaveLength(
+    1,
+  );
+  expect(changed.proposals[0]!.event.stop).toBe(11);
+});

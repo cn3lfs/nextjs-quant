@@ -619,7 +619,7 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   );
 });
 
-test("retired research route is absent and paused workflows remain visibly paused", async ({
+test("retired research route is absent and unified alerts expose their real shadow mode", async ({
   page,
 }) => {
   const oldCatalog = await page.request.get("/api/trpc/strategyLifecycle", {
@@ -639,7 +639,10 @@ test("retired research route is absent and paused workflows remain visibly pause
     await expect(page.locator('a[href="/research"]')).toHaveCount(0);
     if (["/signals", "/signal-ledger", "/intraday"].includes(path))
       await expect(
-        page.getByRole("main").getByText(/暂停/).first(),
+        page
+          .getByRole("main")
+          .getByText(/提醒引擎：影子/)
+          .first(),
       ).toBeVisible();
   }
   await expect(
@@ -766,4 +769,171 @@ test("overview uses its framework route and restores the ranking selection from 
   await expect(
     ranking.getByRole("radio", { name: "行业", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
+});
+
+test("R2b shadow history filters, exports and creates then cancels a staged plan", async ({
+  page,
+}, testInfo) => {
+  const status = await page.request.get("/api/trpc/status", {
+    headers: trpcHeaders,
+  });
+  const settings = (await status.json()).result.data.json.settings;
+  expect(settings.alerts.mode).toBe("shadow");
+  const registration = await page.request.post(
+    "/api/trpc/configureAlertStrategy",
+    {
+      headers: trpcHeaders,
+      data: {
+        json: {
+          strategy: {
+            id: "p0-r2b-alert",
+            version: 1,
+            market: "cn-equity",
+            period: "day",
+            universe: { kind: "symbols", symbols: ["sh600000"] },
+            entry: { kind: "constant", value: false },
+            exit: {},
+            sizing: { kind: "weight", weight: 1 },
+            sleeve: "swing",
+          },
+          live: false,
+          candidates: [],
+        },
+      },
+    },
+  );
+  expect(registration.status()).toBe(200);
+  const parent = await realpath(
+    resolve(process.env.E2E_DATA_DIR ?? ".test-data/p0-acceptance"),
+  );
+  const directory = await realpath(resolve(settings.tdxRoot, ".."));
+  expect(directory.startsWith(parent + sep)).toBe(true);
+  const database = new Database(resolve(directory, "quant.sqlite"), {
+    fileMustExist: true,
+  });
+  try {
+    const insert = database.prepare(
+      "INSERT INTO watch_events VALUES(?,?,?,?,?,?,?,?,?,?)",
+    );
+    for (let i = 0; i < 25; i++) {
+      const bar = `2026-10-${String(i + 1).padStart(2, "0")}`;
+      const key = JSON.stringify([
+        "p0-r2b-alert",
+        1,
+        "cn-equity",
+        "sh600000",
+        bar,
+      ]);
+      const event = {
+        key,
+        strategyId: "p0-r2b-alert",
+        version: 1,
+        market: "cn-equity",
+        symbol: "sh600000",
+        bar,
+        type: "entry",
+        price: 10,
+        sleeve: "swing",
+        stop: 9,
+        target: 13,
+        observedAt: Date.now(),
+        mode: "shadow",
+        status: "shadow",
+        wouldSend: true,
+        outcomes: [],
+        reason: "P0合成候选，不是真实行情信号",
+        source: "QA fixture",
+      };
+      insert.run(
+        key,
+        event.strategyId,
+        1,
+        event.symbol,
+        bar,
+        event.type,
+        10,
+        "shadow",
+        null,
+        JSON.stringify(event),
+      );
+    }
+    database
+      .prepare(
+        "INSERT INTO records VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+      )
+      .run(
+        "alerts:exposure",
+        "alert-state",
+        JSON.stringify([
+          {
+            market: "cn-equity",
+            sleeve: "__checked__",
+            value: 0,
+            at: Date.now(),
+          },
+        ]),
+        Date.now(),
+      );
+    await page.goto("/settings");
+    await page.getByLabel("A股资金（元）", { exact: true }).fill("100000");
+    await page.getByRole("button", { name: "保存设置", exact: true }).click();
+    await expect(page.locator('[data-settings-state="saved"]')).toBeVisible();
+    await page.goto("/signal-ledger");
+    await expect(
+      page
+        .getByRole("main")
+        .getByText(/提醒引擎：影子/)
+        .first(),
+    ).toBeVisible();
+    await page.getByLabel("来源策略", { exact: true }).fill("p0-r2b-alert");
+    const history = page.getByRole("region", { name: "提醒历史", exact: true });
+    await expect(history).toContainText("25");
+    await history.getByRole("button", { name: /下一页/ }).click();
+    await expect(
+      history.getByRole("button", { name: "加入计划", exact: true }),
+    ).toHaveCount(5);
+    const archive = await download(page, "导出提醒历史");
+    expect(archive.items).toHaveLength(25);
+    expect(
+      archive.items.every((e: { mode: string }) => e.mode === "shadow"),
+    ).toBe(true);
+    await history
+      .getByRole("button", { name: "加入计划", exact: true })
+      .first()
+      .click();
+    await page.getByLabel("分批入场价（逗号分隔）").fill("10,11");
+    await page.getByLabel("计划止损", { exact: true }).fill("9");
+    await page.getByLabel("计划目标（可空）").fill("13");
+    const future = new Date(Date.now() + 86400000);
+    future.setMinutes(0);
+    const local = new Date(
+      future.getTime() - future.getTimezoneOffset() * 60000,
+    )
+      .toISOString()
+      .slice(0, 16);
+    await page.getByLabel("计划到期时间").fill(local);
+    await page
+      .getByRole("button", { name: "保存交易计划", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "交易计划已保存" }),
+    ).toBeVisible();
+    const plans = page.getByRole("region", { name: "交易计划", exact: true });
+    await expect(plans).toContainText("700");
+    await plans.getByRole("button", { name: "取消计划", exact: true }).click();
+    await expect(plans).toContainText("已取消");
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: testInfo.outputPath("r2b-alert-history-1024.png"),
+      fullPage: true,
+    });
+    expect(
+      database
+        .prepare("SELECT count(*) n FROM records WHERE kind='delivery'")
+        .get(),
+    ).toEqual({ n: 0 });
+  } finally {
+    database.close();
+  }
 });

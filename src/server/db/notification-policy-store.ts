@@ -6,6 +6,7 @@ import {
   grade,
   notificationPolicySchema,
   customQuiet,
+  quiet,
   summaryWindow,
   tierLabels,
   withinTradingWindow,
@@ -115,6 +116,18 @@ export class NotificationPolicyStore {
       createdAt: now,
     };
     if (
+      unit.strategy !== "czsc" &&
+      unit.strategy !== "dual-breakout" &&
+      unit.market !== "crypto" &&
+      !unit.postClose &&
+      quiet(now, this.days(), policy)
+    )
+      decision = {
+        ...decision,
+        tier: "ledger",
+        reasons: [...decision.reasons, "提醒处于静默时段；仅入历史，不补发"],
+      };
+    if (
       messageKind === "signal" &&
       tier !== "ledger" &&
       this.duplicate(unit, channelId, now)
@@ -216,6 +229,19 @@ export class NotificationPolicyStore {
     }
     const policy = this.policy(),
       days = this.days();
+    if (
+      decisions.some(
+        (d) =>
+          d.market === "cn-equity" &&
+          !d.postClose &&
+          d.strategy !== "czsc" &&
+          d.strategy !== "dual-breakout",
+      ) &&
+      quiet(now, days, policy)
+    ) {
+      this.cancel(delivery, "提醒投递时处于静默时段，不补发");
+      return false;
+    }
     if (delivery.kind === "analysis") {
       const parents = this.decisions().filter(
         (d) =>
@@ -350,7 +376,7 @@ export function ledgerUnit(signal: LedgerSignal): PolicyUnit {
 export function renderSummary(date: string, decisions: NotificationDecision[]) {
   const groups = new Map<string, number>();
   for (const d of decisions) {
-    const label = `${d.strategy === "czsc" ? "缠论" : "双突破"} · ${d.direction === "long" ? "向上" : "向下"} · ${d.strategy === "czsc" ? (["观察", "确认", "强质量"][d.score] ?? "未知") : `${d.score}/5`}`;
+    const label = `${d.strategy === "czsc" ? "缠论" : d.strategy === "dual-breakout" ? "双突破" : d.strategy} · ${d.direction === "long" ? "向上" : "向下"} · ${d.strategy === "czsc" ? (["观察", "确认", "强质量"][d.score] ?? "未知") : d.strategy === "dual-breakout" ? `${d.score}/5` : "完成行情提醒"}`;
     groups.set(label, (groups.get(label) ?? 0) + 1);
   }
   const lines = [

@@ -21,6 +21,7 @@ function activeCapability(
 }
 export const capabilityPolicyVersion = 2;
 export const capabilities = {
+  alerts: activeCapability("统一提醒引擎", ["read", "configure", "schedule"]),
   market: activeCapability("行情与证券池", ["read", "configure", "compute"]),
   nativeChart: activeCapability("原生缠论图表", ["read", "compute"]),
   rps: activeCapability("RPS", ["read", "configure", "compute"]),
@@ -87,26 +88,23 @@ export const capabilities = {
   },
   signalMonitor: {
     label: "信号监控",
-    state: "paused",
-    reasonCode: "optimization-pause",
-    reason:
-      "信号监控已暂停。可查看记录和保存订阅设置，暂停期间不计算新信号；保存设置不会恢复调度。",
+    state: "active",
+    reasonCode: "available",
+    reason: "新提醒由统一引擎管理；本页保留历史订阅与渠道。旧调度不再运行。",
     operations: ["read", "configure"],
   },
   signalLedger: {
     label: "信号台账",
-    state: "paused",
-    reasonCode: "optimization-pause",
-    reason:
-      "信号台账自动计算已暂停。可查看已有记录，暂停期间不创建或补跑批次。",
+    state: "active",
+    reasonCode: "available",
+    reason: "提醒历史由统一引擎向前积累；旧批次保留查询，不补跑。",
     operations: ["read", "configure"],
   },
   intraday: {
     label: "盘中预选",
-    state: "paused",
-    reasonCode: "optimization-pause",
-    reason:
-      "盘中预选与收盘核对已暂停。可查看记录和保存参数，暂停期间不执行或补跑；保存设置不会恢复调度。",
+    state: "active",
+    reasonCode: "available",
+    reason: "完成行情与持仓保护已合入统一提醒；本页保留历史预选查询。",
     operations: ["read", "configure"],
   },
 } as const satisfies Record<string, Capability>;

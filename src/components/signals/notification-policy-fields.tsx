@@ -51,6 +51,7 @@ export function NotificationPolicyFields({
         只影响推送，台账记录全部信号及过滤原因。设置保存后对新决策生效；待发通知仍会核验当前静默、限额与去重。
       </p>
       <div className="form-grid">
+        {tier("统一提醒", p.alerts, (v) => onChange({ ...p, alerts: v }))}
         {tier("缠论 · 观察", p.czsc.observe, (v) =>
           onChange({ ...p, czsc: { ...p.czsc, observe: v } }),
         )}

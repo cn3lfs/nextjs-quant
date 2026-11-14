@@ -7,6 +7,7 @@ import { z } from "zod";
 import { newsSourceSettingsSchema } from "./settings/news-source-settings";
 import { localDirectorySchema } from "./settings/local-source-settings";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
+import { alertsSchema } from "./strategy-facts/alerts";
 import type { SecurityTradingStatus } from "./market/security-trading-status";
 import type { Bar } from "trading-strategy-core/bars";
 import type { Period } from "./market/periods";
@@ -220,6 +221,7 @@ export type Signal = {
   source: string;
 };
 export type Delivery = {
+  alertKey?: string;
   sourceDeliveryId?: string;
   requestId?: string;
   confirmedChannelVersion?: string;
@@ -266,6 +268,7 @@ export type Monitor = {
   error?: string;
 };
 export const settingsSchema = z.object({
+  alerts: alertsSchema,
   marketDataSource: marketSourceSchema.default("auto"),
   holdoutStart: researchDateSchema.nullable().default(null),
   notificationPolicy: notificationPolicySchema,

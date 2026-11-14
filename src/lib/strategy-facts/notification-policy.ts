@@ -10,6 +10,7 @@ export const tierLabels: Record<DeliveryTier, string> = {
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const notificationPolicySchema = z
   .object({
+    alerts: deliveryTierSchema.default("immediate"),
     czsc: z
       .object({
         observe: deliveryTierSchema.default("ledger"),
@@ -46,7 +47,9 @@ export const notificationPolicySchema = z
 export type NotificationPolicy = z.infer<typeof notificationPolicySchema>;
 export type PolicyUnit = {
   symbol: string;
-  strategy: "czsc" | "dual-breakout";
+  strategy: string;
+  market?: "cn-equity" | "crypto";
+  postClose?: boolean;
   date: string;
   endpointDate: string;
   direction: "long" | "short";
@@ -77,6 +80,8 @@ export function grade(
   p: NotificationPolicy,
 ): DeliveryTier {
   if (!Number.isInteger(unit.score)) return "ledger";
+  if (unit.strategy !== "czsc" && unit.strategy !== "dual-breakout")
+    return p.alerts;
   if (unit.strategy === "czsc")
     return (
       ([p.czsc.observe, p.czsc.confirmed, p.czsc.strong] as const)[

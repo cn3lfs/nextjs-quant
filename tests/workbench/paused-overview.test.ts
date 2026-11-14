@@ -28,14 +28,14 @@ it.each([true, false])(
     for (const slot of timeline(input).filter((slot) =>
       ["noon", "late", "close"].includes(slot.key),
     ))
-      expect(slot.status).toBe("已暂停");
-    expect(scheduleSummary(input)).toContain("暂停");
+      expect(slot.status).toBe("统一提醒");
+    expect(scheduleSummary(input)).toContain("统一提醒");
     expect(health(input).find((item) => item.key === "schedule")?.value).toBe(
-      "已暂停",
+      "统一提醒",
     );
     expect(
       todos(input).find((todo) => todo.key === "intraday-paused")?.detail,
-    ).toContain("不会恢复调度");
+    ).toContain("统一提醒");
     expect(
       todos(input).filter((todo) =>
         ["intraday-off", "noon", "late", "confirm"].includes(todo.key),

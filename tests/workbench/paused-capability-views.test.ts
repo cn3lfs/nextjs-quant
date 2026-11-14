@@ -49,7 +49,7 @@ it("paused navigation and notices expose the same policy while active capabiliti
     ["/signals", "signalMonitor"],
     ["/signal-ledger", "signalLedger"],
   ] as const) {
-    expect(navItemFor(route)?.label).toContain("暂停");
+    expect(navItemFor(route)?.label).not.toContain("暂停");
     expect(navItemFor(route)?.subtitle).toBe(capabilities[id].reason);
     expect(
       renderToStaticMarkup(createElement(CapabilityNotice, { id })),

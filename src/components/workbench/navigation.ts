@@ -236,8 +236,11 @@ const routeGroups: readonly NavGroup[] = [
 export const navGroups: readonly NavGroup[] = routeGroups.map((group) => ({
   ...group,
   items: group.items.map((item) => {
-    if (!item.capability || capabilities[item.capability].state === "active")
-      return item;
+    if (!item.capability) return item;
+    if (capabilities[item.capability].state === "active")
+      return capabilities[item.capability].reason
+        ? { ...item, subtitle: capabilities[item.capability].reason }
+        : item;
     return {
       ...item,
       label: `${item.label}（暂停）`,

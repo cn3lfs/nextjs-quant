@@ -2,7 +2,7 @@ import { capabilities, type CapabilityId } from "~/lib/common/capabilities";
 
 export function CapabilityNotice({ id }: { id: CapabilityId }) {
   const capability = capabilities[id];
-  if (capability.state === "active") return null;
+  if (!capability.reason) return null;
   return (
     <p
       role="status"

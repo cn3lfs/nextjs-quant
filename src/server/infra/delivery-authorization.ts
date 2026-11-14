@@ -1,8 +1,39 @@
 import { readMonitorRecord } from "../db/monitor-records";
 import type { Delivery } from "~/lib/domain";
 import { channelDestinationVersion } from "./channel-version";
+import { get } from "../db";
+import { settings } from "./settings";
+import type { AlertSubscription } from "~/lib/strategy-facts/alerts";
 
 export function deliveryCancellationReason(delivery: Delivery): string | null {
+  const alert = get<{
+    subscriptionId: string;
+    revision: string;
+    mode: string;
+    registration?: { live: boolean; revision?: string } | null;
+    registrationId?: string;
+  }>(`alert-authorization:${delivery.signalId}`);
+  if (delivery.alertKey || alert) {
+    if (!alert || alert.mode !== "live" || settings().alerts.mode !== "live")
+      return "提醒引擎未开启真实投递";
+    const subscription = get<AlertSubscription>(
+      `alert-subscription:${alert.subscriptionId}`,
+    );
+    if (
+      !subscription?.enabled ||
+      subscription.revision !== alert.revision ||
+      !subscription.channels.includes(delivery.channelId)
+    )
+      return "提醒订阅已修改或关闭";
+    if (
+      alert.registration &&
+      (!alert.registrationId ||
+        JSON.stringify(get(alert.registrationId)) !==
+          JSON.stringify(alert.registration))
+    )
+      return "策略监视授权已修改";
+    return null;
+  }
   if (delivery.manualRetry && delivery.confirmedChannelVersion) {
     const channel = readMonitorRecord("channel", delivery.channelId);
     if (

@@ -18,6 +18,7 @@ vi.mock("~/server/news/cls-review-scheduler", () => ({
 }));
 vi.mock("~/server/infra/notifications", () => ({
   enqueue: vi.fn(),
+  enqueueAlert: vi.fn(),
   drain: vi.fn(),
   recoverDeliveries: vi.fn(),
 }));

@@ -20,7 +20,7 @@ const receipt = z.object({
 // must never gate those observations.
 export const requiresDownloadReceipt = (phase: RpsObservation["phase"]) =>
   phase === "close";
-export async function downloadReady(date: string) {
+export async function downloadReady(date: string, now = Date.now()) {
   try {
     const parsed = receipt.parse(
       JSON.parse(
@@ -32,7 +32,7 @@ export async function downloadReady(date: string) {
         ).replace(/^\uFEFF/, ""),
       ),
     );
-    return parsed.date === date && parsed.completedAt <= Date.now();
+    return parsed.date === date && parsed.completedAt <= now;
   } catch {
     return false;
   }

@@ -169,7 +169,7 @@ export function timeline(input: OverviewInput): TimelineSlot[] {
     key: "noon" | "late",
   ): Pick<TimelineSlot, "status" | "tone"> => {
     if (!capabilityAllows("intraday", "schedule"))
-      return { status: "已暂停", tone: "idle" };
+      return { status: "统一提醒", tone: "idle" };
     if (!config?.enabled) return { status: "未启用", tone: "idle" };
     if (closedDay) return { status: "休市", tone: "idle" };
     const run = todayRun(input, key);
@@ -226,7 +226,7 @@ export function timeline(input: OverviewInput): TimelineSlot[] {
       label: "收盘复盘核对",
       pct: axisPct(15 * 60 + 5),
       ...(!capabilityAllows("intraday", "schedule")
-        ? { status: "已暂停", tone: "idle" as const }
+        ? { status: "统一提醒", tone: "idle" as const }
         : !config?.enabled
           ? { status: "未启用", tone: "idle" as const }
           : closedDay
@@ -244,7 +244,7 @@ export function timeline(input: OverviewInput): TimelineSlot[] {
 }
 
 export function scheduleSummary(input: OverviewInput) {
-  if (!capabilityAllows("intraday", "schedule")) return "盘中预选已暂停";
+  if (!capabilityAllows("intraday", "schedule")) return "旧预选已归入统一提醒";
   const done = (["noon", "late"] as const).filter((slot) =>
     ["complete", "partial"].includes(todayRun(input, slot)?.status ?? ""),
   ).length;
@@ -334,7 +334,7 @@ export function health(input: OverviewInput): HealthCard[] {
       key: "schedule",
       name: "调度",
       value: !capabilityAllows("intraday", "schedule")
-        ? "已暂停"
+        ? "统一提醒"
         : !input.intraday?.config.enabled
           ? "未启用"
           : input.intraday.worker.error
@@ -451,8 +451,8 @@ export function todos(input: OverviewInput): Todo[] {
     list.push({
       key: "intraday-paused",
       tone: "idle",
-      tag: "已暂停",
-      title: "盘中预选已暂停",
+      tag: "统一提醒",
+      title: "旧预选已归入统一提醒",
       detail: capabilities.intraday.reason,
       action: "查看记录",
       href: "/intraday",

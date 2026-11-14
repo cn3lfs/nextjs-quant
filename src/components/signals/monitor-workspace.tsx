@@ -1,5 +1,6 @@
 "use client";
 import { capabilityAllows } from "~/lib/common/capabilities";
+import { AlertStatus } from "./alert-status";
 import { CapabilityNotice } from "../common/capability-notice";
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -284,7 +285,7 @@ export function MonitorWorkspace({
       if (context)
         setErrors((previous) => ({ ...previous, [context.key]: "" }));
       setNotice(
-        `已保存订阅“${value.name}”${!capabilityAllows("signalMonitor", "schedule") ? "，调度仍暂停" : value.enabled ? "，将重新建立基线" : "，当前暂停"}。`,
+        `已保存订阅“${value.name}”${!capabilityAllows("signalMonitor", "schedule") ? "，旧调度已退役；新提醒请在设置页启用订阅" : value.enabled ? "，将重新建立基线" : "，当前暂停"}。`,
       );
       void changed();
     },
@@ -434,6 +435,9 @@ export function MonitorWorkspace({
   const hasDetail = !!selected[tab] || !!editing;
   return (
     <PageGrid>
+      <div className="nc-span-12">
+        <AlertStatus />
+      </div>
       <CapabilityNotice id="signalMonitor" />
       <Panel
         title="策略监控与通知"
@@ -612,7 +616,7 @@ export function MonitorWorkspace({
                   </strong>
                   <span className="block text-xs">
                     {!capabilityAllows("signalMonitor", "schedule")
-                      ? "调度已暂停"
+                      ? "旧调度已退役"
                       : row.enabled
                         ? "已启用"
                         : "已暂停"}{" "}

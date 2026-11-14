@@ -1,5 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
+import Link from "next/link";
+import { HoldingAlertEditor } from "./holding-alert-editor";
 import type { RouterOutputs } from "~/trpc/react";
 import { updateStop } from "~/app/trade-ledger/actions";
 import { feeLabel } from "~/lib/portfolio/trade-ledger";
@@ -66,6 +68,7 @@ export function TradePositions({
   }
   return (
     <section aria-label="持仓列表" className="space-y-4">
+      <Link href="/signal-ledger">查看提醒历史与交易计划</Link>
       <p className="text-xs text-nc-text-3">{feeLabel}</p>
       <p className="text-xs text-nc-text-3">
         持仓按完整本地账本计算。GBBQ不可用时成本未按除权调整，浮盈留空；参考成本不可当作已核对成本。
@@ -135,6 +138,11 @@ export function TradePositions({
             </div>
           </dl>
           <p className="text-xs text-nc-text-3">{p.adjustmentStatus}</p>
+          <HoldingAlertEditor
+            market="cn-equity"
+            symbol={p.symbol}
+            initialStop={p.stop}
+          />
           <form
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {

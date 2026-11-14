@@ -1,5 +1,10 @@
 /** Only reviewed summaries cross the diagnostics boundary; never raw provider errors. */
 export const runtimeErrorEvents = {
+  "alert-engine": {
+    module: "统一提醒",
+    stage: "完成行情求值",
+    summary: "提醒求值失败或证据缺失，请检查数据就绪状态。",
+  },
   "notification-send": {
     module: "通知服务",
     stage: "发送",

@@ -39,6 +39,7 @@ import {
   type Tone,
 } from "../panels";
 import { Button } from "../ui/button";
+import { AlertStatus } from "../signals/alert-status";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { MarketPulse, useOverviewQuotes, WatchQuote } from "./market-pulse";
 import { useNow } from "../workbench/use-now";
@@ -232,11 +233,12 @@ export function TodayOverview() {
     );
   const sectorQuery = rpsTarget === "industry" ? industry : concept;
   const sectors = sectorQuery.data;
-  const intradayPaused = !capabilityAllows("intraday", "schedule");
+  const intradayArchived = !capabilityAllows("intraday", "schedule");
   const watch = status.data?.watchlist ?? [];
   const name = (symbol: string) => names[symbol] ?? symbol.toUpperCase();
   return (
     <div className="flex flex-col gap-[var(--nc-gap)]">
+      <AlertStatus />
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-[13px] text-nc-text-3">
           {dateLine(now)} ·{" "}
@@ -286,7 +288,7 @@ export function TodayOverview() {
                   monitorSummary.isLoading || signalPage.isLoading
                     ? "正在读取信号…"
                     : !capabilityAllows("signalMonitor", "schedule")
-                      ? "今日没有信号记录；信号监控已暂停。"
+                      ? "旧监控没有今日记录；新提醒见提醒历史。"
                       : "今日还没有新信号"
                 }
                 rows={signals}
@@ -383,17 +385,17 @@ export function TodayOverview() {
             tone="accent"
             icon={Crosshair}
             title={`盘中预选${batch ? ` · ${batch.slot === "noon" ? "午盘" : "尾盘"}批次` : ""}`}
-            meta={intradayPaused ? "已暂停" : undefined}
+            meta={intradayArchived ? "历史预选" : undefined}
             actions={
               <Link href="/intraday" className="text-[13px]">
-                {intradayPaused || intraday.data?.config.enabled
+                {intradayArchived || intraday.data?.config.enabled
                   ? "查看记录 →"
                   : "去设置 →"}
               </Link>
             }
             note={
-              intradayPaused
-                ? "预选与收盘核对已暂停；可查看记录和保存参数，保存设置不会恢复调度。"
+              intradayArchived
+                ? "预选历史保留；新候选与持仓保护由统一提醒引擎管理。"
                 : "预选使用截至该时点的行情，收盘后另行确认或撤销，不覆盖原始记录。"
             }
           >
@@ -407,8 +409,8 @@ export function TodayOverview() {
               <PanelEmpty>
                 {intraday.isLoading
                   ? "正在读取预选记录…"
-                  : intradayPaused
-                    ? "今日没有预选记录；暂停期间不生成新候选。"
+                  : intradayArchived
+                    ? "今日没有旧预选记录；请查看统一提醒历史。"
                     : "今日暂无预选候选。缺少当日行情不会生成候选。"}
               </PanelEmpty>
             ) : (

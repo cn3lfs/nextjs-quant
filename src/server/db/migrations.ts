@@ -127,6 +127,18 @@ const migrations = [
     plan_id TEXT REFERENCES trade_plans(id), payload TEXT NOT NULL CHECK(json_valid(payload)),
     FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version));
    CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
+  `CREATE TABLE watch_events_v16 (
+    dedupe_key TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL,
+    symbol TEXT NOT NULL, bar TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('entry','exit','stop','target','trailing','plan-entry','plan-expired','regime','allocation','missed')),
+    price REAL CHECK(price IS NULL OR price>0),
+    status TEXT NOT NULL CHECK(status IN ('new','planned','handled','shadow','live','missed')),
+    plan_id TEXT REFERENCES trade_plans(id), payload TEXT NOT NULL CHECK(json_valid(payload)),
+    FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version));
+   INSERT INTO watch_events_v16 SELECT * FROM watch_events;
+   DROP TABLE watch_events;
+   ALTER TABLE watch_events_v16 RENAME TO watch_events;
+   CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

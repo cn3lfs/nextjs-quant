@@ -445,7 +445,7 @@ export function SignalLedgerWorkspace() {
             <p className="my-4">
               {query.data.totalAll
                 ? "当前筛选没有匹配信号，请调整条件。"
-                : "尚无信号记录；台账生成已暂停，不会自动产生新记录。"}
+                : "尚无旧信号记录；新的触发事件见提醒历史。"}
             </p>
           )}
           <BrowseSource

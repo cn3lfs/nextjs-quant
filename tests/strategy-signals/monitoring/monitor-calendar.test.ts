@@ -21,7 +21,10 @@ vi.mock("../../../src/server/market/preferred-online-chart", () => ({
   preferredOnlineChart: mocks.history,
 }));
 import { monitorCalendar } from "../../../src/server/monitoring/monitor-calendar";
-import { freshCompleted, transition } from "../../../src/server/runtime";
+import {
+  freshCompleted,
+  transition,
+} from "../../helpers/legacy-monitor-runtime";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.increments.mockReturnValue([]);

@@ -64,7 +64,7 @@ vi.mock("../../../src/server/market/security-trading-status", () => ({
 vi.mock("../../../src/server/market/securities", () => ({
   securityDirectory: async () => ({ entries: {} }),
 }));
-import { tick } from "../../../src/server/runtime";
+import { tick } from "../../helpers/legacy-monitor-runtime";
 import { sqlite, put, get, list } from "../../../src/server/db/index";
 process.env.QUANT_DATA_DIR = mkdtempSync(join(tmpdir(), "quant-tick-"));
 const day = "2026-10-08";

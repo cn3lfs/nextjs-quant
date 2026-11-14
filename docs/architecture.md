@@ -37,8 +37,8 @@ flowchart LR
 | `/news`                | 常规路由       | newsQuery/新闻档案身份 URL；现有新闻会话记忆保存翻页/返回上下文；数据 query cache                                                                                                              |
 | `/cls-review`          | 常规路由       | 报告选择/筛选 URL；现有复盘会话记忆；报告事实 query cache/服务端                                                                                                                               |
 | `/rps`                 | 常规路由       | 任务、排名 query cache/服务端；内部口径/筛选/分页为本页临时状态，跨页找标的使用 `/stock-pool` 的 URL 流程                                                                                      |
-| `/intraday`            | 常规路由       | 配置和记录 query cache/服务端；操作临时状态本页；compute/schedule 继续暂停                                                                                                                     |
-| `/signals`             | 常规路由       | 订阅/渠道 query cache/服务端；未提交订阅草稿按 ID/revision 写 sessionStorage，弹窗打开及错误本页；compute/schedule 继续暂停                                                                    |
+| `/intraday`            | 常规路由       | 配置和记录 query cache/服务端；操作临时状态本页；旧调度退役；提醒模式由统一引擎拥有                                                                                                                     |
+| `/signals`             | 常规路由       | 订阅/渠道 query cache/服务端；未提交订阅草稿按 ID/revision 写 sessionStorage，弹窗打开及错误本页；旧调度退役；提醒模式由统一引擎拥有                                                                    |
 | `/signal-ledger`       | 常规路由       | 台账事实 query cache/服务端；筛选/选择 URL，分页及返回位置 sessionStorage；不进外壳                                                                                                            |
 | `/trade-ledger`        | 常规路由       | 账户、持仓、成交事实 query cache/服务端；交易草稿和提交身份 sessionStorage，刷新将 pending 还原为 unknown 供查询核对                                                                           |
 | `/trade-review`        | 常规路由       | 已导入交割单/复盘事实 query cache/服务端；本页展示控制与账户独立                                                                                                                               |
@@ -65,7 +65,7 @@ flowchart LR
 | `/news`                | 已应用查询/任务/档案 URL；翻页返回会话；未应用草稿离开/刷新重置       | 本页错误/提交反馈重置；在途任务按 URL 重新读取，不重新创建                       | [news-panel.tsx](../src/components/news/news-panel.tsx)                              |
 | `/cls-review`          | 已应用报告/筛选 URL，分页 sessionStorage；事实/导入草稿离开或刷新清空 | 校验/保存错误/pending 本页；版本控制迟到保存                                     | [cls-review-workspace.tsx](../src/components/news/cls-review-workspace.tsx)          |
 | `/rps`                 | 口径/分页/输入本页，离开或刷新重置；已保存配置/排名重新读取           | 校验/操作反馈本页，已有服务端任务继续                                            | [page.tsx](../src/app/rps/page.tsx)                                                  |
-| `/intraday`            | 未保存配置本页，离开或刷新读已保存配置                                | 错误/提交反馈本页；compute/schedule 暂停                                         | [intraday-controls.tsx](../src/components/intraday/intraday-controls.tsx)            |
+| `/intraday`            | 未保存配置本页，离开或刷新读已保存配置                                | 错误/提交反馈本页；旧计算/调度退役                                         | [intraday-controls.tsx](../src/components/intraday/intraday-controls.tsx)            |
 | `/signals`             | 订阅草稿 sessionStorage，离开/刷新按版本恢复；未应用筛选重置          | 弹窗/校验错误/pending 本页；恢复草稿不是恢复提交，计算调度暂停                   | [monitor-workspace.tsx](../src/components/signals/monitor-workspace.tsx)             |
 | `/signal-ledger`       | 已应用筛选和选中项 URL，分页/位置 sessionStorage；未提交筛选重置      | 本页读取/导出反馈；计算调度暂停                                                  | [signal-ledger-workspace.tsx](../src/components/signals/signal-ledger-workspace.tsx) |
 | `/trade-ledger`        | 交易草稿及提交身份 sessionStorage，离开/刷新恢复；UI 展开本页         | 存储解析把 pending 恢复成 unknown；先按原提交 ID 查询，拒绝自动重放              | [trade-ledger-panel.tsx](../src/components/portfolio/trade-ledger-panel.tsx)         |
@@ -96,7 +96,7 @@ flowchart LR
 
 - 公式选股、双突破及原生缠论图表可用；输入缺失、计算失败与产品暂停分别表达。
 - 旧选股/回测执行、旧样本研究、walk-forward 和四类旧 LLM 分析入口已退役，不提供兼容转发；现行策略中心、研究与回测各自保留。
-- 信号监控、信号台账、盘中预选暂停 compute/schedule，可读取现存记录及保存允许的配置；保存设置不恢复调度，重启不补跑、不补发。
+- 信号监控、台账、预选旧 compute/schedule 入口退役，可读取历史并配置；统一提醒引擎默认shadow，保存旧设置不恢复旧调度，重启不补跑、不补发。
 - 数字货币模拟账户和新闻复盘按各自既有授权运行，不能从“三个旧调度器暂停”推断全部调度都停用；能力可用也不替代订阅、凭证与交易授权。
 
 能力声明覆盖与退役/暂停边界的实现证据见 [P0 验收表](deliveries/2026-11-13-optimization.md#p0-验收对应表)。
@@ -197,3 +197,15 @@ ESLint 使用现有 tsconfig 的类型信息，在 src 检查 Hooks、Promise �
 数字货币tick使用paper/watch事件准入；平台报价、数量门槛、账户隔离、意图先持久化、未知结果对账仍由原账户所有者和adapter管理。直接`cryptoDualMa`读数仅作既有指标展示，买卖方向取paper意图。A股模拟盘保留60秒一次性人工预览，不从纯paper意图直接发送委托。三个暂停调度器不恢复，watch持久化入口不调用通知。
 
 迁移15新增`strategies`、`trade_plans`、`watch_events`。策略id/version下定义不可改写，新定义使用新正整数版本；事件按策略版本×市场×标的×bar唯一，类型单独记录。类型仓储在同一事务保存定义、事件及可选计划，重复事件保留首次证据。`persistWatch`显式调用才创建事件/有数量依据的计划。持久记录不按容量自动淘汰，保留至所有者明确删除；事务失败回滚，重放去重。测试及临时SQLite由本单cleanup脚本在验收后手动清理。此schema高于现有旧exe，旧应用会拒绝打开升级库；本单不升级用户库、不制作正式包。
+
+## R2b 统一提醒与计划
+
+`src/server/alerts/engine.ts`注入时钟、日历、回执、leader租约、完成行情求值和投递接口；runtime仅调用tickAlerts，不再启动旧监控循环/台账/预选调度。数字货币每分钟检查最近完成bar，A股交易时段检查5分钟持仓与计划，15:05–16:00等待下载回执后扫描live策略生成明日候选；迟到或中断窗口记录missed，不做历史扫描补发。
+
+`inputs.ts`经BarStore读取完成行情，信号前复权、保护价和成交参考原价；watch复用R1c驱动，原生缠论仍经单串行worker。持仓关闭穿越止损/目标/移动止损仅提醒；持续越线不重复，回线后新bar再次越线重提醒。移动最高价仅来自此前已观察完成bar收盘。指数/BTC基线是收盘/SMA20/SMA60与120根收盘分位，明确不是完整市场温度。
+
+schema16只扩展watch_events的事件种类、空价格与提醒状态，既有数据不改写；策略版本/事件唯一键保持。引擎状态、订阅版本、首次结算的前瞻收益复用records。AlertRepository拥有SQLite事务、分页与导出；事件、状态、计划终态和outbox入队在同一事务提交。保留证据直到所有者明确删除，不自动淘汰交易事实。
+
+settings.alerts默认shadow；live须设置页显式保存，且新提醒订阅启用。enqueueAlert复用NotificationPolicyStore和现有outbox；影子只写决策，入队/领取/凭证读取后再次检查模式、订阅版本、渠道与静默。旧订阅不静默转换为新投递授权。台账默认读提醒历史，旧台账仍可查询。前瞻收益复用ledgerOutcome的T+1开盘/T+5/10/20收盘、原价、缺失及GBBQ三态；数字货币用UTC自然日，无股票除权。两者均非策略业绩。
+
+交易计划按用户配置的分仓资本、份额、单笔风险、已核对持仓和未完成计划预留额度计算；A股整手，币种数量必须有平台步长/最小数量依据。分批每档均为向上达到入场价时一次提醒；仅全部触发才关闭计划，部分触发仍保守预留全计划额度，取消/到期释放。无真实委托调用。真实1–2周影子观察仍属后续运行验收。

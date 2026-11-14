@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { CryptoAccountPanel } from "./crypto-account-panel";
+import { HoldingAlertEditor } from "../portfolio/holding-alert-editor";
 import { PanelVisibility, usePanelVisible } from "../workbench/keep-alive";
 
 const accounts = [
@@ -429,6 +430,11 @@ function AccountBot({
             {(["BTCUSDT", "ETHUSDT"] as const).map((symbol) => (
               <div key={symbol} className="rounded border p-3">
                 <strong>{symbol}</strong>
+                <HoldingAlertEditor
+                  market="crypto"
+                  symbol={symbol}
+                  account={id}
+                />
                 <p className="mt-2">
                   策略数量：{bot?.positions[symbol] ?? "—"}
                 </p>

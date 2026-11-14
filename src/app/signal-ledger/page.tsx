@@ -1,4 +1,4 @@
-import { SignalLedgerWorkspace } from "~/components/signals/signal-ledger-workspace";
+import { AlertWorkspace } from "~/components/signals/alert-workspace";
 export default function SignalLedgerPage() {
-  return <SignalLedgerWorkspace />;
+  return <AlertWorkspace />;
 }

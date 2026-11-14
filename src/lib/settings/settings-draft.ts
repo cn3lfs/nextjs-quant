@@ -2,6 +2,7 @@ import type { Settings } from "~/lib/domain";
 
 /** Only fields owned by the general settings form. Other panels own the rest. */
 export const connectionSettingKeys = [
+  "alerts",
   "tdxRoot",
   "clsDbPath",
   "newsPythonExecutable",

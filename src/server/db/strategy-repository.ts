@@ -5,10 +5,11 @@ import {
   type StrategyObjectInput,
 } from "trading-strategies";
 import type { WatchEvent } from "../strategies/drivers/watch";
+import { alertKinds } from "~/lib/strategy-facts/alerts";
 import { sqlite } from "./index";
 
 const positive = z.number().finite().positive();
-const eventSchema = z
+export const watchEventSchema = z
   .object({
     key: z.string().min(1),
     strategyId: z.string().min(1),
@@ -23,6 +24,9 @@ const eventSchema = z
     target: positive.nullable(),
   })
   .strict();
+const storedEventSchema = watchEventSchema
+  .extend({ type: z.enum(alertKinds), price: positive.nullable() })
+  .passthrough();
 export const tradePlanSchema = z
   .object({
     id: z.string().min(1),
@@ -41,6 +45,16 @@ export const tradePlanSchema = z
       .refine((v) => Number.isFinite(Date.parse(v)))
       .nullable(),
     status: z.enum(["open", "closed", "expired"]),
+    market: z.enum(["cn-equity", "crypto"]).optional(),
+    stages: z
+      .array(z.object({ entry: positive, quantity: positive }))
+      .max(100)
+      .optional(),
+    closeReason: z.enum(["triggered", "cancelled", "expired"]).optional(),
+    createdAt: z.number().finite().optional(),
+    quantityRules: z
+      .object({ step: positive, minimum: positive, source: z.string().min(1) })
+      .optional(),
   })
   .strict();
 export type TradePlan = z.infer<typeof tradePlanSchema>;
@@ -87,7 +101,7 @@ export class StrategyRepository {
     eventInput: WatchEvent,
     planInput?: TradePlan,
   ) {
-    const event = eventSchema.parse(eventInput);
+    const event = watchEventSchema.parse(eventInput);
     const plan = planInput ? tradePlanSchema.parse(planInput) : undefined;
     return this.connection
       .transaction(() => {
@@ -170,7 +184,9 @@ export class StrategyRepository {
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     return {
-      items: page.map((row) => eventSchema.parse(JSON.parse(row.payload))),
+      items: page.map((row) =>
+        storedEventSchema.parse(JSON.parse(row.payload)),
+      ),
       next:
         rows.length > limit && last
           ? { bar: last.bar, key: last.dedupe_key }

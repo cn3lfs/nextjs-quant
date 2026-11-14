@@ -1,4 +1,6 @@
 import { MarketSourceSelect } from "../market/market-source-select";
+import { AlertSettings } from "../signals/alert-settings";
+import { AlertControls } from "../signals/alert-controls";
 import Link from "next/link";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
@@ -259,6 +261,13 @@ export function Connections({
           </p>
         )}
       </Panel>
+      <div className="nc-span-12">
+        <AlertSettings
+          value={config.alerts}
+          onChange={(alerts) => setConfig({ ...config, alerts })}
+        />
+        <AlertControls channels={channels} />
+      </div>
       <div className="nc-span-12">
         <Segmented
           label="数据与连接领域"

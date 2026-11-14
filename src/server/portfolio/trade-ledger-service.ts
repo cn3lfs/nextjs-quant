@@ -148,12 +148,13 @@ export async function tradePositionState() {
         context.evidence(symbol),
         quote,
       );
-      const override = get<{ stop: number }>(`trade-stop-${symbol}`);
+      const override = get<{ stop: number | null }>(`trade-stop-${symbol}`);
       if (override) {
         p.stop = override.stop;
-        p.stopDistancePct = quote
-          ? ((quote.price - override.stop) / quote.price) * 100
-          : null;
+        p.stopDistancePct =
+          quote && override.stop !== null
+            ? ((quote.price - override.stop) / quote.price) * 100
+            : null;
       }
       store.archive(p.adjustments);
       return p;

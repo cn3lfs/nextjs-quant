@@ -47,15 +47,15 @@ it("paused manual API and scheduler calls cannot spawn work or rewrite saved inp
   const caller = appRouter.createCaller({ headers: new Headers() });
   await expect(caller.intradayRun()).rejects.toMatchObject({
     code: "PRECONDITION_FAILED",
-    message: expect.stringContaining("暂停"),
+    message: expect.stringContaining("统一"),
   });
   await scheduleIntraday(Date.now(), true);
   scheduleSignalLedger(Date.now());
   await expect(new SignalLedgerWorker().run(Date.now())).rejects.toThrow(
-    "暂停",
+    "统一",
   );
   await expect(runIntradayTick(intradayDependencies(vi.fn()))).rejects.toThrow(
-    "暂停",
+    "统一",
   );
   await expect(
     runSignalLedger(
@@ -63,7 +63,7 @@ it("paused manual API and scheduler calls cannot spawn work or rewrite saved inp
       localLedgerDependencies("", []),
       Date.parse("2025-03-07T14:00:00+08:00"),
     ),
-  ).rejects.toThrow("暂停");
+  ).rejects.toThrow("统一");
   expect(workers.spawned).not.toHaveBeenCalled();
   expect(sqlite().prepare("SELECT * FROM records ORDER BY id").all()).toEqual(
     before,

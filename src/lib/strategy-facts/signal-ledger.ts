@@ -40,8 +40,8 @@ export type Outcome = {
 };
 export type LedgerRow = LedgerSignal & { outcomes: Outcome[] };
 
-export function ledgerOutcome(
-  signal: LedgerSignal,
+export function ledgerOutcome<T extends Pick<LedgerSignal, "observedDate">>(
+  signal: T,
   horizon: Horizon,
   bars: readonly Bar[],
   days: readonly string[],

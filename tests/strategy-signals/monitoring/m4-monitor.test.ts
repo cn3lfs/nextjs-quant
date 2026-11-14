@@ -55,7 +55,7 @@ vi.mock("../../../src/server/market/securities", () => ({
 vi.mock("../../../src/server/news/news-scheduler", () => ({
   scheduleNews: vi.fn(),
 }));
-import { tick } from "../../../src/server/runtime";
+import { tick } from "../../helpers/legacy-monitor-runtime";
 import {
   drain,
   notificationRequest,

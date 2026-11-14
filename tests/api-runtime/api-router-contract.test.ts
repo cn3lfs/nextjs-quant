@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  alertStatus: "query",
+  configureAlertStrategy: "mutation",
+  saveAlertSubscription: "mutation",
+  alertHistory: "query",
+  exportAlertHistory: "mutation",
+  alertPlans: "query",
+  createAlertPlan: "mutation",
+  cancelAlertPlan: "mutation",
+  saveHoldingAlert: "mutation",
+  holdingAlert: "query",
   cryptoAccountView: "query",
   syncCryptoAccount: "mutation",
   cryptoBotStatus: "query",
