@@ -57,14 +57,15 @@ export function StrategyCenter() {
     enabled: panelVisible,
   });
   const catalog = api.strategyCenterCatalog.useQuery();
-  const history = api.strategyCenterHistory.useQuery(undefined, {
-    refetchInterval: 3000,
-  });
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("");
   const [workspace, setWorkspace] = useState<"catalog" | "methods" | "history">(
     "catalog",
   );
+  const history = api.strategyCenterHistory.useQuery(undefined, {
+    enabled: panelVisible && workspace === "history",
+    refetchInterval: panelVisible && workspace === "history" ? 3000 : false,
+  });
   const [selectedId, setSelectedId] = useState("ma");
   const [symbol, setSymbol] = useState("sh600519");
   const [startDraft, setStart] = useState<string | null>(null);
@@ -88,16 +89,19 @@ export function StrategyCenter() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [comparedIds, setComparedIds] = useState<string[]>([]);
   const comparison = api.strategyCenterCompare.useQuery(comparedIds, {
-    enabled: comparedIds.length >= 2,
+    enabled: panelVisible && workspace === "history" && comparedIds.length >= 2,
   });
   const report = api.strategyCenterEvaluation.useQuery(evaluationId, {
-    enabled: !!evaluationId,
+    enabled: panelVisible && workspace === "history" && !!evaluationId,
   });
-  const methods = api.strategyCenterMethods.useQuery({
-    query: methodQuery,
-    page: methodPage,
-    category: methodCategory || undefined,
-  });
+  const methods = api.strategyCenterMethods.useQuery(
+    {
+      query: methodQuery,
+      page: methodPage,
+      category: methodCategory || undefined,
+    },
+    { enabled: panelVisible && workspace === "methods" },
+  );
   const utils = api.useUtils();
   const run = api.strategyCenterRun.useMutation({
     onSuccess: (job) => {

@@ -215,7 +215,10 @@ export function LocalFinancialWorkbench({ symbol }: { symbol: string }) {
           <p role="status">读取本地多期财报…</p>
         )}
         {data.error && (
-          <p role="alert">本地财务读取失败：{data.error.message}</p>
+          <p role="alert" className="text-nc-bad">
+            本地财务读取失败：{data.error.message}
+            {data.data && "；以下仍为上次读取的财报，可能已过期。"}
+          </p>
         )}
         {data.data?.prerequisite && (
           <p role="status" className="text-sm">

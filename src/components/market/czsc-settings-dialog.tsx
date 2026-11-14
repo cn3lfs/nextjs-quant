@@ -177,7 +177,6 @@ export function CzscSettingsDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         // Focus the dialog itself; auto-focusing the first info icon would pop its tooltip on open.
         onOpenAutoFocus={(event) => {
           event.preventDefault();

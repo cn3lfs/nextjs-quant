@@ -648,6 +648,15 @@ export function MarketChart({
     null,
   );
   const [indicatorSettingsOpen, setIndicatorSettingsOpen] = useState(false);
+  const parameterReturnTarget = useRef<HTMLElement | null>(null);
+  const editParameters = (key: keyof IndicatorParameters) => {
+    parameterReturnTarget.current = document.activeElement as HTMLElement;
+    setEditing(editing === key ? null : key);
+  };
+  const closeParameters = () => {
+    setEditing(null);
+    parameterReturnTarget.current?.focus();
+  };
   const [hover, setHover] = useState<{ bars: Bar[]; index: number } | null>(
     null,
   );
@@ -992,7 +1001,15 @@ export function MarketChart({
               {selectedMainIndicators.length + selectedSubcharts.length}）
             </Button>
           </PopoverTrigger>
-          <PopoverContent aria-label="指标设置" className="w-[32rem] space-y-3">
+          <PopoverContent
+            aria-label="指标设置"
+            className="w-[32rem] space-y-3"
+            onEscapeKeyDown={(event) => {
+              if (!editing) return;
+              event.preventDefault();
+              closeParameters();
+            }}
+          >
             <div
               role="group"
               aria-label="主图指标"
@@ -1017,7 +1034,7 @@ export function MarketChart({
                         : [...selectedMainIndicators, value],
                     )
                   }
-                  onEdit={() => setEditing(editing === value ? null : value)}
+                  onEdit={() => editParameters(value)}
                 />
               ))}
             </div>
@@ -1059,11 +1076,7 @@ export function MarketChart({
                           : [...selectedSubcharts, value],
                       )
                     }
-                    onEdit={
-                      key
-                        ? () => setEditing(editing === key ? null : key)
-                        : undefined
-                    }
+                    onEdit={key ? () => editParameters(key) : undefined}
                   />
                 );
               })}
@@ -1074,7 +1087,7 @@ export function MarketChart({
                 indicator={editing}
                 parameters={parameters}
                 onChange={setParameters}
-                onClose={() => setEditing(null)}
+                onClose={closeParameters}
               />
             )}
           </PopoverContent>
@@ -1220,6 +1233,7 @@ export function MarketChart({
         compare={compare}
         parameters={parameters}
         onEdit={(key) => {
+          parameterReturnTarget.current = document.activeElement as HTMLElement;
           setEditing(key);
           setIndicatorSettingsOpen(true);
         }}
@@ -1368,7 +1382,11 @@ function IndicatorParameterPanel({
       aria-label={`${meta.label} 参数`}
       className="flex flex-wrap items-center gap-3 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground"
       onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Enter") onClose();
+        if (event.key === "Escape" || event.key === "Enter") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
       }}
     >
       <strong>

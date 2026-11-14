@@ -22,6 +22,7 @@ export default defineConfig({
     "p0-workflow.spec.ts",
     "stock-pool.spec.ts",
     "route-visual.spec.ts",
+    "p1-acceptance.spec.ts",
   ],
   timeout: 3 * 60 * 1000,
   // One server, shared state (jobs, cache): run specs one at a time.

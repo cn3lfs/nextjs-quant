@@ -78,12 +78,12 @@
 
 ## 当前验证
 
-B-page-model 于 2026-11-14 收口：B0 只改夹具位置，默认 TEMP/任务 TEMP 各 7 项通过；目录守卫及退出码断言不变。24 路由归属见 architecture，仅行情/筛选/回测显式保留；共享选择归 market-session/URL，加载归行情页，P2 其余细粒度状态与全站视觉仍待推进。
-负对照：旧行情来源变化使外壳渲染 21→22，新断言失败；修复后通过。另补快速返回拒绝迟到响应、候选覆盖旧错误、完整 URL 刷新/前进后退与隐藏无请求回归；21 文件/75 项定向、10 个组件浏览器文件、隔离核心 12 项和证券池/图表 7 项通过。
-L3：typecheck、lint、format:check、完整 pnpm run test 退出码均 0；主工程 6,299 通过/27 跳过，包级 194 通过。全套未改父进程 TEMP，完整输出为 b-page-model/test.log。完整 pnpm build 一次及修复后的两次 Next 重建均退出 0，最终 desktop:prepare 退出 0；未正式打包。
-首轮包级来源检查因目录 URL 缺尾部 / 失败，修夹具后重跑全套；回测组件夹具遗漏 fills 已补齐；普通监控页回归重新打开已卸载弹窗再核对自选；RPS 自动任务竞态以造数父进程持有现有调度租约隔离，不改生产调度/业务规则、不放宽原断言。
-切换耗时仅为本机小型合成 fixture 单次导航（含加载/渲染），详见 switch-cost.json；证明图表节点及筛选/回测草稿返回保留，不替代完整规模预算验收。未改 schema、默认用户库、MCP、真实通知/交易或模型调用。
-证据集中于 .test-data/optimization-20261113/b-page-model/，实际退出码、保留项大小及清理结果写入 .codex-runs/delivery.json；已核验的 1,262 个夹具目录（231,212,051 字节）删除被自动审批以 blocked by policy 拒绝；保留精确清单及 PowerShell 7 默认预演脚本，未执行 -Apply。
+C-p1-acceptance（2026-11-14）：复用主 E2E 的 6,154 只合成证券、2,222/9,418 笔成交和既有新闻/CLS/信号/财务夹具；覆盖 24 入口及本地公式、因子、回测、复盘、策略比较的有数据状态。
+修复 11 类问题：键盘 tooltip、参数/CLS 弹层焦点、隐藏策略读取、部分完成数量、财务错误颜色与旧数据身份、缩放弹窗/筛选/期货布局、窄屏 Ctrl+K，以及 worker 取消夹具的时间竞态；各类负对照见 delivery.json。
+L3：typecheck、lint、format:check、完整 pnpm run test、pnpm build、desktop:prepare 均退出 0；主工程 6,299 通过/27 既有跳过，包级 194 通过，未改父进程 TEMP，未正式打包。
+Playwright 主批 158 项、独立菜单/基线复跑 7 项、三年全规模因子 1 项及图表组件浏览器 1 文件均退出 0。两物理尺寸按有效 CSS viewport/DPR 等效 100%/125%/150% 缩放，48 次跨页 Tab 与 CSS zoom 弹窗专项通过；8 张基线已逐张复核并严格比较，更新方式见 tests/README.md。
+P1 未全部关闭：外部行情、在线财务/模型与平台账户成功态，缺少历史记录/板块源的状态，以及历史新闻无法区分失败/未处理的逐项计数均未补造；逐页 C1/C2/C3 与 deferred 写入 delivery.json。不以可达性检查替代真实外部数据验收。
+证据和临时产物集中在 .test-data/optimization-20261113/c-p1-acceptance/；默认预演清理脚本 cleanup-c-p1-acceptance.ps1 与精确清单在同目录，共保留约 7.53 GiB（含精确清单），PowerShell 7 默认预演退出 0；未执行 -Apply，详见 delivery.json。
 
 ### 前批 P2 设置、覆盖与自选读取
 

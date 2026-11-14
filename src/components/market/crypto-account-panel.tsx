@@ -483,7 +483,7 @@ export function CryptoAccountPanel({
         成交；仅匹配本系统订单的记录标记“本策略”，其他标记“平台成交”，不推断为手动交易。
       </p>
       <form
-        className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
           applyFilters();
@@ -561,7 +561,7 @@ export function CryptoAccountPanel({
             onChange={(event) => setDraft({ ...draft, to: event.target.value })}
           />
         </label>
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <Button type="submit" size="sm" disabled={!configured}>
             筛选已同步成交
           </Button>

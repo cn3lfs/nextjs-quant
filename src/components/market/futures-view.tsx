@@ -99,7 +99,7 @@ export function FuturesView() {
           <DialogTrigger asChild>
             <Button variant="outline">选择品种 · {contract.name}</Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-h-[85%]">
             <DialogHeader>
               <DialogTitle>资源期货 · 15个固定品种</DialogTitle>
             </DialogHeader>
@@ -207,8 +207,8 @@ export function FuturesView() {
         ))}
       </div>
       <section className="panel chart-panel nc-futures-chart">
-        <div className="panel-toolbar">
-          <div className="flex items-center gap-2">
+        <div className="panel-toolbar flex-wrap">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Mountains size={18} className="nc-text-warn" />
             <strong className="text-[15px] font-medium">{contract.name}</strong>
             <Pill tone="warn">资源期货</Pill>

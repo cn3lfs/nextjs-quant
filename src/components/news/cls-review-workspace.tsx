@@ -58,6 +58,7 @@ export function ClsReviewWorkspace() {
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const returnTarget = useRef<HTMLButtonElement | null>(null);
+  const removalReturnTarget = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const read = () => {
       if (location.pathname !== "/cls-review") return;
@@ -438,12 +439,13 @@ export function ClsReviewWorkspace() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() =>
+                      onClick={(event) => {
+                        removalReturnTarget.current = event.currentTarget;
                         setRemoving({
                           id: selected,
                           title: report.data!.report.title,
-                        })
-                      }
+                        });
+                      }}
                     >
                       清理此版本
                     </Button>
@@ -460,7 +462,12 @@ export function ClsReviewWorkspace() {
           if (!open && !remove.isPending) setRemoving(null);
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            removalReturnTarget.current?.focus();
+          }}
+        >
           <DialogTitle>清理报告版本</DialogTitle>
           <DialogDescription>
             清理「{removing?.title}

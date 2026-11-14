@@ -99,7 +99,9 @@ export function NewsAnalysisDetail({
           {result.items.length < result.news.length && !result.aggregation && (
             <div className="space-y-2 rounded border border-nc-border p-3">
               <p>
-                部分完成：{result.error ?? "成功批次已保存，可核对版本后继续。"}
+                部分完成：已完成 {result.items.length} 条，未完成{" "}
+                {result.news.length - result.items.length} 条。
+                {result.error ?? "成功批次已保存，可核对版本后继续。"}
               </p>
               <Button
                 disabled={busy || preview.isFetching}

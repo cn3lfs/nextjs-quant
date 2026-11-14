@@ -57,21 +57,33 @@ it("a database cancellation terminates an owned worker before its result arrives
 
 it("cancellation stops an active worker and queued cancellation never starts work", async () => {
   const job = newJob("scan", {});
-  const running = runWorker({ type: "scan", root: "slow" }, job.id);
+  const running = runWorker({ type: "scan", root: "long" }, job.id);
   const rejected = expect(running).rejects.toThrow("中止");
   await vi.waitFor(() => expect(get<Job>(job.id)?.status).toBe("running"));
   cancelJob(job.id);
   await rejected;
-  const occupied = [
-    runWorker({ type: "scan", root: "slow" }),
-    runWorker({ type: "scan", root: "slow" }),
-  ];
+  // Wall-clock delays do not prove slot ownership under a busy full suite.
+  // Keep both requests pending until the queued cancellation is observed.
+  const owners = [newJob("scan", {}), newJob("scan", {})];
+  const occupied = owners.map((owner) =>
+    expect(runWorker({ type: "scan", root: "long" }, owner.id)).rejects.toThrow(
+      "中止",
+    ),
+  );
+  await vi.waitFor(() => {
+    for (const owner of owners)
+      expect(get<Job>(owner.id)?.status).toBe("running");
+  });
   const queuedJob = newJob("scan", {});
   const queued = runWorker({ type: "scan", root: "crash" }, queuedJob.id);
   const cancelled = expect(queued).rejects.toThrow("取消");
-  cancelJob(queuedJob.id);
-  await Promise.all(occupied);
-  await cancelled;
+  try {
+    cancelJob(queuedJob.id);
+    await cancelled;
+  } finally {
+    owners.forEach((owner) => cancelJob(owner.id));
+    await Promise.all(occupied);
+  }
   expect(await runWorker({ type: "scan", root: "fast" })).toBeTypeOf("number");
 });
 
