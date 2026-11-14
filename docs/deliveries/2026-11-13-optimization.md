@@ -78,6 +78,12 @@
 
 ## 当前验证
 
+本轮 A-stabilize 于 2026-11-14 收口，证据在 `.test-data/optimization-20261113/a-stabilize/`，逐项根因与交接见 `.codex-runs/delivery.json`。L3 各执行一次：`pnpm typecheck`、`pnpm lint`、`pnpm format:check` 退出码均为 0；`pnpm run test` 退出码 1，主工程 6,278 通过、21 失败、27 跳过，后续包级测试未运行，完整输出为 `test.log`。
+21 项失败仍为价值因子 15 项、CANSLIM 6 项，文件与断言名称和原 Zod 冲突完全一致；字段/业务规则/断言未改，三个旧 Zod junction 的修复脚本仅预演、未 Apply，共享技能缺失与格式问题均未复现。
+临时 worker 显式解析工作区原生依赖，合成构建夹具提供真实私有编译器；4 文件/18 项定向通过，worker 与编译器负对照均失败。local-check 原报 3 项失败未复现，原 7 项检查保持不变且通过；已知失败登记仍为空。
+
+### 前批 P2 设置、覆盖与自选读取
+
 本批为 P2 设置/覆盖与自选读取归属，证据位于 `.test-data/optimization-20261113/p2-status-ownership`。未改 status 服务契约、schema、默认用户库或外部数据源；未修改并行技能迁移代码。
 
 | 本批检查 | 结果与边界 |

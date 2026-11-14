@@ -4,6 +4,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { buildSync } from "esbuild";
 import {
   existsSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,15 +13,31 @@ import {
   symlinkSync,
   rmSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
+// Install a real, private compiler once for these synthetic workspaces. Their
+// location must not decide whether TypeScript is available via an ancestor.
+const toolchainRoot = mkdtempSync(
+  join(process.env.QUANT_DATA_DIR!, "package-toolchain-"),
+);
+const compilerRoot = join(toolchainRoot, "node_modules/typescript");
+cpSync(
+  dirname(createRequire(import.meta.url).resolve("typescript/package.json")),
+  compilerRoot,
+  { recursive: true },
+);
+
 function fixture() {
-  const workspaceRoot = mkdtempSync(
-    join(process.env.QUANT_DATA_DIR!, "packages-"),
-  );
+  const workspaceRoot = mkdtempSync(join(toolchainRoot, "packages-"));
   mkdirSync(join(workspaceRoot, "packages"));
   writeFileSync(join(workspaceRoot, "package.json"), '{"private":true}');
+  expect(
+    createRequire(join(workspaceRoot, "package.json")).resolve(
+      "typescript/bin/tsc",
+    ),
+  ).toBe(join(compilerRoot, "bin/tsc"));
   return workspaceRoot;
 }
 function packageAt(

@@ -40,6 +40,12 @@ it("resident ledger worker reports progress while the caller ticks, cancels and 
     join(process.env.QUANT_DATA_DIR!, "ledger-worker-"),
   );
   fixture.workerPath = join(directory, "signal-ledger-worker.cjs");
+  const shadow = join(directory, "node_modules/better-sqlite3");
+  await mkdir(shadow, { recursive: true });
+  await writeFile(
+    join(shadow, "index.js"),
+    'throw new Error("worker resolved fixture dependency instead of workspace dependency");',
+  );
   await build({
     entryPoints: ["src/server/monitoring/signal-ledger-worker.ts"],
     outfile: fixture.workerPath,
@@ -47,6 +53,10 @@ it("resident ledger worker reports progress while the caller ticks, cancels and 
     platform: "node",
     format: "cjs",
     external: ["better-sqlite3", "koffi"],
+    // The bundle lives in isolated data, outside the installed runtime tree.
+    banner: {
+      js: `require = require("node:module").createRequire(${JSON.stringify(resolve("package.json"))});`,
+    },
     target: "node22",
     alias: {
       "~/lib/common/capabilities": resolve(

@@ -1,6 +1,6 @@
 import { Worker } from "node:worker_threads";
-import { join } from "node:path";
-import { existsSync, mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { build } from "esbuild";
 import Database from "better-sqlite3";
 import { beforeAll, expect, it } from "vitest";
@@ -16,6 +16,14 @@ const workers = [
 const now = Date.parse("2025-03-07T15:10:00+08:00");
 
 beforeAll(async () => {
+  // A temporary bundle must use the installed workspace dependency, even when
+  // another module with the same name is next to the generated entrypoint.
+  const shadow = join(root, "node_modules/better-sqlite3");
+  mkdirSync(shadow, { recursive: true });
+  writeFileSync(
+    join(shadow, "index.js"),
+    'throw new Error("worker resolved fixture dependency instead of workspace dependency");',
+  );
   await build({
     entryPoints: workers.map(([, name]) => `src/server/monitoring/${name}.ts`),
     outdir: root,
@@ -25,7 +33,9 @@ beforeAll(async () => {
     format: "cjs",
     external: ["better-sqlite3", "koffi"],
     target: "node22",
-    banner: { js: `Date.now = () => ${now};` },
+    banner: {
+      js: `require = require("node:module").createRequire(${JSON.stringify(resolve("package.json"))}); Date.now = () => ${now};`,
+    },
   });
 });
 
