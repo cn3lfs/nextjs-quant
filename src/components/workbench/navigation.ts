@@ -79,7 +79,12 @@ export const navGroups: readonly NavGroup[] = [
   {
     label: "账户与复盘",
     items: [
-      item("/accounts", "持仓与交易日志", Wallet),
+      item("/accounts", "统一持仓", Wallet),
+      item("/accounts?tab=ledger", "持仓与交易日志", Wallet),
+      item("/accounts?tab=trades", "全部成交与来源", Wallet),
+      item("/accounts?tab=paper", "纸面账户", Wallet),
+      item("/accounts?tab=attribution", "策略归因与衰减", Wallet),
+      item("/accounts?tab=monthly", "月度自查", Wallet),
       item("/accounts/review", "交割单与交易复盘", Wallet),
       item("/accounts/alerts", "信号台账", Wallet),
       item("/accounts/crypto", "数字货币账户与模拟", Wallet),

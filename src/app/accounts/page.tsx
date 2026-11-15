@@ -1,10 +1,9 @@
-import { TradeLedgerPanel } from "~/components/portfolio/trade-ledger-panel";
-import { PaperAccountsPanel } from "~/components/portfolio/paper-accounts-panel";
+import { Suspense } from "react";
+import { AccountWorkspace } from "~/components/portfolio/account-workspace";
 export default function TradeLedgerPage() {
   return (
-    <>
-      <PaperAccountsPanel />
-      <TradeLedgerPanel />
-    </>
+    <Suspense fallback={<p role="status">正在读取账户工作区…</p>}>
+      <AccountWorkspace />
+    </Suspense>
   );
 }

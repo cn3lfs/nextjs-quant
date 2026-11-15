@@ -4,8 +4,13 @@ import { z } from "zod";
 import { marketRules } from "trading-strategy-core/market-rules";
 import type { Settings } from "~/lib/domain";
 import { AlertRepository } from "../db/alert-repository";
+import {
+  checkExposureCaps,
+  type AccountPosition,
+} from "~/lib/portfolio/account-workspace";
 
 export const createAlertPlanSchema = z.object({
+  overrideCaps: z.boolean().default(false),
   eventKey: z.string().min(1).max(1000),
   stages: z.array(z.number().finite().positive()).min(1).max(10),
   stop: z.number().finite().positive(),
@@ -21,21 +26,86 @@ export const createAlertPlanSchema = z.object({
     .optional(),
 });
 export function createAlertPlan(
-  input: z.infer<typeof createAlertPlanSchema>,
+  input: z.input<typeof createAlertPlanSchema>,
   config: Settings,
   now: number,
   repository = new AlertRepository(),
+  admission?: {
+    positions: readonly AccountPosition[];
+    industry?: (symbol: string) => string;
+    assertCurrent: () => void;
+  },
 ) {
-  return repository.atomic(() =>
-    repository.savePlan(previewAlertPlan(input, config, now, repository), now),
-  );
+  return repository.atomic(() => {
+    admission?.assertCurrent();
+    const plan = previewAlertPlan(
+      input,
+      config,
+      now,
+      repository,
+      admission?.positions,
+    );
+    if (config.accountReview.caps.length && !admission)
+      throw new Error("敞口检查缺少完整账户事实，请刷新后重试");
+    const positions = admission?.positions ?? [];
+    const industry =
+      admission?.industry?.(plan.symbol) ??
+      positions.find(
+        (p) => p.market === plan.market && p.symbol === plan.symbol,
+      )?.industry ??
+      "未知";
+    const violations = checkExposureCaps({
+      positions,
+      proposed: {
+        market: plan.market,
+        symbol: plan.symbol,
+        sleeve: plan.sleeve,
+        industry,
+        value: plan.stages.reduce((n, s) => n + s.entry * s.quantity, 0),
+      },
+      reserved: repository
+        .plans(true)
+        .filter((p) => p.market !== undefined)
+        .map((p) => ({
+          market: p.market!,
+          symbol: p.symbol,
+          sleeve: p.sleeve,
+          industry:
+            positions.find(
+              (row) => row.market === p.market && row.symbol === p.symbol,
+            )?.industry ?? "未知",
+          value:
+            p.stages?.reduce((n, s) => n + s.entry * s.quantity, 0) ??
+            p.entry * (p.quantity ?? 0),
+        })),
+      capital: config.alerts.capital,
+      caps: config.accountReview.caps,
+    });
+    if (violations.length && !input.overrideCaps)
+      throw new Error(
+        `敞口超限：${violations.map((v) => `${v.dimension}/${v.key}：${v.reason}（计划后${v.used ?? "未知"}，上限${v.limit}）`).join("；")}。核对后可明确选择仍然创建。`,
+      );
+    return repository.savePlan(
+      {
+        ...plan,
+        exposureAudit: {
+          at: now,
+          overridden: violations.length > 0 && input.overrideCaps === true,
+          violations,
+          caps: config.accountReview.caps,
+        },
+      },
+      now,
+    );
+  });
 }
 /** Same admission and sizing as create, without persisting a plan. */
 export function previewAlertPlan(
-  input: z.infer<typeof createAlertPlanSchema>,
+  input: z.input<typeof createAlertPlanSchema>,
   config: Settings,
   now: number,
   repository = new AlertRepository(),
+  positions?: readonly AccountPosition[],
 ) {
   const event = repository.event(input.eventKey);
   if (!event || event.status === "missed" || event.type !== "entry")
@@ -68,9 +138,20 @@ export function previewAlertPlan(
     usage.some((u) => u.market === event.market && now - u.at > 10 * 60000)
   )
     throw new Error("持仓额度未完成核对或已过期，请等待提醒引擎更新");
-  const invested = usage
-    .filter((u) => u.market === event.market && u.sleeve === event.sleeve)
-    .reduce((n, u) => n + u.value, 0);
+  const actualPositions = positions?.filter(
+    (p) => p.kind === "real" && p.market === event.market,
+  );
+  if (actualPositions?.some((p) => p.value === null || p.sleeve === "未知"))
+    throw new Error(
+      "真实持仓估值或分仓未核对，不能计算剩余计划预算；请先关联成交与计划",
+    );
+  const invested = actualPositions
+    ? actualPositions
+        .filter((p) => p.sleeve === event.sleeve)
+        .reduce((n, p) => n + p.value!, 0)
+    : usage
+        .filter((u) => u.market === event.market && u.sleeve === event.sleeve)
+        .reduce((n, u) => n + u.value, 0);
   const reserved = repository
     .plans(true)
     .filter((p) => p.market === event.market && p.sleeve === event.sleeve)

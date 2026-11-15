@@ -45,7 +45,7 @@ it("v15 data and foreign keys survive v16; repeat is idempotent; actual v15 app 
     const before = db.prepare("SELECT * FROM watch_events").all();
     const records = db.prepare("SELECT * FROM records").all();
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(17);
+    expect(db.pragma("user_version", { simple: true })).toBe(18);
     expect(db.prepare("SELECT * FROM watch_events").all()).toEqual(before);
     expect(db.prepare("SELECT * FROM records").all()).toEqual(records);
     expect(db.pragma("foreign_key_check")).toEqual([]);

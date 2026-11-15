@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  accountTrades: "query",
+  accountRiskPositions: "query",
+  accountPositions: "query",
+  accountPosition: "query",
+  accountAttribution: "query",
+  accountMonthlyReview: "query",
+  linkAccountTrade: "mutation",
+  freezeAccountExpectation: "mutation",
+  accountReviewSettings: "query",
+  saveAccountReviewSettings: "mutation",
   paperAccounts: "query",
   paperAccount: "query",
   paperFacts: "query",

@@ -162,6 +162,15 @@ const migrations = [
    DROP TABLE watch_events;
    ALTER TABLE watch_events_v17 RENAME TO watch_events;
    CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
+  `CREATE TABLE account_trade_links (
+    trade_id TEXT PRIMARY KEY, payload TEXT NOT NULL CHECK(json_valid(payload)));
+   CREATE TABLE account_link_audit (
+    id INTEGER PRIMARY KEY, trade_id TEXT NOT NULL, linked_at INTEGER NOT NULL,
+    payload TEXT NOT NULL CHECK(json_valid(payload)));
+   CREATE TABLE account_expectations (
+    strategy_id TEXT NOT NULL, version INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)),
+    PRIMARY KEY(strategy_id,version),
+    FOREIGN KEY(strategy_id,version) REFERENCES strategies(id,version));`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

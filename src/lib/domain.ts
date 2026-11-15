@@ -8,6 +8,7 @@ import { newsSourceSettingsSchema } from "./settings/news-source-settings";
 import { localDirectorySchema } from "./settings/local-source-settings";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
 import { alertsSchema } from "./strategy-facts/alerts";
+import { accountReviewSettingsSchema } from "./portfolio/account-workspace";
 import type { SecurityTradingStatus } from "./market/security-trading-status";
 import type { Bar } from "trading-strategy-core/bars";
 import type { Period } from "./market/periods";
@@ -270,6 +271,7 @@ export type Monitor = {
 };
 export const settingsSchema = z.object({
   alerts: alertsSchema,
+  accountReview: accountReviewSettingsSchema,
   marketDataSource: marketSourceSchema.default("auto"),
   holdoutStart: researchDateSchema.nullable().default(null),
   notificationPolicy: notificationPolicySchema,

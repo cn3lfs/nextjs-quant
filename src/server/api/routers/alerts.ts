@@ -17,6 +17,8 @@ import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { Snapshot } from "~/lib/domain";
 import type { ShadowRegistration } from "../../alerts/shadow";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import { loadAccountBook } from "../../portfolio/account-workspace-service";
+import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
 export const alertsRouter = createTRPCRouter({
   prepareScreenPlan: p("alerts", "configure")
     .input(
@@ -171,7 +173,25 @@ export const alertsRouter = createTRPCRouter({
     }),
   createAlertPlan: p("alerts", "configure")
     .input(createAlertPlanSchema)
-    .mutation(({ input }) => createAlertPlan(input, settings(), Date.now())),
+    .mutation(async ({ input }) => {
+      const config = settings();
+      const repo = new AccountWorkspaceRepository(),
+        book = await loadAccountBook(repo, config);
+      return createAlertPlan(
+        input,
+        config,
+        Date.now(),
+        new AlertRepository(repo.db),
+        {
+          positions: book.positions,
+          industry: (symbol) => {
+            const names = book.industryBySymbol.get(symbol) ?? [];
+            return names.length === 1 ? names[0]! : "未知";
+          },
+          assertCurrent: () => repo.assertVersion(book.facts.version),
+        },
+      );
+    }),
   cancelAlertPlan: p("alerts", "configure")
     .input(z.string().min(1).max(200))
     .mutation(({ input }) =>

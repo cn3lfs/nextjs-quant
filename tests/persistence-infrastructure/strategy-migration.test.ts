@@ -31,7 +31,7 @@ it("empty disk database upgrades to 17 and repeat migration is idempotent", () =
   try {
     expect(db.pragma("user_version", { simple: true })).toBe(0);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(17);
+    expect(db.pragma("user_version", { simple: true })).toBe(18);
     const schema = db
       .prepare("SELECT name,sql FROM sqlite_master ORDER BY name")
       .all();
@@ -52,7 +52,7 @@ it("frozen R1b schema with old records upgrades without changing existing data",
   try {
     const before = db.prepare("SELECT * FROM records").all();
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(17);
+    expect(db.pragma("user_version", { simple: true })).toBe(18);
     expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
   } finally {
     db.close();
@@ -84,9 +84,9 @@ it("failure part way through migration rolls back schema, data and version", () 
 it("current application refuses a newer database without changing it", () => {
   const db = oldDatabase("newer");
   try {
-    db.pragma("user_version=18");
+    db.pragma("user_version=19");
     expect(() => migrate(db)).toThrow("数据库版本高于此应用版本");
-    expect(db.pragma("user_version", { simple: true })).toBe(18);
+    expect(db.pragma("user_version", { simple: true })).toBe(19);
   } finally {
     db.close();
   }
@@ -95,7 +95,7 @@ it("application initialization rejects a newer database on every retry and relea
   const directory = join(parent, `entry-${process.pid}-${Date.now()}`);
   mkdirSync(directory);
   const db = new Database(join(directory, "quant.sqlite"));
-  db.pragma("user_version=18");
+  db.pragma("user_version=19");
   db.close();
   const previous = process.env.QUANT_DATA_DIR;
   process.env.QUANT_DATA_DIR = directory;
@@ -103,7 +103,7 @@ it("application initialization rejects a newer database on every retry and relea
     expect(() => sqlite()).toThrow("数据库版本高于此应用版本");
     expect(() => sqlite()).toThrow("数据库版本高于此应用版本");
     const verify = new Database(join(directory, "quant.sqlite"));
-    expect(verify.pragma("user_version", { simple: true })).toBe(18);
+    expect(verify.pragma("user_version", { simple: true })).toBe(19);
     verify.close();
   } finally {
     process.env.QUANT_DATA_DIR = previous;
@@ -117,7 +117,7 @@ it("the frozen R1b application's actual migration entry refuses a version-17 dat
       .prepare("SELECT name,sql FROM sqlite_master ORDER BY name")
       .all();
     expect(() => migrateOldApplication(db)).toThrow("数据库版本高于此应用版本");
-    expect(db.pragma("user_version", { simple: true })).toBe(17);
+    expect(db.pragma("user_version", { simple: true })).toBe(18);
     expect(
       db.prepare("SELECT name,sql FROM sqlite_master ORDER BY name").all(),
     ).toEqual(schema);

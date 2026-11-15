@@ -5,6 +5,7 @@ import { PaperSettingsPanel } from "~/components/portfolio/paper-settings-panel"
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AccountReviewSettingsPanel } from "~/components/portfolio/account-review-settings";
 
 export default function SettingsPage() {
   return (
@@ -21,8 +22,11 @@ function SettingsBody() {
       <nav className="flex gap-4">
         <Link href="/system">数据与连接</Link>
         <Link href="/system?tab=paper">纸面账户设置</Link>
+        <Link href="/system?tab=account-risk">账户风控设置</Link>
       </nav>
-      {search.get("tab") === "paper" ? (
+      {search.get("tab") === "account-risk" ? (
+        <AccountReviewSettingsPanel />
+      ) : search.get("tab") === "paper" ? (
         <PaperSettingsPanel />
       ) : (
         <SettingsPanel notify={notify} />

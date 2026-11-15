@@ -7,6 +7,7 @@ import {
 import type { WatchEvent } from "../strategies/drivers/watch";
 import { alertKinds } from "~/lib/strategy-facts/alerts";
 import { sqlite } from "./index";
+import { exposureCapSchema } from "~/lib/portfolio/account-workspace";
 
 const positive = z.number().finite().positive();
 export const watchEventSchema = z
@@ -52,6 +53,22 @@ export const tradePlanSchema = z
       .optional(),
     closeReason: z.enum(["triggered", "cancelled", "expired"]).optional(),
     createdAt: z.number().finite().optional(),
+    exposureAudit: z
+      .object({
+        at: z.number(),
+        overridden: z.boolean(),
+        caps: z.array(exposureCapSchema),
+        violations: z.array(
+          z.object({
+            dimension: z.string(),
+            key: z.string(),
+            used: z.number().nullable(),
+            limit: z.number(),
+            reason: z.string(),
+          }),
+        ),
+      })
+      .optional(),
     quantityRules: z
       .object({ step: positive, minimum: positive, source: z.string().min(1) })
       .optional(),

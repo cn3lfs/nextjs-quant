@@ -24,6 +24,8 @@ import {
 import { big, bpsOf, moneyMul, toNumber } from "../../money";
 
 export type DisciplineInput = Omit<TradeReviewNavInput, "bars"> & {
+  /** Frozen plan stops keyed by JSON [security, openingDate]. */
+  plannedStops?: Readonly<Record<string, number>>;
   bars: Readonly<Record<string, readonly Bar[]>>;
   exRightsEvents: TradeReviewInput["exRightsEvents"];
   coverageEnd: string | null;
@@ -47,6 +49,8 @@ const delta = (f: ParsedFill) => {
   return (out ? -f.amount : f.amount) - f.fees.total;
 };
 function prepare(input: DisciplineInput) {
+  if (input.plannedStops)
+    z.record(z.number().finite().positive()).parse(input.plannedStops);
   const lastFill = input.fills
     .map((f) => f.tradeDate)
     .sort()
@@ -90,7 +94,10 @@ type Execution = {
 };
 
 function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
-  const unchanged = rules.maxAddOns === null && rules.stopLossPct === null;
+  const unchanged =
+    rules.maxAddOns === null &&
+    rules.stopLossPct === null &&
+    !Object.keys(input.plannedStops ?? {}).length;
   const rounds = [...p.review.closedRounds, ...p.review.openPositions];
   const states = rounds.map((round, index) => ({
     round,
@@ -283,7 +290,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
         emit(scaled(f, quantity), e.originalOrder, s);
       }
     }
-    if (!unchanged && rules.stopLossPct !== null)
+    if (!unchanged && (rules.stopLossPct !== null || input.plannedStops))
       for (const s of states) {
         if (
           !s.eligible ||
@@ -299,7 +306,15 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
           continue;
         // Compare amounts: 9.5/10-1 falls slightly below -0.05 in binary.
         // Ignore only a few arithmetic ulps, not any meaningful price movement.
-        if (disciplineStopTriggered(s.cost, s.held, b.close, rules.stopLossPct))
+        const plannedStop =
+          input.plannedStops?.[
+            JSON.stringify([s.round.security, s.round.openingDate])
+          ];
+        if (
+          (plannedStop !== undefined && b.close <= plannedStop) ||
+          (rules.stopLossPct !== null &&
+            disciplineStopTriggered(s.cost, s.held, b.close, rules.stopLossPct))
+        )
           s.pending = date;
       }
   }

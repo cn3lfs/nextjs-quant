@@ -4,6 +4,7 @@ import { api } from "~/trpc/react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { formatNumber } from "~/lib/common/format-number";
+import { Checkbox } from "../ui/checkbox";
 import type { WorkspaceCandidate } from "../overview/candidate-table";
 
 export function CandidatePlan({
@@ -16,6 +17,7 @@ export function CandidatePlan({
 }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [overrideCaps, setOverrideCaps] = useState(false);
   const utils = api.useUtils();
   const save = api.createAlertPlan.useMutation({
     onSuccess: (p) => {
@@ -44,6 +46,7 @@ export function CandidatePlan({
             }
             save.mutate({
               eventKey: candidate.key,
+              overrideCaps,
               stages: [Number(f.get("entry"))],
               stop: Number(f.get("stop")),
               target: f.get("target") ? Number(f.get("target")) : null,
@@ -116,6 +119,15 @@ export function CandidatePlan({
                 </label>
               ))}
             </div>
+          )}
+          {save.error?.message.startsWith("敞口超限") && (
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={overrideCaps}
+                onCheckedChange={(v) => setOverrideCaps(v === true)}
+              />
+              已核对超限明细，仍然创建并记录这次超限
+            </label>
           )}
           <Button disabled={save.isPending}>保存交易计划</Button>{" "}
           <Button

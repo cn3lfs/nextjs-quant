@@ -78,10 +78,15 @@ export const settingsRouter = createTRPCRouter({
   checkNewsSources: p("settings", "compute")
     .input(newsSourceSettingsSchema)
     .mutation(({ input }) => checkNewsSources(settings(), input)),
-  // The 数字货币 panel owns outboundProxy and binanceTestnet.
+  // Dedicated panels own crypto connection and account-review settings.
   saveSettings: p("settings", "configure")
     .input(settingsSchema)
-    .mutation(({ input }) => saveSettings(preserveCryptoSettings(input))),
+    .mutation(({ input }) =>
+      saveSettings({
+        ...preserveCryptoSettings(input),
+        accountReview: settings().accountReview,
+      }),
+    ),
   cryptoSettings: p("cryptoSimulation", "read").query(() => {
     const { outboundProxy, binanceTestnet } = settings();
     return { outboundProxy, binanceTestnet };

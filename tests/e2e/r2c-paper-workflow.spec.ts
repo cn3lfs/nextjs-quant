@@ -48,7 +48,7 @@ for (const width of [1440, 1024]) {
       path: resolve(`.test-data/r2c/screens/scan-${width}.png`),
       fullPage: true,
     });
-    await page.goto("/accounts");
+    await page.goto("/accounts?tab=paper");
     const panel = page.getByRole("region", {
       name: "纸面模拟账户",
       exact: true,

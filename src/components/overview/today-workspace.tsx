@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { CandidateTable } from "./candidate-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
+import { AccountRiskLinks } from "../portfolio/account-risk-links";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -197,6 +198,7 @@ function DailyDecision() {
             title="风险持仓"
             meta="完成bar价格；R=(现价−已核对成本)/(成本−止损)"
           >
+            <AccountRiskLinks />
             {d.holdings === null ? (
               <p>尚未核对持仓，风险未知。</p>
             ) : d.holdings.length === 0 ? (
@@ -207,7 +209,13 @@ function DailyDecision() {
                   key={`${h.market}:${h.account}:${h.symbol}`}
                   className="border-b py-2 text-sm"
                 >
-                  <strong>{h.symbol}</strong> · 距止损{" "}
+                  <Link
+                    className="font-semibold underline"
+                    href={`/accounts?position=${encodeURIComponent(h.market === "cn-equity" ? `local:${h.symbol}` : `crypto:${h.account}`)}`}
+                  >
+                    {h.symbol}
+                  </Link>{" "}
+                  · 距止损{" "}
                   {formatPercent(
                     h.stop === null
                       ? null
