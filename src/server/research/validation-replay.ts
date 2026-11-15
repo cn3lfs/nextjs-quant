@@ -87,9 +87,18 @@ export function scoreValidationResult(
       (f) => f.side === "sell" && f.holdingAfter === 0,
     ).length,
     events: {
-      entries: result.observations.filter((o) => o.decision.entry === true)
-        .length,
-      exits: result.observations.filter((o) => o.decision.exit === true).length,
+      entries: result.observationCounts
+        ? Object.values(result.observationCounts).reduce(
+            (n, v) => n + v.entries,
+            0,
+          )
+        : result.observations.filter((o) => o.decision.entry === true).length,
+      exits: result.observationCounts
+        ? Object.values(result.observationCounts).reduce(
+            (n, v) => n + v.exits,
+            0,
+          )
+        : result.observations.filter((o) => o.decision.exit === true).length,
       orders: result.orders.length,
       fills: result.fills.length,
       rejectionAttempts: result.rejections.length,
@@ -108,6 +117,7 @@ export function projectCandidate(
   dataset: ValidationDataset,
   frozen: FrozenValidationInput,
   cache: DecisionCache,
+  progress?: (done: number, total: number) => void,
 ): ValidationCandidate | null {
   const s = candidate.strategy;
   let instruments = dataset.instruments;
@@ -120,7 +130,9 @@ export function projectCandidate(
   const universe = frozen.universe;
   const members = new Map(universe?.members.map((m) => [m.symbol, m]));
   const strategies: StrategyObjectInput[] = [];
-  const projected = instruments.map((source) => {
+  const projected = instruments.map((source, instrumentIndex) => {
+    if (instrumentIndex % 32 === 0)
+      progress?.(instrumentIndex, instruments.length);
     const member = members.get(source.symbol);
     const capture = frozen.native.find(
       (n) => n.symbol === source.symbol,
@@ -208,9 +220,13 @@ export function projectCandidate(
       });
     return {
       ...instrument,
-      external: { ...instrument.external, signals, levels },
+      // The original rule has already consumed/validated its input. Execution
+      // uses these frozen decisions and levels only, without rebuilding unused
+      // full-market RPS or valuation indices in every independent window.
+      external: { signals, levels },
     };
   });
+  progress?.(instruments.length, instruments.length);
   const request: PortfolioRequest = {
     market: s.market,
     initial: frozen.input.initial,

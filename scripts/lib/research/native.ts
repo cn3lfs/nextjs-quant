@@ -1,14 +1,7 @@
-import {
-  task,
-  prior,
-  equity,
-  artifact,
-  delivery,
-  json,
-} from "./lib/research-r2a4";
-import { captureNativeChanObservations } from "../src/server/strategies/strategy-center-native";
-import { closeCzsc } from "../src/server/strategies/chan/czsc";
-import type { FrozenValidationInput } from "../src/server/research/validation-capture";
+import { task, prior, equity, artifact, delivery, json } from "./context";
+import { captureNativeChanObservations } from "../../../src/server/strategies/strategy-center-native";
+import { closeCzsc } from "../../../src/server/strategies/chan/czsc";
+import type { FrozenValidationInput } from "../../../src/server/research/validation-capture";
 import { writeFile, readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { join } from "node:path";
@@ -91,7 +84,7 @@ if (command === "verify") {
     );
     for (const c of saved.chunks) {
       const raw = await readFile(c.path);
-      const { digest } = await import("./lib/research-r2a4");
+      const { digest } = await import("./context");
       if (digest(raw) !== c.sha256)
         throw new Error("Native progress hash mismatch");
       chunks.push(c);

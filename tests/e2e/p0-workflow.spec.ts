@@ -176,7 +176,35 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     },
     reasons: ["oos-positive-excess-majority"],
   }));
+  rows[0]!.status = "shadow-candidate";
+  rows[0]!.dsr = { value: 0.91, reason: null };
+  rows[0]!.globalDsr = { value: 0.13, reason: null };
+  const shadowKey = `alerts:shadow:${rows[0]!.id}:1`,
+    progressKey = `alerts:shadow-summary:${rows[0]!.id}:1`;
   try {
+    const state = database.prepare(
+      "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,'alert-state',?,?)",
+    );
+    state.run(
+      shadowKey,
+      JSON.stringify({
+        startedAt: Date.UTC(2026, 10, 15, 9),
+        status: "shadow-candidate",
+        active: true,
+      }),
+      1,
+    );
+    state.run(
+      progressKey,
+      JSON.stringify({
+        samples: [],
+        days: 3,
+        signals: 12,
+        paused: false,
+        assessment: null,
+      }),
+      1,
+    );
     database
       .prepare(
         "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,'validation-scoreboard',?,?)",
@@ -212,6 +240,11 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     await expect(firstRow).toContainText("夏普差 —");
     await expect(firstRow).toContainText("Calmar 差 —");
     await expect(firstRow).not.toContainText("夏普差 0.000");
+    await expect(firstRow).toContainText("影子前推中");
+    await expect(firstRow).toContainText("开始 2026/11/15");
+    await expect(firstRow).toContainText("前推 12 个信号 / 3 日");
+    await expect(firstRow).toContainText("市场DSR 0.910");
+    await expect(firstRow).toContainText("全局DSR 0.130");
     await page.setViewportSize({ width: 1024, height: 768 });
     await region
       .getByText(/夏普差 0\.200/)
@@ -251,6 +284,9 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     database
       .prepare("DELETE FROM records WHERE id='validation-scoreboard-cn-equity'")
       .run();
+    database
+      .prepare("DELETE FROM records WHERE id IN (?,?)")
+      .run(shadowKey, progressKey);
     database.close();
   }
 });

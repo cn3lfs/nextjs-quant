@@ -72,7 +72,24 @@ export type ScoreboardRow = {
   market: "cn-equity" | "crypto";
   sleeve: string;
   rule: string;
-  status: "research" | "live-candidate";
+  status: "research" | "live-candidate" | "shadow-candidate";
+  worstDrawdown?: number | null;
+  dsr?: { value: number | null; reason: string | null };
+  globalDsr?: { value: number | null; reason: string | null };
+  trainingNeighbors?: { id: string; excess: number | null }[];
+  shadow?: {
+    active: boolean;
+    startedAt: number;
+    signals: number;
+    days: number;
+    paused: boolean;
+    assessment: {
+      at: number;
+      eligible: boolean;
+      reasons: string[];
+      recommendation: string;
+    } | null;
+  };
   return: number | null;
   excess: number | null;
   drawdown: number | null;

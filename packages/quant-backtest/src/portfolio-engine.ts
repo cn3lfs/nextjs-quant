@@ -22,6 +22,8 @@ import {
 } from "trading-strategy-core/money";
 import {
   PortfolioAccount,
+  actionPrice,
+  type PortfolioAction,
   replayPortfolioEvents,
 } from "./portfolio-account.js";
 import { fillMarketOrder, commissionFor } from "./execution.js";
@@ -42,7 +44,15 @@ export type PortfolioInstrument = {
   bars: readonly Bar[];
   /** Already adjusted at a fixed historical denominator; never used for fills. */
   signalBars: readonly Bar[];
-  execution: PortfolioExecution | Readonly<Record<string, PortfolioExecution>>;
+  /** A local pure facts adapter may quote from frozen bars on demand. It is
+   * reconstructed by the research loader, never serialized as executable code. */
+  execution:
+    | PortfolioExecution
+    | Readonly<Record<string, PortfolioExecution>>
+    | ((
+        bar: Readonly<Bar> | undefined,
+        previous: Readonly<Bar> | undefined,
+      ) => PortfolioExecution | undefined);
   external?: StrategyExternalInputs;
   /** Explicit survivorship sensitivity only; never claimed as a historical fill. */
   terminal?: {
@@ -50,14 +60,7 @@ export type PortfolioInstrument = {
     valuation: "last-close" | "total-loss";
     evidence: string;
   };
-  actions?: readonly {
-    date: string;
-    dividend: number;
-    bonus: number;
-    evidence: string;
-    availableAt: string;
-    sharesSellableAt?: string;
-  }[];
+  actions?: readonly PortfolioAction[];
 };
 export type PortfolioSleeve = {
   id: string;
@@ -66,6 +69,8 @@ export type PortfolioSleeve = {
   maxPositions: number;
 };
 export type PortfolioRequest = {
+  /** Scoring runs retain exact counters instead of millions of no-op rows. */
+  observationDetail?: "full" | "counts";
   market: Market;
   initial: number;
   start: string;
@@ -90,6 +95,14 @@ export type PortfolioRequest = {
     date: string;
     availableAt: string;
     symbols: readonly string[];
+  }[];
+  /** Explicit causal research weight ceilings; absent row forbids entry. */
+  positionWeights?: readonly {
+    strategyId: string;
+    symbol: string;
+    date: string;
+    availableAt: string;
+    weight: number;
   }[];
 };
 export type PortfolioOrder = {
@@ -129,6 +142,18 @@ type PositionControl = {
 };
 const keyFor = (strategy: string, symbol: string) =>
   JSON.stringify([strategy, symbol]);
+type PreparedInstrument = {
+  instrument: PortfolioInstrument;
+  indices: Map<string, number>;
+  evaluators: Map<string, ReturnType<typeof prepareStrategy>>;
+};
+/** Owned by one immutable validation prefix; never shared across mutable calls. */
+export function createPortfolioPreparation() {
+  return new WeakMap<
+    PortfolioInstrument,
+    { signature: string; prepared: PreparedInstrument }
+  >();
+}
 const dayOf = (date: string, market: Market) =>
   date.length === 10
     ? date
@@ -167,11 +192,18 @@ function feeFor(
     ),
   );
 }
-function quantityRules(instrument: PortfolioInstrument, date: string) {
+function quantityRules(
+  instrument: PortfolioInstrument,
+  date: string,
+  bar: Bar | undefined,
+  previous: Bar | undefined,
+) {
   const execution =
-    "evidence" in instrument.execution
-      ? (instrument.execution as PortfolioExecution)
-      : instrument.execution[date];
+    typeof instrument.execution === "function"
+      ? instrument.execution(bar, previous)
+      : "evidence" in instrument.execution
+        ? (instrument.execution as PortfolioExecution)
+        : instrument.execution[date];
   const template = marketRules[instrument.market];
   const minimum = execution?.minimum ?? template.quantity.minimum;
   const step = execution?.step ?? template.quantity.step;
@@ -221,6 +253,7 @@ function quote(
 export function runPortfolio(
   request: PortfolioRequest,
   progress: (done: number, total: number) => void = () => {},
+  preparation?: ReturnType<typeof createPortfolioPreparation>,
 ) {
   const { market, initial, sleeves } = request;
   if (
@@ -253,6 +286,11 @@ export function runPortfolio(
     ![0, 1].includes(request.signalDelayBars)
   )
     throw new Error("Invalid signal delay");
+  if (
+    request.observationDetail !== undefined &&
+    !["full", "counts"].includes(request.observationDetail)
+  )
+    throw new Error("Invalid observation detail");
   if (
     new Set(request.sleeveTargets?.map((t) => t.date)).size !==
       (request.sleeveTargets?.length ?? 0) ||
@@ -324,8 +362,12 @@ export function runPortfolio(
       .size !== (request.memberships?.length ?? 0)
   )
     throw new Error("Duplicate PIT membership");
+  const preparedSignature = JSON.stringify([strategies, request.end]);
   const instruments = new Map(
     request.instruments.map((instrument) => {
+      const cached = preparation?.get(instrument);
+      if (cached?.signature === preparedSignature)
+        return [instrument.symbol, cached.prepared] as const;
       prepareStrategy(strategies[0]!, instrument.bars);
       if (
         instrument.bars.length !== instrument.signalBars.length ||
@@ -356,25 +398,62 @@ export function runPortfolio(
             a.dividend < 0 ||
             !Number.isFinite(a.bonus) ||
             a.bonus < 0 ||
+            !Number.isFinite(Date.parse(a.date)) ||
+            !Number.isFinite(Date.parse(a.availableAt)) ||
+            (a.shareFactor !== undefined &&
+              (!Number.isFinite(a.shareFactor) || a.shareFactor <= 0)) ||
+            (a.rightsRatio !== undefined &&
+              (!Number.isFinite(a.rightsRatio) || a.rightsRatio < 0)) ||
+            ((a.rightsRatio ?? 0) > 0 &&
+              (a.rightsPrice === undefined ||
+                !Number.isFinite(a.rightsPrice) ||
+                a.rightsPrice < 0)) ||
+            (a.sharesSellableAt !== undefined &&
+              (!Number.isFinite(Date.parse(a.sharesSellableAt)) ||
+                a.sharesSellableAt < a.date)) ||
             (a.bonus > 0 && !a.sharesSellableAt),
         )
       )
         throw new Error("Unsupported / unproven corporate action");
-      return [
-        instrument.symbol,
-        {
-          instrument,
-          indices: new Map(instrument.bars.map((b, i) => [b.date, i])),
-          evaluators: new Map(
-            strategies.map((s) => [
-              s.id,
-              prepareStrategy(s, instrument.signalBars, instrument.external),
-            ]),
-          ),
-        },
-      ] as const;
+      const prepared: PreparedInstrument = {
+        instrument,
+        indices: new Map(instrument.bars.map((b, i) => [b.date, i])),
+        evaluators: new Map(
+          strategies.map((s) => [
+            s.id,
+            prepareStrategy(s, instrument.signalBars, instrument.external),
+          ]),
+        ),
+      };
+      preparation?.set(instrument, { signature: preparedSignature, prepared });
+      return [instrument.symbol, prepared] as const;
     }),
   );
+  const weightRows = new Map<
+    string,
+    NonNullable<PortfolioRequest["positionWeights"]>[number][]
+  >();
+  for (const row of request.positionWeights ?? []) {
+    if (
+      !strategies.some((s) => s.id === row.strategyId) ||
+      !instruments.has(row.symbol) ||
+      !Number.isFinite(row.weight) ||
+      row.weight < 0 ||
+      row.weight > 1 ||
+      !Number.isFinite(Date.parse(row.date)) ||
+      !Number.isFinite(Date.parse(row.availableAt)) ||
+      row.availableAt > row.date
+    )
+      throw new Error("Invalid causal position weight");
+    const key = keyFor(row.strategyId, row.symbol);
+    const rows = weightRows.get(key) ?? [];
+    if (rows.some((r) => r.date === row.date))
+      throw new Error("Duplicate position weight");
+    rows.push(row);
+    weightRows.set(key, rows);
+  }
+  for (const rows of weightRows.values())
+    rows.sort((a, b) => a.date.localeCompare(b.date));
   const accounts = new Map(
     sleeves.map((s) => {
       const account = new PortfolioAccount(initial);
@@ -406,6 +485,12 @@ export function runPortfolio(
   };
   const rejections: { orderId: number; date: string; reason: string }[] = [];
   const transfers: { date: string; sleeve: string; amount: number }[] = [];
+  const corporateActions: ({
+    date: string;
+    symbol: string;
+    strategyId: string;
+    evidence: string;
+  } & NonNullable<ReturnType<PortfolioAccount["corporateAction"]>>)[] = [];
   const terminalValuations: {
     date: string;
     symbol: string;
@@ -422,6 +507,9 @@ export function runPortfolio(
     symbol: string;
     decision: StrategyDecision;
   }[] = [];
+  const observationCounts = Object.fromEntries(
+    strategies.map((s) => [s.id, { entries: 0, exits: 0 }]),
+  );
   const curve: {
     date: string;
     cash: number;
@@ -441,6 +529,26 @@ export function runPortfolio(
     (d) => dayOf(d, market) >= request.start && dayOf(d, market) <= request.end,
   );
   if (!calendar.length) throw new Error("Empty event calendar");
+  const actionsAt = new Map<
+    string,
+    { instrument: PortfolioInstrument; action: PortfolioAction }[]
+  >();
+  for (const { instrument } of instruments.values())
+    for (const action of instrument.actions ?? []) {
+      if (action.date < request.start || action.date > request.end) continue;
+      let low = 0,
+        high = calendar.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (calendar[middle]! < action.date) low = middle + 1;
+        else high = middle;
+      }
+      const date = calendar[low];
+      if (!date) continue;
+      const rows = actionsAt.get(date) ?? [];
+      rows.push({ instrument, action });
+      actionsAt.set(date, rows);
+    }
   const pushOrder = (
     strategy: (typeof strategies)[number],
     symbol: string,
@@ -487,7 +595,12 @@ export function runPortfolio(
     const source = instruments.get(order.symbol)!;
     const index = source.indices.get(date),
       bar = index === undefined ? undefined : source.instrument.bars[index];
-    const rules = quantityRules(source.instrument, date),
+    const rules = quantityRules(
+        source.instrument,
+        date,
+        bar,
+        index === undefined ? undefined : source.instrument.bars[index - 1],
+      ),
       strategy = strategies.find((s) => s.id === order.strategyId)!;
     const account = accounts.get(order.sleeve)!,
       key = keyFor(order.strategyId, order.symbol),
@@ -542,19 +655,32 @@ export function runPortfolio(
         for (const action of source.instrument.actions
           ?.filter((a) => a.date > order.signalAt && a.date <= date)
           .sort((a, b) => a.date.localeCompare(b.date)) ?? [])
-          stop = (stop - action.dividend) / (1 + action.bonus);
+          stop = actionPrice(stop, action);
       }
       if (control) stop = control.stop;
       if (strategy.exit.stop && (stop === null || stop <= 0 || stop >= price)) {
         reject(order, date, "缺失或无效初始止损");
         return;
       }
-      const weight =
+      const baseWeight =
         strategy.sizing.kind === "equal"
           ? 1 / strategy.sizing.positions
           : strategy.sizing.kind === "weight"
             ? strategy.sizing.weight
             : 1;
+      const weights = weightRows.get(key) ?? [];
+      let low = 0,
+        high = weights.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (weights[middle]!.date <= order.signalAt) low = middle + 1;
+        else high = middle;
+      }
+      const ceiling =
+        request.positionWeights === undefined
+          ? 1
+          : (weights[low - 1]?.weight ?? 0);
+      const weight = Math.min(baseWeight, ceiling);
       const capital = account.equity;
       const budget = Math.min(
         account.cash,
@@ -628,6 +754,12 @@ export function runPortfolio(
         ),
         rules.maximum,
       );
+    if (
+      order.side === "sell" &&
+      market === "cn-equity" &&
+      quantity < (holding?.quantity ?? 0)
+    )
+      quantity = floorStep(quantity, rules.step);
     if (quantity <= 0) {
       reject(order, date, "无可成交数量");
       return;
@@ -665,35 +797,30 @@ export function runPortfolio(
   };
   replayPortfolioEvents(calendar, {
     beforeOpen: (_index, date) => {
-      for (const { instrument } of instruments.values())
-        for (const action of instrument.actions?.filter(
-          (a) => a.date === date,
-        ) ?? []) {
-          for (const strategy of strategies) {
-            const account = accounts.get(strategy.sleeve)!,
-              key = keyFor(strategy.id, instrument.symbol),
-              p = account.positions.get(key);
-            if (!p) continue;
-            const before = p.quantity;
-            account.transfer(before * action.dividend);
-            if (action.bonus) {
-              const newQuantity = before * action.bonus;
-              p.quantity += newQuantity;
-              // Bonus shares must carry an independently supplied sellable date.
-              p.lots.push({
-                quantity: newQuantity,
-                bought: date,
-                availableOn: action.sharesSellableAt!,
-              });
-            }
-            p.cost = (p.cost - action.dividend) / (1 + action.bonus);
-            p.mark = (p.mark - action.dividend) / (1 + action.bonus);
-            const c = controls.get(key)!;
-            for (const field of ["entry", "high", "stop", "target"] as const)
-              if (c[field] !== null)
-                c[field] = (c[field]! - action.dividend) / (1 + action.bonus);
-          }
+      for (const { instrument, action } of actionsAt.get(date) ?? []) {
+        for (const strategy of strategies) {
+          const account = accounts.get(strategy.sleeve)!,
+            key = keyFor(strategy.id, instrument.symbol),
+            p = account.positions.get(key);
+          if (!p) continue;
+          const applied = account.corporateAction(
+            key,
+            action,
+            market === "cn-equity",
+          )!;
+          corporateActions.push({
+            date,
+            symbol: instrument.symbol,
+            strategyId: strategy.id,
+            evidence: action.evidence,
+            ...applied,
+          });
+          const c = controls.get(key)!;
+          for (const field of ["entry", "high", "stop", "target"] as const)
+            if (c[field] !== null) c[field] = actionPrice(c[field]!, action);
+          if (!applied.quantity) controls.delete(key);
         }
+      }
     },
     open: (_index, date) => {
       for (const account of accounts.values())
@@ -782,12 +909,16 @@ export function runPortfolio(
             continue;
           }
           const decision = source.evaluators.get(strategy.id)!.evaluate(i);
-          observations.push({
-            date,
-            strategyId: strategy.id,
-            symbol,
-            decision,
-          });
+          if (decision.entry === true)
+            observationCounts[strategy.id]!.entries++;
+          if (decision.exit === true) observationCounts[strategy.id]!.exits++;
+          if (request.observationDetail !== "counts")
+            observations.push({
+              date,
+              strategyId: strategy.id,
+              symbol,
+              decision,
+            });
           if (pendingOrders.has(key)) continue;
           let eligible: boolean;
           if (strategy.universe.kind === "symbols")
@@ -936,7 +1067,9 @@ export function runPortfolio(
     curve,
     positionSnapshots,
     observations,
+    ...(request.observationDetail === "counts" ? { observationCounts } : {}),
     transfers,
+    corporateActions,
     terminalValuations,
   };
 }

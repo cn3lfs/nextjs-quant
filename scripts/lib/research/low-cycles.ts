@@ -1,5 +1,5 @@
-import { task, json, readArtifact, delivery } from "./lib/research-r2a4";
-import { mainEquity } from "./lib/research-r2a4-main-inputs";
+import { task, json, readArtifact, delivery } from "./context";
+import { mainEquity } from "./main-inputs";
 import { join } from "node:path";
 import { writeFile } from "node:fs/promises";
 import {
@@ -13,7 +13,7 @@ import {
   projectCandidate,
   numericNeighbors,
   scoreValidationResult,
-} from "../src/server/research/validation-replay";
+} from "../../../src/server/research/validation-replay";
 const { dataset, base } = await mainEquity(false);
 const observations = historicalLowSeries(dataset.benchmark),
   cycles = lowZoneCycles(observations).filter(
@@ -33,6 +33,7 @@ for (const candidate of researchCandidates(
       const costs = marketRules["cn-equity"].costs!;
       const request: PortfolioRequest = {
         ...projected.request,
+        observationDetail: "counts",
         start: c.start,
         end: c.end,
         signalDelayBars: delay,

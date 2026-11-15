@@ -1,16 +1,10 @@
-import {
-  task,
-  json,
-  readArtifact,
-  delivery,
-  digest,
-} from "./lib/research-r2a4";
-import { mainCrypto } from "./lib/research-r2a4-main-inputs";
+import { task, config, json, readArtifact, delivery, digest } from "./context";
+import { mainCrypto } from "./main-inputs";
 import { join } from "node:path";
 import { writeFile, readFile } from "node:fs/promises";
 import { evaluatePerformance } from "quant-performance";
 import type { ValidationScore } from "quant-backtest";
-import type { CandidateCheckpoint } from "../src/server/research/validation-scale";
+import type { CandidateCheckpoint } from "../../../src/server/research/validation-scale";
 const rows: unknown[] = [];
 for (const period of ["day", "4h", "1h", "15m"] as const) {
   const { dataset } = await mainCrypto(period);
@@ -91,48 +85,50 @@ for (const period of ["day", "4h", "1h", "15m"] as const) {
           : e.calmar.value - b.calmar.value,
     };
   }
-  for (const family of families) {
-    const p = await json<{
-      complete: boolean;
-      pointer: { path: string; sha256: string };
-    }>(join(task, `btc-eth-${family}-progress.json`));
-    if (!p.complete) throw new Error("Main crypto incomplete");
-    const group = await readArtifact<{ checkpoints: CandidateCheckpoint[] }>(
-      p.pointer,
-    );
-    for (const c of group.checkpoints)
-      rows.push({
-        id: c.row.id,
-        period,
-        full: assess(c.fullPeriod, dataset.dates[0]!, dataset.dates.at(-1)!),
-        holdout: {
-          start: c.row.holdout.start,
-          end: c.row.holdout.end,
-          base: assess(
-            c.row.holdout.base,
-            c.row.holdout.start,
-            c.row.holdout.end,
-          ),
-          doubledCost: assess(
-            c.row.holdout.doubledCost,
-            c.row.holdout.start,
-            c.row.holdout.end,
-          ),
-          delayed: assess(
-            c.row.holdout.delayed,
-            c.row.holdout.start,
-            c.row.holdout.end,
-          ),
-        },
-        windows: c.row.windows.map((w) => ({
-          start: w.start,
-          end: w.end,
-          base: assess(w.base, w.start, w.end),
-          doubledCost: assess(w.doubledCost, w.start, w.end),
-          delayed: assess(w.delayed, w.start, w.end),
-        })),
-      });
-  }
+  for (const family of families)
+    for (const sizing of config.sizing) {
+      const suffix = sizing === "legacy" ? "" : `-${sizing}`;
+      const p = await json<{
+        complete: boolean;
+        pointer: { path: string; sha256: string };
+      }>(join(task, `btc-eth-${family}${suffix}-progress.json`));
+      if (!p.complete) throw new Error("Main crypto incomplete");
+      const group = await readArtifact<{ checkpoints: CandidateCheckpoint[] }>(
+        p.pointer,
+      );
+      for (const c of group.checkpoints)
+        rows.push({
+          id: c.row.id,
+          period,
+          full: assess(c.fullPeriod, dataset.dates[0]!, dataset.dates.at(-1)!),
+          holdout: {
+            start: c.row.holdout.start,
+            end: c.row.holdout.end,
+            base: assess(
+              c.row.holdout.base,
+              c.row.holdout.start,
+              c.row.holdout.end,
+            ),
+            doubledCost: assess(
+              c.row.holdout.doubledCost,
+              c.row.holdout.start,
+              c.row.holdout.end,
+            ),
+            delayed: assess(
+              c.row.holdout.delayed,
+              c.row.holdout.start,
+              c.row.holdout.end,
+            ),
+          },
+          windows: c.row.windows.map((w) => ({
+            start: w.start,
+            end: w.end,
+            base: assess(w.base, w.start, w.end),
+            doubledCost: assess(w.doubledCost, w.start, w.end),
+            delayed: assess(w.delayed, w.start, w.end),
+          })),
+        });
+    }
 }
 const path = join(task, "benchmark-50-50.json");
 await writeFile(

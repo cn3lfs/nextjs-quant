@@ -32,12 +32,14 @@ export type AlertProposal = {
   windowMs: number;
   closePlan?: "triggered" | "expired";
   authorize?: (now: number) => boolean;
+  shadowOnly?: boolean;
 };
 export type AlertEvaluation = {
   proposals: AlertProposal[];
   states: {
     id: string;
     value: unknown;
+    atCommit?: (now: number) => unknown;
     authorize?: (now: number) => boolean;
   }[];
 };
@@ -104,8 +106,9 @@ export class AlertEngine {
               committedAt < proposal.completedAt ||
               committedAt - proposal.completedAt > proposal.windowMs;
             // Re-check mode after data I/O, before committing or enqueueing anything.
-            const current = d.mode();
-            if (current === "off") continue;
+            const configured = d.mode();
+            if (configured === "off") continue;
+            const current = proposal.shadowOnly ? "shadow" : configured;
             const event: AlertEvent = {
               ...proposal.event,
               key: alertKey(proposal.event),
@@ -122,12 +125,15 @@ export class AlertEngine {
             d.repository.record(proposal.strategy, event, (committed) => {
               if (proposal.closePlan && event.planId)
                 d.repository.closePlan(event.planId, proposal.closePlan);
-              d.deliver(committed);
+              if (!proposal.shadowOnly) d.deliver(committed);
             });
           }
           for (const state of evaluation.states)
             if (!state.authorize || state.authorize(committedAt))
-              d.repository.saveState(state.id, state.value);
+              d.repository.saveState(
+                state.id,
+                state.atCommit ? state.atCommit(committedAt) : state.value,
+              );
           if (phase === "close")
             d.repository.saveState(closeId, { status: "complete", at: now });
           d.repository.saveState("runtime", {

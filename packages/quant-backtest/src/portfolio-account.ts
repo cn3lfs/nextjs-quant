@@ -12,6 +12,26 @@ export type PortfolioPosition = {
   lots: PortfolioLot[];
   bought: string;
 };
+export type PortfolioAction = {
+  date: string;
+  dividend: number;
+  bonus: number;
+  /** Split/consolidation multiplier, independent of bonus shares. */
+  shareFactor?: number;
+  rightsRatio?: number;
+  rightsPrice?: number;
+  evidence: string;
+  availableAt: string;
+  sharesSellableAt?: string;
+};
+export function actionPrice(price: number, action: PortfolioAction) {
+  return (
+    (price -
+      action.dividend +
+      (action.rightsRatio ?? 0) * (action.rightsPrice ?? 0)) /
+    ((1 + action.bonus + (action.rightsRatio ?? 0)) * (action.shareFactor ?? 1))
+  );
+}
 /** One ledger for all replay policies. Signals never write cash or inventory. */
 export class PortfolioAccount {
   cash: number;
@@ -52,6 +72,59 @@ export class PortfolioAccount {
     if (!Number.isFinite(amount) || next < -1e-8)
       throw new Error("Invalid cash transfer");
     this.cash = next;
+  }
+  /** Research entitlement scenario: whole shares, no invented fractional cash.
+   * Bonus availability is explicit; splits retain each lot's settlement lock. */
+  corporateAction(key: string, action: PortfolioAction, wholeShares: boolean) {
+    const p = this.positions.get(key);
+    if (!p) return null;
+    const before = p.quantity;
+    const cash = moneyMul(before, action.dividend);
+    const factor = action.shareFactor ?? 1;
+    const theoretical = toNumber(
+      big(before)
+        .times(1 + action.bonus)
+        .times(factor),
+    );
+    const quantity = wholeShares ? Math.floor(theoretical) : theoretical;
+    const retained = toNumber(big(before).times(factor));
+    const lots = p.lots.map((l) => ({
+      ...l,
+      quantity: toNumber(big(l.quantity).times(factor)),
+    }));
+    if (action.bonus > 0)
+      lots.push({
+        quantity: theoretical - retained,
+        bought: action.date,
+        availableOn: action.sharesSellableAt!,
+      });
+    // Round total entitlements once; distribute residual units by largest remainder.
+    if (wholeShares) {
+      const ranked = lots
+        .map((l, i) => ({ i, remainder: l.quantity - Math.floor(l.quantity) }))
+        .sort((a, b) => b.remainder - a.remainder || a.i - b.i);
+      let extra =
+        quantity - lots.reduce((n, l) => n + Math.floor(l.quantity), 0);
+      for (const l of lots) l.quantity = Math.floor(l.quantity);
+      for (const r of ranked) if (extra-- > 0) lots[r.i]!.quantity++;
+    }
+    this.transfer(cash);
+    const costBefore = p.cost;
+    p.cost = quantity > 0 ? (before * p.cost - cash) / quantity : 0;
+    p.quantity = quantity;
+    p.mark = actionPrice(p.mark, action);
+    p.lots = lots.filter((l) => l.quantity > 0);
+    if (!quantity) this.positions.delete(key);
+    return {
+      before,
+      quantity,
+      cash,
+      costBefore,
+      costAfter: p.cost,
+      markAfter: p.mark,
+      fractionalShares: theoretical - quantity,
+      rightsParticipation: "none" as const,
+    };
   }
   /** Sensitivity valuation at terminal source coverage, not a market fill.
    * Zero is the explicitly requested total-loss scenario. No tradability or

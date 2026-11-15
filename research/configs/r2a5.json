@@ -1,0 +1,10 @@
+{
+  "batch": "R2a-5",
+  "task": ".test-data/r2a5",
+  "predecessor": ".test-data/r2a4",
+  "root": "E:/new_tdx64",
+  "end": "2026-11-13",
+  "holdoutStart": "2025-06-01",
+  "dsrScope": "market",
+  "sizing": ["equal", "volatility"]
+}

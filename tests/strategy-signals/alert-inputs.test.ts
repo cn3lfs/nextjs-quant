@@ -89,6 +89,120 @@ beforeEach(() => {
   put("watchlist", "watchlist", ["sh600000"]);
 });
 afterEach(() => db.close());
+it("does not record a fresh but preregistration bar, then records the first bar completed after registration", async () => {
+  const crypto = {
+    ...strategy,
+    id: "shadow-start-boundary",
+    market: "crypto" as const,
+    universe: { kind: "symbols" as const, symbols: ["BTCUSDT"] },
+  };
+  repo.strategies.saveStrategy(crypto);
+  repo.saveState(`shadow:${crypto.id}:1`, {
+    startedAt: now + 1,
+    active: true,
+    status: "shadow-candidate",
+    trialSharpes: [],
+    neighbors: [],
+    sizing: "equal",
+    completeMarketCycles: 0,
+    lowZoneCorroborated: false,
+  });
+  let clock = now + 1000;
+  const delivered = vi.fn();
+  const engine = new AlertEngine({
+    clock: { now: () => clock },
+    repository: repo,
+    mode: () => "live",
+    leader: () => true,
+    calendar: async () => [],
+    receipt: async () => false,
+    evaluate: (phase, at) => evaluateAlertInputs(phase, at, repo),
+    deliver: delivered,
+    outcomes: async () => {},
+    error: (e) => {
+      throw e;
+    },
+  });
+  await engine.tick();
+  expect(
+    repo.history({ page: 0, size: 20, symbol: "", strategyId: crypto.id })
+      .total,
+  ).toBe(0);
+  expect(repo.state(`shadow-progress:${crypto.id}:1`)).toBeUndefined();
+  fixture.bars.push({
+    ...fixture.bars.at(-1)!,
+    date: new Date(now + 300000).toISOString(),
+  });
+  clock = now + 300001;
+  await engine.tick();
+  expect(
+    repo.history({ page: 0, size: 20, symbol: "", strategyId: crypto.id })
+      .total,
+  ).toBe(1);
+  expect(repo.state(`shadow-summary:${crypto.id}:1`)).toMatchObject({
+    signals: 1,
+    days: 1,
+  });
+  expect(delivered).not.toHaveBeenCalled();
+});
+it("evaluates a shadow-only registration through the real input path and commits current observations with zero delivery even in live mode", async () => {
+  const crypto = {
+    ...strategy,
+    id: "shadow-source",
+    market: "crypto" as const,
+    universe: { kind: "symbols" as const, symbols: ["BTCUSDT"] },
+  };
+  repo.strategies.saveStrategy(crypto);
+  repo.saveState(`shadow:${crypto.id}:1`, {
+    startedAt: now - 1,
+    active: true,
+    status: "shadow-candidate",
+    trialSharpes: [],
+    neighbors: [],
+    sizing: "equal",
+    completeMarketCycles: 0,
+    lowZoneCorroborated: false,
+  });
+  const delivered = vi.fn();
+  let clock = now;
+  const engine = new AlertEngine({
+    clock: { now: () => clock },
+    repository: repo,
+    mode: () => "live",
+    leader: () => true,
+    calendar: async () => [],
+    receipt: async () => false,
+    evaluate: async (phase, at) => {
+      const value = await evaluateAlertInputs(phase, at, repo);
+      clock = at + 1000;
+      return value;
+    },
+    deliver: delivered,
+    outcomes: async () => {},
+    error: (e) => {
+      throw e;
+    },
+  });
+  await engine.tick();
+  await engine.tick();
+  const progress = repo.state<{
+    samples: { observedAt: number; source: string }[];
+    signals: number;
+  }>(`shadow-progress:${crypto.id}:1`)!;
+  expect(progress.samples).toHaveLength(1);
+  expect(progress.samples[0]!.observedAt).toBe(now + 1000);
+  expect(progress.samples[0]!.source).toContain("QA");
+  expect(progress.signals).toBe(1);
+  expect(repo.state(`shadow-summary:${crypto.id}:1`)).toMatchObject({
+    signals: 1,
+    days: 1,
+  });
+  expect(delivered).toHaveBeenCalledTimes(0);
+  expect(
+    repo.history({ page: 0, size: 20, symbol: "", strategyId: crypto.id })
+      .items[0],
+  ).toMatchObject({ mode: "shadow", status: "shadow" });
+});
 it("production input path feeds live registered strategy and real saved holding stop into one engine", async () => {
   repo.strategies.saveStrategy(strategy);
   repo.saveState(`strategy:${strategy.id}:1`, { live: true });
@@ -305,6 +419,41 @@ it("A-share protection configuration shares the existing saved stop owner", asyn
     trailing: null,
   });
   expect(get("trade-stop-sh600000")).toEqual({ stop: null });
+});
+it("only an explicit manual live setting ends shadow evaluation and preserves its evidence", async () => {
+  const liveRepo = new AlertRepository();
+  const candidate = { ...strategy, id: "manual-shadow-switch" };
+  const evidence = {
+    startedAt: now,
+    status: "shadow-candidate",
+    active: true,
+    trialSharpes: [],
+    neighbors: [],
+    sizing: "legacy",
+    completeMarketCycles: 0,
+    lowZoneCorroborated: false,
+  };
+  liveRepo.strategies.saveStrategy(candidate);
+  liveRepo.saveState(`shadow:${candidate.id}:1`, evidence);
+  liveRepo.saveState(`shadow-progress:${candidate.id}:1`, {
+    signals: 12,
+    days: ["2026-11-13"],
+  });
+  const caller = alertsRouter.createCaller({ headers: new Headers() });
+  await caller.configureAlertStrategy({ strategy: candidate, live: false });
+  expect(liveRepo.state(`shadow:${candidate.id}:1`)).toEqual(evidence);
+  await caller.configureAlertStrategy({ strategy: candidate, live: true });
+  expect(liveRepo.state(`strategy:${candidate.id}:1`)).toMatchObject({
+    live: true,
+  });
+  expect(liveRepo.state(`shadow:${candidate.id}:1`)).toEqual({
+    ...evidence,
+    active: false,
+  });
+  expect(liveRepo.state(`shadow-progress:${candidate.id}:1`)).toEqual({
+    signals: 12,
+    days: ["2026-11-13"],
+  });
 });
 it("later edits from the original position stop form override no stale alert copy", async () => {
   fixture.positions = [{ symbol: "sh600000", quantity: 100, stop: 9 }];

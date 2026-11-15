@@ -85,6 +85,17 @@ export function scoreBookSleeves(
           request.strategies.find((s) => s.id === o.strategyId)?.sleeve ===
           sleeve.id,
       ),
+      ...(result.observationCounts
+        ? {
+            observationCounts: Object.fromEntries(
+              Object.entries(result.observationCounts).filter(
+                ([id]) =>
+                  request.strategies.find((s) => s.id === id)?.sleeve ===
+                  sleeve.id,
+              ),
+            ),
+          }
+        : {}),
     };
     const score = scoreValidationResult(
       filtered,

@@ -6,7 +6,8 @@ import {
   frozen,
   digest,
   prior,
-} from "./research-r2a4";
+  config,
+} from "./context";
 import { join } from "node:path";
 import type { Bar } from "trading-strategy-core/bars";
 import type { PortfolioInstrument } from "quant-backtest";
@@ -15,16 +16,23 @@ import {
   type LowZoneFact,
   type LowZoneObservation,
 } from "trading-strategies";
-import type { ValidationDataset } from "../../src/server/research/validation-capture";
-import { readPublicData } from "../../src/server/data-sources/binance/public-data-store";
+import type { ValidationDataset } from "../../../src/server/research/validation-capture";
+import { readPublicData } from "../../../src/server/data-sources/binance/public-data-store";
 export async function mainEquity(includeRps = true) {
   const csi = await readArtifact<{
     symbols: string[];
     benchmark: { bars: Bar[] };
   }>(await json(join(task, "csi800-pointer.json")));
-  const result = await equity(csi.symbols, includeRps);
+  const result = await equity(csi.symbols, includeRps, true);
   result.dataset.benchmark = csi.benchmark.bars;
   result.dataset.benchmarkName = "CSI800000906 raw index, no dividends";
+  if (config.batch === "R2a-5") {
+    result.base.lowZones.push({
+      symbol: "sh000906",
+      observations: historicalLowSeries(csi.benchmark.bars),
+    });
+    return result;
+  }
   const selected = new Set(csi.symbols),
     facts = new Map<string, LowZoneFact[]>();
   const low = await prior<{ shards: string[] }>("low-input");
@@ -80,7 +88,7 @@ export async function mainCrypto(period: "day" | "4h" | "1h" | "15m") {
       throw new Error("Missing official native archive");
     const view = await readPublicData(symbol, interval, {
       root: coverage.root,
-      now: Date.parse("2026-11-14T00:00:00Z"),
+      now: Date.parse(config.end) + 86400000,
     });
     const bars = view.rows.map((r) => r.bar);
     instruments.push({

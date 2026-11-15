@@ -1,4 +1,4 @@
-import "./research-r2a4-isolation";
+import "./isolation";
 import { createHash } from "node:crypto";
 import {
   readFile,
@@ -7,37 +7,43 @@ import {
   readdir,
   stat,
   rename,
+  open,
+  unlink,
 } from "node:fs/promises";
 import { resolve, join, isAbsolute } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { researchCandidates, strategyBuildHash } from "trading-strategies";
 import type { Bar } from "trading-strategy-core/bars";
-import { equityResearchRules } from "trading-strategy-core/market-rules";
+import { researchExecutionAt } from "../../../src/server/research/corporate-actions";
 import type { PortfolioInstrument } from "quant-backtest";
 import type {
   ValidationDataset,
   FrozenValidationInput,
-} from "../../src/server/research/validation-capture";
-import { validationInputSchema } from "../../src/server/research/validation-model";
-import { readCachedResearchCryptoWindow } from "../../src/server/research/validation-crypto-history";
+} from "../../../src/server/research/validation-capture";
+import { validationInputSchema } from "../../../src/server/research/validation-model";
+import { readCachedResearchCryptoWindow } from "../../../src/server/research/validation-crypto-history";
 
-export const task = resolve(".test-data/r2a4");
+export { config } from "./isolation";
+import { config, outputTask, replayOnly } from "./isolation";
+export const task = resolve(config.task);
 if (
   !process.env.QUANT_DATA_DIR ||
   !isAbsolute(process.env.QUANT_DATA_DIR) ||
-  resolve(process.env.QUANT_DATA_DIR) !== join(task, "data")
+  resolve(process.env.QUANT_DATA_DIR) !== join(outputTask, "data")
 )
   throw new Error("R2a4 requires absolute isolated .test-data/r2a4/data");
 export const digest = (bytes: string | Buffer) =>
   createHash("sha256").update(bytes).digest("hex");
 export async function calculationIdentity(market: "cn-equity" | "crypto") {
   const files = [
-    "scripts/research-r2a4-study.ts",
-    "scripts/lib/research-r2a4.ts",
-    "scripts/lib/research-r2a4-isolation.ts",
+    "scripts/lib/research/study.ts",
+    "scripts/lib/research/context.ts",
+    "scripts/lib/research/isolation.ts",
     "src/server/research/validation-replay.ts",
     "src/server/research/validation-scale.ts",
     "src/server/research/validation-model.ts",
+    "src/server/research/validation-capture.ts",
+    "src/server/research/corporate-actions.ts",
     "src/lib/backtest/multiple-testing.ts",
     "src/lib/backtest/backtest-overfit.ts",
     "src/lib/backtest/daily-performance.ts",
@@ -58,6 +64,12 @@ export async function calculationIdentity(market: "cn-equity" | "crypto") {
       if (/\.(ts|json)$/.test(name))
         files.push(join(root, name).replaceAll("\\", "/"));
   }
+  if (config.batch === "R2a-5") {
+    files.push(process.env.QUANT_RESEARCH_CONFIG!);
+    if (market === "crypto") files.push("src/server/research/crypto-sizing.ts");
+    for (const name of await readdir(task))
+      if (name.endsWith("-pointer.json")) files.push(join(task, name));
+  }
   const hash = createHash("sha256");
   for (const path of [...new Set(files)].sort())
     hash
@@ -66,22 +78,48 @@ export async function calculationIdentity(market: "cn-equity" | "crypto") {
   return hash.digest("hex");
 }
 export async function json<T>(path: string): Promise<T> {
+  if (replayOnly && path === ".codex-runs/delivery.json")
+    path = ".codex-runs/delivery.R2a4.json";
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 export async function delivery(patch: Record<string, unknown>) {
-  const path = resolve(".codex-runs/delivery.json");
-  const current = await json<Record<string, unknown>>(path);
-  if (current.batch !== "R2a-4") throw new Error("Delivery ownership changed");
-  await writeFile(
-    path + ".pending",
-    JSON.stringify(
-      { ...current, ...patch, updatedAt: new Date().toISOString() },
-      null,
-      2,
-    ) + "\n",
-  );
-  await rename(path + ".pending", path);
+  if (replayOnly) return;
+  const lock = join(task, "delivery.lock");
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+  for (let attempt = 0; attempt < 250 && !handle; attempt++) {
+    try {
+      handle = await open(lock, "wx");
+      await handle.writeFile(String(process.pid));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+  if (!handle)
+    throw new Error(
+      "Delivery lock busy; checkpoint retained; inspect owner before recovery",
+    );
+  try {
+    const path = resolve(".codex-runs/delivery.json");
+    const current = await json<Record<string, unknown>>(path);
+    if (current.batch !== config.batch)
+      throw new Error("Delivery ownership changed");
+    const pending = `${path}.pending.${process.pid}`;
+    await writeFile(
+      pending,
+      JSON.stringify(
+        { ...current, ...patch, updatedAt: new Date().toISOString() },
+        null,
+        2,
+      ) + "\n",
+    );
+    await rename(pending, path);
+  } finally {
+    await handle.close();
+    await unlink(lock);
+  }
 }
+
 const predecessor = resolve(".test-data/r2a3/artifacts");
 const originalIndex = await json<{
   build: string;
@@ -127,7 +165,7 @@ export async function prior<T>(name: string): Promise<T> {
   return envelope.value;
 }
 export async function artifact(name: string, value: unknown) {
-  const root = join(task, "artifacts");
+  const root = join(outputTask, "artifacts");
   await mkdir(root, { recursive: true });
   const body = JSON.stringify(value);
   if (Buffer.byteLength(body) > 256 * 1024 ** 2)
@@ -139,16 +177,35 @@ export async function artifact(name: string, value: unknown) {
   for (const f of files)
     if (join(root, f) !== path) total += (await stat(join(root, f))).size;
   const oldFiles = await readdir(predecessor);
+  const extraRoots = [
+    ...new Set([
+      resolve(config.predecessor, "artifacts"),
+      resolve(".test-data/r2a5/replay-r2a4/artifacts"),
+    ]),
+  ].filter((p) => p !== root && p !== predecessor);
+  let extraFiles = 0,
+    extraBytes = 0;
+  for (const directory of extraRoots) {
+    try {
+      for (const name of await readdir(directory)) {
+        extraFiles++;
+        extraBytes += (await stat(join(directory, name))).size;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
   if (
     files.length +
       (files.includes(`${name}.json.gz`) ? 0 : 1) +
-      oldFiles.length >
+      oldFiles.length +
+      extraFiles >
     100
   )
     throw new Error("Combined artifact file budget exceeded");
   let oldTotal = 0;
   for (const f of oldFiles) oldTotal += (await stat(join(predecessor, f))).size;
-  if (total + oldTotal > 4 * 1024 ** 3)
+  if (total + oldTotal + extraBytes > 4 * 1024 ** 3)
     throw new Error("Combined artifact byte budget exceeded");
   await writeFile(path + ".pending", bytes);
   await rename(path + ".pending", path);
@@ -160,16 +217,48 @@ export async function readArtifact<T>(pointer: {
 }): Promise<T> {
   const path = resolve(pointer.path);
   if (
-    !path.startsWith(join(task, "artifacts") + "\\") &&
-    !path.startsWith(join(task, "artifacts") + "/")
+    ![task, resolve(config.predecessor), outputTask].some(
+      (root) =>
+        path.startsWith(join(root, "artifacts") + "\\") ||
+        path.startsWith(join(root, "artifacts") + "/"),
+    )
   )
     throw new Error("Artifact path escapes task");
-  const bytes = await readFile(path);
+  const bytes = await storedArtifactBytes(path);
   if (digest(bytes) !== pointer.sha256)
     throw new Error("R2a4 artifact hash mismatch");
   return JSON.parse(
     gunzipSync(bytes, { maxOutputLength: 256 * 1024 ** 2 }).toString(),
   ) as T;
+}
+let packedArtifact: { path: string; rows: Record<string, string> } | undefined;
+/** Preserve original gzip bytes and SHA when retired outputs are consolidated. */
+async function storedArtifactBytes(path: string): Promise<Buffer> {
+  try {
+    return await readFile(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const { dirname, basename } = await import("node:path");
+    const mapping = await json<
+      Record<string, { pack: string; sha256: string }>
+    >(join(dirname(path), "repacked.json"));
+    const entry = mapping[basename(path)];
+    if (!entry) throw error;
+    const pack = join(dirname(path), entry.pack);
+    if (packedArtifact?.path !== pack)
+      packedArtifact = {
+        path: pack,
+        rows: JSON.parse(
+          gunzipSync(await readFile(pack), {
+            maxOutputLength: 256 * 1024 ** 2,
+          }).toString(),
+        ) as Record<string, string>,
+      };
+    const bytes = Buffer.from(packedArtifact.rows[basename(path)]!, "base64");
+    if (digest(bytes) !== entry.sha256)
+      throw new Error("Repacked artifact SHA mismatch");
+    return bytes;
+  }
 }
 export type CompactInstrument = {
   symbol: string;
@@ -178,6 +267,8 @@ export type CompactInstrument = {
   sourceHash: string;
   adjustmentReference: string | null;
   actions: PortfolioInstrument["actions"];
+  lowFacts?: [string, number | null, number | null][];
+  lowObservations?: FrozenValidationInput["lowZones"][number]["observations"];
 };
 export type EquityManifest = {
   eligible: string[];
@@ -200,29 +291,11 @@ export function barsOf(row: CompactInstrument, signal = false): Bar[] {
 export function executionOf(
   symbol: string,
   bars: readonly Bar[],
+  actions: PortfolioInstrument["actions"] = [],
 ): PortfolioInstrument["execution"] {
-  return Object.fromEntries(
-    bars.map((bar, i) => {
-      const rules = equityResearchRules(symbol, bar.date),
-        previous = bars[i - 1]?.close;
-      return [
-        bar.date,
-        {
-          evidence: "Board-rule scenario; historical ST/IPO/queue unverified",
-          minimum: rules.minimum,
-          step: rules.step,
-          tradable: bar.volume > 0,
-          limitUp: previous
-            ? Math.round(previous * (1 + rules.limit) * 100) / 100
-            : null,
-          limitDown: previous
-            ? Math.round(previous * (1 - rules.limit) * 100) / 100
-            : null,
-        },
-      ];
-    }),
-  );
+  return (bar, previous) => researchExecutionAt(symbol, bar, previous, actions);
 }
+
 export function frozen(dataset: ValidationDataset): FrozenValidationInput {
   return {
     version: "research-validation-input-1",
@@ -254,8 +327,17 @@ export function frozen(dataset: ValidationDataset): FrozenValidationInput {
     ),
   };
 }
-export async function equity(subset?: readonly string[], includeRps = false) {
-  const manifest = await prior<EquityManifest>("equity-input");
+export async function equity(
+  subset?: readonly string[],
+  includeRps = false,
+  includeLow = false,
+) {
+  const manifest =
+    config.batch === "R2a-5"
+      ? await readArtifact<EquityManifest>(
+          await json(join(task, "equity-pointer.json")),
+        )
+      : await prior<EquityManifest>("equity-input");
   const rps = JSON.parse(await prior<string>("rps-root")) as {
     dates: string[];
     universe: FrozenValidationInput["universe"];
@@ -263,8 +345,13 @@ export async function equity(subset?: readonly string[], includeRps = false) {
   const selected = subset && new Set(subset);
   const instruments: PortfolioInstrument[] = [];
   const sources: ValidationDataset["sources"] = [];
+  const lowZones: FrozenValidationInput["lowZones"] = [];
   for (const shard of manifest.shards)
-    for (const row of await prior<CompactInstrument[]>(shard)) {
+    for (const row of config.batch === "R2a-5"
+      ? await readArtifact<CompactInstrument[]>(
+          await json(join(task, `${shard}-pointer.json`)),
+        )
+      : await prior<CompactInstrument[]>(shard)) {
       if (selected && !selected.has(row.symbol)) continue;
       const bars = barsOf(row),
         signalBars = barsOf(row, true);
@@ -283,12 +370,29 @@ export async function equity(subset?: readonly string[], includeRps = false) {
                 },
           ),
         }));
+      if (includeLow) {
+        external.lowZone =
+          row.lowFacts?.map(([date, pe, pb]) => ({
+            date,
+            availableAt: date,
+            pe,
+            pb,
+            temperature: null,
+            confidence: "approximate" as const,
+            source: "Frozen PIT-filtered TDX revisions; temperature missing",
+          })) ?? [];
+        if (row.lowObservations)
+          lowZones.push({
+            symbol: row.symbol,
+            observations: row.lowObservations,
+          });
+      }
       instruments.push({
         symbol: row.symbol,
         market: "cn-equity",
         bars,
         signalBars,
-        execution: executionOf(row.symbol, bars),
+        execution: executionOf(row.symbol, bars, row.actions),
         external,
         actions: row.actions,
       });
@@ -307,6 +411,7 @@ export async function equity(subset?: readonly string[], includeRps = false) {
     benchmarkName: "Frozen CSI300 raw index; no dividends",
   };
   const base = frozen(dataset);
+  base.lowZones = lowZones;
   base.universe = rps.universe;
   return { dataset, base, manifest };
 }

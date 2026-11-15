@@ -44,6 +44,7 @@ it("removes transfers and leaves fully unfunded days null, including after the f
     observations: [],
     transfers,
     terminalValuations: [],
+    corporateActions: [],
   };
   const request: PortfolioRequest = {
     market: "cn-equity",

@@ -8,6 +8,7 @@ import {
 import { AlertRepository } from "../../db/alert-repository";
 import { createAlertPlanSchema, createAlertPlan } from "../../alerts/plans";
 import { settings } from "../../infra/settings";
+import type { ShadowRegistration } from "../../alerts/shadow";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 export const alertsRouter = createTRPCRouter({
   alertStatus: p("alerts", "read").query(() => {
@@ -47,6 +48,10 @@ export const alertsRouter = createTRPCRouter({
           live: input.live,
           revision: randomUUID(),
         });
+        const shadowKey = `shadow:${strategy.id}:${strategy.version}`;
+        const shadow = repo.state<ShadowRegistration>(shadowKey);
+        if (input.live && shadow?.active)
+          repo.saveState(shadowKey, { ...shadow, active: false });
         repo.saveState(
           `universe:${strategy.id}:${strategy.version}`,
           input.candidates,

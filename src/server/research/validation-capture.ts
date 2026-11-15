@@ -17,7 +17,10 @@ import {
 } from "./validation-universe";
 import { captureLowZoneFinancials } from "./validation-financials";
 import { captureNativeChanObservations } from "../strategies/strategy-center-native";
-import { equityResearchRules } from "trading-strategy-core/market-rules";
+import {
+  researchCorporateActions,
+  researchExecutionEvidence,
+} from "./corporate-actions";
 import type { Bar } from "trading-strategy-core/bars";
 import type { ValidationInput } from "./validation-model";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
@@ -273,17 +276,14 @@ export async function captureValidationInput(
           throw new Error(
             "Delisted member retained in universe; settlement/terminal valuation evidence missing for executable replay",
           );
-        if (
-          events.some(
-            (e) =>
-              [11, 12, 13, 14].includes(e.category) ||
-              (e.category === 1 &&
-                ((e.bonusRatio ?? 0) > 0 || (e.rightsRatio ?? 0) > 0)),
-          )
-        )
-          throw new Error(
-            "Unsupported / unproven non-cash corporate action in evaluation interval",
-          );
+        const entitlements = actions
+          ? researchCorporateActions(
+              events,
+              actions.fingerprint,
+              input.start,
+              input.end,
+            )
+          : [];
         const execution: PortfolioInstrument["execution"] =
           input.market === "crypto"
             ? {
@@ -296,28 +296,7 @@ export async function captureValidationInput(
                 limitUp: null,
                 limitDown: null,
               }
-            : Object.fromEntries(
-                bars.map((bar, i) => {
-                  const rules = equityResearchRules(symbol, bar.date);
-                  const previous = bars[i - 1]?.close;
-                  return [
-                    bar.date,
-                    {
-                      evidence:
-                        "Board-rule scenario, historical ST/IPO/queue not certified",
-                      minimum: rules.minimum,
-                      step: rules.step,
-                      tradable: bar.volume > 0,
-                      limitUp: previous
-                        ? Math.round(previous * (1 + rules.limit) * 100) / 100
-                        : null,
-                      limitDown: previous
-                        ? Math.round(previous * (1 - rules.limit) * 100) / 100
-                        : null,
-                    },
-                  ];
-                }),
-              );
+            : researchExecutionEvidence(symbol, bars, entitlements);
         let lowZone: LowZoneFact[] = [];
         if (input.market === "cn-equity") {
           try {
@@ -346,15 +325,7 @@ export async function captureValidationInput(
           signalBars: completed,
           execution,
           external: { lowZone },
-          actions: events
-            .filter((e) => e.category === 1 && (e.dividend ?? 0) > 0)
-            .map((e) => ({
-              date: e.date,
-              dividend: e.dividend!,
-              bonus: 0,
-              availableAt: e.date,
-              evidence: `${actions!.fingerprint}; ex-date cash credit scenario, not payment-date certification`,
-            })),
+          actions: entitlements,
         });
         sources.push({
           symbol,

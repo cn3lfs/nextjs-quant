@@ -26,6 +26,17 @@ import type { Period, Bar } from "~/lib/domain";
 import { recordRuntimeError } from "../infra/runtime-errors";
 import { verifySecurityTradingStatus } from "../market/security-trading-status";
 import { currentTradingStatus } from "~/lib/market/security-trading-status";
+import {
+  appendShadowSamples,
+  assessShadow,
+  shadowBarCompletedAt,
+  type ShadowRegistration,
+  type ShadowProgress,
+  type ShadowSample,
+} from "./shadow";
+import { evaluateStrategySeries } from "../strategies/drivers/evaluation";
+import { corporateActions } from "../market/bar-store/corporate-actions";
+import { researchCorporateActions } from "../research/corporate-actions";
 
 export function systemWatch(
   id: string,
@@ -147,7 +158,7 @@ export async function evaluateAlertInputs(
     });
   };
   const strategies = repo
-    .liveStrategies()
+    .watchedStrategies()
     .filter(
       (s) =>
         s.market === market &&
@@ -158,6 +169,11 @@ export async function evaluateAlertInputs(
             : true),
     );
   for (const strategy of strategies) {
+    const shadow = repo.state<ShadowRegistration>(
+      `shadow:${strategy.id}:${strategy.version}`,
+    );
+    const shadowOnly = shadow?.active === true;
+    const fresh: ShadowSample[] = [];
     const registrationId = `strategy:${strategy.id}:${strategy.version}`;
     const registration = JSON.stringify(repo.state(registrationId));
     const configured =
@@ -180,6 +196,13 @@ export async function evaluateAlertInputs(
         const data = await series(symbol, strategy.period, true);
         const bar = data.bars.at(-1);
         if (!bar) continue;
+        const prospectiveCompletedAt = shadowBarCompletedAt(
+          market,
+          strategy.period,
+          bar.date,
+          data.completedAt(bar.date),
+        );
+        if (shadowOnly && prospectiveCompletedAt < shadow.startedAt) continue;
         const external: StrategyExternalInputs = {};
         const rules = [strategy.entry, strategy.exit?.rule].filter((r) => !!r);
         if (
@@ -236,6 +259,52 @@ export async function evaluateAlertInputs(
           bar.date,
           { membership: symbols },
         );
+        const completedAt = data.completedAt(bar.date);
+        if (
+          shadowOnly &&
+          completedAt >= shadow.startedAt &&
+          now >= completedAt &&
+          now - completedAt <= (phase === "close" ? 55 : 5) * 60000
+        ) {
+          const benchmarkData = await series(
+            market === "crypto" ? "BTCUSDT" : "sh000906",
+            strategy.period,
+          );
+          const benchmark = benchmarkData.rawBars.find(
+            (b) => b.date === bar.date,
+          );
+          const raw = data.rawBars.find((b) => b.date === bar.date);
+          const evaluation = evaluateStrategySeries(
+            strategy,
+            { ...data, external },
+            bar.date,
+          );
+          if (raw && benchmark && evaluation) {
+            const actions =
+              market === "cn-equity"
+                ? await corporateActions(config.tdxRoot)
+                : null;
+            fresh.push({
+              symbol,
+              bar: raw,
+              benchmark,
+              observedAt: now,
+              completedAt: prospectiveCompletedAt,
+              source: data.source,
+              entry: evaluation.decision.entry,
+              exit: evaluation.decision.exit,
+              stop: evaluation.decision.stopLevel,
+              actions: actions
+                ? researchCorporateActions(
+                    actions.events.get(symbol) ?? [],
+                    actions.fingerprint,
+                    bar.date,
+                    bar.date,
+                  )
+                : [],
+            });
+          }
+        }
         for (const event of events) {
           if (event.type === "entry" && bar.volume <= 0) continue;
           const status =
@@ -260,8 +329,13 @@ export async function evaluateAlertInputs(
             },
           );
           result.proposals.at(-1)!.authorize = (at) =>
-            JSON.stringify(repo.state(registrationId)) === registration &&
+            (shadowOnly
+              ? repo.state<ShadowRegistration>(
+                  `shadow:${strategy.id}:${strategy.version}`,
+                )?.active === true
+              : JSON.stringify(repo.state(registrationId)) === registration) &&
             (!status || currentTradingStatus(status, symbol, at));
+          result.proposals.at(-1)!.shadowOnly = shadowOnly;
           const nativeState = result.states.find(
             (s) =>
               s.id === `native:${strategy.id}:${strategy.version}:${symbol}`,
@@ -272,6 +346,61 @@ export async function evaluateAlertInputs(
       } catch (e) {
         error(symbol, e);
       }
+    }
+    if (shadowOnly && fresh.length) {
+      const key = `shadow-progress:${strategy.id}:${strategy.version}`;
+      const previous = repo.state<ShadowProgress>(key);
+      const next = appendShadowSamples(previous, shadow, fresh);
+      if (
+        previous &&
+        next.samples.length === previous.samples.length &&
+        next.paused === previous.paused
+      )
+        continue;
+      const freshObjects = new Set(fresh);
+      const authorize = (at: number) =>
+        repo.state<ShadowRegistration>(
+          `shadow:${strategy.id}:${strategy.version}`,
+        )?.active === true &&
+        fresh.every(
+          (s) =>
+            at >= s.completedAt &&
+            at - s.completedAt <= (phase === "close" ? 60 : 5) * 60000,
+        );
+      // Evaluate once per newly observed market day after the sample threshold.
+      if (
+        !next.assessment ||
+        new Date(next.assessment.at).toISOString().slice(0, 10) !==
+          new Date(now).toISOString().slice(0, 10)
+      )
+        next.assessment = assessShadow(
+          strategy,
+          shadow,
+          next,
+          now,
+          repo.records.days(),
+        );
+      result.states.push({
+        id: key,
+        value: next,
+        atCommit: (at) => ({
+          ...next,
+          samples: next.samples.map((s) =>
+            freshObjects.has(s) ? { ...s, observedAt: at } : s,
+          ),
+        }),
+        authorize,
+      });
+      result.states.push({
+        id: `shadow-summary:${strategy.id}:${strategy.version}`,
+        value: {
+          signals: next.signals,
+          days: next.days.length,
+          paused: next.paused,
+          assessment: next.assessment,
+        },
+        authorize,
+      });
     }
   }
   const exposure: Exposure[] = [];

@@ -1,13 +1,14 @@
 import {
   task,
+  config,
   json,
   artifact,
   delivery,
   digest,
   calculationIdentity,
-} from "./lib/research-r2a4";
-import { scoreBookSleeves } from "./lib/research-book-sleeves";
-import { mainEquity, mainCrypto } from "./lib/research-r2a4-main-inputs";
+} from "./context";
+import { scoreBookSleeves } from "../research-book-sleeves";
+import { mainEquity, mainCrypto } from "./main-inputs";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { researchCandidates, lowZoneCycles } from "trading-strategies";
@@ -22,10 +23,17 @@ import {
   projectCandidate,
   projectToExecutionClock,
   scoreValidationResult,
-} from "../src/server/research/validation-replay";
-import type { CandidateCheckpoint } from "../src/server/research/validation-scale";
+} from "../../../src/server/research/validation-replay";
+import type { CandidateCheckpoint } from "../../../src/server/research/validation-scale";
 
+import {
+  sizeCryptoResearch,
+  type ResearchSizing,
+} from "../../../src/server/research/crypto-sizing";
 const mode = process.argv[2];
+const sizing = (process.argv[3] ?? "equal") as ResearchSizing;
+const suffix =
+  mode === "crypto" && config.batch === "R2a-5" ? `-${sizing}` : "";
 if (!["cn", "crypto"].includes(mode ?? "")) throw new Error("Pass cn|crypto");
 const presets = await json<{ declaredAt: string }>(
   join(task, "book-presets.json"),
@@ -78,6 +86,10 @@ if (mode === "cn") {
     dataset,
     4,
   );
+}
+if (mode === "crypto" && config.batch === "R2a-5") {
+  primary = sizeCryptoResearch(primary, sizing);
+  secondary = sizeCryptoResearch(secondary, sizing);
 }
 const instruments = primary.instruments.map((i) => {
   const other = secondary.instruments.find((x) => x.symbol === i.symbol)!;
@@ -134,15 +146,17 @@ const allocations =
       ];
 const policy = {
   ...base.input.policy,
-  holdoutStart: "2025-06-01",
+  holdoutStart: config.holdoutStart,
   trainBars: Math.max(20, Math.floor(dataset.dates.length * 0.4)),
   testBars: Math.max(5, Math.floor(dataset.dates.length * 0.1)),
 };
 const identity = digest(
   JSON.stringify({
+    mode,
+    sizing,
     build: await calculationIdentity(base.input.market),
-    script: digest(await readFile("scripts/research-r2a4-books.ts")),
-    loader: digest(await readFile("scripts/lib/research-r2a4-main-inputs.ts")),
+    script: digest(await readFile("scripts/lib/research/books.ts")),
+    loader: digest(await readFile("scripts/lib/research/main-inputs.ts")),
     sleeveAccounting: digest(
       await readFile("scripts/lib/research-book-sleeves.ts"),
     ),
@@ -168,14 +182,25 @@ for (const allocation of allocations) {
   ];
   const request: PortfolioRequest = {
     ...primary,
+    ...(config.batch === "R2a-5"
+      ? { observationDetail: "counts" as const }
+      : {}),
     instruments,
     strategies: [...primary.strategies, ...secondary.strategies],
     costs: marketRules[primary.market].costs!,
     sleeves,
+    ...(primary.positionWeights || secondary.positionWeights
+      ? {
+          positionWeights: [
+            ...(primary.positionWeights ?? []),
+            ...(secondary.positionWeights ?? []),
+          ],
+        }
+      : {}),
     rebalance: { everyBars: 20, drift: 0.05 },
     ...(allocation.dynamic ? { sleeveTargets: dynamicTargets() } : {}),
   };
-  const id = `book-${mode}-${allocation.name}`;
+  const id = `book-${mode}-${allocation.name}${suffix}`;
   const records = new Map<string, Map<string, ValidationScore>>();
   const key = (r: PortfolioRequest) =>
     JSON.stringify([r.start, r.end, r.costs, r.signalDelayBars ?? 0]);
@@ -253,7 +278,7 @@ for (const allocation of allocations) {
     checkpoints.push({
       row: {
         ...marketRow,
-        id: `sleeve-${mode}-${allocation.name}-${sleeve.id}`,
+        id: `sleeve-${mode}-${allocation.name}${suffix}-${sleeve.id}`,
         family: `sleeve-${mode}-${sleeve.id}`,
         inSample: find(
           dataset.dates[0]!,
@@ -302,8 +327,10 @@ for (const allocation of allocations) {
     accounting:
       "Actual shared account, transfer-adjusted conditional sleeve TWR; inactive pre-funding days null; never standalone weighted averages",
   });
-  const pointer = await artifact(`books-${mode}`, {
+  const pointer = await artifact(`books-${mode}${suffix}`, {
     identity,
+    mode,
+    sizing,
     policy,
     checkpoints,
     books,
@@ -315,7 +342,7 @@ for (const allocation of allocations) {
         : [],
   });
   await writeFile(
-    join(task, `books-${mode}-progress.json`),
+    join(task, `books-${mode}${suffix}-progress.json`),
     JSON.stringify(
       { identity, pointer, complete: books.length === allocations.length },
       null,

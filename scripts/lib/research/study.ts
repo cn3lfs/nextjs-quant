@@ -1,5 +1,6 @@
 import {
   task,
+  config,
   prior,
   json,
   artifact,
@@ -12,7 +13,8 @@ import {
   digest,
   calculationIdentity,
   type CompactInstrument,
-} from "./lib/research-r2a4";
+} from "./context";
+import { isDeepStrictEqual } from "node:util";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -27,19 +29,24 @@ import type { Bar } from "trading-strategy-core/bars";
 import type {
   FrozenValidationInput,
   ValidationDataset,
-} from "../src/server/research/validation-capture";
+} from "../../../src/server/research/validation-capture";
 import {
   projectCandidate,
   numericNeighbors,
   scoreValidationResult,
-} from "../src/server/research/validation-replay";
+} from "../../../src/server/research/validation-replay";
 import {
   runCandidateCheckpoint,
   type CandidateCheckpoint,
-} from "../src/server/research/validation-scale";
-import { readPublicData } from "../src/server/data-sources/binance/public-data-store";
-import { auditPortfolio } from "../tests/helpers/portfolio-execution-audit";
+} from "../../../src/server/research/validation-scale";
+import { readPublicData } from "../../../src/server/data-sources/binance/public-data-store";
+import { auditPortfolio } from "../../../tests/helpers/portfolio-execution-audit";
 
+import {
+  sizeCryptoResearch,
+  type ResearchSizing,
+} from "../../../src/server/research/crypto-sizing";
+const sizing = (process.argv[4] ?? "equal") as ResearchSizing;
 const mode = process.argv[2],
   family = process.argv[3];
 if (!family)
@@ -101,10 +108,14 @@ async function attachLow(
   });
 }
 if (mode === "cn") {
-  ({ dataset, base } = await equity(csi.symbols, family === "rps-multi"));
+  ({ dataset, base } = await equity(
+    csi.symbols,
+    family === "rps-multi",
+    family === "historical-low",
+  ));
   dataset.benchmark = csi.benchmark.bars;
   dataset.benchmarkName = "CSI800000906 raw index, no dividends";
-  if (family === "historical-low")
+  if (family === "historical-low" && config.batch === "R2a-4")
     await attachLow(dataset, base, csi.benchmark.bars);
   if (family === "chan-third-buy") {
     const progress = await json<{ chunks: { path: string; sha256: string }[] }>(
@@ -152,7 +163,7 @@ if (mode === "cn") {
       );
     const view = await readPublicData(symbol, interval, {
       root: coverage.root,
-      now: Date.parse("2026-11-14T00:00:00Z"),
+      now: Date.parse(config.end) + 86400000,
     });
     const bars = view.rows.map((r) => r.bar);
     instruments.push({
@@ -254,19 +265,23 @@ const scope =
     : mode === "crypto"
       ? "btc-eth"
       : "all-market-sensitivity";
-const name = `${scope}-${family}`;
+const name = `${scope}-${family}${mode === "crypto" && config.batch === "R2a-5" ? `-${sizing}` : ""}`;
 const progressPath = join(task, `${name}-progress.json`);
 const identity = digest(
   JSON.stringify({
     calculationBuild: await calculationIdentity(base.input.market),
     mode,
     family,
+    sizing,
     sources: dataset.sources,
     dates: dataset.dates,
     benchmark: dataset.benchmark.map((b) => [b.date, b.open, b.close]),
     menu: candidates,
   }),
 );
+const admission = process.env.QUANT_RESEARCH_ADMISSION === "1";
+let sourceIdentity = "";
+let originalGroup: Record<string, unknown> | undefined;
 let checkpoints: CandidateCheckpoint[] = [],
   sensitivity: unknown[] = [];
 try {
@@ -274,12 +289,16 @@ try {
     identity: string;
     pointer: { path: string; sha256: string };
   }>(progressPath);
-  if (saved.identity !== identity)
-    throw new Error("Research input changed on resume");
+  sourceIdentity = saved.identity;
+  if (saved.identity !== identity && !admission)
+    throw new Error(
+      "Research input changed on resume; explicit admit requires exact frozen financial parity",
+    );
   const content = await readArtifact<{
     checkpoints: CandidateCheckpoint[];
     sensitivity: unknown[];
   }>(saved.pointer);
+  originalGroup = content as unknown as Record<string, unknown>;
   checkpoints = content.checkpoints;
   sensitivity = content.sensitivity;
 } catch (e) {
@@ -288,14 +307,148 @@ try {
 const cache = new Map();
 const policy = {
   ...base.input.policy,
-  holdoutStart: mode === "sensitivity" ? undefined : "2025-06-01",
+  holdoutStart: mode === "sensitivity" ? undefined : config.holdoutStart,
   trainBars: Math.max(20, Math.floor(dataset.dates.length * 0.4)),
   testBars: Math.max(5, Math.floor(dataset.dates.length * 0.1)),
 };
+if (admission) {
+  if (
+    config.batch !== "R2a-5" ||
+    mode === "sensitivity" ||
+    !originalGroup ||
+    !checkpoints.length
+  )
+    throw new Error("Admission requires a frozen R2a5 candidate checkpoint");
+  const baseline = await readArtifact<{
+    inputs: Record<string, string>;
+    rows: Record<
+      string,
+      {
+        progress: { identity: string; pointer: { sha256: string } };
+        bytes: string;
+      }
+    >;
+  }>(await json(join(task, "score-mode-baseline-pointer.json")));
+  for (const [name, hash] of Object.entries(baseline.inputs))
+    if (digest(await readFile(join(task, name))) !== hash)
+      throw new Error("Captured input pointer changed; admission forbidden");
+  const original = baseline.rows[`${name}-progress.json`];
+  if (!original || original.progress.identity !== sourceIdentity)
+    throw new Error("Admission baseline identity mismatch");
+  if (
+    digest(Buffer.from(original.bytes, "base64")) !==
+    original.progress.pointer.sha256
+  )
+    throw new Error("Admission baseline bytes changed");
+  const compared = [];
+  for (const old of checkpoints) {
+    const originalId = old.row.id.replace(/-sizing-(equal|volatility)/, "");
+    const candidate = candidates.find((c) => c.strategy.id === originalId);
+    if (!candidate) throw new Error("Frozen candidate is missing");
+    console.log(
+      JSON.stringify({
+        phase: "admit-start",
+        id: old.row.id,
+        at: new Date().toISOString(),
+      }),
+    );
+    const projected = projectCandidate(
+      candidate,
+      dataset,
+      base,
+      cache,
+      (done, total) =>
+        console.log(
+          JSON.stringify({ phase: "prepare-admission", done, total }),
+        ),
+    );
+    if (!projected) throw new Error("Missing projection during admission");
+    if (mode === "crypto") {
+      projected.request = sizeCryptoResearch(projected.request, sizing);
+      projected.id = old.row.id;
+    }
+    const next = runCandidateCheckpoint(projected, dataset, policy);
+    const financial = (p: CandidateCheckpoint) =>
+      JSON.parse(
+        JSON.stringify({
+          row: p.row,
+          training: p.training,
+          fullPeriod: p.fullPeriod,
+        }),
+      );
+    if (!isDeepStrictEqual(financial(old), financial(next))) {
+      await writeFile(
+        join(task, `${name}-admission-failed.json`),
+        JSON.stringify({ old: financial(old), next: financial(next) }, null, 2),
+      );
+      throw new Error(
+        "Exact frozen financial parity failed; old checkpoint retained",
+      );
+    }
+    compared.push({
+      id: old.row.id,
+      previousMs: old.elapsedMs,
+      currentMs: next.elapsedMs,
+      exact: true,
+    });
+    console.log(
+      JSON.stringify({
+        phase: "admit-exact",
+        ...compared.at(-1),
+        at: new Date().toISOString(),
+      }),
+    );
+  }
+  const pointer = await artifact(name, { ...originalGroup, identity });
+  await writeFile(
+    progressPath,
+    JSON.stringify(
+      {
+        identity,
+        pointer,
+        complete: checkpoints.length === 9,
+        admission: { sourceIdentity, compared },
+      },
+      null,
+      2,
+    ),
+  );
+  await writeFile(
+    join(task, `${name}-admission.json`),
+    JSON.stringify(
+      {
+        sourceIdentity,
+        identity,
+        compared,
+        financialTolerance: 0,
+        inputPointersVerified: Object.keys(baseline.inputs).length,
+      },
+      null,
+      2,
+    ),
+  );
+  await delivery({
+    scoreModeParity: {
+      scope,
+      family,
+      compared: compared.length,
+      exact: true,
+      evidence: `${name}-admission.json`,
+    },
+    nextStart: `Resume ${name}; all existing checkpoint numbers exactly reproduced with current scoring detail`,
+  });
+  process.exit(0);
+}
 for (const c of candidates) {
   if (
     mode !== "sensitivity" &&
-    checkpoints.some((p) => p.row.id === c.strategy.id)
+    checkpoints.some(
+      (p) =>
+        p.row.id ===
+        (mode === "crypto" && config.batch === "R2a-5"
+          ? c.strategy.id.replace(/(-neighbor-\d+)?$/, `-sizing-${sizing}$1`)
+          : c.strategy.id),
+    )
   )
     continue;
   if (
@@ -312,8 +465,25 @@ for (const c of candidates) {
       at: new Date().toISOString(),
     }),
   );
-  const projected = projectCandidate(c, dataset, base, cache);
+  const projected = projectCandidate(c, dataset, base, cache, (done, total) =>
+    console.log(
+      JSON.stringify({
+        phase: "prepare-rules",
+        id: c.strategy.id,
+        done,
+        total,
+        at: new Date().toISOString(),
+      }),
+    ),
+  );
   if (!projected) throw new Error("Projected inputs unavailable");
+  if (mode === "crypto" && config.batch === "R2a-5") {
+    projected.request = sizeCryptoResearch(projected.request, sizing);
+    projected.id = c.strategy.id.replace(
+      /(-neighbor-\d+)?$/,
+      `-sizing-${sizing}$1`,
+    );
+  }
   if (mode === "sensitivity") {
     const old = await prior<{ checkpoints: CandidateCheckpoint[] }>(
       `candidate-${family === "historical-low" ? "cnlowzone" : "cnswing"}-${family}`,

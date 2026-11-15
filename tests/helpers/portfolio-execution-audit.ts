@@ -64,9 +64,11 @@ export function auditPortfolio(
     const key = JSON.stringify([fill.strategyId, fill.symbol]);
     const held = positions.get(key);
     const execution: PortfolioExecution | undefined =
-      "evidence" in source.execution
-        ? (source.execution as PortfolioExecution)
-        : source.execution[fill.date];
+      typeof source.execution === "function"
+        ? source.execution(bar, source.bars[index - 1])
+        : "evidence" in source.execution
+          ? (source.execution as PortfolioExecution)
+          : source.execution[fill.date];
     let reference = bar.open;
     if (fill.side === "sell" && order.signalAt === fill.date) {
       const trail = strategy.exit.trailing

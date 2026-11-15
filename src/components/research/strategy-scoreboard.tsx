@@ -54,9 +54,34 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
     cell: ({ row }) => (
       <div className="max-w-96 text-xs">
         <p>
-          {row.original.status === "live-candidate" ? "可监视候选" : "研究"} ·
-          闭合交易 {row.original.trades}
+          {row.original.status === "live-candidate"
+            ? "可监视候选"
+            : row.original.status === "shadow-candidate"
+              ? row.original.shadow?.active === false
+                ? "影子观察已结束"
+                : "影子前推中"
+              : "研究"}{" "}
+          · 闭合交易 {row.original.trades}
         </p>
+        {row.original.shadow && (
+          <p>
+            开始{" "}
+            {new Date(row.original.shadow.startedAt).toLocaleDateString(
+              "zh-CN",
+            )}{" "}
+            · 前推 {row.original.shadow.signals} 个信号 /{" "}
+            {row.original.shadow.days} 日
+            {row.original.shadow.paused ? " · 容量已达上限，已暂停采集" : ""}；
+            {row.original.shadow.assessment?.recommendation ??
+              "达到30个信号或60日后评估"}
+          </p>
+        )}
+        {row.original.dsr && (
+          <p>
+            市场DSR {row.original.dsr.value?.toFixed(3) ?? "—"} · 全局DSR{" "}
+            {row.original.globalDsr?.value?.toFixed(3) ?? "—"}（诊断）
+          </p>
+        )}
         <p>
           {row.original.bias.universe}；{row.original.bias.adjustment}；
           {row.original.bias.financial}；{row.original.bias.execution}
@@ -91,7 +116,7 @@ export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
       sort: sort?.id === "excess" || sort?.id === "drawdown" ? sort.id : "id",
       descending: sort?.desc ?? false,
     },
-    { enabled },
+    { enabled, refetchInterval: enabled ? 60000 : false },
   );
   return (
     <section className="space-y-4" aria-label="策略研究成绩单">
@@ -108,7 +133,7 @@ export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
         ]}
       />
       <p className="text-sm text-muted-foreground">
-        候选显示末段留出诊断（与滚动样本外重叠），分仓与组合显示全期描述回放。通过门槛才标记可监视候选；成绩单不会开启实时提醒。价格、证券池与成交证据缺口仍适用，规则自检不等于可信业绩。
+        留出诊断已用于研究迭代，不能再视为新的样本外。影子候选从登记后积累前推观察，保持零投递；达到30个信号或60个实际观察市场日后按同一门槛给建议。开启live和订阅仍须手动设置。价格、证券池与成交证据缺口继续适用。
       </p>
       {report.data?.metadata && (
         <p className="break-all text-xs text-muted-foreground">

@@ -1,4 +1,8 @@
-import { runPortfolio, type PortfolioRequest } from "./portfolio-engine.js";
+import {
+  runPortfolio,
+  createPortfolioPreparation,
+  type PortfolioRequest,
+} from "./portfolio-engine.js";
 import { marketRules } from "trading-strategy-core/market-rules";
 
 export type ValidationScore = {
@@ -217,6 +221,14 @@ export function runValidationSuite(
       !Number.isFinite(Date.parse(policy.holdoutStart)))
   )
     throw new Error("Invalid holdout start");
+  let prefix:
+    | {
+        candidate: ValidationCandidate;
+        end: string;
+        request: PortfolioRequest;
+        preparation: ReturnType<typeof createPortfolioPreparation>;
+      }
+    | undefined;
   const run = (
     candidate: ValidationCandidate,
     start: string,
@@ -227,8 +239,57 @@ export function runValidationSuite(
     const original = candidate.request;
     const costs = original.costs ?? marketRules[original.market].costs;
     if (!costs) throw new Error("Missing market cost assumptions");
+    if (prefix?.candidate !== candidate || prefix.end !== end) {
+      const frozenPrefix: PortfolioRequest = {
+        ...original,
+        start,
+        end,
+        calendar: original.calendar.filter((d) => d.slice(0, 10) <= end),
+        instruments: original.instruments.map((instrument) => ({
+          ...instrument,
+          bars: instrument.bars.filter((b) => b.date.slice(0, 10) <= end),
+          signalBars: instrument.signalBars.filter(
+            (b) => b.date.slice(0, 10) <= end,
+          ),
+          actions: instrument.actions?.filter((a) => a.date <= end),
+          external: instrument.external && {
+            ...instrument.external,
+            rps: instrument.external.rps?.filter(
+              (r) => r.date.slice(0, 10) <= end,
+            ),
+            chan: instrument.external.chan?.filter(
+              (r) => r.date.slice(0, 10) <= end,
+            ),
+            signals: instrument.external.signals?.filter(
+              (r) => r.date.slice(0, 10) <= end,
+            ),
+            levels: instrument.external.levels?.filter(
+              (r) => r.date.slice(0, 10) <= end,
+            ),
+            lowZone: instrument.external.lowZone?.filter(
+              (r) => r.date.slice(0, 10) <= end,
+            ),
+          },
+        })),
+        positionWeights: original.positionWeights?.filter(
+          (w) => w.date.slice(0, 10) <= end,
+        ),
+        memberships: original.memberships?.filter(
+          (m) => m.date.slice(0, 10) <= end,
+        ),
+        sleeveTargets: original.sleeveTargets?.filter(
+          (t) => t.date.slice(0, 10) <= end,
+        ),
+      };
+      prefix = {
+        candidate,
+        end,
+        request: frozenPrefix,
+        preparation: createPortfolioPreparation(),
+      };
+    }
     const request: PortfolioRequest = {
-      ...original,
+      ...prefix.request,
       start,
       end,
       signalDelayBars: delay,
@@ -238,41 +299,8 @@ export function runValidationSuite(
           typeof value === "number" ? value * costMultiplier : value,
         ]),
       ) as typeof costs,
-      calendar: original.calendar.filter((d) => d.slice(0, 10) <= end),
-      instruments: original.instruments.map((instrument) => ({
-        ...instrument,
-        bars: instrument.bars.filter((b) => b.date.slice(0, 10) <= end),
-        signalBars: instrument.signalBars.filter(
-          (b) => b.date.slice(0, 10) <= end,
-        ),
-        actions: instrument.actions?.filter((a) => a.date <= end),
-        external: instrument.external && {
-          ...instrument.external,
-          rps: instrument.external.rps?.filter(
-            (r) => r.date.slice(0, 10) <= end,
-          ),
-          chan: instrument.external.chan?.filter(
-            (r) => r.date.slice(0, 10) <= end,
-          ),
-          signals: instrument.external.signals?.filter(
-            (r) => r.date.slice(0, 10) <= end,
-          ),
-          levels: instrument.external.levels?.filter(
-            (r) => r.date.slice(0, 10) <= end,
-          ),
-          lowZone: instrument.external.lowZone?.filter(
-            (r) => r.date.slice(0, 10) <= end,
-          ),
-        },
-      })),
-      memberships: original.memberships?.filter(
-        (m) => m.date.slice(0, 10) <= end,
-      ),
-      sleeveTargets: original.sleeveTargets?.filter(
-        (t) => t.date.slice(0, 10) <= end,
-      ),
     };
-    return score(runPortfolio(request), request);
+    return score(runPortfolio(request, undefined, prefix.preparation), request);
   };
   const stress = (
     c: ValidationCandidate,

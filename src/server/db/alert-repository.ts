@@ -49,6 +49,13 @@ export class AlertRepository {
         this.state<{ live: boolean }>(`strategy:${s.id}:${s.version}`)?.live,
     );
   }
+  watchedStrategies() {
+    return this.definitions().filter(
+      (s) =>
+        this.state<{ live: boolean }>(`strategy:${s.id}:${s.version}`)?.live ||
+        this.state<{ active: boolean }>(`shadow:${s.id}:${s.version}`)?.active,
+    );
+  }
   event(key: string): AlertEvent | null {
     const row = this.db
       .prepare(

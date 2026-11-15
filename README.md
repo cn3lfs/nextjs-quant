@@ -44,6 +44,10 @@ pnpm desktop:pack
 
 ## 数据与研究
 
+配置化历史研究入口为 `pnpm exec tsx scripts/research.ts <子命令> --config research/configs/r2a5.json`。先将 `QUANT_DATA_DIR` 设为仓库内 `.test-data/r2a5/data` 的绝对路径；子命令包括 `capture prepare|rps|equity`、`study cn <族>`、`study crypto <族> equal|volatility`、`books cn|crypto`、`cycles`、`audit`、`sensitivity`、`benchmark`、`scoreboard`、`report`。结果与限制见[成绩单](docs/research/2026-11-scoreboard.md)。
+
+冻结 R2a-4 只读重放用 `replay --config research/configs/r2a4.json`，隔离目录须改为 `.test-data/r2a5/replay-r2a4/data`；完整成绩单 JSON 必须逐项一致才算通过。检查点不匹配时停止，禁止跳过身份核验。研究与影子登记不更改默认份额、提醒模式或订阅，不自动开启 live。
+
 - 本地 A 股日线 `.day`、五分钟线 `.lc5` 只读解析；支持旧分钟线的 32 年年份回绕与当前 360 字节 TNF 名称目录。其他 TNF 版本保留证券代码，不猜名称。
 - 仅按 A 股价格单位解析。北交所支持相应证券代码；ETF、指数、期货尚未进入本地筛选池。
 - 日线和分钟线不是同一覆盖范围，页面明确标注来源和最后日期。旧文件不会触发今日通知。

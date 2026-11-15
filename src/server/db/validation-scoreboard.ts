@@ -1,4 +1,7 @@
-import { get, put } from "./index";
+import { get, put, atomic } from "./index";
+import { AlertRepository } from "./alert-repository";
+import type { ShadowRegistration, ShadowSummary } from "../alerts/shadow";
+import { selectShadowCandidates } from "../research/shadow-selection";
 import {
   scoreboardQuerySchema,
   type ScoreboardRow,
@@ -15,8 +18,55 @@ export type ValidationScoreboard = {
   runtimeMs: number;
   universe: string;
   gaps: string[];
+  trialSharpes?: { value: number | null; reason: string | null }[];
 };
 export function saveValidationScoreboard(value: ValidationScoreboard) {
+  return atomic(() => persistValidationScoreboard(value));
+}
+function persistValidationScoreboard(value: ValidationScoreboard) {
+  const repo = new AlertRepository();
+  const selected = value.trialSharpes ? selectShadowCandidates(value.rows) : [];
+  const selectedIds = new Set(selected.map((r) => r.id));
+  for (const strategy of value.trialSharpes
+    ? repo.definitions().filter((s) => s.market === value.market)
+    : []) {
+    const key = `shadow:${strategy.id}:${strategy.version}`;
+    const previous = repo.state<ShadowRegistration>(key);
+    if (previous?.active && !selectedIds.has(strategy.id))
+      repo.saveState(key, { ...previous, active: false });
+  }
+  value = {
+    ...value,
+    rows: value.rows.map((row) =>
+      selectedIds.has(row.id) ||
+      (!value.trialSharpes &&
+        repo.state<ShadowRegistration>(`shadow:${row.id}:1`)?.active === true)
+        ? { ...row, status: "shadow-candidate" }
+        : row,
+    ),
+  };
+  for (const row of selected) {
+    const strategy = repo.strategies.strategy(row.id, 1);
+    if (!strategy)
+      throw new Error("Shadow candidate lacks registered strategy");
+    const key = `shadow:${row.id}:1`;
+    const previous = repo.state<ShadowRegistration>(key);
+    if (!previous)
+      repo.saveState<ShadowRegistration>(key, {
+        startedAt: value.createdAt,
+        status: "shadow-candidate",
+        active: true,
+        trialSharpes: value.trialSharpes!,
+        neighbors: row.trainingNeighbors ?? [],
+        sizing: row.id.includes("sizing-volatility")
+          ? "volatility"
+          : row.market === "crypto"
+            ? "equal"
+            : "legacy",
+        completeMarketCycles: 0,
+        lowZoneCorroborated: false,
+      });
+  }
   for (const row of value.rows.filter((r) => r.level === "strategy"))
     put("strategy-qualification", `strategy-qualification-${row.id}`, {
       status: row.status,
@@ -51,6 +101,24 @@ export function validationScoreboardPage(raw: unknown) {
   return {
     metadata,
     total: rows.length,
-    rows: sorted.slice(query.page * 20, (query.page + 1) * 20),
+    rows: sorted.slice(query.page * 20, (query.page + 1) * 20).map((row) => {
+      if (row.status !== "shadow-candidate") return row;
+      const repo = new AlertRepository();
+      const registration = repo.state<ShadowRegistration>(`shadow:${row.id}:1`);
+      const progress = repo.state<ShadowSummary>(`shadow-summary:${row.id}:1`);
+      return {
+        ...row,
+        shadow: registration
+          ? {
+              active: registration.active,
+              startedAt: registration.startedAt,
+              signals: progress?.signals ?? 0,
+              days: progress?.days ?? 0,
+              paused: progress?.paused ?? false,
+              assessment: progress?.assessment ?? null,
+            }
+          : undefined,
+      };
+    }),
   };
 }

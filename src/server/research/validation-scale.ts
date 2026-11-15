@@ -26,6 +26,10 @@ export function runCandidateCheckpoint(
   policy: ValidationPolicy,
 ): CandidateCheckpoint {
   const started = performance.now();
+  candidate = {
+    ...candidate,
+    request: { ...candidate.request, observationDetail: "counts" },
+  };
   const suite = runValidationSuite(
     [candidate],
     dataset.dates,
