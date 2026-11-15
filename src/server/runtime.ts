@@ -14,6 +14,7 @@ const scope = globalThis as typeof globalThis & {
   quantRuntimeStarted?: boolean;
   quantCryptoTicking?: boolean;
   quantDeliveriesRecovered?: boolean;
+  quantPaperTicking?: boolean;
 };
 export function startRuntime() {
   if (scope.quantRuntimeStarted) return;
@@ -83,5 +84,15 @@ export async function tick() {
     await tickAlerts();
   } catch (error) {
     recordRuntimeError("alert-engine", error);
+  }
+  if (!scope.quantPaperTicking) {
+    scope.quantPaperTicking = true;
+    void runWorker({ type: "paper-tick", now: Date.now() })
+      .catch((error) => {
+        recordRuntimeError("scheduler-tick", error);
+      })
+      .finally(() => {
+        scope.quantPaperTicking = false;
+      });
   }
 }

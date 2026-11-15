@@ -57,6 +57,7 @@ export const alertKinds = [
   "regime",
   "allocation",
   "missed",
+  "paper-fill",
 ] as const;
 export type AlertMode = (typeof alertModes)[number];
 export type AlertKind = (typeof alertKinds)[number];
@@ -71,6 +72,7 @@ export const alertKindLabels: Record<AlertKind, string> = {
   regime: "市场状态",
   allocation: "分仓偏离",
   missed: "错过窗口",
+  "paper-fill": "纸面成交（模拟）",
 };
 export type AlertEvent = {
   key: string;
@@ -97,6 +99,7 @@ export type AlertEvent = {
   postClose?: boolean;
   firstWatchPayload?: string;
   confirmation?: { price: number | null; source: string };
+  paperFillId?: string;
 };
 export const alertSubscriptionSchema = z.object({
   id: z.string().min(1).max(100),
@@ -131,7 +134,7 @@ export type AlertHistoryInput = z.infer<typeof alertHistorySchema>;
 export const alertKey = (
   event: Pick<
     AlertEvent,
-    "strategyId" | "version" | "market" | "symbol" | "bar"
+    "strategyId" | "version" | "market" | "symbol" | "bar" | "paperFillId"
   >,
 ) =>
   JSON.stringify([
@@ -140,4 +143,5 @@ export const alertKey = (
     event.market,
     event.symbol,
     event.bar,
+    ...(event.paperFillId ? ["paper-fill", event.paperFillId] : []),
   ]);

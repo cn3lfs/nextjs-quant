@@ -327,9 +327,9 @@ td,
 .sidebar {
   width: var(--nc-sidebar-width);
   flex: none;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: relative;
+  min-height: 100vh;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 18px;

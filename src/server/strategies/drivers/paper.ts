@@ -1,6 +1,12 @@
 import type { StrategyObjectInput } from "trading-strategies";
 import { watchStrategy } from "./watch";
 import type { StrategySeries } from "./evaluation";
+import { runPortfolio, type PortfolioRequest } from "quant-backtest";
+
+/** Local paper accounting uses the exact backtest execution and account rules. */
+export function runPaperPortfolio(request: PortfolioRequest) {
+  return runPortfolio(request);
+}
 /** Intent only: the account owner must persist admission before any adapter write. */
 export function paperStrategy(
   strategy: StrategyObjectInput,

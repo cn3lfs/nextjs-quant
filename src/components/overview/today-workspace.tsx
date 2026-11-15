@@ -9,6 +9,7 @@ import { Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { CandidateTable } from "./candidate-table";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import { PaperFacts } from "../portfolio/paper-accounts-panel";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -78,7 +79,7 @@ function DailyDecision() {
           <h2 className="text-lg font-semibold">今日决策</h2>
           <p className="text-xs text-nc-text-3">
             截至 {new Date(d.now).toLocaleString("zh-CN")} · 提醒 {d.mode} ·
-            仅提醒，不自动交易
+            提醒与本地模拟记账；真实交易由用户操作
           </p>
         </div>
         <Button asChild>
@@ -142,6 +143,12 @@ function DailyDecision() {
           </div>
         </Panel>
       </div>
+      <section className="rounded-lg border bg-nc-card p-4">
+        <h2 className="mb-3 text-lg font-semibold text-nc-accent">
+          今日模拟账户变化
+        </h2>
+        <PaperFacts today />
+      </section>
       <section
         id="tomorrow"
         aria-label="明日计划"

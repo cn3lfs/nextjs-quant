@@ -1,5 +1,9 @@
 # 当前实施计划
 
+## 已完成：R2c 纸面模拟交易（待管理者验收）
+
+布局、纸面记账/补推、冻结登记、可选模拟镜像及四工作区入口完成。交付检查与限制见 `.codex-runs/delivery.json`；管理者接手真实库备份、schema17部署与后续自然时间观察，验收后运行 `.test-data/r2c/cleanup.ps1` 预演及明确应用。无自然前推样本被本批测试补造，默认影子和镜像关闭，不降低旧版本保护。
+
 更新：2026-11-15。范围以 [roadmap](roadmap.md)、[P0–P5 方案](optimization-plan-2026-11-13.md)和用户最新授权为准；本批验证见 `.codex-runs/delivery.json`，历史优化验证见[优化交付](deliveries/2026-11-13-optimization.md)。
 
 ## 已完成：R3a 交易日工作区（待管理者验收）

@@ -139,6 +139,29 @@ const migrations = [
    DROP TABLE watch_events;
    ALTER TABLE watch_events_v16 RENAME TO watch_events;
    CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
+  `CREATE TABLE paper_accounts (
+    id TEXT PRIMARY KEY, market TEXT NOT NULL CHECK(market IN ('cn-equity','crypto')),
+    sleeve TEXT NOT NULL, started_at INTEGER NOT NULL, revision INTEGER NOT NULL,
+    payload TEXT NOT NULL CHECK(json_valid(payload)));
+   CREATE TABLE paper_state (account_id TEXT PRIMARY KEY REFERENCES paper_accounts(id),
+    payload TEXT NOT NULL CHECK(json_valid(payload)));
+   CREATE TABLE paper_facts (account_id TEXT NOT NULL REFERENCES paper_accounts(id),
+    kind TEXT NOT NULL CHECK(kind IN ('order','fill','position','equity','rejection','action','advance','mirror')),
+    id TEXT NOT NULL, date TEXT NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)),
+    PRIMARY KEY(account_id,kind,id));
+   CREATE INDEX paper_facts_date ON paper_facts(kind,date,account_id,id);
+   CREATE TABLE watch_events_v17 (
+    dedupe_key TEXT PRIMARY KEY, strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL,
+    symbol TEXT NOT NULL, bar TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('entry','exit','stop','target','trailing','plan-entry','plan-expired','regime','allocation','missed','paper-fill')),
+    price REAL CHECK(price IS NULL OR price>0),
+    status TEXT NOT NULL CHECK(status IN ('new','planned','handled','shadow','live','missed')),
+    plan_id TEXT REFERENCES trade_plans(id), payload TEXT NOT NULL CHECK(json_valid(payload)),
+    FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version));
+   INSERT INTO watch_events_v17 SELECT * FROM watch_events;
+   DROP TABLE watch_events;
+   ALTER TABLE watch_events_v17 RENAME TO watch_events;
+   CREATE INDEX watch_events_bar ON watch_events(bar,dedupe_key);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

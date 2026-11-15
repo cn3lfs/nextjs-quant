@@ -70,6 +70,8 @@ export async function previewMockOrder(input: unknown) {
   return { id, input: t };
 }
 export async function confirmMockOrder(id: string) {
+  if (get<string>("paper-mirror-reservation-ths-simulation"))
+    throw new Error("该模拟账户由纸面镜像独占；请先关闭镜像");
   if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
   if (!/^mock-order-[\da-f-]{36}$/.test(id))
     throw new Error("无效委托确认编号");

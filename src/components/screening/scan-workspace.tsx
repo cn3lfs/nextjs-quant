@@ -265,8 +265,8 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
           结果来自统一引擎最近收盘扫描与影子观察。研究中候选仅供核对。
         </p>
       </aside>
-      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.5fr)]">
-        <section className="min-w-0 rounded-lg border bg-nc-card p-3">
+      <div className="grid min-w-0 items-start gap-4">
+        <section className="min-w-0 rounded-lg border bg-nc-card p-3 [&_table]:table-fixed [&_td]:whitespace-normal [&_td_p]:break-all [&_th]:whitespace-normal [&_th:first-child]:w-[30%] [&_th:nth-child(2)]:w-[25%]">
           <h2 className="mb-2 font-semibold">结果列表</h2>
           <CandidateTable
             data={rows.data?.items ?? []}

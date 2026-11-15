@@ -4,6 +4,7 @@ import {
 } from "../backtest/ma-baseline-work";
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
+import { executePaperTick, type PaperWork } from "../paper/service";
 import {
   executeLocalFinancialWork,
   type LocalFinancialWork,
@@ -54,6 +55,7 @@ function reportSavedBatch() {
   });
 }
 export type Work =
+  | PaperWork
   | BinancePublicDataWork
   | ValidationWork
   | LocalFinancialWork
@@ -64,6 +66,7 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "paper-tick") return executePaperTick(work);
   if (work.type === "binance-public-data")
     return executeBinanceBackfill(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),

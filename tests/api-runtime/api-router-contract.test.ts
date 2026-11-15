@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  paperAccounts: "query",
+  paperAccount: "query",
+  paperFacts: "query",
+  paperSettings: "query",
+  savePaperSettings: "mutation",
+  registerPaperCandidates: "mutation",
+  advancePaperAccounts: "mutation",
+  configurePaperMirror: "mutation",
+  configurePaperInitial: "mutation",
   todayWorkspace: "query",
   workspaceCandidates: "query",
   workspaceCandidate: "query",

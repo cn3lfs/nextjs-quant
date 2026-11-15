@@ -89,6 +89,29 @@ function saveOrder(id: string, order: Execution) {
   put(`crypto-orders-${id}`, `crypto-order-${id}-${order.clientId}`, order);
 }
 const unresolved = (order: Execution) => !terminal(order.state);
+/** Paper mirrors share the existing cross-process account writer fence. */
+export async function withPaperCryptoMirror<T>(
+  id: string,
+  paperId: string,
+  action: (exchange: SpotAdapter, revision: string) => Promise<T>,
+) {
+  idSchema.parse(id);
+  return locked(id, async () => {
+    if (get<string>(`paper-mirror-reservation-${id}`) !== paperId)
+      throw new Error("模拟账户未被该纸面账户独占");
+    const current = bot(id);
+    if (
+      current.config.venue !== "binance" ||
+      current.status !== "stopped" ||
+      orders(id).some(unresolved) ||
+      Object.values(current.positions).some((q) => new Big(q).gt(0))
+    )
+      throw new Error("请先停止原模拟策略并核对未完成订单和策略持仓");
+    const revision = get<string>(credentialRevisionKey(id));
+    if (!revision) throw new Error("模拟账户缺少凭证版本");
+    return action(await adapter(current), revision);
+  });
+}
 async function adapter(value: BotState) {
   const credential = await readSecret<Credential>(credentialKey(value.id));
   if (!credential) throw new Error("请先保存模拟账户凭证");
@@ -312,6 +335,8 @@ export async function controlCryptoBot(input: {
       });
     });
   if (action !== "start") return bot(id);
+  if (get<string>(`paper-mirror-reservation-${id}`))
+    throw new Error("该模拟账户由纸面镜像独占；请先关闭镜像");
   return locked(id, async () => {
     const current = bot(id),
       exchange = await adapter(current);
