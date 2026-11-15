@@ -46,15 +46,15 @@ const code = await new Promise((resolve, reject) => {
 clearTimeout(timer);
 const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
   sourceUnchanged = source.equals(await readFile(sourcePath)),
-  // Startup smoke checks the current dashboard; chart-period coverage is separate.
+  // Startup smoke checks the Today workspace and the six trading-day entries; chart coverage is separate.
   requiredLabels = [
-    "今日总览",
-    "今日调度时间轴",
-    "下一步",
-    "贵州茅台",
-    "行情图表",
-    "条件选股",
-    "信号与通知",
+    "今日",
+    "今日决策",
+    "市场状态",
+    "明日计划",
+    "扫描与图表",
+    "策略实验室",
+    "账户与复盘",
     "数据与连接",
   ],
   forbiddenLabels = [
@@ -83,6 +83,8 @@ console.log(
     expectedDate,
     sourceUnchanged,
     dataDirectory: data,
+    // The profile is removed on exit; keep the captured page text for diagnosis.
+    ...(passed ? {} : { capturedText: text.slice(0, 1500) }),
   }),
 );
 if (!passed) process.exitCode = 1;

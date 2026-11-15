@@ -8,7 +8,7 @@ import { formatNumber, formatPercent } from "~/lib/common/format-number";
 import { Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { CandidateTable } from "./candidate-table";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
@@ -44,7 +44,7 @@ export function TodayWorkspace() {
   );
 }
 function DailyDecision() {
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const [page, setPage] = useState(0);
   const query = api.todayWorkspace.useQuery(undefined, {
     enabled: visible,

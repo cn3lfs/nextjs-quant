@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/components/workbench/use-task-visible", async () => {
   const { usePanelVisible } = await import("~/components/workbench/keep-alive");
-  return { useTaskVisible: usePanelVisible };
+  return { useTaskVisible: usePanelVisible, useScreenVisible: usePanelVisible };
 });
 vi.mock("~/components/workbench/use-now", () => ({
   useNow: () => Date.parse("2026-11-13T07:00:00Z"),

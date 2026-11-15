@@ -9,6 +9,7 @@ const rpc = vi.hoisted(() => ({
 }));
 vi.mock("~/components/workbench/use-task-visible", () => ({
   useTaskVisible: () => rpc.visible,
+  useScreenVisible: () => rpc.visible,
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/lab/backtest",

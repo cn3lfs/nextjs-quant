@@ -111,7 +111,7 @@ createRoot(document.getElementById('root')).render(location.pathname==='/intel/r
                     )
                     .join("\n")
                 : args.path === "visible"
-                  ? "export const useTaskVisible=()=>true;"
+                  ? "export const useTaskVisible=()=>true;export const useScreenVisible=()=>true;"
                   : [
                       "ClsReviewReportList",
                       "ClsReviewImport",

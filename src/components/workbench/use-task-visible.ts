@@ -13,8 +13,19 @@ function subscribe(listener: () => void) {
 }
 const focused = () =>
   document.visibilityState === "visible" && document.hasFocus();
+const shown = () => document.visibilityState === "visible";
+/** Background activity: pauses when the panel is hidden or the window loses focus. */
 export function useTaskVisible() {
   const panel = usePanelVisible();
   const focus = useSyncExternalStore(subscribe, focused, () => false);
   return panel && focus;
+}
+/**
+ * Trading-critical panels: keep loading while on screen, even when the user is
+ * focused on a broker or charting window beside the app.
+ */
+export function useScreenVisible() {
+  const panel = usePanelVisible();
+  const visible = useSyncExternalStore(subscribe, shown, () => false);
+  return panel && visible;
 }

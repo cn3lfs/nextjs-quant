@@ -1,9 +1,9 @@
 "use client";
 import { api } from "~/trpc/react";
 import { alertModeLabels } from "~/lib/strategy-facts/alerts";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 export function AlertStatus({ compact = false }: { compact?: boolean }) {
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const query = api.alertStatus.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
