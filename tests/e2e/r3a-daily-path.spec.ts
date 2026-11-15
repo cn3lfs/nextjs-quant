@@ -19,9 +19,14 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("navigation", { name: "工作台导航" }).getByRole("link"),
     ).toHaveCount(6);
-    await mkdir(resolve(".test-data/r3a/screens"), { recursive: true });
+    const screens = resolve(
+      process.env.E2E_DATA_DIR ?? ".test-data/r3a/e2e-daily",
+      "..",
+      "screens",
+    );
+    await mkdir(screens, { recursive: true });
     await page.screenshot({
-      path: resolve(`.test-data/r3a/screens/today-${width}.png`),
+      path: resolve(screens, `today-${width}.png`),
       fullPage: true,
     });
     const link = tomorrow.getByRole("link", { name: /sh600000 · 打开图表/ });
@@ -39,7 +44,7 @@ for (const width of [1440, 1024]) {
     );
     expect(overflow).toBe(false);
     await page.screenshot({
-      path: resolve(`.test-data/r3a/screens/scan-${width}.png`),
+      path: resolve(screens, `scan-${width}.png`),
       fullPage: true,
     });
     const add = page.getByRole("button", { name: "加入计划", exact: true });

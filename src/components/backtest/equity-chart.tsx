@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useEffect, useRef } from "react";
 import { AreaSeries, LineSeries, type Time } from "lightweight-charts";
 import { chartColor, createNocturneChart } from "~/lib/chart/chart-theme";
@@ -43,7 +45,7 @@ export function EquityChart({
     });
     const percent = {
       type: "custom" as const,
-      formatter: (v: number) => `${v.toFixed(1)}%`,
+      formatter: (v: number) => `${displayNumber(v, 1)}%`,
     };
     const points = (rows: EquityPoint[]) =>
       rows.map((r) => ({ time: r.date as Time, value: r.value }));

@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useState } from "react";
 import { cn } from "~/lib/common/classnames";
 import { api } from "~/trpc/react";
@@ -14,7 +16,7 @@ const queryOptions = {
   staleTime: 30 * 60000,
 } as const;
 const yi = (v: number | null) =>
-  v == null ? "—" : `${(v / 1e8).toFixed(2)}亿`;
+  v == null ? "—" : `${displayNumber(v / 1e8, 2)}亿`;
 const toneClass = {
   positive: "text-nc-bad",
   negative: "text-nc-ok",
@@ -188,7 +190,7 @@ export function CapitalSection({ symbol }: { symbol: string }) {
               value={
                 m0?.financingRatio == null
                   ? "—"
-                  : `${m0.financingRatio.toFixed(2)}%`
+                  : `${displayNumber(m0.financingRatio, 2)}%`
               }
             />
             <Row
@@ -213,7 +215,7 @@ export function CapitalSection({ symbol }: { symbol: string }) {
               value={
                 h0?.changePct == null
                   ? "—"
-                  : `${h0.changePct > 0 ? "+" : ""}${h0.changePct.toFixed(2)}%`
+                  : `${h0.changePct > 0 ? "+" : ""}${displayNumber(h0.changePct, 2)}%`
               }
               tone={signTone(h0?.changePct == null ? null : -h0.changePct)}
             />
@@ -232,7 +234,7 @@ export function CapitalSection({ symbol }: { symbol: string }) {
                 <Row
                   key={`${b.date}-${i}`}
                   label={b.date.slice(2)}
-                  value={`${yi(b.amount)} · 溢价 ${b.premiumPct?.toFixed(2) ?? "—"}%`}
+                  value={`${yi(b.amount)} · 溢价 ${displayNumber(b.premiumPct, 2) ?? "—"}%`}
                   tone={signTone(b.premiumPct)}
                 />
               ))}

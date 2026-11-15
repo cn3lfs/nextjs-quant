@@ -150,6 +150,10 @@ try {
     const { seedR3bFixture } = await import("./r3b-fixture");
     seedR3bFixture(db);
   }
+  if (process.env.E2E_R3C === "1") {
+    const { seedR3cFixture } = await import("./r3c-fixture");
+    await seedR3cFixture(db, directory);
+  }
   if (process.env.E2E_P1_ACCEPTANCE === "1") {
     if (profile !== "workbench")
       throw new Error("P1 requires the workbench fixture");

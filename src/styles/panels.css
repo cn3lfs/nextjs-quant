@@ -29,7 +29,7 @@
 .nc-span-12 {
   grid-column: span 12;
 }
-@media (max-width: 1239px) {
+@media (max-width: 1279px) {
   .nc-grid > [class*="nc-span-"] {
     grid-column: span 12;
   }

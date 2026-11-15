@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { readBars } from "../src/server/market/bar-store/read-bars";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -338,13 +339,13 @@ await writeFile(
     2,
   ),
 );
-const pct = (v: number) => (v * 100).toFixed(2) + "%";
+const pct = (v: number) => displayNumber(v * 100, 2) + "%";
 const header =
   "|策略|累计收益|年化|最大回撤|成交笔数|费用(元)|隔离分红(元)|平均仓位|\n|---|---:|---:|---:|---:|---:|---:|---:|";
 const table = results
   .map(
     (r) =>
-      `|${r.name}|${pct(r.totalReturn)}|${pct(r.cagr)}|${pct(r.maxDrawdown)}|${r.fills.length}|${r.fees.toFixed(2)}|${r.dividends.toFixed(2)}|${pct(r.averageExposure)}|`,
+      `|${r.name}|${pct(r.totalReturn)}|${pct(r.cagr)}|${pct(r.maxDrawdown)}|${r.fills.length}|${displayNumber(r.fees, 2)}|${displayNumber(r.dividends, 2)}|${pct(r.averageExposure)}|`,
   )
   .join("\n");
 const annual =

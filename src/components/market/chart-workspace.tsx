@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { chartColor } from "~/lib/chart/chart-theme";
 
 import {
@@ -43,6 +43,7 @@ import {
   type CrosshairLink,
 } from "~/lib/chart/crosshair-link";
 import { CzscMarketChart, MarketChart } from "./chart";
+import { IntelAnnotations } from "../news/intel-annotations";
 import type { ChartCompare } from "./market-chart-state";
 import { compareColors } from "./market-chart-palette";
 import { SecuritySelect } from "./security-select";
@@ -207,7 +208,7 @@ function EditableChart({
   rpsMessage?: string;
   onRpsRetry?: () => void;
 }) {
-  const [view, setView] = useState({ ...initial, dark: false }),
+  const [view, setView] = useState(initial),
     [tool, setTool] = useState<keyof typeof tools>("none"),
     [points, setPoints] = useState<Drawing["a"][]>([]),
     [label, setLabel] = useState("标注"),
@@ -595,26 +596,33 @@ function EditableChart({
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
       )}
-      {showIntraday ? (
-        <IntradayChart
-          symbol={snapshot.symbol}
-          snapshotId={snapshot.id}
-          pricePrecision={common.pricePrecision}
-          dark={false}
-        />
-      ) : (
-        <CzscMarketChart
-          {...common}
-          compare={compare}
-          hotkeys={visible}
-          snapshotId={snapshot.id}
-          chartSnapshot
-          annotations
-          rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
-          link={mainLink}
-          sharedDrawings={shared}
-        />
-      )}
+      <IntelAnnotations
+        symbol={snapshot.symbol}
+        bars={bars}
+        render={(events, onSelect) =>
+          showIntraday ? (
+            <IntradayChart
+              symbol={snapshot.symbol}
+              snapshotId={snapshot.id}
+              pricePrecision={common.pricePrecision}
+            />
+          ) : (
+            <CzscMarketChart
+              {...common}
+              newsEvents={events}
+              onNewsEvent={onSelect}
+              compare={compare}
+              hotkeys={visible}
+              snapshotId={snapshot.id}
+              chartSnapshot
+              annotations
+              rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
+              link={mainLink}
+              sharedDrawings={shared}
+            />
+          )
+        }
+      />
       {!showIntraday && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs">

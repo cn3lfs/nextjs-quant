@@ -114,6 +114,7 @@ export type AlertSubscription = z.infer<typeof alertSubscriptionSchema> & {
   revision: string;
 };
 export const alertHistorySchema = z.object({
+  key: z.string().min(1).max(1000).optional(),
   from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

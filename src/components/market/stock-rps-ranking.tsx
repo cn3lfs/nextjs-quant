@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { rpsPeriods } from "quant-rps";
 
 import {
@@ -94,7 +96,7 @@ export function StockRpsRanking() {
       id: "rps",
       enableSorting: true,
       header: `RPS${period}`,
-      cell: ({ row }) => row.original.value?.rps.toFixed(2) ?? "—",
+      cell: ({ row }) => displayNumber(row.original.value?.rps, 2) ?? "—",
     },
     {
       id: "return",
@@ -102,7 +104,7 @@ export function StockRpsRanking() {
       header: `${period}日后复权涨幅`,
       cell: ({ row }) =>
         row.original.value
-          ? `${(row.original.value.return * 100).toFixed(2)}%`
+          ? `${displayNumber(row.original.value.return * 100, 2)}%`
           : "—",
     },
     ...(page.data?.availability.rps === "ready"

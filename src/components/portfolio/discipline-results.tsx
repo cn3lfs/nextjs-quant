@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   disciplineNotice,
   disciplineScope,
@@ -7,9 +8,10 @@ import { DataTable, type DataTableColumn } from "../ui/data-table";
 
 export type DisciplinePage = ReturnType<typeof disciplineStatus>;
 type Point = NonNullable<DisciplinePage["result"]>["points"][number];
-const number = (n: number | null) => (n === null ? "不可得" : n.toFixed(2));
+const number = (n: number | null) =>
+  n === null ? "不可得" : displayNumber(n, 2);
 const percent = (n: number | null) =>
-  n === null ? "不可得" : `${(n * 100).toFixed(2)}%`;
+  n === null ? "不可得" : `${displayNumber(n * 100, 2)}%`;
 const columns: DataTableColumn<Point>[] = [
   {
     id: "maxAddOns",

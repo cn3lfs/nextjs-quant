@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { FinancialMetric } from "./local-financial";
 
 export function displayFinancialNumber(value: number | null, unit: string) {
@@ -42,7 +43,7 @@ export function displayFinancialRatio(
   const scaled = kind === "percent" ? value * 100 : value;
   if (!Number.isFinite(scaled)) return "—";
   const suffix = kind === "percent" ? "%" : kind === "multiple" ? "倍" : "次";
-  return `${scaled.toFixed(2)}${suffix}`;
+  return `${displayNumber(scaled, 2)}${suffix}`;
 }
 
 /** Display conversion only: calculations, filter thresholds and exports keep their source units. */
@@ -54,7 +55,7 @@ export function displayFinancialMetric(
   if (value === null || !Number.isFinite(value)) return "—";
   if (unit === "比例" && metricRatios[id])
     return displayFinancialRatio(value, metricRatios[id]);
-  if (unit === "%") return `${value.toFixed(2)}%`;
+  if (unit === "%") return `${displayNumber(value, 2)}%`;
   const scale =
     unit === "元"
       ? currencyUnit === "亿元"

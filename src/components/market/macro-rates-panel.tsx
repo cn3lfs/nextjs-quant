@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { Bank } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { Panel, PanelEmpty } from "../panels";
@@ -6,7 +8,7 @@ import { Button } from "../ui/button";
 import { usePanelVisible } from "../workbench/keep-alive";
 
 const pct = (value: number | null | undefined, digits = 3) =>
-  value == null ? "—" : value.toFixed(digits) + "%";
+  value == null ? "—" : displayNumber(value, digits) + "%";
 const bp = (value: number | null) =>
   value == null
     ? "—"

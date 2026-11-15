@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AccountReviewSettingsPanel } from "~/components/portfolio/account-review-settings";
+import { DatabaseBackup } from "~/components/common/database-backup";
 
 export default function SettingsPage() {
   return (
@@ -29,7 +30,10 @@ function SettingsBody() {
       ) : search.get("tab") === "paper" ? (
         <PaperSettingsPanel />
       ) : (
-        <SettingsPanel notify={notify} />
+        <>
+          <DatabaseBackup />
+          <SettingsPanel notify={notify} />
+        </>
       )}
     </div>
   );

@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { Button } from "../ui/button";
 import {
@@ -165,9 +167,7 @@ export function MonitorEvidence({
         {open ? "收起" : "展开"}
         {label}
       </Button>
-      {open && (
-        <MonitorText label={label} text={JSON.stringify(value, null, 2)} />
-      )}
+      {open && <MonitorText label={label} text={formatEvidenceText(value)} />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -41,12 +42,10 @@ export function IntradayChart({
   symbol,
   snapshotId,
   pricePrecision = 2,
-  dark = false,
 }: {
   symbol: string;
   snapshotId: string;
   pricePrecision?: number;
-  dark?: boolean;
 }) {
   const [days, setDays] = useState<number>(1);
   const visible = usePanelVisible();
@@ -190,7 +189,7 @@ export function IntradayChart({
       crosshairMarkerVisible: false,
       priceFormat: {
         type: "custom",
-        formatter: (value: number) => `${value.toFixed(2)}%`,
+        formatter: (value: number) => `${displayNumber(value, 2)}%`,
         minMove: 0.01,
       },
     });
@@ -233,12 +232,12 @@ export function IntradayChart({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: dark ? chartColor.groundDeep : chartColor.ground,
+          color: chartColor.ground,
         },
-        textColor: dark ? chartColor.textStrong : chartColor.text,
+        textColor: chartColor.text,
       },
     });
-  }, [dark]);
+  }, [pricePrecision]);
 
   useEffect(() => {
     const p = parts.current;
@@ -365,15 +364,15 @@ export function IntradayChart({
                 {shown.clock}
               </span>
               <span style={{ color: tone(change) }}>
-                价 {shown.price.toFixed(pricePrecision)}
+                价 {displayNumber(shown.price, pricePrecision)}
               </span>
               <span style={{ color: tone(change) }}>
                 {change === null
                   ? "—"
-                  : `${change > 0 ? "+" : ""}${change.toFixed(2)}%`}
+                  : `${change > 0 ? "+" : ""}${displayNumber(change, 2)}%`}
               </span>
               <span style={{ color: chartColor.accent }}>
-                均 {shown.average.toFixed(pricePrecision)}
+                均 {displayNumber(shown.average, pricePrecision)}
               </span>
               <span>量 {shown.volume.toLocaleString("zh-CN")}</span>
             </>

@@ -59,7 +59,7 @@
 }
 /* Opt-in component utilities stay available; the unlayered CSS below styles the
    legacy workbench classes. Every color, radius and font comes from tokens.css. */
-@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --text-xs: 0.8125rem;
   --text-xs--line-height: 1.5;
@@ -1537,7 +1537,7 @@ table:not([data-sortable="false"]) > thead > tr:last-child > th,
   max-height: calc(100vh - 100px);
   overflow: auto;
 }
-@media (max-width: 1100px) {
+@media (max-width: 1279px) {
   .nc-reading-layout {
     grid-template-columns: minmax(0, 840px);
   }

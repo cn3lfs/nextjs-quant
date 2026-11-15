@@ -1,4 +1,9 @@
-import { FlaskConical, FolderSearch, Play, Square } from "lucide-react";
+import {
+  Flask as FlaskConical,
+  FolderOpen as FolderSearch,
+  Play,
+  Square,
+} from "@phosphor-icons/react/ssr";
 import { costFields, type MaDraft } from "~/lib/backtest/ma-workspace";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -107,7 +112,7 @@ export function MaExperimentConfig({
             {coverageError}
           </p>
         )}
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3 lg:grid-cols-2 xl:grid-cols-1 xl:grid-cols-2">
           <label className="grid min-w-0 gap-2 text-sm">
             开始日期
             <Input

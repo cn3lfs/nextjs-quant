@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { parseArgs } from "node:util";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, basename, resolve } from "node:path";
@@ -113,7 +114,7 @@ for (const archive of files) {
     JSON.stringify({ ...summary, details }, null, 2),
   );
   console.log(
-    `${summary.processed}/${files.length} ${basename(archive)} repaired=${summary.repaired} errors=${summary.errors} ${summary.seconds.toFixed(1)}s`,
+    `${summary.processed}/${files.length} ${basename(archive)} repaired=${summary.repaired} errors=${summary.errors} ${displayNumber(summary.seconds, 1)}s`,
   );
 }
 console.log(JSON.stringify(summary));

@@ -132,7 +132,6 @@ it("incremental migration preserves existing tables and durable view edits/delet
   const store = new ChartViewStore(db),
     key = { symbol: "sh600519", period: "week" };
   const view = structuredClone(defaultChartView);
-  view.dark = true;
   view.mainIndicators = ["boll"];
   view.parameters.macd = [3, 8, 2];
   view.drawings = [
@@ -236,14 +235,17 @@ it("drawing geometry for four tools uses anchors; fib is arithmetic price retrac
     ),
   );
 });
-it("log/theme settings survive validation; keyboard center/zoom and cost/no-position semantics; all chart cycles support structures", () => {
+it("log settings survive validation while the retired theme flag is discarded; keyboard center/zoom and cost/no-position semantics; all chart cycles support structures", () => {
   expect(
     chartViewSchema.parse({
       ...defaultChartView,
       logarithmic: true,
       dark: true,
     }),
-  ).toMatchObject({ logarithmic: true, dark: true });
+  ).toMatchObject({ logarithmic: true });
+  expect(
+    chartViewSchema.parse({ ...defaultChartView, dark: true }),
+  ).not.toHaveProperty("dark");
   expect(keyboardRange({ from: 0, to: 100 }, "ArrowLeft")).toEqual({
     from: -10,
     to: 90,

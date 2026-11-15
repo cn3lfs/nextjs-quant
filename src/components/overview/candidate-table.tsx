@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { DataTable } from "../ui/data-table";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import type { RouterOutputs } from "~/trpc/react";
 
 export type WorkspaceCandidate =

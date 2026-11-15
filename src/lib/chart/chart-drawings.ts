@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type {
   IChartApi,
   ISeriesApi,
@@ -20,7 +21,7 @@ export function drawingSegments(d: Drawing) {
     return fibonacciLevels.map((r) => ({
       a: { ...d.a, price: d.a.price + (d.b.price - d.a.price) * r },
       b: { ...d.b, price: d.a.price + (d.b.price - d.a.price) * r },
-      label: `${(r * 100).toFixed(1)}%`,
+      label: `${displayNumber(r * 100, 1)}%`,
     }));
   return [{ a: d.a, b: d.b, label: d.kind === "trend" ? "趋势线" : "矩形" }];
 }
@@ -150,7 +151,9 @@ export function drawingGeometry(
           { x: width, y: y1 },
         ],
       ],
-      labels: [{ text: `水平 ${d.a.price.toFixed(2)}`, x: 8, y: y1 - 5 }],
+      labels: [
+        { text: `水平 ${displayNumber(d.a.price, 2)}`, x: 8, y: y1 - 5 },
+      ],
     };
   }
   const a = px(d.a);
@@ -183,7 +186,7 @@ export function drawingGeometry(
       const spacing = drawingSpacing(chart);
       const bars = spacing ? Math.round((b.x - a.x) / spacing) : null;
       labels.push({
-        text: `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${change >= 0 ? "+" : ""}${((change / d.a.price) * 100).toFixed(2)}%)${bars === null ? "" : ` · ${bars} 根`}`,
+        text: `${change >= 0 ? "+" : ""}${displayNumber(change, 2)} (${change >= 0 ? "+" : ""}${displayNumber((change / d.a.price) * 100, 2)}%)${bars === null ? "" : ` · ${bars} 根`}`,
         x: box.x + 4,
         y: box.y - 6,
       });

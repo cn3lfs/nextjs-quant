@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import type { RouterOutputs } from "~/trpc/react";
 import {
   DataTable,
@@ -33,7 +35,7 @@ export function HoldingsCorrelationResults({
           <span title={metric.reason ?? undefined}>
             {metric.value === null
               ? `不可得：${metric.reason}`
-              : metric.value.toFixed(4)}
+              : displayNumber(metric.value, 4)}
             （{metric.overlapDays} 日）
           </span>
         );
@@ -44,7 +46,7 @@ export function HoldingsCorrelationResults({
     <section aria-label="持仓相关性" className="space-y-3">
       <p>
         平均相关性：
-        {data.averagePairwise.value?.toFixed(4) ??
+        {displayNumber(data.averagePairwise.value, 4) ??
           `不可得：${data.averagePairwise.reason}`}
         ；可得证券对 {data.pairCount.available}，不可得{" "}
         {data.pairCount.insufficient}（不含对角线）。

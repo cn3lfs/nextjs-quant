@@ -152,7 +152,7 @@ export function FinancialOverview({ data }: { data: FinancialViewData }) {
                 ? "非金融企业"
                 : "行业未核验"}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
             {data.metrics
               .filter((metric) =>
                 [

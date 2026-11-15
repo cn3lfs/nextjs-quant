@@ -112,12 +112,14 @@ RPS 的收益、排名、资格和板块等权聚合以 `packages/quant-rps` 为
 - **表格一律用 `DataTable`。** 它只接收**服务端已排序、已分页**的数据。
   **禁止**改成客户端全量加载或客户端重排——那会吃掉服务端分页的成果。
 - **颜色只用 token**（`--primary` / `--muted` / `--border` / `--ring` / `--card` …），
-  **不写死十六进制色值**。写死的颜色让全应用暗色模式永远做不成。
+  **不写死十六进制色值**。共享token保证当前浅色界面与画布一致。
   例外：`chart.tsx` 传给 lightweight-charts 的颜色不属于 CSS token 体系，
   按图表库自身约定处理。
 - **间距、圆角、字号用 Tailwind 工具类**，不新增 `globals.css` 规则。
   `globals.css` 里 1098 行手写 CSS 是历史包袱，**只减不增**。
-- R3a 改写的组件图标统一用 `@phosphor-icons/react/ssr`：改写前35个组件使用Phosphor、20个使用lucide，按本批要求选择多数库。未触及组件保持原样，不做全站额外迁移。
+- 图标统一使用 `@phosphor-icons/react/ssr`，类型来自同一库；不再依赖lucide。
+- 展示数字统一使用 `trading-strategy-core/format-number`。资金计算/任意精度序列化不使用展示舍入；既有固定测试与历史样例保留原格式。
+- 布局仅三档：base≤1024、lg1025–1279、xl≥1280；不引入其他响应式断点。渲染仅浅色，已保存旧主题字段在读取时丢弃。
 - 组件内不做数据获取。数据由页面或容器组件取好后以 props 传入，
   便于测试直接渲染。
 

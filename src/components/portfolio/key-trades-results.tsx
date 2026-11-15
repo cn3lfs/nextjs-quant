@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import type {
   keyTrades,
   KeyTrade,
@@ -39,13 +41,13 @@ const columns: DataTableColumn<Row>[] = [
     id: "amount",
     header: "净收益金额（元）",
     cell: (c: { row: { original: Row } }) =>
-      c.row.original.netProfit.value!.toFixed(2),
+      displayNumber(c.row.original.netProfit.value!, 2),
   },
   {
     id: "rate",
     header: "净收益率",
     cell: (c: { row: { original: Row } }) =>
-      `${(c.row.original.netReturn.value! * 100).toFixed(2)}%`,
+      `${displayNumber(c.row.original.netReturn.value! * 100, 2)}%`,
   },
 ].map((column) => ({ ...column, enableSorting: false }));
 function Ranking({

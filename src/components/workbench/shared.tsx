@@ -1,4 +1,4 @@
-import { Database } from "lucide-react";
+import { Database } from "@phosphor-icons/react/ssr";
 import { type Monitor } from "~/lib/domain";
 import { Button } from "../ui/button";
 

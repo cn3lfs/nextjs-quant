@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 export type ResearchBatchLabel =
   "信号充足但交易模拟被拒" | "真实样本稀少" | "全池排除" | "无交易" | "有交易";
 
@@ -67,7 +68,7 @@ export function classifyResearchBatchResult(
   if (fullPoolExcluded)
     return {
       label: "全池排除",
-      reason: `排除 ${excludedSecurityCount}/${selectedSecurityCount} 只证券（${(excludedRatio * 100).toFixed(2)}%）：${countByReason((result.exclusions ?? []).map((row) => row.reason)) ?? "未记录原因"}`,
+      reason: `排除 ${excludedSecurityCount}/${selectedSecurityCount} 只证券（${displayNumber(excludedRatio * 100, 2)}%）：${countByReason((result.exclusions ?? []).map((row) => row.reason)) ?? "未记录原因"}`,
       signalCount,
       tradeCount,
       excludedSecurityCount,

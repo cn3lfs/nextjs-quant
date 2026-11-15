@@ -127,7 +127,6 @@ const canonicalChartViewSchema = z
   .object({
     parameters: indicatorParametersSchema,
     logarithmic: z.boolean(),
-    dark: z.boolean(),
     mainIndicators: mainIndicatorSchema.array().max(3).default(["ma"]),
     subchart: subchartSchema.array().max(9).default(["volume", "macd"]),
     rps: z
@@ -156,6 +155,8 @@ export const chartViewSchema = z.preprocess((value) => {
     next.mainIndicators = next.showBoll === true ? ["ma", "boll"] : ["ma"];
   }
   delete next.showBoll;
+  // Discard the retired display flag when reading saved views.
+  delete next.dark;
   return "subchart" in next
     ? { ...next, subchart: normalizeSubcharts(next.subchart) }
     : next;
@@ -164,7 +165,6 @@ export type ChartView = z.infer<typeof chartViewSchema>;
 export const defaultChartView: ChartView = {
   parameters: defaultParameters,
   logarithmic: false,
-  dark: false,
   mainIndicators: ["ma"],
   subchart: ["volume", "macd"],
   rps: { periods: [20, 50, 120], threshold: 90 },

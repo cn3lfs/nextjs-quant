@@ -1,4 +1,8 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useEffect, useRef, useState } from "react";
 import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
@@ -289,7 +293,7 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         }
       >
         <form
-          className="grid grid-cols-2 gap-3 md:grid-cols-4"
+          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
             apply(draft);
@@ -412,14 +416,14 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
             {query.data?.rows.map((row) => (
               <article
                 key={row.id}
-                className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm md:grid-cols-5"
+                className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm lg:grid-cols-5"
               >
                 <div>
                   <strong>
                     <ChartSymbolLink symbol={row.symbol} />
                   </strong>
                   <div className="text-xs text-nc-text-3">
-                    RPS {row.rps.toFixed(2)}
+                    RPS {displayNumber(row.rps, 2)}
                   </div>
                 </div>
                 <div>
@@ -488,7 +492,7 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         </div>
         {storage.data && (
           <p className="text-xs text-nc-text-3">
-            研究快照 {(storage.data.bytes / 1048576).toFixed(1)} /{" "}
+            研究快照 {displayNumber(storage.data.bytes / 1048576, 1)} /{" "}
             {storage.data.limitBytes / 1048576} MiB · 保留至手动清理
           </p>
         )}
@@ -625,7 +629,7 @@ function IntradayEvidence({
             )}
           </ArchiveEvidence>
           <ArchiveEvidence title="原始行情与完整依据">
-            {() => <ArchiveText text={JSON.stringify(value, null, 2)} />}
+            {() => <ArchiveText text={formatEvidenceText(value)} />}
           </ArchiveEvidence>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -722,7 +726,7 @@ function IntradayBatches({
       }
     >
       <form
-        className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4"
+        className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
           setRange(rangeDraft);
@@ -866,9 +870,7 @@ function IntradayBatches({
                 {() => <BatchReasons results={detail.data!.results} />}
               </ArchiveEvidence>
               <ArchiveEvidence title="参数、证券池与完整批次依据">
-                {() => (
-                  <ArchiveText text={JSON.stringify(detail.data, null, 2)} />
-                )}
+                {() => <ArchiveText text={formatEvidenceText(detail.data)} />}
               </ArchiveEvidence>
             </>
           )}

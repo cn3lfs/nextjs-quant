@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
@@ -196,7 +198,7 @@ export function FinancialQualityPanel({ symbol }: { symbol: string }) {
                 <pre
                   style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
                 >
-                  {JSON.stringify(row, null, 2)}
+                  {formatEvidenceText(row)}
                 </pre>
               </details>
             ))}
@@ -216,7 +218,7 @@ export function FinancialQualityPanel({ symbol }: { symbol: string }) {
                 <pre
                   style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
                 >
-                  {JSON.stringify(entry, null, 2)}
+                  {formatEvidenceText(entry)}
                 </pre>
               </details>
             ))}

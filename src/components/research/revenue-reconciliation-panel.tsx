@@ -1,3 +1,4 @@
+import { formatEvidenceText } from "~/lib/common/evidence-text";
 import type { revenueReconciliation } from "~/server/strategies/value/revenue-reconciliation";
 
 type Reconciliation = ReturnType<typeof revenueReconciliation>;
@@ -112,7 +113,7 @@ export function RevenueReconciliationPanel({
               ))}
             </ul>
             <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-              {JSON.stringify(data, null, 2)}
+              {formatEvidenceText(data)}
             </pre>
           </details>
         </>

@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import type { z } from "zod";
@@ -44,7 +46,7 @@ function RunHistory() {
   return (
     <div className="space-y-3 text-sm">
       <form
-        className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
           const result = ledgerRunsSchema.safeParse(draft);
@@ -148,9 +150,7 @@ function RunHistory() {
             <>
               <SignalLedgerView rows={[]} runs={[detail.data]} />
               <ArchiveEvidence title="完整任务依据">
-                {() => (
-                  <ArchiveText text={JSON.stringify(detail.data, null, 2)} />
-                )}
+                {() => <ArchiveText text={formatEvidenceText(detail.data)} />}
               </ArchiveEvidence>
             </>
           )}
@@ -181,7 +181,7 @@ function DecisionHistory() {
         包含尚未匹配台账的监控决策。投递档位不是实际发送结果；按投递编号到“信号与通知”核对。
       </p>
       <form
-        className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
           const result = ledgerDecisionsSchema.safeParse(draft);
@@ -292,9 +292,7 @@ function DecisionHistory() {
             <>
               <LedgerNotification decision={detail.data} />
               <ArchiveEvidence title="完整决策依据">
-                {() => (
-                  <ArchiveText text={JSON.stringify(detail.data, null, 2)} />
-                )}
+                {() => <ArchiveText text={formatEvidenceText(detail.data)} />}
               </ArchiveEvidence>
             </>
           )}

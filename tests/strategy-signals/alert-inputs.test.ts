@@ -1,3 +1,5 @@
+import { strategyLabRouter } from "../../src/server/api/routers/strategy-lab";
+import { strategyLabDetail } from "../../src/server/db/strategy-lab";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "~/server/db/migrations";
@@ -439,10 +441,33 @@ it("only an explicit manual live setting ends shadow evaluation and preserves it
     signals: 12,
     days: ["2026-11-13"],
   });
-  const caller = alertsRouter.createCaller({ headers: new Headers() });
-  await caller.configureAlertStrategy({ strategy: candidate, live: false });
+  const caller = strategyLabRouter.createCaller({ headers: new Headers() });
+  liveRepo.saveState(`shadow-summary:${candidate.id}:1`, {
+    signals: 30,
+    days: 60,
+    paused: false,
+    assessment: {
+      at: now,
+      eligible: true,
+      reasons: [],
+      recommendation: "QA fixture passed",
+    },
+  });
+  await caller.strategyLabAction({
+    id: candidate.id,
+    version: 1,
+    action: "promote",
+    confirmed: true,
+    revision: strategyLabDetail(candidate.id, 1).revision,
+  });
   expect(liveRepo.state(`shadow:${candidate.id}:1`)).toEqual(evidence);
-  await caller.configureAlertStrategy({ strategy: candidate, live: true });
+  await caller.strategyLabAction({
+    id: candidate.id,
+    version: 1,
+    action: "live",
+    confirmed: true,
+    revision: strategyLabDetail(candidate.id, 1).revision,
+  });
   expect(liveRepo.state(`strategy:${candidate.id}:1`)).toMatchObject({
     live: true,
   });

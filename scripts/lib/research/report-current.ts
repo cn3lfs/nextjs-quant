@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { task, json, delivery } from "./context";
 import { join } from "node:path";
 import { writeFile } from "node:fs/promises";
@@ -70,8 +71,9 @@ const alternate = await json<{
   }[];
 }>(join(task, "benchmark-50-50.json"));
 const pct = (v: number | null) =>
-  v === null ? "—" : `${(v * 100).toFixed(2)}%`;
-const n = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(4));
+  v === null ? "—" : `${displayNumber(v * 100, 2)}%`;
+const n = (v: number | null | undefined) =>
+  v == null ? "—" : displayNumber(v, 4);
 const shadow = [];
 for (const market of ["cn-equity", "crypto"] as const) {
   const first = validationScoreboardPage({ market, page: 0 });

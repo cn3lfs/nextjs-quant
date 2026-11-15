@@ -23,6 +23,8 @@
 
 所有本次检查数据、日志和截图集中在一个 `.test-data` 任务目录；同时设置 `TEMP`、`TMP`、`TMPDIR` 可使使用系统临时目录的工具归入同一任务。脚本中的特定路径保护仍须满足，不能删除保护或以用户库验证。清理按用户要求提供精确范围、默认预演的手动脚本。
 
-P1 有数据验收沿用 `playwright.visual.config.ts`：PowerShell 设置 `$env:E2E_P1_ACCEPTANCE='1'`、`$env:E2E_DATA_DIR='.test-data/optimization-20261113/c-p1-acceptance'` 与隔离 `QUANT_DATA_DIR` 后运行 `pnpm e2e:visual`。它复用主 E2E 的 6,154 证券/2,222 与 9,418 笔成交，组合既有新闻、CLS、信号、本地账本和财务文件夹具；其他市场仅验证离线边界，不调用外部行情、模型、通知或交易。1440×900/1024×768 是目标物理尺寸；100%/125%/150% 通过 CDP 设置 CSS viewport 为物理尺寸除缩放（向下取整）、DPR 为缩放值，逐例断言实际 DPR，媒体查询随有效宽度变化。另保留 CSS zoom=150% 的居中弹窗高度回归；CSS zoom 对 Radix 定位浮层会重复放大坐标，因此不用于全矩阵。新闻查询明确使用既有夹具的 2025-01-07 截止时间，避免当前默认七天范围得到空列表。
+P1 有数据验收沿用 统一 `playwright.config.ts` 的 `visual` project：PowerShell 设置 `$env:E2E_P1_ACCEPTANCE='1'`、`$env:E2E_DATA_DIR='.test-data/optimization-20261113/c-p1-acceptance'` 与隔离 `QUANT_DATA_DIR` 后运行 `pnpm e2e:visual`。它复用主 E2E 的 6,154 证券/2,222 与 9,418 笔成交，组合既有新闻、CLS、信号、本地账本和财务文件夹具；其他市场仅验证离线边界，不调用外部行情、模型、通知或交易。1440×900/1024×768 是目标物理尺寸；100%/125%/150% 通过 CDP 设置 CSS viewport 为物理尺寸除缩放（向下取整）、DPR 为缩放值，逐例断言实际 DPR，媒体查询随有效宽度变化。另保留 CSS zoom=150% 的居中弹窗高度回归；CSS zoom 对 Radix 定位浮层会重复放大坐标，因此不用于全矩阵。新闻查询明确使用既有夹具的 2025-01-07 截止时间，避免当前默认七天范围得到空列表。
 
 代表基线仅保存在 `tests/e2e/baselines/p1/`（行情、报告、新闻、证券池各两尺寸）。固定浏览器 Chrome、zh-CN、Asia/Shanghai、时钟 `2026-11-14T04:00:00Z`、DPR=1；使用系统 Segoe UI/Microsoft YaHei 字体栈，实际浏览器版本、字体、DPR 输出在本轮 `environment.json`。动画禁用、光标隐藏、动态导航计数、图表图例和快照生成时间行遮罩；每轮先恢复默认图表配置。更新只运行 `pnpm e2e:visual --grep 'C4 representative' --update-snapshots`，逐张复核后替换同名文件；正常运行必须比较基线，不以更新基线消除未解释差异。Playwright 清空本轮 results，夹具父进程异常退出时由操作者核验进程后执行任务目录中默认预演的精确清理脚本，不累积截图副本。
+
+R3c后所有浏览器用例共用 `playwright.config.ts`，按 `--project` 选择 `workbench/p0/p1/visual/daily/paper/accounts/workspaces`。现有脚本使用对应project；`pnpm exec playwright test --project workspaces` 验证完整日常路径。项目各自启动隔离服务，不复用现有端口；`E2E_DATA_DIR` 应指向当前任务绝对目录，多project时在其下分目录。单个 `E2E_PORT` 覆盖仅用于单project。P1有数据态仍由 `E2E_P1_ACCEPTANCE=1` 选择，断言和原超时保持。

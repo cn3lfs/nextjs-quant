@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 /** Semantic tone shared by stats, pills, list rows and report stages. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "bad" | "idle";
 
@@ -33,5 +34,5 @@ export function changeTone(value: number | null | undefined): Tone {
 export function signedPercent(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(value))
     return "—";
-  return `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;
+  return `${value > 0 ? "+" : ""}${displayNumber(value, digits)}%`;
 }

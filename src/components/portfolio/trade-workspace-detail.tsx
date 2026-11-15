@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
@@ -218,10 +220,7 @@ export function TradeWorkspaceDetail({
             {showEvidence ? "收起" : "展开"}完整原始证据
           </Button>
           {showEvidence && (
-            <TradeEvidence
-              key={id}
-              text={JSON.stringify(active.data, null, 2)}
-            />
+            <TradeEvidence key={id} text={formatEvidenceText(active.data)} />
           )}
         </>
       )}

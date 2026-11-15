@@ -1,3 +1,4 @@
+import { formatEvidenceText } from "~/lib/common/evidence-text";
 import {
   ArchiveEvidence,
   ArchiveMetadata,
@@ -190,7 +191,7 @@ export function ReportCard({
                     <p>{e.envelope.warnings.join("；")}</p>
                     <details>
                       <summary>来源与口径</summary>
-                      <pre>{JSON.stringify(e.envelope, null, 2)}</pre>
+                      <pre>{formatEvidenceText(e.envelope)}</pre>
                     </details>
                   </div>
                 )}

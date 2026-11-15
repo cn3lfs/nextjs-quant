@@ -27,14 +27,6 @@ function persistValidationScoreboard(value: ValidationScoreboard) {
   const repo = new AlertRepository();
   const selected = value.trialSharpes ? selectShadowCandidates(value.rows) : [];
   const selectedIds = new Set(selected.map((r) => r.id));
-  for (const strategy of value.trialSharpes
-    ? repo.definitions().filter((s) => s.market === value.market)
-    : []) {
-    const key = `shadow:${strategy.id}:${strategy.version}`;
-    const previous = repo.state<ShadowRegistration>(key);
-    if (previous?.active && !selectedIds.has(strategy.id))
-      repo.saveState(key, { ...previous, active: false });
-  }
   value = {
     ...value,
     rows: value.rows.map((row) =>
@@ -45,28 +37,6 @@ function persistValidationScoreboard(value: ValidationScoreboard) {
         : row,
     ),
   };
-  for (const row of selected) {
-    const strategy = repo.strategies.strategy(row.id, 1);
-    if (!strategy)
-      throw new Error("Shadow candidate lacks registered strategy");
-    const key = `shadow:${row.id}:1`;
-    const previous = repo.state<ShadowRegistration>(key);
-    if (!previous)
-      repo.saveState<ShadowRegistration>(key, {
-        startedAt: value.createdAt,
-        status: "shadow-candidate",
-        active: true,
-        trialSharpes: value.trialSharpes!,
-        neighbors: row.trainingNeighbors ?? [],
-        sizing: row.id.includes("sizing-volatility")
-          ? "volatility"
-          : row.market === "crypto"
-            ? "equal"
-            : "legacy",
-        completeMarketCycles: 0,
-        lowZoneCorroborated: false,
-      });
-  }
   for (const row of value.rows.filter((r) => r.level === "strategy"))
     put("strategy-qualification", `strategy-qualification-${row.id}`, {
       status: row.status,

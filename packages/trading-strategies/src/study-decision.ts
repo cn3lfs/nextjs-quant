@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { Bar } from "trading-strategy-core/bars";
 import { ma, rsi, boll } from "trading-strategy-core/indicators";
 import { calculateFactor } from "trading-strategy-core/factors";
@@ -136,7 +137,7 @@ export function createStudyDecision(
       }
       return order(
         change > 0 ? "buy" : "sell",
-        `目标权重${(target * 100).toFixed(2)}%`,
+        `目标权重${displayNumber(target * 100, 2)}%`,
         Math.abs(change),
       );
     }

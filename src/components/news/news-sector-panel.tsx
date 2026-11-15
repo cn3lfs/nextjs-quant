@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { useTaskVisible } from "../workbench/use-task-visible";
@@ -140,7 +142,7 @@ export function NewsSectorPanel({ analysis }: { analysis: NewsAnalysis }) {
                 <p className="whitespace-pre-wrap">{s.news.content}</p>
               </details>
             ))}
-            <pre>{JSON.stringify(report.method, null, 2)}</pre>
+            <pre>{formatEvidenceText(report.method)}</pre>
           </details>
           <Button
             variant="outline"

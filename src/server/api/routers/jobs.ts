@@ -5,6 +5,7 @@ import {
 } from "../../db/backtest-results";
 import { readJob, maBaselineHistory } from "../../db/jobs";
 import { recentRuntimeErrors } from "../../infra/runtime-errors";
+import { taskEvidence } from "../../db/task-evidence";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { chartSymbolSchema } from "~/lib/chart/chart-symbol";
 import { futuresQuotes } from "../../market/futures-chart";
@@ -48,6 +49,16 @@ import { latestHistoricalDate } from "~/lib/research/strategy-center-input";
 import { monitorCalendar } from "../../monitoring/monitor-calendar";
 import { expectedDailyAsOf } from "~/lib/market/daily-freshness";
 export const jobsRouter = createTRPCRouter({
+  exportTaskEvidence: p("tasks", "read")
+    .input(z.string().min(1).max(200))
+    .mutation(({ input }) => {
+      if (!taskEvidence(input)) throw new Error("没有可导出的本地任务证据");
+      const job = readJob(input)!;
+      return { input: job.input, result: job.result };
+    }),
+  taskEvidence: p("tasks", "read")
+    .input(z.string().min(1).max(200))
+    .query(({ input }) => taskEvidence(input)),
   maBaseline: p("backtest", "compute")
     .input(strategyExperimentInputSchema)
     .mutation(({ input }) => maBaselineJob(input)),

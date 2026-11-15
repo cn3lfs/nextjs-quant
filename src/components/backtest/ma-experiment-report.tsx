@@ -1,11 +1,13 @@
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { Dispatch, SetStateAction } from "react";
 import {
-  ArrowDownToLine,
+  DownloadSimple as ArrowDownToLine,
   Copy,
-  FileChartColumn,
+  ChartBar as FileChartColumn,
   Info,
-  Trash2,
-} from "lucide-react";
+  Trash as Trash2,
+} from "@phosphor-icons/react/ssr";
 import type { RouterOutputs } from "~/trpc/react";
 import type { BaselineFill, BaselineOrder } from "quant-backtest";
 import {
@@ -64,7 +66,7 @@ const fillsColumns: DataTableColumn<BaselineFill>[] = [
   {
     id: "price",
     header: "价格（元）",
-    cell: ({ row }) => row.original.price.toFixed(4),
+    cell: ({ row }) => displayNumber(row.original.price, 4),
   },
   { id: "quantity", header: "股数", cell: ({ row }) => row.original.shares },
   {
@@ -119,10 +121,10 @@ export function MaReportOverview({ data }: { data: BaselineReport }) {
   const finalEquity = summary.equity.at(-1)?.value;
   return (
     <div className="space-y-4">
-      <dl className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+      <dl className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="区间收益"
-          value={`${summary.totalReturn > 0 ? "+" : ""}${summary.totalReturn.toFixed(2)}%`}
+          value={`${summary.totalReturn > 0 ? "+" : ""}${displayNumber(summary.totalReturn, 2)}%`}
           note="相对期初本金，已计实验费用"
           tone={
             summary.totalReturn > 0
@@ -134,7 +136,7 @@ export function MaReportOverview({ data }: { data: BaselineReport }) {
         />
         <Metric
           label="五分钟最大回撤"
-          value={`${summary.maxDrawdown.toFixed(2)}%`}
+          value={`${displayNumber(summary.maxDrawdown, 2)}%`}
           note="逐根收盘估值的最大损失幅度"
         />
         <Metric
@@ -247,7 +249,7 @@ export function MaReportEvidence({
     ],
     [
       "读取与核验 / 计算",
-      `${manifest.sourceMs.toFixed(1)} ms / ${manifest.computeMs.toFixed(1)} ms`,
+      `${displayNumber(manifest.sourceMs, 1)} ms / ${displayNumber(manifest.computeMs, 1)} ms`,
     ],
     ["引擎版本", summary.engineVersion],
     ["引擎指纹", summary.engineHash],
@@ -265,10 +267,10 @@ export function MaReportEvidence({
         {rows.map(([label, value]) => (
           <div
             key={label}
-            className="grid min-w-0 gap-1 py-3 text-sm sm:grid-cols-3"
+            className="grid min-w-0 gap-1 py-3 text-sm lg:grid-cols-3"
           >
             <dt className="text-nc-text-3">{label}</dt>
-            <dd className="min-w-0 break-all tabular-nums text-nc-text-2 sm:col-span-2">
+            <dd className="min-w-0 break-all tabular-nums text-nc-text-2 lg:col-span-2">
               {value}
             </dd>
           </div>
@@ -278,7 +280,7 @@ export function MaReportEvidence({
         <section>
           <h4 className="mb-2 text-sm font-medium">冻结的因子与条件配置</h4>
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-nc-inset p-3 text-xs text-nc-text-2">
-            {JSON.stringify(summary.input.strategy, null, 2)}
+            {formatEvidenceText(summary.input.strategy)}
           </pre>
         </section>
       )}
@@ -451,7 +453,7 @@ export function MaExperimentReport({
               >
                 <SelectTrigger
                   aria-label="订单状态"
-                  className="min-h-10 w-full sm:w-40"
+                  className="min-h-10 w-full lg:w-40"
                 >
                   <SelectValue />
                 </SelectTrigger>

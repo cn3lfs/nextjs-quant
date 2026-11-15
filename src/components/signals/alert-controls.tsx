@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import type { Channel } from "~/lib/domain";
 import { alertKinds } from "~/lib/strategy-facts/alerts";
 import { api } from "~/trpc/react";
@@ -17,12 +18,6 @@ export function AlertControls({ channels }: { channels: Channel[] }) {
   const subscription = api.saveAlertSubscription.useMutation({
     onSuccess: () => {
       setMessage("提醒订阅已保存");
-      void utils.alertStatus.invalidate();
-    },
-    onError: (e) => setMessage(e.message),
-  });
-  const strategy = api.configureAlertStrategy.useMutation({
-    onSuccess: () => {
       void utils.alertStatus.invalidate();
     },
     onError: (e) => setMessage(e.message),
@@ -103,7 +98,7 @@ export function AlertControls({ channels }: { channels: Channel[] }) {
             !/^(holding-|regime-|allocation-|expiry-|system-|plan-)/.test(s.id),
         )
         .map((s) => {
-          const { live, ...definition } = s;
+          const { live } = s;
           return (
             <div
               key={`${s.id}:${s.version}`}
@@ -113,25 +108,17 @@ export function AlertControls({ channels }: { channels: Channel[] }) {
                 {s.id} v{s.version} · {s.market} · {s.sleeve} ·{" "}
                 {live ? "已加入监视" : "仅研究"}
               </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={strategy.isPending}
-                onClick={() =>
-                  strategy.mutate({
-                    strategy: definition,
-                    live: !live,
-                    candidates: [],
-                  })
-                }
+              <Link
+                className="underline"
+                href={`/lab?strategy=${encodeURIComponent(s.id)}&version=${s.version}`}
               >
-                {live ? "移出监视" : "加入监视"}
-              </Button>
+                在实验室核对门槛与管理
+              </Link>
             </div>
           );
         })}
       {!status.data?.strategies.length && (
-        <p>暂无已登记策略。完成策略扫描后可在此选择加入监视。</p>
+        <p>暂无已登记策略。完成策略扫描后前往实验室核对并手动开启。</p>
       )}
       {message && <p role="status">{message}</p>}
     </section>

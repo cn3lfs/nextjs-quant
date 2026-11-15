@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
 import { PopoverTrigger, PopoverContent } from "../ui/popover";
 import { PanelPopover as Popover } from "../workbench/panel-popover";
@@ -37,7 +38,7 @@ const legendGroups: {
 ];
 /** Sub-chart pane that hosts an indicator line; main-chart lines use pane 0. */
 const formatValue = (value: number | null | undefined, precision = 2) =>
-  value == null ? "—" : value.toFixed(precision);
+  value == null ? "—" : displayNumber(value, precision);
 
 export function MarketChartLegend({
   legend,

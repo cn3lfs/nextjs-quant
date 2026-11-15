@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -62,5 +63,5 @@ const data = {
 };
 await writeFile(join(out, "exposure-audit.json"), JSON.stringify(data));
 console.log(
-  `实际仓位匹配价格指数：年化${((data.evaluation.annualReturn.value ?? 0) * 100).toFixed(2)}%，回撤${((data.evaluation.maxDrawdown.value ?? 0) * 100).toFixed(2)}%`,
+  `实际仓位匹配价格指数：年化${displayNumber((data.evaluation.annualReturn.value ?? 0) * 100, 2)}%，回撤${displayNumber((data.evaluation.maxDrawdown.value ?? 0) * 100, 2)}%`,
 );

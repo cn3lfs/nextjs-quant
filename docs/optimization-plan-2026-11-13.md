@@ -252,7 +252,7 @@ Done when: `grep prepare(` outside the data layer is empty for migrated kinds; a
 | [选股路由](../src/server/api/routers/screening.ts) | 旧 screen API 已移除，formulaScreen 执行现行公式任务 | 不保留旧参数兼容或旧结果回退 |
 | [策略路由](../src/server/api/routers/strategy.ts)、[图表](../src/components/market/chart.tsx) | 原生 CZSC 保持开放，旧 LLM 分析入口退役，双突破已恢复 | 现行计算通过隔离快照与应用流程验证，不发送通知或交易 |
 | [路线图](roadmap.md)、[当前计划](next-plan.md) | 加密资产模拟交易及账户历史保持原授权范围 | 不扩展实盘、合约或外发权限 |
-| [浏览器 runner](../scripts/run-browser-harness.mjs)、[P0 E2E](../playwright.p0.config.ts) | 组件浏览器测试与生产页面验收分别覆盖交互和真实 API/worker | 使用隔离数据与明确端口；测试通过不等于完整桌面或视觉验收 |
+| [浏览器 runner](../scripts/run-browser-harness.mjs)、[P0 E2E](../playwright.config.ts)（`--project p0`） | 组件浏览器测试与生产页面验收分别覆盖交互和真实 API/worker | 使用隔离数据与明确端口；测试通过不等于完整桌面或视觉验收 |
 | [工程约定](conventions.md)、[package.json](../package.json) | lint 约定已校正、六包构建入口已统一 | 增量构建、检查门禁和规则扩充仍待 P4 |
 | [WDZ 快照说明](data-sources/wdz-blocks/2026-11-07/README.md) | 管理者 f73f7db 已记录 2,319 原文件外部归档/恢复核验及仓库副本移除；受保护说明旧文字待管理者同步 | 保留原始数据，按 manifest 和精确目录操作，不按文件数量删除 |
 

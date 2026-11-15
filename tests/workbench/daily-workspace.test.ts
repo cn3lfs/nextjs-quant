@@ -12,7 +12,7 @@ import {
 import { createAlertPlan } from "~/server/alerts/plans";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { StrategyObjectInput } from "trading-strategies";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { navGroups } from "~/components/workbench/navigation";
 
 const now = Date.parse("2026-11-13T08:00:00Z");

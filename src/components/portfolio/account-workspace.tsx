@@ -4,8 +4,19 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { accountKindLabels } from "~/lib/portfolio/account-workspace";
-import { formatNumber, formatPercent } from "~/lib/common/format-number";
+import {
+  formatNumber,
+  formatPercent,
+} from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import { LedgerSelect } from "../signals/ledger-fields";
+import { alertReference } from "~/lib/strategy-facts/alert-reference";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
@@ -313,100 +324,227 @@ function TradeSources({
           下一页成交
         </Button>
       </div>
-      {d.trades.map((t) => (
-        <article key={t.id} className="space-y-2 rounded border p-3">
-          <p>
-            <span
-              className={
-                t.kind === "real" ? "text-nc-text-1" : "text-nc-accent"
-              }
-            >
-              {t.account} · {accountKindLabels[t.kind]}
-            </span>{" "}
-            · {t.date} · {t.side} {formatNumber(t.quantity, 6)} @{" "}
-            {formatNumber(t.price)} · {t.strategyId ?? "未关联"} v
-            {t.strategyVersion ?? "—"} · {t.sleeve}
-          </p>
-          {t.planId && (
-            <Link href="/accounts/alerts" className="underline">
-              计划 {t.planId}
-            </Link>
-          )}
-          {t.alertKey && <p className="break-all text-xs">提醒 {t.alertKey}</p>}
-          {t.kind !== "paper" && (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {d.suggestions
-                  .find((s) => s.tradeId === t.id)
-                  ?.plans.map((plan) => (
-                    <Button
-                      key={plan.id}
-                      variant="outline"
-                      disabled={link.isPending}
-                      onClick={() =>
-                        link.mutate({
-                          tradeId: t.id,
-                          planId: plan.id,
-                          alertKey: plan.triggerKey,
-                          strategyId: plan.strategyId,
-                          strategyVersion: plan.strategyVersion,
-                          sleeve: plan.sleeve,
-                        })
-                      }
-                    >
-                      确认关联 {plan.strategyId} / {plan.id}
-                    </Button>
-                  ))}
-                <Button variant="outline" onClick={() => setManual(t.id)}>
-                  手工关联
-                </Button>
-              </div>
-              {manual === t.id && (
-                <form
-                  className="grid gap-2 lg:grid-cols-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    link.mutate({
-                      tradeId: t.id,
-                      strategyId: String(f.get("strategy")),
-                      strategyVersion: Number(f.get("version")),
-                      sleeve: String(f.get("sleeve")),
-                      planId: String(f.get("plan")) || null,
-                      alertKey: String(f.get("alert")) || null,
-                    });
-                  }}
+      <DataTable
+        label="成交来源明细"
+        data={d.trades}
+        rowCount={total}
+        pagination={{ pageIndex: page, pageSize: 20 }}
+        sorting={[]}
+        onSortingChange={() => {}}
+        onPaginationChange={(u) =>
+          setPage(
+            (typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u)
+              .pageIndex,
+          )
+        }
+        showPagination={false}
+        getRowId={(t) => t.id}
+        columns={[
+          {
+            id: "date",
+            header: "日期",
+            cell: ({ row }) => (
+              <span
+                title={`${row.original.account} · ${accountKindLabels[row.original.kind]}`}
+              >
+                {row.original.date}
+              </span>
+            ),
+          },
+          {
+            id: "side",
+            header: "方向",
+            cell: ({ row }) => (row.original.side === "buy" ? "买入" : "卖出"),
+          },
+          {
+            id: "quantity",
+            header: "数量",
+            cell: ({ row }) => formatNumber(row.original.quantity, 6),
+          },
+          {
+            id: "price",
+            header: "价格",
+            cell: ({ row }) => formatNumber(row.original.price),
+          },
+          {
+            id: "strategy",
+            header: "策略",
+            cell: ({ row }) =>
+              row.original.strategyId
+                ? `${row.original.strategyId} v${row.original.strategyVersion}`
+                : "未关联",
+          },
+          {
+            id: "plan",
+            header: "计划",
+            cell: ({ row }) =>
+              row.original.planId ? (
+                <Link
+                  href={`/accounts/alerts?plan=${encodeURIComponent(row.original.planId)}`}
+                  className="underline"
                 >
-                  {[
-                    { name: "strategy", label: "策略ID", value: t.strategyId },
-                    {
-                      name: "version",
-                      label: "策略版本",
-                      value: t.strategyVersion ?? 1,
-                    },
-                    { name: "sleeve", label: "分仓ID", value: t.sleeve },
-                    { name: "plan", label: "计划ID（可空）", value: t.planId },
-                    {
-                      name: "alert",
-                      label: "提醒键（可空）",
-                      value: t.alertKey,
-                    },
-                  ].map((f) => (
-                    <label key={f.name}>
-                      {f.label}
-                      <Input name={f.name} defaultValue={f.value ?? ""} />
-                    </label>
-                  ))}
-                  <Button disabled={link.isPending}>保存人工关联</Button>
-                </form>
-              )}
-            </>
-          )}
-        </article>
-      ))}
+                  查看计划
+                </Link>
+              ) : (
+                "—"
+              ),
+          },
+          {
+            id: "alert",
+            header: "提醒",
+            cell: ({ row }) =>
+              row.original.alert ? (
+                <Link
+                  href={row.original.alert.href}
+                  className="inline-block max-w-64 whitespace-normal text-xs underline"
+                >
+                  {row.original.alert.label}
+                </Link>
+              ) : row.original.alertKey ? (
+                "原提醒不可用"
+              ) : (
+                "—"
+              ),
+          },
+          {
+            id: "actions",
+            header: "操作",
+            cell: ({ row }) => {
+              const t = row.original;
+              return t.kind === "paper" ? (
+                "纸面归属固定"
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {d.suggestions
+                    .find((s) => s.tradeId === t.id)
+                    ?.plans.map((plan) => (
+                      <Button
+                        key={plan.id}
+                        size="sm"
+                        variant="outline"
+                        disabled={link.isPending}
+                        onClick={() =>
+                          link.mutate({
+                            tradeId: t.id,
+                            planId: plan.id,
+                            alertKey: plan.triggerKey,
+                            strategyId: plan.strategyId,
+                            strategyVersion: plan.strategyVersion,
+                            sleeve: plan.sleeve,
+                          })
+                        }
+                      >
+                        确认关联 {plan.strategyId} / {plan.id}
+                      </Button>
+                    ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setManual(t.id)}
+                  >
+                    手工关联
+                  </Button>
+                </div>
+              );
+            },
+          },
+        ]}
+      />
+      <Dialog
+        open={!!manual}
+        onOpenChange={(open) => {
+          if (!open) setManual("");
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>手工关联成交来源</DialogTitle>
+          <DialogDescription>
+            仅保存来源及审计，不修改原始成交。
+          </DialogDescription>
+          {d.trades
+            .filter((t) => t.id === manual)
+            .map((t) => (
+              <TradeLinkForm
+                key={t.id}
+                trade={t}
+                pending={link.isPending}
+                onSave={(input) => link.mutate(input)}
+              />
+            ))}
+          {link.error && <p role="alert">{link.error.message}</p>}
+          {link.isSuccess && <p role="status">关联已保存，审计记录保留。</p>}
+        </DialogContent>
+      </Dialog>
       {link.error && <p role="alert">{link.error.message}</p>}
-      {link.isSuccess && <p role="status">关联已保存，审计记录保留。</p>}
+      {link.isSuccess && !manual && (
+        <p role="status">关联已保存，审计记录保留。</p>
+      )}
     </section>
+  );
+}
+function TradeLinkForm({
+  trade: t,
+  pending,
+  onSave,
+}: {
+  trade: RouterOutputs["accountTrades"]["trades"][number];
+  pending: boolean;
+  onSave: (
+    input: Parameters<
+      ReturnType<typeof api.linkAccountTrade.useMutation>["mutate"]
+    >[0],
+  ) => void;
+}) {
+  const [alert, setAlert] = useState(t.alertKey ?? "");
+  const events = api.alertHistory.useQuery({
+    symbol: t.symbol,
+    to: t.date.slice(0, 10),
+    size: 100,
+  });
+  const options = (events.data?.items ?? [])
+    .filter((e) => e.observedAt <= t.time)
+    .map((e) => alertReference(e));
+  if (t.alert && !options.some((e) => e.key === t.alert?.key))
+    options.unshift(t.alert);
+  return (
+    <form
+      className="grid gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        onSave({
+          tradeId: t.id,
+          strategyId: String(f.get("strategy")),
+          strategyVersion: Number(f.get("version")),
+          sleeve: String(f.get("sleeve")),
+          planId: String(f.get("plan")) || null,
+          alertKey: alert || null,
+        });
+      }}
+    >
+      {[
+        { name: "strategy", label: "策略ID", value: t.strategyId },
+        { name: "version", label: "策略版本", value: t.strategyVersion ?? 1 },
+        { name: "sleeve", label: "分仓ID", value: t.sleeve },
+        { name: "plan", label: "计划ID（可空）", value: t.planId },
+      ].map((f) => (
+        <label key={f.name}>
+          {f.label}
+          <Input name={f.name} defaultValue={f.value ?? ""} />
+        </label>
+      ))}
+      <LedgerSelect
+        label="关联提醒"
+        value={alert}
+        onChange={setAlert}
+        options={[
+          { value: "all", label: "无提醒" },
+          ...options.map((e) => ({ value: e.key, label: e.label })),
+        ]}
+      />
+      {events.error && <p role="alert">{events.error.message}</p>}
+      <Button disabled={pending}>保存人工关联</Button>
+    </form>
   );
 }
 function AccountTrades() {

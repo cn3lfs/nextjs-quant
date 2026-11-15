@@ -1,6 +1,6 @@
 import { FactorFields } from "../factors/factor-fields";
 import { factorCatalog } from "trading-strategy-core/factors";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash as Trash2 } from "@phosphor-icons/react/ssr";
 import {
   factorStrategyPresets,
   type FactorStrategyInput,

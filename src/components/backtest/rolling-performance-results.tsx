@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import type { RouterOutputs } from "~/trpc/react";
 import {
@@ -49,8 +50,8 @@ const columns: DataTableColumn<RollingPoint>[] = [
         ? `不可得：${metric.reason ?? "证据不足"}`
         : percent &&
             !(key === "maxDrawdown" && c.row.original.basis === "simple")
-          ? `${(metric.value * 100).toFixed(2)}%`
-          : metric.value.toFixed(4);
+          ? `${displayNumber(metric.value * 100, 2)}%`
+          : displayNumber(metric.value, 4);
     },
   })),
 ];

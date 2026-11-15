@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { commonIndices } from "../src/lib/market/market-indices";
 import { parseArgs } from "node:util";
 import { realpath, readdir, mkdir, writeFile } from "node:fs/promises";
@@ -100,7 +101,7 @@ await Promise.all(
       completed++;
       if (completed % 250 === 0 || completed === files.length)
         console.log(
-          `${completed}/${files.length} · ${((Date.now() - started) / 1000).toFixed(1)} 秒 · 错误 ${errors}`,
+          `${completed}/${files.length} · ${displayNumber((Date.now() - started) / 1000, 1)} 秒 · 错误 ${errors}`,
         );
     }
   }),

@@ -1,7 +1,8 @@
 "use client";
 import type { Settings } from "~/lib/domain";
-import { alertModes, alertModeLabels } from "~/lib/strategy-facts/alerts";
-import { LedgerInput, LedgerSelect } from "./ledger-fields";
+import { alertModeLabels } from "~/lib/strategy-facts/alerts";
+import { LedgerInput } from "./ledger-fields";
+import Link from "next/link";
 export function AlertSettings({
   value,
   onChange,
@@ -15,21 +16,16 @@ export function AlertSettings({
       <p className="text-xs text-nc-text-3">
         默认影子模式：求值并记录本应发送的提醒。开启后仅向已启用订阅投递，始终须人工交易。修改后点击上方保存设置。
       </p>
-      <LedgerSelect
-        label="提醒模式"
-        value={value.mode}
-        onChange={(mode) =>
-          onChange({ ...value, mode: mode as Settings["alerts"]["mode"] })
-        }
-        options={alertModes.map((mode) => ({
-          value: mode,
-          label: alertModeLabels[mode],
-        }))}
-      />
+      <p>
+        提醒模式：{alertModeLabels[value.mode]}。
+        <Link href="/lab" className="underline">
+          前往实验室核对门槛并手动切换
+        </Link>
+      </p>
       {value.mode === "live" && (
         <p role="status">保存后允许向已启用订阅和渠道发送提醒。</p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {(["cn-equity", "crypto"] as const).map((market) => (
           <LedgerInput
             key={market}

@@ -49,7 +49,7 @@ export function IndustryRpsStatus({
           <p className="text-xs text-muted-foreground">
             各原因剔除数按行业成分出现次数统计，同一股票跨行业分别计数。
           </p>
-          <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-x-6 gap-y-1 text-sm lg:grid-cols-2 lg:grid-cols-3">
             {rpsGroupExclusions.map((key) => (
               <p key={key} className="flex justify-between gap-2">
                 <span className="text-muted-foreground">

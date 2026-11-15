@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { DataTable } from "~/components/ui/data-table";
 import type { SignalInformation } from "~/lib/strategy-facts/signal-information";
 export type SignalInformationDisplay = {
@@ -7,8 +9,9 @@ export type SignalInformationDisplay = {
   })[];
   decay: SignalInformation["decay"];
 };
-const number = (n: number | null) => (n === null ? "—" : n.toFixed(4));
-const percent = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)}%`);
+const number = (n: number | null) => (n === null ? "—" : displayNumber(n, 4));
+const percent = (n: number | null) =>
+  n === null ? "—" : `${displayNumber(n, 2)}%`;
 function DisplayTable({
   label,
   headers,

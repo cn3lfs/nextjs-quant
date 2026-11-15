@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
 import {
   Select,
@@ -35,7 +36,7 @@ export function ClsSelect({
   );
 }
 export const clsPct = (value: number | null | undefined) =>
-  value == null ? "—" : `${(value * 100).toFixed(2)}%`;
+  value == null ? "—" : `${displayNumber(value * 100, 2)}%`;
 export const clsTime = (value: number) =>
   new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
 export const clsDirections: Record<string, string> = {

@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
@@ -7,7 +8,7 @@ import { Segmented } from "../panels";
 import type { ScoreboardRow } from "~/server/research/validation-model";
 
 const pct = (value: number | null) =>
-  value === null ? "—" : `${(value * 100).toFixed(2)}%`;
+  value === null ? "—" : `${displayNumber(value * 100, 2)}%`;
 const columns: DataTableColumn<ScoreboardRow>[] = [
   {
     id: "id",
@@ -57,9 +58,11 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
           {row.original.status === "live-candidate"
             ? "可监视候选"
             : row.original.status === "shadow-candidate"
-              ? row.original.shadow?.active === false
-                ? "影子观察已结束"
-                : "影子前推中"
+              ? row.original.shadow?.active
+                ? "影子前推中"
+                : row.original.shadow
+                  ? "影子观察未开启或已暂停"
+                  : "影子候选，尚未手动开启"
               : "研究"}{" "}
           · 闭合交易 {row.original.trades}
         </p>
@@ -78,8 +81,8 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
         )}
         {row.original.dsr && (
           <p>
-            市场DSR {row.original.dsr.value?.toFixed(3) ?? "—"} · 全局DSR{" "}
-            {row.original.globalDsr?.value?.toFixed(3) ?? "—"}（诊断）
+            市场DSR {displayNumber(row.original.dsr.value, 3) ?? "—"} · 全局DSR{" "}
+            {displayNumber(row.original.globalDsr?.value, 3) ?? "—"}（诊断）
           </p>
         )}
         <p>
@@ -94,9 +97,11 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
         {row.original.riskAdjusted && (
           <p title={row.original.riskAdjusted.basis}>
             夏普差{" "}
-            {row.original.riskAdjusted.sharpeDifference?.toFixed(3) ?? "—"}；
-            Calmar 差{" "}
-            {row.original.riskAdjusted.calmarDifference?.toFixed(3) ?? "—"}
+            {displayNumber(row.original.riskAdjusted.sharpeDifference, 3) ??
+              "—"}
+            ； Calmar 差{" "}
+            {displayNumber(row.original.riskAdjusted.calmarDifference, 3) ??
+              "—"}
           </p>
         )}
         <p>{row.original.reasons.join("；")}</p>

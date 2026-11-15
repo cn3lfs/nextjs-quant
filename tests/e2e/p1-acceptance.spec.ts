@@ -274,7 +274,7 @@ test("C2 loaded news original returns focus to its list action", async ({
 });
 
 test("C2 strategy hidden views do not request their data", async ({ page }) => {
-  const initial = await trpcCalls(page, () => ready(page, "/lab"));
+  const initial = await trpcCalls(page, () => ready(page, "/lab?tab=catalog"));
   expect(initial).not.toContain("strategyCenterMethods");
   expect(initial).not.toContain("strategyCenterHistory");
   const methods = await trpcCalls(page, async () => {
@@ -505,7 +505,7 @@ test("C1/C2 actual baseline report visits four tabs and their popovers", async (
 test("C2 strategy comparison reads two actual local experiments", async ({
   page,
 }) => {
-  await ready(page, "/lab");
+  await ready(page, "/lab?tab=catalog");
   const ids: string[] = [];
   for (let index = 0; index < 2; index++) {
     const response = await page.request.post("/api/trpc/strategyCenterRun", {

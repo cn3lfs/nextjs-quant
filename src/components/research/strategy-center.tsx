@@ -1,5 +1,7 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
+import { formatNumber } from "trading-strategy-core/format-number";
 
 import { Segmented } from "../panels";
 import { StrategyScoreboard } from "./strategy-scoreboard";
@@ -151,7 +153,7 @@ export function StrategyCenter() {
   const weightDateError = studyDateError(end, end, now);
   const portfolioDateError = studyDateError(start, end, now);
   const dateNote = (
-    <div className="text-xs text-muted-foreground md:col-span-2">
+    <div className="text-xs text-muted-foreground lg:col-span-2">
       {daily.isPending ? (
         <p role="status">正在读取本地历史日期…</p>
       ) : daily.isError ? (
@@ -262,7 +264,7 @@ export function StrategyCenter() {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-5 md:grid-cols-[minmax(220px,1fr)_2fr]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(220px,1fr)_2fr]">
           <div
             className="max-h-[65vh] space-y-2 overflow-auto rounded border p-3"
             aria-label="策略列表"
@@ -335,7 +337,7 @@ export function StrategyCenter() {
                 ] as readonly string[]
               ).includes(selected.id) ? (
                 <form
-                  className="grid gap-3 md:grid-cols-2"
+                  className="grid gap-3 lg:grid-cols-2"
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (
@@ -405,11 +407,11 @@ export function StrategyCenter() {
                   </label>
                   {dateNote}
                   {dateError && (
-                    <p role="status" className="text-xs md:col-span-2">
+                    <p role="status" className="text-xs lg:col-span-2">
                       {dateError}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground md:col-span-2">
+                  <p className="text-xs text-muted-foreground lg:col-span-2">
                     日线只做多，收盘决策、下一交易日开盘撮合。佣金双边万一/最低5元，卖出税费万五；100股整手。存在不支持的公司行动或行情缺口时任务拒绝运行。
                     {selected.id === "research-chan"
                       ? " 原生缠论最多366自然日，固定开始日前140根起点，逐收盘重新确认；基线旧点不买，DLL身份变化或结构元数据缺失时拒绝。"
@@ -486,7 +488,7 @@ export function StrategyCenter() {
                   <p className="text-xs text-muted-foreground">
                     自动读取截至决策日的行情、严格可见财报及所需本地序列，缺失逐项披露。输出目标权重，未模拟历史组合成交。
                   </p>
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 lg:grid-cols-2">
                     <label>
                       组合开始日期
                       <Input
@@ -570,7 +572,7 @@ export function StrategyCenter() {
                     目标权重 · {evaluation.strategyId} · 截至 {evaluation.asOf}
                   </p>
                   <pre className="max-h-64 overflow-auto text-xs">
-                    {JSON.stringify(evaluation.result, null, 2)}
+                    {formatEvidenceText(evaluation.result)}
                   </pre>
                 </div>
               )}

@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import Link from "next/link";
@@ -33,6 +33,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { WorkProgressView } from "../screening/screen-task-progress";
 import { useTaskVisible } from "./use-task-visible";
+import { TaskEvidence } from "./task-evidence";
 import type { RouterOutputs } from "~/trpc/react";
 import {
   readTaskHistoryLocation,
@@ -144,6 +145,9 @@ export function TaskDetails({
             阶段：{data.phase || "未记录"}
           </p>
           <WorkProgressView counts={data.workProgress} />
+          {data.localEvidence && data.status === "completed" && (
+            <TaskEvidence id={data.id} />
+          )}
           {!active(data.status) && !data.sourceLink && (
             <p className="text-muted-foreground">
               未记录可确认的来源入口，请回到原功能页核对参数后重新发起。

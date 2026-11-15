@@ -1,8 +1,11 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { DataTable } from "~/components/ui/data-table";
 import type { aggregateLedger } from "~/lib/strategy-facts/signal-ledger";
 const name = (s: string) => (s === "czsc" ? "缠论" : "双突破");
-const percent = (v: number | null) => (v === null ? "—" : `${v.toFixed(2)}%`);
+const percent = (v: number | null) =>
+  v === null ? "—" : `${displayNumber(v, 2)}%`;
 // Aggregation remains in the server view; this component receives display rows only.
 export function SignalLedgerSummaryTable({
   groups,
@@ -83,7 +86,7 @@ export function SignalLedgerSummaryTable({
           enableSorting: false,
           cell: ({ row }) => {
             const g = row.original;
-            return <>{g.payoff?.toFixed(2) ?? "—"}</>;
+            return <>{displayNumber(g.payoff, 2) ?? "—"}</>;
           },
         },
         {

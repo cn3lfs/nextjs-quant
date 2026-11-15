@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { parseArgs } from "node:util";
 import {
   realpath,
@@ -221,7 +222,7 @@ for (const archive of files) {
   );
   await writeFile(report, JSON.stringify(summary, null, 2));
   console.log(
-    `${summary.processed}/${files.length} ${basename(archive)} · 新增 ${delta.added} · 相同 ${delta.identical} · 错误 ${delta.errors} · 累计 ${summary.seconds.toFixed(1)} 秒`,
+    `${summary.processed}/${files.length} ${basename(archive)} · 新增 ${delta.added} · 相同 ${delta.identical} · 错误 ${delta.errors} · 累计 ${displayNumber(summary.seconds, 1)} 秒`,
   );
 }
 console.log(JSON.stringify(summary, null, 2));

@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
@@ -12,9 +13,9 @@ import { usePanelVisible } from "../workbench/keep-alive";
 
 type Result = Awaited<ReturnType<typeof evaluateFactorWork>>;
 const pct = (v: number | null | undefined, digits = 2) =>
-  v == null ? "—" : `${(v * 100).toFixed(digits)}%`;
+  v == null ? "—" : `${displayNumber(v * 100, digits)}%`;
 const num = (v: number | null | undefined, digits = 3) =>
-  v == null ? "—" : v.toFixed(digits);
+  v == null ? "—" : displayNumber(v, digits);
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Cumulative daily IC as a small inline chart (a persistent sign is the signal). */
@@ -170,7 +171,7 @@ export function FactorEvaluationPanel() {
             证券池 {result.universe} 只（有效 {result.evaluated}
             ，无除权记录按不复权 {result.unadjusted}）· 横截面 {result.dates}{" "}
             日（跳过 {result.skippedDates}）· 读取失败 {result.errorCount} ·
-            用时 {(result.elapsedMs / 1000).toFixed(1)} 秒
+            用时 {displayNumber(result.elapsedMs / 1000, 1)} 秒
           </p>
           <GridTable
             label="因子IC统计"
@@ -224,7 +225,7 @@ export function FactorEvaluationPanel() {
               },
             ]}
           />
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <div>
               <h4 className="text-sm">
                 T+{selected.horizon} 分位平均超额收益（去当日均值）

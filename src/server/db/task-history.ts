@@ -108,6 +108,7 @@ export function taskState(id: string): TaskState | null {
     'phase', json_extract(payload, '$.phase'), 'error', json_extract(payload, '$.error'),
     'workProgress', json_extract(payload, '$.workProgress'),
     'inputType', json_extract(payload, '$.input.type'),
+    'inputSource', json_extract(payload, '$.input.source'),
     'inputKind', json_extract(payload, '$.input.kind'),
     'inputMethod', json_extract(payload, '$.input.method'),
     'screenResultId', CASE WHEN json_extract(payload, '$.type') = 'screen'
@@ -123,6 +124,7 @@ export function taskState(id: string): TaskState | null {
     attemptId,
     auditIncomplete,
     inputType,
+    inputSource,
     inputKind,
     inputMethod,
     ...value
@@ -139,6 +141,10 @@ export function taskState(id: string): TaskState | null {
     error: value.error ?? undefined,
     screenResultId: value.screenResultId ?? undefined,
     isFormulaScreen: value.type === "screen" && inputType === "formula-screen",
+    ...(["lab-backtest", "research-command"].includes(inputType) ||
+    inputSource === "binance-archive-audit"
+      ? { localEvidence: true }
+      : {}),
     resultLink: taskResultLink(id),
     sourceLink: taskSourceLink(value.type, inputType, inputKind, inputMethod),
   };
@@ -152,6 +158,8 @@ function taskSourceLink(
 ): TaskState["sourceLink"] {
   let href: string | undefined;
   if (type === "scan") href = "/system";
+  else if (type === "market-data-backfill") href = "/system";
+  else if (inputType === "research-command") href = "/lab?tab=tasks";
   else if (type === "screen" && inputType === "formula-screen")
     href = "/scan?tab=formula";
   else if (type === "backtest") href = "/lab/backtest";

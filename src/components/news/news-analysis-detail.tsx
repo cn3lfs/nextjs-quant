@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import type { NewsAnalysis } from "~/server/news/news-analysis";
@@ -129,14 +131,10 @@ export function NewsAnalysisDetail({
                   <ArchiveEvidence title="续作版本差异">
                     {() => (
                       <ArchiveText
-                        text={JSON.stringify(
-                          {
-                            previous: preview.data!.previousMethod,
-                            current: preview.data!.method,
-                          },
-                          null,
-                          2,
-                        )}
+                        text={formatEvidenceText({
+                          previous: preview.data!.previousMethod,
+                          current: preview.data!.method,
+                        })}
                       />
                     )}
                   </ArchiveEvidence>
@@ -245,17 +243,13 @@ export function NewsAnalysisDetail({
           <ArchiveEvidence title="完整分类版本与来源">
             {() => (
               <ArchiveText
-                text={JSON.stringify(
-                  {
-                    id: result.id,
-                    method: result.method,
-                    sources: result.news.map(({ content, ...n }) => n),
-                    itemOrigins: result.itemOrigins,
-                    aggregation: result.aggregation,
-                  },
-                  null,
-                  2,
-                )}
+                text={formatEvidenceText({
+                  id: result.id,
+                  method: result.method,
+                  sources: result.news.map(({ content, ...n }) => n),
+                  itemOrigins: result.itemOrigins,
+                  aggregation: result.aggregation,
+                })}
               />
             )}
           </ArchiveEvidence>

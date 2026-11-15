@@ -1,4 +1,5 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
 import {
   Table,
   TableHeader,
@@ -74,7 +75,7 @@ export function ClsReviewPrices({
     { enabled: visible && evidence && !!current, gcTime: 0 },
   );
   const evidenceText = useMemo(
-    () => (detail.data ? JSON.stringify(detail.data, null, 2) : ""),
+    () => (detail.data ? formatEvidenceText(detail.data) : ""),
     [detail.data],
   );
   const verify = api.clsReviewVerify.useMutation({

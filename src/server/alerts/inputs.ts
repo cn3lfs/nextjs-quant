@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { historicalLowSeries } from "trading-strategies";
 import type { HoldingRiskSnapshot } from "./workspace";
 import { createHash } from "node:crypto";
@@ -568,7 +569,7 @@ export async function evaluateAlertInputs(
           new Date(now).toISOString(),
           "allocation",
           null,
-          `分仓市值/配置总资金=${(actual * 100).toFixed(2)}%，目标${(sleeve.share * 100).toFixed(2)}%；偏离至少10个百分点。持仓默认归swing，可显式分配`,
+          `分仓市值/配置总资金=${displayNumber(actual * 100, 2)}%，目标${displayNumber(sleeve.share * 100, 2)}%；偏离至少10个百分点。持仓默认归swing，可显式分配`,
           "本地持仓与用户配置资金；不含未登记外部持仓",
           now,
         );
@@ -672,7 +673,7 @@ export async function evaluateAlertInputs(
             bar.date,
             "regime",
             bar.close,
-            `${previous.trend}/${previous.zone} → ${regime.trend}/${regime.zone}，温度${regime.temperature.toFixed(1)}；${regime.basis}`,
+            `${previous.trend}/${previous.zone} → ${regime.trend}/${regime.zone}，温度${displayNumber(regime.temperature, 1)}；${regime.basis}`,
             data.source,
             data.completedAt(bar.date),
           );

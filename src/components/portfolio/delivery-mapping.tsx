@@ -42,7 +42,7 @@ export function DeliveryMapping({
   return (
     <section aria-label="列映射结果" className="space-y-2 break-words text-sm">
       <h3 className="font-medium">列映射结果</h3>
-      <dl className="grid gap-2 sm:grid-cols-2">
+      <dl className="grid gap-2 lg:grid-cols-2">
         {Object.entries(mapping.columns).map(([field, index]) => (
           <div key={field}>
             <dt className="text-muted-foreground">{column(index!)}</dt>

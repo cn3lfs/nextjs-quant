@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { CapabilityNotice } from "../common/capability-notice";
 import { useEffect, useRef, useState } from "react";
 import { Notebook, ListBullets } from "@phosphor-icons/react/ssr";
@@ -249,7 +251,7 @@ export function SignalLedgerWorkspace() {
       ) : (
         <Panel icon={ListBullets} title="信号记录" aria-label="信号记录">
           <form
-            className="grid grid-cols-2 gap-3 md:grid-cols-4"
+            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
             onSubmit={(event) => {
               event.preventDefault();
               apply(draft);
@@ -485,7 +487,7 @@ export function SignalLedgerWorkspace() {
                             ? "待观察"
                             : out.returnPct === null
                               ? "已固定·留空"
-                              : `${out.returnPct.toFixed(2)}%`}
+                              : `${displayNumber(out.returnPct, 2)}%`}
                         </span>
                       </div>
                     );

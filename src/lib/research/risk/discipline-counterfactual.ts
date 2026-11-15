@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   disciplineRulesSchema,
   disciplineGrid,
@@ -157,7 +158,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
     // Fixed repo/excluded legs cannot be silently resized or financed by invented cash.
     if (!unchanged && cash < -0.005)
       throw new Error(
-        `${fill.tradeDate} ${fill.code} 原样保留成交后现金 ${cash.toFixed(2)} 为负，网格不可用`,
+        `${fill.tradeDate} ${fill.code} 原样保留成交后现金 ${displayNumber(cash, 2)} 为负，网格不可用`,
       );
   };
   const scaled = (f: ParsedFill, q: number) => {

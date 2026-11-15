@@ -21,7 +21,7 @@ import {
 import { CandidatePlan } from "../signals/candidate-plan";
 import { PlanLevelsProvider } from "../market/plan-levels";
 import { useTaskVisible } from "../workbench/use-task-visible";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
 const Market = dynamic(() =>
   import("../market/market-page").then((m) => m.MarketPage),

@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import Big from "big.js";
 import { CurrencyBtc } from "@phosphor-icons/react/ssr";
@@ -218,7 +220,7 @@ function AccountBot({
           </div>
           <fieldset
             disabled={pending || running}
-            className="grid gap-3 sm:grid-cols-4"
+            className="grid gap-3 lg:grid-cols-4"
           >
             <label className="flex flex-col gap-1">
               K线周期
@@ -274,7 +276,7 @@ function AccountBot({
                 }
               />
             </label>
-            <div className="sm:col-span-4">
+            <div className="lg:col-span-4">
               <Button
                 size="sm"
                 disabled={
@@ -299,7 +301,7 @@ function AccountBot({
               配置模拟账户凭证（Windows DPAPI 加密）
             </summary>
             <form
-              className="mt-3 grid gap-3 sm:grid-cols-3"
+              className="mt-3 grid gap-3 lg:grid-cols-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 credential.mutate({
@@ -339,7 +341,7 @@ function AccountBot({
                   />
                 </label>
               )}
-              <div className="sm:col-span-3">
+              <div className="lg:col-span-3">
                 <Button
                   type="submit"
                   size="sm"
@@ -426,7 +428,7 @@ function AccountBot({
               策略状态：{bot.error}
             </p>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {(["BTCUSDT", "ETHUSDT"] as const).map((symbol) => (
               <div key={symbol} className="rounded border p-3">
                 <strong>{symbol}</strong>
@@ -451,10 +453,8 @@ function AccountBot({
                     : "尚无"}
                 </p>
                 <pre className="mt-2 overflow-auto whitespace-pre-wrap text-[13px]">
-                  {JSON.stringify(
+                  {formatEvidenceText(
                     bot?.indicators[symbol] ?? "尚无均线与信号",
-                    null,
-                    2,
                   )}
                 </pre>
               </div>
@@ -466,7 +466,7 @@ function AccountBot({
                 最近账户诊断快照：余额与挂单（非实时权益）
               </summary>
               <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap">
-                {JSON.stringify(diagnostic, null, 2)}
+                {formatEvidenceText(diagnostic)}
               </pre>
             </details>
           )}
@@ -498,7 +498,7 @@ function AccountBot({
                         下单时策略与信号快照
                       </summary>
                       <pre className="mt-2 overflow-auto whitespace-pre-wrap">
-                        {JSON.stringify(order.decision, null, 2)}
+                        {formatEvidenceText(order.decision)}
                       </pre>
                     </details>
                   )}

@@ -1,6 +1,7 @@
 "use client";
+import type { IntelEvent } from "~/lib/news/intel-events";
 import { usePlanLevels } from "./plan-levels";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { MarketChartLegend } from "./market-chart-legend";
 import { rpsPeriods } from "quant-rps";
 import { createMarketChartInstance } from "./market-chart-instance";
@@ -366,7 +367,11 @@ export function CzscMarketChart({
   link,
   height,
   sharedDrawings,
+  newsEvents,
+  onNewsEvent,
 }: {
+  newsEvents?: readonly IntelEvent[];
+  onNewsEvent?: (id: string) => void;
   bars: Bar[];
   period: Period;
   snapshotId: string;
@@ -465,6 +470,8 @@ export function CzscMarketChart({
   );
   return (
     <MarketChart
+      newsEvents={newsEvents}
+      onNewsEvent={onNewsEvent}
       pricePrecision={pricePrecision}
       volumeUnit={volumeUnit}
       bars={bars}
@@ -549,7 +556,11 @@ export function MarketChart({
   link,
   height,
   sharedDrawings,
+  newsEvents,
+  onNewsEvent,
 }: {
+  newsEvents?: readonly IntelEvent[];
+  onNewsEvent?: (id: string) => void;
   bars: Bar[];
   period: Period;
   adjustment?: ChartAdjustment;
@@ -683,7 +694,6 @@ export function MarketChart({
   const subchartOptions = (Object.keys(subchartLabels) as Subchart[]).filter(
     (value) => value !== "rps" || rpsAvailable,
   );
-  const dark = false;
   const logarithmic = view?.logarithmic ?? false;
   const drawings = view?.drawings;
   const hasRps = visibleSubcharts.includes("rps");
@@ -696,7 +706,6 @@ export function MarketChart({
     drawingText,
     onAnchor,
     onHistoryRequest,
-    dark,
     view,
     onViewChange,
   });
@@ -706,7 +715,6 @@ export function MarketChart({
     drawingText,
     onAnchor,
     onHistoryRequest,
-    dark,
     view,
     onViewChange,
   };
@@ -821,20 +829,20 @@ export function MarketChart({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: dark ? chartColor.groundDeep : chartColor.ground,
+          color: chartColor.ground,
         },
-        textColor: dark ? chartColor.textStrong : chartColor.text,
+        textColor: chartColor.text,
       },
       grid: {
-        vertLines: { color: dark ? chartColor.gridDeep : chartColor.grid },
-        horzLines: { color: dark ? chartColor.gridDeep : chartColor.grid },
+        vertLines: { color: chartColor.grid },
+        horzLines: { color: chartColor.grid },
       },
       handleScale: {
         axisPressedMouseMove: { time: true, price: !hasRps },
       },
       handleScroll: { pressedMouseMove: drawingTool === "none" },
     });
-  }, [period, pricePrecision, viewportKey, dark, hasRps, drawingTool]);
+  }, [period, pricePrecision, viewportKey, hasRps, drawingTool]);
 
   // Log prices only: oscillators can be negative and must retain their linear
   // scale. A comparison switches the main scale to percent from the first
@@ -883,6 +891,7 @@ export function MarketChart({
       showBreakout,
       compare,
       setHistoryStart,
+      newsEvents,
     });
   }, [
     period,
@@ -896,7 +905,22 @@ export function MarketChart({
     breakoutIndex,
     cost,
     compare,
+    newsEvents,
   ]);
+
+  useEffect(() => {
+    const chart = native.current?.chart;
+    if (!chart || !onNewsEvent) return;
+    const click = (p: { hoveredObjectId?: unknown }) => {
+      if (
+        typeof p.hoveredObjectId === "string" &&
+        p.hoveredObjectId.startsWith("intel:")
+      )
+        onNewsEvent(p.hoveredObjectId.slice(6));
+    };
+    chart.subscribeClick(click);
+    return () => chart.unsubscribeClick(click);
+  }, [onNewsEvent, period, pricePrecision, viewportKey]);
 
   // Secondary panes are diffed by identity: each subchart owns one anchor
   // series, and its pane is wherever that series lives. Unselected panes are
@@ -1017,7 +1041,6 @@ export function MarketChart({
     <div
       data-testid="market-chart"
       data-period={period}
-      data-dark={false}
       style={{
         background: chartColor.ground,
         color: chartColor.text,

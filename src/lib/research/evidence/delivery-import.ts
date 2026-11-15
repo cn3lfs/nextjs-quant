@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 /** Normalizes a parsed 交割单 table into fills, cash flows and explicitly
  * unresolved rows. Pure: no IO, no hashing, no database. Column names differ per
  * terminal (同花顺 / 东方财富 / 通达信) and per counter (恒生 / 顶点 / 金证), so
@@ -924,7 +925,7 @@ export function importDeliveryTable(
       anomalies.push(
         `成交金额 ${declared} 与 价格×数量${
           instrument === "convertible" ? "（按张或按手）" : ""
-        } ${(price * shares).toFixed(2)} 不符`,
+        } ${displayNumber(price * shares, 2)} 不符`,
       );
     if (market === null)
       anomalies.push(`代码 ${code} 不属于已知沪深北品种，不参与个股分析`);
@@ -969,7 +970,7 @@ export function importDeliveryTable(
       !close(Math.abs(fees.total), summed)
     )
       anomalies.push(
-        `费用合计 ${fees.total} 与分项之和 ${summed.toFixed(2)} 不符`,
+        `费用合计 ${fees.total} 与分项之和 ${displayNumber(summed, 2)} 不符`,
       );
     const total = fees.total !== null ? Math.abs(fees.total) : summed;
     const netAmount = num(cells, "netAmount");
@@ -979,7 +980,7 @@ export function importDeliveryTable(
       const expected = kind === "buy" ? -(gross + total) : gross - total;
       if (!close(netAmount, expected))
         anomalies.push(
-          `发生金额 ${netAmount} 与 ${kind === "buy" ? "成交金额+费用" : "成交金额-费用"} ${expected.toFixed(2)} 不符`,
+          `发生金额 ${netAmount} 与 ${kind === "buy" ? "成交金额+费用" : "成交金额-费用"} ${displayNumber(expected, 2)} 不符`,
         );
     }
     if (instrument !== "reverseRepo" && netAmount !== null && netAmount !== 0) {

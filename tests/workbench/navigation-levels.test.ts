@@ -59,7 +59,7 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
   ] as const)
     expect(navItemFor(tabHref(tab))?.tab).toBe(tab);
   expect(navItemFor("/lab/reports/report/abc")?.title).toBe("研究报告详情");
-  expect(navItemFor("/system/ui-gallery")?.group).toBe("系统");
+  expect(navItemFor("/system/ui-gallery")).toBeUndefined();
   expect(searchNav("rps")[0]?.href).toBe("/scan?tab=rps");
   expect(searchNav("台账").map((item) => item.href)).toContain(
     "/accounts/alerts",

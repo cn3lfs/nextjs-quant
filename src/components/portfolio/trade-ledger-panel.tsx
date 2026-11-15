@@ -512,7 +512,7 @@ export function TradeLedgerPanel() {
         {summary && (
           <dl
             aria-label="全部持仓摘要"
-            className="my-4 grid grid-cols-4 gap-4 max-sm:grid-cols-2"
+            className="my-4 grid grid-cols-4 gap-4 max-lg:grid-cols-2"
           >
             <div>
               <dt>全部持仓</dt>
@@ -639,7 +639,7 @@ export function TradeLedgerPanel() {
         {tab === "history" && (
           <div className="space-y-4">
             <form
-              className="grid grid-cols-2 gap-3 max-sm:grid-cols-1"
+              className="grid grid-cols-2 gap-3 max-lg:grid-cols-1"
               onSubmit={(event) => {
                 event.preventDefault();
                 applyFilters();

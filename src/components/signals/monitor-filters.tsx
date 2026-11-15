@@ -54,7 +54,7 @@ export function MonitorFiltersForm({
           onChange={(event) => onChange({ query: event.target.value })}
         />
       </label>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         {tab !== "deliveries" && (
           <>
             <MonitorSelect

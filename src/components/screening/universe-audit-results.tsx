@@ -47,7 +47,7 @@ export function UniverseAuditResults({
       <p>
         名单快照时间：{summary.rosterAsOf ?? "未知"} {summary.rosterAsOfReason}
       </p>
-      <dl className="grid gap-2 sm:grid-cols-2">
+      <dl className="grid gap-2 lg:grid-cols-2">
         {Object.entries(universeAuditLabels).map(([key, label]) => (
           <div key={key}>
             <dt>{label}</dt>

@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useEffect, useRef } from "react";
 import type {
@@ -21,7 +22,7 @@ import {
 export type PerformanceReportData = PerformanceReportPage;
 const labels = { year: "年度", quarter: "季度", month: "月度" } as const;
 const percent = (value: number) =>
-  `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+  `${value > 0 ? "+" : ""}${displayNumber(value * 100, 2)}%`;
 const tone = (value: number | null) =>
   value === null || value === 0
     ? "text-nc-text"
@@ -48,12 +49,12 @@ function Metric({
       : unit === "percent"
         ? percent(data.value)
         : unit === "drawdown" || unit === "rate"
-          ? `${(data.value * 100).toFixed(2)}%`
+          ? `${displayNumber(data.value * 100, 2)}%`
           : unit === "days"
             ? `${data.value} 天`
             : unit === "money"
               ? `${data.value.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`
-              : data.value.toFixed(2);
+              : displayNumber(data.value, 2);
   return (
     <div className="min-w-0 rounded-lg border border-nc-border-soft bg-nc-inset p-3">
       <dt className="text-xs text-nc-text-3">{label}</dt>
@@ -79,7 +80,7 @@ function RecoveryDetails({
     <div className="space-y-3 rounded-lg border border-nc-border-soft p-3">
       <h5 className="text-sm font-medium">最大回撤与修复轨迹</h5>
       {episode ? (
-        <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+        <dl className="grid gap-3 text-sm lg:grid-cols-2 xl:grid-cols-4">
           <div>
             <dt className="text-xs text-nc-text-3">此前峰值日</dt>
             <dd className="mt-1 tabular-nums">{episode.peakDate}</dd>
@@ -87,7 +88,7 @@ function RecoveryDetails({
           <div>
             <dt className="text-xs text-nc-text-3">谷底日 / 回撤幅度</dt>
             <dd className="mt-1 tabular-nums">
-              {episode.valleyDate} / {(episode.depth * 100).toFixed(2)}%
+              {episode.valleyDate} / {displayNumber(episode.depth * 100, 2)}%
             </dd>
           </div>
           <div>
@@ -172,9 +173,9 @@ export function PerformanceReport({
             {m.value === null
               ? "—"
               : id === "excessReturn"
-                ? `${(m.value * 100).toFixed(2)} 个百分点`
+                ? `${displayNumber(m.value * 100, 2)} 个百分点`
                 : id === "maxDrawdown"
-                  ? `${(m.value * 100).toFixed(2)}%`
+                  ? `${displayNumber(m.value * 100, 2)}%`
                   : percent(m.value)}
           </span>
         );
@@ -193,7 +194,7 @@ export function PerformanceReport({
           title={row.original.evaluation[id].reason ?? "日频年化；短样本仅描述"}
           className="tabular-nums"
         >
-          {row.original.evaluation[id].value?.toFixed(2) ?? "—"}
+          {displayNumber(row.original.evaluation[id].value, 2) ?? "—"}
         </span>
       ),
     })),
@@ -226,7 +227,7 @@ export function PerformanceReport({
         </span>
         <span className="text-nc-warn">规则自检，不代表可信策略业绩</span>
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <dl className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="区间收益"
           directional
@@ -287,7 +288,7 @@ export function PerformanceReport({
             {data.trades.flatTrades}；未平仓 {data.trades.openTrades}{" "}
             轮不计胜率。
           </p>
-          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <dl className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
             <Metric
               label="平均盈利额"
               data={data.trades.averageWin}
@@ -344,7 +345,7 @@ export function PerformanceReport({
         ；相对价格持有对照{" "}
         {o.excessReturn.value === null
           ? "缺少完整样本"
-          : `${o.excessReturn.value >= 0 ? "领先" : "落后"} ${Math.abs(o.excessReturn.value * 100).toFixed(2)} 个百分点`}
+          : `${o.excessReturn.value >= 0 ? "领先" : "落后"} ${displayNumber(Math.abs(o.excessReturn.value * 100), 2)} 个百分点`}
         。{o.shortSample && "不足252个交易日，风险比率仅作短样本描述。"}{" "}
         本结果尚未证明样本外有效性。
       </p>
@@ -366,7 +367,7 @@ export function PerformanceReport({
           <p>
             索提诺＝日超额收益均值×√252/下行偏差；下行偏差＝√(全部样本下超额负收益平方和/N)。月季收益复利衔接，不加总百分比。窗口边界仅标研究首尾覆盖，不能据有限日历认证完整自然期。
           </p>
-          <dl className="grid gap-3 sm:grid-cols-3">
+          <dl className="grid gap-3 lg:grid-cols-3">
             <Metric
               label="索提诺比率"
               data={o.sortino}
@@ -427,7 +428,7 @@ export function PerformanceReport({
           点击月份查看月度详情 · 正收益红 / 负收益绿 · 无样本为 —
         </p>
         <div
-          className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6"
+          className="grid grid-cols-3 gap-2 lg:grid-cols-4 xl:grid-cols-6"
           aria-label="月度收益热力图"
         >
           {Array.from({ length: 12 }, (_, i) => {
@@ -492,7 +493,7 @@ export function PerformanceReport({
                 窗口边界：仅覆盖上述实际日期。
               </p>
             )}
-            <dl className="grid gap-3 sm:grid-cols-3">
+            <dl className="grid gap-3 lg:grid-cols-3">
               <Metric
                 label="本期策略收益"
                 directional

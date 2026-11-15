@@ -87,7 +87,7 @@ export function TradeEntryEditor({
       >
         <fieldset
           disabled={draft.saved}
-          className="grid grid-cols-2 gap-3 max-sm:grid-cols-1"
+          className="grid grid-cols-2 gap-3 max-lg:grid-cols-1"
         >
           <TradeInputField
             label="证券代码"

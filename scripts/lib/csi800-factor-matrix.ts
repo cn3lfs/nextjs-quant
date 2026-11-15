@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { replayAllocationStudy } from "../../packages/quant-backtest/src/allocation-profile.js";
@@ -128,7 +129,7 @@ export async function runClassicMatrix(
         ),
       );
       console.log(
-        `${id}: 年化${((stats.evaluation.annualReturn.value ?? 0) * 100).toFixed(2)}% 回撤${((stats.evaluation.maxDrawdown.value ?? 0) * 100).toFixed(2)}%`,
+        `${id}: 年化${displayNumber((stats.evaluation.annualReturn.value ?? 0) * 100, 2)}% 回撤${displayNumber((stats.evaluation.maxDrawdown.value ?? 0) * 100, 2)}%`,
       );
     } catch (error) {
       const failure = { id, model: options.model, reason: String(error) };
@@ -230,7 +231,7 @@ export async function runClassicMatrix(
     ),
   );
   const fmt = (v: number | null) =>
-    v === null ? "—" : `${(v * 100).toFixed(2)}%`;
+    v === null ? "—" : `${displayNumber(v * 100, 2)}%`;
   const lines = [
     "# 中证800经典技术＋财务组合实验",
     `共同窗口：${start}—${price.end}；当前成分；初始${price.initial}元。`,

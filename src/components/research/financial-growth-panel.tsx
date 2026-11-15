@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 const percent = (value: number | null) =>
@@ -85,7 +87,7 @@ export function FinancialGrowthPanel({ archiveId }: { archiveId: string }) {
           <details>
             <summary>增长公式、缺项与原始证据引用</summary>
             <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-              {JSON.stringify(data, null, 2)}
+              {formatEvidenceText(data)}
             </pre>
           </details>
           <ul>

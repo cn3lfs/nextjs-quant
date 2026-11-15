@@ -46,6 +46,7 @@ export type TaskState = Pick<
   screenResultId?: string;
   isFormulaScreen?: boolean;
   sourceLink?: { href: string; label: string };
+  localEvidence?: boolean;
 };
 export const taskTypeLabels: Record<Job["type"], string> = {
   scan: "数据扫描",

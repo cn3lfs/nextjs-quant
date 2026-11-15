@@ -2,6 +2,22 @@ import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
 const args = process.argv.slice(2);
 const command = args.shift();
+if (command === "inspect" || command === "verify-input") {
+  const { executeResearchCommand } =
+    await import("../src/server/research/research-command");
+  console.log(
+    JSON.stringify(
+      await executeResearchCommand(
+        command === "inspect"
+          ? { command, market: args[0] as "cn-equity" | "crypto" }
+          : { command, hash: args[0]! },
+      ),
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
 const index = args.indexOf("--config");
 if (!command || index < 0 || !args[index + 1])
   throw new Error(

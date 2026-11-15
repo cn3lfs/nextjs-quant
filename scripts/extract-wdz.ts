@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { mkdir, writeFile, appendFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseArgs } from "node:util";
@@ -36,7 +37,7 @@ try {
     bars += item.bars;
     if (files % 1000 === 0)
       console.log(
-        `${files} 文件 · ${((performance.now() - start) / 1000).toFixed(1)} 秒`,
+        `${files} 文件 · ${displayNumber((performance.now() - start) / 1000, 1)} 秒`,
       );
   }
   console.log(

@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { rpsPeriods } from "quant-rps";
 
 import { nextTableSort, sortingState } from "~/lib/common/server-sort";
@@ -123,7 +125,7 @@ export function MarketPoolBrowser({
       id: "rps",
       enableSorting: true,
       header: `全沪深 RPS${query.period}`,
-      cell: ({ row }) => row.original.value?.rps.toFixed(2) ?? "—",
+      cell: ({ row }) => displayNumber(row.original.value?.rps, 2) ?? "—",
     },
     {
       id: "return",
@@ -131,7 +133,7 @@ export function MarketPoolBrowser({
       header: `${query.period}日后复权涨幅`,
       cell: ({ row }) =>
         row.original.value
-          ? `${(row.original.value.return * 100).toFixed(2)}%`
+          ? `${displayNumber(row.original.value.return * 100, 2)}%`
           : "—",
     },
     {
@@ -332,8 +334,9 @@ export function MarketPoolBrowser({
                 "zh-CN",
                 { timeZone: "Asia/Shanghai", hour12: false },
               )}{" "}
-              · 新价覆盖 {(page.data.rps.observation.coverage * 100).toFixed(1)}
-              % · 沿用旧价 {page.data.rps.observation.reused} 只 ·{" "}
+              · 新价覆盖{" "}
+              {displayNumber(page.data.rps.observation.coverage * 100, 1)}% ·
+              沿用旧价 {page.data.rps.observation.reused} 只 ·{" "}
             </span>
           )}
           RPS基准日：{page.data.rps?.date ?? "未计算"} · 全沪深排名基数：

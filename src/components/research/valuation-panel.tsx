@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { valuationScenarioSchema } from "trading-strategies/research/factors/valuation-scenario";
@@ -336,11 +338,7 @@ export function ValuationPanel({ symbol }: { symbol: string }) {
                 <pre
                   style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
                 >
-                  {JSON.stringify(
-                    { input: row.input, bridge: row.bridge },
-                    null,
-                    2,
-                  )}
+                  {formatEvidenceText({ input: row.input, bridge: row.bridge })}
                 </pre>
               </details>
             </details>

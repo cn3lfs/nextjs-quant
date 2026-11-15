@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Big from "big.js";
-import { Wallet, History } from "lucide-react";
+import {
+  Wallet,
+  ClockCounterClockwise as History,
+} from "@phosphor-icons/react/ssr";
 import type {
   AccountTradeRow,
   AccountViewInput,
@@ -483,7 +486,7 @@ export function CryptoAccountPanel({
         成交；仅匹配本系统订单的记录标记“本策略”，其他标记“平台成交”，不推断为手动交易。
       </p>
       <form
-        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
           applyFilters();

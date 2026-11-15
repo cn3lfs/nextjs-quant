@@ -98,7 +98,7 @@ export function StrategyAdmissionContainer({ account }: { account: string }) {
     <section aria-label="策略准入判定" className="space-y-3">
       <details>
         <summary>准入参数（修改后即时重算；不代表完成标定）</summary>
-        <div className="grid gap-3 pt-3 md:grid-cols-4">
+        <div className="grid gap-3 pt-3 lg:grid-cols-4">
           {fields.map(([key, label]) => (
             <label key={key} className="space-y-1 text-sm">
               {label}

@@ -1,11 +1,14 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import type { ThemePrices } from "~/server/news/theme-prices";
 import { Button } from "../ui/button";
 import { ThemePriceExplanation } from "./theme-price-explanation";
-const pct = (n: number | null) => (n === null ? "缺失" : `${n.toFixed(2)}%`);
+const pct = (n: number | null) =>
+  n === null ? "缺失" : `${displayNumber(n, 2)}%`;
 export function ThemePricesPanel({ themeId }: { themeId: string }) {
   const visible = useTaskVisible();
   const utils = api.useUtils();
@@ -113,7 +116,7 @@ export function ThemePricesPanel({ themeId }: { themeId: string }) {
                     <td>{pct(r.return5)}</td>
                     <td>{pct(r.return30)}</td>
                     <td>{pct(r.excess5)}</td>
-                    <td>{r.volumeRatio?.toFixed(2) ?? "缺失"}</td>
+                    <td>{displayNumber(r.volumeRatio, 2) ?? "缺失"}</td>
                     <td>{pct(r.closeDrawdown)}</td>
                   </tr>
                 ))}

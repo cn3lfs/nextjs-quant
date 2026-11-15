@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useEffect, useRef, type ReactNode } from "react";
 import type { RouterOutputs } from "~/trpc/react";
@@ -30,8 +31,8 @@ const metric = (v: ReviewValue, percent = false) =>
   v.value === null
     ? `不可得：${v.reason || "证据不足"}`
     : percent
-      ? `${(v.value * 100).toFixed(2)}%`
-      : v.value.toFixed(2);
+      ? `${displayNumber(v.value * 100, 2)}%`
+      : displayNumber(v.value, 2);
 const dimensions: Record<string, string> = {
   security: "标的",
   instrument: "品种",
@@ -127,7 +128,10 @@ export function TradeReviewCaveats({
           {known.length === data.excludedCashFlows.length
             ? "金额合计"
             : "已知金额小计"}{" "}
-          {known.reduce((sum, row) => sum + row.amount!, 0).toFixed(2)}{" "}
+          {displayNumber(
+            known.reduce((sum, row) => sum + row.amount!, 0),
+            2,
+          )}{" "}
           元（有符号发生额）；金额缺失{" "}
           {data.excludedCashFlows.length - known.length} 笔。
         </p>
@@ -139,7 +143,7 @@ export function TradeReviewCaveats({
               第 {row.rowIndex} 行 · {row.reason} ·{" "}
               {row.amount === null
                 ? row.amountReason
-                : `${row.amount.toFixed(2)} 元`}
+                : `${displayNumber(row.amount, 2)} 元`}
             </p>
           ))}
         </ReviewDisclosure>
@@ -212,7 +216,7 @@ function NavCurve({ days }: { days: TradeReviewData["nav"]["days"] }) {
       <p className="text-sm text-muted-foreground">
         {days[0]?.date ?? "无起始日期"} — {days.at(-1)?.date ?? "无结束日期"} ·{" "}
         {values.length
-          ? `已知净值范围 ${Math.min(...values).toFixed(2)} — ${Math.max(...values).toFixed(2)} 元`
+          ? `已知净值范围 ${displayNumber(Math.min(...values), 2)} — ${displayNumber(Math.max(...values), 2)} 元`
           : "净值不可得：缺少有效估值"}{" "}
         · 缺失处不补零、不跨缺口连线。
       </p>
@@ -306,8 +310,8 @@ export function TradeReviewResults({
           header: "回撤幅度",
           cell: (c) =>
             c.row.original.basis === "compound"
-              ? `${(c.row.original.drawdown * 100).toFixed(2)}%（复利）`
-              : `${c.row.original.drawdown.toFixed(4)}（单利绝对值）`,
+              ? `${displayNumber(c.row.original.drawdown * 100, 2)}%（复利）`
+              : `${displayNumber(c.row.original.drawdown, 4)}（单利绝对值）`,
         },
         { accessorKey: "drawdownTradingDays", header: "下跌交易日" },
         {
@@ -367,7 +371,8 @@ export function TradeReviewResults({
             <p>
               实际使用的交易日数：{nav.usedTradingDays}；每日收益观察数：
               {nav.usedReturnObservations}；年化因子：{nav.basis.annualization}
-              ；无风险年利率：{(nav.basis.annualRiskFreeRate * 100).toFixed(2)}
+              ；无风险年利率：
+              {displayNumber(nav.basis.annualRiskFreeRate * 100, 2)}
               %。
             </p>
             {nav.skippedIntervals.length > 0 && (
@@ -560,7 +565,7 @@ export function TradeReviewResults({
                   {fill.sources
                     .map(
                       (source) =>
-                        `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : source.amount.toFixed(2)} 元；${source.warnings.join("；")}`,
+                        `${feeLabels[source.source]}：${source.amount === null ? "不可得：费用证据缺失" : displayNumber(source.amount, 2)} 元；${source.warnings.join("；")}`,
                     )
                     .join("；") || "不可得：该成交未进入可分析回合"}
                 </p>
@@ -662,7 +667,7 @@ export function TradeReviewResults({
                   accessorKey: "netProfitTotal",
                   header: "净收益合计",
                   cell: (c) =>
-                    c.row.original.netProfitTotal?.toFixed(2) ??
+                    displayNumber(c.row.original.netProfitTotal, 2) ??
                     "不可得：无有效已平仓收益样本",
                 },
                 {

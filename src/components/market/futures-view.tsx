@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { Mountains } from "@phosphor-icons/react/ssr";
 import { usePeriodHotkey } from "./chart-hotkeys";
 import { useEffect, useState } from "react";

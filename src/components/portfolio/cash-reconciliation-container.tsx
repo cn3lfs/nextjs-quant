@@ -296,7 +296,7 @@ export function CashReconciliationContainer({
       {data && !query.error && (
         <>
           <div
-            className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6"
+            className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3 xl:grid-cols-6"
             aria-label="全账户现金汇总"
           >
             {(

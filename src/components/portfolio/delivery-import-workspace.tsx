@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useEffect, useRef, useState } from "react";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import {
@@ -352,7 +354,7 @@ export function DeliveryImportWorkspace({
             hidden={!!preview}
             className="space-y-4"
           >
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               <DeliveryField
                 label="交割单目录（只读）"
                 value={directory}
@@ -449,7 +451,7 @@ export function DeliveryImportWorkspace({
                 </div>
               </section>
             )}
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               <DeliveryField
                 label="账户别名"
                 value={draft.account}
@@ -532,10 +534,10 @@ export function DeliveryImportWorkspace({
                   diagnostics={preview.diagnostics}
                 />
                 <TradeEvidence
-                  text={JSON.stringify(preview.summary.counts ?? {}, null, 2)}
+                  text={formatEvidenceText(preview.summary.counts ?? {})}
                 />
               </details>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-2">
                 <DeliverySelect
                   label="核对状态"
                   value={status}
@@ -670,7 +672,7 @@ export function DeliveryImportWorkspace({
                     </Button>
                     <TradeEvidence
                       key={`${selected.type}-${selected.rowIndex}`}
-                      text={JSON.stringify(selected, null, 2)}
+                      text={formatEvidenceText(selected)}
                     />
                   </section>
                 )}

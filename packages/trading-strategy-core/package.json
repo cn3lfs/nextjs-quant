@@ -50,6 +50,10 @@
     "./market-rules": {
       "types": "./dist/market-rules.d.ts",
       "import": "./dist/market-rules.js"
+    },
+    "./format-number": {
+      "types": "./dist/format-number.d.ts",
+      "import": "./dist/format-number.js"
     }
   },
   "files": [

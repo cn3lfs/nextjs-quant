@@ -88,7 +88,7 @@ export function ExecutionDetail({
       {d && !d.found && <p role="alert">{d.reason}</p>}
       {d?.found && (
         <>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <div className="space-y-1 text-sm">
               <h4 className="font-medium">交割单记录</h4>
               <p>

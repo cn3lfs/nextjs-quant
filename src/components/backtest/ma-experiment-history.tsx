@@ -1,4 +1,7 @@
-import { History, RefreshCw } from "lucide-react";
+import {
+  ClockCounterClockwise as History,
+  ArrowClockwise as RefreshCw,
+} from "@phosphor-icons/react/ssr";
 import { jobStatusLabel } from "~/lib/backtest/ma-workspace";
 import { Button } from "../ui/button";
 
@@ -59,7 +62,7 @@ export function MaExperimentHistory({
           还没有回测实验。完成左侧配置后，开始第一次规则自检。
         </p>
       ) : (
-        <ul className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+        <ul className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
           {entries.map((item) => (
             <li
               key={item.id}

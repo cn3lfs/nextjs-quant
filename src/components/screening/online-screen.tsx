@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { DataTable } from "~/components/ui/data-table";
 import { Textarea } from "~/components/ui/textarea";
 
@@ -193,7 +195,7 @@ export function OnlineScreen({
                     return (
                       <>
                         {typeof row.values[c.key] === "object"
-                          ? JSON.stringify(row.values[c.key])
+                          ? formatEvidenceText(row.values[c.key])
                           : String(row.values[c.key] ?? "—")}
                       </>
                     );
@@ -213,7 +215,7 @@ export function OnlineScreen({
           <details>
             <summary>查看工具 schema 与源指纹</summary>
             <p>{data.payloadHash}</p>
-            <pre>{JSON.stringify(data.schema, null, 2)}</pre>
+            <pre>{formatEvidenceText(data.schema)}</pre>
           </details>
         </>
       )}

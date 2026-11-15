@@ -43,9 +43,14 @@ for (const width of [1440, 1024]) {
       geometry.pageHeight - 1,
     );
     expect(geometry.overflow).toBeLessThanOrEqual(1);
-    await mkdir(resolve(".test-data/r2c/screens"), { recursive: true });
+    const screens = resolve(
+      process.env.E2E_DATA_DIR ?? ".test-data/r2c/e2e-paper",
+      "..",
+      "screens",
+    );
+    await mkdir(screens, { recursive: true });
     await page.screenshot({
-      path: resolve(`.test-data/r2c/screens/scan-${width}.png`),
+      path: resolve(screens, `paper-scan-${width}.png`),
       fullPage: true,
     });
     await page.goto("/accounts?tab=paper");
@@ -63,7 +68,7 @@ for (const width of [1440, 1024]) {
       panel.getByRole("img", { name: "当前页权益曲线（时间升序）" }),
     ).toBeVisible();
     await page.screenshot({
-      path: resolve(`.test-data/r2c/screens/accounts-${width}.png`),
+      path: resolve(screens, `paper-accounts-${width}.png`),
       fullPage: true,
     });
     await panel.getByRole("link", { name: "纸面账户设置" }).click();

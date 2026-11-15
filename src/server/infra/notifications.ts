@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   readMonitorRecord,
   writeMonitorRecord,
@@ -184,14 +185,14 @@ export function renderSignal(signal: Signal) {
     const point = signal.breakout.latest;
     const sides = [point.long, point.short].filter((s) => s.status === "是");
     const price = (v: { price: number } | null) =>
-      v ? v.price.toFixed(2) : "未知";
-    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：双突破 · 日线 · ${signal.breakout.version}\n数据日期：${signal.date} · 收盘 ${point.close.toFixed(2)}\n${sides.map((s) => `${s.direction === "long" ? "向上突破" : "向下突破"} · 质量 ${s.quality}\n趋势线 ${s.line?.value.toFixed(2) ?? "未知"} · 关键位 ${price(s.keyLevel)}（${s.keyLevel?.source ?? "未知"}）\n前20日量比 ${point.volumeRatio?.toFixed(2) ?? "未知"}\n止损结构位 ${price(s.risk.stop)} · 目标一 ${price(s.risk.target1)} · 目标二 ${price(s.risk.target2)}\n风险回报比 ${s.risk.ratio}（目标二）\n失效观察：收盘反穿突破关键位 ${price(s.keyLevel)}；结构止损 ${price(s.risk.stop)}`).join("\n")}\n方法：${signal.breakout.method.skillId} · ${signal.breakout.method.files[0]?.hash.slice(0, 8)}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
+      v ? displayNumber(v.price, 2) : "未知";
+    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：双突破 · 日线 · ${signal.breakout.version}\n数据日期：${signal.date} · 收盘 ${displayNumber(point.close, 2)}\n${sides.map((s) => `${s.direction === "long" ? "向上突破" : "向下突破"} · 质量 ${s.quality}\n趋势线 ${displayNumber(s.line?.value, 2) ?? "未知"} · 关键位 ${price(s.keyLevel)}（${s.keyLevel?.source ?? "未知"}）\n前20日量比 ${displayNumber(point.volumeRatio, 2) ?? "未知"}\n止损结构位 ${price(s.risk.stop)} · 目标一 ${price(s.risk.target1)} · 目标二 ${price(s.risk.target2)}\n风险回报比 ${s.risk.ratio}（目标二）\n失效观察：收盘反穿突破关键位 ${price(s.keyLevel)}；结构止损 ${price(s.risk.stop)}`).join("\n")}\n方法：${signal.breakout.method.skillId} · ${signal.breakout.method.files[0]?.hash.slice(0, 8)}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
   }
   if (signal.czsc) {
     const detail = signal.czsc;
-    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：缠论买卖点 · 日线 · 配置 ${detail.config}\n数据日期：${signal.date}（本日新确认，点位日期见下）\n策略版本：${detail.strategyVersion} · DLL：${detail.dllVersion}\n${detail.points.map((p) => `买卖点：第${["", "一", "二", "三"][Math.abs(p.kind)]}类${p.kind > 0 ? "买" : "卖"}点 · ${p.date}\n信号质量：${p.quality === 2 ? "强质量" : p.quality === 1 ? "确认" : "观察"}\n所属中枢：${p.center ? `ZG ${p.center.ZG.toFixed(2)} / ZD ${p.center.ZD.toFixed(2)}（${p.center.startDate}—${p.center.endDate}）` : "未知（DLL未关联中枢）"}\n背驰依据：${p.divergence}\n失效条件：${p.invalidation}`).join("\n\n")}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
+    return `规则信号 · ${securityLabel(signal.symbol)}\n策略：缠论买卖点 · 日线 · 配置 ${detail.config}\n数据日期：${signal.date}（本日新确认，点位日期见下）\n策略版本：${detail.strategyVersion} · DLL：${detail.dllVersion}\n${detail.points.map((p) => `买卖点：第${["", "一", "二", "三"][Math.abs(p.kind)]}类${p.kind > 0 ? "买" : "卖"}点 · ${p.date}\n信号质量：${p.quality === 2 ? "强质量" : p.quality === 1 ? "确认" : "观察"}\n所属中枢：${p.center ? `ZG ${displayNumber(p.center.ZG, 2)} / ZD ${displayNumber(p.center.ZD, 2)}（${p.center.startDate}—${p.center.endDate}）` : "未知（DLL未关联中枢）"}\n背驰依据：${p.divergence}\n失效条件：${p.invalidation}`).join("\n\n")}\n来源：${signal.source} / 不复权\n信号：${signal.id}`;
   }
-  return `规则信号 · ${securityLabel(signal.symbol)}\n策略：${signal.strategy.name} (${signal.strategy.fast}/${signal.strategy.slow})\n周期：${signal.period} · 数据：${signal.date}\n收盘：${signal.metrics.close.toFixed(2)} · 涨跌：${signal.metrics.change.toFixed(2)}%\n短均线 ${signal.metrics.fast.toFixed(2)} > 长均线 ${signal.metrics.slow.toFixed(2)}，条件由不满足变为满足\n来源：${signal.source ?? "tdx-local"} / 不复权\n信号：${signal.id}\n生成：${new Date(signal.createdAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`;
+  return `规则信号 · ${securityLabel(signal.symbol)}\n策略：${signal.strategy.name} (${signal.strategy.fast}/${signal.strategy.slow})\n周期：${signal.period} · 数据：${signal.date}\n收盘：${displayNumber(signal.metrics.close, 2)} · 涨跌：${displayNumber(signal.metrics.change, 2)}%\n短均线 ${displayNumber(signal.metrics.fast, 2)} > 长均线 ${displayNumber(signal.metrics.slow, 2)}，条件由不满足变为满足\n来源：${signal.source ?? "tdx-local"} / 不复权\n信号：${signal.id}\n生成：${new Date(signal.createdAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`;
 }
 function notificationUnits(
   signal: Signal,

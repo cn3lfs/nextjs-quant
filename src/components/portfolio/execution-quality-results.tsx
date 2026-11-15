@@ -186,7 +186,7 @@ export function ExecutionQualityResults({
         有利。全天均价包含成交之后的信息，仅作事后描述，不能证明真实执行优势。
         逆回购不参与；倍率按成交价识别，数量单位无法确认时留空。
       </p>
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 lg:grid-cols-4">
         {cards.map(([label, value]) => (
           <div
             key={label}

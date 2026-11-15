@@ -24,9 +24,14 @@ import { pagePositionRisk } from "./position-risk-service";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
 import { readIndustryBlocks } from "../market/industry-blocks";
 import { reviewTradeNav } from "~/lib/portfolio/trade-review-nav";
+import { alertReference } from "~/lib/strategy-facts/alert-reference";
 
 export type AccountFacts = ReturnType<AccountWorkspaceRepository["snapshot"]>;
 export type AccountBook = Awaited<ReturnType<typeof loadAccountBook>>;
+function tradeSource(trade: AccountTrade, book: AccountBook) {
+  const event = book.facts.events.find((e) => e.key === trade.alertKey);
+  return { ...trade, alert: event ? alertReference(event) : null };
+}
 const strategyHash = (value: unknown) =>
   createHash("sha256")
     .update(JSON.stringify(strategyObjectSchema.parse(value)))
@@ -822,7 +827,7 @@ export function accountPositionDetail(
   const selected = trades.slice(tradePage * 20, (tradePage + 1) * 20);
   return {
     position: { ...position, ...positionMetrics(position) },
-    trades: selected,
+    trades: selected.map((t) => tradeSource(t, book)),
     tradeCount: trades.length,
     attribution,
     correlation,
@@ -862,7 +867,7 @@ export function accountTradePage(
     .sort((a, b) => b.time - a.time || a.id.localeCompare(b.id));
   const selected = trades.slice(input.page * 20, (input.page + 1) * 20);
   return {
-    trades: selected,
+    trades: selected.map((t) => tradeSource(t, book)),
     tradeCount: trades.length,
     suggestions: selected.map((t) => ({
       tradeId: t.id,

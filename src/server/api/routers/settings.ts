@@ -26,7 +26,30 @@ import {
   publicDataRoot,
 } from "../../data-sources/binance/public-data-store";
 import { localDirectorySchema } from "~/lib/settings/local-source-settings";
+import { background, runWorker } from "../../jobs/jobs";
+import {
+  databaseStatus,
+  backupDatabase,
+  saveBackupSettings,
+  backupSettingsSchema,
+} from "../../db/backups";
 export const settingsRouter = createTRPCRouter({
+  verifyBinancePublicData: p("settings", "compute").mutation(() => {
+    const root = publicDataRoot(settings().binancePublicDataRoot);
+    return background(
+      "market-data-backfill",
+      { source: "binance-archive-audit", root },
+      (job) => runWorker({ type: "binance-archive-audit", root }, job.id),
+    );
+  }),
+  exportBinancePublicData: p("settings", "read").mutation(() =>
+    publicDataStatus(publicDataRoot(settings().binancePublicDataRoot)),
+  ),
+  databaseStatus: p("settings", "read").query(() => databaseStatus()),
+  backupDatabase: p("settings", "configure").mutation(() => backupDatabase()),
+  saveBackupSettings: p("settings", "configure")
+    .input(backupSettingsSchema)
+    .mutation(({ input }) => saveBackupSettings(input)),
   configureBinancePublicDataRoot: p("settings", "configure")
     .input(localDirectorySchema)
     .mutation(({ input }) => {
@@ -84,6 +107,7 @@ export const settingsRouter = createTRPCRouter({
     .mutation(({ input }) =>
       saveSettings({
         ...preserveCryptoSettings(input),
+        alerts: { ...input.alerts, mode: settings().alerts.mode },
         accountReview: settings().accountReview,
       }),
     ),

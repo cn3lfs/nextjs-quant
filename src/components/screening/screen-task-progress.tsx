@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { api } from "~/trpc/react";
 import {
   taskStatusLabels,
@@ -27,14 +29,17 @@ function TaskProgressCard({ title, task }: { title: string; task: TaskState }) {
       <WorkProgressView counts={task.workProgress} />
       <p>
         总历时（含排队）{" "}
-        {Math.max(
-          0,
-          ((["queued", "running"].includes(task.status)
-            ? Date.now()
-            : task.updatedAt) -
-            task.createdAt) /
-            1000,
-        ).toFixed(2)}{" "}
+        {displayNumber(
+          Math.max(
+            0,
+            ((["queued", "running"].includes(task.status)
+              ? Date.now()
+              : task.updatedAt) -
+              task.createdAt) /
+              1000,
+          ),
+          2,
+        )}{" "}
         秒
       </p>
       {task.error && <p role="alert">{task.error}</p>}

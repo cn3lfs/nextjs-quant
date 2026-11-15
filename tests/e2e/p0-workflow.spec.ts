@@ -233,7 +233,7 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
         }),
         1,
       );
-    await page.goto("/lab");
+    await page.goto("/lab?tab=catalog");
     await page.getByRole("radio", { name: "研究成绩单", exact: true }).click();
     const region = page.getByRole("region", {
       name: "策略研究成绩单",
@@ -1089,24 +1089,20 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
   const settings = (await status.json()).result.data.json.settings;
   expect(settings.alerts.mode).toBe("shadow");
   const registration = await page.request.post(
-    "/api/trpc/configureAlertStrategy",
+    "/api/trpc/strategyLabRegister",
     {
       headers: trpcHeaders,
       data: {
         json: {
-          strategy: {
-            id: "p0-r2b-alert",
-            version: 1,
-            market: "cn-equity",
-            period: "day",
-            universe: { kind: "symbols", symbols: ["sh600000"] },
-            entry: { kind: "constant", value: false },
-            exit: {},
-            sizing: { kind: "weight", weight: 1 },
-            sleeve: "swing",
-          },
-          live: false,
-          candidates: [],
+          id: "p0-r2b-alert",
+          version: 1,
+          market: "cn-equity",
+          period: "day",
+          universe: { kind: "symbols", symbols: ["sh600000"] },
+          entry: { kind: "constant", value: false },
+          exit: {},
+          sizing: { kind: "weight", weight: 1 },
+          sleeve: "swing",
         },
       },
     },

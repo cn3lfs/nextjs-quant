@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { ReviewValue } from "../portfolio/trade-review";
 
 /**
@@ -288,7 +289,7 @@ export function fundamentalMetrics(input: {
 export function compactNumber(value: number | null, digits = 2): string | null {
   if (value === null || !Number.isFinite(value)) return null;
   const magnitude = Math.abs(value);
-  if (magnitude >= 1e8) return `${(value / 1e8).toFixed(digits)} 亿`;
-  if (magnitude >= 1e4) return `${(value / 1e4).toFixed(digits)} 万`;
-  return value.toFixed(magnitude >= 1 || value === 0 ? digits : 4);
+  if (magnitude >= 1e8) return `${displayNumber(value / 1e8, digits)} 亿`;
+  if (magnitude >= 1e4) return `${displayNumber(value / 1e4, digits)} 万`;
+  return displayNumber(value, magnitude >= 1 || value === 0 ? digits : 4);
 }

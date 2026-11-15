@@ -6,6 +6,17 @@ import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
 import { executePaperTick, type PaperWork } from "../paper/service";
 import {
+  auditBinanceArchive,
+  type BinanceArchiveAuditWork,
+} from "./binance-archive-audit";
+import { executeResearchCommand } from "../research/research-command";
+import {
+  executeLabBacktest,
+  type LabBacktestWork,
+} from "../research/lab-backtest";
+import type { researchCommandSchema } from "~/lib/research/research-command";
+import type { z } from "zod";
+import {
   executeLocalFinancialWork,
   type LocalFinancialWork,
 } from "../financial/local-financial-work";
@@ -55,6 +66,9 @@ function reportSavedBatch() {
   });
 }
 export type Work =
+  | LabBacktestWork
+  | { type: "research-command"; input: z.input<typeof researchCommandSchema> }
+  | BinanceArchiveAuditWork
   | PaperWork
   | BinancePublicDataWork
   | ValidationWork
@@ -66,6 +80,16 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "lab-backtest")
+    return executeLabBacktest(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
+  if (work.type === "research-command")
+    return executeResearchCommand(work.input);
+  if (work.type === "binance-archive-audit")
+    return auditBinanceArchive(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
   if (work.type === "paper-tick") return executePaperTick(work);
   if (work.type === "binance-public-data")
     return executeBinanceBackfill(work, (progress, phase) =>

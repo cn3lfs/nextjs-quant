@@ -113,7 +113,7 @@ export function LocalFinancialWorkbench({ symbol }: { symbol: string }) {
     <FinancialDisplayUnit.Provider value={displayUnit}>
       <section
         aria-label="本地财务工作台"
-        className="space-y-4 rounded-lg border border-border bg-card p-3 md:p-4"
+        className="space-y-4 rounded-lg border border-border bg-card p-3 lg:p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">

@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Ranking } from "@phosphor-icons/react/ssr";
 import { isNonAShareChartSymbol } from "~/lib/chart/chart-symbol";
@@ -43,7 +45,7 @@ export function SymbolRpsBars({ symbol }: { symbol: string }) {
                     {
                       key: String(period),
                       name: rpsPeriodLabel(period),
-                      value: value.rps.toFixed(0),
+                      value: displayNumber(value.rps, 0),
                       pct: value.rps,
                     },
                   ]

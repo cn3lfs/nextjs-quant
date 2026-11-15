@@ -62,7 +62,6 @@ export type ChartLiveOptions = {
   drawingText?: string;
   onAnchor?: (point: Drawing["a"]) => void;
   onHistoryRequest?: () => void;
-  dark: boolean;
   view?: ChartView;
   onViewChange?: (view: ChartView) => void;
 };

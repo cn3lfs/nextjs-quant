@@ -1,4 +1,5 @@
-import { formatNumber } from "~/lib/common/format-number";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { PanelVisibility } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useState } from "react";
@@ -224,7 +225,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 <div className="notice">
                   <strong>公式：{screenResult.formula.name}</strong>
                   <p>
-                    参数：{JSON.stringify(screenResult.formula.parameters)}
+                    参数：{formatEvidenceText(screenResult.formula.parameters)}
                     。下表均线差与量比仅作描述，不参与公式选中判定。
                   </p>
                   <details>
@@ -603,7 +604,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                     count={screenResult.errorTotal}
                     onChange={setErrorPage}
                   />
-                  <pre>{JSON.stringify(screenResult.errors, null, 2)}</pre>
+                  <pre>{formatEvidenceText(screenResult.errors)}</pre>
                 </details>
               )}
             </>

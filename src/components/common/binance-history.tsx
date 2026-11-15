@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -10,6 +10,21 @@ import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 /** Small index-only query: mounting this panel never downloads price history. */
 export function BinanceHistory() {
+  const [exportError, setExportError] = useState("");
+  const verify = api.verifyBinancePublicData.useMutation();
+  const exportData = api.exportBinancePublicData.useMutation({
+    onSuccess: (data) => {
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "BTC-ETH-归档覆盖.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: (e) => setExportError(e.message),
+  });
   const [minute, setMinute] = useState(false);
   const utils = api.useUtils();
   const [root, setRoot] = useState<string | null>(null);
@@ -72,6 +87,20 @@ export function BinanceHistory() {
           回填/补齐 BTC、ETH 历史
         </Button>
         <Link href="/system/tasks">查看任务进度与取消</Link>
+        <Button
+          variant="outline"
+          disabled={verify.isPending}
+          onClick={() => verify.mutate()}
+        >
+          校验本地归档
+        </Button>
+        <Button
+          variant="outline"
+          disabled={exportData.isPending}
+          onClick={() => exportData.mutate()}
+        >
+          导出覆盖与校验索引
+        </Button>
       </div>
       {(status.error || start.error || configure.error) && (
         <p role="alert">
@@ -83,7 +112,22 @@ export function BinanceHistory() {
       {start.data && (
         <p role="status">已创建任务 {start.data.id}，完成后刷新覆盖记录。</p>
       )}
-      <ul className="grid gap-2 text-sm md:grid-cols-2">
+      {verify.data && (
+        <p role="status">
+          校验任务已创建：
+          <Link
+            className="underline"
+            href={`/system/tasks?id=${encodeURIComponent(verify.data.id)}`}
+          >
+            查看校验结果
+          </Link>
+          ；缺失周期保持未回填。
+        </p>
+      )}
+      {(verify.error || exportError) && (
+        <p role="alert">{verify.error?.message ?? exportError}</p>
+      )}
+      <ul className="grid gap-2 text-sm lg:grid-cols-2">
         {status.data?.series.map((s) => (
           <li key={`${s.symbol}/${s.interval}`}>
             <strong>

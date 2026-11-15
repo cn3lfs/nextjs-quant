@@ -1,6 +1,8 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { ArrowClockwise as RefreshCw } from "@phosphor-icons/react/ssr";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import { api } from "~/trpc/react";
 import { isMarketIndex } from "~/lib/market/market-indices";
@@ -111,9 +113,9 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
       price,
     });
   const fixed = (metric: ReviewValue, digits = 2) =>
-    shown(metric, (v) => v.toFixed(digits));
+    shown(metric, (v) => displayNumber(v, digits));
   const ratio = (metric: ReviewValue) =>
-    shown(metric, (v) => `${(v * 100).toFixed(2)}%`);
+    shown(metric, (v) => `${displayNumber(v * 100, 2)}%`);
   const amount = (metric: ReviewValue) =>
     shown(metric, (v) => compactNumber(v) ?? "—");
   return (

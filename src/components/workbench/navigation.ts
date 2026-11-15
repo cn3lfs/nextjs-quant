@@ -71,6 +71,8 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       item("/lab", "策略中心", Flask),
       item("/lab/backtest", "策略实验", Flask, "backtest"),
+      item("/lab?tab=tasks", "研究任务", Flask),
+      item("/lab?tab=catalog", "方法目录与运行比较", Flask),
       item("/lab/analysis", "证据分析", Flask, "analysis"),
       item("/lab/reports", "研究档案", Flask, "reports"),
       item("/lab/data-guide", "研究数据指南", Flask),
@@ -94,6 +96,7 @@ export const navGroups: readonly NavGroup[] = [
     label: "情报",
     items: [
       item("/intel", "新闻 / 主题", Newspaper, "news"),
+      item("/intel?tab=related", "持仓与计划情报", Newspaper),
       item("/intel/review", "财联社复盘", Newspaper),
     ],
   },
@@ -103,7 +106,9 @@ export const navGroups: readonly NavGroup[] = [
       item("/system", "数据与连接", PlugsConnected, "settings"),
       item("/system/tasks", "任务中心", PlugsConnected, "tasks"),
       item("/system/notifications", "信号与通知", PlugsConnected, "signals"),
-      item("/system/ui-gallery", "UI 组件", PlugsConnected),
+      ...(process.env.NODE_ENV === "development"
+        ? [item("/system/ui-gallery", "UI 组件", PlugsConnected)]
+        : []),
     ],
   },
 ];

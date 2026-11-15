@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useEffect, useRef, useState } from "react";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { Button } from "../ui/button";
@@ -187,7 +189,7 @@ export function DeliveryBatchWorkspace({
     <div className="space-y-4" aria-label="批次核对工作区">
       <TradeError error={error} />
       {notice && <p role="status">{notice}</p>}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <DeliveryField label="批次账户" value={account} onChange={setAccount} />
         <DeliverySelect
           label="批次来源"
@@ -379,16 +381,12 @@ export function DeliveryBatchWorkspace({
                     />
                   )}
                   <TradeEvidence
-                    text={JSON.stringify(
-                      {
-                        hash: detail.data.fileHash,
-                        mapping: detail.data.mapping,
-                        counts: detail.data.counts,
-                        statementOpeningCash: detail.data.statementOpeningCash,
-                      },
-                      null,
-                      2,
-                    )}
+                    text={formatEvidenceText({
+                      hash: detail.data.fileHash,
+                      mapping: detail.data.mapping,
+                      counts: detail.data.counts,
+                      statementOpeningCash: detail.data.statementOpeningCash,
+                    })}
                   />
                 </details>
                 <DeliverySelect
@@ -417,7 +415,7 @@ export function DeliveryBatchWorkspace({
                     </p>
                     <TradeEvidence
                       key={`${id}-${section}-${offset}`}
-                      text={JSON.stringify(evidence.data.items, null, 2)}
+                      text={formatEvidenceText(evidence.data.items)}
                     />
                     <div className="flex gap-2">
                       <Button

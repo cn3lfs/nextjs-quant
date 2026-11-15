@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { rpsPeriods, rpsGroupExclusions } from "quant-rps";
 
 import { useEffect, useRef, useState } from "react";
@@ -41,7 +43,7 @@ const columns: DataTableColumn<Row>[] = [
     header: "排名 / RPS / 等权涨幅",
     cell: ({ row }) =>
       row.original.value
-        ? `${row.original.value.rank} / ${row.original.value.rps.toFixed(2)} / ${(row.original.value.return * 100).toFixed(2)}%`
+        ? `${row.original.value.rank} / ${displayNumber(row.original.value.rps, 2)} / ${displayNumber(row.original.value.return * 100, 2)}%`
         : industryEmptyLabels[row.original.reason!],
   },
   {

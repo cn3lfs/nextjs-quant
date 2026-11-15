@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import "./lib/research-scale-isolation";
 /** Offline, checkpointed R2a-3 study. Run with an absolute isolated
  * QUANT_DATA_DIR=.test-data/r2a3/data. No network or execution drivers.
@@ -396,7 +397,7 @@ async function reportStage(
   const begin = `<!-- R2A3:${stage}:BEGIN -->`,
     end = `<!-- R2A3:${stage}:END -->`;
   const pct = (v: unknown) =>
-    typeof v === "number" ? `${(100 * v).toFixed(2)}%` : "—";
+    typeof v === "number" ? `${displayNumber(100 * v, 2)}%` : "—";
   const lines = [
     begin,
     `## ${stage}（阶段性，后续阶段未完成）`,

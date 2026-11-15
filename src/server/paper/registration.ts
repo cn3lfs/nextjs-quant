@@ -85,7 +85,11 @@ export function registerPaperCandidates(
       const key = `shadow:${strategy.id}:${strategy.version}`;
       // Deployment gets its own prospective epoch; never import research timestamps.
       if (!alerts.state(key))
-        alerts.saveState(key, { ...candidate.registration, startedAt: now });
+        alerts.saveState(key, {
+          ...candidate.registration,
+          active: false,
+          startedAt: now,
+        });
       const qualification = alerts.records.read<{ status: string }>(
         `strategy-qualification-${strategy.id}`,
       );

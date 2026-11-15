@@ -101,7 +101,7 @@ export function TradePositions({
               查看除权依据（{p.adjustmentCount}）
             </Button>
           </div>
-          <dl className="grid grid-cols-3 gap-3 text-sm max-md:grid-cols-2">
+          <dl className="grid grid-cols-3 gap-3 text-sm max-lg:grid-cols-2">
             <div>
               <dt>持股 / T+1可卖</dt>
               <dd>

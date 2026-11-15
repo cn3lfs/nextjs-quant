@@ -1,4 +1,5 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
 
 import type { RouterOutputs } from "~/trpc/react";
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
@@ -54,7 +55,7 @@ const columns: DataTableColumn<Year>[] = [
 ];
 function Facts({ items }: { items: [string, string][] }) {
   return (
-    <dl className="grid gap-3 md:grid-cols-3">
+    <dl className="grid gap-3 lg:grid-cols-3">
       {items.map(([label, value]) => (
         <div
           key={label}
@@ -196,7 +197,7 @@ export function StrategyAdmissionResults({
         <details>
           <summary>本次判定全部参数（完整回显）</summary>
           <pre className="overflow-auto text-sm">
-            {JSON.stringify(h.params, null, 2)}
+            {formatEvidenceText(h.params)}
           </pre>
         </details>
       </CardContent>

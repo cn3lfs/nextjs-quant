@@ -1,11 +1,12 @@
-import { StrategyCenter } from "~/components/research/strategy-center";
-import { PaperForwardStatus } from "~/components/portfolio/paper-forward-status";
+import { StrategyLab } from "~/components/research/strategy-lab";
+import { Suspense } from "react";
 
 export default function StrategiesPage() {
   return (
     <>
-      <PaperForwardStatus />
-      <StrategyCenter />
+      <Suspense fallback={<p role="status">正在读取实验室…</p>}>
+        <StrategyLab />
+      </Suspense>
     </>
   );
 }

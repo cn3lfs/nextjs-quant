@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import { compactNumber } from "~/lib/market/tdx-fundamentals";
 import {
@@ -16,11 +18,11 @@ const missing = (metric: ReviewValue) =>
 const percent = (metric: ReviewValue, digits = 2) =>
   metric.value === null
     ? missing(metric)
-    : `${(metric.value * 100).toFixed(digits)}%`;
+    : `${displayNumber(metric.value * 100, digits)}%`;
 const signedPercent = (metric: ReviewValue) =>
   metric.value === null
     ? missing(metric)
-    : `${metric.value >= 0 ? "+" : ""}${(metric.value * 100).toFixed(2)}%`;
+    : `${metric.value >= 0 ? "+" : ""}${displayNumber(metric.value * 100, 2)}%`;
 const tone = (metric: ReviewValue) =>
   metric.value === null
     ? ""
@@ -63,7 +65,7 @@ export function TdxQuoteBook({
   const imbalance = orderImbalance(quote);
   const rows = orderBook(quote);
   const price = (value: number | null) =>
-    value === null ? "—" : value.toFixed(precision);
+    value === null ? "—" : displayNumber(value, precision);
   // 档位价格按相对昨收着色，与通达信一致。
   const levelTone = (value: number | null) =>
     value === null || !Number.isFinite(quote.preClose)
@@ -84,7 +86,7 @@ export function TdxQuoteBook({
         <span className={`text-sm tabular-nums ${tone(stats.change)}`}>
           {stats.change.value === null
             ? missing(stats.change)
-            : `${stats.change.value >= 0 ? "+" : ""}${stats.change.value.toFixed(precision)}`}
+            : `${stats.change.value >= 0 ? "+" : ""}${displayNumber(stats.change.value, precision)}`}
         </span>
         <span className={`text-sm tabular-nums ${tone(stats.changePercent)}`}>
           {signedPercent(stats.changePercent)}
@@ -161,7 +163,7 @@ export function TdxQuoteBook({
         <Stat label="振幅">{percent(stats.amplitude)}</Stat>
         <Stat label="涨速">
           {Number.isFinite(quote.riseSpeed)
-            ? `${quote.riseSpeed.toFixed(2)}%`
+            ? `${displayNumber(quote.riseSpeed, 2)}%`
             : "—"}
         </Stat>
         <Stat label="总量">

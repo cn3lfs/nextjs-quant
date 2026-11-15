@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
@@ -102,7 +104,7 @@ export function SecurityProfilePanel({ symbol }: { symbol: string }) {
               ))}
               <details>
                 <summary>查看日期核验证据</summary>
-                <pre>{JSON.stringify(lifecycle.evidence, null, 2)}</pre>
+                <pre>{formatEvidenceText(lifecycle.evidence)}</pre>
                 <p>证据指纹：{lifecycle.evidenceHash}</p>
               </details>
             </>

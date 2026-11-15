@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useState } from "react";
 import { horizons, type LedgerRow } from "~/lib/strategy-facts/signal-ledger";
 import type { LedgerRun } from "~/server/db/signal-ledger-store";
@@ -71,7 +73,7 @@ function RunEvidence({ run }: { run: LedgerRun }) {
       </h3>
       <p>
         已扫描 {run.scanned}/{run.total} · 信号 {run.signals} ·{" "}
-        {(run.elapsedMs / 1000).toFixed(2)}秒
+        {displayNumber(run.elapsedMs / 1000, 2)}秒
       </p>
       <p>
         阶段：{run.phase ?? "未记录"}；交易日参考：{run.calendarSource}
@@ -146,7 +148,7 @@ export function SignalLedgerView({
             快照 hash：{row.snapshotHash}；策略版本：{row.strategyVersion}；DLL
             SHA-256：{row.dllVersion ?? "不适用"}
           </p>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-3">
             {horizons.map((h) => {
               const out = row.outcomes.find((value) => value.horizon === h);
               return (
@@ -161,7 +163,7 @@ export function SignalLedgerView({
                       ? "待观察"
                       : out.returnPct === null
                         ? "已固定·留空"
-                        : `${out.returnPct.toFixed(2)}% · 已固定·有效`}
+                        : `${displayNumber(out.returnPct, 2)}% · 已固定·有效`}
                   </h4>
                   <p>
                     {out?.reasons.join("；") ||

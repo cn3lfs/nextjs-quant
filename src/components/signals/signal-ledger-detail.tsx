@@ -1,4 +1,6 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { api } from "~/trpc/react";
 import { Panel } from "../panels";
 import { Button } from "../ui/button";
@@ -47,7 +49,7 @@ export function LedgerDetail({
             runs={[]}
           />
           <ArchiveEvidence title="完整JSON依据">
-            {() => <ArchiveText text={JSON.stringify(query.data, null, 2)} />}
+            {() => <ArchiveText text={formatEvidenceText(query.data)} />}
           </ArchiveEvidence>
           <Button
             className="mt-3"

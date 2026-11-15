@@ -148,6 +148,7 @@ describe("shadow prospective observations", () => {
       universe: "fixture",
       gaps: [],
     };
+    repo.saveState(`shadow:${id}:1`, registration);
     saveValidationScoreboard({
       ...report,
       trialSharpes: registration.trialSharpes,
@@ -164,7 +165,7 @@ describe("shadow prospective observations", () => {
       trialSharpes: registration.trialSharpes,
     });
     expect(repo.state(`shadow:${id}:1`)).toMatchObject({
-      active: false,
+      active: true,
       startedAt: start,
     });
   });

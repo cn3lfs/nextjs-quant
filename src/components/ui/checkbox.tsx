@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "~/lib/common/classnames";
-import { CheckIcon } from "lucide-react";
+import { Check as CheckIcon } from "@phosphor-icons/react/ssr";
 import { Checkbox as CheckboxPrimitive } from "radix-ui";
 
 function Checkbox({
@@ -13,7 +13,7 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-nc-accent data-[state=checked]:bg-nc-accent-700 data-[state=checked]:text-nc-accent-100 dark:bg-nc-field dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-nc-accent-700",
+        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-nc-accent data-[state=checked]:bg-nc-accent-700 data-[state=checked]:text-nc-accent-100",
         className,
       )}
       {...props}

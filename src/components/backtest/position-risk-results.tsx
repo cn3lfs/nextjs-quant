@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import type { RouterOutputs } from "~/trpc/react";
 import {
   positionRiskMetrics,
@@ -21,8 +23,8 @@ const columns: DataTableColumn<PositionRiskPoint>[] = [
       return metric.value === null
         ? `不可得：${metric.reason ?? "证据不足"}`
         : percent
-          ? `${(metric.value * 100).toFixed(2)}%`
-          : metric.value.toFixed(4);
+          ? `${displayNumber(metric.value * 100, 2)}%`
+          : displayNumber(metric.value, 4);
     },
   })),
   { accessorKey: "positionCount", header: "非零持仓标的数" },
@@ -52,11 +54,11 @@ export function PositionRiskResults({
       <CardContent className="space-y-4">
         <p>
           等效持仓只数中位数：
-          {summary.medianEffectivePositions?.toFixed(2) ?? "不可得"}
+          {displayNumber(summary.medianEffectivePositions, 2) ?? "不可得"}
           ；最大单一权重峰值：
           {summary.maxSingleWeight === null
             ? "不可得"
-            : `${(summary.maxSingleWeight * 100).toFixed(2)}%`}
+            : `${displayNumber(summary.maxSingleWeight * 100, 2)}%`}
           （{summary.maxSingleWeightDate ?? "无日期"}，并列取最早日）。
         </p>
         {children}

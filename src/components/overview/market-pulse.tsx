@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 
 import Link from "next/link";
 import { api } from "~/trpc/react";

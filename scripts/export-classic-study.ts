@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve, join } from "node:path";
@@ -178,7 +179,7 @@ const palette = [
 const colors = results.map((_, i) =>
   i < palette.length ? palette[i]! : `hsl(${(i * 137.508) % 360},65%,40%)`,
 );
-const pct = (v: number) => (v * 100).toFixed(2) + "%";
+const pct = (v: number) => displayNumber(v * 100, 2) + "%";
 const table = [...results]
   .sort((a, b) => b.totalReturn - a.totalReturn)
   .map(

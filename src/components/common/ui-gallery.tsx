@@ -90,7 +90,7 @@ export default function UiGallery() {
     pages[sorting[0]?.desc ? "desc" : "asc"][pagination.pageIndex] ?? empty;
   return (
     <TooltipProvider>
-      <main className="min-w-0 space-y-6 p-4 md:p-6">
+      <main className="min-w-0 space-y-6 p-4 lg:p-6">
         <header className="space-y-2">
           <a href="/">← 返回工作台</a>
           <div className="flex flex-wrap items-center gap-3">
@@ -117,7 +117,7 @@ export default function UiGallery() {
           <a href="#gallery-content">内容组织</a>
           <a href="#gallery-table">分页与数据状态</a>
         </nav>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card id="gallery-form" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>表单 · Input / Textarea / Label</CardTitle>

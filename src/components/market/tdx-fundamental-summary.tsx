@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import type { ReviewValue } from "~/lib/portfolio/trade-review";
 import { displayFinancialRatio } from "~/lib/financial/financial-display";
 import {
@@ -22,7 +24,7 @@ import {
 const missing = (metric: ReviewValue) =>
   `不可得：${metric.reason ?? "证据不足"}`;
 const fixed = (metric: ReviewValue, digits = 2) =>
-  metric.value === null ? missing(metric) : metric.value.toFixed(digits);
+  metric.value === null ? missing(metric) : displayNumber(metric.value, digits);
 const ratio = (metric: ReviewValue) =>
   metric.value === null ? missing(metric) : displayFinancialRatio(metric.value);
 const amount = (metric: ReviewValue) =>
@@ -99,7 +101,7 @@ export function TdxFundamentalSummary({
           {lag}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-4">
         <Stat label="总市值（元）" value={amount(metrics.marketCap)} />
         <Stat label="流通市值（元）" value={amount(metrics.floatMarketCap)} />
         <Stat label="流通占比" value={ratio(metrics.floatRatio)} />

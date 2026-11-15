@@ -1,8 +1,13 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
-import { formatNumber, formatPercent } from "~/lib/common/format-number";
+import {
+  formatNumber,
+  formatPercent,
+} from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
@@ -38,9 +43,7 @@ const cell = (value: unknown) =>
     ? formatNumber(value, 6)
     : value === null || value === undefined
       ? "—"
-      : typeof value === "object"
-        ? JSON.stringify(value)
-        : String(value);
+      : formatEvidenceText(value);
 
 export function PaperFacts({
   id,
@@ -307,7 +310,7 @@ export function PaperAccountsPanel() {
           </p>
           <div className="max-h-48 overflow-auto">
             <pre className="whitespace-pre-wrap break-all text-xs">
-              {JSON.stringify(c.expectation, null, 2)}
+              {formatEvidenceText(c.expectation)}
             </pre>
           </div>
           <p className="text-xs">未通过门槛：{c.reasons.join("、")}</p>

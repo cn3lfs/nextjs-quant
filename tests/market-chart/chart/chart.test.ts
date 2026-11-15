@@ -438,7 +438,6 @@ it("only renders selected main and secondary indicators in the chart and legend"
 it("Q1 actual chart options, cost line, parameter legend and keyboard handler are wired", () => {
   const input = bars(90),
     view = structuredClone(defaultChartView);
-  view.dark = true;
   view.logarithmic = true;
   view.parameters.ma[0] = 3;
   h.cursor = 0;
@@ -508,7 +507,7 @@ it("drawing, indicator, pane and theme changes update the chart in place without
   view = { ...view, mainIndicators: ["ma", "boll"], subchart: ["volume"] };
   show();
   expect(chart.series.some((s) => s.pane === 2)).toBe(false);
-  view = { ...view, dark: true };
+  view = { ...view, logarithmic: true };
   show();
   expect(chart.options.layout).toMatchObject({
     background: { color: chartColor.ground },

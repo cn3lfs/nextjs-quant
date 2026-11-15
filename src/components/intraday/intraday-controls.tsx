@@ -223,7 +223,7 @@ export function IntradayControls() {
           <summary className="cursor-pointer text-sm">
             编辑参数{dirty ? " · 有未保存修改" : ""}
           </summary>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <label className="flex items-center gap-2 text-[13px] text-nc-text-2">
               <Checkbox
                 disabled={!capabilityAllows("intraday", "schedule")}

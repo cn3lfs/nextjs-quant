@@ -145,7 +145,7 @@ export function FinancialArchivePanel({
             {archive.data.warning}{" "}
             年度质量复用已有计算。F-Score缺项不补0，不产生完整评级。
           </p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             <div>
               收入三年CAGR：
               {displayFinancialRatio(

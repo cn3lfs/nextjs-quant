@@ -5,7 +5,10 @@ import { Input } from "~/components/ui/input";
 import { normalizeChartSymbol } from "~/lib/chart/chart-symbol";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Search, ChevronDown } from "lucide-react";
+import {
+  MagnifyingGlass as Search,
+  CaretDown as ChevronDown,
+} from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import type { Period } from "~/lib/domain";
 import { periodLabels, type ChartPeriod } from "~/lib/chart/chart-view";

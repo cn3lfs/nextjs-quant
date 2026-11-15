@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   boll,
@@ -366,7 +367,9 @@ function point(
         target2,
         rewardMultiple,
         ratio:
-          rewardMultiple === null ? "未知" : `1:${rewardMultiple.toFixed(2)}`,
+          rewardMultiple === null
+            ? "未知"
+            : `1:${displayNumber(rewardMultiple, 2)}`,
       },
     };
   };

@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   defaultParameters,
   isMinutePeriod,
@@ -62,7 +63,7 @@ export function breakoutChartData(
       );
       if (begin >= asOf) continue;
       lines.push({
-        title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${l.price.toFixed(2)}`,
+        title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${displayNumber(l.price, 2)}`,
         color: l.price >= point.close ? "#be5263" : "#218775",
         data: [
           { time: chartTime(bars[begin]!.date, period), value: l.price },

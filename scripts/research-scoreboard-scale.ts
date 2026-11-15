@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import "./lib/research-scale-isolation";
 /** Join the complete R2a-3 trial family; publish only into its isolated DB. */
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
@@ -123,9 +124,9 @@ const cycles = lowZoneCycles(low.benchmark.observations).filter(
 const find = (id: string) =>
   groups.find((g) => g.group.checkpoints.some((c) => c.row.id === id))!;
 const pct = (n: number | null | undefined) =>
-  n == null ? "—" : `${(100 * n).toFixed(2)}%`;
+  n == null ? "—" : `${displayNumber(100 * n, 2)}%`;
 const metric = (n: number | null | undefined) =>
-  n == null ? "—" : n.toFixed(4);
+  n == null ? "—" : displayNumber(n, 4);
 
 const rpsRoot = JSON.parse((await readArtifact<string>("rps-root"))!) as {
   dates: string[];

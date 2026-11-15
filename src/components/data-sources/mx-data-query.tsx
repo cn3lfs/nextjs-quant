@@ -1,4 +1,5 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
 
 import { useState } from "react";
 import { mxKinds, mxTableSchema, type MxKind } from "~/lib/market/mx-data";
@@ -58,7 +59,7 @@ export function MxDataQuery() {
         >
           <fieldset
             disabled={query.isPending}
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid gap-3 lg:grid-cols-2"
           >
             <label className="grid gap-1 text-sm">
               查询类别
@@ -95,7 +96,7 @@ export function MxDataQuery() {
                 }}
               />
             </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
+            <label className="grid gap-1 text-sm lg:col-span-2">
               标的或范围（同品种多标的用逗号分隔，最多500个）
               <Input
                 required
@@ -108,7 +109,7 @@ export function MxDataQuery() {
                 }}
               />
             </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
+            <label className="grid gap-1 text-sm lg:col-span-2">
               查询内容
               <Textarea
                 required
@@ -165,7 +166,7 @@ export function MxDataQuery() {
                     key={index}
                     className="max-h-80 overflow-auto whitespace-pre-wrap text-xs"
                   >
-                    {JSON.stringify(raw, null, 2)}
+                    {formatEvidenceText(raw)}
                   </pre>
                 );
               const table = parsed.data;
@@ -213,7 +214,7 @@ export function MxDataQuery() {
                 查看原始结果与查询记录
               </summary>
               <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-xs">
-                {JSON.stringify(query.data, null, 2)}
+                {formatEvidenceText(query.data)}
               </pre>
             </details>
           </div>

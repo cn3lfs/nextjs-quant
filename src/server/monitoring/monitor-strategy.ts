@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   strategySchema,
   type Bar,
@@ -144,7 +145,8 @@ export async function monitorStrategy(
         ? (family?.centers[s.centerId - 1] ?? null)
         : null;
       const d = s.divergence;
-      const ratio = (v: number) => (v === 0 ? "未知" : `${v.toFixed(2)}%`);
+      const ratio = (v: number) =>
+        v === 0 ? "未知" : `${displayNumber(v, 2)}%`;
       return {
         key: key(s),
         date: s.date,
@@ -157,7 +159,7 @@ export async function monitorStrategy(
         // Structural observation conditions, not generated stop-loss advice.
         invalidation:
           Math.abs(s.kind) === 3 && center
-            ? `${s.kind > 0 ? `回试低点跌破ZG ${center.ZG.toFixed(2)}` : `回抽高点升破ZD ${center.ZD.toFixed(2)}`}，或原买卖点撤销/质量降为观察`
+            ? `${s.kind > 0 ? `回试低点跌破ZG ${displayNumber(center.ZG, 2)}` : `回抽高点升破ZD ${displayNumber(center.ZD, 2)}`}，或原买卖点撤销/质量降为观察`
             : "原买卖点撤销、质量降为观察，或其关联中枢/背驰结构不再成立",
       };
     }),

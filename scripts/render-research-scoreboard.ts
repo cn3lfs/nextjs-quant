@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 /** Derive the Chinese handoff from content-addressed research artifacts.
  * pnpm exec tsx scripts/render-research-scoreboard.ts .test-data/r2a
  */
@@ -12,7 +13,7 @@ const task = resolve(process.argv[2] ?? ".test-data/r2a");
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const pct = (value: number | null) =>
-  value === null ? "缺失" : `${(value * 100).toFixed(2)}%`;
+  value === null ? "缺失" : `${displayNumber(value * 100, 2)}%`;
 const reason: Record<string, string> = {
   "insufficient-oos-windows": "样本外窗口不足",
   "oos-positive-excess-majority": "正超额窗口未过多数门槛",
@@ -65,7 +66,7 @@ for (const market of ["cn-equity", "crypto"] as const) {
     "",
     `请求区间 ${frozen.input.start} 至 ${frozen.input.end}。本次运行 ${Math.round(summary.runtimeMs)} 毫秒，采集/冻结 ${Math.round(summary.captureMs)} 毫秒。候选成绩行 ${result.rows.filter((r) => r.level === "strategy").length}，可监视候选 ${result.promoted.length}，未运行候选 ${result.missing.length}。这些数量分别取结果rows/promoted/missing，并非全市场策略数量。`,
     "",
-    `默认/本次门槛：样本外至少 ${policy.minimumWindows} 窗口，至少 ${(policy.minimumPositiveWindows * 100).toFixed(0)}% 窗口扣费后正超额；最大回撤 ${pct(policy.maximumDrawdown)}；至少 ${policy.minimumTrades} 个闭合交易；训练段数值邻域正超额比例至少 ${(policy.minimumStableNeighbors * 100).toFixed(0)}%；DSR至少 ${policy.minimumDsr}。低位长线另需至少 ${policy.minimumMarketCycles} 个完整市场周期及足够输入置信。成本翻倍、延后一根的多数窗口和末段留出均须通过。历史池/成交证据未核验时不能晋级。门槛在运行前冻结，代码中的配置可由用户显式修改，本轮未下调。`,
+    `默认/本次门槛：样本外至少 ${policy.minimumWindows} 窗口，至少 ${displayNumber(policy.minimumPositiveWindows * 100, 0)}% 窗口扣费后正超额；最大回撤 ${pct(policy.maximumDrawdown)}；至少 ${policy.minimumTrades} 个闭合交易；训练段数值邻域正超额比例至少 ${displayNumber(policy.minimumStableNeighbors * 100, 0)}%；DSR至少 ${policy.minimumDsr}。低位长线另需至少 ${policy.minimumMarketCycles} 个完整市场周期及足够输入置信。成本翻倍、延后一根的多数窗口和末段留出均须通过。历史池/成交证据未核验时不能晋级。门槛在运行前冻结，代码中的配置可由用户显式修改，本轮未下调。`,
     "",
     "训练窗固定长度向前滚动，参数只在训练窗按超额、回撤、稳定ID排序选择；各测试窗独立本金。初始训练段用于数值退出邻域，末20%作为固定留出诊断，与滚动样本外重叠，不能累计为额外独立样本。邻域在样本外揭示前声明为ATR倍数、移动幅度或时间长度±10%。保护单不随延迟压力撤销，延后一根只作用于自主入退场。",
     "",
@@ -137,7 +138,7 @@ for (const market of ["cn-equity", "crypto"] as const) {
     lines.push(`- ${book.period}：${book.boundary}`);
     for (const v of book.variants) {
       lines.push(
-        `  - ${v.name} / ${JSON.stringify(v.shares)}：组合收益 ${pct(v.score.return)}，超额 ${pct(v.score.excess)}，回撤 ${pct(v.score.drawdown)}；分仓相关性 ${v.correlation === null ? "缺失" : v.correlation.toFixed(4)}（重叠 ${v.overlapDays} 日），现金划转 ${v.transfers.length} 笔。`,
+        `  - ${v.name} / ${JSON.stringify(v.shares)}：组合收益 ${pct(v.score.return)}，超额 ${pct(v.score.excess)}，回撤 ${pct(v.score.drawdown)}；分仓相关性 ${v.correlation === null ? "缺失" : displayNumber(v.correlation, 4)}（重叠 ${v.overlapDays} 日），现金划转 ${v.transfers.length} 笔。`,
       );
       for (const s of v.sleeveScores)
         lines.push(

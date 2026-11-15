@@ -170,6 +170,7 @@ export class AlertRepository {
       args.push(input.to);
     }
     for (const [column, value] of [
+      ["dedupe_key", input.key],
       ["symbol", input.symbol],
       ["strategy_id", input.strategyId],
       ["type", input.kind],

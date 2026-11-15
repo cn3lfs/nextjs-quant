@@ -2,7 +2,10 @@
 
 import { Button } from "./button";
 import { Slot } from "@radix-ui/react-slot";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  CaretDown as ChevronDown,
+  CaretRight as ChevronRight,
+} from "@phosphor-icons/react/ssr";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "~/lib/common/classnames";
 

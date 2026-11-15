@@ -59,3 +59,10 @@
   --nc-sidebar-width: 216px;
   --nc-shadow-md: 0 8px 28px rgba(23, 43, 77, 0.12);
 }
+
+/* Three layout tiers: compact through1024px, medium1025–1279px, wide1280px+. */
+@theme {
+  --breakpoint-*: initial;
+  --breakpoint-lg: 64.0625rem;
+  --breakpoint-xl: 80rem;
+}

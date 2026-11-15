@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import { Checkbox } from "../ui/checkbox";
 import type { WorkspaceCandidate } from "../overview/candidate-table";
 

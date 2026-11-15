@@ -110,7 +110,7 @@ function DateDetail({
           <p className="font-medium">
             {cashReconciliationLabels[data.status]} · 人民币 / 元
           </p>
-          <dl className="grid grid-cols-1 gap-3 rounded bg-muted/40 p-3 text-sm sm:grid-cols-3">
+          <dl className="grid grid-cols-1 gap-3 rounded bg-muted/40 p-3 text-sm lg:grid-cols-3">
             {(
               [
                 ["柜台日末", data.statementCash],

@@ -15,7 +15,6 @@ import {
 } from "../../alerts/workspace";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { Snapshot } from "~/lib/domain";
-import type { ShadowRegistration } from "../../alerts/shadow";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { loadAccountBook } from "../../portfolio/account-workspace-service";
 import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
@@ -115,33 +114,6 @@ export const alertsRouter = createTRPCRouter({
         .slice(-20),
     };
   }),
-  configureAlertStrategy: p("alerts", "configure")
-    .input(
-      z.object({
-        strategy: strategyObjectSchema,
-        live: z.boolean(),
-        candidates: z.array(z.string().min(1).max(40)).max(6000).default([]),
-      }),
-    )
-    .mutation(({ input }) => {
-      const repo = new AlertRepository();
-      return repo.atomic(() => {
-        const strategy = repo.strategies.saveStrategy(input.strategy);
-        repo.saveState(`strategy:${strategy.id}:${strategy.version}`, {
-          live: input.live,
-          revision: randomUUID(),
-        });
-        const shadowKey = `shadow:${strategy.id}:${strategy.version}`;
-        const shadow = repo.state<ShadowRegistration>(shadowKey);
-        if (input.live && shadow?.active)
-          repo.saveState(shadowKey, { ...shadow, active: false });
-        repo.saveState(
-          `universe:${strategy.id}:${strategy.version}`,
-          input.candidates,
-        );
-        return strategy;
-      });
-    }),
   saveAlertSubscription: p("alerts", "configure")
     .input(alertSubscriptionSchema)
     .mutation(({ input }) => {
@@ -163,9 +135,16 @@ export const alertsRouter = createTRPCRouter({
       items: new AlertRepository().export(input),
     })),
   alertPlans: p("alerts", "read")
-    .input(z.object({ page: z.number().int().nonnegative().default(0) }))
+    .input(
+      z.object({
+        page: z.number().int().nonnegative().default(0),
+        id: z.string().min(1).max(200).optional(),
+      }),
+    )
     .query(({ input }) => {
-      const plans = new AlertRepository().plans();
+      const repo = new AlertRepository();
+      const selected = input.id ? repo.strategies.plan(input.id) : null;
+      const plans = input.id ? (selected ? [selected] : []) : repo.plans();
       return {
         total: plans.length,
         items: plans.slice(input.page * 20, (input.page + 1) * 20),

@@ -98,7 +98,7 @@ it("Q2b wires formula jobs to the existing result selection and preserves exact 
     "expected.tsx",
     `const v = <>
     <FormulaScreen onStarted={state.selectFormulaJob} />
-    {screenResult.formula && (<div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{JSON.stringify(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>)}
+    {screenResult.formula && (<div className="notice"><strong>公式：{screenResult.formula.name}</strong><p>参数：{formatEvidenceText(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。</p><details><summary>本次执行公式快照</summary><pre>{screenResult.formula.source}</pre></details></div>)}
   </>;`,
     ts.ScriptTarget.Latest,
     true,
@@ -126,7 +126,26 @@ it("Q2b wires formula jobs to the existing result selection and preserves exact 
 it("retains existing helper and report implementations", () => {
   for (const file of ["shared.tsx", "reports.tsx", "strategy-fields.tsx"]) {
     for (const fn of functions(file)) {
-      expect(fingerprint([fn]), fn.name!.text).toBe(
+      // R3c changes only the envelope presentation to readable fields. Keep the
+      // complete historical fingerprint for everything else in ReportCard.
+      let compared = fn;
+      if (fn.name!.text === "ReportCard") {
+        const source = fn.getText();
+        expect(source.match(/formatEvidenceText\(e\.envelope\)/g)).toHaveLength(
+          1,
+        );
+        compared = ts.createSourceFile(
+          "report.tsx",
+          source.replace(
+            "formatEvidenceText(e.envelope)",
+            "JSON.stringify(e.envelope, null, 2)",
+          ),
+          ts.ScriptTarget.Latest,
+          true,
+          ts.ScriptKind.TSX,
+        ).statements[0] as ts.FunctionDeclaration;
+      }
+      expect(fingerprint([compared]), fn.name!.text).toBe(
         baseline.functions[fn.name!.text as keyof typeof baseline.functions],
       );
     }

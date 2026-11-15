@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   fiveMinuteItemsPage,
   loadFiveMinuteItems as loadItems,
@@ -288,7 +289,7 @@ export async function startFiveMinutePreview(
           if (i % 10 === 0 || i === files.length - 1)
             updateJob(job.id, {
               progress: Math.round(((i + 1) * 100) / files.length),
-              phase: `${direct ? "导入" : "预检"} ${i + 1}/${files.length} ${file.symbol}${direct ? ` · ${((i + 1) / Math.max(0.001, (Date.now() - job.createdAt) / 1000)).toFixed(0)} 文件/秒` : ""}`,
+              phase: `${direct ? "导入" : "预检"} ${i + 1}/${files.length} ${file.symbol}${direct ? ` · ${displayNumber((i + 1) / Math.max(0.001, (Date.now() - job.createdAt) / 1000), 0)} 文件/秒` : ""}`,
             });
         }
         const value = batch(id);

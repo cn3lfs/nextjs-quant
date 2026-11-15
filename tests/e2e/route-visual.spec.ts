@@ -82,9 +82,15 @@ for (const width of [1440, 1024]) {
       const clock = new Date();
       await page.clock.setFixedTime(clock);
       const response = await page.goto(
-        route.path === "/scan" ? "/scan?symbol=sh600000" : route.path,
+        route.path === "/scan"
+          ? "/scan?symbol=sh600000"
+          : route.path === "/lab"
+            ? "/lab?tab=catalog"
+            : route.path,
       );
-      expect(response?.status()).toBeLessThan(400);
+      if (route.path === "/system/ui-gallery")
+        expect(response?.status()).toBe(404);
+      else expect(response?.status()).toBeLessThan(400);
       if (route.heading)
         await expect(page.locator(".topbar h1")).toHaveText(route.heading);
       await page.waitForLoadState("networkidle");
@@ -556,7 +562,7 @@ test("strategy inputs search local stocks, reject unsupported codes and submit t
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const api = await installOfflineVisualApi(page);
-  await page.goto("/lab");
+  await page.goto("/lab?tab=catalog");
   const submissions: string[] = [];
   page.on("request", (request) => {
     if (request.url().includes("strategyCenterRun"))
@@ -634,7 +640,7 @@ test("strategy date read failure preserves manual dates with a different browser
   page.on("pageerror", (error) => errors.push(error.message));
   const api = await installOfflineVisualApi(page, failed);
   await page.clock.setFixedTime(new Date("2030-06-16T16:30:00Z"));
-  await page.goto("/lab");
+  await page.goto("/lab?tab=catalog");
   await expect(
     page
       .getByRole("region", { name: "策略详情", exact: true })
@@ -690,7 +696,7 @@ test("strategy weight results keep their date and identity across automatic and 
   page,
 }) => {
   const api = await installOfflineVisualApi(page);
-  await page.goto("/lab");
+  await page.goto("/lab?tab=catalog");
   const search = page.getByRole("textbox", { name: "搜索策略", exact: true });
   const detail = page.getByRole("region", { name: "策略详情", exact: true });
   await search.fill("allocation-equal");
@@ -733,7 +739,7 @@ test("E form lifecycle: ordinary strategy page resets drafts and errors without 
     await held;
     await route.abort("failed");
   });
-  await page.goto("/lab");
+  await page.goto("/lab?tab=catalog");
   const search = page.getByRole("textbox", { name: "搜索策略", exact: true });
   const start = page.getByLabel("开始日期", { exact: true });
   const end = page.getByLabel("结束日期", { exact: true });

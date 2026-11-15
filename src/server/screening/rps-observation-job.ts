@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   isRpsMarketSymbol,
   rpsPeriods,
@@ -177,7 +178,7 @@ export async function runRpsObservation(
     }
     if (!coverageAllowsPublication(fresh, symbols.length))
       throw new Error(
-        `新价格覆盖率 ${((fresh / symbols.length) * 100).toFixed(1)}% 不足90%，保留上一批排名`,
+        `新价格覆盖率 ${displayNumber((fresh / symbols.length) * 100, 1)}% 不足90%，保留上一批排名`,
       );
     const result = calculateRpsDay(stocks, calendar, date);
     if (!result.counts.some(Boolean))

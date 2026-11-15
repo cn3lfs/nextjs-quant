@@ -14,16 +14,12 @@ import {
 export const chartColor = {
   /** --nc-card: the panel ground the chart sits on. */
   ground: "#ffffff",
-  /** --nc-bg: deeper ground for the 加深背景 view option. */
-  groundDeep: "#f5f7fa",
   /** --nc-text-3 */
   text: "#475569",
   /** --nc-text-2 */
   textStrong: "#334155",
   /** --nc-border-soft */
   grid: "#e8edf3",
-  /** --nc-inset */
-  gridDeep: "#f0f4f8",
   /** --nc-border */
   border: "#d8e0ea",
   /** --nc-text-4 */
@@ -50,11 +46,9 @@ export const chartColorTokens: Partial<
   Record<keyof typeof chartColor, string>
 > = {
   ground: "--nc-card",
-  groundDeep: "--nc-bg",
   text: "--nc-text-3",
   textStrong: "--nc-text-2",
   grid: "--nc-border-soft",
-  gridDeep: "--nc-inset",
   border: "--nc-border",
   muted: "--nc-text-4",
   up: "--nc-up",

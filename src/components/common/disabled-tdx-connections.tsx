@@ -1,6 +1,6 @@
 // Retained for quota restoration; deliberately not imported by the application UI.
 import { useState } from "react";
-import { Workflow } from "lucide-react";
+import { TreeStructure as Workflow } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import {

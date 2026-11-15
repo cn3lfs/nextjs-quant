@@ -14,9 +14,11 @@ import { settingsRouter } from "./routers/settings";
 import { integrationsRouter } from "./routers/integrations";
 import { financialRouter } from "./routers/financial";
 import { strategyCenterRouter } from "./routers/strategy-center";
+import { strategyLabRouter } from "./routers/strategy-lab";
 import { createCallerFactory, mergeTRPCRouters } from "./trpc";
 
 export const appRouter = mergeTRPCRouters(
+  strategyLabRouter,
   accountsRouter,
   paperRouter,
   alertsRouter,

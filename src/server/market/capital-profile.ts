@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { get, put } from "../db";
 import { evidenceEnvelope } from "../infra/evidence";
 import type { Evidence } from "~/lib/domain";
@@ -218,7 +219,7 @@ export async function capitalProfile(
 }
 
 const yi = (v: number | null) =>
-  v == null ? "—" : `${(v / 1e8).toFixed(2)}亿`;
+  v == null ? "—" : `${displayNumber(v / 1e8, 2)}亿`;
 const partLabels = {
   margin: "融资融券",
   blockTrades: "大宗交易",
@@ -236,15 +237,15 @@ export function capitalProfileEvidence(data: CapitalProfile): Evidence {
   const m5 = data.margin[5];
   if (m0)
     lines.push(
-      `融资余额 ${yi(m0.financingBalance)}（${m0.date}，占流通市值 ${m0.financingRatio?.toFixed(2) ?? "—"}%）${m5 ? `，较 ${m5.date} ${yi((m0.financingBalance ?? 0) - (m5.financingBalance ?? 0))}` : ""}`,
+      `融资余额 ${yi(m0.financingBalance)}（${m0.date}，占流通市值 ${displayNumber(m0.financingRatio, 2) ?? "—"}%）${m5 ? `，较 ${m5.date} ${yi((m0.financingBalance ?? 0) - (m5.financingBalance ?? 0))}` : ""}`,
     );
   for (const h of data.holders.slice(0, 4))
     lines.push(
-      `股东户数 ${h.date}：${h.count ?? "—"}（环比 ${h.changePct?.toFixed(2) ?? "—"}%）`,
+      `股东户数 ${h.date}：${h.count ?? "—"}（环比 ${displayNumber(h.changePct, 2) ?? "—"}%）`,
     );
   for (const b of data.blockTrades.slice(0, 5))
     lines.push(
-      `大宗交易 ${b.date}：${yi(b.amount)}，溢价 ${b.premiumPct?.toFixed(2) ?? "—"}%，买方 ${b.buyer ?? "—"}`,
+      `大宗交易 ${b.date}：${yi(b.amount)}，溢价 ${displayNumber(b.premiumPct, 2) ?? "—"}%，买方 ${b.buyer ?? "—"}`,
     );
   for (const b of data.billboard.slice(0, 5))
     lines.push(`龙虎榜 ${b.date}：${b.reason ?? ""}，净买入 ${yi(b.netBuy)}`);

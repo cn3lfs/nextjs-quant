@@ -1,5 +1,5 @@
 "use client";
-import { Activity, X } from "lucide-react";
+import { Pulse as Activity, X } from "@phosphor-icons/react/ssr";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Button } from "../ui/button";

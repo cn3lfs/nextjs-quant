@@ -1,5 +1,8 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import {
   alertHistorySchema,
@@ -18,7 +21,13 @@ import { SignalLedgerWorkspace } from "./signal-ledger-workspace";
 
 export function AlertWorkspace() {
   const visible = useTaskVisible();
-  const [filter, setFilter] = useState(() => alertHistorySchema.parse({}));
+  const search = useSearchParams();
+  const [filter, setFilter] = useState(() =>
+    alertHistorySchema.parse({
+      key: search.get("event") ?? undefined,
+      strategyId: search.get("strategy") ?? "",
+    }),
+  );
   const [message, setMessage] = useState("");
   const [legacy, setLegacy] = useState(false);
   const [selected, setSelected] = useState<AlertEvent | null>(null);
@@ -35,7 +44,7 @@ export function AlertWorkspace() {
     refetchInterval: visible && !legacy ? 30000 : false,
   });
   const plans = api.alertPlans.useQuery(
-    { page: planPage },
+    { page: planPage, id: search.get("plan") ?? undefined },
     { enabled: visible && !legacy },
   );
   const utils = api.useUtils();
@@ -68,7 +77,7 @@ export function AlertWorkspace() {
   });
   const change = (patch: Partial<typeof filter>) =>
     setFilter({ ...filter, ...patch, page: 0 });
-  const number = (v: number | null) => (v === null ? "—" : v.toFixed(2));
+  const number = (v: number | null) => (v === null ? "—" : displayNumber(v, 2));
   return (
     <div className="space-y-4 p-4">
       <h1>提醒历史与交易计划</h1>

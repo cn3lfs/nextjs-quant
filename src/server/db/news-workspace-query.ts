@@ -165,6 +165,50 @@ export function newsWorkspacePage(path: string, raw: NewsWorkspaceInput) {
     };
   });
 }
+/** A bounded read of the already configured news archive, with literal name/code
+ * matching. It makes no claim of causal or verified investment relevance. */
+export function relatedNewsEvents(
+  path: string,
+  terms: string[],
+  from: number,
+  to: number,
+) {
+  if (!terms.length) return [];
+  return readSource(path, (db, source) => {
+    const rows = db
+      .prepare(
+        `SELECT id,ctime,collected_at,title,content,shareurl FROM news
+      WHERE ctime>=? AND ctime<=? AND EXISTS(SELECT 1 FROM json_each(?) term
+      WHERE instr(upper(coalesce(title,'')||' '||coalesce(content,'')),upper(term.value))>0)
+      ORDER BY ctime DESC,id DESC LIMIT 100`,
+      )
+      .all(
+        Math.ceil(from / 1000),
+        Math.floor(to / 1000),
+        JSON.stringify(terms),
+      ) as NewsRow[];
+    return rows.map((row) => {
+      const news = item(row);
+      const filter = {
+        cutoff: Math.min(Date.parse(news.publishedAt), Date.now()),
+        historical: false,
+        query:
+          terms.find((t) =>
+            `${news.title} ${news.content}`
+              .toUpperCase()
+              .includes(t.toUpperCase()),
+          ) ?? "",
+      };
+      return {
+        id: String(news.id),
+        publishedAt: news.publishedAt,
+        title: news.title.slice(0, 200) || news.content.slice(0, 80),
+        preview: news.content.slice(0, 1000),
+        href: `/intel?newsQuery=${encodeURIComponent(JSON.stringify(filter))}&newsId=${news.id}&newsSource=${source}`,
+      };
+    });
+  });
+}
 export function newsWorkspaceDetail(
   path: string,
   raw: NewsWorkspaceInput,

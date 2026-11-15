@@ -1,4 +1,8 @@
 "use client";
+import { formatEvidenceText } from "~/lib/common/evidence-text";
+
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Robot } from "@phosphor-icons/react/ssr";
 import { Panel } from "../panels";
@@ -26,7 +30,7 @@ import {
   confirmOrder,
 } from "~/app/accounts/actions";
 const number = (value: number | null | undefined) =>
-  value == null ? "—" : value.toFixed(2);
+  value == null ? "—" : displayNumber(value, 2);
 export function TradeMockPanel({
   enabled,
   input,
@@ -172,9 +176,7 @@ export function TradeMockPanel({
           </Button>
         </div>
         {remoteQuery !== null && (
-          <pre className="overflow-auto">
-            {JSON.stringify(remoteQuery, null, 2)}
-          </pre>
+          <pre className="overflow-auto">{formatEvidenceText(remoteQuery)}</pre>
         )}
         <p className="muted">
           当前{enabled ? "已开启" : "关闭"}
@@ -224,7 +226,7 @@ export function TradeMockPanel({
                       HTTP {entry.httpStatus ?? "未收到"}
                     </summary>
                     <pre className="overflow-auto">
-                      {JSON.stringify(entry, null, 2)}
+                      {formatEvidenceText(entry)}
                     </pre>
                   </details>
                 ))}

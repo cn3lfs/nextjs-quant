@@ -1,3 +1,4 @@
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type {
   ParsedCashFlow,
   ParsedFill,
@@ -413,7 +414,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
             projected === null ||
             Math.abs(f.balanceCash - projected) > 0.005
           ) {
-            const reason = `${date} 原始行 ${f.rowIndex} 资金余额 ${f.balanceCash} 与推算现金 ${projected ?? "未知"} 差异 ${projected === null ? "无法计算" : (f.balanceCash - projected).toFixed(2)}；采用柜台资金余额，待核对`;
+            const reason = `${date} 原始行 ${f.rowIndex} 资金余额 ${f.balanceCash} 与推算现金 ${projected ?? "未知"} 差异 ${projected === null ? "无法计算" : displayNumber(f.balanceCash - projected, 2)}；采用柜台资金余额，待核对`;
             warnings.push(reason);
             returnReason = reason;
           }

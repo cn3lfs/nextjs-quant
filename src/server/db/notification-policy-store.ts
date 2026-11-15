@@ -386,7 +386,7 @@ export function renderSummary(date: string, decisions: NotificationDecision[]) {
     "明细（标的 / 质量 / 过滤原因）：",
   ];
   const tail =
-    "完整结构证据、失效条件及投递记录见工作台 /signal-ledger。\n来源：各原信号数据源 / 不复权；规则观察，非交易指令。";
+    "完整结构证据、失效条件及投递记录见工作台 /accounts/alerts。\n来源：各原信号数据源 / 不复权；规则观察，非交易指令。";
   let shown = 0;
   for (const d of decisions) {
     const line = `${d.symbol} · ${d.score}${d.strategy === "dual-breakout" ? "/5" : ""} · ${d.reasons.at(-1)}`;

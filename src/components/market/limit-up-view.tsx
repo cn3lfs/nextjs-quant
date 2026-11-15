@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+
 import { useEffect, useState } from "react";
 import { Fire, Stairs } from "@phosphor-icons/react/ssr";
 import type { LimitPoolRow } from "~/server/data-sources/eastmoney/em-limit-pool";
@@ -62,9 +64,9 @@ const blankPoolFilters = (): Record<Pool, PoolFilter> => ({
 const today = () =>
   new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 const yi = (v: number | null) =>
-  v == null ? "—" : `${(v / 1e8).toFixed(2)}亿`;
+  v == null ? "—" : `${displayNumber(v / 1e8, 2)}亿`;
 const pct = (v: number | null, suffix = "%") =>
-  v == null ? "—" : `${v.toFixed(1)}${suffix}`;
+  v == null ? "—" : `${displayNumber(v, 1)}${suffix}`;
 
 function columns(pool: Pool): Column<LimitPoolRow>[] {
   const base: Column<LimitPoolRow>[] = [
@@ -78,7 +80,9 @@ function columns(pool: Pool): Column<LimitPoolRow>[] {
       key: "price",
       header: "价格",
       align: "right",
-      cell: (r) => <span className="tabular-nums">{r.price.toFixed(2)}</span>,
+      cell: (r) => (
+        <span className="tabular-nums">{displayNumber(r.price, 2)}</span>
+      ),
     },
     {
       key: "chg",

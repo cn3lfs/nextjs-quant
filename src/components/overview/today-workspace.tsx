@@ -4,13 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api } from "~/trpc/react";
-import { formatNumber, formatPercent } from "~/lib/common/format-number";
+import {
+  formatNumber,
+  formatPercent,
+} from "trading-strategy-core/format-number";
 import { Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { CandidateTable } from "./candidate-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
+import { TodayIntel } from "../news/today-intel";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -258,6 +262,7 @@ function DailyDecision() {
           。
         </p>
       </Panel>
+      <TodayIntel />
     </div>
   );
 }

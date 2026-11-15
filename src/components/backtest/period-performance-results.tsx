@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import type { RouterOutputs } from "~/trpc/react";
 import type { DailyPerformance } from "~/lib/backtest/daily-performance";
@@ -69,8 +70,8 @@ const display = (metric: ReviewValue, percent = true) =>
   metric.value === null
     ? `不可得：${metric.reason ?? "证据不足"}`
     : percent
-      ? `${(metric.value * 100).toFixed(2)}%`
-      : metric.value.toFixed(4);
+      ? `${displayNumber(metric.value * 100, 2)}%`
+      : displayNumber(metric.value, 4);
 const fixed = {
   sorting: [],
   onSortingChange: () => {},

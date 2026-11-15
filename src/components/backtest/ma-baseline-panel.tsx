@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FlaskConical, RefreshCw } from "lucide-react";
+import {
+  Flask as FlaskConical,
+  ArrowClockwise as RefreshCw,
+} from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import type { Snapshot } from "~/lib/domain";
 import {

@@ -1,5 +1,5 @@
 "use client";
-import { formatNumber } from "~/lib/common/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 
 import Link from "next/link";
 import { rpsGroupExclusions, rpsPeriods } from "quant-rps";
@@ -146,7 +146,7 @@ export function IndustryRpsControls() {
           </Link>
         </p>
       )}
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-2">
+      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 lg:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="font-medium">板块成分来源</span>
           <Select

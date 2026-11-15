@@ -1,4 +1,6 @@
 import { newsAnalysisIdForTask } from "../../db/workflow-history";
+import { intelEvents, todayIntel } from "../../news/intel-service";
+import { intelEventQuerySchema } from "~/lib/news/intel-events";
 import { readArchiveRecord } from "../../db/archive-records";
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
 import {
@@ -67,6 +69,10 @@ import {
   newsArchivePage,
 } from "../../db/news-workspace-query";
 export const newsRouter = createTRPCRouter({
+  intelEvents: p("news", "read")
+    .input(intelEventQuerySchema)
+    .query(({ input }) => intelEvents(input)),
+  todayIntel: p("news", "read").query(() => todayIntel()),
   clsReviewFactDetail: p("news", "read")
     .input(
       z.object({
