@@ -20,7 +20,7 @@ import {
 import { put } from "~/server/db";
 export async function saveTrade(input: unknown) {
   const id = await recordLocalTrade(input);
-  revalidatePath("/trade-ledger");
+  revalidatePath("/accounts");
   return id;
 }
 export async function saveBonusListing(
@@ -30,11 +30,11 @@ export async function saveBonusListing(
   source: string,
 ) {
   await recordBonusListing(symbol, eventDate, date, source);
-  revalidatePath("/trade-ledger");
+  revalidatePath("/accounts");
 }
 export async function toggleMock(enabled: boolean) {
   setMockEnabled(z.boolean().parse(enabled));
-  revalidatePath("/trade-ledger");
+  revalidatePath("/accounts");
 }
 export async function createMockAccount() {
   await openMockAccount();
@@ -54,7 +54,7 @@ export async function updateStop(symbol: string, stop: number) {
     .parse(symbol);
   z.number().finite().positive().parse(stop);
   put("trade-stop", `trade-stop-${symbol}`, { stop });
-  revalidatePath("/trade-ledger");
+  revalidatePath("/accounts");
 }
 
 export async function readMockDiagnostics() {

@@ -6,7 +6,11 @@ import {
   SelectItem,
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
-import { ArrowUpRight, Check, Sparkles } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  Sparkle as Sparkles,
+} from "@phosphor-icons/react/ssr";
 import { Button } from "../ui/button";
 import { LatestReport } from "../research/latest-report";
 import { Sparkle } from "@phosphor-icons/react/ssr";
@@ -120,7 +124,7 @@ export function EvidenceAnalysis({
           缺少证据时明确标注
         </div>
         <Button variant="plain" className="text-link" asChild>
-          <Link href="/reports" scroll={false}>
+          <Link href="/lab/reports" scroll={false}>
             查看研究档案 <ArrowUpRight size={14} />
           </Link>
         </Button>

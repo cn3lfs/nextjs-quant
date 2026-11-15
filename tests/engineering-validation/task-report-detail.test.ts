@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 import { TaskReportDetail } from "../../src/components/research/task-report-detail";
-import TaskReportPage from "../../src/app/reports/[kind]/[id]/page";
+import TaskReportPage from "../../src/app/lab/reports/[kind]/[id]/page";
 
 const queries = vi.hoisted(() => ({
   calls: [] as { name: string; input: unknown; options: unknown }[],

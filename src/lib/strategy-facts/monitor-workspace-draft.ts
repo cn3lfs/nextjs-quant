@@ -152,7 +152,7 @@ export function monitorPrefillHref(prefill: MonitorPrefill) {
     monitorTab: "monitors",
     monitorNew: JSON.stringify(value),
   });
-  return `/signals?${params}`;
+  return `/system/notifications?${params}`;
 }
 export function readMonitorPrefill(raw: string | null): MonitorPrefill | null {
   if (!raw || raw.length > 4000) return null;

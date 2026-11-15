@@ -3,7 +3,7 @@ import { budgets, waitForJob } from "./helpers";
 
 /** Runs a fixed formula on synthetic local securities and waits for this run. */
 async function screen(page: import("@playwright/test").Page) {
-  await page.goto("/screen", { waitUntil: "networkidle" });
+  await page.goto("/scan?tab=formula", { waitUntil: "networkidle" });
   await page.getByLabel("公式源码", { exact: true }).fill("选股:C>0;");
   await page.getByRole("button", { name: "语法检查与未来函数门禁" }).click();
   await page.getByRole("button", { name: "全市场执行公式" }).click();

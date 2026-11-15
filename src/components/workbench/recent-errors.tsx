@@ -76,7 +76,7 @@ export function RecentErrors() {
               </p>
               {entry.jobId && (
                 <Link
-                  href={`/tasks?id=${encodeURIComponent(entry.jobId)}`}
+                  href={`/system/tasks?id=${encodeURIComponent(entry.jobId)}`}
                   className="underline underline-offset-2"
                 >
                   查看关联任务

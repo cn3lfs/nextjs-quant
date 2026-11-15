@@ -100,7 +100,7 @@ describe("commodity futures (Eastmoney)", () => {
     expect(new Set(futuresContracts.map((c) => c.secid)).size).toBe(
       futuresContracts.length,
     );
-    expect(chartSymbolHref("fuGC00Y")).toBe("/futures?code=GC00Y");
+    expect(chartSymbolHref("fuGC00Y")).toBe("/scan?tab=futures&code=GC00Y");
     expect(chartPricePrecision("fuHG00Y")).toBe(4);
     expect(isFuturesSymbol("fuZZZ")).toBe(false);
   });

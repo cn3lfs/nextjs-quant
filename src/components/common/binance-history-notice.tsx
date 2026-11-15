@@ -12,7 +12,7 @@ export function BinanceHistoryNotice() {
       className="mb-3 rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground"
     >
       BTC、ETH 本地历史行情尚未补齐。
-      <Link className="ml-2 underline" href="/settings">
+      <Link className="ml-2 underline" href="/system">
         在数据与连接中回填
       </Link>
     </p>

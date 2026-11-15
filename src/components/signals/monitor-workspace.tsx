@@ -134,7 +134,7 @@ export function MonitorWorkspace({
     };
   }, []);
   useEffect(() => {
-    if (!ready || location.pathname !== "/signals") return;
+    if (!ready || location.pathname !== "/system/notifications") return;
     const url = new URL(location.href);
     url.searchParams.set("monitorTab", tab);
     url.searchParams.set("monitorFilters", JSON.stringify(filters[tab]));
@@ -382,7 +382,7 @@ export function MonitorWorkspace({
   // subscription. Read on every arrival: a kept-alive panel does not remount.
   const pathname = usePathname();
   useEffect(() => {
-    if (pathname !== "/signals") return;
+    if (pathname !== "/system/notifications") return;
     const url = new URL(location.href);
     if (!url.searchParams.has("monitorNew")) return;
     const value = readMonitorPrefill(url.searchParams.get("monitorNew"));

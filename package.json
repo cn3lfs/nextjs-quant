@@ -26,6 +26,7 @@
     "check:dependencies": "tsx scripts/check-dependencies.ts",
     "e2e": "playwright test",
     "e2e:p0": "playwright test --config playwright.p0.config.ts",
+    "e2e:daily": "playwright test --config playwright.daily.config.ts",
     "e2e:p1": "playwright test --config playwright.p1.config.ts",
     "e2e:visual": "playwright test --config playwright.visual.config.ts",
     "check": "node scripts/check.mjs",

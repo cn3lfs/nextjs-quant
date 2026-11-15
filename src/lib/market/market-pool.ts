@@ -24,7 +24,7 @@ export function poolMembersHref(
   category: z.infer<typeof poolCategorySchema>,
   name: string,
 ) {
-  return `/stock-pool?poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
+  return `/scan?tab=pool&poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
 }
 export const marketPoolQuerySchema = z.object({
   pool: poolSelectionSchema.nullable().default(null),

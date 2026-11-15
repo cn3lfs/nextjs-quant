@@ -20,7 +20,7 @@ test("current baseline backtest renders a real worker report within budget", asy
   page,
 }, testInfo) => {
   await waitForIdleServer(page);
-  await page.goto("/backtest", { waitUntil: "networkidle" });
+  await page.goto("/lab/backtest", { waitUntil: "networkidle" });
   await page.getByLabel("基线证券代码").fill("sh600000");
   await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
   await expect(page.getByLabel("基线结束日期")).toHaveValue("2026-10-12");
@@ -51,7 +51,7 @@ test("trade review of 2222 fills (account big) computes within budget", async ({
   expect(warm.ok()).toBe(true);
   expect((await warm.json()).error).toBeUndefined();
   await waitForIdleServer(page);
-  await page.goto("/trade-review", { waitUntil: "networkidle" });
+  await page.goto("/accounts/review", { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
   await page.getByLabel("复盘账户别名").fill("big");
   const started = Date.now();
@@ -73,7 +73,7 @@ test("trade review of 2222 fills (account big) computes within budget", async ({
 test("factor evaluation over three years and 6154 securities reports IC and quantiles", async ({
   page,
 }, testInfo) => {
-  await page.goto("/screen", { waitUntil: "networkidle" });
+  await page.goto("/scan?tab=formula", { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "单因子评估", exact: true }).click();
   await page
     .getByLabel("因子评估开始日期")
@@ -111,6 +111,6 @@ test("retired sample research has no page or navigation entry", async ({
 }) => {
   const response = await page.goto("/research", { waitUntil: "networkidle" });
   expect(response?.status()).toBe(404);
-  await page.goto("/strategies", { waitUntil: "networkidle" });
+  await page.goto("/lab", { waitUntil: "networkidle" });
   await expect(page.locator('a[href="/research"]')).toHaveCount(0);
 });

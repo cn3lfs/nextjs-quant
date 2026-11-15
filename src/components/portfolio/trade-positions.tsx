@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { HoldingAlertEditor } from "./holding-alert-editor";
 import type { RouterOutputs } from "~/trpc/react";
-import { updateStop } from "~/app/trade-ledger/actions";
+import { updateStop } from "~/app/accounts/actions";
 import { feeLabel } from "~/lib/portfolio/trade-ledger";
 import { Button } from "../ui/button";
 import {
@@ -68,7 +68,7 @@ export function TradePositions({
   }
   return (
     <section aria-label="持仓列表" className="space-y-4">
-      <Link href="/signal-ledger">查看提醒历史与交易计划</Link>
+      <Link href="/accounts/alerts">查看提醒历史与交易计划</Link>
       <p className="text-xs text-nc-text-3">{feeLabel}</p>
       <p className="text-xs text-nc-text-3">
         持仓按完整本地账本计算。GBBQ不可用时成本未按除权调整，浮盈留空；参考成本不可当作已核对成本。
@@ -101,7 +101,7 @@ export function TradePositions({
               查看除权依据（{p.adjustmentCount}）
             </Button>
           </div>
-          <dl className="grid grid-cols-3 gap-3 text-sm max-sm:grid-cols-2">
+          <dl className="grid grid-cols-3 gap-3 text-sm max-md:grid-cols-2">
             <div>
               <dt>持股 / T+1可卖</dt>
               <dd>

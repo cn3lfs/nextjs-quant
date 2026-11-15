@@ -437,7 +437,7 @@ try {
       exact: true,
     });
     await blocksLink.waitFor();
-    assert.equal(await blocksLink.getAttribute("href"), "/rps");
+    assert.equal(await blocksLink.getAttribute("href"), "/scan?tab=rps");
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

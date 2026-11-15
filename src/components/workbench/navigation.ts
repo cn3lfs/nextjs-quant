@@ -1,27 +1,13 @@
-import { capabilities, type CapabilityId } from "~/lib/common/capabilities";
-import {
-  Books,
-  Mountains,
-  CurrencyBtc,
-  Broadcast,
-  ChartLine,
-  Compass,
-  Crosshair,
-  Fire,
-  Flask,
-  Funnel,
-  Hash,
-  ListChecks,
-  Newspaper,
-  Notebook,
-  PlugsConnected,
-  Ranking,
-  Receipt,
-  Sparkle,
-  Wallet,
-} from "@phosphor-icons/react/ssr";
+import { capabilities } from "~/lib/common/capabilities";
 import { type Icon } from "@phosphor-icons/react";
-
+import {
+  Compass,
+  ChartLine,
+  Flask,
+  Wallet,
+  Newspaper,
+  PlugsConnected,
+} from "@phosphor-icons/react/ssr";
 export type Tab =
   | "market"
   | "screen"
@@ -32,252 +18,114 @@ export type Tab =
   | "settings"
   | "analysis"
   | "news";
-
 export type NavItem = {
   href: string;
   label: string;
-  /** Topbar title when it differs from the sidebar label. */
   title?: string;
   subtitle: string;
   icon: Icon;
-  /** Workbench panel state behind this route, when the page is a former tab. */
   tab?: Tab;
-  /** Reachable by link and search, but not listed in the sidebar. */
   hidden?: boolean;
-  capability?: CapabilityId;
 };
 export type NavGroup = { label: string; items: readonly NavItem[] };
-
-/**
- * One navigation layer: every page is a route, grouped as in the design
- * handoff. Former tabs keep their panel state through `tab`.
- */
-const routeGroups: readonly NavGroup[] = [
+function item(href: string, label: string, icon: Icon, tab?: Tab): NavItem {
+  const capability =
+    href === "/?tab=intraday"
+      ? "intraday"
+      : href === "/system/notifications"
+        ? "signalMonitor"
+        : href === "/accounts/alerts"
+          ? "signalLedger"
+          : null;
+  return {
+    href,
+    label,
+    icon,
+    tab,
+    subtitle: capability ? capabilities[capability].reason : label,
+  };
+}
+export const navGroups: readonly NavGroup[] = [
   {
     label: "今日",
     items: [
-      {
-        href: "/",
-        label: "今日总览",
-        subtitle: "调度窗口、数据健康与下一步",
-        icon: Compass,
-      },
-      {
-        href: "/intraday",
-        capability: "intraday",
-        label: "盘中预选",
-        subtitle: "午尾盘预选与收盘确认 · 截至时点行情，不覆盖原始记录",
-        icon: Crosshair,
-      },
-      {
-        href: "/cls-review",
-        label: "财联社复盘",
-        subtitle: "盘前报告观点 → 当日与 T+1/5/10 方向和超额收益",
-        icon: Newspaper,
-      },
+      item("/", "今日", Compass),
+      item("/?tab=intraday", "盘中预选", Compass),
+      item("/?tab=overview", "市场与数据总览", Compass),
     ],
   },
   {
-    label: "发现",
+    label: "扫描与图表",
     items: [
-      {
-        href: "/market",
-        label: "行情图表",
-        subtitle: "从真实行情出发，把判断建立在证据上",
-        icon: ChartLine,
-        tab: "market",
-      },
-      {
-        href: "/stock-pool",
-        label: "证券池",
-        subtitle: "按行业、概念和指数筛选标的 · 保留筛选与排序，再进入行情图表",
-        icon: ListChecks,
-      },
-      {
-        href: "/rps",
-        label: "RPS 排名",
-        title: "RPS 排名与数据管理",
-        subtitle: "个股、行业与概念的相对强度排名计算与审计 · 共用一个任务队列",
-        icon: Ranking,
-      },
-      {
-        href: "/screen",
-        label: "条件选股",
-        subtitle: "先用规则缩小范围，再用研究理解差异",
-        icon: Funnel,
-        tab: "screen",
-      },
-      {
-        href: "/limit-up",
-        label: "打板情绪",
-        subtitle: "涨停 / 炸板 / 跌停 / 昨涨停四池 · 炸板率、连板梯队与晋级率",
-        icon: Fire,
-      },
+      item("/scan", "扫描与图表", ChartLine, "market"),
+      item("/scan?tab=pool", "证券池", ChartLine),
+      item("/scan?tab=formula", "条件选股", ChartLine, "screen"),
+      item("/scan?tab=rps", "RPS 排名与数据管理", ChartLine),
+      item("/scan?tab=sentiment", "打板情绪", ChartLine),
+      item("/scan?tab=crypto", "数字货币图表", ChartLine),
+      item("/scan?tab=futures", "资源期货", ChartLine),
     ],
   },
   {
-    label: "研究",
+    label: "策略实验室",
     items: [
-      {
-        href: "/strategies",
-        label: "策略中心",
-        subtitle: "统一策略分类、规则、输入检查与可复现实验",
-        icon: Compass,
-      },
-      {
-        href: "/backtest",
-        label: "策略实验",
-        subtitle: "把策略想法变成可以复现的实验 · 研究模拟，不作为正式策略业绩",
-        icon: Flask,
-        tab: "backtest",
-      },
-      {
-        href: "/analysis",
-        label: "证据分析",
-        subtitle: "多看一层，少猜一步 · 数据来源与时间可追溯",
-        icon: Sparkle,
-        tab: "analysis",
-      },
-      {
-        href: "/news",
-        label: "新闻 / 主题",
-        subtitle: "财联社新闻 AI 归纳为主题，并对照主题成分价格",
-        icon: Hash,
-        tab: "news",
-      },
-      {
-        href: "/reports",
-        label: "研究档案",
-        subtitle: "保存每一次研究，以及支撑判断的证据",
-        icon: Books,
-        tab: "reports",
-      },
-      {
-        href: "/research/data-guide",
-        label: "研究数据指南",
-        subtitle: "研究输入、指标口径与数据边界",
-        icon: Books,
-        hidden: true,
-      },
+      item("/lab", "策略中心", Flask),
+      item("/lab/backtest", "策略实验", Flask, "backtest"),
+      item("/lab/analysis", "证据分析", Flask, "analysis"),
+      item("/lab/reports", "研究档案", Flask, "reports"),
+      item("/lab/data-guide", "研究数据指南", Flask),
     ],
   },
   {
-    label: "追踪",
+    label: "账户与复盘",
     items: [
-      {
-        href: "/signals",
-        capability: "signalMonitor",
-        label: "信号与通知",
-        subtitle: "规则触发 → 交易状态核验 → 渠道投递",
-        icon: Broadcast,
-        tab: "signals",
-      },
-      {
-        href: "/signal-ledger",
-        capability: "signalLedger",
-        label: "信号台账",
-        subtitle: "每条信号的后续表现 · 原始记录只追加不覆盖",
-        icon: Notebook,
-      },
-      {
-        href: "/trade-ledger",
-        label: "持仓与交易日志",
-        subtitle: "模拟账户持仓、成交与交易日志",
-        icon: Wallet,
-      },
-      {
-        href: "/trade-review",
-        label: "交割单与交易复盘",
-        subtitle: "导入券商交割单 · 现金对账 · 纪律与执行质量复盘",
-        icon: Receipt,
-      },
+      item("/accounts", "持仓与交易日志", Wallet),
+      item("/accounts/review", "交割单与交易复盘", Wallet),
+      item("/accounts/alerts", "信号台账", Wallet),
+      item("/accounts/crypto", "数字货币账户与模拟", Wallet),
     ],
   },
   {
-    label: "其他市场",
+    label: "情报",
     items: [
-      {
-        href: "/crypto",
-        label: "数字货币",
-        subtitle:
-          "币安 / OKX / Gate / Coinbase / Bybit 现货 · 7×24 · UTC 收线 · 与 A 股数据完全分开",
-        icon: CurrencyBtc,
-      },
-      {
-        href: "/futures",
-        label: "资源期货",
-        subtitle:
-          "金银铜铝、黑色系与原油 · Yahoo / 东方财富 / 新浪连续合约 · 仅浏览",
-        icon: Mountains,
-      },
+      item("/intel", "新闻 / 主题", Newspaper, "news"),
+      item("/intel/review", "财联社复盘", Newspaper),
     ],
   },
   {
     label: "系统",
     items: [
-      {
-        href: "/settings",
-        label: "数据与连接",
-        subtitle: "本地行情与导入 · 凭证保存在系统加密存储",
-        icon: PlugsConnected,
-        tab: "settings",
-      },
-      {
-        href: "/tasks",
-        label: "任务中心",
-        subtitle: "选股、RPS、AI 研究共用本机后台队列",
-        icon: ListChecks,
-        tab: "tasks",
-      },
+      item("/system", "数据与连接", PlugsConnected, "settings"),
+      item("/system/tasks", "任务中心", PlugsConnected, "tasks"),
+      item("/system/notifications", "信号与通知", PlugsConnected, "signals"),
+      item("/system/ui-gallery", "UI 组件", PlugsConnected),
     ],
   },
 ];
-
-export const navGroups: readonly NavGroup[] = routeGroups.map((group) => ({
-  ...group,
-  items: group.items.map((item) => {
-    if (!item.capability) return item;
-    if (capabilities[item.capability].state === "active")
-      return capabilities[item.capability].reason
-        ? { ...item, subtitle: capabilities[item.capability].reason }
-        : item;
-    return {
-      ...item,
-      label: `${item.label}（暂停）`,
-      subtitle: capabilities[item.capability].reason,
-    };
-  }),
-}));
-
-export const navItems = navGroups.flatMap((group) =>
-  group.items.map((item) => ({ ...item, group: group.label })),
+export const navItems = navGroups.flatMap((g) =>
+  g.items.map((i) => ({ ...i, group: g.label })),
 );
-
-/** Route of a former workbench tab. */
 export function tabHref(tab: Tab) {
-  return navItems.find((item) => item.tab === tab)!.href;
+  return navItems.find((i) => i.tab === tab)!.href;
 }
-
-/** Page for a pathname; report details belong to 研究档案. */
 export function navItemFor(pathname: string) {
   return (
-    navItems.find((item) => item.href === pathname) ??
-    (pathname.startsWith("/reports/")
+    navItems.find((i) => i.href === pathname) ??
+    (pathname.startsWith("/lab/reports/")
       ? {
-          ...navItems.find((item) => item.href === "/reports")!,
+          ...navItems.find((i) => i.href === "/lab/reports")!,
           title: "研究报告详情",
         }
       : undefined)
   );
 }
-
-/** Navigation search matches page names, titles and routes only. */
 export function searchNav(query: string) {
   const term = query.trim().toLowerCase();
-  if (!term) return [];
-  return navItems.filter((item) =>
-    [item.label, item.title ?? "", item.href].some((text) =>
-      text.toLowerCase().includes(term),
-    ),
-  );
+  return term
+    ? navItems.filter((i) =>
+        [i.label, i.title ?? "", i.href, i.group].some((t) =>
+          t.toLowerCase().includes(term),
+        ),
+      )
+    : [];
 }

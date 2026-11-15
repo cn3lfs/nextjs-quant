@@ -1,16 +1,14 @@
 "use client";
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
+import { WorkspaceTabs } from "./workspace-tabs";
 
 /** The only routes whose mounted chart/editor state survives navigation. */
 export const retainedRoutes = {
-  "/market": dynamic(() =>
-    import("../market/market-page").then((m) => m.MarketPage),
+  "/scan": dynamic(() =>
+    import("../screening/scan-workspace").then((m) => m.ScanWorkspace),
   ),
-  "/screen": dynamic(() =>
-    import("../screening/screen-page").then((m) => m.ScreenPage),
-  ),
-  "/backtest": dynamic(() =>
+  "/lab/backtest": dynamic(() =>
     import("../backtest/backtest-page").then((m) => m.BacktestPage),
   ),
 } as const;
@@ -21,6 +19,7 @@ export function RetainedPage({ route }: { route: RetainedRoute }) {
   const Page = retainedRoutes[route];
   return (
     <div data-retained-route={route}>
+      {route === "/lab/backtest" && <WorkspaceTabs workspace="/lab" />}
       <Page />
     </div>
   );

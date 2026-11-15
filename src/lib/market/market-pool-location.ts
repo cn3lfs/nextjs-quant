@@ -69,5 +69,5 @@ export function marketPoolLocationHref({
   }
   if (query.page) params.set("page", String(query.page));
   if (query.selected) params.set("selected", query.selected);
-  return `/stock-pool${params.size ? `?${params}` : ""}`;
+  return `/scan?tab=pool${params.size ? `&${params}` : ""}`;
 }

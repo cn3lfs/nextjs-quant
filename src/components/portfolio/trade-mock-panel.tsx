@@ -24,7 +24,7 @@ import {
   reconcileAccount,
   previewOrder,
   confirmOrder,
-} from "~/app/trade-ledger/actions";
+} from "~/app/accounts/actions";
 const number = (value: number | null | undefined) =>
   value == null ? "—" : value.toFixed(2);
 export function TradeMockPanel({

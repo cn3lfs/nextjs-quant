@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
+
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
@@ -69,7 +71,7 @@ export function BinanceHistory() {
         >
           回填/补齐 BTC、ETH 历史
         </Button>
-        <Link href="/tasks">查看任务进度与取消</Link>
+        <Link href="/system/tasks">查看任务进度与取消</Link>
       </div>
       {(status.error || start.error || configure.error) && (
         <p role="alert">
@@ -89,7 +91,7 @@ export function BinanceHistory() {
             </strong>
             ：
             {s.manifest
-              ? `${s.manifest.start ?? "—"} 至 ${s.manifest.end ?? "—"} · ${s.manifest.rows.toLocaleString()} 根 · ${s.manifest.gaps.length} 处缺口 · ${(s.manifest.bytes / 1024 ** 2).toFixed(1)} MiB`
+              ? `${s.manifest.start ?? "—"} 至 ${s.manifest.end ?? "—"} · ${s.manifest.rows.toLocaleString()} 根 · ${s.manifest.gaps.length} 处缺口 · ${formatNumber(s.manifest.bytes / 1024 ** 2, 1)} MiB`
               : "未回填"}
           </li>
         ))}

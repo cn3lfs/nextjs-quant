@@ -11,7 +11,7 @@ it("round-trips a screening list into a new-subscription link", () => {
     symbols: ["sh600519", "sz000001"],
   });
   const url = new URL(href, "http://x");
-  expect(url.pathname).toBe("/signals");
+  expect(url.pathname).toBe("/system/notifications");
   expect(url.searchParams.get("monitorTab")).toBe("monitors");
   expect(readMonitorPrefill(url.searchParams.get("monitorNew"))).toEqual({
     name: "选股候选 2026-09-28",

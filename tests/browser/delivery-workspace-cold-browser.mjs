@@ -73,7 +73,7 @@ try {
         errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       const pageStart = performance.now();
-      await page.goto(base + "/trade-review");
+      await page.goto(base + "/accounts/review");
       await page.getByRole("button", { name: "历史批次", exact: true }).click();
       await page
         .getByRole("button", { name: "查看批次 history-999.csv", exact: true })

@@ -1,4 +1,6 @@
 "use client";
+import { usePlanLevels } from "./plan-levels";
+import { formatNumber } from "~/lib/common/format-number";
 import { MarketChartLegend } from "./market-chart-legend";
 import { rpsPeriods } from "quant-rps";
 import { createMarketChartInstance } from "./market-chart-instance";
@@ -220,8 +222,8 @@ export function RollingPerformanceChart({
               type: "custom",
               formatter: (value: number) =>
                 pane === 0 || (pane === 1 && simple)
-                  ? value.toFixed(4)
-                  : `${(value * 100).toFixed(2)}%`,
+                  ? formatNumber(value, 4)
+                  : `${formatNumber(value * 100, 2)}%`,
             },
           },
           pane,
@@ -288,8 +290,8 @@ export function PositionRiskChart({
                 type: "custom",
                 formatter: (value: number) =>
                   pane === 0
-                    ? value.toFixed(4)
-                    : `${(value * 100).toFixed(2)}%`,
+                    ? formatNumber(value, 4)
+                    : `${formatNumber(value * 100, 2)}%`,
               },
             },
             pane,
@@ -521,6 +523,7 @@ export function MarketChart({
   volumeUnit = "股",
   bars,
   period,
+  adjustment = "none",
   czsc,
   czscMessage,
   breakout,
@@ -680,7 +683,7 @@ export function MarketChart({
   const subchartOptions = (Object.keys(subchartLabels) as Subchart[]).filter(
     (value) => value !== "rps" || rpsAvailable,
   );
-  const dark = view?.dark ?? false;
+  const dark = false;
   const logarithmic = view?.logarithmic ?? false;
   const drawings = view?.drawings;
   const hasRps = visibleSubcharts.includes("rps");
@@ -772,6 +775,43 @@ export function MarketChart({
       native.current = null;
     };
   }, [period, pricePrecision, viewportKey]);
+
+  const planLevels = usePlanLevels();
+  useEffect(() => {
+    const n = native.current;
+    if (
+      !n ||
+      !planLevels ||
+      adjustment !== "none" ||
+      viewportKey?.split(":")[0]?.replace(/^cx/, "") !==
+        planLevels.symbol.replace(/^cx/, "")
+    )
+      return;
+    const lines = (
+      [
+        ["入场参考", planLevels.entry, chartColor.accent],
+        ["止损", planLevels.stop, chartColor.down],
+        ["目标", planLevels.target, chartColor.up],
+      ] as const
+    ).flatMap(([title, price, color]) =>
+      price !== null && price > 0
+        ? [
+            n.candles.createPriceLine({
+              title,
+              price,
+              color,
+              lineWidth: 2,
+              lineStyle: 2,
+              axisLabelVisible: true,
+            }),
+          ]
+        : [],
+    );
+    return () => {
+      if (native.current === n)
+        for (const line of lines) n.candles.removePriceLine(line);
+    };
+  }, [planLevels, adjustment, period, pricePrecision, viewportKey]);
 
   // Appearance and gesture options: applied in place.
   useEffect(() => {
@@ -977,10 +1017,10 @@ export function MarketChart({
     <div
       data-testid="market-chart"
       data-period={period}
-      data-dark={view?.dark ?? false}
+      data-dark={false}
       style={{
-        background: view?.dark ? chartColor.groundDeep : undefined,
-        color: view?.dark ? chartColor.textStrong : undefined,
+        background: chartColor.ground,
+        color: chartColor.text,
         padding: "0 8px 8px",
       }}
     >

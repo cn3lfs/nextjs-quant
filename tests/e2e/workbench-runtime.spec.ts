@@ -8,19 +8,24 @@ import {
   waitForIdleServer,
 } from "./helpers";
 
-const panelPaths = ["/screen", "/signals", "/backtest", "/tasks"] as const;
+const panelPaths = [
+  "/scan?tab=formula",
+  "/system/notifications",
+  "/lab/backtest",
+  "/system/tasks",
+] as const;
 function readyPanel(
   page: import("@playwright/test").Page,
   path: (typeof panelPaths)[number],
 ) {
   switch (path) {
-    case "/screen":
+    case "/scan?tab=formula":
       return page.getByLabel("公式源码", { exact: true });
-    case "/signals":
+    case "/system/notifications":
       return page.getByRole("tablist", { name: "监控工作区" });
-    case "/backtest":
+    case "/lab/backtest":
       return page.getByRole("region", { name: "策略回测实验室" });
-    case "/tasks":
+    case "/system/tasks":
       return page.getByRole("combobox", { name: "任务类型" });
   }
 }
@@ -113,7 +118,7 @@ test("first load ships a small bundle and panels load on first visit", async ({
     expect
       .soft(median, path)
       .toBeLessThanOrEqual(
-        path === "/signals"
+        path === "/system/notifications"
           ? budgets.panelFirstSwitchMsSignals
           : budgets.panelFirstSwitchMs,
       );
@@ -164,7 +169,7 @@ test("after touring every page, hidden panels stay quiet", async ({
   ).toBeLessThanOrEqual(budgets.idleMainThreadMsIn10s);
   // The tour ends on /tasks, an ordinary route outside the panel cache.
   // Its visible content must not be counted as a seventh cached panel.
-  await expect(page).toHaveURL((url) => url.pathname === "/tasks");
+  await expect(page).toHaveURL((url) => url.pathname === "/system/tasks");
   await expect(page.locator(".page > div:not([hidden])")).toHaveCount(1);
   expect(await page.locator(".page > div[hidden]").count()).toBeLessThanOrEqual(
     6,

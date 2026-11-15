@@ -9,7 +9,7 @@ test("arrow keys walk the bar cursor from the page and Esc leaves it", async ({
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await waitForIdleServer(page);
-  await page.goto("/market", { waitUntil: "networkidle" });
+  await page.goto("/scan", { waitUntil: "networkidle" });
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
   const legend = () =>

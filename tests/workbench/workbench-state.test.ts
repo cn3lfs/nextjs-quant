@@ -11,7 +11,7 @@ vi.mock("~/components/workbench/use-task-visible", () => ({
   useTaskVisible: () => rpc.visible,
 }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/backtest",
+  usePathname: () => "/lab/backtest",
   useRouter: () => ({ push: vi.fn() }),
 }));
 vi.mock("~/components/market/use-snapshot-load", () => ({

@@ -57,17 +57,20 @@ it("handles loading, missing, failed reads and failed cancellation explicitly", 
 });
 it("exposes exact report destinations and disables duplicate cancellation", () => {
   expect(render({ data: { ...data, screenResultId: "job?a&b" } })).toContain(
-    'href="/screen?job=job%3Fa%26b"',
+    'href="/scan?tab=formula&amp;job=job%3Fa%26b"',
   );
   expect(
     render({
       data: {
         ...data,
         status: "completed",
-        resultLink: { href: "/reports/report/report-a", label: "查看研究报告" },
+        resultLink: {
+          href: "/lab/reports/report/report-a",
+          label: "查看研究报告",
+        },
       },
     }),
-  ).toContain('href="/reports/report/report-a"');
+  ).toContain('href="/lab/reports/report/report-a"');
   const html = render({
     data: { ...data, status: "running" },
     cancelling: true,

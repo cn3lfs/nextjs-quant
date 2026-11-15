@@ -78,7 +78,7 @@ it("combines type/status/exact-id filters without leaking input or result", () =
   expect(taskHistory({ type: "screen", id: "typed" }).total).toBe(0);
   expect(taskHistory({ id: "type" }).total).toBe(0);
   const detail = taskState("typed")!;
-  expect(detail.sourceLink?.href).toBe("/news");
+  expect(detail.sourceLink?.href).toBe("/intel");
   for (const key of [
     "input",
     "result",

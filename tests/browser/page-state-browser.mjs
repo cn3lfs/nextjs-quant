@@ -36,7 +36,7 @@ import {useSyncExternalStore} from 'react';
 const subscribe=listener=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener)};
 for(const name of ['pushState','replaceState']){const original=window.history[name].bind(window.history);window.history[name]=(...args)=>{original(...args);window.dispatchEvent(new PopStateEvent('popstate'))}}
 const navigate=path=>window.history.pushState(null,'',path);
-export const usePathname=()=>useSyncExternalStore(subscribe,()=>window.location.pathname,()=>'/backtest');
+export const usePathname=()=>useSyncExternalStore(subscribe,()=>window.location.pathname,()=>'/lab/backtest');
 export const useRouter=()=>({push:navigate,replace:navigate});
 export const useSearchParams=()=>new URLSearchParams(useSyncExternalStore(subscribe,()=>window.location.search,()=>''));`;
 // Connections has its own UI harness. Keep its actual query/mutation container
@@ -62,9 +62,9 @@ function Research(props){useEffect(()=>{window.researchMounts++},[]);return <Evi
 const notify=text=>{window.notifications.push(text)};
 function Shell(){window.shellRenders++;const state=useWorkbenchState();const path=usePathname();const router=useRouter();window.navigate=router.push;
  const [loaded,setLoaded]=useState(null);window.selectSnapshot=symbol=>setLoaded({id:'snapshot-'+symbol,symbol,period:'day',bars:[{date:'2026-11-13'}]});
- const panels=Object.fromEntries(['/backtest','/tasks','/rps','/news','/signals','/reports','/other'].map(path=>[path,<div>{path}</div>]));
- panels['/analysis']=<Research loaded={loaded} notify={notify}/>;
- panels['/settings']=<SettingsPanel notify={notify}/>;
+ const panels=Object.fromEntries(['/lab/backtest','/system/tasks','/scan?tab=rps','/intel','/system/notifications','/lab/reports','/other'].map(path=>[path,<div>{path}</div>]));
+ panels['/lab/analysis']=<Research loaded={loaded} notify={notify}/>;
+ panels['/system']=<SettingsPanel notify={notify}/>;
  return <><WorkbenchSidebar active={path}/><output data-testid='route'>{path}</output><PanelCache active={path} panels={panels}/>{path==='/' && <TodayOverview/>}</>;
 }
 createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><Shell/></QueryClientProvider>);`,
@@ -165,7 +165,7 @@ try {
     "cold unrelated route must not load page data",
   );
 
-  await navigate("/analysis");
+  await navigate("/lab/analysis");
   assert.equal(
     await page
       .getByRole("button", { name: "开始研究", exact: true })
@@ -221,7 +221,7 @@ try {
   });
   assert.equal(
     await page.getByRole("link", { name: "查看研究档案" }).getAttribute("href"),
-    "/reports",
+    "/lab/reports",
   );
   await page.evaluate(() => {
     window.failAnalysis = true;
@@ -237,7 +237,7 @@ try {
     "仅分析这份快照的风险",
   );
 
-  await navigate("/tasks");
+  await navigate("/system/tasks");
   await page.evaluate(async () => {
     window.requests.length = 0;
     window.selectSnapshot("sz000001");
@@ -254,18 +254,18 @@ try {
     [],
     "hidden research must not fetch a changed security or invalidated history",
   );
-  await navigate("/analysis");
+  await navigate("/lab/analysis");
   await page.waitForFunction(() =>
     window.requests.some(
       (r) => r.name === "archivedReport" && r.input === "sz000001",
     ),
   );
   for (const path of [
-    "/tasks",
-    "/rps",
-    "/news",
-    "/signals",
-    "/reports",
+    "/system/tasks",
+    "/scan?tab=rps",
+    "/intel",
+    "/system/notifications",
+    "/lab/reports",
     "/other",
   ])
     await navigate(path);
@@ -273,7 +273,7 @@ try {
     await page.getByRole("textbox", { name: "研究问题", exact: true }).count(),
     0,
   );
-  await navigate("/analysis");
+  await navigate("/lab/analysis");
   assert.equal(
     await page.evaluate(() => window.researchMounts),
     2,
@@ -307,7 +307,7 @@ try {
       window.requests.some((r) => r.name === "conceptRpsPage"),
     ),
   );
-  await navigate("/tasks");
+  await navigate("/system/tasks");
   assert.equal(
     await page.getByRole("radio", { name: "概念", exact: true }).count(),
     0,
@@ -351,7 +351,7 @@ try {
     "true",
   );
   await page.evaluate(() => (window.requests.length = 0));
-  await navigate("/settings");
+  await navigate("/system");
   await page.waitForFunction(
     () =>
       document.querySelector('[data-testid="coverage"]').textContent === "99",
@@ -399,7 +399,7 @@ try {
   await page.waitForFunction(() =>
     window.requests.some((r) => r.name === "taskOverview"),
   );
-  await navigate("/tasks");
+  await navigate("/system/tasks");
   await page.evaluate(async () => {
     window.requests.length = 0;
     await window.client.invalidateQueries({ queryKey: ["channels"] });
@@ -412,7 +412,7 @@ try {
     [],
     "hidden settings/home/research must not refetch configuration or channels",
   );
-  await navigate("/market");
+  await navigate("/scan");
   await idle();
   const beforeSource = await page.evaluate(() => window.shellRenders);
   await page.evaluate(() =>

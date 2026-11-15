@@ -11,7 +11,7 @@ const sectionReads = new Set([
 test("review reads only the selected section and preserves hidden section drafts", async ({
   page,
 }) => {
-  await page.goto("/trade-review", { waitUntil: "networkidle" });
+  await page.goto("/accounts/review", { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
   await page.getByLabel("复盘账户别名").fill("big10k");
   const calls = await trpcCalls(page, async () => {
@@ -65,7 +65,7 @@ test("review reads only the selected section and preserves hidden section drafts
 /** Uses big10k (9418 fills); big remains uncached for the 2222-fill budget. */
 async function openReview(page: import("@playwright/test").Page) {
   await waitForIdleServer(page);
-  await page.goto("/trade-review", { waitUntil: "networkidle" });
+  await page.goto("/accounts/review", { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
   await page.getByLabel("复盘账户别名").fill("big10k");
   await page.getByRole("button", { name: "查看复盘" }).click();

@@ -17,7 +17,7 @@ import type { SkillUse } from "../../src/server/research/research-skills";
 import type { LedgerRow } from "../../src/lib/strategy-facts/signal-ledger";
 import { TradePositions } from "../../src/components/portfolio/trade-positions";
 import { TradeMockPanel } from "../../src/components/portfolio/trade-mock-panel";
-vi.mock("../../src/app/trade-ledger/actions", () => ({
+vi.mock("../../src/app/accounts/actions", () => ({
   saveTrade: vi.fn(),
   toggleMock: vi.fn(),
   createMockAccount: vi.fn(),

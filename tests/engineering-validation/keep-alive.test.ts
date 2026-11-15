@@ -12,9 +12,9 @@ it("mounts each panel once and keeps the visit order stable", () => {
   let mounted: string[] = ["market"];
   expect(nextMounted(mounted, "market")).toBe(mounted);
   mounted = nextMounted(mounted, "screen");
-  mounted = nextMounted(mounted, "/rps");
+  mounted = nextMounted(mounted, "/scan?tab=rps");
   mounted = nextMounted(mounted, "market");
-  expect(mounted).toEqual(["market", "screen", "/rps"]);
+  expect(mounted).toEqual(["market", "screen", "/scan?tab=rps"]);
 });
 
 it("renders only the active panel of a cached slot", () => {
@@ -31,8 +31,8 @@ it("does not create an empty cache slot for a framework route", () => {
   expect(
     renderToStaticMarkup(
       createElement(PanelCache, {
-        active: "/tasks",
-        panels: { "/market": "行情" },
+        active: "/system/tasks",
+        panels: { "/scan": "行情" },
       }),
     ),
   ).toBe("");
@@ -59,15 +59,36 @@ it("reports hidden panels as not visible", () => {
 });
 
 it("evicts the least recently shown panels beyond the limit, never the pinned or active one", () => {
-  let cache = { mounted: ["/market"], recent: ["/market"] };
-  for (const key of ["/", "/screen", "/rps", "/signals", "/news"])
-    cache = nextPanelCache(cache, key, 4, ["/market"]);
-  // "/market" is the oldest but pinned; "/" and "/screen" go.
-  expect(cache.mounted).toEqual(["/market", "/rps", "/signals", "/news"]);
+  let cache = { mounted: ["/scan"], recent: ["/scan"] };
+  for (const key of [
+    "/",
+    "/scan?tab=formula",
+    "/scan?tab=rps",
+    "/system/notifications",
+    "/intel",
+  ])
+    cache = nextPanelCache(cache, key, 4, ["/scan"]);
+  // "/scan" is the oldest but pinned; "/" and "/scan?tab=formula" go.
+  expect(cache.mounted).toEqual([
+    "/scan",
+    "/scan?tab=rps",
+    "/system/notifications",
+    "/intel",
+  ]);
   // Revisiting refreshes recency without moving the render order.
-  cache = nextPanelCache(cache, "/rps", 4, ["/market"]);
-  expect(cache.mounted).toEqual(["/market", "/rps", "/signals", "/news"]);
-  cache = nextPanelCache(cache, "/tasks", 4, ["/market"]);
-  expect(cache.mounted).toEqual(["/market", "/rps", "/news", "/tasks"]);
-  expect(nextPanelCache(cache, "/tasks", 4, ["/market"])).toBe(cache);
+  cache = nextPanelCache(cache, "/scan?tab=rps", 4, ["/scan"]);
+  expect(cache.mounted).toEqual([
+    "/scan",
+    "/scan?tab=rps",
+    "/system/notifications",
+    "/intel",
+  ]);
+  cache = nextPanelCache(cache, "/system/tasks", 4, ["/scan"]);
+  expect(cache.mounted).toEqual([
+    "/scan",
+    "/scan?tab=rps",
+    "/intel",
+    "/system/tasks",
+  ]);
+  expect(nextPanelCache(cache, "/system/tasks", 4, ["/scan"])).toBe(cache);
 });

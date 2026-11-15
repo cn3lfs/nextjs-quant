@@ -39,10 +39,10 @@ export const isNonAShareChartSymbol = (symbol: string) =>
 /** 深链：其他页面用 /market?symbol=sh600519 打开行情图表页并加载该证券K线。 */
 export function chartSymbolHref(symbol: string) {
   return isCryptoSymbol(symbol)
-    ? `/crypto?pair=${encodeURIComponent(symbol.slice(2))}`
+    ? `/scan?tab=crypto&pair=${encodeURIComponent(symbol.slice(2))}`
     : isFuturesSymbol(symbol)
-      ? `/futures?code=${encodeURIComponent(symbol.slice(2))}`
-      : `/market?symbol=${encodeURIComponent(symbol)}`;
+      ? `/scan?tab=futures&code=${encodeURIComponent(symbol.slice(2))}`
+      : `/scan?symbol=${encodeURIComponent(symbol)}`;
 }
 export function readChartSymbolParam(search: string): string | null {
   return normalizeChartSymbol(new URLSearchParams(search).get("symbol") ?? "");

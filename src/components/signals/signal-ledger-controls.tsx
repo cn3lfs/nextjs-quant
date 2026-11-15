@@ -2,7 +2,7 @@
 
 import { Button } from "~/components/ui/button";
 import { useState, useTransition } from "react";
-import { cancelLedger } from "~/app/signal-ledger/actions";
+import { cancelLedger } from "~/app/accounts/alerts/actions";
 export function SignalLedgerControls({
   date,
   onChanged,

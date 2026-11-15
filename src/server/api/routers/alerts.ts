@@ -8,9 +8,90 @@ import {
 import { AlertRepository } from "../../db/alert-repository";
 import { createAlertPlanSchema, createAlertPlan } from "../../alerts/plans";
 import { settings } from "../../infra/settings";
+import {
+  todayWorkspace,
+  workspaceCandidates,
+  workspaceCandidate,
+} from "../../alerts/workspace";
+import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
+import type { Snapshot } from "~/lib/domain";
 import type { ShadowRegistration } from "../../alerts/shadow";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 export const alertsRouter = createTRPCRouter({
+  prepareScreenPlan: p("alerts", "configure")
+    .input(
+      z.object({
+        jobId: z.string().min(1).max(200),
+        snapshotId: z.string().min(1).max(200),
+      }),
+    )
+    .mutation(({ input }) => {
+      const repo = new AlertRepository();
+      return repo.atomic(() => {
+        const strategy = strategyObjectSchema.parse(
+          repo.screenCandidate(input.jobId, input.snapshotId),
+        );
+        const snapshot = repo.records.read<Snapshot>(input.snapshotId);
+        const bar = (
+          snapshot?.rawBars ??
+          (snapshot?.adjustment === "none" ? snapshot.bars : [])
+        )?.at(-1);
+        if (
+          !snapshot ||
+          !bar ||
+          strategy.market !== "cn-equity" ||
+          snapshot.period !== strategy.period ||
+          !Number.isFinite(bar.close) ||
+          bar.close <= 0
+        )
+          throw new Error("缺少冻结原价或策略身份，不能加入计划");
+        const identity = {
+          strategyId: strategy.id,
+          version: strategy.version,
+          market: strategy.market,
+          symbol: snapshot.symbol,
+          bar: bar.date,
+        };
+        const event: AlertEvent = {
+          ...identity,
+          key: alertKey(identity),
+          type: "entry",
+          price: bar.close,
+          stop: null,
+          target: null,
+          sleeve: strategy.sleeve,
+          observedAt: Date.now(),
+          mode: "shadow",
+          status: "shadow",
+          reason: "用户从冻结公式候选准备交易计划；止损/目标由用户明确填写",
+          source: `公式任务 ${input.jobId} · 快照 ${input.snapshotId}`,
+          wouldSend: false,
+          outcomes: [],
+        };
+        repo.record(strategy, event);
+        return workspaceCandidate(repo.event(event.key)!, repo);
+      });
+    }),
+  todayWorkspace: p("alerts", "read").query(() => todayWorkspace()),
+  workspaceCandidates: p("alerts", "read")
+    .input(
+      z.object({
+        page: z.number().int().nonnegative().max(1000000),
+        strategy: z.string().max(150).optional(),
+        market: z.enum(["cn-equity", "crypto"]).optional(),
+        minimumRps: z.number().finite().min(0).max(100).optional(),
+      }),
+    )
+    .query(({ input }) => workspaceCandidates(input)),
+  workspaceCandidate: p("alerts", "read")
+    .input(z.string().min(1).max(1000))
+    .query(({ input }) => {
+      const repo = new AlertRepository();
+      const event = repo.event(input);
+      if (!event || event.type !== "entry" || event.status === "missed")
+        throw new Error("入场候选不存在");
+      return workspaceCandidate(event, repo);
+    }),
   alertStatus: p("alerts", "read").query(() => {
     const repo = new AlertRepository();
     return {

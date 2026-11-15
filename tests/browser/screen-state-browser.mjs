@@ -42,7 +42,7 @@ const navigation = `
 import {useSyncExternalStore} from 'react';
 const subscribe=listener=>{window.addEventListener('popstate',listener);return()=>window.removeEventListener('popstate',listener)};
 const pathname=()=>window.location.pathname;
-export const usePathname=()=>useSyncExternalStore(subscribe,pathname,()=>'/backtest');
+export const usePathname=()=>useSyncExternalStore(subscribe,pathname,()=>'/lab/backtest');
 export const useRouter=()=>({push(path){window.history.pushState(null,'',path);window.dispatchEvent(new PopStateEvent('popstate'))}});
 `;
 const bundle = await build({
@@ -70,9 +70,9 @@ function Screening({notify}){
 }
 function Coverage(){const visible=useTaskVisible();api.status.useQuery(undefined,{enabled:visible});return <div>coverage consumer</div>}
 function Shell(){window.shellRenders++;const state=useWorkbenchState();const path=usePathname();const router=useRouter();window.navigate=router.push;
- const panels=Object.fromEntries(['/backtest','/tasks','/rps','/news','/signals','/reports','/analysis','/settings'].map(path=>[path,<div>{path}</div>]));
- panels['/screen']=<Screening notify={state.notify}/>;
- panels['/settings']=<Coverage/>;
+ const panels=Object.fromEntries(['/lab/backtest','/system/tasks','/scan?tab=rps','/intel','/system/notifications','/lab/reports','/lab/analysis','/system'].map(path=>[path,<div>{path}</div>]));
+ panels['/scan?tab=formula']=<Screening notify={state.notify}/>;
+ panels['/system']=<Coverage/>;
  return <><WorkbenchSidebar active={path}/><output data-testid='route'>{path}</output><PanelCache active={path} panels={panels}/></>;
 }
 createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><Shell/></QueryClientProvider>);`,
@@ -151,7 +151,8 @@ try {
   );
   await idle();
   assert.equal(
-    JSON.parse(await page.getByTestId("badges").textContent())["/tasks"].count,
+    JSON.parse(await page.getByTestId("badges").textContent())["/system/tasks"]
+      .count,
     2,
     "sidebar must include the active task outside the recent-80 window",
   );
@@ -174,7 +175,7 @@ try {
   await page.waitForFunction(
     () =>
       JSON.parse(document.querySelector('[data-testid="badges"]').textContent)[
-        "/tasks"
+        "/system/tasks"
       ].count === 3,
   );
   await page.evaluate(async () => {
@@ -186,7 +187,7 @@ try {
   await page.waitForFunction(
     () =>
       JSON.parse(document.querySelector('[data-testid="badges"]').textContent)[
-        "/signals"
+        "/system/notifications"
       ].count === 3,
   );
   assert.equal(
@@ -198,7 +199,7 @@ try {
   // Both observed running->completed and completed->new-completed scans refresh
   // coverage. Unrelated task progress must not repeatedly invalidate status.
   // Only a visible coverage consumer fetches; the shell no longer owns status.
-  await navigate("/settings");
+  await navigate("/system");
   for (const [id, version] of [
     ["background-task", 2],
     ["quick-scan", 2],
@@ -249,7 +250,7 @@ try {
     "cold non-screen route must not load formula results",
   );
 
-  await navigate("/screen");
+  await navigate("/scan?tab=formula");
   await page.waitForFunction(
     () =>
       JSON.parse(document.querySelector('[data-testid="screen"]').textContent)
@@ -333,7 +334,7 @@ try {
     ["screenResults"],
   );
 
-  await navigate("/tasks");
+  await navigate("/system/tasks");
   await page.evaluate(async () => {
     window.requests.length = 0;
     window.session.getState().selectJob("formula-running");
@@ -352,7 +353,7 @@ try {
     false,
     "hidden query invalidation and identity changes must not start requests or polling",
   );
-  await navigate("/screen");
+  await navigate("/scan?tab=formula");
   await page.getByTestId("name").filter({ hasText: "返回后名称" }).waitFor();
   await page.waitForFunction(() =>
     window.requests.some(
@@ -375,13 +376,13 @@ try {
   });
   await idle();
   for (const path of [
-    "/tasks",
-    "/rps",
-    "/news",
-    "/signals",
-    "/reports",
-    "/analysis",
-    "/settings",
+    "/system/tasks",
+    "/scan?tab=rps",
+    "/intel",
+    "/system/notifications",
+    "/lab/reports",
+    "/lab/analysis",
+    "/system",
   ])
     await navigate(path);
   assert.equal(
@@ -389,7 +390,7 @@ try {
     0,
     "screen should actually be evicted by the cache",
   );
-  await navigate("/screen");
+  await navigate("/scan?tab=formula");
   await page.waitForFunction(
     () =>
       JSON.parse(document.querySelector('[data-testid="screen"]').textContent)

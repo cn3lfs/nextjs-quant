@@ -113,7 +113,7 @@ export function LocalFinancialWorkbench({ symbol }: { symbol: string }) {
     <FinancialDisplayUnit.Provider value={displayUnit}>
       <section
         aria-label="本地财务工作台"
-        className="space-y-4 rounded-lg border border-border bg-card p-3 sm:p-4"
+        className="space-y-4 rounded-lg border border-border bg-card p-3 md:p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">
@@ -223,7 +223,7 @@ export function LocalFinancialWorkbench({ symbol }: { symbol: string }) {
         {data.data?.prerequisite && (
           <p role="status" className="text-sm">
             {data.data.prerequisite.message}{" "}
-            <Link href="/settings" className="underline">
+            <Link href="/system" className="underline">
               检查数据连接
             </Link>
           </p>

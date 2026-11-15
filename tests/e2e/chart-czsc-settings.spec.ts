@@ -26,7 +26,7 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
       );
     }
   });
-  await page.goto("/market?symbol=sh000905", { waitUntil: "networkidle" });
+  await page.goto("/scan?symbol=sh000905", { waitUntil: "networkidle" });
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
   const status = page.getByTestId("czsc-status").first();

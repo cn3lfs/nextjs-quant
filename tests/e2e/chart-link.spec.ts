@@ -8,7 +8,7 @@ test("a second period shares the crosshair both ways within the step budget", as
   page,
 }) => {
   await waitForIdleServer(page);
-  await page.goto("/market", { waitUntil: "networkidle" });
+  await page.goto("/scan", { waitUntil: "networkidle" });
   const main = page.getByTestId("market-chart").first();
   await main.waitFor();
   await page.getByRole("combobox", { name: "联动周期" }).click();

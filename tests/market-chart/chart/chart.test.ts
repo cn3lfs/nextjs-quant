@@ -12,6 +12,15 @@ const h = vi.hoisted(() => ({
   effects: [] as (() => void)[],
   charts: [] as FakeChart[],
   frames: [] as FrameRequestCallback[],
+  planLevels: null as {
+    symbol: string;
+    entry: number | null;
+    stop: number | null;
+    target: number | null;
+  } | null,
+}));
+vi.mock("~/components/market/plan-levels", () => ({
+  usePlanLevels: () => h.planLevels,
 }));
 type Range = { from: number; to: number };
 type Point = { time: string | number; value?: number };
@@ -293,6 +302,7 @@ beforeEach(() => {
   h.charts = [];
   h.effects = [];
   h.frames = [];
+  h.planLevels = null;
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     h.frames.push(callback);
     return h.frames.length;
@@ -446,7 +456,7 @@ it("Q1 actual chart options, cost line, parameter legend and keyboard handler ar
   expect(chart.series[0]!.options.scale).toMatchObject({ mode: 1 });
   expect(chart.panes()[1]!.scale).toMatchObject({ mode: 0 });
   expect(chart.options.layout).toMatchObject({
-    background: { color: chartColor.groundDeep },
+    background: { color: chartColor.ground },
   });
   expect(chart.options.handleScale).toMatchObject({
     axisPressedMouseMove: { price: true, time: true },
@@ -501,7 +511,7 @@ it("drawing, indicator, pane and theme changes update the chart in place without
   view = { ...view, dark: true };
   show();
   expect(chart.options.layout).toMatchObject({
-    background: { color: chartColor.groundDeep },
+    background: { color: chartColor.ground },
   });
   expect(h.charts).toEqual([chart]);
   expect(chart.removed).toBe(false);
@@ -599,4 +609,34 @@ it("compared symbols align to the main dates on a percentage scale", () => {
   expect(line.data).toHaveLength(90);
   expect(line.data[5]).toEqual({ time: input[5]!.date });
   expect(line.data[6]!.value).toBe(input[6]!.close / 10);
+});
+
+it("plan price references use only the raw coordinate system and leave saved drawings unchanged", () => {
+  const prices = bars(20);
+  const view = { ...structuredClone(defaultChartView), drawings: [] };
+  h.planLevels = { symbol: "sh600000", entry: 30, stop: 27, target: 39 };
+  h.cursor = 0;
+  MarketChart({
+    bars: prices,
+    viewportKey: "sh600000:day",
+    period: "day",
+    adjustment: "none",
+    view,
+  });
+  h.effects.splice(0).forEach((e) => e());
+  expect(h.charts.at(-1)!.series[0]!.options.costLine).toMatchObject({
+    title: "目标",
+    price: 39,
+  });
+  expect(view.drawings).toEqual([]);
+  h.cursor = 0;
+  MarketChart({
+    bars: prices,
+    viewportKey: "sh600000:day",
+    period: "day",
+    adjustment: "forward",
+    view,
+  });
+  h.effects.splice(0).forEach((e) => e());
+  expect(h.charts.at(-1)!.series[0]!.options.costLine).toBeUndefined();
 });

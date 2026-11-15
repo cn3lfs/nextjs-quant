@@ -110,7 +110,7 @@ it("links only completed research to the exact persisted report, with no result 
     });
     if (kind === "report") {
       expect(taskState(base.id)?.resultLink).toEqual({
-        href: `/reports/${kind}/${encodeURIComponent(id)}`,
+        href: `/lab/reports/${kind}/${encodeURIComponent(id)}`,
         label: "查看研究报告",
       });
     } else {

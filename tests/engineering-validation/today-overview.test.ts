@@ -103,7 +103,7 @@ it("puts failures first and flags stale RPS against the previous trading day", (
     rps: { latestDate: "2026-09-12", running: false },
   });
   const list = todos(input);
-  expect(list[0]).toMatchObject({ tone: "bad", href: "/signals" });
+  expect(list[0]).toMatchObject({ tone: "bad", href: "/system/notifications" });
   expect(list.some((t) => t.key === "rps" && t.tone === "warn")).toBe(true);
   const cards = health(input);
   expect(cards.find((c) => c.key === "day")!.value).toBe("5 个");

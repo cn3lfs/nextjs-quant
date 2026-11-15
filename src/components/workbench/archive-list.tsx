@@ -52,7 +52,7 @@ export function ArchiveList() {
   useEffect(() => {
     if (!visible) return;
     function readLocation() {
-      if (window.location.pathname !== "/reports") return;
+      if (window.location.pathname !== "/lab/reports") return;
       const next = parseArchiveSearch(window.location.search);
       setFilter(next);
       setDraft(next);
@@ -130,7 +130,7 @@ export function ArchiveList() {
     window.history.replaceState(
       null,
       "",
-      `/reports${query ? `?${query}` : ""}`,
+      `/lab/reports${query ? `?${query}` : ""}`,
     );
     setFilter(parsed.data);
     setDraft(parsed.data);
@@ -216,7 +216,7 @@ export function ArchiveList() {
             </label>
           ))}
         </fieldset>
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 items-end gap-3 lg:grid-cols-2 xl:grid-cols-4">
           <label className="min-w-0 flex-1 text-sm">
             标题或报告 ID
             <Input
@@ -271,7 +271,7 @@ export function ArchiveList() {
               }
             />
           </label>
-          <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-4">
+          <div className="flex flex-wrap gap-2 lg:col-span-2 xl:col-span-4">
             <Button type="submit">查询</Button>
             <Button type="button" variant="outline" onClick={() => apply({})}>
               清空条件
@@ -320,7 +320,10 @@ export function ArchiveList() {
                 !Object.values(filter).some(Boolean) && (
                   <>
                     {" "}
-                    <Link href="/analysis" className="text-primary underline">
+                    <Link
+                      href="/lab/analysis"
+                      className="text-primary underline"
+                    >
                       前往证据分析
                     </Link>
                   </>
@@ -331,7 +334,7 @@ export function ArchiveList() {
             {history.data.items.map((item) => (
               <li
                 key={item.id}
-                className="grid min-w-0 gap-2 py-3 sm:grid-cols-[6rem_9rem_minmax(0,1fr)_10rem]"
+                className="grid min-w-0 gap-2 py-3 lg:grid-cols-[6rem_9rem_minmax(0,1fr)_10rem]"
               >
                 <span className="text-sm text-nc-text-3">
                   {archiveKindLabels[item.kind]}
@@ -367,7 +370,7 @@ export function ArchiveList() {
                   <Link
                     id={`archive-${item.id}`}
                     className="text-link break-all focus-visible:outline"
-                    href={`/reports/${item.kind}/${encodeURIComponent(item.id)}?archive=${encodeURIComponent(archiveSearch(filter))}`}
+                    href={`/lab/reports/${item.kind}/${encodeURIComponent(item.id)}?archive=${encodeURIComponent(archiveSearch(filter))}`}
                     prefetch={false}
                     onClick={() => bookmark(item.id)}
                   >

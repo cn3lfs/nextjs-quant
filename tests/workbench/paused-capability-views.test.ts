@@ -45,9 +45,9 @@ import { navItemFor } from "~/components/workbench/navigation";
 
 it("paused navigation and notices expose the same policy while active capabilities have no pause notice", () => {
   for (const [route, id] of [
-    ["/intraday", "intraday"],
-    ["/signals", "signalMonitor"],
-    ["/signal-ledger", "signalLedger"],
+    ["/?tab=intraday", "intraday"],
+    ["/system/notifications", "signalMonitor"],
+    ["/accounts/alerts", "signalLedger"],
   ] as const) {
     expect(navItemFor(route)?.label).not.toContain("暂停");
     expect(navItemFor(route)?.subtitle).toBe(capabilities[id].reason);
@@ -60,7 +60,7 @@ it("paused navigation and notices expose the same policy while active capabiliti
       createElement(CapabilityNotice, { id: "formulaScreen" }),
     ),
   ).toBe("");
-  expect(navItemFor("/screen")?.label).not.toContain("暂停");
+  expect(navItemFor("/scan?tab=formula")?.label).not.toContain("暂停");
 });
 it("intraday saved enabled=true still renders a disabled execution button and pause reason", () => {
   const html = renderToStaticMarkup(createElement(IntradayControls));

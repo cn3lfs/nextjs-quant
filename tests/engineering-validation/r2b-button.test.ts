@@ -27,11 +27,12 @@ it("uses shared RPS periods and labels with explicit colors for the new chart wi
   expect(palette).toContain("3: chartColor.accentLight,");
   expect(palette).not.toContain("250: chartColor.");
 });
-it("T1 keeps all three server routes in the shared client navigation", () => {
+it("T1 keeps merged workspaces and ordinary subpages in shared client navigation", () => {
   const source = readFileSync("src/components/workbench/workbench.tsx", "utf8");
   const sidebar = readFileSync("src/components/workbench/sidebar.tsx", "utf8");
   // One navigation layer: every page is a framework route (native links).
-  expect(sidebar).toContain("navGroups.map((group, index)");
+  expect(sidebar).toContain("groups.map((group)");
+  expect(sidebar).toContain("items: [group.items[0]!]");
   expect(sidebar).toContain("href={item.href}");
   expect(sidebar).toContain("scroll={false}");
   const chartNavigation = readFileSync(
@@ -52,23 +53,26 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
     "src/components/workbench/navigation.ts",
     "utf8",
   );
-  for (const href of ["/signal-ledger", "/trade-ledger", "/rps"])
-    expect(navigation.split(`href: "${href}"`)).toHaveLength(2);
+  for (const href of ["/accounts/alerts", "/accounts", "/scan?tab=rps"])
+    expect(navigation.split(`item("${href}"`)).toHaveLength(2);
   const panels = readFileSync(
     "src/components/workbench/retained-routes.tsx",
     "utf8",
   );
-  for (const href of ["/market", "/screen", "/backtest"])
+  for (const href of ["/scan", "/lab/backtest"])
     expect(panels).toContain(`"${href}":`);
   expect(panels).not.toContain('"/research":');
+  expect(
+    readFileSync("src/components/screening/scan-workspace.tsx", "utf8"),
+  ).toMatch(/formula:\s*<FormulaResults\s*\/>/);
   // The two ledger routes fetch server data per request; caching them would
   // change that data path, so they must stay out of the panel cache.
   for (const href of [
-    "/signal-ledger",
-    "/trade-ledger",
-    "/intraday",
-    "/rps",
-    "/cls-review",
+    "/accounts/alerts",
+    "/accounts",
+    "/?tab=intraday",
+    "/scan?tab=rps",
+    "/intel/review",
   ])
     expect(panels).not.toContain(`"${href}":`);
   expect(readFileSync("src/app/layout.tsx", "utf8")).toContain(
@@ -78,7 +82,7 @@ it("T1 keeps all three server routes in the shared client navigation", () => {
     readFileSync("src/components/workbench/workbench-layout.tsx", "utf8"),
   ).toContain("<Workbench>{children}</Workbench>");
   for (const file of [
-    "src/app/rps/page.tsx",
+    "src/components/workbench/route-panels.tsx",
     "src/components/signals/signal-ledger-view.tsx",
     "src/components/portfolio/trade-ledger-panel.tsx",
   ])

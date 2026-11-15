@@ -24,5 +24,5 @@ export function taskHistoryHref(filter: TaskHistoryFilter) {
   if (filter.status) params.set("status", filter.status);
   if (filter.type) params.set("type", filter.type);
   if (filter.id) params.set("id", filter.id);
-  return `/tasks${params.size ? `?${params}` : ""}`;
+  return `/system/tasks${params.size ? `?${params}` : ""}`;
 }

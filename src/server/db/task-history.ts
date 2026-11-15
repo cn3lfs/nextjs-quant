@@ -151,10 +151,10 @@ function taskSourceLink(
   method: unknown,
 ): TaskState["sourceLink"] {
   let href: string | undefined;
-  if (type === "scan") href = "/settings";
+  if (type === "scan") href = "/system";
   else if (type === "screen" && inputType === "formula-screen")
-    href = "/screen";
-  else if (type === "backtest") href = "/backtest";
+    href = "/scan?tab=formula";
+  else if (type === "backtest") href = "/lab/backtest";
   else if (
     type === "research" &&
     typeof kind === "string" &&
@@ -167,9 +167,9 @@ function taskSourceLink(
       "theme-price-explanation",
     ].includes(kind)
   )
-    href = "/news";
+    href = "/intel";
   else if (type === "research" && (method === "general" || method === "sepa"))
-    href = "/analysis";
+    href = "/lab/analysis";
   return href ? { href, label: "前往来源页重新配置" } : undefined;
 }
 
@@ -190,7 +190,7 @@ function taskResultLink(id: string): TaskState["resultLink"] {
     .get(id) as { id: string; kind: string } | undefined;
   if (!report || report.id.length > 200) return undefined;
   return {
-    href: `/reports/${report.kind}/${encodeURIComponent(report.id)}`,
+    href: `/lab/reports/${report.kind}/${encodeURIComponent(report.id)}`,
     label: "查看研究报告",
   };
 }

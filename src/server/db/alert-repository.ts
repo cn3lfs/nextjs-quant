@@ -7,6 +7,7 @@ import {
 } from "./strategy-repository";
 import { NotificationPolicyStore } from "./notification-policy-store";
 import { sqlite } from "./index";
+import { RpsStore } from "./rps-store";
 import type { StrategyObjectInput } from "trading-strategies";
 import type {
   AlertEvent,
@@ -201,6 +202,70 @@ export class AlertRepository {
         ),
       };
     })();
+  }
+  candidatePage(input: {
+    page: number;
+    strategy?: string;
+    market?: "cn-equity" | "crypto";
+    minimumRps?: number;
+  }) {
+    return this.db.transaction(() => {
+      const { where, args } = this.filter({
+        page: input.page,
+        size: 20,
+        symbol: "",
+        strategyId: input.strategy ?? "",
+        kind: "entry",
+        market: input.market,
+      });
+      const rpsStore = new RpsStore(this.db);
+      const day = rpsStore.latest();
+      const ranking = day?.periods.includes(20)
+        ? rpsStore.ranking(day.date, 20)
+        : [];
+      const rpsBySymbol = new Map(ranking.map((r) => [r.symbol, r.rps]));
+      let clause = `${where} AND status<>'missed'`;
+      if (input.minimumRps !== undefined) {
+        clause += " AND symbol IN (SELECT value FROM json_each(?))";
+        args.push(
+          JSON.stringify(
+            ranking
+              .filter((r) => r.rps >= input.minimumRps!)
+              .map((r) => r.symbol),
+          ),
+        );
+      }
+      const total = (
+        this.db
+          .prepare(`SELECT count(*) n FROM watch_events WHERE ${clause}`)
+          .get(...args) as { n: number }
+      ).n;
+      const rows = this.db
+        .prepare(
+          `SELECT payload FROM watch_events WHERE ${clause} ORDER BY bar DESC,dedupe_key DESC LIMIT 20 OFFSET ?`,
+        )
+        .all(...args, input.page * 20) as { payload: string }[];
+      return {
+        total,
+        items: rows.map((r) => {
+          const event = this.withOutcomes(JSON.parse(r.payload) as AlertEvent);
+          return {
+            ...event,
+            rps20: rpsBySymbol.get(event.symbol) ?? null,
+            rpsDate: day?.date ?? null,
+          };
+        }),
+      };
+    })();
+  }
+  screenCandidate(jobId: string, snapshotId: string) {
+    const row = this.db
+      .prepare(
+        "SELECT json_extract(payload,'$.input.strategy') strategy FROM records WHERE id=? AND kind='job' AND json_extract(payload,'$.status')='completed' AND json_extract(payload,'$.input.type')='formula-screen' AND EXISTS(SELECT 1 FROM json_each(payload,'$.result.candidates') WHERE json_extract(value,'$.snapshotId')=?)",
+      )
+      .get(jobId, snapshotId) as { strategy: string } | undefined;
+    if (!row) throw new Error("该快照不属于已完成公式任务的候选");
+    return row.strategy ? (JSON.parse(row.strategy) as unknown) : null;
   }
   export(input: AlertHistoryInput) {
     const { where, args } = this.filter(input);

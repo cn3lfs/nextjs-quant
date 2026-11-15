@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { feeLabel } from "~/lib/portfolio/trade-ledger";
-import { saveBonusListing } from "~/app/trade-ledger/actions";
+import { saveBonusListing } from "~/app/accounts/actions";
 import { Button } from "../ui/button";
 import {
   TradeError,
@@ -152,7 +152,7 @@ export function TradeWorkspaceDetail({
             ) : trade.data?.linkedSignal ? (
               <Link
                 className="underline"
-                href={`/signal-ledger?signal=${encodeURIComponent(t.signalId)}`}
+                href={`/accounts/alerts?signal=${encodeURIComponent(t.signalId)}`}
               >
                 查看 {t.signalId} 的原始信号证据
               </Link>

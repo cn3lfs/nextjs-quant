@@ -23,7 +23,7 @@ it("reopens all pool filters, table order, page and selection from one URL", () 
     },
   });
   const href = marketPoolLocationHref(location);
-  expect(href.startsWith("/stock-pool?")).toBe(true);
+  expect(href.startsWith("/scan?tab=pool&")).toBe(true);
   expect(readMarketPoolLocation(href.split("?")[1]!)).toEqual(location);
   expect(
     readMarketPoolLocation(
@@ -52,7 +52,7 @@ it("rejects malformed fields independently without dropping valid filters", () =
   );
   expect(readMarketPoolLocation("?poolCategory=concept").query.pool).toBeNull();
   expect(marketPoolLocationHref(readMarketPoolLocation(""))).toBe(
-    "/stock-pool",
+    "/scan?tab=pool",
   );
   expect(readMarketPoolLocation("?minimumRps=").query.minimumRps).toBeNull();
   expect(

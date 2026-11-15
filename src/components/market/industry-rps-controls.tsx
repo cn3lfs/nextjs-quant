@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
+
 import Link from "next/link";
 import { rpsGroupExclusions, rpsPeriods } from "quant-rps";
 
@@ -46,7 +48,7 @@ const columns: DataTableColumn<Row>[] = [
     cell: ({ row }) => {
       const v = row.original.value;
       return v
-        ? `${v.rank} / ${v.rps.toFixed(2)} / ${(v.return * 100).toFixed(2)}%`
+        ? `${v.rank} / ${formatNumber(v.rps, 2)} / ${formatNumber(v.return * 100, 2)}%`
         : industryEmptyLabels[row.original.reason!];
     },
   },
@@ -139,12 +141,12 @@ export function IndustryRpsControls() {
       {status.data?.tdxConfigured === false && (
         <p className="text-sm text-muted-foreground">
           行业和概念 RPS 需要通达信本地行情与证券范围。
-          <Link href="/settings" className="underline">
+          <Link href="/system" className="underline">
             配置通达信目录
           </Link>
         </p>
       )}
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="font-medium">板块成分来源</span>
           <Select

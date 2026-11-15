@@ -78,7 +78,7 @@ it("retains the exact current formula identity and exposes results only after co
     parameters: input,
   });
   expect(taskState(current.id)?.screenResultId).toBe(current.id);
-  expect(taskState(current.id)?.sourceLink?.href).toBe("/screen");
+  expect(taskState(current.id)?.sourceLink?.href).toBe("/scan?tab=formula");
   expect(jobSummaries().find((j) => j.id === current.id)).toMatchObject({
     isFormulaScreen: true,
   });

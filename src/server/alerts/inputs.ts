@@ -1,3 +1,5 @@
+import { historicalLowSeries } from "trading-strategies";
+import type { HoldingRiskSnapshot } from "./workspace";
 import { createHash } from "node:crypto";
 import type {
   StrategyObjectInput,
@@ -404,6 +406,7 @@ export async function evaluateAlertInputs(
     }
   }
   const exposure: Exposure[] = [];
+  const holdingRisks: HoldingRiskSnapshot[] = [];
   let exposureComplete = true;
   const watchHolding = async (
     id: string,
@@ -411,6 +414,7 @@ export async function evaluateAlertInputs(
     quantity: number,
     protection: HoldingProtection,
     sleeve: string,
+    cost: number | null = null,
   ) => {
     try {
       const data = await series(symbol, phase === "close" ? "day" : "5m");
@@ -421,6 +425,18 @@ export async function evaluateAlertInputs(
         (phase === "close" ? 55 : 5) * 60000
       )
         exposureComplete = false;
+      holdingRisks.push({
+        market,
+        symbol,
+        account: id,
+        quantity,
+        price: bar.close,
+        cost,
+        stop: protection.stop,
+        bar: bar.date,
+        observedAt: now,
+        sleeve,
+      });
       exposure.push({
         market,
         sleeve,
@@ -477,6 +493,7 @@ export async function evaluateAlertInputs(
             trailing: override?.trailing ?? null,
           },
           override?.sleeve ?? "swing",
+          p.adjustedCost,
         );
       }
     } catch (e) {
@@ -505,6 +522,15 @@ export async function evaluateAlertInputs(
       );
     }
   if (exposureComplete) {
+    result.states.push({
+      id: "holding-risk",
+      value: [
+        ...(repo.state<HoldingRiskSnapshot[]>("holding-risk") ?? []).filter(
+          (h) => h.market !== market,
+        ),
+        ...holdingRisks,
+      ],
+    });
     const other = (repo.state<Exposure[]>("exposure") ?? []).filter(
       (e) => e.market !== market,
     );
@@ -610,7 +636,7 @@ export async function evaluateAlertInputs(
         repo.subscriptions().some((s) => s.enabled && s.market === "crypto");
   if (regimeEnabled)
     for (const symbol of market === "crypto"
-      ? ["BTCUSDT"]
+      ? ["BTCUSDT", "ETHUSDT"]
       : ["sh000300", "sz399006"]) {
       try {
         const data = await series(symbol, market === "crypto" ? "4h" : "day");
@@ -619,7 +645,18 @@ export async function evaluateAlertInputs(
         if (!regime || !bar) continue;
         const key = `regime:${market}:${symbol}`;
         const previous = repo.state<ReturnType<typeof regimeObservation>>(key);
-        result.states.push({ id: key, value: regime });
+        result.states.push({
+          id: key,
+          value: {
+            ...regime,
+            bar: bar.date,
+            source: data.source,
+            observedAt: now,
+            ...(market === "cn-equity"
+              ? { low: historicalLowSeries(data.bars).at(-1) }
+              : {}),
+          },
+        });
         if (
           previous &&
           (previous.trend !== regime.trend || previous.zone !== regime.zone)

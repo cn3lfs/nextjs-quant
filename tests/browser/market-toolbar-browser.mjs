@@ -23,8 +23,8 @@ import {Sidebar} from './src/components/workbench/sidebar';import {navGroups} fr
 import {ChartWorkspace} from './src/components/market/chart-workspace';import {snapshot} from '~/trpc/react';
 import {PanelVisibility} from './src/components/workbench/keep-alive';
 window.expectedPages=navGroups.flatMap(group=>group.items.filter(item=>!item.hidden).map(item=>({href:item.href,label:item.label})));
-function App(){const[active,setActive]=useState('/market'),[period,setPeriod]=useState('day'),[visible,setVisible]=useState(true);window.setActive=setActive;window.setPeriod=setPeriod;window.setVisible=setVisible;
-return <div className='app-shell'><Sidebar active={active} badges={{'/tasks':{count:2,bad:true}}}/><main className='main'><div className='page'><h1>行情图表</h1><PanelVisibility visible={visible}><div hidden={!visible}><ChartWorkspace snapshot={snapshot} period={period} adjustment='none'/></div></PanelVisibility></div></main></div>}
+function App(){const[active,setActive]=useState('/scan'),[period,setPeriod]=useState('day'),[visible,setVisible]=useState(true);window.setActive=setActive;window.setPeriod=setPeriod;window.setVisible=setVisible;
+return <div className='app-shell'><Sidebar active={active} badges={{'/system/tasks':{count:2,bad:true}}}/><main className='main'><div className='page'><h1>行情图表</h1><PanelVisibility visible={visible}><div hidden={!visible}><ChartWorkspace snapshot={snapshot} period={period} adjustment='none'/></div></PanelVisibility></div></main></div>}
 createRoot(document.getElementById('root')).render(<App/>);`,
     loader: "tsx",
     resolveDir: process.cwd(),
@@ -177,7 +177,7 @@ try {
   for (const width of [1440, 1024, 640]) {
     if (width === 1024) {
       await page.getByRole("button", { name: "发现", exact: true }).click();
-      assert.equal(await nav.locator('a[href="/market"]').isVisible(), false);
+      assert.equal(await nav.locator('a[href="/scan"]').isVisible(), false);
     }
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(100);
@@ -239,7 +239,7 @@ try {
       await trigger.click();
       await page
         .getByRole("navigation", { name: "全部页面导航" })
-        .locator('a[href="/tasks"]')
+        .locator('a[href="/system/tasks"]')
         .click();
       await menu.waitFor({ state: "hidden" });
       assert.equal(
@@ -248,7 +248,7 @@ try {
             .querySelector('.sidebar a[aria-current="page"]')
             .getAttribute("href"),
         ),
-        "/tasks",
+        "/system/tasks",
       );
     }
     metrics.push({ width, chart: await chart.boundingBox() });

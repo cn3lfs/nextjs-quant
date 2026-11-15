@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { api } from "~/trpc/react";
-import { saveTrade } from "~/app/trade-ledger/actions";
+import { saveTrade } from "~/app/accounts/actions";
 import {
   tradeWorkspacePageSchema,
   type TradeWorkspaceInput,

@@ -23,7 +23,7 @@ function query(name){return {useQuery(input,options){return useQuery({queryKey:[
  if(name==='recentErrors')return structuredClone(f.recentErrors??{entries:[],available:true,unrecordedInThisProcess:0});
  if(name==='taskOverview')return {total:items.length,running:items.filter(i=>i.status==='running').length,queued:items.filter(i=>i.status==='queued').length,failed:items.filter(i=>i.status==='failed').length,cancelled:items.filter(i=>i.status==='cancelled').length,completedToday:0,revision:f.revision,checkedAt:Date.now()};
  if(name==='taskHistory'){const filtered=items.filter(i=>(!input.status||i.status===input.status)&&(!input.type||i.type===input.type)&&(!input.id||i.id===input.id));const list=filtered.filter(i=>!input.cursor||i.createdAt<input.cursor.createdAt||(i.createdAt===input.cursor.createdAt&&i.id<input.cursor.id));const page=list.slice(0,20);return structuredClone({items:page,total:filtered.length,nextCursor:list.length>20?{createdAt:page.at(-1).createdAt,id:page.at(-1).id}:null})}
- if(name==='taskState'){const row=items.find(i=>i.id===input.id);return row?structuredClone({...row,sourceLink:{href:'/screen',label:'前往来源页重新配置'}}):null}
+ if(name==='taskState'){const row=items.find(i=>i.id===input.id);return row?structuredClone({...row,sourceLink:{href:'/scan?tab=formula',label:'前往来源页重新配置'}}):null}
 }})}}}
 export const api={recentErrors:query('recentErrors'),taskOverview:query('taskOverview'),taskHistory:query('taskHistory'),taskState:query('taskState'),
  cancel:{useMutation(){return useMutation({mutationFn:async id=>{f.calls.push(id);if(f.holdCancel)await new Promise(resolve=>f.releaseCancel=resolve);if(f.cancelFail)throw Error('受控取消失败');f.change(id,'cancelled');return {ok:true,outcome:'accepted',status:'cancelled'}}})}},
@@ -242,7 +242,7 @@ try {
       .locator("#task-detail-query-000")
       .getByRole("link", { name: "前往来源页重新配置" })
       .getAttribute("href"),
-    "/screen",
+    "/scan?tab=formula",
   );
   await page.evaluate(() => window.setTaskVisible(false));
   await page.waitForTimeout(50);
@@ -386,7 +386,7 @@ try {
     .getByText("任务列表读取失败：受控离线", { exact: false })
     .waitFor();
   await page.evaluate(() =>
-    history.pushState(null, "", "/tasks?status=unknown"),
+    history.pushState(null, "", "/system/tasks?status=unknown"),
   );
   await page.getByText("任务筛选链接无效，请清除筛选后重试。").waitFor();
   assert.equal(await rows.count(), 0);
@@ -444,7 +444,7 @@ try {
     await recent
       .getByRole("link", { name: "查看关联任务" })
       .getAttribute("href"),
-    "/tasks?id=query-019",
+    "/system/tasks?id=query-019",
   );
   await page.setViewportSize({ width: 640, height: 900 });
   await recent.scrollIntoViewIfNeeded();

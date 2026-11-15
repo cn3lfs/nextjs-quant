@@ -18,8 +18,8 @@ import { defaultChartView } from "../../src/lib/chart/chart-view";
 const fixedTime = new Date("2026-11-14T04:00:00Z");
 const routes = [
   ...navItems.map((item) => item.href),
-  "/ui-gallery",
-  "/reports/report/p1-report",
+  "/system/ui-gallery",
+  "/lab/reports/report/p1-report",
 ];
 const zoomSessions = new WeakMap<Page, CDPSession>();
 async function setZoomedViewport(
@@ -48,15 +48,15 @@ async function setZoomedViewport(
 async function ready(page: Page, path: string) {
   await page.clock.setFixedTime(fixedTime);
   await page.goto(
-    path === "/market"
-      ? "/market?symbol=sh600519&source=local"
-      : path === "/news"
-        ? `/news?newsQuery=${encodeURIComponent(JSON.stringify({ cutoff: newsFixtureCutoff, query: "", historical: true }))}`
+    path === "/scan"
+      ? "/scan?symbol=sh600519&source=local"
+      : path === "/intel"
+        ? `/intel?newsQuery=${encodeURIComponent(JSON.stringify({ cutoff: newsFixtureCutoff, query: "", historical: true }))}`
         : path,
   );
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => document.fonts.ready);
-  if (path === "/news")
+  if (path === "/intel")
     await expect(page.getByText("合成新闻1", { exact: true })).toBeVisible();
 }
 
@@ -181,7 +181,7 @@ for (const viewport of [
           name: "搜索页面",
           exact: true,
         });
-        if (path === "/ui-gallery") {
+        if (path === "/system/ui-gallery") {
           await page
             .getByRole("link", { name: "← 返回工作台", exact: true })
             .focus();
@@ -246,7 +246,7 @@ test("C2/C3 collapsed navigation tooltip opens from keyboard", async ({
 test("C1 partial news identifies completed and unfinished counts", async ({
   page,
 }) => {
-  await ready(page, `/news?analysis=${newsFixtureAnalysis(0).id}`);
+  await ready(page, `/intel?analysis=${newsFixtureAnalysis(0).id}`);
   await expect(page.getByText("部分完成：", { exact: false })).toContainText(
     "已完成 5 条，未完成 5 条",
   );
@@ -258,7 +258,7 @@ test("C1 partial news identifies completed and unfinished counts", async ({
 test("C2 loaded news original returns focus to its list action", async ({
   page,
 }) => {
-  await ready(page, "/news");
+  await ready(page, "/intel");
   const article = page.locator("main article").first();
   const headline = await article.locator("strong").first().innerText();
   const read = article.getByRole("button", { name: "阅读原文", exact: true });
@@ -274,7 +274,7 @@ test("C2 loaded news original returns focus to its list action", async ({
 });
 
 test("C2 strategy hidden views do not request their data", async ({ page }) => {
-  const initial = await trpcCalls(page, () => ready(page, "/strategies"));
+  const initial = await trpcCalls(page, () => ready(page, "/lab"));
   expect(initial).not.toContain("strategyCenterMethods");
   expect(initial).not.toContain("strategyCenterHistory");
   const methods = await trpcCalls(page, async () => {
@@ -294,7 +294,7 @@ test("C2 strategy hidden views do not request their data", async ({ page }) => {
 test("C1 financial units and true read failure remain explicit", async ({
   page,
 }) => {
-  await ready(page, "/market");
+  await ready(page, "/scan");
   await page.getByRole("tab", { name: "财务资料", exact: true }).click();
   const financial = page.getByRole("region", {
     name: "本地财务工作台",
@@ -347,7 +347,7 @@ test("C1 financial units and true read failure remain explicit", async ({
 test("C2 CLS loaded report visits four views without hidden reads", async ({
   page,
 }) => {
-  await ready(page, "/cls-review");
+  await ready(page, "/intel/review");
   const select = page
     .locator('[aria-label="报告列表"]')
     .getByRole("button")
@@ -384,7 +384,7 @@ test("C2 CLS loaded report visits four views without hidden reads", async ({
 test("C2 chart popovers return focus and Escape closes only the top layer", async ({
   page,
 }) => {
-  await ready(page, "/market");
+  await ready(page, "/scan");
   await expect(page.getByTestId("market-chart").first()).toBeVisible();
   for (const name of [/^指标设置/, /叠加对比（/, /^画线：/]) {
     const trigger = page.getByRole("button", { name }).first();
@@ -431,7 +431,7 @@ test("C2 chart popovers return focus and Escape closes only the top layer", asyn
 test("C1 actual formula result retains counts, date and source", async ({
   page,
 }) => {
-  await ready(page, "/screen");
+  await ready(page, "/scan?tab=formula");
   // Same full universe; a selective rule avoids publishing thousands of
   // unneeded chart snapshots for a presentation/interaction check.
   await page.getByLabel("公式源码", { exact: true }).fill("选股:C<30;");
@@ -459,7 +459,7 @@ test("C1 actual formula result retains counts, date and source", async ({
 test("C1/C2 loaded account review visits every analysis view", async ({
   page,
 }) => {
-  await ready(page, "/trade-review");
+  await ready(page, "/accounts/review");
   await page.getByRole("radio", { name: "账户复盘", exact: true }).click();
   await page.getByLabel("复盘账户别名").fill("big");
   await page.getByRole("button", { name: "查看复盘", exact: true }).click();
@@ -487,7 +487,7 @@ test("C1/C2 loaded account review visits every analysis view", async ({
 test("C1/C2 actual baseline report visits four tabs and their popovers", async ({
   page,
 }) => {
-  await ready(page, "/backtest");
+  await ready(page, "/lab/backtest");
   await page.getByLabel("基线证券代码").fill("sh600000");
   await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
   await expect(page.getByLabel("基线结束日期")).toHaveValue("2026-10-12");
@@ -505,7 +505,7 @@ test("C1/C2 actual baseline report visits four tabs and their popovers", async (
 test("C2 strategy comparison reads two actual local experiments", async ({
   page,
 }) => {
-  await ready(page, "/strategies");
+  await ready(page, "/lab");
   const ids: string[] = [];
   for (let index = 0; index < 2; index++) {
     const response = await page.request.post("/api/trpc/strategyCenterRun", {
@@ -573,7 +573,7 @@ test("C3 primary actions are reachable in forward Tab order at 150 percent", asy
       const action =
         (await primary.getAttribute("aria-label")) ??
         (await primary.innerText()).trim();
-      if (path === "/ui-gallery")
+      if (path === "/system/ui-gallery")
         await page
           .getByRole("link", { name: "← 返回工作台", exact: true })
           .focus();
@@ -617,7 +617,7 @@ test("C3 CSS zoom keeps centered settings dialogs inside the viewport", async ({
   });
   for (const width of [1440, 1024]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 768 });
-    await ready(page, "/market");
+    await ready(page, "/scan");
     const trigger = page.getByRole("button", { name: "缠论设置", exact: true });
     await trigger.click();
     await dismiss(
@@ -641,15 +641,15 @@ test("C4 representative stable fixture baselines", async ({
   expect(reset.ok()).toBe(true);
   expect((await reset.json()).error).toBeUndefined();
   for (const [name, path] of [
-    ["market", "/market"],
-    ["reports", "/reports/report/p1-report"],
-    ["news", "/news"],
-    ["pool", "/stock-pool"],
+    ["market", "/scan"],
+    ["reports", "/lab/reports/report/p1-report"],
+    ["news", "/intel"],
+    ["pool", "/scan?tab=pool"],
   ]) {
     for (const width of [1440, 1024]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 768 });
       await ready(page, path!);
-      if (path === "/market")
+      if (path === "/scan")
         await expect(page.getByTestId("market-chart").first()).toBeVisible();
       await page.mouse.move(0, 0);
       await expect(page).toHaveScreenshot(`${name}-${width}.png`, {

@@ -29,7 +29,7 @@ import {TradeLedgerPanel} from './src/components/portfolio/trade-ledger-panel';
 window.fetchCalls=0;window.resetCalls=0;window.downloads=0;window.revoked=0;
 HTMLAnchorElement.prototype.click=function(){window.downloads++};
 URL.createObjectURL=()=> 'blob:fixture';URL.revokeObjectURL=()=>{window.revoked++};
-createRoot(document.getElementById('root')).render(location.pathname==='/cls-review'?<ClsReviewWorkspace/>:<TradeLedgerPanel/>);`,
+createRoot(document.getElementById('root')).render(location.pathname==='/intel/review'?<ClsReviewWorkspace/>:<TradeLedgerPanel/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
   },
@@ -142,8 +142,8 @@ let browser;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true });
   for (const [path, label] of [
-    ["/cls-review?clsReport=fixture&clsTab=info", "导出报告与全部关联复盘"],
-    ["/trade-ledger?view=history", "导出筛选全集 JSON"],
+    ["/intel/review?clsReport=fixture&clsTab=info", "导出报告与全部关联复盘"],
+    ["/accounts?view=history", "导出筛选全集 JSON"],
   ]) {
     const page = await browser.newPage(),
       errors = [];
@@ -165,7 +165,7 @@ try {
       await button.click();
       await page.waitForFunction((n) => window.resetCalls === n, before + 1);
       // The CLS control changes its text while pending.
-      const pending = path.startsWith("/cls-review")
+      const pending = path.startsWith("/intel/review")
         ? page.getByRole("button", { name: "正在导出…", exact: true })
         : button;
       await expect(pending).toBeDisabled();

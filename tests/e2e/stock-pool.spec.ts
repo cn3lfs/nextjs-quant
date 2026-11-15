@@ -19,7 +19,7 @@ test("page models retain only chart/editors and restore full market selection", 
     if (names) requests.push(...names.split(","));
   });
   await page.goto("/");
-  await visit("/stock-pool", () =>
+  await visit("/scan?tab=pool", () =>
     expect(page.getByRole("region", { name: "股票池浏览" })).toBeVisible(),
   );
   const chartStart = performance.now();
@@ -28,7 +28,7 @@ test("page models retain only chart/editors and restore full market selection", 
     .click();
   const chart = page.getByTestId("market-chart").first();
   await expect(chart).toBeVisible();
-  timings.push({ route: "/market", elapsedMs: performance.now() - chartStart });
+  timings.push({ route: "/scan", elapsedMs: performance.now() - chartStart });
   await page.getByRole("combobox", { name: "行情周期", exact: true }).click();
   await page.getByRole("option", { name: "周线", exact: true }).click();
   await page.getByRole("combobox", { name: "复权方式", exact: true }).click();
@@ -60,7 +60,7 @@ test("page models retain only chart/editors and restore full market selection", 
     page.getByRole("combobox", { name: "复权方式", exact: true }),
   ).toContainText("前复权");
   expect(new URL(page.url()).searchParams.get("source")).toBe("local");
-  await visit("/screen", () =>
+  await visit("/scan?tab=formula", () =>
     expect(page.getByLabel("公式名称", { exact: true })).toBeVisible(),
   );
   await page.waitForLoadState("networkidle");
@@ -75,27 +75,27 @@ test("page models retain only chart/editors and restore full market selection", 
       (name) => !["taskOverview", "monitorWorkspaceSummary"].includes(name),
     ),
   ).toEqual([]);
-  await visit("/backtest", () =>
+  await visit("/lab/backtest", () =>
     expect(page.getByLabel("基线证券代码")).toBeVisible(),
   );
   await page.getByLabel("基线证券代码").fill("sh600040");
-  await visit("/reports", () =>
+  await visit("/lab/reports", () =>
     expect(
       page.getByRole("radiogroup", { name: "研究档案工作区" }),
     ).toBeVisible(),
   );
-  await visit("/news", () =>
+  await visit("/intel", () =>
     expect(
       page.getByRole("heading", { name: "新闻 / 主题", exact: true }),
     ).toBeVisible(),
   );
-  await visit("/settings", () =>
+  await visit("/system", () =>
     expect(page.getByLabel("通达信安装目录", { exact: true })).toBeVisible(),
   );
-  await visit("/rps", () =>
+  await visit("/scan?tab=rps", () =>
     expect(page.getByRole("region", { name: "个股RPS数据管理" })).toBeVisible(),
   );
-  await visit("/screen", () =>
+  await visit("/scan?tab=formula", () =>
     expect(page.getByLabel("公式名称", { exact: true })).toHaveValue(
       "B 页面草稿",
     ),
@@ -103,7 +103,7 @@ test("page models retain only chart/editors and restore full market selection", 
   await expect(page.getByLabel("公式源码", { exact: true })).toHaveValue(
     "选股:C>1;",
   );
-  await visit("/backtest", () =>
+  await visit("/lab/backtest", () =>
     expect(page.getByLabel("基线证券代码")).toHaveValue("sh600040"),
   );
   expect(
@@ -112,7 +112,7 @@ test("page models retain only chart/editors and restore full market selection", 
       .evaluateAll((els) =>
         els.map((el) => el.getAttribute("data-retained-route")).sort(),
       ),
-  ).toEqual(["/backtest", "/market", "/screen"]);
+  ).toEqual(["/lab/backtest", "/scan", "/scan?tab=formula"]);
   const costFile = testInfo.outputPath("page-model-switch-cost.json");
   await writeFile(costFile, JSON.stringify(timings, null, 2));
   await testInfo.attach("page-model-switch-cost", {
@@ -126,7 +126,7 @@ test("chart settings persist and compact text navigation reaches real pages", as
 }, testInfo) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/market?symbol=sh600000");
+  await page.goto("/scan?symbol=sh600000");
   const indicators = page.getByRole("button", { name: /^指标设置/ });
   await indicators.click();
   const settings = page.getByRole("dialog", { name: "指标设置", exact: true });
@@ -158,7 +158,7 @@ test("chart settings persist and compact text navigation reaches real pages", as
   await page.keyboard.press("Escape");
   await indicators.click();
   await page.evaluate(() =>
-    history.pushState(null, "", "/market?symbol=sh600000&view=financial"),
+    history.pushState(null, "", "/scan?symbol=sh600000&view=financial"),
   );
   await expect(
     page.getByRole("region", { name: "本地财务工作台" }),
@@ -247,7 +247,7 @@ test("chart settings persist and compact text navigation reaches real pages", as
     ).toBeVisible();
     await expect(menu).toBeHidden();
     await page.goBack();
-    await expect(page).toHaveURL(/\/market\?symbol=sh600000/);
+    await expect(page).toHaveURL(/\/scan\?symbol=sh600000/);
     await expect(
       page.getByRole("button", { name: "RPS 设置", exact: true }),
     ).toBeVisible();
@@ -304,7 +304,7 @@ test("financial details are a lazy security subview and preserve chart state", a
     if (names.includes("localFinancialView")) financial.push(request.url());
     if (names.includes("chartBars")) bars.push(request.url());
   });
-  await page.goto("/market?symbol=sh600000");
+  await page.goto("/scan?symbol=sh600000");
   const logarithmic = page.getByRole("checkbox", {
     name: "对数坐标",
     exact: true,
@@ -331,7 +331,7 @@ test("financial details are a lazy security subview and preserve chart state", a
   await expect(finance).toBeVisible();
   const before = bars.length;
   await page.evaluate(() =>
-    history.pushState(null, "", "/market?symbol=sh600040&view=financial"),
+    history.pushState(null, "", "/scan?symbol=sh600040&view=financial"),
   );
   await expect(
     finance.getByRole("heading", { name: "本地财务 · SH600040", exact: true }),
@@ -402,11 +402,11 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
       snapshots.push(request.postData() ?? request.url());
   });
   for (const [route, heading] of [
-    ["/rps", "RPS 排名与数据管理"],
+    ["/scan?tab=rps", "RPS 排名与数据管理"],
     ["/", "今日总览"],
-    ["/analysis", "证据分析"],
-    ["/backtest", "策略实验"],
-    ["/screen", "条件选股"],
+    ["/lab/analysis", "证据分析"],
+    ["/lab/backtest", "策略实验"],
+    ["/scan?tab=formula", "条件选股"],
   ]) {
     await page.goto(route!);
     await expect(
@@ -427,14 +427,14 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
     await expect(discovery).toHaveAttribute("aria-expanded", expanded!);
     expect(snapshots, route).toEqual([]);
   }
-  await page.goto("/market?symbol=sh600000");
+  await page.goto("/scan?symbol=sh600000");
   await expect(
     page.getByRole("checkbox", { name: "双突破", exact: true }),
   ).toBeChecked();
   expect(snapshots).toHaveLength(1);
   expect(snapshots[0]).toContain("sh600000");
   await page.evaluate(() =>
-    window.history.pushState(null, "", "/market?symbol=sh600040"),
+    window.history.pushState(null, "", "/scan?symbol=sh600040"),
   );
   await expect.poll(() => snapshots.length).toBe(2);
   expect(snapshots[1]).toContain("sh600040");
@@ -456,7 +456,7 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
 test("missing RPS warmup is waiting in the real worker, pool, RPS page and overview", async ({
   page,
 }, testInfo) => {
-  await page.goto("/stock-pool");
+  await page.goto("/scan?tab=pool");
   const start = page.getByRole("button", {
     name: "计算最近交易日RPS",
     exact: true,
@@ -484,7 +484,7 @@ test("missing RPS warmup is waiting in the real worker, pool, RPS page and overv
     0,
   );
   await expect(start).toBeEnabled();
-  await page.goto("/rps");
+  await page.goto("/scan?tab=rps");
   const status = page.getByRole("region", { name: "RPS运行状态" });
   await expect(status.getByText("等待条件", { exact: true })).toBeVisible();
   await expect(
@@ -528,7 +528,7 @@ test("pool route keeps filters and pagination through chart navigation, back and
     )
       snapshots.push(request.postData() ?? request.url());
   });
-  const response = await page.goto("/stock-pool");
+  const response = await page.goto("/scan?tab=pool");
   expect(response?.status()).toBe(200);
   const pool = page.getByRole("region", { name: "股票池浏览" });
   const table = page.getByLabel("股票池成分", { exact: true }).first();
@@ -554,7 +554,7 @@ test("pool route keeps filters and pagination through chart navigation, back and
   await table
     .getByRole("button", { name: "P1_POOL_40 · SH600040", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600040(?:&|$)/);
+  await expect(page).toHaveURL(/\/scan\?symbol=sh600040(?:&|$)/);
   await expect(
     page.getByRole("checkbox", { name: "双突破", exact: true }),
   ).toBeChecked();

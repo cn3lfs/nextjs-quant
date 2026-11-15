@@ -20,7 +20,7 @@ test("a drawing shared from the day chart shows on the week chart", async ({
   page,
 }) => {
   await waitForIdleServer(page);
-  await page.goto("/market?symbol=sh600000", { waitUntil: "networkidle" });
+  await page.goto("/scan?symbol=sh600000", { waitUntil: "networkidle" });
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
   const code = await page.locator(".chart-panel .eyebrow").first().innerText();

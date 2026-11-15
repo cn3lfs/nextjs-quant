@@ -69,8 +69,8 @@ const routes = [
     path: item.href,
     heading: item.title ?? item.label,
   })),
-  { path: "/ui-gallery", heading: null },
-  { path: "/reports/report/visual-missing", heading: "研究报告详情" },
+  { path: "/system/ui-gallery", heading: null },
+  { path: "/lab/reports/report/visual-missing", heading: "研究报告详情" },
 ];
 for (const width of [1440, 1024]) {
   for (const route of routes) {
@@ -82,7 +82,7 @@ for (const width of [1440, 1024]) {
       const clock = new Date();
       await page.clock.setFixedTime(clock);
       const response = await page.goto(
-        route.path === "/market" ? "/market?symbol=sh600000" : route.path,
+        route.path === "/scan" ? "/scan?symbol=sh600000" : route.path,
       );
       expect(response?.status()).toBeLessThan(400);
       if (route.heading)
@@ -90,7 +90,7 @@ for (const width of [1440, 1024]) {
       await page.waitForLoadState("networkidle");
       // The fixture deliberately has no CLS archive. Wait through query retries
       // so this audit captures the missing-source state, not a loading frame.
-      if (route.path === "/news") {
+      if (route.path === "/intel") {
         await expect(page.getByRole("alert")).toBeVisible();
         await expect(
           page.getByText("正在读取新闻…", { exact: true }),
@@ -98,13 +98,15 @@ for (const width of [1440, 1024]) {
       }
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(() => window.scrollTo(0, 0));
-      if (["/market", "/screen", "/reports"].includes(route.path))
+      if (["/scan", "/scan?tab=formula", "/lab/reports"].includes(route.path))
         expect(api.calls.has("securityNames")).toBe(true);
-      if (route.path === "/research/data-guide")
+      if (route.path === "/lab/data-guide")
         expect(api.calls.has("securityNames")).toBe(false);
-      if (["/screen", "/settings", "/tasks"].includes(route.path)) {
+      if (
+        ["/scan?tab=formula", "/system", "/system/tasks"].includes(route.path)
+      ) {
         expect(api.calls.has("taskOverview")).toBe(true);
-        expect(api.calls.has("jobs")).toBe(route.path === "/screen");
+        expect(api.calls.has("jobs")).toBe(route.path === "/scan?tab=formula");
       }
       if (route.path === "/") {
         const intraday = page.getByRole("region", {
@@ -117,7 +119,7 @@ for (const width of [1440, 1024]) {
         ).toBeVisible();
         await expect(intraday).not.toContainText("去设置");
       }
-      if (route.path === "/intraday") {
+      if (route.path === "/?tab=intraday") {
         await expect(
           page.getByText("暂无匹配批次；预选已暂停，不会生成新批次。"),
         ).toBeVisible();
@@ -125,19 +127,19 @@ for (const width of [1440, 1024]) {
           page.getByText("尚未启用或未到窗口", { exact: false }),
         ).toHaveCount(0);
       }
-      if (route.path === "/reports") {
+      if (route.path === "/lab/reports") {
         await expect(
           page.getByText("暂无通用研究报告。", { exact: false }),
         ).toBeVisible();
         await expect(
           page.getByRole("link", { name: "前往证据分析", exact: true }),
-        ).toHaveAttribute("href", "/analysis");
+        ).toHaveAttribute("href", "/lab/analysis");
         await expect(page.locator("main")).not.toContainText("四类研究");
         await expect(page.locator("main")).not.toContainText(
           "CAN SLIM、缠论与威科夫",
         );
       }
-      if (route.path === "/signal-ledger") {
+      if (route.path === "/accounts/alerts") {
         await expect(
           page.getByText("尚无信号记录；台账生成已暂停，不会自动产生新记录。", {
             exact: true,
@@ -147,7 +149,7 @@ for (const width of [1440, 1024]) {
           "15:05后保持应用运行",
         );
       }
-      if (route.path === "/research/data-guide") {
+      if (route.path === "/lab/data-guide") {
         await expect(page.getByRole("main")).toHaveCount(1);
         for (const title of [
           "选择研究入口",
@@ -160,10 +162,10 @@ for (const width of [1440, 1024]) {
           ).toBeVisible();
         }
         for (const href of [
-          "/settings",
-          "/strategies",
-          "/backtest",
-          "/analysis",
+          "/system",
+          "/lab",
+          "/lab/backtest",
+          "/lab/analysis",
         ]) {
           await expect(
             page.locator(`main a[href="${href}"]`).first(),
@@ -175,7 +177,7 @@ for (const width of [1440, 1024]) {
         );
         await expect(page.locator("main")).not.toContainText("按原快照重跑");
       }
-      if (route.path === "/strategies") {
+      if (route.path === "/lab") {
         await expect(page.getByLabel("结束日期", { exact: true })).toHaveValue(
           "2026-10-12",
         );
@@ -191,7 +193,7 @@ for (const width of [1440, 1024]) {
           }),
         ).toBeVisible();
       }
-      if (route.path === "/stock-pool" || route.path === "/rps") {
+      if (route.path === "/scan?tab=pool" || route.path === "/scan?tab=rps") {
         await expect(
           page.getByText(
             "当前数据源尚未计算 RPS，排名与涨幅暂缺。请先计算 RPS。",
@@ -199,13 +201,13 @@ for (const width of [1440, 1024]) {
           ),
         ).toHaveCount(1);
         const table = page.getByRole("table", {
-          name: route.path === "/stock-pool" ? "股票池成分" : "个股RPS排名",
+          name: route.path === "/scan?tab=pool" ? "股票池成分" : "个股RPS排名",
           exact: true,
         });
         await expect(table.getByRole("row")).toHaveCount(21);
         await expect(table).not.toContainText("尚无当前数据源的RPS");
         await expect(table).not.toContainText("未扫描到日线");
-        if (route.path === "/stock-pool") {
+        if (route.path === "/scan?tab=pool") {
           await expect(
             page.getByText(
               "当前数据源尚未扫描日线；可到数据与连接扫描已保存目录。已有完整包缓存仍按证券标注。",
@@ -319,7 +321,7 @@ test("offline audit refuses writes and nonlocal snapshots before forwarding", as
   page,
 }) => {
   const api = await installOfflineVisualApi(page);
-  await page.goto("/ui-gallery");
+  await page.goto("/system/ui-gallery");
   for (const call of [
     { name: "status", input: {}, status: 412 },
     {
@@ -364,7 +366,7 @@ test("limit sentiment hydrates with a browser date different from the server", a
     .toISOString()
     .slice(0, 10);
   await page.clock.setFixedTime(future);
-  await page.goto("/limit-up");
+  await page.goto("/scan?tab=sentiment");
   await expect(page.locator('input[type="date"]')).toHaveValue(date);
   await expect(page.getByText(`已查询 ${date}`, { exact: true })).toBeVisible();
   await expect(
@@ -387,7 +389,7 @@ test("pool status keeps security-specific reasons, identity and cached daily bar
     }
     return fixture;
   });
-  await page.goto("/stock-pool");
+  await page.goto("/scan?tab=pool");
   const table = page.getByRole("table", { name: "股票池成分", exact: true });
   await expect(table).toContainText("11.90%");
   await expect(
@@ -448,7 +450,7 @@ test("RPS period change never relabels old values and summarizes a missing perio
     }
     return fixture;
   });
-  await page.goto("/rps");
+  await page.goto("/scan?tab=rps");
   const table = page.getByRole("table", { name: "个股RPS排名", exact: true });
   await expect(table).toContainText("11.90%");
   await expect(
@@ -490,7 +492,7 @@ test("research archive distinguishes read failure, empty history and unmatched f
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const api = await installOfflineVisualApi(page, failed);
-  await page.goto("/reports");
+  await page.goto("/lab/reports");
   await expect(
     page.getByRole("alert").filter({ hasText: "档案读取失败" }),
   ).toBeVisible();
@@ -554,7 +556,7 @@ test("strategy inputs search local stocks, reject unsupported codes and submit t
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const api = await installOfflineVisualApi(page);
-  await page.goto("/strategies");
+  await page.goto("/lab");
   const submissions: string[] = [];
   page.on("request", (request) => {
     if (request.url().includes("strategyCenterRun"))
@@ -632,7 +634,7 @@ test("strategy date read failure preserves manual dates with a different browser
   page.on("pageerror", (error) => errors.push(error.message));
   const api = await installOfflineVisualApi(page, failed);
   await page.clock.setFixedTime(new Date("2030-06-16T16:30:00Z"));
-  await page.goto("/strategies");
+  await page.goto("/lab");
   await expect(
     page
       .getByRole("region", { name: "策略详情", exact: true })
@@ -663,7 +665,7 @@ test("chart security search keeps index and period-code choices", async ({
   page,
 }) => {
   const api = await installOfflineVisualApi(page);
-  await page.goto("/market?symbol=sh600000");
+  await page.goto("/scan?symbol=sh600000");
   // Route entry starts a snapshot load after hydration, disabling the selector.
   // Exercise search after that initial load, rather than filling the SSR input.
   await expect(page.getByTestId("market-chart").first()).toBeVisible();
@@ -688,7 +690,7 @@ test("strategy weight results keep their date and identity across automatic and 
   page,
 }) => {
   const api = await installOfflineVisualApi(page);
-  await page.goto("/strategies");
+  await page.goto("/lab");
   const search = page.getByRole("textbox", { name: "搜索策略", exact: true });
   const detail = page.getByRole("region", { name: "策略详情", exact: true });
   await search.fill("allocation-equal");
@@ -731,7 +733,7 @@ test("E form lifecycle: ordinary strategy page resets drafts and errors without 
     await held;
     await route.abort("failed");
   });
-  await page.goto("/strategies");
+  await page.goto("/lab");
   const search = page.getByRole("textbox", { name: "搜索策略", exact: true });
   const start = page.getByLabel("开始日期", { exact: true });
   const end = page.getByLabel("结束日期", { exact: true });
@@ -743,7 +745,7 @@ test("E form lifecycle: ordinary strategy page resets drafts and errors without 
   const initialStart = await start.inputValue();
   await start.fill("2099-01-01");
   await expect(submit).toBeDisabled();
-  await page.locator('a[href="/tasks"]').first().click();
+  await page.locator('a[href="/system/tasks"]').first().click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
     page.getByRole("heading", { name: "任务中心", exact: true }),
@@ -757,7 +759,7 @@ test("E form lifecycle: ordinary strategy page resets drafts and errors without 
   await submit.click();
   await expect.poll(() => submissions).toBe(1);
   await expect(submit).toBeDisabled();
-  await page.locator('a[href="/tasks"]').first().click();
+  await page.locator('a[href="/system/tasks"]').first().click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
     page.getByRole("heading", { name: "任务中心", exact: true }),
@@ -779,7 +781,7 @@ test("E form lifecycle: valuation draft and validation are local to the reports 
   page,
 }) => {
   const audit = await installOfflineVisualApi(page);
-  await page.goto("/reports");
+  await page.goto("/lab/reports");
   const open = async () => {
     await page.getByRole("radio", { name: "估值假设", exact: true }).click();
     await page.getByText("创建估值情景", { exact: true }).click();
@@ -794,7 +796,7 @@ test("E form lifecycle: valuation draft and validation are local to the reports 
   await expect(
     page.getByRole("alert").filter({ hasText: "请填写全部金额" }),
   ).toBeVisible();
-  await page.locator('a[href="/tasks"]').first().click();
+  await page.locator('a[href="/system/tasks"]').first().click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
     page.getByRole("heading", { name: "任务中心", exact: true }),

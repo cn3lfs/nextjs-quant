@@ -7,6 +7,14 @@ import type { ScoreboardRow } from "../../src/server/research/validation-model";
 import { jsonlStreamProducer } from "@trpc/server/unstable-core-do-not-import";
 import SuperJSON from "superjson";
 
+async function openWorkspacePage(page: Page, label: string) {
+  await page.keyboard.press("Control+k");
+  await page.getByRole("combobox", { name: "搜索页面" }).fill(label);
+  await page
+    .getByRole("option", { name: new RegExp("^" + label) })
+    .first()
+    .click();
+}
 function procedure(response: Response, name: string) {
   return (
     new URL(response.url()).pathname
@@ -57,7 +65,7 @@ test("R2a4 Binance history config persists and the explicit backfill entry sends
   });
   const settings = (await r.json()).result.data.json.settings;
   const root = resolve(settings.tdxRoot, "../binance-history");
-  await page.goto("/settings");
+  await page.goto("/system");
   await page.getByRole("radio", { name: "数字货币", exact: true }).click();
   await expect(
     page.getByText("BTC、ETH 历史行情", { exact: true }),
@@ -120,7 +128,7 @@ test("R2a4 Binance history config persists and the explicit backfill entry sends
   expect(body).toContain('"includeOneMinute":false');
   await expect(
     page.getByRole("link", { name: "查看任务进度与取消" }),
-  ).toHaveAttribute("href", "/tasks");
+  ).toHaveAttribute("href", "/system/tasks");
 });
 
 test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and zero delivery", async ({
@@ -225,7 +233,7 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
         }),
         1,
       );
-    await page.goto("/strategies");
+    await page.goto("/lab");
     await page.getByRole("radio", { name: "研究成绩单", exact: true }).click();
     const region = page.getByRole("region", {
       name: "策略研究成绩单",
@@ -378,10 +386,10 @@ test("sidebar counts old active tasks beyond the recent list and refreshes their
       )
         taskRows.push(request.url());
     });
-    await page.goto("/backtest");
+    await page.goto("/lab/backtest");
     const badge = page
       .getByRole("navigation", { name: "工作台导航" })
-      .getByRole("link", { name: /任务中心/ })
+      .getByRole("link", { name: /系统/ })
       .locator(".nav-badge");
     await expect(badge).toHaveText("2");
     await badge.scrollIntoViewIfNeeded();
@@ -413,7 +421,7 @@ test("sidebar counts old active tasks beyond the recent list and refreshes their
 test("current backtest reports missing warmup, recovers, restores and exports real worker output", async ({
   page,
 }) => {
-  await page.goto("/backtest");
+  await page.goto("/lab/backtest");
   await expect(
     page.getByRole("button", { name: "开始回测", exact: true }),
   ).toBeDisabled();
@@ -483,7 +491,7 @@ test("formula editor waits for hydration before accepting edits or checking futu
     await route.continue();
   });
   try {
-    await page.goto("/screen", { waitUntil: "commit" });
+    await page.goto("/scan?tab=formula", { waitUntil: "commit" });
     const source = page.getByLabel("公式源码", { exact: true });
     const check = page.getByRole("button", {
       name: "语法检查与未来函数门禁",
@@ -510,7 +518,7 @@ test("formula editor waits for hydration before accepting edits or checking futu
 test("formula save and execution open a clean candidate chart with real breakout data", async ({
   page,
 }) => {
-  await page.goto("/screen");
+  await page.goto("/scan?tab=formula");
   const source = page.getByLabel("公式源码", { exact: true });
   const check = page.getByRole("button", {
     name: "语法检查与未来函数门禁",
@@ -551,16 +559,18 @@ test("formula save and execution open a clean candidate chart with real breakout
   expect(exported.candidates[0].symbol).toBe("sh600000");
   // Only the chart route requests the absent default security. Keep the actual
   // prior-error recovery check while screen cold entry remains free of chart IO.
-  await page.getByRole("link", { name: "行情图表", exact: true }).click();
+  await openWorkspacePage(page, "扫描与图表");
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "条件选股", exact: true }).click();
+  await openWorkspacePage(page, "条件选股");
   const breakout = page.waitForResponse((response) =>
     procedure(response, "breakout"),
   );
   await candidates.getByRole("button", { name: "个股研究" }).click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600000(?:&|$)/);
+  await expect(page).toHaveURL(
+    /\/scan\?(?:tab=formula&)?symbol=sh600000(?:&|$)/,
+  );
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
   ).toHaveCount(0);
@@ -573,6 +583,17 @@ test("formula save and execution open a clean candidate chart with real breakout
   await expect(page.getByText("双突破计算失败", { exact: false })).toHaveCount(
     0,
   );
+  const frozenId = exported.candidates[0].snapshotId as string;
+  const restoredChart = page.waitForResponse(
+    (response) =>
+      procedure(response, "chartBars") &&
+      decodeURIComponent(response.url()).includes(frozenId),
+  );
+  await page.reload();
+  expect((await restoredChart).status()).toBe(200);
+  await expect(
+    page.getByRole("combobox", { name: "搜索品种名称或代码" }),
+  ).toHaveValue(/SH600000/i);
 });
 
 test("older formula results reopen from task history and survive refresh without changing identity", async ({
@@ -614,17 +635,17 @@ test("older formula results reopen from task history and survive refresh without
   const overview = page.waitForResponse((response) =>
     procedure(response, "taskOverview"),
   );
-  await page.goto("/backtest");
+  await page.goto("/lab/backtest");
   await overview;
   await page.waitForLoadState("networkidle");
   expect(screenReads).toEqual([]);
   page.off("response", trackScreenReads);
-  await page.goto("/tasks");
+  await page.goto("/system/tasks");
   await page.getByRole("textbox", { name: "精确任务编号" }).fill(older);
   await page.getByRole("button", { name: "查询任务", exact: true }).click();
   await page.locator(`#task-trigger-${older}`).click();
   await page.getByRole("link", { name: "查看选股结果", exact: true }).click();
-  await expect(page).toHaveURL(`/screen?job=${older}`);
+  await expect(page).toHaveURL(`/scan?tab=formula&job=${older}`);
   await expect(
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toContainText("P0_FIXTURE");
@@ -633,7 +654,7 @@ test("older formula results reopen from task history and survive refresh without
   expect(restored.jobId).toBe(older);
   expect(restored.parameters.formula.name).toBe("P0 历史候选");
   expect(restored.candidates).toHaveLength(1);
-  await page.goto(`/screen?job=${newer}`);
+  await page.goto(`/scan?tab=formula&job=${newer}`);
   const empty = await download(page, "导出本次完整结果");
   expect(empty.jobId).toBe(newer);
   expect(empty.candidates).toHaveLength(0);
@@ -644,7 +665,7 @@ test("older formula results reopen from task history and survive refresh without
   expect((await download(page, "导出本次完整结果")).jobId).toBe(older);
   await page.goForward();
   expect((await download(page, "导出本次完整结果")).jobId).toBe(newer);
-  await page.goto("/screen?job=p0-retired-screen");
+  await page.goto("/scan?tab=formula&job=p0-retired-screen");
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "不是公式选股任务",
   );
@@ -655,7 +676,7 @@ test("older formula results reopen from task history and survive refresh without
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText("LEGACY_SHOULD_NOT_RENDER")).toHaveCount(0);
-  await page.goto("/screen?job=job-missing-fixture");
+  await page.goto("/scan?tab=formula&job=job-missing-fixture");
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "任务不存在",
   );
@@ -670,7 +691,7 @@ test("older formula results reopen from task history and survive refresh without
     "选股:DMA(C,C/2)>0;",
     "failed",
   );
-  await page.goto(`/screen?job=${failed}`);
+  await page.goto(`/scan?tab=formula&job=${failed}`);
   await expect(page.getByRole("main").getByRole("alert")).toContainText("DMA");
   await expect(
     page.getByRole("button", { name: "导出本次完整结果", exact: true }),
@@ -744,7 +765,7 @@ test("formula result pages search and sort the whole persisted result and export
       )
       .run(id, JSON.stringify(job), job.updatedAt);
     inserted = true;
-    await page.goto(`/screen?job=${id}`);
+    await page.goto(`/scan?tab=formula&job=${id}`);
     const table = page.getByRole("table", { name: "候选结果", exact: true });
     await expect(table.getByRole("row")).toHaveCount(51);
     await expect(table.getByRole("row").nth(1)).toContainText("sh610000");
@@ -784,7 +805,7 @@ test("research draft survives framework navigation and settings owns its control
     if (request.method() === "POST" && request.url().includes("/api/trpc/"))
       mutations.push(new URL(request.url()).pathname);
   });
-  await page.goto("/analysis");
+  await page.goto("/lab/analysis");
   const question = page.getByRole("textbox", { name: "研究问题", exact: true });
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),
@@ -795,32 +816,25 @@ test("research draft survives framework navigation and settings owns its control
     .getByRole("option", { name: "SEPA 分阶段研究", exact: true })
     .click();
   await page.getByRole("link", { name: "查看研究档案" }).click();
-  await expect(page).toHaveURL(/\/reports$/);
+  await expect(page).toHaveURL(/\/lab\/reports$/);
   await page.goBack();
   await expect(question).toHaveValue("P2 保留当前研究问题");
   await expect(
     page.getByRole("combobox", { name: "研究方法", exact: true }),
   ).toContainText("SEPA");
   const navigation = page.getByRole("navigation", { name: "工作台导航" });
-  const systemGroup = navigation.getByRole("button", {
+  const systemGroup = navigation.getByRole("link", {
     name: "系统",
     exact: true,
   });
-  // Groups now start expanded. Exercise both states instead of blindly
-  // toggling an already-open group and waiting for its hidden link.
-  await expect(systemGroup).toHaveAttribute("aria-expanded", "true");
+  await expect(systemGroup).toBeVisible();
+  await expect(navigation.getByRole("link")).toHaveCount(6);
   await systemGroup.click();
-  await expect(systemGroup).toHaveAttribute("aria-expanded", "false");
-  await systemGroup.click();
-  await expect(systemGroup).toHaveAttribute("aria-expanded", "true");
-  await navigation
-    .getByRole("link", { name: "数据与连接", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/system$/);
   await expect(
     page.getByRole("button", { name: "扫描已保存目录", exact: true }),
   ).toBeEnabled();
-  await navigation.getByRole("link", { name: "证据分析", exact: true }).click();
+  await openWorkspacePage(page, "证据分析");
   await expect(question).toHaveValue("P2 保留当前研究问题");
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),
@@ -846,9 +860,9 @@ test("settings read failure is recoverable and its draft survives navigation", a
     }
     await route.continue();
   });
-  await page.goto("/tasks", { waitUntil: "networkidle" });
+  await page.goto("/system/tasks", { waitUntil: "networkidle" });
   expect(statusCalls).toEqual([]);
-  await page.getByRole("link", { name: "数据与连接", exact: true }).click();
+  await openWorkspacePage(page, "数据与连接");
   await expect(
     page.getByRole("button", { name: "重试设置", exact: true }),
   ).toBeVisible();
@@ -861,12 +875,12 @@ test("settings read failure is recoverable and its draft survives navigation", a
   await expect(directory).toBeVisible();
   const saved = await directory.inputValue();
   await directory.fill(saved + "\\draft-only");
-  await page.locator('a[href="/tasks"]').first().click();
+  await openWorkspacePage(page, "任务中心");
   const calls = statusCalls.length;
-  await expect(page).toHaveURL("/tasks");
+  await expect(page).toHaveURL("/system/tasks");
   await page.waitForLoadState("networkidle");
   expect(statusCalls).toHaveLength(calls);
-  await page.getByRole("link", { name: "数据与连接", exact: true }).click();
+  await openWorkspacePage(page, "数据与连接");
   await expect(directory).toHaveValue(saved + "\\draft-only");
   await directory.fill(saved);
 });
@@ -874,24 +888,27 @@ test("settings read failure is recoverable and its draft survives navigation", a
 test("market watchlist updates reach the monitor page and preserve chart selection", async ({
   page,
 }) => {
-  await page.goto("/market?symbol=sh600000");
+  await page.goto("/scan?symbol=sh600000");
   const add = page.getByRole("button", { name: "加入自选", exact: true });
   await expect(add).toBeEnabled();
   await add.click();
+  await page.getByRole("button", { name: "自选与候选", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "移除 sh600000", exact: true }),
   ).toBeVisible();
   await expect(add).toBeDisabled();
-  await page.locator('a[href="/signals"]').first().click();
+  await openWorkspacePage(page, "信号与通知");
   await page.getByRole("button", { name: "新建订阅", exact: true }).click();
   await expect(page.getByText(/本次将使用自选快照/)).toContainText("sh600000");
-  await page.locator('a[href="/market"]').first().click();
-  await expect(page).toHaveURL(/\/market\?symbol=sh600000(?:&|$)/);
+  await page.locator('a[href="/scan"]').first().click();
+  await expect(page).toHaveURL(
+    /\/scan\?(?:tab=formula&)?symbol=sh600000(?:&|$)/,
+  );
   await page
     .getByRole("button", { name: "移除 sh600000", exact: true })
     .click();
   await expect(add).toBeEnabled();
-  await page.locator('a[href="/signals"]').first().click();
+  await openWorkspacePage(page, "信号与通知");
   // Ordinary routes close page-local dialogs when leaving. Reopen the form to
   // verify the fresh shared watchlist, rather than relying on hidden page DOM.
   await page.getByRole("button", { name: "新建订阅", exact: true }).click();
@@ -911,14 +928,18 @@ test("retired research route is absent and unified alerts expose their real shad
   expect(response?.status()).toBe(404);
   for (const path of [
     "/",
-    "/strategies",
-    "/signals",
-    "/signal-ledger",
-    "/intraday",
+    "/lab",
+    "/system/notifications",
+    "/accounts/alerts",
+    "/?tab=intraday",
   ]) {
     await page.goto(path);
     await expect(page.locator('a[href="/research"]')).toHaveCount(0);
-    if (["/signals", "/signal-ledger", "/intraday"].includes(path))
+    if (
+      ["/system/notifications", "/accounts/alerts", "/?tab=intraday"].includes(
+        path,
+      )
+    )
       await expect(
         page
           .getByRole("main")
@@ -937,7 +958,9 @@ test("task route renders filter controls and URL state in its initial HTML", asy
 }) => {
   for (const status of ["completed", "failed"]) {
     const id = `server-filter-${status}`;
-    const response = await request.get(`/tasks?status=${status}&id=${id}`);
+    const response = await request.get(
+      `/system/tasks?status=${status}&id=${id}`,
+    );
     expect(response.ok()).toBe(true);
     const initial = await page.evaluate(
       (html) => {
@@ -969,17 +992,17 @@ test("task route renders filter controls and URL state in its initial HTML", asy
 test("task route restores URL filters and drafts without retaining a hidden task page", async ({
   page,
 }) => {
-  await page.goto("/tasks?status=completed");
+  await page.goto("/system/tasks?status=completed");
   await expect(
     page.getByRole("status").filter({ hasText: "已应用：已完成" }),
   ).toBeVisible();
   await expect(page.getByLabel("历史任务状态")).toContainText("已完成");
   await page.getByLabel("精确任务编号").fill("unapplied-task-draft");
-  await page.locator('a[href="/settings"]').first().click();
-  await expect(page).toHaveURL("/settings");
+  await page.locator('a[href="/system"]').first().click();
+  await expect(page).toHaveURL("/system");
   await expect(page.locator('[aria-label="任务列表"]')).toHaveCount(0);
   await page.goBack();
-  await expect(page).toHaveURL("/tasks?status=completed");
+  await expect(page).toHaveURL("/system/tasks?status=completed");
   await expect(page.getByLabel("精确任务编号")).toHaveValue(
     "unapplied-task-draft",
   );
@@ -988,22 +1011,24 @@ test("task route restores URL filters and drafts without retaining a hidden task
   await expect(page.getByLabel("精确任务编号")).toHaveValue("");
   await page.getByLabel("精确任务编号").fill("missing-task-route");
   await page.getByRole("button", { name: "查询任务", exact: true }).click();
-  await expect(page).toHaveURL("/tasks?status=completed&id=missing-task-route");
+  await expect(page).toHaveURL(
+    "/system/tasks?status=completed&id=missing-task-route",
+  );
   await expect(
     page.getByText("没有符合该状态的任务。可切换为全部查看。"),
   ).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL("/tasks?status=completed");
+  await expect(page).toHaveURL("/system/tasks?status=completed");
   await expect(
     page.getByRole("status").filter({ hasText: "已应用：已完成" }),
   ).not.toContainText("编号 missing-task-route");
-  await page.goto("/tasks?status=unknown");
+  await page.goto("/system/tasks?status=unknown");
   await expect(
     page.getByText("任务筛选链接无效，请清除筛选后重试。"),
   ).toBeVisible();
   await expect(page.locator('[aria-label="任务列表"]')).toHaveCount(0);
   await page.getByRole("button", { name: "清除筛选", exact: true }).click();
-  await expect(page).toHaveURL("/tasks");
+  await expect(page).toHaveURL("/system/tasks");
   await expect(page.locator('[aria-label="任务列表"]')).toBeVisible();
 });
 
@@ -1020,24 +1045,27 @@ test("overview uses its framework route and restores the ranking selection from 
     if (names.includes("tdxQuotes")) await route.abort("connectionrefused");
     else await route.continue();
   });
-  await page.goto("/tasks");
+  await page.goto("/system/tasks");
   await expect(page.locator('[aria-label="任务列表"]')).toBeVisible();
   await page.locator('a[href="/"]').first().click();
+  await page
+    .getByRole("radio", { name: "市场与数据总览", exact: true })
+    .click();
   const ranking = page.getByRole("radiogroup", {
     name: "RPS 口径",
     exact: true,
   });
   await expect(ranking).toBeVisible();
   await ranking.getByRole("radio", { name: "概念", exact: true }).click();
-  await expect(page).toHaveURL("/?rank=concept");
+  await expect(page).toHaveURL("/?tab=overview&rank=concept");
   await expect(
     ranking.getByRole("radio", { name: "概念", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
-  await page.locator('a[href="/tasks"]').first().click();
-  await expect(page).toHaveURL("/tasks");
+  await openWorkspacePage(page, "任务中心");
+  await expect(page).toHaveURL("/system/tasks");
   await expect(ranking).toHaveCount(0);
   await page.goBack();
-  await expect(page).toHaveURL("/?rank=concept");
+  await expect(page).toHaveURL("/?tab=overview&rank=concept");
   await expect(
     ranking.getByRole("radio", { name: "概念", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
@@ -1046,7 +1074,7 @@ test("overview uses its framework route and restores the ranking selection from 
     ranking.getByRole("radio", { name: "概念", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
   await ranking.getByRole("radio", { name: "行业", exact: true }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/?tab=overview");
   await expect(
     ranking.getByRole("radio", { name: "行业", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
@@ -1155,11 +1183,11 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
         ]),
         Date.now(),
       );
-    await page.goto("/settings");
+    await page.goto("/system");
     await page.getByLabel("A股资金（元）", { exact: true }).fill("100000");
     await page.getByRole("button", { name: "保存设置", exact: true }).click();
     await expect(page.locator('[data-settings-state="saved"]')).toBeVisible();
-    await page.goto("/signal-ledger");
+    await page.goto("/accounts/alerts");
     await expect(
       page
         .getByRole("main")

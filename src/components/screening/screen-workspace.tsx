@@ -41,7 +41,7 @@ export function ScreenWorkspace({ market, notify }: ScreenWorkspaceProps) {
           names,
           selectFormulaJob: (id) => {
             results.selectJob(id);
-            router.push(`/screen?job=${encodeURIComponent(id)}`, {
+            router.push(`/scan?tab=formula&job=${encodeURIComponent(id)}`, {
               scroll: false,
             });
           },

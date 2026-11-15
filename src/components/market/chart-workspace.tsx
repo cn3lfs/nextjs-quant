@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
 import { chartColor } from "~/lib/chart/chart-theme";
 
 import {
@@ -206,7 +207,7 @@ function EditableChart({
   rpsMessage?: string;
   onRpsRetry?: () => void;
 }) {
-  const [view, setView] = useState(initial),
+  const [view, setView] = useState({ ...initial, dark: false }),
     [tool, setTool] = useState<keyof typeof tools>("none"),
     [points, setPoints] = useState<Drawing["a"][]>([]),
     [label, setLabel] = useState("标注"),
@@ -359,7 +360,7 @@ function EditableChart({
             b: placed[1] ?? placed[0]!,
             ...(tool === "channel" ? { c: placed[2]! } : {}),
             ...(tool === "text" ? { text: label.trim() || "标注" } : {}),
-            color: view.dark ? chartColor.accentLight : chartColor.accentLight,
+            color: chartColor.accentLight,
           },
         ],
       };
@@ -447,15 +448,6 @@ function EditableChart({
             }
           />{" "}
           对数坐标
-        </label>
-        <label>
-          <Checkbox
-            checked={view.dark}
-            onCheckedChange={(checked) =>
-              change({ ...view, dark: checked === true })
-            }
-          />{" "}
-          加深背景
         </label>
         {canIntraday && !showIntraday && (
           <Popover>
@@ -596,7 +588,7 @@ function EditableChart({
       )}
       {cost != null && (
         <p data-testid="position-cost" className="!my-0 text-xs">
-          持仓成本 {cost.toFixed(2)} ·{" "}
+          持仓成本 {formatNumber(cost, 2)} ·{" "}
           {(bars.at(-1)?.close ?? cost) >= cost
             ? "图中收盘价高于或等于成本（红）"
             : "图中收盘价低于成本（绿）"}{" "}
@@ -608,7 +600,7 @@ function EditableChart({
           symbol={snapshot.symbol}
           snapshotId={snapshot.id}
           pricePrecision={common.pricePrecision}
-          dark={view.dark}
+          dark={false}
         />
       ) : (
         <CzscMarketChart

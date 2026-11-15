@@ -413,7 +413,7 @@ export function todos(input: OverviewInput): Todo[] {
       detail:
         "选股、RPS 与盘中预选都依赖本地扫描索引。扫描只读取通达信目录，不修改源文件。",
       action: "去扫描",
-      href: "/settings",
+      href: "/system",
     });
   const fresh = dailyFreshness(input);
   if (fresh?.lagging)
@@ -425,7 +425,7 @@ export function todos(input: OverviewInput): Todo[] {
       detail:
         "RPS、选股与信号确认都读本地日线。请在通达信下载盘后数据后回来扫描；本应用只读、不代为下载。",
       action: "去扫描",
-      href: "/settings",
+      href: "/system",
     });
   if (input.failedDeliveries > 0)
     list.push({
@@ -435,7 +435,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: `${input.failedDeliveries} 条通知投递失败`,
       detail: "信号已记录，未送达；查看失败原因后可手动重发。",
       action: "重发",
-      href: "/signals",
+      href: "/system/notifications",
     });
   if (intraday?.worker.error)
     list.push({
@@ -445,7 +445,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: "盘中调度执行出错",
       detail: intraday.worker.error,
       action: "查看",
-      href: "/intraday",
+      href: "/?tab=intraday",
     });
   if (!capabilityAllows("intraday", "schedule"))
     list.push({
@@ -455,7 +455,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: "旧预选已归入统一提醒",
       detail: capabilities.intraday.reason,
       action: "查看记录",
-      href: "/intraday",
+      href: "/?tab=intraday",
     });
   if (
     capabilityAllows("intraday", "schedule") &&
@@ -469,7 +469,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: "盘中预选未启用",
       detail: `启用后在 ${intraday.config.noon} / ${intraday.config.late} 各运行一次，应用退出或休眠会错过批次。`,
       action: "去设置",
-      href: "/intraday",
+      href: "/?tab=intraday",
     });
   if (
     capabilityAllows("intraday", "schedule") &&
@@ -491,7 +491,7 @@ export function todos(input: OverviewInput): Todo[] {
               : `${name}批次${runLabel[run.status]}`,
           detail: "收盘后核对成立 / 撤销 / 数据不足，不覆盖原始预选。",
           action: "查看",
-          href: "/intraday",
+          href: "/?tab=intraday",
         });
       else if (m < at + 5)
         list.push({
@@ -502,7 +502,7 @@ export function todos(input: OverviewInput): Todo[] {
           detail:
             "运行窗口为时点后 5 分钟；数据不足时不会产生候选，不代表策略不成立。",
           action: "看参数",
-          href: "/intraday",
+          href: "/?tab=intraday",
         });
       else
         list.push({
@@ -512,7 +512,7 @@ export function todos(input: OverviewInput): Todo[] {
           title: `${name} ${intraday.config[slot]} 没有执行记录`,
           detail: "窗口已过；错过的批次不能用之后的数据补作当时的观察。",
           action: "查看",
-          href: "/intraday",
+          href: "/?tab=intraday",
         });
     }
   if (
@@ -528,7 +528,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: `${intraday.unconfirmed} 个预选待收盘核对`,
       detail: "逐个核对成立 / 撤销 / 数据不足，并可导出当时与收盘的行情证据。",
       action: "开始核对",
-      href: "/intraday",
+      href: "/?tab=intraday",
     });
   const cls = input.cls?.lastCheck;
   if (
@@ -543,7 +543,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: "财联社盘前样本未固定",
       detail: cls.message,
       action: "去核对",
-      href: "/cls-review",
+      href: "/intel/review",
     });
   else if (input.cls?.enabled && m >= 15 * 60 + 5)
     list.push({
@@ -553,7 +553,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: "财联社样本待核对方向与超额",
       detail: "当日与 T+1/5/10 方向、基准和超额收益；未到期、停牌、缺价单列。",
       action: "去核对",
-      href: "/cls-review",
+      href: "/intel/review",
     });
   const rps = health(input).find((card) => card.key === "rps")!;
   if (rps.tone === "warn" || rps.tone === "bad")
@@ -564,7 +564,7 @@ export function todos(input: OverviewInput): Todo[] {
       title: `RPS ${rps.value}`,
       detail: `${rps.note}。高 RPS 是候选过滤，不是买入指令。`,
       action: "看排名",
-      href: "/rps",
+      href: "/scan?tab=rps",
     });
   return list.sort((a, b) => severity[a.tone] - severity[b.tone]);
 }

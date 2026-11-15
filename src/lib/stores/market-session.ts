@@ -25,13 +25,28 @@ export function marketSelectionHref(
   if (selection.marketSource) search.set("source", selection.marketSource);
   if (selection.period === "5m") search.set("base", "5m");
   if (selection.marketView === "financial") search.set("view", "financial");
-  return `/market?${search}`;
+  return `/scan?${search}`;
 }
 
 export function rememberMarketUrl() {
-  if (typeof window === "undefined" || window.location.pathname !== "/market")
+  if (typeof window === "undefined" || window.location.pathname !== "/scan")
     return;
-  const href = marketSelectionHref(useMarketSession.getState());
+  const current = new URLSearchParams(window.location.search);
+  if (current.has("tab") && current.get("tab") !== "formula") return;
+  const url = new URL(
+    marketSelectionHref(useMarketSession.getState()),
+    window.location.origin,
+  );
+  for (const key of [
+    "candidate",
+    "strategy",
+    "tab",
+    "job",
+    "screenSnapshot",
+    "screenJob",
+  ])
+    if (current.has(key)) url.searchParams.set(key, current.get(key)!);
+  const href = url.pathname + url.search;
   if (`${window.location.pathname}${window.location.search}` !== href)
     window.history.replaceState(null, "", href + window.location.hash);
 }

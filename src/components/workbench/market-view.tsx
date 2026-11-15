@@ -1,6 +1,6 @@
 import { MarketSourceSelect } from "../market/market-source-select";
 import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
-import { ArrowUpRight, Plus, X } from "lucide-react";
+import { ArrowUpRight, Plus, X } from "@phosphor-icons/react/ssr";
 import { useEffect, useState } from "react";
 import { chartPeriodSchema, periodLabels } from "~/lib/chart/chart-view";
 import { securityDisplayName } from "~/lib/market/security-display";
@@ -41,8 +41,10 @@ import { useTaskVisible } from "./use-task-visible";
 export function MarketView({
   state,
   notify,
+  embedded = false,
 }: {
   notify: (text: string) => void;
+  embedded?: boolean;
   state: Pick<
     MarketState,
     | "marketSource"
@@ -142,11 +144,24 @@ export function MarketView({
     (first) => setBrowseEdge(first ? "已是第一只" : "已是最后一只"),
   );
   return (
-    <div className="nc-market-workspace">
-      <aside className="nc-market-candidates">
+    <div
+      className="nc-market-workspace"
+      style={embedded ? { gridTemplateColumns: "minmax(0,1fr)" } : undefined}
+    >
+      <aside
+        className={
+          embedded
+            ? "nc-market-candidates static! max-h-none!"
+            : "nc-market-candidates"
+        }
+      >
         <Button
           variant="outline"
-          className="nc-market-list-toggle"
+          className={
+            embedded
+              ? "nc-market-list-toggle inline-flex!"
+              : "nc-market-list-toggle"
+          }
           aria-expanded={listsOpen}
           aria-controls="market-candidate-lists"
           onClick={() => setListsOpen((open) => !open)}
@@ -157,6 +172,7 @@ export function MarketView({
           id="market-candidate-lists"
           className="nc-market-list-content space-y-3"
           data-expanded={listsOpen}
+          style={embedded && !listsOpen ? { display: "none" } : undefined}
         >
           {browse && (
             <Segmented
@@ -482,9 +498,9 @@ export function MarketView({
                     <nav aria-label="继续研究" className="flex flex-col gap-2">
                       {(
                         [
-                          ["/analysis", Sparkle, "证据分析"],
-                          ["/backtest", Flask, "策略回测"],
-                          ["/signals", Broadcast, "监控配置"],
+                          ["/lab/analysis", Sparkle, "证据分析"],
+                          ["/lab/backtest", Flask, "策略回测"],
+                          ["/system/notifications", Broadcast, "监控配置"],
                         ] as const
                       ).map(([href, Glyph, label]) => (
                         <PopoverClose key={href} asChild>

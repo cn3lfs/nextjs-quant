@@ -13,7 +13,7 @@ export default function ResearchDataGuide() {
         <h2 className="text-xl font-semibold">选择研究入口</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <Link className="text-primary underline" href="/strategies">
+            <Link className="text-primary underline" href="/lab">
               策略中心
             </Link>
             ：查看规则、输入要求与预热长度，运行已开放的日线实验或组合研究。
@@ -21,19 +21,19 @@ export default function ResearchDataGuide() {
             目录中的研究登记和缺数据项目不等于可执行策略。
           </li>
           <li>
-            <Link className="text-primary underline" href="/backtest">
+            <Link className="text-primary underline" href="/lab/backtest">
               策略实验
             </Link>
             ：使用本地五分钟行情配置双均线基线或因子条件，检查覆盖后创建任务，
             查看报告、订单诊断、历史记录和导出。
           </li>
           <li>
-            <Link className="text-primary underline" href="/analysis">
+            <Link className="text-primary underline" href="/lab/analysis">
               证据分析
             </Link>
             ：基于已加载行情提出研究问题，配置相应模型后主动生成通用研究报告。
             报告在
-            <Link className="text-primary underline" href="/reports">
+            <Link className="text-primary underline" href="/lab/reports">
               研究档案
             </Link>
             检索； 报告观点不作为自动交易指令。
@@ -42,7 +42,7 @@ export default function ResearchDataGuide() {
         <h2 className="text-xl font-semibold">准备本地数据</h2>
         <p>
           在
-          <Link className="text-primary underline" href="/settings">
+          <Link className="text-primary underline" href="/system">
             数据与连接
           </Link>
           保存通达信目录，并扫描本地证券。日线实验需要个股日线和上证指数日线；

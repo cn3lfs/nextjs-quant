@@ -56,7 +56,7 @@ try {
     () => window.market.loaded?.id === "saved-candidate",
   );
   await page.evaluate(() => {
-    history.pushState(null, "", "/market");
+    history.pushState(null, "", "/scan");
     window.market.enterMarket(null);
   });
   assert.equal(await page.evaluate(() => window.requests.length), 0);

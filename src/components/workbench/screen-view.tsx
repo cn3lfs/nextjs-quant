@@ -1,3 +1,4 @@
+import { formatNumber } from "~/lib/common/format-number";
 import { PanelVisibility } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
 } from "~/components/ui/select";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@phosphor-icons/react/ssr";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
 import {
   archivedNameHint,
@@ -43,7 +44,6 @@ const screenSortColumn: Record<Exclude<ScreenSort, "original">, string> = {
 export function ScreenView({ state }: { state: ScreenViewState }) {
   const router = useRouter();
   const {
-    setTab,
     setSymbol,
     setBrowse,
     setPeriod,
@@ -88,7 +88,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
             ]}
           />
           <Button asChild variant="ghost" size="sm">
-            <a href="/reports">财务研究与筛选 →</a>
+            <a href="/lab/reports">财务研究与筛选 →</a>
           </Button>
         </div>
         <PanelVisibility visible={formulaView === "screen"}>
@@ -132,7 +132,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
             title="本次运行"
             meta={`基准日 ${screenResult.asOf ?? "无可用基准日"} · ${
               screenResult.elapsedMs !== undefined
-                ? `本地计算 ${(screenResult.elapsedMs / 1000).toFixed(2)} 秒`
+                ? `本地计算 ${formatNumber(screenResult.elapsedMs / 1000, 2)} 秒`
                 : "耗时未记录"
             }`}
             items={[
@@ -237,7 +237,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 选股基准日：
                 {screenResult.asOf ?? "无可用基准日"} ·{" "}
                 {screenResult.elapsedMs !== undefined
-                  ? `本地计算 ${(screenResult.elapsedMs / 1000).toFixed(2)} 秒`
+                  ? `本地计算 ${formatNumber(screenResult.elapsedMs / 1000, 2)} 秒`
                   : "耗时未记录"}
                 。本地数据可能落后于今天，不自动生成分析。
               </p>
@@ -460,10 +460,13 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                                     ),
                                     index: screenResult.candidates.indexOf(c),
                                   });
-                                  setTab("market");
                                   setSymbol(c.symbol);
                                   setPeriod(source.period);
                                   load.acceptSnapshot(source);
+                                  router.push(
+                                    `/scan?tab=formula&symbol=${encodeURIComponent(c.symbol)}&screenSnapshot=${encodeURIComponent(source.id)}&screenJob=${encodeURIComponent(screenJob!.id)}&adjustment=${source.adjustment ?? "none"}`,
+                                    { scroll: false },
+                                  );
                                 } catch (error) {
                                   notify(
                                     error instanceof Error

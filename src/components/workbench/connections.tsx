@@ -322,7 +322,7 @@ export function Connections({
                   ? "通达信"
                   : "外部 Blocks"}
                 ； 外部目录：{value.industryBlocksRoot || "尚未配置"}。
-                <Link href="/rps" className="underline">
+                <Link href="/scan?tab=rps" className="underline">
                   在 RPS → 行业中管理成分来源和目录
                 </Link>
               </p>

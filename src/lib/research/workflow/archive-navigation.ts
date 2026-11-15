@@ -22,5 +22,5 @@ export function archiveReturnHref(search: string) {
   const query = archiveSearch(
     parseArchiveSearch(new URLSearchParams(search).get("archive") ?? ""),
   );
-  return `/reports${query ? `?${query}` : ""}`;
+  return `/lab/reports${query ? `?${query}` : ""}`;
 }

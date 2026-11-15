@@ -122,7 +122,7 @@ export function CryptoConnections() {
         title="模拟自动交易账户"
         note="币安、OKX、Bybit 的模拟账户凭证与双均线策略统一在数字货币页面管理。"
       >
-        <Link href="/crypto" className="underline">
+        <Link href="/scan?tab=crypto" className="underline">
           打开数字货币模拟自动交易
         </Link>
       </Panel>

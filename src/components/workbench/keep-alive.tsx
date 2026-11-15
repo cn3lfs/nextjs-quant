@@ -32,9 +32,14 @@ export function PanelVisibility({
   );
 }
 
-function slot(key: string, active: string, node: ReactNode) {
+function slot(
+  key: string,
+  active: string,
+  node: ReactNode,
+  parentVisible: boolean,
+) {
   return (
-    <PanelVisible.Provider key={key} value={key === active}>
+    <PanelVisible.Provider key={key} value={parentVisible && key === active}>
       <div hidden={key !== active}>{node}</div>
     </PanelVisible.Provider>
   );
@@ -48,7 +53,7 @@ export function nextMounted(mounted: string[], active: string): string[] {
 /** Most panels kept mounted at once (decisions 2026-09-30). */
 export const panelCacheLimit = 6;
 /** Always kept: rebuilding the chart workspace is the most expensive. */
-export const pinnedPanels: readonly string[] = ["/market"];
+export const pinnedPanels: readonly string[] = ["/scan"];
 export type PanelCacheState = {
   /** Render order (stable, so kept panels never move in the DOM). */
   mounted: string[];
@@ -90,10 +95,13 @@ export function nextPanelCache(
 export function PanelCache({
   active,
   panels,
+  pinned = pinnedPanels,
 }: {
   active: string;
   panels: Record<string, ReactNode>;
+  pinned?: readonly string[];
 }) {
+  const parentVisible = usePanelVisible();
   const cachedRoute = Object.hasOwn(panels, active);
   const [cache, setCache] = useState<PanelCacheState>({
     mounted: cachedRoute ? [active] : [],
@@ -101,9 +109,15 @@ export function PanelCache({
   });
   // Framework-rendered children have no cached panel. Hide existing panels,
   // without consuming a slot or changing their eviction order.
-  const next = cachedRoute ? nextPanelCache(cache, active) : cache;
+  const next = cachedRoute
+    ? nextPanelCache(cache, active, panelCacheLimit, pinned)
+    : cache;
   if (next !== cache) setCache(next);
   return (
-    <>{next.mounted.map((key) => slot(key, active, panels[key] ?? null))}</>
+    <>
+      {next.mounted.map((key) =>
+        slot(key, active, panels[key] ?? null, parentVisible),
+      )}
+    </>
   );
 }

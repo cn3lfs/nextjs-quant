@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
 import { Mountains } from "@phosphor-icons/react/ssr";
 import { usePeriodHotkey } from "./chart-hotkeys";
 import { useEffect, useState } from "react";
@@ -62,16 +63,17 @@ export function FuturesView() {
   const [source, setSource] = useState<FuturesSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
+  const visible = usePanelVisible();
   usePeriodHotkey(
     period,
     setPeriod,
-    load.isPending,
+    !visible || load.isPending,
     chartPeriodSchema.options.filter(
       (p) => p !== "4h" && p !== "1h" && (source !== "sina" || p === "day"),
     ),
   );
-  const visible = usePanelVisible();
   const quotes = api.futuresQuotes.useQuery(undefined, {
+    enabled: visible,
     refetchInterval: visible ? 60_000 : false,
     refetchOnWindowFocus: false,
   });
@@ -128,10 +130,10 @@ export function FuturesView() {
                         title: c.name,
                         subtitle:
                           close !== null
-                            ? `${close.toFixed(c.precision)} ${c.unit}${
+                            ? `${formatNumber(close, c.precision)} ${c.unit}${
                                 change === null
                                   ? ""
-                                  : ` · ${change >= 0 ? "+" : ""}${change.toFixed(2)}%`
+                                  : ` · ${change >= 0 ? "+" : ""}${formatNumber(change, 2)}%`
                               }`
                             : q?.error || quotes.error
                               ? "报价读取失败"
@@ -182,10 +184,10 @@ export function FuturesView() {
                   title: c.name,
                   subtitle:
                     close !== null
-                      ? `${close.toFixed(c.precision)} ${c.unit}${
+                      ? `${formatNumber(close, c.precision)} ${c.unit}${
                           change === null
                             ? ""
-                            : ` · ${change >= 0 ? "+" : ""}${change.toFixed(2)}%`
+                            : ` · ${change >= 0 ? "+" : ""}${formatNumber(change, 2)}%`
                         }`
                       : q?.error || quotes.error
                         ? "报价读取失败"

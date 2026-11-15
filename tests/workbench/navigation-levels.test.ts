@@ -21,16 +21,16 @@ it("navigation preserves native links, selected route and expanded group", () =>
         active: true,
         children: createElement(MenuItem, {
           active: true,
-          children: createElement("a", { href: "/strategies" }, "策略研究"),
+          children: createElement("a", { href: "/lab" }, "策略研究"),
         }),
       }),
     }),
   );
   expect(html).toContain('aria-current="page"');
   expect(html).toContain('aria-expanded="true"');
-  expect(html).toContain('href="/strategies"');
+  expect(html).toContain('href="/lab"');
   expect(navItems.map((item) => item.href)).toEqual(
-    expect.arrayContaining(["/strategies", "/intraday", "/cls-review"]),
+    expect.arrayContaining(["/lab", "/?tab=intraday", "/intel/review"]),
   );
 });
 
@@ -42,7 +42,7 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
     ),
   ).toBe(true);
   expect(navItems.some((item) => item.href === "/research")).toBe(false);
-  expect(navItemFor("/research/data-guide")?.href).toBe("/research/data-guide");
+  expect(navItemFor("/lab/data-guide")?.href).toBe("/lab/data-guide");
   const hrefs = navItems.map((item) => item.href);
   expect(new Set(hrefs).size).toBe(hrefs.length);
   expect(hrefs[0]).toBe("/");
@@ -58,11 +58,11 @@ it("navigation is one grouped layer: every page, including former tabs, is a rou
     "reports",
   ] as const)
     expect(navItemFor(tabHref(tab))?.tab).toBe(tab);
-  expect(navItemFor("/reports/report/abc")?.title).toBe("研究报告详情");
-  expect(navItemFor("/ui-gallery")).toBeUndefined();
-  expect(searchNav("rps")[0]?.href).toBe("/rps");
+  expect(navItemFor("/lab/reports/report/abc")?.title).toBe("研究报告详情");
+  expect(navItemFor("/system/ui-gallery")?.group).toBe("系统");
+  expect(searchNav("rps")[0]?.href).toBe("/scan?tab=rps");
   expect(searchNav("台账").map((item) => item.href)).toContain(
-    "/signal-ledger",
+    "/accounts/alerts",
   );
 });
 

@@ -39,10 +39,10 @@ function GeneralReport({ id }: { id: string }) {
 }
 
 export function TaskReportDetail({ kind, id }: { kind: string; id: string }) {
-  const [returnHref, setReturnHref] = useState("/reports");
+  const [returnHref, setReturnHref] = useState("/lab/reports");
   useEffect(() => setReturnHref(archiveReturnHref(window.location.search)), []);
   return (
-    <section className="mx-auto w-full min-w-0 max-w-full space-y-4 break-words p-4 sm:p-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-all">
+    <section className="mx-auto w-full min-w-0 max-w-full space-y-4 break-words p-4 md:p-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-all">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">研究报告详情</h1>
         <Button asChild variant="outline">

@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
+
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
@@ -28,7 +30,7 @@ const toneOf = (change: number | null) =>
       ? "text-nc-up"
       : "text-nc-down";
 const signed = (change: number) =>
-  `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+  `${change > 0 ? "+" : ""}${formatNumber(change, 2)}%`;
 
 /**
  * One batched TDX quote request for the indices and the watchlist, refreshed
@@ -69,7 +71,7 @@ export function MarketPulse({
         return (
           <Link
             key={symbol}
-            href={`/market?symbol=${symbol}`}
+            href={`/scan?symbol=${symbol}`}
             className="nc-watch flex-col !items-start !gap-[2px]"
           >
             <span className="text-[11.5px] text-nc-text-3">{name}</span>
@@ -79,13 +81,13 @@ export function MarketPulse({
                 toneOf(change),
               )}
             >
-              {q ? q.price.toFixed(2) : "—"}
+              {q ? formatNumber(q.price, 2) : "—"}
             </span>
             <span className={cn("text-[11.5px] tabular-nums", toneOf(change))}>
               {change === null ? (error ? "行情不可用" : "—") : signed(change)}
               {q && q.amount > 0 && (
                 <span className="ml-2 text-nc-text-4">
-                  {(q.amount / 1e8).toFixed(0)}亿
+                  {formatNumber(q.amount / 1e8, 0)}亿
                 </span>
               )}
             </span>
@@ -102,7 +104,7 @@ export function WatchQuote({ quote }: { quote: PulseQuote | undefined }) {
   return (
     <span className="ml-auto flex flex-col items-end tabular-nums">
       <span className={cn("text-[13px]", toneOf(change))}>
-        {quote ? quote.price.toFixed(2) : "—"}
+        {quote ? formatNumber(quote.price, 2) : "—"}
       </span>
       <span className={cn("text-[11px]", toneOf(change))}>
         {change === null ? "" : signed(change)}

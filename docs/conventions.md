@@ -117,7 +117,7 @@ RPS 的收益、排名、资格和板块等权聚合以 `packages/quant-rps` 为
   按图表库自身约定处理。
 - **间距、圆角、字号用 Tailwind 工具类**，不新增 `globals.css` 规则。
   `globals.css` 里 1098 行手写 CSS 是历史包袱，**只减不增**。
-- 图标统一用 `lucide-react`，不混入其他图标库或内联 SVG。
+- R3a 改写的组件图标统一用 `@phosphor-icons/react/ssr`：改写前35个组件使用Phosphor、20个使用lucide，按本批要求选择多数库。未触及组件保持原样，不做全站额外迁移。
 - 组件内不做数据获取。数据由页面或容器组件取好后以 props 传入，
   便于测试直接渲染。
 

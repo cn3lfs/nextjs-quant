@@ -138,6 +138,10 @@ try {
     "INSERT INTO records (id,kind,payload,updated_at) VALUES (?,?,?,?)",
   ).run(retired.id, "job", JSON.stringify(retired), 1);
   if (profile === "workbench") await seedWorkbenchFixture(root, db);
+  if (process.env.E2E_R3A === "1") {
+    const { seedR3aFixture } = await import("./r3a-fixture");
+    seedR3aFixture(db);
+  }
   if (process.env.E2E_P1_ACCEPTANCE === "1") {
     if (profile !== "workbench")
       throw new Error("P1 requires the workbench fixture");

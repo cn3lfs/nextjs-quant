@@ -13,7 +13,7 @@ import {MarketRouteSelection} from './src/components/market/market-route-selecti
 import {useMarketSession} from './src/lib/stores/market-session';
 const client=new QueryClient();window.calls=[];window.session=useMarketSession;
 function App(){const state=useMarketState('local');window.market=state;const path=usePathname();
-return <><output>{state.loaded?.symbol??'empty'}</output>{path==='/market'&&<MarketRouteSelection enterMarket={state.enterMarket}/>}</>}
+return <><output>{state.loaded?.symbol??'empty'}</output>{path==='/scan'&&<MarketRouteSelection enterMarket={state.enterMarket}/>}</>}
 createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><App/></QueryClientProvider>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
@@ -93,7 +93,7 @@ try {
     history.pushState(
       null,
       "",
-      "/market?symbol=sh600040&period=month&source=tencent&adjustment=backward&view=financial",
+      "/scan?symbol=sh600040&period=month&source=tencent&adjustment=backward&view=financial",
     );
   });
   await page.waitForFunction(() => window.market.loaded?.symbol === "sh600040");
@@ -134,8 +134,8 @@ try {
     "backward",
     "financial",
   ]);
-  await page.evaluate(() => history.pushState(null, "", "/screen"));
-  await page.waitForFunction(() => location.pathname === "/screen");
+  await page.evaluate(() => history.pushState(null, "", "/scan?tab=formula"));
+  await page.waitForFunction(() => location.pathname === "/scan?tab=formula");
   const count = await page.evaluate(() => window.calls.length);
   await page.evaluate(() => {
     const s = window.session.getState();
@@ -158,7 +158,7 @@ try {
       period: "5m",
       bars: [],
     });
-    history.pushState(null, "", "/market");
+    history.pushState(null, "", "/scan");
   });
   await page.waitForFunction(
     () =>

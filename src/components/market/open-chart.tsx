@@ -25,7 +25,7 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const openChart: OpenChart = (symbol, list) => {
     let href = chartSymbolHref(symbol);
-    if (href.startsWith("/market?")) {
+    if (href.startsWith("/scan?")) {
       const session = useMarketSession.getState();
       session.setBrowse(list ?? null);
       href = marketSelectionHref({ ...session, symbol, marketView: "chart" });

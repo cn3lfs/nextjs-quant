@@ -9,8 +9,8 @@ const bundle = await build({
 import {PanelCache,usePanelVisible} from './src/components/workbench/keep-alive';
 window.mounts={};
 function Panel({id}) {const visible=usePanelVisible();useEffect(()=>{window.mounts[id]=(window.mounts[id]??0)+1},[]);return <output data-panel={id} data-visible={visible}>{id}</output>}
-const panels=Object.fromEntries(['/market','/a','/b','/c','/d','/e'].map(id=>[id,<Panel id={id}/>]));
-function App(){const [active,setActive]=useState('/market');window.navigate=setActive;return <><output id="active">{active}</output><PanelCache active={active} panels={panels}/></>};
+const panels=Object.fromEntries(['/scan','/a','/b','/c','/d','/e'].map(id=>[id,<Panel id={id}/>]));
+function App(){const [active,setActive]=useState('/scan');window.navigate=setActive;return <><output id="active">{active}</output><PanelCache active={active} panels={panels}/></>};
 createRoot(document.getElementById('root')).render(<App/>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
@@ -53,10 +53,10 @@ try {
   assert.equal(await page.locator("[data-panel]").count(), 6);
   const before = await page.evaluate(() => ({ ...window.mounts }));
   for (const path of [
-    "/tasks",
-    "/trade-ledger",
-    "/stock-pool",
-    "/reports/report/example",
+    "/system/tasks",
+    "/accounts",
+    "/scan?tab=pool",
+    "/lab/reports/report/example",
   ])
     await navigate(path);
   assert.equal(

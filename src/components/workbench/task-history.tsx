@@ -1,17 +1,19 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
+
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  ChevronDown,
+  CaretDown as ChevronDown,
   ArrowUpRight,
-  RefreshCw,
-  LoaderCircle,
-  TriangleAlert,
+  ArrowClockwise as RefreshCw,
+  CircleNotch as LoaderCircle,
+  Warning as TriangleAlert,
   Check,
   Clock,
   Square,
-} from "lucide-react";
+} from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import {
   taskAge,
@@ -101,7 +103,7 @@ export function TaskDetails({
               {data.screenResultId && (
                 <Button asChild variant="outline" size="sm">
                   <Link
-                    href={`/screen?job=${encodeURIComponent(data.screenResultId)}`}
+                    href={`/scan?tab=formula&job=${encodeURIComponent(data.screenResultId)}`}
                     prefetch={false}
                   >
                     {data.type === "research"
@@ -177,7 +179,7 @@ export function TaskDetails({
               审计记录未完整保存，不能按完整研究记录使用；请在研究使用台账核对本次尝试。
             </p>
           )}
-          <dl className="grid gap-x-8 gap-y-2 text-muted-foreground sm:grid-cols-2">
+          <dl className="grid gap-x-8 gap-y-2 text-muted-foreground lg:grid-cols-2">
             <div>
               <dt>创建时间</dt>
               <dd>{stamp(data.createdAt)}</dd>
@@ -189,12 +191,15 @@ export function TaskDetails({
             <div>
               <dt>{active(data.status) ? "已等待 / 运行" : "总历时"}</dt>
               <dd>
-                {Math.max(
-                  0,
-                  ((active(data.status) ? Date.now() : data.updatedAt) -
-                    data.createdAt) /
-                    1000,
-                ).toFixed(2)}{" "}
+                {formatNumber(
+                  Math.max(
+                    0,
+                    ((active(data.status) ? Date.now() : data.updatedAt) -
+                      data.createdAt) /
+                      1000,
+                  ),
+                  2,
+                )}{" "}
                 秒
               </dd>
             </div>
@@ -527,7 +532,7 @@ export function TaskHistory({
                         </span>
                       </span>
                       <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                        <span className="hidden sm:inline">
+                        <span className="hidden lg:inline">
                           {expanded ? "收起" : "详情"}
                         </span>
                         <ChevronDown
@@ -542,7 +547,7 @@ export function TaskHistory({
                     id={panelId}
                     aria-labelledby={triggerId}
                     hidden={!expanded}
-                    className="border-t border-border bg-muted/20 p-4 sm:px-11"
+                    className="border-t border-border bg-muted/20 p-4 lg:px-11"
                   >
                     {expanded && (
                       <TaskDetails

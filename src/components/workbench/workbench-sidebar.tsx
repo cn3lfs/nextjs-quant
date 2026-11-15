@@ -12,8 +12,9 @@ export function WorkbenchSidebar({ active }: { active: string | undefined }) {
   const overview = useTaskOverview();
   const utils = api.useUtils();
   const monitorSummary = api.monitorWorkspaceSummary.useQuery(undefined, {
-    enabled: visible && active !== "/signals",
-    refetchInterval: visible && active !== "/signals" ? 30000 : false,
+    enabled: visible && active !== "/system/notifications",
+    refetchInterval:
+      visible && active !== "/system/notifications" ? 30000 : false,
   });
   const completedScan = overview.data?.latestCompletedScan;
   // A scan may start and finish between polls. Status alone misses consecutive
@@ -28,11 +29,11 @@ export function WorkbenchSidebar({ active }: { active: string | undefined }) {
       alerts={<AlertStatus compact />}
       active={active}
       badges={{
-        "/signals": {
+        "/system/notifications": {
           count: monitorSummary.data?.failedDeliveries ?? 0,
           bad: true,
         },
-        "/tasks": { count: activeCount },
+        "/system/tasks": { count: activeCount },
       }}
     />
   );

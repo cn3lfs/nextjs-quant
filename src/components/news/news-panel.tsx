@@ -58,7 +58,7 @@ export function NewsPanel() {
   const handled = useRef("");
   useEffect(() => {
     const read = () => {
-      if (location.pathname !== "/news") return;
+      if (location.pathname !== "/intel") return;
       const url = new URL(location.href);
       try {
         const raw = url.searchParams.get("newsQuery"),
@@ -145,7 +145,7 @@ export function NewsPanel() {
       url.searchParams.set("newsId", String(o.id));
       url.searchParams.set("newsSource", o.source);
     }
-    if (location.pathname === "/news") history.pushState(null, "", url);
+    if (location.pathname === "/intel") history.pushState(null, "", url);
     setArchive(a);
     setOriginal(o);
     setTab(nextTab);
@@ -192,7 +192,7 @@ export function NewsPanel() {
       setFeedback("");
       const url = new URL(location.href);
       url.searchParams.set("newsJob", job.id);
-      if (location.pathname === "/news") history.replaceState(null, "", url);
+      if (location.pathname === "/intel") history.replaceState(null, "", url);
     },
   });
   const busy =

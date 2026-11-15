@@ -109,8 +109,8 @@ describe("crypto symbols stay apart from A-share codes", () => {
   it("keeps crypto out of A-share chart parsing and links to its own page", () => {
     expect(normalizeChartSymbol("cxbtcusdt")).toBeNull();
     expect(normalizeChartSymbol("sh600519")).toBe("sh600519");
-    expect(chartSymbolHref("cxETHUSDT")).toBe("/crypto?pair=ETHUSDT");
-    expect(chartSymbolHref("sh600519")).toBe("/market?symbol=sh600519");
+    expect(chartSymbolHref("cxETHUSDT")).toBe("/scan?tab=crypto&pair=ETHUSDT");
+    expect(chartSymbolHref("sh600519")).toBe("/scan?symbol=sh600519");
   });
 });
 

@@ -40,7 +40,7 @@ import {
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
 import { CryptoBotPanel } from "./crypto-bot-panel";
-import { PanelVisibility } from "../workbench/keep-alive";
+import { usePanelVisible } from "../workbench/keep-alive";
 
 /** Pair from `?pair=BTCUSDT` (or a legacy `?symbol=cxBTCUSDT` deep link). */
 function initialPair() {
@@ -51,14 +51,9 @@ function initialPair() {
   return isCryptoSymbol(symbol) ? symbol : "cxBTCUSDT";
 }
 
-/**
- * 数字货币: a page of its own, apart from the A-share market view. It keeps
- * its own pair and period state. Automatic trading selects its own venue explicitly.
- */
+/** Account facts and simulated strategies live under Accounts & Review. */
 export function CryptoView() {
-  const [workspace, setWorkspace] = useState<"quotes" | "strategy" | "account">(
-    "quotes",
-  );
+  const [workspace, setWorkspace] = useState<"strategy" | "account">("account");
   return (
     <div className="space-y-4">
       <Segmented
@@ -66,35 +61,29 @@ export function CryptoView() {
         value={workspace}
         onChange={setWorkspace}
         options={[
-          { value: "quotes", label: "行情" },
           { value: "strategy", label: "策略模拟" },
           { value: "account", label: "平台账户" },
         ]}
       />
-      <PanelVisibility visible={workspace === "quotes"}>
-        <div hidden={workspace !== "quotes"}>
-          <CryptoQuotes />
-        </div>
-      </PanelVisibility>
-      <PanelVisibility visible={workspace !== "quotes"}>
-        <div hidden={workspace === "quotes"}>
-          <CryptoBotPanel
-            view={workspace === "account" ? "account" : "strategy"}
-          />
-        </div>
-      </PanelVisibility>
+      <CryptoBotPanel view={workspace} />
     </div>
   );
 }
 
-function CryptoQuotes() {
+export function CryptoQuotes() {
+  const visible = usePanelVisible();
   const [symbol, setSymbol] = useState("cxBTCUSDT");
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
-  usePeriodHotkey(period, setPeriod, load.isPending, chartPeriodSchema.options);
+  usePeriodHotkey(
+    period,
+    setPeriod,
+    !visible || load.isPending,
+    chartPeriodSchema.options,
+  );
   useEffect(() => {
     const first = initialPair();
     setSymbol(first);

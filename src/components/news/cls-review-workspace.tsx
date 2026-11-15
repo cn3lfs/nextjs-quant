@@ -61,7 +61,7 @@ export function ClsReviewWorkspace() {
   const removalReturnTarget = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const read = () => {
-      if (location.pathname !== "/cls-review") return;
+      if (location.pathname !== "/intel/review") return;
       try {
         const url = new URL(location.href),
           raw = url.searchParams.get("clsQuery");
@@ -106,7 +106,7 @@ export function ClsReviewWorkspace() {
     return () => window.removeEventListener("popstate", read);
   }, []);
   useEffect(() => {
-    if (!ready || location.pathname !== "/cls-review") return;
+    if (!ready || location.pathname !== "/intel/review") return;
     const url = new URL(location.href);
     url.searchParams.set("clsQuery", JSON.stringify(filter));
     if (selected) url.searchParams.set("clsReport", selected);

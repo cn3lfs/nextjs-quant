@@ -48,7 +48,7 @@ const bundle = await build({
       window.fixture={mode:'ok',listError:false,cancelFail:true,queries:[],cancelled:[],set(values){Object.assign(this,values);bump()}};
       const f=window.fixture;
       const items=Array.from({length:22},(_,i)=>({id:'task-'+String(i).padStart(3,'0'),type:i===18?'screen':'research',status:i===19?'running':i%2?'failed':'completed',progress:i===19?45:100,phase:'阶段摘要 '+i,createdAt:1700000000000+i,updatedAt:1700000001000+i})).reverse();
-      const full=id=>{const value=items.find(j=>j.id===id);return {...value,phase:'完整阶段 '+id,error:value.status==='failed'?'完整错误：证据缺失\\n'+ 'LONG_ERROR_'.repeat(80):undefined,resultLink:id==='task-020'?{href:'/reports/report/report-020',label:'查看研究报告'}:undefined,screenResultId:id==='task-018'?id:undefined,auditIncomplete:id==='task-021',attemptId:id==='task-021'?'attempt-021':undefined}};
+      const full=id=>{const value=items.find(j=>j.id===id);return {...value,phase:'完整阶段 '+id,error:value.status==='failed'?'完整错误：证据缺失\\n'+ 'LONG_ERROR_'.repeat(80):undefined,resultLink:id==='task-020'?{href:'/lab/reports/report/report-020',label:'查看研究报告'}:undefined,screenResultId:id==='task-018'?id:undefined,auditIncomplete:id==='task-021',attemptId:id==='task-021'?'attempt-021':undefined}};
       export const api={
         recentErrors:{useQuery(){return {data:{entries:[],available:true,unrecordedInThisProcess:0},refetch:()=>bump()}}},
         taskOverview:{useQuery(){return {data:{running:1,queued:0,completedToday:10,failed:11,cancelled:0,total:22,revision:1,checkedAt:Date.now()},refetch:()=>bump()}}},
@@ -137,7 +137,7 @@ try {
   await panel("task-020").getByRole("link", { name: "查看研究报告" }).waitFor();
   assert.equal(
     await panel("task-020").getByRole("link").getAttribute("href"),
-    "/reports/report/report-020",
+    "/lab/reports/report/report-020",
   );
   assert.equal(
     await page
@@ -151,7 +151,7 @@ try {
     await panel("task-018")
       .getByRole("link", { name: "查看选股结果" })
       .getAttribute("href"),
-    "/screen?job=task-018",
+    "/scan?tab=formula&job=task-018",
   );
   await trigger("task-019").click();
   assert.equal(await page.evaluate(() => window.fixture.interval), 2000);

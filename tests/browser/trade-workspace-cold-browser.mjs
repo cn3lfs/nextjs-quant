@@ -55,7 +55,7 @@ try {
         errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       const pageStart = performance.now();
-      await page.goto(base + "/trade-ledger?view=history");
+      await page.goto(base + "/accounts?view=history");
       await page
         .getByLabel("交易历史列表", { exact: true })
         .getByRole("button")

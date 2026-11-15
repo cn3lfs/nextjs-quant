@@ -1,4 +1,6 @@
 "use client";
+import { formatNumber } from "~/lib/common/format-number";
+
 import {
   CheckCircle,
   Crosshair,
@@ -16,7 +18,7 @@ import {
 import { type Icon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import { cn } from "~/lib/common/classnames";
 import { capabilityAllows } from "~/lib/common/capabilities";
 import {
@@ -56,16 +58,6 @@ import {
   todos,
   type OverviewInput,
 } from "./overview-model";
-
-/** Deep links written before 行情图表 had its own route. */
-export function useLegacyMarketLink() {
-  const router = useRouter();
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has("symbol") || params.has("poolCategory"))
-      router.replace(`/market${window.location.search}`, { scroll: false });
-  }, []);
-}
 
 const dot: Record<Tone, string> = {
   neutral: "var(--nc-ok)",
@@ -109,7 +101,6 @@ const tradingLabel = {
  * endpoints; the phase and next steps are derived from the current time.
  */
 export function TodayOverview() {
-  useLegacyMarketLink();
   const visible = useTaskVisible();
   const search = useSearchParams();
   const rpsTarget = search.get("rank") === "concept" ? "concept" : "industry";
@@ -265,7 +256,10 @@ export function TodayOverview() {
             title="今日信号"
             meta="最近20条 · 完整历史见订阅信号"
             actions={
-              <Link href="/signals?monitorTab=signals" className="text-[13px]">
+              <Link
+                href="/system/notifications?monitorTab=signals"
+                className="text-[13px]"
+              >
                 全部订阅信号 →
               </Link>
             }
@@ -305,7 +299,7 @@ export function TodayOverview() {
                         extra={
                           s.close === undefined
                             ? undefined
-                            : `收 ${s.close.toFixed(2)}`
+                            : `收 ${formatNumber(s.close, 2)}`
                         }
                       />
                     ),
@@ -387,7 +381,7 @@ export function TodayOverview() {
             title={`盘中预选${batch ? ` · ${batch.slot === "noon" ? "午盘" : "尾盘"}批次` : ""}`}
             meta={intradayArchived ? "历史预选" : undefined}
             actions={
-              <Link href="/intraday" className="text-[13px]">
+              <Link href="/?tab=intraday" className="text-[13px]">
                 {intradayArchived || intraday.data?.config.enabled
                   ? "查看记录 →"
                   : "去设置 →"}
@@ -436,7 +430,7 @@ export function TodayOverview() {
                       }
                     />
                     <span className="ml-auto flex-none text-right text-[13px] text-nc-text-4 tabular-nums">
-                      RPS {row.value.rps.toFixed(0)}
+                      RPS {formatNumber(row.value.rps, 0)}
                       <br />
                       {row.attempts.length ? "已核对" : "待核对"}
                     </span>
@@ -483,7 +477,7 @@ export function TodayOverview() {
                   .map((row) => ({
                     key: row.name,
                     name: row.name,
-                    value: row.value!.rps.toFixed(0),
+                    value: formatNumber(row.value!.rps, 0),
                     pct: row.value!.rps,
                   }))}
               />
@@ -506,7 +500,7 @@ export function TodayOverview() {
                 {watch.map((symbol) => (
                   <Link
                     key={symbol}
-                    href={`/market?symbol=${symbol}`}
+                    href={`/scan?symbol=${symbol}`}
                     className="nc-watch"
                   >
                     <SecurityCell

@@ -19,7 +19,7 @@ it("shares exact task filters without treating an identifier as a query fragment
     filter,
     error: "",
   });
-  expect(taskHistoryHref({})).toBe("/tasks");
+  expect(taskHistoryHref({})).toBe("/system/tasks");
 });
 
 it.each([

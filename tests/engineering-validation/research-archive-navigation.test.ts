@@ -14,8 +14,8 @@ it("round trips committed filters and constrains return destinations to reports"
   const query = archiveSearch(filter);
   expect(parseArchiveSearch(query)).toEqual(filter);
   expect(archiveReturnHref(`?archive=${encodeURIComponent(query)}`)).toBe(
-    `/reports?${query}`,
+    `/lab/reports?${query}`,
   );
-  expect(archiveReturnHref("?archive=https://evil.test/")).toBe("/reports");
+  expect(archiveReturnHref("?archive=https://evil.test/")).toBe("/lab/reports");
   expect(parseArchiveSearch("kinds=unknown&from=2026-02-30")).toEqual({});
 });
