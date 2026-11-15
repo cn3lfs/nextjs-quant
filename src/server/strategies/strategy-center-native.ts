@@ -7,7 +7,7 @@ import {
   type FrozenChanSignal,
   type NativeStudyIdentity,
 } from "trading-strategies";
-import { analyzeCzsc, projectCzsc } from "./chan/czsc";
+import { analyzeCzsc, analyzeNativeThirdBuy, projectCzsc } from "./chan/czsc";
 
 type NativeAudit = {
   date: string;
@@ -27,6 +27,7 @@ export async function captureNativeChanObservations(
   signal?: AbortSignal,
   project: typeof projectCzsc = projectCzsc,
   progress?: (done: number, total: number) => void,
+  projection: "third-buy" | "full-reference" = "third-buy",
 ) {
   if (
     !Number.isInteger(first) ||
@@ -70,7 +71,10 @@ export async function captureNativeChanObservations(
         throw new Error("回放期间原生DLL或配置变化");
       return raw;
     };
-    const result = await analyzeCzsc(prefix, true, wrapped, true, 1);
+    const result =
+      projection === "full-reference"
+        ? await analyzeCzsc(prefix, true, wrapped, true, 1)
+        : await analyzeNativeThirdBuy(prefix, wrapped);
     signal?.throwIfAborted();
     if (!captured) throw new Error("原生观察未捕获DLL身份");
     identity ??= captured;

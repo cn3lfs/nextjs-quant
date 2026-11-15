@@ -172,6 +172,7 @@ function point(
   i: number,
   values: ReturnType<typeof prepare>,
   chartBars = false,
+  invalid = false,
 ): BreakoutPoint {
   const current = bars[i]!,
     previous = bars[i - 1];
@@ -199,23 +200,6 @@ function point(
     .map((p) => ({ ...p, index: p.index + start }));
   const missing: string[] = [];
   if (!facts.applicable) missing.push("突破日前不足60根日线");
-  const invalid = bars
-    .slice(0, i + 1)
-    .some(
-      (b, j) =>
-        !(
-          chartBars
-            ? /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:00(Z|[+-]\d{2}:\d{2}))?$/
-            : /^\d{4}-\d{2}-\d{2}$/
-        ).test(b.date) ||
-        !Number.isFinite(Date.parse(b.date)) ||
-        (j > 0 && b.date <= bars[j - 1]!.date) ||
-        ![b.open, b.high, b.low, b.close, b.volume].every(Number.isFinite) ||
-        b.low <= 0 ||
-        b.high < Math.max(b.open, b.close) ||
-        b.low > Math.min(b.open, b.close) ||
-        b.volume < 0,
-    );
   if (invalid) missing.push("日线价格/成交量/日期无效或未升序");
   const ready = facts.applicable && !invalid;
   // Previous 20 sessions exclude the breakout itself; zero-volume baselines
@@ -409,14 +393,48 @@ export function analyzeBreakout(
   from = Math.max(0, bars.length - 1),
   chartBars = false,
 ): BreakoutResult {
-  const values = prepare(bars);
+  const prepared = prepareBreakout(bars, chartBars);
   const points = bars
     .slice(Math.max(0, from))
-    .map((_, n) => point(bars, Math.max(0, from) + n, values, chartBars));
+    .map((_, n) => prepared.point(Math.max(0, from) + n));
   return {
     version: method.ruleVersion,
     method,
     points,
     latest: points.at(-1) ?? null,
+  };
+}
+
+/** Reuse causal indicator prefixes during a historical scan. Invalid future
+ * rows never invalidate an earlier point; prefix validity is accumulated once.
+ * The caller owns the immutable series for this prepared evaluation's lifetime.
+ */
+export function prepareBreakout(bars: readonly Bar[], chartBars = false) {
+  const values = prepare(bars);
+  let invalid = false;
+  const invalidPrefix = bars.map((b, j) => {
+    invalid ||=
+      !(
+        chartBars
+          ? /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:00(Z|[+-]\d{2}:\d{2}))?$/
+          : /^\d{4}-\d{2}-\d{2}$/
+      ).test(b.date) ||
+      !Number.isFinite(Date.parse(b.date)) ||
+      (j > 0 && b.date <= bars[j - 1]!.date) ||
+      ![b.open, b.high, b.low, b.close, b.volume].every(Number.isFinite) ||
+      b.low <= 0 ||
+      b.high < Math.max(b.open, b.close) ||
+      b.low > Math.min(b.open, b.close) ||
+      b.volume < 0;
+    return invalid;
+  });
+  return {
+    version: method.ruleVersion,
+    method,
+    point(index: number) {
+      if (!Number.isInteger(index) || index < 0 || index >= bars.length)
+        throw new Error("Invalid breakout index");
+      return point(bars, index, values, chartBars, invalidPrefix[index]!);
+    },
   };
 }

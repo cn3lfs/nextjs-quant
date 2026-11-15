@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  configureBinancePublicDataRoot: "mutation",
+  binancePublicDataStatus: "query",
+  startBinancePublicDataBackfill: "mutation",
   alertStatus: "query",
   configureAlertStrategy: "mutation",
   saveAlertSubscription: "mutation",

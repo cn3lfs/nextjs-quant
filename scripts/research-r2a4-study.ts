@@ -1,0 +1,411 @@
+import {
+  task,
+  prior,
+  json,
+  artifact,
+  readArtifact,
+  delivery,
+  equity,
+  frozen,
+  barsOf,
+  executionOf,
+  digest,
+  calculationIdentity,
+  type CompactInstrument,
+} from "./lib/research-r2a4";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import {
+  researchCandidates,
+  historicalLowSeries,
+  lowZoneCycles,
+  type LowZoneFact,
+  type LowZoneObservation,
+} from "trading-strategies";
+import { runPortfolio, type PortfolioInstrument } from "quant-backtest";
+import type { Bar } from "trading-strategy-core/bars";
+import type {
+  FrozenValidationInput,
+  ValidationDataset,
+} from "../src/server/research/validation-capture";
+import {
+  projectCandidate,
+  numericNeighbors,
+  scoreValidationResult,
+} from "../src/server/research/validation-replay";
+import {
+  runCandidateCheckpoint,
+  type CandidateCheckpoint,
+} from "../src/server/research/validation-scale";
+import { readPublicData } from "../src/server/data-sources/binance/public-data-store";
+import { auditPortfolio } from "../tests/helpers/portfolio-execution-audit";
+
+const mode = process.argv[2],
+  family = process.argv[3];
+if (!family)
+  throw new Error("Pass cn|crypto|sensitivity plus one declared family");
+const current = await json<{ engineAudit: { status: string } }>(
+  ".codex-runs/delivery.json",
+);
+if (current.engineAudit.status !== "passed")
+  throw new Error("Engine audit must pass before new candidate evaluation");
+type Csi = {
+  symbols: string[];
+  benchmark: { bars: Bar[] };
+  biasTags: unknown[];
+};
+const csi = await readArtifact<Csi>(
+  await json(join(task, "csi800-pointer.json")),
+);
+let dataset: ValidationDataset, base: FrozenValidationInput;
+async function attachLow(
+  dataset: ValidationDataset,
+  base: FrozenValidationInput,
+  indexBars: Bar[],
+) {
+  const selected = new Set(dataset.instruments.map((i) => i.symbol));
+  const facts = new Map<string, LowZoneFact[]>();
+  const input = await prior<{ shards: string[] }>("low-input");
+  for (const shard of input.shards)
+    for (const row of await prior<
+      {
+        symbol: string;
+        facts: [string, number | null, number | null][];
+        observations: LowZoneObservation[];
+      }[]
+    >(shard)) {
+      if (!selected.has(row.symbol)) continue;
+      facts.set(
+        row.symbol,
+        row.facts.map(([date, pe, pb]) => ({
+          date,
+          availableAt: date,
+          pe,
+          pb,
+          temperature: null,
+          confidence: "approximate",
+          source:
+            "R2a3 frozen PIT-filtered GP16/financial facts; revisions approximate, missing temperature",
+        })),
+      );
+      base.lowZones.push({
+        symbol: row.symbol,
+        observations: row.observations,
+      });
+    }
+  for (const i of dataset.instruments)
+    i.external = { ...i.external, lowZone: facts.get(i.symbol) ?? [] };
+  base.lowZones.push({
+    symbol: "sh000906",
+    observations: historicalLowSeries(indexBars),
+  });
+}
+if (mode === "cn") {
+  ({ dataset, base } = await equity(csi.symbols, family === "rps-multi"));
+  dataset.benchmark = csi.benchmark.bars;
+  dataset.benchmarkName = "CSI800000906 raw index, no dividends";
+  if (family === "historical-low")
+    await attachLow(dataset, base, csi.benchmark.bars);
+  if (family === "chan-third-buy") {
+    const progress = await json<{ chunks: { path: string; sha256: string }[] }>(
+      join(task, "native-progress.json"),
+    );
+    const native = (
+      await Promise.all(
+        progress.chunks.map((p) =>
+          readArtifact<FrozenValidationInput["native"]>(p),
+        ),
+      )
+    ).flat();
+    const keep = new Set(native.map((n) => n.symbol));
+    dataset.instruments = dataset.instruments.filter((i) => keep.has(i.symbol));
+    dataset.sources = dataset.sources.filter((i) => keep.has(i.symbol));
+    base.native = native.filter((n) => csi.symbols.includes(n.symbol));
+    const finished = await json<{ chanSubset: { status: string } }>(
+      ".codex-runs/delivery.json",
+    );
+    if (finished.chanSubset.status !== "capture-complete")
+      throw new Error("Native capture has not reached its predeclared cutoff");
+  }
+} else if (mode === "crypto") {
+  const period = family.endsWith("-day")
+    ? "day"
+    : family.endsWith("-4h")
+      ? "4h"
+      : family.endsWith("-1h")
+        ? "1h"
+        : "15m";
+  const interval = period === "day" ? "1d" : period;
+  const instruments: PortfolioInstrument[] = [],
+    sources: ValidationDataset["sources"] = [];
+  const coverage = await json<{
+    root: string;
+    series: { symbol: string; interval: string; status: string }[];
+  }>(join(task, "crypto-coverage.json"));
+  for (const symbol of ["BTCUSDT", "ETHUSDT"]) {
+    const ready = coverage.series.find(
+      (s) => s.symbol === symbol && s.interval === interval,
+    );
+    if (ready?.status !== "ready")
+      throw new Error(
+        `Official native source incomplete ${symbol}/${interval}`,
+      );
+    const view = await readPublicData(symbol, interval, {
+      root: coverage.root,
+      now: Date.parse("2026-11-14T00:00:00Z"),
+    });
+    const bars = view.rows.map((r) => r.bar);
+    instruments.push({
+      symbol: `cx${symbol}`,
+      market: "crypto",
+      bars,
+      signalBars: bars,
+      execution: {
+        minimum: 0.000001,
+        step: 0.000001,
+        maximum: 1e9,
+        tradable: true,
+        limitUp: null,
+        limitDown: null,
+        evidence:
+          "Frozen research quantity grid; historical venue filters unverified",
+      },
+    });
+    sources.push({
+      symbol: `cx${symbol}`,
+      hash: digest(JSON.stringify(view.files.map((f) => [f.path, f.sha256]))),
+      adjustmentReference: null,
+    });
+  }
+  const benchmark = instruments[0]!.bars;
+  dataset = {
+    period,
+    instruments,
+    sources,
+    benchmark: [...benchmark],
+    dates: [...new Set(benchmark.map((b) => b.date.slice(0, 10)))],
+    benchmarkName: "BTC hold; each window first open; uncharged benchmark",
+  };
+  base = frozen(dataset);
+} else if (mode === "sensitivity") {
+  ({ dataset, base } = await equity(undefined, family === "rps-multi"));
+  const terminal = await json<{
+    complete: boolean;
+    shards: { path: string; sha256: string }[];
+  }>(join(task, "terminal-input.json"));
+  if (!terminal.complete) throw new Error("All337 terminal inputs required");
+  for (const p of terminal.shards)
+    for (const row of await readArtifact<CompactInstrument[]>(p)) {
+      const bars = barsOf(row),
+        signalBars = barsOf(row, true);
+      const extra: NonNullable<PortfolioInstrument["external"]> = {};
+      if (family === "rps-multi")
+        extra.rps = dataset.dates.map((date, i) => ({
+          date,
+          periods: [20, 50, 120],
+          values: [0, 1, 2].map((p) =>
+            row.rps[i * 9 + p * 3] === null
+              ? null
+              : {
+                  return: row.rps[i * 9 + p * 3]!,
+                  rank: row.rps[i * 9 + p * 3 + 1]!,
+                  rps: row.rps[i * 9 + p * 3 + 2]!,
+                },
+          ),
+        }));
+      dataset.instruments.push({
+        symbol: row.symbol,
+        market: "cn-equity",
+        bars,
+        signalBars,
+        actions: row.actions,
+        execution: executionOf(row.symbol, bars),
+        external: extra,
+        terminal: {
+          date: bars.at(-1)!.date,
+          valuation: "last-close",
+          evidence:
+            "Survivorship sensitivity; last observed price is not certified delisting proceeds or a historical fill",
+        },
+      });
+      dataset.sources.push({
+        symbol: row.symbol,
+        hash: row.sourceHash,
+        adjustmentReference: row.adjustmentReference,
+      });
+    }
+  if (dataset.instruments.length !== 1975)
+    throw new Error("Survivorship pool must restore all337");
+  if (family === "historical-low")
+    await attachLow(dataset, base, dataset.benchmark);
+} else throw new Error("Expected cn|crypto|sensitivity");
+base.candidateMenu = researchCandidates(
+  dataset.instruments.map((i) => i.symbol),
+  base.input.market,
+);
+const candidates = base.candidateMenu
+  .filter((c) => c.family === family)
+  .flatMap((c) => [c, ...numericNeighbors(c)]);
+if (candidates.length !== 9)
+  throw new Error("Expected unchanged three variants plus two neighbors each");
+const scope =
+  mode === "cn"
+    ? "csi800"
+    : mode === "crypto"
+      ? "btc-eth"
+      : "all-market-sensitivity";
+const name = `${scope}-${family}`;
+const progressPath = join(task, `${name}-progress.json`);
+const identity = digest(
+  JSON.stringify({
+    calculationBuild: await calculationIdentity(base.input.market),
+    mode,
+    family,
+    sources: dataset.sources,
+    dates: dataset.dates,
+    benchmark: dataset.benchmark.map((b) => [b.date, b.open, b.close]),
+    menu: candidates,
+  }),
+);
+let checkpoints: CandidateCheckpoint[] = [],
+  sensitivity: unknown[] = [];
+try {
+  const saved = await json<{
+    identity: string;
+    pointer: { path: string; sha256: string };
+  }>(progressPath);
+  if (saved.identity !== identity)
+    throw new Error("Research input changed on resume");
+  const content = await readArtifact<{
+    checkpoints: CandidateCheckpoint[];
+    sensitivity: unknown[];
+  }>(saved.pointer);
+  checkpoints = content.checkpoints;
+  sensitivity = content.sensitivity;
+} catch (e) {
+  if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+}
+const cache = new Map();
+const policy = {
+  ...base.input.policy,
+  holdoutStart: mode === "sensitivity" ? undefined : "2025-06-01",
+  trainBars: Math.max(20, Math.floor(dataset.dates.length * 0.4)),
+  testBars: Math.max(5, Math.floor(dataset.dates.length * 0.1)),
+};
+for (const c of candidates) {
+  if (
+    mode !== "sensitivity" &&
+    checkpoints.some((p) => p.row.id === c.strategy.id)
+  )
+    continue;
+  if (
+    mode === "sensitivity" &&
+    sensitivity.some((s) => (s as { id: string }).id === c.strategy.id)
+  )
+    continue;
+  console.log(
+    JSON.stringify({
+      phase: "candidate-start",
+      scope,
+      id: c.strategy.id,
+      symbols: dataset.instruments.length,
+      at: new Date().toISOString(),
+    }),
+  );
+  const projected = projectCandidate(c, dataset, base, cache);
+  if (!projected) throw new Error("Projected inputs unavailable");
+  if (mode === "sensitivity") {
+    const old = await prior<{ checkpoints: CandidateCheckpoint[] }>(
+      `candidate-${family === "historical-low" ? "cnlowzone" : "cnswing"}-${family}`,
+    );
+    const oldRow = old.checkpoints.find((p) => p.row.id === c.strategy.id)!;
+    const outcomes = [];
+    for (const valuation of ["last-close", "total-loss"] as const) {
+      const request = {
+        ...projected.request,
+        instruments: projected.request.instruments.map((i) => ({
+          ...i,
+          ...(i.terminal ? { terminal: { ...i.terminal, valuation } } : {}),
+        })),
+      };
+      const full = runPortfolio(request);
+      const holdRequest = {
+        ...request,
+        start: oldRow.row.holdout.start,
+        end: oldRow.row.holdout.end,
+      };
+      const hold = runPortfolio(holdRequest);
+      outcomes.push({
+        valuation,
+        full: scoreValidationResult(full, request, dataset),
+        holdout: scoreValidationResult(hold, holdRequest, dataset),
+        terminalValuations: full.terminalValuations,
+      });
+      if (
+        family === "historical-low" &&
+        c.variant === "atr" &&
+        !c.strategy.id.includes("neighbor")
+      )
+        await artifact(
+          "low-terminal-tranche-audit",
+          auditPortfolio(request, full),
+        );
+    }
+    sensitivity.push({
+      id: c.strategy.id,
+      exclude: { full: oldRow.fullPeriod, holdout: oldRow.row.holdout.base },
+      outcomes,
+    });
+  } else checkpoints.push(runCandidateCheckpoint(projected, dataset, policy));
+  const pointer = await artifact(name, {
+    scope,
+    family,
+    identity,
+    policy,
+    symbols: dataset.instruments.map((i) => i.symbol),
+    checkpoints,
+    sensitivity,
+    benchmark: dataset.benchmarkName,
+    marketCycles:
+      family === "historical-low"
+        ? lowZoneCycles(historicalLowSeries(dataset.benchmark)).filter(
+            (c) => c.start >= "2010-01-01",
+          )
+        : [],
+  });
+  await writeFile(
+    progressPath,
+    JSON.stringify(
+      {
+        identity,
+        pointer,
+        complete:
+          (mode === "sensitivity" ? sensitivity.length : checkpoints.length) ===
+          9,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(
+    JSON.stringify({
+      phase: "candidate-complete",
+      scope,
+      id: c.strategy.id,
+      complete:
+        mode === "sensitivity" ? sensitivity.length : checkpoints.length,
+      at: new Date().toISOString(),
+    }),
+  );
+  await delivery({
+    activeResearch: {
+      scope,
+      family,
+      complete:
+        mode === "sensitivity" ? sensitivity.length : checkpoints.length,
+      pointer,
+    },
+    nextStart: `Resume ${name} from validated progress pointer; no live reminders activated`,
+  });
+}
+process.exit(0);

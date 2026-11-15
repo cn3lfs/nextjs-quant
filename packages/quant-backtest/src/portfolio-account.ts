@@ -53,6 +53,19 @@ export class PortfolioAccount {
       throw new Error("Invalid cash transfer");
     this.cash = next;
   }
+  /** Sensitivity valuation at terminal source coverage, not a market fill.
+   * Zero is the explicitly requested total-loss scenario. No tradability or
+   * settlement date is inferred from the final observed price. */
+  terminalValue(key: string, price: number) {
+    if (!Number.isFinite(price) || price < 0)
+      throw new Error("Invalid terminal valuation");
+    const position = this.positions.get(key);
+    if (!position) return 0;
+    const amount = moneyMul(position.quantity, price);
+    this.transfer(amount);
+    this.positions.delete(key);
+    return amount;
+  }
   fill(
     key: string,
     day: string,

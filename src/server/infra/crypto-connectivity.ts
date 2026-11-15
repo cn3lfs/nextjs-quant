@@ -27,6 +27,7 @@ export function preserveCryptoSettings<T extends object>(input: T) {
     ...input,
     outboundProxy: current.outboundProxy,
     binanceTestnet: current.binanceTestnet,
+    binancePublicDataRoot: current.binancePublicDataRoot,
   };
 }
 

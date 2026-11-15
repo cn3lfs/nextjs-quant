@@ -42,7 +42,7 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
   },
   {
     id: "windows",
-    header: "样本外正超额 / 窗口",
+    header: "样本外达标 / 窗口",
     enableSorting: false,
     cell: ({ row }) =>
       `${row.original.positiveWindows} / ${row.original.oosWindows}`,

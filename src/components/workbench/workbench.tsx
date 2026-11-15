@@ -11,6 +11,7 @@ import { Topbar } from "./topbar";
 import { useWorkbenchState } from "./use-workbench-state";
 import { WorkbenchNotifyProvider } from "./workbench-notify";
 import { ChartNavigationProvider } from "../market/open-chart";
+import { BinanceHistoryNotice } from "../common/binance-history-notice";
 
 export function Workbench({ children }: { children?: ReactNode }) {
   const pathname = usePathname();
@@ -26,6 +27,7 @@ export function Workbench({ children }: { children?: ReactNode }) {
           subtitle={item?.subtitle}
         />
         <div className="page">
+          <BinanceHistoryNotice />
           <WorkbenchNotifyProvider value={notify}>
             <ChartNavigationProvider>
               <PanelCache active={pathname} panels={retainedPanels} />

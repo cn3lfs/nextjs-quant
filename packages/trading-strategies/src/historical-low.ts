@@ -35,8 +35,34 @@ export type LowZoneObservation = {
   pb: LowZoneComponent;
   temperature: LowZoneComponent;
 };
-const rank = (values: readonly number[], current: number) =>
-  values.filter((value) => value <= current).length / values.length;
+/** Coordinate compression never contributes future counts. Only observations
+ * explicitly added to the trailing window contribute to an empirical rank. */
+class EmpiricalWindow {
+  private coordinates: number[];
+  private positions: Map<number, number>;
+  private counts: Int32Array;
+  size = 0;
+  constructor(values: readonly number[]) {
+    this.coordinates = [...new Set(values)].sort((a, b) => a - b);
+    this.positions = new Map(this.coordinates.map((v, i) => [v, i + 1]));
+    this.counts = new Int32Array(this.coordinates.length + 1);
+  }
+  add(value: number, delta: 1 | -1) {
+    this.size += delta;
+    for (
+      let i = this.positions.get(value)!;
+      i < this.counts.length;
+      i += i & -i
+    )
+      this.counts[i]! += delta;
+  }
+  rank(value: number) {
+    let count = 0;
+    for (let i = this.positions.get(value)!; i > 0; i -= i & -i)
+      count += this.counts[i]!;
+    return count / this.size;
+  }
+}
 const missing = (reason: string, observations = 0): LowZoneComponent => ({
   value: null,
   confidence: "missing",
@@ -49,7 +75,7 @@ const missing = (reason: string, observations = 0): LowZoneComponent => ({
  * Price + drawdown trigger the zone; available valuation/temperature must agree.
  */
 export function historicalLowSeries(
-  bars: readonly Bar[],
+  bars: readonly Pick<Bar, "date" | "close">[],
   config: z.input<typeof historicalLowConfigSchema> = {},
   facts: readonly LowZoneFact[] = [],
 ): LowZoneObservation[] {
@@ -79,6 +105,31 @@ export function historicalLowSeries(
   )
     throw new Error("Invalid / non-causal historical-low facts");
   const byDate = new Map(facts.map((f) => [f.date, f]));
+  const prices = new EmpiricalWindow(bars.map((b) => b.close));
+  const sortedFacts = [...facts].sort((a, b) => a.date.localeCompare(b.date));
+  const valuations = {
+    pe: new EmpiricalWindow(
+      facts.flatMap((f) => (f.pe !== null && f.pe > 0 ? [f.pe] : [])),
+    ),
+    pb: new EmpiricalWindow(
+      facts.flatMap((f) => (f.pb !== null && f.pb > 0 ? [f.pb] : [])),
+    ),
+  };
+  const approximate = { pe: 0, pb: 0 };
+  const addFact = (fact: LowZoneFact, delta: 1 | -1) => {
+    for (const field of ["pe", "pb"] as const) {
+      const value = fact[field];
+      if (value !== null && value > 0) {
+        valuations[field].add(value, delta);
+        if (fact.confidence !== "verified") approximate[field] += delta;
+      }
+    }
+  };
+  let firstIndex = 0,
+    factStart = 0,
+    factEnd = 0,
+    highStart = 0;
+  const highs: number[] = [];
   return bars.map((bar, index) => {
     const end = new Date(bar.date);
     const first = new Date(end);
@@ -87,56 +138,55 @@ export function historicalLowSeries(
     minimum.setUTCFullYear(end.getUTCFullYear() - 5);
     const firstDate = first.toISOString().slice(0, 10);
     const minimumDate = minimum.toISOString().slice(0, 10);
-    const prefix = bars.slice(0, index + 1);
-    const window = prefix.filter((b) => b.date >= firstDate);
+    prices.add(bar.close, 1);
+    while (bars[firstIndex]!.date < firstDate)
+      prices.add(bars[firstIndex++]!.close, -1);
+    while (highs.length > highStart && bars[highs.at(-1)!]!.close <= bar.close)
+      highs.pop();
+    highs.push(index);
+    while (highs[highStart]! < firstIndex) highStart++;
+    while (sortedFacts[factEnd] && sortedFacts[factEnd]!.date <= bar.date)
+      addFact(sortedFacts[factEnd++]!, 1);
+    while (
+      factStart < factEnd &&
+      sortedFacts[factStart]!.date < bars[firstIndex]!.date
+    )
+      addFact(sortedFacts[factStart++]!, -1);
     const enough =
-      prefix[0]!.date <= minimumDate && window.length >= options.minimumBars;
-    const prices = window.map((b) => b.close);
+      bars[0]!.date <= minimumDate && prices.size >= options.minimumBars;
     const price: LowZoneComponent = enough
       ? {
-          value: rank(prices, bar.close),
+          value: prices.rank(bar.close),
           confidence: "verified",
-          observations: window.length,
+          observations: prices.size,
           reason: `Trailing ${options.years} calendar years, minimum 5 years; fixed price basis`,
         }
       : missing(
           "Less than five calendar years / minimum observations",
-          window.length,
+          prices.size,
         );
     const drawdown: LowZoneComponent = enough
       ? {
-          value: bar.close / Math.max(...prices) - 1,
+          value: bar.close / bars[highs[highStart]!]!.close - 1,
           confidence: "verified",
-          observations: window.length,
+          observations: prices.size,
           reason:
             "Drawdown from preceding high including current completed close",
         }
-      : missing("Insufficient price history", window.length);
+      : missing("Insufficient price history", prices.size);
     const current = byDate.get(bar.date);
     const valuation = (field: "pe" | "pb"): LowZoneComponent => {
       const value = current?.[field];
-      const history = facts.filter(
-        (f) =>
-          f.date >= window[0]!.date &&
-          f.date <= bar.date &&
-          f.availableAt <= bar.date &&
-          f[field] !== null &&
-          f[field]! > 0,
-      );
-      if (value == null || value <= 0 || history.length < 60)
+      const history = valuations[field];
+      if (value == null || value <= 0 || history.size < 60)
         return missing(
           "No positive PIT valuation / fewer than 60 observations",
-          history.length,
+          history.size,
         );
       return {
-        value: rank(
-          history.map((f) => f[field]!),
-          value,
-        ),
-        confidence: history.every((f) => f.confidence === "verified")
-          ? "verified"
-          : "approximate",
-        observations: history.length,
+        value: history.rank(value),
+        confidence: approximate[field] === 0 ? "verified" : "approximate",
+        observations: history.size,
         reason: current!.source,
       };
     };

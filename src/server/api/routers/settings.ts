@@ -20,7 +20,28 @@ import {
   exportFiveMinuteBatch,
 } from "../../jobs/five-minute-batch";
 import { fiveMinuteHistoryPage as fiveMinuteHistory } from "~/server/db/five-minute-imports";
+import { startBinanceBackfill } from "../../jobs/binance-public-data-service";
+import {
+  publicDataStatus,
+  publicDataRoot,
+} from "../../data-sources/binance/public-data-store";
+import { localDirectorySchema } from "~/lib/settings/local-source-settings";
 export const settingsRouter = createTRPCRouter({
+  configureBinancePublicDataRoot: p("settings", "configure")
+    .input(localDirectorySchema)
+    .mutation(({ input }) => {
+      publicDataRoot(input);
+      saveSettings({ ...settings(), binancePublicDataRoot: input });
+      return { root: publicDataRoot(input) };
+    }),
+  binancePublicDataStatus: p("settings", "read").query(() =>
+    publicDataStatus(publicDataRoot(settings().binancePublicDataRoot)),
+  ),
+  startBinancePublicDataBackfill: p("dataImport", "compute")
+    .input(
+      z.object({ includeOneMinute: z.boolean().default(false) }).default({}),
+    )
+    .mutation(({ input }) => startBinanceBackfill(input.includeOneMinute)),
   startFiveMinuteImport: p("dataImport", "compute")
     .input(
       fiveMinuteInput.extend({ tdxRoot: z.string().trim().min(1).max(1000) }),

@@ -11,7 +11,10 @@ import {
   historicalLowSeries,
   type LowZoneFact,
 } from "./historical-low.js";
-import { analyzeBreakout } from "./research/breakout/breakout.js";
+import {
+  analyzeBreakout,
+  prepareBreakout,
+} from "./research/breakout/breakout.js";
 import { metrics } from "./research/technical/screening-metrics.js";
 import {
   evaluateFormula,
@@ -335,12 +338,20 @@ export function prepareStrategy(
   )
     throw new Error("Duplicate RPS observations");
   const breakoutCache = new Map<number, ReturnType<typeof analyzeBreakout>>();
+  let breakoutPrepared: ReturnType<typeof prepareBreakout> | undefined;
   const lowCache = new Map<string, ReturnType<typeof historicalLowSeries>>();
   const breakoutAt = (i: number) => {
     if (!breakoutCache.has(i)) {
       // Only one point is retained; historical playback must not retain O(n²) analyses.
       breakoutCache.clear();
-      breakoutCache.set(i, analyzeBreakout(bars.slice(0, i + 1)));
+      breakoutPrepared ??= prepareBreakout(bars);
+      const latest = breakoutPrepared.point(i);
+      breakoutCache.set(i, {
+        version: breakoutPrepared.version,
+        method: breakoutPrepared.method,
+        points: [latest],
+        latest,
+      });
     }
     return breakoutCache.get(i)!;
   };

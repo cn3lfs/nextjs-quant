@@ -23,6 +23,8 @@ import { localBars } from "./local-source";
 import { corporateActions } from "./corporate-actions";
 import { readColumnCache, writeColumnCache } from "./column-cache";
 import { cryptoKlines } from "./crypto-source";
+import { binanceArchiveSource } from "./binance-archive-source";
+import { refreshPublicDataLive } from "../../data-sources/binance/public-data-store";
 import {
   BinanceNoKlinesError,
   BINANCE_KLINES_VERSION,
@@ -292,8 +294,36 @@ export async function readBars<const T extends ReadBarsInput>(
     )
       throw new Error("冻结行情身份、周期或价格口径不匹配");
     raw = { ...frozen, period: base };
-  } else if (market === "crypto") raw = await cryptoBars(input, base, now);
-  else {
+  } else if (market === "crypto") {
+    if (
+      input.live &&
+      !input.to &&
+      ["auto", "binance"].includes(input.cryptoSource) &&
+      ["cxBTCUSDT", "cxETHUSDT"].includes(symbol) &&
+      ["day", "4h", "1h", "60m", "15m", "5m"].includes(input.period)
+    )
+      await refreshPublicDataLive(
+        symbol.slice(2),
+        (input.period === "day"
+          ? "1d"
+          : input.period === "60m"
+            ? "1h"
+            : input.period) as "1d" | "4h" | "1h" | "15m" | "5m",
+        { root: settings().binancePublicDataRoot || undefined, now },
+      );
+    const archive = ["auto", "binance"].includes(input.cryptoSource)
+      ? await binanceArchiveSource({
+          symbol,
+          period: input.period,
+          configuredRoot: settings().binancePublicDataRoot,
+          from: input.from,
+          to: input.to,
+          limit: input.limit,
+          now,
+        })
+      : null;
+    raw = archive ?? (await cryptoBars(input, base, now));
+  } else {
     const local = () =>
       localBars(root, symbol, base === "day" ? "day" : "5m", input.chartFunds);
     if (input.source && input.source !== "local") {
@@ -364,7 +394,11 @@ export async function readBars<const T extends ReadBarsInput>(
     sourceVersions.push(actionFingerprint);
   }
   const aggregated =
-    frozen && frozen.period === input.period && input.period !== base
+    (!frozen &&
+      raw.source === "binance-public-data" &&
+      (raw.period === input.period ||
+        (raw.period === "1h" && input.period === "60m"))) ||
+    (frozen && frozen.period === input.period && input.period !== base)
       ? { bars, formingDates: [], excluded: [] }
       : !frozen &&
           market === "cn-equity" &&

@@ -14,6 +14,7 @@ const jobSchema = z.object({
     "walk-forward",
     "factor-eval",
     "research",
+    "market-data-backfill",
     "tdx-import",
     "monitor",
   ]),

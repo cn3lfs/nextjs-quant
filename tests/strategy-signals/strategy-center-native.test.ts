@@ -154,6 +154,8 @@ it("captures serial full prefixes, freezes raw DLL identity and never replays ba
     140,
     undefined,
     project,
+    undefined,
+    "full-reference",
   );
   expect(maximum).toBe(1);
   expect(lengths).toEqual(Array.from({ length: 21 }, (_, i) => 140 + i));
@@ -209,6 +211,31 @@ it("captures serial full prefixes, freezes raw DLL identity and never replays ba
     { ...input[159]!, date: "2020-06-10", close: 100000, high: 100001 },
   ];
   expect(replayDailyStudy(future, [], options)).toEqual(result);
+});
+
+it("default third-buy-only tables preserve the complete causal capture of the reference mode", async () => {
+  const input = bars(),
+    lengths: number[] = [];
+  const minimal = await captureNativeChanObservations(
+    input,
+    140,
+    undefined,
+    async (prefix, request) => {
+      expect(request).toEqual({ levels: [0], bars: false });
+      lengths.push(prefix.close.length);
+      return snapshot(prefix.close.length);
+    },
+  );
+  const reference = await captureNativeChanObservations(
+    input,
+    140,
+    undefined,
+    async (prefix) => snapshot(prefix.close.length),
+    undefined,
+    "full-reference",
+  );
+  expect(lengths).toEqual(Array.from({ length: 21 }, (_, i) => 140 + i));
+  expect(minimal).toEqual(reference);
 });
 
 it("rejects missing metadata, version changes, structural timing gaps, malformed feeds and bars overrides", async () => {

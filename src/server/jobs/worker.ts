@@ -9,6 +9,10 @@ import {
   type LocalFinancialWork,
 } from "../financial/local-financial-work";
 import { scan } from "../data-sources/tdx/tdx";
+import {
+  executeBinanceBackfill,
+  type BinancePublicDataWork,
+} from "./binance-public-data-work";
 
 import { readBars } from "~/server/market/bar-store/read-bars";
 import type { FormulaWork } from "../screening/formula-screening";
@@ -50,6 +54,7 @@ function reportSavedBatch() {
   });
 }
 export type Work =
+  | BinancePublicDataWork
   | ValidationWork
   | LocalFinancialWork
   | MaBaselineWork
@@ -59,6 +64,10 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "binance-public-data")
+    return executeBinanceBackfill(work, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
   if (work.type === "strategy-validation")
     return executeValidationWork(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),

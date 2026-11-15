@@ -103,7 +103,7 @@ type DecisionCache = Map<string, StrategyDecision[]>;
  * on the same bars through the engine's existing external rule contract.
  * The identity binds the original strategy, source bars and build hash.
  */
-function projectCandidate(
+export function projectCandidate(
   candidate: ResearchCandidate,
   dataset: ValidationDataset,
   frozen: FrozenValidationInput,
@@ -622,7 +622,7 @@ function biasLabels(
   };
 }
 
-function combinedBook(
+export function combinedBook(
   frozen: FrozenValidationInput,
   dataset: ValidationDataset,
   primary: PortfolioRequest,
@@ -668,15 +668,23 @@ function combinedBook(
     };
     const result = runPortfolio(request);
     const score = scoreValidationResult(result, request, dataset);
+    const transfersBySleeve = new Map<string, Map<string, number>>();
+    for (const transfer of result.transfers) {
+      const dates =
+        transfersBySleeve.get(transfer.sleeve) ?? new Map<string, number>();
+      dates.set(
+        transfer.date,
+        (dates.get(transfer.date) ?? 0) + transfer.amount,
+      );
+      transfersBySleeve.set(transfer.sleeve, dates);
+    }
     const sleeveScores = sleeves.map((s) => {
       // Remove cash transfers before computing sleeve time-weighted returns.
       let previous = frozen.input.initial * s.share;
       const byDay = new Map<string, number[]>();
       for (const point of result.curve) {
         const current = point.sleeves.find((r) => r.id === s.id)!.equity;
-        const transfer = result.transfers
-          .filter((t) => t.sleeve === s.id && t.date === point.date)
-          .reduce((n, t) => n + t.amount, 0);
+        const transfer = transfersBySleeve.get(s.id)?.get(point.date) ?? 0;
         const value = previous > 0 ? (current - transfer) / previous - 1 : null;
         previous = current;
         const day = point.date.slice(0, 10),

@@ -25,6 +25,8 @@ export type ValidationScore = {
   daily: (number | null)[];
 };
 export type ValidationPolicy = {
+  returnCriterion?: "risk-adjusted" | "raw-excess";
+  holdoutStart?: string;
   trainBars: number;
   testBars: number;
   minimumWindows: number;
@@ -34,12 +36,91 @@ export type ValidationPolicy = {
   minimumStableNeighbors: number;
 };
 export const validationDefaults = {
+  returnCriterion: "risk-adjusted",
   minimumWindows: 3,
   minimumTrades: 30,
   maximumDrawdown: 0.25,
   minimumPositiveWindows: 0.6,
   minimumStableNeighbors: 0.5,
 } as const;
+export function validationScorePasses(
+  score: ValidationScore,
+  criterion: ValidationPolicy["returnCriterion"] = validationDefaults.returnCriterion,
+) {
+  const positive = (value: number | null | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0;
+  return criterion === "raw-excess"
+    ? positive(score.excess)
+    : positive(score.return) && positive(score.riskAdjusted?.sharpeDifference);
+}
+
+/** Reassessment consumes frozen scores without replaying or retuning signals. */
+export function validationRowReasons(
+  row: ValidationRow,
+  policy: ValidationPolicy,
+) {
+  const criterion =
+    policy.returnCriterion ?? validationDefaults.returnCriterion;
+  const reasons: string[] = [];
+  const count = row.windows.length;
+  if (count < policy.minimumWindows) reasons.push("insufficient-oos-windows");
+  const positive = row.windows.filter((w) =>
+    validationScorePasses(w.base, criterion),
+  ).length;
+  if (!count || positive / count < policy.minimumPositiveWindows)
+    reasons.push(
+      criterion === "raw-excess"
+        ? "oos-positive-excess-majority"
+        : "oos-positive-risk-adjusted-majority",
+    );
+  // Each stress must independently pass a majority; their passing windows need
+  // not coincide. The holdout must pass both stresses.
+  if (
+    !count ||
+    (criterion === "raw-excess" &&
+      row.windows.filter((w) =>
+        [w.doubledCost, w.delayed].every((s) =>
+          validationScorePasses(s, criterion),
+        ),
+      ).length /
+        count <
+        policy.minimumPositiveWindows) ||
+    (["doubledCost", "delayed"] as const).some(
+      (kind) =>
+        row.windows.filter((w) => validationScorePasses(w[kind], criterion))
+          .length /
+          count <
+          policy.minimumPositiveWindows ||
+        !validationScorePasses(row.holdout[kind], criterion),
+    )
+  )
+    reasons.push("cost-or-delay-stress");
+  if (row.closedTrades < policy.minimumTrades)
+    reasons.push("insufficient-closed-trades");
+  if (
+    [
+      ...row.windows.flatMap((w) => [w.base, w.doubledCost, w.delayed]),
+      row.holdout.base,
+      row.holdout.doubledCost,
+      row.holdout.delayed,
+    ].some((s) => s.drawdown === null || s.drawdown > policy.maximumDrawdown)
+  )
+    reasons.push("drawdown-bound");
+  if (!validationScorePasses(row.holdout.base, criterion))
+    reasons.push(
+      criterion === "raw-excess"
+        ? "holdout-positive-excess"
+        : "holdout-positive-risk-adjusted",
+    );
+  if (
+    !row.neighbors.length ||
+    row.neighbors.filter((n) => n.excess !== null && n.excess > 0).length /
+      row.neighbors.length <
+      policy.minimumStableNeighbors
+  )
+    reasons.push("parameter-neighborhood");
+  return reasons;
+}
 export type ValidationCandidate = {
   id: string;
   family: string;
@@ -84,6 +165,8 @@ export function runValidationSuite(
 ) {
   if (
     !candidates.length ||
+    (policy.returnCriterion !== undefined &&
+      !["risk-adjusted", "raw-excess"].includes(policy.returnCriterion)) ||
     new Set(candidates.map((c) => c.id)).size !== candidates.length ||
     dates.length < 10 ||
     policy.trainBars >= dates.length ||
@@ -123,7 +206,17 @@ export function runValidationSuite(
       start: dates[i]!,
       end: dates[i + policy.testBars - 1]!,
     });
-  const split = Math.floor(dates.length * 0.8);
+  const split =
+    policy.holdoutStart === undefined
+      ? Math.floor(dates.length * 0.8)
+      : dates.findIndex((d) => d >= policy.holdoutStart!);
+  if (
+    split < 1 ||
+    !dates[split] ||
+    (policy.holdoutStart !== undefined &&
+      !Number.isFinite(Date.parse(policy.holdoutStart)))
+  )
+    throw new Error("Invalid holdout start");
   const run = (
     candidate: ValidationCandidate,
     start: string,
@@ -216,12 +309,12 @@ export function runValidationSuite(
   }));
   const rows: ValidationRow[] = candidates.map((candidate, index) => {
     const evaluated = windows.map((w) => stress(candidate, w.start, w.end));
-    const positiveWindows = evaluated.filter(
-      (w) => w.base.excess !== null && w.base.excess > 0,
+    const positiveWindows = evaluated.filter((w) =>
+      validationScorePasses(w.base, policy.returnCriterion),
     ).length;
     const stressPositiveWindows = evaluated.filter((w) =>
-      [w.doubledCost, w.delayed].every(
-        (s) => s.excess !== null && s.excess > 0,
+      [w.doubledCost, w.delayed].every((s) =>
+        validationScorePasses(s, policy.returnCriterion),
       ),
     ).length;
     const closedTrades = evaluated.reduce((n, w) => n + w.base.trades, 0);
@@ -249,43 +342,7 @@ export function runValidationSuite(
           : r.family === row.family && r.id !== row.id,
       )
       .map((r) => ({ id: r.id, excess: r.inSample.excess }));
-    const reasons: string[] = [];
-    if (windows.length < policy.minimumWindows)
-      reasons.push("insufficient-oos-windows");
-    if (
-      !windows.length ||
-      row.positiveWindows / windows.length < policy.minimumPositiveWindows
-    )
-      reasons.push("oos-positive-excess-majority");
-    if (
-      !windows.length ||
-      row.stressPositiveWindows / windows.length <
-        policy.minimumPositiveWindows ||
-      [row.holdout.doubledCost, row.holdout.delayed].some(
-        (s) => s.excess === null || s.excess <= 0,
-      )
-    )
-      reasons.push("cost-or-delay-stress");
-    if (row.closedTrades < policy.minimumTrades)
-      reasons.push("insufficient-closed-trades");
-    if (
-      [
-        ...row.windows.flatMap((w) => [w.base, w.doubledCost, w.delayed]),
-        row.holdout.base,
-        row.holdout.doubledCost,
-        row.holdout.delayed,
-      ].some((s) => s.drawdown === null || s.drawdown > policy.maximumDrawdown)
-    )
-      reasons.push("drawdown-bound");
-    if (row.holdout.base.excess === null || row.holdout.base.excess <= 0)
-      reasons.push("holdout-positive-excess");
-    if (
-      !row.neighbors.length ||
-      row.neighbors.filter((n) => n.excess !== null && n.excess > 0).length /
-        row.neighbors.length <
-        policy.minimumStableNeighbors
-    )
-      reasons.push("parameter-neighborhood");
+    const reasons = validationRowReasons(row, policy);
     row.reasons = reasons;
     row.passed = reasons.length === 0;
   }

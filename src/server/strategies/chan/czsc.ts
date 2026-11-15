@@ -442,6 +442,41 @@ export async function analyzeCzsc(
   };
 }
 
+/** Third-buy capture consumes stroke pivots, centers and confirmed signals.
+ * Avoid decoding per-bar diagnostics and recursive/nested chart tables at every
+ * prefix. The DLL still builds each prefix: v22 exposes no append API. */
+export async function analyzeNativeThirdBuy(
+  bars: readonly Bar[],
+  project: typeof projectCzsc = projectCzsc,
+): Promise<CzscResult> {
+  if (
+    bars.some(
+      (b, i) =>
+        !Number.isFinite(Date.parse(b.date)) ||
+        (i > 0 && Date.parse(b.date) <= Date.parse(bars[i - 1]!.date)),
+    )
+  )
+    throw new RangeError("CZSC bars must be in strictly ascending time order");
+  const raw = await project(
+    {
+      high: bars.map((b) => b.high),
+      low: bars.map((b) => b.low),
+      close: bars.map((b) => b.close),
+      volume: bars.map((b) => b.volume),
+    },
+    { levels: [0], bars: false },
+  );
+  if (!raw.families[0]) throw new Error("结构缺口：缺少笔级快照");
+  const family = decodeFamily(raw.families[0], 0, bars, true, false);
+  return {
+    status: family.points.length > 1 ? "structure" : "no-structure",
+    hash: raw.hash,
+    sourceCommit: czscSourceCommit,
+    configId: raw.configId,
+    families: [family],
+  };
+}
+
 /** C4 anchored recursive movements over the caller's anchor series (api v5). */
 export function analyzeChanMovements(
   bars: readonly Bar[],

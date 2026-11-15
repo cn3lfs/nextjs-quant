@@ -37,6 +37,9 @@ it("only the explicitly paused intraday execution is denied in the current API",
 });
 
 it.each([
+  ["configureBinancePublicDataRoot", "settings", "configure"],
+  ["binancePublicDataStatus", "settings", "read"],
+  ["startBinancePublicDataBackfill", "dataImport", "compute"],
   ["czsc", "nativeChart", "compute"],
   ["czscSchema", "nativeChart", "read"],
   ["maBaseline", "backtest", "compute"],

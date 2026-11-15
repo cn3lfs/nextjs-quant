@@ -44,6 +44,12 @@ export type PortfolioInstrument = {
   signalBars: readonly Bar[];
   execution: PortfolioExecution | Readonly<Record<string, PortfolioExecution>>;
   external?: StrategyExternalInputs;
+  /** Explicit survivorship sensitivity only; never claimed as a historical fill. */
+  terminal?: {
+    date: string;
+    valuation: "last-close" | "total-loss";
+    evidence: string;
+  };
   actions?: readonly {
     date: string;
     dividend: number;
@@ -283,6 +289,13 @@ export function runPortfolio(
   const strategies = request.strategies.map((s) =>
     strategyObjectSchema.parse(s),
   );
+  const symbolUniverses = new Map(
+    strategies.flatMap((s) =>
+      s.universe.kind === "symbols"
+        ? [[s.id, new Set(s.universe.symbols)] as const]
+        : [],
+    ),
+  );
   if (
     !strategies.length ||
     new Set(strategies.map((s) => s.id)).size !== strategies.length ||
@@ -322,6 +335,17 @@ export function runPortfolio(
       )
         throw new Error("Raw / signal alignment mismatch");
       const actions = instrument.actions ?? [];
+      if (
+        instrument.terminal &&
+        (!instrument.terminal.evidence.trim() ||
+          !["last-close", "total-loss"].includes(
+            instrument.terminal.valuation,
+          ) ||
+          !Number.isFinite(Date.parse(instrument.terminal.date)) ||
+          (instrument.terminal.date <= request.end &&
+            instrument.bars.at(-1)?.date !== instrument.terminal.date))
+      )
+        throw new Error("Invalid terminal sensitivity evidence/date");
       if (
         new Set(actions.map((a) => a.date)).size !== actions.length ||
         actions.some(
@@ -382,6 +406,16 @@ export function runPortfolio(
   };
   const rejections: { orderId: number; date: string; reason: string }[] = [];
   const transfers: { date: string; sleeve: string; amount: number }[] = [];
+  const terminalValuations: {
+    date: string;
+    symbol: string;
+    strategyId: string;
+    sleeve: string;
+    quantity: number;
+    price: number;
+    amount: number;
+    evidence: string;
+  }[] = [];
   const observations: {
     date: string;
     strategyId: string;
@@ -722,6 +756,31 @@ export function runPortfolio(
             control.high = Math.max(control.high, bar.high);
             control.bars++;
           }
+          const terminal = source.instrument.terminal;
+          if (terminal?.date === date) {
+            if (current) {
+              const price = terminal.valuation === "last-close" ? bar.close : 0;
+              const quantity = current.quantity;
+              const amount = account.terminalValue(key, price);
+              terminalValuations.push({
+                date,
+                symbol,
+                strategyId: strategy.id,
+                sleeve: strategy.sleeve,
+                quantity,
+                price,
+                amount,
+                evidence: terminal.evidence,
+              });
+              controls.delete(key);
+            }
+            for (const order of [...(pendingOrders.get(key) ?? [])]) {
+              order.status = "rejected";
+              order.reason = "终止覆盖敏感性估值，不是市场成交";
+              removePending(order);
+            }
+            continue;
+          }
           const decision = source.evaluators.get(strategy.id)!.evaluate(i);
           observations.push({
             date,
@@ -732,7 +791,7 @@ export function runPortfolio(
           if (pendingOrders.has(key)) continue;
           let eligible: boolean;
           if (strategy.universe.kind === "symbols")
-            eligible = strategy.universe.symbols.includes(symbol);
+            eligible = symbolUniverses.get(strategy.id)!.has(symbol);
           else if (strategy.universe.kind === "rps") {
             const point = source.instrument.external?.rps?.find(
                 (p) => p.date === date,
@@ -878,5 +937,6 @@ export function runPortfolio(
     positionSnapshots,
     observations,
     transfers,
+    terminalValuations,
   };
 }

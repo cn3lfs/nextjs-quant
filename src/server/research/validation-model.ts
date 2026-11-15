@@ -16,6 +16,10 @@ export const validationInputSchema = z
     initial: z.number().finite().positive().max(1e9).default(1000000),
     policy: z
       .object({
+        returnCriterion: z
+          .enum(["risk-adjusted", "raw-excess"])
+          .default(validationDefaults.returnCriterion),
+        holdoutStart: researchDateSchema.optional(),
         minimumWindows: z
           .number()
           .int()

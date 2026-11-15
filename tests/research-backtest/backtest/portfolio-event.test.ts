@@ -90,6 +90,90 @@ function request(
 }
 
 describe("one portfolio event engine", () => {
+  it("values terminal coverage as an explicit scenario without inventing a sale or bypassing a real T+1 fill", () => {
+    const q = request();
+    const raw = dates.slice(0, 3).map((d, i) => bar(d, i === 2 ? 8 : 10));
+    q.instruments = [
+      {
+        ...instrument(),
+        bars: raw,
+        signalBars: raw,
+        terminal: {
+          date: dates[2]!,
+          valuation: "last-close",
+          evidence: "Sensitivity only: final observed close",
+        },
+      },
+    ];
+    const last = runPortfolio(q);
+    expect(last.fills.map((f) => [f.side, f.quantity, f.price])).toEqual([
+      ["buy", 1000, 10],
+    ]);
+    expect(last.terminalValuations).toEqual([
+      {
+        date: dates[2],
+        symbol: "A",
+        strategyId: "test",
+        sleeve: "swing",
+        quantity: 1000,
+        price: 8,
+        amount: 8000,
+        evidence: "Sensitivity only: final observed close",
+      },
+    ]);
+    expect(last.equity.at(-1)!.equity).toBe(8000);
+    expect(last.positions).toEqual([]);
+    const loss = runPortfolio({
+      ...q,
+      instruments: [
+        {
+          ...q.instruments[0]!,
+          terminal: { ...q.instruments[0]!.terminal!, valuation: "total-loss" },
+        },
+      ],
+    });
+    expect(loss.equity.at(-1)!.equity).toBe(0);
+    expect(loss.terminalValuations[0]!.amount).toBe(0);
+    expect(loss.fills).toEqual(last.fills);
+    expect(() =>
+      runPortfolio({
+        ...q,
+        instruments: [
+          {
+            ...q.instruments[0]!,
+            terminal: { ...q.instruments[0]!.terminal!, date: dates[3]! },
+          },
+        ],
+      }),
+    ).toThrow("terminal sensitivity");
+  });
+  it("releases last-price terminal scenario cash into the shared account for subsequent signals", () => {
+    const q = request();
+    const a = dates.slice(0, 3).map((d, i) => bar(d, i === 2 ? 8 : 10));
+    const b = instrument("cn-equity", "B");
+    b.bars = dates.map((d, i) => bar(d, i < 2 ? 11 : 10));
+    b.signalBars = b.bars;
+    q.instruments = [
+      {
+        ...instrument(),
+        bars: a,
+        signalBars: a,
+        terminal: {
+          date: dates[2]!,
+          valuation: "last-close",
+          evidence: "Explicit valuation scenario",
+        },
+      },
+      b,
+    ];
+    const r = runPortfolio(q);
+    expect(r.fills.map((f) => [f.symbol, f.date, f.quantity])).toEqual([
+      ["A", dates[1], 1000],
+      ["B", dates[3], 800],
+    ]);
+    expect(r.equity.at(-1)!.equity).toBe(8000);
+    expect(r.fills[1]!.cashAfter).toBe(0);
+  });
   it("indexes structure prices without hiding duplicate, future, or invalid observed levels", () => {
     const s = strategy();
     s.exit = { stop: { kind: "structure", field: "support" } };

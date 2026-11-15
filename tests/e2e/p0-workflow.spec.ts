@@ -4,6 +4,8 @@ import Database from "better-sqlite3";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { trpcHeaders } from "./helpers";
 import type { ScoreboardRow } from "../../src/server/research/validation-model";
+import { jsonlStreamProducer } from "@trpc/server/unstable-core-do-not-import";
+import SuperJSON from "superjson";
 
 function procedure(response: Response, name: string) {
   return (
@@ -45,6 +47,80 @@ test.beforeAll(async ({ request }) => {
   expect(settings.tdxRoot.replaceAll("\\", "/")).toMatch(
     /\/\.test-data\/.+\/fixture-[^/]+\/tdx$/,
   );
+});
+
+test("R2a4 Binance history config persists and the explicit backfill entry sends native intervals without live side effects", async ({
+  page,
+}) => {
+  const r = await page.request.get("/api/trpc/status", {
+    headers: trpcHeaders,
+  });
+  const settings = (await r.json()).result.data.json.settings;
+  const root = resolve(settings.tdxRoot, "../binance-history");
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "数字货币", exact: true }).click();
+  await expect(
+    page.getByText("BTC、ETH 历史行情", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("币安历史行情保存目录").fill(root);
+  const saved = page.waitForResponse((response) =>
+    procedure(response, "configureBinancePublicDataRoot"),
+  );
+  await page.getByRole("button", { name: "保存目录", exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  await page.reload();
+  await page.getByRole("radio", { name: "数字货币", exact: true }).click();
+  await expect(page.getByLabel("币安历史行情保存目录")).toHaveValue(root);
+  await expect(
+    page.getByText("历史尚未补齐，请按需回填后再开展长区间研究。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  let starts = 0,
+    body = "";
+  await page.route(
+    "**/api/trpc/startBinancePublicDataBackfill*",
+    async (route) => {
+      starts++;
+      body = route.request().postData() ?? "";
+      // Match the installed httpBatchStreamLink transport, including its head
+      // and nested promises. Never forward this mutation to the real worker.
+      const stream = jsonlStreamProducer({
+        maxDepth: Infinity,
+        data: [
+          Promise.resolve({
+            result: Promise.resolve({
+              data: Promise.resolve({
+                id: "job-r2a4-browser-stub",
+                status: "queued",
+              }),
+            }),
+          }),
+        ],
+        serialize: (value) => SuperJSON.serialize(value),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: await new globalThis.Response(stream).text(),
+      });
+    },
+  );
+  await expect(
+    page.getByLabel("同时下载 1 分钟（占用更多空间）"),
+  ).not.toBeChecked();
+  expect(starts).toBe(0);
+  await page
+    .getByRole("button", { name: "回填/补齐 BTC、ETH 历史", exact: true })
+    .click();
+  await expect(
+    page.getByText(/已创建任务 job-r2a4-browser-stub/),
+  ).toBeVisible();
+  expect(starts).toBe(1);
+  expect(body).toContain('"includeOneMinute":false');
+  await expect(
+    page.getByRole("link", { name: "查看任务进度与取消" }),
+  ).toHaveAttribute("href", "/tasks");
 });
 
 test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and zero delivery", async ({

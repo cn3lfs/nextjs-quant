@@ -66,7 +66,14 @@ function request(): PortfolioRequest {
     },
   };
 }
-const policy = { ...validationDefaults, trainBars: 40, testBars: 10 };
+// Preserve the original excess-gate regression; risk-adjusted defaults have a
+// separate explicit score fixture in validation-risk-adjusted.test.ts.
+const policy = {
+  ...validationDefaults,
+  returnCriterion: "raw-excess" as const,
+  trainBars: 40,
+  testBars: 10,
+};
 function score(
   result: ReturnType<typeof runPortfolio>,
   req: PortfolioRequest,

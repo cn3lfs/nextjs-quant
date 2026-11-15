@@ -39,6 +39,7 @@ import { Button } from "../ui/button";
 import { Field, stamp } from "./shared";
 import { NotificationPolicyFields } from "../signals/notification-policy-fields";
 import { CryptoConnections } from "../common/crypto-connections";
+import { BinanceHistory } from "../common/binance-history";
 import { ConnectionDiagnostics } from "./connection-diagnostics";
 import { NewsSourceDiagnostics } from "./news-source-diagnostics";
 import { connectionConfiguration } from "~/lib/settings/connection-check";
@@ -826,6 +827,7 @@ export function Connections({
         <div hidden={section !== "crypto"} className="nc-span-12 min-w-0">
           <PageGrid>
             <CryptoConnections />
+            <BinanceHistory />
           </PageGrid>
         </div>
       </PanelVisibility>
