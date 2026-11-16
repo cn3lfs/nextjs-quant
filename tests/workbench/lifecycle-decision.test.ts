@@ -33,6 +33,7 @@ function record(
   strategy: StrategyObjectInput,
   symbol: string,
   bar = "2026-11-16",
+  rankScore?: number,
 ) {
   const identity = {
     strategyId: strategy.id,
@@ -56,6 +57,7 @@ function record(
     source: "fixed fixture",
     wouldSend: false,
     outcomes: [],
+    ...(rankScore === undefined ? {} : { rankScore }),
   };
   repo.record(strategy, event);
   return event;
@@ -111,6 +113,41 @@ it("server ranking precedes pagination and stable order uses symbol when RPS is 
   expect(
     repo.candidatePage({ page: 0, minimumRps: 80 }).items.map((r) => r.symbol),
   ).toEqual(["sz000009"]);
+});
+it("uses actual strategy scores before pagination, falls back to RPS only for unranked sources, and keeps the winning source first", () => {
+  const beta = { ...alpha, id: "decision-beta" };
+  const published = rpsDay();
+  new RpsStore(db).saveDay(published.day, published.rows);
+  // The highest RPS has the lowest actual strategy rank; its RPS must not replace it.
+  record(alpha, "sz000009", undefined, 0);
+  record(alpha, "sz000000", undefined, 0.95);
+  record(alpha, "sh600001", undefined, 0.1);
+  record(beta, "sh600001", undefined, 1);
+  record(alpha, "sz000008");
+  for (let i = 0; i < 22; i++) record(alpha, `sh${600100 + i}`, undefined, 0.5);
+  scan(alpha);
+  scan(beta);
+  const first = repo.candidatePage({ page: 0 });
+  const second = repo.candidatePage({ page: 1 });
+  expect(first.total).toBe(26);
+  expect(first.items.slice(0, 3).map((r) => r.symbol)).toEqual([
+    "sh600001",
+    "sz000000",
+    "sz000008",
+  ]);
+  expect(first.items[0]?.strategyId).toBe(beta.id);
+  expect(first.items[0]?.sources.map((s) => s.strategyId)).toEqual([
+    beta.id,
+    alpha.id,
+  ]);
+  expect(second.items.at(-1)?.symbol).toBe("sz000009");
+  expect(
+    new Set([...first.items, ...second.items].map((r) => r.symbol)).size,
+  ).toBe(26);
+  // A user RPS filter remains an explicit filter rather than a ranking substitute.
+  expect(
+    repo.candidatePage({ page: 0, minimumRps: 80 }).items.map((r) => r.symbol),
+  ).toEqual(["sz000008", "sz000009"]);
 });
 it("watermarks use period-specific UTC completed bars for crypto and the receipt date for delayed A-share scans", () => {
   const crypto = { ...alpha, market: "crypto" as const };

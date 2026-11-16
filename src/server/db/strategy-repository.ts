@@ -27,6 +27,7 @@ export const watchEventSchema = z
     sleeve: z.string().min(1),
     stop: positive.nullable(),
     target: positive.nullable(),
+    rankScore: z.number().finite().optional(),
   })
   .strict();
 const storedEventSchema = watchEventSchema

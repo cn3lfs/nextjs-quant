@@ -260,10 +260,14 @@ export class AlertRepository {
           AND json_extract(s.payload,'$.bar')=e.bar
       ), rank_values AS (SELECT key symbol,value rps FROM json_each(?)), eligible AS (
         SELECT payload,dedupe_key,symbol,bar,json_extract(payload,'$.market') market,
-          (SELECT rps FROM rank_values WHERE rank_values.symbol=current.symbol) rps20
+          (SELECT rps FROM rank_values WHERE rank_values.symbol=current.symbol) rps20,
+          CASE WHEN json_type(payload,'$.rankScore') IN ('integer','real')
+            THEN json_extract(payload,'$.rankScore')
+            ELSE (SELECT rps/100.0 FROM rank_values WHERE rank_values.symbol=current.symbol)
+          END priority
         FROM current WHERE ${clause}
       ), grouped AS (
-        SELECT market,symbol,max(rps20) rps20,json_group_array(json(payload)) sources
+        SELECT market,symbol,max(rps20) rps20,max(priority) priority,json_group_array(json(payload)) sources
         FROM eligible GROUP BY market,symbol
       )`;
       const total = (
@@ -273,7 +277,7 @@ export class AlertRepository {
       ).n;
       const rows = this.db
         .prepare(
-          `${grouped} SELECT * FROM grouped ORDER BY rps20 DESC,market,symbol LIMIT 20 OFFSET ?`,
+          `${grouped} SELECT * FROM grouped ORDER BY priority DESC,market,symbol LIMIT 20 OFFSET ?`,
         )
         .all(rankingJson, ...args, input.page * 20) as {
         sources: string;
@@ -285,6 +289,10 @@ export class AlertRepository {
           const sources = (JSON.parse(r.sources) as AlertEvent[])
             .sort(
               (a, b) =>
+                (b.rankScore ??
+                  (r.rps20 === null ? -Infinity : r.rps20 / 100)) -
+                  (a.rankScore ??
+                    (r.rps20 === null ? -Infinity : r.rps20 / 100)) ||
                 a.strategyId.localeCompare(b.strategyId) ||
                 b.version - a.version ||
                 a.key.localeCompare(b.key),

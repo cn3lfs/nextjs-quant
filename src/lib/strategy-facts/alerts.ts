@@ -90,6 +90,7 @@ export type AlertEvent = {
   mode: AlertMode;
   status: "shadow" | "live" | "missed";
   reason: string;
+  rankScore?: number;
   source: string;
   subscription?: { id: string; revision: string };
   planId?: string;
