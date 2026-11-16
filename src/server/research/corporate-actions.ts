@@ -75,16 +75,19 @@ export function researchExecutionAt(
   bar: Readonly<Bar> | undefined,
   previousBar: Readonly<Bar> | undefined,
   actions: PortfolioInstrument["actions"],
+  tradingStatus?: { st: boolean; source: string; date: string },
 ): PortfolioExecution | undefined {
   if (!bar) return undefined;
-  const rules = equityResearchRules(symbol, bar.date);
+  const rules = equityResearchRules(symbol, bar.date, tradingStatus);
   let previous = previousBar?.close;
   for (const action of actions?.filter(
     (a) => a.date <= bar.date && a.date > (previousBar?.date ?? bar.date),
   ) ?? [])
     if (previous !== undefined) previous = actionPrice(previous, action);
   return {
-    evidence: "Board-rule scenario; historical ST/IPO/queue unverified",
+    evidence: tradingStatus
+      ? `Board-rule scenario; same-date ST=${tradingStatus.st}: ${tradingStatus.source}; IPO/queue unverified`
+      : "Board-rule scenario; historical ST/IPO/queue unverified",
     minimum: rules.minimum,
     step: rules.step,
     tradable: bar.volume > 0,

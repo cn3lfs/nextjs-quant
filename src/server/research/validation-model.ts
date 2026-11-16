@@ -16,6 +16,10 @@ export const validationInputSchema = z
     initial: z.number().finite().positive().max(1e9).default(1000000),
     policy: z
       .object({
+        method: z.enum(["legacy", "lifecycle-2"]).optional(),
+        purpose: z.enum(["preregistered", "post-hoc"]).optional(),
+        clusterCorrelation: z.number().positive().max(1).optional(),
+        maximumPbo: z.number().min(0).max(1).optional(),
         returnCriterion: z
           .enum(["risk-adjusted", "raw-excess"])
           .default(validationDefaults.returnCriterion),
@@ -65,6 +69,9 @@ export const scoreboardQuerySchema = z
   })
   .strict();
 export type ScoreboardRow = {
+  method?: "lifecycle-2";
+  purpose?: "preregistered" | "post-hoc";
+  methodLabel?: string;
   riskAdjusted?: ValidationScore["riskAdjusted"];
   biasTags?: { code: string; severity: "high" | "medium"; detail: string }[];
   id: string;

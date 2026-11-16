@@ -259,6 +259,51 @@ describe("research validation application boundary", () => {
     expect(score.excess).toBeCloseTo(-(bars[1]!.close / bars[0]!.open - 1), 12);
     expect(score.riskAdjusted?.benchmarkSharpe).not.toBeNull();
     expect(score.riskAdjusted?.benchmarkCalmar).toBeNull();
+    expect(score.dailyDates).toBeUndefined();
+    expect(score.tradeListHash).toBeUndefined();
+    const corrected = scoreValidationResult(
+      result,
+      request,
+      dataset,
+      "lifecycle-2",
+    );
+    expect(corrected.dailyDates).toEqual(
+      result.equity.map((point) => point.date),
+    );
+    expect(corrected.tradeListHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(corrected.riskAdjusted?.basis).toContain("zero risk-free");
+    expect(corrected.return).toBe(score.return);
+    expect(corrected.excess).toBe(score.excess);
+    const fill: (typeof result.fills)[number] = {
+      orderId: 1,
+      strategyId: "base",
+      sleeve: "swing",
+      symbol: "sh600000",
+      side: "buy",
+      signalAt: bars[0]!.date,
+      date: bars[1]!.date,
+      price: 10,
+      quantity: 100,
+      fee: 5,
+      cashAfter: 98995,
+      holdingAfter: 100,
+    };
+    const signature = (execution: typeof fill) =>
+      scoreValidationResult(
+        { ...result, fills: [execution] },
+        request,
+        dataset,
+        "lifecycle-2",
+      ).tradeListHash;
+    expect(signature({ ...fill, strategyId: "base-neighbor-entry-90" })).toBe(
+      signature(fill),
+    );
+    expect(signature({ ...fill, fee: 6, cashAfter: 98994 })).not.toBe(
+      signature(fill),
+    );
+    expect(signature({ ...fill, strategyId: "different-strategy" })).not.toBe(
+      signature(fill),
+    );
     expect(
       scoreValidationResult(result, request, {
         ...dataset,

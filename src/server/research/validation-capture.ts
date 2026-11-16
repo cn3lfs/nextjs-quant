@@ -69,6 +69,26 @@ export async function captureValidationInput(
   progress: (n: number, phase: string) => void = () => {},
   signal?: AbortSignal,
 ) {
+  // Only new captures choose the current method. Parsing old frozen artifacts
+  // leaves their absent method absent, preserving their recorded semantics.
+  if (input.policy.returnCriterion !== "risk-adjusted")
+    throw new Error(
+      "New lifecycle validation requires the declared risk-adjusted return criterion",
+    );
+  if (input.policy.method === "legacy")
+    throw new Error(
+      "Legacy validation is read-only; replay its frozen input instead",
+    );
+  input = {
+    ...input,
+    policy: {
+      ...input.policy,
+      method: "lifecycle-2",
+      purpose: input.policy.purpose ?? "post-hoc",
+      clusterCorrelation: input.policy.clusterCorrelation ?? 0.95,
+      maximumPbo: input.policy.maximumPbo ?? 0.5,
+    },
+  };
   if (input.end >= new Date().toISOString().slice(0, 10))
     throw new Error("Only completed historical dates are permitted");
   const universe =

@@ -4,6 +4,8 @@ import {
   type PortfolioRequest,
   type ValidationCandidate,
   type ValidationScore,
+  type ValidationPolicy,
+  validationEntryParameterSensitivity,
 } from "quant-backtest";
 import { evaluatePerformance } from "quant-performance";
 import {
@@ -12,8 +14,13 @@ import {
   type ResearchCandidate,
   type StrategyObjectInput,
   type StrategyDecision,
+  strategyObjectSchema,
 } from "trading-strategies";
-import { calculateFactor } from "trading-strategy-core/factors";
+import {
+  calculateFactor,
+  resolveFactor,
+  type FactorSpec,
+} from "trading-strategy-core/factors";
 import {
   equityDailyReturns,
   multipleTesting,
@@ -21,6 +28,11 @@ import {
 } from "~/lib/backtest/multiple-testing";
 import { combinatoriallySymmetricCv } from "~/lib/backtest/backtest-overfit";
 import { indexFacts } from "./index-context";
+import {
+  assessValidationCandidates,
+  validationMethodEvidence,
+} from "./validation-method";
+import { marketRules } from "trading-strategy-core/market-rules";
 import {
   validationHash,
   type FrozenValidationInput,
@@ -34,6 +46,7 @@ export function scoreValidationResult(
   result: ReturnType<typeof runPortfolio>,
   request: PortfolioRequest,
   dataset: ValidationDataset,
+  method: ValidationPolicy["method"] = "legacy",
 ): ValidationScore {
   const benchmark = new Map<string, { open: number; close: number }>();
   for (const b of dataset.benchmark.filter(
@@ -69,16 +82,46 @@ export function scoreValidationResult(
     a === null || b === null ? null : a - b;
   const benchmarkSharpe = benchmarkEvaluation?.sharpe.value ?? null;
   const benchmarkCalmar = benchmarkEvaluation?.calmar.value ?? null;
+  const daily = equityDailyReturns(points, request.initial);
+  const scale = Math.sqrt(request.market === "crypto" ? 365 : 252);
+  const sameSharpe = (values: readonly (number | null)[]) => {
+    const value = sharpeDaily(values).value;
+    return value === null ? null : value * scale;
+  };
+  const correctedSharpe =
+    method === "lifecycle-2" ? sameSharpe(daily) : evaluation.sharpe.value;
+  const correctedBenchmark =
+    method === "lifecycle-2"
+      ? sameSharpe(points.map((p) => p.benchmarkReturn ?? null))
+      : benchmarkSharpe;
   return {
+    ...(method === "lifecycle-2"
+      ? {
+          dailyDates: result.equity.map((point) => point.date),
+          // A neighbor's generated ID is provenance, not a different execution.
+          // Keep the canonical strategy identity and every economic fill field.
+          tradeListHash: validationHash(
+            result.fills.map((fill) => ({
+              ...fill,
+              strategyId: fill.strategyId.replace(
+                /-neighbor-(?:entry-)?\d+$/,
+                "",
+              ),
+            })),
+          ),
+        }
+      : {}),
     riskAdjusted: {
-      sharpe: evaluation.sharpe.value,
-      benchmarkSharpe,
-      sharpeDifference: difference(evaluation.sharpe.value, benchmarkSharpe),
+      sharpe: correctedSharpe,
+      benchmarkSharpe: correctedBenchmark,
+      sharpeDifference: difference(correctedSharpe, correctedBenchmark),
       calmar: evaluation.calmar.value,
       benchmarkCalmar,
       calmarDifference: difference(evaluation.calmar.value, benchmarkCalmar),
       basis:
-        "quant-performance: daily close, 252 observations/year, 2% risk-free; same-window benchmark; crypto comparison is a common convention, not 365-day annualization",
+        method === "lifecycle-2"
+          ? `daily close returns; zero risk-free; sample standard deviation; ${request.market === "crypto" ? 365 : 252} observations/year; same Sharpe as DSR`
+          : "quant-performance: daily close, 252 observations/year, 2% risk-free; same-window benchmark; crypto comparison is a common convention, not 365-day annualization",
     },
     return: evaluation.totalReturn.value,
     excess: evaluation.excessReturn.value,
@@ -103,7 +146,7 @@ export function scoreValidationResult(
       fills: result.fills.length,
       rejectionAttempts: result.rejections.length,
     },
-    daily: equityDailyReturns(points, request.initial),
+    daily,
   };
 }
 
@@ -229,6 +272,17 @@ export function projectCandidate(
   progress?.(instruments.length, instruments.length);
   const request: PortfolioRequest = {
     market: s.market,
+    ...(frozen.input.policy.method === "lifecycle-2" && s.market === "cn-equity"
+      ? {
+          costs: {
+            ...marketRules["cn-equity"].costs!,
+            sellTaxSchedule: {
+              kind: "cn-equity-historical" as const,
+              multiplier: 1,
+            },
+          },
+        }
+      : {}),
     initial: frozen.input.initial,
     start: dataset.dates[0]!,
     end: dataset.dates.at(-1)!,
@@ -244,44 +298,176 @@ export function projectCandidate(
       },
     ],
   };
-  return { id: s.id, family: candidate.family, request };
+  return {
+    id: s.id,
+    family: candidate.family,
+    request,
+    ...(frozen.input.policy.method === "lifecycle-2"
+      ? { entryParameterSensitivity: validationEntryParameterSensitivity([s]) }
+      : {}),
+  };
 }
 
 export function numericNeighbors(
   candidate: ResearchCandidate,
+  method: ValidationPolicy["method"] = "legacy",
 ): ResearchCandidate[] {
   const stop = candidate.strategy.exit.stop;
-  if (!stop) return [];
-  return [0.9, 1.1].map((factor) => ({
-    ...candidate,
-    strategy: {
+  const exits = stop
+    ? [0.9, 1.1].map((factor) => ({
+        ...candidate,
+        strategy: {
+          ...candidate.strategy,
+          id: `${candidate.strategy.id}-neighbor-${Math.round(factor * 100)}`,
+          exit: {
+            ...candidate.strategy.exit,
+            ...(candidate.variant === "atr" && stop.kind === "atr"
+              ? { stop: { ...stop, multiple: stop.multiple * factor } }
+              : {}),
+            ...(candidate.variant === "trailing"
+              ? { trailing: candidate.strategy.exit.trailing! * factor }
+              : {}),
+            ...(candidate.variant === "time" && candidate.strategy.exit.maxBars
+              ? {
+                  maxBars: Math.max(
+                    1,
+                    Math.round(candidate.strategy.exit.maxBars * factor),
+                  ),
+                }
+              : {}),
+            ...(candidate.variant === "time" &&
+            !candidate.strategy.exit.maxBars &&
+            stop.kind === "fixed"
+              ? { stop: { ...stop, fraction: stop.fraction * factor } }
+              : {}),
+          },
+        },
+        boundary: `${candidate.boundary}; predeclared numeric exit neighbor x${factor}`,
+      }))
+    : [];
+  if (method !== "lifecycle-2") return exits;
+  const entry = candidate.strategy.entry;
+  const entries = [0.9, 1.1].flatMap((factor) => {
+    let changed: typeof entry | null = null;
+    if (entry.kind === "dual-ma") {
+      const fast = Math.max(1, Math.round(entry.fast * factor));
+      changed = {
+        ...entry,
+        fast,
+        slow: Math.max(fast + 1, Math.round(entry.slow * factor)),
+      };
+    } else if (
+      entry.kind === "formula" &&
+      Object.keys(entry.parameters).length
+    ) {
+      changed = {
+        ...entry,
+        parameters: Object.fromEntries(
+          Object.entries(entry.parameters).map(([name, value]) => [
+            name,
+            /^N\d+$/.test(name)
+              ? Math.max(1, Math.round(value * factor))
+              : value * factor,
+          ]),
+        ),
+      };
+    } else if (entry.kind === "historical-low") {
+      changed = {
+        ...entry,
+        config: {
+          years: Math.min(
+            10,
+            Math.max(5, Math.round(entry.config.years * factor)),
+          ),
+          minimumBars: Math.max(
+            1000,
+            Math.round(entry.config.minimumBars * factor),
+          ),
+          recoveryPercentile: Math.min(
+            1,
+            Math.max(0.4, entry.config.recoveryPercentile * factor),
+          ),
+        },
+      };
+    } else if (entry.kind === "screening-metrics") {
+      const fast = Math.max(1, Math.round(entry.fast * factor));
+      changed = {
+        ...entry,
+        fast,
+        slow: Math.max(fast + 1, Math.round(entry.slow * factor)),
+        minChange: entry.minChange * factor,
+        maxChange: entry.maxChange * factor,
+        minVolumeRatio: entry.minVolumeRatio * factor,
+      };
+    } else if (entry.kind === "factor") {
+      const perturb = (spec: FactorSpec): FactorSpec => {
+        const resolved = resolveFactor(spec);
+        const parameters = Object.fromEntries(
+          Object.entries(resolved.spec.parameters).map(([key, value]) => {
+            const rule = resolved.definition.parameters[key]!;
+            const adjusted = rule.integer
+              ? Math.round(value * factor)
+              : value * factor;
+            return [key, Math.min(rule.max, Math.max(rule.min, adjusted))];
+          }),
+        );
+        if (parameters.fast !== undefined && parameters.slow !== undefined) {
+          parameters.fast = Math.min(parameters.fast, parameters.slow - 1);
+          const minimum = resolved.definition.parameters.fast!.min;
+          if (parameters.fast < minimum) {
+            parameters.fast = minimum;
+            parameters.slow = Math.max(parameters.slow, minimum + 1);
+          }
+        }
+        if (parameters.skip !== undefined && parameters.period !== undefined) {
+          parameters.skip = Math.min(parameters.skip, parameters.period - 1);
+          const minimum = resolved.definition.parameters.skip!.min;
+          if (parameters.skip < minimum) {
+            parameters.skip = minimum;
+            parameters.period = Math.max(parameters.period, minimum + 1);
+          }
+        }
+        return { id: spec.id, parameters };
+      };
+      changed = {
+        ...entry,
+        strategy: {
+          ...entry.strategy,
+          entry: {
+            ...entry.strategy.entry,
+            conditions: entry.strategy.entry.conditions.map((condition) => ({
+              ...condition,
+              left: perturb(condition.left),
+              right:
+                "constant" in condition.right
+                  ? { constant: condition.right.constant * factor }
+                  : { factor: perturb(condition.right.factor) },
+            })),
+          },
+        },
+      };
+    } else if (entry.kind === "rps")
+      changed = { ...entry, minimum: Math.min(100, entry.minimum * factor) };
+    if (!changed || JSON.stringify(changed) === JSON.stringify(entry))
+      return [];
+    const parsed = strategyObjectSchema.safeParse({
       ...candidate.strategy,
-      id: `${candidate.strategy.id}-neighbor-${Math.round(factor * 100)}`,
-      exit: {
-        ...candidate.strategy.exit,
-        ...(candidate.variant === "atr" && stop.kind === "atr"
-          ? { stop: { ...stop, multiple: stop.multiple * factor } }
-          : {}),
-        ...(candidate.variant === "trailing"
-          ? { trailing: candidate.strategy.exit.trailing! * factor }
-          : {}),
-        ...(candidate.variant === "time" && candidate.strategy.exit.maxBars
-          ? {
-              maxBars: Math.max(
-                1,
-                Math.round(candidate.strategy.exit.maxBars * factor),
-              ),
-            }
-          : {}),
-        ...(candidate.variant === "time" &&
-        !candidate.strategy.exit.maxBars &&
-        stop.kind === "fixed"
-          ? { stop: { ...stop, fraction: stop.fraction * factor } }
-          : {}),
+      id: `${candidate.strategy.id}-neighbor-entry-${Math.round(factor * 100)}`,
+      entry: changed,
+    });
+    if (!parsed.success)
+      throw new Error(
+        `Declared entry neighbor violates its rule schema: ${parsed.error.message}`,
+      );
+    return [
+      {
+        ...candidate,
+        strategy: parsed.data,
+        boundary: `${candidate.boundary}; predeclared numeric entry neighbor x${factor}`,
       },
-    },
-    boundary: `${candidate.boundary}; predeclared numeric exit neighbor x${factor}`,
-  }));
+    ];
+  });
+  return [...exits, ...entries];
 }
 export function replayValidationInput(
   frozen: FrozenValidationInput,
@@ -307,7 +493,7 @@ export function replayValidationInput(
   const cache: DecisionCache = new Map();
   const candidates = frozen.candidateMenu.flatMap((c) => [
     c,
-    ...numericNeighbors(c),
+    ...numericNeighbors(c, frozen.input.policy.method),
   ]);
   const missing: { id: string; reason: string }[] = [];
   for (const [datasetIndex, dataset] of frozen.datasets.entries()) {
@@ -317,12 +503,15 @@ export function replayValidationInput(
     const requests = declared.flatMap((candidate) => {
       const projected = projectCandidate(candidate, dataset, frozen, cache);
       if (projected) {
-        const center = candidate.strategy.id.replace(/-neighbor-\d+$/, "");
+        const center = candidate.strategy.id.replace(
+          /-neighbor-(?:entry-)?\d+$/,
+          "",
+        );
         projected.neighborIds = declared
           .filter(
             (c) =>
-              c.strategy.id.replace(/-neighbor-\d+$/, "") === center &&
-              c.strategy.id !== candidate.strategy.id,
+              c.strategy.id.replace(/-neighbor-(?:entry-)?\d+$/, "") ===
+                center && c.strategy.id !== candidate.strategy.id,
           )
           .map((c) => c.strategy.id);
       }
@@ -345,7 +534,13 @@ export function replayValidationInput(
         testBars:
           frozen.input.policy.testBars ?? Math.max(5, Math.floor(n * 0.1)),
       },
-      (result, request) => scoreValidationResult(result, request, dataset),
+      (result, request) =>
+        scoreValidationResult(
+          result,
+          request,
+          dataset,
+          frozen.input.policy.method,
+        ),
       (done, total) =>
         progress(
           Math.round(
@@ -473,7 +668,10 @@ export function replayValidationInput(
       }
       const overfit = diagnostics.multipleTesting.find((d) => d.id === row.id)!
         .result.selected.dsr.value;
-      if (overfit === null || overfit < frozen.input.policy.minimumDsr)
+      if (
+        frozen.input.policy.method !== "lifecycle-2" &&
+        (overfit === null || overfit < frozen.input.policy.minimumDsr)
+      )
         reasons.push(`multiple-testing-dsr-${frozen.input.policy.minimumDsr}`);
       if (
         candidate.strategy.sleeve === "low-zone" &&
@@ -555,7 +753,59 @@ export function replayValidationInput(
       id: candidate.strategy.id,
       reason: "Required public OHLC timeframe unavailable",
     });
+  if (frozen.input.policy.method === "lifecycle-2") {
+    const policy = {
+      ...frozen.input.policy,
+      trainBars: frozen.input.policy.trainBars ?? 20,
+      testBars: frozen.input.policy.testBars ?? 5,
+    };
+    const evaluated = assessValidationCandidates(
+      suites.flatMap(({ suite }) =>
+        suite.rows.map((row) => {
+          const strategy = candidates.find(
+            (c) => c.strategy.id === row.id,
+          )!.strategy;
+          return { row, market: strategy.market, sleeve: strategy.sleeve };
+        }),
+      ),
+      policy,
+    );
+    for (const board of boards) {
+      const method = evaluated.find((row) => row.id === board.id);
+      board.method = "lifecycle-2";
+      board.purpose = policy.purpose;
+      board.methodLabel =
+        policy.purpose === "post-hoc"
+          ? "post-hoc re-evaluation"
+          : "preregistered method evaluation";
+      if (method) {
+        const domainReasons = board.reasons.filter(
+          (reason) =>
+            reason === "insufficient-complete-market-cycles" ||
+            reason === "low-zone-input-confidence",
+        );
+        board.reasons = [...method.row.reasons, ...domainReasons];
+        board.status = board.reasons.length ? "research" : "live-candidate";
+      } else if (policy.purpose === "post-hoc") {
+        board.reasons.push("post-hoc-re-evaluation-not-promotable");
+        board.status = "research";
+      }
+    }
+    for (const suite of suites)
+      suite.diagnostics = {
+        method: "lifecycle-2",
+        purpose: policy.purpose,
+        families: evaluated
+          .filter((row) =>
+            suite.suite.rows.some((candidate) => candidate.id === row.id),
+          )
+          .map(validationMethodEvidence),
+      };
+  }
   return {
+    ...(frozen.input.policy.method === "lifecycle-2"
+      ? { method: "lifecycle-2" as const, purpose: frozen.input.policy.purpose }
+      : {}),
     version: "research-validation-scoreboard-1" as const,
     rows: boards,
     suites,

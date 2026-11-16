@@ -294,3 +294,53 @@ export function multipleTesting(
     },
   };
 }
+
+/** Declared correlation-cluster approximation, not a proof of independence.
+ * N=1 has no selection among independent trials and uses the PSR vs zero. */
+export function effectiveMultipleTesting(
+  returns: readonly (number | null)[],
+  trials: readonly ReviewValue[],
+  effectiveTrials: number,
+  yearlyDays = 252,
+) {
+  if (
+    !Number.isSafeInteger(effectiveTrials) ||
+    effectiveTrials < 1 ||
+    effectiveTrials > trials.length
+  )
+    throw new Error("Invalid effective trial count");
+  const result = multipleTesting(returns, trials, yearlyDays);
+  const threshold =
+    effectiveTrials === 1
+      ? { value: 0, reason: null }
+      : result.sharpeVariance.value === null
+        ? result.sharpeVariance
+        : deflatedSharpeThreshold(effectiveTrials, result.sharpeVariance.value);
+  const moments = result.selected;
+  const dsr =
+    threshold.value === null
+      ? threshold
+      : moments.sharpeDaily.value === null ||
+          moments.skewness.value === null ||
+          moments.kurtosis.value === null
+        ? { value: null, reason: "OOS return moments unavailable" }
+        : probabilisticSharpe(
+            {
+              sharpe: moments.sharpeDaily.value,
+              observations: moments.observations,
+              skewness: moments.skewness.value,
+              kurtosis: moments.kurtosis.value,
+            },
+            threshold.value,
+          );
+  return {
+    ...result,
+    trials: effectiveTrials,
+    recordedTrials: { value: trials.length, reason: null },
+    selected: { ...moments, threshold, dsr },
+    effectiveTrialBasis:
+      effectiveTrials === 1
+        ? "one-correlation-cluster-psr-zero"
+        : "correlation-cluster-approximation",
+  };
+}

@@ -41,6 +41,7 @@ export async function calculationIdentity(market: "cn-equity" | "crypto") {
     "scripts/lib/research/isolation.ts",
     "src/server/research/validation-replay.ts",
     "src/server/research/validation-scale.ts",
+    "src/server/research/validation-method.ts",
     "src/server/research/validation-model.ts",
     "src/server/research/validation-capture.ts",
     "src/server/research/corporate-actions.ts",

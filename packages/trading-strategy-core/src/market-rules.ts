@@ -84,10 +84,22 @@ const equityResearchBoards = [
   },
   { prefixes: [""], from: "", minimum: 100, step: 100, limit: 0.1 },
 ] as const;
-export function equityResearchRules(symbol: string, date: string) {
-  return equityResearchBoards.find(
+export function equityResearchRules(
+  symbol: string,
+  date: string,
+  status?: { st: boolean; source: string; date: string },
+) {
+  const board = equityResearchBoards.find(
     (row) =>
       date >= row.from &&
       row.prefixes.some((prefix) => symbol.startsWith(prefix)),
   )!;
+  if (!status) return board;
+  if (!status.source.trim() || status.date !== date.slice(0, 10))
+    throw new Error("ST status must have same-date historical evidence");
+  // STAR/ChiNext keep their board limits; confirmed main-board ST uses 5%.
+  return {
+    ...board,
+    limit: status.st && board.limit === 0.1 ? 0.05 : board.limit,
+  };
 }

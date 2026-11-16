@@ -14,6 +14,7 @@ import {
   validationDefaults,
   validationRowReasons,
   validationScorePasses,
+  validationAdditionalReasons,
   type ValidationScore,
   type ValidationPolicy,
 } from "quant-backtest";
@@ -31,6 +32,10 @@ import { atomic } from "../../../src/server/db";
 import { researchCandidates } from "trading-strategies";
 import { numericNeighbors } from "../../../src/server/research/validation-replay";
 import type { ScoreboardRow } from "../../../src/server/research/validation-model";
+import {
+  assessValidationCandidates,
+  validationMethodEvidence,
+} from "../../../src/server/research/validation-method";
 
 import { replayOnly, outputTask } from "./isolation";
 import { isDeepStrictEqual } from "node:util";
@@ -382,6 +387,35 @@ const compact = (s: ValidationScore) => {
   const { daily, ...rest } = s;
   return rest;
 };
+const lifecycle =
+  config.method === "lifecycle-2"
+    ? assessValidationCandidates(
+        locations.map(({ scope, checkpoint }) => ({
+          row: { ...checkpoint.row, id: `${scope}|${checkpoint.row.id}` },
+          market: marketOf(scope),
+          sleeve:
+            checkpoint.methodCandidate?.sleeve ??
+            (checkpoint.row.family === "historical-low"
+              ? "low-zone"
+              : /range-(1h|15m)/.test(checkpoint.row.id)
+                ? "breakout"
+                : "swing"),
+          ...(/sensitivity/.test(scope)
+            ? { role: "terminal-accounting" as const }
+            : {}),
+        })),
+        {
+          ...validationDefaults,
+          trainBars: 100,
+          testBars: 20,
+          minimumDsr: 0.95,
+          method: "lifecycle-2",
+          purpose: "post-hoc",
+          clusterCorrelation: config.clusterCorrelation,
+          maximumPbo: config.maximumPbo,
+        },
+      )
+    : null;
 const all = locations.map(({ scope, group, checkpoint: p }) => {
   const row = p.row,
     center = row.id.replace(/-neighbor-\d+$/, "");
@@ -412,14 +446,17 @@ const all = locations.map(({ scope, group, checkpoint: p }) => {
   const marketTrials = trials
     .filter((t) => t.market === marketOf(scope))
     .map((t) => t.sharpe);
-  const test = perMarket
-    ? multipleTesting(
-        row.windows
-          .flatMap((w) => w.base.daily)
-          .filter((v): v is number => v !== null),
-        marketTrials,
-      )
-    : globalTest;
+  const corrected = lifecycle?.find((r) => r.id === `${scope}|${row.id}`);
+  const test = corrected
+    ? corrected.testing
+    : perMarket
+      ? multipleTesting(
+          row.windows
+            .flatMap((w) => w.base.daily)
+            .filter((v): v is number => v !== null),
+          marketTrials,
+        )
+      : globalTest;
   const extra: string[] = [];
   const cycleEvaluation =
     scope === "csi800" && row.family === "historical-low"
@@ -437,13 +474,19 @@ const all = locations.map(({ scope, group, checkpoint: p }) => {
   }
   if (scope.includes("books-"))
     extra.push("allocation-comparison-not-exit-parameter-neighborhood");
-  if (test.selected.dsr.value === null || test.selected.dsr.value < 0.95)
-    extra.push("multiple-testing-dsr-0.95");
-  const newReasons = [
-    ...validationRowReasons(currentRow, {
-      ...policy,
-      returnCriterion: "risk-adjusted",
+  extra.push(
+    ...validationAdditionalReasons({
+      minimumDsr: 0.95,
+      dsr: test.selected.dsr.value,
     }),
+  );
+  const newReasons = [
+    ...(corrected
+      ? corrected.row.reasons
+      : validationRowReasons(currentRow, {
+          ...policy,
+          returnCriterion: "risk-adjusted",
+        })),
     ...extra,
   ];
   if (cycleEvaluation) {
@@ -511,6 +554,14 @@ const all = locations.map(({ scope, group, checkpoint: p }) => {
       ]
     : undefined;
   return {
+    ...(corrected
+      ? {
+          method: corrected.method,
+          purpose: corrected.purpose,
+          methodLabel: corrected.label,
+          methodEvidence: validationMethodEvidence(corrected),
+        }
+      : {}),
     scope,
     id: row.id,
     family: row.family,
@@ -814,6 +865,9 @@ atomic(() => {
       });
     }
     const rows: ScoreboardRow[] = main.map((r) => ({
+      ...("method" in r
+        ? { method: r.method, purpose: r.purpose, methodLabel: r.methodLabel }
+        : {}),
       id: r.id,
       worstDrawdown: r.worstDrawdown,
       dsr: r.dsr,

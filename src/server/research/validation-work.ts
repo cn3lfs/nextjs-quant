@@ -56,7 +56,7 @@ export async function executeValidationWork(
     const repository = new StrategyRepository();
     for (const candidate of frozen.candidateMenu.flatMap((c) => [
       c,
-      ...numericNeighbors(c),
+      ...numericNeighbors(c, frozen.input.policy.method),
     ]))
       repository.saveStrategy(candidate.strategy);
     return saveValidationScoreboard({

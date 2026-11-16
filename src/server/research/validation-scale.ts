@@ -2,6 +2,7 @@ import {
   runPortfolio,
   runValidationSuite,
   validationRowReasons,
+  validationAdditionalReasons,
   type ValidationCandidate,
   type ValidationPolicy,
   type ValidationRow,
@@ -9,12 +10,17 @@ import {
 import { multipleTesting, sharpeDaily } from "~/lib/backtest/multiple-testing";
 import { scoreValidationResult } from "./validation-replay";
 import type { ValidationDataset } from "./validation-capture";
+import {
+  assessValidationCandidates,
+  validationMethodEvidence,
+} from "./validation-method";
 
 export type CandidateCheckpoint = {
   row: ValidationRow;
   training: { start: string; end: string; score: ValidationRow["inSample"] }[];
   fullPeriod: ValidationRow["inSample"];
   elapsedMs: number;
+  methodCandidate?: { market: "cn-equity" | "crypto"; sleeve: string };
 };
 
 /** Candidate execution is independent; selection and multiplicity are joined
@@ -34,9 +40,22 @@ export function runCandidateCheckpoint(
     [candidate],
     dataset.dates,
     policy,
-    (result, request) => scoreValidationResult(result, request, dataset),
+    (result, request) =>
+      scoreValidationResult(result, request, dataset, policy.method),
   );
   return {
+    ...(policy.method === "lifecycle-2"
+      ? {
+          methodCandidate: {
+            market: candidate.request.market,
+            sleeve: candidate.request.strategies
+              .map((s) => s.sleeve)
+              .filter((s, i, all) => all.indexOf(s) === i)
+              .sort()
+              .join("+"),
+          },
+        }
+      : {}),
     row: suite.rows[0]!,
     training: suite.selection.map((window) => ({
       start: window.trainStart,
@@ -47,6 +66,7 @@ export function runCandidateCheckpoint(
       runPortfolio(candidate.request),
       candidate.request,
       dataset,
+      policy.method,
     ),
     elapsedMs: performance.now() - started,
   };
@@ -61,6 +81,22 @@ export function joinCandidateCheckpoints(
     new Set(checkpoints.map((c) => c.row.id)).size !== checkpoints.length
   )
     throw new Error("Missing / duplicate candidate checkpoints");
+  if (policy.method === "lifecycle-2") {
+    const assessed = assessValidationCandidates(
+      checkpoints.map((c) => {
+        if (!c.methodCandidate)
+          throw new Error("Checkpoint lacks frozen method family");
+        return { row: c.row, ...c.methodCandidate };
+      }),
+      policy,
+    );
+    return checkpoints.map((checkpoint, i) => ({
+      ...checkpoint,
+      row: assessed[i]!.row,
+      testing: assessed[i]!.testing,
+      method: validationMethodEvidence(assessed[i]!),
+    }));
+  }
   const trials = checkpoints.map((c) => sharpeDaily(c.fullPeriod.daily));
   return checkpoints.map((checkpoint) => {
     const original = checkpoint.row;
@@ -77,11 +113,12 @@ export function joinCandidateCheckpoints(
       original.windows.flatMap((w) => w.base.daily),
       trials,
     );
-    if (
-      testing.selected.dsr.value === null ||
-      testing.selected.dsr.value < policy.minimumDsr
-    )
-      reasons.push(`multiple-testing-dsr-${policy.minimumDsr}`);
+    reasons.push(
+      ...validationAdditionalReasons({
+        dsr: testing.selected.dsr.value,
+        minimumDsr: policy.minimumDsr,
+      }),
+    );
     return {
       ...checkpoint,
       row: { ...original, neighbors, reasons, passed: !reasons.length },

@@ -1,0 +1,20 @@
+{
+  "method": "lifecycle-2",
+  "purpose": "post-hoc",
+  "clusterCorrelation": 0.95,
+  "maximumPbo": 0.5,
+  "minimumDsr": 0.95,
+  "cscvSplits": 10,
+  "minimumCscvPeriodObservations": 20,
+  "singleCluster": "PSR against zero; explicitly labelled",
+  "family": "market x sleeve",
+  "clusterMethod": "deterministic complete-link; correlation approximation, not independent-trial certification",
+  "returns": "aligned OOS daily returns; zero risk-free; sample standard deviation",
+  "entryPerturbation": [0.9, 1.1],
+  "exitPerturbation": [0.9, 1.1],
+  "historicalEquityStampDuty": {
+    "before20230828Bps": 10,
+    "from20230828Bps": 5
+  },
+  "boundary": "Method declaration only. No research run or historical re-evaluation. L3 requires its own frozen preregistered menu and input hashes."
+}

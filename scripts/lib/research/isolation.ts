@@ -11,14 +11,33 @@ export const configSchema = z
     holdoutStart: z.string(),
     dsrScope: z.enum(["global", "market"]),
     sizing: z.array(z.enum(["legacy", "equal", "volatility"])),
+    method: z.enum(["legacy", "lifecycle-2"]).optional(),
+    purpose: z.enum(["preregistered", "post-hoc"]).optional(),
+    clusterCorrelation: z.number().positive().max(1).optional(),
+    maximumPbo: z.number().min(0).max(1).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.method === "lifecycle-2" &&
+      (value.purpose !== "post-hoc" ||
+        value.clusterCorrelation === undefined ||
+        value.maximumPbo === undefined)
+    )
+      context.addIssue({
+        code: "custom",
+        message:
+          "Old R2 rows require explicit post-hoc purpose and declared lifecycle method parameters",
+      });
+  });
 if (!process.env.QUANT_RESEARCH_CONFIG)
   throw new Error("Use scripts/research.ts with --config");
 export const config = configSchema.parse(
   JSON.parse(readFileSync(process.env.QUANT_RESEARCH_CONFIG, "utf8")),
 );
 export const replayOnly = process.env.QUANT_RESEARCH_REPLAY === "1";
+if (replayOnly && config.method === "lifecycle-2")
+  throw new Error("Frozen replay cannot change its recorded validation method");
 export const outputTask = replayOnly
   ? resolve(".test-data/r2a5/replay-r2a4")
   : resolve(config.task);

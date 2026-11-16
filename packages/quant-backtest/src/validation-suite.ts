@@ -4,8 +4,43 @@ import {
   type PortfolioRequest,
 } from "./portfolio-engine.js";
 import { marketRules } from "trading-strategy-core/market-rules";
+import type { StrategyObjectInput } from "trading-strategies";
+
+/** External projected decisions need the original rule's declaration. Native
+ * warmup origins/configuration are fixed evidence, not trading parameters. */
+export function validationEntryParameterSensitivity(
+  strategies: readonly StrategyObjectInput[],
+): "required" | "not-applicable" | undefined {
+  if (strategies.some((s) => s.entry.kind === "external")) return undefined;
+  return strategies.some(
+    ({ entry }) =>
+      entry.kind === "dual-ma" ||
+      entry.kind === "rps" ||
+      entry.kind === "screening-metrics" ||
+      (entry.kind === "factor" &&
+        entry.strategy.entry.conditions.some(
+          (condition) =>
+            Object.keys(condition.left.parameters ?? {}).length > 0 ||
+            ("factor" in condition.right
+              ? Object.keys(condition.right.factor.parameters ?? {}).length > 0
+              : condition.right.constant !== 0),
+        )) ||
+      entry.kind === "historical-low" ||
+      (entry.kind === "formula" &&
+        Object.keys(entry.parameters ?? {}).length > 0),
+  )
+    ? "required"
+    : "not-applicable";
+}
 
 export type ValidationScore = {
+  /** Present only in the declared lifecycle method; legacy artifacts stay exact. */
+  dailyDates?: string[];
+  tradeListHash?: string;
+  /** Same-version reference distributions; missing is not a zero sample. */
+  dailySignals?: number[];
+  tradeReturns?: number[];
+  slippageBps?: number[];
   riskAdjusted?: {
     sharpe: number | null;
     benchmarkSharpe: number | null;
@@ -29,6 +64,10 @@ export type ValidationScore = {
   daily: (number | null)[];
 };
 export type ValidationPolicy = {
+  method?: "legacy" | "lifecycle-2";
+  purpose?: "preregistered" | "post-hoc";
+  clusterCorrelation?: number;
+  maximumPbo?: number;
   returnCriterion?: "risk-adjusted" | "raw-excess";
   holdoutStart?: string;
   trainBars: number;
@@ -64,7 +103,9 @@ export function validationRowReasons(
   policy: ValidationPolicy,
 ) {
   const criterion =
-    policy.returnCriterion ?? validationDefaults.returnCriterion;
+    policy.method === "lifecycle-2"
+      ? "risk-adjusted"
+      : (policy.returnCriterion ?? validationDefaults.returnCriterion);
   const reasons: string[] = [];
   const count = row.windows.length;
   if (count < policy.minimumWindows) reasons.push("insufficient-oos-windows");
@@ -116,16 +157,69 @@ export function validationRowReasons(
         ? "holdout-positive-excess"
         : "holdout-positive-risk-adjusted",
     );
+  const testableNeighbors =
+    policy.method === "lifecycle-2"
+      ? row.neighbors.filter((n) => n.testable === true)
+      : row.neighbors;
   if (
-    !row.neighbors.length ||
-    row.neighbors.filter((n) => n.excess !== null && n.excess > 0).length /
-      row.neighbors.length <
+    !testableNeighbors.length ||
+    testableNeighbors.filter((n) =>
+      policy.method === "lifecycle-2"
+        ? n.oosPassed === true
+        : n.excess !== null && n.excess > 0,
+    ).length /
+      testableNeighbors.length <
       policy.minimumStableNeighbors
   )
     reasons.push("parameter-neighborhood");
+  if (
+    policy.method === "lifecycle-2" &&
+    row.entryParameterSensitivity === undefined
+  )
+    reasons.push("missing-entry-parameter-declaration");
+  if (
+    policy.method === "lifecycle-2" &&
+    row.entryParameterSensitivity === "required" &&
+    !testableNeighbors.some((n) => n.perturbed === "entry")
+  )
+    reasons.push("entry-neighborhood-not-testable");
+  return reasons;
+}
+
+/** All consumers share eligibility reasons; statistical calculations stay with
+ * their owning pure modules and supply explicit evidence, never defaults. */
+export function validationAdditionalReasons(input: {
+  minimumDsr: number;
+  dsr: number | null;
+  pbo?: { value: number | null; maximum: number };
+  lowZone?: { cycles: number; minimumCycles: number; corroborated: boolean };
+  purpose?: "preregistered" | "post-hoc";
+}) {
+  const reasons: string[] = [];
+  if (
+    input.dsr === null ||
+    !Number.isFinite(input.dsr) ||
+    input.dsr < input.minimumDsr
+  )
+    reasons.push(`multiple-testing-dsr-${input.minimumDsr}`);
+  if (
+    input.pbo &&
+    (input.pbo.value === null ||
+      !Number.isFinite(input.pbo.value) ||
+      input.pbo.value > input.pbo.maximum)
+  )
+    reasons.push("family-cscv-pbo");
+  if (input.lowZone) {
+    if (input.lowZone.cycles < input.lowZone.minimumCycles)
+      reasons.push("insufficient-complete-market-cycles");
+    if (!input.lowZone.corroborated) reasons.push("low-zone-input-confidence");
+  }
+  if (input.purpose === "post-hoc")
+    reasons.push("post-hoc-re-evaluation-not-promotable");
   return reasons;
 }
 export type ValidationCandidate = {
+  entryParameterSensitivity?: "required" | "not-applicable";
   id: string;
   family: string;
   request: PortfolioRequest;
@@ -139,18 +233,67 @@ export type ValidationRun = {
   delayed: ValidationScore;
 };
 export type ValidationRow = {
+  entryParameterSensitivity?: "required" | "not-applicable";
   id: string;
   family: string;
   inSample: ValidationScore;
   holdout: ValidationRun;
   windows: ValidationRun[];
-  neighbors: { id: string; excess: number | null }[];
+  neighbors: {
+    id: string;
+    excess: number | null;
+    testable?: boolean;
+    oosPassed?: boolean;
+    perturbed?: "entry" | "exit";
+    reason?: string;
+  }[];
   positiveWindows: number;
   stressPositiveWindows: number;
   closedTrades: number;
   reasons: string[];
   passed: boolean;
 };
+
+export function validationNeighborhood(
+  row: ValidationRow,
+  neighbors: readonly ValidationRow[],
+  policy: ValidationPolicy,
+): ValidationRow["neighbors"] {
+  if (policy.method !== "lifecycle-2")
+    return neighbors.map((n) => ({ id: n.id, excess: n.inSample.excess }));
+  return neighbors.map((neighbor) => {
+    const hashes = row.windows.map((w) => w.base.tradeListHash);
+    const other = neighbor.windows.map((w) => w.base.tradeListHash);
+    const evidence =
+      hashes.length > 0 &&
+      hashes.length === other.length &&
+      [...hashes, ...other].every((hash) => typeof hash === "string");
+    const identical = evidence && hashes.every((hash, i) => hash === other[i]);
+    const testable = evidence && !identical;
+    return {
+      id: neighbor.id,
+      excess: neighbor.inSample.excess,
+      testable,
+      oosPassed:
+        testable &&
+        neighbor.windows.filter((w) =>
+          validationScorePasses(w.base, "risk-adjusted"),
+        ).length /
+          neighbor.windows.length >=
+          policy.minimumPositiveWindows,
+      perturbed: neighbor.id.includes("-neighbor-entry-")
+        ? ("entry" as const)
+        : ("exit" as const),
+      ...(!testable
+        ? {
+            reason: identical
+              ? "identical-oos-trades"
+              : "missing-oos-trade-evidence",
+          }
+        : {}),
+    };
+  });
+}
 
 /** Only the training prefix is supplied to the engine and ranking callback.
  * Each segment starts with independent capital, preserving earlier features but
@@ -296,7 +439,14 @@ export function runValidationSuite(
       costs: Object.fromEntries(
         Object.entries(costs).map(([key, value]) => [
           key,
-          typeof value === "number" ? value * costMultiplier : value,
+          key === "sellTaxSchedule" && costs.sellTaxSchedule
+            ? {
+                ...costs.sellTaxSchedule,
+                multiplier: costs.sellTaxSchedule.multiplier * costMultiplier,
+              }
+            : typeof value === "number"
+              ? value * costMultiplier
+              : value,
         ]),
       ) as typeof costs,
     };
@@ -348,6 +498,13 @@ export function runValidationSuite(
     const closedTrades = evaluated.reduce((n, w) => n + w.base.trades, 0);
     progress(index + 1, candidates.length);
     return {
+      ...(policy.method === "lifecycle-2"
+        ? {
+            entryParameterSensitivity:
+              candidate.entryParameterSensitivity ??
+              validationEntryParameterSensitivity(candidate.request.strategies),
+          }
+        : {}),
       id: candidate.id,
       family: candidate.family,
       inSample: run(candidate, dates[0]!, dates[policy.trainBars - 1]!),
@@ -363,13 +520,12 @@ export function runValidationSuite(
   });
   for (const row of rows) {
     const neighbors = candidates.find((c) => c.id === row.id)!.neighborIds;
-    row.neighbors = rows
-      .filter((r) =>
-        neighbors
-          ? neighbors.includes(r.id)
-          : r.family === row.family && r.id !== row.id,
-      )
-      .map((r) => ({ id: r.id, excess: r.inSample.excess }));
+    const related = rows.filter((r) =>
+      neighbors
+        ? neighbors.includes(r.id)
+        : r.family === row.family && r.id !== row.id,
+    );
+    row.neighbors = validationNeighborhood(row, related, policy);
     const reasons = validationRowReasons(row, policy);
     row.reasons = reasons;
     row.passed = reasons.length === 0;
