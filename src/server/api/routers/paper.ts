@@ -9,6 +9,10 @@ import { configurePaperMirror } from "../../paper/mirror";
 import { runWorker } from "../../jobs/jobs";
 import { beijingClock } from "~/lib/market/market-session";
 import type { PaperBuildReviewManifest } from "../../paper/build-review";
+import {
+  paperAccountRead,
+  paperAccountsRead,
+} from "../../paper/read-projection";
 const id = z.string().min(1).max(240);
 const kind = z.enum([
   "order",
@@ -47,14 +51,11 @@ export const paperRouter = createTRPCRouter({
         financialHistoryChanged: false;
       }>({ type: "paper-build-confirm", ...input }),
     ),
-  paperAccounts: p("portfolio", "read").query(() =>
-    new PaperRepository().summaries(),
-  ),
+  paperAccounts: p("portfolio", "read").query(() => paperAccountsRead()),
   paperAccount: p("portfolio", "read")
     .input(id)
     .query(({ input }) => {
-      const account = new PaperRepository().account(input);
-      if (!account) throw new Error("纸面账户不存在");
+      const account = paperAccountRead(input);
       return {
         ...account,
         candidates: account.candidates.map((c) => ({

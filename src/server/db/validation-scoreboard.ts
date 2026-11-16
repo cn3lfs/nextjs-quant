@@ -1,6 +1,7 @@
 import { get, put, atomic } from "./index";
 import { AlertRepository } from "./alert-repository";
 import type { ShadowRegistration, ShadowSummary } from "../alerts/shadow";
+import { strategyLabDetail } from "./strategy-lab";
 import { selectShadowCandidates } from "../research/shadow-selection";
 import {
   scoreboardQuerySchema,
@@ -51,12 +52,23 @@ function persistValidationScoreboard(value: ValidationScoreboard) {
     value,
   );
 }
+export type CurrentScoreboardRow = Omit<ScoreboardRow, "shadow"> & {
+  shadow?: Omit<NonNullable<ScoreboardRow["shadow"]>, "assessment">;
+  forward: {
+    verdict: "conforming" | "degraded" | "insufficient";
+    eligible: boolean;
+    promoted: boolean;
+    reasons: string[];
+    recommendation: string;
+  } | null;
+};
 export function validationScoreboardPage(raw: unknown) {
   const query = scoreboardQuerySchema.parse(raw);
   const saved = get<ValidationScoreboard>(
     `validation-scoreboard-${query.market}`,
   );
-  if (!saved) return { metadata: null, total: 0, rows: [] as ScoreboardRow[] };
+  if (!saved)
+    return { metadata: null, total: 0, rows: [] as CurrentScoreboardRow[] };
   const { rows, ...metadata } = saved;
   const metric = (r: ScoreboardRow) =>
     query.sort === "excess" ? r.excess : r.drawdown;
@@ -72,24 +84,39 @@ export function validationScoreboardPage(raw: unknown) {
   return {
     metadata,
     total: rows.length,
-    rows: sorted.slice(query.page * 20, (query.page + 1) * 20).map((row) => {
-      if (row.status !== "shadow-candidate") return row;
-      const repo = new AlertRepository();
-      const registration = repo.state<ShadowRegistration>(`shadow:${row.id}:1`);
-      const progress = repo.state<ShadowSummary>(`shadow-summary:${row.id}:1`);
-      return {
-        ...row,
-        shadow: registration
-          ? {
-              active: registration.active,
-              startedAt: registration.startedAt,
-              signals: progress?.signals ?? 0,
-              days: progress?.days ?? 0,
-              paused: progress?.paused ?? false,
-              assessment: progress?.assessment ?? null,
-            }
-          : undefined,
-      };
-    }),
+    rows: sorted
+      .slice(query.page * 20, (query.page + 1) * 20)
+      .map((row): CurrentScoreboardRow => {
+        const { shadow: _historicalShadow, ...research } = row;
+        if (row.level !== "strategy") return { ...research, forward: null };
+        const repo = new AlertRepository();
+        const version = row.strategyVersion ?? 1;
+        const detail = strategyLabDetail(row.id, version, repo);
+        const registration = detail.shadow;
+        const progress = repo.state<ShadowSummary>(
+          `shadow-summary:${row.id}:${version}`,
+        );
+        return {
+          ...research,
+          shadow: registration
+            ? {
+                active: registration.active,
+                startedAt: registration.startedAt,
+                signals: progress?.signals ?? 0,
+                days: progress?.days ?? 0,
+                paused: progress?.paused ?? false,
+              }
+            : undefined,
+          forward: {
+            verdict: detail.forwardAssessment?.verdict ?? "insufficient",
+            eligible: detail.eligible,
+            promoted: detail.eligible && !!detail.promotion,
+            reasons: detail.reasons,
+            recommendation:
+              detail.forwardAssessment?.recommendation ??
+              "证据不足；等待同版本冻结分布与当前纸面评估",
+          },
+        };
+      }),
   };
 }

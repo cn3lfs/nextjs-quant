@@ -5,11 +5,11 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
-import type { ScoreboardRow } from "~/server/research/validation-model";
+import type { CurrentScoreboardRow } from "~/server/db/validation-scoreboard";
 
 const pct = (value: number | null) =>
   value === null ? "—" : `${displayNumber(value * 100, 2)}%`;
-const columns: DataTableColumn<ScoreboardRow>[] = [
+const columns: DataTableColumn<CurrentScoreboardRow>[] = [
   {
     id: "id",
     header: "策略 / 分仓 / 组合",
@@ -55,14 +55,10 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
     cell: ({ row }) => (
       <div className="max-w-96 text-xs">
         <p>
-          {row.original.status === "live-candidate"
-            ? "可监视候选"
-            : row.original.status === "shadow-candidate"
-              ? row.original.shadow?.active
-                ? "影子前推中"
-                : row.original.shadow
-                  ? "影子观察未开启或已暂停"
-                  : "影子候选，尚未手动开启"
+          {row.original.forward?.promoted
+            ? "已晋级"
+            : row.original.shadow?.active
+              ? "影子前推中"
               : "研究"}{" "}
           · 闭合交易 {row.original.trades}
         </p>
@@ -75,8 +71,19 @@ const columns: DataTableColumn<ScoreboardRow>[] = [
             · 前推 {row.original.shadow.signals} 个信号 /{" "}
             {row.original.shadow.days} 日
             {row.original.shadow.paused ? " · 容量已达上限，已暂停采集" : ""}；
-            {row.original.shadow.assessment?.recommendation ??
-              "达到30个信号或60日后评估"}
+          </p>
+        )}
+        {row.original.forward && (
+          <p>
+            前推一致性：
+            {row.original.forward.verdict === "conforming"
+              ? "一致"
+              : row.original.forward.verdict === "degraded"
+                ? "衰减"
+                : "证据不足"}
+            ；{row.original.forward.recommendation}
+            {row.original.forward.reasons.length > 0 &&
+              `；${row.original.forward.reasons.join("、")}`}
           </p>
         )}
         {row.original.dsr && (
@@ -138,7 +145,7 @@ export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
         ]}
       />
       <p className="text-sm text-muted-foreground">
-        留出诊断已用于研究迭代，不能再视为新的样本外。影子候选从登记后积累前推观察，保持零投递；达到30个信号或60个实际观察市场日后按同一门槛给建议。开启live和订阅仍须手动设置。价格、证券池与成交证据缺口继续适用。
+        留出诊断已用于研究迭代，不能再视为新的样本外。影子候选从登记后积累前推观察，保持零投递；信号计数不代表组合盈亏；当前建议使用同版本冻结分布的纸面前推一致性，回测门槛和前推一致性均通过才可晋级。开启live和订阅仍须手动设置。价格、证券池与成交证据缺口继续适用。
       </p>
       {report.data?.metadata && (
         <p className="break-all text-xs text-muted-foreground">

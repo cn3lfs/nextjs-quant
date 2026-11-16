@@ -296,9 +296,7 @@ export function PaperAccountsPanel() {
             </span>
             <span>
               最新bar {a.lastBar ?? "未观察"} ·{" "}
-              {a.error ??
-                a.summary?.assessment?.recommendation ??
-                "前推中，30信号或60市场日后评估"}
+              {a.error ?? a.currentAssessment.recommendation}
             </span>
           </Button>
         ))}
@@ -322,11 +320,11 @@ export function PaperAccountsPanel() {
           <p className="text-xs">未通过门槛：{c.reasons.join("、")}</p>
         </details>
       ))}
-      {detail.data?.summary?.assessment && (
+      {detail.data?.currentAssessment && (
         <p role="status" className="text-nc-warn">
-          {detail.data.summary.assessment.recommendation}：
-          {detail.data.summary.assessment.reasons.join("、")}
-          {detail.data.summary.assessment.slippageBasis === "paper-model"
+          {detail.data.currentAssessment.recommendation}：
+          {detail.data.currentAssessment.reasons.join("、")}
+          {detail.data.currentAssessment.slippageBasis === "paper-model"
             ? "；模型滑点仅验证本地撮合一致性，真实执行未验证"
             : ""}
         </p>

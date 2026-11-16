@@ -186,9 +186,15 @@ describe("shadow prospective observations", () => {
     ]);
     expect(next.samples[0]!.bar.close).toBe(11);
     expect(next.days).toEqual(["2026-11-15", "2026-11-18"]);
-    expect(assessShadow(strategy, registration, next, start)).toBeNull();
+    expect(assessShadow(strategy, registration, next, start)).toMatchObject({
+      eligible: false,
+      reasons: expect.arrayContaining([
+        "shadow-observations-have-no-portfolio-distribution",
+      ]),
+      coverage: { observedDays: 2 },
+    });
   });
-  it("a signal threshold triggers the same gates, never a promise from an insufficient forward window", () => {
+  it("a signal threshold remains coverage only without a portfolio distribution", () => {
     const p = appendShadowSamples(
       undefined,
       registration,
@@ -197,10 +203,13 @@ describe("shadow prospective observations", () => {
     expect(p.signals).toBe(30);
     expect(assessShadow(strategy, registration, p, start)).toMatchObject({
       eligible: false,
-      reasons: ["insufficient-forward-windows"],
+      reasons: [
+        "shadow-observations-have-no-portfolio-distribution",
+        "incomplete-shadow-observation-windows",
+      ],
     });
   });
-  it("60 actually observed days invoke forward execution and still reject too few closed trades", () => {
+  it("60 observed days never reconstruct portfolio returns or rerun research gates", () => {
     const samples = Array.from({ length: 60 }, (_, i) => {
       const s = sample(
         new Date(start + i * 86400000).toISOString().slice(0, 10),
@@ -224,8 +233,28 @@ describe("shadow prospective observations", () => {
       start + 61 * 86400000,
     )!;
     expect(result.eligible).toBe(false);
-    expect(result.reasons).toContain("insufficient-closed-trades");
+    expect(result.reasons).toEqual([
+      "shadow-observations-have-no-portfolio-distribution",
+    ]);
     expect(result.recommendation).not.toContain("手动开启");
+  });
+  it("reports unknown rules and capacity without discarding captured coverage", () => {
+    const progress = appendShadowSamples(undefined, registration, [
+      { ...sample(), entry: null },
+    ]);
+    progress.paused = true;
+    expect(assessShadow(strategy, registration, progress, start)).toMatchObject(
+      {
+        eligible: false,
+        reasons: [
+          "shadow-observations-have-no-portfolio-distribution",
+          "shadow-observation-capacity-reached",
+          "unknown-forward-rule-inputs",
+        ],
+        coverage: { observedDays: 1, windows: 1 },
+      },
+    );
+    expect(progress.samples[0]!.entry).toBeNull();
   });
   it("a new gap reports the latest short segment instead of recycling an older complete verdict", () => {
     const samples = Array.from({ length: 60 }, (_, i) =>
@@ -238,14 +267,17 @@ describe("shadow prospective observations", () => {
       progress,
       start + 61 * 86400000,
     )!;
-    expect(result.reasons).toEqual(["insufficient-contiguous-forward-windows"]);
+    expect(result.reasons).toEqual([
+      "shadow-observations-have-no-portfolio-distribution",
+      "incomplete-shadow-observation-windows",
+    ]);
     expect(result.coverage).toMatchObject({
       observedDays: 59,
       assessedDays: 1,
       start: samples.at(-1)!.bar.date,
       end: samples.at(-1)!.bar.date,
       latestObserved: samples.at(-1)!.bar.date,
-      windows: 0,
+      windows: 59,
     });
     expect(result.coverage!.gaps).toHaveLength(1);
   });
@@ -305,7 +337,7 @@ describe("shadow prospective observations", () => {
     ).toEqual(["passed", "C"]);
   });
   it.each([null, 25])(
-    "recommends only when sufficient complete windows pass, with a historical gap at %s",
+    "keeps strong shadow signals insufficient without portfolio evidence, with a historical gap at %s",
     (gap) => {
       const samples = Array.from({ length: 240 }, (_, i) => {
         const s = sample(
@@ -343,8 +375,10 @@ describe("shadow prospective observations", () => {
         p,
         start + 241 * 86400000,
       )!;
-      expect(result.reasons).toEqual([]);
-      expect(result.eligible).toBe(true);
+      expect(result.reasons).toContain(
+        "shadow-observations-have-no-portfolio-distribution",
+      );
+      expect(result.eligible).toBe(false);
       expect(result.coverage).toMatchObject({
         observedDays: gap === null ? 240 : 239,
         assessedDays: gap === null ? 240 : 214,
@@ -352,7 +386,7 @@ describe("shadow prospective observations", () => {
       expect(result.coverage!.gaps).toHaveLength(gap === null ? 0 : 1);
       expect(result.coverage!.windows).toBeGreaterThan(0);
       expect(result.recommendation).toBe(
-        "可考虑开启提醒；请在设置中手动开启live并启用订阅",
+        "证据不足；影子信号计数不代表组合盈亏，资格以同版本纸面前推一致性为准",
       );
       expect(registration.active).toBe(true);
     },

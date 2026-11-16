@@ -23,18 +23,13 @@ export function PaperForwardStatus({ compact = false }: { compact?: boolean }) {
       )}
       {query.error && <p role="alert">{query.error.message}</p>}
       {query.data?.map((a) => {
-        const current =
-          a.summary?.assessment?.method === "forward-conformance-1"
-            ? a.summary.assessment
-            : null;
+        const current = a.currentAssessment;
         return (
           <p key={a.id} className="break-all text-sm">
-            {a.id}：{current?.observedSignals ?? "—"} 观察信号 /{" "}
-            {current?.conformance?.days ?? "—"} 观察市场日 ·{" "}
-            {current?.recommendation ??
-              a.error ??
-              "证据不足；等待同版本冻结分布与当前评估"}
-            {current?.slippageBasis === "paper-model"
+            {a.id}：{current.observedSignals ?? "—"} 观察信号 /{" "}
+            {current.days ?? "—"} 观察市场日 · {current.recommendation}
+            {a.error ? `；${a.error}` : ""}
+            {current.slippageBasis === "paper-model"
               ? " · 模型滑点，真实执行未验证"
               : ""}
           </p>
