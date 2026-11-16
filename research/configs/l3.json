@@ -1,0 +1,2515 @@
+{
+  "version": "lifecycle-preregistration-1",
+  "batch": "L3",
+  "method": "lifecycle-2",
+  "purpose": "preregistered",
+  "status": "engineering-review-before-return-research",
+  "task": ".test-data/lifecycle-20261116",
+  "freezeRule": "Freeze this exact file and all input/build/axis hashes before calculating any return; changed parameters require a new declared round, never overwrite this registration.",
+  "methodConfig": "research/configs/l2-method.json",
+  "limits": {
+    "mainPerMarketSleeve": 12,
+    "main": 16,
+    "neighbors": 104,
+    "economicConfigurations": 120,
+    "schemaNoops": 8,
+    "schemaNoopsActuallyRun": 0,
+    "primaryDsrCandidatesBeforeExecutionNoopAudit": 120,
+    "executionScenarios": 360
+  },
+  "families": [
+    {
+      "family": "cn-equity:swing",
+      "main": 7,
+      "neighbors": 40,
+      "economicConfigurations": 47
+    },
+    {
+      "family": "cn-equity:low-zone",
+      "main": 1,
+      "neighbors": 4,
+      "economicConfigurations": 5
+    },
+    {
+      "family": "crypto:swing",
+      "main": 4,
+      "neighbors": 20,
+      "economicConfigurations": 24
+    },
+    {
+      "family": "crypto:breakout",
+      "main": 4,
+      "neighbors": 40,
+      "economicConfigurations": 44
+    }
+  ],
+  "rankSource": {
+    "universe": "All baseline and rank-neighbor RPS values are recomputed on the SAME frozen CSI800 price-input cross section; NEVER mix historical 5564-market baseline RPS with 799-pool neighbors.",
+    "periods": [
+      18,
+      20,
+      22,
+      45,
+      50,
+      55,
+      108,
+      120,
+      132
+    ],
+    "computation": "Reuse quant-rps rankReturns (1-based mean ties) on actual calendar-aligned endpoint returns for every registered period. Every endpoint must exist with positive turnover; no price/constant fill. Freeze eligible symbols and missing inputs per date/period before evaluation. Current constituent/local price coverage bias is explicit.",
+    "oldRpsSnapshots": "Do not read the old 20/50/120-only external.rps as new rank evidence. Missing registered periods is a data gap, never an economic no-trade or stable neighbor.",
+    "resource": "One shared read-only source parse, stream one date x period cross section; persist compact per-symbol rank arrays under the registered cache budget and bind source/pool/period/calendar hashes."
+  },
+  "counting": {
+    "primary": "All 120 main and valid neighbors enter their market x sleeve DSR/CSCV pool on one common OOS daily axis. Effective N is computed after complete OOS series exist.",
+    "schemaNoop": "The 8 rounded cooldown neighbors equal the parent before execution, are NOT in 120, and are not run. Listed separately below.",
+    "executionNoop": "Identical full trade lists are only detectable after execution. Preserve their result/audit rows, mark stability untestable, deduplicate exact trials for effective N per lifecycle-2; never presume no-op from similar rule labels.",
+    "stress": "Each of 120 configurations runs base, double all commission/minimum commission/tax/slippage costs, and discretionary one-bar delay. 360 planned runs; stress scenarios are gates, not independently selectable candidates. If a stress scenario is ever selected as a candidate it must enter DSR as another trial.",
+    "terminalAccounting": "Not a candidate search; missing terminal evidence blocks trusted returns. Any required last-close/total-loss sensitivity is explicitly labelled accounting and not used to choose winners; source-only applicability is frozen before execution.",
+    "noSearch": "No Cartesian combinations, no new mains, no result-driven parameter tuning. Fixed user capital/industry/heat/brake thresholds are governance constraints, not optimization dimensions."
+  },
+  "axes": {
+    "freezeBeforeReturns": true,
+    "cnSwing": {
+      "start": "2018-09-03",
+      "end": "2026-11-06",
+      "source": "Frozen classic input commonStart / final completed source week; all 47 configurations use exactly this tradable daily axis before split.",
+      "longerSignalHistory": "diagnostic only, no additional selectable trial"
+    },
+    "cnLowZone": {
+      "primary": "sh000300 from 2005, only after declared causal warmup and constituent/valuation coverage; no fake early-cycle completeness",
+      "diagnostic": "longer sh000001, separate diagnostic, not another candidate"
+    },
+    "crypto": {
+      "unit": "UTC complete natural day",
+      "intradayLabels": "END label: group by completion-1ms; 4h complete day requires 04/08/12/16/20/next00, no missing component or zero fill",
+      "start": "Per market x sleeve family, maximum earliest source-complete date after every declared main/neighbor warmup (including 61 complete daily closes for 60 returns); computed from source coverage ONLY, before any equity/return run.",
+      "end": "Minimum last full UTC day across every required symbol/period/benchmark, capped at 2026-11-13; source-only intersection is frozen with exact dates and input hash before returns.",
+      "missing": "Do not shorten OOS axes after viewing results or impute zero. Any missing required day makes evidence incomplete, preserving the declared axis."
+    },
+    "split": {
+      "trainFraction": 0.4,
+      "testFraction": 0.1,
+      "holdoutFraction": 0.2,
+      "holdoutStartRule": "last 20 percent of frozen family daily axis; rolling OOS on preceding 80 percent, identical windows for all family trials"
+    }
+  },
+  "sourcePolicy": {
+    "cnUniverse": "The original frozen CSI800 current-constituent price pool, explicitly survivorship biased; any later delisting audit/industry source must be hashed and labelled, not treated as PIT.",
+    "cryptoUniverse": "BTCUSDT and ETHUSDT ONLY, matching current authorized scope. Freeze both original native-period Binance source hashes before family coverage intersection. Old 20-pair runs remain historical comparisons, not new candidates or trials.",
+    "industry": "CN current labels allowed only with current-industry-lookahead source/hash; crypto has no default industry cap. Correlation uses same-industry OR rho>=0.8 connected groups and 3% planned-stop equity risk, explicit strategy config.",
+    "lowValuation": "Aggregate positive market-cap coverage >=60% separately for PE/PB, trailing <=30th percentile, actual PIT announcement availability; missing history is unknown, never zero or today's values backfilled."
+  },
+  "resources": {
+    "processes": 1,
+    "nodeHeapMiB": 4096,
+    "mutableOutputRoot": ".test-data/lifecycle-20261116/l3",
+    "oracleOutputRoot": ".test-data/lifecycle-20261116/oracle",
+    "sourceReads": "Read-only shared frozen source, parse once per heavy process; no per-trial copies or parallel heavy processes.",
+    "projectedDiskMiB": {
+      "oracle": 2,
+      "sourceDerivedCache": 512,
+      "checkpointsAndCompactDistributions": 512,
+      "totalHardStop": 1026
+    },
+    "checkpoint": "Atomic content-addressed per configuration/scenario manifest only after exact input/config/build/axis hash binding. Resume only matching identities; at most one active run. Keep compact daily arrays/trade returns plus actual fill evidence for selected final candidate; never fabricate distributions from summaries.",
+    "budgetStop": "Stop cleanly before projected disk budget, heap exhaustion or source mismatch. Preserve raw inputs/manifests. Do not prune raw/active evidence to continue.",
+    "actualReturnRun": "NOT AUTHORIZED until engineering/oracle/distribution and this frozen registration pass manager review."
+  },
+  "main": [
+    {
+      "id": "l3-cn-swing-double-breakout-open",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "double-breakout",
+          "side": "entry"
+        },
+        "rank": {
+          "kind": "rps-composite",
+          "periods": [
+            20,
+            50,
+            120
+          ]
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 10,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-double-breakout-open",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 10
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "double-breakout",
+          "side": "entry"
+        },
+        "rank": {
+          "kind": "rps-composite",
+          "periods": [
+            20,
+            50,
+            120
+          ]
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "sh000906",
+          "period": 20,
+          "minimumBreadth": 0.5,
+          "minimumCoverage": 0.6
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 10,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-double-breakout-regime",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 10
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 20
+          }
+        },
+        "rank": {
+          "kind": "rps-composite",
+          "periods": [
+            20,
+            50,
+            120
+          ]
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 10,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-formula-range-open",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 10
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 20
+          }
+        },
+        "rank": {
+          "kind": "rps-composite",
+          "periods": [
+            20,
+            50,
+            120
+          ]
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "sh000906",
+          "period": 20,
+          "minimumBreadth": 0.5,
+          "minimumCoverage": 0.6
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 10,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-formula-range-regime",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 10
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-open",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "constant",
+          "value": true
+        },
+        "rank": {
+          "kind": "classic",
+          "model": "classic-five"
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "rebalance": {
+          "kind": "ranked-weekly",
+          "top": 20,
+          "retentionMultiple": 1.5,
+          "weighting": "inverse-volatility"
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "weight",
+          "weight": 1,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-weekly-classic-open",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 20
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "constant",
+          "value": true
+        },
+        "rank": {
+          "kind": "classic",
+          "model": "classic-five"
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "sh000906",
+          "period": 20,
+          "minimumBreadth": 0.5,
+          "minimumCoverage": 0.6
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "rebalance": {
+          "kind": "ranked-weekly",
+          "top": 20,
+          "retentionMultiple": 1.5,
+          "weighting": "inverse-volatility"
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "weight",
+          "weight": 1,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-weekly-classic-regime",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 20
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "constant",
+          "value": true
+        },
+        "rank": {
+          "kind": "rps-composite",
+          "periods": [
+            20,
+            50,
+            120
+          ]
+        },
+        "overlay": {
+          "volatilityTarget": 0.15,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "rebalance": {
+          "kind": "ranked-weekly",
+          "top": 20,
+          "retentionMultiple": 1.5,
+          "weighting": "inverse-volatility"
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          }
+        },
+        "sizing": {
+          "kind": "weight",
+          "weight": 1,
+          "tranches": 1
+        },
+        "id": "l3-cn-swing-weekly-rps-open",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 20
+      }
+    },
+    {
+      "id": "l3-cn-low-zone-market",
+      "family": "cn-equity:low-zone",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "external",
+          "id": "l3-market-low-zone",
+          "side": "entry"
+        },
+        "exit": {
+          "rule": {
+            "kind": "external",
+            "id": "l3-market-low-zone",
+            "side": "exit"
+          },
+          "stop": {
+            "kind": "fixed",
+            "fraction": 0.25
+          },
+          "trailing": 0.33
+        },
+        "overlay": {
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "industryWeight": 0.3,
+          "industryBasis": "current-labelled",
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 5,
+          "tranches": 3
+        },
+        "id": "l3-cn-low-zone-market",
+        "version": 1,
+        "market": "cn-equity",
+        "sleeve": "low-zone",
+        "universe": {
+          "kind": "pool",
+          "id": "l3-frozen-csi800-20261108"
+        }
+      },
+      "sizing": "legacy",
+      "detector": {
+        "years": 10,
+        "minimumBars": 1000,
+        "recoveryPercentile": 0.6,
+        "minimumBreadth": 0.3,
+        "minimumCoverage": 0.6,
+        "maximumValuationPercentile": 0.3,
+        "benchmark": "sh000300",
+        "diagnosticBenchmark": "sh000001"
+      },
+      "inputRef": "classic-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.1,
+        "maxPositions": 5
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-equal",
+      "family": "crypto:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "dual-ma",
+          "fast": 10,
+          "slow": 40,
+          "side": "entry"
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          },
+          "rule": {
+            "kind": "dual-ma",
+            "fast": 10,
+            "slow": 40,
+            "side": "exit"
+          }
+        },
+        "overlay": {
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-swing-ma-open-equal",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "equal",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-volatility",
+      "family": "crypto:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "dual-ma",
+          "fast": 10,
+          "slow": 40,
+          "side": "entry"
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          },
+          "rule": {
+            "kind": "dual-ma",
+            "fast": 10,
+            "slow": 40,
+            "side": "exit"
+          }
+        },
+        "overlay": {
+          "volatilityTarget": 0.3,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-swing-ma-open-volatility",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "dual-ma",
+          "fast": 10,
+          "slow": 40,
+          "side": "entry"
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          },
+          "rule": {
+            "kind": "dual-ma",
+            "fast": 10,
+            "slow": 40,
+            "side": "exit"
+          }
+        },
+        "overlay": {
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-swing-ma-regime-equal",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "equal",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "dual-ma",
+          "fast": 10,
+          "slow": 40,
+          "side": "entry"
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 3
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 3
+          },
+          "rule": {
+            "kind": "dual-ma",
+            "fast": 10,
+            "slow": 40,
+            "side": "exit"
+          }
+        },
+        "overlay": {
+          "volatilityTarget": 0.3,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-swing-ma-regime-volatility",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "swing",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "strategy": {
+        "period": "4h",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 40
+          }
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "costFilter": {
+          "atrPeriod": 14,
+          "minimumMoveToCost": 3
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 2
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 2
+          },
+          "maxBars": 12,
+          "timeReentry": {
+            "cooldownBars": 1,
+            "requireNewSignal": true
+          }
+        },
+        "overlay": {
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-breakout-4h-equal",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "breakout",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "equal",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "strategy": {
+        "period": "4h",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 40
+          }
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "costFilter": {
+          "atrPeriod": 14,
+          "minimumMoveToCost": 3
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 2
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 2
+          },
+          "maxBars": 12,
+          "timeReentry": {
+            "cooldownBars": 1,
+            "requireNewSignal": true
+          }
+        },
+        "overlay": {
+          "volatilityTarget": 0.3,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-breakout-4h-volatility",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "breakout",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 20
+          }
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "costFilter": {
+          "atrPeriod": 14,
+          "minimumMoveToCost": 3
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 2
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 2
+          },
+          "maxBars": 20,
+          "timeReentry": {
+            "cooldownBars": 1,
+            "requireNewSignal": true
+          }
+        },
+        "overlay": {
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-breakout-day-equal",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "breakout",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "equal",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "strategy": {
+        "period": "day",
+        "entry": {
+          "kind": "formula",
+          "source": "选股:C>REF(HHV(H,N1),1) AND V>MA(V,20);",
+          "parameters": {
+            "N1": 20
+          }
+        },
+        "regime": {
+          "kind": "trend-breadth",
+          "benchmark": "BTCUSDT",
+          "period": 20,
+          "minimumBreadth": 0,
+          "minimumCoverage": 0.6
+        },
+        "costFilter": {
+          "atrPeriod": 14,
+          "minimumMoveToCost": 3
+        },
+        "exit": {
+          "stop": {
+            "kind": "atr",
+            "period": 14,
+            "multiple": 2
+          },
+          "chandelier": {
+            "period": 14,
+            "multiple": 2
+          },
+          "maxBars": 20,
+          "timeReentry": {
+            "cooldownBars": 1,
+            "requireNewSignal": true
+          }
+        },
+        "overlay": {
+          "volatilityTarget": 0.3,
+          "lookback": 60,
+          "drawdownBrake": {
+            "reduceAt": 0.1,
+            "pauseAt": 0.15,
+            "recoverAt": 0.05,
+            "pauseBars": 5
+          },
+          "symbolWeight": 0.15,
+          "heat": 0.06,
+          "correlationGroupRisk": 0.03,
+          "correlationThreshold": 0.8
+        },
+        "sizing": {
+          "kind": "equal",
+          "positions": 2,
+          "tranches": 1
+        },
+        "id": "l3-crypto-breakout-day-volatility",
+        "version": 1,
+        "market": "crypto",
+        "sleeve": "breakout",
+        "universe": {
+          "kind": "symbols",
+          "symbols": [
+            "BTCUSDT",
+            "ETHUSDT"
+          ]
+        }
+      },
+      "sizing": "volatility",
+      "inputRef": "crypto-inputs",
+      "sleevePolicy": {
+        "riskPerTrade": 0.02,
+        "maxPositions": 2
+      }
+    }
+  ],
+  "neighbors": [
+    {
+      "id": "l3-cn-swing-double-breakout-open-n-entry-rank-90",
+      "parent": "l3-cn-swing-double-breakout-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rank.periods": [
+          18,
+          45,
+          108
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-open-n-exit-protection-90",
+      "parent": "l3-cn-swing-double-breakout-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-open-n-entry-rank-110",
+      "parent": "l3-cn-swing-double-breakout-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rank.periods": [
+          22,
+          55,
+          132
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-open-n-exit-protection-110",
+      "parent": "l3-cn-swing-double-breakout-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-entry-rank-90",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rank.periods": [
+          18,
+          45,
+          108
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-entry-regime-90",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0.45
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-exit-protection-90",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-entry-rank-110",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rank.periods": [
+          22,
+          55,
+          132
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-entry-regime-110",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0.55
+      }
+    },
+    {
+      "id": "l3-cn-swing-double-breakout-regime-n-exit-protection-110",
+      "parent": "l3-cn-swing-double-breakout-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-entry-rule-90",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 18
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-entry-rank-90",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rank.periods": [
+          18,
+          45,
+          108
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-exit-protection-90",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-entry-rule-110",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 22
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-entry-rank-110",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rank.periods": [
+          22,
+          55,
+          132
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-open-n-exit-protection-110",
+      "parent": "l3-cn-swing-formula-range-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-rule-90",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 18
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-rank-90",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rank.periods": [
+          18,
+          45,
+          108
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-regime-90",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0.45
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-exit-protection-90",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-rule-110",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 22
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-rank-110",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rank.periods": [
+          22,
+          55,
+          132
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-entry-regime-110",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0.55
+      }
+    },
+    {
+      "id": "l3-cn-swing-formula-range-regime-n-exit-protection-110",
+      "parent": "l3-cn-swing-formula-range-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-open-n-entry-selection-90",
+      "parent": "l3-cn-swing-weekly-classic-open",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rebalance.top": 18,
+        "strategy.rebalance.retentionMultiple": 1.35
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-open-n-exit-protection-90",
+      "parent": "l3-cn-swing-weekly-classic-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-open-n-entry-selection-110",
+      "parent": "l3-cn-swing-weekly-classic-open",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rebalance.top": 22,
+        "strategy.rebalance.retentionMultiple": 1.65
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-open-n-exit-protection-110",
+      "parent": "l3-cn-swing-weekly-classic-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-entry-regime-90",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0.45
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-entry-selection-90",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rebalance.top": 18,
+        "strategy.rebalance.retentionMultiple": 1.35
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-exit-protection-90",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-entry-regime-110",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0.55
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-entry-selection-110",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rebalance.top": 22,
+        "strategy.rebalance.retentionMultiple": 1.65
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-classic-regime-n-exit-protection-110",
+      "parent": "l3-cn-swing-weekly-classic-regime",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-entry-rank-90",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rank.periods": [
+          18,
+          45,
+          108
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-entry-selection-90",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.rebalance.top": 18,
+        "strategy.rebalance.retentionMultiple": 1.35
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-exit-protection-90",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-entry-rank-110",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "entry-rank",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rank.periods": [
+          22,
+          55,
+          132
+        ]
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-entry-selection-110",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "entry-selection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.rebalance.top": 22,
+        "strategy.rebalance.retentionMultiple": 1.65
+      }
+    },
+    {
+      "id": "l3-cn-swing-weekly-rps-open-n-exit-protection-110",
+      "parent": "l3-cn-swing-weekly-rps-open",
+      "family": "cn-equity:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-cn-low-zone-market-n-entry-rule-90",
+      "parent": "l3-cn-low-zone-market",
+      "family": "cn-equity:low-zone",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "detector.years": 9,
+        "detector.minimumBars": 1000,
+        "detector.minimumBreadth": 0.27,
+        "detector.maximumValuationPercentile": 0.27
+      }
+    },
+    {
+      "id": "l3-cn-low-zone-market-n-exit-protection-90",
+      "parent": "l3-cn-low-zone-market",
+      "family": "cn-equity:low-zone",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.fraction": 0.225,
+        "strategy.exit.trailing": 0.297,
+        "detector.recoveryPercentile": 0.54
+      }
+    },
+    {
+      "id": "l3-cn-low-zone-market-n-entry-rule-110",
+      "parent": "l3-cn-low-zone-market",
+      "family": "cn-equity:low-zone",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "detector.years": 10,
+        "detector.minimumBars": 1100,
+        "detector.minimumBreadth": 0.33,
+        "detector.maximumValuationPercentile": 0.33
+      }
+    },
+    {
+      "id": "l3-cn-low-zone-market-n-exit-protection-110",
+      "parent": "l3-cn-low-zone-market",
+      "family": "cn-equity:low-zone",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.fraction": 0.275,
+        "strategy.exit.trailing": 0.363,
+        "detector.recoveryPercentile": 0.66
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-equal-n-entry-rule-90",
+      "parent": "l3-crypto-swing-ma-open-equal",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.fast": 9,
+        "strategy.entry.slow": 36,
+        "strategy.exit.rule.fast": 9,
+        "strategy.exit.rule.slow": 36
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-equal-n-exit-protection-90",
+      "parent": "l3-crypto-swing-ma-open-equal",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-equal-n-entry-rule-110",
+      "parent": "l3-crypto-swing-ma-open-equal",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.fast": 11,
+        "strategy.entry.slow": 44,
+        "strategy.exit.rule.fast": 11,
+        "strategy.exit.rule.slow": 44
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-equal-n-exit-protection-110",
+      "parent": "l3-crypto-swing-ma-open-equal",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-volatility-n-entry-rule-90",
+      "parent": "l3-crypto-swing-ma-open-volatility",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.fast": 9,
+        "strategy.entry.slow": 36,
+        "strategy.exit.rule.fast": 9,
+        "strategy.exit.rule.slow": 36
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-volatility-n-exit-protection-90",
+      "parent": "l3-crypto-swing-ma-open-volatility",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-volatility-n-entry-rule-110",
+      "parent": "l3-crypto-swing-ma-open-volatility",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.fast": 11,
+        "strategy.entry.slow": 44,
+        "strategy.exit.rule.fast": 11,
+        "strategy.exit.rule.slow": 44
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-open-volatility-n-exit-protection-110",
+      "parent": "l3-crypto-swing-ma-open-volatility",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-entry-rule-90",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.fast": 9,
+        "strategy.entry.slow": 36,
+        "strategy.exit.rule.fast": 9,
+        "strategy.exit.rule.slow": 36
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-entry-regime-90",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-exit-protection-90",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-entry-rule-110",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.fast": 11,
+        "strategy.entry.slow": 44,
+        "strategy.exit.rule.fast": 11,
+        "strategy.exit.rule.slow": 44
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-entry-regime-110",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-equal-n-exit-protection-110",
+      "parent": "l3-crypto-swing-ma-regime-equal",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-entry-rule-90",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.fast": 9,
+        "strategy.entry.slow": 36,
+        "strategy.exit.rule.fast": 9,
+        "strategy.exit.rule.slow": 36
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-entry-regime-90",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-exit-protection-90",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.7,
+        "strategy.exit.chandelier.multiple": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-entry-rule-110",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.fast": 11,
+        "strategy.entry.slow": 44,
+        "strategy.exit.rule.fast": 11,
+        "strategy.exit.rule.slow": 44
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-entry-regime-110",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-swing-ma-regime-volatility-n-exit-protection-110",
+      "parent": "l3-crypto-swing-ma-regime-volatility",
+      "family": "crypto:swing",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 3.3,
+        "strategy.exit.chandelier.multiple": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-rule-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 36
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-regime-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-protection-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 1.8,
+        "strategy.exit.chandelier.multiple": 1.8
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-time-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.maxBars": 11
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-cost-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 0.9,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-rule-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 44
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-regime-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-protection-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.2,
+        "strategy.exit.chandelier.multiple": 2.2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-time-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.maxBars": 13
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-entry-cost-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 1.1,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-rule-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 36
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-regime-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-protection-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 1.8,
+        "strategy.exit.chandelier.multiple": 1.8
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-time-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.maxBars": 11
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-cost-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 0.9,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-rule-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 44
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-regime-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-protection-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.2,
+        "strategy.exit.chandelier.multiple": 2.2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-time-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.maxBars": 13
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-entry-cost-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 1.1,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-rule-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 18
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-regime-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-protection-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 1.8,
+        "strategy.exit.chandelier.multiple": 1.8
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-time-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.maxBars": 18
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-cost-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 0.9,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-rule-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 22
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-regime-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-protection-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.2,
+        "strategy.exit.chandelier.multiple": 2.2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-time-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.maxBars": 22
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-entry-cost-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 1.1,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 3.3
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-rule-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 0.9,
+      "patch": {
+        "strategy.entry.parameters.N1": 18
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-regime-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 0.9,
+      "patch": {
+        "strategy.regime.period": 18,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-protection-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.stop.multiple": 1.8,
+        "strategy.exit.chandelier.multiple": 1.8
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-time-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.maxBars": 18
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-cost-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 0.9,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 2.7
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-rule-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-rule",
+      "factor": 1.1,
+      "patch": {
+        "strategy.entry.parameters.N1": 22
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-regime-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-regime",
+      "factor": 1.1,
+      "patch": {
+        "strategy.regime.period": 22,
+        "strategy.regime.minimumBreadth": 0
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-protection-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-protection",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.stop.multiple": 2.2,
+        "strategy.exit.chandelier.multiple": 2.2
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-time-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-time",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.maxBars": 22
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-entry-cost-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "entry-cost",
+      "factor": 1.1,
+      "patch": {
+        "strategy.costFilter.minimumMoveToCost": 3.3
+      }
+    }
+  ],
+  "schemaNoops": [
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-cooldown-90",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-equal-n-exit-cooldown-110",
+      "parent": "l3-crypto-breakout-4h-equal",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-cooldown-90",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-4h-volatility-n-exit-cooldown-110",
+      "parent": "l3-crypto-breakout-4h-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-cooldown-90",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-equal-n-exit-cooldown-110",
+      "parent": "l3-crypto-breakout-day-equal",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-cooldown-90",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 0.9,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    },
+    {
+      "id": "l3-crypto-breakout-day-volatility-n-exit-cooldown-110",
+      "parent": "l3-crypto-breakout-day-volatility",
+      "family": "crypto:breakout",
+      "block": "exit-cooldown",
+      "factor": 1.1,
+      "patch": {
+        "strategy.exit.timeReentry.cooldownBars": 1
+      }
+    }
+  ]
+}
