@@ -69,6 +69,10 @@ export const scoreboardQuerySchema = z
   })
   .strict();
 export type ScoreboardRow = {
+  /** Full source-gap details live once in the enclosing report/scoreboard registry. */
+  missingEvidenceRefs?: string[];
+  evidence?: { inputHash: string; resultHash: string; buildHash: string };
+  evidenceScope?: "candidate";
   strategyVersion?: number;
   method?: "lifecycle-2";
   purpose?: "preregistered" | "post-hoc";

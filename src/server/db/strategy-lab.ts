@@ -119,8 +119,14 @@ export function strategyLabDetail(
     promotion,
     live,
     accounts,
-    inputHash: scoreboard?.inputHash ?? null,
-    resultHash: scoreboard?.resultHash ?? null,
+    inputHash:
+      row?.evidenceScope === "candidate"
+        ? (row.evidence?.inputHash ?? null)
+        : (row?.evidence?.inputHash ?? scoreboard?.inputHash ?? null),
+    resultHash:
+      row?.evidenceScope === "candidate"
+        ? (row.evidence?.resultHash ?? null)
+        : (row?.evidence?.resultHash ?? scoreboard?.resultHash ?? null),
     eligible,
     reasons,
   };

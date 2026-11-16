@@ -17,6 +17,8 @@ export type ValidationMethodCandidate = {
   market: "cn-equity" | "crypto";
   sleeve: string;
   role?: "candidate" | "replay" | "terminal-accounting";
+  neighborhoodCenter?: string;
+  neighborhoodKind?: "entry" | "exit";
 };
 type OosTrial = {
   id: string;
@@ -121,6 +123,14 @@ export function assessValidationCandidates(
     throw new Error("Duplicate method candidate IDs");
   const familyKey = (candidate: ValidationMethodCandidate) =>
     `${candidate.market}:${candidate.sleeve}`;
+  const centerOf = (candidate: ValidationMethodCandidate) =>
+    candidate.neighborhoodCenter ??
+    candidate.row.id.replace(/-neighbor-(?:entry-)?\d+$/, "");
+  const provenance = new Map(
+    candidates.flatMap((c) =>
+      c.neighborhoodKind ? [[c.row.id, c.neighborhoodKind] as const] : [],
+    ),
+  );
   const families = [...new Set(candidates.map(familyKey))].map((family) => {
     const members = candidates.filter(
       (candidate) => familyKey(candidate) === family,
@@ -132,7 +142,7 @@ export function assessValidationCandidates(
         excluded.push({ id: member.row.id, reason: member.role });
         continue;
       }
-      const baseId = member.row.id.replace(/-neighbor-(?:entry-)?\d+$/, "");
+      const baseId = centerOf(member);
       const base =
         baseId === member.row.id
           ? undefined
@@ -142,6 +152,7 @@ export function assessValidationCandidates(
           base.row,
           [member.row],
           policy,
+          provenance,
         )[0]!;
         if (!neighbor.testable) {
           excluded.push({ id: member.row.id, reason: neighbor.reason! });
@@ -174,17 +185,18 @@ export function assessValidationCandidates(
     const family = families.find(
       (group) => group.family === familyKey(candidate),
     )!;
-    const center = candidate.row.id.replace(/-neighbor-(?:entry-)?\d+$/, "");
+    const center = centerOf(candidate);
     const siblings = candidates.filter(
       (other) =>
         familyKey(other) === family.family &&
         other.row.id !== candidate.row.id &&
-        other.row.id.replace(/-neighbor-(?:entry-)?\d+$/, "") === center,
+        centerOf(other) === center,
     );
     const neighbors = validationNeighborhood(
       candidate.row,
       siblings.map((s) => s.row),
       policy,
+      provenance,
     );
     const testing = family.cluster.effectiveTrials
       ? effectiveMultipleTesting(

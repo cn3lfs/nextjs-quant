@@ -39,6 +39,7 @@ import {
   type ValidationDataset,
 } from "./validation-capture";
 import type { ScoreboardRow } from "./validation-model";
+import { economicFillList } from "~/lib/backtest/economic-fills";
 
 /** Benchmark opens on the first observed evaluation bar, then holds. Missing
  * any daily benchmark value leaves all excess statistics unavailable. */
@@ -100,15 +101,7 @@ export function scoreValidationResult(
           dailyDates: result.equity.map((point) => point.date),
           // A neighbor's generated ID is provenance, not a different execution.
           // Keep the canonical strategy identity and every economic fill field.
-          tradeListHash: validationHash(
-            result.fills.map((fill) => ({
-              ...fill,
-              strategyId: fill.strategyId.replace(
-                /-neighbor-(?:entry-)?\d+$/,
-                "",
-              ),
-            })),
-          ),
+          tradeListHash: validationHash(economicFillList(result.fills)),
         }
       : {}),
     riskAdjusted: {

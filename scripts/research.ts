@@ -2,6 +2,82 @@ import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
 const args = process.argv.slice(2);
 const command = args.shift();
+if (["l3-prepare", "l3-run", "l3-oracle"].includes(command ?? "")) {
+  const configIndex = args.indexOf("--config");
+  const configPath =
+    configIndex >= 0 && args[configIndex + 1]
+      ? resolve(args[configIndex + 1]!)
+      : resolve("research/configs/l3.json");
+  if (command === "l3-oracle") {
+    const { reconstructClassicTargets } =
+      await import("./lib/research/classic-oracle");
+    console.log(
+      JSON.stringify(
+        await reconstructClassicTargets(".test-data/lifecycle-20261116/oracle"),
+        null,
+        2,
+      ),
+    );
+  } else {
+    const {
+      prepareLifecycleResearch,
+      runLifecycleResearch,
+      lifecyclePrepareSummary,
+      assertLifecycleProcessBudget,
+    } = await import("./lib/research/lifecycle-runner");
+    if (command === "l3-prepare") {
+      const prepared = await prepareLifecycleResearch(configPath, undefined, {
+        decodeLowZoneFinancials: args.includes("--decode-low-zone-financials"),
+      });
+      console.log(JSON.stringify(lifecyclePrepareSummary(prepared), null, 2));
+    } else {
+      const approved = args.indexOf("--approved-plan");
+      if (approved < 0 || !args[approved + 1])
+        throw new Error(
+          "l3-run requires the exact reviewed --approved-plan hash; preparation computes no returns",
+        );
+      const report = await runLifecycleResearch(
+        configPath,
+        args[approved + 1]!,
+        undefined,
+        (completed, total, detail) =>
+          console.log(
+            JSON.stringify({ progress: "l3", completed, total, ...detail }),
+          ),
+        {
+          decodeLowZoneFinancials: args.includes(
+            "--decode-low-zone-financials",
+          ),
+        },
+      );
+      console.log(
+        JSON.stringify(
+          {
+            inputHash: report.inputHash,
+            executionPlanHash: report.executionPlanHash,
+            reportPath: report.reportPath,
+            resultHash: report.resultHash,
+            statuses: report.rows.reduce<Record<string, number>>(
+              (counts, row) => {
+                counts[row.status] = (counts[row.status] ?? 0) + 1;
+                return counts;
+              },
+              {},
+            ),
+            calls: report.calls,
+            completedCheckpoints: report.completedCheckpoints,
+            resumedCheckpoints: report.resumedCheckpoints,
+            insufficientSegments: report.insufficientSegments,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+    assertLifecycleProcessBudget("cli-complete");
+  }
+  process.exit(0);
+}
 if (command === "inspect" || command === "verify-input") {
   const { executeResearchCommand } =
     await import("../src/server/research/research-command");

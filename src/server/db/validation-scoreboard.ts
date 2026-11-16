@@ -13,7 +13,8 @@ export type ValidationScoreboard = {
   resultHash: string;
   buildHash: string;
   rows: ScoreboardRow[];
-  missing: { id: string; reason: string }[];
+  missing: { id: string; reason: string; refs?: string[] }[];
+  missingEvidence?: Record<string, readonly string[]>;
   createdAt: number;
   runtimeMs: number;
   universe: string;
