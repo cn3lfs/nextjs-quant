@@ -161,3 +161,19 @@ CN缺日期为2026-03-27、03-30、03-31、04-01、04-02、04-03、04-07、04-08
 6. 复用现有下载任务并运行匹配的bundled runtime，开始3个真实交易日观察。每天核下载回执、原生行情/RPS日期、收盘扫描记录、Today候选或真实无信号原因、5账户前后lastBar/推进事实及runtime-errors；零符号市场错配、零非授权外发。仅下载/RPS成功不证明tickAlerts与paper-tick成功。
 
 `workflow-task.ps1`的现有参数为 `-Phase noon|download|late`、`-ServerDirectory`、`-DataDirectory`、`-DownloaderPath`；download对应收盘流程。本次不重装计划任务：`install-workflow-tasks.ps1 -Apply`会同时触及CLS采集，`workflow-runner --configure`也会启用CLS review，均超出普通部署观察的必要动作。周排名还依赖确认的后续交易日期，不能编造下个交易日。
+
+## 最终复核补齐与再次验收（2026-11-16）
+
+此前验收遗漏了逐窗口回撤描述及部分页面的当前资格/复盘入口，本轮补齐后重新收口。分批提交：`757a289`补充冻结回撤归因、`1a2ced0`隔离历史建议与当前资格、`e40d860`绑定复盘建议和品种限额。
+
+- 四个实际主配置各四个OOS窗及一个留出窗，共20组峰谷/恢复归因；管理者独立核对与冻结drawdown最大差1.23e-15以内。其他来源不足的策略族明确不可用，没有收益重跑、事后调参或新晋级。
+- 影子计数不再重建组合收益或重跑研究门槛；旧影子评估保留但不返回当前建议。成绩单复用当前实验室一致性；纸面列表/详情及今日按本账户定义、绑定、冻结参考、执行身份和评估方法核验，隔离旧建议且不加载checkpoint、不改财务历史。同策略不同账户不能借用资格。历史晋级不再直接显示当前已晋级。
+- 实验室复用二十日归因的同版本复盘建议，revision过期仅刷新；人工确认仍走既有暂停流程。周复盘品种数使用唯一同版本冻结/实际保存政策，真实持仓与未完成计划去重；来源缺失、歧义或冲突明确未知，不推算默认限额。
+
+定向验证包括新增纸面投影10项以及相关三文件22项、复盘17项和管理者六文件38项。新增真实应用review项目1440/1024共2项：批量关联两笔、保存退出原因和日志、旧正面建议隔离、Lab历史晋级不等于资格、取消暂停0次POST、周复盘确认暂停恰1次POST且shadow/promotion不变；成交、导入、现金及全部纸面账户/state/facts前后哈希相同，外发0。最新构建重跑原12项后，总14项通过；隐藏页10秒raw/hidden请求0，主线程37.979ms≤260ms。日志/截图及紧凑证据见任务`e2e/`及`l3/ui-acceptance.json`。
+
+最终源码`e40d860`的完整七阶段门禁`check-fLXdOg`全部退出0，总368.537秒：主工程646文件/6784项通过、16文件/27项既有跳过，包级125+21+75+24=245通过，生产构建及随后desktop:prepare退出0。日志中src/index.ts的TS2322及研究台账失败来自既有负例，完整测试最终通过。完整[结果](../../.test-data/lifecycle-20261116/final/checks/check-fLXdOg/check-result.json)、合并日志与desktop准备日志已保存；此前两个完整门禁保留历史。worker原字节与manifest相符，研究执行构建仍为`d362171268bffa17dca8ce2c5087851ea4fdb607aed09866140a183e94ae31e8`，冻结研究输入与结论未变。
+
+只读核对本机`TDX_DailyDownload`仅有已启用17:00触发，尚无17:40/18:30。部署前须定向安装这两个下载重试；不能直接执行同时改CLS的安装脚本。本轮未修改任何任务、正式包或真实库，三真实交易日观察仍未开始。
+
+用户追加清理安排后，由真实本地Claude CLI执行[精确脚本](../../.test-data/lifecycle-20261116/cleanup.ps1)的Automation预演与应用，两者报告退出0，CLI success且无permission denial，共删除16个临时目标。管理者只读复核workflow/review-integration及六项目全部fixture目录已不存在；本轮没有通过其他工具重试删除。保留当前L3约234.28MiB、oracle约0.44MiB、UI日志/截图约4.28MiB、final/checks约1151.63MiB供用户审阅。整个task子树约7.50MiB被Automation排除，包含先前遭自动审批拒绝的shadow-conformance及paper-read，不借Claude绕过该拒绝。原始CLI中文输出出现shell解码乱码，ASCII状态与实际文件系统结果均另行核对，未为日志重跑删除；[紧凑回执](../../.test-data/lifecycle-20261116/claude-cleanup-receipt.json)记录边界。审阅后完整检查与截图仍按仓库约定手动清理。
