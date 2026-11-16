@@ -12,8 +12,8 @@
 | L0.3–4 | 读取边界符号归一、真实 reader 集成测试、分周期有效期及影子缺口 | 已实现，定向验证通过 | lifecycle-crypto-inputs 真实读取器用例；冻结 JSON SHA256 未变 |
 | L0.5–7 | 手动启用影子扫描、晚间计划、真实就绪提示及资金卡 | 已实现，定向及1440/1024应用主路径通过 | lifecycle-workflow、daily-workspace、r3b-accounts；隔离生产构建浏览器验收，非自然观察 |
 | L0.8 | 实际收盘扫描耗时及必要的 worker 迁移 | 已测量并迁移，真实 worker 隔离验证通过 | 下文测量及 lease/single-flight 用例 |
-| L0 真实观察 | 部署后 3 个真实交易日扫描、候选、5 账户前推及无符号错误 | 未开始 | 需打包部署授权，不能用假时钟替代 |
-| L1 | 同源仓位、组合限额、保护继承、今日计划闭环 | 实现、完整回归及1440/1024应用主路径通过 | 两次键盘确认保存，数量/敞口无覆盖、保护同策略；schema19仅隔离验证 |
+| L0 真实观察 | 部署后 3 个真实交易日扫描、候选、5 账户前推及无符号错误 | 真实部署已完成，三个完整观察日仍0 | 今晚正式首次推进/扫描已通过，不能将夜间部署算三个完整日；见交接与部署汇总 |
+| L1 | 同源仓位、组合限额、保护继承、今日计划闭环 | 实现、完整回归及1440/1024应用主路径通过 | 两次键盘确认保存，数量/敞口无覆盖、保护同策略；schema19已受控部署 |
 | L2 | 单一判定模块、邻域/有效 N/PBO/成本修正、旧配置重放 | 方法实现、完整回归及两版旧实验精确重放通过 | 原summary序列化字节一致，R2a-5原gzip也一致 |
 | L3 | 排名/市场门控/组合覆盖/再平衡、预登记及成绩单 | 已完成本轮实际研究及检查点恢复复核，晋级0 | 16主+104合法邻域；480真实调用、1820不足分段；恢复2300检查点新增调用0，结果/统计相同；CN与突破源缺口保留 |
 | L4 | 同版本前向一致性判定及 Lab/今日接线 | 完整回归、真实crypto历史容量提取与Lab应用验收通过；自然前推资格未建立 | 缺冻结分布仍为insufficient，旧身份不可用；不计历史模拟时钟为自然样本 |
@@ -22,7 +22,7 @@
 
 ## 边界与已有修改
 
-所有开发数据与日志集中在 `D:/github/nextjs-quant/.test-data/lifecycle-20261116/`。通达信、外部 Blocks 及原始归档只读；不打开用户业务库，不执行打包或生产迁移，不更改 live、订阅、镜像和真实交易权限。
+所有开发数据与日志集中在 `D:/github/nextjs-quant/.test-data/lifecycle-20261116/`。通达信、外部 Blocks 及原始归档只读；开发验证阶段不打开用户业务库、不执行打包或生产迁移；用户随后明确部署授权后的真实操作见文末。live、订阅、镜像和真实交易权限始终保留原配置。
 
 开始时已有 `docs/decisions.md`、`docs/next-plan.md`、`scripts/cls-workflow-task.ps1` 的财联社北京时间维护修改及未跟踪的新优化计划。保留这些修改；分批提交仅纳入本任务明确归属内容，不夹带财联社维护。
 
@@ -147,11 +147,11 @@ CN缺日期为2026-03-27、03-30、03-31、04-01、04-02、04-03、04-07、04-08
 
 最终源码 `34a96a2` 在 `check-RDOAli` 再执行完整七阶段检查，总370.818秒、全部退出0：主工程642文件/6760项通过、16文件/27项既有跳过；包级125+21+75+24项通过，生产构建通过，随后desktop:prepare退出0。完整[结果](../../.test-data/lifecycle-20261116/final/checks/check-RDOAli/check-result.json)和原始合并日志保留供审阅，紧凑 `l3/final-verification.json` 绑定当前源码与构建；此前 `check-PbDrsx` 保留为收益执行前实际已通过的门禁，不覆盖其历史事实。
 
-## 待授权部署与自然观察（未执行）
+## 部署流程与自然观察
 
-按仓库AGENTS及优化计划第8节，打包与真实库迁移各需明确授权。实际用户库和正式包均未打开或替换；开发库schema19不能交给现有schema18正式exe。具体执行顺序：
+按仓库AGENTS及优化计划第8节，打包与真实库迁移各需明确授权；用户已在本轮明确授权，管理者已执行以下流程，结果见文末。真实库当前schema19，旧schema18 exe不能打开当前库。
 
-拟将唯一的旧完整包和schema18一致备份集中在 `D:/quant-data/rollback/nextjs-quant-lifecycle-20261116/`；待升级后三交易日观察验收再核对清理，下一次正式交付前处理，不累积多套回滚包。该部署流程尚未执行。
+拟将唯一的旧完整包和schema18一致备份集中在 `D:/quant-data/rollback/nextjs-quant-lifecycle-20261116/`；待升级后三交易日观察验收再核对清理，下一次正式交付前处理，不累积多套回滚包。部署前先完成一致备份，再按以下顺序执行。
 
 1. 确认实际用户数据目录，关闭旧应用及所有相关写入进程。通过[运维说明](../operations.md)的只读SQLite连接 `db.backup(dest)` 取得包含已提交WAL的最终一致备份，核schema18、完整性与哈希；不得import新版自动迁移入口。新版“立即备份”会先迁移，不能用于此迁移前备份。
 2. 从该整库备份创建独立工作副本，保留账户/state/事实/records/设置依赖；只迁移副本至19。旧5账户逐一执行当前构建完整重放审阅，核持久化result精确相同，记录manifest/firstDifference；只导出账户JSON不等于具备完整重放输入。原库从最终快照起保持停止写入，否则副本审阅失效，须重新取快照复核。
@@ -183,3 +183,20 @@ CN缺日期为2026-03-27、03-30、03-31、04-01、04-02、04-03、04-07、04-08
 最终计划复核发现本机17:40/18:30尚未安装，现已新增定向安装脚本及PowerShell测试，避免使用会改动CLS的整套安装器。管理者独立在Windows PowerShell5.1运行10个预演/拒绝mock用例，全部通过；真实任务预演前后XML完全一致，SHA256为`01cd93ea5ea7a1dce3e58c317134d520039445821392b875c54dcb412621b1b0`，触发器仍1个，唯一备份尚未创建。mock先加载ScheduledTasks再遮蔽读取，核每次预演调用mock，防止模块懒加载穿透。没有创建新临时目录、执行Apply或启动任务。
 
 脚本携带预演hash后才允许Apply，备份以CreateNew禁止覆盖，仅Set-ScheduledTask的Trigger参数追加缺少时点；应用前后核原trigger与非trigger配置。实际Apply权限、CIM写入和XML规范化未实机验证，不能用AST保护检查代替；Scheduler没有原子CAS，仍有最后读取与写入之间的竞争窗口，保留原XML供现场核对。上述动作必须在部署授权后进行。[紧凑预演证据](../../.test-data/lifecycle-20261116/close-retries-readiness.json)。本补充只涉及运维脚本/其定向测试及文档，应用源码与研究身份不变，复用已通过的最终应用门禁，不重复完整测试或构建。
+
+
+## 已授权部署结果（2026-11-16 22:44启动）
+
+[交接文档](../handoff-2026-11-16.md)现为下一位执行者入口；[部署汇总](../../.test-data/lifecycle-20261116/deployment/deployment-summary.json)绑定实际结果，旧的l3/final-verification仍是部署前工程验收记录，不改写其历史production=false标记。
+
+- SQLite只读连接backup取得588840960字节schema18一致备份，integrity ok，SHA `31df93f46d859656aad822077066620b7e72e156fb1366859245dc8b1e392138`；旧包2407文件/572183709字节逐SHA完全一致，唯一备份位于约定回滚根。真实五账户原revision0/lastBar null、state/facts均0，因此完整旧checkpoint重放及build确认不适用，不伪造exact。
+- 隔离CN三户各真实首次推进11/16；两crypto原档只到11/13。原backfill一次补齐官方Nov14/15日线及4h，并保留今日4h REST尾窗来源，两户各推进11/15。候选、本金、登记时刻始终相同。18个新增源档及4个重定位manifest发布生产后由原reader离线核验；日线gap0，4h原20历史gap不消失。
+- `pnpm desktop:pack`退出0，正式新包2434文件/588385230字节；独立目录逐SHA复制相同，无父级node_modules；隐藏原standalone并清空NODE_PATH后的真实Electron packaged smoke通过。仅将自动临时profile清理替换为保留给Claude，原冒烟断言未改，原TDX输入不变。打包worker SHA仍`acdad53ddf6d3f23594c65594d8384823b3acf845f29e9356537e3f9d25aaad4`，研究执行身份未变。
+- 显式真实QUANT_DATA_DIR下执行 `pnpm db:migrate`，18→19成功；迁移前后29张原表逐行指纹均与18备份相同，integrity ok、外键违规0。正式应用已启动并保持运行，五户result哈希与隔离结果完全相同，成交0；原设置/账户合同/原5影子active均未改，启用订阅0、镜像off、runtime错误0。三CN真实扫描水位11/16，影子entry46/exit414，不能当作成交。
+- 定向安装器Apply退出0，17:00原触发保留，新增17:40/18:30，均工作日+08:00；原Action/Principal/Settings及旧trigger的导出XML核验通过，唯一XML备份已留存，没有立即启动任务。
+- Claude再次按deployment/cleanup-deployment.ps1预演与应用，均退出0，无权限拒绝，删除preflight、smoke-profile及独立new-package-check三个临时副本。正式应用、业务库/凭证、旧包/18库/manifest/XML回滚集合及所有紧凑证据均保留，见[清理回执](../../.test-data/lifecycle-20261116/deployment/cleanup-receipt.json)。
+
+三完整真实交易日仍未完成，最早从11/17的实际完成交易日采样；观察器不启动应用、不补数据、不通知、不产生候选，也不将无数据或无运行的日期计为成功。回滚前须先保全当前19库及部署后新事实，恢复18备份会回到部署前时点，不能静默丢失新事实或降user_version；未在真实库演练回滚，恢复耗时未实测。
+
+
+三日观察已准备[只读采样脚本](../../scripts/observe-lifecycle-day.cjs)，正式bundled Node真实试跑只缺whole-day-start，正确记录0合格日。临时任务`Quant_Lifecycle_Observe_20261116`已安装，11/17至11/24北京时间20:15，Interactive用户登录态、最多3份合格日证据，记录到deployment/observation；不启动应用、不补数据、不联网/通知。RPS元数据复用当前证券池“同root较新close observation优先”规则，输出strict旧表9/15及当前close observation11/16，不凭旧表日期误报，也不接受午盘估算。格式与语法检查及真实只读试跑通过，未重复应用全套检查/构建。采样仅证明调用时事实，不是全天可用性认证；三日完成后由Claude按retire-observer.ps1预演并带hash回收唯一任务，当前0日仅预演未注销。
