@@ -3,6 +3,27 @@ import { mkdir } from "node:fs/promises";
 import { trpcHeaders } from "./helpers";
 import { resolve } from "node:path";
 
+test.afterEach(async ({ request }) => {
+  const response = await request.get(
+    "/api/trpc/alertPlans?input=" +
+      encodeURIComponent(JSON.stringify({ json: { page: 0 } })),
+    { headers: trpcHeaders },
+  );
+  expect(response.status()).toBe(200);
+  const plans: { id: string; strategyId: string; status: string }[] = (
+    await response.json()
+  ).result.data.json.items;
+  for (const plan of plans.filter(
+    (row) => row.strategyId === "r3a-shadow-qa" && row.status === "open",
+  )) {
+    const cancelled = await request.post("/api/trpc/cancelAlertPlan", {
+      headers: trpcHeaders,
+      data: { json: plan.id },
+    });
+    expect(cancelled.status()).toBe(200);
+  }
+});
+
 for (const width of [1440, 1024]) {
   test(`Lifecycle daily path ${width}: stop tasks → inline plan in two activations, then chart`, async ({
     page,
@@ -58,7 +79,7 @@ for (const width of [1440, 1024]) {
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     await expect(page).toHaveURL(/\/$/);
-    const openPlans = page.getByRole("region", {
+    const openPlans = page.getByRole("table", {
       name: "未完成交易计划",
       exact: true,
     });
@@ -78,7 +99,8 @@ for (const width of [1440, 1024]) {
       { headers: trpcHeaders },
     );
     const plan = (await plans.json()).result.data.json.items.find(
-      (p: { status: string }) => p.status === "open",
+      (p: { status: string; strategyId: string }) =>
+        p.status === "open" && p.strategyId === "r3a-shadow-qa",
     );
     expect(plan.status).toBe("open");
     expect(plan.quantity).toBeGreaterThan(0);

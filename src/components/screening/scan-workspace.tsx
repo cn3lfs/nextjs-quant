@@ -185,7 +185,9 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
   const key = search.get("candidate") ?? "";
   const selected = api.workspaceCandidate.useQuery(key, {
     enabled: visible && !!key,
-    retry: false,
+    // A chart load can persist other workspace facts during this versioned read.
+    // Retry the read once; plan mutations keep their original version fence.
+    retry: 1,
   });
   const prepare = api.prepareScreenPlan.useMutation({
     onSuccess: (c) =>

@@ -78,20 +78,25 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("combobox", { name: "paper:QA-r2c模拟镜像" }),
     ).toContainText("镜像关闭");
-    await page
-      .getByRole("button", { name: "按冻结规则登记候选", exact: true })
-      .click();
-    await expect(
-      page.getByRole("status").filter({ hasText: "已登记 1 个新模拟账户" }),
-    ).toBeVisible();
-    // The manually enabled R3a shadow definition acquires its first paper
-    // account; repeating registration must not create another one.
+    // The fixture registers the manually shadowed candidate before startup.
+    // Repeating registration must retain exactly one account at either width.
+    const registered = page.getByText("模拟 · paper:r3a-shadow-qa:v1", {
+      exact: true,
+    });
+    await expect(registered).toHaveCount(1);
     await page
       .getByRole("button", { name: "按冻结规则登记候选", exact: true })
       .click();
     await expect(
       page.getByRole("status").filter({ hasText: "已登记 0 个新模拟账户" }),
     ).toBeVisible();
+    await page
+      .getByRole("button", { name: "按冻结规则登记候选", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "已登记 0 个新模拟账户" }),
+    ).toBeVisible();
+    await expect(registered).toHaveCount(1);
     await page.goto("/lab");
     await expect(
       page.getByRole("region", { name: "候选纸面前推状态" }),
