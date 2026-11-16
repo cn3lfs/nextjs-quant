@@ -44,10 +44,12 @@ $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfil
 Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger @($closeTriggers) -ErrorAction Stop | Out-Null
 $lateAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase late" -WorkingDirectory $repo
 $lateTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '14:40'
+$lateTrigger.StartBoundary = ([DateTime]::Parse($lateTrigger.StartBoundary)).ToString('yyyy-MM-ddTHH:mm:ss') + '+08:00'
 $lateSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
 Register-ScheduledTask -TaskName 'Quant_RPS_Late' -Action $lateAction -Trigger $lateTrigger -Settings $lateSettings -Principal $task.Principal -Force -ErrorAction Stop | Out-Null
 $noonAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase noon" -WorkingDirectory $repo
 $noonTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '12:00'
+$noonTrigger.StartBoundary = ([DateTime]::Parse($noonTrigger.StartBoundary)).ToString('yyyy-MM-ddTHH:mm:ss') + '+08:00'
 Register-ScheduledTask -TaskName 'Quant_RPS_Noon' -Action $noonAction -Trigger $noonTrigger -Settings $lateSettings -Principal $task.Principal -Force -ErrorAction Stop | Out-Null
 Write-Output "任务已更新；备份：$backup"
 # A failed first-page fetch used to return [] and exit 0; do not mark that as a completed collection.

@@ -7,8 +7,10 @@ $runner = Join-Path $server 'runtime\workflow-runner.cjs'
 if (!(Test-Path -LiteralPath $runner)) { throw '桌面包尚未包含新闻工作流' }
 $data = Join-Path $env:LOCALAPPDATA 'QuantWorkbench'
 $env:QUANT_DATA_DIR = $data
-$date = Get-Date -Format 'yyyy-MM-dd'
-$hour = (Get-Date).Hour
+# Receipts and phases follow Beijing time even when Windows uses another timezone.
+$beijingNow = [DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8))
+$date = $beijingNow.ToString('yyyy-MM-dd')
+$hour = $beijingNow.Hour
 $phase = if ($AnalyzeMorning -or $hour -lt 12) { 'morning' } elseif ($hour -lt 20) { 'noon' } else { 'evening' }
 if (!$AnalyzeMorning) {
     & 'C:\Python312\python.exe' 'E:\pythonPrj\cls_news_collector\collector.py'
@@ -25,7 +27,7 @@ foreach ($n in 'LLM_FALLBACK_URL','LLM_FALLBACK_KEY') { if (!(Test-Path "env:$n"
 if ($AnalyzeMorning) {
     $receipt = Join-Path $data "cls-collected-$date-morning.json"
     while (!(Test-Path -LiteralPath $receipt)) {
-        if ((Get-Date -Format 'HH:mm') -ge '09:00') { throw '盘前采集未按时完成，未补造主样本' }
+        if ([DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8)).ToString('HH:mm') -ge '09:00') { throw '盘前采集未按时完成，未补造主样本' }
         Start-Sleep -Seconds 5
     }
 }
