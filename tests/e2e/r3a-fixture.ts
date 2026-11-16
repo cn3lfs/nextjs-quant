@@ -4,6 +4,7 @@ import { settingsSchema } from "../../src/lib/domain";
 import { alertKey, type AlertEvent } from "../../src/lib/strategy-facts/alerts";
 import type { StrategyObjectInput } from "trading-strategies";
 import daily from "../fixtures/breakout-valid.json";
+import { seedDailyProtection } from "./lifecycle-daily-fixture";
 
 export function seedR3aFixture(db: Database.Database) {
   const repo = new AlertRepository(db);
@@ -24,7 +25,7 @@ export function seedR3aFixture(db: Database.Database) {
     period: "day",
     universe: { kind: "symbols", symbols: ["sh600000"] },
     entry: { kind: "constant", value: true },
-    exit: {},
+    exit: { stop: { kind: "fixed", fraction: 0.1 }, takeProfit: 0.3 },
     sizing: { kind: "weight", weight: 1 },
     sleeve: "swing",
   };
@@ -57,6 +58,10 @@ export function seedR3aFixture(db: Database.Database) {
     source: "breakout-valid fixed fixture",
   };
   repo.record(strategy, event);
+  repo.saveState(`candidate-scan:cn-equity:${strategy.id}:1`, {
+    bar: bar.date,
+    observedAt: now,
+  });
   repo.saveState("exposure", [
     { market: "cn-equity", sleeve: "__checked__", value: 0, at: now },
   ]);
@@ -93,4 +98,5 @@ export function seedR3aFixture(db: Database.Database) {
         : {}),
     });
   repo.saveState("runtime", { lastCheck: now, lastPhase: "fixture" });
+  seedDailyProtection(db, now);
 }

@@ -139,6 +139,15 @@ try {
   ).run(retired.id, "job", JSON.stringify(retired), 1);
   if (profile === "workbench") await seedWorkbenchFixture(root, db);
   if (process.env.E2E_R3A === "1") {
+    // The normal 30% industry cap stays enabled; provide explicit synthetic
+    // classification rather than disabling a guard to make the UI path pass.
+    const blocks = join(directory, "qa-blocks");
+    await mkdir(join(blocks, "申万行业"), { recursive: true });
+    await writeFile(join(blocks, "申万行业", "QA行业.txt"), "SH600000\n");
+    settings.industryBlocksRoot = blocks;
+    db.prepare("UPDATE records SET payload=? WHERE id='settings'").run(
+      JSON.stringify(settings),
+    );
     const { seedR3aFixture } = await import("./r3a-fixture");
     seedR3aFixture(db);
   }
