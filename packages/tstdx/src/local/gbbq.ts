@@ -507,6 +507,55 @@ export function applyAdjustmentByDate(
   });
 }
 
+/** A fixed, evidenced price basis for append-only strategy inputs. Unlike
+ * chart forward adjustment, a later corporate action never changes the
+ * denominator. The caller freezes the first raw observation and its events;
+ * changing either source still requires a new source identity. */
+export function applyAdjustmentAtAnchor(
+  bars: Bar[],
+  factors: AdjustFactor[],
+  anchor: { date: string; factor: number },
+): Bar[] {
+  if (
+    !Number.isFinite(anchor.factor) ||
+    anchor.factor <= 0 ||
+    !factors.some(
+      (row) => row.date === anchor.date && row.factor === anchor.factor,
+    ) ||
+    factors.some(
+      (row, i) =>
+        !Number.isFinite(row.factor) ||
+        row.factor <= 0 ||
+        !Number.isFinite(Date.parse(row.date)) ||
+        (i > 0 && row.date <= factors[i - 1]!.date),
+    )
+  )
+    throw new Error("固定复权锚缺少实际因子或因子序列无效");
+  const byDay = new Map(
+    factors.map((row) => [row.date.slice(0, 10), row.factor]),
+  );
+  return bars.map((bar, i) => {
+    const factor = byDay.get(bar.date.slice(0, 10));
+    if (
+      factor === undefined ||
+      bar.date < anchor.date ||
+      (i > 0 && bar.date <= bars[i - 1]!.date) ||
+      ![bar.open, bar.high, bar.low, bar.close].every(
+        (v) => Number.isFinite(v) && v > 0,
+      )
+    )
+      throw new Error(`固定复权原价或日期因子缺失：${bar.date}`);
+    const scale = factor / anchor.factor;
+    return {
+      ...bar,
+      open: bar.open * scale,
+      high: bar.high * scale,
+      low: bar.low * scale,
+      close: bar.close * scale,
+    };
+  });
+}
+
 export type VolumeRatioCoverage = {
   status: "available" | "missing";
   reason: string | null;

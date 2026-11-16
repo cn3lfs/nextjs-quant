@@ -209,11 +209,69 @@ it("classic one-step base targets exactly reuse the full schedule's buffer, inve
     state = decision.state;
   }
   const excluded = oracle.audit[0]!.selected[0]!;
-  const masked = evaluateStrategyBook(strategy, { date: weeks[0]!.date, calendar, candidates: candidates.filter((c) => c.symbol !== excluded), equity: 100000, initial: 100000, maxPositions: 2, facts: { classicWeeks: weeks, classicRiskSeries: candidates.map((c) => ({ symbol: c.symbol, bars: c.bars })) } });
+  const changedSignalBasis = candidates.map((candidate) => ({
+    ...candidate,
+    bars: candidate.bars.map((bar, i) => {
+      const scale = i % 2 ? 0.5 : 2;
+      return {
+        ...bar,
+        open: bar.open * scale,
+        high: bar.high * scale,
+        low: bar.low * scale,
+        close: bar.close * scale,
+      };
+    }),
+  }));
+  const frozenRisk = candidates.map((candidate) => ({
+    symbol: candidate.symbol,
+    bars: candidate.bars,
+  }));
+  const stableBase = evaluateStrategyBook(strategy, {
+    date: weeks[0]!.date,
+    calendar,
+    candidates: changedSignalBasis,
+    equity: 100000,
+    initial: 100000,
+    maxPositions: 2,
+    facts: { classicWeeks: weeks, classicRiskSeries: frozenRisk },
+  });
+  expect(stableBase.baseTargets).toEqual(oracle.allocations[0]!.weights);
+  const unfrozenRisk = evaluateStrategyBook(strategy, {
+    date: weeks[0]!.date,
+    calendar,
+    candidates: changedSignalBasis,
+    equity: 100000,
+    initial: 100000,
+    maxPositions: 2,
+    facts: { classicWeeks: weeks },
+  });
+  expect(unfrozenRisk.baseTargets).not.toEqual(stableBase.baseTargets);
+  const masked = evaluateStrategyBook(strategy, {
+    date: weeks[0]!.date,
+    calendar,
+    candidates: candidates.filter((c) => c.symbol !== excluded),
+    equity: 100000,
+    initial: 100000,
+    maxPositions: 2,
+    facts: {
+      classicWeeks: weeks,
+      classicRiskSeries: candidates.map((c) => ({
+        symbol: c.symbol,
+        bars: c.bars,
+      })),
+    },
+  });
   expect(masked.baseTargets).toEqual(oracle.allocations[0]!.weights);
   expect(masked.targets).not.toHaveProperty(excluded);
-  expect(masked.excludedBaseTargets).toContainEqual({ symbol: excluded, weight: oracle.allocations[0]!.weights[excluded], reason: "outside-frozen-execution-universe; unallocated capital remains cash" });
-  expect(Object.values(masked.targets!).reduce((n, w) => n + w, 0)).toBeLessThan(Object.values(masked.baseTargets!).reduce((n, w) => n + w, 0));
+  expect(masked.excludedBaseTargets).toContainEqual({
+    symbol: excluded,
+    weight: oracle.allocations[0]!.weights[excluded],
+    reason:
+      "outside-frozen-execution-universe; unallocated capital remains cash",
+  });
+  expect(
+    Object.values(masked.targets!).reduce((n, w) => n + w, 0),
+  ).toBeLessThan(Object.values(masked.baseTargets!).reduce((n, w) => n + w, 0));
 });
 it("chandelier protection ratchets only the next bar, and time exits require a real reset signal", () => {
   const exit = {

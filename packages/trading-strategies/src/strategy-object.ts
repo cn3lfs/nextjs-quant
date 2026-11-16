@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { strategyBuildHash } from "./build-identity.js";
 import { periods, type Bar } from "trading-strategy-core/bars";
 import { calculateFactor } from "trading-strategy-core/factors";
 import { rollingHigh } from "trading-strategy-core/indicators";
@@ -260,7 +261,36 @@ export const strategyObjectSchema = z
 export type StrategyObject = z.infer<typeof strategyObjectSchema>;
 export type StrategyObjectInput = z.input<typeof strategyObjectSchema>;
 export type StrategyRule = z.infer<typeof strategyRuleSchema>;
+export type StrategyRuleEvidence = {
+  kind: StrategyRule["kind"];
+  bar: string;
+  basis: "signal-bars";
+  close: number;
+  volume: number;
+  entry: boolean | null;
+  inputs: Record<string, unknown>;
+  rps?: { period: number; actual: FormulaRpsPoint["values"][number] | null }[];
+};
+/** Full-history rule output, prepared by the same implementation before a
+ * bounded replay drops pre-start OHLC. Price levels are ALWAYS signal-basis;
+ * execution converts them to raw exactly once at the observed bar. */
+export type PreparedStrategyRule = {
+  strategy: StrategyObjectInput;
+  definitionHash: string;
+  buildHash: string;
+  strategyBuildHash: string;
+  priceBasis: "signal";
+  sourceHashes: Readonly<Record<string, string>>;
+  points: readonly {
+    date: string;
+    availableAt: string;
+    sourceHashes: Readonly<Record<string, string>>;
+    decision: StrategyDecision;
+    evidence: StrategyRuleEvidence;
+  }[];
+};
 export type StrategyExternalInputs = {
+  preparedRules?: readonly PreparedStrategyRule[];
   lowZone?: readonly LowZoneFact[];
   monitorCzsc?: {
     observations: readonly MonitorCzscObservation[];
@@ -437,6 +467,106 @@ export function prepareStrategy(
     (external.rps?.length ?? 0)
   )
     throw new Error("Duplicate RPS observations");
+  if (external.preparedRules) {
+    const sameId = external.preparedRules.filter(
+      (row) => row.strategy.id === strategy.id,
+    );
+    const rule = sameId[0];
+    const canonical = (value: unknown): string =>
+      JSON.stringify(value, (_key, item: unknown) =>
+        item && typeof item === "object" && !Array.isArray(item)
+          ? Object.fromEntries(
+              Object.entries(item).sort(([a], [b]) => a.localeCompare(b)),
+            )
+          : item,
+      );
+    const digest = (value: string) => /^[a-f0-9]{64}$/.test(value);
+    if (
+      sameId.length !== 1 ||
+      !rule ||
+      canonical(strategyObjectSchema.parse(rule.strategy)) !==
+        canonical(strategy) ||
+      rule.strategyBuildHash !== strategyBuildHash ||
+      rule.priceBasis !== "signal" ||
+      !digest(rule.definitionHash) ||
+      !digest(rule.buildHash) ||
+      !Object.keys(rule.sourceHashes).length ||
+      !Object.values(rule.sourceHashes).every(digest) ||
+      rule.points.some(
+        (point, i) =>
+          !validDate(point.date) ||
+          !validDate(point.availableAt) ||
+          !Object.keys(point.sourceHashes ?? {}).length ||
+          !Object.values(point.sourceHashes ?? {}).every(digest) ||
+          point.availableAt > point.date ||
+          (i > 0 && point.date <= rule.points[i - 1]!.date) ||
+          ![true, false, null].includes(point.decision.entry) ||
+          ![true, false, null].includes(point.decision.exit) ||
+          point.decision.stopLevel === undefined ||
+          (strategy.exit.chandelier !== undefined &&
+            point.decision.chandelierStop === undefined) ||
+          [point.decision.stopLevel, point.decision.chandelierStop].some(
+            (v) => v !== undefined && v !== null && !Number.isFinite(v),
+          ) ||
+          point.evidence.bar !== point.date ||
+          !Number.isFinite(point.evidence.close) ||
+          point.evidence.close <= 0 ||
+          !Number.isFinite(point.evidence.volume) ||
+          point.evidence.volume < 0 ||
+          point.evidence.basis !== "signal-bars" ||
+          point.evidence.kind !== strategy.entry.kind,
+      )
+    )
+      throw new Error(
+        "Invalid / mismatched genuine strategy rule observations",
+      );
+    const points = new Map(rule.points.map((point) => [point.date, point]));
+    const observed = (index: number) => {
+      if (!Number.isInteger(index) || index < 0 || index >= bars.length)
+        throw new Error("Invalid strategy index");
+      const bar = bars[index]!,
+        point = points.get(bar.date);
+      if (
+        point &&
+        (point.evidence.close !== bar.close ||
+          point.evidence.volume !== bar.volume)
+      )
+        throw new Error(
+          "Genuine rule price basis differs from aligned signal bar",
+        );
+      return { bar, point };
+    };
+    return {
+      strategy,
+      breakoutAt: (_index: number): ReturnType<typeof analyzeBreakout> => {
+        throw new Error(
+          "Full breakout history is not retained in a prepared rule point",
+        );
+      },
+      explain(index: number): StrategyRuleEvidence {
+        const { bar, point } = observed(index);
+        return (
+          point?.evidence ?? {
+            kind: strategy.entry.kind,
+            bar: bar.date,
+            basis: "signal-bars",
+            close: bar.close,
+            volume: bar.volume,
+            entry: null,
+            inputs: {
+              missing: "Missing genuine full-history rule observation",
+            },
+          }
+        );
+      },
+      evaluate(index: number): StrategyDecision {
+        const { point } = observed(index);
+        if (!point)
+          throw new Error("Missing genuine full-history rule observation");
+        return { ...point.decision };
+      },
+    };
+  }
   const breakoutCache = new Map<number, ReturnType<typeof analyzeBreakout>>();
   let breakoutPrepared: ReturnType<typeof prepareBreakout> | undefined;
   const lowCache = new Map<string, ReturnType<typeof historicalLowSeries>>();
@@ -608,7 +738,7 @@ export function prepareStrategy(
     strategy,
     breakoutAt,
     /** Diagnostic values come from the same rule implementations, never a second signal. */
-    explain(index: number) {
+    explain(index: number): StrategyRuleEvidence {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
       const rule = strategy.entry,
@@ -743,4 +873,48 @@ export function prepareStrategy(
       };
     },
   };
+}
+
+/** Compile the ORIGINAL rule on full causal history, then project only named
+ * completed dates. No replacement strategy or approximate recurrence seed. */
+export function prepareStrategyRulePoints(
+  strategy: StrategyObjectInput,
+  bars: readonly Bar[],
+  external: StrategyExternalInputs,
+  dates: readonly string[],
+  identity: Pick<
+    PreparedStrategyRule,
+    "definitionHash" | "buildHash" | "sourceHashes"
+  > & { observationSourceHashes?: Readonly<Record<string, string>> },
+): PreparedStrategyRule {
+  if (external.preparedRules)
+    throw new Error(
+      "Cannot prepare genuine rules from already projected observations",
+    );
+  const prepared = prepareStrategy(strategy, bars, external);
+  const indices = new Map(bars.map((bar, index) => [bar.date, index]));
+  const points = dates.map((date) => {
+    const index = indices.get(date);
+    if (index === undefined)
+      throw new Error(`Genuine rule date missing from full history: ${date}`);
+    return {
+      date,
+      availableAt: date,
+      sourceHashes: identity.observationSourceHashes ?? identity.sourceHashes,
+      decision: prepared.evaluate(index),
+      evidence: prepared.explain(index),
+    };
+  });
+  const result: PreparedStrategyRule = {
+    strategy: prepared.strategy,
+    definitionHash: identity.definitionHash,
+    buildHash: identity.buildHash,
+    sourceHashes: identity.sourceHashes,
+    strategyBuildHash,
+    priceBasis: "signal",
+    points,
+  };
+  // Validate identity, chronology and basis through the same consumer.
+  prepareStrategy(strategy, bars, { ...external, preparedRules: [result] });
+  return result;
 }

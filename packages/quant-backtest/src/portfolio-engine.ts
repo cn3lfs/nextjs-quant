@@ -99,6 +99,16 @@ export type PortfolioRequest = {
     date: string;
     availableAt: string;
     selectionFrom?: string;
+    /** Paper registration may occur after the seed's next open. The selection
+     * feature still warms up, but an already missed execution is never replayed. */
+    emitOrders?: boolean;
+    /** Exact prior weekly buffer feature, without positions, capital or DD. */
+    previousSelected?: {
+      date: string;
+      availableAt: string;
+      symbols: readonly string[];
+      sourceHash: string;
+    };
   }[];
   rebalance?: { everyBars?: number; drift?: number };
   /** Completed-bar targets; only idle cash is transferred, never forced sales. */
@@ -1063,6 +1073,20 @@ export function runPortfolio(
       bookStates.has(strategy.id)
     )
       throw new Error("Invalid causal pre-start book seed");
+    const previousSelected = seed.previousSelected;
+    if (
+      previousSelected &&
+      (seed.selectionFrom !== undefined ||
+        !Number.isFinite(Date.parse(previousSelected.date)) ||
+        !Number.isFinite(Date.parse(previousSelected.availableAt)) ||
+        previousSelected.availableAt > previousSelected.date ||
+        previousSelected.date >= seed.date ||
+        !/^[a-f0-9]{64}$/.test(previousSelected.sourceHash) ||
+        new Set(previousSelected.symbols).size !==
+          previousSelected.symbols.length ||
+        previousSelected.symbols.some((symbol) => !symbol))
+    )
+      throw new Error("Invalid causal prior weekly selection feature");
     const sleeve = sleeves.find((s) => s.id === strategy.sleeve)!;
     const week = (date: string) => {
       const d = new Date(date.slice(0, 10));
@@ -1110,7 +1134,11 @@ export function runPortfolio(
         maxPositions: sleeve.maxPositions,
         facts: request.bookFacts?.[strategy.id],
         holdings: [],
-        state: decision?.state,
+        state:
+          decision?.state ??
+          (previousSelected
+            ? { selected: [...previousSelected.symbols] }
+            : undefined),
       });
       if (!decision.available)
         throw new Error(
@@ -1123,6 +1151,7 @@ export function runPortfolio(
       );
     bookStates.set(strategy.id, decision.state);
     bookDecisions.push({ strategyId: strategy.id, decision });
+    if (seed.emitOrders === false) continue;
     for (const [symbol, weight] of Object.entries(decision.targets))
       if (weight > 0) {
         const due = calendar[request.signalDelayBars ?? 0] ?? null;
@@ -1135,6 +1164,8 @@ export function runPortfolio(
           "signal",
         );
         order.targetWeight = weight;
+        order.rankScore =
+          decision.entries.find((entry) => entry.symbol === symbol)?.score ?? 0;
         order.industries = decision.industries;
         order.riskGroups = decision.riskGroups;
         order.marketTargetShare = decision.marketTargetShare;

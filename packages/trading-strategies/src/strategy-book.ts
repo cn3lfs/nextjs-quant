@@ -473,8 +473,9 @@ export function evaluateStrategyBook(
     !!nextCalendar && isoWeek(date) !== isoWeek(nextCalendar);
   const riskAt = (symbol: string) => {
     const bars =
-      candidates.find((r) => r.symbol === symbol)?.bars ??
-      facts.classicRiskSeries?.find((r) => r.symbol === symbol)?.bars;
+      strategy.rank?.kind === "classic" && facts.classicRiskSeries !== undefined
+        ? facts.classicRiskSeries.find((r) => r.symbol === symbol)?.bars
+        : candidates.find((r) => r.symbol === symbol)?.bars;
     return bars
       ? strategyBookReturns(bars, date, input.calendar, strategy)
       : null;
