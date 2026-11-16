@@ -1,5 +1,6 @@
 import {
   strategyProtection,
+  usesStrategyBook,
   type StrategyObjectInput,
 } from "trading-strategies";
 import {
@@ -7,6 +8,11 @@ import {
   eligibleStrategySymbol,
   type StrategySeries,
 } from "./evaluation";
+import {
+  bookEntry,
+  validateBookAdmission,
+  type DriverBookAdmission,
+} from "./book";
 
 export type WatchPosition = {
   quantity: number;
@@ -28,6 +34,8 @@ export type WatchEvent = {
   sleeve: string;
   stop: number | null;
   target: number | null;
+  targetWeight?: number;
+  rankScore?: number;
 };
 /** Pure completed-bar driver. Persistence/dedupe is a separate atomic boundary.
  * Existing protection wins over targets; today's high never raises today's stop.
@@ -36,10 +44,16 @@ export function watchStrategy(
   strategy: StrategyObjectInput,
   series: StrategySeries,
   asOf: string,
-  options: { position?: WatchPosition; membership?: readonly string[] } = {},
+  options: {
+    position?: WatchPosition;
+    membership?: readonly string[];
+    admission?: DriverBookAdmission;
+  } = {},
 ): WatchEvent[] {
   const result = evaluateStrategySeries(strategy, series, asOf);
   if (!result || result.bar !== asOf) return [];
+  if (options.admission)
+    validateBookAdmission(options.admission, strategy, asOf);
   const holding = options.position;
   if (
     holding &&
@@ -64,10 +78,19 @@ export function watchStrategy(
     position && position.quantity > 0
       ? strategyProtection(result.strategy, raw, position)
       : null;
+  const adjustment = options.admission?.decision.adjustments?.find(
+    (a) =>
+      a.symbol === series.symbol &&
+      (options.admission!.decision.available ||
+        (a.side === "sell" &&
+          options.admission!.decision.targets?.[a.symbol] === a.targetWeight &&
+          a.deltaWeight < 0)),
+  );
   if (protection) {
     type = protection.trigger === "target" ? "target" : "stop";
     price = protection.price;
-  } else if (
+  } else if (adjustment?.side === "sell") type = "exit";
+  else if (
     result.decision.exit === true ||
     (position &&
       result.strategy.exit.maxBars !== undefined &&
@@ -75,8 +98,12 @@ export function watchStrategy(
   )
     type = "exit";
   else if (
-    result.decision.entry === true &&
-    (!position || position.tranches < result.strategy.sizing.tranches) &&
+    (result.decision.entry === true || !!strategy.rebalance) &&
+    (!usesStrategyBook(strategy) ||
+      !!bookEntry(options.admission, strategy, asOf, series.symbol)) &&
+    (!position ||
+      !!strategy.rebalance ||
+      position.tranches < result.strategy.sizing.tranches) &&
     eligibleStrategySymbol(strategy, series, asOf, options.membership)
   )
     type = "entry";
@@ -102,6 +129,14 @@ export function watchStrategy(
       target: result.strategy.exit.takeProfit
         ? result.price * (1 + result.strategy.exit.takeProfit)
         : null,
+      ...(adjustment ? { targetWeight: adjustment.targetWeight } : {}),
+      ...(strategy.rank && options.admission?.decision.available
+        ? {
+            rankScore: options.admission.decision.entries.find(
+              (e) => e.symbol === series.symbol,
+            )?.score,
+          }
+        : {}),
     },
   ];
 }

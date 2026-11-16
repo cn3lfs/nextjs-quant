@@ -1,5 +1,10 @@
 import type { PortfolioInstrument, PortfolioRequest } from "quant-backtest";
-import type { StrategyExternalInputs } from "trading-strategies";
+import {
+  usesStrategyBook,
+  type StrategyExternalInputs,
+} from "trading-strategies";
+import { isDeepStrictEqual } from "node:util";
+import { cryptoPeriodEnd } from "~/lib/market/crypto-aggregation";
 import type { Bar } from "trading-strategy-core/bars";
 import { cryptoSymbol, isCryptoSymbol } from "~/lib/market/crypto";
 import { beijingClock } from "~/lib/market/market-session";
@@ -25,13 +30,47 @@ import { paperCompletedAt } from "./advance-clock";
 import { paperSleevePolicy } from "./policy";
 import { capturePaperDecisions } from "./decisions";
 import { localCalendarReference } from "../market/data-health";
+import { loadCnPaperContext } from "./cn-book-context";
 
 export async function loadPaperInput(
   account: PaperAccount,
   now: number,
+  dependencies: {
+    bookFacts?: PortfolioRequest["bookFacts"];
+    externalBySymbol?: Readonly<Record<string, StrategyExternalInputs>>;
+    memberships?: PortfolioRequest["memberships"];
+    bookSeeds?: PortfolioRequest["bookSeeds"];
+  } = {},
 ): Promise<PaperInput | null> {
   const config = settings();
   const period = account.candidates[0]!.strategy.period;
+  const native = account.candidates.some(
+    ({ strategy }) =>
+      usesStrategyBook(strategy) ||
+      !!strategy.exit.chandelier ||
+      !!strategy.exit.timeReentry,
+  );
+  const policy = native ? account.candidates[0]!.executionPolicy : undefined;
+  if (
+    native &&
+    (!policy ||
+      !policy.costs ||
+      policy.initial !== account.initial ||
+      account.candidates.some(
+        (candidate) => !isDeepStrictEqual(candidate.executionPolicy, policy),
+      ))
+  )
+    throw new Error(
+      "新纸面策略缺少同版本冻结executionPolicy；不能猜本金、费用或分仓限额",
+    );
+  if (
+    native &&
+    account.candidates.some(
+      (candidate) =>
+        candidate.strategy.id.startsWith("l3-") && !candidate.sourceContext,
+    )
+  )
+    throw new Error("L3纸面候选缺少同版本冻结sourceContext");
   if (account.candidates.some((c) => c.strategy.period !== period))
     throw new Error("合账候选须使用同一原生周期");
   if (account.market === "crypto") {
@@ -42,7 +81,11 @@ export async function loadPaperInput(
     if (!status.series.some((s) => s.interval === interval && s.manifest))
       throw new Error("纸面账户等待币安原生周期官方归档；请在系统中配置或回填");
   } else if (!config.tdxRoot) throw new Error("纸面账户等待通达信数据目录");
-  const read = async (symbol: string, adjusted = false) => {
+  const read = async (
+    symbol: string,
+    adjusted = false,
+    requestedPeriod = period,
+  ) => {
     const snapshot = await readBars({
       instrument: {
         market: account.market,
@@ -51,7 +94,7 @@ export async function loadPaperInput(
             ? cryptoSymbol(symbol)
             : symbol,
       },
-      period,
+      period: requestedPeriod,
       adjustment:
         adjusted && account.market === "cn-equity" ? "forward" : "none",
       freezeRaw: adjusted,
@@ -59,12 +102,19 @@ export async function loadPaperInput(
       cryptoSource: "binance",
       now,
       live: false,
+      ...(native && account.market === "cn-equity"
+        ? { source: "local" as const }
+        : {}),
       to: account.market === "cn-equity" ? beijingClock(now).date : undefined,
     });
     const bars = snapshot.bars.filter(
       (b) =>
         !snapshot.barStore.formingDates.includes(b.date) &&
-        paperCompletedAt(account, b.date) <= now,
+        (account.market === "crypto"
+          ? cryptoPeriodEnd(b.date, requestedPeriod)
+          : requestedPeriod === "day" || requestedPeriod === "week"
+            ? Date.parse(`${b.date.slice(0, 10)}T15:00:00+08:00`)
+            : Date.parse(b.date)) <= now,
     );
     const dates = new Set(bars.map((b) => b.date));
     const rawBars = (
@@ -97,7 +147,9 @@ export async function loadPaperInput(
   const pending = calendar.filter(
     (d) =>
       d > (account.lastBar ?? "") &&
-      paperCompletedAt(account, d) >= account.startedAt,
+      (native
+        ? paperCompletedAt(account, d) > account.startedAt
+        : paperCompletedAt(account, d) >= account.startedAt),
   );
   const readyDates = account.market === "crypto" ? pending : [];
   if (account.market === "cn-equity")
@@ -109,12 +161,26 @@ export async function loadPaperInput(
       readyDates.push(date);
     }
   if (!readyDates.length) return null;
+  if (
+    native &&
+    account.market === "cn-equity" &&
+    account.candidates.every((candidate) =>
+      candidate.strategy.id.startsWith("l3-"),
+    ) &&
+    dependencies.bookFacts === undefined &&
+    dependencies.externalBySymbol === undefined &&
+    dependencies.memberships === undefined &&
+    dependencies.bookSeeds === undefined
+  )
+    return loadCnPaperContext(account, now, calendar, readyDates);
   const symbols = [
     ...new Set(
       account.candidates.flatMap((c) =>
         c.strategy.universe.kind === "symbols"
           ? c.strategy.universe.symbols
-          : [],
+          : native
+            ? (c.sourceContext?.universeSymbols ?? [])
+            : [],
       ),
     ),
   ];
@@ -148,7 +214,9 @@ export async function loadPaperInput(
           calendar.at(-1)!,
         )
       : [];
-    const external: StrategyExternalInputs = {};
+    const external: StrategyExternalInputs = {
+      ...dependencies.externalBySymbol?.[symbol],
+    };
     if (low)
       external.lowZone = (
         await captureLowZoneFinancials(
@@ -194,7 +262,7 @@ export async function loadPaperInput(
               tradable: true,
             },
     };
-    if (account.market === "cn-equity") {
+    if (account.market === "cn-equity" && !native) {
       decisions.push(
         ...capturePaperDecisions(
           account.candidates.map((c) => c.strategy),
@@ -216,16 +284,98 @@ export async function loadPaperInput(
   let request: PortfolioRequest = {
     market: account.market,
     initial: account.initial,
-    start: calendar[0]!.slice(0, 10),
-    end: calendar.at(-1)!.slice(0, 10),
+    start: native ? readyDates[0]! : calendar[0]!.slice(0, 10),
+    end: native ? readyDates.at(-1)! : calendar.at(-1)!.slice(0, 10),
     calendar,
     instruments,
     strategies: account.candidates.map((c) => c.strategy),
-    sleeves: [
+    sleeves: policy?.sleeves ?? [
       paperSleevePolicy(account.market, account.sleeve, symbols.length),
     ],
+    ...(policy ? { costs: policy.costs } : {}),
   };
-  if (account.market === "crypto") {
+  if (native) {
+    const facts: Record<
+      string,
+      NonNullable<PortfolioRequest["bookFacts"]>[string]
+    > = {};
+    for (const { strategy } of account.candidates) {
+      const supplied = dependencies.bookFacts?.[strategy.id] ?? {};
+      const current = { ...supplied };
+      if (strategy.regime && !current.benchmark) {
+        const dailyBenchmark =
+          (account.market === "crypto" && period === "4h") ||
+          strategy.regime.benchmark !==
+            (account.market === "crypto" ? "BTCUSDT" : "sh000906")
+            ? await read(
+                strategy.regime.benchmark,
+                false,
+                account.market === "crypto" && period === "4h" ? "day" : period,
+              )
+            : benchmark;
+        sources.push(dailyBenchmark.source);
+        current.benchmark = {
+          symbol: strategy.regime.benchmark,
+          bars: dailyBenchmark.bars,
+        };
+      }
+      if (strategy.costFilter && current.roundTripCost === undefined) {
+        const costs = policy!.costs!;
+        if (costs.minimumCommission > 0)
+          throw new Error("组合成本门控缺少冻结的最小佣金/名义金额成本依据");
+        current.roundTripCost =
+          (2 * costs.commissionBps + 2 * costs.slippageBps + costs.sellTaxBps) /
+          10000;
+      }
+      if (
+        strategy.rank?.kind === "rps-composite" &&
+        instruments.some((i) => !i.external?.rps?.length)
+      )
+        throw new Error(
+          "L3纸面rank缺少同一冻结证券池的完整RPS事实，不复用全市场排名",
+        );
+      if (strategy.rank?.kind === "classic" && !current.classicWeeks?.length)
+        throw new Error("L3纸面classic缺少同版本、当时可见的完整截面事实");
+      if (
+        account.market === "cn-equity" &&
+        (strategy.overlay?.industryWeight !== undefined ||
+          strategy.overlay?.correlationGroupRisk !== undefined) &&
+        !current.industries?.length
+      )
+        throw new Error("L3纸面组合缺少带来源的完整行业组事实");
+      if (
+        strategy.entry.kind === "external" &&
+        strategy.entry.id === "l3-market-low-zone" &&
+        !current.marketLowZone?.length
+      )
+        throw new Error("L3纸面低位缺少市场价格/广度/时点估值证据");
+      facts[strategy.id] = current;
+    }
+    const memberships =
+      dependencies.memberships ??
+      account.candidates.flatMap(({ strategy, sourceContext }) => {
+        if (
+          strategy.universe.kind === "symbols" ||
+          strategy.universe.kind === "rps"
+        )
+          return [];
+        if (!sourceContext?.universeSymbols.length)
+          throw new Error("L3纸面候选缺少带来源的冻结证券池");
+        return calendar.map((date) => ({
+          strategyId: strategy.id,
+          date,
+          availableAt: date,
+          symbols: sourceContext.universeSymbols,
+        }));
+      });
+    request = {
+      ...request,
+      bookFacts: facts,
+      memberships,
+      ...(dependencies.bookSeeds ? { bookSeeds: dependencies.bookSeeds } : {}),
+    };
+  }
+  if (account.market === "crypto" && !native) {
     const weights = account.candidates.flatMap((c) => {
       if (c.registration.sizing === "legacy") return [];
       return (
@@ -258,7 +408,7 @@ export async function loadPaperInput(
     request,
     benchmark: benchmark.rawBars,
     readyDates,
-    ...(account.market === "cn-equity" ? { decisions } : {}),
+    ...(account.market === "cn-equity" && !native ? { decisions } : {}),
     source: `BarStore ${account.market}; sources SHA256 ${createHash("sha256").update(JSON.stringify(sources)).digest("hex")}`,
   };
 }

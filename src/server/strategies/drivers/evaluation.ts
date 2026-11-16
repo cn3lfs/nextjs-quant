@@ -1,5 +1,6 @@
 import {
   prepareStrategy,
+  usesStrategyBook,
   type StrategyObjectInput,
   type StrategyExternalInputs,
 } from "trading-strategies";
@@ -43,10 +44,20 @@ export function evaluateStrategySeries(
     symbol: series.symbol,
     bar: bar.date,
     price: raw.close,
+    evidence: prepared.explain(bars.length - 1),
+    ...(usesStrategyBook(strategy) ? { signalDecision: decision } : {}),
     decision: {
       ...decision,
       stopLevel:
         decision.stopLevel === null ? null : decision.stopLevel * ratio,
+      ...(strategy.exit.chandelier
+        ? {
+            chandelierStop:
+              decision.chandelierStop == null
+                ? null
+                : decision.chandelierStop * ratio,
+          }
+        : {}),
     },
   };
 }
@@ -57,6 +68,12 @@ export function eligibleStrategySymbol(
   asOf: string,
   membership?: readonly string[],
 ) {
+  // Coverage starts at the first observed source record, not a certified IPO.
+  if (
+    usesStrategyBook(strategy) &&
+    (!series.bars.length || series.bars[0]!.date > asOf)
+  )
+    return false;
   if (strategy.universe.kind === "symbols")
     return strategy.universe.symbols.includes(series.symbol);
   if (strategy.universe.kind === "rps") {

@@ -1,6 +1,7 @@
 import type { Bar, Period } from "trading-strategy-core/bars";
 import {
   standingProtectionLevels,
+  nextStrategyProtection,
   strategyProtection,
   strategyTimeExit,
 } from "trading-strategies";
@@ -204,6 +205,7 @@ export function observeHoldingProtection(
     period?: Period;
     ruleExit?: boolean | null;
     evidenceIssue?: string;
+    chandelierStop?: number | null;
   } = {},
 ): HoldingProtectionProjection {
   if (previous?.bindingAt !== binding.boundAt) previous = undefined;
@@ -274,6 +276,13 @@ export function observeHoldingProtection(
     evidenceIssue = "ATR初始止损缺少冻结来源证据";
   if (!evidenceIssue && spec.exitSpec.rule && options.ruleExit == null)
     evidenceIssue = "退出规则证据或预热不足，不能视为未触发";
+  if (
+    !evidenceIssue &&
+    spec.exitSpec.chandelier &&
+    options.chandelierStop == null
+  )
+    evidenceIssue =
+      "Chandelier ATR或滚动高点预热/完成bar证据不足，保留原保护价";
   if (evidenceIssue)
     return {
       task: protectionReviewTask(binding, evidenceIssue),
@@ -285,11 +294,17 @@ export function observeHoldingProtection(
     };
   if (previous && previous.task.bar === bar?.date) return previous;
   const high = Math.max(binding.entryPrice, ...observed.map((b) => b.high));
-  const nextStop = standingProtectionLevels(spec.exitSpec, {
-    stop: spec.initialStop,
+  const initialLevels = standingProtectionLevels(spec.exitSpec, {
+    stop: Math.max(spec.initialStop, oldStop ?? 0),
     target: spec.target,
     high,
-  }).stop;
+  });
+  const nextStop = nextStrategyProtection(
+    spec.exitSpec,
+    { stop: initialLevels.stop, high },
+    bar!,
+    options.chandelierStop,
+  ).stop;
   const priorHigh = Math.max(
     binding.entryPrice,
     ...observed.slice(0, -1).map((b) => b.high),
@@ -336,6 +351,8 @@ export function observeHoldingProtection(
           .slice(0, 10);
   let status: HoldingProtectionTask["status"] = previous ? "adjust" : "set";
   let reason = `${spec.exitSpec.trailing === undefined ? "计划初始止损" : `完成bar最高价${high} × (1-${spec.exitSpec.trailing})，不降低初始止损`}；下一周期设置/调整券商止损单，未认证已挂单`;
+  if (spec.exitSpec.chandelier)
+    reason = `同版本完成bar Chandelier(${spec.exitSpec.chandelier.period},${spec.exitSpec.chandelier.multiple})=${options.chandelierStop}；取原保护价与新候选较高者${nextStop}，下一周期人工设置/调整券商止损单，未认证已挂单`;
   if (timed) {
     status = "time-exit";
     reason = `已持有${observed.length}根完成bar，下一周期执行${spec.exitSpec.maxBars}根时间退出；须人工操作`;

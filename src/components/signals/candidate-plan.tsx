@@ -127,6 +127,26 @@ export function CandidatePlan({
           {candidate.policyReason && (
             <p role="alert">仓位来源尚不可用：{candidate.policyReason}</p>
           )}
+          {candidate.sizingPolicy?.bookSizing && (
+            <p className="text-sm text-nc-text-3">
+              组合决策 {candidate.sizingPolicy.bookSizing.date}：目标权重{" "}
+              {formatNumber(
+                candidate.sizingPolicy.bookSizing.targetWeight * 100,
+                2,
+              )}
+              % · 研究持仓权重{" "}
+              {formatNumber(
+                candidate.sizingPolicy.bookSizing.currentWeight * 100,
+                2,
+              )}
+              % · 增仓差{" "}
+              {formatNumber(
+                candidate.sizingPolicy.bookSizing.deltaWeight * 100,
+                2,
+              )}
+              %。 数量按目标总仓减已核验实际持仓计算。
+            </p>
+          )}
           <label className="block">
             入场理由（可选）
             <Input name="rationale" aria-label="入场理由" maxLength={1000} />

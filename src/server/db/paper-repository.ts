@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import type { StrategyBookDecision } from "trading-strategies";
 import { sqlite } from "./index";
 import type {
   PaperAccount,
@@ -11,6 +12,79 @@ import type {
  * Mutable projections and the replay checkpoint commit under one revision fence. */
 export class PaperRepository {
   constructor(readonly db: Database.Database = sqlite()) {}
+  /** Parse one checkpoint once, then keep only one completed bar's genuine
+   * observations for all its symbols/strategies. Callers cache this projection
+   * for an evaluation cycle; never parse a large checkpoint per symbol. */
+  watchContext(id: string, date: string) {
+    const state = this.state(id);
+    if (
+      !state ||
+      !state.request.calendar.includes(date) ||
+      date < state.request.start ||
+      date > state.request.end
+    )
+      return null;
+    const instruments = new Map(
+      state.request.instruments.map((instrument) => {
+        const raw = instrument.bars.find((bar) => bar.date === date);
+        const signal = instrument.signalBars.find((bar) => bar.date === date);
+        return [
+          instrument.symbol,
+          {
+            symbol: instrument.symbol,
+            market: instrument.market,
+            rawBars: instrument.external?.preparedRules
+              ? raw
+                ? [raw]
+                : []
+              : instrument.bars.filter((bar) => bar.date <= date),
+            bars: instrument.external?.preparedRules
+              ? signal
+                ? [signal]
+                : []
+              : instrument.signalBars.filter((bar) => bar.date <= date),
+            external: {
+              ...instrument.external,
+              preparedRules: instrument.external?.preparedRules?.map(
+                (rule) => ({
+                  ...rule,
+                  points: rule.points.filter((point) => point.date === date),
+                }),
+              ),
+              rps: instrument.external?.rps?.filter((point) =>
+                instrument.external?.preparedRules
+                  ? point.date === date
+                  : point.date <= date,
+              ),
+            },
+          },
+        ] as const;
+      }),
+    );
+    return {
+      strategies: state.request.strategies,
+      decisions:
+        state.result.bookDecisions?.filter(
+          (row) => row.decision.date === date,
+        ) ?? [],
+      memberships:
+        state.request.memberships?.filter((row) => row.date === date) ?? [],
+      instruments,
+      source: `Frozen paper ${id}; genuine completed rule ${date}`,
+    };
+  }
+  bookDecision(id: string, strategyId: string, version: number, date: string) {
+    const rows = this.db
+      .prepare(
+        `SELECT json_extract(b.value,'$.decision') decision
+      FROM paper_state p,json_each(p.payload,'$.request.strategies') s,json_each(p.payload,'$.result.bookDecisions') b
+      WHERE p.account_id=? AND json_extract(s.value,'$.id')=? AND json_extract(s.value,'$.version')=?
+      AND json_extract(b.value,'$.strategyId')=? AND json_extract(b.value,'$.decision.date')=?`,
+      )
+      .all(id, strategyId, version, strategyId, date) as { decision: string }[];
+    if (rows.length !== 1) return null;
+    return JSON.parse(rows[0]!.decision) as StrategyBookDecision;
+  }
   sizingPolicy(id: string, strategyId: string, symbol: string, date: string) {
     const row = this.db
       .prepare(

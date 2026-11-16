@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import Big from "big.js";
 import { planJournalSchema } from "~/lib/portfolio/account-review";
-import { sizePortfolioEntry, portfolioExecutionFee } from "quant-backtest";
+import {
+  sizePortfolioEntry,
+  sizePortfolioTargetEntry,
+  portfolioExecutionFee,
+} from "quant-backtest";
 import { planSizingPolicy } from "./plan-sizing";
 import { z } from "zod";
 import { marketRules } from "trading-strategy-core/market-rules";
@@ -236,7 +240,7 @@ export function previewAlertPlan(
         .filter((p) => p.sleeve === "未知")
         .reduce((n, p) => n + p.value!, 0)
     : usage.filter((u) => u.sleeve === "未知").reduce((n, u) => n + u.value, 0);
-  const budget = Math.max(
+  let budget = Math.max(
     0,
     Math.min(
       equity * sleeve.share - invested - reserved,
@@ -254,6 +258,20 @@ export function previewAlertPlan(
   );
   if (!strategy) throw new Error("缺少同版本策略定义");
   const policy = planSizingPolicy(strategy, event, config, repository);
+  if (policy.bookSizing?.marketTargetShare !== undefined)
+    budget = Math.min(
+      budget,
+      Math.max(
+        0,
+        equity * sleeve.share * policy.bookSizing.marketTargetShare -
+          invested -
+          reserved,
+      ),
+    );
+  if (policy.bookSizing && !actualPositions)
+    throw new Error(
+      "组合目标计划需要真实同版本持仓快照，不能只用分仓汇总推算新增数量",
+    );
   const confirmed = input.overrideSizing?.confirmed === true;
   const expectedTranches = strategy.sizing.tranches ?? 1;
   const initialStop =
@@ -279,8 +297,23 @@ export function previewAlertPlan(
   let cash = budget;
   const held =
     actualPositions?.filter(
-      (p) => p.symbol === event.symbol && p.sleeve === event.sleeve,
+      (p) =>
+        p.symbol === event.symbol &&
+        p.sleeve === event.sleeve &&
+        (!policy.bookSizing ||
+          (p.strategyId === event.strategyId &&
+            p.strategyVersion === event.version)),
     ) ?? [];
+  if (
+    policy.bookSizing &&
+    actualPositions?.some(
+      (p) =>
+        p.symbol === event.symbol &&
+        p.sleeve === event.sleeve &&
+        p.strategyId === null,
+    )
+  )
+    throw new Error("同标的真实持仓尚未归属策略，不能认证组合目标增仓差额");
   if (held.some((p) => p.cost === null || p.stop === null))
     throw new Error("同标的既有持仓缺少成本或止损依据，不能计算剩余风险");
   let existing = held.length
@@ -296,7 +329,9 @@ export function previewAlertPlan(
   let estimatedFees = 0;
   const stages = input.stages.map((entry, index) => {
     const context = {
-      sizing: { ...strategy.sizing, tranches: input.stages.length },
+      sizing: strategy.rebalance
+        ? { kind: "weight" as const, weight: policy.weightCeiling, tranches: 1 }
+        : { ...strategy.sizing, tranches: input.stages.length },
       equity: equity * sleeve.share,
       cash,
       price: entry,
@@ -307,7 +342,12 @@ export function previewAlertPlan(
       quantityRules: { step, minimum, maximum: 1e12 },
       costs: policy.costs,
     };
-    const sized = sizePortfolioEntry(context);
+    const sized = policy.bookSizing
+      ? sizePortfolioTargetEntry({
+          ...context,
+          targetWeight: policy.bookSizing.targetWeight,
+        })
+      : sizePortfolioEntry(context);
     expectedQuantities.push(sized.quantity);
     const quantity =
       input.overrideSizing?.quantities?.[index] ?? sized.quantity;
@@ -364,6 +404,15 @@ export function previewAlertPlan(
       riskPerTrade: policy.riskPerTrade,
       maxPositions: policy.maxPositions,
       weightCeiling: policy.weightCeiling,
+      ...(policy.bookSizing
+        ? {
+            bookSizing: {
+              ...policy.bookSizing,
+              actualHeldQuantity: held.reduce((n, p) => n + p.quantity, 0),
+              actualHeldValue: held.reduce((n, p) => n + (p.value ?? 0), 0),
+            },
+          }
+        : {}),
       signalDate: event.bar,
       budget,
       expectedQuantities,

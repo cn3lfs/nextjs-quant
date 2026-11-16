@@ -1,9 +1,10 @@
 import type { PortfolioInstrument, PortfolioRequest } from "quant-backtest";
 import { paperStrategy } from "../strategies/drivers/paper";
 import { evaluateStrategySeries } from "../strategies/drivers/evaluation";
+import { usesStrategyBook } from "trading-strategies";
 import type { PaperState } from "./model";
-/** Capture before discarding indicator warmup. A full source series is held for
- * one instrument at a time; the durable replay needs only forward raw bars. */
+/** Record each first-observed raw rule before portfolio admission. Legacy
+ * replay may discard warmup; native book/exit replay retains its full context. */
 export function capturePaperDecisions(
   strategies: PortfolioRequest["strategies"],
   instrument: PortfolioInstrument,
@@ -25,11 +26,18 @@ export function capturePaperDecisions(
       };
       const result = evaluateStrategySeries(strategy, series, date);
       if (!result) continue;
-      paperStrategy(strategy, series, date, {
-        membership: memberships?.find(
-          (m) => m.strategyId === strategy.id && m.date === date,
-        )?.symbols,
-      });
+      // Capture the raw completed rule, before cross-sectional admission. A
+      // single instrument cannot reconstruct a portfolio book decision.
+      if (
+        !usesStrategyBook(strategy) &&
+        !strategy.exit.chandelier &&
+        !strategy.exit.timeReentry
+      )
+        paperStrategy(strategy, series, date, {
+          membership: memberships?.find(
+            (m) => m.strategyId === strategy.id && m.date === date,
+          )?.symbols,
+        });
       captured.push({
         strategyId: strategy.id,
         symbol: instrument.symbol,

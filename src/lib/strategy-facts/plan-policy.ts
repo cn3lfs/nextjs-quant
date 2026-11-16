@@ -34,6 +34,18 @@ export const planSizingAuditSchema = z
     riskPerTrade: z.number().finite().positive(),
     maxPositions: z.number().int().positive(),
     weightCeiling: z.number().finite().min(0).max(1),
+    bookSizing: z
+      .object({
+        date: z.string(),
+        targetWeight: z.number().finite().min(0).max(1),
+        currentWeight: z.number().finite().min(0),
+        deltaWeight: z.number().finite().positive(),
+        actualHeldQuantity: z.number().finite().nonnegative(),
+        actualHeldValue: z.number().finite().nonnegative(),
+        marketTargetShare: z.number().finite().min(0).max(1).optional(),
+      })
+      .strict()
+      .optional(),
     signalDate: z.string(),
     budget: z.number().finite().nonnegative(),
     expectedQuantities: z.array(z.number().finite().nonnegative()),

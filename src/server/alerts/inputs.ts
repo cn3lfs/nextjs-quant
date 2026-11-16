@@ -1,5 +1,10 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
-import { historicalLowSeries } from "trading-strategies";
+import {
+  historicalLowSeries,
+  usesStrategyBook,
+  strategyObjectSchema,
+} from "trading-strategies";
+import { isDeepStrictEqual } from "node:util";
 import type { HoldingRiskSnapshot } from "./workspace";
 import { createHash } from "node:crypto";
 import type {
@@ -54,6 +59,9 @@ import {
 import { evaluateStrategySeries } from "../strategies/drivers/evaluation";
 import { corporateActions } from "../market/bar-store/corporate-actions";
 import { researchCorporateActions } from "../research/corporate-actions";
+import { PaperRepository } from "../db/paper-repository";
+import { strategyDecisionReason } from "~/lib/strategy-facts/decision-reason";
+import type { DriverBookAdmission } from "../strategies/drivers/book";
 
 export function systemWatch(
   id: string,
@@ -104,6 +112,12 @@ export async function evaluateAlertInputs(
     );
   };
   const result: AlertEvaluation = { proposals: [], states: [] };
+  const paperRepo = new PaperRepository(repo.db);
+  const paperContexts = new Map<
+    string,
+    ReturnType<PaperRepository["watchContext"]>
+  >();
+  const paperAccounts = paperRepo.ids().map((id) => paperRepo.account(id)!);
   const cache = new Map<string, Awaited<ReturnType<typeof readBars>>>();
   const series = async (symbol: string, period: Period, adjusted = false) => {
     const key = `${symbol}:${period}:${adjusted}`;
@@ -167,6 +181,62 @@ export async function evaluateAlertInputs(
       value: { at: now, reason: "行情或策略所需证据不可用；未生成假信号" },
     });
   };
+  const matchingPaperAccounts = (strategy: StrategyObjectInput) =>
+    paperAccounts.filter((account) =>
+      account.candidates.some(
+        (candidate) =>
+          candidate.strategy.id === strategy.id &&
+          candidate.strategy.version === strategy.version,
+      ),
+    );
+  const frozenPaperSeries = (
+    strategy: StrategyObjectInput,
+    symbol: string,
+    date: string,
+    quote: Bar | undefined,
+  ) => {
+    const accounts = matchingPaperAccounts(strategy);
+    if (accounts.length !== 1)
+      throw new Error(
+        accounts.length
+          ? "同版本纸面来源账户不唯一；不能任取一个退出或入场依据"
+          : "缺同版本纸面账户的冻结策略输入",
+      );
+    const contextKey = `${accounts[0]!.id}:${date}`;
+    if (!paperContexts.has(contextKey))
+      paperContexts.set(
+        contextKey,
+        paperRepo.watchContext(accounts[0]!.id, date),
+      );
+    const context = paperContexts.get(contextKey);
+    const definition = context?.strategies.find(
+      (row) => row.id === strategy.id && row.version === strategy.version,
+    );
+    const frozen = context?.instruments.get(symbol);
+    if (
+      !context ||
+      !definition ||
+      !isDeepStrictEqual(
+        strategyObjectSchema.parse(definition),
+        strategyObjectSchema.parse(strategy),
+      ) ||
+      frozen?.market !== strategy.market ||
+      frozen.bars.at(-1)?.date !== date ||
+      frozen.rawBars.at(-1)?.date !== date ||
+      (strategy.market === "cn-equity" &&
+        !frozen.external.preparedRules?.some(
+          (rule) =>
+            rule.strategy.id === strategy.id &&
+            rule.points.some((point) => point.date === date),
+        ))
+    )
+      throw new Error(
+        "缺同版本同完成bar的纸面固定基准与真实规则证据；等待同日记账",
+      );
+    if (!quote || !isDeepStrictEqual(quote, frozen.rawBars.at(-1)))
+      throw new Error("原价与同bar纸面冻结原价不一致；拒绝重解释信号");
+    return { context, series: { ...frozen, source: context.source } };
+  };
   const propose = (
     strategy: StrategyObjectInput,
     symbol: string,
@@ -211,6 +281,17 @@ export async function evaluateAlertInputs(
             : true),
     );
   for (const strategy of strategies) {
+    const paper = usesStrategyBook(strategy) ? paperRepo : null;
+    const strategyAccounts = paper ? matchingPaperAccounts(strategy) : [];
+    const paperUniverse = strategyAccounts.flatMap((account) =>
+      account.candidates.flatMap((candidate) =>
+        candidate.strategy.id === strategy.id &&
+        candidate.strategy.version === strategy.version
+          ? (candidate.sourceContext?.universeSymbols ?? [])
+          : [],
+      ),
+    );
+    const bookByBar = new Map<string, DriverBookAdmission>();
     const scan = candidateScanWatermark(strategy, now, closeDate);
     result.states.push(scan);
     const shadow = repo.state<ShadowRegistration>(
@@ -225,7 +306,9 @@ export async function evaluateAlertInputs(
     const selected =
       strategy.universe.kind === "symbols"
         ? strategy.universe.symbols
-        : [...(get<string[]>("watchlist") ?? []), ...configured];
+        : paperUniverse.length
+          ? paperUniverse
+          : [...(get<string[]>("watchlist") ?? []), ...configured];
     const seen = new Set<string>();
     const symbols = selected.filter((symbol) => {
       if (
@@ -246,7 +329,7 @@ export async function evaluateAlertInputs(
     });
     for (const symbol of symbols) {
       try {
-        const data = await series(symbol, strategy.period, true);
+        let data = await series(symbol, strategy.period, !paper);
         const bar = data.bars.at(-1);
         if (!bar) continue;
         if (
@@ -262,11 +345,12 @@ export async function evaluateAlertInputs(
           data.completedAt(bar.date),
         );
         if (shadowOnly && prospectiveCompletedAt < shadow.startedAt) continue;
-        const external: StrategyExternalInputs = {};
+        let external: StrategyExternalInputs = {};
         const rules = [strategy.entry, strategy.exit?.rule].filter((r) => !!r);
         if (
-          rules.some((r) => r.kind === "rps" || r.kind === "formula") ||
-          strategy.universe.kind === "rps"
+          !paper &&
+          (rules.some((r) => r.kind === "rps" || r.kind === "formula") ||
+            strategy.universe.kind === "rps")
         ) {
           const store = new RpsStore(repo.db);
           const day = store.day(bar.date);
@@ -278,12 +362,12 @@ export async function evaluateAlertInputs(
               : [];
         }
         const native = rules.find((r) => r.kind === "chan-third-buy");
-        if (native?.kind === "chan-third-buy")
+        if (!paper && native?.kind === "chan-third-buy")
           external.chan = (
             await captureNativeChanObservations(data.bars, native.firstIndex)
           ).observations;
         const monitor = rules.find((r) => r.kind === "czsc-monitor");
-        if (monitor?.kind === "czsc-monitor") {
+        if (!paper && monitor?.kind === "czsc-monitor") {
           const nativeResult = await analyzeCzsc(data.bars, true);
           const signals =
             nativeResult.families.find((f) => f.config === monitor.config)
@@ -312,11 +396,80 @@ export async function evaluateAlertInputs(
             ],
           });
         }
+        let admission: DriverBookAdmission | undefined;
+        let membership: readonly string[] = symbols;
+        if (paper) {
+          const { context, series: frozen } = frozenPaperSeries(
+            strategy,
+            symbol,
+            bar.date,
+            data.rawBars.find((row) => row.date === bar.date),
+          );
+          external = frozen.external;
+          data = { ...data, ...frozen };
+          const frozenMembership = context.memberships.find(
+            (row) => row.strategyId === strategy.id,
+          );
+          if (
+            strategy.universe.kind === "pool" ||
+            strategy.universe.kind === "index" ||
+            strategy.universe.kind === "all-market"
+          ) {
+            if (!frozenMembership) throw new Error("缺同bar纸面冻结证券池资格");
+            membership = frozenMembership.symbols;
+          }
+          admission = bookByBar.get(bar.date);
+          if (!admission) {
+            const matches = context.decisions.filter(
+              (row) => row.strategyId === strategy.id,
+            );
+            const decision = matches.length === 1 ? matches[0]!.decision : null;
+            if (!decision)
+              throw new Error(
+                "缺同版本同完成bar的完整组合决策；等待纸面账户完成同日记账",
+              );
+            admission = {
+              strategyId: strategy.id,
+              version: strategy.version,
+              decision,
+            };
+            bookByBar.set(bar.date, admission);
+          }
+        }
         const events = watchStrategy(
           strategy,
           { ...data, external },
           bar.date,
-          { membership: symbols },
+          { membership, admission },
+        );
+        const ruleEvidence = events.length
+          ? evaluateStrategySeries(strategy, { ...data, external }, bar.date)
+              ?.evidence
+          : undefined;
+        const allocation = admission?.decision.entries.find(
+            (e) => e.symbol === symbol,
+          ),
+          adjustment = admission?.decision.adjustments?.find(
+            (a) => a.symbol === symbol,
+          );
+        const why = strategyDecisionReason(
+          ruleEvidence && allocation?.rps
+            ? { ...ruleEvidence, rps: allocation.rps }
+            : ruleEvidence,
+          {
+            rankScore: allocation?.score,
+            regime: admission?.decision.regime
+              ? {
+                  ...admission.decision.regime,
+                  effect: admission.decision.regimeEffect,
+                }
+              : null,
+            targetWeight: allocation?.weight ?? adjustment?.targetWeight,
+            currentWeight:
+              allocation?.currentWeight ?? adjustment?.currentWeight,
+            deltaWeight: allocation?.deltaWeight ?? adjustment?.deltaWeight,
+            marketLowZone: admission?.decision.marketLowZone,
+          },
         );
         const completedAt = data.completedAt(bar.date);
         if (
@@ -403,12 +556,17 @@ export async function evaluateAlertInputs(
             event.bar,
             event.type,
             event.price,
-            `${phase === "close" ? "收盘扫描：明日计划候选" : "已完成bar策略触发"}；规则${strategy.entry.kind}，完成bar ${event.bar}，原价${event.price}，入场=${event.type === "entry"}，止损=${event.stop ?? "无"}，目标=${event.target ?? "无"}${statusUnknown ? "；交易状态未知，请核验；仅影子记录" : ""}`,
+            `${phase === "close" ? "收盘扫描：明日计划候选" : "已完成bar策略触发"}；${market === "cn-equity" ? "策略复权条件：" : ""}${why}；完成bar ${event.bar}，原价${event.price}，止损=${event.stop ?? "无"}，目标=${event.target ?? "无"}${statusUnknown ? "；交易状态未知，请核验；仅影子记录" : ""}`,
             data.source,
             data.completedAt(bar.date),
             {
               stop: event.stop,
               target: event.target,
+              ...(strategy.rank &&
+              event.rankScore !== undefined &&
+              Number.isFinite(event.rankScore)
+                ? { rankScore: event.rankScore }
+                : {}),
               ...(status ? { tradingStatusEvidence: status } : {}),
             },
           );
@@ -668,10 +826,14 @@ export async function evaluateAlertInputs(
               binding.strategyId,
               binding.version,
             )!;
+            const nativeExit =
+              !!definition &&
+              (usesStrategyBook(definition) || !!definition.exit.chandelier);
             let ruleExit: boolean | null = binding.protection.exitSpec.rule
               ? null
               : false;
             let evidenceIssue: string | undefined;
+            let chandelierStop: number | null | undefined;
             const last = data.bars.at(-1);
             if (
               !last ||
@@ -697,20 +859,50 @@ export async function evaluateAlertInputs(
               )
             )
               evidenceIssue = "持仓股份或价格单位未获认证，不推算新保护价";
-            if (binding.protection.exitSpec.rule && last) {
+            if (
+              (nativeExit ||
+                binding.protection.exitSpec.rule ||
+                binding.protection.exitSpec.chandelier) &&
+              last
+            ) {
               try {
-                ruleExit =
-                  evaluateStrategySeries(
-                    {
-                      ...definition,
-                      entry: { kind: "constant", value: false },
-                      exit: binding.protection.exitSpec,
-                    },
-                    data,
-                    last.date,
-                  )?.decision.exit ?? null;
-              } catch {
-                evidenceIssue = "退出规则证据不可用；不能视为未触发";
+                const native = nativeExit;
+                if (
+                  native &&
+                  !isDeepStrictEqual(
+                    binding.protection.exitSpec,
+                    strategyObjectSchema.parse(definition).exit,
+                  )
+                )
+                  throw new Error(
+                    "人工退出规则与同版本冻结策略不同；需重新核验，保留既有保护价",
+                  );
+                const genuine = native
+                  ? frozenPaperSeries(
+                      definition,
+                      p.symbol,
+                      last.date,
+                      data.rawBars.find((bar) => bar.date === last.date),
+                    ).series
+                  : null;
+                const evaluated = evaluateStrategySeries(
+                  native
+                    ? definition
+                    : {
+                        ...definition,
+                        entry: { kind: "constant", value: false },
+                        exit: binding.protection.exitSpec,
+                      },
+                  genuine ?? data,
+                  last.date,
+                );
+                ruleExit = evaluated?.decision.exit ?? null;
+                chandelierStop = evaluated?.decision.chandelierStop;
+              } catch (failure) {
+                evidenceIssue ??=
+                  failure instanceof Error
+                    ? failure.message
+                    : "退出规则证据不可用；不能视为未触发";
               }
             }
             const projection = observeHoldingProtection(
@@ -719,7 +911,7 @@ export async function evaluateAlertInputs(
               book.calendar,
               now,
               previous,
-              { period, ruleExit, evidenceIssue },
+              { period, ruleExit, evidenceIssue, chandelierStop },
             );
             result.states.push({
               id: stateId,

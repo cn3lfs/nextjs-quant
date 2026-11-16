@@ -28,6 +28,7 @@ export const watchEventSchema = z
     stop: positive.nullable(),
     target: positive.nullable(),
     rankScore: z.number().finite().optional(),
+    targetWeight: z.number().finite().min(0).max(1).optional(),
   })
   .strict();
 const storedEventSchema = watchEventSchema

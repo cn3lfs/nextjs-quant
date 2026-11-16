@@ -258,15 +258,26 @@ const week = (date: string) => {
 export function buildClassicPanel(
   price: ClassicPriceInput,
   financial: ClassicFinancialInput,
+  options: {
+    observations?: readonly { date: string; nextDate: string }[];
+    quiet?: boolean;
+  } = {},
 ) {
   const dates = price.benchmark.map((b) => b.date);
   const weeks: ClassicWeek[] = dates.flatMap((date, i) => {
+    const observation = options.observations?.find((row) => row.date === date);
     if (
       date < "2016-01-01" ||
-      !dates[i + 1] ||
-      week(date) === week(dates[i + 1]!)
+      (options.observations
+        ? !observation
+        : !dates[i + 1] || week(date) === week(dates[i + 1]!))
     )
       return [];
+    const nextDate = observation?.nextDate ?? dates[i + 1]!;
+    if (nextDate <= date || week(nextDate) === week(date))
+      throw new Error(
+        "Classic observation needs an actual next-week trading date",
+      );
     const closes = price.benchmark.map((b) => b.close);
     const marketBudget =
       (Number(closes[i]! > average(closes.slice(i - 249, i + 1))) +
@@ -275,7 +286,7 @@ export function buildClassicPanel(
             average(closes.slice(i - 139, i - 19)),
         )) /
       2;
-    return [{ date, nextDate: dates[i + 1]!, marketBudget, rows: [] }];
+    return [{ date, nextDate, marketBudget, rows: [] }];
   });
   const dateIndices = new Map(dates.map((d, i) => [d, i]));
   const riskHistory = new Map<string, Map<string, number>>();
@@ -378,7 +389,7 @@ export function buildClassicPanel(
           marketCap: cap,
         });
     }
-    if ((si + 1) % 50 === 0)
+    if (!options.quiet && (si + 1) % 50 === 0)
       console.log(`技术/财务面板 ${si + 1}/${price.stocks.length}`);
   }
   const riskAt = (symbol: string, date: string) => {
@@ -390,4 +401,20 @@ export function buildClassicPanel(
     return closes.slice(1).map((c, j) => c! / closes[j]! - 1);
   };
   return { weeks, riskAt, evidence, common: classicCommonWindow(weeks) };
+}
+
+/** The same historical compiler, restricted to one causally closed week. The
+ * next session is a calendar fact; it contributes no future OHLC or factor. */
+export function buildClassicObservation(
+  price: ClassicPriceInput,
+  financial: ClassicFinancialInput,
+  observation: { date: string; nextDate: string },
+) {
+  const result = buildClassicPanel(price, financial, {
+    observations: [observation],
+    quiet: true,
+  });
+  const week = result.weeks[0];
+  if (!week) throw new Error("Missing completed classic observation source");
+  return { week, evidence: result.evidence };
 }

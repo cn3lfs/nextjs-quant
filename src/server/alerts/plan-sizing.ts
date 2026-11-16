@@ -1,5 +1,6 @@
 import {
   strategyObjectSchema,
+  usesStrategyBook,
   type StrategyObjectInput,
 } from "trading-strategies";
 import { isDeepStrictEqual } from "node:util";
@@ -20,16 +21,19 @@ export function planSizingPolicy(
   repo: AlertRepository,
 ) {
   const paper = new PaperRepository(repo.db);
-  const account = paper
+  const accounts = paper
     .ids()
     .map((id) => paper.account(id)!)
-    .find((a) =>
+    .filter((a) =>
       a.candidates.some(
         (c) =>
           c.strategy.id === strategy.id &&
           c.strategy.version === strategy.version,
       ),
     );
+  if (accounts.length > 1)
+    throw new Error("同策略同版本的纸面仓位来源不唯一；不能任取账户创建计划");
+  const account = accounts[0];
   const candidate =
     account?.candidates.find(
       (c) =>
@@ -54,7 +58,31 @@ export function planSizingPolicy(
   const state = account
     ? paper.sizingPolicy(account.id, strategy.id, event.symbol, event.bar)
     : null;
-  const sleeve = state?.sleeves.find((s) => s.id === strategy.sleeve);
+  const sleeve = Array.isArray(state?.sleeves)
+    ? state.sleeves.find((s) => s.id === strategy.sleeve)
+    : undefined;
+  if (
+    (candidate?.executionPolicy ||
+      usesStrategyBook(strategy) ||
+      strategy.id.startsWith("l3-")) &&
+    (!account || !state || !sleeve || !state.costs)
+  )
+    throw new Error(
+      "缺少同版本真实纸面执行上下文（分仓、费用或组合记账）；不能猜研究仓位政策",
+    );
+  if (
+    candidate?.executionPolicy &&
+    (!account ||
+      account.initial !== candidate.executionPolicy.initial ||
+      !isDeepStrictEqual(
+        { sleeves: state?.sleeves, costs: state?.costs },
+        {
+          sleeves: candidate.executionPolicy.sleeves,
+          costs: candidate.executionPolicy.costs,
+        },
+      ))
+  )
+    throw new Error("真实纸面执行上下文与冻结研究政策不一致");
   const settingsSleeve = config.alerts.sleeves.find(
     (s) => s.market === strategy.market && s.id === strategy.sleeve,
   )!;
@@ -72,7 +100,48 @@ export function planSizingPolicy(
   const scheme: FrozenCandidate["registration"]["sizing"] | "user" =
     candidate?.registration.sizing ?? "user";
   let weightCeiling = 1;
-  if (scheme === "volatility") {
+  let bookSizing:
+    | {
+        date: string;
+        targetWeight: number;
+        currentWeight: number;
+        deltaWeight: number;
+        marketTargetShare?: number;
+      }
+    | undefined;
+  if (usesStrategyBook(strategy)) {
+    const book = account
+      ? paper.bookDecision(account.id, strategy.id, strategy.version, event.bar)
+      : null;
+    const allocation = book?.available
+      ? book.entries.find((e) => e.symbol === event.symbol)
+      : undefined;
+    if (
+      !allocation ||
+      !Number.isFinite(allocation.weight) ||
+      allocation.weight <= 0
+    )
+      throw new Error(
+        "缺少同版本、同信号日的完整组合准入权重；不能用单标的规则代替组合限额",
+      );
+    weightCeiling = allocation.weight;
+    if (
+      allocation.currentWeight === undefined ||
+      allocation.deltaWeight === undefined ||
+      allocation.deltaWeight <= 0
+    )
+      throw new Error("组合目标缺少正向增仓差额；减仓目标不能创建买入计划");
+    bookSizing = {
+      date: book!.date,
+      targetWeight: allocation.weight,
+      currentWeight: allocation.currentWeight,
+      deltaWeight: allocation.deltaWeight,
+      ...(book!.marketTargetShare !== undefined
+        ? { marketTargetShare: book!.marketTargetShare }
+        : {}),
+    };
+  }
+  if (scheme === "volatility" && !usesStrategyBook(strategy)) {
     if (state?.weight === undefined)
       throw new Error(
         "缺少同版本信号日波动率权重证据；请等待纸面账户完成同日记账",
@@ -96,6 +165,7 @@ export function planSizingPolicy(
     riskPerTrade: policy.riskPerTrade,
     maxPositions: policy.maxPositions,
     weightCeiling,
+    ...(bookSizing ? { bookSizing } : {}),
     costs: executionCostsForDate(costs, event.bar),
   };
 }

@@ -5,6 +5,10 @@ import type { ShadowRegistration } from "../alerts/shadow";
 import type { ScoreboardRow } from "../research/validation-model";
 import type { Bar } from "trading-strategy-core/bars";
 import type { ForwardConformance } from "quant-performance";
+import type {
+  LifecycleExecutionPolicy,
+  LifecycleCandidateContext,
+} from "../research/lifecycle-candidate";
 
 export const paperSettingsSchema = z
   .object({
@@ -27,6 +31,8 @@ export const mirrorSettingsSchema = z.discriminatedUnion("venue", [
 ]);
 export type PaperResult = ReturnType<typeof runPortfolio>;
 export type FrozenCandidate = {
+  executionPolicy?: LifecycleExecutionPolicy;
+  sourceContext?: LifecycleCandidateContext;
   strategy: StrategyObjectInput;
   row: ScoreboardRow;
   registration: Omit<ShadowRegistration, "startedAt">;
@@ -85,6 +91,9 @@ export type PaperSummary = {
   } | null;
 };
 export type PaperState = {
+  contextVersion?: "cn-book-1";
+  /** Full-history source proofs; pre-start OHLC itself need not be duplicated. */
+  sourceIdentity?: Readonly<Record<string, unknown>>;
   request: PortfolioRequest;
   result: PaperResult;
   benchmark: Bar[];

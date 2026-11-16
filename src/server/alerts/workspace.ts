@@ -116,7 +116,7 @@ export function workspaceCandidate(
     exitSpec: definition?.exit ?? null,
     adjustment:
       event.market === "cn-equity"
-        ? "信号前复权；入场/止损/目标原价"
+        ? "策略复权基准；入场/止损/目标原价"
         : "不复权 · UTC",
   };
 }

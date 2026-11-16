@@ -4,6 +4,7 @@ import { StrategyRepository } from "../../db/strategy-repository";
 import { watchStrategy, type WatchPosition } from "./watch";
 import { scanStrategy, type ScanCapital } from "./scan";
 import type { StrategySeries } from "./evaluation";
+import type { DriverBookAdmission } from "./book";
 
 /** Explicit invocation only. R2 owns scheduling and delivery; this never sends. */
 export function persistWatch(
@@ -15,6 +16,7 @@ export function persistWatch(
     membership?: readonly string[];
     capital?: ScanCapital;
     expiresAt?: string;
+    admission?: DriverBookAdmission;
   } = {},
   repository = new StrategyRepository(),
 ) {

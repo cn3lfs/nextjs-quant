@@ -27,6 +27,15 @@ it("changing an actual distribution/binding adapter changes the existing validat
     "src/server/paper/registration.ts",
     "src/server/db/forward-reference-repository.ts",
     "src/server/research/forward-identity.ts",
+    "src/server/paper/cn-book-context.ts",
+    "src/server/research/lifecycle-low-zone.ts",
+    "scripts/lib/csi800-factor-data.ts",
+    "packages/tstdx/src/local/gbbq.ts",
+    "src/server/research/corporate-actions.ts",
+    "src/lib/market/market-session.ts",
+    "src/server/market/bar-store/binance-archive-source.ts",
+    "src/server/data-sources/binance/public-data.ts",
+    "src/server/data-sources/binance/public-data-store.ts",
   ]) {
     expect(paths).toContain(path);
     await writeFile(join(root, path), "changed-adapter\n");

@@ -38,6 +38,9 @@ export function PaperSettingsPanel() {
       <p>
         默认候选分别记账；仅真实完成bar按回测同源规则模拟成交。应用关闭后补齐记账，不补发提醒。
       </p>
+      <p className="text-sm text-nc-text-3">
+        具有冻结本金的研究候选沿用该本金并独立记账；其余候选使用下方默认设置。
+      </p>
       {query.data && (
         <PaperDefaults
           key={JSON.stringify(query.data)}

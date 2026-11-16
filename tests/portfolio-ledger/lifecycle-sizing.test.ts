@@ -4,6 +4,7 @@ import {
   runPortfolio,
   sizePortfolioEntry,
   portfolioExecutionFee,
+  sizePortfolioTargetEntry,
 } from "quant-backtest";
 import type { StrategyObjectInput } from "trading-strategies";
 import { marketRules } from "trading-strategy-core/market-rules";
@@ -12,11 +13,13 @@ import { migrate } from "~/server/db/migrations";
 import { AlertRepository } from "~/server/db/alert-repository";
 import { PaperRepository } from "~/server/db/paper-repository";
 import { createAlertPlan, previewAlertPlan } from "~/server/alerts/plans";
+import { planSizingPolicy } from "~/server/alerts/plan-sizing";
 import { settingsSchema } from "~/lib/domain";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import { runPaperPortfolio } from "~/server/strategies/drivers/paper";
 import frozen from "~/server/data/paper-candidates.json";
 import type { FrozenCandidate, PaperAccount } from "~/server/paper/model";
+import type { AccountPosition } from "~/lib/portfolio/account-workspace";
 
 const connections: Database.Database[] = [];
 afterEach(() => connections.splice(0).forEach((db) => db.close()));
@@ -42,6 +45,64 @@ const strategy: StrategyObjectInput = {
   exit: { stop: { kind: "fixed", fraction: 0.08 }, trailing: 0.1, maxBars: 20 },
   sizing: { kind: "equal", positions: 10 },
 };
+
+it("rejects ambiguous or absent real book policy instead of guessing a frozen 20-slot limit, while custom unlinked sizing stays available", () => {
+  const user = setup();
+  expect(
+    planSizingPolicy(strategy, user.event, config, user.repo).source,
+  ).toContain("用户配置");
+  const definition: StrategyObjectInput = {
+    ...strategy,
+    id: "l3-missing-policy",
+    rank: { kind: "rps-composite", periods: [20] },
+    rebalance: { kind: "ranked-weekly", top: 20, weighting: "equal" },
+  };
+  const f = setup(definition),
+    paper = new PaperRepository(f.db);
+  const policy = {
+    initial: 100000,
+    sleeves: [{ id: "swing", share: 1, riskPerTrade: 0.02, maxPositions: 20 }],
+    costs: equityCosts,
+  };
+  const candidate = {
+    ...frozen.candidates[0],
+    strategy: definition,
+    executionPolicy: policy,
+  } as unknown as FrozenCandidate;
+  const account: PaperAccount = {
+    id: "one-policy",
+    market: "cn-equity",
+    currency: "CNY",
+    sleeve: "swing",
+    startedAt: now - 86400000,
+    initial: 100000,
+    candidates: [candidate],
+    mirror: { venue: "off" },
+    mirrorRevision: "fixture",
+    revision: 0,
+    lastBar: null,
+    lastRun: null,
+    error: null,
+    summary: null,
+  };
+  paper.create(account);
+  expect(() => planSizingPolicy(definition, f.event, config, f.repo)).toThrow(
+    "真实纸面执行上下文",
+  );
+  f.db
+    .prepare("INSERT INTO paper_state VALUES(?,?)")
+    .run(
+      account.id,
+      JSON.stringify({ request: { ...policy, strategies: [definition] } }),
+    );
+  expect(() => planSizingPolicy(definition, f.event, config, f.repo)).toThrow(
+    "完整组合准入权重",
+  );
+  paper.create({ ...account, id: "second-policy" });
+  expect(() => planSizingPolicy(definition, f.event, config, f.repo)).toThrow(
+    "来源不唯一",
+  );
+});
 
 it("keeps known industry evidence for earlier unfilled plans when checking the next plan", () => {
   const f = setup({
@@ -296,4 +357,161 @@ it("refuses missing same-day volatility evidence, then consumes the frozen paper
   );
   expect(plan.sizingAudit.weightCeiling).toBe(0.1);
   expect(plan.stages[0]!.quantity * 10).toBeLessThanOrEqual(100000 * 0.1);
+});
+it("rebalance plans add only the verified gap to a target and match the actual second-week engine/paper fill", () => {
+  const definition: StrategyObjectInput = {
+    ...strategy,
+    id: "weekly-plan-gap",
+    sizing: { kind: "weight", weight: 1 },
+    rank: { kind: "rps-composite", periods: [20] },
+    rebalance: {
+      kind: "ranked-weekly",
+      top: 1,
+      retentionMultiple: 1.5,
+      weighting: "equal",
+    },
+  };
+  const f = setup(definition);
+  const calendar = Array.from({ length: 15 }, (_, i) =>
+    new Date(Date.UTC(2026, 10, 2 + i)).toISOString().slice(0, 10),
+  ).filter((d) => ![0, 6].includes(new Date(d).getUTCDay()));
+  const bars = calendar.map((date) => ({
+    date,
+    open: 10,
+    high: 10.1,
+    low: 9.9,
+    close: 10,
+    volume: 10000,
+    amount: 100000,
+  }));
+  const quote = {
+    evidence: "fixed fixture",
+    minimum: 100,
+    step: 100,
+    limitUp: null,
+    limitDown: null,
+    tradable: true,
+  };
+  const request = {
+    market: "cn-equity" as const,
+    initial: 100000,
+    start: calendar[0]!,
+    end: calendar.at(-1)!,
+    calendar,
+    instruments: [
+      {
+        symbol: "sh600000",
+        market: "cn-equity" as const,
+        bars,
+        signalBars: bars,
+        external: {
+          rps: calendar.map((date) => ({
+            date,
+            periods: [20],
+            values: [{ return: 0.1, rank: 1, rps: 100 }],
+          })),
+        },
+        execution: Object.fromEntries(
+          calendar.map((date) => [
+            date,
+            { ...quote, maximum: date <= "2026-11-09" ? 800 : 1e12 },
+          ]),
+        ),
+      },
+    ],
+    strategies: [definition],
+    sleeves: [{ id: "swing", share: 1, riskPerTrade: 0.02, maxPositions: 1 }],
+    costs: executionCostsSchema.parse({
+      commissionBps: 0,
+      minimumCommission: 0,
+      sellTaxBps: 0,
+      slippageBps: 0,
+    }),
+  };
+  const result = runPortfolio(request);
+  expect(runPaperPortfolio(request)).toEqual(result);
+  expect(result.fills.map((fill) => [fill.date, fill.quantity])).toEqual([
+    ["2026-11-09", 800],
+    ["2026-11-16", 700],
+  ]);
+  const candidate = {
+    ...frozen.candidates[0],
+    strategy: definition,
+    registration: { ...frozen.candidates[0]!.registration, sizing: "equal" },
+  } as unknown as FrozenCandidate;
+  const paper = new PaperRepository(f.db);
+  paper.create({
+    id: "paper-book-gap",
+    market: "cn-equity",
+    currency: "CNY",
+    sleeve: "swing",
+    startedAt: now - 20 * 86400000,
+    initial: 100000,
+    candidates: [candidate],
+    mirror: { venue: "off" },
+    mirrorRevision: "fixed",
+    revision: 0,
+    lastBar: "2026-11-13",
+    lastRun: now,
+    error: null,
+    summary: null,
+  });
+  f.db
+    .prepare("INSERT INTO paper_state VALUES(?,?)")
+    .run("paper-book-gap", JSON.stringify({ request, result }));
+  const positions: AccountPosition[] = [
+    {
+      id: "real-held",
+      account: "real",
+      kind: "real",
+      market: "cn-equity",
+      currency: "CNY",
+      symbol: "sh600000",
+      sleeve: "swing",
+      industry: "银行",
+      quantity: 800,
+      cost: 10,
+      price: 10,
+      value: 8000,
+      stop: 9.2,
+      at: f.event.bar,
+      strategyId: definition.id,
+      strategyVersion: definition.version,
+      reasons: [],
+    },
+  ];
+  const plan = previewAlertPlan(f.input, config, now, f.repo, positions);
+  expect(plan.quantity).toBe(700);
+  expect(plan.quantity).toBe(result.fills[1]!.quantity);
+  expect(plan.sizingAudit.bookSizing).toEqual({
+    date: "2026-11-13",
+    targetWeight: 0.15,
+    currentWeight: 0.08,
+    deltaWeight: 0.06999999999999999,
+    actualHeldQuantity: 800,
+    actualHeldValue: 8000,
+  });
+  expect(plan.sizingAudit.estimatedFees).toBe(result.fills[1]!.fee);
+  expect(() => previewAlertPlan(f.input, config, now, f.repo)).toThrow(
+    "真实同版本持仓快照",
+  );
+});
+it("target sizing rejects nonfinite/out-of-range weights and treats zero as no additional purchase", () => {
+  const input = {
+    sizing: { kind: "weight" as const, weight: 1 },
+    equity: 100000,
+    cash: 100000,
+    price: 10,
+    stop: 9.2,
+    riskPerTrade: 0.02,
+    costs: equityCosts,
+    quantityRules: { minimum: 100, step: 100, maximum: 1e12 },
+  };
+  for (const targetWeight of [NaN, Infinity, -0.1, 1.1])
+    expect(() => sizePortfolioTargetEntry({ ...input, targetWeight })).toThrow(
+      "Invalid portfolio target weight",
+    );
+  expect(sizePortfolioTargetEntry({ ...input, targetWeight: 0 }).quantity).toBe(
+    0,
+  );
 });

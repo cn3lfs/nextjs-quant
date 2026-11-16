@@ -8,6 +8,8 @@ import { ForwardReferenceRepository } from "../db/forward-reference-repository";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { freezeMatchingAccountExpectation } from "../portfolio/account-expectation-service";
 import type { ScoreboardRow } from "../research/validation-model";
+import { readLifecycleCandidateSource } from "../research/lifecycle-candidate";
+import { isDeepStrictEqual } from "node:util";
 import {
   paperSettingsSchema,
   type FrozenCandidate,
@@ -50,9 +52,16 @@ export function registerPaperCandidates(
       const registered = alerts.state<FrozenCandidate["registration"]>(
         `shadow:${strategy.id}:${strategy.version}`,
       );
+      const lifecycle = readLifecycleCandidateSource(strategy, alerts);
       candidates.push({
         strategy,
-        row: {
+        ...(lifecycle
+          ? {
+              executionPolicy: lifecycle.executionPolicy,
+              sourceContext: lifecycle.sourceContext,
+            }
+          : {}),
+        row: lifecycle?.row ?? {
           id: strategy.id,
           level: "strategy",
           market: strategy.market,
@@ -151,6 +160,20 @@ export function registerPaperCandidates(
       );
       if (!rows.length) continue;
       const first = rows[0]!.strategy;
+      const policies = rows.flatMap((row) =>
+        row.executionPolicy ? [row.executionPolicy] : [],
+      );
+      if (
+        policies.length &&
+        (rows.length !== 1 ||
+          !isDeepStrictEqual(
+            policies[0]!.sleeves.map((s) => s.id),
+            [first.sleeve],
+          ))
+      )
+        throw new Error(
+          "L3独立策略分布只能登记独立纸面账户；合账需要新的同源评审",
+        );
       const baseId = `paper:${group}`;
       const account: PaperAccount = {
         id: repo.account(baseId) ? `${baseId}:from:${now}` : baseId,
@@ -158,9 +181,10 @@ export function registerPaperCandidates(
         currency: first.market === "crypto" ? "USDT" : "CNY",
         sleeve: first.sleeve,
         initial:
-          first.market === "crypto"
+          policies[0]?.initial ??
+          (first.market === "crypto"
             ? config.cryptoInitial
-            : config.equityInitial,
+            : config.equityInitial),
         startedAt: now,
         candidates: rows,
         mirror: { venue: "off" },
