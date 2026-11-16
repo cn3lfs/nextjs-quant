@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Big from "big.js";
+import { planJournalSchema } from "~/lib/portfolio/account-review";
 import { sizePortfolioEntry, portfolioExecutionFee } from "quant-backtest";
 import { planSizingPolicy } from "./plan-sizing";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import {
 } from "~/lib/portfolio/account-workspace";
 
 export const createAlertPlanSchema = z.object({
+  ...planJournalSchema.shape,
   overrideCaps: z.boolean().default(false),
   overrideSizing: z
     .object({
@@ -314,6 +316,8 @@ export function previewAlertPlan(
     market: event.market,
     sleeve: event.sleeve,
     triggerKey: event.key,
+    rationale: input.rationale ?? "",
+    tags: input.tags ?? [],
     entry: stages[0]!.entry,
     tranches: stages.length,
     quantity: stages.reduce((n, s) => n + s.quantity, 0),

@@ -17,6 +17,7 @@ import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { settings, saveSettings } from "../../infra/settings";
 import { AlertRepository } from "../../db/alert-repository";
 import { strategyObjectSchema } from "trading-strategies";
+import { freezeMatchingAccountExpectation } from "../../portfolio/account-expectation-service";
 import {
   paperShadowScanning,
   enablePaperShadowScanning,
@@ -35,7 +36,9 @@ export const strategyLabRouter = createTRPCRouter({
     .mutation(({ input }) => {
       const repo = new AlertRepository();
       // Definition registration never changes observation, promotion or mode.
-      return repo.strategies.saveStrategy(input);
+      const strategy = repo.strategies.saveStrategy(input);
+      freezeMatchingAccountExpectation(strategy.id, strategy.version);
+      return strategy;
     }),
   strategyLabBacktest: p("backtest", "compute")
     .input(labBacktestSchema)

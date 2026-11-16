@@ -5,6 +5,10 @@ import {
 import { recordResearchUsage } from "../research/research-usage";
 import { parentPort } from "node:worker_threads";
 import { executePaperTick, type PaperWork } from "../paper/service";
+import {
+  executePaperBuildReview,
+  type PaperBuildReviewWork,
+} from "../paper/build-review";
 import { executeAlertTick, type AlertTickWork } from "../alerts/tick-work";
 import {
   auditBinanceArchive,
@@ -71,6 +75,7 @@ export type Work =
   | { type: "research-command"; input: z.input<typeof researchCommandSchema> }
   | BinanceArchiveAuditWork
   | PaperWork
+  | PaperBuildReviewWork
   | AlertTickWork
   | BinancePublicDataWork
   | ValidationWork
@@ -93,6 +98,8 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
       parentPort?.postMessage({ progress, phase }),
     );
   if (work.type === "paper-tick") return executePaperTick(work);
+  if (work.type === "paper-build-review" || work.type === "paper-build-confirm")
+    return executePaperBuildReview(work);
   if (work.type === "alert-tick") return executeAlertTick(work);
   if (work.type === "binance-public-data")
     return executeBinanceBackfill(work, (progress, phase) =>

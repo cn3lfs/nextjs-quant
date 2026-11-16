@@ -22,7 +22,10 @@ import {
 } from "~/lib/portfolio/holding-protection";
 import { settingsSchema, type Bar } from "~/lib/domain";
 import { saveSettings } from "~/server/infra/settings";
-import type { StrategyObjectInput } from "trading-strategies";
+import {
+  strategyObjectSchema,
+  type StrategyObjectInput,
+} from "trading-strategies";
 
 const fixture = vi.hoisted(() => ({ bars: [] as Bar[] }));
 const calendar = ["2026-01-08", "2026-01-09", "2026-01-12"];
@@ -358,7 +361,7 @@ function seed() {
       createdAt: Date.parse("2026-01-02"),
       protection: {
         version: "plan-protection-1",
-        exitSpec: strategy.exit,
+        exitSpec: strategyObjectSchema.parse(strategy).exit,
         initialStop: 9,
         target: null,
         entryReference: 10,

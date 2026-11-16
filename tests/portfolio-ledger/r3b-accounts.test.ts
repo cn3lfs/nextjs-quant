@@ -22,7 +22,6 @@ import {
   loadAccountBook,
   pageAccountBook,
   linkAccountTrade,
-  freezeAccountExpectation,
   accountTradePage,
   accountPositionDetail,
 } from "~/server/portfolio/account-workspace-service";
@@ -31,6 +30,11 @@ import { replayTradeReview } from "~/server/portfolio/trade-review-service";
 import { createAlertPlan } from "~/server/alerts/plans";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { StrategyObjectInput } from "trading-strategies";
+import type { PortfolioRequest } from "quant-backtest";
+import {
+  publishAccountExpectation,
+  freezeMatchingAccountExpectation,
+} from "~/server/portfolio/account-expectation-service";
 
 const policy = accountReviewSettingsSchema.parse({});
 const dates = Array.from({ length: 65 }, (_, i) =>
@@ -500,39 +504,90 @@ it("stores exposure override evidence with the plan and never admits an unacknow
     s.db.close();
   }
 });
-it("freezes a verified same-parameter archive and exercises divergent/healthy/version-isolated attribution through the service", async () => {
+it("automatically freezes a run-anchored raw cohort and exercises divergent/healthy/version-isolated attribution", async () => {
   const s = seed();
   try {
-    const frozen = {
-      strategyObject: strategy,
-      stocks: [{ symbol: "sh600000", bars, actions: [] }],
-      benchmark: bars,
-    };
-    const archive = {
-      inputHash: createHash("sha256")
-        .update(JSON.stringify(frozen))
-        .digest("hex"),
-      frozen,
-      result: {
-        fills: Array.from({ length: 40 }, () => ({
+    const digest = (value: unknown) =>
+      createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    const request: PortfolioRequest = {
+      market: "cn-equity",
+      initial: 100000,
+      start: dates[0]!,
+      end: dates.at(-1)!,
+      calendar: dates,
+      strategies: [strategy],
+      instruments: [
+        {
           symbol: "sh600000",
-          date: dates[0]!,
-          side: "buy",
-          price: 5,
-        })),
-      },
-      limitations: ["QA synthetic only"],
+          market: "cn-equity",
+          bars,
+          signalBars: bars,
+          actions: [],
+          execution: {
+            evidence: "QA fixed raw fixture",
+            minimum: 100,
+            step: 100,
+            tradable: true,
+            limitUp: null,
+            limitDown: null,
+          },
+        },
+      ],
+      sleeves: [
+        { id: "swing", share: 1, riskPerTrade: 0.02, maxPositions: 10 },
+      ],
     };
-    s.db
-      .prepare("INSERT INTO records VALUES('QA-archive','job',?,1)")
-      .run(JSON.stringify({ status: "completed", result: archive }));
-    expect(freezeAccountExpectation("QA-archive", s.repo)).toMatchObject({
+    const fills = Array.from({ length: 40 }, () => ({
+      strategyId: strategy.id,
+      symbol: "sh600000",
+      date: dates[0]!,
+      side: "buy" as const,
+      price: 5,
+    }));
+    const buildHash = digest("QA synthetic runtime identity"),
+      frozen = { request, executionBuildHash: buildHash },
+      inputHash = digest(frozen),
+      resultHash = digest({ fills });
+    const source = {
+      strategy,
+      request,
+      fills,
+      inputHash,
+      resultHash,
+      buildHash,
+      source: "QA synthetic raw cohort fixture",
+      limitations: ["QA synthetic only"],
+      actionCoverage: {
+        sh600000: {
+          from: dates[0]!,
+          through: dates.at(-1)!,
+          source: "QA explicit synthetic no-action coverage fixture",
+          hash: digest("QA synthetic action coverage"),
+        },
+      },
+    };
+    expect(publishAccountExpectation(source, s.repo)).toMatchObject({
       samples: Array(40).fill(1),
       excluded: 0,
     });
-    expect(() => freezeAccountExpectation("QA-archive", s.repo)).toThrow(
-      "已有冻结期望",
-    );
+    expect(s.repo.expectation(strategy.id, 1)).toBeNull();
+    expect(
+      freezeMatchingAccountExpectation(strategy.id, 1, s.repo, {
+        inputHash,
+        resultHash,
+        buildHash,
+      }),
+    ).toMatchObject({
+      status: "frozen",
+      expectation: { samples: Array(40).fill(1) },
+    });
+    expect(
+      freezeMatchingAccountExpectation(strategy.id, 1, s.repo, {
+        inputHash,
+        resultHash,
+        buildHash,
+      }).status,
+    ).toBe("frozen");
     let book = await s.load();
     const outcome = {
       horizon: 20 as const,
@@ -562,19 +617,46 @@ it("freezes a verified same-parameter archive and exercises divergent/healthy/ve
       outcomes: [{ ...outcome, returnPct: 110 }],
     }));
     expect(accountAttribution(book)[0]?.flagged).toBe(false);
+    book.facts.expectations[0]!.version = 2;
+    expect(accountAttribution(book)[0]).toMatchObject({
+      expected: null,
+      flagged: false,
+    });
+    book.facts.expectations[0]!.version = 1;
     book.facts.expectations[0]!.strategyHash = "different-parameters";
     expect(accountAttribution(book)[0]).toMatchObject({
       expected: null,
       flagged: false,
     });
+    const invalidStrategy = { ...strategy, id: "QA-invalid-source" };
+    s.alerts.strategies.saveStrategy(invalidStrategy);
+    const invalidFrozen = {
+      ...frozen,
+      request: { ...request, strategies: [invalidStrategy] },
+    };
+    const wrongInputHash = digest("wrong input hash");
     s.db
-      .prepare(
-        "UPDATE records SET payload=json_set(payload,'$.result.inputHash','wrong') WHERE id='QA-archive'",
-      )
-      .run();
-    expect(() => freezeAccountExpectation("QA-archive", s.repo)).toThrow(
-      "输入哈希不符",
-    );
+      .prepare("INSERT INTO records VALUES('QA-invalid-archive','job',?,1)")
+      .run(
+        JSON.stringify({
+          status: "completed",
+          result: {
+            inputHash: wrongInputHash,
+            frozen: invalidFrozen,
+            result: {
+              fills: fills.map((f) => ({
+                ...f,
+                strategyId: invalidStrategy.id,
+              })),
+            },
+          },
+        }),
+      );
+    expect(() =>
+      freezeMatchingAccountExpectation(invalidStrategy.id, 1, s.repo, {
+        inputHash: wrongInputHash,
+      }),
+    ).toThrow("输入哈希不符");
   } finally {
     s.db.close();
   }

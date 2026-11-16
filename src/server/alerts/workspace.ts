@@ -1,3 +1,4 @@
+import { planSizingPolicy } from "./plan-sizing";
 import { settings } from "../infra/settings";
 import { AlertRepository } from "../db/alert-repository";
 import { previewAlertPlan } from "./plans";
@@ -18,6 +19,7 @@ import { equityDailyReadiness } from "./readiness";
 import { planExposure } from "./plan-exposure";
 import { stopTasks } from "../portfolio/holding-protection-service";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
+import { strategyLabDetail } from "../db/strategy-lab";
 
 export type RegimeSnapshot = NonNullable<
   ReturnType<typeof regimeObservation>
@@ -44,17 +46,17 @@ export function workspaceCandidate(
   repo = new AlertRepository(),
   now = Date.now(),
 ) {
-  const qualification = repo.records.read<{
-    status: string;
-    strategyVersion?: number;
-  }>(`strategy-qualification-${event.strategyId}`);
   const shadow = repo.state<ShadowRegistration>(
     `shadow:${event.strategyId}:${event.version}`,
   );
   const definition = repo.strategies.strategy(event.strategyId, event.version);
+  const qualification = strategyLabDetail(
+    event.strategyId,
+    event.version,
+    repo,
+  );
   const status =
-    qualification?.status === "live-candidate" &&
-    (qualification.strategyVersion ?? 1) === event.version
+    qualification.eligible && qualification.promotion
       ? "promoted"
       : shadow?.active
         ? "shadow"
@@ -89,8 +91,19 @@ export function workspaceCandidate(
   } catch (error) {
     quantityReason = error instanceof Error ? error.message : "数量不可用";
   }
+  let sizingPolicy: ReturnType<typeof planSizingPolicy> | null = null;
+  let policyReason: string | null = null;
+  try {
+    if (definition)
+      sizingPolicy = planSizingPolicy(definition, event, settings(), repo);
+  } catch (failure) {
+    policyReason =
+      failure instanceof Error ? failure.message : "仓位来源不可用";
+  }
   return {
     ...event,
+    sizingPolicy,
+    policyReason,
     qualification: status as "research" | "shadow" | "promoted",
     quantity,
     quantityReason,

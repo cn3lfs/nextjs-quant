@@ -22,6 +22,11 @@ import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import { PaperAccountsPanel } from "./paper-accounts-panel";
 import { TradeLedgerPanel } from "./trade-ledger-panel";
+import {
+  BulkTradeLinks,
+  TradeJournalEditor,
+  WeeklyReview,
+} from "./account-review-panels";
 import { CryptoRiskNotes } from "./crypto-risk-notes";
 
 const pct = (n: number | null) => formatPercent(n === null ? null : n * 100);
@@ -35,6 +40,7 @@ export function AccountWorkspace() {
   if (tab === "paper") return <PaperAccountsPanel />;
   if (tab === "attribution") return <AccountAttribution />;
   if (tab === "monthly") return <MonthlyReview />;
+  if (tab === "weekly") return <WeeklyReview />;
   if (position) return <AccountPositionDetail id={position} />;
   return (
     <>
@@ -413,6 +419,11 @@ function TradeSources({
               ),
           },
           {
+            id: "journal",
+            header: "交易日志",
+            cell: ({ row }) => <TradeJournalEditor tradeId={row.original.id} />,
+          },
+          {
             id: "actions",
             header: "操作",
             cell: ({ row }) => {
@@ -569,6 +580,7 @@ function AccountTrades() {
   return (
     <section className="space-y-4">
       <h2>全部成交与来源</h2>
+      <BulkTradeLinks batchId={search.get("batch") ?? undefined} />
       <p>包含已清仓交易；建议不自动确认，纸面成交归属固定。</p>
       <Segmented
         label="成交账户类型"
@@ -628,7 +640,9 @@ function AttributionRows({
           </p>
           <p>
             回测期望：{r.expected?.samples.length ?? 0} 个同参数样本；
-            {r.expected?.source ?? "缺少同期限冻结分布，不用不等长历史窗口冒充"}
+            {r.expected?.source ??
+              r.expectationReason ??
+              "缺少同期限冻结分布，不用不等长历史窗口冒充"}
           </p>
           {(["alerts", "paper", "actual", "simulation"] as const).map(
             (key, i) => (
@@ -652,34 +666,13 @@ function AttributionRows({
   );
 }
 function AccountAttribution() {
-  const query = api.accountAttribution.useQuery(),
-    freeze = api.freezeAccountExpectation.useMutation({
-      onSuccess: () => void query.refetch(),
-    });
+  const query = api.accountAttribution.useQuery();
   return (
     <section className="space-y-4">
       <h2>策略 / 分仓三方对比</h2>
       <p>
-        按市场与分仓展示策略，版本分别对比，不平均独立账户收益。相同分仓可并列查看。
+        同版本同定义的二十市场日入场期望在登记、影子或晋级时自动冻结。缺真实成交/原价及完整来源哈希时保持不可用，不用窗口汇总补造；与前推符合度的交易收益分布分开。
       </p>
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          freeze.mutate(String(new FormData(e.currentTarget).get("job")));
-        }}
-      >
-        <Input
-          name="job"
-          aria-label="同参数回测任务ID"
-          placeholder="已完成的策略对象组合回测任务ID"
-          required
-          className="max-w-lg"
-        />
-        <Button disabled={freeze.isPending}>冻结同参数期望</Button>
-      </form>
-      {freeze.error && <p role="alert">{freeze.error.message}</p>}
-      {freeze.isSuccess && <p role="status">已冻结首次同参数分布。</p>}
       {query.error && <p role="alert">{query.error.message}</p>}
       <AttributionRows rows={query.data ?? []} />
     </section>
@@ -706,8 +699,10 @@ function MonthlyReview() {
         </p>
       ))}
       <p>
-        缺少计划的真实成交 {query.data?.unlinked ?? "—"}{" "}
-        笔，不能认定守纪或违纪。
+        未计划交易 {query.data?.unlinked ?? "—"} 个回合 · 已关联计划{" "}
+        {query.data?.rounds.planned ?? "—"} 个回合 · 未知开仓{" "}
+        {query.data?.rounds.unknownOpening ?? "—"} 个回合（单列，不当作守纪）。
+        金额覆盖沪深 CNY；crypto 仅计回合，来源顺序不足另列未覆盖证据。
       </p>
       {query.data?.items.map((r) => (
         <article key={`${r.account}:${r.kind}`} className="rounded border p-3">

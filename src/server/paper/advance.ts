@@ -9,6 +9,9 @@ import type { PaperState } from "./model";
 import { summarizePaper } from "./assessment";
 import { beijingClock } from "~/lib/market/market-session";
 import { paperCompletedAt } from "./advance-clock";
+import { ForwardReferenceRepository } from "../db/forward-reference-repository";
+import { AlertRepository } from "../db/alert-repository";
+import { forwardExecutionBuildHash } from "../research/forward-identity";
 
 export type PaperInput = {
   request: PortfolioRequest;
@@ -310,8 +313,23 @@ export function refreshPaperSummary(
 ) {
   const account = repo.account(id)!;
   const state = repo.state(id);
-  if (!state || account.summary) return;
-  const summary = summarizePaper(account, state, now);
+  if (!state) return;
+  let buildHash: string | null = null;
+  try {
+    buildHash = forwardExecutionBuildHash();
+  } catch {
+    /* Missing runtime identity cannot certify forward observations. */
+  }
+  const candidate = account.candidates[0]!;
+  const summary = summarizePaper(account, state, now, {
+    reference: new ForwardReferenceRepository(repo.db).paper(
+      account.id,
+      candidate.strategy,
+      account.startedAt,
+    ),
+    buildHash,
+    calendar: new AlertRepository(repo.db).records.days(),
+  });
   repo.atomic(() => {
     const current = repo.account(id)!;
     if (current.revision === account.revision)

@@ -82,6 +82,14 @@ for (const width of [1440, 1024]) {
       .getByRole("button", { name: "按冻结规则登记候选", exact: true })
       .click();
     await expect(
+      page.getByRole("status").filter({ hasText: "已登记 1 个新模拟账户" }),
+    ).toBeVisible();
+    // The manually enabled R3a shadow definition acquires its first paper
+    // account; repeating registration must not create another one.
+    await page
+      .getByRole("button", { name: "按冻结规则登记候选", exact: true })
+      .click();
+    await expect(
       page.getByRole("status").filter({ hasText: "已登记 0 个新模拟账户" }),
     ).toBeVisible();
     await page.goto("/lab");

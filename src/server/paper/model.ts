@@ -4,6 +4,7 @@ import type { StrategyObjectInput } from "trading-strategies";
 import type { ShadowRegistration } from "../alerts/shadow";
 import type { ScoreboardRow } from "../research/validation-model";
 import type { Bar } from "trading-strategy-core/bars";
+import type { ForwardConformance } from "quant-performance";
 
 export const paperSettingsSchema = z
   .object({
@@ -68,7 +69,20 @@ export type PaperSummary = {
   benchmarkReturn: number | null;
   signals: number;
   days: number;
-  assessment: { recommendation: string; reasons: string[] } | null;
+  assessment: {
+    recommendation: string;
+    reasons: string[];
+    method?: "forward-conformance-1";
+    verdict?: ForwardConformance["verdict"];
+    backtestPassed?: boolean;
+    eligible?: boolean;
+    referenceHash?: string | null;
+    asOf?: number;
+    slippageBasis?: "paper-model" | "venue";
+    realExecutionVerified?: boolean;
+    observedSignals?: number;
+    conformance?: ForwardConformance;
+  } | null;
 };
 export type PaperState = {
   request: PortfolioRequest;

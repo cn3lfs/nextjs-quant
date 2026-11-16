@@ -23,6 +23,7 @@ import {
 } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
+import { runtimeValidationHash } from "./lib/runtime-validation-identity.mjs";
 await build({
   entryPoints: ["src/server/data-sources/westock/westock-preload.ts"],
   outfile: "runtime/westock-preload.mjs",
@@ -117,42 +118,12 @@ for (const file of [
 ]) {
   maEngineHash.update(file).update(await readFile(file));
 }
-const validationIdentity = createHash("sha256");
-for (const directory of [
-  "packages/quant-performance/src",
-  "src/server/research",
-]) {
-  const files = (await readdir(directory, { recursive: true }))
-    .filter(
-      (file) =>
-        file.endsWith(".ts") &&
-        (directory.startsWith("packages/") || file.startsWith("validation-")),
-    )
-    .sort();
-  for (const file of files) {
-    const path = `${directory}/${file.replaceAll("\\", "/")}`;
-    validationIdentity.update(path).update(await readFile(path));
-  }
-}
-for (const file of [
-  "src/lib/backtest/backtest-overfit.ts",
-  "src/lib/backtest/multiple-testing.ts",
-  "src/lib/backtest/daily-performance.ts",
-  "src/server/research/index-context.ts",
-  "src/server/strategies/strategy-center-native.ts",
-  "src/server/data-sources/tdx/local-financial-files.ts",
-  "pnpm-lock.yaml",
-])
-  validationIdentity.update(file).update(await readFile(file));
-const validationBuildHash = validationIdentity.digest("hex");
-await writeFile(
-  "runtime/research-validation-identity.json",
-  JSON.stringify({ hash: validationBuildHash }),
-);
+const validationBuildHash = await runtimeValidationHash();
+const portfolioExecutionHash = maEngineHash.digest("hex");
 await build({
   entryPoints: ["src/server/jobs/worker.ts"],
   define: {
-    __MA_BASELINE_BUILD_HASH__: JSON.stringify(maEngineHash.digest("hex")),
+    __MA_BASELINE_BUILD_HASH__: JSON.stringify(portfolioExecutionHash),
     __RESEARCH_VALIDATION_BUILD_HASH__: JSON.stringify(validationBuildHash),
   },
   external: ["better-sqlite3"],
@@ -162,6 +133,19 @@ await build({
   format: "cjs",
   target: "node22",
 });
+const { strategyBuildHash } = await import("trading-strategies");
+await writeFile(
+  "runtime/research-validation-identity.json",
+  JSON.stringify({
+    version: "runtime-execution-1",
+    hash: validationBuildHash,
+    engineHash: portfolioExecutionHash,
+    strategyHash: strategyBuildHash,
+    workerSha256: createHash("sha256")
+      .update(await readFile("runtime/worker.cjs"))
+      .digest("hex"),
+  }),
+);
 await build({
   entryPoints: ["electron/main.ts"],
   outfile: "desktop/main.cjs",

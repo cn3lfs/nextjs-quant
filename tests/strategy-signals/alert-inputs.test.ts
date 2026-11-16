@@ -453,19 +453,22 @@ it("only an explicit manual live setting ends shadow evaluation and preserves it
       recommendation: "QA fixture passed",
     },
   });
-  await caller.strategyLabAction({
-    id: candidate.id,
-    version: 1,
-    action: "promote",
-    confirmed: true,
-    revision: strategyLabDetail(candidate.id, 1).revision,
-  });
+  await expect(
+    caller.strategyLabAction({
+      id: candidate.id,
+      version: 1,
+      action: "promote",
+      confirmed: true,
+      revision: strategyLabDetail(candidate.id, 1).revision,
+    }),
+  ).rejects.toThrow("晋级门槛未通过");
   expect(liveRepo.state(`shadow:${candidate.id}:1`)).toEqual(evidence);
   await caller.strategyLabAction({
     id: candidate.id,
     version: 1,
     action: "live",
     confirmed: true,
+    riskAccepted: true,
     revision: strategyLabDetail(candidate.id, 1).revision,
   });
   expect(liveRepo.state(`strategy:${candidate.id}:1`)).toMatchObject({

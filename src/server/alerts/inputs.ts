@@ -721,7 +721,18 @@ export async function evaluateAlertInputs(
               previous,
               { period, ruleExit, evidenceIssue },
             );
-            result.states.push({ id: stateId, value: projection });
+            result.states.push({
+              id: stateId,
+              value: projection,
+              atCommit: (at) => ({ ...projection, observedAt: at }),
+            });
+            const snapshotKey = `protection-snapshot:${binding.id}:${binding.boundAt}:${projection.task.bar ?? "unavailable"}`;
+            if (projection.task.bar && !repo.state(snapshotKey))
+              result.states.push({
+                id: snapshotKey,
+                value: projection,
+                atCommit: (at) => ({ ...projection, observedAt: at }),
+              });
             stop = projection.backupStop;
           } else
             stop =
@@ -737,7 +748,12 @@ export async function evaluateAlertInputs(
         const botDuplicate =
           market === "crypto" &&
           bots.some(
-            (b) => b.id === p.account && Number(b.positions[p.symbol] ?? 0) > 0,
+            (b) =>
+              b.id === p.account &&
+              Object.entries(b.positions).some(
+                ([symbol, quantity]) =>
+                  symbol === p.symbol && Number(quantity) > 0,
+              ),
           );
         if (!botDuplicate)
           await watchHolding(

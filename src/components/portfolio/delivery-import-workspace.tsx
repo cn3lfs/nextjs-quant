@@ -12,6 +12,7 @@ import {
 import { DeliveryMapping, DeliveryConfirm } from "./delivery-mapping";
 import { Button } from "../ui/button";
 import { DataTable } from "../ui/data-table";
+import { BulkTradeLinks } from "./account-review-panels";
 import {
   TradeError,
   TradeEvidence,
@@ -344,6 +345,7 @@ export function DeliveryImportWorkspace({
               继续导入
             </Button>
           </div>
+          <BulkTradeLinks batchId={receipt.id} />
         </section>
       )}
       {!receipt && (

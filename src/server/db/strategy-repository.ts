@@ -40,6 +40,8 @@ export const tradePlanSchema = z
     symbol: z.string().min(1),
     sleeve: z.string().min(1),
     triggerKey: z.string().min(1),
+    rationale: z.string().max(1000).optional(),
+    tags: z.array(z.string().max(32)).max(12).optional(),
     entry: positive,
     tranches: z.number().int().min(1).max(100),
     quantity: positive.nullable(),

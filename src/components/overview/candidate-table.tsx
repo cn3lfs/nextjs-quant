@@ -129,7 +129,9 @@ export function CandidateTable({
           id: "quantity",
           header: "建议数量",
           cell: ({ row: { original: r } }) => (
-            <span title={r.quantityReason ?? "不含费用滑点"}>
+            <span
+              title={r.quantityReason ?? "已预留撮合费用；实际成交与滑点需核对"}
+            >
               {formatNumber(r.quantity, r.market === "crypto" ? 6 : 0)}
               {r.quantityReason && (
                 <p className="max-w-64 text-xs text-nc-text-3">

@@ -8,6 +8,7 @@ import { registerPaperCandidates } from "../../paper/registration";
 import { configurePaperMirror } from "../../paper/mirror";
 import { runWorker } from "../../jobs/jobs";
 import { beijingClock } from "~/lib/market/market-session";
+import type { PaperBuildReviewManifest } from "../../paper/build-review";
 const id = z.string().min(1).max(240);
 const kind = z.enum([
   "order",
@@ -20,6 +21,32 @@ const kind = z.enum([
   "mirror",
 ]);
 export const paperRouter = createTRPCRouter({
+  reviewPaperBuild: p("portfolio", "compute")
+    .input(id)
+    .mutation(({ input }) =>
+      runWorker<PaperBuildReviewManifest>({
+        type: "paper-build-review",
+        id: input,
+      }),
+    ),
+  confirmPaperBuild: p("portfolio", "configure")
+    .input(
+      z
+        .object({
+          manifestHash: z.string().regex(/^[a-f0-9]{64}$/),
+          confirmed: z.literal(true),
+        })
+        .strict(),
+    )
+    .mutation(({ input }) =>
+      runWorker<{
+        accountId: string;
+        confirmed: true;
+        manifestHash: string;
+        newBuild: string;
+        financialHistoryChanged: false;
+      }>({ type: "paper-build-confirm", ...input }),
+    ),
   paperAccounts: p("portfolio", "read").query(() =>
     new PaperRepository().summaries(),
   ),

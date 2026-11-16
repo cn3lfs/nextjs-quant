@@ -1,3 +1,4 @@
+import { forwardExecutionBuildHash } from "./forward-identity";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -179,6 +180,7 @@ export async function executeLabBacktest(
     request,
     sources,
     strategyBuildHash,
+    executionBuildHash: forwardExecutionBuildHash(),
     boundary:
       "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
   };

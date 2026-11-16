@@ -315,7 +315,7 @@ export function AlertWorkspace() {
                 )}
               </div>
               <p>
-                数量按分仓单笔风险和剩余额度计算；不含费用滑点。分批档位均为向上达到入场价后提醒。
+                数量复用所选策略的分仓风险与剩余额度，已预留撮合费用；实际成交与滑点需核对。分批档位均为向上达到入场价后提醒。
               </p>
               <Button disabled={create.isPending}>保存交易计划</Button>
               <Button

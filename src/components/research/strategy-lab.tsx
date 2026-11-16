@@ -117,13 +117,23 @@ function LabList() {
             id: "status",
             header: "状态 / 分仓",
             cell: ({ row: { original: r } }) =>
-              `${r.status === "promoted" ? "已晋级" : r.status === "shadow" ? "影子前推中" : "研究中"} · ${r.sleeve}`,
+              `${r.unvalidatedLive ? "未验证提醒已开" : r.status === "promoted" ? "已晋级" : r.status === "shadow" ? "影子前推中" : "研究中"} · ${r.sleeve}`,
           },
           {
             id: "return",
             header: "留出收益 / 回撤",
             cell: ({ row: { original: r } }) =>
               `${pct(r.row?.return)} / ${pct(r.row?.drawdown)}`,
+          },
+          {
+            id: "forward",
+            header: "前推一致性",
+            cell: ({ row: { original: r } }) =>
+              r.forwardVerdict === "conforming"
+                ? "一致"
+                : r.forwardVerdict === "degraded"
+                  ? "衰减"
+                  : "证据不足",
           },
           {
             id: "oos",
@@ -185,6 +195,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
   const [action, setAction] = useState<keyof typeof labActionLabels | null>(
     null,
   );
+  const [riskAccepted, setRiskAccepted] = useState(false);
   const change = api.strategyLabAction.useMutation({
     onSuccess: () => {
       setAction(null);
@@ -271,7 +282,10 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         影子样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
         实际观察市场日；
         {d.forward?.assessment?.recommendation ??
-          "30信号或60日后按同一门槛评估"}
+          "缺少同版本冻结分布或前推样本；继续观察"}
+      </p>
+      <p className="text-sm text-nc-text-3">
+        纸面撮合一致性使用模型滑点；真实执行尚未验证。
       </p>
       {d.accounts.map((a) => (
         <p key={a.id}>
@@ -305,12 +319,12 @@ function LabDetail({ id, version }: { id: string; version: number }) {
               disabled={
                 !d.strategy ||
                 change.isPending ||
-                (a === "promote" && !d.eligible) ||
-                (a === "live" && (!d.eligible || !d.promotion))
+                (a === "promote" && !d.eligible)
               }
               onClick={() => {
                 change.reset();
                 setAction(a);
+                setRiskAccepted(false);
               }}
             >
               {labActionLabels[a]}
@@ -332,12 +346,27 @@ function LabDetail({ id, version }: { id: string; version: number }) {
             {id} · v{version}；请核对当前门槛及前推样本后确认。
           </DialogDescription>
           <GateStatus detail={d} />
+          {action === "live" && (!d.eligible || !d.promotion) && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={riskAccepted}
+                onChange={(event) => setRiskAccepted(event.target.checked)}
+              />
+              我理解该策略尚未满足回测与前推晋级条件，仍选择手动开启未验证策略提醒；真实执行未验证。
+            </label>
+          )}
           <p>
             影子 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
             日。策略live仍受全局模式、启用订阅和渠道约束，不产生真实委托。
           </p>
           <Button
-            disabled={change.isPending}
+            disabled={
+              change.isPending ||
+              (action === "live" &&
+                (!d.eligible || !d.promotion) &&
+                !riskAccepted)
+            }
             onClick={() => {
               if (action)
                 change.mutate({
@@ -346,6 +375,9 @@ function LabDetail({ id, version }: { id: string; version: number }) {
                   action,
                   confirmed: true,
                   revision: d.revision,
+                  ...(action === "live" && riskAccepted
+                    ? { riskAccepted: true as const }
+                    : {}),
                 });
             }}
           >

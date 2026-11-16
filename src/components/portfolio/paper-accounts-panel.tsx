@@ -12,6 +12,12 @@ import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import { useScreenVisible } from "../workbench/use-task-visible";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
 
 type Kind =
   | "order"
@@ -320,9 +326,106 @@ export function PaperAccountsPanel() {
         <p role="status" className="text-nc-warn">
           {detail.data.summary.assessment.recommendation}：
           {detail.data.summary.assessment.reasons.join("、")}
+          {detail.data.summary.assessment.slippageBasis === "paper-model"
+            ? "；模型滑点仅验证本地撮合一致性，真实执行未验证"
+            : ""}
         </p>
       )}
+      {account && (
+        <PaperBuildReview
+          key={account}
+          id={account}
+          onConfirmed={() => {
+            void detail.refetch();
+            void query.refetch();
+          }}
+        />
+      )}
       {account && <PaperFacts key={account} id={account} />}
+    </section>
+  );
+}
+
+function PaperBuildReview({
+  id,
+  onConfirmed,
+}: {
+  id: string;
+  onConfirmed(): void;
+}) {
+  const [confirm, setConfirm] = useState(false);
+  const review = api.reviewPaperBuild.useMutation();
+  const apply = api.confirmPaperBuild.useMutation({
+    onSuccess: () => {
+      setConfirm(false);
+      onConfirmed();
+      review.reset();
+    },
+  });
+  const manifest = review.data;
+  return (
+    <section
+      aria-label="纸面执行版本复核"
+      className="space-y-2 rounded border p-3"
+    >
+      <h3 className="font-semibold">执行版本复核</h3>
+      <p className="text-xs text-nc-text-3">
+        使用同一冻结请求重放并完整比较结果；一致后由你确认，仅更新执行版本，保留原始输入和财务历史。
+      </p>
+      <Button
+        variant="outline"
+        disabled={review.isPending || apply.isPending}
+        onClick={() => {
+          apply.reset();
+          review.mutate(id);
+        }}
+      >
+        {review.isPending ? "正在复核…" : "只读复核当前账户"}
+      </Button>
+      {review.error && <p role="alert">{review.error.message}</p>}
+      {manifest && (
+        <div className="space-y-1 break-all text-xs">
+          <p>
+            复核 {manifest.manifestHash} ·{" "}
+            {manifest.exact
+              ? "全部执行结果完全一致"
+              : `结果不同：${manifest.firstDifference?.path ?? "未知字段"}`}
+          </p>
+          <p>
+            旧版本 {manifest.oldBuild ?? "未记录"} → {manifest.newBuild}
+          </p>
+          {!manifest.exact && (
+            <p role="alert">结果不一致，原始历史保留，不能确认版本。</p>
+          )}
+          {manifest.exact && manifest.oldBuild !== manifest.newBuild && (
+            <Button disabled={apply.isPending} onClick={() => setConfirm(true)}>
+              核对并确认执行版本
+            </Button>
+          )}
+        </div>
+      )}
+      <Dialog open={confirm} onOpenChange={setConfirm}>
+        <DialogContent>
+          <DialogTitle>确认纸面执行版本</DialogTitle>
+          <DialogDescription>
+            本次复核所有持久化结果完全一致。确认仅更新执行版本；账户、输入、运行程序或manifest已变化时会拒绝。
+          </DialogDescription>
+          <p className="break-all text-xs">{manifest?.manifestHash}</p>
+          <Button
+            disabled={apply.isPending || !manifest?.exact}
+            onClick={() => {
+              if (manifest)
+                apply.mutate({
+                  manifestHash: manifest.manifestHash,
+                  confirmed: true,
+                });
+            }}
+          >
+            确认仅更新版本
+          </Button>
+          {apply.error && <p role="alert">{apply.error.message}</p>}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

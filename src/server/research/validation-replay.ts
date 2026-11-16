@@ -400,7 +400,9 @@ export function numericNeighbors(
         minVolumeRatio: entry.minVolumeRatio * factor,
       };
     } else if (entry.kind === "factor") {
-      const perturb = (spec: FactorSpec): FactorSpec => {
+      const perturb = (
+        spec: FactorSpec,
+      ): { id: FactorSpec["id"]; parameters: Record<string, number> } => {
         const resolved = resolveFactor(spec);
         const parameters = Object.fromEntries(
           Object.entries(resolved.spec.parameters).map(([key, value]) => {

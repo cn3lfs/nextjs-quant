@@ -17,6 +17,7 @@ import { createAlertPlan, previewAlertPlan } from "~/server/alerts/plans";
 import { planExposure } from "~/server/alerts/plan-exposure";
 import { equityDailyReadiness } from "~/server/alerts/readiness";
 import { publicDataStatus } from "~/server/data-sources/binance/public-data-store";
+import type { StrategyObjectInput } from "trading-strategies";
 import { put, dataDirectory } from "~/server/db";
 
 let db: Database.Database, repo: AlertRepository;
@@ -32,7 +33,7 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 function candidate() {
-  const strategy = {
+  const strategy: StrategyObjectInput = {
     id: "l0-workflow-plan",
     version: 1,
     market: "cn-equity" as const,
@@ -194,7 +195,7 @@ it("unassigned holdings consume market capital and caps without consuming every 
   });
   expect(plan.quantity).toBe(400);
   expect(
-    plan.quantity * plan.entry + (plan.sizingAudit?.estimatedFees ?? 0),
+    plan.quantity! * plan.entry + (plan.sizingAudit?.estimatedFees ?? 0),
   ).toBeLessThanOrEqual(5000);
   expect(plan.positionSnapshot?.unassignedValue).toBe(95000);
   expect(plan.exposureAudit?.violations).toEqual([]);

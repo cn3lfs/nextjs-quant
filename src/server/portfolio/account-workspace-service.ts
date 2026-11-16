@@ -1,5 +1,5 @@
+import { forwardDefinitionHash } from "../db/forward-reference-repository";
 import { createHash } from "node:crypto";
-import { z } from "zod";
 import { strategyObjectSchema } from "trading-strategies";
 import type { Bar } from "~/lib/domain";
 import { chinaClock } from "~/lib/strategy-facts/notification-policy";
@@ -529,11 +529,7 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
   };
 }
 
-export function linkAccountTrade(
-  raw: unknown,
-  book: AccountBook,
-  repo = new AccountWorkspaceRepository(),
-) {
+export function validateAccountTradeLink(raw: unknown, book: AccountBook) {
   const input = tradeLinkSchema.parse(raw),
     trade = book.trades.find((t) => t.id === input.tradeId);
   if (!trade || trade.kind === "paper")
@@ -580,23 +576,39 @@ export function linkAccountTrade(
     throw new Error("成交超出计划有效期，不能继承该计划保护");
   if (plan && event && plan.triggerKey !== event.key)
     throw new Error("计划与提醒来源冲突");
+  return { input, trade, plan };
+}
+export function persistAccountTradeLink(
+  validated: ReturnType<typeof validateAccountTradeLink>,
+  book: AccountBook,
+  repo: AccountWorkspaceRepository,
+  linkedAt: number,
+) {
+  const { input, trade, plan } = validated;
+  const link = repo.link({
+    ...input,
+    linkedAt,
+    tradeFingerprint: accountTradeFingerprint(trade),
+  });
+  if (plan)
+    bindHoldingProtection(
+      { ...trade, ...input },
+      plan,
+      book,
+      new HoldingProtectionRepository(repo.db),
+      linkedAt,
+    );
+  return link;
+}
+export function linkAccountTrade(
+  raw: unknown,
+  book: AccountBook,
+  repo = new AccountWorkspaceRepository(),
+) {
+  const validated = validateAccountTradeLink(raw, book);
   return repo.atomic(() => {
     repo.assertVersion(book.facts.version);
-    const linkedAt = Date.now();
-    const link = repo.link({
-      ...input,
-      linkedAt,
-      tradeFingerprint: accountTradeFingerprint(trade),
-    });
-    if (plan)
-      bindHoldingProtection(
-        { ...trade, ...input },
-        plan,
-        book,
-        new HoldingProtectionRepository(repo.db),
-        linkedAt,
-      );
-    return link;
+    return persistAccountTradeLink(validated, book, repo, Date.now());
   });
 }
 
@@ -645,12 +657,19 @@ export function accountAttribution(
       (version === undefined || s.version === version),
   );
   const cohorts = defs.map((s) => {
-    const expected = book.facts.expectations.find(
+    const unavailable = book.facts.expectationStatuses.find(
       (e) =>
-        e.strategyId === s.id &&
-        e.version === s.version &&
-        e.strategyHash === strategyHash(s),
+        e.definitionHash === forwardDefinitionHash(s) &&
+        e.status === "unavailable",
     );
+    const expected = unavailable
+      ? undefined
+      : book.facts.expectations.find(
+          (e) =>
+            e.strategyId === s.id &&
+            e.version === s.version &&
+            e.strategyHash === strategyHash(s),
+        );
     const alerts = book.facts.events
       .filter(
         (e) =>
@@ -720,6 +739,9 @@ export function accountAttribution(
       sleeve: s.sleeve,
       market: s.market,
       expected: expected ?? null,
+      expectationReason: expected
+        ? null
+        : (unavailable?.reason ?? "缺少已选择验证来源的同参数二十日冻结分布"),
       alerts: decayFlag(values, alerts, book.config.accountReview),
       paper: decayFlag(values, paper, book.config.accountReview),
       actual: decayFlag(values, actual, book.config.accountReview),
@@ -750,6 +772,7 @@ export function accountAttribution(
       ...first,
       strategyId: `分仓合计 ${first.sleeve}`,
       version: 0,
+      expectationReason: complete ? null : "部分分仓成员缺少可核验冻结分布",
       expected: complete
         ? {
             ...first.expected!,
@@ -905,96 +928,4 @@ export function accountTradePage(
         .slice(0, 10),
     })),
   };
-}
-
-export function freezeAccountExpectation(
-  jobId: string,
-  repo = new AccountWorkspaceRepository(),
-) {
-  const job = repo.record<{ status: string; result: unknown }>(jobId);
-  if (job?.status !== "completed")
-    throw new Error("需要已完成的策略对象组合回测");
-  const bar = z.object({
-    date: z.string(),
-    open: z.number(),
-    high: z.number(),
-    low: z.number(),
-    close: z.number(),
-    volume: z.number(),
-    amount: z.number(),
-  });
-  const original = z
-    .object({ inputHash: z.string(), frozen: z.unknown() })
-    .parse(job.result);
-  if (
-    createHash("sha256")
-      .update(JSON.stringify(original.frozen))
-      .digest("hex") !== original.inputHash
-  )
-    throw new Error("冻结回测输入哈希不符");
-  const archive = z
-    .object({
-      inputHash: z.string(),
-      frozen: z.object({
-        strategyObject: strategyObjectSchema,
-        stocks: z.array(
-          z.object({
-            symbol: z.string(),
-            bars: z.array(bar),
-            actions: z.array(z.object({ date: z.string() })),
-          }),
-        ),
-        benchmark: z.array(bar),
-      }),
-      result: z.object({
-        fills: z.array(
-          z.object({
-            symbol: z.string(),
-            date: z.string(),
-            side: z.enum(["buy", "sell"]),
-            price: z.number(),
-          }),
-        ),
-      }),
-      limitations: z.array(z.string()),
-    })
-    .parse(job.result);
-  const strategy = archive.frozen.strategyObject,
-    known = new AlertRepository(repo.db).strategies.strategy(
-      strategy.id,
-      strategy.version,
-    );
-  if (!known || strategyHash(known) !== strategyHash(strategy))
-    throw new Error("回测参数与登记策略版本不一致");
-  const calendar = archive.frozen.benchmark.map((b) => b.date),
-    bars = Object.fromEntries(
-      archive.frozen.stocks.map((s) => [s.symbol, s.bars]),
-    );
-  const buys = archive.result.fills.filter((f) => f.side === "buy");
-  const samples = buys.flatMap((f) => {
-    const stock = archive.frozen.stocks.find((s) => s.symbol === f.symbol);
-    const v = entryCohortReturn(
-      f.symbol,
-      f.date,
-      f.price,
-      bars,
-      calendar,
-      stock?.actions.map((a) => ({ ...a, category: 1 })) ?? [],
-      calendar.at(-1) ?? null,
-      strategy.market,
-    );
-    return v === null ? [] : [v];
-  });
-  return repo.freezeExpectation({
-    strategyId: strategy.id,
-    version: strategy.version,
-    strategyHash: strategyHash(strategy),
-    source: `job:${jobId}:${archive.inputHash}`,
-    horizon: 20,
-    basis: "raw-entry-20-close",
-    samples,
-    excluded: buys.length - samples.length,
-    capturedAt: Date.now(),
-    limitations: archive.limitations,
-  });
 }

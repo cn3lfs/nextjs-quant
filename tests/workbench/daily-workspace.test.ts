@@ -147,7 +147,15 @@ it("research promotion never follows live mode; shadow registration and version 
     `strategy-qualification-${strategy.id}`,
     { status: "live-candidate" },
   );
-  expect(workspaceCandidate(e, repo, now).qualification).toBe("promoted");
+  // Backtest qualification alone cannot replace the missing frozen forward
+  // reference and the manual, same-version promotion decision.
+  expect(workspaceCandidate(e, repo, now).qualification).toBe("shadow");
+  repo.saveState(`promotion:${strategy.id}:1`, {
+    at: now,
+    inputHash: null,
+    reasons: [],
+  });
+  expect(workspaceCandidate(e, repo, now).qualification).toBe("shadow");
   expect(
     workspaceCandidate({ ...e, version: 2 }, repo, now).qualification,
   ).toBe("research");

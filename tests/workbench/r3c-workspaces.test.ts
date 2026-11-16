@@ -40,6 +40,11 @@ import type { readBars } from "../../src/server/market/bar-store/read-bars";
 import fixture from "../fixtures/tdx-gbbq.json";
 
 afterEach(() => vi.restoreAllMocks());
+// Governance and replay fixtures declare a synthetic build. Real runtime-byte
+// validation is exercised separately in runtime-execution-identity.test.ts.
+vi.mock("../../src/server/research/forward-identity", () => ({
+  forwardExecutionBuildHash: () => "d".repeat(64),
+}));
 const strategy = strategyObjectSchema.parse({
   id: "QA-r3c",
   version: 1,
@@ -155,7 +160,7 @@ describe("R3c manual strategy governance", () => {
       repo.db.close();
     }
   });
-  it("requires manual promotion then live, preserves evidence and never subscribes or changes global mode", () => {
+  it("old shadow verdicts cannot promote; explicit unvalidated-live consent preserves evidence without subscribing", () => {
     const repo = repository();
     try {
       repo.saveState(`shadow-summary:${strategy.id}:1`, {
@@ -182,17 +187,19 @@ describe("R3c manual strategy governance", () => {
           repo,
         ),
       ).toThrow("先手动晋级");
-      d = actOnLabStrategy(
-        {
-          id: strategy.id,
-          version: 1,
-          action: "promote",
-          confirmed: true,
-          revision: d.revision,
-        },
-        repo,
-        2001,
-      );
+      expect(() =>
+        actOnLabStrategy(
+          {
+            id: strategy.id,
+            version: 1,
+            action: "promote",
+            confirmed: true,
+            revision: d.revision,
+          },
+          repo,
+          2001,
+        ),
+      ).toThrow("晋级门槛未通过");
       expect(d.live).toBe(false);
       d = actOnLabStrategy(
         {
@@ -200,6 +207,7 @@ describe("R3c manual strategy governance", () => {
           version: 1,
           action: "live",
           confirmed: true,
+          riskAccepted: true,
           revision: d.revision,
         },
         repo,
@@ -218,7 +226,7 @@ describe("R3c manual strategy governance", () => {
         ]),
       ).toEqual([
         [2, "research"],
-        [1, "promoted"],
+        [1, "research"],
       ]);
     } finally {
       repo.db.close();
@@ -425,7 +433,7 @@ describe("R3c database backup", () => {
       await backupDatabase();
     }
     const status = await databaseStatus();
-    expect(status.version).toBe(18);
+    expect(status.version).toBe(19);
     expect(status.keep).toBe(2);
     expect(status.backups).toHaveLength(2);
     expect(status.latest).toBeGreaterThan(0);

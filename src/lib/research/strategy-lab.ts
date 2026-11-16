@@ -14,9 +14,10 @@ export const labQuerySchema = z
   .strict();
 export const labActionSchema = labIdentitySchema
   .extend({
-    action: z.enum(["shadow", "promote", "live", "pause"]),
+    action: z.enum(["shadow", "promote", "live", "pause", "pause-live"]),
     confirmed: z.literal(true),
     revision: z.string().min(1).max(100),
+    riskAccepted: z.literal(true).optional(),
   })
   .strict();
 export const labActionLabels = {
@@ -24,4 +25,5 @@ export const labActionLabels = {
   promote: "晋级策略",
   live: "开启 live 提醒",
   pause: "暂停策略观察与提醒",
+  "pause-live": "暂停 live 提醒",
 };

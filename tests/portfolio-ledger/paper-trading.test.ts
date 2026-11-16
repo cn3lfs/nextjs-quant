@@ -391,7 +391,7 @@ it("a missing crypto weekend candle refuses to jump the gap", () => {
   ).toThrow("存在缺口");
   expect(f.repo.state(f.account.id)).toBeNull();
 });
-it("the same forward gates flag a decayed fixed strategy after60 actual market days", () => {
+it("missing frozen distributions stay insufficient after60 days instead of rerunning historical gates", () => {
   const f = fixture("crypto");
   const dates = Array.from({ length: 70 }, (_, i) =>
     new Date(Date.parse(f.dates[0]!) + i * 86400000).toISOString().slice(0, 10),
@@ -411,10 +411,15 @@ it("the same forward gates flag a decayed fixed strategy after60 actual market d
   );
   expect(f.repo.account(f.account.id)!.summary).toMatchObject({
     days: 70,
-    assessment: { recommendation: "衰减 / 证据不足；继续模拟观察" },
+    assessment: {
+      recommendation: "证据不足；继续模拟观察",
+      method: "forward-conformance-1",
+      verdict: "insufficient",
+      eligible: false,
+    },
   });
   expect(f.repo.account(f.account.id)!.summary!.assessment!.reasons).toContain(
-    "insufficient-closed-trades",
+    "missing-frozen-forward-distribution",
   );
 });
 it("frozen ranking selects the five audited candidates; registration is idempotent, starts now, and defaults mirror off", () => {

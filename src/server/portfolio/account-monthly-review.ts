@@ -4,6 +4,7 @@ import { disciplineCounterfactual } from "~/lib/research/risk/discipline-counter
 import { defaultBacktestCosts } from "~/lib/backtest/backtest-costs";
 import type { AccountBook } from "./account-workspace-service";
 import type { ParsedFill } from "~/lib/research/evidence/delivery-import";
+import type { AccountTrade } from "~/lib/portfolio/account-workspace";
 
 export function monthlyAccountReview(book: AccountBook, month: string) {
   const result: {
@@ -17,6 +18,20 @@ export function monthlyAccountReview(book: AccountBook, month: string) {
     basis: string;
   }[] = [];
   const attribution = [];
+  const roundsSummary = {
+    planned: 0,
+    unplanned: 0,
+    unknownOpening: 0,
+    items: [] as {
+      account: string;
+      market: "cn-equity" | "crypto";
+      symbol: string;
+      openingDate: string | null;
+      closingDate: string | null;
+      status: "planned" | "unplanned" | "unknown-opening";
+      reason: string;
+    }[],
+  };
   const unavailable: { account: string; security: string; reason: string }[] =
     [];
   const ledgers = [...new Set(book.facts.fills.map((f) => f.account))].map(
@@ -128,6 +143,45 @@ export function monthlyAccountReview(book: AccountBook, month: string) {
         book.facts.plans.find((p) => p.id === t?.planId),
       );
       const plan = plans[0];
+      if (
+        round.fillIndices.some((i) => fills[i]!.tradeDate.startsWith(month))
+      ) {
+        const planned =
+          !!plan &&
+          plans.length > 0 &&
+          plans.every((p) => p?.id === plan.id) &&
+          plan.createdAt !== undefined;
+        const status = round.openingUnknown
+          ? ("unknown-opening" as const)
+          : planned
+            ? ("planned" as const)
+            : ("unplanned" as const);
+        if (status === "unknown-opening") roundsSummary.unknownOpening++;
+        else if (status === "planned") roundsSummary.planned++;
+        else roundsSummary.unplanned++;
+        roundsSummary.items.push({
+          account,
+          market: "cn-equity",
+          symbol: round.security,
+          openingDate: round.openingDate,
+          closingDate: round.closingDate,
+          status,
+          reason:
+            status === "unknown-opening"
+              ? "开仓证据未知，不当作守纪或未计划"
+              : planned
+                ? "该回合所有已知买入关联同一计划"
+                : "该回合至少一笔买入未关联同一计划，按一个未计划回合计数",
+        });
+      }
+      if (round.openingUnknown) {
+        unavailable.push({
+          account,
+          security: round.security,
+          reason: "开仓证据未知，已单列；不据此判守纪或违纪",
+        });
+        continue;
+      }
       if (
         !plan ||
         plans.some((p) => p?.id !== plan.id) ||
@@ -299,15 +353,133 @@ export function monthlyAccountReview(book: AccountBook, month: string) {
       });
     }
   }
+  // Crypto facts support round counts; their currency and execution models are
+  // intentionally outside the existing CNY counterfactual calculation.
+  const cryptoGroups = new Map<string, AccountTrade[]>();
+  const excludedCryptoGroups: {
+    account: string;
+    symbol: string;
+    trades: number;
+    reason: string;
+  }[] = [];
+  for (const trade of book.trades.filter(
+    (t) => t.market === "crypto" && t.kind !== "paper",
+  )) {
+    const key = JSON.stringify([trade.kind, trade.account, trade.symbol]);
+    cryptoGroups.set(key, [...(cryptoGroups.get(key) ?? []), trade]);
+  }
+  for (const trades of cryptoGroups.values()) {
+    trades.sort(
+      (a, b) =>
+        a.time - b.time ||
+        (a.sourceOrder?.source === b.sourceOrder?.source
+          ? (a.sourceOrder?.index ?? 0) - (b.sourceOrder?.index ?? 0)
+          : 0),
+    );
+    const ambiguous = trades.some((t, i) =>
+      trades
+        .slice(i + 1)
+        .some(
+          (other) =>
+            other.time === t.time &&
+            other.side !== t.side &&
+            (!t.sourceOrder ||
+              !other.sourceOrder ||
+              t.sourceOrder.source !== other.sourceOrder.source),
+        ),
+    );
+    const record = (round: AccountTrade[], unknown: boolean) => {
+      if (!round.some((t) => t.date.startsWith(month))) return;
+      const buys = round.filter((t) => t.side === "buy"),
+        first = round[0]!;
+      const planned =
+        buys.length > 0 &&
+        buys.every(
+          (t) =>
+            !!t.planId &&
+            t.planId === buys[0]!.planId &&
+            book.facts.plans.some(
+              (p) =>
+                p.id === t.planId &&
+                p.market === "crypto" &&
+                p.symbol === t.symbol &&
+                p.createdAt !== undefined &&
+                p.createdAt <= t.time,
+            ),
+        );
+      const status = unknown
+        ? "unknown-opening"
+        : planned
+          ? "planned"
+          : "unplanned";
+      if (unknown) roundsSummary.unknownOpening++;
+      else if (planned) roundsSummary.planned++;
+      else roundsSummary.unplanned++;
+      roundsSummary.items.push({
+        account: first.account,
+        market: "crypto",
+        symbol: first.symbol,
+        openingDate: unknown ? null : (buys[0]?.date ?? null),
+        closingDate: round.at(-1)?.side === "sell" ? round.at(-1)!.date : null,
+        status,
+        reason: unknown
+          ? "开仓或同刻来源顺序未知，仅单列证据；不判断纪律"
+          : planned
+            ? "该回合全部买入关联同一计划；仅计回合，不计算 CNY 金额"
+            : "该回合买入未完整关联同一计划；仅计回合，不计算 CNY 金额",
+      });
+    };
+    if (ambiguous) {
+      if (trades.some((t) => t.date.startsWith(month))) {
+        const first = trades[0]!,
+          reason = "同刻买卖缺来源行序，无法确定回合数；本组未纳入计数";
+        excludedCryptoGroups.push({
+          account: first.account,
+          symbol: first.symbol,
+          trades: trades.length,
+          reason,
+        });
+        unavailable.push({
+          account: first.account,
+          security: first.symbol,
+          reason,
+        });
+      }
+      continue;
+    }
+    let held = 0,
+      round: AccountTrade[] = [],
+      unknown = false;
+    for (const trade of trades) {
+      if (!round.length) unknown = trade.side === "sell";
+      round.push(trade);
+      held += (trade.side === "buy" ? 1 : -1) * trade.quantity;
+      if (held <= 1e-10) {
+        record(round, unknown || held < -1e-10);
+        held = 0;
+        round = [];
+      }
+    }
+    if (round.length) record(round, unknown);
+  }
   return {
     month,
     items: result,
     attribution,
     unavailable,
-    unlinked: book.trades.filter(
-      (t) => t.kind === "real" && t.date.startsWith(month) && !t.planId,
+    unlinked: roundsSummary.unplanned,
+    rounds: roundsSummary,
+    coverage: {
+      roundMarkets: ["cn-equity", "crypto"],
+      monetaryMarket: "cn-equity",
+      monetaryCurrency: "CNY",
+      cryptoCountOnly: true,
+      excludedCryptoGroups,
+    },
+    unlinkedTrades: book.trades.filter(
+      (t) => t.kind !== "paper" && t.date.startsWith(month) && !t.planId,
     ).length,
     notice:
-      "止损/超仓按首次触发月、追高按入场月统计回合；金额为该完整回合的差额，三类可能重叠，不可相加。导入账本用实际费用，手工账本沿用已记录实验费用；缺现金或计划不补造。",
+      "回合计数覆盖沪深真实/手工及已导入 crypto 模拟账户；crypto 仅计回合，CNY 金额纪律重放仅覆盖沪深。本月有成交的回合各计一次；未计划按完整回合而非成交笔数，未知开仓/来源顺序单列且不当守纪。止损/超仓按首次触发月、追高按入场月统计回合；金额为完整回合差额，三类可能重叠，不可相加。导入账本用实际费用，手工账本沿用已记录实验费用；缺现金或计划不补造。",
   };
 }

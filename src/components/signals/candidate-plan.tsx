@@ -21,6 +21,8 @@ export function CandidatePlan({
     positionSnapshot?: WorkspaceCandidate["positionSnapshot"];
     tranches?: number;
     exitSpec?: WorkspaceCandidate["exitSpec"];
+    sizingPolicy?: WorkspaceCandidate["sizingPolicy"];
+    policyReason?: string | null;
   };
   inline?: boolean;
   onSaved?: () => void;
@@ -66,6 +68,15 @@ export function CandidatePlan({
             }
             save.mutate({
               eventKey: candidate.key,
+              rationale: String(f.get("rationale") ?? ""),
+              tags: [
+                ...new Set(
+                  String(f.get("tags") ?? "")
+                    .split(/[,，]/)
+                    .map((v) => v.trim())
+                    .filter(Boolean),
+                ),
+              ],
               overrideCaps,
               stages: Array.from({ length: tranches }, (_, i) =>
                 Number(f.get(`entry-${i}`)),
@@ -98,6 +109,32 @@ export function CandidatePlan({
             数量复用所选策略与纸面账户的仓位规则，含撮合费用；
             {tranches} 档入场。实际成交价格由用户核对。
           </p>
+          {candidate.sizingPolicy && (
+            <p className="text-xs text-nc-text-3">
+              仓位来源：{candidate.sizingPolicy.source} · 单笔风险{" "}
+              {formatNumber(candidate.sizingPolicy.riskPerTrade * 100, 2)}% ·
+              最多 {candidate.sizingPolicy.maxPositions} 只 · 当前权重上限{" "}
+              {formatNumber(candidate.sizingPolicy.weightCeiling * 100, 2)}% ·
+              费用假设 佣金 {candidate.sizingPolicy.costs.commissionBps} bp /
+              最低 {candidate.sizingPolicy.costs.minimumCommission}，卖税{" "}
+              {candidate.sizingPolicy.costs.sellTaxBps} bp，研究滑点{" "}
+              {candidate.sizingPolicy.costs.slippageBps} bp。
+              {candidate.sizingPolicy.validated
+                ? "已有研究资格，仍须核对前推"
+                : "研究/用户口径，未获完整业绩资格"}
+            </p>
+          )}
+          {candidate.policyReason && (
+            <p role="alert">仓位来源尚不可用：{candidate.policyReason}</p>
+          )}
+          <label className="block">
+            入场理由（可选）
+            <Input name="rationale" aria-label="入场理由" maxLength={1000} />
+          </label>
+          <label className="block">
+            计划标签（逗号分隔）
+            <Input name="tags" aria-label="计划标签" />
+          </label>
           {candidate.positionSnapshot && (
             <p className="text-xs text-nc-text-3">
               {candidate.positionSnapshot.basis === "post-close"

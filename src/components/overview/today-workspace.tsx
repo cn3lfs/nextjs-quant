@@ -26,6 +26,7 @@ import { AccountRiskLinks } from "../portfolio/account-risk-links";
 import { TodayIntel } from "../news/today-intel";
 import { PaperShadowPrompt } from "../research/paper-shadow-prompt";
 import { CryptoRiskNotes } from "../portfolio/crypto-risk-notes";
+import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -123,6 +124,7 @@ function DailyDecision() {
           </div>
         ))}
       <PaperShadowPrompt />
+      <PaperForwardStatus compact />
       <CryptoRiskNotes />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
@@ -202,7 +204,7 @@ function DailyDecision() {
       >
         <h2 className="text-lg font-semibold">明日计划</h2>
         <p className="text-xs text-nc-text-3">
-          收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量不含费用滑点。
+          收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量沿用策略与纸面账户的仓位及费用假设；滑点影响以冻结研究口径和实际成交核对，不保证计划价成交。
         </p>
         <CandidateTable
           data={rows?.items ?? []}
@@ -310,6 +312,12 @@ function DailyDecision() {
                     : ""}
                 </span>
               ),
+            },
+            {
+              id: "journal",
+              header: "计划理由 / 标签",
+              cell: ({ row: { original: p } }) =>
+                [p.rationale || "未记录", ...(p.tags ?? [])].join(" · "),
             },
             {
               id: "detail",

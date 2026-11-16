@@ -69,6 +69,7 @@ export const scoreboardQuerySchema = z
   })
   .strict();
 export type ScoreboardRow = {
+  strategyVersion?: number;
   method?: "lifecycle-2";
   purpose?: "preregistered" | "post-hoc";
   methodLabel?: string;

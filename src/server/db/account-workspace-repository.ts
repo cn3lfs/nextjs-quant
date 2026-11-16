@@ -16,6 +16,10 @@ export type AccountExpectation = {
   strategyId: string;
   version: number;
   strategyHash: string;
+  definitionHash?: string;
+  inputHash?: string;
+  resultHash?: string;
+  buildHash?: string;
   source: string;
   horizon: 20;
   basis: "raw-entry-20-close";
@@ -28,6 +32,14 @@ export type AccountExpectation = {
  * Trades, balances and paper checkpoints remain under their original owners. */
 export class AccountWorkspaceRepository {
   constructor(readonly db: Database.Database = sqlite()) {}
+  expectation(strategyId: string, version: number) {
+    const row = this.db
+      .prepare(
+        "SELECT payload FROM account_expectations WHERE strategy_id=? AND version=?",
+      )
+      .get(strategyId, version) as { payload: string } | undefined;
+    return row ? (JSON.parse(row.payload) as AccountExpectation) : null;
+  }
   version() {
     const changes = this.db.prepare("SELECT total_changes() n").get() as {
       n: number;
@@ -103,6 +115,11 @@ export class AccountWorkspaceRepository {
             )
             .all() as { payload: string }[]
         ).map((r) => JSON.parse(r.payload) as AccountExpectation),
+        expectationStatuses: this.records<{
+          definitionHash: string;
+          status: string;
+          reason?: string;
+        }>("account-expectation-status"),
         definitions: alerts.definitions(),
         plans: alerts.plans(),
         events: alerts.export(alertHistorySchema.parse({})),

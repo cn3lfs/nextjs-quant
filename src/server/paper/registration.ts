@@ -4,6 +4,9 @@ import frozen from "../data/paper-candidates.json";
 import { PaperRepository } from "../db/paper-repository";
 import { AlertRepository } from "../db/alert-repository";
 import { selectShadowCandidates } from "../research/shadow-selection";
+import { ForwardReferenceRepository } from "../db/forward-reference-repository";
+import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
+import { freezeMatchingAccountExpectation } from "../portfolio/account-expectation-service";
 import type { ScoreboardRow } from "../research/validation-model";
 import {
   paperSettingsSchema,
@@ -31,8 +34,12 @@ export function registerPaperCandidates(
         status: string;
         reasons: string[];
       }>(`strategy-qualification-${strategy.id}`);
+      const manuallyShadowed =
+        alerts.state<{ active: boolean }>(
+          `shadow:${strategy.id}:${strategy.version}`,
+        )?.active === true;
       if (
-        qualification?.status !== "live-candidate" ||
+        (qualification?.status !== "live-candidate" && !manuallyShadowed) ||
         candidates.some(
           (c) =>
             c.strategy.id === strategy.id &&
@@ -51,8 +58,11 @@ export function registerPaperCandidates(
           market: strategy.market,
           sleeve: strategy.sleeve,
           rule: strategy.entry.kind,
-          status: "live-candidate",
-          reasons: qualification.reasons,
+          status:
+            qualification?.status === "live-candidate"
+              ? "live-candidate"
+              : "shadow-candidate",
+          reasons: qualification?.reasons ?? ["backtest-gates-not-passed"],
           return: null,
           drawdown: null,
           excess: null,
@@ -161,7 +171,34 @@ export function registerPaperCandidates(
         error: null,
         summary: null,
       };
-      if (repo.create(account)) created++;
+      if (repo.create(account)) {
+        const references = new ForwardReferenceRepository(repo.db);
+        for (const candidate of rows) {
+          references.bindPaper(
+            account.id,
+            candidate.strategy,
+            account.startedAt,
+          );
+          const reference = references.paper(
+            account.id,
+            candidate.strategy,
+            account.startedAt,
+          );
+          freezeMatchingAccountExpectation(
+            candidate.strategy.id,
+            candidate.strategy.version,
+            new AccountWorkspaceRepository(repo.db),
+            reference
+              ? {
+                  inputHash: reference.identity.inputHash,
+                  resultHash: reference.resultHash,
+                  buildHash: reference.identity.buildHash,
+                }
+              : undefined,
+          );
+        }
+        created++;
+      }
     }
     return {
       created,
