@@ -1460,10 +1460,9 @@ export function runPortfolio(
                 "signal",
               );
               order.targetWeight = weight;
-              order.rankScore = candidates.find((c) => c.symbol === symbol)
-                ?.decision.entry
-                ? 1
-                : 0;
+              order.rankScore =
+                decision.entries.find((entry) => entry.symbol === symbol)
+                  ?.score ?? 0;
               order.industries = decision.industries;
               order.riskGroups = decision.riskGroups;
               order.marketTargetShare = decision.marketTargetShare;

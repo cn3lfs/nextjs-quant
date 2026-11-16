@@ -69,6 +69,55 @@ it("scarce slots fill by cross-sectional rank, not alphabetic symbol or strategy
     source: "portfolio-OHLC-model",
   });
 });
+it("weekly target orders retain real rank when the hard sleeve slot limit is lower than top-N", () => {
+  const q = request(),
+    calendar = ["2026-01-09", "2026-01-12"];
+  q.start = calendar[0]!;
+  q.end = calendar[1]!;
+  q.calendar = calendar;
+  q.strategies = [
+    {
+      ...strategy("weekly", "sh600000"),
+      universe: { kind: "symbols", symbols: ["sh600000", "sh600001"] },
+      rebalance: {
+        kind: "ranked-weekly",
+        top: 2,
+        retentionMultiple: 1.5,
+        weighting: "equal",
+      },
+    },
+  ];
+  q.instruments = q.instruments.map((s, i) => {
+    const rows = calendar.map((date) => ({
+      ...bars[0]!,
+      date,
+      high: 10.1,
+      low: 9.9,
+    }));
+    return {
+      ...s,
+      bars: rows,
+      signalBars: rows,
+      external: {
+        rps: calendar.map((date) => ({
+          date,
+          periods: [20],
+          values: [{ return: 0.1, rank: i ? 1 : 2, rps: i ? 90 : 10 }],
+        })),
+      },
+    };
+  });
+  const result = runPortfolio(q);
+  expect(
+    result.fills.filter((f) => f.side === "buy").map((f) => f.symbol),
+  ).toEqual(["sh600001"]);
+  expect(result.orders.find((o) => o.symbol === "sh600001")?.rankScore).toBe(
+    0.9,
+  );
+  expect(result.orders.find((o) => o.symbol === "sh600000")?.rankScore).toBe(
+    0.1,
+  );
+});
 it("time exits with a required reset cannot repeatedly re-enter a permanently true condition", () => {
   const q = request();
   q.strategies = [
