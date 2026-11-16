@@ -27,8 +27,6 @@ process.env.QUANT_RESEARCH_CONFIG = resolve(args[index + 1]!);
 args.splice(index, 2);
 if (command === "replay") process.env.QUANT_RESEARCH_REPLAY = "1";
 const { config, outputTask } = await import("./lib/research/isolation");
-if (command === "replay" && config.batch !== "R2a-4")
-  throw new Error("Replay requires the frozen R2a4 configuration");
 if (config.batch === "R2a-4" && command !== "replay")
   throw new Error(
     "R2a4 is frozen: use replay with its config; computations require the current config",

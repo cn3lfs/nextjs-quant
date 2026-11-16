@@ -31,7 +31,9 @@ if (
   !isAbsolute(process.env.QUANT_DATA_DIR) ||
   resolve(process.env.QUANT_DATA_DIR) !== join(outputTask, "data")
 )
-  throw new Error("R2a4 requires absolute isolated .test-data/r2a4/data");
+  throw new Error(
+    "Research requires the configured absolute isolated task/data directory",
+  );
 export const digest = (bytes: string | Buffer) =>
   createHash("sha256").update(bytes).digest("hex");
 export async function calculationIdentity(market: "cn-equity" | "crypto") {
@@ -80,7 +82,7 @@ export async function calculationIdentity(market: "cn-equity" | "crypto") {
 }
 export async function json<T>(path: string): Promise<T> {
   if (replayOnly && path === ".codex-runs/delivery.json")
-    path = ".codex-runs/delivery.R2a4.json";
+    path = `.codex-runs/delivery.${config.batch.replace("-", "")}.json`;
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 export async function delivery(patch: Record<string, unknown>) {

@@ -790,12 +790,13 @@ if (replayOnly) {
     join(task, "scoreboard-summary.json"),
   );
   if (!isDeepStrictEqual(JSON.parse(JSON.stringify(conclusion)), original))
-    throw new Error("Frozen R2a4 scoreboard replay differs");
+    throw new Error(`Frozen ${config.batch} scoreboard replay differs`);
   await writeFile(
     join(outputTask, "parity.json"),
     JSON.stringify(
       {
         passed: true,
+        batch: config.batch,
         rows: all.length,
         trials: trials.length,
         exactDeepEquality: true,
@@ -808,6 +809,7 @@ if (replayOnly) {
   console.log(
     JSON.stringify({
       replay: true,
+      batch: config.batch,
       exactDeepEquality: true,
       rows: all.length,
       trials: trials.length,
