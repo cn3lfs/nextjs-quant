@@ -53,6 +53,13 @@ export const tradePlanSchema = z
       .optional(),
     closeReason: z.enum(["triggered", "cancelled", "expired"]).optional(),
     createdAt: z.number().finite().optional(),
+    positionSnapshot: z
+      .object({
+        at: z.number().finite(),
+        basis: z.enum(["intraday", "post-close"]),
+        unassignedValue: z.number().finite().nonnegative(),
+      })
+      .optional(),
     exposureAudit: z
       .object({
         at: z.number(),

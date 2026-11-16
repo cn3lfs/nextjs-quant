@@ -3,6 +3,7 @@ import Big from "big.js";
 import { z } from "zod";
 import { marketRules } from "trading-strategy-core/market-rules";
 import type { Settings } from "~/lib/domain";
+import { planExposure } from "./plan-exposure";
 import { AlertRepository } from "../db/alert-repository";
 import {
   checkExposureCaps,
@@ -127,24 +128,15 @@ export function previewAlertPlan(
   const equity = config.alerts.capital[event.market];
   if (!sleeve || !equity || !sleeve.share)
     throw new Error("请先配置该分仓资金和目标份额");
-  const usage =
-    repository.state<
-      { market: string; sleeve: string; value: number; at: number }[]
-    >("exposure");
-  if (
-    !usage?.some(
-      (u) => u.market === event.market && u.sleeve === "__checked__",
-    ) ||
-    usage.some((u) => u.market === event.market && now - u.at > 10 * 60000)
-  )
+  const snapshot = planExposure(event.market, config, now, repository);
+  const usage = snapshot.usage;
+  if (!snapshot.valid)
     throw new Error("持仓额度未完成核对或已过期，请等待提醒引擎更新");
   const actualPositions = positions?.filter(
     (p) => p.kind === "real" && p.market === event.market,
   );
-  if (actualPositions?.some((p) => p.value === null || p.sleeve === "未知"))
-    throw new Error(
-      "真实持仓估值或分仓未核对，不能计算剩余计划预算；请先关联成交与计划",
-    );
+  if (actualPositions?.some((p) => p.value === null))
+    throw new Error("真实持仓估值未核对，不能计算剩余计划预算；请先核对持仓");
   const invested = actualPositions
     ? actualPositions
         .filter((p) => p.sleeve === event.sleeve)
@@ -162,7 +154,33 @@ export function previewAlertPlan(
           p.entry * (p.quantity ?? 0)),
       0,
     );
-  const budget = Math.max(0, equity * sleeve.share - invested - reserved);
+  const marketInvested = actualPositions
+    ? actualPositions.reduce((n, p) => n + p.value!, 0)
+    : usage
+        .filter((u) => u.sleeve !== "__checked__")
+        .reduce((n, u) => n + u.value, 0);
+  const marketReserved = repository
+    .plans(true)
+    .filter((p) => p.market === event.market)
+    .reduce(
+      (n, p) =>
+        n +
+        (p.stages?.reduce((v, s) => v + s.entry * s.quantity, 0) ??
+          p.entry * (p.quantity ?? 0)),
+      0,
+    );
+  const unassignedValue = actualPositions
+    ? actualPositions
+        .filter((p) => p.sleeve === "未知")
+        .reduce((n, p) => n + p.value!, 0)
+    : usage.filter((u) => u.sleeve === "未知").reduce((n, u) => n + u.value, 0);
+  const budget = Math.max(
+    0,
+    Math.min(
+      equity * sleeve.share - invested - reserved,
+      equity - marketInvested - marketReserved,
+    ),
+  );
   const step =
     marketRules[event.market].quantity.step ?? input.quantityRules?.step;
   const minimum =
@@ -200,6 +218,11 @@ export function previewAlertPlan(
     expiresAt: input.expiresAt,
     status: "open" as const,
     createdAt: now,
+    positionSnapshot: {
+      at: snapshot.at!,
+      basis: snapshot.basis,
+      unassignedValue,
+    },
     ...(input.quantityRules ? { quantityRules: input.quantityRules } : {}),
   };
   return plan;

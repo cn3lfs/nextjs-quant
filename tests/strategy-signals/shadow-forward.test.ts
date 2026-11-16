@@ -227,6 +227,28 @@ describe("shadow prospective observations", () => {
     expect(result.reasons).toContain("insufficient-closed-trades");
     expect(result.recommendation).not.toContain("手动开启");
   });
+  it("a new gap reports the latest short segment instead of recycling an older complete verdict", () => {
+    const samples = Array.from({ length: 60 }, (_, i) =>
+      sample(new Date(start + i * 86400000).toISOString().slice(0, 10)),
+    ).filter((_, i) => i !== 58);
+    const progress = appendShadowSamples(undefined, registration, samples);
+    const result = assessShadow(
+      strategy,
+      registration,
+      progress,
+      start + 61 * 86400000,
+    )!;
+    expect(result.reasons).toEqual(["insufficient-contiguous-forward-windows"]);
+    expect(result.coverage).toMatchObject({
+      observedDays: 59,
+      assessedDays: 1,
+      start: samples.at(-1)!.bar.date,
+      end: samples.at(-1)!.bar.date,
+      latestObserved: samples.at(-1)!.bar.date,
+      windows: 0,
+    });
+    expect(result.coverage!.gaps).toHaveLength(1);
+  });
   it("selects two per market/sleeve in preregistered order and excludes negative return/over50% DD", () => {
     const row = (
       id: string,
@@ -282,46 +304,59 @@ describe("shadow prospective observations", () => {
       ]).map((r) => r.id),
     ).toEqual(["passed", "C"]);
   });
-  it("recommends only when sufficient prospective trades, windows, stresses and DSR all pass", () => {
-    const samples = Array.from({ length: 240 }, (_, i) => {
-      const s = sample(
-        new Date(start + i * 86400000).toISOString().slice(0, 10),
+  it.each([null, 25])(
+    "recommends only when sufficient complete windows pass, with a historical gap at %s",
+    (gap) => {
+      const samples = Array.from({ length: 240 }, (_, i) => {
+        const s = sample(
+          new Date(start + i * 86400000).toISOString().slice(0, 10),
+        );
+        const open = 10 * 1.02 ** i;
+        s.bar = {
+          ...s.bar,
+          open,
+          close: open * 1.01,
+          high: open * 1.03,
+          low: open * 0.99,
+        };
+        const b = 100 * 0.999 ** i;
+        s.benchmark = {
+          ...s.bar,
+          open: b,
+          close: b * 0.999,
+          high: b,
+          low: b * 0.999,
+        };
+        s.entry = i % 2 === 0;
+        s.exit = i % 2 === 1;
+        s.observedAt = start + (i + 1) * 86400000;
+        return s;
+      });
+      const p = appendShadowSamples(
+        undefined,
+        registration,
+        samples.filter((_, i) => i !== gap),
       );
-      const open = 10 * 1.02 ** i;
-      s.bar = {
-        ...s.bar,
-        open,
-        close: open * 1.01,
-        high: open * 1.03,
-        low: open * 0.99,
-      };
-      const b = 100 * 0.999 ** i;
-      s.benchmark = {
-        ...s.bar,
-        open: b,
-        close: b * 0.999,
-        high: b,
-        low: b * 0.999,
-      };
-      s.entry = i % 2 === 0;
-      s.exit = i % 2 === 1;
-      s.observedAt = start + (i + 1) * 86400000;
-      return s;
-    });
-    const p = appendShadowSamples(undefined, registration, samples);
-    const result = assessShadow(
-      strategy,
-      registration,
-      p,
-      start + 241 * 86400000,
-    )!;
-    expect(result.reasons).toEqual([]);
-    expect(result.eligible).toBe(true);
-    expect(result.recommendation).toBe(
-      "可考虑开启提醒；请在设置中手动开启live并启用订阅",
-    );
-    expect(registration.active).toBe(true);
-  });
+      const result = assessShadow(
+        strategy,
+        registration,
+        p,
+        start + 241 * 86400000,
+      )!;
+      expect(result.reasons).toEqual([]);
+      expect(result.eligible).toBe(true);
+      expect(result.coverage).toMatchObject({
+        observedDays: gap === null ? 240 : 239,
+        assessedDays: gap === null ? 240 : 214,
+      });
+      expect(result.coverage!.gaps).toHaveLength(gap === null ? 0 : 1);
+      expect(result.coverage!.windows).toBeGreaterThan(0);
+      expect(result.recommendation).toBe(
+        "可考虑开启提醒；请在设置中手动开启live并启用订阅",
+      );
+      expect(registration.active).toBe(true);
+    },
+  );
   it("uses the fake clock to force shadow even under live mode, dedupes, settles T+5/10/20, and calls no delivery", async () => {
     const db = new Database(":memory:");
     migrate(db);

@@ -12,6 +12,9 @@ import { AlertRepository } from "../db/alert-repository";
 import { RpsStore } from "../db/rps-store";
 import { readBars } from "../market/bar-store/read-bars";
 import { beijingClock } from "~/lib/market/market-session";
+import { cryptoSymbol, isCryptoSymbol } from "~/lib/market/crypto";
+import { closeScanDeadline } from "~/lib/market/close-scan-window";
+import type { SecurityTradingStatus } from "~/lib/market/security-trading-status";
 import { cryptoPeriodEnd } from "~/lib/market/crypto-aggregation";
 import { watchStrategy } from "../strategies/drivers/watch";
 import { captureNativeChanObservations } from "../strategies/strategy-center-native";
@@ -71,11 +74,24 @@ export async function evaluateAlertInputs(
   phase: AlertPhase,
   now: number,
   repo: AlertRepository,
+  closeDate?: string,
 ): Promise<AlertEvaluation> {
   const config = settings();
   const market: "cn-equity" | "crypto" =
     phase === "crypto" ? "crypto" : "cn-equity";
-  const today = beijingClock(now).date;
+  const today = closeDate ?? beijingClock(now).date;
+  const validity = (period: Period, completedAt: number, bar: string) => {
+    if (phase !== "close" && period !== "day" && period !== "week")
+      return 5 * 60000;
+    if (market === "crypto") return 12 * 3600000;
+    // The engine accepts an inclusive age; the pre-open cutoff itself is closed.
+    return Math.max(
+      0,
+      closeScanDeadline(bar.slice(0, 10), repo.records.days()) -
+        completedAt -
+        1,
+    );
+  };
   const result: AlertEvaluation = { proposals: [], states: [] };
   const cache = new Map<string, Awaited<ReturnType<typeof readBars>>>();
   const series = async (symbol: string, period: Period, adjusted = false) => {
@@ -83,7 +99,13 @@ export async function evaluateAlertInputs(
     let data = cache.get(key);
     if (!data) {
       data = await readBars({
-        instrument: { market, symbol },
+        instrument: {
+          market,
+          symbol:
+            market === "crypto" && !isCryptoSymbol(symbol)
+              ? cryptoSymbol(symbol)
+              : symbol,
+        },
         period,
         adjustment: adjusted && market === "cn-equity" ? "forward" : "none",
         freezeRaw: adjusted,
@@ -95,10 +117,13 @@ export async function evaluateAlertInputs(
       });
       cache.set(key, data);
     }
-    result.states.push({
-      id: `data-gap:${market}:${symbol}`,
-      value: { at: now, resolved: true },
-    });
+    const gapId = `data-gap:${market}:${symbol}`;
+    if (
+      !result.states.some(
+        (s) => s.id === gapId && !(s.value as { resolved?: boolean }).resolved,
+      )
+    )
+      result.states.push({ id: gapId, value: { at: now, resolved: true } });
     const bars = data.bars.filter(
       (b) => !data.barStore.formingDates.includes(b.date),
     );
@@ -123,6 +148,9 @@ export async function evaluateAlertInputs(
   };
   const error = (symbol: string, error: unknown) => {
     recordRuntimeError("alert-engine", error);
+    result.states = result.states.filter(
+      (s) => s.id !== `data-gap:${market}:${symbol}`,
+    );
     result.states.push({
       id: `data-gap:${market}:${symbol}`,
       value: { at: now, reason: "行情或策略所需证据不可用；未生成假信号" },
@@ -142,7 +170,7 @@ export async function evaluateAlertInputs(
     result.proposals.push({
       strategy,
       completedAt,
-      windowMs: phase === "close" ? 55 * 60000 : 5 * 60000,
+      windowMs: validity(strategy.period, completedAt, bar),
       event: {
         strategyId: strategy.id,
         version: strategy.version,
@@ -191,7 +219,7 @@ export async function evaluateAlertInputs(
       ]),
     ].filter((s) =>
       market === "crypto"
-        ? /^[A-Z0-9]+USDT$/.test(s)
+        ? /^(cx)?[A-Z0-9]+USDT$/.test(s)
         : /^(sh|sz)\d{6}$/.test(s),
     );
     for (const symbol of symbols) {
@@ -267,7 +295,7 @@ export async function evaluateAlertInputs(
           shadowOnly &&
           completedAt >= shadow.startedAt &&
           now >= completedAt &&
-          now - completedAt <= (phase === "close" ? 55 : 5) * 60000
+          now - completedAt <= validity(strategy.period, completedAt, bar.date)
         ) {
           const benchmarkData = await series(
             market === "crypto" ? "BTCUSDT" : "sh000906",
@@ -310,19 +338,44 @@ export async function evaluateAlertInputs(
         }
         for (const event of events) {
           if (event.type === "entry" && bar.volume <= 0) continue;
-          const status =
-            market === "cn-equity" && event.type === "entry"
-              ? await verifySecurityTradingStatus(symbol)
-              : undefined;
+          let status: SecurityTradingStatus | undefined;
+          if (market === "cn-equity" && event.type === "entry") {
+            try {
+              status = await verifySecurityTradingStatus(symbol);
+            } catch (failure) {
+              recordRuntimeError("alert-engine", failure);
+              const evidence = { row: {}, columns: [] };
+              status = {
+                version: "security-trading-status-1",
+                symbol,
+                status: "unknown",
+                asOf: null,
+                fetchedAt: now,
+                source: "同花顺问财核验不可用",
+                reason: "交易状态未知，请核验",
+                evidence,
+                evidenceHash: createHash("sha256")
+                  .update(JSON.stringify(evidence))
+                  .digest("hex"),
+              };
+            }
+            if (status.status === "suspended") continue;
+          }
+          const statusUnknown =
+            status && !currentTradingStatus(status, symbol, now);
+          if (statusUnknown && status)
+            status = {
+              ...status,
+              status: "unknown",
+              reason: "交易状态未知或证据已过期，请核验",
+            };
           propose(
             strategy,
             symbol,
             event.bar,
             event.type,
             event.price,
-            phase === "close"
-              ? "收盘扫描：明日计划候选（仅已登记live策略）"
-              : "已完成bar策略触发",
+            `${phase === "close" ? "收盘扫描：明日计划候选" : "已完成bar策略触发"}${statusUnknown ? "；交易状态未知，请核验；仅影子记录" : ""}`,
             data.source,
             data.completedAt(bar.date),
             {
@@ -337,8 +390,11 @@ export async function evaluateAlertInputs(
                   `shadow:${strategy.id}:${strategy.version}`,
                 )?.active === true
               : JSON.stringify(repo.state(registrationId)) === registration) &&
-            (!status || currentTradingStatus(status, symbol, at));
-          result.proposals.at(-1)!.shadowOnly = shadowOnly;
+            (!status ||
+              statusUnknown ||
+              currentTradingStatus(status, symbol, at));
+          result.proposals.at(-1)!.shadowOnly =
+            shadowOnly || Boolean(statusUnknown);
           const nativeState = result.states.find(
             (s) =>
               s.id === `native:${strategy.id}:${strategy.version}:${symbol}`,
@@ -368,7 +424,8 @@ export async function evaluateAlertInputs(
         fresh.every(
           (s) =>
             at >= s.completedAt &&
-            at - s.completedAt <= (phase === "close" ? 60 : 5) * 60000,
+            at - s.completedAt <=
+              validity(strategy.period, s.completedAt, s.bar.date),
         );
       // Evaluate once per newly observed market day after the sample threshold.
       if (
@@ -423,7 +480,11 @@ export async function evaluateAlertInputs(
       if (!bar) throw new Error("Missing completed holding bar");
       if (
         now - data.completedAt(bar.date) >
-        (phase === "close" ? 55 : 5) * 60000
+        validity(
+          phase === "close" ? "day" : "5m",
+          data.completedAt(bar.date),
+          bar.date,
+        )
       )
         exposureComplete = false;
       holdingRisks.push({
@@ -544,6 +605,14 @@ export async function evaluateAlertInputs(
         { market, sleeve: "__checked__", value: 0, at: now },
       ],
     });
+    if (phase === "close")
+      result.states.push({
+        id: "exposure-close:cn-equity",
+        value: [
+          ...exposure,
+          { market, sleeve: "__checked__", value: 0, at: now },
+        ],
+      });
     const capital = config.alerts.capital[market];
     for (const sleeve of config.alerts.sleeves.filter(
       (s) => s.market === market && capital > 0,

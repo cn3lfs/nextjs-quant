@@ -1,6 +1,7 @@
 import type { PortfolioInstrument, PortfolioRequest } from "quant-backtest";
 import type { StrategyExternalInputs } from "trading-strategies";
 import type { Bar } from "trading-strategy-core/bars";
+import { cryptoSymbol, isCryptoSymbol } from "~/lib/market/crypto";
 import { beijingClock } from "~/lib/market/market-session";
 import { readBars } from "../market/bar-store/read-bars";
 import { corporateActions } from "../market/bar-store/corporate-actions";
@@ -42,7 +43,13 @@ export async function loadPaperInput(
   } else if (!config.tdxRoot) throw new Error("纸面账户等待通达信数据目录");
   const read = async (symbol: string, adjusted = false) => {
     const snapshot = await readBars({
-      instrument: { market: account.market, symbol },
+      instrument: {
+        market: account.market,
+        symbol:
+          account.market === "crypto" && !isCryptoSymbol(symbol)
+            ? cryptoSymbol(symbol)
+            : symbol,
+      },
       period,
       adjustment:
         adjusted && account.market === "cn-equity" ? "forward" : "none",
@@ -94,7 +101,10 @@ export async function loadPaperInput(
   const readyDates = account.market === "crypto" ? pending : [];
   if (account.market === "cn-equity")
     for (const date of pending) {
-      if (!(await downloadReady(date, now))) break;
+      // Historical accounting needs completed source bars, not a receipt that can no longer arrive.
+      if (!benchmark.bars.some((b) => b.date === date)) break;
+      if (date >= beijingClock(now).date && !(await downloadReady(date, now)))
+        break;
       readyDates.push(date);
     }
   if (!readyDates.length) return null;

@@ -560,12 +560,75 @@ export async function backfillPublicData(options: Options = {}) {
     }
   return { root, series: summaries };
 }
+/** A fresh REST tail does not prove continuity with the older official files. */
+function manifestCoverage(manifest: ArchiveManifest) {
+  const step = archiveStep[manifest.interval];
+  const bounds = (start: string | null, end: string | null) => ({
+    from: start
+      ? Date.parse(start) - (manifest.interval === "1d" ? 0 : step)
+      : NaN,
+    to: end ? Date.parse(end) + (manifest.interval === "1d" ? step : 0) : NaN,
+  });
+  const ranges = manifest.files
+    .filter((f) => f.rows > 0)
+    .map((f) => ({ ...bounds(f.start, f.end), rows: f.rows }));
+  const valid =
+    ranges.length > 0 &&
+    ranges.every(
+      (r) =>
+        Number.isFinite(r.from) &&
+        Number.isFinite(r.to) &&
+        r.to > r.from &&
+        r.from % step === 0 &&
+        r.to % step === 0 &&
+        r.rows === (r.to - r.from) / step,
+    );
+  const ordered = ranges
+    .filter((r) => Number.isFinite(r.from) && Number.isFinite(r.to))
+    .sort((a, b) => a.from - b.from);
+  const gaps = manifest.gaps.map((g) => ({ from: g.from, to: g.to + step }));
+  let through = ordered[0]?.to ?? NaN;
+  for (const range of ordered.slice(1)) {
+    if (range.from > through) gaps.push({ from: through, to: range.from });
+    through = Math.max(through, range.to);
+  }
+  let quarantinedRows = 0;
+  for (const file of manifest.files)
+    for (const row of file.quarantined) {
+      quarantinedRows++;
+      gaps.push({ from: row.openTime, to: row.openTime + step });
+    }
+  const merged: { from: number; to: number }[] = [];
+  for (const gap of gaps.sort((a, b) => a.from - b.from)) {
+    const last = merged.at(-1);
+    if (last && gap.from <= last.to) last.to = Math.max(last.to, gap.to);
+    else merged.push({ ...gap });
+  }
+  const declared = bounds(manifest.start, manifest.end);
+  return {
+    known:
+      valid &&
+      (ordered[0]?.from ?? Infinity) <= declared.from &&
+      through >= declared.to,
+    gaps: merged.length,
+    quarantinedRows,
+  };
+}
+
 /** Read only the small manifest indexes on startup; never trigger a backfill. */
-export async function publicDataStatus(root = publicDataRoot()) {
+export async function publicDataStatus(
+  root = publicDataRoot(),
+  now = Date.now(),
+) {
   const series: {
     symbol: string;
     interval: ArchiveInterval;
-    manifest: (Omit<ArchiveManifest, "files"> & { fileCount: number }) | null;
+    manifest:
+      | (Omit<ArchiveManifest, "files"> & {
+          fileCount: number;
+          coverage: ReturnType<typeof manifestCoverage>;
+        })
+      | null;
   }[] = [];
   for (const symbol of ["BTCUSDT", "ETHUSDT"])
     for (const interval of archiveIntervals) {
@@ -585,20 +648,48 @@ export async function publicDataStatus(root = publicDataRoot()) {
         series.push({
           symbol,
           interval,
-          manifest: { ...summary, fileCount: files.length },
+          manifest: {
+            ...summary,
+            fileCount: files.length,
+            coverage: manifestCoverage(manifest),
+          },
         });
       } else series.push({ symbol, interval, manifest: null });
     }
   return {
     root,
+    alertReadiness: series
+      .filter((s) => s.interval === "1d" || s.interval === "4h")
+      .map((s) => {
+        const end = s.manifest?.end ?? null;
+        const completedThrough = end
+          ? Date.parse(end) + (s.interval === "1d" ? 86400000 : 0)
+          : null;
+        const requiredThrough =
+          Math.floor(now / archiveStep[s.interval]) * archiveStep[s.interval];
+        return {
+          symbol: s.symbol,
+          interval: s.interval,
+          end,
+          requiredThrough: new Date(requiredThrough).toISOString(),
+          ready:
+            completedThrough !== null &&
+            completedThrough >= requiredThrough &&
+            s.manifest!.coverage.known &&
+            s.manifest!.coverage.gaps === 0 &&
+            s.manifest!.coverage.quarantinedRows === 0,
+          gaps: s.manifest?.coverage.gaps ?? null,
+          coverageKnown: s.manifest?.coverage.known ?? false,
+          quarantinedRows: s.manifest?.coverage.quarantinedRows ?? null,
+        };
+      }),
     needsBackfill: series.some(
       (s) =>
         !s.manifest ||
         s.manifest.status !== "ready" ||
         !s.manifest.end ||
         Date.parse(s.manifest.end) + (s.interval === "1d" ? 86400000 : 0) <
-          Math.floor(Date.now() / archiveStep[s.interval]) *
-            archiveStep[s.interval],
+          Math.floor(now / archiveStep[s.interval]) * archiveStep[s.interval],
     ),
     series,
   };

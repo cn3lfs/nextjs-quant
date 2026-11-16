@@ -44,6 +44,15 @@ export type ShadowProgress = {
     eligible: boolean;
     reasons: string[];
     recommendation: string;
+    coverage?: {
+      gaps: { after: string | null; before: string }[];
+      observedDays: number;
+      assessedDays: number;
+      windows: number;
+      start: string | null;
+      end: string | null;
+      latestObserved: string | null;
+    };
   } | null;
 };
 export type ShadowSummary = Pick<
@@ -117,8 +126,6 @@ export function assessShadow(
     recommendation: "继续影子观察；证据或门槛尚未满足",
   });
   if (progress.paused) return pending(["shadow-observation-capacity-reached"]);
-  if (progress.days.length < 35)
-    return pending(["insufficient-forward-windows"]);
   const symbols = [
     ...new Set(
       strategy.universe.kind === "symbols"
@@ -131,48 +138,73 @@ export function assessShadow(
       progress.samples.map((s) => [s.benchmark.date, s.benchmark]),
     ).values(),
   ].sort((a, b) => a.date.localeCompare(b.date));
-  if (strategy.market === "crypto") {
-    const step = (
-      {
-        day: 86400000,
-        "4h": 14400000,
-        "1h": 3600000,
-        "15m": 900000,
-        "5m": 300000,
-      } as Partial<Record<StrategyObjectInput["period"], number>>
-    )[strategy.period];
-    if (
-      !step ||
-      benchmark.some(
-        (b, i) =>
-          i > 0 &&
-          Date.parse(b.date) - Date.parse(benchmark[i - 1]!.date) !== step,
-      )
-    )
-      return pending(["incomplete-forward-execution-evidence"]);
-  } else {
-    const expectedDays = marketCalendar.filter(
-      (d) => d >= progress.days[0]! && d <= progress.days.at(-1)!,
+  const gaps: { after: string | null; before: string }[] = [];
+  let segment: Bar[] = [];
+  const calendar = [...new Set(marketCalendar)].sort();
+  const step =
+    strategy.market === "crypto"
+      ? (
+          {
+            day: 86400000,
+            "4h": 14400000,
+            "1h": 3600000,
+            "15m": 900000,
+            "5m": 300000,
+          } as Partial<Record<StrategyObjectInput["period"], number>>
+        )[strategy.period]
+      : undefined;
+  const observations = new Set(
+    progress.samples.map((s) => `${s.symbol}|${s.bar.date}`),
+  );
+  for (const bar of benchmark) {
+    const previous = segment.at(-1);
+    const complete = symbols.every((symbol) =>
+      observations.has(`${symbol}|${bar.date}`),
     );
-    if (
-      !expectedDays.length ||
-      expectedDays.length !== progress.days.length ||
-      expectedDays.some((d) => !progress.days.includes(d))
-    )
-      return pending(["incomplete-forward-execution-evidence"]);
+    const consecutive =
+      !previous ||
+      (strategy.market === "crypto"
+        ? step !== undefined &&
+          Date.parse(bar.date) - Date.parse(previous.date) === step
+        : calendar.indexOf(previous.date.slice(0, 10)) >= 0 &&
+          calendar[calendar.indexOf(previous.date.slice(0, 10)) + 1] ===
+            bar.date.slice(0, 10));
+    if (!complete || !consecutive) {
+      gaps.push({ after: previous?.date ?? null, before: bar.date });
+      segment = [];
+    }
+    if (complete) segment.push(bar);
   }
-  const expectedDates = new Set(benchmark.map((b) => b.date));
-  if (
-    symbols.some(
-      (symbol) =>
-        new Set(
-          progress.samples
-            .filter((s) => s.symbol === symbol && expectedDates.has(s.bar.date))
-            .map((s) => s.bar.date),
-        ).size !== expectedDates.size,
-    )
-  )
-    return pending(["incomplete-forward-execution-evidence"]);
+  // A gap ends an execution segment: never turn two non-adjacent observations
+  // into one tradable return. Later complete windows can still reach a verdict.
+  const assessed = segment;
+  const assessedDates = new Set(assessed.map((b) => b.date));
+  const assessedDays = [...new Set(assessed.map((b) => b.date.slice(0, 10)))];
+  const coverage = {
+    gaps,
+    observedDays: progress.days.length,
+    assessedDays: assessedDays.length,
+    windows: 0,
+    start: assessed[0]?.date ?? null,
+    end: assessed.at(-1)?.date ?? null,
+    latestObserved: benchmark.at(-1)?.date ?? null,
+  };
+  if (assessedDays.length < 35)
+    return {
+      ...pending([
+        progress.days.length < 35
+          ? "insufficient-forward-windows"
+          : "insufficient-contiguous-forward-windows",
+      ]),
+      coverage,
+    };
+  const observedProgress = progress;
+  progress = {
+    ...progress,
+    samples: progress.samples.filter((s) => assessedDates.has(s.bar.date)),
+    days: assessedDays,
+  };
+  benchmark.splice(0, benchmark.length, ...assessed);
   const instruments: PortfolioInstrument[] = symbols.map((symbol) => {
     const samples = progress.samples
       .filter((s) => s.symbol === symbol)
@@ -313,6 +345,11 @@ export function assessShadow(
     at: now,
     eligible,
     reasons,
+    coverage: {
+      ...coverage,
+      observedDays: observedProgress.days.length,
+      windows: row.windows.length,
+    },
     recommendation: eligible
       ? "可考虑开启提醒；请在设置中手动开启live并启用订阅"
       : "继续影子观察；未通过相同门槛",

@@ -261,7 +261,7 @@ it("A-share bonus and dividend preserve T+1; limit-down prevents a sale until a 
     price: 4,
   });
 });
-it("does not advance incomplete bars, pre-registration history, or jump across missing close receipts", () => {
+it("advances past completed bars without receipts but keeps current dates and pre-registration history gated", () => {
   const f = fixture();
   vi.setSystemTime("2026-10-12T06:00:00Z");
   expect(
@@ -271,7 +271,7 @@ it("does not advance incomplete bars, pre-registration history, or jump across m
       { ...f.input, readyDates: [] },
       Date.now(),
     ).advanced,
-  ).toBe(0);
+  ).toBe(1);
   advancePaper(
     f.repo,
     f.account.id,
@@ -443,6 +443,44 @@ it("frozen ranking selects the five audited candidates; registration is idempote
     registerPaperCandidates(repo, Date.now(), { grouping: "sleeve" }).created,
   ).toBe(3);
 });
+it.each([
+  ["2026-10-12T17:05:00+08:00", "shadow"],
+  ["2026-10-13T08:30:00+08:00", "shadow"],
+  ["2026-10-13T09:00:00+08:00", "missed"],
+])("paper fills use the next-session close window at %s", (time, status) => {
+  const f = fixture();
+  advancePaper(
+    f.repo,
+    f.account.id,
+    {
+      ...f.input,
+      request: { ...f.request, calendar: f.dates.slice(0, 1) },
+    },
+    Date.parse("2026-10-09T17:05:00+08:00"),
+  );
+  vi.setSystemTime(time);
+  advancePaper(
+    f.repo,
+    f.account.id,
+    {
+      ...f.input,
+      request: { ...f.request, calendar: f.dates.slice(0, 2) },
+    },
+    Date.now(),
+  );
+  const alerts = new AlertRepository(f.repo.db);
+  alerts.records.calendar(f.dates, "fixture calendar", Date.now());
+  const deliver = vi.fn();
+  recordPaperAlerts(f.repo, f.account.id, Date.now(), deliver);
+  expect(
+    alerts.history({ page: 0, size: 20, symbol: "", strategyId: "" }).items[0],
+  ).toMatchObject({
+    type: "paper-fill",
+    status,
+    wouldSend: status === "shadow",
+  });
+  expect(deliver).not.toHaveBeenCalled();
+});
 it("shadow paper-fill events have zero delivery and distinct identities from strategy-entry events", () => {
   const f = fixture("crypto");
   vi.setSystemTime("2026-10-11T00:01:00Z");
@@ -588,4 +626,16 @@ it("mirrors default off; enablement uses one attempt and reconciles unknowns wit
       ),
   ).toThrow();
   expect(network).toHaveBeenCalledTimes(0);
+});
+
+it("historical accounting does not jump across a missing benchmark bar", () => {
+  const f = fixture();
+  const input = {
+    ...f.input,
+    readyDates: [],
+    benchmark: f.input.benchmark.filter((b) => b.date !== f.dates[1]),
+  };
+  const result = advancePaper(f.repo, f.account.id, input, Date.now());
+  expect(result.advanced).toBe(1);
+  expect(f.repo.account(f.account.id)!.lastBar).toBe(f.dates[0]);
 });

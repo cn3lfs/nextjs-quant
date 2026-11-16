@@ -14,6 +14,8 @@ import {
 import { chinaClock } from "~/lib/strategy-facts/notification-policy";
 import type { regimeObservation } from "./observations";
 import type { LowZoneObservation } from "trading-strategies";
+import { equityDailyReadiness } from "./readiness";
+import { planExposure } from "./plan-exposure";
 
 export type RegimeSnapshot = NonNullable<
   ReturnType<typeof regimeObservation>
@@ -35,7 +37,6 @@ export type HoldingRiskSnapshot = {
   observedAt: number;
   sleeve: string;
 };
-type Exposure = { market: string; sleeve: string; value: number; at: number };
 export function workspaceCandidate(
   event: AlertEvent,
   repo = new AlertRepository(),
@@ -57,10 +58,15 @@ export function workspaceCandidate(
         : "research";
   let quantity: number | null = null;
   let quantityReason: string | null = null;
+  let positionSnapshot: {
+    at: number;
+    basis: "intraday" | "post-close";
+    unassignedValue: number;
+  } | null = null;
   try {
     if (event.price === null || event.stop === null)
       throw new Error("缺入场或止损依据");
-    quantity = previewAlertPlan(
+    const plan = previewAlertPlan(
       {
         eventKey: event.key,
         stages: [event.price],
@@ -71,7 +77,9 @@ export function workspaceCandidate(
       settings(),
       now,
       repo,
-    ).quantity;
+    );
+    quantity = plan.quantity;
+    positionSnapshot = plan.positionSnapshot;
   } catch (error) {
     quantityReason = error instanceof Error ? error.message : "数量不可用";
   }
@@ -80,6 +88,7 @@ export function workspaceCandidate(
     qualification: status as "research" | "shadow" | "promoted",
     quantity,
     quantityReason,
+    positionSnapshot,
     adjustment:
       event.market === "cn-equity"
         ? "信号前复权；入场/止损/目标原价"
@@ -111,7 +120,6 @@ export async function todayWorkspace(
   repo = new AlertRepository(),
 ) {
   const config = settings();
-  const exposure = repo.state<Exposure[]>("exposure") ?? [];
   const symbols = [
     ["cn-equity", "sh000300"],
     ["cn-equity", "sz399006"],
@@ -124,17 +132,13 @@ export async function todayWorkspace(
     value: repo.state<RegimeSnapshot>(`regime:${market}:${symbol}`) ?? null,
   }));
   const sleeves = config.alerts.sleeves.map((s) => {
-    const marker = exposure.find(
+    const snapshot = planExposure(s.market, config, now, repo);
+    const marker = snapshot.usage.find(
       (e) => e.market === s.market && e.sleeve === "__checked__",
     );
-    const fresh =
-      !!marker &&
-      now - marker.at <= 600000 &&
-      exposure
-        .filter((e) => e.market === s.market)
-        .every((e) => now - e.at <= 600000);
+    const fresh = snapshot.valid;
     const value = marker
-      ? exposure
+      ? snapshot.usage
           .filter((e) => e.market === s.market && e.sleeve === s.id)
           .reduce((n, e) => n + e.value, 0)
       : null;
@@ -148,12 +152,15 @@ export async function todayWorkspace(
       actual,
       fresh,
       at: marker?.at ?? null,
+      snapshotBasis: snapshot.basis,
       drift: actual !== null && Math.abs(actual - s.share) >= 0.1,
     };
   });
   const archive = await publicDataStatus(
     publicDataRoot(config.binancePublicDataRoot),
+    now,
   );
+  const equity = await equityDailyReadiness(config, now);
   return {
     now,
     mode: config.alerts.mode,
@@ -166,6 +173,15 @@ export async function todayWorkspace(
       ) ?? null,
     receipt: await downloadReady(chinaClock(now).date, now),
     archive,
+    readiness: {
+      equity,
+      crypto: {
+        ready: archive.alertReadiness.every((s) => s.ready),
+        series: archive.alertReadiness,
+      },
+    },
+    capital: config.alerts.capital,
+    gaps: repo.dataGaps(),
     candidates: workspaceCandidates({ page: 0 }, repo, now),
     triggered: repo.history(
       alertHistorySchema.parse({ from: chinaClock(now).date, size: 10 }),

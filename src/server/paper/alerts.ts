@@ -6,6 +6,7 @@ import { AlertRepository } from "../db/alert-repository";
 import { settings } from "../infra/settings";
 import { enqueueAlert } from "../infra/notifications";
 import { paperCompletedAt } from "./advance-clock";
+import { closeScanOpen } from "~/lib/market/close-scan-window";
 
 /** A bounded current advance only; historical catch-up is accounting, never delivery. */
 export function recordPaperAlerts(
@@ -32,8 +33,16 @@ export function recordPaperAlerts(
     if (mode === "off") return;
     const missed =
       advance.catchUp ||
-      now - paperCompletedAt(account, account.lastBar!) >
-        (account.market === "cn-equity" ? 60 : 5) * 60000;
+      now < paperCompletedAt(account, account.lastBar!) ||
+      (account.market === "cn-equity"
+        ? !closeScanOpen(
+            account.lastBar!.slice(0, 10),
+            now,
+            alerts.records.days(),
+          )
+        : now - paperCompletedAt(account, account.lastBar!) >
+          (account.candidates[0]!.strategy.period === "day" ? 12 * 60 : 5) *
+            60000);
     for (const { fill, index } of recent) {
       const strategy = account.candidates.find(
         (c) => c.strategy.id === fill.strategyId,

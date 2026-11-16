@@ -21,6 +21,7 @@ import { Segmented } from "../panels";
 import { StrategyCenter } from "./strategy-center";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { PaperShadowPrompt } from "./paper-shadow-prompt";
 
 const pct = (v: number | null | undefined) =>
   formatPercent(v == null ? null : v * 100);
@@ -39,6 +40,7 @@ export function StrategyLab() {
   if (search.get("tab") === "tasks") return <ResearchTasks />;
   return (
     <>
+      <PaperShadowPrompt />
       <LabList />
       <PaperForwardStatus />
     </>

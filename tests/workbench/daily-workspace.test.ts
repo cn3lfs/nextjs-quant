@@ -67,7 +67,7 @@ beforeEach(() => {
   ]);
 });
 afterEach(() => db.close());
-it("quantity preview and create share admission; stale exposure and unknown crypto lot remain unavailable", () => {
+it("quantity preview and create share admission; post-close exposure remains usable and unknown crypto lot stays unavailable", () => {
   const e = event();
   repo.record(strategy, e);
   const before = repo.plans().length;
@@ -95,8 +95,9 @@ it("quantity preview and create share admission; stale exposure and unknown cryp
   );
   repo.closePlan(plan.id, "cancelled");
   expect(workspaceCandidate(e, repo, now + 600001)).toMatchObject({
-    quantity: null,
-    quantityReason: expect.stringContaining("过期"),
+    quantity: 1000,
+    quantityReason: null,
+    positionSnapshot: { at: now, basis: "post-close" },
   });
   const cryptoStrategy = {
     ...strategy,
@@ -170,7 +171,7 @@ it("candidate filters run before stable server pagination; missed entries never 
     workspaceCandidates({ page: 0, strategy: "missing" }, repo, now).total,
   ).toBe(0);
 });
-it("today exposes both modes, stale allocation, low-zone evidence, unknown holdings and archive gaps", async () => {
+it("today exposes both modes, post-close allocation, low-zone evidence, unknown holdings and archive gaps", async () => {
   repo.record(strategy, event());
   const live = event({
     bar: "2026-11-13T00:00:00Z",
@@ -188,8 +189,11 @@ it("today exposes both modes, stale allocation, low-zone evidence, unknown holdi
   });
   const result = await todayWorkspace(now + 600001, repo);
   expect(result.sleeves.find((s) => s.market === "cn-equity")?.fresh).toBe(
-    false,
+    true,
   );
+  expect(
+    result.sleeves.find((s) => s.market === "cn-equity")?.snapshotBasis,
+  ).toBe("post-close");
   expect(result.regimes.find((r) => r.symbol === "ETHUSDT")?.value?.trend).toBe(
     "down",
   );

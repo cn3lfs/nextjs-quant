@@ -1,39 +1,18 @@
-import { AlertEngine } from "./engine";
-import { AlertRepository } from "../db/alert-repository";
-import { settings } from "../infra/settings";
-import { acquireScheduler } from "../infra/lease";
-import { localCalendarReference } from "../market/data-health";
-import { downloadReady } from "../jobs/workflow-scheduler";
-import { enqueueAlert } from "../infra/notifications";
-import { recordRuntimeError } from "../infra/runtime-errors";
-import { evaluateAlertInputs } from "./inputs";
-import { settleAlertOutcomes } from "./outcomes";
+import { acquireScheduler, schedulerOwnerId } from "../infra/lease";
+import { runWorker } from "../jobs/jobs";
 const scope = globalThis as typeof globalThis & {
-  quantAlertEngine?: AlertEngine;
+  quantAlertTicking?: Promise<unknown>;
 };
+/** Coalesce timer ticks while the existing compute worker owns the scan. */
 export function tickAlerts() {
-  const repo = new AlertRepository();
-  const engine = (scope.quantAlertEngine ??= new AlertEngine({
-    clock: { now: () => Date.now() },
-    repository: repo,
-    mode: () => settings().alerts.mode,
-    leader: acquireScheduler,
-    calendar: async (now) => {
-      const config = settings();
-      const reference = await localCalendarReference(
-        config.tdxRoot,
-        config.calendar,
-      );
-      repo.records.calendar(reference.days, reference.source, now);
-      return reference.days;
-    },
-    receipt: downloadReady,
-    evaluate: (phase, now) => evaluateAlertInputs(phase, now, repo),
-    deliver: enqueueAlert,
-    outcomes: (now) => settleAlertOutcomes(now, repo),
-    error: (error) => {
-      recordRuntimeError("alert-engine", error);
-    },
-  }));
-  return engine.tick();
+  if (scope.quantAlertTicking) return scope.quantAlertTicking;
+  if (!acquireScheduler()) return Promise.resolve();
+  const pending = runWorker({
+    type: "alert-tick",
+    schedulerOwner: schedulerOwnerId(),
+  });
+  scope.quantAlertTicking = pending.finally(() => {
+    scope.quantAlertTicking = undefined;
+  });
+  return scope.quantAlertTicking;
 }

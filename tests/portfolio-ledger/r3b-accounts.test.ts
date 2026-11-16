@@ -448,12 +448,12 @@ it("stores exposure override evidence with the plan and never admits an unacknow
         fraction: 0.01,
       },
     ];
-    s.alerts.saveState("exposure", [
+    s.alerts.saveState("exposure-close:cn-equity", [
       {
         market: "cn-equity",
         sleeve: "__checked__",
         value: 0,
-        at: Date.parse("2026-01-03"),
+        at: Date.parse("2026-01-02T17:00:00+08:00"),
       },
     ]);
     const input = {

@@ -84,6 +84,9 @@ export function CandidateTable({
               <p className="text-xs text-nc-text-3">
                 {r.strategyId} v{r.version} · {r.bar}
               </p>
+              {r.tradingStatusEvidence?.status === "unknown" && (
+                <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
+              )}
             </div>
           ),
         },
@@ -107,6 +110,17 @@ export function CandidateTable({
               {r.quantityReason && (
                 <p className="max-w-64 text-xs text-nc-text-3">
                   {r.quantityReason}
+                </p>
+              )}
+              {r.positionSnapshot && (
+                <p className="max-w-64 text-xs text-nc-text-3">
+                  {r.positionSnapshot.basis === "post-close"
+                    ? "收盘快照"
+                    : "盘中核对"}{" "}
+                  · {new Date(r.positionSnapshot.at).toLocaleString("zh-CN")}
+                  {r.positionSnapshot.unassignedValue > 0
+                    ? ` · 未分配分仓 ${formatNumber(r.positionSnapshot.unassignedValue)}，已计入市场占用，请分配`
+                    : ""}
                 </p>
               )}
             </span>

@@ -6,7 +6,7 @@ $task = Get-ScheduledTask -TaskName 'TDX_DailyDownload'
 $downloader = 'E:\new_tdx64\auto_download\tdx_download.ps1'
 $original = Get-Content -LiteralPath $downloader -Raw -Encoding UTF8
 if (!$Apply) {
-    Write-Output 'TDX_DailyDownload: 工作日17:00下载日线与专业财务包并计算收盘RPS（全量包收盘后才发布，16:00 时 CDN 仍可能是上一交易日的包）；Quant_RPS_Noon: 工作日12:00只做午盘观察、不下载；Quant_RPS_Late: 工作日14:40。'
+    Write-Output 'TDX_DailyDownload: 工作日17:00、17:40、18:30下载日线与专业财务包并计算收盘RPS；成功回执存在后只重试计算，不重复下载。CDN旧数据退出3并等待下一触发。Quant_RPS_Noon: 工作日12:00只做午盘观察、不下载；Quant_RPS_Late: 工作日14:40。'
     Write-Output '使用 -Apply 备份后应用；仅在新桌面包验证完成后执行。'
     exit 0
 }
@@ -32,11 +32,16 @@ if (!$collectorCode.Contains('CLS first-page fetch returned no data') -and !$col
 if (!$original.Contains('download-state.json')) { throw '下载脚本缺少哈希校验，未修改任务' }
 $days = @('Monday','Tuesday','Wednesday','Thursday','Friday')
 # 全量日线包与专业财务包都在收盘后发布，16:00 时 CDN 边缘节点常常仍是上一
-# 交易日的包，因此推到 17:00 一次下全部；12:00 只做午盘观察。
-$closeTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '17:00'
+# 交易日的包，因此17:00首试、17:40/18:30重试；12:00只做午盘观察。
+$closeTriggers = @('17:00', '17:40', '18:30') | ForEach-Object {
+    $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At $_
+    # Keep the trading clock fixed when Windows switches its display timezone.
+    $trigger.StartBoundary = ([DateTime]::Parse($trigger.StartBoundary)).ToString('yyyy-MM-ddTHH:mm:ss') + '+08:00'
+    $trigger
+}
 $wrapper = Join-Path $PSScriptRoot 'workflow-task.ps1'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase download" -WorkingDirectory $repo
-Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger @($closeTrigger) -ErrorAction Stop | Out-Null
+Set-ScheduledTask -TaskName $task.TaskName -Action $action -Trigger @($closeTriggers) -ErrorAction Stop | Out-Null
 $lateAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wrapper`" -Phase late" -WorkingDirectory $repo
 $lateTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '14:40'
 $lateSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)

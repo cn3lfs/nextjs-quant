@@ -17,8 +17,19 @@ import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { settings, saveSettings } from "../../infra/settings";
 import { AlertRepository } from "../../db/alert-repository";
 import { strategyObjectSchema } from "trading-strategies";
+import {
+  paperShadowScanning,
+  enablePaperShadowScanning,
+  enablePaperShadowSchema,
+} from "../../paper/shadow-scanning";
 
 export const strategyLabRouter = createTRPCRouter({
+  paperShadowScanning: p("strategyCenter", "read").query(() =>
+    paperShadowScanning(),
+  ),
+  enablePaperShadowScanning: p("alerts", "configure")
+    .input(enablePaperShadowSchema)
+    .mutation(({ input }) => enablePaperShadowScanning(input)),
   strategyLabRegister: p("alerts", "configure")
     .input(strategyObjectSchema)
     .mutation(({ input }) => {

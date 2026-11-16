@@ -302,7 +302,7 @@ it("production plan source triggers staged entries once then closes only after a
   ).toEqual(["plan-entry", "plan-entry"]);
 });
 
-it.each(["unknown", "suspended"] as const)(
+it.each(["suspended"] as const)(
   "new engine rejects %s status and retries the same fresh bar without losing it",
   async (status) => {
     repo.strategies.saveStrategy(strategy);
@@ -496,4 +496,58 @@ it("later edits from the original position stop form override no stale alert cop
     1,
   );
   expect(changed.proposals[0]!.event.stop).toBe(11);
+});
+
+it("keeps unknown trading status as a labelled shadow candidate without external delivery", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+  fixture.tradingStatus = "unknown";
+  const value = await evaluateAlertInputs("intraday", now, repo);
+  const proposal = value.proposals.find(
+    (p) => p.event.strategyId === strategy.id,
+  )!;
+  expect(proposal.event.tradingStatusEvidence?.status).toBe("unknown");
+  expect(proposal.event.reason).toContain("交易状态未知");
+  expect(proposal.shadowOnly).toBe(true);
+  expect(proposal.authorize?.(now)).toBe(true);
+});
+
+it("retains a candidate as unknown when the status provider fails", async () => {
+  repo.strategies.saveStrategy(strategy);
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+  fixture.onStatus = () => {
+    throw new Error("unavailable");
+  };
+  const value = await evaluateAlertInputs("intraday", now, repo);
+  const proposal = value.proposals.find(
+    (p) => p.event.strategyId === strategy.id,
+  )!;
+  expect(proposal.event.tradingStatusEvidence).toMatchObject({
+    status: "unknown",
+    asOf: null,
+  });
+  expect(proposal.shadowOnly).toBe(true);
+});
+
+it("reads the requested close date during the next morning rather than that morning's date", async () => {
+  const { readBars } = await import("~/server/market/bar-store/read-bars");
+  fixture.bars = [{ ...fixture.bars[0]!, date: "2026-11-13" }];
+  repo.strategies.saveStrategy({ ...strategy, period: "day" });
+  repo.saveState(`strategy:${strategy.id}:1`, { live: true });
+  const morning = Date.parse("2026-11-16T08:30:00+08:00");
+  const result = await evaluateAlertInputs(
+    "close",
+    morning,
+    repo,
+    "2026-11-13",
+  );
+  expect(vi.mocked(readBars).mock.calls.at(-1)?.[0].to).toBe("2026-11-13");
+  const p = result.proposals.find((p) => p.event.strategyId === strategy.id)!;
+  expect(morning - p.completedAt).toBeLessThan(p.windowMs);
+  expect(
+    Date.parse("2026-11-16T09:00:00+08:00") - p.completedAt,
+  ).toBeGreaterThan(p.windowMs);
+  expect(
+    result.states.find((s) => s.id === "exposure-close:cn-equity"),
+  ).toBeDefined();
 });

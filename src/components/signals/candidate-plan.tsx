@@ -13,7 +13,7 @@ export function CandidatePlan({
   candidate: Pick<
     WorkspaceCandidate,
     "key" | "market" | "symbol" | "price" | "stop" | "target"
-  >;
+  > & { positionSnapshot?: WorkspaceCandidate["positionSnapshot"] };
 }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -22,7 +22,7 @@ export function CandidatePlan({
   const save = api.createAlertPlan.useMutation({
     onSuccess: (p) => {
       setMessage(
-        `已保存交易计划 · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}`,
+        `已保存交易计划 · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
       );
       setOpen(false);
       void utils.alertPlans.invalidate();
@@ -67,6 +67,18 @@ export function CandidatePlan({
             {candidate.symbol} ·
             按分仓风险和最新核对额度计算数量，不含费用滑点。
           </p>
+          {candidate.positionSnapshot && (
+            <p className="text-xs text-nc-text-3">
+              {candidate.positionSnapshot.basis === "post-close"
+                ? "收盘快照"
+                : "盘中核对"}
+              ：
+              {new Date(candidate.positionSnapshot.at).toLocaleString("zh-CN")}
+              {candidate.positionSnapshot.unassignedValue > 0
+                ? ` · 未分配分仓 ${formatNumber(candidate.positionSnapshot.unassignedValue)} 已计入市场占用，请分配`
+                : ""}
+            </p>
+          )}
           <div className="grid gap-2 lg:grid-cols-2">
             {[
               { name: "entry", label: "入场参考", value: candidate.price },

@@ -206,3 +206,69 @@ it.skipIf(process.platform !== "win32")(
     }
   },
 );
+
+it("close download installation schedules bounded retries without changing the launch identity", () => {
+  const installer = readFileSync(
+    resolve("scripts/install-workflow-tasks.ps1"),
+    "utf8",
+  );
+  expect(installer).toContain("@('17:00', '17:40', '18:30')");
+  expect(installer).toContain("-Trigger @($closeTriggers)");
+  expect(installer).toContain("+ '+08:00'");
+});
+
+it.skipIf(process.platform !== "win32")(
+  "CDN stale exit3 writes no receipt or close result; a later trigger can retry successfully",
+  () => {
+    const root = mkdtempSync(
+      resolve(process.env.QUANT_DATA_DIR!, "stale-retry-"),
+    );
+    const data = resolve(root, "data");
+    try {
+      mkdirSync(resolve(root, "node-runtime"));
+      mkdirSync(resolve(root, "runtime"));
+      copyFileSync(process.execPath, resolve(root, "node-runtime/node.exe"));
+      writeFileSync(
+        resolve(root, "runtime/workflow-runner.cjs"),
+        "console.log('close-ran')",
+      );
+      const downloader = resolve(root, "download.ps1");
+      const run = () =>
+        spawnSync(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            resolve("scripts/workflow-task.ps1"),
+            "-Phase",
+            "download",
+            "-ServerDirectory",
+            root,
+            "-DataDirectory",
+            data,
+            "-DownloaderPath",
+            downloader,
+          ],
+          { encoding: "utf8", windowsHide: true, timeout: 20000 },
+        );
+      writeFileSync(downloader, "exit 3");
+      const stale = run();
+      expect(stale.status).toBe(3);
+      expect(stale.stdout).not.toContain("close-ran");
+      expect(readdirSync(data)).toEqual([]);
+      writeFileSync(downloader, "exit 0");
+      const retry = run();
+      expect(retry.status).toBe(0);
+      expect(retry.stdout).toContain("close-ran");
+      expect(
+        readdirSync(data).filter((name) =>
+          /^download-.*-close\.json$/.test(name),
+        ),
+      ).toHaveLength(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);

@@ -7,6 +7,7 @@ import { runPaperPortfolio } from "../strategies/drivers/paper";
 import { capturePaperDecisions } from "./decisions";
 import type { PaperState } from "./model";
 import { summarizePaper } from "./assessment";
+import { beijingClock } from "~/lib/market/market-session";
 import { paperCompletedAt } from "./advance-clock";
 
 export type PaperInput = {
@@ -47,12 +48,14 @@ export function advancePaper(
       d > (account.lastBar ?? "") &&
       paperCompletedAt(account, d) >= account.startedAt &&
       paperCompletedAt(account, d) <= now &&
-      (account.market === "crypto" || input.readyDates.includes(d)),
+      (account.market === "crypto" ||
+        (input.benchmark.some((b) => b.date === d) &&
+          (d < beijingClock(now).date || input.readyDates.includes(d)))),
   );
   if (!fresh.length) return { advanced: 0, fills: 0 };
   if (fresh.some((d, i) => i > 0 && d <= fresh[i - 1]!))
     throw new Error("纸面bar时间顺序无效");
-  // Do not jump across an unreceipted market day and permanently skip it.
+  // Do not jump across a missing source bar or an unreceipted current market day.
   const pending = q.calendar.filter(
     (d) =>
       d > (account.lastBar ?? "") &&

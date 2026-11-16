@@ -9,12 +9,12 @@ $node = Join-Path $ServerDirectory 'node-runtime\node.exe'
 $runner = Join-Path $ServerDirectory 'runtime\workflow-runner.cjs'
 if (!(Test-Path -LiteralPath $node -PathType Leaf) -or !(Test-Path -LiteralPath $runner -PathType Leaf)) { throw '请先更新包含每日工作流的桌面包' }
 $env:QUANT_DATA_DIR = [IO.Path]::GetFullPath($DataDirectory)
-$date = Get-Date -Format 'yyyy-MM-dd'
+$date = [DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8)).ToString('yyyy-MM-dd')
 $slot = if ($Phase -eq 'download') { 'close' } else { $Phase }
 if ($Phase -eq 'download') {
     # The full daily package and the financial packages are both published after
-    # the close, so download all of them once at 17:00 (the old
-    # run_tdx_download.bat behaviour). The noon batch observes only and must not
+    # the close, so try at 17:00, 17:40 and 18:30 until a receipt exists.
+    # The noon batch observes only and must not
     # touch the source files.
     New-Item -ItemType Directory -Path $DataDirectory -Force | Out-Null
     $receipt = Join-Path $DataDirectory "download-$date-$slot.json"
@@ -35,7 +35,10 @@ if ($Phase -eq 'download') {
         }
         # 3 = the server still serves the previous session's package; the ranking
         # would be stale, so stop before the runner rejects it.
-        if ($downloadExit -eq 3) { throw '通达信尚未发布本交易日数据，保留上一批排名' }
+        if ($downloadExit -eq 3) {
+            Write-Warning '通达信尚未发布本交易日数据；本次不写回执，等待17:40或18:30重试，保留上一批排名'
+            exit 3
+        }
         if ($downloadExit -ne 0) { throw "通达信下载未成功（$downloadExit），保留上一批排名" }
         $temporary = "$receipt.tmp"
         @{ date = $date; phase = $slot; exitCode = 0; completedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds() } | ConvertTo-Json | Set-Content -LiteralPath $temporary -Encoding UTF8

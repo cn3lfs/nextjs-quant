@@ -15,6 +15,7 @@ import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
 import { TodayIntel } from "../news/today-intel";
+import { PaperShadowPrompt } from "../research/paper-shadow-prompt";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -70,7 +71,7 @@ function DailyDecision() {
   if (!d) return <p role="status">正在读取今日决策…</p>;
   const risks =
     d.holdings?.filter((h) => h.stop !== null && h.price <= h.stop) ?? [];
-  const dataMissing = !d.receipt || d.archive.needsBackfill;
+  const dataMissing = !d.readiness.equity.ready || !d.readiness.crypto.ready;
   const main = risks.length
     ? { href: "#holding-risk", text: `处理 ${risks.length} 个跌破止损` }
     : dataMissing
@@ -91,6 +92,22 @@ function DailyDecision() {
           <Link href={main.href}>{main.text}</Link>
         </Button>
       </div>
+      {(["cn-equity", "crypto"] as const)
+        .filter((market) => d.capital[market] <= 0)
+        .map((market) => (
+          <div
+            key={market}
+            role="alert"
+            className="rounded-lg border border-nc-warn bg-nc-card p-4"
+          >
+            {market === "crypto" ? "数字货币" : "A股"}资金为
+            0，无法计算交易计划数量。请在系统页配置市场资金及分仓份额。
+            <Button asChild variant="outline">
+              <Link href="/system">配置分仓资金</Link>
+            </Button>
+          </div>
+        ))}
+      <PaperShadowPrompt />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
           className="col-span-1!"
@@ -142,6 +159,14 @@ function DailyDecision() {
                   目标 {formatPercent(s.share * 100)} · {formatNumber(s.value)}
                   {s.drift ? " · 偏离" : ""}
                   {!s.fresh ? " · 待更新核对" : ""}
+                  {s.at !== null && (
+                    <span className="block text-xs text-nc-text-3">
+                      {s.snapshotBasis === "post-close"
+                        ? "收盘后快照"
+                        : "盘中快照"}{" "}
+                      · {new Date(s.at).toLocaleString("zh-CN")}
+                    </span>
+                  )}
                 </span>
               </div>
             ))}
@@ -246,13 +271,39 @@ function DailyDecision() {
       </div>
       <Panel title="数据就绪" meta="读取本地回执与官方归档索引，不自动回填">
         <p>
-          通达信今日收盘下载回执：{d.receipt ? "已就绪" : "未就绪"} · BTC/ETH
-          官方归档：{d.archive.needsBackfill ? "待补齐" : "齐全"} ·
-          提醒引擎最近运行：
+          A股本地日线：{d.readiness.equity.localDate ?? "未知"} · 应到交易日：
+          {d.readiness.equity.expectedDate ?? "待日历"} · 该日下载回执：
+          {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · A股扫描：
+          {d.readiness.equity.ready
+            ? "就绪"
+            : d.readiness.equity.status === "unknown"
+              ? "交易日历或本地证据待核验"
+              : "日线或回执待补齐"}{" "}
+          · BTC/ETH 1d/4h：
+          {d.readiness.crypto.ready ? "就绪" : "待补齐"} · 提醒引擎最近运行：
           {d.runtime
             ? new Date(d.runtime.lastCheck).toLocaleString("zh-CN")
             : "尚未运行"}
         </p>
+        {d.readiness.crypto.series.map((s) => (
+          <p
+            key={`${s.symbol}:${s.interval}`}
+            className="text-xs text-nc-text-3"
+          >
+            {s.symbol} {s.interval} · 本地最新 {s.end ?? "缺失"} ·{" "}
+            {s.ready ? "当前周期就绪" : `待核验（缺口${s.gaps ?? "未知"}）`}
+          </p>
+        ))}
+        {d.gaps.length > 0 && (
+          <div role="alert" className="mt-2 text-sm text-nc-warn">
+            <p>扫描数据缺口（最近20项）：</p>
+            {d.gaps.map((g) => (
+              <p key={g.id}>
+                {g.id} · {g.reason} · {new Date(g.at).toLocaleString("zh-CN")}
+              </p>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-nc-text-3">
           {d.archive.series.filter((s) => s.manifest).length}/
           {d.archive.series.length} 组原生周期有索引；校验与覆盖详情见{" "}

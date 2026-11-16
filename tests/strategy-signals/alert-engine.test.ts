@@ -90,7 +90,7 @@ function proposal(now: number, market: "cn-equity" | "crypto" = "cn-equity") {
   };
 }
 describe("R2b injectable clock, no historical replay", () => {
-  it("exchange calendar rejects holiday/weekend and lunch, while crypto still runs", async () => {
+  it("exchange calendar rejects intraday holiday/weekend and lunch, while crypto still runs", async () => {
     const f = fixture();
     try {
       for (const time of [
@@ -100,6 +100,7 @@ describe("R2b injectable clock, no historical replay", () => {
         Date.parse("2026-10-01T10:00:00+08:00"),
       ]) {
         f.time(time);
+        f.deps.receipt = async () => false;
         await f.engine.tick();
       }
       expect(vi.mocked(f.deps.evaluate).mock.calls.map((c) => c[0])).toEqual([
@@ -136,6 +137,7 @@ describe("R2b injectable clock, no historical replay", () => {
       expect(f.repository.state("close:2026-11-13")).toEqual({
         status: "complete",
         at: at("15:42"),
+        calendarConfirmed: false,
       });
     } finally {
       f.db.close();
@@ -144,7 +146,7 @@ describe("R2b injectable clock, no historical replay", () => {
   it("records one missed window without invoking close scan, no bulk catch-up", async () => {
     const f = fixture();
     try {
-      f.time(at("16:01"));
+      f.time(Date.parse("2026-11-16T09:01:00+08:00"));
       await f.engine.tick();
       await new AlertEngine(f.deps).tick();
       expect(vi.mocked(f.deps.evaluate).mock.calls.map((c) => c[0])).toEqual([
@@ -164,6 +166,50 @@ describe("R2b injectable clock, no historical replay", () => {
         wouldSend: false,
       });
       expect(f.deps.deliver).not.toHaveBeenCalled();
+    } finally {
+      f.db.close();
+    }
+  });
+  it.each(["2026-11-13T17:05:00+08:00", "2026-11-16T08:30:00+08:00"])(
+    "accepts the close receipt at %s once with its original trading date",
+    async (time) => {
+      const f = fixture();
+      f.deps.calendar = async () => ["2026-11-13", "2026-11-16"];
+      f.deps.receipt = vi.fn(async () => true);
+      try {
+        f.time(Date.parse(time));
+        await f.engine.tick();
+        await new AlertEngine(f.deps).tick();
+        expect(f.deps.receipt).toHaveBeenCalledExactlyOnceWith(
+          "2026-11-13",
+          Date.parse(time),
+        );
+        expect(
+          vi.mocked(f.deps.evaluate).mock.calls.filter((c) => c[0] === "close"),
+        ).toEqual([["close", Date.parse(time), "2026-11-13"]]);
+      } finally {
+        f.db.close();
+      }
+    },
+  );
+  it("a scan finishing at the deadline records its proposals missed", async () => {
+    const f = fixture();
+    f.deps.calendar = async () => ["2026-11-13", "2026-11-16"];
+    f.deps.evaluate = vi.fn(async (phase) => {
+      if (phase !== "close") return empty;
+      f.time(Date.parse("2026-11-16T09:00:00+08:00"));
+      return {
+        ...empty,
+        proposals: [{ ...proposal(at("15:00")), windowMs: 7 * 86400000 }],
+      };
+    });
+    try {
+      f.time(Date.parse("2026-11-16T08:59:00+08:00"));
+      await f.engine.tick();
+      expect(
+        f.repository.history({ page: 0, size: 20, symbol: "", strategyId: "" })
+          .items[0],
+      ).toMatchObject({ status: "missed", wouldSend: false });
     } finally {
       f.db.close();
     }

@@ -5,6 +5,14 @@ const scope = globalThis as typeof globalThis & {
   quantSchedulerOwner?: string;
 };
 const owner = (scope.quantSchedulerOwner ??= randomUUID());
+/** Internal worker requests carry the host's lease identity, never claim a new lease. */
+export function schedulerOwnerId() {
+  return owner;
+}
+export function holdsSchedulerLease(expectedOwner: string) {
+  const current = get<{ owner: string; pid: number }>("scheduler-owner");
+  return current?.owner === expectedOwner && current.pid === process.pid;
+}
 export function processAlive(pid: number) {
   try {
     process.kill(pid, 0);

@@ -196,8 +196,7 @@ export function checkExposureCaps(input: {
       (p) =>
         cap.dimension === "market" ||
         p[cap.dimension] === cap.key ||
-        (cap.dimension === "industry" && p.industry === "未知") ||
-        (cap.dimension === "sleeve" && p.sleeve === "未知"),
+        (cap.dimension === "industry" && p.industry === "未知"),
     );
     const used = matching.every((p) => p.value !== null)
       ? matching.reduce((n, p) => n + p.value!, 0)

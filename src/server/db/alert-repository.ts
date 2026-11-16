@@ -34,6 +34,22 @@ export class AlertRepository {
   saveState<T>(id: string, value: T) {
     return this.records.save("alert-state", `alerts:${id}`, value);
   }
+  dataGaps() {
+    const prefix = "alerts:data-gap:";
+    const rows = this.db
+      .prepare(
+        "SELECT id,payload FROM records WHERE kind='alert-state' AND substr(id,1,?)=? AND json_extract(payload,'$.reason') IS NOT NULL AND coalesce(json_extract(payload,'$.resolved'),0)<>1 ORDER BY json_extract(payload,'$.at') DESC,id LIMIT 20",
+      )
+      .all(prefix.length, prefix) as { id: string; payload: string }[];
+    return rows.map((r) => ({
+      id: r.id.slice(prefix.length),
+      ...(JSON.parse(r.payload) as {
+        at: number;
+        reason: string;
+        period?: string;
+      }),
+    }));
+  }
   subscriptions() {
     return this.records.all<AlertSubscription>("alert-subscription");
   }

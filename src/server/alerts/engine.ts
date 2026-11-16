@@ -7,6 +7,7 @@ import {
   type AlertMode,
 } from "~/lib/strategy-facts/alerts";
 import { AlertRepository } from "../db/alert-repository";
+import { closeScanDate, closeScanWindow } from "~/lib/market/close-scan-window";
 
 export type AlertPhase = "close" | "intraday" | "crypto";
 export type AlertProposal = {
@@ -50,7 +51,11 @@ export type AlertEngineDependencies = {
   leader(): boolean;
   calendar(now: number): Promise<string[]>;
   receipt(date: string, now: number): Promise<boolean>;
-  evaluate(phase: AlertPhase, now: number): Promise<AlertEvaluation>;
+  evaluate(
+    phase: AlertPhase,
+    now: number,
+    closeDate?: string,
+  ): Promise<AlertEvaluation>;
   deliver(event: AlertEvent): void;
   outcomes(now: number): Promise<void>;
   error(error: unknown): void;
@@ -84,19 +89,31 @@ export class AlertEngine {
           sessions?.some((s) => s[1] === wall.hhmm))
       )
         phases.push("intraday");
-      const closeId = `close:${wall.date}`;
-      const prior = d.repository.state<{ status: string }>(closeId);
-      if (open && wall.minutes >= 905 && !prior) {
-        if (wall.minutes >= 960)
-          this.missedClose(wall.date, now, "已错过15:05–16:00窗口；不补跑");
-        else if (await d.receipt(wall.date, now)) {
-          d.repository.saveState(closeId, { status: "running", at: now });
+      const closeDate = closeScanDate(now, days);
+      const closeWindow = closeDate ? closeScanWindow(closeDate, days) : null;
+      const closeId = `close:${closeDate}`;
+      const prior = closeDate
+        ? d.repository.state<{ status: string }>(closeId)
+        : undefined;
+      if (closeDate && !prior) {
+        if (now >= closeWindow!.deadline)
+          this.missedClose(closeDate, now, "已错过下一交易日09:00截止；不补跑");
+        else if (await d.receipt(closeDate, now)) {
+          d.repository.saveState(closeId, {
+            status: "running",
+            at: now,
+            calendarConfirmed: closeWindow!.calendarConfirmed,
+          });
           phases.push("close");
         }
       } else if (prior?.status === "running")
-        this.missedClose(wall.date, now, "上次收盘扫描中断；不补跑");
+        this.missedClose(closeDate!, now, "上次收盘扫描中断；不补跑");
       for (const phase of phases) {
-        const evaluation = await d.evaluate(phase, now);
+        const evaluation = await d.evaluate(
+          phase,
+          now,
+          phase === "close" ? closeDate! : undefined,
+        );
         const committedAt = d.clock.now();
         d.repository.atomic(() => {
           for (const proposal of evaluation.proposals) {
@@ -104,7 +121,8 @@ export class AlertEngine {
               continue;
             const missed =
               committedAt < proposal.completedAt ||
-              committedAt - proposal.completedAt > proposal.windowMs;
+              committedAt - proposal.completedAt > proposal.windowMs ||
+              (phase === "close" && committedAt >= closeWindow!.deadline);
             // Re-check mode after data I/O, before committing or enqueueing anything.
             const configured = d.mode();
             if (configured === "off") continue;
@@ -135,7 +153,11 @@ export class AlertEngine {
                 state.atCommit ? state.atCommit(committedAt) : state.value,
               );
           if (phase === "close")
-            d.repository.saveState(closeId, { status: "complete", at: now });
+            d.repository.saveState(closeId, {
+              status: "complete",
+              at: now,
+              calendarConfirmed: closeWindow!.calendarConfirmed,
+            });
           d.repository.saveState("runtime", {
             lastCheck: now,
             mode: d.mode(),
