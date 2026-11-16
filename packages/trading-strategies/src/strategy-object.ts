@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { periods, type Bar } from "trading-strategy-core/bars";
 import { calculateFactor } from "trading-strategy-core/factors";
+import { rollingHigh } from "trading-strategy-core/indicators";
 import {
   factorStrategySchema,
   factorStrategySignals,
@@ -21,6 +22,12 @@ import {
   type FormulaRpsPoint,
 } from "./formula/tdx-formula.js";
 import { validateScreenFormula } from "./formula/formula-screen.js";
+import {
+  strategyRankSchema,
+  strategyRegimeSchema,
+  strategyOverlaySchema,
+  strategyRebalanceSchema,
+} from "./strategy-book-model.js";
 import {
   createNativeStudyRule,
   type FrozenChanObservation,
@@ -136,6 +143,17 @@ export const strategyObjectSchema = z
         .strict(),
     ]),
     entry: strategyRuleSchema,
+    rank: strategyRankSchema.optional(),
+    regime: strategyRegimeSchema.optional(),
+    overlay: strategyOverlaySchema.optional(),
+    rebalance: strategyRebalanceSchema.optional(),
+    costFilter: z
+      .object({
+        atrPeriod: z.number().int().min(2).max(500),
+        minimumMoveToCost: z.number().finite().positive(),
+      })
+      .strict()
+      .optional(),
     exit: z
       .object({
         rule: strategyRuleSchema.optional(),
@@ -160,6 +178,20 @@ export const strategyObjectSchema = z
         takeProfit: fraction.optional(),
         trailing: fraction.optional(),
         maxBars: z.number().int().positive().optional(),
+        chandelier: z
+          .object({
+            period: z.number().int().min(2).max(500),
+            multiple: z.number().finite().positive(),
+          })
+          .strict()
+          .optional(),
+        timeReentry: z
+          .object({
+            cooldownBars: z.number().int().nonnegative(),
+            requireNewSignal: z.boolean(),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
     sizing: z.discriminatedUnion("kind", [
@@ -208,6 +240,22 @@ export const strategyObjectSchema = z
         code: "custom",
         message: "risk sizing requires an initial stop",
       });
+    if (s.rebalance && (!s.rank || s.period !== "day"))
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Ranked weekly books require a daily strategy and an explicit rank",
+      });
+    if (s.rank?.kind === "classic" && !s.rebalance)
+      ctx.addIssue({
+        code: "custom",
+        message: "Classic cross-sectional ranking requires a ranked book",
+      });
+    if (s.exit.timeReentry && s.exit.maxBars === undefined)
+      ctx.addIssue({
+        code: "custom",
+        message: "Time re-entry requires an explicit time exit",
+      });
   });
 export type StrategyObject = z.infer<typeof strategyObjectSchema>;
 export type StrategyObjectInput = z.input<typeof strategyObjectSchema>;
@@ -222,8 +270,8 @@ export type StrategyExternalInputs = {
     id: string;
     date: string;
     availableAt: string;
-    entry: boolean;
-    exit: boolean;
+    entry: boolean | null;
+    exit: boolean | null;
   }[];
   rps?: readonly FormulaRpsPoint[];
   chan?: readonly FrozenChanObservation[];
@@ -276,7 +324,41 @@ export type StrategyDecision = {
   entry: boolean | null;
   exit: boolean | null;
   stopLevel: number | null;
+  chandelierStop?: number | null;
 };
+
+export type StrategyReentryState = { exitBar: number; sawFalse: boolean };
+export function strategyReentryAllowed(
+  exit: StrategyObjectInput["exit"],
+  state: StrategyReentryState | undefined,
+  bar: number,
+  entry: boolean | null,
+) {
+  if (!exit.timeReentry || !state) return true;
+  return (
+    bar > state.exitBar + exit.timeReentry.cooldownBars &&
+    (!exit.timeReentry.requireNewSignal || state.sawFalse) &&
+    entry === true
+  );
+}
+
+/** Called after protection checks: this completed bar changes the NEXT bar's stop. */
+export function nextStrategyProtection(
+  exit: StrategyObjectInput["exit"],
+  position: { stop: number | null; high: number },
+  bar: Pick<Bar, "high">,
+  chandelierStop?: number | null,
+) {
+  const high = Math.max(position.high, bar.high);
+  const stop = Math.max(
+    position.stop ?? 0,
+    exit.trailing ? high * (1 - exit.trailing) : 0,
+    exit.chandelier && chandelierStop != null && Number.isFinite(chandelierStop)
+      ? chandelierStop
+      : 0,
+  );
+  return { high, stop: stop > 0 ? stop : null };
+}
 
 export function strategyTimeExit(
   exit: StrategyObjectInput["exit"],
@@ -358,6 +440,10 @@ export function prepareStrategy(
   const breakoutCache = new Map<number, ReturnType<typeof analyzeBreakout>>();
   let breakoutPrepared: ReturnType<typeof prepareBreakout> | undefined;
   const lowCache = new Map<string, ReturnType<typeof historicalLowSeries>>();
+  const formulaEvidence = new Map<
+    StrategyRule,
+    ReturnType<typeof evaluateFormula>["outputs"]
+  >();
   const breakoutAt = (i: number) => {
     if (!breakoutCache.has(i)) {
       // Only one point is retained; historical playback must not retain O(n²) analyses.
@@ -429,12 +515,14 @@ export function prepareStrategy(
           source: rule.source,
           parameters: rule.parameters,
         });
-        const values = evaluateFormula(
+        const outputs = evaluateFormula(
           rule.source,
           bars,
           rule.parameters,
           external.rps,
-        ).outputs[0]!.values;
+        ).outputs;
+        formulaEvidence.set(rule, outputs);
+        const values = outputs[0]!.values;
         return (i) => (values[i] == null ? null : values[i] !== 0);
       }
       case "factor": {
@@ -507,9 +595,115 @@ export function prepareStrategy(
           parameters: { period: stop.period },
         }).values
       : undefined;
+  const chandelierAtr = strategy.exit.chandelier
+    ? calculateFactor(bars, {
+        id: "atr",
+        parameters: { period: strategy.exit.chandelier.period },
+      }).values
+    : undefined;
+  const chandelierHigh = strategy.exit.chandelier
+    ? rollingHigh(bars, strategy.exit.chandelier.period)
+    : undefined;
   return {
     strategy,
     breakoutAt,
+    /** Diagnostic values come from the same rule implementations, never a second signal. */
+    explain(index: number) {
+      if (!Number.isInteger(index) || index < 0 || index >= bars.length)
+        throw new Error("Invalid strategy index");
+      const rule = strategy.entry,
+        bar = bars[index]!;
+      let inputs: Record<string, unknown> = {};
+      if (rule.kind === "dual-ma")
+        inputs = {
+          fast: rule.fast,
+          slow: rule.slow,
+          ...(cryptoDualMa(
+            bars
+              .slice(Math.max(0, index - rule.slow), index + 1)
+              .map((b) => b.close),
+            rule.fast,
+            rule.slow,
+          ) ?? { missing: "MA warmup" }),
+        };
+      else if (rule.kind === "formula") {
+        const expressions = [
+          ...new Set(
+            rule.source.match(
+              /REF\(HHV\(H,\s*[\w.]+\),\s*1\)|MA\([CV],\s*[\w.]+\)/gi,
+            ) ?? [],
+          ),
+        ];
+        const dependencies = expressions.length
+          ? evaluateFormula(
+              expressions
+                .map((expression, i) => `E${i}:${expression};`)
+                .join(""),
+              bars.slice(0, index + 1),
+              rule.parameters,
+              external.rps,
+            ).outputs
+          : [];
+        inputs = {
+          source: rule.source,
+          parameters: rule.parameters ?? {},
+          outputs: formulaEvidence
+            .get(rule)
+            ?.map((o) => ({ name: o.name, value: o.values[index] ?? null })),
+          dependencies: dependencies.map((o, i) => ({
+            expression: expressions[i],
+            value: o.values.at(-1) ?? null,
+          })),
+        };
+      } else if (rule.kind === "double-breakout") {
+        const point = breakoutAt(index).latest,
+          side = rule.side === "entry" ? point?.long : point?.short;
+        inputs = {
+          checks: side?.checks ?? null,
+          line: side?.line ?? null,
+          keyLevel: side?.keyLevel ?? null,
+          volume20: point?.volume20 ?? null,
+          volumeRatio: point?.volumeRatio ?? null,
+          missing: point?.missing ?? ["breakout observations"],
+        };
+      } else if (rule.kind === "rps") {
+        const point = external.rps?.find((p) => p.date === bar.date);
+        inputs = {
+          period: rule.period,
+          minimum: rule.minimum,
+          actual: point?.values[point.periods.indexOf(rule.period)] ?? null,
+        };
+      } else
+        inputs = {
+          rule,
+          ...(rule.kind === "historical-low"
+            ? {
+                lowZone:
+                  lowCache.get(JSON.stringify(rule.config))?.[index] ?? null,
+              }
+            : {}),
+        };
+      return {
+        kind: rule.kind,
+        bar: bar.date,
+        basis: "signal-bars" as const,
+        close: bar.close,
+        volume: bar.volume,
+        entry: enter(index),
+        inputs,
+        ...(strategy.rank?.kind === "rps-composite"
+          ? {
+              rps: strategy.rank.periods.map((period) => {
+                const point = external.rps?.find((p) => p.date === bar.date);
+                return {
+                  period,
+                  actual: point?.values[point.periods.indexOf(period)] ?? null,
+                };
+              }),
+            }
+          : {}),
+      };
+    },
     evaluate(index: number): StrategyDecision {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
@@ -532,7 +726,21 @@ export function prepareStrategy(
           throw new Error("Non-causal / invalid structure level");
         stopLevel = level?.value ?? null;
       }
-      return { entry: exit === false ? enter(index) : false, exit, stopLevel };
+      return {
+        entry: exit === false ? enter(index) : false,
+        exit,
+        stopLevel,
+        ...(strategy.exit.chandelier
+          ? {
+              chandelierStop:
+                chandelierAtr?.[index] != null &&
+                chandelierHigh?.[index] != null
+                  ? chandelierHigh[index]! -
+                    chandelierAtr[index]! * strategy.exit.chandelier.multiple
+                  : null,
+            }
+          : {}),
+      };
     },
   };
 }

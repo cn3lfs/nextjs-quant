@@ -40,8 +40,11 @@ export * from "./native-study.js";
 export * from "./crypto-dual-ma.js";
 
 export * from "./strategy-object.js";
+export * from "./strategy-book-model.js";
+export * from "./strategy-book.js";
 
 export * from "./method-strategy.js";
 export * from "./historical-low.js";
+export * from "./market-low-zone.js";
 export * from "./research-candidates.js";
 export * from "./low-zone-cycles.js";

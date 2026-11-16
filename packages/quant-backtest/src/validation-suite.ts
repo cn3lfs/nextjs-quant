@@ -258,6 +258,7 @@ export function validationNeighborhood(
   row: ValidationRow,
   neighbors: readonly ValidationRow[],
   policy: ValidationPolicy,
+  provenance?: ReadonlyMap<string, "entry" | "exit">,
 ): ValidationRow["neighbors"] {
   if (policy.method !== "lifecycle-2")
     return neighbors.map((n) => ({ id: n.id, excess: n.inSample.excess }));
@@ -281,9 +282,9 @@ export function validationNeighborhood(
         ).length /
           neighbor.windows.length >=
           policy.minimumPositiveWindows,
-      perturbed: neighbor.id.includes("-neighbor-entry-")
+      perturbed: provenance?.get(neighbor.id) ?? (neighbor.id.includes("-neighbor-entry-")
         ? ("entry" as const)
-        : ("exit" as const),
+        : ("exit" as const)),
       ...(!testable
         ? {
             reason: identical

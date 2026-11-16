@@ -6,6 +6,16 @@ import {
   type StrategyObjectInput,
   type StrategyExternalInputs,
   type StrategyDecision,
+  evaluateStrategyBook,
+  usesStrategyBook,
+  nextStrategyProtection,
+  strategyReentryAllowed,
+  transferStrategyBook,
+  type StrategyBookFacts,
+  type StrategyBookState,
+  type StrategyBookDecision,
+  type BookCandidate,
+  type StrategyReentryState,
 } from "trading-strategies";
 import type { Bar, Period } from "trading-strategy-core/bars";
 import { marketRules } from "trading-strategy-core/market-rules";
@@ -24,8 +34,11 @@ import {
 import { fillMarketOrder } from "./execution.js";
 import {
   sizePortfolioEntry,
+  sizePortfolioTargetEntry,
   portfolioExecutionFee as feeFor,
 } from "./portfolio-sizing.js";
+import { plannedStopRisk } from "trading-strategies/research/risk/research-risk";
+import { portfolioObservationDay } from "./portfolio-clock.js";
 
 type Market = "cn-equity" | "crypto";
 export type PortfolioExecution = {
@@ -79,6 +92,14 @@ export type PortfolioRequest = {
   strategies: readonly StrategyObjectInput[];
   sleeves: readonly PortfolioSleeve[];
   costs?: ExecutionCosts;
+  bookFacts?: Readonly<Record<string, StrategyBookFacts>>;
+  /** A completed pre-start weekly signal seeds only next-session orders; no warmup equity is scored. */
+  bookSeeds?: readonly {
+    strategyId: string;
+    date: string;
+    availableAt: string;
+    selectionFrom?: string;
+  }[];
   rebalance?: { everyBars?: number; drift?: number };
   /** Completed-bar targets; only idle cash is transferred, never forced sales. */
   sleeveTargets?: readonly {
@@ -116,6 +137,12 @@ export type PortfolioOrder = {
   reason: string | null;
   attempts: number;
   trigger: "signal" | "stop" | "target" | "trailing" | "time";
+  rankScore?: number;
+  weightCeiling?: number;
+  targetWeight?: number;
+  industries?: Record<string, string[]>;
+  riskGroups?: string[][];
+  marketTargetShare?: number;
 };
 export type PortfolioFill = {
   orderId: number;
@@ -130,6 +157,11 @@ export type PortfolioFill = {
   fee: number;
   cashAfter: number;
   holdingAfter: number;
+  executionEvidence?: {
+    intendedPrice: number;
+    slippageBps: number;
+    source: "portfolio-OHLC-model";
+  };
 };
 type PositionControl = {
   stop: number | null;
@@ -448,6 +480,38 @@ export function runPortfolio(
     }),
   );
   const controls = new Map<string, PositionControl>();
+  const bookStates = new Map<string, StrategyBookState>();
+  const bookDecisions: {
+    strategyId: string;
+    decision: StrategyBookDecision;
+  }[] = [];
+  const reentries = new Map<string, StrategyReentryState>();
+  const lifecycle = strategies.some(
+    (s) => usesStrategyBook(s) || s.exit.chandelier || s.exit.timeReentry,
+  );
+  const observationDay = (date: string) =>
+    lifecycle
+      ? portfolioObservationDay(market, strategies[0]!.period, date)
+      : dayOf(date, market);
+  if (lifecycle && strategies.some((s) => s.period !== strategies[0]!.period))
+    throw new Error(
+      "A lifecycle portfolio requires one native period per request",
+    );
+  const dailyDecisionCounts: {
+    strategyId: string;
+    date: string;
+    entries: number;
+    unknown: number;
+    expected: number;
+  }[] = [];
+  const openingEquities = new Map<string, number>();
+  for (const sleeve of sleeves) {
+    const policies = strategies
+      .filter((s) => s.sleeve === sleeve.id && usesStrategyBook(s))
+      .map((s) => JSON.stringify([s.overlay, s.rebalance]));
+    if (new Set(policies).size > 1)
+      throw new Error("Conflicting overlay / rebalance policies in one sleeve");
+  }
   const identities = new Map(
     strategies.flatMap((strategy) =>
       [...instruments.keys()].map(
@@ -512,7 +576,13 @@ export function runPortfolio(
   }[] = [];
   const daily = new Map<string, (typeof curve)[number]>();
   const calendar = request.calendar.filter(
-    (d) => dayOf(d, market) >= request.start && dayOf(d, market) <= request.end,
+    (d) =>
+      (request.start.length === 10
+        ? observationDay(d) >= request.start
+        : Date.parse(d) >= Date.parse(request.start)) &&
+      (request.end.length === 10
+        ? observationDay(d) <= request.end
+        : Date.parse(d) <= Date.parse(request.end)),
   );
   if (!calendar.length) throw new Error("Empty event calendar");
   const actionsAt = new Map<
@@ -619,11 +689,23 @@ export function runPortfolio(
     const sleeve = sleeves.find((s) => s.id === order.sleeve)!;
     let quantity = holding?.quantity ?? 0;
     if (order.side === "buy") {
-      if (!holding && account.positions.size >= sleeve.maxPositions) {
+      const heldNames = new Set(
+        [...account.positions.keys()].map((k) => identities.get(k)!.symbol),
+      );
+      if (
+        !holding &&
+        (usesStrategyBook(strategy)
+          ? !heldNames.has(order.symbol) &&
+            heldNames.size >= sleeve.maxPositions
+          : account.positions.size >= sleeve.maxPositions)
+      ) {
         reject(order, date, "sleeve持仓上限");
         return;
       }
-      if ((control?.tranches ?? 0) >= strategy.sizing.tranches) {
+      if (
+        order.targetWeight === undefined &&
+        (control?.tranches ?? 0) >= strategy.sizing.tranches
+      ) {
         reject(order, date, "分批建仓次数上限");
         return;
       }
@@ -663,13 +745,26 @@ export function runPortfolio(
         if (weights[middle]!.date <= order.signalAt) low = middle + 1;
         else high = middle;
       }
-      const ceiling =
+      const legacyCeiling =
         request.positionWeights === undefined
           ? 1
           : (weights[low - 1]?.weight ?? 0);
-      const sized = sizePortfolioEntry({
-        sizing: strategy.sizing,
-        equity: account.equity,
+      const ceiling = Math.min(
+        legacyCeiling,
+        order.weightCeiling ?? order.targetWeight ?? 1,
+      );
+      const sizingInput: Parameters<typeof sizePortfolioEntry>[0] = {
+        sizing:
+          order.targetWeight !== undefined
+            ? {
+                kind: "weight",
+                weight: Math.max(order.targetWeight, 1e-12),
+                tranches: 1,
+              }
+            : strategy.sizing,
+        equity: usesStrategyBook(strategy)
+          ? (openingEquities.get(order.sleeve) ?? account.equity)
+          : account.equity,
         cash: account.cash,
         price,
         stop,
@@ -684,11 +779,136 @@ export function runPortfolio(
           : undefined,
         quantityRules: rules,
         costs: dateCosts,
-      });
+      };
+      const targetWeight = order.targetWeight ?? order.weightCeiling;
+      const sized =
+        targetWeight === undefined
+          ? sizePortfolioEntry(sizingInput)
+          : sizePortfolioTargetEntry({ ...sizingInput, targetWeight });
       quantity = sized.quantity;
       if (sized.reason) {
         reject(order, date, sized.reason);
         return;
+      }
+      if (strategy.overlay) {
+        const overlay = strategy.overlay,
+          equity = account.equity;
+        const held = [...account.positions].map(([k, p]) => ({
+          symbol: identities.get(k)!.symbol,
+          quantity: p.quantity,
+          mark: p.mark,
+          stop: controls.get(k)?.stop ?? null,
+        }));
+        let notionalRoom = Infinity;
+        if (order.marketTargetShare !== undefined)
+          notionalRoom = Math.min(
+            notionalRoom,
+            equity * order.marketTargetShare -
+              held.reduce((n, h) => n + h.quantity * h.mark, 0),
+          );
+        if (overlay.symbolWeight !== undefined)
+          notionalRoom = Math.min(
+            notionalRoom,
+            equity * overlay.symbolWeight -
+              held
+                .filter((h) => h.symbol === order.symbol)
+                .reduce((n, h) => n + h.quantity * h.mark, 0),
+          );
+        if (overlay.industryWeight !== undefined && market === "cn-equity") {
+          const groups = order.industries?.[order.symbol];
+          if (
+            !groups?.length ||
+            held.some((h) => !order.industries?.[h.symbol]?.length)
+          ) {
+            reject(order, date, "缺已冻结行业依据，不能核对组合行业上限");
+            return;
+          }
+          for (const group of groups)
+            notionalRoom = Math.min(
+              notionalRoom,
+              equity * overlay.industryWeight -
+                held
+                  .filter((h) => order.industries![h.symbol]!.includes(group))
+                  .reduce((n, h) => n + h.quantity * h.mark, 0),
+            );
+        }
+        if (Number.isFinite(notionalRoom))
+          quantity = Math.min(
+            quantity,
+            floorStep(Math.max(0, notionalRoom) / price, rules.step),
+          );
+        const execution = {
+          costs: {
+            slippageBps: dateCosts.slippageBps,
+            sellTaxBps: dateCosts.sellTaxBps,
+          },
+          commission: (amount: number) => feeFor(1, amount, "buy", dateCosts),
+        };
+        const holdingRisk = (rows: typeof held) =>
+          rows.some((h) => h.stop === null)
+            ? null
+            : rows.reduce(
+                (n, h) =>
+                  n +
+                  Math.max(
+                    0,
+                    plannedStopRisk(h.quantity, h.mark, h.stop!, execution),
+                  ),
+                0,
+              );
+        let remainingRisk = Infinity;
+        if (overlay.heat !== undefined) {
+          const used = holdingRisk(held);
+          if (used === null) {
+            reject(order, date, "既有持仓止损风险未知");
+            return;
+          }
+          remainingRisk = Math.min(
+            remainingRisk,
+            Math.max(0, equity * overlay.heat - used),
+          );
+        }
+        if (overlay.correlationGroupRisk !== undefined) {
+          const group = order.riskGroups?.find((g) => g.includes(order.symbol)),
+            known = new Set(order.riskGroups?.flat());
+          if (!group || held.some((h) => !known.has(h.symbol))) {
+            reject(order, date, "缺同日相关组依据，不能核对连通组风险");
+            return;
+          }
+          const used = holdingRisk(
+            held.filter((h) => group.includes(h.symbol)),
+          );
+          if (used === null) {
+            reject(order, date, "相关组持仓止损风险未知");
+            return;
+          }
+          remainingRisk = Math.min(
+            remainingRisk,
+            Math.max(0, equity * overlay.correlationGroupRisk - used),
+          );
+        }
+        if (Number.isFinite(remainingRisk)) {
+          if (stop === null) {
+            reject(order, date, "缺少组合风险所需止损");
+            return;
+          }
+          let lo = 0,
+            hi = Math.floor(quantity / rules.step);
+          while (lo < hi) {
+            const mid = Math.ceil((lo + hi) / 2);
+            if (
+              plannedStopRisk(mid * rules.step, price, stop, execution) <=
+              remainingRisk + 1e-8
+            )
+              lo = mid;
+            else hi = mid - 1;
+          }
+          quantity = lo * rules.step;
+        }
+        if (quantity < rules.minimum) {
+          reject(order, date, "组合单票、行业、总风险或相关组风险上限");
+          return;
+        }
       }
       controls.set(
         key,
@@ -705,7 +925,7 @@ export function runPortfolio(
               tranches: 1,
             },
       );
-    } else
+    } else {
       quantity = Math.min(
         quantity,
         account.sellable(
@@ -715,6 +935,24 @@ export function runPortfolio(
         ),
         rules.maximum,
       );
+      if (order.targetWeight !== undefined) {
+        const target = floorStep(
+          ((openingEquities.get(order.sleeve) ?? account.equity) *
+            order.targetWeight) /
+            price,
+          rules.step,
+        );
+        quantity = Math.min(
+          quantity,
+          Math.max(0, (holding?.quantity ?? 0) - target),
+        );
+        if (quantity <= 1e-8) {
+          order.status = "filled";
+          removePending(order);
+          return;
+        }
+      }
+    }
     if (
       order.side === "sell" &&
       market === "cn-equity" &&
@@ -736,11 +974,29 @@ export function runPortfolio(
       marketRules[market].settlementDays,
     );
     const remaining = account.positions.get(key)?.quantity ?? 0;
+    const targetRemaining =
+      order.targetWeight === undefined
+        ? 0
+        : floorStep(
+            ((openingEquities.get(order.sleeve) ?? account.equity) *
+              order.targetWeight) /
+              price,
+            rules.step,
+          );
     order.status =
-      remaining > 0 && order.side === "sell" ? "pending" : "filled";
+      remaining > targetRemaining + 1e-8 && order.side === "sell"
+        ? "pending"
+        : "filled";
     if (order.status !== "pending") removePending(order);
     order.reason = null;
-    if (!remaining) controls.delete(key);
+    if (!remaining) {
+      controls.delete(key);
+      if (order.trigger === "time" && strategy.exit.timeReentry)
+        reentries.set(key, {
+          exitBar: calendar.indexOf(date),
+          sawFalse: false,
+        });
+    }
     fills.push({
       orderId: order.id,
       strategyId: strategy.id,
@@ -754,8 +1010,136 @@ export function runPortfolio(
       fee,
       cashAfter: account.cash,
       holdingAfter: remaining,
+      ...(lifecycle
+        ? {
+            executionEvidence: {
+              intendedPrice: reference ?? bar!.open,
+              slippageBps:
+                ((order.side === "buy"
+                  ? price - (reference ?? bar!.open)
+                  : (reference ?? bar!.open) - price) /
+                  (reference ?? bar!.open)) *
+                10000,
+              source: "portfolio-OHLC-model" as const,
+            },
+          }
+        : {}),
     });
   };
+  const eligibleAt = (
+    strategy: (typeof strategies)[number],
+    symbol: string,
+    source: PreparedInstrument,
+    date: string,
+  ) => {
+    if (
+      lifecycle &&
+      (!source.instrument.bars.length || source.instrument.bars[0]!.date > date)
+    )
+      return false;
+    if (strategy.universe.kind === "symbols")
+      return symbolUniverses.get(strategy.id)!.has(symbol);
+    if (strategy.universe.kind === "rps") {
+      const point = source.instrument.external?.rps?.find(
+          (p) => p.date === date,
+        ),
+        value =
+          point?.values[point.periods.indexOf(strategy.universe.period)]?.rps;
+      return value != null && value >= strategy.universe.minimum;
+    }
+    const membership = request.memberships?.find(
+      (m) => m.strategyId === strategy.id && m.date === date,
+    );
+    if (!membership) throw new Error("Missing PIT universe membership");
+    return membership.symbols.includes(symbol);
+  };
+  for (const seed of request.bookSeeds ?? []) {
+    const strategy = strategies.find((s) => s.id === seed.strategyId);
+    if (
+      !strategy?.rebalance ||
+      seed.availableAt > seed.date ||
+      seed.date >= calendar[0]! ||
+      !request.calendar.includes(seed.date) ||
+      bookStates.has(strategy.id)
+    )
+      throw new Error("Invalid causal pre-start book seed");
+    const sleeve = sleeves.find((s) => s.id === strategy.sleeve)!;
+    const week = (date: string) => {
+      const d = new Date(date.slice(0, 10));
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      return d.toISOString().slice(0, 10);
+    };
+    const selectionDates = seed.selectionFrom
+      ? request.calendar.filter(
+          (date, i) =>
+            date >= seed.selectionFrom! &&
+            date <= seed.date &&
+            request.calendar[i + 1] &&
+            week(date) !== week(request.calendar[i + 1]!),
+        )
+      : [seed.date];
+    if (
+      !selectionDates.length ||
+      selectionDates.at(-1) !== seed.date ||
+      (seed.selectionFrom && seed.selectionFrom > seed.date)
+    )
+      throw new Error("Invalid causal selection warmup seed");
+    let decision: StrategyBookDecision | undefined;
+    for (const date of selectionDates) {
+      const candidates = [...instruments].map(([symbol, source]) => {
+        const i = source.indices.get(date);
+        return {
+          symbol,
+          bars: source.instrument.signalBars,
+          external: source.instrument.external,
+          eligible: eligibleAt(strategy, symbol, source, date),
+          decision:
+            i === undefined
+              ? { entry: null, exit: null, stopLevel: null }
+              : source.evaluators.get(strategy.id)!.evaluate(i),
+        };
+      });
+      // Selection/buffer history is a causal feature. Warmup always has fresh
+      // initial capital and no positions, fills, returns or inherited DD.
+      decision = evaluateStrategyBook(strategy, {
+        date,
+        calendar: request.calendar,
+        candidates,
+        equity: initial * sleeve.share,
+        initial: initial * sleeve.share,
+        maxPositions: sleeve.maxPositions,
+        facts: request.bookFacts?.[strategy.id],
+        holdings: [],
+        state: decision?.state,
+      });
+      if (!decision.available)
+        throw new Error(
+          `Pre-start selection evidence unavailable: ${decision.reason}`,
+        );
+    }
+    if (!decision || !decision.available || decision.targets === null)
+      throw new Error(
+        `Pre-start book seed unavailable: ${decision?.reason ?? "not a completed weekly signal"}`,
+      );
+    bookStates.set(strategy.id, decision.state);
+    bookDecisions.push({ strategyId: strategy.id, decision });
+    for (const [symbol, weight] of Object.entries(decision.targets))
+      if (weight > 0) {
+        const due = calendar[request.signalDelayBars ?? 0] ?? null;
+        const order = pushOrder(
+          strategy,
+          symbol,
+          seed.date,
+          due,
+          "buy",
+          "signal",
+        );
+        order.targetWeight = weight;
+        order.industries = decision.industries;
+        order.riskGroups = decision.riskGroups;
+        order.marketTargetShare = decision.marketTargetShare;
+      }
+  }
   replayPortfolioEvents(calendar, {
     beforeOpen: (_index, date) => {
       for (const { instrument, action } of actionsAt.get(date) ?? []) {
@@ -791,6 +1175,8 @@ export function runPortfolio(
           const i = source.indices.get(date);
           if (i !== undefined) p.mark = source.instrument.bars[i]!.open;
         }
+      for (const [sleeve, account] of accounts)
+        openingEquities.set(sleeve, account.equity);
       const pending = [...pendingOrders.values()]
         .flatMap((active) => [...active])
         .filter(
@@ -799,20 +1185,54 @@ export function runPortfolio(
             o.due !== null &&
             Date.parse(o.due) <= Date.parse(date),
         )
+        .map((order) => {
+          if (order.targetWeight !== undefined) {
+            const account = accounts.get(order.sleeve)!,
+              p = account.positions.get(keyFor(order.strategyId, order.symbol));
+            const actual = p
+              ? (p.quantity * p.mark) / openingEquities.get(order.sleeve)!
+              : 0;
+            order.side = actual > order.targetWeight ? "sell" : "buy";
+          }
+          return order;
+        })
         .sort(
           (a, b) =>
             (a.side === "sell" ? 0 : 1) - (b.side === "sell" ? 0 : 1) ||
             a.sleeve.localeCompare(b.sleeve) ||
+            (b.rankScore ?? 0) - (a.rankScore ?? 0) ||
             a.symbol.localeCompare(b.symbol) ||
             a.id - b.id,
         );
       pending.forEach((o) => execute(o, date));
     },
     close: (index, date) => {
-      for (const strategy of strategies)
+      const closeCandidates = new Map<string, BookCandidate[]>();
+      for (const strategy of strategies) {
+        const candidates: BookCandidate[] = [];
+        const count = {
+          strategyId: strategy.id,
+          date,
+          entries: 0,
+          unknown: 0,
+          expected: 0,
+        };
         for (const [symbol, source] of instruments) {
+          const eligible = eligibleAt(strategy, symbol, source, date);
+          if (eligible) count.expected++;
           const i = source.indices.get(date);
-          if (i === undefined) continue;
+          if (i === undefined) {
+            if (eligible) count.unknown++;
+            if (usesStrategyBook(strategy))
+              candidates.push({
+                symbol,
+                bars: source.instrument.signalBars,
+                external: source.instrument.external,
+                decision: { entry: null, exit: null, stopLevel: null },
+                eligible: eligibleAt(strategy, symbol, source, date),
+              });
+            continue;
+          }
           const account = accounts.get(strategy.sleeve)!,
             key = keyFor(strategy.id, symbol),
             bar = source.instrument.bars[i]!;
@@ -870,6 +1290,26 @@ export function runPortfolio(
             continue;
           }
           const decision = source.evaluators.get(strategy.id)!.evaluate(i);
+          if (eligible && (decision.entry === null || decision.exit === null))
+            count.unknown++;
+          if (eligible && decision.entry === true && decision.exit !== true)
+            count.entries++;
+          if (current && control && strategy.exit.chandelier) {
+            const ratio = bar.close / source.instrument.signalBars[i]!.close;
+            Object.assign(
+              control,
+              nextStrategyProtection(
+                strategy.exit,
+                control,
+                bar,
+                decision.chandelierStop == null
+                  ? null
+                  : decision.chandelierStop * ratio,
+              ),
+            );
+          }
+          const reentry = reentries.get(key);
+          if (reentry && decision.entry === false) reentry.sawFalse = true;
           if (decision.entry === true)
             observationCounts[strategy.id]!.entries++;
           if (decision.exit === true) observationCounts[strategy.id]!.exits++;
@@ -880,25 +1320,40 @@ export function runPortfolio(
               symbol,
               decision,
             });
-          if (pendingOrders.has(key)) continue;
-          let eligible: boolean;
-          if (strategy.universe.kind === "symbols")
-            eligible = symbolUniverses.get(strategy.id)!.has(symbol);
-          else if (strategy.universe.kind === "rps") {
-            const point = source.instrument.external?.rps?.find(
-                (p) => p.date === date,
-              ),
-              value =
-                point?.values[point.periods.indexOf(strategy.universe.period)]
-                  ?.rps;
-            eligible = value != null && value >= strategy.universe.minimum;
-          } else {
-            const membership = request.memberships?.find(
-              (m) => m.strategyId === strategy.id && m.date === date,
-            );
-            if (!membership) throw new Error("Missing PIT universe membership");
-            eligible = membership.symbols.includes(symbol);
+          if (usesStrategyBook(strategy)) {
+            candidates.push({
+              symbol,
+              bars: source.instrument.signalBars,
+              external: source.instrument.external,
+              decision: strategyReentryAllowed(
+                strategy.exit,
+                reentry,
+                index,
+                decision.entry,
+              )
+                ? decision
+                : { ...decision, entry: false },
+              eligible,
+            });
+            if (
+              current &&
+              (decision.exit === true ||
+                strategyTimeExit(strategy.exit, control!.bars)) &&
+              !pendingOrders.has(key)
+            ) {
+              const timed = strategyTimeExit(strategy.exit, control!.bars);
+              pushOrder(
+                strategy,
+                symbol,
+                date,
+                calendar[index + 1 + (request.signalDelayBars ?? 0)] ?? null,
+                "sell",
+                timed ? "time" : "signal",
+              );
+            }
+            continue;
           }
+          if (pendingOrders.has(key)) continue;
           const timed =
             !!current && strategyTimeExit(strategy.exit, control!.bars);
           const side =
@@ -906,6 +1361,12 @@ export function runPortfolio(
               ? "sell"
               : eligible &&
                   decision.entry === true &&
+                  strategyReentryAllowed(
+                    strategy.exit,
+                    reentry,
+                    index,
+                    decision.entry,
+                  ) &&
                   (!current || control!.tranches < strategy.sizing.tranches)
                 ? "buy"
                 : null;
@@ -925,6 +1386,121 @@ export function runPortfolio(
             );
           }
         }
+        if (lifecycle) dailyDecisionCounts.push(count);
+        closeCandidates.set(strategy.id, candidates);
+      }
+      // Every sleeve position has its completed close and all standing
+      // protection executions before any strategy reads portfolio equity.
+      for (const strategy of strategies) {
+        const candidates = closeCandidates.get(strategy.id)!;
+        if (usesStrategyBook(strategy)) {
+          const account = accounts.get(strategy.sleeve)!,
+            sleeve = sleeves.find((s) => s.id === strategy.sleeve)!;
+          const decision = evaluateStrategyBook(strategy, {
+            date,
+            calendar: request.calendar,
+            candidates,
+            equity: account.equity,
+            initial: initial * sleeve.share,
+            maxPositions: sleeve.maxPositions,
+            state: bookStates.get(strategy.id),
+            facts: request.bookFacts?.[strategy.id],
+            holdings: [...account.positions].map(([key, p]) => ({
+              symbol: identities.get(key)!.symbol,
+              managed: identities.get(key)!.strategyId === strategy.id,
+              weight: (p.quantity * p.mark) / account.equity,
+              openRisk:
+                controls.get(key)?.stop == null
+                  ? null
+                  : (p.quantity *
+                      Math.max(0, p.mark - controls.get(key)!.stop!)) /
+                    account.equity,
+            })),
+          });
+          bookStates.set(strategy.id, decision.state);
+          bookDecisions.push({ strategyId: strategy.id, decision });
+          const next =
+            calendar[index + 1 + (request.signalDelayBars ?? 0)] ??
+            (market === "crypto" && !request.signalDelayBars
+              ? nextBar(date, strategy.period)
+              : null);
+          if (decision.targets !== null) {
+            for (const order of [...pendingOrders.values()].flatMap((s) => [
+              ...s,
+            ]))
+              if (
+                order.strategyId === strategy.id &&
+                order.targetWeight !== undefined
+              ) {
+                order.status = "rejected";
+                order.reason = "被新的完成bar调仓目标替代";
+                removePending(order);
+              }
+            const symbols = new Set([
+              ...Object.keys(decision.targets),
+              ...[...account.positions.keys()]
+                .filter((k) => identities.get(k)!.strategyId === strategy.id)
+                .map((k) => identities.get(k)!.symbol),
+            ]);
+            for (const symbol of [...symbols].sort()) {
+              const key = keyFor(strategy.id, symbol),
+                p = account.positions.get(key),
+                weight = decision.targets[symbol] ?? 0;
+              if (pendingOrders.has(key)) continue;
+              const currentWeight = p
+                ? (p.quantity * p.mark) / account.equity
+                : 0;
+              if (Math.abs(currentWeight - weight) <= 1e-10) continue;
+              const order = pushOrder(
+                strategy,
+                symbol,
+                date,
+                next,
+                currentWeight > weight ? "sell" : "buy",
+                "signal",
+              );
+              order.targetWeight = weight;
+              order.rankScore = candidates.find((c) => c.symbol === symbol)
+                ?.decision.entry
+                ? 1
+                : 0;
+              order.industries = decision.industries;
+              order.riskGroups = decision.riskGroups;
+              order.marketTargetShare = decision.marketTargetShare;
+            }
+          }
+          if (!strategy.rebalance && decision.available)
+            for (const entry of decision.entries) {
+              const key = keyFor(strategy.id, entry.symbol),
+                control = controls.get(key);
+              if (
+                pendingOrders.has(key) ||
+                entry.weight <= 0 ||
+                (control?.tranches ?? 0) >= strategy.sizing.tranches ||
+                !strategyReentryAllowed(
+                  strategy.exit,
+                  reentries.get(key),
+                  index,
+                  true,
+                )
+              )
+                continue;
+              const order = pushOrder(
+                strategy,
+                entry.symbol,
+                date,
+                next,
+                "buy",
+                "signal",
+              );
+              order.rankScore = entry.score;
+              order.weightCeiling = entry.weight;
+              order.industries = decision.industries;
+              order.riskGroups = decision.riskGroups;
+              order.marketTargetShare = decision.marketTargetShare;
+            }
+        }
+      }
       if (request.rebalance) {
         const target = request.sleeveTargets
           ?.filter((t) => t.date <= date)
@@ -957,6 +1533,16 @@ export function runPortfolio(
               a.transfer(-amount);
               pool += amount;
               transfers.push({ date, sleeve: s.id, amount: -amount });
+              for (const strategy of strategies.filter(
+                (v) => v.sleeve === s.id,
+              )) {
+                const state = bookStates.get(strategy.id);
+                if (state)
+                  bookStates.set(
+                    strategy.id,
+                    transferStrategyBook(state, -amount),
+                  );
+              }
             }
           }
           const needs = targets.map((s) => ({
@@ -975,6 +1561,16 @@ export function runPortfolio(
               accounts.get(x.s.id)!.transfer(amount);
               allocated += amount;
               transfers.push({ date, sleeve: x.s.id, amount });
+              for (const strategy of strategies.filter(
+                (v) => v.sleeve === x.s.id,
+              )) {
+                const state = bookStates.get(strategy.id);
+                if (state)
+                  bookStates.set(
+                    strategy.id,
+                    transferStrategyBook(state, amount),
+                  );
+              }
             });
         }
       }
@@ -1002,7 +1598,7 @@ export function runPortfolio(
             weight: (position.quantity * position.mark) / row.equity,
           });
         }
-      daily.set(dayOf(date, market), { ...row, date: dayOf(date, market) });
+      daily.set(observationDay(date), { ...row, date: observationDay(date) });
       if (index % 4096 === 0) progress(index + 1, calendar.length);
     },
   });
@@ -1030,5 +1626,12 @@ export function runPortfolio(
     transfers,
     corporateActions,
     terminalValuations,
+    ...(lifecycle
+      ? {
+          bookDecisions,
+          bookStates: Object.fromEntries(bookStates),
+          dailyDecisionCounts,
+        }
+      : {}),
   };
 }

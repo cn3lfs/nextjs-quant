@@ -6,6 +6,73 @@ import {
   type ContextRiskInput,
 } from "./research-context-risk.js";
 
+/** Same-industry edges and rho>=threshold edges form transitive risk groups. */
+export function researchCorrelationGroups(
+  symbols: readonly string[],
+  returns: ReadonlyMap<string, readonly number[] | null>,
+  sectors: ReadonlyMap<string, string | readonly string[]>,
+  threshold = 0.8,
+) {
+  const graph = new Map(symbols.map((s) => [s, new Set<string>()]));
+  for (let i = 0; i < symbols.length; i++)
+    for (let j = i + 1; j < symbols.length; j++) {
+      const a = symbols[i]!,
+        b = symbols[j]!,
+        x = returns.get(a),
+        y = returns.get(b);
+      if (
+        !x ||
+        !y ||
+        x.length !== 60 ||
+        y.length !== 60 ||
+        x.some((v) => !Number.isFinite(v)) ||
+        y.some((v) => !Number.isFinite(v))
+      )
+        return { groups: [], reason: "相关窗口缺日或非法行情" };
+      const groups = (symbol: string) => {
+        const value = sectors.get(symbol);
+        return typeof value === "string" ? [value] : (value ?? []);
+      };
+      let connected = groups(a).some((group) => groups(b).includes(group));
+      if (!connected) {
+        const mx = x.reduce((s, v) => s + v, 0) / 60,
+          my = y.reduce((s, v) => s + v, 0) / 60;
+        let xy = 0,
+          xx = 0,
+          yy = 0;
+        for (let k = 0; k < 60; k++) {
+          const dx = x[k]! - mx,
+            dy = y[k]! - my;
+          xy += dx * dy;
+          xx += dx * dx;
+          yy += dy * dy;
+        }
+        if (xx <= 1e-20 || yy <= 1e-20)
+          return { groups: [], reason: "零方差收益无法证明低相关" };
+        connected = xy / Math.sqrt(xx * yy) >= threshold - 1e-12;
+      }
+      if (connected) {
+        graph.get(a)!.add(b);
+        graph.get(b)!.add(a);
+      }
+    }
+  const seen = new Set<string>(),
+    groups: string[][] = [];
+  for (const symbol of symbols)
+    if (!seen.has(symbol)) {
+      const group = [symbol];
+      seen.add(symbol);
+      for (let i = 0; i < group.length; i++)
+        for (const next of graph.get(group[i]!)!)
+          if (!seen.has(next)) {
+            seen.add(next);
+            group.push(next);
+          }
+      groups.push(group.sort());
+    }
+  return { groups, reason: null };
+}
+
 /** Candidate-connected component, including transitive correlation, never a sum of independent bets. */
 export function researchGroupRisk(
   symbol: string,
@@ -64,44 +131,11 @@ export function researchGroupRisk(
       closes.slice(1).map((b, i) => b!.close / closes[i]!.close - 1),
     );
   }
-  const edges = new Map(symbols.map((s) => [s, new Set<string>()]));
-  for (let i = 0; i < symbols.length; i++)
-    for (let j = i + 1; j < symbols.length; j++) {
-      const a = symbols[i]!,
-        b = symbols[j]!;
-      let connected = sectors.get(a) === sectors.get(b);
-      if (!connected) {
-        const x = returns.get(a)!,
-          y = returns.get(b)!;
-        const mx = x.reduce((s, v) => s + v, 0) / 60,
-          my = y.reduce((s, v) => s + v, 0) / 60;
-        let xy = 0,
-          xx = 0,
-          yy = 0;
-        for (let k = 0; k < 60; k++) {
-          const dx = x[k]! - mx,
-            dy = y[k]! - my;
-          xy += dx * dy;
-          xx += dx * dx;
-          yy += dy * dy;
-        }
-        if (xx <= 1e-20 || yy <= 1e-20)
-          return missing("零方差收益无法证明低相关");
-        connected = xy / Math.sqrt(xx * yy) >= 0.8 - 1e-12;
-      }
-      if (connected) {
-        edges.get(a)!.add(b);
-        edges.get(b)!.add(a);
-      }
-    }
-  const members = new Set([symbol]),
-    queue = [symbol];
-  for (let i = 0; i < queue.length; i++)
-    for (const code of edges.get(queue[i]!)!)
-      if (!members.has(code)) {
-        members.add(code);
-        queue.push(code);
-      }
+  const correlation = researchCorrelationGroups(symbols, returns, sectors);
+  if (correlation.reason) return missing(correlation.reason);
+  const members = new Set(
+    correlation.groups.find((group) => group.includes(symbol)) ?? [symbol],
+  );
   let used = 0;
   for (const h of held.filter((h) => members.has(h.symbol))) {
     if (

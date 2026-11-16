@@ -183,6 +183,10 @@ export type ClassicScheduleOptions = {
   omit?: ClassicFamily;
   startSignal?: string;
   budgetOverride?: ReadonlyMap<string, number>;
+  /** One-step callers restore the previous completed week's model selection. */
+  previousSelection?: readonly string[];
+  volatilityTarget?: number;
+  retentionMultiple?: number;
 };
 export function buildClassicSchedule(
   weeks: readonly ClassicWeek[],
@@ -200,7 +204,7 @@ export function buildClassicSchedule(
       estimatedVolatility: number | null;
       riskMissing: boolean;
     }[] = [];
-  let previous = new Set<string>();
+  let previous = new Set(options.previousSelection ?? []);
   for (const week of weeks) {
     if (options.startSignal && week.date < options.startSignal) continue;
     const scored = scoreClassicWeek(week);
@@ -223,7 +227,9 @@ export function buildClassicSchedule(
       ? eligible
       : eligible
           .filter(
-            (r, i) => i < Math.ceil(count * 1.5) && previous.has(r.symbol),
+            (r, i) =>
+              i < Math.ceil(count * (options.retentionMultiple ?? 1.5)) &&
+              previous.has(r.symbol),
           )
           .slice(0, count);
     if (!equal)
@@ -261,7 +267,10 @@ export function buildClassicSchedule(
           ? 0
           : estimatedVolatility === 0
             ? 1
-            : Math.min(1, 0.15 / estimatedVolatility);
+            : Math.min(
+                1,
+                (options.volatilityTarget ?? 0.15) / estimatedVolatility,
+              );
     }
     if (!equal) budget *= Math.min(1, selected.length / count);
     const override = options.budgetOverride?.get(week.date);

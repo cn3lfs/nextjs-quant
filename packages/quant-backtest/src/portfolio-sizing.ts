@@ -142,3 +142,52 @@ export function sizePortfolioEntry(input: PortfolioEntrySizing) {
     reason: affordable ? null : "资金不足以支付一手及费用",
   };
 }
+
+/** Rebalance weights are final holdings, not an additional purchase budget. */
+export function sizePortfolioTargetEntry(
+  input: PortfolioEntrySizing & { targetWeight: number },
+) {
+  if (
+    !Number.isFinite(input.targetWeight) ||
+    input.targetWeight < 0 ||
+    input.targetWeight > 1
+  )
+    throw new Error("Invalid portfolio target weight");
+  const sized = sizePortfolioEntry(input);
+  const targetQuantity = toNumber(
+    big(input.equity)
+      .times(input.targetWeight)
+      .div(input.price)
+      .div(input.quantityRules.step)
+      .round(0, 0)
+      .times(input.quantityRules.step),
+  );
+  const difference = toNumber(
+    big(Math.max(0, targetQuantity - (input.existing?.quantity ?? 0)))
+      .div(input.quantityRules.step)
+      .round(0, 0)
+      .times(input.quantityRules.step),
+  );
+  const quantity = Math.min(sized.quantity, difference);
+  const accepted = quantity >= input.quantityRules.minimum ? quantity : 0;
+  const fee =
+    accepted > 0
+      ? portfolioExecutionFee(accepted, input.price, "buy", input.costs)
+      : 0;
+  return {
+    ...sized,
+    quantity: accepted,
+    fee,
+    notional: accepted * input.price,
+    risk:
+      input.stop === null
+        ? null
+        : accepted * (input.price - input.stop) +
+          fee +
+          (accepted > 0
+            ? portfolioExecutionFee(accepted, input.stop, "sell", input.costs)
+            : 0),
+    targetQuantity,
+    reason: accepted > 0 ? null : "目标权重已满足或不足最小数量",
+  };
+}

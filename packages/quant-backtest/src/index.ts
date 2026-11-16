@@ -41,3 +41,4 @@ export type {
 } from "./five-minute-profile.js";
 
 export * from "./portfolio-sizing.js";
+export * from "./portfolio-clock.js";
