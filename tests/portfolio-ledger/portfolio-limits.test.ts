@@ -234,15 +234,15 @@ it("unknown industry remains explicit while paper and other-market inventory do 
       capital,
       caps,
     }),
-  ).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        dimension: "industry",
-        used: 20000,
-        reason: expect.stringContaining("依据不足"),
-      }),
-    ]),
-  );
+  ).toEqual([
+    {
+      dimension: "industry",
+      key: "银行",
+      used: null,
+      limit: 30000,
+      reason: expect.stringContaining("依据不足"),
+    },
+  ]);
   expect(
     checkExposureCaps({
       positions: [

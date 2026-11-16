@@ -11,6 +11,7 @@ import {
   nextStrategyProtection,
   strategyReentryAllowed,
   transferStrategyBook,
+  plannedStopRisk,
   type StrategyBookFacts,
   type StrategyBookState,
   type StrategyBookDecision,
@@ -37,7 +38,6 @@ import {
   sizePortfolioTargetEntry,
   portfolioExecutionFee as feeFor,
 } from "./portfolio-sizing.js";
-import { plannedStopRisk } from "trading-strategies/research/risk/research-risk";
 import { portfolioObservationDay } from "./portfolio-clock.js";
 
 type Market = "cn-equity" | "crypto";

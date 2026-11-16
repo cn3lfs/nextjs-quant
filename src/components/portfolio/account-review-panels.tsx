@@ -4,6 +4,13 @@ import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { accountKindLabels } from "~/lib/portfolio/account-workspace";
 import { useScreenVisible } from "../workbench/use-task-visible";
@@ -48,23 +55,32 @@ export function BulkTradeLinks({ batchId }: { batchId?: string }) {
           {row.trade.date} · {row.trade.symbol} ·{" "}
           {row.trade.side === "buy" ? "买入" : "卖出"}{" "}
           {formatNumber(row.trade.quantity, 6)}
-          <select
-            className="ml-2 max-w-full rounded border bg-nc-card p-1"
-            aria-label={`匹配计划 ${row.trade.id}`}
-            value={choice(row)}
-            onChange={(e) =>
-              setSelected({ ...selected, [row.trade.id]: e.target.value })
+          <Select
+            value={choice(row) || "__unlinked__"}
+            onValueChange={(value) =>
+              setSelected({
+                ...selected,
+                [row.trade.id]: value === "__unlinked__" ? "" : value,
+              })
             }
           >
-            <option value="">
-              暂不关联{row.ambiguous ? "，需人工选择" : ""}
-            </option>
-            {row.plans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.strategyId} v{p.strategyVersion} · {p.id}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              className="mt-1 max-w-full"
+              aria-label={`匹配计划 ${row.trade.id}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__unlinked__">
+                暂不关联{row.ambiguous ? "，需人工选择" : ""}
+              </SelectItem>
+              {row.plans.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.strategyId} v{p.strategyVersion} · {p.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {row.reason && (
             <span className="block text-nc-text-3">{row.reason}</span>
           )}
@@ -155,19 +171,22 @@ export function TradeJournalEditor({ tradeId }: { tradeId: string }) {
           {query.data.trade.side === "sell" && (
             <label>
               退出原因
-              <select
-                className="block rounded border bg-nc-card p-1"
+              <Select
                 name="exitReason"
-                aria-label="退出原因"
                 defaultValue={query.data.journal?.exitReason ?? "unknown"}
               >
-                <option value="unknown">未记录 / 未知</option>
-                <option value="stop">止损</option>
-                <option value="target">目标</option>
-                <option value="time">时间退出</option>
-                <option value="rule">策略规则退出</option>
-                <option value="manual">人工判断</option>
-              </select>
+                <SelectTrigger aria-label="退出原因">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">未记录 / 未知</SelectItem>
+                  <SelectItem value="stop">止损</SelectItem>
+                  <SelectItem value="target">目标</SelectItem>
+                  <SelectItem value="time">时间退出</SelectItem>
+                  <SelectItem value="rule">策略规则退出</SelectItem>
+                  <SelectItem value="manual">人工判断</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           )}
           <label>

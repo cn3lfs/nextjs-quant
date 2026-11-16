@@ -48,3 +48,4 @@ export * from "./historical-low.js";
 export * from "./market-low-zone.js";
 export * from "./research-candidates.js";
 export * from "./low-zone-cycles.js";
+export { plannedStopRisk } from "./research/risk/research-risk.js";

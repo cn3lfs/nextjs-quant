@@ -12,6 +12,12 @@ it("an older general settings draft cannot overwrite newer account caps and deca
     };
   saveSettings(stale);
   const current = {
+    portfolioLimits: {
+      enabled: true,
+      symbolWeight: 0.12,
+      heat: 0.04,
+      industryWeight: 0.25,
+    },
     caps: [
       {
         market: "cn-equity" as const,

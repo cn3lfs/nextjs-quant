@@ -11,6 +11,7 @@ import { labActionLabels } from "~/lib/research/strategy-lab";
 import { DataTable } from "../ui/data-table";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Checkbox } from "../ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -348,10 +349,10 @@ function LabDetail({ id, version }: { id: string; version: number }) {
           <GateStatus detail={d} />
           {action === "live" && (!d.eligible || !d.promotion) && (
             <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
+                aria-label="接受未验证策略提醒风险"
                 checked={riskAccepted}
-                onChange={(event) => setRiskAccepted(event.target.checked)}
+                onCheckedChange={(checked) => setRiskAccepted(checked === true)}
               />
               我理解该策略尚未满足回测与前推晋级条件，仍选择手动开启未验证策略提醒；真实执行未验证。
             </label>

@@ -611,6 +611,11 @@ describe("same real outbox with a stub sender", () => {
 it("plan sizing reserves sleeve capital transactionally and rounds by market lot", () => {
   const f = fixture();
   try {
+    const planStrategy: StrategyObjectInput = {
+      ...strategy,
+      exit: { stop: { kind: "fixed", fraction: 0.1 }, takeProfit: 0.3 },
+      sizing: { kind: "weight", weight: 0.1, tranches: 2 },
+    };
     const p = proposal(at("10:00"));
     const event: AlertEvent = {
       ...p.event,
@@ -620,8 +625,9 @@ it("plan sizing reserves sleeve capital transactionally and rounds by market lot
       wouldSend: true,
       observedAt: at("10:00"),
       outcomes: [],
+      target: 13,
     };
-    f.repository.record(strategy, event);
+    f.repository.record(planStrategy, event);
     const config = settingsSchema.parse({
       alerts: { capital: { "cn-equity": 100000, crypto: 0 } },
     });
@@ -639,12 +645,21 @@ it("plan sizing reserves sleeve capital transactionally and rounds by market lot
       config,
       at("10:01"),
       f.repository,
+      {
+        positions: [],
+        industryGroups: () => ["QA银行"],
+        assertCurrent: () => {},
+      },
     );
-    // 100000 * 1% / 2 = 500 risk per stage. 500/1=500; 500/2=250 rounded to 200.
+    // Each stage has a 5,000 capital ceiling. A 5 fee leaves only 400 shares
+    // at 10 on the 100-share grid; the first position's risk leaves room for
+    // only 200 more at 11, keeping total planned risk below the 1,000 limit.
     expect(plan.stages).toEqual([
-      { entry: 10, quantity: 500 },
+      { entry: 10, quantity: 400 },
       { entry: 11, quantity: 200 },
     ]);
+    expect(plan.sizingAudit?.overridden).toBe(false);
+    expect(plan.exposureAudit?.overridden).toBe(false);
     expect(() =>
       createAlertPlan(
         {
