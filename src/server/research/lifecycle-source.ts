@@ -2453,7 +2453,7 @@ async function readLifecycleSource(
     missing: cnMissing,
     rawUniverse: {
       symbols: price.stocks.map((s) => s.symbol),
-      source: `Original frozen CSI800-labelled roster; effective membership date uncertified; three-in/three-out versus later R2a5 roster; ${manifest.inputs.pricePath}`,
+      source: manifest.inputs.pricePath,
       hash: manifest.inputs.priceHash,
     },
     executionUniverse: {

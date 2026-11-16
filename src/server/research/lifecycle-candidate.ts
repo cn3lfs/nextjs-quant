@@ -21,7 +21,7 @@ export type LifecycleCandidateContext = {
   manifestPath: string;
   sourceKey: "cn-day" | "crypto-day" | "crypto-4h";
   universeSymbols: string[];
-  rawUniverse?: { symbols: string[]; source: string; hash: string };
+  rawUniverse?: { symbols: readonly string[]; source: string; hash: string };
   detector?: MarketLowZoneConfig;
 };
 export type LifecycleCandidateSource = {

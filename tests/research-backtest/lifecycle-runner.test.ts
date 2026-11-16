@@ -123,6 +123,19 @@ it("predeclares real segmented calls and keeps neighbors outside the selectable 
       ]),
     ),
     manifestPath: "fixture-source.json",
+    lowZoneSources: {
+      indices: [],
+      membership: null,
+      financial: {
+        path: "fixture-only/missing-financial",
+        hash: "0".repeat(64),
+        format: "absent-pure-plan-fixture",
+        decoded: false,
+        missing: [
+          "No low-zone financial source is supplied by this pure plan fixture",
+        ],
+      },
+    },
   } as LifecycleSourceBundle;
   const trials = lifecycleTrials(),
     plan = lifecycleExecutionPlan(source, "4".repeat(64));

@@ -752,6 +752,9 @@ it("the real frozen-file and native Binance adapters bind sources/axes before re
   await writeFile(normalizedPath, normalizedOriginal);
   const source = await loadLifecycleSource(configPath, options);
   expect(await loadLifecycleSource(configPath, options)).toBe(source);
+  const rawUniverse = source.markets["cn-day"].rawUniverse!;
+  expect(rawUniverse.source).toBe(pricePath);
+  expect(hash(await readFile(rawUniverse.source))).toBe(rawUniverse.hash);
   expect(
     source.markets["cn-day"].request.instruments.map((i) => i.symbol),
   ).toEqual(targetSymbols);

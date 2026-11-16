@@ -36,7 +36,10 @@ vi.mock("node:fs/promises", async () => {
       path: Parameters<typeof actual.readdir>[0],
       options?: Parameters<typeof actual.readdir>[1],
     ) => {
-      if (!inside(path)) return actual.readdir(path, options);
+      if (!inside(path))
+        return options === undefined
+          ? actual.readdir(path)
+          : actual.readdir(path, options);
       const entries = new Map<string, boolean>();
       for (const file of virtual.sizes.keys()) {
         const part = relative(path, file);

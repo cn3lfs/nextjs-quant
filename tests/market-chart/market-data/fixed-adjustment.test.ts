@@ -18,8 +18,8 @@ it("keeps the exact anchored prefix when a future bonus and cash dividend arrive
   const next = [...old, bar("2026-01-03", 5), bar("2026-01-04", 4.9)];
   const oldFactors = adjustmentFactors(old, []),
     factors = adjustmentFactors(next, [
-      { date: "2026-01-03", category: 1, bonusRatio: 1 },
-      { date: "2026-01-04", category: 1, dividend: 0.1 },
+      { date: "2026-01-03", category: 1, name: "除权除息", bonusRatio: 1 },
+      { date: "2026-01-04", category: 1, name: "除权除息", dividend: 0.1 },
     ]);
   const anchor = oldFactors[0]!;
   const before = applyAdjustmentAtAnchor(old, oldFactors, anchor);

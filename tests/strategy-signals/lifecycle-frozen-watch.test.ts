@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import {
   prepareStrategy,
   prepareStrategyRulePoints,
+  strategyObjectSchema,
   type StrategyObjectInput,
 } from "trading-strategies";
 import { runPortfolio, type PortfolioRequest } from "quant-backtest";
@@ -291,7 +292,7 @@ function holdingFixture() {
     boundAt: trade.time,
     protection: {
       version: "plan-protection-1",
-      exitSpec: f.strategy.exit,
+      exitSpec: strategyObjectSchema.parse(f.strategy).exit,
       initialStop: 10,
       target: null,
       entryReference: trade.price,

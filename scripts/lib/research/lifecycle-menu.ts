@@ -7,8 +7,8 @@ type Detector = {
   minimumBreadth: number;
   minimumCoverage: number;
   maximumValuationPercentile: number;
-  benchmark: string;
-  diagnosticBenchmark: string;
+  benchmark: "sh000300";
+  diagnosticBenchmark: "sh000001";
 };
 export type LifecycleMain = {
   id: string;

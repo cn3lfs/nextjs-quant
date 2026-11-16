@@ -250,7 +250,7 @@ export function lifecycleExecutionPlan(
             sourceHash: sourceFor(bundle, trial.candidate).inputHash,
             buildHash,
             candidate: trial.candidate,
-            axisHash: family.axisHash,
+            axisHash: family?.axisHash ?? null,
             segment,
           }),
         })) ?? [],
