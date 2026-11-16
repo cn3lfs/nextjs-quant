@@ -314,6 +314,19 @@ export function resolveLifecycleMissing(
   ];
 }
 
+/** Rejected source rows need no stock/market signal matrix merely to report
+ * insufficient cycle evidence. A runnable row keeps its original projection. */
+export function lifecycleLowZoneEvidence<T>(
+  candidate: Pick<LifecycleMain, "detector">,
+  declaration: { missingRefs: readonly string[] },
+  axis: readonly string[],
+  project: () => T,
+): T | null {
+  return candidate.detector && !declaration.missingRefs.length && axis.length
+    ? project()
+    : null;
+}
+
 export function lifecyclePrepareSummary(value: {
   source: LifecycleSourceBundle;
   plan: ReturnType<typeof lifecycleExecutionPlan>;
@@ -1017,9 +1030,12 @@ async function runLifecycleResearchLocked(
     const { trial } = allRows.find((r) => r.row.id === entry.id)!,
       declaration = plan.trials.find((r) => r.id === entry.id)!,
       extra = declaration.missingRefs.length ? ["source-evidence-missing"] : [];
-    const low = trial.candidate.detector
-      ? lowProjection(source, trial.candidate)
-      : null;
+    const low = lifecycleLowZoneEvidence(
+      trial.candidate,
+      declaration,
+      source.families[trial.candidate.family]?.dailyAxis ?? [],
+      () => lowProjection(source, trial.candidate),
+    );
     let cycles = 0,
       active = false;
     for (const point of low?.market ?? []) {

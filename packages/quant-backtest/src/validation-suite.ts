@@ -282,9 +282,11 @@ export function validationNeighborhood(
         ).length /
           neighbor.windows.length >=
           policy.minimumPositiveWindows,
-      perturbed: provenance?.get(neighbor.id) ?? (neighbor.id.includes("-neighbor-entry-")
-        ? ("entry" as const)
-        : ("exit" as const)),
+      perturbed:
+        provenance?.get(neighbor.id) ??
+        (neighbor.id.includes("-neighbor-entry-")
+          ? ("entry" as const)
+          : ("exit" as const)),
       ...(!testable
         ? {
             reason: identical

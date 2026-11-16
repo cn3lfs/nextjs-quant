@@ -5,6 +5,7 @@ import {
   lifecycleWeeklySeed,
   resolveLifecycleMissing,
   lifecyclePrepareSummary,
+  lifecycleLowZoneEvidence,
 } from "../../scripts/lib/research/lifecycle-runner";
 import {
   lifecycleConfigHash,
@@ -28,6 +29,42 @@ it("each independent segment takes its most recent completed weekly signal, incl
   expect(lifecycleWeeklySeed(calendar, "2026-01-12")).toBe("2026-01-09");
   expect(lifecycleWeeklySeed(calendar, "2026-01-13")).toBe("2026-01-09");
   expect(lifecycleWeeklySeed(calendar, "2026-01-19")).toBe("2026-01-16");
+});
+
+it("does not materialize low-zone stock/market projections for missing or empty-axis rows, while runnable evidence is unchanged", () => {
+  const lowTrials = lifecycleTrials().filter(
+    (trial) => trial.candidate.detector,
+  );
+  expect(lowTrials).toHaveLength(5);
+  let calls = 0;
+  const exact = { market: [{ date: "2026-01-01" }] };
+  const project = () => {
+    calls++;
+    return exact;
+  };
+  for (const { candidate } of lowTrials) {
+    expect(
+      lifecycleLowZoneEvidence(
+        candidate,
+        { missingRefs: ["known-source-gap"] },
+        ["2026-01-01"],
+        project,
+      ),
+    ).toBeNull();
+    expect(
+      lifecycleLowZoneEvidence(candidate, { missingRefs: [] }, [], project),
+    ).toBeNull();
+  }
+  expect(calls).toBe(0);
+  expect(
+    lifecycleLowZoneEvidence(
+      lowTrials[0]!.candidate,
+      { missingRefs: [] },
+      ["2026-01-01"],
+      project,
+    ),
+  ).toBe(exact);
+  expect(calls).toBe(1);
 });
 
 it("predeclares real segmented calls and keeps neighbors outside the selectable main menu", () => {
