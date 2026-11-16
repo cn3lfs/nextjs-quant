@@ -7,7 +7,11 @@ import { AlertRepository } from "../../src/server/db/alert-repository";
 import { seedR2cFixture } from "./r2c-fixture";
 import daily from "../fixtures/breakout-valid.json";
 
-/** Synthetic fixed evidence only. No live strategy or external subscription. */
+/** Synthetic fixed evidence only. No live strategy or external subscription.
+ * This profile also contains R3b historical manual trades without certified
+ * current cost/protection evidence. Preserve that gap for plan rejection;
+ * the standalone daily profile covers successful saves with complete evidence.
+ */
 export async function seedR3cFixture(db: Database.Database, directory: string) {
   seedR2cFixture(db);
   const repo = new AlertRepository(db),

@@ -8,6 +8,18 @@ for (const width of [1440, 1024]) {
     await page.setViewportSize({ width, height: 1000 });
     const outbound: string[] = [],
       effects: string[] = [];
+    const readPlans = async () => {
+      const response = await page.request.get(
+        "/api/trpc/alertPlans?input=" +
+          encodeURIComponent(JSON.stringify({ json: { page: 0 } })),
+        { headers: trpcHeaders },
+      );
+      expect(response.ok()).toBe(true);
+      return (await response.json()).result.data.json as {
+        total: number;
+        items: { id: string; status: string }[];
+      };
+    };
     page.on("request", (r) => {
       if (!new URL(r.url()).hostname.match(/^(127\.0\.0\.1|localhost)$/))
         outbound.push(r.url());
@@ -44,13 +56,22 @@ for (const width of [1440, 1024]) {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "加入计划", exact: true }).focus();
     await page.keyboard.press("Enter");
+    const plansBefore = await readPlans();
     await page
       .getByRole("button", { name: "保存交易计划", exact: true })
       .focus();
     await page.keyboard.press("Enter");
+    // Unlike the standalone daily positive path, this mixed historical book
+    // has unknown current holding cost/protection and must fail admission.
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "同标的既有持仓缺少成本或止损依据，不能计算剩余风险",
+      }),
+    ).toBeVisible();
     await expect(
       page.getByRole("status").filter({ hasText: "已保存交易计划" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
+    expect(await readPlans()).toEqual(plansBefore);
     await page
       .getByRole("navigation", { name: "工作台导航" })
       .getByRole("link", { name: "账户与复盘", exact: true })
@@ -104,9 +125,27 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("button", { name: "晋级策略", exact: true }),
     ).toBeDisabled();
+    // Manual live is available, but an unqualified strategy cannot execute it
+    // without explicit risk acceptance and the final confirmation.
+    const live = page.getByRole("button", {
+      name: "开启 live 提醒",
+      exact: true,
+    });
+    await expect(live).toBeEnabled();
+    await live.focus();
+    await page.keyboard.press("Enter");
+    const liveDialog = page.getByRole("dialog");
+    await expect(liveDialog).toContainText("当前门槛未通过");
     await expect(
-      page.getByRole("button", { name: "开启 live 提醒", exact: true }),
+      liveDialog.getByRole("checkbox", {
+        name: "接受未验证策略提醒风险",
+        exact: true,
+      }),
+    ).not.toBeChecked();
+    await expect(
+      liveDialog.getByRole("button", { name: "确认执行", exact: true }),
     ).toBeDisabled();
+    await page.keyboard.press("Escape");
     await page.getByText(/Walk-forward 1/).click();
     await expect(page.getByText(/成本×2：收益 2.0%/).first()).toBeVisible();
     await page
@@ -132,21 +171,7 @@ for (const width of [1440, 1024]) {
       path: resolve(screens, `lab-${width}.png`),
       fullPage: true,
     });
-    // Release the plan reservation before the next width uses the same fixture.
-    const response = await page.request.get(
-      "/api/trpc/alertPlans?input=" +
-        encodeURIComponent(JSON.stringify({ json: { page: 0 } })),
-      { headers: trpcHeaders },
-    );
-    const plans = (await response.json()).result.data.json.items as {
-      id: string;
-      status: string;
-    }[];
-    for (const plan of plans.filter((p) => p.status === "open"))
-      await page.request.post("/api/trpc/cancelAlertPlan", {
-        headers: trpcHeaders,
-        data: { json: plan.id },
-      });
+    expect(await readPlans()).toEqual(plansBefore);
   });
   test(`R3c 系统备份与安全研究入口 ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -155,7 +180,7 @@ for (const width of [1440, 1024]) {
       name: "数据库与备份",
       exact: true,
     });
-    await expect(backup).toContainText("当前库版本 18");
+    await expect(backup).toContainText("当前库版本 19");
     await expect(
       backup.getByRole("spinbutton", { name: "备份保留份数" }),
     ).toHaveValue("3");
