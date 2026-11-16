@@ -20,6 +20,20 @@ import { loadAccountBook } from "../../portfolio/account-workspace-service";
 import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
 import { cryptoRiskSummary } from "../../crypto-trading/risk-summary";
 import { planCorrelation } from "../../portfolio/plan-correlation";
+/** One versioned account read per request, shared by all candidate sources. */
+async function planAccountContext(localOnly: boolean) {
+  const config = settings(),
+    now = Date.now();
+  const accounts = new AccountWorkspaceRepository();
+  const book = await loadAccountBook(accounts, config, now, { localOnly });
+  return {
+    config,
+    now,
+    book,
+    repo: new AlertRepository(accounts.db),
+    assertCurrent: () => accounts.assertVersion(book.facts.version),
+  };
+}
 export const alertsRouter = createTRPCRouter({
   planCorrelation: p("portfolio", "read")
     .input(z.string().min(1).max(1000))
@@ -34,9 +48,10 @@ export const alertsRouter = createTRPCRouter({
         snapshotId: z.string().min(1).max(200),
       }),
     )
-    .mutation(({ input }) => {
-      const repo = new AlertRepository();
+    .mutation(async ({ input }) => {
+      const { repo, book, now, assertCurrent } = await planAccountContext(true);
       return repo.atomic(() => {
+        assertCurrent();
         const strategy = strategyObjectSchema.parse(
           repo.screenCandidate(input.jobId, input.snapshotId),
         );
@@ -78,7 +93,12 @@ export const alertsRouter = createTRPCRouter({
           outcomes: [],
         };
         repo.record(strategy, event);
-        return workspaceCandidate(repo.event(event.key)!, repo);
+        return workspaceCandidate(
+          repo.event(event.key)!,
+          repo,
+          now,
+          book.positions,
+        );
       });
     }),
   todayWorkspace: p("alerts", "read").query(() => todayWorkspace()),
@@ -91,15 +111,22 @@ export const alertsRouter = createTRPCRouter({
         minimumRps: z.number().finite().min(0).max(100).optional(),
       }),
     )
-    .query(({ input }) => workspaceCandidates(input)),
+    .query(async ({ input }) => {
+      const { repo, book, now, assertCurrent } = await planAccountContext(true);
+      const result = workspaceCandidates(input, repo, now, book.positions);
+      assertCurrent();
+      return result;
+    }),
   workspaceCandidate: p("alerts", "read")
     .input(z.string().min(1).max(1000))
-    .query(({ input }) => {
-      const repo = new AlertRepository();
+    .query(async ({ input }) => {
+      const { repo, book, now, assertCurrent } = await planAccountContext(true);
       const event = repo.event(input);
       if (!event || event.type !== "entry" || event.status === "missed")
         throw new Error("入场候选不存在");
-      return workspaceCandidate(event, repo);
+      const result = workspaceCandidate(event, repo, now, book.positions);
+      assertCurrent();
+      return result;
     }),
   alertStatus: p("alerts", "read").query(() => {
     const repo = new AlertRepository();
@@ -161,23 +188,14 @@ export const alertsRouter = createTRPCRouter({
   createAlertPlan: p("alerts", "configure")
     .input(createAlertPlanSchema)
     .mutation(async ({ input }) => {
-      const config = settings();
-      const repo = new AccountWorkspaceRepository(),
-        book = await loadAccountBook(repo, config);
-      return createAlertPlan(
-        input,
-        config,
-        Date.now(),
-        new AlertRepository(repo.db),
-        {
-          positions: book.positions,
-          industry: (symbol) => {
-            const names = book.industryBySymbol.get(symbol) ?? [];
-            return names.length === 1 ? names[0]! : "未知";
-          },
-          assertCurrent: () => repo.assertVersion(book.facts.version),
-        },
-      );
+      const { config, repo, book, now, assertCurrent } =
+        await planAccountContext(false);
+      return createAlertPlan(input, config, now, repo, {
+        positions: book.positions,
+        industryGroups: (symbol) => book.industryBySymbol.get(symbol) ?? [],
+        industrySource: book.industrySource,
+        assertCurrent,
+      });
     }),
   cancelAlertPlan: p("alerts", "configure")
     .input(z.string().min(1).max(200))

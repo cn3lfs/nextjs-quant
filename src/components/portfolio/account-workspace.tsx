@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { accountKindLabels } from "~/lib/portfolio/account-workspace";
+import {
+  accountKindLabels,
+  industryGroupsFor,
+} from "~/lib/portfolio/account-workspace";
 import {
   formatNumber,
   formatPercent,
@@ -94,7 +97,8 @@ function UnifiedPositions() {
     {
       id: "sleeve",
       header: "分仓 / 行业",
-      cell: ({ row }) => `${row.original.sleeve} / ${row.original.industry}`,
+      cell: ({ row }) =>
+        `${row.original.sleeve} / ${industryGroupsFor(row.original).join("、") || "未知"}`,
     },
     {
       id: "value",
@@ -186,6 +190,7 @@ function UnifiedPositions() {
         ))}
       </div>
       <div className="flex flex-wrap gap-3 text-sm">
+        <p>行业组可重叠，各组独立校验；行业市值不相加为账户总额。</p>
         {query.data?.exposure.map((e) => (
           <p key={`${e.dimension}:${e.key}`}>
             {e.dimension} / {e.key}：{formatNumber(e.value)}
@@ -247,7 +252,8 @@ function AccountPositionDetail({ id }: { id: string }) {
         {formatNumber(p.rMultiple)}
       </p>
       <p>
-        原价时点 {p.at ?? "未知"} · 分仓 {p.sleeve} · 行业 {p.industry}
+        原价时点 {p.at ?? "未知"} · 分仓 {p.sleeve} · 行业组{" "}
+        {industryGroupsFor(p).join("、") || "未知"}
       </p>
       {p.reasons.map((r) => (
         <p key={r} className="text-sm text-nc-text-3">

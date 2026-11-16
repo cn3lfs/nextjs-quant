@@ -11,6 +11,7 @@ import {
   positionMetrics,
   tradeLinkSchema,
   accountTradeFingerprint,
+  industryGroupsFor,
   type AccountPosition,
   type AccountTrade,
 } from "~/lib/portfolio/account-workspace";
@@ -83,6 +84,7 @@ export async function loadAccountBook(
   dependencies: {
     context?: Awaited<ReturnType<typeof tradeContext>>;
     bars?: Record<string, Bar[]>;
+    localOnly?: boolean;
   } = {},
 ) {
   const facts = repo.snapshot(),
@@ -115,6 +117,9 @@ export async function loadAccountBook(
               root: config.tdxRoot,
               period: "day",
               adjustment: "none",
+              ...(dependencies.localOnly
+                ? { live: false, source: "local" as const }
+                : {}),
             });
       bars[symbol] = (result?.bars ?? []).filter(
         (b) =>
@@ -439,9 +444,19 @@ export async function loadAccountBook(
     }
   }
   const industryBySymbol = new Map<string, string[]>();
+  let industrySource: {
+    hash: string;
+    basis: "current-labelled";
+    grouping: "all-known-groups";
+  } | null = null;
   if (config.industryBlocksRoot) {
     try {
       const blocks = await readIndustryBlocks(config.industryBlocksRoot);
+      industrySource = {
+        hash: blocks.hash,
+        basis: "current-labelled",
+        grouping: "all-known-groups",
+      };
       for (const file of blocks.files)
         for (const symbol of file.members)
           industryBySymbol.set(symbol, [
@@ -452,14 +467,19 @@ export async function loadAccountBook(
     }
   }
   for (const p of positions.filter((p) => p.market === "cn-equity")) {
-    const industries = industryBySymbol.get(p.symbol) ?? [];
-    p.industry = industries.length === 1 ? industries[0]! : "未知";
+    const industries = industryGroupsFor({
+      industryGroups: industryBySymbol.get(p.symbol) ?? [],
+    });
+    p.industryGroups = industries;
+    p.industry = industries.join("、") || "未知";
     p.reasons.push(
-      industries.length === 1
-        ? "行业为当前Blocks成分，不代表历史归属"
-        : "行业缺失或多层归属，不能确认唯一行业",
+      industries.length
+        ? "行业组为当前Blocks成分，各已知组分别校验，不代表历史归属"
+        : "行业组缺失，无法确认行业组敞口",
     );
   }
+  for (const p of positions.filter((p) => p.market === "crypto"))
+    p.industryGroups = industryGroupsFor(p);
   repo.assertVersion(facts.version);
   return {
     facts,
@@ -470,6 +490,7 @@ export async function loadAccountBook(
     context,
     config,
     industryBySymbol,
+    industrySource,
   };
 }
 
@@ -499,27 +520,43 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
       missing: rows.filter((p) => p.value === null).length,
     };
   });
+  const groupNames = (
+    position: AccountPosition,
+    dimension: "market" | "sleeve" | "industry",
+  ) => {
+    if (dimension !== "industry") return [position[dimension]];
+    const names = industryGroupsFor(position);
+    return names.length ? names : ["未知"];
+  };
   const exposure = (["market", "sleeve", "industry"] as const).flatMap(
     (dimension) =>
-      [...new Set(positions.map((p) => `${p.currency}:${p[dimension]}`))].map(
-        (key) => {
-          const rows = positions.filter(
-            (p) => `${p.currency}:${p[dimension]}` === key,
-          );
-          return {
-            dimension,
-            key,
-            value: rows.every((p) => p.value !== null)
-              ? rows.reduce((n, p) => n + p.value!, 0)
-              : null,
-          };
-        },
-      ),
+      [
+        ...new Set(
+          positions.flatMap((p) =>
+            groupNames(p, dimension).map((group) => `${p.currency}:${group}`),
+          ),
+        ),
+      ].map((key) => {
+        const rows = positions.filter((p) =>
+          groupNames(p, dimension).some(
+            (group) => `${p.currency}:${group}` === key,
+          ),
+        );
+        return {
+          dimension,
+          overlapping: dimension === "industry",
+          key,
+          value: rows.every((p) => p.value !== null)
+            ? rows.reduce((n, p) => n + p.value!, 0)
+            : null,
+        };
+      }),
   );
   return {
     total: positions.length,
     totals,
     exposure,
+    industrySource: book.industrySource,
     items: positions
       .slice(input.page * 20, (input.page + 1) * 20)
       .map((p) => ({ ...p, ...positionMetrics(p) })),

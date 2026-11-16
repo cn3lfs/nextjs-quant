@@ -1,7 +1,7 @@
 import { HoldingProtectionRepository } from "../db/holding-protection-repository";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { AlertRepository } from "../db/alert-repository";
-import { loadAccountBook } from "./account-workspace-service";
+import { loadAccountBook, type AccountBook } from "./account-workspace-service";
 import { settings } from "../infra/settings";
 import {
   holdingProtectionCurrent,
@@ -15,8 +15,10 @@ export async function stopTasks(
   repo = new AccountWorkspaceRepository(),
   config = settings(),
   now = Date.now(),
+  accountBook?: AccountBook,
 ) {
-  const book = await loadAccountBook(repo, config, now, { bars: {} });
+  const book =
+    accountBook ?? (await loadAccountBook(repo, config, now, { bars: {} }));
   const alerts = new AlertRepository(repo.db);
   return new HoldingProtectionRepository(repo.db).all().flatMap((binding) => {
     if (

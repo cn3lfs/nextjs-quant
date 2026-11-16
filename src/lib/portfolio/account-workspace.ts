@@ -79,6 +79,8 @@ export type AccountPosition = {
   symbol: string;
   sleeve: string;
   industry: string;
+  /** Read old single-industry facts only when the array is absent. */
+  industryGroups?: readonly string[];
   quantity: number;
   cost: number | null;
   price: number | null;
@@ -199,6 +201,21 @@ export type CapViolation = {
   limit: number;
   reason: string;
 };
+/** An explicit empty snapshot is unknown. Never recover a stale single label
+ * from it or split a display string into invented classifications. */
+export function industryGroupsFor(value: {
+  industryGroups?: readonly string[];
+  industry?: string;
+}) {
+  const groups = value.industryGroups ?? [value.industry ?? ""];
+  return [
+    ...new Set(
+      groups
+        .map((group) => group.trim())
+        .filter((group) => group && group !== "未知"),
+    ),
+  ].sort();
+}
 export function checkExposureCaps(input: {
   positions: readonly AccountPosition[];
   reserved: readonly {
@@ -206,6 +223,7 @@ export function checkExposureCaps(input: {
     symbol: string;
     sleeve: string;
     industry: string;
+    industryGroups?: readonly string[];
     value: number;
     openRisk?: number | null;
   }[];
@@ -214,6 +232,7 @@ export function checkExposureCaps(input: {
     symbol: string;
     sleeve: string;
     industry: string;
+    industryGroups?: readonly string[];
     value: number;
     openRisk?: number | null;
     maxPositions?: number;
@@ -282,12 +301,46 @@ export function checkExposureCaps(input: {
         });
       continue;
     }
+    if (cap.dimension === "industry") {
+      // The weekly review's zero-valued proposed item is neutral. A real
+      // missing valuation remains exposure and must not bypass classification.
+      const grouped = items
+        .filter((item) => item.value !== 0)
+        .map((item) => ({ item, groups: industryGroupsFor(item) }));
+      const missingGroups = grouped.some((row) => row.groups.length === 0);
+      const keys =
+        cap.key === "*"
+          ? [...new Set(grouped.flatMap((row) => row.groups))].sort()
+          : [cap.key];
+      if (!keys.length && missingGroups) keys.push("未知");
+      for (const key of keys) {
+        const matching = grouped.filter((row) => row.groups.includes(key));
+        const unknown =
+          missingGroups ||
+          capital[cap.market] <= 0 ||
+          matching.some((row) => row.item.value === null);
+        const used = unknown
+          ? null
+          : matching.reduce((sum, row) => sum + row.item.value!, 0);
+        const limit = capital[cap.market] * cap.fraction;
+        if (unknown || used! > limit)
+          violations.push({
+            dimension: "industry",
+            key,
+            used,
+            limit,
+            reason: unknown
+              ? "持仓估值、行业组或资本依据不足，无法证明未超限"
+              : "计划及未完成预留加入后超过行业组敞口上限（各组独立校验）",
+          });
+      }
+      continue;
+    }
     const dimension = cap.dimension;
     const applies =
       dimension === "market" ||
       cap.key === "*" ||
-      proposed[dimension] === cap.key ||
-      (dimension === "industry" && proposed.industry === "未知");
+      proposed[dimension] === cap.key;
     if (!applies) continue;
     const keys =
       cap.key === "*" && dimension !== "market"
@@ -295,10 +348,7 @@ export function checkExposureCaps(input: {
         : [cap.key];
     for (const key of keys) {
       const matching = items.filter(
-        (p) =>
-          dimension === "market" ||
-          p[dimension] === key ||
-          (dimension === "industry" && p.industry === "未知"),
+        (p) => dimension === "market" || p[dimension] === key,
       );
       const used = matching.every((p) => p.value !== null)
         ? matching.reduce((n, p) => n + p.value!, 0)
@@ -307,7 +357,7 @@ export function checkExposureCaps(input: {
       const unknown =
         used === null ||
         capital[cap.market] <= 0 ||
-        ((dimension === "industry" || dimension === "sleeve") &&
+        (dimension === "sleeve" &&
           matching.some((p) => p[dimension] === "未知"));
       if (unknown || used! > limit)
         violations.push({

@@ -11,6 +11,7 @@ import { AlertRepository } from "../db/alert-repository";
 import {
   checkExposureCaps,
   effectiveExposureCaps,
+  industryGroupsFor,
   type AccountPosition,
 } from "~/lib/portfolio/account-workspace";
 
@@ -51,6 +52,12 @@ export function createAlertPlan(
   admission?: {
     positions: readonly AccountPosition[];
     industry?: (symbol: string) => string;
+    industryGroups?: (symbol: string) => readonly string[];
+    industrySource?: {
+      hash: string;
+      basis: "current-labelled";
+      grouping: "all-known-groups";
+    } | null;
     assertCurrent: () => void;
   },
 ) {
@@ -73,13 +80,16 @@ export function createAlertPlan(
         (p) => p.market === plan.market && p.symbol === plan.symbol,
       )?.industry ??
       "未知";
-    const violations = checkExposureCaps({
+    const capInput: Parameters<typeof checkExposureCaps>[0] = {
       positions,
       proposed: {
         market: plan.market,
         symbol: plan.symbol,
         sleeve: plan.sleeve,
         industry,
+        ...(admission?.industryGroups
+          ? { industryGroups: admission.industryGroups(plan.symbol) }
+          : {}),
         value: plan.stages.reduce((n, s) => n + s.entry * s.quantity, 0),
         openRisk: plan.stages.reduce(
           (n, s) => n + Math.max(0, s.entry - plan.stop) * s.quantity,
@@ -100,6 +110,9 @@ export function createAlertPlan(
               (row) => row.market === p.market && row.symbol === p.symbol,
             )?.industry ??
             "未知",
+          ...(admission?.industryGroups
+            ? { industryGroups: admission.industryGroups(p.symbol) }
+            : {}),
           openRisk:
             p.stop === null
               ? null
@@ -113,7 +126,8 @@ export function createAlertPlan(
         })),
       capital: config.alerts.capital,
       caps,
-    });
+    };
+    const violations = checkExposureCaps(capInput);
     if (violations.length && !input.overrideCaps)
       throw new Error(
         `敞口超限：${violations.map((v) => `${v.dimension}/${v.key}：${v.reason}（计划后${v.used ?? "未知"}，上限${v.limit}）`).join("；")}。核对后可明确选择仍然创建。`,
@@ -126,6 +140,19 @@ export function createAlertPlan(
           overridden: violations.length > 0 && input.overrideCaps === true,
           violations,
           caps,
+          industryGroups: {
+            source: admission?.industrySource ?? null,
+            proposed: {
+              market: plan.market,
+              symbol: plan.symbol,
+              groups: industryGroupsFor(capInput.proposed),
+            },
+            reserved: (capInput.reserved ?? []).map((p) => ({
+              market: p.market,
+              symbol: p.symbol,
+              groups: industryGroupsFor(p),
+            })),
+          },
         },
       },
       now,

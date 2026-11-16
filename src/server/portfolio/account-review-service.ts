@@ -7,6 +7,7 @@ import { activeHoldingRound } from "~/lib/portfolio/holding-protection";
 import {
   checkExposureCaps,
   effectiveExposureCaps,
+  industryGroupsFor,
   type AccountTrade,
 } from "~/lib/portfolio/account-workspace";
 import { closeScanDeadline } from "~/lib/market/close-scan-window";
@@ -454,6 +455,7 @@ export function accountWeeklyReview(
         symbol: "",
         sleeve: "",
         industry: "",
+        industryGroups: [],
         value: 0,
         openRisk: 0,
       },
@@ -469,6 +471,13 @@ export function accountWeeklyReview(
               : (book.positions.find(
                   (r) => r.market === market && r.symbol === p.symbol,
                 )?.industry ?? "未知"),
+          industryGroups:
+            book.industryBySymbol.get(p.symbol) ??
+            industryGroupsFor(
+              book.positions.find(
+                (row) => row.market === market && row.symbol === p.symbol,
+              ) ?? {},
+            ),
           value:
             p.stages?.reduce((n, s) => n + s.entry * s.quantity, 0) ??
             p.entry * (p.quantity ?? 0),

@@ -74,6 +74,29 @@ export const tradePlanSchema = z
         at: z.number(),
         overridden: z.boolean(),
         caps: z.array(exposureCapSchema),
+        industryGroups: z
+          .object({
+            source: z
+              .object({
+                hash: z.string(),
+                basis: z.literal("current-labelled"),
+                grouping: z.literal("all-known-groups"),
+              })
+              .nullable(),
+            proposed: z.object({
+              market: z.enum(["cn-equity", "crypto"]),
+              symbol: z.string(),
+              groups: z.array(z.string()),
+            }),
+            reserved: z.array(
+              z.object({
+                market: z.enum(["cn-equity", "crypto"]),
+                symbol: z.string(),
+                groups: z.array(z.string()),
+              }),
+            ),
+          })
+          .optional(),
         violations: z.array(
           z.object({
             dimension: z.string(),

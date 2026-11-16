@@ -52,7 +52,10 @@ function SettingsEditor({ initial }: { initial: AccountReviewSettings }) {
             [
               { key: "symbolWeight", label: "单票市值上限（%）" },
               { key: "heat", label: "总持仓风险上限（%）" },
-              { key: "industryWeight", label: "A股当前行业市值上限（%）" },
+              {
+                key: "industryWeight",
+                label: "A股每个已知行业组市值上限（%）",
+              },
             ] as const
           ).map((f) => (
             <label key={f.key}>

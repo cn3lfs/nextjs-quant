@@ -20,6 +20,8 @@ import { planExposure } from "./plan-exposure";
 import { stopTasks } from "../portfolio/holding-protection-service";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { strategyLabDetail } from "../db/strategy-lab";
+import { loadAccountBook } from "../portfolio/account-workspace-service";
+import type { AccountPosition } from "~/lib/portfolio/account-workspace";
 
 export type RegimeSnapshot = NonNullable<
   ReturnType<typeof regimeObservation>
@@ -45,6 +47,7 @@ export function workspaceCandidate(
   event: AlertEvent,
   repo = new AlertRepository(),
   now = Date.now(),
+  positions?: readonly AccountPosition[],
 ) {
   const shadow = repo.state<ShadowRegistration>(
     `shadow:${event.strategyId}:${event.version}`,
@@ -85,6 +88,7 @@ export function workspaceCandidate(
       settings(),
       now,
       repo,
+      positions,
     );
     quantity = plan.quantity;
     positionSnapshot = plan.positionSnapshot;
@@ -125,15 +129,18 @@ export function workspaceCandidates(
   },
   repo = new AlertRepository(),
   now = Date.now(),
+  positions?: readonly AccountPosition[],
 ) {
   const result = repo.candidatePage(input);
   return {
     ...result,
     items: result.items.map((e) => ({
-      ...workspaceCandidate(e, repo, now),
+      ...workspaceCandidate(e, repo, now, positions),
       rps20: e.rps20,
       rpsDate: e.rpsDate,
-      sources: e.sources.map((source) => workspaceCandidate(source, repo, now)),
+      sources: e.sources.map((source) =>
+        workspaceCandidate(source, repo, now, positions),
+      ),
     })),
   };
 }
@@ -142,6 +149,12 @@ export async function todayWorkspace(
   repo = new AlertRepository(),
 ) {
   const config = settings();
+  const book = await loadAccountBook(
+    new AccountWorkspaceRepository(repo.db),
+    config,
+    now,
+    { localOnly: true },
+  );
   const symbols = [
     ["cn-equity", "sh000300"],
     ["cn-equity", "sz399006"],
@@ -187,6 +200,7 @@ export async function todayWorkspace(
     new AccountWorkspaceRepository(repo.db),
     config,
     now,
+    book,
   );
   const openPlans = repo
     .plans(true)
@@ -215,7 +229,7 @@ export async function todayWorkspace(
     },
     capital: config.alerts.capital,
     gaps: repo.dataGaps(),
-    candidates: workspaceCandidates({ page: 0 }, repo, now),
+    candidates: workspaceCandidates({ page: 0 }, repo, now, book.positions),
     openPlans: { total: openPlans.length, items: openPlans.slice(0, 20) },
     stopTasks: protectionTasks,
     triggered: repo.history(
