@@ -60,7 +60,9 @@ try {
     window.market.enterMarket(null);
   });
   assert.equal(await page.evaluate(() => window.requests.length), 0);
-  assert.equal(new URL(page.url()).searchParams.get("symbol"), "sh600000");
+  // Reading a bare chart route must not write history and cancel another
+  // navigation being committed by Next. Explicit selections below still do.
+  assert.equal(new URL(page.url()).search, "");
   assert.equal(await page.evaluate(() => window.market.period), "5m");
   await page.evaluate(() => window.market.setMarketSource("tencent"));
   await page.waitForFunction(() => window.market.marketSource === "tencent");

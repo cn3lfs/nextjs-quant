@@ -2,7 +2,6 @@ import { expect, test, guardWorkbenchPage } from "./workbench-test";
 import {
   budgets,
   metrics,
-  sidebarPages,
   trpcCalls,
   visit,
   waitForIdleServer,
@@ -134,29 +133,95 @@ test("after touring every page, hidden panels stay quiet", async ({
   page.on("pageerror", (e) => errors.push(e.message));
   await waitForIdleServer(page);
   await page.goto("/", { waitUntil: "networkidle" });
-  for (const path of sidebarPages) await visit(page, path);
+  // The sidebar now exposes six workspaces. Exercise their current controls,
+  // including every retained Scan mode, rather than treating old tab URLs as
+  // sidebar links. Keep this tour local; other legacy tests own their routes.
+  const switchView = async (group: string, name: string, path: string) => {
+    await page
+      .getByRole("radiogroup", { name: group, exact: true })
+      .getByRole("radio", { name, exact: true })
+      .click();
+    const target = new URL(path, "http://workbench");
+    await expect(page).toHaveURL(
+      (url) => url.pathname === target.pathname && url.search === target.search,
+    );
+    await page.waitForLoadState("networkidle");
+  };
+  await switchView("今日视图", "盘中预选历史", "/?tab=intraday");
+  await switchView("今日视图", "市场与数据总览", "/?tab=overview");
+  await visit(page, "/scan");
+  for (const [name, tab] of [
+    ["证券池", "pool"],
+    ["条件选股", "formula"],
+    ["RPS 数据管理", "rps"],
+    ["打板情绪", "sentiment"],
+  ] as const)
+    await switchView("扫描视图", name, `/scan?tab=${tab}`);
+  await switchView("扫描市场", "BTC / ETH", "/scan?tab=crypto");
+  await switchView("扫描市场", "期货浏览", "/scan?tab=futures");
+  for (const path of [
+    "/lab",
+    "/lab/backtest",
+    "/accounts",
+    "/intel",
+    "/system",
+    "/system/tasks",
+  ])
+    await visit(page, path);
   // Loads started on a page can finish after leaving it; wait for a quiet
   // 3-second window (at most 30 s) before observing.
   for (let i = 0; i < 10; i++)
     if (!(await trpcCalls(page, () => page.waitForTimeout(3000))).length) break;
-  // Only activity summaries poll for sidebar badges. The tour ends on /tasks;
-  // status belongs to other pages and must now be counted as a hidden request.
-  const shell = new Set(["taskOverview", "monitorWorkspaceSummary"]);
+  // Classify only reads with an owner that is visibly present NOW. Generic
+  // status still belongs to hidden workspaces and is never exempted.
+  await expect(
+    page.getByRole("navigation", { name: "工作台导航", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.sidebar [role="status"][title^="提醒引擎："]'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "任务概览", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "最近错误", exact: true }),
+  ).toBeVisible();
+  const visibleOwners = {
+    taskOverview: "visible task overview and sidebar counts",
+    monitorWorkspaceSummary: "visible WorkbenchSidebar badge",
+    alertStatus: "visible compact sidebar AlertStatus",
+    recentErrors: "visible /system/tasks RecentErrors",
+  };
+  const visible = new Set(Object.keys(visibleOwners));
+  // Both retained route trees must exist behind hidden wrappers. A document
+  // reload that discarded them must not make the quiet-window test pass.
+  for (const path of ["/scan", "/lab/backtest"]) {
+    const retained = page.locator(`[data-retained-route="${path}"]`);
+    await expect(retained).toHaveCount(1);
+    await expect(retained.locator("..")).toHaveAttribute("hidden", "");
+    await expect(retained).toBeHidden();
+  }
   const cdp = await page.context().newCDPSession(page);
   const observe = async () => {
     const start = await metrics(page, cdp);
-    const names = (
-      await trpcCalls(page, () => page.waitForTimeout(10000))
-    ).filter((name) => !shell.has(name));
-    return { names, start, end: await metrics(page, cdp) };
+    const rawCalls = await trpcCalls(page, () => page.waitForTimeout(10000));
+    return {
+      rawCalls,
+      visibleCalls: rawCalls.filter((name) => visible.has(name)),
+      hiddenCalls: rawCalls.filter((name) => !visible.has(name)),
+      visibleOwners,
+      start,
+      end: await metrics(page, cdp),
+    };
   };
   // A late one-shot load (e.g. the pinned chart finishing after the tour) may
   // land in the first window; a hidden panel that polls repeats in the next.
-  let window = await observe();
-  if (window.names.length) window = await observe();
-  const { names: calls, start: before, end: after } = window;
+  const observations = [await observe()];
+  if (observations[0]!.hiddenCalls.length) observations.push(await observe());
+  const window = observations.at(-1)!;
+  const { hiddenCalls: calls, start: before, end: after } = window;
   await testInfo.attach("hidden-panel-window", {
-    body: JSON.stringify(window, null, 2),
+    body: JSON.stringify({ ...window, observations }, null, 2),
     contentType: "application/json",
   });
   expect(typeof before.TaskDuration).toBe("number");
@@ -167,8 +232,8 @@ test("after touring every page, hidden panels stay quiet", async ({
   expect(
     (after.TaskDuration! - before.TaskDuration!) * 1000,
   ).toBeLessThanOrEqual(budgets.idleMainThreadMsIn10s);
-  // The tour ends on /tasks, an ordinary route outside the panel cache.
-  // Its visible content must not be counted as a seventh cached panel.
+  // The tour ends on /system/tasks, an ordinary route outside the panel cache.
+  // Its visible content must not be counted as an extra cached panel.
   await expect(page).toHaveURL((url) => url.pathname === "/system/tasks");
   await expect(page.locator(".page > div:not([hidden])")).toHaveCount(1);
   expect(await page.locator(".page > div[hidden]").count()).toBeLessThanOrEqual(

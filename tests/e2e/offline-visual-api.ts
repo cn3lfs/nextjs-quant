@@ -12,6 +12,11 @@ const localReads = new Set([
   "strategyLab",
   "strategyLabDetail",
   "strategyLabReport",
+  // Current Today/Lab/account read models. These do not enable shadow mode,
+  // refresh exchange balances, notify or submit an order.
+  "paperShadowScanning",
+  "cryptoRiskSummary",
+  "accountRiskPositions",
   "databaseStatus",
   "taskEvidence",
   "intelEvents",

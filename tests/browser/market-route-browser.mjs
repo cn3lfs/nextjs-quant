@@ -7,13 +7,13 @@ const bundle = await build({
   stdin: {
     contents: `import React from 'react';import {createRoot} from 'react-dom/client';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import {usePathname} from 'next/navigation';
+import {usePathname,useSearchParams} from 'next/navigation';
 import {useMarketState} from './src/components/market/use-market-state';
 import {MarketRouteSelection} from './src/components/market/market-route-selection';
 import {useMarketSession} from './src/lib/stores/market-session';
 const client=new QueryClient();window.calls=[];window.session=useMarketSession;
-function App(){const state=useMarketState('local');window.market=state;const path=usePathname();
-return <><output>{state.loaded?.symbol??'empty'}</output>{path==='/scan'&&<MarketRouteSelection enterMarket={state.enterMarket}/>}</>}
+function App(){const state=useMarketState('local');window.market=state;const path=usePathname();const tab=useSearchParams().get('tab');
+return <><output>{state.loaded?.symbol??'empty'}</output>{path==='/scan'&&(!tab||tab==='chart')&&<MarketRouteSelection enterMarket={state.enterMarket}/>}</>}
 createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><App/></QueryClientProvider>);`,
     resolveDir: process.cwd(),
     loader: "tsx",
@@ -60,7 +60,7 @@ try {
     r.fulfill({ contentType: "text/html", body: '<div id="root"></div>' }),
   );
   await page.goto(
-    "http://127.0.0.1/market?symbol=sh600000&period=week&source=local&adjustment=forward",
+    "http://127.0.0.1/scan?symbol=sh600000&period=week&source=local&adjustment=forward",
   );
   const mount = () =>
     page.addScriptTag({ content: bundle.outputFiles[0].text });
@@ -135,7 +135,11 @@ try {
     "financial",
   ]);
   await page.evaluate(() => history.pushState(null, "", "/scan?tab=formula"));
-  await page.waitForFunction(() => location.pathname === "/scan?tab=formula");
+  await page.waitForFunction(
+    () =>
+      location.pathname === "/scan" &&
+      new URLSearchParams(location.search).get("tab") === "formula",
+  );
   const count = await page.evaluate(() => window.calls.length);
   await page.evaluate(() => {
     const s = window.session.getState();
@@ -161,10 +165,9 @@ try {
     history.pushState(null, "", "/scan");
   });
   await page.waitForFunction(
-    () =>
-      window.market.loaded?.id === "saved" &&
-      location.search.includes("base=5m"),
+    () => window.market.loaded?.id === "saved" && window.market.period === "5m",
   );
+  assert.equal(new URL(page.url()).search, "");
   assert.equal(
     await page.evaluate(() => window.calls.length),
     count,

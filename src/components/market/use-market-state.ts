@@ -50,6 +50,26 @@ export function useMarketState(defaultSource?: MarketSource) {
     },
   });
   const marketSource = state.sourceOverride ?? defaultSource ?? "auto";
+  const requestSnapshot = (
+    ...[input, options]: Parameters<typeof snapshotLoad.mutate>
+  ) => {
+    const source = input.source
+      ? marketSourceSchema.parse(input.source)
+      : marketSource;
+    const revision = useMarketSession.getState().revision + 1;
+    request.current = {
+      key: JSON.stringify([input.symbol, input.period, source]),
+      revision,
+      source,
+    };
+    useMarketSession.setState({
+      symbol: input.symbol,
+      period: input.period,
+      marketSource: source,
+      revision,
+    });
+    snapshotLoad.mutate({ ...input, source }, options);
+  };
   const load = {
     ...snapshotLoad,
     // A candidate selected on another page also supersedes a failed/pending
@@ -62,23 +82,8 @@ export function useMarketState(defaultSource?: MarketSource) {
     error:
       request.current?.revision === state.revision ? snapshotLoad.error : null,
     mutate: (...[input, options]: Parameters<typeof snapshotLoad.mutate>) => {
-      const source = input.source
-        ? marketSourceSchema.parse(input.source)
-        : marketSource;
-      const revision = useMarketSession.getState().revision + 1;
-      request.current = {
-        key: JSON.stringify([input.symbol, input.period, source]),
-        revision,
-        source,
-      };
-      useMarketSession.setState({
-        symbol: input.symbol,
-        period: input.period,
-        marketSource: source,
-        revision,
-      });
+      requestSnapshot(input, options);
       rememberMarketUrl();
-      snapshotLoad.mutate({ ...input, source }, options);
     },
     acceptSnapshot: useMarketSession.getState().acceptSnapshot,
   };
@@ -98,7 +103,6 @@ export function useMarketState(defaultSource?: MarketSource) {
       marketSource: source,
       marketView: view ?? current.marketView,
     });
-    rememberMarketUrl();
     const key = JSON.stringify([symbol, period, source]);
     const selected = current.loaded;
     // A saved candidate owns its recorded snapshot. Returning must not replace
@@ -116,7 +120,9 @@ export function useMarketState(defaultSource?: MarketSource) {
         request.current.revision === current.revision
       )
     )
-      load.mutate({ symbol, period, source });
+      // Reading the route must not rewrite it: a late initial load can run
+      // while Next is committing the user's navigation to another Scan tab.
+      requestSnapshot({ symbol, period, source });
   }
   return {
     ...state,
