@@ -128,17 +128,21 @@ function fixture() {
   paper.create(account);
   alerts.strategies.saveStrategy(strategy);
   const buildHash = forwardExecutionBuildHash();
-  const freeze = (backtestPassed = true) =>
+  const freeze = (
+    backtestPassed = true,
+    signalCount = 0,
+    tradeReturns: number[] = [],
+  ) =>
     references.freeze({
       strategy,
       distribution: {
         days: Array.from({ length: 240 }, (_, i) => ({
           date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
           return: 0,
-          signals: 0,
+          signals: signalCount,
         })),
-        tradeReturns: [],
-        slippageBps: [],
+        tradeReturns,
+        slippageBps: tradeReturns.map(() => 0),
       },
       inputHash: "a".repeat(64),
       resultHash: "b".repeat(64),
@@ -167,6 +171,219 @@ function fixture() {
   };
 }
 describe("registered immutable paper conformance", () => {
+  it("compares six-bar UTC days after intraday registration while retaining the partial day's financial baseline", () => {
+    const f = fixture();
+    Object.assign(
+      f.strategy,
+      strategyObjectSchema.parse({
+        ...f.strategy,
+        period: "4h",
+        entry: { kind: "constant", value: true },
+        exit: { maxBars: 2 },
+        overlay: { symbolWeight: 1 },
+      }),
+    );
+    const bars = Array.from({ length: 121 * 6 }, (_, i) => {
+      const close = i >= 5 ? 9 : 10;
+      const open = i > 5 ? 9 : 10;
+      return {
+        date: new Date(Date.UTC(2026, 0, 1, (i + 1) * 4)).toISOString(),
+        open,
+        high: Math.max(open, close) + 0.1,
+        low: Math.min(open, close) - 0.1,
+        close,
+        volume: 10000,
+        amount: 100000,
+      };
+    });
+    const start = "2026-01-01T16:00:00.000Z";
+    Object.assign(f.state.request, {
+      start,
+      end: bars.at(-1)!.date,
+      calendar: bars.map((b) => b.date),
+      instruments: [
+        { ...f.state.request.instruments[0]!, bars, signalBars: bars },
+      ],
+      costs: {
+        version: "cost-experiment-1",
+        commissionBps: 0,
+        minimumCommission: 0,
+        sellTaxBps: 0,
+        slippageBps: 0,
+      },
+    });
+    f.account.startedAt = Date.parse("2026-01-01T14:00:00Z");
+    f.state.result = runPortfolio(f.state.request);
+    f.state.benchmark = bars;
+    f.state.decisions = bars
+      .filter((b) => b.date >= start)
+      .map((b) => ({
+        strategyId: f.strategy.id,
+        symbol: "BTCUSDT",
+        date: b.date,
+        entry: true,
+        exit: false,
+        stop: null,
+        observedAt: Date.parse(b.date) + 60000,
+        source: "prospective native4h fixture",
+      }));
+    expect(f.state.result.fills[0]?.date).toBe("2026-01-01T20:00:00.000Z");
+    expect(
+      f.state.result.curve.find((p) => p.date === "2026-01-02T00:00:00.000Z")!
+        .equity,
+    ).toBeLessThan(f.account.initial);
+    const reference = f.freeze(true, 6, Array(40).fill(0));
+    const now = Date.parse(bars.at(-1)!.date) + 60000;
+    const context = { reference, buildHash: f.buildHash, calendar: [] };
+    const assessment = assessPaperPortfolio(f.account, f.state, now, context);
+    expect(assessment.conformance).toMatchObject({
+      days: 120,
+      equity: { breaches: [] },
+    });
+    expect(assessment.conformance!.signalRate.observed).toBeCloseTo(6, 12);
+    expect(assessment.reasons).not.toContain(
+      "incomplete-observed-forward-evidence",
+    );
+    expect(assessment.conformance!.equity.lowerPath[0]?.date).toBe(
+      "2026-01-02",
+    );
+    const atFirstCompletion = assessPaperPortfolio(
+      { ...f.account, startedAt: Date.parse("2026-01-01T04:00:00Z") },
+      f.state,
+      now,
+      context,
+    );
+    expect(atFirstCompletion.reasons).not.toContain(
+      "incomplete-observed-forward-evidence",
+    );
+    const hole = assessPaperPortfolio(
+      f.account,
+      {
+        ...f.state,
+        request: {
+          ...f.state.request,
+          calendar: f.state.request.calendar.filter(
+            (d) => d !== "2026-01-20T08:00:00.000Z",
+          ),
+        },
+      },
+      now,
+      context,
+    );
+    expect(hole.conformance!.days).toBe(119);
+    expect(hole.reasons).toContain("incomplete-observed-forward-evidence");
+  });
+  it("uses the same eligible raw-signal counts as research and rejects missing or unavailable book context", () => {
+    const f = fixture();
+    Object.assign(
+      f.strategy,
+      strategyObjectSchema.parse({
+        ...f.strategy,
+        entry: { kind: "external", id: "prospective-rule", side: "entry" },
+        overlay: { symbolWeight: 1 },
+      }),
+    );
+    const original = f.state.request.instruments[0]!;
+    const signals = (entry: boolean) =>
+      f.state.request.calendar.map((date) => ({
+        id: "prospective-rule",
+        date,
+        availableAt: date,
+        entry,
+        exit: false,
+      }));
+    f.state.request.instruments = [
+      { ...original, external: { signals: signals(false) } },
+      { ...original, symbol: "ETHUSDT", external: { signals: signals(true) } },
+    ];
+    // ETH has a real true raw rule but is outside the frozen BTC-only universe.
+    f.state.decisions.push(
+      ...f.state.decisions.map((decision) => ({
+        ...decision,
+        symbol: "ETHUSDT",
+        entry: true,
+      })),
+    );
+    f.state.result = runPortfolio(f.state.request);
+    expect(
+      f.state.result.dailyDecisionCounts?.every(
+        (d) => d.entries === 0 && d.expected === 1 && d.unknown === 0,
+      ),
+    ).toBe(true);
+    expect(
+      f.state.result.bookDecisions?.every((d) => d.decision.available),
+    ).toBe(true);
+    const reference = f.freeze();
+    const context = { reference, buildHash: f.buildHash, calendar: [] };
+    const baseline = assessPaperPortfolio(f.account, f.state, f.now, context);
+    expect(baseline).toMatchObject({
+      verdict: "conforming",
+      observedSignals: 0,
+    });
+    const index = 30;
+    const decision = f.state.result.bookDecisions![index]!;
+    const unavailable = {
+      ...f.state,
+      result: {
+        ...f.state.result,
+        bookDecisions: f.state.result.bookDecisions!.map((d, i) =>
+          i === index
+            ? {
+                ...d,
+                decision: {
+                  ...d.decision,
+                  available: false,
+                  reason: "missing actual industry context",
+                },
+              }
+            : d,
+        ),
+      },
+    };
+    const rejected = assessPaperPortfolio(
+      f.account,
+      unavailable,
+      f.now,
+      context,
+    );
+    expect(rejected.verdict).toBe("insufficient");
+    expect(
+      rejected.conformance!.equity.lowerPath.some(
+        (p) => p.date === decision.decision.date,
+      ),
+    ).toBe(false);
+    const missing = assessPaperPortfolio(
+      f.account,
+      {
+        ...f.state,
+        result: { ...f.state.result, bookDecisions: [] },
+      },
+      f.now,
+      context,
+    );
+    expect(missing.verdict).toBe("insufficient");
+    const missingCounts = assessPaperPortfolio(
+      f.account,
+      {
+        ...f.state,
+        result: { ...f.state.result, dailyDecisionCounts: [] },
+      },
+      f.now,
+      context,
+    );
+    expect(missingCounts.verdict).toBe("insufficient");
+    const missingCalendar = assessPaperPortfolio(
+      f.account,
+      {
+        ...f.state,
+        request: { ...f.state.request, calendar: [] },
+        result: { ...f.state.result, dailyDecisionCounts: [] },
+      },
+      f.now,
+      context,
+    );
+    expect(missingCalendar.verdict).toBe("insufficient");
+  });
   it("aggregates a real4h engine checkpoint's bar curve and signals into UTC days", () => {
     const f = fixture();
     const strategy = strategyObjectSchema.parse({

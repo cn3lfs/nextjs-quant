@@ -19,6 +19,8 @@ import {
 import { paperCompletedAt } from "./advance-clock";
 import { beijingClock } from "~/lib/market/market-session";
 import type { PaperAccount, PaperState, PaperSummary } from "./model";
+import { usesStrategyBook, type StrategyObjectInput } from "trading-strategies";
+import { eligibleStrategySymbol } from "../strategies/drivers/evaluation";
 
 export type PaperConformanceContext = {
   reference: FrozenForwardReference | null;
@@ -120,6 +122,10 @@ const paperDay = (account: PaperAccount, date: string) => {
     ? new Date(at).toISOString().slice(0, 10)
     : beijingClock(at).date;
 };
+const lifecycleStrategy = (strategy: StrategyObjectInput) =>
+  usesStrategyBook(strategy) ||
+  !!strategy.exit.chandelier ||
+  !!strategy.exit.timeReentry;
 const dayCompletedAt = (account: PaperAccount, date: string) =>
   account.market === "crypto"
     ? Date.parse(`${paperDay(account, date)}T00:00:00Z`) + 86400000
@@ -144,7 +150,16 @@ function expectedDays(
           dayCompletedAt(account, date) <= now,
       );
   const days: string[] = [];
-  const first = new Date(account.startedAt).toISOString().slice(0, 10);
+  let first = new Date(account.startedAt).toISOString().slice(0, 10);
+  const strategy = account.candidates[0]!.strategy;
+  // At or after the first 4h completion, registration cannot observe all six
+  // decisions of that UTC day. Keep its money; compare complete days only.
+  if (
+    lifecycleStrategy(strategy) &&
+    strategy.period === "4h" &&
+    Date.parse(first) + 4 * 3600000 <= account.startedAt
+  )
+    first = new Date(Date.parse(first) + 86400000).toISOString().slice(0, 10);
   for (
     let date = first;
     dayCompletedAt(account, date) <= now;
@@ -165,8 +180,28 @@ export function assessPaperPortfolio(
 ): NonNullable<PaperSummary["assessment"]> {
   const candidate = account.candidates[0]!;
   const strategy = candidate.strategy;
+  const lifecycle = lifecycleStrategy(strategy);
+  const evidenceEligibility = (symbol: string, date: string) => {
+    const instrument = state.request.instruments.find(
+      (s) => s.symbol === symbol,
+    );
+    if (!instrument) return null;
+    try {
+      return eligibleStrategySymbol(
+        strategy,
+        { ...instrument, bars: instrument.signalBars },
+        date,
+        state.request.memberships?.find(
+          (m) => m.strategyId === strategy.id && m.date === date,
+        )?.symbols,
+      );
+    } catch {
+      return null;
+    }
+  };
   const reference = account.candidates.length === 1 ? context.reference : null;
   const expected = expectedDays(account, state, now, context.calendar);
+  const expectedSet = new Set(expected);
   const byDay = new Map<string, { date: string; equity: number; at: number }>();
   const valuations = /^\d+[mh]$/.test(strategy.period)
     ? state.result.curve
@@ -189,12 +224,16 @@ export function assessPaperPortfolio(
     .filter(
       ({ point }) =>
         dayCompletedAt(account, point.date) > account.startedAt &&
-        dayCompletedAt(account, point.date) <= now,
+        dayCompletedAt(account, point.date) <= now &&
+        (!lifecycle || expectedSet.has(point.date)),
     );
   const decisions = state.decisions.filter(
     (decision) =>
       decision.strategyId === strategy.id &&
-      dayCompletedAt(account, decision.date) <= now,
+      dayCompletedAt(account, decision.date) <= now &&
+      (!lifecycle || expectedSet.has(paperDay(account, decision.date))) &&
+      (!lifecycle ||
+        evidenceEligibility(decision.symbol, decision.date) !== false),
   );
   const invalidDays = new Set<string>();
   let unknownDecisions = decisions.filter((decision) => {
@@ -216,7 +255,9 @@ export function assessPaperPortfolio(
       decision.exit === null ||
       !timely ||
       decision.observedAt < account.startedAt ||
-      decision.observedAt > now;
+      decision.observedAt > now ||
+      (lifecycle &&
+        evidenceEligibility(decision.symbol, decision.date) === null);
     if (invalid) invalidDays.add(paperDay(account, decision.date));
     return invalid;
   }).length;
@@ -224,7 +265,10 @@ export function assessPaperPortfolio(
     (date) => dayCompletedAt(account, date) <= now,
   )) {
     if (paperCompletedAt(account, date) < account.startedAt) continue;
+    if (lifecycle && !expectedSet.has(paperDay(account, date))) continue;
     for (const instrument of state.request.instruments) {
+      if (lifecycle && evidenceEligibility(instrument.symbol, date) === false)
+        continue;
       if (!instrument.bars.some((bar) => bar.date === date)) continue;
       if (
         !decisions.some(
@@ -236,6 +280,58 @@ export function assessPaperPortfolio(
         invalidDays.add(paperDay(account, date));
       }
     }
+  }
+  const engineSignals = new Map<string, number>();
+  const engineBars = new Map<string, Set<number>>();
+  if (lifecycle) {
+    for (const date of state.request.calendar) {
+      if (
+        paperCompletedAt(account, date) < account.startedAt ||
+        dayCompletedAt(account, date) > now
+      )
+        continue;
+      const day = paperDay(account, date);
+      if (!expectedSet.has(day)) continue;
+      const counts = state.result.dailyDecisionCounts?.filter(
+        (c) => c.strategyId === strategy.id && c.date === date,
+      );
+      const book = state.result.bookDecisions?.filter(
+        (d) => d.strategyId === strategy.id && d.decision.date === date,
+      );
+      if (
+        counts?.length !== 1 ||
+        counts[0]!.unknown > 0 ||
+        counts[0]!.expected <= 0 ||
+        (usesStrategyBook(strategy) &&
+          (book?.length !== 1 || !book[0]!.decision.available))
+      ) {
+        invalidDays.add(day);
+        unknownDecisions++;
+      } else {
+        engineSignals.set(
+          day,
+          (engineSignals.get(day) ?? 0) + counts[0]!.entries,
+        );
+        const bars = engineBars.get(day) ?? new Set<number>();
+        bars.add(Date.parse(date));
+        engineBars.set(day, bars);
+      }
+    }
+    if (account.market === "crypto" && strategy.period === "4h")
+      for (const day of expected) {
+        const bars = engineBars.get(day);
+        if (
+          !bars ||
+          bars.size !== 6 ||
+          Array.from(
+            { length: 6 },
+            (_, i) => Date.parse(day) + (i + 1) * 4 * 3600000,
+          ).some((time) => !bars.has(time))
+        ) {
+          invalidDays.add(day);
+          unknownDecisions++;
+        }
+      }
   }
   const fills = state.result.fills.filter(
     (fill) => dayCompletedAt(account, fill.date) <= now,
@@ -252,18 +348,23 @@ export function assessPaperPortfolio(
   );
   const slippage = portfolioModelSlippage(execution, state.request);
   const days = points.flatMap(({ point, return: value }) =>
-    value === null || value === undefined || invalidDays.has(point.date)
+    value === null ||
+    value === undefined ||
+    invalidDays.has(point.date) ||
+    (lifecycle && !engineSignals.has(point.date))
       ? []
       : [
           {
             date: point.date,
             return: value,
-            signals: decisions.filter(
-              (decision) =>
-                paperDay(account, decision.date) === point.date &&
-                decision.entry === true &&
-                decision.exit !== true,
-            ).length,
+            signals: lifecycle
+              ? engineSignals.get(point.date)!
+              : decisions.filter(
+                  (decision) =>
+                    paperDay(account, decision.date) === point.date &&
+                    decision.entry === true &&
+                    decision.exit !== true,
+                ).length,
           },
         ],
   );
