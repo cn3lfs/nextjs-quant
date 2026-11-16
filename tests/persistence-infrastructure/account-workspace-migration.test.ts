@@ -3,7 +3,7 @@ import { it, expect } from "vitest";
 import { migrate } from "~/server/db/migrations";
 import { migrate as v17 } from "../fixtures/r3b-v17-migrations";
 
-it("R3b v18 migrates empty and populated v17, preserves facts, is idempotent and the actual v17 entry refuses v18", () => {
+it("migration through v19 preserves empty and populated v17 facts and the actual v17 entry refuses the upgrade", () => {
   for (const populated of [false, true]) {
     const db = new Database(":memory:");
     try {
@@ -16,7 +16,7 @@ it("R3b v18 migrates empty and populated v17, preserves facts, is idempotent and
       }
       const before = populated ? db.prepare("SELECT * FROM records").all() : [];
       migrate(db);
-      expect(db.pragma("user_version", { simple: true })).toBe(18);
+      expect(db.pragma("user_version", { simple: true })).toBe(19);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
       expect(db.pragma("foreign_key_check")).toEqual([]);
       const schema = db

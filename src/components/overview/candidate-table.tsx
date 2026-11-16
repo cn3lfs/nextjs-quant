@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DataTable } from "../ui/data-table";
 import { formatNumber } from "trading-strategy-core/format-number";
 import type { RouterOutputs } from "~/trpc/react";
+import { Button } from "../ui/button";
 
 export type WorkspaceCandidate =
   RouterOutputs["workspaceCandidates"]["items"][number];
@@ -32,6 +33,7 @@ export function CandidateTable({
   error,
   onRetry,
   onSelect,
+  onPlan,
 }: {
   data: WorkspaceCandidate[];
   total: number;
@@ -41,6 +43,7 @@ export function CandidateTable({
   error?: string;
   onRetry?: () => void;
   onSelect?: (row: WorkspaceCandidate) => void;
+  onPlan?: (row: WorkspaceCandidate) => void;
 }) {
   return (
     <DataTable
@@ -62,6 +65,19 @@ export function CandidateTable({
       getRowId={(r) => r.key}
       emptyMessage="尚无收盘扫描或影子入场候选。先补齐数据并登记策略；缺失不会生成计划。"
       columns={[
+        ...(onPlan
+          ? [
+              {
+                id: "plan",
+                header: "计划",
+                cell: ({
+                  row: { original: r },
+                }: {
+                  row: { original: WorkspaceCandidate };
+                }) => <Button onClick={() => onPlan(r)}>加入计划</Button>,
+              },
+            ]
+          : []),
         {
           id: "symbol",
           header: "标的 / 来源策略",
@@ -82,8 +98,16 @@ export function CandidateTable({
                 {r.symbol} · 打开图表
               </Link>
               <p className="text-xs text-nc-text-3">
-                {r.strategyId} v{r.version} · {r.bar}
+                {r.sources
+                  .map((s) => `${s.strategyId} v${s.version}`)
+                  .join(" / ")}{" "}
+                · {r.bar}
               </p>
+              {r.sources.map((s) => (
+                <p key={s.key} className="max-w-80 text-xs text-nc-text-3">
+                  {s.strategyId}：{s.reason}
+                </p>
+              ))}
               {r.tradingStatusEvidence?.status === "unknown" && (
                 <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
               )}

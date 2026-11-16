@@ -22,6 +22,7 @@ import type { PaperAccount } from "./model";
 import type { PaperInput } from "./advance";
 import { createHash } from "node:crypto";
 import { paperCompletedAt } from "./advance-clock";
+import { paperSleevePolicy } from "./policy";
 import { capturePaperDecisions } from "./decisions";
 import { localCalendarReference } from "../market/data-health";
 
@@ -221,12 +222,7 @@ export async function loadPaperInput(
     instruments,
     strategies: account.candidates.map((c) => c.strategy),
     sleeves: [
-      {
-        id: account.sleeve,
-        share: 1,
-        riskPerTrade: account.sleeve === "low-zone" ? 0.1 : 0.02,
-        maxPositions: account.market === "crypto" ? symbols.length : 10,
-      },
+      paperSleevePolicy(account.market, account.sleeve, symbols.length),
     ],
   };
   if (account.market === "crypto") {

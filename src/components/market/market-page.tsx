@@ -3,14 +3,14 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import { MarketView } from "../workbench/market-view";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 import { useWorkbenchNotify } from "../workbench/workbench-notify";
 import { useMarketState } from "./use-market-state";
 import { MarketRouteSelection } from "./market-route-selection";
 import { Button } from "../ui/button";
 
 export function MarketPage({ embedded = false }: { embedded?: boolean }) {
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const source = api.status.useQuery(undefined, {
     enabled: visible,
     select: (value) => value.settings.marketDataSource,

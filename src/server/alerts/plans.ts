@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import Big from "big.js";
+import { sizePortfolioEntry, portfolioExecutionFee } from "quant-backtest";
+import { planSizingPolicy } from "./plan-sizing";
 import { z } from "zod";
 import { marketRules } from "trading-strategy-core/market-rules";
 import type { Settings } from "~/lib/domain";
@@ -7,11 +9,24 @@ import { planExposure } from "./plan-exposure";
 import { AlertRepository } from "../db/alert-repository";
 import {
   checkExposureCaps,
+  effectiveExposureCaps,
   type AccountPosition,
 } from "~/lib/portfolio/account-workspace";
 
 export const createAlertPlanSchema = z.object({
   overrideCaps: z.boolean().default(false),
+  overrideSizing: z
+    .object({
+      confirmed: z.literal(true),
+      reason: z.string().trim().min(1).max(500),
+      quantities: z
+        .array(z.number().finite().positive())
+        .min(1)
+        .max(100)
+        .optional(),
+    })
+    .strict()
+    .optional(),
   eventKey: z.string().min(1).max(1000),
   stages: z.array(z.number().finite().positive()).min(1).max(10),
   stop: z.number().finite().positive(),
@@ -46,7 +61,8 @@ export function createAlertPlan(
       repository,
       admission?.positions,
     );
-    if (config.accountReview.caps.length && !admission)
+    const caps = effectiveExposureCaps(config.accountReview, plan.market);
+    if (caps.length && !admission)
       throw new Error("敞口检查缺少完整账户事实，请刷新后重试");
     const positions = admission?.positions ?? [];
     const industry =
@@ -63,6 +79,11 @@ export function createAlertPlan(
         sleeve: plan.sleeve,
         industry,
         value: plan.stages.reduce((n, s) => n + s.entry * s.quantity, 0),
+        openRisk: plan.stages.reduce(
+          (n, s) => n + Math.max(0, s.entry - plan.stop) * s.quantity,
+          0,
+        ),
+        maxPositions: plan.sizingAudit.maxPositions,
       },
       reserved: repository
         .plans(true)
@@ -72,15 +93,24 @@ export function createAlertPlan(
           symbol: p.symbol,
           sleeve: p.sleeve,
           industry:
+            admission?.industry?.(p.symbol) ??
             positions.find(
               (row) => row.market === p.market && row.symbol === p.symbol,
-            )?.industry ?? "未知",
+            )?.industry ??
+            "未知",
+          openRisk:
+            p.stop === null
+              ? null
+              : (p.stages?.reduce(
+                  (n, s) => n + Math.max(0, s.entry - p.stop!) * s.quantity,
+                  0,
+                ) ?? Math.max(0, p.entry - p.stop) * (p.quantity ?? 0)),
           value:
             p.stages?.reduce((n, s) => n + s.entry * s.quantity, 0) ??
             p.entry * (p.quantity ?? 0),
         })),
       capital: config.alerts.capital,
-      caps: config.accountReview.caps,
+      caps,
     });
     if (violations.length && !input.overrideCaps)
       throw new Error(
@@ -93,7 +123,7 @@ export function createAlertPlan(
           at: now,
           overridden: violations.length > 0 && input.overrideCaps === true,
           violations,
-          caps: config.accountReview.caps,
+          caps,
         },
       },
       now,
@@ -108,6 +138,7 @@ export function previewAlertPlan(
   repository = new AlertRepository(),
   positions?: readonly AccountPosition[],
 ) {
+  input = createAlertPlanSchema.parse(input);
   const event = repository.event(input.eventKey);
   if (!event || event.status === "missed" || event.type !== "entry")
     throw new Error("只能从有效入场候选加入计划");
@@ -151,7 +182,8 @@ export function previewAlertPlan(
       (n, p) =>
         n +
         (p.stages?.reduce((v, s) => v + s.entry * s.quantity, 0) ??
-          p.entry * (p.quantity ?? 0)),
+          p.entry * (p.quantity ?? 0)) +
+        (p.sizingAudit?.estimatedFees ?? 0),
       0,
     );
   const marketInvested = actualPositions
@@ -166,7 +198,8 @@ export function previewAlertPlan(
       (n, p) =>
         n +
         (p.stages?.reduce((v, s) => v + s.entry * s.quantity, 0) ??
-          p.entry * (p.quantity ?? 0)),
+          p.entry * (p.quantity ?? 0)) +
+        (p.sizingAudit?.estimatedFees ?? 0),
       0,
     );
   const unassignedValue = actualPositions
@@ -186,19 +219,91 @@ export function previewAlertPlan(
   const minimum =
     marketRules[event.market].quantity.minimum ?? input.quantityRules?.minimum;
   if (!step || !minimum) throw new Error("缺少平台数量步长依据，不计算假数量");
-  const perStageBudget = budget / input.stages.length;
-  const perStageRisk =
-    (equity * sleeve.share * sleeve.risk) / input.stages.length;
-  const stages = input.stages.map((entry) => {
-    const raw = Math.min(
-      perStageBudget / entry,
-      perStageRisk / (entry - input.stop),
-    );
-    const quantity = Number(
-      new Big(raw).div(step).round(0, 0).times(step).toFixed(),
-    );
-    if (quantity < minimum)
-      throw new Error("剩余额度或风险预算不足最小交易数量");
+  const strategy = repository.strategies.strategy(
+    event.strategyId,
+    event.version,
+  );
+  if (!strategy) throw new Error("缺少同版本策略定义");
+  const policy = planSizingPolicy(strategy, event, config, repository);
+  const confirmed = input.overrideSizing?.confirmed === true;
+  const expectedTranches = strategy.sizing.tranches ?? 1;
+  const initialStop =
+    strategy.exit.stop?.kind === "fixed"
+      ? input.stages[0]! * (1 - strategy.exit.stop.fraction)
+      : event.stop;
+  const initialTarget =
+    strategy.exit.takeProfit === undefined
+      ? null
+      : input.stages[0]! * (1 + strategy.exit.takeProfit);
+  const changed =
+    input.stages.length !== expectedTranches ||
+    initialStop === null ||
+    Math.abs(initialStop - input.stop) > 1e-8 ||
+    initialTarget !== input.target;
+  if ((changed || input.overrideSizing?.quantities) && !confirmed)
+    throw new Error("计划档数或保护位偏离策略；请明确确认仓位覆盖并填写原因");
+  if (
+    input.overrideSizing?.quantities &&
+    input.overrideSizing.quantities.length !== input.stages.length
+  )
+    throw new Error("覆盖数量须与计划档位一一对应");
+  let cash = budget;
+  const held =
+    actualPositions?.filter(
+      (p) => p.symbol === event.symbol && p.sleeve === event.sleeve,
+    ) ?? [];
+  if (held.some((p) => p.cost === null || p.stop === null))
+    throw new Error("同标的既有持仓缺少成本或止损依据，不能计算剩余风险");
+  let existing = held.length
+    ? {
+        quantity: held.reduce((n, p) => n + p.quantity, 0),
+        cost:
+          held.reduce((n, p) => n + p.quantity * p.cost!, 0) /
+          held.reduce((n, p) => n + p.quantity, 0),
+        stop: Math.min(...held.map((p) => p.stop!)),
+      }
+    : undefined;
+  const expectedQuantities: number[] = [];
+  let estimatedFees = 0;
+  const stages = input.stages.map((entry, index) => {
+    const context = {
+      sizing: { ...strategy.sizing, tranches: input.stages.length },
+      equity: equity * sleeve.share,
+      cash,
+      price: entry,
+      stop: input.stop,
+      riskPerTrade: policy.riskPerTrade,
+      weightCeiling: policy.weightCeiling,
+      existing,
+      quantityRules: { step, minimum, maximum: 1e12 },
+      costs: policy.costs,
+    };
+    const sized = sizePortfolioEntry(context);
+    expectedQuantities.push(sized.quantity);
+    const quantity =
+      input.overrideSizing?.quantities?.[index] ?? sized.quantity;
+    if (quantity < minimum || !new Big(quantity).mod(step).eq(0))
+      throw new Error("剩余额度或风险预算不足最小交易数量或数量不在交易网格");
+    if (input.overrideSizing?.quantities) {
+      const hardLimit = sizePortfolioEntry({
+        ...context,
+        sizing: { kind: "weight", weight: 1, tranches: 1 },
+        weightCeiling: 1,
+      });
+      if (quantity > hardLimit.quantity)
+        throw new Error("覆盖数量超过现金或风险硬约束");
+    }
+    const fee = portfolioExecutionFee(quantity, entry, "buy", policy.costs);
+    estimatedFees += fee;
+    cash -= quantity * entry + fee;
+    const oldQuantity = existing?.quantity ?? 0;
+    existing = {
+      quantity: oldQuantity + quantity,
+      cost:
+        ((existing?.cost ?? 0) * oldQuantity + quantity * entry + fee) /
+        (oldQuantity + quantity),
+      stop: input.stop,
+    };
     return { entry, quantity };
   });
   const plan = {
@@ -218,6 +323,40 @@ export function previewAlertPlan(
     expiresAt: input.expiresAt,
     status: "open" as const,
     createdAt: now,
+    sizingAudit: {
+      source: policy.source,
+      validated:
+        policy.validated &&
+        !changed &&
+        input.overrideSizing?.quantities === undefined,
+      scheme: policy.scheme,
+      riskPerTrade: policy.riskPerTrade,
+      maxPositions: policy.maxPositions,
+      weightCeiling: policy.weightCeiling,
+      signalDate: event.bar,
+      budget,
+      expectedQuantities,
+      actualQuantities: stages.map((s) => s.quantity),
+      estimatedFees,
+      overridden: changed || input.overrideSizing?.quantities !== undefined,
+      reason: confirmed ? input.overrideSizing!.reason : null,
+      at: now,
+    },
+    protection: {
+      version: "plan-protection-1" as const,
+      exitSpec: strategy.exit,
+      initialStop: input.stop,
+      target: input.target,
+      entryReference: stages[0]!.entry,
+      asOf: event.bar,
+      matchesStrategy: !changed,
+      overrideReason: changed ? input.overrideSizing!.reason : null,
+      initialStopEvidence: {
+        bar: event.bar,
+        source: event.source,
+        level: event.stop,
+      },
+    },
     positionSnapshot: {
       at: snapshot.at!,
       basis: snapshot.basis,

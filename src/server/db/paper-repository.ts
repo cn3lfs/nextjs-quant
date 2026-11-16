@@ -11,6 +11,29 @@ import type {
  * Mutable projections and the replay checkpoint commit under one revision fence. */
 export class PaperRepository {
   constructor(readonly db: Database.Database = sqlite()) {}
+  sizingPolicy(id: string, strategyId: string, symbol: string, date: string) {
+    const row = this.db
+      .prepare(
+        "SELECT json_extract(payload,'$.request.sleeves') sleeves,json_extract(payload,'$.request.costs') costs FROM paper_state WHERE account_id=?",
+      )
+      .get(id) as { sleeves: string; costs: string | null } | undefined;
+    if (!row) return null;
+    const weight = this.db
+      .prepare(
+        `SELECT json_extract(w.value,'$.weight') weight FROM paper_state p,json_each(p.payload,'$.request.positionWeights') w
+      WHERE p.account_id=? AND json_extract(w.value,'$.strategyId')=? AND json_extract(w.value,'$.symbol')=?
+      AND json_extract(w.value,'$.date')=? AND json_extract(w.value,'$.availableAt')<=?`,
+      )
+      .get(id, strategyId, symbol, date, date) as
+      { weight: number } | undefined;
+    return {
+      sleeves: JSON.parse(row.sleeves) as PaperState["request"]["sleeves"],
+      costs: row.costs
+        ? (JSON.parse(row.costs) as PaperState["request"]["costs"])
+        : undefined,
+      weight: weight?.weight,
+    };
+  }
   atomic<T>(work: () => T) {
     return this.db.transaction(work).immediate();
   }

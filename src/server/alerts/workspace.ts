@@ -16,6 +16,8 @@ import type { regimeObservation } from "./observations";
 import type { LowZoneObservation } from "trading-strategies";
 import { equityDailyReadiness } from "./readiness";
 import { planExposure } from "./plan-exposure";
+import { stopTasks } from "../portfolio/holding-protection-service";
+import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 
 export type RegimeSnapshot = NonNullable<
   ReturnType<typeof regimeObservation>
@@ -49,6 +51,7 @@ export function workspaceCandidate(
   const shadow = repo.state<ShadowRegistration>(
     `shadow:${event.strategyId}:${event.version}`,
   );
+  const definition = repo.strategies.strategy(event.strategyId, event.version);
   const status =
     qualification?.status === "live-candidate" &&
     (qualification.strategyVersion ?? 1) === event.version
@@ -69,7 +72,10 @@ export function workspaceCandidate(
     const plan = previewAlertPlan(
       {
         eventKey: event.key,
-        stages: [event.price],
+        stages: Array.from(
+          { length: definition?.sizing.tranches ?? 1 },
+          () => event.price!,
+        ),
         stop: event.stop,
         target: event.target,
         expiresAt: new Date(now + 86400000).toISOString(),
@@ -89,6 +95,8 @@ export function workspaceCandidate(
     quantity,
     quantityReason,
     positionSnapshot,
+    tranches: definition?.sizing.tranches ?? 1,
+    exitSpec: definition?.exit ?? null,
     adjustment:
       event.market === "cn-equity"
         ? "信号前复权；入场/止损/目标原价"
@@ -112,6 +120,7 @@ export function workspaceCandidates(
       ...workspaceCandidate(e, repo, now),
       rps20: e.rps20,
       rpsDate: e.rpsDate,
+      sources: e.sources.map((source) => workspaceCandidate(source, repo, now)),
     })),
   };
 }
@@ -161,6 +170,17 @@ export async function todayWorkspace(
     now,
   );
   const equity = await equityDailyReadiness(config, now);
+  const protectionTasks = await stopTasks(
+    new AccountWorkspaceRepository(repo.db),
+    config,
+    now,
+  );
+  const openPlans = repo
+    .plans(true)
+    .sort(
+      (a, b) =>
+        (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.id.localeCompare(b.id),
+    );
   return {
     now,
     mode: config.alerts.mode,
@@ -183,6 +203,8 @@ export async function todayWorkspace(
     capital: config.alerts.capital,
     gaps: repo.dataGaps(),
     candidates: workspaceCandidates({ page: 0 }, repo, now),
+    openPlans: { total: openPlans.length, items: openPlans.slice(0, 20) },
+    stopTasks: protectionTasks,
     triggered: repo.history(
       alertHistorySchema.parse({ from: chinaClock(now).date, size: 10 }),
     ),

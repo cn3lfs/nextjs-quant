@@ -75,7 +75,7 @@ import {
   enabledIndicators,
   initialHistoryStart,
 } from "~/lib/chart/chart-data";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useScreenVisible } from "../workbench/use-task-visible";
 import { useCzscSettings } from "~/lib/stores/czsc-settings-store";
 import { czscEffectiveSettings } from "~/lib/chart/czsc-settings";
 function LegacyChart({
@@ -422,7 +422,7 @@ export function CzscMarketChart({
     };
   }, [snapshotId]);
   // A hidden kept-alive panel defers the structure analysis until shown.
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const annotationsReady = visible && paintedSnapshot === snapshotId;
   const czscSettings = useCzscSettings();
   const { values: czscValues, showStroke, showSegment } = czscSettings;

@@ -10,12 +10,22 @@ import {
 } from "trading-strategy-core/format-number";
 import { Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
-import { CandidateTable } from "./candidate-table";
+import { CandidateTable, type WorkspaceCandidate } from "./candidate-table";
+import { CandidatePlan } from "../signals/candidate-plan";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import { LedgerSelect } from "../signals/ledger-fields";
+import { DataTable } from "../ui/data-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
 import { TodayIntel } from "../news/today-intel";
 import { PaperShadowPrompt } from "../research/paper-shadow-prompt";
+import { CryptoRiskNotes } from "../portfolio/crypto-risk-notes";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -52,6 +62,10 @@ export function TodayWorkspace() {
 function DailyDecision() {
   const visible = useScreenVisible();
   const [page, setPage] = useState(0);
+  const [plan, setPlan] = useState<{
+    row: WorkspaceCandidate;
+    key: string;
+  } | null>(null);
   const query = api.todayWorkspace.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
@@ -78,6 +92,7 @@ function DailyDecision() {
       ? { href: "/system", text: "补齐数据" }
       : { href: "#tomorrow", text: `查看 ${d.candidates.total} 个计划` };
   const rows = page ? candidates.data : d.candidates;
+  const planSource = plan?.row.sources.find((s) => s.key === plan.key) ?? null;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-nc-card p-4">
@@ -108,6 +123,7 @@ function DailyDecision() {
           </div>
         ))}
       <PaperShadowPrompt />
+      <CryptoRiskNotes />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
           className="col-span-1!"
@@ -196,7 +212,164 @@ function DailyDecision() {
           loading={page > 0 && candidates.isFetching}
           error={candidates.error?.message}
           onRetry={() => void candidates.refetch()}
+          onPlan={(row) => setPlan({ row, key: row.sources[0]!.key })}
         />
+        <Dialog
+          open={plan !== null}
+          onOpenChange={(open) => {
+            if (!open) setPlan(null);
+          }}
+        >
+          <DialogContent className="left-auto! right-4! top-4! translate-x-0! translate-y-0! lg:max-w-xl">
+            <DialogTitle>创建交易计划 · {plan?.row.symbol}</DialogTitle>
+            <DialogDescription>
+              核对所选策略及保护位；保存后可在本页查看未完成计划。
+            </DialogDescription>
+            {plan && plan.row.sources.length > 1 && (
+              <LedgerSelect
+                label="计划来源策略"
+                value={plan.key}
+                onChange={(key) => setPlan({ ...plan, key })}
+                options={plan.row.sources.map((s) => ({
+                  value: s.key,
+                  label: `${s.strategyId} v${s.version} · ${s.sleeve}`,
+                }))}
+              />
+            )}
+            {planSource && (
+              <CandidatePlan
+                key={planSource.key}
+                candidate={planSource}
+                inline
+                onSaved={() => setPlan(null)}
+                onClose={() => setPlan(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </section>
+      <section
+        className="space-y-2 rounded-lg border bg-nc-card p-4"
+        aria-label="未完成交易计划"
+      >
+        <h2 className="text-lg font-semibold">
+          未完成交易计划 · {d.openPlans.total}
+        </h2>
+        <DataTable
+          label="未完成交易计划"
+          data={d.openPlans.items}
+          rowCount={d.openPlans.total}
+          pagination={{ pageIndex: 0, pageSize: 20 }}
+          sorting={[]}
+          onPaginationChange={() => {}}
+          onSortingChange={() => {}}
+          showPagination={false}
+          getRowId={(p) => p.id}
+          columns={[
+            {
+              id: "symbol",
+              header: "标的 / 策略",
+              cell: ({ row: { original: p } }) =>
+                `${p.symbol} · ${p.strategyId} v${p.strategyVersion}`,
+            },
+            {
+              id: "entry",
+              header: "入场 / 数量",
+              cell: ({ row: { original: p } }) =>
+                `${formatNumber(p.entry)} / ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}`,
+            },
+            {
+              id: "stop",
+              header: "止损 / 目标",
+              cell: ({ row: { original: p } }) =>
+                `${formatNumber(p.stop)} / ${formatNumber(p.target)}`,
+            },
+            {
+              id: "expiry",
+              header: "有效至",
+              cell: ({ row: { original: p } }) =>
+                p.expiresAt
+                  ? new Date(p.expiresAt).toLocaleString("zh-CN")
+                  : "未设置",
+            },
+            {
+              id: "policy",
+              header: "仓位 / 保护依据",
+              cell: ({ row: { original: p } }) => (
+                <span>
+                  {p.sizingAudit?.validated
+                    ? "通过研究验证"
+                    : "研究中 / 未验证"}
+                  {p.sizingAudit?.overridden ||
+                  (p.protection?.version === "plan-protection-1" &&
+                    !p.protection.matchesStrategy)
+                    ? " · 已确认偏离策略参数"
+                    : ""}
+                  {p.protection?.version === "unavailable"
+                    ? " · 缺完整退出规格"
+                    : ""}
+                </span>
+              ),
+            },
+            {
+              id: "detail",
+              header: "核对",
+              cell: ({ row: { original: p } }) => (
+                <Link
+                  className="underline"
+                  href={`/accounts/alerts?plan=${encodeURIComponent(p.id)}`}
+                >
+                  计划详情
+                </Link>
+              ),
+            },
+          ]}
+          emptyMessage="尚无未完成交易计划。可直接从上方候选加入。"
+        />
+        {d.openPlans.total > 20 && (
+          <Link href="/accounts/alerts" className="text-sm underline">
+            查看其余未完成计划
+          </Link>
+        )}
+      </section>
+      <section
+        className="space-y-2 rounded-lg border bg-nc-card p-4"
+        aria-label="设置或调整止损单"
+      >
+        <h2 className="text-lg font-semibold">设置 / 调整止损单</h2>
+        <p className="text-xs text-nc-text-3">
+          按已完成收盘计算下一周期保护；挂单与退出由用户在券商操作，应用不认证已挂单。
+        </p>
+        {d.stopTasks.length ? (
+          d.stopTasks.map((t) => (
+            <div key={t.key} className="border-b pb-2 text-sm">
+              <strong>
+                {t.symbol} · {t.account}
+              </strong>{" "}
+              · {formatNumber(t.oldStop)} → {formatNumber(t.newStop)} ·{" "}
+              {
+                {
+                  set: "设置止损",
+                  adjust: "调整止损",
+                  "time-exit": "时间退出",
+                  "rule-exit": "策略退出条件",
+                  "target-exit": "目标退出",
+                  "stop-exit": "保护价触及",
+                  "needs-review": "需要核验",
+                }[t.status]
+              }
+              <p>{t.reason}</p>
+              <p className="text-xs text-nc-text-3">
+                {t.dueAt
+                  ? `${new Date(t.dueAt).toLocaleString("zh-CN", { timeZone: t.market === "cn-equity" ? "Asia/Shanghai" : "UTC" })} ${t.market === "cn-equity" ? "北京时间" : "UTC"}`
+                  : (t.dueDate ?? "待完整行情")}{" "}
+                · {t.strategyId} v{t.version} · 来源计划 {t.sourcePlanId}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p>当前没有已关联持仓的保护任务。</p>
+        )}
       </section>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel

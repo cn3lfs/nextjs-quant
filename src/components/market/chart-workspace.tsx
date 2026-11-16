@@ -57,7 +57,7 @@ import { isTypingTarget } from "./chart-hotkeys";
 let lastIntraday = false;
 // The linked second period (TDX 多周期同列) is kept the same way.
 let lastSecond: ChartPeriod | null = null;
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useScreenVisible } from "../workbench/use-task-visible";
 const tools = {
   none: "浏览",
   trend: "趋势线",
@@ -79,7 +79,7 @@ export function ChartWorkspace({
   adjustment: ChartAdjustment;
 }) {
   const [limit, setLimit] = useState(2000);
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const requestMore = useCallback(
     () => setLimit((value) => Math.min(20000, value + 2000)),
     [],
@@ -213,7 +213,7 @@ function EditableChart({
     [points, setPoints] = useState<Drawing["a"][]>([]),
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const [dirty, setDirty] = useState(false);
   const [second, setSecondState] = useState<ChartPeriod | null>(() =>
     lastSecond === period ? null : lastSecond,
@@ -798,7 +798,7 @@ function LinkedPeriodChart({
   pricePrecision: number;
   hub: CrosshairLink;
 }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const bars = api.chartBars.useQuery(
     { snapshotId: sourceId, period, limit: 2000, adjustment },
     { enabled: visible, retry: false, refetchOnWindowFocus: false },

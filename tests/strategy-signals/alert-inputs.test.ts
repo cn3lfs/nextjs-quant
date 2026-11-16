@@ -551,3 +551,34 @@ it("reads the requested close date during the next morning rather than that morn
     result.states.find((s) => s.id === "exposure-close:cn-equity"),
   ).toBeDefined();
 });
+
+it("fixed crypto universes do not collect a second shadow security from a cx watchlist alias", async () => {
+  const crypto = {
+    ...strategy,
+    id: "fixed-alias",
+    market: "crypto" as const,
+    universe: { kind: "symbols" as const, symbols: ["BTCUSDT"] },
+  };
+  repo.strategies.saveStrategy(crypto);
+  put("watchlist", "watchlist", ["cxBTCUSDT", "cxETHUSDT"]);
+  repo.saveState(`shadow:${crypto.id}:1`, {
+    startedAt: now - 1,
+    active: true,
+    status: "shadow-candidate",
+    trialSharpes: [],
+    neighbors: [],
+    sizing: "equal",
+    completeMarketCycles: 0,
+    lowZoneCorroborated: false,
+  });
+  const result = await evaluateAlertInputs("crypto", now, repo);
+  const progress = result.states.find(
+    (s) => s.id === `shadow-progress:${crypto.id}:1`,
+  )?.value as { samples: { symbol: string }[] };
+  expect(progress.samples.map((s) => s.symbol)).toEqual(["BTCUSDT"]);
+  expect(
+    result.proposals
+      .filter((p) => p.event.strategyId === crypto.id)
+      .map((p) => p.event.symbol),
+  ).toEqual(["BTCUSDT"]);
+});

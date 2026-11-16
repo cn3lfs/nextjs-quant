@@ -21,7 +21,7 @@ import {
 } from "../ui/select";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { GridTable, Pill } from "../panels";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 
 type Filters = {
   symbol: "all" | "BTCUSDT" | "ETHUSDT";
@@ -140,7 +140,7 @@ export function CryptoAccountPanel({
   id: string;
   configured: boolean;
 }) {
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const utils = api.useUtils();
   const [draft, setDraft] = useState<Filters>(initialFilters);
   const [filter, setFilter] = useState<

@@ -39,7 +39,7 @@ function candidate() {
     period: "day" as const,
     universe: { kind: "symbols" as const, symbols: ["sh600000"] },
     entry: { kind: "constant" as const, value: true },
-    exit: {},
+    exit: { stop: { kind: "fixed", fraction: 0.1 }, takeProfit: 0.3 },
     sizing: { kind: "weight" as const, weight: 1 },
     sleeve: "swing",
   };
@@ -171,6 +171,7 @@ it("unassigned holdings consume market capital and caps without consuming every 
   const configured = settingsSchema.parse({
     ...config,
     accountReview: {
+      portfolioLimits: { enabled: false },
       caps: [
         {
           market: "cn-equity",
@@ -191,7 +192,10 @@ it("unassigned holdings consume market capital and caps without consuming every 
     positions: [p],
     assertCurrent: () => {},
   });
-  expect(plan.quantity).toBe(500);
+  expect(plan.quantity).toBe(400);
+  expect(
+    plan.quantity * plan.entry + (plan.sizingAudit?.estimatedFees ?? 0),
+  ).toBeLessThanOrEqual(5000);
   expect(plan.positionSnapshot?.unassignedValue).toBe(95000);
   expect(plan.exposureAudit?.violations).toEqual([]);
   repo.closePlan(plan.id, "cancelled");

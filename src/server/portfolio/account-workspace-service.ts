@@ -24,6 +24,8 @@ import { pagePositionRisk } from "./position-risk-service";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
 import { readIndustryBlocks } from "../market/industry-blocks";
 import { reviewTradeNav } from "~/lib/portfolio/trade-review-nav";
+import { bindHoldingProtection } from "./holding-protection-link";
+import { HoldingProtectionRepository } from "../db/holding-protection-repository";
 import { alertReference } from "~/lib/strategy-facts/alert-reference";
 
 export type AccountFacts = ReturnType<AccountWorkspaceRepository["snapshot"]>;
@@ -194,6 +196,8 @@ export async function loadAccountBook(
           side: f.kind,
           date: f.tradeDate,
           time: tradeTime(f.tradeDate, f.tradeTime, "cn-equity"),
+          timePrecision: f.tradeTime ? "instant" : "day",
+          sourceOrder: { source: f.batchId, index: f.rowIndex },
           price: f.price,
           quantity: f.quantity,
           strategyId: null,
@@ -273,6 +277,7 @@ export async function loadAccountBook(
         side: t.side,
         date: t.date,
         time: tradeTime(t.date, null, "cn-equity"),
+        timePrecision: "day",
         price: t.price,
         quantity: t.quantity,
         strategyId: null,
@@ -395,6 +400,7 @@ export async function loadAccountBook(
           side: t.side === "BUY" ? "buy" : "sell",
           date: new Date(t.time).toISOString(),
           time: t.time,
+          timePrecision: "instant",
           price: Number(t.price),
           quantity: Number(t.quantity),
           strategyId: null,
@@ -566,15 +572,31 @@ export function linkAccountTrade(
       event.observedAt > trade.time)
   )
     throw new Error("提醒标的、版本或观察时间不符");
+  if (
+    trade.side === "buy" &&
+    plan?.expiresAt &&
+    trade.time > Date.parse(plan.expiresAt)
+  )
+    throw new Error("成交超出计划有效期，不能继承该计划保护");
   if (plan && event && plan.triggerKey !== event.key)
     throw new Error("计划与提醒来源冲突");
   return repo.atomic(() => {
     repo.assertVersion(book.facts.version);
-    return repo.link({
+    const linkedAt = Date.now();
+    const link = repo.link({
       ...input,
-      linkedAt: Date.now(),
+      linkedAt,
       tradeFingerprint: accountTradeFingerprint(trade),
     });
+    if (plan)
+      bindHoldingProtection(
+        { ...trade, ...input },
+        plan,
+        book,
+        new HoldingProtectionRepository(repo.db),
+        linkedAt,
+      );
+    return link;
   });
 }
 

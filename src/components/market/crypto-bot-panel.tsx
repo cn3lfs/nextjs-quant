@@ -18,7 +18,8 @@ import {
 } from "../ui/select";
 import { CryptoAccountPanel } from "./crypto-account-panel";
 import { HoldingAlertEditor } from "../portfolio/holding-alert-editor";
-import { PanelVisibility, usePanelVisible } from "../workbench/keep-alive";
+import { PanelVisibility } from "../workbench/keep-alive";
+import { useScreenVisible } from "../workbench/use-task-visible";
 
 const accounts = [
   ["binance-demo", "币安 Demo"],
@@ -49,7 +50,11 @@ export function CryptoBotPanel({ view }: { view: "strategy" | "account" }) {
   return (
     <Panel
       icon={CurrencyBtc}
-      title={view === "strategy" ? "现货策略模拟" : "平台账户与历史成交"}
+      title={
+        view === "strategy"
+          ? "现货策略模拟 · 未验证机器人"
+          : "平台账户与历史成交"
+      }
       tag="BTCUSDT / ETHUSDT"
       note={
         view === "strategy"
@@ -85,9 +90,10 @@ function AccountBot({
   view: "strategy" | "account";
 }) {
   const utils = api.useUtils();
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const status = api.cryptoBotStatus.useQuery(id, {
     retry: false,
+    enabled: visible,
     refetchInterval: visible ? 10000 : false,
   });
   const bot = status.data?.bot;

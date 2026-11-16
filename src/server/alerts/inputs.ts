@@ -26,6 +26,17 @@ import {
   type HoldingProtection,
   type HoldingWatchState,
 } from "./observations";
+import { candidateScanWatermark } from "./candidate-scan";
+import { HoldingProtectionRepository } from "../db/holding-protection-repository";
+import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
+import { DeliveryStore } from "../db/delivery-store";
+import { loadAccountBook } from "../portfolio/account-workspace-service";
+import {
+  holdingProtectionCurrent,
+  observeHoldingProtection,
+  protectionPositionKey,
+  type HoldingProtectionProjection,
+} from "~/lib/portfolio/holding-protection";
 import { tradePositionState } from "../portfolio/trade-ledger-service";
 import type { BotState } from "../crypto-trading/model";
 import type { Period, Bar } from "~/lib/domain";
@@ -200,6 +211,8 @@ export async function evaluateAlertInputs(
             : true),
     );
   for (const strategy of strategies) {
+    const scan = candidateScanWatermark(strategy, now, closeDate);
+    result.states.push(scan);
     const shadow = repo.state<ShadowRegistration>(
       `shadow:${strategy.id}:${strategy.version}`,
     );
@@ -209,24 +222,39 @@ export async function evaluateAlertInputs(
     const registration = JSON.stringify(repo.state(registrationId));
     const configured =
       repo.state<string[]>(`universe:${strategy.id}:${strategy.version}`) ?? [];
-    const symbols = [
-      ...new Set([
-        ...(get<string[]>("watchlist") ?? []),
-        ...configured,
-        ...(strategy.universe.kind === "symbols"
-          ? strategy.universe.symbols
-          : []),
-      ]),
-    ].filter((s) =>
-      market === "crypto"
-        ? /^(cx)?[A-Z0-9]+USDT$/.test(s)
-        : /^(sh|sz)\d{6}$/.test(s),
-    );
+    const selected =
+      strategy.universe.kind === "symbols"
+        ? strategy.universe.symbols
+        : [...(get<string[]>("watchlist") ?? []), ...configured];
+    const seen = new Set<string>();
+    const symbols = selected.filter((symbol) => {
+      if (
+        !(market === "crypto"
+          ? /^(cx)?[A-Z0-9]+USDT$/.test(symbol)
+          : /^(sh|sz)\d{6}$/.test(symbol))
+      )
+        return false;
+      const identity =
+        market === "crypto"
+          ? isCryptoSymbol(symbol)
+            ? symbol
+            : cryptoSymbol(symbol)
+          : symbol;
+      if (seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    });
     for (const symbol of symbols) {
       try {
         const data = await series(symbol, strategy.period, true);
         const bar = data.bars.at(-1);
         if (!bar) continue;
+        if (
+          market === "cn-equity" &&
+          strategy.period !== "day" &&
+          (!scan.value.bar || bar.date > scan.value.bar)
+        )
+          scan.value.bar = bar.date;
         const prospectiveCompletedAt = shadowBarCompletedAt(
           market,
           strategy.period,
@@ -375,7 +403,7 @@ export async function evaluateAlertInputs(
             event.bar,
             event.type,
             event.price,
-            `${phase === "close" ? "收盘扫描：明日计划候选" : "已完成bar策略触发"}${statusUnknown ? "；交易状态未知，请核验；仅影子记录" : ""}`,
+            `${phase === "close" ? "收盘扫描：明日计划候选" : "已完成bar策略触发"}；规则${strategy.entry.kind}，完成bar ${event.bar}，原价${event.price}，入场=${event.type === "entry"}，止损=${event.stop ?? "无"}，目标=${event.target ?? "无"}${statusUnknown ? "；交易状态未知，请核验；仅影子记录" : ""}`,
             data.source,
             data.completedAt(bar.date),
             {
@@ -536,12 +564,22 @@ export async function evaluateAlertInputs(
       error(symbol, e);
     }
   };
+  const protectionRepo = new HoldingProtectionRepository(repo.db);
+  const bindings = protectionRepo.all().filter((b) => b.market === market);
   if (market === "cn-equity" && config.tdxRoot) {
     try {
       const positions = (await tradePositionState()).positions.filter(
         (p) => p.quantity > 0,
       );
       for (const p of positions) {
+        if (
+          bindings.some(
+            (b) =>
+              b.id ===
+              protectionPositionKey("real", "手工账本", market, p.symbol),
+          )
+        )
+          continue;
         const override = repo.state<HoldingProtection & { sleeve: string }>(
           `protection:cn-equity:${p.symbol}`,
         );
@@ -583,6 +621,139 @@ export async function evaluateAlertInputs(
         protection?.sleeve ?? "swing",
       );
     }
+  if (
+    bindings.length ||
+    (market === "cn-equity" && new DeliveryStore(repo.db).fills().length)
+  ) {
+    try {
+      const book = await loadAccountBook(
+        new AccountWorkspaceRepository(repo.db),
+        config,
+        now,
+      );
+      for (const p of book.positions.filter(
+        (p) =>
+          p.market === market &&
+          p.quantity > 0 &&
+          (p.id.startsWith("delivery:") ||
+            bindings.some(
+              (b) =>
+                b.id ===
+                protectionPositionKey(p.kind, p.account, p.market, p.symbol),
+            )),
+      )) {
+        const binding = bindings.find(
+          (b) =>
+            b.id ===
+            protectionPositionKey(p.kind, p.account, p.market, p.symbol),
+        );
+        if (p.value === null) exposureComplete = false;
+        let stop = p.stop,
+          target: number | null = null;
+        if (
+          binding &&
+          holdingProtectionCurrent(binding, book.trades) &&
+          binding.protection.version === "plan-protection-1"
+        ) {
+          const period =
+            repo.strategies.strategy(binding.strategyId, binding.version)
+              ?.period ?? "day";
+          const data = await series(p.symbol, period);
+          const stateId = `holding-protection:${binding.id}`;
+          const previous = repo.state<HoldingProtectionProjection>(stateId);
+          // Only a complete close changes tomorrow's levels. Intraday checks use
+          // the previously recommended standing order, never today's high.
+          if (phase === "close" || market === "crypto") {
+            const definition = repo.strategies.strategy(
+              binding.strategyId,
+              binding.version,
+            )!;
+            let ruleExit: boolean | null = binding.protection.exitSpec.rule
+              ? null
+              : false;
+            let evidenceIssue: string | undefined;
+            const last = data.bars.at(-1);
+            if (
+              !last ||
+              (phase === "close" &&
+                last.date.slice(0, 10) !== (closeDate ?? today))
+            )
+              evidenceIssue = "本次收盘日行情未完成，不推算新的保护价";
+            if (
+              market === "cn-equity" &&
+              book.context
+                .evidence(p.symbol)
+                .events.some(
+                  (e) =>
+                    e.date >= binding.entryDate.slice(0, 10) &&
+                    e.date <= (last?.date.slice(0, 10) ?? today),
+                )
+            )
+              evidenceIssue =
+                "持仓期间存在公司行动，券商保护价与股份到账需人工核验，不推算新保护价";
+            if (
+              p.reasons.some(
+                (r) => r.includes("未认证除权") || r.includes("单位须"),
+              )
+            )
+              evidenceIssue = "持仓股份或价格单位未获认证，不推算新保护价";
+            if (binding.protection.exitSpec.rule && last) {
+              try {
+                ruleExit =
+                  evaluateStrategySeries(
+                    {
+                      ...definition,
+                      entry: { kind: "constant", value: false },
+                      exit: binding.protection.exitSpec,
+                    },
+                    data,
+                    last.date,
+                  )?.decision.exit ?? null;
+              } catch {
+                evidenceIssue = "退出规则证据不可用；不能视为未触发";
+              }
+            }
+            const projection = observeHoldingProtection(
+              binding,
+              data.rawBars,
+              book.calendar,
+              now,
+              previous,
+              { period, ruleExit, evidenceIssue },
+            );
+            result.states.push({ id: stateId, value: projection });
+            stop = projection.backupStop;
+          } else
+            stop =
+              previous?.bindingAt === binding.boundAt
+                ? previous.task.newStop
+                : binding.protection.initialStop;
+          target = binding.protection.target;
+        } else if (binding) {
+          stop = null;
+          error(p.symbol, new Error("Holding protection requires relinking"));
+        }
+        // The bot's original independent exposure is already accounted above.
+        const botDuplicate =
+          market === "crypto" &&
+          bots.some(
+            (b) => b.id === p.account && Number(b.positions[p.symbol] ?? 0) > 0,
+          );
+        if (!botDuplicate)
+          await watchHolding(
+            p.id,
+            p.symbol,
+            p.quantity,
+            { stop, target, trailing: null },
+            p.sleeve,
+            p.cost,
+          );
+      }
+    } catch (failure) {
+      exposureComplete = false;
+      error("holdings", failure);
+    }
+  }
   if (exposureComplete) {
     result.states.push({
       id: "holding-risk",

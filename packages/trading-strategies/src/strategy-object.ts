@@ -278,16 +278,34 @@ export type StrategyDecision = {
   stopLevel: number | null;
 };
 
+export function strategyTimeExit(
+  exit: StrategyObjectInput["exit"],
+  completedHoldingBars: number,
+) {
+  return exit.maxBars !== undefined && completedHoldingBars >= exit.maxBars;
+}
+
+export function standingProtectionLevels(
+  exit: StrategyObjectInput["exit"],
+  position: { stop: number | null; target: number | null; high: number },
+) {
+  const trailing = exit.trailing ? position.high * (1 - exit.trailing) : null;
+  return {
+    stop: Math.max(position.stop ?? 0, trailing ?? 0),
+    trailing,
+    target: position.target,
+  };
+}
+
 /** Protection was known before this completed bar; stop wins an ambiguous OHLC path. */
 export function strategyProtection(
-  strategy: StrategyObjectInput,
+  strategy: Pick<StrategyObjectInput, "exit">,
   bar: Bar,
   position: { stop: number | null; target: number | null; high: number },
 ): { trigger: "stop" | "trailing" | "target"; price: number } | null {
-  const trail = strategy.exit.trailing
-    ? position.high * (1 - strategy.exit.trailing)
-    : null;
-  const stop = Math.max(position.stop ?? 0, trail ?? 0);
+  const levels = standingProtectionLevels(strategy.exit, position);
+  const trail = levels.trailing;
+  const stop = levels.stop;
   if (stop > 0 && bar.low <= stop)
     return {
       trigger:

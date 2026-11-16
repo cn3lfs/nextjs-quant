@@ -7,6 +7,10 @@ import {
 import type { WatchEvent } from "../strategies/drivers/watch";
 import { alertKinds } from "~/lib/strategy-facts/alerts";
 import { sqlite } from "./index";
+import {
+  planProtectionSchema,
+  planSizingAuditSchema,
+} from "~/lib/strategy-facts/plan-policy";
 import { exposureCapSchema } from "~/lib/portfolio/account-workspace";
 
 const positive = z.number().finite().positive();
@@ -53,6 +57,8 @@ export const tradePlanSchema = z
       .optional(),
     closeReason: z.enum(["triggered", "cancelled", "expired"]).optional(),
     createdAt: z.number().finite().optional(),
+    protection: planProtectionSchema.optional(),
+    sizingAudit: planSizingAuditSchema.optional(),
     positionSnapshot: z
       .object({
         at: z.number().finite(),

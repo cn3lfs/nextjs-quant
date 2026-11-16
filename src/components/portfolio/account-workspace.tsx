@@ -22,6 +22,7 @@ import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import { PaperAccountsPanel } from "./paper-accounts-panel";
 import { TradeLedgerPanel } from "./trade-ledger-panel";
+import { CryptoRiskNotes } from "./crypto-risk-notes";
 
 const pct = (n: number | null) => formatPercent(n === null ? null : n * 100);
 type Position = RouterOutputs["accountPositions"]["items"][number];
@@ -35,7 +36,12 @@ export function AccountWorkspace() {
   if (tab === "attribution") return <AccountAttribution />;
   if (tab === "monthly") return <MonthlyReview />;
   if (position) return <AccountPositionDetail id={position} />;
-  return <UnifiedPositions />;
+  return (
+    <>
+      <CryptoRiskNotes />
+      <UnifiedPositions />
+    </>
+  );
 }
 function UnifiedPositions() {
   const [kind, setKind] = useState<

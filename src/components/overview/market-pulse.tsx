@@ -4,7 +4,7 @@ import { formatNumber } from "trading-strategy-core/format-number";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 import { useQuoteRefreshInterval } from "../market/use-quote-session";
 
 /** Headline A-share indices, as on a broker terminal's home screen. */
@@ -38,7 +38,7 @@ const signed = (change: number) =>
  */
 export function useOverviewQuotes(watch: readonly string[]) {
   const interval = useQuoteRefreshInterval();
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const symbols = [...pulseIndices.map(([symbol]) => symbol), ...watch];
   const quotes = api.tdxQuotes.useQuery(symbols, {
     enabled: visible,

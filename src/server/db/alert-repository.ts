@@ -240,7 +240,6 @@ export class AlertRepository {
       const ranking = day?.periods.includes(20)
         ? rpsStore.ranking(day.date, 20)
         : [];
-      const rpsBySymbol = new Map(ranking.map((r) => [r.symbol, r.rps]));
       let clause = `${where} AND status<>'missed'`;
       if (input.minimumRps !== undefined) {
         clause += " AND symbol IN (SELECT value FROM json_each(?))";
@@ -252,23 +251,50 @@ export class AlertRepository {
           ),
         );
       }
+      const rankingJson = JSON.stringify(
+        Object.fromEntries(ranking.map((r) => [r.symbol, r.rps])),
+      );
+      const grouped = `WITH current AS (
+        SELECT e.* FROM watch_events e JOIN records s
+          ON s.kind='alert-state' AND s.id='alerts:candidate-scan:'||json_extract(e.payload,'$.market')||':'||e.strategy_id||':'||e.strategy_version
+          AND json_extract(s.payload,'$.bar')=e.bar
+      ), rank_values AS (SELECT key symbol,value rps FROM json_each(?)), eligible AS (
+        SELECT payload,dedupe_key,symbol,bar,json_extract(payload,'$.market') market,
+          (SELECT rps FROM rank_values WHERE rank_values.symbol=current.symbol) rps20
+        FROM current WHERE ${clause}
+      ), grouped AS (
+        SELECT market,symbol,max(rps20) rps20,json_group_array(json(payload)) sources
+        FROM eligible GROUP BY market,symbol
+      )`;
       const total = (
         this.db
-          .prepare(`SELECT count(*) n FROM watch_events WHERE ${clause}`)
-          .get(...args) as { n: number }
+          .prepare(`${grouped} SELECT count(*) n FROM grouped`)
+          .get(rankingJson, ...args) as { n: number }
       ).n;
       const rows = this.db
         .prepare(
-          `SELECT payload FROM watch_events WHERE ${clause} ORDER BY bar DESC,dedupe_key DESC LIMIT 20 OFFSET ?`,
+          `${grouped} SELECT * FROM grouped ORDER BY rps20 DESC,market,symbol LIMIT 20 OFFSET ?`,
         )
-        .all(...args, input.page * 20) as { payload: string }[];
+        .all(rankingJson, ...args, input.page * 20) as {
+        sources: string;
+        rps20: number | null;
+      }[];
       return {
         total,
         items: rows.map((r) => {
-          const event = this.withOutcomes(JSON.parse(r.payload) as AlertEvent);
+          const sources = (JSON.parse(r.sources) as AlertEvent[])
+            .sort(
+              (a, b) =>
+                a.strategyId.localeCompare(b.strategyId) ||
+                b.version - a.version ||
+                a.key.localeCompare(b.key),
+            )
+            .map((e) => this.withOutcomes(e));
+          const event = sources[0]!;
           return {
             ...event,
-            rps20: rpsBySymbol.get(event.symbol) ?? null,
+            sources,
+            rps20: r.rps20,
             rpsDate: day?.date ?? null,
           };
         }),

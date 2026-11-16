@@ -18,7 +18,15 @@ import type { Snapshot } from "~/lib/domain";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { loadAccountBook } from "../../portfolio/account-workspace-service";
 import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
+import { cryptoRiskSummary } from "../../crypto-trading/risk-summary";
+import { planCorrelation } from "../../portfolio/plan-correlation";
 export const alertsRouter = createTRPCRouter({
+  planCorrelation: p("portfolio", "read")
+    .input(z.string().min(1).max(1000))
+    .query(({ input }) => planCorrelation(input, settings())),
+  cryptoRiskSummary: p("cryptoSimulation", "read").query(() =>
+    cryptoRiskSummary(),
+  ),
   prepareScreenPlan: p("alerts", "configure")
     .input(
       z.object({

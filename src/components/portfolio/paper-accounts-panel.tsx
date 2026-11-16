@@ -11,7 +11,7 @@ import {
 import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
-import { useTaskVisible } from "../workbench/use-task-visible";
+import { useScreenVisible } from "../workbench/use-task-visible";
 
 type Kind =
   | "order"
@@ -54,7 +54,7 @@ export function PaperFacts({
 }) {
   const [kind, setKind] = useState<Kind>("fill");
   const [page, setPage] = useState(0);
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const query = api.paperFacts.useQuery(
     { id, kind, page, today },
     { enabled: visible, refetchInterval: visible ? 30000 : false },
@@ -212,7 +212,7 @@ export function PaperFacts({
   );
 }
 export function PaperAccountsPanel() {
-  const visible = useTaskVisible();
+  const visible = useScreenVisible();
   const query = api.paperAccounts.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,

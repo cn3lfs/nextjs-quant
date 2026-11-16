@@ -26,7 +26,7 @@ const strategy: StrategyObjectInput = {
   period: "day",
   universe: { kind: "symbols", symbols: ["sh600000"] },
   entry: { kind: "constant", value: true },
-  exit: {},
+  exit: { stop: { kind: "fixed", fraction: 0.1 }, takeProfit: 0.3 },
   sizing: { kind: "weight", weight: 1 },
   sleeve: "swing",
 };
@@ -65,6 +65,10 @@ beforeEach(() => {
   repo.saveState("exposure", [
     { market: "cn-equity", sleeve: "__checked__", value: 0, at: now },
   ]);
+  repo.saveState(`candidate-scan:cn-equity:${strategy.id}:1`, {
+    bar: "2026-11-13",
+    observedAt: now,
+  });
 });
 afterEach(() => db.close());
 it("quantity preview and create share admission; post-close exposure remains usable and unknown crypto lot stays unavailable", () => {
@@ -72,7 +76,7 @@ it("quantity preview and create share admission; post-close exposure remains usa
   repo.record(strategy, e);
   const before = repo.plans().length;
   expect(workspaceCandidate(e, repo, now)).toMatchObject({
-    quantity: 1000,
+    quantity: 900,
     qualification: "research",
     quantityReason: null,
   });
@@ -88,14 +92,15 @@ it("quantity preview and create share admission; post-close exposure remains usa
     config,
     now,
     repo,
+    { positions: [], industry: () => "银行", assertCurrent: () => {} },
   );
-  expect(plan.quantity).toBe(1000);
+  expect(plan.quantity).toBe(900);
   expect(workspaceCandidate(e, repo, now).quantityReason).toContain(
     "未完成计划",
   );
   repo.closePlan(plan.id, "cancelled");
   expect(workspaceCandidate(e, repo, now + 600001)).toMatchObject({
-    quantity: 1000,
+    quantity: 900,
     quantityReason: null,
     positionSnapshot: { at: now, basis: "post-close" },
   });

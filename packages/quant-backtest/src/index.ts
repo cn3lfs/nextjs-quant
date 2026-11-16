@@ -39,3 +39,5 @@ export type {
   StrategyExperimentResult,
   BacktestResult,
 } from "./five-minute-profile.js";
+
+export * from "./portfolio-sizing.js";

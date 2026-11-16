@@ -26,7 +26,7 @@ import {
 import { useQuoteRefreshInterval } from "./use-quote-session";
 import { Button } from "../ui/button";
 import { isTypingTarget } from "./chart-hotkeys";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useScreenVisible } from "../workbench/use-task-visible";
 
 const dayChoices = [1, 2, 3, 4, 5] as const;
 const beijingDate = (now: number) =>
@@ -48,7 +48,7 @@ export function IntradayChart({
   pricePrecision?: number;
 }) {
   const [days, setDays] = useState<number>(1);
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const interval = useQuoteRefreshInterval();
   const today = api.tdxMinutes.useQuery(
     { symbol },

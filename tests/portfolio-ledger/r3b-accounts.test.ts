@@ -440,6 +440,10 @@ it("reports all three monthly discipline classes with signed monetary counterfac
 it("stores exposure override evidence with the plan and never admits an unacknowledged breach", () => {
   const s = seed();
   try {
+    s.config.accountReview.portfolioLimits.enabled = false;
+    s.config.alerts.sleeves.find(
+      (row) => row.market === "cn-equity" && row.id === "swing",
+    )!.risk = 0.02;
     s.config.accountReview.caps = [
       {
         market: "cn-equity",
@@ -462,6 +466,10 @@ it("stores exposure override evidence with the plan and never admits an unacknow
         stop: 9,
         target: 12,
         expiresAt: "2026-01-20T00:00:00Z",
+        overrideSizing: {
+          confirmed: true as const,
+          reason: "固定fixture人工保护目标",
+        },
       },
       admission = {
         positions: [] as AccountPosition[],

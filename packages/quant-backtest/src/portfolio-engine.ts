@@ -1,6 +1,7 @@
 import {
   prepareStrategy,
   strategyProtection,
+  strategyTimeExit,
   strategyObjectSchema,
   type StrategyObjectInput,
   type StrategyExternalInputs,
@@ -10,23 +11,21 @@ import type { Bar, Period } from "trading-strategy-core/bars";
 import { marketRules } from "trading-strategy-core/market-rules";
 import {
   executionCostsSchema,
+  executionCostsForDate,
   type ExecutionCosts,
 } from "trading-strategy-core/costs";
-import {
-  big,
-  bigMin,
-  bpsOf,
-  moneyMul,
-  toNumber,
-  type Numeric,
-} from "trading-strategy-core/money";
+import { big, toNumber, type Numeric } from "trading-strategy-core/money";
 import {
   PortfolioAccount,
   actionPrice,
   type PortfolioAction,
   replayPortfolioEvents,
 } from "./portfolio-account.js";
-import { fillMarketOrder, commissionFor } from "./execution.js";
+import { fillMarketOrder } from "./execution.js";
+import {
+  sizePortfolioEntry,
+  portfolioExecutionFee as feeFor,
+} from "./portfolio-sizing.js";
 
 type Market = "cn-equity" | "crypto";
 export type PortfolioExecution = {
@@ -178,19 +177,6 @@ function nextBar(date: string, period: Period) {
   return new Date(
     Date.parse(date) + (periodMinutes[period] ?? 1440) * 60000,
   ).toISOString();
-}
-function feeFor(
-  quantity: number,
-  price: number,
-  side: "buy" | "sell",
-  costs: ExecutionCosts,
-) {
-  const amount = moneyMul(quantity, price);
-  return toNumber(
-    big(commissionFor(amount, costs)).plus(
-      side === "sell" ? bpsOf(amount, costs.sellTaxBps) : 0,
-    ),
-  );
 }
 function quantityRules(
   instrument: PortfolioInstrument,
@@ -617,7 +603,14 @@ export function runPortfolio(
       reject(order, date, "T+1：当日买入不可卖出");
       return;
     }
-    const result = quote(bar, rules.execution, order.side, costs, reference);
+    const dateCosts = executionCostsForDate(costs, date);
+    const result = quote(
+      bar,
+      rules.execution,
+      order.side,
+      dateCosts,
+      reference,
+    );
     if (result.price === null) {
       reject(order, date, result.reason!);
       return;
@@ -662,12 +655,6 @@ export function runPortfolio(
         reject(order, date, "缺失或无效初始止损");
         return;
       }
-      const baseWeight =
-        strategy.sizing.kind === "equal"
-          ? 1 / strategy.sizing.positions
-          : strategy.sizing.kind === "weight"
-            ? strategy.sizing.weight
-            : 1;
       const weights = weightRows.get(key) ?? [];
       let low = 0,
         high = weights.length;
@@ -680,53 +667,27 @@ export function runPortfolio(
         request.positionWeights === undefined
           ? 1
           : (weights[low - 1]?.weight ?? 0);
-      const weight = Math.min(baseWeight, ceiling);
-      const capital = account.equity;
-      const budget = Math.min(
-        account.cash,
-        (capital * weight) / strategy.sizing.tranches,
-      );
-      quantity = floorStep(
-        bigMin(
-          big(budget).minus(costs.minimumCommission).div(price),
-          big(budget).div(
-            big(price).times(big(1).plus(big(costs.commissionBps).div(10000))),
-          ),
-          rules.maximum,
-        ),
-        rules.step,
-      );
-      if (stop !== null) {
-        const loss = price - stop;
-        const oldRisk = holding
-          ? holding.quantity *
-              Math.max(0, holding.cost - (control?.stop ?? stop)) +
-            feeFor(holding.quantity, control?.stop ?? stop, "sell", costs)
-          : 0;
-        const fraction = Math.min(
-          sleeve.riskPerTrade,
-          strategy.sizing.kind === "risk"
-            ? strategy.sizing.fraction
-            : sleeve.riskPerTrade,
-        );
-        const riskBudget = Math.max(0, capital * fraction - oldRisk);
-        quantity = Math.min(
-          quantity,
-          floorStep(
-            Math.max(0, riskBudget - costs.minimumCommission * 2) /
-              (loss +
-                (price * costs.commissionBps) / 10000 +
-                (stop * (costs.commissionBps + costs.sellTaxBps)) / 10000),
-            rules.step,
-          ),
-        );
-      }
-      if (
-        quantity < rules.minimum ||
-        quantity * price + feeFor(quantity, price, "buy", costs) >
-          account.cash + 1e-8
-      ) {
-        reject(order, date, "资金不足以支付一手及费用");
+      const sized = sizePortfolioEntry({
+        sizing: strategy.sizing,
+        equity: account.equity,
+        cash: account.cash,
+        price,
+        stop,
+        riskPerTrade: sleeve.riskPerTrade,
+        weightCeiling: ceiling,
+        existing: holding
+          ? {
+              quantity: holding.quantity,
+              cost: holding.cost,
+              stop: control?.stop ?? stop,
+            }
+          : undefined,
+        quantityRules: rules,
+        costs: dateCosts,
+      });
+      quantity = sized.quantity;
+      if (sized.reason) {
+        reject(order, date, sized.reason);
         return;
       }
       controls.set(
@@ -764,7 +725,7 @@ export function runPortfolio(
       reject(order, date, "无可成交数量");
       return;
     }
-    const fee = feeFor(quantity, price, order.side, costs);
+    const fee = feeFor(quantity, price, order.side, dateCosts);
     account.fill(
       key,
       dayOf(date, market),
@@ -939,9 +900,7 @@ export function runPortfolio(
             eligible = membership.symbols.includes(symbol);
           }
           const timed =
-            !!current &&
-            strategy.exit.maxBars !== undefined &&
-            control!.bars >= strategy.exit.maxBars;
+            !!current && strategyTimeExit(strategy.exit, control!.bars);
           const side =
             current && (decision.exit === true || timed)
               ? "sell"

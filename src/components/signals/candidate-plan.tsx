@@ -6,34 +6,54 @@ import { Button } from "../ui/button";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { Checkbox } from "../ui/checkbox";
 import type { WorkspaceCandidate } from "../overview/candidate-table";
+import { useScreenVisible } from "../workbench/use-task-visible";
 
 export function CandidatePlan({
   candidate,
+  inline = false,
+  onSaved,
+  onClose,
 }: {
   candidate: Pick<
     WorkspaceCandidate,
     "key" | "market" | "symbol" | "price" | "stop" | "target"
-  > & { positionSnapshot?: WorkspaceCandidate["positionSnapshot"] };
+  > & {
+    positionSnapshot?: WorkspaceCandidate["positionSnapshot"];
+    tranches?: number;
+    exitSpec?: WorkspaceCandidate["exitSpec"];
+  };
+  inline?: boolean;
+  onSaved?: () => void;
+  onClose?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [overrideCaps, setOverrideCaps] = useState(false);
+  const [overrideSizing, setOverrideSizing] = useState(false);
+  const tranches = candidate.tranches ?? 1;
+  const visible = useScreenVisible();
+  const correlation = api.planCorrelation.useQuery(candidate.key, {
+    enabled: visible && (open || inline),
+    retry: false,
+  });
   const utils = api.useUtils();
   const save = api.createAlertPlan.useMutation({
     onSuccess: (p) => {
       setMessage(
-        `已保存交易计划 · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
+        `已保存交易计划 · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
       );
       setOpen(false);
       void utils.alertPlans.invalidate();
       void utils.workspaceCandidates.invalidate();
+      void utils.todayWorkspace.invalidate();
+      onSaved?.();
     },
     onError: (e) => setMessage(e.message),
   });
   return (
     <div className="space-y-2 rounded border bg-nc-card p-3">
-      <Button onClick={() => setOpen(true)}>加入计划</Button>
-      {open && (
+      {!inline && <Button onClick={() => setOpen(true)}>加入计划</Button>}
+      {(open || inline) && (
         <form
           className="space-y-3"
           onSubmit={(e) => {
@@ -47,10 +67,20 @@ export function CandidatePlan({
             save.mutate({
               eventKey: candidate.key,
               overrideCaps,
-              stages: [Number(f.get("entry"))],
+              stages: Array.from({ length: tranches }, (_, i) =>
+                Number(f.get(`entry-${i}`)),
+              ),
               stop: Number(f.get("stop")),
               target: f.get("target") ? Number(f.get("target")) : null,
               expiresAt: new Date(expiry).toISOString(),
+              ...(overrideSizing
+                ? {
+                    overrideSizing: {
+                      confirmed: true as const,
+                      reason: String(f.get("sizing-reason")),
+                    },
+                  }
+                : {}),
               ...(candidate.market === "crypto"
                 ? {
                     quantityRules: {
@@ -65,7 +95,8 @@ export function CandidatePlan({
         >
           <p>
             {candidate.symbol} ·
-            按分仓风险和最新核对额度计算数量，不含费用滑点。
+            数量复用所选策略与纸面账户的仓位规则，含撮合费用；
+            {tranches} 档入场。实际成交价格由用户核对。
           </p>
           {candidate.positionSnapshot && (
             <p className="text-xs text-nc-text-3">
@@ -79,9 +110,29 @@ export function CandidatePlan({
                 : ""}
             </p>
           )}
+          {correlation.error && (
+            <p role="alert">相关性提示读取失败：{correlation.error.message}</p>
+          )}
+          {correlation.data && (
+            <div className="text-xs text-nc-text-3">
+              <p>{correlation.data.reason}</p>
+              {correlation.data.pairs
+                .filter((p) => p.warning)
+                .map((p) => (
+                  <p key={p.symbol}>
+                    {p.symbol} · 相关系数 {formatNumber(p.correlation, 2)} /{" "}
+                    {p.overlapDays} 日 · {p.warning}
+                  </p>
+                ))}
+            </div>
+          )}
           <div className="grid gap-2 lg:grid-cols-2">
             {[
-              { name: "entry", label: "入场参考", value: candidate.price },
+              ...Array.from({ length: tranches }, (_, i) => ({
+                name: `entry-${i}`,
+                label: tranches > 1 ? `第${i + 1}档入场参考` : "入场参考",
+                value: candidate.price,
+              })),
               { name: "stop", label: "计划止损", value: candidate.stop },
               { name: "target", label: "计划目标", value: candidate.target },
             ].map((f) => (
@@ -105,14 +156,55 @@ export function CandidatePlan({
                 aria-label="计划到期时间"
                 type="datetime-local"
                 required
-                defaultValue={new Date(Date.now() + 86400000)
+                defaultValue={new Date(
+                  Date.now() +
+                    86400000 -
+                    new Date().getTimezoneOffset() * 60000,
+                )
                   .toISOString()
                   .slice(0, 16)}
               />
             </label>
           </div>
+          {candidate.exitSpec && (
+            <p className="text-xs text-nc-text-3">
+              策略保护：
+              {candidate.exitSpec.stop
+                ? `初始止损 ${candidate.exitSpec.stop.kind}`
+                : "未声明初始止损"}
+              {candidate.exitSpec.trailing
+                ? ` · 收盘后更新移动止损 ${formatNumber(candidate.exitSpec.trailing * 100, 2)}%`
+                : ""}
+              {candidate.exitSpec.maxBars
+                ? ` · 最长 ${candidate.exitSpec.maxBars} 根完成bar`
+                : ""}
+              。成交关联后继承完整退出规则。
+            </p>
+          )}
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={overrideSizing}
+              onCheckedChange={(v) => setOverrideSizing(v === true)}
+            />
+            明确调整策略入场或保护参数，记录为偏离验证模型
+          </label>
+          {overrideSizing && (
+            <label>
+              调整原因
+              <Input
+                name="sizing-reason"
+                aria-label="调整原因"
+                required
+                minLength={1}
+                maxLength={500}
+              />
+            </label>
+          )}
           {candidate.market === "crypto" && (
             <div className="grid gap-2 lg:grid-cols-2">
+              <p role="alert" className="lg:col-span-2">
+                缺少平台数量网格时不能保存；请填写经平台核验的步长、最小数量及来源。
+              </p>
               {[
                 { name: "step", label: "平台数量步长" },
                 { name: "minimum", label: "平台最小数量" },
@@ -145,7 +237,10 @@ export function CandidatePlan({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              onClose?.();
+            }}
           >
             关闭
           </Button>

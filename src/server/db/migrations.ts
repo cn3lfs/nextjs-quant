@@ -171,6 +171,14 @@ const migrations = [
     strategy_id TEXT NOT NULL, version INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)),
     PRIMARY KEY(strategy_id,version),
     FOREIGN KEY(strategy_id,version) REFERENCES strategies(id,version));`,
+  `CREATE TABLE account_protections (
+    id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('real','paper','exchange-simulation')),
+    account TEXT NOT NULL, market TEXT NOT NULL CHECK(market IN ('cn-equity','crypto')), symbol TEXT NOT NULL,
+    strategy_id TEXT NOT NULL, strategy_version INTEGER NOT NULL, plan_id TEXT NOT NULL,
+    payload TEXT NOT NULL CHECK(json_valid(payload)), UNIQUE(kind,account,market,symbol),
+    FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version), FOREIGN KEY(plan_id) REFERENCES trade_plans(id));
+   UPDATE trade_plans SET payload=json_set(payload,'$.protection',json_object('version','unavailable','reason','旧计划未提供完整退出规格，请重新核验'))
+   WHERE json_type(payload,'$.protection') IS NULL;`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;
