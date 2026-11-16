@@ -19,3 +19,4 @@ export type {
   PerformanceReportSelection,
   PerformanceReportPage,
 } from "./report.js";
+export * from "./forward-conformance.js";
