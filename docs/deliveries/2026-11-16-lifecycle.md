@@ -8,7 +8,7 @@
 
 | 阶段 | 必须交付 | 当前状态 | 证据 |
 | --- | --- | --- | --- |
-| L0.1–2 | 回执驱动单次收盘扫描、历史纸面补推、下载重试 | 已实现，定向验证通过 | engine/window、paper 和 workflow-scripts 用例 |
+| L0.1–2 | 回执驱动单次收盘扫描、历史纸面补推、下载重试 | 源码已实现，定向验证通过；本机晚间重试尚未安装 | engine/window、paper 和 workflow-scripts 用例；当前仅17:00，任务安装待部署授权 |
 | L0.3–4 | 读取边界符号归一、真实 reader 集成测试、分周期有效期及影子缺口 | 已实现，定向验证通过 | lifecycle-crypto-inputs 真实读取器用例；冻结 JSON SHA256 未变 |
 | L0.5–7 | 手动启用影子扫描、晚间计划、真实就绪提示及资金卡 | 已实现，定向及1440/1024应用主路径通过 | lifecycle-workflow、daily-workspace、r3b-accounts；隔离生产构建浏览器验收，非自然观察 |
 | L0.8 | 实际收盘扫描耗时及必要的 worker 迁移 | 已测量并迁移，真实 worker 隔离验证通过 | 下文测量及 lease/single-flight 用例 |
@@ -18,7 +18,7 @@
 | L3 | 排名/市场门控/组合覆盖/再平衡、预登记及成绩单 | 已完成本轮实际研究及检查点恢复复核，晋级0 | 16主+104合法邻域；480真实调用、1820不足分段；恢复2300检查点新增调用0，结果/统计相同；CN与突破源缺口保留 |
 | L4 | 同版本前向一致性判定及 Lab/今日接线 | 完整回归、真实crypto历史容量提取与Lab应用验收通过；自然前推资格未建立 | 缺冻结分布仍为insufficient，旧身份不可用；不计历史模拟时钟为自然样本 |
 | L5 | 冻结预期、批量关联建议、执行质量、日志与每周复盘 | 完整回归与两宽度归因/复盘/实验室应用验收通过 | 手动期望接口已退役；未知成本/保护拒绝保存且计划列表不变，未验证策略未确认不得执行live |
-| 最终工程门禁 | 完整测试、类型/依赖/lint/格式、生产构建、desktop:prepare | 已通过 | 最终源码`34a96a2`的`check-RDOAli`七阶段全部0，370.82秒；主工程6760+包级245通过、27既有跳过，desktop:prepare退出0；应用12项及组件浏览器2项通过 |
+| 最终工程门禁 | 完整测试、类型/依赖/lint/格式、生产构建、desktop:prepare | 已通过 | 应用源码`e40d860`的`check-fLXdOg`七阶段全部0，368.537秒；主工程6784+包级245通过、27既有跳过，desktop:prepare退出0；应用14项及组件浏览器2项通过 |
 
 ## 边界与已有修改
 
@@ -160,7 +160,7 @@ CN缺日期为2026-03-27、03-30、03-31、04-01、04-02、04-03、04-07、04-08
 5. 保留当前shadow/live、订阅、镜像、资金和限额配置；新L3晋级0项，不自动启用新候选、影子扫描、live或通知。
 6. 复用现有下载任务并运行匹配的bundled runtime，开始3个真实交易日观察。每天核下载回执、原生行情/RPS日期、收盘扫描记录、Today候选或真实无信号原因、5账户前后lastBar/推进事实及runtime-errors；零符号市场错配、零非授权外发。仅下载/RPS成功不证明tickAlerts与paper-tick成功。
 
-`workflow-task.ps1`的现有参数为 `-Phase noon|download|late`、`-ServerDirectory`、`-DataDirectory`、`-DownloaderPath`；download对应收盘流程。本次不重装计划任务：`install-workflow-tasks.ps1 -Apply`会同时触及CLS采集，`workflow-runner --configure`也会启用CLS review，均超出普通部署观察的必要动作。周排名还依赖确认的后续交易日期，不能编造下个交易日。
+`workflow-task.ps1`的现有参数为 `-Phase noon|download|late`、`-ServerDirectory`、`-DataDirectory`、`-DownloaderPath`；download对应收盘流程。本次不重装计划任务：`install-workflow-tasks.ps1 -Apply`会同时触及CLS采集，`workflow-runner --configure`也会启用CLS review，均超出普通部署观察的必要动作。只补下载重试使用[定向脚本](../../scripts/install-close-download-retries.ps1)：先不带Apply预演，核对其ExpectedTaskHash；部署获授权后才携带该hash和Apply应用。脚本只追加缺少的工作日北京时间17:40/18:30，保留原任务动作、权限、设置及其他触发器，唯一XML备份为上述回滚目录下TDX_DailyDownload.xml；版本变化或备份已存在均拒绝覆盖。周排名还依赖确认的后续交易日期，不能编造下个交易日。
 
 ## 最终复核补齐与再次验收（2026-11-16）
 
@@ -177,3 +177,9 @@ CN缺日期为2026-03-27、03-30、03-31、04-01、04-02、04-03、04-07、04-08
 只读核对本机`TDX_DailyDownload`仅有已启用17:00触发，尚无17:40/18:30。部署前须定向安装这两个下载重试；不能直接执行同时改CLS的安装脚本。本轮未修改任何任务、正式包或真实库，三真实交易日观察仍未开始。
 
 用户追加清理安排后，由真实本地Claude CLI执行[精确脚本](../../.test-data/lifecycle-20261116/cleanup.ps1)的Automation预演与应用，两者报告退出0，CLI success且无permission denial，共删除16个临时目标。管理者只读复核workflow/review-integration及六项目全部fixture目录已不存在；本轮没有通过其他工具重试删除。保留当前L3约234.28MiB、oracle约0.44MiB、UI日志/截图约4.28MiB、final/checks约1151.63MiB供用户审阅。整个task子树约7.50MiB被Automation排除，包含先前遭自动审批拒绝的shadow-conformance及paper-read，不借Claude绕过该拒绝。原始CLI中文输出出现shell解码乱码，ASCII状态与实际文件系统结果均另行核对，未为日志重跑删除；[紧凑回执](../../.test-data/lifecycle-20261116/claude-cleanup-receipt.json)记录边界。审阅后完整检查与截图仍按仓库约定手动清理。
+
+## 下载重试部署准备（只预演，未应用）
+
+最终计划复核发现本机17:40/18:30尚未安装，现已新增定向安装脚本及PowerShell测试，避免使用会改动CLS的整套安装器。管理者独立在Windows PowerShell5.1运行10个预演/拒绝mock用例，全部通过；真实任务预演前后XML完全一致，SHA256为`01cd93ea5ea7a1dce3e58c317134d520039445821392b875c54dcb412621b1b0`，触发器仍1个，唯一备份尚未创建。mock先加载ScheduledTasks再遮蔽读取，核每次预演调用mock，防止模块懒加载穿透。没有创建新临时目录、执行Apply或启动任务。
+
+脚本携带预演hash后才允许Apply，备份以CreateNew禁止覆盖，仅Set-ScheduledTask的Trigger参数追加缺少时点；应用前后核原trigger与非trigger配置。实际Apply权限、CIM写入和XML规范化未实机验证，不能用AST保护检查代替；Scheduler没有原子CAS，仍有最后读取与写入之间的竞争窗口，保留原XML供现场核对。上述动作必须在部署授权后进行。[紧凑预演证据](../../.test-data/lifecycle-20261116/close-retries-readiness.json)。本补充只涉及运维脚本/其定向测试及文档，应用源码与研究身份不变，复用已通过的最终应用门禁，不重复完整测试或构建。
