@@ -18,6 +18,7 @@ const suites = [
       "r2c-paper-workflow.spec.ts",
       "r3b-accounts.spec.ts",
       "r3c-workspaces.spec.ts",
+      "lifecycle-review.spec.ts",
     ],
     timeout: 180000,
     serverTimeout: 120000,
@@ -73,6 +74,13 @@ const suites = [
     profile: "pool",
     match: "r3c-workspaces.spec.ts",
     env: { E2E_R3A: "1", E2E_R3B: "1", E2E_R3C: "1" },
+  },
+  {
+    name: "review",
+    port: 3924,
+    profile: "core",
+    match: "lifecycle-review.spec.ts",
+    env: { E2E_R3B: "1", E2E_LIFECYCLE_REVIEW: "1" },
   },
 ];
 // Each project owns a fresh server. Only selected projects start servers;

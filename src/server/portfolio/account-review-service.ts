@@ -22,6 +22,93 @@ import {
   type AccountBook,
 } from "./account-workspace-service";
 import { AlertRepository } from "../db/alert-repository";
+import { isDeepStrictEqual } from "node:util";
+import { strategyObjectSchema } from "trading-strategies";
+
+/** Count against an actual same-version policy, never the plan-sizing fallback. */
+function reviewPositionLimit(
+  book: AccountBook,
+  market: "cn-equity" | "crypto",
+  sleeve: string,
+  owners: readonly {
+    strategyId: string | null;
+    strategyVersion: number | null;
+  }[],
+) {
+  if (
+    sleeve === "未知" ||
+    owners.some((p) => !p.strategyId || p.strategyVersion === null)
+  )
+    return {
+      reason: "持仓或预留计划缺少唯一策略/版本归属，不能认证分仓品种上限",
+    };
+  const limits = new Set<number>();
+  const keys = new Set<string>();
+  for (const owner of owners) {
+    const key = JSON.stringify([owner.strategyId, owner.strategyVersion]);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    const definition = book.facts.definitions.find(
+      (s) => s.id === owner.strategyId && s.version === owner.strategyVersion,
+    );
+    if (
+      !definition ||
+      definition.market !== market ||
+      definition.sleeve !== sleeve
+    )
+      return { reason: "缺少同版本、同市场分仓的策略定义" };
+    const sources = book.facts.paper.flatMap(({ account, state }) =>
+      account.candidates.flatMap((candidate) =>
+        candidate.strategy.id === definition.id &&
+        candidate.strategy.version === definition.version
+          ? [{ account, state, candidate }]
+          : [],
+      ),
+    );
+    if (sources.length !== 1)
+      return { reason: "同策略同版本纸面政策缺失或来源不唯一" };
+    const { account, state, candidate } = sources[0]!;
+    if (
+      account.market !== market ||
+      !isDeepStrictEqual(
+        strategyObjectSchema.parse(candidate.strategy),
+        strategyObjectSchema.parse(definition),
+      ) ||
+      (state &&
+        (state.request.market !== market ||
+          !state.request.strategies.some(
+            (s) => s.id === definition.id && s.version === definition.version,
+          )))
+    )
+      return { reason: "冻结政策与同版本策略或实际执行上下文不一致" };
+    const frozen = candidate.executionPolicy;
+    if (
+      frozen &&
+      (frozen.initial !== account.initial ||
+        (state &&
+          !isDeepStrictEqual(frozen, {
+            initial: state.request.initial,
+            sleeves: state.request.sleeves,
+            costs: state.request.costs,
+          })))
+    )
+      return { reason: "冻结研究政策与实际纸面执行政策不一致" };
+    const policies = (frozen ?? state?.request)?.sleeves?.filter(
+      (s) => s.id === sleeve,
+    );
+    const maxPositions = policies?.[0]?.maxPositions;
+    if (
+      policies?.length !== 1 ||
+      !Number.isInteger(maxPositions) ||
+      maxPositions! <= 0
+    )
+      return { reason: "缺少明确冻结的分仓品种上限，不按默认仓位政策推算" };
+    limits.add(maxPositions!);
+  }
+  return limits.size === 1
+    ? { maxPositions: [...limits][0]! }
+    : { reason: "同一分仓的同版本政策上限不一致，需人工核验" };
+}
 
 function beforeExit(book: AccountBook, trade: AccountTrade) {
   const peers = book.trades.filter(
@@ -516,6 +603,61 @@ export function accountWeeklyReview(
           .join("；"),
         href: "/system/notifications",
       });
+    const holdings = book.positions.filter(
+      (p) => p.kind === "real" && p.market === market && p.quantity > 0,
+    );
+    const plans = book.facts.plans.filter(
+      (p) =>
+        p.market === market &&
+        p.status === "open" &&
+        (p.stages?.some((s) => s.quantity > 0) || (p.quantity ?? 0) > 0),
+    );
+    for (const sleeve of new Set([
+      ...holdings.map((p) => p.sleeve),
+      ...plans.map((p) => p.sleeve),
+    ])) {
+      const limit = reviewPositionLimit(book, market, sleeve, [
+        ...holdings.filter((p) => p.sleeve === sleeve),
+        ...plans.filter((p) => p.sleeve === sleeve),
+      ]);
+      if (limit.reason) {
+        riskUnknown.push(`${market}/${sleeve}：${limit.reason}`);
+        continue;
+      }
+      const violations = checkExposureCaps({
+        positions: holdings,
+        reserved: plans.map((p) => ({
+          market,
+          symbol: p.symbol,
+          sleeve: p.sleeve,
+          industry: "",
+          value:
+            p.stages?.reduce((n, s) => n + s.entry * s.quantity, 0) ??
+            p.entry * (p.quantity ?? 0),
+        })),
+        proposed: {
+          market,
+          symbol: "",
+          sleeve,
+          industry: "",
+          value: 0,
+          maxPositions: limit.maxPositions,
+        },
+        capital: book.config.alerts.capital,
+        caps: [],
+      });
+      if (violations.length)
+        suggestions.push({
+          id: `reduce:${market}:${sleeve}:positions`,
+          action: "reduce",
+          strategyId: null,
+          version: null,
+          revision: null,
+          market,
+          reason: `${sleeve}同版本冻结分仓品种上限：${violations[0]!.used} > ${limit.maxPositions}（真实持仓及未完成计划按证券去重）；建议人工降低风险`,
+          href: "/system/notifications",
+        });
+    }
   }
   return {
     from,

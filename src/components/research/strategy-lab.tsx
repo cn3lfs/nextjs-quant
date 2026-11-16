@@ -23,6 +23,8 @@ import { StrategyCenter } from "./strategy-center";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { PaperShadowPrompt } from "./paper-shadow-prompt";
+import { useScreenVisible } from "../workbench/use-task-visible";
+import { labDetailStatus, labPauseSuggestion } from "./lab-review";
 
 const pct = (v: number | null | undefined) =>
   formatPercent(v == null ? null : v * 100);
@@ -191,8 +193,26 @@ function RuleFields({
   );
 }
 function LabDetail({ id, version }: { id: string; version: number }) {
-  const query = api.strategyLabDetail.useQuery({ id, version });
+  const visible = useScreenVisible();
+  const query = api.strategyLabDetail.useQuery(
+    { id, version },
+    { enabled: visible },
+  );
   const d = query.data;
+  const week = new Date();
+  week.setUTCDate(week.getUTCDate() - ((week.getUTCDay() + 6) % 7));
+  const review = api.accountWeeklyReview.useQuery(
+    week.toISOString().slice(0, 10),
+    { enabled: visible && !!d?.strategy && d.live, retry: false },
+  );
+  const pauseSuggestion = d
+    ? labPauseSuggestion(
+        review.data?.suggestions ?? [],
+        id,
+        version,
+        d.revision,
+      )
+    : null;
   const [action, setAction] = useState<keyof typeof labActionLabels | null>(
     null,
   );
@@ -201,12 +221,14 @@ function LabDetail({ id, version }: { id: string; version: number }) {
     onSuccess: () => {
       setAction(null);
       void query.refetch();
+      void review.refetch();
     },
   });
   const report = api.strategyLabReport.useQuery(
     { hash: d?.resultHash ?? "", id },
     {
-      enabled: !!d?.resultHash && /^[a-f0-9]{64}$/.test(d.resultHash),
+      enabled:
+        visible && !!d?.resultHash && /^[a-f0-9]{64}$/.test(d.resultHash),
       retry: false,
     },
   );
@@ -227,7 +249,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         {d.row?.rule ?? id} · v{version}
       </h1>
       <p>
-        {d.promotion ? "已晋级" : d.shadow?.active ? "影子前推中" : "研究中"} ·{" "}
+        {labDetailStatus(d.eligible, !!d.promotion, !!d.shadow?.active)} ·{" "}
         {d.live ? "策略live已开启" : "策略提醒未开启"}
       </p>
       {d.strategy ? (
@@ -288,6 +310,47 @@ function LabDetail({ id, version }: { id: string; version: number }) {
       <p className="text-sm text-nc-text-3">
         纸面撮合一致性使用模型滑点；真实执行尚未验证。
       </p>
+      {review.error && (
+        <p role="status">
+          二十日选择归因与复盘建议暂不可读：{review.error.message}
+          <Button variant="outline" onClick={() => void review.refetch()}>
+            重试复盘建议
+          </Button>
+        </p>
+      )}
+      {pauseSuggestion && d.live && (
+        <section
+          aria-label="策略暂停建议"
+          className="space-y-2 rounded border p-3"
+        >
+          <p>{pauseSuggestion.suggestion.reason}</p>
+          <p className="text-sm text-nc-text-3">
+            同策略同版本的账户复盘建议；仅供人工核对，暂停后保留影子时钟与历史证据。
+          </p>
+          {pauseSuggestion.current ? (
+            <Button
+              disabled={change.isPending}
+              onClick={() => {
+                change.reset();
+                setAction("pause-live");
+                setRiskAccepted(false);
+              }}
+            >
+              按复盘建议暂停 live 提醒
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => {
+                void query.refetch();
+                void review.refetch();
+              }}
+            >
+              证据版本已更新，刷新复盘建议
+            </Button>
+          )}
+        </section>
+      )}
       {d.accounts.map((a) => (
         <p key={a.id}>
           {a.id}：{a.summary?.signals ?? 0} 信号 / {a.summary?.days ?? 0} 日 ·{" "}
