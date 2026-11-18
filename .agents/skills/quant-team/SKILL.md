@@ -12,8 +12,11 @@ description: Codex 管理者通过外部 Claude CLI 调度 researcher/data/trade
 ## 硬规则
 
 - **不派生原生子代理**：不要使用 Agent/Task/subagent 机制。角色只能由本 CLI 启动。
-- **不碰模型配置**：绝不传 `--model`、`--effort`、fallback model，不设置
-  `ANTHROPIC_MODEL`，不修改 Claude 的 settings、认证或权限配置。沿用用户当前正常配置。
+- **模型与思考强度用默认值**：不传 `--model`、`--effort` 或 fallback model，不设置
+  `ANTHROPIC_MODEL`，不修改 Claude 的 settings 或认证，不覆盖模型、思考强度等相关配置。
+- **权限模式显式指定**：调用 Claude CLI 一律显式传 `--permission-mode bypassPermissions`；
+  不依赖用户机器上的默认权限模式，也不另加或替换其他权限参数。该模式只表示免交互审批，
+  不扩大任务范围或工具面。
 - **MCP 关闭**：CLI 使用 `--strict-mcp-config` 和空 `mcpServers`，避免 `--tools` 之外的
   继承 MCP 网络/写入工具泄漏；不要改回继承配置。
 - **v1 禁止外部动作与代码编辑**：不提交、不推送、不打包、不下单、不通知、不联网取数。
@@ -21,7 +24,8 @@ description: Codex 管理者通过外部 Claude CLI 调度 researcher/data/trade
 - **研究角色只使用已批准命令**：researcher/data/trader/risk/reviewer 只读；
   backtester 只可通过现有受控 Bash 运行仓库已有构建/回测入口，不得新增脚本。
   仓库源文件、原始数据和既有证据只读；只有授权命令可写任务输出、QUANT_DATA_DIR 或既有构建目标。
-  权限被拒绝会返回 `blocked`，不要绕过或改用 `--allowedTools`。
+  权限被拒绝会返回 `blocked`，不要绕过、改用 `--allowedTools` 或借代理重试；不要为绕开拒绝而
+  改写权限模式、工具面或模型参数。
 - **不按角色跑全量验证**：单个角色不运行完整测试、构建或打包；集成交付点由管理者统一执行。
 - **一次运行只写一份汇总**：`status --run` 的结果就是事实源。管理者写总结时引用任务 ID、
   session ID、结论和证据，不要为了写总结重复计算或重跑任务；也不要为每个角色另建汇总文件。
@@ -201,7 +205,8 @@ Codex 读取第一轮 `status` 后，把决定写到
 
 ## 清理
 
-运行目录会持久增长。清理必须交给 Claude 在正常权限下执行可预演的脚本，不要由 Codex 直接删除；
+运行目录会持久增长。清理必须交给 Claude 在 `--permission-mode bypassPermissions` 下执行可预演的脚本，
+不要由 Codex 直接删除；
 先看 dry-run 清单，再由管理者核对目标与保留项。示例见
 [references/cleanup.md](references/cleanup.md)。清理只针对 `.test-data/quant-team/<runId>` 和本次
 任务根 `.test-data/quant-team-20261118` 的临时产物；证据日志在管理者核对前保留。不得删除原始数据源、
