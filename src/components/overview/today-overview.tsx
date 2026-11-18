@@ -18,7 +18,7 @@ import {
 import { type Icon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import { cn } from "~/lib/common/classnames";
 import { capabilityAllows } from "~/lib/common/capabilities";
 import {
@@ -43,7 +43,13 @@ import {
 import { Button } from "../ui/button";
 import { AlertStatus } from "../signals/alert-status";
 import { useTaskVisible } from "../workbench/use-task-visible";
-import { MarketPulse, useOverviewQuotes, WatchQuote } from "./market-pulse";
+import {
+  MarketPulse,
+  quoteChange,
+  useOverviewQuotes,
+  WatchQuote,
+} from "./market-pulse";
+import { sortWatchSymbols, type WatchSort } from "./watch-sort";
 import { useNow } from "../workbench/use-now";
 import {
   axisPct,
@@ -103,6 +109,7 @@ const tradingLabel = {
 export function TodayOverview() {
   const visible = useTaskVisible();
   const search = useSearchParams();
+  const [watchSort, setWatchSort] = useState<WatchSort>("saved");
   const rpsTarget = search.get("rank") === "concept" ? "concept" : "industry";
   function setRpsTarget(target: "industry" | "concept") {
     const url = new URL(window.location.href);
@@ -226,6 +233,14 @@ export function TodayOverview() {
   const sectors = sectorQuery.data;
   const intradayArchived = !capabilityAllows("intraday", "schedule");
   const watch = status.data?.watchlist ?? [];
+  // A failed quote request must not rank cached prices as if they were live.
+  const sortedWatch = quotes.error
+    ? watch
+    : sortWatchSymbols(
+        watch,
+        (symbol) => quoteChange(quotes.bySymbol.get(symbol)),
+        watchSort,
+      );
   const name = (symbol: string) => names[symbol] ?? symbol.toUpperCase();
   return (
     <div className="flex flex-col gap-[var(--nc-gap)]">
@@ -487,17 +502,34 @@ export function TodayOverview() {
           <Panel
             icon={Star}
             title="自选"
+            note={
+              quotes.error && watchSort !== "saved"
+                ? "行情未刷新，暂按保存顺序"
+                : undefined
+            }
             actions={
-              <span className="text-[13px] text-nc-text-4">
-                {watch.length} 个标的
-              </span>
+              <>
+                <span className="text-[13px] text-nc-text-4">
+                  {watch.length} 个标的
+                </span>
+                <Segmented
+                  label="自选排序"
+                  value={watchSort}
+                  onChange={setWatchSort}
+                  options={[
+                    { value: "saved", label: "保存顺序" },
+                    { value: "gain", label: "涨幅优先" },
+                    { value: "loss", label: "跌幅优先" },
+                  ]}
+                />
+              </>
             }
           >
             {watch.length === 0 ? (
               <PanelEmpty>在行情图表中加入自选</PanelEmpty>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-[7px]">
-                {watch.map((symbol) => (
+                {sortedWatch.map((symbol) => (
                   <Link
                     key={symbol}
                     href={`/scan?symbol=${symbol}`}
