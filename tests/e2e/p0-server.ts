@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { encodeFiveMinuteBar } from "tstdx/local";
-import { settingsSchema, type Bar } from "../../src/lib/domain";
+import { settingsSchema, type Bar, type Delivery } from "../../src/lib/domain";
 import { migrate } from "../../src/server/db/migrations";
 import daily from "../fixtures/breakout-valid.json";
 import gbbq from "../fixtures/tdx-gbbq.json";
@@ -174,6 +174,36 @@ try {
     // 25 reports with 20 per page, one sample per day and 25 saved versions.
     const { seedClsReview } = await import("../helpers/cls-review-fixture");
     seedClsReview(db, 25, 25);
+  }
+  if (process.env.E2E_SYSTEM_MONITOR === "1") {
+    // One synthetic monitor and 21 signals: page 1 holds 20, and the oldest
+    // signal-fixture-00000 is alone on page 2. Each signal has primary
+    // deliveries plus a summary naming itself and its predecessor; the oldest
+    // signal therefore also appears in delivery-fixture-00001-4's summary.
+    const { seedSignals, signalsFixtureTime } =
+      await import("../helpers/signals-fixture");
+    seedSignals(db, 1, 21);
+    // A terminal manual resend for the page-2 signal points at its original
+    // terminal primary delivery. Its channel stays disabled and unconfigured.
+    const resend: Delivery = {
+      id: "delivery-fixture-resend-00000",
+      signalId: "signal-fixture-00000",
+      channelId: "channel-fixture-0",
+      kind: "signal",
+      title: "合成人工重发 00000",
+      body: "合成人工重发正文。".repeat(40),
+      status: "failed",
+      attempts: 1,
+      nextAt: signalsFixtureTime + 1000,
+      expiresAt: signalsFixtureTime + 601000,
+      createdAt: signalsFixtureTime + 1000,
+      manualRetry: true,
+      sourceDeliveryId: "delivery-fixture-00000-0",
+      error: "隔离人工重发失败",
+    };
+    db.prepare(
+      "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,?,?,?)",
+    ).run(resend.id, "delivery", JSON.stringify(resend), resend.createdAt);
   }
   if (process.env.E2E_R3C === "1") {
     const { seedR3cFixture } = await import("./r3c-fixture");

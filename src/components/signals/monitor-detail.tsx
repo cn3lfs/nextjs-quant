@@ -135,6 +135,9 @@ export function MonitorDetail({
   const m = monitor.data,
     s = signal.data,
     d = delivery.data;
+  // The related-deliveries entry is only offered from a loaded signal whose
+  // reported id matches this detail; drafts and list membership are not used.
+  const signalReady = signal.isSuccess && !signal.error && !!s && s.id === id;
   // Only a loaded manual resend whose identity matches this detail can link to
   // its source. The id itself must pass the shared contract and differ from the
   // resend; no title, channel or delivery status is used to infer a source.
@@ -253,7 +256,11 @@ export function MonitorDetail({
           <p className="break-all text-xs">
             订阅 {s.monitorId} · 版本 {s.monitorRun?.revision ?? "旧记录未提供"}
           </p>
-          <Button variant="outline" onClick={() => onRelated(s.id)}>
+          <Button
+            variant="outline"
+            disabled={!signalReady}
+            onClick={() => onRelated(s.id)}
+          >
             查看全部关联投递
           </Button>
           <TradingStatusEvidence value={s.tradingStatusEvidence} />
@@ -297,9 +304,7 @@ export function MonitorDetail({
           </p>
           {d.sourceDeliveryId && (
             <div className="space-y-2">
-              <p className="break-all text-xs">
-                原投递：{d.sourceDeliveryId}
-              </p>
+              <p className="break-all text-xs">原投递：{d.sourceDeliveryId}</p>
               {originId ? (
                 <Button
                   variant="outline"

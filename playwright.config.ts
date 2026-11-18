@@ -21,6 +21,7 @@ const suites = [
       "r3c-workspaces.spec.ts",
       "lifecycle-review.spec.ts",
       "intel-review-r5.spec.ts",
+      "system-monitor-r5.spec.ts",
     ],
     timeout: 180000,
     serverTimeout: 120000,
@@ -97,6 +98,13 @@ const suites = [
     profile: "core",
     match: "intel-review-r5.spec.ts",
     env: { E2E_INTEL_REVIEW: "1" },
+  },
+  {
+    name: "system",
+    port: 3927,
+    profile: "core",
+    match: "system-monitor-r5.spec.ts",
+    env: { E2E_SYSTEM_MONITOR: "1" },
   },
 ];
 // Each project owns a fresh server. Only selected projects start servers;

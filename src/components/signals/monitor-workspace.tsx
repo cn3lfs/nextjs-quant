@@ -57,6 +57,60 @@ const kinds = {
   deliveries: "delivery",
 } as const;
 const labels = { monitors: "订阅", signals: "信号", deliveries: "投递" };
+/**
+ * Serializes only the three workspace fields, preserving other URL parameters.
+ * `monitorRecord` is always present for a selected record and removed otherwise.
+ */
+function monitorLocation(
+  base: URL,
+  tab: MonitorTab,
+  filters: MonitorFilters,
+  selectedId: string,
+) {
+  const url = new URL(base);
+  url.searchParams.set("monitorTab", tab);
+  url.searchParams.set("monitorFilters", JSON.stringify(filters));
+  if (selectedId) url.searchParams.set("monitorRecord", selectedId);
+  else url.searchParams.delete("monitorRecord");
+  return url;
+}
+/**
+ * Syncs the current entry to the applied origin state, then pushes the target
+ * in one native history step. Other keys and `history.state` stay as-is.
+ */
+function pushMonitorHistory(
+  target: URL,
+  origin: { tab: MonitorTab; filters: MonitorFilters; selectedId: string },
+) {
+  history.replaceState(
+    history.state,
+    "",
+    monitorLocation(
+      new URL(location.href),
+      origin.tab,
+      origin.filters,
+      origin.selectedId,
+    ),
+  );
+  history.pushState(history.state, "", target);
+}
+/** The applied delivery filter's signal id, cross-checked with the live URL. */
+function liveRelatedSignalId(applied: MonitorFilters) {
+  if (location.pathname !== "/system/notifications") return null;
+  const current = new URL(location.href);
+  if (current.searchParams.get("monitorTab") !== "deliveries") return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(current.searchParams.get("monitorFilters") ?? "{}");
+  } catch {
+    return null;
+  }
+  const live = deliveryPageSchema.safeParse(raw);
+  if (!live.success) return null;
+  const target = monitorWorkspaceId.safeParse(applied.signalId);
+  if (!target.success) return null;
+  return live.data.signalId === target.data ? target.data : null;
+}
 export function MonitorWorkspace({
   watchlist,
 }: {
@@ -315,6 +369,61 @@ export function MonitorWorkspace({
     setSelected((previous) => ({ ...previous, [tab]: id }));
   }
   /**
+   * Opens the exact signal's deliveries scope as a real history entry. The
+   * applied signals filter, draft, cursor, page and selected signal are kept,
+   * so Back restores that signal page and detail. The scope request starts at
+   * page 1 with no selected delivery and reuses the existing empty query.
+   */
+  function openRelated(signalId: string) {
+    if (!visible || tab !== "signals" || selected.signals !== signalId) return;
+    if (location.pathname !== "/system/notifications") return;
+    const current = new URL(location.href);
+    if (current.searchParams.get("monitorTab") !== "signals") return;
+    if (current.searchParams.get("monitorRecord") !== signalId) return;
+    const target = monitorWorkspaceId.safeParse(signalId);
+    if (!target.success) return;
+    const next = { query: "", signalId: target.data };
+    pushMonitorHistory(monitorLocation(current, "deliveries", next, ""), {
+      tab: "signals",
+      filters: filters.signals,
+      selectedId: selected.signals,
+    });
+    setFilters((previous) => ({ ...previous, deliveries: next }));
+    setDraftFilters((previous) => ({ ...previous, deliveries: next }));
+    setPages((previous) => ({ ...previous, deliveries: [undefined] }));
+    setSelected((previous) => ({ ...previous, deliveries: "" }));
+    setEditing(null);
+    setTab("deliveries");
+  }
+  /**
+   * From an applied delivery signal scope, opens the exact signal detail by id.
+   * The in-memory signals filter and pages are reused, not reset; Back returns
+   * to the delivery scope, including any selected delivery.
+   */
+  function openRelatedSignal() {
+    if (!visible || tab !== "deliveries") return;
+    const signalId = liveRelatedSignalId(filters.deliveries);
+    if (!signalId) return;
+    const current = new URL(location.href);
+    // The live entry must still show the delivery we are leaving; otherwise a
+    // stale selection from before a popstate could steer the origin history.
+    if (
+      (current.searchParams.get("monitorRecord") ?? "") !== selected.deliveries
+    )
+      return;
+    pushMonitorHistory(
+      monitorLocation(current, "signals", filters.signals, signalId),
+      {
+        tab: "deliveries",
+        filters: filters.deliveries,
+        selectedId: selected.deliveries,
+      },
+    );
+    setEditing(null);
+    setSelected((previous) => ({ ...previous, signals: signalId }));
+    setTab("signals");
+  }
+  /**
    * Opens a manual resend's source detail. The current entry is first synced to
    * the applied deliveries filter and the resend it shows, then a new native
    * history entry selects the verified source on the same route. Applied
@@ -330,16 +439,14 @@ export function MonitorWorkspace({
     if (current.searchParams.get("monitorRecord") !== resendId) return;
     const target = monitorWorkspaceId.safeParse(sourceId);
     if (!target.success || target.data === resendId) return;
-    current.searchParams.set("monitorTab", "deliveries");
-    current.searchParams.set(
-      "monitorFilters",
-      JSON.stringify(filters.deliveries),
+    pushMonitorHistory(
+      monitorLocation(current, "deliveries", filters.deliveries, target.data),
+      {
+        tab: "deliveries",
+        filters: filters.deliveries,
+        selectedId: resendId,
+      },
     );
-    current.searchParams.set("monitorRecord", resendId);
-    history.replaceState(history.state, "", current);
-    const next = new URL(current);
-    next.searchParams.set("monitorRecord", target.data);
-    history.pushState(history.state, "", next);
     setSelected((previous) => ({ ...previous, deliveries: target.data }));
   }
   useEffect(() => {
@@ -461,6 +568,15 @@ export function MonitorWorkspace({
     }
     save.mutate(parsed.data);
   }
+  // Shown as soon as the delivery filter is applied, without waiting for the
+  // URL sync effect. The applied filter is the only source; drafts have no
+  // entry, and the click handler rechecks the live URL.
+  const reverseSignalId = (() => {
+    if (!ready || !visible || tab !== "deliveries") return null;
+    if (pathname !== "/system/notifications") return null;
+    const applied = monitorWorkspaceId.safeParse(filters.deliveries.signalId);
+    return applied.success ? applied.data : null;
+  })();
   const hasDetail = !!selected[tab] || !!editing;
   return (
     <PageGrid>
@@ -527,6 +643,16 @@ export function MonitorWorkspace({
             </Button>
           ))}
         </div>
+        {reverseSignalId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={openRelatedSignal}
+          >
+            查看关联信号
+          </Button>
+        )}
       </Panel>
       {/* Match panels.css: below 1240px, selection replaces the single-column list. */}
       <Panel
@@ -782,22 +908,7 @@ export function MonitorWorkspace({
               onEdit={edit}
               onOrigin={openOrigin}
               onChanged={() => void changed()}
-              onRelated={(signalId) => {
-                setFilters((previous) => ({
-                  ...previous,
-                  deliveries: { query: "", signalId },
-                }));
-                setDraftFilters((previous) => ({
-                  ...previous,
-                  deliveries: { query: "", signalId },
-                }));
-                setPages((previous) => ({
-                  ...previous,
-                  deliveries: [undefined],
-                }));
-                setSelected((previous) => ({ ...previous, deliveries: "" }));
-                setTab("deliveries");
-              }}
+              onRelated={openRelated}
             />
           ) : (
             <p className="text-sm text-nc-text-3">
