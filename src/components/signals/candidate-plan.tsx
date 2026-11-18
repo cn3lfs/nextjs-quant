@@ -8,10 +8,17 @@ import { Checkbox } from "../ui/checkbox";
 import type { WorkspaceCandidate } from "../overview/candidate-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 
+export type PlanSavedConfirmation = {
+  id: string;
+  symbol: string;
+  message: string;
+};
+
 export function CandidatePlan({
   candidate,
   inline = false,
   onSaved,
+  onPendingChange,
   onClose,
 }: {
   candidate: Pick<
@@ -25,7 +32,9 @@ export function CandidatePlan({
     policyReason?: string | null;
   };
   inline?: boolean;
-  onSaved?: () => void;
+  onSaved?: (confirmation: PlanSavedConfirmation) => void;
+  /** Lets a parent dialog hold its close affordances while the plan is saving. */
+  onPendingChange?: (pending: boolean) => void;
   onClose?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -41,16 +50,23 @@ export function CandidatePlan({
   const utils = api.useUtils();
   const save = api.createAlertPlan.useMutation({
     onSuccess: (p) => {
-      setMessage(
-        `已保存交易计划 · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
-      );
+      const confirmation: PlanSavedConfirmation = {
+        id: p.id,
+        symbol: p.symbol,
+        message: `已保存交易计划 · ${p.symbol} · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
+      };
+      setMessage(confirmation.message);
       setOpen(false);
       void utils.alertPlans.invalidate();
       void utils.workspaceCandidates.invalidate();
       void utils.todayWorkspace.invalidate();
-      onSaved?.();
+      onPendingChange?.(false);
+      onSaved?.(confirmation);
     },
-    onError: (e) => setMessage(e.message),
+    onError: (e) => {
+      setMessage(e.message);
+      onPendingChange?.(false);
+    },
   });
   return (
     <div className="space-y-2 rounded border bg-nc-card p-3">
@@ -66,6 +82,7 @@ export function CandidatePlan({
               setMessage("请填写有效到期时间");
               return;
             }
+            onPendingChange?.(true);
             save.mutate({
               eventKey: candidate.key,
               rationale: String(f.get("rationale") ?? ""),
@@ -294,6 +311,7 @@ export function CandidatePlan({
           <Button
             type="button"
             variant="outline"
+            disabled={save.isPending}
             onClick={() => {
               setOpen(false);
               onClose?.();

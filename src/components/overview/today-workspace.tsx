@@ -20,7 +20,11 @@ import {
   todayMarketOptions,
   type MarketFilter,
 } from "./today-candidates";
-import { CandidatePlan } from "../signals/candidate-plan";
+import {
+  CandidatePlan,
+  type PlanSavedConfirmation,
+} from "../signals/candidate-plan";
+import { PlanSavedNotice } from "./plan-saved-notice";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +92,9 @@ function DailyDecision() {
     row: WorkspaceCandidate;
     key: string;
   } | null>(null);
+  const [confirmation, setConfirmation] =
+    useState<PlanSavedConfirmation | null>(null);
+  const [saving, setSaving] = useState(false);
   const query = api.todayWorkspace.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
@@ -267,6 +274,7 @@ function DailyDecision() {
           }
           options={todayMarketOptions}
         />
+        <PlanSavedNotice confirmation={confirmation} />
         <p className="text-xs text-nc-text-3">
           收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量沿用策略与纸面账户的仓位及费用假设；滑点影响以冻结研究口径和实际成交核对，不保证计划价成交。
         </p>
@@ -327,7 +335,11 @@ function DailyDecision() {
               const source =
                 row.sources.find((s) => s.scanFreshness === "current") ??
                 plannableSources(row)[0];
-              if (source) setPlan({ row, key: source.key });
+              if (source) {
+                setConfirmation(null);
+                setSaving(false);
+                setPlan({ row, key: source.key });
+              }
             }}
             canPlan={(row) => plannableSources(row).length > 0}
             emptyMessage={view.emptyMessage ?? undefined}
@@ -336,7 +348,7 @@ function DailyDecision() {
         <Dialog
           open={plan !== null}
           onOpenChange={(open) => {
-            if (!open) setPlan(null);
+            if (!open && !saving) setPlan(null);
           }}
         >
           <DialogContent className="left-auto! right-4! top-4! translate-x-0! translate-y-0! lg:max-w-xl">
@@ -360,7 +372,12 @@ function DailyDecision() {
                 key={planSource.key}
                 candidate={planSource}
                 inline
-                onSaved={() => setPlan(null)}
+                onPendingChange={setSaving}
+                onSaved={(saved) => {
+                  setSaving(false);
+                  setPlan(null);
+                  setConfirmation(saved);
+                }}
                 onClose={() => setPlan(null)}
               />
             )}
