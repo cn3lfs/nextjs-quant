@@ -27,12 +27,21 @@ import { TodayIntel } from "../news/today-intel";
 import { PaperShadowPrompt } from "../research/paper-shadow-prompt";
 import { CryptoRiskNotes } from "../portfolio/crypto-risk-notes";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
+import type { CloseScanPhase } from "~/lib/market/close-scan-window";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
 const Intraday = dynamic(() =>
   import("../workbench/route-panels").then((m) => m.IntradayPanel),
 );
+const closeScanLabel: Record<CloseScanPhase, string> = {
+  "unknown-date": "基准交易日未知",
+  waiting: "等待收盘",
+  unconfirmed: "等待或未确认",
+  running: "扫描中",
+  missed: "已错过（不补跑）",
+  complete: "流程已结束",
+};
 export function TodayWorkspace() {
   const search = useSearchParams();
   const tab = search.get("tab") ?? "today";
@@ -71,9 +80,10 @@ function DailyDecision() {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
   });
+  const scanCloseDate = query.data?.readiness.equity.expectedDate ?? null;
   const candidates = api.workspaceCandidates.useQuery(
-    { page },
-    { enabled: visible && page > 0 },
+    { page, scanCloseDate },
+    { enabled: visible && page > 0 && query.data !== undefined },
   );
   const d = query.data;
   if (query.error)
@@ -93,6 +103,26 @@ function DailyDecision() {
       ? { href: "/system", text: "补齐数据" }
       : { href: "#tomorrow", text: `查看 ${d.candidates.total} 个计划` };
   const rows = page ? candidates.data : d.candidates;
+  const close = d.closeScan;
+  const loaded = rows?.items ?? [];
+  const total = rows?.total ?? 0;
+  const historicalRows = loaded.filter((row) => row.scan?.hasHistorical).length;
+  const emptyMessage =
+    total > 0
+      ? "本页无候选；请返回上一页。"
+      : close.strategies === 0
+        ? "未启用 A 股策略；空表不是无信号。"
+        : close.phase === "complete"
+          ? "最近收盘扫描已完成，无入选候选；流程结束不代表行情完整或无信号，数据缺口与就绪状态见下方。"
+          : close.phase === "running"
+            ? "收盘扫描进行中；结果尚未确认，空表不代表无信号。"
+            : close.phase === "missed"
+              ? "最近收盘扫描未在截止前完成，不补跑；空表不代表无信号。"
+              : close.phase === "unknown-date"
+                ? "基准交易日未知：交易日历或本地日线待核验；空表不代表无信号。"
+                : "最近收盘扫描等待或未确认；空表不代表无信号。";
+  const plannableSources = (row: WorkspaceCandidate) =>
+    row.sources.filter((source) => source.scanFreshness !== "stale");
   const planSource = plan?.row.sources.find((s) => s.key === plan.key) ?? null;
   return (
     <div className="space-y-4">
@@ -206,15 +236,49 @@ function DailyDecision() {
         <p className="text-xs text-nc-text-3">
           收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量沿用策略与纸面账户的仓位及费用假设；滑点影响以冻结研究口径和实际成交核对，不保证计划价成交。
         </p>
+        <p className="text-xs text-nc-text-3" role="status">
+          基准交易日：{close.date ?? "待交易日历"} · 收盘扫描：
+          {closeScanLabel[close.phase]}
+          {close.calendarConfirmed ? "" : " · 下一交易日未确认"}
+          {close.at !== null && (
+            <> · 记录于 {new Date(close.at).toLocaleString("zh-CN")}</>
+          )}{" "}
+          · 该日下载回执：
+          {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · 已启用 A 股策略{" "}
+          {close.strategies} 条
+        </p>
+        {historicalRows > 0 && (
+          <p className="text-sm text-nc-warn">
+            {close.phase === "complete"
+              ? "以下含历史来源，不是当次推荐。"
+              : "最近收盘扫描未完成，以下为历史候选，不是当次推荐。"}
+          </p>
+        )}
+        {close.phase === "complete" && total === 0 && (
+          <p className="text-xs text-nc-text-3">
+            A股本地日线：{d.readiness.equity.localDate ?? "未知"} · 应到交易日：
+            {close.date ?? "待日历"} · 回执：
+            {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · 数据缺口{" "}
+            {d.gaps.length} 项{d.gaps.length ? "（见下方）" : ""}
+            。该结论只表示扫描流程结束。
+          </p>
+        )}
         <CandidateTable
-          data={rows?.items ?? []}
-          total={rows?.total ?? 0}
+          data={loaded}
+          total={total}
           page={page}
           onPage={setPage}
           loading={page > 0 && candidates.isFetching}
           error={candidates.error?.message}
           onRetry={() => void candidates.refetch()}
-          onPlan={(row) => setPlan({ row, key: row.sources[0]!.key })}
+          onPlan={(row) => {
+            const source =
+              row.sources.find((s) => s.scanFreshness === "current") ??
+              plannableSources(row)[0];
+            if (source) setPlan({ row, key: source.key });
+          }}
+          canPlan={(row) => plannableSources(row).length > 0}
+          emptyMessage={emptyMessage}
         />
         <Dialog
           open={plan !== null}
@@ -227,12 +291,12 @@ function DailyDecision() {
             <DialogDescription>
               核对所选策略及保护位；保存后可在本页查看未完成计划。
             </DialogDescription>
-            {plan && plan.row.sources.length > 1 && (
+            {plan && plannableSources(plan.row).length > 1 && (
               <LedgerSelect
                 label="计划来源策略"
                 value={plan.key}
                 onChange={(key) => setPlan({ ...plan, key })}
-                options={plan.row.sources.map((s) => ({
+                options={plannableSources(plan.row).map((s) => ({
                   value: s.key,
                   label: `${s.strategyId} v${s.version} · ${s.sleeve}`,
                 }))}

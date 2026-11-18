@@ -9,6 +9,7 @@ import { NotificationPolicyStore } from "./notification-policy-store";
 import { sqlite } from "./index";
 import { RpsStore } from "./rps-store";
 import type { StrategyObjectInput } from "trading-strategies";
+import type { Period } from "~/lib/domain";
 import type {
   AlertEvent,
   AlertHistoryInput,
@@ -219,6 +220,28 @@ export class AlertRepository {
         ),
       };
     })();
+  }
+  /** Read-only watermark lookup; candidatePage's SQL and ordering stay intact. */
+  candidateScans() {
+    const prefix = "alerts:candidate-scan:";
+    const rows = this.db
+      .prepare(
+        "SELECT id,payload FROM records WHERE kind='alert-state' AND substr(id,1,?)=? ORDER BY id",
+      )
+      .all(prefix.length, prefix) as { id: string; payload: string }[];
+    return new Map(
+      rows.map((row) => [
+        row.id.slice(prefix.length),
+        JSON.parse(row.payload) as {
+          market: "cn-equity" | "crypto";
+          strategyId: string;
+          version: number;
+          period?: Period;
+          bar: string | null;
+          observedAt: number;
+        },
+      ]),
+    );
   }
   candidatePage(input: {
     page: number;

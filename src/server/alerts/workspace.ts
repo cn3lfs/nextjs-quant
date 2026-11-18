@@ -1,4 +1,6 @@
 import { planSizingPolicy } from "./plan-sizing";
+import { candidateScanFreshness } from "./candidate-scan";
+import { closeScanPhase } from "~/lib/market/close-scan-window";
 import { settings } from "../infra/settings";
 import { AlertRepository } from "../db/alert-repository";
 import { previewAlertPlan } from "./plans";
@@ -120,6 +122,10 @@ export function workspaceCandidate(
         : "不复权 · UTC",
   };
 }
+export type CandidateScanContext = {
+  closeDate: string | null;
+  calendar: readonly string[];
+};
 export function workspaceCandidates(
   input: {
     page: number;
@@ -130,18 +136,57 @@ export function workspaceCandidates(
   repo = new AlertRepository(),
   now = Date.now(),
   positions?: readonly AccountPosition[],
+  scan?: CandidateScanContext,
 ) {
   const result = repo.candidatePage(input);
+  const scans = scan ? repo.candidateScans() : null;
+  const annotate = (event: AlertEvent) => {
+    const candidate = workspaceCandidate(event, repo, now, positions);
+    // Crypto and the /scan history keep their original presentation.
+    if (!scan || !scans || event.market !== "cn-equity")
+      return { ...candidate, scanFreshness: null, scanAt: null };
+    const stored = scans.get(
+      `${event.market}:${event.strategyId}:${event.version}`,
+    );
+    const period =
+      stored?.period ??
+      repo.strategies.strategy(event.strategyId, event.version)?.period;
+    return {
+      ...candidate,
+      scanFreshness: period
+        ? candidateScanFreshness(stored, period, scan)
+        : ("unknown" as const),
+      scanAt: stored?.observedAt ?? null,
+    };
+  };
   return {
     ...result,
-    items: result.items.map((e) => ({
-      ...workspaceCandidate(e, repo, now, positions),
-      rps20: e.rps20,
-      rpsDate: e.rpsDate,
-      sources: e.sources.map((source) =>
-        workspaceCandidate(source, repo, now, positions),
-      ),
-    })),
+    items: result.items.map((e) => {
+      const row = annotate(e);
+      const sources = e.sources.map(annotate);
+      return {
+        ...row,
+        rps20: e.rps20,
+        rpsDate: e.rpsDate,
+        sources,
+        scan:
+          row.scanFreshness === null
+            ? null
+            : {
+                current: sources.every(
+                  (source) => source.scanFreshness === "current",
+                ),
+                hasHistorical: sources.some(
+                  (source) => source.scanFreshness === "stale",
+                ),
+                hasUnverified: sources.some(
+                  (source) =>
+                    source.scanFreshness === "intraday" ||
+                    source.scanFreshness === "unknown",
+                ),
+              },
+      };
+    }),
   };
 }
 export async function todayWorkspace(
@@ -195,7 +240,16 @@ export async function todayWorkspace(
     publicDataRoot(config.binancePublicDataRoot),
     now,
   );
-  const equity = await equityDailyReadiness(config, now);
+  // Reuse the readiness reference date and its already-read calendar; the
+  // persisted notification calendar may not have refreshed yet.
+  const { calendar, ...equity } = await equityDailyReadiness(config, now);
+  const closeRecord =
+    equity.expectedDate === null
+      ? undefined
+      : repo.state<{ status?: string; at?: number }>(
+          `close:${equity.expectedDate}`,
+        );
+  const close = closeScanPhase(equity.expectedDate, closeRecord, now, calendar);
   const protectionTasks = await stopTasks(
     new AccountWorkspaceRepository(repo.db),
     config,
@@ -227,9 +281,20 @@ export async function todayWorkspace(
         series: archive.alertReadiness,
       },
     },
+    closeScan: {
+      date: equity.expectedDate,
+      ...close,
+      at: closeRecord?.at ?? null,
+      strategies: repo
+        .watchedStrategies()
+        .filter((s) => s.market === "cn-equity").length,
+    },
     capital: config.alerts.capital,
     gaps: repo.dataGaps(),
-    candidates: workspaceCandidates({ page: 0 }, repo, now, book.positions),
+    candidates: workspaceCandidates({ page: 0 }, repo, now, book.positions, {
+      closeDate: equity.expectedDate,
+      calendar,
+    }),
     openPlans: { total: openPlans.length, items: openPlans.slice(0, 20) },
     stopTasks: protectionTasks,
     triggered: repo.history(

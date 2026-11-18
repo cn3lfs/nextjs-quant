@@ -12,6 +12,12 @@ export const qualificationLabel = {
   shadow: "影子前推中 · 研究中",
   promoted: "已晋级",
 };
+const scanFreshnessLabel = {
+  current: "本次收盘",
+  stale: "历史",
+  intraday: "盘中",
+  unknown: "待核验",
+} as const;
 export function candidateHref(row: WorkspaceCandidate) {
   const params = new URLSearchParams({
     candidate: row.key,
@@ -34,6 +40,8 @@ export function CandidateTable({
   onRetry,
   onSelect,
   onPlan,
+  canPlan,
+  emptyMessage = "尚无收盘扫描或影子入场候选。先补齐数据并登记策略；缺失不会生成计划。",
 }: {
   data: WorkspaceCandidate[];
   total: number;
@@ -44,6 +52,8 @@ export function CandidateTable({
   onRetry?: () => void;
   onSelect?: (row: WorkspaceCandidate) => void;
   onPlan?: (row: WorkspaceCandidate) => void;
+  canPlan?: (row: WorkspaceCandidate) => boolean;
+  emptyMessage?: string;
 }) {
   return (
     <DataTable
@@ -63,7 +73,7 @@ export function CandidateTable({
       sorting={[]}
       onSortingChange={() => {}}
       getRowId={(r) => r.key}
-      emptyMessage="尚无收盘扫描或影子入场候选。先补齐数据并登记策略；缺失不会生成计划。"
+      emptyMessage={emptyMessage}
       columns={[
         ...(onPlan
           ? [
@@ -74,7 +84,14 @@ export function CandidateTable({
                   row: { original: r },
                 }: {
                   row: { original: WorkspaceCandidate };
-                }) => <Button onClick={() => onPlan(r)}>加入计划</Button>,
+                }) =>
+                  canPlan && !canPlan(r) ? (
+                    <span className="text-xs text-nc-text-3">
+                      历史来源 · 仅查看
+                    </span>
+                  ) : (
+                    <Button onClick={() => onPlan(r)}>加入计划</Button>
+                  ),
               },
             ]
           : []),
@@ -106,8 +123,34 @@ export function CandidateTable({
               {r.sources.map((s) => (
                 <p key={s.key} className="max-w-80 text-xs text-nc-text-3">
                   {s.strategyId}：{s.reason}
+                  {s.scanFreshness && (
+                    <span
+                      className={
+                        s.scanFreshness === "stale"
+                          ? "text-nc-warn"
+                          : "text-nc-text-3"
+                      }
+                    >
+                      {" "}
+                      · {scanFreshnessLabel[s.scanFreshness]} · 扫描{" "}
+                      {s.scanAt === null
+                        ? "时点未记录"
+                        : new Date(s.scanAt).toLocaleString("zh-CN")}{" "}
+                      · bar {s.bar}
+                    </span>
+                  )}
                 </p>
               ))}
+              {r.scan && (r.scan.hasHistorical || r.scan.hasUnverified) && (
+                <p className="text-xs text-nc-warn">
+                  {[
+                    r.scan.hasHistorical ? "含历史来源" : "",
+                    r.scan.hasUnverified ? "来源待核验" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
               {r.tradingStatusEvidence?.status === "unknown" && (
                 <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
               )}

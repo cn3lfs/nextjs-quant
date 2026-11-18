@@ -13,6 +13,7 @@ import {
   workspaceCandidates,
   workspaceCandidate,
 } from "../../alerts/workspace";
+import { equityDailyReadiness } from "../../alerts/readiness";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { Snapshot } from "~/lib/domain";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
@@ -109,11 +110,38 @@ export const alertsRouter = createTRPCRouter({
         strategy: z.string().max(150).optional(),
         market: z.enum(["cn-equity", "crypto"]).optional(),
         minimumRps: z.number().finite().min(0).max(100).optional(),
+        // Today only: the readiness reference date used to label historical
+        // close-scan sources. Omitted by /scan, which keeps its old output.
+        scanCloseDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
       }),
     )
     .query(async ({ input }) => {
-      const { repo, book, now, assertCurrent } = await planAccountContext(true);
-      const result = workspaceCandidates(input, repo, now, book.positions);
+      const { config, repo, book, now, assertCurrent } =
+        await planAccountContext(true);
+      // Only the Today pagination branch reads readiness; /scan adds no I/O.
+      let scan:
+        { closeDate: string | null; calendar: readonly string[] } | undefined;
+      if (input.scanCloseDate !== undefined) {
+        const readiness = await equityDailyReadiness(config, now);
+        scan = {
+          closeDate:
+            input.scanCloseDate === readiness.expectedDate
+              ? input.scanCloseDate
+              : null,
+          calendar: readiness.calendar,
+        };
+      }
+      const result = workspaceCandidates(
+        input,
+        repo,
+        now,
+        book.positions,
+        scan,
+      );
       assertCurrent();
       return result;
     }),

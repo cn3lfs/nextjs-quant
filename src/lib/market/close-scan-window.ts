@@ -44,3 +44,38 @@ export function closeScanOpen(
   const window = closeScanWindow(date, calendar);
   return now >= window.completedAt && now < window.deadline;
 }
+
+export type CloseScanPhase =
+  | "unknown-date"
+  | "waiting"
+  | "unconfirmed"
+  | "running"
+  | "missed"
+  | "complete";
+
+/** The persisted close record proves the phase ended, never that inputs or the
+ * whole market were complete; waiting and unconfirmed stay separate. */
+export function closeScanPhase(
+  date: string | null,
+  record: { status?: string } | undefined,
+  now: number,
+  calendar: readonly string[],
+): { phase: CloseScanPhase; calendarConfirmed: boolean } {
+  if (!date) return { phase: "unknown-date", calendarConfirmed: false };
+  const window = closeScanWindow(date, calendar);
+  const calendarConfirmed =
+    calendar.length > 0 && calendar.includes(date) && window.calendarConfirmed;
+  if (record?.status === "complete")
+    return { phase: "complete", calendarConfirmed };
+  if (record?.status === "running")
+    return { phase: "running", calendarConfirmed };
+  if (record?.status === "missed")
+    return { phase: "missed", calendarConfirmed };
+  if (!calendar.length) return { phase: "unconfirmed", calendarConfirmed };
+  if (now < window.completedAt) return { phase: "waiting", calendarConfirmed };
+  // Missed only when the next trading day is confirmed; a weekday fallback is
+  // not evidence that the deadline passed.
+  if (window.calendarConfirmed && now >= window.deadline)
+    return { phase: "missed", calendarConfirmed };
+  return { phase: "unconfirmed", calendarConfirmed };
+}

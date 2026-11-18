@@ -34,5 +34,7 @@ export async function equityDailyReadiness(config: Settings, now: number) {
     status: health.status,
     receipt,
     ready: health.status === "aligned" && receipt,
+    // Internal reference only; callers must keep it out of the API readiness.
+    calendar: reference.days,
   };
 }
