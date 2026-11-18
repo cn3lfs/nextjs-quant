@@ -7,11 +7,13 @@ import {
   session,
   dialog,
   ipcMain,
+  shell,
 } from "electron";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import {
   SERVICE_STOPPED_MARKUP,
@@ -78,6 +80,45 @@ async function showFailure(win: BrowserWindow, markup: string) {
 function showWindow(win: BrowserWindow) {
   if (!win.isDestroyed()) win.show();
 }
+// Fixed copy only: the original error and the data path must not leak here.
+async function showOpenDataFailure(win: BrowserWindow) {
+  // A quit or teardown that started while opening was pending wins silently.
+  if (quitting || win.isDestroyed()) return;
+  try {
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: "无法打开数据与日志目录",
+      detail: "请稍后从托盘菜单重试。",
+      buttons: ["确定"],
+    });
+  } catch {}
+}
+// The tray action is the only caller: it opens the exact absolute data root
+// already used for mkdir, server.log and the child environment. No IPC and no
+// path is ever handed to the renderer.
+async function openDataDirectory(target: string, win: BrowserWindow) {
+  // A quit that started before or during the stat must never reach the shell.
+  if (quitting || win.isDestroyed()) return;
+  let isDirectory = false;
+  try {
+    isDirectory = (await stat(target)).isDirectory();
+  } catch {
+    isDirectory = false;
+  }
+  if (quitting || win.isDestroyed()) return;
+  if (!isDirectory) {
+    await showOpenDataFailure(win);
+    return;
+  }
+  let failed = false;
+  try {
+    failed = (await shell.openPath(target)) !== "";
+  } catch {
+    failed = true;
+  }
+  // Re-check after every await: a quit during the call must stay silent.
+  if (failed) await showOpenDataFailure(win);
+}
 async function finishStartupFailure(
   win: BrowserWindow,
   result: StartupHealthResult,
@@ -112,9 +153,23 @@ async function main() {
     root = app.isPackaged
       ? join(process.resourcesPath, "server")
       : join(__dirname, "..", ".next", "standalone");
+  // A relative value is resolved once against the bundled service root: that
+  // is the child's cwd and the standalone server.js __dirname, so an existing
+  // relative database keeps the location older builds actually used. Never
+  // resolve against the caller cwd. An explicit empty value stays invalid
+  // (mkdir below fails) instead of silently becoming that root.
+  const configuredData = process.env.QUANT_DATA_DIR;
   const data =
-    process.env.QUANT_DATA_DIR ??
-    join(process.env.LOCALAPPDATA ?? app.getPath("userData"), "QuantWorkbench");
+    configuredData === undefined
+      ? resolve(
+          join(
+            process.env.LOCALAPPDATA ?? app.getPath("userData"),
+            "QuantWorkbench",
+          ),
+        )
+      : configuredData === ""
+        ? configuredData
+        : resolve(root, configuredData);
   mkdirSync(data, { recursive: true });
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -224,6 +279,12 @@ async function main() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "打开研究工作台", click: () => window?.show() },
+      {
+        label: "打开数据与日志目录",
+        // Returning the promise lets tests await the action; Electron ignores
+        // a menu handler's return value, and every error is handled inside.
+        click: () => openDataDirectory(data, appWindow),
+      },
       {
         label: "退出并停止监控",
         click: () => {

@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, rmdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SERVICE_STOPPED_MARKUP,
@@ -27,6 +27,12 @@ const h = vi.hoisted(() => {
     exitCalls: [] as number[],
     child: null as any,
     spawnSync: null as any,
+    spawnCalls: [] as any[][],
+    trayMenus: [] as any[],
+    openPathCalls: [] as string[],
+    messageBoxCalls: [] as any[][],
+    openPathImpl: null as null | ((path: string) => Promise<string>),
+    messageBoxImpl: null as null | ((...args: any[]) => Promise<any>),
     loadURL: null as null | ((url: string) => Promise<void>),
     executeJavaScript: null as null | ((code: string) => Promise<string>),
     dataDir: "",
@@ -70,7 +76,9 @@ vi.mock("electron", () => {
   }
   class Tray {
     setToolTip = vi.fn();
-    setContextMenu = vi.fn();
+    setContextMenu = (menu: unknown) => {
+      h.trayMenus.push(menu);
+    };
     on = vi.fn();
   }
   return {
@@ -91,12 +99,43 @@ vi.mock("electron", () => {
     session: { defaultSession: { cookies: { set: async () => {} } } },
     dialog: {
       showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+      showMessageBox: (...args: any[]) => {
+        h.messageBoxCalls.push(args);
+        return h.messageBoxImpl
+          ? h.messageBoxImpl(...args)
+          : Promise.resolve({ response: 0 });
+      },
+    },
+    shell: {
+      openPath: (path: string) => {
+        h.openPathCalls.push(path);
+        return h.openPathImpl ? h.openPathImpl(path) : Promise.resolve("");
+      },
     },
     ipcMain: { handle: vi.fn() },
   };
 });
+// Vitest injects __dirname as a module-wrapper parameter, so stubGlobal cannot
+// change it. Pinning this one call gives main the same isolated service root
+// it would derive from __dirname = join(h.dataDir, "desktop").
+vi.mock("node:path", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:path")>();
+  return {
+    ...actual,
+    join: (...parts: string[]) =>
+      parts.length === 4 &&
+      parts[1] === ".." &&
+      parts[2] === ".next" &&
+      parts[3] === "standalone"
+        ? actual.join(h.dataDir, "desktop", "..", ".next", "standalone")
+        : actual.join(...parts),
+  };
+});
 vi.mock("node:child_process", () => ({
-  spawn: () => h.child,
+  spawn: (...args: any[]) => {
+    h.spawnCalls.push(args);
+    return h.child;
+  },
   spawnSync: (...args: any[]) => h.spawnSync(...args),
 }));
 vi.mock("node:net", () => ({
@@ -134,6 +173,12 @@ beforeEach(async () => {
   h.loadCalls.length = 0;
   h.executeCalls.length = 0;
   h.exitCalls.length = 0;
+  h.spawnCalls.length = 0;
+  h.trayMenus.length = 0;
+  h.openPathCalls.length = 0;
+  h.messageBoxCalls.length = 0;
+  h.openPathImpl = null;
+  h.messageBoxImpl = null;
   h.loadURL = null;
   h.executeJavaScript = null;
   h.child = makeChild();
@@ -141,7 +186,6 @@ beforeEach(async () => {
   h.dataDir = await mkdtemp(join(tmpdir(), "quant-desktop-wiring-"));
   vi.stubEnv("QUANT_DATA_DIR", h.dataDir);
   vi.stubEnv("QUANT_DESKTOP_SMOKE", "");
-  vi.stubGlobal("__dirname", process.cwd());
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({
@@ -164,6 +208,25 @@ afterEach(async () => {
 async function flush() {
   await vi.advanceTimersByTimeAsync(0);
   for (let i = 0; i < 10; i++) await Promise.resolve();
+}
+
+// Menu handlers return their action's promise (Electron ignores it), so tests
+// await the real fs work instead of polling with timers.
+function trayClick(label: string): Promise<void> {
+  const template = h.trayMenus.at(-1) as
+    Array<{ label?: string; click?: () => unknown }> | undefined;
+  const item = template?.find((entry) => entry.label === label);
+  if (!item?.click) throw new Error("tray item missing: " + label);
+  return Promise.resolve(item.click()).then(() => {});
+}
+
+// The bundled server root the child runs in; a relative QUANT_DATA_DIR must
+// resolve here, not against the caller's process.cwd().
+const serviceRoot = (dataDir: string) =>
+  resolve(dataDir, ".next", "standalone");
+
+function spawnedEnv(): NodeJS.ProcessEnv {
+  return h.spawnCalls[0]![2].env as NodeJS.ProcessEnv;
 }
 
 const healthUrl = "http://127.0.0.1:3911/api/health";
@@ -612,4 +675,140 @@ describe("mocked Electron startup wiring", () => {
       expect(h.spawnSync).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("tray data directory action", () => {
+  it("opens the resolved absolute data root only after the tray click", async () => {
+    await import("../../electron/main");
+    await flush();
+    const data = spawnedEnv().QUANT_DATA_DIR;
+    expect(typeof data).toBe("string");
+    expect(isAbsolute(data!)).toBe(true);
+    expect(h.openPathCalls).toHaveLength(0);
+    await trayClick("打开数据与日志目录");
+    expect(h.openPathCalls).toEqual([data]);
+    expect(h.messageBoxCalls).toHaveLength(0);
+  });
+
+  it("resolves a relative QUANT_DATA_DIR against the backend service root", async () => {
+    const root = serviceRoot(h.dataDir);
+    const expected = join(h.dataDir, "relative-data");
+    const relativeRoot = relative(root, expected);
+    expect(isAbsolute(relativeRoot)).toBe(false);
+    // The old backend saw this value relative to its spawn cwd (the service
+    // root), never relative to the caller that launched the desktop app.
+    expect(resolve(process.cwd(), relativeRoot)).not.toBe(expected);
+    vi.stubEnv("QUANT_DATA_DIR", relativeRoot);
+    await import("../../electron/main");
+    await flush();
+    const env = spawnedEnv();
+    expect(env.QUANT_DATA_DIR).toBe(expected);
+    expect(resolve(String(h.spawnCalls[0]![2].cwd), relativeRoot)).toBe(
+      expected,
+    );
+    await trayClick("打开数据与日志目录");
+    expect(h.openPathCalls).toEqual([expected]);
+  });
+
+  it("keeps an explicit empty QUANT_DATA_DIR invalid instead of using the cwd", async () => {
+    vi.stubEnv("QUANT_DATA_DIR", "");
+    await import("../../electron/main");
+    await flush();
+    expect(h.spawnCalls).toHaveLength(0);
+    expect(h.exitCalls).toEqual([1]);
+    expect(h.openPathCalls).toHaveLength(0);
+  });
+
+  it("does not call the shell when the data root is no longer a directory", async () => {
+    await import("../../electron/main");
+    await flush();
+    expect(spawnedEnv().QUANT_DATA_DIR).toBe(h.dataDir);
+    await rmdir(h.dataDir);
+    await writeFile(h.dataDir, "not a directory");
+    await trayClick("打开数据与日志目录");
+    expect(h.openPathCalls).toHaveLength(0);
+  });
+
+  it("reports fixed copy for a non-empty result and a rejection", async () => {
+    await import("../../electron/main");
+    await flush();
+    h.openPathImpl = async () => "Access is denied.";
+    await trayClick("打开数据与日志目录");
+    expect(h.messageBoxCalls).toHaveLength(1);
+    h.openPathImpl = async () => {
+      throw new Error(`openPath failed at ${h.dataDir}`);
+    };
+    await trayClick("打开数据与日志目录");
+    expect(h.messageBoxCalls).toHaveLength(2);
+    for (const call of h.messageBoxCalls) {
+      const options = call[1] as { message: string; detail: string };
+      expect(options.message).toBe("无法打开数据与日志目录");
+      expect(options.detail).toBe("请稍后从托盘菜单重试。");
+      expect(options.message).not.toContain("Access");
+      expect(options.detail).not.toContain(h.dataDir);
+    }
+    // A rejected dialog message must also stay handled.
+    h.messageBoxImpl = async () => {
+      throw new Error("dialog owner is gone");
+    };
+    await trayClick("打开数据与日志目录");
+    expect(h.messageBoxCalls).toHaveLength(3);
+  });
+
+  it("does not open or prompt when quit happens before stat settles", async () => {
+    await import("../../electron/main");
+    await flush();
+    const click = trayClick("打开数据与日志目录");
+    h.emit("before-quit");
+    await click;
+    expect(h.openPathCalls).toHaveLength(0);
+    expect(h.messageBoxCalls).toHaveLength(0);
+  });
+
+  it("stays silent when the app quits while opening is pending", async () => {
+    await import("../../electron/main");
+    await flush();
+    let started!: () => void;
+    const openStarted = new Promise<void>((done) => {
+      started = done;
+    });
+    let release!: (value: string) => void;
+    h.openPathImpl = () => {
+      started();
+      return new Promise<string>((resolve) => {
+        release = resolve;
+      });
+    };
+    const click = trayClick("打开数据与日志目录");
+    await openStarted;
+    expect(h.openPathCalls).toHaveLength(1);
+    h.emit("before-quit");
+    release("failed");
+    await click;
+    expect(h.messageBoxCalls).toHaveLength(0);
+  });
+
+  it("keeps the same tray action available after the failure page is shown", async () => {
+    let release!: () => void;
+    h.loadURL = (url) =>
+      url.startsWith("data:")
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            release = resolve;
+          });
+    await import("../../electron/main");
+    await flush();
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    release();
+    await flush();
+    expect(h.loadCalls).toHaveLength(2);
+    const markup = decodeURIComponent(h.loadCalls[1]!);
+    expect(markup).toContain("本地服务已停止");
+    expect(markup).toContain("托盘菜单");
+    const data = spawnedEnv().QUANT_DATA_DIR;
+    expect(h.openPathCalls).toHaveLength(0);
+    await trayClick("打开数据与日志目录");
+    expect(h.openPathCalls).toEqual([data]);
+  });
 });

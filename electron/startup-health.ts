@@ -243,9 +243,9 @@ export function startupNavigationDecision(
 }
 
 export const STARTUP_TIMEOUT_MARKUP =
-  "<h2>启动超时</h2><p>本地服务未能启动，请查看用户目录 server.log。</p>";
+  "<h2>启动超时</h2><p>本地服务未能启动，请从托盘菜单打开数据与日志目录查看 server.log。</p>";
 export const SERVICE_STOPPED_MARKUP =
-  "<h2>本地服务已停止</h2><p>请退出应用后重新启动。日志位于应用用户目录。</p>";
+  "<h2>本地服务已停止</h2><p>请退出应用后重新启动。可从托盘菜单打开数据与日志目录查看日志。</p>";
 
 /** Fixed copy only: never include process errors, paths or credentials. */
 export function startupFailureMarkup(

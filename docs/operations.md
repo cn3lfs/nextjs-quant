@@ -83,6 +83,8 @@ await db.backup(dest); // 输出的是含 WAL 的一致快照
 | 桌面交付 | `release/win-unpacked/` | 管理者整体替换，保留整套依赖 |
 | 核对证据 | 按模块归入 [market-chart/](market-chart/) 等目录 | 历史数据，不是缓存；不能冒充当前行情 |
 
+Windows 托盘的「打开数据与日志目录」打开本次启动使用的数据根，服务启动失败时也可用。非空相对 `QUANT_DATA_DIR` 以原后端服务目录解析，`server.log` 落在同一数据根。
+
 应用不复制 Codex/Claude CLI 登录令牌，CLI 在本机自行认证；DeepSeek 从环境变量读取密钥，配置说明见根 README。不要输出 `.env`、业务凭证或未脱敏远程响应。
 
 ## 常见故障
