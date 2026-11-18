@@ -53,6 +53,8 @@ node scripts/desktop-smoke.mjs --packaged
 
 **desktop:smoke 前必须先 desktop:prepare。** prepare 向构建好的 standalone 复制 static/public/runtime、Node 与许可文件；桌面入口由 runtime:build 编译，prepare 不能替代 build。`pnpm build` 已先调用 runtime:build，单独修改 worker 后也需重建 runtime。`pnpm start` 启动已准备的服务；不拿旧 runtime 验证新源码。
 
+`scripts/desktop-smoke.mjs` 在子进程退出后读取隔离数据根的 `server.log`，要求恰好一条 `[desktop-startup]` 记录且为 `ready`。摘要以 `processState` 区分 `timeout`、`launch-error`、`signalled` 与 `exited`，仅在启动记录为 `not-ready` 时附带 helper 验证过的 `startupStatus`。该入口依赖底座第 3 轮及之后写入的启动记录，缺记录、坏记录、多记录与任何非 `ready` 结论都会失败。
+
 `desktop:pack` 的 [pack-desktop.ps1](../scripts/pack-desktop.ps1) 自身再次 build → prepare → electron-builder，暂存于 `release/_next`，成功后替换为唯一 `release/win-unpacked`。这是脚本内部暂存，不是允许保留多版本输出。应用占用时停止打包、保留现有 release；运行检查失败也不能绕过。对外分发前先处理 [第三方许可](../THIRD_PARTY_NOTICES.md)。
 
 `.npmrc` 固定 `node-linker=hoisted`，已安装旧布局的工作区需先重新执行 `pnpm install --frozen-lockfile`。准备阶段实体化 standalone 模块链接，打包阶段检查服务入口依赖与残留链接；不满足时保留旧包并停止。独立交付检查需将整个 `win-unpacked` 放到无父级 `node_modules` 的目录，令原构建路径不可用，清空 `NODE_PATH`，再验证 EXE 和 bundled server；仅在源码树内启动可能掩盖缺失依赖。此布局依据 [Electron 官方安装说明](https://www.electronjs.org/docs/latest/tutorial/tutorial-first-app)。

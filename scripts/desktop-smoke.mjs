@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { temporaryDirectory } from "./temporary-directory.mjs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
+import {
+  readStartupConclusion,
+  smokePassed,
+} from "./lib/desktop-smoke-result.mjs";
 const require = createRequire(import.meta.url),
   temporary = temporaryDirectory("quant-desktop-"),
   data = temporary.path;
@@ -26,26 +30,58 @@ const args = [
   `--user-data-dir=${join(data, "electron-profile")}`,
   ...(process.argv.includes("--packaged") ? [] : ["."]),
 ];
-const child = temporary.track(
-  spawn(binary, args, {
-    windowsHide: true,
-    stdio: "pipe",
-    env: { ...process.env, QUANT_DESKTOP_SMOKE: "1", QUANT_DATA_DIR: data },
-  }),
-);
-const timer = setTimeout(() => {
-  child.kill();
-  console.error("Desktop smoke timed out");
-  process.exitCode = 1;
-}, 60000);
-child.stderr.on("data", () => {});
-const code = await new Promise((resolve, reject) => {
-  child.on("error", reject);
-  child.on("exit", resolve);
-});
-clearTimeout(timer);
+let child = null;
+let launchFailed = false;
+try {
+  child = temporary.track(
+    spawn(binary, args, {
+      windowsHide: true,
+      stdio: "pipe",
+      env: { ...process.env, QUANT_DESKTOP_SMOKE: "1", QUANT_DATA_DIR: data },
+    }),
+  );
+} catch {
+  // A synchronous spawn failure must still produce the safe summary.
+  launchFailed = true;
+}
+let timedOut = false;
+let timer = null;
+let exitCode = null;
+if (child) {
+  try {
+    timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+      console.error("Desktop smoke timed out");
+      process.exitCode = 1;
+    }, 60000);
+    child.stderr.on("data", () => {});
+    // Whichever arrives first settles the launch; a late counterpart is ignored.
+    const outcome = await new Promise((resolve) => {
+      child.once("error", () => resolve({ type: "error" }));
+      child.once("exit", (code) => resolve({ type: "exit", code }));
+    });
+    if (outcome.type === "exit") exitCode = outcome.code;
+    else launchFailed = true;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
-  sourceUnchanged = source.equals(await readFile(sourcePath)),
+  // A failed second read cannot prove the source is unchanged.
+  afterRun = await readFile(sourcePath).catch(() => null),
+  sourceUnchanged = afterRun !== null && source.equals(afterRun),
+  // The desktop log and the service share the run's data root, not the Electron profile.
+  startup = readStartupConclusion(
+    await readFile(join(data, "server.log"), "utf8").catch(() => null),
+  ),
+  processState = timedOut
+    ? "timeout"
+    : launchFailed
+      ? "launch-error"
+      : exitCode === null
+        ? "signalled"
+        : "exited",
   // Startup smoke checks the Today workspace and the six trading-day entries; chart coverage is separate.
   requiredLabels = [
     "今日",
@@ -66,22 +102,31 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
   missingLabels = requiredLabels.filter((label) => !text.includes(label)),
   presentErrors = forbiddenLabels.filter((label) => text.includes(label)),
   smokeOutputPresent = text.length > 0,
-  passed =
-    code === 0 &&
-    sourceUnchanged &&
-    smokeOutputPresent &&
-    missingLabels.length === 0 &&
-    presentErrors.length === 0;
+  passed = smokePassed({
+    exitCode,
+    launchFailed,
+    timedOut,
+    sourceUnchanged,
+    smokeOutputPresent,
+    missingLabels,
+    presentErrors,
+    startupState: startup.state,
+  });
 console.log(
   JSON.stringify({
     desktopSmoke: passed,
-    exitCode: code,
+    exitCode,
     smokeOutputPresent,
     missingLabels,
     presentErrors,
     expectedRecords,
     expectedDate,
     sourceUnchanged,
+    processState,
+    startupState: startup.state,
+    ...(startup.state === "not-ready"
+      ? { startupStatus: startup.startupStatus }
+      : {}),
     dataDirectory: data,
     // The profile is removed on exit; keep the captured page text for diagnosis.
     ...(passed ? {} : { capturedText: text.slice(0, 1500) }),
