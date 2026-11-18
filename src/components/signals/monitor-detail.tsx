@@ -1,5 +1,6 @@
 "use client";
 import { capabilityAllows, capabilities } from "~/lib/common/capabilities";
+import { monitorWorkspaceId } from "~/lib/strategy-facts/monitor-workspace";
 import { useEffect, useRef, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { useTaskVisible } from "../workbench/use-task-visible";
@@ -29,6 +30,7 @@ export function MonitorDetail({
   onBack,
   onEdit,
   onRelated,
+  onOrigin,
   onChanged,
 }: {
   kind: MonitorSelectionKind;
@@ -36,6 +38,7 @@ export function MonitorDetail({
   onBack: () => void;
   onEdit: (value: MonitorDetailValue) => void;
   onRelated: (signalId: string) => void;
+  onOrigin: (sourceId: string, resendId: string) => void;
   onChanged: () => void;
 }) {
   const visible = useTaskVisible(),
@@ -132,6 +135,17 @@ export function MonitorDetail({
   const m = monitor.data,
     s = signal.data,
     d = delivery.data;
+  // Only a loaded manual resend whose identity matches this detail can link to
+  // its source. The id itself must pass the shared contract and differ from the
+  // resend; no title, channel or delivery status is used to infer a source.
+  const deliveryReady =
+    delivery.isSuccess && !delivery.error && !!d && d.id === id;
+  const source =
+    deliveryReady && d?.manualRetry
+      ? monitorWorkspaceId.safeParse(d.sourceDeliveryId)
+      : null;
+  const originId =
+    source?.success && source.data !== d?.id ? source.data : null;
   return (
     <section aria-label="监控记录详情" className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -282,7 +296,27 @@ export function MonitorDetail({
             {d.manualRetry ? "本条为独立人工重发，原记录不会改写。" : ""}
           </p>
           {d.sourceDeliveryId && (
-            <p className="break-all text-xs">原投递：{d.sourceDeliveryId}</p>
+            <div className="space-y-2">
+              <p className="break-all text-xs">
+                原投递：{d.sourceDeliveryId}
+              </p>
+              {originId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOrigin(originId, d.id)}
+                >
+                  查看原投递
+                </Button>
+              ) : (
+                deliveryReady &&
+                d.manualRetry && (
+                  <p className="text-xs text-nc-text-3">
+                    原投递ID无效或指向当前记录，无法追溯到具体来源。
+                  </p>
+                )
+              )}
+            </div>
           )}
           {d.manualRetry && !d.sourceDeliveryId && (
             <p className="text-xs text-nc-text-3">

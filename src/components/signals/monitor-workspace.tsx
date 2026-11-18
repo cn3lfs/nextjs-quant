@@ -9,6 +9,7 @@ import {
   monitorPageSchema,
   signalPageSchema,
   deliveryPageSchema,
+  monitorWorkspaceId,
 } from "~/lib/strategy-facts/monitor-workspace";
 import { monitorSaveSchema } from "~/lib/strategy-facts/monitor-workspace-actions";
 import {
@@ -312,6 +313,34 @@ export function MonitorWorkspace({
     scroll.current = window.scrollY;
     setEditing(null);
     setSelected((previous) => ({ ...previous, [tab]: id }));
+  }
+  /**
+   * Opens a manual resend's source detail. The current entry is first synced to
+   * the applied deliveries filter and the resend it shows, then a new native
+   * history entry selects the verified source on the same route. Applied
+   * filters, cursor and page state stay untouched, so Back restores the resend
+   * at the same filter and page.
+   */
+  function openOrigin(sourceId: string, resendId: string) {
+    if (!visible || tab !== "deliveries" || selected.deliveries !== resendId)
+      return;
+    if (location.pathname !== "/system/notifications") return;
+    const current = new URL(location.href);
+    if (current.searchParams.get("monitorTab") !== "deliveries") return;
+    if (current.searchParams.get("monitorRecord") !== resendId) return;
+    const target = monitorWorkspaceId.safeParse(sourceId);
+    if (!target.success || target.data === resendId) return;
+    current.searchParams.set("monitorTab", "deliveries");
+    current.searchParams.set(
+      "monitorFilters",
+      JSON.stringify(filters.deliveries),
+    );
+    current.searchParams.set("monitorRecord", resendId);
+    history.replaceState(history.state, "", current);
+    const next = new URL(current);
+    next.searchParams.set("monitorRecord", target.data);
+    history.pushState(history.state, "", next);
+    setSelected((previous) => ({ ...previous, deliveries: target.data }));
   }
   useEffect(() => {
     if (!visible) return;
@@ -751,6 +780,7 @@ export function MonitorWorkspace({
               id={selected[tab]}
               onBack={back}
               onEdit={edit}
+              onOrigin={openOrigin}
               onChanged={() => void changed()}
               onRelated={(signalId) => {
                 setFilters((previous) => ({
