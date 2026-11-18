@@ -5,6 +5,7 @@ import type { Drawing } from "../../../src/lib/chart/chart-view";
 // Exercise the workspace's actual tool/anchor event wiring without starting
 // a browser, native chart, network client or persistence timer.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], cursor: 0 }));
+const tdx = vi.hoisted(() => ({ tradable: false }));
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useState<T>(initial: T | (() => T)) {
@@ -34,7 +35,7 @@ vi.mock("~/components/market/chart", () => ({
   MarketChart: () => null,
 }));
 vi.mock("~/components/market/tdx-side-panel", () => ({
-  tradableSymbol: () => false,
+  tradableSymbol: () => tdx.tradable,
 }));
 vi.mock("~/components/market/czsc-settings-dialog", () => ({
   CzscSettingsDialog: () => null,
@@ -77,11 +78,12 @@ function text(node: ReactNode): string {
     return text((node as ReactElement<{ children: ReactNode }>).props.children);
   return node == null ? "" : String(node);
 }
-let render: () => Node;
+let render: (props?: Record<string, unknown>) => Node;
 afterEach(() => vi.restoreAllMocks());
 beforeEach(() => {
   hooks.slots = [];
   hooks.cursor = 0;
+  tdx.tradable = false;
   const snapshot = {
     id: "drawing-fixture",
     symbol: "sh600000",
@@ -104,9 +106,12 @@ beforeEach(() => {
     adjustment: "none",
   }) as Node;
   hooks.slots = [];
-  render = () => {
+  render = (props = {}) => {
     hooks.cursor = 0;
-    return (child.type as (props: typeof child.props) => Node)(child.props);
+    return (child.type as (props: typeof child.props) => Node)({
+      ...child.props,
+      ...props,
+    });
   };
 });
 function choose(ui: Node, tool: string) {
@@ -124,6 +129,15 @@ function chart(ui: Node) {
   return (
     annotations.props.render as (events: never[], select: () => void) => Node
   )([], () => {}).props;
+}
+/** The pane the annotations slot renders: 分时 or the K 线 chart. */
+function pane(ui: Node): Node {
+  const annotations = elements(ui).find(
+    (node) => typeof node.props.render === "function",
+  )!;
+  return (
+    annotations.props.render as (events: never[], select: () => void) => Node
+  )([], () => {});
 }
 it.each([
   { tool: "trend", label: "趋势线", count: 0 },
@@ -156,3 +170,19 @@ it.each([
     expect(event.preventDefault).not.toHaveBeenCalled();
   },
 );
+it("frozen evidence stays on K 线 without forgetting the live 分时 choice", () => {
+  tdx.tradable = true;
+  choose(render(), "分时");
+  const live = render();
+  expect(
+    elements(live).find((node) => node.props["aria-label"] === "图表类型"),
+  ).toBeDefined();
+  expect(pane(live).props.chartSnapshot).toBeUndefined();
+  const frozen = render({ frozenEvidence: true });
+  expect(
+    elements(frozen).find((node) => node.props["aria-label"] === "图表类型"),
+  ).toBeUndefined();
+  expect(pane(frozen).props.chartSnapshot).toBe(true);
+  // Leaving the frozen page must not have overwritten lastIntraday.
+  expect(pane(render()).props.chartSnapshot).toBeUndefined();
+});

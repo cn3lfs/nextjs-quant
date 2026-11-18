@@ -6,6 +6,7 @@ import type { MarketSource } from "~/lib/market/market-source";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import type { Period } from "~/lib/domain";
 import {
+  planMarketRead,
   rememberMarketUrl,
   useMarketSession,
   type MarketSelection,
@@ -86,6 +87,7 @@ export function useMarketState(defaultSource?: MarketSource) {
       rememberMarketUrl();
     },
     acceptSnapshot: useMarketSession.getState().acceptSnapshot,
+    acceptFrozenSnapshot: useMarketSession.getState().acceptFrozenSnapshot,
   };
   function enterMarket(
     requested: string | null,
@@ -97,32 +99,29 @@ export function useMarketState(defaultSource?: MarketSource) {
     const source =
       selection.marketSource ?? current.marketSource ?? defaultSource ?? "auto";
     const period = selection.period ?? current.period;
+    // Frozen candidate evidence is not the live snapshot this route asks for;
+    // leaving it always gets one fresh read (unless that exact read is already
+    // in flight). An ordinary read still reuses its loaded snapshot.
+    const plan = planMarketRead({
+      loaded: current.loaded,
+      snapshotSource: current.snapshotSource,
+      request: request.current,
+      revision: current.revision,
+      requested: { symbol, period, source },
+    });
     useMarketSession.setState({
       ...selection,
       symbol,
       marketSource: source,
       marketView: view ?? current.marketView,
     });
-    const key = JSON.stringify([symbol, period, source]);
-    const selected = current.loaded;
-    // A saved candidate owns its recorded snapshot. Returning must not replace
-    // that evidence with today's data or replay an in-flight load.
-    const sameSnapshot =
-      selected?.symbol === symbol &&
-      selected.period === period &&
-      (current.snapshotSource === null || current.snapshotSource === source);
-    const activeRequest = request.current?.revision === current.revision;
-    const conflictingRequest = activeRequest && request.current?.key !== key;
-    if (
-      (!sameSnapshot || conflictingRequest) &&
-      !(
-        request.current?.key === key &&
-        request.current.revision === current.revision
-      )
-    )
-      // Reading the route must not rewrite it: a late initial load can run
-      // while Next is committing the user's navigation to another Scan tab.
-      requestSnapshot({ symbol, period, source });
+    // Reading the route must not rewrite it: a late initial load can run
+    // while Next is committing the user's navigation to another Scan tab.
+    if (plan.read)
+      requestSnapshot(
+        { symbol, period, source },
+        plan.fresh ? { fresh: true } : undefined,
+      );
   }
   return {
     ...state,

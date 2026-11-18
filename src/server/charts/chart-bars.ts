@@ -71,6 +71,45 @@ export const chartBarsInput = z.object({
   limit: z.number().int().min(100).max(20000).default(2000),
   adjustment: chartAdjustmentSchema.default("none"),
 });
+
+/**
+ * A saved formula candidate owns its archived bars. Reading today's source,
+ * re-adjusting or resampling would show different evidence, so only the
+ * recorded period and adjustment are served.
+ */
+function chartBarsFromFormulaArchive(
+  source: Snapshot,
+  input: z.output<typeof chartBarsInput>,
+): ChartSnapshot {
+  const { period, adjustment, limit } = input;
+  if (period !== source.period)
+    throw new Error(
+      `冻结候选快照只存档 ${source.period} 周期，无法读取 ${period}`,
+    );
+  if (adjustment !== source.adjustment)
+    throw new Error(
+      `冻结候选快照只存档 ${source.adjustment} 复权，无法读取 ${adjustment}`,
+    );
+  return finalizeChartBars(source, period, adjustment, limit, {
+    ...source,
+    period,
+    adjustment,
+    bars: source.bars,
+    formingDates: source.barStore?.formingDates ?? [],
+    excluded: source.barStore?.excluded ?? [],
+    historyExhausted: true,
+    ...(source.barStore
+      ? {
+          barStore: {
+            ...source.barStore,
+            availablePeriods: [period],
+            formingDates: source.barStore.formingDates ?? [],
+            excluded: source.barStore.excluded ?? [],
+          },
+        }
+      : {}),
+  });
+}
 export async function chartBars(
   input: z.input<typeof chartBarsInput>,
 ): Promise<ChartSnapshot> {
@@ -87,6 +126,8 @@ export async function chartBars(
     return chart;
   }
   if (["4h", "1h"].includes(parsed.period)) throw new Error("A股不支持该周期");
+  if (source.id.startsWith("snapshot-formula-"))
+    return chartBarsFromFormulaArchive(source, parsed);
   const now = Date.now(),
     period = parsed.period,
     { limit, adjustment } = parsed;
@@ -282,6 +323,17 @@ export async function chartBars(
     }
   }
   if (!resolved) throw new Error("目标周期没有可用行情");
+  return finalizeChartBars(source, period, adjustment, limit, resolved);
+}
+
+/** Shared tail: the limit slice, coverage metadata, content hash and id. */
+function finalizeChartBars(
+  source: Snapshot,
+  period: ChartPeriod,
+  adjustment: ChartAdjustment,
+  limit: number,
+  resolved: Omit<ChartSnapshot, "id">,
+): ChartSnapshot {
   const bars = resolved.bars.slice(-limit);
   const hash = createHash("sha256")
     .update(

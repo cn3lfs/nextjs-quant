@@ -73,10 +73,13 @@ export function ChartWorkspace({
   snapshot,
   period,
   adjustment,
+  frozenEvidence = false,
 }: {
   snapshot: Snapshot;
   period: ChartPeriod;
   adjustment: ChartAdjustment;
+  /** The chart must stay on the archived snapshot; no linked live period. */
+  frozenEvidence?: boolean;
 }) {
   const [limit, setLimit] = useState(2000);
   const visible = useScreenVisible();
@@ -145,6 +148,7 @@ export function ChartWorkspace({
       }
       period={period}
       adjustment={adjustment}
+      frozenEvidence={frozenEvidence}
       initial={view.data}
       rps={period === "day" ? rps.data : undefined}
       rpsMessage={
@@ -184,6 +188,7 @@ function EditableChart({
   snapshot,
   period,
   adjustment,
+  frozenEvidence = false,
   initial,
   bars,
   cost,
@@ -198,6 +203,8 @@ function EditableChart({
   snapshot: import("~/lib/chart/chart-snapshot").ChartSnapshot;
   period: ChartPeriod;
   adjustment: ChartAdjustment;
+  /** Frozen evidence: ignore the remembered live period next to the archive. */
+  frozenEvidence?: boolean;
   initial: ChartView;
   onHistoryRequest?: () => void;
   bars: Snapshot["bars"];
@@ -216,9 +223,10 @@ function EditableChart({
   const visible = useScreenVisible();
   const [dirty, setDirty] = useState(false);
   const [second, setSecondState] = useState<ChartPeriod | null>(() =>
-    lastSecond === period ? null : lastSecond,
+    frozenEvidence || lastSecond === period ? null : lastSecond,
   );
   const setSecond = (value: ChartPeriod | null) => {
+    if (frozenEvidence) return;
     lastSecond = value;
     setSecondState(value);
   };
@@ -241,7 +249,9 @@ function EditableChart({
     () => (second ? { hub, id: "main" } : undefined),
     [second, hub],
   );
-  const canIntraday = tradableSymbol(snapshot.symbol);
+  // Frozen evidence must stay on the archived snapshot's K 线; a 分时 view would
+  // read the current market and break the archived contract.
+  const canIntraday = !frozenEvidence && tradableSymbol(snapshot.symbol);
   // TDX 叠加 / TradingView compare: up to three A-share symbols.
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
   const names = api.securityNames.useQuery(undefined, {
@@ -631,7 +641,7 @@ function EditableChart({
           )
         }
       />
-      {!showIntraday && (
+      {!showIntraday && !frozenEvidence && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             联动周期

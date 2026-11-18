@@ -7,6 +7,9 @@ const state = vi.hoisted(() => ({
   error: null as Error | null,
   pending: false,
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     status: { useQuery: () => ({ data: state.watchlist, error: state.error }) },
@@ -88,6 +91,7 @@ function render(
       error: null,
       mutate: vi.fn(),
       acceptSnapshot: vi.fn(),
+      acceptFrozenSnapshot: vi.fn(),
     },
     browse: options.browse ?? null,
     chartPeriod: "day",

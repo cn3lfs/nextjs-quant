@@ -3,6 +3,8 @@ import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
 import { ArrowUpRight, Plus, X } from "@phosphor-icons/react/ssr";
 import { useEffect, useState } from "react";
 import { chartPeriodSchema, periodLabels } from "~/lib/chart/chart-view";
+import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
+import { marketSourceLabel } from "~/lib/market/market-source";
 import { securityDisplayName } from "~/lib/market/security-display";
 import { MarketSecurityViews } from "../market/market-security-views";
 import { SecuritySelect } from "../market/security-select";
@@ -37,6 +39,8 @@ import { useBrowseHotkey } from "../market/use-browse-hotkey";
 import { useSecurityNames } from "../market/use-security-names";
 import { api } from "~/trpc/react";
 import { useTaskVisible } from "./use-task-visible";
+import { useRouter } from "next/navigation";
+import { marketSelectionHref } from "~/lib/stores/market-session";
 
 export function MarketView({
   state,
@@ -85,6 +89,11 @@ export function MarketView({
     setAdjustment: setChartAdjustment,
   } = state;
   const visible = useTaskVisible();
+  const router = useRouter();
+  // Frozen candidate evidence owns the chart until an ordinary read succeeds,
+  // including while the ordinary route is pending or failed.
+  const frozenEvidence = loaded?.frozenCandidate === true;
+  const holdFrozen = frozen || frozenEvidence;
   const savedWatchlist = api.status.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
@@ -114,6 +123,12 @@ export function MarketView({
       ? "none"
       : chartAdjustment;
   const displayedPeriod = chartPeriod;
+  // While frozen evidence is held, the main chart follows the recorded period
+  // and adjustment even if an ordinary URL left the toolbar on another choice.
+  const snapshotPeriod =
+    frozenEvidence && loaded ? loaded.period : displayedPeriod;
+  const snapshotAdjustment =
+    frozenEvidence && loaded ? loaded.adjustment : effectiveAdjustment;
   const availableChartPeriods = chartPeriodSchema.options.filter(
     (p) =>
       p !== "4h" &&
@@ -125,7 +140,7 @@ export function MarketView({
   usePeriodHotkey(
     chartPeriod,
     setChartPeriod,
-    !visible || load.isPending || marketView === "financial",
+    !visible || load.isPending || holdFrozen || marketView === "financial",
     availableChartPeriods,
   );
   const [browseEdge, setBrowseEdge] = useState("");
@@ -137,7 +152,7 @@ export function MarketView({
   // A frozen candidate is stepped by the screening result controls. Keeping the
   // stale browse list out of both the UI and the hotkey prevents PageUp/PageDown
   // from replacing the frozen chart with a live load.
-  const activeBrowse = frozen ? null : browse;
+  const activeBrowse = holdFrozen ? null : browse;
   useEffect(() => {
     setCandidatePage(Math.floor((activeBrowse?.index ?? 0) / 50) + 1);
   }, [activeBrowse?.index, activeBrowse?.label]);
@@ -319,6 +334,7 @@ export function MarketView({
                       <Button
                         variant="plain"
                         className="flex items-center gap-[9px] text-left"
+                        disabled={holdFrozen}
                         onClick={() => {
                           setSymbol(s);
                           load.mutate({
@@ -375,7 +391,7 @@ export function MarketView({
                   : names[symbol]
               }
               period={period}
-              disabled={load.isPending}
+              disabled={holdFrozen || load.isPending}
               onPeriod={(next) => {
                 if (availableChartPeriods.includes(next)) setChartPeriod(next);
               }}
@@ -412,7 +428,7 @@ export function MarketView({
             )}
             <MarketSourceSelect
               value={marketSource}
-              disabled={load.isPending}
+              disabled={holdFrozen || load.isPending}
               onChange={(source) => {
                 setMarketSource(source);
                 load.mutate({ symbol, period, source });
@@ -421,6 +437,7 @@ export function MarketView({
             <ChartAdjustmentSelect
               value={effectiveAdjustment}
               disabled={
+                holdFrozen ||
                 load.isPending ||
                 isMarketIndex(symbol) ||
                 isSectorChartSymbol(symbol)
@@ -430,7 +447,7 @@ export function MarketView({
             <Button
               size="sm"
               variant="outline"
-              disabled={load.isPending}
+              disabled={holdFrozen || load.isPending}
               onClick={() =>
                 load.mutate(
                   { symbol, period, source: marketSource },
@@ -443,7 +460,7 @@ export function MarketView({
             </Button>
             <Select
               value={displayedPeriod}
-              disabled={load.isPending}
+              disabled={holdFrozen || load.isPending}
               onValueChange={(value) =>
                 setChartPeriod(chartPeriodSchema.parse(value))
               }
@@ -464,14 +481,59 @@ export function MarketView({
               </SelectContent>
             </Select>
           </div>
+          {frozenEvidence && loaded && (
+            <div
+              role="status"
+              aria-label="冻结候选证据"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-nc-border px-4 py-2 text-xs text-nc-text-3"
+            >
+              <span className="text-nc-text-2">冻结候选证据</span>
+              <span>
+                {securityDisplayName(loaded.symbol, names, loaded.name)} ·{" "}
+                {loaded.symbol.toUpperCase()}
+              </span>
+              <span>快照周期 {periodLabels[loaded.period]}</span>
+              <span>最后K线 {loaded.bars.at(-1)?.date ?? "无"}</span>
+              <span>数据源 {marketSourceLabel(loaded.source)}</span>
+              <span>快照复权 {chartAdjustmentLabels[loaded.adjustment]}</span>
+              {frozen && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    router.push(
+                      marketSelectionHref({
+                        symbol,
+                        chartPeriod,
+                        marketSource,
+                        adjustment: chartAdjustment,
+                        marketView: "chart",
+                        period,
+                      }),
+                      { scroll: false },
+                    )
+                  }
+                >
+                  在普通行情中查看
+                </Button>
+              )}
+            </div>
+          )}
           {load.error && !load.isPending ? (
             <div role="alert" className="p-4 text-[13px] text-nc-bad">
               所选数据源读取失败：{load.error.message}
-              {loaded ? "；下方仍为已加载快照，并非本次读取结果。" : ""}
+              {frozenEvidence
+                ? "；下方仍为冻结候选快照，并非本次普通行情读取结果。"
+                : loaded
+                  ? "；下方仍为已加载快照，并非本次读取结果。"
+                  : ""}
               <Button
                 variant="outline"
                 onClick={() =>
-                  load.mutate({ symbol, period, source: marketSource })
+                  load.mutate(
+                    { symbol, period, source: marketSource },
+                    frozenEvidence ? { fresh: true } : undefined,
+                  )
                 }
               >
                 重试
@@ -480,15 +542,22 @@ export function MarketView({
           ) : null}
           {load.isPending && (
             <p role="status" className="px-4 py-2 text-sm text-nc-text-3">
-              正在读取所选行情；下方若有图表，仍为{" "}
-              {loaded?.symbol.toUpperCase() ?? "原快照"}。
+              {frozenEvidence ? (
+                "正在读取普通行情；下方仍为冻结候选快照。"
+              ) : (
+                <>
+                  正在读取所选行情；下方若有图表，仍为{" "}
+                  {loaded?.symbol.toUpperCase() ?? "原快照"}。
+                </>
+              )}
             </p>
           )}
           {loaded ? (
             <MarketSecurityViews
               snapshot={loaded}
-              period={displayedPeriod}
-              adjustment={effectiveAdjustment}
+              period={snapshotPeriod}
+              adjustment={snapshotAdjustment}
+              frozenEvidence={holdFrozen}
               view={marketView}
               onViewChange={setMarketView}
               heading={

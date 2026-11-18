@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import { MarketView } from "../workbench/market-view";
@@ -23,29 +23,38 @@ export function MarketPage({ embedded = false }: { embedded?: boolean }) {
     enabled: visible && !!frozenId,
     retry: false,
   });
-  const [restored, setRestored] = useState<string | null>(null);
-  const acceptSnapshot = state.load.acceptSnapshot;
+  // Reset while the URL is ordinary so returning with Back restores the frozen
+  // identity again (and rejects an in-flight ordinary response via revision).
+  const restored = useRef<string | null>(null);
+  const acceptFrozenSnapshot = state.load.acceptFrozenSnapshot;
+  // The marker, not just the id, owns the chart: an ordinary read may return
+  // the same snapshot id without being this candidate's evidence.
+  const frozenLoaded =
+    state.loaded?.frozenCandidate === true && state.loaded.id === frozenId;
   const matches =
     !search.get("symbol") || frozen.data?.symbol === search.get("symbol");
   useEffect(() => {
+    // Hidden or ordinary route: forget this restore so showing the route again
+    // (or another entry replacing the chart) re-attaches the evidence.
+    if (!visible || !frozenId) {
+      restored.current = null;
+      return;
+    }
     if (
-      !visible ||
-      !frozenId ||
       frozen.data?.id !== frozenId ||
       !matches ||
-      (restored === frozenId && state.loaded?.id === frozenId)
+      (restored.current === frozenId && frozenLoaded)
     )
       return;
-    acceptSnapshot(frozen.data);
-    setRestored(frozenId);
+    acceptFrozenSnapshot(frozen.data);
+    restored.current = frozenId;
   }, [
     visible,
     frozenId,
     frozen.data,
     matches,
-    restored,
-    state.loaded?.id,
-    acceptSnapshot,
+    frozenLoaded,
+    acceptFrozenSnapshot,
   ]);
   if (frozenId && (frozen.error || (!matches && frozen.data)))
     return (
@@ -54,7 +63,7 @@ export function MarketPage({ embedded = false }: { embedded?: boolean }) {
         <Button onClick={() => void frozen.refetch()}>重试冻结候选</Button>
       </p>
     );
-  if (frozenId && (restored !== frozenId || state.loaded?.id !== frozenId))
+  if (frozenId && !frozenLoaded)
     return <p role="status">正在恢复冻结候选图表…</p>;
   return (
     <>

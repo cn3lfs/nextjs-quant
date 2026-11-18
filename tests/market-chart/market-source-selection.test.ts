@@ -37,7 +37,83 @@ const source: Snapshot = {
   hash: "fixture",
   bars: [bar],
 };
+const formulaArchive: Snapshot = {
+  id: "snapshot-formula-sh600000-0123456789abcdef",
+  symbol: "sh600000",
+  period: "day",
+  source: "tdx-full-package",
+  adjustment: "forward",
+  createdAt: 1,
+  hash: "archive-hash",
+  requestedSource: "local",
+  bars: [{ ...bar, date: "2026-09-10", close: 9 }],
+  barStore: {
+    version: "bar-store-1",
+    market: "cn-equity",
+    sourceFingerprint: "archive",
+    sourceVersions: [],
+    adjustment: "forward",
+    adjustmentReference: "2026-09-10",
+    coverage: {
+      from: "2026-09-10",
+      to: "2026-09-10",
+      count: 1,
+      historyExhausted: true,
+    },
+    formingDates: [],
+    overlay: null,
+    excluded: [{ date: "2026-09-09", reason: "停牌" }],
+    availablePeriods: ["day", "week"],
+  },
+};
 beforeEach(() => vi.resetAllMocks());
+it("serves a formula candidate's archived bars instead of today's source", async () => {
+  put("snapshot", formulaArchive.id, formulaArchive);
+  // Any ordinary read would return a newer bar from the local package or online.
+  const newer = [{ ...bar, date: "2026-11-17" }];
+  deps.local.mockResolvedValue({ ...source, bars: newer });
+  deps.remote.mockResolvedValue({
+    bars: newer,
+    source: "tencent",
+    historyExhausted: true,
+  });
+  const result = await chartBars({
+    snapshotId: formulaArchive.id,
+    period: "day",
+    limit: 100,
+    adjustment: "forward",
+  });
+  expect(result.bars).toEqual(formulaArchive.bars);
+  expect(result.source).toBe("tdx-full-package");
+  expect(result.adjustment).toBe("forward");
+  expect(result.excluded).toEqual(formulaArchive.barStore!.excluded);
+  expect(result.formingDates).toEqual([]);
+  // Only the archived period is advertised, not the live package's periods.
+  expect(result.barStore?.availablePeriods).toEqual(["day"]);
+  expect(deps.local).not.toHaveBeenCalled();
+  expect(deps.remote).not.toHaveBeenCalled();
+});
+it("refuses a formula archive on another period or adjustment", async () => {
+  put("snapshot", formulaArchive.id, formulaArchive);
+  await expect(
+    chartBars({
+      snapshotId: formulaArchive.id,
+      period: "week",
+      limit: 100,
+      adjustment: "forward",
+    }),
+  ).rejects.toThrow("冻结候选快照只存档 day 周期");
+  await expect(
+    chartBars({
+      snapshotId: formulaArchive.id,
+      period: "day",
+      limit: 100,
+      adjustment: "none",
+    }),
+  ).rejects.toThrow("冻结候选快照只存档 forward 复权");
+  expect(deps.local).not.toHaveBeenCalled();
+  expect(deps.remote).not.toHaveBeenCalled();
+});
 it("local selection never starts online requests, even for short or old history", async () => {
   put("snapshot", source.id, { ...source, requestedSource: "local" });
   const result = await chartBars({
