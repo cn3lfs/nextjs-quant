@@ -3,7 +3,12 @@ import { useState } from "react";
 
 export function useArchiveDownload() {
   const [error, setError] = useState("");
-  function save(content: () => string, name: string, type: string) {
+  function save(
+    content: () => string,
+    name: string,
+    type: string,
+    errorText = "导出未成功，请重试导出；原始报告未被修改。",
+  ) {
     setError("");
     let url: string | undefined;
     try {
@@ -13,7 +18,7 @@ export function useArchiveDownload() {
       link.download = name;
       link.click();
     } catch {
-      setError("导出未成功，请重试导出；原始报告未被修改。");
+      setError(errorText);
     } finally {
       if (url) {
         const value = url;

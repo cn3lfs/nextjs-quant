@@ -23,8 +23,12 @@ const selection = vi.hoisted(() => ({
           poolCount: number | null;
         };
         overview: Record<string, { value: number | null }>;
+        sourceHash?: string;
+        benchmarkHash?: string;
       }[]
     | undefined,
+  comparisonFetching: false,
+  comparisonError: null as Error | null,
 }));
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof import("react")>();
@@ -64,19 +68,28 @@ vi.mock("~/trpc/react", async () => {
       strategyCenterPortfolio: mutation,
       strategyCenterEvaluation: { useQuery: () => ({ data: undefined }) },
       strategyCenterCompare: {
-        useQuery: () => ({ data: selection.comparison, error: null }),
+        useQuery: () => ({
+          data: selection.comparison,
+          error: selection.comparisonError,
+          isFetching: selection.comparisonFetching,
+        }),
       },
       useUtils: () => ({ strategyCenterExport: { fetch: vi.fn() } }),
     },
   };
 });
-import { StrategyCenter } from "../../src/components/research/strategy-center";
+import {
+  StrategyCenter,
+  comparisonExportDocument,
+} from "../../src/components/research/strategy-center";
 import { readTaskHistoryLocation } from "../../src/lib/research/workflow/task-history-location";
 
 beforeEach(() => {
   selection.id = "ma";
   selection.history = [];
   selection.comparison = undefined;
+  selection.comparisonFetching = false;
+  selection.comparisonError = null;
 });
 const render = () => renderToStaticMarkup(createElement(StrategyCenter));
 
@@ -182,6 +195,86 @@ it("shows compared frozen inputs from the response and links duplicate strategie
       error: "",
     });
   }
+});
+
+it("exports the confirmed comparison in order without extra quote or hash fields", () => {
+  const comparisonBasis = {
+    start: "2024-03-04",
+    end: "2024-06-28",
+    initial: 250000,
+    symbol: "sz000001",
+    poolCount: null,
+  };
+  const later = {
+    id: "job-two",
+    strategyId: "ma",
+    comparisonBasis,
+    overview: {
+      totalReturn: { value: 0.12 },
+      sharpe: { value: null },
+    },
+    sourceHash: "b".repeat(64),
+    benchmarkHash: "c".repeat(64),
+  };
+  const earlier = {
+    id: "job-one",
+    strategyId: "ma",
+    comparisonBasis,
+    overview: {
+      totalReturn: { value: null },
+      sharpe: { value: 1.2 },
+    },
+    sourceHash: "d".repeat(64),
+  };
+  const document = comparisonExportDocument([later, earlier]);
+  expect(document).toEqual({
+    format: "strategy-center-comparison-1",
+    basis: comparisonBasis,
+    items: [
+      { id: "job-two", strategyId: "ma", overview: later.overview },
+      { id: "job-one", strategyId: "ma", overview: earlier.overview },
+    ],
+  });
+  expect(document.items).toHaveLength(2);
+  const text = JSON.stringify(document);
+  for (const hidden of ["sourceHash", "benchmarkHash", "b".repeat(64)])
+    expect(text).not.toContain(hidden);
+  expect(text).toContain('"value":null');
+});
+
+it("disables comparison export while refreshing or after the same-key read fails", () => {
+  const basis = {
+    start: "2024-03-04",
+    end: "2024-06-28",
+    initial: 250000,
+    symbol: null,
+    poolCount: null,
+  };
+  const overview = {
+    totalReturn: { value: 0.12 },
+    annualReturn: { value: 0.08 },
+    maxDrawdown: { value: -0.05 },
+    sharpe: { value: 1.2 },
+  };
+  const button = (html: string) =>
+    html.match(/<button[^>]*>导出比较摘要<\/button>/)?.[0] ?? "";
+  const disabled = (html: string) => /\sdisabled=""/.test(button(html));
+
+  expect(render()).not.toContain("导出比较摘要");
+  selection.comparison = [
+    { id: "job-one", strategyId: "ma", comparisonBasis: basis, overview },
+    { id: "job-two", strategyId: "ma", comparisonBasis: basis, overview },
+  ];
+  expect(button(render())).not.toBe("");
+  expect(disabled(render())).toBe(false);
+
+  selection.comparisonFetching = true;
+  expect(disabled(render())).toBe(true);
+
+  selection.comparisonFetching = false;
+  selection.comparisonError = new Error("同键比较读取失败");
+  expect(disabled(render())).toBe(true);
+  expect(render()).toContain("同键比较读取失败");
 });
 
 it("links every history row to its exact task filter, including escaped task identifiers", () => {

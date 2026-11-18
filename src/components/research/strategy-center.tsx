@@ -40,6 +40,7 @@ import {
 } from "../ui/table";
 import { Checkbox } from "../ui/checkbox";
 import { Textarea } from "../ui/textarea";
+import { useArchiveDownload } from "./use-archive-download";
 import {
   Select,
   SelectTrigger,
@@ -109,6 +110,7 @@ export function StrategyCenter() {
     { enabled: panelVisible && workspace === "methods" },
   );
   const utils = api.useUtils();
+  const comparisonDownload = useArchiveDownload();
   const run = api.strategyCenterRun.useMutation({
     onSuccess: (job) => {
       setMessage(`任务已创建：${job.id}`);
@@ -782,7 +784,33 @@ export function StrategyCenter() {
         {comparison.error && <p role="alert">{comparison.error.message}</p>}
         {comparison.data && (
           <section className="rounded border p-4">
-            <h2 className="font-medium">同口径比较</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-medium">同口径比较</h2>
+              {comparison.data.length > 0 && (
+                <Button
+                  variant="outline"
+                  disabled={comparison.isFetching || !!comparison.error}
+                  onClick={() =>
+                    comparisonDownload.save(
+                      () =>
+                        JSON.stringify(
+                          comparisonExportDocument(comparison.data!),
+                          null,
+                          2,
+                        ),
+                      "策略中心-同口径比较.json",
+                      "application/json",
+                      "比较摘要导出未成功，请重试；已显示的冻结结果未被修改。",
+                    )
+                  }
+                >
+                  导出比较摘要
+                </Button>
+              )}
+            </div>
+            {comparisonDownload.error && (
+              <p role="alert">{comparisonDownload.error}</p>
+            )}
             <p className="text-sm text-nc-text-3">
               已提交比较 {comparedIds.length} 项
               {JSON.stringify(comparedIds) !== JSON.stringify(compareIds)
@@ -900,6 +928,25 @@ export function StrategyCenter() {
 }
 function formatPercent(value: number | null) {
   return value === null ? "—" : `${formatNumber(value * 100, 2)}%`;
+}
+/** Only the confirmed comparison response is exported; drafts and extra fields stay out. */
+export function comparisonExportDocument<
+  T extends {
+    id: string;
+    strategyId: string;
+    comparisonBasis: unknown;
+    overview: unknown;
+  },
+>(data: readonly T[]) {
+  return {
+    format: "strategy-center-comparison-1",
+    basis: data[0]?.comparisonBasis ?? null,
+    items: data.map(({ id, strategyId, overview }) => ({
+      id,
+      strategyId,
+      overview,
+    })),
+  };
 }
 function comparisonScope(basis: {
   symbol: string | null;
