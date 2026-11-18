@@ -1,0 +1,1047 @@
+{
+  "version": "theory-draft-v1",
+  "frozenAt": "2026-11-16T16:14:12.995Z",
+  "phase": "S1",
+  "methodCount": 228,
+  "rule": "Later revisions append after each frozen prefix; never rewrite v0.",
+  "entries": [
+    {
+      "file": "F01.md",
+      "prefixBytes": 11851,
+      "sha256": "c3ca417868a94b4342472d8e822e667c9296339cc5a9af3b3cd7eeb24416f04a",
+      "methods": [
+        {
+          "id": "F01.01",
+          "title": "有效市场假说（EMH）"
+        },
+        {
+          "id": "F01.02",
+          "title": "随机游走与鞅基准（Random Walk / Martingale）"
+        },
+        {
+          "id": "F01.03",
+          "title": "行为金融（Behavioral Finance）"
+        },
+        {
+          "id": "F01.04",
+          "title": "适应性市场假说（Adaptive Markets Hypothesis）"
+        },
+        {
+          "id": "F01.05",
+          "title": "分形市场假说（Fractal Market Hypothesis）"
+        },
+        {
+          "id": "F01.06",
+          "title": "风险溢价（Risk Premium）"
+        },
+        {
+          "id": "F01.07",
+          "title": "反身性（Reflexivity）"
+        },
+        {
+          "id": "F01.08",
+          "title": "拍卖市场理论（Auction Market Theory）"
+        },
+        {
+          "id": "F01.09",
+          "title": "现金基准（Cash Benchmark）"
+        },
+        {
+          "id": "F01.10",
+          "title": "买入持有基准（Buy and Hold）"
+        },
+        {
+          "id": "F01.11",
+          "title": "等权基准（Equal Weight）"
+        }
+      ]
+    },
+    {
+      "file": "F02.md",
+      "prefixBytes": 9517,
+      "sha256": "5bae21fb3723a3dd70829edb6248b4b0a72db79332ffad5ffb4bdce558b1f257",
+      "methods": [
+        {
+          "id": "F02.01",
+          "title": "道氏理论（Dow Theory）"
+        },
+        {
+          "id": "F02.02",
+          "title": "趋势层级（Primary / Secondary / Minor Trends）"
+        },
+        {
+          "id": "F02.03",
+          "title": "指数相互确认（Intermarket / Average Confirmation）"
+        },
+        {
+          "id": "F02.04",
+          "title": "支撑与阻力（Support / Resistance）"
+        },
+        {
+          "id": "F02.05",
+          "title": "趋势线（Trendline）"
+        },
+        {
+          "id": "F02.06",
+          "title": "价格通道（Price Channel）"
+        },
+        {
+          "id": "F02.07",
+          "title": "Livermore 关键点与领涨股（Pivotal Points / Leaders）"
+        },
+        {
+          "id": "F02.08",
+          "title": "Weinstein 四阶段（Stage Analysis）"
+        },
+        {
+          "id": "F02.09",
+          "title": "高低点序列与市场结构（Swing Structure）"
+        }
+      ]
+    },
+    {
+      "file": "F03.md",
+      "prefixBytes": 17352,
+      "sha256": "f6c3b53be47f1017a83a039c88455310d13e14ae3edfa4f2170459affbcc0400",
+      "methods": [
+        {
+          "id": "F03.01",
+          "title": "SMA、EMA 与 WMA 平滑"
+        },
+        {
+          "id": "F03.02",
+          "title": "单均线趋势规则（Single Moving Average）"
+        },
+        {
+          "id": "F03.03",
+          "title": "双均线交叉（Dual Moving Average Crossover）"
+        },
+        {
+          "id": "F03.04",
+          "title": "三均线过滤（Triple Moving Average）"
+        },
+        {
+          "id": "F03.05",
+          "title": "均线排列与回踩（Alignment / Pullback）"
+        },
+        {
+          "id": "F03.06",
+          "title": "MACD（Moving Average Convergence Divergence）"
+        },
+        {
+          "id": "F03.07",
+          "title": "DMI 与 ADX（Directional Movement / Trend Strength）"
+        },
+        {
+          "id": "F03.08",
+          "title": "抛物线转向指标（Parabolic SAR）"
+        },
+        {
+          "id": "F03.09",
+          "title": "Supertrend（超级趋势）"
+        },
+        {
+          "id": "F03.10",
+          "title": "一目均衡表（Ichimoku Kinko Hyo）"
+        },
+        {
+          "id": "F03.11",
+          "title": "Elder 三重滤网（Triple Screen）"
+        },
+        {
+          "id": "F03.12",
+          "title": "Chandelier Exit（吊灯止损）"
+        },
+        {
+          "id": "F03.13",
+          "title": "KAMA（Kaufman Adaptive Moving Average）"
+        },
+        {
+          "id": "F03.14",
+          "title": "Aroon（阿隆指标）"
+        },
+        {
+          "id": "F03.15",
+          "title": "TRIX（三重指数平滑变化率）"
+        },
+        {
+          "id": "F03.16",
+          "title": "Coppock Curve（科波克曲线）"
+        },
+        {
+          "id": "F03.17",
+          "title": "Vortex Indicator（涡旋指标）"
+        }
+      ]
+    },
+    {
+      "file": "F04.md",
+      "prefixBytes": 8869,
+      "sha256": "8591266ca4a8067bc5b070d312b06994ae06ff7bf75d4091463422d702db47e4",
+      "methods": [
+        {
+          "id": "F04.01",
+          "title": "Donchian 通道突破（Price Channel Breakout）"
+        },
+        {
+          "id": "F04.02",
+          "title": "海龟交易法（Turtle Trading）"
+        },
+        {
+          "id": "F04.03",
+          "title": "箱体与新高突破（Range / New High Breakout）"
+        },
+        {
+          "id": "F04.04",
+          "title": "布林带与肯特纳挤压突破（Bollinger / Keltner Squeeze）"
+        },
+        {
+          "id": "F04.05",
+          "title": "开盘区间突破（Opening Range Breakout / ORB）"
+        },
+        {
+          "id": "F04.06",
+          "title": "Dual Thrust（双推力）"
+        },
+        {
+          "id": "F04.07",
+          "title": "NR4 与 NR7（Narrow Range）"
+        },
+        {
+          "id": "F04.08",
+          "title": "双突破（趋势线与水平阻力的联合突破）"
+        }
+      ]
+    },
+    {
+      "file": "F05.md",
+      "prefixBytes": 13671,
+      "sha256": "1b66ad6ce621cc2f2acac52335a15d0949df8af8633286519c35ff361cc0af1d",
+      "methods": [
+        {
+          "id": "F05.01",
+          "title": "蜡烛图（Candlestick Analysis）"
+        },
+        {
+          "id": "F05.02",
+          "title": "Pin Bar（针形 K 线）"
+        },
+        {
+          "id": "F05.03",
+          "title": "Inside Bar（内包线）"
+        },
+        {
+          "id": "F05.04",
+          "title": "头肩顶与头肩底（Head and Shoulders）"
+        },
+        {
+          "id": "F05.05",
+          "title": "双顶与双底（Double Top / Double Bottom）"
+        },
+        {
+          "id": "F05.06",
+          "title": "三角形（Symmetrical / Ascending / Descending Triangle）"
+        },
+        {
+          "id": "F05.07",
+          "title": "旗形与三角旗（Flag / Pennant）"
+        },
+        {
+          "id": "F05.08",
+          "title": "楔形（Rising / Falling Wedge）"
+        },
+        {
+          "id": "F05.09",
+          "title": "杯柄形态（Cup with Handle）"
+        },
+        {
+          "id": "F05.10",
+          "title": "平台与平底整理（Base / Flat Base）"
+        },
+        {
+          "id": "F05.11",
+          "title": "缺口（Price Gaps）"
+        },
+        {
+          "id": "F05.12",
+          "title": "Al Brooks 价格行为"
+        },
+        {
+          "id": "F05.13",
+          "title": "点数图（Point and Figure / P&F）"
+        }
+      ]
+    },
+    {
+      "file": "F06.md",
+      "prefixBytes": 11436,
+      "sha256": "470b805505ec410da425675efa5aac79a5f8a7167cc24ba1dc5bbb82fde4321f",
+      "methods": [
+        {
+          "id": "F06.01",
+          "title": "Elliott 推动浪（Impulse / Motive Waves）"
+        },
+        {
+          "id": "F06.02",
+          "title": "Elliott 调整浪（Corrective Waves）"
+        },
+        {
+          "id": "F06.03",
+          "title": "浪级、交替与替代计数（Degree / Alternation / Alternative Counts）"
+        },
+        {
+          "id": "F06.04",
+          "title": "Fibonacci 回撤（Retracement）"
+        },
+        {
+          "id": "F06.05",
+          "title": "Fibonacci 扩展与投射（Extension / Projection）"
+        },
+        {
+          "id": "F06.06",
+          "title": "Hurst 周期分析"
+        },
+        {
+          "id": "F06.07",
+          "title": "附录：江恩（Gann）"
+        },
+        {
+          "id": "F06.08",
+          "title": "附录：谐波形态（Harmonic Patterns）"
+        },
+        {
+          "id": "F06.09",
+          "title": "附录：SMC（Smart Money Concepts）"
+        },
+        {
+          "id": "F06.10",
+          "title": "附录：ICT（Inner Circle Trader）"
+        }
+      ]
+    },
+    {
+      "file": "F07.md",
+      "prefixBytes": 15443,
+      "sha256": "bb50f21921ef299f774c5e3f0e080c9332be63147da22991e5dbdbcb0ed28c4a",
+      "methods": [
+        {
+          "id": "F07.01",
+          "title": "包含关系与 K 线合并"
+        },
+        {
+          "id": "F07.02",
+          "title": "顶底分型"
+        },
+        {
+          "id": "F07.03",
+          "title": "笔"
+        },
+        {
+          "id": "F07.04",
+          "title": "线段"
+        },
+        {
+          "id": "F07.05",
+          "title": "特征序列"
+        },
+        {
+          "id": "F07.06",
+          "title": "中枢"
+        },
+        {
+          "id": "F07.07",
+          "title": "走势类型与走势连接"
+        },
+        {
+          "id": "F07.08",
+          "title": "趋势背驰"
+        },
+        {
+          "id": "F07.09",
+          "title": "盘整背驰"
+        },
+        {
+          "id": "F07.10",
+          "title": "第一类买卖点"
+        },
+        {
+          "id": "F07.11",
+          "title": "第二类买卖点"
+        },
+        {
+          "id": "F07.12",
+          "title": "第三类买卖点"
+        },
+        {
+          "id": "F07.13",
+          "title": "区间套"
+        },
+        {
+          "id": "F07.14",
+          "title": "同级别分解"
+        },
+        {
+          "id": "F07.15",
+          "title": "小转大"
+        }
+      ]
+    },
+    {
+      "file": "F08.md",
+      "prefixBytes": 20005,
+      "sha256": "c35cd814e5a80c396cef8dc63bb028d0affdcc1fb7ac18defab2fedb861d58c4",
+      "methods": [
+        {
+          "id": "F08.01",
+          "title": "供求法则"
+        },
+        {
+          "id": "F08.02",
+          "title": "因果法则"
+        },
+        {
+          "id": "F08.03",
+          "title": "努力与结果法则"
+        },
+        {
+          "id": "F08.04",
+          "title": "吸筹结构"
+        },
+        {
+          "id": "F08.05",
+          "title": "派发结构"
+        },
+        {
+          "id": "F08.06",
+          "title": "Spring 与测试"
+        },
+        {
+          "id": "F08.07",
+          "title": "UTAD 与上冲失败"
+        },
+        {
+          "id": "F08.08",
+          "title": "SOS 与 SOW"
+        },
+        {
+          "id": "F08.09",
+          "title": "LPS 与 LPSY"
+        },
+        {
+          "id": "F08.10",
+          "title": "VSA"
+        },
+        {
+          "id": "F08.11",
+          "title": "OBV"
+        },
+        {
+          "id": "F08.12",
+          "title": "MFI"
+        },
+        {
+          "id": "F08.13",
+          "title": "CMF"
+        },
+        {
+          "id": "F08.14",
+          "title": "量价背离"
+        },
+        {
+          "id": "F08.15",
+          "title": "Market Profile"
+        },
+        {
+          "id": "F08.16",
+          "title": "Volume Profile"
+        },
+        {
+          "id": "F08.17",
+          "title": "VWAP 价格参照"
+        },
+        {
+          "id": "F08.18",
+          "title": "AVWAP 价格锚点"
+        },
+        {
+          "id": "F08.19",
+          "title": "Force Index"
+        },
+        {
+          "id": "F08.20",
+          "title": "NVI"
+        }
+      ]
+    },
+    {
+      "file": "F09.md",
+      "prefixBytes": 11581,
+      "sha256": "e8bba15171f92acb180de58b629c5eb35aa1b1b055acc6cc09f18c553657e995",
+      "methods": [
+        {
+          "id": "F09.01",
+          "title": "CANSLIM"
+        },
+        {
+          "id": "F09.02",
+          "title": "SEPA"
+        },
+        {
+          "id": "F09.03",
+          "title": "VCP"
+        },
+        {
+          "id": "F09.04",
+          "title": "O'Neil 杯柄与无柄杯"
+        },
+        {
+          "id": "F09.05",
+          "title": "O'Neil 双底"
+        },
+        {
+          "id": "F09.06",
+          "title": "O'Neil 平底与底上底"
+        },
+        {
+          "id": "F09.07",
+          "title": "O'Neil 升底与高紧旗"
+        },
+        {
+          "id": "F09.08",
+          "title": "O'Neil 市场方向"
+        },
+        {
+          "id": "F09.09",
+          "title": "Darvas 箱体"
+        },
+        {
+          "id": "F09.10",
+          "title": "成长与机构领涨股"
+        }
+      ]
+    },
+    {
+      "file": "F10.md",
+      "prefixBytes": 9948,
+      "sha256": "2a2dddf33ab3473e2a439cb5d38cdac35653bc053c9933eae1368b0be0442abb",
+      "methods": [
+        {
+          "id": "F10.01",
+          "title": "时序动量"
+        },
+        {
+          "id": "F10.02",
+          "title": "横截面动量"
+        },
+        {
+          "id": "F10.03",
+          "title": "绝对动量"
+        },
+        {
+          "id": "F10.04",
+          "title": "相对动量"
+        },
+        {
+          "id": "F10.05",
+          "title": "双动量"
+        },
+        {
+          "id": "F10.06",
+          "title": "RPS 与 RS"
+        },
+        {
+          "id": "F10.07",
+          "title": "行业轮动"
+        },
+        {
+          "id": "F10.08",
+          "title": "板块与主题轮动"
+        },
+        {
+          "id": "F10.09",
+          "title": "动量崩溃"
+        }
+      ]
+    },
+    {
+      "file": "F11.md",
+      "prefixBytes": 15871,
+      "sha256": "fe5cef1a6c069cb5a345bf1f11ccf72343f87a724e8bcb146b5490219d5c98ff",
+      "methods": [
+        {
+          "id": "F11.01",
+          "title": "题材龙头"
+        },
+        {
+          "id": "F11.02",
+          "title": "趋势龙头"
+        },
+        {
+          "id": "F11.03",
+          "title": "连板龙头"
+        },
+        {
+          "id": "F11.04",
+          "title": "首板"
+        },
+        {
+          "id": "F11.05",
+          "title": "换手板"
+        },
+        {
+          "id": "F11.06",
+          "title": "连板接力"
+        },
+        {
+          "id": "F11.07",
+          "title": "分歧转一致"
+        },
+        {
+          "id": "F11.08",
+          "title": "弱转强"
+        },
+        {
+          "id": "F11.09",
+          "title": "龙头首阴"
+        },
+        {
+          "id": "F11.10",
+          "title": "反包"
+        },
+        {
+          "id": "F11.11",
+          "title": "龙头二波"
+        },
+        {
+          "id": "F11.12",
+          "title": "补涨"
+        },
+        {
+          "id": "F11.13",
+          "title": "卡位"
+        },
+        {
+          "id": "F11.14",
+          "title": "情绪周期"
+        },
+        {
+          "id": "F11.15",
+          "title": "集合竞价"
+        }
+      ]
+    },
+    {
+      "file": "F12.md",
+      "prefixBytes": 15847,
+      "sha256": "7260679c7fdfa266336963800a82e56744ccb488d800d283e0c9c03b98b478fe",
+      "methods": [
+        {
+          "id": "F12.01",
+          "title": "区间支撑阻力回归"
+        },
+        {
+          "id": "F12.02",
+          "title": "布林带回归"
+        },
+        {
+          "id": "F12.03",
+          "title": "RSI"
+        },
+        {
+          "id": "F12.04",
+          "title": "KDJ"
+        },
+        {
+          "id": "F12.05",
+          "title": "CCI"
+        },
+        {
+          "id": "F12.06",
+          "title": "Williams %R"
+        },
+        {
+          "id": "F12.07",
+          "title": "BIAS"
+        },
+        {
+          "id": "F12.08",
+          "title": "Z-score 回归"
+        },
+        {
+          "id": "F12.09",
+          "title": "短期反转"
+        },
+        {
+          "id": "F12.10",
+          "title": "趋势内回调交易"
+        },
+        {
+          "id": "F12.11",
+          "title": "固定网格"
+        },
+        {
+          "id": "F12.12",
+          "title": "动态网格"
+        },
+        {
+          "id": "F12.13",
+          "title": "Connors RSI"
+        },
+        {
+          "id": "F12.14",
+          "title": "IBS"
+        },
+        {
+          "id": "F12.15",
+          "title": "StochRSI"
+        }
+      ]
+    },
+    {
+      "file": "F13.md",
+      "prefixBytes": 15689,
+      "sha256": "70f6b8ce9c4dece060f734ec255af9d7179ebca6c3b80fa02177544f5e6ab376",
+      "methods": [
+        {
+          "id": "F13.01",
+          "title": "Graham 价值投资与安全边际"
+        },
+        {
+          "id": "F13.02",
+          "title": "Graham 净净值与清算价值"
+        },
+        {
+          "id": "F13.03",
+          "title": "Buffett 质量价值与护城河"
+        },
+        {
+          "id": "F13.04",
+          "title": "Fisher 定性成长投资"
+        },
+        {
+          "id": "F13.05",
+          "title": "Lynch 分类投资与 GARP"
+        },
+        {
+          "id": "F13.06",
+          "title": "红利与股东回报"
+        },
+        {
+          "id": "F13.07",
+          "title": "规模因子"
+        },
+        {
+          "id": "F13.08",
+          "title": "低波动与低 Beta"
+        },
+        {
+          "id": "F13.09",
+          "title": "质量因子"
+        },
+        {
+          "id": "F13.10",
+          "title": "盈利能力因子"
+        },
+        {
+          "id": "F13.11",
+          "title": "投资与资产增长因子"
+        },
+        {
+          "id": "F13.12",
+          "title": "Piotroski F-score"
+        },
+        {
+          "id": "F13.13",
+          "title": "Greenblatt 魔法公式"
+        },
+        {
+          "id": "F13.14",
+          "title": "多因子组合"
+        }
+      ]
+    },
+    {
+      "file": "F14.md",
+      "prefixBytes": 16811,
+      "sha256": "0e7dff2d592071ea442d1ed9ebb9fb907d969a7ef81e6cd51a2358528f3c3310",
+      "methods": [
+        {
+          "id": "F14.01",
+          "title": "财报后漂移 PEAD"
+        },
+        {
+          "id": "F14.02",
+          "title": "业绩预告、快报与盈利惊喜"
+        },
+        {
+          "id": "F14.03",
+          "title": "分析师预期修正"
+        },
+        {
+          "id": "F14.04",
+          "title": "公告驱动与回购事件"
+        },
+        {
+          "id": "F14.05",
+          "title": "分红公告与除息事件"
+        },
+        {
+          "id": "F14.06",
+          "title": "限售解禁与潜在供给"
+        },
+        {
+          "id": "F14.07",
+          "title": "并购、重组与事件套利"
+        },
+        {
+          "id": "F14.08",
+          "title": "政策催化"
+        },
+        {
+          "id": "F14.09",
+          "title": "新闻情绪与信息新颖性"
+        },
+        {
+          "id": "F14.10",
+          "title": "指数纳入、剔除与调仓"
+        },
+        {
+          "id": "F14.11",
+          "title": "季节性、月末与日历效应"
+        },
+        {
+          "id": "F14.12",
+          "title": "经济周期与信用周期"
+        },
+        {
+          "id": "F14.13",
+          "title": "宏观趋势与全球宏观"
+        },
+        {
+          "id": "F14.14",
+          "title": "战略与战术资产配置"
+        },
+        {
+          "id": "F14.15",
+          "title": "全天候配置"
+        }
+      ]
+    },
+    {
+      "file": "F15.md",
+      "prefixBytes": 10440,
+      "sha256": "7f0c1bdc2b981208a2caf7cfc3d3ed471d26f91ebe7b210c8f2270eeed85e294",
+      "methods": [
+        {
+          "id": "F15.01",
+          "title": "配对交易与距离价差"
+        },
+        {
+          "id": "F15.02",
+          "title": "协整价差"
+        },
+        {
+          "id": "F15.03",
+          "title": "因子残差均值回归"
+        },
+        {
+          "id": "F15.04",
+          "title": "市场中性与风险中性化"
+        },
+        {
+          "id": "F15.05",
+          "title": "横截面多空与价差组合"
+        },
+        {
+          "id": "F15.06",
+          "title": "ETF 折溢价与申赎套利"
+        },
+        {
+          "id": "F15.07",
+          "title": "期现套利"
+        },
+        {
+          "id": "F15.08",
+          "title": "跨期价差"
+        },
+        {
+          "id": "F15.09",
+          "title": "可转债相对价值"
+        }
+      ]
+    },
+    {
+      "file": "F16.md",
+      "prefixBytes": 16315,
+      "sha256": "4418ae6aca0c49c7f7172ac32edf8910c468175f5cd8e5343b3f6856ed77cf48",
+      "methods": [
+        {
+          "id": "F16.01",
+          "title": "利差与外汇 carry"
+        },
+        {
+          "id": "F16.02",
+          "title": "展期收益与期限结构 carry"
+        },
+        {
+          "id": "F16.03",
+          "title": "基差 carry"
+        },
+        {
+          "id": "F16.04",
+          "title": "永续合约资金费率 carry"
+        },
+        {
+          "id": "F16.05",
+          "title": "隐含波动率与实现波动率比较"
+        },
+        {
+          "id": "F16.06",
+          "title": "波动率风险溢价"
+        },
+        {
+          "id": "F16.07",
+          "title": "期权组合与非线性收益结构"
+        },
+        {
+          "id": "F16.08",
+          "title": "Delta 对冲"
+        },
+        {
+          "id": "F16.09",
+          "title": "订单流"
+        },
+        {
+          "id": "F16.10",
+          "title": "订单簿失衡与队列"
+        },
+        {
+          "id": "F16.11",
+          "title": "做市与库存控制"
+        },
+        {
+          "id": "F16.12",
+          "title": "VWAP 执行"
+        },
+        {
+          "id": "F16.13",
+          "title": "TWAP 执行"
+        },
+        {
+          "id": "F16.14",
+          "title": "POV 参与率执行"
+        }
+      ]
+    },
+    {
+      "file": "F17.md",
+      "prefixBytes": 17679,
+      "sha256": "0b512aec9086e023308f3497c6fea1a075a1a1e90b9f4639b79a89a55eb98059",
+      "methods": [
+        {
+          "id": "F17.01",
+          "title": "固定金额仓位"
+        },
+        {
+          "id": "F17.02",
+          "title": "固定权益比例仓位"
+        },
+        {
+          "id": "F17.03",
+          "title": "固定单笔风险"
+        },
+        {
+          "id": "F17.04",
+          "title": "波动率目标"
+        },
+        {
+          "id": "F17.05",
+          "title": "Kelly 与分数 Kelly"
+        },
+        {
+          "id": "F17.06",
+          "title": "金字塔、反金字塔与分层加仓"
+        },
+        {
+          "id": "F17.07",
+          "title": "马丁与反马丁"
+        },
+        {
+          "id": "F17.08",
+          "title": "分批投入与定期定额 DCA"
+        },
+        {
+          "id": "F17.09",
+          "title": "价值平均"
+        },
+        {
+          "id": "F17.10",
+          "title": "再平衡与恒定权重"
+        },
+        {
+          "id": "F17.11",
+          "title": "均值方差配置"
+        },
+        {
+          "id": "F17.12",
+          "title": "风险平价"
+        },
+        {
+          "id": "F17.13",
+          "title": "CPPI 组合保险"
+        },
+        {
+          "id": "F17.14",
+          "title": "回撤控制与风险预算停机"
+        },
+        {
+          "id": "F17.15",
+          "title": "交易心理、纪律与决策日志"
+        }
+      ]
+    },
+    {
+      "file": "F18.md",
+      "prefixBytes": 11129,
+      "sha256": "9a9f524f0e435a089fee4468d46bd88c6e253642f9d8e8864818665b9164d231",
+      "methods": [
+        {
+          "id": "F18.01",
+          "title": "线性模型与正则化"
+        },
+        {
+          "id": "F18.02",
+          "title": "树模型"
+        },
+        {
+          "id": "F18.03",
+          "title": "集成学习"
+        },
+        {
+          "id": "F18.04",
+          "title": "状态切换与 HMM"
+        },
+        {
+          "id": "F18.05",
+          "title": "元标签与二级交易过滤"
+        },
+        {
+          "id": "F18.06",
+          "title": "机器学习排序"
+        },
+        {
+          "id": "F18.07",
+          "title": "深度学习"
+        },
+        {
+          "id": "F18.08",
+          "title": "强化学习"
+        },
+        {
+          "id": "F18.09",
+          "title": "混合策略与环境切换"
+        }
+      ]
+    }
+  ]
+}
