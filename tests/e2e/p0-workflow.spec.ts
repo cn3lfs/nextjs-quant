@@ -569,7 +569,11 @@ test("formula save and execution open a clean candidate chart with real breakout
   );
   await candidates.getByRole("button", { name: "个股研究" }).click();
   await expect(page).toHaveURL(
-    /\/scan\?(?:tab=formula&)?symbol=sh600000(?:&|$)/,
+    (url) =>
+      url.pathname === "/scan" &&
+      url.searchParams.get("tab") === "formula" &&
+      url.searchParams.get("symbol") === "sh600000" &&
+      url.searchParams.get("job") === url.searchParams.get("screenJob"),
   );
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
