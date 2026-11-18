@@ -1,3 +1,6 @@
+/** Lists whose in-memory configuration the chart can restore. */
+export type BrowseOrigin = "stock-rps";
+
 /**
  * The list a chart was opened from (screening candidates, rankings …). As in
  * TDX, PageUp/PageDown in the chart step through it in its original order.
@@ -6,6 +9,7 @@ export type BrowseList = {
   label: string;
   symbols: readonly string[];
   index: number;
+  origin?: BrowseOrigin;
 };
 
 /** Neighbour in the list; null at either end (no wrap-around). */

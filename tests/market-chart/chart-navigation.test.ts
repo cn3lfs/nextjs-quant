@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 afterEach(() => useMarketSession.setState(original, true));
 
-function command(symbols?: readonly string[]) {
+function command(symbols?: readonly string[], origin?: "stock-rps") {
   const captured: { value: ReturnType<typeof useOpenChart> } = { value: null };
   function Probe() {
     captured.value = useOpenChart();
@@ -41,6 +41,7 @@ function command(symbols?: readonly string[]) {
         ? createElement(BrowseSource, {
             label: "selected-table",
             symbols,
+            origin,
             children: probe,
           })
         : probe,
@@ -70,9 +71,21 @@ it.each(["sh600000", "emBK0493"])(
       symbols: ["sh600519", symbol],
       index: 1,
     });
+    // Untyped lists stay byte-for-byte the old object shape.
+    expect(useMarketSession.getState().browse).not.toHaveProperty("origin");
     expect(useMarketSession.getState().symbol).toBe("sh600519");
   },
 );
+
+it("passes a typed stock-RPS origin through to the browse list", () => {
+  command(["sh600519", "sh600000"], "stock-rps")("sh600000");
+  expect(useMarketSession.getState().browse).toEqual({
+    label: "selected-table",
+    symbols: ["sh600519", "sh600000"],
+    index: 1,
+    origin: "stock-rps",
+  });
+});
 
 it.each([
   ["cxBTCUSDT", "/scan?tab=crypto&pair=BTCUSDT"],

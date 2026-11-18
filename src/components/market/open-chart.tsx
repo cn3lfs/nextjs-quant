@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { BrowseList } from "~/lib/market/browse-list";
+import type { BrowseList, BrowseOrigin } from "~/lib/market/browse-list";
 import { useRouter } from "next/navigation";
 import {
   chartSymbolHref,
@@ -19,6 +19,7 @@ const OpenChartContext = createContext<OpenChart | null>(null);
 const BrowseSourceContext = createContext<{
   label: string;
   symbols: readonly string[];
+  origin?: BrowseOrigin;
 } | null>(null);
 
 export const OpenChartProvider = OpenChartContext.Provider;
@@ -43,14 +44,16 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
 export function BrowseSource({
   label,
   symbols,
+  origin,
   children,
 }: {
   label: string;
   symbols: readonly string[];
+  origin?: BrowseOrigin;
   children: ReactNode;
 }) {
   return (
-    <BrowseSourceContext.Provider value={{ label, symbols }}>
+    <BrowseSourceContext.Provider value={{ label, symbols, origin }}>
       {children}
     </BrowseSourceContext.Provider>
   );
@@ -69,7 +72,13 @@ export function useOpenChart() {
     open(
       symbol,
       source && index >= 0
-        ? { label: source.label, symbols: source.symbols, index }
+        ? {
+            label: source.label,
+            symbols: source.symbols,
+            index,
+            // Ordinary lists keep their exact shape; only typed sources add it.
+            ...(source.origin ? { origin: source.origin } : {}),
+          }
         : undefined,
     );
   };

@@ -405,26 +405,38 @@ export function MarketView({
               }}
             />
             {activeBrowse && (
-              <span
-                role="status"
-                className="flex items-center gap-1 text-xs text-nc-text-3"
-                title="PageUp/PageDown 切换上一只/下一只"
-              >
-                {activeBrowse.label} {activeBrowse.index + 1}/
-                {activeBrowse.symbols.length} · PgUp/PgDn 换股
-                {browseEdge && ` · ${browseEdge}`}
-                <Button
-                  size="sm"
-                  variant="plain"
-                  aria-label="退出列表翻股"
-                  onClick={() => {
-                    setBrowse(null);
-                    setBrowseEdge("");
-                  }}
+              <>
+                <span
+                  role="status"
+                  className="flex items-center gap-1 text-xs text-nc-text-3"
+                  title="PageUp/PageDown 切换上一只/下一只"
                 >
-                  ×
-                </Button>
-              </span>
+                  {activeBrowse.label} {activeBrowse.index + 1}/
+                  {activeBrowse.symbols.length} · PgUp/PgDn 换股
+                  {browseEdge && ` · ${browseEdge}`}
+                  <Button
+                    size="sm"
+                    variant="plain"
+                    aria-label="退出列表翻股"
+                    onClick={() => {
+                      setBrowse(null);
+                      setBrowseEdge("");
+                    }}
+                  >
+                    ×
+                  </Button>
+                </span>
+                {/* The ranking panel keeps its search/period/page in the
+                    existing panel cache, so returning continues that list. */}
+                {activeBrowse.origin === "stock-rps" &&
+                  activeBrowse.symbols.includes(symbol) && (
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href="/scan?tab=rps" scroll={false}>
+                        返回个股 RPS 排名
+                      </Link>
+                    </Button>
+                  )}
+              </>
             )}
             <MarketSourceSelect
               value={marketSource}

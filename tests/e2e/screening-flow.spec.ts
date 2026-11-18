@@ -101,3 +101,69 @@ test("candidate buttons step the frozen chart within the confirmed page", async 
   }
   await expect(previous).toBeDisabled();
 });
+
+test("frozen evidence survives a failed ordinary snapshot and browser back", async ({
+  page,
+}) => {
+  await screen(page);
+  const symbols = await candidateSymbols(page);
+  const symbol = symbols[0]!;
+  await page
+    .getByRole("button", { name: /个股研究/ })
+    .first()
+    .click();
+  const frozen = page.getByRole("status", {
+    name: "冻结候选证据",
+    exact: true,
+  });
+  await expect(frozen).toBeVisible();
+  await expect(frozen).toContainText(symbol.toUpperCase());
+  const frozenUrl = page.url();
+  const snapshotId = new URL(frozenUrl).searchParams.get("screenSnapshot");
+  expect(snapshotId).toBeTruthy();
+
+  // Fail only the first ordinary snapshot mutation; the retry falls through to
+  // the existing offline guard and the real local fixture.
+  let ordinarySnapshots = 0;
+  await page.route("**/api/trpc/**", async (route) => {
+    const names = decodeURIComponent(
+      new URL(route.request().url()).pathname.split("/api/trpc/")[1] ?? "",
+    ).split(",");
+    if (route.request().method() !== "POST" || !names.includes("snapshot"))
+      return route.fallback();
+    ordinarySnapshots++;
+    if (ordinarySnapshots === 1) return route.abort("failed");
+    return route.fallback();
+  });
+
+  await page
+    .getByRole("button", { name: "在普通行情中查看", exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/screenSnapshot/);
+  const loadFailure = page
+    .getByRole("alert")
+    .filter({ hasText: "所选数据源读取失败" });
+  await expect(loadFailure).toBeVisible();
+  // The failed ordinary read must leave the archived chart and its evidence.
+  await expect(frozen).toBeVisible();
+  await expect(frozen).toContainText(symbol.toUpperCase());
+  await expect(page.locator(".chart-panel").first()).toContainText(
+    symbol.toUpperCase(),
+  );
+  expect(ordinarySnapshots).toBe(1);
+
+  await page.getByRole("button", { name: "重试", exact: true }).click();
+  await expect.poll(() => ordinarySnapshots).toBe(2);
+  await expect(frozen).toHaveCount(0);
+  await expect(loadFailure).toHaveCount(0);
+  await expect(page.locator(".chart-panel").first()).toContainText(
+    symbol.toUpperCase(),
+  );
+
+  await page.goBack();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("screenSnapshot") === snapshotId,
+  );
+  await expect(frozen).toBeVisible();
+  await expect(frozen).toContainText(symbol.toUpperCase());
+});

@@ -12,3 +12,13 @@ it("steps through the list it was opened from without wrapping", () => {
   expect(stepBrowse({ ...list, index: 2 }, 1)).toBeNull();
   expect(stepBrowse({ ...list, index: 0 }, -1)).toBeNull();
 });
+
+it("keeps a typed origin while stepping through the list", () => {
+  const list = {
+    label: "RPS50排名 · 2026-11-12",
+    symbols: ["sh600000", "sh600040"],
+    index: 0,
+    origin: "stock-rps" as const,
+  };
+  expect(stepBrowse(list, 1)).toEqual({ ...list, index: 1 });
+});

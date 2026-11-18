@@ -194,6 +194,7 @@ export function StockRpsRanking() {
         />
       )}
       <BrowseSource
+        origin="stock-rps"
         label={
           rankingReady
             ? `RPS${confirmed?.period}排名${confirmed?.rps?.date ? ` · ${confirmed.rps.date}` : ""}`

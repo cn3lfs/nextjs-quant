@@ -67,7 +67,10 @@ function loadedPool(
 const routes = [
   ...navItems.map((item) => ({
     path: item.href,
-    heading: item.title ?? item.label,
+    // The topbar resolves the shared /scan workspace by pathname, so the RPS
+    // tab shows that workspace title rather than its own sidebar label.
+    heading:
+      item.href === "/scan?tab=rps" ? "扫描与图表" : (item.title ?? item.label),
   })),
   { path: "/system/ui-gallery", heading: null },
   { path: "/lab/reports/report/visual-missing", heading: "研究报告详情" },
@@ -534,6 +537,10 @@ test("RPS table never shows the previous page while a same-period query key load
   );
   await page.goto("/scan?tab=rps");
   const table = page.getByRole("table", { name: "个股RPS排名", exact: true });
+  const rankingPanel = page.getByRole("region", {
+    name: "个股RPS排名",
+    exact: true,
+  });
   await expect(table).toContainText("11.90%");
   await expect(
     page.getByText("RPS基准日：2026-11-12", { exact: false }),
@@ -549,7 +556,11 @@ test("RPS table never shows the previous page while a same-period query key load
       0,
     );
     await expect(page.getByText("RPS基准日", { exact: false })).toHaveCount(0);
-    await expect(page.getByText("共 0 条", { exact: false })).toHaveCount(0);
+    // Hidden industry/concept tabs also mount DataTables; only this ranking's
+    // footer may not appear as an empty page while its new key loads.
+    await expect(
+      rankingPanel.getByText("共 0 条", { exact: false }),
+    ).toHaveCount(0);
     await expect(
       page.getByText("没有符合条件的证券", { exact: false }),
     ).toHaveCount(0);
@@ -903,4 +914,84 @@ test("E form lifecycle: valuation draft and validation are local to the reports 
   await expect(title).toHaveValue("");
   expect(audit.calls.has("valuationSave")).toBe(false);
   expect([...audit.unknown]).toEqual([]);
+});
+
+test("RPS ranked stocks keep the same ranking, period and base date after chart browsing and return", async ({
+  page,
+}) => {
+  const api = await installOfflineVisualApi(page, new Set(), (data, input) => {
+    // The pool profile has no RPS day, so this test substitutes only the
+    // searched ranking. Both symbols have real local .day files, so opening
+    // and PgDn still read the ordinary local chart.
+    if (input.search !== "6000") return data;
+    const fixture = loadedPool(data);
+    fixture.rows = [
+      {
+        symbol: "sh600000",
+        name: "P0_FIXTURE",
+        localDay: true,
+        value: { return: 0.119, rank: 1, rps: 90 },
+        reason: null,
+      },
+      {
+        symbol: "sh600040",
+        name: "P1_POOL_40",
+        localDay: true,
+        value: { return: 0.05, rank: 2, rps: 80 },
+        reason: null,
+      },
+    ];
+    fixture.total = 2;
+    return fixture;
+  });
+  await page.goto("/scan?tab=rps", { waitUntil: "networkidle" });
+  const search = page.getByRole("textbox", {
+    name: "搜索股票代码或名称",
+    exact: true,
+  });
+  await search.fill("6000");
+  const table = page.getByRole("table", { name: "个股RPS排名", exact: true });
+  const returned = page.getByRole("link", {
+    name: "返回个股 RPS 排名",
+    exact: true,
+  });
+  await expect(
+    page.getByText("RPS基准日：2026-11-12", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    table.getByRole("link", { name: "P0_FIXTURE · SH600000" }),
+  ).toBeVisible();
+  await expect(
+    table.getByRole("link", { name: "P1_POOL_40 · SH600040" }),
+  ).toBeVisible();
+  await table.getByRole("link", { name: "P0_FIXTURE · SH600000" }).click();
+  const chart = page.locator(".chart-panel").first();
+  await expect(chart).toContainText("SH600000");
+  // The chart toolbar carries the ranking source date as well as the list.
+  await expect(
+    chart.getByText("RPS50排名 · 2026-11-12", { exact: false }),
+  ).toBeVisible();
+  await expect(returned).toBeVisible();
+  // PageDown keeps the original ranking membership, so the return link stays.
+  await page.locator("body").click({ position: { x: 5, y: 500 } });
+  await page.keyboard.press("PageDown");
+  await expect(chart).toContainText("SH600040");
+  await expect(returned).toBeVisible();
+  await returned.click();
+  await expect(page).toHaveURL((url) => url.searchParams.get("tab") === "rps");
+  // The existing panel cache restores the same search, period, page and day.
+  await expect(search).toHaveValue("6000");
+  await expect(
+    page.getByRole("combobox", { name: "个股RPS周期", exact: true }),
+  ).toContainText("RPS50");
+  await expect(
+    page.getByText("RPS基准日：2026-11-12", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    table.getByRole("link", { name: "P0_FIXTURE · SH600000" }),
+  ).toBeVisible();
+  await expect(
+    table.getByRole("link", { name: "P1_POOL_40 · SH600040" }),
+  ).toBeVisible();
+  expect([...api.unknown]).toEqual([]);
 });

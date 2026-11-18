@@ -2,6 +2,7 @@ import { createElement, type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 import type { Bar, Snapshot } from "../../src/lib/domain";
+import type { BrowseList } from "../../src/lib/market/browse-list";
 import type { MarketSnapshot } from "../../src/lib/stores/market-session";
 
 const hotkey = vi.hoisted(() => ({
@@ -154,13 +155,16 @@ function render(
     /** Simulate a toolbar left on an ordinary URL's choice. */
     chartPeriod?: ComponentProps<typeof MarketView>["state"]["chartPeriod"];
     adjustment?: ComponentProps<typeof MarketView>["state"]["adjustment"];
+    /** The selection the toolbar shows, independent of `loaded`. */
+    symbol?: string;
+    browse?: BrowseList | null;
   } = {},
 ) {
   const loaded = options.loaded === undefined ? frozen : options.loaded;
   const market = {
     marketSource: "local",
     marketView: "chart",
-    symbol: loaded?.symbol ?? "sh600519",
+    symbol: options.symbol ?? loaded?.symbol ?? "sh600519",
     period: loaded?.period ?? "day",
     loaded,
     load: {
@@ -171,7 +175,7 @@ function render(
       acceptSnapshot: vi.fn(),
       acceptFrozenSnapshot: vi.fn(),
     },
-    browse,
+    browse: options.browse === undefined ? browse : options.browse,
     chartPeriod: options.chartPeriod ?? loaded?.period ?? "day",
     adjustment: options.adjustment ?? loaded?.adjustment ?? "none",
     setMarketView: vi.fn(),
@@ -243,6 +247,46 @@ it("keeps frozen evidence and one explicit retry when the ordinary read fails", 
   expect(button(html, "重试")).toBeDefined();
   expect(html).not.toContain("在普通行情中查看");
   expect(html).toContain('data-control="security" data-disabled="true"');
+});
+
+const rpsBrowse = (symbols: readonly string[], index = 0): BrowseList => ({
+  label: "RPS50排名 · 2026-11-12",
+  symbols,
+  index,
+  origin: "stock-rps",
+});
+
+it("offers the stock-RPS return link for the selected member, not by loaded symbol or index", () => {
+  // `loaded` is the unrelated ordinary snapshot and the stored index points at
+  // the other row: only `state.symbol` membership may decide the link.
+  const html = render({
+    loaded: ordinary,
+    browse: rpsBrowse(["sh600001", "sh600002"], 0),
+    symbol: "sh600002",
+  });
+  expect(html).toContain("返回个股 RPS 排名");
+  expect(html).toContain('href="/scan?tab=rps"');
+});
+
+it("hides the stock-RPS return link for a selection outside the list, ordinary lists and frozen evidence", () => {
+  const outside = render({
+    loaded: ordinary,
+    browse: rpsBrowse(["sh600001", "sh600002"]),
+    symbol: "sz000001",
+  });
+  expect(outside).not.toContain("返回个股 RPS 排名");
+  const ordinaryList = render({
+    loaded: ordinary,
+    browse: { label: "选股候选", symbols: ["sh600519"], index: 0 },
+    symbol: "sh600519",
+  });
+  expect(ordinaryList).not.toContain("返回个股 RPS 排名");
+  const held = render({
+    frozen: true,
+    browse: rpsBrowse(["sh600001", "sh600002"]),
+    symbol: "sh600001",
+  });
+  expect(held).not.toContain("返回个股 RPS 排名");
 });
 
 it("keeps the ordinary branch when no frozen evidence is loaded", () => {
