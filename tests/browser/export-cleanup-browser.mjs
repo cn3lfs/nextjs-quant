@@ -13,8 +13,30 @@ const reports={
  'report-b':{id:'report-b',versionNumber:7,importedAt:1,sourcePath:'fixture-b',size:1,observedAt:1,
   report:{title:'合成报告 B',reportDate:'2026-11-02',hash:'b'.repeat(64),warnings:[],markdown:'fixture B'}},
 };
-const data={clsReviewExport:reports['report-a'],tradeWorkspaceEnvironment:{today:'2026-11-13',mockEnabled:false},
+const candidate={symbol:'sh600000',sectionId:'s',direction:'bullish',priority:0,
+ basis:'explicit-recommendation',rps:null,evidence:'合成样本'};
+const sample=(date,reportId,extra={})=>({version:'cls-sample-1',date,fixedAt:1,reportId,
+ reportHash:'a'.repeat(64),previousTradingDay:'2019-12-31',calendarSource:'fixture',
+ poolHash:'fixture',candidates:[],selected:null,reason:null,...extra});
+const samples={
+ '2020-01-01':sample('2020-01-01','report-a',{candidates:[candidate],selected:candidate,reportAvailable:true}),
+ '2020-01-02':sample('2020-01-02','report-b',{reason:'合成无样本，非真实交易数据',reportAvailable:true}),
+ '2020-01-03':sample('2020-01-03','report-a',
+   {reason:'原始报告及复盘证据已由用户清理，保留日期占位',reportAvailable:false}),
+};
+const data={tradeWorkspaceEnvironment:{today:'2026-11-13',mockEnabled:false},
  tradeWorkspacePage:{version:'fixture',summary:{count:0,buys:0,sells:0,fees:0},items:[],nextCursor:null}};
+function queryValue(name,input){
+ if(name==='clsReviewExport')return reports[input]??null;
+ if(name==='clsReviewSample')return samples[input]??null;
+ if(name==='clsReviewReportSamples')return [];
+ if(name==='clsReviewSampleEligibility')return {allowed:false,reason:'合成选样不可用'};
+ if(name==='clsReviewVerificationPage')return {items:[],hasMore:false,nextCursor:null};
+ if(name==='clsReviewVerificationDetail')return null;
+ if(name==='clsReviewSummary')return [];
+ if(name==='clsReviewReportPage')return {items:[],hasMore:false,nextCursor:null};
+ return data[name];
+}
 const utils=new Proxy({}, {get:(_,name)=>({
  fetch:async(id)=>{window.fetchCalls++;window.fetchIds.push(id);
   if(window.holdFetch)await new Promise((resolve)=>{window.releaseFetch=resolve});
@@ -27,7 +49,8 @@ const utils=new Proxy({}, {get:(_,name)=>({
  invalidate:async()=>{},setData:()=>{},
 })});
 export const api=new Proxy({}, {get:(_,name)=>name==='useUtils'?()=>utils:{
- useQuery:()=>({data:data[name],isLoading:false,isFetching:false,refetch:async()=>{}}),
+ useQuery:(input)=>({data:queryValue(name,input),isLoading:false,isFetching:false,error:null,
+  refetch:async()=>{}}),
  useMutation:()=>({isPending:false,mutate:()=>{throw Error('Unexpected mutation')}}),
 }});`;
 const bundle = await build({
@@ -89,8 +112,7 @@ createRoot(document.getElementById('root')).render(location.pathname==='/intel/r
         }));
         b.onResolve(
           {
-            filter:
-              /^\.\/cls-review-(report-list|import|schedule|text|facts|prices)$/,
+            filter: /^\.\/cls-review-(report-list|import|schedule|text|facts)$/,
           },
           (args) => ({ path: args.path, namespace: "fixture" }),
         );
@@ -381,6 +403,169 @@ try {
   assert.equal((await counters()).downloads, before.downloads + 1);
   assert.deepEqual(errors, []);
   await page.close();
+
+  // Real ClsReviewPrices with simulated reads: the cross-report day jump.
+  const jumpPage = await browser.newPage(),
+    jumpErrors = [];
+  jumpPage.on("pageerror", (error) => {
+    jumpErrors.push(error.message);
+    console.error(error.message);
+  });
+  await jumpPage.route("**/*", (route) =>
+    route.request().url().startsWith(base) ? route.continue() : route.abort(),
+  );
+  const dayInput = jumpPage.locator('input[type="date"]');
+  const search = () => jumpPage.evaluate(() => location.search);
+  await jumpPage.goto(
+    base + "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-01",
+  );
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 B" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  await expect(
+    jumpPage.getByText("归属：另一报告", { exact: true }),
+  ).toBeVisible();
+  const jump = jumpPage.getByRole("button", {
+    name: "查看样本所属报告",
+    exact: true,
+  });
+  await expect(jump).toBeEnabled();
+  await jump.click();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 A" }),
+  ).toBeVisible();
+  await expect(
+    jumpPage.getByText("归属：当前报告", { exact: true }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  await expect(jump).toHaveCount(0);
+  assert.match(await search(), /clsReport=report-a/);
+  assert.match(await search(), /clsTab=prices/);
+  assert.match(await search(), /clsSample=2020-01-01/);
+  // Back restores B on the original day; Forward returns to A on the same day.
+  await jumpPage.goBack();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 B" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  assert.match(await search(), /clsReport=report-b/);
+  assert.match(await search(), /clsSample=2020-01-01/);
+  await jumpPage.goForward();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 A" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  // A deep-link refresh restores the day.
+  await jumpPage.reload();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 A" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+
+  // A cleared owner shows the placeholder and hides both actions.
+  await jumpPage.goto(
+    base + "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-03",
+  );
+  await expect(
+    jumpPage.getByText("所属报告已清理，样本日期占位保留。", { exact: true }),
+  ).toBeVisible();
+  await expect(jump).toHaveCount(0);
+  await expect(
+    jumpPage.getByRole("button", { name: "读取行情并核对", exact: true }),
+  ).toHaveCount(0);
+
+  // A day anchor without an exact report, or outside the prices tab, is dropped
+  // from both the address and the date field.
+  await jumpPage.goto(
+    base + "/intel/review?clsTab=prices&clsSample=2020-01-02",
+  );
+  await expect(
+    jumpPage.getByText("请选择报告，查看对应原文、事实核对和样本。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await jumpPage.waitForFunction(() => !location.search.includes("clsSample="));
+  assert.doesNotMatch(await search(), /clsSample=/);
+
+  await jumpPage.goto(
+    base + "/intel/review?clsReport=report-b&clsTab=info&clsSample=2020-01-02",
+  );
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 B" }),
+  ).toBeVisible();
+  await jumpPage.waitForFunction(() => !location.search.includes("clsSample="));
+  assert.doesNotMatch(await search(), /clsSample=/);
+  await jumpPage
+    .getByRole("button", { name: "固定样本与价格观察", exact: true })
+    .click();
+  await expect(dayInput).toHaveValue("");
+  assert.doesNotMatch(await search(), /clsSample=/);
+
+  // Manual per-day queries never write clsSample; only the explicit jump does.
+  await jumpPage.goto(
+    base + "/intel/review?clsReport=report-b&clsTab=prices",
+  );
+  await expect(dayInput).toHaveValue("");
+  await dayInput.fill("2020-01-02");
+  await jumpPage
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    jumpPage.getByText("归属：当前报告", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    jumpPage.getByText("无选中证券 · 待核对 · 合成无样本，非真实交易数据"),
+  ).toBeVisible();
+  assert.doesNotMatch(await search(), /clsSample=/);
+  await dayInput.fill("2020-01-01");
+  await jumpPage
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    jumpPage.getByText("归属：另一报告", { exact: true }),
+  ).toBeVisible();
+  assert.doesNotMatch(await search(), /clsSample=/);
+  await jumpPage
+    .getByRole("button", { name: "查看样本所属报告", exact: true })
+    .click();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 A" }),
+  ).toBeVisible();
+  await jumpPage.goBack();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 B" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  // An ordinary tab switch clears the explicit anchor from the address.
+  await jumpPage.goForward();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 A" }),
+  ).toBeVisible();
+  assert.match(await search(), /clsSample=2020-01-01/);
+  await jumpPage.getByRole("button", { name: "报告原文", exact: true }).click();
+  await jumpPage.waitForFunction(() => !location.search.includes("clsSample="));
+  // Returning to the report list clears the explicit day and the selection.
+  await jumpPage.goBack();
+  await expect(
+    jumpPage.getByRole("heading", { name: "合成报告 B" }),
+  ).toBeVisible();
+  await expect(dayInput).toHaveValue("2020-01-01");
+  await jumpPage
+    .getByRole("button", { name: "返回报告列表", exact: true })
+    .click();
+  await jumpPage.waitForFunction(
+    () =>
+      !location.search.includes("clsSample=") &&
+      !location.search.includes("clsReport="),
+  );
+  await expect(
+    jumpPage.getByText("请选择报告，查看对应原文、事实核对和样本。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  assert.deepEqual(jumpErrors, []);
+  await jumpPage.close();
 
   console.log(
     JSON.stringify({

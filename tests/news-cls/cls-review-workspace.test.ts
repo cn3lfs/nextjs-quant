@@ -6,6 +6,7 @@ import {
   clsVerificationPage,
   clsVerificationDetail,
   clsFactDetail,
+  clsSampleView,
 } from "../../src/server/db/cls-review-query";
 import { seedClsReview } from "../helpers/cls-review-fixture";
 import { ClsReviewStore } from "../../src/server/db/cls-review-store";
@@ -107,6 +108,80 @@ it("pages verification metadata and loads only the requested full identity", () 
       hash: page.items[0]!.hash,
     }),
   ).toBeNull();
+});
+
+it("projects the exact-day sample with its true owner and no report payload", () => {
+  const db = fixture(2);
+  const first = clsSampleView(db, "2020-01-01")!;
+  expect(first.date).toBe("2020-01-01");
+  expect(first.reportId).toBe("cls-review-report:fixture-00000");
+  expect(first.reportAvailable).toBe(true);
+  expect(first).not.toHaveProperty("report");
+  const second = clsSampleView(db, "2020-01-02")!;
+  expect(second.reportId).toBe("cls-review-report:fixture-00001");
+  expect(second.reportId).not.toBe(first.reportId);
+  expect(second.reportAvailable).toBe(true);
+  expect(clsSampleView(db, "2019-12-31")).toBeNull();
+});
+
+it("keeps an existing owner without a selected security and its stored reason", () => {
+  const db = fixture(1);
+  const sample = clsSampleView(db, "2020-01-01")!;
+  expect(sample.reportAvailable).toBe(true);
+  expect(sample.selected).toBeNull();
+  expect(sample.reason).toBe("合成无样本，非真实交易数据");
+});
+
+it("marks a cleared owner unavailable and leaves every record untouched", () => {
+  const db = fixture(1);
+  const sampleId = "cls-review-sample:2020-01-01";
+  new ClsReviewStore(db).removeReport("cls-review-report:fixture-00000");
+  const dump = () =>
+    JSON.stringify(
+      db
+        .prepare("SELECT id,kind,payload,updated_at FROM records ORDER BY id")
+        .all(),
+    );
+  const before = dump();
+  const cleared = clsSampleView(db, "2020-01-01")!;
+  expect(cleared.reportAvailable).toBe(false);
+  expect(cleared.reportId).toBe("cls-review-report:fixture-00000");
+  expect(cleared.selected).toBeNull();
+  expect(cleared.reason).toBe("原始报告及复盘证据已由用户清理，保留日期占位");
+  expect(
+    db.prepare("SELECT 1 FROM records WHERE id=?").get(sampleId),
+  ).toBeDefined();
+  expect(dump()).toBe(before);
+});
+
+it("requires both the sample id and its owner to carry the expected kind", () => {
+  const db = fixture(1);
+  const insert = db.prepare("INSERT INTO records VALUES (?,?,?,?)");
+  insert.run("cls-review-sample:2021-01-01", "cls-review-fact", "{}", 0);
+  expect(clsSampleView(db, "2021-01-01")).toBeNull();
+  const owner = "cls-review-report:wrong-kind-owner";
+  insert.run(owner, "cls-review-fact", "{}", 0);
+  insert.run(
+    "cls-review-sample:2021-02-01",
+    "cls-review-sample",
+    JSON.stringify({
+      version: "cls-sample-1",
+      date: "2021-02-01",
+      fixedAt: 1,
+      reportId: owner,
+      reportHash: "0".repeat(64),
+      previousTradingDay: "2021-01-29",
+      calendarSource: "synthetic",
+      poolHash: "synthetic",
+      candidates: [],
+      selected: null,
+      reason: null,
+    }),
+    1,
+  );
+  const sample = clsSampleView(db, "2021-02-01")!;
+  expect(sample.reportId).toBe(owner);
+  expect(sample.reportAvailable).toBe(false);
 });
 
 it("does not clear another report or edits made after submission", () => {

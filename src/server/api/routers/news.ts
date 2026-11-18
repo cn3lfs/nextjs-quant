@@ -15,6 +15,7 @@ import {
   clsFactDetail,
   clsVerificationPage,
   clsVerificationDetail,
+  clsSampleView,
   clsReportSamples,
 } from "../../db/cls-review-query";
 import {
@@ -230,7 +231,7 @@ export const newsRouter = createTRPCRouter({
     .mutation(({ input }) => fixClsSample(input)),
   clsReviewSample: p("news", "read")
     .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-    .query(({ input }) => new ClsReviewStore(chartSqlite()).sample(input)),
+    .query(({ input }) => clsSampleView(chartSqlite(), input)),
   newsBudget: p("news", "read").query(() => newsBudget()),
   newsAnalyses: p("news", "read").query(() => {
     const seen = new Set<string>();

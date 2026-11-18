@@ -9,6 +9,7 @@ import {
 } from "~/lib/news/cls-review-workspace";
 import type { ClsFactReview } from "~/lib/news/cls-fact-review";
 import type { ClsVerification } from "../news/cls-verification";
+import type { ClsSample } from "../news/cls-sample";
 
 const cursorSchema = z.object({
   key: z.string(),
@@ -224,6 +225,37 @@ export function clsVerificationDetail(db: Database.Database, raw: unknown) {
     .get(`cls-review-verification:${input.date}:${input.hash}`) as
     { payload: string } | undefined;
   return row ? (JSON.parse(row.payload) as ClsVerification) : null;
+}
+
+export type ClsSampleView = ClsSample & { reportAvailable: boolean };
+
+/**
+ * Exact-day sample projection. One statement reads the sample payload and asks
+ * only whether its owner report record still exists; the report payload is
+ * never read or deserialized, and the stored sample is returned unchanged.
+ */
+export function clsSampleView(
+  db: Database.Database,
+  date: string,
+): ClsSampleView | null {
+  const row = db
+    .prepare(
+      `SELECT sample.payload payload,
+        EXISTS(
+          SELECT 1 FROM records owner
+          WHERE owner.id=json_extract(sample.payload,'$.reportId')
+            AND owner.kind='cls-review-report'
+        ) reportAvailable
+      FROM records sample
+      WHERE sample.id=? AND sample.kind='cls-review-sample'`,
+    )
+    .get(`cls-review-sample:${date}`) as
+    { payload: string; reportAvailable: number } | undefined;
+  if (!row) return null;
+  return {
+    ...(JSON.parse(row.payload) as ClsSample),
+    reportAvailable: row.reportAvailable === 1,
+  };
 }
 
 export function clsReportSamples(db: Database.Database, reportId: string) {

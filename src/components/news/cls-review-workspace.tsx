@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import {
+  clsReviewDate,
   clsReviewReportQuery,
   emptyClsFactDraft,
   clsDraftDirty,
@@ -46,6 +47,9 @@ export function ClsReviewWorkspace() {
   const [draftFilter, setDraftFilter] = useState(filter);
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
   const [tab, setTab] = useState<"text" | "facts" | "prices" | "info">("text");
+  // Explicit cross-report day anchor. Ordinary report/tab navigation clears it,
+  // so manual per-day queries never write clsSample into the address.
+  const [sampleAnchor, setSampleAnchor] = useState("");
   const [drafts, setDrafts] = useState<Record<string, ClsFactDraft>>({});
   const [utility, setUtility] = useState<"import" | "schedule" | null>(null);
   const [removing, setRemoving] = useState<{
@@ -86,6 +90,14 @@ export function ClsReviewWorkspace() {
             ? currentTab
             : "text",
         );
+        // The day anchor is meaningful only for an exact report on the prices
+        // tab; any other deep link drops it.
+        const anchor = url.searchParams.get("clsSample") ?? "";
+        setSampleAnchor(
+          id && currentTab === "prices" && clsReviewDate.safeParse(anchor).success
+            ? anchor
+            : "",
+        );
         const stored = sessionStorage.getItem(
           `cls-pages:${JSON.stringify(value)}`,
         );
@@ -104,6 +116,7 @@ export function ClsReviewWorkspace() {
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "查询条件无效");
         setSelected("");
+        setSampleAnchor("");
         setPages([undefined]);
       }
       setReady(true);
@@ -119,6 +132,8 @@ export function ClsReviewWorkspace() {
     if (selected) url.searchParams.set("clsReport", selected);
     else url.searchParams.delete("clsReport");
     url.searchParams.set("clsTab", tab);
+    if (sampleAnchor) url.searchParams.set("clsSample", sampleAnchor);
+    else url.searchParams.delete("clsSample");
     history.replaceState(history.state, "", url);
     try {
       sessionStorage.setItem(
@@ -128,7 +143,7 @@ export function ClsReviewWorkspace() {
     } catch {
       /* Memory state remains usable when storage is unavailable. */
     }
-  }, [ready, filter, selected, tab, pages]);
+  }, [ready, filter, selected, tab, pages, sampleAnchor]);
   useEffect(() => {
     if (!Object.values(drafts).some(clsDraftDirty)) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -148,7 +163,12 @@ export function ClsReviewWorkspace() {
   });
   const remove = api.clsReviewRemove.useMutation({
     onSuccess: (_, id) => {
-      if (selectedRef.current === id) setSelected("");
+      // A completion may clear the day anchor only while the user still sees
+      // the report that was removed; another report's deep link stays intact.
+      if (selectedRef.current === id) {
+        setSelected("");
+        setSampleAnchor("");
+      }
       setDrafts((value) => {
         const next = { ...value };
         delete next[id];
@@ -162,6 +182,8 @@ export function ClsReviewWorkspace() {
       void utils.clsReviewSummary.invalidate(undefined, {
         refetchType: "active",
       });
+      // Refresh any open day sample so a cleared owner stops offering the jump.
+      void utils.clsReviewSample.invalidate();
       utils.clsReviewExport.setData(id, null);
     },
   });
@@ -175,6 +197,36 @@ export function ClsReviewWorkspace() {
         [id]: { ...previous, ...patch, revision: previous.revision + 1 },
       };
     });
+  }
+  /**
+   * Explicit cross-report jump. The current entry keeps B but records the day,
+   * then a new entry opens the exact owner version on the same day. Back/Forward
+   * therefore restore both the report and the day; other URL params and
+   * history.state stay untouched.
+   */
+  function openOwnerReport(ownerId: string, date: string) {
+    if (
+      !ownerId ||
+      ownerId.length > 200 ||
+      !selectedRef.current ||
+      ownerId === selectedRef.current ||
+      tab !== "prices" ||
+      !clsReviewDate.safeParse(date).success
+    )
+      return;
+    const start = new URL(location.href);
+    start.searchParams.set("clsReport", selectedRef.current);
+    start.searchParams.set("clsTab", "prices");
+    start.searchParams.set("clsSample", date);
+    history.replaceState(history.state, "", start);
+    const target = new URL(location.href);
+    target.searchParams.set("clsReport", ownerId);
+    target.searchParams.set("clsTab", "prices");
+    target.searchParams.set("clsSample", date);
+    history.pushState(history.state, "", target);
+    setSelected(ownerId);
+    setTab("prices");
+    setSampleAnchor(date);
   }
   async function download() {
     if (downloadLock.current) return;
@@ -321,7 +373,12 @@ export function ClsReviewWorkspace() {
             visible={visible}
             currentReportId={selected}
             imported={(id, origin) => {
-              if (selectedRef.current === origin) setSelected(id);
+              // Only a user still on the imported-from report gets the new
+              // selection and loses the day anchor.
+              if (selectedRef.current === origin) {
+                setSelected(id);
+                setSampleAnchor("");
+              }
               setPages([undefined]);
               setUtility(null);
               void utils.clsReviewReportPage.invalidate(undefined, {
@@ -346,6 +403,7 @@ export function ClsReviewWorkspace() {
         select={(id, button) => {
           returnTarget.current = button;
           setSelected(id);
+          setSampleAnchor("");
           setFeedback("");
         }}
       />
@@ -363,6 +421,7 @@ export function ClsReviewWorkspace() {
               variant="outline"
               onClick={() => {
                 setSelected("");
+                setSampleAnchor("");
                 requestAnimationFrame(() => {
                   const target = returnTarget.current?.isConnected
                     ? returnTarget.current
@@ -410,7 +469,12 @@ export function ClsReviewWorkspace() {
                       size="sm"
                       variant={tab === key ? "default" : "outline"}
                       aria-pressed={tab === key}
-                      onClick={() => setTab(key)}
+                      onClick={() => {
+                        if (tab !== key) {
+                          setTab(key);
+                          setSampleAnchor("");
+                        }
+                      }}
                     >
                       {label}
                     </Button>
@@ -442,9 +506,11 @@ export function ClsReviewWorkspace() {
                 </div>
                 <div hidden={tab !== "prices"}>
                   <ClsReviewPrices
-                    key={selected}
+                    key={`${selected}:${sampleAnchor}`}
                     reportId={selected}
                     visible={visible && tab === "prices"}
+                    initialDate={sampleAnchor}
+                    openOwnerReport={openOwnerReport}
                   />
                 </div>
                 {tab === "info" && (

@@ -25,9 +25,13 @@ import {
 export function ClsReviewPrices({
   reportId,
   visible,
+  initialDate,
+  openOwnerReport,
 }: {
   reportId: string;
   visible: boolean;
+  initialDate: string;
+  openOwnerReport: (ownerId: string, date: string) => void;
 }) {
   const utils = api.useUtils();
   const eligibility = api.clsReviewSampleEligibility.useQuery(reportId, {
@@ -37,8 +41,8 @@ export function ClsReviewPrices({
   const related = api.clsReviewReportSamples.useQuery(reportId, {
     enabled: visible,
   });
-  const [date, setDate] = useState(""),
-    [dateDraft, setDateDraft] = useState("");
+  const [date, setDate] = useState(initialDate),
+    [dateDraft, setDateDraft] = useState(initialDate);
   const dateRef = useRef(date);
   dateRef.current = date;
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
@@ -78,6 +82,16 @@ export function ClsReviewPrices({
     () => (detail.data ? formatEvidenceText(detail.data) : ""),
     [detail.data],
   );
+  // Only the sample for the exact queried day may drive ownership and the
+  // cross-report jump; never a previous day's value or a stale cached owner.
+  const currentSample =
+    sample.data && sample.data.date === date ? sample.data : null;
+  const otherOwner =
+    !!currentSample &&
+    currentSample.reportAvailable &&
+    currentSample.reportId !== reportId;
+  const ownerCleared = !!currentSample && !currentSample.reportAvailable;
+  const canJump = otherOwner && !sample.isFetching && !sample.error;
   const verify = api.clsReviewVerify.useMutation({
     gcTime: 0,
     onSuccess: (_, submittedDate) => {
@@ -174,29 +188,50 @@ export function ClsReviewPrices({
       <ClsError error={sample.error} retry={() => void sample.refetch()} />
       {valid && sample.isLoading && <p>正在读取样本…</p>}
       {valid && sample.data === null && <p>该日尚无固定样本，不能事后补选。</p>}
-      {sample.data && (
+      {currentSample && (
         <div className="space-y-2 rounded border border-nc-border-soft p-3 text-sm">
           <p>
-            样本日期 {sample.data.date} · 固定于 {clsTime(sample.data.fixedAt)}
+            样本日期 {currentSample.date} · 固定于{" "}
+            {clsTime(currentSample.fixedAt)}
           </p>
           <p>
             归属：
-            {sample.data.reportId === reportId
-              ? "当前报告"
-              : `另一报告（${sample.data.reportId}）`}
+            {currentSample.reportId === reportId ? "当前报告" : "另一报告"}
           </p>
-          <p>
-            {sample.data.selected?.symbol ?? "无选中证券"} ·{" "}
-            {clsDirections[sample.data.selected?.direction ?? "unknown"]} ·{" "}
-            {sample.data.reason ?? sample.data.selected?.evidence}
-          </p>
-          <Button
-            size="sm"
-            disabled={verify.isPending || sample.isFetching || !!sample.error}
-            onClick={() => verify.mutate(date)}
-          >
-            {verify.isPending ? "正在读取行情…" : "读取行情并核对"}
-          </Button>
+          {ownerCleared ? (
+            <p className="text-nc-warn">所属报告已清理，样本日期占位保留。</p>
+          ) : (
+            <p>
+              {currentSample.selected?.symbol ?? "无选中证券"} ·{" "}
+              {clsDirections[currentSample.selected?.direction ?? "unknown"]} ·{" "}
+              {currentSample.reason ?? currentSample.selected?.evidence}
+            </p>
+          )}
+          {!ownerCleared && (
+            <div className="flex flex-wrap gap-2">
+              {otherOwner && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!canJump}
+                  onClick={() =>
+                    openOwnerReport(currentSample.reportId, currentSample.date)
+                  }
+                >
+                  查看样本所属报告
+                </Button>
+              )}
+              <Button
+                size="sm"
+                disabled={
+                  verify.isPending || sample.isFetching || !!sample.error
+                }
+                onClick={() => verify.mutate(date)}
+              >
+                {verify.isPending ? "正在读取行情…" : "读取行情并核对"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
       <ClsError error={verify.error} />
