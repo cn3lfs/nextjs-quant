@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "~/trpc/react";
+import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { labIdentitySchema } from "~/lib/research/strategy-lab";
+import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 import {
   strategyObjectSchema,
   tripleScreenStrategy,
@@ -49,6 +51,77 @@ const costScenarioOptions = [
 type CostScenario = (typeof costScenarioOptions)[number]["value"];
 type LabIdentity = { id: string; version: number };
 type LoadedStrategy = ReturnType<typeof strategyObjectSchema.parse>;
+type LabBacktestRequest = ReturnType<typeof labBacktestSchema.parse>;
+type LabBacktestFormFields = {
+  start: string;
+  end: string;
+  initial: number;
+  costScenario: CostScenario;
+};
+export type LabBacktestReceipt = {
+  jobId: string;
+  strategyId: string;
+  strategyVersion: number;
+  market: LabBacktestRequest["strategy"]["market"];
+  start: string;
+  end: string;
+  initial: number;
+  costScenario: CostScenario;
+};
+const labFieldLabels: Record<string, string> = {
+  strategy: "策略对象",
+  start: "开始日期",
+  end: "结束日期",
+  initial: "独立本金",
+  costScenario: "交易成本情景",
+};
+/** The shared lab schema is the only form check; messages stay in its own terms. */
+export function readLabBacktestForm(
+  object: string,
+  fields: LabBacktestFormFields,
+):
+  | { ok: true; input: LabBacktestRequest }
+  | { ok: false; message: string } {
+  let strategy: unknown;
+  try {
+    strategy = JSON.parse(object);
+  } catch {
+    return { ok: false, message: "策略对象不是有效 JSON，请修正后再提交。" };
+  }
+  const parsed = labBacktestSchema.safeParse({ strategy, ...fields });
+  if (parsed.success) return { ok: true, input: parsed.data };
+  const issue = parsed.error.issues[0];
+  if (!issue) return { ok: false, message: "表单校验失败，请检查后重试。" };
+  const label = labFieldLabels[String(issue.path[0] ?? "")];
+  const message = issue.message === "Invalid" ? "格式无效" : issue.message;
+  return {
+    ok: false,
+    message: label ? `${label}：${message}` : message,
+  };
+}
+/** Receipt fields come from the submitted request; display never infers costs or returns. */
+export function labBacktestReceipt(
+  input: LabBacktestRequest,
+  jobId: string,
+): LabBacktestReceipt {
+  return {
+    jobId,
+    strategyId: input.strategy.id,
+    strategyVersion: input.strategy.version,
+    market: input.strategy.market,
+    start: input.start,
+    end: input.end,
+    initial: input.initial,
+    costScenario: input.costScenario,
+  };
+}
+const marketLabels: Record<LabBacktestReceipt["market"], string> = {
+  "cn-equity": "A股",
+  crypto: "BTC / ETH",
+};
+function costScenarioLabel(value: CostScenario) {
+  return costScenarioOptions.find((option) => option.value === value)?.label ?? value;
+}
 
 /** Missing `strategy` means the ordinary entry; any present but invalid pair is an invalid link. */
 function labIdentityFromSearch(search: URLSearchParams) {
@@ -212,7 +285,9 @@ function LabEditor({
     [end, setEnd] = useState(""),
     [initial, setInitial] = useState(1000000),
     [costScenario, setCostScenario] = useState<CostScenario>("fixed"),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null),
+    submitting = useRef(false);
   useEffect(() => {
     if (source) return;
     const next = presetStrategy(preset);
@@ -225,12 +300,32 @@ function LabEditor({
       className="mt-3 space-y-3"
       onSubmit={(e) => {
         e.preventDefault();
+        if (submitting.current) return;
         setError("");
+        const result = readLabBacktestForm(object, {
+          start,
+          end,
+          initial,
+          costScenario,
+        });
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        submitting.current = true;
         try {
-          const strategy = strategyObjectSchema.parse(JSON.parse(object));
-          run.mutate({ strategy, start, end, initial, costScenario });
+          run.mutate(result.input, {
+            onSuccess: (job) => {
+              // `result.input` is the exact validated payload this call sent.
+              setReceipt(labBacktestReceipt(result.input, job.id));
+            },
+            onSettled: () => {
+              submitting.current = false;
+            },
+          });
         } catch (e) {
-          setError(e instanceof Error ? e.message : "策略对象无效");
+          submitting.current = false;
+          setError(e instanceof Error ? e.message : "无法创建回测任务");
         }
       }}
     >
@@ -393,7 +488,14 @@ function LabEditor({
           保持原实验室行为。
         </span>
       </label>
-      <Button disabled={run.isPending}>提交策略对象回测</Button>
+      <Button disabled={run.isPending} aria-busy={run.isPending}>
+        {run.isPending ? "正在创建回测任务…" : "提交策略对象回测"}
+      </Button>
+      {run.isPending && (
+        <p role="status" className="text-sm text-nc-text-3">
+          已通过表单校验，正在创建回测任务…
+        </p>
+      )}
       <Button
         type="button"
         variant="outline"
@@ -425,16 +527,19 @@ function LabEditor({
           {error || run.error?.message || register.error?.message}
         </p>
       )}
-      {run.data && (
-        <p role="status">
-          组合回测已提交。
+      {receipt && (
+        <div role="status" className="space-y-1 text-sm">
+          <p>最近一次已创建的回测任务</p>
+          <p className="text-nc-text-3">
+            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)}`}
+          </p>
           <Link
-            href={`/system/tasks?id=${encodeURIComponent(run.data.id)}`}
+            href={taskHistoryHref({ id: receipt.jobId })}
             className="underline"
           >
             查看进度、结果与取消
           </Link>
-        </p>
+        </div>
       )}
     </form>
   );
