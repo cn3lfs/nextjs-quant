@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -7,6 +7,7 @@ import {
   accountKindLabels,
   industryGroupsFor,
   stopStatusFor,
+  type TradeLink,
 } from "~/lib/portfolio/account-workspace";
 import {
   formatNumber,
@@ -45,6 +46,11 @@ type PositionMarket = "all" | "cn-equity" | "crypto";
 type PositionGroup = "market" | "sleeve" | "kind";
 type PositionStopStatus = "all" | "touched" | "unknown";
 type Position = RouterOutputs["accountPositions"]["items"][number];
+type AccountTrade = RouterOutputs["accountTrades"]["trades"][number];
+type TradeSnapshot = Pick<AccountTrade, "symbol" | "date" | "side">;
+type TradeLinkInput = Parameters<
+  ReturnType<typeof api.linkAccountTrade.useMutation>["mutate"]
+>[0];
 type HoldingsFilters = {
   kind: PositionKind;
   source: PositionSource;
@@ -306,24 +312,30 @@ function UnifiedPositions({
 function AccountPositionDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0);
   const query = api.accountPosition.useQuery({ id, page });
+  const readError = query.error?.message;
   return (
     <section aria-label="持仓归因与衰减" className="space-y-4">
       <Link href="/accounts" scroll={false} className="underline">
         返回统一持仓
       </Link>
-      {query.isLoading ? (
-        <p role="status">正在读取持仓归因…</p>
-      ) : query.error ? (
+      {/* Keep each branch in a fixed sibling slot so a background refetch
+          failure never unmounts the loaded content, its drafts or receipts. */}
+      {query.isLoading ? <p role="status">正在读取持仓归因…</p> : null}
+      {readError ? (
         <p role="alert">
-          {query.error.message}{" "}
+          {query.data
+            ? `刷新失败，以下为最近一次读取的结果。${readError}`
+            : readError}{" "}
           <Button onClick={() => void query.refetch()}>重试</Button>
         </p>
-      ) : query.data ? (
+      ) : null}
+      {query.data ? (
         <PositionDetailContent
           data={query.data}
           page={page}
           setPage={setPage}
           fetching={query.isFetching}
+          readError={!!readError}
         />
       ) : null}
     </section>
@@ -335,11 +347,13 @@ function PositionDetailContent({
   page,
   setPage,
   fetching,
+  readError,
 }: {
   data: RouterOutputs["accountPosition"];
   page: number;
   setPage: (page: number) => void;
   fetching: boolean;
+  readError: boolean;
 }) {
   const p = d.position;
   const status = stopStatusFor(p);
@@ -401,6 +415,7 @@ function PositionDetailContent({
         page={page}
         setPage={setPage}
         fetching={fetching}
+        readError={readError}
       />
     </>
   );
@@ -413,6 +428,7 @@ function TradeSources({
   page,
   setPage,
   fetching,
+  readError = false,
 }: {
   trades: RouterOutputs["accountTrades"]["trades"];
   suggestions: RouterOutputs["accountTrades"]["suggestions"];
@@ -420,17 +436,78 @@ function TradeSources({
   page: number;
   setPage: (page: number) => void;
   fetching: boolean;
+  /** Last read failed; rows are stale, so block starting new links. */
+  readError?: boolean;
 }) {
   const utils = api.useUtils();
-  const link = api.linkAccountTrade.useMutation({
-    onSuccess: () =>
-      Promise.all([
+  const refreshViews = () => {
+    try {
+      // Best-effort read refresh; it must never turn a saved link into a
+      // failure, so rejections and synchronous errors are swallowed here.
+      void Promise.all([
         utils.accountPosition.invalidate(),
         utils.accountTrades.invalidate(),
         utils.accountPositions.invalidate(),
-      ]),
+      ]).catch(() => {});
+    } catch {
+      // The write is already confirmed by the mutation response below.
+    }
+  };
+  const link = api.linkAccountTrade.useMutation({ onSuccess: refreshViews });
+  // A synchronous ref blocks a same-tick second submit before React can
+  // re-render the disabled buttons.
+  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
+  // The row frozen when the dialog opened keeps the draft mounted even while
+  // a list refresh temporarily returns no rows.
+  const [manualTrade, setManualTrade] = useState<AccountTrade | null>(null);
+  // Reset on every open, so a previous opening's receipt never leaks into a
+  // new one. Manual success keeps the dialog open to show this attempt.
+  const [manualResult, setManualResult] = useState<
+    { link: TradeLink; trade: TradeSnapshot } | { error: string } | null
+  >(null);
+  const [suggestionFeedback, setSuggestionFeedback] = useState<string | null>(
+    null,
+  );
+  // Last successful link for the list; survives closing the dialog.
+  const [receipt, setReceipt] = useState<{
+    link: TradeLink;
+    trade: TradeSnapshot;
+  } | null>(null);
+  const snapshot = (t: AccountTrade): TradeSnapshot => ({
+    symbol: t.symbol,
+    date: t.date,
+    side: t.side,
   });
-  const [manual, setManual] = useState("");
+  // Suggestion and manual links share this single starting point.
+  const save = async (
+    input: TradeLinkInput,
+    trade: TradeSnapshot,
+    origin: "suggestion" | "manual",
+  ) => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(true);
+    if (origin === "manual") setManualResult(null);
+    else setSuggestionFeedback(null);
+    try {
+      // Only the real response becomes the receipt; the pre-click snapshot
+      // contributes symbol/date/side identity and nothing else.
+      const saved = await link.mutateAsync(input);
+      setReceipt({ link: saved, trade });
+      if (origin === "manual") setManualResult({ link: saved, trade });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "关联未保存，请重试。";
+      if (origin === "manual") setManualResult({ error: message });
+      else setSuggestionFeedback(message);
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  };
   const d = { trades, suggestions, tradeCount: total };
   return (
     <section aria-label="成交来源" className="space-y-3">
@@ -440,15 +517,21 @@ function TradeSources({
       <div className="flex gap-2">
         <Button
           variant="outline"
-          disabled={page === 0 || fetching}
-          onClick={() => setPage(page - 1)}
+          disabled={page === 0 || fetching || pending}
+          onClick={() => {
+            if (pendingRef.current) return;
+            setPage(page - 1);
+          }}
         >
           上一页成交
         </Button>
         <Button
           variant="outline"
-          disabled={(page + 1) * 20 >= d.tradeCount || fetching}
-          onClick={() => setPage(page + 1)}
+          disabled={(page + 1) * 20 >= d.tradeCount || fetching || pending}
+          onClick={() => {
+            if (pendingRef.current) return;
+            setPage(page + 1);
+          }}
         >
           下一页成交
         </Button>
@@ -460,12 +543,13 @@ function TradeSources({
         pagination={{ pageIndex: page, pageSize: 20 }}
         sorting={[]}
         onSortingChange={() => {}}
-        onPaginationChange={(u) =>
+        onPaginationChange={(u) => {
+          if (pendingRef.current) return;
           setPage(
             (typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u)
               .pageIndex,
-          )
-        }
+          );
+        }}
         showPagination={false}
         getRowId={(t) => t.id}
         columns={[
@@ -556,16 +640,20 @@ function TradeSources({
                         key={plan.id}
                         size="sm"
                         variant="outline"
-                        disabled={link.isPending}
+                        disabled={pending || readError}
                         onClick={() =>
-                          link.mutate({
-                            tradeId: t.id,
-                            planId: plan.id,
-                            alertKey: plan.triggerKey,
-                            strategyId: plan.strategyId,
-                            strategyVersion: plan.strategyVersion,
-                            sleeve: plan.sleeve,
-                          })
+                          void save(
+                            {
+                              tradeId: t.id,
+                              planId: plan.id,
+                              alertKey: plan.triggerKey,
+                              strategyId: plan.strategyId,
+                              strategyVersion: plan.strategyVersion,
+                              sleeve: plan.sleeve,
+                            },
+                            snapshot(t),
+                            "suggestion",
+                          )
                         }
                       >
                         确认关联 {plan.strategyId} / {plan.id}
@@ -574,7 +662,12 @@ function TradeSources({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setManual(t.id)}
+                    disabled={pending || readError}
+                    onClick={() => {
+                      if (pendingRef.current) return;
+                      setManualResult(null);
+                      setManualTrade(t);
+                    }}
                   >
                     手工关联
                   </Button>
@@ -585,9 +678,11 @@ function TradeSources({
         ]}
       />
       <Dialog
-        open={!!manual}
+        open={!!manualTrade}
         onOpenChange={(open) => {
-          if (!open) setManual("");
+          // Esc, overlay and the close button cannot drop the draft while the
+          // single request is in flight.
+          if (!open && !pendingRef.current) setManualTrade(null);
         }}
       >
         <DialogContent>
@@ -595,25 +690,60 @@ function TradeSources({
           <DialogDescription>
             仅保存来源及审计，不修改原始成交。
           </DialogDescription>
-          {d.trades
-            .filter((t) => t.id === manual)
-            .map((t) => (
-              <TradeLinkForm
-                key={t.id}
-                trade={t}
-                pending={link.isPending}
-                onSave={(input) => link.mutate(input)}
+          {manualTrade ? (
+            <TradeLinkForm
+              key={manualTrade.id}
+              trade={manualTrade}
+              pending={pending}
+              onSave={(input) =>
+                void save(input, snapshot(manualTrade), "manual")
+              }
+            />
+          ) : null}
+          {manualResult &&
+            ("error" in manualResult ? (
+              <p role="alert">{manualResult.error}</p>
+            ) : (
+              <TradeLinkReceipt
+                link={manualResult.link}
+                trade={manualResult.trade}
               />
             ))}
-          {link.error && <p role="alert">{link.error.message}</p>}
-          {link.isSuccess && <p role="status">关联已保存，审计记录保留。</p>}
         </DialogContent>
       </Dialog>
-      {link.error && <p role="alert">{link.error.message}</p>}
-      {link.isSuccess && !manual && (
-        <p role="status">关联已保存，审计记录保留。</p>
+      {suggestionFeedback && <p role="alert">{suggestionFeedback}</p>}
+      {/* Only one success summary is visible: the dialog hides the list one. */}
+      {receipt && !manualTrade && (
+        <TradeLinkReceipt
+          link={receipt.link}
+          trade={receipt.trade}
+          prefix="最近一次："
+        />
       )}
     </section>
+  );
+}
+/** Same receipt for the dialog and the list; the response tradeId keeps
+ * same-day, same-symbol, same-side trades distinguishable (it may wrap). */
+function TradeLinkReceipt({
+  link,
+  trade,
+  prefix,
+}: {
+  link: TradeLink;
+  trade: TradeSnapshot;
+  prefix?: string;
+}) {
+  return (
+    <p role="status">
+      关联已保存，审计记录保留。{prefix}
+      {trade.symbol} · {trade.date} ·{" "}
+      {trade.side === "buy" ? "买入" : "卖出"} → {link.strategyId} v
+      {link.strategyVersion} · 分仓 {link.sleeve}
+      {link.planId ? ` · 计划 ${link.planId}` : ""}
+      {link.alertKey ? ` · 提醒 ${link.alertKey}` : ""} · 成交编号{" "}
+      <span className="break-all">{link.tradeId}</span>。
+    </p>
   );
 }
 function TradeLinkForm({
@@ -621,13 +751,9 @@ function TradeLinkForm({
   pending,
   onSave,
 }: {
-  trade: RouterOutputs["accountTrades"]["trades"][number];
+  trade: AccountTrade;
   pending: boolean;
-  onSave: (
-    input: Parameters<
-      ReturnType<typeof api.linkAccountTrade.useMutation>["mutate"]
-    >[0],
-  ) => void;
+  onSave: (input: TradeLinkInput) => void;
 }) {
   const [alert, setAlert] = useState(t.alertKey ?? "");
   const events = api.alertHistory.useQuery({
@@ -732,6 +858,7 @@ function AccountTrades() {
         page={page}
         setPage={setPage}
         fetching={query.isFetching}
+        readError={!!query.error}
       />
     </section>
   );
