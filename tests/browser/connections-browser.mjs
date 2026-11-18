@@ -19,15 +19,15 @@ const logDir =
 mkdirSync(logDir, { recursive: true });
 const stub = `
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
-const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}};
+const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}, alertStatus: {subscriptions: [], strategies: []}};
 function query(name) {return {useQuery(input, options) {return useQuery({queryKey:[name], queryFn:async()=>{window.requests.push(name); return fixtures[name]}, retry:false, ...options})}}}
 function mutation(name) {return {useMutation(options) {return useMutation({...options, mutationFn:async(input)=>{
  window.mutations.push({name,input});
  if(name === 'snapshot') return await new Promise(resolve=>(window.snapshotResolvers??={})[input.symbol]=()=>resolve({id:input.symbol,symbol:input.symbol,bars:[]}));
  if(name === 'checkConnection') {
-  await new Promise(resolve=>window.resolveCheck=resolve);
+  const patch = await new Promise(resolve=>window.checkQueue.push(resolve));
   if(window.failCheck) throw Error('合成诊断请求失败');
-  return {...input,checkedAt:Date.now(),elapsedMs:10,connection:'ok',data:'ok',freshness:'unknown',dataAsOf:'2026-09-25',referenceAsOf:null,referenceSource:'合成参考',sampleCount:2,message:'样本读取成功；仅代表所选证券与周期',nextAction:'核对交易日历'};
+  return {...input,checkedAt:Date.now(),elapsedMs:10,connection:'ok',data:'ok',freshness:'unknown',dataAsOf:'2026-09-25',referenceAsOf:null,referenceSource:'合成参考',sampleCount:2,message:'样本读取成功；仅代表所选证券与周期',nextAction:'核对交易日历',...patch};
  }
  if(name === 'checkNewsSources') {
   await new Promise(resolve=>window.resolveNewsCheck=resolve);
@@ -41,8 +41,8 @@ function mutation(name) {return {useMutation(options) {return useMutation({...op
  return input;
 }})}}}
 export const api={...Object.fromEntries(Object.keys(fixtures).map(name=>[name,query(name)])),
- snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),checkConnection:mutation('checkConnection'),checkNewsSources:mutation('checkNewsSources'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),
- useUtils(){const client=useQueryClient();return Object.fromEntries(['status','securityProfile','securityNames','securities','channels'].map(name=>[name,{invalidate(){window.invalidations.push(name);return client.invalidateQueries({queryKey:[name]})}}]))}
+ snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),checkConnection:mutation('checkConnection'),checkNewsSources:mutation('checkNewsSources'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),saveAlertSubscription:mutation('saveAlertSubscription'),
+ useUtils(){const client=useQueryClient();return Object.fromEntries(['status','securityProfile','securityNames','securities','channels','alertStatus'].map(name=>[name,{invalidate(){window.invalidations.push(name);return client.invalidateQueries({queryKey:[name]})}}]))}
 };`;
 const bundle = await build({
   stdin: {
@@ -55,6 +55,8 @@ import {settingsSchema} from './src/lib/domain';
 import {useSnapshotLoad} from './src/components/market/use-snapshot-load';
 import {useSnapshotCache} from './src/lib/stores/snapshot-cache';
 window.requests=[];window.mutations=[];window.invalidations=[];
+window.checkQueue=[];
+window.resolveCheck=(value={})=>{window.checkQueue.shift()?.(value)};
 const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
 function SnapshotProbe(){const options={onSuccess:s=>(window.published??=[]).push(s.symbol)};const stock=useSnapshotLoad(options),crypto=useSnapshotLoad(options),futures=useSnapshotLoad(options);window.startSnapshot=()=>{stock.mutate({symbol:'sh600000',period:'day',source:'local'});crypto.mutate({symbol:'cxBTCUSDT',period:'day'});futures.mutate({symbol:'fuGC00Y',period:'day'})};window.snapshotCacheSize=()=>useSnapshotCache.getState().entries.size;return null}
 function App(){const [mounted,setMounted]=useState(true);window.setMounted=setMounted;const [visible,setVisible]=useState(true); const [value,setValue]=useState(settingsSchema.parse({tdxRoot:'C:/fixture/tdx'}));
@@ -98,6 +100,12 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           contents: "export function CryptoConnections(){return null}",
           loader: "tsx",
         }));
+        // Unrelated panel whose polling query would pollute the visibility
+        // assertions; the diagnostics under test do not depend on it.
+        b.onLoad({ filter: /binance-history\.tsx$/ }, () => ({
+          contents: "export function BinanceHistory(){return null}",
+          loader: "tsx",
+        }));
       },
     },
   ],
@@ -137,7 +145,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => {
     errors.push(e.message);
-    console.error(e.message);
+    console.error(e.stack ?? e.message);
   });
   await page.clock.install();
   await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -355,6 +363,225 @@ try {
     await diagnostic.click();
     await page.evaluate(() => window.resolveCheck());
     await page.getByText("连接：可访问", { exact: true }).waitFor();
+    // Same saved configuration, symbol and period across two sources form one
+    // comparison, each row keeping its own last completed check.
+    const diagnostics = page.getByRole("region", { name: "连接与数据检查" });
+    const compareRegion = diagnostics.getByRole("region", {
+      name: "同范围来源对照",
+    });
+    const compareRows = compareRegion.locator("tbody tr");
+    const symbolInput = page.getByLabel("样本证券", { exact: true });
+    const sourceSelect = page.getByRole("combobox", { name: "检查来源" });
+    const periodSelect = page.getByRole("combobox", { name: "检查周期" });
+    const choose = async (select, name) => {
+      await select.click();
+      await page.getByRole("option", { name, exact: true }).click();
+    };
+    await choose(sourceSelect, "tstdx");
+    await diagnostic.click();
+    await page.evaluate(() =>
+      window.resolveCheck({
+        dataAsOf: "2026-09-24",
+        checkedAt: 1763000001000,
+        connection: "error",
+        data: "empty",
+      }),
+    );
+    await compareRegion.waitFor();
+    assert.equal(await compareRows.count(), 2);
+    assert.equal(
+      await compareRegion.getByText("通达信本地", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await compareRegion.getByText("tstdx", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await compareRegion.getByText("可访问 · 样本可用", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await compareRegion.getByText("失败 · 样本为空", { exact: true }).count(),
+      1,
+    );
+    assert.deepEqual(
+      await compareRows.locator("td:nth-child(3)").allInnerTexts(),
+      ["2026-09-25", "2026-09-24"],
+      "Each source keeps its own market last time",
+    );
+    const compareTimes = await compareRows
+      .locator("td:nth-child(4)")
+      .allInnerTexts();
+    assert.equal(
+      new Set(compareTimes).size,
+      2,
+      "Each source keeps its own check time",
+    );
+    // Scope changes hide the comparison; restoring the scope shows it again.
+    await choose(periodSelect, "五分钟");
+    assert.equal(
+      await page.getByText("同范围来源对照", { exact: true }).count(),
+      0,
+    );
+    await choose(periodSelect, "日线");
+    await compareRegion.waitFor();
+    await symbolInput.fill("sh600000");
+    assert.equal(
+      await page.getByText("同范围来源对照", { exact: true }).count(),
+      0,
+    );
+    await symbolInput.fill("sz000001");
+    await compareRegion.waitFor();
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/compare-other" }),
+    );
+    await page.waitForFunction(
+      () => !document.body.innerText.includes("同范围来源对照"),
+    );
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/remote" }),
+    );
+    await compareRegion.waitFor();
+    assert.equal(await compareRows.count(), 2);
+    // A late but legal response keeps its own request identity and is shown
+    // stale by the current card, then becomes comparable again when restored.
+    await choose(sourceSelect, "东方财富");
+    await diagnostic.click();
+    assert.equal(
+      await diagnostics.getByRole("button").isDisabled(),
+      true,
+      "Only one product check may be pending",
+    );
+    await symbolInput.fill("sh600000");
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/late-other" }),
+    );
+    await page.waitForFunction(
+      () => !document.body.innerText.includes("同范围来源对照"),
+    );
+    await page.evaluate(() =>
+      window.resolveCheck({ dataAsOf: "2026-09-23", checkedAt: 1763000002000 }),
+    );
+    await page
+      .getByText("以下为旧配置或旧选择的检查结果，请重新检查。")
+      .waitFor();
+    await page.getByText("检查范围与时间").click();
+    await diagnostics.getByText(/东方财富 · sz000001/).waitFor();
+    assert.equal(
+      await diagnostics.getByText("行情最后时点：2026-09-23", { exact: true }).count(),
+      1,
+      "The late response keeps the identity it was requested with",
+    );
+    await symbolInput.fill("sz000001");
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/remote" }),
+    );
+    await compareRegion.waitFor();
+    await page
+      .getByText("以下为旧配置或旧选择的检查结果，请重新检查。")
+      .waitFor({ state: "hidden" });
+    assert.equal(await compareRows.count(), 3);
+    assert.equal(
+      await compareRegion.getByText("东方财富", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await compareRegion.getByText("2026-09-23", { exact: true }).count(),
+      1,
+    );
+    // A response with a different identity never overwrites the current card
+    // or any stored receipt, and the dedicated notice clears on next action.
+    await diagnostic.click();
+    await page.evaluate(() =>
+      window.resolveCheck({ source: "tencent", dataAsOf: "2026-09-30" }),
+    );
+    await diagnostics
+      .getByText(
+        "检查结果与发起请求的来源、证券、周期或已保存配置不一致，已忽略本次结果。",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(
+      await diagnostics.getByText("连接：可访问", { exact: true }).count(),
+      0,
+      "Mismatched identity leaves no current result",
+    );
+    assert.equal(await compareRows.count(), 3, "Mismatch adds no receipt");
+    assert.equal(
+      await compareRegion.getByText("腾讯自选股", { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await compareRegion.getByText("2026-09-30", { exact: true }).count(),
+      0,
+    );
+    await choose(sourceSelect, "腾讯自选股");
+    assert.equal(
+      await diagnostics.getByText(/检查结果与发起请求/).count(),
+      0,
+      "Next action clears the mismatch notice",
+    );
+    await choose(sourceSelect, "东方财富");
+    // Transport failure clears only the current card; stored rows remain.
+    await page.evaluate(() => (window.failCheck = true));
+    await diagnostic.click();
+    await page.evaluate(() => window.resolveCheck());
+    await page
+      .getByRole("alert")
+      .filter({ hasText: "合成诊断请求失败" })
+      .waitFor();
+    assert.equal(
+      await diagnostics.getByText("连接：可访问", { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await compareRows.count(),
+      3,
+      "Transport failure keeps completed comparison rows",
+    );
+    await page.evaluate(() => (window.failCheck = false));
+    // Rechecking a source replaces its row instead of adding another.
+    await diagnostic.click();
+    await page.evaluate(() =>
+      window.resolveCheck({
+        dataAsOf: "2026-09-22",
+        checkedAt: 1763000003000,
+      }),
+    );
+    await page.getByText("连接：可访问", { exact: true }).waitFor();
+    assert.equal(await compareRows.count(), 3);
+    assert.equal(
+      await compareRegion.getByText("2026-09-22", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await compareRegion.getByText("2026-09-23", { exact: true }).count(),
+      0,
+      "Recheck replaces the source's previous receipt",
+    );
+    // Selection, configuration and draft changes never start a check.
+    const checkCallsBeforePassive = await page.evaluate(
+      () => window.mutations.filter((m) => m.name === "checkConnection").length,
+    );
+    await choose(periodSelect, "五分钟");
+    await choose(periodSelect, "日线");
+    await symbolInput.fill("sh600000");
+    await symbolInput.fill("sz000001");
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/passive" }),
+    );
+    await page.evaluate(() =>
+      window.setSettings({ tdxRoot: "C:/fixture/remote" }),
+    );
+    await compareRegion.waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => window.mutations.filter((m) => m.name === "checkConnection").length,
+      ),
+      checkCallsBeforePassive,
+      "Selection, configuration and table changes never start a check",
+    );
     await page.mouse.wheel(0, -10000);
     await page.waitForFunction(() => window.scrollY === 0);
     await page.getByRole("radio", { name: "新闻采集", exact: true }).click();
@@ -438,11 +665,14 @@ try {
     });
     await blocksLink.waitFor();
     assert.equal(await blocksLink.getAttribute("href"), "/scan?tab=rps");
+    await compareRegion.waitFor();
+    assert.equal(await compareRows.count(), 3);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
       true,
+      "Comparison table stays inside the 640px page",
     );
     await page.screenshot({
       path: join(logDir, "local-narrow.png"),

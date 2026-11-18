@@ -21,6 +21,39 @@ import {
 } from "../ui/select";
 import { Field, stamp } from "./shared";
 
+const sourceOrder = ["local", "pytdx", "eastmoney", "tencent"] as const;
+const connectionLabels = {
+  ok: "可访问",
+  error: "失败",
+  unknown: "未确认",
+} as const;
+const dataLabels = {
+  ok: "样本可用",
+  empty: "样本为空",
+  invalid: "样本无效",
+  unavailable: "不可用",
+} as const;
+const periodLabels = {
+  day: "日线",
+  "5m": "五分钟",
+} as const;
+
+type CheckSource = ConnectionCheckInput["source"];
+type CheckPeriod = keyof typeof periodLabels;
+
+/** A receipt is only trustworthy when the response echoes the request. */
+function sameCheckIdentity(
+  response: ConnectionCheckResult,
+  input: ConnectionCheckInput,
+) {
+  return (
+    response.source === input.source &&
+    response.symbol === input.symbol &&
+    response.period === input.period &&
+    sameSetting(response.configuration, input.configuration)
+  );
+}
+
 export function ConnectionDiagnostics({
   value,
   dirty,
@@ -32,17 +65,31 @@ export function ConnectionDiagnostics({
     value.marketDataSource === "auto" ? "local" : value.marketDataSource,
   );
   const [symbol, setSymbol] = useState("sh600000");
-  const [period, setPeriod] = useState<ConnectionCheckInput["period"]>("day");
+  const [period, setPeriod] = useState<CheckPeriod>("day");
   const [result, setResult] = useState<ConnectionCheckResult | null>(null);
   const [lastSuccess, setLastSuccess] = useState<ConnectionCheckResult | null>(
     null,
   );
+  // One completed receipt per source for this mount; rechecks replace in place.
+  const [receipts, setReceipts] = useState<
+    Partial<Record<CheckSource, ConnectionCheckResult>>
+  >({});
+  const [identityError, setIdentityError] = useState<string | null>(null);
   const check = api.checkConnection.useMutation({
     onMutate: () => {
       setResult(null);
+      setIdentityError(null);
     },
-    onSuccess: (response) => {
+    onSuccess: (response, input) => {
+      if (!sameCheckIdentity(response, input)) {
+        setResult(null);
+        setIdentityError(
+          "检查结果与发起请求的来源、证券、周期或已保存配置不一致，已忽略本次结果。",
+        );
+        return;
+      }
       setResult(response);
+      setReceipts((current) => ({ ...current, [input.source]: response }));
       if (response.data === "ok") setLastSuccess(response);
     },
   });
@@ -53,6 +100,17 @@ export function ConnectionDiagnostics({
     response.period === period &&
     sameSetting(response.configuration, configuration);
   const stale = result !== null && !matches(result);
+  // Visibility follows the current form scope and saved configuration; the
+  // stored receipt keeps the scope it was actually confirmed under.
+  const comparisonRows = sourceOrder
+    .map((key) => receipts[key])
+    .filter(
+      (receipt): receipt is ConnectionCheckResult =>
+        receipt !== undefined &&
+        receipt.symbol === symbol &&
+        receipt.period === period &&
+        sameSetting(receipt.configuration, configuration),
+    );
   const valid = /^(sh|sz|bj)\d{6}$/.test(symbol);
   return (
     <Panel
@@ -74,9 +132,10 @@ export function ConnectionDiagnostics({
         <Field label="检查来源">
           <Select
             value={source}
-            onValueChange={(v) =>
-              setSource(v as ConnectionCheckInput["source"])
-            }
+            onValueChange={(v) => {
+              setIdentityError(null);
+              setSource(v as ConnectionCheckInput["source"]);
+            }}
           >
             <SelectTrigger aria-label="检查来源">
               <SelectValue />
@@ -95,7 +154,10 @@ export function ConnectionDiagnostics({
         <Field label="样本证券">
           <Input
             value={symbol}
-            onChange={(e) => setSymbol(e.target.value.trim().toLowerCase())}
+            onChange={(e) => {
+              setIdentityError(null);
+              setSymbol(e.target.value.trim().toLowerCase());
+            }}
             aria-invalid={!valid}
             aria-describedby={!valid ? "connection-symbol-error" : undefined}
           />
@@ -103,9 +165,10 @@ export function ConnectionDiagnostics({
         <Field label="检查周期">
           <Select
             value={period}
-            onValueChange={(v) =>
-              setPeriod(v as ConnectionCheckInput["period"])
-            }
+            onValueChange={(v) => {
+              setIdentityError(null);
+              if (v === "day" || v === "5m") setPeriod(v);
+            }}
           >
             <SelectTrigger aria-label="检查周期">
               <SelectValue />
@@ -138,6 +201,11 @@ export function ConnectionDiagnostics({
           {check.error.message}
         </p>
       )}
+      {identityError && (
+        <p role="alert" className="mt-2 text-nc-bad">
+          {identityError}
+        </p>
+      )}
       {result ? (
         <div className="mt-3 space-y-2" aria-live="polite">
           {stale && (
@@ -150,22 +218,11 @@ export function ConnectionDiagnostics({
               tone={stale ? "idle" : result.connection === "ok" ? "ok" : "warn"}
             >
               连接：
-              {
-                { ok: "可访问", error: "失败", unknown: "未确认" }[
-                  result.connection
-                ]
-              }
+              {connectionLabels[result.connection]}
             </Pill>
             <Pill tone={stale ? "idle" : result.data === "ok" ? "ok" : "warn"}>
               数据：
-              {
-                {
-                  ok: "样本可用",
-                  empty: "样本为空",
-                  invalid: "样本无效",
-                  unavailable: "不可用",
-                }[result.data]
-              }
+              {dataLabels[result.data]}
             </Pill>
             <Pill
               tone={!stale && result.freshness === "aligned" ? "ok" : "warn"}
@@ -198,7 +255,7 @@ export function ConnectionDiagnostics({
             </div>
           </details>
         </div>
-      ) : (
+      ) : identityError ? null : (
         <p className="mt-3 text-nc-text-3">
           {check.isPending
             ? "正在检查；此前结果不代表本次状态。"
@@ -211,6 +268,48 @@ export function ConnectionDiagnostics({
         <p className="mt-2 text-nc-text-3">
           此范围上次样本读取成功：{stamp(lastSuccess.checkedAt)}（本次会话）
         </p>
+      )}
+      {comparisonRows.length >= 2 && (
+        <section className="mt-4" aria-labelledby="connection-comparison-title">
+          <h4 id="connection-comparison-title">同范围来源对照</h4>
+          <p className="text-nc-text-3">
+            已保存配置 · {symbol} · {periodLabels[period]}
+          </p>
+          <p className="text-nc-text-3">
+            各来源显示本页最近一次已完成的检查。
+          </p>
+          {source !== "tencent" &&
+            comparisonRows.some((receipt) => receipt.source === "tencent") && (
+              <p className="text-nc-warn">
+                腾讯源为延迟行情；检查通过也不代表实时行情。
+              </p>
+            )}
+          <div className="table-wrap mt-2">
+            <table data-sortable="false">
+              <thead>
+                <tr>
+                  <th scope="col">来源</th>
+                  <th scope="col">连接 / 样本</th>
+                  <th scope="col">行情最后时点</th>
+                  <th scope="col">检查时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((receipt) => (
+                  <tr key={receipt.source}>
+                    <td>{marketSourceLabels[receipt.source]}</td>
+                    <td>
+                      {connectionLabels[receipt.connection]} ·{" "}
+                      {dataLabels[receipt.data]}
+                    </td>
+                    <td>{receipt.dataAsOf ?? "未知"}</td>
+                    <td>{stamp(receipt.checkedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </Panel>
   );
