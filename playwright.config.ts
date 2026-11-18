@@ -20,6 +20,7 @@ const suites = [
       "r3b-accounts-r5.spec.ts",
       "r3c-workspaces.spec.ts",
       "lifecycle-review.spec.ts",
+      "intel-review-r5.spec.ts",
     ],
     timeout: 180000,
     serverTimeout: 120000,
@@ -89,6 +90,13 @@ const suites = [
     profile: "core",
     match: "lifecycle-review.spec.ts",
     env: { E2E_R3B: "1", E2E_LIFECYCLE_REVIEW: "1" },
+  },
+  {
+    name: "intel",
+    port: 3926,
+    profile: "core",
+    match: "intel-review-r5.spec.ts",
+    env: { E2E_INTEL_REVIEW: "1" },
   },
 ];
 // Each project owns a fresh server. Only selected projects start servers;

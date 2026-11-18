@@ -170,6 +170,11 @@ try {
       await import("./lifecycle-review-fixture");
     seedLifecycleReviewFixture(db);
   }
+  if (process.env.E2E_INTEL_REVIEW === "1") {
+    // 25 reports with 20 per page, one sample per day and 25 saved versions.
+    const { seedClsReview } = await import("../helpers/cls-review-fixture");
+    seedClsReview(db, 25, 25);
+  }
   if (process.env.E2E_R3C === "1") {
     const { seedR3cFixture } = await import("./r3c-fixture");
     await seedR3cFixture(db, directory);

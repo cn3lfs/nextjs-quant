@@ -22,6 +22,10 @@ import {
   clsPct,
   clsTime,
 } from "./cls-review-fields";
+/** One opened verification, bound to the exact date and full hash it came from. */
+type ClsEvidenceIdentity = { date: string; hash: string; checkedAt: number };
+const clsEvidenceHash = /^[a-f0-9]{64}$/;
+
 export function ClsReviewPrices({
   reportId,
   visible,
@@ -47,14 +51,16 @@ export function ClsReviewPrices({
   dateRef.current = date;
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
   const [chosen, setChosen] = useState(""),
-    [evidence, setEvidence] = useState(false),
+    [opened, setOpened] = useState<ClsEvidenceIdentity | null>(null),
+    [receipt, setReceipt] = useState<ClsEvidenceIdentity | null>(null),
+    [identityError, setIdentityError] = useState(""),
     [feedback, setFeedback] = useState("");
   function chooseDate(value: string) {
     setDate(value);
     setDateDraft(value);
     setPages([undefined]);
     setChosen("");
-    setEvidence(false);
+    setOpened(null);
   }
   useEffect(() => {
     if (!date && related.data?.[0]) {
@@ -74,13 +80,23 @@ export function ClsReviewPrices({
   const current = chosen
     ? versions.data?.items.find((row) => row.hash === chosen)
     : versions.data?.items[0];
+  // Only an explicitly opened identity is read, and only on the visible prices
+  // tab. The exact date/hash pair is the sole query input.
   const detail = api.clsReviewVerificationDetail.useQuery(
-    { date: date || "2000-01-01", hash: current?.hash ?? "0".repeat(64) },
-    { enabled: visible && evidence && !!current, gcTime: 0 },
+    {
+      date: opened?.date ?? "2000-01-01",
+      hash: opened?.hash ?? "0".repeat(64),
+    },
+    { enabled: visible && !!opened, gcTime: 0 },
   );
+  const detailMatches =
+    !!opened &&
+    !!detail.data &&
+    detail.data.date === opened.date &&
+    detail.data.hash === opened.hash;
   const evidenceText = useMemo(
-    () => (detail.data ? formatEvidenceText(detail.data) : ""),
-    [detail.data],
+    () => (detailMatches ? formatEvidenceText(detail.data) : ""),
+    [detail.data, detailMatches],
   );
   // Only the sample for the exact queried day may drive ownership and the
   // cross-report jump; never a previous day's value or a stale cached owner.
@@ -94,7 +110,8 @@ export function ClsReviewPrices({
   const canJump = otherOwner && !sample.isFetching && !sample.error;
   const verify = api.clsReviewVerify.useMutation({
     gcTime: 0,
-    onSuccess: (_, submittedDate) => {
+    onMutate: () => setIdentityError(""),
+    onSuccess: (result, submittedDate) => {
       void utils.clsReviewVerificationPage.invalidate(
         { date: submittedDate },
         { refetchType: "active" },
@@ -102,7 +119,36 @@ export function ClsReviewPrices({
       void utils.clsReviewSummary.invalidate(undefined, {
         refetchType: "active",
       });
-      setFeedback(`${submittedDate} 价格核对已完成`);
+      // The receipt must describe what the server actually saved. A mismatch
+      // keeps the previous receipt and reports only this identity failure.
+      if (result.date !== submittedDate) {
+        setIdentityError(
+          `核对回执身份校验失败：返回日期 ${result.date} 与提交日期 ${submittedDate} 不一致，保留上一次回执。`,
+        );
+        return;
+      }
+      if (!clsEvidenceHash.test(result.hash)) {
+        setIdentityError(
+          "核对回执身份校验失败：返回版本摘要格式无效，保留上一次回执。",
+        );
+        return;
+      }
+      if (
+        typeof result.checkedAt !== "number" ||
+        result.checkedAt <= 0 ||
+        !Number.isFinite(new Date(result.checkedAt).getTime())
+      ) {
+        setIdentityError(
+          "核对回执身份校验失败：返回保存时间无效，保留上一次回执。",
+        );
+        return;
+      }
+      setIdentityError("");
+      setReceipt({
+        date: result.date,
+        hash: result.hash,
+        checkedAt: result.checkedAt,
+      });
     },
   });
   const fix = api.clsReviewFixSample.useMutation({
@@ -235,6 +281,26 @@ export function ClsReviewPrices({
         </div>
       )}
       <ClsError error={verify.error} />
+      {identityError && (
+        <p role="alert" className="text-sm text-nc-bad">
+          {identityError}
+        </p>
+      )}
+      {receipt && (
+        <div className="space-y-2 rounded border border-nc-border-soft p-3 text-sm">
+          <p>
+            最近一次成功核对：{receipt.date} · 版本 {receipt.hash.slice(0, 10)}{" "}
+            · 保存于 {clsTime(receipt.checkedAt)}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setOpened({ ...receipt })}
+          >
+            查看本次核对证据
+          </Button>
+        </div>
+      )}
       <ClsError error={versions.error} retry={() => void versions.refetch()} />
       {valid && (
         <>
@@ -244,7 +310,7 @@ export function ClsReviewPrices({
             disabled={versions.isFetching}
             onClick={() => {
               setChosen("");
-              setEvidence(false);
+              setOpened(null);
               if (pages.length > 1) setPages([undefined]);
               else void versions.refetch();
             }}
@@ -258,7 +324,7 @@ export function ClsReviewPrices({
               value={current?.hash ?? ""}
               onChange={(value) => {
                 setChosen(value);
-                setEvidence(false);
+                setOpened(null);
               }}
               placeholder="尚无核对"
               options={(versions.data?.items ?? []).map((row, index) => ({
@@ -274,17 +340,48 @@ export function ClsReviewPrices({
             previous={() => {
               setPages((value) => value.slice(0, -1));
               setChosen("");
-              setEvidence(false);
+              setOpened(null);
             }}
             next={() => {
               if (versions.data?.nextCursor) {
                 setPages((value) => [...value, versions.data.nextCursor!]);
                 setChosen("");
-                setEvidence(false);
+                setOpened(null);
               }
             }}
           />
         </>
+      )}
+      {opened && (
+        <div className="space-y-2 rounded border border-nc-border-soft p-3 text-sm">
+          <p>
+            所查核对：日期 {opened.date} · 版本 {opened.hash.slice(0, 10)} ·
+            保存于 {clsTime(opened.checkedAt)}
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setOpened(null)}>
+            收起核对证据
+          </Button>
+          {detail.error ? (
+            <ClsError
+              error={detail.error}
+              retry={() => void detail.refetch()}
+            />
+          ) : detail.isLoading ? (
+            <p>正在读取证据…</p>
+          ) : detailMatches ? (
+            <ClsReviewText
+              key={`${opened.date}:${opened.hash}`}
+              text={evidenceText}
+              label="核对证据"
+            />
+          ) : detail.data ? (
+            <p>核对证据身份不一致，未显示；请重新打开。</p>
+          ) : detail.data === null ? (
+            <p>该版本已不存在，可能所属报告已清理。</p>
+          ) : (
+            <p>正在读取证据…</p>
+          )}
+        </div>
       )}
       {current && (
         <div className="space-y-2 text-sm">
@@ -348,29 +445,23 @@ export function ClsReviewPrices({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setEvidence((value) => !value)}
+            onClick={() => {
+              const identity = {
+                date,
+                hash: current.hash,
+                checkedAt: current.checkedAt,
+              };
+              setOpened((value) =>
+                value?.date === identity.date && value?.hash === identity.hash
+                  ? null
+                  : identity,
+              );
+            }}
           >
-            {evidence ? "收起完整核对证据" : "读取完整核对证据"}
+            {opened?.date === date && opened?.hash === current.hash
+              ? "收起完整核对证据"
+              : "读取完整核对证据"}
           </Button>
-          {evidence && (
-            <>
-              <ClsError
-                error={detail.error}
-                retry={() => void detail.refetch()}
-              />
-              {detail.isLoading ? (
-                <p>正在读取证据…</p>
-              ) : detail.data ? (
-                <ClsReviewText
-                  key={current.hash}
-                  text={evidenceText}
-                  label="核对证据"
-                />
-              ) : (
-                <p>该版本已不存在，请刷新核对列表。</p>
-              )}
-            </>
-          )}
         </div>
       )}
     </section>

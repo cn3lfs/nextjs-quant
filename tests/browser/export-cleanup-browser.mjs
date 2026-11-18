@@ -31,11 +31,29 @@ function queryValue(name,input){
  if(name==='clsReviewSample')return samples[input]??null;
  if(name==='clsReviewReportSamples')return [];
  if(name==='clsReviewSampleEligibility')return {allowed:false,reason:'合成选样不可用'};
- if(name==='clsReviewVerificationPage')return {items:[],hasMore:false,nextCursor:null};
+ if(name==='clsReviewVerificationPage')return window.versions||{items:[],hasMore:false,nextCursor:null};
  if(name==='clsReviewVerificationDetail')return null;
  if(name==='clsReviewSummary')return [];
  if(name==='clsReviewReportPage')return {items:[],hasMore:false,nextCursor:null};
  return data[name];
+}
+const verification=(input)=>({version:'cls-verification-1',date:input.date,checkedAt:input.checkedAt||1,
+ source:{root:'fixture-root',benchmark:'fixture-bench',adjustment:'none'},
+ bars:[],benchmark:[],calendar:[input.date],warnings:['合成核对证据'],outcomes:[],hash:input.hash});
+function detailValue(input){
+ const mode=window.evidenceMode||'ok';
+ if(mode==='null')return null;
+ if(mode==='wrong')return verification({date:'2020-01-03',hash:'d'.repeat(64),checkedAt:1});
+ return verification(input);
+}
+function verifyResult(date){
+ const mode=window.verifyMode||'ok';
+ const now=window.verifyNow||1700000000000;
+ if(mode==='wrongDate')return {date:'2020-01-04',hash:'e'.repeat(64),checkedAt:now};
+ if(mode==='badHash')return {date,hash:'XYZ',checkedAt:now};
+ if(mode==='badTime')return {date,hash:'f'.repeat(64),checkedAt:0};
+ if(mode==='overflowTime')return {date,hash:'f'.repeat(64),checkedAt:Number.MAX_VALUE};
+ return {date,hash:'c'.repeat(64),checkedAt:now};
 }
 const utils=new Proxy({}, {get:(_,name)=>({
  fetch:async(id)=>{window.fetchCalls++;window.fetchIds.push(id);
@@ -49,9 +67,33 @@ const utils=new Proxy({}, {get:(_,name)=>({
  invalidate:async()=>{},setData:()=>{},
 })});
 export const api=new Proxy({}, {get:(_,name)=>name==='useUtils'?()=>utils:{
- useQuery:(input)=>({data:queryValue(name,input),isLoading:false,isFetching:false,error:null,
-  refetch:async()=>{}}),
- useMutation:()=>({isPending:false,mutate:()=>{throw Error('Unexpected mutation')}}),
+ useQuery:(input,options)=>{
+  const enabled=!options||options.enabled!==false;
+  if(name==='clsReviewVerificationDetail'){
+   if(enabled)(window.detailQueries||(window.detailQueries=[])).push({date:input.date,hash:input.hash});
+   const mode=window.evidenceMode||'ok';
+   return {data:enabled&&mode!=='error'?detailValue(input):undefined,
+    isLoading:enabled&&mode==='loading',isFetching:enabled&&mode==='loading',
+    error:enabled&&mode==='error'?{message:'合成证据读取失败'}:null,
+    refetch:async()=>{window.detailRefetches=(window.detailRefetches||0)+1;}};
+  }
+  if(name==='clsReviewVerificationPage')
+   return {data:enabled?queryValue(name,input):undefined,isLoading:false,isFetching:false,error:null,refetch:async()=>{}};
+  return {data:queryValue(name,input),isLoading:false,isFetching:false,error:null,
+   refetch:async()=>{}};
+ },
+ useMutation:(options)=>{
+  if(name!=='clsReviewVerify')
+   return {isPending:false,mutate:()=>{throw Error('Unexpected mutation')}};
+  return {isPending:false,error:null,mutate:(date)=>{
+   options?.onMutate?.();
+   window.verifyCalls=(window.verifyCalls||0)+1;
+   window.verifyDates=[...(window.verifyDates||[]),date];
+   const finish=()=>options?.onSuccess?.(verifyResult(date),date,undefined);
+   window.releaseVerify=finish;
+   if(!window.holdVerify)queueMicrotask(finish);
+  }};
+ },
 }});`;
 const bundle = await build({
   stdin: {
@@ -59,7 +101,9 @@ const bundle = await build({
 import {ClsReviewWorkspace} from './src/components/news/cls-review-workspace';
 import {TradeLedgerPanel} from './src/components/portfolio/trade-ledger-panel';
 window.fetchCalls=0;window.resetCalls=0;window.fetchIds=[];window.exportMode='ok';window.holdFetch=false;
-window.downloads=0;window.revoked=0;
+window.downloads=0;window.revoked=0;window.holdVerify=false;window.evidenceMode='ok';window.verifyMode='ok';
+window.verifyNow=1700000000000;window.detailQueries=[];window.detailRefetches=0;window.verifyCalls=0;
+window.verifyDates=[];window.versions={items:[],hasMore:false,nextCursor:null};
 HTMLAnchorElement.prototype.click=function(){window.downloads++};
 URL.createObjectURL=()=> 'blob:fixture';URL.revokeObjectURL=()=>{window.revoked++};
 createRoot(document.getElementById('root')).render(location.pathname==='/intel/review'?<ClsReviewWorkspace/>:<TradeLedgerPanel/>);`,
@@ -102,17 +146,20 @@ createRoot(document.getElementById('root')).render(location.pathname==='/intel/r
           path: "api",
           namespace: "fixture",
         }));
-        b.onResolve({ filter: /^~\/app\/(?:accounts|trade-ledger)\/actions$/ }, () => ({
-          path: "actions",
-          namespace: "fixture",
-        }));
+        b.onResolve(
+          { filter: /^~\/app\/(?:accounts|trade-ledger)\/actions$/ },
+          () => ({
+            path: "actions",
+            namespace: "fixture",
+          }),
+        );
         b.onResolve({ filter: /\/use-task-visible$/ }, () => ({
           path: "visible",
           namespace: "fixture",
         }));
         b.onResolve(
           {
-            filter: /^\.\/cls-review-(report-list|import|schedule|text|facts)$/,
+            filter: /^\.\/cls-review-(report-list|import|schedule|facts)$/,
           },
           (args) => ({ path: args.path, namespace: "fixture" }),
         );
@@ -278,10 +325,9 @@ try {
   await page.waitForFunction((n) => window.resetCalls > n, before.reset);
   await page.evaluate(() => window.resolveReset());
   await expect(button).toBeEnabled();
-  assert.deepEqual(
-    await page.evaluate(() => window.fetchIds.slice()),
-    ["report-a"],
-  );
+  assert.deepEqual(await page.evaluate(() => window.fetchIds.slice()), [
+    "report-a",
+  ]);
   await expect(receipt).toContainText("合成报告 A");
   await expect(receipt).toContainText(
     "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
@@ -417,7 +463,8 @@ try {
   const dayInput = jumpPage.locator('input[type="date"]');
   const search = () => jumpPage.evaluate(() => location.search);
   await jumpPage.goto(
-    base + "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-01",
+    base +
+      "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-01",
   );
   await expect(
     jumpPage.getByRole("heading", { name: "合成报告 B" }),
@@ -465,7 +512,8 @@ try {
 
   // A cleared owner shows the placeholder and hides both actions.
   await jumpPage.goto(
-    base + "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-03",
+    base +
+      "/intel/review?clsReport=report-b&clsTab=prices&clsSample=2020-01-03",
   );
   await expect(
     jumpPage.getByText("所属报告已清理，样本日期占位保留。", { exact: true }),
@@ -503,9 +551,7 @@ try {
   assert.doesNotMatch(await search(), /clsSample=/);
 
   // Manual per-day queries never write clsSample; only the explicit jump does.
-  await jumpPage.goto(
-    base + "/intel/review?clsReport=report-b&clsTab=prices",
-  );
+  await jumpPage.goto(base + "/intel/review?clsReport=report-b&clsTab=prices");
   await expect(dayInput).toHaveValue("");
   await dayInput.fill("2020-01-02");
   await jumpPage
@@ -566,6 +612,289 @@ try {
   ).toBeVisible();
   assert.deepEqual(jumpErrors, []);
   await jumpPage.close();
+
+  // Real ClsReviewPrices with deferred synthetic verification: the receipt is
+  // bound to the submitted day and only a valid response replaces it, while the
+  // evidence panel reads exactly the opened date/hash identity.
+  const pricePage = await browser.newPage(),
+    priceErrors = [];
+  pricePage.on("pageerror", (error) => {
+    priceErrors.push(error.message);
+    console.error(error.message);
+  });
+  await pricePage.route("**/*", (route) =>
+    route.request().url().startsWith(base) ? route.continue() : route.abort(),
+  );
+  const prices = pricePage.locator('section[aria-label="固定样本与价格观察"]'),
+    priceDay = prices.locator('input[type="date"]'),
+    receiptText = prices.getByText(/最近一次成功核对/);
+  await pricePage.goto(base + "/intel/review?clsReport=report-a&clsTab=prices");
+  await priceDay.fill("2020-01-01");
+  await prices
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    prices.getByText("归属：当前报告", { exact: true }),
+  ).toBeVisible();
+  await pricePage.evaluate(() => {
+    window.holdVerify = true;
+    window.detailQueries = [];
+  });
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction(() => window.verifyCalls === 1);
+  await expect(receiptText).toHaveCount(0);
+  // Changing the queried day while the request is in flight must not move the
+  // receipt to the new day.
+  await priceDay.fill("2020-01-02");
+  await prices
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    prices.getByText("归属：另一报告", { exact: true }),
+  ).toBeVisible();
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(receiptText).toContainText("2020-01-01");
+  await expect(receiptText).toContainText("cccccccccc");
+  const savedAt = await pricePage.evaluate(() =>
+    new Date(window.verifyNow).toLocaleString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+    }),
+  );
+  await expect(receiptText).toContainText(`保存于 ${savedAt}`);
+  await expect(priceDay).toHaveValue("2020-01-02");
+  // A confirmed receipt alone never opens or reads the detail.
+  assert.deepEqual(await pricePage.evaluate(() => window.detailQueries), []);
+
+  // The receipt button reads exactly the saved date and full hash.
+  await prices
+    .getByRole("button", { name: "查看本次核对证据", exact: true })
+    .click();
+  await expect(
+    prices.getByText(/所查核对：日期 2020-01-01 · 版本 cccccccccc/),
+  ).toBeVisible();
+  assert.deepEqual(
+    (await pricePage.evaluate(() => window.detailQueries)).at(-1),
+    { date: "2020-01-01", hash: "c".repeat(64) },
+  );
+  await expect(prices.locator("pre")).toContainText("c".repeat(64));
+  await expect(prices.locator("pre")).toContainText("fixture-root");
+
+  // A read error shows only the error and retries the same identity.
+  await pricePage.evaluate(() => {
+    window.evidenceMode = "error";
+  });
+  await prices
+    .getByRole("button", { name: "收起核对证据", exact: true })
+    .click();
+  await prices
+    .getByRole("button", { name: "查看本次核对证据", exact: true })
+    .click();
+  await expect(prices.getByText("合成证据读取失败")).toBeVisible();
+  await expect(prices.getByText(/该版本已不存在/)).toHaveCount(0);
+  const beforeRetry = await pricePage.evaluate(
+    () => window.detailRefetches || 0,
+  );
+  await prices.getByRole("button", { name: "重试读取", exact: true }).click();
+  await pricePage.waitForFunction(
+    (n) => (window.detailRefetches || 0) > n,
+    beforeRetry,
+  );
+
+  // Only an explicit null is reported as gone.
+  await pricePage.evaluate(() => {
+    window.evidenceMode = "null";
+  });
+  await prices
+    .getByRole("button", { name: "收起核对证据", exact: true })
+    .click();
+  await prices
+    .getByRole("button", { name: "查看本次核对证据", exact: true })
+    .click();
+  await expect(
+    prices.getByText("该版本已不存在，可能所属报告已清理。", { exact: true }),
+  ).toBeVisible();
+
+  // A response for another identity is never rendered as this evidence.
+  await pricePage.evaluate(() => {
+    window.evidenceMode = "wrong";
+  });
+  await prices
+    .getByRole("button", { name: "收起核对证据", exact: true })
+    .click();
+  await prices
+    .getByRole("button", { name: "查看本次核对证据", exact: true })
+    .click();
+  await expect(
+    prices.getByText("核对证据身份不一致，未显示；请重新打开。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(prices.locator("pre")).toHaveCount(0);
+
+  // The in-page history entry opens the exact selected version identity.
+  await pricePage.evaluate(() => {
+    window.evidenceMode = "ok";
+    window.versions = {
+      items: [
+        {
+          id: "v1",
+          hash: "1".repeat(64),
+          checkedAt: 1700000000001,
+          date: "2020-01-01",
+          source: { root: "history-one", benchmark: "b", adjustment: "none" },
+          outcomes: [],
+          warnings: [],
+        },
+        {
+          id: "v2",
+          hash: "2".repeat(64),
+          checkedAt: 1700000000002,
+          date: "2020-01-01",
+          source: { root: "history-two", benchmark: "b", adjustment: "none" },
+          outcomes: [],
+          warnings: [],
+        },
+      ],
+      hasMore: true,
+      nextCursor: "cursor-2",
+    };
+  });
+  await prices
+    .getByRole("button", { name: "收起核对证据", exact: true })
+    .click();
+  await priceDay.fill("2020-01-01");
+  await prices
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    prices.getByRole("combobox", { name: "价格核对版本" }),
+  ).toContainText("1111111111");
+  await prices
+    .getByRole("button", { name: "读取完整核对证据", exact: true })
+    .click();
+  await expect(
+    prices.getByText(/所查核对：日期 2020-01-01 · 版本 1111111111/),
+  ).toBeVisible();
+  assert.equal(
+    (await pricePage.evaluate(() => window.detailQueries)).at(-1).hash,
+    "1".repeat(64),
+  );
+  await expect(prices.locator("pre")).toContainText("1".repeat(64));
+  // Paging the version list clears the open evidence instead of retargeting it.
+  await prices.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(prices.getByText(/所查核对/)).toHaveCount(0);
+  // Choosing another version clears it too.
+  await prices
+    .getByRole("button", { name: "读取完整核对证据", exact: true })
+    .click();
+  await expect(prices.getByText(/所查核对/)).toBeVisible();
+  await prices.getByRole("combobox", { name: "价格核对版本" }).click();
+  await pricePage.getByRole("option", { name: /2222222222/ }).click();
+  await expect(prices.getByText(/所查核对/)).toHaveCount(0);
+
+  // Identity failures keep the previous receipt and stay apart from feedback.
+  await pricePage.evaluate(() => {
+    window.verifyMode = "wrongDate";
+    window.holdVerify = true;
+  });
+  await priceDay.fill("2020-01-02");
+  await prices
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    prices.getByText("归属：另一报告", { exact: true }),
+  ).toBeVisible();
+  const verifyBefore = await pricePage.evaluate(() => window.verifyCalls);
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction((n) => window.verifyCalls > n, verifyBefore);
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(
+    prices.getByText(
+      /核对回执身份校验失败：返回日期 2020-01-04 与提交日期 2020-01-02 不一致/,
+    ),
+  ).toBeVisible();
+  await expect(receiptText).toContainText("2020-01-01");
+  await expect(receiptText).toContainText("cccccccccc");
+  // The rejected identity must not also show a generic success broadcast.
+  await expect(prices.getByText(/价格核对已完成/)).toHaveCount(0);
+
+  await pricePage.evaluate(() => {
+    window.verifyMode = "badHash";
+  });
+  const badHashBefore = await pricePage.evaluate(() => window.verifyCalls);
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction((n) => window.verifyCalls > n, badHashBefore);
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(
+    prices.getByText(/核对回执身份校验失败：返回版本摘要格式无效/),
+  ).toBeVisible();
+  await expect(receiptText).toContainText("cccccccccc");
+
+  await pricePage.evaluate(() => {
+    window.verifyMode = "badTime";
+  });
+  const badTimeBefore = await pricePage.evaluate(() => window.verifyCalls);
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction((n) => window.verifyCalls > n, badTimeBefore);
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(
+    prices.getByText(/核对回执身份校验失败：返回保存时间无效/),
+  ).toBeVisible();
+  await expect(receiptText).toContainText("cccccccccc");
+
+  // A finite value beyond the JS date range is not a saved time either.
+  await pricePage.evaluate(() => {
+    window.verifyMode = "overflowTime";
+  });
+  const overflowBefore = await pricePage.evaluate(() => window.verifyCalls);
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction((n) => window.verifyCalls > n, overflowBefore);
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(
+    prices.getByText(/核对回执身份校验失败：返回保存时间无效/),
+  ).toBeVisible();
+  await expect(receiptText).toContainText("2020-01-01");
+  await expect(receiptText).toContainText("cccccccccc");
+  await expect(prices.getByText(/价格核对已完成/)).toHaveCount(0);
+
+  // The next verification clears the local identity error.
+  await pricePage.evaluate(() => {
+    window.verifyMode = "ok";
+  });
+  const okBefore = await pricePage.evaluate(() => window.verifyCalls);
+  await prices
+    .getByRole("button", { name: "读取行情并核对", exact: true })
+    .click();
+  await pricePage.waitForFunction((n) => window.verifyCalls > n, okBefore);
+  await expect(prices.getByText(/核对回执身份校验失败/)).toHaveCount(0);
+  await pricePage.evaluate(() => window.releaseVerify());
+  await expect(receiptText).toContainText("2020-01-02");
+
+  // An ordinary day change also clears an open evidence panel.
+  await prices
+    .getByRole("button", { name: "查看本次核对证据", exact: true })
+    .click();
+  await expect(prices.getByText(/所查核对/)).toBeVisible();
+  await priceDay.fill("2020-01-03");
+  await prices
+    .getByRole("button", { name: "查询样本日期", exact: true })
+    .click();
+  await expect(
+    prices.getByText("所属报告已清理，样本日期占位保留。", { exact: true }),
+  ).toBeVisible();
+  await expect(prices.getByText(/所查核对/)).toHaveCount(0);
+  assert.deepEqual(priceErrors, []);
+  await pricePage.close();
 
   console.log(
     JSON.stringify({
