@@ -162,8 +162,14 @@ function taskSourceLink(
   else if (inputType === "research-command") href = "/lab?tab=tasks";
   else if (type === "screen" && inputType === "formula-screen")
     href = "/scan?tab=formula";
-  else if (type === "backtest") href = "/lab/backtest";
-  else if (
+  else if (type === "backtest") {
+    // Daily/catalog portfolios and versioned objects use different forms from
+    // the five-minute baseline. Returning to the generic baseline loses the
+    // source workflow even though all three share the same job type.
+    if (inputType === "strategy-center") href = "/lab?tab=catalog";
+    else if (inputType === "lab-backtest") href = "/lab/backtest?mode=object";
+    else href = "/lab/backtest";
+  } else if (
     type === "research" &&
     typeof kind === "string" &&
     [
@@ -184,6 +190,22 @@ function taskSourceLink(
 // Only expose a destination for a persisted report, never infer one from status
 // or materialize the job result (which can contain a whole screening universe).
 function taskResultLink(id: string): TaskState["resultLink"] {
+  const financial = sqlite()
+    .prepare(
+      `
+    SELECT r.id, json_extract(r.payload, '$.input.symbols[0]') AS symbol
+    FROM records j JOIN records r ON r.id = json_extract(j.payload, '$.result.reportId')
+    WHERE j.kind = 'job' AND j.id = ?
+      AND json_extract(j.payload, '$.status') = 'completed'
+      AND r.kind = 'financial-replay'
+  `,
+    )
+    .get(id) as { id: string; symbol: string | null } | undefined;
+  if (financial?.symbol)
+    return {
+      href: `/scan?symbol=${encodeURIComponent(financial.symbol)}&period=day&adjustment=none&view=financial`,
+      label: "查看财务回放结果",
+    };
   const report = sqlite()
     .prepare(
       `

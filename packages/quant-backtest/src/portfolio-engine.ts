@@ -1,5 +1,6 @@
 import {
   prepareStrategy,
+  validateStrategyBars,
   strategyProtection,
   strategyTimeExit,
   strategyObjectSchema,
@@ -134,6 +135,15 @@ export type PortfolioRequest = {
     availableAt: string;
     weight: number;
   }[];
+  /** Frozen completed-day allocations. Weights are fractions of sleeve equity,
+   * not buy ceilings; absent symbols are liquidated at the next legal open. */
+  scheduledTargets?: readonly {
+    strategyId: string;
+    date: string;
+    availableAt: string;
+    sourceHash: string;
+    targets: Readonly<Record<string, number>>;
+  }[];
 };
 export type PortfolioOrder = {
   id: number;
@@ -150,6 +160,7 @@ export type PortfolioOrder = {
   rankScore?: number;
   weightCeiling?: number;
   targetWeight?: number;
+  targetSourceHash?: string;
   industries?: Record<string, string[]>;
   riskGroups?: string[][];
   marketTargetShare?: number;
@@ -174,6 +185,12 @@ export type PortfolioFill = {
   };
 };
 type PositionControl = {
+  studyEntry?: {
+    entry: number;
+    entryIndex: number;
+    signalIndex: number;
+    lastExitIndex?: number;
+  };
   stop: number | null;
   entry: number;
   high: number;
@@ -201,6 +218,18 @@ const dayOf = (date: string, market: Market) =>
     : new Date(Date.parse(date) + (market === "cn-equity" ? 8 * 3600000 : 0))
         .toISOString()
         .slice(0, 10);
+const accountDate = (date: string, market: Market) => {
+  if (date.length === 10) return date;
+  const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(date);
+  const time = Date.parse(
+    zoned
+      ? date
+      : `${date.replace(" ", "T")}${market === "cn-equity" ? "+08:00" : "Z"}`,
+  );
+  return market === "cn-equity"
+    ? new Date(time + 8 * 3600000).toISOString().replace("Z", "+08:00")
+    : new Date(time).toISOString();
+};
 const floorStep = (quantity: Numeric, step: number) =>
   toNumber(big(quantity).div(step).round(0, 0).times(step));
 const periodMinutes: Partial<Record<Period, number>> = {
@@ -396,7 +425,7 @@ export function runPortfolio(
       const cached = preparation?.get(instrument);
       if (cached?.signature === preparedSignature)
         return [instrument.symbol, cached.prepared] as const;
-      prepareStrategy(strategies[0]!, instrument.bars);
+      validateStrategyBars(instrument.bars);
       if (
         instrument.bars.length !== instrument.signalBars.length ||
         instrument.bars.some(
@@ -482,6 +511,63 @@ export function runPortfolio(
   }
   for (const rows of weightRows.values())
     rows.sort((a, b) => a.date.localeCompare(b.date));
+  const scheduledAt = new Map<
+    string,
+    NonNullable<PortfolioRequest["scheduledTargets"]>[number][]
+  >();
+  const scheduledKeys = new Set<string>();
+  for (const row of request.scheduledTargets ?? []) {
+    const strategy = strategies.find((s) => s.id === row.strategyId);
+    if (
+      !strategy ||
+      strategy.period !== "day" ||
+      strategy.universe.kind !== "symbols" ||
+      strategy.entry.kind !== "constant" ||
+      strategy.entry.value ||
+      (strategy.exit.rule &&
+        (strategy.exit.rule.kind !== "constant" || strategy.exit.rule.value)) ||
+      usesStrategyBook(strategy) ||
+      Object.keys(strategy.exit).some((key) => key !== "rule") ||
+      request.positionWeights?.some(
+        (weight) => weight.strategyId === strategy.id,
+      )
+    )
+      throw new Error(
+        "Scheduled targets require an exclusive constant-false daily strategy",
+      );
+    if (
+      !Number.isFinite(Date.parse(row.date)) ||
+      !Number.isFinite(Date.parse(row.availableAt)) ||
+      Date.parse(row.availableAt) > Date.parse(row.date) ||
+      !request.calendar.includes(row.date) ||
+      typeof row.sourceHash !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(row.sourceHash) ||
+      !row.targets ||
+      typeof row.targets !== "object" ||
+      Array.isArray(row.targets)
+    )
+      throw new Error("Invalid / non-causal scheduled target evidence");
+    const weights = Object.entries(row.targets);
+    const universe = symbolUniverses.get(strategy.id)!;
+    if (
+      weights.some(
+        ([symbol, weight]) =>
+          !instruments.has(symbol) ||
+          !universe.has(symbol) ||
+          !Number.isFinite(weight) ||
+          weight < 0 ||
+          weight > 1,
+      ) ||
+      weights.reduce((sum, [, weight]) => sum + weight, 0) > 1 + 1e-10
+    )
+      throw new Error("Invalid scheduled target symbols / weights");
+    const key = `${row.strategyId}:${row.date}`;
+    if (scheduledKeys.has(key)) throw new Error("Duplicate scheduled target");
+    scheduledKeys.add(key);
+    const rows = scheduledAt.get(row.date) ?? [];
+    rows.push(row);
+    scheduledAt.set(row.date, rows);
+  }
   const accounts = new Map(
     sleeves.map((s) => {
       const account = new PortfolioAccount(initial);
@@ -490,6 +576,7 @@ export function runPortfolio(
     }),
   );
   const controls = new Map<string, PositionControl>();
+  const lastExitIndices = new Map<string, number>();
   const bookStates = new Map<string, StrategyBookState>();
   const bookDecisions: {
     strategyId: string;
@@ -499,11 +586,14 @@ export function runPortfolio(
   const lifecycle = strategies.some(
     (s) => usesStrategyBook(s) || s.exit.chandelier || s.exit.timeReentry,
   );
+  const samePeriod = strategies.every(
+    (s) => s.period === strategies[0]!.period,
+  );
   const observationDay = (date: string) =>
-    lifecycle
+    lifecycle || samePeriod
       ? portfolioObservationDay(market, strategies[0]!.period, date)
       : dayOf(date, market);
-  if (lifecycle && strategies.some((s) => s.period !== strategies[0]!.period))
+  if (lifecycle && !samePeriod)
     throw new Error(
       "A lifecycle portfolio requires one native period per request",
     );
@@ -676,7 +766,7 @@ export function runPortfolio(
       order.side === "sell" &&
       account.sellable(
         key,
-        dayOf(date, market),
+        accountDate(date, market),
         marketRules[market].settlementDays,
       ) <= 0
     ) {
@@ -772,9 +862,10 @@ export function runPortfolio(
                 tranches: 1,
               }
             : strategy.sizing,
-        equity: usesStrategyBook(strategy)
-          ? (openingEquities.get(order.sleeve) ?? account.equity)
-          : account.equity,
+        equity:
+          usesStrategyBook(strategy) || order.targetWeight !== undefined
+            ? (openingEquities.get(order.sleeve) ?? account.equity)
+            : account.equity,
         cash: account.cash,
         price,
         stop,
@@ -927,6 +1018,16 @@ export function runPortfolio(
           : {
               stop,
               entry: price,
+              studyEntry: {
+                entry:
+                  (price *
+                    source.instrument.signalBars[source.indices.get(date)!]!
+                      .close) /
+                  source.instrument.bars[source.indices.get(date)!]!.close,
+                entryIndex: source.indices.get(date)!,
+                signalIndex: source.indices.get(order.signalAt)!,
+                lastExitIndex: lastExitIndices.get(key),
+              },
               high: price,
               target: strategy.exit.takeProfit
                 ? price * (1 + strategy.exit.takeProfit)
@@ -940,7 +1041,7 @@ export function runPortfolio(
         quantity,
         account.sellable(
           key,
-          dayOf(date, market),
+          accountDate(date, market),
           marketRules[market].settlementDays,
         ),
         rules.maximum,
@@ -976,7 +1077,7 @@ export function runPortfolio(
     const fee = feeFor(quantity, price, order.side, dateCosts);
     account.fill(
       key,
-      dayOf(date, market),
+      accountDate(date, market),
       order.side,
       quantity,
       price,
@@ -1000,6 +1101,7 @@ export function runPortfolio(
     if (order.status !== "pending") removePending(order);
     order.reason = null;
     if (!remaining) {
+      lastExitIndices.set(key, source.indices.get(date)!);
       controls.delete(key);
       if (order.trigger === "time" && strategy.exit.timeReentry)
         reentries.set(key, {
@@ -1320,7 +1422,16 @@ export function runPortfolio(
             }
             continue;
           }
-          const decision = source.evaluators.get(strategy.id)!.evaluate(i);
+          const decision = source.evaluators.get(strategy.id)!.evaluate(
+            i,
+            current
+              ? control?.studyEntry
+              : {
+                  entry: 0,
+                  entryIndex: i,
+                  lastExitIndex: lastExitIndices.get(key),
+                },
+          );
           if (eligible && (decision.entry === null || decision.exit === null))
             count.unknown++;
           if (eligible && decision.entry === true && decision.exit !== true)
@@ -1529,6 +1640,50 @@ export function runPortfolio(
               order.riskGroups = decision.riskGroups;
               order.marketTargetShare = decision.marketTargetShare;
             }
+        }
+      }
+      for (const target of scheduledAt.get(date) ?? []) {
+        const strategy = strategies.find((s) => s.id === target.strategyId)!;
+        const account = accounts.get(strategy.sleeve)!;
+        // New completed allocations replace old unfilled allocations, just as
+        // the weekly book does. Executed fills remain immutable evidence.
+        for (const order of [...pendingOrders.values()].flatMap((active) => [
+          ...active,
+        ])) {
+          if (
+            order.strategyId === strategy.id &&
+            order.targetWeight !== undefined
+          ) {
+            order.status = "rejected";
+            order.reason = "被新的完成bar调仓目标替代";
+            removePending(order);
+          }
+        }
+        const symbols = new Set([
+          ...Object.keys(target.targets),
+          ...[...account.positions.keys()]
+            .filter((key) => identities.get(key)!.strategyId === strategy.id)
+            .map((key) => identities.get(key)!.symbol),
+        ]);
+        for (const symbol of [...symbols].sort()) {
+          const key = keyFor(strategy.id, symbol);
+          const holding = account.positions.get(key);
+          const weight = target.targets[symbol] ?? 0;
+          const current = holding
+            ? (holding.quantity * holding.mark) / account.equity
+            : 0;
+          if (Math.abs(current - weight) <= 1e-10 || pendingOrders.has(key))
+            continue;
+          const order = pushOrder(
+            strategy,
+            symbol,
+            date,
+            calendar[index + 1 + (request.signalDelayBars ?? 0)] ?? null,
+            current > weight ? "sell" : "buy",
+            "signal",
+          );
+          order.targetWeight = weight;
+          order.targetSourceHash = target.sourceHash;
         }
       }
       if (request.rebalance) {

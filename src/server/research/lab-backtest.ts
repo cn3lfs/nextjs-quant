@@ -1,3 +1,7 @@
+import { loadTheoryMultiperiodSource } from "./theory-multiperiod-source";
+import { loadTheoryOrbSource } from "./theory-orb-source";
+import { labBacktestEvidence } from "./lab-backtest-evidence";
+import { freezePortfolioExecution } from "./freeze-portfolio-execution";
 import { forwardExecutionBuildHash } from "./forward-identity";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -18,6 +22,7 @@ import {
 } from "./corporate-actions";
 import { settings } from "../infra/settings";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
+import { dailyEquity } from "~/lib/backtest/daily-equity";
 
 export type LabBacktestWork = {
   type: "lab-backtest";
@@ -36,7 +41,11 @@ export async function executeLabBacktest(
       "请提交已冻结明确证券名单的策略对象；RPS/时点成分须从研究任务冻结",
     );
   const symbols = strategy.universe.symbols;
-  if (strategy.market === "cn-equity" && strategy.period !== "day")
+  if (
+    strategy.market === "cn-equity" &&
+    strategy.period !== "day" &&
+    strategy.entry.kind !== "triple-screen"
+  )
     throw new Error(
       "此组合入口要求A股日线执行证据；五分钟实验请使用下方现行入口",
     );
@@ -55,14 +64,34 @@ export async function executeLabBacktest(
     throw new Error(
       "该策略需要原生/时点外部证据；请使用冻结研究任务及其报告，不能以缺失输入回测",
     );
+  const theory =
+    strategy.entry.kind === "triple-screen"
+      ? await loadTheoryMultiperiodSource({
+          strategy,
+          start: input.start,
+          end: input.end,
+          config,
+          read,
+          progress,
+        })
+      : strategy.entry.kind === "utc-orb"
+        ? await loadTheoryOrbSource({
+            strategy,
+            start: input.start,
+            end: input.end,
+            config,
+            read,
+            progress,
+          })
+        : null;
   const actionSource =
-    strategy.market === "cn-equity"
+    strategy.market === "cn-equity" && !theory
       ? await corporateActions(config.tdxRoot)
       : null;
-  const instruments: PortfolioInstrument[] = [],
-    sources: { symbol: string; hash: string; adjustment: string | null }[] = [];
+  const instruments: PortfolioInstrument[] = theory?.instruments ?? [],
+    sources: Record<string, unknown>[] = theory?.sources ?? [];
   let total = 0;
-  for (const symbol of symbols) {
+  for (const symbol of theory ? [] : symbols) {
     const archive =
       strategy.market === "crypto"
         ? await binanceArchiveSource({
@@ -156,16 +185,16 @@ export async function executeLabBacktest(
       `冻结 ${symbol}`,
     );
   }
-  const calendar = [
-    ...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date))),
-  ].sort();
+  const calendar =
+    theory?.calendar ??
+    [...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date)))].sort();
   const request: PortfolioRequest = {
     market: strategy.market,
     initial: input.initial,
-    start: input.start,
-    end: input.end,
+    start: theory?.start ?? input.start,
+    end: theory?.end ?? input.end,
     calendar,
-    instruments,
+    instruments: instruments.map(freezePortfolioExecution),
     strategies: [strategy],
     sleeves: [
       {
@@ -192,7 +221,15 @@ export async function executeLabBacktest(
   );
   const performance = createPerformanceReport(
     input.initial,
-    result.equity.map((e) => ({ date: e.date.slice(0, 10), value: e.equity })),
+    dailyEquity(result.curve),
   );
-  return { inputHash, frozen, result, overview: performance.overview };
+  const evidence = labBacktestEvidence(request, result);
+  return {
+    inputHash,
+    frozen,
+    result,
+    overview: performance.overview,
+    signalEvidence: evidence.signals,
+    inputDiagnostics: evidence.diagnostics,
+  };
 }

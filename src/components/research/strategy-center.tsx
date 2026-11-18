@@ -1,8 +1,10 @@
 "use client";
 import { formatEvidenceText } from "~/lib/common/evidence-text";
+import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 
 import { formatNumber } from "trading-strategy-core/format-number";
 
+import Link from "next/link";
 import { Segmented } from "../panels";
 import { StrategyScoreboard } from "./strategy-scoreboard";
 import { useState } from "react";
@@ -330,12 +332,26 @@ export function StrategyCenter() {
                   ),
                 )}
               </div>
-              {(
-                [
-                  ...studyStrategies,
-                  ...nativeStudyStrategies,
-                ] as readonly string[]
-              ).includes(selected.id) ? (
+              {selected.id.startsWith("theory-triple-screen-") ? (
+                <Link
+                  className="underline"
+                  href={`/lab/backtest?mode=object&preset=${selected.id.endsWith("week-day") ? "week-day" : "day-hour-five"}`}
+                >
+                  打开多周期策略对象回测（A股 / BTC、ETH）
+                </Link>
+              ) : selected.id === "theory-utc-orb" ? (
+                <Link
+                  className="underline"
+                  href="/lab/backtest?mode=object&preset=utc-orb"
+                >
+                  打开 UTC 5分钟收盘代理 ORB 回测（BTC/ETH 现货）
+                </Link>
+              ) : (
+                  [
+                    ...studyStrategies,
+                    ...nativeStudyStrategies,
+                  ] as readonly string[]
+                ).includes(selected.id) ? (
                 <form
                   className="grid gap-3 lg:grid-cols-2"
                   onSubmit={(event) => {
@@ -751,7 +767,10 @@ export function StrategyCenter() {
                   </Button>
                 </>
               )}
-              <a href="/system/tasks" className="text-primary underline">
+              <a
+                href={taskHistoryHref({ id: job.id })}
+                className="text-primary underline"
+              >
                 任务详情
               </a>
             </div>

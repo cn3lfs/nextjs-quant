@@ -5,6 +5,42 @@ export type PortfolioLot = {
   bought: string;
   availableOn?: string;
 };
+function settlementInstant(date: string, settlementDays: 0 | 1) {
+  const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(date);
+  return Date.parse(
+    zoned
+      ? date
+      : `${date.replace(" ", "T")}${settlementDays === 1 ? "+08:00" : "Z"}`,
+  );
+}
+function settlementDate(date: string, settlementDays: 0 | 1) {
+  if (date.length === 10) return date;
+  return new Date(
+    settlementInstant(date, settlementDays) +
+      (settlementDays === 1 ? 8 * 3600000 : 0),
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+/** Default equity lots settle by Shanghai calendar day. Explicit entitlement
+ * instants retain their finer boundary, including equivalent timezone labels. */
+function lotAvailable(lot: PortfolioLot, date: string, settlementDays: 0 | 1) {
+  if (lot.availableOn !== undefined) {
+    // Preserve the legacy date-only replay contract when no intraday instant exists.
+    if (date.length === 10) return lot.availableOn <= date;
+    if (lot.availableOn.length === 10)
+      return lot.availableOn <= settlementDate(date, settlementDays);
+    return (
+      settlementInstant(lot.availableOn, settlementDays) <=
+      settlementInstant(date, settlementDays)
+    );
+  }
+  return (
+    settlementDays === 0 ||
+    settlementDate(lot.bought, settlementDays) <
+      settlementDate(date, settlementDays)
+  );
+}
 export type PortfolioPosition = {
   quantity: number;
   cost: number;
@@ -55,14 +91,7 @@ export class PortfolioAccount {
         .get(key)
         ?.lots.reduce(
           (n, lot) =>
-            n +
-            (lot.availableOn !== undefined
-              ? lot.availableOn <= day
-                ? lot.quantity
-                : 0
-              : settlementDays === 0 || lot.bought < day
-                ? lot.quantity
-                : 0),
+            n + (lotAvailable(lot, day, settlementDays) ? lot.quantity : 0),
           0,
         ) ?? 0
     );
@@ -189,12 +218,7 @@ export class PortfolioAccount {
     } else if (p) {
       let remaining = quantity;
       for (const lot of p.lots) {
-        if (
-          lot.availableOn !== undefined
-            ? lot.availableOn > day
-            : settlementDays !== 0 && lot.bought >= day
-        )
-          continue;
+        if (!lotAvailable(lot, day, settlementDays)) continue;
         const sold = Math.min(lot.quantity, remaining);
         lot.quantity -= sold;
         remaining -= sold;

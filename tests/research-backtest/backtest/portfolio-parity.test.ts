@@ -10,6 +10,7 @@ import {
   factorStrategyPresets,
   factorStrategySchema,
   studyStrategies,
+  type StudyStrategy,
 } from "trading-strategies";
 import { maCrossStrategy } from "../../helpers/legacy-ma-signals";
 import {
@@ -69,7 +70,14 @@ it("runBacktest, runMaBaseline and runStrategyExperiment fills / orders / equity
     ),
   ).toEqual(expected.signals);
 });
-it.each(studyStrategies)(
+// This fixture predates the theory proxies. Its keys are the historical
+// preservation contract; new rules have independent causal/geometry tests.
+it("retains every strategy recorded by the frozen pre-R1b engine", () => {
+  expect(Object.keys(expected.daily)).toHaveLength(56);
+  for (const id of Object.keys(expected.daily))
+    expect(studyStrategies).toContain(id);
+});
+it.each(Object.keys(expected.daily) as StudyStrategy[])(
   "runClassicStudy %s preserves every fill and daily equity including segregated dividends",
   (strategy) => {
     const { bars, dividends, options } = parityDaily();

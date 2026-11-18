@@ -1,3 +1,16 @@
+import {
+  createTripleScreenRule,
+  tripleScreenVariants,
+  type TripleScreenInput,
+  type TripleScreenPosition,
+} from "./theory-multiperiod.js";
+import { studyStrategies, studyWarmup } from "./study-catalog.js";
+import { createExtendedStudyRule } from "./study-rules.js";
+import {
+  createUtcOrbRule,
+  type UtcOrbDecision,
+  type UtcOrbInput,
+} from "./theory-orb.js";
 import { z } from "zod";
 import { strategyBuildHash } from "./build-identity.js";
 import { periods, type Bar } from "trading-strategy-core/bars";
@@ -46,6 +59,26 @@ function validDate(date: string) {
   return true;
 }
 export const strategyRuleSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("triple-screen"),
+      variant: z.enum(tripleScreenVariants),
+      side: z.enum(["entry", "exit"]),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("study-rule"),
+      strategy: z.enum(studyStrategies),
+      side: z.enum(["entry", "exit"]),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("utc-orb"),
+      side: z.enum(["entry", "exit"]),
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("historical-low"),
@@ -225,6 +258,19 @@ export const strategyObjectSchema = z
     if (s.market === "cn-equity" && ["1h", "4h"].includes(s.period))
       ctx.addIssue({ code: "custom", message: "Unsupported equity period" });
     for (const r of [s.entry, s.exit.rule]) {
+      if (
+        r?.kind === "triple-screen" &&
+        s.period !== (r.variant === "week-day" ? "day" : "5m")
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "Triple screen execution period does not match its variant",
+        });
+      if (r?.kind === "study-rule" && s.period !== "day")
+        ctx.addIssue({
+          code: "custom",
+          message: "Study rules require completed daily bars",
+        });
       if (r?.kind === "dual-ma" && r.fast >= r.slow)
         ctx.addIssue({
           code: "custom",
@@ -234,6 +280,49 @@ export const strategyObjectSchema = z
         ctx.addIssue({
           code: "custom",
           message: "double breakout requires daily bars",
+        });
+      if (r?.kind === "utc-orb" && (s.market !== "crypto" || s.period !== "5m"))
+        ctx.addIssue({
+          code: "custom",
+          message: "UTC ORB requires crypto 5m bars (no CN T+1 variant)",
+        });
+    }
+    if (s.entry.kind === "utc-orb" || s.exit.rule?.kind === "utc-orb") {
+      if (
+        s.entry.kind !== "utc-orb" ||
+        s.exit.rule?.kind !== "utc-orb" ||
+        s.entry.side !== "entry" ||
+        s.exit.rule.side !== "exit"
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "UTC ORB requires matching entry and exit rules",
+        });
+      if (
+        s.universe.kind !== "symbols" ||
+        s.universe.symbols.some(
+          (symbol) => !["cxBTCUSDT", "cxETHUSDT"].includes(symbol),
+        )
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "UTC ORB universe is BTC/ETH spot only",
+        });
+    }
+    if (
+      s.entry.kind === "triple-screen" ||
+      s.exit.rule?.kind === "triple-screen"
+    ) {
+      if (
+        s.entry.kind !== "triple-screen" ||
+        s.exit.rule?.kind !== "triple-screen" ||
+        s.entry.variant !== s.exit.rule.variant ||
+        s.entry.side !== "entry" ||
+        s.exit.rule.side !== "exit"
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "Triple screen requires matching entry and exit variants",
         });
     }
     if (s.sizing.kind === "risk" && !s.exit.stop)
@@ -290,6 +379,8 @@ export type PreparedStrategyRule = {
   }[];
 };
 export type StrategyExternalInputs = {
+  tripleScreen?: TripleScreenInput;
+  orb?: UtcOrbInput;
   preparedRules?: readonly PreparedStrategyRule[];
   lowZone?: readonly LowZoneFact[];
   monitorCzsc?: {
@@ -433,12 +524,7 @@ export function strategyProtection(
  * Point evaluation never sees a future prefix in a native rule or structural input.
  * Price basis and forward-adjustment denominator are frozen by the caller.
  */
-export function prepareStrategy(
-  raw: StrategyObjectInput,
-  bars: readonly Bar[],
-  external: StrategyExternalInputs = {},
-) {
-  const strategy = strategyObjectSchema.parse(raw);
+export function validateStrategyBars(bars: readonly Bar[]) {
   let previous = "";
   for (const b of bars) {
     if (
@@ -462,11 +548,32 @@ export function prepareStrategy(
       throw new Error("Invalid strategy bars / order");
     previous = b.date;
   }
+}
+
+export function prepareStrategy(
+  raw: StrategyObjectInput,
+  bars: readonly Bar[],
+  external: StrategyExternalInputs = {},
+) {
+  const strategy = strategyObjectSchema.parse(raw);
+  validateStrategyBars(bars);
   if (
     new Set(external.rps?.map((x) => x.date)).size !==
     (external.rps?.length ?? 0)
   )
     throw new Error("Duplicate RPS observations");
+  if (
+    external.preparedRules &&
+    (strategy.entry.kind === "study-rule" ||
+      strategy.exit.rule?.kind === "study-rule" ||
+      strategy.entry.kind === "triple-screen" ||
+      strategy.exit.rule?.kind === "triple-screen" ||
+      strategy.entry.kind === "utc-orb" ||
+      strategy.exit.rule?.kind === "utc-orb")
+  )
+    throw new Error(
+      "Position-dependent study rules cannot use projected observations",
+    );
   if (external.preparedRules) {
     const sameId = external.preparedRules.filter(
       (row) => row.strategy.id === strategy.id,
@@ -589,8 +696,134 @@ export function prepareStrategy(
     }
     return breakoutCache.get(i)!;
   };
-  const compile = (rule: StrategyRule): ((index: number) => boolean | null) => {
+  const multiEvidence = new Map<
+    StrategyRule,
+    (
+      index: number,
+      position?: TripleScreenPosition,
+    ) => ReturnType<ReturnType<typeof createTripleScreenRule>>
+  >();
+  const orbEvidence = new Map<
+    StrategyRule,
+    (index: number, position?: TripleScreenPosition) => UtcOrbDecision
+  >();
+  const compile = (
+    rule: StrategyRule,
+  ): ((index: number, position?: TripleScreenPosition) => boolean | null) => {
     switch (rule.kind) {
+      case "triple-screen": {
+        const input = external.tripleScreen;
+        if (
+          !input ||
+          input.variant !== rule.variant ||
+          input.market !== strategy.market
+        )
+          throw new Error("Missing or mismatched multi-period input");
+        const execution = input.execution.slots;
+        for (const slot of execution) {
+          if (!slot.bar) continue;
+          const closeTime =
+            strategy.period === "day"
+              ? strategy.market === "cn-equity"
+                ? Date.parse(`${slot.bar.date.slice(0, 10)}T15:00:00+08:00`)
+                : Date.parse(slot.bar.date.slice(0, 10)) + 86400000
+              : Date.parse(slot.bar.date);
+          if (Date.parse(slot.availableAt) !== closeTime)
+            throw new Error(
+              "Execution availability must match completed bar clock",
+            );
+        }
+
+        const present = execution.flatMap((slot, index) =>
+          slot.bar ? [{ bar: slot.bar, index }] : [],
+        );
+        if (
+          present.length !== bars.length ||
+          present.some((slot, i) =>
+            (
+              [
+                "date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "amount",
+              ] as const
+            ).some((key) => slot.bar[key] !== bars[i]![key]),
+          )
+        )
+          throw new Error(
+            "Multi-period execution bars must equal strategy signal bars",
+          );
+        const slotIndex = (index: number) => {
+          const point = present[index];
+          if (!point) throw new Error("Missing multi-period position index");
+          return point.index;
+        };
+        const evaluate = createTripleScreenRule(input);
+        const mapped = (i: number, position?: TripleScreenPosition) =>
+          evaluate(
+            slotIndex(i),
+            position
+              ? {
+                  ...position,
+                  entryIndex: slotIndex(position.entryIndex),
+                  ...(position.signalIndex === undefined
+                    ? {}
+                    : { signalIndex: slotIndex(position.signalIndex) }),
+                  ...(position.lastExitIndex === undefined
+                    ? {}
+                    : {
+                        lastExitIndex:
+                          position.lastExitIndex === -1
+                            ? -1
+                            : slotIndex(position.lastExitIndex),
+                      }),
+                }
+              : { entry: 0, entryIndex: slotIndex(i) },
+          );
+        multiEvidence.set(rule, mapped);
+        return (i, position) => {
+          const decision = mapped(i, position);
+          if (rule.side === "entry")
+            return decision.entryKnown ? decision.enter : null;
+          return decision.exitKnown ? decision.exit : null;
+        };
+      }
+
+      case "utc-orb": {
+        const orb = external.orb;
+        if (!orb) throw new Error("Missing frozen UTC ORB completed 5m input");
+        if (strategy.period !== "5m" || strategy.market !== "crypto")
+          throw new Error("UTC ORB requires crypto 5m execution bars");
+        const evaluate = createUtcOrbRule(orb, bars);
+        orbEvidence.set(rule, evaluate);
+        return (i, position) => {
+          const decision = evaluate(i, position ?? { entry: 0, entryIndex: i });
+          return rule.side === "entry"
+            ? decision.entryKnown
+              ? decision.entry
+              : null
+            : decision.exitKnown
+              ? decision.exit
+              : null;
+        };
+      }
+
+      case "study-rule": {
+        const evaluate = createExtendedStudyRule(rule.strategy, bars);
+        if (!evaluate)
+          throw new Error(
+            "Study rule requires an account-only execution profile",
+          );
+        return (i, position) => {
+          if (i < studyWarmup(rule.strategy)) return null;
+          if (rule.side === "exit" && !position) return false;
+          const result = evaluate(i, position ?? { entry: 0, entryIndex: i });
+          return rule.side === "entry" ? result.enter : result.exit;
+        };
+      }
       case "historical-low": {
         const key = JSON.stringify(rule.config);
         if (!lowCache.has(key))
@@ -738,13 +971,39 @@ export function prepareStrategy(
     strategy,
     breakoutAt,
     /** Diagnostic values come from the same rule implementations, never a second signal. */
-    explain(index: number): StrategyRuleEvidence {
+    explain(
+      index: number,
+      position?: TripleScreenPosition,
+    ): StrategyRuleEvidence {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
       const rule = strategy.entry,
         bar = bars[index]!;
       let inputs: Record<string, unknown> = {};
-      if (rule.kind === "dual-ma")
+      if (rule.kind === "triple-screen") {
+        const input = external.tripleScreen!;
+        inputs = {
+          variant: rule.variant,
+          ...multiEvidence.get(rule)!(index, position),
+          protectionBasis: "completed-close-only",
+          executionSource: input.execution.sourceHash,
+          setupSource: input.setup.sourceHash,
+          backgroundSource: input.background.sourceHash,
+          calendarHash: input.execution.calendarHash,
+          adjustmentId: input.execution.adjustmentId,
+        };
+      } else if (rule.kind === "utc-orb") {
+        const orb = external.orb!;
+        inputs = {
+          ...orbEvidence.get(rule)!(index, position),
+          sourceHash: orb.sourceHash,
+          adjustmentId: orb.adjustmentId,
+          calendarHash: orb.calendarHash,
+          warmupDays: orb.warmupDays,
+          sessionBars: orb.sessionBars,
+          model: "UTC 5分钟收盘代理；下一5分钟开盘执行；非严格日内或盘中硬止损",
+        };
+      } else if (rule.kind === "dual-ma")
         inputs = {
           fast: rule.fast,
           slow: rule.slow,
@@ -819,7 +1078,7 @@ export function prepareStrategy(
         basis: "signal-bars" as const,
         close: bar.close,
         volume: bar.volume,
-        entry: enter(index),
+        entry: enter(index, position),
         inputs,
         ...(strategy.rank?.kind === "rps-composite"
           ? {
@@ -834,10 +1093,10 @@ export function prepareStrategy(
           : {}),
       };
     },
-    evaluate(index: number): StrategyDecision {
+    evaluate(index: number, position?: TripleScreenPosition): StrategyDecision {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
-      const exit = leave(index);
+      const exit = leave(index, position);
       let stopLevel: number | null = null;
       if (stop?.kind === "fixed")
         stopLevel = bars[index]!.close * (1 - stop.fraction);
@@ -857,7 +1116,7 @@ export function prepareStrategy(
         stopLevel = level?.value ?? null;
       }
       return {
-        entry: exit === false ? enter(index) : false,
+        entry: exit === false ? enter(index, position) : false,
         exit,
         stopLevel,
         ...(strategy.exit.chandelier
@@ -891,6 +1150,15 @@ export function prepareStrategyRulePoints(
     throw new Error(
       "Cannot prepare genuine rules from already projected observations",
     );
+  if (
+    strategy.entry.kind === "study-rule" ||
+    strategy.exit.rule?.kind === "study-rule" ||
+    strategy.entry.kind === "triple-screen" ||
+    strategy.exit.rule?.kind === "triple-screen" ||
+    strategy.entry.kind === "utc-orb" ||
+    strategy.exit.rule?.kind === "utc-orb"
+  )
+    throw new Error("Position-dependent study rules cannot be projected");
   const prepared = prepareStrategy(strategy, bars, external);
   const indices = new Map(bars.map((bar, index) => [bar.date, index]));
   const points = dates.map((date) => {

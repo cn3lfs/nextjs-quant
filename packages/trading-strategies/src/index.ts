@@ -49,3 +49,23 @@ export * from "./market-low-zone.js";
 export * from "./research-candidates.js";
 export * from "./low-zone-cycles.js";
 export { plannedStopRisk } from "./research/risk/research-risk.js";
+
+export * from "./theory-daily.js";
+export * from "./theory-strategy.js";
+export * from "./theory-structure.js";
+export * from "./theory-catalog.js";
+export * from "./theory-advanced.js";
+
+export * from "./theory-multiperiod.js";
+
+export * from "./theory-range.js";
+
+export * from "./theory-confirmation.js";
+export * from "./theory-proportions.js";
+export * from "./theory-orb.js";
+export * from "./theory-oneil.js";
+export * from "./theory-input.js";
+export * from "./theory-selection-components.js";
+export * from "./theory-grid.js";
+export * from "./theory-composition.js";
+export * from "./theory-watchlist.js";

@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "../ui/select";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
+import { FinancialTheoryEvidence } from "./financial-theory-evidence";
+import { FinancialReplayPanel } from "./financial-replay-panel";
 import { downloadFinancialJson } from "./financial-download";
 
 const metricOptions = [
@@ -54,16 +56,28 @@ const columns: DataTableColumn<Row>[] = [
   },
   {
     id: "reportDate",
-    header: "报告期 / 公告日",
+    header: "报告期 / 公告日（按最新可见财报排序）",
     enableSorting: true,
-    cell: ({ row }) =>
-      `${row.original.reportDate ?? "缺失"} / ${row.original.announcementDate ?? "未知"}`,
+    cell: ({ row }) => (
+      <div className="min-w-40 max-w-56 space-y-1 whitespace-normal text-xs">
+        <p>
+          最新可见财报 {row.original.reportDate ?? "缺失"} / 公告日{" "}
+          {row.original.announcementDate ?? "未知"}
+        </p>
+        {row.original.theory && (
+          <p>
+            年度模型 {row.original.theory.reportDate ?? "缺失"} / 公告日{" "}
+            {row.original.theory.announcementDate ?? "未知"}
+          </p>
+        )}
+      </div>
+    ),
   },
   {
     id: "conditions",
     header: "逐项条件与依据",
     cell: ({ row }) => (
-      <details>
+      <details className="min-w-64 max-w-lg whitespace-normal">
         <summary className="cursor-pointer">
           {row.original.matched === true
             ? "满足"
@@ -72,6 +86,11 @@ const columns: DataTableColumn<Row>[] = [
               : "证据不足"}
         </summary>
         <ul className="text-xs">
+          {row.original.theory && (
+            <li>
+              <FinancialTheoryEvidence result={row.original.theory} />
+            </li>
+          )}
           {row.original.financial.map((condition, i) => (
             <li key={i}>
               {condition.field}：{condition.value ?? "缺失"} ·{" "}
@@ -194,6 +213,10 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
       void history.refetch();
     },
   });
+  const selectionBlocked =
+    !!result.data?.theorySelection &&
+    result.data.theorySelection.positions.length === 0 &&
+    result.data.counts.unknown > 0;
   const reset = () => setPagination((p) => ({ ...p, pageIndex: 0 }));
   const run = () => {
     const symbols =
@@ -215,12 +238,41 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
     setError("");
     start.mutate(parsed.data);
   };
+  const replaySymbols = result.data
+    ? (result.data.theorySelection?.positions.map((row) => row.symbol) ?? [])
+    : [symbol];
   return (
     <section aria-label="财务与技术组合筛选" className="space-y-4">
       <p className="text-sm">
         财务条件按“全部/任一”组合；技术、本地数据条件与RPS作为额外必要条件。可移除财务条件独立运行。历史财报按公告日期过滤，当前成分池与修订版本限制仍保留。
       </p>
       <div className="flex flex-wrap gap-2">
+        <Select
+          disabled={busy}
+          value={draft.theoryPreset ?? "custom"}
+          onValueChange={(value) => {
+            setDraft({
+              ...draft,
+              theoryPreset:
+                value === "custom"
+                  ? undefined
+                  : (value as "f-score" | "magic-formula"),
+              conditions: value === "custom" ? draft.conditions : [],
+              strict: false,
+            });
+            setStatus("all");
+            setPagination((p) => ({ ...p, pageIndex: 0 }));
+          }}
+        >
+          <SelectTrigger aria-label="财务理论预设">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="custom">自定义条件</SelectItem>
+            <SelectItem value="f-score">F-score 本地年度代理 ≥8</SelectItem>
+            <SelectItem value="magic-formula">魔法公式本地年度排序</SelectItem>
+          </SelectContent>
+        </Select>
         <Select disabled={busy} value={poolType} onValueChange={setPoolType}>
           <SelectTrigger aria-label="财务筛选证券池">
             <SelectValue />
@@ -734,6 +786,25 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
             · 缺证据 {result.data.counts.unknown}
           </p>
           <p className="text-xs text-muted-foreground">{result.data.warning}</p>
+          {selectionBlocked && (
+            <p className="text-sm" role="status">
+              年度组合证据不足：尚无完整合格候选，存在未知项，不能解释为全现金策略。
+              可导出证据与受阻研究配置，补齐输入后重新评估。
+            </p>
+          )}
+          {result.data.theorySelection && !selectionBlocked && (
+            <p className="text-sm">
+              年度组合候选：
+              {result.data.theorySelection.positions
+                .map(
+                  (p) =>
+                    `${p.rank}. ${p.symbol} ${(p.weight * 100).toFixed(0)}%`,
+                )
+                .join("；") || "无完整合格候选"}{" "}
+              · 现金 {(result.data.theorySelection.cashWeight * 100).toFixed(0)}
+              %。这是当前筛选配置，历史调仓必须逐年重新获取当时可见输入。
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <Select
               value={status}
@@ -790,6 +861,32 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
             >
               导出完整筛选证据
             </Button>
+            {result.data.theorySelection && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  downloadFinancialJson(
+                    {
+                      version: "financial-theory-research-config-v1",
+                      sourceReportId: result.data!.id,
+                      sourceHash: result.data!.hash,
+                      asOf: result.data!.input.asOf,
+                      input: result.data!.input,
+                      selection: result.data!.theorySelection,
+                      status: selectionBlocked ? "blocked" : "research-only",
+                      warning:
+                        (selectionBlocked
+                          ? "证据不足且无完整合格候选，空目标不表示全现金策略；补齐输入后重新评估。"
+                          : "") +
+                        "此为单时点研究配置，不是历史年度回测；不得将当前入选回填过去。",
+                    },
+                    `${result.data!.id}-research-config`,
+                  )
+                }
+              >
+                导出年度研究配置
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => {
@@ -820,6 +917,7 @@ export function FinancialScreenPanel({ symbol }: { symbol: string }) {
           />
         </div>
       )}
+      <FinancialReplayPanel symbol={symbol} defaultSymbols={replaySymbols} />
     </section>
   );
 }

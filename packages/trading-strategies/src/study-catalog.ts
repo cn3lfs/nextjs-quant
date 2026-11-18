@@ -1,4 +1,28 @@
 import {
+  theoryRangeDefinitions,
+  theoryRangeIds,
+  theoryRangeExitRule,
+  type TheoryRangeId,
+} from "./theory-range.js";
+import {
+  theoryAdvancedDefinitions,
+  theoryAdvancedIds,
+  theoryAdvancedExitRule,
+  type TheoryAdvancedId,
+} from "./theory-advanced.js";
+import {
+  theoryStructureDefinitions,
+  theoryStructureIds,
+  theoryStructureExitRule,
+  type TheoryStructureId,
+} from "./theory-structure.js";
+import {
+  theoryDailyDefinitions,
+  theoryDailyIds,
+  theoryDailyExitRule,
+  type TheoryDailyId,
+} from "./theory-daily.js";
+import {
   classicIds,
   classicDefinitions,
   type ClassicId,
@@ -55,10 +79,42 @@ export const studyStrategies = [
   "dca",
   "seasonal",
   ...classicIds,
+  ...theoryDailyIds,
+  ...theoryStructureIds,
+  ...theoryAdvancedIds,
+  ...theoryRangeIds,
 ] as const;
 export type StudyStrategy = (typeof studyStrategies)[number];
 type StudyDefinition = { name: string; family: string; rule: string };
 export const studyCatalog: Record<StudyStrategy, StudyDefinition> = {
+  ...(Object.fromEntries(
+    theoryRangeDefinitions.map((d) => [
+      d.id,
+      { name: d.name, family: d.family, rule: d.rule + theoryRangeExitRule },
+    ]),
+  ) as Record<TheoryRangeId, StudyDefinition>),
+  ...(Object.fromEntries(
+    theoryAdvancedDefinitions.map((d) => [
+      d.id,
+      { name: d.name, family: d.family, rule: d.rule + theoryAdvancedExitRule },
+    ]),
+  ) as Record<TheoryAdvancedId, StudyDefinition>),
+  ...(Object.fromEntries(
+    theoryStructureDefinitions.map((d) => [
+      d.id,
+      {
+        name: d.name,
+        family: d.family,
+        rule: d.rule + theoryStructureExitRule,
+      },
+    ]),
+  ) as Record<TheoryStructureId, StudyDefinition>),
+  ...(Object.fromEntries(
+    theoryDailyDefinitions.map((d) => [
+      d.id,
+      { name: d.name, family: d.family, rule: d.rule + theoryDailyExitRule },
+    ]),
+  ) as Record<TheoryDailyId, StudyDefinition>),
   "research-wyckoff": {
     name: "SOS-JAC 突破",
     family: "wyckoff",
@@ -296,15 +352,20 @@ export const studyNames = Object.fromEntries(
   studyStrategies.map((id) => [id, studyCatalog[id].name]),
 ) as Record<StudyStrategy, string>;
 export const studyWarmup = (strategy: StudyStrategy) =>
-  strategy === "research-growth"
-    ? 300
-    : strategy.startsWith("research-") ||
-        (classicStudyStrategies as readonly string[]).includes(strategy)
+  strategy === "theory-stage150"
+    ? 170
+    : strategy.startsWith("theory-")
       ? 140
-      : Math.max(
-          140,
-          classicDefinitions.find((d) => d.id === strategy)?.warmupBars ?? 300,
-        );
+      : strategy === "research-growth"
+        ? 300
+        : strategy.startsWith("research-") ||
+            (classicStudyStrategies as readonly string[]).includes(strategy)
+          ? 140
+          : Math.max(
+              140,
+              classicDefinitions.find((d) => d.id === strategy)?.warmupBars ??
+                300,
+            );
 
 /** Families that require different instruments or evidence are visible gaps. */
 export const studyCoverageGaps = [

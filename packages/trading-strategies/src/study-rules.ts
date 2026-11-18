@@ -1,4 +1,8 @@
+import { createTheoryRangeRule } from "./theory-range.js";
+import { createTheoryAdvancedRule } from "./theory-advanced.js";
+import { createTheoryStructureRule } from "./theory-structure.js";
 import { createClassicRule } from "./classics/index.js";
+import { createTheoryDailyRule } from "./theory-daily.js";
 import {
   ma,
   ema,
@@ -26,7 +30,12 @@ import {
   legacySignalSeries,
 } from "./research/legacy-signals.js";
 
-type Position = { entry: number; entryIndex: number };
+type Position = {
+  entry: number;
+  entryIndex: number;
+  signalIndex?: number;
+  lastExitIndex?: number;
+};
 type Rule = (
   index: number,
   position: Position,
@@ -58,6 +67,14 @@ export function createExtendedStudyRule(
       };
     };
   }
+  const rangeRule = createTheoryRangeRule(strategy, bars);
+  if (rangeRule) return rangeRule;
+  const theoryRule = createTheoryDailyRule(strategy, bars);
+  if (theoryRule) return theoryRule;
+  const structureRule = createTheoryStructureRule(strategy, bars);
+  if (structureRule) return structureRule;
+  const advancedRule = createTheoryAdvancedRule(strategy, bars);
+  if (advancedRule) return advancedRule;
   const classicRule = createClassicRule(strategy, bars);
   if (classicRule) return classicRule;
   const closes = bars.map((b) => b.close);

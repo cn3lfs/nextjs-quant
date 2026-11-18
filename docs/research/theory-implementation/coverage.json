@@ -1,0 +1,2683 @@
+{
+  "version": 1,
+  "asOf": "2026-11-17",
+  "meaning": "逐卡研究到工程映射；strategyIds只表示明示本地代理或组件，不表示原法等价、回测通过或盈利。new-proxy须通过绑定验证后才表示可执行。",
+  "cards": [
+    {
+      "theoryId": "F01.01",
+      "name": "有效市场假说（EMH）",
+      "source": "../theory-to-pseudocode/F01.md#f01-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "市场效率为可检验假说，需定义收益预测检验，不能直接下单",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.02",
+      "name": "随机游走与鞅基准（Random Walk / Martingale）",
+      "source": "../theory-to-pseudocode/F01.md#f01-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "随机过程用于零优势对照，随机交易基准尚未接入",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.03",
+      "name": "行为金融（Behavioral Finance）",
+      "source": "../theory-to-pseudocode/F01.md#f01-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "行为机制需先选可观测代理，不能由心理术语产生买点",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.04",
+      "name": "适应性市场假说（Adaptive Markets Hypothesis）",
+      "source": "../theory-to-pseudocode/F01.md#f01-04-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "环境适应是假说，需冻结变化检测与切换映射",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.05",
+      "name": "分形市场假说（Fractal Market Hypothesis）",
+      "source": "../theory-to-pseudocode/F01.md#f01-05-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "多尺度统计为分析组件，需定义尺度与检验统计量",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.06",
+      "name": "风险溢价（Risk Premium）",
+      "source": "../theory-to-pseudocode/F01.md#f01-06-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "风险溢价解释不是单个入场系统",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.07",
+      "name": "反身性（Reflexivity）",
+      "source": "../theory-to-pseudocode/F01.md#f01-07-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "反馈机制缺少可观测方向和首次可知时点",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.08",
+      "name": "拍卖市场理论（Auction Market Theory）",
+      "source": "../theory-to-pseudocode/F01.md#f01-08-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "拍卖解释需价格接受与拒绝的机械规则",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.09",
+      "name": "现金基准（Cash Benchmark）",
+      "source": "../theory-to-pseudocode/F01.md#f01-09-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "现金收益基准需同币种可投资利率序列，现有零息现金须显式标注",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.10",
+      "name": "买入持有基准（Buy and Hold）",
+      "source": "../theory-to-pseudocode/F01.md#f01-10-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["hold"],
+      "evidence": ["packages/trading-strategies/src/study-decision.ts"],
+      "reason": "已实现一次建仓且不复投分红；不是所有总回报持有口径",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F01.11",
+      "name": "等权基准（Equal Weight）",
+      "source": "../theory-to-pseudocode/F01.md#f01-11-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["allocation-equal"],
+      "evidence": ["packages/trading-strategies/src/unified.ts"],
+      "reason": "已有全部有效候选等权配置；调仓与可交易约束由回放负责",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.01",
+      "name": "道氏理论（Dow Theory）",
+      "source": "../theory-to-pseudocode/F02.md#f02-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-confirmation.ts",
+        "packages/trading-strategies/tests/theory-confirmation.test.ts"
+      ],
+      "reason": "已实现确认摆点道氏结构组件：两指数共用 asOf，同一确认时刻保守返回 UNKNOWN；两指数同向才 UP/DOWN，单方或未来确认不反推。仅为结构过滤，不称完整 Rhea 系统，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.02",
+      "name": "趋势层级（Primary / Secondary / Minor Trends）",
+      "source": "../theory-to-pseudocode/F02.md#f02-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-confirmation.ts",
+        "packages/trading-strategies/tests/theory-confirmation.test.ts"
+      ],
+      "reason": "已实现长/中/短三层独立趋势状态及长UP+中DOWN回调候选；短层不得改写长层，缺失层 UNKNOWN。仅为多尺度过滤，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.03",
+      "name": "指数相互确认（Intermarket / Average Confirmation）",
+      "source": "../theory-to-pseudocode/F02.md#f02-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-confirmation.ts",
+        "packages/trading-strategies/tests/theory-confirmation.test.ts"
+      ],
+      "reason": "已实现双指数确认状态机：版本与 frozenAt 冻结、按完成bar计窗口、过期先烧毁整版、缺口断连续、乱序/重复不倒退。单方只 WAIT，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.04",
+      "name": "支撑与阻力（Support / Resistance）",
+      "source": "../theory-to-pseudocode/F02.md#f02-04-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/theory-range.ts"],
+      "reason": "已实现确认支撑拒绝组件；3/3确认、冻结ATR容差、有效期及深穿排除，不作为独立交易策略",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.05",
+      "name": "趋势线（Trendline）",
+      "source": "../theory-to-pseudocode/F02.md#f02-05-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-trendline-close"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "确认下降高点投影突破；确认后低点作固定保护；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.06",
+      "name": "价格通道（Price Channel）",
+      "source": "../theory-to-pseudocode/F02.md#f02-06-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["breakout"],
+      "evidence": ["packages/trading-strategies/src/study-decision.ts"],
+      "reason": "复用此前55日高点/20日低点的收盘通道，不代表全部通道定义",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.07",
+      "name": "Livermore 关键点与领涨股（Pivotal Points / Leaders）",
+      "source": "../theory-to-pseudocode/F02.md#f02-07-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-watchlist.ts",
+        "packages/trading-strategies/tests/theory-watchlist.test.ts"
+      ],
+      "reason": "已实现 Livermore 关键点/领涨股只做多筛选组件：仅限 CN 股票，冻结 watchlist、基准与锚点（锚点确认须为已完成日线且不得晚于决策截止），显式 lookback/maxCandidateAge 等 A 参数；F02 为当前完成收盘决策，asOf 须同上海交易日且 >=15:05，决策日完成由 core completedBarFilter 证明。实际持仓按 fillId 匹配不可变冻结止损；EXIT 仅为意图并保留 pendingExit 原保护/触发证据，须宿主 position:null 确认才清除。原卡止损/退出规则保留；仅输出 ENTER/HOLD/EXIT/WAIT/UNKNOWN 意图，不是完整策略、执行或业绩，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.08",
+      "name": "Weinstein 四阶段（Stage Analysis）",
+      "source": "../theory-to-pseudocode/F02.md#f02-08-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-stage150"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "150日均线和20根斜率的日线阶段转强代理，不等同原周线四阶段；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F02.09",
+      "name": "高低点序列与市场结构（Swing Structure）",
+      "source": "../theory-to-pseudocode/F02.md#f02-09-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-swing-breakout"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "3/3确认HH/HL后冻结末高低并等待突破；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.01",
+      "name": "SMA、EMA 与 WMA 平滑",
+      "source": "../theory-to-pseudocode/F03.md#f03-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategy-core/src/indicators.ts"],
+      "reason": "SMA/EMA/WMA为已有指标原语，不单独计策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.02",
+      "name": "单均线趋势规则（Single Moving Average）",
+      "source": "../theory-to-pseudocode/F03.md#f03-02-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["sma200"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有收盘对MA200的趋势基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.03",
+      "name": "双均线交叉（Dual Moving Average Crossover）",
+      "source": "../theory-to-pseudocode/F03.md#f03-03-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["ma", "golden-cross", "ema-cross"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有双均线基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.04",
+      "name": "三均线过滤（Triple Moving Average）",
+      "source": "../theory-to-pseudocode/F03.md#f03-04-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["triple-ma"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有三均线基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.05",
+      "name": "均线排列与回踩（Alignment / Pullback）",
+      "source": "../theory-to-pseudocode/F03.md#f03-05-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-ema-reclaim"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增EMA重夺代理，原排列回踩版本仍分别保留；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.06",
+      "name": "MACD（Moving Average Convergence Divergence）",
+      "source": "../theory-to-pseudocode/F03.md#f03-06-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["macd"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有MACD规则",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.07",
+      "name": "DMI 与 ADX（Directional Movement / Trend Strength）",
+      "source": "../theory-to-pseudocode/F03.md#f03-07-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["dmi"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有DMI/ADX规则",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.08",
+      "name": "抛物线转向指标（Parabolic SAR）",
+      "source": "../theory-to-pseudocode/F03.md#f03-08-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["sar"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有SAR规则",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.09",
+      "name": "Supertrend（超级趋势）",
+      "source": "../theory-to-pseudocode/F03.md#f03-09-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["supertrend"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有Supertrend规则，ATR初始化按目录声明",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.10",
+      "name": "一目均衡表（Ichimoku Kinko Hyo）",
+      "source": "../theory-to-pseudocode/F03.md#f03-10-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["ichimoku"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有一目规则，使用延迟云层",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.11",
+      "name": "Elder 三重滤网（Triple Screen）",
+      "source": "../theory-to-pseudocode/F03.md#f03-11-v2",
+      "status": "new-proxy",
+      "strategyIds": [
+        "theory-triple-screen-week-day",
+        "theory-triple-screen-day-hour-five"
+      ],
+      "evidence": [
+        "packages/trading-strategies/src/theory-multiperiod.ts",
+        "src/server/research/theory-multiperiod-source.ts"
+      ],
+      "reason": "已实现周日收盘与日/60分/5分两版本地代理；仅完成周期、同源复权、实际成交状态，非原法盘中买停单复现",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.12",
+      "name": "Chandelier Exit（吊灯止损）",
+      "source": "../theory-to-pseudocode/F03.md#f03-12-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["chandelier"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有最高收盘减ATR退出，属于保护组件包装",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.13",
+      "name": "KAMA（Kaufman Adaptive Moving Average）",
+      "source": "../theory-to-pseudocode/F03.md#f03-13-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-kama"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有KAMA基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.14",
+      "name": "Aroon（阿隆指标）",
+      "source": "../theory-to-pseudocode/F03.md#f03-14-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-aroon"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有Aroon基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.15",
+      "name": "TRIX（三重指数平滑变化率）",
+      "source": "../theory-to-pseudocode/F03.md#f03-15-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-trix"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有TRIX基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.16",
+      "name": "Coppock Curve（科波克曲线）",
+      "source": "../theory-to-pseudocode/F03.md#f03-16-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-coppock"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有日线化Coppock代理，不冒充月线原法",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F03.17",
+      "name": "Vortex Indicator（涡旋指标）",
+      "source": "../theory-to-pseudocode/F03.md#f03-17-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-vortex"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/study-rules.ts"
+      ],
+      "reason": "已有Vortex基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.01",
+      "name": "Donchian 通道突破（Price Channel Breakout）",
+      "source": "../theory-to-pseudocode/F04.md#f04-01-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["breakout"],
+      "evidence": ["packages/trading-strategies/src/study-decision.ts"],
+      "reason": "现有Donchian55/20可复用，原卡重入门控与现有持续状态需区分",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.02",
+      "name": "海龟交易法（Turtle Trading）",
+      "source": "../theory-to-pseudocode/F04.md#f04-02-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["turtle"],
+      "evidence": ["packages/trading-strategies/src/study-rules.ts"],
+      "reason": "已有日线20/10及2ATR简化版；虚拟突破过滤、分单位加仓与盘中顺序未实现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.03",
+      "name": "箱体与新高突破（Range / New High Breakout）",
+      "source": "../theory-to-pseudocode/F04.md#f04-03-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-box20"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增20根箱体收盘代理，不混入Darvas；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.04",
+      "name": "布林带与肯特纳挤压突破（Bollinger / Keltner Squeeze）",
+      "source": "../theory-to-pseudocode/F04.md#f04-04-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-squeeze"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增BB/KC收缩释放完整代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.05",
+      "name": "开盘区间突破（Opening Range Breakout / ORB）",
+      "source": "../theory-to-pseudocode/F04.md#f04-05-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-utc-orb"],
+      "evidence": [
+        "packages/trading-strategies/src/theory-orb.ts",
+        "packages/trading-strategies/tests/theory-orb.test.ts",
+        "tests/research-backtest/theory-orb-source.test.ts"
+      ],
+      "reason": "已实现明确命名的仅 BTC/ETH 现货 UTC 5 分钟完成收盘突破代理：stretch = 前 10 个完整 UTC 日 min(H-O,O-L) 的均值（2880 根完成 5 分钟 bar），不是 ATR；首个完整 5 分钟开盘区间加 stretch 冻结 U/S，完成收盘越过 U 发出入场意图，后续跌破冻结 S 或会话退出发出退出意图，均在宿主语义下于下一根 bar 开盘执行。CN 原卡 T+1 与分钟尾部缺口另行阻断。非原法精确复现、收益或浏览器验收，根 P5 bundled/app 验收待完成",
+      "batch": "P4-策略闭环可执行代理",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.06",
+      "name": "Dual Thrust（双推力）",
+      "source": "../theory-to-pseudocode/F04.md#f04-06-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["dual-thrust"],
+      "evidence": ["packages/trading-strategies/src/study-rules.ts"],
+      "reason": "已有日线收盘确认代理，不是原日内反手系统",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.07",
+      "name": "NR4 与 NR7（Narrow Range）",
+      "source": "../theory-to-pseudocode/F04.md#f04-07-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-nr4-close", "theory-nr7-close"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增NR4和NR7收盘确认，双边穿越歧义必须排除；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F04.08",
+      "name": "双突破（趋势线与水平阻力的联合突破）",
+      "source": "../theory-to-pseudocode/F04.md#f04-08-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["research-breakout"],
+      "evidence": [
+        "packages/trading-strategies/src/research/legacy-signals.ts"
+      ],
+      "reason": "复用既有确认趋势线及水平位双突破",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.01",
+      "name": "蜡烛图（Candlestick Analysis）",
+      "source": "../theory-to-pseudocode/F05.md#f05-01-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-engulf-confirm"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增吞没确认本地代理；蜡烛图全体系不由单形态覆盖；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.02",
+      "name": "Pin Bar（针形 K 线）",
+      "source": "../theory-to-pseudocode/F05.md#f05-02-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-pin-confirm"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增针形确认代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.03",
+      "name": "Inside Bar（内包线）",
+      "source": "../theory-to-pseudocode/F05.md#f05-03-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-inside-close"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增内包线收盘确认代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.04",
+      "name": "头肩顶与头肩底（Head and Shoulders）",
+      "source": "../theory-to-pseudocode/F05.md#f05-04-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-head-shoulders-bottom"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "确认低高低高低和固定肩部容差的头肩底颈线代理；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.05",
+      "name": "双顶与双底（Double Top / Double Bottom）",
+      "source": "../theory-to-pseudocode/F05.md#f05-05-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-double-bottom"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "已确认双底、固定3%容差和颈线突破；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.06",
+      "name": "三角形（Symmetrical / Ascending / Descending Triangle）",
+      "source": "../theory-to-pseudocode/F05.md#f05-06-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-triangle-close"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "已确认下降高点/上升低点的收敛线突破；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益；本版仅确认摆点双线收敛，未检验全部形成期OHLC被两线包络，属于简化代理",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.07",
+      "name": "旗形与三角旗（Flag / Pennant）",
+      "source": "../theory-to-pseudocode/F05.md#f05-07-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-flag-close"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "10根旗杆与10根有限回撤整理的价格代理；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.08",
+      "name": "楔形（Rising / Falling Wedge）",
+      "source": "../theory-to-pseudocode/F05.md#f05-08-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-falling-wedge"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "确认下降双线收敛、形成期OHLC包络校验的楔形代理；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.09",
+      "name": "杯柄形态（Cup with Handle）",
+      "source": "../theory-to-pseudocode/F05.md#f05-09-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-cup-handle"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "确认高低高低、固定杯深及柄幅的几何代理，不代表完整O’Neil法；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.10",
+      "name": "平台与平底整理（Base / Flat Base）",
+      "source": "../theory-to-pseudocode/F05.md#f05-10-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-flat-base"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "高位35根窄幅整理、均线趋势和放量突破；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.11",
+      "name": "缺口（Price Gaps）",
+      "source": "../theory-to-pseudocode/F05.md#f05-11-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-gap-continuation"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增向上缺口延续代理；不覆盖所有缺口交易；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.12",
+      "name": "Al Brooks 价格行为",
+      "source": "../theory-to-pseudocode/F05.md#f05-12-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "裁量价格行为需选明确子规则，不能包装黑箱",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F05.13",
+      "name": "点数图（Point and Figure / P&F）",
+      "source": "../theory-to-pseudocode/F05.md#f05-13-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-confirmation.ts",
+        "packages/trading-strategies/tests/theory-confirmation.test.ts"
+      ],
+      "reason": "已实现固定格值收盘法 X/O 列与同列单次突破组件：b>0、整数 r>=1、floor(C/b)，缺口重置分段；动态ATR格值及原著计数目标未实现，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.01",
+      "name": "Elliott 推动浪（Impulse / Motive Waves）",
+      "source": "../theory-to-pseudocode/F06.md#f06-01-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.02",
+      "name": "Elliott 调整浪（Corrective Waves）",
+      "source": "../theory-to-pseudocode/F06.md#f06-02-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.03",
+      "name": "浪级、交替与替代计数（Degree / Alternation / Alternative Counts）",
+      "source": "../theory-to-pseudocode/F06.md#f06-03-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.04",
+      "name": "Fibonacci 回撤（Retracement）",
+      "source": "../theory-to-pseudocode/F06.md#f06-04-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-fib-reclaim"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "已确认上涨段50%回撤后收复确认；50%不称原Fibonacci数比；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.05",
+      "name": "Fibonacci 扩展与投射（Extension / Projection）",
+      "source": "../theory-to-pseudocode/F06.md#f06-05-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-proportions.ts",
+        "packages/trading-strategies/tests/theory-proportions.test.ts"
+      ],
+      "reason": "已实现两点扩展/三点投射目标纯组件：确认锚点后 EXTENSION=A+rD、PROJECTION=C+rD；冻结模式与比例，投射收盘跌破C失效，保护退出优先；仅输出目标与宿主保护/减仓参考，不产生新入场，不是完整策略或收益验证，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.06",
+      "name": "Hurst 周期分析",
+      "source": "../theory-to-pseudocode/F06.md#f06-06-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "OHLC可得，周期估计方法、在线稳定性与信号映射待工程",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.07",
+      "name": "附录：江恩（Gann）",
+      "source": "../theory-to-pseudocode/F06.md#f06-07-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.08",
+      "name": "附录：谐波形态（Harmonic Patterns）",
+      "source": "../theory-to-pseudocode/F06.md#f06-08-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-proportions.ts",
+        "packages/trading-strategies/tests/theory-proportions.test.ts"
+      ],
+      "reason": "已实现五点确认谐波比例标签纯组件：严格形成顺序与交替结构、四型比例表、AB_EQ_CD 独立标签；仅识别标签，不含 PRZ 执行或入场确认，不是完整形态策略或收益验证，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.09",
+      "name": "附录：SMC（Smart Money Concepts）",
+      "source": "../theory-to-pseudocode/F06.md#f06-09-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F06.10",
+      "name": "附录：ICT（Inner Circle Trader）",
+      "source": "../theory-to-pseudocode/F06.md#f06-10-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "原卡仍含人工计数或版本解释；可计算子规则可另命名代理，尚未完整实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.01",
+      "name": "包含关系与 K 线合并",
+      "source": "../theory-to-pseudocode/F07.md#f07-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["src/server/strategies/chan/czsc.ts"],
+      "reason": "已有原生/开源合并结构，不能推定算法等同全部缠论",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.02",
+      "name": "顶底分型",
+      "source": "../theory-to-pseudocode/F07.md#f07-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["src/server/strategies/chan/czsc.ts"],
+      "reason": "已有分型结构，首次确认点需保持",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.03",
+      "name": "笔",
+      "source": "../theory-to-pseudocode/F07.md#f07-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["src/server/strategies/chan/czsc.ts"],
+      "reason": "已有笔结构，版本和DLL语义独立",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.04",
+      "name": "线段",
+      "source": "../theory-to-pseudocode/F07.md#f07-04-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "线段解释需按版本保留，原生输入不证明原文复现",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.05",
+      "name": "特征序列",
+      "source": "../theory-to-pseudocode/F07.md#f07-05-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "特征序列定义与跨段证据仍待接入",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.06",
+      "name": "中枢",
+      "source": "../theory-to-pseudocode/F07.md#f07-06-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "中枢有结构输入，级别及延伸规则需明确",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.07",
+      "name": "走势类型与走势连接",
+      "source": "../theory-to-pseudocode/F07.md#f07-07-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "走势类型连接尚非完整可执行策略",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.08",
+      "name": "趋势背驰",
+      "source": "../theory-to-pseudocode/F07.md#f07-08-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "背驰需同级别比较和首次确认时间",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.09",
+      "name": "盘整背驰",
+      "source": "../theory-to-pseudocode/F07.md#f07-09-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "盘整背驰需中枢及力度量化版本",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.10",
+      "name": "第一类买卖点",
+      "source": "../theory-to-pseudocode/F07.md#f07-10-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "一买有研究原语，完整因果回放待接入",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.11",
+      "name": "第二类买卖点",
+      "source": "../theory-to-pseudocode/F07.md#f07-11-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "二买有研究原语，完整因果回放待接入",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.12",
+      "name": "第三类买卖点",
+      "source": "../theory-to-pseudocode/F07.md#f07-12-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["research-chan"],
+      "evidence": ["packages/trading-strategies/src/native-study.ts"],
+      "reason": "已有原生逐前缀三买执行",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.13",
+      "name": "区间套",
+      "source": "../theory-to-pseudocode/F07.md#f07-13-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "跨级别数据与完成时钟需同步",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.14",
+      "name": "同级别分解",
+      "source": "../theory-to-pseudocode/F07.md#f07-14-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "同级分解定义及连接语义待固定",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F07.15",
+      "name": "小转大",
+      "source": "../theory-to-pseudocode/F07.md#f07-15-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "转折级别变化不能用后验端点回填",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.01",
+      "name": "供求法则",
+      "source": "../theory-to-pseudocode/F08.md#f08-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "解释或分析组件，必须另定义可证伪量价代理；不能单独作为完整策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.02",
+      "name": "因果法则",
+      "source": "../theory-to-pseudocode/F08.md#f08-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "解释或分析组件，必须另定义可证伪量价代理；不能单独作为完整策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.03",
+      "name": "努力与结果法则",
+      "source": "../theory-to-pseudocode/F08.md#f08-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "解释或分析组件，必须另定义可证伪量价代理；不能单独作为完整策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.04",
+      "name": "吸筹结构",
+      "source": "../theory-to-pseudocode/F08.md#f08-04-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "吸筹阶段可量化子事件，但完整阶段识别未接入",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.05",
+      "name": "派发结构",
+      "source": "../theory-to-pseudocode/F08.md#f08-05-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "派发阶段可用于退出，需确认状态机",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.06",
+      "name": "Spring 与测试",
+      "source": "../theory-to-pseudocode/F08.md#f08-06-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-spring-confirm"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增Spring确认代理，不称完整吸筹体系；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.07",
+      "name": "UTAD 与上冲失败",
+      "source": "../theory-to-pseudocode/F08.md#f08-07-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/theory-range.ts"],
+      "reason": "已实现上冲失败退出组件；缺人工派发证据不称完整UTAD，不产生空头入场",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.08",
+      "name": "SOS 与 SOW",
+      "source": "../theory-to-pseudocode/F08.md#f08-08-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["research-wyckoff"],
+      "evidence": [
+        "packages/trading-strategies/src/research/legacy-signals.ts"
+      ],
+      "reason": "已有SOS-JAC日线版本",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.09",
+      "name": "LPS 与 LPSY",
+      "source": "../theory-to-pseudocode/F08.md#f08-09-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-sos-pullback"],
+      "evidence": ["packages/trading-strategies/src/theory-range.ts"],
+      "reason": "已实现SOS后确认缩量窄幅回撤再转强代理，保留确认延迟、失效及实际成交；非人工LPS/LPSY完整体系",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.10",
+      "name": "VSA",
+      "source": "../theory-to-pseudocode/F08.md#f08-10-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-dryup-breakout"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增缩量整理放量突破代理，不代表完整VSA；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.11",
+      "name": "OBV",
+      "source": "../theory-to-pseudocode/F08.md#f08-11-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["obv"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有OBV趋势基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.12",
+      "name": "MFI",
+      "source": "../theory-to-pseudocode/F08.md#f08-12-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["mfi"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有MFI反转基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.13",
+      "name": "CMF",
+      "source": "../theory-to-pseudocode/F08.md#f08-13-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["cmf"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有CMF趋势基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.14",
+      "name": "量价背离",
+      "source": "../theory-to-pseudocode/F08.md#f08-14-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-obv-divergence"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "价格确认低点创新低而OBV抬高的颈线突破代理，不等同真实资金流；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.15",
+      "name": "Market Profile",
+      "source": "../theory-to-pseudocode/F08.md#f08-15-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "日线不足以还原该卡所需会话/分价信息；已有分钟输入需先核验覆盖、单位和市场适配",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.16",
+      "name": "Volume Profile",
+      "source": "../theory-to-pseudocode/F08.md#f08-16-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "日线不足以还原该卡所需会话/分价信息；已有分钟输入需先核验覆盖、单位和市场适配",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.17",
+      "name": "VWAP 价格参照",
+      "source": "../theory-to-pseudocode/F08.md#f08-17-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-rolling-vwap-reclaim"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "20日滚动典型价量加权回踩代理；不是会话VWAP或执行算法，原会话内量价输入缺口仍保留；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.18",
+      "name": "AVWAP 价格锚点",
+      "source": "../theory-to-pseudocode/F08.md#f08-18-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-month-anchor-reclaim"],
+      "evidence": ["packages/trading-strategies/src/theory-advanced.ts"],
+      "reason": "月初机械锚的日线典型价量加权回踩代理；逐笔AVWAP和其他人工锚分支数据/解释仍未齐；完整单向入退场已接入，不声明原法等价或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.19",
+      "name": "Force Index",
+      "source": "../theory-to-pseudocode/F08.md#f08-19-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-force-index"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有Force Index基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F08.20",
+      "name": "NVI",
+      "source": "../theory-to-pseudocode/F08.md#f08-20-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-nvi"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有NVI基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.01",
+      "name": "CANSLIM",
+      "source": "../theory-to-pseudocode/F09.md#f09-01-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["research-growth"],
+      "evidence": [
+        "packages/trading-strategies/src/research/legacy-signals.ts"
+      ],
+      "reason": "已有98%高点价格代理，完整CANSLIM依赖历史财务与机构证据",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.02",
+      "name": "SEPA",
+      "source": "../theory-to-pseudocode/F09.md#f09-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-selection-components.ts",
+        "packages/trading-strategies/tests/theory-selection-components.test.ts"
+      ],
+      "reason": "已实现SEPA平台价格趋势模板组件：MA50/150/200；319根日线形成120个MA200值，OLS斜率>0且末值>首值；显式52周窗口与平台相对强度；财务/催化剂/VCP 与完整策略未交付，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.03",
+      "name": "VCP",
+      "source": "../theory-to-pseudocode/F09.md#f09-03-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-vcp-close"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "两次已确认递减回撤、末端价量收紧和放量突破；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.04",
+      "name": "O'Neil 杯柄与无柄杯",
+      "source": "../theory-to-pseudocode/F09.md#f09-04-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-oneil.ts",
+        "packages/trading-strategies/tests/theory-oneil.test.ts"
+      ],
+      "reason": "已实现杯柄/无柄杯确认端点组件：调用方冻结已确认杯沿与柄部端点，突破须在全部结构确认后并使用 available-time 保护；原卡保护/退出规则保留，宿主仓位/风险/执行契约未绑定，不是完整策略，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.05",
+      "name": "O'Neil 双底",
+      "source": "../theory-to-pseudocode/F09.md#f09-05-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-oneil.ts",
+        "packages/trading-strategies/tests/theory-oneil.test.ts"
+      ],
+      "reason": "已实现双底确认端点组件：L2<L1、M 为枢轴，调用方冻结已确认两低与反弹高点，突破须在 L2 确认后并使用 available-time 保护；原卡保护/退出规则保留，宿主仓位/风险/执行契约未绑定，不是完整策略，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.06",
+      "name": "O'Neil 平底与底上底",
+      "source": "../theory-to-pseudocode/F09.md#f09-06-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-oneil.ts",
+        "packages/trading-strategies/tests/theory-oneil.test.ts"
+      ],
+      "reason": "已实现平底/底上底确认端点组件：调用方冻结已确认底部端点与首次突破高 P1，突破须在结构确认后并使用 available-time 保护；原卡量价/保护规则保留，宿主仓位/风险/执行契约未绑定，不是完整策略，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.07",
+      "name": "O'Neil 升底与高紧旗",
+      "source": "../theory-to-pseudocode/F09.md#f09-07-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-oneil.ts",
+        "packages/trading-strategies/tests/theory-oneil.test.ts"
+      ],
+      "reason": "已实现升底/高紧旗确认端点组件：调用方冻结三组已确认高低点或旗形端点，突破须在全部结构确认后并使用 available-time 保护；原卡保护/退出规则保留，宿主仓位/风险/执行契约未绑定，不是完整策略，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.08",
+      "name": "O'Neil 市场方向",
+      "source": "../theory-to-pseudocode/F09.md#f09-08-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-oneil.ts",
+        "packages/trading-strategies/tests/theory-oneil.test.ts"
+      ],
+      "reason": "已实现 O'Neil 市场方向组件：rally 尝试、跟进日确认与分布日计数仅用完成 bar，缺失窗口/成交量显式 UNKNOWN，并使用 available-time 保护；原卡风险降低规则保留，宿主仓位/风险/执行契约未绑定，不是完整策略，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.09",
+      "name": "Darvas 箱体",
+      "source": "../theory-to-pseudocode/F09.md#f09-09-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-darvas-close"],
+      "evidence": ["packages/trading-strategies/src/theory-structure.ts"],
+      "reason": "逐步3根封顶/封底和MA120/成交量确认的本地代理；完整单向入退场已接入，右侧确认滞后保留；本地代理不声明完整原法或有效收益",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F09.10",
+      "name": "成长与机构领涨股",
+      "source": "../theory-to-pseudocode/F09.md#f09-10-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "当时机构持仓/成长披露和历史领涨池未齐备",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.01",
+      "name": "时序动量",
+      "source": "../theory-to-pseudocode/F10.md#f10-01-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["momentum120", "momentum250", "skip-momentum"],
+      "evidence": ["packages/trading-strategies/src/study-rules.ts"],
+      "reason": "已有120/250日时序动量，日数不等价原月度",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.02",
+      "name": "横截面动量",
+      "source": "../theory-to-pseudocode/F10.md#f10-02-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-momentum"],
+      "evidence": ["packages/trading-strategies/src/unified.ts"],
+      "reason": "复用跳过最近20根的动量排名；月末/总回报/并列保留旧仓规则不同，不能称原法等价",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.03",
+      "name": "绝对动量",
+      "source": "../theory-to-pseudocode/F10.md#f10-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-selection-components.ts",
+        "packages/trading-strategies/tests/theory-selection-components.test.ts"
+      ],
+      "reason": "已实现绝对动量零现金比较组件：显式假设现金收益为0；不等同原法T-bill或同币种现金总回报，也不含组合权重/执行，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.04",
+      "name": "相对动量",
+      "source": "../theory-to-pseudocode/F10.md#f10-04-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-momentum"],
+      "evidence": ["packages/trading-strategies/src/unified.ts"],
+      "reason": "复用跳过最近20根的动量排名；月末/总回报/并列保留旧仓规则不同，不能称原法等价",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.05",
+      "name": "双动量",
+      "source": "../theory-to-pseudocode/F10.md#f10-05-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "缺少该卡要求的同币种现金/防御资产总回报或时点成员数据；OHLC代理需另命名",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.06",
+      "name": "RPS 与 RS",
+      "source": "../theory-to-pseudocode/F10.md#f10-06-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/portfolio-rps/index.ts"],
+      "reason": "现有RPS排名和组合预设可复用；排名本身不是买入策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.07",
+      "name": "行业轮动",
+      "source": "../theory-to-pseudocode/F10.md#f10-07-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "行业价格容易得，历史成员及可投资载体与轮动时点待补",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.08",
+      "name": "板块与主题轮动",
+      "source": "../theory-to-pseudocode/F10.md#f10-08-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "板块/主题轮动缺少历史成员、主题首次可知时间和当时可投篮子；不能以当前概念成员回填历史",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F10.09",
+      "name": "动量崩溃",
+      "source": "../theory-to-pseudocode/F10.md#f10-09-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "动量崩溃为风险诊断，不是独立入场优势",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.01",
+      "name": "题材龙头",
+      "source": "../theory-to-pseudocode/F11.md#f11-01-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "题材历史成员和当时龙头认定不可由最终涨幅回填",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.02",
+      "name": "趋势龙头",
+      "source": "../theory-to-pseudocode/F11.md#f11-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-watchlist.ts",
+        "packages/trading-strategies/tests/theory-watchlist.test.ts"
+      ],
+      "reason": "已实现趋势龙头只做多筛选组件：仅限 CN 股票，读取前一完整交易日（asOf 可处当日早晨，使用 core completedBarFilter；冻结主题/基准不晚于 asOf），冻结成员池与基准并显式 L/n/m/k/q/d/a0 参数，池不缩不补缺；原卡候选取消规则保留（已知收盘破 MA_m 或连续 k 次相邻排名出局），仅输出 LEADER/KEEP/NONE/UNKNOWN 选择，不是完整策略、执行或业绩，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.03",
+      "name": "连板龙头",
+      "source": "../theory-to-pseudocode/F11.md#f11-03-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需要每日连板梯队、真实涨跌停状态及成交能力",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.04",
+      "name": "首板",
+      "source": "../theory-to-pseudocode/F11.md#f11-04-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "首板检测需当日有效涨停价、封板状态与可成交证据",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.05",
+      "name": "换手板",
+      "source": "../theory-to-pseudocode/F11.md#f11-05-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需换手自由流通股本时点口径与封板成交",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.06",
+      "name": "连板接力",
+      "source": "../theory-to-pseudocode/F11.md#f11-06-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "接力需历史梯队、断板及次日受阻成交",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.07",
+      "name": "分歧转一致",
+      "source": "../theory-to-pseudocode/F11.md#f11-07-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "分歧一致需历史板块成员和成交/封板状态",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.08",
+      "name": "弱转强",
+      "source": "../theory-to-pseudocode/F11.md#f11-08-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "弱强定义可机械化，但次日可成交和首次可知证据待补",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.09",
+      "name": "龙头首阴",
+      "source": "../theory-to-pseudocode/F11.md#f11-09-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "首阴需当时龙头而非事后赢家",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.10",
+      "name": "反包",
+      "source": "../theory-to-pseudocode/F11.md#f11-10-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-selection-components.ts",
+        "packages/trading-strategies/tests/theory-selection-components.test.ts"
+      ],
+      "reason": "已实现全收盘确认的看跌反包参考组件：保留原冻结止损、实际成交、计划风险与 pending 状态；不是完整情绪体系或自动交易，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.11",
+      "name": "龙头二波",
+      "source": "../theory-to-pseudocode/F11.md#f11-11-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "二波需此前龙头和调整确认状态，不用最终二波定义",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.12",
+      "name": "补涨",
+      "source": "../theory-to-pseudocode/F11.md#f11-12-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "补涨需当时同题材成员和先行关系",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.13",
+      "name": "卡位",
+      "source": "../theory-to-pseudocode/F11.md#f11-13-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "卡位需并行候选和当时排序证据",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.14",
+      "name": "情绪周期",
+      "source": "../theory-to-pseudocode/F11.md#f11-14-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "情绪状态有现有分析，但历史涨停梯队与版本不足以复现本卡",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F11.15",
+      "name": "集合竞价",
+      "source": "../theory-to-pseudocode/F11.md#f11-15-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需真实集合竞价报价/量和撤单时段，日线不可反推",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.01",
+      "name": "区间支撑阻力回归",
+      "source": "../theory-to-pseudocode/F12.md#f12-01-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-range-reversion"],
+      "evidence": ["packages/trading-strategies/src/theory-range.ts"],
+      "reason": "已实现冻结区间、拒绝后确认、收盘保护/中点/时间退出，候选实际成交后消费",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.02",
+      "name": "布林带回归",
+      "source": "../theory-to-pseudocode/F12.md#f12-02-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-boll-reentry"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增回带确认代理；不同于现有触下轨range；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.03",
+      "name": "RSI",
+      "source": "../theory-to-pseudocode/F12.md#f12-03-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rsi-trend", "rsi-reversion"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有RSI趋势和反转基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.04",
+      "name": "KDJ",
+      "source": "../theory-to-pseudocode/F12.md#f12-04-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["kdj"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有KDJ反转基线",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.05",
+      "name": "CCI",
+      "source": "../theory-to-pseudocode/F12.md#f12-05-v2",
+      "status": "new-proxy",
+      "strategyIds": ["cci", "theory-cci-reclaim"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/theory-daily.ts"
+      ],
+      "reason": "已有CCI反转及新增重夺代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.06",
+      "name": "Williams %R",
+      "source": "../theory-to-pseudocode/F12.md#f12-06-v2",
+      "status": "new-proxy",
+      "strategyIds": ["williams", "theory-williams-reclaim"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/theory-daily.ts"
+      ],
+      "reason": "已有Williams反转及新增重夺代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.07",
+      "name": "BIAS",
+      "source": "../theory-to-pseudocode/F12.md#f12-07-v2",
+      "status": "new-proxy",
+      "strategyIds": ["bias", "theory-bias-reclaim"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/theory-daily.ts"
+      ],
+      "reason": "已有BIAS反转及新增重夺代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.08",
+      "name": "Z-score 回归",
+      "source": "../theory-to-pseudocode/F12.md#f12-08-v2",
+      "status": "new-proxy",
+      "strategyIds": ["theory-zscore-reentry"],
+      "evidence": ["packages/trading-strategies/src/theory-daily.ts"],
+      "reason": "新增Z-score回归代理；新增规则为独立日线本地代理，最终工程状态由目录绑定检查，不宣称原法复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.09",
+      "name": "短期反转",
+      "source": "../theory-to-pseudocode/F12.md#f12-09-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["short-reversal", "rank-reversal"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有五日反转及横截面短反转",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.10",
+      "name": "趋势内回调交易",
+      "source": "../theory-to-pseudocode/F12.md#f12-10-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rsi2", "pullback"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有RSI2趋势低吸和趋势回调",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.11",
+      "name": "固定网格",
+      "source": "../theory-to-pseudocode/F12.md#f12-11-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["grid"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/theory-grid.ts",
+        "packages/trading-strategies/tests/theory-grid.test.ts"
+      ],
+      "reason": "现有 `grid` 策略为初始 80% 投入、±4% 锚点买卖 100 股的本地代理（成交股数 75% 作底仓），不是 v2 独立逐格批次；新增网格组件仅作额外证据，不表示旧策略已改或原法完整复现",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.12",
+      "name": "动态网格",
+      "source": "../theory-to-pseudocode/F12.md#f12-12-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-grid.ts",
+        "packages/trading-strategies/tests/theory-grid.test.ts"
+      ],
+      "reason": "已实现显式固定/动态网格共用批次组件：只记录宿主实际成交；cancel-requested 在宿主确认前保留买入预留；旧批次保留原成本/目标/保护；成交价等距时按 LOW 选格；全部库存计入 Qmax，现金采用扣除网格预留前的 cashAvailableBeforeGridReservations；动态网格固定 K 重建，失败重建持久暂停新买（A 选择）。宿主执行、固定资金分配、单位与完成证明未绑定，不是完整策略；原动态网格仍 UNVERIFIED_SOURCE，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.13",
+      "name": "Connors RSI",
+      "source": "../theory-to-pseudocode/F12.md#f12-13-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-connors-rsi"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有Connors RSI中点本地版",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.14",
+      "name": "IBS",
+      "source": "../theory-to-pseudocode/F12.md#f12-14-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-ibs"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有IBS中点本地版",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F12.15",
+      "name": "StochRSI",
+      "source": "../theory-to-pseudocode/F12.md#f12-15-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["classic-stoch-rsi"],
+      "evidence": ["packages/trading-strategies/src/study-catalog.ts"],
+      "reason": "已有StochRSI双线本地版",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.01",
+      "name": "Graham 价值投资与安全边际",
+      "source": "../theory-to-pseudocode/F13.md#f13-01-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "安全边际需估值假设和财报时点；现有E/P不等于Graham",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.02",
+      "name": "Graham 净净值与清算价值",
+      "source": "../theory-to-pseudocode/F13.md#f13-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-selection-components.ts",
+        "packages/trading-strategies/tests/theory-selection-components.test.ts"
+      ],
+      "reason": "已实现 Graham NCAV 算术、优先股分类与审计可回收性门槛纯组件；原 Graham 法仍为 UNVERIFIED_SOURCE，PIT 财务喂入包装待完成，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.03",
+      "name": "Buffett 质量价值与护城河",
+      "source": "../theory-to-pseudocode/F13.md#f13-03-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "仍依赖护城河、管理质量或成长持续性证据解释；已有财务代理不能认证原法",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.04",
+      "name": "Fisher 定性成长投资",
+      "source": "../theory-to-pseudocode/F13.md#f13-04-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "仍依赖护城河、管理质量或成长持续性证据解释；已有财务代理不能认证原法",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.05",
+      "name": "Lynch 分类投资与 GARP",
+      "source": "../theory-to-pseudocode/F13.md#f13-05-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "PEG/分类规则需盈利基期与增长假设，现有成长因子不等价",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.06",
+      "name": "红利与股东回报",
+      "source": "../theory-to-pseudocode/F13.md#f13-06-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需时点股息/回购/稀释总回报，不能以当前股息率回填",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.07",
+      "name": "规模因子",
+      "source": "../theory-to-pseudocode/F13.md#f13-07-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-small-cap"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有小市值排名",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.08",
+      "name": "低波动与低 Beta",
+      "source": "../theory-to-pseudocode/F13.md#f13-08-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-low-volatility", "rank-low-beta"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有低波/低Beta只做多，不等同BAB多空",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.09",
+      "name": "质量因子",
+      "source": "../theory-to-pseudocode/F13.md#f13-09-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-quality"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有ROE质量排序，只是简化代理非QMJ全指标",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.10",
+      "name": "盈利能力因子",
+      "source": "../theory-to-pseudocode/F13.md#f13-10-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["portfolio-gross-profitability"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有毛利/资产盈利能力组合",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.11",
+      "name": "投资与资产增长因子",
+      "source": "../theory-to-pseudocode/F13.md#f13-11-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["portfolio-conservative-investment"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有保守资产增长组合",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.12",
+      "name": "Piotroski F-score",
+      "source": "../theory-to-pseudocode/F13.md#f13-12-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/research/financial-theory.ts",
+        "src/server/financial/financial-theory-adapter.ts"
+      ],
+      "reason": "九项计算、分项证据与当前筛选已实现；离线财报支持多项，但未发行普通股事件证据不足，完整分数保持未知，不能从股本不变或缺事件倒推",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.13",
+      "name": "Greenblatt 魔法公式",
+      "source": "../theory-to-pseudocode/F13.md#f13-13-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/research/financial-theory.ts",
+        "src/server/financial/financial-theory-history.ts",
+        "scripts/b2-financial-replay.ts"
+      ],
+      "reason": "已实现EBIT/企业价值及EBIT/投入资本本地排序、年度目标与组合研究；本地四项债务/净固定资产口径独立说明，特殊生产资产不完整者未知，不冒充原法等价",
+      "batch": "B2-多周期结构与离线财务",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F13.14",
+      "name": "多因子组合",
+      "source": "../theory-to-pseudocode/F13.md#f13-14-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["rank-quality-momentum", "portfolio-profitability-value"],
+      "evidence": [
+        "packages/trading-strategies/src/unified.ts",
+        "packages/trading-strategies/src/portfolio-classics/index.ts"
+      ],
+      "reason": "已有质量动量和盈利价值本地组合，原多因子模型独立保留",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.01",
+      "name": "财报后漂移 PEAD",
+      "source": "../theory-to-pseudocode/F14.md#f14-01-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "PEAD需原始公告首次时间、当时预期和财务修订版本",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.02",
+      "name": "业绩预告、快报与盈利惊喜",
+      "source": "../theory-to-pseudocode/F14.md#f14-02-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "预告/快报可免费获得，但完整时点覆盖与盈利惊喜分母待核验",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.03",
+      "name": "分析师预期修正",
+      "source": "../theory-to-pseudocode/F14.md#f14-03-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需历史分析师一致预期快照，不是今日预测",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.04",
+      "name": "公告驱动与回购事件",
+      "source": "../theory-to-pseudocode/F14.md#f14-04-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需原始增减持/回购公告与实施区别和时间戳",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.05",
+      "name": "分红公告与除息事件",
+      "source": "../theory-to-pseudocode/F14.md#f14-05-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需公告日期、除息日期和股息税可实现路径",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.06",
+      "name": "限售解禁与潜在供给",
+      "source": "../theory-to-pseudocode/F14.md#f14-06-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需解禁规模、首个公开时点和真实可售约束",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.07",
+      "name": "并购、重组与事件套利",
+      "source": "../theory-to-pseudocode/F14.md#f14-07-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "并购事件需公告/撤销/条件更新完整事件链",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.08",
+      "name": "政策催化",
+      "source": "../theory-to-pseudocode/F14.md#f14-08-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "政策/宏观到资产的方向因果仍需事前证据解释；可计算价格过滤不能代替解释",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.09",
+      "name": "新闻情绪与信息新颖性",
+      "source": "../theory-to-pseudocode/F14.md#f14-09-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "新闻文本可用，但历史首次发布、去重与评分版本待冻结",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.10",
+      "name": "指数纳入、剔除与调仓",
+      "source": "../theory-to-pseudocode/F14.md#f14-10-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需官方历史旧新权重和跟踪规模，当前成分不够",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.11",
+      "name": "季节性、月末与日历效应",
+      "source": "../theory-to-pseudocode/F14.md#f14-11-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["seasonal"],
+      "evidence": ["packages/trading-strategies/src/study-rules.ts"],
+      "reason": "已有11-4月季节性代理；原卡月末窗口需交易日历和新规则",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.12",
+      "name": "经济周期与信用周期",
+      "source": "../theory-to-pseudocode/F14.md#f14-12-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需宏观首次发布版本，今日修订值不可回填",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.13",
+      "name": "宏观趋势与全球宏观",
+      "source": "../theory-to-pseudocode/F14.md#f14-13-v2",
+      "status": "interpretation",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "政策/宏观到资产的方向因果仍需事前证据解释；可计算价格过滤不能代替解释",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.14",
+      "name": "战略与战术资产配置",
+      "source": "../theory-to-pseudocode/F14.md#f14-14-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "配置为组件，需用户目标权重和授权资产集合",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F14.15",
+      "name": "全天候配置",
+      "source": "../theory-to-pseudocode/F14.md#f14-15-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "全球资产广度超出现有沪深及BTC/ETH现货范围",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.01",
+      "name": "配对交易与距离价差",
+      "source": "../theory-to-pseudocode/F15.md#f15-01-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "价格对可得，但原配对需要双腿空头/借券和共享执行",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.02",
+      "name": "协整价差",
+      "source": "../theory-to-pseudocode/F15.md#f15-02-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "协整可估计，仍需双腿空头、稳定窗口及执行成本",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.03",
+      "name": "因子残差均值回归",
+      "source": "../theory-to-pseudocode/F15.md#f15-03-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需历史截面因子和残差双腿可交易性",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.04",
+      "name": "市场中性与风险中性化",
+      "source": "../theory-to-pseudocode/F15.md#f15-04-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需借券和实时风险暴露对冲，现货只做多不等价",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.05",
+      "name": "横截面多空与价差组合",
+      "source": "../theory-to-pseudocode/F15.md#f15-05-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "多空组合缺历史借券可得/费用与双腿执行",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.06",
+      "name": "ETF 折溢价与申赎套利",
+      "source": "../theory-to-pseudocode/F15.md#f15-06-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需实时IOPV、PCF、申赎资格和最小单位",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.07",
+      "name": "期现套利",
+      "source": "../theory-to-pseudocode/F15.md#f15-07-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需期货/现货和交割、保证金执行，超出现货范围",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.08",
+      "name": "跨期价差",
+      "source": "../theory-to-pseudocode/F15.md#f15-08-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需同品种历史合约/展期和保证金",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F15.09",
+      "name": "可转债相对价值",
+      "source": "../theory-to-pseudocode/F15.md#f15-09-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需转债条款、正股、借券及违约/赎回事件",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.01",
+      "name": "利差与外汇 carry",
+      "source": "../theory-to-pseudocode/F16.md#f16-01-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需外汇利率/融资和可执行双腿，非现货价格即可",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.02",
+      "name": "展期收益与期限结构 carry",
+      "source": "../theory-to-pseudocode/F16.md#f16-02-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需历史合约期限结构、交割与换月成本",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.03",
+      "name": "基差 carry",
+      "source": "../theory-to-pseudocode/F16.md#f16-03-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需同标的期现及融资/保证金",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.04",
+      "name": "永续合约资金费率 carry",
+      "source": "../theory-to-pseudocode/F16.md#f16-04-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需永续资金费率和合约执行，BTC/ETH现货不等同",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.05",
+      "name": "隐含波动率与实现波动率比较",
+      "source": "../theory-to-pseudocode/F16.md#f16-05-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需可交易期权链/隐波和同步实现波动",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.06",
+      "name": "波动率风险溢价",
+      "source": "../theory-to-pseudocode/F16.md#f16-06-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需期权卖方保证金、尾部和实际成交",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.07",
+      "name": "期权组合与非线性收益结构",
+      "source": "../theory-to-pseudocode/F16.md#f16-07-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需合约条款、Greeks、到期/指派和多腿报价",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.08",
+      "name": "Delta 对冲",
+      "source": "../theory-to-pseudocode/F16.md#f16-08-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需期权与标的同步报价及动态对冲成本",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.09",
+      "name": "订单流",
+      "source": "../theory-to-pseudocode/F16.md#f16-09-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需逐笔主动买卖方向，日线量不能伪造",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.10",
+      "name": "订单簿失衡与队列",
+      "source": "../theory-to-pseudocode/F16.md#f16-10-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需完整盘口与订单队列事件，日线无法推导",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.11",
+      "name": "做市与库存控制",
+      "source": "../theory-to-pseudocode/F16.md#f16-11-v2",
+      "status": "data-gap",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需盘口/队列、撤单/延迟和库存账户",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.12",
+      "name": "VWAP 执行",
+      "source": "../theory-to-pseudocode/F16.md#f16-12-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "执行算法不单独产生收益信号；历史细周期输入和执行反馈尚待接入，禁止自动真实下单",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.13",
+      "name": "TWAP 执行",
+      "source": "../theory-to-pseudocode/F16.md#f16-13-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "执行算法不单独产生收益信号；历史细周期输入和执行反馈尚待接入，禁止自动真实下单",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F16.14",
+      "name": "POV 参与率执行",
+      "source": "../theory-to-pseudocode/F16.md#f16-14-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "执行算法不单独产生收益信号；历史细周期输入和执行反馈尚待接入，禁止自动真实下单",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.01",
+      "name": "固定金额仓位",
+      "source": "../theory-to-pseudocode/F17.md#f17-01-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/strategy-object.ts"],
+      "reason": "固定每笔金额为仓位组件；当前策略对象支持权重/风险/等份，并无固定金额独立配置，需补预算边界而非冒称已有",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.02",
+      "name": "固定权益比例仓位",
+      "source": "../theory-to-pseudocode/F17.md#f17-02-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/strategy-object.ts"],
+      "reason": "固定权重/金额属于仓位政策，复用现有对象",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.03",
+      "name": "固定单笔风险",
+      "source": "../theory-to-pseudocode/F17.md#f17-03-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/strategy-object.ts"],
+      "reason": "固定分数风险需已知止损距离和真实数量约束",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.04",
+      "name": "波动率目标",
+      "source": "../theory-to-pseudocode/F17.md#f17-04-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["vol-target"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/unified.ts"
+      ],
+      "reason": "已有目标波动本地版，日线年化口径需分市场",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.05",
+      "name": "Kelly 与分数 Kelly",
+      "source": "../theory-to-pseudocode/F17.md#f17-05-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "Kelly需实测分布与估计误差，不由胜率假设自动分配",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.06",
+      "name": "金字塔、反金字塔与分层加仓",
+      "source": "../theory-to-pseudocode/F17.md#f17-06-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/strategy-object.ts"],
+      "reason": "ATR保护、分批和移动止损复用已有保护/风险服务",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.07",
+      "name": "马丁与反马丁",
+      "source": "../theory-to-pseudocode/F17.md#f17-07-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "马丁有限资金风险研究，不作为优先alpha或无限加仓实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.08",
+      "name": "分批投入与定期定额 DCA",
+      "source": "../theory-to-pseudocode/F17.md#f17-08-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["dca"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/unified.ts"
+      ],
+      "reason": "已有12个月分批代理，不含外部入金",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.09",
+      "name": "价值平均",
+      "source": "../theory-to-pseudocode/F17.md#f17-09-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "价值平均需目标资产轨迹和外部现金边界，未实现",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.10",
+      "name": "再平衡与恒定权重",
+      "source": "../theory-to-pseudocode/F17.md#f17-10-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["constant-mix"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/unified.ts"
+      ],
+      "reason": "已有恒定比例本地版",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.11",
+      "name": "均值方差配置",
+      "source": "../theory-to-pseudocode/F17.md#f17-11-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "均值方差需预期收益估计与协方差求解，不等同反波动",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.12",
+      "name": "风险平价",
+      "source": "../theory-to-pseudocode/F17.md#f17-12-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["allocation-risk-parity"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/unified.ts"
+      ],
+      "reason": "已有协方差风险平价，不等同反波动",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.13",
+      "name": "CPPI 组合保险",
+      "source": "../theory-to-pseudocode/F17.md#f17-13-v2",
+      "status": "existing-proxy",
+      "strategyIds": ["cppi"],
+      "evidence": [
+        "packages/trading-strategies/src/study-catalog.ts",
+        "packages/trading-strategies/src/unified.ts"
+      ],
+      "reason": "已有固定底线CPPI，无保本承诺",
+      "batch": "B1-规则融合",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.14",
+      "name": "回撤控制与风险预算停机",
+      "source": "../theory-to-pseudocode/F17.md#f17-14-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": ["packages/trading-strategies/src/strategy-book.ts"],
+      "reason": "已有回撤刹车与风险预算组件",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F17.15",
+      "name": "交易心理、纪律与决策日志",
+      "source": "../theory-to-pseudocode/F17.md#f17-15-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "已有复盘/日志流程，非独立策略",
+      "batch": "B3-输入与解释补齐",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.01",
+      "name": "线性模型与正则化",
+      "source": "../theory-to-pseudocode/F18.md#f18-01-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "OHLCV特征和已完成标签可得，需正则化求解/训练和时间隔离接入",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.02",
+      "name": "树模型",
+      "source": "../theory-to-pseudocode/F18.md#f18-02-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "OHLCV可得，需固定树分裂、最小叶和训练时点",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.03",
+      "name": "集成学习",
+      "source": "../theory-to-pseudocode/F18.md#f18-03-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需先实现基础学习器及过去训练产生的预测，不能在测试集调集成",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.04",
+      "name": "状态切换与 HMM",
+      "source": "../theory-to-pseudocode/F18.md#f18-04-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "OHLCV可得，需HMM拟合和状态到策略映射冻结",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.05",
+      "name": "元标签与二级交易过滤",
+      "source": "../theory-to-pseudocode/F18.md#f18-05-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需已有基础策略真实事件标签及交叠清除",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.06",
+      "name": "机器学习排序",
+      "source": "../theory-to-pseudocode/F18.md#f18-06-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需截面时点特征与排序标签，不能随机拆分",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.07",
+      "name": "深度学习",
+      "source": "../theory-to-pseudocode/F18.md#f18-07-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需训练依赖、架构和样本量；不手写替代训练框架",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.08",
+      "name": "强化学习",
+      "source": "../theory-to-pseudocode/F18.md#f18-08-v2",
+      "status": "engineering",
+      "strategyIds": [],
+      "evidence": [],
+      "reason": "需可复现环境/奖励和训练协议，历史收益最大化不等于有效",
+      "batch": "B2-可用数据工程",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    },
+    {
+      "theoryId": "F18.09",
+      "name": "混合策略与环境切换",
+      "source": "../theory-to-pseudocode/F18.md#f18-09-v2",
+      "status": "component",
+      "strategyIds": [],
+      "evidence": [
+        "packages/trading-strategies/src/theory-composition.ts",
+        "packages/trading-strategies/tests/theory-composition.test.ts"
+      ],
+      "reason": "已实现 `composeLongOnlyStrategies` 只做多组合组件：使用实际已知子目标/实际贡献与可追踪退出；非法或未知的新权重不会吞掉已知旧退出；缺失现金/权重返回 UNKNOWN 而不填 0；显式单品种上限 c 与总敞口上限 G。宿主完整策略与业绩未绑定，NO_DIRECT_TRADE",
+      "batch": "P4-策略闭环公共组件",
+      "sourceReview": "沿用原研究v1/v2来源和解释留项；本清单不提升原法或收益证据等级"
+    }
+  ]
+}

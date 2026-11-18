@@ -3,10 +3,21 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "~/trpc/react";
-import { strategyObjectSchema } from "trading-strategies";
+import {
+  strategyObjectSchema,
+  tripleScreenStrategy,
+  utcOrbStrategy,
+} from "trading-strategies";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { usePanelVisible } from "../workbench/keep-alive";
 
 const initialStrategy = {
@@ -40,10 +51,26 @@ export function LabBacktest() {
     if (detail.data?.strategy)
       setObject(JSON.stringify(detail.data.strategy, null, 2));
   }, [detail.data?.strategy]);
+  const preset = search.get("preset");
+  useEffect(() => {
+    if (!id && (preset === "week-day" || preset === "day-hour-five"))
+      setObject(
+        JSON.stringify(
+          tripleScreenStrategy(preset, "cn-equity", ["sh600000"]),
+          null,
+          2,
+        ),
+      );
+    if (!id && preset === "utc-orb")
+      setObject(JSON.stringify(utcOrbStrategy(), null, 2));
+  }, [id, preset]);
   const run = api.strategyLabBacktest.useMutation();
   const register = api.strategyLabRegister.useMutation();
   return (
-    <details open={!!id} className="mb-4 space-y-3 rounded border p-4">
+    <details
+      open={!!id || search.get("mode") === "object"}
+      className="mb-4 space-y-3 rounded border p-4"
+    >
       <summary className="cursor-pointer font-semibold">
         策略对象组合回测（A股 / BTC、ETH）
       </summary>
@@ -62,8 +89,76 @@ export function LabBacktest() {
       >
         <p className="text-sm text-nc-text-3">
           提交同一策略对象，经 BarStore 冻结完成行情，调用
-          runPortfolio。仅本地数据；缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，费用、公司行动与数量网格沿用研究情景。
+          runPortfolio。行情读取本地数据；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
+          缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，费用、公司行动与数量网格沿用研究情景。
         </p>
+        <div className="block text-sm">
+          <span className="mb-2 block">研究预设（仅填入配置，不自动运行）</span>
+          <Select
+            onValueChange={(value) => {
+              const [market, variant] = value.split("/");
+              if (
+                (market !== "cn-equity" && market !== "crypto") ||
+                (variant !== "week-day" &&
+                  variant !== "day-hour-five" &&
+                  variant !== "utc-orb")
+              )
+                return;
+              setObject(
+                JSON.stringify(
+                  variant === "utc-orb"
+                    ? utcOrbStrategy()
+                    : tripleScreenStrategy(
+                        variant,
+                        market,
+                        market === "cn-equity"
+                          ? ["sh600000"]
+                          : ["cxBTCUSDT", "cxETHUSDT"],
+                      ),
+                  null,
+                  2,
+                ),
+              );
+              setError("");
+            }}
+          >
+            <SelectTrigger
+              aria-label="多周期研究预设"
+              className="mb-3 max-w-full"
+            >
+              <SelectValue placeholder="选择预设" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cn-equity/week-day">
+                A股 · 周线方向 / 日线收盘触发
+              </SelectItem>
+              <SelectItem value="cn-equity/day-hour-five">
+                A股 · 日线方向 / 60分钟回调 / 5分钟触发
+              </SelectItem>
+              <SelectItem value="crypto/week-day">
+                BTC/ETH · 周线方向 / 日线收盘触发
+              </SelectItem>
+              <SelectItem value="crypto/day-hour-five">
+                BTC/ETH · 日线方向 / 60分钟回调 / 5分钟触发
+              </SelectItem>
+              <SelectItem value="crypto/utc-orb">
+                BTC/ETH · UTC 5分钟收盘代理 ORB
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="mb-3 block text-nc-text-3">
+            仅使用已完成周期；收盘触发后最早下一合法开盘成交，A股保持T+1。
+            缺失周期标记未知，禁用依赖该输入的信号；来源不一致则停止。预设为本地代理，非原法或收益认证。
+          </span>
+          <span className="mb-3 block text-nc-text-3">
+            ORB：仅 BTC/ETH
+            现货、5分钟。每个UTC日首根已完成5分钟线的低点记为OL、高点记为OH。
+            前10个完整UTC日分别取“日高−日开”与“日开−日低”的较小值，再求均值作为stretch；入场上界U=OH+stretch，退出下界S=OL−stretch。
+            当日首个完成收盘越U触发一次进入尝试；收盘跌破信号日冻结S或23:55完成bar产生退出意图，下一5分钟开盘执行。
+            这是“UTC
+            5分钟收盘代理”，不是严格日内执行或盘中硬止损；前10日或开盘槽缺失返回未知。
+          </span>
+        </div>
         <label className="block text-sm">
           策略对象
           <Textarea

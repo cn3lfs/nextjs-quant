@@ -12,6 +12,7 @@ import {
   localFinancialQuery,
   localSeriesQuery,
 } from "~/lib/financial/local-financial";
+import { financialReplayInput } from "~/lib/financial/financial-replay";
 import {
   localFinancialView,
   localFinancialSeriesView,
@@ -35,9 +36,20 @@ import { observationRanking } from "../../screening/rps-observation";
 import { latestRpsObservation } from "../../db/rps-observations";
 import { RpsStore } from "../../db/rps-store";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import { financialReplayRequestIdentity } from "../../financial/financial-replay-source";
+import {
+  financialReplayActivity,
+  financialReplayHistory,
+  financialReplayTasks,
+  financialReplayView,
+  readFinancialReplay,
+} from "../../financial/financial-replay-store";
+import { runFinancialReplayJob } from "../../financial/financial-replay-host";
+import type { FinancialReplayWork } from "../../financial/financial-replay-work";
 
 const archiveId = z.string().regex(/^local-financial-[a-f0-9]{64}$/);
 const screenId = z.string().regex(/^local-financial-screen-[a-f0-9]{64}$/);
+const replayId = z.string().regex(/^financial-replay-[a-f0-9]{64}$/);
 type Audit = Awaited<ReturnType<typeof auditLocalFinancialFiles>>;
 export const financialRouter = createTRPCRouter({
   localFinancialView: p("financial", "read")
@@ -269,6 +281,7 @@ export const financialRouter = createTRPCRouter({
         counts: result.counts,
         warning: result.warning,
         issues: result.issues,
+        theorySelection: result.theorySelection ?? null,
         rowCount: rows.length,
         rows: rows.slice(
           input.pageIndex * input.pageSize,
@@ -296,4 +309,54 @@ export const financialRouter = createTRPCRouter({
       if (readArchiveRecord("local-financial-screen", input)) remove(input);
       return { deleted: true };
     }),
+  financialReplayStart: p("financial", "compute")
+    .input(financialReplayInput)
+    .mutation(({ input }) => {
+      const config = settings(),
+        requestIdentity = financialReplayRequestIdentity(input, config.tdxRoot),
+        work: FinancialReplayWork = {
+          type: "financial-replay",
+          root: config.tdxRoot,
+          input,
+          requestIdentity,
+        };
+      return background(
+        "research",
+        work,
+        (job, signal) => runFinancialReplayJob(work, job.id, signal),
+        requestIdentity,
+      );
+    }),
+  financialReplayHistory: p("financial", "read").query(() =>
+    financialReplayHistory(),
+  ),
+  financialReplayTasks: p("financial", "read").query(() =>
+    financialReplayTasks(),
+  ),
+  financialReplayResult: p("financial", "read")
+    .input(replayId)
+    .query(async ({ input }) => {
+      const result = await readFinancialReplay(input);
+      return result ? financialReplayView(result) : null;
+    }),
+  financialReplayExport: p("financial", "read")
+    .input(replayId)
+    .query(({ input }) => readFinancialReplay(input)),
+  financialReplayActivity: p("financial", "read")
+    .input(
+      z.object({
+        id: replayId,
+        fillPage: z.number().int().min(0).default(0),
+        rejectionPage: z.number().int().min(0).default(0),
+        pageSize: z.number().int().min(1).max(100).default(20),
+      }),
+    )
+    .query(({ input }) =>
+      financialReplayActivity(
+        input.id,
+        input.fillPage,
+        input.rejectionPage,
+        input.pageSize,
+      ),
+    ),
 });

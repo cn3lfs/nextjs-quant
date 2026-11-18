@@ -13,6 +13,11 @@ export function taskEvidence(id: string) {
     json_extract(payload,'$.result.overview.totalReturn.value') totalReturn,
     json_extract(payload,'$.result.overview.maxDrawdown.value') drawdown,
     json_array_length(payload,'$.result.result.fills') fills,
+    (SELECT sum(json_extract(value,'$.evaluated')) FROM json_each(payload,'$.result.inputDiagnostics')) evaluated,
+    (SELECT sum(json_extract(value,'$.unknown')) FROM json_each(payload,'$.result.inputDiagnostics')) unknown,
+    (SELECT sum(json_extract(value,'$.missing.execution')) FROM json_each(payload,'$.result.frozen.sources')) missingExecution,
+    (SELECT sum(json_extract(value,'$.missing.setup')) FROM json_each(payload,'$.result.frozen.sources')) missingSetup,
+    (SELECT sum(json_extract(value,'$.missing.background')) FROM json_each(payload,'$.result.frozen.sources')) missingBackground,
     json_extract(payload,'$.result.datasets') datasets,
     (SELECT json_group_array(json_object('symbol',json_extract(value,'$.symbol'),'interval',json_extract(value,'$.interval'),
       'count',json_extract(value,'$.count'),'files',json_array_length(value,'$.files'),'gaps',json_array_length(value,'$.gaps'))) FROM json_each(payload,'$.result.series')) series
@@ -30,6 +35,11 @@ export function taskEvidence(id: string) {
         totalReturn: number | null;
         drawdown: number | null;
         fills: number | null;
+        evaluated: number | null;
+        unknown: number | null;
+        missingExecution: number | null;
+        missingSetup: number | null;
+        missingBackground: number | null;
         datasets: string | null;
         series: string | null;
       }
@@ -42,7 +52,7 @@ export function taskEvidence(id: string) {
   )
     return null;
   const fields: { label: string; value: string }[] = [];
-  if (row.kind === "lab-backtest")
+  if (row.kind === "lab-backtest") {
     fields.push(
       {
         label: "收益",
@@ -60,6 +70,15 @@ export function taskEvidence(id: string) {
       },
       { label: "成交", value: formatNumber(row.fills, 0) },
     );
+    for (const [label, value] of [
+      ["已评估收盘", row.evaluated],
+      ["未知判定", row.unknown],
+      ["执行周期缺槽", row.missingExecution],
+      ["准备周期缺槽", row.missingSetup],
+      ["背景周期缺槽", row.missingBackground],
+    ] as const)
+      if (value !== null) fields.push({ label, value: formatNumber(value, 0) });
+  }
   if (row.kind === "research-command")
     fields.push(
       {

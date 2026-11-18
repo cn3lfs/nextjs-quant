@@ -24,6 +24,11 @@ import {
 import { readBars } from "~/server/market/bar-store/read-bars";
 import { auditLocalFinancialFiles } from "../data-sources/tdx/local-financial-audit";
 import { buildLocalFinancialArchive } from "./local-financial-archive";
+import { localFinancialTheory } from "./financial-theory-adapter";
+import {
+  financialTheoryFieldIds,
+  rankFinancialTheory,
+} from "trading-strategies/research/financial-theory";
 
 async function optionalSource<T>(read: () => Promise<T>) {
   try {
@@ -95,6 +100,7 @@ export async function runLocalFinancialScreen(
       )
     : null;
   const ids = [
+    ...(input.theoryPreset ? financialTheoryFieldIds : []),
     1,
     4,
     6,
@@ -123,17 +129,21 @@ export async function runLocalFinancialScreen(
       .map((c) => +c.field.slice(2)),
   ];
   const needsHistory =
-    input.conditions.some((c) => !c.field.startsWith("FN")) || needs("reports");
+    !!input.theoryPreset ||
+    input.conditions.some((c) => !c.field.startsWith("FN")) ||
+    needs("reports");
   const history =
-    input.conditions.length || needs("reports")
+    input.theoryPreset || input.conditions.length || needs("reports")
       ? await readFinancialPoolHistory(work.root, work.symbols, {
           asOf: input.asOf,
           strict: input.strict,
-          limit: needsHistory
-            ? input.conditions.some((c) => c.field.includes("cagr"))
-              ? 20
-              : 8
-            : 1,
+          limit: input.theoryPreset
+            ? 16
+            : needsHistory
+              ? input.conditions.some((c) => c.field.includes("cagr"))
+                ? 20
+                : 8
+              : 1,
           fieldIds: ids,
           signal,
           progress: (done, total) =>
@@ -164,9 +174,12 @@ export async function runLocalFinancialScreen(
             }),
           )
         : null;
-    const stock = needs("stock-series")
-      ? await optionalSource(() => readLocalFinancialSeries(work.root, symbol))
-      : null;
+    const stock =
+      needs("stock-series") || input.theoryPreset === "magic-formula"
+        ? await optionalSource(() =>
+            readLocalFinancialSeries(work.root, symbol),
+          )
+        : null;
     const sourceErrors = {
       "stock-series": stock?.error,
       "market-series": market?.error,
@@ -295,8 +308,18 @@ export async function runLocalFinancialScreen(
         sourceSha256: work.rps?.hash,
       });
     }
+    const theory = input.theoryPreset
+      ? localFinancialTheory(reports, input.asOf, input.strict, stock?.value)
+      : null;
     const matched = combineFinancialConditions(
       [
+        ...(theory
+          ? [
+              input.theoryPreset === "f-score"
+                ? theory.fScore.matched
+                : theory.magic.matched,
+            ]
+          : []),
         ...(input.conditions.length ? [financial.matched] : []),
         ...technical.map((c) => c.matched),
         ...dataFactors.map((c) => c.matched),
@@ -313,6 +336,7 @@ export async function runLocalFinancialScreen(
       financial: financial.details,
       technical,
       dataFactors,
+      theory,
       evidence: reports.map((report) => ({
         reportDate: report.reportDate,
         announcementDate: report.announcementDate,
@@ -344,7 +368,16 @@ export async function runLocalFinancialScreen(
       await new Promise<void>((resolve) => setImmediate(resolve));
     }
   }
+  const theorySelection = input.theoryPreset
+    ? rankFinancialTheory(
+        rows
+          .filter((r) => r.theory && r.matched === true)
+          .map((r) => ({ symbol: r.symbol, result: r.theory! })),
+        input.theoryPreset,
+      )
+    : null;
   const content = {
+    theorySelection,
     version: "local-financial-screen-v1",
     versions: financialVersions,
     dataFactorVersion: localDataFactorVersion,

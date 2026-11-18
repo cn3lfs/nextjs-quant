@@ -4,7 +4,7 @@
 
 ## 统一接口
 
-`unifiedStrategyCatalog` 包含91项：56项纯行情日线、1项原生结构日线、25项目标权重预设、3项研究和6项输入/模型缺口。`getStrategyDefinition`读取定义，`checkStrategyAvailability`检查能力前置条件，不把工程已实现当作可信业绩。既有九方向代表的历史证据索引独立保留。
+`unifiedStrategyCatalog` 包含123项：88项纯行情日线、1项原生结构日线、25项目标权重预设、3项研究和6项输入/模型缺口。`getStrategyDefinition`读取定义，`checkStrategyAvailability`检查能力前置条件，不把工程已实现当作可信业绩。既有九方向代表的历史证据索引独立保留。
 
 `evaluateStrategy`接收`strategyId`和截至`asOf`的已完成行情或候选因子。信号输出`signal`，横截面输出`weights`；原始账户型日线策略输出`order`，要求显式传入`account`状态。它不改变持仓或现金。完整日线回放由`quant-backtest.replayDailyStudy`调用`createStudyDecision`执行。
 
@@ -59,3 +59,9 @@ pnpm --filter trading-strategies build
 research子路径维护策略政策、形态、筛选与中性事实契约；原始供应商列解析、数据读取、证据hash与任务留应用。费用/数量报价由执行器注入，成交原语复用quant-backtest，回放与持仓账本由实际执行层维护。累计128条完整旧路径映射见[迁移台账](../../docs/strategy-module-migration.json)；另有部分文件仅拆策略语义，不登记整文件搬迁。包只依赖中性FormulaRuntime，应用唯一实现执行既有DSL；原生观察由应用逐收盘固定前缀生成，包消费冻结结构并决定信号。
 
 版本化策略对象使用包根strategyObjectSchema/prepareStrategy；纯公式通过trading-strategies/formula/*直接使用。方法目录execution字段由scripts/audit-strategy-objects.ts --write生成，精确绑定才标runnable，其他方法保留reference。
+
+## 2026-11-17 理论代理融合
+
+新增32项有独立ID的只做多日线研究代理，theoryDefinitions关联原研究卡；逐项差异见[228卡工程覆盖](../../docs/research/theory-implementation/README.md)。theoryStrategy(id, market, symbols)创建10%权重的研究策略对象，不登记、不启用或下单。study-rule复用同一纯规则，组合执行器在真实成交后传入entry、entryIndex、signalIndex；持仓相关规则禁止冻结成无持仓状态的preparedRules。
+
+新代理的固定保护是收盘退出，不能据此声称可挂盘中硬止损或满足依赖硬保护的heat风险预算。A股策略中心复用新增目录；BTC/ETH当前通过策略对象及研究CLI运行，页面股票输入尚未扩展。真实行情运行口径及剩余限制见[研究说明](../../docs/research/theory-study-results.md)。

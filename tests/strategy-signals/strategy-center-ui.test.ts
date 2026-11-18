@@ -5,6 +5,12 @@ import { unifiedStrategyCatalog } from "trading-strategies";
 
 const selection = vi.hoisted(() => ({
   id: "ma",
+  history: [] as {
+    id: string;
+    strategyId: string;
+    symbol: string;
+    status: string;
+  }[],
 }));
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof import("react")>();
@@ -33,7 +39,7 @@ vi.mock("~/trpc/react", async () => {
         useQuery: () => ({ data: catalog, error: null }),
       },
       strategyCenterHistory: {
-        useQuery: () => ({ data: [], refetch: vi.fn() }),
+        useQuery: () => ({ data: selection.history, refetch: vi.fn() }),
       },
       strategyCenterMethods: {
         useQuery: () => ({ data: { total: 695, methods: [] } }),
@@ -51,9 +57,11 @@ vi.mock("~/trpc/react", async () => {
   };
 });
 import { StrategyCenter } from "../../src/components/research/strategy-center";
+import { readTaskHistoryLocation } from "../../src/lib/research/workflow/task-history-location";
 
 beforeEach(() => {
   selection.id = "ma";
+  selection.history = [];
 });
 const render = () => renderToStaticMarkup(createElement(StrategyCenter));
 
@@ -80,6 +88,15 @@ it("offers the daily experiment action for an executable daily strategy", () => 
   expect(html).toContain("下一交易日开盘撮合");
   expect(html).not.toContain("读取本地因子并计算权重");
 });
+it.each(["week-day", "day-hour-five"])(
+  "routes the %s triple-screen preset to the actual object form",
+  (variant) => {
+    selection.id = `theory-triple-screen-${variant}`;
+    const html = render();
+    expect(html).toContain(`/lab/backtest?mode=object&amp;preset=${variant}`);
+    expect(html).not.toContain("创建本地日线实验");
+  },
+);
 it("offers native Chan execution with its bounded observation origin and identity requirements", () => {
   selection.id = "research-chan";
   const html = render();
@@ -111,5 +128,32 @@ it("does not offer execution for research-only or missing-data entries", () => {
     expect(html).not.toContain("创建本地日线实验");
     expect(html).not.toContain("读取本地因子并计算权重");
     expect(html).not.toContain("创建历史组合实验");
+  }
+});
+
+it("links every history row to its exact task filter, including escaped task identifiers", () => {
+  selection.history = [
+    {
+      id: "job?a=1&x/中文",
+      strategyId: "ma",
+      symbol: "sh600000",
+      status: "completed",
+    },
+    {
+      id: "another-job",
+      strategyId: "theory-nr4-close",
+      symbol: "sh600519",
+      status: "failed",
+    },
+  ];
+  const links = [...render().matchAll(/<a href="([^"]+)"[^>]*>任务详情<\/a>/g)];
+  expect(links).toHaveLength(2);
+  for (const [i, match] of links.entries()) {
+    const url = new URL(match[1]!.replaceAll("&amp;", "&"), "http://fixture");
+    expect(url.pathname).toBe("/system/tasks");
+    expect(readTaskHistoryLocation(url.search)).toEqual({
+      filter: { id: selection.history[i]!.id },
+      error: "",
+    });
   }
 });

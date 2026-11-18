@@ -101,6 +101,44 @@ export function requireRunningFormulaJob(id: string) {
     throw new Error("公式选股任务已取消或不再运行");
 }
 
+export type FinancialReplayTaskRow = {
+  id: string;
+  status: string;
+  progress: number;
+  phase: string | null;
+  error: string | null;
+  createdAt: number;
+  updatedAt: number;
+  /** Raw nested input for the financial domain mapper to validate. */
+  input: string | null;
+  reportId: string | null;
+};
+
+/** Narrow projection shared with the financial domain store. It intentionally
+ * does not materialize result/curve payloads; input validation stays there. */
+export function financialReplayTaskRows(limit = 50): FinancialReplayTaskRow[] {
+  const bounded =
+    Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 100) : 50;
+  return sqlite()
+    .prepare(
+      `SELECT id,
+        json_extract(payload, '$.status') AS status,
+        json_extract(payload, '$.progress') AS progress,
+        json_extract(payload, '$.phase') AS phase,
+        json_extract(payload, '$.error') AS error,
+        json_extract(payload, '$.createdAt') AS createdAt,
+        json_extract(payload, '$.updatedAt') AS updatedAt,
+        json_extract(payload, '$.input.input') AS input,
+        json_extract(payload, '$.result.reportId') AS reportId
+      FROM records
+      WHERE kind = 'job'
+        AND json_extract(payload, '$.input.type') = 'financial-replay'
+      ORDER BY json_extract(payload, '$.createdAt') DESC, id DESC
+      LIMIT ?`,
+    )
+    .all(bounded) as FinancialReplayTaskRow[];
+}
+
 export function maBaselineHistory() {
   return sqlite()
     .prepare(

@@ -1,3 +1,6 @@
+import { tripleScreenDefinitions } from "./theory-multiperiod.js";
+import { utcOrbDefinition } from "./theory-orb.js";
+import { theoryDefinitions } from "./theory-catalog.js";
 import {
   portfolioRpsDefinitions,
   portfolioRpsFactorMetadata,
@@ -38,6 +41,7 @@ import {
 } from "./study-decision.js";
 
 export type StrategyDataCapability =
+  | "multi-period"
   | "ohlcv"
   | "account-state"
   | "cross-section"
@@ -65,6 +69,7 @@ export type StrategyDefinition = {
   output: "signal" | "weights" | "order" | "research";
   implementation: "implemented" | "research-only" | "missing-data";
   warmupBars: number;
+  theoryId?: string;
   candidateFactors?: readonly StrategyCandidateFactor[];
 };
 export type StrategyCandidateFactor = {
@@ -112,7 +117,7 @@ export type StrategyContext = {
   asOf: string;
   bars?: readonly Bar[];
   index?: number;
-  position?: { entry: number; entryIndex: number };
+  position?: { entry: number; entryIndex: number; signalIndex?: number };
   candidates?: readonly StrategyCandidate[];
   account?: StudyDecisionState & { initial: number; firstIndex: number };
   native?: {
@@ -303,11 +308,20 @@ const dailyDefinitions: Omit<StrategyDefinition, "category">[] =
     id,
     version: 1,
     ...studyCatalog[id],
+    ...(theoryDefinitions.find((d) => d.id === id)
+      ? { theoryId: theoryDefinitions.find((d) => d.id === id)!.theoryId }
+      : {}),
     origin: "international",
-    sources: (id.startsWith("research-")
-      ? representativeSources[id.slice(9)]
-      : undefined) ??
-      classicDefinitions.find((d) => d.id === id)?.sources ?? [technicalSource],
+    sources: theoryDefinitions.some((d) => d.id === id)
+      ? [
+          `docs/research/theory-to-pseudocode/${theoryDefinitions.find((d) => d.id === id)!.theoryId.split(".")[0]}.md`,
+        ]
+      : ((id.startsWith("research-")
+          ? representativeSources[id.slice(9)]
+          : undefined) ??
+        classicDefinitions.find((d) => d.id === id)?.sources ?? [
+          technicalSource,
+        ]),
     capabilities: accountIds.includes(id)
       ? ["ohlcv", "account-state"]
       : ["ohlcv"],
@@ -318,6 +332,26 @@ const dailyDefinitions: Omit<StrategyDefinition, "category">[] =
 
 const definitions: readonly Omit<StrategyDefinition, "category">[] = [
   ...dailyDefinitions,
+  ...tripleScreenDefinitions.map((d): Omit<StrategyDefinition, "category"> => ({
+    ...d,
+    version: 1,
+    origin: "international",
+    sources: ["docs/research/theory-to-pseudocode/F03.md#f03-11-v2"],
+    capabilities: ["ohlcv", "multi-period", "account-state"],
+    output: "signal",
+    implementation: "implemented",
+    warmupBars: 35,
+  })),
+  {
+    ...utcOrbDefinition,
+    version: 1,
+    origin: "international",
+    sources: ["docs/research/theory-to-pseudocode/F04.md#f04-05-v2"],
+    capabilities: ["ohlcv", "account-state"],
+    output: "signal",
+    implementation: "implemented",
+    warmupBars: 288 * 11,
+  },
   {
     ...nativeStudyDefinition,
     origin: "domestic",
@@ -442,6 +476,8 @@ export function evaluateStrategy(
   const definition = getStrategyDefinition(instance.strategyId);
   if (!definition || definition.implementation !== "implemented")
     throw new Error("策略不存在或未实现");
+  if (tripleScreenDefinitions.some((d) => d.id === instance.strategyId))
+    throw new Error("多周期策略须通过策略对象入口提供已完成周期与真实持仓状态");
   if (!validDate(context.asOf)) throw new Error("asOf必须为有效交易日期");
   const portfolio = portfolioDefinitions.find(
     (d) => d.id === instance.strategyId,

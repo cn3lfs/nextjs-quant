@@ -25,6 +25,10 @@ import {
   executeLocalFinancialWork,
   type LocalFinancialWork,
 } from "../financial/local-financial-work";
+import {
+  executeFinancialReplayWork,
+  type FinancialReplayWork,
+} from "../financial/financial-replay-work";
 import { scan } from "../data-sources/tdx/tdx";
 import {
   executeBinanceBackfill,
@@ -80,6 +84,7 @@ export type Work =
   | BinancePublicDataWork
   | ValidationWork
   | LocalFinancialWork
+  | FinancialReplayWork
   | MaBaselineWork
   | FormulaWork
   | FormulaShardWork
@@ -112,6 +117,12 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
   if (work.type === "local-financial")
     return executeLocalFinancialWork(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),
+    );
+  if (work.type === "financial-replay")
+    return executeFinancialReplayWork(
+      work,
+      (progress, phase) => parentPort?.postMessage({ progress, phase }),
+      { maxRssMiB: 4096 },
     );
   if (work.type === "ma-baseline") {
     const archive = await executeMaBaseline(work, (progress, phase) =>

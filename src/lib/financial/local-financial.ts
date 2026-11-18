@@ -111,6 +111,7 @@ export const financialScreenInput = z
     pool: poolSelectionSchema.optional(),
     asOf: financialIsoDate,
     strict: z.boolean().default(true),
+    theoryPreset: z.enum(["f-score", "magic-formula"]).optional(),
     mode: z.enum(["all", "any"]).default("all"),
     conditions: z.array(financialConditionSchema).max(12),
     technical: z.array(factorConditionSchema).max(6).default([]),
@@ -130,7 +131,8 @@ export const financialScreenInput = z
   })
   .refine(
     (input) =>
-      input.conditions.length +
+      (input.theoryPreset ? 1 : 0) +
+        input.conditions.length +
         input.technical.length +
         (input.dataFactors?.length ?? 0) +
         (input.rps ? 1 : 0) >
