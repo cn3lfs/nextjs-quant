@@ -39,7 +39,26 @@ const sourceLabels = {
   local: "手工账本",
 } as const;
 type PositionSource = keyof typeof sourceLabels;
+type PositionKind = "real" | "paper" | "exchange-simulation" | "all";
+type PositionMarket = "all" | "cn-equity" | "crypto";
+type PositionGroup = "market" | "sleeve" | "kind";
 type Position = RouterOutputs["accountPositions"]["items"][number];
+type HoldingsFilters = {
+  kind: PositionKind;
+  source: PositionSource;
+  market: PositionMarket;
+  group: PositionGroup;
+  sleeve: string;
+  page: number;
+};
+const defaultHoldingsFilters: HoldingsFilters = {
+  kind: "real",
+  source: "all",
+  market: "all",
+  group: "market",
+  sleeve: "",
+  page: 0,
+};
 export function AccountWorkspace() {
   const search = useSearchParams(),
     tab = search.get("tab"),
@@ -50,23 +69,34 @@ export function AccountWorkspace() {
   if (tab === "attribution") return <AccountAttribution />;
   if (tab === "monthly") return <MonthlyReview />;
   if (tab === "weekly") return <WeeklyReview />;
-  if (position) return <AccountPositionDetail id={position} />;
-  return (
+  return <HoldingsExplorer position={position} />;
+}
+/**
+ * Owns the list filters above the list/detail switch, so opening a position and
+ * returning (link or Back/Forward) keeps the exact list view. A hard refresh,
+ * another workspace tab, or a direct position link starts from the defaults.
+ */
+function HoldingsExplorer({ position }: { position: string | null }) {
+  const [filters, setFilters] = useState(defaultHoldingsFilters);
+  const update = (patch: Partial<HoldingsFilters>) =>
+    setFilters((current) => ({ ...current, ...patch }));
+  return position ? (
+    <AccountPositionDetail key={position} id={position} />
+  ) : (
     <>
       <CryptoRiskNotes />
-      <UnifiedPositions />
+      <UnifiedPositions filters={filters} update={update} />
     </>
   );
 }
-function UnifiedPositions() {
-  const [kind, setKind] = useState<
-      "real" | "paper" | "exchange-simulation" | "all"
-    >("real"),
-    [market, setMarket] = useState<"all" | "cn-equity" | "crypto">("all"),
-    [source, setSource] = useState<PositionSource>("all"),
-    [group, setGroup] = useState<"market" | "sleeve" | "kind">("market"),
-    [sleeve, setSleeve] = useState(""),
-    [page, setPage] = useState(0);
+function UnifiedPositions({
+  filters,
+  update,
+}: {
+  filters: HoldingsFilters;
+  update: (patch: Partial<HoldingsFilters>) => void;
+}) {
+  const { kind, market, source, group, sleeve, page } = filters;
   const query = api.accountPositions.useQuery({
     kind,
     market,
@@ -154,10 +184,12 @@ function UnifiedPositions() {
           { value: "all", label: "全部类型" },
         ]}
         onChange={(v) => {
-          setKind(v as typeof kind);
           // Sources only exist on real accounts; leaving real resets to all.
-          if (v !== "real") setSource("all");
-          setPage(0);
+          update({
+            kind: v,
+            page: 0,
+            ...(v === "real" ? {} : { source: "all" as const }),
+          });
         }}
       />
       {kind === "real" && (
@@ -169,10 +201,7 @@ function UnifiedPositions() {
             { value: "delivery", label: "券商交割单" },
             { value: "local", label: "手工账本" },
           ]}
-          onChange={(v) => {
-            setSource(v);
-            setPage(0);
-          }}
+          onChange={(v) => update({ source: v, page: 0 })}
         />
       )}
       <Segmented
@@ -183,10 +212,7 @@ function UnifiedPositions() {
           { value: "cn-equity", label: "A股" },
           { value: "crypto", label: "数字货币" },
         ]}
-        onChange={(v) => {
-          setMarket(v as typeof market);
-          setPage(0);
-        }}
+        onChange={(v) => update({ market: v, page: 0 })}
       />
       <div className="flex flex-wrap items-center gap-3">
         <Segmented
@@ -197,19 +223,13 @@ function UnifiedPositions() {
             { value: "sleeve", label: "按分仓" },
             { value: "kind", label: "按类型" },
           ]}
-          onChange={(v) => {
-            setGroup(v as typeof group);
-            setPage(0);
-          }}
+          onChange={(v) => update({ group: v, page: 0 })}
         />
         <Input
           aria-label="分仓筛选"
           placeholder="分仓ID，空为全部"
           value={sleeve}
-          onChange={(e) => {
-            setSleeve(e.target.value);
-            setPage(0);
-          }}
+          onChange={(e) => update({ sleeve: e.target.value, page: 0 })}
           className="max-w-56"
         />
       </div>
@@ -248,10 +268,11 @@ function UnifiedPositions() {
         sorting={[]}
         onSortingChange={() => {}}
         onPaginationChange={(u) =>
-          setPage(
-            (typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u)
-              .pageIndex,
-          )
+          update({
+            page: (
+              typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u
+            ).pageIndex,
+          })
         }
         getRowId={(r) => r.id}
         loading={query.isLoading}
@@ -264,22 +285,44 @@ function UnifiedPositions() {
 function AccountPositionDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0);
   const query = api.accountPosition.useQuery({ id, page });
-  if (query.isLoading) return <p role="status">正在读取持仓归因…</p>;
-  if (query.error)
-    return (
-      <p role="alert">
-        {query.error.message}{" "}
-        <Button onClick={() => void query.refetch()}>重试</Button>
-      </p>
-    );
-  if (!query.data) return null;
-  const d = query.data,
-    p = d.position;
   return (
     <section aria-label="持仓归因与衰减" className="space-y-4">
-      <Link href="/accounts" className="underline">
+      <Link href="/accounts" scroll={false} className="underline">
         返回统一持仓
       </Link>
+      {query.isLoading ? (
+        <p role="status">正在读取持仓归因…</p>
+      ) : query.error ? (
+        <p role="alert">
+          {query.error.message}{" "}
+          <Button onClick={() => void query.refetch()}>重试</Button>
+        </p>
+      ) : query.data ? (
+        <PositionDetailContent
+          data={query.data}
+          page={page}
+          setPage={setPage}
+          fetching={query.isFetching}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function PositionDetailContent({
+  data: d,
+  page,
+  setPage,
+  fetching,
+}: {
+  data: RouterOutputs["accountPosition"];
+  page: number;
+  setPage: (page: number) => void;
+  fetching: boolean;
+}) {
+  const p = d.position;
+  return (
+    <>
       <h2 className="text-xl font-semibold">
         {p.symbol} · {accountKindLabels[p.kind]} · {p.account}
       </h2>
@@ -326,9 +369,9 @@ function AccountPositionDetail({ id }: { id: string }) {
         total={d.tradeCount}
         page={page}
         setPage={setPage}
-        fetching={query.isFetching}
+        fetching={fetching}
       />
-    </section>
+    </>
   );
 }
 
