@@ -147,10 +147,30 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
     ["queued", "running"].includes(job.data?.status ?? "");
   const busy = running || reading || exporting || remove.isPending;
   const parsed = parseMaDraft(draft);
+  const coverageValidation =
+    coverage?.unavailableReason ??
+    (coverage?.earliestStart &&
+    draft.start &&
+    draft.start < coverage.earliestStart
+      ? `开始日期至少为 ${coverage.earliestStart}，此前须保留 ${coverage.warmupBars} 根预热行情。`
+      : coverage?.suggestedEnd && draft.end > coverage.suggestedEnd
+        ? `结束日期不能晚于本地最后完整交易日 ${coverage.suggestedEnd}。`
+        : coverage &&
+            draft.start &&
+            draft.end &&
+            !coverage.runnableWindows.some(
+              (window) =>
+                draft.start >= window.start && draft.end <= window.end,
+            )
+          ? "所选窗口跨越本地已知不完整会话或缺少紧邻预热，请重新读取覆盖并选择可用区间。"
+          : null);
   const data = completed ? result.data : null;
   const selectedEntry = history.data?.find((entry) => entry.id === id);
   function changeDraft(next: MaDraft) {
-    if (next.symbol !== draft.symbol) {
+    if (
+      next.symbol !== draft.symbol ||
+      JSON.stringify(next.strategy) !== JSON.stringify(draft.strategy)
+    ) {
       setCoverage(null);
       setCoverageError("");
     }
@@ -163,18 +183,17 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
     setCoverage(null);
     setCoverageError("");
     try {
-      const source = await utils.maBaselineCoverage.fetch(draft.symbol);
-      const from = new Date(`${source.end}T00:00:00Z`);
-      from.setUTCDate(from.getUTCDate() - 30);
+      const source = await utils.maBaselineCoverage.fetch({
+        symbol: draft.symbol,
+        strategy: draft.strategy,
+      });
       setDraft((current) => ({
         ...current,
-        start:
-          from.toISOString().slice(0, 10) < source.start
-            ? source.start
-            : from.toISOString().slice(0, 10),
-        end: source.end,
+        start: source.suggestedStart ?? "",
+        end: source.suggestedEnd ?? "",
       }));
       setCoverage(source);
+      setCoverageError(source.unavailableReason ?? "");
     } catch (error) {
       setCoverageError(
         error instanceof Error
@@ -250,10 +269,12 @@ export function MaBaselinePanel({ loaded }: { loaded: Snapshot | null }) {
             running={running}
             coverage={coverage}
             coverageError={coverageError}
-            validationError={parsed.error}
+            validationError={
+              coverage?.unavailableReason ?? parsed.error ?? coverageValidation
+            }
             onReadCoverage={() => void readCoverage()}
             onRun={() => {
-              if (parsed.input && !busy) {
+              if (parsed.input && !busy && !coverageValidation) {
                 setNotice("");
                 setExportError("");
                 create.mutate(parsed.input);

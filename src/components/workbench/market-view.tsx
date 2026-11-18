@@ -95,6 +95,15 @@ export function MarketView({
   });
   const watchUnavailable =
     !savedWatchlist.data || !!savedWatchlist.error || watch.isPending;
+  let watchActionLabel = "加入自选";
+  if (!loaded) watchActionLabel = "请先加载证券";
+  else if (savedWatchlist.error) watchActionLabel = "自选列表读取失败";
+  else if (!savedWatchlist.data) watchActionLabel = "正在读取自选";
+  else if (watch.isPending) watchActionLabel = "正在加入自选";
+  else if (load.isPending) watchActionLabel = "正在加载行情";
+  else if (isSectorChartSymbol(loaded.symbol))
+    watchActionLabel = "板块暂不支持自选";
+  else if (watchlist.includes(loaded.symbol)) watchActionLabel = "已在自选";
   const names = useSecurityNames().data ?? {};
   const chartSymbol = loaded?.symbol ?? symbol;
   const effectiveAdjustment =
@@ -543,9 +552,10 @@ export function MarketView({
                 isSectorChartSymbol(loaded.symbol) ||
                 watchlist.includes(loaded.symbol)
               }
+              title={watchActionLabel}
             >
               <Plus size={13} />
-              加入自选
+              {watchActionLabel}
             </Button>
           </div>
         </section>

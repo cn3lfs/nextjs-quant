@@ -1,7 +1,8 @@
 "use client";
 import { CurrencyBtc, Globe } from "@phosphor-icons/react/ssr";
 import { usePeriodHotkey } from "./chart-hotkeys";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useForeignChartSymbol } from "./use-foreign-chart-symbol";
 import type { Snapshot } from "~/lib/domain";
 import {
   chartPeriodSchema,
@@ -42,15 +43,6 @@ import { ChartWorkspace } from "./chart-workspace";
 import { CryptoBotPanel } from "./crypto-bot-panel";
 import { usePanelVisible } from "../workbench/keep-alive";
 
-/** Pair from `?pair=BTCUSDT` (or a legacy `?symbol=cxBTCUSDT` deep link). */
-function initialPair() {
-  if (typeof window === "undefined") return "cxBTCUSDT";
-  const params = new URLSearchParams(window.location.search);
-  const raw = (params.get("pair") ?? params.get("symbol") ?? "").toUpperCase();
-  const symbol = cryptoSymbol(raw.replace(/^CX/, ""));
-  return isCryptoSymbol(symbol) ? symbol : "cxBTCUSDT";
-}
-
 /** Account facts and simulated strategies live under Accounts & Review. */
 export function CryptoView() {
   const [workspace, setWorkspace] = useState<"strategy" | "account">("account");
@@ -72,25 +64,22 @@ export function CryptoView() {
 
 export function CryptoQuotes() {
   const visible = usePanelVisible();
-  const [symbol, setSymbol] = useState("cxBTCUSDT");
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
+  const { symbol, selectSymbol } = useForeignChartSymbol("crypto", (next) =>
+    load.mutate({ symbol: next, period: "day", cryptoSource: source }),
+  );
   usePeriodHotkey(
     period,
     setPeriod,
     !visible || load.isPending,
     chartPeriodSchema.options,
   );
-  useEffect(() => {
-    const first = initialPair();
-    setSymbol(first);
-    load.mutate({ symbol: first, period: "day", cryptoSource: "auto" });
-  }, []);
   const open = (next: string, pick = source) => {
-    setSymbol(next);
+    selectSymbol(next);
     setSource(pick);
     load.mutate({ symbol: next, period: "day", cryptoSource: pick });
   };

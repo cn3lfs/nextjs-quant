@@ -101,7 +101,7 @@ export function FormulaScreen({
     <section className="panel" aria-label="通达信公式选股" aria-busy={!ready}>
       <h3>通达信公式选股</h3>
       <p>
-        本地全 A 股 · 已完成日线 · 不复权。参数使用
+        本地全 A 股 · 已完成日线 · 前复权信号价；成交与账户保留原价。参数使用
         N1/N2…；恰有一个输出，中间变量用 :=。
       </p>
       <div className="inline-form">

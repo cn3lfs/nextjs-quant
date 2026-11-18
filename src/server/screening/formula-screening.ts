@@ -12,6 +12,8 @@ import type { ScreeningResult } from "./screening-result";
 import { scanFormulaParallel } from "./formula-shards";
 import { mergeFormulaParts, type FormulaRangeWork } from "./formula-range";
 
+export type FormulaScreenResult = ScreeningResult & { snapshotFiles: string[] };
+
 export type FormulaWork = FormulaRangeWork & {
   attemptId?: string;
   type: "formula-screen";
@@ -27,7 +29,7 @@ export type FormulaWork = FormulaRangeWork & {
 export async function screenFormula(
   work: FormulaWork,
   progress?: (n: number, phase: string, counts: WorkProgress) => void,
-): Promise<ScreeningResult> {
+): Promise<FormulaScreenResult> {
   const formula = validateScreenFormula(work.formula);
   const started = performance.now();
   const securities = (await scan(work.root)).securities
@@ -50,9 +52,10 @@ export async function screenFormula(
   const merged = mergeFormulaParts(parts);
   const usageStart = merged.usageStart;
   const observed = merged.observed;
-  const result: ScreeningResult = {
+  const result: FormulaScreenResult = {
     candidates: merged.candidates,
     snapshots: merged.snapshots,
+    snapshotFiles: merged.snapshotFiles,
     errors: merged.errors,
     excluded: merged.excluded,
     total: securities.length,

@@ -7,6 +7,7 @@ import {
   type TaskState,
 } from "~/lib/research/workflow/task-history";
 import type { WorkProgress } from "~/lib/research/workflow/work-progress";
+import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 export function WorkProgressView({ counts }: { counts?: WorkProgress }) {
   return counts ? (
     <p>
@@ -57,12 +58,21 @@ export function ScreenTaskProgress({ id }: { id: string }) {
           : false,
     },
   );
-  if (state.error)
-    return <p role="alert">进度读取失败：{state.error.message}</p>;
-  if (!state.data) return null;
+  if (!id) return null;
+  const terminal =
+    state.data && !["queued", "running"].includes(state.data.status);
   return (
     <section aria-label="公式选股进度">
-      <TaskProgressCard title="公式筛选" task={state.data} />
+      <a href={taskHistoryHref({ id })} className="text-primary underline">
+        {terminal ? "查看任务详情" : "查看任务详情与取消"}
+      </a>
+      {state.error ? (
+        <p role="alert">进度读取失败：{state.error.message}</p>
+      ) : state.data ? (
+        <TaskProgressCard title="公式筛选" task={state.data} />
+      ) : (
+        <p role="status">正在读取公式选股进度…</p>
+      )}
     </section>
   );
 }

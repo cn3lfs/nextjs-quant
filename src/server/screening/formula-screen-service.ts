@@ -1,3 +1,4 @@
+import { clearFormulaSnapshotSpool } from "./formula-snapshot-spool";
 import { z } from "zod";
 import { isFormulaScreenJob } from "~/lib/screening/formula-job";
 import { randomUUID } from "node:crypto";
@@ -108,19 +109,24 @@ export function formulaScreenJob(input: unknown) {
     "screen",
     { ...work, period: "day", source: "tdx-local", adjustment: "forward" },
     async (job, signal) => {
-      const result = await runWorker<FormulaScreenOutput>(work, job.id);
-      signal.throwIfAborted();
-      return {
-        ...result,
-        formula,
-        adjustment: "forward",
-        period: "day",
-        researchMode: "latest-local",
-        universeSource: "当前本地通达信全 A 股日线",
-        researchWarnings: [
-          "使用最新已完成本地日线，不承诺数据为当前交易日；前复权信号价（成交/账户保留原价）。候选表均线/量比为既有默认描述指标，不参与公式判定。",
-        ],
-      } satisfies StoredScreenResult;
+      try {
+        const result = await runWorker<FormulaScreenOutput>(work, job.id);
+        signal.throwIfAborted();
+        return {
+          ...result,
+          formula,
+          adjustment: "forward",
+          period: "day",
+          researchMode: "latest-local",
+          universeSource: "当前本地通达信全 A 股日线",
+          researchWarnings: [
+            "使用最新已完成本地日线，不承诺数据为当前交易日；前复权信号价（成交/账户保留原价）。候选表均线/量比为既有默认描述指标，不参与公式判定。",
+          ],
+        } satisfies StoredScreenResult;
+      } finally {
+        // The host also cleans an abruptly terminated/cancelled compute worker.
+        await clearFormulaSnapshotSpool(job.id);
+      }
     },
     work,
   );

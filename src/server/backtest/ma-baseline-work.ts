@@ -1,3 +1,7 @@
+import {
+  expectedFiveMinuteWarmup,
+  isCompleteFiveMinuteSession,
+} from "~/lib/backtest/five-minute-session";
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -68,18 +72,11 @@ export async function executeMaBaseline(
     if (!byDay.has(day)) byDay.set(day, []);
     byDay.get(day)!.push(b.date.slice(11, 16));
   }
-  const expectedTimes = Array.from({ length: 48 }, (_, i) => {
-    const minute = i < 24 ? 575 + i * 5 : 785 + (i - 24) * 5;
-    return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
-  });
-  const expected = expectedTimes.join(",");
   const previousDays = benchmark.bars
     .filter((b) => b.date < input.start)
     .slice(-Math.ceil(warmupBars / 48))
     .map((b) => b.date);
-  const expectedWarmup = previousDays
-    .flatMap((day) => expectedTimes.map((time) => `${day}T${time}:00+08:00`))
-    .slice(-warmupBars);
+  const expectedWarmup = expectedFiveMinuteWarmup(previousDays, warmupBars);
   const warmup = bars.slice(0, warmupBars);
   if (
     expectedWarmup.length !== warmupBars ||
@@ -87,7 +84,7 @@ export async function executeMaBaseline(
   )
     throw new Error(`预热未完整覆盖此前交易日末尾 ${warmupBars} 根五分钟行情`);
   if (
-    days.some((d) => byDay.get(d)?.join(",") !== expected) ||
+    days.some((d) => !isCompleteFiveMinuteSession(byDay.get(d))) ||
     [...byDay.keys()].some((d) => !days.includes(d))
   )
     throw new Error(

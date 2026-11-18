@@ -257,8 +257,12 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       const onError = (error: Error) => {
         healthy = false;
         cleanup();
-        void current.terminate();
-        reject(error);
+        // The host may now remove job-owned files. Settle only after the
+        // worker (and its nested threads/file handles) has actually exited.
+        void current.terminate().then(
+          () => reject(error),
+          () => reject(error),
+        );
       };
       const onExit = () => onError(new Error("计算任务已中止"));
       const onMessage = (message: {

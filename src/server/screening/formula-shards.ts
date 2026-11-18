@@ -14,6 +14,7 @@ export type FormulaShardWork = {
   formula: ScreeningFormula;
   securities: Security[];
   strategy?: StrategyObjectInput;
+  snapshotDirectory?: string;
 };
 type Step = (processed: number, errors: number, excluded: number) => void;
 
@@ -99,6 +100,7 @@ export async function scanFormulaParallel(
               root: work.root,
               now: work.now,
               strategy: work.strategy,
+              snapshotDirectory: work.snapshotDirectory,
               formula,
               securities: range.map(({ symbol, name }) => ({ symbol, name })),
             };

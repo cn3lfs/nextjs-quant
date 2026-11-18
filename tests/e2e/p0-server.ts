@@ -182,6 +182,7 @@ const server = spawn(process.execPath, [resolve("scripts/start.mjs")], {
   stdio: "inherit",
   env: {
     ...process.env,
+    E2E_FIXTURE_PROFILE: profile,
     QUANT_DATA_DIR: directory,
     QUANT_RESEARCH_BAR_STORE_DIR: "",
   },

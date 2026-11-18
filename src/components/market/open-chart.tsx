@@ -3,7 +3,10 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { BrowseList } from "~/lib/market/browse-list";
 import { useRouter } from "next/navigation";
-import { chartSymbolHref } from "~/lib/chart/chart-symbol";
+import {
+  chartSymbolHref,
+  isForeignMarketChartSymbol,
+} from "~/lib/chart/chart-symbol";
 import {
   marketSelectionHref,
   useMarketSession,
@@ -25,7 +28,9 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const openChart: OpenChart = (symbol, list) => {
     let href = chartSymbolHref(symbol);
-    if (href.startsWith("/scan?")) {
+    // Crypto/futures share /scan but own their tab and symbol parameters.
+    // Only the A-share/sector chart consumes this selection and browse list.
+    if (!isForeignMarketChartSymbol(symbol)) {
       const session = useMarketSession.getState();
       session.setBrowse(list ?? null);
       href = marketSelectionHref({ ...session, symbol, marketView: "chart" });

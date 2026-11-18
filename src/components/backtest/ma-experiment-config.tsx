@@ -8,7 +8,9 @@ import { costFields, type MaDraft } from "~/lib/backtest/ma-workspace";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
-export type BaselineCoverage = {
+import type { FiveMinuteWindowSuggestion } from "~/lib/backtest/coverage-window";
+
+export type BaselineCoverage = FiveMinuteWindowSuggestion & {
   symbol: string;
   start: string;
   end: string;
@@ -103,7 +105,13 @@ export function MaExperimentConfig({
               {coverage.start} 至 {coverage.end}
             </p>
             <p>
-              共 {coverage.bars.toLocaleString("zh-CN")} 根 · 默认选末尾约一个月
+              共 {coverage.bars.toLocaleString("zh-CN")} 根 · 当前策略预热{" "}
+              {coverage.warmupBars} 根
+            </p>
+            <p>
+              {coverage.earliestStart
+                ? `最早可选开始日 ${coverage.earliestStart}；默认选择末尾约一个月内实际完整交易日。`
+                : "当前覆盖尚无可建议的完整回测窗口。"}
             </p>
           </div>
         )}

@@ -3,9 +3,18 @@ import { putChangedBatch } from "../db";
 import { screenFormula, type FormulaWork } from "./formula-screening";
 import { serializeSnapshot } from "./snapshot-serializer";
 import type { WorkProgress } from "~/lib/research/workflow/work-progress";
-import type { ScreeningResult } from "./screening-result";
+import type { Snapshot } from "~/lib/domain";
+import type { FormulaScreenResult } from "./formula-screening";
+import {
+  createFormulaSnapshotSpool,
+  clearFormulaSnapshotSpool,
+  readFormulaSnapshots,
+} from "./formula-snapshot-spool";
 
-export type FormulaScreenOutput = Omit<ScreeningResult, "snapshots">;
+export type FormulaScreenOutput = Omit<
+  FormulaScreenResult,
+  "snapshots" | "snapshotFiles"
+>;
 
 /** Keep full-history snapshots in the compute worker. Transferring millions of
  * bar objects to the HTTP thread blocks every request during structured clone.
@@ -20,23 +29,44 @@ export async function executeFormulaScreen(
   if (!jobId) throw new Error("公式选股缺少任务身份");
   const requireRunning = () => requireRunningFormulaJob(jobId);
   requireRunning();
-  const result = await screenFormula(work, progress);
-  for (let i = 0; i < result.snapshots.length; i += 50) {
-    // The status check and snapshot writes share the same immediate transaction,
-    // so another connection cannot commit cancellation between them.
-    putChangedBatch(
-      "snapshot",
-      result.snapshots.slice(i, i + 50),
-      serializeSnapshot,
-      requireRunning,
+  const directory = await createFormulaSnapshotSpool(jobId);
+  try {
+    const result = await screenFormula(
+      { ...work, snapshotDirectory: directory },
+      progress,
     );
-    if (batchSaved) await batchSaved();
-    else {
-      progress?.(95, "保存公式候选快照");
-      await new Promise<void>((resolve) => setImmediate(resolve));
+    const selected = new Set(
+      result.candidates.map((candidate) => candidate.snapshotId),
+    );
+    let batch: Snapshot[] = [];
+    const saveBatch = async () => {
+      if (!batch.length) return;
+      // The running check and writes share one immediate transaction.
+      putChangedBatch("snapshot", batch, serializeSnapshot, requireRunning);
+      batch = [];
+      if (batchSaved) await batchSaved();
+      else {
+        progress?.(95, "保存公式候选快照");
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+    };
+    for await (const snapshot of readFormulaSnapshots(
+      jobId,
+      result.snapshotFiles,
+    )) {
+      if (!selected.has(snapshot.id)) continue;
+      batch.push(snapshot);
+      if (batch.length === 50) await saveBatch();
     }
+    await saveBatch();
+    requireRunning();
+    const {
+      snapshots: _snapshots,
+      snapshotFiles: _snapshotFiles,
+      ...output
+    } = result;
+    return output;
+  } finally {
+    await clearFormulaSnapshotSpool(jobId);
   }
-  requireRunning();
-  const { snapshots: _snapshots, ...output } = result;
-  return output;
 }

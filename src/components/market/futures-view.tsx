@@ -2,7 +2,8 @@
 import { formatNumber } from "trading-strategy-core/format-number";
 import { Mountains } from "@phosphor-icons/react/ssr";
 import { usePeriodHotkey } from "./chart-hotkeys";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useForeignChartSymbol } from "./use-foreign-chart-symbol";
 import type { Snapshot } from "~/lib/domain";
 import {
   chartPeriodSchema,
@@ -16,7 +17,6 @@ import {
   futuresSourceLabels,
   futuresSourceSchema,
   futuresSourceSupports,
-  isFuturesSymbol,
   type FuturesSource,
 } from "~/lib/market/futures";
 import { api } from "~/trpc/react";
@@ -41,16 +41,6 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 
-const DEFAULT = "fuGC00Y";
-
-/** Contract from `?code=GC00Y`. */
-function initialSymbol() {
-  if (typeof window === "undefined") return DEFAULT;
-  const code = new URLSearchParams(window.location.search).get("code") ?? "";
-  const symbol = `fu${code.toUpperCase()}`;
-  return isFuturesSymbol(symbol) ? symbol : DEFAULT;
-}
-
 /**
  * 资源期货: a fixed list of major commodity contracts (Eastmoney continuous /
  * main contracts), browse-only and separate from the A-share view.
@@ -58,11 +48,11 @@ function initialSymbol() {
 export function FuturesView() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sourceNotice, setSourceNotice] = useState("");
-  const [symbol, setSymbol] = useState(DEFAULT);
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [source, setSource] = useState<FuturesSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
+  const { symbol, selectSymbol } = useForeignChartSymbol("futures", loadSymbol);
   const visible = usePanelVisible();
   usePeriodHotkey(
     period,
@@ -77,23 +67,21 @@ export function FuturesView() {
     refetchInterval: visible ? 60_000 : false,
     refetchOnWindowFocus: false,
   });
-  useEffect(() => {
-    const first = initialSymbol();
-    setSymbol(first);
-    load.mutate({ symbol: first, period: "day" });
-  }, []);
-  const open = (next: string, pick = source) => {
+  function loadSymbol(next: string, pick = source) {
     // A contract without the picked source falls back to the automatic chain.
     const usable = futuresSourceSupports(futuresContract(next)!, pick)
       ? pick
       : "auto";
-    setPickerOpen(false);
     setSourceNotice(
       usable !== pick ? "所选来源不支持当前品种，已切换为自动来源。" : "",
     );
-    setSymbol(next);
     setSource(usable);
     load.mutate({ symbol: next, period: "day", futuresSource: usable });
+  }
+  const open = (next: string, pick = source) => {
+    setPickerOpen(false);
+    selectSymbol(next);
+    loadSymbol(next, pick);
   };
   const contract = futuresContract(symbol)!;
   const chartContract =

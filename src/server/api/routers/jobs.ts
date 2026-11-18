@@ -30,15 +30,17 @@ import { get, put, remove, atomic } from "../../db";
 import { settings } from "../../infra/settings";
 import { scanJob, startRuntime } from "../../runtime";
 import { snapshot } from "../../market/snapshot";
-import { maBaselineInputSchema } from "quant-backtest";
 import { strategyExperimentInputSchema } from "quant-backtest";
+import {
+  maCoverageInputSchema,
+  readMaCoverage,
+} from "../../backtest/ma-coverage";
 import { maBaselineJob } from "../../backtest/ma-baseline-job";
 import {
   queryPerformanceEvaluation,
   exportPerformanceEvaluation,
 } from "../../performance/backtest-evaluation";
 
-import { readBars } from "~/server/market/bar-store/read-bars";
 import { cancelJob } from "../../jobs/jobs";
 
 import { mcpConfigured } from "../../data-sources/tdx/tdx-mcp-disabled";
@@ -63,21 +65,8 @@ export const jobsRouter = createTRPCRouter({
     .input(strategyExperimentInputSchema)
     .mutation(({ input }) => maBaselineJob(input)),
   maBaselineCoverage: p("backtest", "read")
-    .input(maBaselineInputSchema.innerType().shape.symbol)
-    .query(async ({ input }) => {
-      const source = await readBars({
-        instrument: { market: "cn-equity", symbol: input },
-        root: settings().tdxRoot,
-        period: "5m",
-        adjustment: "none",
-      });
-      return {
-        symbol: source.symbol,
-        start: source.bars[0]!.date.slice(0, 10),
-        end: source.bars.at(-1)!.date.slice(0, 10),
-        bars: source.bars.length,
-      };
-    }),
+    .input(maCoverageInputSchema)
+    .query(({ input }) => readMaCoverage(input, settings().tdxRoot)),
   maBaselineHistory: p("backtest", "read").query(() => maBaselineHistory()),
   maBaselineResult: p("backtest", "read")
     .input(

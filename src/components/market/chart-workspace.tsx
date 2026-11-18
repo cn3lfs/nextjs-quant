@@ -509,7 +509,15 @@ function EditableChart({
               画线：{tools[tool]}
             </Button>
           </PopoverTrigger>
-          <PopoverContent aria-label="画线工具设置">
+          <PopoverContent
+            aria-label="画线工具设置"
+            onEscapeKeyDown={() => {
+              // The workspace skips dialog keys; cancel here before Radix
+              // closes this tool popover and returns focus to its trigger.
+              setPoints([]);
+              setTool("none");
+            }}
+          >
             <div
               className="flex flex-wrap gap-2 text-sm"
               role="toolbar"

@@ -328,11 +328,7 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
             </>
           )}
           <PlanLevelsProvider value={levels}>
-            {market === "crypto" ? (
-              <Crypto key={search.get("pair") ?? "BTCUSDT"} />
-            ) : (
-              <Market embedded />
-            )}
+            {market === "crypto" ? <Crypto /> : <Market embedded />}
           </PlanLevelsProvider>
         </section>
       </div>

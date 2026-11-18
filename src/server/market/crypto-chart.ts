@@ -38,6 +38,9 @@ export async function cryptoChartSnapshot(
   });
   return {
     ...result,
+    // Annotation RPCs identify the exact displayed chart separately from its
+    // base snapshot, even when both reads currently contain identical bars.
+    id: `chart-snapshot-${source.symbol}-${period}-${result.hash.slice(0, 20)}`,
     volumeUnit: volumeUnit(source.symbol),
     formingDates: result.barStore.formingDates,
     excluded: result.barStore.excluded,

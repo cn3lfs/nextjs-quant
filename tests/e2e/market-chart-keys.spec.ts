@@ -1,6 +1,30 @@
 import { expect, test } from "./workbench-test";
 import { waitForIdleServer } from "./helpers";
 
+test("Escape cancels a drawing tool before the canvas receives focus", async ({
+  page,
+}) => {
+  await waitForIdleServer(page);
+  await page.goto("/scan", { waitUntil: "networkidle" });
+  const workspace = page.getByTestId("chart-workspace").first();
+  const drawings = workspace.locator("summary").filter({ hasText: "已画图形" });
+  const before = await drawings.innerText();
+  await workspace
+    .getByRole("button", { name: "画线：浏览", exact: true })
+    .click();
+  const tools = page.getByRole("dialog", { name: "画线工具设置" });
+  await tools.getByRole("button", { name: "趋势线", exact: true }).click();
+  await expect(
+    workspace.getByRole("button", { name: "画线：趋势线", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(tools).toBeHidden();
+  await expect(
+    workspace.getByRole("button", { name: "画线：浏览", exact: true }),
+  ).toBeVisible();
+  await expect(drawings).toHaveText(before);
+});
+
 /** TDX keys work with focus on the page, not only on the chart (was
  * tests/chart-keys-browser.mjs on synthetic bars). */
 test("arrow keys walk the bar cursor from the page and Esc leaves it", async ({
