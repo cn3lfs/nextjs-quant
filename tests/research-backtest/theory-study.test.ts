@@ -1,3 +1,7 @@
+import {
+  relativeStrengthInputs,
+  relativeStrengthStrategy,
+} from "../../scripts/lib/research/method-pool-relative-strength";
 import { describe, expect, it } from "vitest";
 import { runPortfolio, createPortfolioPreparation } from "quant-backtest";
 import type { Bar } from "trading-strategy-core/bars";
@@ -32,7 +36,7 @@ describe("theory historical screen", () => {
         strategy: "rsi2",
         side: "exit",
       });
-      expect(object.sizing).toEqual({ kind: "weight", weight: 0.5 });
+      expect(object.sizing).toEqual({ kind: "weight", weight: 0.1 });
     }
   });
 
@@ -89,6 +93,108 @@ describe("theory historical screen", () => {
     expect(summary.openPositions).toBe(1);
     expect(summary.netReturn).toBeGreaterThan(0);
     expect(summary.sells).toBe(0);
+    const symbols = Array.from({ length: 12 }, (_, i) =>
+      String(i).padStart(2, "0"),
+    );
+    const crowdedRequest = {
+      ...request,
+      instruments: symbols.map((symbol) => ({
+        ...request.instruments[0]!,
+        symbol,
+      })),
+      strategies: [theoryStudyStrategy("baseline-hold", "crypto", symbols)],
+      sleeves: [{ ...request.sleeves[0]!, maxPositions: 10 }],
+    };
+    const crowded = runPortfolio(crowdedRequest);
+    const permuted = runPortfolio({
+      ...crowdedRequest,
+      instruments: [...crowdedRequest.instruments].reverse(),
+      strategies: [
+        theoryStudyStrategy("baseline-hold", "crypto", [...symbols].reverse()),
+      ],
+    });
+    expect(
+      permuted.fills.map(({ symbol, date, quantity, side }) => ({
+        symbol,
+        date,
+        quantity,
+        side,
+      })),
+    ).toEqual(
+      crowded.fills.map(({ symbol, date, quantity, side }) => ({
+        symbol,
+        date,
+        quantity,
+        side,
+      })),
+    );
+    expect(crowded.fills.map((fill) => fill.symbol)).toEqual(
+      symbols.slice(0, 10),
+    );
+    expect(summarizeTheoryResult(crowded, request.initial).peakPositions).toBe(
+      10,
+    );
+    expect(
+      crowded.rejections.some((row) => row.reason.includes("持仓上限")),
+    ).toBe(true);
     expect(summary.quality).toBe("rule-check-only");
   });
+});
+
+it("allocates completed weekly RPS ranks at 10% each and preserves cash with fewer than ten", () => {
+  const calendar = Array.from({ length: 185 }, (_, index) =>
+    new Date(Date.UTC(2023, 0, 2 + index)).toISOString().slice(0, 10),
+  ).filter((date) => ![0, 6].includes(new Date(date).getUTCDay()));
+  const instruments = ["sz000001", "sz000002"].map((symbol, index) => {
+    const bars = calendar.map((date, day) => {
+      const close = 20 + day * (index + 1) * 0.01;
+      return {
+        date,
+        open: close,
+        close,
+        high: close + 1,
+        low: close - 1,
+        volume: 1000000,
+        amount: close * 1000000,
+      };
+    });
+    return {
+      symbol,
+      market: "cn-equity" as const,
+      bars,
+      signalBars: bars,
+      execution: {
+        minimum: 100,
+        step: 100,
+        tradable: true,
+        evidence: "fixture",
+        limitUp: null,
+        limitDown: null,
+      },
+    };
+  });
+  const start = calendar[120]!,
+    end = calendar.at(-1)!;
+  const ranked = relativeStrengthInputs(instruments, calendar, start, end);
+  expect(ranked.signalWeeks).toBeGreaterThan(0);
+  const result = runPortfolio({
+    market: "cn-equity",
+    initial: 1000000,
+    start,
+    end,
+    calendar,
+    instruments: ranked.instruments,
+    strategies: [relativeStrengthStrategy()],
+    sleeves: [{ id: "swing", share: 1, maxPositions: 10, riskPerTrade: 0.01 }],
+  });
+  const buys = result.fills.filter((fill) => fill.side === "buy");
+  expect(buys.slice(0, 2).map((fill) => fill.symbol)).toEqual([
+    "sz000002",
+    "sz000001",
+  ]);
+  expect(buys.every((fill) => fill.date > fill.signalAt)).toBe(true);
+  expect(
+    result.orders.filter((order) => order.targetWeight === 0.1).length,
+  ).toBeGreaterThan(0);
+  expect(result.curve.at(-1)!.cash).toBeGreaterThan(790000);
 });

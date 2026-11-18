@@ -4,8 +4,6 @@
 
 ## 当前结论
 
-- **72 场景迁移对拍经济等价**：理论 32 + 结构 32 + 多周期 8；三组 `economicOk=true`，匹配键 32/32/8；首次 32/32/8 完成，第二次 0 新算并恢复 32/32/8。
-- **多周期材料 `materialOk=false` 保留**：CN 四个变体输入身份因 TDX 日线在 2026-11-17 追加了窗口（截至 2026-11-13）之外的记录而变化；抽检的 CN 日线旧源版本匹配截至 2026-11-16 的前缀，crypto 四个变体零差异。旧固定输入 8 例重放 8/8 字节相同，仅补充证明旧输入可复现旧结果，不撤销材料失败。
 - **真实 ORB 三成本成交 72/42/28**（zero/base/double）；base/double 各 9 笔延迟卖出，所有中间槽位有同订单拒单；double 唯一被抑制入场由前持仓 1.211724 与 10 次滑点拒单解释，`unexplainedSuppressions=0`。原始 `ok=false` 为检查假设错误并保留；修正后 verify-only 回执 `ok=true`。这是规则自检，不是收益认证。
 - **已接受 19 个纯组件与 1 个 ORB 代理**（按既有回执）；它们是可复用分析/执行组件，不是完整策略或收益验证。
 - **最终工程门禁通过**：`pnpm check --build` exit 0，首次无失败；7641 tests passed/27 skipped，752 files passed/16 skipped；3 条既有 Vite configLoader native tooling 警告，无六条 full-repository trace 警告。日志 `review/full-check-v2.log`，进度 `review/integration-progress-v2.json`，check result 保留在 `review/check-OBNER8-result.json`。

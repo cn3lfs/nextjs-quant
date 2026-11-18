@@ -27,6 +27,38 @@ import {
   classicDefinitions,
   type ClassicId,
 } from "./classics/index.js";
+import { volumeStrategies } from "./research/volume/research-volume.js";
+import { wyckoffProfiles } from "./research/wyckoff/research-wyckoff.js";
+
+export const volumeStudyBindings = {
+  "research-volume-price-protected": "vp-up-expanded-confirm",
+  "research-volume-flat-expanded": "vp-flat-expanded-break",
+  "research-volume-up-contracted": "vp-up-contracted-confirm",
+  "research-volume-down-contracted": "vp-down-contracted-confirm",
+  "research-volume-up-normal": "vp-up-normal-confirm",
+  "research-volume-flat-contracted": "vp-flat-contracted-break",
+  "research-volume-breakout-15": "vp-breakout-1-5",
+  "research-volume-breakout-20": "vp-breakout-2",
+  "research-volume-average-cross": "vp-volume-ma-cross",
+} as const;
+export type VolumeStudyId = keyof typeof volumeStudyBindings;
+const volumeStudyIds = Object.keys(volumeStudyBindings) as VolumeStudyId[];
+export const isVolumeStudy = (strategy: string): strategy is VolumeStudyId =>
+  Object.hasOwn(volumeStudyBindings, strategy);
+
+export const wyckoffStudyBindings = {
+  "research-wy-spring-protected": "wy-spring-daily",
+  "research-wy-sos-protected": "wy-sos-daily",
+  "research-wy-jac-protected": "wy-sos-jac-daily",
+  "research-wy-lps-protected": "wy-lps-daily",
+  "research-wy-reaccumulation-protected": "wy-reaccumulation-daily",
+  "research-wy-trend-pullback-protected": "wy-trend-pullback-daily",
+} as const;
+export type WyckoffStudyId = keyof typeof wyckoffStudyBindings;
+const wyckoffStudyIds = Object.keys(wyckoffStudyBindings) as WyckoffStudyId[];
+export const isWyckoffStudy = (strategy: string): strategy is WyckoffStudyId =>
+  Object.hasOwn(wyckoffStudyBindings, strategy);
+
 /** Fixed research rules, not a ranking or optimized parameter search. */
 export const classicStudyStrategies = [
   "ma",
@@ -42,7 +74,9 @@ export const studyStrategies = [
   "research-breakout",
   "research-indicator-confluence",
   "research-volume-price",
+  ...volumeStudyIds,
   "research-wyckoff",
+  ...wyckoffStudyIds,
   "research-growth",
   "sma200",
   "golden-cross",
@@ -120,6 +154,19 @@ export const studyCatalog: Record<StudyStrategy, StudyDefinition> = {
     family: "wyckoff",
     rule: "复用wy-sos-daily的完整SOS候选、次日守位确认与原有日线退出；仅OHLCV工程版本，不声称完整威科夫。",
   },
+  ...(Object.fromEntries(
+    wyckoffStudyIds.map((id) => {
+      const preset = wyckoffStudyBindings[id];
+      return [
+        id,
+        {
+          name: `${wyckoffProfiles[preset][1]} · 日线收盘保护代理`,
+          family: "wyckoff",
+          rule: `复用${preset}入场及结构退出。实际买入日后的第1至3根有效日线收盘跌破信号冻结低点时退出，下一合法开盘成交。按标的可用日线，不推定分钟成交或缺失行情。`,
+        },
+      ];
+    }),
+  ) as Record<WyckoffStudyId, StudyDefinition>),
   "research-growth": {
     name: "CANSLIM 98% 高点入口",
     family: "成长",
@@ -140,6 +187,20 @@ export const studyCatalog: Record<StudyStrategy, StudyDefinition> = {
     family: "量价",
     rule: "复用vp-up-expanded-confirm两阶段量价候选/确认及MA20失守等既有退出；相邻行情及位置证据缺失不产生信号。",
   },
+  ...(Object.fromEntries(
+    volumeStudyIds.map((id) => {
+      const preset = volumeStudyBindings[id];
+      const base = volumeStrategies[preset];
+      return [
+        id,
+        {
+          name: base.label,
+          family: "量价",
+          rule: `复用${preset}的日线入场与退出。实际买入后按冻结信号保护位判断收盘失守，并在下一合法开盘成交。保护适用期由预设给定；未声明保护位的预设仅用自身退出。`,
+        },
+      ];
+    }),
+  ) as Record<VolumeStudyId, StudyDefinition>),
   ...(Object.fromEntries(
     classicDefinitions.map((d) => [
       d.id,

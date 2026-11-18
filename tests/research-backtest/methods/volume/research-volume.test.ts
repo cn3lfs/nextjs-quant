@@ -1,3 +1,4 @@
+import { createExtendedStudyRule } from "../../../../packages/trading-strategies/src/study-rules";
 import { volumeCompletionIds } from "trading-strategies/research/volume/research-volume-completion";
 import { expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
@@ -258,4 +259,32 @@ it("attributes a volume average exit without claiming a candidate stop", () => {
   expect(points[61]!.ruleStop).toBeUndefined();
   const exit = points.find((point) => point.exit);
   expect(exit?.decision).toBe("有效成交记录VMA5下穿VMA10");
+});
+
+it("activates the confirmed volume protection for the first three completed holding bars", () => {
+  const input = bars([
+    { close: 115.36, volume: 300 },
+    { close: 116, volume: 200 },
+    { close: 114.7, volume: 100 },
+    { close: 115.2, volume: 100 },
+    { close: 115.1, volume: 100 },
+    { close: 114.7, volume: 100 },
+  ]);
+  const common = createExtendedStudyRule("research-volume-price", input)!;
+  const protectedRule = createExtendedStudyRule(
+    "research-volume-price-protected",
+    input,
+  )!;
+  const position = { entry: 116, entryIndex: 63, signalIndex: 62 };
+  expect(protectedRule(62, { entry: 0, entryIndex: 62 }).enter).toBe(true);
+  expect(common(63, position).exit).toBe(false);
+  expect(protectedRule(63, position)).toMatchObject({
+    exit: true,
+    reason: "入场确认位前三根内收盘失守",
+  });
+  expect(
+    protectedRule(63, { entry: 0, entryIndex: 63, signalIndex: 62 }).exit,
+  ).toBe(false);
+  expect(protectedRule(66, position).exit).toBe(common(66, position).exit);
+  expect(common(66, position).exit).toBe(false);
 });

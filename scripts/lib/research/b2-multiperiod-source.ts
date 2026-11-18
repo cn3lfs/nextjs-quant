@@ -42,7 +42,7 @@ import {
 } from "../../../src/server/research/research-run";
 
 export const b2MultiperiodRegistration = {
-  version: 1,
+  version: 2,
   quality: "rule-check-only",
   selection:
     "First three sorted symbols of existing frozen 799 execution pool; no result-driven substitution",
@@ -113,13 +113,13 @@ export function b2MultiperiodStrategy(
   ];
   return {
     id: `b2-${market}-${variant}`,
-    version: 1,
+    version: 2,
     market,
     period: variant === "week-day" ? "day" : "5m",
     universe: { kind: "symbols", symbols },
     entry: { kind: "triple-screen", variant, side: "entry" },
     exit: { rule: { kind: "triple-screen", variant, side: "exit" } },
-    sizing: { kind: "weight", weight: 1 / symbols.length },
+    sizing: { kind: "weight", weight: 0.1 },
     sleeve: "swing",
   };
 }
@@ -220,7 +220,7 @@ export async function runB2MultiperiodPreparation(
   options: B2MultiperiodRunOptions = {},
 ) {
   const directory = resolve(
-    options.output ?? ".test-data/b2-20261117/multiperiod",
+    options.output ?? ".test-data/method-pool-ten/multiperiod",
   );
   const outputRelative = relative(resolve(".test-data"), directory);
   if (
@@ -553,7 +553,7 @@ export async function runB2MultiperiodPreparation(
                   {
                     id: "swing",
                     share: 1,
-                    maxPositions: loaded.instruments.length,
+                    maxPositions: 10,
                     riskPerTrade: 0.01,
                   },
                 ],

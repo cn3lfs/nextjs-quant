@@ -198,6 +198,64 @@ describe("scheduled completed-day portfolio targets", () => {
         ),
     ).toBe(true);
   });
+  it("keeps a blocked old holding in the slot until it actually sells", () => {
+    const input = request();
+    input.sleeves = [{ ...input.sleeves[0]!, maxPositions: 1 }];
+    input.scheduledTargets = [
+      { ...input.scheduledTargets![0]!, targets: { sh600000: 0.1 } },
+      { ...input.scheduledTargets![1]!, targets: { sh600001: 0.1 } },
+      {
+        ...input.scheduledTargets![1]!,
+        date: dates[4]!,
+        availableAt: dates[4]!,
+        targets: { sh600001: 0.1 },
+      },
+    ];
+    input.instruments = input.instruments.map((instrument) => ({
+      ...instrument,
+      execution: (bar) => ({
+        minimum: 100,
+        step: 100,
+        maximum: 10000000,
+        tradable: instrument.symbol !== "sh600000" || bar?.date !== dates[4],
+        evidence: "blocked-exit-fixture",
+        limitUp: null,
+        limitDown: null,
+      }),
+    }));
+    const result = runPortfolio(input);
+    expect(
+      result.fills.map(({ date, symbol, side }) => [date, symbol, side]),
+    ).toEqual([
+      [dates[1], "sh600000", "buy"],
+      [dates[5], "sh600000", "sell"],
+      [dates[5], "sh600001", "buy"],
+    ]);
+    expect(
+      result.rejections.some(
+        ({ date, reason }) => date === dates[4] && reason.includes("持仓上限"),
+      ),
+    ).toBe(true);
+  });
+
+  it("fills the highest-ranked scheduled buy first when only one slot is available", () => {
+    const input = request();
+    input.sleeves = [{ ...input.sleeves[0]!, maxPositions: 1 }];
+    input.scheduledTargets = [
+      {
+        ...input.scheduledTargets![0]!,
+        scores: { sh600000: -2, sh600001: -1 },
+      },
+    ];
+    const fills = runPortfolio(input).fills;
+    expect(fills.map(({ date, symbol }) => [date, symbol])).toEqual([
+      [dates[1], "sh600001"],
+    ]);
+    expect(
+      runPortfolio({ ...input, instruments: [...input.instruments].reverse() })
+        .fills,
+    ).toEqual(fills);
+  });
   it("does not create a same-close or synthetic end-of-window fill", () => {
     const input = request();
     input.scheduledTargets = [
@@ -227,6 +285,8 @@ describe("scheduled completed-day portfolio targets", () => {
       { targets: { sh600000: -0.1 } },
       { targets: { sh600000: Number.NaN } },
       { targets: { sh600000: 0.6, sh600001: 0.5 } },
+      { scores: { sh999999: 1 } },
+      { scores: { sh600000: Number.NaN } },
     ];
     for (const change of changes) {
       const input = request();

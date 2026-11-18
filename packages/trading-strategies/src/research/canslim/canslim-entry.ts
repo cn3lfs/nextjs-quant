@@ -1,5 +1,15 @@
 import type { GrowthPriceInput } from "../contracts/growth-price-input.js";
 
+export function validGrowthPriceBar(b: GrowthPriceInput["bars"][number]) {
+  return (
+    [b.open, b.high, b.low, b.close, b.volume].every(Number.isFinite) &&
+    b.low > 0 &&
+    b.high >= Math.max(b.open, b.close, b.low) &&
+    b.low <= Math.min(b.open, b.close) &&
+    b.volume > 0
+  );
+}
+
 export function canslimEntry(
   snapshot: GrowthPriceInput,
   pivot: number | null,
@@ -19,11 +29,7 @@ export function canslimEntry(
         Number.isFinite(time) &&
         new Date(time).toISOString().slice(0, 10) === b.date &&
         (!i || b.date > bars[i - 1]!.date) &&
-        [b.open, b.high, b.low, b.close, b.volume].every(Number.isFinite) &&
-        b.low > 0 &&
-        b.high >= Math.max(b.open, b.close, b.low) &&
-        b.low <= Math.min(b.open, b.close) &&
-        b.volume > 0 &&
+        validGrowthPriceBar(b) &&
         b.date <= local.slice(0, 10) &&
         !(b.date === local.slice(0, 10) && local.slice(11, 16) < "15:05") &&
         (!snapshot.historicalAsOf || b.date <= snapshot.historicalAsOf)

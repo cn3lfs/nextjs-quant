@@ -1627,8 +1627,7 @@ L3按冻结收益路径补列四个实际主配置的四个OOS窗及留出窗，
 - 统一策略对象新增study-rule，复用纯规则与现有组合撮合，实际成交后传入信号价、成交索引及原始信号索引。持仓相关退出不允许静态preparedRules投影。
 - 新代理的形态保护为收盘退出，不能将内部保护锚直接作为盘中硬止损，以免改变执行语义；本批研究用显式权重，不声称已支持依赖硬止损的heat风险预算。
 - 既有历史均作为开发验证；不以大量试验中的最佳历史曲线或程序测试通过代替独立收益证据。
-- 扩展799池时发现r2a5捕获名单与生命周期冻结执行池各有3只不同：捕获独有sh603083/sz002294/sz301297没有对应原价origin；生命周期执行独有sh600363/sh601059/sh601198。799研究改用manifest的normalized.executionSymbols并核对唯一/全部origin；代码前30完全相同，已有30只研究保持原身份，不拼造原价。新旧runner均留精确字节快照和hash。
-- 799容量情景保持100万本金和1/799标的权重；持有基准开发窗仅445只曾买入、产生32万余拒单，单次调用153秒。不能把输入覆盖799误称为799均成交或完整全池alpha验证；未通过放大本金、删成本情景或替换证券池规避该事实。
+- 扩展799池时发现r2a5捕获名单与生命周期冻结执行池各有3只不同：捕获独有sh603083/sz002294/sz301297没有对应原价origin；生命周期执行独有sh600363/sh601059/sh601198。799研究改用manifest的normalized.executionSymbols并核对唯一/全部origin；代码前30完全相同，已有30只研究保持原身份，不拼造原价。
 
 
 ## 2026-11-17 按钮与图表验收决定
@@ -1676,3 +1675,7 @@ P5在原799只池、2020–2026窗口的三成本各两次真实执行均因魔�
 `pnpm check --build` exit 0，首次无失败；7641 tests passed/27 skipped，752 files passed/16 skipped；3 条既有 Vite configLoader native tooling 警告，无六条 full-repository trace 警告；日志 `review/full-check-v2.log`、进度 `review/integration-progress-v2.json`。`desktop:prepare` exit 0，guard 未拒绝、未打包；worker SHA256 `deb1b5e8c5f6df86df7fcfd452c47a800c8cf85b2427d2147b8f41b639fb67ec`，identity.hash `d95132d7f6d460ee49440a14b9bff6c67f52c73fe6b3d75617a5315f408ed56c`。
 
 财务 v2 严格 UNKNOWN 实现完成并通过必要门禁；真实 smoke 仅 sh600008/2020 单年 CLI，exit 2 expected blocked，positions/magicEligible/completeMagic 均为 0，无 portfolio；这不是新的 799×7/F-score 全池回归。合成三成本各两次 seed exit 0，每场景 28 fills/1 reject/781 curve/6 positions，旧 checkpoint/result 不变、新 journal reused；它只是合成认证零成功，不是真实盈利或合格业绩。最终 UI 验收通过（三成本历史、28 fills 分页 20+8、1 reject、781 curve、刷新、完整 JSON 下载、1440/1024、ORB 文案/预填，仅合成可用性）；浏览器已关闭、3937 已停止。清理 Apply exit 0（386/386、0 failures/blockers、1,415,022,070 bytes，正常权限、无重试）。工程交付 COMPLETE；未提交、推送、打包部署或交易。
+
+## 2026-11-18 十持仓研究口径
+
+799 只仅作 A 股候选池，单品种目标权重 10%，单账户持仓峰值约束为十只，各市场分账户。保留实际卖出前的旧仓占位，以策略评分和已声明的并列顺序撮合。月末低波动使用 60 个完整收益率，缺输入的个股排除，整个周期无有效输入时不发新调仓目标。已核实从两份清单删除 804 项弃用的旧衍生结果，本轮检查点及原始输入保留。新增回放、归因与缺口见[研究记录](research/theory-study-results.md)。

@@ -84,6 +84,8 @@ export type PortfolioSleeve = {
 export type PortfolioRequest = {
   /** Scoring runs retain exact counters instead of millions of no-op rows. */
   observationDetail?: "full" | "counts";
+  /** Research sensitivity only. Equal-score buys default to ascending symbols. */
+  buyTieBreak?: "symbol-ascending" | "symbol-descending";
   market: Market;
   initial: number;
   start: string;
@@ -143,6 +145,8 @@ export type PortfolioRequest = {
     availableAt: string;
     sourceHash: string;
     targets: Readonly<Record<string, number>>;
+    /** Higher scores get buy priority when targets compete for cash or slots. */
+    scores?: Readonly<Record<string, number>>;
   }[];
 };
 export type PortfolioOrder = {
@@ -544,7 +548,11 @@ export function runPortfolio(
       !/^[a-f0-9]{64}$/i.test(row.sourceHash) ||
       !row.targets ||
       typeof row.targets !== "object" ||
-      Array.isArray(row.targets)
+      Array.isArray(row.targets) ||
+      (row.scores !== undefined &&
+        (!row.scores ||
+          typeof row.scores !== "object" ||
+          Array.isArray(row.scores)))
     )
       throw new Error("Invalid / non-causal scheduled target evidence");
     const weights = Object.entries(row.targets);
@@ -557,6 +565,10 @@ export function runPortfolio(
           !Number.isFinite(weight) ||
           weight < 0 ||
           weight > 1,
+      ) ||
+      Object.entries(row.scores ?? {}).some(
+        ([symbol, score]) =>
+          !Object.hasOwn(row.targets, symbol) || !Number.isFinite(score),
       ) ||
       weights.reduce((sum, [, weight]) => sum + weight, 0) > 1 + 1e-10
     )
@@ -1334,7 +1346,9 @@ export function runPortfolio(
             (a.side === "sell" ? 0 : 1) - (b.side === "sell" ? 0 : 1) ||
             a.sleeve.localeCompare(b.sleeve) ||
             (b.rankScore ?? 0) - (a.rankScore ?? 0) ||
-            a.symbol.localeCompare(b.symbol) ||
+            (request.buyTieBreak === "symbol-descending" && a.side === "buy"
+              ? b.symbol.localeCompare(a.symbol)
+              : a.symbol.localeCompare(b.symbol)) ||
             a.id - b.id,
         );
       pending.forEach((o) => execute(o, date));
@@ -1684,6 +1698,8 @@ export function runPortfolio(
           );
           order.targetWeight = weight;
           order.targetSourceHash = target.sourceHash;
+          const score = target.scores?.[symbol];
+          if (score !== undefined) order.rankScore = score;
         }
       }
       if (request.rebalance) {

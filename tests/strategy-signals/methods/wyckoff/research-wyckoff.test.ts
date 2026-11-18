@@ -1,3 +1,4 @@
+import { createExtendedStudyRule } from "../../../../packages/trading-strategies/src/study-rules";
 import { describe, expect, it } from "vitest";
 import type { Bar } from "../../../../src/lib/domain";
 import {
@@ -269,4 +270,32 @@ describe("pending-state specific barriers", () => {
         events: [],
       });
   });
+});
+
+it("activates the Wyckoff daily proxy only after the actual fill bar and stops after three subsequent closes", () => {
+  const bars = jac();
+  const entrySignal = 91;
+  const actualFill = 92;
+  const stop = series("wy-sos-jac-daily", bars)[entrySignal]!.ruleStop!;
+  for (let index = 92; index <= 96; index++) {
+    const close = stop.price - 0.1;
+    append(bars, { open: close, close, low: close - 0.2, high: close + 0.2 });
+  }
+  const rule = createExtendedStudyRule("research-wy-jac-protected", bars)!;
+  const position = {
+    entry: 105,
+    entryIndex: actualFill,
+    signalIndex: entrySignal,
+  };
+  const reason = "威科夫冻结低点收盘失守";
+  expect(rule(entrySignal, { entry: 0, entryIndex: entrySignal }).enter).toBe(
+    true,
+  );
+  expect(rule(actualFill, position).reason).not.toBe(reason);
+  expect(rule(actualFill + 1, position)).toMatchObject({ exit: true, reason });
+  expect(rule(actualFill + 3, position)).toMatchObject({ exit: true, reason });
+  expect(rule(actualFill + 4, position).reason).not.toBe(reason);
+  expect(rule(actualFill + 1, { ...position, entry: 0 }).reason).not.toBe(
+    reason,
+  );
 });

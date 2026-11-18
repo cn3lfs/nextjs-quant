@@ -47,7 +47,7 @@ import {
   type ResearchRunBudget,
 } from "../../../src/server/research/research-run";
 export const b2StructureRegistration = {
-  version: "b2-structure-1",
+  version: "b2-structure-2",
   source:
     ".test-data/lifecycle-20261116/l3/sources/source-978a42271380e3609b78f644b74772a323203c917c78e805d3a3ed18ce247a1e.json",
   cnLimit: 799,
@@ -113,7 +113,7 @@ export function b2StructureStrategy(
     candidate === "breakout" || candidate === "breakout-failed-upthrust";
   return {
     id: `b2-${market}-${candidate}`,
-    version: 1,
+    version: 2,
     market,
     period: "day",
     universe: { kind: "symbols", symbols },
@@ -125,7 +125,7 @@ export function b2StructureStrategy(
         ? { kind: "external", id: "b2-breakout", side: "exit" }
         : { kind: "study-rule", strategy: candidate, side: "exit" },
     },
-    sizing: { kind: "weight", weight: 1 / symbols.length },
+    sizing: { kind: "weight", weight: 0.1 },
     sleeve: "swing",
   };
 }
@@ -235,7 +235,7 @@ export type B2StructureRunOptions = {
 };
 
 export async function runB2StructureStudy(options: B2StructureRunOptions = {}) {
-  const output = resolve(options.output ?? ".test-data/b2-20261117/structure");
+  const output = resolve(options.output ?? ".test-data/method-pool-ten/structure");
   const outputRelative = relative(resolve(".test-data"), output);
   if (
     !outputRelative ||
@@ -402,7 +402,7 @@ export async function runB2StructureStudy(options: B2StructureRunOptions = {}) {
                 {
                   id: "swing",
                   share: 1,
-                  maxPositions: instruments.length,
+                  maxPositions: 10,
                   riskPerTrade: 0.01,
                 },
               ],

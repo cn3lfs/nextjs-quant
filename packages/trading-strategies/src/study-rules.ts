@@ -24,7 +24,15 @@ import {
 } from "trading-strategy-core/indicators";
 import { calculateFactor } from "trading-strategy-core/factors";
 import type { Bar } from "trading-strategy-core/bars";
-import type { StudyStrategy } from "./study-catalog.js";
+import {
+  isVolumeStudy,
+  isWyckoffStudy,
+  wyckoffStudyBindings,
+  volumeStudyBindings,
+  type StudyStrategy,
+} from "./study-catalog.js";
+import { researchWyckoffSeries } from "./research/wyckoff/research-wyckoff.js";
+import { researchVolumeSeries } from "./research/volume/research-volume.js";
 import {
   isLegacySignalStrategy,
   legacySignalSeries,
@@ -46,11 +54,61 @@ type Rule = (
   reason?: string | null;
 };
 
+function frozenCloseProtection(
+  bars: readonly Bar[],
+  series: readonly {
+    entry: boolean;
+    exit: boolean;
+    reason?: string | null;
+    ruleStop?: { price: number; days: number };
+  }[],
+  firstHoldingBar: 0 | 1,
+  protectionReason: string,
+): Rule {
+  return (index, position) => {
+    const row = series[index];
+    const entrySignal =
+      position.signalIndex === undefined
+        ? undefined
+        : series[position.signalIndex];
+    const stop = entrySignal?.ruleStop;
+    const holdingBar = index - position.entryIndex;
+    const close = bars[index]?.close;
+    const lostLevel =
+      position.entry > 0 &&
+      stop !== undefined &&
+      holdingBar >= firstHoldingBar &&
+      holdingBar < firstHoldingBar + stop.days &&
+      close !== undefined &&
+      close > 0 &&
+      close < stop.price;
+    return {
+      enter: row?.entry ?? false,
+      exit: (row?.exit ?? false) || lostLevel,
+      reason: lostLevel ? protectionReason : (row?.reason ?? null),
+    };
+  };
+}
+
 /** Signals see completed, causally normalized prices only. Execution stays in the study runner. */
 export function createExtendedStudyRule(
   strategy: StudyStrategy,
   bars: readonly Bar[],
 ): Rule | null {
+  if (isVolumeStudy(strategy))
+    return frozenCloseProtection(
+      bars,
+      researchVolumeSeries(volumeStudyBindings[strategy], bars),
+      0,
+      "入场确认位前三根内收盘失守",
+    );
+  if (isWyckoffStudy(strategy))
+    return frozenCloseProtection(
+      bars,
+      researchWyckoffSeries(wyckoffStudyBindings[strategy], bars),
+      1,
+      "威科夫冻结低点收盘失守",
+    );
   if (isLegacySignalStrategy(strategy)) {
     const series = legacySignalSeries(strategy, bars);
     return (index, position) => {
