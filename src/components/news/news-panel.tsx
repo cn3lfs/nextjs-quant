@@ -129,6 +129,17 @@ export function NewsPanel() {
         : false,
     gcTime: 0,
   });
+  // The query key is the current job; ignore any response that is not that job.
+  const currentTask = task.data?.id === jobId ? task.data : null;
+  const terminalTask =
+    currentTask &&
+    ["completed", "failed", "cancelled"].includes(currentTask.status)
+      ? currentTask
+      : null;
+  const savedAnalysis = terminalTask?.analysisId ?? "";
+  const savedId = newsArchiveIdSchema.safeParse(savedAnalysis).success
+    ? savedAnalysis
+    : null;
   function urlSelection(
     a: string | null,
     o: typeof original,
@@ -197,7 +208,7 @@ export function NewsPanel() {
   });
   const busy =
     analyze.isPending ||
-    ["queued", "running"].includes(task.data?.status ?? "");
+    ["queued", "running"].includes(currentTask?.status ?? "");
   const cancel = api.cancel.useMutation({
     onSuccess: (value) => {
       setFeedback(
@@ -212,20 +223,13 @@ export function NewsPanel() {
     },
   });
   useEffect(() => {
-    const value = task.data;
-    if (
-      !visible ||
-      !value ||
-      !["completed", "failed", "cancelled"].includes(value.status)
-    )
-      return;
-    const key = `${value.id}:${value.status}`;
+    if (!visible || !terminalTask) return;
+    const key = `${terminalTask.id}:${terminalTask.status}`;
     if (handled.current === key) return;
     handled.current = key;
     void utils.newsArchiveHistory.invalidate();
     void utils.newsAnalysis.invalidate();
-    if (value.analysisId) urlSelection(value.analysisId, null);
-  }, [visible, task.data?.id, task.data?.status, task.data?.analysisId]);
+  }, [visible, terminalTask?.id, terminalTask?.status]);
   function apply(now = false) {
     const input = {
       cutoff: now
@@ -298,26 +302,33 @@ export function NewsPanel() {
           <div className="mt-3 space-y-2 text-sm" aria-label="新闻分析任务">
             <p>
               任务：
-              {task.data
+              {currentTask
                 ? ({
                     queued: "排队中",
                     running: "运行中",
                     completed: "已完成",
                     failed: "失败",
                     cancelled: "已取消",
-                  }[task.data.status] ?? task.data.status)
+                  }[currentTask.status] ?? currentTask.status)
                 : task.isLoading
                   ? "读取中"
                   : "未找到"}{" "}
-              · {task.data?.phase} {task.data?.progress ?? 0}%
+              · {currentTask?.phase} {currentTask?.progress ?? 0}%
             </p>
-            {task.data?.error && <p role="alert">{task.data.error}</p>}
+            {currentTask?.error && <p role="alert">{currentTask.error}</p>}
             {busy && (
               <Button
                 disabled={cancel.isPending}
                 onClick={() => cancel.mutate(jobId)}
               >
                 取消分析
+              </Button>
+            )}
+            {savedId && archive !== savedId && (
+              <Button onClick={() => urlSelection(savedId, null)}>
+                {terminalTask?.status === "completed"
+                  ? "查看分析结果"
+                  : "查看已保存结果"}
               </Button>
             )}
             <NewsError

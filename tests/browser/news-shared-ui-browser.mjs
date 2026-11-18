@@ -37,10 +37,22 @@ const stub = baseline
 import {useEffect,useState} from 'react';
 const query=data=>({data,isLoading:false,isFetching:false,refetch(){}});
 const mutation=()=>{const [isPending,setPending]=useState(false);return {isPending,mutate(input){setPending(true);(window.analysisInputs??=[]).push(input)}}};
+const taskListeners=new Set();
+window.setNewsTask=value=>{window.newsTask=value;for(const listener of taskListeners)listener()};
+const useNewsTask=()=>{
+ const [,force]=useState(0);
+ useEffect(()=>{const listener=()=>force(value=>value+1);taskListeners.add(listener);return()=>{taskListeners.delete(listener)}},[]);
+ return window.newsTask??null;
+};
 export const api={
- useUtils:()=>({newsArchiveHistory:{invalidate(){}},newsAnalysis:{invalidate(){}}}),
+ useUtils:()=>({newsArchiveHistory:{invalidate(){window.newsInvalidations.push('archive')}},newsAnalysis:{invalidate(){window.newsInvalidations.push('analysis')}},newsTaskState:{invalidate(){}}}),
  newsAnalysisContext:{useQuery:()=>query({model:'fixture:no-network'})},
- newsTaskState:{useQuery:()=>query(null)},
+ newsTaskState:{useQuery(id){const value=useNewsTask();return {...query(value&&value.id===id?value:null),isLoading:false,refetch(){}}}},
+ newsAnalysis:{useQuery:()=>query(null)},
+ newsResumePreflight:{useQuery:()=>query(null)},
+ newsOriginal:{useQuery:()=>query(null)},
+ newsArchiveHistory:{useQuery:()=>query({total:0,rows:[]})},
+ aggregateNewsDay:{useMutation:mutation},
  analyzeNews:{useMutation:mutation},cancel:{useMutation:mutation},
  newsWorkspace:{useQuery(input,options){
   const key=JSON.stringify(input),enabled=options.enabled;
@@ -56,6 +68,7 @@ import {createRoot} from 'react-dom/client';
 import {NewsPanel} from './src/components/news/news-panel';
 import {DataTable} from './src/components/ui/data-table';
 window.newsRequests = [];
+window.newsInvalidations = [];
 const columns = [{accessorKey: 'value', header: '数值'}];
 function App() {
  const [sorting, setSorting] = useState([]);
@@ -112,7 +125,8 @@ try {
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`http://127.0.0.1:${server.address().port}/news`);
+  const base = `http://127.0.0.1:${server.address().port}`;
+  await page.goto(`${base}${baseline ? "/news" : "/intel"}`);
   await page.waitForFunction(() => window.newsRequests.length === 1);
   await page.evaluate(() => {
     window.newsRequests = [];
@@ -194,6 +208,225 @@ try {
     );
     assert.equal(calls[0].pageSelection.cursor.id, 1);
     assert.equal(calls[0].pageSelection.fingerprint, "b".repeat(64));
+
+    const savedId = `news-analysis-${"d".repeat(64)}`,
+      recoveredId = `news-analysis-${"e".repeat(64)}`,
+      submitted = JSON.stringify({
+        cutoff: Math.floor(Date.now() / 60000) * 60000 - 3600000,
+        query: "已提交条件",
+        historical: true,
+      });
+    await page.goto(
+      `${base}/intel?newsJob=job-1&newsQuery=${encodeURIComponent(submitted)}`,
+    );
+    await page.waitForFunction(() => window.newsRequests.length === 1);
+    await page.getByRole("button", { name: "下一页新闻", exact: true }).click();
+    await page.waitForFunction(
+      () => window.newsRequests.at(-1).cursor?.id === 1,
+    );
+    await page.evaluate(() => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "running",
+        phase: "合成运行",
+        progress: 40,
+        analysisId: null,
+      });
+    });
+    await page.waitForFunction(() =>
+      document.body.textContent.includes("合成运行"),
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看分析结果", exact: true })
+        .count(),
+      0,
+      "running tasks must not offer a result link",
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看已保存结果", exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        new URL(location.href).searchParams.has("analysis"),
+      ),
+      false,
+      "running tasks must not open an archive automatically",
+    );
+    await page.getByRole("button", { name: "阅读原文", exact: true }).click();
+    await page.getByRole("heading", { name: "新闻原文" }).waitFor();
+    const originalUrl = await page.evaluate(() => location.href);
+    await page.evaluate(
+      (analysisId) => {
+        window.setNewsTask({
+          id: "job-1",
+          status: "completed",
+          phase: "合成完成",
+          progress: 100,
+          analysisId,
+        });
+      },
+      savedId,
+    );
+    await page
+      .getByRole("button", { name: "查看分析结果", exact: true })
+      .waitFor();
+    assert.equal(
+      await page.evaluate(() => location.href),
+      originalUrl,
+      "completion must not replace the original reading context",
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.newsInvalidations),
+      ["archive", "analysis"],
+      "a completed task invalidates archive caches once",
+    );
+    await page.evaluate(
+      (analysisId) => {
+        window.setNewsTask({
+          id: "job-1",
+          status: "completed",
+          phase: "合成完成",
+          progress: 100,
+          analysisId,
+        });
+      },
+      savedId,
+    );
+    await page.waitForTimeout(50);
+    assert.deepEqual(
+      await page.evaluate(() => window.newsInvalidations),
+      ["archive", "analysis"],
+      "the same id/status must not invalidate twice",
+    );
+    await page
+      .getByRole("button", { name: "查看分析结果", exact: true })
+      .click();
+    await page.getByRole("heading", { name: "新闻分析依据" }).waitFor();
+    const opened = await page.evaluate(() => {
+      const url = new URL(location.href),
+        newsQuery = url.searchParams.get("newsQuery");
+      return {
+        analysis: url.searchParams.get("analysis"),
+        job: url.searchParams.get("newsJob"),
+        query: JSON.parse(newsQuery).query,
+        cursor: newsQuery.includes("cursor"),
+        pages: JSON.parse(
+          sessionStorage.getItem(`news-pages:${newsQuery}`),
+        ),
+      };
+    });
+    assert.equal(opened.analysis, savedId);
+    assert.equal(opened.job, "job-1");
+    assert.equal(opened.query, "已提交条件");
+    assert.equal(opened.cursor, false);
+    assert.equal(opened.pages.length, 2, "the paging cursor is preserved");
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看分析结果", exact: true })
+        .count(),
+      0,
+      "an open archive hides its own result link",
+    );
+    await page
+      .getByRole("button", { name: "返回新闻列表", exact: true })
+      .click();
+    await page.getByText("第2页", { exact: false }).waitFor();
+    assert.equal(
+      await page.getByLabel("新闻关键词").inputValue(),
+      "已提交条件",
+    );
+    await page.evaluate(() => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "failed",
+        phase: "合成失败",
+        progress: 100,
+        error: "合成错误",
+        analysisId: null,
+      });
+    });
+    await page.waitForFunction(() =>
+      document.body.textContent.includes("合成失败"),
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看分析结果", exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看已保存结果", exact: true })
+        .count(),
+      0,
+      "failed tasks without an archive result must not guess an id",
+    );
+    assert.equal(
+      await page.getByText("部分完成的成功批次可在分析历史查看。").count(),
+      1,
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        new URL(location.href).searchParams.has("analysis"),
+      ),
+      false,
+      "a failed task must not navigate",
+    );
+    await page.evaluate(() => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "completed",
+        phase: "合成异常ID",
+        progress: 100,
+        analysisId: "not-an-archive-id",
+      });
+    });
+    await page.waitForFunction(() =>
+      document.body.textContent.includes("合成异常ID"),
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "查看分析结果", exact: true })
+        .count(),
+      0,
+      "an invalid analysis id must not become a result link",
+    );
+    await page.evaluate(
+      (analysisId) => {
+        window.setNewsTask({
+          id: "job-1",
+          status: "cancelled",
+          phase: "合成取消",
+          progress: 0,
+          analysisId,
+        });
+      },
+      recoveredId,
+    );
+    await page
+      .getByRole("button", { name: "查看已保存结果", exact: true })
+      .waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        new URL(location.href).searchParams.has("analysis"),
+      ),
+      false,
+      "a cancelled task with a saved result must wait for an explicit click",
+    );
+    await page
+      .getByRole("button", { name: "查看已保存结果", exact: true })
+      .click();
+    await page.getByRole("heading", { name: "新闻分析依据" }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        new URL(location.href).searchParams.get("analysis"),
+      ),
+      recoveredId,
+    );
   }
   assert.deepEqual(errors, []);
   console.log(
