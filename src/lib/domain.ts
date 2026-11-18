@@ -132,6 +132,8 @@ export type Job = {
   updatedAt: number;
   input: unknown;
   result?: unknown;
+  /** Confirmed news-analysis archive this task has already persisted. */
+  newsAnalysisId?: string;
   error?: string;
 };
 export type Evidence = {

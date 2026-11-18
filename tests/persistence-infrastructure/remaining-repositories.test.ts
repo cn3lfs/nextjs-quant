@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from "vitest";
-import { sqlite, put } from "~/server/db";
+import { sqlite, put, atomic } from "~/server/db";
 import {
   readArchiveRecord,
   localFinancialHistory,
@@ -14,6 +14,8 @@ import {
   newsAnalysisIdForTask,
 } from "~/server/db/workflow-history";
 import { visitNewsAnalyses } from "~/server/db/news-analysis-history";
+import { createJob, readJob } from "~/server/db/jobs";
+import { updateJob } from "~/server/jobs/jobs";
 
 beforeEach(() => sqlite().prepare("DELETE FROM records").run());
 const id = "ab000000-0000-4000-8000-000000000000";
@@ -123,4 +125,141 @@ it("news history iterates one snapshot, supports early stop and forbids callback
     }),
   ).toThrow();
   expect(sqlite().pragma("query_only", { simple: true })).toBe(0);
+});
+
+const archiveId = (hex: string) => `news-analysis-${hex.repeat(64)}`;
+const putArchive = (id: string, news = 1, items = 1) =>
+  put("news-analysis", id, {
+    id,
+    news: Array.from({ length: news }, (_, n) => ({ id: n + 1 })),
+    items: Array.from({ length: items }, (_, n) => ({ id: n + 1 })),
+  });
+
+it("links a news task to its recorded archive and falls back to an older completion", () => {
+  const recorded = archiveId("a"),
+    completed = archiveId("b");
+  putArchive(recorded);
+  putArchive(completed);
+  put("job", "news-recorded", {
+    id: "news-recorded",
+    status: "cancelled",
+    input: { kind: "news-analysis" },
+    result: { id: completed },
+    newsAnalysisId: recorded,
+  });
+  expect(newsAnalysisIdForTask("news-recorded")).toBe(recorded);
+  put("job", "news-completed", {
+    id: "news-completed",
+    status: "completed",
+    input: { kind: "news-analysis" },
+    result: { id: completed },
+  });
+  expect(newsAnalysisIdForTask("news-completed")).toBe(completed);
+});
+
+it("never exposes missing, empty, unrecorded or unrelated news archives", () => {
+  const emptyNews = archiveId("c"),
+    emptyItems = archiveId("d"),
+    wrongKind = archiveId("e");
+  put("news-analysis", emptyNews, {
+    id: emptyNews,
+    news: [],
+    items: [{ id: 1 }],
+  });
+  put("news-analysis", emptyItems, {
+    id: emptyItems,
+    news: [{ id: 1 }],
+    items: [],
+  });
+  put("report", wrongKind, {
+    id: wrongKind,
+    news: [{ id: 1 }],
+    items: [{ id: 1 }],
+  });
+  for (const [task, archived] of [
+    ["news-empty-news", emptyNews],
+    ["news-empty-items", emptyItems],
+    ["news-wrong-kind", wrongKind],
+    ["news-cleaned", archiveId("f")],
+  ] as const)
+    put("job", task, {
+      id: task,
+      status: "failed",
+      input: { kind: "news-analysis" },
+      newsAnalysisId: archived,
+    });
+  put("job", "news-failed-unlinked", {
+    id: "news-failed-unlinked",
+    status: "failed",
+    input: { kind: "news-analysis" },
+  });
+  put("job", "news-other-kind", {
+    id: "news-other-kind",
+    status: "completed",
+    input: { kind: "news-themes" },
+    result: { id: archiveId("0") },
+  });
+  for (const task of [
+    "news-empty-news",
+    "news-empty-items",
+    "news-wrong-kind",
+    "news-cleaned",
+    "news-failed-unlinked",
+    "news-other-kind",
+  ])
+    expect(newsAnalysisIdForTask(task)).toBeNull();
+});
+
+it("rolls the archive pointer back together with the first archive write", () => {
+  const now = Date.now();
+  createJob({
+    id: "news-atomic",
+    type: "research",
+    status: "running",
+    progress: 0,
+    createdAt: now,
+    updatedAt: now,
+    input: { kind: "news-analysis" },
+  });
+  const first = archiveId("a");
+  expect(() =>
+    atomic(() => {
+      putArchive(first);
+      updateJob("news-atomic", { newsAnalysisId: first });
+      throw new Error("fixture rollback");
+    }),
+  ).toThrow("fixture rollback");
+  expect(readJob("news-atomic")?.newsAnalysisId).toBeUndefined();
+  expect(newsAnalysisIdForTask("news-atomic")).toBeNull();
+  const second = archiveId("b");
+  atomic(() => {
+    putArchive(second);
+    updateJob("news-atomic", { newsAnalysisId: second });
+  });
+  expect(newsAnalysisIdForTask("news-atomic")).toBe(second);
+});
+
+it("refuses a late archive pointer after a news task is terminal", () => {
+  const now = Date.now();
+  createJob({
+    id: "news-terminal",
+    type: "research",
+    status: "running",
+    progress: 0,
+    createdAt: now,
+    updatedAt: now,
+    input: { kind: "news-analysis" },
+  });
+  const first = archiveId("a"),
+    late = archiveId("b");
+  updateJob("news-terminal", { newsAnalysisId: first });
+  expect(readJob("news-terminal")?.newsAnalysisId).toBe(first);
+  expect(
+    updateJob("news-terminal", { status: "cancelled", phase: "已取消" })?.status,
+  ).toBe("cancelled");
+  updateJob("news-terminal", { newsAnalysisId: late });
+  expect(readJob("news-terminal")).toMatchObject({
+    status: "cancelled",
+    newsAnalysisId: first,
+  });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Job } from "~/lib/domain";
+import { newsArchiveIdSchema } from "~/lib/news/news-workspace";
 import { put, sqlite } from "./index";
 import { readSnapshot } from "./snapshot";
 
@@ -22,6 +23,7 @@ const jobSchema = z.object({
   progress: z.number().finite(),
   createdAt: z.number().finite(),
   updatedAt: z.number().finite(),
+  newsAnalysisId: newsArchiveIdSchema.optional(),
 });
 
 /** Explicit detail read. Lists/polling must use the metadata repositories. */

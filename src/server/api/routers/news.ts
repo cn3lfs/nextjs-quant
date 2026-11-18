@@ -108,16 +108,23 @@ export const newsRouter = createTRPCRouter({
     .input(z.string().min(1).max(200))
     .query(({ input }) => {
       const state = taskState(input);
+      if (!state) return null;
+      // Polling sees queued/running states with no archive; only a terminal
+      // state can have one, so other states skip the archive lookup entirely.
+      if (
+        state.status !== "completed" &&
+        state.status !== "failed" &&
+        state.status !== "cancelled"
+      )
+        return { ...state, analysisId: null };
       const analysisId = newsAnalysisIdForTask(input);
-      return state
-        ? {
-            ...state,
-            analysisId:
-              analysisId && newsArchiveIdSchema.safeParse(analysisId).success
-                ? analysisId
-                : null,
-          }
-        : null;
+      return {
+        ...state,
+        analysisId:
+          analysisId && newsArchiveIdSchema.safeParse(analysisId).success
+            ? analysisId
+            : null,
+      };
     }),
   newsWorkspace: p("news", "read")
     .input(newsWorkspaceSchema)
@@ -304,11 +311,17 @@ export const newsRouter = createTRPCRouter({
         "research",
         { kind: "news-analysis", ...input },
         (job, signal) =>
-          analyzeNews(input, signal, (done, total) =>
-            updateJob(job.id, {
-              progress: Math.round((done / total) * 100),
-              phase: `新闻分析 ${done}/${total}`,
-            }),
+          analyzeNews(
+            input,
+            signal,
+            (done, total) =>
+              updateJob(job.id, {
+                progress: Math.round((done / total) * 100),
+                phase: `新闻分析 ${done}/${total}`,
+              }),
+            "interactive",
+            undefined,
+            (newsAnalysisId) => updateJob(job.id, { newsAnalysisId }),
           ),
         { kind: "news-analysis", input },
       ),

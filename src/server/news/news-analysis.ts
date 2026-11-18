@@ -80,6 +80,45 @@ type CachedItem = {
   analysisId: string;
   archivedAt: number;
 };
+type ArchiveListener = (id: string) => void;
+// Scoped to this module: shared flights are keyed by archive id, so a caller
+// that only joined the flight still learns when that archive is first saved.
+const archiveListeners = new Map<string, Set<ArchiveListener>>();
+function hasArchivedContent(
+  record: NewsAnalysis | undefined,
+): record is NewsAnalysis {
+  return !!record && record.news.length > 0 && record.items.length > 0;
+}
+function notifyArchived(record: NewsAnalysis) {
+  if (!hasArchivedContent(record)) return;
+  for (const listener of [...(archiveListeners.get(record.id) ?? [])])
+    listener(record.id);
+}
+function settleArchive(id: string) {
+  archiveListeners.delete(id);
+}
+function waitForArchive(
+  id: string,
+  signal: AbortSignal | undefined,
+  onArchived: ArchiveListener,
+) {
+  const listeners = archiveListeners.get(id) ?? new Set<ArchiveListener>();
+  archiveListeners.set(id, listeners);
+  const listener: ArchiveListener = (archivedId) => {
+    if (!signal?.aborted) onArchived(archivedId);
+  };
+  listeners.add(listener);
+  const remove = () => {
+    listeners.delete(listener);
+    if (!listeners.size && archiveListeners.get(id) === listeners)
+      archiveListeners.delete(id);
+  };
+  signal?.addEventListener("abort", remove, { once: true });
+  return () => {
+    signal?.removeEventListener("abort", remove);
+    remove();
+  };
+}
 export function newsAnalysisView(record: NewsAnalysis): NewsAnalysis {
   return {
     ...record,
@@ -175,7 +214,11 @@ function saveAnalysis(record: NewsAnalysis) {
         archivedAt: origin?.archivedAt ?? record.createdAt,
       } satisfies CachedItem);
     }
+    // The first persisted archive and the owning task's pointer share this
+    // transaction: a callback failure rolls both back and the waiters stay.
+    notifyArchived(record);
   });
+  settleArchive(record.id);
 }
 async function currentNewsMethod() {
   const root = join(
@@ -232,6 +275,7 @@ export async function analyzeNews(
   onProgress?: (done: number, total: number) => void,
   priority: "interactive" | "background" = "interactive",
   beforeModel?: () => void,
+  onArchived?: (newsAnalysisId: string) => void,
 ): Promise<NewsAnalysis> {
   let input = newsAnalysisInput.parse(rawInput);
   const expectedVersion = input.expectedVersion;
@@ -298,8 +342,10 @@ export async function analyzeNews(
       hitLimit: input.scope === "range" && totalMatches > news.length,
     },
   });
-  if (cached && cached.items.length === news.length)
+  if (cached && cached.items.length === news.length) {
+    if (onArchived) onArchived(id);
     return withCoverage(cached);
+  }
   const legacyId =
     "news-analysis-" +
     createHash("sha256")
@@ -320,9 +366,23 @@ export async function analyzeNews(
   const legacy = get<NewsAnalysis>(legacyId);
   if (legacy && legacy.items.length === news.length) {
     const migrated = { ...legacy, id };
-    put("news-analysis", id, migrated);
+    atomic(() => {
+      put("news-analysis", id, migrated);
+      notifyArchived(migrated);
+      // This caller registers after the migration path, so associate it here
+      // once, in the same transaction as the persisted archive.
+      if (onArchived && hasArchivedContent(migrated)) onArchived(id);
+    });
+    settleArchive(id);
     return withCoverage(migrated);
   }
+  const unsubscribe =
+    onArchived && !hasArchivedContent(cached)
+      ? waitForArchive(id, signal, onArchived)
+      : undefined;
+  // An earlier partial archive for this exact identity is already persisted;
+  // associate it now instead of waiting for a save that may never repeat.
+  if (onArchived && hasArchivedContent(cached)) onArchived(id);
   return sharedAnalysis(
     id,
     async (sharedSignal) => {
@@ -439,7 +499,11 @@ export async function analyzeNews(
               status: "partial",
               error: "后续批次未完成，已保存成功结果；可继续未完成部分。",
             };
-            put("news-analysis", id, record);
+            atomic(() => {
+              put("news-analysis", id, record);
+              notifyArchived(record);
+            });
+            settleArchive(id);
             return record;
           }
         }
@@ -449,5 +513,7 @@ export async function analyzeNews(
       }
     },
     signal,
-  ).then(withCoverage);
+  )
+    .then(withCoverage)
+    .finally(() => unsubscribe?.());
 }

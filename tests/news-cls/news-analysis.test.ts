@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
@@ -13,6 +14,7 @@ const state = vi.hoisted(() => ({
   model: vi.fn(),
   news: vi.fn(),
   path: "fixture",
+  flights: [] as string[],
 }));
 vi.mock("../../src/server/db/index", () => ({
   get: (id: string) => state.records.get(id),
@@ -41,6 +43,28 @@ vi.mock("../../src/server/db/news-analysis-history", () => ({
 vi.mock("../../src/server/data-sources/cls/cls-news", () => ({
   readClsNews: state.news,
 }));
+vi.mock(
+  "../../src/server/infra/shared-read",
+  async (importOriginal) => {
+    const actual =
+      (await importOriginal()) as typeof import("../../src/server/infra/shared-read");
+    return {
+      // Delegate unchanged; only record entries so tests can observe that a
+      // second caller has joined the same in-flight archive.
+      sharedRead: <T,>() => {
+        const read = actual.sharedRead<T>();
+        return (
+          key: string,
+          load: (signal: AbortSignal) => Promise<T>,
+          signal?: AbortSignal,
+        ) => {
+          state.flights.push(key);
+          return read(key, load, signal);
+        };
+      },
+    };
+  },
+);
 vi.mock("../../src/server/infra/settings", () => ({
   settings: () => ({ clsDbPath: state.path }),
 }));
@@ -60,6 +84,7 @@ beforeEach(async () => {
   state.records.clear();
   state.path = "fixture";
   state.model.mockReset();
+  state.flights.length = 0;
   const root = await mkdtemp(join(tmpdir(), "quant-news-method-"));
   vi.stubEnv("QUANT_SKILLS_DIR", root);
   const directory = join(root, "news-industry-classifier");
@@ -273,7 +298,18 @@ it("keeps the first 25 results when the second batch fails and resumes only unfi
   expect(partial.items).toHaveLength(25);
   expect(partial.news).toHaveLength(50);
   state.news.mockReturnValue({ items: [] });
-  const complete = await analyzeNews({ ...input, resumeId: partial.id });
+  const archived = vi.fn();
+  const complete = await analyzeNews(
+    { ...input, resumeId: partial.id },
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
+  // The partial archive was persisted by the interrupted run, so this task
+  // associates it up front and the completing save must not notify again.
+  expect(archived.mock.calls).toEqual([[partial.id]]);
   expect(complete).toMatchObject({
     status: "complete",
     tokens: 20,
@@ -366,7 +402,7 @@ it("rejects missing, duplicated or invented classifications without saving a fak
     expect(state.records.size).toBe(0);
   }
 });
-it("retains committed batches on cancellation and refuses a late second-batch result", async () => {
+it("associates the committed first batch once on cancellation and refuses a late second-batch result", async () => {
   const rows = Array.from({ length: 50 }, (_, i) => ({
     id: i + 1,
     title: `标题${i}`,
@@ -400,13 +436,23 @@ it("retains committed batches on cancellation and refuses a late second-batch re
     };
   });
   const controller = new AbortController();
-  const run = analyzeNews(input, controller.signal),
+  const archived = vi.fn();
+  const run = analyzeNews(
+      input,
+      controller.signal,
+      undefined,
+      "interactive",
+      undefined,
+      archived,
+    ),
     rejected = expect(run).rejects.toThrow();
   await vi.waitFor(() => expect(state.model).toHaveBeenCalledTimes(2));
+  expect(archived).toHaveBeenCalledOnce();
+  const before = [...state.records.values()][0];
+  expect(archived).toHaveBeenCalledWith((before as { id: string }).id);
   controller.abort();
   await rejected;
   expect(upstream[1]!.aborted).toBe(true);
-  const before = [...state.records.values()][0];
   expect(before).toMatchObject({ status: "partial", tokens: 10 });
   expect((before as { items: unknown[] }).items).toHaveLength(25);
   expect(
@@ -415,6 +461,7 @@ it("retains committed batches on cancellation and refuses a late second-batch re
   release();
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect([...state.records.values()][0]).toEqual(before);
+  expect(archived).toHaveBeenCalledOnce();
 });
 it("freezes a bounded query range once and preserves coverage notices on a content-cache hit", async () => {
   const rows = Array.from({ length: 150 }, (_, i) => ({
@@ -531,6 +578,44 @@ it("旧档案没有逐条缓存时从历史批次迁移，规则变更不复用"
   await analyzeNews(input);
   expect(state.model).toHaveBeenCalledTimes(2);
 });
+it("migrates a legacy archive to the current id and associates it exactly once", async () => {
+  const current = await analyzeNews(input);
+  const archived = state.records.get(current.id) as NewsAnalysis;
+  const legacyId =
+    "news-analysis-" +
+    createHash("sha256")
+      .update(
+        JSON.stringify({
+          news: archived.news,
+          method: archived.method,
+          model: archived.model,
+          input: {
+            cutoff: input.cutoff,
+            page: input.page,
+            query: input.query,
+            historical: input.historical,
+          },
+        }),
+      )
+      .digest("hex");
+  expect(legacyId).not.toBe(current.id);
+  state.records.clear();
+  state.records.set(legacyId, { ...archived, id: legacyId });
+  state.model.mockClear();
+  const associated = vi.fn();
+  const migrated = await analyzeNews(
+    input,
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    associated,
+  );
+  expect(migrated.id).toBe(current.id);
+  expect(state.records.get(current.id)).toEqual(archived);
+  expect(associated.mock.calls).toEqual([[current.id]]);
+  expect(state.model).not.toHaveBeenCalled();
+});
 it("下一批与历史恢复保留同一查询语境，使用时间及ID边界且最后一批停止", async () => {
   const rows = Array.from({ length: 150 }, (_, i) => ({
     id: 150 - i,
@@ -596,13 +681,130 @@ it("续作预检只读且拒绝预检后规则漂移，新版本保留原档案�
   state.news.mockImplementation(() => {
     throw new Error("续作不得重读新闻来源");
   });
-  const next = await analyzeNews({
-    ...input,
-    resumeId: original.id,
-    expectedVersion: changed.version,
-  });
+  const archived = vi.fn();
+  const next = await analyzeNews(
+    { ...input, resumeId: original.id, expectedVersion: changed.version },
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
   expect(next.id).not.toBe(original.id);
   expect(next.news).toEqual(original.news);
   expect(state.records.get(original.id)).toBeDefined();
   expect(state.model).toHaveBeenCalledTimes(2);
+  expect(archived.mock.calls.flat()).toEqual([next.id]);
+});
+it("never associates an archive that was not persisted", async () => {
+  const archived = vi.fn();
+  state.model.mockRejectedValueOnce(new Error("quota fixture"));
+  await expect(
+    analyzeNews(input, undefined, undefined, "interactive", undefined, archived),
+  ).rejects.toThrow("quota fixture");
+  expect(archived).not.toHaveBeenCalled();
+  expect(state.records.size).toBe(0);
+  const calls = state.model.mock.calls.length;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const original = state.model.getMockImplementation()!;
+  state.model.mockImplementation(async (...args) => {
+    await gate;
+    return original(...args);
+  });
+  const controller = new AbortController();
+  const run = analyzeNews(
+    input,
+    controller.signal,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
+  const rejected = expect(run).rejects.toThrow();
+  await vi.waitFor(() => expect(state.model).toHaveBeenCalledTimes(calls + 1));
+  controller.abort();
+  await rejected;
+  release();
+  await vi.waitFor(() => expect(state.model).toHaveBeenCalledTimes(calls + 1));
+  expect(archived).not.toHaveBeenCalled();
+  expect(state.records.size).toBe(0);
+});
+it("associates a cached archive and the new archive after a method change", async () => {
+  const archived = vi.fn();
+  const first = await analyzeNews(
+    input,
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
+  expect(archived.mock.calls).toEqual([[first.id]]);
+  const cached = await analyzeNews(
+    { ...input, cutoff: 2000 },
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
+  expect(cached.id).toBe(first.id);
+  expect(archived.mock.calls).toEqual([[first.id], [first.id]]);
+  await writeFile(guidePath, guide + "\n新规则");
+  const changed = await analyzeNews(
+    input,
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    archived,
+  );
+  expect(changed.id).not.toBe(first.id);
+  expect(archived.mock.calls).toEqual([[first.id], [first.id], [changed.id]]);
+  expect(state.model).toHaveBeenCalledTimes(2);
+});
+it("associates a shared flight for the remaining caller after one cancels", async () => {
+  let complete!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  const original = state.model.getMockImplementation()!;
+  state.model.mockImplementation(async (...args) => {
+    await gate;
+    return original(...args);
+  });
+  const controller = new AbortController();
+  const cancelled = vi.fn(),
+    kept = vi.fn();
+  const first = analyzeNews(
+    input,
+    controller.signal,
+    undefined,
+    "interactive",
+    undefined,
+    cancelled,
+  );
+  const rejected = expect(first).rejects.toThrow();
+  const second = analyzeNews(
+    input,
+    undefined,
+    undefined,
+    "interactive",
+    undefined,
+    kept,
+  );
+  // Both callers must be users of the same flight before cancelling one.
+  await vi.waitFor(() => expect(state.flights).toHaveLength(2));
+  await vi.waitFor(() => expect(state.model).toHaveBeenCalledOnce());
+  controller.abort();
+  await rejected;
+  expect(cancelled).not.toHaveBeenCalled();
+  complete();
+  const saved = await second;
+  expect(kept.mock.calls).toEqual([[saved.id]]);
+  expect(cancelled).not.toHaveBeenCalled();
+  expect(state.model).toHaveBeenCalledOnce();
 });
