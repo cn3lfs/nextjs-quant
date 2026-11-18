@@ -11,6 +11,20 @@ const selection = vi.hoisted(() => ({
     symbol: string;
     status: string;
   }[],
+  comparison: undefined as
+    | {
+        id: string;
+        strategyId: string;
+        comparisonBasis: {
+          start: string;
+          end: string;
+          initial: number;
+          symbol: string | null;
+          poolCount: number | null;
+        };
+        overview: Record<string, { value: number | null }>;
+      }[]
+    | undefined,
 }));
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof import("react")>();
@@ -50,7 +64,7 @@ vi.mock("~/trpc/react", async () => {
       strategyCenterPortfolio: mutation,
       strategyCenterEvaluation: { useQuery: () => ({ data: undefined }) },
       strategyCenterCompare: {
-        useQuery: () => ({ data: undefined, error: null }),
+        useQuery: () => ({ data: selection.comparison, error: null }),
       },
       useUtils: () => ({ strategyCenterExport: { fetch: vi.fn() } }),
     },
@@ -62,6 +76,7 @@ import { readTaskHistoryLocation } from "../../src/lib/research/workflow/task-hi
 beforeEach(() => {
   selection.id = "ma";
   selection.history = [];
+  selection.comparison = undefined;
 });
 const render = () => renderToStaticMarkup(createElement(StrategyCenter));
 
@@ -128,6 +143,44 @@ it("does not offer execution for research-only or missing-data entries", () => {
     expect(html).not.toContain("创建本地日线实验");
     expect(html).not.toContain("读取本地因子并计算权重");
     expect(html).not.toContain("创建历史组合实验");
+  }
+});
+
+it("shows compared frozen inputs from the response and links duplicate strategies to their own tasks", () => {
+  const name = unifiedStrategyCatalog.find((item) => item.id === "ma")!.name;
+  const comparisonBasis = {
+    start: "2024-03-04",
+    end: "2024-06-28",
+    initial: 250000,
+    symbol: "sz000001",
+    poolCount: null,
+  };
+  const overview = {
+    totalReturn: { value: 0.12 },
+    annualReturn: { value: 0.08 },
+    maxDrawdown: { value: -0.05 },
+    sharpe: { value: 1.2 },
+  };
+  selection.comparison = [
+    { id: "job-one", strategyId: "ma", comparisonBasis, overview },
+    { id: "job-two", strategyId: "ma", comparisonBasis, overview },
+  ];
+  const html = render().replace(/<!--.*?-->/g, "");
+  const section = html.slice(html.indexOf("同口径比较"));
+  expect(section).toContain("共同冻结输入区间：2024-03-04 至 2024-06-28");
+  expect(section).toContain("独立本金 250000 · sz000001");
+  expect(section).not.toContain("独立本金 1000000");
+  expect(section.split(name)).toHaveLength(3);
+  const links = [
+    ...section.matchAll(/<a [^>]*href="([^"]+)"[^>]*>任务 ([^<]+)<\/a>/g),
+  ];
+  expect(links.map((match) => match[2])).toEqual(["job-one", "job-two"]);
+  for (const [index, match] of links.entries()) {
+    const url = new URL(match[1]!.replaceAll("&amp;", "&"), "http://fixture");
+    expect(readTaskHistoryLocation(url.search)).toEqual({
+      filter: { id: ["job-one", "job-two"][index] },
+      error: "",
+    });
   }
 });
 

@@ -180,6 +180,13 @@ export const strategyCenterRouter = createTRPCRouter({
         return {
           id,
           strategyId: f.input.strategyId,
+          comparisonBasis: {
+            start: f.input.start,
+            end: f.input.end,
+            initial: f.input.initial,
+            symbol: f.input.symbol ?? null,
+            poolCount: f.input.symbols?.length ?? null,
+          },
           overview: createPerformanceReport(
             f.input.initial,
             archive.result.curve.map((point) => ({

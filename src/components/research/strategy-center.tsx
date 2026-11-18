@@ -136,6 +136,8 @@ export function StrategyCenter() {
     onError: (error) => setMessage(error.message),
   });
   const entries = catalog.data ?? [];
+  const strategyNames = new Map(entries.map((item) => [item.id, item.name]));
+  const comparisonBasis = comparison.data?.[0]?.comparisonBasis;
   const visible = entries.filter(
     (item) =>
       (!family || item.category === family) &&
@@ -781,16 +783,28 @@ export function StrategyCenter() {
         {comparison.data && (
           <section className="rounded border p-4">
             <h2 className="font-medium">同口径比较</h2>
-            <p className="break-all text-sm text-nc-text-3">
-              已提交比较：{comparedIds.join(" · ")}
+            <p className="text-sm text-nc-text-3">
+              已提交比较 {comparedIds.length} 项
               {JSON.stringify(comparedIds) !== JSON.stringify(compareIds)
                 ? "；选择已修改，请重新比较。"
                 : ""}
             </p>
-            <Table className="w-full text-sm">
+            {comparisonBasis && (
+              <div className="mt-2 space-y-1 text-sm">
+                <p>
+                  共同冻结输入区间：{comparisonBasis.start} 至{" "}
+                  {comparisonBasis.end}
+                </p>
+                <p>
+                  独立本金 {comparisonBasis.initial} ·{" "}
+                  {comparisonScope(comparisonBasis)}
+                </p>
+              </div>
+            )}
+            <Table className="mt-2 w-full text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead>策略</TableHead>
+                  <TableHead>策略 / 任务</TableHead>
                   <TableHead>累计收益</TableHead>
                   <TableHead>年化收益</TableHead>
                   <TableHead>最大回撤</TableHead>
@@ -800,7 +814,17 @@ export function StrategyCenter() {
               <TableBody>
                 {comparison.data.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.strategyId}</TableCell>
+                    <TableCell className="align-top whitespace-normal">
+                      <span className="block max-w-[10rem] truncate">
+                        {strategyNames.get(item.strategyId) ?? item.strategyId}
+                      </span>
+                      <Link
+                        href={taskHistoryHref({ id: item.id })}
+                        className="block break-all text-xs text-primary underline"
+                      >
+                        任务 {item.id}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       {formatPercent(item.overview.totalReturn.value)}
                     </TableCell>
@@ -876,4 +900,14 @@ export function StrategyCenter() {
 }
 function formatPercent(value: number | null) {
   return value === null ? "—" : `${formatNumber(value * 100, 2)}%`;
+}
+function comparisonScope(basis: {
+  symbol: string | null;
+  poolCount: number | null;
+}) {
+  if (basis.symbol !== null && basis.poolCount !== null)
+    return `${basis.symbol} · 证券池 ${basis.poolCount} 只`;
+  if (basis.symbol !== null) return basis.symbol;
+  if (basis.poolCount !== null) return `证券池 ${basis.poolCount} 只`;
+  return "档案未记录证券范围";
 }

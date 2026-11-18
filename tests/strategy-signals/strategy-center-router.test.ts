@@ -100,6 +100,20 @@ function archive(strategyId = "ma") {
     },
   };
 }
+function withInput(strategyId: string, input: Record<string, unknown>) {
+  const base = archive(strategyId);
+  const frozen = {
+    ...base.frozen,
+    input: { ...base.frozen.input, ...input },
+  } as typeof base.frozen;
+  return {
+    ...base,
+    frozen,
+    inputHash: createHash("sha256")
+      .update(JSON.stringify(frozen))
+      .digest("hex"),
+  };
+}
 function save(
   id: string,
   result = archive(),
@@ -126,6 +140,73 @@ it("compares strategies using the shared performance report on matching frozen c
   expect(rows.map((row) => row.strategyId)).toEqual(["ma", "breakout"]);
   expect(rows[0]!.overview).toEqual(expected);
   expect(rows[1]!.overview).toEqual(expected);
+});
+
+it("projects only the frozen comparison basis for each compared row", async () => {
+  save("one", archive());
+  save("two", archive("breakout"));
+  const rows = await caller().strategyCenterCompare(["one", "two"]);
+  expect(rows.map((row) => row.comparisonBasis)).toEqual([
+    {
+      start: "2025-01-02",
+      end: "2025-01-06",
+      initial: 1000000,
+      symbol: "sh600519",
+      poolCount: null,
+    },
+    {
+      start: "2025-01-02",
+      end: "2025-01-06",
+      initial: 1000000,
+      symbol: "sh600519",
+      poolCount: null,
+    },
+  ]);
+  expect(JSON.stringify(rows)).not.toContain("shared-source");
+});
+
+it("counts an explicit pool and keeps absent archive fields null", async () => {
+  const savePair = (prefix: string, input: Record<string, unknown>) => {
+    save(`${prefix}-one`, withInput("ma", input));
+    save(`${prefix}-two`, withInput("breakout", input));
+  };
+  const basis = async (prefix: string) =>
+    (
+      await caller().strategyCenterCompare([
+        `${prefix}-one`,
+        `${prefix}-two`,
+      ])
+    )[0]!.comparisonBasis;
+
+  savePair("pool", { symbol: undefined, symbols: ["sh600519", "sz000858"] });
+  expect(await basis("pool")).toMatchObject({ symbol: null, poolCount: 2 });
+
+  savePair("empty", { symbol: undefined, symbols: [] });
+  expect(await basis("empty")).toMatchObject({ symbol: null, poolCount: 0 });
+
+  savePair("none", { symbol: undefined });
+  expect(await basis("none")).toMatchObject({ symbol: null, poolCount: null });
+
+  savePair("both", { symbols: ["sh600519", "sz000858"] });
+  expect(await basis("both")).toMatchObject({
+    symbol: "sh600519",
+    poolCount: 2,
+  });
+
+  save(
+    "scope-one",
+    withInput("ma", { symbol: undefined, symbols: ["sh600519"] }),
+  );
+  save(
+    "scope-two",
+    withInput("breakout", {
+      symbol: undefined,
+      symbols: ["sh600519", "sz000858"],
+    }),
+  );
+  await expect(
+    caller().strategyCenterCompare(["scope-one", "scope-two"]),
+  ).rejects.toThrow("比较要求");
 });
 
 it("checks native identities among native runs while permitting the same-price ordinary baseline", async () => {
