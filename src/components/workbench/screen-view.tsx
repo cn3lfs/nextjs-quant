@@ -4,10 +4,6 @@ import { PanelVisibility, usePanelVisible } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  monitorPrefillHref,
-  monitorSymbolLimit,
-} from "~/lib/strategy-facts/monitor-workspace-draft";
 import { DataTable } from "~/components/ui/data-table";
 import { Input } from "~/components/ui/input";
 import {
@@ -25,6 +21,13 @@ import {
   screenCandidateUrlKey,
   type ScreenCandidateIdentity,
 } from "~/lib/screening/screen-candidate-navigation";
+import {
+  screenMonitorCaptureMatches,
+  screenMonitorContentSignature,
+  screenMonitorPreview,
+} from "~/lib/screening/screen-monitor-preview";
+import { PopoverContent, PopoverTrigger } from "../ui/popover";
+import { PanelPopover } from "./panel-popover";
 import {
   archivedNameHint,
   securityDisplayName,
@@ -79,14 +82,17 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
   // This panel stays mounted behind other tabs. Leaving the formula workspace
   // discards the confirmed page, any pending read and its error.
   const visible = usePanelVisible();
-  // Only a confirmed page may move the frozen chart. Fetching/placeholder rows
-  // belong to the previous query and are never used as navigation input.
+  // The first page comes from jobSummary while other pages come from
+  // screenResults; the query that actually supplies the rows owns the state.
+  const pageQuery = firstScreenPage ? selectedScreen : screened;
+  // Only a confirmed page may move the frozen chart or seed a monitor draft.
+  // Fetching/placeholder rows belong to the previous query and are never input.
   const pageUnavailable =
     !visible ||
     !screenResult ||
-    screened.isFetching ||
+    pageQuery.isFetching ||
     screened.isPlaceholderData ||
-    screened.isError;
+    pageQuery.isError;
   const urlCandidate = {
     symbol: search.get("symbol"),
     snapshotId: search.get("screenSnapshot"),
@@ -104,12 +110,32 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
           currentUrlKey,
         ])
       : "";
+  // The preview list and the draft link come from the same confirmed snapshot
+  // array, so the rows shown are exactly the symbols carried over.
+  const monitorPreview =
+    !pageUnavailable && screenResult
+      ? screenMonitorPreview({
+          asOf: screenResult.asOf,
+          count: screenResult.count,
+          candidates: screenResult.candidates,
+        })
+      : null;
+  const monitorContent =
+    !pageUnavailable && screenResult
+      ? screenMonitorContentSignature({
+          asOf: screenResult.asOf,
+          count: screenResult.count,
+          candidates: screenResult.candidates,
+        })
+      : "";
   const confirmed = useRef<{
     key: string;
+    content: string;
     candidates: readonly ScreenCandidateIdentity[];
-  }>({ key: "", candidates: [] });
+  }>({ key: "", content: "", candidates: [] });
   confirmed.current = {
     key: pageUnavailable ? "" : pageKey,
+    content: pageUnavailable ? "" : monitorContent,
     candidates: pageUnavailable ? [] : (screenResult?.candidates ?? []),
   };
   const attempts = useRef(0);
@@ -129,6 +155,30 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     : candidateIndex >= 0 && frozenTaskMatches
       ? `${candidateIndex + 1}/${candidates.length}`
       : `—/${candidates.length}`;
+  const monitorCapture = useRef<{
+    key: string;
+    content: string;
+    urlKey: string;
+    href: string;
+  } | null>(null);
+  const [monitorOpen, setMonitorOpen] = useState(false);
+  // A preview is only usable while it still describes the page on screen: the
+  // task/page/query key, the rows and the URL all have to match what was
+  // captured. A render that invalidates it drops the Portal immediately, before
+  // the effect below gets a chance to run.
+  const captured = monitorCapture.current;
+  const previewCurrent =
+    !!captured &&
+    captured.key === confirmed.current.key &&
+    captured.content === confirmed.current.content &&
+    captured.urlKey === currentUrlKey;
+  useEffect(() => {
+    // A reload, another page/key or changed rows invalidate the open preview;
+    // the user must reopen and confirm, and nothing is sent automatically after
+    // the data recovers.
+    monitorCapture.current = null;
+    setMonitorOpen(false);
+  }, [pageKey, monitorContent]);
   useEffect(() => {
     // A new task/page/query/URL candidate invalidates an in-flight read and its error.
     attempts.current++;
@@ -178,6 +228,45 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     setOpening(null);
     if (outcome.status === "invalid" || outcome.status === "failed")
       setOpenError({ candidate, message: outcome.message });
+  }
+  function openMonitorPreview() {
+    // Capture the page, its content, the URL and the href built from this very
+    // preview; confirming never rebuilds the link from later render data.
+    if (
+      pageUnavailable ||
+      !monitorPreview ||
+      !pageKey ||
+      confirmed.current.key !== pageKey ||
+      confirmed.current.content !== monitorContent
+    )
+      return;
+    monitorCapture.current = {
+      key: pageKey,
+      content: monitorContent,
+      urlKey: currentUrlKey,
+      href: monitorPreview.href,
+    };
+    setMonitorOpen(true);
+  }
+  function confirmMonitorDraft() {
+    // Consume the capture first so a second click in the same tick is a no-op.
+    const capture = monitorCapture.current;
+    monitorCapture.current = null;
+    if (!capture) return;
+    // Compare the latest committed ref (not this handler's closure) and the
+    // browser's own query, which can move before React re-renders.
+    const native =
+      typeof window === "undefined"
+        ? search
+        : new URLSearchParams(window.location.search);
+    const latest = {
+      key: confirmed.current.key,
+      content: confirmed.current.content,
+      urlKey: screenCandidateUrlKey(native),
+    };
+    setMonitorOpen(false);
+    if (!screenMonitorCaptureMatches(capture, latest)) return;
+    router.push(capture.href, { scroll: false });
   }
   return (
     <PageGrid>
@@ -488,33 +577,86 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
               )}
               {screenResult.candidates.length > 0 && (
                 <div className="inline-form">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={screened.isPlaceholderData}
-                    onClick={() =>
-                      router.push(
-                        monitorPrefillHref({
-                          name: `选股候选 ${screenResult.asOf ?? ""}`.trim(),
-                          symbols: screenResult.candidates
-                            .slice(0, monitorSymbolLimit)
-                            .map((c) => c.symbol),
-                        }),
-                      )
-                    }
+                  <PanelPopover
+                    open={monitorOpen && previewCurrent}
+                    onOpenChange={(next) => {
+                      if (next) {
+                        openMonitorPreview();
+                      } else {
+                        monitorCapture.current = null;
+                        setMonitorOpen(false);
+                      }
+                    }}
                   >
-                    本页前{" "}
-                    {Math.min(
-                      monitorSymbolLimit,
-                      screenResult.candidates.length,
-                    )}{" "}
-                    只加入监控
-                  </Button>
-                  <span className="text-xs text-nc-text-3">
-                    按当前排序取本页；在信号页选择策略与渠道后保存，保存前不会启用。
-                    {screenResult.candidates.length > monitorSymbolLimit &&
-                      ` 单个订阅最多 ${monitorSymbolLimit} 只。`}
-                  </span>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pageUnavailable}
+                      >
+                        查看监控名单
+                      </Button>
+                    </PopoverTrigger>
+                    {monitorPreview && previewCurrent && (
+                      <PopoverContent aria-label="监控名单预览">
+                        <div className="space-y-2">
+                          <p className="text-xs text-nc-text-3">
+                            基准日 {monitorPreview.asOf ?? "无可用基准日"} ·
+                            本页 {monitorPreview.pageCount} 只 / 共{" "}
+                            {monitorPreview.totalCount} 只
+                          </p>
+                          {monitorPreview.overflow > 0 && (
+                            <p className="text-xs text-nc-text-3">
+                              单个订阅最多 {monitorPreview.limit} 只：本次带入前{" "}
+                              {monitorPreview.included} 只，本页其余{" "}
+                              {monitorPreview.overflow} 只不会带入。
+                            </p>
+                          )}
+                          <ul
+                            className="space-y-1 text-sm"
+                            aria-label="带入监控的候选"
+                          >
+                            {monitorPreview.rows.map((row) => (
+                              <li
+                                key={row.symbol}
+                                className="flex items-baseline justify-between gap-2"
+                              >
+                                <span>
+                                  <strong
+                                    title={archivedNameHint(
+                                      row.symbol,
+                                      names,
+                                      row.name,
+                                    )}
+                                  >
+                                    {securityDisplayName(
+                                      row.symbol,
+                                      names,
+                                      row.name,
+                                    )}
+                                  </strong>{" "}
+                                  <small>{row.symbol}</small>
+                                </span>
+                                <span className="text-xs text-nc-text-3">
+                                  {row.date}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-xs text-nc-text-3">
+                            打开后是未保存的监控草稿，不会自动启用；请在信号页选择策略与渠道后自行保存。
+                          </p>
+                          <Button
+                            size="sm"
+                            disabled={pageUnavailable}
+                            onClick={confirmMonitorDraft}
+                          >
+                            打开监控草稿
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    )}
+                  </PanelPopover>
                 </div>
               )}
               <div

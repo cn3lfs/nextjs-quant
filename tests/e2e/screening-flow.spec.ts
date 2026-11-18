@@ -15,7 +15,9 @@ async function screen(page: import("@playwright/test").Page) {
   expect(job.status, job.error).toBe("completed");
   // The table re-renders with this run's candidates.
   await page.waitForLoadState("networkidle");
-  await page.getByRole("button", { name: /只加入监控/ }).waitFor();
+  await expect(
+    page.getByRole("button", { name: "查看监控名单", exact: true }),
+  ).toBeEnabled();
 }
 const candidateSymbols = (page: import("@playwright/test").Page) =>
   page
@@ -33,8 +35,20 @@ test("screening candidates open as an unsaved monitor draft", async ({
 }) => {
   await screen(page);
   const symbols = (await candidateSymbols(page)).slice(0, 20);
+  await page.getByRole("button", { name: "查看监控名单", exact: true }).click();
+  const preview = page.getByRole("list", { name: "带入监控的候选" });
+  await preview.waitFor();
+  const previewSymbols = await preview
+    .getByRole("listitem")
+    .evaluateAll((rows) =>
+      rows
+        .map((r) => (r as HTMLElement).innerText.match(/(bj|sh|sz)\d{6}/i)?.[0])
+        .filter((s): s is string => !!s)
+        .map((s) => s.toLowerCase()),
+    );
+  expect(previewSymbols).toEqual(symbols);
   const started = Date.now();
-  await page.getByRole("button", { name: /只加入监控/ }).click();
+  await page.getByRole("button", { name: "打开监控草稿", exact: true }).click();
   const editor = page.locator('section[aria-label="订阅编辑"]');
   await editor.waitFor();
   expect(Date.now() - started).toBeLessThanOrEqual(
