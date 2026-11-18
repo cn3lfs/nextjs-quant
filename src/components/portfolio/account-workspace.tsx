@@ -7,6 +7,7 @@ import {
   accountKindLabels,
   industryGroupsFor,
   stopStatusFor,
+  tradeLinkReceiptText,
   type TradeLink,
 } from "~/lib/portfolio/account-workspace";
 import {
@@ -734,16 +735,83 @@ function TradeLinkReceipt({
   trade: TradeSnapshot;
   prefix?: string;
 }) {
+  const text = tradeLinkReceiptText(link, trade);
+  const copyText = `关联已保存，审计记录保留。${text}`;
+  // The list reuses this component while the receipt object changes. Stamp
+  // copy feedback with the confirmed response identity so an in-flight copy
+  // from a previous receipt can never report on the current one.
+  const identity = JSON.stringify([
+    link.tradeId,
+    link.linkedAt,
+    link.strategyId,
+    link.strategyVersion,
+    link.sleeve,
+    link.planId,
+    link.alertKey,
+    trade.symbol,
+    trade.date,
+    trade.side,
+  ]);
+  const [feedback, setFeedback] = useState<{
+    identity: string;
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const attempt = useRef(0);
+  const shown = feedback?.identity === identity ? feedback : null;
+  const copy = async () => {
+    const current = ++attempt.current;
+    const clipboard =
+      typeof navigator === "undefined" ? undefined : navigator.clipboard;
+    if (!clipboard?.writeText) {
+      setFeedback({
+        identity,
+        kind: "error",
+        message: "剪贴板不可用，请手动选择上方回执文本。",
+      });
+      return;
+    }
+    try {
+      await clipboard.writeText(copyText);
+      if (attempt.current === current)
+        setFeedback({ identity, kind: "success", message: "已复制关联回执。" });
+    } catch (error) {
+      if (attempt.current !== current) return;
+      const reason =
+        error instanceof Error && error.message
+          ? error.message
+          : "剪贴板不可用";
+      setFeedback({
+        identity,
+        kind: "error",
+        message: `复制失败：${reason}。请手动选择上方回执文本。`,
+      });
+    }
+  };
   return (
-    <p role="status">
-      关联已保存，审计记录保留。{prefix}
-      {trade.symbol} · {trade.date} ·{" "}
-      {trade.side === "buy" ? "买入" : "卖出"} → {link.strategyId} v
-      {link.strategyVersion} · 分仓 {link.sleeve}
-      {link.planId ? ` · 计划 ${link.planId}` : ""}
-      {link.alertKey ? ` · 提醒 ${link.alertKey}` : ""} · 成交编号{" "}
-      <span className="break-all">{link.tradeId}</span>。
-    </p>
+    <div className="space-y-1">
+      <p role="status" className="break-all">
+        关联已保存，审计记录保留。{prefix}
+        {text}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => void copy()}
+        >
+          复制关联回执
+        </Button>
+        {shown ? (
+          shown.kind === "success" ? (
+            <p role="status">{shown.message}</p>
+          ) : (
+            <p role="alert">{shown.message}</p>
+          )
+        ) : null}
+      </div>
+    </div>
   );
 }
 function TradeLinkForm({

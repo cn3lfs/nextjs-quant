@@ -17,6 +17,7 @@ const suites = [
       "r3a-daily-path.spec.ts",
       "r2c-paper-workflow.spec.ts",
       "r3b-accounts.spec.ts",
+      "r3b-accounts-r5.spec.ts",
       "r3c-workspaces.spec.ts",
       "lifecycle-review.spec.ts",
     ],
@@ -67,6 +68,13 @@ const suites = [
     profile: "core",
     match: "r3b-accounts.spec.ts",
     env: { E2E_R3B: "1" },
+  },
+  {
+    name: "accounts-r5",
+    port: 3925,
+    profile: "core",
+    match: "r3b-accounts-r5.spec.ts",
+    env: { E2E_R3B: "1", E2E_R3B_R5: "1" },
   },
   {
     name: "workspaces",

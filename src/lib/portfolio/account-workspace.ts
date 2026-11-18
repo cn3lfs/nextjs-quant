@@ -126,6 +126,27 @@ export type TradeLink = z.infer<typeof tradeLinkSchema> & {
   linkedAt: number;
   tradeFingerprint: string;
 };
+/** Plain-text receipt for the copy button. Mirrors the visible row order and
+ * carries only the confirmed response plus the displayed trade identity; the
+ * trade fingerprint, account identifiers, drafts and other rows stay out. */
+export function tradeLinkReceiptText(
+  link: Pick<
+    TradeLink,
+    | "tradeId"
+    | "strategyId"
+    | "strategyVersion"
+    | "sleeve"
+    | "planId"
+    | "alertKey"
+  >,
+  trade: Pick<AccountTrade, "symbol" | "date" | "side">,
+) {
+  return `${trade.symbol} · ${trade.date} · ${
+    trade.side === "buy" ? "买入" : "卖出"
+  } → ${link.strategyId} v${link.strategyVersion} · 分仓 ${link.sleeve}${
+    link.planId ? ` · 计划 ${link.planId}` : ""
+  }${link.alertKey ? ` · 提醒 ${link.alertKey}` : ""} · 成交编号 ${link.tradeId}。`;
+}
 export function accountTradeFingerprint(
   trade: Pick<
     AccountTrade,

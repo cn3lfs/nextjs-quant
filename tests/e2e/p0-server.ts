@@ -159,6 +159,12 @@ try {
     const { seedR3bFixture } = await import("./r3b-fixture");
     seedR3bFixture(db);
   }
+  if (process.env.E2E_R3B_R5 === "1") {
+    if (process.env.E2E_R3B !== "1")
+      throw new Error("R3b R5 requires the R3b fixture");
+    const { seedR3bR5Fixture } = await import("./r3b-r5-fixture");
+    await seedR3bR5Fixture(db, root);
+  }
   if (process.env.E2E_LIFECYCLE_REVIEW === "1") {
     const { seedLifecycleReviewFixture } =
       await import("./lifecycle-review-fixture");
