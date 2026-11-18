@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { useScreenSession } from "~/lib/stores/screen-session";
 import { useTaskVisible } from "../workbench/use-task-visible";
@@ -21,8 +21,17 @@ export function useScreenResults(notify: (text: string) => void) {
     screenDirection,
   } = session;
   const utils = api.useUtils();
+  // A frozen URL carries both `job` and `screenJob`; restoring the same task
+  // must not reset the confirmed page/query that the URL still refers to.
+  const shownJob = useRef("");
   function selectJob(id: string) {
     if (id === screenId) return;
+    if (id === shownJob.current) {
+      // A shared frozen URL names the task already on screen: pin it without
+      // resetting the page/query the URL's candidate belongs to.
+      session.adoptJob(id);
+      return;
+    }
     session.selectJob(id);
     void utils.jobs.invalidate();
     void utils.taskOverview.invalidate();
@@ -45,6 +54,7 @@ export function useScreenResults(notify: (text: string) => void) {
   const screenJob = requestedScreen?.isFormulaScreen
     ? requestedScreen
     : undefined;
+  shownJob.current = screenJob?.id ?? "";
   const firstScreenPage =
     screenPage === 0 &&
     excludedPage === 0 &&

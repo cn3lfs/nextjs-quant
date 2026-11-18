@@ -60,10 +60,18 @@ export function MarketPage({ embedded = false }: { embedded?: boolean }) {
     <>
       {visible && (source.data || source.error) && (
         <Suspense fallback={null}>
-          <MarketRouteSelection enterMarket={state.enterMarket} />
+          <MarketRouteSelection
+            enterMarket={state.enterMarket}
+            frozen={!!frozenId}
+          />
         </Suspense>
       )}
-      <MarketView state={state} notify={notify} embedded={embedded} />
+      <MarketView
+        state={state}
+        notify={notify}
+        embedded={embedded}
+        frozen={!!frozenId}
+      />
     </>
   );
 }

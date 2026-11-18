@@ -53,7 +53,7 @@ test("screening candidates open as an unsaved monitor draft", async ({
   expect(page.url()).not.toContain("monitorNew");
 });
 
-test("PageUp/PageDown step through the list the chart was opened from", async ({
+test("candidate buttons step the frozen chart within the confirmed page", async ({
   page,
 }) => {
   await screen(page);
@@ -62,18 +62,28 @@ test("PageUp/PageDown step through the list the chart was opened from", async ({
     .getByRole("button", { name: /个股研究/ })
     .nth(1)
     .click();
-  const status = page.getByRole("status").filter({ hasText: "选股候选" });
-  await expect(status).toContainText(`2/${symbols.length}`);
-  await page.locator("body").click({ position: { x: 5, y: 500 } });
-  const started = Date.now();
-  for (let i = 0; i < 5; i++) await page.keyboard.press("PageDown");
-  await expect(status).toContainText(`7/${symbols.length}`);
-  await page.waitForLoadState("networkidle");
-  expect(Date.now() - started).toBeLessThanOrEqual(budgets.browseStepMs * 5);
+  const position = page.getByRole("status").filter({ hasText: "本页" });
+  await expect(position).toContainText(`本页 2/${symbols.length}`);
+  const next = page.getByRole("button", { name: "下一只", exact: true });
+  const previous = page.getByRole("button", { name: "上一只", exact: true });
+  for (let i = 0; i < 5; i++) {
+    await next.click();
+    await expect(position).toContainText(`本页 ${3 + i}/${symbols.length}`);
+  }
   // The chart shows the 7th candidate of the same run.
   await expect(page.locator(".chart-panel").first()).toContainText(
     symbols[6]!.slice(2),
   );
-  for (let i = 0; i < 10; i++) await page.keyboard.press("PageUp");
-  await expect(status).toContainText("已是第一只");
+  // A stale normal list must not hijack the frozen candidate with PageDown.
+  await page.locator("body").click({ position: { x: 5, y: 500 } });
+  await page.keyboard.press("PageDown");
+  await expect(position).toContainText(`本页 7/${symbols.length}`);
+  await expect(page.locator(".chart-panel").first()).toContainText(
+    symbols[6]!.slice(2),
+  );
+  for (let i = 0; i < 6; i++) {
+    await previous.click();
+    await expect(position).toContainText(`本页 ${6 - i}/${symbols.length}`);
+  }
+  await expect(previous).toBeDisabled();
 });

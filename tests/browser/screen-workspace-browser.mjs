@@ -53,7 +53,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           contents:
             path === "api"
               ? apiFixture
-              : "export const usePathname=()=>'/scan?tab=formula';export const useRouter=()=>({push(){throw new Error('unexpected navigation')}});",
+              : "export const usePathname=()=>'/scan?tab=formula';export const useRouter=()=>({push(){throw new Error('unexpected navigation')}});export const useSearchParams=()=>new URLSearchParams('');",
           loader: "js",
           resolveDir: process.cwd(),
         }));

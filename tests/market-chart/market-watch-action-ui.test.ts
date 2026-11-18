@@ -67,7 +67,14 @@ const snapshot: Snapshot = {
   bars: [],
   hash: "fixture",
 };
-function render(symbol: string | null = "sh600519", loading = false) {
+function render(
+  symbol: string | null = "sh600519",
+  loading = false,
+  options: {
+    browse?: ComponentProps<typeof MarketView>["state"]["browse"];
+    frozen?: boolean;
+  } = {},
+) {
   // The chart/network hooks are isolated; only the watch control is under test.
   const market = {
     marketSource: "local",
@@ -82,7 +89,7 @@ function render(symbol: string | null = "sh600519", loading = false) {
       mutate: vi.fn(),
       acceptSnapshot: vi.fn(),
     },
-    browse: null,
+    browse: options.browse ?? null,
     chartPeriod: "day",
     adjustment: "forward",
     setMarketView: vi.fn(),
@@ -93,7 +100,11 @@ function render(symbol: string | null = "sh600519", loading = false) {
     setAdjustment: vi.fn(),
   } as ComponentProps<typeof MarketView>["state"];
   return renderToStaticMarkup(
-    createElement(MarketView, { state: market, notify: vi.fn() }),
+    createElement(MarketView, {
+      state: market,
+      notify: vi.fn(),
+      frozen: options.frozen,
+    }),
   );
 }
 function button(html: string, label: string) {
@@ -135,4 +146,19 @@ it("distinguishes reading, failed and saving states from an available add", () =
   state.error = null;
   state.pending = true;
   expect(button(render("sh600000"), "正在加入自选")).toContain('disabled=""');
+});
+it("hides a stale browse list while a frozen candidate owns the chart", () => {
+  // Same activeBrowse value also feeds useBrowseHotkey, so the old list cannot
+  // step the frozen chart from the sidebar or PageUp/PageDown.
+  const browse = {
+    label: "选股候选",
+    symbols: ["sh600519", "sh600000"],
+    index: 0,
+  };
+  expect(render("sh600519", false, { browse })).toContain(
+    "选股候选 1/2 · PgUp/PgDn 换股",
+  );
+  const frozen = render("sh600519", false, { browse, frozen: true });
+  expect(frozen).not.toContain("PgUp/PgDn 换股");
+  expect(frozen).not.toContain("选股候选");
 });

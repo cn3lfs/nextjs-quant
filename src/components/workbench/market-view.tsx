@@ -42,9 +42,12 @@ export function MarketView({
   state,
   notify,
   embedded = false,
+  frozen = false,
 }: {
   notify: (text: string) => void;
   embedded?: boolean;
+  /** A saved formula candidate owns the chart; the old list must not step it. */
+  frozen?: boolean;
   state: Pick<
     MarketState,
     | "marketSource"
@@ -131,16 +134,20 @@ export function MarketView({
   );
   const [candidatePage, setCandidatePage] = useState(1);
   const [listsOpen, setListsOpen] = useState(false);
+  // A frozen candidate is stepped by the screening result controls. Keeping the
+  // stale browse list out of both the UI and the hotkey prevents PageUp/PageDown
+  // from replacing the frozen chart with a live load.
+  const activeBrowse = frozen ? null : browse;
   useEffect(() => {
-    setCandidatePage(Math.floor((browse?.index ?? 0) / 50) + 1);
-  }, [browse?.index, browse?.label]);
+    setCandidatePage(Math.floor((activeBrowse?.index ?? 0) / 50) + 1);
+  }, [activeBrowse?.index, activeBrowse?.label]);
   const candidatePages = Math.max(
     1,
-    Math.ceil((browse?.symbols.length ?? 0) / 50),
+    Math.ceil((activeBrowse?.symbols.length ?? 0) / 50),
   );
   const displayedCandidatePage = Math.min(candidatePage, candidatePages);
   useBrowseHotkey(
-    browse,
+    activeBrowse,
     (next) => {
       setBrowseEdge("");
       setBrowse(next);
@@ -183,7 +190,7 @@ export function MarketView({
           data-expanded={listsOpen}
           style={embedded && !listsOpen ? { display: "none" } : undefined}
         >
-          {browse && (
+          {activeBrowse && (
             <Segmented
               label="行情候选来源"
               value={listSource}
@@ -194,15 +201,15 @@ export function MarketView({
               ]}
             />
           )}
-          <div hidden={!browse || listSource !== "candidates"}>
-            {browse && (
+          <div hidden={!activeBrowse || listSource !== "candidates"}>
+            {activeBrowse && (
               <Panel
-                title={browse.label}
-                meta={`${browse.index + 1} / ${browse.symbols.length} · PgUp/PgDn连续翻股`}
+                title={activeBrowse.label}
+                meta={`${activeBrowse.index + 1} / ${activeBrowse.symbols.length} · PgUp/PgDn连续翻股`}
               >
                 <GridTable
                   label="来源候选"
-                  rows={browse.symbols.slice(
+                  rows={activeBrowse.symbols.slice(
                     (displayedCandidatePage - 1) * 50,
                     displayedCandidatePage * 50,
                   )}
@@ -217,8 +224,8 @@ export function MarketView({
                           className="w-full text-left"
                           aria-current={symbol === value ? "true" : undefined}
                           onClick={() => {
-                            const index = browse.symbols.indexOf(value);
-                            setBrowse({ ...browse, index });
+                            const index = activeBrowse.symbols.indexOf(value);
+                            setBrowse({ ...activeBrowse, index });
                             setBrowseEdge("");
                             setSymbol(value);
                             load.mutate({
@@ -267,7 +274,7 @@ export function MarketView({
               </Panel>
             )}
           </div>
-          <div hidden={!!browse && listSource === "candidates"}>
+          <div hidden={!!activeBrowse && listSource === "candidates"}>
             <Panel
               span={8}
               icon={Star}
@@ -381,14 +388,15 @@ export function MarketView({
                 });
               }}
             />
-            {browse && (
+            {activeBrowse && (
               <span
                 role="status"
                 className="flex items-center gap-1 text-xs text-nc-text-3"
                 title="PageUp/PageDown 切换上一只/下一只"
               >
-                {browse.label} {browse.index + 1}/{browse.symbols.length} ·
-                PgUp/PgDn 换股{browseEdge && ` · ${browseEdge}`}
+                {activeBrowse.label} {activeBrowse.index + 1}/
+                {activeBrowse.symbols.length} · PgUp/PgDn 换股
+                {browseEdge && ` · ${browseEdge}`}
                 <Button
                   size="sm"
                   variant="plain"

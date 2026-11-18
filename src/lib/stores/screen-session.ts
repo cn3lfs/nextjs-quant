@@ -10,6 +10,8 @@ type ScreenSession = {
   screenSort: ScreenSort;
   screenDirection: "asc" | "desc";
   selectJob: (id: string) => void;
+  /** Pin the URL's task without clearing a confirmed page it already owns. */
+  adoptJob: (id: string) => void;
   setScreenPage: (page: number) => void;
   setExcludedPage: (page: number) => void;
   setErrorPage: (page: number) => void;
@@ -41,6 +43,8 @@ export const useScreenSession = create<ScreenSession>((set) => ({
             screenSort: "original",
           },
     ),
+  adoptJob: (screenId) =>
+    set((state) => (state.screenId === screenId ? state : { screenId })),
   setScreenPage: (screenPage) => set({ screenPage }),
   setExcludedPage: (excludedPage) => set({ excludedPage }),
   setErrorPage: (errorPage) => set({ errorPage }),

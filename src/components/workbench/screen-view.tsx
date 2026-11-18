@@ -1,9 +1,9 @@
 import { formatEvidenceText } from "~/lib/common/evidence-text";
 import { formatNumber } from "trading-strategy-core/format-number";
-import { PanelVisibility } from "./keep-alive";
+import { PanelVisibility, usePanelVisible } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   monitorPrefillHref,
   monitorSymbolLimit,
@@ -19,6 +19,12 @@ import {
 } from "~/components/ui/select";
 import { ArrowUpRight } from "@phosphor-icons/react/ssr";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
+import {
+  currentScreenCandidateIndex,
+  openScreenCandidate,
+  screenCandidateUrlKey,
+  type ScreenCandidateIdentity,
+} from "~/lib/screening/screen-candidate-navigation";
 import {
   archivedNameHint,
   securityDisplayName,
@@ -44,11 +50,8 @@ const screenSortColumn: Record<Exclude<ScreenSort, "original">, string> = {
 
 export function ScreenView({ state }: { state: ScreenViewState }) {
   const router = useRouter();
+  const search = useSearchParams();
   const {
-    setSymbol,
-    setBrowse,
-    setPeriod,
-    load,
     screenPage,
     setScreenPage,
     excludedPage,
@@ -63,7 +66,6 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     setScreenDirection,
     names,
     utils,
-    notify,
     screenJob,
     screenId,
     selectedScreen,
@@ -74,6 +76,109 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     screenResult,
   } = state;
   const [formulaView, setFormulaView] = useState<"screen" | "factor">("screen");
+  // This panel stays mounted behind other tabs. Leaving the formula workspace
+  // discards the confirmed page, any pending read and its error.
+  const visible = usePanelVisible();
+  // Only a confirmed page may move the frozen chart. Fetching/placeholder rows
+  // belong to the previous query and are never used as navigation input.
+  const pageUnavailable =
+    !visible ||
+    !screenResult ||
+    screened.isFetching ||
+    screened.isPlaceholderData ||
+    screened.isError;
+  const urlCandidate = {
+    symbol: search.get("symbol"),
+    snapshotId: search.get("screenSnapshot"),
+  };
+  const urlJob = search.get("screenJob");
+  const currentUrlKey = screenCandidateUrlKey(search);
+  const pageKey =
+    visible && screenResult && screenJob
+      ? JSON.stringify([
+          screenJob.id,
+          screenPage,
+          screenQuery,
+          screenSort,
+          screenDirection,
+          currentUrlKey,
+        ])
+      : "";
+  const confirmed = useRef<{
+    key: string;
+    candidates: readonly ScreenCandidateIdentity[];
+  }>({ key: "", candidates: [] });
+  confirmed.current = {
+    key: pageUnavailable ? "" : pageKey,
+    candidates: pageUnavailable ? [] : (screenResult?.candidates ?? []),
+  };
+  const attempts = useRef(0);
+  const [opening, setOpening] = useState<ScreenCandidateIdentity | null>(null);
+  const [openError, setOpenError] = useState<{
+    candidate: ScreenCandidateIdentity;
+    message: string;
+  } | null>(null);
+  const candidates = screenResult?.candidates ?? [];
+  const candidateIndex = currentScreenCandidateIndex(candidates, urlCandidate);
+  // Neighbours may only step this task's own frozen candidate. A URL frozen by
+  // another task still allows re-opening a row of the confirmed page.
+  const frozenTaskMatches = !!screenJob && urlJob === screenJob.id;
+  const navReady = !pageUnavailable && candidateIndex >= 0 && frozenTaskMatches;
+  const positionText = pageUnavailable
+    ? "—/—"
+    : candidateIndex >= 0 && frozenTaskMatches
+      ? `${candidateIndex + 1}/${candidates.length}`
+      : `—/${candidates.length}`;
+  useEffect(() => {
+    // A new task/page/query/URL candidate invalidates an in-flight read and its error.
+    attempts.current++;
+    setOpening(null);
+    setOpenError(null);
+  }, [pageKey]);
+  useEffect(
+    () => () => {
+      // Unmounting (leaving the formula workspace) must not navigate later.
+      attempts.current++;
+    },
+    [],
+  );
+  async function openCandidate(candidate: ScreenCandidateIdentity) {
+    const jobId = screenJob?.id;
+    const key = confirmed.current.key;
+    if (!jobId || !key) return;
+    const attempt = ++attempts.current;
+    setOpening(candidate);
+    setOpenError(null);
+    const outcome = await openScreenCandidate({
+      candidate,
+      jobId,
+      pageKey: key,
+      fetchSnapshot: (id) => utils.savedSnapshot.fetch(id),
+      readPageKey: () => {
+        // Back/forward can commit before React re-renders; compare the native
+        // location with the URL this read was started from.
+        const native =
+          typeof window === "undefined"
+            ? search
+            : new URLSearchParams(window.location.search);
+        return screenCandidateUrlKey(native) === currentUrlKey
+          ? confirmed.current.key
+          : "";
+      },
+      containsCandidate: () =>
+        confirmed.current.candidates.some(
+          (row) =>
+            row.symbol === candidate.symbol &&
+            row.snapshotId === candidate.snapshotId,
+        ),
+      isLatest: () => attempts.current === attempt,
+      navigate: (href) => router.push(href, { scroll: false }),
+    });
+    if (attempts.current !== attempt) return;
+    setOpening(null);
+    if (outcome.status === "invalid" || outcome.status === "failed")
+      setOpenError({ candidate, message: outcome.message });
+  }
   return (
     <PageGrid>
       {/* Keep forms mounted so switching preserves drafts, validation and pending submissions. */}
@@ -318,6 +423,62 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                   下一页
                 </Button>
               </div>
+              <div
+                className="inline-form"
+                role="group"
+                aria-label="本页候选翻只"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!navReady || candidateIndex <= 0}
+                  onClick={() => {
+                    const target = candidates[candidateIndex - 1];
+                    if (target) void openCandidate(target);
+                  }}
+                >
+                  上一只
+                </Button>
+                <span
+                  role="status"
+                  className="shrink-0 whitespace-nowrap"
+                  title="当前冻结候选在本页候选中的位置"
+                >
+                  本页 {positionText}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    !navReady || candidateIndex >= candidates.length - 1
+                  }
+                  onClick={() => {
+                    const target = candidates[candidateIndex + 1];
+                    if (target) void openCandidate(target);
+                  }}
+                >
+                  下一只
+                </Button>
+                {opening && (
+                  <span className="text-xs text-nc-text-3">
+                    正在读取候选快照…
+                  </span>
+                )}
+              </div>
+              {openError && (
+                <div role="alert" className="notice">
+                  <p>
+                    读取候选快照失败：{openError.message}
+                    。当前图表和地址未改变。
+                  </p>
+                  <Button
+                    disabled={pageUnavailable}
+                    onClick={() => void openCandidate(openError.candidate)}
+                  >
+                    重试读取候选
+                  </Button>
+                </div>
+              )}
               {screened.isFetching && !firstScreenPage && (
                 <p role="status">
                   {screened.isPlaceholderData
@@ -444,38 +605,8 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                             <Button
                               size="sm"
                               variant="ghost"
-                              disabled={
-                                !firstScreenPage &&
-                                (screened.isPlaceholderData || screened.isError)
-                              }
-                              onClick={async () => {
-                                try {
-                                  const source =
-                                    await utils.savedSnapshot.fetch(
-                                      c.snapshotId,
-                                    );
-                                  setBrowse({
-                                    label: "选股候选",
-                                    symbols: screenResult.candidates.map(
-                                      (x) => x.symbol,
-                                    ),
-                                    index: screenResult.candidates.indexOf(c),
-                                  });
-                                  setSymbol(c.symbol);
-                                  setPeriod(source.period);
-                                  load.acceptSnapshot(source);
-                                  router.push(
-                                    `/scan?tab=formula&symbol=${encodeURIComponent(c.symbol)}&screenSnapshot=${encodeURIComponent(source.id)}&screenJob=${encodeURIComponent(screenJob!.id)}&adjustment=${source.adjustment ?? "none"}`,
-                                    { scroll: false },
-                                  );
-                                } catch (error) {
-                                  notify(
-                                    error instanceof Error
-                                      ? error.message
-                                      : "读取快照失败",
-                                  );
-                                }
-                              }}
+                              disabled={pageUnavailable}
+                              onClick={() => void openCandidate(c)}
                             >
                               个股研究 <ArrowUpRight size={13} />
                             </Button>
