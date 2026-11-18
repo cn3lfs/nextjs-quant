@@ -5,6 +5,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createRequire } = require("node:module");
 const { createHash } = require("node:crypto");
+/**
+ * @typedef {Record<string, any>} SqlProjection Dynamic SQLite json_extract projection; checked by the observer at runtime.
+ * @typedef {{prepare(sql: string): {get(...parameters: any[]): SqlProjection, all(...parameters: any[]): SqlProjection[], iterate(...parameters: any[]): Iterable<SqlProjection>}, pragma(source: string, options?: {simple: boolean}): unknown, transaction<T>(run: () => T): () => T, close(): void}} ReadonlyDatabase
+ * @typedef {new (file: string, options: {readonly: boolean, fileMustExist: boolean, timeout: number}) => ReadonlyDatabase} DatabaseConstructor
+ * @typedef {{id: string, strategyId: string | undefined, market: string | undefined, available: boolean, lastBar?: any, lastRun?: any, error?: any, contractHash?: any, contractMatches?: boolean, mirror?: any, shadowActive?: boolean}} AccountObservation
+ * @typedef {{version: string, scopeHash: string, observedAt: number, beijingTime: string, date: string, notBeforeDate: string, deploymentStartAt: number|null, dataDirectory: string, serverDirectory: string, requiredCryptoBar: string, diagnosticScope: string, qualified: boolean, reasons: string[], checks: Record<string, boolean>, source?: ReturnType<typeof sourceDate>, receipt?: ReturnType<typeof receiptOf>, rps?: ReturnType<typeof currentRpsMetadata>, rpsMaxDate?: string|null, paperAccountCount?: number, accounts?: AccountObservation[], scans?: SqlProjection[], runtime?: SqlProjection|null, configuredMode?: string|null, effectiveMode?: string, runtimeAgeMs?: number|null, subscriptions?: SqlProjection, diagnostics?: ReturnType<typeof diagnosticsOf>, observerErrorCode?: string, qualifiedDays?: string[], status?: string}} ObservationSnapshot
+ */
 const DAY = 86400000;
 const candidates = [
   ["r2a-cn-equity-formula-range-trailing", "cn-equity"],
@@ -13,7 +20,9 @@ const candidates = [
   ["r2a-crypto-dual-ma-day-trailing-sizing-equal", "crypto"],
   ["r2a-crypto-dual-ma-day-trailing-sizing-volatility", "crypto"],
 ];
+/** @param {string | Uint8Array} value */
 const sha = (value) => createHash("sha256").update(value).digest("hex");
+/** @param {any} value @returns {any} */
 const canonical = (value) =>
   Array.isArray(value)
     ? value.map(canonical)
@@ -24,15 +33,20 @@ const canonical = (value) =>
             .map((key) => [key, canonical(value[key])]),
         )
       : value;
+/** @param {unknown} value */
 const hash = (value) => sha(JSON.stringify(canonical(value)));
+/** @param {number} time */
 const beijing = (time) => new Date(time + 8 * 3600000).toISOString();
+/** @param {string} value */
 const dateValid = (value) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   new Date(Date.parse(value)).toISOString().slice(0, 10) === value;
+/** @param {any} error External thrown values need not be Error instances. */
 const safeCode = (error) =>
   /^[A-Z][A-Z0-9_]{0,40}$/.test(error?.code ?? "")
     ? error.code
     : "OBSERVER_FAILED";
+/** @param {string} parent @param {string} child */
 const contains = (parent, child) => {
   const relative = path.relative(parent, child);
   return (
@@ -42,6 +56,7 @@ const contains = (parent, child) => {
 };
 
 function argumentsOf() {
+  /** @type {Record<string, string>} */
   const options = {};
   const allowed = new Set([
     "data-dir",
@@ -51,7 +66,9 @@ function argumentsOf() {
     "start-at",
   ]);
   for (let i = 2; i < process.argv.length; i++) {
-    const match = /^--([^=]+)(?:=(.*))?$/.exec(process.argv[i]);
+    const match = /** @type {[string, string, string?] | null} */ (
+      /^--([^=]+)(?:=(.*))?$/.exec(/** @type {string} */ (process.argv[i]))
+    );
     if (!match || !allowed.has(match[1]) || Object.hasOwn(options, match[1]))
       throw new Error("Invalid observer arguments");
     const value = match[2] ?? process.argv[++i];
@@ -66,9 +83,9 @@ function argumentsOf() {
       !/^[A-Za-z]:[\\/]/.test(options[key])
     )
       throw new Error("Explicit absolute local directories required");
-  const data = fs.realpathSync(options["data-dir"]);
-  const server = fs.realpathSync(options["server-dir"]);
-  const output = path.resolve(options["output-dir"]);
+  const data = fs.realpathSync(/** @type {string} */ (options["data-dir"]));
+  const server = fs.realpathSync(/** @type {string} */ (options["server-dir"]));
+  const output = path.resolve(/** @type {string} */ (options["output-dir"]));
   // Refuse linked output ancestors and paths overlapping either read-only input.
   for (let current = output; ; current = path.dirname(current)) {
     if (fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink())
@@ -95,7 +112,7 @@ function argumentsOf() {
       !Number.isFinite(startAt)
     )
       throw new Error("Explicit timestamp timezone required");
-    const startDay = beijing(startAt).slice(0, 10);
+    const startDay = beijing(/** @type {number} */ (startAt)).slice(0, 10);
     const midnight = Date.parse(`${startDay}T00:00:00+08:00`);
     const fullDay = beijing(midnight + (startAt === midnight ? 0 : DAY)).slice(
       0,
@@ -106,6 +123,7 @@ function argumentsOf() {
   return { data, server, output, notBefore, startAt };
 }
 
+/** @param {unknown} tdxRoot */
 function sourceDate(tdxRoot) {
   if (
     typeof tdxRoot !== "string" ||
@@ -142,6 +160,7 @@ function sourceDate(tdxRoot) {
   }
 }
 
+/** @param {string} data @param {string} date @param {number} now @param {number} closeAt */
 function receiptOf(data, date, now, closeAt) {
   try {
     const bytes = fs.readFileSync(
@@ -166,6 +185,7 @@ function receiptOf(data, date, now, closeAt) {
   }
 }
 
+/** @param {ReadonlyDatabase} db @param {unknown} root @param {number} now */
 function currentRpsMetadata(db, root, now) {
   // Mirror market-pool-service's selection, not merely rpsStatus's strict-day
   // cache. Workflow observations with reused members need not enter rps_days.
@@ -175,6 +195,7 @@ function currentRpsMetadata(db, root, now) {
         "SELECT date tableDate,json_extract(payload,'$.date') date,json_extract(payload,'$.createdAt') createdAt,json_extract(payload,'$.source.root') root,json_extract(payload,'$.inputHash') inputHash FROM rps_days ORDER BY date DESC LIMIT 1",
       )
       .get() ?? null;
+  /** @type {SqlProjection|null} */
   let observation = null;
   if (typeof root === "string" && path.isAbsolute(root)) {
     const rows = db
@@ -198,12 +219,15 @@ function currentRpsMetadata(db, root, now) {
       observation.date > stored.date ||
       (observation.date === stored.date &&
         observation.createdAt > stored.createdAt));
+  /** @type {SqlProjection|null} */
   const selected = preferObservation
     ? { ...observation, source: "rps-observation" }
     : stored
       ? { ...stored, source: "rps_days", phase: "strict-day-history" }
       : null;
-  const selectedRoot = preferObservation ? selected.dayRoot : selected?.root;
+  const selectedRoot = preferObservation
+    ? /** @type {SqlProjection} */ (selected).dayRoot
+    : selected?.root;
   return {
     historical: stored,
     observation,
@@ -217,6 +241,7 @@ function currentRpsMetadata(db, root, now) {
   };
 }
 
+/** @param {DatabaseConstructor} Database @param {string} data @param {number} now */
 function businessSnapshot(Database, data, now) {
   const db = new Database(path.join(data, "quant.sqlite"), {
     readonly: true,
@@ -237,6 +262,7 @@ function businessSnapshot(Database, data, now) {
             "SELECT json_extract(payload,'$.lastCheck') lastCheck,json_extract(payload,'$.mode') mode,json_extract(payload,'$.error') IS NOT NULL hasError FROM records WHERE id='alerts:runtime'",
           )
           .get() ?? null;
+      /** @type {AccountObservation[]} */
       const accounts = candidates.map(([strategyId, market]) => {
         const id = `paper:${strategyId}:v1`;
         const row = db
@@ -306,6 +332,7 @@ function businessSnapshot(Database, data, now) {
   }
 }
 
+/** @param {DatabaseConstructor} Database @param {string} data @param {number} since @param {number} now */
 function diagnosticsOf(Database, data, since, now) {
   const file = path.join(data, "logs", "runtime-errors.sqlite");
   if (!fs.existsSync(file))
@@ -379,6 +406,7 @@ function main() {
     date = beijing(now).slice(0, 10);
   const scopeHash = hash(options),
     dailyDir = path.join(options.output, "daily");
+  /** @type {ObservationSnapshot[]} */
   const history = fs.existsSync(dailyDir)
     ? fs
         .readdirSync(dailyDir)
@@ -415,9 +443,11 @@ function main() {
   const cryptoBar = new Date(Math.floor(now / DAY) * DAY - DAY)
     .toISOString()
     .slice(0, 10);
+  /** @type {DatabaseConstructor} */
   const Database = createRequire(path.join(options.server, "package.json"))(
     "better-sqlite3",
   );
+  /** @type {ObservationSnapshot} */
   const snapshot = {
     version: "lifecycle-day-observation-1",
     scopeHash,
