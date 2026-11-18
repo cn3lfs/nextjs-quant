@@ -23,9 +23,17 @@ Windows 托盘的「打开数据与日志目录」在本机服务启动失败时
 
 两个专项测试文件共 45 项通过。另用合成文件和进程替身直接执行烟测入口，核对了正常、记录缺失、提前退出、启动异常、信号退出、行情源复读失败和超时后迟到的零退出码。类型、脚本语法、格式和差异检查通过。未启动实际 Electron 或读取真实通达信行情。
 
+## 共用工程底座 5/5（2026-11-19）
+
+`pnpm desktop:smoke --startup-only` 为显式隔离模式：未知参数在创建 profile、读行情或启动前失败；该模式完全不读 `E:/new_tdx64`，仍走真实 Electron → bundled Node → Today。runner 用现有 `temporaryDirectory` 独占的 mkdtemp profile，直接以本机 Node + tsx 调私有 seed；seed 先核对参数与 `QUANT_DATA_DIR` 一致且绝对、父目录为当前 `os.tmpdir()`、名称/真实路径/空目录/SQLite，再用共享 migrate 与 settings API 写入存在的空 tdxRoot、profile 内 CLS/行业路径、`marketDataSource=local`、空代理和默认空账户渠道，并以仍存活的 runner PID（正整数、活进程、直接父进程）持有 scheduler-owner 租约。默认模式仍做前后源校验与 legacy 字段；摘要新增明确 `mode`/`sourceChecked`，startup-only 的 `expectedRecords`/`expectedDate`/`sourceUnchanged` 为 null，`smokePassed` 分模式判定，不把未检查的源当成通过。
+
+专项测试 71 项（4 个 desktop-build 文件）通过；`pnpm check:dependencies`、脚本语法、Prettier、`git diff --check` 通过。在隔离根 `D:/github/nextjs-quant/.test-data/desktop-startup-only-r5-20261119` 下执行 `pnpm build`（含 runtime 打包与 Next 类型检查）与 `pnpm desktop:prepare`，再实跑 `pnpm desktop:smoke --startup-only`：exit 0、`processState=exited`、`startupState=ready`、页面标签齐全、无错误文本，摘要 `mode=startup-only`、`sourceChecked=false`、`expected*/sourceUnchanged=null`。临时 profile 已清理，无 Electron/服务进程残留。未运行默认实盘行情模式、未打包、未改业务测试；空行情只验证启动与 Today 就绪，不代表行情、SQLite/调度器或策略业务正常。代理为空只是未配置代理，不等于网络封锁。
+
+收尾仅改运行时加载的 runner/seed guard：seed 不再导出、直接读取并校验 `process.env.QUANT_DATA_DIR`（未设或不一致在写文件与开库前失败），失败提示固定中文且不透传 stderr/异常/路径；测试 junction 仅在创建成功后登记清理。门禁因此分开：profile 专项 6 项、`tsc --noEmit`、`node --check`、Prettier 与 `git diff --check` 通过，然后用既有 build/prepare 产物复跑 `--startup-only`（exit 0、`ready`）。startup-only 按定义不读 `E:/new_tdx64`，真实源前后校验只在默认模式进行；本轮未跑默认实盘行情模式。烟测 profile 与隔离根经精确空目录预演后清理。
+
 ## 工作区功能迭代
 
-工作区功能迭代覆盖七个分支，每个分支五轮。每轮计划经 Claude 审阅后执行，验收并本地提交后再拟下一轮。前五个模块（今日、扫描与图表、策略实验室、账户与复盘、新闻情报）五轮均已完成；「系统」五轮均已提交（第 5 轮基线 7062d86）；「底座」第 4/5 轮验收通过，七分支累计 34/35 轮。
+工作区功能迭代覆盖七个分支，每个分支五轮。每轮计划经 Claude 审阅后执行，验收并本地提交后再拟下一轮。前五个模块（今日、扫描与图表、策略实验室、账户与复盘、新闻情报）五轮均已完成；「系统」五轮均已提交（第 5 轮基线 7062d86）；「底座」第 5/5 轮验收通过，七分支累计 35/35 轮。
 
 - 「今日」五轮（已提交）：以 `todayWorkspace.readiness.equity.expectedDate` 关联持久 `close:<date>` 记录并区分基准未知、等待、未确认、扫描中、已错过与流程结束；A 股候选标注本次收盘/历史/盘中/待核验，历史来源可看图表但不能新建计划；明日计划市场与页码合并切换并回第一页，非首页键走服务端同值筛选与分页；保存成功给出稳定确认与深链，提交期间锁住今日弹窗；open 计划由服务端投影，按期限排序并区分待核验/已到期；候选按 `market/page/date` 键刷新，同键失败保留最近成功数据与图链接并暂停新建计划。计划状态、敞口、校验、提醒和交易均未改变。
 - 「扫描与图表」第 1 轮：公式候选行与「上一只 / 下一只 · 本页 X/Y」共用一个 opener，仅从当前已确认任务与查询页的 `symbol+snapshotId` 顺序、URL 当前候选反查；只读现存快照并校验 id/symbol 后 `router.push` 完整冻结 URL。请求中、错误、URL 目标不在本页及首尾时禁用；迟到或换任务/查询/页面/URL 候选的响应丢弃；失败保留当前图表和地址并提供重试。公式候选不再写入普通 `BrowseList`；冻结 URL 下 `MarketRouteSelection` 不发起普通 load，`MarketView` 隐藏旧列表并停用 PgUp/PgDn 翻股；普通 `/scan`、RPS 与证券池列表热键不变。未改选股规则、服务端、DB、通知或交易。

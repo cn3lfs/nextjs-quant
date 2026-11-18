@@ -53,7 +53,11 @@ node scripts/desktop-smoke.mjs --packaged
 
 **desktop:smoke 前必须先 desktop:prepare。** prepare 向构建好的 standalone 复制 static/public/runtime、Node 与许可文件；桌面入口由 runtime:build 编译，prepare 不能替代 build。`pnpm build` 已先调用 runtime:build，单独修改 worker 后也需重建 runtime。`pnpm start` 启动已准备的服务；不拿旧 runtime 验证新源码。
 
-`scripts/desktop-smoke.mjs` 在子进程退出后读取隔离数据根的 `server.log`，要求恰好一条 `[desktop-startup]` 记录且为 `ready`。摘要以 `processState` 区分 `timeout`、`launch-error`、`signalled` 与 `exited`，仅在启动记录为 `not-ready` 时附带 helper 验证过的 `startupStatus`。该入口依赖底座第 3 轮及之后写入的启动记录，缺记录、坏记录、多记录与任何非 `ready` 结论都会失败。
+`scripts/desktop-smoke.mjs` 在子进程退出后读取隔离数据根的 `server.log`，要求恰好一条 `[desktop-startup]` 记录且为 `ready`。摘要以 `processState` 区分 `timeout`、`launch-error`、`signalled` 与 `exited`，仅在启动记录为 `not-ready` 时附带 helper 验证过的 `startupStatus`。该入口依赖底座第 3 轮及之后写入的启动记录，缺记录、坏记录、多记录与任何非 `ready` 结论都会失败。默认模式继续前后读取真实行情源核对未变化。
+
+不带真实行情的启动核查用 `pnpm desktop:smoke --startup-only`（可与 `--packaged` 组合选择二进制；本轮只验证开发产物）。该模式不读取 `E:/new_tdx64`：它用 `temporaryDirectory` 新建独占的 `quant-desktop-*` profile，再由本机 Node + tsx 调 `scripts/desktop-smoke-profile.ts`，仅在该 profile 内写入空 tdxRoot、CLS/行业路径、`marketDataSource=local`、空代理和默认空账户渠道，并以仍存活的 runner PID 持有 scheduler-owner 租约。seed 会拒绝相对或不一致的路径、非 `os.tmpdir()` 父目录、非本次 mkdtemp 名称、非空目录、已有 SQLite、链接/重解析点及无效 PID，失败即中止且不回落默认库；未知参数在创建 profile、访问数据或启动 Electron 前报错退出。
+
+摘要的 `mode` 为 `default` 或 `startup-only`，`sourceChecked` 表示是否实际读取真实行情源；startup-only 的 `expectedRecords`、`expectedDate`、`sourceUnchanged` 固定为 null，`smokePassed` 分模式判定，不把未检查的源当成通过。页面的空行情提示允许，但错误边界、缺失标签、无 `ready` 记录或进程异常仍判失败。代理为空只表示未配置代理，不是网络封锁；该模式只证明启动与 Today 就绪，不证明行情、SQLite/调度器或策略业务正常。
 
 `desktop:pack` 的 [pack-desktop.ps1](../scripts/pack-desktop.ps1) 自身再次 build → prepare → electron-builder，暂存于 `release/_next`，成功后替换为唯一 `release/win-unpacked`。这是脚本内部暂存，不是允许保留多版本输出。应用占用时停止打包、保留现有 release；运行检查失败也不能绕过。对外分发前先处理 [第三方许可](../THIRD_PARTY_NOTICES.md)。
 

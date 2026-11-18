@@ -1,25 +1,71 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { temporaryDirectory } from "./temporary-directory.mjs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   readStartupConclusion,
   smokePassed,
 } from "./lib/desktop-smoke-result.mjs";
+// Unknown arguments fail before the profile, any data source or Electron.
+const knownArguments = new Set(["--startup-only", "--packaged"]);
+const unknownArguments = process.argv
+  .slice(2)
+  .filter((argument) => !knownArguments.has(argument));
+if (unknownArguments.length > 0) {
+  console.error(`未知参数：${unknownArguments.join(" ")}`);
+  process.exit(1);
+}
+const startupOnly = process.argv.includes("--startup-only");
+const packaged = process.argv.includes("--packaged");
 const require = createRequire(import.meta.url),
   temporary = temporaryDirectory("quant-desktop-"),
   data = temporary.path;
-// A fresh smoke profile uses the application's default TDX root and symbol.
-// Verify the current source, not a count that becomes stale after a daily download.
-const sourcePath = "E:/new_tdx64/vipdoc/sh/lday/sh600519.day";
-const source = await readFile(sourcePath);
-if (!source.length || source.length % 32 !== 0)
-  throw new Error("Smoke source is empty or has incomplete TDX records");
-const expectedRecords = source.length / 32;
-const rawDate = String(source.readUInt32LE(source.length - 32));
-const expectedDate = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`;
-const binary = process.argv.includes("--packaged")
+let sourcePath = null;
+let source = null;
+let expectedRecords = null;
+let expectedDate = null;
+if (!startupOnly) {
+  // A fresh smoke profile uses the application's default TDX root and symbol.
+  // Verify the current source, not a count that becomes stale after a daily download.
+  sourcePath = "E:/new_tdx64/vipdoc/sh/lday/sh600519.day";
+  source = await readFile(sourcePath);
+  if (!source.length || source.length % 32 !== 0)
+    throw new Error("Smoke source is empty or has incomplete TDX records");
+  expectedRecords = source.length / 32;
+  const rawDate = String(source.readUInt32LE(source.length - 32));
+  expectedDate = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`;
+}
+if (startupOnly) {
+  // The seed gets exactly this run's absolute profile. It validates the path
+  // and the live runner PID before opening the isolated database.
+  const seedPath = fileURLToPath(
+    new URL("./desktop-smoke-profile.ts", import.meta.url),
+  );
+  const seed = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      pathToFileURL(require.resolve("tsx")).href,
+      seedPath,
+      data,
+      String(process.pid),
+    ],
+    {
+      env: { ...process.env, QUANT_DATA_DIR: data },
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 60000,
+    },
+  );
+  if (seed.status !== 0) {
+    // Fixed copy only: no seed stderr, exception text or paths.
+    console.error("smoke profile seed 失败");
+    process.exit(1);
+  }
+}
+const binary = packaged
   ? join(
       process.cwd(),
       process.env.QUANT_DESKTOP_BINARY ??
@@ -28,7 +74,7 @@ const binary = process.argv.includes("--packaged")
   : require("electron");
 const args = [
   `--user-data-dir=${join(data, "electron-profile")}`,
-  ...(process.argv.includes("--packaged") ? [] : ["."]),
+  ...(packaged ? [] : ["."]),
 ];
 let child = null;
 let launchFailed = false;
@@ -68,9 +114,12 @@ if (child) {
   }
 }
 const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
-  // A failed second read cannot prove the source is unchanged.
-  afterRun = await readFile(sourcePath).catch(() => null),
-  sourceUnchanged = afterRun !== null && source.equals(afterRun),
+  // The default mode re-reads the real source; startup-only reads none.
+  afterRun = sourcePath ? await readFile(sourcePath).catch(() => null) : null,
+  sourceUnchanged = startupOnly
+    ? null
+    : afterRun !== null && source !== null && source.equals(afterRun),
+  sourceChecked = !startupOnly,
   // The desktop log and the service share the run's data root, not the Electron profile.
   startup = readStartupConclusion(
     await readFile(join(data, "server.log"), "utf8").catch(() => null),
@@ -102,11 +151,14 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
   missingLabels = requiredLabels.filter((label) => !text.includes(label)),
   presentErrors = forbiddenLabels.filter((label) => text.includes(label)),
   smokeOutputPresent = text.length > 0,
+  mode = startupOnly ? "startup-only" : "default",
   passed = smokePassed({
+    mode,
+    sourceChecked,
+    sourceUnchanged,
     exitCode,
     launchFailed,
     timedOut,
-    sourceUnchanged,
     smokeOutputPresent,
     missingLabels,
     presentErrors,
@@ -115,6 +167,8 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
 console.log(
   JSON.stringify({
     desktopSmoke: passed,
+    mode,
+    sourceChecked,
     exitCode,
     smokeOutputPresent,
     missingLabels,

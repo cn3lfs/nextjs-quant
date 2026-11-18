@@ -132,14 +132,20 @@ export function readStartupConclusion(text) {
 }
 
 /**
- * Every condition is mandatory. A clean exit code cannot rescue a missing,
- * malformed, ambiguous or non-ready startup record, and a ready record cannot
- * rescue a launch error, timeout, signal exit or changed source.
+ * The mode decides how the source evidence is judged. The default mode must
+ * prove the real source was checked and stayed identical; startup-only never
+ * reads a real source, so it must report no check at all rather than reuse a
+ * manufactured market result. Every other condition is mandatory in both
+ * modes: a clean exit code cannot rescue a missing, malformed, ambiguous or
+ * non-ready startup record, and a ready record cannot rescue a launch error,
+ * timeout, signal exit or missing page.
  * @param {{
+ *   mode: "default" | "startup-only",
+ *   sourceChecked: boolean,
+ *   sourceUnchanged: boolean | null,
  *   exitCode: number | null,
  *   launchFailed: boolean,
  *   timedOut: boolean,
- *   sourceUnchanged: boolean,
  *   smokeOutputPresent: boolean,
  *   missingLabels: readonly string[],
  *   presentErrors: readonly string[],
@@ -147,20 +153,28 @@ export function readStartupConclusion(text) {
  * }} result
  */
 export function smokePassed({
+  mode,
+  sourceChecked,
+  sourceUnchanged,
   exitCode,
   launchFailed,
   timedOut,
-  sourceUnchanged,
   smokeOutputPresent,
   missingLabels,
   presentErrors,
   startupState,
 }) {
+  const sourceGate =
+    mode === "startup-only"
+      ? sourceChecked === false && sourceUnchanged === null
+      : mode === "default"
+        ? sourceChecked === true && sourceUnchanged === true
+        : false;
   return (
+    sourceGate &&
     !launchFailed &&
     !timedOut &&
     exitCode === 0 &&
-    sourceUnchanged &&
     smokeOutputPresent &&
     missingLabels.length === 0 &&
     presentErrors.length === 0 &&

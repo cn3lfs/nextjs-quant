@@ -147,14 +147,22 @@ describe("startup conclusion", () => {
 
 describe("smoke pass gate", () => {
   const allGood = {
+    mode: "default" as const,
+    sourceChecked: true,
+    sourceUnchanged: true,
     exitCode: 0,
     launchFailed: false,
     timedOut: false,
-    sourceUnchanged: true,
     smokeOutputPresent: true,
     missingLabels: [],
     presentErrors: [],
     startupState: "ready" as const,
+  };
+  const startupOnlyGood = {
+    ...allGood,
+    mode: "startup-only" as const,
+    sourceChecked: false,
+    sourceUnchanged: null,
   };
 
   it("passes only a clean process, unchanged source and a ready record", () => {
@@ -176,6 +184,42 @@ describe("smoke pass gate", () => {
       "ambiguous",
     ] as const)
       expect(smokePassed({ ...allGood, startupState })).toBe(false);
+  });
+
+  it("requires a real source check only in the default mode", () => {
+    expect(smokePassed(startupOnlyGood)).toBe(true);
+    // A startup-only run must never claim a source result, and the default
+    // mode must never accept a missing or null source conclusion.
+    expect(smokePassed({ ...startupOnlyGood, sourceChecked: true })).toBe(
+      false,
+    );
+    expect(smokePassed({ ...startupOnlyGood, sourceUnchanged: true })).toBe(
+      false,
+    );
+    expect(smokePassed({ ...allGood, sourceChecked: false })).toBe(false);
+    expect(smokePassed({ ...allGood, sourceUnchanged: null })).toBe(false);
+    expect(smokePassed({ ...allGood, mode: "unknown" as "default" })).toBe(
+      false,
+    );
+  });
+
+  it("applies the process and page gate in both modes", () => {
+    for (const base of [allGood, startupOnlyGood]) {
+      expect(smokePassed({ ...base, exitCode: 1 })).toBe(false);
+      expect(smokePassed({ ...base, exitCode: null })).toBe(false);
+      expect(smokePassed({ ...base, launchFailed: true })).toBe(false);
+      expect(smokePassed({ ...base, timedOut: true })).toBe(false);
+      expect(smokePassed({ ...base, smokeOutputPresent: false })).toBe(false);
+      expect(smokePassed({ ...base, missingLabels: ["今日"] })).toBe(false);
+      expect(smokePassed({ ...base, presentErrors: ["启动超时"] })).toBe(false);
+      for (const startupState of [
+        "not-ready",
+        "missing",
+        "malformed",
+        "ambiguous",
+      ] as const)
+        expect(smokePassed({ ...base, startupState })).toBe(false);
+    }
   });
 
   it("fails a valid exited or timeout record with the rest all good", () => {
