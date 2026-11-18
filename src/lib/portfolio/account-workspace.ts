@@ -71,6 +71,8 @@ export const accountPageSchema = z.object({
   market: z.enum(["cn-equity", "crypto", "all"]).default("all"),
   sleeve: z.string().max(100).default(""),
   group: z.enum(["market", "sleeve", "kind"]).default("market"),
+  /** Read price vs recorded stop; a read classification, not a live trigger. */
+  stopStatus: z.enum(["all", "touched", "unknown"]).default("all"),
 });
 export type AccountPosition = {
   id: string;
@@ -149,6 +151,18 @@ export function accountTradeFingerprint(
     trade.price,
     trade.quantity,
   ]);
+}
+
+export type StopStatus = "touched" | "above" | "unknown";
+/** Classifies the price already read against the recorded stop. Missing,
+ * non-finite or non-positive inputs are unknown, never inferred from display. */
+export function stopStatusFor(
+  p: Pick<AccountPosition, "price" | "stop">,
+): StopStatus {
+  const valid = (n: number | null): n is number =>
+    n !== null && Number.isFinite(n) && n > 0;
+  if (!valid(p.price) || !valid(p.stop)) return "unknown";
+  return p.price <= p.stop ? "touched" : "above";
 }
 
 export function positionMetrics(p: AccountPosition) {

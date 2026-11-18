@@ -813,6 +813,69 @@ it("filters real positions by delivery/local id prefix and ignores source for ot
     s.db.close();
   }
 });
+it("classifies read price/stop before filtering and paging, and reports the same touched set", async () => {
+  const s = seed();
+  try {
+    const book = await s.load(),
+      base = book.positions[0]!;
+    const make = (
+      id: string,
+      price: number | null,
+      stop: number | null,
+      extra: Partial<AccountPosition> = {},
+    ): AccountPosition => ({ ...base, id, price, stop, value: 1000, ...extra });
+    // Equal counts as touched; missing, non-finite or non-positive inputs are
+    // unknown and never inferred from distance, cost or value.
+    book.positions = [
+      make("delivery:equal", 10, 10),
+      make("delivery:below", 9, 10),
+      make("delivery:above", 11, 10),
+      make("delivery:missing-stop", 10, null),
+      make("delivery:missing-price", null, 10),
+      make("delivery:invalid-price", 0, 10),
+      make("delivery:invalid-stop", 10, Number.NaN),
+      make("local:equal", 10, 10, { account: "手工账本" }),
+      ...Array.from({ length: 22 }, (_, i) =>
+        make(`delivery:touched-${i}`, 9, 10),
+      ),
+    ];
+    const isTouched = (p: AccountPosition) =>
+      p.price !== null && p.stop !== null && p.price <= p.stop;
+    const touched = pageAccountBook(book, { stopStatus: "touched" }),
+      next = pageAccountBook(book, { stopStatus: "touched", page: 1 });
+    expect(touched.total).toBe(25);
+    expect(touched.items).toHaveLength(20);
+    expect(touched.items.every(isTouched)).toBe(true);
+    expect(next.items).toHaveLength(5);
+    expect([...touched.items, ...next.items].every(isTouched)).toBe(true);
+    expect(touched.totals[0]).toEqual({
+      currency: "CNY",
+      count: 25,
+      value: 25000,
+      missing: 0,
+    });
+    expect(touched.exposure.every((e) => e.value === 25000)).toBe(true);
+
+    expect(
+      pageAccountBook(book, { stopStatus: "touched", source: "local" }).items
+        .map((p) => p.id),
+    ).toEqual(["local:equal"]);
+    expect(
+      pageAccountBook(book, { stopStatus: "unknown" })
+        .items.map((p) => p.id)
+        .sort(),
+    ).toEqual([
+      "delivery:invalid-price",
+      "delivery:invalid-stop",
+      "delivery:missing-price",
+      "delivery:missing-stop",
+    ]);
+    // Above-stop rows remain in the unfiltered view.
+    expect(pageAccountBook(book, {}).total).toBe(30);
+  } finally {
+    s.db.close();
+  }
+});
 it("does not call turnover oversizing or assign a later month's oversize to an earlier month", async () => {
   const s = seed();
   try {

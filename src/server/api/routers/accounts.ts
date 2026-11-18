@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   accountPageSchema,
   accountReviewSettingsSchema,
+  stopStatusFor,
   tradeLinkSchema,
 } from "~/lib/portfolio/account-workspace";
 import {
@@ -54,15 +55,11 @@ export const accountsRouter = createTRPCRouter({
     ),
   accountRiskPositions: p("portfolio", "read").query(async () => {
     const book = await loadAccountBook();
-    return {
-      items: book.positions
-        .filter((p) => p.price !== null && p.stop !== null && p.price <= p.stop)
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .slice(0, 20),
-      total: book.positions.filter(
-        (p) => p.price !== null && p.stop !== null && p.price <= p.stop,
-      ).length,
-    };
+    // Same read classification as the unified holdings list: no extra quote.
+    const touched = book.positions
+      .filter((p) => stopStatusFor(p) === "touched")
+      .sort((a, b) => a.id.localeCompare(b.id));
+    return { items: touched.slice(0, 20), total: touched.length };
   }),
   accountPositions: p("portfolio", "read")
     .input(accountPageSchema)

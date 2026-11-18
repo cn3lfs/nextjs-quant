@@ -12,6 +12,7 @@ import {
   tradeLinkSchema,
   accountTradeFingerprint,
   industryGroupsFor,
+  stopStatusFor,
   type AccountPosition,
   type AccountTrade,
 } from "~/lib/portfolio/account-workspace";
@@ -505,7 +506,9 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
         (input.kind === "all" || p.kind === input.kind) &&
         (source === "all" || p.id.startsWith(`${source}:`)) &&
         (input.market === "all" || p.market === input.market) &&
-        (!input.sleeve || p.sleeve === input.sleeve),
+        (!input.sleeve || p.sleeve === input.sleeve) &&
+        (input.stopStatus === "all" ||
+          stopStatusFor(p) === input.stopStatus),
     )
     .sort(
       (a, b) =>

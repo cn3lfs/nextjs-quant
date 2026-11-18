@@ -6,6 +6,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import {
   accountKindLabels,
   industryGroupsFor,
+  stopStatusFor,
 } from "~/lib/portfolio/account-workspace";
 import {
   formatNumber,
@@ -42,11 +43,13 @@ type PositionSource = keyof typeof sourceLabels;
 type PositionKind = "real" | "paper" | "exchange-simulation" | "all";
 type PositionMarket = "all" | "cn-equity" | "crypto";
 type PositionGroup = "market" | "sleeve" | "kind";
+type PositionStopStatus = "all" | "touched" | "unknown";
 type Position = RouterOutputs["accountPositions"]["items"][number];
 type HoldingsFilters = {
   kind: PositionKind;
   source: PositionSource;
   market: PositionMarket;
+  stopStatus: PositionStopStatus;
   group: PositionGroup;
   sleeve: string;
   page: number;
@@ -55,6 +58,7 @@ const defaultHoldingsFilters: HoldingsFilters = {
   kind: "real",
   source: "all",
   market: "all",
+  stopStatus: "all",
   group: "market",
   sleeve: "",
   page: 0,
@@ -96,13 +100,14 @@ function UnifiedPositions({
   filters: HoldingsFilters;
   update: (patch: Partial<HoldingsFilters>) => void;
 }) {
-  const { kind, market, source, group, sleeve, page } = filters;
+  const { kind, market, source, stopStatus, group, sleeve, page } = filters;
   const query = api.accountPositions.useQuery({
     kind,
     market,
     group,
     sleeve,
     source,
+    stopStatus,
     page,
   });
   const columns: DataTableColumn<Position>[] = [
@@ -147,18 +152,17 @@ function UnifiedPositions({
     {
       id: "stop",
       header: "距止损 / R",
-      cell: ({ row }) => (
-        <span
-          className={
-            row.original.stopDistance !== null && row.original.stopDistance <= 0
-              ? "text-nc-bad"
-              : ""
-          }
-        >
-          {pct(row.original.stopDistance)} /{" "}
-          {formatNumber(row.original.rMultiple)}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const status = stopStatusFor(row.original);
+        return status === "unknown" ? (
+          <span>待核对</span>
+        ) : (
+          <span className={status === "touched" ? "text-nc-bad" : ""}>
+            {pct(row.original.stopDistance)} /{" "}
+            {formatNumber(row.original.rMultiple)}
+          </span>
+        );
+      },
     },
   ];
   return (
@@ -173,6 +177,9 @@ function UnifiedPositions({
       </h2>
       <p className="text-sm text-nc-text-3">
         默认仅真实账户；纸面、模拟交易所分别标记。CNY/USDT不换算相加。手工与导入账本为独立事实，请勿重复登记同一成交。
+      </p>
+      <p className="text-sm text-nc-text-3">
+        按已读取的价格与记录的止损比较。缺少有效价格或止损的持仓显示为「待核对」。
       </p>
       <Segmented
         label="账户类型"
@@ -213,6 +220,16 @@ function UnifiedPositions({
           { value: "crypto", label: "数字货币" },
         ]}
         onChange={(v) => update({ market: v, page: 0 })}
+      />
+      <Segmented
+        label="止损状态"
+        value={stopStatus}
+        options={[
+          { value: "all", label: "全部" },
+          { value: "touched", label: "所示价格已到止损位" },
+          { value: "unknown", label: "待核对" },
+        ]}
+        onChange={(v) => update({ stopStatus: v, page: 0 })}
       />
       <div className="flex flex-wrap items-center gap-3">
         <Segmented
@@ -260,9 +277,13 @@ function UnifiedPositions({
         data={query.data?.items ?? []}
         rowCount={query.data?.total ?? 0}
         emptyMessage={
-          kind === "real" && source !== "all"
-            ? `当前范围（${sourceLabels[source]}）无持仓。`
-            : undefined
+          stopStatus === "touched"
+            ? "当前范围没有所示价格已到止损位的持仓；按已读取价格与记录止损比较。"
+            : stopStatus === "unknown"
+              ? "当前范围没有待核对的持仓。"
+              : kind === "real" && source !== "all"
+                ? `当前范围（${sourceLabels[source]}）无持仓。`
+                : undefined
         }
         pagination={{ pageIndex: page, pageSize: 20 }}
         sorting={[]}
@@ -321,6 +342,7 @@ function PositionDetailContent({
   fetching: boolean;
 }) {
   const p = d.position;
+  const status = stopStatusFor(p);
   return (
     <>
       <h2 className="text-xl font-semibold">
@@ -328,8 +350,17 @@ function PositionDetailContent({
       </h2>
       <p>
         数量 {formatNumber(p.quantity, 6)} · 市值 {formatNumber(p.value)}{" "}
-        {p.currency} · 距止损 {pct(p.stopDistance)} · R{" "}
-        {formatNumber(p.rMultiple)}
+        {p.currency} ·{" "}
+        {(() => {
+          return status === "unknown" ? (
+            "距止损 待核对"
+          ) : (
+            <span className={status === "touched" ? "text-nc-bad" : ""}>
+              距止损 {pct(p.stopDistance)} · R{" "}
+              {formatNumber(p.rMultiple)}
+            </span>
+          );
+        })()}
       </p>
       <p>
         原价时点 {p.at ?? "未知"} · 分仓 {p.sleeve} · 行业组{" "}
