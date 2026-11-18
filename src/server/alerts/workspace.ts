@@ -24,6 +24,55 @@ import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { strategyLabDetail } from "../db/strategy-lab";
 import { loadAccountBook } from "../portfolio/account-workspace-service";
 import type { AccountPosition } from "~/lib/portfolio/account-workspace";
+import type { TradePlan } from "../db/strategy-repository";
+
+const PLAN_ROWS = 20;
+const INACTIVE_ROWS = 3;
+export type PlanExpiryState = "valid" | "due-soon" | "unverified" | "expired";
+function planExpiryAt(plan: { expiresAt: string | null }) {
+  if (plan.expiresAt === null) return null;
+  const at = Date.parse(plan.expiresAt);
+  return Number.isFinite(at) ? at : null;
+}
+/**
+ * Read-only view of open plans. Expiry drives only the display status: a plan
+ * is never closed or re-verified here.
+ */
+export function todayOpenPlans(plans: readonly TradePlan[], now: number) {
+  const state = (plan: TradePlan): PlanExpiryState => {
+    const at = planExpiryAt(plan);
+    if (at === null) return "unverified";
+    if (at <= now) return "expired";
+    if (at <= now + 86400000) return "due-soon";
+    return "valid";
+  };
+  const rows = plans.map((plan) => ({ ...plan, expiryState: state(plan) }));
+  const active = rows
+    .filter((p) => p.expiryState === "valid" || p.expiryState === "due-soon")
+    .sort(
+      (a, b) =>
+        (planExpiryAt(a) ?? 0) - (planExpiryAt(b) ?? 0) ||
+        (b.createdAt ?? 0) - (a.createdAt ?? 0) ||
+        a.id.localeCompare(b.id),
+    );
+  const unverified = rows.filter((p) => p.expiryState === "unverified");
+  const expired = rows.filter((p) => p.expiryState === "expired");
+  const reserved =
+    Math.min(unverified.length, INACTIVE_ROWS) +
+    Math.min(expired.length, INACTIVE_ROWS);
+  return {
+    total: rows.length,
+    valid: active.length,
+    dueSoon: rows.filter((p) => p.expiryState === "due-soon").length,
+    unverified: unverified.length,
+    expired: expired.length,
+    items: [
+      ...active.slice(0, Math.max(0, PLAN_ROWS - reserved)),
+      ...unverified.slice(0, INACTIVE_ROWS),
+      ...expired.slice(0, INACTIVE_ROWS),
+    ],
+  };
+}
 
 export type RegimeSnapshot = NonNullable<
   ReturnType<typeof regimeObservation>
@@ -256,12 +305,7 @@ export async function todayWorkspace(
     now,
     book,
   );
-  const openPlans = repo
-    .plans(true)
-    .sort(
-      (a, b) =>
-        (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.id.localeCompare(b.id),
-    );
+  const openPlans = todayOpenPlans(repo.plans(true), now);
   return {
     now,
     mode: config.alerts.mode,
@@ -295,7 +339,7 @@ export async function todayWorkspace(
       closeDate: equity.expectedDate,
       calendar,
     }),
-    openPlans: { total: openPlans.length, items: openPlans.slice(0, 20) },
+    openPlans,
     stopTasks: protectionTasks,
     triggered: repo.history(
       alertHistorySchema.parse({ from: chinaClock(now).date, size: 10 }),

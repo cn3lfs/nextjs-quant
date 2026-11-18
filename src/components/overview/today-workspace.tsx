@@ -389,8 +389,16 @@ function DailyDecision() {
         aria-label="未完成交易计划"
       >
         <h2 className="text-lg font-semibold">
-          未完成交易计划 · {d.openPlans.total}
+          交易计划与到期状态 · {d.openPlans.total}
         </h2>
+        <p className="text-xs text-nc-text-3">
+          有效 {d.openPlans.valid} 笔（24小时内到期 {d.openPlans.dueSoon} 笔）·
+          期限待核验 {d.openPlans.unverified} 笔 · 已到期仍为未完成{" "}
+          {d.openPlans.expired} 笔 ·{" "}
+          <Link href="/accounts/alerts" className="underline">
+            在信号台账查看全部
+          </Link>
+        </p>
         <DataTable
           label="未完成交易计划"
           data={d.openPlans.items}
@@ -422,11 +430,25 @@ function DailyDecision() {
             },
             {
               id: "expiry",
-              header: "有效至",
-              cell: ({ row: { original: p } }) =>
-                p.expiresAt
+              header: "有效至 / 状态",
+              cell: ({ row: { original: p } }) => {
+                if (p.expiryState === "unverified")
+                  return <span className="text-nc-warn">期限待核验</span>;
+                const at = p.expiresAt
                   ? new Date(p.expiresAt).toLocaleString("zh-CN")
-                  : "未设置",
+                  : "";
+                if (p.expiryState === "expired")
+                  return (
+                    <span className="text-nc-bad">
+                      {at} · 已到期，计划仍未完成
+                    </span>
+                  );
+                if (p.expiryState === "due-soon")
+                  return (
+                    <span className="text-nc-warn">{at} · 24小时内到期</span>
+                  );
+                return at;
+              },
             },
             {
               id: "policy",
@@ -468,11 +490,6 @@ function DailyDecision() {
           ]}
           emptyMessage="尚无未完成交易计划。可直接从上方候选加入。"
         />
-        {d.openPlans.total > 20 && (
-          <Link href="/accounts/alerts" className="text-sm underline">
-            查看其余未完成计划
-          </Link>
-        )}
       </section>
       <section
         className="space-y-2 rounded-lg border bg-nc-card p-4"

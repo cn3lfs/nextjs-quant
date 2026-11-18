@@ -309,6 +309,90 @@ it("today exposes both modes, post-close allocation, low-zone evidence, unknown 
   expect(repo.subscriptions()).toEqual([]);
   expect(repo.plans()).toEqual([]);
 });
+it("today ranks valid deadlines first, keeps unverified and expired plans visible, and never closes them", async () => {
+  const day = 86400000;
+  const iso = (at: number) => new Date(at).toISOString();
+  repo.strategies.saveStrategy(strategy);
+  const addPlan = (id: string, expiresAt: string | null, at: number) =>
+    repo.savePlan(
+      {
+        id,
+        strategyId: strategy.id,
+        strategyVersion: strategy.version,
+        symbol: "sh600000",
+        sleeve: "swing",
+        triggerKey: `qa:${id}`,
+        entry: 10,
+        tranches: 1,
+        quantity: 100,
+        stop: 9,
+        target: 13,
+        expiresAt,
+        status: "open" as const,
+        createdAt: at,
+      },
+      at,
+    );
+  addPlan("due-1h", iso(now + 3600000), now + 1);
+  addPlan("due-12h", iso(now + 12 * 3600000), now + 2);
+  // 截止正好等于 now+24h 属于 24 小时内到期。
+  addPlan("due-24h", iso(now + day), now + 3);
+  // 同一截止先按 createdAt 倒序，再按 ID 升序。
+  addPlan("tie-old", iso(now + 5 * day), now + 4);
+  addPlan("tie-new", iso(now + 5 * day), now + 5);
+  addPlan("tie-same-a", iso(now + 5 * day), now + 5);
+  addPlan("tie-same-b", iso(now + 5 * day), now + 5);
+  for (let i = 0; i < 13; i++)
+    addPlan(`far-${i}`, iso(now + (6 + i) * day), now + 10 + i);
+  // 截止正好等于 now 已到期；这些计划仍保持 open，只展示状态。
+  addPlan("exp-2d", iso(now - 2 * day), now + 20);
+  addPlan("exp-1d", iso(now - day), now + 21);
+  addPlan("exp-1h", iso(now - 3600000), now + 22);
+  addPlan("exp-now", iso(now), now + 23);
+  for (let i = 0; i < 4; i++) addPlan(`unv-${i}`, null, now + 30 + i);
+
+  const result = await todayWorkspace(now, repo);
+  expect(result.openPlans).toMatchObject({
+    total: 28,
+    valid: 20,
+    dueSoon: 3,
+    unverified: 4,
+    expired: 4,
+  });
+  expect(result.openPlans.items).toHaveLength(20);
+  const ids = result.openPlans.items.map((p) => p.id);
+  expect(ids.slice(0, 7)).toEqual([
+    "due-1h",
+    "due-12h",
+    "due-24h",
+    "tie-new",
+    "tie-same-a",
+    "tie-same-b",
+    "tie-old",
+  ]);
+  expect(ids.slice(7, 14)).toEqual(
+    Array.from({ length: 7 }, (_, i) => `far-${i}`),
+  );
+  // 非有效各保留最近 3 条，其余名额先给最早截止的有效计划。
+  expect(ids.slice(14, 17)).toEqual(["unv-3", "unv-2", "unv-1"]);
+  expect(ids.slice(17)).toEqual(["exp-now", "exp-1h", "exp-1d"]);
+  expect(result.openPlans.items[2]).toMatchObject({
+    id: "due-24h",
+    expiryState: "due-soon",
+  });
+  expect(result.openPlans.items[17]).toMatchObject({
+    id: "exp-now",
+    expiryState: "expired",
+  });
+  // 只读投影：数据库里的 28 条计划全部仍是 open。
+  expect(
+    db
+      .prepare("SELECT status,COUNT(*) AS n FROM trade_plans GROUP BY status")
+      .all(),
+  ).toEqual([{ status: "open", n: 28 }]);
+  expect(repo.plans()).toHaveLength(28);
+  expect(repo.plans().every((p) => p.status === "open")).toBe(true);
+});
 it("merged A-share rows show both scan times and keep only the current source plannable", () => {
   const currentBar = "2026-11-18";
   const priorBar = "2026-11-17";
