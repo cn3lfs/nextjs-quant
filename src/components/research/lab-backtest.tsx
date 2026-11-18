@@ -31,6 +31,21 @@ const initialStrategy = {
   sizing: { kind: "weight", weight: 0.1 },
   sleeve: "swing",
 };
+const costScenarioOptions = [
+  {
+    value: "fixed",
+    label: "fixed · 固定费率（原默认）",
+  },
+  {
+    value: "base",
+    label: "base · 历史印花税（10→5bp）",
+  },
+  {
+    value: "double-cost",
+    label: "double-cost · 双倍成本",
+  },
+] as const;
+type CostScenario = (typeof costScenarioOptions)[number]["value"];
 export function LabBacktest() {
   const search = useSearchParams(),
     visible = usePanelVisible(),
@@ -46,6 +61,7 @@ export function LabBacktest() {
     [start, setStart] = useState(""),
     [end, setEnd] = useState(""),
     [initial, setInitial] = useState(1000000),
+    [costScenario, setCostScenario] = useState<CostScenario>("fixed"),
     [error, setError] = useState("");
   useEffect(() => {
     if (detail.data?.strategy)
@@ -81,7 +97,7 @@ export function LabBacktest() {
           setError("");
           try {
             const strategy = strategyObjectSchema.parse(JSON.parse(object));
-            run.mutate({ strategy, start, end, initial });
+            run.mutate({ strategy, start, end, initial, costScenario });
           } catch (e) {
             setError(e instanceof Error ? e.message : "策略对象无效");
           }
@@ -90,7 +106,10 @@ export function LabBacktest() {
         <p className="text-sm text-nc-text-3">
           提交同一策略对象，经 BarStore 冻结完成行情，调用
           runPortfolio。行情读取本地数据；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
-          缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，费用、公司行动与数量网格沿用研究情景。
+          缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，公司行动与数量网格沿用研究情景。
+          fixed 等同本入口原默认费用且不启用历史印花税切换；base 与 double-cost
+          使用 2023-08-28 前后的历史印花税情景，double-cost
+          同时放大佣金、最低佣金与滑点。
         </p>
         <div className="block text-sm">
           <span className="mb-2 block">研究预设（仅填入配置，不自动运行）</span>
@@ -202,6 +221,35 @@ export function LabBacktest() {
             />
           </label>
         </div>
+        <label className="block max-w-sm text-sm">
+          <span className="mb-2 block">交易成本情景</span>
+          <Select
+            value={costScenario}
+            onValueChange={(value) => {
+              if (
+                value === "fixed" ||
+                value === "base" ||
+                value === "double-cost"
+              )
+                setCostScenario(value);
+            }}
+          >
+            <SelectTrigger aria-label="交易成本情景" className="max-w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {costScenarioOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="mt-2 block text-nc-text-3">
+            仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
+            保持原实验室行为。
+          </span>
+        </label>
         <Button disabled={run.isPending}>提交策略对象回测</Button>
         <Button
           type="button"

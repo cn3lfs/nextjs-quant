@@ -25,11 +25,13 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   const artifactRoots = new Set([
     "src",
     "packages/quant-backtest/dist",
+    "packages/quant-performance/dist",
     "packages/trading-strategies/dist",
     "packages/trading-strategy-core/dist",
     "packages/tstdx/dist",
     "packages/quant-rps/dist",
     "packages/quant-backtest/src",
+    "packages/quant-performance/src",
     "packages/trading-strategies/src",
     "packages/trading-strategy-core/src",
     "packages/tstdx/src",

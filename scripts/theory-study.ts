@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, join, relative, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -23,7 +23,11 @@ import {
   adjustmentFactors,
   applyAdjustmentAtAnchor,
 } from "tstdx/local";
-import { executionCostsSchema } from "trading-strategy-core/costs";
+import {
+  researchCostScenarios,
+  researchExecutionCosts,
+  type ResearchCostScenario,
+} from "trading-strategy-core/costs";
 import {
   researchCorporateActions,
   researchExecutionAt,
@@ -31,26 +35,23 @@ import {
 import { readPublicData } from "../src/server/data-sources/binance/public-data-store";
 import type { LifecycleSignalBasis } from "../src/server/research/lifecycle-source";
 import {
-  ResearchIdentityError,
-  ResearchRunAbortedError,
-  appendResearchAttempt,
-  assertResearchIdentity,
+  assertResearchExecutionIdentity,
   assertResearchRunActive,
   createResearchRunBudget,
   createResearchRunGuard,
   ensureResearchRegistration,
-  readResearchCheckpoint,
-  reportResearchJournalFailure,
   researchDigest,
+  researchExecutionIdentity,
   researchJsonHash,
+  runResearchMatrix,
   withResearchRunLock,
-  writeResearchCheckpoint,
   writeResearchJsonAtomic,
+  type ResearchMatrixCell,
+  type ResearchMatrixRow,
   type ResearchRunBudget,
 } from "../src/server/research/research-run";
 
 import {
-  technicalMethodIds,
   technicalMethodProfiles,
   isTechnicalMethod,
   researchTechnicalMethodSeries,
@@ -59,53 +60,43 @@ import {
   researchWyckoffSeries,
   isWyckoff,
 } from "trading-strategies/research/wyckoff/research-wyckoff";
+import { isCanslimHigh } from "trading-strategies/research/canslim/research-canslim-strategies";
 import {
-  canslimHighIds,
-  isCanslimHigh,
-} from "trading-strategies/research/canslim/research-canslim-strategies";
+  entryStudyBindingsForPreset,
+  entryStudyPresets,
+  isEntryStudyStrategy,
+  methodPoolBindingsForPreset,
+  methodPoolMarkets,
+  strategySupportsMarket,
+} from "../src/lib/research/method-pool-bindings";
 import { researchCanslimHighSeries } from "trading-strategies/research/canslim/research-canslim-high";
 import {
   lowVolatilityId,
   lowVolatilityTargets,
 } from "./lib/research/method-pool-low-volatility";
 
-// Entry studies compare the entry event under one explicit holding-period exit.
-// Exclude intraday and fractional sizing methods until their execution is bound.
-const entryPresets = [
-  ...technicalMethodIds.filter(
-    (id) =>
-      ![
-        "sw-intraday-ratio",
-        "sw-kdj-size",
-        "sw-confluence",
-        "sw-macd-negative",
-        "sw-macd-green",
-        "sw-macd-top",
-        "sw-macd-double-top",
-        "sw-rsi-top",
-        "sw-boll-lower",
-        "sw-volume-down-up",
-        "sw-volume-top",
-        "sw-bear-order",
-      ].includes(id),
-  ),
-  "wy-spring-daily",
-  "wy-sos-jac-daily",
-  "wy-lps-daily",
-  "wy-reaccumulation-daily",
-  "wy-trend-pullback-daily",
-  ...canslimHighIds,
-] as const;
-type EntryStudy = `entry5-${(typeof entryPresets)[number]}`;
+// Entry experiments compare the source entry event under one explicit
+// five-bar exit. The preset/strategy/market table owns that distinction.
+const entryPresets = entryStudyPresets();
+type EntryStudy = `entry5-${string}`;
 type PoolStudy =
   | StudyStrategy
   | EntryStudy
   | typeof relativeStrengthId
   | typeof lowVolatilityId;
+type PoolStrategyId = PoolStudy | "baseline-hold";
+type TheoryStudyKey = {
+  market: "cn-equity" | "crypto";
+  strategyId: PoolStrategyId;
+  window: string;
+  scenario: ResearchCostScenario;
+};
+type TheoryStudyRow = ResearchMatrixRow<
+  TheoryStudyKey,
+  Record<string, unknown>
+>;
 function isEntryStudy(id: string): id is EntryStudy {
-  return (
-    id.startsWith("entry5-") && entryPresets.some((p) => id === `entry5-${p}`)
-  );
+  return isEntryStudyStrategy(id);
 }
 function withEntryEvents(
   id: EntryStudy,
@@ -149,27 +140,6 @@ import {
 const defaultBudget: ResearchRunBudget = { maxRssMiB: 4096 };
 function assertResearchBudget(budget: ResearchRunBudget = defaultBudget) {
   assertResearchRunActive(budget);
-}
-async function artifactIdentity() {
-  const hash = createHash("sha256");
-  for (const folder of [
-    "packages/quant-backtest/dist",
-    "packages/trading-strategies/dist",
-    "packages/trading-strategy-core/dist",
-    "packages/tstdx/dist",
-    // App readers import shared crypto/date, database-path and outbound helpers.
-    // Hash the complete app source closure conservatively rather than missing
-    // a transitive runtime dependency when an import is added later.
-    "src",
-  ]) {
-    for (const name of (await readdir(folder, { recursive: true }))
-      .filter((name) => /\.(js|ts|tsx|json)$/.test(name))
-      .sort()) {
-      hash.update(join(folder, name));
-      hash.update(await readFile(join(folder, name)));
-    }
-  }
-  return hash.digest("hex");
 }
 const defaultSource =
   ".test-data/lifecycle-20261116/l3/sources/source-978a42271380e3609b78f644b74772a323203c917c78e805d3a3ed18ce247a1e.json";
@@ -249,14 +219,34 @@ export async function methodPoolInventory() {
     candidates,
     methods: methods.methods.map((method) => {
       const presets = method.bindings?.presets ?? [];
-      const ids = presets
-        .map((preset) => `entry5-${preset}`)
-        .filter((id) => runnable.has(id));
+      const ids = [
+        ...new Set(
+          presets.flatMap((preset) =>
+            entryStudyBindingsForPreset(preset).map(
+              (binding) => binding.strategyId,
+            ),
+          ),
+        ),
+      ].filter((id) => runnable.has(id));
+      const boundMarkets = [
+        ...new Set(
+          presets.flatMap((preset) =>
+            methodPoolBindingsForPreset(preset).flatMap(
+              (binding) => binding.markets,
+            ),
+          ),
+        ),
+      ].filter((market) =>
+        methodPoolMarkets.includes(
+          market as (typeof methodPoolMarkets)[number],
+        ),
+      );
       return {
         id: method.id,
         name: method.title,
         presets,
         batchIds: ids,
+        boundMarkets,
         status: ids.length ? "entry-event-bound" : "requires-binding-review",
         reason: ids.length
           ? "Source entry, five completed holding bars"
@@ -556,6 +546,20 @@ export async function runTheoryStudy(args: string[]) {
     ].includes(stage)
   )
     throw new Error("Unknown theory study stage");
+  const requestedCostScenario = value("--cost-scenario", "default");
+  if (
+    requestedCostScenario !== "default" &&
+    !researchCostScenarios.includes(
+      requestedCostScenario as ResearchCostScenario,
+    )
+  )
+    throw new Error(
+      "--cost-scenario must be default, fixed, base or double-cost",
+    );
+  const costScenario =
+    requestedCostScenario === "default"
+      ? null
+      : (requestedCostScenario as ResearchCostScenario);
   const pathProof = stage === "path-proof";
   const followUp =
     stage === "follow-up" || stage === "relative-strength-follow-up";
@@ -615,39 +619,46 @@ export async function runTheoryStudy(args: string[]) {
           .some((id) => !candidates.includes(id as StudyStrategy))
       )
         throw new Error("Unknown or unsupported selected strategy");
+      const execution = await researchExecutionIdentity({
+        runner: new URL(import.meta.url),
+        // These local modules are imported by the runner and bind the
+        // enumeration and ranked stages; none of them is under a package dist.
+        definitions: [
+          new URL(
+            "../src/lib/research/method-pool-bindings.ts",
+            import.meta.url,
+          ),
+          new URL(
+            "./lib/research/method-pool-low-volatility.ts",
+            import.meta.url,
+          ),
+          new URL(
+            "./lib/research/method-pool-relative-strength.ts",
+            import.meta.url,
+          ),
+        ],
+      });
+      const runnerSnapshotPath = join(
+        output,
+        `runner-${execution.runner.hash}.ts`,
+      );
       const runnerBytes = await readFile(new URL(import.meta.url));
-      const runnerHash = researchDigest(runnerBytes);
-      const runnerSnapshotPath = join(output, `runner-${runnerHash}.ts`);
       await writeFile(runnerSnapshotPath, runnerBytes, { flag: "wx" }).catch(
         async (error: NodeJS.ErrnoException) => {
           if (error.code !== "EEXIST") throw error;
-          if (researchDigest(await readFile(runnerSnapshotPath)) !== runnerHash)
+          if (
+            researchDigest(await readFile(runnerSnapshotPath)) !==
+            execution.runner.hash
+          )
             throw new Error("Runner snapshot conflicts with source identity");
         },
       );
-      const adapterUrl = new URL(
-        lowVolatility
-          ? "./lib/research/method-pool-low-volatility.ts"
-          : "./lib/research/method-pool-relative-strength.ts",
-        import.meta.url,
-      );
-      const adapterHash = rankedStage
-        ? researchDigest(await readFile(adapterUrl))
-        : null;
       const registration = {
-        version: "theory-study-ten-2",
+        version: "theory-study-ten-3",
         strategyBuildHash,
         engineBuildHash: maBaselineBuildHash,
-        executableArtifactsHash: await artifactIdentity(),
-        lockfileHash: researchDigest(await readFile("pnpm-lock.yaml")),
-        runnerHash,
+        execution,
         runnerSnapshotPath,
-        ...(adapterHash
-          ? {
-              [lowVolatility ? "lowVolatilityAdapterHash" : "rpsAdapterHash"]:
-                adapterHash,
-            }
-          : {}),
         windows:
           pathProof || (rankedStage && !followUp)
             ? [theoryStudyWindows[0]]
@@ -655,10 +666,11 @@ export async function runTheoryStudy(args: string[]) {
               ? [theoryStudyWindows[1]]
               : theoryStudyWindows,
         candidates,
-        scenarios:
-          pathProof || (rankedStage && !followUp)
-            ? (["base"] as const)
-            : (["base", "double-cost"] as const),
+        scenarios: (costScenario
+          ? [costScenario]
+          : pathProof || (rankedStage && !followUp)
+            ? ["base"]
+            : ["base", "double-cost"]) as readonly ResearchCostScenario[],
         markets:
           marketFilter === "crypto"
             ? (["crypto"] as const)
@@ -692,258 +704,186 @@ export async function runTheoryStudy(args: string[]) {
       const journal = join(output, `attempts-${identity}.jsonl`);
       const assertCommitIdentity = async () => {
         assertResearchRunActive(budget);
-        assertResearchIdentity(
-          registration.executableArtifactsHash,
-          await artifactIdentity(),
-          "Executable artifacts changed during research",
+        await assertResearchExecutionIdentity(
+          execution,
+          "Research execution dependencies changed during research",
         );
-        assertResearchIdentity(
-          registration.runnerHash,
-          researchDigest(await readFile(new URL(import.meta.url))),
-          "Research runner changed during research",
-        );
-        if (adapterHash)
-          assertResearchIdentity(
-            adapterHash,
-            researchDigest(await readFile(adapterUrl)),
-            "Ranked adapter changed during research",
-          );
         // Cancellation can arrive while the hashes above are being read.
         assertResearchRunActive(budget);
       };
-      const results: unknown[] = [];
+      const marketData = new Map<
+        "cn-equity" | "crypto",
+        {
+          instruments: PortfolioInstrument[];
+          calendar: string[];
+          symbols: string[];
+        }
+      >();
+      for (const market of registration.markets) {
+        const instruments = market === "cn-equity" ? inputs.cn : inputs.crypto;
+        marketData.set(market, {
+          instruments,
+          calendar: [
+            ...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date))),
+          ].sort(),
+          symbols: instruments.map((i) => i.symbol),
+        });
+      }
+      const strategyIds = registration.includeBaseline
+        ? (["baseline-hold", ...candidates] as const)
+        : candidates;
+      const cells: ResearchMatrixCell<TheoryStudyKey>[] = [];
       for (const window of registration.windows)
         for (const scenario of registration.scenarios)
           for (const market of registration.markets) {
-            const instruments =
-              market === "cn-equity" ? inputs.cn : inputs.crypto;
-            const calendar = [
-              ...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date))),
-            ].sort();
-            const symbols = instruments.map((i) => i.symbol);
-            const strategyIds = registration.includeBaseline
-              ? (["baseline-hold", ...candidates] as const)
-              : candidates;
+            if (
+              stage === "first-pass" &&
+              (window.label !== "development" || scenario !== "base")
+            )
+              continue;
             for (const strategyId of strategyIds) {
-              if (
-                stage === "first-pass" &&
-                (window.label !== "development" || scenario !== "base")
-              )
-                continue;
+              if (!strategySupportsMarket(strategyId, market)) continue;
               const key = {
                 market,
                 strategyId,
                 window: window.label,
                 scenario,
               };
-              const checkpoint = join(
-                output,
-                `${identity}-${market}-${strategyId}-${window.label}-${scenario}.json`,
-              );
-              const saved = await readResearchCheckpoint(checkpoint, {
-                identity,
+              cells.push({
                 key,
-                beforeResume: assertCommitIdentity,
+                checkpointPath: join(
+                  output,
+                  `${identity}-${market}-${strategyId}-${window.label}-${scenario}.json`,
+                ),
               });
-              if (saved) {
-                results.push(saved.row);
-                await appendResearchAttempt(journal, {
-                  identity,
-                  key,
-                  event: "restored",
-                  contentHash: saved.contentHash,
-                });
-                continue;
-              }
-              const attemptId = `${Date.now()}-${process.pid}`;
-              await appendResearchAttempt(journal, {
-                identity,
-                key,
-                attemptId,
-                event: "started",
-              });
-              const multiplier = scenario === "base" ? 1 : 2;
-              const request: PortfolioRequest = {
-                market,
-                initial: 1000000,
-                start: window.start,
-                end: window.end,
-                calendar,
-                instruments,
-                strategies: [theoryStudyStrategy(strategyId, market, symbols)],
-                sleeves: [
-                  {
-                    id: "swing",
-                    share: 1,
-                    maxPositions: 10,
-                    riskPerTrade: 0.01,
-                  },
-                ],
-                costs: executionCostsSchema.parse({
-                  commissionBps: (market === "crypto" ? 10 : 3) * multiplier,
-                  minimumCommission: market === "crypto" ? 0 : 5 * multiplier,
-                  sellTaxBps: market === "crypto" ? 0 : 5 * multiplier,
-                  ...(market === "cn-equity"
-                    ? {
-                        sellTaxSchedule: {
-                          kind: "cn-equity-historical",
-                          multiplier,
-                        },
-                      }
-                    : {}),
-                  slippageBps: 5 * multiplier,
-                }),
-                observationDetail: "counts",
-              };
-              if (strategyId === lowVolatilityId)
-                request.scheduledTargets = lowVolatilityTargets(
+            }
+          }
+      const results = await runResearchMatrix<TheoryStudyKey, TheoryStudyRow>({
+        identity,
+        journalPath: journal,
+        cells,
+        beforeResume: assertCommitIdentity,
+        beforeCommit: assertCommitIdentity,
+        blockedRow: ({ key }, error) => ({
+          ...key,
+          status: "blocked",
+          reason: error instanceof Error ? error.message : String(error),
+        }),
+        onRow: (row, _cell, origin) => {
+          if (origin !== "computed") return;
+          const { execution: _execution, ...summary } =
+            row as unknown as Record<string, unknown>;
+          process.stdout.write(JSON.stringify(summary) + "\n");
+        },
+        execute: async ({ key }) => {
+          const { market, strategyId, scenario } = key;
+          const window = registration.windows.find(
+            (candidate) => candidate.label === key.window,
+          );
+          if (!window) throw new Error("Unknown research window");
+          const data = marketData.get(market);
+          if (!data) throw new Error("Unknown research market");
+          const { instruments, calendar, symbols } = data;
+          const request: PortfolioRequest = {
+            market,
+            initial: 1000000,
+            start: window.start,
+            end: window.end,
+            calendar,
+            instruments,
+            strategies: [theoryStudyStrategy(strategyId, market, symbols)],
+            sleeves: [
+              {
+                id: "swing",
+                share: 1,
+                maxPositions: 10,
+                riskPerTrade: 0.01,
+              },
+            ],
+            costs: researchExecutionCosts(market, scenario),
+            observationDetail: "counts",
+          };
+          if (strategyId === lowVolatilityId)
+            request.scheduledTargets = lowVolatilityTargets(
+              instruments,
+              calendar,
+              window.start,
+              window.end,
+            );
+          const started = performance.now();
+          assertResearchBudget(budget);
+          if (request.scheduledTargets?.length === 0)
+            throw new Error("No month-end has eligible low-volatility inputs");
+          const rankInput =
+            strategyId === relativeStrengthId
+              ? relativeStrengthInputs(
                   instruments,
                   calendar,
                   window.start,
                   window.end,
-                );
-              const started = performance.now();
-              assertResearchBudget(budget);
-              let row: Record<string, unknown>;
-              let outcome: "completed" | "blocked" = "completed";
-              try {
-                if (request.scheduledTargets?.length === 0)
-                  throw new Error(
-                    "No month-end has eligible low-volatility inputs",
-                  );
-                const rankInput =
-                  strategyId === relativeStrengthId
-                    ? relativeStrengthInputs(
-                        instruments,
-                        calendar,
-                        window.start,
-                        window.end,
-                      )
-                    : null;
-                const result = runPortfolio(
-                  rankInput
-                    ? { ...request, instruments: rankInput.instruments }
-                    : isEntryStudy(strategyId)
-                      ? {
-                          ...request,
-                          instruments: withEntryEvents(strategyId, instruments),
-                        }
-                      : request,
-                  createResearchRunGuard(budget),
-                  createPortfolioPreparation(),
-                );
-                assertResearchBudget(budget);
-                row = {
-                  ...key,
-                  status: "completed",
-                  ...summarizeTheoryResult(result, request.initial),
-                  elapsedMs: Math.round(performance.now() - started),
-                  definition:
-                    strategyId === "baseline-hold"
-                      ? "Constant long, same universe and weight"
-                      : isEntryStudy(strategyId)
-                        ? "Entry-event study, exit after five completed holding bars"
-                        : strategyId === relativeStrengthId
-                          ? "Frozen-pool composite RPS 20/50/120, weekly equal 10-slot book"
-                          : strategyId === lowVolatilityId
-                            ? "Lowest 60-return volatility at month end, ten positions at 10%"
-                            : studyCatalog[strategyId],
-                  symbols: symbols.length,
-                  ...(request.scheduledTargets
-                    ? {
-                        scheduledRebalances: request.scheduledTargets.length,
-                        firstScheduledRebalance:
-                          request.scheduledTargets[0] ?? null,
-                      }
-                    : {}),
-                  ...(rankInput
-                    ? {
-                        rpsCoverage: {
-                          signalWeeks: rankInput.signalWeeks,
-                          minimumCoverage: rankInput.minimumCoverage,
-                          rebalanceWeeks: (result.bookDecisions ?? []).filter(
-                            ({ decision }) => decision.targets !== null,
-                          ).length,
-                        },
-                      }
-                    : {}),
-                  ...(pathProof || rankInput || request.scheduledTargets
-                    ? {
-                        execution: {
-                          initial: request.initial,
-                          costs: request.costs,
-                          fills: result.fills,
-                          slotRejections: result.rejections.filter(
-                            (rejection) =>
-                              rejection.reason.includes("持仓上限"),
-                          ).length,
-                        },
-                      }
-                    : {}),
-                };
-              } catch (error) {
-                if (
-                  error instanceof ResearchRunAbortedError ||
-                  error instanceof ResearchIdentityError
-                ) {
-                  // Journaling is secondary here; preserve the original stop.
-                  await appendResearchAttempt(journal, {
-                    identity,
-                    key,
-                    attemptId,
-                    event: "aborted",
-                    reason:
-                      error instanceof Error ? error.message : String(error),
-                  }).catch((error) =>
-                    reportResearchJournalFailure(journal, error),
-                  );
-                  throw error;
+                )
+              : null;
+          const result = runPortfolio(
+            rankInput
+              ? { ...request, instruments: rankInput.instruments }
+              : isEntryStudy(strategyId)
+                ? {
+                    ...request,
+                    instruments: withEntryEvents(strategyId, instruments),
+                  }
+                : request,
+            createResearchRunGuard(budget),
+            createPortfolioPreparation(),
+          );
+          assertResearchBudget(budget);
+          return {
+            ...key,
+            status: "completed",
+            ...summarizeTheoryResult(result, request.initial),
+            elapsedMs: Math.round(performance.now() - started),
+            definition:
+              strategyId === "baseline-hold"
+                ? "Constant long, same universe and weight"
+                : isEntryStudy(strategyId)
+                  ? "Entry-event study, exit after five completed holding bars"
+                  : strategyId === relativeStrengthId
+                    ? "Frozen-pool composite RPS 20/50/120, weekly equal 10-slot book"
+                    : strategyId === lowVolatilityId
+                      ? "Lowest 60-return volatility at month end, ten positions at 10%"
+                      : studyCatalog[strategyId],
+            symbols: symbols.length,
+            ...(request.scheduledTargets
+              ? {
+                  scheduledRebalances: request.scheduledTargets.length,
+                  firstScheduledRebalance: request.scheduledTargets[0] ?? null,
                 }
-                outcome = "blocked";
-                row = {
-                  ...key,
-                  status: "blocked",
-                  reason:
-                    error instanceof Error ? error.message : String(error),
-                };
-              }
-              let contentHash: string;
-              try {
-                contentHash = await writeResearchCheckpoint(
-                  checkpoint,
-                  { identity, key, row },
-                  { beforeCommit: assertCommitIdentity },
-                );
-              } catch (error) {
-                await appendResearchAttempt(journal, {
-                  identity,
-                  key,
-                  attemptId,
-                  event:
-                    error instanceof ResearchRunAbortedError ||
-                    error instanceof ResearchIdentityError
-                      ? "aborted"
-                      : "failed",
-                  reason:
-                    error instanceof Error ? error.message : String(error),
-                }).catch((error) =>
-                  reportResearchJournalFailure(journal, error),
-                );
-                throw error;
-              }
-              await appendResearchAttempt(journal, {
-                identity,
-                key,
-                attemptId,
-                event: outcome,
-                contentHash,
-              });
-              results.push(row);
-              const { execution: _execution, ...summary } = row;
-              process.stdout.write(JSON.stringify(summary) + "\n");
-            }
-          }
-      await assertCommitIdentity();
+              : {}),
+            ...(rankInput
+              ? {
+                  rpsCoverage: {
+                    signalWeeks: rankInput.signalWeeks,
+                    minimumCoverage: rankInput.minimumCoverage,
+                    rebalanceWeeks: (result.bookDecisions ?? []).filter(
+                      ({ decision }) => decision.targets !== null,
+                    ).length,
+                  },
+                }
+              : {}),
+            ...(pathProof || rankInput || request.scheduledTargets
+              ? {
+                  execution: {
+                    initial: request.initial,
+                    costs: request.costs,
+                    fills: result.fills,
+                    slotRejections: result.rejections.filter((rejection) =>
+                      rejection.reason.includes("持仓上限"),
+                    ).length,
+                  },
+                }
+              : {}),
+          };
+        },
+      });
       await writeResearchJsonAtomic(
         join(output, `results-${identity}-${stage}.json`),
         {
@@ -952,6 +892,7 @@ export async function runTheoryStudy(args: string[]) {
           stage,
           rows: results,
         },
+        { beforeCommit: assertCommitIdentity },
       );
       return { identity, results };
     });

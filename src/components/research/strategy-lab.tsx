@@ -20,6 +20,7 @@ import {
 } from "../ui/dialog";
 import { Segmented } from "../panels";
 import { StrategyCenter } from "./strategy-center";
+import { PortfolioEvidencePanel } from "./portfolio-evidence-panel";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { PaperShadowPrompt } from "./paper-shadow-prompt";
@@ -157,6 +158,7 @@ function LabList() {
       <Link href="/lab?tab=catalog" className="underline">
         全部方法目录、现行日线研究与运行比较
       </Link>
+      <PortfolioEvidencePanel />
       <AlertModeControl />
     </section>
   );

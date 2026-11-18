@@ -572,10 +572,42 @@ describe("R3c frozen reports, shared research command and portfolio replay", () 
       read,
     );
     expect(result.frozen.request.strategies).toEqual([strategy]);
+    expect(result.frozen.costScenario).toBe("fixed");
+    expect(result.frozen.request.costs).toMatchObject({
+      commissionBps: 3,
+      minimumCommission: 5,
+      sellTaxBps: 5,
+      slippageBps: 5,
+    });
+    expect(result.frozen.request.costs?.sellTaxSchedule).toBeUndefined();
+    expect(result.frozen.marketPolicy.signalBars).toContain("forward");
+    expect(result.frozen.marketPolicy.quantityGrid).toMatchObject({
+      kind: "cn-board-research-scenario",
+    });
     expect(result.result).toEqual(runPortfolio(result.frozen.request));
     expect(result.result.fills.length).toBeGreaterThan(0);
     expect(result.result.fills[0]!.date).toBe(bars[1]!.date);
     expect(result.inputHash).toMatch(/^[a-f0-9]{64}$/);
+    const baseResult = await executeLabBacktest(
+      {
+        type: "lab-backtest",
+        input: {
+          strategy,
+          initial: 100000,
+          start: bars[0]!.date,
+          end: bars.at(-1)!.date,
+          costScenario: "base",
+        },
+      },
+      () => {},
+      read,
+    );
+    expect(baseResult.frozen.costScenario).toBe("base");
+    expect(baseResult.frozen.request.costs?.sellTaxSchedule).toEqual({
+      kind: "cn-equity-historical",
+      multiplier: 1,
+    });
+    expect(baseResult.result).toEqual(runPortfolio(baseResult.frozen.request));
     put("job", "QA-r3c-backtest", {
       id: "QA-r3c-backtest",
       type: "backtest",

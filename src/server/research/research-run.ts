@@ -6,12 +6,14 @@ import {
   mkdir,
   open,
   readFile,
+  readdir,
   rename,
   unlink,
   writeFile,
 } from "node:fs/promises";
 import { hostname } from "node:os";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isMainThread } from "node:worker_threads";
 import { z } from "zod";
 
@@ -482,6 +484,260 @@ export function assertResearchIdentity(
     throw new ResearchIdentityError(
       `${message}: expected ${expected}, current ${current}`,
     );
+}
+
+export type ResearchDependencyHash = {
+  path: string;
+  hash: string;
+};
+
+/** The complete execution dependency identity recorded by a run: the runner,
+ * explicitly named definitions outside the package build, every executable
+ * package artifact plus the app source closure, and the lockfile. */
+export type ResearchExecutionIdentity = {
+  runner: ResearchDependencyHash;
+  definitions: ResearchDependencyHash[];
+  artifacts: { roots: string[]; hash: string };
+  lockfile: ResearchDependencyHash;
+};
+
+/** Conservative default: every package that a research CLI can import plus the
+ * app source closure. A later import addition cannot silently escape the hash. */
+export const defaultResearchArtifactRoots = [
+  "packages/quant-backtest/dist",
+  "packages/quant-performance/dist",
+  "packages/quant-rps/dist",
+  "packages/trading-strategies/dist",
+  "packages/trading-strategy-core/dist",
+  "packages/tstdx/dist",
+  "src",
+] as const;
+
+function dependencyLabel(path: string): string {
+  return path.replaceAll("\\", "/");
+}
+
+function dependencySource(path: string | URL): {
+  label: string;
+  source: string | URL;
+} {
+  return {
+    label: dependencyLabel(
+      typeof path === "string" ? path : fileURLToPath(path),
+    ),
+    source: path,
+  };
+}
+
+async function hashDependency(
+  path: string | URL,
+): Promise<ResearchDependencyHash> {
+  const { label, source } = dependencySource(path);
+  return { path: label, hash: researchDigest(await readFile(source)) };
+}
+
+export async function researchArtifactIdentity(
+  roots: readonly string[] = defaultResearchArtifactRoots,
+): Promise<{ roots: string[]; hash: string }> {
+  const hash = createHash("sha256");
+  const labels: string[] = [];
+  for (const folder of roots) {
+    const label = dependencyLabel(folder);
+    labels.push(label);
+    for (const name of (await readdir(folder, { recursive: true }))
+      .filter((name) => /\.(js|ts|tsx|json)$/.test(name))
+      .sort()) {
+      hash.update(`${label}/${dependencyLabel(name)}`);
+      hash.update(await readFile(join(folder, name)));
+    }
+  }
+  return { roots: labels, hash: hash.digest("hex") };
+}
+
+export async function researchExecutionIdentity(input: {
+  runner: string | URL;
+  definitions?: readonly (string | URL)[];
+  artifactRoots?: readonly string[];
+  lockfile?: string;
+}): Promise<ResearchExecutionIdentity> {
+  return {
+    runner: await hashDependency(input.runner),
+    definitions: await Promise.all(
+      (input.definitions ?? []).map((definition) => hashDependency(definition)),
+    ),
+    artifacts: await researchArtifactIdentity(input.artifactRoots),
+    lockfile: await hashDependency(input.lockfile ?? "pnpm-lock.yaml"),
+  };
+}
+
+/** Recomputes every recorded dependency, including definitions outside the
+ * build roots, before resuming or committing work. */
+export async function assertResearchExecutionIdentity(
+  recorded: ResearchExecutionIdentity,
+  message = "Research execution dependencies changed during the run",
+): Promise<void> {
+  const current = await researchExecutionIdentity({
+    runner: recorded.runner.path,
+    definitions: recorded.definitions.map((definition) => definition.path),
+    artifactRoots: recorded.artifacts.roots,
+    lockfile: recorded.lockfile.path,
+  });
+  if (JSON.stringify(current) !== JSON.stringify(recorded))
+    throw new ResearchIdentityError(
+      `${message}: expected ${researchJsonHash(recorded)}, current ${researchJsonHash(current)}`,
+    );
+}
+
+export type ResearchMatrixCell<Key = unknown> = {
+  key: Key;
+  checkpointPath: string;
+};
+
+/** A matrix row is either a computed result or the blocked placeholder written
+ * when `blockedRow` handles an ordinary failure. Callers name this union so
+ * `execute` and `blockedRow` cannot widen `Row` into each other. */
+export type ResearchMatrixRow<Key, Completed extends object> =
+  | (Key & Completed & { status: "completed" })
+  | (Key & { status: "blocked"; reason: string });
+
+export type ResearchMatrixOptions<Key, Row> = {
+  identity: string;
+  cells: Iterable<ResearchMatrixCell<Key>>;
+  /** Computes one cell. Ordinary failures become blocked rows only when
+   * `blockedRow` is supplied; cancellation and identity drift always stop. */
+  execute: (cell: ResearchMatrixCell<Key>) => Promise<Row>;
+  journalPath?: string;
+  /** Validated cancellation/budget/identity hook. Read before resume, before
+   * execution and before commit so stale work never starts or publishes. */
+  beforeResume?: () => void | Promise<void>;
+  beforeCommit?: () => void | Promise<void>;
+  blockedRow?: (
+    cell: ResearchMatrixCell<Key>,
+    error: unknown,
+  ) => Row | null | undefined;
+  onRow?: (
+    row: Row,
+    cell: ResearchMatrixCell<Key>,
+    origin: "restored" | "computed",
+  ) => void | Promise<void>;
+};
+
+function researchStopError(error: unknown): boolean {
+  return (
+    error instanceof ResearchRunAbortedError ||
+    error instanceof ResearchIdentityError
+  );
+}
+
+function researchErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Shared registration/restore/commit loop for research matrices. The caller
+ * owns registration and result publication; this loop owns checkpoint resume,
+ * attempt journaling and the pre-commit guard. */
+export async function runResearchMatrix<Key, Row>(
+  options: ResearchMatrixOptions<Key, Row>,
+): Promise<Row[]> {
+  const rows: Row[] = [];
+  const journal = async (record: Record<string, unknown>) => {
+    if (options.journalPath)
+      await appendResearchAttempt(options.journalPath, record);
+  };
+  const journalStop = async (record: Record<string, unknown>) => {
+    if (!options.journalPath) return;
+    await appendResearchAttempt(options.journalPath, record).catch((error) =>
+      reportResearchJournalFailure(options.journalPath!, error),
+    );
+  };
+
+  for (const cell of options.cells) {
+    const saved = await readResearchCheckpoint<Row>(cell.checkpointPath, {
+      identity: options.identity,
+      key: cell.key,
+      beforeResume: options.beforeResume,
+    });
+    if (saved) {
+      await journal({
+        identity: options.identity,
+        key: cell.key,
+        event: "restored",
+        contentHash: saved.contentHash,
+      });
+      rows.push(saved.row);
+      await options.onRow?.(saved.row, cell, "restored");
+      continue;
+    }
+
+    const attemptId = `${Date.now()}-${process.pid}`;
+    await journal({
+      identity: options.identity,
+      key: cell.key,
+      attemptId,
+      event: "started",
+    });
+
+    let row: Row;
+    let outcome: "completed" | "blocked" = "completed";
+    try {
+      await options.beforeResume?.();
+      row = await options.execute(cell);
+    } catch (error) {
+      if (researchStopError(error)) {
+        await journalStop({
+          identity: options.identity,
+          key: cell.key,
+          attemptId,
+          event: "aborted",
+          reason: researchErrorMessage(error),
+        });
+        throw error;
+      }
+      const blocked = options.blockedRow?.(cell, error);
+      if (blocked === null || blocked === undefined) {
+        await journalStop({
+          identity: options.identity,
+          key: cell.key,
+          attemptId,
+          event: "failed",
+          reason: researchErrorMessage(error),
+        });
+        throw error;
+      }
+      row = blocked;
+      outcome = "blocked";
+    }
+
+    let contentHash: string;
+    try {
+      contentHash = await writeResearchCheckpoint(
+        cell.checkpointPath,
+        { identity: options.identity, key: cell.key, row },
+        { beforeCommit: options.beforeCommit },
+      );
+    } catch (error) {
+      await journalStop({
+        identity: options.identity,
+        key: cell.key,
+        attemptId,
+        event: researchStopError(error) ? "aborted" : "failed",
+        reason: researchErrorMessage(error),
+      });
+      throw error;
+    }
+
+    await journal({
+      identity: options.identity,
+      key: cell.key,
+      attemptId,
+      event: outcome,
+      contentHash,
+    });
+    rows.push(row);
+    await options.onRow?.(row, cell, "computed");
+  }
+  await options.beforeCommit?.();
+  return rows;
 }
 
 type ResearchRunLockOwner = {

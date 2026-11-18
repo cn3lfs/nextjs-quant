@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { strategyObjectSchema } from "trading-strategies";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
+import { researchCostScenarios } from "trading-strategy-core/costs";
+export const labBacktestCostScenarioSchema = z
+  .enum(researchCostScenarios)
+  .default("fixed");
 export const labBacktestSchema = z
   .object({
     strategy: strategyObjectSchema,
@@ -9,6 +13,7 @@ export const labBacktestSchema = z
     initial: z.number().finite().positive().max(1e9),
     riskPerTrade: z.number().finite().positive().max(0.1).default(0.01),
     maxPositions: z.number().int().positive().max(100).default(10),
+    costScenario: labBacktestCostScenarioSchema,
   })
   .strict()
   .refine(

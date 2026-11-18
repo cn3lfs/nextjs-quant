@@ -39,6 +39,35 @@ A 股与 BTC/ETH 分账户，各自独立约束：同时最多 10 个品种、�
 
 A 股 118 条、BTC/ETH 114 条完整日线规则完成开发窗基准成本回放，包含两市各 28 条技术预设原出场。五根持有期入场实验两市各 32 条。多周期八场景独立完成。周度复合 RPS 和月末低波动组合均已接入并独立复算首次排名和成交。较晚窗与双倍成本只用于已选候选，平底突破和五日反转保留为优先观察对象。金融事实、历史成员、分钟数据和原法出场等缺口仍按对应方法登记。结果见[研究记录](research/theory-study-results.md)。
 
+### 首批：实验室与研究 CLI 共用成本情景（2026-11-18）
+
+- `trading-strategy-core/costs` 提供唯一纯费用构造 `researchExecutionCosts(market, scenario)`：`fixed` 保持实验室原默认（3bp 佣金/5 元最低/5bp 印花税/5bp 滑点，不切换历史税率），`base` 使用 2023-08-28 前后 10→5bp 历史印花税，`double-cost` 将佣金、最低佣金、印花税与滑点同比放大两倍。
+- 实验室 `labBacktestSchema`、对象回测 UI、worker 与冻结导出已接入 `costScenario`，缺省 `fixed`；`scripts/theory-study.ts` 新增显式 `--cost-scenario`（缺省仍按阶段使用既有 base 或 base+double），`scripts/method-pool-technical.ts` 可选第 4 参数（缺省 base，原检查点文件名不变）。
+- 冻结对象明确记录 `costScenario`、`frozen.request.costs`、`frozen.sources[].adjustment`（或 `adjustmentId`）以及 `marketPolicy`：A股信号复权为 forward 或逐证券 GBBQ anchor，成交只用 raw 原价；数量网格为逐日板块情景（主板 100/100、科创板 200/1、创业板 2020-08-24 起 100/100），历史 ST/IPO/排队仍未认证。
+- 可运行案例（输出限定在 `.test-data/` 隔离目录）：
+  `pnpm exec tsx scripts/theory-study.ts --stage path-proof --cost-scenario fixed --output .test-data/cost-scenario-20261118/path-proof`
+- 定向验证入口：`tests/research-backtest/lab-cost-scenarios.test.ts` 复用同一份冻结请求，核对 fixed 与旧默认权益/成交/订单/拒单逐项相同、base 与 double-cost 的跨 2023-08-28 印花税切换，以及逐笔拒单在三种情景下顺序与原因一致。
+- 只读 replay：`scripts/research-lab-replay.ts` 读取应用“导出任务证据”得到的 `{ input, result }`，先校验 `result.inputHash` 与 `result.frozen` 摘要一致，再按冻结请求经 `runPortfolio` 重放，并核对 `fills`/`rejections`/`curve` 与导出结果一致；不重读行情、不改输入、不写数据库。可运行命令：
+  `pnpm exec tsx scripts/research-lab-replay.ts --export .test-data/<任务导出>.json --output .test-data/<回放结果>.json`（省略 `--output` 只输出摘要）。`--output` 使用独占新建（`flag: "wx"`），目标路径已存在时拒绝覆盖，包括经符号链接或硬链接别名指向导出本身的路径。
+  定向验证入口：`tests/research-backtest/lab-replay.test.ts` 从 `executeLabBacktest` 与 CLI 两个真实入口比较 `fills`/`rejections`/`curve`，要求至少一笔成交，并验证篡改冻结请求或导出结果均被拒绝；已存在的同名输出必须保持原内容。
+
+### 本轮状态与验收（2026-11-18，最终）
+
+本轮四项最终事实：
+
+1. 双端 CLI 冻结重放 4 项通过。
+2. 真实量价 v2 两份导出导入后由新进程读回买 635、卖 628、拒 2107；重复导入为 unchanged，不重写已导入证据。
+3. v3 新生成一只股票，回放得到两买两卖；真实 blocked 无可用样本，不声称已验证。
+4. 共享矩阵与绑定通过，含跨身份去重。
+
+工程门禁：
+
+- 主工程全量 7080 项通过、27 项跳过；唯一共享控件初始失败，修复后 2 文件 7 项通过。
+- 四个包分别 495、21、98、24 项通过。
+- 依赖、runtime、类型、lint 分步通过。
+- 完整 `pnpm check --build` 停在两处 HEAD 已有格式偏差：`b2-structure-study.ts` 与 `method-pool-index-reference.ts`；生产构建由管理端独立验证，本记录不预写结果。
+- 未提交、未推送、未打包部署。以上为工程与规则自检证据，不构成收益资格或可信策略业绩。
+
 ## Claude 专家协作入口
 
 按用户批准方案实现 Codex 管理、Claude 六专家执行的项目技能与进程调度入口；沿用 Claude 默认模型。范围、运行和实际验收见[协作入口交付](deliveries/2026-11-18-quant-team.md)，不扩展应用页面或真实交易权限。

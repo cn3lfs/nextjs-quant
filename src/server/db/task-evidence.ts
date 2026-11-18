@@ -10,6 +10,7 @@ export function taskEvidence(id: string) {
     json_extract(payload,'$.result.command') command, json_extract(payload,'$.result.market') market,
     json_extract(payload,'$.result.total') total, json_extract(payload,'$.result.hash') hash,
     json_extract(payload,'$.result.boundary') boundary, json_extract(payload,'$.result.frozen.boundary') backtestBoundary,
+    json_extract(payload,'$.result.frozen.costScenario') costScenario,
     json_extract(payload,'$.result.overview.totalReturn.value') totalReturn,
     json_extract(payload,'$.result.overview.maxDrawdown.value') drawdown,
     json_array_length(payload,'$.result.result.fills') fills,
@@ -32,6 +33,7 @@ export function taskEvidence(id: string) {
         hash: string | null;
         boundary: string | null;
         backtestBoundary: string | null;
+        costScenario: string | null;
         totalReturn: number | null;
         drawdown: number | null;
         fills: number | null;
@@ -70,6 +72,8 @@ export function taskEvidence(id: string) {
       },
       { label: "成交", value: formatNumber(row.fills, 0) },
     );
+    if (row.costScenario)
+      fields.push({ label: "成本情景", value: row.costScenario });
     for (const [label, value] of [
       ["已评估收盘", row.evaluated],
       ["未知判定", row.unknown],

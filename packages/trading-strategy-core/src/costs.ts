@@ -17,6 +17,50 @@ export const executionCostsSchema = z.object({
 export type ExecutionCosts = z.infer<typeof executionCostsSchema>;
 export const defaultExecutionCosts = executionCostsSchema.parse({});
 
+/** Lab and research CLIs share these three explicit scenarios. `fixed` keeps
+ * the legacy lab default (no historical stamp-duty switch); `base` and
+ * `double-cost` use the declared historical schedule. */
+export const researchCostScenarios = ["fixed", "base", "double-cost"] as const;
+export type ResearchCostScenario = (typeof researchCostScenarios)[number];
+
+/** Pure cost construction, never broker-history certification. */
+export function researchExecutionCosts(
+  market: "cn-equity" | "crypto",
+  scenario: ResearchCostScenario,
+): ExecutionCosts {
+  const multiplier = scenario === "double-cost" ? 2 : 1;
+  if (scenario === "fixed")
+    return executionCostsSchema.parse(
+      market === "crypto"
+        ? {
+            commissionBps: 10,
+            minimumCommission: 0,
+            sellTaxBps: 0,
+            slippageBps: 5,
+          }
+        : {
+            commissionBps: 3,
+            minimumCommission: 5,
+            sellTaxBps: 5,
+            slippageBps: 5,
+          },
+    );
+  return executionCostsSchema.parse({
+    commissionBps: (market === "crypto" ? 10 : 3) * multiplier,
+    minimumCommission: market === "crypto" ? 0 : 5 * multiplier,
+    sellTaxBps: market === "crypto" ? 0 : 5 * multiplier,
+    ...(market === "cn-equity"
+      ? {
+          sellTaxSchedule: {
+            kind: "cn-equity-historical",
+            multiplier,
+          },
+        }
+      : {}),
+    slippageBps: 5 * multiplier,
+  });
+}
+
 export function equityStampDutyBps(date: string) {
   const day = date.slice(0, 10);
   if (

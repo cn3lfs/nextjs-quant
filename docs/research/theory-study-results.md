@@ -19,6 +19,13 @@
 
 复现入口为 `pnpm exec tsx scripts/theory-study.ts --stage path-proof --output .test-data/method-pool-ten/path-proof`。该模式只运行一个 A 股开发窗基准成本案例。首批完成后代码作了一处 TypeScript 类型收紧，原登记绑定实际运行快照。
 
+## 共用成本情景（2026-11-18 首批）
+
+- 实验室与两个研究 CLI 统一经 `researchExecutionCosts(market, scenario)` 构造费用。`fixed` 保持实验室原默认且不切换历史印花税；`base` 按 2023-08-28 前后 10→5bp 切换；`double-cost` 将佣金、最低佣金、印花税和滑点同比放大两倍。
+- 实验室冻结导出新增 `costScenario`、`frozen.request.costs` 和 `marketPolicy`。A股信号价使用 forward 复权（多周期/ORB 入口为逐证券 GBBQ anchor），成交始终使用 raw 原价；数量网格按日冻结为板块情景（主板 100/100、科创板 200/1、创业板 2020-08-24 起 100/100），历史 ST/IPO/排队仍为未认证。
+- 可运行案例：`pnpm exec tsx scripts/theory-study.ts --stage path-proof --cost-scenario fixed --output .test-data/cost-scenario-20261118/path-proof`。缺省不传 `--cost-scenario` 时仍执行原 base / base+double 阶段，检查点身份与文件名不变。
+- 定向验证 `tests/research-backtest/lab-cost-scenarios.test.ts` 复用同一冻结请求，覆盖 fixed 与旧默认权益逐项相同、历史印花税切换和逐笔拒单一致。本轮因执行权限拦截未取得实际运行回执，不以代码存在代替验证。
+
 ## 待接续的方法缺口
 
 - 五根持有期入场实验用于检验信号，完整退出规则按方法单独接入。

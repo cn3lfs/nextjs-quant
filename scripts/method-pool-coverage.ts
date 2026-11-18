@@ -6,9 +6,13 @@ import {
 } from "../src/server/research/research-run";
 import { methodPoolInventory } from "./theory-study";
 import {
-  volumeStudyBindings,
-  wyckoffStudyBindings,
-} from "../packages/trading-strategies/src/study-catalog";
+  bindingForStrategy,
+  isEntryStudyStrategy,
+  isMethodPoolRegistrationVersion,
+  methodPoolBindings,
+  methodPoolMarkets,
+} from "../src/lib/research/method-pool-bindings";
+import { indexCoverageCases } from "./lib/research/method-pool-coverage";
 
 type CaseKey = {
   market: string;
@@ -27,12 +31,14 @@ type CaseRow = CaseKey & {
   fillsHash?: string;
   curveHash?: string;
 };
+type StoredCase = CaseRow & {
+  path: string;
+  identity: string;
+  version: string;
+};
 const root = resolve(process.argv[2] ?? ".test-data/method-pool-ten");
 const inventory = await methodPoolInventory();
-const cases = new Map<
-  string,
-  (CaseRow & { path: string; identity: string })[]
->();
+const readCases: StoredCase[] = [];
 for (const directory of await readdir(root, { withFileTypes: true })) {
   if (!directory.isDirectory()) continue;
   const folder = join(root, directory.name);
@@ -42,7 +48,7 @@ for (const directory of await readdir(root, { withFileTypes: true })) {
   )) {
     const identity = name.slice(13, -5);
     const registration = JSON.parse(await readFile(join(folder, name), "utf8"));
-    if (registration.version !== "theory-study-ten-2") continue;
+    if (!isMethodPoolRegistrationVersion(registration.version)) continue;
     if (researchJsonHash(registration) !== identity)
       throw new Error("Registration hash mismatch: " + name);
     const markets: string[] = registration.markets ?? ["cn-equity", "crypto"];
@@ -81,8 +87,7 @@ for (const directory of await readdir(root, { withFileTypes: true })) {
                   row.sells! < 0))
             )
               throw new Error("Invalid case row: " + path);
-            const recorded = cases.get(strategyId) ?? [];
-            recorded.push({
+            readCases.push({
               ...key,
               status: row.status,
               buys: row.buys,
@@ -95,38 +100,65 @@ for (const directory of await readdir(root, { withFileTypes: true })) {
               curveHash: row.curveHash,
               path,
               identity,
+              version: registration.version,
             });
-            cases.set(strategyId, recorded);
           }
   }
 }
+// Sort before deduplication so a copied checkpoint cannot depend on directory
+// read order; grouping itself is deterministic too.
+const cases = indexCoverageCases(
+  [...readCases].sort((left, right) => left.path.localeCompare(right.path)),
+);
 
-const replayProxies = new Map<string, string[]>([
-  ["sw-double-prior20", ["research-breakout"]],
-  ["vp-up-expanded-confirm", ["research-volume-price"]],
-  ["wy-sos-daily", ["research-wyckoff"]],
-]);
-for (const [strategy, preset] of Object.entries({
-  ...volumeStudyBindings,
-  ...wyckoffStudyBindings,
-})) {
-  replayProxies.set(preset, [...(replayProxies.get(preset) ?? []), strategy]);
+/** Portfolio evidence comes from the single binding table. Legacy source
+ * checkpoints that predate a binding are still readable, but never turn into
+ * a proxy: the checkpoint keeps its own strategy identity. */
+const replayProxies = new Map<string, string[]>();
+for (const binding of methodPoolBindings) {
+  if (binding.kind === "entry-experiment") continue;
+  replayProxies.set(binding.preset, [
+    ...(replayProxies.get(binding.preset) ?? []),
+    binding.strategyId,
+  ]);
 }
 for (const strategy of cases.keys()) {
-  if (!strategy.startsWith("source-sw-")) continue;
+  if (bindingForStrategy(strategy) || !strategy.startsWith("source-")) continue;
   const preset = strategy.slice("source-".length);
   replayProxies.set(preset, [...(replayProxies.get(preset) ?? []), strategy]);
 }
 function evidence(ids: readonly string[]) {
   return [...new Set(ids)].flatMap((strategyId) => cases.get(strategyId) ?? []);
 }
-const isEntryStudy = (id: string) =>
-  id.startsWith("entry5-") || id === "research-growth";
-const markets = ["cn-equity", "crypto"] as const;
+const isEntryStudy = isEntryStudyStrategy;
+const markets = methodPoolMarkets;
+function runState(strategyId: string) {
+  const rows = cases.get(strategyId) ?? [];
+  if (rows.some((row) => row.status === "completed")) return "observed";
+  return rows.length ? "blocked" : "not-run";
+}
 function marketEvidence(ids: readonly string[]) {
   const matches = evidence(ids);
+  const bindings = ids.map((id) => bindingForStrategy(id));
+  const allBound = ids.length > 0 && bindings.every(Boolean);
+  const boundMarkets = new Set(
+    bindings.flatMap((binding) => binding?.markets ?? []),
+  );
   return Object.fromEntries(
     markets.map((market) => {
+      if (allBound && !boundMarkets.has(market))
+        return [
+          market,
+          {
+            status: "unbound",
+            runs: 0,
+            completedRuns: 0,
+            bothSidesRuns: 0,
+            buysOnlyRuns: 0,
+            zeroBuysRuns: 0,
+            blocked: [],
+          },
+        ];
       const rows = matches.filter((row) => row.market === market);
       const completed = rows.filter((row) => row.status === "completed");
       return [
@@ -139,15 +171,19 @@ function marketEvidence(ids: readonly string[]) {
               : rows.length
                 ? "blocked"
                 : "not-run",
-          completed: completed.length,
-          bothSides: completed.filter((row) => row.buys! > 0 && row.sells! > 0)
-            .length,
-          buysOnly: completed.filter((row) => row.buys! > 0 && row.sells === 0)
-            .length,
-          zeroBuys: completed.filter((row) => row.buys === 0).length,
+          runs: rows.length,
+          completedRuns: completed.length,
+          bothSidesRuns: completed.filter(
+            (row) => row.buys! > 0 && row.sells! > 0,
+          ).length,
+          buysOnlyRuns: completed.filter(
+            (row) => row.buys! > 0 && row.sells === 0,
+          ).length,
+          zeroBuysRuns: completed.filter((row) => row.buys === 0).length,
           blocked: rows
             .filter((row) => row.status === "blocked")
-            .map(({ strategyId, window, scenario, reason }) => ({
+            .map(({ identity, strategyId, window, scenario, reason }) => ({
+              identity,
               strategyId,
               window,
               scenario,
@@ -212,23 +248,44 @@ console.log(
       portfolios: [
         ...new Set([
           ...inventory.candidates,
-          ...Object.keys(volumeStudyBindings),
-          ...Object.keys(wyckoffStudyBindings),
+          ...methodPoolBindings
+            .filter(
+              (binding) =>
+                binding.kind === "proxy" || binding.kind === "protected",
+            )
+            .map((binding) => binding.strategyId),
           ...cases.keys(),
         ]),
       ]
         .filter((id) => !isEntryStudy(id))
-        .map((id) => ({
-          id,
-          marketEvidence: marketEvidence([id]),
-          cases: evidence([id]),
-        })),
+        .map((id) => {
+          const bindings = methodPoolBindings.filter(
+            (binding) => binding.strategyId === id,
+          );
+          return {
+            id,
+            bindingKinds: bindings.length
+              ? [...new Set(bindings.map((b) => b.kind))]
+              : [id.startsWith("source-") ? "source-exit" : "unbound"],
+            sourcePresets: [...new Set(bindings.map((b) => b.preset))],
+            registrationVersions: [
+              ...new Set(evidence([id]).map((row) => row.version)),
+            ],
+            marketEvidence: marketEvidence([id]),
+            cases: evidence([id]),
+          };
+        }),
       entryCompletion,
       signalStudies: entryIds.map((id) => ({
         id,
+        bindingKind: bindingForStrategy(id)?.kind ?? "entry-experiment",
+        registrationVersions: [
+          ...new Set(evidence([id]).map((row) => row.version)),
+        ],
         marketEvidence: marketEvidence([id]),
         cases: evidence([id]).map(
-          ({ market, window, scenario, status, buys, path }) => ({
+          ({ identity, market, window, scenario, status, buys, path }) => ({
+            identity,
             market,
             window,
             scenario,
@@ -242,14 +299,44 @@ console.log(
         const portfolios = method.presets.flatMap(
           (preset) => replayProxies.get(preset) ?? [],
         );
+        const portfolioBindings = [
+          ...new Map(
+            method.presets
+              .flatMap((preset) =>
+                (replayProxies.get(preset) ?? []).map((strategyId) => {
+                  const bound = bindingForStrategy(strategyId);
+                  const observedMarkets = [
+                    ...new Set(
+                      (cases.get(strategyId) ?? []).map((row) => row.market),
+                    ),
+                  ];
+                  return {
+                    preset,
+                    strategyId,
+                    // A legacy source checkpoint keeps its direct-run role;
+                    // only a real proxy/protected binding can say otherwise.
+                    kind:
+                      bound?.kind ??
+                      (strategyId.startsWith("source-")
+                        ? "source-exit"
+                        : "proxy"),
+                    markets: bound?.markets ?? observedMarkets,
+                    evidence: runState(strategyId),
+                  };
+                }),
+              )
+              .map((binding) => [binding.strategyId, binding] as const),
+          ).values(),
+        ];
         return {
           ...method,
           portfolios,
+          portfolioBindings,
           portfolioEvidenceByMarket: marketEvidence(portfolios),
           signalEvidenceByMarket: marketEvidence(
             method.batchIds.filter(isEntryStudy),
           ),
-          completedPortfolioCases: evidence(portfolios).filter(
+          completedPortfolioRuns: evidence(portfolios).filter(
             (row) => row.status === "completed",
           ).length,
           unmatchedPortfolioPresets: method.presets.filter(
@@ -262,7 +349,7 @@ console.log(
         portfolioEvidenceByMarket: marketEvidence(
           card.batchIds.filter((id) => !isEntryStudy(id)),
         ),
-        completedPortfolioCases: evidence(
+        completedPortfolioRuns: evidence(
           card.batchIds.filter((id) => !isEntryStudy(id)),
         ).filter((row) => row.status === "completed").length,
       })),

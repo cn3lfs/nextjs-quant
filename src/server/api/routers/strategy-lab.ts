@@ -14,6 +14,15 @@ import { labValidationReport } from "../../research/lab-report";
 import { researchCommandSchema } from "~/lib/research/research-command";
 import { background, runWorker } from "../../jobs/jobs";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
+import {
+  labPortfolioEvidenceHashSchema,
+  labPortfolioEvidenceImportSchema,
+} from "~/lib/research/lab-portfolio-evidence";
+import {
+  importLabPortfolioEvidence,
+  labPortfolioEvidenceDetail,
+  listLabPortfolioEvidence,
+} from "../../research/lab-portfolio-evidence";
 import { settings, saveSettings } from "../../infra/settings";
 import { AlertRepository } from "../../db/alert-repository";
 import { strategyObjectSchema } from "trading-strategies";
@@ -93,6 +102,15 @@ export const strategyLabRouter = createTRPCRouter({
         .strict(),
     )
     .query(({ input }) => labValidationReport(input.hash, input.id)),
+  strategyLabPortfolioEvidenceImport: p("research", "compute")
+    .input(labPortfolioEvidenceImportSchema)
+    .mutation(({ input }) => importLabPortfolioEvidence(input)),
+  strategyLabPortfolioEvidenceList: p("strategyCenter", "read").query(() =>
+    listLabPortfolioEvidence(),
+  ),
+  strategyLabPortfolioEvidenceDetail: p("strategyCenter", "read")
+    .input(labPortfolioEvidenceHashSchema)
+    .query(({ input }) => labPortfolioEvidenceDetail(input.hash)),
   researchCommand: p("research", "compute")
     .input(researchCommandSchema)
     .mutation(({ input }) =>

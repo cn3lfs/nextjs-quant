@@ -4,6 +4,11 @@ import {
   readResearchCheckpoint,
   researchJsonHash,
 } from "../src/server/research/research-run";
+import {
+  bindingForStrategy,
+  isEntryStudyStrategy,
+  isMethodPoolRegistrationVersion,
+} from "../src/lib/research/method-pool-bindings";
 
 type Row = {
   status: string;
@@ -26,7 +31,7 @@ const registration = JSON.parse(
   await readFile(join(root, `registration-${identity}.json`), "utf8"),
 );
 if (
-  registration.version !== "theory-study-ten-2" ||
+  !isMethodPoolRegistrationVersion(registration.version) ||
   researchJsonHash(registration) !== identity
 )
   throw new Error("Registration is not the frozen ten-position study");
@@ -43,9 +48,7 @@ for (const name of await readdir(root)) {
   const checkpoint = await readResearchCheckpoint<Row>(path, { identity, key });
   if (checkpoint) rows.push(checkpoint.row);
 }
-function isEntryStudy(id: string) {
-  return id.startsWith("entry5-") || id === "research-growth";
-}
+const isEntryStudy = isEntryStudyStrategy;
 const decisions = [];
 const pending = [];
 for (const market of registration.markets ?? ["cn-equity", "crypto"]) {
@@ -84,6 +87,13 @@ for (const market of registration.markets ?? ["cn-equity", "crypto"]) {
       market,
       strategyId,
       kind: isEntryStudy(strategyId) ? "entry-study" : "portfolio",
+      bindingKind:
+        bindingForStrategy(strategyId)?.kind ??
+        (isEntryStudy(strategyId)
+          ? "entry-experiment"
+          : strategyId.startsWith("source-")
+            ? "source-exit"
+            : "portfolio"),
       status,
     });
   }

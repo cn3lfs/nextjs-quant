@@ -7,9 +7,11 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   runPortfolio,
+  type PortfolioExecution,
   type PortfolioInstrument,
   type PortfolioRequest,
 } from "quant-backtest";
+import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { createPerformanceReport } from "quant-performance";
 import { strategyBuildHash } from "trading-strategies";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
@@ -23,6 +25,66 @@ import {
 import { settings } from "../infra/settings";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
 import { dailyEquity } from "~/lib/backtest/daily-equity";
+
+function isExecutionFact(
+  value: PortfolioInstrument["execution"],
+): value is PortfolioExecution {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Readonly<Record<string, unknown>>;
+  return (
+    typeof candidate.evidence === "string" &&
+    typeof candidate.minimum === "number"
+  );
+}
+
+/** Freeze the price and quantity assumptions actually handed to the engine.
+ * Board/limit facts remain scenario evidence, never historical certification. */
+function frozenMarketPolicy(
+  market: "cn-equity" | "crypto",
+  instruments: readonly PortfolioInstrument[],
+  theory: boolean,
+) {
+  const cells = new Set<string>();
+  for (const instrument of instruments) {
+    const execution = instrument.execution;
+    if (typeof execution === "function") {
+      cells.add("per-date");
+      continue;
+    }
+    if (isExecutionFact(execution)) {
+      cells.add(`${execution.minimum}/${execution.step}`);
+      continue;
+    }
+    for (const fact of Object.values(execution))
+      cells.add(`${fact.minimum ?? "unknown"}/${fact.step ?? "unknown"}`);
+  }
+  return {
+    signalBars:
+      market === "crypto"
+        ? "none（原始归档）"
+        : theory
+          ? "per-symbol GBBQ anchor（frozen.sources[].adjustmentId）"
+          : "forward（frozen.sources[].adjustment）",
+    executionBars: "raw（未复权原价，仅用原价成交）",
+    quantityGrid:
+      market === "cn-equity"
+        ? {
+            kind: "cn-board-research-scenario",
+            minimumStepCells: [...cells].sort(),
+            evidence:
+              "主板100/100，科创板200/1，创业板2020-08-24起100/100；历史ST/IPO/排队未认证",
+          }
+        : {
+            kind: "crypto-research-step",
+            minimumStepCells: [...cells].sort(),
+            evidence: "固定研究数量网格，非场所可成交量认证",
+          },
+    priceLimits:
+      market === "cn-equity"
+        ? "板块涨跌停研究情景；历史ST/IPO/排队未认证"
+        : "无涨跌停；场所过滤未认证",
+  };
+}
 
 export type LabBacktestWork = {
   type: "lab-backtest";
@@ -204,10 +266,17 @@ export async function executeLabBacktest(
         maxPositions: input.maxPositions,
       },
     ],
+    costs: researchExecutionCosts(strategy.market, input.costScenario),
   };
   const frozen = {
     request,
     sources,
+    costScenario: input.costScenario,
+    marketPolicy: frozenMarketPolicy(
+      strategy.market,
+      request.instruments,
+      !!theory,
+    ),
     strategyBuildHash,
     executionBuildHash: forwardExecutionBuildHash(),
     boundary:

@@ -41,3 +41,11 @@ it("offers explicit market and execution-period research presets", () => {
   expect(html).toContain("仅填入配置，不自动运行");
   expect(html).toContain("A股保持T+1");
 });
+
+it("offers the shared fixed, base and double-cost scenarios", () => {
+  const html = renderToStaticMarkup(createElement(LabBacktest));
+  expect(html).toContain('aria-label="交易成本情景"');
+  expect(html).toContain("fixed 等同本入口原默认费用");
+  expect(html).toContain("2023-08-28");
+  expect(html).toContain("默认 fixed");
+});

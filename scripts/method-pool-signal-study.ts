@@ -1,15 +1,15 @@
 import { resolve } from "node:path";
 import { methodPoolInventory, runTheoryStudy } from "./theory-study";
 import { writeResearchJsonAtomic } from "../src/server/research/research-run";
+import { entryStudyStrategyIds } from "../src/lib/research/method-pool-bindings";
 
 const [
   directory = ".test-data/method-pool-ten/signal-study",
   market = "default",
 ] = process.argv.slice(2);
 const inventory = await methodPoolInventory();
-const eligible = inventory.candidates.filter(
-  (id) => id.startsWith("entry5-") || id === "research-growth",
-);
+const runnable = new Set<string>(inventory.candidates);
+const eligible = entryStudyStrategyIds().filter((id) => runnable.has(id));
 const requested = process.argv[4]?.split(",");
 if (
   requested?.some((id) => !eligible.includes(id as (typeof eligible)[number]))
@@ -29,7 +29,7 @@ const result = await runTheoryStudy([
   "--market",
   market,
 ]);
-const rows = result.results as {
+const rows = result.results as unknown as {
   strategyId: string;
   market: string;
   status: string;
