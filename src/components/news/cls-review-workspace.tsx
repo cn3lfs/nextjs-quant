@@ -54,7 +54,14 @@ export function ClsReviewWorkspace() {
   } | null>(null);
   const [error, setError] = useState(""),
     [feedback, setFeedback] = useState(""),
+    [exportError, setExportError] = useState(""),
     [downloading, setDownloading] = useState(false);
+  const [lastExport, setLastExport] = useState<{
+    title: string;
+    versionNumber: number;
+    filename: string;
+  } | null>(null);
+  const downloadLock = useRef(false);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const returnTarget = useRef<HTMLButtonElement | null>(null);
@@ -170,32 +177,47 @@ export function ClsReviewWorkspace() {
     });
   }
   async function download() {
+    if (downloadLock.current) return;
+    downloadLock.current = true;
     const id = selected;
+    const title = report.data?.report.title ?? id;
     let objectUrl: string | undefined;
     setDownloading(true);
+    setExportError("");
     try {
       const value = await utils.clsReviewExportAll.fetch(id);
-      if (!value.report) throw new Error("报告已不存在");
+      if (!value.report)
+        throw new Error("报告已不存在，未发起下载");
+      if (value.report.id !== id)
+        throw new Error("服务端返回的报告与请求不一致，未发起下载");
       const link = document.createElement("a");
       objectUrl = URL.createObjectURL(
         new Blob([JSON.stringify(value)], { type: "application/json" }),
       );
+      const filename = `cls-review-${value.report.report.reportDate ?? "unknown-date"}-v${value.report.versionNumber}-${value.report.report.hash.slice(0, 10)}.json`;
       link.href = objectUrl;
-      link.download = `cls-review-${value.report.report.reportDate ?? "unknown-date"}-v${value.report.versionNumber}-${value.report.report.hash.slice(0, 10)}.json`;
+      link.download = filename;
       link.click();
-      setError("");
-      setFeedback("完整报告与全部关联复盘已导出");
+      setLastExport({
+        title: value.report.report.title,
+        versionNumber: value.report.versionNumber,
+        filename,
+      });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "导出失败");
+      setExportError(
+        `导出「${title}」失败：${cause instanceof Error ? cause.message : "未知原因"}`,
+      );
     } finally {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       try {
         await utils.clsReviewExportAll.reset(id);
       } catch {
-        setError(
-          (current) => current || "导出缓存清理失败，请刷新页面后重试。",
+        setExportError(
+          (current) =>
+            current || `「${title}」导出缓存清理失败，请刷新页面后重试。`,
         );
       } finally {
+        downloadLock.current = false;
         setDownloading(false);
       }
     }
@@ -237,6 +259,12 @@ export function ClsReviewWorkspace() {
         <p role="status" className="text-sm">
           {feedback}
         </p>
+        {lastExport && (
+          <p role="status" className="text-sm text-nc-text-3">
+            {`最近一次已发起下载：「${lastExport.title}」v${lastExport.versionNumber} · ${lastExport.filename}`}
+          </p>
+        )}
+        {exportError && <ClsError error={{ message: exportError }} />}
         <ClsError error={error ? { message: error } : null} />
         <details>
           <summary className="cursor-pointer text-sm">

@@ -7,13 +7,22 @@ import { dirname } from "node:path";
 import { chromium, expect } from "@playwright/test";
 
 const api = `
-const report={versionNumber:1,importedAt:1,sourcePath:'fixture',size:1,observedAt:1,
- report:{title:'合成报告',reportDate:'2026-11-13',hash:'a'.repeat(64),warnings:[],markdown:'fixture'}};
-const data={clsReviewExport:report,tradeWorkspaceEnvironment:{today:'2026-11-13',mockEnabled:false},
+const reports={
+ 'report-a':{id:'report-a',versionNumber:3,importedAt:1,sourcePath:'fixture-a',size:1,observedAt:1,
+  report:{title:'合成报告 A',reportDate:'2026-11-01',hash:'a'.repeat(64),warnings:[],markdown:'fixture A'}},
+ 'report-b':{id:'report-b',versionNumber:7,importedAt:1,sourcePath:'fixture-b',size:1,observedAt:1,
+  report:{title:'合成报告 B',reportDate:'2026-11-02',hash:'b'.repeat(64),warnings:[],markdown:'fixture B'}},
+};
+const data={clsReviewExport:reports['report-a'],tradeWorkspaceEnvironment:{today:'2026-11-13',mockEnabled:false},
  tradeWorkspacePage:{version:'fixture',summary:{count:0,buys:0,sells:0,fees:0},items:[],nextCursor:null}};
 const utils=new Proxy({}, {get:(_,name)=>({
- fetch:async()=>{window.fetchCalls++;if(window.fetchFailure)throw Error('合成导出失败');
-  return name==='clsReviewExportAll'?{report}:{filename:'fixture.json',mime:'application/json',content:'{}',count:0};},
+ fetch:async(id)=>{window.fetchCalls++;window.fetchIds.push(id);
+  if(window.holdFetch)await new Promise((resolve)=>{window.releaseFetch=resolve});
+  if(window.fetchFailure)throw Error('合成导出失败');
+  if(name!=='clsReviewExportAll')return {filename:'fixture.json',mime:'application/json',content:'{}',count:0};
+  if(window.exportMode==='empty')return {report:null};
+  if(window.exportMode==='mismatch')return {report:reports['report-b']};
+  return {report:reports[id]??null};},
  reset:()=>{window.resetCalls++;return new Promise((resolve,reject)=>{window.resolveReset=resolve;window.rejectReset=reject})},
  invalidate:async()=>{},setData:()=>{},
 })});
@@ -26,7 +35,8 @@ const bundle = await build({
     contents: `import React from 'react';import {createRoot} from 'react-dom/client';
 import {ClsReviewWorkspace} from './src/components/news/cls-review-workspace';
 import {TradeLedgerPanel} from './src/components/portfolio/trade-ledger-panel';
-window.fetchCalls=0;window.resetCalls=0;window.downloads=0;window.revoked=0;
+window.fetchCalls=0;window.resetCalls=0;window.fetchIds=[];window.exportMode='ok';window.holdFetch=false;
+window.downloads=0;window.revoked=0;
 HTMLAnchorElement.prototype.click=function(){window.downloads++};
 URL.createObjectURL=()=> 'blob:fixture';URL.revokeObjectURL=()=>{window.revoked++};
 createRoot(document.getElementById('root')).render(location.pathname==='/intel/review'?<ClsReviewWorkspace/>:<TradeLedgerPanel/>);`,
@@ -69,7 +79,7 @@ createRoot(document.getElementById('root')).render(location.pathname==='/intel/r
           path: "api",
           namespace: "fixture",
         }));
-        b.onResolve({ filter: /^~\/app\/trade-ledger\/actions$/ }, () => ({
+        b.onResolve({ filter: /^~\/app\/(?:accounts|trade-ledger)\/actions$/ }, () => ({
           path: "actions",
           namespace: "fixture",
         }));
@@ -142,9 +152,16 @@ let browser;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true });
   for (const [path, label] of [
-    ["/intel/review?clsReport=fixture&clsTab=info", "导出报告与全部关联复盘"],
+    ["/intel/review?clsReport=report-a&clsTab=info", "导出报告与全部关联复盘"],
     ["/accounts?view=history", "导出筛选全集 JSON"],
   ]) {
+    const review = path.startsWith("/intel/review"),
+      cleanupText = review
+        ? "「合成报告 A」导出缓存清理失败，请刷新页面后重试。"
+        : "导出缓存清理失败，请刷新页面后重试。",
+      failureText = review
+        ? "导出「合成报告 A」失败：合成导出失败"
+        : "合成导出失败";
     const page = await browser.newPage(),
       errors = [];
     page.on("pageerror", (error) => {
@@ -165,7 +182,7 @@ try {
       await button.click();
       await page.waitForFunction((n) => window.resetCalls === n, before + 1);
       // The CLS control changes its text while pending.
-      const pending = path.startsWith("/intel/review")
+      const pending = review
         ? page.getByRole("button", { name: "正在导出…", exact: true })
         : button;
       await expect(pending).toBeDisabled();
@@ -176,13 +193,11 @@ try {
       await expect(button).toBeEnabled();
       if (outcome === "reject")
         await expect(
-          page.getByText("导出缓存清理失败，请刷新页面后重试。", {
-            exact: true,
-          }),
+          page.getByText(cleanupText, { exact: true }),
         ).toBeVisible();
       if (outcome === "both-fail")
         await expect(
-          page.getByText("合成导出失败", { exact: true }),
+          page.getByText(failureText, { exact: true }),
         ).toBeVisible();
     }
     assert.deepEqual(
@@ -195,7 +210,186 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log(JSON.stringify({ ok: true, components: 2, cleanupScenarios: 6 }));
+
+  const page = await browser.newPage(),
+    errors = [];
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+    console.error(error.message);
+  });
+  await page.route("**/*", (route) =>
+    route.request().url().startsWith(base) ? route.continue() : route.abort(),
+  );
+  await page.goto(base + "/intel/review?clsReport=report-a&clsTab=info");
+  const button = page.getByRole("button", {
+      name: "导出报告与全部关联复盘",
+      exact: true,
+    }),
+    receipt = page.getByText(/最近一次已发起下载/);
+  await expect(button).toBeEnabled();
+  const counters = () =>
+    page.evaluate(() => ({
+      fetch: window.fetchCalls,
+      reset: window.resetCalls,
+      downloads: window.downloads,
+    }));
+
+  // Report A stays in flight while the user switches to B via popstate. The
+  // page starts with no receipt, so the one that appears must be A's.
+  let before = await counters();
+  await page.evaluate(() => {
+    window.holdFetch = true;
+  });
+  await button.click();
+  await page.waitForFunction((n) => window.fetchCalls > n, before.fetch);
+  await page.evaluate(() => {
+    history.pushState(null, "", "/intel/review?clsReport=report-b&clsTab=info");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await page.waitForFunction(() =>
+    location.search.includes("clsReport=report-b"),
+  );
+  await page.evaluate(() => {
+    window.holdFetch = false;
+    window.releaseFetch();
+  });
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() => window.resolveReset());
+  await expect(button).toBeEnabled();
+  assert.deepEqual(
+    await page.evaluate(() => window.fetchIds.slice()),
+    ["report-a"],
+  );
+  await expect(receipt).toContainText("合成报告 A");
+  await expect(receipt).toContainText(
+    "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
+  );
+
+  // Switch the selection back to A before the remaining exports.
+  await page.evaluate(() => {
+    history.pushState(null, "", "/intel/review?clsReport=report-a&clsTab=info");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await page.waitForFunction(() =>
+    location.search.includes("clsReport=report-a"),
+  );
+
+  // Same-tick double activation issues exactly one fetch and one cleanup.
+  before = await counters();
+  await page.evaluate(() => {
+    const target = [...document.querySelectorAll("button")].find(
+      (candidate) => candidate.textContent === "导出报告与全部关联复盘",
+    );
+    target.click();
+    target.click();
+  });
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() => window.resolveReset());
+  await expect(button).toBeEnabled();
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      fetch: window.fetchCalls,
+      reset: window.resetCalls,
+    })),
+    { fetch: before.fetch + 1, reset: before.reset + 1 },
+  );
+  await expect(receipt).toContainText("合成报告 A");
+  await expect(receipt).toContainText(
+    "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
+  );
+
+  // A mismatched response is rejected before any Blob or download.
+  before = await counters();
+  await page.evaluate(() => {
+    window.exportMode = "mismatch";
+  });
+  await button.click();
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() => window.resolveReset());
+  await expect(button).toBeEnabled();
+  await expect(
+    page.getByText(
+      "导出「合成报告 A」失败：服务端返回的报告与请求不一致，未发起下载",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  assert.equal(
+    (await counters()).downloads,
+    before.downloads,
+    "mismatched report must not download",
+  );
+  await expect(receipt).toContainText("合成报告 A");
+  await expect(receipt).toContainText(
+    "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
+  );
+
+  // An empty response is rejected without touching the receipt.
+  before = await counters();
+  await page.evaluate(() => {
+    window.exportMode = "empty";
+  });
+  await button.click();
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() => window.resolveReset());
+  await expect(button).toBeEnabled();
+  await expect(
+    page.getByText("导出「合成报告 A」失败：报告已不存在，未发起下载", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  assert.equal((await counters()).downloads, before.downloads);
+  await expect(receipt).toContainText("合成报告 A");
+
+  // A later failure does not erase the previous successful receipt.
+  before = await counters();
+  await page.evaluate(() => {
+    window.exportMode = "ok";
+    window.fetchFailure = true;
+  });
+  await button.click();
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() => window.resolveReset());
+  await expect(button).toBeEnabled();
+  await expect(
+    page.getByText("导出「合成报告 A」失败：合成导出失败", { exact: true }),
+  ).toBeVisible();
+  await expect(receipt).toContainText("合成报告 A");
+  await expect(receipt).toContainText(
+    "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
+  );
+  await page.evaluate(() => {
+    window.fetchFailure = false;
+  });
+
+  // A cleanup failure after a successful download keeps that receipt too.
+  before = await counters();
+  await button.click();
+  await page.waitForFunction((n) => window.resetCalls > n, before.reset);
+  await page.evaluate(() =>
+    window.rejectReset(Error("fixture cleanup rejection")),
+  );
+  await expect(button).toBeEnabled();
+  await expect(
+    page.getByText("「合成报告 A」导出缓存清理失败，请刷新页面后重试。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(receipt).toContainText("合成报告 A");
+  await expect(receipt).toContainText(
+    "cls-review-2026-11-01-v3-aaaaaaaaaa.json",
+  );
+  assert.equal((await counters()).downloads, before.downloads + 1);
+  assert.deepEqual(errors, []);
+  await page.close();
+
+  console.log(
+    JSON.stringify({
+      ok: true,
+      components: 2,
+      cleanupScenarios: 6,
+      exportScenarios: 6,
+    }),
+  );
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));
