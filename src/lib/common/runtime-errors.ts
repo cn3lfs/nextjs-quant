@@ -1,3 +1,7 @@
+/** Task identifiers accepted by diagnostics; the original case is kept in storage and filters. */
+export const jobIdPattern =
+  /^job-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Only reviewed summaries cross the diagnostics boundary; never raw provider errors. */
 export const runtimeErrorEvents = {
   "alert-engine": {

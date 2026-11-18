@@ -22,6 +22,7 @@ import { jobSummaries } from "../../db/job-summaries";
 import { taskHistory, taskState } from "../../db/task-history";
 import { taskOverview } from "../../db/task-overview";
 import { taskHistoryInput } from "~/lib/research/workflow/task-history";
+import { jobIdPattern } from "~/lib/common/runtime-errors";
 import { readScreenResultPage } from "../../db/screen-result-pages";
 import { z } from "zod";
 import { periodSchema, type Coverage } from "~/lib/domain";
@@ -232,7 +233,9 @@ export const jobsRouter = createTRPCRouter({
     }),
   jobs: p("tasks", "read").query(() => jobSummaries()),
   taskOverview: p("tasks", "read").query(() => taskOverview()),
-  recentErrors: p("tasks", "read").query(() => recentRuntimeErrors()),
+  recentErrors: p("tasks", "read")
+    .input(z.object({ jobId: z.string().regex(jobIdPattern) }).optional())
+    .query(({ input }) => recentRuntimeErrors(input?.jobId)),
   taskHistory: p("tasks", "read")
     .input(taskHistoryInput)
     .query(({ input }) => taskHistory(input)),

@@ -1,4 +1,5 @@
 "use client";
+import { useRef, useState } from "react";
 import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { TaskHistory } from "./task-history";
 import { PageGrid, Panel, StatsPanel } from "../panels";
@@ -10,6 +11,14 @@ import { RecentErrors } from "./recent-errors";
 export function TaskCenter() {
   const overview = useTaskOverview();
   const counts = overview.data;
+  // The panel keeps one query; a task id narrows it in place and `focus()`
+  // runs in the click event so repeated clicks cannot be lost to a render.
+  const [errorJobId, setErrorJobId] = useState<string | undefined>();
+  const errorsPanel = useRef<HTMLDivElement>(null);
+  const viewTaskErrors = (id: string) => {
+    setErrorJobId(id);
+    errorsPanel.current?.focus();
+  };
   return (
     <PageGrid>
       <StatsPanel
@@ -62,9 +71,14 @@ export function TaskCenter() {
         <TaskHistory
           overview={counts}
           refreshOverview={() => void overview.refetch()}
+          onViewErrors={viewTaskErrors}
         />
       </Panel>
-      <RecentErrors />
+      <RecentErrors
+        jobId={errorJobId}
+        onClear={() => setErrorJobId(undefined)}
+        focusRef={errorsPanel}
+      />
     </PageGrid>
   );
 }

@@ -4,6 +4,7 @@ import { existsSync, lstatSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { dataDirectory } from "../db";
 import {
+  jobIdPattern,
   runtimeErrorEvents,
   type RuntimeErrorEvent,
   type RuntimeErrorEntry,
@@ -32,8 +33,9 @@ const codes = new Set([
   "UNEXPECTED_ERROR",
 ]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const jobIdPattern =
-  /^job-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const entryColumns =
+  "id,event,code,firstSeen,lastSeen,count,retryCount,jobId,requestId";
+const entryOrder = "ORDER BY lastSeen DESC,id DESC LIMIT 30";
 const scope = globalThis as typeof globalThis & {
   quantErrorLosses?: Map<string, number>;
 };
@@ -176,10 +178,13 @@ export function recordRuntimeError(
   }
 }
 
-export function recentRuntimeErrors(): RuntimeErrorReport {
+export function recentRuntimeErrors(jobId?: string): RuntimeErrorReport {
   let db: Database.Database | undefined;
   const path = location();
   const unrecordedInThisProcess = losses.get(path) ?? 0;
+  // `undefined` is the global view; any supplied value stays exact, so empty or
+  // malformed internal identifiers cannot silently widen the scope.
+  const scoped = jobId !== undefined;
   try {
     assertRegularPath(path);
     if (!existsSync(path))
@@ -189,11 +194,15 @@ export function recentRuntimeErrors(): RuntimeErrorReport {
         unrecordedInThisProcess,
       };
     db = openLog(path, true);
-    const rows = db
-      .prepare(
-        "SELECT id,event,code,firstSeen,lastSeen,count,retryCount,jobId,requestId FROM errors ORDER BY lastSeen DESC,id DESC LIMIT 30",
-      )
-      .all() as Omit<RuntimeErrorEntry, "module" | "stage" | "summary">[];
+    const statement = scoped
+      ? db.prepare(
+          `SELECT ${entryColumns} FROM errors WHERE jobId = ? ${entryOrder}`,
+        )
+      : db.prepare(`SELECT ${entryColumns} FROM errors ${entryOrder}`);
+    const rows = (scoped ? statement.all(jobId) : statement.all()) as Omit<
+      RuntimeErrorEntry,
+      "module" | "stage" | "summary"
+    >[];
     const entries = rows.map((row) => {
       if (
         !uuid.test(row.id) ||

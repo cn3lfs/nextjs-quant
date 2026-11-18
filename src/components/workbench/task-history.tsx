@@ -15,6 +15,7 @@ import {
   Square,
 } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
+import { jobIdPattern } from "~/lib/common/runtime-errors";
 import {
   taskAge,
   taskStamp,
@@ -64,6 +65,7 @@ export function TaskDetails({
   cancelling,
   cancelError,
   cancelNotice,
+  onViewErrors,
 }: {
   data?: TaskState | null;
   pending: boolean;
@@ -73,6 +75,7 @@ export function TaskDetails({
   cancelling: boolean;
   cancelError?: string;
   cancelNotice?: string;
+  onViewErrors?: (id: string) => void;
 }) {
   return (
     <div className="space-y-3 text-sm">
@@ -119,6 +122,15 @@ export function TaskDetails({
                   <Link href={data.sourceLink.href} prefetch={false}>
                     {data.sourceLink.label}
                   </Link>
+                </Button>
+              )}
+              {!error && onViewErrors && jobIdPattern.test(data.id) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewErrors(data.id)}
+                >
+                  查看此任务的最近错误
                 </Button>
               )}
               <Button
@@ -229,9 +241,11 @@ export function TaskDetails({
 export function TaskHistory({
   overview,
   refreshOverview,
+  onViewErrors,
 }: {
   overview?: RouterOutputs["taskOverview"];
   refreshOverview?: () => void;
+  onViewErrors?: (id: string) => void;
 } = {}) {
   const search = useSearchParams();
   const location = readTaskHistoryLocation(search.toString());
@@ -642,6 +656,7 @@ export function TaskHistory({
                         cancelling={!!cancelStates[job.id]?.pending}
                         cancelError={cancelStates[job.id]?.error}
                         cancelNotice={cancelStates[job.id]?.notice}
+                        onViewErrors={onViewErrors}
                       />
                     )}
                   </section>

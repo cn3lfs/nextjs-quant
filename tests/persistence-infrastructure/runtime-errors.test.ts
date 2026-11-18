@@ -28,7 +28,13 @@ afterEach(() => {
 });
 
 it("reads an empty installation without creating a log or opening the business database", () => {
+  const jobId = `job-${randomUUID()}`;
   expect(recentRuntimeErrors()).toEqual({
+    entries: [],
+    available: true,
+    unrecordedInThisProcess: 0,
+  });
+  expect(recentRuntimeErrors(jobId)).toEqual({
     entries: [],
     available: true,
     unrecordedInThisProcess: 0,
@@ -178,7 +184,67 @@ it("leaves corrupt files untouched and reports unreadable instead of an empty su
   writeFileSync(file(), "invalid database");
   expect(recordRuntimeError("job-run", new Error())).toBe(false);
   expect(recentRuntimeErrors().available).toBe(false);
+  expect(recentRuntimeErrors(`job-${randomUUID()}`).available).toBe(false);
   expect(readFileSync(file(), "utf8")).toBe("invalid database");
+});
+
+it("filters one exact task before the shared limit without changing global reads", () => {
+  vi.useFakeTimers();
+  const start = Date.UTC(2026, 10, 13);
+  // Fixed uppercase hex keeps this fixture valid and case-sensitive by design.
+  const target = "job-ABCDEF01-2345-4678-9ABC-DEF012345678";
+  const other = "job-12345678-9abc-4def-8123-456789abcdef";
+  vi.setSystemTime(start);
+  expect(
+    recordRuntimeError("job-run", { code: "SQLITE_BUSY" }, { jobId: target }),
+  ).toBe(true);
+  // Same event, code and minute from a different task: it must not appear
+  // under the exact target.
+  expect(
+    recordRuntimeError("job-run", { code: "SQLITE_BUSY" }, { jobId: other }),
+  ).toBe(true);
+  expect(recordRuntimeError("job-run", { code: "SQLITE_BUSY" })).toBe(true);
+  const atStart = recentRuntimeErrors(target);
+  expect(atStart).toMatchObject({
+    available: true,
+    entries: [
+      expect.objectContaining({
+        jobId: target,
+        event: "job-run",
+        code: "SQLITE_BUSY",
+        count: 1,
+      }),
+    ],
+  });
+  // Push the exact task outside the global newest 30 groups.
+  for (let n = 1; n <= 35; n++) {
+    vi.setSystemTime(start + n * 60000);
+    expect(recordRuntimeError("scheduler-tick", { code: "ETIMEDOUT" })).toBe(
+      true,
+    );
+  }
+  const global = recentRuntimeErrors();
+  expect(global.entries).toHaveLength(30);
+  expect(global.entries.some((entry) => entry.jobId === target)).toBe(false);
+  const scoped = recentRuntimeErrors(target);
+  expect(scoped.entries).toEqual([
+    expect.objectContaining({
+      jobId: target,
+      event: "job-run",
+      code: "SQLITE_BUSY",
+      firstSeen: start,
+      lastSeen: start,
+      count: 1,
+    }),
+  ]);
+  // The exact identifier stays case-sensitive and invalid internal ids never
+  // widen to the global view.
+  expect(recentRuntimeErrors(target.toLowerCase()).entries).toEqual([]);
+  expect(recentRuntimeErrors(other.toUpperCase()).entries).toEqual([]);
+  expect(recentRuntimeErrors("").entries).toEqual([]);
+  expect(recentRuntimeErrors("job-not-a-uuid").entries).toEqual([]);
+  expect(recentRuntimeErrors()).toEqual(global);
+  expect(existsSync(join(root, "quant.sqlite"))).toBe(false);
 });
 
 it("fails softly on a busy writer, then records later failures after the lock is released", () => {

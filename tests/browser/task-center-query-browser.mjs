@@ -20,7 +20,7 @@ const f=window.taskFixture;
 function query(name){return {useQuery(input,options){return useQuery({queryKey:[name,input],retry:false,...options,queryFn:async()=>{
  f.requests.push({name,input,at:Date.now()});
  if(f.fail===name)throw Error('受控离线');
- if(name==='recentErrors')return structuredClone(f.recentErrors??{entries:[],available:true,unrecordedInThisProcess:0});
+ if(name==='recentErrors'){const scoped=input&&input.jobId!==undefined;return structuredClone(scoped?(f.recentErrorsByJob?.[input.jobId]??{entries:[],available:true,unrecordedInThisProcess:0}):(f.recentErrors??{entries:[],available:true,unrecordedInThisProcess:0}))}
  if(name==='taskOverview')return {total:items.length,running:items.filter(i=>i.status==='running').length,queued:items.filter(i=>i.status==='queued').length,failed:items.filter(i=>i.status==='failed').length,cancelled:items.filter(i=>i.status==='cancelled').length,completedToday:0,revision:f.revision,checkedAt:Date.now()};
  if(name==='taskHistory'){if(f.holdHistory)await new Promise(resolve=>f.releaseHistory=resolve);const filtered=items.filter(i=>(!input.status||i.status===input.status)&&(!input.type||i.type===input.type)&&(!input.id||i.id===input.id));const list=filtered.filter(i=>!input.cursor||i.createdAt<input.cursor.createdAt||(i.createdAt===input.cursor.createdAt&&i.id<input.cursor.id));const page=list.slice(0,20);return structuredClone({items:page,total:filtered.length,nextCursor:list.length>20?{createdAt:page.at(-1).createdAt,id:page.at(-1).id}:null})}
  if(name==='taskState'){const row=items.find(i=>i.id===input.id);return row?structuredClone({...row,sourceLink:{href:'/scan?tab=formula',label:'前往来源页重新配置'}}):null}
@@ -753,6 +753,240 @@ try {
     /状态或类型筛选也会影响结果/,
   );
   assert.deepEqual(await expandedIds(), []);
+  // R2: diagnostics scoped from confirmed task details; every R1 assertion above stays.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const jobA = "job-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const jobB = "job-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const scopedErrorRequests = () =>
+    page.evaluate(() =>
+      window.taskFixture.requests.filter(
+        (request) =>
+          request.name === "recentErrors" && request.input !== undefined,
+      ),
+    );
+  assert.equal((await scopedErrorRequests()).length, 0);
+  await page.getByRole("button", { name: "清除筛选", exact: true }).click();
+  await rows.first().waitFor();
+  assert.equal(await page.evaluate(() => location.search), "");
+  await page.evaluate(
+    ({ jobA, jobB }) => {
+      const now = Date.now();
+      const entry = (id, jobId, summary) => ({
+        id,
+        event: "job-run",
+        module: "后台任务",
+        stage: "执行",
+        summary,
+        code: "SQLITE_BUSY",
+        firstSeen: now,
+        lastSeen: now,
+        count: 1,
+        retryCount: 0,
+        jobId,
+        requestId: null,
+      });
+      window.taskFixture.items.unshift(
+        {
+          id: jobB,
+          type: "research",
+          status: "completed",
+          progress: 100,
+          phase: "阶段 B",
+          createdAt: now + 1000000,
+          updatedAt: now + 1000000,
+        },
+        {
+          id: jobA,
+          type: "research",
+          status: "completed",
+          progress: 100,
+          phase: "阶段 A",
+          createdAt: now + 2000000,
+          updatedAt: now + 2000000,
+        },
+      );
+      window.taskFixture.recentErrors = {
+        available: true,
+        unrecordedInThisProcess: 0,
+        entries: [entry("error-global", jobB, "全局保留记录")],
+      };
+      window.taskFixture.recentErrorsByJob = {
+        [jobA]: {
+          available: true,
+          unrecordedInThisProcess: 0,
+          entries: [entry("error-a", jobA, "任务 A 的保留记录")],
+        },
+        [jobB]: {
+          available: true,
+          unrecordedInThisProcess: 0,
+          entries: [entry("error-b", jobB, "任务 B 的保留记录")],
+        },
+      };
+    },
+    { jobA, jobB },
+  );
+  await page.getByRole("button", { name: "刷新任务", exact: true }).click();
+  await page.locator(`#task-trigger-${jobA}`).waitFor();
+  const errorsSection = page.locator('section[aria-label="最近错误"]');
+  const errorsFocus = (id) =>
+    page.waitForFunction(
+      (jobId) =>
+        document.activeElement?.matches(
+          'section[aria-label="最近错误"] [tabindex="-1"]',
+        ) &&
+        window.taskFixture.requests.some(
+          (request) =>
+            request.name === "recentErrors" &&
+            request.input?.jobId === jobId,
+        ),
+      id,
+    );
+  const urlBeforeScope = await page.evaluate(
+    () => location.pathname + location.search,
+  );
+  await page.locator(`#task-trigger-${jobA}`).click();
+  const buttonA = page
+    .locator(`#task-detail-${jobA}`)
+    .getByRole("button", { name: "查看此任务的最近错误", exact: true });
+  await buttonA.waitFor();
+  assert.equal((await scopedErrorRequests()).length, 0);
+  await buttonA.click();
+  await errorsFocus(jobA);
+  assert.deepEqual((await scopedErrorRequests()).at(-1).input, { jobId: jobA });
+  await errorsSection.getByText(jobA, { exact: true }).waitFor();
+  await errorsSection
+    .getByText("按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。", {
+      exact: true,
+    })
+    .waitFor();
+  await errorsSection.getByText("任务 A 的保留记录", { exact: true }).waitFor();
+  assert.equal(
+    await errorsSection.getByRole("link", { name: "查看关联任务" }).count(),
+    0,
+  );
+  assert.deepEqual(await expandedIds(), [`task-trigger-${jobA}`]);
+  assert.equal(await rows.count(), 20);
+  assert.equal(
+    await page.evaluate(() => location.pathname + location.search),
+    urlBeforeScope,
+  );
+  // The same task asked again focuses the panel without another read.
+  await buttonA.click();
+  await page.waitForTimeout(50);
+  assert.equal((await scopedErrorRequests()).length, 1);
+  assert.equal(
+    await page.evaluate(() =>
+      document.activeElement?.matches(
+        'section[aria-label="最近错误"] [tabindex="-1"]',
+      ),
+    ),
+    true,
+  );
+  // Switching tasks requests that exact id and never shows the previous rows.
+  await page.locator(`#task-trigger-${jobB}`).click();
+  const buttonB = page
+    .locator(`#task-detail-${jobB}`)
+    .getByRole("button", { name: "查看此任务的最近错误", exact: true });
+  await buttonB.waitFor();
+  await buttonB.click();
+  await errorsFocus(jobB);
+  assert.deepEqual((await scopedErrorRequests()).at(-1).input, { jobId: jobB });
+  await errorsSection.getByText(jobB, { exact: true }).waitFor();
+  await errorsSection.getByText("任务 B 的保留记录", { exact: true }).waitFor();
+  assert.equal(
+    await errorsSection.getByText("任务 A 的保留记录", { exact: true }).count(),
+    0,
+  );
+  const jobBReads = (await scopedErrorRequests()).filter(
+    (request) => request.input?.jobId === jobB,
+  ).length;
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await page.waitForFunction(
+    ([id, count]) =>
+      window.taskFixture.requests.filter(
+        (request) =>
+          request.name === "recentErrors" && request.input?.jobId === id,
+      ).length > count,
+    [jobB, jobBReads],
+  );
+  assert.equal(
+    (await scopedErrorRequests()).at(-1).input.jobId,
+    jobB,
+    "Refresh keeps the current task scope",
+  );
+  await page.evaluate(() => (window.taskFixture.fail = "recentErrors"));
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await page
+    .getByText("错误记录未刷新，请稍后重试。下方保留上次读取结果。", {
+      exact: true,
+    })
+    .waitFor();
+  await errorsSection.getByText("任务 B 的保留记录", { exact: true }).waitFor();
+  await page.evaluate(() => (window.taskFixture.fail = null));
+  await page.evaluate((id) => {
+    window.taskFixture.recentErrorsByJob[id] = {
+      entries: [],
+      available: true,
+      unrecordedInThisProcess: 0,
+    };
+  }, jobB);
+  await page.getByRole("button", { name: "刷新错误", exact: true }).click();
+  await errorsSection
+    .getByText("此任务暂无保留的错误记录。", { exact: true })
+    .waitFor();
+  assert.equal(
+    await errorsSection.getByText("暂无已记录的后台错误。", { exact: true }).count(),
+    0,
+  );
+  const globalReads = await page.evaluate(
+    () =>
+      window.taskFixture.requests.filter(
+        (request) =>
+          request.name === "recentErrors" && request.input === undefined,
+      ).length,
+  );
+  await page.getByRole("button", { name: "查看全部错误", exact: true }).click();
+  await page.waitForFunction(
+    (count) =>
+      window.taskFixture.requests.filter(
+        (request) =>
+          request.name === "recentErrors" && request.input === undefined,
+      ).length > count,
+    globalReads,
+  );
+  await errorsSection.getByText("全局保留记录", { exact: true }).waitFor();
+  assert.equal(
+    await errorsSection
+      .getByText("按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。", {
+        exact: true,
+      })
+      .count(),
+    0,
+  );
+  assert.equal(await errorsSection.getByText(jobB, { exact: true }).count(), 0);
+  assert.equal(
+    await errorsSection
+      .getByRole("link", { name: "查看关联任务" })
+      .getAttribute("href"),
+    `/system/tasks?id=${jobB}&detail=1`,
+  );
+  assert.equal(
+    await page.evaluate(() => location.pathname + location.search),
+    urlBeforeScope,
+  );
+  // Tasks whose ids cannot appear in diagnostics get no scoped entry.
+  await page.locator("#task-trigger-query-084").click();
+  await page
+    .locator("#task-detail-query-084")
+    .getByRole("button", { name: "刷新详情" })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator("#task-detail-query-084")
+      .getByRole("button", { name: "查看此任务的最近错误", exact: true })
+      .count(),
+    0,
+  );
   assert.deepEqual(errors, []);
   if (dir)
     writeFileSync(
