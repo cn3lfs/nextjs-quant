@@ -66,6 +66,8 @@ export function effectiveExposureCaps(
 export const accountPageSchema = z.object({
   page: z.number().int().min(0).max(1000000).default(0),
   kind: z.enum(["real", "paper", "exchange-simulation", "all"]).default("real"),
+  /** Real accounts only; other kinds normalize to all server-side. */
+  source: z.enum(["all", "delivery", "local"]).default("all"),
   market: z.enum(["cn-equity", "crypto", "all"]).default("all"),
   sleeve: z.string().max(100).default(""),
   group: z.enum(["market", "sleeve", "kind"]).default("market"),

@@ -731,6 +731,88 @@ it("includes closed trades in source linking and reviews the manual ledger witho
     s.db.close();
   }
 });
+it("filters real positions by delivery/local id prefix and ignores source for other kinds", async () => {
+  const s = seed();
+  try {
+    const book = await s.load(),
+      delivery = book.positions[0]!;
+    book.positions.push(
+      // Same display account and symbol as the delivery row: only the id
+      // prefix separates the manual ledger, and its valuation is unknown.
+      {
+        ...delivery,
+        id: "local:sh600000",
+        account: delivery.account,
+        value: null,
+        price: null,
+        cost: null,
+        industryGroups: [],
+      },
+      {
+        ...delivery,
+        id: "demo:usdt",
+        account: "demo",
+        kind: "exchange-simulation",
+        market: "crypto",
+        currency: "USDT",
+        industry: "数字货币",
+        industryGroups: [],
+        value: 500,
+      },
+    );
+    const ids = (input: Parameters<typeof pageAccountBook>[1]) =>
+      pageAccountBook(book, input)
+        .items.map((i) => i.id)
+        .sort();
+    expect(ids({})).toEqual(ids({ source: "all" }));
+    expect(ids({ source: "delivery" })).toEqual([delivery.id]);
+    expect(ids({ source: "local" })).toEqual(["local:sh600000"]);
+    expect(ids({ source: "local" })).not.toEqual(ids({ source: "delivery" }));
+
+    const deliveryPage = pageAccountBook(book, { source: "delivery" });
+    expect(deliveryPage.total).toBe(1);
+    expect(deliveryPage.totals[0]).toEqual({
+      currency: "CNY",
+      count: 1,
+      value: 1000,
+      missing: 0,
+    });
+    expect(deliveryPage.exposure.every((e) => e.value === 1000)).toBe(true);
+    expect(
+      pageAccountBook(book, { source: "delivery", page: 1 }).items,
+    ).toEqual([]);
+
+    const localPage = pageAccountBook(book, { source: "local" });
+    expect(localPage.total).toBe(1);
+    expect(localPage.totals[0]).toEqual({
+      currency: "CNY",
+      count: 1,
+      value: null,
+      missing: 1,
+    });
+    expect(localPage.exposure).toHaveLength(deliveryPage.exposure.length);
+    expect(localPage.exposure.every((e) => e.value === null)).toBe(true);
+
+    // Non-real kinds have no source: an explicit source must behave as all.
+    expect(ids({ kind: "all" })).toEqual(ids({ kind: "all", source: "local" }));
+    expect(pageAccountBook(book, { kind: "all", source: "local" }).totals).toEqual(
+      [
+        { currency: "CNY", count: 2, value: null, missing: 1 },
+        { currency: "USDT", count: 1, value: 500, missing: 0 },
+      ],
+    );
+    expect(
+      pageAccountBook(book, { kind: "exchange-simulation", source: "delivery" }),
+    ).toEqual(
+      pageAccountBook(book, { kind: "exchange-simulation", source: "all" }),
+    );
+    expect(
+      ids({ kind: "exchange-simulation", source: "delivery" }),
+    ).toEqual(["demo:usdt"]);
+  } finally {
+    s.db.close();
+  }
+});
 it("does not call turnover oversizing or assign a later month's oversize to an earlier month", async () => {
   const s = seed();
   try {

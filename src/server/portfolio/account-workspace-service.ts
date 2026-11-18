@@ -496,10 +496,14 @@ export async function loadAccountBook(
 
 export function pageAccountBook(book: AccountBook, raw: unknown) {
   const input = accountPageSchema.parse(raw);
+  // Delivery vs manual ledger is fixed by the position id prefix built below,
+  // never by the mutable account display name. Non-real kinds have no source.
+  const source = input.kind === "real" ? input.source : "all";
   const positions = book.positions
     .filter(
       (p) =>
         (input.kind === "all" || p.kind === input.kind) &&
+        (source === "all" || p.id.startsWith(`${source}:`)) &&
         (input.market === "all" || p.market === input.market) &&
         (!input.sleeve || p.sleeve === input.sleeve),
     )

@@ -33,6 +33,12 @@ import {
 import { CryptoRiskNotes } from "./crypto-risk-notes";
 
 const pct = (n: number | null) => formatPercent(n === null ? null : n * 100);
+const sourceLabels = {
+  all: "全部来源",
+  delivery: "券商交割单",
+  local: "手工账本",
+} as const;
+type PositionSource = keyof typeof sourceLabels;
 type Position = RouterOutputs["accountPositions"]["items"][number];
 export function AccountWorkspace() {
   const search = useSearchParams(),
@@ -57,6 +63,7 @@ function UnifiedPositions() {
       "real" | "paper" | "exchange-simulation" | "all"
     >("real"),
     [market, setMarket] = useState<"all" | "cn-equity" | "crypto">("all"),
+    [source, setSource] = useState<PositionSource>("all"),
     [group, setGroup] = useState<"market" | "sleeve" | "kind">("market"),
     [sleeve, setSleeve] = useState(""),
     [page, setPage] = useState(0);
@@ -65,6 +72,7 @@ function UnifiedPositions() {
     market,
     group,
     sleeve,
+    source,
     page,
   });
   const columns: DataTableColumn<Position>[] = [
@@ -125,7 +133,14 @@ function UnifiedPositions() {
   ];
   return (
     <section aria-label="统一持仓" className="space-y-4">
-      <h2 className="text-xl font-semibold">统一持仓与风险</h2>
+      <h2 className="text-xl font-semibold">
+        统一持仓与风险
+        {kind === "real" && (
+          <span className="ml-2 text-sm font-normal text-nc-text-3">
+            来源：{sourceLabels[source]}
+          </span>
+        )}
+      </h2>
       <p className="text-sm text-nc-text-3">
         默认仅真实账户；纸面、模拟交易所分别标记。CNY/USDT不换算相加。手工与导入账本为独立事实，请勿重复登记同一成交。
       </p>
@@ -140,9 +155,26 @@ function UnifiedPositions() {
         ]}
         onChange={(v) => {
           setKind(v as typeof kind);
+          // Sources only exist on real accounts; leaving real resets to all.
+          if (v !== "real") setSource("all");
           setPage(0);
         }}
       />
+      {kind === "real" && (
+        <Segmented
+          label="持仓来源"
+          value={source}
+          options={[
+            { value: "all", label: "全部来源" },
+            { value: "delivery", label: "券商交割单" },
+            { value: "local", label: "手工账本" },
+          ]}
+          onChange={(v) => {
+            setSource(v);
+            setPage(0);
+          }}
+        />
+      )}
       <Segmented
         label="市场"
         value={market}
@@ -207,6 +239,11 @@ function UnifiedPositions() {
         columns={columns}
         data={query.data?.items ?? []}
         rowCount={query.data?.total ?? 0}
+        emptyMessage={
+          kind === "real" && source !== "all"
+            ? `当前范围（${sourceLabels[source]}）无持仓。`
+            : undefined
+        }
         pagination={{ pageIndex: page, pageSize: 20 }}
         sorting={[]}
         onSortingChange={() => {}}
