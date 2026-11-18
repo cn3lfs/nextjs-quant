@@ -2,7 +2,7 @@
 
 研究日期：2026-11-08。用户要求以中证800为基准，充分利用已有技术与财务因子，自主研发；随后明确优先借鉴已经过公开研究的经典策略，并要求先完成策略与配套文档，再集中编码测试。
 
-本文件回答“为什么研究这些策略”；可执行规则见[研发规格](../product/specs/csi800-multifactor-research.md)，实施顺序见[实施与验收计划](../csi800-multifactor-plan.md)。上一轮[简化动量实验](../deliveries/2026-11-08-csi800-study.md)独立保留，其结果不是本轮多因子组合结果。
+本文件回答“为什么研究这些策略”；可执行规则见[研发规格](../product/specs/csi800-multifactor-research.md)，实施顺序见[实施与验收计划](../research-backtest/2026-11-08-csi800-multifactor-plan.md)。上一轮[简化动量实验](../research-backtest/2026-11-08-csi800-study.md)独立保留，其结果不是本轮多因子组合结果。
 
 ## 1. 对“已被证明”的判断
 

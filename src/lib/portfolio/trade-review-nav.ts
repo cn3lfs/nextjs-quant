@@ -422,7 +422,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
         } else cash = projected;
         const key = f.symbol ?? f.code;
         if (f.instrument === "reverseRepo") {
-          // docs/tasks/r11-repo-principal.md: repayment amounts include interest.
+          // docs/portfolio-ledger/2026-09-12-r11-repo-principal.md: repayment amounts include interest.
           const faceValue = f.code.startsWith("204")
             ? 1000
             : f.code.startsWith("131")

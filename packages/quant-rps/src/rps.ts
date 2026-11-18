@@ -45,7 +45,7 @@ export type RpsSecurity = {
   unsupportedDates: string[];
 };
 
-/** docs/rps-plan.md: ranks start at 1; ties share their occupied ranks' mean. */
+/** docs/screening-rps/2026-09-10-rps-plan.md: ranks start at 1; ties share their occupied ranks' mean. */
 export function rankRps(values: { symbol: string; return: number }[]) {
   const sorted = [...values].sort(
     (a, b) => b.return - a.return || a.symbol.localeCompare(b.symbol),

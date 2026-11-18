@@ -30,7 +30,7 @@ PanelCache 仅记录 panels 中注册的路径；普通路由不生成空缓存�
 
 **今日总览行情**（[market-pulse.tsx](../../src/components/overview/market-pulse.tsx)）：上证/深成/创业板/沪深300/科创50 与自选的现价、涨跌幅、指数成交额，一次批量 `tdxQuotes`，按交易时段刷新（`useQuoteRefreshInterval`，与行情侧栏、分时图共用），总览被切走时暂停。
 
-**当前验证**：[page-state](../../tests/browser/page-state-browser.mjs) 与 [screen-state](../../tests/browser/screen-state-browser.mjs) 核对页面查询归属、草稿与缓存淘汰恢复；[p0-workflow](../../tests/e2e/p0-workflow.spec.ts) 在隔离生产服务核对实际导航。已移除脚本的历史性能结论不作为当前基线；本批实测范围见[优化交付](../deliveries/2026-11-13-optimization.md)。
+**当前验证**：[page-state](../../tests/browser/page-state-browser.mjs) 与 [screen-state](../../tests/browser/screen-state-browser.mjs) 核对页面查询归属、草稿与缓存淘汰恢复；[p0-workflow](../../tests/e2e/p0-workflow.spec.ts) 在隔离生产服务核对实际导航。已移除脚本的历史性能结论不作为当前基线；本批实测范围见[优化交付](../project/2026-11-13-optimization.md)。
 
 ## 维护指南
 
@@ -76,4 +76,4 @@ newsBudget 与研究技能查询按 PanelVisible 暂停；删除本组件未消�
 
 统一摘要查询在一次SQL内共享过滤结果，COUNT不受当前页边界影响；查询内JSONB只保留报告时间、上下文和标题元数据，没有持久化格式变化。SQL和HTTP分别由 `tests/perf/research-archive-perf.ts`、`tests/perf/research-archive-http-perf.mjs`测量，后者在明确隔离库插入临时合成行并在finally恢复原有记录数。最终工程验收与性能波动记录见Documents下本模块交付说明。
 
-常驻面板约定：任何固定间隔的 `refetchInterval`，以及较重的一次性计算（如缠论分析），都必须在 `usePanelVisible()` 为 false 时暂停；已提交后台任务继续运行，但隐藏页面不为此保留请求例外。回归检查方法见 `docs/optimization-plan-2026-09-29.md` 的 1A。
+常驻面板约定：任何固定间隔的 `refetchInterval`，以及较重的一次性计算（如缠论分析），都必须在 `usePanelVisible()` 为 false 时暂停；已提交后台任务继续运行，但隐藏页面不为此保留请求例外。回归检查方法见 `docs/project/2026-09-29-optimization-plan.md` 的 1A。

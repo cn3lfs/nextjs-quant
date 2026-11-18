@@ -9,7 +9,7 @@ token-source: src/styles/tokens.css
 ## 状态与授权
 
 2026-11-12用户明确授权全站浅色重设计，本规范取代原深色设计锁。2026-11-13已完成本轮前端实施，真实落点与验证边界见开发交付；设计画板不代替运行验收。
-历史设计见 docs/design_handoff_quant_workbench/README.md；旧单策略限制不再适用，当前能力以源码与roadmap为准。
+历史设计见 docs/shared-ui/2026-09-23-quant-workbench-design.md；旧单策略限制不再适用，当前能力以源码与roadmap为准。
 
 ## 语义颜色
 

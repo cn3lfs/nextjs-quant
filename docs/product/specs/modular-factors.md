@@ -41,4 +41,4 @@ Alpha158 的 VWAP0 未接入，不能用 HLC3、收盘价或未核验单位的 a
 
 持久用例：共享包 `factors.test.ts`；回测包 `factor-strategy.test.ts`；应用 `public-factor-reference.test.ts`、`factor-workspace.test.ts`、`ma-baseline-work.test.ts`、原 API 和工作台用例。其中 Qlib 的 157 个窗口变体逐项对照冻结官方表达式经 pandas/numpy 独立解释产生的合成参考值，生成器在 tests/helpers/generate-qlib-factor-golden.py；这不是 Qlib 服务或聚宽平台实值核验。
 
-最终运行结果见[本次交付](../../deliveries/2026-11-07-modular-factors.md)。未增加数据库迁移，未修改外部行情，未更新运行中的 release，用户已授权本地提交；未推送或打包。
+最终运行结果见[本次交付](../../research-backtest/2026-11-07-modular-factors.md)。未增加数据库迁移，未修改外部行情，未更新运行中的 release，用户已授权本地提交；未推送或打包。

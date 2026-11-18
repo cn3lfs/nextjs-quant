@@ -81,7 +81,7 @@ await db.backup(dest); // 输出的是含 WAL 的一致快照
 | 通达信源 | 配置根下 vipdoc、T0002/hq_cache | 只读，重扫不会下载或修复源行情 |
 | 构建输出 | `.next/`、`runtime/`、`desktop/` | 可重建，但先停引用它们的应用/worker |
 | 桌面交付 | `release/win-unpacked/` | 管理者整体替换，保留整套依赖 |
-| 核对证据 | [review/](review/README.md) | 历史数据，不是缓存；不能冒充当前行情 |
+| 核对证据 | 按模块归入 [market-chart/](market-chart/) 等目录 | 历史数据，不是缓存；不能冒充当前行情 |
 
 应用不复制 Codex/Claude CLI 登录令牌，CLI 在本机自行认证；DeepSeek 从环境变量读取密钥，配置说明见根 README。不要输出 `.env`、业务凭证或未脱敏远程响应。
 
@@ -112,7 +112,7 @@ Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 
 - 不支持函数/未来函数是明确门禁，读函数名和行号；原文含 FINANCE/DYNAINFO 就不能当完整可运行公式。
 - 信号台账先看 GBBQ 最大事件日期、含除权/未知、停牌、到期日及缺行情原因；不要填零。成本空白还要核对个人送转到账/认购证据及报价日期。
-- Q0 当日可卖 0 是 T+1 门禁，不能同日往返或重复买入来“补验收”；最新记录见 [Q0](review/q0-mock-trading-log.md)。普通日线日历盘中不含今日的问题仍待产品裁定，不能沿用历史脚本临时上下文当正式修复。
+- Q0 当日可卖 0 是 T+1 门禁，不能同日往返或重复买入来“补验收”；最新记录见 [Q0](portfolio-ledger/2026-09-10-q0-mock-trading-log.md)。普通日线日历盘中不含今日的问题仍待产品裁定，不能沿用历史脚本临时上下文当正式修复。
 
 ## 可清理缓存与恢复
 
@@ -127,4 +127,4 @@ Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 
 ## 文档与复现脚本的旧路径
 
-核对材料现归 [review/](review/README.md)。旧持久浏览器/实操脚本仍硬编码原输出路径，属于 tests/，本次不修改也不运行。再次生成证据前需在独立获授权任务中迁移这些路径，不能让脚本重建已删除的 m2-review/n3-review 或 output。两份消息样本的旧路径兼容情况见 review 入口。
+核对材料已按模块归入 `market-chart`、`strategy-signals`、`screening-rps`、`portfolio-ledger` 等目录；当前待办见 [review-todo.md](market-chart/review-todo.md)。旧持久浏览器/实操脚本仍硬编码原输出路径，属于 tests/，本次不修改也不运行。再次生成证据前需在独立获授权任务中迁移这些路径，不能让脚本重建已删除的 m2-review/n3-review 或 output。两份消息样本现由 `strategy-signals` 模块记录承接。

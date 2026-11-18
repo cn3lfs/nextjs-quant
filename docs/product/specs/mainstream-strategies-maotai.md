@@ -49,7 +49,7 @@ backtest-maotai-classics.ts --suite mainstream --out 新目录只读通达信；
 
 报告复用Lightweight Charts，默认显示原五项及两项对照，可按流派/逐项选择或显示全部；表格按本段历史收益排序，仅为浏览，不作为优选依据。独立十进制账本逐日验证费用、资金、持股、分红、净值、总收益和回撤；真实浏览器检查控件及页面错误。持久用例覆盖全部策略未来追加、非法预热、下一开盘及仓位/指标手算。
 
-结果始终rule-check-only：历史公司行动、状态/成交容量及分红支付时点未全部认证。单股事后选样和同段比较不是样本外验证，更多规则会增加多重比较偏差。结果及实际检查见[交付](../../deliveries/2026-11-08-maotai-mainstream-strategies.md)。
+结果始终rule-check-only：历史公司行动、状态/成交容量及分红支付时点未全部认证。单股事后选样和同段比较不是样本外验证，更多规则会增加多重比较偏差。结果及实际检查见[交付](../../research-backtest/2026-11-08-maotai-mainstream-strategies.md)。
 
 ## 公开参照
 

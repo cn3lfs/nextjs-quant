@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import Database from "better-sqlite3";
 const require = createRequire(import.meta.url);
 const sharp = createRequire(require.resolve("next/package.json"))("sharp");
-const destination = resolve("docs/review/r2-review");
+const destination = resolve("docs/workbench/2026-09-10-r2-review");
 assert.equal(
   resolve(process.env.QUANT_DATA_DIR ?? ""),
   resolve(".test-data/r2/browser"),

@@ -171,7 +171,7 @@ F1 的“全量结构可解释”与 F2 的“业务含义已证明”分别记�
 - [SC 市场序列](https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10p8op6ia9g.html)。
 - [GO 非序列项目](https://help.tdx.com.cn/quant/docs/markdown/TdxQuant.md/mindoc-1h10pk3rsg044.html)，本轮页面重读超时，不据此声称本地载体已定位；实施 F0 补核。
 
-本计划随后获得“执行”授权。F0–F6已实施，F7完成全目录、真实worker及工程验收，结果见[交付说明](../../deliveries/2026-11-07-local-financial.md)。结构解析、已验证语义与未知映射分别计数，不能把GO和8个未知槽位标成业务语义已完成。
+本计划随后获得“执行”授权。F0–F6已实施，F7完成全目录、真实worker及工程验收，结果见[交付说明](../../data-sources/2026-11-07-local-financial.md)。结构解析、已验证语义与未知映射分别计数，不能把GO和8个未知槽位标成业务语义已完成。
 
 ## 11. 执行补充：统一tstdx边界
 

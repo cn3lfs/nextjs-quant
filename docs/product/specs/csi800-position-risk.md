@@ -58,6 +58,6 @@ pnpm exec tsx scripts/research-csi800-position-risk.ts .data/csi800-factors-2026
 
 入口验证原始行情/财务/面板哈希、运行前后源码哈希及旧基线逐日一致性，五组共享同一目标哈希。每组压缩保存完整成交、净值、保护状态及评价；不读取应用数据库、不回源改数据、不把结果写入正式库。15%沿用建仓与周调仓目标约束，涨价后的日末权重可短暂漂移超过15%，不冒充每日硬性市值上限。
 
-当前加入均线入场门槛的结果和验收见[交付说明](../../deliveries/2026-11-08-csi800-ema50-entry-filter.md)。未加入门槛的EMA50替换见[历史交付](../../deliveries/2026-11-08-csi800-ema50-risk.md)，旧ATR实验见[ATR历史交付](../../deliveries/2026-11-08-csi800-position-risk.md)。
+当前加入均线入场门槛的结果和验收见[交付说明](../../research-backtest/2026-11-08-csi800-ema50-entry-filter.md)。未加入门槛的EMA50替换见[历史交付](../../research-backtest/2026-11-08-csi800-ema50-risk.md)，旧ATR实验见[ATR历史交付](../../research-backtest/2026-11-08-csi800-position-risk.md)。
 
 EMA周期50为用户指定，不搜索最优均线周期。A股执行仍按本项目交易规则与已披露的历史数据边界处理；同收盘确认与成交是用户指定的研究假设。

@@ -100,7 +100,7 @@ if (mode === "reconcile") {
     diagnostics: adapter.diagnostics(),
   };
   await writeFile(
-    "docs/q2b-review/q0-reconciliation.json",
+    "docs/screening-rps/2026-09-10-q2b-review/q0-reconciliation.json",
     JSON.stringify(evidence, null, 2) + "\n",
   );
   console.log(

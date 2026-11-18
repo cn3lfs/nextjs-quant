@@ -2,19 +2,19 @@
 
 ## Claude 专家研究协作
 
-Codex 管理、Claude 六专家执行的项目技能与调度入口已实现；沿用 Claude 默认模型，交付与实际验证见[协作入口记录](deliveries/2026-11-18-quant-team.md)。首版只支持现有策略研究协作，不新增应用页面或交易权限。
+Codex 管理、Claude 六专家执行的项目技能与调度入口已实现；沿用 Claude 默认模型，交付与实际验证见[协作入口记录](engineering-validation/2026-11-18-quant-team.md)。首版只支持现有策略研究协作，不新增应用页面或交易权限。
 
 ## 策略闭环自主实施（2026-11-17，工程交付完成）
 
-按用户批准的[实施计划](strategy-closure-plan.md)，优先统一公共研究运行与数据资格，完成策略研究和年度财务回放应用闭环，再逐卡推进数据就绪的机械规则。当前已取得 72 场景迁移经济等价（理论 32 + 结构 32 + 多周期 8）和真实 ORB 三成本 72/42/28 成交证据；多周期材料 `materialOk=false` 已归因为 TDX 日线 2026-11-17 追加窗口（截至 2026-11-13）外记录，旧固定输入 8 例重放 8/8 字节相同但不撤销材料失败。已接受 19 个纯组件与 1 个 ORB 代理。最终 `pnpm check --build` exit 0（7641 passed/27 skipped、752 files passed/16 skipped）与 `desktop:prepare` exit 0（guard 未拒绝、未打包）；财务 v2 严格 UNKNOWN 实现完成并通过必要门禁，真实 smoke 仅 sh600008/2020 单年 CLI、exit 2 expected blocked，无 portfolio。合成三成本各两次 seed exit 0（每场景 28 fills/1 reject/781 curve/6 positions），旧 checkpoint/result 不变、新 journal reused；它只是合成认证零成功，不是真实业绩；合成 app UI 验收已通过（三成本历史、28 fills 分页 20+8、1 reject、781 curve、刷新、完整 JSON 下载、1440/1024、ORB 文案/预填）。浏览器已关闭、3937 已停止；清理 Apply exit 0（386/386、0 failures/blockers、1,415,022,070 bytes，正常权限、无重试）。工程交付 COMPLETE；工程可运行与规则自检不等于收益资格。
+按用户批准的[实施计划](research-backtest/2026-11-17-strategy-closure-plan.md)，优先统一公共研究运行与数据资格，完成策略研究和年度财务回放应用闭环，再逐卡推进数据就绪的机械规则。当前已取得 72 场景迁移经济等价（理论 32 + 结构 32 + 多周期 8）和真实 ORB 三成本 72/42/28 成交证据；多周期材料 `materialOk=false` 已归因为 TDX 日线 2026-11-17 追加窗口（截至 2026-11-13）外记录，旧固定输入 8 例重放 8/8 字节相同但不撤销材料失败。已接受 19 个纯组件与 1 个 ORB 代理。最终 `pnpm check --build` exit 0（7641 passed/27 skipped、752 files passed/16 skipped）与 `desktop:prepare` exit 0（guard 未拒绝、未打包）；财务 v2 严格 UNKNOWN 实现完成并通过必要门禁，真实 smoke 仅 sh600008/2020 单年 CLI、exit 2 expected blocked，无 portfolio。合成三成本各两次 seed exit 0（每场景 28 fills/1 reject/781 curve/6 positions），旧 checkpoint/result 不变、新 journal reused；它只是合成认证零成功，不是真实业绩；合成 app UI 验收已通过（三成本历史、28 fills 分页 20+8、1 reject、781 curve、刷新、完整 JSON 下载、1440/1024、ORB 文案/预填）。浏览器已关闭、3937 已停止；清理 Apply exit 0（386/386、0 failures/blockers、1,415,022,070 bytes，正常权限、无重试）。工程交付 COMPLETE；工程可运行与规则自检不等于收益资格。
 
 ## B2 多周期、结构与财务（2026-11-17，已验收）
 
-两版三重滤网、两条结构代理与组件、F-score/魔法公式离线预设、年度组合CLI已接入现行执行与研究体系；主代理和三个agents完成实现、独立审查和真实页面验收。全量主工程6,896、包级374项通过，最终构建与desktop准备通过。研究与数据限制、失败修复和清理见[B2交付](deliveries/2026-11-17-b2-development.md)；未提交或部署，不以规则自检作为可信业绩，原228卡的剩余工程与数据缺口继续保留。
+两版三重滤网、两条结构代理与组件、F-score/魔法公式离线预设、年度组合CLI已接入现行执行与研究体系；主代理和三个agents完成实现、独立审查和真实页面验收。全量主工程6,896、包级374项通过，最终构建与desktop准备通过。研究与数据限制、失败修复和清理见[B2交付](research-backtest/2026-11-17-b2-development.md)；未提交或部署，不以规则自检作为可信业绩，原228卡的剩余工程与数据缺口继续保留。
 
 ## 功能按钮实际验收（2026-11-17，本轮12项修复已验收）
 
-按用户最新授权使用多agents与code-mode排查，由主代理实际验收。B01—B12已修复；最后7167项测试通过、27跳过，生产构建与desktop:prepare通过，新增任务入口及复权说明已在最后构建中复点。截图中的正弦行情来自合成fixture；真实通达信沪深300的2000根OHLC另行只读核验一致。覆盖和未测边界见[按钮验收记录](deliveries/2026-11-17-button-audit.md)，不宣称全站所有按钮通过。验收服务已停、超过8GB临时数据已清；67个小文件经用户新授权交由Claude正常权限清理，主代理复核全部删除且必要证据保留。未提交、推送或替换正式release，未操作用户库、原始数据、真实通知、计费或交易。
+按用户最新授权使用多agents与code-mode排查，由主代理实际验收。B01—B12已修复；最后7167项测试通过、27跳过，生产构建与desktop:prepare通过，新增任务入口及复权说明已在最后构建中复点。截图中的正弦行情来自合成fixture；真实通达信沪深300的2000根OHLC另行只读核验一致。覆盖和未测边界见[按钮验收记录](workbench/2026-11-17-button-audit.md)，不宣称全站所有按钮通过。验收服务已停、超过8GB临时数据已清；67个小文件经用户新授权交由Claude正常权限清理，主代理复核全部删除且必要证据保留。未提交、推送或替换正式release，未操作用户库、原始数据、真实通知、计费或交易。
 
 ## 理论策略工程化（2026-11-17，进行中）
 
@@ -26,9 +26,9 @@ Codex 管理、Claude 六专家执行的项目技能与调度入口已实现；�
 
 ## 当前交付：L0–L5 交易生命周期优化（2026-11-16）
 
-按[2026-11-15 优化计划](optimization-plan-2026-11-15.md)推进，管理者负责派单、复核和逐批本地提交，执行 agent 分工实现。先完成 L0 日常链路，再推进 L1 仓位与保护、L2 方法修正、L3 预登记研究、L4 前向一致性、L5 复盘闭环；原方案中的角色名称不限制当前代理接手管理职责。
+按[2026-11-15 优化计划](project/2026-11-15-optimization-plan.md)推进，管理者负责派单、复核和逐批本地提交，执行 agent 分工实现。先完成 L0 日常链路，再推进 L1 仓位与保护、L2 方法修正、L3 预登记研究、L4 前向一致性、L5 复盘闭环；原方案中的角色名称不限制当前代理接手管理职责。
 
-用户最新要求：开发过程中仅做直接相关的定向验证，完整测试与生产构建留到最后集中执行；验收完成的批次分别提交，不推送。所有开发验证使用绝对路径 `.test-data/lifecycle-20261116/` 下的隔离数据，保留已有财联社时区维护修改。用户已授权本轮打包与真实库部署；影子扫描启用及资金设置仍按原计划独立确认。逐项进度和证据见[本轮交付记录](deliveries/2026-11-16-lifecycle.md)。L0 的三个真实交易日观察在部署后开始，不能用合成测试替代。接手见[11月16日交接](handoff-2026-11-16.md)。
+用户最新要求：开发过程中仅做直接相关的定向验证，完整测试与生产构建留到最后集中执行；验收完成的批次分别提交，不推送。所有开发验证使用绝对路径 `.test-data/lifecycle-20261116/` 下的隔离数据，保留已有财联社时区维护修改。用户已授权本轮打包与真实库部署；影子扫描启用及资金设置仍按原计划独立确认。逐项进度和证据见[本轮交付记录](project/2026-11-16-lifecycle.md)。L0 的三个真实交易日观察在部署后开始，不能用合成测试替代。接手见[11月16日交接](project/2026-11-16-handoff.md)。
 
 L0–L5实现已分批提交，最终七阶段工程门禁、生产构建与desktop:prepare通过；主工程6784及包级245项通过。真实bundled worker已在隔离库完成固定时钟799只证券收盘扫描，L2两版旧配置精确重放通过。L3完成事前登记的16主配置和104经济邻域、480次实际调用，晋级0项；同身份恢复2300检查点，结果行和统计诊断精确相等，见[新成绩单](research/2026-11-lifecycle-scoreboard.md)。其余族来源缺口仍显式保留，未调参追逐留出收益。
 
@@ -63,7 +63,7 @@ L0–L5实现已分批提交，最终七阶段工程门禁、生产构建与desk
 
 ## 当前范围与决定
 
-更新：2026-11-15。项目面向 A 股与数字货币的个人量化工作台，期货保持现有浏览范围：行情与原生缠论图表、多周期 RPS、公式选股、双突破、现行策略研究/回测和交易复盘。当前交付、剩余项和验收入口见 [next-plan](next-plan.md) 与 [优化方案](optimization-plan-2026-11-13.md)；测试和构建结果只记在 [交付说明](deliveries/2026-11-13-optimization.md)。
+更新：2026-11-15。项目面向 A 股与数字货币的个人量化工作台，期货保持现有浏览范围：行情与原生缠论图表、多周期 RPS、公式选股、双突破、现行策略研究/回测和交易复盘。当前交付、剩余项和验收入口见 [next-plan](next-plan.md) 与 [优化方案](project/2026-11-13-optimization-plan.md)；测试和构建结果只记在 [交付说明](project/2026-11-13-optimization.md)。
 
 - 公式选股、双突破与现行研究/回测已开放；旧选股/回测、样本研究、walk-forward 与旧四类 LLM 分析执行链退役，不维护兼容入口。
 - 信号监控、信号台账和盘中预选的旧调度退役，由统一提醒引擎接管。默认shadow，显式设置live并启用订阅才允许投递；保留旧记录查询，不补跑、不补发。
@@ -114,9 +114,9 @@ R1a/R1b/R1c 已提交 `326d5c7`、`7162cba`、`4736a8f`。当前执行 `.codex-r
 
 以下只说明决定的来源，不恢复退役入口或覆盖文首状态。
 
-- 2026-11-13–14：恢复公式/双突破、退役旧执行链、浅色界面及 P0–P5 优化，见 [当前优化交付](deliveries/2026-11-13-optimization.md)。
-- 2026-11-12：增加平台持仓/历史成交阅读，见 [交付](deliveries/2026-11-12-crypto-account-history.md)。
-- 2026-11-11：模拟双均线自动交易与策略包职责归属，见 [交易交付](deliveries/2026-11-11-crypto-auto-trading.md) 与 [策略交付](deliveries/2026-11-11-strategy-factor-native.md)。
-- 2026-11-08：多周期 RPS、CZSC v22、独立绩效评价及现行研究规则；分别见 [RPS 包](../packages/quant-rps/README.md)、[CZSC 交付](deliveries/2026-11-08-czsc-v22.md) 与 [评价规格](product/specs/backtest-evaluation.md)。
-- 2026-11-07：本地财务与 tstdx 数据边界，见 [财务交付](deliveries/2026-11-07-local-financial.md)。
+- 2026-11-13–14：恢复公式/双突破、退役旧执行链、浅色界面及 P0–P5 优化，见 [当前优化交付](project/2026-11-13-optimization.md)。
+- 2026-11-12：增加平台持仓/历史成交阅读，见 [交付](portfolio-ledger/2026-11-12-crypto-account-history.md)。
+- 2026-11-11：模拟双均线自动交易与策略包职责归属，见 [交易交付](strategy-signals/2026-11-11-crypto-auto-trading.md) 与 [策略交付](strategy-signals/2026-11-11-strategy-factor-native.md)。
+- 2026-11-08：多周期 RPS、CZSC v22、独立绩效评价及现行研究规则；分别见 [RPS 包](../packages/quant-rps/README.md)、[CZSC 交付](strategy-signals/2026-11-08-czsc-v22.md) 与 [评价规格](product/specs/backtest-evaluation.md)。
+- 2026-11-07：本地财务与 tstdx 数据边界，见 [财务交付](data-sources/2026-11-07-local-financial.md)。
 - 较早裁定与冲突保留在 [decisions](decisions.md)，后续明确授权优先于历史冻结约束。

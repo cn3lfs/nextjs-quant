@@ -21,7 +21,7 @@ export type RpsGroupMemberAudit = {
   empty: ("empty-list" | "all-filtered" | "missing-endpoints" | null)[];
 };
 
-/** docs/rps-plan.md §3.5: each period averages only eligible, available returns. */
+/** docs/screening-rps/2026-09-10-rps-plan.md §3.5: each period averages only eligible, available returns. */
 export function aggregateGroupRps(
   groups: readonly RpsGroup[],
   stock: { rows: RpsRow[]; excluded: Record<RpsExclusion, string[]> },

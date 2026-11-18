@@ -42,6 +42,7 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 - 模块内状态由模块服务/store 所有；跨域组装放明确入口。确需反向依赖或共享状态时，在对应文档写明例外和原因。
 - `src/lib/` 根部只保留 `domain.ts`、`indicators.ts`、`money.ts`、`completed-bars.ts` 四个稳定共享契约/核心模块；新规则必须进入具名领域目录。
 - 测试按业务模块归档到 `tests/<module>/`，跨域结构与工程检查位于 `tests/engineering-validation/`；共享输入、造数、辅助、测量和人工脚本分别放 fixtures、fixtures/seed、helpers、perf、manual，根部只保留全局 setup 与说明。表中只列代表性保护用例，并非覆盖完整清单。
+- 模块内的交付、核对、任务书和复盘按 `docs/<模块>/YYYY-MM-DD-<主题>.md` 直接存放，结项后留在原位；跨模块记录放 `docs/project/`，不设月份层或历史归档树。
 - 数据源、DLL、SQLite、worker、打包与 MCP 保护路径的完整约束以 [不变量](../invariants.md)、[操作说明](../operations.md) 和 [路线图](../roadmap.md) 为准。
 
 ## 盘点边界与待完成核查

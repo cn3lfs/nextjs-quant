@@ -68,8 +68,8 @@ pnpm tdx:estimate-zero-volume --tdx-root "E:\new_tdx64" --visual-plan "visual-pl
 ```
 
 - `--remaining-report`：只处理`security-estimate`且属于股票/基金代码的记录，以`成交额 ÷ ((最高价＋最低价＋收盘价) / 3)`取整为股/份。时间、金额和高低价快照须一致；不足半单位、超uint32或非法价格不写。指数点位、回购利率不适用此公式。
-- `--calculation-plan`：B股、债券和旧回购的局部校准候选。要求前后各至少20样本、匹配率至少95%、代码及类型符合白名单；金额和典型价快照一致，重算结果等于计划整数才写。公式与计划依据见[品种单位核验](deliveries/2026-11-05-tdx-instrument-units.md)。
-- `--visual-plan`：用户接受较低精度的独立模式，可覆盖指数及历史代码，采用邻近量额比、同刻或邻近量插值等方法。要求原32字节精确匹配、正uint32及对应方法的最低样本数，不降低其他模式的门槛。计划生成方法、参考样本和限制见[放宽估算交付](deliveries/2026-11-05-tdx-visual-volume.md)。
+- `--calculation-plan`：B股、债券和旧回购的局部校准候选。要求前后各至少20样本、匹配率至少95%、代码及类型符合白名单；金额和典型价快照一致，重算结果等于计划整数才写。公式与计划依据见[品种单位核验](data-sources/2026-11-05-tdx-instrument-units.md)。
+- `--visual-plan`：用户接受较低精度的独立模式，可覆盖指数及历史代码，采用邻近量额比、同刻或邻近量插值等方法。要求原32字节精确匹配、正uint32及对应方法的最低样本数，不降低其他模式的门槛。计划生成方法、参考样本和限制见[放宽估算交付](data-sources/2026-11-05-tdx-visual-volume.md)。
 
 关闭通达信和其他写入程序后执行。只写4字节成交量，不创建行情备份；逐文件完整读回确认其他字节与长度未变。输出`summary.json`和`estimates.jsonl`，日志包含品种、时间、偏移、原32字节、方法及建议量，并区分写前计划与写后核对状态。部分失败通过日志和退出码识别，不代表整批回滚。重跑使用新的报告目录，已有非零量不会再次改写。
 
@@ -79,4 +79,4 @@ pnpm tdx:estimate-zero-volume --tdx-root "E:\new_tdx64" --visual-plan "visual-pl
 
 固定fixture及非法输入测试位于`tests/market-chart/wdz-native.test.ts`、`five-minute-volume.test.ts`、`five-minute-audit.test.ts`等；样本来源见[fixture说明](../tests/fixtures/wdz/README.md)。普通导入阶段45项定向测试、类型检查、Next生产构建及native/runtime构建已通过；后续离线估算新增7项定向测试及类型检查通过，没有宿主或DLL变化，不重复应用构建。新桌面发布目录未打包。
 
-正式补齐、各阶段修复与全目录审计数字见[2026-11-05交付记录](deliveries/2026-11-05-tdx-import.md)。有额零量不能一概判错；需要准确恢复时，原始源也为零或量价额不一致的记录仍需独立历史分钟数据。LDAY仅在可靠日总量与完整分钟记录能唯一约束时帮助恢复；看图估算另行授权，指数点位和回购利率不能用于成交额除价。最终问题清单状态见[看图估算交付](deliveries/2026-11-05-tdx-visual-volume.md)。
+正式补齐、各阶段修复与全目录审计数字见[2026-11-05交付记录](data-sources/2026-11-05-tdx-import.md)。有额零量不能一概判错；需要准确恢复时，原始源也为零或量价额不一致的记录仍需独立历史分钟数据。LDAY仅在可靠日总量与完整分钟记录能唯一约束时帮助恢复；看图估算另行授权，指数点位和回购利率不能用于成交额除价。最终问题清单状态见[看图估算交付](data-sources/2026-11-05-tdx-visual-volume.md)。

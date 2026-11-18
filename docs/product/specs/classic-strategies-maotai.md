@@ -29,6 +29,6 @@
 
 通达信目录只读，通过`tstdx/local`读取日线及gbbq。使用上证指数观测日期核对每日覆盖，不把当前指数文件等同权威历史交易日历。冻结原始输入、事件、源哈希、代码哈希和输出到仓库外指定研究目录。当前gbbq是事后快照，事件完整性及金额未全部独立对账，结果保持规则实验等级。
 
-交付见[实验结果](../../deliveries/2026-11-08-maotai-classic-strategies.md)。
+交付见[实验结果](../../research-backtest/2026-11-08-maotai-classic-strategies.md)。
 
 规则参照：[QuantConnect唐奇安定义](https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/supported-indicators/donchian-channel)、[均值回归示例](https://www.quantconnect.com/docs/v2/writing-algorithms/key-concepts/behavioral-finance)、[上交所交易规则](https://www.sse.com.cn/lawandrules/sselawsrules2025/trade/universal/c/c_20260424_10816492.shtml)。它们只支持范式与规则核对，不为本地行情完整性或本次收益背书。

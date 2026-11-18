@@ -51,4 +51,4 @@ GO映射、未知财务槽、SC未知组仍不启用。ETF专用GP47/51/52、日
 
 VWAP输入、横截面rank/scale、历史行业中性化、分析师一致预期及Alpha101其余依赖继续见[覆盖清单](../../data-sources/public-factors/alpha101-coverage.json)。没有以时序排名代替横截面。197项数据因子目前用于筛选，不塞入仅接OHLCV的五分钟回测；94项纯行情因子可直接复用该回测生命周期。
 
-验证和真实本地数据观察见[交付说明](../../deliveries/2026-11-08-available-data-factors.md)。
+验证和真实本地数据观察见[交付说明](../../research-backtest/2026-11-08-available-data-factors.md)。

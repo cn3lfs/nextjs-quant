@@ -1,8 +1,8 @@
 # 研究与回测
 
-核对：2026-11-14；本页描述当前实现，验收边界见[当前优化交付](../deliveries/2026-11-13-optimization.md)。
+核对：2026-11-14；本页描述当前实现，验收边界见[当前优化交付](../project/2026-11-13-optimization.md)。
 
-更新：2026-11-13。现行入口为回测工作台和策略中心，旧选股/回测、样本研究、walk-forward 与旧 LLM 分析链已退役，不保留只读兼容页面或旧执行协议。三个旧自动调度器保持暂停。范围见[优化方案](../optimization-plan-2026-11-13.md)和[统一策略中心规格](../product/specs/unified-strategy-center.md)。
+更新：2026-11-13。现行入口为回测工作台和策略中心，旧选股/回测、样本研究、walk-forward 与旧 LLM 分析链已退役，不保留只读兼容页面或旧执行协议。三个旧自动调度器保持暂停。范围见[优化方案](../project/2026-11-13-optimization-plan.md)和[统一策略中心规格](../product/specs/unified-strategy-center.md)。
 
 ## 职责与边界
 

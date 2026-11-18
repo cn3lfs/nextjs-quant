@@ -86,9 +86,11 @@ const evidence = {
   errors: result.errors,
   cancelledJobId: cancelled.id,
 };
-await mkdir("docs/q2b-review", { recursive: true });
+await mkdir("docs/screening-rps/2026-09-10-q2b-review", {
+  recursive: true,
+});
 await writeFile(
-  "docs/q2b-review/local-evidence.json",
+  "docs/screening-rps/2026-09-10-q2b-review/local-evidence.json",
   JSON.stringify(evidence, null, 2) + "\n",
 );
 console.log(

@@ -1,6 +1,6 @@
 # 通达信本地财务数据使用调研
 
-调研日期：2026-11-07。第1–8节保留最初只读调研时点的事实和建议；用户随后授权实施，并要求客户端数据处理统一归tstdx。当前实现、真实全目录结果与使用入口见[交付说明](../deliveries/2026-11-07-local-financial.md)，静态分析见[包内记录](../../packages/tstdx/docs/research/client-static-analysis.md)。
+调研日期：2026-11-07。第1–8节保留最初只读调研时点的事实和建议；用户随后授权实施，并要求客户端数据处理统一归tstdx。当前实现、真实全目录结果与使用入口见[交付说明](2026-11-07-local-financial.md)，静态分析见[包内记录](../../packages/tstdx/docs/research/client-static-analysis.md)。
 
 ## 1. 结论
 

@@ -26,4 +26,4 @@
 
 ## 本轮实施收口
 
-24入口已按既有真实能力实施本轮前端结构，逐页改动与复用部分见[开发覆盖](development-coverage.md)，51份本轮源码见[文件清单](development-files.json)。不把旧图稿中的假操作补成新服务；原计算与历史证据契约保留。静态检查与未运行范围见[交付记录](../../deliveries/2026-11-13-full-site-light-redesign.md)，语法通过不等于运行验收。
+24入口已按既有真实能力实施本轮前端结构，逐页改动与复用部分见[开发覆盖](development-coverage.md)，51份本轮源码见[文件清单](development-files.json)。不把旧图稿中的假操作补成新服务；原计算与历史证据契约保留。静态检查与未运行范围见[交付记录](../../shared-ui/2026-11-13-full-site-light-redesign.md)，语法通过不等于运行验收。

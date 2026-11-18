@@ -54,7 +54,7 @@
 
 - 因子只读取完成行情；因子缺失不填零，退出证据未知不能产生入场；退出优先。归一配置与行情一起冻结，公开来源保留版本和实际覆盖，不能把时序排名冒充横截面排名，也不能把五分钟变体称为原日频平台值。测试：包内 `factors.test.ts`、`factor-strategy.test.ts`，以及 `tests/research-backtest/backtest/public-factor-reference.test.ts`、`factor-workspace.test.ts`。完整口径见[因子规格](product/specs/modular-factors.md)。
 
-这是当前约束入口；理由的演变见 [decisions.md](decisions.md)，范围见 [roadmap.md](roadmap.md)。以下按 2026-09-10 工作区代码与测试核对。测试名表示实际覆盖的范围，不表示自动证明全部工程纪律；未覆盖部分明确标注。终端口径及视觉判断仍见 [人工核对目录](review/README.md)。
+这是当前约束入口；理由的演变见 [decisions.md](decisions.md)，范围见 [roadmap.md](roadmap.md)。以下按 2026-09-10 工作区代码与测试核对。测试名表示实际覆盖的范围，不表示自动证明全部工程纪律；未覆盖部分明确标注。终端口径及视觉判断材料已按模块归入 `market-chart`、`strategy-signals`、`screening-rps`、`portfolio-ledger` 等目录；当前待办见 [review-todo.md](market-chart/review-todo.md)。
 
 ## 1. 指标只有一个实现入口
 
@@ -183,7 +183,7 @@ BOLL(20,2)：MID=MA(C,20)，上下轨=MID±2*STD(C,20)，STD 分母为 N−1
 - **是什么（空值）**：窗口类 MA/STD/HHV/LLV 不足完整窗口返回 null；MA20/BOLL 前 19 根、默认 RSV 前 8 根无值。递推 EMA/SMA 从首个有效输入开始，不人为屏蔽预热；DEA 使用完整 DIF。空输入返回空数组，不用 0 或首值补齐缺失。
 - **是什么（退化）**：无效输入保持递推状态，恢复后不重新初始化；KDJ 的 HHV=LLV 时 K、D 均不更新，初始无状态则保持 null，不用 50 种子。RSI 首根缺 REF、全平盘 0/0 返回 null，严格取上一根，不跨坏数据造涨跌。合法零成交 bar 仍参与指标计算。价格包装器要求正有限价格，公式序列可以为零或负数。
 - **为什么**：×2、样本标准差和递推起点都会系统性改变信号；停牌不能被当成随意删行的理由。
-- **测试**：[indicators.test.ts](../tests/engineering-validation/indicators.test.ts) 覆盖手算、空值、退化、参数与确定性；[q2a-formula.test.ts](../tests/screening-rps/rps/q2a-formula.test.ts) 覆盖序列基元；[q1-chart.test.ts](../tests/market-chart/chart/q1-chart.test.ts) 覆盖可调参数默认等价。与真实终端逐项人工一致：**无自动测试保护**，见 [M1 核对表](review/m1-tdx-checklist.md)。
+- **测试**：[indicators.test.ts](../tests/engineering-validation/indicators.test.ts) 覆盖手算、空值、退化、参数与确定性；[q2a-formula.test.ts](../tests/screening-rps/rps/q2a-formula.test.ts) 覆盖序列基元；[q1-chart.test.ts](../tests/market-chart/chart/q1-chart.test.ts) 覆盖可调参数默认等价。与真实终端逐项人工一致：**无自动测试保护**，见 [M1 核对表](market-chart/2026-09-10-m1-tdx-checklist.md)。
 - **违反会怎样**：BOLL 整体偏移、MACD 柱差一倍、历史窗口移动后指标漂移。
 
 ## 3. 未来函数必须硬拒绝
@@ -206,7 +206,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 - **是什么**：静态整数窗口；COUNT 的 N<=0 自首有效值累计，其他累计窗口 N=0 同理，内部未知保持未知。CROSS 前点相等视为下侧；FILTER 保守跟踪未知抑制；LAST 的 B=0 指当前点。运算优先级为一元、乘除、加减、比较、AND、OR，同级左结合。DMA 权重可为序列且 0<A<1；TMA 系数静态且小于1；ROUND 半值远离零，LOG 常用对数、LN 自然对数；BETWEEN 含端点，RANGE 不含端点。
 - **为什么**：这些是已选择的可复核语义，不等于支持通达信所有动态参数变体。
-- **测试**：[q2a-formula.test.ts](../tests/screening-rps/rps/q2a-formula.test.ts)、[q2b-functions.test.ts](../tests/screening-rps/rps/q2b-functions.test.ts)；终端逐项对照**无自动测试保护**，见 [Q2b 核对](review/q2b-review/README.md)。
+- **测试**：[q2a-formula.test.ts](../tests/screening-rps/rps/q2a-formula.test.ts)、[q2b-functions.test.ts](../tests/screening-rps/rps/q2b-functions.test.ts)；终端逐项对照**无自动测试保护**，见 [Q2b 核对](screening-rps/2026-09-10-q2b-review.md)。
 - **违反会怎样**：语法仍可运行但候选发生隐蔽变化。
 
 ## 4. 因果性与完整历史
@@ -240,7 +240,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 - **是什么**：[breakout.ts](../packages/trading-strategies/src/research/breakout/breakout.ts) 复用 vcpFacts 的确认摆动/歧义屏障和共享指标；至少 61 根日线，前 60 根结构窗口，趋势线至少两触，触及容差 0.5%，缩量平台 10 根；放量基准是此前 20 根均量×1.5。趋势、关键位、放量三项与五项质量评分分开，不能用评分覆盖核心失败。目标二缺失时 1:X 留空，不外推凑数；向下仅为破位观察。形态限评分所需，不扩完整形态库。
 - **为什么**：结构及目标必须有当时证据，方法来源保存 swing-trader 文件 hash。
-- **测试**：[breakout.test.ts](../tests/strategy-signals/methods/breakout/breakout.test.ts)、[breakout-batch.test.ts](../tests/strategy-signals/methods/breakout/breakout-batch.test.ts)；阈值合理性需 [M5 人工确认](review/m5-review/README.md)，**无自动测试保护**。
+- **测试**：[breakout.test.ts](../tests/strategy-signals/methods/breakout/breakout.test.ts)、[breakout-batch.test.ts](../tests/strategy-signals/methods/breakout/breakout-batch.test.ts)；阈值合理性需 [M5 人工确认](strategy-signals/2026-09-10-m5-review.md)，**无自动测试保护**。
 - **违反会怎样**：短历史拼出买点、虚构目标，评分被误读为完整交易准入。
 
 ## 8. 订阅、分级与真实投递
@@ -384,7 +384,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - 保留原值、标准值、状态和谱系。来源零值与有效零不混同；总负债用FN63，归母权益用FN271、总权益用FN72，成本FN75不标成利润，来源EPS不以期末股本替代加权股本。
 - 严格研究默认公告后下一观测交易日起可见；缺公告、可疑公告和交易日期缺证据不得补造。当前下载版本可能包含修订，不能认证首次披露版本或可信策略业绩。
 - 财报导出同时检查当前与计算组成期的来源指纹；档案冻结输入、公式/字段版本及来源，后续下载不改变旧结果。取消不发布成功档案，缺失与不满足分开统计。
-- 固定字节fixture随tstdx包维护；非法输入、包边界、缓存变动和调用方迁移有对应测试，详见[交付说明](deliveries/2026-11-07-local-financial.md)。
+- 固定字节fixture随tstdx包维护；非法输入、包边界、缓存变动和调用方迁移有对应测试，详见[交付说明](data-sources/2026-11-07-local-financial.md)。
 
 ### 统一候选单位与风险平价（2026-11-11）
 

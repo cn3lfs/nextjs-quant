@@ -4,10 +4,10 @@
 
 开发已实施并逐页核对，实际改动见[24页覆盖](development-coverage.md)及[51个源码文件](development-files.json)。其中盘中预选在原RPS周期修改上只叠加UI顺序/标题/字号，不重排整文件；原RPS/回测/后端脏改保持，MCP及用户维护文案未改。
 
-检查范围是48个TS/TSX语法解析和3份CSS解析，以及受控格式/diff与文档静态检查。实际运行结果与限制见[交付记录](../../deliveries/2026-11-13-full-site-light-redesign.md)。不运行typecheck、测试、build、worker、desktop、服务或数据库；无提交、推送、打包发布、实际交易或通知。
+检查范围是48个TS/TSX语法解析和3份CSS解析，以及受控格式/diff与文档静态检查。实际运行结果与限制见[交付记录](../../shared-ui/2026-11-13-full-site-light-redesign.md)。不运行typecheck、测试、build、worker、desktop、服务或数据库；无提交、推送、打包发布、实际交易或通知。
 
 后续若要求运行验收，需作为新的明确范围记录，不能把本次静态检查当行为验收。已封板设计不再成为循环生成的理由。
 
 ## 后续提交与打包
 
-用户追加授权分批提交并打包。四项主题提交及两项构建修复已完成；干净检出25fadcc通过生产构建自带类型检查、desktop:prepare和Windows x64目录打包，正式release/win-unpacked已更新。包内容、构建标识和服务器树摘要静态核对通过；仍未启动应用或运行测试。提交、产物与未验证范围见[桌面包交付](../../deliveries/2026-11-13-light-desktop-package.md)。其他任务脏改保留，不推送。
+用户追加授权分批提交并打包。四项主题提交及两项构建修复已完成；干净检出25fadcc通过生产构建自带类型检查、desktop:prepare和Windows x64目录打包，正式release/win-unpacked已更新。包内容、构建标识和服务器树摘要静态核对通过；仍未启动应用或运行测试。提交、产物与未验证范围见[桌面包交付](../../desktop-build/2026-11-13-light-desktop-package.md)。其他任务脏改保留，不推送。
