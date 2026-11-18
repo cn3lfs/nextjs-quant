@@ -24,6 +24,90 @@ test.afterEach(async ({ request }) => {
   }
 });
 
+test("Candidate refresh failure keeps the last good read and pauses new plans until retry", async ({
+  page,
+}) => {
+  // This test waits for one real 30 s poll while the plan form is open.
+  test.setTimeout(120000);
+  await page.goto("/");
+  const tomorrow = page.getByRole("region", {
+    name: "明日计划",
+    exact: true,
+  });
+  await expect(tomorrow).toBeVisible();
+  // Use the server-filtered key so the today batch is not reused.
+  const markets = page.getByRole("radiogroup", {
+    name: "候选市场",
+    exact: true,
+  });
+  await markets.getByRole("radio", { name: "A 股", exact: true }).click();
+  const table = page.getByRole("table", {
+    name: "明日计划候选",
+    exact: true,
+  });
+  const row = table.getByRole("row").filter({ hasText: "r3a-shadow-qa" });
+  await expect(row).toHaveCount(1);
+  await expect(
+    row.getByRole("button", { name: "加入计划", exact: true }),
+  ).toBeVisible();
+  let failing = true;
+  await page.route("**/api/trpc/**", async (route) => {
+    const names =
+      new URL(route.request().url()).pathname
+        .split("/api/trpc/")[1]
+        ?.split(",") ?? [];
+    // Only the filtered candidate read fails; a batched today summary failure
+    // would change the meaning of this scenario.
+    if (
+      failing &&
+      names.includes("workspaceCandidates") &&
+      !names.includes("todayWorkspace")
+    )
+      return route.abort("connectionrefused");
+    return route.continue();
+  });
+  await page.getByRole("button", { name: "刷新候选", exact: true }).click();
+  const alert = page.getByRole("alert").filter({ hasText: "候选刷新失败" });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText("最近一次成功读取");
+  // The same key's rows and chart link stay; new plans are paused.
+  await expect(row).toHaveCount(1);
+  await expect(row.getByRole("link", { name: /打开图表/ })).toBeVisible();
+  await expect(
+    row.getByRole("button", { name: "加入计划", exact: true }),
+  ).toHaveCount(0);
+  // Retrying the same key recovers the plannable state in place.
+  failing = false;
+  await alert.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(alert).toHaveCount(0);
+  const add = row.getByRole("button", { name: "加入计划", exact: true });
+  await expect(add).toBeVisible();
+  await add.click();
+  await expect(page.getByLabel("计划止损", { exact: true })).toHaveValue(/\d/);
+  // An already-open form keeps its draft when a later background refresh
+  // fails; only new plans are paused.
+  const rationale = page.getByLabel("入场理由", { exact: true });
+  await rationale.fill("草稿保留核对");
+  failing = true;
+  // The modal hides the rest of the page from the accessibility tree, so the
+  // background warning is matched by text rather than alert role here.
+  await expect(page.locator("p", { hasText: "候选刷新失败" })).toBeVisible({
+    timeout: 45000,
+  });
+  await expect(page.getByLabel("入场理由", { exact: true })).toHaveValue(
+    "草稿保留核对",
+  );
+  await expect(page.getByLabel("计划止损", { exact: true })).toHaveValue(/\d/);
+  await expect(
+    page.getByRole("button", { name: "保存交易计划", exact: true }),
+  ).toBeVisible();
+  failing = false;
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "保存交易计划", exact: true }),
+  ).toHaveCount(0);
+});
+
 for (const width of [1440, 1024]) {
   test(`Lifecycle daily path ${width}: stop tasks → inline plan in two activations, then chart`, async ({
     page,

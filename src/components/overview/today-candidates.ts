@@ -33,8 +33,13 @@ export type CandidateView = {
   source: CandidateSource;
   rows: WorkspaceCandidate[] | undefined;
   total: number | undefined;
+  /** True only when this key has no rows yet; a same-key refresh keeps rows. */
   loading: boolean;
   error: string | null;
+  /** Refresh failed while this key still shows an earlier successful read. */
+  warning: string | null;
+  /** The shown rows (or the empty state) come from an earlier successful read. */
+  stale: boolean;
   emptyMessage: string | null;
 };
 
@@ -43,6 +48,10 @@ export type CandidateView = {
  * is answered by the server-filtered query. A missing key never falls back to
  * the previous key's rows, so a loading or failed filter cannot show another
  * market's candidates or a false empty table.
+ *
+ * A refresh keeps the same key's rows: `fetching` never hides them, and a
+ * failure retains them as a stale read with a warning instead of flashing an
+ * empty error table. Only a first read with no rows becomes an error.
  */
 export function candidateView(input: {
   market: TodayMarket;
@@ -51,6 +60,8 @@ export function candidateView(input: {
   filtered?: CandidatePage;
   fetching?: boolean;
   failure?: string | null;
+  /** The today summary supplying the reference date failed to refresh. */
+  allStale?: boolean;
   close: { phase: CloseScanPhase; strategies: number };
 }): CandidateView {
   if (isTodayBatch(input.market, input.page))
@@ -60,10 +71,13 @@ export function candidateView(input: {
       total: input.all.total,
       loading: false,
       error: null,
+      warning: null,
+      stale: Boolean(input.allStale),
       emptyMessage: emptyCandidateMessage({
         market: "all",
         total: input.all.total,
         close: input.close,
+        stale: input.allStale,
       }),
     };
   if (!input.filtered)
@@ -74,6 +88,8 @@ export function candidateView(input: {
           total: undefined,
           loading: false,
           error: input.failure,
+          warning: null,
+          stale: false,
           emptyMessage: null,
         }
       : {
@@ -82,18 +98,24 @@ export function candidateView(input: {
           total: undefined,
           loading: true,
           error: null,
+          warning: null,
+          stale: false,
           emptyMessage: PENDING_CANDIDATE_MESSAGE,
         };
+  const stale = Boolean(input.failure) || Boolean(input.allStale);
   return {
     source: "filtered",
     rows: input.filtered.items,
     total: input.filtered.total,
-    loading: Boolean(input.fetching),
+    loading: false,
     error: null,
+    warning: input.failure ?? null,
+    stale,
     emptyMessage: emptyCandidateMessage({
       market: input.market,
       total: input.filtered.total,
       close: input.close,
+      stale,
     }),
   };
 }
@@ -106,8 +128,13 @@ export function emptyCandidateMessage(input: {
   market: TodayMarket;
   total: number;
   close: { phase: CloseScanPhase; strategies: number };
+  /** The empty result predates a failed refresh; do not call it confirmed. */
+  stale?: boolean;
 }): string {
   if (input.total > 0) return "本页无候选；请返回上一页。";
+  // An old zero followed by a failed refresh cannot claim a completed scan.
+  if (input.stale)
+    return "最近一次成功读取无候选；其后刷新失败，当前空表不代表无信号。";
   if (input.market === "crypto")
     return "数字货币当前无入选候选；空表不代表无信号，数据就绪与策略启用情况见下方。";
   const { phase, strategies } = input.close;

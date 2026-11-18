@@ -18,7 +18,10 @@ import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { StrategyObjectInput } from "trading-strategies";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { navGroups } from "~/components/workbench/navigation";
-import { CandidateTable } from "~/components/overview/candidate-table";
+import {
+  CandidateTable,
+  type WorkspaceCandidate,
+} from "~/components/overview/candidate-table";
 import {
   candidateView,
   dailyMainAction,
@@ -583,6 +586,90 @@ it("the first market page uses server-filtered rows, never the mixed today batch
     market: "crypto",
     page: 0,
   });
+});
+it("candidate refresh keeps the same key's rows and never turns an old read into a confirmed empty", () => {
+  const close = { phase: "complete", strategies: 1 } as const;
+  const rows = [{ key: "qa-row" }] as unknown as WorkspaceCandidate[];
+  const all = { items: rows, total: 1 };
+  const filtered = { items: rows, total: 1 };
+  // A same-key refetch keeps the table instead of flashing a loading state.
+  const refreshing = candidateView({
+    market: "cn-equity",
+    page: 0,
+    all,
+    filtered,
+    fetching: true,
+    close,
+  });
+  expect(refreshing).toMatchObject({
+    source: "filtered",
+    loading: false,
+    stale: false,
+    warning: null,
+  });
+  expect(refreshing.rows).toBe(rows);
+  // A failed refresh keeps the last successful rows but pauses planning.
+  const failed = candidateView({
+    market: "cn-equity",
+    page: 0,
+    all,
+    filtered,
+    failure: "connection refused",
+    close,
+  });
+  expect(failed).toMatchObject({
+    source: "filtered",
+    loading: false,
+    warning: "connection refused",
+    stale: true,
+  });
+  expect(failed.rows).toBe(rows);
+  // A same-key old zero followed by a failure is not a completed zero scan.
+  const staleZero = candidateView({
+    market: "cn-equity",
+    page: 0,
+    all,
+    filtered: { items: [], total: 0 },
+    failure: "connection refused",
+    close,
+  });
+  expect(staleZero.stale).toBe(true);
+  expect(staleZero.emptyMessage).toContain("刷新失败");
+  expect(staleZero.emptyMessage).not.toContain("最近收盘扫描已完成");
+  // A first read keeps its original error instead of a zero-candidate table.
+  const firstFailure = candidateView({
+    market: "cn-equity",
+    page: 0,
+    all,
+    failure: "connection refused",
+    close,
+  });
+  expect(firstFailure).toMatchObject({
+    source: "error",
+    rows: undefined,
+    total: undefined,
+    loading: false,
+    error: "connection refused",
+    emptyMessage: null,
+  });
+  // Switching to another key never exposes the previous key's rows.
+  const switched = candidateView({ market: "crypto", page: 0, all, close });
+  expect(switched).toMatchObject({
+    source: "pending",
+    rows: undefined,
+    total: undefined,
+    loading: true,
+  });
+  // A stale today summary cannot claim its old zero is a completed scan.
+  const staleToday = candidateView({
+    market: "all",
+    page: 0,
+    all: { items: [], total: 0 },
+    allStale: true,
+    close,
+  });
+  expect(staleToday.stale).toBe(true);
+  expect(staleToday.emptyMessage).not.toContain("最近收盘扫描已完成");
 });
 it("main action keeps risk first; one missing market still leads to candidates", () => {
   expect(

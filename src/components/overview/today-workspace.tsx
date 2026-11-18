@@ -99,25 +99,48 @@ function DailyDecision() {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
   });
-  const scanCloseDate = query.data?.readiness.equity.expectedDate ?? null;
+  const d = query.data;
+  const scanCloseDate = d?.readiness.equity.expectedDate ?? null;
   const useTodayBatch = isTodayBatch(filter.market, filter.page);
+  // The filtered key keeps the today summary's 30s cadence only while it is on
+  // screen and enabled; a hidden panel stops polling.
+  const filteredEnabled = visible && !useTodayBatch && d !== undefined;
   const candidates = api.workspaceCandidates.useQuery(
     {
       page: filter.page,
       market: filter.market === "all" ? undefined : filter.market,
       scanCloseDate,
     },
-    { enabled: visible && !useTodayBatch && query.data !== undefined },
+    {
+      enabled: filteredEnabled,
+      refetchInterval: filteredEnabled ? 30000 : false,
+    },
   );
-  const d = query.data;
-  if (query.error)
+  const summaryStale = Boolean(query.error) && d !== undefined;
+  const view = d
+    ? candidateView({
+        market: filter.market,
+        page: filter.page,
+        all: d.candidates,
+        filtered: candidates.data,
+        fetching: candidates.isFetching,
+        failure: candidates.error?.message ?? null,
+        allStale: summaryStale,
+        close: d.closeScan,
+      })
+    : null;
+  // A stale summary or a failed candidate refresh cannot open new plans: the
+  // reference read behind the shown rows is no longer the latest one. An
+  // already-open form keeps its draft; only new plans are paused.
+  const planningPaused = summaryStale || Boolean(view?.warning);
+  if (query.error && !d)
     return (
       <p role="alert">
         今日工作区读取失败：{query.error.message}{" "}
         <Button onClick={() => void query.refetch()}>重试</Button>
       </p>
     );
-  if (!d) return <p role="status">正在读取今日决策…</p>;
+  if (!d || !view) return <p role="status">正在读取今日决策…</p>;
   const risks =
     d.holdings?.filter((h) => h.stop !== null && h.price <= h.stop) ?? [];
   const close = d.closeScan;
@@ -127,15 +150,11 @@ function DailyDecision() {
     cryptoReady: d.readiness.crypto.ready,
     candidates: d.candidates.total,
   });
-  const view = candidateView({
-    market: filter.market,
-    page: filter.page,
-    all: d.candidates,
-    filtered: candidates.data,
-    fetching: candidates.isFetching,
-    failure: candidates.error?.message ?? null,
-    close,
-  });
+  // The refresh action belongs to the query actually shown for this key.
+  const activeQuery = useTodayBatch ? query : candidates;
+  const readLabel = activeQuery.dataUpdatedAt
+    ? new Date(activeQuery.dataUpdatedAt).toLocaleString("zh-CN")
+    : "尚未成功读取";
   const loaded = view.rows ?? [];
   const historicalRows = loaded.filter((row) => row.scan?.hasHistorical).length;
   const plannableSources = (row: WorkspaceCandidate) =>
@@ -155,6 +174,20 @@ function DailyDecision() {
           <Link href={main.href}>{main.text}</Link>
         </Button>
       </div>
+      {summaryStale && (
+        <p
+          role="alert"
+          className="rounded-lg border border-nc-warn bg-nc-card p-4 text-sm text-nc-warn"
+        >
+          今日工作区刷新失败：{query.error?.message}
+          。以下为最近一次成功读取的今日快照（
+          {new Date(query.dataUpdatedAt).toLocaleString("zh-CN")}
+          ）；已暂停从此快照创建新计划。{" "}
+          <Button variant="outline" onClick={() => void query.refetch()}>
+            重试
+          </Button>
+        </p>
+      )}
       {(
         [
           ["cn-equity", "A 股", d.readiness.equity.ready],
@@ -274,7 +307,35 @@ function DailyDecision() {
           }
           options={todayMarketOptions}
         />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={activeQuery.isFetching}
+            onClick={() => void activeQuery.refetch()}
+          >
+            刷新候选
+          </Button>
+          <span className="text-xs text-nc-text-3">
+            {activeQuery.isFetching ? "刷新中… · " : ""}
+            当前候选最近成功读取：{readLabel}
+          </span>
+        </div>
         <PlanSavedNotice confirmation={confirmation} />
+        {view.warning && (
+          <p role="alert" className="text-sm text-nc-warn">
+            候选刷新失败：{view.warning}
+            。以下为最近一次成功读取（{readLabel}
+            ）的候选；已暂停从该读数创建计划。{" "}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void candidates.refetch()}
+            >
+              重试
+            </Button>
+          </p>
+        )}
         <p className="text-xs text-nc-text-3">
           收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量沿用策略与纸面账户的仓位及费用假设；滑点影响以冻结研究口径和实际成交核对，不保证计划价成交。
         </p>
@@ -297,6 +358,7 @@ function DailyDecision() {
           </p>
         )}
         {close.phase === "complete" &&
+          !view.stale &&
           view.rows !== undefined &&
           view.total === 0 &&
           filter.market !== "crypto" && (
@@ -331,17 +393,25 @@ function DailyDecision() {
             onPage={(page) => setFilter((current) => ({ ...current, page }))}
             loading={view.loading}
             onRetry={() => void candidates.refetch()}
-            onPlan={(row) => {
-              const source =
-                row.sources.find((s) => s.scanFreshness === "current") ??
-                plannableSources(row)[0];
-              if (source) {
-                setConfirmation(null);
-                setSaving(false);
-                setPlan({ row, key: source.key });
-              }
-            }}
-            canPlan={(row) => plannableSources(row).length > 0}
+            onPlan={
+              planningPaused
+                ? undefined
+                : (row) => {
+                    const source =
+                      row.sources.find((s) => s.scanFreshness === "current") ??
+                      plannableSources(row)[0];
+                    if (source) {
+                      setConfirmation(null);
+                      setSaving(false);
+                      setPlan({ row, key: source.key });
+                    }
+                  }
+            }
+            canPlan={
+              planningPaused
+                ? undefined
+                : (row) => plannableSources(row).length > 0
+            }
             emptyMessage={view.emptyMessage ?? undefined}
           />
         )}
