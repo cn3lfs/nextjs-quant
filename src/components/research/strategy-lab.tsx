@@ -29,9 +29,20 @@ import { labDetailStatus, labPauseSuggestion } from "./lab-review";
 
 const pct = (v: number | null | undefined) =>
   formatPercent(v == null ? null : v * 100);
+type LabListFilter = {
+  market: "cn-equity" | "crypto";
+  query: string;
+  page: number;
+};
+const defaultLabListFilter: LabListFilter = {
+  market: "cn-equity",
+  query: "",
+  page: 0,
+};
 export function StrategyLab() {
   const search = useSearchParams(),
     id = search.get("strategy");
+  const [filter, setFilter] = useState<LabListFilter>(defaultLabListFilter);
   if (id)
     return (
       <LabDetail
@@ -45,15 +56,30 @@ export function StrategyLab() {
   return (
     <>
       <PaperShadowPrompt />
-      <LabList />
+      <LabList
+        filter={filter}
+        onMarketChange={(market) =>
+          setFilter((f) => ({ ...f, market, page: 0 }))
+        }
+        onQueryChange={(query) => setFilter((f) => ({ ...f, query, page: 0 }))}
+        onPageChange={(page) => setFilter((f) => ({ ...f, page }))}
+      />
       <PaperForwardStatus />
     </>
   );
 }
-function LabList() {
-  const [market, setMarket] = useState<"cn-equity" | "crypto">("cn-equity"),
-    [query, setQuery] = useState(""),
-    [page, setPage] = useState(0);
+function LabList({
+  filter,
+  onMarketChange,
+  onQueryChange,
+  onPageChange,
+}: {
+  filter: LabListFilter;
+  onMarketChange: (market: LabListFilter["market"]) => void;
+  onQueryChange: (query: string) => void;
+  onPageChange: (page: number) => void;
+}) {
+  const { market, query, page } = filter;
   const visible = usePanelVisible();
   const list = api.strategyLab.useQuery(
     { market, query, page },
@@ -73,18 +99,12 @@ function LabList() {
           { value: "cn-equity", label: "A股中证800" },
           { value: "crypto", label: "BTC / ETH" },
         ]}
-        onChange={(m) => {
-          setMarket(m);
-          setPage(0);
-        }}
+        onChange={onMarketChange}
       />
       <Input
         aria-label="搜索实验室策略"
         value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setPage(0);
-        }}
+        onChange={(e) => onQueryChange(e.target.value)}
         placeholder="名称、规则或分仓"
       />
       <DataTable
@@ -98,7 +118,7 @@ function LabList() {
         sorting={[]}
         onSortingChange={() => {}}
         onPaginationChange={(u) =>
-          setPage(
+          onPageChange(
             (typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u)
               .pageIndex,
           )
@@ -194,6 +214,13 @@ function RuleFields({
     </div>
   );
 }
+function LabDetailBackLink() {
+  return (
+    <Link href="/lab" scroll={false} className="underline">
+      返回策略列表
+    </Link>
+  );
+}
 function LabDetail({ id, version }: { id: string; version: number }) {
   const visible = useScreenVisible();
   const query = api.strategyLabDetail.useQuery(
@@ -236,17 +263,24 @@ function LabDetail({ id, version }: { id: string; version: number }) {
   );
   if (query.error)
     return (
-      <p role="alert">
-        {query.error.message}
-        <Button onClick={() => void query.refetch()}>重试</Button>
-      </p>
+      <>
+        <LabDetailBackLink />
+        <p role="alert">
+          {query.error.message}
+          <Button onClick={() => void query.refetch()}>重试</Button>
+        </p>
+      </>
     );
-  if (!d) return <p role="status">正在读取策略详情…</p>;
+  if (!d)
+    return (
+      <>
+        <LabDetailBackLink />
+        <p role="status">正在读取策略详情…</p>
+      </>
+    );
   return (
     <section aria-label="实验室策略详情" className="space-y-4">
-      <Link href="/lab" className="underline">
-        返回策略列表
-      </Link>
+      <LabDetailBackLink />
       <h1 className="text-xl font-semibold">
         {d.row?.rule ?? id} · v{version}
       </h1>
