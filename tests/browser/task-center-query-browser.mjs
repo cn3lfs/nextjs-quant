@@ -15,14 +15,14 @@ if (dir) mkdirSync(dir, { recursive: true });
 const stub = `
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 const items=Array.from({length:85},(_,i)=>({id:'query-'+String(i).padStart(3,'0'),type:i%2?'research':'screen',status:i===0?'running':'completed',progress:i===0?40:100,phase:'阶段'+i,createdAt:1700000000000+i,updatedAt:1700000000000+i})).reverse();
-window.taskFixture={items,revision:1,requests:[],calls:[],change(id,status){const row=items.find(i=>i.id===id);row.status=status;row.updatedAt=Date.now();this.revision++},add(){items.unshift({ ...items[0],id:'query-new',createdAt:Date.now(),updatedAt:Date.now(),status:'completed'});this.revision++}};
+window.taskFixture={items,revision:1,requests:[],calls:[],holdHistory:false,releaseHistory:null,change(id,status){const row=items.find(i=>i.id===id);row.status=status;row.updatedAt=Date.now();this.revision++},add(){items.unshift({ ...items[0],id:'query-new',createdAt:Date.now(),updatedAt:Date.now(),status:'completed'});this.revision++}};
 const f=window.taskFixture;
 function query(name){return {useQuery(input,options){return useQuery({queryKey:[name,input],retry:false,...options,queryFn:async()=>{
  f.requests.push({name,input,at:Date.now()});
  if(f.fail===name)throw Error('受控离线');
  if(name==='recentErrors')return structuredClone(f.recentErrors??{entries:[],available:true,unrecordedInThisProcess:0});
  if(name==='taskOverview')return {total:items.length,running:items.filter(i=>i.status==='running').length,queued:items.filter(i=>i.status==='queued').length,failed:items.filter(i=>i.status==='failed').length,cancelled:items.filter(i=>i.status==='cancelled').length,completedToday:0,revision:f.revision,checkedAt:Date.now()};
- if(name==='taskHistory'){const filtered=items.filter(i=>(!input.status||i.status===input.status)&&(!input.type||i.type===input.type)&&(!input.id||i.id===input.id));const list=filtered.filter(i=>!input.cursor||i.createdAt<input.cursor.createdAt||(i.createdAt===input.cursor.createdAt&&i.id<input.cursor.id));const page=list.slice(0,20);return structuredClone({items:page,total:filtered.length,nextCursor:list.length>20?{createdAt:page.at(-1).createdAt,id:page.at(-1).id}:null})}
+ if(name==='taskHistory'){if(f.holdHistory)await new Promise(resolve=>f.releaseHistory=resolve);const filtered=items.filter(i=>(!input.status||i.status===input.status)&&(!input.type||i.type===input.type)&&(!input.id||i.id===input.id));const list=filtered.filter(i=>!input.cursor||i.createdAt<input.cursor.createdAt||(i.createdAt===input.cursor.createdAt&&i.id<input.cursor.id));const page=list.slice(0,20);return structuredClone({items:page,total:filtered.length,nextCursor:list.length>20?{createdAt:page.at(-1).createdAt,id:page.at(-1).id}:null})}
  if(name==='taskState'){const row=items.find(i=>i.id===input.id);return row?structuredClone({...row,sourceLink:{href:'/scan?tab=formula',label:'前往来源页重新配置'}}):null}
 }})}}}
 export const api={recentErrors:query('recentErrors'),taskOverview:query('taskOverview'),taskHistory:query('taskHistory'),taskState:query('taskState'),
@@ -440,12 +440,10 @@ try {
   const recent = page.getByRole("list", { name: "最近错误记录" });
   await recent.getByText("3 次", { exact: true }).waitFor();
   assert.match(await recent.innerText(), /SQLITE_BUSY/);
-  assert.equal(
-    await recent
-      .getByRole("link", { name: "查看关联任务" })
-      .getAttribute("href"),
-    "/system/tasks?id=query-019",
-  );
+  const detailHref = await recent
+    .getByRole("link", { name: "查看关联任务" })
+    .getAttribute("href");
+  assert.equal(detailHref, "/system/tasks?id=query-019&detail=1");
   await page.setViewportSize({ width: 640, height: 900 });
   await recent.scrollIntoViewIfNeeded();
   assert.equal(
@@ -491,6 +489,270 @@ try {
   );
   await page.getByRole("button", { name: "刷新错误", exact: true }).click();
   await page.getByText("暂无已记录的后台错误。", { exact: true }).waitFor();
+
+  // A detail link auto-opens its exact task once without touching query inputs.
+  const expandedIds = () =>
+    rows
+      .locator('button[aria-expanded="true"]')
+      .evaluateAll((nodes) => nodes.map((node) => node.id));
+  const stateIds = () =>
+    page.evaluate(() =>
+      window.taskFixture.requests
+        .filter((request) => request.name === "taskState")
+        .map((request) => request.input.id),
+    );
+  const stateRequestsSince = (from, id) =>
+    page.evaluate(
+      ([from, id]) =>
+        window.taskFixture.requests
+          .slice(from)
+          .filter(
+            (request) =>
+              request.name === "taskState" && request.input.id === id,
+          ).length,
+      [from, id],
+    );
+  await page.getByLabel("任务类型", { exact: true }).click();
+  await page.getByRole("option", { name: "AI 研究", exact: true }).click();
+  await page.getByRole("button", { name: "查询任务", exact: true }).click();
+  await page.waitForFunction(() => {
+    const labels = [
+      ...document.querySelectorAll('[aria-label="任务列表"] article strong'),
+    ];
+    return (
+      labels.length > 0 && labels.every((node) => node.textContent === "AI 研究")
+    );
+  });
+  await page.getByRole("button", { name: "下一页任务" }).click();
+  await rows.first().waitFor();
+  await page.getByText("第 2 页", { exact: false }).waitFor();
+  await page.evaluate(() => window.taskFixture.change("query-043", "running"));
+  await page.getByRole("button", { name: "刷新任务", exact: true }).click();
+  await page.locator("#task-trigger-query-043").waitFor();
+  await page.locator("#task-trigger-query-043").click();
+  await page
+    .locator("#task-detail-query-043")
+    .getByRole("button", { name: "取消任务", exact: true })
+    .waitFor();
+  await advance();
+  const linkedAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.evaluate((href) => history.pushState(null, "", href), detailHref);
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#task-trigger-query-019")?.getAttribute(
+        "aria-expanded",
+      ) === "true",
+  );
+  assert.equal(await rows.count(), 1);
+  assert.deepEqual(await expandedIds(), ["task-trigger-query-019"]);
+  assert.ok((await stateIds()).includes("query-019"));
+  await page.clock.runFor(6000);
+  assert.equal(await stateRequestsSince(linkedAt, "query-043"), 0);
+  // Manual collapse, refresh and visibility restores never reopen the intent.
+  await page.locator("#task-trigger-query-019").click();
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  const refreshAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.getByRole("button", { name: "刷新任务", exact: true }).click();
+  await page.waitForFunction(
+    (from) => window.taskFixture.requests.length > from,
+    refreshAt,
+  );
+  await page.waitForTimeout(100);
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.evaluate(() => window.setTaskVisible(false));
+  await page.waitForTimeout(50);
+  const reopenedAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.evaluate(() => window.setTaskVisible(true));
+  await page.waitForFunction(
+    (from) => window.taskFixture.requests.length > from,
+    reopenedAt,
+  );
+  await page.waitForTimeout(100);
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  // Overview polling that refetches the list also leaves it collapsed.
+  await page.evaluate(() => window.taskFixture.change("query-019", "running"));
+  await advance();
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.evaluate(() =>
+    window.taskFixture.change("query-019", "completed"),
+  );
+  await advance();
+  // Back restores the previous filter and cursor; the old active task stops.
+  await page.evaluate(() => history.back());
+  await page.waitForFunction(() => location.search === "?type=research");
+  await rows.first().waitFor();
+  await page.getByText("第 2 页", { exact: false }).waitFor();
+  assert.deepEqual(await expandedIds(), []);
+  const backedAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.clock.runFor(6000);
+  assert.equal(await stateRequestsSince(backedAt, "query-043"), 0);
+  // Forward re-enters the same intent and opens it again.
+  await page.evaluate(() => history.forward());
+  await page.waitForFunction(
+    () => location.search === "?id=query-019&detail=1",
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#task-trigger-query-019")?.getAttribute(
+        "aria-expanded",
+      ) === "true",
+  );
+  assert.equal(await rows.count(), 1);
+  // Another detail link, then Back, restores the earlier intent as well.
+  await page.evaluate(
+    () => history.pushState(null, "", "/system/tasks?id=query-021&detail=1"),
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#task-trigger-query-021")?.getAttribute(
+        "aria-expanded",
+      ) === "true",
+  );
+  await page.evaluate(() => history.back());
+  await page.waitForFunction(
+    () => location.search === "?id=query-019&detail=1",
+  );
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#task-trigger-query-019")?.getAttribute(
+        "aria-expanded",
+      ) === "true",
+  );
+  // An id-only location still filters without opening anything.
+  await page.evaluate(
+    () => history.pushState(null, "", "/system/tasks?id=query-037"),
+  );
+  await page.locator("#task-trigger-query-037").waitFor();
+  await page.waitForTimeout(100);
+  assert.equal(
+    await page.locator("#task-trigger-query-037").getAttribute("aria-expanded"),
+    "false",
+  );
+  assert.equal((await stateIds()).filter((id) => id === "query-037").length, 0);
+  // A cached exact match must not clear a manual collapse during the refresh.
+  await page.evaluate(() => {
+    window.taskFixture.holdHistory = true;
+    window.taskFixture.releaseHistory = null;
+  });
+  await page.evaluate((href) => history.pushState(null, "", href), detailHref);
+  await page.locator("#task-trigger-query-019").waitFor();
+  await page.waitForFunction(
+    () => typeof window.taskFixture.releaseHistory === "function",
+  );
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.locator("#task-trigger-query-019").click();
+  await page
+    .locator("#task-detail-query-019")
+    .getByRole("button", { name: "刷新详情" })
+    .waitFor();
+  await page.locator("#task-trigger-query-019").click();
+  await page.evaluate(() => window.taskFixture.releaseHistory());
+  await page.evaluate(() => (window.taskFixture.holdHistory = false));
+  await page.waitForTimeout(150);
+  assert.equal(
+    await page.locator("#task-trigger-query-019").getAttribute("aria-expanded"),
+    "false",
+  );
+  // Missing identifiers, wrong markers and list failures never emit a detail.
+  await page.evaluate(
+    () => history.pushState(null, "", "/system/tasks?detail=1"),
+  );
+  await rows.first().waitFor();
+  await page.waitForTimeout(100);
+  assert.deepEqual(await expandedIds(), []);
+  await page.evaluate(
+    () =>
+      history.pushState(null, "", "/system/tasks?id=query-035&detail=0"),
+  );
+  await page.locator("#task-trigger-query-035").waitFor();
+  await page.waitForTimeout(100);
+  assert.equal(
+    await page.locator("#task-trigger-query-035").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.evaluate(() => (window.taskFixture.fail = "taskHistory"));
+  const failedAt = await page.evaluate(
+    () => window.taskFixture.requests.length,
+  );
+  await page.evaluate(
+    () =>
+      history.pushState(null, "", "/system/tasks?id=query-033&detail=1"),
+  );
+  await page
+    .getByText("任务列表读取失败：受控离线", { exact: false })
+    .waitFor();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator("#task-trigger-query-033").count(), 0);
+  assert.equal(await stateRequestsSince(failedAt, "query-033"), 0);
+  // A retry that finally reads the exact task may open it once.
+  await page.evaluate(() => (window.taskFixture.fail = null));
+  await page.getByRole("button", { name: "重试列表" }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#task-trigger-query-033")?.getAttribute(
+        "aria-expanded",
+      ) === "true",
+  );
+  await page.locator("#task-trigger-query-033").click();
+  await page.getByRole("button", { name: "刷新任务", exact: true }).click();
+  await page.waitForTimeout(150);
+  assert.equal(
+    await page.locator("#task-trigger-query-033").getAttribute("aria-expanded"),
+    "false",
+  );
+  // A successful empty read reports the exact identifier and stays consumed.
+  await page.evaluate(
+    () =>
+      history.pushState(null, "", "/system/tasks?id=query-missing&detail=1"),
+  );
+  await page
+    .getByText("没有找到编号 query-missing 的任务。", { exact: false })
+    .waitFor();
+  assert.equal(await rows.count(), 0);
+  assert.equal(
+    (await stateIds()).filter((id) => id === "query-missing").length,
+    0,
+  );
+  await page.evaluate(
+    () =>
+      history.pushState(
+        null,
+        "",
+        "/system/tasks?id=query-039&status=failed&detail=1",
+      ),
+  );
+  const filteredMissing = page.getByText("没有找到编号 query-039 的任务。", {
+    exact: false,
+  });
+  await filteredMissing.waitFor();
+  assert.match(
+    await filteredMissing.innerText(),
+    /状态或类型筛选也会影响结果/,
+  );
+  assert.deepEqual(await expandedIds(), []);
   assert.deepEqual(errors, []);
   if (dir)
     writeFileSync(

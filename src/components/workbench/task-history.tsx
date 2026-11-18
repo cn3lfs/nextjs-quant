@@ -239,12 +239,34 @@ export function TaskHistory({
   const status = filter.status ?? "all",
     type = filter.type ?? "all",
     id = filter.id ?? "";
+  // A detail intent carries both the applied filter and the exact identifier;
+  // any other location changes the key so a stale selection cannot stay active.
+  const detailIntent = location.detailId
+    ? `${taskHistoryHref(filter)}\u0000${location.detailId}`
+    : null;
+  const selectionKey = detailIntent ?? taskHistoryHref(filter);
   const session = useTaskHistorySession(filter);
   const { statusDraft, typeDraft, idDraft, cursors } = session;
   const setCursors = (value: SetStateAction<typeof cursors>) =>
     session.update("cursors", value);
-  const [selected, setSelected] = useState("");
+  const [selection, setSelection] = useState<{
+    key: string;
+    id: string;
+  } | null>(null);
+  // Any location change drops the stored selection during render, so returning
+  // to a previously opened URL cannot resurrect it ahead of the fresh intent.
+  const selectionKeyRef = useRef(selectionKey);
+  if (selectionKeyRef.current !== selectionKey) {
+    selectionKeyRef.current = selectionKey;
+    if (selection) setSelection(null);
+  }
+  const selected = selection?.key === selectionKey ? selection.id : "";
   const [notice, setNotice] = useState("");
+  // Consumption follows the URL intent, not fetches: a successful read opens or
+  // resolves it once, while leaving the intent lets Back/Forward request it again.
+  const trackedIntent = useRef<string | null>(null);
+  const handledIntent = useRef<string | null>(null);
+  const suppressedIntent = useRef<string | null>(null);
   const cancelStates = useTaskSession((state) => state.cancellations);
   const { beginCancel, finishCancel } = useTaskSession.getState();
   const title = useRef<HTMLParagraphElement>(null);
@@ -289,6 +311,55 @@ export function TaskHistory({
     setSeenTotal((value) => value ?? overview.total);
   }, [visible, overview?.revision]); // Query filters fetch through their own key.
   useEffect(() => {
+    if (trackedIntent.current === detailIntent) return;
+    // Entering any location (including another detail link) starts a fresh
+    // one-time intent; only staying on the same location keeps it consumed.
+    trackedIntent.current = detailIntent;
+    handledIntent.current = null;
+    suppressedIntent.current = null;
+  }, [detailIntent]);
+  useEffect(() => {
+    const detailId = location.detailId;
+    if (!detailId || !detailIntent || handledIntent.current === detailIntent)
+      return;
+    if (!visible || location.error) return;
+    // Cached rows must wait for this observer's own fetch to settle, so a
+    // pending refresh cannot be mistaken for a confirmed active query.
+    if (
+      !history.isFetchedAfterMount ||
+      history.isFetching ||
+      history.error ||
+      !history.data
+    )
+      return;
+    // The active filter query has settled: this intent is consumed even when it
+    // finds nothing or the user already collapsed the row on their own.
+    handledIntent.current = detailIntent;
+    const { total, items } = history.data;
+    if (
+      suppressedIntent.current === detailIntent ||
+      total !== 1 ||
+      items.length !== 1 ||
+      items[0]?.id !== detailId
+    )
+      return;
+    setSelection((current) =>
+      current?.key === selectionKey && current.id === detailId
+        ? current
+        : { key: selectionKey, id: detailId },
+    );
+  }, [
+    detailIntent,
+    selectionKey,
+    visible,
+    location.error,
+    location.detailId,
+    history.isFetchedAfterMount,
+    history.isFetching,
+    history.error,
+    history.data,
+  ]);
+  useEffect(() => {
     if (
       selected &&
       history.data &&
@@ -296,7 +367,7 @@ export function TaskHistory({
       !history.error &&
       !history.data.items.some((item) => item.id === selected)
     ) {
-      setSelected("");
+      setSelection(null);
       setNotice("所选任务已不在当前页或筛选结果中。");
       title.current?.focus();
     }
@@ -324,7 +395,7 @@ export function TaskHistory({
     }
   }
   function close() {
-    setSelected("");
+    setSelection(null);
     setNotice("");
   }
   function applyFilter(next: TaskHistoryFilter) {
@@ -498,7 +569,15 @@ export function TaskHistory({
                       aria-expanded={expanded}
                       aria-controls={panelId}
                       onClick={() => {
-                        setSelected(expanded ? "" : job.id);
+                        // A manual collapse during an unconsumed intent wins
+                        // over the automatic open that may still arrive.
+                        if (expanded && detailIntent)
+                          suppressedIntent.current = detailIntent;
+                        setSelection(
+                          expanded
+                            ? null
+                            : { key: selectionKey, id: job.id },
+                        );
                         setNotice("");
                       }}
                       className="flex w-full items-start gap-3 p-4 text-left hover:bg-muted/40"
@@ -572,9 +651,18 @@ export function TaskHistory({
           </div>
           {history.data.items.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              {status === "all" && type === "all" && !id
-                ? "暂无任务。扫描数据、运行选股或发起研究后，可在这里查看。"
-                : "没有符合该状态的任务。可切换为全部查看。"}
+              {location.detailId && !history.error ? (
+                <>
+                  没有找到编号 {location.detailId} 的任务。
+                  {status !== "all" || type !== "all"
+                    ? "当前的状态或类型筛选也会影响结果，可清除筛选后重试。"
+                    : ""}
+                </>
+              ) : status === "all" && type === "all" && !id ? (
+                "暂无任务。扫描数据、运行选股或发起研究后，可在这里查看。"
+              ) : (
+                "没有符合该状态的任务。可切换为全部查看。"
+              )}
             </div>
           )}
           <nav
