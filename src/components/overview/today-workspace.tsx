@@ -11,6 +11,15 @@ import {
 import { Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { CandidateTable, type WorkspaceCandidate } from "./candidate-table";
+import {
+  candidateView,
+  dailyMainAction,
+  isTodayBatch,
+  PENDING_CANDIDATE_MESSAGE,
+  selectMarket,
+  todayMarketOptions,
+  type MarketFilter,
+} from "./today-candidates";
 import { CandidatePlan } from "../signals/candidate-plan";
 import {
   Dialog,
@@ -71,7 +80,10 @@ export function TodayWorkspace() {
 }
 function DailyDecision() {
   const visible = useScreenVisible();
-  const [page, setPage] = useState(0);
+  const [filter, setFilter] = useState<MarketFilter>({
+    market: "all",
+    page: 0,
+  });
   const [plan, setPlan] = useState<{
     row: WorkspaceCandidate;
     key: string;
@@ -81,9 +93,14 @@ function DailyDecision() {
     refetchInterval: visible ? 30000 : false,
   });
   const scanCloseDate = query.data?.readiness.equity.expectedDate ?? null;
+  const useTodayBatch = isTodayBatch(filter.market, filter.page);
   const candidates = api.workspaceCandidates.useQuery(
-    { page, scanCloseDate },
-    { enabled: visible && page > 0 && query.data !== undefined },
+    {
+      page: filter.page,
+      market: filter.market === "all" ? undefined : filter.market,
+      scanCloseDate,
+    },
+    { enabled: visible && !useTodayBatch && query.data !== undefined },
   );
   const d = query.data;
   if (query.error)
@@ -96,31 +113,24 @@ function DailyDecision() {
   if (!d) return <p role="status">正在读取今日决策…</p>;
   const risks =
     d.holdings?.filter((h) => h.stop !== null && h.price <= h.stop) ?? [];
-  const dataMissing = !d.readiness.equity.ready || !d.readiness.crypto.ready;
-  const main = risks.length
-    ? { href: "#holding-risk", text: `处理 ${risks.length} 个跌破止损` }
-    : dataMissing
-      ? { href: "/system", text: "补齐数据" }
-      : { href: "#tomorrow", text: `查看 ${d.candidates.total} 个计划` };
-  const rows = page ? candidates.data : d.candidates;
   const close = d.closeScan;
-  const loaded = rows?.items ?? [];
-  const total = rows?.total ?? 0;
+  const main = dailyMainAction({
+    risks: risks.length,
+    equityReady: d.readiness.equity.ready,
+    cryptoReady: d.readiness.crypto.ready,
+    candidates: d.candidates.total,
+  });
+  const view = candidateView({
+    market: filter.market,
+    page: filter.page,
+    all: d.candidates,
+    filtered: candidates.data,
+    fetching: candidates.isFetching,
+    failure: candidates.error?.message ?? null,
+    close,
+  });
+  const loaded = view.rows ?? [];
   const historicalRows = loaded.filter((row) => row.scan?.hasHistorical).length;
-  const emptyMessage =
-    total > 0
-      ? "本页无候选；请返回上一页。"
-      : close.strategies === 0
-        ? "未启用 A 股策略；空表不是无信号。"
-        : close.phase === "complete"
-          ? "最近收盘扫描已完成，无入选候选；流程结束不代表行情完整或无信号，数据缺口与就绪状态见下方。"
-          : close.phase === "running"
-            ? "收盘扫描进行中；结果尚未确认，空表不代表无信号。"
-            : close.phase === "missed"
-              ? "最近收盘扫描未在截止前完成，不补跑；空表不代表无信号。"
-              : close.phase === "unknown-date"
-                ? "基准交易日未知：交易日历或本地日线待核验；空表不代表无信号。"
-                : "最近收盘扫描等待或未确认；空表不代表无信号。";
   const plannableSources = (row: WorkspaceCandidate) =>
     row.sources.filter((source) => source.scanFreshness !== "stale");
   const planSource = plan?.row.sources.find((s) => s.key === plan.key) ?? null;
@@ -138,6 +148,22 @@ function DailyDecision() {
           <Link href={main.href}>{main.text}</Link>
         </Button>
       </div>
+      {(
+        [
+          ["cn-equity", "A 股", d.readiness.equity.ready],
+          ["crypto", "数字货币", d.readiness.crypto.ready],
+        ] as const
+      )
+        .filter(([, , ready]) => !ready)
+        .map(([market, label]) => (
+          <p key={market} role="alert" className="text-sm text-nc-warn">
+            {label}
+            数据未就绪：候选可能缺失或停留在历史来源，显示数量是候选、不是已保存计划。
+            <Link href="/system" className="underline">
+              前往系统页补齐
+            </Link>
+          </p>
+        ))}
       {(["cn-equity", "crypto"] as const)
         .filter((market) => d.capital[market] <= 0)
         .map((market) => (
@@ -233,6 +259,14 @@ function DailyDecision() {
         className="space-y-2 rounded-lg border bg-nc-card p-4"
       >
         <h2 className="text-lg font-semibold">明日计划</h2>
+        <Segmented
+          label="候选市场"
+          value={filter.market}
+          onChange={(market) =>
+            setFilter((current) => selectMarket(current, market))
+          }
+          options={todayMarketOptions}
+        />
         <p className="text-xs text-nc-text-3">
           收盘扫描与影子入场候选，逐条标明观察时点；历史候选需核对行情。数字货币按下一完成周期。数量沿用策略与纸面账户的仓位及费用假设；滑点影响以冻结研究口径和实际成交核对，不保证计划价成交。
         </p>
@@ -254,32 +288,51 @@ function DailyDecision() {
               : "最近收盘扫描未完成，以下为历史候选，不是当次推荐。"}
           </p>
         )}
-        {close.phase === "complete" && total === 0 && (
-          <p className="text-xs text-nc-text-3">
-            A股本地日线：{d.readiness.equity.localDate ?? "未知"} · 应到交易日：
-            {close.date ?? "待日历"} · 回执：
-            {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · 数据缺口{" "}
-            {d.gaps.length} 项{d.gaps.length ? "（见下方）" : ""}
-            。该结论只表示扫描流程结束。
-          </p>
+        {close.phase === "complete" &&
+          view.rows !== undefined &&
+          view.total === 0 &&
+          filter.market !== "crypto" && (
+            <p className="text-xs text-nc-text-3">
+              A股本地日线：{d.readiness.equity.localDate ?? "未知"} ·
+              应到交易日：
+              {close.date ?? "待日历"} · 回执：
+              {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · 数据缺口{" "}
+              {d.gaps.length} 项{d.gaps.length ? "（见下方）" : ""}
+              。该结论只表示扫描流程结束。
+            </p>
+          )}
+        {view.rows === undefined ? (
+          view.error ? (
+            <p role="alert">
+              候选读取失败：{view.error}{" "}
+              <Button
+                variant="outline"
+                onClick={() => void candidates.refetch()}
+              >
+                重试
+              </Button>
+            </p>
+          ) : (
+            <p role="status">{PENDING_CANDIDATE_MESSAGE}</p>
+          )
+        ) : (
+          <CandidateTable
+            data={view.rows}
+            total={view.total ?? 0}
+            page={filter.page}
+            onPage={(page) => setFilter((current) => ({ ...current, page }))}
+            loading={view.loading}
+            onRetry={() => void candidates.refetch()}
+            onPlan={(row) => {
+              const source =
+                row.sources.find((s) => s.scanFreshness === "current") ??
+                plannableSources(row)[0];
+              if (source) setPlan({ row, key: source.key });
+            }}
+            canPlan={(row) => plannableSources(row).length > 0}
+            emptyMessage={view.emptyMessage ?? undefined}
+          />
         )}
-        <CandidateTable
-          data={loaded}
-          total={total}
-          page={page}
-          onPage={setPage}
-          loading={page > 0 && candidates.isFetching}
-          error={candidates.error?.message}
-          onRetry={() => void candidates.refetch()}
-          onPlan={(row) => {
-            const source =
-              row.sources.find((s) => s.scanFreshness === "current") ??
-              plannableSources(row)[0];
-            if (source) setPlan({ row, key: source.key });
-          }}
-          canPlan={(row) => plannableSources(row).length > 0}
-          emptyMessage={emptyMessage}
-        />
         <Dialog
           open={plan !== null}
           onOpenChange={(open) => {

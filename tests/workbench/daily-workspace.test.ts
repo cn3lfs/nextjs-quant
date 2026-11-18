@@ -19,6 +19,13 @@ import type { StrategyObjectInput } from "trading-strategies";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { navGroups } from "~/components/workbench/navigation";
 import { CandidateTable } from "~/components/overview/candidate-table";
+import {
+  candidateView,
+  dailyMainAction,
+  emptyCandidateMessage,
+  isTodayBatch,
+  selectMarket,
+} from "~/components/overview/today-candidates";
 
 vi.mock("next/link", async () => {
   const { createElement } = await import("react");
@@ -225,6 +232,46 @@ it("candidate filters run before stable server pagination; missed entries never 
   expect(
     workspaceCandidates({ page: 0, strategy: "missing" }, repo, now).total,
   ).toBe(0);
+  // The same filter applies before paging when one market has more than a page
+  // of candidates, so page 1 of crypto is not a slice of the mixed list.
+  const paged: StrategyObjectInput = {
+    ...strategy,
+    id: "crypto-page",
+    market: "crypto",
+    universe: { kind: "symbols", symbols: ["cx0USDT"] },
+  };
+  for (let i = 0; i < 21; i++) {
+    const identity = {
+      strategyId: paged.id,
+      version: paged.version,
+      market: "crypto" as const,
+      symbol: `cx${i}USDT`,
+      bar: "2026-11-13",
+    };
+    repo.record(paged, { ...event(), ...identity, key: alertKey(identity) });
+  }
+  repo.saveState(`candidate-scan:crypto:${paged.id}:1`, {
+    market: "crypto",
+    strategyId: paged.id,
+    version: paged.version,
+    period: "day",
+    bar: "2026-11-13",
+    observedAt: now,
+  });
+  const cryptoSecond = workspaceCandidates(
+    { page: 1, market: "crypto" },
+    repo,
+    now,
+  );
+  expect(cryptoSecond.total).toBe(21);
+  expect(cryptoSecond.items).toHaveLength(1);
+  expect(cryptoSecond.items[0]!.market).toBe("crypto");
+  expect(
+    workspaceCandidates({ page: 0, market: "cn-equity" }, repo, now).total,
+  ).toBe(25);
+  // The unfiltered list mixes both markets, so reusing it for a market page
+  // would report the wrong total and rows.
+  expect(workspaceCandidates({ page: 0 }, repo, now).total).toBe(46);
 });
 it("today exposes both modes, post-close allocation, low-zone evidence, unknown holdings and archive gaps", async () => {
   repo.record(strategy, event());
@@ -279,10 +326,16 @@ it("merged A-share rows show both scan times and keep only the current source pl
     `candidate-scan:cn-equity:${secondStrategy.id}:1`,
     scanState(secondStrategy, priorBar, priorAt),
   );
-  const result = workspaceCandidates({ page: 0 }, repo, now, undefined, {
-    closeDate: currentBar,
-    calendar: [priorBar, currentBar],
-  });
+  const result = workspaceCandidates(
+    { page: 0, market: "cn-equity" },
+    repo,
+    now,
+    undefined,
+    {
+      closeDate: currentBar,
+      calendar: [priorBar, currentBar],
+    },
+  );
   expect(result.total).toBe(1);
   const row = result.items[0]!;
   expect(row.scan).toEqual({
@@ -389,6 +442,106 @@ it("crypto candidates keep their original presentation and plan availability", (
   expect(
     row.sources.filter((source) => source.scanFreshness !== "stale"),
   ).toHaveLength(1);
+});
+it("the first market page uses server-filtered rows, never the mixed today batch", () => {
+  repo.record(strategy, event());
+  const crypto: StrategyObjectInput = {
+    ...strategy,
+    id: "crypto-first-page",
+    market: "crypto",
+    universe: { kind: "symbols", symbols: ["BTCUSDT"] },
+  };
+  const identity = {
+    strategyId: crypto.id,
+    version: crypto.version,
+    market: "crypto" as const,
+    symbol: "BTCUSDT",
+    bar: "2026-11-13",
+  };
+  repo.record(crypto, { ...event(), ...identity, key: alertKey(identity) });
+  repo.saveState(`candidate-scan:crypto:${crypto.id}:1`, {
+    market: "crypto",
+    strategyId: crypto.id,
+    version: crypto.version,
+    period: "day",
+    bar: identity.bar,
+    observedAt: now,
+  });
+  const all = workspaceCandidates({ page: 0 }, repo, now);
+  const filtered = workspaceCandidates(
+    { page: 0, market: "crypto" },
+    repo,
+    now,
+  );
+  expect(all.total).toBe(2);
+  expect(filtered.total).toBe(1);
+  const close = { phase: "complete", strategies: 1 } as const;
+  const view = candidateView({
+    market: "crypto",
+    page: 0,
+    all,
+    filtered,
+    close,
+  });
+  expect(isTodayBatch("all", 0)).toBe(true);
+  expect(isTodayBatch("crypto", 0)).toBe(false);
+  expect(view.source).toBe("filtered");
+  expect(view.total).toBe(1);
+  expect(view.rows?.map((row) => row.market)).toEqual(["crypto"]);
+  // A missing key is pending, not the previous page's or another market's rows.
+  const pending = candidateView({ market: "crypto", page: 0, all, close });
+  expect(pending.source).toBe("pending");
+  expect(pending.rows).toBeUndefined();
+  expect(pending.loading).toBe(true);
+  expect(pending.emptyMessage).toContain("正在读取候选");
+  expect(pending.emptyMessage).not.toMatch(/无入选候选|本页无候选/);
+  expect(selectMarket({ market: "all", page: 3 }, "crypto")).toEqual({
+    market: "crypto",
+    page: 0,
+  });
+});
+it("main action keeps risk first; one missing market still leads to candidates", () => {
+  expect(
+    dailyMainAction({
+      risks: 2,
+      equityReady: false,
+      cryptoReady: false,
+      candidates: 0,
+    }),
+  ).toEqual({ href: "#holding-risk", text: "处理 2 个跌破止损" });
+  const singleGap = dailyMainAction({
+    risks: 0,
+    equityReady: true,
+    cryptoReady: false,
+    candidates: 3,
+  });
+  expect(singleGap.href).toBe("#tomorrow");
+  expect(singleGap.text).toContain("候选");
+  expect(singleGap.text).not.toContain("计划");
+  expect(
+    dailyMainAction({
+      risks: 0,
+      equityReady: false,
+      cryptoReady: false,
+      candidates: 0,
+    }).href,
+  ).toBe("/system");
+  expect(
+    dailyMainAction({
+      risks: 0,
+      equityReady: true,
+      cryptoReady: true,
+      candidates: 0,
+    }).text,
+  ).not.toMatch(/\d/);
+  const cryptoEmpty = emptyCandidateMessage({
+    market: "crypto",
+    total: 0,
+    close: { phase: "complete", strategies: 0 },
+  });
+  expect(cryptoEmpty).toContain("数字货币");
+  expect(cryptoEmpty).not.toContain("A 股策略");
+  expect(cryptoEmpty).not.toMatch(/收盘扫描|回执/);
 });
 it("today close scan separates historical, completed-zero and never-scanned reads", async () => {
   const root = join(process.env.QUANT_DATA_DIR!, "tdx-close-scan");
