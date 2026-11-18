@@ -4,7 +4,7 @@ import SuperJSON from "superjson";
 import { z } from "zod";
 import type { Page } from "@playwright/test";
 import { trpcHeaders } from "./helpers";
-import type { RouterOutputs } from "../../src/trpc/react";
+import type { RouterInputs, RouterOutputs } from "../../src/trpc/react";
 
 // Only reviewed local reads reach the isolated application. Unknown calls fail
 // explicitly so a new page cannot silently introduce external traffic.
@@ -183,6 +183,7 @@ export async function installOfflineVisualApi(
   failedReads: ReadonlySet<string> = new Set(),
   poolFixture?: (
     data: RouterOutputs["marketPoolPage"],
+    input: RouterInputs["marketPoolPage"],
   ) =>
     RouterOutputs["marketPoolPage"] | Promise<RouterOutputs["marketPoolPage"]>,
   localMutations: ReadonlySet<string> = new Set(),
@@ -272,7 +273,10 @@ export async function installOfflineVisualApi(
           // Controlled loaded-state cases use the real page and local read,
           // then substitute only this read model. Never bypass the call policy.
           return name === "marketPoolPage" && poolFixture
-            ? poolFixture(result as RouterOutputs["marketPoolPage"])
+            ? poolFixture(
+                result as RouterOutputs["marketPoolPage"],
+                input as RouterInputs["marketPoolPage"],
+              )
             : result;
         };
         const procedure = t.procedure.input(z.unknown());

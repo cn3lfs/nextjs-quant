@@ -491,6 +491,90 @@ test("RPS period change never relabels old values and summarizes a missing perio
   expect([...api.unknown]).toEqual([]);
 });
 
+test("RPS table never shows the previous page while a same-period query key loads", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  const api = await installOfflineVisualApi(
+    page,
+    new Set(),
+    async (data, input) => {
+      const fixture = loadedPool(data);
+      if (input.search === "600002") {
+        requested();
+        await gate;
+        fixture.rows = [
+          {
+            symbol: "sh600002",
+            name: "新查询样本",
+            localDay: true,
+            value: { return: 0.05, rank: 2, rps: 80 },
+            reason: null,
+          },
+          {
+            symbol: "sh600003",
+            name: "新查询样本二",
+            localDay: true,
+            value: { return: 0.02, rank: 3, rps: 70 },
+            reason: null,
+          },
+        ];
+        fixture.total = 2;
+        fixture.rps!.date = "2026-11-13";
+      }
+      return fixture;
+    },
+  );
+  await page.goto("/scan?tab=rps");
+  const table = page.getByRole("table", { name: "个股RPS排名", exact: true });
+  await expect(table).toContainText("11.90%");
+  await expect(
+    page.getByText("RPS基准日：2026-11-12", { exact: false }),
+  ).toHaveCount(1);
+  await page
+    .getByRole("textbox", { name: "搜索股票代码或名称" })
+    .fill("600002");
+  await pending;
+  try {
+    await expect(table).toContainText("正在加载…");
+    await expect(table).not.toContainText("11.90%");
+    await expect(table.getByRole("link", { name: /有排名样本/ })).toHaveCount(
+      0,
+    );
+    await expect(page.getByText("RPS基准日", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("共 0 条", { exact: false })).toHaveCount(0);
+    await expect(
+      page.getByText("没有符合条件的证券", { exact: false }),
+    ).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(
+    table.getByRole("link", { name: "新查询样本 · SH600002" }),
+  ).toBeVisible();
+  await expect(table.getByRole("row").nth(1)).toContainText(
+    "新查询样本 · SH600002",
+  );
+  await expect(table.getByRole("row").nth(2)).toContainText(
+    "新查询样本二 · SH600003",
+  );
+  await expect(
+    page.getByText("RPS基准日：2026-11-13", { exact: false }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByText("RPS基准日：2026-11-12", { exact: false }),
+  ).toHaveCount(0);
+  await expect(page.getByText("共 2 条", { exact: false })).toBeVisible();
+  expect([...api.unknown]).toEqual([]);
+});
+
 test("research archive distinguishes read failure, empty history and unmatched filters", async ({
   page,
 }) => {

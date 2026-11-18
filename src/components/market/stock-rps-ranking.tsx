@@ -58,11 +58,12 @@ export function StockRpsRanking() {
     {
       enabled: visible,
       refetchInterval: running ? 10000 : false,
-      // Pagination can retain the current ranking; a different period cannot.
-      placeholderData: (previous) =>
-        previous?.period === period ? previous : undefined,
     },
   );
+  // Only a successful response for the current query key is evidence for this
+  // page. A same-key refetch keeps it; a key change or a failed refresh does not.
+  const confirmed = page.isSuccess ? page.data : undefined;
+  const rankingReady = confirmed?.availability.rps === "ready";
   const wasRunning = useRef(false);
   useEffect(() => {
     if (wasRunning.current && !running) void page.refetch();
@@ -107,7 +108,7 @@ export function StockRpsRanking() {
           ? `${displayNumber(row.original.value.return * 100, 2)}%`
           : "—",
     },
-    ...(page.data?.availability.rps === "ready"
+    ...(rankingReady
       ? [
           {
             id: "reason",
@@ -172,31 +173,38 @@ export function StockRpsRanking() {
           刷新
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        RPS基准日：{page.data?.rps?.date ?? "未计算"} · 全沪深排名基数：
-        {page.data?.rps?.count ?? "—"} ·{" "}
-        {page.data?.rps?.mode === "backfill"
-          ? "回填数据（存在生存者偏差）"
-          : page.data?.rps
-            ? "向前数据"
-            : "无RPS数据"}
-        。始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。点击股票名跳转到行情图表页查看K线，图表中
-        PageUp/PageDown 按本页顺序换股。
-      </p>
-      {page.data && (
+      {confirmed && (
+        <p className="text-sm text-muted-foreground">
+          RPS基准日：{confirmed.rps?.date ?? "未计算"} · 全沪深排名基数：
+          {confirmed.rps?.count ?? "—"} ·{" "}
+          {confirmed.rps?.mode === "backfill"
+            ? "回填数据（存在生存者偏差）"
+            : confirmed.rps
+              ? "向前数据"
+              : "无RPS数据"}
+          。始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。点击股票名跳转到行情图表页查看K线，图表中
+          PageUp/PageDown 按本页顺序换股。
+          {page.isFetching && <span role="status"> 正在刷新…</span>}
+        </p>
+      )}
+      {confirmed && (
         <MarketPoolAvailabilityNote
-          availability={page.data.availability}
-          period={period}
+          availability={confirmed.availability}
+          period={confirmed.period}
         />
       )}
       <BrowseSource
-        label="RPS排名"
-        symbols={(page.data?.rows ?? []).map((row) => row.symbol)}
+        label={
+          rankingReady
+            ? `RPS${confirmed?.period}排名${confirmed?.rps?.date ? ` · ${confirmed.rps.date}` : ""}`
+            : `RPS${confirmed?.period ?? period} 列表`
+        }
+        symbols={(confirmed?.rows ?? []).map((row) => row.symbol)}
       >
         <DataTable
           columns={columns}
-          data={page.data?.rows ?? []}
-          rowCount={page.data?.total ?? 0}
+          data={confirmed?.rows ?? []}
+          rowCount={confirmed?.total ?? 0}
           pagination={pagination}
           onPaginationChange={setPagination}
           sorting={sortingState(order)}
@@ -208,6 +216,7 @@ export function StockRpsRanking() {
           loading={page.isPending}
           error={page.error?.message}
           onRetry={() => void page.refetch()}
+          showPagination={confirmed !== undefined}
           emptyMessage="没有符合条件的证券，请调整筛选或先计算RPS。"
         />
       </BrowseSource>
